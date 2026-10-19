@@ -14,6 +14,16 @@ import {
   parseStoreDeliveryRadiusKmForWrite,
   resolveEffectiveStoreDeliveryRadiusKm,
 } from "@/lib/delivery/store-delivery-radius";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+
+/** 코드 형태(snake_case)만 오류 코드로 사용 — 원문 메시지·HTTP 상태는 노출하지 않는다. */
+function errCode(status: number, j: { error?: unknown } | null | undefined, fallback: string): string {
+  const e = j?.error;
+  if (typeof e === "string" && /^[a-z][a-z0-9_]*$/i.test(e.trim())) return e.trim();
+  if (status === 403) return "forbidden";
+  return fallback;
+}
 
 type StoreRow = {
   id: string;
@@ -75,14 +85,30 @@ function normalizeOverrides(raw: unknown): DeliveryStoreDistanceOverrides {
   return { stores };
 }
 
-function distanceModeLabel(t: ReturnType<typeof useI18n>["t"], mode: DeliveryStoreDistanceMode): string {
-  if (mode === "enabled") return t("admin_delivery_distance_store_mode_enabled");
-  if (mode === "disabled") return t("admin_delivery_distance_store_mode_disabled");
-  return t("admin_delivery_distance_store_mode_inherit");
+function distanceModeLabel(ko: boolean, mode: DeliveryStoreDistanceMode): string {
+  if (mode === "enabled") return ko ? "허용" : "Allowed";
+  if (mode === "disabled") return ko ? "차단" : "Blocked";
+  return ko ? "전역 정책 따름" : "Follow global policy";
+}
+
+function modeOf(o: DeliveryStoreDistanceOverrides, storeId: string): DeliveryStoreDistanceMode {
+  return o.stores[storeId]?.mode ?? "inherit";
+}
+
+function withStoreMode(
+  o: DeliveryStoreDistanceOverrides,
+  storeId: string,
+  mode: DeliveryStoreDistanceMode
+): DeliveryStoreDistanceOverrides {
+  const storesNext = { ...o.stores };
+  if (mode === "inherit") delete storesNext[storeId];
+  else storesNext[storeId] = { mode, maxKm: null };
+  return { stores: storesNext };
 }
 
 export function AdminDeliveryDistanceSettingsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [policySaved, setPolicySaved] = useState<DeliveryDistancePolicy>(DEFAULT_POLICY);
   const [policyDraft, setPolicyDraft] = useState<DeliveryDistancePolicy>(DEFAULT_POLICY);
   const [overridesSaved, setOverridesSaved] = useState<DeliveryStoreDistanceOverrides>(DEFAULT_OVERRIDES);
@@ -126,11 +152,11 @@ export function AdminDeliveryDistanceSettingsPage() {
         stores?: unknown;
       };
       if (!settingsRes.ok || !settingsJson.ok) {
-        setError(settingsJson.error ?? `HTTP ${settingsRes.status}`);
+        setError(adminOperatorErrorMessage(errCode(settingsRes.status, settingsJson, "load_failed"), ko));
         return;
       }
       if (!storesRes.ok || !storesJson.ok || !Array.isArray(storesJson.stores)) {
-        setError(storesJson.error ?? `HTTP ${storesRes.status}`);
+        setError(adminOperatorErrorMessage(errCode(storesRes.status, storesJson, "load_failed"), ko));
         return;
       }
       const nextPolicy = normalizePolicy(settingsJson.distance_policy);
@@ -151,7 +177,7 @@ export function AdminDeliveryDistanceSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, ko]);
 
   useEffect(() => {
     void load();
@@ -171,17 +197,10 @@ export function AdminDeliveryDistanceSettingsPage() {
     });
   }, [stores, query]);
 
+  /** 전역 저장 버튼은 전역 정책만 — 매장별 설정은 각 행의 「저장」 (DEF-51). */
   const dirty = useMemo(
-    () =>
-      JSON.stringify({
-        policy: policyDraft,
-        overrides: overridesDraft,
-      }) !==
-      JSON.stringify({
-        policy: policySaved,
-        overrides: overridesSaved,
-      }),
-    [policyDraft, overridesDraft, policySaved, overridesSaved]
+    () => JSON.stringify(policyDraft) !== JSON.stringify(policySaved),
+    [policyDraft, policySaved]
   );
 
   const updateStoreOverride = useCallback(
@@ -201,50 +220,103 @@ export function AdminDeliveryDistanceSettingsPage() {
     []
   );
 
-  const saveStoreRadius = useCallback(
-    async (storeId: string) => {
-      const parsed = parseStoreDeliveryRadiusKmForWrite(radiusDrafts[storeId]);
-      if (!parsed.ok) {
+  /** 매장 한 줄 저장 — 반경과 거리 제한 모드를 버튼 하나로 저장한다 (DEF-51). */
+  const saveStoreRow = useCallback(
+    async (store: StoreRow) => {
+      const storeId = store.id;
+      const effectiveKm = resolveEffectiveStoreDeliveryRadiusKm(store.delivery_radius_km);
+      const radiusDirty = (radiusDrafts[storeId] ?? String(effectiveKm)) !== String(effectiveKm);
+      const nextMode = modeOf(overridesDraft, storeId);
+      const modeDirty = nextMode !== modeOf(overridesSaved, storeId);
+      if (!radiusDirty && !modeDirty) return;
+      const parsed = radiusDirty ? parseStoreDeliveryRadiusKmForWrite(radiusDrafts[storeId]) : null;
+      if (parsed && !parsed.ok) {
         setError(t("admin_biz_delivery_km_invalid"));
         return;
       }
+      const name = store.store_name || store.slug || (ko ? "이 매장" : "this store");
+      const changes: string[] = [];
+      if (parsed && parsed.ok) changes.push(ko ? `배달 반경 ${parsed.value}km` : `Radius ${parsed.value} km`);
+      if (modeDirty) changes.push(ko ? `거리 제한: ${distanceModeLabel(ko, nextMode)}` : `Distance limit: ${distanceModeLabel(ko, nextMode)}`);
+      const c = await confirmAdminAction({
+        level: "L1",
+        ko,
+        title: ko ? `「${name}」 배달 설정을 저장할까요?` : `Save delivery settings for "${name}"?`,
+        description: changes.join(" · "),
+        confirmLabel: ko ? "저장" : "Save",
+      });
+      if (!c.ok) return;
+
       setRadiusSavingId(storeId);
       setError(null);
       try {
-        const res = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "set_delivery_radius",
-            delivery_radius_km: parsed.value,
-          }),
-        });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || !j.ok) {
-          setError(j.error ?? `HTTP ${res.status}`);
-          return;
+        if (parsed && parsed.ok) {
+          const res = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "set_delivery_radius",
+              delivery_radius_km: parsed.value,
+            }),
+          });
+          const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+          if (!res.ok || !j.ok) {
+            setError(adminOperatorErrorMessage(errCode(res.status, j, "update_failed"), ko));
+            return;
+          }
+          setStores((prev) =>
+            prev.map((s) =>
+              s.id === storeId
+                ? {
+                    ...s,
+                    delivery_radius_km: parsed.value,
+                    updated_at: new Date().toISOString(),
+                  }
+                : s
+            )
+          );
+          setRadiusDrafts((prev) => ({ ...prev, [storeId]: String(parsed.value) }));
         }
-        setStores((prev) =>
-          prev.map((s) =>
-            s.id === storeId
-              ? {
-                  ...s,
-                  delivery_radius_km: parsed.value,
-                  updated_at: new Date().toISOString(),
-                }
-              : s
-          )
-        );
-        setRadiusDrafts((prev) => ({ ...prev, [storeId]: String(parsed.value) }));
-        showMessage(t("admin_delivery_distance_radius_saved"));
+        if (modeDirty) {
+          // 전역 정책은 저장된 값 그대로 보내고, 이 매장 모드만 반영한다.
+          const res = await fetch("/api/admin/delivery/settings", {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              distance_policy: { ...policySaved, overDistanceBehavior: "exclude" },
+              store_distance_overrides: withStoreMode(overridesSaved, storeId, nextMode),
+            }),
+          });
+          const j = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            error?: string;
+            store_distance_overrides?: unknown;
+          };
+          if (!res.ok || !j.ok) {
+            const msg = adminOperatorErrorMessage(errCode(res.status, j, "update_failed"), ko);
+            setError(
+              parsed && parsed.ok
+                ? ko
+                  ? `배달 반경은 저장했지만 거리 제한 모드는 저장하지 못했습니다. ${msg}`
+                  : `Radius saved, but the distance limit mode was not. ${msg}`
+                : msg
+            );
+            return;
+          }
+          const savedOverrides = normalizeOverrides(j.store_distance_overrides);
+          setOverridesSaved(savedOverrides);
+          setOverridesDraft((prev) => withStoreMode(prev, storeId, modeOf(savedOverrides, storeId)));
+        }
+        showMessage(ko ? `「${name}」 배달 설정을 저장했습니다.` : t("admin_delivery_distance_radius_saved"));
       } catch {
         setError(t("admin_delivery_distance_error_network"));
       } finally {
         setRadiusSavingId(null);
       }
     },
-    [radiusDrafts, showMessage, t]
+    [radiusDrafts, overridesDraft, overridesSaved, policySaved, showMessage, t, ko]
   );
 
   const save = useCallback(async () => {
@@ -263,7 +335,8 @@ export function AdminDeliveryDistanceSettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           distance_policy: nextPolicy,
-          store_distance_overrides: overridesDraft,
+          // 매장별 모드는 각 행 「저장」으로만 반영 — 여기서는 저장된 값을 유지한다.
+          store_distance_overrides: overridesSaved,
         }),
       });
       const j = (await res.json().catch(() => ({}))) as {
@@ -273,7 +346,7 @@ export function AdminDeliveryDistanceSettingsPage() {
         store_distance_overrides?: unknown;
       };
       if (!res.ok || !j.ok) {
-        setError(j.error ?? `HTTP ${res.status}`);
+        setError(adminOperatorErrorMessage(errCode(res.status, j, "update_failed"), ko));
         return;
       }
       const savedPolicy = normalizePolicy(j.distance_policy);
@@ -281,14 +354,13 @@ export function AdminDeliveryDistanceSettingsPage() {
       setPolicySaved(savedPolicy);
       setPolicyDraft(savedPolicy);
       setOverridesSaved(savedOverrides);
-      setOverridesDraft(savedOverrides);
       showMessage(t("admin_delivery_distance_saved"));
     } catch {
       setError(t("admin_delivery_distance_error_network"));
     } finally {
       setSaving(false);
     }
-  }, [policyDraft, policySaved.defaultMaxKm, overridesDraft, showMessage, t]);
+  }, [policyDraft, policySaved.defaultMaxKm, overridesSaved, showMessage, t, ko]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -303,7 +375,7 @@ export function AdminDeliveryDistanceSettingsPage() {
         </p>
       ) : null}
       {error ? (
-        <p className="mb-4 rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
+        <p role="alert" className="mb-4 rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
           {error}
         </p>
       ) : null}
@@ -387,18 +459,19 @@ export function AdminDeliveryDistanceSettingsPage() {
                 <th className="px-2 py-2">{t("admin_delivery_distance_th_radius")}</th>
                 <th className="px-2 py-2">{t("admin_delivery_distance_th_updated")}</th>
                 <th className="px-2 py-2">{t("admin_delivery_distance_th_mode")}</th>
+                <th className="px-2 py-2">{ko ? "저장" : "Save"}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={5}>
+                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={6}>
                     {t("common_loading")}
                   </td>
                 </tr>
               ) : filteredStores.length === 0 ? (
                 <tr>
-                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={5}>
+                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={6}>
                     {t("admin_delivery_distance_store_empty")}
                   </td>
                 </tr>
@@ -420,6 +493,8 @@ export function AdminDeliveryDistanceSettingsPage() {
                   const effectiveKm = resolveEffectiveStoreDeliveryRadiusKm(store.delivery_radius_km);
                   const draft = radiusDrafts[store.id] ?? String(effectiveKm);
                   const radiusDirty = draft !== String(effectiveKm);
+                  const modeDirty = override.mode !== modeOf(overridesSaved, store.id);
+                  const rowDirty = radiusDirty || modeDirty;
                   return (
                     <tr key={store.id} className="border-b border-sam-border-soft align-top">
                       <td className="px-2 py-2">
@@ -443,16 +518,6 @@ export function AdminDeliveryDistanceSettingsPage() {
                             className="w-24 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
                           />
                           <span className="sam-text-helper text-sam-muted">km</span>
-                          <button
-                            type="button"
-                            disabled={radiusSavingId === store.id || !radiusDirty}
-                            onClick={() => void saveStoreRadius(store.id)}
-                            className="rounded-ui-rect border border-sam-primary bg-sam-primary px-2 py-1 sam-text-helper font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {radiusSavingId === store.id
-                              ? t("admin_stores_saving")
-                              : t("admin_delivery_distance_radius_save")}
-                          </button>
                         </div>
                       </td>
                       <td className="px-2 py-2 sam-text-helper text-sam-muted">
@@ -469,18 +534,22 @@ export function AdminDeliveryDistanceSettingsPage() {
                             })
                           }
                           className="min-w-32 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
-                          aria-label={distanceModeLabel(t, override.mode)}
+                          aria-label={distanceModeLabel(ko, override.mode)}
                         >
-                          <option value="inherit">
-                            {t("admin_delivery_distance_store_mode_inherit")}
-                          </option>
-                          <option value="enabled">
-                            {t("admin_delivery_distance_store_mode_enabled")}
-                          </option>
-                          <option value="disabled">
-                            {t("admin_delivery_distance_store_mode_disabled")}
-                          </option>
+                          <option value="inherit">{distanceModeLabel(ko, "inherit")}</option>
+                          <option value="enabled">{distanceModeLabel(ko, "enabled")}</option>
+                          <option value="disabled">{distanceModeLabel(ko, "disabled")}</option>
                         </select>
+                      </td>
+                      <td className="px-2 py-2">
+                        <button
+                          type="button"
+                          disabled={radiusSavingId !== null || !rowDirty}
+                          onClick={() => void saveStoreRow(store)}
+                          className="rounded-ui-rect border border-sam-primary bg-sam-primary px-3 py-1.5 sam-text-helper font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {radiusSavingId === store.id ? t("admin_stores_saving") : ko ? "저장" : "Save"}
+                        </button>
                       </td>
                     </tr>
                   );

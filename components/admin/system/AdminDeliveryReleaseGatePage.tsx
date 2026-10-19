@@ -4,6 +4,42 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { AdminErrorState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+
+/** 서버가 내려주는 영어 링크 이름 → 운영자 문구 (경로 기준). */
+const LINK_LABELS: Record<string, { ko: string; en: string }> = {
+  "/admin/runtime-health": { ko: "런타임 상태", en: "Runtime health" },
+  "/admin/ops-console": { ko: "운영 콘솔", en: "Ops console" },
+  "/admin/delivery-operations": { ko: "배달 운영 현황", en: "Delivery operations" },
+  "/admin/delivery-auto-actions": { ko: "자동 조치 승인", en: "Auto action approval" },
+  "/admin/delivery-alerts": { ko: "배달 경고", en: "Delivery alerts" },
+  "/admin/stores/orders": { ko: "주문 목록", en: "Orders" },
+};
+
+const OVERALL_LABELS: Record<string, { ko: string; en: string }> = {
+  READY: { ko: "준비됨", en: "Ready" },
+  WARNING: { ko: "주의", en: "Warning" },
+  BLOCKED: { ko: "차단", en: "Blocked" },
+};
+
+const STATUS_LABELS: Record<GateStatus, { ko: string; en: string }> = {
+  pass: { ko: "통과", en: "Pass" },
+  warn: { ko: "주의", en: "Warning" },
+  fail: { ko: "차단", en: "Fail" },
+  needs_check: { ko: "확인 필요", en: "Needs check" },
+};
+
+function errCode(status: number, j: { error?: unknown } | null, fallback: string): string {
+  const e = j?.error;
+  if (typeof e === "string" && /^[a-z][a-z0-9_]*$/i.test(e.trim())) return e.trim();
+  if (status === 403) return "forbidden";
+  return fallback;
+}
+
+function fmtTs(v: string | null | undefined): string {
+  return v ? v.slice(0, 19).replace("T", " ") : "—";
+}
 
 type GateStatus = "pass" | "warn" | "fail" | "needs_check";
 
@@ -53,22 +89,31 @@ function overallClass(o: string | undefined): string {
 }
 
 export function AdminDeliveryReleaseGatePage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [errStatus, setErrStatus] = useState<number | undefined>(undefined);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
   const [data, setData] = useState<GatePayload | null>(null);
 
   const load = useCallback(async () => {
     setErr(null);
-    const r = await fetch("/api/admin/delivery-release-gate", { cache: "no-store" });
-    const j = (await r.json()) as GatePayload;
-    if (!r.ok || !j.ok) {
-      setErr(j.error ?? "load_failed");
+    setErrStatus(undefined);
+    try {
+      const r = await fetch("/api/admin/delivery-release-gate", { cache: "no-store" });
+      const j = (await r.json().catch(() => null)) as GatePayload | null;
+      if (!r.ok || !j?.ok) {
+        setErr(errCode(r.status, j, "load_failed"));
+        setErrStatus(r.status);
+        setData(j);
+        return;
+      }
       setData(j);
-      return;
+    } catch {
+      setErr("network_error");
     }
-    setData(j);
   }, []);
 
   useEffect(() => {
@@ -101,18 +146,18 @@ export function AdminDeliveryReleaseGatePage() {
   const onToggleManual = async (key: string, checked: boolean, note: string | null) => {
     if (busyKey) return;
     setBusyKey(key);
-    setErr(null);
+    setSaveErr(null);
     try {
       const r = await fetch("/api/admin/delivery-release-gate", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key, checked, note }),
       });
-      const j = (await r.json()) as { ok?: boolean; error?: string };
-      if (!r.ok || !j.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+      const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!r.ok || !j?.ok) throw new Error(errCode(r.status, j, "update_failed"));
       await load();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "save_failed");
+      setSaveErr(e instanceof Error && /^[a-z][a-z0-9_]*$/i.test(e.message) ? e.message : "network_error");
     } finally {
       setBusyKey(null);
     }
@@ -122,17 +167,17 @@ export function AdminDeliveryReleaseGatePage() {
     <div className={`${Sam.page} bg-sam-app min-h-[75vh] px-4 py-8`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-sam-fg">Delivery Release Gate</h1>
+          <h1 className="text-xl font-semibold text-sam-fg">{ko ? "릴리즈 게이트" : "Release gate"}</h1>
           <p className="mt-1 text-sm text-sam-muted">
             {t("admin_delivery_gate_subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Link href="/admin/ops-console" className={Sam.btn.secondary}>
-            Ops Console
+            {ko ? "운영 콘솔" : "Ops console"}
           </Link>
           <Link href="/admin/runtime-health" className={Sam.btn.secondary}>
-            Runtime Health
+            {ko ? "런타임 상태" : "Runtime health"}
           </Link>
           <button className={Sam.btn.secondary} onClick={() => void load()} disabled={!!busyKey} type="button">
             {t("admin_delivery_gate_refresh")}
@@ -141,17 +186,28 @@ export function AdminDeliveryReleaseGatePage() {
       </div>
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
-        <div className="text-sm text-sam-muted">Overall</div>
-        <div className={`mt-1 text-2xl font-semibold ${overallClass(overall)}`}>{overall}</div>
-        <div className="mt-2 text-xs text-sam-muted">generated_at: {data?.generated_at ?? "—"}</div>
+        <div className="text-sm text-sam-muted">{ko ? "전체 판정" : "Overall"}</div>
+        <div className={`mt-1 text-2xl font-semibold ${overallClass(overall)}`}>
+          {OVERALL_LABELS[overall] ? (ko ? OVERALL_LABELS[overall].ko : OVERALL_LABELS[overall].en) : overall}
+        </div>
+        <div className="mt-2 text-xs text-sam-muted">
+          {ko ? "확인 시각" : "Generated at"}: {fmtTs(data?.generated_at)}
+        </div>
       </div>
 
       {loading ? <div className="mt-6 text-sam-muted">{t("common_loading")}</div> : null}
       {err ? (
-        <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad} border border-red-300`}>
-          <div className="font-medium text-red-700">{t("admin_runtime_health_error_title")}</div>
-          <div className="mt-2 text-sm text-red-700 break-all">{err}</div>
-          {data?.hint ? <div className="mt-2 text-xs text-sam-muted">{data.hint}</div> : null}
+        <div className="mt-6">
+          <AdminErrorState ko={ko} code={err} httpStatus={errStatus} onRetry={() => void load()} />
+          {data?.hint ? <AdminTechDetails ko={ko}>{data.hint}</AdminTechDetails> : null}
+        </div>
+      ) : null}
+      {saveErr ? (
+        <div role="alert" className={`mt-6 ${Sam.card.base} ${Sam.card.pad} border border-red-300`}>
+          <div className="text-sm text-red-700">{adminOperatorErrorMessage(saveErr, ko)}</div>
+          <button type="button" className={`${Sam.btn.secondary} mt-2`} onClick={() => setSaveErr(null)}>
+            {ko ? "닫기" : "Close"}
+          </button>
         </div>
       ) : null}
 
@@ -167,18 +223,24 @@ export function AdminDeliveryReleaseGatePage() {
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-sam-fg">{it.title}</div>
                     <div className="mt-1 text-xs text-sam-muted break-all">{it.description}</div>
-                    <div className="mt-1 text-xs text-sam-muted">how: {it.howTo}</div>
-                    {it.checked_at ? <div className="mt-1 text-xs text-sam-muted">checked_at: {it.checked_at}</div> : null}
+                    <div className="mt-1 text-xs text-sam-muted">
+                      {ko ? "조치 방법" : "How"}: {it.howTo}
+                    </div>
+                    {it.checked_at ? (
+                      <div className="mt-1 text-xs text-sam-muted">
+                        {ko ? "확인 시각" : "Checked at"}: {fmtTs(it.checked_at)}
+                      </div>
+                    ) : null}
                   </div>
-                  <div className={`shrink-0 rounded-ui-rect border px-2 py-1 text-xs font-mono ${badgeClass(it.status)}`}>
-                    {it.status}
+                  <div className={`shrink-0 rounded-ui-rect border px-2 py-1 text-xs font-medium ${badgeClass(it.status)}`}>
+                    {STATUS_LABELS[it.status] ? (ko ? STATUS_LABELS[it.status].ko : STATUS_LABELS[it.status].en) : it.status}
                   </div>
                 </div>
                 {it.links?.length ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {it.links.map((l) => (
                       <Link key={l.href + l.label} href={l.href} className={Sam.btn.secondary}>
-                        {l.label}
+                        {LINK_LABELS[l.href] ? (ko ? LINK_LABELS[l.href].ko : LINK_LABELS[l.href].en) : l.label}
                       </Link>
                     ))}
                   </div>
@@ -210,7 +272,9 @@ export function AdminDeliveryReleaseGatePage() {
                     {m.label}
                   </label>
                   <div className="text-xs text-sam-muted">
-                    {m.checked_at ? `checked_at: ${m.checked_at}` : t("admin_delivery_gate_unchecked")}
+                    {m.checked_at
+                      ? `${ko ? "확인 시각" : "Checked at"}: ${fmtTs(m.checked_at)}`
+                      : t("admin_delivery_gate_unchecked")}
                   </div>
                 </div>
                 <div className="mt-2">

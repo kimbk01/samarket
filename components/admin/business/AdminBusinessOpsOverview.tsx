@@ -17,10 +17,10 @@ import {
   businessOpsSettlementLabelKey,
 } from "@/lib/admin-business/business-ops-presentation";
 import {
+  businessCcAdvertisingHref,
   businessCcCashChargesHref,
-  businessCcDeliveryAdsHref,
-  businessCcFinanceHref,
   businessCcFinancialStatementHref,
+  businessCcInquiriesHref,
   businessCcOrdersByStoreHref,
   businessCcOwnerMemberHref,
   businessCcPartnerHref,
@@ -285,7 +285,6 @@ function StatCard({
 
 export function AdminBusinessOpsOverviewGrid({
   storeId,
-  storeName,
   ops,
   delivery,
   kpi,
@@ -298,7 +297,8 @@ export function AdminBusinessOpsOverviewGrid({
   kpi: BusinessCcKpiSummary;
   onGoTab: (tab: string) => void;
 }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const oc = kpi.orderStatusCounts;
   const sc = kpi.commissionCounts;
 
@@ -370,7 +370,7 @@ export function AdminBusinessOpsOverviewGrid({
       <StatCard
         title={t("admin_biz_ops_card_credit")}
         footer={
-          <Link href={businessCcPointsHref(storeName)} className={linkClass}>
+          <Link href={businessCcPointsHref(storeId)} className={linkClass}>
             {t("admin_biz_cta_points")}
           </Link>
         }
@@ -454,33 +454,37 @@ export function AdminBusinessOpsOverviewGrid({
               className={linkClass}
               data-store-hub-financial-statement="1"
             >
-              {safeT("admin_biz_ops_link_financial_statement", {
-                fallbackKo: "재무 명세서",
-                fallbackEn: "Financial statement",
-              })}
+              {ko ? "매장 재무" : "Store finance"}
             </Link>
-            <Link href={businessCcFinanceHref(storeId)} className={linkClass} data-store-hub-finance="1">
-              Coin/Cash
+            <Link href={businessCcPointsHref(storeId)} className={linkClass} data-store-hub-coin="1">
+              {ko ? "코인 거래" : "Coin transactions"}
             </Link>
             <Link href={businessCcCashChargesHref()} className={linkClass} data-store-hub-cash="1">
-              Cash
+              {ko ? "캐시 충전" : "Cash top-ups"}
             </Link>
             <Link
-              href={businessCcDeliveryAdsHref(storeId)}
+              href={businessCcAdvertisingHref(storeId)}
               className={linkClass}
               data-store-hub-ads="1"
             >
-              Ads
+              {ko ? "매장 광고" : "Store ads"}
             </Link>
             <Link href={businessCcPartnerHref()} className={linkClass} data-store-hub-partner="1">
-              Partner
+              {ko ? "파트너" : "Partner"}
             </Link>
             <Link
               href={businessCcSupportHref(storeId)}
               className={linkClass}
               data-store-hub-support="1"
             >
-              Support
+              {ko ? "고객센터 문의" : "Support"}
+            </Link>
+            <Link
+              href={businessCcInquiriesHref(storeId)}
+              className={linkClass}
+              data-store-hub-inquiries="1"
+            >
+              {ko ? "매장 문의" : "Store inquiries"}
             </Link>
           </div>
         }
@@ -488,7 +492,7 @@ export function AdminBusinessOpsOverviewGrid({
         <p className="text-[12px] text-sam-muted">
           {safeT("admin_biz_ops_operation_links_note", {
             fallbackKo:
-              "Coin / Cash / 광고 / Partner / 문의는 각 canonical 화면에서 처리합니다. 이 카드는 바로가기만 제공합니다.",
+              "코인·캐시·광고·파트너·문의는 각 담당 화면에서 처리합니다. 이 카드는 이 매장으로 필터된 바로가기입니다.",
             fallbackEn:
               "Coin / Cash / Ads / Partner / Support are handled on their canonical screens. This card is deep-links only.",
           })}
@@ -546,7 +550,8 @@ export function AdminBusinessOpsQuickActions({
   pointsHref: string;
   trend: BusinessCcOpsOverview["trend7d"];
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   return (
     <div className="space-y-3">
       <TrendChart trend={trend} />
@@ -566,7 +571,7 @@ export function AdminBusinessOpsQuickActions({
             </button>
           )}
           <button type="button" className={actionClass} disabled={busy} onClick={onSalesLimit}>
-            {t("admin_biz_ops_action_sales_limit")}
+            {ko ? "판매 중지" : "Suspend sales"}
           </button>
           <Link href={pointsHref} className={actionClass}>
             {t("admin_biz_ops_action_points")}

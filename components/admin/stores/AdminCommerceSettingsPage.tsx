@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 type Overridden = {
   store_auto_complete_days: boolean;
@@ -12,7 +14,8 @@ type Overridden = {
 };
 
 export function AdminCommerceSettingsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [autoDays, setAutoDays] = useState("");
   const [feeBp, setFeeBp] = useState("");
   const [delayDays, setDelayDays] = useState("");
@@ -64,9 +67,13 @@ export function AdminCommerceSettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(partial),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
+      if (res.status === 403) {
+        setError(json?.error === "forbidden_permission" ? "forbidden_permission" : "forbidden");
+        return;
+      }
       if (!json?.ok) {
-        setError(json?.error ?? "save_failed");
+        setError(typeof json?.error === "string" ? json.error : "update_failed");
         return;
       }
       setMsg("saved");
@@ -87,11 +94,19 @@ export function AdminCommerceSettingsPage() {
       ? t("admin_audit_err_no_permission")
       : error === "table_missing"
         ? t("admin_stores_commerce_err_table_missing")
-        : error;
+        : error
+          ? adminOperatorErrorMessage(/^[a-z][a-z0-9_]*$/i.test(error) ? error : "update_failed", ko)
+          : null;
+  const sourceBadge = (inDb: boolean | undefined) =>
+    inDb ? (
+      <span className="text-signature">{ko ? "직접 설정값" : "Custom"}</span>
+    ) : (
+      <span className="text-sam-meta">{ko ? "기본값" : "Default"}</span>
+    );
 
   return (
     <div className="max-w-lg space-y-6">
-      <AdminPageHeader titleKey="admin_stores_commerce_settings_title" />
+      <AdminPageHeader title={ko ? "커머스 기본값" : "Commerce defaults"} />
       <p className="sam-text-body-secondary text-sam-muted">
         {t("admin_stores_commerce_settings_desc_prefix")}{" "}
         <Link href="/admin/stores/application-settings" className="text-signature underline">
@@ -99,7 +114,11 @@ export function AdminCommerceSettingsPage() {
         </Link>
         {t("admin_stores_commerce_settings_desc_suffix")}
       </p>
-      {errorText ? <p className="text-sm text-red-700">{errorText}</p> : null}
+      {errorText ? (
+        <p role="alert" className="text-sm text-red-700">
+          {errorText}
+        </p>
+      ) : null}
       {msg === "saved" ? <p className="text-sm text-green-800">{t("admin_stores_saved")}</p> : null}
       {loading ? (
         <p className="text-sm text-sam-muted">{t("common_loading")}</p>
@@ -108,21 +127,16 @@ export function AdminCommerceSettingsPage() {
           className="space-y-5 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
           onSubmit={(e) => {
             e.preventDefault();
+            // 수수료(만분율)는 적용되지 않는 값이라 이 화면에서 저장하지 않는다 (DUP-4).
             void save({
               store_auto_complete_days: Math.round(Number(autoDays)),
-              store_settlement_fee_bp: Math.round(Number(feeBp)),
               store_settlement_delay_days: Math.round(Number(delayDays)),
             });
           }}
         >
           <label className="block">
             <span className="text-xs font-medium text-sam-fg">
-              {t("admin_stores_commerce_auto_complete_days")}{" "}
-              {overridden?.store_auto_complete_days ? (
-                <span className="text-signature">DB</span>
-              ) : (
-                <span className="text-sam-meta">env</span>
-              )}
+              {t("admin_stores_commerce_auto_complete_days")} {sourceBadge(overridden?.store_auto_complete_days)}
             </span>
             <input
               type="number"
@@ -137,31 +151,27 @@ export function AdminCommerceSettingsPage() {
           </label>
           <label className="block">
             <span className="text-xs font-medium text-sam-fg">
-              {t("admin_stores_commerce_settlement_fee_bp")}{" "}
-              {overridden?.store_settlement_fee_bp ? (
-                <span className="text-signature">DB</span>
-              ) : (
-                <span className="text-sam-meta">env</span>
-              )}
+              {t("admin_stores_commerce_settlement_fee_bp")} {sourceBadge(overridden?.store_settlement_fee_bp)}
             </span>
             <input
               type="number"
-              min={0}
-              max={10000}
-              required
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
+              readOnly
+              aria-readonly="true"
+              className="mt-1 w-full cursor-not-allowed rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-sm text-sam-muted"
               value={feeBp}
-              onChange={(e) => setFeeBp(e.target.value)}
             />
+            <span className="mt-0.5 block sam-text-xxs text-sam-meta">
+              {ko
+                ? "실제 수수료는 '수수료 정책'에서 관리합니다 (이 값은 적용되지 않음)."
+                : "Actual fees are managed in 'Fee policies' (this value is not applied)."}{" "}
+              <Link href="/admin/store-fee-policies" className="text-signature underline">
+                {ko ? "수수료 정책으로 이동" : "Go to fee policies"}
+              </Link>
+            </span>
           </label>
           <label className="block">
             <span className="text-xs font-medium text-sam-fg">
-              {t("admin_stores_commerce_settlement_delay_days")}{" "}
-              {overridden?.store_settlement_delay_days ? (
-                <span className="text-signature">DB</span>
-              ) : (
-                <span className="text-sam-meta">env</span>
-              )}
+              {t("admin_stores_commerce_settlement_delay_days")} {sourceBadge(overridden?.store_settlement_delay_days)}
             </span>
             <input
               type="number"
@@ -185,20 +195,37 @@ export function AdminCommerceSettingsPage() {
         </form>
       )}
       {!loading ? (
-        <div className="flex flex-wrap gap-2 border-t border-sam-border-soft pt-4">
+        <div className="space-y-2 border-t border-sam-border-soft pt-4">
+          <p className="sam-text-xxs text-sam-muted">
+            {ko
+              ? "자동 완료 일수·정산 수수료(만분율)·정산 지연 일수 세 값을 모두 직접 설정값에서 지우고 서버 기본값으로 되돌립니다."
+              : "Clears all three values (auto-complete days, settlement fee bp, settlement delay days) and reverts to server defaults."}
+          </p>
           <button
             type="button"
             disabled={saving}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
-            onClick={() =>
+            onClick={async () => {
+              if (saving) return;
+              const c = await confirmAdminAction({
+                level: "L2",
+                ko,
+                title: ko ? "세 값을 모두 기본값으로 되돌릴까요?" : "Reset all three values to defaults?",
+                description: ko
+                  ? "자동 완료 일수·정산 수수료(만분율)·정산 지연 일수가 모두 서버 기본값으로 바뀝니다."
+                  : "Auto-complete days, settlement fee bp and settlement delay days all revert to server defaults.",
+                confirmLabel: ko ? "모두 초기화" : "Reset all",
+                destructive: true,
+              });
+              if (!c.ok) return;
               void save({
                 store_auto_complete_days: null,
                 store_settlement_fee_bp: null,
                 store_settlement_delay_days: null,
-              })
-            }
+              });
+            }}
           >
-            {t("admin_stores_commerce_clear_db")}
+            {ko ? "세 값 모두 기본값으로 초기화" : t("admin_stores_commerce_clear_db")}
           </button>
         </div>
       ) : null}

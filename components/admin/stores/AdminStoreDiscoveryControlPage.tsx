@@ -10,6 +10,7 @@ import {
   type AdminDiscoveryCampaignRow,
 } from "@/components/admin/stores/AdminStoreDiscoveryCampaignWriterPanel";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 
 type Policy = {
   global_mean_rating: number | null;
@@ -43,7 +44,8 @@ function fmt(v: string | number | null | undefined): string {
 }
 
 export function AdminStoreDiscoveryControlPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const monitorReadOnly = t("admin_store_discovery_read_only_badge");
 
   const [policyLoading, setPolicyLoading] = useState(true);
@@ -160,9 +162,13 @@ export function AdminStoreDiscoveryControlPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-4">
       <AdminPageHeader
-        titleKey="admin_store_discovery_title"
-        descriptionKey="admin_store_discovery_desc"
-        backHref="/admin/stores"
+        title={t("admin_store_discovery_title")}
+        description={
+          ko
+            ? "플랫폼 기획·이벤트 노출만 관리합니다. 매장 광고·배너·쿠폰·배달비 혜택과 다릅니다."
+            : t("admin_store_discovery_desc")
+        }
+        backHref="/admin/delivery"
       />
 
       <div className="flex flex-wrap gap-2">
@@ -221,7 +227,7 @@ export function AdminStoreDiscoveryControlPage() {
               className="mt-1 block w-[280px] max-w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"
               value={snapshotStoreId}
               onChange={(e) => setSnapshotStoreId(e.target.value)}
-              placeholder="uuid"
+              placeholder={ko ? "매장 ID" : "Store ID"}
             />
           </label>
           <button
@@ -253,16 +259,12 @@ export function AdminStoreDiscoveryControlPage() {
           <p className="text-[13px] text-sam-muted">…</p>
         ) : diagnostics ? (
           <div>
-            <Field label="ranking_authority" value={fmt(diagnostics.ranking_authority)} />
-            <Field
-              label="browse meta keys"
-              value={diagnostics.public_api_meta_keys.browse.join(", ")}
-            />
-            <Field
-              label="home-feed meta keys"
-              value={diagnostics.public_api_meta_keys.home_feed.join(", ")}
-            />
-            <Field label="note" value={diagnostics.note} />
+            <Field label={ko ? "설명" : "Note"} value={diagnostics.note} />
+            <AdminTechDetails ko={ko}>
+              <div>ranking_authority: {fmt(diagnostics.ranking_authority)}</div>
+              <div>browse meta keys: {diagnostics.public_api_meta_keys.browse.join(", ")}</div>
+              <div>home-feed meta keys: {diagnostics.public_api_meta_keys.home_feed.join(", ")}</div>
+            </AdminTechDetails>
           </div>
         ) : null}
       </AdminCard>

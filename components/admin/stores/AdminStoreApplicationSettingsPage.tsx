@@ -6,15 +6,42 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminGlobalAlertSoundSection } from "@/components/admin/stores/AdminGlobalAlertSoundSection";
-import { AdminStoreTaxonomyManager } from "@/components/admin/stores/AdminStoreTaxonomyManager";
+import {
+  AdminStoreTaxonomyManager,
+  type AdminStoreTaxonomyFocus,
+} from "@/components/admin/stores/AdminStoreTaxonomyManager";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+
+/** 오류 코드 → 운영자 문구 (원시 코드·HTTP 상태 노출 금지) */
+function settingsErrText(code: string, ko: boolean): string {
+  return adminOperatorErrorMessage(/^[a-z][a-z0-9_]*$/i.test(code) ? code : "update_failed", ko);
+}
 import { invalidateStoreDeliveryAlertSoundCache } from "@/lib/business/store-order-alert-sound";
 import { bustOrderMatchAlertSoundCache } from "@/lib/notifications/play-order-match-alert";
 
 export function AdminStoreApplicationSettingsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const searchParams = useSearchParams();
   const menu = (searchParams.get("menu") ?? "").trim().toLowerCase();
   const activeMenu: "alerts" | "stores" = menu === "stores" ? "stores" : "alerts";
+  const focusRaw = (searchParams.get("focus") ?? "").trim().toLowerCase();
+  const taxonomyFocus: AdminStoreTaxonomyFocus =
+    focusRaw === "category" || focusRaw === "topic" ? focusRaw : null;
+  const pageTitle =
+    activeMenu === "stores"
+      ? taxonomyFocus === "category"
+        ? ko
+          ? "1차 업종"
+          : "Tier 1 categories"
+        : taxonomyFocus === "topic"
+          ? ko
+            ? "2차 업종"
+            : "Tier 2 categories"
+          : t("admin_page_store_settings_taxonomy")
+      : ko
+        ? "매장 알림 설정"
+        : "Store alert settings";
   /** 탭 전환 시 언마운트하지 않고 hidden — 업종 목록·선택·썸네일 유지 */
   const [storesPanelMounted, setStoresPanelMounted] = useState(activeMenu === "stores");
 
@@ -67,7 +94,7 @@ export function AdminStoreApplicationSettingsPage() {
         ride_time_source?: unknown;
       };
       if (!res.ok || !j?.ok) {
-        setRiderLocationError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+        setRiderLocationError(settingsErrText(typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed", ko));
         return;
       }
       setRiderLocationEnabled(j.rider_location_enabled === true);
@@ -75,12 +102,12 @@ export function AdminStoreApplicationSettingsPage() {
       setRideTimeSourceSaved(src);
       setRideTimeSourceDraft(src);
     } catch {
-      setRiderLocationError("network_error");
+      setRiderLocationError(settingsErrText("network_error", ko));
     } finally {
       setRiderLocationLoading(false);
       setDeliverySettingsReady(true);
     }
-  }, []);
+  }, [ko]);
 
   const saveRiderLocationSetting = useCallback(async (next: boolean) => {
     setRiderLocationSaving(true);
@@ -99,7 +126,7 @@ export function AdminStoreApplicationSettingsPage() {
         ride_time_source?: unknown;
       };
       if (!res.ok || !j?.ok) {
-        setRiderLocationError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+        setRiderLocationError(settingsErrText(typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed", ko));
         return;
       }
       setRiderLocationEnabled(j.rider_location_enabled === true);
@@ -109,11 +136,11 @@ export function AdminStoreApplicationSettingsPage() {
       }
       showMessage(t("admin_stores_saved"));
     } catch {
-      setRiderLocationError("network_error");
+      setRiderLocationError(settingsErrText("network_error", ko));
     } finally {
       setRiderLocationSaving(false);
     }
-  }, [showMessage, t]);
+  }, [showMessage, t, ko]);
 
   const commitRideTimeSource = useCallback(async () => {
     const next = rideTimeSourceDraft;
@@ -132,7 +159,7 @@ export function AdminStoreApplicationSettingsPage() {
         ride_time_source?: unknown;
       };
       if (!res.ok || !j?.ok) {
-        setRideTimeSourceError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+        setRideTimeSourceError(settingsErrText(typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed", ko));
         return;
       }
       const src = j.ride_time_source === "google" ? "google" : "store";
@@ -140,11 +167,11 @@ export function AdminStoreApplicationSettingsPage() {
       setRideTimeSourceDraft(src);
       showMessage(t("admin_stores_app_ride_time_saved"));
     } catch {
-      setRideTimeSourceError("network_error");
+      setRideTimeSourceError(settingsErrText("network_error", ko));
     } finally {
       setRideTimeSourceSaving(false);
     }
-  }, [rideTimeSourceDraft, showMessage, t]);
+  }, [rideTimeSourceDraft, showMessage, t, ko]);
 
   useEffect(() => {
     void loadRiderLocationSetting();
@@ -152,13 +179,7 @@ export function AdminStoreApplicationSettingsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <AdminPageHeader
-        titleKey={
-          activeMenu === "stores"
-            ? "admin_page_store_settings_taxonomy"
-            : "admin_page_store_settings_alerts"
-        }
-      />
+      <AdminPageHeader title={pageTitle} />
 
       {msg ? (
         <p className="mt-4 rounded-ui-rect border border-green-200 bg-green-50 px-3 py-2 sam-text-body-secondary text-green-800">
@@ -171,7 +192,9 @@ export function AdminStoreApplicationSettingsPage() {
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
             <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_rider_tracking")}</h2>
             {riderLocationError ? (
-              <p className="mt-2 sam-text-body-secondary text-red-700">({riderLocationError})</p>
+              <p role="alert" className="mt-2 sam-text-body-secondary text-red-700">
+                {riderLocationError}
+              </p>
             ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
@@ -233,7 +256,9 @@ export function AdminStoreApplicationSettingsPage() {
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
             <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_ride_time_title")}</h2>
             {rideTimeSourceError ? (
-              <p className="mt-2 sam-text-body-secondary text-red-700">({rideTimeSourceError})</p>
+              <p role="alert" className="mt-2 sam-text-body-secondary text-red-700">
+                {rideTimeSourceError}
+              </p>
             ) : null}
             <fieldset className="mt-3 space-y-2" disabled={!deliverySettingsReady || rideTimeSourceSaving}>
               <legend className="sr-only">{t("admin_stores_app_ride_time_legend")}</legend>
@@ -276,7 +301,7 @@ export function AdminStoreApplicationSettingsPage() {
             </div>
           </section>
 
-          <AdminStoreTaxonomyManager onMessage={showMessage} />
+          <AdminStoreTaxonomyManager onMessage={showMessage} focus={activeMenu === "stores" ? taxonomyFocus : null} />
         </div>
       ) : null}
     </div>

@@ -8,7 +8,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type PatchBody = { status?: string };
+type PatchBody = { status?: string; reason?: string };
 
 /** 관리자: 리뷰 숨김/복구 */
 export async function PATCH(
@@ -36,6 +36,11 @@ export async function PATCH(
   if (status !== "visible" && status !== "hidden") {
     return NextResponse.json({ ok: false, error: "invalid_status" }, { status: 400 });
   }
+  const reason = String(body.reason ?? "").trim().slice(0, 1000) || null;
+  // 숨김은 구매자 리뷰를 내리는 L2 조치 — 사유 필수 (복구는 선택).
+  if (status === "hidden" && (reason ?? "").length < 2) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -46,7 +51,8 @@ export async function PATCH(
 
   const { error } = await sb.from("store_reviews").update({ status }).eq("id", rid);
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    console.error("[admin store-reviews PATCH]", error);
+    return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
   }
 
   const actorId = await getRouteUserId();
@@ -58,7 +64,7 @@ export async function PATCH(
     target_id: rid,
     action: "store_review.status",
     before_json: prev ? { status: prev.status } : null,
-    after_json: { status },
+    after_json: { status, reason },
     ip: rm.ip,
     user_agent: rm.userAgent,
   });

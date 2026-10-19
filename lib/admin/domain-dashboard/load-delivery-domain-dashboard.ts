@@ -154,8 +154,8 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
 
   return {
     domain: "delivery",
-    titleKo: "배달 운영 대시보드",
-    titleEn: "Delivery operations dashboard",
+    titleKo: "배달 대시보드",
+    titleEn: "Delivery dashboard",
     descriptionKo:
       "입점 검토·문제 주문·운영 중지 매장을 먼저 처리합니다. 카테고리/정책 설정은 보조 메뉴입니다.",
     descriptionEn:
@@ -201,7 +201,7 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
         labelKo: "진행 주문",
         labelEn: "In-progress orders",
         value: inProgress,
-        href: "/admin/stores/orders",
+        href: "/admin/stores/orders?tab=in_progress",
         source: "store_orders.in_progress",
       },
       {
@@ -259,13 +259,13 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
         id: "products",
         labelKo: "상품/메뉴",
         labelEn: "Products / menus",
-        href: "/admin/stores",
+        href: "/admin/store-products",
         frequency: "FREQUENT",
       },
       {
         id: "home_shelves",
-        labelKo: "HOME 구성",
-        labelEn: "HOME shelves",
+        labelKo: "홈 화면 구성",
+        labelEn: "Home screen layout",
         href: "/admin/stores-home-shelves",
         frequency: "OCCASIONAL",
       },
@@ -280,7 +280,7 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
         id: "ops",
         labelKo: "배달 운영 콘솔",
         labelEn: "Delivery ops console",
-        href: "/admin/delivery-operations",
+        href: "/admin/ops-console",
         frequency: "FREQUENT",
       },
     ],
@@ -308,8 +308,8 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
       },
       {
         id: "finance",
-        labelKo: "재무 관제",
-        labelEn: "Finance control plane",
+        labelKo: "재무 현황",
+        labelEn: "Finance overview",
         href: "/admin/finance#action-required",
         frequency: "FREQUENT",
       },
@@ -322,8 +322,8 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
       },
       {
         id: "action_center",
-        labelKo: "전역 Action Center",
-        labelEn: "Global Action Center",
+        labelKo: "전체 처리 대기",
+        labelEn: "All pending work",
         href: "/admin#action-center",
         frequency: "DAILY_CRITICAL",
       },

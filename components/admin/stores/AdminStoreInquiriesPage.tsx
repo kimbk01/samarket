@@ -1,10 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import type { MessageKey } from "@/lib/i18n/messages";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
+import { businessCcBackToStoreHref } from "@/lib/admin-business/business-control-center-links";
 
 type Row = {
   id: string;
@@ -20,51 +29,58 @@ type Row = {
   created_at: string;
 };
 
-const STATUS_LABEL_KEYS: Record<string, MessageKey> = {
-  open: "admin_stores_inquiries_status_open",
-  answered: "admin_stores_inquiries_status_answered",
-  closed: "admin_stores_inquiries_status_closed",
-  escalated: "admin_stores_inquiries_status_escalated",
+const STATUS_LABELS: Record<string, { ko: string; en: string; tone: AdminTone }> = {
+  open: { ko: "미답변", en: "Unanswered", tone: "waiting" },
+  answered: { ko: "답변 완료", en: "Answered", tone: "success" },
+  closed: { ko: "종료", en: "Closed", tone: "neutral" },
+  escalated: { ko: "운영팀 이관", en: "Escalated", tone: "warning" },
+};
+
+const TYPE_LABELS: Record<string, [string, string]> = {
+  product: ["상품 문의", "Product"],
+  order: ["주문 문의", "Order"],
+  store: ["매장 문의", "Store"],
+  complaint: ["불만 접수", "Complaint"],
 };
 
 export function AdminStoreInquiriesPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminStoreInquiriesPageInner />
+    </Suspense>
+  );
+}
+
+function AdminStoreInquiriesPageInner() {
   const { t, language } = useI18n();
+  const ko = language !== "en";
   const locale = catalogDateLocale(language);
+  const searchParams = useSearchParams();
+  const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const errorText = useMemo(() => {
-    if (!error) return null;
-    if (error === "forbidden") return t("admin_audit_err_no_permission");
-    if (error === "network_error") return t("common_network_error");
-    return error;
-  }, [error, t]);
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     try {
-      const res = await fetch("/api/admin/store-inquiries", { credentials: "include" });
-      const json = await res.json();
-      if (res.status === 403) {
-        setError("forbidden");
-        setRows([]);
-        return;
-      }
+      const qs = storeIdFilter ? `?store_id=${encodeURIComponent(storeIdFilter)}` : "";
+      const res = await fetch(`/api/admin/store-inquiries${qs}`, { credentials: "include" });
+      const json = await res.json().catch(() => null);
       if (!json?.ok) {
-        setError(json?.error ?? "load_failed");
+        setLoadError({ code: res.status === 403 ? "forbidden" : "load_failed", status: res.status });
         setRows([]);
         return;
       }
       setRows(json.inquiries ?? []);
     } catch {
-      setError("network_error");
+      setLoadError({ code: "network_error" });
       setRows([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storeIdFilter]);
 
   useEffect(() => {
     void load();
@@ -72,50 +88,77 @@ export function AdminStoreInquiriesPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_page_store_inquiries" />
+      <AdminPageHeader title={ko ? "매장 문의" : "Store inquiries"} />
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_inquiries_desc")}</p>
-
-      {errorText ? (
-        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-800">{errorText}</p>
+      {storeIdFilter ? (
+        <p className="sam-text-helper text-sam-muted">
+          {ko ? "특정 매장 문의만 보는 중" : "Filtered to one store"}{" "}
+          <Link href={businessCcBackToStoreHref(storeIdFilter)} className="text-signature hover:underline">
+            {ko ? "매장 상세로" : "Back to store"}
+          </Link>
+          {" · "}
+          <Link href="/admin/store-inquiries" className="text-signature hover:underline">
+            {ko ? "전체 문의 보기" : "Show all inquiries"}
+          </Link>
+        </p>
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+        <AdminLoadingState ko={ko} />
+      ) : loadError ? (
+        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void load()} />
       ) : rows.length === 0 ? (
-        <p className="text-sm text-sam-muted">{t("admin_stores_inquiries_empty")}</p>
+        <AdminEmptyState ko={ko} message={t("admin_stores_inquiries_empty")} />
       ) : (
         <div className="space-y-3">
-          {rows.map((r) => (
-            <article
-              key={r.id}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
-            >
-              <div className="flex flex-wrap justify-between gap-2 sam-text-body-secondary">
-                <span className="font-semibold text-sam-fg">{r.store_name || r.store_id}</span>
-                <span className="text-sam-muted">
-                  {STATUS_LABEL_KEYS[r.status] ? t(STATUS_LABEL_KEYS[r.status]) : r.status}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-sam-muted">
-                {t("admin_stores_inquiries_reporter")}{" "}
-                <span className="font-mono">{r.from_user_id}</span> · {r.inquiry_type} ·{" "}
-                {new Date(r.created_at).toLocaleString(locale)}
-              </p>
-              <p className="mt-2 font-medium text-sam-fg">{r.subject}</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
-              {r.answer ? (
-                <div className="mt-3 rounded-ui-rect bg-sam-app p-3 text-sm text-sam-fg">
-                  <p className="text-xs font-medium text-sam-muted">{t("admin_stores_inquiries_store_reply")}</p>
-                  <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
-                  {r.answered_at ? (
-                    <p className="mt-1 sam-text-xxs text-sam-meta">
-                      {new Date(r.answered_at).toLocaleString(locale)}
-                    </p>
-                  ) : null}
+          {rows.map((r) => {
+            const st = STATUS_LABELS[r.status];
+            const type = TYPE_LABELS[r.inquiry_type];
+            return (
+              <article
+                key={r.id}
+                className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
+              >
+                <div className="flex flex-wrap justify-between gap-2 sam-text-body-secondary">
+                  <span className="font-semibold text-sam-fg">
+                    {r.store_id ? (
+                      <Link href={businessCcBackToStoreHref(r.store_id)} className="hover:text-signature hover:underline">
+                        {r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
+                      </Link>
+                    ) : (
+                      r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")
+                    )}
+                  </span>
+                  <AdminToneBadge tone={st?.tone ?? "neutral"}>
+                    {st ? (ko ? st.ko : st.en) : ko ? "알 수 없는 상태" : "Unknown status"}
+                  </AdminToneBadge>
                 </div>
-              ) : null}
-            </article>
-          ))}
+                <p className="mt-1 text-xs text-sam-muted">
+                  {type ? (ko ? type[0] : type[1]) : ko ? "기타 문의" : "Other"} ·{" "}
+                  {new Date(r.created_at).toLocaleString(locale)}
+                </p>
+                <p className="mt-2 font-medium text-sam-fg">{r.subject}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
+                {r.answer ? (
+                  <div className="mt-3 rounded-ui-rect bg-sam-app p-3 text-sm text-sam-fg">
+                    <p className="text-xs font-medium text-sam-muted">{t("admin_stores_inquiries_store_reply")}</p>
+                    <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
+                    {r.answered_at ? (
+                      <p className="mt-1 sam-text-xxs text-sam-meta">
+                        {new Date(r.answered_at).toLocaleString(locale)}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <AdminTechDetails ko={ko}>
+                  <div>inquiry_id: {r.id}</div>
+                  <div>store_id: {r.store_id}</div>
+                  <div>from_user_id: {r.from_user_id}</div>
+                  <div>status: {r.status}</div>
+                </AdminTechDetails>
+              </article>
+            );
+          })}
         </div>
       )}
     </div>

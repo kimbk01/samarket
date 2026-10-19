@@ -13,6 +13,27 @@ import {
   type DeliveryOperationsPayload,
 } from "@/lib/admin-delivery-ops/delivery-operations-payload";
 import type { DeliveryOperationRecoveryAction } from "@/lib/admin/delivery-operation-recovery-actions";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+
+/** API 응답에서 운영자 오류 코드만 추출 (원시 HTTP 상태·메시지 노출 금지). */
+function apiErrorCode(status: number, j: unknown, fallback: string): string {
+  const e = j != null && typeof j === "object" ? (j as { error?: unknown }).error : undefined;
+  // 코드 형태(snake_case)만 사용 — DB 원문 메시지 등은 화면에 노출하지 않는다.
+  if (typeof e === "string" && /^[a-z][a-z0-9_]*$/i.test(e.trim())) return e.trim();
+  if (status === 403) return "forbidden";
+  return fallback;
+}
+
+/** 기존 관리자 메모를 보존하고 새 메모를 날짜와 함께 덧붙인다 (DEF-21). */
+function appendAdminNote(prev: string | null | undefined, added: string): string {
+  const base = typeof prev === "string" ? prev.trim() : "";
+  const line = `[${new Date().toISOString().slice(0, 10)}] ${added.trim()}`;
+  return base ? `${base}\n${line}` : line;
+}
+
+type PrevNoteState = { state: "loading" } | { state: "ready"; note: string } | { state: "error" };
 
 type OpsConsoleSummary = {
   ok?: boolean;
@@ -244,7 +265,7 @@ type ModalState =
   | { kind: "alert_resolve"; eventId: string; orderId?: string; note: string }
   | { kind: "auto_approve"; actionId: string; note: string }
   | { kind: "auto_reject"; actionId: string; note: string }
-  | { kind: "order_attention"; orderId: string; attention: boolean; adminNote: string }
+  | { kind: "order_attention"; orderId: string; attention: boolean; adminNote: string; prev: PrevNoteState }
   | { kind: "rider_release"; orderId: string; failureReason: string }
   | {
       kind: "rider_reassign";
@@ -254,10 +275,13 @@ type ModalState =
       search: string;
       allowOffline: boolean;
       adminNote: string;
+      prev: PrevNoteState;
     };
 
 function ModalShell(props: {
   titleKey: MessageKey;
+  /** 카탈로그(ko)가 영어인 키 대신 쓰는 화면 문구 */
+  title?: string;
   children: React.ReactNode;
   onClose: () => void;
   busy?: boolean;
@@ -277,7 +301,7 @@ function ModalShell(props: {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className={OverlayUi.title}>{t(props.titleKey)}</h2>
+            <h2 className={OverlayUi.title}>{props.title ?? t(props.titleKey)}</h2>
             <p className={`mt-1 ${OverlayUi.caption}`}>{t("admin_ops_console_modal_hint")}</p>
           </div>
           <DibayOverlayButton
@@ -295,8 +319,28 @@ function ModalShell(props: {
   );
 }
 
+function PrevAdminNote({ ko, prev }: { ko: boolean; prev: PrevNoteState }) {
+  return (
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-xs text-sam-muted">
+      <div className="font-medium text-sam-fg">{ko ? "기존 메모" : "Existing note"}</div>
+      {prev.state === "loading" ? (
+        <div className="mt-1">{ko ? "불러오는 중…" : "Loading…"}</div>
+      ) : prev.state === "error" ? (
+        <div className="mt-1 text-red-700">
+          {ko
+            ? "기존 메모를 불러오지 못했습니다. 메모를 덮어쓰지 않도록 새 메모 저장은 막혀 있습니다."
+            : "Could not load the existing note. Adding a note is disabled so it is not overwritten."}
+        </div>
+      ) : (
+        <div className="mt-1 whitespace-pre-wrap break-words">{prev.note || (ko ? "없음" : "None")}</div>
+      )}
+    </div>
+  );
+}
+
 export function AdminOpsConsolePage() {
   const { t, language } = useI18n();
+  const ko = language !== "en";
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("risk");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -322,7 +366,7 @@ export function AdminOpsConsolePage() {
     if (!r.ok || !j.ok) {
       setSummary(j);
       setOps(null);
-      setErr(j.error ?? t("admin_ops_console_err_load_failed"));
+      setErr(apiErrorCode(r.status, j, "load_failed"));
       return;
     }
     setSummary(j);
@@ -393,7 +437,7 @@ export function AdminOpsConsolePage() {
     const r = await fetch("/api/admin/delivery-riders", { cache: "no-store" });
     const j = (await r.json().catch(() => null)) as any;
     if (!r.ok) {
-      setRiderOptionsErr(String(j?.error ?? `HTTP ${r.status}`));
+      setRiderOptionsErr(apiErrorCode(r.status, j, "load_failed"));
       setRiderOptions([]);
       return;
     }
@@ -416,21 +460,69 @@ export function AdminOpsConsolePage() {
     void loadRiderOptions();
   }, [modal, riderOptions, riderOptionsErr, loadRiderOptions]);
 
-  const runRecovery = async (action: DeliveryOperationRecoveryAction) => {
+  /** 모달 열림 시 기존 관리자 메모를 읽어 덮어쓰기를 막는다 (DEF-21). */
+  const modalPrevKey =
+    modal && (modal.kind === "order_attention" || modal.kind === "rider_reassign") && modal.prev.state === "loading"
+      ? `${modal.kind}:${modal.orderId}`
+      : null;
+  useEffect(() => {
+    if (!modalPrevKey) return;
+    const [kind, orderId] = modalPrevKey.split(":") as ["order_attention" | "rider_reassign", string];
+    let alive = true;
+    void (async () => {
+      let next: PrevNoteState = { state: "error" };
+      try {
+        if (kind === "order_attention") {
+          const r = await fetch(`/api/admin/store-orders/${encodeURIComponent(orderId)}/detail`, { cache: "no-store" });
+          const j = (await r.json().catch(() => null)) as { ok?: boolean; order?: { adminNote?: string | null } } | null;
+          if (r.ok && j?.ok) next = { state: "ready", note: safeTrim(j.order?.adminNote) };
+        } else {
+          const r = await fetch(`/api/admin/store-orders/${encodeURIComponent(orderId)}/delivery`, { cache: "no-store" });
+          const j = (await r.json().catch(() => null)) as { ok?: boolean; delivery?: { admin_note?: string | null } | null } | null;
+          if (r.ok && j?.ok) next = { state: "ready", note: safeTrim(j.delivery?.admin_note) };
+        }
+      } catch {
+        next = { state: "error" };
+      }
+      if (!alive) return;
+      setModal((m) =>
+        m && (m.kind === "order_attention" || m.kind === "rider_reassign") && `${m.kind}:${m.orderId}` === modalPrevKey
+          ? { ...m, prev: next }
+          : m
+      );
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [modalPrevKey]);
+
+  const runRecovery = async (action: DeliveryOperationRecoveryAction, label: string) => {
+    if (busy) return;
+    const c = await confirmAdminAction({
+      level: "L2",
+      ko,
+      title: ko ? `일괄 복구 실행: ${label}` : `Run bulk recovery: ${label}`,
+      description: ko
+        ? "여러 주문·알림에 한 번에 적용됩니다. 실행 후 되돌릴 수 없습니다."
+        : "This applies to many orders/alerts at once and cannot be undone.",
+      confirmLabel: ko ? "복구 실행" : "Run recovery",
+      destructive: true,
+    });
+    if (!c.ok) return;
     setBusy(true);
     setErr(null);
     try {
       const r = await fetch("/api/admin/delivery-operations/recovery", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, reason: c.reason }),
       });
-      const j = (await r.json()) as { ok?: boolean; error?: string; message?: string };
-      if (!r.ok) throw new Error(j.error ?? j.message ?? "recovery_failed");
+      const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!r.ok) throw new Error(apiErrorCode(r.status, j, "action_failed"));
       await load();
-      setToast(t("admin_ops_console_toast_recovery_done"));
+      setToast(ko ? "복구 실행을 완료했습니다." : t("admin_ops_console_toast_recovery_done"));
     } catch (e) {
-      setErr(e instanceof Error ? e.message : t("admin_ops_console_err_recovery_failed"));
+      setErr(e instanceof Error && e.message ? e.message : "action_failed");
     } finally {
       setBusy(false);
     }
@@ -442,9 +534,9 @@ export function AdminOpsConsolePage() {
     setErr(null);
     try {
       await fn();
-      setToast(t("admin_ops_console_toast_action_done"));
+      setToast(ko ? "처리했습니다." : t("admin_ops_console_toast_action_done"));
     } catch (e) {
-      setErr(e instanceof Error ? e.message : t("admin_ops_console_err_action_failed"));
+      setErr(e instanceof Error && e.message ? e.message : "action_failed");
     } finally {
       setActionBusyKey(null);
     }
@@ -456,8 +548,8 @@ export function AdminOpsConsolePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, ...(note ? { note } : {}) }),
     });
-    const j = (await r.json()) as { ok?: boolean; error?: string };
-    if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    if (!r.ok) throw new Error(apiErrorCode(r.status, j, "action_failed"));
   };
 
   const patchOrderAttention = async (orderId: string, attention: boolean, adminNote?: string) => {
@@ -469,8 +561,8 @@ export function AdminOpsConsolePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const j = (await r.json()) as { ok?: boolean; error?: string };
-    if (!r.ok || !j.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    if (!r.ok || !j?.ok) throw new Error(apiErrorCode(r.status, j, "action_failed"));
   };
 
   const patchAdminDelivery = async (orderId: string, body: Record<string, unknown>) => {
@@ -479,8 +571,8 @@ export function AdminOpsConsolePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const j = (await r.json()) as { ok?: boolean; error?: string };
-    if (!r.ok || !j.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    if (!r.ok || !j?.ok) throw new Error(apiErrorCode(r.status, j, "action_failed"));
   };
 
   const postAutoAction = async (actionId: string, verb: "approve" | "reject" | "retry", note?: string) => {
@@ -489,9 +581,9 @@ export function AdminOpsConsolePage() {
       headers: { "Content-Type": "application/json" },
       body: verb === "retry" ? undefined : JSON.stringify({ note: safeTrim(note).slice(0, 2000) }),
     });
-    const j = (await r.json()) as { ok?: boolean; error?: string; hint?: string };
-    if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
-    if (j && typeof (j as any).error === "string") throw new Error(String((j as any).error));
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    if (!r.ok) throw new Error(apiErrorCode(r.status, j, "action_failed"));
+    if (j && typeof j.error === "string") throw new Error(j.error);
   };
 
   const kpis = useMemo(() => {
@@ -595,13 +687,21 @@ export function AdminOpsConsolePage() {
           const name = safeTrim((row as any).store_name);
           return name
             ? t("admin_ops_console_group_store_named", { name })
-            : t("admin_ops_console_group_store_id", { id: g.slice(0, 8) || "—" });
+            : ko
+              ? "매장 (이름 없음)"
+              : t("admin_ops_console_group_store_id", { id: g.slice(0, 8) || "—" });
         }
         if (groupMode === "rider") {
           const name = safeTrim((row as any).rider_name);
           return name
             ? t("admin_ops_console_group_rider_named", { name })
-            : t("admin_ops_console_group_rider_id", { id: g.slice(0, 8) || "—" });
+            : g === "unknown_rider"
+              ? ko
+                ? "라이더 미배정"
+                : "No rider"
+              : ko
+                ? "라이더 (이름 없음)"
+                : t("admin_ops_console_group_rider_id", { id: g.slice(0, 8) || "—" });
         }
         return t("admin_ops_console_group_region_named", { region: g });
       })();
@@ -618,7 +718,7 @@ export function AdminOpsConsolePage() {
       return a.key.localeCompare(b.key);
     });
     return list;
-  }, [smartRows, groupMode, t, language]);
+  }, [smartRows, groupMode, t, ko]);
 
   const toggleCollapsed = (k: string) => setCollapsed((m) => ({ ...m, [k]: !(m[k] === true) }));
 
@@ -660,25 +760,25 @@ export function AdminOpsConsolePage() {
         <div className="px-4 py-3 flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <AdminPageHeader
-              titleKey="admin_ops_console_page_title"
+              title={ko ? "운영 콘솔" : "Ops console"}
               titleClassName="text-lg font-semibold text-sam-fg truncate !mb-0"
             />
             <div className="text-xs text-sam-muted truncate -mt-1">
-              {t("admin_ops_console_subtitle_refresh")} ·{" "}
+              {ko ? "15초마다 자동 새로고침" : t("admin_ops_console_subtitle_refresh")} ·{" "}
               <Link href="/admin/delivery-operations" className="underline">
-                delivery-operations
+                {ko ? "배달 운영 현황" : "Delivery operations"}
               </Link>{" "}
               ·{" "}
               <Link href="/admin/delivery-alerts" className="underline">
-                delivery-alerts
+                {ko ? "배달 경고" : "Delivery alerts"}
               </Link>{" "}
               ·{" "}
               <Link href="/admin/delivery-auto-actions" className="underline">
-                auto-actions
+                {ko ? "자동 조치 승인" : "Auto actions"}
               </Link>{" "}
               ·{" "}
               <Link href="/admin/runtime-health" className="underline">
-                runtime-health
+                {ko ? "런타임 상태" : "Runtime health"}
               </Link>
             </div>
           </div>
@@ -692,21 +792,22 @@ export function AdminOpsConsolePage() {
         {err ? (
           <div className={`${Sam.card.base} ${Sam.card.pad} border border-red-300`}>
             <div className="font-medium text-red-700">{t("admin_ops_console_err_title")}</div>
-            <div className="mt-2 text-sm text-red-700 break-all">{err}</div>
-            {summary?.hint ? <div className="mt-2 text-xs text-sam-muted">{summary.hint}</div> : null}
+            <div className="mt-2 text-sm text-red-700 break-all">{adminOperatorErrorMessage(err, ko)}</div>
+            {summary?.hint ? <AdminTechDetails ko={ko}>{summary.hint}</AdminTechDetails> : null}
           </div>
         ) : null}
 
         {runtimeWarnings.length ? (
           <div className={`${Sam.card.base} ${Sam.card.pad} border border-amber-300`}>
-            <div className="font-medium text-amber-800">{t("admin_ops_console_runtime_warning_title")}</div>
+            <div className="font-medium text-amber-800">
+              {ko ? "운영 알림 (설정 불일치)" : t("admin_ops_console_runtime_warning_title")}
+            </div>
             <ul className="mt-2 space-y-1 text-sm text-amber-900">
               {runtimeWarnings.slice(0, 6).map((w) => (
-                <li key={w.code}>
-                  <span className="font-mono text-xs">{w.code}</span> — {w.message}
-                </li>
+                <li key={w.code}>{w.message}</li>
               ))}
             </ul>
+            <AdminTechDetails ko={ko}>{runtimeWarnings.slice(0, 6).map((w) => w.code).join(", ")}</AdminTechDetails>
           </div>
         ) : null}
 
@@ -736,7 +837,7 @@ export function AdminOpsConsolePage() {
             <div className="text-lg font-semibold text-sam-fg">{fmtInt(kpis.pending_approvals)}</div>
           </div>
           <div className={`${Sam.card.base} ${Sam.card.pad}`}>
-            <div className="text-xs text-sam-muted">{t("admin_ops_console_kpi_held_settlements")}</div>
+            <div className="text-xs text-sam-muted">{ko ? "보류 정산(이전 방식)" : t("admin_ops_console_kpi_held_settlements")}</div>
             <div className="text-lg font-semibold text-sam-fg">{fmtInt(kpis.held_settlements)}</div>
           </div>
           <div className={`${Sam.card.base} ${Sam.card.pad}`}>
@@ -762,7 +863,7 @@ export function AdminOpsConsolePage() {
                 key={b.action}
                 className={Sam.btn.secondary}
                 disabled={busy || !!actionBusyKey || !!modal}
-                onClick={() => void runRecovery(b.action)}
+                onClick={() => void runRecovery(b.action, t(b.labelKey))}
                 type="button"
               >
                 {t(b.labelKey)}
@@ -848,7 +949,7 @@ export function AdminOpsConsolePage() {
                     (autoActions ?? []).map((a) => {
                       const aid = safeTrim(a.id);
                       const oid = safeTrim(a.order_id);
-                      const orderNo = safeTrim(a.order_no) || (oid ? oid.slice(0, 8) : "—");
+                      const orderNo = safeTrim(a.order_no) || (oid ? (ko ? "주문 상세" : "Order detail") : "—");
                       const st = safeTrim(a.action_status) || "—";
                       const ru = safeTrim(a.rule_name) || safeTrim(a.action_type) || "—";
                       const msg = safeTrim(a.result_message);
@@ -970,7 +1071,7 @@ export function AdminOpsConsolePage() {
 
                     const bodyRows = g.rows.slice(0, 40).map(({ row, pr }, idx) => {
                       const oid = rowOrderId(row);
-                      const orderNo = rowOrderNo(row) || (oid ? oid.slice(0, 8) : `row_${idx}`);
+                      const orderNo = rowOrderNo(row) || (ko ? "주문번호 없음" : "No order no.");
                       const storeName = rowStoreName(row) || "—";
                       const st = rowStatus(row) || "—";
                       const eventId = rowEventId(row);
@@ -1007,7 +1108,7 @@ export function AdminOpsConsolePage() {
                                     onClick={() => setModal({ kind: "alert_ack", eventId, orderId: oid || undefined, note: "" })}
                                     type="button"
                                   >
-                                    {t("admin_ops_console_btn_ack")}
+                                    {ko ? "확인 처리" : t("admin_ops_console_btn_ack")}
                                   </button>
                                   <button
                                     className={Sam.btn.secondary}
@@ -1015,7 +1116,7 @@ export function AdminOpsConsolePage() {
                                     onClick={() => setModal({ kind: "alert_resolve", eventId, orderId: oid || undefined, note: "" })}
                                     type="button"
                                   >
-                                    {t("admin_ops_console_btn_resolve")}
+                                    {ko ? "해결 처리" : t("admin_ops_console_btn_resolve")}
                                   </button>
                                 </>
                               ) : null}
@@ -1024,10 +1125,18 @@ export function AdminOpsConsolePage() {
                                 <button
                                   className={Sam.btn.secondary}
                                   disabled={!!actionBusyKey || !!modal}
-                                  onClick={() => setModal({ kind: "order_attention", orderId: oid, attention: true, adminNote: "" })}
+                                  onClick={() =>
+                                    setModal({
+                                      kind: "order_attention",
+                                      orderId: oid,
+                                      attention: true,
+                                      adminNote: "",
+                                      prev: { state: "loading" },
+                                    })
+                                  }
                                   type="button"
                                 >
-                                  {t("admin_ops_console_btn_attention")}
+                                  {ko ? "주의 표시" : t("admin_ops_console_btn_attention")}
                                 </button>
                               ) : null}
 
@@ -1040,7 +1149,7 @@ export function AdminOpsConsolePage() {
                                     onClick={() => setModal({ kind: "rider_release", orderId: oid, failureReason: "" })}
                                     type="button"
                                   >
-                                    {t("admin_ops_console_btn_release")}
+                                    {ko ? "배정 해제" : t("admin_ops_console_btn_release")}
                                   </button>
                                   <button
                                     className={Sam.btn.primary}
@@ -1053,12 +1162,13 @@ export function AdminOpsConsolePage() {
                                         selectedRiderId: "",
                                         search: "",
                                         allowOffline: false,
-                                        adminNote: riderId ? `prev_rider:${riderId}` : "",
+                                        adminNote: "",
+                                        prev: { state: "loading" },
                                       })
                                     }
                                     type="button"
                                   >
-                                    {t("admin_ops_console_btn_reassign")}
+                                    {ko ? "라이더 재배정" : t("admin_ops_console_btn_reassign")}
                                   </button>
                                 </>
                               ) : null}
@@ -1077,14 +1187,9 @@ export function AdminOpsConsolePage() {
                           <td className="px-3 py-2">
                             <div className="flex flex-wrap gap-2">
                               {oid ? (
-                                <>
-                                  <Link className={Sam.btn.secondary} href={`/admin/stores/orders/${encodeURIComponent(oid)}`}>
-                                    {t("admin_ops_console_link_order")}
-                                  </Link>
-                                  <Link className={Sam.btn.secondary} href={`/admin/stores/orders/${encodeURIComponent(oid)}`}>
-                                    {t("admin_ops_console_link_store_order")}
-                                  </Link>
-                                </>
+                                <Link className={Sam.btn.secondary} href={`/admin/stores/orders/${encodeURIComponent(oid)}`}>
+                                  {ko ? "주문 상세" : "Order detail"}
+                                </Link>
                               ) : null}
                               {settlementId ? (
                                 <Link className={Sam.btn.secondary} href={`/admin/store-settlements`}>
@@ -1112,7 +1217,7 @@ export function AdminOpsConsolePage() {
 
       {modal ? (
         modal.kind === "alert_ack" ? (
-          <ModalShell titleKey="admin_ops_console_modal_alert_ack_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_alert_ack_title" title={ko ? "경고 확인 처리" : "Acknowledge alert"} busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <textarea
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
               placeholder={t("admin_ops_console_ph_note_optional")}
@@ -1141,7 +1246,7 @@ export function AdminOpsConsolePage() {
             </div>
           </ModalShell>
         ) : modal.kind === "alert_resolve" ? (
-          <ModalShell titleKey="admin_ops_console_modal_alert_resolve_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_alert_resolve_title" title={ko ? "경고 해결 처리" : "Resolve alert"} busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <textarea
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
               placeholder={t("admin_ops_console_ph_resolve_note")}
@@ -1170,7 +1275,7 @@ export function AdminOpsConsolePage() {
             </div>
           </ModalShell>
         ) : modal.kind === "auto_approve" ? (
-          <ModalShell titleKey="admin_ops_console_modal_auto_approve_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_auto_approve_title" title={ko ? "자동 조치 승인" : "Approve auto action"} busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <textarea
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
               placeholder={t("admin_ops_console_ph_approve_note")}
@@ -1199,7 +1304,7 @@ export function AdminOpsConsolePage() {
             </div>
           </ModalShell>
         ) : modal.kind === "auto_reject" ? (
-          <ModalShell titleKey="admin_ops_console_modal_auto_reject_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_auto_reject_title" title={ko ? "자동 조치 거절" : "Reject auto action"} busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <textarea
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
               placeholder={t("admin_ops_console_ph_reject_note")}
@@ -1228,10 +1333,11 @@ export function AdminOpsConsolePage() {
             </div>
           </ModalShell>
         ) : modal.kind === "order_attention" ? (
-          <ModalShell titleKey="admin_ops_console_modal_order_attention_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_order_attention_title" title={ko ? "주문 주의 표시" : "Mark order for attention"} busy={!!actionBusyKey} onClose={() => setModal(null)}>
+            <PrevAdminNote ko={ko} prev={modal.prev} />
             <textarea
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              placeholder={t("admin_ops_console_ph_admin_note")}
+              className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
+              placeholder={ko ? "추가할 관리자 메모 (선택) — 기존 메모 뒤에 덧붙습니다" : "Note to add (optional) — appended to the existing note"}
               value={modal.adminNote}
               onChange={(e) => setModal({ ...modal, adminNote: e.target.value })}
               rows={4}
@@ -1242,22 +1348,25 @@ export function AdminOpsConsolePage() {
               </button>
               <button
                 className={Sam.btn.primary}
-                disabled={!!actionBusyKey}
+                disabled={!!actionBusyKey || (safeTrim(modal.adminNote) !== "" && modal.prev.state !== "ready")}
                 onClick={() =>
                   void execAction(`attention:${modal.orderId}`, async () => {
-                    await patchOrderAttention(modal.orderId, modal.attention, modal.adminNote);
+                    const added = safeTrim(modal.adminNote);
+                    const note =
+                      added && modal.prev.state === "ready" ? appendAdminNote(modal.prev.note, added) : undefined;
+                    await patchOrderAttention(modal.orderId, modal.attention, note);
                     setModal(null);
                     await load();
                   })
                 }
                 type="button"
               >
-                {t("admin_ops_console_btn_apply")}
+                {ko ? "주의 표시" : t("admin_ops_console_btn_apply")}
               </button>
             </div>
           </ModalShell>
         ) : modal.kind === "rider_release" ? (
-          <ModalShell titleKey="admin_ops_console_modal_rider_release_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_rider_release_title" title={ko ? "라이더 배정 해제" : "Release rider"} busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <input
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
               placeholder={t("admin_ops_console_ph_failure_reason")}
@@ -1283,16 +1392,21 @@ export function AdminOpsConsolePage() {
                 }
                 type="button"
               >
-                {t("admin_ops_console_btn_release")}
+                {ko ? "배정 해제" : t("admin_ops_console_btn_release")}
               </button>
             </div>
           </ModalShell>
         ) : (
-          <ModalShell titleKey="admin_ops_console_modal_rider_reassign_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_rider_reassign_title" title={ko ? "라이더 재배정" : "Reassign rider"} busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <div className="space-y-3">
               <div className="text-xs text-sam-muted">
                 {t("admin_ops_console_current_rider")}{" "}
-                <span className="font-mono text-sam-fg">{modal.currentRiderId ? modal.currentRiderId.slice(0, 8) : "—"}</span>
+                <span className="text-sam-fg">
+                  {modal.currentRiderId
+                    ? (riderOptions?.find((x) => x.id === modal.currentRiderId)?.display_name ?? (ko ? "배정됨" : "Assigned"))
+                    : "—"}
+                </span>
+                {modal.currentRiderId ? <AdminTechDetails ko={ko}>rider_id: {modal.currentRiderId}</AdminTechDetails> : null}
               </div>
 
               <input
@@ -1313,7 +1427,7 @@ export function AdminOpsConsolePage() {
 
               {riderOptionsErr ? (
                 <div className="text-sm text-red-700">
-                  {t("admin_ops_console_rider_load_failed", { error: riderOptionsErr })}
+                  {t("admin_ops_console_rider_load_failed", { error: adminOperatorErrorMessage(riderOptionsErr, ko) })}
                 </div>
               ) : riderOptions == null ? (
                 <div className="text-sm text-sam-muted">{t("admin_ops_console_rider_loading")}</div>
@@ -1340,7 +1454,7 @@ export function AdminOpsConsolePage() {
                     .map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.is_online ? t("admin_ops_console_rider_option_online") : t("admin_ops_console_rider_option_offline")}
-                        {r.display_name} · {r.id.slice(0, 8)}
+                        {r.display_name}
                       </option>
                     ))}
                 </select>
@@ -1356,9 +1470,10 @@ export function AdminOpsConsolePage() {
                 ) : null
               ) : null}
 
+              <PrevAdminNote ko={ko} prev={modal.prev} />
               <textarea
                 className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-                placeholder={t("admin_ops_console_ph_admin_note_short")}
+                placeholder={ko ? "추가할 배달 메모 (선택) — 기존 메모 뒤에 덧붙습니다" : "Delivery note to add (optional) — appended"}
                 value={modal.adminNote}
                 onChange={(e) => setModal({ ...modal, adminNote: e.target.value })}
                 rows={3}
@@ -1373,14 +1488,19 @@ export function AdminOpsConsolePage() {
                 disabled={
                   !!actionBusyKey ||
                   safeTrim(modal.selectedRiderId).length === 0 ||
+                  (safeTrim(modal.adminNote) !== "" && modal.prev.state !== "ready") ||
                   (modal.currentRiderId != null && modal.selectedRiderId === modal.currentRiderId)
                 }
                 onClick={() =>
                   void execAction(`reassign:${modal.orderId}`, async () => {
+                    const added = safeTrim(modal.adminNote);
                     await patchAdminDelivery(modal.orderId, {
                       reassign_rider_id: safeTrim(modal.selectedRiderId),
                       allow_offline_assign: modal.allowOffline,
-                      admin_note: safeTrim(modal.adminNote) || null,
+                      // 메모를 입력하지 않으면 admin_note 를 보내지 않아 기존 메모를 지우지 않는다.
+                      ...(added && modal.prev.state === "ready"
+                        ? { admin_note: appendAdminNote(modal.prev.note, added) }
+                        : {}),
                     });
                     setModal(null);
                     await load();
@@ -1388,7 +1508,7 @@ export function AdminOpsConsolePage() {
                 }
                 type="button"
               >
-                {t("admin_ops_console_btn_reassign")}
+                {ko ? "라이더 재배정" : t("admin_ops_console_btn_reassign")}
               </button>
             </div>
           </ModalShell>

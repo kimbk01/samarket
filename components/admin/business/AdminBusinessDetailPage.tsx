@@ -1,9 +1,8 @@
 "use client";
 
-import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { BusinessProfileLog, BusinessProfileLogActionType } from "@/lib/types/business";
 import type {
   BusinessCcDeliverySnapshot,
   BusinessCcFeeSnapshot,
@@ -18,9 +17,22 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { AdminStoreReviewPanel } from "@/components/admin/stores/AdminStoreReviewPanel";
+import {
+  ADMIN_STORE_ACTION_COPY,
+  AdminStoreReviewPanel,
+  adminStoreActionSuccessMessage,
+} from "@/components/admin/stores/AdminStoreReviewPanel";
 import { AdminStoreReviewTheme } from "@/components/admin/stores/admin-store-review-ui";
-import { AdminBusinessLogList } from "./AdminBusinessLogList";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
+import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import {
   AdminBusinessCcDeliveryCard,
   AdminBusinessCcFeeCard,
@@ -29,6 +41,7 @@ import {
   AdminBusinessCcSummary,
 } from "./AdminBusinessCcPanels";
 import {
+  AdminBusinessCcBusinessHoursEditor,
   AdminBusinessCcContactEditor,
   AdminBusinessCcDeliveryOverrideEditor,
   AdminBusinessCcFeeOverrideEditor,
@@ -42,26 +55,11 @@ import {
   AdminBusinessOpsQuickActions,
   AdminBusinessOpsRiskPanel,
 } from "./AdminBusinessOpsOverview";
-import { businessCcPointsHref } from "@/lib/admin-business/business-control-center-links";
-
-const SENSITIVE_ACTIONS = new Set([
-  "approve_store",
-  "reject_store",
-  "request_revision",
-  "suspend_store",
-  "resume_store",
-  "approve_sales",
-  "reject_sales",
-  "suspend_sales",
-  "set_store_visible",
-  "set_owner_identity_editable",
-  "set_store_name",
-  "set_store_taxonomy",
-  "set_store_contact",
-  "set_store_location",
-  "set_business_hours",
-  "set_delivery_flags",
-]);
+import {
+  businessCcAuditHref,
+  businessCcPointsHref,
+  businessCcReportsHref,
+} from "@/lib/admin-business/business-control-center-links";
 
 type TabId =
   | "overview"
@@ -92,14 +90,43 @@ const TABS: { id: TabId; labelKey: MessageKey }[] = [
   { id: "history", labelKey: "admin_biz_ops_nav_history" },
 ];
 
-function mapAuditAction(action: string): BusinessProfileLogActionType {
-  const a = action.toLowerCase();
-  if (a.includes("approve")) return "approve";
-  if (a.includes("reject")) return "reject";
-  if (a.includes("suspend") || a.includes("pause")) return "pause";
-  if (a.includes("resume")) return "resume";
-  if (a.includes("apply")) return "apply";
-  return "update_profile";
+/** DEF-19 — 작업 기록 이름 (audit action `store.<action>` → 운영자 문구). */
+const AUDIT_ACTION_LABELS: Record<string, [string, string]> = {
+  start_review: ["심사 시작", "Review started"],
+  mark_under_review: ["심사 시작", "Review started"],
+  approve_store: ["입점 승인", "Store approved"],
+  reject_store: ["입점 거절", "Store rejected"],
+  request_revision: ["보완 요청", "Changes requested"],
+  suspend_store: ["운영 중지", "Store suspended"],
+  resume_store: ["운영 재개", "Store resumed"],
+  approve_sales: ["판매 승인", "Sales approved"],
+  reject_sales: ["판매 거절", "Sales rejected"],
+  suspend_sales: ["판매 중지", "Sales suspended"],
+  set_store_visible: ["노출 변경", "Visibility changed"],
+  set_owner_identity_editable: ["매장명 수정 권한 변경", "Name edit permission changed"],
+  set_admin_memo: ["관리자 메모 저장", "Admin memo saved"],
+  set_store_name: ["매장명 변경", "Store name changed"],
+  set_store_taxonomy: ["업종 변경", "Category changed"],
+  set_store_contact: ["연락처 변경", "Contact changed"],
+  set_store_location: ["위치 변경", "Location changed"],
+  set_business_hours: ["영업시간 변경", "Business hours changed"],
+  set_delivery_flags: ["영업·배달 설정 변경", "Open/delivery settings changed"],
+  set_delivery_radius: ["배달 반경 변경", "Delivery radius changed"],
+};
+
+export function mapAuditAction(action: string, ko: boolean): string {
+  const key = action.trim().replace(/^store\./, "");
+  const hit = AUDIT_ACTION_LABELS[key];
+  if (hit) return ko ? hit[0] : hit[1];
+  return ko ? "매장 정보 변경" : "Store updated";
+}
+
+type CcAuditLog = { id: string; actionType: string; adminId: string; note: string; createdAt: string };
+
+function safeErrorCode(raw: unknown, status: number): string {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (/^[a-z][a-z0-9_]*$/.test(s)) return s;
+  return status === 403 ? "forbidden" : "load_failed";
 }
 
 function toReviewRow(
@@ -176,8 +203,9 @@ type CcPayload = {
   fee: BusinessCcFeeSnapshot;
   delivery: BusinessCcDeliverySnapshot;
   ops: BusinessCcOpsOverview;
-  logs: BusinessProfileLog[];
+  logs: CcAuditLog[];
   adminMemo: string;
+  businessHoursJson: unknown;
 };
 
 const emptyOps: BusinessCcOpsOverview = {
@@ -201,9 +229,11 @@ const emptyOps: BusinessCcOpsOverview = {
 };
 
 export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPageProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const router = useRouter();
   const searchParams = useSearchParams();
+  const backHref = readAdminReturnToFromSearch(searchParams) ?? "/admin/business";
   const [refresh, setRefresh] = useState(0);
   const [tab, setTabState] = useState<TabId>(() => {
     const raw = searchParams.get("tab")?.trim();
@@ -224,23 +254,28 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
   const [memoInput, setMemoInput] = useState("");
   const [payload, setPayload] = useState<CcPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [actionResult, setActionResult] = useState<
+    { ok: true; message: string } | { ok: false; code: string } | null
+  >(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const refreshDetail = useCallback(() => setRefresh((r) => r + 1), []);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setPayload(null);
-    setMemoInput("");
+    setLoadError(null);
     void fetch(`/api/admin/stores/${encodeURIComponent(profileId)}`, {
       cache: "no-store",
       credentials: "include",
     })
-      .then((r) => r.json())
+      .then(async (r) => ({ status: r.status, j: ((await r.json().catch(() => null)) ?? {}) as Record<string, unknown> }))
       .then(
-        (j: {
+        ({ status, j: raw }) => {
+          const j = raw as {
           ok?: boolean;
+          error?: string;
           store?: Record<string, unknown>;
           owner?: BusinessCcOwner;
           ownerNickname?: string;
@@ -257,10 +292,11 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             note: string;
             createdAt: string;
           }>;
-        }) => {
+          };
           if (cancelled) return;
           if (!j.ok || !j.store) {
             setPayload(null);
+            setLoadError({ code: safeErrorCode(j.error, status), status });
             return;
           }
           const owner: BusinessCcOwner = j.owner ?? {
@@ -343,21 +379,17 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
               storeOverrideMaxKm: null,
             },
             ops: j.ops ?? emptyOps,
-            logs: (j.logs ?? []).map((log) => ({
-              id: log.id,
-              businessProfileId: profileId,
-              actionType: mapAuditAction(log.actionType),
-              adminId: log.adminId,
-              adminNickname: log.adminId.slice(0, 8) || "—",
-              note: log.note,
-              createdAt: log.createdAt,
-            })),
+            logs: j.logs ?? [],
             adminMemo: memo,
+            businessHoursJson: j.store.business_hours_json ?? null,
           });
         }
       )
       .catch(() => {
-        if (!cancelled) setPayload(null);
+        if (!cancelled) {
+          setPayload(null);
+          setLoadError({ code: "network_error" });
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -367,6 +399,10 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
     };
   }, [profileId, refresh]);
 
+  /**
+   * PATCH /api/admin/stores/[id] — 확인 팝업은 호출부(심사 패널·빠른 조치)에서 끝낸 뒤 들어온다.
+   * 결과는 화면 상단 배너로 표시 (원시 오류 코드 노출 금지).
+   */
   const runStoreAction = async (
     action: string,
     body?: { reason?: string; enabled?: boolean; store_name?: string } & Record<
@@ -374,15 +410,8 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
       unknown
     >
   ): Promise<boolean> => {
-    if (SENSITIVE_ACTIONS.has(action)) {
-      const ok = await dibayConfirm({
-        title: t("admin_biz_action_confirm_title"),
-        confirmLabel: t("admin_biz_yes"),
-        cancelLabel: t("admin_biz_no"),
-      });
-      if (!ok) return false;
-    }
     setActionBusy(true);
+    setActionResult(null);
     try {
       const res = await fetch(`/api/admin/stores/${encodeURIComponent(profileId)}`, {
         method: "PATCH",
@@ -390,50 +419,146 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...body }),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = ((await res.json().catch(() => null)) ?? {}) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+        setActionResult({ ok: false, code: j.error ?? (res.status === 403 ? "forbidden" : "action_failed") });
         return false;
       }
+      setActionResult({
+        ok: true,
+        message:
+          action === "set_delivery_flags"
+            ? ko
+              ? "영업 설정을 저장했습니다."
+              : "Open settings saved."
+            : adminStoreActionSuccessMessage(
+                action,
+                ko,
+                typeof body?.enabled === "boolean" ? body.enabled : undefined
+              ),
+      });
       refreshDetail();
       return true;
+    } catch {
+      setActionResult({ ok: false, code: "network_error" });
+      return false;
     } finally {
       setActionBusy(false);
     }
   };
 
-  const handleSaveMemo = async () => {
-    const res = await fetch(`/api/admin/stores/${encodeURIComponent(profileId)}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "set_admin_memo", memo: memoInput }),
-    });
-    const j = (await res.json()) as { ok?: boolean; error?: string };
-    if (!res.ok || !j.ok) {
-      await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+  /** 빠른 조치 — 조치별 확인 문구 (L1 영업 스위치 · L2 판매 중지). */
+  const runQuickAction = async (kind: "temp_close" | "resume_open" | "suspend_sales") => {
+    if (!payload) return;
+    const d = payload.delivery;
+    if (kind === "suspend_sales") {
+      const c = ADMIN_STORE_ACTION_COPY.suspend_sales;
+      const confirmed = await confirmAdminAction({
+        level: "L2",
+        ko,
+        title: ko ? c.titleKo : c.titleEn,
+        description: ko ? c.descKo : c.descEn,
+        confirmLabel: ko ? c.ko : c.en,
+        destructive: true,
+      });
+      if (!confirmed.ok) return;
+      await runStoreAction("suspend_sales", { reason: confirmed.reason ?? undefined });
       return;
     }
-    refreshDetail();
+    const closing = kind === "temp_close";
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: closing
+        ? ko
+          ? "매장을 임시 휴업으로 바꿀까요?"
+          : "Temporarily close this store?"
+        : ko
+          ? "매장 영업을 다시 시작할까요?"
+          : "Reopen this store?",
+      description: closing
+        ? ko
+          ? "새 주문을 받지 않습니다. 사장님 앱의 영업 스위치도 꺼집니다."
+          : "New orders stop. The owner's open switch is turned off."
+        : undefined,
+      confirmLabel: closing ? (ko ? "임시 휴업" : "Close") : ko ? "영업 재개" : "Reopen",
+      destructive: closing,
+    });
+    if (!confirmed.ok) return;
+    await runStoreAction("set_delivery_flags", {
+      is_open: !closing,
+      delivery_available: d.deliveryAvailable ?? undefined,
+      pickup_available: d.pickupAvailable ?? undefined,
+    });
   };
 
-  if (loading) {
-    return <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>;
+  const handleSaveMemo = async () => {
+    setActionResult(null);
+    try {
+      const res = await fetch(`/api/admin/stores/${encodeURIComponent(profileId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set_admin_memo", memo: memoInput }),
+      });
+      const j = ((await res.json().catch(() => null)) ?? {}) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        setActionResult({ ok: false, code: j.error ?? "update_failed" });
+        return;
+      }
+      setActionResult({ ok: true, message: ko ? "관리자 메모를 저장했습니다." : "Admin memo saved." });
+      refreshDetail();
+    } catch {
+      setActionResult({ ok: false, code: "network_error" });
+    }
+  };
+
+  if (loading && !payload) {
+    return (
+      <div className="space-y-4">
+        <AdminPageHeader titleKey="admin_biz_page_cc" backHref={backHref} />
+        <AdminLoadingState ko={ko} />
+      </div>
+    );
   }
 
   if (!payload) {
+    const notFound = loadError?.status === 404 || loadError?.code === "store_not_found";
     return (
-      <div className="py-8 text-center sam-text-body text-sam-muted">
-        {t("admin_biz_not_found")}
+      <div className="space-y-4">
+        <AdminPageHeader titleKey="admin_biz_page_cc" backHref={backHref} />
+        {notFound ? (
+          <AdminEmptyState
+            ko={ko}
+            message={ko ? "매장을 찾을 수 없습니다. 삭제되었거나 주소가 잘못되었습니다." : "Store not found. It may be deleted or the link is wrong."}
+            action={
+              <Link href={backHref} className="text-signature hover:underline">
+                {ko ? "매장 목록으로" : "Back to stores"}
+              </Link>
+            }
+          />
+        ) : (
+          <AdminErrorState
+            ko={ko}
+            code={loadError?.code ?? "load_failed"}
+            httpStatus={loadError?.status}
+            onRetry={refreshDetail}
+          />
+        )}
       </div>
     );
   }
 
   const { store, owner, sales, stats, kpi, fee, delivery, ops, logs } = payload;
+  const salesStatus = sales?.sales_status?.trim() || (sales ? (sales.allowed_to_sell ? "approved" : "pending") : null);
+  const linkBtn =
+    "inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted";
 
   return (
     <div className="space-y-4" key={profileId} data-store-id={profileId}>
-      <AdminPageHeader titleKey="admin_biz_page_cc" backHref="/admin/business" />
+      <AdminPageHeader titleKey="admin_biz_page_cc" backHref={backHref} />
+
+      <AdminResultBanner ko={ko} result={actionResult} onClose={() => setActionResult(null)} />
 
       <AdminBusinessOpsIdentityHeader
         store={store}
@@ -480,22 +605,10 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
                 isOpen={delivery.isOpen}
                 trend={ops.trend7d}
                 onGoHours={() => setTab("hours")}
-                onTempClose={() =>
-                  void runStoreAction("set_delivery_flags", {
-                    is_open: false,
-                    delivery_available: delivery.deliveryAvailable ?? undefined,
-                    pickup_available: delivery.pickupAvailable ?? undefined,
-                  })
-                }
-                onResumeOpen={() =>
-                  void runStoreAction("set_delivery_flags", {
-                    is_open: true,
-                    delivery_available: delivery.deliveryAvailable ?? undefined,
-                    pickup_available: delivery.pickupAvailable ?? undefined,
-                  })
-                }
-                onSalesLimit={() => void runStoreAction("suspend_sales")}
-                pointsHref={businessCcPointsHref(store.store_name || store.slug)}
+                onTempClose={() => void runQuickAction("temp_close")}
+                onResumeOpen={() => void runQuickAction("resume_open")}
+                onSalesLimit={() => void runQuickAction("suspend_sales")}
+                pointsHref={businessCcPointsHref(store.id)}
               />
               <AdminBusinessOpsRiskPanel
                 store={store}
@@ -536,6 +649,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             <AdminStoreReviewTheme>
               <AdminStoreReviewPanel
                 store={store}
+                salesStatus={salesStatus}
                 actionBusy={actionBusy}
                 onRunAction={(action, payloadArgs) => runStoreAction(action, payloadArgs)}
                 onSetOwnerIdentityEditable={(enabled) =>
@@ -576,9 +690,9 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
               <button
                 type="button"
                 onClick={() => void handleSaveMemo()}
-                className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted"
+                className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted"
               >
-                {t("common_save")}
+                {ko ? "저장" : "Save"}
               </button>
             </div>
           </AdminCard>
@@ -586,29 +700,36 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
       ) : null}
 
       {tab === "hours" ? (
-        <AdminCard titleKey="admin_biz_card_delivery">
-          <AdminBusinessCcOpsFlagsEditor
-            storeId={store.id}
-            deliveryAvailable={delivery.deliveryAvailable}
-            pickupAvailable={delivery.pickupAvailable}
-            isOpen={delivery.isOpen}
-            busy={actionBusy}
-            onSaved={refreshDetail}
-          />
-        </AdminCard>
+        <div className="space-y-4">
+          <AdminCard title={ko ? "영업시간" : "Business hours"}>
+            <AdminBusinessCcBusinessHoursEditor
+              storeId={store.id}
+              businessHoursJson={payload.businessHoursJson}
+              busy={actionBusy}
+              onSaved={refreshDetail}
+            />
+          </AdminCard>
+          <AdminCard title={ko ? "영업·배달·포장 설정" : "Open, delivery and pickup"}>
+            <AdminBusinessCcOpsFlagsEditor
+              storeId={store.id}
+              deliveryAvailable={delivery.deliveryAvailable}
+              pickupAvailable={delivery.pickupAvailable}
+              isOpen={delivery.isOpen}
+              busy={actionBusy}
+              onSaved={refreshDetail}
+            />
+          </AdminCard>
+        </div>
       ) : null}
 
       {tab === "delivery" ? (
         <AdminCard titleKey="admin_biz_card_delivery">
           <AdminBusinessCcDeliveryCard delivery={delivery} />
-          <AdminBusinessCcOpsFlagsEditor
-            storeId={store.id}
-            deliveryAvailable={delivery.deliveryAvailable}
-            pickupAvailable={delivery.pickupAvailable}
-            isOpen={delivery.isOpen}
-            busy={actionBusy}
-            onSaved={refreshDetail}
-          />
+          <p className="mt-3 sam-text-helper text-sam-muted">
+            {ko
+              ? "영업·배달·포장 켜기/끄기는 「영업관리」 탭에서 바꿉니다. 이 탭에서는 배달 반경과 서비스 지역을 관리합니다."
+              : "Open/delivery/pickup switches live on the Hours tab. This tab manages radius and service area."}
+          </p>
           <AdminBusinessCcDeliveryOverrideEditor
             storeId={store.id}
             currentMode={delivery.storeOverrideMode}
@@ -631,24 +752,85 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
       ) : null}
 
       {tab === "reports" ? (
-        <AdminCard titleKey="admin_biz_card_ops">
-          <AdminStoreReviewTheme>
-            <AdminStoreReviewPanel
-              store={store}
-              actionBusy={actionBusy}
-              onRunAction={(action, payloadArgs) => runStoreAction(action, payloadArgs)}
-              onSetOwnerIdentityEditable={(enabled) =>
-                void runStoreAction("set_owner_identity_editable", { enabled })
-              }
-              identityActionBusy={actionBusy}
-            />
-          </AdminStoreReviewTheme>
+        <AdminCard title={ko ? "신고 / 제재" : "Reports / sanctions"}>
+          <div className="space-y-3" data-admin-store-reports-tab="1">
+            <dl className="grid gap-2 sam-text-body sm:grid-cols-3">
+              <div>
+                <dt className="sam-text-helper text-sam-muted">{ko ? "처리 대기 신고" : "Open reports"}</dt>
+                <dd className={kpi.openReportCount > 0 ? "font-semibold text-red-700" : "font-semibold"}>
+                  {ko ? `${kpi.openReportCount}건` : kpi.openReportCount}
+                </dd>
+              </div>
+              <div>
+                <dt className="sam-text-helper text-sam-muted">{ko ? "전체 신고" : "All reports"}</dt>
+                <dd className="font-semibold">{ko ? `${ops.reportTotalCount}건` : ops.reportTotalCount}</dd>
+              </div>
+              <div>
+                <dt className="sam-text-helper text-sam-muted">{ko ? "현재 상태" : "Current status"}</dt>
+                <dd className="font-semibold">
+                  {store.approval_status === "suspended"
+                    ? ko
+                      ? "운영 중지"
+                      : "Suspended"
+                    : salesStatus === "suspended"
+                      ? ko
+                        ? "판매 중지"
+                        : "Sales suspended"
+                      : ko
+                        ? "제재 없음"
+                        : "No sanction"}
+                </dd>
+              </div>
+            </dl>
+            {store.suspended_reason?.trim() ? (
+              <p className="sam-text-helper text-sam-muted">
+                {ko ? "중지 사유" : "Suspension reason"}: {store.suspended_reason.trim()}
+              </p>
+            ) : null}
+            <p className="sam-text-helper text-sam-muted">
+              {ko
+                ? "신고 처리(조치 완료·기각)는 매장 신고 화면에서 합니다. 운영 중지·판매 중지는 「기본정보」 탭의 입점/운영 조치에서 사유와 함께 처리합니다."
+                : "Handle reports on the Store reports screen. Suspend store/sales from the Basic tab with a reason."}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link href={businessCcReportsHref(store.id)} className={linkBtn}>
+                {ko ? "이 매장 신고 보기" : "View this store's reports"}
+              </Link>
+              <button type="button" className={linkBtn} onClick={() => setTab("basic")}>
+                {ko ? "운영 조치로 이동" : "Go to store actions"}
+              </button>
+            </div>
+          </div>
         </AdminCard>
       ) : null}
 
       {tab === "history" ? (
-        <AdminCard titleKey="admin_biz_card_history">
-          <AdminBusinessLogList logs={logs} />
+        <AdminCard title={ko ? "작업 기록" : "Activity log"}>
+          {logs.length === 0 ? (
+            <AdminEmptyState ko={ko} message={ko ? "작업 기록이 없습니다." : "No activity yet."} />
+          ) : (
+            <ul className="space-y-2" data-admin-store-history="1">
+              {logs.map((log) => (
+                <li key={log.id} className="border-b border-sam-border-soft pb-2 sam-text-body-secondary last:border-0">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="font-medium text-sam-fg">{mapAuditAction(log.actionType, ko)}</span>
+                    <span className="text-sam-muted">{ko ? "관리자" : "Admin"}</span>
+                    <span className="ml-auto text-sam-meta">{formatAdminDateTime(log.createdAt, language)}</span>
+                  </div>
+                  <AdminTechDetails ko={ko}>
+                    <div>action: {log.actionType}</div>
+                    <div>admin_id: {log.adminId || "—"}</div>
+                    {log.note ? <div>{log.note}</div> : null}
+                  </AdminTechDetails>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-3">
+            <Link href={businessCcAuditHref(store.id)} className={linkBtn}>
+              {ko ? "전체 작업 기록" : "Full activity log"}
+            </Link>
+          </div>
         </AdminCard>
       ) : null}
 
@@ -664,6 +846,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             storeName={store.store_name}
             slug={store.slug}
             stats={stats}
+            section={tab}
           />
         </AdminCard>
       ) : null}

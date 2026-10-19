@@ -13,6 +13,14 @@ import { fetchAdminDeliveryOperationsDeduped } from "@/lib/admin/fetch-admin-del
 import { formatMoneyPhp } from "@/lib/utils/format";
 import type { DeliveryOperationRecoveryAction } from "@/lib/admin/delivery-operation-recovery-actions";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+
+type RecoveryResult = { ok: true; raw: string | null } | { ok: false; code: string };
+
+const HEALTH_NOT_READY_KO = "운영 상태 기능이 아직 준비되지 않았습니다. 시스템 관리자에게 문의하세요.";
+const HEALTH_NOT_READY_EN = "The operations health feature is not ready yet. Contact a system admin.";
 
 type LoadState = "loading" | "ready" | "error";
 type Translate = (key: MessageKey, params?: Record<string, string | number>) => string;
@@ -192,7 +200,7 @@ function QueueRows({
           qKey === "held_settlements" && settlementId
             ? `/admin/store-settlements`
             : orderId
-              ? `/admin/store-orders?order_id=${encodeURIComponent(orderId)}`
+              ? `/admin/stores/orders/${encodeURIComponent(orderId)}`
               : null;
         return (
           <li key={`${orderId || settlementId}-${idx}`} className="rounded-ui-rect border border-sam-border/80 bg-sam-surface-muted/40 px-2 py-1.5">
@@ -223,7 +231,8 @@ function QueueRows({
 }
 
 export function DeliveryOperationsDashboardPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const noSignalLabel = t("admin_del_ops_age_no_signal");
 
   const [days, setDays] = useState<number>(14);
@@ -231,7 +240,7 @@ export function DeliveryOperationsDashboardPage() {
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [lastError, setLastError] = useState<string | null>(null);
   const [recoveryBusy, setRecoveryBusy] = useState<DeliveryOperationRecoveryAction | null>(null);
-  const [recoveryNote, setRecoveryNote] = useState<string | null>(null);
+  const [recoveryNote, setRecoveryNote] = useState<RecoveryResult | null>(null);
 
   const load = useCallback(
     (opts?: { showLoading?: boolean }) => {
@@ -247,14 +256,23 @@ export function DeliveryOperationsDashboardPage() {
         }
         setPayload(null);
         setLoadState("error");
+        const rawErr =
+          json && typeof json === "object" && typeof (json as { error?: unknown }).error === "string"
+            ? String((json as { error: string }).error)
+            : "";
+        const code = /^[a-z][a-z0-9_]*$/i.test(rawErr) ? rawErr : "";
         setLastError(
-          status === 503
-            ? t("admin_del_ops_err_stats_fn_missing")
-            : t("admin_del_ops_err_http", { status })
+          status === 403
+            ? adminOperatorErrorMessage(code || "forbidden", ko)
+            : status === 503
+              ? ko
+                ? HEALTH_NOT_READY_KO
+                : HEALTH_NOT_READY_EN
+              : adminOperatorErrorMessage(code || "load_failed", ko)
         );
       });
     },
-    [days, t]
+    [days, ko]
   );
 
   useEffect(() => {
@@ -266,32 +284,57 @@ export function DeliveryOperationsDashboardPage() {
     return () => window.clearInterval(id);
   }, [load]);
 
-  const postRecovery = useCallback((action: DeliveryOperationRecoveryAction) => {
-    setRecoveryBusy(action);
-    setRecoveryNote(null);
-    void fetch("/api/admin/delivery-operations/recovery", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    })
-      .then(async (r) => {
-        const j = await r.json().catch(() => null);
+  const postRecovery = useCallback(
+    async (action: DeliveryOperationRecoveryAction, label: string) => {
+      if (recoveryBusy) return;
+      const c = await confirmAdminAction({
+        level: "L2",
+        ko,
+        title: ko ? `일괄 복구 실행: ${label}` : `Run bulk recovery: ${label}`,
+        description: ko
+          ? "여러 주문·알림에 한 번에 적용됩니다. 실행 후 되돌릴 수 없습니다."
+          : "This applies to many orders/alerts at once and cannot be undone.",
+        confirmLabel: ko ? "복구 실행" : "Run recovery",
+        destructive: true,
+      });
+      if (!c.ok) return;
+      setRecoveryBusy(action);
+      setRecoveryNote(null);
+      try {
+        const r = await fetch("/api/admin/delivery-operations/recovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, reason: c.reason }),
+        });
+        const j = (await r.json().catch(() => null)) as { error?: unknown; result?: unknown } | null;
         if (!r.ok) {
-          setRecoveryNote(
-            j && typeof j === "object" && j != null && "message" in j
-              ? String((j as { message?: unknown }).message)
-              : t("admin_del_ops_fail_status", { status: r.status })
-          );
+          const code =
+            typeof j?.error === "string" && /^[a-z][a-z0-9_]*$/i.test(j.error)
+              ? j.error
+              : r.status === 403
+                ? "forbidden"
+                : "action_failed";
+          setRecoveryNote({ ok: false, code });
           return;
         }
-        setRecoveryNote(typeof j?.result === "string" ? String(j.result) : t("admin_del_ops_ok"));
+        let raw: string | null = null;
+        if (j?.result != null) {
+          try {
+            raw = typeof j.result === "string" ? j.result : JSON.stringify(j.result);
+          } catch {
+            raw = null;
+          }
+        }
+        setRecoveryNote({ ok: true, raw });
         load({ showLoading: false });
-      })
-      .catch(() => {
-        setRecoveryNote(t("common_network_error"));
-      })
-      .finally(() => setRecoveryBusy(null));
-  }, [load, t]);
+      } catch {
+        setRecoveryNote({ ok: false, code: "network_error" });
+      } finally {
+        setRecoveryBusy(null);
+      }
+    },
+    [load, ko, recoveryBusy]
+  );
 
   const loading = loadState === "loading";
 
@@ -378,10 +421,8 @@ export function DeliveryOperationsDashboardPage() {
           className="rounded-ui-rect border border-sam-warning/25 bg-sam-warning-soft px-4 py-3 sam-text-xxs text-sam-warning"
           role="status"
         >
-          {t("admin_del_ops_health_rpc_missing")}{" "}
-          <span className="font-mono text-[10px]">
-            {payload.health_rpc_hint ?? t("admin_del_ops_migration_needed")}
-          </span>
+          {ko ? HEALTH_NOT_READY_KO : HEALTH_NOT_READY_EN}
+          {payload.health_rpc_hint ? <AdminTechDetails ko={ko}>{payload.health_rpc_hint}</AdminTechDetails> : null}
         </div>
       ) : null}
 
@@ -390,8 +431,8 @@ export function DeliveryOperationsDashboardPage() {
           className="rounded-ui-rect border border-sam-warning/25 bg-sam-warning-soft px-4 py-3 sam-text-xxs text-sam-warning"
           role="status"
         >
-          {t("admin_del_ops_health_rpc_error")}{" "}
-          <span className="font-mono text-[10px]">{payload.health_rpc_error}</span>
+          {ko ? HEALTH_NOT_READY_KO : HEALTH_NOT_READY_EN}
+          <AdminTechDetails ko={ko}>{payload.health_rpc_error}</AdminTechDetails>
         </div>
       ) : null}
 
@@ -505,9 +546,21 @@ export function DeliveryOperationsDashboardPage() {
             </summary>
             <p className="mt-2 text-sam-muted">{t("admin_del_ops_recovery_hint")}</p>
             {recoveryNote ? (
-              <p className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface-muted/40 px-2 py-1 font-mono text-[11px] text-sam-fg">
-                {recoveryNote}
-              </p>
+              <div
+                role={recoveryNote.ok ? "status" : "alert"}
+                className={`mt-2 rounded-ui-rect border px-2 py-1 text-[12px] ${
+                  recoveryNote.ok ? "border-sam-border bg-sam-surface-muted/40 text-sam-fg" : "border-red-300 bg-red-50 text-red-900"
+                }`}
+              >
+                {recoveryNote.ok
+                  ? ko
+                    ? "복구 실행을 완료했습니다."
+                    : t("admin_del_ops_ok")
+                  : adminOperatorErrorMessage(recoveryNote.code, ko)}
+                {recoveryNote.ok && recoveryNote.raw ? (
+                  <AdminTechDetails ko={ko}>{recoveryNote.raw}</AdminTechDetails>
+                ) : null}
+              </div>
             ) : null}
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {RECOVERY_BUTTON_KEYS.map((b) => (
@@ -516,7 +569,7 @@ export function DeliveryOperationsDashboardPage() {
                     type="button"
                     className="sam-btn sam-btn--outline sam-btn--sm w-full text-[11px]"
                     disabled={recoveryBusy !== null}
-                    onClick={() => postRecovery(b.action)}
+                    onClick={() => void postRecovery(b.action, t(b.labelKey))}
                   >
                     {recoveryBusy === b.action ? t("admin_del_ops_recovery_running") : t(b.labelKey)}
                   </button>

@@ -18,6 +18,23 @@ import {
 } from "@/lib/stores/admin-store-taxonomy-state";
 import { clearStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
 import { slugifyStoreTaxonomyLoose } from "@/lib/stores/store-taxonomy-slug";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+
+/** 오류 코드만 운영자 문구로 — 원문 메시지·HTTP 상태는 노출하지 않는다. */
+function taxonomyErrText(code: unknown, ko: boolean, fallback: string): string {
+  const c = typeof code === "string" ? code.trim() : "";
+  if (c === "store_subtopics_table_missing") return subtopicsNotReadyText(ko);
+  if (c && /^[a-z][a-z0-9_]*$/i.test(c)) return adminOperatorErrorMessage(c, ko);
+  return fallback;
+}
+
+function subtopicsNotReadyText(ko: boolean): string {
+  return ko
+    ? "3차 업종 기능이 아직 준비되지 않았습니다. 시스템 관리자에게 문의하세요."
+    : "Tier 3 categories are not ready yet. Contact a system admin.";
+}
+
+export type AdminStoreTaxonomyFocus = "category" | "topic" | null;
 
 type TaxonomyKind = "category" | "topic" | "subtopic";
 
@@ -92,9 +109,17 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
   uploadKeyPrefix,
   uploadingKey,
   selectable = true,
+  sectionId,
+  highlighted = false,
+  ko,
   t,
 }: {
   title: string;
+  /** URL focus 스크롤 대상 id */
+  sectionId?: string;
+  /** focus=category|topic 일 때 해당 열 강조 */
+  highlighted?: boolean;
+  ko: boolean;
   rows: T[];
   selectedId: string;
   onSelect: (id: string) => void;
@@ -134,7 +159,13 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
   }, [previewUrl]);
 
   return (
-    <div className="flex min-h-[320px] flex-col rounded-ui-rect border border-sam-border bg-sam-surface">
+    <div
+      id={sectionId}
+      data-taxonomy-focus={highlighted ? "1" : undefined}
+      className={`flex min-h-[320px] scroll-mt-24 flex-col rounded-ui-rect border bg-sam-surface ${
+        highlighted ? "border-sam-primary ring-2 ring-sam-primary/40" : "border-sam-border"
+      }`}
+    >
       <div className="border-b border-sam-border bg-sam-app px-3 py-2">
         <h3 className="sam-text-body font-semibold text-sam-fg">{title}</h3>
       </div>
@@ -265,10 +296,18 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                               const nextActive = !row.is_active;
                               const label = nextActive
                                 ? t("admin_stores_app_taxonomy_confirm_show")
-                                : t("admin_stores_app_taxonomy_confirm_hide");
+                                : ko
+                                  ? "숨김 처리할까요?"
+                                  : "Hide this item?";
                               if (
                                 !(await dibayConfirm({
                                   title: label,
+                                  description: nextActive
+                                    ? undefined
+                                    : ko
+                                      ? "고객 매장 목록(/stores)에서 보이지 않게 됩니다. 삭제되지 않으며 「복구」로 다시 노출할 수 있습니다."
+                                      : "It will be hidden from the store list (/stores). It is not deleted and can be restored.",
+                                  confirmLabel: nextActive ? undefined : ko ? "숨김" : "Hide",
                                   confirmTone: nextActive ? "primary" : "destructive",
                                 }))
                               ) {
@@ -279,7 +318,7 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                           }}
                           className="sam-text-xxs font-semibold text-red-600 underline"
                         >
-                          {row.is_active ? t("common_delete") : t("admin_stores_app_taxonomy_restore")}
+                          {row.is_active ? (ko ? "숨김" : "Hide") : t("admin_stores_app_taxonomy_restore")}
                         </button>
                       </div>
                     </div>
@@ -336,10 +375,14 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
 
 export function AdminStoreTaxonomyManager({
   onMessage,
+  focus = null,
 }: {
   onMessage: (text: string) => void;
+  /** URL `focus=category|topic` — 해당 단계 열로 스크롤·강조 (DEF-38) */
+  focus?: AdminStoreTaxonomyFocus;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [taxonomy, setTaxonomy] = useState<AdminTaxonomyState | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -401,7 +444,13 @@ export function AdminStoreTaxonomyManager({
         };
         if (ac.signal.aborted) return;
         if (!res.ok || !j?.ok || !Array.isArray(j.categories) || !Array.isArray(j.topics)) {
-          setLoadError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+          setLoadError(
+            taxonomyErrText(
+              typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "load_failed",
+              ko,
+              adminOperatorErrorMessage("load_failed", ko)
+            )
+          );
           return;
         }
         const payload: AdminTaxonomyState = {
@@ -412,7 +461,7 @@ export function AdminStoreTaxonomyManager({
         applyServerTaxonomy(payload, j.meta);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
-        setLoadError("network_error");
+        setLoadError(adminOperatorErrorMessage("network_error", ko));
       } finally {
         if (reloadAbortRef.current === ac) reloadAbortRef.current = null;
         reloadInFlightRef.current = false;
@@ -420,13 +469,20 @@ export function AdminStoreTaxonomyManager({
         setRefreshing(false);
       }
     },
-    [applyServerTaxonomy]
+    [applyServerTaxonomy, ko]
   );
 
   useEffect(() => {
     void reloadTaxonomy();
     return () => reloadAbortRef.current?.abort();
   }, [reloadTaxonomy]);
+
+  /** focus 파라미터 — 첫 로드 후 해당 열로 스크롤 */
+  useEffect(() => {
+    if (!focus || initialLoading) return;
+    const el = document.getElementById(`store-taxonomy-tier-${focus}`);
+    if (el && typeof el.scrollIntoView === "function") el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focus, initialLoading]);
 
   const categories = taxonomy?.categories ?? [];
   const topics = taxonomy?.topics ?? [];
@@ -491,7 +547,13 @@ export function AdminStoreTaxonomyManager({
           url?: string;
         };
         if (!res.ok || !j?.ok) {
-          await dibayAlert({ title: j.message ?? j.error ?? t("admin_stores_app_taxonomy_err_upload") });
+          await dibayAlert({
+            title: taxonomyErrText(
+              j.error ?? (res.status === 403 ? "forbidden" : ""),
+              ko,
+              t("admin_stores_app_taxonomy_err_upload")
+            ),
+          });
           return false;
         }
         const url = typeof j.url === "string" ? j.url.trim() : "";
@@ -504,13 +566,13 @@ export function AdminStoreTaxonomyManager({
         }
         return true;
       } catch {
-        await dibayAlert({ title: "network_error" });
+        await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
         return false;
       } finally {
         setImageUploading((prev) => (prev === key ? null : prev));
       }
     },
-    [t]
+    [t, ko]
   );
 
   const patchRow = useCallback(
@@ -527,7 +589,13 @@ export function AdminStoreTaxonomyManager({
         row?: StoreTaxonomyCategory | StoreTaxonomyTopic | StoreTaxonomySubtopic;
       };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: j.error ?? t("admin_stores_app_taxonomy_err_save") });
+        await dibayAlert({
+          title: taxonomyErrText(
+            j.error ?? (res.status === 403 ? "forbidden" : ""),
+            ko,
+            t("admin_stores_app_taxonomy_err_save")
+          ),
+        });
         return false;
       }
       const row = j.row;
@@ -542,7 +610,7 @@ export function AdminStoreTaxonomyManager({
       }
       return true;
     },
-    [t]
+    [t, ko]
   );
 
   const saveEditing = useCallback(async () => {
@@ -594,7 +662,13 @@ export function AdminStoreTaxonomyManager({
         seeded?: { categories?: number; topics?: number };
       };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: j.error ?? t("admin_stores_app_taxonomy_err_seed") });
+        await dibayAlert({
+          title: taxonomyErrText(
+            j.error ?? (res.status === 403 ? "forbidden" : ""),
+            ko,
+            t("admin_stores_app_taxonomy_err_seed")
+          ),
+        });
         return;
       }
       onMessage(
@@ -608,7 +682,7 @@ export function AdminStoreTaxonomyManager({
     } finally {
       setSeeding(false);
     }
-  }, [t, onMessage, reloadTaxonomy]);
+  }, [t, ko, onMessage, reloadTaxonomy]);
 
   const createRow = useCallback(
     async (kind: TaxonomyKind, payload: Record<string, unknown>): Promise<string | null> => {
@@ -625,12 +699,13 @@ export function AdminStoreTaxonomyManager({
         row?: StoreTaxonomyCategory | StoreTaxonomyTopic | StoreTaxonomySubtopic;
       };
       if (!res.ok || !j.ok) {
-        const err = j.error ?? "";
-        if (err === "store_subtopics_table_missing") {
-          await dibayAlert({ title: t("admin_stores_app_taxonomy_err_subtopics_migration") });
-        } else {
-          await dibayAlert({ title: j.message ?? err ?? t("admin_stores_app_taxonomy_err_create") });
-        }
+        await dibayAlert({
+          title: taxonomyErrText(
+            j.error ?? (res.status === 403 ? "forbidden" : ""),
+            ko,
+            t("admin_stores_app_taxonomy_err_create")
+          ),
+        });
         return null;
       }
       onMessage(t("admin_stores_app_taxonomy_msg_created"));
@@ -647,7 +722,7 @@ export function AdminStoreTaxonomyManager({
       }
       return typeof row?.id === "string" ? row.id : null;
     },
-    [t, onMessage]
+    [t, ko, onMessage]
   );
 
   const editingColumnKind: TaxonomyKind | null =
@@ -680,15 +755,20 @@ export function AdminStoreTaxonomyManager({
       </div>
 
       {loadError ? (
-        <p className="mt-3 sam-text-body-secondary text-red-700">({loadError})</p>
+        <p role="alert" className="mt-3 sam-text-body-secondary text-red-700">
+          {loadError}
+        </p>
       ) : null}
       {subtopicsTableMissing ? (
-        <p className="mt-2 sam-text-helper text-amber-800">{t("admin_stores_app_taxonomy_subtopics_migration")}</p>
+        <p className="mt-2 sam-text-helper text-amber-800">{subtopicsNotReadyText(ko)}</p>
       ) : null}
 
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
         <TaxonomyColumn
           title={t("admin_stores_app_taxonomy_tier1")}
+          sectionId="store-taxonomy-tier-category"
+          highlighted={focus === "category"}
+          ko={ko}
           rows={categories}
           selectedId={pickedCategoryId}
           onSelect={(id) => {
@@ -738,6 +818,9 @@ export function AdminStoreTaxonomyManager({
 
         <TaxonomyColumn
           title={t("admin_stores_app_taxonomy_tier2")}
+          sectionId="store-taxonomy-tier-topic"
+          highlighted={focus === "topic"}
+          ko={ko}
           rows={topicsForCategory}
           selectedId={activeTopicId}
           onSelect={(id) => {
@@ -786,6 +869,7 @@ export function AdminStoreTaxonomyManager({
 
         <TaxonomyColumn
           title={t("admin_stores_app_taxonomy_tier3")}
+          ko={ko}
           rows={subtopicsForTopic}
           selectedId=""
           onSelect={() => {}}
