@@ -2,11 +2,20 @@
 
 /**
  * 채팅 Admin R1 (B) — CM 메시지 본문 표시 (이미지·파일·음성·시스템·주문 요약·통화 기록).
- * 입력은 서버가 만든 `AdminCmMessageDisplay` (순수 타입). 첨부 URL 은 받은 값 그대로 연다.
+ * 입력은 서버가 만든 `AdminCmMessageDisplay` (순수 타입). 첨부 URL 은 서버가 관리자 조회 라우트로 바꿔 둔 값이며,
+ * 고스트 열람 화면은 `mediaReason` 을 라우트 `reason` 으로 덧붙인다 (서버가 검증·감사).
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminCmMessageDisplay, AdminCmMessageKind } from "@/lib/admin-community-messenger/admin-message-display";
+import { isMessengerMediaRouteUrl } from "@/lib/community-messenger/media/messenger-media-ref";
+import { CHAT_ADMIN_REASON_QUERY_PARAM } from "@/lib/admin/chat-admin/chat-content-access-policy";
+
+function withMediaReason(url: string, reason: string | undefined): string {
+  const r = (reason ?? "").trim();
+  if (!r || !isMessengerMediaRouteUrl(url)) return url;
+  return `${url}&${CHAT_ADMIN_REASON_QUERY_PARAM}=${encodeURIComponent(r)}`;
+}
 
 const KIND_KEY: Record<Exclude<AdminCmMessageKind, "text">, MessageKey> = {
   image: "admin_chat_r1b_kind_image",
@@ -36,9 +45,12 @@ export function AdminCmMessageKindBadge({ kind }: { kind: AdminCmMessageKind }) 
 export function AdminCmMessageBody({
   display,
   fallbackText,
+  mediaReason,
 }: {
   display: AdminCmMessageDisplay | null | undefined;
   fallbackText?: string;
+  /** 고스트 열람 사유 (연결 근거 없는 방) */
+  mediaReason?: string;
 }) {
   const { t } = useI18n();
   if (!display) {
@@ -54,7 +66,7 @@ export function AdminCmMessageBody({
         <div className="space-y-1">
           {display.imageUrls.length ? (
             <div className="flex flex-wrap gap-1.5">
-              {display.imageUrls.slice(0, 10).map((url) => (
+              {display.imageUrls.slice(0, 10).map((raw) => withMediaReason(raw, mediaReason)).map((url) => (
                 <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url} alt="" loading="lazy" className="h-20 w-20 rounded-ui-rect border border-sam-border-soft object-cover" />
@@ -80,10 +92,10 @@ export function AdminCmMessageBody({
           </p>
           {display.attachmentUrl ? (
             display.kind === "voice" ? (
-              <audio controls preload="none" src={display.attachmentUrl} className="h-8 max-w-full" />
+              <audio controls preload="none" src={withMediaReason(display.attachmentUrl, mediaReason)} className="h-8 max-w-full" />
             ) : (
               <a
-                href={display.attachmentUrl}
+                href={withMediaReason(display.attachmentUrl, mediaReason)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="sam-text-helper font-medium text-signature hover:underline"

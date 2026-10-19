@@ -4,7 +4,8 @@
  * R1-A: 권한 `chats` + 사유 2자 이상 + 상태 조건(is_hidden_by_admin=true) + audit_logs
  */
 import { NextRequest, NextResponse } from "next/server";
-import { chatAdminReasonRequired, requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { chatAdminReasonRequired, requireAnyAdminPermission } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { TRADE_CHAT_ADMIN_PERMISSION_KEYS } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   CHAT_ADMIN_ACTION_REASON_MIN_LENGTH,
@@ -23,7 +24,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const admin = await requireChatAdmin();
+  const admin = await requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
   if (!admin.ok) return admin.response;
 
   const { id: roomId } = await params;

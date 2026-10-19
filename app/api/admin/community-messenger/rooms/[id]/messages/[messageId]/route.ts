@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chatAdminReasonRequired, requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { chatAdminReasonRequired, requireChatRoomAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import {
   CHAT_ADMIN_ACTION_REASON_MIN_LENGTH,
   isChatAdminReasonValid,
@@ -18,7 +18,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; messageId: string }> }
 ) {
-  const admin = await requireChatAdmin();
+  const { id, messageId } = await params;
+  const admin = await requireChatRoomAdmin(String(id ?? "").trim());
   if (!admin.ok) return admin.response;
 
   let body: { hidden?: boolean; reason?: string };
@@ -35,7 +36,6 @@ export async function PATCH(
     return chatAdminReasonRequired(CHAT_ADMIN_ACTION_REASON_MIN_LENGTH);
   }
 
-  const { id, messageId } = await params;
   const result = await runCmMessageHiddenCas(admin.sb, req, {
     roomId: String(id ?? "").trim(),
     messageId: String(messageId ?? "").trim(),

@@ -7,6 +7,9 @@
  * - 거래: `direct_key = trade_item:{chat_rooms.id} | trade_pc:{product_chats.id}`,
  *   `domain_identity_key = trade:{itemId}:{sellerId}:{buyerId}`
  */
+import { storeOrderChatEnsureRedirectHref } from "@/lib/chats/surfaces/order-chat-surface";
+import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
+import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import { parseTradeMessengerDirectKey } from "@/lib/messenger-policy/parse-trade-messenger-direct-key";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 
@@ -93,4 +96,17 @@ export function adminTradeChatDetailHref(legacyRoomId: string, returnTo?: string
 
 export function adminTradeFlowHref(postId: string, returnTo?: string | null): string {
   return withAdminReturnTo(`/admin/trade-flow?postId=${encodeURIComponent(postId)}`, returnTo);
+}
+
+/**
+ * 사용자·사장님 앱 경로 (설계 §3-5 연결 카드) — Admin 은 **열지 않고 복사만** 한다.
+ * 사장님 주문 채팅 경로는 방을 생성·입장시키는 route 라 Admin 이 열면 안 된다.
+ */
+export function adminStoreOrderAppPaths(orderId: string): { owner: string; buyer: string } {
+  return { owner: storeOrderChatEnsureRedirectHref(orderId), buyer: buyerStoreOrderDetailPath(orderId) };
+}
+
+/** 공개 상품 페이지 (로그인 없이 보이는 화면 — 새 탭으로 열어도 안전). */
+export function publicTradePostPath(postId: string): string {
+  return SAMARKET_ROUTES.trade.post(postId);
 }

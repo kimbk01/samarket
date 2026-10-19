@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   appendChatContentViewAudit,
   readChatAdminReason,
-  requireChatAdmin,
+  requireChatRoomAdmin,
 } from "@/lib/admin/chat-admin/chat-admin-guards";
 import {
   CHAT_ADMIN_GHOST_REASON_MIN_LENGTH,
@@ -23,11 +23,11 @@ export const dynamic = "force-dynamic";
  * - 본문을 반환할 때만 서버에서 audit_logs `chat_room.content_view` 기록 (참가자 생성·읽음·발송 없음).
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requireChatAdmin();
-  if (!admin.ok) return admin.response;
-
   const { id } = await params;
   const roomId = String(id ?? "").trim();
+  const admin = await requireChatRoomAdmin(roomId);
+  if (!admin.ok) return admin.response;
+
   if (!roomId) {
     return NextResponse.json({ ok: false, error: "room_id_required" }, { status: 400 });
   }

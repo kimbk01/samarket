@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { requireAnyAdminPermission, requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { chatRoomAdminPermissionKeys } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import {
   isAdminCmDomainListDomain,
   listAdminCommunityMessengerRoomsByDomain,
@@ -21,13 +22,16 @@ export const dynamic = "force-dynamic";
  * Thin list — no message preload. Detail: /admin/chats/messenger/[id]
  */
 export async function GET(req: NextRequest) {
-  const admin = await requireChatAdmin();
-  if (!admin.ok) return admin.response;
-
   const sp = req.nextUrl.searchParams;
   if (sp.has("type")) {
+    const query = parseAdminChatRoomListQuery(sp);
+    // 설계 §2-2: 거래 목록은 `products`, 배달 주문 목록은 `business` 도 허용 (전체·일반·그룹은 `chats`).
+    const admin =
+      query.type === "trade" || query.type === "store_order"
+        ? await requireAnyAdminPermission(chatRoomAdminPermissionKeys(query.type))
+        : await requireChatAdmin();
+    if (!admin.ok) return admin.response;
     try {
-      const query = parseAdminChatRoomListQuery(sp);
       const page = await listAdminChatRoomsPaged(query, clampAdminChatListLimit(sp.get("limit")));
       return NextResponse.json({ ok: true, rooms: page.rows, nextCursor: page.nextCursor });
     } catch (e) {
@@ -36,6 +40,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const admin = await requireChatAdmin();
+  if (!admin.ok) return admin.response;
   const domainRaw = sp.get("domain");
   if (!isAdminCmDomainListDomain(domainRaw)) {
     return NextResponse.json(

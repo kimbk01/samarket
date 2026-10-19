@@ -789,42 +789,14 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── MESSENGER ──────────────────────────────────
-  // J-AMD-4 (Owner-approved O-C12): sections 채팅 대시보드 · 채팅방 · 신고·제재 · 통화 기록 · 시스템.
-  // Keys / canonical pages unchanged; 거래·배달 주문 are type filters of 전체채팅 (no ?from= duplicates).
+  // J-AMD-4 (Owner-approved O-C12) + 채팅 Admin 설계 v2 §1-3: 긴급도 순 —
+  // 채팅 대시보드 · 신고·제재 · 통화 · 채팅방(전체·거래·배달 주문·일반·그룹) · 시스템.
+  // 거래·배달 주문은 전체채팅의 유형 필터 (같은 CM 목록). 방 상세·레거시 거래 기록은 메뉴 없음.
   {
     key: "messenger",
     title: "",
     children: [
       { key: "messenger-hub", title: "", path: "/admin/messenger", status: "done" },
-      {
-        key: "messenger-section-rooms",
-        title: "",
-        children: [
-          { key: "chat-all", title: "", path: "/admin/chats", status: "done" },
-          {
-            key: "chat-general",
-            title: "",
-            path: "/admin/chats/general",
-            matchPaths: ["/admin/chats/community"],
-            status: "done",
-          },
-          { key: "chat-group", title: "", path: "/admin/chats/group", status: "done" },
-          {
-            key: "chat-trade-messenger",
-            title: "",
-            path: "/admin/chats?type=trade",
-            matchPaths: ["/admin/chats/trade?from=messenger"],
-            status: "done",
-          },
-          {
-            key: "delivery-order-chats-messenger",
-            title: "",
-            path: "/admin/chats?type=store_order",
-            matchPaths: ["/admin/order-chats?from=messenger"],
-            status: "done",
-          },
-        ],
-      },
       {
         key: "messenger-section-reports",
         title: "",
@@ -836,7 +808,44 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         key: "messenger-section-calls",
         title: "",
         children: [
-          { key: "chat-messenger", title: "", path: "/admin/chats/messenger", status: "done" },
+          {
+            key: "chat-messenger",
+            title: "",
+            path: "/admin/chats/calls",
+            matchPaths: ["/admin/chats/calls/analysis"],
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "messenger-section-rooms",
+        title: "",
+        children: [
+          // 방 상세 `/admin/chats/messenger/[id]` 는 `/admin/chats` 접두로 「전체」에 잡힌다.
+          { key: "chat-all", title: "", path: "/admin/chats", status: "done" },
+          {
+            key: "chat-trade-messenger",
+            title: "",
+            path: "/admin/chats?type=trade",
+            // 예전 북마크 `?from=messenger` 호환 (CUT J 하드락) + 레거시 거래 기록.
+            matchPaths: ["/admin/chats/trade?from=messenger", "/admin/chats/trade-legacy"],
+            status: "done",
+          },
+          {
+            key: "delivery-order-chats-messenger",
+            title: "",
+            path: "/admin/chats?type=store_order",
+            matchPaths: ["/admin/order-chats?from=messenger"],
+            status: "done",
+          },
+          {
+            key: "chat-general",
+            title: "",
+            path: "/admin/chats/general",
+            matchPaths: ["/admin/chats/community"],
+            status: "done",
+          },
+          { key: "chat-group", title: "", path: "/admin/chats/group", status: "done" },
         ],
       },
       {

@@ -1,13 +1,15 @@
 /**
  * 채팅 신고 단일 큐 서버 로더 (O-C10).
- * CM `community_messenger_reports` + 레거시 거래 `chat_reports` + 통합 `reports`(target_type chat_room)
+ * CM `community_messenger_reports` + 레거시 거래 `chat_reports` + 통합 `reports`(target_type chat_room·chat_message)
  * 를 같은 정규화 행으로 읽어 created_at 최신순 keyset 페이지로 병합한다. 조치는 각 출처의 기존 action API.
  * Server-only (service-role client) — client 컴포넌트에서 import 금지.
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { decodeAdminKeysetCursor } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
+import { CHAT_REPORT_TARGET_TYPES } from "@/lib/admin/metrics/chat-metrics";
+import { decodeAdminKeysetCursor, isAdminUuid } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
 import {
+  chatReportQueueAscending,
   chatReportBucketOf,
   chatReportRawStatuses,
   chatReportSourcesFor,
@@ -25,25 +27,40 @@ const FETCH_EXTRA = 10;
 const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const orNull = (v: unknown) => s(v) || null;
 
-/** 커서 시각 + 1ms (PG µs 정밀도 대비) — 상한은 넉넉히, 정확한 경계는 병합 단계에서. */
-function upperBound(ts: string): string | null {
+/**
+ * 커서 경계 (PG µs 정밀도 대비 ±1ms 여유) — 최신 순은 상한(lte), 오래된 순은 하한(gte).
+ * 정확한 경계는 병합 단계에서 자른다.
+ */
+type Bound = { ts: string; asc: boolean } | null;
+function boundOf(ts: string, asc: boolean): Bound {
   const t = Date.parse(ts);
-  return Number.isFinite(t) ? new Date(t + 1).toISOString() : null;
+  return Number.isFinite(t) ? { ts: new Date(asc ? t - 1 : t + 1).toISOString(), asc } : null;
 }
+
+/** 검색 조건 — 회원 id 목록(닉네임 검색 결과) */
+type Scope = { userIds: string[] | null };
 
 type Fetched = { rows: ChatReportQueueRow[]; full: boolean };
 
-async function fetchMessenger(sb: Sb, q: ChatReportQueueQuery, upper: string | null, size: number): Promise<Fetched> {
-  let rq = sb
-    .from("community_messenger_reports")
-    .select("id, report_type, room_id, message_id, reported_user_id, reporter_user_id, reason_type, reason_detail, status, admin_note, handled_at, created_at")
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(size);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyOrderAndBound(rq: any, bound: Bound, asc: boolean): any {
+  let out = rq.order("created_at", { ascending: asc }).order("id", { ascending: asc });
+  if (bound) out = bound.asc ? out.gte("created_at", bound.ts) : out.lte("created_at", bound.ts);
+  return out;
+}
+
+async function fetchMessenger(sb: Sb, q: ChatReportQueueQuery, bound: Bound, size: number, scope: Scope, asc: boolean): Promise<Fetched> {
+  let rq = applyOrderAndBound(
+    sb
+      .from("community_messenger_reports")
+      .select("id, report_type, room_id, message_id, reported_user_id, reporter_user_id, reason_type, reason_detail, status, admin_note, handled_at, created_at"),
+    bound,
+    asc
+  ).limit(size);
   const statuses = chatReportRawStatuses("messenger", q.status);
   if (statuses) rq = rq.in("status", statuses);
-  if (upper) rq = rq.lte("created_at", upper);
   if (q.target) rq = rq.or(`room_id.eq.${q.target},reported_user_id.eq.${q.target},reporter_user_id.eq.${q.target}`);
+  if (scope.userIds) rq = rq.or(`reported_user_id.in.(${scope.userIds.join(",")}),reporter_user_id.in.(${scope.userIds.join(",")})`);
   const { data, error } = await rq;
   if (error) throw new Error(error.message);
   const rows = ((data ?? []) as Record<string, unknown>[]).map<ChatReportQueueRow>((r) => ({
@@ -69,17 +86,18 @@ async function fetchMessenger(sb: Sb, q: ChatReportQueueQuery, upper: string | n
   return { rows, full: rows.length >= size };
 }
 
-async function fetchTradeLegacy(sb: Sb, q: ChatReportQueueQuery, upper: string | null, size: number): Promise<Fetched> {
-  let rq = sb
-    .from("chat_reports")
-    .select("id, room_id, message_id, report_type, reporter_user_id, reported_user_id, reason_type, reason_detail, status, created_at, updated_at")
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(size);
+async function fetchTradeLegacy(sb: Sb, q: ChatReportQueueQuery, bound: Bound, size: number, scope: Scope, asc: boolean): Promise<Fetched> {
+  let rq = applyOrderAndBound(
+    sb
+      .from("chat_reports")
+      .select("id, room_id, message_id, report_type, reporter_user_id, reported_user_id, reason_type, reason_detail, status, created_at, updated_at"),
+    bound,
+    asc
+  ).limit(size);
   const statuses = chatReportRawStatuses("trade_chat", q.status);
   if (statuses) rq = rq.in("status", statuses);
-  if (upper) rq = rq.lte("created_at", upper);
   if (q.target) rq = rq.or(`room_id.eq.${q.target},reported_user_id.eq.${q.target},reporter_user_id.eq.${q.target}`);
+  if (scope.userIds) rq = rq.or(`reported_user_id.in.(${scope.userIds.join(",")}),reporter_user_id.in.(${scope.userIds.join(",")})`);
   const { data, error } = await rq;
   if (error) throw new Error(error.message);
   const rows = ((data ?? []) as Record<string, unknown>[]).map<ChatReportQueueRow>((r) => {
@@ -109,19 +127,20 @@ async function fetchTradeLegacy(sb: Sb, q: ChatReportQueueQuery, upper: string |
   return { rows, full: rows.length >= size };
 }
 
-async function fetchReports(sb: Sb, q: ChatReportQueueQuery, upper: string | null, size: number): Promise<Fetched> {
-  let rq = sb
-    .from("reports")
-    .select("id, reporter_id, target_type, target_id, room_id, reason_code, reason_text, status, admin_note, created_at, resolved_at")
-    // 채팅 대시보드 지표 `chat.reports_open.trade_report` 와 같은 대상 (target_type=chat_room).
-    .eq("target_type", "chat_room")
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(size);
+async function fetchReports(sb: Sb, q: ChatReportQueueQuery, bound: Bound, size: number, scope: Scope, asc: boolean): Promise<Fetched> {
+  let rq = applyOrderAndBound(
+    sb
+      .from("reports")
+      .select("id, reporter_id, target_type, target_id, room_id, reason_code, reason_text, status, admin_note, created_at, resolved_at")
+      // 채팅 대시보드 지표 `chat.reports_open.trade_report` 와 같은 대상 (채팅방·채팅 메시지).
+      .in("target_type", [...CHAT_REPORT_TARGET_TYPES]),
+    bound,
+    asc
+  ).limit(size);
   const statuses = chatReportRawStatuses("trade_report", q.status);
   if (statuses) rq = rq.in("status", statuses);
-  if (upper) rq = rq.lte("created_at", upper);
   if (q.target) rq = rq.or(`room_id.eq.${q.target},target_id.eq.${q.target},reporter_id.eq.${q.target}`);
+  if (scope.userIds) rq = rq.in("reporter_id", scope.userIds);
   const { data, error } = await rq;
   if (error) throw new Error(error.message);
   const rows = ((data ?? []) as Record<string, unknown>[]).map<ChatReportQueueRow>((r) => {
@@ -164,13 +183,29 @@ export type ChatReportQueuePage = {
   failedSources: ChatReportSource[];
 };
 
-export async function listChatReportQueue(query: ChatReportQueueQuery, limit: number): Promise<ChatReportQueuePage> {
+export async function listChatReportQueue(input: ChatReportQueueQuery, limit: number): Promise<ChatReportQueuePage> {
   const sb = getSupabaseServer();
+  // 검색어가 UUID 면 방·회원 대상(target)과 같은 조건, 아니면 신고자·피신고자 닉네임.
+  const query: ChatReportQueueQuery =
+    input.q && isAdminUuid(input.q) && !input.target ? { ...input, target: input.q.toLowerCase(), q: "" } : input;
+  let scope: Scope = { userIds: null };
+  if (query.q) {
+    const { data: profiles, error } = await sb
+      .from("profiles")
+      .select("id")
+      .or(`nickname.ilike.*${query.q}*,username.ilike.*${query.q}*`)
+      .limit(50);
+    if (error) throw new Error(error.message);
+    const ids = ((profiles ?? []) as Array<{ id: string }>).map((p) => p.id);
+    if (!ids.length) return { rows: [], nextCursor: null, failedSources: [] };
+    scope = { userIds: ids };
+  }
+  const asc = chatReportQueueAscending(query);
   const cursor = decodeAdminKeysetCursor(query.cursor);
-  const upper = cursor ? upperBound(cursor.ts) : null;
+  const bound = cursor ? boundOf(cursor.ts, asc) : null;
   const size = limit + 1 + FETCH_EXTRA;
   const sources = chatReportSourcesFor(query.source);
-  const settled = await Promise.allSettled(sources.map((src) => FETCHERS[src](sb, query, upper, size)));
+  const settled = await Promise.allSettled(sources.map((src) => FETCHERS[src](sb, query, bound, size, scope, asc)));
   const failedSources: ChatReportSource[] = [];
   const batches: ChatReportSourceBatch[] = [];
   settled.forEach((r, i) => {
@@ -179,7 +214,7 @@ export async function listChatReportQueue(query: ChatReportQueueQuery, limit: nu
   });
   if (batches.length === 0) throw new Error("report_sources_unavailable");
 
-  const page = mergeChatReportQueuePage(batches, cursor, limit);
+  const page = mergeChatReportQueuePage(batches, cursor, limit, asc);
 
   const userIds = [
     ...new Set(page.rows.flatMap((r) => [r.reporterId ?? "", r.reportedUserId ?? ""]).filter(Boolean)),

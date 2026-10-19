@@ -810,6 +810,8 @@ function mapAdminMessageItem(
       messageType: message.message_type,
       content: message.content,
       metadata: message.metadata,
+      roomId: message.room_id,
+      messageId: message.id,
     }),
   };
 }

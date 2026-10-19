@@ -18,7 +18,9 @@ import {
   CHAT_ADMIN_CONTENT_VIEW_AUDIT_DEDUPE_MS,
   CHAT_ADMIN_REASON_HEADER,
   CHAT_ADMIN_REASON_QUERY_PARAM,
+  chatRoomAdminPermissionKeys,
   normalizeChatAdminReason,
+  resolveCmRoomContentDomain,
   type ChatAdminContentBasis,
   type ChatAdminContentDomain,
 } from "@/lib/admin/chat-admin/chat-content-access-policy";
@@ -45,6 +47,65 @@ export async function requireAnyAdminPermission(keys: AdminPermissionKey[]): Pro
       { status: 403 }
     ),
   };
+}
+
+/**
+ * CM 방 Admin 게이트 (설계 §2-2) — 방의 `chat_domain` 으로 허용 권한을 정한다.
+ * 방이 없으면 404 `room_not_found`.
+ */
+export async function requireChatRoomAdmin(
+  roomId: string
+): Promise<
+  | { ok: true; actor: AdminApiActor; sb: SupabaseClient; domain: ChatAdminContentDomain }
+  | { ok: false; response: NextResponse }
+> {
+  const base = await requireAdminApiActor();
+  if (!base.ok) return base;
+  const id = String(roomId ?? "").trim();
+  if (!id) return { ok: false, response: NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 }) };
+  const { data, error } = await base.sb
+    .from("community_messenger_rooms")
+    .select("id, chat_domain, room_type, direct_key")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 }) };
+  }
+  if (!data) {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "room_not_found" }, { status: 404 }) };
+  }
+  const domain = resolveCmRoomContentDomain(data as { chat_domain?: string; room_type?: string; direct_key?: string });
+  if (base.actor.isSuperAdmin) return { ...base, domain };
+  const keys = chatRoomAdminPermissionKeys(domain);
+  if (keys.some((k) => permissionKeyAllowed(base.actor.permissions, k))) return { ...base, domain };
+  return {
+    ok: false,
+    response: NextResponse.json(
+      { ok: false, error: "forbidden_permission", permission: keys.join("|") },
+      { status: 403 }
+    ),
+  };
+}
+
+/** 방에 딸린 행(신고·통화 세션)으로 방을 찾아 `requireChatRoomAdmin` 적용. 행이 없으면 404. */
+export async function requireChatRoomAdminForRow(
+  table: "community_messenger_reports" | "community_messenger_call_sessions",
+  rowId: string
+): ReturnType<typeof requireChatRoomAdmin> {
+  const base = await requireAdminApiActor();
+  if (!base.ok) return base;
+  const id = String(rowId ?? "").trim();
+  const { data, error } = id
+    ? await base.sb.from(table).select("room_id").eq("id", id).maybeSingle()
+    : { data: null, error: null };
+  if (error) {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 }) };
+  }
+  const roomId = String((data as { room_id?: string | null } | null)?.room_id ?? "").trim();
+  if (!roomId) {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "not_found" }, { status: 404 }) };
+  }
+  return requireChatRoomAdmin(roomId);
 }
 
 /** 열람 사유 — `?reason=` 우선, 없으면 `x-admin-reason` 헤더 (URI 인코딩 허용). */

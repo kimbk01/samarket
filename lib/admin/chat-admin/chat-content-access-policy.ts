@@ -72,6 +72,20 @@ export function resolveCmRoomContentDomain(room: {
   return "general_direct";
 }
 
+/**
+ * 방 유형별 Admin 권한 (설계 §2-2 단일 규칙) — 열람·본문·첨부·조치·신고 처리 공통.
+ * 거래 방은 거래 담당(`products`), 배달 주문 방은 배달 담당(`business`)도 채팅 Admin 없이 처리한다.
+ * 고스트 열람(연결 없는 1:1·그룹 본문)은 별도로 super_admin 만 (`decideChatContentAccess`).
+ */
+export function chatRoomAdminPermissionKeys(domain: ChatAdminContentDomain): Array<"chats" | "products" | "business"> {
+  if (domain === "trade") return ["chats", "products"];
+  if (domain === "store_order") return ["chats", "business"];
+  return ["chats"];
+}
+
+/** 레거시 거래 채팅 Admin API (`/api/admin/chat/rooms*`·`/api/admin/chats`) — 거래 방 규칙과 동일. */
+export const TRADE_CHAT_ADMIN_PERMISSION_KEYS = chatRoomAdminPermissionKeys("trade");
+
 /** 열린 신고 상태 (CM reports CHECK: received·reviewing·resolved·rejected·sanctioned). */
 export const CM_REPORT_OPEN_STATUSES = ["received", "reviewing"] as const;
 export const CM_REPORT_CLOSED_STATUSES = ["resolved", "rejected", "sanctioned"] as const;

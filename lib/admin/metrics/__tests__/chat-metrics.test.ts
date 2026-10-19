@@ -37,17 +37,23 @@ describe("chat metric definitions (§6)", () => {
     for (const id of ids) expect(id.startsWith("chat.")).toBe(true);
   });
 
-  it("every metric links to an admin list carrying its filter", () => {
+  it("every metric links to an admin list carrying its filter — or no link when no list reads it", () => {
     for (const d of CHAT_METRIC_DEFINITIONS) {
+      if (d.href === "") {
+        // 설계 §3-1: 같은 조건을 읽는 목록이 없으면 죽은 링크 대신 숫자만 (pending).
+        expect(d.listFilter, d.id).toBe("pending");
+        continue;
+      }
       expect(d.href.startsWith("/admin/"), d.id).toBe(true);
       expect(d.href.includes("?"), d.id).toBe(true);
     }
   });
 
-  it("closest-page links (no filtered list yet) are flagged pending, never silently", () => {
+  it("call metrics open the calls list with the same filter", () => {
     for (const d of CHAT_METRIC_DEFINITIONS) {
-      if (d.href.startsWith("/admin/push-devices") || d.href.startsWith("/admin/chats/messenger?")) {
-        expect(d.listFilter, d.id).toBe("pending");
+      if (d.id.startsWith("chat.call")) {
+        expect(d.href.startsWith("/admin/chats/calls?"), d.id).toBe(true);
+        expect(d.listFilter, d.id).toBe("applied");
       }
     }
   });

@@ -21,7 +21,6 @@ import { cmForceEndReasonLabel, useCmAdminLabels } from "./useCmAdminLabels";
 import type { CmAdminTranslate } from "./useCmAdminLabels";
 import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
 import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
-import { ADMIN_CHAT_REPORT_QUEUE_PATH } from "@/lib/admin/chat-admin/admin-chat-links";
 import { buildAdminChatRoomListSearch, parseAdminChatRoomListQuery } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
 
 const ADMIN_MESSENGER_OVERVIEW_SILENT_FLIGHT = "admin:community-messenger:overview:silent";
@@ -306,22 +305,10 @@ export function AdminCommunityMessengerPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader
-        titleKey="admin_menu_chat_call_records"
-        description={
-          ko
-            ? "진행 중 통화·최근 통화 기록·관리자 강제 종료 기록을 봅니다. 채팅방 목록은 「전체채팅」, 신고 처리는 「채팅 신고」에서 합니다."
-            : "Active calls, recent call records and admin force-ends. Rooms live in All chats; reports in Chat reports."
-        }
+        titleKey="admin_chat_calls_analysis_title"
+        backHref="/admin/chats/calls"
+        description={t("admin_chat_calls_analysis_desc")}
       />
-
-      <div className="flex flex-wrap gap-2 sam-text-body-secondary">
-        <Link href="/admin/chats" className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 font-medium text-signature">
-          {ko ? "전체채팅 (방 목록·검색)" : "All chats (rooms · search)"}
-        </Link>
-        <Link href={ADMIN_CHAT_REPORT_QUEUE_PATH} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 font-medium text-signature">
-          {ko ? `채팅 신고 처리 (메신저 미처리 ${data?.stats.openReports ?? 0}건)` : `Chat reports (open messenger ${data?.stats.openReports ?? 0})`}
-        </Link>
-      </div>
 
       {loadError && !loading ? (
         <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void refresh()} />

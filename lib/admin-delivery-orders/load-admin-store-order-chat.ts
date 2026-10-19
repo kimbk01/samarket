@@ -63,6 +63,7 @@ export const ADMIN_STORE_ORDER_CHAT_MESSAGE_LIMIT = ADMIN_CM_MESSAGE_PAGE_DEFAUL
 
 type MessageRow = {
   id: string;
+  room_id?: string | null;
   sender_id: string | null;
   message_type: string | null;
   content: string | null;
@@ -71,7 +72,7 @@ type MessageRow = {
   is_hidden_by_admin?: boolean | null;
 };
 
-const ORDER_CHAT_MESSAGE_SELECT = "id, sender_id, message_type, content, metadata, created_at, is_hidden_by_admin";
+const ORDER_CHAT_MESSAGE_SELECT = "id, room_id, sender_id, message_type, content, metadata, created_at, is_hidden_by_admin";
 
 function trim(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -115,7 +116,13 @@ export function mapAdminStoreOrderChatMessages(
         content,
         createdAt: trim(m.created_at),
         hiddenByAdmin: m.is_hidden_by_admin === true,
-        display: buildAdminCmMessageDisplay({ messageType, content, metadata: m.metadata ?? null }),
+        display: buildAdminCmMessageDisplay({
+          messageType,
+          content,
+          metadata: m.metadata ?? null,
+          roomId: trim(m.room_id),
+          messageId: m.id,
+        }),
       };
     });
 }

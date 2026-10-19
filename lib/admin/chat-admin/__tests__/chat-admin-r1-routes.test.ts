@@ -26,6 +26,8 @@ function fakeSb(results: Record<string, unknown>, calls: Call[]) {
 }
 
 const requireAdminPermission = vi.fn();
+/** 방 유형 게이트(`requireChatRoomAdmin`)는 actor 를 먼저 받고 방 chat_domain 으로 권한을 판정한다. */
+const requireAdminApiActor = vi.fn();
 const requireSuperAdmin = vi.fn();
 const appendAdminRouteAudit = vi.fn();
 const getDetail = vi.fn();
@@ -33,7 +35,7 @@ const getDetail = vi.fn();
 vi.mock("@/lib/admin/require-admin-permission", () => ({
   requireAdminPermission: (k: string) => requireAdminPermission(k),
   requireSuperAdmin: () => requireSuperAdmin(),
-  requireAdminApiActor: vi.fn(),
+  requireAdminApiActor: () => requireAdminApiActor(),
 }));
 vi.mock("@/lib/admin/admin-user-server", () => ({
   permissionKeyAllowed: (perms: string[], k: string) => perms.includes(k),
@@ -55,14 +57,15 @@ const DETAIL = {
   reports: [],
 };
 
-function actor(isSuperAdmin: boolean) {
-  return { userId: "admin-1", isSuperAdmin, permissions: ["chats"], role: "admin", profile: {} };
+function actor(isSuperAdmin: boolean, permissions: string[] = ["chats"]) {
+  return { userId: "admin-1", isSuperAdmin, permissions, role: "admin", profile: {} };
 }
 
 describe("CM room detail GET — ghost gate + server audit", () => {
   beforeEach(() => {
     vi.resetModules();
     requireAdminPermission.mockReset();
+    requireAdminApiActor.mockReset();
     appendAdminRouteAudit.mockReset();
     getDetail.mockReset();
     getDetail.mockResolvedValue(DETAIL);
@@ -70,7 +73,7 @@ describe("CM room detail GET — ghost gate + server audit", () => {
 
   async function call(url: string, isSuperAdmin: boolean, results: Record<string, unknown>) {
     const calls: Call[] = [];
-    requireAdminPermission.mockResolvedValue({ ok: true, actor: actor(isSuperAdmin), sb: fakeSb(results, calls) });
+    requireAdminApiActor.mockResolvedValue({ ok: true, actor: actor(isSuperAdmin), sb: fakeSb(results, calls) });
     const { GET } = await import("@/app/api/admin/community-messenger/rooms/[id]/route");
     const res = await GET(new Request(url) as never, { params: Promise.resolve({ id: "room-1" }) });
     return { res, json: await res.json(), calls };
@@ -83,16 +86,35 @@ describe("CM room detail GET — ghost gate + server audit", () => {
     audit_logs: { data: [], error: null },
   };
 
-  it("403 without chats permission", async () => {
-    requireAdminPermission.mockResolvedValue({
-      ok: false,
-      response: NextResponse.json({ ok: false, error: "forbidden_permission" }, { status: 403 }),
+  it("403 without chats permission (1:1 room — products/business do not apply)", async () => {
+    requireAdminApiActor.mockResolvedValue({
+      ok: true,
+      actor: actor(false, ["products", "business"]),
+      sb: fakeSb(privateDirect, []),
     });
     const { GET } = await import("@/app/api/admin/community-messenger/rooms/[id]/route");
     const res = await GET(new Request("https://x/api") as never, { params: Promise.resolve({ id: "room-1" }) });
     expect(res.status).toBe(403);
-    expect(requireAdminPermission).toHaveBeenCalledWith("chats");
     expect(getDetail).not.toHaveBeenCalled();
+  });
+
+  it("trade room opens for products admin without chats (설계 §2-2)", async () => {
+    const calls: Call[] = [];
+    requireAdminApiActor.mockResolvedValue({
+      ok: true,
+      actor: actor(false, ["products"]),
+      sb: fakeSb(
+        {
+          ...privateDirect,
+          community_messenger_rooms: { data: { id: "room-1", room_type: "direct", chat_domain: "trade" }, error: null },
+        },
+        calls
+      ),
+    });
+    const { GET } = await import("@/app/api/admin/community-messenger/rooms/[id]/route");
+    const res = await GET(new Request("https://x/api") as never, { params: Promise.resolve({ id: "room-1" }) });
+    expect(res.status).toBe(200);
+    expect(getDetail).toHaveBeenCalled();
   });
 
   it("unlinked private room: non-super admin gets no messages and no audit", async () => {

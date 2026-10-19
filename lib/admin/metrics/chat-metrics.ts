@@ -21,6 +21,12 @@ import type {
 } from "@/lib/admin/admin-action-queue-registry";
 import { CHAT_DOMAINS, type ChatDomain } from "@/lib/chat-domain/chat-domain";
 import { manilaTodayRangeUtc } from "@/lib/admin/metrics/manila-period";
+import { adminChatLabel, type AdminChatLabelDomain } from "@/lib/admin/status-labels/chat-status-labels";
+
+/** 라벨은 채팅 상태 레지스트리 단일 기준 (대시보드·목록·상세 같은 문구). */
+function registryLabel(domain: AdminChatLabelDomain, code: string): { ko: string; en: string } {
+  return { ko: adminChatLabel(domain, code, true).label, en: adminChatLabel(domain, code, false).label };
+}
 
 // ── 기간·조건 단일 정의 (로더와 목록 화면이 같은 경계를 쓴다) ────────────────────
 
@@ -42,11 +48,14 @@ export const CHAT_REPORT_OPEN_STATUSES = {
   messenger: ["received", "reviewing"],
   /** 레거시 거래 채팅 신고 `chat_reports` (`ChatReportStatus`) */
   trade_chat: ["received", "triaging", "escalated"],
-  /** 거래 신고 `reports.target_type=chat_room` (`TRADE_REPORT_ADMIN_ACTIONABLE`) */
+  /** 거래 신고 `reports.target_type ∈ chat_room|chat_message` (`TRADE_REPORT_ADMIN_ACTIONABLE`) */
   trade_report: ["pending", "reviewing"],
 } as const;
 
 export type ChatReportType = keyof typeof CHAT_REPORT_OPEN_STATUSES;
+
+/** 통합 `reports` 중 채팅 신고로 보는 대상 유형 — 대시보드 지표·신고 큐 공통. */
+export const CHAT_REPORT_TARGET_TYPES = ["chat_room", "chat_message"] as const;
 
 /** 채팅 푸시 이벤트 그룹 — `notification_deliveries.event_type`. prefix 는 `like 'prefix%'`. */
 export const CHAT_PUSH_EVENT_GROUPS = {
@@ -96,13 +105,15 @@ export function chatStuckRingingBeforeIso(now: Date = new Date()): string {
 
 // ── 이동 화면 ────────────────────────────────────────────────────────────
 
-/** 유형별 채팅방 목록 화면 (채팅 목록 화면이 `domain`/`status`/`activity`/`idle` 을 읽는다). */
+/**
+ * 유형별 채팅방 목록 화면 — 모두 CM 기준 같은 목록(`AdminMessengerDomainRoomList`)이며
+ * `status`/`activity`/`idle` 을 서버에서 같은 경계 함수로 적용한다 (설계 §3-1 「같은 조건 = 같은 숫자」).
+ */
 export const CHAT_ROOM_LIST_BASE: Record<ChatDomain, string> = {
   general_direct: "/admin/chats/general",
   group: "/admin/chats/group",
-  // CM trade 방 기준 (레거시 product_chats 아님) — 목록 화면도 같은 기준으로 전환 중
-  trade: "/admin/chats/trade",
-  store_order: "/admin/order-chats",
+  trade: "/admin/chats?type=trade",
+  store_order: "/admin/chats?type=store_order",
 };
 
 export const CHAT_REPORT_QUEUE_PATH = "/admin/chats/reported" as const;
@@ -118,6 +129,7 @@ export function chatRoomListHref(
   domain: ChatDomain,
   filter: { status?: string; activity?: "7d"; idle?: number } = {}
 ): string {
+  // `domain` = 목록의 `type` 별칭 (예전 링크 호환).
   const params: Record<string, string> = { domain };
   if (filter.status) params.status = filter.status;
   if (filter.activity) params.activity = filter.activity;
@@ -129,16 +141,13 @@ export function chatReportQueueHref(type: ChatReportType): string {
   return withQuery(CHAT_REPORT_QUEUE_PATH, { status: "open", type });
 }
 
+/** 통화 기록·강제 종료 화면 — `call_status`·`call_reason`·`window`·`activity`·`stuck` 을 읽는다 (설계 §3-3). */
+export const CHAT_CALL_LIST_PATH = "/admin/chats/calls" as const;
 /**
- * 통화 기록 — 전용 필터 목록이 아직 없다. 가장 가까운 화면(메신저 고급의 통화 기록)으로 이동하며,
- * 필터 파라미터는 목록이 생기면 그대로 읽도록 미리 붙인다 (`listFilter: "pending"`).
+ * 푸시 발송 실패 — 같은 조건을 읽는 목록이 아직 없다 (설계 §3-1: 죽은 링크 금지).
+ * href 는 빈 값 → 대시보드는 숫자 + 「목록 준비 중」만 표시한다.
  */
-export const CHAT_CALL_LIST_PATH = "/admin/chats/messenger" as const;
-/**
- * 푸시 발송 실패 — 전용 목록이 아직 없다 (설계 §6 「푸시 실패 목록 (신설 필요)」).
- * 가장 가까운 화면은 이용자별 기기·발송 기록 (`listFilter: "pending"`).
- */
-export const CHAT_PUSH_FAILURE_LIST_PATH = "/admin/push-devices" as const;
+export const CHAT_PUSH_FAILURE_LIST_PATH = "" as const;
 
 // ── 지표 정의 ────────────────────────────────────────────────────────────
 
@@ -185,10 +194,10 @@ export type ChatMetricDefinition = {
 };
 
 const DOMAIN_LABEL: Record<ChatDomain, { ko: string; en: string }> = {
-  general_direct: { ko: "일반 1:1", en: "1:1" },
-  group: { ko: "그룹", en: "Group" },
-  trade: { ko: "거래", en: "Trade" },
-  store_order: { ko: "배달 주문", en: "Store order" },
+  general_direct: registryLabel("chat_domain", "general_direct"),
+  group: registryLabel("chat_domain", "group"),
+  trade: registryLabel("chat_domain", "trade"),
+  store_order: registryLabel("chat_domain", "store_order"),
 };
 
 const REPORT_LABEL: Record<ChatReportType, { ko: string; en: string; source: ChatMetricSource }> = {
@@ -205,7 +214,7 @@ const REPORT_LABEL: Record<ChatReportType, { ko: string; en: string; source: Cha
   trade_report: {
     ko: "채팅 신고 · 거래 채팅방 신고",
     en: "Chat reports · Trade chat room",
-    source: { kind: "direct", description: "reports.target_type=chat_room, status ∈ pending|reviewing" },
+    source: { kind: "direct", description: "reports.target_type ∈ chat_room|chat_message, status ∈ pending|reviewing" },
   },
 };
 
@@ -218,16 +227,16 @@ const PUSH_LABEL: Record<ChatPushEventGroup, { ko: string; en: string }> = {
 };
 
 const CALL_STATUS_LABEL: Record<ChatCallStatus7d, { ko: string; en: string }> = {
-  ended: { ko: "종료", en: "Ended" },
-  missed: { ko: "부재중", en: "Missed" },
-  rejected: { ko: "거절", en: "Rejected" },
-  cancelled: { ko: "취소", en: "Cancelled" },
+  ended: registryLabel("call_status", "ended"),
+  missed: registryLabel("call_status", "missed"),
+  rejected: registryLabel("call_status", "rejected"),
+  cancelled: registryLabel("call_status", "cancelled"),
 };
 
 const ROOM_STATE_LABEL: Record<ChatRoomStateKey, { ko: string; en: string }> = {
   active_7d: { ko: "활성 (최근 7일)", en: "Active (last 7 days)" },
-  archived: { ko: "보관", en: "Archived" },
-  blocked: { ko: "정지", en: "Blocked" },
+  archived: registryLabel("room_status", "archived"),
+  blocked: registryLabel("room_status", "blocked"),
 };
 
 function pushSourceDescription(group: ChatPushEventGroup): string {
@@ -281,8 +290,8 @@ export const CHAT_METRIC_DEFINITIONS: readonly ChatMetricDefinition[] = [
       source: { kind: "direct", description: pushSourceDescription(group) },
       period: "last_24h",
       permission: null,
-      // 목록 신설 필요 — 가장 가까운 화면 (이용자별 발송 기록)
-      href: withQuery(CHAT_PUSH_FAILURE_LIST_PATH, { status: "failed", event: group, window: "24h" }),
+      // 같은 조건을 읽는 목록 없음 — 링크 없이 숫자만 (설계 §3-1)
+      href: CHAT_PUSH_FAILURE_LIST_PATH,
       listFilter: "pending",
       showWhenZero: false,
     })
@@ -298,9 +307,8 @@ export const CHAT_METRIC_DEFINITIONS: readonly ChatMetricDefinition[] = [
     },
     period: "last_24h",
     permission: null,
-    // 통화 기록 필터 목록 신설 필요 — 가장 가까운 화면
     href: withQuery(CHAT_CALL_LIST_PATH, { call_reason: CHAT_CALL_FAILED_REASON_PREFIX, window: "24h" }),
-    listFilter: "pending",
+    listFilter: "applied",
     showWhenZero: false,
   },
   {
@@ -314,9 +322,8 @@ export const CHAT_METRIC_DEFINITIONS: readonly ChatMetricDefinition[] = [
     },
     period: "stale",
     permission: null,
-    // 통화 기록 필터 목록 신설 필요 — 가장 가까운 화면
     href: withQuery(CHAT_CALL_LIST_PATH, { call_status: "ringing", stuck: "1" }),
-    listFilter: "pending",
+    listFilter: "applied",
     showWhenZero: false,
   },
 
@@ -357,9 +364,8 @@ export const CHAT_METRIC_DEFINITIONS: readonly ChatMetricDefinition[] = [
       },
       period: "active_window",
       permission: null,
-      // 통화 기록 필터 목록 신설 필요 — 가장 가까운 화면
       href: withQuery(CHAT_CALL_LIST_PATH, { call_status: status, activity: "7d" }),
-      listFilter: "pending",
+      listFilter: "applied",
       showWhenZero: true,
     })
   ),

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chatAdminReasonRequired, requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { chatAdminReasonRequired, requireChatRoomAdminForRow } from "@/lib/admin/chat-admin/chat-admin-guards";
 import {
   CHAT_ADMIN_ACTION_REASON_MIN_LENGTH,
   isChatAdminReasonValid,
@@ -25,7 +25,8 @@ const REPORT_ACTIONS: readonly CmReportAdminAction[] = [
  * Body: { action, reason } (`adminNote` 는 구 클라이언트 호환 별칭)
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requireChatAdmin();
+  const { id } = await params;
+  const admin = await requireChatRoomAdminForRow("community_messenger_reports", String(id ?? "").trim());
   if (!admin.ok) return admin.response;
 
   let body: { action?: string; reason?: string; adminNote?: string };
@@ -35,7 +36,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const { id } = await params;
   const action = String(body.action ?? "") as CmReportAdminAction;
   if (!REPORT_ACTIONS.includes(action)) {
     return NextResponse.json({ ok: false, error: "bad_action" }, { status: 400 });

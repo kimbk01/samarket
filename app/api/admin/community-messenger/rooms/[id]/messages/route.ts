@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   appendChatContentViewAudit,
   readChatAdminReason,
-  requireChatAdmin,
+  requireChatRoomAdmin,
 } from "@/lib/admin/chat-admin/chat-admin-guards";
 import {
   CHAT_ADMIN_GHOST_REASON_MIN_LENGTH,
@@ -21,11 +21,11 @@ export const dynamic = "force-dynamic";
  * 본문 열람 판정·감사는 상세 GET(R1-A)과 같은 정책을 쓴다. 읽기 전용 (참가자·읽음·unread 미변경).
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requireChatAdmin();
-  if (!admin.ok) return admin.response;
-
   const { id } = await params;
   const roomId = String(id ?? "").trim();
+  const admin = await requireChatRoomAdmin(roomId);
+  if (!admin.ok) return admin.response;
+
   if (!roomId) {
     return NextResponse.json({ ok: false, error: "room_id_required" }, { status: 400 });
   }

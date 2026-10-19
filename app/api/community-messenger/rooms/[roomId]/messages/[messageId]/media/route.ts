@@ -16,11 +16,11 @@ import {
   appendChatContentViewAudit,
   readChatAdminReason,
   requireAnyAdminPermission,
-  requireChatAdmin,
 } from "@/lib/admin/chat-admin/chat-admin-guards";
 import {
   CHAT_ADMIN_GHOST_REASON_MIN_LENGTH,
   CM_REPORT_OPEN_STATUSES,
+  chatRoomAdminPermissionKeys,
   decideChatContentAccess,
   resolveCmRoomContentDomain,
 } from "@/lib/admin/chat-admin/chat-content-access-policy";
@@ -104,8 +104,8 @@ export async function GET(
         const domain = resolveCmRoomContentDomain(
           roomMeta as { chat_domain?: string; room_type?: string; direct_key?: string }
         );
-        /** 주문 채팅은 주문 Admin(`business`)도 열람 (R1-A order-chats 와 동일 규칙). */
-        const admin = domain === "store_order" ? await requireAnyAdminPermission(["chats", "business"]) : await requireChatAdmin();
+        /** 방 유형별 권한 단일 규칙 (거래 `products` · 배달 `business` 도 허용 — 설계 §2-2). */
+        const admin = await requireAnyAdminPermission(chatRoomAdminPermissionKeys(domain));
         if (!admin.ok) return { ok: false, status: admin.response.status, error: "admin_forbidden", response: admin.response };
         const [{ count: openReportCount }, { data: linkedOrder }] = await Promise.all([
           admin.sb

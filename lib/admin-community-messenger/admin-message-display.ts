@@ -2,11 +2,13 @@
  * 채팅 Admin R1 (B) — CM 메시지 행(`message_type` + `content` + `metadata`)을 관리자 화면 표시용으로 정리.
  *
  * - 순수 함수 — 서버 로더·클라이언트 컴포넌트 양쪽에서 import 가능 (서버 전용 모듈 import 금지).
- * - URL 은 저장된 값을 그대로 노출한다. 첨부 서명 URL(영역 E)이 붙으면 `attachmentUrls` 만 교체하면 된다.
+ * - `roomId`·`messageId` 가 있으면 메신저 버킷 첨부 URL 을 관리자 조회 라우트(`ctx=admin`)로 바꾼다
+ *   (비공개 버킷·권한·열람 감사 경유). 없으면 저장된 값을 그대로 둔다.
  * - 사용자 측 매핑(`mapCommunityMessengerDbMessageRowToMessage`)과 같은 metadata 키를 읽는다.
  */
 import { messengerImageClientFieldsFromMetadata } from "@/lib/community-messenger/messenger-image-message-map";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
+import { buildAdminMessengerMediaUrl } from "@/lib/admin-community-messenger/admin-media-url";
 
 export type AdminCmMessageKind =
   | "text"
@@ -54,7 +56,12 @@ export function buildAdminCmMessageDisplay(input: {
   messageType: string | null | undefined;
   content: string | null | undefined;
   metadata: Record<string, unknown> | null | undefined;
+  /** CM 방 id — 첨부를 관리자 조회 라우트로 바꿀 때 필요 */
+  roomId?: string | null;
+  messageId?: string | null;
 }): AdminCmMessageDisplay {
+  const route = (url: string): string =>
+    buildAdminMessengerMediaUrl({ roomId: input.roomId, messageId: input.messageId, url });
   const rawType = s(input.messageType) || "text";
   const content = typeof input.content === "string" ? input.content : "";
   const contentTrim = content.trim();
@@ -82,7 +89,7 @@ export function buildAdminCmMessageDisplay(input: {
     return {
       ...base,
       kind: "image",
-      imageUrls: urls.filter((u) => isHttpUrl(u)),
+      imageUrls: urls.filter((u) => isHttpUrl(u)).map(route),
       text: isHttpUrl(contentTrim) ? "" : content,
     };
   }
@@ -91,7 +98,7 @@ export function buildAdminCmMessageDisplay(input: {
     return {
       ...base,
       kind: "file",
-      attachmentUrl: isHttpUrl(contentTrim) ? contentTrim : null,
+      attachmentUrl: isHttpUrl(contentTrim) ? route(contentTrim) : null,
       fileName: s(metadata.fileName) || null,
       fileSizeBytes: nonNegInt(metadata.fileSizeBytes),
       mimeType: s(metadata.mimeType) || null,
@@ -103,7 +110,7 @@ export function buildAdminCmMessageDisplay(input: {
     return {
       ...base,
       kind: "voice",
-      attachmentUrl: isHttpUrl(contentTrim) ? contentTrim : null,
+      attachmentUrl: isHttpUrl(contentTrim) ? route(contentTrim) : null,
       voiceDurationSeconds: nonNegInt(metadata.durationSeconds),
       mimeType: s(metadata.mimeType) || null,
       text: isHttpUrl(contentTrim) ? "" : content,

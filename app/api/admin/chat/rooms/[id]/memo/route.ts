@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { requireAnyAdminPermission } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { TRADE_CHAT_ADMIN_PERMISSION_KEYS } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveChatRoomId } from "@/lib/admin-chats/resolve-chat-room-id";
 
@@ -10,7 +11,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const admin = await requireChatAdmin();
+  const admin = await requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
   if (!admin.ok) return admin.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;

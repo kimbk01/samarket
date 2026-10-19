@@ -8,11 +8,8 @@ export const dynamic = "force-dynamic";
  * 거래 채팅(item_trade)만 반환 → 거래 연결 근거로 본문 열람, 서버에서 audit_logs `chat_room.content_view` 기록 (R1-A).
  */
 import { NextRequest, NextResponse } from "next/server";
-import {
-  appendChatContentViewAudit,
-  readChatAdminReason,
-  requireChatAdmin,
-} from "@/lib/admin/chat-admin/chat-admin-guards";
+import { appendChatContentViewAudit, readChatAdminReason, requireAnyAdminPermission } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { TRADE_CHAT_ADMIN_PERMISSION_KEYS } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { resolveChatRoomId } from "@/lib/admin-chats/resolve-chat-room-id";
@@ -31,7 +28,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireChatAdmin();
+  const admin = await requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
   if (!admin.ok) return admin.response;
   const viewReason = readChatAdminReason(req);
 

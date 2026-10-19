@@ -3,8 +3,10 @@
  * Body: { action: string, reason } (`note` 호환 별칭)
  * R1-A: 권한 `chats` + 사유 2자 이상 + 상태 CAS(409) + audit_logs (before/after)
  */
+import { CHAT_REPORT_OPEN_STATUSES } from "@/lib/admin/metrics/chat-metrics";
 import { NextRequest, NextResponse } from "next/server";
-import { chatAdminReasonRequired, requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { chatAdminReasonRequired, requireAnyAdminPermission } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { TRADE_CHAT_ADMIN_PERMISSION_KEYS } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   CHAT_ADMIN_ACTION_REASON_MIN_LENGTH,
@@ -21,7 +23,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireChatAdmin();
+  const admin = await requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
   if (!admin.ok) return admin.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
@@ -60,7 +62,8 @@ export async function POST(
     .from("chat_reports")
     .update({ status: "actioned", updated_at: now, assigned_admin_id: adminId })
     .eq("id", reportId)
-    .neq("status", "actioned")
+    // 처리 대기 상태에서만 종료 (기각된 신고가 actioned 로 뒤집히지 않게).
+    .in("status", [...CHAT_REPORT_OPEN_STATUSES.trade_chat])
     .select("id");
   if (closeErr) {
     return NextResponse.json({ ok: false, error: closeErr.message }, { status: 500 });

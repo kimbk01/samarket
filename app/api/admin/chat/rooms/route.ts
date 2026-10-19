@@ -8,14 +8,15 @@ export const dynamic = "force-dynamic";
  * Query: roomType, tradeStatus, requestStatus, blocked, hasReport, limit, cursor
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { requireAnyAdminPermission } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { TRADE_CHAT_ADMIN_PERMISSION_KEYS } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 import { attachTradeMessengerRoomsToLegacyList } from "@/lib/admin-chats/trade-messenger-list";
 
 export async function GET(req: NextRequest) {
-  const admin = await requireChatAdmin();
+  const admin = await requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
   if (!admin.ok) return admin.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;

@@ -28,6 +28,7 @@ import { adminLegacyTradeChatDetailHref } from "@/lib/admin/chat-admin/admin-cha
 import { currentAdminListHref } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
 import { AdminChatFilterBar } from "./AdminChatFilterBar";
 import { AdminChatTable } from "./AdminChatTable";
+import { AdminChatHardDeleteSheet } from "./AdminChatSheets";
 import {
   adminTradeChatDeepLinkActive,
   matchAdminChatRoomToDeepLink,
@@ -115,7 +116,8 @@ function storageForBulkDelete(r: AdminChatRoom): "chat_rooms" | "product_chats" 
 }
 
 /** 전체 / 거래 / 신고 / 업체 / 커뮤니티 / 모임 — 채팅관리 메뉴와 1:1 분리 */
-export type ChatListMode = "all" | "trade" | "reported" | "business" | "community" | "group";
+/** `trade_legacy` = 앱 채팅방(CM)이 없는 과거 거래 채팅 — 읽기 전용 기록 (설계 §3-6). */
+export type ChatListMode = "all" | "trade" | "trade_legacy" | "reported" | "business" | "community" | "group";
 
 const DEFAULT_FILTERS: AdminChatFilters = {
   roomStatus: "",
@@ -125,7 +127,7 @@ const DEFAULT_FILTERS: AdminChatFilters = {
 };
 
 function getInitialFilters(mode: ChatListMode): AdminChatFilters {
-  if (mode === "trade") return { ...DEFAULT_FILTERS, roomType: "item_trade" };
+  if (mode === "trade" || mode === "trade_legacy") return { ...DEFAULT_FILTERS, roomType: "item_trade" };
   if (mode === "reported") return { ...DEFAULT_FILTERS, reportedOnly: true };
   if (mode === "business") return DEFAULT_FILTERS;
   if (mode === "community") return { ...DEFAULT_FILTERS, roomType: "community" };
@@ -136,6 +138,7 @@ function getInitialFilters(mode: ChatListMode): AdminChatFilters {
 
 function getTitleKey(mode: ChatListMode): MessageKey {
   if (mode === "trade") return "admin_chat_list_title_trade";
+  if (mode === "trade_legacy") return "admin_chat_list_title_trade_legacy";
   if (mode === "reported") return "admin_chat_list_title_reported";
   if (mode === "business" || mode === "community" || mode === "group") return "admin_chat_removed";
   return "admin_chat_list_title_all";
@@ -220,7 +223,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       let anySourceOk = false;
       const hollowMode = mode === "business" || mode === "community" || mode === "group";
 
-      if (mode === "trade") {
+      if (mode === "trade" || mode === "trade_legacy") {
         const [a, b] = await Promise.all([
           settleRooms(fetchAdminChatRoomsApi()),
           settleRooms(fetchAdminChatRoomsListApi({ roomType: "item_trade" })),
@@ -249,7 +252,10 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         anySourceOk = a.ok || b.ok;
       }
 
-      const mergedAll = [...mergeChatRoomsForAdmin(fromProductChats, fromChatRooms)];
+      const mergedAll = [...mergeChatRoomsForAdmin(fromProductChats, fromChatRooms)].filter(
+        // 레거시 기록: CM 방이 연결된 방은 채팅방 목록(CM)에서 본다.
+        (r) => mode !== "trade_legacy" || !r.messengerRoomId
+      );
       /** Deep-link postId: keep rooms even without messages so listing→chat drill works. */
       const postFocus = mode === "trade" ? deepLink.postId : "";
       const merged = (
@@ -369,6 +375,19 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
     setSelectedIds(new Set());
     setActionMessage(t("admin_chat_hidden_list_only"));
   }, [selectedIds, t]);
+
+  /** 레거시 기록 — 영구 삭제는 시트 S6 (super_admin · 사유 10자 · DELETE 재입력, 서버가 증거 연결 방 제외). */
+  const [hardDeleteItems, setHardDeleteItems] = useState<
+    Array<{ id: string; storage: "chat_rooms" | "product_chats"; label: string }> | null
+  >(null);
+  const openHardDeleteSheet = useCallback(() => {
+    const byId = new Map(rooms.map((r) => [r.id, r]));
+    const items = [...selectedIds]
+      .map((id) => byId.get(id))
+      .filter((r): r is AdminChatRoom => Boolean(r))
+      .map((r) => ({ id: r.id, storage: storageForBulkDelete(r), label: r.productTitle || r.id.slice(0, 8) }));
+    if (items.length) setHardDeleteItems(items);
+  }, [rooms, selectedIds]);
 
   const deleteSelectedFromDb = useCallback(async () => {
     if (selectedIds.size === 0) return;
@@ -651,7 +670,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
           <AdminActionButton
             variant="danger"
             disabled={selectedIds.size === 0 || actionBusy}
-            onClick={() => void deleteSelectedFromDb()}
+            onClick={() => (mode === "trade_legacy" ? openHardDeleteSheet() : void deleteSelectedFromDb())}
             data-admin-mgmt-hard-delete="1"
             className="ring-2 ring-red-900/50"
           >
@@ -680,6 +699,18 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
           returnTo={returnTo}
         />
       )}
+      {hardDeleteItems ? (
+        <AdminChatHardDeleteSheet
+          items={hardDeleteItems}
+          onClose={() => setHardDeleteItems(null)}
+          onSettled={() => {
+            setHardDeleteItems(null);
+            setSelectedIds(new Set());
+            setActionMessage(t("admin_chat_s6_done"));
+            setReloadToken((n) => n + 1);
+          }}
+        />
+      ) : null}
       {!loading && pageCount > 1 ? (
         <nav className="flex flex-wrap items-center gap-2 sam-text-body-secondary" data-admin-list-pager="page">
           <button

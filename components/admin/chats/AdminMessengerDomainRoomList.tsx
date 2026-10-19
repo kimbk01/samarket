@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * 채팅방 목록 (설계 §3-4) — 전체·거래·배달 주문·일반 1:1·그룹 공용. 원천 = CM `community_messenger_rooms`.
+ * 검색·필터·정렬·페이지는 전부 URL 상태. 이전 페이지는 URL `trail`(지나온 커서) — 브라우저 뒤로가기 의존 없음.
+ * 행 동작 없음 — 조치는 방 상세(시트 S1~S6)에서만.
+ */
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -7,6 +12,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -16,10 +22,14 @@ import type { AdminChatRoomListRow } from "@/lib/admin-community-messenger/list-
 import {
   ADMIN_CHAT_LIST_DEFAULT_LIMIT,
   ADMIN_CHAT_ROOM_DOMAINS,
+  adminListNextPage,
+  adminListPrevPage,
   buildAdminChatRoomListApiSearch,
   buildAdminChatRoomListSearch,
   currentAdminListHref,
   parseAdminChatRoomListQuery,
+  readAdminListTrail,
+  withAdminListTrail,
   type AdminChatRoomListQuery,
   type AdminChatRoomTypeFilter,
 } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
@@ -46,6 +56,8 @@ const TITLE_KEY_BY_TYPE: Record<AdminChatRoomTypeFilter, MessageKey> = {
   store_order: "admin_menu_chat_rooms_store_order",
 };
 
+export const ADMIN_TRADE_LEGACY_LIST_PATH = "/admin/chats/trade-legacy";
+
 type Props = {
   mode: AdminMessengerDomainListMode;
 };
@@ -56,12 +68,11 @@ type LoadState =
   | { kind: "ready"; rows: AdminChatRoomListRow[]; nextCursor: string | null };
 
 const INPUT = "rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg";
-const BTN = "rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app disabled:opacity-40";
+const TH = "px-3 py-2.5 text-left text-xs font-medium text-sam-muted";
 
 export function AdminMessengerDomainRoomList({ mode }: Props) {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
-  const L = (k: string, e: string) => (ko ? k : e);
   const router = useRouter();
   const pathname = usePathname() ?? "/admin/chats";
   const searchParams = useSearchParams();
@@ -71,6 +82,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
     () => parseAdminChatRoomListQuery(new URLSearchParams(spKey), fixedType),
     [spKey, fixedType]
   );
+  const trail = useMemo(() => readAdminListTrail(new URLSearchParams(spKey)), [spKey]);
   const returnTo = currentAdminListHref(pathname, spKey ? `?${spKey}` : "");
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [searchDraft, setSearchDraft] = useState(query.q);
@@ -115,12 +127,16 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
     };
   }, [apiSearch, reloadToken]);
 
-  /** 필터 변경 = 첫 페이지 (커서 초기화) · 페이지 이동은 push 로 뒤로가기 지원. */
+  /** 필터 변경 = 첫 페이지 (커서·trail 초기화, replace) · 페이지 이동 = push + trail. */
   const navigate = useCallback(
-    (patch: Partial<AdminChatRoomListQuery>, opts?: { push?: boolean }) => {
+    (patch: Partial<AdminChatRoomListQuery>, opts?: { trail?: string[] }) => {
       const next: AdminChatRoomListQuery = { ...query, cursor: "", ...patch };
-      const href = `${pathname}${buildAdminChatRoomListSearch(next, { fixedType: Boolean(fixedType) })}`;
-      if (opts?.push) router.push(href, { scroll: true });
+      const search = withAdminListTrail(
+        buildAdminChatRoomListSearch(next, { fixedType: Boolean(fixedType) }),
+        opts?.trail ?? []
+      );
+      const href = `${pathname}${search}`;
+      if (opts?.trail) router.push(href, { scroll: true });
       else router.replace(href, { scroll: false });
     },
     [fixedType, pathname, query, router]
@@ -131,6 +147,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
     navigate({ q: searchDraft });
   };
 
+  const deepLinked = Boolean(query.postId || query.orderId || query.buyerId || query.sellerId);
   const filtered = Boolean(
     query.q ||
       query.userId ||
@@ -138,25 +155,22 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
       query.reported ||
       query.activity ||
       query.idleDays ||
+      deepLinked ||
       (mode === "all" && query.type !== "all")
   );
-  const titleKey = TITLE_KEY_BY_TYPE[fixedType ?? query.type];
+  const effectiveType = fixedType ?? query.type;
+  const titleKey = TITLE_KEY_BY_TYPE[effectiveType];
+  const showDomainBadge = effectiveType === "all";
 
   return (
     <div
       className="space-y-4 p-4 md:p-6"
       data-admin-surface="live"
       data-admin-domain="messenger"
-      data-admin-chat-domain={fixedType ?? query.type}
+      data-admin-chat-domain={effectiveType}
       data-testid={`admin-messenger-domain-list-${mode}`}
     >
-      <AdminPageHeader
-        titleKey={titleKey}
-        description={L(
-          "채팅방을 최근 대화 순으로 봅니다. 방 이름을 누르면 상세(참여자·메시지·조치)로 이동하고, 돌아오면 같은 검색·필터·페이지가 유지됩니다.",
-          "Rooms by latest activity. Open a room for participants, messages and actions; coming back keeps the same search, filters and page."
-        )}
-      />
+      <AdminPageHeader titleKey={titleKey} description={t("admin_chat_rooms_desc")} />
 
       <form
         onSubmit={onSearch}
@@ -166,18 +180,18 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
         <input
           value={searchDraft}
           onChange={(e) => setSearchDraft(e.target.value)}
-          placeholder={L("방 이름 · 참여자 닉네임 · 방 ID · 회원 ID", "Room name · member nickname · room ID · member ID")}
+          placeholder={t("admin_chat_rooms_search_placeholder")}
           className={`${INPUT} min-w-[240px] flex-1`}
-          aria-label={L("검색", "Search")}
+          aria-label={t("admin_chat_list_search")}
         />
         {mode === "all" ? (
           <select
             value={query.type}
             onChange={(e) => navigate({ type: e.target.value as AdminChatRoomTypeFilter })}
             className={INPUT}
-            aria-label={L("채팅 유형", "Chat type")}
+            aria-label={t("admin_chat_rooms_filter_type")}
           >
-            <option value="all">{L("전체 유형", "All types")}</option>
+            <option value="all">{t("admin_chat_rooms_filter_type_all")}</option>
             {ADMIN_CHAT_ROOM_DOMAINS.map((d) => (
               <option key={d} value={d}>
                 {adminChatLabel("chat_domain", d, ko).label}
@@ -189,9 +203,9 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
           value={query.status}
           onChange={(e) => navigate({ status: e.target.value as AdminChatRoomListQuery["status"] })}
           className={INPUT}
-          aria-label={L("방 상태", "Room status")}
+          aria-label={t("admin_chat_rooms_filter_status")}
         >
-          <option value="">{L("전체 상태", "All statuses")}</option>
+          <option value="">{t("admin_chat_rooms_filter_status_all")}</option>
           {(["active", "blocked", "archived"] as const).map((st) => (
             <option key={st} value={st}>
               {adminChatLabel("room_status", st, ko).label}
@@ -207,56 +221,109 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
             else navigate({ activity: "", idleDays: 0 });
           }}
           className={INPUT}
-          aria-label={L("활동 기간", "Activity")}
+          aria-label={t("admin_chat_rooms_filter_activity")}
         >
-          <option value="">{L("전체 기간", "Any activity")}</option>
-          <option value="active_7d">{L("최근 7일 활동", "Active in last 7 days")}</option>
+          <option value="">{t("admin_chat_rooms_filter_activity_all")}</option>
+          <option value="active_7d">{t("admin_chat_rooms_filter_activity_7d")}</option>
           <option value={`idle_${query.idleDays || 90}`}>
-            {L(`${query.idleDays || 90}일 이상 미사용`, `Idle ${query.idleDays || 90}+ days`)}
+            {t("admin_chat_rooms_filter_idle", { days: query.idleDays || 90 })}
           </option>
         </select>
-        <label className="flex items-center gap-1.5 sam-text-body text-sam-fg">
+        <select
+          value={query.sort}
+          onChange={(e) => navigate({ sort: e.target.value === "created" ? "created" : "" })}
+          className={INPUT}
+          aria-label={t("admin_chat_list_sort")}
+        >
+          <option value="">{t("admin_chat_rooms_sort_recent")}</option>
+          <option value="created">{t("admin_chat_rooms_sort_created")}</option>
+        </select>
+        <label className="flex min-h-9 items-center gap-1.5 sam-text-body text-sam-fg">
           <input
             type="checkbox"
             checked={query.reported}
             onChange={(e) => navigate({ reported: e.target.checked })}
           />
-          {L("미처리 신고 있는 방", "Rooms with open reports")}
+          {t("admin_chat_rooms_filter_reported")}
         </label>
-        <button type="submit" className={BTN}>
-          {L("검색", "Search")}
-        </button>
-        {filtered ? (
-          <button
-            type="button"
-            className={BTN}
-            onClick={() =>
-              navigate({
-                q: "",
-                userId: "",
-                status: "",
-                reported: false,
-                activity: "",
-                idleDays: 0,
-                type: fixedType ?? "all",
-              })
-            }
-          >
-            {L("필터 초기화", "Clear filters")}
-          </button>
-        ) : null}
+        <div className="ml-auto flex gap-2">
+          {filtered ? (
+            <AdminActionButton
+              variant="ghost"
+              onClick={() =>
+                navigate({
+                  q: "",
+                  userId: "",
+                  status: "",
+                  reported: false,
+                  activity: "",
+                  idleDays: 0,
+                  sort: "",
+                  postId: "",
+                  buyerId: "",
+                  sellerId: "",
+                  orderId: "",
+                  type: fixedType ?? "all",
+                })
+              }
+            >
+              {t("admin_chat_list_clear_filters")}
+            </AdminActionButton>
+          ) : null}
+          <AdminActionButton type="submit" variant="primary">
+            {t("admin_chat_list_search")}
+          </AdminActionButton>
+        </div>
       </form>
 
-      {query.userId ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
-          <span className="text-sam-muted">{L("참여 회원", "Member")}:</span>
-          <Link href={adminUserDetailHref(query.userId, returnTo)} className="font-mono text-signature hover:underline">
-            {query.userId.slice(0, 8)}…
-          </Link>
-          <button type="button" className="sam-text-helper text-sam-muted underline" onClick={() => navigate({ userId: "" })}>
-            {L("해제", "Clear")}
-          </button>
+      {query.userId || deepLinked ? (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary"
+          data-admin-list-chips
+        >
+          {query.userId ? (
+            <span className="flex items-center gap-1">
+              <span className="text-sam-muted">{t("admin_chat_rooms_chip_member")}</span>
+              <Link href={adminUserDetailHref(query.userId, returnTo)} className="font-mono text-signature hover:underline">
+                {query.userId.slice(0, 8)}…
+              </Link>
+              <button type="button" className="sam-text-helper text-sam-muted underline" onClick={() => navigate({ userId: "" })}>
+                {t("admin_chat_list_chip_clear")}
+              </button>
+            </span>
+          ) : null}
+          {query.postId ? (
+            <span className="flex items-center gap-1">
+              <span className="text-sam-muted">{t("admin_chat_rooms_chip_post")}</span>
+              <span className="font-mono">{query.postId.slice(0, 8)}…</span>
+              <button
+                type="button"
+                className="sam-text-helper text-sam-muted underline"
+                onClick={() => navigate({ postId: "", buyerId: "", sellerId: "" })}
+              >
+                {t("admin_chat_list_chip_clear")}
+              </button>
+            </span>
+          ) : null}
+          {query.orderId ? (
+            <span className="flex items-center gap-1">
+              <span className="text-sam-muted">{t("admin_chat_rooms_chip_order")}</span>
+              <span className="font-mono">{query.orderId.slice(0, 8)}…</span>
+              <button type="button" className="sam-text-helper text-sam-muted underline" onClick={() => navigate({ orderId: "" })}>
+                {t("admin_chat_list_chip_clear")}
+              </button>
+            </span>
+          ) : null}
         </div>
+      ) : null}
+
+      {effectiveType === "trade" ? (
+        <p className="sam-text-helper text-sam-muted" data-admin-trade-legacy-hint>
+          {t("admin_chat_rooms_trade_legacy_hint")}{" "}
+          <Link href={`${ADMIN_TRADE_LEGACY_LIST_PATH}?returnTo=${encodeURIComponent(returnTo)}`} className="font-medium text-signature underline">
+            {t("admin_chat_rooms_trade_legacy_link")}
+          </Link>
+        </p>
       ) : null}
 
       {state.kind === "loading" ? (
@@ -274,48 +341,56 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
             ko={ko}
             message={
               query.cursor
-                ? L("이 페이지 이후로 더 표시할 채팅방이 없습니다.", "No more rooms after this page.")
+                ? t("admin_chat_list_empty_after_page")
                 : filtered
-                  ? L("조건에 맞는 채팅방이 없습니다.", "No rooms match these filters.")
-                  : L("아직 채팅방이 없습니다.", "No chat rooms yet.")
+                  ? t("admin_chat_rooms_empty_filtered")
+                  : t("admin_chat_rooms_empty")
             }
           />
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="w-full min-w-[760px] border-collapse sam-text-body">
+          <table className="w-full min-w-[880px] border-collapse sam-text-body">
             <thead>
-              <tr className="border-b border-sam-border bg-sam-app text-left text-sam-fg">
-                <th className="px-3 py-2.5 font-medium">{L("채팅방", "Room")}</th>
-                <th className="px-3 py-2.5 font-medium">{L("참여자", "Members")}</th>
-                <th className="px-3 py-2.5 font-medium">{L("최근 메시지", "Last message")}</th>
-                <th className="px-3 py-2.5 font-medium">{L("상태", "Status")}</th>
+              <tr className="border-b border-sam-border bg-sam-app">
+                <th className={TH}>{t("admin_chat_rooms_col_room")}</th>
+                <th className={TH}>{t("admin_chat_rooms_col_linked")}</th>
+                <th className={TH}>{t("admin_chat_rooms_col_members")}</th>
+                <th className={TH}>{t("admin_chat_rooms_col_last")}</th>
+                <th className={TH}>{t("admin_chat_rooms_col_status")}</th>
               </tr>
             </thead>
             <tbody>
               {state.rows.map((room) => {
                 const status = adminChatLabel("room_status", room.roomStatus, ko);
                 const domain = adminChatLabel("chat_domain", room.chatDomain, ko);
-                const msgType = room.lastMessageType && room.lastMessageType !== "text"
-                  ? adminChatLabel("message_type", room.lastMessageType, ko)
-                  : null;
+                const msgType = room.lastMessageType ? adminChatLabel("message_type", room.lastMessageType, ko) : null;
                 return (
                   <tr key={room.id} className="border-b border-sam-border/70 last:border-0" data-admin-chat-room-row={room.id}>
                     <td className="px-3 py-2.5 align-top">
-                      <Link
-                        href={adminChatRoomDetailHref(room.id, returnTo)}
-                        className="font-medium text-signature underline"
-                      >
-                        {room.title || L("이름 없는 채팅방", "Untitled room")}
+                      <Link href={adminChatRoomDetailHref(room.id, returnTo)} className="font-medium text-signature underline">
+                        {room.title || t("admin_chat_rooms_untitled")}
                       </Link>
                       <div className="mt-1 flex flex-wrap gap-1">
-                        {mode === "all" ? <AdminToneBadge tone={domain.tone}>{domain.label}</AdminToneBadge> : null}
+                        {showDomainBadge ? <AdminToneBadge tone={domain.tone}>{domain.label}</AdminToneBadge> : null}
                         {room.openReportCount > 0 ? (
                           <AdminToneBadge tone="warning">
-                            {L(`미처리 신고 ${room.openReportCount}`, `Open reports ${room.openReportCount}`)}
+                            {t("admin_chat_rooms_open_reports", { count: room.openReportCount })}
                           </AdminToneBadge>
                         ) : null}
                       </div>
+                    </td>
+                    <td className="px-3 py-2.5 align-top">
+                      {room.linked?.kind === "trade" ? (
+                        <span className="text-sam-fg">{room.linked.title || t("admin_chat_rooms_linked_post_untitled")}</span>
+                      ) : room.linked?.kind === "store_order" ? (
+                        <span className="text-sam-fg">
+                          {room.linked.orderNo || room.linked.orderId.slice(0, 8)}
+                          {room.linked.storeName ? <span className="text-sam-muted"> · {room.linked.storeName}</span> : null}
+                        </span>
+                      ) : (
+                        <span className="text-sam-muted">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 align-top">
                       <div className="flex flex-wrap gap-x-2 gap-y-1">
@@ -323,11 +398,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
                           <span className="text-sam-muted">—</span>
                         ) : (
                           room.members.map((m) => (
-                            <Link
-                              key={m.userId}
-                              href={adminUserDetailHref(m.userId, returnTo)}
-                              className="text-signature underline"
-                            >
+                            <Link key={m.userId} href={adminUserDetailHref(m.userId, returnTo)} className="text-signature underline">
                               {m.label}
                             </Link>
                           ))
@@ -338,10 +409,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
                       </div>
                     </td>
                     <td className="px-3 py-2.5 align-top">
-                      <div className="line-clamp-2 text-sam-fg">
-                        {msgType ? <span className="mr-1 text-sam-muted">[{msgType.label}]</span> : null}
-                        {room.lastMessage || (msgType ? "" : "—")}
-                      </div>
+                      <div className="text-sam-muted">{msgType ? msgType.label : "—"}</div>
                       <div className="mt-0.5 sam-text-xxs text-sam-muted">
                         {room.lastMessageAt ? formatAdminDateTime(room.lastMessageAt, language) : "—"}
                       </div>
@@ -350,7 +418,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
                       <AdminToneBadge tone={status.tone}>{status.label}</AdminToneBadge>
                       {room.isReadonly ? (
                         <div className="mt-1">
-                          <AdminToneBadge tone="warning">{L("읽기 전용", "Read-only")}</AdminToneBadge>
+                          <AdminToneBadge tone="warning">{adminChatLabel("room_status", "readonly", ko).label}</AdminToneBadge>
                         </div>
                       ) : null}
                     </td>
@@ -363,29 +431,31 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
       )}
 
       {state.kind === "ready" && (query.cursor || state.nextCursor) ? (
-        <nav className="flex flex-wrap items-center gap-2" aria-label={L("페이지", "Pages")} data-admin-list-pager="keyset">
-          {query.cursor ? (
-            <button type="button" className={BTN} onClick={() => navigate({ cursor: "" }, { push: true })}>
-              {L("처음으로", "First page")}
-            </button>
-          ) : null}
-          {query.cursor ? (
-            <button type="button" className={BTN} onClick={() => router.back()}>
-              {L("이전", "Previous")}
-            </button>
-          ) : null}
-          {state.nextCursor ? (
-            <button
-              type="button"
-              className={BTN}
-              onClick={() => navigate({ cursor: state.nextCursor ?? "" }, { push: true })}
-            >
-              {L("다음", "Next")}
-            </button>
-          ) : null}
-          <span className="sam-text-helper text-sam-muted">
-            {L(`한 페이지 ${ADMIN_CHAT_LIST_DEFAULT_LIMIT}개`, `${ADMIN_CHAT_LIST_DEFAULT_LIMIT} per page`)}
+        <nav className="flex flex-wrap items-center justify-end gap-2" aria-label={t("admin_chat_list_pages")} data-admin-list-pager="keyset">
+          <span className="mr-auto sam-text-helper text-sam-muted">
+            {t("admin_chat_list_page_size", { count: ADMIN_CHAT_LIST_DEFAULT_LIMIT })}
           </span>
+          <AdminActionButton disabled={!query.cursor} onClick={() => navigate({ cursor: "" })}>
+            {t("admin_chat_list_first")}
+          </AdminActionButton>
+          <AdminActionButton
+            disabled={!query.cursor}
+            onClick={() => {
+              const p = adminListPrevPage(trail);
+              navigate({ cursor: p.cursor }, { trail: p.trail });
+            }}
+          >
+            {t("admin_chat_list_prev")}
+          </AdminActionButton>
+          <AdminActionButton
+            disabled={!state.nextCursor}
+            onClick={() => {
+              const n = adminListNextPage(trail, query.cursor, state.nextCursor ?? "");
+              navigate({ cursor: n.cursor }, { trail: n.trail });
+            }}
+          >
+            {t("admin_chat_list_next")}
+          </AdminActionButton>
         </nav>
       ) : null}
     </div>

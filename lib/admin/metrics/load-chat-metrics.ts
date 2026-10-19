@@ -15,6 +15,7 @@ import {
   CHAT_PUSH_EVENT_GROUP_KEYS,
   CHAT_PUSH_EVENT_GROUPS,
   CHAT_REPORT_OPEN_STATUSES,
+  CHAT_REPORT_TARGET_TYPES,
   CHAT_ROOM_STATE_KEYS,
   chatActiveWindowFromIso,
   chatIdleCutoffIso,
@@ -71,7 +72,7 @@ export async function loadChatMetrics(sb: SupabaseClient, now: Date = new Date()
       }),
       count("chat_reports", (q) => q.in("status", [...CHAT_REPORT_OPEN_STATUSES.trade_chat])),
       count("reports", (q) =>
-        q.eq("target_type", "chat_room").in("status", [...CHAT_REPORT_OPEN_STATUSES.trade_report])
+        q.in("target_type", [...CHAT_REPORT_TARGET_TYPES]).in("status", [...CHAT_REPORT_OPEN_STATUSES.trade_report])
       ),
       Promise.all(CHAT_PUSH_EVENT_GROUP_KEYS.map(pushFailed)),
       calls((q) => q.like("ended_reason", `${CHAT_CALL_FAILED_REASON_PREFIX}%`).gte("created_at", riskFrom)),

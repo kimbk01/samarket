@@ -9,11 +9,14 @@
  * 읽기 전용 — 쓰기 없음.
  */
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
+import { adminChatRoomDetailHref } from "@/lib/admin/chat-admin/admin-chat-links";
 import {
   buildAdminPrelaunchResetHref,
   DOMAIN_RESET_SCOPE_PRESETS,
 } from "@/lib/admin/prelaunch-reset/domain-reset-entry";
 import {
+  CHAT_CALL_LIST_PATH,
   CHAT_METRIC_DEFINITIONS,
   CHAT_REPORT_QUEUE_PATH,
   CHAT_ROOM_LIST_BASE,
@@ -98,12 +101,14 @@ export async function loadMessengerDomainDashboard(): Promise<AdminDomainDashboa
     else {
       for (const row of data ?? []) {
         const domain = String(row.chat_domain ?? "");
+        const status = String(row.room_status ?? "active");
         recent.push({
           id: String(row.id),
           title: String(row.title ?? row.id).slice(0, 80) || String(row.id),
-          metaKo: `${domain} · ${String(row.room_status ?? "—")}`,
-          metaEn: `${domain} · ${String(row.room_status ?? "—")}`,
-          href: `/admin/chats/messenger?room=${encodeURIComponent(String(row.id))}`,
+          metaKo: `${adminChatLabel("chat_domain", domain, true).label} · ${adminChatLabel("room_status", status, true).label}`,
+          metaEn: `${adminChatLabel("chat_domain", domain, false).label} · ${adminChatLabel("room_status", status, false).label}`,
+          // 설계 §3-1: 최근 활동 → 방 상세 (목록 검색 아님)
+          href: adminChatRoomDetailHref(String(row.id), "/admin/messenger"),
           at: row.last_message_at ? String(row.last_message_at) : null,
         });
       }
@@ -124,6 +129,8 @@ export async function loadMessengerDomainDashboard(): Promise<AdminDomainDashboa
     actionRequired: toActionItems(sectionDefs("action"), values),
     domainHealth: toMetrics(sectionDefs("health", "storage"), values),
     issues: toActionItems(sectionDefs("risk"), values),
+    actionCta: { ko: "신고 처리", en: "Handle" },
+    issuesCta: { ko: "기록 보기", en: "View records" },
     primaryEntries: [
       {
         id: "reported",
@@ -148,23 +155,23 @@ export async function loadMessengerDomainDashboard(): Promise<AdminDomainDashboa
       },
       {
         id: "trade",
-        labelKo: "거래 채팅 목록",
-        labelEn: "Trade chats",
+        labelKo: "거래 채팅방",
+        labelEn: "Trade chat rooms",
         href: CHAT_ROOM_LIST_BASE.trade,
         frequency: "FREQUENT",
       },
       {
         id: "order",
-        labelKo: "배달 주문 채팅 목록",
-        labelEn: "Store order chats",
+        labelKo: "배달 주문 채팅방",
+        labelEn: "Delivery order chat rooms",
         href: CHAT_ROOM_LIST_BASE.store_order,
         frequency: "FREQUENT",
       },
       {
-        id: "advanced",
-        labelKo: "메신저 고급 (통화 기록)",
-        labelEn: "Messenger advanced (call log)",
-        href: "/admin/chats/messenger",
+        id: "calls",
+        labelKo: "통화 기록·강제 종료",
+        labelEn: "Calls & force-ends",
+        href: CHAT_CALL_LIST_PATH,
         frequency: "OCCASIONAL",
       },
       {

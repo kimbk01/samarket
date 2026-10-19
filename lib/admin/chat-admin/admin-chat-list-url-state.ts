@@ -28,6 +28,14 @@ export type AdminChatRoomListQuery = {
   userId: string;
   reported: boolean;
   cursor: string;
+  /** 정렬 — "" = 최근 메시지 순(기본) · "created" = 생성 순 */
+  sort: "" | "created";
+  /** 거래 딥링크 (상품 상세·거래 흐름에서 진입) */
+  postId: string;
+  buyerId: string;
+  sellerId: string;
+  /** 배달 주문 딥링크 */
+  orderId: string;
 };
 
 type SearchLike = URLSearchParams | { get(name: string): string | null };
@@ -70,7 +78,54 @@ export function parseAdminChatRoomListQuery(
     userId: isAdminUuid(userRaw) ? userRaw.toLowerCase() : "",
     reported: sp.get("reported") === "1",
     cursor: (sp.get("cursor") ?? "").trim().slice(0, 200),
+    sort: sp.get("sort") === "created" ? "created" : "",
+    postId: uuidParam(sp, "postId"),
+    buyerId: uuidParam(sp, "buyerId"),
+    sellerId: uuidParam(sp, "sellerId"),
+    orderId: uuidParam(sp, "orderId"),
   };
+}
+
+function uuidParam(sp: SearchLike, name: string): string {
+  const v = (sp.get(name) ?? "").trim();
+  return isAdminUuid(v) ? v.toLowerCase() : "";
+}
+
+/** 딥링크·정렬 파라미터 (화면 URL·API 공통). */
+function appendAdminChatRoomExtras(sp: URLSearchParams, query: Partial<AdminChatRoomListQuery>): void {
+  if (query.sort) sp.set("sort", query.sort);
+  if (query.postId) sp.set("postId", query.postId);
+  if (query.buyerId) sp.set("buyerId", query.buyerId);
+  if (query.sellerId) sp.set("sellerId", query.sellerId);
+  if (query.orderId) sp.set("orderId", query.orderId);
+}
+
+/**
+ * 「이전」 페이지 — keyset 은 앞으로만 가므로 지나온 커서를 URL `trail` 에 쌓는다 (브라우저 뒤로가기 의존 없음).
+ * 다음: trail += 현재 cursor(없으면 "-"), cursor = next · 이전: cursor = trail 마지막, trail 에서 제거.
+ */
+export const ADMIN_LIST_TRAIL_PARAM = "trail";
+const TRAIL_MAX = 50;
+
+export function readAdminListTrail(sp: SearchLike): string[] {
+  const raw = (sp.get(ADMIN_LIST_TRAIL_PARAM) ?? "").trim();
+  return raw ? raw.split(",").slice(-TRAIL_MAX) : [];
+}
+
+export function adminListNextPage(trail: string[], cursor: string, next: string): { trail: string[]; cursor: string } {
+  return { trail: [...trail, cursor || "-"].slice(-TRAIL_MAX), cursor: next };
+}
+
+export function adminListPrevPage(trail: string[]): { trail: string[]; cursor: string } {
+  const prev = trail[trail.length - 1] ?? "-";
+  return { trail: trail.slice(0, -1), cursor: prev === "-" ? "" : prev };
+}
+
+export function withAdminListTrail(search: string, trail: string[]): string {
+  if (!trail.length) return search;
+  const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  sp.set(ADMIN_LIST_TRAIL_PARAM, trail.join(","));
+  return `?${sp.toString()}`;
 }
 
 /**
@@ -89,6 +144,7 @@ export function buildAdminChatRoomListSearch(
   if (query.q) sp.set("q", query.q);
   if (query.userId) sp.set("user_id", query.userId);
   if (query.reported) sp.set("reported", "1");
+  appendAdminChatRoomExtras(sp, query);
   if (query.cursor) sp.set("cursor", query.cursor);
   const s = sp.toString();
   return s ? `?${s}` : "";
@@ -104,6 +160,7 @@ export function buildAdminChatRoomListApiSearch(query: AdminChatRoomListQuery, l
   if (query.q) sp.set("q", query.q);
   if (query.userId) sp.set("user_id", query.userId);
   if (query.reported) sp.set("reported", "1");
+  appendAdminChatRoomExtras(sp, query);
   if (query.cursor) sp.set("cursor", query.cursor);
   sp.set("limit", String(limit));
   return `?${sp.toString()}`;

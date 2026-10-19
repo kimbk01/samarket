@@ -175,20 +175,21 @@ export const CUT_J_J_AMD_4_STATUS = "OWNER_APPROVED_IMPLEMENTED" as const;
  * Section nodes are header-only. Keys unchanged; 「거래」「배달 주문」 are type filters of
  * 전체채팅 (`/admin/chats?type=…`) — the old `?from=messenger` URLs stay as matchPaths only.
  */
+/** 채팅 Admin 설계 v2 §1-3 (Owner 승인 A-10): 긴급도 순 — 대시보드 · 신고 · 통화 · 채팅방(활동량 순) · 시스템. */
 export const CUT_J_J_AMD_4_MESSENGER_TREE = [
   { key: "messenger-hub", children: [] },
+  { key: "messenger-section-reports", children: ["chat-reported"] },
+  { key: "messenger-section-calls", children: ["chat-messenger"] },
   {
     key: "messenger-section-rooms",
     children: [
       "chat-all",
-      "chat-general",
-      "chat-group",
       "chat-trade-messenger",
       "delivery-order-chats-messenger",
+      "chat-general",
+      "chat-group",
     ],
   },
-  { key: "messenger-section-reports", children: ["chat-reported"] },
-  { key: "messenger-section-calls", children: ["chat-messenger"] },
   { key: "messenger-section-system", children: ["chat-messenger-perf", "ops-docs-chat"] },
 ] as const;
 

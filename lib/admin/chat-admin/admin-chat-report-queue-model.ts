@@ -8,8 +8,10 @@ import {
   decodeAdminKeysetCursor,
   encodeAdminKeysetCursor,
   isAdminUuid,
+  sanitizeAdminSearchTerm,
   type AdminKeysetCursor,
 } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
+import { CHAT_REPORT_OPEN_STATUSES } from "@/lib/admin/metrics/chat-metrics";
 
 /**
  * 출처 키 = 채팅 대시보드 지표(`lib/admin/metrics/chat-metrics.ts` `ChatReportType`)와 같은 이름 —
@@ -41,7 +43,7 @@ const RAW_BY_SOURCE: Record<ChatReportSource, Record<ChatReportBucket, readonly 
     resolved: ["actioned"],
     dismissed: ["dismissed"],
   },
-  /** 통합 `reports` (target_type chat_room·chat_message) */
+  /** 통합 `reports` (target_type chat_room·chat_message — 큐·대시보드 모두 두 유형) */
   trade_report: {
     received: ["pending"],
     reviewing: ["reviewing"],
@@ -57,7 +59,8 @@ export function chatReportRawStatuses(
 ): string[] | null {
   if (filter === "all") return null;
   const map = RAW_BY_SOURCE[source];
-  if (filter === "open") return [...map.received, ...map.reviewing];
+  // 「처리 대기」 = 대시보드 지표와 같은 단일 정의.
+  if (filter === "open") return [...CHAT_REPORT_OPEN_STATUSES[source]];
   return [...map[filter]];
 }
 
@@ -94,21 +97,21 @@ export type ChatReportQueueRow = {
   handledAt: string | null;
 };
 
-/** 최신순 — createdAt DESC, key DESC. */
-export function compareChatReportQueueRows(a: ChatReportQueueRow, b: ChatReportQueueRow): number {
+/** 정렬 — 최신순(createdAt DESC, key DESC) · `asc` = 오래된 순(처리 대기 기본, 먼저 들어온 것부터). */
+export function compareChatReportQueueRows(a: ChatReportQueueRow, b: ChatReportQueueRow, asc = false): number {
   const ta = Date.parse(a.createdAt) || 0;
   const tb = Date.parse(b.createdAt) || 0;
-  if (ta !== tb) return tb - ta;
-  return a.key < b.key ? 1 : a.key > b.key ? -1 : 0;
+  const d = ta !== tb ? tb - ta : a.key < b.key ? 1 : a.key > b.key ? -1 : 0;
+  return asc ? -d : d;
 }
 
-/** 커서보다 뒤(더 오래된)인가 — 정렬 순서 기준 strictly after. */
-export function isAfterChatReportCursor(row: ChatReportQueueRow, cursor: AdminKeysetCursor | null): boolean {
+/** 커서보다 뒤인가 — 정렬 순서 기준 strictly after. */
+export function isAfterChatReportCursor(row: ChatReportQueueRow, cursor: AdminKeysetCursor | null, asc = false): boolean {
   if (!cursor) return true;
   const tr = Date.parse(row.createdAt) || 0;
   const tc = Date.parse(cursor.ts) || 0;
-  if (tr !== tc) return tr < tc;
-  return row.key < cursor.id;
+  if (tr !== tc) return asc ? tr > tc : tr < tc;
+  return asc ? row.key > cursor.id : row.key < cursor.id;
 }
 
 export type ChatReportSourceBatch = {
@@ -124,12 +127,13 @@ export type ChatReportSourceBatch = {
 export function mergeChatReportQueuePage(
   batches: ChatReportSourceBatch[],
   cursor: AdminKeysetCursor | null,
-  limit: number
+  limit: number,
+  asc = false
 ): { rows: ChatReportQueueRow[]; nextCursor: string | null } {
   const merged = batches
     .flatMap((b) => b.rows)
-    .filter((r) => isAfterChatReportCursor(r, cursor))
-    .sort(compareChatReportQueueRows);
+    .filter((r) => isAfterChatReportCursor(r, cursor, asc))
+    .sort((a, b) => compareChatReportQueueRows(a, b, asc));
   const rows = merged.slice(0, limit);
   const more = merged.length > limit || batches.some((b) => b.full);
   const last = rows[rows.length - 1];
@@ -146,8 +150,19 @@ export type ChatReportQueueQuery = {
   status: ChatReportStatusFilter;
   /** 방 ID 또는 회원 ID (신고자·피신고자) — 「신고 보기」 딥링크 파라미터. */
   target: string;
+  /** 검색 — 회원 ID(UUID)·방 ID 는 target 과 같은 조건, 그 외는 신고자·피신고자 닉네임 */
+  q: string;
+  /** "" = 기본(처리 대기 계열은 오래된 순, 그 외 최신 순) · oldest · newest */
+  sort: "" | "oldest" | "newest";
   cursor: string;
 };
+
+/** 실제 정렬 방향 — 처리 대기(open·received·reviewing)는 먼저 들어온 신고부터 (설계 §3-2). */
+export function chatReportQueueAscending(q: Pick<ChatReportQueueQuery, "sort" | "status">): boolean {
+  if (q.sort === "oldest") return true;
+  if (q.sort === "newest") return false;
+  return q.status === "open" || q.status === "received" || q.status === "reviewing";
+}
 
 type SearchLike = URLSearchParams | { get(name: string): string | null };
 
@@ -168,6 +183,8 @@ export function parseChatReportQueueQuery(sp: SearchLike): ChatReportQueueQuery 
       ? (status as ChatReportStatusFilter)
       : "open",
     target: isAdminUuid(target) ? target.toLowerCase() : "",
+    q: sanitizeAdminSearchTerm(sp.get("q")),
+    sort: sp.get("sort") === "oldest" ? "oldest" : sp.get("sort") === "newest" ? "newest" : "",
     cursor: decodeAdminKeysetCursor(sp.get("cursor")) ? (sp.get("cursor") ?? "").trim() : "",
   };
 }
@@ -178,6 +195,8 @@ export function buildChatReportQueueSearch(q: Partial<ChatReportQueueQuery>): st
   if (q.source && q.source !== "all") sp.set("type", q.source);
   if (q.status && q.status !== "open") sp.set("status", q.status);
   if (q.target) sp.set("target", q.target);
+  if (q.q) sp.set("q", q.q);
+  if (q.sort) sp.set("sort", q.sort);
   if (q.cursor) sp.set("cursor", q.cursor);
   const s = sp.toString();
   return s ? `?${s}` : "";

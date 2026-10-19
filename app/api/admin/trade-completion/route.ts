@@ -8,14 +8,15 @@ export const dynamic = "force-dynamic";
  * POST (본문 없음, 관리자 세션)
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { TRADE_FLOW_ADMIN_PERMISSION } from "@/lib/admin/trade-flow/trade-flow-admin-action";
 import { getServiceOrAnonClient } from "@/lib/admin/verify-admin-user-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 export async function POST(_req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission(TRADE_FLOW_ADMIN_PERMISSION);
   if (!admin.ok) return admin.response;
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
   if (!supabaseEnv.ok) {
