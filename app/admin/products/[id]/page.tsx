@@ -1,16 +1,16 @@
-import { AdminProductDetailPage } from "@/components/admin/products/AdminProductDetailPage";
-import { fetchAdminPostById } from "@/lib/admin-products/admin-posts-management-data";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { Suspense } from "react";
+import { TradePostDetailPage } from "@/components/admin/trade/posts/TradePostDetailPage";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+/** 거래 게시물 상세 (설계 v2 §C-3) — 조회·조치는 화면이 `/api/admin/trade/posts/[id]` 로 한다 */
 export default async function AdminProductDetailRoute({ params }: PageProps) {
   const { id } = await params;
-  const sb = tryCreateSupabaseServiceClient();
-  const initialProduct = sb
-    ? ((await fetchAdminPostById(sb, id)).products[0] ?? null)
-    : null;
-  return <AdminProductDetailPage productId={id} initialProduct={initialProduct} />;
+  return (
+    <Suspense fallback={null}>
+      <TradePostDetailPage postId={id} />
+    </Suspense>
+  );
 }

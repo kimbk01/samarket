@@ -16,7 +16,12 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const query = parseChatReportQueueQuery(sp);
-  const admin = query.target ? await requireTargetScopedAdmin(query.target) : await requireChatAdmin();
+  // 거래 방 신고만 보는 큐(domain=trade)는 거래 Admin O-2: 활성 관리자 전원 (D-41)
+  const admin = query.target
+    ? await requireTargetScopedAdmin(query.target)
+    : query.domain === "trade"
+      ? await requireTradeChatAdmin()
+      : await requireChatAdmin();
   if (!admin.ok) return admin.response;
 
   try {

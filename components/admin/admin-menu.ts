@@ -280,9 +280,27 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "chat-group": "admin_menu_chat_rooms_group",
   "chat-general": "admin_menu_chat_rooms_general",
 
-  // Trade family extras (Cut B)
-  "trade-users": "admin_menu_users",
+  // Trade family extras (Cut B) · 거래 Admin 설계 v2 §B-2
+  "trade-users": "admin_menu_trade_members",
   "trade-audit": "admin_menu_trade_audit",
+  "trade-restrictions": "admin_menu_trade_restrictions",
+  "trade-appeals": "admin_menu_trade_appeals",
+  "trade-chat-reports": "admin_menu_trade_chat_reports",
+  "trade-promotions": "admin_menu_trade_promotions",
+  "trade-points": "admin_menu_trade_points",
+  "trade-point-charges": "admin_menu_trade_point_charges",
+  "trade-support": "admin_menu_trade_support",
+  "trade-regions": "admin_menu_trade_regions",
+  "trade-section-ops": "admin_menu_trade_section_ops",
+  "trade-section-moderation": "admin_menu_trade_section_moderation",
+  "trade-section-content": "admin_menu_trade_section_content",
+  "trade-section-chat": "admin_menu_trade_section_chat",
+  "trade-section-members": "admin_menu_trade_section_members",
+  "trade-section-promotion": "admin_menu_trade_section_promotion",
+  "trade-section-points": "admin_menu_trade_section_points",
+  "trade-section-support": "admin_menu_trade_section_support",
+  "trade-section-settings": "admin_menu_trade_section_settings",
+  "trade-section-records": "admin_menu_trade_section_records",
 
   // Ads / Growth-rec
   "ads-applications": "admin_menu_ads_applications",
@@ -649,53 +667,145 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── TRADE ──────────────────────────────────────
-  // B7: Overview → Daily moderation/management → Context → Config/Archive.
-  // ads-applications primary ownership remains ads workspace.
+  // 거래 Admin 설계 v2 §B-2 (Owner 승인): 10 그룹 · 19 메뉴 — 운영 현황 → 신고·제재 → 게시물 → 거래 채팅 → 회원 →
+  // 홍보 → 포인트·충전 → 문의 → 운영 설정 → 기록. 기존 URL 유지, 예전 경로는 matchPaths 로 같은 메뉴를 강조한다.
   {
     key: "trade",
     title: "",
     children: [
-      { key: "trade-hub", title: "", path: "/admin/trade", status: "done" },
-      { key: "posts-management", title: "", path: "/admin/posts-management", status: "done" },
       {
-        key: "jobs-management",
+        key: "trade-section-ops",
         title: "",
-        path: "/admin/posts-management?tab=jobs",
         status: "done",
+        children: [{ key: "trade-hub", title: "", path: "/admin/trade", status: "done" }],
       },
       {
-        key: "reports-posts",
+        key: "trade-section-moderation",
         title: "",
-        path: "/admin/reports?domain=trade&target_type=product",
-        matchPaths: ["/admin/reports?domain=trade"],
         status: "done",
-      },
-      { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },
-      {
-        key: "chat-trade-flow",
-        title: "",
-        path: "/admin/trade-flow",
-        matchPaths: ["/admin/chats/trade-complete", "/admin/trade-flow?panel=complete"],
-        status: "done",
-      },
-      { key: "chat-trade", title: "", path: "/admin/chats/trade", status: "done" },
-      { key: "trade-post-ads", title: "", path: "/admin/trade-post-ads", status: "done" },
-      { key: "trade-ad-policies", title: "", path: "/admin/trade-ad-policies", status: "done" },
-      { key: "trade-likes", title: "", path: "/admin/favorites", status: "done" },
-      {
-        key: "trade-users",
-        title: "",
-        path: "/admin/users?from=trade",
-        status: "done",
+        children: [
+          {
+            key: "reports-posts",
+            title: "",
+            path: "/admin/trade/reports",
+            matchPaths: ["/admin/reports?domain=trade"],
+            status: "done",
+          },
+          { key: "trade-restrictions", title: "", path: "/admin/trade/restrictions", status: "done" },
+          { key: "trade-appeals", title: "", path: "/admin/trade/support?type=appeal", status: "done" },
+        ],
       },
       {
-        key: "trade-audit",
+        key: "trade-section-content",
         title: "",
-        path: "/admin/audit-logs?target_type=post",
         status: "done",
+        children: [
+          {
+            key: "posts-management",
+            title: "",
+            path: "/admin/posts-management",
+            matchPaths: ["/admin/products"],
+            status: "done",
+          },
+          { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },
+        ],
       },
-      { key: "menu-trade", title: "", path: "/admin/menus/trade", status: "done" },
-      { key: "trade-settings", title: "", path: "/admin/trade/settings", status: "done" },
+      {
+        key: "trade-section-chat",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "chat-trade",
+            title: "",
+            path: "/admin/chats?type=trade",
+            matchPaths: ["/admin/chats/trade"],
+            status: "done",
+          },
+          {
+            key: "chat-trade-flow",
+            title: "",
+            path: "/admin/trade-flow",
+            matchPaths: ["/admin/chats/trade-complete", "/admin/trade-flow?panel=complete"],
+            status: "done",
+          },
+          { key: "trade-chat-reports", title: "", path: "/admin/chats/reported?domain=trade", status: "done" },
+        ],
+      },
+      {
+        key: "trade-section-members",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "trade-users",
+            title: "",
+            path: "/admin/trade/members",
+            matchPaths: ["/admin/users?from=trade"],
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "trade-section-promotion",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "trade-promotions",
+            title: "",
+            path: "/admin/trade/promotions",
+            matchPaths: ["/admin/trade-post-ads"],
+            status: "done",
+          },
+          { key: "trade-ad-policies", title: "", path: "/admin/trade-ad-policies", status: "done" },
+        ],
+      },
+      {
+        key: "trade-section-points",
+        title: "",
+        status: "done",
+        children: [
+          { key: "trade-points", title: "", path: "/admin/trade/points", status: "done" },
+          { key: "trade-point-charges", title: "", path: "/admin/trade/point-charges", status: "done" },
+        ],
+      },
+      {
+        key: "trade-section-support",
+        title: "",
+        status: "done",
+        children: [{ key: "trade-support", title: "", path: "/admin/trade/support", status: "done" }],
+      },
+      {
+        key: "trade-section-settings",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "menu-trade",
+            title: "",
+            path: "/admin/menus/trade",
+            matchPaths: ["/admin/categories"],
+            status: "done",
+          },
+          { key: "trade-settings", title: "", path: "/admin/trade/settings", status: "done" },
+          { key: "trade-regions", title: "", path: "/admin/trade/regions", status: "done" },
+        ],
+      },
+      {
+        key: "trade-section-records",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "trade-audit",
+            title: "",
+            path: "/admin/trade/audit",
+            matchPaths: ["/admin/favorites", "/admin/audit-logs?target_type=post"],
+            status: "done",
+          },
+        ],
+      },
     ],
   },
 
