@@ -1,13 +1,17 @@
 "use client";
 
+import { resolvePlatformEventFinalCtaHref } from "@/lib/platform-events/destination";
+import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPlatformEventDistributionPanel } from "@/components/admin/platform-events/AdminPlatformEventDistributionPanel";
 import { PlatformEventDetailContent } from "@/components/platform-events/PlatformEventDetailContent";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { promotionAdminActionLabel } from "@/lib/admin/promotion-operation-actions";
 import {
   formatPromotionAdminSchedule,
@@ -21,10 +25,89 @@ import type {
   PlatformEventStatus,
 } from "@/lib/platform-events/types";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
+import {
+  parsePlatformEventBoardFields,
+  platformEventAdminErrorMessage,
+  validatePlatformEventCtaDestination,
+  validatePlatformEventSchedule,
+  validatePlatformEventSectionCtas,
+  type PlatformEventLifecycleAction,
+} from "@/lib/platform-events/admin-validation";
+import { normalizePlatformEventSections } from "@/lib/platform-events/sections";
+import { PLATFORM_EVENT_CATEGORY_MAX } from "@/lib/platform-events/types";
 
 type Props = { eventId: string | null };
 
 type PreviewTab = "event" | "popup" | "banner";
+
+type SectionKind = PlatformEventSection["type"];
+
+const SECTION_KIND_OPTIONS: { value: SectionKind; key: MessageKey; ko: string; en: string }[] = [
+  { value: "text", key: "admin_event_editor_section_kind_text", ko: "본문", en: "Text" },
+  { value: "image", key: "admin_event_editor_section_kind_image", ko: "이미지", en: "Image" },
+  { value: "benefit", key: "admin_event_editor_section_kind_benefit", ko: "혜택", en: "Benefit" },
+  { value: "cta", key: "admin_event_editor_section_kind_cta", ko: "버튼(CTA)", en: "Button (CTA)" },
+  { value: "terms", key: "admin_event_editor_section_kind_terms", ko: "유의사항", en: "Terms" },
+];
+
+function newSection(kind: SectionKind): PlatformEventSection {
+  switch (kind) {
+    case "text":
+      return { type: "text", body: "" };
+    case "image":
+      return { type: "image", imageUrl: "" };
+    case "benefit":
+      return { type: "benefit", title: "" };
+    case "cta":
+      return { type: "cta", label: "", ctaType: "internal_page", ctaTarget: "/market" };
+    case "terms":
+    default:
+      return { type: "terms", body: "" };
+  }
+}
+
+const LIFECYCLE_CONFIRM: Record<
+  PlatformEventLifecycleAction,
+  {
+    titleKey: MessageKey;
+    titleKo: string;
+    titleEn: string;
+    descKey: MessageKey;
+    descKo: string;
+    descEn: string;
+    tone: "primary" | "danger";
+  }
+> = {
+  publish: {
+    titleKey: "admin_event_editor_confirm_publish_title",
+    descKey: "admin_event_editor_confirm_publish_desc",
+    titleKo: "이벤트를 게시할까요?",
+    titleEn: "Publish this event?",
+    descKo: "저장 후 게시됩니다. 노출 시작 시각부터 이벤트 게시판과 상세 화면에 표시됩니다.",
+    descEn: "Saves and publishes. It appears on the event board from its start time.",
+    tone: "primary",
+  },
+  unpublish: {
+    titleKey: "admin_event_editor_confirm_unpublish_title",
+    descKey: "admin_event_editor_confirm_unpublish_desc",
+    titleKo: "이벤트 게시를 중지할까요?",
+    titleEn: "Unpublish this event?",
+    descKo: "회원에게 더 이상 보이지 않으며, 연결된 팝업·배너 노출도 중단됩니다.",
+    descEn: "Members can no longer see it; linked popup/banner exposure stops.",
+    tone: "danger",
+  },
+  archive: {
+    titleKey: "admin_event_editor_confirm_archive_title",
+    descKey: "admin_event_editor_confirm_archive_desc",
+    titleKo: "이벤트를 보관할까요?",
+    titleEn: "Archive this event?",
+    descKo:
+      "게시가 중지되고 이벤트 게시판(종료 탭 포함)과 상세 화면에서 숨겨집니다. 다시 게시하면 보관이 해제됩니다.",
+    descEn:
+      "Unpublishes and hides it from the board (incl. Ended) and detail. Publishing again unarchives.",
+    tone: "danger",
+  },
+};
 
 const CTA_TYPE_OPTIONS = [
   { value: "internal_page", ko: "앱 내부 페이지", en: "In-app page" },
@@ -79,6 +162,11 @@ function emptyDraft(): PlatformEventRow {
     publishedAt: null,
     sourceOwnerRequestId: null,
     sourceStoreId: null,
+    thumbnailUrl: null,
+    sortOrder: 0,
+    isPinned: false,
+    category: null,
+    archivedAt: null,
     createdBy: null,
     updatedBy: null,
     createdAt: now,
@@ -103,13 +191,15 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
   const [loading, setLoading] = useState(!isNew);
   const [previewTab, setPreviewTab] = useState<PreviewTab>("event");
 
-  const [introBody, setIntroBody] = useState("");
-  const [benefitTitle, setBenefitTitle] = useState("");
-  const [benefitBody, setBenefitBody] = useState("");
-  const [extraImageUrl, setExtraImageUrl] = useState("");
+  const [sections, setSections] = useState<PlatformEventSection[]>([]);
+  const [newSectionKind, setNewSectionKind] = useState<SectionKind>("text");
+  const [confirmAction, setConfirmAction] = useState<PlatformEventLifecycleAction | null>(null);
+  const [boardColumnsApplied, setBoardColumnsApplied] = useState(true);
   const [mediaBusy, setMediaBusy] = useState(false);
   const heroFileRef = useRef<HTMLInputElement>(null);
   const sectionFileRef = useRef<HTMLInputElement>(null);
+  const sectionUploadIndexRef = useRef<number | null>(null);
+  const thumbnailFileRef = useRef<HTMLInputElement>(null);
   const distributionRef = useRef<HTMLElement | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
 
@@ -125,12 +215,14 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           ok?: boolean;
           event?: PlatformEventRow;
           error?: string;
+          boardColumnsApplied?: boolean;
         };
         if (cancelled) return;
         if (!res.ok || !json.ok || !json.event) {
           setError(json.error || "load_failed");
           return;
         }
+        setBoardColumnsApplied(json.boardColumnsApplied !== false);
         hydrateFromEvent(json.event);
       } catch {
         if (!cancelled) setError("load_failed");
@@ -144,13 +236,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
 
     function hydrateFromEvent(ev: PlatformEventRow) {
       setDraft(ev);
-      const text = ev.sections.find((s) => s.type === "text");
-      const benefit = ev.sections.find((s) => s.type === "benefit");
-      const image = ev.sections.find((s) => s.type === "image");
-      setIntroBody(text && text.type === "text" ? text.body : "");
-      setBenefitTitle(benefit && benefit.type === "benefit" ? benefit.title : "");
-      setBenefitBody(benefit && benefit.type === "benefit" ? benefit.body || "" : "");
-      setExtraImageUrl(image && image.type === "image" ? image.imageUrl : "");
+      setSections(ev.sections);
     }
   }, [eventId, isNew]);
 
@@ -166,24 +252,38 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
     }
   }, [loading, isNew, draft.id]);
 
-  const buildSections = useCallback((): PlatformEventSection[] => {
-    const sections: PlatformEventSection[] = [];
-    if (introBody.trim()) sections.push({ type: "text", body: introBody.trim() });
-    if (benefitTitle.trim()) {
-      sections.push({
-        type: "benefit",
-        title: benefitTitle.trim(),
-        body: benefitBody.trim() || undefined,
-      });
-    }
-    if (extraImageUrl.trim().startsWith("http")) {
-      sections.push({ type: "image", imageUrl: extraImageUrl.trim() });
-    }
-    if (draft.terms?.trim()) {
-      /* terms live in terms field; optional terms section omitted to avoid dup */
-    }
-    return sections;
-  }, [introBody, benefitTitle, benefitBody, extraImageUrl, draft.terms]);
+  /** Ordered section list → stored jsonb (empty / malformed sections dropped, same as server). */
+  const buildSections = useCallback(
+    (): PlatformEventSection[] => normalizePlatformEventSections(sections),
+    [sections]
+  );
+
+  /** Distribution panel benefit (popup benefit presentation) = first benefit section. */
+  const firstBenefit = useMemo(() => {
+    const b = buildSections().find((x) => x.type === "benefit");
+    return b && b.type === "benefit" ? b : null;
+  }, [buildSections]);
+  const benefitTitle = firstBenefit?.title ?? "";
+  const benefitBody = firstBenefit?.body ?? "";
+
+  const updateSection = useCallback((index: number, patch: Record<string, unknown>) => {
+    setSections((list) =>
+      list.map((sec, i) => (i === index ? ({ ...sec, ...patch } as PlatformEventSection) : sec))
+    );
+  }, []);
+  const moveSection = useCallback((index: number, delta: -1 | 1) => {
+    setSections((list) => {
+      const to = index + delta;
+      if (to < 0 || to >= list.length) return list;
+      const next = [...list];
+      const [item] = next.splice(index, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  }, []);
+  const removeSection = useCallback((index: number) => {
+    setSections((list) => list.filter((_, i) => i !== index));
+  }, []);
 
   const previewEvent = useMemo(() => {
     return { ...draft, sections: buildSections() };
@@ -254,6 +354,36 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         );
         return false;
       }
+      // Scope B destination contract — what is saved is exactly what openDestination opens.
+      const dest = validatePlatformEventCtaDestination({
+        ctaType: draft.ctaType,
+        ctaTarget: draft.ctaTarget,
+        externalUrl: draft.ctaExternalUrl,
+      });
+      if (!dest.ok) {
+        setError(platformEventAdminErrorMessage(dest.error, lang));
+        return false;
+      }
+    }
+    const sectionCheck = validatePlatformEventSectionCtas(sections);
+    if (!sectionCheck.ok) {
+      setError(platformEventAdminErrorMessage(sectionCheck.error, lang));
+      return false;
+    }
+    const schedule = validatePlatformEventSchedule(draft.startsAt, draft.endsAt);
+    if (!schedule.ok) {
+      setError(platformEventAdminErrorMessage(schedule.error, lang));
+      return false;
+    }
+    const board = parsePlatformEventBoardFields({
+      thumbnailUrl: draft.thumbnailUrl ?? null,
+      sortOrder: draft.sortOrder ?? 0,
+      isPinned: draft.isPinned === true,
+      category: draft.category ?? null,
+    });
+    if (!board.ok) {
+      setError(platformEventAdminErrorMessage(board.error, lang));
+      return false;
     }
     return true;
   }, [
@@ -261,12 +391,19 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
     draft.ctaType,
     draft.ctaTarget,
     draft.ctaExternalUrl,
+    draft.startsAt,
+    draft.endsAt,
+    draft.thumbnailUrl,
+    draft.sortOrder,
+    draft.isPinned,
+    draft.category,
+    sections,
     safeT,
     lang,
   ]);
 
   const save = useCallback(
-    async (nextStatus?: PlatformEventStatus) => {
+    async (nextStatus?: PlatformEventStatus, action?: "archive") => {
       if (!validateBeforeSave()) return;
       setSaving(true);
       setError(null);
@@ -286,6 +423,11 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         ctaType: draft.ctaType,
         ctaTarget: draft.ctaTarget,
         ctaExternalUrl: draft.ctaExternalUrl,
+        thumbnailUrl: draft.thumbnailUrl ?? null,
+        sortOrder: draft.sortOrder ?? 0,
+        isPinned: draft.isPinned === true,
+        category: draft.category ?? null,
+        ...(action ? { action } : {}),
       };
       try {
         const res = await fetch(
@@ -303,23 +445,37 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           ok?: boolean;
           event?: PlatformEventRow;
           error?: string;
+          boardColumnsApplied?: boolean;
         };
         if (!res.ok || !json.ok || !json.event) {
-          setError(json.error || "save_failed");
+          setError(json.error ? platformEventAdminErrorMessage(json.error, lang) : "save_failed");
           return;
         }
+        setBoardColumnsApplied(json.boardColumnsApplied !== false);
         if (isNew) {
           router.replace(`/admin/platform-events/${encodeURIComponent(json.event.id)}`);
           return;
         }
         setDraft(json.event);
+        setSections(json.event.sections);
       } catch {
         setError("save_failed");
       } finally {
         setSaving(false);
       }
     },
-    [draft, buildSections, isNew, eventId, router, validateBeforeSave]
+    [draft, buildSections, isNew, eventId, router, validateBeforeSave, lang]
+  );
+
+  /** Publish / unpublish / archive always pass through a confirm dialog. */
+  const runConfirmedAction = useCallback(
+    async (action: PlatformEventLifecycleAction) => {
+      if (action === "publish") await save("published");
+      else if (action === "unpublish") await save("unpublished");
+      else await save("unpublished", "archive");
+      setConfirmAction(null);
+    },
+    [save]
   );
 
   const onHeroUpload = useCallback(
@@ -351,25 +507,42 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
 
   const onSectionUpload = useCallback(
     async (file: File | null) => {
-      if (!file) return;
-      const previous = extraImageUrl;
+      const index = sectionUploadIndexRef.current;
+      if (!file || index == null) return;
       setMediaBusy(true);
       setError(null);
       try {
         const out = await uploadEventImage("section", file);
         if ("error" in out) {
-          setExtraImageUrl(previous);
           setError(out.error);
           return;
         }
-        setExtraImageUrl(out.url);
+        updateSection(index, { imageUrl: out.url });
       } finally {
         setMediaBusy(false);
+        sectionUploadIndexRef.current = null;
         if (sectionFileRef.current) sectionFileRef.current.value = "";
       }
     },
-    [extraImageUrl]
+    [updateSection]
   );
+
+  const onThumbnailUpload = useCallback(async (file: File | null) => {
+    if (!file) return;
+    setMediaBusy(true);
+    setError(null);
+    try {
+      const out = await uploadEventImage("section", file);
+      if ("error" in out) {
+        setError(out.error);
+        return;
+      }
+      setDraft((d) => ({ ...d, thumbnailUrl: out.url }));
+    } finally {
+      setMediaBusy(false);
+      if (thumbnailFileRef.current) thumbnailFileRef.current.value = "";
+    }
+  }, []);
 
   if (loading) {
     return <p className="p-4 text-sm text-sam-muted">…</p>;
@@ -379,6 +552,43 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
   const sectionClass =
     "space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4";
   const sectionTitleClass = "text-sm font-semibold text-sam-fg";
+
+  const actionButtons = (
+    <>
+      <AdminActionButton variant="primary" disabled={busy} onClick={() => void save()}>
+        {saving
+          ? safeT("admin_platform_events_saving", {
+              fallbackKo: "저장 중…",
+              fallbackEn: "Saving…",
+            })
+          : promotionAdminActionLabel("SAVE", lang)}
+      </AdminActionButton>
+      <AdminActionButton
+        variant="primary"
+        disabled={busy}
+        onClick={() => setConfirmAction("publish")}
+        data-admin-event-action="publish"
+      >
+        {promotionAdminActionLabel("PUBLISH", lang)}
+      </AdminActionButton>
+      <AdminActionButton
+        variant="danger"
+        disabled={busy || isNew}
+        onClick={() => setConfirmAction("unpublish")}
+        data-admin-event-action="unpublish"
+      >
+        {promotionAdminActionLabel("PAUSE_STOP", lang)}
+      </AdminActionButton>
+      <AdminActionButton
+        variant="quiet"
+        disabled={busy || isNew || Boolean(draft.archivedAt)}
+        onClick={() => setConfirmAction("archive")}
+        data-admin-event-action="archive"
+      >
+        {safeT("admin_event_editor_btn_archive", { fallbackKo: "보관", fallbackEn: "Archive" })}
+      </AdminActionButton>
+    </>
+  );
 
   return (
     <div className="space-y-4 p-4" data-admin-platform-event-editor="1">
@@ -394,34 +604,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                 fallbackEn: "Edit event",
               })}
         </h1>
-        <div className="flex flex-wrap gap-2">
-          <AdminActionButton
-            variant="primary"
-            disabled={busy}
-            onClick={() => void save()}
-          >
-            {saving
-              ? safeT("admin_platform_events_saving", {
-                  fallbackKo: "저장 중…",
-                  fallbackEn: "Saving…",
-                })
-              : promotionAdminActionLabel("SAVE", lang)}
-          </AdminActionButton>
-          <AdminActionButton
-            variant="primary"
-            disabled={busy}
-            onClick={() => void save("published")}
-          >
-            {promotionAdminActionLabel("PUBLISH", lang)}
-          </AdminActionButton>
-          <AdminActionButton
-            variant="danger"
-            disabled={busy || isNew}
-            onClick={() => void save("unpublished")}
-          >
-            {promotionAdminActionLabel("PAUSE_STOP", lang)}
-          </AdminActionButton>
-        </div>
+        <div className="flex flex-wrap gap-2">{actionButtons}</div>
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
@@ -447,6 +630,9 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         <AdminToneBadge tone={promotionOperatorStatusTone(operatorStatus)}>
           {promotionOperatorStatusLabel(operatorStatus, lang)}
         </AdminToneBadge>
+        {draft.archivedAt ? (
+          <AdminToneBadge tone="neutral">{safeT("admin_event_editor_archived_badge", { fallbackKo: "보관됨", fallbackEn: "Archived" })}</AdminToneBadge>
+        ) : null}
         <span className="text-xs text-sam-muted">
           {safeT("admin_promotion_schedule_start", {
             fallbackKo: "노출 시작",
@@ -569,6 +755,84 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         </div>
       </section>
 
+      <section className={sectionClass} data-admin-event-section="board">
+        <h2 className={sectionTitleClass}>{safeT("admin_event_editor_board_section", { fallbackKo: "이벤트 게시판 노출", fallbackEn: "Event board" })}</h2>
+        {!boardColumnsApplied ? (
+          <p className="text-xs text-amber-700" data-admin-event-board-migration-pending="1">
+            {safeT("admin_event_editor_board_migration_pending", {
+              fallbackKo: "게시판 컬럼 마이그레이션 전입니다 — 썸네일·정렬·고정·카테고리·보관은 저장되지 않습니다.",
+              fallbackEn: "Board columns are not migrated yet — thumbnail / order / pin / category / archive are not saved.",
+            })}
+          </p>
+        ) : null}
+        <div className="space-y-2">
+          <span className="block text-sm">{safeT("admin_event_editor_board_thumbnail", { fallbackKo: "카드 썸네일 (2:1)", fallbackEn: "Card thumbnail (2:1)" })}</span>
+          <p className="text-xs text-sam-muted">
+            {safeT("admin_event_editor_board_thumbnail_help", {
+              fallbackKo: "권장 1200×600 · https 주소만 · 비우면 히어로 이미지 사용",
+              fallbackEn: "Recommended 1200×600 · https only · empty = hero image",
+            })}
+          </p>
+          <input
+            className={fieldClass}
+            value={draft.thumbnailUrl ?? ""}
+            placeholder="https://"
+            onChange={(e) => setDraft((d) => ({ ...d, thumbnailUrl: e.target.value.trim() || null }))}
+          />
+          <input
+            ref={thumbnailFileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="block w-full text-xs"
+            disabled={busy}
+            onChange={(e) => void onThumbnailUpload(e.target.files?.[0] ?? null)}
+          />
+          {draft.thumbnailUrl ? (
+            <div className="relative aspect-[2/1] w-full max-w-sm overflow-hidden rounded-ui-rect border border-sam-border">
+              <SamarketThumbnail
+                src={draft.thumbnailUrl}
+                alt=""
+                fill
+                fetchDisplayPx={640}
+                className="h-full w-full"
+                imageClassName="object-cover"
+              />
+            </div>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <label className="block text-sm">
+            {safeT("admin_event_editor_board_category", { fallbackKo: "카테고리", fallbackEn: "Category" })}
+            <input
+              className={fieldClass}
+              maxLength={PLATFORM_EVENT_CATEGORY_MAX}
+              value={draft.category ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value || null }))}
+            />
+          </label>
+          <label className="block text-sm">
+            {safeT("admin_event_editor_board_sort_order", { fallbackKo: "정렬 순서 (작을수록 위)", fallbackEn: "Sort order (ascending)" })}
+            <input
+              type="number"
+              step={1}
+              className={fieldClass}
+              value={String(draft.sortOrder ?? 0)}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, sortOrder: e.target.value === "" ? 0 : Number(e.target.value) }))
+              }
+            />
+          </label>
+          <label className="flex items-center gap-2 pt-6 text-sm">
+            <input
+              type="checkbox"
+              checked={draft.isPinned === true}
+              onChange={(e) => setDraft((d) => ({ ...d, isPinned: e.target.checked }))}
+            />
+            {safeT("admin_event_editor_board_pin", { fallbackKo: "상단 고정", fallbackEn: "Pin to top" })}
+          </label>
+        </div>
+      </section>
+
       <section className={sectionClass} data-admin-event-section="content">
         <h2 className={sectionTitleClass}>
           {safeT("admin_platform_events_section_content", {
@@ -576,86 +840,200 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             fallbackEn: "Event content",
           })}
         </h2>
-        <label className="block text-sm">
-          {safeT("admin_platform_events_field_intro", {
-            fallbackKo: "소개 본문",
-            fallbackEn: "Intro body",
-          })}
-          <textarea
-            className={`${fieldClass} h-28`}
-            value={introBody}
-            onChange={(e) => setIntroBody(e.target.value)}
-          />
-        </label>
-        <div className="space-y-2 rounded-ui-rect border border-dashed border-sam-border p-3">
-          <p className="text-xs font-semibold text-sam-muted">
-            {safeT("admin_platform_events_benefit_group", {
-              fallbackKo: "혜택 정보",
-              fallbackEn: "Benefit info",
-            })}
+        <input
+          ref={sectionFileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          disabled={busy}
+          onChange={(e) => void onSectionUpload(e.target.files?.[0] ?? null)}
+        />
+        {sections.length === 0 ? (
+          <p className="text-sm text-sam-muted">
+            {safeT("admin_event_editor_sections_empty", { fallbackKo: "섹션이 없습니다. 아래에서 추가하세요.", fallbackEn: "No sections yet. Add one below." })}
           </p>
-          <label className="block text-sm">
-            {safeT("admin_platform_events_field_benefit_title", {
-              fallbackKo: "혜택 제목",
-              fallbackEn: "Benefit title",
-            })}
-            <input
-              className={fieldClass}
-              value={benefitTitle}
-              onChange={(e) => setBenefitTitle(e.target.value)}
-            />
-          </label>
-          <label className="block text-sm">
-            {safeT("admin_platform_events_field_benefit_body", {
-              fallbackKo: "혜택 설명",
-              fallbackEn: "Benefit detail",
-            })}
-            <textarea
-              className={`${fieldClass} h-20`}
-              value={benefitBody}
-              onChange={(e) => setBenefitBody(e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="space-y-2">
-          <span className="block text-sm">
-            {safeT("admin_platform_events_field_section_image", {
-              fallbackKo: "추가 이미지",
-              fallbackEn: "Section image",
-            })}
-          </span>
-          <input
-            ref={sectionFileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="block w-full text-xs"
-            disabled={busy}
-            onChange={(e) => void onSectionUpload(e.target.files?.[0] ?? null)}
-          />
-          {extraImageUrl ? (
-            <div className="space-y-2">
-              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-ui-rect border border-sam-border">
-                <SamarketThumbnail
-                  src={extraImageUrl}
-                  alt=""
-                  fill
-                  fetchDisplayPx={640}
-                  className="h-full w-full"
-                  imageClassName="object-cover"
-                />
-              </div>
-              <AdminActionButton
-                variant="quiet"
-                disabled={busy}
-                onClick={() => setExtraImageUrl("")}
+        ) : null}
+        <ol className="space-y-3" data-admin-event-sections="1">
+          {sections.map((sec, index) => {
+            const kindLabel = SECTION_KIND_OPTIONS.find((o) => o.value === sec.type);
+            return (
+              <li
+                key={index}
+                className="space-y-2 rounded-ui-rect border border-dashed border-sam-border p-3"
+                data-admin-event-section-item={sec.type}
               >
-                {safeT("admin_platform_events_section_image_remove", {
-                  fallbackKo: "추가 이미지 제거",
-                  fallbackEn: "Remove section image",
-                })}
-              </AdminActionButton>
-            </div>
-          ) : null}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-sam-muted">
+                    {index + 1}. {kindLabel ? safeT(kindLabel.key, { fallbackKo: kindLabel.ko, fallbackEn: kindLabel.en }) : sec.type}
+                  </span>
+                  <div className="flex gap-1">
+                    <AdminActionButton
+                      variant="quiet"
+                      disabled={busy || index === 0}
+                      onClick={() => moveSection(index, -1)}
+                      aria-label={safeT("admin_event_editor_section_move_up", { fallbackKo: "위로", fallbackEn: "Move up" })}
+                    >
+                      ↑
+                    </AdminActionButton>
+                    <AdminActionButton
+                      variant="quiet"
+                      disabled={busy || index === sections.length - 1}
+                      onClick={() => moveSection(index, 1)}
+                      aria-label={safeT("admin_event_editor_section_move_down", { fallbackKo: "아래로", fallbackEn: "Move down" })}
+                    >
+                      ↓
+                    </AdminActionButton>
+                    <AdminActionButton variant="quiet" disabled={busy} onClick={() => removeSection(index)}>
+                      {safeT("admin_event_editor_section_remove", { fallbackKo: "삭제", fallbackEn: "Remove" })}
+                    </AdminActionButton>
+                  </div>
+                </div>
+                {sec.type === "text" ? (
+                  <>
+                    <input
+                      className={fieldClass}
+                      placeholder={safeT("admin_event_editor_section_heading_ph", { fallbackKo: "소제목 (선택)", fallbackEn: "Heading (optional)" })}
+                      value={sec.title ?? ""}
+                      onChange={(e) => updateSection(index, { title: e.target.value })}
+                    />
+                    <textarea
+                      className={`${fieldClass} h-28`}
+                      placeholder={safeT("admin_event_editor_section_body_ph", { fallbackKo: "본문", fallbackEn: "Body" })}
+                      value={sec.body}
+                      onChange={(e) => updateSection(index, { body: e.target.value })}
+                    />
+                  </>
+                ) : sec.type === "image" ? (
+                  <>
+                    <input
+                      className={fieldClass}
+                      placeholder="https://"
+                      value={sec.imageUrl}
+                      onChange={(e) => updateSection(index, { imageUrl: e.target.value.trim() })}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <AdminActionButton
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() => {
+                          sectionUploadIndexRef.current = index;
+                          sectionFileRef.current?.click();
+                        }}
+                      >
+                        {safeT("admin_platform_events_field_section_image", {
+                          fallbackKo: "추가 이미지",
+                          fallbackEn: "Section image",
+                        })}
+                      </AdminActionButton>
+                      <input
+                        className={`${fieldClass} mt-0 flex-1`}
+                        placeholder={safeT("admin_event_editor_section_alt_ph", { fallbackKo: "대체 텍스트 (선택)", fallbackEn: "Alt text (optional)" })}
+                        value={sec.alt ?? ""}
+                        onChange={(e) => updateSection(index, { alt: e.target.value })}
+                      />
+                    </div>
+                    {/^https?:\/\//i.test(sec.imageUrl) ? (
+                      <div className="relative aspect-[16/9] w-full max-w-sm overflow-hidden rounded-ui-rect border border-sam-border">
+                        <SamarketThumbnail
+                          src={sec.imageUrl}
+                          alt=""
+                          fill
+                          fetchDisplayPx={640}
+                          className="h-full w-full"
+                          imageClassName="object-cover"
+                        />
+                      </div>
+                    ) : null}
+                  </>
+                ) : sec.type === "benefit" ? (
+                  <>
+                    <input
+                      className={fieldClass}
+                      placeholder={safeT("admin_platform_events_field_benefit_title", {
+                        fallbackKo: "혜택 제목",
+                        fallbackEn: "Benefit title",
+                      })}
+                      value={sec.title}
+                      onChange={(e) => updateSection(index, { title: e.target.value })}
+                    />
+                    <textarea
+                      className={`${fieldClass} h-20`}
+                      placeholder={safeT("admin_platform_events_field_benefit_body", {
+                        fallbackKo: "혜택 설명",
+                        fallbackEn: "Benefit detail",
+                      })}
+                      value={sec.body ?? ""}
+                      onChange={(e) => updateSection(index, { body: e.target.value })}
+                    />
+                  </>
+                ) : sec.type === "cta" ? (
+                  <>
+                    <input
+                      className={fieldClass}
+                      placeholder={safeT("admin_event_editor_section_cta_label_ph", { fallbackKo: "버튼 문구", fallbackEn: "Button label" })}
+                      value={sec.label}
+                      onChange={(e) => updateSection(index, { label: e.target.value })}
+                    />
+                    <select
+                      className={fieldClass}
+                      value={sec.ctaType}
+                      onChange={(e) => updateSection(index, { ctaType: e.target.value })}
+                    >
+                      {CTA_TYPE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {lang === "en" ? opt.en : opt.ko}
+                        </option>
+                      ))}
+                    </select>
+                    {sec.ctaType === "external_url" ? (
+                      <input
+                        className={fieldClass}
+                        placeholder="https://"
+                        value={sec.externalUrl ?? ""}
+                        onChange={(e) => updateSection(index, { externalUrl: e.target.value.trim() })}
+                      />
+                    ) : (
+                      <input
+                        className={fieldClass}
+                        placeholder={safeT("admin_event_editor_section_cta_target_ph", { fallbackKo: "이동 대상 (경로 또는 ID)", fallbackEn: "Target (path or id)" })}
+                        value={sec.ctaTarget ?? ""}
+                        onChange={(e) => updateSection(index, { ctaTarget: e.target.value })}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <textarea
+                    className={`${fieldClass} h-20`}
+                    placeholder={safeT("admin_event_editor_section_terms_ph", { fallbackKo: "유의사항", fallbackEn: "Notes" })}
+                    value={sec.body}
+                    onChange={(e) => updateSection(index, { body: e.target.value })}
+                  />
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            className="rounded border border-sam-border px-2 py-1.5 text-sm"
+            value={newSectionKind}
+            onChange={(e) => setNewSectionKind(e.target.value as SectionKind)}
+            aria-label={safeT("admin_event_editor_section_type", { fallbackKo: "섹션 유형", fallbackEn: "Section type" })}
+          >
+            {SECTION_KIND_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {safeT(opt.key, { fallbackKo: opt.ko, fallbackEn: opt.en })}
+              </option>
+            ))}
+          </select>
+          <AdminActionButton
+            variant="secondary"
+            disabled={busy}
+            onClick={() => setSections((list) => [...list, newSection(newSectionKind)])}
+            data-admin-event-section-add="1"
+          >
+            {safeT("admin_event_editor_section_add", { fallbackKo: "섹션 추가", fallbackEn: "Add section" })}
+          </AdminActionButton>
         </div>
         <label className="block text-sm">
           {safeT("admin_platform_events_field_terms", {
@@ -740,6 +1118,19 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             />
           </label>
         )}
+        {draft.ctaType ? (
+          <AdminDestinationResolvedHint
+            href={(() => {
+              const r = resolvePlatformEventFinalCtaHref({
+                ctaType: draft.ctaType,
+                ctaTarget: draft.ctaTarget,
+                externalUrl: draft.ctaExternalUrl,
+              });
+              return r.ok ? r.href : (isExternalCta ? draft.ctaExternalUrl : draft.ctaTarget) || "";
+            })()}
+            language={lang}
+          />
+        ) : null}
       </section>
 
       <section className={sectionClass} data-admin-event-section="schedule">
@@ -888,34 +1279,35 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         </div>
       </section>
 
-      <div className="flex flex-wrap gap-2 pb-6">
-        <AdminActionButton
-          variant="primary"
-          disabled={busy}
-          onClick={() => void save()}
-        >
-          {saving
-            ? safeT("admin_platform_events_saving", {
-                fallbackKo: "저장 중…",
-                fallbackEn: "Saving…",
-              })
-            : promotionAdminActionLabel("SAVE", lang)}
-        </AdminActionButton>
-        <AdminActionButton
-          variant="primary"
-          disabled={busy}
-          onClick={() => void save("published")}
-        >
-          {promotionAdminActionLabel("PUBLISH", lang)}
-        </AdminActionButton>
-        <AdminActionButton
-          variant="danger"
-          disabled={busy || isNew}
-          onClick={() => void save("unpublished")}
-        >
-          {promotionAdminActionLabel("PAUSE_STOP", lang)}
-        </AdminActionButton>
-      </div>
+      <div className="flex flex-wrap gap-2 pb-6">{actionButtons}</div>
+
+      {confirmAction ? (
+        <AdminActionConfirmDialog
+          open
+          title={safeT(LIFECYCLE_CONFIRM[confirmAction].titleKey, {
+            fallbackKo: LIFECYCLE_CONFIRM[confirmAction].titleKo,
+            fallbackEn: LIFECYCLE_CONFIRM[confirmAction].titleEn,
+          })}
+          description={
+            safeT(LIFECYCLE_CONFIRM[confirmAction].descKey, {
+              fallbackKo: LIFECYCLE_CONFIRM[confirmAction].descKo,
+              fallbackEn: LIFECYCLE_CONFIRM[confirmAction].descEn,
+            })
+          }
+          confirmLabel={
+            confirmAction === "publish"
+              ? promotionAdminActionLabel("PUBLISH", lang)
+              : confirmAction === "unpublish"
+                ? promotionAdminActionLabel("PAUSE_STOP", lang)
+                : safeT("admin_event_editor_btn_archive", { fallbackKo: "보관", fallbackEn: "Archive" })
+          }
+          cancelLabel={safeT("admin_event_editor_btn_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+          tone={LIFECYCLE_CONFIRM[confirmAction].tone}
+          pending={saving}
+          onCancel={() => setConfirmAction(null)}
+          onConfirm={() => void runConfirmedAction(confirmAction)}
+        />
+      ) : null}
     </div>
   );
 }

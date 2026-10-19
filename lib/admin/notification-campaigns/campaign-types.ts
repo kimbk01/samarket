@@ -9,17 +9,9 @@ export const CAMPAIGN_CHANNELS = [
 
 export type CampaignChannel = (typeof CAMPAIGN_CHANNELS)[number];
 
-export const CAMPAIGN_STATUSES = [
-  "draft",
-  "scheduled",
-  "sending",
-  "sent",
-  "partially_failed",
-  "failed",
-  "cancelled",
-] as const;
-
-export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
+/** ADM-09: full DB status list + transition table live in campaign-status-machine (SSOT). */
+export { CAMPAIGN_STATUSES, type CampaignStatus } from "@/lib/admin/notification-campaigns/campaign-status-machine";
+import type { CampaignStatus } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 
 export const CAMPAIGN_DELIVERY_CHANNELS = ["push", "in_app"] as const;
 export type CampaignDeliveryChannel = (typeof CAMPAIGN_DELIVERY_CHANNELS)[number];

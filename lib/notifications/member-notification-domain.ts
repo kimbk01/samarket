@@ -17,6 +17,21 @@ export const MEMBER_NOTIFICATION_DOMAINS = [
 
 export type MemberNotificationDomain = (typeof MEMBER_NOTIFICATION_DOMAINS)[number];
 
+/**
+ * INAPP-02 — API category param (list `push_kind`, mark-all `category`) → domain.
+ * Empty / "all" → null (every category). Unknown → "invalid" (caller answers 400).
+ */
+export function parseMemberNotificationDomainParam(
+  raw: unknown
+): MemberNotificationDomain | null | "invalid" {
+  if (raw == null) return null;
+  const v = String(raw).trim().toLowerCase();
+  if (!v || v === "all") return null;
+  return (MEMBER_NOTIFICATION_DOMAINS as readonly string[]).includes(v)
+    ? (v as MemberNotificationDomain)
+    : "invalid";
+}
+
 export type MemberNotificationDomainRow = {
   push_kind?: string | null;
   notification_type?: string | null;

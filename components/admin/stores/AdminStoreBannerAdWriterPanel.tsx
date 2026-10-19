@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import { Fragment, useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -327,6 +328,7 @@ function BannerFields({
           value={form.ctaHref}
           onChange={(e) => setForm({ ...form, ctaHref: e.target.value })}
         />
+        <AdminDestinationResolvedHint href={form.ctaHref} className="mt-0.5 text-[11px] text-sam-muted" />
       </label>
       <label className="text-[11px]">
         {t("admin_store_banner_ads_col_sort")}

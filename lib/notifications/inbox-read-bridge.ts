@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { MemberNotificationDomain } from "@/lib/notifications/member-notification-domain";
 import {
   markNotificationEventsReadByCategory,
   markOrderNotificationEventsRead,
@@ -15,6 +16,11 @@ import {
   clearNotificationTargetsAfterThreadRead,
   clearNotificationTargetsForLegacyInboxRow,
 } from "@/lib/notifications/notification-target-read-bridge";
+import {
+  buildNotificationCenterTabUnreadCounts,
+  type NotificationCenterTabUnreadCounts,
+} from "@/lib/notifications/notification-center-tab-unread";
+import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 import { legacyNotificationsSelect } from "@/lib/notifications/legacy-inbox-compatibility-adapter";
 
 export type PartitionInboxReadIdsResult = {
@@ -509,14 +515,24 @@ export async function markMemberANotificationsAllRead(
   userId: string,
   opts?: {
     /** Test seam — defaults to markCanonicalMemberANotificationEventsRead. */
-    markEvents?: (sb: SupabaseClient, userId: string) => Promise<number>;
+    markEvents?: (
+      sb: SupabaseClient,
+      userId: string,
+      scope?: { domain: MemberNotificationDomain }
+    ) => Promise<number>;
+    /**
+     * INAPP-02 — Notification Center category tab: mark only canonical A unread in this
+     * domain (server-side, not just loaded rows). Omit for every canonical A unread.
+     */
+    domain?: MemberNotificationDomain | null;
   }
 ): Promise<MemberAMarkAllResult | { ok: false; error: string }> {
   const uid = userId.trim();
   const markEvents = opts?.markEvents ?? markCanonicalMemberANotificationEventsRead;
+  const domain = opts?.domain ?? null;
   let eventUpdated: number;
   try {
-    eventUpdated = await markEvents(sb, uid);
+    eventUpdated = domain ? await markEvents(sb, uid, { domain }) : await markEvents(sb, uid);
   } catch {
     // NOTIF-04: a failed mark-all must not be reported as success.
     return { ok: false, error: "mark_all_failed" };
@@ -531,7 +547,8 @@ export async function markMemberANotificationsAllRead(
  */
 export async function markCanonicalMemberANotificationEventsRead(
   sb: SupabaseClient,
-  userId: string
+  userId: string,
+  scope?: { domain: MemberNotificationDomain }
 ): Promise<number> {
   const { loadBellExplainUnreadEventRows } = await import(
     "@/lib/notifications/load-bell-explain-unread-events"
@@ -546,7 +563,13 @@ export async function markCanonicalMemberANotificationEventsRead(
   const uid = userId.trim();
   const rows = await loadBellExplainUnreadEventRows(sb, uid);
   const authority = resolveMemberNotificationAuthorityFromRows(rows, uid);
-  const idsToMark = [...authority.eventIds];
+  let idsToMark = [...authority.eventIds];
+  if (scope?.domain) {
+    const { selectMemberAUnreadIdsInDomain } = await import(
+      "@/lib/notifications/inbox-events-merge"
+    );
+    idsToMark = selectMemberAUnreadIdsInDomain(rows, idsToMark, scope.domain);
+  }
   if (idsToMark.length === 0) return 0;
 
   const now = new Date().toISOString();
@@ -676,4 +699,19 @@ export async function clearChatInboxTargetsAfterMarkAll(
     mapNotificationEventToInboxRow(row as NotificationEventInboxSource)
   );
   await clearNotificationTargetsForInboxRows(sb, userId, mapped);
+}
+
+/**
+ * INAPP-02 — per-tab unread digits for the Notification Center, computed on the server over
+ * unread inbox rows. Same A filter as the list (canonical A unread only) + same tab classifier.
+ * Lives in the bridge so product routes never import the A projection foundation directly.
+ */
+export function buildServerNotificationCenterTabUnreadCounts(
+  unreadRows: readonly InboxNotificationRow[],
+  canonicalUnreadTotal: number
+): NotificationCenterTabUnreadCounts {
+  const counts = buildNotificationCenterTabUnreadCounts({
+    memberRows: filterMemberNotificationAInboxRows(unreadRows),
+  });
+  return { ...counts, all: canonicalUnreadTotal, unread: canonicalUnreadTotal };
 }

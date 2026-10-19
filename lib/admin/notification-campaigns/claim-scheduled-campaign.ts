@@ -61,6 +61,10 @@ export async function drainNotificationCampaignSendBatches(
   failed: number;
   error?: string;
   slowestBatchMs?: number;
+  /** ADM-03: stopped by admin (stop sending / stop recurring / occurrence cancelled). */
+  stopped?: boolean;
+  /** ADM-08: scheduled source re-verification skip reason recorded on the occurrence. */
+  skippedReason?: string;
 }> {
   const { getCampaignOccurrence } = await import(
     "@/lib/admin/notification-campaigns/campaign-occurrence-service"
@@ -156,6 +160,28 @@ export async function drainNotificationCampaignSendBatches(
   if (!sourceEligibility.ok) {
     const now = new Date().toISOString();
     const err = sourceEligibility.error;
+    const triggerType = String((occurrence as { trigger_type?: string }).trigger_type ?? "");
+    if (isCronOwnedTrigger(triggerType)) {
+      // ADM-08: a cron-claimed scheduled/recurring occurrence whose source is no longer public
+      // (notice archived/hidden, event unpublished) is SKIPPED with a recorded reason — not sent.
+      await recordScheduledSourceSkip(svc, {
+        occurrenceId,
+        campaignId: occurrence.campaign_id,
+        triggerType,
+        reason: err,
+        now,
+      });
+      return {
+        ok: false,
+        done: true,
+        batches: 0,
+        sent: 0,
+        skipped: 0,
+        failed: 0,
+        error: err,
+        skippedReason: campaignSourceSkipReason(err),
+      };
+    }
     await svc
       .from("admin_notification_campaign_occurrences")
       .update({
@@ -203,6 +229,10 @@ export async function drainNotificationCampaignSendBatches(
     const result = await runNotificationCampaignSendBatch(svc, occurrenceId);
     slowestBatchMs = Math.max(slowestBatchMs, Date.now() - batchStarted);
     batches += 1;
+    if (!result.ok && CAMPAIGN_STOP_ERRORS.has(String(result.error ?? ""))) {
+      // ADM-03: admin stopped the campaign/occurrence — clean stop, keep the recorded stop reason.
+      return { ok: true, done: true, batches, sent, skipped, failed, stopped: true, slowestBatchMs };
+    }
     if (!result.ok) {
       await svc
         .from("admin_notification_campaign_occurrences")
@@ -229,6 +259,71 @@ export async function drainNotificationCampaignSendBatches(
   }
 
   return { ok: true, done, batches, sent, skipped, failed, slowestBatchMs };
+}
+
+/** Batch results that mean "an admin stopped this" (ADM-03), never a send failure. */
+export const CAMPAIGN_STOP_ERRORS = new Set<string>(["occurrence_cancelled", "campaign_stopped"]);
+
+/** Triggers the scheduled dispatcher (cron) owns; manual immediate sends are not skipped silently. */
+export function isCronOwnedTrigger(triggerType: string): boolean {
+  return triggerType === "scheduled" || triggerType === "recurring";
+}
+
+export function campaignSourceSkipReason(sourceError: string): string {
+  return `source_skipped:${sourceError}`;
+}
+
+/**
+ * ADM-08: occurrence → `cancelled` with `last_error = source_skipped:<reason>`.
+ * One-shot scheduled campaign → `cancelled` (transition table: scheduled/sending → cancelled).
+ * Recurring campaign keeps its lifecycle status; the next slot re-verifies the source again.
+ */
+export async function recordScheduledSourceSkip(
+  svc: SupabaseClient,
+  input: { occurrenceId: string; campaignId: string; triggerType: string; reason: string; now: string }
+): Promise<void> {
+  const reason = campaignSourceSkipReason(input.reason);
+  await svc
+    .from("admin_notification_campaign_occurrences")
+    .update({
+      status: "cancelled",
+      last_error: reason,
+      cancelled_at: input.now,
+      completed_at: input.now,
+      send_claim_token: null,
+      send_lease_expires_at: null,
+      updated_at: input.now,
+    })
+    .eq("id", input.occurrenceId);
+  let fromStatus: string | null = null;
+  let toStatus: string | null = null;
+  if (input.triggerType !== "recurring") {
+    const { data: before } = await svc
+      .from("admin_notification_campaigns")
+      .select("status")
+      .eq("id", input.campaignId)
+      .maybeSingle();
+    const beforeStatus = String((before as { status?: string } | null)?.status ?? "");
+    const { data } = await svc
+      .from("admin_notification_campaigns")
+      .update({ status: "cancelled", last_error: reason, updated_at: input.now })
+      .eq("id", input.campaignId)
+      .in("status", ["scheduled", "sending"])
+      .select("id");
+    if (Array.isArray(data) && data.length > 0) {
+      fromStatus = beforeStatus || null;
+      toStatus = "cancelled";
+    }
+  }
+  const { writeCampaignAuditLog } = await import("@/lib/admin/notification-campaigns/campaign-audit-log");
+  await writeCampaignAuditLog(svc, {
+    actorId: null,
+    campaignId: input.campaignId,
+    action: "source_skip",
+    fromStatus,
+    toStatus,
+    after: { occurrence_id: input.occurrenceId, reason },
+  });
 }
 
 /** Transient batch errors that a later continuation may succeed on. */

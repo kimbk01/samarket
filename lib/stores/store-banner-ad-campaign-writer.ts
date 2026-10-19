@@ -3,6 +3,7 @@
  * NOT feed_ad_campaigns / store_banners / my_page_banners / STORE_PAID_AD.
  */
 
+import { normalizeOptionalDestinationHref } from "@/lib/destination/optional-destination-href";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   STORE_BANNER_AD_CAMPAIGN_TABLE,
@@ -32,6 +33,7 @@ export type StoreBannerAdWriterError =
   | "missing_id"
   | "invalid_surface"
   | "empty_image_url"
+  | "invalid_cta_href"
   | "invalid_start_at"
   | "invalid_end_at"
   | "invalid_window"
@@ -132,6 +134,10 @@ export function parseStoreBannerAdCampaignCreateBody(
   if (!endAt) return { ok: false, error: "invalid_end_at" };
   if (Date.parse(endAt) <= Date.parse(startAt)) return { ok: false, error: "invalid_window" };
 
+  // EVT-07: banner link must be a valid DestinationRef (internal / event / https); empty = none.
+  const cta = normalizeOptionalDestinationHref(body.ctaHref ?? body.cta_href);
+  if (!cta.ok) return { ok: false, error: "invalid_cta_href" };
+
   const titleRaw = body.title;
   const subtitleRaw = body.subtitle;
   return {
@@ -144,7 +150,7 @@ export function parseStoreBannerAdCampaignCreateBody(
           ? null
           : String(subtitleRaw).trim(),
       imageUrl,
-      ctaHref: String(body.ctaHref ?? body.cta_href ?? "").trim(),
+      ctaHref: cta.href,
       sortOrder: Number(body.sortOrder ?? body.sort_order ?? 0) || 0,
       startAt,
       endAt,
@@ -183,7 +189,9 @@ export function parseStoreBannerAdCampaignUpdateBody(
     value.imageUrl = imageUrl;
   }
   if ("ctaHref" in body || "cta_href" in body) {
-    value.ctaHref = String(body.ctaHref ?? body.cta_href ?? "").trim();
+    const cta = normalizeOptionalDestinationHref(body.ctaHref ?? body.cta_href);
+    if (!cta.ok) return { ok: false, error: "invalid_cta_href" };
+    value.ctaHref = cta.href;
   }
   if ("sortOrder" in body || "sort_order" in body) {
     value.sortOrder = Number(body.sortOrder ?? body.sort_order ?? 0) || 0;

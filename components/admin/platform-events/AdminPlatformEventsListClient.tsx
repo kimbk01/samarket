@@ -139,6 +139,49 @@ export function AdminPlatformEventsListClient() {
                       <AdminToneBadge tone={promotionOperatorStatusTone(op)}>
                         {promotionOperatorStatusLabel(op, lang)}
                       </AdminToneBadge>
+                      {ev.archivedAt ? (
+                        <span data-admin-event-archived="1">
+                          <AdminToneBadge tone="neutral">
+                            {safeT("admin_platform_event_list_archived", {
+                              fallbackKo: "보관됨",
+                              fallbackEn: "Archived",
+                            })}
+                          </AdminToneBadge>
+                        </span>
+                      ) : null}
+                      {ev.isPinned ? (
+                        <span data-admin-event-pinned="1">
+                          <AdminToneBadge tone="progress">
+                            {safeT("platform_event_board_pinned", { fallbackKo: "고정", fallbackEn: "Pinned" })}
+                          </AdminToneBadge>
+                        </span>
+                      ) : null}
+                      {ev.category ? (
+                        <span data-admin-event-category="1">
+                          {safeT("admin_platform_event_list_category", {
+                            fallbackKo: "카테고리",
+                            fallbackEn: "Category",
+                          })}
+                          : {ev.category}
+                        </span>
+                      ) : null}
+                      {typeof ev.sortOrder === "number" && ev.sortOrder !== 0 ? (
+                        <span data-admin-event-sort-order="1">
+                          {safeT("admin_platform_event_list_sort_order", {
+                            fallbackKo: "정렬",
+                            fallbackEn: "Order",
+                          })}
+                          : {ev.sortOrder}
+                        </span>
+                      ) : null}
+                      {!ev.thumbnailUrl ? (
+                        <span data-admin-event-thumbnail-missing="1">
+                          {safeT("admin_platform_event_list_thumbnail_missing", {
+                            fallbackKo: "게시판 썸네일 없음(대표 이미지 사용)",
+                            fallbackEn: "No board thumbnail (hero image used)",
+                          })}
+                        </span>
+                      ) : null}
                       <span>
                         {formatPromotionAdminSchedule(ev.startsAt, lang)} –{" "}
                         {formatPromotionAdminSchedule(ev.endsAt, lang)}

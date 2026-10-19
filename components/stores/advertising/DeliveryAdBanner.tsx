@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { DestinationLink } from "@/components/destination/DestinationLink";
 import { useRef } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
@@ -159,17 +159,18 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
   );
 
   if (href) {
+    // EVT-07: banner taps open via openDestination (external → in-app browser, never the WebView).
     return (
       <div className={shellClass}>
-        <Link
-          href={href}
-          prefetch={false}
+        <DestinationLink
+          destination={href}
           className="relative block w-full overflow-hidden"
           aria-label={ctaLabel || adLabel}
-          onClick={onCustomerClick}
+          onNavigate={onCustomerClick}
+          fallback={frame}
         >
           {frame}
-        </Link>
+        </DestinationLink>
       </div>
     );
   }
