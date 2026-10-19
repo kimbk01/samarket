@@ -34,7 +34,7 @@ interface AdminSanctionPanelProps {
 
 /**
  * Trade report resolve panel.
- * Content writer = POST /api/admin/reports/[reportId]/action (server applyReportActionDaangn).
+ * Content writer = POST /api/admin/reports/[reportId]/action (server admin_decide_trade_report — 거래 신고 처리 함수).
  * Account enforce = MCC only (link).
  * warn/chat_ban = sanctions ledger only (non-enforcing).
  */

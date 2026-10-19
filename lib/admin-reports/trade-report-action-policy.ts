@@ -2,7 +2,7 @@ import type { ReportActionType } from "@/lib/types/daangn";
 
 /**
  * Trade report action policy — shared by client panel (CTA gating) and
- * server writer (`applyReportActionDaangn`). No DB access here.
+ * server route `/api/admin/reports/[reportId]/action`. No DB access here.
  */
 
 /** Trade report content actions — mutate reports / posts only. */

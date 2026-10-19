@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  chatAdminReasonRequired,
-  requireAnyAdminPermission,
-  requireChatRoomAdminForRow,
-} from "@/lib/admin/chat-admin/chat-admin-guards";
+import { chatAdminReasonRequired, requireChatRoomAdminForRow, requireTradeChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import {
   CHAT_ADMIN_ACTION_REASON_MIN_LENGTH,
   CHAT_ADMIN_AUDIT_REPORT_ACTION,
-  TRADE_CHAT_ADMIN_PERMISSION_KEYS,
   isChatAdminReasonValid,
   normalizeChatAdminReason,
   type CmReportAdminAction,
@@ -82,7 +77,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const admin = await requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
+  const admin = await requireTradeChatAdmin();
   if (!admin.ok) return admin.response;
   const next = LEGACY_NEXT[source][action];
   if (!next) return NextResponse.json({ ok: false, error: "legacy_only_read_only" }, { status: 409 });

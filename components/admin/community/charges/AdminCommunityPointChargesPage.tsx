@@ -75,9 +75,17 @@ type DetailResponse = { ok?: boolean; error?: string; request?: PointChargeReque
 
 const abs = (iso: string | null | undefined) => (iso ? `${formatAdminManilaDateTime(iso)} PHT` : "—");
 
-export function AdminCommunityPointChargesPage() {
+/** 화면 범위 — 커뮤니티(기본) · 거래 (거래 Admin O-2: 활성 관리자 전원, 같은 공용 처리) */
+export type PointChargesScope = "community" | "trade";
+const SCOPE_PATHS: Record<PointChargesScope, { api: string; member: string; support: string }> = {
+  community: { api: "/api/admin/point-charges", member: "/admin/community/members/", support: "/admin/community/support" },
+  trade: { api: "/api/admin/trade/point-charges", member: "/admin/trade/members/", support: "/admin/trade/support" },
+};
+
+export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?: PointChargesScope } = {}) {
   const q = useCommunityQueryState();
   const access = useCommunityAdminAccess();
+  const paths = SCOPE_PATHS[scope];
   const status = q.get("status") in TAB_STATUSES ? q.get("status") : "pending";
   const [openId, setOpenId] = useState<string | null>(() => q.get("chargeId") || null);
   const [banner, setBanner] = useState<CommunityBannerState>(null);
@@ -92,8 +100,8 @@ export function AdminCommunityPointChargesPage() {
     const st = TAB_STATUSES[status];
     params.set("status", st ? st.join(",") : "all");
     if (search) params.set("q", search);
-    return `/api/admin/point-charges?${params.toString()}`;
-  }, [page, search, status]);
+    return `${paths.api}?${params.toString()}`;
+  }, [page, search, status, paths.api]);
   const { state, reload } = useCommunityAdminJson<ListResponse>(listUrl);
 
   const pageRows = useMemo(() => (state.status === "ok" ? state.data.requests ?? [] : []), [state]);
@@ -166,7 +174,7 @@ export function AdminCommunityPointChargesPage() {
             <tr key={r.id} className="cursor-pointer border-b border-sam-border-soft hover:bg-sam-app" onClick={() => setOpenId(r.id)}>
               <td className={COMMUNITY_TD}>
                 <Link
-                  href={communityDetailHref(`/admin/community/members/${encodeURIComponent(r.userId)}`, q.selfHref)}
+                  href={communityDetailHref(`${paths.member}${encodeURIComponent(r.userId)}`, q.selfHref)}
                   onClick={(e) => e.stopPropagation()}
                   className="font-medium text-sky-800 hover:underline"
                 >
@@ -197,8 +205,9 @@ export function AdminCommunityPointChargesPage() {
       {openId ? (
         <ChargeSheet
           id={openId}
-          canAct={access.allowed("points")}
-          deniedTitle={access.deniedTitle("points")}
+          paths={paths}
+          canAct={scope === "trade" ? true : access.allowed("points")}
+          deniedTitle={scope === "trade" ? undefined : access.deniedTitle("points")}
           onClose={() => {
             setOpenId(null);
             if (q.get("chargeId")) q.set({ chargeId: null }, { keepPage: true });
@@ -217,18 +226,20 @@ export function AdminCommunityPointChargesPage() {
 
 function ChargeSheet({
   id,
+  paths,
   canAct,
   deniedTitle,
   onClose,
   onDone,
 }: {
   id: string;
+  paths: { api: string; member: string; support: string };
   canAct: boolean;
   deniedTitle?: string;
   onClose: () => void;
   onDone: (banner: CommunityBannerState) => void;
 }) {
-  const { state, reload } = useCommunityAdminJson<DetailResponse>(`/api/admin/point-charges/${encodeURIComponent(id)}`);
+  const { state, reload } = useCommunityAdminJson<DetailResponse>(`${paths.api}/${encodeURIComponent(id)}`);
   const [busy, setBusy] = useState<PointChargeAction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const r = state.status === "ok" ? state.data.request ?? null : null;
@@ -243,6 +254,7 @@ function ChargeSheet({
         requestId: r.id,
         action,
         ko: true,
+        apiBase: paths.api,
         summary: `${r.userNickname || "회원"} · ${r.pointAmount.toLocaleString()}P · ₱${r.paymentAmount.toLocaleString()} · 입금자 ${
           r.depositorName || "-"
         }`,
@@ -325,7 +337,7 @@ function ChargeSheet({
           </div>
           <p className="text-[13px]">
             <Link
-              href={`/admin/community/support?status=all&reference_type=POINT_CHARGE_REQUEST&reference_id=${encodeURIComponent(r.id)}`}
+              href={`${paths.support}?status=all&reference_type=POINT_CHARGE_REQUEST&reference_id=${encodeURIComponent(r.id)}`}
               className="text-sky-800 underline"
             >
               이 충전 건 관련 문의 보기

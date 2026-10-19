@@ -2,12 +2,10 @@
 
 /**
  * 관리자 카테고리 수정 (categories + category_settings 동시 반영)
- * RLS: 관리자만 update 가능
+ * 서버 API (/api/admin/trade/categories)
  */
 import type { CategoryType } from "@/lib/categories/types";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { updateCategory as updateCategoryRow } from "@/lib/categories/updateCategory";
-import { upsertCategorySettings } from "@/lib/categories/upsertCategorySettings";
+import { postCategoryAdminOp } from "@/lib/categories/admin/category-admin-api";
 
 import type { QuickCreateGroup } from "@/lib/categories/types";
 
@@ -46,8 +44,7 @@ export async function updateCategoryAdmin(
   payload: UpdateCategoryPayload,
   settings: UpdateCategorySettingsPayload
 ): Promise<UpdateCategoryResult> {
-  const res = await updateCategoryRow(id, payload);
-  if (!res.ok) return res;
-  const setRes = await upsertCategorySettings(id, settings);
-  return setRes;
+  // 행·설정을 한 요청으로 (서버가 반영 행 확인 + 감사)
+  const res = await postCategoryAdminOp({ op: "update", id, category: payload, settings });
+  return res.ok ? { ok: true } : res;
 }

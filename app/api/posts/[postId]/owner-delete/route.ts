@@ -83,23 +83,14 @@ export async function POST(
     );
   }
 
+  // 판매자 삭제 = 판매자 노출(owner_state)만 바꾼다 (설계 v2 §F-1-1). status 는 트리거가 hidden 으로 계산.
+  // 판매 단계·구매자 값은 그대로 보존한다.
   const now = new Date().toISOString();
   const db = sbAny as import("@supabase/supabase-js").SupabaseClient;
-
-  const patch: Record<string, unknown> = {
-    status: "deleted",
-    updated_at: now,
-  };
-
-  let updErr = (await db.from(POSTS_TABLE_WRITE).update(patch).eq("id", id)).error;
-  if (updErr && /deleted|check constraint|violates/i.test(String(updErr.message))) {
-    updErr = (
-      await db
-        .from(POSTS_TABLE_WRITE)
-        .update({ status: "hidden", updated_at: now })
-        .eq("id", id)
-    ).error;
-  }
+  const { error: updErr } = await db
+    .from(POSTS_TABLE_WRITE)
+    .update({ owner_state: "owner_deleted", updated_at: now })
+    .eq("id", id);
 
   if (updErr) {
     return NextResponse.json(

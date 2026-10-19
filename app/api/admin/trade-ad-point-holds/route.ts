@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  * GET /api/admin/trade-ad-point-holds — 거래 광고 포인트 hold/차감 감사 목록.
  */
 export async function GET(): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
 
   const sb = tryCreateSupabaseServiceClient();

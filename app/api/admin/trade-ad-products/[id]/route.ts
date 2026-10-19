@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ type Body = Partial<{
  * PATCH /api/admin/trade-ad-products/[id] — 거래 광고 정책(ad_products) 수정.
  */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
 
   const id = (await params).id?.trim() ?? "";
@@ -45,10 +45,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: false, error: "JSON 본문이 필요합니다." }, { status: 400 });
   }
 
-  const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "Supabase 서비스 클라이언트가 없습니다." }, { status: 503 });
-  }
+  const sb = admin.sb;
+  const { data: before } = await sb.from("ad_products").select(AD_PRODUCTS_PATCH_RETURN).eq("id", id).maybeSingle();
+  if (!before) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const keys: (keyof Body)[] = [
@@ -80,6 +79,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
+  if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
-  return NextResponse.json({ ok: true, row: data });
+  // 홍보 상품·가격 변경 기록 (설계 v2 §F-4 — 금전과 무관한 설정, 기록 실패는 화면 경고)
+  const audit = await appendCommunityAdminAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "trade_ad_product",
+    targetId: id,
+    action: "trade_ad_product.update",
+    before: before as Record<string, unknown>,
+    after: patch,
+  });
+
+  return NextResponse.json({ ok: true, row: data, ...(audit.ok ? {} : { auditWarning: true }) });
 }

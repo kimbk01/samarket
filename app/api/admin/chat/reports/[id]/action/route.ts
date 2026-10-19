@@ -5,8 +5,7 @@
  */
 import { CHAT_REPORT_OPEN_STATUSES } from "@/lib/admin/metrics/chat-metrics";
 import { NextRequest, NextResponse } from "next/server";
-import { chatAdminReasonRequired, requireAnyAdminPermission } from "@/lib/admin/chat-admin/chat-admin-guards";
-import { TRADE_CHAT_ADMIN_PERMISSION_KEYS } from "@/lib/admin/chat-admin/chat-content-access-policy";
+import { chatAdminReasonRequired, requireTradeChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   CHAT_ADMIN_ACTION_REASON_MIN_LENGTH,
@@ -23,7 +22,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
+  const admin = await requireTradeChatAdmin();
   if (!admin.ok) return admin.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;

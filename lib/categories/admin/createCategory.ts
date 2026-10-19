@@ -2,14 +2,10 @@
 
 /**
  * 카테고리 추가 (categories + category_settings 동시 생성)
- * RLS: 관리자만 insert 가능
+ * 서버 API (/api/admin/trade/categories) — 반영 확인·감사 포함
  */
 import type { CategoryType, QuickCreateGroup } from "@/lib/categories/types";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import {
-  parseTradeFieldCompositionPayload,
-  serializeTradeFieldCompositionPayload,
-} from "@/lib/trade/category-form/parse-field-composition";
+import { postCategoryAdminOp } from "@/lib/categories/admin/category-admin-api";
 
 export interface CreateCategoryPayload {
   name: string;
@@ -45,70 +41,6 @@ export async function createCategory(
   payload: CreateCategoryPayload,
   settings: CreateCategorySettingsPayload
 ): Promise<CreateCategoryResult> {
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    return {
-      ok: false,
-      error: "Supabase를 사용할 수 없습니다. .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정한 뒤 개발 서버를 재시작해 주세요.",
-    };
-  }
-
-  try {
-    const { data: cat, error: catError } = await (supabase as any)
-      .from("categories")
-      .insert({
-        name: payload.name,
-        name_en: payload.name_en?.trim() || null,
-        slug: payload.slug,
-        icon_key: payload.icon_key,
-        type: payload.type,
-        sort_order: payload.sort_order,
-        is_active: payload.is_active,
-        description: payload.description ?? null,
-        /** 명시하지 않으면 true — 최상위 메뉴 생성 시 플로팅 런처에 같이 노출 */
-        quick_create_enabled: payload.quick_create_enabled ?? true,
-        quick_create_group: payload.quick_create_group ?? null,
-        quick_create_order: payload.quick_create_order ?? 0,
-        show_in_home_chips: payload.show_in_home_chips ?? true,
-        parent_id: payload.parent_id ?? null,
-      })
-      .select("id")
-      .single();
-
-    if (catError || !cat?.id) {
-      return { ok: false, error: (catError as { message?: string })?.message ?? "카테고리 생성에 실패했습니다." };
-    }
-
-    const settingsInsert: Record<string, unknown> = {
-      category_id: cat.id,
-      can_write: settings.can_write,
-      has_price: settings.has_price,
-      has_chat: settings.has_chat,
-      has_location: settings.has_location,
-      has_direct_deal: settings.has_direct_deal ?? true,
-      has_free_share: settings.has_free_share ?? true,
-      post_type: settings.post_type,
-    };
-    if ("field_composition" in settings) {
-      if (settings.field_composition == null) {
-        settingsInsert.field_composition = null;
-      } else {
-        const parsed = parseTradeFieldCompositionPayload(settings.field_composition);
-        if (parsed) {
-          settingsInsert.field_composition = serializeTradeFieldCompositionPayload(parsed);
-        }
-      }
-    }
-
-    const { error: setError } = await (supabase as any)
-      .from("category_settings")
-      .insert(settingsInsert);
-
-    if (setError) {
-      return { ok: false, error: (setError as { message?: string })?.message ?? "기능 설정 저장에 실패했습니다." };
-    }
-    return { ok: true, id: cat.id };
-  } catch (e) {
-    return { ok: false, error: (e as Error).message ?? "생성에 실패했습니다." };
-  }
+  const res = await postCategoryAdminOp<{ id: string }>({ op: "create", category: payload, settings });
+  return res.ok ? { ok: true, id: res.id } : { ok: false, error: res.error };
 }

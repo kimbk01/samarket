@@ -2,7 +2,7 @@ import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { batchNicknamesByUserIds, batchUserIdentityByUserIds } from "@/lib/admin-reviews/batch-nicknames-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import {
@@ -19,7 +19,7 @@ const SELECT_FIELDS =
 // Production has no transaction_reviews.is_hidden_by_admin — omit from SELECT.
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
   if (!supabaseEnv.ok) {

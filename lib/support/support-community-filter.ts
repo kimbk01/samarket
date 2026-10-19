@@ -33,12 +33,46 @@ export const SUPPORT_COMMUNITY_CATEGORIES = ["REPORT"] as const;
 export const SUPPORT_APPEAL_SANCTION_REFERENCE_TYPES = ["COMMUNITY_SANCTION"] as const;
 export const SUPPORT_APPEAL_CONTENT_REFERENCE_TYPES = ["COMMUNITY_POST", "COMMUNITY_COMMENT"] as const;
 
-export type SupportCaseScope = "community" | null;
+export type SupportCaseScope = "community" | "trade" | null;
 export type SupportCaseKind = "appeal" | null;
 
-/** `?group=community` → "community" (대소문자 무시). 다른 값은 null — 기존 카테고리 그룹 처리 그대로. */
+/** `?group=community|trade` (대소문자 무시). 다른 값은 null — 기존 카테고리 그룹 처리 그대로. */
 export function parseSupportCaseScope(raw: string | null | undefined): SupportCaseScope {
-  return String(raw ?? "").trim().toLowerCase() === "community" ? "community" : null;
+  const v = String(raw ?? "").trim().toLowerCase();
+  return v === "community" ? "community" : v === "trade" ? "trade" : null;
+}
+
+/**
+ * 거래 문의 범위 (거래 Admin 설계 v2 §G-4 · D-29) — 같은 support_cases 를 거래 참조로 거른다.
+ * 홍보 주문 참조(POINT_PROMOTION_ORDER)는 거래·커뮤니티 공용 유형이라 주문 도메인으로 나눈다
+ * (`promotionOrderIds` = 해당 도메인 주문 id — 서버에서 조회해 넘긴다).
+ */
+export const SUPPORT_TRADE_REFERENCE_TYPES = ["TRADE_POST", "TRADE_CHAT_ROOM", "TRADE_SANCTION"] as const;
+export const SUPPORT_TRADE_APPEAL_REFERENCE_TYPES = ["TRADE_SANCTION"] as const;
+
+export function supportTradeScopeOrFilter(promotionOrderIds: string[]): string {
+  const parts = [`reference_type.in.(${SUPPORT_TRADE_REFERENCE_TYPES.join(",")})`];
+  if (promotionOrderIds.length) {
+    parts.push(`and(reference_type.eq.POINT_PROMOTION_ORDER,reference_id.in.(${promotionOrderIds.join(",")}))`);
+  }
+  return parts.join(",");
+}
+
+/** 거래 이의신청: 거래 제재 참조 + 본인 거래글 참조 중 신고 카테고리가 아닌 것 */
+export function supportTradeAppealOrFilter(): string {
+  return [
+    `reference_type.in.(${SUPPORT_TRADE_APPEAL_REFERENCE_TYPES.join(",")})`,
+    `and(reference_type.eq.TRADE_POST,category.neq.${SUPPORT_COMMUNITY_CATEGORIES[0]})`,
+  ].join(",");
+}
+
+export function isSupportCaseInTradeScope(
+  c: { reference_type?: string | null; reference_id?: string | null },
+  tradePromotionOrderIds: readonly string[]
+): boolean {
+  const ref = String(c.reference_type ?? "");
+  if ((SUPPORT_TRADE_REFERENCE_TYPES as readonly string[]).includes(ref)) return true;
+  return ref === "POINT_PROMOTION_ORDER" && tradePromotionOrderIds.includes(String(c.reference_id ?? ""));
 }
 
 /** `?type=appeal` → "appeal" */
@@ -46,10 +80,24 @@ export function parseSupportCaseKind(raw: string | null | undefined): SupportCas
   return String(raw ?? "").trim().toLowerCase() === "appeal" ? "appeal" : null;
 }
 
-/** PostgREST `or()` 식 — 커뮤니티 범위 */
-export function supportCommunityScopeOrFilter(): string {
+/**
+ * PostgREST `or()` 식 — 커뮤니티 범위.
+ * `communityPromotionOrderIds` 를 주면 홍보 주문 참조는 커뮤니티 주문만 (D-29: 거래 홍보 문의 섞임 해소).
+ * 주지 않으면 기존 동작(홍보 주문 참조 전부).
+ */
+export function supportCommunityScopeOrFilter(communityPromotionOrderIds?: string[]): string {
+  if (!communityPromotionOrderIds) {
+    return [
+      `reference_type.in.(${SUPPORT_COMMUNITY_RELATED_REFERENCE_TYPES.join(",")})`,
+      `category.in.(${SUPPORT_COMMUNITY_CATEGORIES.join(",")})`,
+    ].join(",");
+  }
+  const plain = SUPPORT_COMMUNITY_RELATED_REFERENCE_TYPES.filter((t) => t !== "POINT_PROMOTION_ORDER");
   return [
-    `reference_type.in.(${SUPPORT_COMMUNITY_RELATED_REFERENCE_TYPES.join(",")})`,
+    `reference_type.in.(${plain.join(",")})`,
+    ...(communityPromotionOrderIds.length
+      ? [`and(reference_type.eq.POINT_PROMOTION_ORDER,reference_id.in.(${communityPromotionOrderIds.join(",")}))`]
+      : []),
     `category.in.(${SUPPORT_COMMUNITY_CATEGORIES.join(",")})`,
   ].join(",");
 }

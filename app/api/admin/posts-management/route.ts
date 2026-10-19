@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   fetchAdminPostById,
@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  * GET /api/admin/posts-management?id= — 1건 (detail)
  */
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";

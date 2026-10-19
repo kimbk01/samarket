@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ postId: string }> }
 ) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
 
   const { postId: raw } = await params;

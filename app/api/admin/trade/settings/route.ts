@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import {
 
   TRADE_SETTINGS_KEY,
@@ -12,11 +12,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const admin = await requireTradeAdmin();
+  if (!admin.ok) return admin.response;
   try {
-    const sb = getSupabaseServer();
+    const sb = admin.sb;
     const { data, error } = await sb
       .from("admin_settings")
       .select("value_json")
@@ -34,9 +33,8 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const admin = await requireTradeAdmin();
+  if (!admin.ok) return admin.response;
 
   let body: Partial<TradeDetailOpsSettings>;
   try {
@@ -47,7 +45,8 @@ export async function PUT(req: NextRequest) {
 
   const merged = mergeTradeDetailOpsSettings(body ?? {});
   try {
-    const sb = getSupabaseServer();
+    const sb = admin.sb;
+    const { data: beforeRow } = await sb.from("admin_settings").select("value_json").eq("key", TRADE_SETTINGS_KEY).maybeSingle();
     const { error } = await sb.from("admin_settings").upsert(
       {
         key: TRADE_SETTINGS_KEY,
@@ -62,7 +61,15 @@ export async function PUT(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, settings: merged });
+    const audit = await appendCommunityAdminAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "trade_settings",
+      targetId: TRADE_SETTINGS_KEY,
+      action: "trade_settings.update",
+      before: ((beforeRow as { value_json?: Record<string, unknown> } | null)?.value_json ?? null) as Record<string, unknown> | null,
+      after: merged as unknown as Record<string, unknown>,
+    });
+    return NextResponse.json({ ok: true, settings: merged, ...(audit.ok ? {} : { auditWarning: true }) });
   } catch (e) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 503 });
   }

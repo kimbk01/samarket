@@ -152,7 +152,8 @@ create or replace function public.admin_decide_trade_report(
   p_restriction text default null,
   p_days integer default null,
   p_ip text default null,
-  p_user_agent text default null
+  p_user_agent text default null,
+  p_target_user_id uuid default null   -- 채팅 신고 등 대상 회원을 신고 행에서 알 수 없을 때 (화면에서 확인한 회원)
 ) returns jsonb
 language plpgsql
 security definer
@@ -194,6 +195,9 @@ begin
   end if;
   if v_target_user is null and v_rep.target_type = 'user' then
     v_target_user := v_rep.target_id;
+  end if;
+  if v_target_user is null then
+    v_target_user := p_target_user_id;
   end if;
 
   if (p_action in ('hide') or p_hide_post) and v_post_uuid is null then
@@ -273,7 +277,7 @@ $$;
 
 revoke all on function public.admin_apply_trade_sanction(uuid, text, text, integer, text, uuid, uuid, text, text) from public, anon, authenticated;
 revoke all on function public.admin_revoke_trade_sanction(uuid, uuid, text, text, text) from public, anon, authenticated;
-revoke all on function public.admin_decide_trade_report(uuid, uuid, text, text, boolean, text, integer, text, text) from public, anon, authenticated;
+revoke all on function public.admin_decide_trade_report(uuid, uuid, text, text, boolean, text, integer, text, text, uuid) from public, anon, authenticated;
 grant execute on function public.admin_apply_trade_sanction(uuid, text, text, integer, text, uuid, uuid, text, text) to service_role;
 grant execute on function public.admin_revoke_trade_sanction(uuid, uuid, text, text, text) to service_role;
-grant execute on function public.admin_decide_trade_report(uuid, uuid, text, text, boolean, text, integer, text, text) to service_role;
+grant execute on function public.admin_decide_trade_report(uuid, uuid, text, text, boolean, text, integer, text, text, uuid) to service_role;

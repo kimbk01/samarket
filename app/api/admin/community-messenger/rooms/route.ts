@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAnyAdminPermission, requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { requireAnyAdminPermission, requireChatAdmin, requireTradeChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { chatRoomAdminPermissionKeys } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import {
   isAdminCmDomainListDomain,
@@ -27,9 +27,11 @@ export async function GET(req: NextRequest) {
     const query = parseAdminChatRoomListQuery(sp);
     // 설계 §2-2: 거래 목록은 `products`, 배달 주문 목록은 `business` 도 허용 (전체·일반·그룹은 `chats`).
     const admin =
-      query.type === "trade" || query.type === "store_order"
-        ? await requireAnyAdminPermission(chatRoomAdminPermissionKeys(query.type))
-        : await requireChatAdmin();
+      query.type === "trade"
+        ? await requireTradeChatAdmin() // 거래 Admin O-2: 활성 관리자 전원
+        : query.type === "store_order"
+          ? await requireAnyAdminPermission(chatRoomAdminPermissionKeys(query.type))
+          : await requireChatAdmin();
     if (!admin.ok) return admin.response;
     try {
       const page = await listAdminChatRoomsPaged(query, clampAdminChatListLimit(sp.get("limit")));

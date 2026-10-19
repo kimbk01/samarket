@@ -3,8 +3,7 @@
  * Body: { action, reason } (`note` 호환 별칭) — R1-A: 권한 `chats` + 사유 2자 이상 + 상태 조건(409) + audit_logs
  */
 import { NextRequest, NextResponse } from "next/server";
-import { chatAdminReasonRequired, chatAdminStaleState, requireAnyAdminPermission } from "@/lib/admin/chat-admin/chat-admin-guards";
-import { TRADE_CHAT_ADMIN_PERMISSION_KEYS } from "@/lib/admin/chat-admin/chat-content-access-policy";
+import { chatAdminReasonRequired, chatAdminStaleState, requireTradeChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   CHAT_ADMIN_ACTION_REASON_MIN_LENGTH,
@@ -50,7 +49,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
+  const admin = await requireTradeChatAdmin();
   if (!admin.ok) return admin.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
