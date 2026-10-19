@@ -2,8 +2,10 @@
  * 채팅 Admin R1 (B · C-1) — 거래 Admin 일괄 숨김/복구를 사용자 방(CM) 메시지에 적용.
  * 서버 전용. 호출 전 라우트에서 권한·사유 검증을 끝낸다. 시스템 메시지는 제외 (레거시 일괄 숨김과 같은 규칙).
  * 발송·참가자·읽음·bump 없음 — `is_hidden_by_admin` 만 상태 조건으로 갱신하고 audit_logs 를 남긴다.
+ * 갱신 행이 있으면 방 목록 미리보기·부트스트랩 캐시를 정합한다.
  */
 import "server-only";
+import { syncRoomAfterAdminMessageVisibility } from "@/lib/admin-community-messenger/sync-room-after-admin-hide";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
@@ -29,6 +31,7 @@ export async function bulkSetTradeMessengerMessagesHidden(
     .select("id");
   if (error) throw new Error(error.message);
   const ids = ((updated ?? []) as Array<{ id: string }>).map((m) => m.id);
+  if (ids.length > 0) await syncRoomAfterAdminMessageVisibility(roomId);
   await appendAdminRouteAudit(sb, req, {
     actorId: input.adminUserId,
     targetType: "community_messenger_room",

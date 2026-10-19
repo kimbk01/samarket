@@ -26,6 +26,8 @@ export type MessengerMediaMessageRow = {
   metadata?: Record<string, unknown> | null;
   deleted_at?: string | null;
   deleted_for_everyone_at?: string | null;
+  /** 관리자 숨김 — 참가자에게는 404, 관리자 열람(adminContext)은 허용 */
+  is_hidden_by_admin?: boolean | null;
 };
 
 export type MessengerMediaAccessDeps = {
@@ -80,6 +82,9 @@ export async function resolveMessengerMediaAccess(
 
   const msg = await deps.loadMessage(messageId);
   if (!msg || t(msg.deleted_at) || t(msg.deleted_for_everyone_at)) {
+    return { ok: false, status: 404, error: "not_found" };
+  }
+  if (msg.is_hidden_by_admin === true && !input.adminContext) {
     return { ok: false, status: 404, error: "not_found" };
   }
   const messageRoomId = t(msg.room_id);
