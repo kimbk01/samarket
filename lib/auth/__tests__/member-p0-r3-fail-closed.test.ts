@@ -340,7 +340,7 @@ describe("P0-R3 proxy matcher DENY coverage", () => {
 describe("P0-R3 moderation compensation", () => {
   it("route source exposes COMPENSATION_FAILED (no false SUCCESS)", () => {
     const src = readFileSync(
-      resolve(process.cwd(), "app/api/admin/users/[id]/moderation/route.ts"),
+      resolve(process.cwd(), "lib/admin/shared-handlers/admin-member-moderation.ts" /* 본문 이동 — 라우트는 권한 키 확인 후 위임 */),
       "utf8"
     );
     expect(src).toContain('result: "COMPENSATION_FAILED"');

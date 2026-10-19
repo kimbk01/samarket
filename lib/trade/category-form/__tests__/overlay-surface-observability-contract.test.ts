@@ -118,7 +118,11 @@ describe("Admin overlay observability (WRITE / LIST / DETAIL)", () => {
   });
 
   it("Admin save + WRITE Generic + LIST overlay skip + DETAIL projector stay wired", () => {
-    const upsert = readFileSync(resolve(process.cwd(), "lib/categories/upsertCategorySettings.ts"), "utf8");
+    // 거래 Admin 설계 v2: 카테고리 설정 저장은 서버 API (/api/admin/trade/categories) — 검증·직렬화도 서버로 이동.
+    expect(readFileSync(resolve(process.cwd(), "lib/categories/upsertCategorySettings.ts"), "utf8")).toContain(
+      "postCategoryAdminOp"
+    );
+    const upsert = readFileSync(resolve(process.cwd(), "app/api/admin/trade/categories/route.ts"), "utf8");
     expect(upsert).toContain("parseTradeFieldCompositionPayload");
     expect(upsert).toContain("serializeTradeFieldCompositionPayload");
     expect(upsert).toContain("field_composition");

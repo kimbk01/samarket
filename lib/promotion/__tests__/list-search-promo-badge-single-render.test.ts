@@ -91,10 +91,10 @@ describe("CUT F seller promotion unification", () => {
     expect(page).toContain("<AdminCommunityPromotionQueue domain=\"community\" />");
     expect(page).toContain("AdminFeedAdRequestQueue");
     const api = src("app/api/admin/trade-promotion-orders/[id]/route.ts");
-    expect(api).toContain("requireAdminApiUser");
+    // 거래 Admin 설계 v2 O-2 · §F-4: 거래 게이트 + 승인·반려·중지·재개·종료는 DB 함수(runTradePromotionAction)로.
+    expect(api).toContain("requireTradeAdmin");
     expect(api).toContain("export async function GET");
-    expect(api).toContain("approveTradePaidExposure");
-    expect(api).toContain("rejectTradePaidExposure");
+    expect(api).toContain("runTradePromotionAction");
   });
 
   it("does not drop CUT B sell-intent or CUT C search expansion on the home-posts path", () => {

@@ -103,7 +103,8 @@ describe("P1-1 Messenger HOLLOW + Delivery order-chat LIVE", () => {
     const tradeList = read("components/admin/chats/AdminChatListPage.tsx");
     expect(tradeList).toContain('s === "product_chats" ? 2 : 1');
     const status = read("app/api/admin/posts/[postId]/status/route.ts");
-    expect(status).toContain("selectNoVis");
+    // 거래 Admin 설계 v2 §F-1-1: selectNoVis 제거 — SELECT 는 여전히 posts.visibility 를 묻지 않는다.
+    expect(status).not.toMatch(/\.select\(\s*["'`][^"'`]*visibility/);
   });
 
   it("general and group pages exist", () => {

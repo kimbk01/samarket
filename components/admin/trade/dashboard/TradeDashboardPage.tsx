@@ -14,6 +14,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminUnavailableChip } from "@/components/admin/ui/AdminToneBadge";
 import { AdminErrorState, AdminLoadingState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { buildAdminPrelaunchResetHref, DOMAIN_RESET_SCOPE_PRESETS } from "@/lib/admin/prelaunch-reset/domain-reset-entry";
 import { TRADE_POST_TAB_LABELS, type TradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { formatTradePoints } from "@/components/admin/trade/kit/TradeAdminKit";
 import { tradeAuditActionLabel, tradeAuditTargetLabel } from "@/components/admin/trade/audit/TradeAuditPage";
@@ -332,7 +333,17 @@ export function TradeDashboardPage() {
             </Section>
           </div>
 
-          <Section title="최근 관리자 조치" hint={<Link href="/admin/trade/audit" className="underline">운영 기록 전체</Link>}>
+          <Section
+            title="최근 관리자 조치"
+            hint={
+              <span className="flex gap-3">
+                <Link href="/admin/trade/audit" className="underline">운영 기록 전체</Link>
+                <Link href={buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.trade)} className="underline">
+                  테스트 거래 데이터 정리
+                </Link>
+              </span>
+            }
+          >
             {data.recentActions === null || data.recentActions === undefined ? (
               <EmptyBox text="최근 조치를 확인할 수 없습니다." />
             ) : data.recentActions.length === 0 ? (

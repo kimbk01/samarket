@@ -90,7 +90,8 @@ describe("three-currency Admin mutation boundary", () => {
   });
 
   it("preserves canonical member Point approval notifications only", () => {
-    const memberRoute = read("app/api/admin/point-charges/[id]/route.ts");
+    // 본문은 공용 처리로 이동 (라우트는 권한 키 `point` 확인 후 위임)
+    const memberRoute = read("lib/admin/shared-handlers/admin-point-charge-item.ts");
     const storeRoute = read("app/api/admin/store-point-charges/[id]/route.ts");
     expect(memberRoute).toContain("notifyUserPointChargeApproved");
     expect(memberRoute).toContain("notifyUserPointChargeRejected");

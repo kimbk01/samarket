@@ -20,7 +20,9 @@ import {
   CommunityTable,
   CommunityTabs,
   CommunityTimeCell,
+  CommunityActionSheet,
   communityDetailHref,
+  communitySheetFetch,
   useCommunityQueryState,
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
@@ -39,8 +41,11 @@ import {
   TRADE_POST_SORT_LABELS,
   TRADE_POST_TABS,
   TRADE_POST_TAB_LABELS,
+  TRADE_POST_MODERATION_ACTION_LABELS,
+  allowedTradePostModerationActions,
   parseTradePostSort,
   parseTradePostTab,
+  type TradePostModerationAction,
   type TradePostTab,
 } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { getAdminCategories } from "@/lib/categories/admin/getAdminCategories";
@@ -91,6 +96,14 @@ const EMPTY_TEXT: Partial<Record<TradePostTab, string>> = {
   legacy_hidden: "원인 미확인 숨김 게시물이 없습니다.",
   unclassified: "분류 확인이 필요한 게시물이 없습니다.",
 };
+
+/** 목록 일괄 조치 (설계 v2 §C-2) — 선택 숨김 · 선택 숨김 해제만. 일괄 삭제는 두지 않는다 (§F-1-4). */
+const BULK_ACTIONS = [
+  { action: "hide", from: "visible", label: "선택 숨김" },
+  { action: "unhide", from: "admin_hidden", label: "선택 숨김 해제" },
+] as const;
+
+type PostSheet = { action: TradePostModerationAction; targets: TradePostListRow[] };
 
 const TRADE_TYPE_OPTIONS = [
   { value: "", label: "전체" },
@@ -211,6 +224,42 @@ export function TradePostsPage() {
     label: TRADE_POST_TAB_LABELS[t],
     count: counts ? (counts[t] ?? null) : null,
   }));
+
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [sheet, setSheet] = useState<PostSheet | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    setSelected(new Set());
+  }, [apiUrl]);
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const selectedRows = rows.filter((r) => selected.has(r.id));
+  const allOnPage = rows.length > 0 && rows.every((r) => selected.has(r.id));
+
+  /** 한 건씩 같은 조치 API(같은 RPC·감사)로 처리. 실패가 있으면 첫 실패를 시트에 돌려주고 성공 건수는 안내한다. */
+  const submitSheet = async (target: PostSheet, reason: string) => {
+    let done = 0;
+    let firstFail: Awaited<ReturnType<typeof communitySheetFetch>> | null = null;
+    for (const r of target.targets) {
+      const res = await communitySheetFetch(`/api/admin/trade/posts/${encodeURIComponent(r.id)}/moderation`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: target.action, reason, expectedUpdatedAt: r.updated_at }),
+      });
+      if (res.ok) done += 1;
+      else firstFail ??= res;
+    }
+    if (target.targets.length > 1) {
+      setNotice(`${TRADE_POST_MODERATION_ACTION_LABELS[target.action]} ${done}건 처리${firstFail ? ` · ${target.targets.length - done}건 실패` : ""}`);
+    }
+    return firstFail ?? { ok: true as const };
+  };
 
   const detailHref = (id: string) => communityDetailHref(`/admin/products/${encodeURIComponent(id)}`, qs.selfHref);
 
@@ -336,7 +385,7 @@ export function TradePostsPage() {
   } else {
     body = (
       <CommunityTable
-        head={["썸네일", "제목·가격", "판매자", "지역", "카테고리", "판매 단계", "노출", "신고", "채팅·찜", "등록", "수정", ""]}
+        head={["선택", "썸네일", "제목·가격", "판매자", "지역", "카테고리", "판매 단계", "노출", "신고", "채팅·찜", "등록", "수정", ""]}
       >
         {rows.map((r) => (
           <tr
@@ -344,6 +393,15 @@ export function TradePostsPage() {
             onClick={() => router.push(detailHref(r.id))}
             className="cursor-pointer border-b border-sam-border-soft hover:bg-sam-app"
           >
+            <td className={COMMUNITY_TD} onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                aria-label="게시물 선택"
+                checked={selected.has(r.id)}
+                onChange={() => toggle(r.id)}
+                className="h-4 w-4"
+              />
+            </td>
             <td className={COMMUNITY_TD}>
               <TradePostThumb post={r} size={48} />
             </td>
@@ -393,15 +451,56 @@ export function TradePostsPage() {
               <CommunityTimeCell iso={r.updated_at} />
             </td>
             <td className={COMMUNITY_TD} onClick={(e) => e.stopPropagation()}>
-              <AdminActionLink href={detailHref(r.id)} variant="secondary">
-                상세
-              </AdminActionLink>
+              <span className="flex flex-wrap gap-1">
+                <AdminActionLink href={detailHref(r.id)} variant="secondary">
+                  상세
+                </AdminActionLink>
+                {allowedTradePostModerationActions(String(r.moderation_state ?? "")).map((a) => (
+                  <AdminActionButton
+                    key={a}
+                    variant={a === "hide" || a === "delete" ? "danger" : "secondary"}
+                    onClick={() => setSheet({ action: a, targets: [r] })}
+                  >
+                    {TRADE_POST_MODERATION_ACTION_LABELS[a]}
+                  </AdminActionButton>
+                ))}
+              </span>
             </td>
           </tr>
         ))}
       </CommunityTable>
     );
   }
+
+  const bulkBar =
+    rows.length > 0 ? (
+      <div className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft px-3 py-2 text-[13px]">
+        <label className="flex items-center gap-1 text-sam-muted">
+          <input
+            type="checkbox"
+            checked={allOnPage}
+            onChange={() => setSelected(allOnPage ? new Set() : new Set(rows.map((r) => r.id)))}
+            className="h-4 w-4"
+          />
+          이 페이지 전체 선택
+        </label>
+        <span className="text-sam-muted">{selectedRows.length}건 선택</span>
+        {BULK_ACTIONS.map((b) => {
+          const targets = selectedRows.filter((r) => r.moderation_state === b.from);
+          return (
+            <AdminActionButton
+              key={b.action}
+              variant={b.action === "hide" ? "danger" : "secondary"}
+              disabled={targets.length === 0}
+              onClick={() => setSheet({ action: b.action, targets })}
+            >
+              {b.label} ({targets.length})
+            </AdminActionButton>
+          );
+        })}
+        {notice ? <span role="status" className="text-sam-fg">{notice}</span> : null}
+      </div>
+    ) : null;
 
   return (
     <CommunityListShell
@@ -420,7 +519,36 @@ export function TradePostsPage() {
         ) : null
       }
     >
+      {bulkBar}
       {body}
+      {sheet ? (
+        <CommunityActionSheet
+          title={`게시물 ${TRADE_POST_MODERATION_ACTION_LABELS[sheet.action]}${sheet.targets.length > 1 ? ` (${sheet.targets.length}건)` : ""}`}
+          rows={[
+            {
+              label: "대상",
+              value:
+                sheet.targets.length === 1
+                  ? sheet.targets[0].title?.trim() || "제목 없음"
+                  : `${sheet.targets[0].title?.trim() || "제목 없음"} 외 ${sheet.targets.length - 1}건`,
+            },
+          ]}
+          notice={sheet.action === "hide" || sheet.action === "delete" ? "판매자는 관리자 조치를 해제할 수 없습니다." : undefined}
+          reason={{ minLength: 2, placeholder: "사유 (2자 이상)" }}
+          destructive={sheet.action === "hide" || sheet.action === "delete"}
+          confirmLabel={TRADE_POST_MODERATION_ACTION_LABELS[sheet.action]}
+          onClose={() => {
+            setSheet(null);
+            reload();
+          }}
+          onSubmit={(reason) => submitSheet(sheet, reason)}
+          onSettled={() => {
+            setSheet(null);
+            setSelected(new Set());
+            reload();
+          }}
+        />
+      ) : null}
     </CommunityListShell>
   );
 }

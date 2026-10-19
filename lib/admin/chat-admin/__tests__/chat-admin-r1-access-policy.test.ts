@@ -150,7 +150,8 @@ describe("R1-A permission gate per chat admin route group (source contract)", ()
         expect(src, f).not.toContain("isRouteAdmin");
         expect(
           // 설계 v2 §2-2: 방 유형 게이트(requireChatRoomAdmin*) · 거래 키(TRADE_CHAT_ADMIN_PERMISSION_KEYS) 도 허용.
-          /requireChatAdmin\(\)|requireAnyAdminPermission\(\["chats", "business"\]\)|requireSuperAdmin\(\)|requireChatRoomAdmin(?:ForRow)?\(|requireAnyAdminPermission\((?:TRADE_CHAT_ADMIN_PERMISSION_KEYS|chatRoomAdminPermissionKeys)/.test(src),
+          // 거래 Admin 설계 v2 O-2: 거래(레거시 chat_rooms·product_chats) 방 라우트는 requireTradeChatAdmin().
+          /requireChatAdmin\(\)|requireTradeChatAdmin\(\)|requireAnyAdminPermission\(\["chats", "business"\]\)|requireSuperAdmin\(\)|requireChatRoomAdmin(?:ForRow)?\(|requireAnyAdminPermission\((?:TRADE_CHAT_ADMIN_PERMISSION_KEYS|chatRoomAdminPermissionKeys)/.test(src),
           f
         ).toBe(true);
       }

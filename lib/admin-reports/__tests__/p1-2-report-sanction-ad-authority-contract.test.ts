@@ -6,7 +6,7 @@ import {
   TRADE_REPORT_ACCOUNT_ACTIONS_MCC_ONLY,
   TRADE_REPORT_CONTENT_ACTIONS,
   TRADE_REPORT_LEDGER_ACTIONS,
-} from "@/lib/admin-reports/applyReportActionDaangn";
+} from "@/lib/admin-reports/trade-report-action-policy";
 import { mapCommunityReportsToReports } from "@/lib/admin-reports/map-community-reports";
 
 const ROOT = path.resolve(__dirname, "../../..");
@@ -25,14 +25,13 @@ describe("P1-2 report / sanction / ad authority contract", () => {
     expect([...TRADE_REPORT_LEDGER_ACTIONS].sort()).toEqual(["chat_ban", "warn"]);
   });
 
-  it("applyReportActionDaangn refuses account_* and chat ledger without profile", () => {
-    const src = read("lib/admin-reports/applyReportActionDaangn.ts");
-    expect(src).toContain("TRADE_REPORT_ACCOUNT_ACTIONS_MCC_ONLY");
-    expect(src).toContain("계정 정지/차단은 MCC");
-    expect(src).toContain("isChatTarget");
-    expect(src).toContain('.from("profiles")');
-    expect(src).not.toMatch(/SANCTION_TYPE_MAP[\s\S]*account_suspend/);
-    expect(src).not.toMatch(/account_suspend:\s*"temp_suspend"/);
+  it("trade report action route refuses account_* (MCC only)", () => {
+    // 거래 Admin 설계 v2 §F-3: applyReportActionDaangn 삭제 — 라우트가 account_* 를 거절하고 처리는 DB 함수로.
+    const src = read("app/api/admin/reports/[reportId]/action/route.ts");
+    expect(src).toMatch(/account_suspend[\s\S]{0,80}account_ban[\s\S]{0,120}account_action_in_member_screen/);
+    const policy = read("lib/admin-reports/trade-report-action-policy.ts");
+    expect(policy).not.toMatch(/SANCTION_TYPE_MAP[\s\S]*account_suspend/);
+    expect(policy).not.toMatch(/account_suspend:\s*"temp_suspend"/);
   });
 
   it("AdminSanctionPanel routes account CTA to MCC link (no account_* writer button)", () => {
@@ -103,9 +102,9 @@ describe("P1-2 report / sanction / ad authority contract", () => {
     expect(looksLikeProfileUserId("")).toBe(false);
   });
 
-  it("Trade product_hide Cut A contract preserved", () => {
-    const src = read("lib/admin-reports/applyReportActionDaangn.ts");
-    expect(src).toMatch(/product_hide[\s\S]*visibility:\s*"hidden"/);
-    expect(src).toMatch(/status:\s*"hidden"/);
+  it("Trade product_hide → admin_decide_trade_report hide (설계 v2 moderation_state)", () => {
+    const src = read("lib/admin/trade-admin/trade-report-decision.ts");
+    expect(src).toMatch(/case "product_hide":[\s\S]*decision: "hide"/);
+    expect(src).toContain('"admin_decide_trade_report"');
   });
 });
