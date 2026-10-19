@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AppEmptyState } from "@/components/app-shell/AppEmptyState";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { PlatformEventDetailContent } from "@/components/platform-events/PlatformEventDetailContent";
 import type { PlatformEventRow } from "@/lib/platform-events/types";
@@ -14,6 +15,7 @@ export function PlatformEventDetailPageClient({ eventId }: { eventId: string }) 
   const [availability, setAvailability] = useState<PlatformEventAvailability | null>(null);
   const [fallback, setFallback] = useState<{ title: string; body: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ended, setEnded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,12 +39,16 @@ export function PlatformEventDetailPageClient({ eventId }: { eventId: string }) 
           ok?: boolean;
           event?: PlatformEventRow;
           availability?: PlatformEventAvailability;
+          ended?: boolean;
           fallback?: { title: string; body: string };
         };
         if (cancelled) return;
         if (json.ok && json.event) {
+          // EVT-02: ended events are viewable (band + disabled CTA), never 410.
+          const isEnded = json.ended === true || json.availability === "ended";
           setEvent(json.event);
-          setAvailability("active");
+          setEnded(isEnded);
+          setAvailability(isEnded ? "ended" : "active");
           setFallback(null);
         } else {
           setEvent(null);
@@ -74,7 +80,7 @@ export function PlatformEventDetailPageClient({ eventId }: { eventId: string }) 
       <header className="sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-sam-border bg-sam-app/95 px-2 backdrop-blur">
         <AppBackButton
           preferHistoryBack
-          backHref="/market"
+          backHref="/events"
           ariaLabel={safeT("nav_back", { fallbackKo: "뒤로가기", fallbackEn: "Go back" })}
         />
         <h1 className="truncate text-[15px] font-semibold">
@@ -89,18 +95,26 @@ export function PlatformEventDetailPageClient({ eventId }: { eventId: string }) 
         <p className="px-4 py-8 text-sm text-sam-muted">
           {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
         </p>
-      ) : event && availability === "active" ? (
-        <PlatformEventDetailContent event={event} language={language === "en" ? "en" : "ko"} />
+      ) : event && (availability === "active" || availability === "ended") ? (
+        <PlatformEventDetailContent
+          event={event}
+          ended={ended}
+          language={language === "en" ? "en" : "ko"}
+        />
       ) : (
-        <div className="mx-auto max-w-[720px] space-y-3 px-4 py-10 text-center">
-          <h2 className="text-lg font-semibold">{fallback?.title}</h2>
-          <p className="text-sm text-sam-muted">{fallback?.body}</p>
-          <Link href="/market" className="inline-block text-sm font-semibold text-[var(--sam-brand,#085c3f)] underline">
-            {safeT("platform_event_go_home", {
-              fallbackKo: "홈으로",
-              fallbackEn: "Go home",
-            })}
-          </Link>
+        <div className="mx-auto max-w-[720px] px-4 py-10" data-platform-event-unavailable={availability ?? "missing"}>
+          <AppEmptyState
+            title={fallback?.title}
+            description={fallback?.body}
+            action={
+              <Link href="/events" className="text-sm font-semibold text-sam-primary underline">
+                {safeT("platform_event_go_board", {
+                  fallbackKo: "이벤트 목록으로",
+                  fallbackEn: "Back to events",
+                })}
+              </Link>
+            }
+          />
         </div>
       )}
     </div>
