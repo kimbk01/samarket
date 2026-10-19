@@ -2,12 +2,14 @@
  * R1–R6 browser remaining close. Does not rerun E1–E10.
  * PLAYWRIGHT_BASE_URL=http://127.0.0.1:3017 node --env-file=.env.local scripts/qa/free-coupon-remaining-ui.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3017").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT = resolve(process.cwd(), ".tmp-free-coupon-remaining-ui.json");
 const STORE = { storeId: "19085860-52d2-4183-b033-e71fcb58bcec", slug: "aa11" };
 const ACTORS = {

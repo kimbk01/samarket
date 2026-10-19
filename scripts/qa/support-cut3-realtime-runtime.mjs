@@ -3,6 +3,7 @@
  * Support CUT 3 — realtime proof (dual Playwright contexts, no manual refresh).
  * Usage: node --env-file=.env.local scripts/qa/support-cut3-realtime-runtime.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -16,6 +17,8 @@ import {
   sbService,
   loadEnvLocal,
 } from "./support-cut3-lib.mjs";
+
+assertQaHttpWriteTarget(ORIGIN);
 
 const REPORT_PATH = resolve(process.cwd(), "docs/support-center/support-cut3-runtime-close-report.json");
 

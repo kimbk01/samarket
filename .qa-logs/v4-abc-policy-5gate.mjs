@@ -10,6 +10,7 @@
  * Run: npm run qa:call-v4-5gate
  * Verify: npm run verify:call-v4-incoming-fsi-fallback-boundary
  */
+import { assertQaHttpWriteTarget } from "../scripts/lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -31,6 +32,7 @@ const PKG = DIBAY_PKG;
 const ACT = `${PKG}/.MainActivity`;
 const INCOMING_ACT = `${PKG}/.IncomingCallActivity`;
 const VERCEL = process.env.CAPACITOR_SERVER_URL?.trim() || "https://samarket.vercel.app";
+assertQaHttpWriteTarget(VERCEL);
 const SERIAL_A = process.env.P4_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P4_DEVICE_B?.trim() || "RFCY40PY2CA";
 const USER_A = "11111111-1111-1111-1111-111111111111";

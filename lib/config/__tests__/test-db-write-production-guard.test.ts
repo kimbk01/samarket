@@ -6,6 +6,8 @@
  *   (tests/helpers/assert-non-production-db-target.ts → lib/admin/data-reset/database-target-guard.ts)
  * - Playwright specs that mutate through the app → `assertPlaywrightMutationTargetNonProduction`
  * - Node QA scripts → `assertQaWriteTarget` / `resolveQaWriteTarget` (scripts/lib/db-target-guard.mjs, F-13)
+ * - Node QA scripts that mutate through a live app over HTTP (no DB credentials) →
+ *   `assertQaHttpWriteTarget(<base URL>)` (same module; decided by the request URL host)
  *
  * (a) unit-tests the test helper, (b) statically scans the repo so a new writer cannot skip the guard.
  */
@@ -13,12 +15,14 @@ import { execSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { pathToFileURL } from "node:url";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   assertNonProductionDbTarget,
   assertPlaywrightMutationTargetNonProduction,
   collectLocalAppSupabaseUrls,
 } from "@/tests/helpers/assert-non-production-db-target";
+import { DIBAY_PRODUCTION_SITE_ORIGIN } from "@/lib/platform/capacitor-server-url";
 
 const ROOT = process.cwd();
 const PROD = "ckdosyydvgzqwpbwuhon";
@@ -305,7 +309,7 @@ describe("C-48 static: real-DB writer tests reference the shared guard", () => {
   it("listed QA scripts call assertQaWriteTarget() before any client", () => {
     const offenders = SCRIPT_DB_WRITERS.filter((rel) => {
       const src = read(rel);
-      if (!/import\s*\{\s*assertQaWriteTarget\s*\}\s*from\s*["'][./]+(?:lib\/)?db-target-guard\.mjs["']/.test(src)) {
+      if (!/import\s*\{[^}]*\bassertQaWriteTarget\b[^}]*\}\s*from\s*["'][./]+(?:lib\/)?db-target-guard\.mjs["']/.test(src)) {
         return true;
       }
       const call = src.indexOf("assertQaWriteTarget();");
@@ -348,6 +352,146 @@ describe("C-48 static: real-DB writer tests reference the shared guard", () => {
     const offenders = [...SCRIPT_DB_WRITERS, ...LOOPBACK_ONLY_SCRIPTS, ...TEST_DB_WRITERS].filter((rel) =>
       new RegExp(`postgres\\.${PROD}|//${PROD}\\.supabase\\.co(?!/storage/v1/object/public)`).test(read(rel))
     );
+    expect(offenders).toEqual([]);
+  });
+});
+
+// ———————————————————————— HTTP-mutating QA scripts ————————————————————————
+
+type HttpGuardModule = {
+  QA_GUARD_PRODUCTION_SITE_ORIGIN: string;
+  QA_GUARD_PRODUCTION_APP_HOSTS: readonly string[];
+  resolveQaHttpWriteTarget: (
+    baseUrl: string | undefined,
+    env: Record<string, string | undefined>,
+    localHosts?: Iterable<string>
+  ) => { ok: true; host: string; target: string } | { ok: false; host: string; reason: string };
+};
+/** Runtime import keeps the plain .mjs out of the TS composite project graph (same as F-13 test). */
+let httpGuard: HttpGuardModule;
+beforeAll(async () => {
+  httpGuard = (await import(
+    /* @vite-ignore */ pathToFileURL(resolve(ROOT, "scripts/lib/db-target-guard.mjs")).href
+  )) as HttpGuardModule;
+});
+const resolveQaHttpWriteTarget: HttpGuardModule["resolveQaHttpWriteTarget"] = (...a) =>
+  httpGuard.resolveQaHttpWriteTarget(...a);
+
+describe("resolveQaHttpWriteTarget (HTTP QA write target, by URL host)", () => {
+  const localDb = { NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321" };
+  const prodDb = { NEXT_PUBLIC_SUPABASE_URL: `https://${PROD}.supabase.co` };
+
+  it("Production origin constant matches the app SSOT", () => {
+    expect(httpGuard.QA_GUARD_PRODUCTION_SITE_ORIGIN).toBe(DIBAY_PRODUCTION_SITE_ORIGIN);
+    expect(httpGuard.QA_GUARD_PRODUCTION_APP_HOSTS).toContain(new URL(DIBAY_PRODUCTION_SITE_ORIGIN).hostname);
+  });
+
+  it("Production app hosts → refused (also userinfo tricks / subdomains)", () => {
+    for (const u of [
+      DIBAY_PRODUCTION_SITE_ORIGIN,
+      `${DIBAY_PRODUCTION_SITE_ORIGIN}/api/me/store-orders`,
+      "http://localhost@samarket.vercel.app",
+      "https://dibay.app",
+      "https://www.dibay.app",
+    ]) {
+      const r = resolveQaHttpWriteTarget(u, localDb, []);
+      expect(r.ok, u).toBe(false);
+      expect(r.ok ? "" : r.reason).toMatch(/Production app host/);
+    }
+  });
+
+  it("Preview / LAN / custom / missing / unparsable hosts → refused (database unverifiable)", () => {
+    for (const u of ["https://samarket-git-x.vercel.app", "http://192.168.100.123:3010", "https://qa.example.com", "", "nope"]) {
+      expect(resolveQaHttpWriteTarget(u, localDb, []).ok, u).toBe(false);
+    }
+    expect(resolveQaHttpWriteTarget(undefined, localDb, []).ok).toBe(false);
+  });
+
+  it("Supabase host → ref rules (Production refused, allowlisted non-Production ok)", () => {
+    expect(resolveQaHttpWriteTarget(`https://${PROD}.supabase.co/rest/v1/x`, localDb, []).ok).toBe(false);
+    expect(resolveQaHttpWriteTarget(`https://${OTHER}.supabase.co`, localDb, []).ok).toBe(false);
+    expect(resolveQaHttpWriteTarget("https://gczyogboohpixpurckkg.supabase.co", localDb, []).ok).toBe(true);
+  });
+
+  it("loopback / this machine's own IP → ok only when the local app DB is non-Production", () => {
+    expect(resolveQaHttpWriteTarget("http://127.0.0.1:3000", localDb, []).ok).toBe(true);
+    expect(resolveQaHttpWriteTarget("http://localhost:3017", localDb, []).ok).toBe(true);
+    expect(resolveQaHttpWriteTarget("http://192.168.1.7:3010", localDb, ["192.168.1.7"]).ok).toBe(true);
+    expect(resolveQaHttpWriteTarget("http://127.0.0.1:3000", prodDb, []).ok).toBe(false);
+    expect(resolveQaHttpWriteTarget("http://192.168.1.7:3010", prodDb, ["192.168.1.7"]).ok).toBe(false);
+    expect(resolveQaHttpWriteTarget("http://localhost:3000", {}, []).ok).toBe(false);
+  });
+
+  it("guard source has no bypass switch", () => {
+    const src = read("scripts/lib/db-target-guard.mjs");
+    expect(src).not.toMatch(/ALLOW_PROD|FORCE|BYPASS|SKIP_GUARD|OVERRIDE|I_KNOW/i);
+  });
+});
+
+/**
+ * Mutating HTTP call shapes: fetch / page.request / in-page fetch options with a write method,
+ * helper calls taking a literal write method (`apiJson(cookie, "POST", "/api/…")`), and
+ * `<request|api|ctx|…>.post/put/patch/delete(`.
+ */
+const HTTP_MUTATION_RES = [
+  /\bmethod["']?\s*:\s*["'`](?:POST|PUT|PATCH|DELETE)["'`]/gi,
+  /\w\(\s*(?:[\w.]+\s*,\s*)?["'`](?:POST|PUT|PATCH|DELETE|post|put|patch|delete)["'`]\s*,\s*[`"'/\w$]/g,
+  /\b\w*(?:request|Request|api|Api|req|Req|ctx|context|axios|http)\.(?:post|put|patch|delete)\(/g,
+];
+
+/** Scripts whose only write-method requests are login / logout / read RPC (no data mutation). */
+const HTTP_NON_MUTATING_EXEMPT: Record<string, RegExp> = {
+  "scripts/measure-bottom-nav-confirm-immediacy.mjs": /\/api\/test-login/,
+  "scripts/measure-font-performance.mjs": /\/api\/test-login/,
+  "scripts/perf/r2-m11-suspense-release-capture-once.mjs": /\/api\/test-login/,
+  "scripts/verify-cm-room-composer-visible.mjs": /\/api\/test-login/,
+  "scripts/apply-community-seed-and-trade-room.mjs": /\/api\/test-login/,
+  "scripts/qa/notification-p0-apk-b-login.mjs": /\/api\/auth\/logout/,
+  "scripts/measure-store-detail-infrastructure.mjs": /\/rest\/v1\/rpc\/get_store_popular_product_stats/,
+};
+
+function httpMutationIndexes(src: string): number[] {
+  const out: number[] = [];
+  for (const re of HTTP_MUTATION_RES) for (const m of src.matchAll(re)) out.push(m.index ?? 0);
+  return out.sort((a, b) => a - b);
+}
+
+const httpScriptCandidates = tracked.filter(
+  (rel) =>
+    /^(?:scripts|\.qa-logs)\/.*\.(?:mjs|mts|ts|js|cjs)$/.test(rel) &&
+    !/(^|\/)lib\//.test(rel) &&
+    !/\/__tests__\//.test(rel)
+);
+
+describe("C-48 static: HTTP-mutating QA scripts call assertQaHttpWriteTarget before any request", () => {
+  it("exempt scripts only send login / logout / read-RPC write-method requests", () => {
+    const offenders: string[] = [];
+    for (const [rel, allowed] of Object.entries(HTTP_NON_MUTATING_EXEMPT)) {
+      const src = read(rel);
+      const lines = src.split("\n");
+      for (const idx of httpMutationIndexes(src)) {
+        const ln = src.slice(0, idx).split("\n").length;
+        if (!allowed.test(lines.slice(Math.max(0, ln - 6), ln + 2).join("\n"))) offenders.push(`${rel}:${ln}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("glob: every script with a mutating HTTP request imports and calls the guard first", () => {
+    const mutating = httpScriptCandidates.filter(
+      (rel) => !(rel in HTTP_NON_MUTATING_EXEMPT) && httpMutationIndexes(read(rel)).length > 0
+    );
+    // Inventory floor: the C-48 pass guarded 113 scripts — a shrinking match set means the detector broke.
+    expect(mutating.length).toBeGreaterThanOrEqual(113);
+    const offenders = mutating.filter((rel) => {
+      const src = read(rel);
+      const imported =
+        /import\s*\{[^}]*\bassertQaHttpWriteTarget\b[^}]*\}\s*from\s*["'][./]+(?:scripts\/)?(?:lib\/)?db-target-guard\.mjs["']/.test(
+          src
+        ) || /const\s*\{\s*assertQaHttpWriteTarget\s*\}\s*=\s*require\(\s*["'][./]+lib\/db-target-guard\.mjs["']\s*\)/.test(src);
+      const call = src.search(/\bassertQaHttpWriteTarget\(\s*(?:[A-Za-z_]\w*|"https?:\/\/[^"]+")\s*\)/);
+      return !imported || call < 0 || call > httpMutationIndexes(src)[0];
+    });
     expect(offenders).toEqual([]);
   });
 });

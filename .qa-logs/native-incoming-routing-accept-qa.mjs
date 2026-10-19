@@ -11,6 +11,7 @@
  *
  * Doc: .qa-logs/native-incoming-routing-accept-qa/README.md
  */
+import { assertQaHttpWriteTarget } from "../scripts/lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -29,6 +30,7 @@ const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/pla
 const PKG = "com.dibay.app";
 const ACT = `${PKG}/.MainActivity`;
 const WEB = process.env.CAPACITOR_SERVER_URL?.trim() || "https://samarket.vercel.app";
+assertQaHttpWriteTarget(WEB);
 const SERIAL_A = process.env.P4_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P4_DEVICE_B?.trim() || "RRGL4046NTW";
 const USER_A = "11111111-1111-1111-1111-111111111111";

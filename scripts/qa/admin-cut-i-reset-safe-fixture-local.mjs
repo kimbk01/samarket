@@ -12,6 +12,7 @@
  * Usage:
  *   node scripts/qa/admin-cut-i-reset-safe-fixture-local.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -20,6 +21,7 @@ const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || process.env.ORIGIN || "http:/
   /\/$/,
   ""
 );
+assertQaHttpWriteTarget(ORIGIN);
 const OUT_DIR = resolve(process.cwd(), "docs/perf/admin-cut-i-production-e2e");
 const REPORT_JSON = resolve(OUT_DIR, "reset-safe-fixture-local.json");
 

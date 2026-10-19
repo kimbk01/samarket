@@ -18,6 +18,7 @@
  * allowlist or disable the guard. Changing the lists requires a reviewed code change.
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -217,5 +218,115 @@ export function assertQaWriteTarget() {
     process.exit(1);
   }
   console.error(`[db-target-guard] QA write target OK: ${res.target} (${res.sources.join(", ")})`);
+  return res;
+}
+
+// ———————————————————————— C-48 — HTTP QA write target ————————————————————————
+//
+// QA scripts that create / update / delete data by calling a live app (fetch / page.request /
+// in-page fetch with POST·PUT·PATCH·DELETE) never hold DB credentials, so the ref resolver above
+// cannot see their target. The app they call writes to whatever database it is wired to, so the
+// decision is made from the ACTUAL request URL host (never from env var names):
+//   - Production app host (DIBAY_PRODUCTION_SITE_ORIGIN host, dibay.app and its subdomains) → refuse.
+//   - <ref>.supabase.co → same ref rules as above (Production refuse, allowlisted non-Production ok).
+//   - Loopback, or an IP of THIS machine's own network interfaces (device QA against the local
+//     dev server) → the local app's database, resolved from every env source with
+//     `resolveQaWriteTarget`, must be loopback or an allowlisted non-Production ref.
+//   - Anything else (Preview deployments, other LAN hosts, custom domains) → refuse: the database
+//     behind it cannot be verified (fail-closed).
+// Like the ref guard there is NO flag / env var / argument that disables or widens this.
+
+
+/** Same value as lib/platform/capacitor-server-url.ts DIBAY_PRODUCTION_SITE_ORIGIN (contract-tested). */
+export const QA_GUARD_PRODUCTION_SITE_ORIGIN = "https://samarket.vercel.app";
+
+/**
+ * Production app hosts (exact host or any subdomain):
+ * - the Vercel production origin (Capacitor server.url / getSiteOrigin fallback)
+ * - dibay.app — production origin fallback in lib/community-messenger/group/group-room-invite-link-service.ts
+ */
+export const QA_GUARD_PRODUCTION_APP_HOSTS = Object.freeze([
+  new URL(QA_GUARD_PRODUCTION_SITE_ORIGIN).hostname,
+  "dibay.app",
+]);
+
+/** IPv4/IPv6 addresses of this machine's own interfaces (lower-case, no brackets). */
+export function localInterfaceHosts() {
+  const out = new Set();
+  try {
+    for (const list of Object.values(os.networkInterfaces())) {
+      for (const a of list ?? []) if (a?.address) out.add(String(a.address).toLowerCase());
+    }
+  } catch {
+    /* no interfaces → only literal loopback counts as local */
+  }
+  return out;
+}
+
+/**
+ * Pure resolver (no side effects).
+ * @param {string | undefined | null} baseUrl  the URL (or origin) the script sends mutating requests to
+ * @param {Record<string, string | undefined>} env  env the LOCAL app could load (used only for a local host)
+ * @param {Iterable<string>} [localHosts]  addresses of this machine (default: os.networkInterfaces())
+ * @returns {{ ok: true; host: string; target: string } | { ok: false; host: string; reason: string }}
+ */
+export function resolveQaHttpWriteTarget(baseUrl, env, localHosts = localInterfaceHosts()) {
+  const raw = typeof baseUrl === "string" ? baseUrl.trim() : "";
+  if (!raw) return { ok: false, host: "", reason: "missing target: no base URL / origin" };
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return { ok: false, host: "", reason: `unparseable base URL ${JSON.stringify(raw)}` };
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") {
+    return { ok: false, host: "", reason: `unsupported protocol ${u.protocol}` };
+  }
+  const host = normalizeHost(u.hostname).replace(/^\[|\]$/g, "");
+
+  for (const prod of QA_GUARD_PRODUCTION_APP_HOSTS) {
+    if (host === prod || host.endsWith(`.${prod}`)) {
+      return { ok: false, host, reason: `Production app host ${host} — QA writes are forbidden` };
+    }
+  }
+
+  const sb = host.match(/^([a-z0-9]+)\.supabase\.(co|in)$/);
+  if (sb && REF_RE.test(sb[1])) {
+    const ref = sb[1];
+    if (QA_GUARD_PRODUCTION_REFS.includes(ref)) {
+      return { ok: false, host, reason: `production project ref ${ref} — QA writes are forbidden` };
+    }
+    if (!QA_GUARD_ALLOWED_NON_PRODUCTION_REFS.includes(ref)) {
+      return { ok: false, host, reason: `project ref ${ref} is not in the non-production allowlist` };
+    }
+    return { ok: true, host, target: ref };
+  }
+
+  const local = new Set([...localHosts].map((h) => normalizeHost(h).replace(/^\[|\]$/g, "")));
+  const isLocal = LOOPBACK_HOSTS.has(host) || /^127\.\d+\.\d+\.\d+$/.test(host) || local.has(host);
+  if (!isLocal) {
+    return {
+      ok: false,
+      host,
+      reason: `app host ${host} is not loopback / this machine — its database cannot be verified`,
+    };
+  }
+  const db = resolveQaWriteTarget(env);
+  if (!db.ok) return { ok: false, host, reason: `local app ${host} database: ${db.reason}` };
+  return { ok: true, host, target: `local app → ${db.target}` };
+}
+
+/**
+ * Fail-closed guard for HTTP-mutating QA scripts. Call once per target origin at module top,
+ * before any request. Exits with code 1 unless the target is verified non-Production.
+ * @param {string | undefined | null} baseUrl
+ */
+export function assertQaHttpWriteTarget(baseUrl) {
+  const res = resolveQaHttpWriteTarget(baseUrl, effectiveScriptEnv());
+  if (!res.ok) {
+    console.error(`[db-target-guard] REFUSING QA HTTP write to ${String(baseUrl ?? "")}: ${res.reason}`);
+    process.exit(1);
+  }
+  console.error(`[db-target-guard] QA HTTP write target OK: ${res.host} (${res.target})`);
   return res;
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /** voiceOutgoing isolated diagnostic — step 1 only */
+import { assertQaHttpWriteTarget } from "../scripts/lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -29,6 +30,7 @@ const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/pla
 const PKG = DIBAY_PKG;
 const ACT = `${PKG}/.MainActivity`;
 const WEB = process.env.CAPACITOR_SERVER_URL?.trim() || "https://samarket.vercel.app";
+assertQaHttpWriteTarget(WEB);
 const SERIAL_A = process.env.P4_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P4_DEVICE_B?.trim() || "RRGL4046NTW";
 const ROOM_ID = "b19e2672-f26f-4a2e-8125-52575da4a62a";

@@ -2,6 +2,7 @@
 /**
  * P0-2 incoming call surface dedup — adb 2-device QA (production Vercel WebView).
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -16,6 +17,7 @@ const SERIAL_A = process.env.P0_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P0_DEVICE_B?.trim() || "RFCY40PY2CA";
 const PEER_QQQQ = process.env.P4_PEER_USER_ID?.trim() || "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8";
 const PROD = "https://samarket.vercel.app";
+assertQaHttpWriteTarget(PROD);
 
 function adb(serial, ...args) {
   return spawnSync(ADB, ["-s", serial, ...args], { encoding: "utf8" }).stdout ?? "";

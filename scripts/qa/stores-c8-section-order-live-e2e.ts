@@ -5,6 +5,7 @@
  * PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
  * npx tsx --env-file=.env.local scripts/qa/stores-c8-section-order-live-e2e.ts
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +18,7 @@ import type { StoresHomeCompositionPolicyMeta } from "@/lib/stores/composition/s
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(BASE);
 const OUT_DIR = path.join(ROOT, "docs/perf/stores-c8-section-order-live");
 const OUT_JSON = path.join(OUT_DIR, "c8-section-order-latest.json");
 

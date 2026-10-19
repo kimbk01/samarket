@@ -2,12 +2,14 @@
  * Phase J — Gift Admin Master Plan runtime QA (desktop + 390px).
  * PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 node --env-file=.env.local scripts/qa/admin-gift-master-plan-phase-j.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3043").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT = resolve(process.cwd(), ".tmp-admin-gift-master-plan-phase-j.json");
 const SHOT = resolve(process.cwd(), ".tmp-admin-gift-master-plan-phase-j");
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || process.env.QA_ADMIN_EMAIL || "aaaa@manual.local";

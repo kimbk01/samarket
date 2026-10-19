@@ -7,12 +7,13 @@ import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3023").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT = resolve(process.cwd(), "docs/perf/gift-offer-instant-delivery-runtime-close.json");
 const SHOT = resolve(process.cwd(), "docs/perf/gift-offer-instant-delivery-shots");
 const GIFT_ID = process.env.GIFT_INSTANT_INSTANCE_ID?.trim() || "c7aed16f-adbb-408d-b70b-eca0828f8eb4";

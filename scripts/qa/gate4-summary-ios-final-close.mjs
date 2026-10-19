@@ -6,6 +6,7 @@
  *   EXPECT_GIT_SHA=87a84b77f GATE4_ORIGIN=https://samarket.vercel.app \
  *     node scripts/qa/gate4-summary-ios-final-close.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -25,6 +26,7 @@ const OUT = path.join(ROOT, `.qa-logs/gate4-summary-ios-final-${STAMP}`);
 fs.mkdirSync(OUT, { recursive: true });
 
 const ORIGIN = (process.env.GATE4_ORIGIN || "https://samarket.vercel.app").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const EXPECT = (process.env.EXPECT_GIT_SHA || "87a84b77f").slice(0, 9);
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = "com.dibay.app";

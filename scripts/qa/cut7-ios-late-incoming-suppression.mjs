@@ -17,6 +17,7 @@
  *   - iPhonebk connected (UDID 00008120-000025C826F3C01E)
  *   - /tmp/cut7-apns.env (or env) with APNS_KEY_P8 / APNS_KEY_ID / APNS_TEAM_ID / topic
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import http2 from "node:http2";
@@ -44,6 +45,7 @@ const CDP_PORT = Number(process.env.CUT7_CDP_PORT || 9575);
 const ROOM = "bc3c3070-09fa-4ff6-879a-74551fa63012";
 const TIGER = "5a22455c-9efc-4b93-8caf-31c6faaaf5ad";
 const ORIGIN = "https://samarket.vercel.app";
+assertQaHttpWriteTarget(ORIGIN);
 const KIND = (process.env.KIND || "voice").toLowerCase() === "video" ? "video" : "voice";
 const OUT = path.join(ROOT, `docs/perf/cut7-ios-late-incoming-suppression-${KIND}.json`);
 const SYSLOG = `/tmp/cut7-ios-late-incoming-${KIND}.txt`;

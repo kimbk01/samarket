@@ -4,6 +4,7 @@
  * PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
  * npx tsx --env-file=.env.local scripts/qa/stores-a-ads-coupon-lifecycle-oneshot.ts
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,6 +23,7 @@ function productNeedsRequiredOptions(optionsJson: unknown): boolean {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(BASE);
 const OUT_DIR = path.join(ROOT, "docs/perf/stores-a-ads-coupon/lifecycle");
 const OUT_JSON = path.join(OUT_DIR, "a-lifecycle-oneshot-latest.json");
 const FIXTURE_STORE_ID =

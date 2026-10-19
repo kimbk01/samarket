@@ -11,6 +11,7 @@
  *   4A = normal killed (HOME + recents swipe + am kill) — P0 required
  *   4B = adb am force-stop — OS limitation check only (GCM CANCELLED)
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -24,6 +25,7 @@ const ACT = `${PKG}/.MainActivity`;
 const SERIAL_A = process.env.P0_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P0_DEVICE_B?.trim() || "RFCY40PY2CA";
 const PROD = process.env.P0_PROD?.trim() || "https://samarket.vercel.app";
+assertQaHttpWriteTarget(PROD);
 const USER_A = "11111111-1111-1111-1111-111111111111";
 const USER_B = "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8";
 const DIRECT_ROOM = process.env.P0_DIRECT_ROOM?.trim() || "b19e2672-f26f-4a2e-8125-52575da4a62a";

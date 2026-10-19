@@ -8,6 +8,7 @@
  * R6_EXPECT_SHA=<full-or-12> \
  *   node scripts/qa/admin-member-r6-production.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -19,6 +20,7 @@ const { chromium } = require(
 );
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT = resolve(process.cwd(), "docs/perf/admin-member-r6");
 const EMAIL = process.env.E2E_ADMIN_EMAIL || process.env.QA_ADMIN_EMAIL || "aaaa@manual.local";
 const EXPECT_SHA = String(process.env.R6_EXPECT_SHA || "").trim();

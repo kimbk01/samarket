@@ -7,7 +7,7 @@
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
@@ -22,6 +22,7 @@ try {
 }
 
 const ORIGIN = (process.env.L4_BASE_URL || "http://127.0.0.1:3456").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT_DIR = resolve(process.cwd(), "docs/member-admin/evidence/l4");
 const RUN_ID = Date.now().toString(36);
 mkdirSync(OUT_DIR, { recursive: true });

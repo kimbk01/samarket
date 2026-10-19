@@ -5,11 +5,13 @@
  *
  *   SLICE7_TARGET_SHA=<sha> node --env-file=.env.local scripts/qa/slice7-admin-projection-runtime.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const BASE = (process.env.SAMARKET_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+assertQaHttpWriteTarget(BASE);
 const TARGET_SHA = (process.env.SLICE7_TARGET_SHA || "").trim();
 const PASSWORD = process.env.E2E_TEST_PASSWORD || process.env.QA_MANUAL_PASSWORD || "";
 const ADMIN_LOGIN = process.env.E2E_ADMIN_USERNAME || process.env.QA_ADMIN_LOGIN || "aaaa";

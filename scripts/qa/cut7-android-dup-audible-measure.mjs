@@ -6,12 +6,15 @@
  *   KIND=voice|video STATE=BG|LOCKED \
  *     node scripts/qa/cut7-android-dup-audible-measure.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { forwardCdp, connectWebView } from "./lib/apk-webview-cdp.mjs";
+
+assertQaHttpWriteTarget("https://samarket.vercel.app");
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;

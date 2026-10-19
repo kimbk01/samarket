@@ -3,6 +3,7 @@
  * DIBAY Address SSOT — full Runtime matrix (8 gates).
  * Evidence only; does not change product code.
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,6 +27,7 @@ import type { UserAddressDTO, UserAddressWritePayload } from "@/lib/addresses/us
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const ORIGIN = (process.env.ADDRESS_RUNTIME_ORIGIN || "http://127.0.0.1:3010").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const LOGIN = process.env.GATE4_RECEIVER_LOGIN || process.env.QA_MEMBER_LOGIN || "qqqq";
 const STAMP = new Date().toISOString().replace(/[:.]/g, "-");
 const OUT = path.join(ROOT, `.qa-logs/address-ssot-runtime-matrix-${STAMP}`);

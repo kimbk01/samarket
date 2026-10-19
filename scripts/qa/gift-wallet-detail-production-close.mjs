@@ -5,12 +5,14 @@
  * PLAYWRIGHT_BASE_URL=https://samarket.vercel.app node --env-file=.env.local \
  *   scripts/qa/gift-wallet-detail-production-close.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const TRANSFER_ID =
   process.env.GIFT_WALLET_TRANSFER_ID?.trim() || "265aaa02-3fac-43cb-95f3-215371136c7f";
 const MESSAGE_ID =

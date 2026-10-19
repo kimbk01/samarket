@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
@@ -19,6 +19,7 @@ const STAMP = new Date().toISOString().replace(/[:.]/g, "-");
 const OUT = path.join(ROOT, `.qa-logs/admin-campaign-runtime-gates-${STAMP}`);
 const PORT = Number(process.env.ADMIN_GATE_PORT || 3010);
 const BASE = `http://127.0.0.1:${PORT}`;
+assertQaHttpWriteTarget(BASE);
 const PROD_REF = "ckdosyydvgzqwpbwuhon";
 const ADMIN_LOGIN = process.env.E2E_ADMIN_USERNAME || process.env.QA_ADMIN_LOGIN || "aaaa";
 const QA_USER_ID = process.env.GATE4_RECEIVER_ID || "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8";

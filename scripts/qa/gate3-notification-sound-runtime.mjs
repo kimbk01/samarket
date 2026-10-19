@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "@playwright/test";
 import WebSocket from "ws";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
@@ -21,7 +21,9 @@ const OUT = path.join(ROOT, `.qa-logs/gate3-notification-sound-${STAMP}`);
 fs.mkdirSync(OUT, { recursive: true });
 
 const ORIGIN = (process.env.GATE3_ORIGIN || "http://127.0.0.1:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const ANDROID_ORIGIN = (process.env.GATE3_ANDROID_ORIGIN || "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(ANDROID_ORIGIN);
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = "com.dibay.app";
 const ACT = `${PKG}/.MainActivity`;

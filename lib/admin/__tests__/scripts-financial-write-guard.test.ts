@@ -106,7 +106,7 @@ describe("F-13 scripts financial write guard (static)", () => {
       const src = readFileSync(file, "utf8");
       if (!writesFinancialTables(src)) continue;
       const rel = relative(ROOT, file);
-      if (!/import\s*\{\s*assertQaWriteTarget\s*\}\s*from\s*["'][./]+lib\/db-target-guard\.mjs["']/.test(src)) {
+      if (!/import\s*\{[^}]*\bassertQaWriteTarget\b[^}]*\}\s*from\s*["'][./]+lib\/db-target-guard\.mjs["']/.test(src)) {
         offenders.push(`${rel}: missing import`);
         continue;
       }

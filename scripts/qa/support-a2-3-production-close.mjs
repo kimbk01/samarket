@@ -6,6 +6,7 @@
  * Proves WEB C1–C4. Physical push remains NOT_PROVEN unless device harness set.
  * CUT B session token lifecycle: DO NOT START.
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { chromium } from "playwright";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -19,6 +20,8 @@ import {
   apiJson,
   memberContext,
 } from "./support-cut3-lib.mjs";
+
+assertQaHttpWriteTarget(ORIGIN);
 
 const OUT_DIR = resolve(process.cwd(), "docs/support-center/a2-3-production-close");
 const REPORT_PATH = resolve(OUT_DIR, "support-a2-3-production-close-report.json");

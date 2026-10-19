@@ -2,10 +2,12 @@
  * RUNTIME CLOSE ONLY — Admin Gift Detail redesign evidence.
  * No feature work. PLAYWRIGHT_BASE_URL default http://127.0.0.1:3043
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3043").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT = resolve(process.cwd(), ".tmp-admin-gift-detail-runtime-close.json");
 const SHOT = resolve(process.cwd(), ".tmp-admin-gift-detail-runtime-close");
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || process.env.QA_ADMIN_EMAIL || "aaaa@manual.local";

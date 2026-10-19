@@ -3,6 +3,7 @@
  * ARO-RST-COV-001 — Production safety proof ONLY.
  * No destructive execute. Confirms page + new scope states + Prod execute blocked.
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
@@ -10,6 +11,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT = resolve(process.cwd(), "docs/perf/admin-aro-rst-cov-001-coverage");
 const EMAIL = process.env.E2E_ADMIN_EMAIL || process.env.QA_ADMIN_EMAIL || "aaaa@manual.local";
 const EXPECT_SHA = (process.env.ARO_RST_COV_EXPECT_SHA || "").slice(0, 9);

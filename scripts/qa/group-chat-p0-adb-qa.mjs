@@ -16,7 +16,7 @@ import {
   ensureApkWebViewLogin,
   openUrlInApkWebView,
 } from "./lib/apk-webview-cdp.mjs";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
@@ -32,6 +32,7 @@ const SERIAL_A = process.env.GROUP_P0_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.GROUP_P0_DEVICE_B?.trim() || "RFCY40PY2CA";
 const SERIAL_C = process.env.GROUP_P0_DEVICE_C?.trim() || SERIAL_B;
 const PROD = process.env.GROUP_P0_PROD?.trim() || "https://samarket.vercel.app";
+assertQaHttpWriteTarget(PROD);
 const LOGIN_A = process.env.GROUP_P0_LOGIN_A?.trim() || "aaaa";
 const LOGIN_B = process.env.GROUP_P0_LOGIN_B?.trim() || "qqqq";
 const LOGIN_C = process.env.GROUP_P0_LOGIN_C?.trim() || "bbbb";

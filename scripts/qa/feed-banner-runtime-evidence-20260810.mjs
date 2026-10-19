@@ -15,13 +15,14 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
 
 const OUT = join(process.cwd(), ".qa-logs/feed-banner-runtime-evidence-20260810");
 const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3011").replace(/\/$/, "");
+assertQaHttpWriteTarget(BASE);
 const MEMBER_PASS = process.env.E2E_BANNER_MEMBER_PASSWORD || "DibayQa1!";
 const TAG = "[QA-RT-20260810]";
 

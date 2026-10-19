@@ -5,6 +5,7 @@
  *   S2_HTTP_ORIGIN=https://samarket.vercel.app \
  *   node scripts/qa/delivery-ads-stage2-product-http-close.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium } from "playwright";
@@ -12,6 +13,7 @@ import { createClient } from "@supabase/supabase-js";
 import { execFileSync } from "node:child_process";
 
 const ORIGIN = process.env.S2_HTTP_ORIGIN?.trim() || "https://samarket.vercel.app";
+assertQaHttpWriteTarget(ORIGIN);
 const OUT_DIR = path.join(process.cwd(), "docs/perf/delivery-ads-r5-runtime");
 const OUT = path.join(OUT_DIR, "stage2-product-http-close-report.json");
 /** Organic-eligible store (Stage 1 close). Owner: wwww@manual.local */

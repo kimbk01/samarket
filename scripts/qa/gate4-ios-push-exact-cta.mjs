@@ -9,6 +9,7 @@
  * Exact OS tap = notification banner tap via iPhone Mirroring coordinates
  * (not deep-link fallback). CTA = room path after tap.
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -22,6 +23,7 @@ const OUT = path.join(ROOT, `.qa-logs/gate4-ios-push-exact-cta-${STAMP}`);
 fs.mkdirSync(OUT, { recursive: true });
 
 const ORIGIN = (process.env.GATE4_ORIGIN || "https://samarket.vercel.app").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const DEVELOPER_DIR =
   process.env.DEVELOPER_DIR || "/Applications/Xcode.app/Contents/Developer";
 const IOS_UDID =

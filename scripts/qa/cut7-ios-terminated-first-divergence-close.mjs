@@ -2,6 +2,7 @@
 /**
  * CUT7 iOS TERMINATED close proof — Voice + Video + isolation controls.
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { chromium } from "@playwright/test";
@@ -25,6 +26,7 @@ const WWWW = "edc8c2f0-2673-4ca8-9d63-92a609d556f4";
 const FAKE_B = "11111111-1111-1111-1111-111111111111";
 const PKG = "com.dibay.app";
 const ORIGIN = "https://samarket.vercel.app";
+assertQaHttpWriteTarget(ORIGIN);
 const CDP_PORT = 9560;
 const OUT = "docs/perf/cut7-ios-terminated-first-divergence-close.json";
 

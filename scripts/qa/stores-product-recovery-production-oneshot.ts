@@ -7,6 +7,7 @@
  * Lifecycle: baseline → admin menu → HOME mutate/save/reload → customer HOME →
  * CATEGORY primary/secondary → CTA → restore.
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +17,7 @@ import { STORES_PRODUCT_RECOVERY_QA } from "@/lib/stores/product/stores-product-
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BASE = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+assertQaHttpWriteTarget(BASE);
 const OUT_DIR = path.join(ROOT, "docs/perf/stores-product-recovery/production-oneshot");
 const OUT_JSON = path.join(OUT_DIR, "product-recovery-oneshot-latest.json");
 fs.mkdirSync(OUT_DIR, { recursive: true });

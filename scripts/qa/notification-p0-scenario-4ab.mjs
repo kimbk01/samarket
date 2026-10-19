@@ -3,6 +3,7 @@
  * Notification P0 — scenario 4A (normal kill) / 4B (force-stop) manual re-run.
  * Usage: node scripts/qa/notification-p0-scenario-4ab.mjs [4A|4B|both]
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -16,6 +17,7 @@ const ACT = `${PKG}/.MainActivity`;
 const SERIAL_A = process.env.P0_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P0_DEVICE_B?.trim() || "RFCY40PY2CA";
 const PROD = (process.env.P0_PROD ?? "https://samarket.vercel.app").replace(/\/$/, "");
+assertQaHttpWriteTarget(PROD);
 const DIRECT_ROOM = process.env.P0_DIRECT_ROOM?.trim() || "b19e2672-f26f-4a2e-8125-52575da4a62a";
 const USER_B = "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8";
 const MODE = (process.argv[2] ?? "both").toUpperCase();

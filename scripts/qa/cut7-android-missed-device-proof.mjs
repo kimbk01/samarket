@@ -10,6 +10,7 @@
  * Callee: Samsung RFCY40PY2CA (qqqq)
  * Room:   c202326f-8109-4ce4-aa61-394f0a799e7d
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -26,6 +27,7 @@ const SERIAL_B = process.env.CUT7_DEVICE_B || "RFCY40PY2CA";
 const CDP_PORT = Number(process.env.CUT7_CDP_PORT || 9588);
 const ROOM = process.env.CUT7_ANDROID_ROOM || "c202326f-8109-4ce4-aa61-394f0a799e7d";
 const ORIGIN = (process.env.CUT7_ORIGIN || "https://samarket.vercel.app").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const KIND = (process.env.KIND || "voice").toLowerCase() === "video" ? "video" : "voice";
 const STATE = (process.env.STATE || "LOCKED").toUpperCase() === "BG" ? "BG" : "LOCKED";
 const WAIT_MS = Math.max(70000, Number(process.env.MISSED_WAIT_MS || 95000));

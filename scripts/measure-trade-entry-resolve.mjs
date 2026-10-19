@@ -3,6 +3,7 @@
  * POST /api/trade/chat/entry/resolve 벽시계 3회 (Supabase 쿠키).
  * 사용: npm run dev && node scripts/measure-trade-entry-resolve.mjs [postId]
  */
+import { assertQaHttpWriteTarget } from "./lib/db-target-guard.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baseUrl = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(baseUrl);
 
 function loadEnvLocal() {
   const p = path.join(root, ".env.local");

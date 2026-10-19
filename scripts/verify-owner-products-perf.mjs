@@ -7,6 +7,7 @@
  *   npm run verify:owner-products-perf
  *   SAMARKET_PERF_ENV=prod_same_region npm run verify:owner-products-perf
  */
+import { assertQaHttpWriteTarget } from "./lib/db-target-guard.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,6 +20,7 @@ import {
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const base = (process.env.SAMARKET_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(base);
 const STORE_ID = (process.env.OWNER_PRODUCTS_VERIFY_STORE_ID || "19085860-52d2-4183-b033-e71fcb58bcec").trim();
 const PASSWORD = process.env.SAMARKET_TEST_PASSWORD || process.env.E2E_TEST_PASSWORD || "1234";
 const TERMINALS_DIR =
