@@ -201,8 +201,10 @@ export type SetPhoneOtpEnabledResult =
     };
 
 /**
- * Admin ON/OFF with CAS. OFF invalidates open challenges (RPC preferred for atomicity).
- * Never auto-toggles from provider health.
+ * Admin ON/OFF — **RPC only** (`admin_set_auth_phone_otp_enabled`).
+ * Settings update + open-challenge invalidate run in one DB transaction inside the RPC.
+ * RPC missing/failure → fail-closed: **no** TypeScript fallback writes to settings or challenges.
+ * Never auto-toggles from provider health. Never mutates verified member profiles.
  */
 export async function setAuthPhoneOtpEnabled(input: {
   sb: SupabaseClient;
@@ -243,132 +245,75 @@ export async function setAuthPhoneOtpEnabled(input: {
     p_expected_version: input.expectedVersion,
   });
 
-  if (!rpcError && rpcData && typeof rpcData === "object") {
-    const row = rpcData as Record<string, unknown>;
-    if (row.ok === false && row.error === "version_conflict") {
-      return {
-        ok: false,
-        status: 409,
-        code: "version_conflict",
-        message: "다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 시도해 주세요.",
-        currentVersion: Number(row.current_version) || undefined,
-      };
-    }
-    if (row.ok === false && row.error === "settings_missing") {
-      return {
-        ok: false,
-        status: 500,
-        code: "settings_missing",
-        message: "전화 인증 설정을 찾을 수 없습니다.",
-      };
-    }
-    if (row.ok === true) {
-      const after = await loadAuthPhoneSettings();
-      void appendAuditLog(input.sb, {
-        actor_type: "admin",
-        actor_id: input.actorId,
-        target_type: "auth_phone_settings",
-        target_id: after.id ?? "PH",
-        action: input.enabled ? "admin_phone_otp_enable" : "admin_phone_otp_disable",
-        before_json: {
-          enabled: before.enabled,
-          row_version: before.row_version ?? 1,
-        },
-        after_json: {
-          enabled: after.enabled,
-          row_version: after.row_version ?? Number(row.row_version) ?? null,
-          reason,
-          invalidated_challenges: Number(row.invalidated_challenges) || 0,
-        },
-      });
-      return {
-        ok: true,
-        enabled: input.enabled,
-        rowVersion: Number(row.row_version) || after.row_version || input.expectedVersion + 1,
-        invalidatedChallenges: Number(row.invalidated_challenges) || 0,
-      };
-    }
-  }
-
-  // Fallback when migration RPC not applied yet (Preview/local without migrate).
   if (rpcError) {
-    const currentVersion = before.row_version ?? 1;
-    if (currentVersion !== input.expectedVersion) {
-      return {
-        ok: false,
-        status: 409,
-        code: "version_conflict",
-        message: "다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 시도해 주세요.",
-        currentVersion,
-      };
-    }
-    const nextVersion = currentVersion + 1;
-    const patch: Record<string, unknown> = {
-      enabled: input.enabled,
-      change_reason: reason,
-      updated_by: input.actorId,
-      updated_at: new Date().toISOString(),
-    };
-    // row_version column may be absent pre-migration
-    patch.row_version = nextVersion;
-    const { error: updErr } = await input.sb
-      .from("auth_phone_settings")
-      .update(patch)
-      .eq("country_code", "PH")
-      .eq("row_version", currentVersion);
-    let updatedOk = !updErr;
-    if (updErr) {
-      // Legacy path without row_version filter
-      const legacy = await input.sb
-        .from("auth_phone_settings")
-        .update({
-          enabled: input.enabled,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("country_code", "PH");
-      updatedOk = !legacy.error;
-      if (!updatedOk) {
-        return {
-          ok: false,
-          status: 500,
-          code: "rpc_unavailable",
-          message: updErr.message || legacy.error?.message || "settings_update_failed",
-        };
-      }
-    }
-    let invalidated = 0;
-    if (updatedOk && !input.enabled) {
-      invalidated = await invalidateOpenPhoneOtpChallenges(input.sb);
-    }
-    const after = await loadAuthPhoneSettings();
-    void appendAuditLog(input.sb, {
-      actor_type: "admin",
-      actor_id: input.actorId,
-      target_type: "auth_phone_settings",
-      target_id: after.id ?? "PH",
-      action: input.enabled ? "admin_phone_otp_enable" : "admin_phone_otp_disable",
-      before_json: { enabled: before.enabled, row_version: before.row_version ?? 1, fallback: true },
-      after_json: {
-        enabled: after.enabled,
-        reason,
-        invalidated_challenges: invalidated,
-        fallback: true,
-        rpc_error: rpcError.message.slice(0, 200),
-      },
-    });
     return {
-      ok: true,
-      enabled: input.enabled,
-      rowVersion: after.row_version ?? nextVersion,
-      invalidatedChallenges: invalidated,
+      ok: false,
+      status: 503,
+      code: "rpc_unavailable",
+      message:
+        "전화 인증 ON/OFF RPC를 사용할 수 없습니다. 마이그레이션 적용 전에는 설정을 변경하지 않습니다.",
     };
   }
 
+  if (!rpcData || typeof rpcData !== "object") {
+    return {
+      ok: false,
+      status: 500,
+      code: "server_error",
+      message: "전화 인증 설정 변경에 실패했습니다.",
+    };
+  }
+
+  const row = rpcData as Record<string, unknown>;
+  if (row.ok === false && row.error === "version_conflict") {
+    return {
+      ok: false,
+      status: 409,
+      code: "version_conflict",
+      message: "다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 시도해 주세요.",
+      currentVersion: Number(row.current_version) || undefined,
+    };
+  }
+  if (row.ok === false && row.error === "settings_missing") {
+    return {
+      ok: false,
+      status: 500,
+      code: "settings_missing",
+      message: "전화 인증 설정을 찾을 수 없습니다.",
+    };
+  }
+  if (row.ok !== true) {
+    return {
+      ok: false,
+      status: 500,
+      code: "server_error",
+      message: "전화 인증 설정 변경에 실패했습니다.",
+    };
+  }
+
+  const after = await loadAuthPhoneSettings();
+  void appendAuditLog(input.sb, {
+    actor_type: "admin",
+    actor_id: input.actorId,
+    target_type: "auth_phone_settings",
+    target_id: after.id ?? "PH",
+    action: input.enabled ? "admin_phone_otp_enable" : "admin_phone_otp_disable",
+    before_json: {
+      enabled: before.enabled,
+      row_version: before.row_version ?? 1,
+    },
+    after_json: {
+      enabled: after.enabled,
+      row_version: after.row_version ?? Number(row.row_version) ?? null,
+      reason,
+      invalidated_challenges: Number(row.invalidated_challenges) || 0,
+    },
+  });
   return {
-    ok: false,
-    status: 500,
-    code: "server_error",
-    message: "전화 인증 설정 변경에 실패했습니다.",
+    ok: true,
+    enabled: input.enabled,
+    rowVersion: Number(row.row_version) || after.row_version || input.expectedVersion + 1,
+    invalidatedChallenges: Number(row.invalidated_challenges) || 0,
   };
 }
 
