@@ -4,6 +4,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+process.env.PHONE_OTP_HASH_SECRET = "unit-test-phone-otp-hash-secret";
+
 vi.mock("@/lib/auth/auth-phone-settings", () => ({
   loadAuthPhoneSettings: vi.fn(async () => ({
     enabled: true,
@@ -17,8 +19,17 @@ vi.mock("@/lib/auth/phone-otp-duplicate-check", () => ({
   findPhoneDuplicateOnOtherProfile: vi.fn(async () => null),
 }));
 vi.mock("@/lib/auth/semaphore-sms", () => ({
-  sendSemaphoreSms: vi.fn(async () => ({ ok: true })),
+  sendSemaphoreSms: vi.fn(async () => ({ ok: true, providerMessageId: "msg-1" })),
 }));
+vi.mock("@/lib/auth/phone-otp-ops", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/auth/phone-otp-ops")>(
+    "@/lib/auth/phone-otp-ops",
+  );
+  return {
+    ...actual,
+    recordPhoneOtpDeliveryEvent: vi.fn(async () => undefined),
+  };
+});
 
 type Write = { table: string; op: string; values: Record<string, unknown>; filters: string[] };
 
@@ -101,7 +112,7 @@ describe("B7/B8 OTP send preserves profile", () => {
     // possible (random code) — so assert the mapping via a direct verify with a known challenge.
     const known = await import("node:crypto");
     const code = "123456";
-    const secret = process.env.PHONE_OTP_HASH_SECRET?.trim() || "samarket-phone-otp-hash";
+    const secret = process.env.PHONE_OTP_HASH_SECRET!.trim();
     const ch = getChallenge()!;
     ch.otp_code_hash = known.createHash("sha256").update(`${String(ch.phone)}:${code}:${secret}`).digest("hex");
     ch.attempt_count = 0;

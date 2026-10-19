@@ -8,6 +8,7 @@ import type { AuthProviderPublicMeta, OAuthProvider } from "@/lib/auth/auth-prov
 import type { AuthLoginSetting } from "@/lib/auth/login-settings";
 import type { AuthDuplicateLoginPolicy } from "@/lib/auth/session-policy";
 import type { AuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
+import Link from "next/link";
 
 type EditableProvider = AuthProviderPublicMeta & { client_secret: string };
 
@@ -260,11 +261,12 @@ export function AuthLoginSettingsForm() {
     setPhoneError(null);
     setPhoneSuccess(null);
     try {
+      const { enabled: _enabledIgnored, ...phoneParams } = phoneSettings;
       const res = await fetch("/api/admin/settings/auth-phone", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(phoneSettings),
+        body: JSON.stringify(phoneParams),
       });
       const json = (await res.json().catch(() => null)) as {
         ok?: boolean;
@@ -549,16 +551,18 @@ export function AuthLoginSettingsForm() {
           <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
         ) : (
           <div className="space-y-3">
-            <label className="flex items-center gap-2 sam-text-body text-sam-fg">
-              <input
-                type="checkbox"
-                checked={phoneSettings.enabled === true}
-                onChange={(e) =>
-                  setPhoneSettings((prev) => (prev ? { ...prev, enabled: e.target.checked } : prev))
-                }
-              />
-              {t("admin_auth_phone_enabled")}
-            </label>
+            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 sam-text-body text-sam-fg">
+              <p className="font-medium">{t("admin_auth_phone_enabled")}: {phoneSettings.enabled === true ? "ON" : "OFF"}</p>
+              <p className="mt-1 sam-text-body-secondary text-sam-muted">
+                ON/OFF·잔액·장애 진단은 회원 관리의 전화번호 인증 관리에서 변경합니다.
+              </p>
+              <Link
+                href="/admin/users/phone-verification"
+                className="mt-2 inline-flex text-signature underline"
+              >
+                전화번호 인증 관리로 이동
+              </Link>
+            </div>
             <div className="grid gap-3 md:grid-cols-3">
               <label className="sam-text-body text-sam-fg">
                 <span className="mb-1 block sam-text-helper text-sam-muted">{t("admin_auth_settings_label_country")}</span>
@@ -566,23 +570,7 @@ export function AuthLoginSettingsForm() {
               </label>
               <label className="sam-text-body text-sam-fg">
                 <span className="mb-1 block sam-text-helper text-sam-muted">Provider</span>
-                <select
-                  value={phoneSettings.provider}
-                  onChange={(e) =>
-                    setPhoneSettings((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            provider: e.target.value === "supabase" ? "supabase" : "semaphore",
-                          }
-                        : prev
-                    )
-                  }
-                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
-                >
-                  <option value="semaphore">semaphore</option>
-                  <option value="supabase">supabase</option>
-                </select>
+                <input value="semaphore" disabled className="w-full rounded-ui-rect border border-sam-border px-3 py-2 bg-sam-app" />
               </label>
               <label className="sam-text-body text-sam-fg">
                 <span className="mb-1 block sam-text-helper text-sam-muted">{t("admin_auth_settings_label_sms_from")}</span>

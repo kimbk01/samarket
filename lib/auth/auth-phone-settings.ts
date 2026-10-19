@@ -12,6 +12,9 @@ export type AuthPhoneSettings = {
   guide_text: string;
   created_at?: string;
   updated_at?: string;
+  updated_by?: string | null;
+  change_reason?: string | null;
+  row_version?: number;
 };
 
 export const DEFAULT_AUTH_PHONE_SETTINGS: AuthPhoneSettings = {
@@ -23,6 +26,9 @@ export const DEFAULT_AUTH_PHONE_SETTINGS: AuthPhoneSettings = {
   resend_cooldown_seconds: 60,
   max_attempts: 5,
   guide_text: "필리핀 휴대폰 번호만 인증 가능합니다. 예: 0917 123 4567",
+  updated_by: null,
+  change_reason: null,
+  row_version: 1,
 };
 
 function toClampedInt(value: unknown, fallback: number, min: number, max: number): number {
@@ -39,23 +45,13 @@ function readEnvInt(name: string): number | null {
 }
 
 /**
- * OTP enable is explicit only (POLICY-OTP-01).
- * - PHONE_OTP_ENABLED=0/false → force off
- * - PHONE_OTP_ENABLED=1/true → force on (provider semaphore)
- * - else keep DB `settings.enabled` (default false)
- *
- * SEMAPHORE_API_KEY alone must NOT enable OTP (capability ≠ authorization).
- * Key remains required at send time via sendSemaphoreSms.
+ * OTP enable SSOT = DB `auth_phone_settings.enabled` only.
+ * `PHONE_OTP_ENABLED` must NOT override the admin switch (ops conflict if present).
+ * SEMAPHORE_API_KEY alone must NOT enable OTP.
  */
-function applyPhoneOtpEnvEnable(settings: AuthPhoneSettings): AuthPhoneSettings {
-  const flag = process.env.PHONE_OTP_ENABLED?.trim().toLowerCase();
-  if (flag === "false" || flag === "0") {
-    return { ...settings, enabled: false };
-  }
-  if (flag === "true" || flag === "1") {
-    return { ...settings, enabled: true, provider: "semaphore" };
-  }
-  return settings;
+export function isPhoneOtpEnvEnableConflictPresent(): boolean {
+  const flag = process.env.PHONE_OTP_ENABLED?.trim();
+  return Boolean(flag);
 }
 
 function applyPhoneOtpEnvOverrides(settings: AuthPhoneSettings): AuthPhoneSettings {
@@ -89,6 +85,7 @@ function normalizeProvider(value: unknown): "supabase" | "semaphore" {
 export function sanitizeAuthPhoneSettingsInput(raw: Partial<AuthPhoneSettings>): AuthPhoneSettings {
   const guide = String(raw.guide_text ?? DEFAULT_AUTH_PHONE_SETTINGS.guide_text).trim();
   const from = String(raw.sms_from_name ?? "").trim();
+  const rowVersion = toClampedInt(raw.row_version, 1, 1, 2_147_483_647);
   return {
     ...DEFAULT_AUTH_PHONE_SETTINGS,
     enabled: raw.enabled === true,
@@ -100,29 +97,50 @@ export function sanitizeAuthPhoneSettingsInput(raw: Partial<AuthPhoneSettings>):
       raw.resend_cooldown_seconds,
       DEFAULT_AUTH_PHONE_SETTINGS.resend_cooldown_seconds,
       10,
-      600
+      600,
     ),
     max_attempts: toClampedInt(raw.max_attempts, DEFAULT_AUTH_PHONE_SETTINGS.max_attempts, 1, 20),
     guide_text: guide || DEFAULT_AUTH_PHONE_SETTINGS.guide_text,
+    updated_by: typeof raw.updated_by === "string" ? raw.updated_by : null,
+    change_reason: typeof raw.change_reason === "string" ? raw.change_reason : null,
+    row_version: rowVersion,
+    id: typeof raw.id === "string" ? raw.id : undefined,
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
   };
 }
 
 export async function loadAuthPhoneSettings(): Promise<AuthPhoneSettings> {
   const sb = tryCreateSupabaseServiceClient();
-  if (!sb) return applyPhoneOtpEnvOverrides(applyPhoneOtpEnvEnable(DEFAULT_AUTH_PHONE_SETTINGS));
+  if (!sb) return applyPhoneOtpEnvOverrides({ ...DEFAULT_AUTH_PHONE_SETTINGS });
   const { data, error } = await sb
     .from("auth_phone_settings")
     .select(
-      "id, enabled, country_code, provider, sms_from_name, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, guide_text, created_at, updated_at"
+      "id, enabled, country_code, provider, sms_from_name, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, guide_text, created_at, updated_at, updated_by, change_reason, row_version",
     )
     .eq("country_code", "PH")
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error || !data) {
-    return applyPhoneOtpEnvOverrides(applyPhoneOtpEnvEnable(DEFAULT_AUTH_PHONE_SETTINGS));
+    // Columns may be missing before migration — fall back without new fields.
+    const legacy = await sb
+      .from("auth_phone_settings")
+      .select(
+        "id, enabled, country_code, provider, sms_from_name, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, guide_text, created_at, updated_at",
+      )
+      .eq("country_code", "PH")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (legacy.error || !legacy.data) {
+      return applyPhoneOtpEnvOverrides({ ...DEFAULT_AUTH_PHONE_SETTINGS });
+    }
+    return applyPhoneOtpEnvOverrides(
+      sanitizeAuthPhoneSettingsInput(legacy.data as Partial<AuthPhoneSettings>),
+    );
   }
   return applyPhoneOtpEnvOverrides(
-    applyPhoneOtpEnvEnable(sanitizeAuthPhoneSettingsInput(data as Partial<AuthPhoneSettings>)),
+    sanitizeAuthPhoneSettingsInput(data as Partial<AuthPhoneSettings>),
   );
 }

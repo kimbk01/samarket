@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createHash, randomInt } from "node:crypto";
 import { loadAuthPhoneSettings, type AuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
+import { resolvePhoneOtpHashSecret } from "@/lib/auth/phone-otp-hash-secret";
 import { isValidPhilippinesMobilePhone } from "@/lib/phone/philippines-phone";
 import { isValidPhoneOtpCodeInput } from "@/lib/auth/phone-otp-contract";
 import { findPhoneDuplicateOnOtherProfile } from "@/lib/auth/phone-otp-duplicate-check";
@@ -16,6 +17,7 @@ import {
   philippinesPhoneStorageFields,
   philippinesPhonesMatchForOtp,
 } from "@/lib/auth/phone-otp-phone-canonical";
+import { recordPhoneOtpDeliveryEvent } from "@/lib/auth/phone-otp-ops";
 import { sendSemaphoreSms } from "@/lib/auth/semaphore-sms";
 
 export type PhoneOtpErrorCode =
@@ -28,6 +30,7 @@ export type PhoneOtpErrorCode =
   | "otp_rate_limited"
   | "otp_send_failed"
   | "phone_verify_disabled"
+  | "phone_otp_hash_secret_missing"
   | "server_error";
 
 type ServiceResult<T> =
@@ -116,20 +119,32 @@ async function bumpOtpAttemptCount(sb: SupabaseClient, userId: string, nextCount
     .eq("id", userId);
 }
 
-function getOtpHashSecret(): string {
-  const raw = process.env.PHONE_OTP_HASH_SECRET?.trim();
-  return raw && raw.length > 0 ? raw : "samarket-phone-otp-hash";
-}
-
 function createOtpCode(): string {
   return String(randomInt(100000, 1000000));
 }
 
-function hashOtpCode(phone: string, otpCode: string): string {
-  const secret = getOtpHashSecret();
+function hashOtpCode(phone: string, otpCode: string, secret: string): string {
   return createHash("sha256")
     .update(`${phone}:${otpCode}:${secret}`)
     .digest("hex");
+}
+
+async function requirePhoneOtpRuntimeEnabled(): Promise<
+  ServiceResult<{ settings: AuthPhoneSettings; hashSecret: string }>
+> {
+  const settings = await loadAuthPhoneSettings();
+  if (!settings.enabled) {
+    return fail(403, "phone_verify_disabled", "전화 인증 기능이 현재 비활성화되어 있습니다.");
+  }
+  const secret = resolvePhoneOtpHashSecret();
+  if (!secret.ok) {
+    return fail(
+      503,
+      "phone_otp_hash_secret_missing",
+      "전화 인증 보안 설정이 완료되지 않았습니다. 잠시 후 다시 시도해 주세요.",
+    );
+  }
+  return { ok: true, data: { settings, hashSecret: secret.secret } };
 }
 
 async function upsertPhoneOtpChallenge(
@@ -199,10 +214,9 @@ export async function sendPhoneOtpForUser(
   userId: string,
   inputPhone: string,
 ): Promise<ServiceResult<{ phone: string; settings: AuthPhoneSettings }>> {
-  const settings = await loadAuthPhoneSettings();
-  if (!settings.enabled) {
-    return fail(403, "phone_verify_disabled", "전화 인증 기능이 현재 비활성화되어 있습니다.");
-  }
+  const runtime = await requirePhoneOtpRuntimeEnabled();
+  if (!runtime.ok) return runtime;
+  const { settings, hashSecret } = runtime.data;
 
   const normalizedPhone = philippinesPhoneE164(inputPhone);
   if (!isValidPhilippinesMobilePhone(normalizedPhone)) return invalidPhoneResult();
@@ -224,7 +238,7 @@ export async function sendPhoneOtpForUser(
   }
 
   const otpCode = createOtpCode();
-  const otpCodeHash = hashOtpCode(normalizedPhone, otpCode);
+  const otpCodeHash = hashOtpCode(normalizedPhone, otpCode, hashSecret);
   const expiresAtIso = new Date(Date.now() + settings.otp_ttl_seconds * 1000).toISOString();
 
   const otpRow = await upsertPhoneOtpChallenge(sb, userId, normalizedPhone, otpCodeHash, expiresAtIso);
@@ -233,8 +247,20 @@ export async function sendPhoneOtpForUser(
   const smsMessage = `[DIBAY] Verification code: ${otpCode}`;
   const smsSent = await sendSemaphoreSms(normalizedPhone, smsMessage);
   if (!smsSent.ok) {
+    await recordPhoneOtpDeliveryEvent(sb, {
+      userId,
+      outcome: "failed",
+      providerCode: "otp_send_failed",
+      errorSummary: smsSent.error,
+    });
     return fail(502, "otp_send_failed", "인증번호 발송에 실패했습니다.");
   }
+  await recordPhoneOtpDeliveryEvent(sb, {
+    userId,
+    outcome: "success",
+    providerCode: "semaphore_local",
+    providerMessageId: smsSent.providerMessageId,
+  });
 
   // B7/B8: sending a code changes nothing the member already has. The requested number lives in
   // phone_otp_challenges until verify succeeds — the profile phone / verified state are written only
@@ -268,6 +294,10 @@ export async function verifyPhoneOtpForUser(
   inputPhone: string,
   otp: string,
 ): Promise<ServiceResult<VerifyOtpResult>> {
+  const runtime = await requirePhoneOtpRuntimeEnabled();
+  if (!runtime.ok) return runtime;
+  const { settings, hashSecret } = runtime.data;
+
   const normalizedPhone = philippinesPhoneE164(inputPhone);
   if (!isValidPhilippinesMobilePhone(normalizedPhone)) return invalidPhoneResult();
   const phoneFields = philippinesPhoneStorageFields(inputPhone);
@@ -282,7 +312,6 @@ export async function verifyPhoneOtpForUser(
   const otpState = await loadProfileOtpState(sb, userId);
   if (!otpState.ok) return otpState;
   const attempted = Math.max(0, Math.floor(Number(otpState.data.phone_verification_attempt_count ?? 0)));
-  const settings = await loadAuthPhoneSettings();
   if (attempted >= settings.max_attempts) {
     return fail(
       429,
@@ -313,7 +342,7 @@ export async function verifyPhoneOtpForUser(
   }
 
   const challengePhoneE164 = philippinesPhoneE164(challenge.phone);
-  const providedHash = hashOtpCode(challengePhoneE164, String(otp).trim());
+  const providedHash = hashOtpCode(challengePhoneE164, String(otp).trim(), hashSecret);
   if (providedHash !== challenge.otp_code_hash) {
     await updatePhoneOtpChallengeAttempts(sb, userId, challenge.attempt_count + 1);
     await bumpOtpAttemptCount(sb, userId, attempted + 1);
