@@ -11,6 +11,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3011").replace(/\/$/, "");
 const OUT_DIR = join(process.cwd(), ".qa-logs/feed-banner-runtime-evidence-20260810");

@@ -38,7 +38,8 @@ export function AdminFinanceOpsQueue() {
     setState((prev) => ({ ...prev, error: null }));
     try {
       const [pointRes, cashRes, coinRes] = await Promise.all([
-        fetch("/api/admin/point-charges", { credentials: "include", cache: "no-store" }),
+        // 서버 exact count (`total`) — 처리 대기(pending·waiting_confirm·on_hold)만, 행은 1건만 받는다.
+        fetch("/api/admin/point-charges?status=open&limit=1", { credentials: "include", cache: "no-store" }),
         fetch("/api/admin/business-cash-charges?status=PENDING", {
           credentials: "include",
           cache: "no-store",
@@ -53,20 +54,16 @@ export function AdminFinanceOpsQueue() {
       if (pointRes.ok) {
         const json = (await pointRes.json()) as {
           ok?: boolean;
-          requests?: Array<{ status?: string; request_status?: string }>;
+          total?: number;
+          requests?: Array<{ requestStatus?: string; request_status?: string; status?: string }>;
         };
         if (json.ok) {
-          pointPending = (json.requests ?? []).filter((r) =>
-            isPointActionable(
-              String(
-                (r as { status?: string; requestStatus?: string; request_status?: string })
-                  .requestStatus ??
-                  (r as { request_status?: string }).request_status ??
-                  (r as { status?: string }).status ??
-                  ""
-              )
-            )
-          ).length;
+          pointPending =
+            typeof json.total === "number"
+              ? json.total
+              : (json.requests ?? []).filter((r) =>
+                  isPointActionable(String(r.requestStatus ?? r.request_status ?? r.status ?? ""))
+                ).length;
         }
       }
 

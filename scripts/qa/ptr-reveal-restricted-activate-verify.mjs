@@ -12,6 +12,10 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const CAMPAIGN_ID =
   process.env.PTR_QA_CAMPAIGN_ID?.trim() || "584561fb-1edd-49d7-9475-09e00eb4426a";
@@ -98,12 +102,12 @@ async function proveAllowlistViaDb() {
   const req = createRequire("/Users/bkkim/projects/samarket/package.json");
   const { Client } = req("pg");
   const pass = process.env.SUPABASE_DB_PASSWORD;
-  const pooler =
-    process.env.SUPABASE_POOLER_URL?.trim() ||
-    "postgresql://postgres.ckdosyydvgzqwpbwuhon@aws-1-ap-south-1.pooler.supabase.com:5432/postgres";
+  // C-48: no hard-coded Production pooler default — the target must come from env (checked by assertQaWriteTarget).
+  const pooler = process.env.SUPABASE_POOLER_URL?.trim();
+  if (!pooler) throw new Error("SUPABASE_POOLER_URL required (non-production pooler URL with postgres.<ref> username)");
   const u = new URL(pooler.replace(/^postgresql:\/\//, "http://"));
   u.password = encodeURIComponent(pass);
-  if (!u.username) u.username = "postgres.ckdosyydvgzqwpbwuhon";
+  if (!u.username) throw new Error("SUPABASE_POOLER_URL must include the postgres.<ref> username");
   const cs = `postgresql://${u.username}:${u.password}@${u.hostname}:${u.port || 5432}${u.pathname}`;
   const client = new Client({ connectionString: cs, ssl: { rejectUnauthorized: false } });
   await client.connect();

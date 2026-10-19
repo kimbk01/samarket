@@ -28,6 +28,10 @@ import {
 } from "@/lib/notifications/core/notification-event-repository";
 import { categoryForEventType } from "@/lib/notifications/core/notification-policy";
 import { resolveNotificationAttentionKey } from "@/lib/notifications/core/notification-attention-key";
+import { assertQaWriteTarget } from "./lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const OUT = join(
   process.cwd(),

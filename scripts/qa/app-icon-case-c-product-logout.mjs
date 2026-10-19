@@ -22,6 +22,10 @@ import {
   connectWebView,
   navigateApkWebView,
 } from "./lib/apk-webview-cdp.mjs";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const STAMP = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 const OUT = join(process.cwd(), `.qa-logs/app-icon-case-c-product-logout-${STAMP}`);

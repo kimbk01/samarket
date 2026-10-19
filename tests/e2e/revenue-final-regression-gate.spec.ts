@@ -12,6 +12,11 @@ import {
   ensureE2eUserSession,
   playwrightOriginFromEnv,
 } from "./helpers/playwright-origin-and-session";
+import { assertNonProductionDbTarget, assertPlaywrightMutationTargetNonProduction } from "../helpers/assert-non-production-db-target";
+
+// C-48: this spec mutates through the app — refuse the Production app host and any app whose
+// Supabase URL host is a Production project ref / unverifiable (by URL host, not env var name).
+test.beforeAll(() => assertPlaywrightMutationTargetNonProduction());
 
 const MEMBER_USER = process.env.E2E_BANNER_MEMBER_USER?.trim() || "asas55";
 const MEMBER_PASS = process.env.E2E_BANNER_MEMBER_PASSWORD?.trim() || "1234";
@@ -39,6 +44,9 @@ function loadEnvLocal(): void {
 
 function serviceSb() {
   loadEnvLocal();
+  assertNonProductionDbTarget(process.env.NEXT_PUBLIC_SUPABASE_URL, {
+    label: "revenue final regression gate (service role)",
+  });
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,

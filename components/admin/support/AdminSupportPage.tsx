@@ -35,6 +35,9 @@ import {
   type SupportAdminContextLink,
 } from "@/lib/support/support-reference-admin-href";
 import { fetchAdminMeSnapshot, peekAdminMeSnapshot, type AdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
+import { adminListOffsetForPage, adminListPageCount } from "@/lib/admin/pagination/parse-admin-list-page";
+
+const SUPPORT_LIST_PAGE_SIZE = 50;
 
 /**
  * Admin Support console (Owner-approved redesign 2026-10-05).
@@ -170,6 +173,13 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const [counts, setCounts] = useState<Partial<Record<AdminSupportTab, number>>>({});
   const [listError, setListError] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(true);
+  // Server-side pagination — page resets to 1 whenever the filter set changes (keyed, no effect).
+  const [listTotal, setListTotal] = useState(0);
+  const listFilterKey = JSON.stringify([tab, audience, group, assignee, staleOnly, appliedSearch.trim(), scope]);
+  const [listPageState, setListPageState] = useState({ key: listFilterKey, page: 1 });
+  const listPage = listPageState.key === listFilterKey ? listPageState.page : 1;
+  const listPages = adminListPageCount(listTotal, SUPPORT_LIST_PAGE_SIZE);
+  const goListPage = (page: number) => setListPageState({ key: listFilterKey, page: Math.max(1, page) });
 
   const [activeId, setActiveId] = useState<string | null>(initialCaseId ?? null);
   const [activeCase, setActiveCase] = useState<SupportCaseAdminDisplayRow | null>(null);
@@ -199,11 +209,14 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       if (scope.referenceType) qs.set("reference_type", scope.referenceType);
       if (scope.referenceId) qs.set("reference_id", scope.referenceId);
       if (scope.storeId) qs.set("store_id", scope.storeId);
+      qs.set("limit", String(SUPPORT_LIST_PAGE_SIZE));
+      qs.set("offset", String(adminListOffsetForPage(listPage, SUPPORT_LIST_PAGE_SIZE)));
       const res = await fetch(`/api/admin/support/cases?${qs.toString()}`, { credentials: "include" });
       const json = (await res.json()) as {
         ok?: boolean;
         cases?: SupportCaseAdminDisplayRow[];
         counts?: Partial<Record<AdminSupportTab, number>> | null;
+        total?: number;
         error?: string;
       };
       // DEF-07: a failed list call is an error, not an empty queue (keep the last list).
@@ -213,13 +226,14 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       }
       setListError(null);
       setCases(json.cases ?? []);
+      setListTotal(typeof json.total === "number" ? json.total : (json.cases ?? []).length);
       if (json.counts) setCounts(json.counts);
     } catch {
       setListError("network_error");
     } finally {
       setListLoading(false);
     }
-  }, [tab, audience, group, assignee, staleOnly, appliedSearch, scope]);
+  }, [tab, audience, group, assignee, staleOnly, appliedSearch, scope, listPage]);
 
   const loadDetail = useCallback(async (caseId: string) => {
     setDetailLoading(true);
@@ -556,7 +570,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           data-admin-support-queue="1"
         >
           <div className="shrink-0 border-b border-sam-border px-3 py-2 text-xs font-semibold text-sam-muted">
-            {ko ? TAB_LABEL[tab].ko : TAB_LABEL[tab].en} · {cases.length}
+            {ko ? TAB_LABEL[tab].ko : TAB_LABEL[tab].en} · {listTotal}
             {ko ? "건" : ""}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -635,6 +649,34 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
               </ul>
             )}
           </div>
+          {listTotal > SUPPORT_LIST_PAGE_SIZE || listPage > 1 ? (
+            <div
+              className="flex shrink-0 items-center justify-between gap-2 border-t border-sam-border px-3 py-2 text-xs text-sam-muted"
+              data-admin-support-pager="1"
+            >
+              <span>
+                {listPage}/{listPages}
+              </span>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  disabled={listLoading || listPage <= 1}
+                  onClick={() => goListPage(listPage - 1)}
+                  className="rounded border border-sam-border px-2 py-1 disabled:opacity-40"
+                >
+                  {ko ? "이전" : "Prev"}
+                </button>
+                <button
+                  type="button"
+                  disabled={listLoading || listPage >= listPages}
+                  onClick={() => goListPage(listPage + 1)}
+                  className="rounded border border-sam-border px-2 py-1 disabled:opacity-40"
+                >
+                  {ko ? "다음" : "Next"}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* CENTER — conversation (header / own-scroll timeline / pinned composer) */}

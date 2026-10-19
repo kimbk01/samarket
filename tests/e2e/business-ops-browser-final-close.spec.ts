@@ -16,6 +16,11 @@ import {
   ensureE2eUserSession,
   playwrightOriginFromEnv,
 } from "./helpers/playwright-origin-and-session";
+import { assertPlaywrightMutationTargetNonProduction } from "../helpers/assert-non-production-db-target";
+
+// C-48: this spec mutates through the app — refuse the Production app host and any app whose
+// Supabase URL host is a Production project ref / unverifiable (by URL host, not env var name).
+test.beforeAll(() => assertPlaywrightMutationTargetNonProduction());
 
 const SAFE_STORE = (
   process.env.SAFE_BROWSER_STORE_ID ?? "076bffda-3048-4bfb-80ae-985a69105f4a"

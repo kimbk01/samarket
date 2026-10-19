@@ -161,6 +161,10 @@ describe("posts PATCH — CAS · 사유 · 외부 수집 블록 · 홍보 귀책
       last_edited_role: "admin",
       last_edit_reason: "개인정보 가림",
     });
+    // No updated_at trigger on community_posts: the patch itself must advance the CAS token.
+    const advanced = (upd.values as { updated_at?: unknown }).updated_at;
+    expect(typeof advanced).toBe("string");
+    expect(advanced).not.toBe(LOADED);
     expect(notifyContent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ kind: "edited" }));
   });
 

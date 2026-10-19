@@ -1,0 +1,353 @@
+/**
+ * C-48 — every real-DB writer test / QA script must refuse a Production target by project ref
+ * (actual URL host), never by env var name.
+ *
+ * - vitest DB writers + Playwright service-role clients → `assertNonProductionDbTarget`
+ *   (tests/helpers/assert-non-production-db-target.ts → lib/admin/data-reset/database-target-guard.ts)
+ * - Playwright specs that mutate through the app → `assertPlaywrightMutationTargetNonProduction`
+ * - Node QA scripts → `assertQaWriteTarget` / `resolveQaWriteTarget` (scripts/lib/db-target-guard.mjs, F-13)
+ *
+ * (a) unit-tests the test helper, (b) statically scans the repo so a new writer cannot skip the guard.
+ */
+import { execSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, join, resolve } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  assertNonProductionDbTarget,
+  assertPlaywrightMutationTargetNonProduction,
+  collectLocalAppSupabaseUrls,
+} from "@/tests/helpers/assert-non-production-db-target";
+
+const ROOT = process.cwd();
+const PROD = "ckdosyydvgzqwpbwuhon";
+const OTHER = "abcdefghijklmnopqrst";
+
+describe("assertNonProductionDbTarget", () => {
+  it("Production ref → throws", () => {
+    expect(() => assertNonProductionDbTarget(`https://${PROD}.supabase.co`)).toThrow(/database_target_production/);
+    expect(() => assertNonProductionDbTarget(`https://${PROD}.supabase.co/rest/v1`)).toThrow(/REFUSING/);
+  });
+
+  it("userinfo / prefix tricks are classified by the real host", () => {
+    expect(() => assertNonProductionDbTarget(`http://localhost@${PROD}.supabase.co`)).toThrow(/production/);
+    expect(() =>
+      assertNonProductionDbTarget(`http://localhost@${PROD}.supabase.co`, { loopbackOnly: true })
+    ).toThrow(/REFUSING/);
+  });
+
+  it("unknown / custom host, unparsable and missing → throws (fail-closed)", () => {
+    expect(() => assertNonProductionDbTarget("https://db.example.com")).toThrow(/unrecognized_host/);
+    expect(() => assertNonProductionDbTarget("https://api.dibay.app")).toThrow(/REFUSING/);
+    expect(() => assertNonProductionDbTarget("not a url")).toThrow(/unparsable/);
+    expect(() => assertNonProductionDbTarget("")).toThrow(/missing/);
+    expect(() => assertNonProductionDbTarget(undefined)).toThrow(/missing/);
+  });
+
+  it("env var names do not matter — only the URL value", () => {
+    const prev = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+    try {
+      expect(() => assertNonProductionDbTarget(`https://${PROD}.supabase.co`)).toThrow();
+    } finally {
+      if (prev === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      else process.env.NEXT_PUBLIC_SUPABASE_URL = prev;
+    }
+  });
+
+  it("loopback and a non-Production ref → ok", () => {
+    expect(assertNonProductionDbTarget("http://127.0.0.1:54321").reason).toBe("database_target_loopback");
+    expect(assertNonProductionDbTarget("http://localhost:54399").target).toBe("non_production");
+    expect(assertNonProductionDbTarget("http://[::1]:54321").target).toBe("non_production");
+    expect(assertNonProductionDbTarget(`https://${OTHER}.supabase.co`).projectRef).toBe(OTHER);
+  });
+
+  it("loopbackOnly rejects a remote non-Production ref", () => {
+    expect(() => assertNonProductionDbTarget(`https://${OTHER}.supabase.co`, { loopbackOnly: true })).toThrow(
+      /loopback database required/
+    );
+    expect(assertNonProductionDbTarget("http://localhost:54321", { loopbackOnly: true }).target).toBe(
+      "non_production"
+    );
+  });
+
+  it("DATA_RESET_PRODUCTION_SUPABASE_REFS can only add Production refs", () => {
+    const prev = process.env.DATA_RESET_PRODUCTION_SUPABASE_REFS;
+    process.env.DATA_RESET_PRODUCTION_SUPABASE_REFS = OTHER;
+    try {
+      expect(() => assertNonProductionDbTarget(`https://${OTHER}.supabase.co`)).toThrow(/production/);
+      expect(() => assertNonProductionDbTarget(`https://${PROD}.supabase.co`)).toThrow(/production/);
+    } finally {
+      if (prev === undefined) delete process.env.DATA_RESET_PRODUCTION_SUPABASE_REFS;
+      else process.env.DATA_RESET_PRODUCTION_SUPABASE_REFS = prev;
+    }
+  });
+});
+
+describe("assertPlaywrightMutationTargetNonProduction", () => {
+  let dir = "";
+  let prevUrl: string | undefined;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "pw-guard-"));
+    prevUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+    if (prevUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = prevUrl;
+  });
+
+  it("Production app host → throws", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+    expect(() => assertPlaywrightMutationTargetNonProduction("https://samarket.vercel.app", dir)).toThrow(
+      /Production app host/
+    );
+  });
+
+  it("non-loopback app host (Preview etc.) → throws (DB unverifiable)", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+    expect(() => assertPlaywrightMutationTargetNonProduction("https://samarket-git-x.vercel.app", dir)).toThrow(
+      /not loopback/
+    );
+  });
+
+  it("loopback app wired to Production in .env.local → throws", () => {
+    writeFileSync(join(dir, ".env.local"), `NEXT_PUBLIC_SUPABASE_URL="https://${PROD}.supabase.co"\n`);
+    expect(() => assertPlaywrightMutationTargetNonProduction("http://localhost:3000", dir)).toThrow(/production/);
+  });
+
+  it("process env local but a Next env file Production → throws (every source checked)", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+    writeFileSync(join(dir, ".env"), `NEXT_PUBLIC_SUPABASE_URL=https://${PROD}.supabase.co\n`);
+    expect(collectLocalAppSupabaseUrls(dir).map((s) => s.source)).toEqual(["process.env", ".env"]);
+    expect(() => assertPlaywrightMutationTargetNonProduction("http://127.0.0.1:3000", dir)).toThrow(/production/);
+  });
+
+  it("loopback app without any Supabase URL → throws", () => {
+    expect(() => assertPlaywrightMutationTargetNonProduction("http://localhost:3000", dir)).toThrow(/missing/);
+  });
+
+  it("loopback app on local Supabase / non-Production ref → ok", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+    expect(() => assertPlaywrightMutationTargetNonProduction("http://localhost:3000", dir)).not.toThrow();
+    writeFileSync(join(dir, ".env.local"), `NEXT_PUBLIC_SUPABASE_URL=https://${OTHER}.supabase.co\n`);
+    expect(() => assertPlaywrightMutationTargetNonProduction("http://127.0.0.1:3020", dir)).not.toThrow();
+  });
+});
+
+// ———————————————————————— static repo scan ————————————————————————
+
+const read = (rel: string) => readFileSync(resolve(ROOT, rel), "utf8");
+const tracked = execSync("git ls-files", { cwd: ROOT, encoding: "utf8" })
+  .split("\n")
+  .filter((f) => f && existsSync(resolve(ROOT, f)));
+
+/** vitest suites + Playwright service-role clients that write to a real Supabase / PostgREST. */
+const TEST_DB_WRITERS = [
+  "lib/promotion/__tests__/community-paid-exposure-runtime.e2e.test.ts",
+  "lib/community-operator-import/__tests__/bplus-e2e.staging.test.ts",
+  "lib/push/dispatch/__tests__/a-web-isolated-integration.staging.test.ts",
+  "tests/e2e/member-feed-ad-banner-ui.spec.ts",
+  "tests/e2e/revenue-final-regression-gate.spec.ts",
+  "tests/e2e/community-import-admin.staging.spec.ts",
+  "tests/e2e/community-import-diagnose.staging.spec.ts",
+  "tests/e2e/community-import-sites.staging.spec.ts",
+];
+
+/** Playwright specs that create / update / delete / send / apply through the app under test. */
+const PLAYWRIGHT_MUTATION_SPECS = [
+  "tests/e2e/member-feed-ad-banner-ui.spec.ts",
+  "tests/e2e/revenue-final-regression-gate.spec.ts",
+  "tests/e2e/trade-category-form-runtime-closure.spec.ts",
+  "tests/e2e/community-ia-runtime-cases.spec.ts",
+  "tests/e2e/business-ops-browser-final-close.spec.ts",
+  "tests/e2e/community-messenger-call-smoke.spec.ts",
+  "tests/e2e/community-messenger-call-terminal-flows.spec.ts",
+  "tests/e2e/cm-room-qa-pass.spec.ts",
+  "tests/e2e/bootstrap-structure-verification.spec.ts",
+  "tests/e2e/messenger-scenario-perf-capture.spec.ts",
+  "tests/e2e/trade-c2c-perf-baseline-capture.spec.ts",
+  "tests/e2e/i18n-my-profile-language.spec.ts",
+  "tests/e2e/community-import-admin.staging.spec.ts",
+  "tests/e2e/community-import-diagnose.staging.spec.ts",
+  "tests/e2e/community-import-sites.staging.spec.ts",
+];
+
+/** Node QA / runtime-proof scripts outside the F-13 financial set that write with service role / pg. */
+const SCRIPT_DB_WRITERS = [
+  "scripts/qa/admin-campaign-android-image-runtime.mjs",
+  "scripts/qa/admin-campaign-d1-idempotency-runtime.mjs",
+  "scripts/qa/admin-campaign-repeat-probe.mjs",
+  "scripts/qa/admin-campaign-runtime-gates.mjs",
+  "scripts/qa/admin-finance-data-contract-stores-outstanding.mjs",
+  "scripts/qa/admin-finance-product-ui-r1-r6-visual.mjs",
+  "scripts/qa/admin-settlement-cash-reject-runtime.mjs",
+  "scripts/qa/admin-settlement-ops-close.mjs",
+  "scripts/qa/admin-settlement-ops-runtime.mjs",
+  "scripts/qa/admin-settlement-point-runtime.mjs",
+  "scripts/qa/ads-r2-creative-registration-production-proof.mjs",
+  "scripts/qa/ads-r4-operations-control-production-proof.mjs",
+  "scripts/qa/app-icon-case-c-product-logout.mjs",
+  "scripts/qa/community-operator-import-phase-f-production-e2e.mjs",
+  "scripts/qa/customer-center-board-ui-prod-runtime.mjs",
+  "scripts/qa/feed-banner-r6-fixture-20260810.mjs",
+  "scripts/qa/gift-u3-1-accept-readback-runtime.mjs",
+  "scripts/qa/group-chat-p0-adb-qa.mjs",
+  "scripts/qa/image-platform-production-http-e2e.mjs",
+  "scripts/qa/kakao-open-call-block-policy-qa.mjs",
+  "scripts/qa/member-admin-full-ssot-l4.mjs",
+  "scripts/qa/mypage-store-entry-cold-runtime.mjs",
+  "scripts/qa/owner-gift-care-ux-final-proof.mjs",
+  "scripts/qa/owner-store-os-native-runtime-proof.mjs",
+  "scripts/qa/owner-store-os-order-finance-surfaces-proof.mjs",
+  "scripts/qa/owner-store-os-orders-complete-process-proof.mjs",
+  "scripts/qa/owner-store-os-product-complete-process-proof.mjs",
+  "scripts/qa/owner-store-os-product-lifecycle-proof.mjs",
+  "scripts/qa/owner-store-os-store-dashboard-customer-proof.mjs",
+  "scripts/qa/ptr-reveal-restricted-activate-verify.mjs",
+  "scripts/qa/stores-discovery-scale-cut5-backfill-shadow-proof.mts",
+  "scripts/badge-lifecycle-transition-runtime.ts",
+  "scripts/ensure-e2e-aaaa-manual-auth.mjs",
+  "scripts/native-cold-resume-surface-gate.ts",
+  "scripts/pds1-prod-deploy-sync-verify.mjs",
+  "scripts/perf/cm-r15-row-not-found-fixture-validate.mjs",
+  "scripts/perf/cm-r16-row-not-found-harness-validate.mjs",
+  "scripts/phase-b-price-offer-mixed-product-gate.ts",
+  "scripts/room-unread-authority-runtime-matrix.mjs",
+  "scripts/runtime-business-ops-step56-qa.ts",
+  "scripts/verify-cm-bootstrap-lite-bundle-active-membership.mjs",
+  "scripts/verify-p4-call-heartbeat-remote.mjs",
+];
+
+/** Isolated-local-DB scripts: resolver result must be loopback (shared F-13 resolver, by URL host). */
+const LOOPBACK_ONLY_SCRIPTS = [
+  "scripts/staging-e2e/seed-ui-admin.mjs",
+  "scripts/qa/stores-discovery-scale-cut7-100k-planner-proof.mjs",
+];
+
+const CLIENT_RE = /createClient\(|new\s+PostgrestClient\(|new\s+(?:pg\.)?(?:Client|Pool)\(|spawnSync\(\s*PSQL/;
+const CRED_RE =
+  /SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE_KEY|SUPABASE_SERVICE_KEY|DIBAY_INTEG_JWT|DATABASE_URL|SUPABASE_DB_URL|SUPABASE_POOLER_URL/;
+/** Read-only RPC name shapes (snapshots, counts, predicates). Anything else is treated as a writer. */
+const READ_RPC =
+  /^(?:get_|count_|list_|search_|resolve_|is_|has_|can_|check_|community_messenger_bootstrap|gift_certificate_instance_allows_checkout_store|gift_certificate_store_revenue_available|dibay_cm_canonical_unread_count|store_discovery_coverage_origin_covered)/;
+
+function hasDbWrite(src: string): boolean {
+  for (const seg of src.split(/(?=\.from\()/)) {
+    if (!seg.startsWith(".from(")) continue;
+    if (/\.(insert|update|upsert|delete)\(/.test(seg.slice(0, 600))) return true;
+  }
+  if (/auth\.admin\.(?:createUser|updateUserById|deleteUser)\(/.test(src)) return true;
+  if (/\b(?:INSERT\s+INTO|DELETE\s+FROM)\s+(?:public\.)?[a-z_]+/i.test(src)) return true;
+  if (/\bUPDATE\s+(?:public\.)?[a-z_]+\s+SET\b/i.test(src)) return true;
+  for (const m of src.matchAll(/\.rpc\(\s*["'`]([a-z0-9_]+)["'`]/g)) if (!READ_RPC.test(m[1])) return true;
+  return /\b(?:creditUserPoints|apply[A-Z]\w*)\(\s*sb\b/.test(src);
+}
+
+const firstClientIndex = (src: string) => {
+  const i = src.search(CLIENT_RE);
+  return i < 0 ? Number.POSITIVE_INFINITY : i;
+};
+
+function isTestFile(rel: string): boolean {
+  return (
+    /\.(test|spec)\.(ts|tsx|mts|js|mjs|cjs)$/.test(rel) ||
+    /(^|\/)__tests__\//.test(rel) ||
+    rel.startsWith("tests/") ||
+    rel.startsWith("e2e/")
+  );
+}
+
+/** Script names that are tests / QA / runtime proofs (operational apply/backfill/seed tools are not). */
+function isQaLikeScript(rel: string): boolean {
+  if (!/^scripts\/.*\.(mjs|mts|ts|js|cjs)$/.test(rel) || /\/lib\//.test(rel) || /\/__tests__\//.test(rel)) {
+    return false;
+  }
+  if (rel.startsWith("scripts/qa/") || rel.startsWith("scripts/perf/") || rel.startsWith("scripts/staging-e2e/")) {
+    return true;
+  }
+  const name = basename(rel);
+  if (/^(apply|backfill|seed|fix|publish|realign|import|generate|add|refresh)-/.test(name)) return false;
+  // Operational Production data tools (backfill / migration apply) are not tests.
+  if (/(backfill|migration)/.test(name)) return false;
+  return /(runtime|e2e|proof|qa|harness|fixture|gate|smoke|probe|verify|matrix|signoff)/.test(name);
+}
+
+describe("C-48 static: real-DB writer tests reference the shared guard", () => {
+  it("helper delegates to the database-target-guard SSOT (no own ref list / bypass)", () => {
+    const src = read("tests/helpers/assert-non-production-db-target.ts");
+    expect(src).toContain('from "@/lib/admin/data-reset/database-target-guard"');
+    expect(src).toContain("resolveDataResetDatabaseTarget(");
+    expect(src).not.toMatch(/[a-z0-9]{20}\.supabase/);
+    expect(src).not.toContain(PROD);
+    expect(src).not.toMatch(/ALLOW_PROD|FORCE|BYPASS|SKIP_GUARD|OVERRIDE|I_KNOW/i);
+  });
+
+  it("listed vitest / Playwright DB writers call assertNonProductionDbTarget before creating a client", () => {
+    const offenders = TEST_DB_WRITERS.filter((rel) => {
+      const src = read(rel);
+      const call = src.search(/assertNonProductionDbTarget\(/);
+      return call < 0 || call > firstClientIndex(src);
+    });
+    expect(offenders).toEqual([]);
+    for (const rel of TEST_DB_WRITERS) expect(read(rel)).not.toContain(PROD);
+  });
+
+  it("listed Playwright mutation specs install the base-URL guard for every test", () => {
+    const offenders = PLAYWRIGHT_MUTATION_SPECS.filter(
+      (rel) => !read(rel).includes("test.beforeAll(() => assertPlaywrightMutationTargetNonProduction());")
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("listed QA scripts call assertQaWriteTarget() before any client", () => {
+    const offenders = SCRIPT_DB_WRITERS.filter((rel) => {
+      const src = read(rel);
+      if (!/import\s*\{\s*assertQaWriteTarget\s*\}\s*from\s*["'][./]+(?:lib\/)?db-target-guard\.mjs["']/.test(src)) {
+        return true;
+      }
+      const call = src.indexOf("assertQaWriteTarget();");
+      return call < 0 || call > firstClientIndex(src);
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  it("loopback-only scripts classify via resolveQaWriteTarget before any client", () => {
+    const offenders = LOOPBACK_ONLY_SCRIPTS.filter((rel) => {
+      const src = read(rel);
+      const call = src.indexOf("resolveQaWriteTarget(");
+      return call < 0 || !src.includes('target !== "loopback"') || call > firstClientIndex(src);
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  it("glob: any test file with a service-role credential + real client + write references the guard", () => {
+    const offenders = tracked.filter((rel) => {
+      if (!isTestFile(rel) || !/\.(ts|tsx|mts|mjs|js|cjs)$/.test(rel)) return false;
+      if (rel === "lib/config/__tests__/test-db-write-production-guard.test.ts") return false;
+      const src = read(rel);
+      if (!CRED_RE.test(src) || !CLIENT_RE.test(src) || !hasDbWrite(src)) return false;
+      return !src.includes("assertNonProductionDbTarget") && !src.includes("assertQaWriteTarget");
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  it("glob: any QA-like script with a DB credential + real client + write references db-target-guard", () => {
+    const offenders = tracked.filter((rel) => {
+      if (!isQaLikeScript(rel)) return false;
+      const src = read(rel);
+      if (!CRED_RE.test(src) || !CLIENT_RE.test(src) || !hasDbWrite(src)) return false;
+      return !/db-target-guard\.mjs["']/.test(src);
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  it("no hard-coded Production pooler / URL default in guarded writers", () => {
+    const offenders = [...SCRIPT_DB_WRITERS, ...LOOPBACK_ONLY_SCRIPTS, ...TEST_DB_WRITERS].filter((rel) =>
+      new RegExp(`postgres\\.${PROD}|//${PROD}\\.supabase\\.co(?!/storage/v1/object/public)`).test(read(rel))
+    );
+    expect(offenders).toEqual([]);
+  });
+});

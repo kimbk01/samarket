@@ -2,7 +2,7 @@
 
 /**
  * 커뮤니티 댓글 (설계 §C-7 · §C-0-1 목록 화면 틀).
- * 탭(공개/관리자 숨김/삭제됨/신고 있음/전체) · 카테고리 · 유형(댓글/답글) · 작성자 · 게시글 · 기간(PHT) — 모두 URL.
+ * 탭(공개/관리자 숨김/삭제됨/신고 있음/전체) · 검색(내용·작성자 닉네임·ID) · 카테고리 · 유형(댓글/답글) · 작성자 · 게시글 · 기간(PHT) — 모두 URL.
  * 상태 select 즉시 반영 없음 (C-18). 버튼: 숨기기 L2 · 다시 공개 L1 · 삭제 L2 — expectedStatus(CAS)+사유 전송.
  * 답글은 부모 댓글을 함께 보여 준다. 삭제는 상태 변경만(복구 가능) — 영구 삭제 없음.
  */
@@ -25,6 +25,7 @@ import {
   CommunityPagination,
   CommunityPeriodFilter,
   CommunityResetFilters,
+  CommunitySearchInput,
   CommunitySelect,
   CommunityStatusBadge,
   CommunityTable,
@@ -86,7 +87,7 @@ const TABS = [
   { value: "all", label: "전체" },
 ] as const;
 
-const FILTER_KEYS = ["topicSlug", "type", "userId", "postId", "commentId", "period", "from", "to"];
+const FILTER_KEYS = ["q", "topicSlug", "type", "userId", "postId", "commentId", "period", "from", "to"];
 
 const NEXT_STATUS: Record<Action["kind"], "hidden" | "active" | "deleted"> = {
   hide: "hidden",
@@ -118,6 +119,7 @@ export function AdminCommunityCommentsPage() {
       : ["active", "hidden", "deleted"].includes(statusParam)
         ? statusParam
         : "all";
+  const qParam = (searchParams.get("q") ?? "").trim();
   const postId = searchParams.get("postId") ?? "";
   const topicSlug = searchParams.get("topicSlug") ?? "";
   const userId = searchParams.get("userId") ?? "";
@@ -127,6 +129,7 @@ export function AdminCommunityCommentsPage() {
 
   const [rows, setRows] = useState<CommunityCommentRow[]>([]);
   const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(null);
   const [topicFilterTruncated, setTopicFilterTruncated] = useState(false);
@@ -135,7 +138,7 @@ export function AdminCommunityCommentsPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
-  const queryScopeKey = [tab, typeFilter, postId, topicSlug, userId, commentId, period, from, to, page].join("|");
+  const queryScopeKey = [tab, qParam, typeFilter, postId, topicSlug, userId, commentId, period, from, to, page].join("|");
   const selectableIds = useMemo(() => rows.map((r) => r.id).filter(Boolean), [rows]);
   const selection = useAdminManagementSelection({ queryScopeKey, selectableIds });
   const reload = useCallback(() => setReloadKey((n) => n + 1), []);
@@ -146,6 +149,7 @@ export function AdminCommunityCommentsPage() {
       offset: String((page - 1) * COMMUNITY_PAGE_SIZE),
     });
     if (commentId) q.set("commentId", commentId);
+    if (qParam) q.set("q", qParam);
     if (postId) q.set("postId", postId);
     if (topicSlug) q.set("topicSlug", topicSlug);
     if (userId) q.set("userId", userId);
@@ -161,13 +165,17 @@ export function AdminCommunityCommentsPage() {
       }
     }
     return q.toString();
-  }, [commentId, postId, topicSlug, userId, tab, typeFilter, period, from, to, page]);
+  }, [commentId, qParam, postId, topicSlug, userId, tab, typeFilter, period, from, to, page]);
 
   useEffect(() => {
     let cancel = false;
     setLoading(true);
     void (async () => {
-      const r = await communityJsonFetch<{ comments?: CommunityCommentRow[]; topicFilterTruncated?: boolean }>(
+      const r = await communityJsonFetch<{
+        comments?: CommunityCommentRow[];
+        total?: number | null;
+        topicFilterTruncated?: boolean;
+      }>(
         `/api/admin/community/engine/comments?${apiQuery}`
       );
       if (cancel) return;
@@ -175,12 +183,14 @@ export function AdminCommunityCommentsPage() {
         setLoadErr({ code: r.code, status: r.status });
         setRows([]);
         setHasMore(false);
+        setTotal(null);
         setTopicFilterTruncated(false);
       } else {
         const list = r.json.comments ?? [];
         setLoadErr(null);
         setRows(list);
         setHasMore(list.length >= COMMUNITY_PAGE_SIZE);
+        setTotal(typeof r.json.total === "number" ? r.json.total : null);
         setTopicFilterTruncated(r.json.topicFilterTruncated === true);
       }
       setLoading(false);
@@ -251,6 +261,13 @@ export function AdminCommunityCommentsPage() {
 
   const filters = (
     <>
+      <CommunityFilterField label={tr("admin_community_comments_search_label")}>
+        <CommunitySearchInput
+          value={qParam}
+          placeholder={tr("admin_community_comments_search_placeholder")}
+          onCommit={(v) => set({ q: v })}
+        />
+      </CommunityFilterField>
       <CommunityFilterField label="카테고리">
         <CommunitySelect
           value={topicSlug}
@@ -278,6 +295,11 @@ export function AdminCommunityCommentsPage() {
       {userId ? chip(`작성자: ${authorChip}`, () => set({ userId: null })) : null}
       {commentId ? chip("특정 댓글 1건만 보기", () => set({ commentId: null })) : null}
       {hasFilters ? <CommunityResetFilters onReset={() => reset(["tab"])} /> : null}
+      {!loading && !loadErr && typeof total === "number" ? (
+        <span className="pb-1.5 text-[12px] font-semibold text-sam-fg" data-community-list-total={total}>
+          {tr("admin_community_list_total", { count: total.toLocaleString() })}
+        </span>
+      ) : null}
     </>
   );
 
@@ -482,7 +504,7 @@ export function AdminCommunityCommentsPage() {
         }
         tabs={
           <CommunityTabs
-            tabs={TABS.map((t) => ({ ...t }))}
+            tabs={TABS.map((t) => ({ ...t, count: t.value === tab && !commentId && !loading && !loadErr ? total : null }))}
             value={tab}
             onChange={(v) => set({ tab: v, status: null, reported: null })}
           />
@@ -509,7 +531,7 @@ export function AdminCommunityCommentsPage() {
             <CommunityPagination
               page={page}
               pageSize={COMMUNITY_PAGE_SIZE}
-              total={hasMore ? null : (page - 1) * COMMUNITY_PAGE_SIZE + rows.length}
+              total={total ?? (hasMore ? null : (page - 1) * COMMUNITY_PAGE_SIZE + rows.length)}
               onPage={(p) => set({ page: p > 1 ? p : null }, { keepPage: true })}
             />
           ) : null

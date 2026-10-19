@@ -12,6 +12,10 @@ import {
   businessOpsOpenLabelKey,
   presentStoreOpenKind,
 } from "../lib/admin-business/business-ops-presentation";
+import { assertQaWriteTarget } from "./lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 function env(name: string): string {
   const v = process.env[name]?.trim() ?? "";

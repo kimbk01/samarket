@@ -109,12 +109,27 @@ export function AdminCommunityPointPoliciesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...full, reason: c.reason }),
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        audit_warning?: string;
+      };
       if (!res.ok || json.ok !== true) {
-        setResult({ ok: false, code: res.status === 403 ? "forbidden" : "save_failed" });
+        setResult({ ok: false, code: json.error || (res.status === 403 ? "forbidden" : "save_failed") });
         return false;
       }
-      setResult({ ok: true, message: ko ? `「${label}」 정책을 저장했습니다.` : `Saved "${label}".` });
+      const saved = ko ? `「${label}」 정책을 저장했습니다.` : `Saved "${label}".`;
+      setResult({
+        ok: true,
+        message:
+          json.audit_warning === "audit_failed"
+            ? `${saved} ${
+                ko
+                  ? "단, 작업 기록 저장에 실패했습니다. 시스템 관리자에게 알려 주세요."
+                  : "However, the activity log could not be saved. Tell a system admin."
+              }`
+            : saved,
+      });
       refreshAll();
       return true;
     } catch {

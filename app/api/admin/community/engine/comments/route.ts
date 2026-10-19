@@ -8,6 +8,14 @@ import {
 } from "@/lib/admin-community/member-identity";
 import { communityAdminStartOfTodayIso } from "@/lib/admin-community/home-summary";
 import { resolveCommunityCommentRowKind } from "@/lib/community-feed/community-report-display-target";
+import {
+  COMMENT_STATUSES,
+  COMMUNITY_LIST_PROFILE_MATCH_LIMIT,
+  buildCommunitySearchOr,
+  parseCommunityListPage,
+  parseCommunityListSearch,
+  pickAllowed,
+} from "@/lib/admin/community-admin/community-list-query";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +25,9 @@ export const dynamic = "force-dynamic";
  * Authority: community_comments only (not trade `comments`).
  * Supports commentId locator, type (comment|reply), reported filter.
  * Known: topic filter IN≤500 — preserved P2/PERF, not fixed here.
+ * q: 댓글 내용 ilike · 작성자 닉네임(→ user id) · UUID 면 댓글 id/post_id/user_id 정확 일치.
+ * status=active|hidden|deleted · limit(기본 50, 최대 200) · offset
+ * → { ok, comments, total, limit, offset, topicFilterTruncated }
  */
 export async function GET(req: NextRequest) {
   const admin = await requireCommunityAdmin("content");
@@ -27,7 +38,8 @@ export async function GET(req: NextRequest) {
   const postId = sp.get("postId")?.trim() || "";
   const topicSlug = sp.get("topicSlug")?.trim().toLowerCase() || "";
   const userId = sp.get("userId")?.trim() || "";
-  const status = sp.get("status")?.trim() || "";
+  const status = pickAllowed(sp.get("status"), COMMENT_STATUSES);
+  const search = parseCommunityListSearch(sp.get("q"));
   const period = sp.get("period")?.trim().toLowerCase() || "";
   const typeFilter = sp.get("type")?.trim().toLowerCase() || "";
   const reportedFilter = sp.get("reported")?.trim().toLowerCase() || "";
@@ -36,8 +48,9 @@ export async function GET(req: NextRequest) {
   if (period === "today" && !createdFrom) {
     createdFrom = communityAdminStartOfTodayIso();
   }
-  const limit = Math.min(Math.max(parseInt(sp.get("limit") ?? "50", 10) || 50, 1), 100);
-  const offset = Math.min(Math.max(parseInt(sp.get("offset") ?? "0", 10) || 0, 0), 10_000);
+  const { limit, offset } = parseCommunityListPage(sp);
+  const empty = () =>
+    NextResponse.json({ ok: true, comments: [], total: 0, limit, offset, topicFilterTruncated: false });
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -57,7 +70,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
     }
     if (!postIdsForTopic.length) {
-      return NextResponse.json({ ok: true, comments: [], topicFilterTruncated: false });
+      return empty();
     }
   }
 
@@ -79,14 +92,27 @@ export async function GET(req: NextRequest) {
       ),
     ];
     if (!reportedCommentIds.length) {
-      return NextResponse.json({ ok: true, comments: [], topicFilterTruncated: false });
+      return empty();
     }
+  }
+
+  // 작성자 닉네임 검색 → profiles id 후보
+  let matchedAuthorIds: string[] = [];
+  if (!commentId && search.pattern && !search.uuid) {
+    const { data: profs, error: pErr } = await sb
+      .from("profiles")
+      .select("id")
+      .ilike("nickname", search.pattern)
+      .limit(COMMUNITY_LIST_PROFILE_MATCH_LIMIT);
+    if (pErr) return NextResponse.json({ ok: false, error: pErr.message }, { status: 500 });
+    matchedAuthorIds = ((profs ?? []) as Array<{ id?: string }>).map((p) => String(p.id ?? "")).filter(Boolean);
   }
 
   let q = sb
     .from("community_comments")
     .select(
-      "id, post_id, parent_id, user_id, content, status, like_count, is_hidden, is_deleted, created_at, updated_at"
+      "id, post_id, parent_id, user_id, content, status, like_count, is_hidden, is_deleted, created_at, updated_at",
+      { count: "exact" }
     )
     .order("created_at", { ascending: false });
 
@@ -104,7 +130,7 @@ export async function GET(req: NextRequest) {
       }
     }
     if (userId) q = q.eq("user_id", userId);
-    if (status && ["active", "hidden", "deleted"].includes(status)) q = q.eq("status", status);
+    if (status) q = q.eq("status", status);
     if (createdFrom) q = q.gte("created_at", createdFrom);
     if (createdTo) q = q.lte("created_at", createdTo);
     if (typeFilter === "comment") q = q.is("parent_id", null);
@@ -116,9 +142,17 @@ export async function GET(req: NextRequest) {
         q = q.in("id", reportedCommentIds.slice(0, 500));
       }
     }
+    const searchOr = buildCommunitySearchOr({
+      search,
+      textColumns: ["content"],
+      userColumn: "user_id",
+      matchedUserIds: matchedAuthorIds,
+      uuidColumns: ["id", "post_id", "user_id"],
+    });
+    if (searchOr) q = q.or(searchOr);
   }
 
-  const { data, error } = await q;
+  const { data, error, count } = await q;
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
@@ -215,6 +249,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     comments,
+    total: typeof count === "number" ? count : null,
+    limit,
+    offset,
     topicFilterTruncated: topicFilterTruncated || false,
   });
 }

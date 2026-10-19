@@ -5,10 +5,16 @@
 import { appendFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { resolveQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 const url = process.env.STAGING_SUPABASE_URL || "";
 const key = process.env.STAGING_SERVICE_ROLE_KEY || "";
-if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(url)) throw new Error(`refusing non-local DB: ${url}`);
+// C-48: classify by the URL host (shared F-13 resolver), loopback only — a prefix regex let
+// `http://localhost@<ref>.supabase.co` through.
+const target = resolveQaWriteTarget({ NEXT_PUBLIC_SUPABASE_URL: url });
+if (!target.ok || target.target !== "loopback") {
+  throw new Error(`refusing non-local DB: ${url} (${target.ok ? target.target : target.reason})`);
+}
 const sb = createClient(url, key, { auth: { persistSession: false } });
 
 const email = "bplus-ui-admin@staging.local";

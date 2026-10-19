@@ -1,6 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ensureE2eUserSession, playwrightOriginFromEnv } from "./helpers/playwright-origin-and-session";
 import { setAppLanguageOnPage } from "./helpers/i18n-set-app-language";
+import { assertPlaywrightMutationTargetNonProduction } from "../helpers/assert-non-production-db-target";
+
+// C-48: this spec mutates through the app — refuse the Production app host and any app whose
+// Supabase URL host is a Production project ref / unverifiable (by URL host, not env var name).
+test.beforeAll(() => assertPlaywrightMutationTargetNonProduction());
 
 const REJECT_BTN = /^(거절|Reject)$/i;
 const ACCEPT_BTN = /^(응답|수락|Accept)$/i;

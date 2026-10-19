@@ -7,6 +7,7 @@
  */
 import Link from "next/link";
 import { useMemo } from "react";
+import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-page";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   COMMUNITY_TD,
@@ -80,7 +81,7 @@ type CaseRow = {
   created_at: string;
 };
 
-type ListResponse = { ok?: boolean; error?: string; cases?: CaseRow[] };
+type ListResponse = { ok?: boolean; error?: string; cases?: CaseRow[]; total?: number; limit?: number; offset?: number };
 
 export function AdminCommunitySupportPage() {
   const { safeT } = useI18n();
@@ -95,9 +96,12 @@ export function AdminCommunitySupportPage() {
     params.set("reference_type", q.get("reference_type"));
     params.set("reference_id", q.get("reference_id"));
   }
+  // Server-side pagination — `total` 은 현재 필터 기준 정확한 건수.
+  params.set("limit", String(PAGE_SIZE));
+  params.set("offset", String(adminListOffsetForPage(q.page, PAGE_SIZE)));
   const { state, reload } = useCommunityAdminJson<ListResponse>(`/api/admin/support/cases?${params.toString()}`);
-  const all = useMemo(() => (state.status === "ok" ? state.data.cases ?? [] : []), [state]);
-  const rows = all.slice((q.page - 1) * PAGE_SIZE, q.page * PAGE_SIZE);
+  const rows = useMemo(() => (state.status === "ok" ? state.data.cases ?? [] : []), [state]);
+  const total = state.status === "ok" ? state.data.total ?? rows.length : 0;
 
   return (
     <CommunityListShell
@@ -152,8 +156,8 @@ export function AdminCommunitySupportPage() {
         </>
       }
       footer={
-        state.status === "ok" && all.length > 0 ? (
-          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={all.length} onPage={(p) => q.set({ page: p })} />
+        state.status === "ok" && (total > 0 || q.page > 1) ? (
+          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
         ) : null
       }
     >

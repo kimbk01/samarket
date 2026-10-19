@@ -762,7 +762,10 @@ export type AdminSupportListQuery = {
   scope?: SupportCaseScope;
   /** 이의신청만 (`?type=appeal`) */
   kind?: SupportCaseKind;
+  /** Page size (1..200, default 50). */
   limit?: number;
+  /** Row offset for server-side pagination (default 0). */
+  offset?: number;
 };
 
 /** Strip characters that would break a PostgREST `or()` expression. */
@@ -773,17 +776,22 @@ function sanitizeSearchToken(raw: string): string {
 export async function listSupportCasesForAdmin(
   sb: SupabaseClient,
   input: AdminSupportListQuery
-): Promise<{ ok: true; cases: SupportCaseRow[] } | { ok: false; error: string }> {
-  const limit = Math.min(Math.max(input.limit ?? 100, 1), 200);
+): Promise<
+  | { ok: true; cases: SupportCaseRow[]; total: number; limit: number; offset: number }
+  | { ok: false; error: string }
+> {
+  const limit = Math.min(Math.max(Math.floor(input.limit ?? 50), 1), 200);
+  const offset = Math.max(Math.floor(input.offset ?? 0), 0);
   const tab = input.tab ?? null;
   const actionableOldestFirst = tab
     ? tab === "ACTIONABLE"
     : input.filter === "ACTIONABLE" || input.filter === "WAITING_ADMIN" || input.filter === "UNASSIGNED";
   let query = sb
     .from("support_cases")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("last_message_at", { ascending: actionableOldestFirst })
-    .limit(limit);
+    .order("id", { ascending: true })
+    .range(offset, offset + limit - 1);
 
   if (tab) {
     const statuses = ADMIN_SUPPORT_TAB_STATUSES[tab];
@@ -868,12 +876,13 @@ export async function listSupportCasesForAdmin(
     }
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) {
     if (isMissingSupportTable(error.message ?? "")) return { ok: false, error: "missing_table" };
     return { ok: false, error: error.message };
   }
-  return { ok: true, cases: (data ?? []) as SupportCaseRow[] };
+  const cases = (data ?? []) as SupportCaseRow[];
+  return { ok: true, cases, total: count ?? offset + cases.length, limit, offset };
 }
 
 /** Console tab badges — global per-status counts (independent of secondary filters). */
