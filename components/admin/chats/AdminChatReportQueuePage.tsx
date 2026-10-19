@@ -29,6 +29,7 @@ import {
   buildChatReportQueueSearch,
   chatReportQueueAscending,
   CHAT_REPORT_QUEUE_DEFAULT_LIMIT,
+  CHAT_REPORT_ROOM_DOMAINS,
   CHAT_REPORT_SOURCES,
   CHAT_REPORT_STATUS_FILTERS,
   parseChatReportQueueQuery,
@@ -125,6 +126,7 @@ export function AdminChatReportQueuePage() {
     if (query.target) sp.set("target", query.target);
     if (query.q) sp.set("q", query.q);
     if (query.sort) sp.set("sort", query.sort);
+    if (query.domain) sp.set("domain", query.domain);
     if (query.cursor) sp.set("cursor", query.cursor);
     sp.set("limit", String(CHAT_REPORT_QUEUE_DEFAULT_LIMIT));
     return `?${sp.toString()}`;
@@ -179,7 +181,9 @@ export function AdminChatReportQueuePage() {
     navigate({ q: searchDraft });
   };
 
-  const filtered = Boolean(query.q || query.target || query.source !== "all" || query.status !== "open" || query.sort);
+  const filtered = Boolean(
+    query.q || query.target || query.source !== "all" || query.status !== "open" || query.sort || query.domain
+  );
 
   return (
     <div className="space-y-4 p-4 md:p-6" data-admin-chat-report-queue="1">
@@ -223,6 +227,19 @@ export function AdminChatReportQueuePage() {
           ))}
         </select>
         <select
+          value={query.domain}
+          onChange={(e) => navigate({ domain: e.target.value as ChatReportQueueQuery["domain"] })}
+          className={INPUT}
+          aria-label={t("admin_chat_reports_filter_domain")}
+        >
+          <option value="">{t("admin_chat_rooms_filter_type_all")}</option>
+          {CHAT_REPORT_ROOM_DOMAINS.map((d) => (
+            <option key={d} value={d}>
+              {adminChatLabel("chat_domain", d, ko).label}
+            </option>
+          ))}
+        </select>
+        <select
           value={asc ? "oldest" : "newest"}
           onChange={(e) => navigate({ sort: e.target.value === "oldest" ? "oldest" : "newest" })}
           className={INPUT}
@@ -235,7 +252,7 @@ export function AdminChatReportQueuePage() {
           {filtered ? (
             <AdminActionButton
               variant="ghost"
-              onClick={() => navigate({ q: "", target: "", source: "all", status: "open", sort: "" })}
+              onClick={() => navigate({ q: "", target: "", source: "all", status: "open", sort: "", domain: "" })}
             >
               {t("admin_chat_list_clear_filters")}
             </AdminActionButton>

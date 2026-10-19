@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -315,8 +316,8 @@ export function AdminCommunityMessengerPage() {
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-3">
-        <StatCard label={t("admin_cm_stat_active_calls")} value={data?.stats.activeCallSessions ?? 0} helper={ko ? "연결 중 + 통화 중" : "Ringing + in call"} />
-        <StatCard label={t("admin_cm_stat_active_group_calls")} value={data?.stats.activeGroupCallSessions ?? 0} helper={ko ? "그룹 통화 세션" : "Group call sessions"} />
+        <StatCard label={t("admin_cm_stat_active_calls")} value={data?.stats.activeCallSessions ?? 0} helper={t("admin_chat_calls_stat_active_helper")} />
+        <StatCard label={t("admin_cm_stat_active_group_calls")} value={data?.stats.activeGroupCallSessions ?? 0} helper={t("admin_chat_calls_stat_group_helper")} />
         <StatCard label={t("admin_cm_stat_force_end_total")} value={data?.stats.forceEndTotal ?? 0} helper={t("admin_cm_stat_force_end_total_helper")} />
       </div>
 
@@ -344,16 +345,15 @@ export function AdminCommunityMessengerPage() {
             <option value="7d">{t("admin_cm_period_7d")}</option>
             <option value="30d">{t("admin_cm_period_30d")}</option>
           </select>
-          <button
-            type="button"
+          <AdminActionButton
+            variant="ghost"
             onClick={() => {
               setForceEndReasonFilter("");
               setForceEndAnalysisPeriodFilter("");
             }}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
           >
             {t("admin_cm_filter_reset")}
-          </button>
+          </AdminActionButton>
           <div className="flex items-center sam-text-helper text-sam-muted">{t("admin_cm_common_analysis_target", { count: filteredAnalyticsAudits.length })}</div>
         </div>
       </AdminCard>

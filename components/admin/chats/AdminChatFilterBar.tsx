@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
 import {
   ROOM_STATUS_OPTIONS,
   type AdminChatFilters,
@@ -25,7 +27,8 @@ export function AdminChatFilterBar({
   onFiltersChange,
   onSearchChange,
 }: AdminChatFilterBarProps) {
-  const { t, tt } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [draft, setDraft] = useState(searchQuery);
   useEffect(() => {
     setDraft(searchQuery);
@@ -48,7 +51,7 @@ export function AdminChatFilterBar({
       >
         {ROOM_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {tt(o.label)}
+            {o.value ? adminChatLabel("room_status", o.value, ko).label : t("admin_chat_rooms_filter_status_all")}
           </option>
         ))}
       </select>
@@ -68,12 +71,9 @@ export function AdminChatFilterBar({
         onChange={(e) => setDraft(e.target.value)}
         className="min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
       />
-      <button
-        type="submit"
-        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
-      >
-        {tt("검색")}
-      </button>
+      <AdminActionButton type="submit" variant="primary">
+        {t("admin_chat_list_search")}
+      </AdminActionButton>
     </form>
   );
 }

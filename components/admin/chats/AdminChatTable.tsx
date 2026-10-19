@@ -1,5 +1,6 @@
 "use client";
 
+import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -153,7 +154,7 @@ export function AdminChatTable({
               <td className="px-3 py-2.5 text-center sam-text-body-secondary">
                 {r.reportCount > 0 ? (
                   <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
-                    {language === "en" ? `${r.reportCount}` : `${r.reportCount}건`}
+                    {t("admin_chat_table_report_count", { count: r.reportCount })}
                   </span>
                 ) : (
                   <span className="text-sam-meta">—</span>
@@ -162,7 +163,7 @@ export function AdminChatTable({
               <td className="px-3 py-2.5 text-center sam-text-body-secondary">
                 {r.roomStatus === "blocked" ? (
                   <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">
-                    {language === "en" ? "Blocked" : "차단"}
+                    {adminChatLabel("room_status", "blocked", language !== "en").label}
                   </span>
                 ) : (
                   <span className="text-sam-meta">—</span>

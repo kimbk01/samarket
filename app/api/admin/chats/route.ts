@@ -24,7 +24,7 @@ const MESSAGE_COUNT_BATCH = 25;
 /**
  * 관리자 채팅 목록 (서비스 롤) — 관리자 세션
  */
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
   const admin = await requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
   if (!admin.ok) return admin.response;
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
@@ -38,8 +38,10 @@ export async function POST(_req: NextRequest) {
     ? createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } })
     : anon;
   const sb = supabase as import("@supabase/supabase-js").SupabaseClient<any>;
+  // 레거시 거래 기록(설계 §3-6): CM FK 없는 행만 — 최신 N건 상한에 오래된 레거시 방이 빠지지 않게.
+  const body = (await req.json().catch(() => ({}))) as { legacyOnly?: boolean };
 
-  const { data: rooms, error: roomErr } = await sb
+  let roomQuery = sb
     .from("product_chats")
     .select(`
       id,
@@ -53,6 +55,8 @@ export async function POST(_req: NextRequest) {
     `)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(ADMIN_LEGACY_PRODUCT_CHAT_LIST_LIMIT);
+  if (body.legacyOnly === true) roomQuery = roomQuery.is("community_messenger_room_id", null);
+  const { data: rooms, error: roomErr } = await roomQuery;
 
   if (roomErr) {
     return NextResponse.json(

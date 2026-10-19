@@ -1,5 +1,6 @@
 "use client";
 
+import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useCallback, useState, useEffect } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -499,8 +500,9 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             <p className="sam-text-body-secondary text-sam-muted">ID: {room.id}</p>
             {room.roomType ? (
               <p className="sam-text-helper text-signature">
-                {t("admin_chat_type_label")}: {room.roomType}
-                {room.contextType ? ` · ${room.contextType}` : ""}
+                {/* 원시 room_type/context_type 은 기술 정보로만 (상태 라벨 레지스트리 규칙) */}
+                {t("admin_chat_type_label")}:{" "}
+                {room.roomType === "item_trade" ? t("admin_chat_r1b_domain_trade") : t("admin_trade_label_unknown")}
               </p>
             ) : null}
             {room.roomType === "meeting_open_chat" && room.meetingId ? (
@@ -663,7 +665,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
               <li key={s.id} className="flex justify-between border-b border-sam-border-soft py-2">
                 <span className="text-sam-fg">{s.sanction_type}</span>
                 <span className="text-sam-muted">
-                  {new Date(s.created_at).toLocaleString("ko-KR")}
+                  {formatAdminDateTime(s.created_at, language)}
                 </span>
               </li>
             ))}

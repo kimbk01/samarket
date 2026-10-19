@@ -145,6 +145,9 @@ export function mergeChatReportQueuePage(
 
 // ── URL 상태 ──────────────────────────────────────────────
 
+export const CHAT_REPORT_ROOM_DOMAINS = ["trade", "store_order", "general_direct", "group"] as const;
+export type ChatReportRoomDomain = (typeof CHAT_REPORT_ROOM_DOMAINS)[number];
+
 export type ChatReportQueueQuery = {
   source: ChatReportSourceFilter;
   status: ChatReportStatusFilter;
@@ -154,6 +157,8 @@ export type ChatReportQueueQuery = {
   q: string;
   /** "" = 기본(처리 대기 계열은 오래된 순, 그 외 최신 순) · oldest · newest */
   sort: "" | "oldest" | "newest";
+  /** 방 유형 (설계 §3-2) — "" = 전체. 거래 채팅(레거시)·거래 신고는 거래 유형에만 속한다. */
+  domain: "" | ChatReportRoomDomain;
   cursor: string;
 };
 
@@ -185,6 +190,9 @@ export function parseChatReportQueueQuery(sp: SearchLike): ChatReportQueueQuery 
     target: isAdminUuid(target) ? target.toLowerCase() : "",
     q: sanitizeAdminSearchTerm(sp.get("q")),
     sort: sp.get("sort") === "oldest" ? "oldest" : sp.get("sort") === "newest" ? "newest" : "",
+    domain: (CHAT_REPORT_ROOM_DOMAINS as readonly string[]).includes(String(sp.get("domain") ?? ""))
+      ? (sp.get("domain") as ChatReportRoomDomain)
+      : "",
     cursor: decodeAdminKeysetCursor(sp.get("cursor")) ? (sp.get("cursor") ?? "").trim() : "",
   };
 }
@@ -197,11 +205,17 @@ export function buildChatReportQueueSearch(q: Partial<ChatReportQueueQuery>): st
   if (q.target) sp.set("target", q.target);
   if (q.q) sp.set("q", q.q);
   if (q.sort) sp.set("sort", q.sort);
+  if (q.domain) sp.set("domain", q.domain);
   if (q.cursor) sp.set("cursor", q.cursor);
   const s = sp.toString();
   return s ? `?${s}` : "";
 }
 
-export function chatReportSourcesFor(filter: ChatReportSourceFilter): ChatReportSource[] {
-  return filter === "all" ? [...CHAT_REPORT_SOURCES] : [filter];
+export function chatReportSourcesFor(
+  filter: ChatReportSourceFilter,
+  domain: ChatReportQueueQuery["domain"] = ""
+): ChatReportSource[] {
+  const base = filter === "all" ? [...CHAT_REPORT_SOURCES] : [filter];
+  // 레거시 거래 채팅 신고·통합 거래 신고는 거래 방에만 있다 — 다른 방 유형이면 메신저 신고만.
+  return domain && domain !== "trade" ? base.filter((s) => s === "messenger") : base;
 }

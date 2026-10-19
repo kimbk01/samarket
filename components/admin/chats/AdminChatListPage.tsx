@@ -223,7 +223,20 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       let anySourceOk = false;
       const hollowMode = mode === "business" || mode === "community" || mode === "group";
 
-      if (mode === "trade" || mode === "trade_legacy") {
+      if (mode === "trade_legacy") {
+        // 설계 §3-6: 서버 단일 판정(`/api/admin/chats/trade-legacy`)의 방만 — 안내 줄 건수와 같은 기준.
+        const [a, b, legacy] = await Promise.all([
+          settleRooms(fetchAdminChatRoomsApi({ legacyOnly: true })),
+          settleRooms(fetchAdminChatRoomsListApi({ roomType: "item_trade", legacyOnly: true })),
+          fetch("/api/admin/chats/trade-legacy", { cache: "no-store" })
+            .then((r) => r.json())
+            .catch(() => null) as Promise<{ ok?: boolean; productChatIds?: string[]; chatRoomIds?: string[] } | null>,
+        ]);
+        const keep = new Set([...(legacy?.productChatIds ?? []), ...(legacy?.chatRoomIds ?? [])]);
+        fromProductChats = a.rows.filter((r) => keep.has(r.id));
+        fromChatRooms = b.rows.filter((r) => keep.has(r.id));
+        anySourceOk = (a.ok || b.ok) && legacy?.ok === true;
+      } else if (mode === "trade") {
         const [a, b] = await Promise.all([
           settleRooms(fetchAdminChatRoomsApi()),
           settleRooms(fetchAdminChatRoomsListApi({ roomType: "item_trade" })),
@@ -252,14 +265,12 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         anySourceOk = a.ok || b.ok;
       }
 
-      const mergedAll = [...mergeChatRoomsForAdmin(fromProductChats, fromChatRooms)].filter(
-        // 레거시 기록: CM 방이 연결된 방은 채팅방 목록(CM)에서 본다.
-        (r) => mode !== "trade_legacy" || !r.messengerRoomId
-      );
+      const mergedAll = [...mergeChatRoomsForAdmin(fromProductChats, fromChatRooms)];
       /** Deep-link postId: keep rooms even without messages so listing→chat drill works. */
       const postFocus = mode === "trade" ? deepLink.postId : "";
       const merged = (
-        postFocus
+        // 레거시 기록은 서버 판정(메시지 있음 포함)을 그대로 — 안내 줄 건수와 행 수가 같아야 한다.
+        postFocus || mode === "trade_legacy"
           ? mergedAll
           : mergedAll.filter(
               (r) => (r.messageCount ?? 0) > 0 || (r.lastMessage ?? "").trim() !== ""
@@ -275,7 +286,10 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         setLoadFailed(false);
         return;
       }
-      if (mode === "all" || mode === "trade") {
+      if (mode === "trade_legacy") {
+        setRooms([]);
+        setLoadFailed(!anySourceOk);
+      } else if (mode === "all" || mode === "trade") {
         const db = await settleRooms(getAdminChatRoomsFromDb());
         if (cancelled) return;
         const list = mode === "trade" ? db.rows.filter((r) => r.roomType === "item_trade") : db.rows;
@@ -568,6 +582,11 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey={getTitleKey(mode)} />
+      {mode === "trade_legacy" && !loading && !loadFailed ? (
+        <p className="sam-text-body-secondary text-sam-muted" data-admin-trade-legacy-count={rooms.length}>
+          {t("admin_chat_trade_legacy_count", { count: rooms.length })}
+        </p>
+      ) : null}
       {deepLinkActive && deepLink.postId ? (
         <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
           <span className="text-sam-muted">
@@ -632,22 +651,15 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             })}
           </span>
           <span className="hidden sm:inline text-sam-meta">|</span>
-          <button
-            type="button"
+          <AdminActionButton
             disabled={visibleFiltered.length === 0 || actionBusy}
             onClick={() => handleToggleAllVisible(true)}
-            className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 font-medium text-sam-fg hover:bg-sam-app disabled:opacity-40"
           >
             {t("admin_chat_select_all_visible")}
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.size === 0 || actionBusy}
-            onClick={() => setSelectedIds(new Set())}
-            className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 font-medium text-sam-fg hover:bg-sam-app disabled:opacity-40"
-          >
+          </AdminActionButton>
+          <AdminActionButton disabled={selectedIds.size === 0 || actionBusy} onClick={() => setSelectedIds(new Set())}>
             {t("admin_chat_clear_selection")}
-          </button>
+          </AdminActionButton>
           <AdminActionButton
             variant="secondary"
             disabled={selectedIds.size === 0 || actionBusy}
@@ -713,25 +725,18 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       ) : null}
       {!loading && pageCount > 1 ? (
         <nav className="flex flex-wrap items-center gap-2 sam-text-body-secondary" data-admin-list-pager="page">
-          <button
-            type="button"
+          <AdminActionButton
             disabled={currentPage <= 1}
             onClick={() => updateUrl({ page: currentPage - 1 > 1 ? String(currentPage - 1) : null })}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 font-medium text-sam-fg disabled:opacity-40"
           >
-            {language === "en" ? "Previous" : "이전"}
-          </button>
+            {t("admin_chat_list_prev")}
+          </AdminActionButton>
           <span className="text-sam-muted">
             {currentPage} / {pageCount}
           </span>
-          <button
-            type="button"
-            disabled={currentPage >= pageCount}
-            onClick={() => updateUrl({ page: String(currentPage + 1) })}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 font-medium text-sam-fg disabled:opacity-40"
-          >
-            {language === "en" ? "Next" : "다음"}
-          </button>
+          <AdminActionButton disabled={currentPage >= pageCount} onClick={() => updateUrl({ page: String(currentPage + 1) })}>
+            {t("admin_chat_list_next")}
+          </AdminActionButton>
         </nav>
       ) : null}
     </div>

@@ -8,7 +8,10 @@
  */
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
@@ -48,6 +51,9 @@ const TAB_KEY: Record<AdminChatCallTab, MessageKey> = {
   audits: "admin_chat_calls_tab_audits",
 };
 
+/** 진행 중 탭 실시간 갱신 — 통화 세션 변경 묶음을 한 번의 조회로 (메신저 Admin 개요와 같은 디바운스). */
+const REALTIME_DEBOUNCE_MS = 900;
+
 const INPUT = "rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg";
 const TH = "px-3 py-2.5 text-left text-xs font-medium text-sam-muted";
 
@@ -75,13 +81,17 @@ export function AdminChatCallsPage() {
   const [forceEnd, setForceEnd] = useState<AdminChatCallRow | null>(null);
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  /** 실시간 갱신은 목록을 비우지 않고 조용히 다시 불러온다. */
+  const silentRef = useRef(false);
 
   useEffect(() => setSearchDraft(query.q), [query.q]);
 
   const apiSearch = buildAdminChatCallsSearch(query);
   useEffect(() => {
     let cancelled = false;
-    setState({ kind: "loading" });
+    const silent = silentRef.current;
+    silentRef.current = false;
+    if (!silent) setState({ kind: "loading" });
     (async () => {
       try {
         const sp = new URLSearchParams(apiSearch.startsWith("?") ? apiSearch.slice(1) : apiSearch);
@@ -90,19 +100,48 @@ export function AdminChatCallsPage() {
         const json = (await res.json().catch(() => null)) as (CallsPage & { ok?: boolean; error?: string }) | null;
         if (cancelled) return;
         if (!res.ok || !json?.ok) {
-          setState({ kind: "error", code: json?.error || "load_failed", httpStatus: res.status });
+          if (!silent) setState({ kind: "error", code: json?.error || "load_failed", httpStatus: res.status });
           return;
         }
         setNowMs(Date.now());
         setState({ kind: "ready", page: json });
       } catch {
-        if (!cancelled) setState({ kind: "error", code: "network_error" });
+        if (!cancelled && !silent) setState({ kind: "error", code: "network_error" });
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [apiSearch, query.tab, reloadToken]);
+
+  // 설계 §3-3: 진행 중 탭은 통화 세션·참여자 변경을 Realtime 으로 받아 조용히 갱신 (+ 「새로고침」).
+  useEffect(() => {
+    if (query.tab !== "active") return;
+    const sb = getSupabaseClient();
+    if (!sb) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        silentRef.current = true;
+        setReloadToken((n) => n + 1);
+      }, REALTIME_DEBOUNCE_MS);
+    };
+    const channel: RealtimeChannel = sb
+      .channel("admin-chat-calls-active", messengerPrivateBroadcastChannelOptions())
+      .on("postgres_changes", { event: "*", schema: "public", table: "community_messenger_call_sessions" }, schedule)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_messenger_call_session_participants" },
+        schedule
+      )
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      void sb.removeChannel(channel);
+    };
+  }, [query.tab]);
 
   const navigate = useCallback(
     (patch: Partial<AdminChatCallsQuery>, opts?: { trail?: string[] }) => {

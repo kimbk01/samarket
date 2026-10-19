@@ -29,7 +29,11 @@ import {
   supportIssueLabel,
   supportReferenceLabel,
 } from "@/lib/support/support-display-labels";
-import { resolveSupportCaseContextLinks } from "@/lib/support/support-reference-admin-href";
+import {
+  resolveSupportCaseContextLinks,
+  type SupportAdminContextLink,
+} from "@/lib/support/support-reference-admin-href";
+import { fetchAdminMeSnapshot, peekAdminMeSnapshot, type AdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 
 /**
  * Admin Support console (Owner-approved redesign 2026-10-05).
@@ -110,9 +114,28 @@ function Seg<T extends string>({
   );
 }
 
+/** 상담 바로가기 — 링크가 요구하는 권한이 있을 때만 연다 (super_admin 통과). */
+function supportLinkAllowed(link: SupportAdminContextLink, me: AdminMeSnapshot | null): boolean {
+  const need = link.requiredPermissions;
+  if (!need?.length) return true;
+  if (!me) return false;
+  if (me.role === "super_admin") return true;
+  return need.some((k) => me.permissions.includes(k));
+}
+
 function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const { safeT, language } = useI18n();
   const ko = language !== "en";
+  const [adminMe, setAdminMe] = useState<AdminMeSnapshot | null>(() => peekAdminMeSnapshot());
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAdminMeSnapshot().then((me) => {
+      if (!cancelled) setAdminMe(me);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const searchParams = useSearchParams();
   const initial = useMemo(() => {
     const tabParam = searchParams.get("tab")?.trim().toUpperCase() ?? "";
@@ -1002,13 +1025,19 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   referenceId: activeCase.reference_id,
                 }).map((link) => (
                   <li key={`${link.mutationOwner}:${link.href}`}>
-                    <Link
-                      href={link.href}
-                      className="text-xs font-semibold text-sam-primary underline underline-offset-2"
-                      data-admin-support-context-link={link.mutationOwner}
-                    >
-                      {ko ? link.labelKo : link.labelEn}
-                    </Link>
+                    {supportLinkAllowed(link, adminMe) ? (
+                      <Link
+                        href={link.href}
+                        className="text-xs font-semibold text-sam-primary underline underline-offset-2"
+                        data-admin-support-context-link={link.mutationOwner}
+                      >
+                        {ko ? link.labelKo : link.labelEn}
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-sam-muted" data-admin-support-context-link-locked={link.mutationOwner}>
+                        {ko ? `${link.labelKo} — 권한 필요` : `${link.labelEn} — permission required`}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

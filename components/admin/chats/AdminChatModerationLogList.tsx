@@ -1,5 +1,6 @@
 "use client";
 
+import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { ChatModerationLog } from "@/lib/types/admin-chat";
@@ -24,7 +25,7 @@ interface AdminChatModerationLogListProps {
 }
 
 export function AdminChatModerationLogList({ logs }: AdminChatModerationLogListProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   if (logs.length === 0) {
     return (
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_chat_no_action_history")}</p>
@@ -46,7 +47,7 @@ export function AdminChatModerationLogList({ logs }: AdminChatModerationLogListP
               : log.actionType}
           </span>
           <span className="text-sam-muted">
-            {new Date(log.createdAt).toLocaleString("ko-KR")}
+            {formatAdminDateTime(log.createdAt, language)}
           </span>
           <span className="text-sam-muted">· {log.adminNickname}</span>
           {log.note && (

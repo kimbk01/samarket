@@ -5,11 +5,11 @@ import type { AdminChatRoom, RoomStatus } from "@/lib/types/admin-chat";
 /**
  * 관리자 채팅 목록 — 서버 API (product_chats 기반)
  */
-export async function fetchAdminChatRoomsApi(): Promise<AdminChatRoom[]> {
+export async function fetchAdminChatRoomsApi(options?: { legacyOnly?: boolean }): Promise<AdminChatRoom[]> {
   const res = await fetch("/api/admin/chats", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify(options?.legacyOnly ? { legacyOnly: true } : {}),
   });
   /** ADMIN-07 — HTTP non-2xx must reject; 2xx + empty resolves []. */
   if (!res.ok) {
@@ -23,6 +23,8 @@ export interface FetchAdminChatRoomsListOptions {
   roomType?: "item_trade";
   contextType?: string;
   hasReport?: boolean;
+  /** CM FK 없는 레거시 전용 방만 (레거시 거래 기록) */
+  legacyOnly?: boolean;
 }
 
 /**
@@ -36,6 +38,7 @@ export async function fetchAdminChatRoomsListApi(
   if (options?.roomType) params.set("roomType", options.roomType);
   if (options?.contextType) params.set("contextType", options.contextType);
   if (options?.hasReport === true) params.set("hasReport", "true");
+  if (options?.legacyOnly === true) params.set("legacyOnly", "1");
   const res = await fetch(`/api/admin/chat/rooms?${params.toString()}`, {
     cache: "no-store",
     headers: { "Cache-Control": "no-store" },
