@@ -17,7 +17,6 @@ import {
   CommunityResetFilters,
   CommunityTable,
   CommunityTabs,
-  communitySheetFetch,
   useCommunityQueryState,
   type CommunitySheetResult,
   type CommunitySheetSettle,

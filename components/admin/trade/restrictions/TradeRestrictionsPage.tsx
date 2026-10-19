@@ -78,7 +78,8 @@ export function tradeSanctionKindLabel(kind: string | null | undefined): string 
 }
 
 export function tradeSanctionStatusOf(r: Rec): "active" | "expired" | "revoked" {
-  if (r.status === "active" || r.status === "expired" || r.status === "revoked") return r.status;
+  const st = s(r.status);
+  if (st === "active" || st === "expired" || st === "revoked") return st;
   if (r.revoked_at) return "revoked";
   if (r.end_at && Date.parse(s(r.end_at)) <= Date.now()) return "expired";
   return "active";
