@@ -31,8 +31,7 @@ import {
   NotificationInboxLoadError,
 } from "@/lib/notifications/inbox-events-merge";
 import { loadMemberNotificationAUnreadCount } from "@/lib/notifications/badge-authority-rebuild/load-member-notification-a-authority";
-import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
-import { buildNotificationCenterTabUnreadCounts } from "@/lib/notifications/notification-center-tab-unread";
+import { buildServerNotificationCenterTabUnreadCounts } from "@/lib/notifications/inbox-read-bridge";
 import {
   clearChatInboxTargetsAfterMarkAll,
   markChatNotificationEventsRead,
@@ -382,13 +381,10 @@ export async function GET(req: NextRequest) {
       }
       throw e;
     }
-    const counts = buildNotificationCenterTabUnreadCounts({
-      memberRows: filterMemberNotificationAInboxRows(unreadRows),
-    });
     const allUnread = await loadMemberNotificationAUnreadCount(sbx, inboxUserId);
     return NextResponse.json({
       ok: true,
-      tab_unread_counts: { ...counts, all: allUnread, unread: allUnread },
+      tab_unread_counts: buildServerNotificationCenterTabUnreadCounts(unreadRows, allUnread),
     });
   }
 

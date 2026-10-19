@@ -26,8 +26,8 @@ describe("INAPP-02 — per-tab unread digits are computed on the server over eve
     const route = read("app/api/me/notifications/route.ts");
     expect(route).toContain('searchParams.get("tab_unread_counts") === "1"');
     expect(route).toMatch(/fetchUpper: INBOX_ELIGIBLE_FILL_SCAN_MAX,[\s\S]*?unreadOnly: true/);
-    expect(route).toContain("buildNotificationCenterTabUnreadCounts({");
-    expect(route).toContain("all: allUnread, unread: allUnread");
+    expect(route).toContain("buildServerNotificationCenterTabUnreadCounts(unreadRows, allUnread)");
+    expect(route).not.toContain("member-notification-a-projection");
   });
 
   it("notification center uses the server counts instead of the first loaded page", () => {

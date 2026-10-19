@@ -16,6 +16,11 @@ import {
   clearNotificationTargetsAfterThreadRead,
   clearNotificationTargetsForLegacyInboxRow,
 } from "@/lib/notifications/notification-target-read-bridge";
+import {
+  buildNotificationCenterTabUnreadCounts,
+  type NotificationCenterTabUnreadCounts,
+} from "@/lib/notifications/notification-center-tab-unread";
+import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 import { legacyNotificationsSelect } from "@/lib/notifications/legacy-inbox-compatibility-adapter";
 
 export type PartitionInboxReadIdsResult = {
@@ -694,4 +699,19 @@ export async function clearChatInboxTargetsAfterMarkAll(
     mapNotificationEventToInboxRow(row as NotificationEventInboxSource)
   );
   await clearNotificationTargetsForInboxRows(sb, userId, mapped);
+}
+
+/**
+ * INAPP-02 — per-tab unread digits for the Notification Center, computed on the server over
+ * unread inbox rows. Same A filter as the list (canonical A unread only) + same tab classifier.
+ * Lives in the bridge so product routes never import the A projection foundation directly.
+ */
+export function buildServerNotificationCenterTabUnreadCounts(
+  unreadRows: readonly InboxNotificationRow[],
+  canonicalUnreadTotal: number
+): NotificationCenterTabUnreadCounts {
+  const counts = buildNotificationCenterTabUnreadCounts({
+    memberRows: filterMemberNotificationAInboxRows(unreadRows),
+  });
+  return { ...counts, all: canonicalUnreadTotal, unread: canonicalUnreadTotal };
 }
