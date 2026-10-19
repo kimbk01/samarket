@@ -27,9 +27,12 @@ import {
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
 import {
   fetchNotificationEventsForInbox,
+  INBOX_ELIGIBLE_FILL_SCAN_MAX,
   NotificationInboxLoadError,
 } from "@/lib/notifications/inbox-events-merge";
 import { loadMemberNotificationAUnreadCount } from "@/lib/notifications/badge-authority-rebuild/load-member-notification-a-authority";
+import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
+import { buildNotificationCenterTabUnreadCounts } from "@/lib/notifications/notification-center-tab-unread";
 import {
   clearChatInboxTargetsAfterMarkAll,
   markChatNotificationEventsRead,
@@ -359,6 +362,34 @@ export async function GET(req: NextRequest) {
       { ok: false, error: "snapshot_unavailable" },
       { status: 503 }
     );
+  }
+
+  // INAPP-02 — exact per-tab unread digits from the server (not the first loaded page).
+  // 전체 = canonical A unread authority; category digits = same classifier as the tab filter,
+  // over unread rows only (scan capped at INBOX_ELIGIBLE_FILL_SCAN_MAX).
+  if (!ownerStoreId && searchParams.get("tab_unread_counts") === "1") {
+    let unreadRows: Awaited<ReturnType<typeof fetchNotificationEventsForInbox>>;
+    try {
+      unreadRows = await fetchNotificationEventsForInbox(sbx, inboxUserId, {
+        fetchUpper: INBOX_ELIGIBLE_FILL_SCAN_MAX,
+        excludeOwnerList,
+        excludeChatMessageList,
+        unreadOnly: true,
+      });
+    } catch (e) {
+      if (e instanceof NotificationInboxLoadError) {
+        return NextResponse.json({ ok: false, error: "load_failed" }, { status: 503 });
+      }
+      throw e;
+    }
+    const counts = buildNotificationCenterTabUnreadCounts({
+      memberRows: filterMemberNotificationAInboxRows(unreadRows),
+    });
+    const allUnread = await loadMemberNotificationAUnreadCount(sbx, inboxUserId);
+    return NextResponse.json({
+      ok: true,
+      tab_unread_counts: { ...counts, all: allUnread, unread: allUnread },
+    });
   }
 
   const rawLimitParam = searchParams.get("limit");

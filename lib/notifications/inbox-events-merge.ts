@@ -565,6 +565,8 @@ export type FetchNotificationEventsForInboxOpts = {
   excludeOwnerList?: boolean;
   excludeChatMessageList?: boolean;
   ownerStoreId?: string;
+  /** INAPP-02 — scan unread rows only (read_at IS NULL) for exact per-tab unread counts. */
+  unreadOnly?: boolean;
 };
 
 /**
@@ -745,10 +747,12 @@ export async function fetchNotificationEventsForInbox(
 
   while (filled.length < target && offset < INBOX_ELIGIBLE_FILL_SCAN_MAX) {
     const batchSize = Math.min(INBOX_ELIGIBLE_FILL_BATCH, INBOX_ELIGIBLE_FILL_SCAN_MAX - offset);
-    const { data, error } = await sb
+    let query = sb
       .from("notification_events")
       .select("id, type, category, title, body, display_payload, read_at, created_at, dedupe_key, room_id")
-      .eq("user_id", uid)
+      .eq("user_id", uid);
+    if (opts.unreadOnly) query = query.is("read_at", null);
+    const { data, error } = await query
       .order("created_at", { ascending: false })
       .range(offset, offset + batchSize - 1);
 

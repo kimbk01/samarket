@@ -14,6 +14,10 @@ export const platformEventsUiMessages = {
     platform_event_board_always_on: "상시 진행",
     platform_event_board_ended_badge: "종료",
     platform_event_board_pinned: "고정",
+    admin_platform_event_list_archived: "보관됨",
+    admin_platform_event_list_category: "카테고리",
+    admin_platform_event_list_sort_order: "정렬",
+    admin_platform_event_list_thumbnail_missing: "게시판 썸네일 없음(대표 이미지 사용)",
   },
   en: {
     platform_event_detail_header: "Event",
@@ -30,5 +34,9 @@ export const platformEventsUiMessages = {
     platform_event_board_always_on: "Always on",
     platform_event_board_ended_badge: "Ended",
     platform_event_board_pinned: "Pinned",
+    admin_platform_event_list_archived: "Archived",
+    admin_platform_event_list_category: "Category",
+    admin_platform_event_list_sort_order: "Order",
+    admin_platform_event_list_thumbnail_missing: "No board thumbnail (hero image used)",
   },
 } as const;

@@ -24,7 +24,6 @@ import {
   type NotificationInboxTabKey,
 } from "@/components/notifications/NotificationInboxTabBar";
 import {
-  buildNotificationCenterTabUnreadCounts,
   EMPTY_NOTIFICATION_CENTER_TAB_UNREAD,
   type NotificationCenterCategoryKey,
   type NotificationCenterTabUnreadCounts,
@@ -200,18 +199,18 @@ export function MyNotificationsView({
   );
 
   const refreshTabCounts = useCallback(async (forceFetch = false) => {
+    void forceFetch;
     try {
-      const aRes = await fetchMeNotificationsListDeduped({
-        force: forceFetch,
-        pushKind: "all",
-        excludeChatMessages: true,
-        excludeOwnerStoreCommerce: true,
+      // INAPP-02 — server counts every unread row per tab (not only the first loaded page).
+      const res = await fetch("/api/me/notifications?tab_unread_counts=1", {
+        credentials: "include",
+        cache: "no-store",
       });
-      const aJson = aRes.json as { ok?: boolean; notifications?: Row[] };
-      const memberRows = filterMemberNotificationAInboxRows(
-        (aJson?.notifications ?? []) as Row[]
-      ) as Row[];
-      setTabCounts(buildNotificationCenterTabUnreadCounts({ memberRows }));
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        tab_unread_counts?: NotificationCenterTabUnreadCounts;
+      } | null;
+      if (res.ok && json?.ok && json.tab_unread_counts) setTabCounts(json.tab_unread_counts);
     } catch {
       /* keep last counts */
     }
