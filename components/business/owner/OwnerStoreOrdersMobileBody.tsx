@@ -66,6 +66,7 @@ export function OwnerStoreOrdersMobileBody({
   onCollapseTransient,
   deepLinkMissBanner = null,
   scrollToHighlightOrderId = "",
+  listFooter = null,
 }: {
   storeId: string;
   storeName: string;
@@ -75,6 +76,8 @@ export function OwnerStoreOrdersMobileBody({
   chatOrderId: string;
   summaryCounts: { pending: number; preparing: number; delivering: number; doneToday: number };
   deepLinkMissBanner?: ReactNode;
+  /** 목록 하단 — 완료·취소 탭의 「이전 주문 더 보기」 (ORD-05) */
+  listFooter?: ReactNode;
   /** 알림·대시보드 딥링크 — 목록 스크롤 영역에서 카드로 이동 */
   scrollToHighlightOrderId?: string;
   onTabHref: (tabId: StoreOrderTabId) => string;
@@ -466,6 +469,7 @@ export function OwnerStoreOrdersMobileBody({
               ))}
             </ul>
           )}
+          {listFooter}
         </div>
       </OwnerAdminPageScrollShell>
 

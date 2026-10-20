@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
+import { STORE_ORDER_AUTOMATION_FROM_ISO } from "@/lib/stores/store-order-lifecycle-automation";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { createStoreOrderEvent } from "@/lib/stores/store-order-events";
 import { notifyStoreOwnerAcceptReminder } from "@/lib/notifications/notify-store-commerce";
@@ -52,6 +53,7 @@ async function runReminders(req: Request) {
     .select("id, store_id, order_no, payment_amount, created_at, store_order_items(qty)")
     .eq("order_status", "pending")
     .eq("payment_status", "paid")
+    .gte("created_at", STORE_ORDER_AUTOMATION_FROM_ISO)
     .lte("created_at", nowIso)
     .order("created_at", { ascending: true })
     .limit(300);

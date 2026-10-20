@@ -28,7 +28,12 @@ import {
   mapRealtimeRecordToOrderDelivery,
   mergeRealtimeRecordIntoOrderDelivery,
 } from "@/lib/business/owner-store-order-delivery-row-rt";
-import { mergeOwnerStoreOrderListRows } from "@/lib/business/merge-owner-store-order-list-rows";
+import {
+  appendOwnerOrderHistoryRows,
+  mergeOwnerStoreOrderListRows,
+  ownerOrdersHistoryStartCursor,
+  retainOwnerOrderHistoryRows,
+} from "@/lib/business/merge-owner-store-order-list-rows";
 import {
   listRowToOwnerOrder,
   normalizeOwnerStoreOrderListRow,
@@ -82,7 +87,11 @@ import {
 } from "@/lib/dibay/r2-d1-kpi-meta-trace";
 import { deriveOwnerStoreOrderMetaCounts } from "@/lib/delivery/owner/derive-owner-store-order-meta-counts";
 import { setOwnerOrdersAttentionBridge } from "@/lib/business/owner-orders-attention-bridge";
-import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import {
+  fetchOwnerStoreOrdersHistoryPage,
+  fetchStoreOrdersListDeduped,
+} from "@/lib/stores/fetch-store-orders-list-deduped";
 import { invalidateOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
 import { OwnerStoreOrderDeepLinkMissBanner } from "@/components/business/owner/OwnerStoreOrderDeepLinkMissBanner";
 import { OwnerStoreOrderDeepLinkWrongTabBanner } from "@/components/business/owner/OwnerStoreOrderDeepLinkWrongTabBanner";
@@ -157,6 +166,14 @@ export function OwnerStoreOrdersView() {
   );
   const stateKindRef = useRef(state.kind);
   stateKindRef.current = state.kind;
+  /** ORD-05 「이전 주문 더 보기」 — 첫 페이지 이후 종료 이력 페이지 상태 (전체 새로고침 시 초기화) */
+  const [olderHistory, setOlderHistory] = useState<{
+    storeId: string;
+    nextCursor: string | null;
+    exhausted: boolean;
+    busy: boolean;
+    failed: boolean;
+  } | null>(null);
 
   const prevPendingDeliveryRef = useRef<number | null>(null);
   const alertStoreIdRef = useRef<string | null>(null);
@@ -306,6 +323,7 @@ export function OwnerStoreOrdersView() {
         return;
       }
       const incoming = parseOwnerStoreOrdersListFromApiJson(oj);
+      if (!silent) setOlderHistory(null);
       setState((prev) => {
         const base =
           prev.kind === "ok" && prev.storeId === store.id
@@ -314,7 +332,10 @@ export function OwnerStoreOrdersView() {
                 storeId: prev.storeId,
                 storeName: prev.storeName,
                 orders: silent
-                  ? mergeOwnerStoreOrderListRows(prev.orders, incoming)
+                  ? retainOwnerOrderHistoryRows(
+                      prev.orders,
+                      mergeOwnerStoreOrderListRows(prev.orders, incoming)
+                    )
                   : incoming,
               }
             : {
@@ -979,6 +1000,65 @@ export function OwnerStoreOrdersView() {
     replaceOwnerOrdersUrlQuery({ storeId: state.storeId, tab });
   }, [state, tab]);
 
+  const loadOlderOrders = useCallback(async () => {
+    if (state.kind !== "ok") return;
+    const sid = state.storeId;
+    const current = olderHistory?.storeId === sid ? olderHistory : null;
+    if (current?.busy || current?.exhausted) return;
+    const cursor = current ? current.nextCursor : ownerOrdersHistoryStartCursor(state.orders);
+    if (!cursor) {
+      setOlderHistory({ storeId: sid, nextCursor: null, exhausted: true, busy: false, failed: false });
+      return;
+    }
+    setOlderHistory({ storeId: sid, nextCursor: cursor, exhausted: false, busy: true, failed: false });
+    try {
+      const res = await fetchOwnerStoreOrdersHistoryPage(sid, cursor);
+      const j = res.json as { ok?: boolean; next_cursor?: unknown };
+      if (res.status !== 200 || !j?.ok) {
+        setOlderHistory({ storeId: sid, nextCursor: cursor, exhausted: false, busy: false, failed: true });
+        return;
+      }
+      const older = parseOwnerStoreOrdersListFromApiJson(j);
+      const next = typeof j.next_cursor === "string" && j.next_cursor.trim() ? j.next_cursor.trim() : null;
+      setState((prev) =>
+        prev.kind === "ok" && prev.storeId === sid
+          ? { ...prev, orders: appendOwnerOrderHistoryRows(prev.orders, older) }
+          : prev
+      );
+      setOlderHistory({ storeId: sid, nextCursor: next, exhausted: next == null, busy: false, failed: false });
+    } catch {
+      setOlderHistory({ storeId: sid, nextCursor: cursor, exhausted: false, busy: false, failed: true });
+    }
+  }, [olderHistory, state]);
+
+  const olderHistoryForStore =
+    state.kind === "ok" && olderHistory?.storeId === state.storeId ? olderHistory : null;
+  const effectiveListTab = effectiveOwnerMobileOrdersTab(tab);
+  const olderOrdersFooter =
+    state.kind === "ok" && (effectiveListTab === "done" || effectiveListTab === "cancelled") ? (
+      <div className="pt-3 pb-1 text-center" data-owner-orders-load-older="1">
+        {olderHistoryForStore?.exhausted ? (
+          <p className="text-[12px] text-sam-muted">{t("store_owner_orders_load_older_done")}</p>
+        ) : (
+          <>
+            {olderHistoryForStore?.failed ? (
+              <p className="mb-2 text-[12px] text-sam-danger">{t("store_owner_orders_load_older_failed")}</p>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void loadOlderOrders()}
+              disabled={olderHistoryForStore?.busy === true}
+              className={`${Sam.btn.secondary} w-full disabled:opacity-60`}
+            >
+              {olderHistoryForStore?.busy
+                ? t("store_owner_orders_load_older_loading")
+                : t("store_owner_orders_load_older")}
+            </button>
+          </>
+        )}
+      </div>
+    ) : null;
+
   let body: ReactNode;
   if (state.kind === "loading") {
     body = (
@@ -1086,6 +1166,7 @@ export function OwnerStoreOrdersView() {
         onOpenChat={onOpenChat}
         onCloseChat={onCloseChat}
         onCollapseTransient={onCollapseTransient}
+        listFooter={olderOrdersFooter}
       />
     );
   }

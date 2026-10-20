@@ -8,6 +8,8 @@ import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
 import { markOrderNotificationsRead } from "@/lib/notifications/pipeline/notify-read-service";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { STORE_ORDER_ACCEPT_TIMEOUT_MINUTES } from "@/lib/stores/store-order-lifecycle-automation";
+import type { StoreOrderSystemPurpose } from "@/lib/stores/order-status-transitions";
 
 const BUYER_COMMERCE_PUSH_KIND = "delivery" as const;
 const BUYER_ORDER_STATUS_META_KIND = "store_order_owner_status";
@@ -397,6 +399,62 @@ export async function notifyStoreOwnerPaymentCompleted(
 }
 
 /** 구매자가 접수 전 취소 시 오너 */
+/** 미접수 자동 취소(SYSTEM accept_timeout) — 매장 오너 */
+export async function notifyStoreOwnerAcceptTimeoutCancelled(
+  sb: SupabaseClient,
+  opts: {
+    storeId: string;
+    orderId: string;
+    orderNo: string;
+    storeOrderEventId?: string | null;
+  }
+): Promise<void> {
+  const sid = opts.storeId.trim();
+  const oid = opts.orderId.trim();
+  if (!sid || !oid) return;
+
+  const { data: store, error } = await sb
+    .from("stores")
+    .select("owner_user_id, store_name")
+    .eq("id", sid)
+    .maybeSingle();
+  if (error || !store?.owner_user_id) return;
+
+  const ownerId = store.owner_user_id as string;
+  const language = await loadUserLanguage(sb, ownerId);
+  const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const kind = "store_order_accept_timeout_cancelled";
+
+  await appendUserNotification(sb, {
+    user_id: ownerId,
+    notification_type: "commerce",
+    domain: "store",
+    ref_id: oid,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: `commerce:owner:accept_timeout:${oid}`,
+    title: nt(language, "notify_commerce_owner_accept_timeout_title"),
+    body: nt(language, "notify_commerce_owner_accept_timeout_body", {
+      orderNo,
+      minutes: STORE_ORDER_ACCEPT_TIMEOUT_MINUTES,
+    }),
+    link_url: buildOwnerStoreOrderNotificationHref({
+      storeId: sid,
+      orderId: oid,
+      kind,
+      ackOwnerNotifications: true,
+    }),
+    meta: {
+      kind,
+      store_id: sid,
+      order_id: oid,
+      order_status: "cancelled",
+      order_no: orderNo,
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    },
+  });
+}
+
 export async function notifyStoreOwnerBuyerCancelled(
   sb: SupabaseClient,
   opts: {
@@ -597,6 +655,8 @@ export async function notifyBuyerStoreOrderOwnerStatus(
     storeOrderEventId?: string | null;
     /** ADMIN 이면 「매장이 처리」가 아닌 관리자 처리 문구 (DEF-72) */
     actor?: "ADMIN" | "OWNER" | "CUSTOMER" | "SYSTEM";
+    /** SYSTEM accept_timeout 취소는 「매장이 취소」가 아닌 미접수 자동 취소 문구 */
+    systemPurpose?: StoreOrderSystemPurpose;
   }
 ): Promise<void> {
   const bid = opts.buyerUserId.trim();
@@ -614,7 +674,18 @@ export async function notifyBuyerStoreOrderOwnerStatus(
           title: nt(language, "notify_commerce_owner_status_cancelled_title"),
           body: nt(language, "notify_commerce_admin_cancelled_body", { store: label, orderNo }),
         }
-      : buyerCopyForOwnerStatus(language, opts.nextStatus, label, orderNo);
+      : opts.actor === "SYSTEM" &&
+          opts.systemPurpose === "accept_timeout" &&
+          opts.nextStatus === "cancelled"
+        ? {
+            title: nt(language, "notify_commerce_owner_status_cancelled_title"),
+            body: nt(language, "notify_commerce_accept_timeout_cancelled_body", {
+              store: label,
+              orderNo,
+              minutes: STORE_ORDER_ACCEPT_TIMEOUT_MINUTES,
+            }),
+          }
+        : buyerCopyForOwnerStatus(language, opts.nextStatus, label, orderNo);
   if (!copy) return;
   const etaSuffix =
     opts.nextStatus === "accepted" &&

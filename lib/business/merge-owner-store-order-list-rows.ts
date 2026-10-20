@@ -40,3 +40,54 @@ export function mergeOwnerStoreOrderListRows(
   });
   return sortOwnerStoreOrderListRowsDesc(merged);
 }
+
+const OWNER_ORDER_TERMINAL_STATUSES = new Set(["completed", "cancelled", "refunded"]);
+
+function isOlderRow(a: OwnerStoreOrderListRow, b: OwnerStoreOrderListRow): boolean {
+  const am = new Date(a.created_at).getTime();
+  const bm = new Date(b.created_at).getTime();
+  if (am !== bm) return am < bm;
+  return a.id < b.id;
+}
+
+/**
+ * 「이전 주문 더 보기」 첫 커서 — 첫 페이지 = 최근 창 + 미종료 주문 전부(RPC).
+ * 최근 창 안의 종료 주문 중 가장 오래된 행 다음부터 받으면 빠지는 종료 주문이 없다(사이 구간은 미종료라 이미 로드됨).
+ */
+export function ownerOrdersHistoryStartCursor(rows: OwnerStoreOrderListRow[]): string | null {
+  const terminal = rows.filter((r) => OWNER_ORDER_TERMINAL_STATUSES.has(r.order_status));
+  const pool = terminal.length > 0 ? terminal : rows;
+  let oldest: OwnerStoreOrderListRow | null = null;
+  for (const r of pool) {
+    if (!r.created_at || !r.id) continue;
+    if (!oldest || isOlderRow(r, oldest)) oldest = r;
+  }
+  return oldest ? `${oldest.created_at}|${oldest.id}` : null;
+}
+
+/**
+ * 조용한 새로고침 병합 후 — 응답에 없는 이전 종료 주문(더 보기로 붙인 이력·최근 창 밖으로 밀린 행)을 유지한다.
+ * 미종료 주문은 첫 페이지에 항상 실리므로 응답에 없으면 유지하지 않는다.
+ */
+export function retainOwnerOrderHistoryRows(
+  prev: OwnerStoreOrderListRow[],
+  merged: OwnerStoreOrderListRow[]
+): OwnerStoreOrderListRow[] {
+  const ids = new Set(merged.map((r) => r.id));
+  const kept = prev.filter((r) => !ids.has(r.id) && OWNER_ORDER_TERMINAL_STATUSES.has(r.order_status));
+  if (kept.length === 0) return merged;
+  return sortOwnerStoreOrderListRowsDesc([...merged, ...kept]);
+}
+
+/** 이전 페이지 행을 현재 목록에 붙인다 — 같은 id 는 최신 `updated_at` 유지. */
+export function appendOwnerOrderHistoryRows(
+  current: OwnerStoreOrderListRow[],
+  older: OwnerStoreOrderListRow[]
+): OwnerStoreOrderListRow[] {
+  const byId = new Map(current.map((r) => [r.id, r]));
+  for (const r of older) {
+    const ex = byId.get(r.id);
+    byId.set(r.id, ex ? pickNewerOwnerStoreOrderListRow(ex, r) : r);
+  }
+  return sortOwnerStoreOrderListRowsDesc([...byId.values()]);
+}

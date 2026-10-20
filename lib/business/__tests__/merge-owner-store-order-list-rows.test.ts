@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  appendOwnerOrderHistoryRows,
   mergeOwnerStoreOrderListRows,
+  ownerOrdersHistoryStartCursor,
   pickNewerOwnerStoreOrderListRow,
+  retainOwnerOrderHistoryRows,
 } from "@/lib/business/merge-owner-store-order-list-rows";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 
@@ -90,5 +93,48 @@ describe("mergeOwnerStoreOrderListRows", () => {
     ];
     const merged = mergeOwnerStoreOrderListRows(prev, incoming);
     expect(merged[0]?.order_status).toBe("preparing");
+  });
+});
+
+describe("owner orders history paging (ORD-05)", () => {
+  it("starts history after the oldest loaded terminal row", () => {
+    const rows = [
+      row({ id: "a", order_status: "completed", created_at: "2026-10-21T10:00:00.000Z" }),
+      row({ id: "b", order_status: "cancelled", created_at: "2026-10-21T09:00:00.000Z" }),
+      row({ id: "c", order_status: "pending", created_at: "2026-07-01T09:00:00.000Z" }),
+    ];
+    expect(ownerOrdersHistoryStartCursor(rows)).toBe("2026-10-21T09:00:00.000Z|b");
+  });
+
+  it("falls back to the oldest row when nothing is terminal, null when empty", () => {
+    const rows = [
+      row({ id: "x", order_status: "pending", created_at: "2026-10-21T10:00:00.000Z" }),
+      row({ id: "y", order_status: "accepted", created_at: "2026-10-20T10:00:00.000Z" }),
+    ];
+    expect(ownerOrdersHistoryStartCursor(rows)).toBe("2026-10-20T10:00:00.000Z|y");
+    expect(ownerOrdersHistoryStartCursor([])).toBeNull();
+  });
+
+  it("silent reload keeps appended terminal history but drops vanished open rows", () => {
+    const prev = [
+      row({ id: "new", order_status: "pending", created_at: "2026-10-21T10:00:00.000Z" }),
+      row({ id: "old-done", order_status: "completed", created_at: "2026-08-01T10:00:00.000Z" }),
+      row({ id: "old-open", order_status: "accepted", created_at: "2026-08-01T09:00:00.000Z" }),
+    ];
+    const incoming = [row({ id: "new", order_status: "pending", created_at: "2026-10-21T10:00:00.000Z" })];
+    const merged = mergeOwnerStoreOrderListRows(prev, incoming);
+    expect(retainOwnerOrderHistoryRows(prev, merged).map((r) => r.id)).toEqual(["new", "old-done"]);
+  });
+
+  it("appends older pages without duplicates", () => {
+    const current = [
+      row({ id: "a", order_status: "completed", created_at: "2026-10-21T10:00:00.000Z" }),
+      row({ id: "p", order_status: "pending", created_at: "2026-07-01T10:00:00.000Z" }),
+    ];
+    const older = [
+      row({ id: "p", order_status: "pending", created_at: "2026-07-01T10:00:00.000Z" }),
+      row({ id: "z", order_status: "completed", created_at: "2026-06-01T10:00:00.000Z" }),
+    ];
+    expect(appendOwnerOrderHistoryRows(current, older).map((r) => r.id).sort()).toEqual(["a", "p", "z"]);
   });
 });

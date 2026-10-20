@@ -17,7 +17,11 @@ export function ownerMobileTabForCommerceMetaKind(kind: string): OwnerMobileOrde
   if (k === "store_order_refund_requested" || k === "store_order_refund_approved") {
     return "cancelled";
   }
-  if (k === "store_order_buyer_cancelled" || k === "store_order_payment_failed") {
+  if (
+    k === "store_order_buyer_cancelled" ||
+    k === "store_order_payment_failed" ||
+    k === "store_order_accept_timeout_cancelled"
+  ) {
     return "cancelled";
   }
   if (k === "store_order_payment_completed") {
