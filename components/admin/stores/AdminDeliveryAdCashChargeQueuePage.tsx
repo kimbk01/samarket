@@ -171,7 +171,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
       } else {
         setSuccess(
           safeT("admin_delivery_ads_cash_charges_reject_ok", {
-            fallbackKo: "거절 완료. Cash 잔액은 변경되지 않았습니다.",
+            fallbackKo: "반려 완료. Cash 잔액은 변경되지 않았습니다.",
             fallbackEn: "Rejected. Cash balance was not changed.",
           })
         );
@@ -344,7 +344,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     data-admin-cash-charge-reject={r.id}
                   >
                     {safeT("admin_delivery_ads_cash_charges_reject", {
-                      fallbackKo: "거절",
+                      fallbackKo: "반려",
                       fallbackEn: "Reject",
                     })}
                   </button>
@@ -364,7 +364,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
               : "이 충전 건을 Cash로 적립하시겠습니까?"
             : language === "en"
               ? "Reject this Cash top-up?"
-              : "이 Cash 충전 신청을 거절하시겠습니까?"
+              : "이 Cash 충전 신청을 반려하시겠습니까?"
         }
         description={
           confirm
@@ -374,18 +374,18 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                 const when = row.created_at ? new Date(String(row.created_at)).toLocaleString() : "";
                 if (confirm.op === "reject") {
                   return ko
-                    ? `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when} — 거절 사유는 매장 사장님에게 전달되고 작업 기록에 남습니다. 캐시 잔액은 바뀌지 않습니다.`
+                    ? `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when} — 반려 사유는 매장 사장님에게 전달되고 작업 기록에 남습니다. 캐시 잔액은 바뀌지 않습니다.`
                     : `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when} — The reason is sent to the store owner and kept in the activity log. Cash balance does not change.`;
                 }
                 return `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when}`;
               })()
             : ""
         }
-        confirmLabel={confirm?.op === "approve" ? (language === "en" ? "Credit" : "적립") : language === "en" ? "Reject" : "거절"}
+        confirmLabel={confirm?.op === "approve" ? (language === "en" ? "Credit" : "적립") : language === "en" ? "Reject" : "반려"}
         cancelLabel={language === "en" ? "Cancel" : "취소"}
         tone={confirm?.op === "reject" ? "danger" : "primary"}
         reasonRequired={confirm?.op === "reject"}
-        reasonLabel={ko ? "거절 사유 (2자 이상)" : "Rejection reason (2+ characters)"}
+        reasonLabel={ko ? "반려 사유 (2자 이상)" : "Rejection reason (2+ characters)"}
         reasonPlaceholder={ko ? "예: 입금 내역이 확인되지 않음" : "e.g. Payment not found"}
         pending={busyId != null}
         onCancel={() => setConfirm(null)}

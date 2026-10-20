@@ -12,7 +12,7 @@ const STATUS_OPTIONS: { value: PhoneStatus; labelKo: string }[] = [
   { value: "unverified", labelKo: "미인증" },
   { value: "pending", labelKo: "인증 대기" },
   { value: "verified", labelKo: "인증 완료" },
-  { value: "rejected", labelKo: "인증 거절" },
+  { value: "rejected", labelKo: "인증 반려" },
 ];
 
 function normalizeStatus(phoneVerified?: boolean, status?: string | null): PhoneStatus {

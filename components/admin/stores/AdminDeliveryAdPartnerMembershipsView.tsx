@@ -144,7 +144,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
     ["PENDING_REVIEW", "pending", "가입 대기", "Pending"],
     ["ACTIVE", "active", "이용 중", "Active"],
     ["CANCEL_PENDING", "cancel", "해지 예정", "Cancel pending"],
-    ["REJECTED", "rejected", "거절", "Rejected"],
+    ["REJECTED", "rejected", "반려", "Rejected"],
     ["ENDED", "ended", "종료", "Ended"],
     ["all", "all", "전체", "All"],
   ] as const;
@@ -404,7 +404,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                                 data-partner-reject="1"
                               >
                                 {safeT("admin_delivery_ads_partner_reject", {
-                                  fallbackKo: "거절",
+                                  fallbackKo: "반려",
                                   fallbackEn: "Reject",
                                 })}
                               </button>
