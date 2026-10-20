@@ -31,3 +31,29 @@ export function shouldRequestAndroidAppPortrait(deviceClass: DibayDeviceClass): 
 export function shouldLockIosAppPortrait(deviceClass: DibayDeviceClass): boolean {
   return deviceClass === "PHONE_IOS";
 }
+
+/**
+ * Admin v4 §2-2 B·C — app-shell route mode sent to native `DibayAppOrientation.setRouteMode`.
+ * `ADMIN_LANDSCAPE` while the `/admin` shell is mounted, `DEFAULT` otherwise (and on every new
+ * native page load). Native decides with its own DeviceClass; JS never calls screen.orientation.
+ */
+export type DibayAppRouteOrientationMode = "ADMIN_LANDSCAPE" | "DEFAULT";
+
+/** Wire value for the native plugin. */
+export function nativeRouteModeValue(mode: DibayAppRouteOrientationMode): "admin" | "default" {
+  return mode === "ADMIN_LANDSCAPE" ? "admin" : "default";
+}
+
+/** Only tablets get the admin landscape lock. Phones stay portrait (web guard shows notice). */
+export function shouldRequestAdminLandscapeLock(deviceClass: DibayDeviceClass): boolean {
+  return deviceClass === "TABLET_ANDROID" || deviceClass === "TABLET_IPAD";
+}
+
+/** Effective orientation policy for the app shell under a route mode. */
+export function orientationPolicyForRoute(
+  deviceClass: DibayDeviceClass,
+  mode: DibayAppRouteOrientationMode,
+): DibayOrientationPolicy | "LANDSCAPE_ONLY" {
+  if (mode === "ADMIN_LANDSCAPE" && shouldRequestAdminLandscapeLock(deviceClass)) return "LANDSCAPE_ONLY";
+  return orientationPolicyForDeviceClass(deviceClass);
+}

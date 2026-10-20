@@ -55,6 +55,7 @@
 		C7OAL0022FED79650016851F /* NativeOAuthLauncherPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7OAL0012FED79650016851F /* NativeOAuthLauncherPlugin.swift */; };
 		C7ORI0122FED79650016851F /* DibayDeviceClassClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */; };
 		C7ORI0222FED79650016851F /* DibayAppOrientationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */; };
+		C7ORI0322FED79650016851F /* DibayAppOrientationPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ORI0312FED79650016851F /* DibayAppOrientationPlugin.swift */; };
 		C7OWN0022FED79650016851F /* CallV4SurfaceOwnerBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */; };
 		C7P100042FED79650016851F /* NativeVoiceCallBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7P1000312FED79650016851F /* NativeVoiceCallBridge.swift */; };
 		C7P4C0022FED79650016851F /* NativeVoiceOutgoingCallCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7P4C0012FED79650016851F /* NativeVoiceOutgoingCallCoordinator.swift */; };
@@ -158,6 +159,7 @@
 		C7OAL0012FED79650016851F /* NativeOAuthLauncherPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeOAuthLauncherPlugin.swift; sourceTree = "<group>"; };
 		C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayDeviceClassClassifier.swift; sourceTree = "<group>"; };
 		C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppOrientationPolicy.swift; sourceTree = "<group>"; };
+		C7ORI0312FED79650016851F /* DibayAppOrientationPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppOrientationPlugin.swift; sourceTree = "<group>"; };
 		C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallV4SurfaceOwnerBridge.swift; sourceTree = "<group>"; };
 		C7P1000312FED79650016851F /* NativeVoiceCallBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallBridge.swift; sourceTree = "<group>"; };
 		C7P4C0012FED79650016851F /* NativeVoiceOutgoingCallCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceOutgoingCallCoordinator.swift; sourceTree = "<group>"; };
@@ -273,6 +275,7 @@
 				C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */,
 				C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */,
 				C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */,
+				C7ORI0312FED79650016851F /* DibayAppOrientationPlugin.swift */,
 			);
 			path = Plugins;
 			sourceTree = "<group>";
@@ -534,6 +537,7 @@
 				C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */,
 				C7ORI0122FED79650016851F /* DibayDeviceClassClassifier.swift in Sources */,
 				C7ORI0222FED79650016851F /* DibayAppOrientationPolicy.swift in Sources */,
+				C7ORI0322FED79650016851F /* DibayAppOrientationPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -691,7 +695,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 2TFKXT6Y99;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -716,7 +720,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 2TFKXT6Y99;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -739,7 +743,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 2TFKXT6Y99;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DibayPushServiceExtension/Info.plist;
@@ -765,7 +769,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 2TFKXT6Y99;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DibayPushServiceExtension/Info.plist;

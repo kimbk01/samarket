@@ -46,8 +46,49 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
 
   override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
     DibayAppOrientationPolicy.supportedInterfaceOrientations(
-      deviceClass: DibayDeviceClassClassifier.classify().deviceClass
+      deviceClass: DibayDeviceClassClassifier.classify().deviceClass,
+      adminLandscape: adminLandscape
     )
+  }
+
+  /**
+   * Admin v4 §2-2 C — set by DibayAppOrientationPlugin while the web admin shell is mounted.
+   * Only TABLET_IPAD turns this into `.landscape` (DibayAppOrientationPolicy). Phones unchanged.
+   * Reset when a new top-level document starts loading so a lock cannot survive reload/crash.
+   */
+  private(set) var adminLandscape = false
+  private var adminLandscapeLoadingObservation: NSKeyValueObservation?
+
+  /** Main thread only. */
+  func setAdminLandscape(_ enabled: Bool) {
+    guard adminLandscape != enabled else { return }
+    adminLandscape = enabled
+    NSLog("[DibayRootBridge] admin_landscape=%@", enabled ? "on" : "off")
+    applySupportedInterfaceOrientationsChange(requestLandscape: enabled)
+  }
+
+  private func applySupportedInterfaceOrientationsChange(requestLandscape: Bool) {
+    if #available(iOS 16.0, *) {
+      setNeedsUpdateOfSupportedInterfaceOrientations()
+      guard requestLandscape,
+        DibayDeviceClassClassifier.classify().deviceClass == "TABLET_IPAD",
+        let windowScene = view.window?.windowScene
+      else { return }
+      windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscape)) { error in
+        NSLog("[DibayRootBridge] admin_landscape_geometry_update_failed err=%@", String(describing: error))
+      }
+    } else {
+      // iOS 15: no private API — rotation happens when the user turns the device.
+      UIViewController.attemptRotationToDeviceOrientation()
+    }
+  }
+
+  private func installAdminLandscapeResetOnPageLoad() {
+    guard adminLandscapeLoadingObservation == nil, let wv = webView else { return }
+    adminLandscapeLoadingObservation = wv.observe(\.isLoading, options: [.new]) { [weak self] _, change in
+      guard change.newValue == true else { return }
+      DispatchQueue.main.async { self?.setAdminLandscape(false) }
+    }
   }
 
   /**
@@ -105,6 +146,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       MessengerPhotoLibraryPlugin(),
       // Device identity
       DibayDeviceClassPlugin(),
+      // App-shell orientation route mode (admin landscape, v4 §2-2 C)
+      DibayAppOrientationPlugin(),
     ]
   }
 
@@ -143,6 +186,7 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     // Continuation first, then the message handler: no dismiss can arrive before it exists.
     installLaunchContinuationIfNeeded()
     installBootBridgeIfNeeded()
+    installAdminLandscapeResetOnPageLoad()
   }
 
   override func viewDidAppear(_ animated: Bool) {

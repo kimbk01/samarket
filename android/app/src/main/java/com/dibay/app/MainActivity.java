@@ -1252,6 +1252,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NotificationSoundBridgePlugin.class);
     registerPlugin(DibayAppIconDeliveryPlugin.class);
     registerPlugin(DibayDeviceClassPlugin.class);
+    registerPlugin(DibayAppOrientationPlugin.class);
     registerPlugin(DibayPlayInAppUpdatePlugin.class);
     registerPlugin(LaunchEpochPlugin.class);
     // FD3: one native app-shell orientation request, before WebView first frame.
@@ -1326,6 +1327,8 @@ public class MainActivity extends BridgeActivity {
   public void onConfigurationChanged(android.content.res.Configuration newConfig) {
     super.onConfigurationChanged(newConfig);
     DibayWebSafeAreaBridge.requestInsetsSync(this);
+    // Admin v4 §2-2 B: split screen / fold changes smallestScreenWidthDp → re-classify, re-apply route mode.
+    DibayAppOrientationPolicy.reapplyOnConfigurationChanged(this);
   }
 
   @Override
@@ -1536,6 +1539,8 @@ public class MainActivity extends BridgeActivity {
             new DibayBridgeWebViewClient.LoadMonitor() {
               @Override
               public void onMainFramePageStarted(String url) {
+                // Admin v4 §2-2 B: a new document always starts in default mode; the admin shell re-requests.
+                DibayAppOrientationPolicy.resetRouteOnPageStarted(MainActivity.this);
                 MainActivity.this.onWebViewMainFrameStarted(url);
               }
 

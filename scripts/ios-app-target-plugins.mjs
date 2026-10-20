@@ -45,7 +45,7 @@ export const IOS_DELIVERY_PLUGIN_CLASSES = [
 ];
 
 /** Device identity — not Call / Auth / Delivery */
-export const IOS_DEVICE_PLUGIN_CLASSES = ["DibayDeviceClassPlugin"];
+export const IOS_DEVICE_PLUGIN_CLASSES = ["DibayDeviceClassPlugin", "DibayAppOrientationPlugin"];
 
 /** Every App-target plugin. Domain contracts reference subsets; there is no second list. */
 export const IOS_APP_TARGET_PLUGIN_CLASSES = [

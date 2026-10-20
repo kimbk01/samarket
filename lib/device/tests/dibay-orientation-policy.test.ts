@@ -2,8 +2,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  nativeRouteModeValue,
   orientationPolicyForDeviceClass,
+  orientationPolicyForRoute,
   shouldLockIosAppPortrait,
+  shouldRequestAdminLandscapeLock,
   shouldRequestAndroidAppPortrait,
 } from "@/lib/device/dibay-orientation-policy";
 
@@ -115,5 +118,92 @@ describe("FD3 native authority sharing", () => {
     expect(policy).not.toContain("screen.orientation.lock");
     const css = src("app/owner-compact-shell.css");
     expect(css).toContain("@media (max-width: 1024px) and (min-width: 568px) and (orientation: landscape)");
+  });
+});
+
+describe("Admin v4 §2-2 B·C — ADMIN_LANDSCAPE route mode (deliberate contract change)", () => {
+  it("phones stay portrait-only even on admin routes", () => {
+    expect(shouldRequestAdminLandscapeLock("PHONE_ANDROID")).toBe(false);
+    expect(shouldRequestAdminLandscapeLock("PHONE_IOS")).toBe(false);
+    expect(orientationPolicyForRoute("PHONE_ANDROID", "ADMIN_LANDSCAPE")).toBe("PORTRAIT_ONLY");
+    expect(orientationPolicyForRoute("PHONE_IOS", "ADMIN_LANDSCAPE")).toBe("PORTRAIT_ONLY");
+  });
+
+  it("tablets: landscape only on admin route, unlocked on member routes", () => {
+    expect(orientationPolicyForRoute("TABLET_ANDROID", "ADMIN_LANDSCAPE")).toBe("LANDSCAPE_ONLY");
+    expect(orientationPolicyForRoute("TABLET_IPAD", "ADMIN_LANDSCAPE")).toBe("LANDSCAPE_ONLY");
+    expect(orientationPolicyForRoute("TABLET_ANDROID", "DEFAULT")).toBe("PORTRAIT_AND_LANDSCAPE");
+    expect(orientationPolicyForRoute("TABLET_IPAD", "DEFAULT")).toBe("PORTRAIT_AND_LANDSCAPE");
+  });
+
+  it("UNKNOWN / desktop never get a native lock", () => {
+    expect(orientationPolicyForRoute("UNKNOWN", "ADMIN_LANDSCAPE")).toBe("UNKNOWN_SAFE");
+    expect(shouldRequestAdminLandscapeLock("DESKTOP_WINDOWS")).toBe(false);
+    expect(shouldRequestAdminLandscapeLock("WEB_DESKTOP")).toBe(false);
+  });
+
+  it("wire values match the native plugin", () => {
+    expect(nativeRouteModeValue("ADMIN_LANDSCAPE")).toBe("admin");
+    expect(nativeRouteModeValue("DEFAULT")).toBe("default");
+  });
+
+  it("Android: SENSOR_LANDSCAPE only via applyForRoute for TABLET_ANDROID; reset on page start; re-apply on config change", () => {
+    const policy = src("android/app/src/main/java/com/dibay/app/DibayAppOrientationPolicy.java");
+    const plugin = src("android/app/src/main/java/com/dibay/app/DibayAppOrientationPlugin.java");
+    const main = src("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    const applyForRoute = policy.slice(
+      policy.indexOf("public static void applyForRoute"),
+      policy.indexOf("public static void resetRouteOnPageStarted"),
+    );
+    expect(applyForRoute).toContain("SCREEN_ORIENTATION_SENSOR_LANDSCAPE");
+    expect(applyForRoute).toContain("SCREEN_ORIENTATION_UNSPECIFIED");
+    expect(policy.split("ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE").length - 1).toBe(1);
+    expect(policy).toContain('adminRoute && "TABLET_ANDROID".equals(deviceClass)');
+    expect(plugin).toContain('@CapacitorPlugin(name = "DibayAppOrientation")');
+    expect(plugin).toContain("DibayAppOrientationPolicy.applyForRoute(activity, adminRoute)");
+    expect(plugin).toContain("runOnUiThread");
+    expect(plugin).not.toContain("setRequestedOrientation");
+    expect(main).toContain("registerPlugin(DibayAppOrientationPlugin.class);");
+    const pageStarted = main.slice(main.indexOf("public void onMainFramePageStarted(String url)"));
+    expect(pageStarted.slice(0, 400)).toContain("DibayAppOrientationPolicy.resetRouteOnPageStarted(MainActivity.this)");
+    const configChanged = main.slice(main.indexOf("public void onConfigurationChanged"));
+    expect(configChanged.slice(0, 500)).toContain("DibayAppOrientationPolicy.reapplyOnConfigurationChanged(this)");
+    expect(main).not.toContain("SCREEN_ORIENTATION_SENSOR_LANDSCAPE");
+  });
+
+  it("Android: no restricted-resizability opt-out or manifest orientation", () => {
+    const manifest = src("android/app/src/main/AndroidManifest.xml");
+    expect(manifest).not.toContain("PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY");
+    expect(manifest).not.toContain("android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY");
+  });
+
+  it("iOS: landscape mask only when adminLandscape && TABLET_IPAD; reset on page load; no private API", () => {
+    const policy = src("ios/App/App/Plugins/DibayAppOrientationPolicy.swift");
+    const vc = src("ios/App/App/DibayRootBridgeViewController.swift");
+    const plugin = src("ios/App/App/Plugins/DibayAppOrientationPlugin.swift");
+    expect(policy).toContain('if adminLandscape && deviceClass == "TABLET_IPAD" {\n      return .landscape');
+    expect(vc).toContain("adminLandscape: adminLandscape");
+    expect(vc).toContain("setNeedsUpdateOfSupportedInterfaceOrientations()");
+    expect(vc).toContain("requestGeometryUpdate(.iOS(interfaceOrientations: .landscape))");
+    expect(vc).toContain("UIViewController.attemptRotationToDeviceOrientation()");
+    expect(vc).toContain("installAdminLandscapeResetOnPageLoad()");
+    expect(vc).toContain("DibayAppOrientationPlugin(),");
+    expect(vc).not.toContain('setValue(UIInterfaceOrientation');
+    expect(vc).not.toContain('forKey: "orientation"');
+    expect(plugin).toContain('jsName = "DibayAppOrientation"');
+    expect(plugin).toContain("CAPBridgedPlugin");
+    expect(plugin).toContain("root.setAdminLandscape(adminRoute)");
+    const pbx = src("ios/App/App.xcodeproj/project.pbxproj");
+    expect(pbx).toContain("DibayAppOrientationPlugin.swift in Sources");
+  });
+
+  it("JS: native plugin only, no screen.orientation.lock", () => {
+    const wrapper = src("lib/device/dibay-app-orientation-native.ts");
+    const hook = src("lib/device/use-dibay-admin-landscape-route-mode.ts");
+    for (const file of [wrapper, hook]) {
+      expect(file).not.toContain("screen.orientation");
+      expect(file).not.toContain("setTimeout");
+    }
+    expect(src("components/admin/shell/AdminLandscapeGuard.tsx")).toContain("useDibayAdminLandscapeRouteMode()");
   });
 });
