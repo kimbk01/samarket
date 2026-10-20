@@ -44,6 +44,8 @@ export type UseAdminListQueryResult<E extends string = string> = {
   setSize: (size: AdminListPageSize) => void;
   setPage: (page: number) => void;
   setExtra: (key: E, value: string) => void;
+  /** 여러 값을 한 번에 적용 (예: 검색어·기간 + 텍스트형 추가 키를 「조회」 한 번에). 페이지 규칙은 `applyAdminListQueryPatch`. */
+  patch: (p: AdminListQueryPatch<E>) => void;
   /** 「초기화」 — 기본값 + 즉시 적용. */
   reset: () => void;
   /** 같은 조건으로 다시 불러오기. */
@@ -155,6 +157,7 @@ export function useAdminListQuery<E extends string = string>(
     setSize,
     setPage,
     setExtra,
+    patch,
     reset,
     refresh,
     refreshKey: `${apiQueryString}#${nonce}`,

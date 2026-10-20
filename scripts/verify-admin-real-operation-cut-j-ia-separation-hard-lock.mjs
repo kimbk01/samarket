@@ -42,6 +42,7 @@ for (const s of [
   "CUT_J_J_AMD_5_OWNER_APPROVED = true",
   "CUT_J_J_AMD_5_INTERNAL_TOOLS",
   "CUT_J_J_AMD_5_REMOVED_LEAVES",
+  "CUT_J_J_AMD_5_ADDED_STAFF_LEAF",
 ]) {
   if (!a.includes(s)) fail(`anchor missing: ${s}`);
 }
@@ -96,6 +97,11 @@ for (const shell of [
 for (const key of ["cp-action-queue", "app-categories", "promotion-notifications"]) {
   if (m.includes(`key: "${key}"`)) fail(`J-AMD-5 removed leaf must not return: ${key}`);
 }
+// J-AMD-5 (F3): 관리자 계정·권한 leaf — members 마지막, master-only (API requireSuperAdmin).
+if (!/key: "audit-logs", title: "", path: "\/admin\/audit-logs", status: "done" \},\n(\s*\/\/.*\n)?\s+\{ key: "admin-staff", title: "", path: "\/admin\/staff", status: "done", roles: \["master"\] \},\n\s+\],/.test(m)) {
+  fail("J-AMD-5 admin-staff leaf must be the last master-only members leaf after audit-logs");
+}
+if (!existsSync(resolve(root, "app/admin/staff/page.tsx"))) fail("J-AMD-5 /admin/staff page missing");
 if (!/key: "platform-system",\n\s+title: "",\n\s+roles: \["master"\]/.test(m)) {
   fail("J-AMD-5 internal tools section (platform-system) must stay master-only");
 }

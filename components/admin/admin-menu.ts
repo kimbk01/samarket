@@ -440,6 +440,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
       { key: "global-reports", title: "", path: "/admin/reports", status: "done" },
       { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
       { key: "audit-logs", title: "", path: "/admin/audit-logs", status: "done" },
+      // J-AMD-5 (F3): 관리자 계정·권한 — 조회·변경 API 가 requireSuperAdmin 이라 최고관리자 전용.
+      { key: "admin-staff", title: "", path: "/admin/staff", status: "done", roles: ["master"] },
     ],
   },
 

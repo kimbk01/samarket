@@ -1,14 +1,13 @@
 "use client";
 
-
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import type { MyPageSectionRow } from "@/lib/my/types";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { MY_PAGE_SECTIONS_SELECT } from "@/lib/my/mypage-tables-select";
 
+/**
+ * V3-11 — 브라우저 직접 조회 대신 관리자 조회 API(`GET /api/admin/my/sections`) 사용.
+ * 편집 API·편집 화면이 없어 404 이던 수정/추가 링크는 제거하고 안내 문구만 표시한다.
+ */
 export function AdminMySectionsPage() {
   const { t } = useI18n();
   const [items, setItems] = useState<MyPageSectionRow[]>([]);
@@ -16,24 +15,27 @@ export function AdminMySectionsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const supabase = getSupabaseClient();
     let cancelled = false;
     void (async () => {
-      if (!supabase) {
-        if (!cancelled) setLoading(false);
-        return;
-      }
-      const { data, error } = await supabase
-        .from("my_page_sections")
-        .select(MY_PAGE_SECTIONS_SELECT)
-        .order("sort_order", { ascending: true });
-      if (cancelled) return;
-      if (error) {
-        setError(error.message);
+      try {
+        const res = await fetch("/api/admin/my/sections", { cache: "no-store", credentials: "include" });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          sections?: MyPageSectionRow[];
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || json.ok === false) {
+          setError(json.error ?? `http_${res.status}`);
+          setItems([]);
+        } else {
+          setError(null);
+          setItems(json.sections ?? []);
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : String(e));
         setItems([]);
-      } else {
-        setError(null);
-        setItems((data ?? []) as MyPageSectionRow[]);
       }
       setLoading(false);
     })();
@@ -43,10 +45,40 @@ export function AdminMySectionsPage() {
   }, []);
 
   return (
+    <AdminMySectionsView
+      title={t("admin_my_kf4d396da")}
+      loadingLabel={t("common_loading")}
+      editUnavailableNote={t("admin_my_edit_unavailable_note")}
+      loading={loading}
+      error={error}
+      items={items}
+    />
+  );
+}
+
+export function AdminMySectionsView({
+  title,
+  loadingLabel,
+  editUnavailableNote,
+  loading,
+  error,
+  items,
+}: {
+  title: string;
+  loadingLabel: string;
+  editUnavailableNote: string;
+  loading: boolean;
+  error: string | null;
+  items: MyPageSectionRow[];
+}) {
+  return (
     <div>
-      <h1 className="mb-4 sam-text-page-title font-semibold text-sam-fg">{t("admin_my_kf4d396da")}</h1>
+      <div className="mb-4">
+        <h1 className="sam-text-page-title font-semibold text-sam-fg">{title}</h1>
+        <p className="mt-1 sam-text-body-secondary text-sam-muted">{editUnavailableNote}</p>
+      </div>
       {loading ? (
-        <p className="text-sam-muted">{t("common_loading")}</p>
+        <p className="text-sam-muted">{loadingLabel}</p>
       ) : error ? (
         <p className="rounded-ui-rect bg-red-50 p-4 sam-text-body text-red-700">{error}</p>
       ) : items.length === 0 ? (
@@ -63,9 +95,6 @@ export function AdminMySectionsPage() {
                   {s.is_active ? "노출" : "숨김"} · 순서 {s.sort_order}
                 </span>
               </div>
-              <Link href={`/admin/my/sections/${s.section_key}/edit`} className="sam-text-body text-signature">
-                수정
-              </Link>
             </li>
           ))}
         </ul>

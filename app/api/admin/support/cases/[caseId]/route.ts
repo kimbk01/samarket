@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   adminAssignSupportCase,
   adminDeleteSupportMessage,
@@ -78,6 +79,16 @@ export async function PATCH(
     messageId?: string;
   };
 
+  // F3: 성공한 변경만 관리자 감사 로그에 남긴다 (메시지 본문은 기록하지 않음).
+  const audit = (action: string, after: Record<string, unknown>) =>
+    appendAdminRouteAudit(sb, req, {
+      actorId: auth.userId,
+      targetType: "support_case",
+      targetId: caseId,
+      action: `support_case.${action}`,
+      after,
+    });
+
   if (body.action === "reply") {
     const res = await adminReplySupportCase(sb, {
       adminUserId: auth.userId,
@@ -89,6 +100,10 @@ export async function PATCH(
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
+    await audit("reply", {
+      internalNote: body.internalNote === true,
+      closeAfter: body.closeAfter === true,
+    });
     return NextResponse.json({ ok: true, message: res.message });
   }
 
@@ -101,6 +116,7 @@ export async function PATCH(
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
+    await audit("assign", { assigneeAdminId: body.assigneeAdminId ?? null });
     return NextResponse.json({ ok: true, case: res.case });
   }
 
@@ -113,6 +129,7 @@ export async function PATCH(
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
+    await audit("status", { status: body.status });
     return NextResponse.json({ ok: true, case: res.case });
   }
 
@@ -125,6 +142,7 @@ export async function PATCH(
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
+    await audit("priority", { priority: body.priority });
     return NextResponse.json({ ok: true, case: res.case });
   }
 
@@ -137,6 +155,7 @@ export async function PATCH(
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
+    await audit("reopen", {});
     return NextResponse.json({ ok: true, case: res.case });
   }
 
@@ -150,6 +169,7 @@ export async function PATCH(
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
+    await audit(body.action, {});
     return NextResponse.json({ ok: true, case: res.case });
   }
 
@@ -172,6 +192,7 @@ export async function PATCH(
       const status = res.error === "not_own_message" ? 403 : res.error === "not_found" ? 404 : 400;
       return NextResponse.json({ ok: false, error: res.error }, { status });
     }
+    await audit(body.action, { messageId });
     return NextResponse.json({ ok: true });
   }
 

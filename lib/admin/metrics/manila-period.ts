@@ -121,3 +121,24 @@ export function formatAdminHeaderClock(now: Date, language: "ko" | "en" = "ko"):
   }
   return `${p.year}-${p.month}-${p.day} (${wf.format(now)}) ${p.hour}:${p.minute} PHT`;
 }
+
+/**
+ * 목록 필터 기간(PHT 날짜 "YYYY-MM-DD", 둘 다 포함) → UTC 질의 범위 [fromIso, toIso).
+ * 빈 값·잘못된 날짜는 그 쪽 경계 없음(null). 서버 API 가 목록 기간 필터에 쓴다.
+ */
+export function manilaDateRangeToUtc(
+  fromDay: string | null | undefined,
+  toDay: string | null | undefined
+): { fromIso: string | null; toIso: string | null } {
+  const valid = (s: string | null | undefined) => {
+    const v = String(s ?? "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+    const [y, m, d] = v.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d ? v : null;
+  };
+  let f = valid(fromDay);
+  let t = valid(toDay);
+  if (f && t && f > t) [f, t] = [t, f];
+  return resolveStoreCommissionPeriod("custom", f, t);
+}
