@@ -2,8 +2,8 @@
 /** 프로필 수정 페이지 배경 */
 export const PROFILE_EDIT_PAGE_BG_CLASS = "min-h-screen bg-sam-app";
 
-/** 본문 — 태블릿 max-width */
-export const PROFILE_EDIT_BODY_CLASS = "mx-auto w-full min-w-0 max-w-[768px] px-4";
+/** 본문 — 내정보 공통 열 (폰 16px · 768px↑ 20px · 최대 640px, real-screen-redesign §2) */
+export const PROFILE_EDIT_BODY_CLASS = "mx-auto w-full min-w-0 max-w-[40rem] px-4 md:px-5";
 
 export const PROFILE_EDIT_CARD_CLASS =
   "overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface";

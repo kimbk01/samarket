@@ -29,7 +29,7 @@ export function ProfileEditBottomSaveBar({
         paddingBottom: `${effectiveBottomInset}px`,
       }}
     >
-      <div className="pointer-events-auto mx-auto flex w-full max-w-[768px] gap-2 px-4 py-3">
+      <div className="pointer-events-auto mx-auto flex w-full max-w-[40rem] gap-2 px-4 py-3 md:px-5">
         <button
           type="button"
           onClick={onCancel}
