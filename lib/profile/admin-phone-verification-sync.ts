@@ -42,6 +42,20 @@ export function buildPhoneVerifiedMemberPatch(input: {
   return patch;
 }
 
+/**
+ * 관리자 수동 인증은 저장된(또는 같은 요청에서 저장할) 전화번호가 있어야 한다 (Owner 승인 2026-10-20).
+ * 번호 없이 「인증됨」만 남는 회원(운영 34명 사례)을 더 만들지 않는다. 기존 회원 데이터·인증 판정은 변경하지 않는다.
+ */
+export function hasPhoneForAdminManualVerify(
+  phoneRow: ProfilePhoneRowSlice | null | undefined,
+  nextPhonePatch?: Record<string, unknown> | null,
+): boolean {
+  if (nextPhonePatch) {
+    return resolveProfilePhoneDb09(nextPhonePatch as ProfilePhoneRowSlice) != null;
+  }
+  return phoneRow ? resolveProfilePhoneDb09(phoneRow) != null : false;
+}
+
 export function buildPhoneVerificationResetPatch(nowIso?: string): Record<string, unknown> {
   const ts = nowIso ?? new Date().toISOString();
   return {

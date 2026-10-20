@@ -7,6 +7,7 @@ import {
   buildPhoneVerifiedMemberPatch,
   buildPhoneVerificationResetPatch,
   buildPhoneVerificationStatusPatch,
+  hasPhoneForAdminManualVerify,
   loadProfilePhoneRowSlice,
   type AdminPhoneVerificationStatus,
 } from "@/lib/profile/admin-phone-verification-sync";
@@ -86,6 +87,9 @@ export async function PATCH(
     auditAfter = { action: "reset" };
   } else if (action === "approve") {
     const phoneRow = await loadProfilePhoneRowSlice(sb, userId);
+    if (!hasPhoneForAdminManualVerify(phoneRow)) {
+      return NextResponse.json({ ok: false, error: "phone_required" }, { status: 400 });
+    }
     patch = buildPhoneVerifiedMemberPatch({ method: "admin_manual", phoneRow });
     auditAction = "admin_member_phone_verify_approve";
     auditAfter = { action: "approve", method: "admin_manual" };

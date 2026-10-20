@@ -38,6 +38,7 @@ import {
 import { syncPhoneVerifiedServerCache } from "@/lib/auth/phone-otp-server-sync";
 import {
   buildPhoneVerifiedMemberPatch,
+  hasPhoneForAdminManualVerify,
   loadProfilePhoneRowSlice,
 } from "@/lib/profile/admin-phone-verification-sync";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
@@ -854,6 +855,9 @@ export async function PATCH(
   if (phoneStatus !== null) {
     if (phoneStatus === "verified") {
       const phoneRow = await loadProfilePhoneRowSlice(sb, userId);
+      if (!hasPhoneForAdminManualVerify(phoneRow, nextPhonePatch)) {
+        return NextResponse.json({ ok: false, error: "phone_required" }, { status: 400 });
+      }
       Object.assign(patch, buildPhoneVerifiedMemberPatch({ method: "admin_manual", phoneRow }));
     } else {
       Object.assign(patch, phoneStatusToPatch(phoneStatus));
