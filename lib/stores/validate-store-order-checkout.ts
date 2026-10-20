@@ -16,6 +16,7 @@ import { canOwnerSellProducts } from "@/lib/stores/owner-product-gate";
 import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 import { loadStoreCashPosition } from "@/lib/stores/commission/store-commission-writer";
 import { STORE_CASH_INSUFFICIENT_ERROR } from "@/lib/stores/commission/store-commission-contract";
+import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
 
 export type StoreOrderLineInput = {
   product_id: string;
@@ -78,7 +79,24 @@ export type StoreOrderCheckoutProductRow = {
   local_delivery_available: boolean;
   shipping_available: boolean;
   options_json: unknown;
+  /** PRD-03 — 검수 반려·재검수 대기는 판매 불가 */
+  admin_review_status?: string | null;
+  /** PRD-05 — 숨김 구역 상품은 판매 불가 (embed) */
+  store_menu_sections?: { is_hidden?: boolean | null } | { is_hidden?: boolean | null }[] | null;
 };
+
+/**
+ * 줄 단위 상품 판매 가능 판정 — 주문 RPC Pass1 과 같은 순서·오류 코드.
+ * 노출 게이트(검수·숨김 구역) → 품절 → active 아님.
+ */
+export function storeOrderLineProductError(
+  p: Pick<StoreOrderCheckoutProductRow, "product_status" | "admin_review_status" | "store_menu_sections">
+): "product_not_available" | "product_sold_out" | null {
+  if (storeProductBuyerVisibilityBlocked(p)) return "product_not_available";
+  if (p.product_status === "sold_out") return "product_sold_out";
+  if (p.product_status !== "active") return "product_not_available";
+  return null;
+}
 
 export function assertSingleStoreOnOrderItems(
   storeId: string,
@@ -193,7 +211,7 @@ export async function validateStoreOrderCheckout(params: {
   const { data: products, error: pErr } = await sb
     .from("store_products")
     .select(
-      "id, store_id, title, price, discount_price, stock_qty, track_inventory, product_status, min_order_qty, max_order_qty, pickup_available, local_delivery_available, shipping_available, options_json"
+      "id, store_id, title, price, discount_price, stock_qty, track_inventory, product_status, min_order_qty, max_order_qty, pickup_available, local_delivery_available, shipping_available, options_json, admin_review_status, store_menu_sections ( is_hidden )"
     )
     .in("id", productIds);
 
@@ -216,11 +234,9 @@ export async function validateStoreOrderCheckout(params: {
     if (!p || p.store_id !== storeId) {
       return { ok: false, error: "invalid_product", status: 400 };
     }
-    if (p.product_status === "sold_out") {
-      return { ok: false, error: "product_sold_out", status: 400 };
-    }
-    if (p.product_status !== "active") {
-      return { ok: false, error: "product_not_available", status: 400 };
+    const lineProductError = storeOrderLineProductError(p);
+    if (lineProductError) {
+      return { ok: false, error: lineProductError, status: 400 };
     }
 
     const minQ = Math.max(1, Number(p.min_order_qty) || 1);

@@ -11,6 +11,11 @@ import {
   isAdminStoreProductAction,
 } from "@/lib/stores/admin-store-product-ops";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { invalidateOwnerProductsListCache } from "@/lib/stores/owner-products-list-snapshot";
+import {
+  isMissingStoreProductLockColumnError,
+  stripStoreProductLockColumns,
+} from "@/lib/stores/store-product-admin-lock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,11 +72,19 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const { data: row, error: findErr } = await sb
+  const ROW_SELECT_BASE = "id, store_id, product_status, admin_review_status, title, price, discount_price, discount_percent";
+  let lockColumnsAvailable = true;
+  let found = await sb
     .from("store_products")
-    .select("id, store_id, product_status, admin_review_status, title, price")
+    .select(`${ROW_SELECT_BASE}, admin_status_lock, sold_out_reason`)
     .eq("id", id)
     .maybeSingle();
+  if (found.error && isMissingStoreProductLockColumnError(found.error)) {
+    // 마이그레이션 20270602130000 적용 전 — 잠금·사유 없이 기존 동작.
+    lockColumnsAvailable = false;
+    found = await sb.from("store_products").select(ROW_SELECT_BASE).eq("id", id).maybeSingle();
+  }
+  const { data: row, error: findErr } = found;
 
   if (findErr || !row) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
@@ -82,16 +95,24 @@ export async function PATCH(
     memo,
     name: body.name,
     price: body.price,
+    current: {
+      discount_price: (row as { discount_price?: unknown }).discount_price,
+      discount_percent: (row as { discount_percent?: unknown }).discount_percent,
+    },
   });
   if (!built.ok) {
     return NextResponse.json({ ok: false, error: built.error }, { status: 400 });
   }
-  const patch = built.patch;
+  const patch = lockColumnsAvailable ? built.patch : stripStoreProductLockColumns(built.patch);
   const before = {
     product_status: row.product_status,
     admin_review_status: (row as { admin_review_status?: string }).admin_review_status,
     title: (row as { title?: string }).title,
     price: (row as { price?: number }).price,
+    discount_price: (row as { discount_price?: number | null }).discount_price ?? null,
+    discount_percent: (row as { discount_percent?: number | null }).discount_percent ?? null,
+    admin_status_lock: (row as { admin_status_lock?: string | null }).admin_status_lock ?? null,
+    sold_out_reason: (row as { sold_out_reason?: string | null }).sold_out_reason ?? null,
   };
 
   // 상태 조건부 — 화면을 연 뒤 사장님·다른 관리자가 상태를 바꿨으면 409 (덮어쓰지 않음).
@@ -112,7 +133,10 @@ export async function PATCH(
 
   const storeId = String((row as { store_id?: string }).store_id ?? "").trim();
   try {
-    if (storeId) invalidateStoreMenusSnapshotCacheByStoreId(storeId);
+    if (storeId) {
+      invalidateStoreMenusSnapshotCacheByStoreId(storeId);
+      invalidateOwnerProductsListCache(storeId); // PRD-09 — 오너 허브 즉시 반영
+    }
     clearStoreHomeFeedServerCache();
     bumpStorePublicSharedCacheGeneration(`admin_store_product.${actionRaw}`); // DEF-64 인스턴스 공통
   } catch (e) {
