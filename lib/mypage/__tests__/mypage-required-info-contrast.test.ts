@@ -42,15 +42,15 @@ const WHITE: Rgb = [255, 255, 255];
 const danger = hex(token("--sm-color-danger"));
 const dangerSoft = hex(token("--sam-danger-soft"));
 const gold = hex(token("--dibay-gold"));
-const brown = hex(token("--dibay-brown"));
 const cream = hex(token("--dibay-cream"));
 const card = hex(token("--dibay-card"));
-// --sam-warning = mix(brown 54%, gold) · --sam-warning-soft = mix(gold 38%, cream)
-const warning = mix(brown, 0.54, gold);
+// --sam-warning-soft = mix(gold 38%, cream)
 const warningSoft = mix(gold, 0.38, cream);
 
 const dangerStrong = mix(danger, 0.78, BLACK);
-const warningStrong = mix(warning, 0.7, BLACK);
+// 「변경 필요」·「진행 중」 = 주황 계열 (Production 점검 F1: 토큰을 검정과 섞으면 갈색이 됨 → 주황 고정색)
+const orangeText = hex("#8A3B00");
+const orangeFill = hex("#FFE3C2");
 
 describe("필수 정보 3행 대비", () => {
   it("원 토큰은 연한 배경 위 4.5:1 미달 — 그래서 카드 안에서만 어둡게 섞는다", () => {
@@ -62,15 +62,29 @@ describe("필수 정보 3행 대비", () => {
     expect(contrast(WHITE, dangerStrong)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("주황 값 글자 on warning-soft · 흰 글자 on 주황 채움 배지 · 주황 테두리 배지 글자 on 카드 ≥ 4.5", () => {
-    expect(contrast(warningStrong, warningSoft)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(WHITE, warningStrong)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(warningStrong, card)).toBeGreaterThanOrEqual(4.5);
+  it("주황 값 글자 on warning-soft · 주황 글자 on 연주황 배지 · 주황 테두리 배지 글자 on 카드 ≥ 4.5", () => {
+    expect(contrast(orangeText, warningSoft)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(orangeText, orangeFill)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(orangeText, card)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("주황 배지는 갈색이 아닌 주황 색상(hue 20~40°)", () => {
+    const hue = ([r, g, b]: Rgb) => {
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      if (mx === mn) return 0;
+      const d = mx - mn;
+      const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      return (h * 60 + 360) % 360;
+    };
+    expect(hue(orangeFill)).toBeGreaterThanOrEqual(20);
+    expect(hue(orangeFill)).toBeLessThanOrEqual(40);
+    expect(hue(orangeText)).toBeGreaterThanOrEqual(20);
+    expect(hue(orangeText)).toBeLessThanOrEqual(40);
   });
 
   it("컴포넌트가 같은 혼합 비율을 쓴다", () => {
     const src = readFileSync(path.join(process.cwd(), "components/mypage/home/MypageRequiredInfoSummary.tsx"), "utf8");
     expect(src).toContain("color-mix(in_srgb,var(--sam-danger)_78%,#000)");
-    expect(src).toContain("color-mix(in_srgb,var(--sam-warning)_70%,#000)");
+    expect(src).toContain("bg-[#FFE3C2] text-[#8A3B00]");
   });
 });

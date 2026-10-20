@@ -1,5 +1,6 @@
 "use client";
 
+import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useEffect, useLayoutEffect, useRef } from "react";
@@ -192,6 +193,8 @@ export function MainAppProviderTree({
           <SessionLostRedirect />
           <PostLogoutBfcacheGuard />
           <DibaySignupGate />
+          {/* 대표 주소 없는 로그인 회원 → 프로필 설정(주소)으로 유도 · 내정보 홈·주소/프로필 흐름 제외 (Owner 승인 2026-10-20) */}
+          <MandatoryAddressGate />
           <OwnerHubBadgeRuntime />
           <LoginRequiredSheet />
           <PhoneVerificationRequiredSheet />

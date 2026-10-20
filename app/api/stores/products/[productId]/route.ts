@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +45,8 @@ export async function GET(
         "min_order_qty, max_order_qty, thumbnail_url, images_json, options_json, product_status",
         "pickup_available, local_delivery_available, shipping_available",
         "category_id, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order, created_at",
-        "store_menu_sections ( id, name, sort_order )",
+        "admin_review_status",
+        "store_menu_sections ( id, name, sort_order, is_hidden )",
         "store_product_categories ( name, slug )",
       ].join(", ")
     )
@@ -57,6 +59,11 @@ export async function GET(
   }
 
   const prod = product as unknown as StoreProductPublicRow;
+  // PRD-03 · PRD-05 — 노출 = 주문 가능: 검수 반려·재검수 대기, 숨김 구역 상품은 메뉴판과 같이 404.
+  if (storeProductBuyerVisibilityBlocked(prod)) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+  delete prod.admin_review_status;
 
   const { data: store, error: sErr } = await sb
     .from("stores")

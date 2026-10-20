@@ -42,6 +42,7 @@ export const STORE_ORDER_AUDIT_ACTION_LABEL: Record<string, Entry> = {
   buyer_hide: { ko: "구매자 주문 숨김", en: "Buyer hid order", category: "buyer" },
   admin_force_cancel: { ko: "관리자 주문 취소", en: "Admin cancelled order", category: "admin" },
   admin_set_refund_requested: { ko: "관리자 환불 요청 등록", en: "Admin opened refund request", category: "admin" },
+  admin_approve_cancel_request: { ko: "관리자 취소요청 승인", en: "Admin approved cancel request", category: "admin" },
   admin_reject_cancel_request: { ko: "관리자 취소요청 반려", en: "Admin rejected cancel request", category: "admin" },
   admin_complete_refund: { ko: "관리자 환불 완료", en: "Admin completed refund", category: "admin" },
   admin_reject_refund: { ko: "관리자 환불 반려", en: "Admin rejected refund", category: "admin" },
@@ -50,6 +51,7 @@ export const STORE_ORDER_AUDIT_ACTION_LABEL: Record<string, Entry> = {
   cron_auto_complete: { ko: "자동 완료", en: "Auto-completed", category: "system" },
   cron_accept_timeout_cancel: { ko: "미접수 자동 취소", en: "Auto-cancelled (not accepted)", category: "system" },
   external_delivery_webhook: { ko: "외부 배달사 상태 반영", en: "External delivery update", category: "system" },
+  delivery_sync_arrived: { ko: "배달 완료 → 주문 도착 반영", en: "Delivered → order arrived", category: "system" },
   payment_failed_cancel: { ko: "결제 실패 자동 취소", en: "Cancelled after payment failure", category: "system" },
   stock_restore_failed: { ko: "재고 복원 실패 (시스템 경고)", en: "Stock restore failed (warning)", category: "system" },
 };

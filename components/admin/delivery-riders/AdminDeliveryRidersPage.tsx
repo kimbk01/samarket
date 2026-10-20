@@ -24,6 +24,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { deliveryRiderOpsMode, deliveryRiderOpsModeNotice } from "@/lib/stores/delivery-rider-ops-mode";
 
 type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
 
@@ -375,6 +376,11 @@ function AdminDeliveryRidersPageInner() {
 
   /** 실제 집계만 표시 (DEF-43 — 휴리스틱 % 제거) — 서버 count (전체 라이더 기준). */
   const riderCounts = { suspended: counts.suspended, flagged: counts.flagged };
+  /** DLV-01: shown only after a successful load reported the rider total (never on a failed/empty load). */
+  const riderOpsNotice = deliveryRiderOpsModeNotice(
+    generatedAt && !loadErr ? deliveryRiderOpsMode(counts.riders) : null,
+    ko
+  );
 
   const riderName = useCallback(
     (riderId: string | null | undefined) => {
@@ -391,6 +397,19 @@ function AdminDeliveryRidersPageInner() {
   return (
     <div className="sam-page-stack">
       <AdminPageHeader titleKey="admin_menu_delivery_riders_ops" descriptionKey="admin_del_riders_page_desc" />
+
+      {riderOpsNotice ? (
+        <div
+          role="status"
+          data-testid="admin-delivery-riders-ops-mode"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-xs text-sam-fg"
+        >
+          <span className="mr-2 inline-block rounded-full bg-sam-app px-2 py-0.5 font-semibold">
+            {ko ? "미운영 (라이더 0)" : "Not operated (0 riders)"}
+          </span>
+          {riderOpsNotice}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2 sam-text-xxs text-sam-muted">
         <Link href="/admin/delivery-operations" className="text-signature underline">

@@ -52,3 +52,8 @@ npm run verify:delivery-product-hard-lock
 ```
 
 Optional: `npx tsx scripts/runtime-delivery-phase-d-matrix.ts`
+
+## Reopen 기록
+
+- 2026-10-21 1-J (PRD-03·05·06, ND-1): 주문 RPC Pass1 검수·숨김 구역 거부 + `sold_out_reason='stock'`, 복원은 stock 품절만 판매 재개, 메뉴 스냅샷 검수 제외 — `20270602130000` · doc §7.
+

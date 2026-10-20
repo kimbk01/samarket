@@ -21,8 +21,9 @@ import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 /**
- * 상태 → 색 (real-screen-redesign §11 표). 빨강·주황 글자는 연한 배경 위 대비 4.5:1 이상이 되도록
- * 같은 토큰을 이 카드 안에서만 어둡게 섞는다(전역 토큰 불변). 다크 모드는 원 토큰(이미 밝은 색).
+ * 상태 → 색 (real-screen-redesign §11 표). 빨강 글자는 연한 배경 위 대비 4.5:1 이상이 되도록
+ * 토큰을 이 카드 안에서만 어둡게 섞는다(전역 토큰 불변). 주황(진행 중·변경 필요)은 토큰을 섞으면 갈색이 되어
+ * 연주황 배지 + 진한 주황 글자 고정색을 쓴다(Production 점검 F1). 다크 모드는 원 토큰(이미 밝은 색).
  * 대비 계산 테스트: `lib/mypage/__tests__/mypage-required-info-contrast.test.ts`.
  */
 export const MYPAGE_REQUIRED_TONE_CLASS: Record<
@@ -39,7 +40,7 @@ export const MYPAGE_REQUIRED_TONE_CLASS: Record<
     row: "",
     value: "text-sam-muted",
     badge:
-      "border-[color-mix(in_srgb,var(--sam-warning)_70%,#000)] bg-transparent text-[color-mix(in_srgb,var(--sam-warning)_70%,#000)] dark:border-sam-warning dark:text-sam-warning",
+      "border-[#F2A65A] bg-transparent text-[#8A3B00] dark:border-sam-warning dark:text-sam-warning",
   },
   complete: {
     row: "",
@@ -48,9 +49,8 @@ export const MYPAGE_REQUIRED_TONE_CLASS: Record<
   },
   action: {
     row: "bg-sam-warning-soft",
-    value: "text-[color-mix(in_srgb,var(--sam-warning)_70%,#000)] dark:text-sam-warning",
-    badge:
-      "border-transparent bg-[color-mix(in_srgb,var(--sam-warning)_70%,#000)] text-white dark:bg-sam-warning dark:text-sam-ink",
+    value: "text-[#8A3B00] dark:text-sam-warning",
+    badge: "border-[#F2A65A] bg-[#FFE3C2] text-[#8A3B00] dark:border-transparent dark:bg-sam-warning dark:text-sam-ink",
   },
   error: {
     row: "",

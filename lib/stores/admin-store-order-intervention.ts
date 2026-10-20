@@ -7,7 +7,8 @@
  * 2. the status the admin saw (`expectedStatus`) is re-checked on the server
  * 3. the action must be allowed by the ADMIN transition graph for the current status
  * 4. refund reject restores the status recorded before the request (never client-chosen)
- * 5. the status write itself is `applyStoreOrderStatusTransition` (CAS) via the existing ops
+ * 5. the status write itself is `applyStoreOrderStatusTransition` (CAS) via the existing ops — the CAS
+ *    value is the status from step 2 (ORD-04); a change in between → 409 `status_changed`
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -111,35 +112,49 @@ export async function runAdminStoreOrderIntervention(
 
   let toStatus = current;
   let res: { ok: true } | { ok: false; error: string; httpStatus: number };
+  // ORD-04: every status write is a CAS on the status the admin saw (not a value re-read later).
+  const cas = { expectedStatus: expected };
   switch (input.action) {
     case "cancel_request_approve":
       toStatus = "cancelled";
-      res = await adminApproveStoreOrderCancelRequest(sb, oid, input.audit);
+      res = await adminApproveStoreOrderCancelRequest(sb, oid, input.audit, cas);
       break;
     case "cancel_request_reject":
-      res = await adminRejectStoreOrderCancelRequest(sb, oid, reason, input.audit);
+      res = await adminRejectStoreOrderCancelRequest(sb, oid, reason, input.audit, cas);
       break;
     case "refund_approve":
       toStatus = "refunded";
-      res = await adminCompleteRefundStoreOrder(sb, oid, input.audit);
+      res = await adminCompleteRefundStoreOrder(sb, oid, input.audit, cas);
       break;
     case "refund_reject": {
       const restore = await resolveRefundRequestRestoreStatus(sb, oid);
       if (!restore) return { ok: false, error: "refund_restore_status_unknown", httpStatus: 409, currentStatus: current };
       toStatus = restore;
-      res = await adminRejectRefundStoreOrder(sb, oid, restore, reason, input.audit);
+      res = await adminRejectRefundStoreOrder(sb, oid, restore, reason, input.audit, cas);
       break;
     }
     case "force_cancel":
       toStatus = "cancelled";
-      res = await adminForceCancelStoreOrder(sb, oid, input.audit);
+      res = await adminForceCancelStoreOrder(sb, oid, input.audit, cas);
       break;
     case "refund_request_create":
       toStatus = "refund_requested";
-      res = await adminSetRefundRequestedStoreOrder(sb, oid, input.audit);
+      res = await adminSetRefundRequestedStoreOrder(sb, oid, input.audit, cas);
       break;
   }
-  if (!res.ok) return { ...res, currentStatus: current };
+  if (!res.ok) {
+    // The order changed between the admin's view and the write → the 409 the screen re-fetches on.
+    if (res.error === "transition_conflict") {
+      const { data: now } = await sb.from("store_orders").select("order_status").eq("id", oid).maybeSingle();
+      return {
+        ok: false,
+        error: "status_changed",
+        httpStatus: 409,
+        currentStatus: String((now as { order_status?: unknown } | null)?.order_status ?? current),
+      };
+    }
+    return { ...res, currentStatus: current };
+  }
 
   if (input.action === "cancel_request_reject") {
     const { data: after } = await sb.from("store_orders").select("order_status").eq("id", oid).maybeSingle();

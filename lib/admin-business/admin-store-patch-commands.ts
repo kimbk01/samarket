@@ -39,6 +39,16 @@ export const ADMIN_STORE_PATCH_COMMANDS = {
     writes: ["stores.approval_status", "stores.suspended_reason"],
     table: "stores",
   },
+  /** ACC-04 — 반려 매장 재심사 열기 (rejected → revision_requested, 사유 필수). */
+  reopen_application: {
+    writes: ["stores.approval_status", "stores.revision_note", "stores.rejected_reason"],
+    table: "stores",
+  },
+  /** ND-2 — 승인 매장 핵심 위치 변경 「재검증 완료」 (pending_reverification → none, CAS). */
+  confirm_core_info_reverified: {
+    writes: ["stores.core_info_review_status", "stores.core_info_verified_at", "stores.core_info_verified_by"],
+    table: "stores",
+  },
   set_owner_identity_editable: {
     writes: ["stores.owner_can_edit_store_identity"],
     table: "stores",

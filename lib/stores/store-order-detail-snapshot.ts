@@ -27,7 +27,6 @@ import {
   clearStoreOrderDetailSnapshotInvalidation,
   peekStoreOrderDetailSnapshotInvalidated,
 } from "@/lib/stores/store-order-detail-snapshot-cache";
-import { scheduleStoreOrderDetailSnapshotRefresh } from "@/lib/stores/store-order-detail-snapshot-refresh";
 import { enrichOrderCouponDisplayFields } from "@/lib/stores/enrich-order-coupon-display";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -272,16 +271,7 @@ export async function tryLoadBuyerStoreOrderDetailFromSnapshot(
         if ("body" in done) return done;
         if ("ok" in done && done.ok === false) return done;
       }
-      if (counter.hit && counter.stale) {
-        scheduleStoreOrderDetailSnapshotRefresh(oid, uid);
-        const done = await finishFromPayloadWithCoupon(sbAny, oid, counter.row.payload_json, {
-          totalMs: devPerfNow() - build0,
-          readMs,
-          via: "counter_row",
-        });
-        if ("body" in done) return done;
-        if ("ok" in done && done.ok === false) return done;
-      }
+      // NTF-04: an expired row is never served (it may predate a status change) — fall through to the RPC.
     }
 
     const { payload, rpcMs } = await fetchSnapshotViaRpc(sbAny, oid, uid);

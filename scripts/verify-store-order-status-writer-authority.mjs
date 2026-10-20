@@ -78,6 +78,46 @@ for (const line of multi.split("\n").filter(Boolean)) {
   fails.push(`${rel}:${startLine}\n${snippet.slice(0, 280)}`);
 }
 
+/**
+ * DB writers of order_status (SECURITY DEFINER, service_role only) — callable only from
+ * applyStoreOrderStatusTransition so the TS state machine + side effects stay single-path.
+ * ORD-06 added the owner cancel / cancel-request decision functions (ledger + status in one TX).
+ */
+const STATUS_WRITER_RPCS = [
+  "store_order_buyer_cancel_request_atomic",
+  "store_order_owner_cancel_atomic",
+  "store_order_cancel_request_decide_atomic",
+];
+const applyAbs = path.join(root, "lib/stores/apply-store-order-status-transition.ts");
+const applySrc = fs.readFileSync(applyAbs, "utf8");
+for (const fn of STATUS_WRITER_RPCS) {
+  if (!applySrc.includes(`"${fn}"`)) fails.push(`apply must call DB status writer ${fn}`);
+  // positive globs first: rg applies the LAST matching glob, so the exclusions must come after.
+  const hits = rg([
+    "-l",
+    "-g",
+    "*.ts",
+    "-g",
+    "*.tsx",
+    "--glob",
+    "!**/node_modules/**",
+    "--glob",
+    "!**/scripts/**",
+    "--glob",
+    "!**/supabase/**",
+    "--glob",
+    "!**/*.test.ts",
+    "--glob",
+    "!**/__tests__/**",
+    "--glob",
+    "!**/docs/**",
+    `["'\`]${fn}["'\`]`,
+  ]);
+  for (const rel of hits.split("\n").filter(Boolean)) {
+    if (path.join(root, rel) !== applyAbs) fails.push(`${rel}: DB status writer ${fn} called outside apply`);
+  }
+}
+
 if (fails.length) {
   console.error("FAIL: runtime store_orders order_status UPDATE outside apply/create:\n");
   console.error(fails.join("\n---\n"));

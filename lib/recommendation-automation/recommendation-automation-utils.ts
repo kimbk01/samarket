@@ -4,10 +4,10 @@
 
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import type { AutomationActionType } from "@/lib/types/recommendation-automation";
+import type { RecommendationAutomationExecutionInput } from "@/lib/recommendation-ops/recommendation-records-contract";
 import { getRecommendationAutomationPolicyBySurface } from "@/lib/recommendation-ops/recommendation-ops-state";
 import { getRecommendationHealthStatusBySurface } from "@/lib/recommendation-analytics/recommendation-health-status";
-import { getRecommendationIncidents } from "@/lib/recommendation-ops/recommendation-runtime-state";
-import { addRecommendationAutomationExecution } from "@/lib/recommendation-ops/recommendation-runtime-state";
+import { getRecommendationIncidentCountsBySurface } from "@/lib/recommendation-ops/recommendation-records-summary-state";
 import { getFeedMode } from "@/lib/feed-emergency/feed-emergency-utils";
 import { enableFallback, enableKillSwitch, disableFallback } from "@/lib/feed-emergency/feed-emergency-utils";
 import { rollbackSurface } from "@/lib/recommendation-deployments/recommendation-deployment-utils";
@@ -66,25 +66,22 @@ export function evaluateAutomation(surface: RecommendationSurface): AutomationEv
     return result;
   }
 
-  const incidents = getRecommendationIncidents({ surface });
-  const deploymentFailures = incidents.filter(
-    (i) => i.incidentType === "deployment_failure" && i.status !== "resolved"
-  );
+  /** 이슈 수 = DB 요약 RPC (surface 별 전체 기록 — 예전: 메모리 보관 최대 200건 중에서 셈, R7 후속). */
+  const incidentCounts = getRecommendationIncidentCountsBySurface(surface);
+  const deploymentFailures = incidentCounts.deploymentFailureUnresolved;
   if (
     policy.autoRollbackEnabled &&
-    deploymentFailures.length >= policy.deploymentFailureThreshold
+    deploymentFailures >= policy.deploymentFailureThreshold
   ) {
     result.shouldRollback = true;
-    result.reason = `배포 실패 이슈 ${deploymentFailures.length}건 >= ${policy.deploymentFailureThreshold}`;
+    result.reason = `배포 실패 이슈 ${deploymentFailures}건 >= ${policy.deploymentFailureThreshold}`;
     return result;
   }
 
-  const criticalOpen = incidents.filter(
-    (i) => i.severity === "critical" && i.status === "open"
-  );
-  if (policy.autoKillSwitchEnabled && criticalOpen.length > 0) {
+  const criticalOpen = incidentCounts.criticalOpen;
+  if (policy.autoKillSwitchEnabled && criticalOpen > 0) {
     result.shouldKillSwitch = true;
-    result.reason = `critical 미해결 이슈 ${criticalOpen.length}건`;
+    result.reason = `critical 미해결 이슈 ${criticalOpen}건`;
     return result;
   }
 
@@ -92,14 +89,22 @@ export function evaluateAutomation(surface: RecommendationSurface): AutomationEv
   return result;
 }
 
-/** 단일 자동 조치 실행 (dry_run: 기록만, live: 실제 상태 변경) */
+/**
+ * 단일 자동 조치 실행 (dry_run: 기록만, live: 실제 상태 변경).
+ * 실행 기록은 돌려준 `execution` 을 호출자가 서버에 1건 INSERT 한다 (POST /api/admin/recommendation-records/automation-executions).
+ */
 export function runAutomationAction(
   surface: RecommendationSurface,
   actionType: AutomationActionType,
   mode: "dry_run" | "live",
   incidentId: string | null,
   reason: string
-): { status: "success" | "skipped" | "failed"; beforeState: string; afterState: string } {
+): {
+  status: "success" | "skipped" | "failed";
+  beforeState: string;
+  afterState: string;
+  execution: RecommendationAutomationExecutionInput;
+} {
   const beforeState = getFeedMode(surface);
   let afterState = beforeState;
 
@@ -119,18 +124,22 @@ export function runAutomationAction(
         afterState = "normal";
       }
     } catch {
-      addRecommendationAutomationExecution({
-        surface,
-        incidentId,
-        actionType,
-        executionMode: mode,
+      const failedAfter = getFeedMode(surface);
+      return {
         status: "failed",
-        reason,
         beforeState,
-        afterState: getFeedMode(surface),
-        completedAt: new Date().toISOString(),
-      });
-      return { status: "failed", beforeState, afterState: getFeedMode(surface) };
+        afterState: failedAfter,
+        execution: {
+          surface,
+          incidentId,
+          actionType,
+          executionMode: mode,
+          status: "failed",
+          reason,
+          beforeState,
+          afterState: failedAfter,
+        },
+      };
     }
   } else {
     afterState = actionType === "auto_fallback" ? "fallback" : actionType === "auto_kill_switch" ? "kill_switch" : actionType === "auto_recovery" ? "normal" : beforeState;
@@ -138,25 +147,32 @@ export function runAutomationAction(
 
   const status: "success" | "skipped" | "failed" =
     mode === "dry_run" ? "skipped" : "success";
-  addRecommendationAutomationExecution({
-    surface,
-    incidentId,
-    actionType,
-    executionMode: mode,
+  return {
     status,
-    reason,
     beforeState,
     afterState,
-    completedAt: new Date().toISOString(),
-  });
-  return { status, beforeState, afterState };
+    execution: {
+      surface,
+      incidentId,
+      actionType,
+      executionMode: mode,
+      status,
+      reason,
+      beforeState,
+      afterState,
+    },
+  };
 }
 
-/** surface에 대해 평가 후 첫 번째 충족 조건 실행 (시뮬레이션/실행용) */
+/** surface에 대해 평가 후 첫 번째 충족 조건 실행 (시뮬레이션/실행용). 실행 기록은 `execution` 으로 돌려준다. */
 export function runAutomationForSurface(
   surface: RecommendationSurface,
   mode: "dry_run" | "live"
-): AutomationEvalResult & { actionTaken?: AutomationActionType } {
+): AutomationEvalResult & {
+  actionTaken?: AutomationActionType;
+  /** 실행한 조치의 기록 — 호출자가 서버에 1건 INSERT. 조치 없으면 없음. */
+  execution?: RecommendationAutomationExecutionInput;
+} {
   const policy = getRecommendationAutomationPolicyBySurface(surface);
   if (!policy?.isActive) {
     return {
@@ -172,44 +188,44 @@ export function runAutomationForSurface(
   const evalResult = evaluateAutomation(surface);
 
   if (evalResult.shouldFallback && policy.autoFallbackEnabled) {
-    runAutomationAction(
+    const run = runAutomationAction(
       surface,
       "auto_fallback",
       effectiveMode,
       null,
       evalResult.reason
     );
-    return { ...evalResult, actionTaken: "auto_fallback" };
+    return { ...evalResult, actionTaken: "auto_fallback", execution: run.execution };
   }
   if (evalResult.shouldRollback && policy.autoRollbackEnabled) {
-    runAutomationAction(
+    const run = runAutomationAction(
       surface,
       "auto_rollback",
       effectiveMode,
       null,
       evalResult.reason
     );
-    return { ...evalResult, actionTaken: "auto_rollback" };
+    return { ...evalResult, actionTaken: "auto_rollback", execution: run.execution };
   }
   if (evalResult.shouldKillSwitch && policy.autoKillSwitchEnabled) {
-    runAutomationAction(
+    const run = runAutomationAction(
       surface,
       "auto_kill_switch",
       effectiveMode,
       null,
       evalResult.reason
     );
-    return { ...evalResult, actionTaken: "auto_kill_switch" };
+    return { ...evalResult, actionTaken: "auto_kill_switch", execution: run.execution };
   }
   if (evalResult.shouldRecovery && policy.autoRecoveryEnabled) {
-    runAutomationAction(
+    const run = runAutomationAction(
       surface,
       "auto_recovery",
       effectiveMode,
       null,
       evalResult.reason
     );
-    return { ...evalResult, actionTaken: "auto_recovery" };
+    return { ...evalResult, actionTaken: "auto_recovery", execution: run.execution };
   }
   return evalResult;
 }

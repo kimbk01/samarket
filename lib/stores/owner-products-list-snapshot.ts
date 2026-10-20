@@ -4,6 +4,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { isMissingStoreProductLockColumnError } from "@/lib/stores/store-product-admin-lock";
 
 /** List GET / RSC — embed 제거·배치 attach. 상세 필드(options_json·images_json·description_html) 제외. */
 export const OWNER_PRODUCTS_LIST_SELECT =
@@ -21,6 +22,9 @@ export const OWNER_PRODUCTS_LIST_SELECT =
     "product_status",
     "admin_review_status",
     "admin_review_memo",
+    // ND-1 · PRD-06 (마이그레이션 20270602130000) — 미적용 DB 면 OWNER_PRODUCTS_LIST_SELECT_LEGACY 로 폴백
+    "admin_status_lock",
+    "sold_out_reason",
     "pickup_available",
     "local_delivery_available",
     "shipping_available",
@@ -34,6 +38,10 @@ export const OWNER_PRODUCTS_LIST_SELECT =
     "created_at",
     "updated_at",
   ].join(", ");
+
+export const OWNER_PRODUCTS_LIST_SELECT_LEGACY = OWNER_PRODUCTS_LIST_SELECT.split(", ")
+  .filter((c) => c !== "admin_status_lock" && c !== "sold_out_reason")
+  .join(", ");
 
 export const OWNER_PRODUCTS_SECTION_FILTER_SELECT = "id, menu_section_id";
 
@@ -55,7 +63,11 @@ export type OwnerProductsListSnapshot = {
   singleflight_hit: 0 | 1;
 };
 
-/** POST/PATCH invalidate — warm 허브 폴링은 ownership TTL(30s)과 맞춤 */
+/**
+ * POST/PATCH invalidate — warm 허브 폴링은 ownership TTL(30s)과 맞춤.
+ * PRD-09: 관리자 상품 PATCH·오너 섹션 PATCH/DELETE 도 무효화하고, 인스턴스 간은 공개 캐시 세대
+ * (`purgeAllStorePublicServerMemoryCaches` → 이 캐시 전체 비움)로 맞춘다.
+ */
 export const OWNER_PRODUCTS_LIST_CACHE_TTL_MS = 30_000;
 
 type CacheEntry = {
@@ -203,26 +215,32 @@ async function loadOwnerProductsListSnapshotUncached(
   const selectCols = isSectionScoped ? OWNER_PRODUCTS_SECTION_FILTER_SELECT : OWNER_PRODUCTS_LIST_SELECT;
 
   const tProducts0 = perfNow();
-  let pq = sb
-    .from("store_products")
-    .select(selectCols)
-    .eq("store_id", storeId)
-    .not("product_status", "eq", "deleted");
+  const runProductsQuery = (cols: string) => {
+    let pq = sb
+      .from("store_products")
+      .select(cols)
+      .eq("store_id", storeId)
+      .not("product_status", "eq", "deleted");
 
-  if (isSectionScoped) {
-    pq = pq.eq("menu_section_id", sectionFilter);
+    if (isSectionScoped) {
+      pq = pq.eq("menu_section_id", sectionFilter);
+    }
+
+    if (opts.limit != null && opts.limit > 0) {
+      pq = pq.limit(opts.limit);
+    }
+
+    return pq
+      .order("is_featured", { ascending: false })
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false });
+  };
+
+  let productsRes = await runProductsQuery(selectCols);
+  if (productsRes.error && !isSectionScoped && isMissingStoreProductLockColumnError(productsRes.error)) {
+    productsRes = await runProductsQuery(OWNER_PRODUCTS_LIST_SELECT_LEGACY);
   }
-
-  if (opts.limit != null && opts.limit > 0) {
-    pq = pq.limit(opts.limit);
-  }
-
-  pq = pq
-    .order("is_featured", { ascending: false })
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
-
-  const { data: products, error: pErr } = await pq;
+  const { data: products, error: pErr } = productsRes;
   const products_query_ms = Math.round(perfNow() - tProducts0);
 
   if (pErr) {

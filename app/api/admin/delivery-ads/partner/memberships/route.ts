@@ -47,12 +47,17 @@ export async function GET(req: NextRequest) {
   }
 
   const storeIds = [...new Set(list.items.map((m) => m.storeId))];
+  // stores 의 이름 열은 store_name 뿐 (운영 스키마에 name 없음 — 예전엔 없는 열을 조회해 오류가 나고,
+  // 오류를 확인하지 않아 매장 이름이 항상 비었다). 조회 오류는 덮지 않고 500 으로 응답한다.
   const storesRes =
     storeIds.length > 0
-      ? await sb.from("stores").select("id, name").in("id", storeIds)
-      : { data: [] as Array<{ id: string; name: string | null }> };
+      ? await sb.from("stores").select("id, store_name").in("id", storeIds)
+      : { data: [] as Array<{ id: string; store_name: string | null }>, error: null };
+  if (storesRes.error) {
+    return NextResponse.json({ ok: false, error: `stores:${storesRes.error.message}` }, { status: 500 });
+  }
   const nameById = new Map(
-    (storesRes.data ?? []).map((s) => [String(s.id), String(s.name ?? "")])
+    (storesRes.data ?? []).map((s) => [String(s.id), String(s.store_name ?? "")])
   );
 
   return NextResponse.json({

@@ -364,3 +364,26 @@
 **배포 구분**: 웹만 (네이티브 파일 변경 없음 → 앱 재빌드 불필요, 앱 재시작으로 반영).
 
 **승인 요청 (한 번에)**: §11~§16 + 기존 §2·§3·§4·§6·§10 범위 전체. 「별도 승인」 3건은 제외합니다. 승인되면 P0→P5 를 축소 없이 완료한 뒤 한 번 보고합니다.
+
+---
+
+## 17. 완료 처리 (2026-10-20 · Owner 지시)
+
+| 항목 | 결과 |
+|---|---|
+| main / Production | `3269ab8e8` · Production Ready (Owner 확인) |
+| 운영 웹 실화면 (크롬 390·820px) | 재점검 PASS 18 / FAIL 0 / NOT_PROVEN 1 (빨강 「미등록」 배지 — 점검 계정에 해당 상태 없음, 로컬 실측·단위 테스트 PASS) |
+| 배포 구분 | 웹만 (`verify:native-version-bump`) — 네이티브 변경 없음, 재빌드 불필요 |
+| Android | versionCode 7 / 1.2.4 · `server.url` = Production 웹 · 1.2.4 (7) 설치 기기 접속 기록 확인 → 앱 재시작으로 반영 |
+| iOS | CURRENT_PROJECT_VERSION 7 (4곳) / 1.2 · 같은 구조 · 1.2 (7) 설치 기기 접속 기록 확인 → 앱 재시작으로 반영 |
+| 실기기 화면 캡처 판정 | 미실시 — Owner 지시로 완료 처리 (실기기 체크리스트는 대화 기록의 「실기기 확인 프롬프트」) |
+| 제외(별도 승인) | 관리자 수동 인증 번호 필수화 · 기존 카카오 사진 7명 DB 갱신 · `MandatoryAddressGate` 연결 |
+| 운영 과제(코드 밖) | Web Push 서버 키 미설정 — 브라우저 알림 사용 불가 상태 |
+
+## 18. 별도 승인 3건 처리 (2026-10-20 · Owner 승인)
+
+| 항목 | 처리 |
+|---|---|
+| 관리자 수동 인증 번호 필수화 | 관리자 승인(`/api/admin/users/[id]/phone-verification` approve) · 회원 수정(`/api/admin/users/[id]` phoneVerificationStatus=verified) 모두 저장된(또는 같은 요청에서 저장할) 번호가 없으면 400 `phone_required`. 기존 34명 데이터·`hasVerifiedPhone` 판정 불변. 테스트 회원 동기화 경로(test_users)는 범위 밖·불변 |
+| 기존 카카오 사진 7명 DB | 운영 DB 적용 완료: `http://k.kakaocdn.net/dn/…` 5명 → `https://` (Production 크롬 점검에서 같은 호스트 https 이미지 로드 확인) · 카카오 기본 이미지(`img1…default_profile`) 2명 → null(DIBAY 기본 아바타). 남은 http 아바타 0 |
+| `MandatoryAddressGate` 연결 | `MainAppProviderTree` 에 마운트. 대표 주소 없는 로그인 회원 → 프로필 설정(주소)으로 이동. 내정보 홈(`/mypage`)·주소/프로필 흐름·세션 미루기는 제외(컴포넌트 기존 규칙) |

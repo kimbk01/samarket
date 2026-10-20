@@ -19,6 +19,8 @@ vi.mock("@/lib/audit/append-audit-log", () => ({
 const getStoreIfOwner = vi.fn();
 vi.mock("@/lib/stores/owner-product-gate", () => ({
   getStoreIfOwner: (...args: unknown[]) => getStoreIfOwner(...args),
+  // 1-B: writer uses the operational-write gate (ownership + approved status); same verdict in this fixture.
+  getStoreIfOwnerForOperationalWrite: (...args: unknown[]) => getStoreIfOwner(...args),
 }));
 
 type Row = Record<string, unknown>;

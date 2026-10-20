@@ -111,8 +111,8 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
         return;
       }
       refresh();
-    } catch (e) {
-      setHint(e instanceof Error ? e.message : t("settings_web_push_err_register_generic"));
+    } catch {
+      setHint(t("settings_web_push_err_register_generic"));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
@@ -133,8 +133,8 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
         body: endpoint ? JSON.stringify({ endpoint }) : undefined,
       });
       refresh();
-    } catch (e) {
-      setHint(e instanceof Error ? e.message : t("settings_web_push_err_unregister_failed"));
+    } catch {
+      setHint(t("settings_web_push_err_unregister_failed"));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
@@ -162,10 +162,8 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
           {!supported ? (
             <p className="mt-1 text-[11px] leading-snug text-sam-warning">{t("settings_web_push_unsupported_env")}</p>
           ) : null}
-          {status?.table_missing ? (
-            <p className="mt-1 text-[11px] leading-snug text-sam-warning">{t("settings_web_push_no_table")}</p>
-          ) : null}
-          {!status?.vapid_configured ? (
+          {/* 서버 준비 상태(테이블·키)는 회원에게 원인 대신 사용자 문구 1줄만 (Production 점검 — 개발용 문구 노출 금지) */}
+          {status?.table_missing || !status?.vapid_configured ? (
             <p className="mt-1 text-[11px] leading-snug text-sam-muted">{t("settings_web_push_no_vapid")}</p>
           ) : null}
           {status?.vapid_configured && !status?.web_push_enabled ? (

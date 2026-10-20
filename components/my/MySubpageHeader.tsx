@@ -86,7 +86,8 @@ export function MySubpageHeader({
   const resolvedAriaLabel = tt(ariaLabel ?? t("common_back_to_mypage"));
   const resolvedTitle = titleKey ? t(titleKey) : title;
   const translatedTitle = typeof resolvedTitle === "string" ? tt(resolvedTitle) : resolvedTitle;
-  const translatedSubtitle = subtitle ? tt(subtitle) : undefined;
+  /** 내정보 하위 화면은 부제 없음 — 헤더 52px 고정 (설계서 v3 §12). 다른 도메인은 기존대로 부제 표시. */
+  const translatedSubtitle = subtitle && !isMypageSubpageHeaderPath(pathname) ? tt(subtitle) : undefined;
 
   const stripLinks = useMemo((): { href: string; label: string }[] => {
     if (hideCtaStrip) return [];

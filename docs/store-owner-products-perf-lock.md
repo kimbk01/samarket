@@ -28,7 +28,7 @@
 | slim list | `lib/stores/owner-products-list-snapshot.ts` |
 | auth | `validateActiveSessionLightDeduped` + 5s TTL |
 | ownership | `getCachedStoreIfOwner` 30s TTL |
-| list cache | `globalThis` 30s TTL · POST/PATCH `invalidateOwnerProductsListCache` |
+| list cache | `globalThis` 30s TTL · POST/PATCH `invalidateOwnerProductsListCache` · (PRD-09) 관리자 상품 PATCH · 메뉴 구역 PATCH/DELETE 도 무효화 · 인스턴스 간은 공개 캐시 세대(`purgeAllStorePublicServerMemoryCaches`) 가 전체 비움 — GET 진입 시 `syncStorePublicReadCachesWithSharedGeneration` (창 2s 내 메모리 비교만, 무DB) |
 
 ## Dev 로그
 

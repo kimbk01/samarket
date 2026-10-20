@@ -16,6 +16,14 @@ export type AdminOrderOpsAudit = {
   user_agent?: string | null;
 };
 
+/** ORD-04: the status the admin saw when deciding — the status write is a CAS on it (409 on change). */
+export type AdminOrderOpsExpect = { expectedStatus?: string | null };
+
+function expectedOf(opts?: AdminOrderOpsExpect): string | null {
+  const s = String(opts?.expectedStatus ?? "").trim();
+  return s || null;
+}
+
 function invalidateCaches(sb: SupabaseClient, storeId: string, ownerUserId: string | null): void {
   invalidateStoreOrderCountsCache(storeId.trim(), ownerUserId);
   if (ownerUserId) invalidateOwnerHubBadgeCache(ownerUserId);
@@ -33,7 +41,8 @@ async function loadOwnerUserId(sb: SupabaseClient, storeId: string): Promise<str
 export async function adminForceCancelStoreOrder(
   sb: SupabaseClient,
   orderId: string,
-  audit: AdminOrderOpsAudit
+  audit: AdminOrderOpsAudit,
+  opts?: AdminOrderOpsExpect
 ): Promise<{ ok: true } | { ok: false; error: string; httpStatus: number }> {
   const oid = orderId.trim();
   if (!oid) return { ok: false, error: "missing_order_id", httpStatus: 400 };
@@ -57,6 +66,7 @@ export async function adminForceCancelStoreOrder(
     orderId: oid,
     nextStatus: "cancelled",
     actor: "ADMIN",
+    expectedCurrentStatus: expectedOf(opts),
     audit: {
       actor_type: "admin",
       actor_id: audit.adminUserId,
@@ -80,7 +90,8 @@ export async function adminForceCancelStoreOrder(
 export async function adminSetRefundRequestedStoreOrder(
   sb: SupabaseClient,
   orderId: string,
-  audit: AdminOrderOpsAudit
+  audit: AdminOrderOpsAudit,
+  opts?: AdminOrderOpsExpect
 ): Promise<{ ok: true } | { ok: false; error: string; httpStatus: number }> {
   const oid = orderId.trim();
   if (!oid) return { ok: false, error: "missing_order_id", httpStatus: 400 };
@@ -103,6 +114,7 @@ export async function adminSetRefundRequestedStoreOrder(
     orderId: oid,
     nextStatus: "refund_requested",
     actor: "ADMIN",
+    expectedCurrentStatus: expectedOf(opts),
     audit: {
       actor_type: "admin",
       actor_id: audit.adminUserId,
@@ -125,7 +137,8 @@ export async function adminSetRefundRequestedStoreOrder(
 export async function adminApproveStoreOrderCancelRequest(
   sb: SupabaseClient,
   orderId: string,
-  audit: AdminOrderOpsAudit
+  audit: AdminOrderOpsAudit,
+  opts?: AdminOrderOpsExpect
 ): Promise<{ ok: true } | { ok: false; error: string; httpStatus: number }> {
   const oid = orderId.trim();
   if (!oid) return { ok: false, error: "missing_order_id", httpStatus: 400 };
@@ -148,23 +161,28 @@ export async function adminApproveStoreOrderCancelRequest(
   if (rErr) return { ok: false, error: rErr.message, httpStatus: 500 };
   if (!reqRow?.id) return { ok: false, error: "cancel_request_not_found", httpStatus: 404 };
 
-  const force = await adminForceCancelStoreOrder(sb, oid, audit);
-  if (!force.ok) return force;
-
-  // Ledger follows the order CAS; only a still-pending request is closed.
-  const { error: uReqErr } = await sb
-    .from("store_order_cancel_requests")
-    .update({
-      status: "approved",
-      approved_by: audit.adminUserId,
-      approved_at: new Date().toISOString(),
-      refund_status: "pending",
-    })
-    .eq("id", reqRow.id as string)
-    .eq("status", "pending");
-  if (uReqErr) console.error("[adminApproveStoreOrderCancelRequest] ledger", uReqErr);
+  // ORD-04/06: CAS on cancel_requested (never the force-cancel path on a newer status) and the
+  // ledger approval in the same DB transaction (store_order_cancel_request_decide_atomic).
+  const applied = await applyStoreOrderStatusTransition(sb, {
+    orderId: oid,
+    nextStatus: "cancelled",
+    actor: "ADMIN",
+    expectedCurrentStatus: expectedOf(opts) ?? "cancel_requested",
+    cancelRequestDecision: { decision: "approve", actorRole: "admin" },
+    eventMetadata: { source: "admin_cancel_request_approve" },
+    audit: {
+      actor_type: "admin",
+      actor_id: audit.adminUserId,
+      action: "store_order.admin_approve_cancel_request",
+      ip: audit.ip ?? null,
+      user_agent: audit.user_agent ?? null,
+    },
+  });
+  if (!applied.ok) return { ok: false, error: applied.error, httpStatus: applied.httpStatus };
 
   // cancel_approved event emitted inside apply (cancel_requested → cancelled)
+  const ownerId = await loadOwnerUserId(sb, order.store_id as string);
+  invalidateCaches(sb, order.store_id as string, ownerId);
   return { ok: true };
 }
 
@@ -172,7 +190,8 @@ export async function adminRejectStoreOrderCancelRequest(
   sb: SupabaseClient,
   orderId: string,
   rejectedReason: string,
-  audit: AdminOrderOpsAudit
+  audit: AdminOrderOpsAudit,
+  opts?: AdminOrderOpsExpect
 ): Promise<{ ok: true } | { ok: false; error: string; httpStatus: number }> {
   const oid = orderId.trim();
   if (!oid) return { ok: false, error: "missing_order_id", httpStatus: 400 };
@@ -206,12 +225,14 @@ export async function adminRejectStoreOrderCancelRequest(
     return { ok: false, error: "invalid_previous_order_status", httpStatus: 400 };
   }
 
-  // Recovery Chain: apply first — ledger update only after CAS success
+  // ORD-06: ledger rejection + restore in one DB transaction (decide RPC re-checks the ledger status).
   const applied = await applyStoreOrderStatusTransition(sb, {
     orderId: oid,
     nextStatus: previousStatus,
     actor: "ADMIN",
+    expectedCurrentStatus: expectedOf(opts) ?? "cancel_requested",
     restoreToStatus: previousStatus,
+    cancelRequestDecision: { decision: "reject", actorRole: "admin", reason },
     eventMessage: reason,
     eventMetadata: { source: "admin_cancel_request_reject", rejected_reason: reason },
     audit: {
@@ -225,18 +246,6 @@ export async function adminRejectStoreOrderCancelRequest(
   if (!applied.ok) {
     return { ok: false, error: applied.error, httpStatus: applied.httpStatus };
   }
-
-  const { error: uReqErr } = await sb
-    .from("store_order_cancel_requests")
-    .update({
-      status: "rejected",
-      rejected_at: new Date().toISOString(),
-      rejected_reason: reason,
-      refund_status: "not_applicable",
-    })
-    .eq("id", reqRow.id as string)
-    .eq("status", "pending");
-  if (uReqErr) return { ok: false, error: uReqErr.message, httpStatus: 500 };
 
   const ownerId = await loadOwnerUserId(sb, order.store_id as string);
   invalidateCaches(sb, order.store_id as string, ownerId);
@@ -382,7 +391,8 @@ export async function adminPatchStoreOrderMeta(
 export async function adminCompleteRefundStoreOrder(
   sb: SupabaseClient,
   orderId: string,
-  audit: AdminOrderOpsAudit
+  audit: AdminOrderOpsAudit,
+  opts?: AdminOrderOpsExpect
 ): Promise<{ ok: true; already?: boolean } | { ok: false; error: string; httpStatus: number }> {
   const oid = orderId.trim();
   if (!oid) return { ok: false, error: "missing_order_id", httpStatus: 400 };
@@ -402,6 +412,7 @@ export async function adminCompleteRefundStoreOrder(
     orderId: oid,
     nextStatus: "refunded",
     actor: "ADMIN",
+    expectedCurrentStatus: expectedOf(opts),
     audit: {
       actor_type: "admin",
       actor_id: audit.adminUserId,
@@ -433,7 +444,8 @@ export async function adminRejectRefundStoreOrder(
   orderId: string,
   restoreToStatus: string,
   reason: string,
-  audit: AdminOrderOpsAudit
+  audit: AdminOrderOpsAudit,
+  opts?: AdminOrderOpsExpect
 ): Promise<{ ok: true } | { ok: false; error: string; httpStatus: number }> {
   const oid = orderId.trim();
   if (!oid) return { ok: false, error: "missing_order_id", httpStatus: 400 };
@@ -460,6 +472,7 @@ export async function adminRejectRefundStoreOrder(
     orderId: oid,
     nextStatus: restore,
     actor: "ADMIN",
+    expectedCurrentStatus: expectedOf(opts) ?? "refund_requested",
     restoreToStatus: restore,
     eventMessage: rejectedReason,
     eventMetadata: { source: "admin_refund_reject", rejected_reason: rejectedReason },

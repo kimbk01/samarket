@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
+import Link from "next/link";
+import { buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
 import { formatPhMobileDisplayPlus63 } from "@/lib/utils/ph-mobile";
 import {
   listBrowsePrimaryIndustries,
@@ -467,12 +468,23 @@ export function BusinessApplyForm({
         <OwnerStoreAdminDashSection title={t("business_phase7_194")}>
           <div>
             <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_246")}</label>
-            <p className={APPLY_PHONE_VALUE_CLASS}>
-              {values.phone.trim()
-                ? formatPhMobileDisplayPlus63(values.phone)
-                : PH_MOBILE_PLUS63_PLACEHOLDER}
-            </p>
-            <p className="mt-1 sam-text-helper text-sam-muted">{t("business_phase7_709")}</p>
+            {/* 번호가 없으면 예시 번호를 값처럼 보이거나 「인증된 번호」라고 하지 않는다 (Production 점검) */}
+            {values.phone.trim() ? (
+              <>
+                <p className={APPLY_PHONE_VALUE_CLASS}>{formatPhMobileDisplayPlus63(values.phone)}</p>
+                <p className="mt-1 sam-text-helper text-sam-muted">{t("business_phase7_709")}</p>
+              </>
+            ) : (
+              <>
+                <p className={`${APPLY_PHONE_VALUE_CLASS} text-sam-muted`}>{t("business_apply_phone_none")}</p>
+                <Link
+                  href={buildPhoneVerificationHref("/stores/owner/apply")}
+                  className="mt-1 inline-flex min-h-[44px] items-center sam-text-helper font-medium text-sam-primary underline"
+                >
+                  {t("business_apply_phone_register_link")}
+                </Link>
+              </>
+            )}
           </div>
           <div>
             <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_297")}</label>

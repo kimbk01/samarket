@@ -33,6 +33,11 @@ import {
 } from "@/lib/stores/owner-products-list-snapshot";
 import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
 import {
+  bumpStorePublicSharedCacheGeneration,
+  syncStorePublicReadCachesWithSharedGeneration,
+} from "@/lib/stores/store-public-shared-cache-generation";
+import { isDirectDiscountPriceValid } from "@/lib/stores/store-product-discount-reconcile";
+import {
   jsonPayloadKb,
   logOwnerProductsPerf,
   perfNowMs,
@@ -46,6 +51,8 @@ export async function GET(
   context: { params: Promise<{ storeId: string }> }
 ) {
   const wall0 = perfNowMs();
+  /** PRD-09 — 관리자 상품 조치·오너 쓰기의 인스턴스 공통 세대 확인 (창 내 메모리 비교만, 무DB) */
+  const sharedGenerationSync = syncStorePublicReadCachesWithSharedGeneration();
   const tAuth0 = perfNowMs();
   const userId = await getRouteUserId();
   if (!userId) {
@@ -76,6 +83,7 @@ export async function GET(
   const cursor = req.nextUrl.searchParams.get("cursor")?.trim() ?? "";
   const skipListCache = sectionFilter.length > 0 || limit != null || cursor.length > 0;
 
+  await sharedGenerationSync;
   const tCacheLookup0 = perfNowMs();
   const products_list_cache_hit_before: 0 | 1 =
     skipListCache ? 0 : peekOwnerProductsListCacheHit(id) ? 1 : 0;
@@ -252,7 +260,16 @@ export async function POST(
     }
   } else if (body.discount_price != null && typeof body.discount_price === "number") {
     const d = Number(body.discount_price);
-    if (Number.isFinite(d) && d >= 0) discount = Math.floor(d);
+    if (Number.isFinite(d) && d >= 0) {
+      // PRD-04 — 직접 입력 할인가는 판매가보다 작아야 한다 (DB CHECK store_products_discount_lt_price).
+      if (!isDirectDiscountPriceValid(priceFloored, d)) {
+        return NextResponse.json(
+          { ok: false, error: "invalid_discount_price", message: "할인가는 판매가보다 낮아야 합니다." },
+          { status: 400 }
+        );
+      }
+      discount = Math.floor(d);
+    }
   }
 
   /** 생략 시 재고 미관리(무제한) */
@@ -427,6 +444,8 @@ export async function POST(
 
   invalidateOwnerProductsListCache(sid);
   invalidateStoreMenusSnapshotCacheByStoreId(sid);
+  // OPS-02 — 인스턴스 공통 공개 캐시 세대 (관리자 쓰기와 같은 DEF-64 계약)
+  bumpStorePublicSharedCacheGeneration("owner_store.product_create");
 
   return NextResponse.json({ ok: true, product: created });
 }

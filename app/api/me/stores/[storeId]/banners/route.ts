@@ -4,6 +4,7 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import { coerceStoreBannerLink } from "@/lib/stores/store-banner-link";
 
 export const runtime = "nodejs";
@@ -138,6 +139,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ storeI
 
   const slug = await resolveSlug(sb, sid);
   if (slug) revalidateStoreConsumerPathsBySlug(slug);
+  bumpStorePublicSharedCacheGeneration("owner_store.banner_create"); // OPS-02
 
   return NextResponse.json({ ok: true, id: created?.id });
 }

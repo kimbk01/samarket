@@ -5,6 +5,7 @@ import {
   syncStoreOrderMessengerRoomContextMeta,
 } from "@/lib/community-messenger/store-order-chat-service";
 import {
+  notifyBuyerStoreOrderAutoCompleted,
   notifyBuyerStoreOrderOwnerStatus,
   notifyStoreOwnerAcceptTimeoutCancelled,
   notifyBuyerStoreRefundApproved,
@@ -18,7 +19,10 @@ import {
   createStoreOrderStatusEvent,
   type StoreOrderActorRole,
 } from "@/lib/stores/store-order-events";
-import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
+import {
+  invalidateStoreOrderDetailSnapshot,
+  purgeStoreOrderDetailSnapshotRows,
+} from "@/lib/stores/store-order-detail-snapshot-cache";
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-settlement";
 import { adjustStoreSettlementOnRefund } from "@/lib/stores/adjust-store-settlement-on-refund";
@@ -77,6 +81,21 @@ export type ApplyStoreOrderStatusTransitionOpts = {
    * status change are written by `store_order_buyer_cancel_request_atomic` in one transaction.
    */
   buyerCancelRequestReason?: string | null;
+  /**
+   * OWNER → cancelled only (ORD-06): the store's direct cancel. The approved ledger row and the status
+   * change are written by `store_order_owner_cancel_atomic` in one transaction (pickup checked under
+   * the delivery/order row locks). The reason reaches the buyer (ORD-09 / D-22).
+   */
+  ownerDirectCancel?: { reason: string; detail?: string | null } | null;
+  /**
+   * cancel_requested → cancelled (approve) / → ledger previous status (reject), store or admin (ORD-06).
+   * Ledger decision + status change in one DB transaction via `store_order_cancel_request_decide_atomic`.
+   */
+  cancelRequestDecision?: {
+    decision: "approve" | "reject";
+    actorRole: "owner" | "admin";
+    reason?: string | null;
+  } | null;
   /** SYSTEM cron: require auto_complete_at <= now */
   requireAutoCompleteDue?: boolean;
   /** SYSTEM external-delivery webhook uses OWNER graph; payment_failure cancels pending */
@@ -108,6 +127,98 @@ function isAutoCompleteDue(autoCompleteAt: unknown): boolean {
   const t = Date.parse(String(autoCompleteAt));
   if (!Number.isFinite(t)) return false;
   return t <= Date.now();
+}
+
+const LEDGER_RPC_ERROR_MAP: Record<string, { error: string; httpStatus: number }> = {
+  order_admin_locked: { error: "order_admin_locked", httpStatus: 409 },
+  transition_conflict: { error: "transition_conflict", httpStatus: 409 },
+  cancel_request_pending: { error: "cancel_request_pending", httpStatus: 409 },
+  cancel_request_not_found: { error: "cancel_request_not_found", httpStatus: 404 },
+  restore_status_mismatch: { error: "cancel_restore_status_unknown", httpStatus: 409 },
+  picked_up: { error: "cancel_not_allowed_for_status", httpStatus: 400 },
+  invalid_transition: { error: "invalid_transition", httpStatus: 400 },
+  invalid_args: { error: "cancel_reason_required", httpStatus: 400 },
+  reason_required: { error: "reason_required", httpStatus: 400 },
+  order_not_found: { error: "order_not_found", httpStatus: 404 },
+  forbidden: { error: "forbidden", httpStatus: 403 },
+};
+
+/** Delivery statuses that are still open (a courier could still act on the row). */
+export const OPEN_DELIVERY_STATUSES = ["waiting_rider", "rider_assigned", "pickup_in_progress", "delivering"] as const;
+
+/**
+ * DLV-02 ③ — the order closed (cancelled / refunded): close an open delivery row so it leaves the
+ * dispatch queue. Post-commit, best effort (moves into the cancel DB function in stage 2-C).
+ */
+async function closeOpenDeliveryRowOnOrderClosed(
+  sb: SupabaseClient,
+  orderId: string,
+  closedStatus: "cancelled" | "refunded"
+): Promise<void> {
+  try {
+    const { error } = await sb
+      .from("store_order_deliveries")
+      .update({
+        delivery_status: "delivery_failed",
+        failure_note: `order_${closedStatus}`,
+        failed_at: new Date().toISOString(),
+      })
+      .eq("order_id", orderId)
+      .in("delivery_status", [...OPEN_DELIVERY_STATUSES]);
+    if (error && !/does not exist/i.test(String(error.message ?? ""))) {
+      console.error("[applyStoreOrderStatusTransition] close_open_delivery", error.message);
+    }
+  } catch (err) {
+    console.error("[applyStoreOrderStatusTransition] close_open_delivery", err);
+  }
+}
+
+/**
+ * Buyer notice for a plain status change (NTF-02/03, ORD-09).
+ * SYSTEM: auto_complete → auto-complete notice · payment_failure → none (record-store-order-payment sends
+ * the single payment-failed notice) · accept_timeout / delivery_sync → their own copy (not "the store did it").
+ */
+async function notifyBuyerOnStatusTransition(
+  sb: SupabaseClient,
+  input: {
+    buyerUserId: string;
+    orderId: string;
+    orderNo: string;
+    storeId: string;
+    nextStatus: string;
+    actor: StoreOrderStatusActor;
+    systemPurpose?: StoreOrderSystemPurpose;
+    storeOrderEventId?: string;
+    estimatedPrepMinutes?: number;
+    cancelReason?: string;
+  }
+): Promise<void> {
+  const ev = input.storeOrderEventId ? { storeOrderEventId: input.storeOrderEventId } : {};
+  if (input.actor === "SYSTEM") {
+    if (input.systemPurpose === "payment_failure") return;
+    if (input.systemPurpose === "auto_complete" && input.nextStatus === "completed") {
+      await notifyBuyerStoreOrderAutoCompleted(sb, {
+        buyerUserId: input.buyerUserId,
+        orderId: input.orderId,
+        orderNo: input.orderNo,
+        storeId: input.storeId,
+        ...ev,
+      });
+      return;
+    }
+  }
+  await notifyBuyerStoreOrderOwnerStatus(sb, {
+    buyerUserId: input.buyerUserId,
+    orderId: input.orderId,
+    orderNo: input.orderNo,
+    storeId: input.storeId,
+    nextStatus: input.nextStatus,
+    ...ev,
+    actor: input.actor,
+    systemPurpose: input.actor === "SYSTEM" ? input.systemPurpose : undefined,
+    ...(input.estimatedPrepMinutes != null ? { estimatedPrepMinutes: input.estimatedPrepMinutes } : {}),
+    ...(input.cancelReason ? { cancelReason: input.cancelReason } : {}),
+  });
 }
 
 /**
@@ -173,6 +284,22 @@ export async function applyStoreOrderStatusTransition(
     if (!Number.isFinite(mins) || mins < 1 || mins > 180) {
       return { ok: false, error: "prep_minutes_required", httpStatus: 400 };
     }
+  }
+
+  const ownerDirectCancel = opts.ownerDirectCancel ?? null;
+  const cancelDecision = opts.cancelRequestDecision ?? null;
+  if (ownerDirectCancel && (actor !== "OWNER" || nextStatus !== "cancelled")) {
+    return { ok: false, error: "invalid_transition", httpStatus: 400 };
+  }
+  if (cancelDecision) {
+    const wanted = cancelDecision.decision === "approve" ? nextStatus === "cancelled" : nextStatus !== "cancelled";
+    if (current !== "cancel_requested" || !wanted) {
+      return { ok: false, error: "invalid_transition", httpStatus: 400 };
+    }
+  }
+  const ownerCancelReason = ownerDirectCancel ? String(ownerDirectCancel.reason ?? "").trim().slice(0, 500) : "";
+  if (ownerDirectCancel && !ownerCancelReason) {
+    return { ok: false, error: "cancel_reason_required", httpStatus: 400 };
   }
 
   const updatePayload: Record<string, unknown> = { order_status: nextStatus };
@@ -246,10 +373,60 @@ export async function applyStoreOrderStatusTransition(
   };
 
   const buyerCancelRequest = actor === "CUSTOMER" && nextStatus === "cancel_requested";
+  const ledgerAtomic = ownerDirectCancel != null || cancelDecision != null;
   let { updated, error: uErr } =
-    nextStatus === "refunded" || buyerCancelRequest
+    nextStatus === "refunded" || buyerCancelRequest || ledgerAtomic
       ? { updated: null as { id?: string } | null, error: null as { message?: string } | null }
       : await runCasUpdate(updatePayload);
+
+  /** ORD-06: cancel ledger row + status in one DB TX (owner direct cancel / request decision). */
+  if (ledgerAtomic) {
+    const rpcName = ownerDirectCancel ? "store_order_owner_cancel_atomic" : "store_order_cancel_request_decide_atomic";
+    const restoreAutoCompleteAt =
+      "auto_complete_at" in updatePayload ? updatePayload.auto_complete_at : (order.auto_complete_at ?? null);
+    const decisionReason = cancelDecision?.reason?.trim() ? cancelDecision.reason.trim().slice(0, 500) : null;
+    const args = ownerDirectCancel
+      ? {
+          p_order_id: oid,
+          p_store_id: sid,
+          p_owner_user_id: opts.audit.actor_id,
+          p_expected_status: current,
+          p_reason: ownerCancelReason,
+          p_detail: ownerDirectCancel.detail?.trim() ? ownerDirectCancel.detail.trim().slice(0, 500) : null,
+        }
+      : {
+          p_order_id: oid,
+          p_store_id: sid,
+          p_actor_user_id: opts.audit.actor_id,
+          p_actor_role: cancelDecision?.actorRole,
+          p_expected_status: current,
+          p_decision: cancelDecision?.decision,
+          p_restore_status: cancelDecision?.decision === "reject" ? nextStatus : null,
+          p_reason: decisionReason,
+          p_auto_complete_at: cancelDecision?.decision === "reject" ? restoreAutoCompleteAt : null,
+        };
+    const { data: ledgerRaw, error: ledgerErr } = await sb.rpc(rpcName, args);
+    if (ledgerErr) {
+      const msg = String(ledgerErr.message ?? "");
+      if (/store_commission_(charge_failed|policy_missing)/.test(msg)) {
+        // Commission trigger refused inside the RPC's UPDATE → whole TX rolled back; handled below.
+        uErr = ledgerErr;
+      } else if (msg.includes(rpcName) || /schema cache|does not exist/i.test(msg)) {
+        return { ok: false, error: `${rpcName}_missing`, httpStatus: 503 };
+      } else {
+        console.error(`[applyStoreOrderStatusTransition] ${rpcName}`, ledgerErr);
+        return { ok: false, error: msg || "update_failed", httpStatus: 500 };
+      }
+    } else {
+      const ledgerRow = (ledgerRaw ?? {}) as Record<string, unknown>;
+      if (ledgerRow.ok !== true) {
+        const code = String(ledgerRow.error ?? "cancel_ledger_failed");
+        return { ok: false, ...(LEDGER_RPC_ERROR_MAP[code] ?? { error: code, httpStatus: 500 }) };
+      }
+      updated = { id: oid };
+      uErr = null;
+    }
+  }
 
   /** D1: ledger row + status in one DB TX, delivery pickup checked under row locks (never ledger-then-delete). */
   if (buyerCancelRequest) {
@@ -312,6 +489,10 @@ export async function applyStoreOrderStatusTransition(
         error: String(refundRow.error ?? "gift_refund_failed"),
         httpStatus: 400,
       };
+    }
+    // NTF-05: a concurrent approval already refunded this order (and ran the side effects) → no repeat.
+    if (refundRow.idempotent === true) {
+      return { ok: true, order_status: "refunded", previous: current, idempotent: true };
     }
     updated = { id: oid };
     uErr = null;
@@ -437,6 +618,10 @@ export async function applyStoreOrderStatusTransition(
       p_allow_after_completed: true,
     });
     // Gift reverse already committed inside gift_certificate_refund_order_atomic.
+  }
+
+  if (nextStatus === "cancelled" || nextStatus === "refunded") {
+    await closeOpenDeliveryRowOnOrderClosed(sb, oid, nextStatus);
   }
 
   // 조리 시작 commission charge / cancel-refund review run inside the CAS UPDATE
@@ -679,31 +864,23 @@ export async function applyStoreOrderStatusTransition(
         request: current === "cancel_requested" ? "cancel" : "refund",
       });
     }
-  } else if (buyerId) {
-    if (statusEv.ok) {
-      if (statusEv.inserted) {
-        await notifyBuyerStoreOrderOwnerStatus(sb, {
-          buyerUserId: buyerId,
-          orderId: oid,
-          orderNo,
-          storeId: sid,
-          nextStatus,
-          storeOrderEventId: statusEv.row.id,
-          actor,
-          systemPurpose: actor === "SYSTEM" ? systemPurpose : undefined,
-        });
-      }
-    } else {
-      await notifyBuyerStoreOrderOwnerStatus(sb, {
-        buyerUserId: buyerId,
-        orderId: oid,
-        orderNo,
-        storeId: sid,
-        nextStatus,
-        actor,
-        systemPurpose: actor === "SYSTEM" ? systemPurpose : undefined,
-      });
-    }
+  } else if (buyerId && (!statusEv.ok || statusEv.inserted)) {
+    await notifyBuyerOnStatusTransition(sb, {
+      buyerUserId: buyerId,
+      orderId: oid,
+      orderNo,
+      storeId: sid,
+      nextStatus,
+      actor,
+      systemPurpose: actor === "SYSTEM" ? systemPurpose : undefined,
+      ...(statusEv.ok ? { storeOrderEventId: statusEv.row.id } : {}),
+      // NTF-03: the accept notice carries the prep ETA the store just set.
+      ...(nextStatus === "accepted" && typeof updatePayload.estimated_prep_minutes === "number"
+        ? { estimatedPrepMinutes: updatePayload.estimated_prep_minutes }
+        : {}),
+      // ORD-09 / D-22: the store's cancel reason reaches the buyer verbatim (≤500 chars).
+      ...(ownerCancelReason ? { cancelReason: ownerCancelReason } : {}),
+    });
   }
 
   if (nextStatus === "cancelled" && actor === "SYSTEM" && systemPurpose === "accept_timeout") {
@@ -748,6 +925,8 @@ export async function applyStoreOrderStatusTransition(
     });
   }
 
+  // NTF-04: drop the shared snapshot rows before responding so no instance serves the old status.
+  await purgeStoreOrderDetailSnapshotRows(sb, oid);
   invalidateStoreOrderDetailSnapshot(oid, buyerId || undefined, `status_${nextStatus}`);
   invalidateBuyerStoreOrdersListSnapshot(buyerId || undefined, `status_${nextStatus}`);
 

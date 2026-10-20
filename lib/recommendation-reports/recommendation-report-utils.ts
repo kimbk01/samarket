@@ -8,9 +8,7 @@ import {
   setRecommendationReportKpis,
 } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 import { getRecommendationAnalyticsSummary } from "@/lib/recommendation/recommendation-analytics-summary";
-import { getRecommendationAutomationExecutions } from "@/lib/recommendation-ops/recommendation-runtime-state";
-import { getRecommendationIncidents } from "@/lib/recommendation-ops/recommendation-runtime-state";
-import { getRecommendationDeployments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { getRecommendationRecordsSummary } from "@/lib/recommendation-ops/recommendation-records-summary-state";
 
 export type ReportPeriod =
   | "today"
@@ -45,7 +43,7 @@ function getDateRange(period: ReportPeriod): { dateFrom: string; dateTo: string 
   };
 }
 
-/** 일간/주간 보고서 생성 (mock: analytics + automation + incidents 기반 집계) */
+/** 일간/주간 보고서 생성 (노출·실행·이슈 = DB 요약 RPC 집계) */
 export function generateRecommendationReport(
   period: ReportPeriod,
   surface: ReportSurface,
@@ -86,22 +84,22 @@ export function generateRecommendationReport(
     scoreSum += s.avgScore * s.impressionCount;
     scoreCount += s.impressionCount;
   }
-  const executions = getRecommendationAutomationExecutions({ limit: null });
-  const fallbackCount = executions.filter((e) => e.actionType === "auto_fallback").length;
-  const killSwitchCount = executions.filter((e) => e.actionType === "auto_kill_switch").length;
-  const rollbackCount = executions.filter((e) => e.actionType === "auto_rollback").length;
-  const incidents = getRecommendationIncidents();
-  const incidentCount = incidents.length;
-  const deployments = getRecommendationDeployments();
+  /** 실행·이슈 수 = DB 요약 RPC 전체 건수 (예전: 메모리 보관분 최대 300·200건 — R7 후속). */
+  const records = getRecommendationRecordsSummary();
+  const fallbackCount = records.executions.byActionType.auto_fallback;
+  const killSwitchCount = records.executions.byActionType.auto_kill_switch;
+  const rollbackCount = records.executions.byActionType.auto_rollback;
+  const incidentCount = records.incidents.total;
 
+  /** 노출 기록이 0건이면 KPI 도 0 (예전: 100000·4000·800 등 예시 숫자로 채움 — 실제가 아닌 값 표시 금지, R7 후속). */
   setRecommendationReportKpis({
     reportId: report.id,
-    impressionCount: impressionCount || 100000,
-    clickCount: clickCount || 4000,
-    ctr: impressionCount > 0 ? clickCount / impressionCount : 0.04,
-    conversionCount: conversionCount || 800,
-    conversionRate: impressionCount > 0 ? conversionCount / impressionCount : 0.008,
-    avgScore: scoreCount > 0 ? scoreSum / scoreCount : 0.72,
+    impressionCount,
+    clickCount,
+    ctr: impressionCount > 0 ? clickCount / impressionCount : 0,
+    conversionCount,
+    conversionRate: impressionCount > 0 ? conversionCount / impressionCount : 0,
+    avgScore: scoreCount > 0 ? scoreSum / scoreCount : 0,
     fallbackCount,
     killSwitchCount,
     rollbackCount,
