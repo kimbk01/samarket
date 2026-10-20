@@ -631,7 +631,7 @@ function AdminDeliveryAlertsPageInner() {
                   <td className="py-2 pr-2">
                     <input
                       type="number"
-                      className="sam-input h-8 w-20 text-sm"
+                      className="sam-input h-8 w-20 !px-2 text-sm"
                       value={d.threshold_minutes}
                       disabled={busy}
                       onChange={(ev) => editDraft(ru, { threshold_minutes: ev.target.value })}
@@ -640,7 +640,7 @@ function AdminDeliveryAlertsPageInner() {
                   <td className="py-2 pr-2">
                     <input
                       type="number"
-                      className="sam-input h-8 w-20 text-sm"
+                      className="sam-input h-8 w-20 !px-2 text-sm"
                       value={d.repeat_minutes}
                       disabled={busy}
                       onChange={(ev) => editDraft(ru, { repeat_minutes: ev.target.value })}
@@ -649,7 +649,7 @@ function AdminDeliveryAlertsPageInner() {
                   <td className="py-2 pr-2">
                     <input
                       type="number"
-                      className="sam-input h-8 w-20 text-sm"
+                      className="sam-input h-8 w-20 !px-2 text-sm"
                       value={d.escalate_after_minutes}
                       disabled={busy}
                       onChange={(ev) => editDraft(ru, { escalate_after_minutes: ev.target.value })}
@@ -658,7 +658,7 @@ function AdminDeliveryAlertsPageInner() {
                   <td className="py-2 pr-2">
                     <input
                       type="number"
-                      className="sam-input h-8 w-16 text-sm"
+                      className="sam-input h-8 w-16 !px-2 text-sm"
                       value={d.max_escalation_level}
                       disabled={busy}
                       onChange={(ev) => editDraft(ru, { max_escalation_level: ev.target.value })}
@@ -667,7 +667,7 @@ function AdminDeliveryAlertsPageInner() {
                   <td className="py-2 pr-2 tabular-nums">{ru.escalation_level}</td>
                   <td className="py-2 pr-2">
                     <select
-                      className="sam-input h-8 max-w-[9.5rem] text-xs"
+                      className="sam-input h-8 min-w-[6.5rem] max-w-[9.5rem] !pl-2 !pr-7 text-xs"
                       disabled={busy}
                       value={d.auto_action_type}
                       onChange={(ev) => {
@@ -688,7 +688,7 @@ function AdminDeliveryAlertsPageInner() {
                   <td className="py-2 pr-2">
                     <input
                       type="number"
-                      className="sam-input h-8 w-16 text-sm"
+                      className="sam-input h-8 w-16 !px-2 text-sm"
                       value={d.auto_action_delay_minutes}
                       disabled={busy || !d.auto_action_type}
                       title={t("admin_del_alert_title_auto_delay_from_first")}
@@ -698,7 +698,7 @@ function AdminDeliveryAlertsPageInner() {
                   <td className="py-2 pr-2">
                     <input
                       type="number"
-                      className="sam-input h-8 w-14 text-sm"
+                      className="sam-input h-8 w-14 !px-2 text-sm"
                       value={d.auto_action_min_escalation_count}
                       disabled={busy || !d.auto_action_type}
                       title={t("admin_del_alert_title_min_escalation")}

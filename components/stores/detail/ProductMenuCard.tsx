@@ -138,7 +138,8 @@ export const ProductMenuCard = memo(function ProductMenuCard({
     </div>
   );
 
-  const rowWrapClass = DeliveryTheme.menuRow;
+  /** #124 레이어 순서 이후 `.delivery-menu-row` 패딩·테두리가 적용돼 안쪽 p-4 와 이중이 됨 — 카드 외형은 안쪽 블록이 소유 */
+  const rowWrapClass = `${DeliveryTheme.menuRow} !p-0 !border-0`;
   const cardStyle = {
     borderRadius: DibayMenuBoard.cardRadiusPx,
   };
