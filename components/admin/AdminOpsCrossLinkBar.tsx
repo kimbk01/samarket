@@ -80,7 +80,7 @@ export function AdminOpsCrossLinkBar({
         </Link>
       ))}
       {noteKo ? (
-        <p className="w-full text-[11px] text-sam-muted" data-admin-ops-cross-link-note="1">
+        <p className="w-full text-[12px] text-sam-muted" data-admin-ops-cross-link-note="1">
           {ko ? noteKo : noteEn || noteKo}
         </p>
       ) : null}

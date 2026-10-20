@@ -23,6 +23,7 @@ import { AdminWorkspaceSidebar } from "@/components/admin/shell/AdminWorkspaceSi
 import { AdminShellBreadcrumb } from "@/components/admin/shell/AdminShellBreadcrumb";
 import { AdminDeliveryCmsRightMenu } from "@/components/admin/shell/AdminDeliveryCmsRightMenu";
 import { AdminHeaderClock } from "@/components/admin/shell/AdminHeaderClock";
+import { AdminConfirmHost } from "@/components/admin/ui/AdminConfirmHost";
 import {
   listAdminWorkspaces,
   resolveActiveWorkspace,
@@ -292,6 +293,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <GlobalPopupHostLazy />
+      <AdminConfirmHost />
     </AdminStorePointPendingProvider>
   );
 }
