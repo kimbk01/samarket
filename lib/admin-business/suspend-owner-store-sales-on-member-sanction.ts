@@ -18,7 +18,13 @@ export type OwnerStoreSalesSanctionResult = {
 
 export async function suspendOwnerStoreSalesOnMemberSanction(
   sb: SupabaseClient,
-  input: { userId: string; actorId: string | null; sanction: "suspend" | "ban"; reason: string }
+  input: {
+    userId: string;
+    actorId: string | null;
+    /** withdraw — 회원 탈퇴·영구 삭제 (ACC-03): 판매 중지 + 매장 비노출 */
+    sanction: "suspend" | "ban" | "withdraw";
+    reason: string;
+  }
 ): Promise<OwnerStoreSalesSanctionResult[]> {
   const out: OwnerStoreSalesSanctionResult[] = [];
   try {
@@ -30,6 +36,11 @@ export async function suspendOwnerStoreSalesOnMemberSanction(
     if (error || !stores?.length) return out;
 
     for (const s of stores as { id: string; store_name: string | null }[]) {
+      if (input.sanction === "withdraw") {
+        // 탈퇴한 사장님 매장은 처리할 사람이 없으므로 목록·검색에서도 내린다.
+        const { error: visErr } = await sb.from("stores").update({ is_visible: false }).eq("id", s.id);
+        if (visErr) console.error("[suspendOwnerStoreSalesOnMemberSanction] hide", s.id, visErr.message);
+      }
       const { data: perm } = await sb
         .from("store_sales_permissions")
         .select("allowed_to_sell, sales_status, suspension_reason")

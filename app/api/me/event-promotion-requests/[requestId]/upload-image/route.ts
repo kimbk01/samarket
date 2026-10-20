@@ -17,7 +17,7 @@ import {
   PLATFORM_EVENT_MEDIA_BUCKET,
   PLATFORM_EVENT_MEDIA_MAX_BYTES,
 } from "@/lib/platform-events/media";
-import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -56,7 +56,7 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "not_editable" }, { status: 409 });
   }
 
-  const owned = await getStoreIfOwner(sb, userId, row.storeId);
+  const owned = await getStoreIfOwnerForOperationalWrite(sb, userId, row.storeId);
   if (!owned.ok) {
     return NextResponse.json({ ok: false, error: owned.error }, { status: owned.status });
   }

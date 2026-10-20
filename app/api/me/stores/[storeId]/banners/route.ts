@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
 import { coerceStoreBannerLink } from "@/lib/stores/store-banner-link";
 
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ storeI
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  const gate = await getStoreIfOwner(sb, userId, sid);
+  const gate = await getStoreIfOwnerForOperationalWrite(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
   const ltRaw = typeof body.link_type === "string" ? body.link_type : "none";

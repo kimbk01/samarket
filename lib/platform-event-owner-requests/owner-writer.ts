@@ -19,7 +19,7 @@ import type {
   PlatformEventOwnerRequestRow,
   PlatformEventOwnerRequestedChannels,
 } from "@/lib/platform-event-owner-requests/types";
-import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 
 export type OwnerEventPromoDraftPatch = {
   title?: string;
@@ -64,7 +64,7 @@ export async function createOwnerEventPromoDraft(
   | { ok: true; request: PlatformEventOwnerRequestRow }
   | { ok: false; error: string; httpStatus: number }
 > {
-  const owned = await getStoreIfOwner(sb, input.ownerUserId, input.storeId);
+  const owned = await getStoreIfOwnerForOperationalWrite(sb, input.ownerUserId, input.storeId);
   if (!owned.ok) return { ok: false, error: owned.error, httpStatus: owned.status };
 
   const { data, error } = await sb
@@ -106,7 +106,7 @@ export async function updateOwnerEventPromoDraft(
   }
 
   // Re-verify store ownership on every write.
-  const owned = await getStoreIfOwner(sb, input.ownerUserId, loaded.row.storeId);
+  const owned = await getStoreIfOwnerForOperationalWrite(sb, input.ownerUserId, loaded.row.storeId);
   if (!owned.ok) return { ok: false, error: owned.error, httpStatus: owned.status };
 
   const p = input.patch;
@@ -159,7 +159,7 @@ export async function submitOwnerEventPromoRequest(
     return { ok: false, error: "title_required", httpStatus: 400 };
   }
 
-  const owned = await getStoreIfOwner(sb, input.ownerUserId, loaded.row.storeId);
+  const owned = await getStoreIfOwnerForOperationalWrite(sb, input.ownerUserId, loaded.row.storeId);
   if (!owned.ok) return { ok: false, error: owned.error, httpStatus: owned.status };
 
   const { data, error } = await sb

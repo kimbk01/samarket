@@ -12,6 +12,7 @@ import {
 import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
 import { deactivateAllUserPushTokensForAccountRemoval } from "@/lib/push/dispatch/deactivate-failed-token";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { suspendOwnerStoreSalesOnMemberSanction } from "@/lib/admin-business/suspend-owner-store-sales-on-member-sanction";
 import { insertModerationEvent, invalidateAllUserSessions, isSuperAdminRole } from "@/lib/admin/admin-user-server";
 import { loadActiveAdminMembership } from "@/lib/admin/admin-membership";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
@@ -131,6 +132,14 @@ export async function POST(
 
   await invalidateAllUserSessions(sb, userId, "account_deleted");
 
+  // ACC-03: 탈퇴·영구 삭제 회원이 사장님이면 매장 판매 중지 + 비노출 (회원 제재 DEF-68 과 같은 경로, 자동 재개 없음).
+  const ownerStoreSales = await suspendOwnerStoreSalesOnMemberSanction(sb, {
+    userId,
+    actorId: actor.userId,
+    sanction: "withdraw",
+    reason,
+  });
+
   // WP-13 NEW-09: a withdrawn/purged account's push tokens must stop receiving pushes. Deactivate
   // the user's own token rows (is_active=false) — policy-independent (no retention period / FK
   // CASCADE decision). Best-effort: the account removal already succeeded above, so a token
@@ -163,6 +172,7 @@ export async function POST(
       at: now,
       actorId: actor.userId,
       pushTokensDeactivated: pushTokenDeactivation.ok,
+      ownerStoresSuspended: ownerStoreSales.filter((r) => r.changed).map((r) => r.storeId),
       pushTokenDeactivationErrors: pushTokenDeactivation.errors,
     },
   });

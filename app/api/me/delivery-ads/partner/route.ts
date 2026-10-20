@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { getStoreIfOwner, ownerStoreOperationalWriteBlock } from "@/lib/stores/owner-product-gate";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { DELIVERY_AD_PARTNER_PAYMENT } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
 import {
@@ -124,6 +124,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (op === "apply") {
+    const block = ownerStoreOperationalWriteBlock(gate.store.approval_status);
+    if (block) return NextResponse.json({ ok: false, error: block.error }, { status: block.status });
     const result = await ownerApplyPartnerMembership(sb, {
       storeId,
       actorUserId: userId,

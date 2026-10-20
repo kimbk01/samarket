@@ -26,7 +26,7 @@ const BASE = {
   isActive: true,
 };
 
-function makeSb(inserts: unknown[]) {
+function makeSb(inserts: unknown[], approvalStatus = "approved") {
   return {
     from(table: string) {
       if (table === "stores") {
@@ -34,7 +34,7 @@ function makeSb(inserts: unknown[]) {
           select: () => ({
             eq: () => ({
               maybeSingle: async () => ({
-                data: { id: STORE, owner_user_id: OWNER },
+                data: { id: STORE, owner_user_id: OWNER, approval_status: approvalStatus },
                 error: null,
               }),
             }),
@@ -116,6 +116,15 @@ describe("POST /api/me/store-coupons/campaigns UI-0 route contract", () => {
     const { status, json } = await post({ ...BASE, fundingMode: "SHARED_FUNDED" });
     expect(status).toBe(400);
     expect(json.error).toBe("owner_funding_forbidden");
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("CASE 6 suspended store → 403 store_suspended INSERT NONE (1-B)", async () => {
+    const inserts: unknown[] = [];
+    tryGetSupabaseForStores.mockReturnValue(makeSb(inserts, "suspended"));
+    const { status, json } = await post({ ...BASE });
+    expect(status).toBe(403);
+    expect(json.error).toBe("store_suspended");
     expect(inserts).toHaveLength(0);
   });
 

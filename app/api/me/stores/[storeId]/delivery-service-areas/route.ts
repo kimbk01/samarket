@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { getStoreIfOwner, ownerStoreProfileWriteBlock } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
 import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
@@ -79,6 +79,10 @@ export async function PUT(
   const gate = await getStoreIfOwner(sb, userId, storeId);
   if (!gate.ok) {
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+  }
+  const profileBlock = ownerStoreProfileWriteBlock(gate.store.approval_status);
+  if (profileBlock) {
+    return NextResponse.json({ ok: false, error: profileBlock.error }, { status: profileBlock.status });
   }
 
   let body: { geoIdentities?: unknown; activateV2?: unknown };

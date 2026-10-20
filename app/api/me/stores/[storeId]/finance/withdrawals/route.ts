@@ -4,6 +4,7 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { COIN_WITHDRAWAL_REQUESTS_TABLE, requestCoinWithdrawal } from "@/lib/currency/coin-withdrawal-writer";
 import { loadStoreEconomicPointsBalance } from "@/lib/stores/advertising/canonical-business-cash-writer";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
+import { getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   validateGiftCashOutAmount,
@@ -30,7 +31,7 @@ export async function POST(
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  const gate = await getCachedStoreIfOwner(sb, userId, sid);
+  const gate = await getStoreIfOwnerForOperationalWrite(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
   let body: Record<string, unknown>;
