@@ -1,10 +1,13 @@
 import { Suspense } from "react";
+import { after } from "next/server";
 import { notFound } from "next/navigation";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { withTimeout } from "@/lib/async/with-timeout";
 import { resolvePostsReadClientsForServerComponent } from "@/lib/supabase/resolve-posts-read-clients";
 /** RSC 상세: 본문·프로필은 `getItemDetailPageData` 1차 블록, related 는 Suspense 스트림(`PostDetailRelatedDeferredLoader`). */
 import { getItemDetailPageData } from "@/services/trade/trade-detail.service";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { recordTradeRecentView } from "@/lib/mypage/trade-recent-views.server";
 import { PostDetailConfigError, PostDetailPageClient } from "./PostDetailPageClient";
 import { PostDetailRelatedDeferredLoader } from "./post-detail-related-deferred";
 
@@ -42,6 +45,15 @@ export default async function PostDetailPage({ params }: { params: Promise<{ id:
 
   if (!bundle) {
     notFound();
+  }
+
+  // 최근 본 상품(M3) — 응답 후 기록해 상세 표시를 늦추지 않는다
+  if (viewerId && bundle.item.type !== "community") {
+    const postId = bundle.item.id;
+    after(async () => {
+      const sb = tryCreateSupabaseServiceClient();
+      if (sb) await recordTradeRecentView(sb, viewerId, postId);
+    });
   }
 
   return (

@@ -46,7 +46,7 @@ export function mapPriceOfferRow(row: Record<string, unknown>): PriceOfferRow | 
   const created_at = createdRaw || new Date(0).toISOString();
   const updated_at = updatedRaw || created_at;
   let statusNorm = str(row.status).toLowerCase();
-  if (!statusNorm || !["pending", "accepted", "rejected", "expired"].includes(statusNorm)) {
+  if (!statusNorm || !["pending", "accepted", "rejected", "withdrawn"].includes(statusNorm)) {
     statusNorm = "pending";
   }
   const status = statusNorm as PriceOfferRow["status"];

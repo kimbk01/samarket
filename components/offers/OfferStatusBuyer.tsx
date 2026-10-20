@@ -83,7 +83,7 @@ export function OfferStatusBuyer({
       if (status === "pending") return t("ui_offer_status_pending");
       if (status === "accepted") return t("ui_offer_status_accepted");
       if (status === "rejected") return t("ui_offer_status_rejected");
-      return t("ui_offer_status_expired");
+      return t("ui_offer_status_withdrawn");
     },
     [t],
   );
@@ -109,7 +109,7 @@ export function OfferStatusBuyer({
           {primaryOffer.status === "pending" ? (
             <p className="mt-2 text-[12px] leading-snug text-sam-muted">{t("ui_offer_waiting_seller")}</p>
           ) : null}
-          {primaryOffer.status === "rejected" || primaryOffer.status === "expired" ? (
+          {primaryOffer.status === "rejected" || primaryOffer.status === "withdrawn" ? (
             <p className="mt-2 text-[12px] leading-snug text-sam-muted">
               {t("ui_offer_retry_hint", { retry: t("ui_offer_retry_label") })}
             </p>
@@ -124,7 +124,7 @@ export function OfferStatusBuyer({
             {t("ui_offer_chat_continue")}
           </button>
         ) : null}
-        {(primaryOffer.status === "rejected" || primaryOffer.status === "expired") && onRetryOffer ? (
+        {(primaryOffer.status === "rejected" || primaryOffer.status === "withdrawn") && onRetryOffer ? (
           <button
             type="button"
             onClick={onRetryOffer}

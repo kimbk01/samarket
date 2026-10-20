@@ -32,8 +32,8 @@ function statusLabel(status: PriceOfferListItem["status"]): string {
       return "수락됨";
     case "rejected":
       return "거절됨";
-    case "expired":
-      return "만료됨";
+    case "withdrawn":
+      return "철회됨";
     default:
       return "대기중";
   }
@@ -46,7 +46,7 @@ function modalStatusBadgeClass(status: PriceOfferListItem["status"]): string {
       return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/45 dark:text-emerald-200";
     case "rejected":
       return "bg-[#E4E6EB] text-[#65676B] dark:bg-sam-surface-muted dark:text-sam-muted";
-    case "expired":
+    case "withdrawn":
       return "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100";
     default:
       return "bg-[#E7F3FF] text-[#0866FF] dark:bg-sam-primary-soft dark:text-sam-primary";
