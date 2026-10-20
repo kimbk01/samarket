@@ -41,6 +41,8 @@ export type MeetingReportListResult = {
   rows: MeetingReportAdminRow[];
   total: number;
   counts: Record<MeetingReportTab, number> | null;
+  /** ok=false 일 때 오류 코드 (DB 오류 코드 또는 load_failed) */
+  error?: string;
 };
 
 export type MeetingReportFilters = {

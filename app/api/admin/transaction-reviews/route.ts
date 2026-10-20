@@ -10,6 +10,7 @@ import {
   type TransactionReviewDbRow,
 } from "@/lib/admin-reviews/map-transaction-review-to-admin";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
+import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,34 @@ export const dynamic = "force-dynamic";
 const SELECT_FIELDS =
   "id, product_id, room_id, reviewer_id, reviewee_id, role_type, public_review_type, private_manner_score, private_tags, is_anonymous_negative, created_at, positive_tag_keys, negative_tag_keys, review_comment";
 // Production has no transaction_reviews.is_hidden_by_admin — omit from SELECT.
+
+/** 이전 목록 동작(페이지 파라미터 없음) — 최신 500건 */
+const LEGACY_LIST_LIMIT = 500;
+const MAX_OFFSET = 100_000;
+const SEARCH_ID_CAP = 100;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type ListBody = {
+  reviewId?: string;
+  /** 있으면 서버 페이지 모드: 20/50/100 (그 외 50) */
+  limit?: unknown;
+  offset?: unknown;
+  /** visible | hidden | reported (숨김 컬럼이 없는 운영 DB 에서는 모든 후기가 visible) */
+  reviewStatus?: unknown;
+  /** 1~5 (공개 평가 good=5 · normal=3 · bad=1) */
+  rating?: unknown;
+  role?: unknown;
+  q?: unknown;
+};
+
+/** PostgREST or() 필터에 넣을 검색어 — 구분자·와일드카드 제거 */
+function safeSearchTerm(raw: unknown): string {
+  return String(raw ?? "")
+    .replace(/[,()*%\\"'`]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100);
+}
 
 export async function POST(req: NextRequest) {
   const admin = await requireTradeAdmin();
@@ -26,7 +55,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: supabaseEnv.error }, { status: 500 });
   }
 
-  let body: { reviewId?: string };
+  let body: ListBody;
   try {
     body = await req.json();
   } catch {
@@ -48,7 +77,7 @@ export async function POST(req: NextRequest) {
       .eq("id", reviewId)
       .maybeSingle();
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "server_error" }, { status: 500 });
     }
     if (!row) {
       return NextResponse.json({ review: null });
@@ -71,14 +100,60 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ review });
   }
 
-  const { data: rows, error: listErr } = await sbAny
-    .from("transaction_reviews")
-    .select(SELECT_FIELDS)
+  /*
+   * 목록 — body.limit 이 있으면 서버 페이지(20/50/100 · offset · 조건 · total exact).
+   * 없으면 이전 동작 그대로(최신 500건, 조건 없음 · total 은 반환 행 수).
+   */
+  const paged = body.limit !== undefined && body.limit !== null && body.limit !== "";
+  const limit = paged ? normalizeAdminListPageSize(String(body.limit), 50) : LEGACY_LIST_LIMIT;
+  const offsetRaw = Math.floor(Number(body.offset));
+  const offset = paged && Number.isFinite(offsetRaw) && offsetRaw > 0 ? Math.min(offsetRaw, MAX_OFFSET) : 0;
+  const empty = () => NextResponse.json({ reviews: [], total: 0, limit, offset });
+
+  let query = sbAny.from("transaction_reviews").select(SELECT_FIELDS, paged ? { count: "exact" } : undefined);
+  if (paged) {
+    const status = String(body.reviewStatus ?? "");
+    // 운영 DB 에는 관리자 숨김 컬럼이 없어 모든 후기가 「노출」 — 숨김·신고됨 조건은 결과 없음 (이전 화면 필터와 같은 결과)
+    if (status === "hidden" || status === "reported") return empty();
+    const role = String(body.role ?? "");
+    if (role === "buyer_to_seller" || role === "seller_to_buyer") query = query.eq("role_type", role);
+    const rating = Number(body.rating);
+    if (body.rating !== undefined && body.rating !== null && body.rating !== "" && Number.isFinite(rating)) {
+      const type = rating === 5 ? "good" : rating === 3 ? "normal" : rating === 1 ? "bad" : null;
+      if (!type) return empty();
+      query = query.eq("public_review_type", type);
+    }
+    const q = safeSearchTerm(body.q);
+    if (q) {
+      // 이전 화면 검색과 같은 대상: 상품명 · 작성자·대상자 닉네임 · 거래(채팅방) ID · 후기 내용
+      const like = `%${q}%`;
+      const [postsHit, usersHit] = await Promise.all([
+        sbAny.from(POSTS_TABLE_READ).select("id").ilike("title", like).limit(SEARCH_ID_CAP),
+        sbAny
+          .from("profiles")
+          .select("id")
+          .or(`display_name.ilike.${like},nickname.ilike.${like},username.ilike.${like}`)
+          .limit(SEARCH_ID_CAP),
+      ]);
+      const postIds = ((postsHit.data ?? []) as { id: unknown }[]).map((r) => String(r.id)).filter((id) => UUID_RE.test(id));
+      const userIds = ((usersHit.data ?? []) as { id: unknown }[]).map((r) => String(r.id)).filter((id) => UUID_RE.test(id));
+      const ors = [`review_comment.ilike.${like}`];
+      if (UUID_RE.test(q)) ors.push(`room_id.eq.${q}`);
+      if (postIds.length) ors.push(`product_id.in.(${postIds.join(",")})`);
+      if (userIds.length) {
+        ors.push(`reviewer_id.in.(${userIds.join(",")})`);
+        ors.push(`reviewee_id.in.(${userIds.join(",")})`);
+      }
+      query = query.or(ors.join(","));
+    }
+  }
+
+  const { data: rows, error: listErr, count } = await query
     .order("created_at", { ascending: false })
-    .limit(500);
+    .range(offset, offset + limit - 1);
 
   if (listErr) {
-    return NextResponse.json({ error: listErr.message }, { status: 500 });
+    return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 
   const list = (rows ?? []) as TransactionReviewDbRow[];
@@ -116,5 +191,10 @@ export async function POST(req: NextRequest) {
     review.buyerUsername = identityById[buyerId]?.username ?? null;
   });
 
-  return NextResponse.json({ reviews });
+  return NextResponse.json({
+    reviews,
+    total: paged ? (typeof count === "number" ? count : reviews.length) : reviews.length,
+    limit,
+    offset,
+  });
 }

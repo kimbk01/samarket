@@ -9,8 +9,10 @@ import {
   type CommunityReportTargetFilter,
 } from "@/lib/community-feed/admin-community-reports";
 import { parseCommunityAdminPeriod } from "@/lib/admin/community-admin/community-admin-period";
+import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
-const PAGE_SIZE = 50;
+/** 페이지 크기 — URL `size` (20/50/100, 기본 50) */
+const DEFAULT_PAGE_SIZE = 50;
 
 type Sp = Record<string, string | string[] | undefined>;
 
@@ -27,6 +29,7 @@ export default async function AdminCommunityReportsRoute({ searchParams }: { sea
   const targetType: CommunityReportTargetFilter =
     typeRaw === "post" || typeRaw === "comment" || typeRaw === "user" ? typeRaw : "";
   const page = Math.max(1, Math.floor(Number(one(sp, "page") || 1)) || 1);
+  const pageSize = normalizeAdminListPageSize(one(sp, "size"), DEFAULT_PAGE_SIZE);
   const period = parseCommunityAdminPeriod({ period: one(sp, "period"), from: one(sp, "from"), to: one(sp, "to") });
 
   const filters: AdminCommunityReportsFilters = {
@@ -50,8 +53,8 @@ export default async function AdminCommunityReportsRoute({ searchParams }: { sea
     authorId: filters.authorId || undefined,
     createdFromIso: period.ok ? period.fromIso : null,
     createdToIso: period.ok ? period.toIso : null,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   });
 
   return (
@@ -59,7 +62,7 @@ export default async function AdminCommunityReportsRoute({ searchParams }: { sea
       <AdminCommunityReportsPage
         result={result}
         filters={filters}
-        pageSize={PAGE_SIZE}
+        pageSize={pageSize}
         highlightId={one(sp, "rid")}
       />
     </Suspense>

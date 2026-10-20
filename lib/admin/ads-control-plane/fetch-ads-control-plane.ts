@@ -3,11 +3,30 @@
  * Envelope is always `{ ok: true, plane }` — never treat the envelope as the model.
  */
 
-import type { AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
+import type { AdsActionItem, AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
+
+/** 광고 워크스페이스 서버 페이지 (`listQuery` 를 보낸 경우에만). */
+export type AdsControlPlaneListPage = {
+  items: AdsActionItem[];
+  total: number;
+  limit: number;
+  offset: number;
+};
 
 export type AdsControlPlaneFetchResult =
-  | { ok: true; plane: AdsControlPlaneModel }
+  | { ok: true; plane: AdsControlPlaneModel; page?: AdsControlPlaneListPage }
   | { ok: false; error: string; status?: number };
+
+function parseListPage(value: unknown): AdsControlPlaneListPage | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  if (!Array.isArray(v.items)) return undefined;
+  const total = Number(v.total);
+  const limit = Number(v.limit);
+  const offset = Number(v.offset);
+  if (![total, limit, offset].every((n) => Number.isFinite(n) && n >= 0)) return undefined;
+  return { items: v.items as AdsActionItem[], total, limit, offset };
+}
 
 function isAdsControlPlaneModel(value: unknown): value is AdsControlPlaneModel {
   if (!value || typeof value !== "object") return false;
@@ -41,14 +60,20 @@ export function parseAdsControlPlaneResponse(
   if (!isAdsControlPlaneModel(plane)) {
     return { ok: false, error: "invalid_plane_shape", status };
   }
-  return { ok: true, plane };
+  const page = parseListPage(body.page);
+  return page ? { ok: true, plane, page } : { ok: true, plane };
 }
 
 export async function fetchAdsControlPlane(
-  init?: RequestInit & { orderId?: string | null; storeId?: string | null }
+  init?: RequestInit & {
+    orderId?: string | null;
+    storeId?: string | null;
+    /** 워크스페이스 서버 페이지 — `limit`/`offset`/`status`/`q`/`family` (+ `mode`). 생략 시 기존 응답. */
+    listQuery?: string | null;
+  }
 ): Promise<AdsControlPlaneFetchResult> {
   try {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(String(init?.listQuery ?? ""));
     const orderId = String(init?.orderId ?? "").trim();
     if (orderId) params.set("orderId", orderId);
     /** Server-side store scope (`store_id`) — never filter the plane in the browser. */

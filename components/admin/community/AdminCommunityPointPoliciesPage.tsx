@@ -16,7 +16,13 @@ import {
 import type { BoardPointPolicy } from "@/lib/types/point-policy";
 import { ARO_IA_001_FINANCE_POINT_POLICIES_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
@@ -42,8 +48,11 @@ export function AdminCommunityPointPoliciesPage() {
   const ko = language !== "en";
   const [tab, setTab] = useState<TabId>("global");
   const [refresh, setRefresh] = useState(0);
-  const { policies } = useAdminPointPolicyData(refresh);
+  const { policies, loading: policiesLoading, error: policiesError } = useAdminPointPolicyData(refresh);
   const [topics, setTopics] = useState<TopicRow[]>([]);
+  const [topicsErr, setTopicsErr] = useState<{ code: string; status?: number } | null>(null);
+  /** 전역 탭 — 한 번에 정책 하나만 편집 (화면 primary 「저장」 1개) */
+  const [globalWhich, setGlobalWhich] = useState<"global" | "qna">("global");
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<SaveResult>(null);
@@ -66,11 +75,30 @@ export function AdminCommunityPointPoliciesPage() {
 
   useEffect(() => {
     void (async () => {
-      const res = await adminFetch("/api/admin/community/topics", { credentials: "include" });
-      const json = (await res.json().catch(() => ({}))) as { topics?: TopicRow[] };
-      setTopics(Array.isArray(json.topics) ? json.topics : []);
+      try {
+        const res = await adminFetch("/api/admin/community/topics", { credentials: "include" });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; topics?: TopicRow[] };
+        if (!res.ok || json.ok === false || !Array.isArray(json.topics)) {
+          setTopics([]);
+          setTopicsErr({ code: json.error || `http_${res.status}`, status: res.status });
+          return;
+        }
+        setTopics(json.topics);
+        setTopicsErr(null);
+      } catch {
+        setTopics([]);
+        setTopicsErr({ code: "network_error", status: 0 });
+      }
     })();
   }, [refresh]);
+
+  /** 정책 조회 상태 — 로딩·실패·권한 없음을 「정책 없음」과 구분한다 */
+  const policyState =
+    policiesError ? (
+      <AdminErrorState ko={ko} code={policiesError.code} httpStatus={policiesError.httpStatus} onRetry={refreshAll} />
+    ) : policiesLoading && policies.length === 0 ? (
+      <AdminLoadingState ko={ko} />
+    ) : null;
 
   /**
    * 정책 저장 (설계 C-0-2 「정책 저장」 L3 · C-19) — 확인(사유 + 대상 이름 재입력) → 저장 → 응답 확인 → 결과 배너.
@@ -190,54 +218,78 @@ export function AdminCommunityPointPoliciesPage() {
       </div>
 
       {tab === "global" ? (
-        <div className="space-y-4">
-          <AdminCard title={t("admin_community_point_global_title")}>
-            {globalPolicy ? (
-              <BoardPointPolicyForm
-                initial={globalPolicy}
-                onSubmit={(values) =>
-                  void savePolicy(
-                    {
-                      ...values,
-                      boardKey: COMMUNITY_GLOBAL_BOARD_KEY,
-                      policyLayer: "global",
-                      inheritGlobal: false,
-                    },
-                    globalPolicy,
-                    t("admin_community_point_global_title")
-                  )
-                }
-              />
+        policyState ?? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <AdminChipButton selected={globalWhich === "global"} onClick={() => setGlobalWhich("global")}>
+                {t("admin_community_point_global_title")}
+              </AdminChipButton>
+              <AdminChipButton selected={globalWhich === "qna"} onClick={() => setGlobalWhich("qna")}>
+                {t("admin_community_point_qna_title")}
+              </AdminChipButton>
+            </div>
+            {globalWhich === "global" ? (
+              <AdminCard title={t("admin_community_point_global_title")}>
+                {globalPolicy ? (
+                  <BoardPointPolicyForm
+                    key={`global:${globalPolicy.id ?? ""}`}
+                    initial={globalPolicy}
+                    disabled={saving}
+                    onSubmit={(values) =>
+                      void savePolicy(
+                        {
+                          ...values,
+                          boardKey: COMMUNITY_GLOBAL_BOARD_KEY,
+                          policyLayer: "global",
+                          inheritGlobal: false,
+                        },
+                        globalPolicy,
+                        t("admin_community_point_global_title")
+                      )
+                    }
+                  />
+                ) : (
+                  <AdminEmptyState ko={ko} message={t("admin_community_point_empty")} />
+                )}
+              </AdminCard>
             ) : (
-              <p className="sam-text-body-secondary text-sam-muted">{t("admin_community_point_empty")}</p>
+              <AdminCard title={t("admin_community_point_qna_title")}>
+                {qnaPolicy ? (
+                  <BoardPointPolicyForm
+                    key={`qna:${qnaPolicy.id ?? ""}`}
+                    initial={qnaPolicy}
+                    disabled={saving}
+                    onSubmit={(values) =>
+                      void savePolicy(
+                        {
+                          ...values,
+                          boardKey: COMMUNITY_QNA_BOARD_KEY,
+                          policyLayer: "qna",
+                          inheritGlobal: false,
+                        },
+                        qnaPolicy,
+                        t("admin_community_point_qna_title")
+                      )
+                    }
+                  />
+                ) : (
+                  <AdminEmptyState ko={ko} message={t("admin_community_point_empty")} />
+                )}
+              </AdminCard>
             )}
-          </AdminCard>
-          <AdminCard title={t("admin_community_point_qna_title")}>
-            {qnaPolicy ? (
-              <BoardPointPolicyForm
-                initial={qnaPolicy}
-                onSubmit={(values) =>
-                  void savePolicy(
-                    {
-                      ...values,
-                      boardKey: COMMUNITY_QNA_BOARD_KEY,
-                      policyLayer: "qna",
-                      inheritGlobal: false,
-                    },
-                    qnaPolicy,
-                    t("admin_community_point_qna_title")
-                  )
-                }
-              />
-            ) : (
-              <p className="sam-text-body-secondary text-sam-muted">{t("admin_community_point_empty")}</p>
-            )}
-          </AdminCard>
-        </div>
+          </div>
+        )
       ) : null}
 
       {tab === "boards" ? (
         <AdminCard title={t("admin_community_point_tab_boards")}>
+          {policyState ??
+            (topicsErr ? (
+              <AdminErrorState ko={ko} code={topicsErr.code} httpStatus={topicsErr.status} onRetry={refreshAll} />
+            ) : contentTopics.length === 0 ? (
+              <AdminEmptyState ko={ko} message={ko ? "카테고리가 없습니다." : "No categories."} />
+            ) : null)}
+          {policyState || topicsErr || contentTopics.length === 0 ? null : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left sam-text-body-secondary">
               <thead>
@@ -306,12 +358,14 @@ export function AdminCommunityPointPoliciesPage() {
               </tbody>
             </table>
           </div>
+          )}
           {selectedTopic ? (
             <TopicOverrideEditor
               slug={selectedTopic}
               name={contentTopics.find((x) => x.slug === selectedTopic)?.name ?? selectedTopic}
               existing={byKey.get(selectedTopic.toLowerCase()) ?? null}
               globalPolicy={globalPolicy}
+              saving={saving}
               onClose={() => setSelectedTopic(null)}
               onSave={async (values, inherit) => {
                 const topicName = contentTopics.find((x) => x.slug === selectedTopic)?.name ?? selectedTopic;
@@ -344,6 +398,7 @@ function TopicOverrideEditor(props: {
   name: string;
   existing: BoardPointPolicy | null;
   globalPolicy: BoardPointPolicy | null;
+  saving?: boolean;
   onClose: () => void;
   onSave: (values: Partial<BoardPointPolicy>, inherit: boolean) => Promise<void>;
 }) {
@@ -369,11 +424,17 @@ function TopicOverrideEditor(props: {
         <BoardPointPolicyForm
           initial={{ ...initial, boardKey: props.slug, boardName: props.name }}
           onCancel={props.onClose}
+          disabled={props.saving}
           onSubmit={(values) => void props.onSave(values, false)}
         />
       ) : (
         <div className="flex gap-2">
-          <AdminActionButton variant="secondary" size="sm" onClick={() => void props.onSave({ boardKey: props.slug }, true)}>
+          <AdminActionButton
+            variant="secondary"
+            size="sm"
+            disabled={props.saving}
+            onClick={() => void props.onSave({ boardKey: props.slug }, true)}
+          >
             {t("admin_community_point_save_inherit")}
           </AdminActionButton>
           <AdminActionButton variant="quiet" size="sm" onClick={props.onClose}>

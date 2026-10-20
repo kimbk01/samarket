@@ -7,6 +7,7 @@
  */
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCategoryAdmin } from "@/components/admin/categories/useCategoryAdmin";
@@ -74,6 +75,7 @@ export function AdminMenusPage() {
   const {
     list,
     loading,
+    loadError,
     message,
     supabaseAvailable,
     load,
@@ -453,12 +455,13 @@ export function AdminMenusPage() {
 
   /* ───────── render ───────── */
 
+  const ko = language !== "en";
   if (loading && list.length === 0) {
-    return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        {t("common_loading")}
-      </div>
-    );
+    return <AdminLoadingState ko={ko} />;
+  }
+  if (loadError && list.length === 0) {
+    // 조회 실패·권한 없음을 빈 목록으로 보이지 않는다 (오류 맵 + [새로고침])
+    return <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.httpStatus} onRetry={() => void load()} />;
   }
 
   return (

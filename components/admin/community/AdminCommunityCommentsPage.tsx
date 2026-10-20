@@ -21,12 +21,10 @@ import {
   COMMUNITY_TD,
   CommunityActionSheet,
   CommunityAuthorCell,
+  CommunityFilterBar,
   CommunityFilterField,
   CommunityListShell,
   CommunityPagination,
-  CommunityPeriodFilter,
-  CommunityResetFilters,
-  CommunitySearchInput,
   CommunitySelect,
   CommunityStatusBadge,
   CommunityTable,
@@ -47,7 +45,6 @@ import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-
 import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
 import { parseCommunityAdminPeriod } from "@/lib/admin/community-admin/community-admin-period";
 import {
-  COMMUNITY_PAGE_SIZE,
   COMMUNITY_POSTS_LIST_PATH,
   COMMUNITY_STALE_MESSAGE,
   communityJsonFetch,
@@ -100,7 +97,7 @@ const ACTION_LABEL: Record<Action["kind"], string> = { hide: "숨기기", restor
 export function AdminCommunityCommentsPage() {
   const { t: tr, language } = useI18n();
   const ko = language !== "en";
-  const { sp: searchParams, set, reset, selfHref, page } = useCommunityQueryState();
+  const { sp: searchParams, set, reset, selfHref, page, size: pageSize, setPage, setSize } = useCommunityQueryState();
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
   const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
   const noPermTitle = canContent ? undefined : "권한 필요: 게시판 관리";
@@ -139,15 +136,15 @@ export function AdminCommunityCommentsPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
-  const queryScopeKey = [tab, qParam, typeFilter, postId, topicSlug, userId, commentId, period, from, to, page].join("|");
+  const queryScopeKey = [tab, qParam, typeFilter, postId, topicSlug, userId, commentId, period, from, to, page, pageSize].join("|");
   const selectableIds = useMemo(() => rows.map((r) => r.id).filter(Boolean), [rows]);
   const selection = useAdminManagementSelection({ queryScopeKey, selectableIds });
   const reload = useCallback(() => setReloadKey((n) => n + 1), []);
 
   const apiQuery = useMemo(() => {
     const q = new URLSearchParams({
-      limit: String(COMMUNITY_PAGE_SIZE),
-      offset: String((page - 1) * COMMUNITY_PAGE_SIZE),
+      limit: String(pageSize),
+      offset: String((page - 1) * pageSize),
     });
     if (commentId) q.set("commentId", commentId);
     if (qParam) q.set("q", qParam);
@@ -166,7 +163,7 @@ export function AdminCommunityCommentsPage() {
       }
     }
     return q.toString();
-  }, [commentId, qParam, postId, topicSlug, userId, tab, typeFilter, period, from, to, page]);
+  }, [commentId, qParam, postId, topicSlug, userId, tab, typeFilter, period, from, to, page, pageSize]);
 
   useEffect(() => {
     let cancel = false;
@@ -190,7 +187,7 @@ export function AdminCommunityCommentsPage() {
         const list = r.json.comments ?? [];
         setLoadErr(null);
         setRows(list);
-        setHasMore(list.length >= COMMUNITY_PAGE_SIZE);
+        setHasMore(list.length >= pageSize);
         setTotal(typeof r.json.total === "number" ? r.json.total : null);
         setTopicFilterTruncated(r.json.topicFilterTruncated === true);
       }
@@ -199,7 +196,7 @@ export function AdminCommunityCommentsPage() {
     return () => {
       cancel = true;
     };
-  }, [apiQuery, reloadKey]);
+  }, [apiQuery, pageSize, reloadKey]);
 
   useEffect(() => {
     if (!commentId || loading) return;
@@ -261,14 +258,14 @@ export function AdminCommunityCommentsPage() {
   );
 
   const filters = (
-    <>
-      <CommunityFilterField label={tr("admin_community_comments_search_label")}>
-        <CommunitySearchInput
-          value={qParam}
-          placeholder={tr("admin_community_comments_search_placeholder")}
-          onCommit={(v) => set({ q: v })}
-        />
-      </CommunityFilterField>
+    <CommunityFilterBar
+      ko={ko}
+      showPeriod
+      searchPlaceholder={tr("admin_community_comments_search_placeholder")}
+      resetKeep={["tab"]}
+      pending={loading}
+      onRefresh={reload}
+    >
       <CommunityFilterField label="카테고리">
         <CommunitySelect
           value={topicSlug}
@@ -291,27 +288,26 @@ export function AdminCommunityCommentsPage() {
           ]}
         />
       </CommunityFilterField>
-      <CommunityPeriodFilter period={period} from={from} to={to} onChange={(v) => set({ period: v.period, from: v.from, to: v.to })} />
       {postId ? chip(`게시글: ${postTitleChip.slice(0, 24)}`, () => set({ postId: null })) : null}
       {userId ? chip(`작성자: ${authorChip}`, () => set({ userId: null })) : null}
       {commentId ? chip("특정 댓글 1건만 보기", () => set({ commentId: null })) : null}
-      {hasFilters ? <CommunityResetFilters onReset={() => reset(["tab"])} /> : null}
       {!loading && !loadErr && typeof total === "number" ? (
-        <span className="pb-1.5 text-[12px] font-semibold text-sam-fg" data-community-list-total={total}>
+        <span className="pb-2.5 text-[12px] font-semibold text-sam-fg" data-community-list-total={total}>
           {tr("admin_community_list_total", { count: formatAdminNumber(total) })}
         </span>
       ) : null}
-    </>
+    </CommunityFilterBar>
   );
 
+  /** 행 버튼 = ghost/sm 최대 2개. 「삭제」는 상태 변경(복구 가능)이라 danger 가 아니다. */
   const rowButtons = (r: CommunityCommentRow) => {
     const status = String(r.status ?? "active");
     return (
       <span className="flex flex-wrap gap-1">
         {status === "active" ? (
           <AdminActionButton
-            variant="secondary"
-            className="border-sam-warning text-sam-warning"
+            variant="ghost"
+            size="sm"
             disabled={!canContent}
             title={noPermTitle}
             onClick={() => setAction({ kind: "hide", ids: [r.id] })}
@@ -320,7 +316,8 @@ export function AdminCommunityCommentsPage() {
           </AdminActionButton>
         ) : (
           <AdminActionButton
-            variant="secondary"
+            variant="ghost"
+            size="sm"
             disabled={!canContent}
             title={noPermTitle}
             onClick={() => setAction({ kind: "restore", ids: [r.id] })}
@@ -330,7 +327,8 @@ export function AdminCommunityCommentsPage() {
         )}
         {status !== "deleted" ? (
           <AdminActionButton
-            variant="danger"
+            variant="ghost"
+            size="sm"
             disabled={!canContent}
             title={noPermTitle}
             onClick={() => setAction({ kind: "delete", ids: [r.id] })}
@@ -348,7 +346,13 @@ export function AdminCommunityCommentsPage() {
   else if (loadErr)
     body = <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={reload} />;
   else if (rows.length === 0)
-    body = <AdminEmptyState ko={ko} message={hasFilters ? "조건에 맞는 댓글이 없습니다." : "댓글이 없습니다."} />;
+    body = (
+      <AdminEmptyState
+        ko={ko}
+        message={hasFilters ? "조건에 맞는 댓글이 없습니다." : "댓글이 없습니다."}
+        onReset={hasFilters ? () => reset(["tab"]) : undefined}
+      />
+    );
   else
     body = (
       <CommunityTable head={["", "유형", "댓글", "게시글", "작성자", "상태", "신고", "작성 시각", ""]}>
@@ -446,7 +450,6 @@ export function AdminCommunityCommentsPage() {
         </AdminActionButton>
         <AdminActionButton
           variant="secondary"
-          className="border-sam-warning text-sam-warning"
           disabled={!canContent}
           title={noPermTitle}
           onClick={() => setAction({ kind: "hide", ids: [...selection.selected] })}
@@ -455,7 +458,7 @@ export function AdminCommunityCommentsPage() {
         </AdminActionButton>
         {isBulkActionAllowed(policy, "soft_delete") ? (
           <AdminActionButton
-            variant="danger"
+            variant="secondary"
             disabled={!canContent}
             title={noPermTitle}
             onClick={() => setAction({ kind: "delete", ids: [...selection.selected] })}
@@ -510,7 +513,7 @@ export function AdminCommunityCommentsPage() {
             onChange={(v) => set({ tab: v, status: null, reported: null })}
           />
         }
-        filters={filters}
+        filterBar={filters}
         bulkBar={
           <>
             {rows.length > 0 && !loading ? (
@@ -531,9 +534,11 @@ export function AdminCommunityCommentsPage() {
           !loading && !loadErr && (rows.length > 0 || page > 1) ? (
             <CommunityPagination
               page={page}
-              pageSize={COMMUNITY_PAGE_SIZE}
-              total={total ?? (hasMore ? null : (page - 1) * COMMUNITY_PAGE_SIZE + rows.length)}
-              onPage={(p) => set({ page: p > 1 ? p : null }, { keepPage: true })}
+              pageSize={pageSize}
+              total={total ?? (hasMore ? null : (page - 1) * pageSize + rows.length)}
+              hasMore={hasMore}
+              onPage={setPage}
+              onSizeChange={setSize}
             />
           ) : null
         }

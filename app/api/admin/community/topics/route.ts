@@ -2,7 +2,7 @@ import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-adm
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { listAllCommunityTopicsForAdmin } from "@/lib/community-topics/server";
+import { loadAllCommunityTopicsForAdmin } from "@/lib/community-topics/server";
 import {
   adminTopicCreateSortMetadata,
   assertAdminTopicSlugNotSortSlot,
@@ -19,8 +19,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const gate = await requireCommunityAdmin("content");
   if (!gate.ok) return gate.response;
-  const topics = await listAllCommunityTopicsForAdmin();
-  return NextResponse.json({ ok: true, topics });
+  const r = await loadAllCommunityTopicsForAdmin();
+  if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: 500 });
+  return NextResponse.json({ ok: true, topics: r.rows });
 }
 
 export async function POST(req: NextRequest) {

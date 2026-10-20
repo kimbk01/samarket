@@ -492,6 +492,8 @@ export type CommunityReportGroupList = {
   offset: number;
   /** 조회 상한(5,000건)에 걸려 일부만 묶었는지 */
   truncated: boolean;
+  /** ok=false 일 때 오류 코드 (DB 오류 코드 또는 load_failed) — 관리자 화면 오류 상태 표시용 */
+  error?: string;
 };
 
 export type ListCommunityReportGroupsOpts = {
@@ -618,7 +620,7 @@ export async function listCommunityReportGroupsForAdmin(
     if (filterSet && filterSet.size <= 200) kq = kq.in("target_id", [...filterSet]);
 
     const { data, error } = await kq;
-    if (error) return { ...empty, ok: false };
+    if (error) return { ...empty, ok: false, error: error.code ? `db_${error.code}` : "load_failed" };
     let keys = ((data ?? []) as Record<string, unknown>[]).map(
       (r): KeyRow => ({
         id: String(r.id),
@@ -664,7 +666,7 @@ export async function listCommunityReportGroupsForAdmin(
     let full = await fullQuery(REPORT_SELECT);
     // 처리자·결정 컬럼(M4) 미적용 환경
     if (full.error) full = await fullQuery(LEGACY_REPORT_SELECT);
-    if (full.error) return { ...empty, ok: false };
+    if (full.error) return { ...empty, ok: false, error: full.error.code ? `db_${full.error.code}` : "load_failed" };
     const enriched = await enrichCommunityReportRows(
       ((full.data ?? []) as unknown as Record<string, unknown>[]).map(mapBaseRow)
     );
@@ -691,6 +693,6 @@ export async function listCommunityReportGroupsForAdmin(
     });
     return { ok: true, groups, total: grouped.length, counts, limit, offset, truncated };
   } catch {
-    return { ...empty, ok: false };
+    return { ...empty, ok: false, error: "load_failed" };
   }
 }

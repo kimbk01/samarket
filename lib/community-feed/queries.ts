@@ -104,19 +104,30 @@ export async function listCommunitySections(): Promise<CommunitySectionDTO[]> {
   }
 }
 
-/** 관리자: 비활성 포함 전체 섹션 */
-export async function listAllCommunitySectionsForAdmin(): Promise<CommunitySectionAdminRow[]> {
+export type CommunityAdminLoadResult<T> = { ok: true; rows: T[] } | { ok: false; rows: T[]; error: string };
+
+/**
+ * 관리자: 비활성 포함 전체 섹션 — 조회 실패를 빈 목록과 구분한다 (관리자 화면 오류 상태용).
+ * error = DB 오류 코드(`db_…`) 또는 load_failed.
+ */
+export async function loadAllCommunitySectionsForAdmin(): Promise<CommunityAdminLoadResult<CommunitySectionAdminRow>> {
   try {
     const sb = getSupabaseServer();
     const { data, error } = await sb
       .from("community_sections")
       .select("id, name, slug, sort_order, is_active")
       .order("sort_order", { ascending: true });
-    if (error || !data?.length) return [];
-    return data as CommunitySectionAdminRow[];
+    if (error) return { ok: false, rows: [], error: error.code ? `db_${error.code}` : "load_failed" };
+    return { ok: true, rows: (data ?? []) as CommunitySectionAdminRow[] };
   } catch {
-    return [];
+    return { ok: false, rows: [], error: "load_failed" };
   }
+}
+
+/** 관리자: 비활성 포함 전체 섹션 (실패 시 [] — 기존 호출부 호환). 화면은 `loadAllCommunitySectionsForAdmin` 을 쓴다. */
+export async function listAllCommunitySectionsForAdmin(): Promise<CommunitySectionAdminRow[]> {
+  const r = await loadAllCommunitySectionsForAdmin();
+  return r.rows;
 }
 
 export async function listTopicsForSectionSlug(

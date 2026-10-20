@@ -14,6 +14,7 @@ function csvEscape(value: string): string {
 /**
  * GET /api/admin/meeting-events
  * Query: meetingId?, type?, limit? (1–100, default 50), offset? (0–10000), format=json|csv
+ * → { ok, events, hasMore, total (count exact | null), offset, limit } · 조회 실패 500 { ok:false, error }
  */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -33,12 +34,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
   }
 
-  const { events, hasMore } = await listMeetingEventsAdminPage({
+  const { events, hasMore, total, error } = await listMeetingEventsAdminPage({
     meetingId,
     eventType,
     limit: format === "csv" ? Math.min(limit, 500) : limit,
     offset: format === "csv" ? offset : offset,
   });
+
+  if (error) return NextResponse.json({ ok: false, error }, { status: 500 });
 
   if (format === "csv") {
     const header = [
@@ -80,5 +83,5 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: true, events, hasMore, offset, limit });
+  return NextResponse.json({ ok: true, events, hasMore, total, offset, limit });
 }

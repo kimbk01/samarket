@@ -126,7 +126,7 @@ describe("route contracts — meetings/comments list: q · total · range", () =
     expect(meetings).toContain("admin_community_list_total");
     expect(meetings).toContain('sp.set("q", q)');
     const comments = read("components/admin/community/AdminCommunityCommentsPage.tsx");
-    expect(comments).toContain("CommunitySearchInput");
+    expect(comments).toContain("CommunityFilterBar");
     expect(comments).toContain("admin_community_list_total");
     expect(comments).toContain('q.set("q", qParam)');
   });

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { formatAdminMemberLabel, loadAdminMemberIdentityMap } from "@/lib/admin-community/member-identity";
 import { parseCommunityAdminPeriod } from "@/lib/admin/community-admin/community-admin-period";
+import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { AdminMeetingReportsPage } from "@/components/admin/philife/AdminMeetingReportsPage";
 import {
   MEETING_REPORT_TABS,
@@ -16,7 +17,8 @@ import { AdminPhilifeMeetingReportsHeader } from "@/components/admin/philife/Adm
 
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 50;
+/** 페이지 크기 — URL `size` (20/50/100, 기본 50) */
+const DEFAULT_PAGE_SIZE = 50;
 const SELECT =
   "id, meeting_id, target_type, target_id, reporter_user_id, reason_type, reason_detail, status, action_result, reviewed_by, reviewed_at, created_at";
 
@@ -51,8 +53,13 @@ type Filter = {
 };
 
 /** 모임 신고 목록 — 서버 페이지네이션 + 탭 건수 (service-role 서버 조회, 읽기 전용) */
-async function loadMeetingReports(tab: MeetingReportTab, f: Filter, page: number): Promise<MeetingReportListResult> {
-  const fail: MeetingReportListResult = { ok: false, rows: [], total: 0, counts: null };
+async function loadMeetingReports(
+  tab: MeetingReportTab,
+  f: Filter,
+  page: number,
+  pageSize: number
+): Promise<MeetingReportListResult> {
+  const fail: MeetingReportListResult = { ok: false, rows: [], total: 0, counts: null, error: "load_failed" };
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
@@ -83,10 +90,10 @@ async function loadMeetingReports(tab: MeetingReportTab, f: Filter, page: number
   const st = TAB_STATUSES[tab];
   if (st) listQ = listQ.in("status", st);
   const [list, ...countVals] = await Promise.all([
-    listQ.order("created_at", { ascending: false }).range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
+    listQ.order("created_at", { ascending: false }).range((page - 1) * pageSize, page * pageSize - 1),
     ...MEETING_REPORT_TABS.map((t) => countFor(t)),
   ]);
-  if (list.error) return fail;
+  if (list.error) return { ...fail, error: list.error.code ? `db_${list.error.code}` : "load_failed" };
   const counts = countVals.every((c) => c !== null)
     ? (Object.fromEntries(MEETING_REPORT_TABS.map((t, i) => [t, countVals[i] as number])) as Record<MeetingReportTab, number>)
     : null;
@@ -162,6 +169,7 @@ export default async function AdminPhilifeMeetingReportsRoute({ searchParams }: 
   const typeRaw = one(sp, "type");
   const type = (MEETING_REPORT_TARGET_OPTIONS as readonly string[]).includes(typeRaw) ? typeRaw : "";
   const page = Math.max(1, Math.floor(Number(one(sp, "page") || 1)) || 1);
+  const pageSize = normalizeAdminListPageSize(one(sp, "size"), DEFAULT_PAGE_SIZE);
   const q = one(sp, "q");
   const period = parseCommunityAdminPeriod({ period: one(sp, "period"), from: one(sp, "from"), to: one(sp, "to") });
 
@@ -179,14 +187,15 @@ export default async function AdminPhilifeMeetingReportsRoute({ searchParams }: 
             meetingIds: search?.meetingIds ?? null,
             reporterIds: search?.reporterIds ?? null,
           },
-          page
+          page,
+          pageSize
         );
 
   return (
     <div className="space-y-3 p-4">
       <AdminPhilifeMeetingReportsHeader />
       <Suspense fallback={null}>
-        <AdminMeetingReportsPage result={result} filters={filters} pageSize={PAGE_SIZE} />
+        <AdminMeetingReportsPage result={result} filters={filters} pageSize={pageSize} />
       </Suspense>
     </div>
   );

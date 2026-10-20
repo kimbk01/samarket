@@ -21,12 +21,10 @@ import {
   COMMUNITY_TD,
   CommunityActionSheet,
   CommunityAuthorCell,
+  CommunityFilterBar,
   CommunityFilterField,
   CommunityListShell,
   CommunityPagination,
-  CommunityPeriodFilter,
-  CommunityResetFilters,
-  CommunitySearchInput,
   CommunitySelect,
   CommunityStatusBadge,
   CommunityTable,
@@ -46,7 +44,6 @@ import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
 import {
   COMMUNITY_HARD_DELETE_BLOCK_KO,
-  COMMUNITY_PAGE_SIZE,
   COMMUNITY_POSTS_LIST_PATH,
   COMMUNITY_STALE_MESSAGE,
   communityJsonFetch,
@@ -121,7 +118,7 @@ function isPinnedNow(r: CommunityPostRow): boolean {
 export function AdminPostsPageContent() {
   const { language } = useI18n();
   const ko = language !== "en";
-  const { get, set, reset, selfHref, page } = useCommunityQueryState();
+  const { get, set, reset, selfHref, page, size: pageSize, setPage, setSize } = useCommunityQueryState();
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
   const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
   const policy = COMMUNITY_POST_ENTITY_ACTION_POLICY;
@@ -146,14 +143,14 @@ export function AdminPostsPageContent() {
   const [sheet, setSheet] = useState<BulkKind | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const queryScopeKey = [tab, q, topicSlug, origin, userId, postId, period, from, to, page].join("|");
+  const queryScopeKey = [tab, q, topicSlug, origin, userId, postId, period, from, to, page, pageSize].join("|");
   const selectableIds = useMemo(() => rows.map((r) => r.id).filter(Boolean), [rows]);
   const selection = useAdminManagementSelection({ queryScopeKey, selectableIds });
 
   const apiQuery = useMemo(() => {
     const sp = new URLSearchParams({
-      limit: String(COMMUNITY_PAGE_SIZE),
-      offset: String((page - 1) * COMMUNITY_PAGE_SIZE),
+      limit: String(pageSize),
+      offset: String((page - 1) * pageSize),
     });
     if (tab === "reported") sp.set("reported", "1");
     else if (tab !== "all") sp.set("status", tab);
@@ -170,7 +167,7 @@ export function AdminPostsPageContent() {
       if (to) sp.set("to", to);
     }
     return sp.toString();
-  }, [tab, q, topicSlug, origin, userId, postId, period, from, to, page]);
+  }, [tab, q, topicSlug, origin, userId, postId, period, from, to, page, pageSize]);
 
   useEffect(() => {
     let cancel = false;
@@ -191,8 +188,8 @@ export function AdminPostsPageContent() {
         setTotal(
           typeof r.json.total === "number"
             ? r.json.total
-            : list.length < COMMUNITY_PAGE_SIZE
-              ? (page - 1) * COMMUNITY_PAGE_SIZE + list.length
+            : list.length < pageSize
+              ? (page - 1) * pageSize + list.length
               : null
         );
       }
@@ -201,7 +198,7 @@ export function AdminPostsPageContent() {
     return () => {
       cancel = true;
     };
-  }, [apiQuery, page, reloadKey]);
+  }, [apiQuery, page, pageSize, reloadKey]);
 
   const reload = useCallback(() => setReloadKey((n) => n + 1), []);
 
@@ -316,7 +313,6 @@ export function AdminPostsPageContent() {
         </AdminActionButton>
         <AdminActionButton
           variant="secondary"
-          className="border-sam-warning text-sam-warning"
           disabled={!canContent}
           title={canContent ? undefined : "권한 필요: 게시판 관리"}
           onClick={() => setSheet("hide")}
@@ -324,8 +320,9 @@ export function AdminPostsPageContent() {
         >
           숨기기
         </AdminActionButton>
+        {/* 「삭제」는 상태 변경(복구 가능) — danger 는 「영구 삭제」에만 */}
         <AdminActionButton
-          variant="danger"
+          variant="secondary"
           disabled={!canContent}
           title={canContent ? undefined : "권한 필요: 게시판 관리"}
           onClick={() => setSheet("soft_delete")}
@@ -354,10 +351,14 @@ export function AdminPostsPageContent() {
     ) : null;
 
   const filters = (
-    <>
-      <CommunityFilterField label="검색 (제목·본문)">
-        <CommunitySearchInput value={q} placeholder="제목 또는 본문" onCommit={(v) => set({ q: v })} />
-      </CommunityFilterField>
+    <CommunityFilterBar
+      ko={ko}
+      showPeriod
+      searchPlaceholder="제목 또는 본문"
+      resetKeep={["tab"]}
+      pending={loading}
+      onRefresh={reload}
+    >
       <CommunityFilterField label="카테고리">
         <CommunitySelect
           value={topicSlug}
@@ -372,14 +373,8 @@ export function AdminPostsPageContent() {
       <CommunityFilterField label="작성 구분">
         <CommunitySelect value={origin} onChange={(v) => set({ origin: v })} options={ORIGIN_OPTIONS} />
       </CommunityFilterField>
-      <CommunityPeriodFilter
-        period={period}
-        from={from}
-        to={to}
-        onChange={(v) => set({ period: v.period, from: v.from, to: v.to })}
-      />
       {userId ? (
-        <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
+        <span className="flex h-10 items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 text-[12px] text-sam-fg">
           작성자: {authorChipLabel}
           <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => set({ userId: null, authorId: null })}>
             해제
@@ -387,15 +382,14 @@ export function AdminPostsPageContent() {
         </span>
       ) : null}
       {postId ? (
-        <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
+        <span className="flex h-10 items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 text-[12px] text-sam-fg">
           특정 글 1건만 보기
           <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => set({ postId: null })}>
             해제
           </AdminActionButton>
         </span>
       ) : null}
-      {hasFilters ? <CommunityResetFilters onReset={() => reset(["tab"])} /> : null}
-    </>
+    </CommunityFilterBar>
   );
 
   let body: ReactNode;
@@ -414,7 +408,11 @@ export function AdminPostsPageContent() {
   } else if (rows.length === 0) {
     body = (
       <div data-admin-mgmt-state="EMPTY">
-        <AdminEmptyState ko={ko} message={hasFilters ? "조건에 맞는 게시글이 없습니다." : "게시글이 없습니다."} />
+        <AdminEmptyState
+          ko={ko}
+          message={hasFilters ? "조건에 맞는 게시글이 없습니다." : "게시글이 없습니다."}
+          onReset={hasFilters ? () => reset(["tab"]) : undefined}
+        />
       </div>
     );
   } else {
@@ -490,7 +488,7 @@ export function AdminPostsPageContent() {
                 <CommunityTimeCell iso={r.published_at ?? r.created_at} />
               </td>
               <td className={COMMUNITY_TD}>
-                <AdminActionLink href={detailHref} variant="neutral">
+                <AdminActionLink href={detailHref} variant="ghost" size="sm">
                   상세
                 </AdminActionLink>
               </td>
@@ -536,7 +534,7 @@ export function AdminPostsPageContent() {
             onChange={(v) => set({ tab: v, status: null, reportedOnly: null, reported: null })}
           />
         }
-        filters={filters}
+        filterBar={filters}
         bulkBar={
           <>
             {selectAll}
@@ -544,12 +542,14 @@ export function AdminPostsPageContent() {
           </>
         }
         footer={
-          !loading && !loadErr && rows.length > 0 ? (
+          !loading && !loadErr && (rows.length > 0 || page > 1) ? (
             <CommunityPagination
               page={page}
-              pageSize={COMMUNITY_PAGE_SIZE}
+              pageSize={pageSize}
               total={total}
-              onPage={(p) => set({ page: p > 1 ? p : null }, { keepPage: true })}
+              hasMore={total === null ? rows.length >= pageSize : undefined}
+              onPage={setPage}
+              onSizeChange={setSize}
             />
           ) : null
         }

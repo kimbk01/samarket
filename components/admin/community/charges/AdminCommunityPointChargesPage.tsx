@@ -4,7 +4,7 @@
  * 충전 신청 (설계 §C-14 · §F-3) — 공통 충전 API 를 그대로 쓰는 전체 회원 충전 신청 목록.
  * 목록: 회원·요금제·포인트·결제 금액·상태·신청 시각. 입금자명·증빙·회원 메모는 상세 시트에서만.
  * 처리: 「입금 확인 후 승인」(확인 근거 필수 L2) · 「보류」(L1) · 「반려」(사유 필수 L2) — runPointChargeAction.
- * URL: status=pending|on_hold|approved|rejected|all · q(닉네임·입금자명·신청 번호) · chargeId(시트 바로 열기) · page
+ * URL: status=pending|on_hold|approved|rejected|all · q(닉네임·입금자명·신청 번호) · chargeId(시트 바로 열기) · page · size(20/50/100)
  * 상태 필터·검색·페이지는 서버(`/api/admin/point-charges`)가 처리 — 300건 상한 없음, `total`·`statusCounts` 는 정확한 건수.
  */
 import Link from "next/link";
@@ -13,11 +13,9 @@ import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import {
   COMMUNITY_TD,
-  CommunityFilterField,
+  CommunityFilterBar,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityResetFilters,
-  CommunitySearchInput,
   CommunityStatusBadge,
   CommunitySummaryCard,
   CommunityTable,
@@ -46,8 +44,6 @@ import {
   useCommunityAdminJson,
   type CommunityBannerState,
 } from "@/components/admin/community/members/use-community-admin-data";
-
-const PAGE_SIZE = 50;
 
 const TAB_STATUSES: Record<string, readonly string[] | null> = {
   pending: ["pending", "waiting_confirm"],
@@ -92,17 +88,18 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
   const [banner, setBanner] = useState<CommunityBannerState>(null);
   const search = q.get("q");
   const page = q.page;
+  const size = q.size;
   const listUrl = useMemo(() => {
     const params = new URLSearchParams({
-      limit: String(PAGE_SIZE),
-      offset: String(adminListOffsetForPage(page, PAGE_SIZE)),
+      limit: String(size),
+      offset: String(adminListOffsetForPage(page, size)),
       counts: "1",
     });
     const st = TAB_STATUSES[status];
     params.set("status", st ? st.join(",") : "all");
     if (search) params.set("q", search);
     return `${paths.api}?${params.toString()}`;
-  }, [page, search, status, paths.api]);
+  }, [page, size, search, status, paths.api]);
   const { state, reload } = useCommunityAdminJson<ListResponse>(listUrl);
 
   const pageRows = useMemo(() => (state.status === "ok" ? state.data.requests ?? [] : []), [state]);
@@ -145,30 +142,21 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
           ]}
         />
       }
-      filters={
-        <>
-          <CommunityFilterField label="검색어">
-            <CommunitySearchInput
-              value={q.get("q")}
-              onCommit={(v) => q.set({ q: v })}
-              placeholder="닉네임 · 입금자명 · 신청 번호"
-            />
-          </CommunityFilterField>
-          <CommunityResetFilters onReset={() => q.reset(["status"])} />
-        </>
+      filterBar={
+        <CommunityFilterBar searchPlaceholder="닉네임 · 입금자명 · 신청 번호" resetKeep={["status"]} onRefresh={reload} />
       }
-      footer={
-        loaded && (total > 0 || q.page > 1) ? (
-          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
-        ) : null
-      }
+      footer={loaded ? <CommunityListPagination q={q} total={total} /> : null}
     >
       {state.status === "loading" && !state.data ? (
         <AdminLoadingState ko />
       ) : state.status === "error" ? (
         <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
       ) : pageRows.length === 0 ? (
-        <AdminEmptyState ko message={q.get("q") ? "검색 결과가 없습니다." : "이 상태의 충전 신청이 없습니다."} />
+        <AdminEmptyState
+          ko
+          message={q.get("q") ? "검색 결과가 없습니다." : "이 상태의 충전 신청이 없습니다."}
+          onReset={q.get("q") ? () => q.reset(["status"]) : undefined}
+        />
       ) : (
         <CommunityTable head={["회원", "요금제 · 포인트", "결제 금액", "상태", "신청", ""]}>
           {pageRows.map((r) => (
@@ -194,7 +182,7 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
                 <CommunityTimeCell iso={r.requestedAt} />
               </td>
               <td className={COMMUNITY_TD}>
-                <AdminActionButton variant="ghost" onClick={() => setOpenId(r.id)}>
+                <AdminActionButton variant="ghost" size="sm" onClick={() => setOpenId(r.id)}>
                   자세히
                 </AdminActionButton>
               </td>
@@ -290,11 +278,11 @@ function ChargeSheet({
               {busy === "hold" ? "처리 중" : "보류"}
             </AdminActionButton>
           ) : null}
-          <AdminActionButton variant="primary" disabled={!canAct || Boolean(busy)} title={deniedTitle} onClick={() => void act("approve")}>
-            {busy === "approve" ? "처리 중" : "입금 확인 후 승인"}
-          </AdminActionButton>
           <AdminActionButton variant="danger" disabled={!canAct || Boolean(busy)} title={deniedTitle} onClick={() => void act("reject")}>
             {busy === "reject" ? "처리 중" : "반려"}
+          </AdminActionButton>
+          <AdminActionButton variant="primary" disabled={!canAct || Boolean(busy)} title={deniedTitle} onClick={() => void act("approve")}>
+            {busy === "approve" ? "처리 중" : "입금 확인 후 승인"}
           </AdminActionButton>
         </div>
       ) : null}

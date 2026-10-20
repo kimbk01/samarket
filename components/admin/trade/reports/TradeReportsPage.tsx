@@ -6,17 +6,17 @@
  * 행을 누르면 처리 시트 — 신고 내용·대상 글·대상 회원·같은 게시물 다른 신고·처리 기록·회원의 기존 조치.
  * 처리(반려·게시물 숨김·경고·거래 활동 제한)는 POST /api/admin/trade/reports/:id 한 번 (2단계 확인·사유).
  * 계정 정지·차단은 여기서 하지 않는다 — 판매자·구매자 상세의 계정 조치로 이동.
+ * URL: tab · targetType · targetId · reporterId · sellerId · period/from/to · reportId · page · size(20/50/100)
  */
 import Link from "next/link";
 import { useRef, useState } from "react";
 import {
   COMMUNITY_TD,
   CommunityActionSheet,
+  CommunityFilterBar,
   CommunityFilterField,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityPeriodFilter,
-  CommunityResetFilters,
   CommunitySelect,
   CommunitySummaryCard,
   CommunityTable,
@@ -63,7 +63,6 @@ import {
   tradeSanctionStatusOf,
 } from "@/components/admin/trade/restrictions/TradeRestrictionsPage";
 
-const PAGE_SIZE = 50;
 const REASON_MIN = 2;
 
 type Rec = Record<string, unknown>;
@@ -204,7 +203,7 @@ export function TradeReportsPage() {
   const reportId = qs.get("reportId");
   const [banner, setBanner] = useState<CommunityBanner>(null);
 
-  const params = new URLSearchParams({ tab, limit: String(PAGE_SIZE), offset: String((qs.page - 1) * PAGE_SIZE) });
+  const params = new URLSearchParams({ tab, limit: String(qs.limitOffset.limit), offset: String(qs.limitOffset.offset) });
   if (targetType) params.set("targetType", targetType);
   if (targetId) params.set("targetId", targetId);
   if (reporterId) params.set("reporterId", reporterId);
@@ -242,17 +241,11 @@ export function TradeReportsPage() {
           tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] ?? null }))}
         />
       }
-      filters={
-        <>
+      filterBar={
+        <CommunityFilterBar showSearch={false} showPeriod resetKeep={["tab"]} onRefresh={reload} pending={state.status === "loading"}>
           <CommunityFilterField label="대상 유형">
             <CommunitySelect value={targetType} onChange={(v) => qs.set({ targetType: v })} options={TARGET_OPTIONS} />
           </CommunityFilterField>
-          <CommunityPeriodFilter
-            period={period}
-            from={from}
-            to={to}
-            onChange={(v) => qs.set({ period: v.period, from: v.from, to: v.to })}
-          />
           {targetId ? (
             <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
               특정 대상만 보기
@@ -295,14 +288,9 @@ export function TradeReportsPage() {
               </AdminActionButton>
             </span>
           ) : null}
-          <CommunityResetFilters onReset={() => qs.reset(["tab"])} />
-        </>
+        </CommunityFilterBar>
       }
-      footer={
-        total !== null && total > 0 ? (
-          <CommunityPagination page={qs.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => qs.set({ page: p > 1 ? p : null })} />
-        ) : null
-      }
+      footer={<CommunityListPagination q={qs} total={total} disabled={state.status === "loading"} />}
     >
       {customIncomplete ? (
         <AdminEmptyState ko message="직접 지정 기간의 시작일과 종료일을 모두 선택하세요." />
@@ -311,7 +299,13 @@ export function TradeReportsPage() {
       ) : state.status === "error" ? (
         <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState ko message={EMPTY_TEXT[tab]} />
+        <AdminEmptyState
+          ko
+          message={EMPTY_TEXT[tab]}
+          onReset={
+            qs.hasAny(["targetType", "targetId", "reporterId", "sellerId", "period", "from", "to"]) ? () => qs.reset(["tab"]) : undefined
+          }
+        />
       ) : (
         <CommunityTable head={["접수", "대상", "신고 사유", "신고자", "상태", "처리자·처리 시각", "처리"]}>
           {rows.map((r) => (
@@ -352,8 +346,8 @@ export function TradeReportsPage() {
               </td>
               <td className={COMMUNITY_TD}>
                 <AdminActionButton
-                  variant={isTradeReportOpen(r.status) ? "primary" : "secondary"}
-                  className="min-h-8 px-2 py-1 text-[12px]"
+                  variant="ghost"
+                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     openDetail(r.id);
@@ -591,7 +585,7 @@ function TradeReportDetailSheet({
         <AdminActionButton variant="secondary" onClick={() => setDecision("reject")}>
           반려
         </AdminActionButton>
-        <AdminActionButton variant="danger" disabled={!post} title={post ? undefined : "거래글 신고에서만 할 수 있습니다"} onClick={() => setDecision("hide")}>
+        <AdminActionButton variant="secondary" disabled={!post} title={post ? undefined : "거래글 신고에서만 할 수 있습니다"} onClick={() => setDecision("hide")}>
           게시물 숨김
         </AdminActionButton>
         <AdminActionButton

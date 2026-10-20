@@ -8,6 +8,7 @@ import {
   parseNoticeWindow,
 } from "@/lib/admin/community-admin/community-notice-admin";
 import { parseCommunityPinScope, setCommunityPostPin } from "@/lib/admin/community-admin/community-post-pin";
+import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import {
   formatAdminMemberLabel,
   loadAdminMemberIdentityMap,
@@ -19,8 +20,9 @@ export const dynamic = "force-dynamic";
 type Tab = "live" | "scheduled" | "ended";
 
 /**
- * GET /api/admin/community/notices?tab=live|scheduled|ended
- * → { ok, tab, notices: Row[], pinned: Row[] (지금 고정된 글 — 공지 포함), pinLimits: { feed: {limit,count}, topic: {limit, counts: {topicId: n}} } }
+ * GET /api/admin/community/notices?tab=live|scheduled|ended[&limit=20|50|100&offset=n]
+ * → { ok, tab, total, limit, offset, notices: Row[], pinned: Row[] (지금 고정된 글 — 공지 포함), pinLimits: { feed: {limit,count}, topic: {limit, counts: {topicId: n}} } }
+ * limit 없으면 기존 동작(최신 100건). limit 은 20/50/100 만 (그 외 50), total = 탭 조건 exact count.
  * Row: community_posts 필드 + author_label, pinned_by_label
  */
 export async function GET(req: NextRequest) {
@@ -32,16 +34,25 @@ export async function GET(req: NextRequest) {
   const tab: Tab = tabRaw === "scheduled" || tabRaw === "ended" ? tabRaw : "live";
   const now = new Date().toISOString();
 
-  let q = sb.from("community_posts").select(COMMUNITY_NOTICE_LIST_SELECT).eq("is_notice", true);
+  const sp = req.nextUrl.searchParams;
+  const paged = sp.has("limit");
+  const limit = paged ? normalizeAdminListPageSize(sp.get("limit"), 50) : 100;
+  const offsetRaw = Math.floor(Number(sp.get("offset") ?? 0));
+  const offset = paged && Number.isFinite(offsetRaw) && offsetRaw > 0 ? Math.min(offsetRaw, 100_000) : 0;
+
+  let q = sb.from("community_posts").select(COMMUNITY_NOTICE_LIST_SELECT, { count: "exact" }).eq("is_notice", true);
   if (tab === "live") {
-    // 시작 조건은 DB, 종료 조건은 아래에서 거른다 (or 필터 1개만 사용).
-    q = q.eq("status", "active").or(`notice_starts_at.is.null,notice_starts_at.lte."${now}"`);
+    // 시작·종료 조건 모두 DB (or 필터 두 개는 AND 로 묶인다) — 총 건수와 페이지가 일치하도록.
+    q = q
+      .eq("status", "active")
+      .or(`notice_starts_at.is.null,notice_starts_at.lte."${now}"`)
+      .or(`notice_ends_at.is.null,notice_ends_at.gt."${now}"`);
   } else if (tab === "scheduled") {
     q = q.eq("status", "active").gt("notice_starts_at", now);
   } else {
     q = q.or(`notice_ends_at.lte."${now}",status.neq.active`);
   }
-  const noticesP = q.order("created_at", { ascending: false }).limit(100);
+  const noticesP = q.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
   const pinnedP = sb
     .from("community_posts")
     .select(COMMUNITY_NOTICE_LIST_SELECT)
@@ -87,6 +98,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     tab,
+    total: noticesRes.count ?? notices.length,
+    limit,
+    offset,
     notices: notices.map(decorate),
     pinned: pinned.map(decorate),
     pinLimits: { feed: { limit: 3, count: feedCount }, topic: { limit: 2, counts: topicCounts } },

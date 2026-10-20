@@ -120,6 +120,10 @@ function ExternalImportOperatorInner() {
               topics={topics}
               filter={filter}
               setFilter={setFilter}
+              onResetFilter={() =>
+                setFilter({ site: "", board: "", status: DEFAULT_STATUS, quality: "", lang: DEFAULT_LANG, q: "" })
+              }
+              isFiltered={Boolean(site || board || quality || q || status !== DEFAULT_STATUS || lang !== DEFAULT_LANG)}
               activeKey={active ? keyOf(active) : null}
               onOpen={setActive}
               refreshToken={refreshToken}

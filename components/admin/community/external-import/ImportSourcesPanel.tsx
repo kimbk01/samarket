@@ -8,7 +8,7 @@ import { labelReasons } from "@/lib/community-operator-import/quality-labels";
 import { allowsFullContent, RIGHTS_BASES, RIGHTS_LABEL, type RightsBasis } from "@/lib/community-operator-import/rights";
 import { BoardProbePanel } from "./BoardProbePanel";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { call, type ContentPolicy, fmtDate, type ManagedSource, POLICY_LABEL, type TopicOption, VERDICT_TONE, importErrorText, verdictLabel } from "./api";
+import { call, type ContentPolicy, fmtDate, type ManagedSource, POLICY_LABEL, type TopicOption, VERDICT_TONE, importErrorText, robotsStatusLabel, verdictLabel } from "./api";
 
 export function VerdictBadge({ v }: { v: string | null | undefined }) {
   const key = String(v || "NOT_PROVEN");
@@ -155,7 +155,8 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
               if (e.key === "Enter" && url.trim() && !busy) void doDetect();
             }}
           />
-          <AdminActionButton variant="primary" disabled={!url.trim() || !!busy} onClick={() => void doDetect()}>
+          {/* 화면 primary 는 「등록」 1개 — 분석은 보조 동작 */}
+          <AdminActionButton variant="secondary" disabled={!url.trim() || !!busy} onClick={() => void doDetect()}>
             {busy === "detect" ? "분석 중… (최대 45초)" : "사이트 분석"}
           </AdminActionButton>
         </div>
@@ -166,7 +167,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
               <VerdictBadge v={detect.verdict} />
               <span className="font-semibold">{detect.engine ?? "유형 판별 실패"}</span>
               <span className="text-sam-muted text-xs break-all">{detect.baseUrl}</span>
-              <span className="text-sam-muted text-xs">robots: {detect.robots.status}</span>
+              <span className="text-sam-muted text-xs">robots.txt: {robotsStatusLabel(detect.robots.status)}</span>
               <span className="text-sam-muted text-xs">{Math.round(detect.elapsedMs / 100) / 10}s</span>
             </div>
             <p className="text-xs text-sam-muted break-words">{detect.reason}</p>
@@ -306,7 +307,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
               {isOpen ? (
                 <div className="border-t border-sam-border px-3 py-3 space-y-3">
                   <div className="text-[12px] text-sam-muted break-all">
-                    {s.baseUrl} · robots {s.status.robotsStatus ?? "미확인"}
+                    {s.baseUrl} · robots.txt {robotsStatusLabel(s.status.robotsStatus)}
                     {s.status.aiBotsBlocked ? " · AI 봇 차단 명시" : ""}
                     {s.status.lastError ? <span className="block text-sam-danger">최근 오류: {importErrorText({ message: s.status.lastError })}</span> : null}
                   </div>

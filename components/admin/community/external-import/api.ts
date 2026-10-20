@@ -29,9 +29,10 @@ export async function call<T>(path: string, init?: { method?: string; body?: unk
   }
   const j = (json || {}) as { ok?: boolean; error?: string; code?: string };
   if (!res.ok || j.ok === false) {
-    const err = new Error(j.error || `HTTP ${res.status}`) as Error & { code?: string; body?: unknown };
+    const err = new Error(j.error || `HTTP ${res.status}`) as Error & { code?: string; body?: unknown; status?: number };
     err.code = j.code;
     err.body = json;
+    err.status = res.status;
     throw err;
   }
   return json as T;
@@ -65,6 +66,58 @@ export const STATUS_LABEL: Record<string, string> = {
   hidden: "숨김",
   skipped: "제외",
 };
+
+/** 수집함 처리 상태 → 한글 (모르는 값은 「확인 필요」 — 원시 값 노출 금지) */
+export function inboxStatusLabel(v: string | null | undefined): string {
+  return STATUS_LABEL[String(v ?? "")] ?? "확인 필요";
+}
+
+/** 일괄 작업 종류 (lib/community-operator-import/jobs.ts JOB_KINDS) */
+export const JOB_KIND_LABEL: Record<string, string> = {
+  publish: "일괄 게시",
+  update: "일괄 업데이트",
+  hide: "게시물 숨김",
+  unhide: "숨김 해제",
+  reprocess: "본문 재수집",
+};
+
+/** 일괄 작업 상태 (community_import_jobs.status) */
+export const JOB_STATUS_LABEL: Record<string, string> = {
+  queued: "대기 중",
+  running: "진행 중",
+  done: "완료",
+  failed: "실패",
+  cancelled: "취소됨",
+};
+
+export function jobKindLabel(v: string | null | undefined): string {
+  return JOB_KIND_LABEL[String(v ?? "")] ?? "일괄 작업";
+}
+
+export function jobStatusLabel(v: string | null | undefined): string {
+  return JOB_STATUS_LABEL[String(v ?? "")] ?? "확인 필요";
+}
+
+/** robots.txt 확인 결과 (lib/community-operator-import/robots.ts · detect.ts · scheduler) */
+export const ROBOTS_STATUS_LABEL: Record<string, string> = {
+  found: "확인됨",
+  missing: "없음 (제한 없음)",
+  error: "확인 실패",
+  unknown: "미확인",
+};
+
+export function robotsStatusLabel(v: string | null | undefined): string {
+  if (!v) return "미확인";
+  return ROBOTS_STATUS_LABEL[v] ?? "확인 필요";
+}
+
+/** call() 오류 → 화면 오류 상태(AdminErrorState) 입력 */
+export function importErrorState(e: unknown): { code: string; status?: number } {
+  const err = (e ?? {}) as { message?: string; code?: string; status?: number };
+  const msg = String(err.message ?? "");
+  const code = err.code || (/[가-힣]/.test(msg) ? importErrorText(e) : msg && !/^HTTP \d+/.test(msg) ? msg : "load_failed");
+  return { code, status: typeof err.status === "number" ? err.status : undefined };
+}
 
 export const POLICY_LABEL: Record<ContentPolicy, string> = {
   full: "전문 게시 (재게시 권한 확인된 출처만)",

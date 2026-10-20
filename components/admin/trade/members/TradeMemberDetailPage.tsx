@@ -634,11 +634,7 @@ function RestrictionsSection({
                     </td>
                     <td className={COMMUNITY_TD}>
                       {r.status === "active" ? (
-                        <AdminActionButton
-                          variant="secondary"
-                          className="min-h-8 px-2 py-1 text-[12px]"
-                          onClick={() => onRevoke(r as unknown as Rec)}
-                        >
+                        <AdminActionButton variant="ghost" size="sm" onClick={() => onRevoke(r as unknown as Rec)}>
                           해제
                         </AdminActionButton>
                       ) : null}

@@ -139,6 +139,8 @@ export function adminStripTechnicalMeta(meta: string | null | undefined, ko: boo
   return adminOperatorLabel(m, ko);
 }
 
+const ADMIN_GENERIC_FAILURE_KO = "처리를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+
 /** Map API/validation keys to operator-facing sentences. Never render raw keys. */
 export function adminOperatorErrorMessage(
   raw: string | null | undefined,
@@ -324,10 +326,71 @@ export function adminOperatorErrorMessage(
   };
   if (known[key]) return ko ? known[key].ko : known[key].en;
   if (OPERATOR_LABELS[key]) return adminOperatorLabel(key, ko);
-  if (/^[a-z][a-z0-9_]*$/i.test(key) && key.includes("_")) {
-    return ko ? "처리를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요." : "Could not complete. Please try again.";
-  }
-  return key;
+  const status = ADMIN_HTTP_STATUS_CODE[key];
+  if (status) return adminHttpStatusErrorMessage(status, ko);
+  if (isAdminNetworkErrorText(key)) return ko ? known.network_error.ko : known.network_error.en;
+  if (isAdminOperatorSentence(key)) return key;
+  // 그 외(오류 코드·DB/런타임 원문)는 화면에 그대로 보이지 않는다 — 원문은 AdminTechDetails 로만.
+  return ko ? ADMIN_GENERIC_FAILURE_KO : "Could not complete. Please try again.";
+}
+
+/**
+ * 오류 맵 (수정 계획 2-5) — HTTP 상태별 고정 문구. 코드가 없거나 모르는 코드일 때 상태로 문구를 정한다.
+ */
+const ADMIN_HTTP_STATUS_MESSAGES: Record<number, { ko: string; en: string }> = {
+  401: { ko: "로그인이 필요합니다. 다시 로그인한 뒤 새로고침하세요.", en: "Sign-in required. Sign in again and refresh." },
+  403: { ko: "이 작업을 할 권한이 없습니다.", en: "You do not have permission for this action." },
+  404: { ko: "대상을 찾을 수 없습니다. 새로고침 후 확인하세요.", en: "Not found. Refresh and check again." },
+  409: {
+    ko: "다른 관리자가 먼저 처리해 상태가 바뀌었습니다. 새로고침 후 다시 확인하세요.",
+    en: "Another admin changed this first. Refresh and check again.",
+  },
+  422: { ko: "입력값이 올바르지 않습니다. 내용을 확인해 주세요.", en: "Invalid input. Check the values." },
+  429: { ko: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.", en: "Too many requests. Try again shortly." },
+  500: { ko: "서버 오류로 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.", en: "Server error. Try again shortly." },
+};
+
+/** API 가 상태 대신 보내는 코드 → HTTP 상태 (오류 맵 공용). */
+const ADMIN_HTTP_STATUS_CODE: Record<string, number> = {
+  unauthorized: 401,
+  login_required: 401,
+  conflict: 409,
+  invalid_input: 422,
+  validation_failed: 422,
+  rate_limited: 429,
+  too_many_requests: 429,
+  server_error: 500,
+  internal_error: 500,
+};
+
+/** HTTP 상태 → 오류 맵 문구. 5xx 는 500 문구, 그 외 모르는 상태는 일반 실패 문구. */
+export function adminHttpStatusErrorMessage(status: number | null | undefined, ko: boolean): string {
+  const n = Number(status);
+  const row = ADMIN_HTTP_STATUS_MESSAGES[n] ?? (n >= 500 && n < 600 ? ADMIN_HTTP_STATUS_MESSAGES[500] : null);
+  if (row) return ko ? row.ko : row.en;
+  return ko ? "처리를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요." : "Could not complete. Please try again.";
+}
+
+/** 브라우저 네트워크 실패 원문 (fetch TypeError 등). */
+export function isAdminNetworkErrorText(raw: string | null | undefined): boolean {
+  return /failed to fetch|networkerror|network request failed|load failed|err_network|timeout|timed out/i.test(String(raw ?? ""));
+}
+
+/**
+ * 운영자용 문장(한글)으로 이미 작성된 메시지만 그대로 보인다.
+ * DB·런타임 원문(영문 오류, SQL·제약 이름, 스택)은 문장으로 보지 않는다.
+ */
+export function isAdminOperatorSentence(raw: string | null | undefined): boolean {
+  const s = String(raw ?? "").trim();
+  if (!/[가-힣]/.test(s)) return false;
+  return !/\b(?:violates|constraint|relation|column|syntax error|duplicate key|permission denied|PGRST\d+|JWT|TypeError|ReferenceError|undefined|null value)\b|"[a-z_]+_(?:pkey|key|fkey|check)"|\bat \S+:\d+/i.test(s);
+}
+
+/** 오류 맵에 없는 값(모르는 코드·DB/런타임 원문)인지 — 이때 화면 문구는 일반 실패 문구가 된다. */
+export function isAdminUnmappedError(raw: string | null | undefined): boolean {
+  const key = String(raw ?? "").trim();
+  if (!key) return true;
+  return adminOperatorErrorMessage(key, true) === ADMIN_GENERIC_FAILURE_KO && !isAdminOperatorSentence(key);
 }
 
 /** 충돌 코드(stale_updated_at / stale_policy) → "stale_reloaded", 그 외는 그대로. 결과 배너처럼 코드만 받는 UI 용. */
