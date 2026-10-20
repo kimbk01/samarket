@@ -24,7 +24,10 @@ const LANGUAGE_OPTIONS: {
   { code: "en", labelKey: "mypage_comp_language_segment_en", ariaKey: "mypage_comp_language_segment_en_aria" },
 ];
 
-/** 내정보 홈 — 언어 설정 페이지 이동 없이 한글/English 세그먼트 선택 */
+/**
+ * 내정보 홈 — 언어 설정 페이지 이동 없이 한글/English 세그먼트 선택 (K4/X4: 토글 유지 + 현재 값 표시).
+ * 활성 세그먼트 = 현재 값. 즉시 적용, 서버 저장 실패해도 기기 값 유지(D16 keepLocal).
+ */
 export function MyInfoLanguageToggleRow({
   icon,
   first = false,
@@ -41,6 +44,7 @@ export function MyInfoLanguageToggleRow({
       className={`${MYPAGE_HOME_ROW_CLASS} ${first ? "" : MYPAGE_HOME_ROW_DIVIDER_CLASS}`}
       role="group"
       aria-label={groupLabel}
+      data-current-language={activeLanguage}
     >
       {icon ? <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>{icon}</span> : null}
       <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>{groupLabel}</span>

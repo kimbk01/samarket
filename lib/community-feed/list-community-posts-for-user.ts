@@ -57,11 +57,12 @@ async function runAuthorPostsSelect(
   return authorPostsQuery(sb, selectCols, uid, rowLimit, withStatus);
 }
 
+/** 모든 select 시도가 실패하면 `null` — 「글 없음」(빈 배열)과 구분 */
 async function fetchAuthorPostRows(
   sb: Sb,
   uid: string,
   rowLimit: number
-): Promise<Record<string, unknown>[]> {
+): Promise<Record<string, unknown>[] | null> {
   const trySelect = async (cols: string) => runAuthorPostsSelect(sb, cols, uid, rowLimit, true);
 
   for (const withOrigin of [true, false]) {
@@ -110,7 +111,7 @@ async function fetchAuthorPostRows(
     logListCommunityPostsForUserIssue(withOrigin ? "minimal_columns" : "minimal_no_origin", uid, q5.error);
     if (withOrigin && q5.error && isMissingDbColumnError(q5.error, "origin_kind")) continue;
   }
-  return [];
+  return null;
 }
 
 function mapAuthorPostRow(
@@ -167,16 +168,20 @@ function mapAuthorPostRow(
   };
 }
 
+export type ListCommunityPostsForUserResult =
+  | { ok: true; posts: CommunityFeedPostDTO[] }
+  | { ok: false; error: "supabase_unavailable" | "posts_query_failed" };
+
 /**
- * 작성자 기준 커뮤니티 글 목록 — SSOT: `community_posts`.
- * embed join 실패 시 base 컬럼만 조회하는 fallback을 실행한다.
+ * 작성자 기준 커뮤니티 글 목록(결과형) — 조회 실패를 빈 목록과 구분한다.
+ * 내정보 요약(`communityPostsCount`)은 실패를 0 으로 보이지 않게 이 함수를 쓴다.
  */
-export async function listCommunityPostsForUser(
+export async function listCommunityPostsForUserResult(
   userId: string,
   limit = 100
-): Promise<CommunityFeedPostDTO[]> {
+): Promise<ListCommunityPostsForUserResult> {
   const uid = userId?.trim();
-  if (!uid) return [];
+  if (!uid) return { ok: true, posts: [] };
   const rowLimit = Math.min(Math.max(Math.floor(limit) || 100, 1), 100);
 
   let sb: Sb;
@@ -186,12 +191,13 @@ export async function listCommunityPostsForUser(
     logListCommunityPostsForUserIssue("supabase_init", uid, {
       message: err instanceof Error ? err.message : "supabase_unavailable",
     });
-    return [];
+    return { ok: false, error: "supabase_unavailable" };
   }
 
   const rawRows = await fetchAuthorPostRows(sb, uid, rowLimit);
+  if (rawRows == null) return { ok: false, error: "posts_query_failed" };
   const rows = rawRows.filter((r) => isCommunityPostPubliclyVisible(r as never));
-  if (rows.length === 0) return [];
+  if (rows.length === 0) return { ok: true, posts: [] };
 
   const nickMap = await fetchNicknamesForUserIds(sb as never, [uid]);
   const ids = rows.map((r) => String(r.id));
@@ -210,5 +216,18 @@ export async function listCommunityPostsForUser(
     }
   }
 
-  return rows.map((r) => mapAuthorPostRow(r, uid, nickMap, thumbByPost));
+  return { ok: true, posts: rows.map((r) => mapAuthorPostRow(r, uid, nickMap, thumbByPost)) };
+}
+
+/**
+ * 작성자 기준 커뮤니티 글 목록 — SSOT: `community_posts`.
+ * embed join 실패 시 base 컬럼만 조회하는 fallback을 실행한다.
+ * 기존 소비자 호환: 조회 실패는 빈 배열(동작 불변). 실패 구분이 필요하면 `listCommunityPostsForUserResult`.
+ */
+export async function listCommunityPostsForUser(
+  userId: string,
+  limit = 100
+): Promise<CommunityFeedPostDTO[]> {
+  const res = await listCommunityPostsForUserResult(userId, limit);
+  return res.ok ? res.posts : [];
 }

@@ -25,6 +25,9 @@ import {
   type MypageHomeProjection,
 } from "@/lib/mypage/mypage-home-store";
 import { resolveMypageHomeProfileResult } from "@/lib/mypage/resolve-mypage-home-profile";
+import { formatUserAddressPublic } from "@/lib/addresses/user-address-display-ssot";
+import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
 import { bumpMypageMountGeneration } from "@/lib/runtime/mypage-network-markers";
 import { cancelPendingOwnerLiteAutoHydrate } from "@/lib/stores/owner-lite-external-store";
@@ -35,11 +38,28 @@ import { cancelPendingOwnerLiteAutoHydrate } from "@/lib/stores/owner-lite-exter
  */
 export type MypageHomeProfilePhase = "pending" | "ready" | "needs_relogin" | "error";
 
+type AddressResolution = { status: RequiredInfoStatus; publicLabel: string | null };
+
+function addressFromSnapshot(snap: AddressDefaultsSnapshot | null): AddressResolution {
+  if (snap?.ok && snap.status === 200) {
+    const master = snap.defaults?.master;
+    if (master != null) {
+      return {
+        status: "complete",
+        publicLabel: formatUserAddressPublic(master as UserAddressDTO)?.trim() || null,
+      };
+    }
+    return { status: "required", publicLabel: null };
+  }
+  return { status: "unknown", publicLabel: null };
+}
+
 /**
  * Address status for root summary — one address-defaults read max.
+ * 같은 응답에서 계정 그룹 「주소관리」 행 값(대표 동네 공개 라벨)도 만든다 — 추가 요청 0.
  * DO NOT: call mandatory-address-gate as a second address network on root.
  */
-async function resolveAddressStatus(opts?: { force?: boolean }): Promise<RequiredInfoStatus> {
+async function resolveAddressStatus(opts?: { force?: boolean }): Promise<AddressResolution> {
   const snap =
     opts?.force === true
       ? await fetchAddressDefaultsSnapshot({
@@ -52,10 +72,7 @@ async function resolveAddressStatus(opts?: { force?: boolean }): Promise<Require
           caller: "mypage_home_model",
           reason: "initial_required_info_resolution",
         }));
-  if (snap?.ok && snap.status === 200) {
-    return snap.defaults?.master != null ? "complete" : "required";
-  }
-  return "unknown";
+  return addressFromSnapshot(snap);
 }
 
 function seedAddressStatusFromCache(): RequiredInfoStatus {
@@ -101,7 +118,7 @@ export function useMypageHomeModel(enabled: boolean) {
     setProfilePhase((prev) => (prev === "error" ? "pending" : prev));
     const run = (async () => {
       try {
-        const [profileResult, addressStatus] = await Promise.all([
+        const [profileResult, address] = await Promise.all([
           resolveMypageHomeProfileResult(),
           resolveAddressStatus({ force: opts?.forceAddress === true }),
         ]);
@@ -125,9 +142,12 @@ export function useMypageHomeModel(enabled: boolean) {
           setProfilePhase("needs_relogin");
           return;
         }
-        setMypageHomeProjection(projectionFromProfile(profile, addressStatus));
+        setMypageHomeProjection({
+          ...projectionFromProfile(profile, address.status),
+          addressPublicLabel: address.publicLabel,
+        });
         // 주소 조회 실패(unknown)면 확인 중 고착 대신 재시도 가능 상태
-        setProfilePhase(addressStatus === "unknown" ? "error" : "ready");
+        setProfilePhase(address.status === "unknown" ? "error" : "ready");
       } catch {
         if (gen !== refreshGenRef.current) return;
         const currentViewer = getCurrentUser()?.id?.trim() ?? "";
@@ -168,6 +188,7 @@ export function useMypageHomeModel(enabled: boolean) {
           setMypageHomeProjection({
             ...projectionFromSessionLite({ ...lite, addressStatus: addr }),
             addressStatus: addr,
+            addressPublicLabel: addressFromSnapshot(peekFreshAddressDefaultsSnapshot()).publicLabel,
           });
           setProfilePhase("ready");
         } else {

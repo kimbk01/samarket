@@ -1,17 +1,15 @@
-import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
-import { normalizePostImages } from "@/lib/posts/post-normalize";
-import { getLocationLabelIfValid } from "@/lib/products/form-options";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * 내상품 목록 (본인이 올린 글) — 서비스 롤
  * GET /api/my/posts (세션)
+ * 조회는 `loadMyPostsServer` 단일 함수(내정보 요약 `salesActiveCount` 와 공유).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { loadMyPostsServer } from "@/lib/my/load-my-posts-server";
 
 export async function GET(_req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -23,48 +21,10 @@ export async function GET(_req: NextRequest) {
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  const { data: rows, error } = await sbAny
-    .from(POSTS_TABLE_READ)
-    .select(
-      "id, title, content, price, status, seller_listing_state, images, thumbnail_url, view_count, created_at, updated_at, user_id, region, city"
-    )
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  const loaded = await loadMyPostsServer(sbAny, userId);
+  if (!loaded.ok) {
+    return NextResponse.json({ error: loaded.error }, { status: 500 });
   }
 
-  const posts = (rows ?? []).map((r: Record<string, unknown>) => {
-    const region = String(r.region ?? "").trim();
-    const city = String(r.city ?? "").trim();
-    const locLine = getLocationLabelIfValid(region, city)?.trim() ?? "";
-    const fromImages = normalizePostImages(r.images) ?? [];
-    const thumbCol =
-      typeof r.thumbnail_url === "string" && r.thumbnail_url.trim().length > 0
-        ? r.thumbnail_url.trim()
-        : "";
-    const thumbnail = thumbCol || fromImages[0] || "";
-    return {
-    id: r.id,
-    title: (r.title as string) ?? "",
-    description: (r.content as string) ?? "",
-    price: Number(r.price) ?? 0,
-    status: (r.status as string) ?? "active",
-    sellerListingState: (r.seller_listing_state as string) ?? undefined,
-    thumbnail,
-    images: fromImages,
-    viewCount: Number(r.view_count) ?? 0,
-    likesCount: 0,
-    chatCount: 0,
-    isBoosted: false,
-    location: locLine,
-    createdAt: (r.created_at as string) ?? "",
-    updatedAt: (r.updated_at as string) ?? "",
-    sellerId: r.user_id as string,
-    seller: { id: r.user_id, nickname: "", avatar: "", location: "", mannerTemp: 36.5 },
-  };
-  });
-
-  return NextResponse.json({ posts });
+  return NextResponse.json({ posts: loaded.posts });
 }

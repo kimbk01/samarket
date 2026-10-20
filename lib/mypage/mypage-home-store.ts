@@ -24,6 +24,14 @@ export type MypageHomeProjection = {
   hasDibayId: boolean;
   phoneStatus: RequiredInfoStatus;
   addressStatus: RequiredInfoStatus;
+  /** 매너 배터리 원값 — 모름 = undefined (lite 스냅샷 구버전) */
+  trustScore?: number | null;
+  mannerScore?: number | null;
+  /**
+   * 대표 주소 공개 라벨(동네) — 홈 모델이 소유하는 주소 기본값 1회 조회 결과.
+   * 메모리 전용(세션 lite 에 주소 문자열 저장 금지).
+   */
+  addressPublicLabel?: string | null;
 };
 
 type Listener = () => void;
@@ -60,6 +68,8 @@ function toLite(proj: MypageHomeProjection): MypageHomeSessionLite {
     hasDibayId: proj.hasDibayId,
     phoneStatus: proj.phoneStatus === "unknown" ? "unknown" : proj.phoneStatus,
     addressStatus: proj.addressStatus === "unknown" ? "unknown" : proj.addressStatus,
+    trustScore: proj.trustScore,
+    mannerScore: proj.mannerScore,
     savedAt: Date.now(),
   };
 }
@@ -81,6 +91,8 @@ export function projectionFromProfile(
     hasDibayId: publicId.setupComplete,
     phoneStatus: phoneOk ? "complete" : "required",
     addressStatus,
+    trustScore: profile.trust_score ?? null,
+    mannerScore: profile.manner_score ?? null,
   };
 }
 
@@ -98,6 +110,8 @@ export function projectionFromSessionLite(
     hasDibayId: lite.hasDibayId,
     phoneStatus: lite.phoneStatus,
     addressStatus: lite.addressStatus,
+    trustScore: lite.trustScore,
+    mannerScore: lite.mannerScore,
   };
 }
 
@@ -117,7 +131,12 @@ export function patchMypageHomeProjection(
   if (patch.profile) {
     const addr = patch.addressStatus ?? memory.addressStatus;
     const rebuilt = projectionFromProfile(patch.profile, addr);
-    memory = { ...rebuilt, addressStatus: addr };
+    memory = {
+      ...rebuilt,
+      addressStatus: addr,
+      addressPublicLabel:
+        patch.addressPublicLabel !== undefined ? patch.addressPublicLabel : memory.addressPublicLabel,
+    };
   } else {
     memory = next;
   }

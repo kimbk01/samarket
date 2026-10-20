@@ -22,6 +22,12 @@ export type MypageHomeSessionLite = {
   hasDibayId: boolean;
   phoneStatus: RequiredInfoStatus;
   addressStatus: RequiredInfoStatus;
+  /**
+   * 매너 배터리 원값 — lite 로 그린 직후 기본값 %가 잠깐 보였다 바뀌는 흔들림 방지(H0 표시).
+   * 구 스냅샷엔 없음 → undefined = 모름(스켈레톤).
+   */
+  trustScore?: number | null;
+  mannerScore?: number | null;
   savedAt: number;
 };
 

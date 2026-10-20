@@ -36,8 +36,12 @@ if (/fetchMeStoresListDeduped|\/api\/me\/stores/.test(homeModel)) {
 if (/getMyPageData|\/trade-counts|\/order-counts|my_page_banners/.test(homeModel)) {
   failures.push("useMypageHomeModel must not fetch trade-counts / order-counts / CMS");
 }
-if (!/resolveMypageHomeProfileRow/.test(homeModel)) {
-  failures.push("useMypageHomeModel must use resolveMypageHomeProfileRow (canonical profile authority)");
+// K11 ②: `resolveMypageHomeProfileRow` / `…Result` = 같은 권위 함수(lib/mypage/resolve-mypage-home-profile.ts)
+if (!/resolveMypageHomeProfile(Row|Result)\b/.test(homeModel)) {
+  failures.push("useMypageHomeModel must use resolveMypageHomeProfile(Row|Result) (canonical profile authority)");
+}
+if (/mypage-summary|useMypageHomeSummary|loadMypageHomeSummary/.test(homeModel)) {
+  failures.push("useMypageHomeModel must not fetch mypage-summary (separate useMypageHomeSummary hook)");
 }
 if (!/fetchAddressDefaultsSnapshot/.test(homeModel)) {
   failures.push("useMypageHomeModel must own address-defaults read");
@@ -46,6 +50,25 @@ if (!/fetchAddressDefaultsSnapshot/.test(homeModel)) {
 const dashboard = codeOnly(read("components/mypage/MyPageHomeDashboard.tsx"));
 if (/useMypageHubModel|fetchMeStoresListDeduped|MyStoreCommerceSection/.test(dashboard)) {
   failures.push("MyPageHomeDashboard must not mount hub model / stores commerce section");
+}
+if (!/useMypageHomeSummary\s*\(/.test(dashboard)) {
+  failures.push("MyPageHomeDashboard must read home values via useMypageHomeSummary (single summary flight)");
+}
+
+// Cold boot: RSC must not await summary / counts / CMS (§2.2 · DO NOT await full hub extras)
+const rootPage = codeOnly(read("app/(main)/mypage/page.tsx"));
+if (/mypage-summary|loadMypageSummary|trade-counts|my_page_banners|loadMypageServer\b/.test(rootPage)) {
+  failures.push("app/(main)/mypage/page.tsx must not await summary / counts / CMS on the server");
+}
+
+// Home values come from the summary only — no per-row point / CMS reads on root
+const assetSummary = codeOnly(read("components/mypage/home/MypagePointsAssetSummary.tsx"));
+if (/useUserPointBalance|\/api\/me\/points/.test(assetSummary)) {
+  failures.push("MypagePointsAssetSummary must not fetch points (value = summary pointsBalance)");
+}
+const cmsBanner = codeOnly(read("components/mypage/home/MypageHomeCmsBanner.tsx"));
+if (/my_page_banners|getSupabaseClient/.test(cmsBanner)) {
+  failures.push("MypageHomeCmsBanner must not query my_page_banners (value = summary banner)");
 }
 
 const myContent = codeOnly(read("app/(main)/my/MyContent.tsx"));

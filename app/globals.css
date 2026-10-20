@@ -907,6 +907,54 @@ a,
   }
 }
 
+/**
+ * 내정보 ↔ 내정보 push/back (X2) — 300ms = `MYPAGE_MOTION_MS.push/back`
+ * (`lib/mypage/mypage-authority-contract.ts`). 내정보 kind 전용 — 다른 도메인 전환 시간 불변.
+ * - `.mypage-stack-route-enter-*`: 단일 화면 대체 애니메이션(우→좌 진입 / 역방향 복귀).
+ * - hub-fallback surface: `AppRouteTransition` 이 내정보 kind 일 때만 `data-mypage-stack-motion` +
+ *   `--main-shell-push-ms` 를 달아 `main-shell-push-surface-enter-*` 의 440ms 를 300ms 로 바꾼다.
+ * - 프로필 편집·주소 플랫폼 클래스(내정보 경로 전용) 440/360ms → 300ms (기존 규칙은 그대로, 덮어쓰기만).
+ */
+.mypage-stack-route-enter-forward {
+  backface-visibility: hidden;
+  will-change: transform;
+  animation: profile-edit-route-enter-forward-kf 300ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
+}
+
+.mypage-stack-route-enter-back {
+  backface-visibility: hidden;
+  will-change: transform;
+  animation: profile-edit-route-enter-back-kf 300ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
+}
+
+.profile-edit-route-enter-forward,
+.profile-edit-route-enter-back,
+.address-platform-route-enter-forward,
+.address-platform-route-enter-back {
+  animation-duration: 300ms;
+}
+
+[data-main-shell-push-surface][data-mypage-stack-motion="1"].main-shell-push-surface-enter-ltr,
+[data-main-shell-push-surface][data-mypage-stack-motion="1"].main-shell-push-surface-enter-rtl {
+  transition-duration: var(--main-shell-push-ms, 300ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mypage-stack-route-enter-forward,
+  .mypage-stack-route-enter-back {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+    backface-visibility: visible;
+  }
+
+  [data-main-shell-push-surface][data-mypage-stack-motion="1"].main-shell-push-surface-enter-ltr,
+  [data-main-shell-push-surface][data-mypage-stack-motion="1"].main-shell-push-surface-enter-rtl {
+    transition: none !important;
+  }
+}
+
 @layer components {
   .min-w-0-safe {
     min-width: 0;

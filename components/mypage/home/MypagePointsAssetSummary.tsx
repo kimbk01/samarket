@@ -1,124 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { BadgePercent, ChevronRight, Coins, Gift, Megaphone, Ticket, Wallet } from "lucide-react";
-import { CurrencyAmount } from "@/components/currency";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useUserPointBalance } from "@/hooks/useUserPointBalance";
-import {
-  MYPAGE_HOME_CARD_CLASS,
-  MYPAGE_HOME_CHEVRON_CLASS,
-  MYPAGE_HOME_ICON_WRAP_CLASS,
-  MYPAGE_HOME_MENU_TITLE_CLASS,
-  MYPAGE_HOME_META_TEXT_CLASS,
-  MYPAGE_HOME_ROW_CLASS,
-  MYPAGE_HOME_ROW_DIVIDER_CLASS,
-  MYPAGE_HOME_SECTION_HEADER_CLASS,
-  MYPAGE_HOME_SECTION_LABEL_CLASS,
-} from "@/lib/ui/mypage-home-starbucks-styles";
+import { MyInfoAssetMenuSection } from "@/components/mypage/myinfo/MyInfoHomeMenuSections";
 
 /**
- * Logged-in /mypage — canonical Member Point SSOT asset strip.
- * Includes Revenue Hub entry: 「내 홍보 / 광고」 (/mypage/ads).
+ * Logged-in /mypage — 자산 그룹 (최종 설계 H0 #4).
+ * `MyGroup`+`MyRow`(= `MyInfoMenuSection`+`MyInfoMenuItem`) 로 그린다 — 행을 직접 그리지 않음.
+ * 포인트 잔액 등 값은 `GET /api/me/mypage-summary` 1회(홈 Provider)에서만 받는다 — 이 컴포넌트는 조회하지 않음.
+ * 포인트는 금액이라 0·음수 그대로, 모름(실패) = "—" (0 으로 대체 금지).
+ * Revenue Hub entry 「내 홍보 / 광고」(/mypage/ads) testid `mypage-revenue-hub-entry` 유지.
  */
 export function MypagePointsAssetSummary() {
-  const { safeT } = useI18n();
-  const { balance, loading, error } = useUserPointBalance();
-
   return (
-    <section className={MYPAGE_HOME_CARD_CLASS} data-testid="mypage-points-asset-summary">
-      <div className={MYPAGE_HOME_SECTION_HEADER_CLASS}>
-        <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
-          {safeT("mypage_comp_asset_summary_title", {
-            fallbackKo: "내 자산",
-            fallbackEn: "My assets",
-          })}
-        </h2>
-      </div>
-      <Link href="/mypage/points" className={MYPAGE_HOME_ROW_CLASS}>
-        <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>
-          <Coins className="currency-amount--point h-5 w-5" aria-hidden />
-        </span>
-        <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>
-          {safeT("mypage_comp_stat_points", {
-            fallbackKo: "포인트",
-            fallbackEn: "Point",
-          })}
-        </span>
-        {loading ? (
-          <span className={`shrink-0 tabular-nums ${MYPAGE_HOME_META_TEXT_CLASS}`}>…</span>
-        ) : error ? (
-          <span className={`shrink-0 ${MYPAGE_HOME_META_TEXT_CLASS}`}>
-            {safeT("mypage_points_balance_load_failed", {
-              fallbackKo: "불러오기 실패",
-              fallbackEn: "Failed to load",
-            })}
-          </span>
-        ) : (
-          <CurrencyAmount
-            currency="point"
-            amount={balance}
-            compactPoint
-            className={`shrink-0 ${MYPAGE_HOME_META_TEXT_CLASS}`}
-          />
-        )}
-        <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
-      </Link>
-      <Link href="/mypage/coupons" className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}>
-        <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>
-          <Ticket className="h-5 w-5" aria-hidden />
-        </span>
-        <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>
-          {safeT("store_coupon_wallet_title", {
-            fallbackKo: "쿠폰",
-            fallbackEn: "Coupons",
-          })}
-        </span>
-        <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
-      </Link>
-      {/* D19 — 진입 경로가 없던 화면: 상품권 · 회원 혜택 */}
-      <Link href="/mypage/gift-certificates" className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}>
-        <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>
-          <Gift className="h-5 w-5" aria-hidden />
-        </span>
-        <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>{safeT("commerce_hub_tab_gifts")}</span>
-        <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
-      </Link>
-      <Link
-        href="/mypage/ads"
-        className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}
-        data-testid="mypage-revenue-hub-entry"
-      >
-        <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>
-          <Megaphone className="h-5 w-5" aria-hidden />
-        </span>
-        <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>
-          {safeT("mypage_comp_business_ads", {
-            fallbackKo: "내 홍보 / 광고",
-            fallbackEn: "Promotions / ads",
-          })}
-        </span>
-        <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
-      </Link>
-      <Link href="/mypage/points/charge" className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}>
-        <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>
-          <Wallet className="h-5 w-5" aria-hidden />
-        </span>
-        <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>
-          {safeT("points_charge", {
-            fallbackKo: "충전 신청",
-            fallbackEn: "Top-up request",
-          })}
-        </span>
-        <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
-      </Link>
-      <Link href="/mypage/benefits" className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}>
-        <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>
-          <BadgePercent className="h-5 w-5" aria-hidden />
-        </span>
-        <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>{safeT("route_benefits_title")}</span>
-        <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
-      </Link>
-    </section>
+    <div className="w-full self-start" data-testid="mypage-points-asset-summary">
+      <MyInfoAssetMenuSection />
+    </div>
   );
 }
