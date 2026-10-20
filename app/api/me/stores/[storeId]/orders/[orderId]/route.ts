@@ -36,7 +36,6 @@ async function loadDeliverySnapshot(
         assigned_at: string | null;
         picked_up_at: string | null;
         delivered_at: string | null;
-        admin_note: string | null;
         rider_accepted_at: string | null;
         customer_arrived_at: string | null;
         rider_decline_reason: string | null;
@@ -50,7 +49,7 @@ async function loadDeliverySnapshot(
   const { data, error } = await sb
     .from("store_order_deliveries")
     .select(
-      "order_id, rider_id, delivery_status, assigned_at, picked_up_at, delivered_at, admin_note, rider_accepted_at, customer_arrived_at, rider_decline_reason, rider_failure_reported_at, rider_failure_report_reason, updated_at"
+      "order_id, rider_id, delivery_status, assigned_at, picked_up_at, delivered_at, rider_accepted_at, customer_arrived_at, rider_decline_reason, rider_failure_reported_at, rider_failure_report_reason, updated_at"
     )
     .eq("order_id", orderId)
     .maybeSingle();

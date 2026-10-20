@@ -138,11 +138,13 @@ export async function PATCH(
     );
   }
 
-  const { data: currentRow, error: curErr } = await sb
+  const { data: currentRowRaw, error: curErr } = await sb
     .from("stores")
     .select(OWNER_STORE_PATCH_CURRENT_SELECT)
     .eq("id", sid)
     .maybeSingle();
+  // select 컬럼이 상수 문자열 조합이라 타입 추론이 안 됨 — 행 형태를 명시
+  const currentRow = currentRowRaw as Record<string, unknown> | null;
 
   if (curErr || !currentRow) {
     console.error("[PATCH /api/me/stores/storeId] current", curErr);
