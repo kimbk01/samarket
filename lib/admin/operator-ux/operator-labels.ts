@@ -321,6 +321,17 @@ export function adminOperatorErrorMessage(
     invalid_name: { ko: "상품명은 1~120자로 입력하세요.", en: "Product name must be 1–120 characters." },
     store_name_required: { ko: "매장 이름은 2자 이상 입력하세요.", en: "Store name must be at least 2 characters." },
     invalid_phone: { ko: "전화번호 형식이 올바르지 않습니다.", en: "Invalid phone number." },
+    // 매장 주소·위치 (ADDR bundle F)
+    store_location_inconsistent: {
+      ko: "매장 주소와 지도 좌표(위도·경도)를 함께 저장해 주세요.",
+      en: "Save the store address and map pin (lat/lng) together.",
+    },
+    store_delivery_requires_canonical_geo: {
+      ko: "배달을 켜려면 매장 위치(지도 핀)가 필요합니다. 기본정보에서 위치를 설정해 주세요.",
+      en: "Delivery needs the store location (map pin). Set the location in Basic info.",
+    },
+    invalid_lat: { ko: "위도 값이 올바르지 않습니다 (-90 ~ 90).", en: "Invalid latitude (-90 to 90)." },
+    invalid_lng: { ko: "경도 값이 올바르지 않습니다 (-180 ~ 180).", en: "Invalid longitude (-180 to 180)." },
   };
   if (known[key]) return ko ? known[key].ko : known[key].en;
   if (OPERATOR_LABELS[key]) return adminOperatorLabel(key, ko);

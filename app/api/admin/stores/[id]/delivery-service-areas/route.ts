@@ -46,10 +46,9 @@ export async function GET(
     const selected = await loadStoreDeliveryServiceAreas(sb, storeId);
     return NextResponse.json({ ok: true, ...buildDeliveryServiceAreaEditorPayload(store, selected) });
   } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "load_failed" },
-      { status: 500 }
-    );
+    /** 원문(DB 메시지)은 로그로만 — 클라이언트에는 고정 코드. */
+    console.error("[delivery-service-areas:admin] GET", e instanceof Error ? e.message : e);
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
 }
 
@@ -123,10 +122,9 @@ export async function PUT(
       ),
     });
   } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "save_failed" },
-      { status: 500 }
-    );
+    /** 원문(DB 메시지)은 로그로만 — 클라이언트에는 고정 코드. */
+    console.error("[delivery-service-areas:admin] PUT", e instanceof Error ? e.message : e);
+    return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });
   }
 }
 

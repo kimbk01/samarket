@@ -148,6 +148,8 @@ export const addressesUiMessages = {
     addr_ui_store_no_place:
       "이 매장은 지도 주소(place)가 등록되어 있지 않아요. 매장 기본 정보에서 지도를 먼저 등록해 주세요.",
     addr_ui_store_location_inconsistent: "매장 위치와 지도 좌표를 함께 저장해 주세요.",
+    addr_ui_store_delivery_requires_canonical_geo:
+      "배달을 켜려면 매장 위치(지도 핀)가 필요합니다. 기본정보에서 위치를 설정해 주세요.",
     addr_ui_store_not_master:
       "매장 연결 주소는 대표 주소로 둘 수 없어요. 우리집·회사 등 일반 주소를 대표로 지정해 주세요.",
     addr_ui_store_permission: "승인된 매장 오너만 Store Address를 등록할 수 있습니다.",
@@ -330,6 +332,8 @@ export const addressesUiMessages = {
     addr_ui_store_no_place:
       "This store has no mapped address(place). Please register map location in store basic info first.",
     addr_ui_store_location_inconsistent: "Save the store address and map pin together.",
+    addr_ui_store_delivery_requires_canonical_geo:
+      "Delivery needs the store location (map pin). Set the location in Basic info.",
     addr_ui_store_not_master:
       "A store-linked address cannot be your primary address. Please choose a general address such as home or office as primary.",
     addr_ui_store_permission: "Only approved store owners can register Store Address.",

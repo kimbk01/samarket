@@ -326,6 +326,8 @@ export async function POST(req: NextRequest) {
     (addressFromBody && adminCreateMemberAddressHasSelection(addressFromBody)) ||
     (regionId && cityId);
 
+  /** 회원 생성은 성공했지만 대표 주소 시드가 실패한 경우 — 응답에 경고 코드로 노출 (원문은 로그만). */
+  let addressWarning: string | null = null;
   if (shouldSeedAddress) {
     try {
       const regionMeta = REGIONS.find((r) => r.id === regionId);
@@ -377,6 +379,7 @@ export async function POST(req: NextRequest) {
       }
     } catch (seedErr) {
       console.error("[admin/users/create] representative address seed failed", seedErr);
+      addressWarning = "address_seed_failed";
     }
   }
 
@@ -407,5 +410,6 @@ export async function POST(req: NextRequest) {
       accountType: accountTypeRaw,
       phoneVerified: true,
     },
+    ...(addressWarning ? { address_warning: addressWarning } : {}),
   });
 }

@@ -3,6 +3,8 @@ import type { UserAddressWritePayload } from "@/lib/addresses/user-address-types
 import { encodeShopAddressNickname } from "@/lib/addresses/shop-address-nickname";
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
 import { afterCanonicalStoreLocationWrite } from "@/lib/stores/after-canonical-store-location-write";
+import { assertStoreLocationPatchConsistent } from "@/lib/stores/store-location-patch-consistency";
+import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
 
 type StoreRow = Record<string, unknown>;
 
@@ -26,9 +28,9 @@ function hasPayloadStorePlaceSnapshot(p: UserAddressWritePayload): boolean {
   return (
     !!p.placeId?.trim() &&
     typeof p.latitude === "number" &&
-    Number.isFinite(p.latitude) &&
+    parseFiniteLatitude(p.latitude) != null &&
     typeof p.longitude === "number" &&
-    Number.isFinite(p.longitude) &&
+    parseFiniteLongitude(p.longitude) != null &&
     !!(p.formattedAddress?.trim() || p.fullAddress?.trim())
   );
 }
@@ -98,8 +100,8 @@ export async function loadOwnedStoreSnapshotForAddress(
   const row = await loadOwnedApprovedStoreRow(sb, userId, sid);
   if (!row) return null;
 
-  const lat = num(row.lat);
-  const lng = num(row.lng);
+  const lat = parseFiniteLatitude(row.lat);
+  const lng = parseFiniteLongitude(row.lng);
   if (lat == null || lng == null) return null;
 
   const line1 = str(row.address_line1);
@@ -158,6 +160,25 @@ async function syncApprovedStoreAddressFromAddressPayload(
     region: p.province?.trim() || str(storeRow.region),
     city: p.cityMunicipality?.trim() || str(storeRow.city),
   };
+
+  /** Owner/Admin PATCH 와 같은 Policy A 검사 — place_id 는 formatted + 범위 내 lat/lng 동반. */
+  const locCheck = assertStoreLocationPatchConsistent(
+    {
+      place_id: str(storeRow.place_id),
+      formatted_address: str(storeRow.formatted_address),
+      address_line1: str(storeRow.address_line1),
+      lat: storeRow.lat,
+      lng: storeRow.lng,
+    },
+    {
+      place_id: patch.place_id,
+      formatted_address: patch.formatted_address,
+      address_line1: patch.address_line1,
+      lat: patch.lat,
+      lng: patch.lng,
+    }
+  );
+  if (locCheck !== "ok") throw new Error("coordinates_invalid");
 
   const latChanged = num(storeRow.lat) !== lat;
   const lngChanged = num(storeRow.lng) !== lng;
