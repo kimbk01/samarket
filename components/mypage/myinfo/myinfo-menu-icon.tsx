@@ -20,6 +20,7 @@ import {
   Lock,
   MapPin,
   MessageCircle,
+  MessageCircleQuestion,
   MessageSquare,
   MessagesSquare,
   Package,
@@ -118,6 +119,8 @@ export function renderMypageHomeMenuIcon(icon: MypageHomeMenuIconId): ReactNode 
       return <Building2 className={ICON_CLASS} {...stroke} />;
     case "sliders":
       return <SlidersHorizontal className={ICON_CLASS} {...stroke} />;
+    case "message-question":
+      return <MessageCircleQuestion className={ICON_CLASS} {...stroke} />;
     default:
       return null;
   }

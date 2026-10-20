@@ -166,11 +166,9 @@ function MypagePointsPageInner() {
     [safeT]
   );
 
+  /** 취소할 수 있는 대기 건만 — 보류(on_hold)는 회원이 취소할 수 없어 집계에서 제외 (D19) */
   const pendingCharges = requests.filter(
-    (c) =>
-      c.requestStatus === "pending" ||
-      c.requestStatus === "waiting_confirm" ||
-      c.requestStatus === "on_hold"
+    (c) => c.requestStatus === "pending" || c.requestStatus === "waiting_confirm"
   ).length;
 
   return (
@@ -223,6 +221,13 @@ function MypagePointsPageInner() {
                 fallbackEn:
                   pendingCharges > 0 ? `Top-up requests (${pendingCharges})` : "Top-up requests",
               })}
+            </Link>
+            {/* D19 — 소멸 예정 화면 진입 (기존에는 진입 경로 없음) */}
+            <Link
+              href={withCustomerCenterFrom("/mypage/points/expiring", from)}
+              className="min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg"
+            >
+              {safeT("points_ui_expiring_section")}
             </Link>
           </div>
 

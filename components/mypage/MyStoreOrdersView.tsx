@@ -16,10 +16,8 @@ import { BuyerStoreOrderReviewSlidePanel } from "@/components/mypage/BuyerStoreO
 import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MemberOrderStatusBadge } from "@/components/member-orders/MemberOrderStatusBadge";
 import { MemberOrderTabs } from "@/components/member-orders/MemberOrderTabs";
-import { memberOrderStatusUserMessage } from "@/lib/member-orders/member-order-labels";
-import type { MemberOrderStatus, MemberOrderTab } from "@/lib/member-orders/types";
+import type { MemberOrderTab } from "@/lib/member-orders/types";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
@@ -123,24 +121,6 @@ function resolveBuyerStoreOrderChatHref(args: {
   return `/orders/store/${encodeURIComponent(args.order.id)}/chat`;
 }
 
-const MEMBER_STATUSES = new Set<string>([
-  "pending",
-  "accepted",
-  "preparing",
-  "delivering",
-  "ready_for_pickup",
-  "arrived",
-  "completed",
-  "cancelled",
-  "cancel_requested",
-  "refund_requested",
-  "refunded",
-]);
-
-function isMemberOrderStatus(s: string): s is MemberOrderStatus {
-  return MEMBER_STATUSES.has(s);
-}
-
 function filterByTab(rows: OrderRow[], tab: MemberOrderTab): OrderRow[] {
   return rows.filter((o) => {
     const s = o.order_status;
@@ -172,11 +152,18 @@ function isDeliveryFulfillment(ft: string) {
   return ft === "local_delivery" || ft === "shipping";
 }
 
+/** 주문 상태 문구 SSOT = store-order-process-model (buyerOrderStatusLabel) — 상세·채팅과 같은 문구 (D9) */
 function statusUserLine(status: string, lang: AppLanguageCode, fulfillment: string) {
-  if (isMemberOrderStatus(status)) {
-    return memberOrderStatusUserMessage(status, lang);
-  }
   return buyerOrderStatusLabel(status, lang, fulfillment);
+}
+
+/** 상태 배지 색 — 문구는 프로세스 모델, 색은 진행/완료/요청/종료 4단계만 */
+function orderStatusBadgeToneClass(status: string): string {
+  const s = status.trim();
+  if (s === "completed") return "bg-sam-success-soft text-sam-success";
+  if (s === "cancel_requested" || s === "refund_requested") return "bg-sam-warning-soft text-sam-warning";
+  if (s === "cancelled" || s === "refunded") return "bg-sam-surface-muted text-sam-muted";
+  return "bg-sam-pressed-surface text-sam-primary";
 }
 
 function orderMenuSummaryLine(
@@ -405,13 +392,12 @@ function MyStoreOrderCard({
                 ) : null}
               </div>
               <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5">
-                {isMemberOrderStatus(o.order_status) ? (
-                  <MemberOrderStatusBadge status={o.order_status} />
-                ) : (
-                  <span className="inline-flex max-w-[7rem] shrink-0 truncate rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-bold text-sam-fg dark:bg-[#3A3B3C] dark:text-[#E4E6EB]">
-                    {buyerOrderStatusLabel(o.order_status, language, o.fulfillment_type)}
-                  </span>
-                )}
+                <span
+                  className={`inline-flex max-w-[7rem] shrink-0 truncate rounded-full px-2 py-0.5 sam-text-xxs font-bold ${orderStatusBadgeToneClass(o.order_status)}`}
+                  data-order-status={o.order_status}
+                >
+                  {buyerOrderStatusLabel(o.order_status, language, o.fulfillment_type)}
+                </span>
                 <span className="relative inline-flex shrink-0 overflow-visible">
                   <span
                     className={`rounded-ui-rect px-2 py-0.5 sam-text-xxs font-bold ${
