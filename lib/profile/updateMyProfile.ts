@@ -11,10 +11,41 @@ import { dispatchProfileUpdated } from "./profile-update-events";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { invalidatePhilifeFeedCachesForMemberIdentityChange } from "@/lib/community/philife-feed-session-cache";
 import { invalidateNeighborhoodFeedClientShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
+import { mergeAppBootProfileFull, peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
+import type { ProfilePatchExpected } from "./profile-patch-concurrency";
+
+/** PATCH 응답의 저장 결과 (서버가 UPDATE ... RETURNING 한 값) */
+export type SavedProfileFields = Pick<ProfileRow, "id" | "nickname" | "display_name" | "bio" | "avatar_url" | "updated_at">;
 
 export type UpdateMyProfileResult =
-  | { ok: true; warning?: string }
-  | { ok: false; error: string };
+  | { ok: true; warning?: string; saved?: SavedProfileFields }
+  | { ok: false; error: string; code?: string };
+
+/**
+ * 저장 성공 직후 앱 boot 스냅샷 갱신 — `/mypage` 는 boot 스냅샷을 읽으므로 이것을 갱신하지 않으면
+ * 화면이 저장 전 값으로 되돌아간다(감사 #2·#3).
+ */
+function syncAppBootSnapshotAfterSave(saved: SavedProfileFields | undefined): void {
+  if (!saved?.id) return;
+  const boot = peekAppBootProfile();
+  if (!boot?.id || boot.id !== saved.id) return;
+  mergeAppBootProfileFull({
+    ...boot,
+    nickname: saved.nickname,
+    display_name: saved.display_name,
+    bio: saved.bio,
+    avatar_url: saved.avatar_url,
+    updated_at: saved.updated_at,
+  });
+}
+
+/** 서버·게이트가 내부 코드(`account_state_unavailable` 등)만 줄 때 사용자에게 코드 노출 금지 */
+function toUserFacingSaveError(raw: string | undefined, status: number): string {
+  const msg = raw?.trim() ?? "";
+  if (msg && !/^[a-z0-9_.:-]+$/i.test(msg)) return msg;
+  if (status === 401) return "로그인이 필요합니다. 다시 로그인해 주세요.";
+  return "저장하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+}
 
 function syncCachesAfterProfileSave(payload: ProfileUpdatePayload): void {
   const cur = getCurrentUser();
@@ -45,7 +76,11 @@ function syncCachesAfterProfileSave(payload: ProfileUpdatePayload): void {
 }
 
 export async function updateMyProfile(
-  payload: ProfileUpdatePayload
+  payload: ProfileUpdatePayload,
+  options?: {
+    /** 편집 화면을 열 때 읽은 원본 값 — 서버가 그 사이 변경을 감지하면 409 profile_conflict */
+    expected?: ProfilePatchExpected;
+  }
 ): Promise<UpdateMyProfileResult> {
   const userId = getCurrentUser()?.id;
   if (!userId) return { ok: false, error: "로그인이 필요합니다." };
@@ -58,20 +93,22 @@ export async function updateMyProfile(
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(options?.expected ? { ...payload, expected: options.expected } : payload),
       });
       const data = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: string; warning?: string }
+        | { ok?: boolean; error?: string; code?: string; warning?: string; profile?: SavedProfileFields }
         | null;
       if (res.ok && data?.ok) {
         invalidateMeProfileDedupedCache();
+        syncAppBootSnapshotAfterSave(data.profile);
         syncCachesAfterProfileSave(payload);
         const w = typeof data.warning === "string" && data.warning.trim() ? data.warning.trim() : undefined;
-        return w ? { ok: true, warning: w } : { ok: true };
+        return { ok: true, ...(w ? { warning: w } : {}), ...(data.profile ? { saved: data.profile } : {}) };
       }
       return {
         ok: false,
-        error: data?.error?.trim() || `저장에 실패했습니다. (${res.status})`,
+        error: toUserFacingSaveError(data?.error, res.status),
+        ...(data?.code ? { code: data.code } : {}),
       };
     } catch (e) {
       return { ok: false, error: (e as Error).message ?? "저장에 실패했습니다." };

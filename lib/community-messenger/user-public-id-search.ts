@@ -10,6 +10,8 @@ import {
 import { resolveDirectInteractionGuard } from "@/lib/community-messenger/social-relations";
 import {
   isPublicIdSearchEligible,
+  matchesPublicIdExactly,
+  resolveExactLookupPublicId,
   resolveSearchablePublicId,
   type ProfilePublicIdFields,
 } from "@/lib/auth/dibay-public-id-ssot";
@@ -54,10 +56,11 @@ function getSupabaseOrNull() {
   }
 }
 
+/** 공개 이름 SSOT = nickname (`lib/users/public-member-identity.ts`) — display_name 은 동기화 사본 */
 function displayLabel(row: ProfileCandidate): string {
   return (
-    trimText(row.display_name) ||
     trimText(row.nickname) ||
+    trimText(row.display_name) ||
     trimText(row.username) ||
     trimText(row.id)
   );
@@ -68,6 +71,7 @@ function rankMatchType(
   query: string
 ): CommunityMessengerUserSearchMatchType | null {
   const q = query.toLowerCase();
+  if (matchesPublicIdExactly(row, q)) return "exact";
   const publicId = resolveSearchablePublicId(row);
   if (publicId) {
     if (publicId === q) return "exact";
@@ -136,8 +140,9 @@ function buildSearchOrFilter(query: string): string | null {
   ].join(",");
 }
 
-function isEligibleProfile(row: ProfileCandidate): boolean {
-  return isPublicIdSearchEligible(row);
+/** 커스텀 id 회원 = 부분일치 허용 · auto-assigned `dibay_[hex6]` 회원 = 정확 일치만 */
+function isEligibleProfile(row: ProfileCandidate, query: string): boolean {
+  return isPublicIdSearchEligible(row) || matchesPublicIdExactly(row, query);
 }
 
 export async function searchCommunityMessengerUsersRanked(
@@ -157,7 +162,7 @@ export async function searchCommunityMessengerUsersRanked(
   const { data, error } = await (sb as any)
     .from("profiles")
     .select(
-      "id, display_name, nickname, username, dibay_id, avatar_url, username_confirmed"
+      "id, display_name, nickname, username, dibay_id, dibay_id_auto_assigned, avatar_url, username_confirmed"
     )
     .or(orFilter)
     .neq("id", viewer)
@@ -165,12 +170,13 @@ export async function searchCommunityMessengerUsersRanked(
 
   if (error) return [];
 
-  const candidates = ((data ?? []) as ProfileCandidate[]).filter(isEligibleProfile);
+  const candidates = ((data ?? []) as ProfileCandidate[]).filter((row) => isEligibleProfile(row, query));
   const ranked = candidates
     .map((row) => {
       const matchType = rankMatchType(row, query);
       if (!matchType) return null;
-      const publicId = resolveSearchablePublicId(row);
+      const publicId =
+        matchType === "exact" ? resolveExactLookupPublicId(row) : resolveSearchablePublicId(row);
       const displayName = displayLabel(row);
       const highlightRanges =
         matchType === "name"

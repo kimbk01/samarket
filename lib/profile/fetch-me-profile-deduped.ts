@@ -181,6 +181,36 @@ async function fetchMeProfileWith401Recovery(clientCallSource?: string): Promise
   return result;
 }
 
+/**
+ * 편집 화면·저장 직후 검증용 — 클라이언트 캐시·boot lite·서버 메모리 캐시를 모두 우회한 full GET.
+ * 내정보 `/mypage` 의 boot lite 재사용(첫 진입 비용 절감)과 별개로, 편집·저장 경로는 항상 DB 최신값을 본다.
+ */
+export async function fetchMeProfileFresh(clientCallSource = "profile_edit_fresh"): Promise<ProfileRow | null> {
+  if (isGuestAuthEstablished()) return null;
+  recordBootVerifyFetch("/api/me/profile?mode=full&fresh=1", clientCallSource);
+  let res = await fetch("/api/me/profile?mode=full&fresh=1", {
+    credentials: "include",
+    cache: "no-store",
+    headers: profileFetchHeaders(clientCallSource),
+  });
+  if (res.status === 401) {
+    const recovery = await recoverFrom401Once("me_profile_full");
+    if (!recovery.recovered) return null;
+    res = await fetch("/api/me/profile?mode=full&fresh=1", {
+      credentials: "include",
+      cache: "no-store",
+      headers: profileFetchHeaders(clientCallSource),
+    });
+  }
+  if (!res.ok) return null;
+  const json = (await res.json().catch(() => null)) as { ok?: boolean; profile?: ProfileRow | null } | null;
+  const profile = json?.ok ? json.profile ?? null : null;
+  if (profile?.id?.trim()) {
+    primeMeProfileDedupedFromKnownProfile(profile);
+  }
+  return profile;
+}
+
 /** Surface/Detail — full profile (boot 이후 background·on-demand). */
 export function fetchMeProfileDeduped(clientCallSource?: string): Promise<MeProfileGetResult> {
   return fetchMeProfileFullBackground(clientCallSource);

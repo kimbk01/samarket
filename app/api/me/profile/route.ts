@@ -38,12 +38,20 @@ import {
 } from "@/lib/profile/profile-response-cache";
 import { jsonError } from "@/lib/http/api-route";
 import { shouldBypassRouteMemoryCache } from "@/lib/http/route-cache-bypass";
+import { isMemberNicknameTaken } from "@/lib/profile/member-nickname-policy";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
 import { computeProfileCompleted } from "@/lib/profile/profile-completed";
 import {
   diffRemovedImageUrls,
   removeCanonicalImagesFromPublicUrls,
 } from "@/lib/media/canonical-image-lifecycle.server";
+import {
+  applyExpectedConditions,
+  expectedConditionsForPatch,
+  parseProfilePatchExpected,
+  PROFILE_CONFLICT_ERROR_CODE,
+  PROFILE_CONFLICT_MESSAGE_KO,
+} from "@/lib/profile/profile-patch-concurrency";
 export const dynamic = "force-dynamic";
 
 /**
@@ -284,22 +292,13 @@ function mapProfileDbError(message: string): string {
   return message;
 }
 
-async function isNicknameTaken(
-  sb: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>,
-  userId: string,
-  nickname: string
-): Promise<boolean> {
-  const normalized = nickname.trim().toLowerCase();
-  if (!normalized) return false;
-  const { data, error } = await sb
-    .from("profiles")
-    .select("id")
-    .ilike("nickname", nickname.trim())
-    .neq("id", userId)
-    .limit(1);
-  if (error) return false;
-  return Array.isArray(data) && data.some((row) => String((row as { id?: unknown }).id ?? "") !== userId);
-}
+/** PATCH 응답 — 클라이언트가 저장 결과를 검증·스냅샷에 반영 */
+const PROFILE_PATCH_RETURN_COLUMNS = "id, nickname, display_name, bio, avatar_url, updated_at";
+
+type ProfileWriteClient =
+  | NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>
+  | NonNullable<Awaited<ReturnType<typeof createSupabaseRouteHandlerClient>>>;
+
 
 /** 컬럼 미존재 시 한 번 더: 주소·지도 필드 없이 나머지만 저장 시도 */
 function omitProfileAddressFields(row: Record<string, unknown>): Record<string, unknown> {
@@ -1085,7 +1084,7 @@ export async function PATCH(req: NextRequest) {
 
   const serviceSb = tryCreateSupabaseServiceClient();
   if (serviceSb && typeof parsed.patch.nickname === "string") {
-    const taken = await isNicknameTaken(serviceSb, auth.userId, parsed.patch.nickname);
+    const taken = await isMemberNicknameTaken(serviceSb, auth.userId, parsed.patch.nickname);
     if (taken) {
       return NextResponse.json(
         { ok: false, error: "이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해 주세요." },
@@ -1098,107 +1097,46 @@ export async function PATCH(req: NextRequest) {
     ...parsed.patch,
     updated_at: new Date().toISOString(),
   };
+  const conditions = expectedConditionsForPatch(parsed.patch, parseProfilePatchExpected(raw));
 
-  if (serviceSb) {
-    let attemptRow: Record<string, unknown> = row;
-    let { data, error } = await serviceSb
-      .from("profiles")
-      .update(attemptRow)
-      .eq("id", auth.userId)
-      .select("id")
+  let writeSb: ProfileWriteClient | null = serviceSb;
+  if (!writeSb) {
+    const routeSb = await createSupabaseRouteHandlerClient();
+    if (!routeSb) {
+      return serviceUnavailable("Supabase 가 설정되지 않았습니다.");
+    }
+    const {
+      data: { user },
+    } = await routeSb.auth.getUser();
+    if (!user?.id || user.id !== auth.userId) {
+      return serviceUnavailable(
+        "아이디 로그인(테스트)으로 저장하려면 서버에 SUPABASE_SERVICE_ROLE_KEY 를 넣어 주세요."
+      );
+    }
+    writeSb = routeSb;
+  }
+
+  const runUpdate = (attemptRow: Record<string, unknown>) =>
+    applyExpectedConditions(
+      writeSb.from("profiles").update(attemptRow).eq("id", auth.userId),
+      conditions
+    )
+      .select(PROFILE_PATCH_RETURN_COLUMNS)
       .maybeSingle();
-    if (
-      error &&
-      isMissingProfileAddressColumnError(error.message ?? "") &&
-      rowHasOptionalProfileAddressFields(row)
-    ) {
-      attemptRow = omitProfileAddressFields(row);
-      const second = await serviceSb
-        .from("profiles")
-        .update(attemptRow)
-        .eq("id", auth.userId)
-        .select("id")
-        .maybeSingle();
-      data = second.data;
-      error = second.error;
-      if (!error) {
-        return NextResponse.json({
-          ok: true,
-          warning:
-            "프로필은 저장되었으나 DB에 주소·지도 컬럼이 없어 위치는 반영되지 않았습니다. 마이그레이션을 확인해 주세요.",
-        });
-      }
-    }
-    if (error) {
-      return NextResponse.json(
-        { ok: false, error: mapProfileDbError(error.message ?? "저장 실패") },
-        { status: 500 }
-      );
-    }
-    if (!data) {
-      return NextResponse.json(
-        { ok: false, error: "프로필 행을 찾을 수 없습니다. 가입·동기화 후 다시 시도해 주세요." },
-        { status: 409 }
-      );
-    }
-    if ("avatar_url" in parsed.patch) {
-      const removed = diffRemovedImageUrls(
-        [existingCompletionRow?.avatar_url ?? null],
-        [parsed.patch.avatar_url as string | null]
-      );
-      if (removed.length > 0) {
-        const removal = await removeCanonicalImagesFromPublicUrls({
-          sb: serviceSb,
-          urls: removed,
-          context: "me/profile/avatar-replace",
-        });
-        if (removal.failed.length > 0) {
-          console.error("[me/profile PATCH] avatar storage cleanup partial failure", removal.failed);
-        }
-      }
-    }
-    return NextResponse.json({ ok: true });
-  }
 
-  const routeSb = await createSupabaseRouteHandlerClient();
-  if (!routeSb) {
-    return serviceUnavailable("Supabase 가 설정되지 않았습니다.");
-  }
-  const {
-    data: { user },
-  } = await routeSb.auth.getUser();
-  if (!user?.id || user.id !== auth.userId) {
-    return serviceUnavailable(
-      "아이디 로그인(테스트)으로 저장하려면 서버에 SUPABASE_SERVICE_ROLE_KEY 를 넣어 주세요."
-    );
-  }
-  let attemptRow: Record<string, unknown> = row;
-  let { data, error } = await routeSb
-    .from("profiles")
-    .update(attemptRow)
-    .eq("id", auth.userId)
-    .select("id")
-    .maybeSingle();
+  let warning: string | undefined;
+  let { data, error } = await runUpdate(row);
   if (
     error &&
     isMissingProfileAddressColumnError(error.message ?? "") &&
     rowHasOptionalProfileAddressFields(row)
   ) {
-    attemptRow = omitProfileAddressFields(row);
-    const second = await routeSb
-      .from("profiles")
-      .update(attemptRow)
-      .eq("id", auth.userId)
-      .select("id")
-      .maybeSingle();
+    const second = await runUpdate(omitProfileAddressFields(row));
     data = second.data;
     error = second.error;
     if (!error) {
-      return NextResponse.json({
-        ok: true,
-        warning:
-          "프로필은 저장되었으나 DB에 주소·지도 컬럼이 없어 위치는 반영되지 않았습니다. 마이그레이션을 확인해 주세요.",
-      });
+      warning =
+        "프로필은 저장되었으나 DB에 주소·지도 컬럼이 없어 위치는 반영되지 않았습니다. 마이그레이션을 확인해 주세요.";
     }
   }
   if (error) {
@@ -1208,19 +1146,32 @@ export async function PATCH(req: NextRequest) {
     );
   }
   if (!data) {
+    if (conditions.length > 0) {
+      const { data: exists } = await writeSb.from("profiles").select("id").eq("id", auth.userId).maybeSingle();
+      if (exists) {
+        /** 기대값 불일치 — 다른 곳에서 먼저 변경됨. 오래된 화면 값으로 덮어쓰지 않는다. */
+        return NextResponse.json(
+          { ok: false, error: PROFILE_CONFLICT_MESSAGE_KO, code: PROFILE_CONFLICT_ERROR_CODE },
+          { status: 409 }
+        );
+      }
+    }
     return NextResponse.json(
       { ok: false, error: "프로필 행을 찾을 수 없습니다. 가입·동기화 후 다시 시도해 주세요." },
       { status: 409 }
     );
   }
   if ("avatar_url" in parsed.patch) {
-    const removed = diffRemovedImageUrls(
-      [existingCompletionRow?.avatar_url ?? null],
-      [parsed.patch.avatar_url as string | null]
-    );
+    /**
+     * 새 URL 이 DB 에 반영된 뒤에만 이전 파일 정리.
+     * 기대값 조건이 있으면 UPDATE 직전 DB 값 = expected 이므로 그것을 이전 값으로 쓴다(경합 시 다른 사진 삭제 방지).
+     */
+    const avatarCondition = conditions.find((c) => c.column === "avatar_url");
+    const previousAvatar = avatarCondition ? avatarCondition.value : existingCompletionRow?.avatar_url ?? null;
+    const removed = diffRemovedImageUrls([previousAvatar], [parsed.patch.avatar_url as string | null]);
     if (removed.length > 0) {
       const removal = await removeCanonicalImagesFromPublicUrls({
-        sb: routeSb,
+        sb: writeSb,
         urls: removed,
         context: "me/profile/avatar-replace",
       });
@@ -1229,5 +1180,5 @@ export async function PATCH(req: NextRequest) {
       }
     }
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(warning ? { ok: true, warning, profile: data } : { ok: true, profile: data });
 }

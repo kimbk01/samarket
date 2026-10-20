@@ -53,7 +53,9 @@ describe("R4 Profile · @ID · Verification · Password", () => {
     const route = src("app/api/admin/users/[id]/route.ts");
     expect(route).toMatch(/member_type_not_via_profile_edit/);
     expect(route).toMatch(/phone_verification_via_s15/);
-    expect(route).toMatch(/admin_member_dibay_id_change/);
+    /** 아이디 변경 + 감사 기록은 admin_set_dibay_id 한 트랜잭션 (20270524120000) */
+    expect(route).toMatch(/rpc\("admin_set_dibay_id"/);
+    expect(src("supabase/migrations/20270524120000_member_identity_ssot_guard.sql")).toMatch(/admin_member_dibay_id_change/);
     expect(route).toMatch(/normalizeDibayIdInput/);
     expect(route).toMatch(/isValidDibayIdFormat/);
   });

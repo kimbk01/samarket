@@ -4,7 +4,10 @@
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { normalizeProfileUserSearchKeyword } from "@/lib/community-messenger/profile-user-search-filter";
+import {
+  escapeIlikePatternFragment,
+  normalizeProfileUserSearchKeyword,
+} from "@/lib/community-messenger/profile-user-search-filter";
 import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store-record";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
@@ -20,8 +23,8 @@ import {
   logCallPermission,
 } from "@/lib/community-messenger/direct-call-permission";
 import {
-  isPublicIdSearchEligible,
-  resolveSearchablePublicId,
+  matchesPublicIdExactly,
+  resolveExactLookupPublicId,
   type ProfilePublicIdFields,
 } from "@/lib/auth/dibay-public-id-ssot";
 import { getFriendshipPairState, isAcceptedFriendPair } from "@/lib/community-messenger/friendship-resolver";
@@ -388,10 +391,12 @@ export async function resolveUserByPublicId(
   const sb = getSupabaseOrNull();
   if (!sb) return null;
 
+  /** `_`·`%` 는 ilike 와일드카드 — 이스케이프해야 다른 회원 id 와 오매칭되지 않는다 */
+  const exactPattern = escapeIlikePatternFragment(keyword);
   const { data: byDibay } = await (sb as any)
     .from("profiles")
     .select("id, display_name, nickname, username, dibay_id, dibay_id_locked, username_confirmed, avatar_url")
-    .ilike("dibay_id", keyword)
+    .ilike("dibay_id", exactPattern)
     .limit(1)
     .maybeSingle();
 
@@ -400,7 +405,7 @@ export async function resolveUserByPublicId(
     const { data: byUsername } = await (sb as any)
       .from("profiles")
       .select("id, display_name, nickname, username, dibay_id, dibay_id_locked, username_confirmed, avatar_url")
-      .ilike("username", keyword)
+      .ilike("username", exactPattern)
       .eq("username_confirmed", true)
       .limit(1)
       .maybeSingle();
@@ -410,7 +415,7 @@ export async function resolveUserByPublicId(
 
   const id = trimText(row.id);
   const display =
-    trimText(row.display_name) || trimText(row.nickname) || trimText(row.username) || id;
+    trimText(row.nickname) || trimText(row.display_name) || trimText(row.username) || id;
   const publicIdFields: ProfilePublicIdFields = {
     dibay_id: trimText(row.dibay_id) || null,
     dibay_id_locked: row.dibay_id_locked === true ? true : row.dibay_id_locked === false ? false : null,
@@ -418,8 +423,9 @@ export async function resolveUserByPublicId(
     username_confirmed:
       row.username_confirmed === true ? true : row.username_confirmed === false ? false : null,
   };
-  if (!isPublicIdSearchEligible(publicIdFields)) return null;
-  const publicId = resolveSearchablePublicId(publicIdFields);
+  /** 정확 일치 조회 — auto-assigned 기본 아이디 포함 (정책 B) */
+  if (!matchesPublicIdExactly(publicIdFields, keyword)) return null;
+  const publicId = resolveExactLookupPublicId(publicIdFields);
   if (!publicId) return null;
   return {
     id,

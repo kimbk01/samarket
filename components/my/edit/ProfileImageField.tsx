@@ -58,7 +58,11 @@ export function ProfileImageField({
         return;
       }
 
-      const save = await updateMyProfile({ avatar_url: data.url });
+      /**
+       * 새 파일 업로드 성공 후 DB 반영. 기대값(현재 표시 사진)이 DB 와 다르면 409 — 다른 기기에서 바뀐 사진을 덮지 않는다.
+       * 실패 시 onChangeUrl 을 부르지 않으므로 기존 사진·DB 값이 그대로 유지된다(이전 파일은 서버가 DB 반영 후에만 정리).
+       */
+      const save = await updateMyProfile({ avatar_url: data.url }, { expected: { avatar_url: avatarUrl } });
       if (!save.ok) {
         setUploadError(save.error || t("profile_edit_save_failed"));
         return;
@@ -82,7 +86,10 @@ export function ProfileImageField({
 
     void (async () => {
       try {
-        const save = await updateMyProfile({ avatar_url: SAMARKET_DEFAULT_AVATAR_URL });
+        const save = await updateMyProfile(
+          { avatar_url: SAMARKET_DEFAULT_AVATAR_URL },
+          { expected: { avatar_url: avatarUrl } }
+        );
         if (!save.ok) {
           setUploadError(save.error || t("profile_edit_save_failed"));
           return;

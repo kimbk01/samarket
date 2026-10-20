@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { type SupabaseClient } from "@supabase/supabase-js";
+import { resolvePhoneVerificationDisplayStatus } from "@/lib/profile/admin-phone-verification-sync";
+import { isMemberNicknameTaken } from "@/lib/profile/member-nickname-policy";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { assertMemberPasswordChangeAllowed } from "@/lib/admin-users/member-auth-target";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -24,7 +26,6 @@ import {
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import { formatUserAddressFull } from "@/lib/addresses/user-address-display-ssot";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import type { AdminUserDetail } from "@/lib/types/admin-user";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import {
@@ -62,30 +63,6 @@ function mapProfileUpdateError(message: string): string {
     return "이미 사용 중인 닉네임입니다";
   }
   return message;
-}
-
-async function isNicknameTaken(sb: SupabaseClient, userId: string, nickname: string): Promise<boolean> {
-  const normalized = nickname.trim();
-  if (!normalized) return false;
-  const { data, error } = await sb
-    .from("profiles")
-    .select("id")
-    .ilike("nickname", normalized)
-    .neq("id", userId)
-    .limit(1);
-  if (error) return false;
-  return Array.isArray(data) && data.length > 0;
-}
-
-async function isDibayIdTaken(sb: SupabaseClient, userId: string, dibayId: string): Promise<boolean> {
-  const { data, error } = await sb
-    .from("profiles")
-    .select("id")
-    .eq("dibay_id", dibayId)
-    .neq("id", userId)
-    .limit(1);
-  if (error) return false;
-  return Array.isArray(data) && data.length > 0;
 }
 
 type TestUserForEnsure = {
@@ -471,7 +448,7 @@ export async function GET(
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
-      "id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, member_type, status, deleted_at, verified_member_at, created_at, last_login_at, region_code, region_name, address_street_line, address_detail, trust_score"
+      "id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, phone_verification_method, provider, auth_provider, member_status, member_type, status, deleted_at, verified_member_at, created_at, last_login_at, region_code, region_name, address_street_line, address_detail, trust_score"
     )
     .eq("id", rawId)
     .maybeSingle();
@@ -507,18 +484,17 @@ export async function GET(
       phone_verified?: boolean | null;
       phone_verified_at?: string | null;
       phone_verification_status?: string | null;
+      phone_verification_method?: string | null;
+      provider?: string | null;
+      auth_provider?: string | null;
       member_status?: string | null;
       verified_member_at?: string | null;
       created_at?: string | null;
       last_login_at?: string | null;
       trust_score?: number | null;
     };
-    const fromProfileLines = resolveProfileLocationAddressLines({
-      region_code: prof.region_code,
-      region_name: prof.region_name,
-      address_street_line: prof.address_street_line,
-      address_detail: prof.address_detail,
-    });
+    /** 대표 주소 SSOT = user_addresses.is_default_master (앱 게이트와 동일) — 레거시 profiles.region_* 는 사용하지 않음 (감사 #9) */
+    const defaultMasterAddress = await loadAuthOnlyContactAddress(supabase as SupabaseClient, rawId).catch(() => null);
     const hasWarn = await userHasRecentWarn(supabase, rawId).catch(() => false);
     const moderationStatus = mapProfileStatusToModeration(
       prof.status,
@@ -539,12 +515,11 @@ export async function GET(
       display_name: prof.display_name ?? null,
       nickname: prof.nickname ?? null,
       contact_phone: prof.phone ?? null,
-      contact_address: fromProfileLines.length > 0 ? fromProfileLines.join("\n") : null,
+      contact_address: defaultMasterAddress,
       phone_verified: prof.phone_verified === true,
       phone_verified_at: prof.phone_verified_at ?? null,
-      phone_verification_status:
-        (prof.phone_verification_status as string | null) ??
-        (prof.phone_verified ? "verified" : prof.phone ? "pending" : "unverified"),
+      /** 앱 게이트(hasVerifiedPhone)와 같은 판정 — 원시 status 컬럼만 보지 않는다 (감사 #8) */
+      phone_verification_status: resolvePhoneVerificationDisplayStatus(prof),
       member_status: prof.member_status ?? null,
       member_type: prof.member_type ?? null,
       status: prof.status ?? null,
@@ -659,6 +634,8 @@ export async function PATCH(
     phoneVerificationStatus?: string;
     nickname?: string;
     dibayId?: string;
+    /** 관리자 아이디 변경 사유 — admin_set_dibay_id 가 같은 트랜잭션에서 audit_logs 에 기록 */
+    dibayIdReason?: string;
     phone?: string;
     email?: string;
     password?: string;
@@ -753,7 +730,8 @@ export async function PATCH(
   if (hasDibayId) {
     const normalized = normalizeDibayIdInput(dibayIdRaw);
     if (!normalized) {
-      nextDibayId = null;
+      /** 공개 아이디 삭제 금지 — 비우면 친구 검색·표시가 끊긴다 */
+      return NextResponse.json({ ok: false, error: "dibay_id_required" }, { status: 400 });
     } else if (!isValidDibayIdFormat(normalized)) {
       return NextResponse.json({ ok: false, error: "invalid_dibay_id" }, { status: 400 });
     } else {
@@ -833,9 +811,26 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
   }
 
+  /**
+   * 공개 아이디 — admin_set_dibay_id 한 트랜잭션: dibay_id·username 동시 갱신 + 사유·실행자·전후 값 감사 기록.
+   * 회원 본인 1회 변경권 컬럼은 건드리지 않는다(정책 C). 다른 필드 저장보다 먼저 실행해 실패 시 아무것도 쓰지 않는다.
+   */
   if (nextDibayId) {
-    if (await isDibayIdTaken(sb, userId, nextDibayId)) {
-      return NextResponse.json({ ok: false, error: "dibay_id_taken" }, { status: 409 });
+    const { data: rpcData, error: rpcError } = await sb.rpc("admin_set_dibay_id", {
+      p_target_user_id: userId,
+      p_dibay_id: nextDibayId,
+      p_actor_user_id: gate.actor.userId,
+      p_reason: typeof body.dibayIdReason === "string" ? body.dibayIdReason.trim() || null : null,
+    });
+    if (rpcError) {
+      return NextResponse.json({ ok: false, error: "dibay_id_update_failed" }, { status: 500 });
+    }
+    const rpc = (rpcData ?? {}) as { ok?: boolean; error?: string };
+    if (rpc.ok !== true) {
+      const code = String(rpc.error ?? "dibay_id_update_failed");
+      const status =
+        code === "dibay_id_taken" ? 409 : code === "profile_missing" ? 404 : code === "forbidden" ? 500 : 400;
+      return NextResponse.json({ ok: false, error: code }, { status });
     }
   }
 
@@ -852,14 +847,11 @@ export async function PATCH(
     }
   }
   if (nextNickname !== null) {
-    if (await isNicknameTaken(sb, userId, nextNickname)) {
+    if (await isMemberNicknameTaken(sb, userId, nextNickname)) {
       return NextResponse.json({ ok: false, error: "이미 사용 중인 닉네임입니다" }, { status: 409 });
     }
     patch.nickname = nextNickname;
     patch.display_name = nextNickname;
-  }
-  if (nextDibayId !== undefined) {
-    patch.dibay_id = nextDibayId;
   }
   if (nextPhonePatch !== null) {
     Object.assign(patch, nextPhonePatch);
@@ -974,23 +966,6 @@ export async function PATCH(
   }
 
   const changedFields = Object.keys(body).filter((k) => k !== "password");
-  if (nextDibayId !== undefined) {
-    const beforeId =
-      initialProfile && typeof (initialProfile as { dibay_id?: string | null }).dibay_id === "string"
-        ? String((initialProfile as { dibay_id?: string | null }).dibay_id)
-        : null;
-    void appendAuditLog(sb, {
-      actor_type: "admin",
-      actor_id: gate.actor.userId,
-      target_type: "member",
-      target_id: userId,
-      action: "admin_member_dibay_id_change",
-      after_json: {
-        before: beforeId,
-        after: nextDibayId,
-      },
-    });
-  }
   void appendAuditLog(sb, {
     actor_type: "admin",
     actor_id: gate.actor.userId,
