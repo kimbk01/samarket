@@ -35,8 +35,7 @@ export function buildStoresBrowseClientQueryString(input: StoresBrowseClientQuer
     const cityLabel = browseCityLabel(region.regionId, region.cityId);
     if (cityLabel) q.set("city", cityLabel);
   }
-  const district = region?.barangay?.trim() ?? "";
-  if (district) q.set("district", district);
+  /** `region.barangay` 는 profiles 상세주소일 수 있어 `district` 로 보내지 않는다 (ADDR-PRIV-004) */
   const sort = input.sort?.trim().toLowerCase();
   if (sort && sort !== "default") q.set("sort", sort);
   if (input.includeGeo) {

@@ -388,13 +388,12 @@ export function StoresBrowsePrimaryView({
       primaryRegion?.regionId && primaryRegion?.cityId
         ? browseCityLabel(primaryRegion.regionId, primaryRegion.cityId)
         : "";
-    const d = primaryRegion?.barangay?.trim() ?? "";
+    /** `primaryRegion.barangay` 는 profiles 상세주소일 수 있어 `district` 로 보내지 않는다 (ADDR-PRIV-004) */
     const q = new URLSearchParams();
     q.set("primary", primarySlug.trim().toLowerCase());
     q.set("sub", activeSub);
     if (r) q.set("region", r);
     if (cityLabel) q.set("city", cityLabel);
-    if (d) q.set("district", d);
     if (browseRequestSort !== "default") q.set("sort", browseRequestSort);
     if (
       browseDistanceCoordsEnabled &&
@@ -413,7 +412,6 @@ export function StoresBrowsePrimaryView({
     activeSub,
     primaryRegion?.regionId,
     primaryRegion?.cityId,
-    primaryRegion?.barangay,
     browseDistanceCoordsEnabled,
     browseUserGeo?.lat,
     browseUserGeo?.lng,
@@ -428,7 +426,6 @@ export function StoresBrowsePrimaryView({
         activeSub,
         primaryRegion?.regionId ?? "",
         primaryRegion?.cityId ?? "",
-        primaryRegion?.barangay ?? "",
         browseDistanceCoordsEnabled && browseUserGeo
           ? `${browseUserGeo.addressId ?? "none"}:${browseUserGeo.lat.toFixed(4)},${browseUserGeo.lng.toFixed(4)}`
           : "",
@@ -439,7 +436,6 @@ export function StoresBrowsePrimaryView({
       activeSub,
       primaryRegion?.regionId,
       primaryRegion?.cityId,
-      primaryRegion?.barangay,
       browseDistanceCoordsEnabled,
       browseUserGeo,
       browseRequestSort,

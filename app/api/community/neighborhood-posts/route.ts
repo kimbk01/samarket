@@ -32,6 +32,7 @@ import {
 import {
   publicRegionLabelLeaksPrivateDetail,
   resolveCommunityPublicRegionLabelForUser,
+  sanitizePublicRegionLabel,
 } from "@/lib/addresses/community-public-region-label";
 
 export const runtime = "nodejs";
@@ -330,7 +331,9 @@ export async function POST(req: NextRequest) {
   const openChatOwnerNickname =
     typeof meet.open_chat_owner_nickname === "string" ? meet.open_chat_owner_nickname.trim() : "";
   const coverImageUrl = typeof meet.cover_image_url === "string" ? meet.cover_image_url.trim() : "";
-  const regionText = typeof meet.region_text === "string" ? meet.region_text.trim() : "";
+  /** 공개 모임 지역 문구 — City 형태만 허용, 도로·건물·상세주소는 저장하지 않음 (ADDR-PRIV-003) */
+  const regionText =
+    typeof meet.region_text === "string" ? sanitizePublicRegionLabel(meet.region_text) ?? "" : "";
   const categoryText = typeof meet.category_text === "string" ? meet.category_text.trim() : "";
   const joinQuestions = Array.isArray(meet.join_questions)
     ? meet.join_questions

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deterministicUuid } from "@/lib/server/deterministic-uuid";
 import { isValidNeighborhoodLocationKey } from "@/lib/neighborhood/location-validation";
+import { normalizeNeighborhoodLocationKeyToCity } from "@/lib/neighborhood/location-key";
 
 export type EnsureLocationInput = {
   country?: string;
@@ -91,7 +92,7 @@ function isPermissionError(error: { message?: string }): boolean {
 }
 
 /**
- * locationKey = `${regionId}:${cityId}:${barangay}` → locations.id
+ * locationKey = `${regionId}:${cityId}:` → locations.id (City 단위, district 는 항상 비움 — ADDR-PRIV-001/002)
  * 동일 키면 동일 결정적 uuid. 시드/레거시 행이 locations_dedup 으로 막는 경우 기존 id 를 쓴다.
  */
 export async function resolveNeighborhoodLocationId(
@@ -99,14 +100,15 @@ export async function resolveNeighborhoodLocationId(
   locationKey: string,
   input: EnsureLocationInput
 ): Promise<ResolveNeighborhoodLocationResult> {
-  const key = locationKey.trim();
-  if (!key || !isValidNeighborhoodLocationKey(key)) {
+  const rawKey = locationKey.trim();
+  if (!rawKey || !isValidNeighborhoodLocationKey(rawKey)) {
     return { locationId: null, failure: "invalid_key" };
   }
+  const key = normalizeNeighborhoodLocationKeyToCity(rawKey);
   const deterministicId = deterministicUuid("samarket_neighborhood_location", key);
   const country = normalizeCountryName(input.country ?? "Philippines");
   const city = input.city.trim();
-  const district = (input.district ?? "").trim();
+  const district = "";
   const name = input.name.trim() || city;
 
   const { data: byPk, error: pkErr } = await sb.from("locations").select("id").eq("id", deterministicId).maybeSingle();
