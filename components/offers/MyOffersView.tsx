@@ -51,6 +51,8 @@ export function MyOffersView({ mode, title, emptyLabel, embedded = false }: Prop
   const [busyOfferId, setBusyOfferId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [withdrawTarget, setWithdrawTarget] = useState<PriceOfferListItem | null>(null);
+  /** 다시 시도 — 증가 시 목록 재조회 */
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   /** M4 — 보낸 대기 제안 철회(구매자 본인·대기 건만, 서버가 행 잠금 후 처리) */
   const withdrawOffer = async (offer: PriceOfferListItem) => {
@@ -83,11 +85,16 @@ export function MyOffersView({ mode, title, emptyLabel, embedded = false }: Prop
     void (async () => {
       try {
         const href = mode === "sent" ? "/api/offers/mine" : "/api/offers/received";
-        const res = await runSingleFlight(`my-offers:${mode}`, () =>
-          fetch(href, { credentials: "include", cache: "no-store" })
-        );
-        const json = (await res.json().catch(() => ({}))) as { offers?: PriceOfferListItem[]; error?: string };
-        if (!res.ok) {
+        // 본문은 single-flight 안에서 1회만 파싱 — StrictMode 이중 실행이 같은 Response 를 다시 읽지 않게
+        const { resOk, json } = await runSingleFlight(`my-offers:${mode}`, async () => {
+          const res = await fetch(href, { credentials: "include", cache: "no-store" });
+          const body = (await res.json().catch(() => ({}))) as {
+            offers?: PriceOfferListItem[];
+            error?: string;
+          };
+          return { resOk: res.ok, json: body };
+        });
+        if (!resOk) {
           throw new Error(typeof json?.error === "string" ? json.error : "가격 제안을 불러오지 못했습니다.");
         }
         if (!cancelled) {
@@ -102,7 +109,7 @@ export function MyOffersView({ mode, title, emptyLabel, embedded = false }: Prop
     return () => {
       cancelled = true;
     };
-  }, [mode]);
+  }, [mode, reloadNonce]);
 
   return (
     <div className={embedded ? "px-0 py-2" : "min-h-screen bg-sam-app px-3 py-4 sm:px-4"}>
@@ -149,7 +156,16 @@ export function MyOffersView({ mode, title, emptyLabel, embedded = false }: Prop
 
         {loading ? <p className="text-[13px] text-sam-muted">{t("common_loading")}</p> : null}
         {error ? <p className="text-[13px] text-sam-danger">{error}</p> : null}
-        {!loading && offers.length === 0 ? (
+        {error && !loading && offers.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => setReloadNonce((n) => n + 1)}
+            className="sam-btn sam-btn--secondary sam-btn--sm"
+          >
+            {t("common_retry")}
+          </button>
+        ) : null}
+        {!loading && !error && offers.length === 0 ? (
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-[13px] text-sam-muted">
             {emptyLabel}
           </div>

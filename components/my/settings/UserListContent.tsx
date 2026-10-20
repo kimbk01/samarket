@@ -27,7 +27,9 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
   const { t, language } = useI18n();
   const [items, setItems] = useState<UserRelationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // 목록 로드 실패(목록 대체) / 삭제 실패(목록 유지, 인라인) 분리
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const formatDate = (iso: string): string => {
@@ -38,7 +40,8 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
 
   const load = useCallback(async () => {
     setLoading((prev) => (prev ? prev : true));
-    setError((prev) => (prev === null ? prev : null));
+    setLoadError((prev) => (prev === null ? prev : null));
+    setActionError((prev) => (prev === null ? prev : null));
     try {
       const res = await runSingleFlight(`me:relations:${type}:list`, () =>
         fetch(`/api/me/relations/${type}`, {
@@ -53,7 +56,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
       };
       if (!res.ok || !json.ok) {
         setItems((prev) => (prev.length === 0 ? prev : []));
-        setError(typeof json.error === "string" ? json.error : t("settings_user_list_load_failed"));
+        setLoadError(typeof json.error === "string" ? json.error : t("settings_user_list_load_failed"));
         return;
       }
       const nextItems = Array.isArray(json.items) ? json.items : [];
@@ -73,7 +76,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
       });
     } catch {
       setItems((prev) => (prev.length === 0 ? prev : []));
-      setError(t("settings_user_list_load_failed"));
+      setLoadError(t("settings_user_list_load_failed"));
     } finally {
       setLoading((prev) => (prev ? false : prev));
     }
@@ -85,7 +88,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
 
   const handleDelete = async (id: string) => {
     setBusyId(id);
-    setError((prev) => (prev === null ? prev : null));
+    setActionError((prev) => (prev === null ? prev : null));
     try {
       const res = await fetch(`/api/me/relations/${type}?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
@@ -93,12 +96,12 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setError(typeof json.error === "string" ? json.error : t("settings_user_list_delete_failed"));
+        setActionError(typeof json.error === "string" ? json.error : t("settings_user_list_delete_failed"));
         return;
       }
       setItems((current) => current.filter((item) => item.id !== id));
     } catch {
-      setError(t("settings_user_list_delete_failed"));
+      setActionError(t("settings_user_list_delete_failed"));
     } finally {
       setBusyId((prev) => (prev === null ? prev : null));
     }
@@ -108,8 +111,15 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
     return <div className="py-12 text-center sam-text-body text-sam-muted">{t("settings_user_list_loading")}</div>;
   }
 
-  if (error) {
-    return <div className="py-12 text-center sam-text-body text-sam-danger">{error}</div>;
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-12 text-center">
+        <p className="sam-text-body text-sam-danger">{loadError}</p>
+        <button type="button" className="sam-btn sam-btn--secondary sam-btn--sm" onClick={() => void load()}>
+          {t("common_retry")}
+        </button>
+      </div>
+    );
   }
 
   if (items.length === 0) {
@@ -117,64 +127,67 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
   }
 
   return (
-    <ul className="divide-y divide-sam-border-soft">
-      {items.map((item) => {
-        const profileHref =
-          item.username && item.username.trim()
-            ? `/u/${encodeURIComponent(item.username.trim())}`
-            : null;
-        const identity = (
-          <>
-            <p className="truncate sam-text-body font-medium text-sam-fg">
-              {item.nickname?.trim() || item.targetId}
-            </p>
-            {item.username ? (
-              <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
-                @{item.username}
+    <>
+      {actionError ? <p className="pt-3 sam-text-helper text-sam-danger">{actionError}</p> : null}
+      <ul className="divide-y divide-sam-border-soft">
+        {items.map((item) => {
+          const profileHref =
+            item.username && item.username.trim()
+              ? `/u/${encodeURIComponent(item.username.trim())}`
+              : null;
+          const identity = (
+            <>
+              <p className="truncate sam-text-body font-medium text-sam-fg">
+                {item.nickname?.trim() || item.targetId}
               </p>
-            ) : null}
-            <p className="mt-1 sam-text-helper text-sam-muted">
-              {[item.regionName, formatDate(item.createdAt)].filter(Boolean).join(" · ") || item.targetId}
-            </p>
-          </>
-        );
-        return (
-          <li key={item.id} className="flex items-center justify-between gap-2 py-3">
-            <div className="flex min-w-0 flex-1 items-center gap-3 pr-2">
-              {item.avatarUrl ? (
-                <img
-                  src={item.avatarUrl}
-                  alt=""
-                  className="h-10 w-10 shrink-0 rounded-full object-cover bg-sam-app"
-                />
-              ) : (
-                <div className="h-10 w-10 shrink-0 rounded-full bg-sam-app border border-sam-border" aria-hidden />
-              )}
-              <div className="min-w-0">
-                {profileHref ? (
-                  <Link href={profileHref} className="block hover:opacity-80">
-                    {identity}
-                  </Link>
+              {item.username ? (
+                <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
+                  @{item.username}
+                </p>
+              ) : null}
+              <p className="mt-1 sam-text-helper text-sam-muted">
+                {[item.regionName, formatDate(item.createdAt)].filter(Boolean).join(" · ") || item.targetId}
+              </p>
+            </>
+          );
+          return (
+            <li key={item.id} className="flex items-center justify-between gap-2 py-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3 pr-2">
+                {item.avatarUrl ? (
+                  <img
+                    src={item.avatarUrl}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded-full object-cover bg-sam-app"
+                  />
                 ) : (
-                  identity
+                  <div className="h-10 w-10 shrink-0 rounded-full bg-sam-app border border-sam-border" aria-hidden />
                 )}
+                <div className="min-w-0">
+                  {profileHref ? (
+                    <Link href={profileHref} className="block hover:opacity-80">
+                      {identity}
+                    </Link>
+                  ) : (
+                    identity
+                  )}
+                </div>
               </div>
-            </div>
-            <button
-              type="button"
-              disabled={busyId === item.id}
-              className="shrink-0 sam-text-body-secondary text-sam-danger"
-              onClick={() => void handleDelete(item.id)}
-            >
-              {busyId === item.id
-                ? t("settings_user_list_deleting")
-                : type === "neighbor"
-                  ? t("community_neighbor_follow_remove")
-                  : t("common_delete")}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+              <button
+                type="button"
+                disabled={busyId === item.id}
+                className="shrink-0 sam-text-body-secondary text-sam-danger"
+                onClick={() => void handleDelete(item.id)}
+              >
+                {busyId === item.id
+                  ? t("settings_user_list_deleting")
+                  : type === "neighbor"
+                    ? t("community_neighbor_follow_remove")
+                    : t("common_delete")}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }

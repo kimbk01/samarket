@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -63,10 +63,14 @@ function MypagePointsPageInner() {
   const [requests, setRequests] = useState<PointChargeRequest[]>([]);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [selected, setSelected] = useState<PointFinancialHistoryItem | null>(null);
+  /** 탭 전환 등으로 이전 요청 응답이 늦게 와도 덮어쓰지 않도록 */
+  const requestIdRef = useRef(0);
 
   const load = useCallback(
     async (opts?: { append?: boolean; cursor?: string | null }) => {
       const append = Boolean(opts?.append);
+      const reqId = append ? requestIdRef.current : ++requestIdRef.current;
+      const isStale = () => requestIdRef.current !== reqId;
       if (append) setLoadingMore(true);
       else setLoading(true);
       try {
@@ -75,13 +79,20 @@ function MypagePointsPageInner() {
           limit: "30",
         });
         if (opts?.cursor) qs.set("cursor", opts.cursor);
-        const res = await runSingleFlight(`me:points:fin:${tab}:${opts?.cursor ?? "0"}`, () =>
-          fetch(`/api/me/points?${qs.toString()}`, {
-            credentials: "include",
-            cache: "no-store",
-          })
+        // 본문은 single-flight 안에서 1회만 파싱 — 합류한 호출이 같은 Response 를 다시 읽지 않게
+        const { resOk, json: rawJson } = await runSingleFlight(
+          `me:points:fin:${tab}:${opts?.cursor ?? "0"}`,
+          async () => {
+            const res = await fetch(`/api/me/points?${qs.toString()}`, {
+              credentials: "include",
+              cache: "no-store",
+            });
+            const body: unknown = await res.json().catch(() => ({}));
+            return { resOk: res.ok, json: body };
+          }
         );
-        const json = (await res.json().catch(() => ({}))) as {
+        if (isStale()) return;
+        const json = rawJson as {
           ok?: boolean;
           balance?: number;
           summary?: PointFinancialSummary;
@@ -93,7 +104,7 @@ function MypagePointsPageInner() {
           chargeRequests?: PointChargeRequest[];
           error?: string;
         };
-        if (!res.ok || !json?.ok) {
+        if (!resOk || !json?.ok) {
           setLoadError(json?.error ?? "points_load_failed");
           if (!append) {
             setBalance(null);
@@ -114,6 +125,7 @@ function MypagePointsPageInner() {
           setRequests(Array.isArray(json.chargeRequests) ? json.chargeRequests : []);
         }
       } catch {
+        if (isStale()) return;
         setLoadError("points_load_failed");
         if (!append) {
           setBalance(null);
@@ -121,8 +133,10 @@ function MypagePointsPageInner() {
           setRequests([]);
         }
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (!isStale()) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [tab]
@@ -186,11 +200,21 @@ function MypagePointsPageInner() {
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
         <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-5`}>
           {loadError ? (
-            <div className="rounded-ui-rect border border-red-100 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-700">
-              {safeT("common_content_unavailable", {
-                fallbackKo: "포인트 정보를 불러오지 못했습니다.",
-                fallbackEn: "Could not load Point information.",
-              })}
+            <div className="flex items-center justify-between gap-3 rounded-ui-rect border border-red-100 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-700">
+              <span className="min-w-0">
+                {safeT("common_content_unavailable", {
+                  fallbackKo: "포인트 정보를 불러오지 못했습니다.",
+                  fallbackEn: "Could not load Point information.",
+                })}
+              </span>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => void load()}
+                className="sam-btn sam-btn--secondary sam-btn--sm shrink-0"
+              >
+                {t("common_retry")}
+              </button>
             </div>
           ) : null}
 
@@ -313,11 +337,21 @@ function MypagePointsPageInner() {
                 ))}
               </div>
 
-              <PointFinancialHistoryList
-                items={items}
-                loading={loading}
-                onSelect={setSelected}
-              />
+              {/* 탭 전환 재조회 — 기존 목록 유지 + 작은 로딩 표시 */}
+              {loading && items.length > 0 ? (
+                <p className="text-center sam-text-helper text-sam-muted" aria-live="polite">
+                  {t("common_loading")}
+                </p>
+              ) : null}
+
+              {/* 조회 실패 시 "내역 없음" 대신 상단 오류 배너만 */}
+              {loadError && !loading && items.length === 0 ? null : (
+                <PointFinancialHistoryList
+                  items={items}
+                  loading={loading && items.length === 0}
+                  onSelect={setSelected}
+                />
+              )}
 
               {hasMore ? (
                 <button

@@ -43,6 +43,8 @@ export function NotificationsSettingsContent() {
   const [domainQuietStart, setDomainQuietStart] = useState<string | null>("22:00");
   const [domainQuietEnd, setDomainQuietEnd] = useState<string | null>("08:00");
   const [domainLoaded, setDomainLoaded] = useState(false);
+  const [domainError, setDomainError] = useState(false);
+  const [domainReloadKey, setDomainReloadKey] = useState(0);
 
   const refresh = useCallback(() => setSettings(getUserSettings(userId)), [userId]);
   useEffect(() => {
@@ -107,7 +109,13 @@ export function NotificationsSettingsContent() {
             quiet_hours_end?: string | null;
           };
         };
-        if (cancelled || !j?.ok || !j.settings) return;
+        if (cancelled) return;
+        // 실패 시 기본값 토글을 로드된 것처럼 보이지 않게 오류 표시
+        if (!res.ok || !j?.ok || !j.settings) {
+          setDomainError(true);
+          return;
+        }
+        setDomainError(false);
         const s = j.settings;
         setDomainSoundOn(s.sound_enabled !== false);
         setDomainTradeChatOn(s.trade_chat_enabled !== false);
@@ -126,7 +134,7 @@ export function NotificationsSettingsContent() {
           typeof s.quiet_hours_end === "string" && s.quiet_hours_end.trim() ? s.quiet_hours_end : "08:00"
         );
       } catch {
-        /* ignore */
+        if (!cancelled) setDomainError(true);
       } finally {
         if (!cancelled) setDomainLoaded(true);
       }
@@ -134,7 +142,14 @@ export function NotificationsSettingsContent() {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, domainReloadKey]);
+
+  const retryDomain = useCallback(() => {
+    invalidateMeNotificationSettingsGetFlight();
+    setDomainError(false);
+    setDomainLoaded(false);
+    setDomainReloadKey((k) => k + 1);
+  }, []);
 
   const patchDomain = useCallback(async (partial: Record<string, boolean | string | null>) => {
     try {
@@ -316,7 +331,15 @@ export function NotificationsSettingsContent() {
             </div>
           </div>
         ) : null}
-        {domainLoaded ? (
+        {domainLoaded && domainError ? (
+          <div className="border-b border-sam-border-soft px-3 py-2.5">
+            <p className="text-[12px] leading-snug text-sam-danger">{t("settings_notif_domain_load_failed")}</p>
+            <button type="button" className="sam-btn sam-btn--secondary sam-btn--sm mt-2" onClick={retryDomain}>
+              {t("common_retry")}
+            </button>
+          </div>
+        ) : null}
+        {domainLoaded && !domainError ? (
           <>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
               <p className="mb-2 text-[11px] leading-snug text-sam-muted">{t("settings_notif_domain_hint")}</p>

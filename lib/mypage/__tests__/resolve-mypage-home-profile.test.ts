@@ -26,7 +26,7 @@ describe("resolveMypageHomeProfileResult", () => {
     isMeProfileFullFetchSkippable.mockReturnValue(false);
   });
 
-  it("classifies 500 as session_broken for re-login UX", async () => {
+  it("classifies 500 as fetch_failed (retry, not re-login)", async () => {
     fetchMeProfileDeduped.mockResolvedValue({
       status: 500,
       json: { ok: false, error: "Invalid UTF-8 sequence" },
@@ -35,7 +35,7 @@ describe("resolveMypageHomeProfileResult", () => {
       "@/lib/mypage/resolve-mypage-home-profile"
     );
     const result = await resolveMypageHomeProfileResult();
-    expect(result).toEqual({ ok: false, kind: "session_broken", status: 500 });
+    expect(result).toEqual({ ok: false, kind: "fetch_failed", status: 500 });
   });
 
   it("classifies 401 as unauthenticated", async () => {

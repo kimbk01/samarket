@@ -11,7 +11,7 @@ export function useCommerceHubTabFetch<T>(opts: {
   enabled: boolean;
   refresh?: boolean;
   fetcher: (signal: AbortSignal) => Promise<T>;
-}): { data: T | null; ready: boolean; authed: boolean; reload: () => void } {
+}): { data: T | null; ready: boolean; authed: boolean; error: boolean; reload: () => void } {
   const { cacheKey, enabled, refresh, fetcher } = opts;
   const [data, setData] = useState<T | null>(() => {
     if (refresh) return null;
@@ -23,13 +23,17 @@ export function useCommerceHubTabFetch<T>(opts: {
     return sessionCache.has(cacheKey);
   });
   const [authed, setAuthed] = useState(true);
+  /** 조회 실패 — 빈 목록과 구분해 오류·다시 시도로 표시. 실패 결과는 캐시하지 않는다 */
+  const [error, setError] = useState(false);
+  /** reload() 마다 증가 — 같은 cacheKey 로 다시 조회하게 한다 */
+  const [reloadNonce, setReloadNonce] = useState(0);
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
+  /** 기존 목록은 유지한 채 다시 조회(전체 로딩으로 비우지 않음) */
   const reload = useCallback(() => {
     sessionCache.delete(cacheKey);
-    setReady(false);
-    setData(null);
+    setReloadNonce((n) => n + 1);
   }, [cacheKey]);
 
   useEffect(() => {
@@ -43,7 +47,6 @@ export function useCommerceHubTabFetch<T>(opts: {
 
     const ac = new AbortController();
     let active = true;
-    setReady(false);
 
     void (async () => {
       try {
@@ -52,11 +55,12 @@ export function useCommerceHubTabFetch<T>(opts: {
         sessionCache.set(cacheKey, { data: result, fetchedAt: Date.now() });
         setData(result);
         setAuthed(true);
+        setError(false);
         setReady(true);
       } catch (err) {
         if (!active || ac.signal.aborted) return;
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setData(null);
+        setError(true);
         setReady(true);
       }
     })();
@@ -65,9 +69,9 @@ export function useCommerceHubTabFetch<T>(opts: {
       active = false;
       ac.abort();
     };
-  }, [cacheKey, enabled, refresh]);
+  }, [cacheKey, enabled, refresh, reloadNonce]);
 
-  return { data, ready, authed, reload };
+  return { data, ready, authed, error, reload };
 }
 
 export function markCommerceHubFetchUnauthed(cacheKey: string): void {
