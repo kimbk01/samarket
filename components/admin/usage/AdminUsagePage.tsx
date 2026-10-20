@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { UsageCostCards } from "./UsageCostCards";
 import { loadUsageOpsFromServer } from "@/lib/usage/usage-ops-sync-client";
 
 export function AdminUsagePage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -19,9 +20,7 @@ export function AdminUsagePage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_dev_usage" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
       </>
     );
   }

@@ -17,6 +17,7 @@ import type {
 } from "@/lib/types/qa-board";
 import Link from "next/link";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function QaTestCaseTable() {
   const { t } = useI18n();
   const [status, setStatus] = useState<QaTestCaseStatus | "">("");
@@ -88,9 +89,9 @@ export function QaTestCaseTable() {
               key={c.id}
               className={`border-b border-sam-border-soft ${
                 c.isMustPass && (c.status === "failed" || c.status === "blocked")
-                  ? "bg-red-50/30"
+                  ? "bg-sam-danger-soft/30"
                   : c.status === "failed" || c.status === "blocked"
-                    ? "bg-amber-50/20"
+                    ? "bg-sam-warning-soft/20"
                     : ""
               }`}
             >
@@ -101,11 +102,11 @@ export function QaTestCaseTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     c.status === "passed"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : c.status === "failed"
-                        ? "bg-red-100 text-red-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
                         : c.status === "blocked"
-                          ? "bg-amber-100 text-amber-800"
+                          ? "bg-sam-warning-soft text-sam-warning"
                           : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
@@ -117,7 +118,7 @@ export function QaTestCaseTable() {
               </td>
               <td className="px-3 py-2.5">
                 {c.isMustPass ? (
-                  <span className="rounded bg-red-100 px-1.5 py-0.5 sam-text-helper text-red-800">
+                  <span className="rounded bg-sam-danger-soft px-1.5 py-0.5 sam-text-helper text-sam-danger">
                     필수
                   </span>
                 ) : (
@@ -129,7 +130,7 @@ export function QaTestCaseTable() {
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {c.executedAt
-                  ? new Date(c.executedAt).toLocaleString()
+                  ? formatAdminManilaDateTime(c.executedAt)
                   : "-"}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">

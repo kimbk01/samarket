@@ -28,7 +28,7 @@ export function OpsCarryOverBoard() {
           return (
             <div
               key={e.id}
-              className="rounded-ui-rect border border-amber-200 bg-amber-50/50 p-4"
+              className="rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft/50 p-4"
             >
               <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
                 <span>{getCadenceLabel(e.periodType as "weekly" | "monthly" | "quarterly")}</span>

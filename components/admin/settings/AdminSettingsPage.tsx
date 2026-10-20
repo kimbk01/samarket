@@ -23,9 +23,12 @@ import { ChatPolicyForm } from "./ChatPolicyForm";
 import { ReportPolicyForm } from "./ReportPolicyForm";
 import { TrustPolicyForm } from "./TrustPolicyForm";
 import { RegionPolicyForm } from "./RegionPolicyForm";
-import Link from "next/link";
 import { SettingChangeLogList } from "./SettingChangeLogList";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 
 function getDisplaySettings(
   settings: AppSettings,
@@ -35,7 +38,8 @@ function getDisplaySettings(
 }
 
 export function AdminSettingsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language === "ko";
   // localStorage는 클라 전용이라 SSR·첫 클램프와 값이 달라지면 하이드레이션 오류가 난다.
   // 기본값으로 첫 페인트를 맞춘 뒤 마운트 후에만 저장본을 불러온다.
   const [settings, setSettings] = useState<AppSettings>(() => ({ ...DEFAULT_APP_SETTINGS }));
@@ -43,6 +47,7 @@ export function AdminSettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingsSectionKey>("general");
   const [logRefreshKey, setLogRefreshKey] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
 
   useEffect(() => {
     void loadAppSettingsFromServer().then(() => {
@@ -73,9 +78,19 @@ export function AdminSettingsPage() {
       (toSave as Record<string, string | number | boolean | undefined>)[k] = draft[k];
     });
     if (Object.keys(toSave).length === 0) return;
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "설정 저장" : "Save settings",
+      description: ko ? "변경한 설정을 서비스에 반영합니다." : "Applies the changed settings to the service.",
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
     setSaving(true);
+    setResult(null);
     const r = await persistAppSettingsToServer(toSave);
     setSaving(false);
+    setResult(r.ok ? { ok: true, message: ko ? "저장했습니다." : "Saved." } : { ok: false, code: r.error ?? "save_failed" });
     if (r.ok) {
       setSettings(getAppSettings());
       setDraft((prev) => {
@@ -85,12 +100,22 @@ export function AdminSettingsPage() {
       });
       setLogRefreshKey((k) => k + 1);
     }
-  }, [sectionKeys, draft]);
+  }, [sectionKeys, draft, ko]);
 
   const handleReset = useCallback(async () => {
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "이 탭 설정 초기화" : "Reset this tab's settings",
+      description: ko ? "이 탭의 설정을 기본값으로 되돌립니다." : "Restores this tab's settings to defaults.",
+      confirmLabel: adminCta("reset", ko),
+    });
+    if (!confirmed.ok) return;
     setSaving(true);
+    setResult(null);
     const r = await resetAppSettingsSectionOnServer(sectionKeys);
     setSaving(false);
+    setResult(r.ok ? { ok: true, message: ko ? "초기화했습니다." : "Reset done." } : { ok: false, code: r.error ?? "save_failed" });
     if (r.ok) {
       setSettings(getAppSettings());
       setDraft((prev) => {
@@ -100,7 +125,7 @@ export function AdminSettingsPage() {
       });
       setLogRefreshKey((k) => k + 1);
     }
-  }, [sectionKeys]);
+  }, [sectionKeys, ko]);
 
   return (
     <div className="space-y-4">
@@ -133,37 +158,30 @@ export function AdminSettingsPage() {
         {activeSection === "categories" && (
           <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
             <p className="sam-text-body text-sam-fg">{t("admin_settings_categories_desc")}</p>
-            <Link
-              href="/admin/categories"
-              className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
-            >
+            <AdminActionLink href="/admin/categories" variant="primary" className="mt-3">
               {t("admin_settings_categories_link")}
-            </Link>
+            </AdminActionLink>
           </div>
         )}
 
         {activeSection !== "categories" && (
         <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-sam-border-soft pt-4">
           {isDirty && (
-            <span className="sam-text-body-secondary text-amber-600">{t("admin_settings_unsaved")}</span>
+            <span className="sam-text-body-secondary text-sam-warning">{t("admin_settings_unsaved")}</span>
           )}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!isDirty || saving}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {t("common_save")}
-          </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
-          >
-            {t("admin_settings_reset")}
-          </button>
+          <AdminActionButton variant="secondary" onClick={() => void handleReset()} disabled={saving}>
+            {adminCta("reset", ko)}
+          </AdminActionButton>
+          <AdminActionButton variant="primary" onClick={() => void handleSave()} disabled={!isDirty || saving}>
+            {adminCta("save", ko)}
+          </AdminActionButton>
         </div>
         )}
+        {result ? (
+          <div className="mt-3">
+            <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
+          </div>
+        ) : null}
       </AdminCard>
 
       <AdminCard titleKey="admin_settings_changelog_title">

@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getOpsMonthlyNotes } from "@/lib/ops-routines/ops-routines-state";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OpsMonthlyNoteList() {
   const { t } = useI18n();
   const [monthKey, setMonthKey] = useState<string>("");
@@ -51,7 +52,7 @@ export function OpsMonthlyNoteList() {
                 <span>{n.monthKey}</span>
                 <span>
                   {n.createdByAdminNickname} ·{" "}
-                  {new Date(n.createdAt).toLocaleString()}
+                  {formatAdminManilaDateTime(n.createdAt)}
                 </span>
               </div>
               <p className="mt-2 sam-text-body font-medium text-sam-fg">{t("admin_ops_tools_board_label_summary")}</p>

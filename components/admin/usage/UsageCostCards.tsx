@@ -13,7 +13,7 @@ export function UsageCostCards() {
   return (
     <div className="space-y-4">
       {surge && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50/50 p-3 sam-text-body-secondary font-medium text-amber-800">
+        <div className="rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft/50 p-3 sam-text-body-secondary font-medium text-sam-warning">
           {t("admin_usage_surge_warning")}
         </div>
       )}

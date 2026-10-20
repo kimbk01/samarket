@@ -15,6 +15,7 @@ import type {
 } from "@/lib/types/dev-sprints";
 import Link from "next/link";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function PostReleaseCheckTable() {
   const { t } = useI18n();
   const [versionFilter, setVersionFilter] = useState<string>("");
@@ -89,7 +90,7 @@ export function PostReleaseCheckTable() {
       </div>
 
       {criticalBlocked.length > 0 && (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50/50 p-3 sam-text-body-secondary text-red-800">
+        <div className="rounded-ui-rect border border-sam-danger/40 bg-sam-danger-soft/50 p-3 sam-text-body-secondary text-sam-danger">
           {t("admin_rel_post_critical_blocked", { count: criticalBlocked.length })}
         </div>
       )}
@@ -116,7 +117,7 @@ export function PostReleaseCheckTable() {
               key={c.id}
               className={`border-b border-sam-border-soft ${
                 c.status === "blocked" && c.priority === "critical"
-                  ? "bg-red-50/30"
+                  ? "bg-sam-danger-soft/30"
                   : ""
               }`}
             >
@@ -133,9 +134,9 @@ export function PostReleaseCheckTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     c.status === "blocked"
-                      ? "bg-red-100 text-red-800"
+                      ? "bg-sam-danger-soft text-sam-danger"
                       : c.status === "done"
-                        ? "bg-emerald-50 text-emerald-700"
+                        ? "bg-sam-success-soft text-sam-success"
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
@@ -150,7 +151,7 @@ export function PostReleaseCheckTable() {
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {c.checkedAt
-                  ? new Date(c.checkedAt).toLocaleString()
+                  ? formatAdminManilaDateTime(c.checkedAt)
                   : "-"}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary">

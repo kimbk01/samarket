@@ -47,8 +47,8 @@ export function BatteryPolicyReferencePanel() {
         <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_settings_battery_ref_intro")}</p>
       </div>
 
-      <section className="rounded-ui-rect border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm">
-        <h4 className="sam-text-body-secondary font-semibold text-emerald-900">
+      <section className="rounded-ui-rect border border-sam-success/40 bg-sam-success-soft/50 p-4 shadow-sm">
+        <h4 className="sam-text-body-secondary font-semibold text-sam-success">
           {t("admin_settings_battery_ref_s0_title")}
         </h4>
         <ul className="mt-2 space-y-1.5 sam-text-body-secondary text-sam-fg">
@@ -80,7 +80,7 @@ export function BatteryPolicyReferencePanel() {
       </section>
 
       <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
-        <h4 className="sam-text-body-secondary font-semibold text-amber-900">
+        <h4 className="sam-text-body-secondary font-semibold text-sam-warning">
           {t("admin_settings_battery_ref_s2_title")}
         </h4>
         <p className="mt-2 sam-text-body-secondary text-sam-fg">{t("admin_settings_battery_ref_s2_intro")}</p>
@@ -97,7 +97,7 @@ export function BatteryPolicyReferencePanel() {
       </section>
 
       <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
-        <h4 className="sam-text-body-secondary font-semibold text-sky-900">
+        <h4 className="sam-text-body-secondary font-semibold text-sam-info">
           {t("admin_settings_battery_ref_s3_title")}
         </h4>
         <p className="mt-2 sam-text-body-secondary text-sam-fg">{t("admin_settings_battery_ref_s3_intro")}</p>
@@ -229,7 +229,7 @@ export function BatteryPolicyReferencePanel() {
               <MannerBatteryIcon tier={preview.tier} percent={preview.percent} size="md" />
             </div>
           ) : (
-            <p className="sam-text-helper text-red-600">{t("admin_settings_battery_ref_invalid_number")}</p>
+            <p className="sam-text-helper text-sam-danger">{t("admin_settings_battery_ref_invalid_number")}</p>
           )}
         </div>
       </section>

@@ -108,7 +108,7 @@ export function GeneralSettingsForm({ values, onChange }: GeneralSettingsFormPro
           className="mt-2 block w-full max-w-xs sam-text-body-secondary text-sam-muted file:mr-2 file:rounded file:border-0 file:bg-signature file:px-3 file:py-1.5 file:sam-text-body-secondary file:text-white file:hover:opacity-90"
         />
         {values.alarmSoundDataUrl ? (
-          <p className="mt-2 sam-text-helper text-green-600">{t("admin_settings_alarm_configured")}</p>
+          <p className="mt-2 sam-text-helper text-sam-success">{t("admin_settings_alarm_configured")}</p>
         ) : (
           <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_settings_alarm_not_configured")}</p>
         )}

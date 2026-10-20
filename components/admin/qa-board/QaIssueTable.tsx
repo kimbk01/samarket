@@ -89,7 +89,7 @@ export function QaIssueTable() {
               key={l.id}
               className={`border-b border-sam-border-soft ${
                 l.severity === "critical" && !["fixed", "verified", "wont_fix"].includes(l.status)
-                  ? "bg-red-50/30"
+                  ? "bg-sam-danger-soft/30"
                   : ""
               }`}
             >
@@ -100,9 +100,9 @@ export function QaIssueTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     l.severity === "critical"
-                      ? "bg-red-100 text-red-800"
+                      ? "bg-sam-danger-soft text-sam-danger"
                       : l.severity === "high"
-                        ? "bg-amber-100 text-amber-800"
+                        ? "bg-sam-warning-soft text-sam-warning"
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
@@ -113,9 +113,9 @@ export function QaIssueTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     l.status === "verified"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : l.status === "open"
-                        ? "bg-red-100 text-red-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >

@@ -15,7 +15,7 @@ function deltaBadge(current: number, previous: number, lowerIsBetter = false): R
   if (delta === 0) return <span className="text-sam-muted">-</span>;
   const good = lowerIsBetter ? delta < 0 : delta > 0;
   return (
-    <span className={good ? "text-emerald-600" : "text-red-600"}>
+    <span className={good ? "text-sam-success" : "text-sam-danger"}>
       {delta > 0 ? "+" : ""}{(delta * 100).toFixed(1)}%
     </span>
   );
@@ -87,9 +87,9 @@ export function OpsTeamKpiTable() {
                 <td className="px-3 py-2.5 text-right">
                   {key === "incidentAvgResolutionMinutes"
                     ? (current - previous < 0 ? (
-                        <span className="text-emerald-600">{t("admin_ops_tools_maturity_improved")}</span>
+                        <span className="text-sam-success">{t("admin_ops_tools_maturity_improved")}</span>
                       ) : (
-                        <span className="text-red-600">{t("admin_ops_tools_maturity_worsened")}</span>
+                        <span className="text-sam-danger">{t("admin_ops_tools_maturity_worsened")}</span>
                       ))
                     : deltaBadge(current, previous, lowerIsBetter)}
                 </td>

@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import { getSlowQueries } from "@/lib/performance/performance-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function SlowQueryTable() {
   const { t } = useI18n();
   const queries = useMemo(() => getSlowQueries(), []);
@@ -26,7 +27,7 @@ export function SlowQueryTable() {
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">{q.duration}</td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">{q.route}</td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(q.detectedAt).toLocaleString()}
+                {formatAdminManilaDateTime(q.detectedAt)}
               </td>
             </tr>
           ))}

@@ -53,7 +53,7 @@ export function SecurityIssueList() {
                 key={i.id}
                 className={`rounded-ui-rect border p-4 ${
                   i.severity === "critical" && i.status === "open"
-                    ? "border-red-200 bg-red-50/30"
+                    ? "border-sam-danger/40 bg-sam-danger-soft/30"
                     : "border-sam-border bg-sam-surface"
                 }`}
               >
@@ -64,9 +64,9 @@ export function SecurityIssueList() {
                   <span
                     className={`rounded px-1.5 py-0.5 ${
                       i.severity === "critical"
-                        ? "bg-red-100 text-red-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
                         : i.severity === "high"
-                          ? "bg-amber-100 text-amber-800"
+                          ? "bg-sam-warning-soft text-sam-warning"
                           : "bg-sam-surface-muted text-sam-muted"
                     }`}
                   >
@@ -75,8 +75,8 @@ export function SecurityIssueList() {
                   <span
                     className={`rounded px-1.5 py-0.5 ${
                       i.status === "fixed"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-amber-50 text-amber-700"
+                        ? "bg-sam-success-soft text-sam-success"
+                        : "bg-sam-warning-soft text-sam-warning"
                     }`}
                   >
                     {getIssueStatusLabel(i.status)}

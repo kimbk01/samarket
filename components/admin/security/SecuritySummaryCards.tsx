@@ -39,9 +39,9 @@ export function SecuritySummaryCards() {
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <p className="sam-text-helper text-sam-muted">{t("admin_security_safe_warning_critical")}</p>
         <p className="sam-text-body text-sam-fg">
-          <span className="text-emerald-600">{summary.safe}</span> /{" "}
-          <span className="text-amber-600">{summary.warning}</span> /{" "}
-          <span className="text-red-600">{summary.critical}</span>
+          <span className="text-sam-success">{summary.safe}</span> /{" "}
+          <span className="text-sam-warning">{summary.warning}</span> /{" "}
+          <span className="text-sam-danger">{summary.critical}</span>
         </p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -54,7 +54,7 @@ export function SecuritySummaryCards() {
         <p className="sam-text-helper text-sam-muted">{t("admin_critical_issues")}</p>
         <p
           className={`sam-text-page-title font-semibold ${
-            summary.criticalIssues > 0 ? "text-red-600" : "text-sam-fg"
+            summary.criticalIssues > 0 ? "text-sam-danger" : "text-sam-fg"
           }`}
         >
           {summary.criticalIssues}건

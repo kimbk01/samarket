@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getOperationStatus, getSystemHealth } from "@/lib/system/system-state";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OperationStatusCards() {
   const { t } = useI18n();
   const status = useMemo(() => getOperationStatus(), []);
@@ -33,7 +34,7 @@ export function OperationStatusCards() {
           <p className="sam-text-helper text-sam-muted">{t("admin_system_ops_readiness")}</p>
           <p
             className={`sam-text-body font-semibold ${
-              readiness ? "text-emerald-600" : "text-amber-600"
+              readiness ? "text-sam-success" : "text-sam-warning"
             }`}
           >
             {readiness ? t("admin_system_ops_ready") : t("admin_system_ops_needs_check")}
@@ -41,13 +42,13 @@ export function OperationStatusCards() {
         </div>
       </div>
       {readyForScale && (
-        <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/50 p-4 text-center">
-          <p className="sam-text-page-title font-semibold text-emerald-800">READY FOR SCALE</p>
-          <p className="mt-1 sam-text-body-secondary text-emerald-700">{t("admin_system_ops_scale_subtitle")}</p>
+        <div className="rounded-ui-rect border border-sam-success/40 bg-sam-success-soft/50 p-4 text-center">
+          <p className="sam-text-page-title font-semibold text-sam-success">READY FOR SCALE</p>
+          <p className="mt-1 sam-text-body-secondary text-sam-success">{t("admin_system_ops_scale_subtitle")}</p>
         </div>
       )}
       <p className="sam-text-helper text-sam-muted">
-        {t("admin_system_ops_last_updated")} {new Date(status.lastUpdatedAt).toLocaleString()}
+        {t("admin_system_ops_last_updated")} {formatAdminManilaDateTime(status.lastUpdatedAt)}
       </p>
     </div>
   );

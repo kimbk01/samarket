@@ -58,7 +58,7 @@ export function ReleaseArchiveTable() {
             <tr
               key={a.id}
               className={`border-b border-sam-border-soft ${
-                a.releaseStatus === "rolled_back" ? "bg-red-50/30" : ""
+                a.releaseStatus === "rolled_back" ? "bg-sam-danger-soft/30" : ""
               }`}
             >
               <td className="px-3 py-2.5 font-medium text-sam-fg">
@@ -74,13 +74,13 @@ export function ReleaseArchiveTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     a.releaseStatus === "rolled_back"
-                      ? "bg-red-100 text-red-800"
+                      ? "bg-sam-danger-soft text-sam-danger"
                       : a.releaseStatus === "active"
-                        ? "bg-blue-50 text-blue-700"
+                        ? "bg-sam-info-soft text-sam-info"
                         : a.releaseStatus === "stable"
-                          ? "bg-emerald-50 text-emerald-700"
+                          ? "bg-sam-success-soft text-sam-success"
                           : a.releaseStatus === "hotfix"
-                            ? "bg-amber-50 text-amber-700"
+                            ? "bg-sam-warning-soft text-sam-warning"
                             : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >

@@ -20,9 +20,9 @@ export function OpsRoadmapCard({ item }: OpsRoadmapCardProps) {
     <div
       className={`rounded-ui-rect border p-4 ${
         item.status === "blocked"
-          ? "border-red-200 bg-red-50/50"
+          ? "border-sam-danger/40 bg-sam-danger-soft/50"
           : item.status === "completed"
-            ? "border-emerald-200 bg-emerald-50/30"
+            ? "border-sam-success/40 bg-sam-success-soft/30"
             : "border-sam-border bg-sam-surface"
       }`}
     >

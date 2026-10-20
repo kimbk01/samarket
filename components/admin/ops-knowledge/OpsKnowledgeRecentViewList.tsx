@@ -10,6 +10,7 @@ import Link from "next/link";
 import { getOpsKnowledgeRecentViews } from "@/lib/ops-knowledge/ops-knowledge-state";
 import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OpsKnowledgeRecentViewList() {
   const { t } = useI18n();
   const views = useMemo(
@@ -36,7 +37,7 @@ export function OpsKnowledgeRecentViewList() {
               {doc?.title ?? v.documentId}
             </Link>
             <span className="shrink-0 sam-text-helper text-sam-muted">
-              {t(opsToolsLabel(OPS_TOOLS_KB_SOURCE_KEYS, v.sourceType))} · {new Date(v.viewedAt).toLocaleString("ko-KR")}
+              {t(opsToolsLabel(OPS_TOOLS_KB_SOURCE_KEYS, v.sourceType))} · {formatAdminManilaDateTime(v.viewedAt)}
             </span>
           </li>
         );

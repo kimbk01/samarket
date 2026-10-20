@@ -9,7 +9,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminLoadingState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type {
   DataResetDomain,
   DataResetDomainSummaryRow,
@@ -268,10 +273,15 @@ export function AdminDataResetPage() {
       return;
     }
     if (
-      !(await dibayConfirm({
-        title: ko ? "초기화를 실행할까요? (복구 불가)" : "Execute reset? (irreversible)",
-        confirmTone: "destructive",
-      }))
+      !(
+        await confirmAdminAction({
+          level: "L1",
+          ko,
+          title: ko ? "초기화를 실행할까요? (복구 불가)" : "Execute reset? (irreversible)",
+          confirmLabel: ko ? "초기화 진행" : "Execute",
+          destructive: true,
+        })
+      ).ok
     ) {
       return;
     }
@@ -348,18 +358,18 @@ export function AdminDataResetPage() {
       />
 
       {error ? (
-        <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">{error}</p>
+        <AdminResultBanner ko={ko} result={{ ok: false, code: error }} onClose={() => setError(null)} />
       ) : null}
       {resultMsg ? (
         <p className="rounded border border-sam-border bg-sam-app px-3 py-2 text-sm text-sam-fg">
-          {resultMsg}
+          {adminOperatorErrorMessage(resultMsg, ko)}
         </p>
       ) : null}
 
       {view === "list" ? (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           {loading ? (
-            <p className="p-4 text-sm text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p>
+            <AdminLoadingState ko={ko} />
           ) : (
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-sam-border bg-sam-app text-sam-muted">
@@ -388,12 +398,12 @@ export function AdminDataResetPage() {
                             : "OK"}
                     </td>
                     <td className="px-3 py-2 tabular-nums text-sam-fg">
-                      {r.primaryCount.toLocaleString()}
+                      {formatAdminNumber(r.primaryCount)}
                     </td>
                     <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        className="rounded border border-sam-border px-2 py-1 text-sam-fg hover:bg-sam-app"
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setDomain(r.domain);
                           setScopeIdx(0);
@@ -402,8 +412,8 @@ export function AdminDataResetPage() {
                           setView("detail");
                         }}
                       >
-                        {ko ? "상세" : "Detail"}
-                      </button>
+                        {adminCta("detail", ko)}
+                      </AdminActionButton>
                     </td>
                   </tr>
                 ))}
@@ -417,12 +427,12 @@ export function AdminDataResetPage() {
           ) : null}
 
           <div className="border-t border-sam-border px-3 py-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-800">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-sam-danger">
               {ko ? "고위험 작업" : "High-risk"}
             </p>
-            <button
-              type="button"
-              className="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-900 hover:bg-red-100"
+            <AdminActionButton
+              variant="secondary"
+              className="border-sam-danger/40 text-sam-danger"
               onClick={() => {
                 setDomain("full");
                 setScopeIdx(0);
@@ -432,7 +442,7 @@ export function AdminDataResetPage() {
               {ko
                 ? "Full Service Reset (고위험 · 실측 미증명)"
                 : "Full Service Reset (high-risk · not runtime-proven)"}
-            </button>
+            </AdminActionButton>
             <p className="mt-2 text-xs text-sam-muted">
               {ko
                 ? "미리보기는 가능합니다. Production 파괴 실행은 기본 비활성이며 운영 실측은 아직 없습니다."
@@ -444,16 +454,16 @@ export function AdminDataResetPage() {
 
       {view === "detail" && domain ? (
         <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <button
-            type="button"
-            className="text-sm text-sam-muted underline"
+          <AdminActionButton
+            variant="quiet"
+            size="sm"
             onClick={() => {
               setView("list");
               setPlan(null);
             }}
           >
             ← {ko ? "목록" : "List"}
-          </button>
+          </AdminActionButton>
           <h2 className="text-base font-semibold text-sam-fg">
             {ko
               ? rows.find((r) => r.domain === domain)?.labelKo ?? domain
@@ -464,7 +474,7 @@ export function AdminDataResetPage() {
               {Object.entries(rows.find((r) => r.domain === domain)!.detailCounts).map(
                 ([k, v]) => (
                   <li key={k}>
-                    {k}: <span className="tabular-nums text-sam-fg">{v.toLocaleString()}</span>
+                    {k}: <span className="tabular-nums text-sam-fg">{formatAdminNumber(v)}</span>
                   </li>
                 )
               )}
@@ -502,7 +512,7 @@ export function AdminDataResetPage() {
             <p
               className={
                 scopeExecuteBlocked
-                  ? "rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-sm text-amber-950"
+                  ? "rounded border border-sam-warning/40 bg-sam-warning-soft px-2 py-1.5 text-sm text-sam-warning"
                   : "rounded border border-sam-border bg-sam-app px-2 py-1.5 text-sm text-sam-muted"
               }
             >
@@ -510,26 +520,21 @@ export function AdminDataResetPage() {
             </p>
           ) : null}
 
-          <button
-            type="button"
+          <AdminActionButton
+            variant="primary"
             disabled={busy || (needsEntity && !entityId.trim())}
             onClick={() => void runPreview()}
-            className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-950 hover:bg-amber-100 disabled:opacity-40"
           >
-            {busy ? "…" : ko ? "미리보기 (Preview)" : "Preview"}
-          </button>
+            {ko ? "미리보기 (Preview)" : "Preview"}
+          </AdminActionButton>
         </div>
       ) : null}
 
       {view === "preview" && plan ? (
         <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <button
-            type="button"
-            className="text-sm text-sam-muted underline"
-            onClick={() => setView("detail")}
-          >
-            ← {ko ? "상세" : "Detail"}
-          </button>
+          <AdminActionButton variant="quiet" size="sm" onClick={() => setView("detail")}>
+            ← {adminCta("detail", ko)}
+          </AdminActionButton>
           <h2 className="text-base font-semibold text-sam-fg">
             {ko ? "초기화 미리보기" : "Reset Preview"}
           </h2>
@@ -543,7 +548,7 @@ export function AdminDataResetPage() {
             <ul className="text-sm text-sam-muted">
               {Object.entries(plan.deleteCounts).map(([k, v]) => (
                 <li key={k}>
-                  {k}: {v.toLocaleString()}
+                  {k}: {formatAdminNumber(v)}
                 </li>
               ))}
               {!Object.keys(plan.deleteCounts).length ? <li>—</li> : null}
@@ -555,7 +560,7 @@ export function AdminDataResetPage() {
               {Object.entries({ ...plan.softDeleteCounts, ...plan.detachCounts }).map(
                 ([k, v]) => (
                   <li key={k}>
-                    {k}: {v.toLocaleString()}
+                    {k}: {formatAdminNumber(v)}
                   </li>
                 )
               )}
@@ -595,7 +600,7 @@ export function AdminDataResetPage() {
             </ul>
           </section>
           {plan.blockers.length || scopeExecuteBlocked ? (
-            <p className="rounded border border-red-200 bg-red-50 px-2 py-1 text-sm text-red-900">
+            <p className="rounded border border-sam-danger/40 bg-sam-danger-soft px-2 py-1 text-sm text-sam-danger">
               {ko ? "실행 차단" : "Execute blocked"}
               {": "}
               {scopeExecuteBlocked
@@ -631,16 +636,11 @@ export function AdminDataResetPage() {
           </p>
 
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setView("detail")}
-              className="rounded border border-sam-border px-3 py-1.5 text-sm"
-            >
-              {ko ? "취소" : "Cancel"}
-            </button>
-            <button
-              type="button"
+            <AdminActionButton variant="secondary" disabled={busy} onClick={() => setView("detail")}>
+              {adminCta("cancel", ko)}
+            </AdminActionButton>
+            <AdminActionButton
+              variant="danger"
               disabled={
                 busy ||
                 scopeExecuteBlocked ||
@@ -649,13 +649,12 @@ export function AdminDataResetPage() {
                 typed.trim() !== plan.typedConfirmationPhrase
               }
               onClick={() => void runExecute()}
-              className="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-900 hover:bg-red-100 disabled:opacity-40"
             >
-              {busy ? "…" : ko ? "초기화 진행" : "Execute"}
-            </button>
+              {ko ? "초기화 진행" : "Execute"}
+            </AdminActionButton>
           </div>
           {scopeExecuteBlocked || !plan.executeAllowed || plan.blockers.length > 0 ? (
-            <p className="text-xs text-amber-800">
+            <p className="text-xs text-sam-warning">
               {executeUnavailableMessage(
                 plan,
                 ko,

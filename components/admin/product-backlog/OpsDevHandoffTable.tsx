@@ -77,11 +77,11 @@ export function OpsDevHandoffTable() {
                   <span
                     className={`rounded px-1.5 py-0.5 sam-text-helper ${
                       h.handoffStatus === "shipped"
-                        ? "bg-emerald-50 text-emerald-700"
+                        ? "bg-sam-success-soft text-sam-success"
                         : h.handoffStatus === "in_progress" || h.handoffStatus === "accepted"
-                          ? "bg-blue-50 text-blue-700"
+                          ? "bg-sam-info-soft text-sam-info"
                           : h.handoffStatus === "returned"
-                            ? "bg-red-50 text-red-700"
+                            ? "bg-sam-danger-soft text-sam-danger"
                             : "bg-sam-surface-muted text-sam-muted"
                     }`}
                   >

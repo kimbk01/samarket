@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { getOpsKnowledgeRecommendationLogs } from "@/lib/ops-knowledge/ops-knowledge-state";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OpsKnowledgeRecommendationLogTable() {
   const { t } = useI18n();
   const logs = useMemo(() => getOpsKnowledgeRecommendationLogs({ limit: 30 }), []);
@@ -55,13 +56,13 @@ export function OpsKnowledgeRecommendationLogTable() {
               </td>
               <td className="px-3 py-2.5">
                 {log.clicked ? (
-                  <span className="text-emerald-600">Y</span>
+                  <span className="text-sam-success">Y</span>
                 ) : (
                   <span className="text-sam-meta">N</span>
                 )}
               </td>
               <td className="px-3 py-2.5 text-sam-muted">
-                {new Date(log.createdAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(log.createdAt)}
               </td>
             </tr>
           ))}

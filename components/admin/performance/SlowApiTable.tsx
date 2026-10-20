@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { getPerformanceMetrics } from "@/lib/performance/performance-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 const SLOW_THRESHOLD_MS = 500;
 
 export function SlowApiTable() {
@@ -33,7 +34,7 @@ export function SlowApiTable() {
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">{m.apiTime}</td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">{m.dbQueryTime}</td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(m.createdAt).toLocaleString()}
+                {formatAdminManilaDateTime(m.createdAt)}
               </td>
             </tr>
           ))}

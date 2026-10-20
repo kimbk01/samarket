@@ -26,14 +26,14 @@ export function ReleaseReadinessCard() {
     <div
       className={`rounded-ui-rect border p-4 ${
         readiness.ready
-          ? "border-emerald-200 bg-emerald-50/30"
-          : "border-red-200 bg-red-50/50"
+          ? "border-sam-success/40 bg-sam-success-soft/30"
+          : "border-sam-danger/40 bg-sam-danger-soft/50"
       }`}
     >
       <p className="sam-text-helper text-sam-muted">{t("admin_rel_readiness_label")}</p>
       <p
         className={`sam-text-page-title font-semibold ${
-          readiness.ready ? "text-emerald-700" : "text-red-700"
+          readiness.ready ? "text-sam-success" : "text-sam-danger"
         }`}
       >
         {readiness.ready ? t("admin_rel_readiness_ready") : t("admin_rel_readiness_blocked")}

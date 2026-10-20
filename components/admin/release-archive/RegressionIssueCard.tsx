@@ -9,6 +9,7 @@ import {
   REGRESSION_CATEGORY_KEYS,
 } from "@/components/admin/i18n/admin-release-label-keys";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 interface RegressionIssueCardProps {
   issue: ReleaseRegressionIssue;
   isRepeatingPattern?: boolean;
@@ -26,9 +27,9 @@ export function RegressionIssueCard({
     <div
       className={`rounded-ui-rect border p-4 ${
         isCritical && isOpen
-          ? "border-red-200 bg-red-50/50"
+          ? "border-sam-danger/40 bg-sam-danger-soft/50"
           : isRepeatingPattern
-            ? "border-amber-200 bg-amber-50/30"
+            ? "border-sam-warning/40 bg-sam-warning-soft/30"
             : "border-sam-border bg-sam-surface"
       }`}
     >
@@ -36,7 +37,7 @@ export function RegressionIssueCard({
         <span>{t(REGRESSION_CATEGORY_KEYS[issue.regressionCategory])}</span>
         <span
           className={`rounded px-1.5 py-0.5 ${
-            isCritical ? "bg-red-100 text-red-800" : "bg-sam-surface-muted text-sam-muted"
+            isCritical ? "bg-sam-danger-soft text-sam-danger" : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
           {t(REGRESSION_SEVERITY_KEYS[issue.severity])}
@@ -44,16 +45,16 @@ export function RegressionIssueCard({
         <span
           className={`rounded px-1.5 py-0.5 ${
             issue.status === "verified" || issue.status === "fixed"
-              ? "bg-emerald-50 text-emerald-700"
+              ? "bg-sam-success-soft text-sam-success"
               : issue.status === "detected" || issue.status === "investigating"
-                ? "bg-amber-50 text-amber-700"
+                ? "bg-sam-warning-soft text-sam-warning"
                 : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
           {t(REGRESSION_STATUS_KEYS[issue.status])}
         </span>
         {isRepeatingPattern && (
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
+          <span className="rounded bg-sam-warning-soft px-1.5 py-0.5 text-sam-warning">
             {t("admin_rel_repeat_pattern")}
           </span>
         )}
@@ -65,9 +66,9 @@ export function RegressionIssueCard({
         </p>
       )}
       <p className="mt-2 sam-text-helper text-sam-muted">
-        {t("admin_rel_detected_at", { at: new Date(issue.detectedAt).toLocaleString() })}
+        {t("admin_rel_detected_at", { at: formatAdminManilaDateTime(issue.detectedAt) })}
         {issue.fixedAt
-          ? t("admin_rel_fixed_at", { at: new Date(issue.fixedAt).toLocaleString() })
+          ? t("admin_rel_fixed_at", { at: formatAdminManilaDateTime(issue.fixedAt) })
           : null}
         {issue.ownerAdminNickname && ` · ${issue.ownerAdminNickname}`}
       </p>

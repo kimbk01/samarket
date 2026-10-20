@@ -23,10 +23,10 @@ export function PerformanceSummaryCards() {
         <span
           className={`rounded px-2 py-1 sam-text-body-secondary font-medium ${
             status === "healthy"
-              ? "bg-emerald-50 text-emerald-700"
+              ? "bg-sam-success-soft text-sam-success"
               : status === "warning"
-                ? "bg-amber-50 text-amber-700"
-                : "bg-red-100 text-red-800"
+                ? "bg-sam-warning-soft text-sam-warning"
+                : "bg-sam-danger-soft text-sam-danger"
           }`}
         >
           성능 상태: {status === "healthy" ? "양호" : status === "warning" ? "주의" : "위험"}

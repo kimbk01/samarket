@@ -30,7 +30,7 @@ export function ProductBacklogCard({ item }: ProductBacklogCardProps) {
         </span>
         <span>{getOwnerTypeLabel(t, item.ownerType)}</span>
         {impactEffort && (
-          <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">
+          <span className="rounded bg-sam-info-soft px-1.5 py-0.5 text-sam-info">
             {impactEffort}
           </span>
         )}
@@ -45,11 +45,11 @@ export function ProductBacklogCard({ item }: ProductBacklogCardProps) {
         <span
           className={`rounded px-1.5 py-0.5 ${
             item.status === "released"
-              ? "bg-emerald-50 text-emerald-700"
+              ? "bg-sam-success-soft text-sam-success"
               : item.status === "in_progress"
-                ? "bg-blue-50 text-blue-700"
+                ? "bg-sam-info-soft text-sam-info"
                 : item.status === "inbox"
-                  ? "bg-amber-50 text-amber-700"
+                  ? "bg-sam-warning-soft text-sam-warning"
                   : "bg-sam-surface-muted text-sam-muted"
           }`}
         >

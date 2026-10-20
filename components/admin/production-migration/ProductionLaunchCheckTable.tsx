@@ -18,6 +18,7 @@ import type {
 } from "@/lib/types/production-migration";
 import Link from "next/link";
 
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 export function ProductionLaunchCheckTable() {
   const { t } = useI18n();
   const [phase, setPhase] = useState<ProductionLaunchPhase | "">("");
@@ -34,18 +35,9 @@ export function ProductionLaunchCheckTable() {
       <div className="flex flex-wrap items-center gap-2">
         <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_readiness_k0e685c7c")}</span>
         {(["before_cutover", "cutover", "after_cutover"] as const).map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => setPhase(p === phase ? "" : p)}
-            className={`rounded border px-3 py-1.5 sam-text-body-secondary ${
-              phase === p
-                ? "border-signature bg-signature/10 text-signature"
-                : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
-            }`}
-          >
+          <AdminChipButton key={p} selected={phase === p} onClick={() => setPhase(p === phase ? "" : p)}>
             {getPhaseLabel(p)}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
 
@@ -74,7 +66,7 @@ export function ProductionLaunchCheckTable() {
             <tr
               key={c.id}
               className={`border-b border-sam-border-soft ${
-                c.status === "blocked" ? "bg-red-50/30" : ""
+                c.status === "blocked" ? "bg-sam-danger-soft/30" : ""
               }`}
             >
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
@@ -93,10 +85,10 @@ export function ProductionLaunchCheckTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     c.status === "done"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : c.status === "blocked"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
+                        : "bg-sam-warning-soft text-sam-warning"
                   }`}
                 >
                   {getLaunchStatusLabel(c.status)}

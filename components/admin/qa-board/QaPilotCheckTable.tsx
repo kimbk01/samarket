@@ -72,7 +72,7 @@ export function QaPilotCheckTable() {
             <tr
               key={c.id}
               className={`border-b border-sam-border-soft ${
-                c.status === "blocked" ? "bg-red-50/30" : ""
+                c.status === "blocked" ? "bg-sam-danger-soft/30" : ""
               }`}
             >
               <td className="px-3 py-2.5 font-medium text-sam-fg">
@@ -85,10 +85,10 @@ export function QaPilotCheckTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     c.status === "done"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : c.status === "blocked"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
+                        : "bg-sam-warning-soft text-sam-warning"
                   }`}
                 >
                   {getPilotStatusLabel(t, c.status)}

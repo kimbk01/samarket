@@ -5,14 +5,12 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getProductBacklogSummary } from "@/lib/product-backlog/product-backlog-summary";
 import { getProductBacklogItems } from "@/lib/product-backlog/product-backlog-state";
-import {
-  getCategoryLabel,
-  productBacklogDateLocale,
-} from "@/lib/product-backlog/product-backlog-utils";
+import { getCategoryLabel } from "@/lib/product-backlog/product-backlog-utils";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { ProductFeedbackCategory } from "@/lib/types/product-backlog";
 
 export function ProductBacklogSummaryCards() {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const summary = useMemo(() => getProductBacklogSummary(), []);
   const recommendedCount = useMemo(
     () =>
@@ -28,9 +26,9 @@ export function ProductBacklogSummaryCards() {
   const lastUpdated = useMemo(
     () =>
       t("admin_product_backlog_summary_last_updated", {
-        at: new Date(summary.latestUpdatedAt).toLocaleString(productBacklogDateLocale(language)),
+        at: formatAdminManilaDateTime(summary.latestUpdatedAt),
       }),
-    [t, language, summary.latestUpdatedAt]
+    [t, summary.latestUpdatedAt]
   );
 
   return (

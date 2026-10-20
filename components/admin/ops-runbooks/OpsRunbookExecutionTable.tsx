@@ -12,6 +12,7 @@ import Link from "next/link";
 import { getOpsRunbookExecutions } from "@/lib/ops-runbooks/ops-runbooks-state";
 import type { OpsRunbookExecutionStatus, OpsRunbookLinkedType } from "@/lib/types/ops-runbook";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 interface OpsRunbookExecutionTableProps {
   statusFilter?: OpsRunbookExecutionStatus | "";
   refresh?: number;
@@ -71,11 +72,11 @@ export function OpsRunbookExecutionTable({
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                     e.executionStatus === "completed"
-                      ? "bg-emerald-50 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : e.executionStatus === "in_progress"
-                        ? "bg-amber-50 text-amber-800"
+                        ? "bg-sam-warning-soft text-sam-warning"
                         : e.executionStatus === "aborted"
-                          ? "bg-red-50 text-red-800"
+                          ? "bg-sam-danger-soft text-sam-danger"
                           : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
@@ -83,7 +84,7 @@ export function OpsRunbookExecutionTable({
                 </span>
               </td>
               <td className="px-3 py-2.5 text-sam-muted">
-                {new Date(e.startedAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(e.startedAt)}
               </td>
               <td className="px-3 py-2.5 text-sam-muted">
                 {e.startedByAdminNickname}

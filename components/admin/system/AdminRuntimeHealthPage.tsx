@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import { AdminErrorState, AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import {
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 
 type RuntimeHealthPayload = {
@@ -193,14 +201,9 @@ export function AdminRuntimeHealthPage() {
           <h1 className="text-xl font-semibold text-sam-fg">{t("admin_menu_runtime_health")}</h1>
           <p className="mt-1 text-sm text-sam-muted">{t("admin_runtime_health_subtitle")}</p>
         </div>
-        <button
-          className={Sam.btn.secondary}
-          disabled={busy || loading}
-          onClick={() => void load(true)}
-          type="button"
-        >
-          {t("admin_runtime_health_refresh")}
-        </button>
+        <AdminActionButton variant="secondary" disabled={busy || loading} onClick={() => void load(true)}>
+          {adminCta("refresh", ko)}
+        </AdminActionButton>
       </div>
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
@@ -208,7 +211,7 @@ export function AdminRuntimeHealthPage() {
         <div className="mt-1 text-sam-fg font-medium">{pgLine}</div>
         {caps?.checked_at ? (
           <div className="mt-2 text-xs text-sam-muted">
-            {ko ? "확인 시각" : "Checked at"}: {caps.checked_at.slice(0, 19).replace("T", " ")}
+            {ko ? "확인 시각" : "Checked at"}: {formatAdminManilaDateTime(caps.checked_at)}
           </div>
         ) : null}
       </div>
@@ -220,7 +223,9 @@ export function AdminRuntimeHealthPage() {
       ) : null}
 
       {loading ? (
-        <div className="mt-6 text-sam-muted">{t("common_loading")}</div>
+        <div className="mt-6">
+          <AdminLoadingState ko={ko} label={t("common_loading")} />
+        </div>
       ) : err ? (
         <div className="mt-6">
           <AdminErrorState ko={ko} code={err} httpStatus={errStatus} onRetry={() => void load(true)} />
@@ -229,9 +234,9 @@ export function AdminRuntimeHealthPage() {
       ) : null}
 
       {data?.warnings?.length ? (
-        <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad} border border-amber-300`}>
-          <div className="font-medium text-amber-800">{t("admin_runtime_health_warnings_title")}</div>
-          <ul className="mt-2 space-y-1 text-sm text-amber-900">
+        <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad} border border-sam-warning/40`}>
+          <div className="font-medium text-sam-warning">{t("admin_runtime_health_warnings_title")}</div>
+          <ul className="mt-2 space-y-1 text-sm text-sam-warning">
             {data.warnings.map((w) => (
               <li key={w.code}>{w.message}</li>
             ))}
@@ -300,22 +305,22 @@ export function AdminRuntimeHealthPage() {
                 </a>
               ) : (
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  className={Sam.btn.secondary}
+                <AdminActionButton
+                  variant="secondary"
+                  size="sm"
                   disabled={busy || !r.desired}
                   onClick={() => void patchSetting(r.key, false)}
-                  type="button"
                 >
                   {ko ? "끄기" : "OFF"}
-                </button>
-                <button
-                  className={Sam.btn.primary}
+                </AdminActionButton>
+                <AdminActionButton
+                  variant="secondary"
+                  size="sm"
                   disabled={busy || r.desired}
                   onClick={() => void patchSetting(r.key, true)}
-                  type="button"
                 >
                   {ko ? "켜기" : "ON"}
-                </button>
+                </AdminActionButton>
               </div>
               )}
             </div>

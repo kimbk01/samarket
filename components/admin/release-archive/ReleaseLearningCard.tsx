@@ -8,6 +8,7 @@ import {
   getReleaseArchiveById,
 } from "@/lib/release-archive/release-archive-state";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 interface ReleaseLearningCardProps {
   releaseArchiveId?: string;
 }
@@ -59,7 +60,7 @@ export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardPro
                 <div className="sam-text-helper text-sam-muted">
                   {archive?.releaseVersion ?? n.releaseArchiveId} ·{" "}
                   {n.createdByAdminNickname} ·{" "}
-                  {new Date(n.createdAt).toLocaleString()}
+                  {formatAdminManilaDateTime(n.createdAt)}
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <div>

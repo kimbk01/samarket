@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { getOpsRoutineSummary } from "@/lib/ops-routines/ops-routines-summary";
 import Link from "next/link";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OpsRoutineSummaryCards() {
   const { t } = useI18n();
   const summary = useMemo(() => getOpsRoutineSummary(), []);
@@ -47,7 +48,7 @@ export function OpsRoutineSummaryCards() {
 
       {summary.latestUpdatedAt && (
         <p className="sam-text-helper text-sam-muted">
-          최종 갱신: {new Date(summary.latestUpdatedAt).toLocaleString()}
+          최종 갱신: {formatAdminManilaDateTime(summary.latestUpdatedAt)}
         </p>
       )}
     </div>

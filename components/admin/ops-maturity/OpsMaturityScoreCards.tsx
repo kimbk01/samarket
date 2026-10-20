@@ -66,12 +66,12 @@ export function OpsMaturityScoreCards() {
           <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_maturity_overall")}</p>
           <p className="sam-text-hero font-semibold text-sam-fg">{latest.overallScore}</p>
           {comparison && (
-            <p className={`sam-text-body-secondary ${comparison.delta >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+            <p className={`sam-text-body-secondary ${comparison.delta >= 0 ? "text-sam-success" : "text-sam-danger"}`}>
               전 기간 대비 {comparison.delta >= 0 ? "+" : ""}{comparison.delta}
             </p>
           )}
           {gap > 0 && (
-            <p className="mt-1 sam-text-helper text-amber-600">{t("admin_ops_tools_maturity_gap")}</p>
+            <p className="mt-1 sam-text-helper text-sam-warning">{t("admin_ops_tools_maturity_gap")}</p>
           )}
         </div>
         {domainKeys.map((key) => (

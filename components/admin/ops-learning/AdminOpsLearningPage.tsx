@@ -4,7 +4,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useState } from "react";
 import { loadOpsLearningFromServer } from "@/lib/ops-learning/ops-learning-sync-client";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { OpsLearningSummaryCards } from "./OpsLearningSummaryCards";
 import { OpsLearningHistoryTable } from "./OpsLearningHistoryTable";
 import { OpsIssuePatternTable } from "./OpsIssuePatternTable";
@@ -18,7 +20,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 type TabId = "history" | "patterns" | "quality" | "suggestions" | "patternLogs";
 
 export function AdminOpsLearningPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("history");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<OpsLearningStatus | "">("");
   const [patternStatusFilter, setPatternStatusFilter] = useState<OpsLearningStatus | "">("");
@@ -41,9 +43,7 @@ export function AdminOpsLearningPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_manage_learning" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
       </>
     );
   }
@@ -51,22 +51,14 @@ export function AdminOpsLearningPage() {
   return (
     <>
       <AdminPageHeader titleKey="admin_menu_manage_learning" />
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        ariaLabel="화면 탭"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        syncUrl={false}
+        className="mb-4"
+      />
 
       {activeTab === "history" && (
         <div className="space-y-4">

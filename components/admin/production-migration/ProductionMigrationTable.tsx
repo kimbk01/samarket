@@ -81,7 +81,7 @@ export function ProductionMigrationTable() {
             <tr
               key={t.id}
               className={`border-b border-sam-border-soft ${
-                t.blockerReason ? "bg-red-50/30" : ""
+                t.blockerReason ? "bg-sam-danger-soft/30" : ""
               }`}
             >
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
@@ -94,10 +94,10 @@ export function ProductionMigrationTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     t.status === "production_ready"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : t.status === "mock_only"
                         ? "bg-sam-surface-muted text-sam-muted"
-                        : "bg-amber-100 text-amber-800"
+                        : "bg-sam-warning-soft text-sam-warning"
                   }`}
                 >
                   {getTableStatusLabel(t.status)}

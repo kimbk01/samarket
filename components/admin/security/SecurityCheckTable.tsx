@@ -13,6 +13,7 @@ import {
 import type { SecurityCheckType, SecurityStatus } from "@/lib/types/security";
 import Link from "next/link";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function SecurityCheckTable() {
   const { t } = useI18n();
   const [typeFilter, setTypeFilter] = useState<SecurityCheckType | "">("");
@@ -70,7 +71,7 @@ export function SecurityCheckTable() {
             <tr
               key={c.id}
               className={`border-b border-sam-border-soft ${
-                c.status === "critical" ? "bg-red-50/30" : ""
+                c.status === "critical" ? "bg-sam-danger-soft/30" : ""
               }`}
             >
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
@@ -83,10 +84,10 @@ export function SecurityCheckTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     c.status === "safe"
-                      ? "bg-emerald-50 text-emerald-700"
+                      ? "bg-sam-success-soft text-sam-success"
                       : c.status === "critical"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
+                        : "bg-sam-warning-soft text-sam-warning"
                   }`}
                 >
                   {getSecurityStatusLabel(c.status)}
@@ -96,7 +97,7 @@ export function SecurityCheckTable() {
                 {c.description}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(c.lastCheckedAt).toLocaleString()}
+                {formatAdminManilaDateTime(c.lastCheckedAt)}
               </td>
               <td className="px-3 py-2.5">
                 <Link

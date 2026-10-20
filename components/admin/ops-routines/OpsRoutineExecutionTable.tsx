@@ -91,7 +91,7 @@ export function OpsRoutineExecutionTable() {
               <tr
                 key={e.id}
                 className={`border-b border-sam-border-soft ${
-                  e.status === "overdue" ? "bg-red-50/30" : ""
+                  e.status === "overdue" ? "bg-sam-danger-soft/30" : ""
                 }`}
               >
                 <td className="px-3 py-2.5 font-medium text-sam-fg">
@@ -113,10 +113,10 @@ export function OpsRoutineExecutionTable() {
                   <span
                     className={`rounded px-1.5 py-0.5 sam-text-helper ${
                       e.status === "done"
-                        ? "bg-emerald-100 text-emerald-800"
+                        ? "bg-sam-success-soft text-sam-success"
                         : e.status === "overdue"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-amber-100 text-amber-800"
+                          ? "bg-sam-danger-soft text-sam-danger"
+                          : "bg-sam-warning-soft text-sam-warning"
                     }`}
                   >
                     {getExecutionStatusLabel(e.status)}

@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { OpsRoutineSummaryCards } from "./OpsRoutineSummaryCards";
 import { OpsRoutineTemplateTable } from "./OpsRoutineTemplateTable";
 import { OpsRoutineExecutionTable } from "./OpsRoutineExecutionTable";
@@ -29,7 +31,7 @@ const TABS: { id: TabId; labelKey: MessageKey }[] = [
 ];
 
 export function AdminOpsRoutinesPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [hydrated, setHydrated] = useState(false);
 
@@ -41,9 +43,7 @@ export function AdminOpsRoutinesPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_dev_longterm" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
       </>
     );
   }
@@ -51,22 +51,14 @@ export function AdminOpsRoutinesPage() {
   return (
     <>
       <AdminPageHeader titleKey="admin_menu_dev_longterm" />
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        tabs={TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        ariaLabel="화면 탭"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        syncUrl={false}
+        className="mb-4"
+      />
       {activeTab === "overview" && (
         <AdminCard titleKey="admin_ops_tools_routines_tab_overview">
           <OpsRoutineSummaryCards />

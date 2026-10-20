@@ -6,8 +6,8 @@ import { getSettingChangeLogs } from "@/lib/admin-settings/app-settings-client";
 import type { AppSettings } from "@/lib/types/admin-settings";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import type { AppLanguageCode } from "@/lib/i18n/config";
-
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 const PAGE_SIZE = 30;
 
 const KEY_LABEL_KEYS: Partial<Record<keyof AppSettings, MessageKey>> = {
@@ -33,17 +33,12 @@ const KEY_LABEL_KEYS: Partial<Record<keyof AppSettings, MessageKey>> = {
   homeRadiusKm: "admin_settings_key_home_radius_km",
 };
 
-function dateLocaleTag(language: AppLanguageCode): string {
-  return language === "en" ? "en-US" : "ko-KR";
-}
-
 interface SettingChangeLogListProps {
   refreshKey?: number;
 }
 
 export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListProps) {
-  const { t, language } = useI18n();
-  const dateLocale = dateLocaleTag(language);
+  const { t } = useI18n();
   const [page, setPage] = useState(1);
 
   const result = useMemo(
@@ -127,7 +122,7 @@ export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListPro
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">{log.adminNickname}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
-                  {new Date(log.createdAt).toLocaleString(dateLocale)}
+                  {formatAdminManilaDateTime(log.createdAt)}
                 </td>
               </tr>
             ))}
@@ -141,25 +136,25 @@ export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListPro
             {t("admin_settings_changelog_range", { from, to, total })}
           </p>
           <div className="flex items-center gap-1">
-            <button
-              type="button"
+            <AdminActionButton
+              variant="secondary"
+              size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
-              className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg disabled:opacity-40 hover:bg-sam-app"
             >
               {t("admin_settings_changelog_prev")}
-            </button>
+            </AdminActionButton>
             <span className="px-2 sam-text-body-secondary text-sam-muted">
               {currentPage} / {totalPages}
             </span>
-            <button
-              type="button"
+            <AdminActionButton
+              variant="secondary"
+              size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage >= totalPages}
-              className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg disabled:opacity-40 hover:bg-sam-app"
             >
               {t("admin_settings_changelog_next")}
-            </button>
+            </AdminActionButton>
           </div>
         </div>
       )}

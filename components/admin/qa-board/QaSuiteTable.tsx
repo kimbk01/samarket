@@ -85,7 +85,7 @@ export function QaSuiteTable() {
                 </td>
                 <td className="px-3 py-2.5">
                   {s.isCritical ? (
-                    <span className="rounded bg-red-100 px-1.5 py-0.5 sam-text-helper text-red-800">
+                    <span className="rounded bg-sam-danger-soft px-1.5 py-0.5 sam-text-helper text-sam-danger">
                       필수
                     </span>
                   ) : (

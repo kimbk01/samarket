@@ -70,7 +70,7 @@ export function ProductionInfraCheckTable() {
             <tr
               key={c.id}
               className={`border-b border-sam-border-soft ${
-                c.blockerReason ? "bg-red-50/30" : ""
+                c.blockerReason ? "bg-sam-danger-soft/30" : ""
               }`}
             >
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
@@ -83,16 +83,16 @@ export function ProductionInfraCheckTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     c.status === "verified"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : c.status === "missing"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
+                        : "bg-sam-warning-soft text-sam-warning"
                   }`}
                 >
                   {getInfraStatusLabel(c.status)}
                 </span>
               </td>
-              <td className="max-w-[180px] px-3 py-2.5 sam-text-body-secondary text-red-700">
+              <td className="max-w-[180px] px-3 py-2.5 sam-text-body-secondary text-sam-danger">
                 {c.blockerReason ?? "-"}
               </td>
               <td className="max-w-[160px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">

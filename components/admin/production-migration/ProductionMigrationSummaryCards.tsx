@@ -8,16 +8,17 @@ import { getProductionMigrationSummary } from "@/lib/production-migration/produc
 import { getGoLiveLabel } from "@/lib/production-migration/production-migration-utils";
 import Link from "next/link";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function ProductionMigrationSummaryCards() {
   const { t } = useI18n();
   const summary = useMemo(() => getProductionMigrationSummary(), []);
 
   const goClass =
     summary.goLiveRecommendation === "go"
-      ? "text-emerald-700"
+      ? "text-sam-success"
       : summary.goLiveRecommendation === "conditional_go"
-        ? "text-amber-700"
-        : "text-red-700";
+        ? "text-sam-warning"
+        : "text-sam-danger";
 
   return (
     <div className="space-y-4">
@@ -43,10 +44,10 @@ export function ProductionMigrationSummaryCards() {
         <div
           className={`rounded-ui-rect border p-4 ${
             summary.goLiveRecommendation === "no_go"
-              ? "border-red-200 bg-red-50/50"
+              ? "border-sam-danger/40 bg-sam-danger-soft/50"
               : summary.goLiveRecommendation === "conditional_go"
-                ? "border-amber-200 bg-amber-50/50"
-                : "border-emerald-200 bg-emerald-50/30"
+                ? "border-sam-warning/40 bg-sam-warning-soft/50"
+                : "border-sam-success/40 bg-sam-success-soft/30"
           }`}
         >
           <p className="sam-text-helper text-sam-muted">{t("admin_prod_migration_k538f307a")}</p>
@@ -54,7 +55,7 @@ export function ProductionMigrationSummaryCards() {
             {getGoLiveLabel(summary.goLiveRecommendation)}
           </p>
           {summary.blockedChecks > 0 && (
-            <p className="mt-1 sam-text-helper text-red-600">
+            <p className="mt-1 sam-text-helper text-sam-danger">
               차단 {summary.blockedChecks}건
             </p>
           )}
@@ -79,7 +80,7 @@ export function ProductionMigrationSummaryCards() {
 
       {summary.latestUpdatedAt && (
         <p className="sam-text-helper text-sam-muted">
-          최종 갱신: {new Date(summary.latestUpdatedAt).toLocaleString()}
+          최종 갱신: {formatAdminManilaDateTime(summary.latestUpdatedAt)}
         </p>
       )}
     </div>

@@ -8,6 +8,7 @@ import {
 import { useMemo } from "react";
 import { getOpsPatternLogs } from "@/lib/ops-learning/ops-learning-state";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 interface OpsPatternLogListProps {
   patternId: string;
 }
@@ -40,7 +41,7 @@ export function OpsPatternLogList({ patternId }: OpsPatternLogListProps) {
             <span className="text-sam-muted">{log.actorNickname}</span>
             {log.note && <span className="text-sam-muted">· {log.note}</span>}
             <span className="ml-auto text-sam-meta">
-              {new Date(log.createdAt).toLocaleString("ko-KR")}
+              {formatAdminManilaDateTime(log.createdAt)}
             </span>
           </li>
         ))}

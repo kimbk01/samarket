@@ -6,27 +6,28 @@ import { getOpsOperationalizationStatus } from "@/lib/ops-routines/ops-operation
 import { getOperationalizationLabel } from "@/lib/ops-routines/ops-routines-utils";
 import Link from "next/link";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OpsOperationalizationStatusCard() {
   const { t } = useI18n();
   const status = useMemo(() => getOpsOperationalizationStatus(), []);
 
   const statusClass =
     status.overallStatus === "optimized"
-      ? "text-emerald-700"
+      ? "text-sam-success"
       : status.overallStatus === "needs_attention"
-        ? "text-red-700"
+        ? "text-sam-danger"
         : status.overallStatus === "established"
-          ? "text-blue-700"
-          : "text-amber-700";
+          ? "text-sam-info"
+          : "text-sam-warning";
 
   const statusBg =
     status.overallStatus === "optimized"
-      ? "border-emerald-200 bg-emerald-50/30"
+      ? "border-sam-success/40 bg-sam-success-soft/30"
       : status.overallStatus === "needs_attention"
-        ? "border-red-200 bg-red-50/50"
+        ? "border-sam-danger/40 bg-sam-danger-soft/50"
         : status.overallStatus === "established"
-          ? "border-blue-200 bg-blue-50/30"
-          : "border-amber-200 bg-amber-50/30";
+          ? "border-sam-info/40 bg-sam-info-soft/30"
+          : "border-sam-warning/40 bg-sam-warning-soft/30";
 
   return (
     <div className="space-y-4">
@@ -36,7 +37,7 @@ export function OpsOperationalizationStatusCard() {
           {getOperationalizationLabel(status.overallStatus)}
         </p>
         <p className="mt-2 sam-text-body-secondary text-sam-muted">
-          평가일: {new Date(status.evaluatedAt).toLocaleString()}
+          평가일: {formatAdminManilaDateTime(status.evaluatedAt)}
         </p>
       </div>
 

@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import { getOpsLearningSummary } from "@/lib/ops-learning/ops-learning-summary";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OpsLearningSummaryCards() {
   const { t } = useI18n();
   const summary = useMemo(() => getOpsLearningSummary(), []);
@@ -29,7 +30,7 @@ export function OpsLearningSummaryCards() {
         </p>
         <p className="sam-text-body-secondary text-sam-muted">
           {summary.latestDetectedAt
-            ? new Date(summary.latestDetectedAt).toLocaleString("ko-KR")
+            ? formatAdminManilaDateTime(summary.latestDetectedAt)
             : "-"}
         </p>
       </div>

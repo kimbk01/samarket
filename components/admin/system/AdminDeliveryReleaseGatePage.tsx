@@ -1,11 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import { AdminErrorState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import {
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 /** 서버가 내려주는 영어 링크 이름 → 운영자 문구 (경로 기준). */
 const LINK_LABELS: Record<string, { ko: string; en: string }> = {
@@ -38,7 +44,7 @@ function errCode(status: number, j: { error?: unknown } | null, fallback: string
 }
 
 function fmtTs(v: string | null | undefined): string {
-  return v ? v.slice(0, 19).replace("T", " ") : "—";
+  return formatAdminManilaDateTime(v);
 }
 
 type GateStatus = "pass" | "warn" | "fail" | "needs_check";
@@ -76,16 +82,16 @@ type GatePayload = {
 };
 
 function badgeClass(st: GateStatus): string {
-  if (st === "pass") return "bg-emerald-100 text-emerald-800 border-emerald-300";
-  if (st === "warn") return "bg-amber-100 text-amber-800 border-amber-300";
-  if (st === "fail") return "bg-red-100 text-red-800 border-red-300";
+  if (st === "pass") return "bg-sam-success-soft text-sam-success border-sam-success/40";
+  if (st === "warn") return "bg-sam-warning-soft text-sam-warning border-sam-warning/40";
+  if (st === "fail") return "bg-sam-danger-soft text-sam-danger border-sam-danger/40";
   return "bg-sam-surface-muted text-sam-muted border-sam-border";
 }
 
 function overallClass(o: string | undefined): string {
-  if (o === "READY") return "text-emerald-700";
-  if (o === "BLOCKED") return "text-red-700";
-  return "text-amber-700";
+  if (o === "READY") return "text-sam-success";
+  if (o === "BLOCKED") return "text-sam-danger";
+  return "text-sam-warning";
 }
 
 export function AdminDeliveryReleaseGatePage() {
@@ -173,21 +179,21 @@ export function AdminDeliveryReleaseGatePage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Link href="/admin/ops-console" className={Sam.btn.secondary}>
+          <AdminActionLink href="/admin/ops-console" variant="secondary">
             {ko ? "운영 콘솔" : "Ops console"}
-          </Link>
-          <Link href="/admin/runtime-health" className={Sam.btn.secondary}>
+          </AdminActionLink>
+          <AdminActionLink href="/admin/runtime-health" variant="secondary">
             {ko ? "런타임 상태" : "Runtime health"}
-          </Link>
-          <button className={Sam.btn.secondary} onClick={() => void load()} disabled={!!busyKey} type="button">
-            {t("admin_delivery_gate_refresh")}
-          </button>
+          </AdminActionLink>
+          <AdminActionButton variant="secondary" onClick={() => void load()} disabled={!!busyKey}>
+            {adminCta("refresh", ko)}
+          </AdminActionButton>
         </div>
       </div>
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
         <div className="text-sm text-sam-muted">{ko ? "전체 판정" : "Overall"}</div>
-        <div className={`mt-1 text-2xl font-semibold ${overallClass(overall)}`}>
+        <div className={`mt-1 text-[20px] font-semibold ${overallClass(overall)}`}>
           {OVERALL_LABELS[overall] ? (ko ? OVERALL_LABELS[overall].ko : OVERALL_LABELS[overall].en) : overall}
         </div>
         <div className="mt-2 text-xs text-sam-muted">
@@ -195,7 +201,11 @@ export function AdminDeliveryReleaseGatePage() {
         </div>
       </div>
 
-      {loading ? <div className="mt-6 text-sam-muted">{t("common_loading")}</div> : null}
+      {loading ? (
+        <div className="mt-6">
+          <AdminLoadingState ko={ko} label={t("common_loading")} />
+        </div>
+      ) : null}
       {err ? (
         <div className="mt-6">
           <AdminErrorState ko={ko} code={err} httpStatus={errStatus} onRetry={() => void load()} />
@@ -203,11 +213,8 @@ export function AdminDeliveryReleaseGatePage() {
         </div>
       ) : null}
       {saveErr ? (
-        <div role="alert" className={`mt-6 ${Sam.card.base} ${Sam.card.pad} border border-red-300`}>
-          <div className="text-sm text-red-700">{adminOperatorErrorMessage(saveErr, ko)}</div>
-          <button type="button" className={`${Sam.btn.secondary} mt-2`} onClick={() => setSaveErr(null)}>
-            {ko ? "닫기" : "Close"}
-          </button>
+        <div className="mt-6">
+          <AdminResultBanner ko={ko} result={{ ok: false, code: saveErr }} onClose={() => setSaveErr(null)} />
         </div>
       ) : null}
 
@@ -239,9 +246,9 @@ export function AdminDeliveryReleaseGatePage() {
                 {it.links?.length ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {it.links.map((l) => (
-                      <Link key={l.href + l.label} href={l.href} className={Sam.btn.secondary}>
+                      <AdminActionLink key={l.href + l.label} href={l.href} variant="secondary" size="sm">
                         {LINK_LABELS[l.href] ? (ko ? LINK_LABELS[l.href].ko : LINK_LABELS[l.href].en) : l.label}
-                      </Link>
+                      </AdminActionLink>
                     ))}
                   </div>
                 ) : null}

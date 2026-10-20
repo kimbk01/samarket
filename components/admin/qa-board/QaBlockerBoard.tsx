@@ -9,6 +9,7 @@ import {
 import { getDomainLabel, getCaseStatusLabel } from "@/lib/qa-board/qa-board-utils";
 import Link from "next/link";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function QaBlockerBoard() {
   const { t } = useI18n();
   const blockedOrFailed = useMemo(() => getBlockedOrFailedTestCases(), []);
@@ -33,8 +34,8 @@ export function QaBlockerBoard() {
               key={c.id}
               className={`rounded-ui-rect border p-4 ${
                 c.status === "failed"
-                  ? "border-red-200 bg-red-50/50"
-                  : "border-amber-200 bg-amber-50/50"
+                  ? "border-sam-danger/40 bg-sam-danger-soft/50"
+                  : "border-sam-warning/40 bg-sam-warning-soft/50"
               }`}
             >
               <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
@@ -43,19 +44,19 @@ export function QaBlockerBoard() {
                   {getCaseStatusLabel(t, c.status)}
                 </span>
                 {isMustPass && (
-                  <span className="rounded bg-red-100 px-1.5 py-0.5 text-red-800">
+                  <span className="rounded bg-sam-danger-soft px-1.5 py-0.5 text-sam-danger">
                     {t("admin_qa_must_pass")}
                   </span>
                 )}
               </div>
               <p className="mt-2 font-medium text-sam-fg">{c.title}</p>
-              <p className="mt-2 sam-text-body text-red-800">
+              <p className="mt-2 sam-text-body text-sam-danger">
                 {c.blockerReason || c.failureNote || "—"}
               </p>
               <p className="mt-2 sam-text-body-secondary text-sam-muted">
                 {t("admin_qa_owner_label")} {c.ownerAdminNickname ?? "-"}
                 {c.executedAt &&
-                  ` · ${t("admin_qa_k74a23ff7")} ${new Date(c.executedAt).toLocaleString()}`}
+                  ` · ${t("admin_qa_k74a23ff7")} ${formatAdminManilaDateTime(c.executedAt)}`}
               </p>
               {c.linkedType && (
                 <p className="mt-1 sam-text-helper text-sam-muted">

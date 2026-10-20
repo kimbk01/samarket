@@ -43,11 +43,11 @@ export function ReleaseArchiveSummaryCards() {
           <p className="sam-text-helper text-sam-muted">{t("admin_rel_summary_regression")}</p>
           <p className="sam-text-body text-sam-fg">
             {summary.totalRegressionIssues} /{" "}
-            <span className={summary.openRegressionIssues > 0 ? "font-medium text-amber-700" : ""}>
+            <span className={summary.openRegressionIssues > 0 ? "font-medium text-sam-warning" : ""}>
               {summary.openRegressionIssues}
             </span>
             {" / "}
-            <span className={summary.criticalRegressionIssues > 0 ? "font-medium text-red-600" : ""}>
+            <span className={summary.criticalRegressionIssues > 0 ? "font-medium text-sam-danger" : ""}>
               {summary.criticalRegressionIssues}
             </span>
           </p>

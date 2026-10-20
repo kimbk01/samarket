@@ -10,6 +10,10 @@ import type { AuthDuplicateLoginPolicy } from "@/lib/auth/session-policy";
 import type { AuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
 import Link from "next/link";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 type EditableProvider = AuthProviderPublicMeta & { client_secret: string };
 
@@ -29,7 +33,8 @@ function getProviderTitle(provider: OAuthProvider): string {
 }
 
 export function AuthLoginSettingsForm() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language === "ko";
   const [providers, setProviders] = useState<EditableProvider[]>([]);
   const [legacySettings, setLegacySettings] = useState<AuthLoginSetting[]>([]);
   const [sessionPolicy, setSessionPolicy] = useState<AuthDuplicateLoginPolicy | null>(null);
@@ -62,7 +67,7 @@ export function AuthLoginSettingsForm() {
       error?: string;
     } | null;
     if (!providersRes.ok || !providersJson?.ok || !Array.isArray(providersJson.providers)) {
-      throw new Error(providersJson?.error || t("admin_auth_err_load_providers"));
+      throw new Error((providersJson?.error ? adminOperatorErrorMessage(providersJson.error, ko) : null) || t("admin_auth_err_load_providers"));
     }
     setProviders(providersJson.providers.map(toEditable));
   };
@@ -79,7 +84,7 @@ export function AuthLoginSettingsForm() {
       error?: string;
     } | null;
     if (!policyRes.ok || !policyJson?.ok || !Array.isArray(policyJson.settings) || !policyJson.sessionPolicy) {
-      throw new Error(policyJson?.error || t("admin_auth_err_load_policy"));
+      throw new Error((policyJson?.error ? adminOperatorErrorMessage(policyJson.error, ko) : null) || t("admin_auth_err_load_policy"));
     }
     setLegacySettings(policyJson.settings);
     setSessionPolicy(policyJson.sessionPolicy);
@@ -96,7 +101,7 @@ export function AuthLoginSettingsForm() {
       error?: string;
     } | null;
     if (!res.ok || !json?.ok || !json.settings) {
-      throw new Error(json?.error || t("admin_auth_err_load_phone"));
+      throw new Error((json?.error ? adminOperatorErrorMessage(json.error, ko) : null) || t("admin_auth_err_load_phone"));
     }
     setPhoneSettings(json.settings);
   };
@@ -171,7 +176,7 @@ export function AuthLoginSettingsForm() {
       if (!res.ok || !json?.ok || !json.provider) {
         setProviderError((prev) => ({
           ...prev,
-          [provider]: json?.error || t("admin_auth_err_provider_save", { provider: getProviderTitle(provider) }),
+          [provider]: (json?.error ? adminOperatorErrorMessage(json.error, ko) : null) || t("admin_auth_err_provider_save", { provider: getProviderTitle(provider) }),
         }));
         return;
       }
@@ -205,7 +210,7 @@ export function AuthLoginSettingsForm() {
         if (!policyRes.ok || !policyJson?.ok || !Array.isArray(policyJson.settings)) {
           setProviderError((prev) => ({
             ...prev,
-            [provider]: policyJson?.error || t("admin_auth_err_login_display_save"),
+            [provider]: (policyJson?.error ? adminOperatorErrorMessage(policyJson.error, ko) : null) || t("admin_auth_err_login_display_save"),
           }));
           return;
         }
@@ -247,7 +252,7 @@ export function AuthLoginSettingsForm() {
         error?: string;
       } | null;
       if (!res.ok || !json?.ok || !Array.isArray(json.settings) || !json.sessionPolicy) {
-        setPolicyError(json?.error || t("admin_auth_err_policy_save"));
+        setPolicyError((json?.error ? adminOperatorErrorMessage(json.error, ko) : null) || t("admin_auth_err_policy_save"));
         return;
       }
       setLegacySettings(json.settings);
@@ -279,7 +284,7 @@ export function AuthLoginSettingsForm() {
         error?: string;
       } | null;
       if (!res.ok || !json?.ok || !json.settings) {
-        setPhoneError(json?.error || t("admin_auth_err_phone_save"));
+        setPhoneError((json?.error ? adminOperatorErrorMessage(json.error, ko) : null) || t("admin_auth_err_phone_save"));
         return;
       }
       setPhoneSettings(json.settings);
@@ -295,47 +300,23 @@ export function AuthLoginSettingsForm() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_menu_settings_auth" />
       <AdminCard title={t("admin_auth_settings_section_title")}>
-        <div className="grid grid-cols-3 gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveSection("oauth")}
-            className={`rounded-ui-rect border px-3 py-2 text-sm font-medium ${
-              activeSection === "oauth"
-                ? "border-signature bg-signature/10 text-signature"
-                : "border-sam-border bg-sam-surface text-sam-fg"
-            }`}
-          >
-            {t("admin_auth_settings_oauth_tab")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSection("policy")}
-            className={`rounded-ui-rect border px-3 py-2 text-sm font-medium ${
-              activeSection === "policy"
-                ? "border-signature bg-signature/10 text-signature"
-                : "border-sam-border bg-sam-surface text-sam-fg"
-            }`}
-          >
-            {t("admin_auth_settings_policy_tab")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSection("phone")}
-            className={`rounded-ui-rect border px-3 py-2 text-sm font-medium ${
-              activeSection === "phone"
-                ? "border-signature bg-signature/10 text-signature"
-                : "border-sam-border bg-sam-surface text-sam-fg"
-            }`}
-          >
-            {t("admin_auth_settings_phone_tab")}
-          </button>
-        </div>
+        <AdminTabs
+          tabs={[
+            { id: "oauth", label: t("admin_auth_settings_oauth_tab") },
+            { id: "policy", label: t("admin_auth_settings_policy_tab") },
+            { id: "phone", label: t("admin_auth_settings_phone_tab") },
+          ]}
+          ariaLabel={t("admin_auth_settings_section_title")}
+          value={activeSection}
+          onChange={(id) => setActiveSection(id as typeof activeSection)}
+          syncUrl={false}
+        />
       </AdminCard>
 
       {activeSection === "oauth" ? (
         <AdminCard title={t("admin_auth_settings_oauth_card_title")}>
         {loading ? (
-          <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+          <AdminLoadingState ko={ko} label={t("common_loading")} />
         ) : (
           <div className="space-y-3">
             {providers.map((row) => (
@@ -377,7 +358,7 @@ export function AuthLoginSettingsForm() {
                   );
                 })()}
                 {row.provider === "apple" ? (
-                  <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
+                  <div className="rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-warning">
                     <p>{t("admin_auth_apple_banner_line1")}</p>
                     <p className="mt-1">{t("admin_auth_apple_banner_line2")}</p>
                   </div>
@@ -469,31 +450,30 @@ export function AuthLoginSettingsForm() {
                   />
                 </label>
                 {providerError[row.provider] ? (
-                  <p className="sam-text-body-secondary text-red-600">{providerError[row.provider]}</p>
+                  <p className="sam-text-body-secondary text-sam-danger">{providerError[row.provider]}</p>
                 ) : null}
                 {providerStatus[row.provider] ? (
-                  <p className="sam-text-body-secondary text-emerald-600">{providerStatus[row.provider]}</p>
+                  <p className="sam-text-body-secondary text-sam-success">{providerStatus[row.provider]}</p>
                 ) : null}
                 <div className="flex justify-end">
-                  <button
-                    type="button"
+                  <AdminActionButton
+                    variant="primary"
                     onClick={() => setPendingSave({ kind: "provider", provider: row.provider })}
                     disabled={providerSaving[row.provider] === true}
-                    className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
                   >
                     {providerSaving[row.provider] ? t("common_saving") : `${getProviderTitle(row.provider)} ${t("common_save")}`}
-                  </button>
+                  </AdminActionButton>
                 </div>
               </div>
             ))}
-            {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
+            {error ? <p className="sam-text-body-secondary text-sam-danger">{error}</p> : null}
           </div>
         )}
       </AdminCard>
       ) : activeSection === "policy" ? (
       <AdminCard title={t("admin_auth_settings_policy_card_title")}>
         {loading || !sessionPolicy ? (
-          <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+          <AdminLoadingState ko={ko} label={t("common_loading")} />
         ) : (
           <div className="space-y-3">
             <p className="sam-text-body-secondary text-sam-muted">{t("admin_auth_policy_intro")}</p>
@@ -533,19 +513,18 @@ export function AuthLoginSettingsForm() {
               {t("admin_auth_policy_same_ip")}
             </label>
             {!sessionPolicy.compare_same_login_id ? (
-              <p className="sam-text-body-secondary text-amber-700">{t("admin_auth_policy_disabled_warning")}</p>
+              <p className="sam-text-body-secondary text-sam-warning">{t("admin_auth_policy_disabled_warning")}</p>
             ) : null}
-            {policyError ? <p className="sam-text-body-secondary text-red-600">{policyError}</p> : null}
-            {policySuccess ? <p className="sam-text-body-secondary text-emerald-600">{policySuccess}</p> : null}
+            {policyError ? <p className="sam-text-body-secondary text-sam-danger">{policyError}</p> : null}
+            {policySuccess ? <p className="sam-text-body-secondary text-sam-success">{policySuccess}</p> : null}
             <div className="flex justify-end">
-              <button
-                type="button"
+              <AdminActionButton
+                variant="primary"
                 onClick={() => setPendingSave({ kind: "policy" })}
                 disabled={policySaving || legacySettings.length === 0}
-                className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
               >
                 {policySaving ? t("common_saving") : t("common_save")}
-              </button>
+              </AdminActionButton>
             </div>
           </div>
         )}
@@ -553,7 +532,7 @@ export function AuthLoginSettingsForm() {
       ) : (
       <AdminCard title={t("admin_auth_settings_phone_card_title")}>
         {loading || !phoneSettings ? (
-          <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+          <AdminLoadingState ko={ko} label={t("common_loading")} />
         ) : (
           <div className="space-y-3">
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 sam-text-body text-sam-fg">
@@ -648,25 +627,24 @@ export function AuthLoginSettingsForm() {
               />
             </label>
             {phoneSettings.provider === "supabase" ? (
-              <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
+              <div className="rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-warning">
                 {t("admin_auth_phone_supabase_hint")}
               </div>
             ) : (
-              <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
+              <div className="rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-warning">
                 {t("admin_auth_phone_semaphore_hint")}
               </div>
             )}
-            {phoneError ? <p className="sam-text-body-secondary text-red-600">{phoneError}</p> : null}
-            {phoneSuccess ? <p className="sam-text-body-secondary text-emerald-600">{phoneSuccess}</p> : null}
+            {phoneError ? <p className="sam-text-body-secondary text-sam-danger">{phoneError}</p> : null}
+            {phoneSuccess ? <p className="sam-text-body-secondary text-sam-success">{phoneSuccess}</p> : null}
             <div className="flex justify-end">
-              <button
-                type="button"
+              <AdminActionButton
+                variant="primary"
                 onClick={() => void savePhoneSettings()}
                 disabled={phoneSaving}
-                className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
               >
                 {phoneSaving ? t("common_saving") : t("admin_auth_settings_phone_save")}
-              </button>
+              </AdminActionButton>
             </div>
           </div>
         )}

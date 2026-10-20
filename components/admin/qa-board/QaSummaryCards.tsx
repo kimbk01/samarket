@@ -8,6 +8,7 @@ import { getQaSummary } from "@/lib/qa-board/qa-board-summary";
 import { getGoLiveQaLabel } from "@/lib/qa-board/qa-board-utils";
 import Link from "next/link";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function QaSummaryCards() {
   const { t } = useI18n();
   const summary = useMemo(() => getQaSummary(), []);
@@ -19,10 +20,10 @@ export function QaSummaryCards() {
 
   const goClass =
     summary.goLiveQaDecision === "go"
-      ? "text-emerald-700"
+      ? "text-sam-success"
       : summary.goLiveQaDecision === "conditional_go"
-        ? "text-amber-700"
-        : "text-red-700";
+        ? "text-sam-warning"
+        : "text-sam-danger";
 
   return (
     <div className="space-y-4">
@@ -48,16 +49,16 @@ export function QaSummaryCards() {
             {summary.mustPassPassed} / {summary.mustPassTotal}
           </p>
           {summary.mustPassPassed < summary.mustPassTotal && (
-            <p className="mt-1 sam-text-helper text-amber-600">{t("admin_qa_passed")}</p>
+            <p className="mt-1 sam-text-helper text-sam-warning">{t("admin_qa_passed")}</p>
           )}
         </div>
         <div
           className={`rounded-ui-rect border p-4 ${
             summary.goLiveQaDecision === "no_go"
-              ? "border-red-200 bg-red-50/50"
+              ? "border-sam-danger/40 bg-sam-danger-soft/50"
               : summary.goLiveQaDecision === "conditional_go"
-                ? "border-amber-200 bg-amber-50/50"
-                : "border-emerald-200 bg-emerald-50/30"
+                ? "border-sam-warning/40 bg-sam-warning-soft/50"
+                : "border-sam-success/40 bg-sam-success-soft/30"
           }`}
         >
           <p className="sam-text-helper text-sam-muted">{t("admin_go_live_qa_decision")}</p>
@@ -65,7 +66,7 @@ export function QaSummaryCards() {
             {getGoLiveQaLabel(t, summary.goLiveQaDecision)}
           </p>
           {summary.criticalOpenIssues > 0 && (
-            <p className="mt-1 sam-text-helper text-red-600">
+            <p className="mt-1 sam-text-helper text-sam-danger">
               Critical 이슈 {summary.criticalOpenIssues}건
             </p>
           )}
@@ -99,7 +100,7 @@ export function QaSummaryCards() {
 
       {summary.latestUpdatedAt && (
         <p className="sam-text-helper text-sam-muted">
-          최종 갱신: {new Date(summary.latestUpdatedAt).toLocaleString()}
+          최종 갱신: {formatAdminManilaDateTime(summary.latestUpdatedAt)}
         </p>
       )}
     </div>

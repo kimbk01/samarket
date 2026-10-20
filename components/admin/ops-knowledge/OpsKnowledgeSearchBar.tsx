@@ -9,6 +9,8 @@ import type {
 } from "@/lib/types/ops-knowledge";
 import type { OpsKnowledgeSearchFilters } from "@/lib/ops-knowledge/ops-knowledge-utils";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 const DOC_TYPE_OPTIONS: { value: OpsKnowledgeDocType | ""; labelKey: MessageKey }[] = [
   { value: "", labelKey: "admin_ops_tools_kb_filter_all_type" },
   { value: "sop", labelKey: OPS_DOC_TYPE_KEYS.sop },
@@ -43,7 +45,7 @@ export function OpsKnowledgeSearchBar({
   onFiltersChange,
   onSearch,
 }: OpsKnowledgeSearchBarProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   return (
     <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex flex-wrap gap-2">
@@ -55,13 +57,9 @@ export function OpsKnowledgeSearchBar({
           placeholder={t("admin_ops_tools_kb_search_ph")}
           className="min-w-[240px] flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
         />
-        <button
-          type="button"
-          onClick={onSearch}
-          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
-        >
-          {t("admin_ops_tools_kb_search_btn")}
-        </button>
+        <AdminActionButton variant="primary" onClick={onSearch}>
+          {adminCta("search", language === "ko")}
+        </AdminActionButton>
       </div>
       <div className="flex flex-wrap gap-2">
         <select

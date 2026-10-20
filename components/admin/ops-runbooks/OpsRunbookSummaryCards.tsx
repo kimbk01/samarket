@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import { getOpsRunbookSummary } from "@/lib/ops-runbooks/ops-runbook-summary";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OpsRunbookSummaryCards() {
   const { t } = useI18n();
   const summary = useMemo(() => getOpsRunbookSummary(), []);
@@ -28,7 +29,7 @@ export function OpsRunbookSummaryCards() {
           {summary.avgCompletionMinutes != null ? `${summary.avgCompletionMinutes}분` : "-"}
         </p>
         <p className="sam-text-body-secondary text-sam-muted">
-          최근 실행 {summary.latestExecutionAt ? new Date(summary.latestExecutionAt).toLocaleString("ko-KR") : "-"}
+          최근 실행 {summary.latestExecutionAt ? formatAdminManilaDateTime(summary.latestExecutionAt) : "-"}
         </p>
       </div>
     </div>

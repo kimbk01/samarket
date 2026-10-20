@@ -13,13 +13,15 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 interface OpsPatternDetailPanelProps {
   patternId: string | null;
   onClose?: () => void;
 }
 
 export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPanelProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const connections = useMemo(
     () => (patternId ? getPatternConnections(patternId) : null),
     [patternId]
@@ -41,9 +43,9 @@ export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPa
           <p className="mt-1 sam-text-helper text-sam-muted">{pattern.patternKey}</p>
         </div>
         {onClose && (
-          <button type="button" onClick={onClose} className="text-sam-meta hover:text-sam-muted">
+          <AdminActionButton variant="quiet" size="sm" onClick={onClose} aria-label={adminCta("close", language === "ko")}>
             ×
-          </button>
+          </AdminActionButton>
         )}
       </div>
       <div className="rounded border border-sam-border-soft bg-sam-app p-3 sam-text-body-secondary">

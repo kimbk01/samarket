@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { getOpsKnowledgeSearchLogs } from "@/lib/ops-knowledge/ops-knowledge-state";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OpsKnowledgeSearchLogTable() {
   const { t } = useI18n();
   const adminNickname = t("admin_ops_tools_admin_nickname");
@@ -47,7 +48,7 @@ export function OpsKnowledgeSearchLogTable() {
               </td>
               <td className="px-3 py-2.5 text-sam-muted">{log.adminNickname}</td>
               <td className="px-3 py-2.5 text-sam-muted">
-                {new Date(log.createdAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(log.createdAt)}
               </td>
             </tr>
           ))}

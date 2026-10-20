@@ -6,6 +6,7 @@ import { getSystemHealth } from "@/lib/system/system-state";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { SystemHealthStatus } from "@/lib/types/system";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 function statusLabel(t: (key: MessageKey) => string, status: SystemHealthStatus): string {
   if (status === "healthy") return t("admin_system_health_status_healthy");
   if (status === "warning") return t("admin_system_health_status_warning");
@@ -31,9 +32,9 @@ export function SystemHealthList() {
               key={h.id}
               className={`flex flex-wrap items-center justify-between rounded-ui-rect border p-3 ${
                 h.status === "critical"
-                  ? "border-red-200 bg-red-50/30"
+                  ? "border-sam-danger/40 bg-sam-danger-soft/30"
                   : h.status === "warning"
-                    ? "border-amber-200 bg-amber-50/30"
+                    ? "border-sam-warning/40 bg-sam-warning-soft/30"
                     : "border-sam-border bg-sam-surface"
               }`}
             >
@@ -41,16 +42,16 @@ export function SystemHealthList() {
               <span
                 className={`rounded px-1.5 py-0.5 sam-text-helper ${
                   h.status === "healthy"
-                    ? "bg-emerald-50 text-emerald-700"
+                    ? "bg-sam-success-soft text-sam-success"
                     : h.status === "warning"
-                      ? "bg-amber-100 text-amber-800"
-                      : "bg-red-100 text-red-800"
+                      ? "bg-sam-warning-soft text-sam-warning"
+                      : "bg-sam-danger-soft text-sam-danger"
                 }`}
               >
                 {statusLabel(t, h.status as SystemHealthStatus)}
               </span>
               <span className="w-full sam-text-helper text-sam-muted sm:w-auto">
-                {new Date(h.lastCheckedAt).toLocaleString()}
+                {formatAdminManilaDateTime(h.lastCheckedAt)}
               </span>
             </li>
           ))}

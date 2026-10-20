@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { OperationStatusCards } from "./OperationStatusCards";
 import { SystemHealthList } from "./SystemHealthList";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -69,9 +72,7 @@ export function AdminSystemPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_dev_system_status" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
       </>
     );
   }
@@ -93,46 +94,35 @@ export function AdminSystemPage() {
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 hover:border-signature/40"
             data-admin-system-link={c.id}
           >
-            <p className="text-[15px] font-semibold text-sam-fg">{ko ? c.titleKo : c.titleEn}</p>
+            <p className="text-[14px] font-semibold text-sam-fg">{ko ? c.titleKo : c.titleEn}</p>
             <p className="mt-1 sam-text-helper text-sam-muted">{ko ? c.descKo : c.descEn}</p>
           </Link>
         ))}
       </div>
 
       <div
-        className="rounded-ui-rect border-2 border-red-400 bg-red-50 px-4 py-4"
+        className="rounded-ui-rect border-2 border-sam-danger bg-sam-danger-soft px-4 py-4"
         data-admin-system-danger="1"
       >
-        <p className="text-sm font-bold text-red-950">Danger Zone · Data Reset</p>
-        <p className="mt-1 sam-text-body-secondary text-red-900">
+        <p className="text-[14px] font-bold text-sam-danger">Danger Zone · Data Reset</p>
+        <p className="mt-1 sam-text-body-secondary text-sam-danger">
           {ko
-            ? "일반 삭제와 분리된 파괴적 리셋입니다. 운영 목록·콘텐츠 관리와 섞지 마세요."
+            ? "일반 삭제와 분리된 파괴적 초기화입니다. 운영 목록·콘텐츠 관리와 섞지 마세요."
             : "Destructive reset, separate from normal delete. Keep out of content ops lists."}
         </p>
-        <Link
-          href="/admin/system/data-reset"
-          className="mt-3 inline-flex rounded-ui-rect bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800"
-        >
+        <AdminActionLink href="/admin/system/data-reset" variant="danger" className="mt-3">
           {ko ? "데이터 초기화 열기" : "Open Data Reset"}
-        </Link>
+        </AdminActionLink>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        ariaLabel="화면 탭"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        syncUrl={false}
+        className="mb-4"
+      />
       {activeTab === "overview" && (
         <AdminCard titleKey="admin_system_card_overview">
           <OperationStatusCards />
