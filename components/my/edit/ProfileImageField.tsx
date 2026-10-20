@@ -6,8 +6,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { patchSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { SAMARKET_DEFAULT_AVATAR_URL } from "@/lib/profile/default-avatar";
-import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { fetchMeProfileFresh, invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
+import { PROFILE_CONFLICT_ERROR_CODE } from "@/lib/profile/profile-patch-concurrency";
 import { hasCustomUserAvatar } from "@/lib/profile/user-avatar-display";
 import { ADDR_SB_GREEN } from "@/lib/ui/profile-edit-starbucks-styles";
 
@@ -35,6 +36,13 @@ export function ProfileImageField({
   const hasCustomPhoto = hasCustomUserAvatar(avatarUrl);
 
   const pickFile = () => inputRef.current?.click();
+
+  /** 409 profile_conflict — 다른 곳에서 바뀐 최신 사진으로 맞춰 같은 기대값으로 409 가 반복되지 않게 한다 */
+  const syncLatestAvatarOnConflict = async (save: { ok: false; code?: string }) => {
+    if (save.code !== PROFILE_CONFLICT_ERROR_CODE) return;
+    const latest = await fetchMeProfileFresh("profile_avatar_conflict");
+    if (latest) onChangeUrl(latest.avatar_url ?? null);
+  };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -65,6 +73,7 @@ export function ProfileImageField({
       const save = await updateMyProfile({ avatar_url: data.url }, { expected: { avatar_url: avatarUrl } });
       if (!save.ok) {
         setUploadError(save.error || t("profile_edit_save_failed"));
+        await syncLatestAvatarOnConflict(save);
         return;
       }
 
@@ -92,6 +101,7 @@ export function ProfileImageField({
         );
         if (!save.ok) {
           setUploadError(save.error || t("profile_edit_save_failed"));
+          await syncLatestAvatarOnConflict(save);
           return;
         }
 

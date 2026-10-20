@@ -93,6 +93,13 @@ describe("profile-patch-concurrency helpers", () => {
     });
   });
 
+  it("legacy member with empty nickname gets it backfilled on save (nickname SSOT)", () => {
+    expect(diffProfileEdit({ nickname: null, bio: null }, { nickname: "Kim", bio: "" })).toEqual({
+      payload: { nickname: "Kim" },
+      expected: { nickname: null },
+    });
+  });
+
   it("only expected keys that are actually patched become conditions", () => {
     const expected = parseProfilePatchExpected({ expected: { bio: "old", nickname: "n", role: "admin", avatar_url: 3 } });
     expect(expected).toEqual({ bio: "old", nickname: "n" });

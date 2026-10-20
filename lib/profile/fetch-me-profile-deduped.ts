@@ -187,28 +187,33 @@ async function fetchMeProfileWith401Recovery(clientCallSource?: string): Promise
  */
 export async function fetchMeProfileFresh(clientCallSource = "profile_edit_fresh"): Promise<ProfileRow | null> {
   if (isGuestAuthEstablished()) return null;
-  recordBootVerifyFetch("/api/me/profile?mode=full&fresh=1", clientCallSource);
-  let res = await fetch("/api/me/profile?mode=full&fresh=1", {
-    credentials: "include",
-    cache: "no-store",
-    headers: profileFetchHeaders(clientCallSource),
-  });
-  if (res.status === 401) {
-    const recovery = await recoverFrom401Once("me_profile_full");
-    if (!recovery.recovered) return null;
-    res = await fetch("/api/me/profile?mode=full&fresh=1", {
+  /** 네트워크 오류는 null 로 — 호출 화면이 로딩·저장 중 상태에 갇히지 않도록 절대 throw 하지 않는다 */
+  try {
+    recordBootVerifyFetch("/api/me/profile?mode=full&fresh=1", clientCallSource);
+    let res = await fetch("/api/me/profile?mode=full&fresh=1", {
       credentials: "include",
       cache: "no-store",
       headers: profileFetchHeaders(clientCallSource),
     });
+    if (res.status === 401) {
+      const recovery = await recoverFrom401Once("me_profile_full");
+      if (!recovery.recovered) return null;
+      res = await fetch("/api/me/profile?mode=full&fresh=1", {
+        credentials: "include",
+        cache: "no-store",
+        headers: profileFetchHeaders(clientCallSource),
+      });
+    }
+    if (!res.ok) return null;
+    const json = (await res.json().catch(() => null)) as { ok?: boolean; profile?: ProfileRow | null } | null;
+    const profile = json?.ok ? json.profile ?? null : null;
+    if (profile?.id?.trim()) {
+      primeMeProfileDedupedFromKnownProfile(profile);
+    }
+    return profile;
+  } catch {
+    return null;
   }
-  if (!res.ok) return null;
-  const json = (await res.json().catch(() => null)) as { ok?: boolean; profile?: ProfileRow | null } | null;
-  const profile = json?.ok ? json.profile ?? null : null;
-  if (profile?.id?.trim()) {
-    primeMeProfileDedupedFromKnownProfile(profile);
-  }
-  return profile;
 }
 
 /** Surface/Detail — full profile (boot 이후 background·on-demand). */

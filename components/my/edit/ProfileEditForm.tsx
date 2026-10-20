@@ -7,7 +7,7 @@ import { useRegion } from "@/contexts/RegionContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { fetchMeProfileFresh } from "@/lib/profile/fetch-me-profile-deduped";
-import { diffProfileEdit } from "@/lib/profile/profile-patch-concurrency";
+import { diffProfileEdit, PROFILE_CONFLICT_ERROR_CODE } from "@/lib/profile/profile-patch-concurrency";
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
 import { ProfileBasicFields } from "./ProfileBasicFields";
@@ -464,13 +464,13 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     const hasMap = mapLat != null && mapLng != null && Boolean(fa);
 
     /** 바뀐 필드만 저장 — 사진은 ProfileImageField 가 업로드 직후 자체 저장 */
+    /** 공개 이름 SSOT(nickname) 컬럼 기준 비교 — nickname 이 비어 있는 레거시 회원은 저장 시 채워진다 */
     const diff = diffProfileEdit(
-      { nickname: profile?.nickname ?? profile?.display_name ?? null, bio: profile?.bio ?? null },
+      { nickname: profile?.nickname ?? null, bio: profile?.bio ?? null },
       { nickname: trimmedName.length >= 2 ? trimmedName : "", bio }
     );
     const payload: ProfileUpdatePayload = { ...diff.payload };
     const expected = { ...diff.expected };
-    if (payload.nickname !== undefined) expected.nickname = profile?.nickname ?? null;
 
     if (hasMap) {
       const matched = matchRegionCityFromFullAddress(fa);
@@ -519,6 +519,10 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
       }
     } else {
       setMessage({ type: "error", text: result.error });
+      if ("code" in result && result.code === PROFILE_CONFLICT_ERROR_CODE) {
+        /** 다른 곳에서 먼저 바뀜 — 최신 값을 다시 불러와 같은 기대값으로 409 가 반복되지 않게 한다 */
+        await load({ freshProfile: true });
+      }
     }
   };
 

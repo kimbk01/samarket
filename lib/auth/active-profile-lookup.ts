@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
+import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
 
 type ProfileWithdrawalRow = {
   id?: string | null;
@@ -68,8 +69,9 @@ export async function findActiveProfileIdsByEmail(
   if (!e) return [];
 
   const [byEmail, byAuthLoginEmail] = await Promise.all([
-    sb.from("profiles").select("id, status, deleted_at").ilike("email", e).limit(5),
-    sb.from("profiles").select("id, status, deleted_at").ilike("auth_login_email", e).limit(5),
+    /** `_`·`%` 는 ilike 와일드카드 — 이스케이프해야 다른 회원 이메일과 오매칭(계정 연결)되지 않는다 */
+    sb.from("profiles").select("id, status, deleted_at").ilike("email", escapeIlikePatternFragment(e)).limit(5),
+    sb.from("profiles").select("id, status, deleted_at").ilike("auth_login_email", escapeIlikePatternFragment(e)).limit(5),
   ]);
 
   const merged = [...(byEmail.data ?? []), ...(byAuthLoginEmail.data ?? [])];

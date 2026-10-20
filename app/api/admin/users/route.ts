@@ -240,7 +240,8 @@ function mapProfileRowToAdminUser(input: {
     hasProfile: true,
     moderationStatus: mapProfileStatusToModeration(r.status, r.deleted_at, warnedUserIds.has(r.id)),
     location: r.region_name?.trim() || undefined,
-    phoneVerified: r.phone_verified === true,
+    /** 목록 필터·정렬도 앱 게이트와 같은 판정 (감사 #8) */
+    phoneVerified: resolvePhoneVerificationDisplayStatus(r) === "verified",
     phoneVerifiedAt: r.phone_verified_at ?? undefined,
     /** 앱 게이트(hasVerifiedPhone)와 같은 판정 (감사 #8) */
     verificationStatus: resolvePhoneVerificationDisplayStatus(r),
