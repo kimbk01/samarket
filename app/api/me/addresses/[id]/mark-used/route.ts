@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { markUserAddressUsed } from "@/lib/addresses/user-address-service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { toPublicUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export async function POST(
 ) {
   const userId = await getRouteUserId();
   if (!userId) {
-    return NextResponse.json({ ok: false, error: "로그인이 필요합니다." }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "login_required" }, { status: 401 });
   }
   const { id } = await context.params;
   const aid = id?.trim();
@@ -25,7 +26,10 @@ export async function POST(
     await markUserAddressUsed(sb, userId, aid);
     return NextResponse.json({ ok: true });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "mark_used_failed";
+    const msg = toPublicUserAddressApiError(
+      e instanceof Error ? e.message : "address_update_failed",
+      "address_update_failed",
+    );
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }

@@ -113,8 +113,17 @@ async function assertStoreAddressNotForcedAsMasterWhenGeneralExists(
   }
 }
 
-function throwUserAddressWriteError(error: { message?: string; code?: string } | null, fallback: string): never {
+/** Partial unique index — one active address per (user, linked store). Not a default-flag conflict. */
+const LINKED_STORE_UNIQUE_INDEX = "user_addresses_user_active_linked_store_unique";
+
+function throwUserAddressWriteError(
+  error: { message?: string; code?: string; details?: string | null } | null,
+  fallback: string,
+): never {
   const msg = String(error?.message ?? fallback);
+  if (`${msg} ${String(error?.details ?? "")}`.includes(LINKED_STORE_UNIQUE_INDEX)) {
+    throw new Error("shop_address_duplicate");
+  }
   if (isPostgresUniqueViolation(error) || /user_addresses_one_(master|life|trade|delivery)/i.test(msg)) {
     throw new Error("address_default_conflict");
   }
@@ -348,29 +357,50 @@ async function applyDefaultFlagsOnCreate(
   }
 }
 
-/** 신규 주소에 기본 플래그가 하나도 없으면 첫 주소를 대표(`is_default_master`)만 지정 */
+async function userHasActiveMasterForWrite(
+  sb: SupabaseClient<any>,
+  userId: string,
+  fallback: string,
+): Promise<boolean> {
+  const { data, error } = await sb
+    .from("user_addresses")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .eq("is_default_master", true)
+    .limit(1);
+  if (error) throwUserAddressWriteError(error, fallback);
+  return Boolean(data && data.length > 0);
+}
+
+/**
+ * 활성 대표(`is_default_master`)가 없으면 방금 만든 주소를 대표로 지정한다.
+ * (개수==1 판정은 동시 첫 생성 2건에서 대표가 0건이 되는 경합이 있어 "대표 없음" 기준으로 판정)
+ * 매장 연결 행이 대표가 된 경우 일반 주소 우선 규칙은 이후 `repairStoreLinkedMasterAfterWrite` 가 맞춘다.
+ */
 async function ensureSomeoneDefaultIfFirst(
   sb: SupabaseClient<any>,
   userId: string,
   addressId: string,
   p: UserAddressWritePayload
 ): Promise<void> {
-  const { count, error: cErr } = await sb
-    .from("user_addresses")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("is_active", true);
-  if (cErr) throwUserAddressWriteError(cErr, "address_create_failed");
-  const n = count ?? 0;
-  if (n !== 1) return;
   if (p.isDefaultMaster) return;
-  await sb
+  if (await userHasActiveMasterForWrite(sb, userId, "address_create_failed")) return;
+  const { error } = await sb
     .from("user_addresses")
     .update({
       is_default_master: true,
     })
     .eq("id", addressId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .eq("is_active", true);
+  if (error) {
+    // 동시 생성이 먼저 대표를 잡았으면(unique `user_addresses_one_master`) 정상 — 대표 1건 불변식 충족.
+    if (isPostgresUniqueViolation(error) && (await userHasActiveMasterForWrite(sb, userId, "address_create_failed"))) {
+      return;
+    }
+    throwUserAddressWriteError(error, "address_set_master_failed");
+  }
   await touchPersistCanonicalLguIfResolvable(sb, userId, addressId);
 }
 
@@ -480,7 +510,13 @@ export async function updateUserAddress(
   id: string,
   p: Partial<UserAddressWritePayload>
 ): Promise<UserAddressDTO> {
-  const { data: ex, error: e0 } = await sb.from("user_addresses").select(SEL).eq("id", id).eq("user_id", userId).single();
+  const { data: ex, error: e0 } = await sb
+    .from("user_addresses")
+    .select(SEL)
+    .eq("id", id)
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .single();
   if (e0 || !ex) throw new Error("address_not_found");
   const dto = rowToUserAddressDTO(ex as Record<string, unknown>);
   const base = userAddressDtoToWritePayload(dto);
@@ -520,10 +556,18 @@ export async function updateUserAddress(
     "latitude" in patch ||
     "longitude" in patch;
   if (touchesCityIdentity) {
-    patch.canonical_lgu_id = resolveCanonicalLguIdForAddressWrite({
+    const nextLgu = resolveCanonicalLguIdForAddressWrite({
       cityMunicipality: resolved.cityMunicipality,
       province: resolved.province,
     });
+    const norm = (v: string | null | undefined) => String(v ?? "").trim();
+    const cityOrProvinceChanged =
+      norm(resolved.cityMunicipality) !== norm(dto.cityMunicipality) ||
+      norm(resolved.province) !== norm(dto.province);
+    // MASTER LGU SSOT: never clear an existing id on failed resolve (pin-only / same city edits).
+    if (nextLgu || cityOrProvinceChanged) {
+      patch.canonical_lgu_id = nextLgu;
+    }
   }
 
   const touchesGeo =
@@ -579,13 +623,14 @@ export async function deleteUserAddress(
   const { error } = await sb.from("user_addresses").update({ is_active: false }).eq("id", id).eq("user_id", userId);
   if (error) throwUserAddressWriteError(error, "address_delete_failed");
 
-  const { data: rest } = await sb
+  const { data: rest, error: eRest } = await sb
     .from("user_addresses")
     .select(SEL)
     .eq("user_id", userId)
     .eq("is_active", true)
     .order("updated_at", { ascending: false })
     .limit(1);
+  if (eRest) throwUserAddressWriteError(eRest, "address_delete_failed");
   const next = rest?.[0] as Record<string, unknown> | undefined;
   if (!next) {
     await repairStoreLinkedMasterAfterWrite(sb, userId);
@@ -597,7 +642,12 @@ export async function deleteUserAddress(
 
   if (wasMaster) {
     await clearDefaultColumn(sb, userId, "is_default_master");
-    await sb.from("user_addresses").update({ is_default_master: true }).eq("id", nid).eq("user_id", userId);
+    const { error: eM } = await sb
+      .from("user_addresses")
+      .update({ is_default_master: true })
+      .eq("id", nid)
+      .eq("user_id", userId);
+    if (eM) throwUserAddressWriteError(eM, "address_set_master_failed");
     await touchPersistCanonicalLguIfResolvable(sb, userId, nid);
   }
   await repairStoreLinkedMasterAfterWrite(sb, userId);

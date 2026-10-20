@@ -128,6 +128,8 @@ export function validatePlacesAddressPayload(p: Partial<UserAddressWritePayload>
   if (lat == null || lng == null) return "coordinates_required";
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "coordinates_required";
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return "coordinates_invalid";
+  // (0,0) "Null Island" — unset/default pin, never a real member address.
+  if (lat === 0 && lng === 0) return "coordinates_invalid";
   if (!detail) return "detail_address_required";
   return null;
 }
