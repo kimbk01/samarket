@@ -77,69 +77,13 @@ function defaultSectionHealth(): RecommendationSectionHealth[] {
   }));
 }
 
-function defaultReports(): RecommendationReport[] {
-  return [
-    {
-      id: "rr-1",
-      reportType: "daily",
-      surface: "all",
-      dateFrom: new Date().toISOString().slice(0, 10),
-      dateTo: new Date().toISOString().slice(0, 10),
-      generatedAt: new Date().toISOString(),
-      generatedBy: "admin1",
-      reportStatus: "ready",
-      title: "일간 추천 성과 리포트",
-      summaryNote: "전체 surface 일간 집계",
-    },
-    {
-      id: "rr-2",
-      reportType: "weekly",
-      surface: "all",
-      dateFrom: new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10),
-      dateTo: new Date().toISOString().slice(0, 10),
-      generatedAt: new Date(Date.now() - 86400000).toISOString(),
-      generatedBy: "admin1",
-      reportStatus: "ready",
-      title: "주간 추천 성과 리포트",
-      summaryNote: "전체 surface 주간 집계",
-    },
-  ];
-}
-
-function defaultReportKpis(): RecommendationReportKpis[] {
-  return [
-    {
-      reportId: "rr-1",
-      impressionCount: 125000,
-      clickCount: 5120,
-      ctr: 0.04096,
-      conversionCount: 980,
-      conversionRate: 0.00784,
-      avgScore: 0.72,
-      fallbackCount: 0,
-      killSwitchCount: 0,
-      rollbackCount: 0,
-      incidentCount: 0,
-    },
-    {
-      reportId: "rr-2",
-      impressionCount: 890000,
-      clickCount: 35600,
-      ctr: 0.04,
-      conversionCount: 6230,
-      conversionRate: 0.007,
-      avgScore: 0.71,
-      fallbackCount: 1,
-      killSwitchCount: 0,
-      rollbackCount: 0,
-      incidentCount: 2,
-    },
-  ];
-}
-
+/**
+ * 보고서·보고서 KPI 는 관리자가 「보고서 생성」으로 만든 것만 둔다 (생성 시 KPI = DB 추천 기록 집계).
+ * 예전 예시 보고서(rr-1·rr-2)와 고정 KPI(노출 125,000 등)는 실제 데이터가 아니어서 두지 않는다 (R7 실측).
+ */
 const SECTION_HEALTH: RecommendationSectionHealth[] = defaultSectionHealth();
-const REPORTS: RecommendationReport[] = defaultReports();
-const REPORT_KPIS: RecommendationReportKpis[] = defaultReportKpis();
+const REPORTS: RecommendationReport[] = [];
+const REPORT_KPIS: RecommendationReportKpis[] = [];
 const REPORT_SECTIONS: RecommendationReportSection[] = [];
 const REPORT_VERSIONS: RecommendationReportVersion[] = [];
 const REGION_ANALYTICS: RecommendationRegionAnalytics[] = [];
@@ -171,8 +115,8 @@ export function createDefaultRecommendationAnalyticsBundle(): RecommendationAnal
   return {
     version: 1,
     sectionHealth: defaultSectionHealth().map((h) => ({ ...h })),
-    reports: defaultReports().map((r) => ({ ...r })),
-    reportKpis: defaultReportKpis().map((k) => ({ ...k })),
+    reports: [],
+    reportKpis: [],
     reportSections: [],
     reportVersions: [],
     regionAnalytics: [],
@@ -222,8 +166,6 @@ export function importRecommendationAnalyticsBundle(
     SURFACE_METRICS[surface] = { ...metrics[surface] };
   }
   if (!SECTION_HEALTH.length) replaceArray(SECTION_HEALTH, defaultSectionHealth());
-  if (!REPORTS.length) replaceArray(REPORTS, defaultReports());
-  if (!REPORT_KPIS.length) replaceArray(REPORT_KPIS, defaultReportKpis());
 }
 
 export function exportRecommendationAnalyticsBundle(): RecommendationAnalyticsBundleV1 {
