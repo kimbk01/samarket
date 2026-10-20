@@ -211,7 +211,7 @@ export const MYPAGE_HOME_ACCOUNT_ITEMS: MypageHomeMenuItemConfig[] = [
     kind: "addresses",
     titleKey: "mypage_comp_menu_account_address_title",
     icon: "address-pin",
-    valueSource: { kind: "address-public-label" },
+    // 오른쪽 값(동네) 없음 — 같은 값은 필수 정보 「대표 주소」 행이 표시 (real-screen-redesign §11-3)
   },
   {
     href: "/mypage/section/store/payment",

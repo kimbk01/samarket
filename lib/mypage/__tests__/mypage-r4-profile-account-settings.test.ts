@@ -14,7 +14,8 @@ import {
   MYPAGE_PROFILE_EDIT_SHEET_HREF,
   isMypageProfileEditSheetRequest,
 } from "@/lib/mypage/mypage-profile-routes";
-import { maskProfilePhoneForDisplay, resolveAccountPhoneDisplay } from "@/lib/mypage/mask-profile-phone";
+import { maskProfilePhoneForDisplay } from "@/lib/mypage/mask-profile-phone";
+import { resolveMemberPhoneState } from "@/lib/profile/member-account-status";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import {
   canUnlinkAuthProvider,
@@ -116,16 +117,17 @@ describe("S03 계정 — 마스킹·인증 표시·가입일", () => {
     expect(maskProfilePhoneForDisplay("12345")).toBe("*2345");
   });
 
-  it("인증·번호 조합 4경우 — '번호 없음'과 '인증 완료'가 동시에 나오지 않음", () => {
-    expect(resolveAccountPhoneDisplay({ formattedPhone: "+63 912 345 6789", verified: true })).toEqual({
-      kind: "verified_with_number",
+  it("인증·번호 조합 — '번호 없음'과 '인증 완료'가 동시에 나오지 않음 (공용 resolveMemberPhoneState)", () => {
+    expect(resolveMemberPhoneState({ phone: "09123456789", phone_verified: true })).toEqual({
+      kind: "verified",
+      verified: true,
       masked: "+63 9** *** 6789",
     });
-    expect(resolveAccountPhoneDisplay({ formattedPhone: "", verified: true })).toEqual({ kind: "verified_no_number" });
-    expect(resolveAccountPhoneDisplay({ formattedPhone: "+63 912 345 6789", verified: false }).kind).toBe(
+    expect(resolveMemberPhoneState({ phone: null, phone_verified: true }).kind).toBe("verified_no_number_unknown");
+    expect(resolveMemberPhoneState({ phone: "09123456789", phone_verified: false }).kind).toBe(
       "unverified_with_number",
     );
-    expect(resolveAccountPhoneDisplay({ formattedPhone: null, verified: false })).toEqual({ kind: "missing" });
+    expect(resolveMemberPhoneState({ phone: null, phone_verified: false }).kind).toBe("unverified");
   });
 
   it("가입일 포맷 ko/en (필리핀 시간)", () => {

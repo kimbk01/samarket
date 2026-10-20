@@ -26,6 +26,8 @@ export async function GET() {
         life: null,
         trade: null,
         delivery: null,
+        // 주소는 있으나 대표 없음(「대표 지정 필요」) 판정 — 같은 목록에서 계산, 추가 요청 0
+        activeCount: defaults.activeCount ?? null,
       },
       neighborhoodFromLife: null,
     });

@@ -12,6 +12,12 @@ export const PHONE_OTP_CODE_LENGTH = 6;
 
 export const PHONE_OTP_CODE_RE = /^\d{6}$/;
 
+/**
+ * OTP 유효시간 기본값(초) — `auth_phone_settings.otp_ttl_seconds` 가 없을 때.
+ * 클라이언트(내정보 필수정보 「인증 진행 중/만료」 판정)는 설정을 받지 않으므로 이 값을 쓴다.
+ */
+export const DEFAULT_PHONE_OTP_TTL_SECONDS = 300;
+
 /** 서버 `verifyPhoneOtpForUser` 와 동일 — 6자리 숫자만 허용 */
 export function isValidPhoneOtpCodeInput(code: string): boolean {
   return PHONE_OTP_CODE_RE.test(String(code ?? "").trim());

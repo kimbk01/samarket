@@ -58,6 +58,8 @@ export type UserAddressDefaultsDTO = {
   life: UserAddressDTO | null;
   trade: UserAddressDTO | null;
   delivery: UserAddressDTO | null;
+  /** 활성 주소 수 — 같은 목록 조회에서 계산(추가 쿼리 0). 내정보 「대표 지정 필요」 판정용 */
+  activeCount?: number;
 };
 
 export type UserAddressWritePayload = {

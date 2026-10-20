@@ -22,9 +22,9 @@ Feature-catalog cards are **not** IA authority.
 ## 2. Profile / required
 
 - One identity start: avatar · name · DIBAY ID · manner summary · edit entry.  
-- Required incomplete → **inline inputs** under manner battery (same as `/mypage/required`: dibay id check · phone OTP · address).  
-- Required complete → **hide** home complete card; edit via account/sheets.  
-- Address: no duplicate home-complete + address-menu twin CTA when complete.
+- **필수정보 3행 상시 표시 (2026-10-20 Owner 승인, real-screen-redesign §11)** — 프로필 카드 바로 아래 아이디 · 전화번호 인증 · 대표 주소 3행을 완료 여부와 관계없이 항상 표시 (행 = 아이콘 · 제목 · 현재 값 · 상태 배지 · CTA, 행 전체 탭 = CTA). 계정 화면(S03)도 같은 컴포넌트. 이동 = 아이디·전화 시트, 주소 `/mypage/addresses`.  
+- ~~Required complete → hide home complete card~~ (폐기 2026-10-20).  
+- Address: 대표 주소 값은 필수정보 「대표 주소」 행만 표시 — 「주소관리」 메뉴 행의 오른쪽 값(동네)은 비운다 (같은 값 2회 표시 금지).
 
 ## 3. Responsive
 

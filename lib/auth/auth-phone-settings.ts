@@ -1,4 +1,5 @@
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { DEFAULT_PHONE_OTP_TTL_SECONDS } from "@/lib/auth/phone-otp-contract";
 
 export type AuthPhoneSettings = {
   id?: string;
@@ -22,7 +23,7 @@ export const DEFAULT_AUTH_PHONE_SETTINGS: AuthPhoneSettings = {
   country_code: "PH",
   provider: "semaphore",
   sms_from_name: null,
-  otp_ttl_seconds: 300,
+  otp_ttl_seconds: DEFAULT_PHONE_OTP_TTL_SECONDS,
   resend_cooldown_seconds: 60,
   max_attempts: 5,
   guide_text: "필리핀 휴대폰 번호만 인증 가능합니다. 예: 0917 123 4567",

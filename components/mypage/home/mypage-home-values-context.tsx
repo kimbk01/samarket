@@ -26,8 +26,6 @@ export type MypageHomeValues = {
   summary: MypageHomeSummaryState | null;
   /** 거래 채팅 안읽음 — 허브 배지 스토어(`chatUnread`), 추가 요청 0 */
   tradeChatUnread: number;
-  /** 대표 동네 공개 라벨 — 홈 모델 주소 기본값 1회 조회 결과 */
-  addressPublicLabel: string | null;
 };
 
 const MypageHomeValuesContext = createContext<MypageHomeValues | null>(null);
@@ -111,8 +109,6 @@ export function useMypageHomeRowValue(source: MypageHomeRowValueSource | undefin
       }
       case "trade-chat-unread":
         return ctx.tradeChatUnread > 0 ? { badge: { count: ctx.tradeChatUnread, tone: "danger" } } : {};
-      case "address-public-label":
-        return ctx.addressPublicLabel ? { value: ctx.addressPublicLabel, valueState: "ready" } : {};
       case "installed-version":
         return versionLabel ? { value: versionLabel, valueState: "ready" } : {};
       default:

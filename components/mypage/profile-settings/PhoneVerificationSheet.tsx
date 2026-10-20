@@ -8,6 +8,7 @@ import { refreshClientMemberAccountAfterMutation } from "@/lib/auth/sync-member-
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import { patchMypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import {
   buildPhoneVerifySnapshot,
   fetchPhoneVerificationSettings,
@@ -59,6 +60,8 @@ export function PhoneVerificationSheet({ open, onClose }: { open: boolean; onClo
       if (prev.kind !== "ready") return prev;
       return { kind: "ready", profile: p ?? prev.profile, settings: settings ?? prev.settings };
     });
+    // 홈 필수정보 「전화번호 인증」 행 즉시 갱신 (저장 응답 기준 — 재조회 대기 없음)
+    if (p) patchMypageHomeProjection({ profile: p });
     invalidateMypageSummary();
     onProfileUpdated();
     if (p && hasVerifiedPhone(p)) {

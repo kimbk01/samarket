@@ -25,9 +25,10 @@ import {
   type MypageHomeProjection,
 } from "@/lib/mypage/mypage-home-store";
 import { resolveMypageHomeProfileResult } from "@/lib/mypage/resolve-mypage-home-profile";
-import { formatUserAddressPublic } from "@/lib/addresses/user-address-display-ssot";
-import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
+import {
+  resolveRequiredAddressFromSnapshot,
+  type RequiredAddressResolution,
+} from "@/lib/mypage/required-address-from-snapshot";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
 import { bumpMypageMountGeneration } from "@/lib/runtime/mypage-network-markers";
 import { cancelPendingOwnerLiteAutoHydrate } from "@/lib/stores/owner-lite-external-store";
@@ -38,21 +39,9 @@ import { cancelPendingOwnerLiteAutoHydrate } from "@/lib/stores/owner-lite-exter
  */
 export type MypageHomeProfilePhase = "pending" | "ready" | "needs_relogin" | "error";
 
-type AddressResolution = { status: RequiredInfoStatus; publicLabel: string | null };
+type AddressResolution = RequiredAddressResolution;
 
-function addressFromSnapshot(snap: AddressDefaultsSnapshot | null): AddressResolution {
-  if (snap?.ok && snap.status === 200) {
-    const master = snap.defaults?.master;
-    if (master != null) {
-      return {
-        status: "complete",
-        publicLabel: formatUserAddressPublic(master as UserAddressDTO)?.trim() || null,
-      };
-    }
-    return { status: "required", publicLabel: null };
-  }
-  return { status: "unknown", publicLabel: null };
-}
+const addressFromSnapshot = resolveRequiredAddressFromSnapshot;
 
 /**
  * Address status for root summary — one address-defaults read max.
@@ -145,6 +134,7 @@ export function useMypageHomeModel(enabled: boolean) {
         setMypageHomeProjection({
           ...projectionFromProfile(profile, address.status),
           addressPublicLabel: address.publicLabel,
+          addressActiveCount: address.activeCount,
         });
         // 주소 조회 실패(unknown)면 확인 중 고착 대신 재시도 가능 상태
         setProfilePhase(address.status === "unknown" ? "error" : "ready");
@@ -185,10 +175,12 @@ export function useMypageHomeModel(enabled: boolean) {
             lite.addressStatus !== "unknown"
               ? lite.addressStatus
               : seedAddressStatusFromCache();
+          const cachedAddress = addressFromSnapshot(peekFreshAddressDefaultsSnapshot());
           setMypageHomeProjection({
             ...projectionFromSessionLite({ ...lite, addressStatus: addr }),
             addressStatus: addr,
-            addressPublicLabel: addressFromSnapshot(peekFreshAddressDefaultsSnapshot()).publicLabel,
+            addressPublicLabel: cachedAddress.publicLabel,
+            addressActiveCount: cachedAddress.activeCount,
           });
           setProfilePhase("ready");
         } else {
