@@ -53,10 +53,19 @@ describe("CUT B — apply-store-order-status-transition hook", () => {
     "utf8"
   );
 
-  it("calls reverseCoinCreditsForOrder on refunded terminal path", () => {
-    expect(SRC).toContain('from "@/lib/currency/coin-reversal-writer"');
-    expect(SRC).toContain("reverseCoinCreditsForOrder");
-    expect(SRC).toContain('reason: "order_refund"');
+  // Stage 2-C (FIN-05): the refund Coin reversal moved into gift_certificate_refund_order_atomic (same TX as
+  // the refunded status) with the same idempotency key / reason the TS writer used.
+  it("refunded terminal path reverses Coin inside the refund RPC (same key/reason as coinReversalIdempotencyKeyForOrder)", () => {
+    expect(SRC).toContain('"gift_certificate_refund_order_atomic"');
+    expect(SRC).not.toContain("reverseCoinCreditsForOrder(");
+    const mig = readFileSync(
+      join(process.cwd(), "supabase/migrations/20270603130000_stage2_2c_cancel_refund_money_atomic.sql"),
+      "utf8"
+    );
+    expect(mig).toContain(
+      "public.reverse_coin_credits_for_order(p_order_id, 'coin_reversal:order:' || p_order_id::text, 'order_refund')"
+    );
+    expect(coinReversalIdempotencyKeyForOrder("o1")).toBe("coin_reversal:order:o1");
   });
 });
 

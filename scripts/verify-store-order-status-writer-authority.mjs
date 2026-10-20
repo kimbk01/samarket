@@ -87,6 +87,8 @@ const STATUS_WRITER_RPCS = [
   "store_order_buyer_cancel_request_atomic",
   "store_order_owner_cancel_atomic",
   "store_order_cancel_request_decide_atomic",
+  // Stage 2-C: plain cancels (buyer pre-accept, admin direct, SYSTEM) with coupon/gift/delivery side effects in one TX.
+  "store_order_cancel_direct_atomic",
 ];
 const applyAbs = path.join(root, "lib/stores/apply-store-order-status-transition.ts");
 const applySrc = fs.readFileSync(applyAbs, "utf8");
