@@ -122,11 +122,7 @@ export function hasPhilippinePhoneVerification(
   const verifiedAt =
     typeof profile.phone_verified_at === "string" ? profile.phone_verified_at.trim() : "";
   if (verifiedAt) return true;
-  const method =
-    typeof profile.phone_verification_method === "string"
-      ? profile.phone_verification_method.trim().toLowerCase()
-      : "";
-  if (method === "admin_manual") return true;
+  /** `hasVerifiedPhone` 과 동일 — method 라벨 단독으로는 인증 근거가 아니다 */
   return isAdminManualProvider(profile);
 }
 
