@@ -3,6 +3,8 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
+import { invalidateOwnerProductsListCache } from "@/lib/stores/owner-products-list-snapshot";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -112,6 +114,8 @@ export async function PATCH(
   }
 
   invalidateStoreMenusSnapshotCacheByStoreId(sid);
+  invalidateOwnerProductsListCache(sid); // PRD-09 — 구역 숨김/이름이 오너 허브에 즉시 반영
+  bumpStorePublicSharedCacheGeneration("owner_store.menu_section_update"); // OPS-02
   return NextResponse.json({ ok: true, section: updated });
 }
 
@@ -159,5 +163,7 @@ export async function DELETE(
   }
 
   invalidateStoreMenusSnapshotCacheByStoreId(sid);
+  invalidateOwnerProductsListCache(sid); // PRD-09 — 삭제 구역 상품(menu_section_id NULL) 즉시 반영
+  bumpStorePublicSharedCacheGeneration("owner_store.menu_section_delete"); // OPS-02
   return NextResponse.json({ ok: true });
 }

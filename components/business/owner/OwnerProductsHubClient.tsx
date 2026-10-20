@@ -9,6 +9,10 @@ import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
+  ownerAdminLockLabelKo,
+  ownerProductToggleLockReason,
+} from "@/lib/stores/store-product-admin-lock";
+import {
   readOwnerProductsHubSessionCache,
   writeOwnerProductsHubSessionCache,
 } from "@/lib/business/owner-products-hub-session-cache";
@@ -25,6 +29,9 @@ type HubProduct = {
   product_status: string;
   admin_review_status?: string | null;
   admin_review_memo?: string | null;
+  /** ND-1 — 관리자 숨김·품절·차단 잠금 (관리자만 해제) */
+  admin_status_lock?: string | null;
+  sold_out_reason?: string | null;
   menu_section_id?: string | null;
   store_menu_sections?: Section | Section[] | null;
 };
@@ -281,6 +288,21 @@ export function OwnerProductsHubClient({
               "This item was rejected in admin review. Edit it to request re-review; you can sell it after approval."
             )
           );
+        } else if (
+          j?.error === "admin_locked" ||
+          j?.error === "admin_review_pending" ||
+          j?.error === "product_changed"
+        ) {
+          setToast(
+            typeof j?.message === "string" && j.message
+              ? j.message
+              : ownerUiCopy(
+                  language,
+                  "관리자 조치 중인 상품이라 상태를 바꿀 수 없습니다.",
+                  "This item is under an admin action; you cannot change its status."
+                )
+          );
+          if (j?.error === "product_changed") await loadAll({ silent: true });
         } else if (j?.error === "admin_blocked_product") {
           setToast(
             ownerUiCopy(
@@ -464,6 +486,12 @@ export function OwnerProductsHubClient({
             {filtered.map((p) => {
               const listed = isActiveListed(p.product_status);
               const busy = busyId === p.id;
+              /** ND-1 · PRD-03 — 관리자 잠금·차단은 토글 전부, 검수 반려·재검수 대기는 판매 전환 토글만 비활성 */
+              const lockReason = ownerProductToggleLockReason(p);
+              const adminHardLocked =
+                lockReason?.kind === "admin_locked" || lockReason?.kind === "blocked";
+              const reviewLocked =
+                lockReason?.kind === "review_rejected" || lockReason?.kind === "review_pending";
               const editHref = `/stores/owner/products/${encodeURIComponent(p.id)}/edit?${q}`;
               const intro = oneLineProductIntro(p);
               const statusLabel =
@@ -507,17 +535,31 @@ export function OwnerProductsHubClient({
                           {intro}
                         </p>
                       ) : null}
-                      {p.product_status === "blocked" || p.admin_review_status === "rejected" || p.admin_review_status === "pending" ? (
+                      {lockReason ? (
                         <p
-                          data-owner-product-admin-review={p.admin_review_status ?? p.product_status}
+                          data-owner-product-admin-review={
+                            lockReason.kind === "admin_locked"
+                              ? `lock_${lockReason.lock}`
+                              : p.admin_review_status ?? p.product_status
+                          }
                           className="mt-0.5 sam-text-xxs leading-snug text-amber-800"
                         >
-                          {p.product_status === "blocked"
-                            ? ownerUiCopy(language, "관리자 판매 차단", "Blocked by admin")
-                            : p.admin_review_status === "rejected"
-                              ? ownerUiCopy(language, "관리자 검수 반려", "Rejected in admin review")
-                              : ownerUiCopy(language, "재검수 대기", "Awaiting re-review")}
-                          {p.admin_review_memo && p.admin_review_status !== "pending"
+                          {lockReason.kind === "admin_locked" && lockReason.lock
+                            ? ownerUiCopy(
+                                language,
+                                `${ownerAdminLockLabelKo(lockReason.lock)} · 관리자 해제 전 변경 불가`,
+                                lockReason.lock === "sold_out"
+                                  ? "Marked sold out by admin · locked until admin lifts it"
+                                  : lockReason.lock === "blocked"
+                                    ? "Blocked by admin · locked until admin lifts it"
+                                    : "Hidden by admin · locked until admin lifts it"
+                              )
+                            : lockReason.kind === "blocked"
+                              ? ownerUiCopy(language, "관리자 판매 차단", "Blocked by admin")
+                              : lockReason.kind === "review_rejected"
+                                ? ownerUiCopy(language, "관리자 검수 반려", "Rejected in admin review")
+                                : ownerUiCopy(language, "재검수 대기", "Awaiting re-review")}
+                          {p.admin_review_memo && lockReason.kind !== "review_pending"
                             ? ` · ${p.admin_review_memo}`
                             : ""}
                         </p>
@@ -541,7 +583,12 @@ export function OwnerProductsHubClient({
                           type="button"
                           role="switch"
                           aria-checked={p.product_status === "sold_out"}
-                          disabled={busy || (!listed && p.product_status !== "sold_out")}
+                          disabled={
+                            busy ||
+                            adminHardLocked ||
+                            reviewLocked ||
+                            (!listed && p.product_status !== "sold_out")
+                          }
                           title={
                             p.product_status === "draft" || p.product_status === "hidden"
                               ? t("business_phase7_420")
@@ -566,7 +613,7 @@ export function OwnerProductsHubClient({
                           type="button"
                           role="switch"
                           aria-checked={listed}
-                          disabled={busy}
+                          disabled={busy || adminHardLocked || (reviewLocked && !listed)}
                           onClick={() => onToggleListed(p, !listed)}
                           className={`relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
                             listed ? "bg-emerald-500" : "bg-sam-border-soft"
@@ -599,7 +646,7 @@ export function OwnerProductsHubClient({
                       </Link>
                       <button
                         type="button"
-                        disabled={busy}
+                        disabled={busy || adminHardLocked}
                         onClick={() => onDeleteClick(p)}
                         className={`${OwnerCta.ghost} min-h-10 px-2 text-sm font-medium text-sam-danger underline-offset-2 hover:underline`}
                         data-owner-cta="danger"

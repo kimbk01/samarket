@@ -81,6 +81,21 @@ if (!writer.includes('sb.rpc("store_order_buyer_cancel_request_atomic"')) {
   fails.push("writer must create buyer cancel requests via store_order_buyer_cancel_request_atomic");
 }
 
+// 1-J reopen (hard-lock doc §7, PRD-06): cancel stock restore re-activates only stock-driven sold_out.
+{
+  const mig1j = read("supabase/migrations/20270602130000_store_products_review_lock_stock_reason.sql");
+  const restoreFn = mig1j.slice(mig1j.indexOf("CREATE OR REPLACE FUNCTION public.restore_store_order_stock_atomic"));
+  if (!restoreFn.includes("store_order_stock_restore_claims")) {
+    fails.push("1-J restore must keep the idempotent claim");
+  }
+  if (!/p\.sold_out_reason = 'stock'/.test(restoreFn)) {
+    fails.push("1-J restore must only re-activate sold_out_reason = 'stock'");
+  }
+  if (/WHEN p\.product_status = 'sold_out' AND \(p\.stock_qty \+ v_line\.qty\) > 0 THEN 'active'/.test(restoreFn)) {
+    fails.push("1-J restore must not re-activate manual/admin sold_out");
+  }
+}
+
 if (fails.length) {
   console.error("FAIL: store-order-recovery-integrity\n" + fails.join("\n"));
   process.exit(1);

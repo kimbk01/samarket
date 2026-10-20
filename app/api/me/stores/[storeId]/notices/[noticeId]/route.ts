@@ -6,6 +6,7 @@ import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/store
 import { filterStoreOwnedImageUrls } from "@/lib/stores/store-owned-image-urls";
 import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import {
   collectCanonicalImagePublicUrls,
   diffRemovedImageUrls,
@@ -116,6 +117,7 @@ export async function PATCH(
 
   const slug = await resolveSlug(sb, sid);
   if (slug) revalidateStoreConsumerPathsBySlug(slug);
+  bumpStorePublicSharedCacheGeneration("owner_store.notice_update"); // OPS-02
 
   return NextResponse.json({ ok: true });
 }
@@ -167,6 +169,7 @@ export async function DELETE(
 
   const slug = await resolveSlug(sb, sid);
   if (slug) revalidateStoreConsumerPathsBySlug(slug);
+  bumpStorePublicSharedCacheGeneration("owner_store.notice_delete"); // OPS-02
 
   return NextResponse.json({ ok: true });
 }

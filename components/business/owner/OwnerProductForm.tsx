@@ -48,6 +48,11 @@ import {
 } from "@/lib/business/owner-product-register-error";
 import { OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
+import { diffOwnerProductPatch } from "@/lib/stores/owner-product-patch-diff";
+import {
+  ownerAdminLockLabelKo,
+  ownerProductToggleLockReason,
+} from "@/lib/stores/store-product-admin-lock";
 type FormValues = {
   title: string;
   summary: string;
@@ -175,6 +180,41 @@ function StatusToggleBandedRow({
   );
 }
 
+/** 저장 payload 의 공통 부분 — 저장 시점과 로드 시점(baseline, PRD-07 dirty 비교)이 같은 규칙을 쓴다 */
+function buildOwnerProductPayloadCore(values: FormValues) {
+  const price = parseInt(values.price.replace(/\D/g, ""), 10);
+  const pctRaw = values.discount_percent.replace(/\D/g, "");
+  const pctParsed = pctRaw === "" ? 0 : parseInt(pctRaw, 10);
+  let discount_percent: number | null = null;
+  if (Number.isFinite(pctParsed) && pctParsed > 0 && pctParsed <= 100) {
+    discount_percent = pctParsed;
+  }
+  const stock_qty = parseInt(values.stock_qty.replace(/\D/g, ""), 10);
+  const stock = Number.isFinite(stock_qty) && stock_qty >= 0 ? stock_qty : 0;
+
+  const so = parseInt(values.sort_order, 10);
+  const sort_order = Number.isFinite(so) ? Math.max(0, Math.min(9999, so)) : 0;
+
+  const options_json = formGroupsToOptionsJson(values.optionGroups);
+
+  return {
+    title: values.title.trim(),
+    summary: values.summary.trim() || undefined,
+    price,
+    discount_percent,
+    stock_qty: values.track_inventory ? stock : 0,
+    track_inventory: values.track_inventory,
+    product_status: values.product_status,
+    menu_section_id: values.menu_section_id.trim() || null,
+    category_id: null,
+    item_type: "product" as const,
+    is_owner_recommended: values.is_owner_recommended,
+    is_representative: values.is_representative,
+    sort_order,
+    options_json,
+  };
+}
+
 function initialValues(defaultDraft: boolean): FormValues {
   return {
     title: "",
@@ -230,6 +270,16 @@ export function OwnerProductForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [baselineSnapshot, setBaselineSnapshot] = useState<string | null>(null);
+  /** PRD-07 — 로드 시점 payload·updated_at (변경 필드만 PATCH + 낙관적 잠금) */
+  const loadedPayloadRef = useRef<Record<string, unknown> | null>(null);
+  const loadedUpdatedAtRef = useRef<string | null>(null);
+  /** ND-1 · PRD-03 — 관리자 잠금·검수 상태 (상태 토글 비활성 + 사유 표시) */
+  const [adminState, setAdminState] = useState<{
+    product_status: string;
+    admin_review_status: string | null;
+    admin_status_lock: string | null;
+    admin_review_memo: string | null;
+  } | null>(null);
   const [imageSlots, setImageSlots] = useState<OwnerProductImageSlot[]>([]);
   const [representativeSlotId, setRepresentativeSlotId] = useState<string | null>(null);
   const imageSlotsRef = useRef<OwnerProductImageSlot[]>([]);
@@ -432,6 +482,18 @@ export function OwnerProductForm({
       setRepresentativeSlotId(null);
       setValues(next);
       setBaselineSnapshot(serializeProductFormSnapshot(next, loadedSlots, null));
+      loadedPayloadRef.current = {
+        ...buildOwnerProductPayloadCore(next),
+        thumbnail_url: loadedSlots[0]?.url ?? "",
+        images_json: loadedSlots.slice(1).map((s) => s.url ?? ""),
+      };
+      loadedUpdatedAtRef.current = typeof p.updated_at === "string" ? p.updated_at : null;
+      setAdminState({
+        product_status: String(p.product_status ?? ""),
+        admin_review_status: typeof p.admin_review_status === "string" ? p.admin_review_status : null,
+        admin_status_lock: typeof p.admin_status_lock === "string" ? p.admin_status_lock : null,
+        admin_review_memo: typeof p.admin_review_memo === "string" ? p.admin_review_memo : null,
+      });
     } catch {
       setError("network_error");
     } finally {
@@ -501,36 +563,7 @@ export function OwnerProductForm({
       setSaving(false);
       return;
     }
-    const pctRaw = values.discount_percent.replace(/\D/g, "");
-    const pctParsed = pctRaw === "" ? 0 : parseInt(pctRaw, 10);
-    let discount_percent: number | null = null;
-    if (Number.isFinite(pctParsed) && pctParsed > 0 && pctParsed <= 100) {
-      discount_percent = pctParsed;
-    }
-    const stock_qty = parseInt(values.stock_qty.replace(/\D/g, ""), 10);
-    const stock = Number.isFinite(stock_qty) && stock_qty >= 0 ? stock_qty : 0;
-
-    const so = parseInt(values.sort_order, 10);
-    const sort_order = Number.isFinite(so) ? Math.max(0, Math.min(9999, so)) : 0;
-
-    const options_json = formGroupsToOptionsJson(values.optionGroups);
-
-    const payloadCore = {
-      title: values.title.trim(),
-      summary: values.summary.trim() || undefined,
-      price,
-      discount_percent,
-      stock_qty: values.track_inventory ? stock : 0,
-      track_inventory: values.track_inventory,
-      product_status: values.product_status,
-      menu_section_id: values.menu_section_id.trim() || null,
-      category_id: null,
-      item_type: "product" as const,
-      is_owner_recommended: values.is_owner_recommended,
-      is_representative: values.is_representative,
-      sort_order,
-      options_json,
-    };
+    const payloadCore = buildOwnerProductPayloadCore(values);
 
     setUploading(true);
     try {
@@ -616,13 +649,30 @@ export function OwnerProductForm({
           return;
         }
       } else if (productId) {
+        // PRD-07 — 바뀐 필드만 + 로드 시점 updated_at 조건 (그 사이 주문 감산·관리자 조치 덮어쓰기 방지)
+        const fullPayload: Record<string, unknown> = { ...payloadCore, ...imagePayload };
+        const changed = loadedPayloadRef.current
+          ? diffOwnerProductPatch(loadedPayloadRef.current, fullPayload)
+          : fullPayload;
+        if (Object.keys(changed).length === 0) {
+          router.push(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
+          return;
+        }
         const res = await fetch(`/api/me/stores/${storeId}/products/${productId}`, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...payloadCore, ...imagePayload }),
+          body: JSON.stringify({
+            ...changed,
+            ...(loadedUpdatedAtRef.current ? { expected_updated_at: loadedUpdatedAtRef.current } : {}),
+          }),
         });
         const json = await res.json();
+        if (!json?.ok && json?.error === "product_changed") {
+          openRegisterErrorModal(resolveOwnerProductRegisterError(json, mode, t));
+          void load();
+          return;
+        }
         if (!json?.ok) {
           const errPayload = resolveOwnerProductRegisterError(json, mode, t);
           openRegisterErrorModal(errPayload);
@@ -690,6 +740,23 @@ export function OwnerProductForm({
     return () => window.removeEventListener("beforeunload", fn);
   }, [isDirty]);
 
+  const adminLockReason = mode === "edit" && adminState ? ownerProductToggleLockReason(adminState) : null;
+  /** ND-1 — 관리자 잠금·차단: 상태 토글 전부 비활성 */
+  const statusHardLocked =
+    adminLockReason?.kind === "admin_locked" || adminLockReason?.kind === "blocked";
+  /** PRD-03 — 검수 반려·재검수 대기: 판매중·품절 전환만 비활성 (숨김·초안은 가능) */
+  const statusSellLocked =
+    adminLockReason?.kind === "review_rejected" || adminLockReason?.kind === "review_pending";
+  const adminMemoSuffix = adminState?.admin_review_memo ? ` (사유: ${adminState.admin_review_memo})` : "";
+  const adminLockNotice = !adminLockReason
+    ? null
+    : adminLockReason.kind === "admin_locked" && adminLockReason.lock
+      ? `${ownerAdminLockLabelKo(adminLockReason.lock)} 상품입니다. 관리자가 해제하기 전까지 판매 상태를 바꿀 수 없습니다.${adminMemoSuffix}`
+      : adminLockReason.kind === "blocked"
+        ? "관리자가 판매를 차단한 상품입니다. 고객센터로 문의해 주세요."
+        : adminLockReason.kind === "review_rejected"
+          ? `관리자 검수에서 반려된 상품입니다. 내용을 수정해 저장하면 재검수 요청이 되고, 승인 후 판매할 수 있습니다.${adminMemoSuffix}`
+          : "재검수 대기 중입니다. 관리자 검수 승인 후 판매할 수 있습니다.";
   const isHidden = values.product_status === "hidden";
   const isSoldOut = values.product_status === "sold_out";
   const isListed = values.product_status === "active";
@@ -966,13 +1033,21 @@ export function OwnerProductForm({
 
             <OwnerStoreAdminDashSection pad="narrow" title={t("business_phase7_273")}>
               <div className="space-y-1.5">
+                {adminLockNotice ? (
+                  <p
+                    className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-caption leading-relaxed text-amber-900"
+                    data-owner-product-admin-lock={adminLockReason?.kind}
+                  >
+                    {adminLockNotice}
+                  </p>
+                ) : null}
                 <div className="grid min-w-0 grid-cols-2 gap-1.5">
                   <StatusToggleBandedRow
                     band="a"
                     label={t("business_phase7_260")}
                     title={t("business_phase7_279")}
                     checked={isListed}
-                    disabled={isHidden || isSoldOut}
+                    disabled={isHidden || isSoldOut || statusHardLocked || statusSellLocked}
                     onToggle={() =>
                       setValues((v) => ({
                         ...v,
@@ -985,6 +1060,7 @@ export function OwnerProductForm({
                     label={t("business_phase7_379")}
                     title={t("business_phase7_094")}
                     checked={!isHidden}
+                    disabled={statusHardLocked}
                     onToggle={() =>
                       setValues((v) => ({
                         ...v,
@@ -998,6 +1074,7 @@ export function OwnerProductForm({
                     band="a"
                     label={t("business_phase7_317")}
                     checked={isSoldOut}
+                    disabled={statusHardLocked || statusSellLocked}
                     onToggle={() =>
                       setValues((v) => ({
                         ...v,

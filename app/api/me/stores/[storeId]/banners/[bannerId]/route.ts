@@ -5,6 +5,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import { filterStoreOwnedImageUrls } from "@/lib/stores/store-owned-image-urls";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import { coerceStoreBannerLink, STORE_BANNER_LINK_TYPES } from "@/lib/stores/store-banner-link";
 import {
   diffRemovedImageUrls,
@@ -160,6 +161,7 @@ export async function PATCH(
 
   const slug = await resolveSlug(sb, sid);
   if (slug) revalidateStoreConsumerPathsBySlug(slug);
+  bumpStorePublicSharedCacheGeneration("owner_store.banner_update"); // OPS-02
 
   return NextResponse.json({ ok: true });
 }
@@ -211,6 +213,7 @@ export async function DELETE(
 
   const slug = await resolveSlug(sb, sid);
   if (slug) revalidateStoreConsumerPathsBySlug(slug);
+  bumpStorePublicSharedCacheGeneration("owner_store.banner_delete"); // OPS-02
 
   return NextResponse.json({ ok: true });
 }

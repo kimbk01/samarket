@@ -5,6 +5,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ storeI
 
   const slug = await resolveSlug(sb, sid);
   if (slug) revalidateStoreConsumerPathsBySlug(slug);
+  bumpStorePublicSharedCacheGeneration("owner_store.notice_create"); // OPS-02
 
   return NextResponse.json({ ok: true, id: created?.id });
 }

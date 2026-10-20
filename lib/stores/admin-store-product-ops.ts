@@ -1,7 +1,13 @@
 /**
  * Platform Admin — store_products ops (canonical table; not a shadow catalog).
  * Status/moderation actions + limited field corrections.
+ *
+ * ND-1 (Owner 결정): 관리자 숨김·품절·차단은 `admin_status_lock` 으로 잠가 오너가 되돌리지 못한다.
+ * 해제는 관리자 「판매 재개(activate)」만. 품절 사유(PRD-06)는 관리자 품절 = `admin`.
+ * PRD-04: 가격 정정은 현재 할인율로 할인가를 재계산한다 (할인율 없고 할인가 >= 새 가격이면 할인 해제).
  */
+import { reconcileDiscountForNewPrice } from "@/lib/stores/store-product-discount-reconcile";
+
 export const ADMIN_STORE_PRODUCT_ACTIONS = [
   "block",
   "hide",
@@ -37,6 +43,8 @@ export type AdminStoreProductActionInput = {
   memo: string | null;
   name?: string | null;
   price?: number | null;
+  /** correct_price — 현재 행의 할인 필드 (할인가 재계산 기준) */
+  current?: { discount_price?: unknown; discount_percent?: unknown } | null;
 };
 
 export function buildAdminStoreProductPatch(
@@ -62,6 +70,8 @@ function buildAdminStoreProductPatchRaw(
         patch: {
           product_status: "blocked",
           admin_review_status: "rejected",
+          admin_status_lock: "blocked",
+          sold_out_reason: null,
           admin_review_memo: memo,
         },
       };
@@ -70,6 +80,8 @@ function buildAdminStoreProductPatchRaw(
         ok: true,
         patch: {
           product_status: "hidden",
+          admin_status_lock: "hidden",
+          sold_out_reason: null,
           admin_review_memo: memo,
         },
       };
@@ -79,6 +91,9 @@ function buildAdminStoreProductPatchRaw(
         patch: {
           product_status: "active",
           admin_review_status: "approved",
+          // ND-1: 관리자 잠금 해제는 이 조치로만.
+          admin_status_lock: null,
+          sold_out_reason: null,
           admin_review_memo: memo,
         },
       };
@@ -87,6 +102,8 @@ function buildAdminStoreProductPatchRaw(
         ok: true,
         patch: {
           product_status: "sold_out",
+          admin_status_lock: "sold_out",
+          sold_out_reason: "admin",
           admin_review_memo: memo,
         },
       };
@@ -105,6 +122,7 @@ function buildAdminStoreProductPatchRaw(
         patch: {
           product_status: "hidden",
           admin_review_status: "rejected",
+          sold_out_reason: null,
           admin_review_memo: memo,
         },
       };
@@ -114,6 +132,8 @@ function buildAdminStoreProductPatchRaw(
         ok: true,
         patch: {
           product_status: "hidden",
+          admin_status_lock: "hidden",
+          sold_out_reason: null,
           admin_review_memo: memo,
         },
       };
@@ -135,10 +155,14 @@ function buildAdminStoreProductPatchRaw(
       if (!Number.isFinite(price) || price < 0) {
         return { ok: false, error: "invalid_price" };
       }
+      const nextPrice = Math.round(price);
+      const discount = reconcileDiscountForNewPrice(nextPrice, input.current ?? {});
       return {
         ok: true,
         patch: {
-          price: Math.round(price),
+          price: nextPrice,
+          discount_price: discount.discount_price,
+          discount_percent: discount.discount_percent,
           admin_review_memo: memo,
         },
       };

@@ -15,8 +15,12 @@ import { clearStoreMenusPublicServerCache } from "@/lib/stores/store-menus-publi
 import { clearApprovedStoreSlugCache } from "@/lib/stores/get-approved-store-by-slug";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { clearBrowseTaxonomySliceCache } from "@/lib/stores/stores-browse-taxonomy-cache";
+import { invalidateOwnerProductsListCache } from "@/lib/stores/owner-products-list-snapshot";
 
-/** 홈 피드 20s · browse 45s · summary 45s · slug 30s · menus 15/60s · 사장님 매장 목록 20s · browse 업종 slice 10min */
+/**
+ * 홈 피드 20s · browse 45s · summary 45s · slug 30s · menus 15/60s · 사장님 매장 목록 20s · browse 업종 slice 10min
+ * · 사장님 상품 목록 30s (PRD-09 — 관리자 상품 조치가 다른 인스턴스의 오너 허브에도 반영되도록)
+ */
 export function purgeAllStorePublicServerMemoryCaches(): void {
   clearStoreHomeFeedServerCache();
   invalidateStoresBrowseMemoryCache();
@@ -25,4 +29,5 @@ export function purgeAllStorePublicServerMemoryCaches(): void {
   clearApprovedStoreSlugCache();
   invalidateMeStoresListServerCache();
   clearBrowseTaxonomySliceCache();
+  invalidateOwnerProductsListCache();
 }

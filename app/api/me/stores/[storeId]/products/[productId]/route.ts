@@ -20,6 +20,17 @@ import {
 } from "@/lib/stores/owner-recommended-menu-limit";
 import { invalidateOwnerProductsListCache } from "@/lib/stores/owner-products-list-snapshot";
 import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
+import {
+  isMissingStoreProductLockColumnError,
+  ownerProductStatusChangeBlock,
+  ownerSoldOutReasonForStatus,
+  stripStoreProductLockColumns,
+} from "@/lib/stores/store-product-admin-lock";
+import {
+  isDirectDiscountPriceValid,
+  reconcileDiscountForNewPrice,
+} from "@/lib/stores/store-product-discount-reconcile";
 import {
   collectCanonicalImagePublicUrls,
   diffRemovedImageUrls,
@@ -39,27 +50,36 @@ async function loadProductForOwner(
   const gate = await getStoreIfOwner(sb, userId, storeId);
   if (!gate.ok) return { error: "gate", gate };
 
-  const { data: product, error } = await sb
-    .from("store_products")
-    .select(
-      [
-        "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
-        "thumbnail_url, thumbnail_width, thumbnail_height, images_json, product_status, pickup_available, local_delivery_available, shipping_available",
-        "category_id, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order, options_json",
-        "admin_review_status, admin_review_memo",
-        "created_at, updated_at",
-        "store_menu_sections ( id, name, sort_order )",
-        "store_product_categories ( name, slug )",
-      ].join(", ")
-    )
-    .eq("id", productId)
-    .eq("store_id", storeId)
-    .maybeSingle();
+  const baseCols = [
+    "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
+    "thumbnail_url, thumbnail_width, thumbnail_height, images_json, product_status, pickup_available, local_delivery_available, shipping_available",
+    "category_id, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order, options_json",
+    "admin_review_status, admin_review_memo",
+    "created_at, updated_at",
+    "store_menu_sections ( id, name, sort_order )",
+    "store_product_categories ( name, slug )",
+  ];
+  const selectProduct = (cols: string[]) =>
+    sb
+      .from("store_products")
+      .select(cols.join(", "))
+      .eq("id", productId)
+      .eq("store_id", storeId)
+      .maybeSingle();
+
+  // ND-1 · PRD-06 컬럼(마이그레이션 20270602130000) — 미적용 DB 면 레거시 select 로 폴백.
+  let lockColumnsAvailable = true;
+  let res = await selectProduct([...baseCols, "admin_status_lock, sold_out_reason"]);
+  if (res.error && isMissingStoreProductLockColumnError(res.error)) {
+    lockColumnsAvailable = false;
+    res = await selectProduct(baseCols);
+  }
+  const { data: product, error } = res;
 
   if (error || !product) {
     return { error: "not_found" as const };
   }
-  return { product, store: gate.store };
+  return { product, store: gate.store, lockColumnsAvailable };
 }
 
 export async function GET(
@@ -122,6 +142,11 @@ type PatchBody = {
   is_representative?: boolean;
   sort_order?: number;
   options_json?: unknown[] | null;
+  /**
+   * PRD-07 — 편집 폼이 로드한 행의 `updated_at`. 있으면 조건부 UPDATE 로, 그 사이 주문 재고 감산·
+   * 관리자 조치 등으로 행이 바뀌었으면 409 `product_changed`(+최신 행). 퀵 토글은 생략 가능(기존 동작).
+   */
+  expected_updated_at?: string | null;
 };
 
 export async function PATCH(
@@ -165,6 +190,7 @@ export async function PATCH(
 
   const { store } = loaded;
   const productRow = loaded.product as unknown as Record<string, unknown>;
+  const lockColumnsAvailable = loaded.lockColumnsAvailable !== false;
 
   if (store.approval_status !== "approved") {
     return NextResponse.json({ ok: false, error: "store_not_approved" }, { status: 400 });
@@ -193,6 +219,16 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "invalid_price" }, { status: 400 });
     }
     patch.price = Math.floor(price);
+    // PRD-04 — 할인 필드 없이 가격만 바뀌면 현재 할인율로 할인가 재계산 (CHECK discount < price 정합).
+    if (
+      body.discount_percent === undefined &&
+      body.discount_price === undefined &&
+      patch.price !== Math.floor(Number(productRow.price))
+    ) {
+      const discount = reconcileDiscountForNewPrice(patch.price as number, productRow);
+      patch.discount_price = discount.discount_price;
+      patch.discount_percent = discount.discount_percent;
+    }
   }
   if (body.discount_percent !== undefined) {
     let basePrice = body.price !== undefined ? Math.floor(Number(body.price)) : NaN;
@@ -236,6 +272,19 @@ export async function PATCH(
       const d = Number(body.discount_price);
       if (!Number.isFinite(d) || d < 0) {
         return NextResponse.json({ ok: false, error: "invalid_discount" }, { status: 400 });
+      }
+      // PRD-04 — 직접 입력 할인가는 정가보다 작아야 한다.
+      const basePrice =
+        patch.price !== undefined ? Number(patch.price) : Math.floor(Number(productRow.price));
+      if (!isDirectDiscountPriceValid(basePrice, d)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "invalid_discount_price",
+            message: "할인가는 판매가보다 낮아야 합니다.",
+          },
+          { status: 400 }
+        );
       }
       patch.discount_price = Math.floor(d);
       patch.discount_percent = null;
@@ -400,21 +449,23 @@ export async function PATCH(
     if (!allowed.includes(next)) {
       return NextResponse.json({ ok: false, error: "invalid_status" }, { status: 400 });
     }
-    if (next === "active" && !(await canOwnerSellProducts(sb, sid))) {
-      return NextResponse.json({ ok: false, error: "sales_not_approved" }, { status: 403 });
+    // 같은 상태 재전송은 변경이 아니다 (폼 전체 저장 호환) — 게이트·사유 갱신 생략.
+    if (next !== String(productRow.product_status ?? "")) {
+      if (next === "active" && !(await canOwnerSellProducts(sb, sid))) {
+        return NextResponse.json({ ok: false, error: "sales_not_approved" }, { status: 403 });
+      }
+      // ND-1 관리자 잠금 · 관리자 차단 · DEF-65/PRD-03 검수 반려·재검수 대기 → 관리자만 해제.
+      const statusBlock = ownerProductStatusChangeBlock(productRow, next);
+      if (statusBlock) {
+        return NextResponse.json(
+          { ok: false, error: statusBlock.error, message: statusBlock.message },
+          { status: statusBlock.status }
+        );
+      }
+      patch.product_status = next;
+      // PRD-06 — 오너 수동 품절 = manual (취소 재고 복원이 자동 해제하지 않음), 그 외 상태 = NULL.
+      patch.sold_out_reason = ownerSoldOutReasonForStatus(next);
     }
-    // 관리자 판매 차단 상품은 사장님이 상태를 바꿀 수 없다 (관리자 해제 필요).
-    if (String(productRow.product_status ?? "") === "blocked") {
-      return NextResponse.json({ ok: false, error: "admin_blocked_product" }, { status: 403 });
-    }
-    // 관리자 검수 반려 상품은 재검수 승인 전까지 판매 재개 불가 (DEF-65, Owner 승인).
-    if (
-      (next === "active" || next === "sold_out") &&
-      String(productRow.admin_review_status ?? "") === "rejected"
-    ) {
-      return NextResponse.json({ ok: false, error: "admin_review_rejected" }, { status: 403 });
-    }
-    patch.product_status = next;
   }
 
   if (body.options_json !== undefined) {
@@ -484,12 +535,43 @@ export async function PATCH(
     patch.admin_review_status = "pending";
   }
 
-  const { error: upErr } = await sb.from("store_products").update(patch).eq("id", pid).eq("store_id", sid);
+  const writePatch = lockColumnsAvailable ? patch : stripStoreProductLockColumns(patch);
+
+  // PRD-07 — 낙관적 잠금: 폼이 로드한 updated_at 과 다르면(주문 감산·관리자 조치 등) 덮어쓰지 않는다.
+  const expectedUpdatedAt =
+    typeof body.expected_updated_at === "string" && body.expected_updated_at.trim()
+      ? body.expected_updated_at.trim()
+      : null;
+  let uq = sb.from("store_products").update(writePatch).eq("id", pid).eq("store_id", sid);
+  if (expectedUpdatedAt) uq = uq.eq("updated_at", expectedUpdatedAt);
+  const { data: updatedRows, error: upErr } = await uq.select("id, updated_at");
 
   if (upErr) {
+    if (/store_products_discount_lt_price/.test(String(upErr.message))) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_discount_price", message: "할인가는 판매가보다 낮아야 합니다." },
+        { status: 400 }
+      );
+    }
     console.error("[PATCH product]", upErr);
     return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
   }
+  if (!updatedRows || updatedRows.length === 0) {
+    if (expectedUpdatedAt) {
+      const latest = await loadProductForOwner(sb, userId, sid, pid);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "product_changed",
+          message: "다른 곳에서 상품이 변경되었습니다. 새로 불러온 뒤 다시 저장해 주세요.",
+          product: "product" in latest ? latest.product : null,
+        },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+  const nextUpdatedAt = (updatedRows[0] as { updated_at?: string }).updated_at ?? null;
 
   if (touchesImageFields) {
     const beforeUrls: (string | null | undefined)[] = [
@@ -521,6 +603,8 @@ export async function PATCH(
 
   invalidateOwnerProductsListCache(sid);
   invalidateStoreMenusSnapshotCacheByStoreId(sid);
+  // OPS-02 — 인스턴스 공통 공개 캐시 세대 (관리자 쓰기와 같은 DEF-64 계약)
+  bumpStorePublicSharedCacheGeneration("owner_store.product_update");
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, updated_at: nextUpdatedAt });
 }
