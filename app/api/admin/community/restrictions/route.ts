@@ -36,6 +36,9 @@ type SanctionDbRow = {
   source_report_kind: string | null;
 };
 
+/** 제재 목록 DB 페이지 (마이그레이션 20270601164000) */
+const SANCTIONS_PAGE_RPC = "admin_sanctions_page";
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function rowStatus(r: SanctionDbRow, nowMs: number): "active" | "expired" | "revoked" {
@@ -76,35 +79,31 @@ export async function GET(req: NextRequest) {
   }
   const q = (sp.get("q") ?? "").trim().slice(0, 50);
 
-  let userFilter: string[] | null = userId ? [userId] : null;
-  if (q) {
-    const safeQ = q.replace(/[%_,()]/g, " ").trim();
-    const { data: profs, error: pErr } = await sb
-      .from("profiles")
-      .select("id")
-      .ilike("nickname", `%${safeQ}%`)
-      .limit(200);
-    if (pErr) return NextResponse.json({ ok: false, error: pErr.message }, { status: 500 });
-    const ids = ((profs ?? []) as Array<{ id: string }>).map((p) => p.id);
-    userFilter = userFilter ? userFilter.filter((x) => ids.includes(x)) : ids;
-    if (userFilter.length === 0) {
-      return NextResponse.json({ ok: true, rows: [], total: 0, limit, offset });
-    }
+  // 상태(기준 시각 = DB now())·종류·회원·닉네임 검색 → 정렬(created_at DESC, id DESC)·페이지·total 을 DB 한 번
+  // (R7: 예전 「닉네임 일치 회원 200명만 먼저 찾아 in(...)」 제거 — sanctions.user_id 는 auth.users FK 라 임베드 불가)
+  const safeQ = q.replace(/[%_,()\\]/g, " ").trim();
+  const { data: page, error: pageErr } = await sb.rpc(SANCTIONS_PAGE_RPC, {
+    p_scope: "community",
+    p_status: status,
+    p_kind: kind || null,
+    p_user_id: userId || null,
+    p_q_pattern: q ? `%${safeQ}%` : null,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (pageErr) return NextResponse.json({ ok: false, error: pageErr.message }, { status: 500 });
+  const res = (page ?? {}) as { total?: number; ids?: string[] };
+  const ids = Array.isArray(res.ids) ? res.ids.map(String) : [];
+  const count = Number(res.total ?? 0);
+  let data: SanctionDbRow[] = [];
+  if (ids.length) {
+    const full = await sb.from("sanctions").select(SELECT).in("id", ids);
+    if (full.error) return NextResponse.json({ ok: false, error: full.error.message }, { status: 500 });
+    const byId = new Map(((full.data ?? []) as SanctionDbRow[]).map((r) => [r.id, r]));
+    data = ids.map((id) => byId.get(id)).filter((r): r is SanctionDbRow => Boolean(r));
   }
 
-  const nowIso = new Date().toISOString();
-  let query = sb.from("sanctions").select(SELECT, { count: "exact" }).eq("scope", "community");
-  if (kind) query = query.eq("sanction_type", kind);
-  if (userFilter) query = query.in("user_id", userFilter);
-  if (status === "active") query = query.is("revoked_at", null).or(`end_at.is.null,end_at.gt.${nowIso}`);
-  else if (status === "expired") query = query.is("revoked_at", null).lte("end_at", nowIso);
-  else if (status === "revoked") query = query.not("revoked_at", "is", null);
-  const { data, error, count } = await query
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-
-  const rows = (data ?? []) as SanctionDbRow[];
+  const rows = data;
   const identities = await loadAdminMemberIdentityMap(
     sb,
     rows.flatMap((r) => [r.user_id, r.created_by ?? "", r.revoked_by ?? ""])
@@ -112,7 +111,7 @@ export async function GET(req: NextRequest) {
   const nowMs = Date.now();
   return NextResponse.json({
     ok: true,
-    total: count ?? rows.length,
+    total: count,
     limit,
     offset,
     rows: rows.map((r) => {

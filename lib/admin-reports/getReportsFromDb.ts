@@ -19,6 +19,26 @@ export async function getReportsForAdminFromDb(): Promise<Report[]> {
 }
 
 /**
+ * 통합 신고 서버 페이지 (R7) — `GET /api/admin/reports?limit=&offset=&domain=&status=&target_type=&reason=&target=`.
+ * 거래·커뮤니티 신고를 DB 에서 합쳐 필터·정렬·페이지한 결과와 정확한 전체 건수. 실패는 예외.
+ */
+export async function getReportsPageForAdminFromDb(
+  params: URLSearchParams
+): Promise<{ reports: Report[]; total: number }> {
+  const res = await fetch(`/api/admin/reports?${params.toString()}`, { credentials: "include", cache: "no-store" });
+  const json = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    error?: string;
+    reports?: Report[];
+    total?: number;
+  };
+  if (!res.ok || json.ok === false || !Array.isArray(json.reports)) {
+    throw Object.assign(new Error(json.error || `reports_load_failed_${res.status}`), { httpStatus: res.status });
+  }
+  return { reports: json.reports, total: Math.max(0, Math.trunc(Number(json.total) || 0)) };
+}
+
+/**
  * 어드민 신고 1건 조회
  */
 export async function getReportByIdFromDb(reportId: string): Promise<Report | null> {

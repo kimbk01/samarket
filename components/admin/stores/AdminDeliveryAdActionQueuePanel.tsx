@@ -6,6 +6,8 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/component
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import type { AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
 import { mapAdminDeliveryAdActionQueuePresentation } from "@/lib/stores/advertising/delivery-ad-admin-action-queue-presentation";
 import {
@@ -31,12 +33,16 @@ export function AdminDeliveryAdActionQueuePanel() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  /** R7 서버 페이지 — 결제 확인 Case 전체(total)를 페이지로 본다. */
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState<AdminListPageSize>(50);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch("/api/admin/delivery-ads/action-queue?limit=50", {
+      const qs = new URLSearchParams({ limit: String(size), offset: String((page - 1) * size) });
+      const res = await fetch(`/api/admin/delivery-ads/action-queue?${qs.toString()}`, {
         credentials: "include",
       });
       const json = (await res.json()) as {
@@ -59,7 +65,7 @@ export function AdminDeliveryAdActionQueuePanel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, size]);
 
   useEffect(() => {
     void load();
@@ -232,6 +238,20 @@ export function AdminDeliveryAdActionQueuePanel() {
             </table>
           </div>
         )}
+        {!error && (total > 0 || page > 1) ? (
+          <AdminPagination
+            ko={ko}
+            page={page}
+            size={size}
+            total={total}
+            disabled={loading}
+            onPageChange={setPage}
+            onSizeChange={(next) => {
+              setSize(next);
+              setPage(1);
+            }}
+          />
+        ) : null}
       </AdminCard>
     </div>
   );

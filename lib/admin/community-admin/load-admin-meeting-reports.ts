@@ -10,6 +10,7 @@ import { formatAdminMemberLabel, loadAdminMemberIdentityMap } from "@/lib/admin-
 import {
   applyMeetingReportTabFilter,
   MEETING_REPORT_TAB_KEYS,
+  MEETING_REPORT_TAB_STATUSES,
   type MeetingReportTabKey,
 } from "@/lib/admin/metrics/admin-metric-filters";
 import type {
@@ -30,7 +31,29 @@ export type AdminMeetingReportFilter = {
   toIso: string | null;
   meetingIds: string[] | null;
   reporterIds: string[] | null;
+  /**
+   * 검색어(모임 이름 · 신고자 닉네임) — 있으면 DB RPC `admin_meeting_reports_page` 한 번으로 필터·정렬·페이지·탭 건수
+   * (R7: 예전 모임 100건·닉네임 100명 후보 상한 제거). meetingIds/reporterIds 는 무시한다.
+   */
+  q?: string | null;
 };
+
+/** 모임 신고 검색 DB 페이지 (마이그레이션 20270601166000) */
+export const MEETING_REPORTS_SEARCH_RPC = "admin_meeting_reports_page";
+
+/** 검색어 정리 — 와일드카드·PostgREST 문법 문자 제거 (예전 후보 검색과 같은 규칙) */
+export function adminMeetingReportSearchTerm(q: string | null | undefined): string {
+  return String(q ?? "").replace(/[%_,()\\]/g, " ").trim().slice(0, 60);
+}
+
+function meetingReportTabGroups(): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const t of MEETING_REPORT_TAB_KEYS) {
+    const statuses = MEETING_REPORT_TAB_STATUSES[t];
+    if (statuses) out[t] = [...statuses];
+  }
+  return out;
+}
 
 /**
  * 모임 신고 목록 — 서버 페이지네이션 + 탭 건수. `sb` 생략 = 서버 service-role 클라이언트.
@@ -51,6 +74,35 @@ export async function loadAdminMeetingReports(
   } catch {
     return fail;
   }
+  // 정리 후 빈 검색어 = 검색 없음 (예전 후보 검색이 null 을 돌려주던 경우와 같음)
+  const term = adminMeetingReportSearchTerm(f.q);
+  if (term) {
+    const { data, error } = await sb.rpc(MEETING_REPORTS_SEARCH_RPC, {
+      p_tab_groups: meetingReportTabGroups(),
+      p_tab: tab,
+      p_type: f.type || null,
+      p_from: f.fromIso,
+      p_to: f.toIso,
+      p_q_pattern: `%${term}%`,
+      p_limit: pageSize,
+      p_offset: (page - 1) * pageSize,
+    });
+    if (error || !data) return fail;
+    const res = data as { total?: number; tab_counts?: Record<string, number>; ids?: string[] };
+    const ids = Array.isArray(res.ids) ? res.ids.map(String) : [];
+    let raw: Record<string, unknown>[] = [];
+    if (ids.length) {
+      const full = await sb.from("meeting_reports").select(SELECT).in("id", ids);
+      if (full.error) return fail;
+      const byId = new Map(((full.data ?? []) as unknown as Record<string, unknown>[]).map((r) => [String(r.id ?? ""), r]));
+      raw = ids.map((id) => byId.get(id)).filter((r): r is Record<string, unknown> => Boolean(r));
+    }
+    const counts = Object.fromEntries(
+      MEETING_REPORT_TAB_KEYS.map((t) => [t, Number(res.tab_counts?.[t] ?? 0)])
+    ) as Record<MeetingReportTab, number>;
+    return { ok: true, rows: await toMeetingReportRows(sb, raw), total: Number(res.total ?? 0), counts };
+  }
+
   const build = (cols: string, opts?: { count: "exact"; head?: boolean }) => {
     let q = sb.from("meeting_reports").select(cols, opts);
     if (f.type) q = q.eq("target_type", f.type);
@@ -80,6 +132,11 @@ export async function loadAdminMeetingReports(
     : null;
 
   const raw = (list.data ?? []) as unknown as Record<string, unknown>[];
+  return { ok: true, rows: await toMeetingReportRows(sb, raw), total: list.count ?? raw.length, counts };
+}
+
+/** 원본 행 → 화면 행 (모임 이름 · 신고자/대상/처리자 표시) — 순서 유지 */
+async function toMeetingReportRows(sb: SupabaseClient, raw: Record<string, unknown>[]): Promise<MeetingReportAdminRow[]> {
   const meetingIds = [...new Set(raw.map((r) => (r.meeting_id ? String(r.meeting_id) : "")).filter(Boolean))];
   const titles = new Map<string, string>();
   if (meetingIds.length) {
@@ -99,7 +156,7 @@ export async function loadAdminMeetingReports(
     return m ? { nickname: m.nickname, handle: m.username } : null;
   };
 
-  const rows: MeetingReportAdminRow[] = raw.map((r) => {
+  return raw.map((r): MeetingReportAdminRow => {
     const s = String(r.status ?? "pending");
     const meetingId = r.meeting_id ? String(r.meeting_id) : null;
     const reviewer = r.reviewed_by ? String(r.reviewed_by) : null;
@@ -122,26 +179,4 @@ export async function loadAdminMeetingReports(
       created_at: String(r.created_at ?? ""),
     };
   });
-  return { ok: true, rows, total: list.count ?? rows.length, counts };
-}
-
-/** 검색어 → 모임 id · 신고자 id (모임 이름 · 닉네임) */
-export async function resolveAdminMeetingReportSearch(
-  q: string
-): Promise<{ meetingIds: string[]; reporterIds: string[] } | null> {
-  const safe = q.replace(/[%_,()\\]/g, " ").trim().slice(0, 60);
-  if (!safe) return null;
-  try {
-    const sb = getSupabaseServer();
-    const [{ data: ms }, { data: ps }] = await Promise.all([
-      sb.from("meetings").select("id").ilike("title", `%${safe}%`).limit(100),
-      sb.from("profiles").select("id").ilike("nickname", `%${safe}%`).limit(100),
-    ]);
-    return {
-      meetingIds: ((ms ?? []) as Array<{ id?: string }>).map((m) => String(m.id ?? "")).filter(Boolean),
-      reporterIds: ((ps ?? []) as Array<{ id?: string }>).map((p) => String(p.id ?? "")).filter(Boolean),
-    };
-  } catch {
-    return { meetingIds: [], reporterIds: [] };
-  }
 }

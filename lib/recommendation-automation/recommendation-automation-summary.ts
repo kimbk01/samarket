@@ -8,7 +8,7 @@ START_OF_TODAY.setHours(0, 0, 0, 0);
 
 export function getRecommendationAutomationSummary(): RecommendationAutomationSummary {
   const policies = getRecommendationAutomationPolicies();
-  const executions = getRecommendationAutomationExecutions({ limit: 500 });
+  const executions = getRecommendationAutomationExecutions({ limit: null });
   const healthStatuses = getRecommendationHealthStatuses();
 
   const todayExecutions = executions.filter(

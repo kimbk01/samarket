@@ -201,7 +201,8 @@ export function resolveIncident(id: string): RecommendationIncident | null {
 export function getRecommendationAlertEvents(filters?: {
   surface?: RecommendationSurface;
   isAcknowledged?: boolean;
-  limit?: number;
+  /** `null` = 보관된 전체 (관리자 표가 화면에서 쪽 나눔 — R7). 생략 시 50. */
+  limit?: number | null;
 }): RecommendationAlertEvent[] {
   let list = [...ALERT_EVENTS].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -209,6 +210,7 @@ export function getRecommendationAlertEvents(filters?: {
   if (filters?.surface) list = list.filter((e) => e.surface === filters.surface);
   if (filters?.isAcknowledged !== undefined)
     list = list.filter((e) => e.isAcknowledged === filters.isAcknowledged);
+  if (filters?.limit === null) return list;
   const limit = filters?.limit ?? 50;
   return list.slice(0, limit);
 }
@@ -245,13 +247,15 @@ export function acknowledgeAlertEvent(id: string, adminId: string): Recommendati
 export function getRecommendationAutomationExecutions(filters?: {
   surface?: RecommendationSurface;
   actionType?: AutomationActionType;
-  limit?: number;
+  /** `null` = 보관된 전체 (관리자 표가 화면에서 쪽 나눔 — R7). 생략 시 100. */
+  limit?: number | null;
 }): RecommendationAutomationExecution[] {
   let list = [...AUTOMATION_EXECUTIONS].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
   if (filters?.surface) list = list.filter((e) => e.surface === filters.surface);
   if (filters?.actionType) list = list.filter((e) => e.actionType === filters.actionType);
+  if (filters?.limit === null) return list;
   const limit = filters?.limit ?? 100;
   return list.slice(0, limit);
 }

@@ -2,6 +2,8 @@
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { adminPaginationPageCount, clampAdminPage } from "@/lib/admin/pagination/admin-pagination-window";
 import { RecommendationFilterSelect } from "@/components/admin/recommendation-admin-filter-select";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useMemo, useState } from "react";
@@ -28,14 +30,18 @@ export function AutomationExecutionTable() {
     ? (lq.query.extras.surface as RecommendationSurface)
     : "";
 
-  const executions = useMemo(
+  /** 보관된 실행 이력 전체(번들) 중 필터 결과 → 화면 쪽 나눔 20/50/100 (R7 — 예전: 최신 50건만). */
+  const allExecutions = useMemo(
     () =>
       getRecommendationAutomationExecutions({
         surface: surfaceFilter || undefined,
-        limit: 50,
+        limit: null,
       }),
     [refresh, surfaceFilter]
   );
+  const total = allExecutions.length;
+  const page = clampAdminPage(lq.query.page, adminPaginationPageCount(total, lq.query.size));
+  const executions = allExecutions.slice((page - 1) * lq.query.size, page * lq.query.size);
 
   return (
     <div className="space-y-4">
@@ -130,6 +136,16 @@ export function AutomationExecutionTable() {
           </table>
         </div>
       )}
+      {total > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+        />
+      ) : null}
     </div>
   );
 }

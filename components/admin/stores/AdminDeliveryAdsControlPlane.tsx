@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
@@ -11,6 +11,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
@@ -27,15 +28,15 @@ import type { PolicyCampaignCounts } from "@/lib/stores/advertising/delivery-ad-
 import {
   ADMIN_DELIVERY_ADS_HUB_DEFAULT_VIEW,
   type AdminDeliveryAdsHubView,
-  adminDeliveryAdsHubApiBucket,
   adminDeliveryAdHubRowPrimaryCta,
   adminDeliveryAdInventoryHumanLabel,
   adminDeliveryAdProductLabelKey,
   adminDeliveryAdCampaignSourceLabelKey,
-  isAdminDeliveryAdHubListItemVisible,
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
-import { aggregateAdminHubTodayCounts } from "@/lib/stores/advertising/delivery-ad-admin-hub-today-counts";
-import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
+import {
+  emptyAdminHubTodayCounts,
+  type AdminHubTodayCounts,
+} from "@/lib/stores/advertising/delivery-ad-admin-hub-today-counts";
 import { isDeliveryBannerCreativeAssetReady as creativeReady } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import { ARO_IA_001_COMMUNITY_PROMOTIONS_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 import { adminDisplayApplicantLabel } from "@/lib/admin/operator-ux/operator-labels";
@@ -92,6 +93,8 @@ export function AdminDeliveryAdsControlPlane() {
   const [error, setError] = useState<string | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
   const [campaigns, setCampaigns] = useState<AdminDeliveryAdListItem[]>([]);
+  /** R7 서버 페이지 — 보기·상품·노출 위치 조건 전체 건수 (DB count). */
+  const [total, setTotal] = useState(0);
   const [policyCounts, setPolicyCounts] = useState<PolicyCampaignCounts | null>(null);
   const [summary, setSummary] = useState({
     total: 0,
@@ -103,17 +106,22 @@ export function AdminDeliveryAdsControlPlane() {
   const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
   const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
   const [perfLoading, setPerfLoading] = useState(false);
-  const [allCampaigns, setAllCampaigns] = useState<AdminDeliveryAdListItem[]>([]);
-  const [actionQueueItems, setActionQueueItems] = useState<DeliveryAdAdminActionQueueItem[]>([]);
-
-  const apiBucket = adminDeliveryAdsHubApiBucket(hubView);
+  /** 오늘 요약 — 서버가 전체 기준으로 집계 (`admin_delivery_ad_campaigns_page.today_counts` = aggregateAdminHubTodayCounts 규칙). */
+  const [todayCounts, setTodayCounts] = useState<AdminHubTodayCounts>(emptyAdminHubTodayCounts);
+  const { page, size } = lq.query;
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     setErrorStatus(undefined);
     try {
-      const qs = new URLSearchParams({ bucket: apiBucket, product });
+      // R7 — 보기 필터·정렬·페이지·전체 건수는 서버(DB) 한 번. 브라우저에서 다시 거르지 않는다.
+      const qs = new URLSearchParams({
+        view: hubView,
+        product,
+        limit: String(size),
+        offset: String((page - 1) * size),
+      });
       if (inventoryFilter) qs.set("inventory", inventoryFilter);
       if (primarySlugFilter) qs.set("primarySlug", primarySlugFilter);
       if (subSlugFilter) qs.set("subSlug", subSlugFilter);
@@ -125,8 +133,10 @@ export function AdminDeliveryAdsControlPlane() {
         ok?: boolean;
         error?: string;
         campaigns?: AdminDeliveryAdListItem[];
+        total?: number;
         summary?: typeof summary;
         policyCounts?: PolicyCampaignCounts | null;
+        todayCounts?: AdminHubTodayCounts | null;
       };
       if (!res.ok || !json.ok) {
         // 실패해도 이전 정상 목록은 지우지 않는다 (지시서 §8-5).
@@ -135,8 +145,10 @@ export function AdminDeliveryAdsControlPlane() {
         return;
       }
       setCampaigns(json.campaigns ?? []);
+      setTotal(typeof json.total === "number" && json.total >= 0 ? json.total : 0);
       setPolicyCounts(json.policyCounts ?? null);
       if (json.summary) setSummary(json.summary);
+      if (json.todayCounts) setTodayCounts(json.todayCounts);
     } catch {
       setError("network_error");
     } finally {
@@ -144,44 +156,10 @@ export function AdminDeliveryAdsControlPlane() {
     }
     // lq.refreshKey — 같은 조건으로 다시 불러오기(빈 목록 [초기화] 가 같은 주소일 때 포함).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiBucket, product, inventoryFilter, primarySlugFilter, subSlugFilter, lq.refreshKey]);
+  }, [hubView, product, page, size, inventoryFilter, primarySlugFilter, subSlugFilter, lq.refreshKey]);
 
   useEffect(() => {
     void load();
-  }, [load]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const [campRes, queueRes] = await Promise.all([
-          fetch("/api/admin/delivery-ads?bucket=all&product=all&limit=500", {
-            credentials: "include",
-            cache: "no-store",
-          }),
-          fetch("/api/admin/delivery-ads/action-queue?limit=100", {
-            credentials: "include",
-            cache: "no-store",
-          }),
-        ]);
-        const campJson = (await campRes.json()) as { ok?: boolean; campaigns?: AdminDeliveryAdListItem[] };
-        const queueJson = (await queueRes.json()) as {
-          ok?: boolean;
-          items?: DeliveryAdAdminActionQueueItem[];
-        };
-        if (cancelled) return;
-        if (campRes.ok && campJson.ok) setAllCampaigns(campJson.campaigns ?? []);
-        if (queueRes.ok && queueJson.ok) setActionQueueItems(queueJson.items ?? []);
-      } catch {
-        if (!cancelled) {
-          setAllCampaigns([]);
-          setActionQueueItems([]);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
   }, [load]);
 
   useEffect(() => {
@@ -216,25 +194,7 @@ export function AdminDeliveryAdsControlPlane() {
     };
   }, [perfRange, hubView]);
 
-  const visibleCampaigns = useMemo(
-    () =>
-      campaigns.filter((c) =>
-        isAdminDeliveryAdHubListItemVisible({
-          view: hubView,
-          listBucket: c.listBucket,
-        })
-      ),
-    [campaigns, hubView]
-  );
-
-  const todaySummaryCounts = useMemo(
-    () =>
-      aggregateAdminHubTodayCounts({
-        campaigns: allCampaigns,
-        actionQueueItems,
-      }),
-    [allCampaigns, actionQueueItems]
-  );
+  const visibleCampaigns = campaigns;
 
   return (
     <AdminDeliveryCmsChrome help="home">
@@ -321,7 +281,7 @@ export function AdminDeliveryAdsControlPlane() {
           ) : null}
         </div>
 
-        <DeliveryAdAdminTodaySummary counts={todaySummaryCounts} />
+        <DeliveryAdAdminTodaySummary counts={todayCounts} />
 
         {/* 2 — Action Queue ahead of passive browsing */}
         <div id="action-required" className="scroll-mt-16" data-admin-delivery-ads-section="action-queue">
@@ -542,6 +502,17 @@ export function AdminDeliveryAdsControlPlane() {
               );
             })}
           </ul>
+          {!error && (total > 0 || page > 1) ? (
+            <AdminPagination
+              ko={lang !== "en"}
+              page={page}
+              size={size}
+              total={total}
+              disabled={loading}
+              onPageChange={lq.setPage}
+              onSizeChange={lq.setSize}
+            />
+          ) : null}
         </div>
 
         {/* 4 — Secondary tools (performance) — not on actionable landing */}

@@ -44,8 +44,17 @@ export function parseAdsControlPlaneResponse(
   return { ok: true, plane };
 }
 
+/** R7 서버 페이지 조건 (`mode`·`status`·`family`·`limit`·`offset`). */
+export type AdsControlPlanePageParams = {
+  mode?: string;
+  status?: string;
+  family?: string;
+  limit?: number;
+  offset?: number;
+};
+
 export async function fetchAdsControlPlane(
-  init?: RequestInit & { orderId?: string | null; storeId?: string | null }
+  init?: RequestInit & { orderId?: string | null; storeId?: string | null; page?: AdsControlPlanePageParams }
 ): Promise<AdsControlPlaneFetchResult> {
   try {
     const params = new URLSearchParams();
@@ -54,6 +63,14 @@ export async function fetchAdsControlPlane(
     /** Server-side store scope (`store_id`) — never filter the plane in the browser. */
     const storeId = String(init?.storeId ?? "").trim();
     if (storeId) params.set("store_id", storeId);
+    const page = init?.page;
+    if (page) {
+      if (page.mode) params.set("mode", page.mode);
+      if (page.status) params.set("status", page.status);
+      if (page.family) params.set("family", page.family);
+      if (typeof page.limit === "number") params.set("limit", String(page.limit));
+      if (typeof page.offset === "number") params.set("offset", String(page.offset));
+    }
     const qs = params.toString() ? `?${params.toString()}` : "";
     const headers = init?.headers;
     const signal = init?.signal;

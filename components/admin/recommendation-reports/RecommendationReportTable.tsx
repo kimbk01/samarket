@@ -2,6 +2,8 @@
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { adminPaginationPageCount, clampAdminPage } from "@/lib/admin/pagination/admin-pagination-window";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useMemo } from "react";
 import Link from "next/link";
@@ -26,14 +28,18 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
   /** 유형 필터 — 주소 `?status=daily|weekly|custom` 보존 (R7) */
   const lq = useAdminListQuery({ statuses: REPORT_TYPES });
   const typeFilter = lq.query.status as ReportType | "";
-  const reports = useMemo(
+  /** 보관된 리포트 전체(번들) 중 필터 결과 → 화면 쪽 나눔 20/50/100 (R7 — 예전: 최신 30건만). */
+  const allReports = useMemo(
     () =>
       getRecommendationReports({
         reportType: typeFilter || undefined,
-        limit: 30,
+        limit: null,
       }),
     [refresh, typeFilter]
   );
+  const total = allReports.length;
+  const page = clampAdminPage(lq.query.page, adminPaginationPageCount(total, lq.query.size));
+  const reports = allReports.slice((page - 1) * lq.query.size, page * lq.query.size);
 
   return (
     <div className="space-y-4">
@@ -115,6 +121,16 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
           </table>
         </div>
       )}
+      {total > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+        />
+      ) : null}
     </div>
   );
 }

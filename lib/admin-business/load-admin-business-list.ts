@@ -144,28 +144,6 @@ function parsePageSize(raw: number | undefined): number {
   return Math.min(MAX_PAGE_SIZE, Math.max(1, n));
 }
 
-async function loadOwnerIdsMatchingQ(
-  sb: SupabaseClient,
-  q: string
-): Promise<string[]> {
-  const qSafe = q.replace(/%/g, "\\%").slice(0, 80);
-  if (!qSafe) return [];
-  const { data, error } = await sb
-    .from("profiles")
-    .select("id")
-    .or(
-      `display_name.ilike.%${qSafe}%,nickname.ilike.%${qSafe}%,username.ilike.%${qSafe}%`
-    )
-    .limit(200);
-  if (error) {
-    console.error("[admin-business-list] owner search", error.message);
-    return [];
-  }
-  return (data ?? [])
-    .map((r) => String((r as { id?: unknown }).id ?? "").trim())
-    .filter(Boolean);
-}
-
 type LightStore = {
   id: string;
   is_open: boolean | null;
@@ -181,26 +159,105 @@ type LightStore = {
   store_name: string | null;
 };
 
-async function scanAllLightStores(sb: SupabaseClient): Promise<LightStore[]> {
-  const out: LightStore[] = [];
-  const pageSize = 1000;
-  for (let from = 0; from < 50_000; from += pageSize) {
-    const { data, error } = await sb
-      .from("stores")
-      .select(
-        "id, store_name, is_open, business_hours_json, approval_status, point_commerce_blocked, owner_user_id, delivery_available, region, city, store_category_id, created_at"
-      )
-      .order("id", { ascending: true })
-      .range(from, from + pageSize - 1);
-    if (error) {
-      console.error("[admin-business-list] light scan", error.message);
-      break;
-    }
-    const batch = (data ?? []) as LightStore[];
-    out.push(...batch);
-    if (batch.length < pageSize) break;
+/** 매장 한 행 = 판정 재료 + 판매 권한·수수료 신호·신고·주문 사실 (DB `admin_business_ops_store_scan`). */
+type ScanStore = LightStore & {
+  has_sales_permission: boolean;
+  allowed_to_sell: boolean | null;
+  sales_status: string | null;
+  settle_outstanding: boolean;
+  settle_review_required: boolean;
+  open_report_count: number;
+  last_order_at: string | null;
+  in_progress_order_count: number;
+  delivering_order_count: number;
+  q_match: boolean;
+};
+
+export const ADMIN_BUSINESS_OPS_STORE_SCAN_RPC = "admin_business_ops_store_scan";
+
+/**
+ * 전 매장 1회 조회 (R7) — 상한 없음, jsonb 한 값이라 PostgREST 행 상한과도 무관.
+ * 영업 중 판정은 공개 매장 계약(TS `presentStoreOpenKind`) 그대로 쓰므로 판정 재료를 전 매장에 대해 받는다.
+ * 실패하면 부분 결과로 KPI·목록을 만들지 않고 오류를 돌려준다.
+ */
+async function scanAllStores(
+  sb: SupabaseClient,
+  qText: string
+): Promise<
+  | { ok: true; stores: ScanStore[]; total: number; categories: { id: string; name: string }[] }
+  | { ok: false; error: string }
+> {
+  const { data, error } = await sb.rpc(ADMIN_BUSINESS_OPS_STORE_SCAN_RPC, {
+    p_q: qText ? qText.slice(0, 80) : null,
+    p_in_progress_statuses: [...BUSINESS_OPS_IN_PROGRESS_ORDER_STATUSES],
+    p_delivering_statuses: [...BUSINESS_OPS_DELIVERING_ORDER_STATUSES],
+  });
+  if (error) {
+    console.error("[admin-business-list] store scan", error.message);
+    return { ok: false, error: "db_error" };
   }
-  return out;
+  const payload = (data ?? {}) as { total?: unknown; rows?: unknown; categories?: unknown };
+  const rows = (Array.isArray(payload.rows) ? payload.rows : []) as Record<string, unknown>[];
+  const total = Math.max(0, Math.floor(Number(payload.total) || 0));
+  if (rows.length !== total) {
+    // 전수 계약 — 잘린 응답으로 KPI(영업 중 매장)를 만들지 않는다.
+    return { ok: false, error: "store_scan_incomplete" };
+  }
+  const str = (v: unknown) => (v == null ? null : String(v));
+  const stores = rows.map((r) => ({
+    id: String(r.id ?? ""),
+    store_name: str(r.store_name),
+    is_open: typeof r.is_open === "boolean" ? r.is_open : null,
+    business_hours_json: r.business_hours_json ?? null,
+    approval_status: String(r.approval_status ?? ""),
+    point_commerce_blocked: typeof r.point_commerce_blocked === "boolean" ? r.point_commerce_blocked : null,
+    owner_user_id: String(r.owner_user_id ?? ""),
+    delivery_available: typeof r.delivery_available === "boolean" ? r.delivery_available : null,
+    region: str(r.region),
+    city: str(r.city),
+    store_category_id: str(r.store_category_id),
+    created_at: str(r.created_at),
+    has_sales_permission: r.has_sales_permission === true,
+    allowed_to_sell: typeof r.allowed_to_sell === "boolean" ? r.allowed_to_sell : null,
+    sales_status: str(r.sales_status),
+    settle_outstanding: r.settle_outstanding === true,
+    settle_review_required: r.settle_review_required === true,
+    open_report_count: Math.max(0, Math.floor(Number(r.open_report_count) || 0)),
+    last_order_at: str(r.last_order_at),
+    in_progress_order_count: Math.max(0, Math.floor(Number(r.in_progress_order_count) || 0)),
+    delivering_order_count: Math.max(0, Math.floor(Number(r.delivering_order_count) || 0)),
+    q_match: r.q_match !== false,
+  }));
+  const categories = (Array.isArray(payload.categories) ? (payload.categories as Record<string, unknown>[]) : [])
+    .map((c) => ({ id: String(c.id ?? ""), name: String(c.name ?? "") }))
+    .filter((c) => c.id && c.name);
+  return { ok: true, stores, total, categories };
+}
+
+/** 오늘 주문 (쪽 매장만) — PostgREST 응답 상한과 무관하게 끝까지 읽는다. */
+async function loadTodayOrdersForStores(
+  sb: SupabaseClient,
+  storeIds: string[],
+  dayStart: string
+): Promise<Record<string, unknown>[]> {
+  const out: Record<string, unknown>[] = [];
+  const step = 1000;
+  for (let from = 0; ; from += step) {
+    const { data, error } = await sb
+      .from("store_orders")
+      .select(`id, store_id, ${CONFIRMED_SALE_REVENUE_ORDER_SELECT}`)
+      .in("store_id", storeIds)
+      .gte("created_at", dayStart)
+      .order("id", { ascending: true })
+      .range(from, from + step - 1);
+    if (error) {
+      console.error("[admin-business-list] today orders", error.message);
+      return out;
+    }
+    const batch = (data ?? []) as Record<string, unknown>[];
+    out.push(...batch);
+    if (batch.length < step) return out;
+  }
 }
 
 function isRestrictedStore(
@@ -227,75 +284,43 @@ export async function loadAdminBusinessListOps(
   const now = new Date();
   const dayStart = startOfLocalDayIso();
 
-  const light = await scanAllLightStores(sb);
-
-  const [salesRes, settleRes, reportRes, inProgRes, catRes] = await Promise.all([
-    sb
-      .from("store_sales_permissions")
-      .select("store_id, allowed_to_sell, sales_status")
-      .limit(10_000),
-    sb
-      .from("store_sale_fee_obligations")
-      .select("store_id, fee_outstanding_minor, adjustment_status")
-      .or("fee_outstanding_minor.gt.0,adjustment_status.eq.review_required")
-      .limit(10_000),
-    sb
-      .from("store_reports")
-      .select("store_id")
-      .eq("status", "open")
-      .limit(10_000),
+  const [scan, inProgRes] = await Promise.all([
+    scanAllStores(sb, qText && !UUID_RE.test(qText) ? qText : ""),
     sb
       .from("store_orders")
       .select("id", { count: "exact", head: true })
       .in("order_status", [...BUSINESS_OPS_IN_PROGRESS_ORDER_STATUSES]),
-    sb
-      .from("store_categories")
-      .select("id, name")
-      .order("name", { ascending: true })
-      .limit(200),
   ]);
+  if (!scan.ok) return scan;
+  const light: ScanStore[] = scan.stores;
 
   const salesByStore = new Map<string, { allowed: boolean; status: string }>();
-  for (const p of salesRes.data ?? []) {
-    const sid = String((p as { store_id?: unknown }).store_id ?? "");
-    if (!sid) continue;
-    salesByStore.set(sid, {
-      allowed: Boolean((p as { allowed_to_sell?: unknown }).allowed_to_sell),
-      status: String((p as { sales_status?: unknown }).sales_status ?? ""),
-    });
-  }
-
   const settleStatusesByStore = new Map<string, string[]>();
-  if (!settleRes.error) {
-    for (const r of settleRes.data ?? []) {
-      const sid = String((r as { store_id?: unknown }).store_id ?? "");
-      const signals = storeCommissionAttentionSignals(r as Record<string, unknown>);
-      if (!sid || signals.length === 0) continue;
-      const arr = settleStatusesByStore.get(sid) ?? [];
-      arr.push(...signals);
-      settleStatusesByStore.set(sid, arr);
-    }
-  }
-
   const openReportStores = new Set<string>();
   const openReportCountGlobal = new Map<string, number>();
-  if (!reportRes.error) {
-    for (const r of reportRes.data ?? []) {
-      const sid = String((r as { store_id?: unknown }).store_id ?? "");
-      if (!sid) continue;
-      openReportStores.add(sid);
-      openReportCountGlobal.set(sid, (openReportCountGlobal.get(sid) ?? 0) + 1);
+  const lastOrderGlobal = new Map<string, string>();
+  for (const row of light) {
+    if (row.has_sales_permission) {
+      salesByStore.set(row.id, {
+        allowed: Boolean(row.allowed_to_sell),
+        status: String(row.sales_status ?? ""),
+      });
     }
+    const signals = storeCommissionAttentionSignals({
+      fee_outstanding_minor: row.settle_outstanding ? 1 : 0,
+      adjustment_status: row.settle_review_required ? "review_required" : "",
+    });
+    if (signals.length) settleStatusesByStore.set(row.id, signals);
+    if (row.open_report_count > 0) {
+      openReportStores.add(row.id);
+      openReportCountGlobal.set(row.id, row.open_report_count);
+    }
+    if (row.last_order_at) lastOrderGlobal.set(row.id, row.last_order_at);
   }
 
   const openKindById = new Map<string, BusinessOpsOpenKind>();
   for (const row of light) {
     openKindById.set(row.id, presentStoreOpenKind(row.business_hours_json, row.is_open, now).kind);
-  }
-
-  let ownerIdsFromQ: string[] = [];
-  if (qText && !UUID_RE.test(qText)) {
-    ownerIdsFromQ = await loadOwnerIdsMatchingQ(sb, qText);
   }
 
   let matched = light.filter((row) => {
@@ -344,38 +369,16 @@ export async function loadAdminBusinessListOps(
     if (qText) {
       if (UUID_RE.test(qText)) {
         if (row.id.toLowerCase() !== qText.toLowerCase()) return false;
-      } else {
-        // Name match needs store_name — loaded on page enrich; prefilter by owner id only here.
-        // Full name filter applied after page select if q present — see below via id set from DB.
+      } else if (!row.q_match) {
+        // 이름·slug·사장님(표시명·닉네임·아이디) 검색 — DB 가 전 매장에 대해 판정 (후보 상한 없음)
+        return false;
       }
     }
     return true;
   });
 
-  // Name / slug search: query DB for matching ids when q is not UUID
-  if (qText && !UUID_RE.test(qText)) {
-    const qSafe = qText.replace(/%/g, "\\%").slice(0, 80);
-    const { data: nameHits, error: nameErr } = await sb
-      .from("stores")
-      .select("id")
-      .or(`store_name.ilike.%${qSafe}%,slug.ilike.%${qSafe}%`)
-      .limit(2000);
-    if (nameErr) {
-      console.error("[admin-business-list] name search", nameErr.message);
-    }
-    const nameIds = new Set(
-      (nameHits ?? []).map((r) => String((r as { id?: unknown }).id ?? "")).filter(Boolean)
-    );
-    for (const oid of ownerIdsFromQ) {
-      for (const row of light) {
-        if (row.owner_user_id === oid) nameIds.add(row.id);
-      }
-    }
-    matched = matched.filter((r) => nameIds.has(r.id));
-  }
-
   const kpi: AdminBusinessListOpsKpi = {
-    totalStores: light.length,
+    totalStores: scan.total,
     openNow: light.filter((r) => openKindById.get(r.id) === "open").length,
     closedNow: light.filter((r) => openKindById.get(r.id) === "closed").length,
     pendingApproval: light.filter((r) =>
@@ -388,22 +391,6 @@ export async function loadAdminBusinessListOps(
     settlementNeedsCheck: [...settleStatusesByStore.keys()].length,
     openReports: openReportStores.size,
   };
-
-  // Last-order map for sort (recent orders scan)
-  const lastOrderGlobal = new Map<string, string>();
-  {
-    const { data: recentOrders } = await sb
-      .from("store_orders")
-      .select("store_id, created_at")
-      .order("created_at", { ascending: false })
-      .limit(8000);
-    for (const r of recentOrders ?? []) {
-      const sid = String((r as { store_id?: unknown }).store_id ?? "");
-      const at = String((r as { created_at?: unknown }).created_at ?? "");
-      if (!sid || !at || lastOrderGlobal.has(sid)) continue;
-      lastOrderGlobal.set(sid, at);
-    }
-  }
 
   const sortKey = String(filters.sort ?? "last_order").trim() || "last_order";
   matched = [...matched].sort((a, b) => {
@@ -447,10 +434,7 @@ export async function loadAdminBusinessListOps(
       pageSize,
       kpi,
       filterOptions: {
-        categories: (catRes.data ?? []).map((c) => ({
-          id: String((c as { id?: unknown }).id ?? ""),
-          name: String((c as { name?: unknown }).name ?? ""),
-        })).filter((c) => c.id && c.name),
+        categories: scan.categories,
         regions,
       },
     };
@@ -498,47 +482,14 @@ export async function loadAdminBusinessListOps(
     ),
   ];
 
-  const [
-    profRes,
-    orderAggRes,
-    deliveringRes,
-    todayRes,
-    lastOrderRes,
-    reportCountRes,
-    coinBalRes,
-  ] = await Promise.all([
+  const [profRes, todayRows, coinBalRes] = await Promise.all([
     ownerIds.length
       ? sb
           .from("profiles")
           .select("id, display_name, nickname, username")
           .in("id", ownerIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
-    sb
-      .from("store_orders")
-      .select("store_id")
-      .in("store_id", pageIds)
-      .in("order_status", [...BUSINESS_OPS_IN_PROGRESS_ORDER_STATUSES]),
-    sb
-      .from("store_orders")
-      .select("store_id")
-      .in("store_id", pageIds)
-      .in("order_status", [...BUSINESS_OPS_DELIVERING_ORDER_STATUSES]),
-    sb
-      .from("store_orders")
-      .select(`store_id, ${CONFIRMED_SALE_REVENUE_ORDER_SELECT}`)
-      .in("store_id", pageIds)
-      .gte("created_at", dayStart),
-    sb
-      .from("store_orders")
-      .select("store_id, created_at")
-      .in("store_id", pageIds)
-      .order("created_at", { ascending: false })
-      .limit(Math.min(500, pageIds.length * 5)),
-    sb
-      .from("store_reports")
-      .select("store_id")
-      .in("store_id", pageIds)
-      .eq("status", "open"),
+    loadTodayOrdersForStores(sb, pageIds, dayStart),
     // Canonical Coin balance — never stores.point_balance (SCHEMA_LEGACY).
     sb
       .from(STORE_ECONOMIC_POINT_ACCOUNTS_TABLE)
@@ -569,25 +520,14 @@ export async function loadAdminBusinessListOps(
     return m;
   };
 
-  const inProgBy = countBy(orderAggRes.data as unknown[]);
-  const deliveringBy = countBy(deliveringRes.data as unknown[]);
-  const todayBy = countBy(todayRes.data as unknown[]);
-  const openRepBy = countBy(reportCountRes.data as unknown[]);
+  const todayBy = countBy(todayRows);
 
   const todaySalesBy = new Map<string, number>();
-  for (const r of todayRes.data ?? []) {
+  for (const r of todayRows) {
     const sid = String((r as { store_id?: unknown }).store_id ?? "");
     if (!sid) continue;
     const amt = confirmedSaleRevenuePhp(r as ConfirmedSaleRevenueOrderSnapshot);
     todaySalesBy.set(sid, (todaySalesBy.get(sid) ?? 0) + amt);
-  }
-
-  const lastOrderBy = new Map<string, string>();
-  for (const r of lastOrderRes.data ?? []) {
-    const sid = String((r as { store_id?: unknown }).store_id ?? "");
-    const at = String((r as { created_at?: unknown }).created_at ?? "");
-    if (!sid || !at || lastOrderBy.has(sid)) continue;
-    lastOrderBy.set(sid, at);
   }
 
   const stores: AdminBusinessListOpsRow[] = pageLight.map((lightRow) => {
@@ -645,8 +585,8 @@ export async function loadAdminBusinessListOps(
         typeof full.delivery_available === "boolean"
           ? full.delivery_available
           : lightRow.delivery_available,
-      inProgressOrderCount: inProgBy.get(lightRow.id) ?? 0,
-      deliveringOrderCount: deliveringBy.get(lightRow.id) ?? 0,
+      inProgressOrderCount: lightRow.in_progress_order_count,
+      deliveringOrderCount: lightRow.delivering_order_count,
       todayOrderCount: todayBy.get(lightRow.id) ?? 0,
       todaySalesAmount: todaySalesBy.get(lightRow.id) ?? 0,
       pointBalance,
@@ -655,8 +595,8 @@ export async function loadAdminBusinessListOps(
       settlementKind: presentSettlementKind(settleStatusesByStore.get(lightRow.id) ?? []),
       ratingAvg,
       reviewCount: Math.max(0, Math.floor(Number(full.review_count) || 0)),
-      openReportCount: openRepBy.get(lightRow.id) ?? 0,
-      lastOrderAt: lastOrderBy.get(lightRow.id) ?? lastOrderGlobal.get(lightRow.id) ?? null,
+      openReportCount: lightRow.open_report_count,
+      lastOrderAt: lightRow.last_order_at,
       salesAllowed: sales ? sales.allowed : null,
       isSuspended: String(full.approval_status ?? lightRow.approval_status) === "suspended",
       createdAt: lightRow.created_at,
@@ -679,12 +619,7 @@ export async function loadAdminBusinessListOps(
     pageSize,
     kpi,
     filterOptions: {
-      categories: (catRes.data ?? [])
-        .map((c) => ({
-          id: String((c as { id?: unknown }).id ?? ""),
-          name: String((c as { name?: unknown }).name ?? ""),
-        }))
-        .filter((c) => c.id && c.name),
+      categories: scan.categories,
       regions,
     },
   };

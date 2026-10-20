@@ -15,6 +15,7 @@ import {
   AdminResultBanner,
 } from "@/components/admin/ui/AdminStateViews";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery, type UseAdminListQueryResult } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
@@ -157,7 +158,6 @@ type Overview = {
   viewer?: { can_edit_fee_policy?: boolean };
   categories: OverviewCategory[];
   topics: OverviewTopic[];
-  stores: OverviewStore[];
   scheduled_changes: ScheduledChange[];
   policy_history: PolicyHistoryRow[];
   verification: VerifyRow[];
@@ -393,9 +393,16 @@ function AdminStoreFeePoliciesPageInner() {
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
 
   const storeLq = useAdminListQuery(STORE_LIST_CONFIG);
-  const storeQuery = storeLq.query.q;
-  const storeCatFilter = storeLq.query.extras.cat;
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([]);
+  /** 선택한 매장 정보 — 다른 쪽(서버 페이지)으로 넘어가도 일괄 적용 대상·CAS 값을 유지한다 (R7). */
+  const [selectedStoreInfo, setSelectedStoreInfo] = useState<
+    Record<string, { name: string; policyId: string | null; updatedAt: string | null }>
+  >({});
+  /** 매장 탭 서버 페이지 (R7) — 검색·업종·쪽은 주소(storeLq), 결과·전체 건수는 서버. */
+  const [storePage, setStorePage] = useState<{ rows: OverviewStore[]; total: number }>({ rows: [], total: 0 });
+  const [storeLoading, setStoreLoading] = useState(false);
+  const [storeLoadError, setStoreLoadError] = useState<{ code: string; status?: number } | null>(null);
+  const [storeReloadToken, setStoreReloadToken] = useState(0);
 
   const [verifyMismatchOnly, setVerifyMismatchOnly] = useState(true);
   const [verifyStoreQuery, setVerifyStoreQuery] = useState("");
@@ -438,7 +445,6 @@ function AdminStoreFeePoliciesPageInner() {
         platform_default: oJson.platform_default ?? null,
         categories: oJson.categories ?? [],
         topics: oJson.topics ?? [],
-        stores: oJson.stores ?? [],
         scheduled_changes: oJson.scheduled_changes ?? [],
         policy_history: oJson.policy_history ?? [],
         viewer: oJson.viewer,
@@ -448,12 +454,47 @@ function AdminStoreFeePoliciesPageInner() {
       setLoadError({ code: "network_error" });
     } finally {
       setLoading(false);
+      setStoreReloadToken((n) => n + 1);
     }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const storeApiQuery = storeLq.apiQueryString;
+  useEffect(() => {
+    if (tab !== "stores") return;
+    let cancelled = false;
+    setStoreLoading(true);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/store-fee-policies/overview?section=stores&${storeApiQuery}`, {
+          credentials: "include",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          stores?: OverviewStore[];
+          total?: number;
+        };
+        if (cancelled) return;
+        if (!json.ok) {
+          setStoreLoadError({ code: feePolicyApiErrorCode(json.error, res.status), status: res.status });
+          return;
+        }
+        setStoreLoadError(null);
+        setStorePage({ rows: json.stores ?? [], total: Math.max(0, Number(json.total) || 0) });
+      } catch {
+        if (!cancelled) setStoreLoadError({ code: "network_error" });
+      } finally {
+        if (!cancelled) setStoreLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, storeApiQuery, storeLq.refreshKey, storeReloadToken]);
 
   // 쓰기 = 서버 응답(can_edit_fee_policy) + 접근표 쓰기 권한(useAdminRouteAction) 둘 다 — 서버 가드가 최종 판정
   const writeAction = useAdminRouteAction("/admin/store-fee-policies");
@@ -466,12 +507,15 @@ function AdminStoreFeePoliciesPageInner() {
     if (overview.platform_default) m.set(overview.platform_default.id, overview.platform_default.updated_at ?? null);
     for (const c of overview.categories) if (c.policy) m.set(c.policy.id, c.policy.updated_at ?? null);
     for (const tp of overview.topics) if (tp.policy) m.set(tp.policy.id, tp.policy.updated_at ?? null);
-    for (const st of overview.stores) {
+    for (const info of Object.values(selectedStoreInfo)) {
+      if (info.policyId) m.set(info.policyId, info.updatedAt);
+    }
+    for (const st of storePage.rows) {
       const sp = st.ladder.store;
       if (sp.policy_id) m.set(sp.policy_id, sp.updated_at ?? null);
     }
     return m;
-  }, [overview]);
+  }, [overview, selectedStoreInfo, storePage.rows]);
 
   /** L3 재입력 대상 이름 — 정책이 걸린 범위(기본·업종·매장) 이름. */
   const policyLabel = useCallback(
@@ -482,11 +526,13 @@ function AdminStoreFeePoliciesPageInner() {
       if (cat) return cat.name;
       const tp = overview.topics.find((x) => x.policy?.id === id);
       if (tp) return tp.name;
-      const st = overview.stores.find((x) => x.ladder.store.policy_id === id);
+      const st = storePage.rows.find((x) => x.ladder.store.policy_id === id);
       if (st) return st.store_name;
+      const picked = Object.values(selectedStoreInfo).find((x) => x.policyId === id);
+      if (picked) return picked.name;
       return id.slice(0, 8);
     },
-    [overview, t]
+    [overview, selectedStoreInfo, storePage.rows, t]
   );
 
   const openApply = useCallback(
@@ -615,6 +661,7 @@ function AdminStoreFeePoliciesPageInner() {
       setApplyTarget(null);
       setConfirmOpen(false);
       setSelectedStoreIds([]);
+      setSelectedStoreInfo({});
       setResult({
         ok: true,
         message: timing === "schedule" ? t("admin_r4c_fee_result_scheduled") : t("admin_r4c_fee_result_applied"),
@@ -688,19 +735,8 @@ function AdminStoreFeePoliciesPageInner() {
     [overview?.topics, selectedTopicId]
   );
 
-  const filteredStores = useMemo(() => {
-    let list = overview?.stores ?? [];
-    if (storeCatFilter) list = list.filter((s) => s.category_id === storeCatFilter);
-    const q = storeQuery.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter(
-      (s) =>
-        s.store_name.toLowerCase().includes(q) ||
-        (s.slug ?? "").toLowerCase().includes(q) ||
-        (s.category_name ?? "").toLowerCase().includes(q) ||
-        (s.topic_name ?? "").toLowerCase().includes(q)
-    );
-  }, [overview?.stores, storeCatFilter, storeQuery]);
+  /** 검색어·업종 필터는 서버(DB)가 적용한 결과 — 현재 쪽 행 (R7). */
+  const filteredStores = storePage.rows;
 
   const filteredVerification = useMemo(() => {
     let rows = overview?.verification ?? [];
@@ -910,11 +946,25 @@ function AdminStoreFeePoliciesPageInner() {
               ko={language !== "en"}
               listQuery={storeLq}
               filteredStores={filteredStores}
+              storeTotal={storePage.total}
+              storeLoading={storeLoading}
+              storeLoadError={storeLoadError}
               selectedStoreIds={selectedStoreIds}
-              onToggleStore={(id) => {
-                setSelectedStoreIds((prev) =>
-                  prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-                );
+              onToggleStore={(s) => {
+                const id = s.store_id;
+                const on = selectedStoreIds.includes(id);
+                setSelectedStoreIds((prev) => (on ? prev.filter((x) => x !== id) : [...prev, id]));
+                setSelectedStoreInfo((prev) => {
+                  const next = { ...prev };
+                  if (on) delete next[id];
+                  else
+                    next[id] = {
+                      name: s.store_name,
+                      policyId: s.ladder.store.policy_id,
+                      updatedAt: s.ladder.store.updated_at ?? null,
+                    };
+                  return next;
+                });
               }}
               onToggleAllFiltered={() => {
                 const ids = filteredStores.map((s) => s.store_id);
@@ -922,6 +972,19 @@ function AdminStoreFeePoliciesPageInner() {
                 setSelectedStoreIds(allOn ? selectedStoreIds.filter((id) => !ids.includes(id)) : [
                   ...new Set([...selectedStoreIds, ...ids]),
                 ]);
+                setSelectedStoreInfo((prev) => {
+                  const next = { ...prev };
+                  for (const s of filteredStores) {
+                    if (allOn) delete next[s.store_id];
+                    else
+                      next[s.store_id] = {
+                        name: s.store_name,
+                        policyId: s.ladder.store.policy_id,
+                        updatedAt: s.ladder.store.updated_at ?? null,
+                      };
+                  }
+                  return next;
+                });
               }}
               onApplyOne={(s) =>
                 openApply(
@@ -938,17 +1001,17 @@ function AdminStoreFeePoliciesPageInner() {
                 )
               }
               onApplyBulk={() => {
-                const stores = (overview.stores ?? []).filter((s) =>
-                  selectedStoreIds.includes(s.store_id)
-                );
+                const stores = selectedStoreIds
+                  .map((id) => (selectedStoreInfo[id] ? { storeId: id, ...selectedStoreInfo[id] } : null))
+                  .filter((x): x is { storeId: string; name: string; policyId: string | null; updatedAt: string | null } => x != null);
                 if (stores.length === 0) return;
                 openApply(
                   {
                     kind: "stores_bulk",
                     stores: stores.map((s) => ({
-                      storeId: s.store_id,
-                      name: s.store_name,
-                      policyId: s.ladder.store.policy_id,
+                      storeId: s.storeId,
+                      name: s.name,
+                      policyId: s.policyId,
                     })),
                   },
                   overview.platform_default
@@ -1251,6 +1314,9 @@ function StoresApplyTab({
   ko,
   listQuery,
   filteredStores,
+  storeTotal,
+  storeLoading,
+  storeLoadError,
   selectedStoreIds,
   onToggleStore,
   onToggleAllFiltered,
@@ -1264,8 +1330,12 @@ function StoresApplyTab({
   ko: boolean;
   listQuery: UseAdminListQueryResult<"cat">;
   filteredStores: OverviewStore[];
+  /** 서버 전체 건수 (검색·업종 필터 적용 후) */
+  storeTotal: number;
+  storeLoading: boolean;
+  storeLoadError: { code: string; status?: number } | null;
   selectedStoreIds: string[];
-  onToggleStore: (id: string) => void;
+  onToggleStore: (s: OverviewStore) => void;
   onToggleAllFiltered: () => void;
   onApplyOne: (s: OverviewStore) => void;
   onApplyBulk: () => void;
@@ -1311,7 +1381,17 @@ function StoresApplyTab({
           {t("admin_stores_fee_bulk_apply", { n: selectedStoreIds.length })}
         </AdminActionButton>
       </div>
-      {filteredStores.length === 0 ? (
+      {storeLoadError ? (
+        <div className="mt-3">
+          <AdminErrorState
+            ko={ko}
+            code={storeLoadError.code}
+            httpStatus={storeLoadError.status}
+            onRetry={listQuery.refresh}
+          />
+        </div>
+      ) : null}
+      {filteredStores.length === 0 && !storeLoading && !storeLoadError ? (
         <div className="mt-3">
           <AdminEmptyState
             ko={ko}
@@ -1345,7 +1425,7 @@ function StoresApplyTab({
                   <input
                     type="checkbox"
                     checked={selectedStoreIds.includes(s.store_id)}
-                    onChange={() => onToggleStore(s.store_id)}
+                    onChange={() => onToggleStore(s)}
                   />
                 </td>
                 <td className="px-3 py-2 font-medium text-sam-fg">{s.store_name}</td>
@@ -1373,6 +1453,16 @@ function StoresApplyTab({
           </tbody>
         </table>
       </div>
+      <AdminPagination
+        className="mt-3"
+        ko={ko}
+        page={listQuery.query.page}
+        size={listQuery.query.size}
+        total={storeTotal}
+        onPageChange={listQuery.setPage}
+        onSizeChange={listQuery.setSize}
+        disabled={storeLoading}
+      />
     </section>
   );
 }

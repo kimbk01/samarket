@@ -335,7 +335,8 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
   });
 
   it("R3-T29 — hub today summary uses queue aggregation + server summary", () => {
-    expect(hub()).toContain("aggregateAdminHubTodayCounts");
+    // R7 — 오늘 요약은 서버가 전체 기준으로 집계 (aggregateAdminHubTodayCounts 와 같은 규칙의 today_counts)
+    expect(hub()).toContain("json.todayCounts");
     expect(hub()).toContain("json.summary");
     expect(hub()).not.toMatch(/countFromKorean|fakeCount/);
   });

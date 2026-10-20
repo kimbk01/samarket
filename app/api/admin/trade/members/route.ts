@@ -2,23 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
 import { communityAdminUuidOrNull } from "@/lib/admin/community-admin/community-admin-period";
-import { sanitizeAdminListSearch, escapeAdminIlike } from "@/lib/admin/pagination/parse-admin-list-page";
+import { sanitizeAdminListSearch } from "@/lib/admin/pagination/parse-admin-list-page";
 import {
   formatAdminMemberLabel,
   loadAdminMemberIdentityMap,
 } from "@/lib/admin-community/member-identity";
 import { TRADE_ADMIN_OPEN_REPORT_STATUSES } from "@/lib/admin/trade-admin/trade-posts-query";
+import { isMissingRpcError } from "@/lib/admin/community-admin/community-admin-read-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 거래 활동 회원 판정 상한 (현재 운영 규모의 수십 배) — 넘으면 응답에 capped 표시 */
-const SCAN_CAP = 10000;
+type TradeMemberRpcRow = {
+  user_id: string;
+  account_status: string | null;
+  post_count: number;
+  buyer_chat_count: number;
+  trade_restrictions: string[];
+};
+type TradeMembersRpc = {
+  ok?: boolean;
+  error?: string;
+  total?: number;
+  tab_counts?: { all?: number; restricted?: number; suspended?: number };
+  rows?: TradeMemberRpcRow[];
+};
 
 /**
  * GET /api/admin/trade/members — 판매자·구매자 (설계 v2 §C-6)
  * 거래 회원 = 거래글을 올렸거나 거래 채팅에 참여한 회원. 회원 데이터는 공용 profiles (SSOT).
+ * 판정·검색·탭·정렬·페이지 = DB RPC `admin_trade_members` (전체 대상 — 예전 posts·chat_rooms 10000건 훑기·메모리 페이지 제거).
  * query: tab=all|restricted|suspended · q(닉네임) · userId(회원 1명) · limit · offset
+ * 응답 모양 유지: { ok, total, limit, offset, capped(항상 false — 호환), tabCounts, rows }
  */
 export async function GET(req: NextRequest) {
   const admin = await requireTradeAdmin();
@@ -33,62 +48,29 @@ export async function GET(req: NextRequest) {
   /** 특정 회원 1명 (상세 화면 머리말용) — 거래 활동이 없어도 돌려준다 */
   const onlyUserId = communityAdminUuidOrNull(sp.get("userId"));
   const { limit, offset } = parseTradeAdminListPage(sp);
-  const nowIso = new Date().toISOString();
 
-  const [sellers, buyers, restrictions] = await Promise.all([
-    sb.from("posts").select("user_id").limit(SCAN_CAP),
-    sb.from("chat_rooms").select("buyer_id").eq("room_type", "item_trade").limit(SCAN_CAP),
-    sb
-      .from("sanctions")
-      .select("user_id, restriction, end_at")
-      .eq("scope", "trade")
-      .eq("sanction_type", "trade_restriction")
-      .is("revoked_at", null)
-      .or(`end_at.is.null,end_at.gt.${nowIso}`)
-      .limit(SCAN_CAP),
-  ]);
-  const err = sellers.error ?? buyers.error ?? restrictions.error;
-  if (err) return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
-
-  const postCount = new Map<string, number>();
-  for (const r of (sellers.data ?? []) as { user_id: string | null }[]) {
-    if (r.user_id) postCount.set(r.user_id, (postCount.get(r.user_id) ?? 0) + 1);
+  const { data, error } = await sb.rpc("admin_trade_members", {
+    p_tab: tab,
+    p_q: q || null,
+    p_user_id: onlyUserId,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) {
+    if (isMissingRpcError(error)) {
+      return NextResponse.json({ ok: false, error: "rpc_missing", rpc: "admin_trade_members" }, { status: 503 });
+    }
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
-  const buyCount = new Map<string, number>();
-  for (const r of (buyers.data ?? []) as { buyer_id: string | null }[]) {
-    if (r.buyer_id) buyCount.set(r.buyer_id, (buyCount.get(r.buyer_id) ?? 0) + 1);
-  }
-  const restricted = new Map<string, string[]>();
-  for (const r of (restrictions.data ?? []) as { user_id: string; restriction: string }[]) {
-    restricted.set(r.user_id, [...(restricted.get(r.user_id) ?? []), r.restriction]);
-  }
-  let ids = onlyUserId ? [onlyUserId] : [...new Set([...postCount.keys(), ...buyCount.keys()])];
-  const capped = (sellers.data ?? []).length >= SCAN_CAP || (buyers.data ?? []).length >= SCAN_CAP;
-
-  // 프로필 (닉네임 검색·계정 상태)
-  const profiles = new Map<string, { status: string | null; nickname: string | null }>();
-  for (let i = 0; i < ids.length; i += 200) {
-    const chunk = ids.slice(i, i + 200);
-    let pq = sb.from("profiles").select("id, status, nickname").in("id", chunk);
-    if (q) pq = pq.ilike("nickname", `%${escapeAdminIlike(q)}%`);
-    const { data, error } = await pq;
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    for (const p of (data ?? []) as { id: string; status: string | null; nickname: string | null }[]) profiles.set(p.id, p);
-  }
-  ids = ids.filter((id) => profiles.has(id));
-  const suspended = (id: string) => {
-    const st = String(profiles.get(id)?.status ?? "");
-    return st === "suspended" || st === "blocked" || st === "banned";
-  };
+  const res = (data ?? {}) as TradeMembersRpc;
+  if (res.ok !== true) return NextResponse.json({ ok: false, error: res.error ?? "members_failed" }, { status: 500 });
+  const pageRows = Array.isArray(res.rows) ? res.rows : [];
+  const page = pageRows.map((r) => r.user_id);
   const tabCounts = {
-    all: ids.length,
-    restricted: ids.filter((id) => restricted.has(id)).length,
-    suspended: ids.filter(suspended).length,
+    all: Number(res.tab_counts?.all ?? 0),
+    restricted: Number(res.tab_counts?.restricted ?? 0),
+    suspended: Number(res.tab_counts?.suspended ?? 0),
   };
-  if (tab === "restricted") ids = ids.filter((id) => restricted.has(id));
-  if (tab === "suspended") ids = ids.filter(suspended);
-  ids.sort((a, b) => (postCount.get(b) ?? 0) + (buyCount.get(b) ?? 0) - ((postCount.get(a) ?? 0) + (buyCount.get(a) ?? 0)));
-  const page = ids.slice(offset, offset + limit);
 
   const [identities, reports] = await Promise.all([
     loadAdminMemberIdentityMap(sb, page),
@@ -108,19 +90,19 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    total: ids.length,
+    total: typeof res.total === "number" ? res.total : pageRows.length,
     limit,
     offset,
-    capped,
+    capped: false,
     tabCounts,
-    rows: page.map((id) => ({
-      user_id: id,
-      label: formatAdminMemberLabel(identities.get(id)),
-      account_status: profiles.get(id)?.status ?? null,
-      post_count: postCount.get(id) ?? 0,
-      buyer_chat_count: buyCount.get(id) ?? 0,
-      trade_restrictions: restricted.get(id) ?? [],
-      open_user_reports: openUserReports.get(id) ?? 0,
+    rows: pageRows.map((r) => ({
+      user_id: r.user_id,
+      label: formatAdminMemberLabel(identities.get(r.user_id)),
+      account_status: r.account_status ?? null,
+      post_count: Number(r.post_count ?? 0),
+      buyer_chat_count: Number(r.buyer_chat_count ?? 0),
+      trade_restrictions: Array.isArray(r.trade_restrictions) ? r.trade_restrictions : [],
+      open_user_reports: openUserReports.get(r.user_id) ?? 0,
     })),
   });
 }

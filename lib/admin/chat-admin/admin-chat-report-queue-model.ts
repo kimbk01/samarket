@@ -28,6 +28,13 @@ export type ChatReportBucket = "received" | "reviewing" | "resolved" | "dismisse
 
 export const CHAT_REPORT_QUEUE_DEFAULT_LIMIT = 30;
 
+/** R7 서버 페이지 — 페이지 크기 (AdminPagination 20/50/100). 기본 20. */
+export const CHAT_REPORT_QUEUE_PAGE_SIZES = [20, 50, 100] as const;
+export type ChatReportQueuePageSize = (typeof CHAT_REPORT_QUEUE_PAGE_SIZES)[number];
+export const CHAT_REPORT_QUEUE_DEFAULT_PAGE_SIZE: ChatReportQueuePageSize = 20;
+/** offset 100,000 상한과 같은 쪽 수 상한 (100건 × 1000쪽). */
+const CHAT_REPORT_QUEUE_MAX_PAGE = 1000;
+
 const RAW_BY_SOURCE: Record<ChatReportSource, Record<ChatReportBucket, readonly string[]>> = {
   /** community_messenger_reports CHECK: received·reviewing·resolved·rejected·sanctioned */
   messenger: {
@@ -159,7 +166,12 @@ export type ChatReportQueueQuery = {
   sort: "" | "oldest" | "newest";
   /** 방 유형 (설계 §3-2) — "" = 전체. 거래 채팅(레거시)·거래 신고는 거래 유형에만 속한다. */
   domain: "" | ChatReportRoomDomain;
+  /** 예전 keyset 링크 호환용으로만 읽는다 — R7 서버 페이지(page/size)가 실제 페이지를 정한다. */
   cursor: string;
+  /** 1부터 (R7 서버 페이지 · URL `page`) */
+  page: number;
+  /** 20/50/100 (URL `size`) */
+  size: ChatReportQueuePageSize;
 };
 
 /** 실제 정렬 방향 — 처리 대기(open·received·reviewing)는 먼저 들어온 신고부터 (설계 §3-2). */
@@ -194,7 +206,22 @@ export function parseChatReportQueueQuery(sp: SearchLike): ChatReportQueueQuery 
       ? (sp.get("domain") as ChatReportRoomDomain)
       : "",
     cursor: decodeAdminKeysetCursor(sp.get("cursor")) ? (sp.get("cursor") ?? "").trim() : "",
+    page: parseChatReportQueuePage(sp.get("page")),
+    size: parseChatReportQueuePageSize(sp.get("size")),
   };
+}
+
+function parseChatReportQueuePage(raw: string | null): number {
+  const n = Math.floor(Number(raw));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(n, CHAT_REPORT_QUEUE_MAX_PAGE);
+}
+
+function parseChatReportQueuePageSize(raw: string | null): ChatReportQueuePageSize {
+  const n = Number(raw);
+  return (CHAT_REPORT_QUEUE_PAGE_SIZES as readonly number[]).includes(n)
+    ? (n as ChatReportQueuePageSize)
+    : CHAT_REPORT_QUEUE_DEFAULT_PAGE_SIZE;
 }
 
 /** URL 쿼리 (선두 `?` 포함). 기본값(type=all, status=open)은 생략. */
@@ -207,6 +234,8 @@ export function buildChatReportQueueSearch(q: Partial<ChatReportQueueQuery>): st
   if (q.sort) sp.set("sort", q.sort);
   if (q.domain) sp.set("domain", q.domain);
   if (q.cursor) sp.set("cursor", q.cursor);
+  if (q.size && q.size !== CHAT_REPORT_QUEUE_DEFAULT_PAGE_SIZE) sp.set("size", String(q.size));
+  if (q.page && q.page > 1) sp.set("page", String(q.page));
   const s = sp.toString();
   return s ? `?${s}` : "";
 }

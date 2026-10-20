@@ -38,6 +38,7 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { getDeliveryMetricDefinition } from "@/lib/admin/metrics/delivery-metrics";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 
 /** API 응답에서 운영자 오류 코드만 추출 (원시 HTTP 상태·메시지 노출 금지). */
 function apiErrorCode(status: number, j: unknown, fallback: string): string {
@@ -80,12 +81,20 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-const QUEUE_KEYS: Record<TabKey, string[]> = {
-  risk: ["urgent_flagged", "sla_attention", "eta_overdue", "long_delivering", "unassigned"],
-  sla: ["sla_attention", "eta_overdue"],
-  riders: ["unassigned", "long_delivering"],
-  settlements: ["held_settlements", "refund_requested"],
-  incidents: ["sla_attention"],
+/**
+ * 탭별 큐 출처 (참고 — 실제 합치기·중복 제거·우선순위·페이지는 DB `admin_ops_console_queue_page`):
+ * risk = urgent_flagged·sla_attention·eta_overdue·long_delivering·unassigned · sla = sla_attention·eta_overdue ·
+ * riders = unassigned·long_delivering · settlements = held_settlements·refund_requested · incidents = sla_attention
+ */
+type QueueRow = Record<string, unknown>;
+
+type QueuePayload = {
+  ok?: boolean;
+  error?: string;
+  rows?: QueueRow[];
+  total?: number;
+  tab_counts?: Partial<Record<TabKey, number>>;
+  queue_counts?: Record<string, number>;
 };
 
 /** 현장 일괄 복구 — 자동 조치 관련 일괄 작업은 자동 조치 승인 화면에 있다 (DUP-2). */
@@ -107,13 +116,6 @@ const SEVERITY_KEYS: Record<PriorityInfo["severity"], MessageKey> = {
 function fmtInt(v: unknown): string {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? formatAdminNumber(Math.round(n)) : "0";
-}
-
-function getQueueCount(p: DeliveryOperationsPayload | null, keys: string[]): number {
-  if (!p) return 0;
-  let sum = 0;
-  for (const k of keys) sum += p.queues[k]?.length ?? 0;
-  return sum;
 }
 
 function safeTrim(v: unknown): string {
@@ -331,24 +333,54 @@ function AdminOpsConsolePageInner() {
     { id: string; display_name: string; is_online: boolean; admin_status: string; suspended_at: string | null }[] | null
   >(null);
   const [riderOptionsErr, setRiderOptionsErr] = useState<string | null>(null);
+  const [riderOptionsTotal, setRiderOptionsTotal] = useState(0);
+  /** 큐 (R7 서버 페이지네이션) — 현재 탭·포커스·그룹·페이지의 행 + 전체 건수 + 탭/큐별 전체 건수. */
+  const [queueRows, setQueueRows] = useState<QueueRow[]>([]);
+  const [queueTotal, setQueueTotal] = useState(0);
+  const [tabCountsRaw, setTabCountsRaw] = useState<Partial<Record<TabKey, number>> | null>(null);
+  const [queueCounts, setQueueCounts] = useState<Record<string, number> | null>(null);
+  const [queueErr, setQueueErr] = useState<{ code: string; status?: number } | null>(null);
+  const queueApiQuery = lq.apiQueryString;
 
   const load = useCallback(async () => {
-    try {
-      const r = await fetch("/api/admin/ops-console/summary?days=7", { cache: "no-store" });
-      const j = (await r.json().catch(() => null)) as OpsConsoleSummary | null;
-      if (!r.ok || !j?.ok) {
-        setSummary(j);
-        setOps(null);
-        setLoadErr({ code: apiErrorCode(r.status, j, "load_failed"), status: r.status });
-        return;
+    const loadQueue = async () => {
+      try {
+        const r = await fetch(`/api/admin/ops-console/queue?${queueApiQuery}`, { cache: "no-store" });
+        const j = (await r.json().catch(() => null)) as QueuePayload | null;
+        if (!r.ok || !j?.ok) {
+          // 실패해도 직전 목록은 지우지 않는다 (§8-5).
+          setQueueErr({ code: apiErrorCode(r.status, j, "load_failed"), status: r.status });
+          return;
+        }
+        setQueueErr(null);
+        const rows = Array.isArray(j.rows) ? j.rows.filter((x) => x != null && typeof x === "object") : [];
+        setQueueRows(rows);
+        setQueueTotal(typeof j.total === "number" && Number.isFinite(j.total) ? j.total : rows.length);
+        setTabCountsRaw(j.tab_counts ?? null);
+        setQueueCounts(j.queue_counts ?? null);
+      } catch {
+        setQueueErr({ code: "network_error" });
       }
-      setLoadErr(null);
-      setSummary(j);
-      setOps(parseDeliveryOperationsPayload(j.deliveryOps));
-    } catch {
-      setLoadErr({ code: "network_error" });
-    }
-  }, []);
+    };
+    const loadSummary = async () => {
+      try {
+        const r = await fetch("/api/admin/ops-console/summary?days=7", { cache: "no-store" });
+        const j = (await r.json().catch(() => null)) as OpsConsoleSummary | null;
+        if (!r.ok || !j?.ok) {
+          setSummary(j);
+          setOps(null);
+          setLoadErr({ code: apiErrorCode(r.status, j, "load_failed"), status: r.status });
+          return;
+        }
+        setLoadErr(null);
+        setSummary(j);
+        setOps(parseDeliveryOperationsPayload(j.deliveryOps));
+      } catch {
+        setLoadErr({ code: "network_error" });
+      }
+    };
+    await Promise.all([loadSummary(), loadQueue()]);
+  }, [queueApiQuery]);
 
   useEffect(() => {
     let alive = true;
@@ -360,23 +392,27 @@ function AdminOpsConsolePageInner() {
     return () => {
       alive = false;
     };
-  }, [load]);
+  }, [load, lq.refreshKey]);
 
   // 실시간 운영 큐 15초 갱신 — 탭이 숨겨지면 멈춤 · 이전 조회 진행 중이면 건너뜀 ·
   // 모달/액션 중에는 화면이 흔들리지 않게 정지
   useAdminAutoRefresh(load, { intervalMs: 15_000, paused: Boolean(busy || actionBusyKey || modal) });
 
-  const loadRiderOptions = useCallback(async () => {
+  /** 재배정 후보 — 서버가 정지·일시정지를 빼고 이름 검색(q)·온라인 우선 정렬, 최대 100명 (전체 수 = riderOptionsTotal). */
+  const loadRiderOptions = useCallback(async (q: string) => {
     setRiderOptionsErr(null);
     try {
-      const r = await fetch("/api/admin/delivery-riders", { cache: "no-store" });
-      const j = (await r.json().catch(() => null)) as { riders?: unknown[] } | null;
+      const qs = new URLSearchParams({ view: "assignable", limit: "100", offset: "0" });
+      if (q.trim()) qs.set("q", q.trim());
+      const r = await fetch(`/api/admin/delivery-riders?${qs.toString()}`, { cache: "no-store" });
+      const j = (await r.json().catch(() => null)) as { rows?: unknown[]; total?: number } | null;
       if (!r.ok) {
         setRiderOptionsErr(apiErrorCode(r.status, j, "load_failed"));
         setRiderOptions([]);
         return;
       }
-      const riders = Array.isArray(j?.riders) ? (j.riders as Record<string, unknown>[]) : [];
+      const riders = Array.isArray(j?.rows) ? (j.rows as Record<string, unknown>[]) : [];
+      setRiderOptionsTotal(typeof j?.total === "number" && Number.isFinite(j.total) ? j.total : riders.length);
       setRiderOptions(
         riders
           .map((x) => ({
@@ -394,19 +430,22 @@ function AdminOpsConsolePageInner() {
     }
   }, []);
 
+  const riderSearch = modal && modal.kind === "rider_reassign" ? safeTrim(modal.search) : null;
   useEffect(() => {
-    if (!modal || modal.kind !== "rider_reassign") return;
-    if (riderOptions != null || riderOptionsErr) return;
-    void loadRiderOptions();
-  }, [modal, riderOptions, riderOptionsErr, loadRiderOptions]);
+    if (riderSearch == null) return;
+    const h = window.setTimeout(() => void loadRiderOptions(riderSearch), riderSearch ? 300 : 0);
+    return () => window.clearTimeout(h);
+  }, [riderSearch, loadRiderOptions]);
 
   const riderLabel = useCallback(
     (id: string | null | undefined) => {
       if (!id) return t("admin_r4d_unassigned_rider");
       const hit = riderOptions?.find((x) => x.id === id);
-      return hit?.display_name || t("admin_r4d_rider_unnamed");
+      if (hit?.display_name) return hit.display_name;
+      const row = queueRows.find((x) => field(x, "rider_id") === id);
+      return field(row ?? {}, "rider_name") || t("admin_r4d_rider_unnamed");
     },
-    [riderOptions, t]
+    [riderOptions, queueRows, t]
   );
 
   /** 모달 열림 시 기존 메모를 읽는다 — 주의 표시는 updated_at CAS, 재배정 메모는 서버가 누적 (DEF-21). */
@@ -529,80 +568,42 @@ function AdminOpsConsolePageInner() {
       orders_in_progress: p ? p.kpis.orders_in_progress : null,
       sla_attention: p ? p.kpis.sla_attention_orders : null,
       unassigned: p ? p.kpis.unassigned_delivery_orders : null,
-      long_delivering: p ? (p.queues.long_delivering?.length ?? 0) : null,
+      long_delivering: queueCounts ? Number(queueCounts.long_delivering ?? 0) : null,
       failed_auto_actions: typeof summary?.kpi?.failed_auto_actions === "number" ? summary.kpi.failed_auto_actions : null,
       pending_approvals: typeof summary?.kpi?.pending_approvals === "number" ? summary.kpi.pending_approvals : null,
       held_settlements: p ? p.kpis.held_settlements_count : null,
       cron_health_age_seconds: cronAge,
     };
-  }, [ops, summary]);
+  }, [ops, summary, queueCounts]);
 
   const showNum = (v: number | null | undefined) => (typeof v === "number" ? fmtInt(v) : t("admin_r4d_unavailable"));
 
   const runtimeWarnings = summary?.runtime?.warnings ?? [];
-  const currentQueues = useMemo(() => {
-    if (!ops) return [];
-    const merged: Record<string, unknown>[] = [];
-    for (const k of QUEUE_KEYS[tab] ?? []) merged.push(...(ops.queues[k] ?? []));
-    const seen = new Set<string>();
-    const out: Record<string, unknown>[] = [];
-    for (const row of merged) {
-      const oid = field(row, "order_id", "orderId");
-      if (oid) {
-        if (seen.has(oid)) continue;
-        seen.add(oid);
-      }
-      out.push(row);
-      if (out.length >= 120) break;
-    }
-    return out;
-  }, [ops, tab]);
+  /** 서버가 정렬·필터·페이지한 행 — 화면은 사유 문구·등급만 같은 규칙(priorityForOpsRow)으로 다시 그린다. */
+  const smartRows = useMemo(
+    () =>
+      queueRows.map((row) => ({
+        row,
+        pr: priorityForOpsRow(row, t),
+      })),
+    [queueRows, t]
+  );
 
-  const smartRows = useMemo(() => {
-    const rows = currentQueues.map((row) => ({
-      row,
-      pr: priorityForOpsRow(row, t),
-      updatedMs: parseDateMs(row.updated_at) ?? 0,
-    }));
-    const viewer = safeTrim(summary?.viewer_admin_id);
-    const filtered = rows.filter(({ row, pr }) => {
-      if (focus === "all") return true;
-      if (focus === "critical") return pr.severity === "critical";
-      if (focus === "sla") return field(row, "sla_warning_level") !== "";
-      if (focus === "rider_issues") {
-        const ds = field(row, "delivery_status");
-        return ds === "waiting_rider" || ds === "delivering" || field(row, "rider_id") === "";
-      }
-      if (focus === "settlements") return field(row, "settlement_id") !== "" || field(row, "settlement_status") === "held";
-      if (focus === "refund") return field(row, "order_status") === "refund_requested";
-      if (focus === "attention") return row.needs_admin_attention === true;
-      const assigned = field(row, "assigned_admin_id");
-      return assigned !== "" && viewer !== "" && assigned === viewer;
-    });
-    filtered.sort((a, b) => {
-      if (b.pr.score !== a.pr.score) return b.pr.score - a.pr.score;
-      const ea = Number(a.row.escalation_count ?? 0) || 0;
-      const eb = Number(b.row.escalation_count ?? 0) || 0;
-      if (eb !== ea) return eb - ea;
-      if (b.updatedMs !== a.updatedMs) return b.updatedMs - a.updatedMs;
-      return field(a.row, "order_id").localeCompare(field(b.row, "order_id"));
-    });
-    return filtered;
-  }, [currentQueues, focus, summary, t]);
-
+  /** 그룹 = 서버 group_key 순서 그대로 (한 그룹은 연속) · 건수·최고 점수는 페이지가 아닌 그룹 전체 기준. */
   const grouped = useMemo(() => {
     if (groupMode === "none") {
-      return [{ key: "all", title: t("admin_ops_console_group_all"), rows: smartRows }];
+      return [{ key: "all", title: t("admin_ops_console_group_all"), rows: smartRows, total: queueTotal, top: smartRows[0]?.pr.score ?? 0 }];
     }
-    const map = new Map<string, { key: string; title: string; rows: typeof smartRows }>();
+    const list: { key: string; title: string; rows: typeof smartRows; total: number; top: number }[] = [];
     for (const x of smartRows) {
       const row = x.row;
-      const g =
-        groupMode === "store"
-          ? field(row, "store_id") || "unknown_store"
-          : groupMode === "rider"
-            ? field(row, "rider_id") || "unknown_rider"
-            : `${field(row, "region") || t("admin_ops_console_region_unknown")} · ${field(row, "city") || "—"}`;
+      const g = field(row, "group_key") || "unknown";
+      const key = `${groupMode}:${g}`;
+      const last = list[list.length - 1];
+      if (last && last.key === key) {
+        last.rows.push(x);
+        continue;
+      }
       let title: string;
       if (groupMode === "store") {
         const name = field(row, "store_name");
@@ -611,33 +612,32 @@ function AdminOpsConsolePageInner() {
         const name = field(row, "rider_name");
         title = name
           ? t("admin_ops_console_group_rider_named", { name })
-          : g === "unknown_rider"
+          : !field(row, "rider_id")
             ? t("admin_r4d_unassigned_rider")
             : t("admin_ops_console_group_rider_id", { id: "" });
       } else {
-        title = t("admin_ops_console_group_region_named", { region: g });
+        title = t("admin_ops_console_group_region_named", {
+          region: `${field(row, "region") || t("admin_ops_console_region_unknown")} · ${field(row, "city") || "—"}`,
+        });
       }
-      const key = `${groupMode}:${g || "unknown"}`;
-      const cur = map.get(key);
-      if (cur) cur.rows.push(x);
-      else map.set(key, { key, title, rows: [x] });
+      const totalNum = Number(row.group_total);
+      const topNum = Number(row.group_top_score);
+      list.push({
+        key,
+        title,
+        rows: [x],
+        total: Number.isFinite(totalNum) ? totalNum : 1,
+        top: Number.isFinite(topNum) ? topNum : x.pr.score,
+      });
     }
-    const list = [...map.values()];
-    list.sort((a, b) => {
-      const ap = a.rows[0]?.pr.score ?? 0;
-      const bp = b.rows[0]?.pr.score ?? 0;
-      if (bp !== ap) return bp - ap;
-      return a.key.localeCompare(b.key);
-    });
     return list;
-  }, [smartRows, groupMode, t]);
+  }, [smartRows, groupMode, queueTotal, t]);
 
   const toggleCollapsed = (k: string) => setCollapsed((m) => ({ ...m, [k]: !(m[k] === true) }));
 
   const tabCounts = useMemo(
-    () =>
-      Object.fromEntries(TABS.map((d) => [d.key, getQueueCount(ops, QUEUE_KEYS[d.key] ?? [])])) as Record<TabKey, number>,
-    [ops]
+    () => Object.fromEntries(TABS.map((d) => [d.key, Number(tabCountsRaw?.[d.key] ?? 0) || 0])) as Record<TabKey, number>,
+    [tabCountsRaw]
   );
 
   const focusLabel = (k: FocusMode) => {
@@ -859,6 +859,11 @@ function AdminOpsConsolePageInner() {
             </label>
           </AdminFilterBar>
           <div className="mt-1 text-right text-xs text-sam-muted">{t("admin_ops_console_sort_hint")}</div>
+          {queueErr ? (
+            <div className="mt-2">
+              <AdminErrorState ko={ko} code={queueErr.code} httpStatus={queueErr.status} onRetry={() => void load()} />
+            </div>
+          ) : null}
 
           <div className="mt-4 overflow-auto border border-sam-border rounded-ui-rect">
             <table className="min-w-[1120px] w-full text-sm">
@@ -890,7 +895,7 @@ function AdminOpsConsolePageInner() {
                   </tr>
                 ) : (
                   grouped.flatMap((g) => {
-                    const top = g.rows[0]?.pr.score ?? 0;
+                    const top = g.top;
                     const low = top < 200;
                     const isCollapsed = collapsed[g.key] ?? low;
                     const headerRow = (
@@ -905,7 +910,7 @@ function AdminOpsConsolePageInner() {
                           >
                             <span className="font-medium">{isCollapsed ? "▶" : "▼"}</span>
                             <span className="font-medium">{g.title}</span>
-                            <span className="text-xs text-sam-muted">({g.rows.length})</span>
+                            <span className="text-xs text-sam-muted">({fmtInt(g.total)})</span>
                             <span className="ml-2 text-xs text-sam-muted">
                               {t("admin_ops_console_top_priority", { score: top })}
                             </span>
@@ -918,7 +923,7 @@ function AdminOpsConsolePageInner() {
                     );
                     if (isCollapsed) return [headerRow];
 
-                    const bodyRows = g.rows.slice(0, 40).map(({ row, pr }, idx) => {
+                    const bodyRows = g.rows.map(({ row, pr }, idx) => {
                       const oid = field(row, "order_id", "orderId");
                       const orderNo = field(row, "order_no", "orderNo") || (ko ? "주문번호 없음" : "No order no.");
                       const storeName = field(row, "store_name", "storeName") || "—";
@@ -1031,6 +1036,17 @@ function AdminOpsConsolePageInner() {
               </tbody>
             </table>
           </div>
+          {queueTotal > 0 ? (
+            <AdminPagination
+              ko={ko}
+              page={lq.query.page}
+              size={lq.query.size}
+              total={queueTotal}
+              onPageChange={lq.setPage}
+              onSizeChange={lq.setSize}
+              disabled={loading}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -1142,13 +1158,7 @@ function AdminOpsConsolePageInner() {
                 >
                   <option value="">{t("admin_ops_console_ph_rider_select")}</option>
                   {riderOptions
-                    .filter((r) => {
-                      if (r.suspended_at || r.admin_status === "paused") return false;
-                      if (!modal.allowOffline && !r.is_online) return false;
-                      const q = safeTrim(modal.search).toLowerCase();
-                      return !q || r.display_name.toLowerCase().includes(q);
-                    })
-                    .slice(0, 80)
+                    .filter((r) => modal.allowOffline || r.is_online)
                     .map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.is_online ? t("admin_ops_console_rider_option_online") : t("admin_ops_console_rider_option_offline")}
@@ -1157,6 +1167,13 @@ function AdminOpsConsolePageInner() {
                     ))}
                 </select>
               )}
+              {riderOptions != null && riderOptionsTotal > riderOptions.length ? (
+                <div className="text-xs text-sam-muted" data-ops-console-rider-pick-partial="1">
+                  {ko
+                    ? `배정 가능 ${fmtInt(riderOptionsTotal)}명 중 ${fmtInt(riderOptions.length)}명 표시 (온라인 우선) — 이름으로 좁혀 주세요`
+                    : `Showing ${fmtInt(riderOptions.length)} of ${fmtInt(riderOptionsTotal)} assignable riders (online first) — narrow by name`}
+                </div>
+              ) : null}
               {modal.selectedRiderId && modal.currentRiderId && modal.selectedRiderId === modal.currentRiderId ? (
                 <div className="text-sm text-sam-warning">{t("admin_ops_console_rider_same_warning")}</div>
               ) : null}

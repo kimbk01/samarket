@@ -1,6 +1,7 @@
 /**
  * 광고 워크스페이스 목록·요약 카드 집계 — `/admin/advertising` 화면과 통합 대시보드가 같은 함수를 쓴다.
  * 입력은 `loadAdsControlPlane` 모델(화면은 `/api/admin/ads-control-plane`, 대시보드는 서버에서 직접 로드).
+ * R7: 요약 개수 = 모델의 `summaryCounts`(DB 전체 기준 — 목록 서버 페이지와 같은 RPC).
  * 클라이언트·서버 공용 (브라우저 API 없음).
  */
 import type { AdsActionItem, AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
@@ -100,11 +101,29 @@ export type AdsWorkspaceSummaryCounts = {
   scheduled: number;
 };
 
-/** 요약 카드 숫자 (승인 대기·노출 중·노출 대기·불완전/임시·예약) — 상태 탭 개수와 같다. */
+/**
+ * 요약 카드 숫자 (승인 대기·노출 중·노출 대기·불완전/임시·예약) — 상태 탭 개수와 같다.
+ * R7: 서버 모델에 DB 전체 기준 모드별 탭 개수(`summaryCounts`, `admin_ads_workspace_page`)가 있으면 그 값을 쓴다
+ * (목록 페이지·탭 필터와 같은 SQL). 없을 때(구 모델)만 받은 행 묶음으로 센다.
+ */
 export function computeAdsWorkspaceSummaryCounts(
   model: AdsControlPlaneModel,
   mode: AdvertisingWorkspaceMode
 ): AdsWorkspaceSummaryCounts {
+  const server = model.summaryCounts?.[mode];
+  if (server) {
+    const v = (tab: AdsShellStatusTab) => {
+      const n = Number(server[tab] ?? 0);
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    };
+    return {
+      pending: v("pending"),
+      live: v("live"),
+      waiting: v("waiting"),
+      incomplete: v("incomplete"),
+      scheduled: v("scheduled"),
+    };
+  }
   // 상태 탭은 표시 언어와 무관하다 (`resolveShellStatusTab`).
   const rows = filterAdsWorkspaceRowsByMode(
     collectAdsWorkspacePool(model).map((i) => toAdsShellListRow(i, true)),

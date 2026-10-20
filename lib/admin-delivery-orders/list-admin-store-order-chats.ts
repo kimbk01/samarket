@@ -1,10 +1,7 @@
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { storeOrderRoomIdentity } from "@/lib/chat-domain/room-identity";
-import {
-  lookupStoreOrderMessengerRoomReadOnly,
-  lookupStoreOrderMessengerRoomsBatchReadOnly,
-} from "@/lib/admin-delivery-orders/store-order-room-lookup";
+import { lookupStoreOrderMessengerRoomReadOnly } from "@/lib/admin-delivery-orders/store-order-room-lookup";
 import { ADMIN_STORE_ORDER_CHAT_LIST_LIMIT } from "@/lib/admin-delivery-orders/admin-order-chat-limits";
 
 export type AdminStoreOrderChatListRow = {
@@ -23,146 +20,93 @@ export type AdminStoreOrderChatListRow = {
   roomSource: "linked" | "fallback";
 };
 
-type StoreOrderRow = {
-  id: string;
+/** RPC `admin_store_order_chats_page` 행 (DB 가 FK 연결 방 + 주문 키로 찾은 방을 합쳐 정렬·페이지). */
+type ChatPageRpcRow = {
+  order_id?: string | null;
   order_no?: string | null;
-  store_id: string | null;
-  buyer_user_id: string | null;
-  order_status: string | null;
-  community_messenger_room_id: string | null;
-  updated_at?: string | null;
-  created_at?: string | null;
+  room_id?: string | null;
+  room_source?: string | null;
+  store_id?: string | null;
+  store_name?: string | null;
+  buyer_user_id?: string | null;
+  buyer_nickname?: string | null;
+  buyer_username?: string | null;
+  order_status?: string | null;
+  last_message?: string | null;
+  last_message_at?: string | null;
+  order_updated_at?: string | null;
+  order_created_at?: string | null;
 };
 
-type RoomPreview = {
-  id: string;
-  last_message: string | null;
-  last_message_at: string | null;
-  title: string | null;
+export type AdminStoreOrderChatPage = {
+  rows: AdminStoreOrderChatListRow[];
+  /** 검색 조건에 맞는 전체 주문 채팅 수 (DB count — 상한 없음). */
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 function trim(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function mapChatPageRow(r: ChatPageRpcRow): AdminStoreOrderChatListRow | null {
+  const orderId = trim(r.order_id);
+  const roomId = trim(r.room_id);
+  if (!orderId || !roomId) return null;
+  const storeId = trim(r.store_id);
+  const customerUserId = trim(r.buyer_user_id);
+  return {
+    orderId,
+    orderNo: trim(r.order_no),
+    roomId,
+    storeId,
+    storeLabel: storeId ? trim(r.store_name) || storeId : "-",
+    customerUserId,
+    customerLabel: customerUserId
+      ? trim(r.buyer_nickname) || trim(r.buyer_username) || `회원 ${customerUserId.replace(/-/g, "").slice(0, 8)}`
+      : "-",
+    orderStatus: trim(r.order_status) || "-",
+    domainIdentityKey: storeOrderRoomIdentity(orderId).identityKey,
+    lastMessage: trim(resolveRoomLastMessageForViewer(r.last_message, null)) || "-",
+    lastMessageAt: trim(r.last_message_at) || trim(r.order_updated_at) || trim(r.order_created_at) || "",
+    roomSource: r.room_source === "fallback" ? "fallback" : "linked",
+  };
+}
+
 /**
- * Lookup-only Admin reader: store_orders with community_messenger_room_id,
- * plus (R1-B C-7) recent orders whose FK is empty but a room exists under the order key
- * (`store_order:{id}` identity / direct_key, legacy `trade_order:{id}`). Never creates rooms.
+ * Lookup-only Admin reader (R7 서버 페이지네이션): store_orders 의 community_messenger_room_id(FK) 방과
+ * (R1-B C-7) FK 가 비었지만 주문 키(`store_order:{id}` identity / direct_key, legacy `trade_order:{id}`)로 찾은 방을
+ * DB(`admin_store_order_chats_page`)에서 한 번에 합쳐 검색·정렬(최근 메시지 desc, 주문 id desc)·limit/offset·정확한 total.
+ * 방 생성·FK 보정·unread 읽기/쓰기 없음. 한 페이지 최대 ADMIN_STORE_ORDER_CHAT_LIST_LIMIT 건 (전체 결과는 total + offset).
  */
 export async function listAdminStoreOrderChats(
-  limit = ADMIN_STORE_ORDER_CHAT_LIST_LIMIT
-): Promise<AdminStoreOrderChatListRow[]> {
+  opts: { limit?: number; offset?: number; q?: string } = {}
+): Promise<AdminStoreOrderChatPage> {
   const sb = getSupabaseServer();
-  const capped = Math.min(
-    Math.max(1, Math.floor(limit) || ADMIN_STORE_ORDER_CHAT_LIST_LIMIT),
+  const limit = Math.min(
+    Math.max(1, Math.floor(Number(opts.limit)) || 20),
     ADMIN_STORE_ORDER_CHAT_LIST_LIMIT
   );
-  const ORDER_SELECT =
-    "id, order_no, store_id, buyer_user_id, order_status, community_messenger_room_id, updated_at, created_at";
-
-  const [linkedRes, unlinkedRes] = await Promise.all([
-    (sb as any)
-      .from("store_orders")
-      .select(ORDER_SELECT)
-      .not("community_messenger_room_id", "is", null)
-      .order("updated_at", { ascending: false, nullsFirst: false })
-      .limit(capped),
-    (sb as any)
-      .from("store_orders")
-      .select(ORDER_SELECT)
-      .is("community_messenger_room_id", null)
-      .order("updated_at", { ascending: false, nullsFirst: false })
-      .limit(capped),
-  ]);
-  if (linkedRes.error) throw new Error(linkedRes.error.message);
-
-  const linkedRows = ((linkedRes.data ?? []) as StoreOrderRow[]).filter(
-    (row) => trim(row.community_messenger_room_id).length > 0
-  );
-  const unlinkedRows = (unlinkedRes.error ? [] : ((unlinkedRes.data ?? []) as StoreOrderRow[])).filter(
-    (row) => !trim(row.community_messenger_room_id)
-  );
-  const fallbackRoomByOrder = unlinkedRows.length
-    ? await lookupStoreOrderMessengerRoomsBatchReadOnly(
-        sb as any,
-        unlinkedRows.map((row) => row.id)
-      ).catch(() => new Map<string, string>())
-    : new Map<string, string>();
-  const fallbackOrderIds = new Set(fallbackRoomByOrder.keys());
-  const orderRows: StoreOrderRow[] = [
-    ...linkedRows,
-    ...unlinkedRows
-      .filter((row) => fallbackRoomByOrder.has(row.id))
-      .map((row) => ({ ...row, community_messenger_room_id: fallbackRoomByOrder.get(row.id) ?? null })),
-  ];
-  if (!orderRows.length) return [];
-
-  const roomIds = [...new Set(orderRows.map((o) => trim(o.community_messenger_room_id)))];
-  const storeIds = [...new Set(orderRows.map((o) => trim(o.store_id)).filter(Boolean))];
-  const buyerIds = [...new Set(orderRows.map((o) => trim(o.buyer_user_id)).filter(Boolean))];
-
-  const [{ data: rooms }, { data: stores }, { data: profiles }] = await Promise.all([
-    (sb as any)
-      .from("community_messenger_rooms")
-      .select("id, last_message, last_message_at, title")
-      .in("id", roomIds),
-    storeIds.length
-      ? (sb as any).from("stores").select("id, store_name").in("id", storeIds)
-      : Promise.resolve({ data: [] }),
-    buyerIds.length
-      ? (sb as any).from("profiles").select("id, nickname, username").in("id", buyerIds)
-      : Promise.resolve({ data: [] }),
-  ]);
-
-  const roomMap = new Map(
-    ((rooms ?? []) as RoomPreview[]).map((r) => [r.id, r] as const)
-  );
-  const storeNameById = new Map(
-    ((stores ?? []) as Array<{ id: string; store_name?: string | null }>).map((s) => [
-      s.id,
-      trim(s.store_name) || s.id,
-    ])
-  );
-  const profileLabelById = new Map(
-    (
-      (profiles ?? []) as Array<{
-        id: string;
-        nickname?: string | null;
-        username?: string | null;
-      }>
-    ).map((p) => [
-      p.id,
-      trim(p.nickname) || trim(p.username) || `회원 ${p.id.replace(/-/g, "").slice(0, 8)}`,
-    ])
-  );
-
-  const mapped = orderRows.map((order) => {
-    const roomId = trim(order.community_messenger_room_id);
-    const room = roomMap.get(roomId);
-    const storeId = trim(order.store_id);
-    const customerUserId = trim(order.buyer_user_id);
-    return {
-      orderId: order.id,
-      orderNo: trim(order.order_no),
-      roomId,
-      storeId,
-      storeLabel: storeId ? storeNameById.get(storeId) ?? storeId : "-",
-      customerUserId,
-      customerLabel: customerUserId
-        ? profileLabelById.get(customerUserId) ?? customerUserId
-        : "-",
-      orderStatus: trim(order.order_status) || "-",
-      domainIdentityKey: storeOrderRoomIdentity(order.id).identityKey,
-      lastMessage: trim(resolveRoomLastMessageForViewer(room?.last_message, null)) || "-",
-      lastMessageAt:
-        trim(room?.last_message_at) || trim(order.updated_at) || trim(order.created_at) || "",
-      roomSource: fallbackOrderIds.has(order.id) ? ("fallback" as const) : ("linked" as const),
-    };
+  const offset = Math.max(0, Math.floor(Number(opts.offset)) || 0);
+  const q = trim(opts.q);
+  const { data, error } = await (sb as any).rpc("admin_store_order_chats_page", {
+    p_q: q || null,
+    p_limit: limit,
+    p_offset: offset,
   });
-  return mapped
-    .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
-    .slice(0, capped);
+  if (error) throw new Error(String(error.message ?? "admin_store_order_chats_page_failed"));
+  const d = data && typeof data === "object" ? (data as { rows?: unknown; total?: unknown }) : {};
+  const rows = (Array.isArray(d.rows) ? (d.rows as ChatPageRpcRow[]) : [])
+    .map(mapChatPageRow)
+    .filter((x): x is AdminStoreOrderChatListRow => x != null);
+  const totalNum = Number(d.total);
+  return {
+    rows,
+    total: Number.isFinite(totalNum) && totalNum >= 0 ? totalNum : rows.length,
+    limit,
+    offset,
+  };
 }
 
 /**

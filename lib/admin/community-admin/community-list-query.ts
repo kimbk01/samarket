@@ -7,8 +7,6 @@ export const COMMUNITY_LIST_DEFAULT_LIMIT = 50;
 export const COMMUNITY_LIST_MAX_LIMIT = 200;
 export const COMMUNITY_LIST_MAX_OFFSET = 100_000;
 export const COMMUNITY_LIST_SEARCH_MAX_LEN = 80;
-/** 닉네임 → user id 후보 상한 (IN 목록 길이 제한) */
-export const COMMUNITY_LIST_PROFILE_MATCH_LIMIT = 200;
 
 /** supabase/migrations/20260327100000_community_engine_v2.sql meetings_status_check */
 export const MEETING_STATUSES = ["open", "closed", "ended", "cancelled"] as const;

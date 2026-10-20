@@ -221,6 +221,30 @@ export async function listPlatformPopupAdminCampaigns(
   return { ok: true, items: await buildPlatformPopupAdminListItems(sb, rows) };
 }
 
+/**
+ * R7 — 관리자 광고 작업 화면 페이지 행 읽기 (id 목록 = 서버 페이지 행 — 후보 상한 아님). 입력 순서 유지.
+ */
+export async function listPlatformPopupAdminCampaignsByIds(
+  sb: SupabaseClient,
+  ids: readonly string[]
+): Promise<{ ok: true; items: PlatformPopupAdminListItem[] } | { ok: false; error: string }> {
+  const uniq = [...new Set(ids.map((id) => String(id ?? "").trim()).filter(Boolean))];
+  if (uniq.length === 0) return { ok: true, items: [] };
+  const { data, error } = await sb
+    .from("platform_popup_campaigns")
+    .select(PLATFORM_POPUP_ADMIN_LIST_COLUMNS)
+    .in("id", uniq);
+  if (error) return { ok: false, error: error.message };
+  const rows = (data ?? []) as CampaignRow[];
+  if (!rows.length) return { ok: true, items: [] };
+  const items = await buildPlatformPopupAdminListItems(sb, rows);
+  const byId = new Map(items.map((i) => [i.id, i] as const));
+  return {
+    ok: true,
+    items: uniq.map((id) => byId.get(id)).filter((i): i is PlatformPopupAdminListItem => i != null),
+  };
+}
+
 // ── R7 서버 페이지 목록 · 건수 (팝업 / 당겨서 새로고침 목록 화면 · 대시보드 공용) ─────────────
 
 export { PLATFORM_POPUP_LIVE_STATUS_FILTER, PLATFORM_POPUP_ADMIN_LIST_STATUS_FILTERS };

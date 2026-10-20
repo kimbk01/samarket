@@ -94,6 +94,42 @@ export async function listFeedAdCampaignsForAdmin(
   });
 }
 
+/**
+ * R7 — 관리자 광고 작업 화면 페이지 행 읽기 (id 목록 = 서버 페이지 행 — 후보 상한 아님). 입력 순서 유지.
+ */
+export async function listFeedAdCampaignsByIdsForAdmin(
+  sb: SupabaseClient,
+  ids: readonly string[]
+): Promise<FeedAdCampaignView[]> {
+  const uniq = [...new Set(ids.map((id) => String(id ?? "").trim()).filter(Boolean))];
+  if (uniq.length === 0) return [];
+  const { data, error } = await sb.from("feed_ad_campaigns").select("*").in("id", uniq);
+  if (error) {
+    if (error.message?.includes("feed_ad_campaigns")) return [];
+    throw new Error(error.message);
+  }
+  const { data: creatives } = await sb
+    .from("feed_ad_creatives")
+    .select("*")
+    .in("campaign_id", uniq)
+    .order("sort_order", { ascending: true });
+  const byCampaign = new Map<string, FeedAdCreativeSlide[]>();
+  for (const row of creatives ?? []) {
+    const r = row as Record<string, unknown>;
+    const cid = String(r.campaign_id ?? "");
+    const list = byCampaign.get(cid) ?? [];
+    list.push(mapCreative(r));
+    byCampaign.set(cid, list);
+  }
+  const byId = new Map<string, FeedAdCampaignView>();
+  for (const c of data ?? []) {
+    const row = c as Record<string, unknown>;
+    const id = String(row.id ?? "");
+    byId.set(id, mapCampaign(row, byCampaign.get(id) ?? []));
+  }
+  return uniq.map((id) => byId.get(id)).filter((c): c is FeedAdCampaignView => c != null);
+}
+
 export async function listEligibleFeedAdCampaigns(
   sb: SupabaseClient,
   domain: FeedAdDomain

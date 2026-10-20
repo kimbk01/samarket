@@ -47,6 +47,11 @@ export type AdminGiftLedgerLoadFilters = {
   filter?: "all" | "pending" | "recognized" | "reversed" | string;
   q?: string | null;
   limit?: number;
+  /**
+   * R7: 서버 페이지(DB `admin_gift_revenue_page`)가 정한 사용 원장 id — 있으면 그 행만 순서대로 읽는다
+   * (productId·instanceId·limit 은 무시, 쪽 크기 ≤ 100).
+   */
+  redemptionIds?: string[] | null;
 };
 
 /**
@@ -62,9 +67,13 @@ export async function loadAdminGiftLedgerRedemptions(
   const filter = s(filters.filter).toLowerCase() || "all";
   const q = s(filters.q).toUpperCase();
   const limit = Math.min(Math.max(filters.limit ?? 300, 1), 5000);
+  const pageIds = filters.redemptionIds ?? null;
+  if (pageIds && pageIds.length === 0) return { ok: true, redemptions: [] };
 
   let instanceIdsFilter: string[] | null = null;
-  if (instanceId) {
+  if (pageIds) {
+    instanceIdsFilter = null;
+  } else if (instanceId) {
     instanceIdsFilter = [instanceId];
   } else if (productId) {
     const { data: instRows, error: instErr } = await sb
@@ -86,9 +95,13 @@ export async function loadAdminGiftLedgerRedemptions(
     .select(
       "id, order_id, instance_id, store_id, redeemed_amount, platform_fee_amount, merchant_net_amount, platform_fee_rate_snapshot, reversed, created_at, reversed_at"
     )
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("created_at", { ascending: false });
 
+  if (pageIds) {
+    query = query.in("id", pageIds);
+  } else {
+    query = query.limit(limit);
+  }
   if (instanceIdsFilter) {
     query = query.in("instance_id", instanceIdsFilter);
   }
@@ -96,7 +109,11 @@ export async function loadAdminGiftLedgerRedemptions(
   const { data, error } = await query;
   if (error) return { ok: false, error: error.message };
 
-  const rows = (data ?? []) as Record<string, unknown>[];
+  let rows = (data ?? []) as Record<string, unknown>[];
+  if (pageIds) {
+    const pos = new Map(pageIds.map((id, i) => [id, i]));
+    rows = [...rows].sort((a, b) => (pos.get(s(a.id)) ?? 0) - (pos.get(s(b.id)) ?? 0));
+  }
   const instanceIds = [...new Set(rows.map((r) => s(r.instance_id)).filter(Boolean))];
   const orderIds = [...new Set(rows.map((r) => s(r.order_id)).filter(Boolean))];
   const storeIds = [...new Set(rows.map((r) => s(r.store_id)).filter(Boolean))];

@@ -19,6 +19,9 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** 거래 신고 + 대상 거래글 작성자 열 (마이그레이션 20270601150100, service_role 전용 조회 뷰) */
+const TRADE_REPORTS_SELLER_VIEW = "admin_trade_reports_v";
+
 const TARGET_TYPES = new Set(["product", "post", "user", "chat_room", "chat", "chat_message", "comment"]);
 
 /**
@@ -40,14 +43,13 @@ export async function GET(req: NextRequest) {
   }
   const targetId = communityAdminUuidOrNull(sp.get("targetId"));
   const reporterId = communityAdminUuidOrNull(sp.get("reporterId"));
-  /** 판매자 기준 — 회원 본인 신고 + 그 회원 거래글 신고 (판매자·구매자 상세 「신고 받은 내역」) */
+  /**
+   * 판매자 기준 — 회원 본인 신고 + 그 회원 거래글 신고 (판매자·구매자 상세 「신고 받은 내역」).
+   * 거래글 작성자는 조회 전용 뷰 `admin_trade_reports_v`(reports + product_id/target_id 거래글 작성자 열)에서 DB 조건으로 건다
+   * — 예전 「판매자 거래글 2000건만 먼저 읽어 in(...)」 제거. sellerId 가 없으면 기존대로 `reports` 를 읽는다.
+   */
   const sellerId = communityAdminUuidOrNull(sp.get("sellerId"));
-  let sellerPostIds: string[] = [];
-  if (sellerId) {
-    const { data: sp2, error: spErr } = await sb.from("posts").select("id").eq("user_id", sellerId).limit(2000);
-    if (spErr) return NextResponse.json({ ok: false, error: spErr.message }, { status: 500 });
-    sellerPostIds = ((sp2 ?? []) as { id: string }[]).map((p) => p.id);
-  }
+  const reportsSource = sellerId ? TRADE_REPORTS_SELLER_VIEW : "reports";
   const period = parseCommunityAdminPeriodFromSearch(sp, { defaultPeriod: "all" });
   if (!period.ok) return NextResponse.json({ ok: false, error: period.error }, { status: 400 });
   const { limit, offset } = parseTradeAdminListPage(sp);
@@ -55,7 +57,7 @@ export async function GET(req: NextRequest) {
   /* eslint-disable @typescript-eslint/no-explicit-any -- PostgREST builder chain */
   const base = (tabKey: TradeReportTab, head: boolean): any => {
     let q: any = sb
-      .from("reports")
+      .from(reportsSource)
       .select(
         head
           ? "id"
@@ -67,11 +69,13 @@ export async function GET(req: NextRequest) {
     if (targetId) q = q.or(`target_id.eq.${targetId},product_id.eq.${targetId}`);
     if (reporterId) q = q.eq("reporter_id", reporterId);
     if (sellerId) {
-      const parts = [`and(target_type.eq.user,target_id.eq.${sellerId})`];
-      if (sellerPostIds.length) {
-        parts.push(`product_id.in.(${sellerPostIds.join(",")})`, `target_id.in.(${sellerPostIds.join(",")})`);
-      }
-      q = q.or(parts.join(","));
+      q = q.or(
+        [
+          `and(target_type.eq.user,target_id.eq.${sellerId})`,
+          `product_post_user_id.eq.${sellerId}`,
+          `target_post_user_id.eq.${sellerId}`,
+        ].join(",")
+      );
     }
     if (period.fromIso) q = q.gte("created_at", period.fromIso);
     if (period.toIso) q = q.lt("created_at", period.toIso);
@@ -82,6 +86,7 @@ export async function GET(req: NextRequest) {
   const [list, ...counts] = await Promise.all([
     base(tab, false)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(offset, offset + limit - 1),
     ...TRADE_REPORT_TABS.map((t) => base(t, true)),
   ]);

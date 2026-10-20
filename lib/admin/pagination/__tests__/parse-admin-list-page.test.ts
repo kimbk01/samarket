@@ -73,9 +73,11 @@ describe("GET /api/admin/point-charges contract", () => {
     expect(route).toContain("parsePointChargeStatusFilter(");
     expect(route).toMatch(/requests,\s*total:/);
   });
-  it("nickname search resolves profile ids first (escaped ilike)", () => {
-    expect(route).toContain('.ilike("nickname", `%${escapeAdminIlike(search)}%`)');
-    expect(route).toContain("user_id.in.(");
+  it("text search (nickname · depositor) runs in one DB RPC — no 200-profile candidate cap (escaped ilike)", () => {
+    expect(route).toContain("admin_point_charge_requests_search_page");
+    expect(route).toContain("p_q_pattern: `%${escapeAdminIlike(search)}%`");
+    expect(route).not.toContain(".limit(200)");
+    expect(route).not.toContain("user_id.in.(");
   });
   it("count-only callers use the server total, not a truncated client filter", () => {
     const ops = readFileSync(join(process.cwd(), "components/admin/finance/AdminFinanceOpsQueue.tsx"), "utf8");

@@ -1,229 +1,178 @@
 /**
  * 채팅 신고 단일 큐 서버 로더 (O-C10).
  * CM `community_messenger_reports` + 레거시 거래 `chat_reports` + 통합 `reports`(target_type chat_room·chat_message)
- * 를 같은 정규화 행으로 읽어 created_at 최신순 keyset 페이지로 병합한다. 조치는 각 출처의 기존 action API.
+ * 를 같은 정규화 행으로 읽는다. 조치는 각 출처의 기존 action API.
+ *
+ * R7 — 3원천 병합·정렬·페이지·전체 건수는 DB 한 번(`admin_chat_report_queue_page` RPC, limit/offset + total).
+ * 닉네임 검색은 RPC 안의 조인 조건 — 후보 회원을 N명만 먼저 찾는 상한이 없다.
  * Server-only (service-role client) — client 컴포넌트에서 import 금지.
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { CHAT_REPORT_TARGET_TYPES } from "@/lib/admin/metrics/chat-metrics";
-import { decodeAdminKeysetCursor, isAdminUuid } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
+import { isAdminUuid } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
 import {
+  CHAT_REPORT_SOURCES,
   chatReportQueueAscending,
   chatReportBucketOf,
   chatReportRawStatuses,
   chatReportSourcesFor,
-  mergeChatReportQueuePage,
   type ChatReportQueueQuery,
   type ChatReportQueueRow,
   type ChatReportSource,
-  type ChatReportSourceBatch,
 } from "@/lib/admin/chat-admin/admin-chat-report-queue-model";
 
-type Sb = ReturnType<typeof getSupabaseServer>;
-
-/** 같은 시각 경계 여유분 (in-memory 커서 필터로 정확히 자른다). */
-const FETCH_EXTRA = 10;
 const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const orNull = (v: unknown) => s(v) || null;
 
-/**
- * 커서 경계 (PG µs 정밀도 대비 ±1ms 여유) — 최신 순은 상한(lte), 오래된 순은 하한(gte).
- * 정확한 경계는 병합 단계에서 자른다.
- */
-type Bound = { ts: string; asc: boolean } | null;
-function boundOf(ts: string, asc: boolean): Bound {
-  const t = Date.parse(ts);
-  return Number.isFinite(t) ? { ts: new Date(asc ? t - 1 : t + 1).toISOString(), asc } : null;
-}
-
-/** 검색 조건 — 회원 id 목록(닉네임 검색 결과) */
-type Scope = { userIds: string[] | null };
-
-type Fetched = { rows: ChatReportQueueRow[]; full: boolean };
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyOrderAndBound(rq: any, bound: Bound, asc: boolean): any {
-  let out = rq.order("created_at", { ascending: asc }).order("id", { ascending: asc });
-  if (bound) out = bound.asc ? out.gte("created_at", bound.ts) : out.lte("created_at", bound.ts);
-  return out;
-}
-
-async function fetchMessenger(sb: Sb, q: ChatReportQueueQuery, bound: Bound, size: number, scope: Scope, asc: boolean): Promise<Fetched> {
-  const cols =
-    "id, report_type, room_id, message_id, reported_user_id, reporter_user_id, reason_type, reason_detail, status, admin_note, handled_at, created_at";
-  let rq = applyOrderAndBound(
-    sb
-      .from("community_messenger_reports")
-      // 방 유형 필터 — 신고된 방의 chat_domain (FK room_id → community_messenger_rooms).
-      .select(q.domain ? `${cols}, community_messenger_rooms!inner(chat_domain)` : cols),
-    bound,
-    asc
-  ).limit(size);
-  if (q.domain) rq = rq.eq("community_messenger_rooms.chat_domain", q.domain);
-  const statuses = chatReportRawStatuses("messenger", q.status);
-  if (statuses) rq = rq.in("status", statuses);
-  if (q.target) rq = rq.or(`room_id.eq.${q.target},reported_user_id.eq.${q.target},reporter_user_id.eq.${q.target}`);
-  if (scope.userIds) rq = rq.or(`reported_user_id.in.(${scope.userIds.join(",")}),reporter_user_id.in.(${scope.userIds.join(",")})`);
-  const { data, error } = await rq;
-  if (error) throw new Error(error.message);
-  const rows = ((data ?? []) as Record<string, unknown>[]).map<ChatReportQueueRow>((r) => ({
-    key: `messenger:${s(r.id)}`,
-    source: "messenger",
-    id: s(r.id),
-    createdAt: s(r.created_at),
-    rawStatus: s(r.status),
-    bucket: chatReportBucketOf("messenger", s(r.status)),
-    targetType: s(r.report_type) || "room",
-    reasonCode: s(r.reason_type),
-    reasonDetail: s(r.reason_detail),
-    roomId: orNull(r.room_id),
-    roomKind: s(r.room_id) ? "cm" : null,
-    messageId: orNull(r.message_id),
-    reporterId: orNull(r.reporter_user_id),
-    reporterLabel: "",
-    reportedUserId: orNull(r.reported_user_id),
-    reportedUserLabel: "",
-    adminNote: s(r.admin_note),
-    handledAt: orNull(r.handled_at),
-  }));
-  return { rows, full: rows.length >= size };
-}
-
-async function fetchTradeLegacy(sb: Sb, q: ChatReportQueueQuery, bound: Bound, size: number, scope: Scope, asc: boolean): Promise<Fetched> {
-  let rq = applyOrderAndBound(
-    sb
-      .from("chat_reports")
-      .select("id, room_id, message_id, report_type, reporter_user_id, reported_user_id, reason_type, reason_detail, status, created_at, updated_at"),
-    bound,
-    asc
-  ).limit(size);
-  const statuses = chatReportRawStatuses("trade_chat", q.status);
-  if (statuses) rq = rq.in("status", statuses);
-  if (q.target) rq = rq.or(`room_id.eq.${q.target},reported_user_id.eq.${q.target},reporter_user_id.eq.${q.target}`);
-  if (scope.userIds) rq = rq.or(`reported_user_id.in.(${scope.userIds.join(",")}),reporter_user_id.in.(${scope.userIds.join(",")})`);
-  const { data, error } = await rq;
-  if (error) throw new Error(error.message);
-  const rows = ((data ?? []) as Record<string, unknown>[]).map<ChatReportQueueRow>((r) => {
-    const raw = s(r.status);
-    const bucket = chatReportBucketOf("trade_chat", raw);
-    return {
-      key: `trade_chat:${s(r.id)}`,
-      source: "trade_chat",
-      id: s(r.id),
-      createdAt: s(r.created_at),
-      rawStatus: raw,
-      bucket,
-      targetType: s(r.report_type) || (s(r.message_id) ? "message" : "room"),
-      reasonCode: s(r.reason_type),
-      reasonDetail: s(r.reason_detail),
-      roomId: orNull(r.room_id),
-      roomKind: s(r.room_id) ? "legacy_trade" : null,
-      messageId: orNull(r.message_id),
-      reporterId: orNull(r.reporter_user_id),
-      reporterLabel: "",
-      reportedUserId: orNull(r.reported_user_id),
-      reportedUserLabel: "",
-      adminNote: "",
-      handledAt: bucket === "received" || bucket === "reviewing" ? null : orNull(r.updated_at),
-    };
-  });
-  return { rows, full: rows.length >= size };
-}
-
-async function fetchReports(sb: Sb, q: ChatReportQueueQuery, bound: Bound, size: number, scope: Scope, asc: boolean): Promise<Fetched> {
-  let rq = applyOrderAndBound(
-    sb
-      .from("reports")
-      .select("id, reporter_id, target_type, target_id, room_id, reason_code, reason_text, status, admin_note, created_at, resolved_at")
-      // 채팅 대시보드 지표 `chat.reports_open.trade_report` 와 같은 대상 (채팅방·채팅 메시지).
-      .in("target_type", [...CHAT_REPORT_TARGET_TYPES]),
-    bound,
-    asc
-  ).limit(size);
-  const statuses = chatReportRawStatuses("trade_report", q.status);
-  if (statuses) rq = rq.in("status", statuses);
-  if (q.target) rq = rq.or(`room_id.eq.${q.target},target_id.eq.${q.target},reporter_id.eq.${q.target}`);
-  if (scope.userIds) rq = rq.in("reporter_id", scope.userIds);
-  const { data, error } = await rq;
-  if (error) throw new Error(error.message);
-  const rows = ((data ?? []) as Record<string, unknown>[]).map<ChatReportQueueRow>((r) => {
-    const targetType = s(r.target_type);
-    const roomId = s(r.room_id) || (targetType === "chat_room" ? s(r.target_id) : "");
-    return {
-      key: `trade_report:${s(r.id)}`,
-      source: "trade_report",
-      id: s(r.id),
-      createdAt: s(r.created_at),
-      rawStatus: s(r.status),
-      bucket: chatReportBucketOf("trade_report", s(r.status)),
-      targetType,
-      reasonCode: s(r.reason_code),
-      reasonDetail: s(r.reason_text),
-      roomId: roomId || null,
-      roomKind: roomId ? "legacy_trade" : null,
-      messageId: targetType === "chat_message" ? orNull(r.target_id) : null,
-      reporterId: orNull(r.reporter_id),
-      reporterLabel: "",
-      reportedUserId: null,
-      reportedUserLabel: "",
-      adminNote: s(r.admin_note),
-      handledAt: orNull(r.resolved_at),
-    };
-  });
-  return { rows, full: rows.length >= size };
-}
-
-const FETCHERS: Record<ChatReportSource, typeof fetchMessenger> = {
-  messenger: fetchMessenger,
-  trade_chat: fetchTradeLegacy,
-  trade_report: fetchReports,
-};
+export const CHAT_REPORT_QUEUE_RPC = "admin_chat_report_queue_page";
 
 export type ChatReportQueuePage = {
   rows: ChatReportQueueRow[];
+  /** 필터 조건 전체 건수 (DB count). */
+  total: number;
+  limit: number;
+  offset: number;
+  /** R7 이후 항상 null — 예전 keyset 응답 모양 호환 필드. */
   nextCursor: string | null;
-  /** 읽지 못한 출처 (부분 실패) — 화면에서 「일부 출처 불러오기 실패」로 구분 표시. */
+  /** 읽지 못한 출처 (부분 실패) — RPC 한 번이므로 성공 시 항상 빈 배열 (응답 모양 호환). */
   failedSources: ChatReportSource[];
 };
 
-export async function listChatReportQueue(input: ChatReportQueueQuery, limit: number): Promise<ChatReportQueuePage> {
+type RpcRow = {
+  source?: unknown;
+  id?: unknown;
+  created_at?: unknown;
+  raw_status?: unknown;
+  target_type?: unknown;
+  target_id?: unknown;
+  reason_code?: unknown;
+  reason_detail?: unknown;
+  room_id?: unknown;
+  message_id?: unknown;
+  reporter_id?: unknown;
+  reported_user_id?: unknown;
+  admin_note?: unknown;
+  handled_at?: unknown;
+  updated_at?: unknown;
+};
+
+function isSource(v: string): v is ChatReportSource {
+  return (CHAT_REPORT_SOURCES as readonly string[]).includes(v);
+}
+
+/** RPC 행 → 화면 행 (예전 원천별 매핑과 같은 규칙). */
+export function mapChatReportQueueRpcRow(r: RpcRow): ChatReportQueueRow | null {
+  const source = s(r.source);
+  if (!isSource(source)) return null;
+  const id = s(r.id);
+  const raw = s(r.raw_status);
+  const bucket = chatReportBucketOf(source, raw);
+  const base = {
+    key: `${source}:${id}`,
+    source,
+    id,
+    createdAt: s(r.created_at),
+    rawStatus: raw,
+    bucket,
+    reasonCode: s(r.reason_code),
+    reasonDetail: s(r.reason_detail),
+    reporterId: orNull(r.reporter_id),
+    reporterLabel: "",
+    reportedUserLabel: "",
+  };
+  if (source === "messenger") {
+    return {
+      ...base,
+      targetType: s(r.target_type) || "room",
+      roomId: orNull(r.room_id),
+      roomKind: s(r.room_id) ? "cm" : null,
+      messageId: orNull(r.message_id),
+      reportedUserId: orNull(r.reported_user_id),
+      adminNote: s(r.admin_note),
+      handledAt: orNull(r.handled_at),
+    };
+  }
+  if (source === "trade_chat") {
+    return {
+      ...base,
+      targetType: s(r.target_type) || (s(r.message_id) ? "message" : "room"),
+      roomId: orNull(r.room_id),
+      roomKind: s(r.room_id) ? "legacy_trade" : null,
+      messageId: orNull(r.message_id),
+      reportedUserId: orNull(r.reported_user_id),
+      adminNote: "",
+      handledAt: bucket === "received" || bucket === "reviewing" ? null : orNull(r.updated_at),
+    };
+  }
+  const targetType = s(r.target_type);
+  const roomId = s(r.room_id) || (targetType === "chat_room" ? s(r.target_id) : "");
+  return {
+    ...base,
+    targetType,
+    roomId: roomId || null,
+    roomKind: roomId ? "legacy_trade" : null,
+    messageId: targetType === "chat_message" ? orNull(r.target_id) : null,
+    reportedUserId: null,
+    adminNote: s(r.admin_note),
+    // RPC 의 handled_at = reports.resolved_at
+    handledAt: orNull(r.handled_at),
+  };
+}
+
+/** RPC 인자 — 상태 묶음은 TS 계약(`chatReportRawStatuses`)을 원천별로 넘긴다. */
+export function chatReportQueueRpcArgs(
+  query: ChatReportQueueQuery,
+  page: { limit: number; offset: number }
+): Record<string, unknown> {
+  const sources = chatReportSourcesFor(query.source, query.domain);
+  const statuses: Record<string, string[]> = {};
+  let anyStatus = false;
+  for (const src of sources) {
+    const list = chatReportRawStatuses(src, query.status);
+    if (list) {
+      statuses[src] = list;
+      anyStatus = true;
+    }
+  }
+  return {
+    p_sources: sources,
+    p_statuses: anyStatus ? statuses : null,
+    p_target: query.target || null,
+    p_q: query.q || null,
+    p_domain: query.domain || null,
+    p_asc: chatReportQueueAscending(query),
+    p_limit: page.limit,
+    p_offset: page.offset,
+  };
+}
+
+export async function listChatReportQueue(
+  input: ChatReportQueueQuery,
+  page: { limit: number; offset: number }
+): Promise<ChatReportQueuePage> {
   const sb = getSupabaseServer();
   // 검색어가 UUID 면 방·회원 대상(target)과 같은 조건, 아니면 신고자·피신고자 닉네임.
   const query: ChatReportQueueQuery =
     input.q && isAdminUuid(input.q) && !input.target ? { ...input, target: input.q.toLowerCase(), q: "" } : input;
-  let scope: Scope = { userIds: null };
-  if (query.q) {
-    const { data: profiles, error } = await sb
-      .from("profiles")
-      .select("id")
-      .or(`nickname.ilike.*${query.q}*,username.ilike.*${query.q}*`)
-      .limit(50);
-    if (error) throw new Error(error.message);
-    const ids = ((profiles ?? []) as Array<{ id: string }>).map((p) => p.id);
-    if (!ids.length) return { rows: [], nextCursor: null, failedSources: [] };
-    scope = { userIds: ids };
-  }
-  const asc = chatReportQueueAscending(query);
-  const cursor = decodeAdminKeysetCursor(query.cursor);
-  const bound = cursor ? boundOf(cursor.ts, asc) : null;
-  const size = limit + 1 + FETCH_EXTRA;
-  const sources = chatReportSourcesFor(query.source, query.domain);
-  if (!sources.length) return { rows: [], nextCursor: null, failedSources: [] };
-  const settled = await Promise.allSettled(sources.map((src) => FETCHERS[src](sb, query, bound, size, scope, asc)));
-  const failedSources: ChatReportSource[] = [];
-  const batches: ChatReportSourceBatch[] = [];
-  settled.forEach((r, i) => {
-    if (r.status === "fulfilled") batches.push(r.value);
-    else failedSources.push(sources[i]!);
-  });
-  if (batches.length === 0) throw new Error("report_sources_unavailable");
+  const empty: ChatReportQueuePage = {
+    rows: [],
+    total: 0,
+    limit: page.limit,
+    offset: page.offset,
+    nextCursor: null,
+    failedSources: [],
+  };
+  if (!chatReportSourcesFor(query.source, query.domain).length) return empty;
 
-  const page = mergeChatReportQueuePage(batches, cursor, limit, asc);
+  const { data, error } = await sb.rpc(CHAT_REPORT_QUEUE_RPC, chatReportQueueRpcArgs(query, page));
+  if (error) throw new Error(error.message);
+  const payload = (data ?? {}) as { total?: unknown; rows?: unknown };
+  const rows = (Array.isArray(payload.rows) ? (payload.rows as RpcRow[]) : [])
+    .map(mapChatReportQueueRpcRow)
+    .filter((r): r is ChatReportQueueRow => r != null);
+  const total = Number(payload.total);
 
-  const userIds = [
-    ...new Set(page.rows.flatMap((r) => [r.reporterId ?? "", r.reportedUserId ?? ""]).filter(Boolean)),
-  ];
+  const userIds = [...new Set(rows.flatMap((r) => [r.reporterId ?? "", r.reportedUserId ?? ""]).filter(Boolean))];
   if (userIds.length) {
     const { data: profiles } = await sb.from("profiles").select("id, nickname, username").in("id", userIds);
     const labelById = new Map(
@@ -234,10 +183,14 @@ export async function listChatReportQueue(input: ChatReportQueueQuery, limit: nu
     );
     const label = (id: string | null) =>
       id ? labelById.get(id) || `회원 ${id.replace(/-/g, "").slice(0, 8)}` : "";
-    for (const row of page.rows) {
+    for (const row of rows) {
       row.reporterLabel = label(row.reporterId);
       row.reportedUserLabel = label(row.reportedUserId);
     }
   }
-  return { ...page, failedSources };
+  return {
+    ...empty,
+    rows,
+    total: Number.isFinite(total) && total >= 0 ? total : rows.length,
+  };
 }

@@ -104,21 +104,28 @@ describe("status whitelist", () => {
 describe("route contracts — meetings/comments list: q · total · range", () => {
   it("meetings route", () => {
     const src = read("app/api/admin/community/engine/meetings/route.ts");
+    // 단건(meetingId) = exact count + range · 목록 = DB RPC (R7: 닉네임 후보 200명 상한 제거)
     expect(src).toContain('{ count: "exact" }');
     expect(src).toContain(".range(offset, offset + limit - 1)");
     expect(src).toContain("parseCommunityListSearch");
-    expect(src).toContain('.ilike("nickname", search.pattern)');
+    expect(src).toContain("admin_community_meetings_page");
+    expect(src).toContain("p_q_pattern: search.pattern");
+    expect(src).not.toContain('.ilike("nickname"');
+    expect(src).not.toContain("COMMUNITY_LIST_PROFILE_MATCH_LIMIT");
     expect(src).toMatch(/total: typeof count === "number"/);
     expect(src).toContain("host_nickname");
     expect(src).toContain("host_username");
   });
   it("comments route", () => {
     const src = read("app/api/admin/community/engine/comments/route.ts");
+    // 단건(commentId) = exact count · 목록 = DB RPC (R7: 주제 글 id 500·신고 댓글 id 500·닉네임 200 상한 제거)
     expect(src).toContain('{ count: "exact" }');
-    expect(src).toContain("q.range(offset, offset + limit - 1)");
-    expect(src).toContain('textColumns: ["content"]');
-    expect(src).toContain('.ilike("nickname", search.pattern)');
-    expect(src).toMatch(/total: typeof count === "number"/);
+    expect(src).toContain("admin_community_comments_page");
+    expect(src).toContain("p_q_pattern: search.pattern");
+    expect(src).toContain("p_offset: offset");
+    expect(src).not.toContain('.ilike("nickname"');
+    expect(src).not.toContain("slice(0, 500)");
+    expect(src).toMatch(/total = Number\(res\.total/);
   });
   it("UIs send q and render total + pagination", () => {
     // R7 목록 표준: 검색은 표준 필터 바(URL), 총 건수·20/50/100 은 표준 페이지네이션(「총 N건」)

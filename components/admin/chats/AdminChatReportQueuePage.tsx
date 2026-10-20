@@ -3,7 +3,7 @@
 /**
  * 채팅 신고 단일 큐 (설계 §3-2) — 메신저·거래 채팅(레거시)·거래 신고(채팅방·메시지) 3원천.
  * 행 동작은 「처리」 하나 → 시트 S5 (방 상세와 같은 시트, 서버 단일 액션 `POST /api/admin/chat/report-queue/action`).
- * 검색·필터·정렬·페이지는 URL 상태, 이전 페이지는 URL `trail`.
+ * 검색·필터·정렬·페이지는 URL 상태. R7 — 서버 페이지(page/size → limit/offset) + 전체 건수(AdminPagination).
  */
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -21,6 +21,7 @@ import {
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import {
   AdminChatReportSheet,
   adminChatReportActionsFor,
@@ -29,23 +30,17 @@ import {
 import {
   buildChatReportQueueSearch,
   chatReportQueueAscending,
-  CHAT_REPORT_QUEUE_DEFAULT_LIMIT,
   CHAT_REPORT_ROOM_DOMAINS,
   CHAT_REPORT_SOURCES,
   CHAT_REPORT_STATUS_FILTERS,
   parseChatReportQueueQuery,
+  type ChatReportQueuePageSize,
   type ChatReportQueueQuery,
   type ChatReportQueueRow,
   type ChatReportSource,
   type ChatReportStatusFilter,
 } from "@/lib/admin/chat-admin/admin-chat-report-queue-model";
-import {
-  adminListNextPage,
-  adminListPrevPage,
-  currentAdminListHref,
-  readAdminListTrail,
-  withAdminListTrail,
-} from "@/lib/admin/chat-admin/admin-chat-list-url-state";
+import { currentAdminListHref } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
 import {
   adminChatRoomDetailHref,
   adminLegacyTradeChatDetailHref,
@@ -59,7 +54,7 @@ import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 type LoadState =
   | { kind: "loading" }
   | { kind: "error"; code: string; httpStatus?: number }
-  | { kind: "ready"; rows: ChatReportQueueRow[]; nextCursor: string | null; failedSources: ChatReportSource[] };
+  | { kind: "ready"; rows: ChatReportQueueRow[]; total: number; failedSources: ChatReportSource[] };
 
 const SOURCE_KEY: Record<ChatReportSource, MessageKey> = {
   messenger: "admin_chat_report_source_messenger",
@@ -109,7 +104,6 @@ export function AdminChatReportQueuePage() {
   const searchParams = useSearchParams();
   const spKey = searchParams?.toString() ?? "";
   const query = useMemo(() => parseChatReportQueueQuery(new URLSearchParams(spKey)), [spKey]);
-  const trail = useMemo(() => readAdminListTrail(new URLSearchParams(spKey)), [spKey]);
   const returnTo = currentAdminListHref(pathname, spKey ? `?${spKey}` : "");
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   /** 마지막 정상 목록 — 다시 불러오기 실패 시 지우지 않는다 (지시서 §8-5). */
@@ -132,8 +126,8 @@ export function AdminChatReportQueuePage() {
     if (query.q) sp.set("q", query.q);
     if (query.sort) sp.set("sort", query.sort);
     if (query.domain) sp.set("domain", query.domain);
-    if (query.cursor) sp.set("cursor", query.cursor);
-    sp.set("limit", String(CHAT_REPORT_QUEUE_DEFAULT_LIMIT));
+    sp.set("limit", String(query.size));
+    sp.set("offset", String((query.page - 1) * query.size));
     return `?${sp.toString()}`;
   }, [query]);
 
@@ -146,7 +140,7 @@ export function AdminChatReportQueuePage() {
         const json = (await res.json().catch(() => null)) as {
           ok?: boolean;
           rows?: ChatReportQueueRow[];
-          nextCursor?: string | null;
+          total?: number;
           failedSources?: ChatReportSource[];
           error?: string;
         } | null;
@@ -158,7 +152,7 @@ export function AdminChatReportQueuePage() {
         const ready = {
           kind: "ready" as const,
           rows: Array.isArray(json.rows) ? json.rows : [],
-          nextCursor: json.nextCursor ?? null,
+          total: typeof json.total === "number" && json.total >= 0 ? json.total : 0,
           failedSources: Array.isArray(json.failedSources) ? json.failedSources : [],
         };
         setState(ready);
@@ -172,16 +166,16 @@ export function AdminChatReportQueuePage() {
     };
   }, [apiSearch, reloadToken]);
 
-  /** 필터 변경 = 첫 페이지(replace) · 페이지 이동 = push + trail. */
+  /** 필터 변경 = 첫 페이지(replace) · 페이지 이동 = push (뒤로가기로 이전 페이지). */
   const navigate = useCallback(
-    (patch: Partial<ChatReportQueueQuery>, opts?: { trail?: string[] }) => {
-      const next: ChatReportQueueQuery = { ...query, cursor: "", ...patch };
-      const href = `${pathname}${withAdminListTrail(buildChatReportQueueSearch(next), opts?.trail ?? [])}`;
+    (patch: Partial<ChatReportQueueQuery>, opts?: { pageMove?: boolean }) => {
+      const next: ChatReportQueueQuery = { ...query, cursor: "", page: 1, ...patch };
+      const href = `${pathname}${buildChatReportQueueSearch(next)}`;
       if (href === `${pathname}${spKey ? `?${spKey}` : ""}`) {
         setReloadToken((n) => n + 1);
         return;
       }
-      if (opts?.trail) router.push(href, { scroll: true });
+      if (opts?.pageMove) router.push(href, { scroll: true });
       else router.replace(href, { scroll: false });
     },
     [pathname, query, router, spKey, setReloadToken]
@@ -297,7 +291,7 @@ export function AdminChatReportQueuePage() {
         <AdminEmptyState
           ko={ko}
           message={
-            query.cursor
+            query.page > 1
               ? t("admin_chat_list_empty_after_page")
               : query.status === "open" && !query.q && !query.target
                 ? t("admin_chat_reports_empty_open")
@@ -403,30 +397,16 @@ export function AdminChatReportQueuePage() {
         </div>
       )}
 
-      {view && (query.cursor || view.nextCursor) ? (
-        <nav className="flex flex-wrap items-center justify-end gap-2" aria-label={t("admin_chat_list_pages")} data-admin-list-pager="keyset">
-          <AdminActionButton disabled={!query.cursor} onClick={() => navigate({ cursor: "" })}>
-            {t("admin_chat_list_first")}
-          </AdminActionButton>
-          <AdminActionButton
-            disabled={!query.cursor}
-            onClick={() => {
-              const p = adminListPrevPage(trail);
-              navigate({ cursor: p.cursor }, { trail: p.trail });
-            }}
-          >
-            {t("admin_chat_list_prev")}
-          </AdminActionButton>
-          <AdminActionButton
-            disabled={!view.nextCursor || state.kind === "loading"}
-            onClick={() => {
-              const n = adminListNextPage(trail, query.cursor, view.nextCursor ?? "");
-              navigate({ cursor: n.cursor }, { trail: n.trail });
-            }}
-          >
-            {t("admin_chat_list_next")}
-          </AdminActionButton>
-        </nav>
+      {view && (view.total > 0 || query.page > 1) ? (
+        <AdminPagination
+          ko={ko}
+          page={query.page}
+          size={query.size}
+          total={view.total}
+          disabled={state.kind === "loading"}
+          onPageChange={(page) => navigate({ page }, { pageMove: true })}
+          onSizeChange={(size) => navigate({ size: size as ChatReportQueuePageSize })}
+        />
       ) : null}
 
       {sheetRow ? (

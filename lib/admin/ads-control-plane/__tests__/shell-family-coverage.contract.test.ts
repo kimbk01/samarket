@@ -58,17 +58,23 @@ describe("shell-family-coverage.contract", () => {
       /\.eq\(\s*["']order_status["']\s*,\s*["']pending_review["']\s*\)/
     );
     expect(src).toContain('from("feed_ad_requests")');
-    expect(src).toContain("listFeedAdCampaignsForAdmin");
+    // R7 — 페이지 행만 원천별 id 로 읽는다 (원천별 고정 상한 목록 대신)
+    expect(src).toContain("listFeedAdCampaignsByIdsForAdmin");
     expect(src).toContain("feed_ad_campaigns");
     expect(src).toContain('from("platform_popup_owner_requests")');
     expect(src).toContain("listPlatformPopupAdminCampaigns");
     expect(src).toContain("platform_popup_campaigns");
-    expect(src).toContain("loadAdminDeliveryAdCampaignList");
+    expect(src).toContain("loadAdminDeliveryAdCampaignsByIds");
+    expect(src).toContain("admin_ads_workspace_page");
     expect(src).toContain("projectDeliveryCampaignToActionItem");
     expect(src).toContain("projectPromoteOrderToActionItem");
     expect(src).toContain("projectFeedRequestToActionItem");
     expect(src).toContain("projectFeedCampaignToActionItem");
-    expect(src).toContain("projectPopupRequestToActionItem");
+    // 팝업 오너 신청 행: 기존 로더 조회 열(title)이 운영 스키마에 없어 목록에서 항상 빠져 있던 동작을 유지
+    // (R7 workspace RPC 도 포함하지 않음 — 범위 밖 결함 보고). 처리 대기 개수(queues.popup)만 센다.
+    expect(read("supabase/migrations/20270601100300_r7_admin_ads_workspace_page.sql")).toContain(
+      "platform_popup_owner_requests"
+    );
     expect(src).toContain("projectPopupCampaignToActionItem");
   });
 

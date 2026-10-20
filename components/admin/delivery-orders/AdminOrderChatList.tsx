@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
@@ -20,34 +22,19 @@ import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
  * (single admin order-chat route, same as order detail — DEF-60/61).
  * Admin entry never creates rooms.
  */
-/** C-11 — 화면 페이지 크기 (URL `page`) · 검색어 (URL `q`). */
-const ORDER_CHAT_PAGE_SIZE = 30;
+/** C-11 · R7 — 검색어(URL `q`)·쪽(`page`)·페이지 크기(`size` 20/50/100) = 주소. 검색·정렬·페이지는 서버(DB). */
+const LIST_CONFIG = {};
 
 export function AdminOrderChatList() {
   const { t, safeT, language } = useI18n();
   const ko = language !== "en";
-  const router = useRouter();
   const pathname = usePathname() ?? "/admin/order-chats";
   const searchParams = useSearchParams();
   const spKey = searchParams?.toString() ?? "";
   const returnTo = `${pathname}${spKey ? `?${spKey}` : ""}`;
-  const urlQ = (searchParams?.get("q") ?? "").trim();
-  const page = Math.max(1, Math.floor(Number(searchParams?.get("page")) || 1));
-  const [draft, setDraft] = useState(urlQ);
-  useEffect(() => setDraft(urlQ), [urlQ]);
-  const updateUrl = useCallback(
-    (patch: Record<string, string | null>) => {
-      const sp = new URLSearchParams(spKey);
-      for (const [k, v] of Object.entries(patch)) {
-        if (v) sp.set(k, v);
-        else sp.delete(k);
-      }
-      if (!("page" in patch)) sp.delete("page");
-      const qs = sp.toString();
-      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
-    },
-    [pathname, router, spKey]
-  );
+  const lq = useAdminListQuery(LIST_CONFIG);
+  const urlQ = lq.query.q;
+  const [total, setTotal] = useState(0);
   const [rows, setRows] = useState<AdminStoreOrderChatListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ code: string; status?: number } | null>(null);
@@ -57,14 +44,16 @@ export function AdminOrderChatList() {
     return key ? t(key) : ko ? "알 수 없는 상태" : "Unknown status";
   };
 
+  const apiQuery = lq.apiQueryString;
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/order-chats", { credentials: "include", cache: "no-store" });
+      const res = await fetch(`/api/admin/order-chats?${apiQuery}`, { credentials: "include", cache: "no-store" });
       const json = (await res.json().catch(() => null)) as {
         ok?: boolean;
         rows?: AdminStoreOrderChatListRow[];
+        total?: number;
         error?: string;
       } | null;
       if (!res.ok || !json?.ok) {
@@ -73,45 +62,30 @@ export function AdminOrderChatList() {
         setError({ code: res.status === 401 || res.status === 403 ? "forbidden" : json?.error || "load_failed", status: res.status });
         return;
       }
-      setRows(Array.isArray(json.rows) ? json.rows : []);
+      const list = Array.isArray(json.rows) ? json.rows : [];
+      setRows(list);
+      setTotal(typeof json.total === "number" && Number.isFinite(json.total) ? json.total : list.length);
     } catch {
       setError({ code: "network_error" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiQuery]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, lq.refreshKey]);
 
-  const filteredRows = useMemo(() => {
-    const q = urlQ.toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) =>
-      [row.orderNo, row.orderId, row.storeLabel, row.customerLabel, row.customerUserId]
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [rows, urlQ]);
-  const pageCount = Math.max(1, Math.ceil(filteredRows.length / ORDER_CHAT_PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount);
-  const pageRows = filteredRows.slice((currentPage - 1) * ORDER_CHAT_PAGE_SIZE, currentPage * ORDER_CHAT_PAGE_SIZE);
-  const resetSearch = () => {
-    setDraft("");
-    updateUrl({ q: null });
-  };
+  const pageRows = rows;
+  const resetSearch = () => lq.reset();
 
   const searchBar = (
     <div className="mb-3" data-admin-list-filters="order-chats">
       <AdminFilterBar
         ko={ko}
-        draft={{ q: draft, from: "", to: "" }}
-        onDraftChange={(p) => {
-          if (p.q !== undefined) setDraft(p.q);
-        }}
-        onSubmit={() => updateUrl({ q: draft.trim() || null })}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
         onReset={resetSearch}
         pending={loading}
         showPeriod={false}
@@ -139,7 +113,7 @@ export function AdminOrderChatList() {
     );
   }
 
-  if (filteredRows.length === 0) {
+  if (rows.length === 0 && !loading && !error) {
     return (
       <div
         data-admin-surface="live"
@@ -255,28 +229,16 @@ export function AdminOrderChatList() {
       </table>
       <AdminOrderDetailModal orderId={modal.orderId} section={modal.section} onClose={modal.closeOrder} onChanged={() => void load()} />
     </div>
-    {pageCount > 1 ? (
-      <nav className="mt-3 flex flex-wrap items-center gap-2 sam-text-body-secondary" data-admin-list-pager="page">
-        <AdminActionButton
-          variant="secondary"
-          size="sm"
-          disabled={currentPage <= 1}
-          onClick={() => updateUrl({ page: currentPage - 1 > 1 ? String(currentPage - 1) : null })}
-        >
-          {ko ? "이전" : "Previous"}
-        </AdminActionButton>
-        <span className="text-sam-muted">
-          {currentPage} / {pageCount}
-        </span>
-        <AdminActionButton
-          variant="secondary"
-          size="sm"
-          disabled={currentPage >= pageCount}
-          onClick={() => updateUrl({ page: String(currentPage + 1) })}
-        >
-          {ko ? "다음" : "Next"}
-        </AdminActionButton>
-      </nav>
+    {total > 0 ? (
+      <AdminPagination
+        ko={ko}
+        page={lq.query.page}
+        size={lq.query.size}
+        total={total}
+        onPageChange={lq.setPage}
+        onSizeChange={lq.setSize}
+        disabled={loading}
+      />
     ) : null}
     </div>
   );

@@ -6,7 +6,6 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminOrderChatList } from "@/components/admin/delivery-orders/AdminOrderChatList";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ADMIN_STORE_ORDER_CHAT_LIST_LIMIT } from "@/lib/admin-delivery-orders/admin-order-chat-limits";
 
 /**
  * Delivery order-chat hub — lookup list + cross-links.
@@ -29,7 +28,8 @@ function AdminOrderChatsHubInner() {
         }
       />
 
-      <AdminCard title={t("admin_chat_r1b_order_chats_card", { count: ADMIN_STORE_ORDER_CHAT_LIST_LIMIT })}>
+      {/* R7 — 목록 전체를 서버 페이지네이션으로 넘긴다 (건수 상한 문구 없음 · 전체 건수는 목록 하단). */}
+      <AdminCard title={ko ? "주문 채팅 목록" : "Order chats"}>
         <AdminOrderChatList />
       </AdminCard>
 

@@ -124,7 +124,7 @@ describe("R1-B C-7 — order chat viewer data", () => {
     expect(out[3]!.display.orderSummary).toEqual({ orderNo: "A-1", orderStatus: "", itemCount: 2 });
   });
 
-  it("loader stays lookup-only and pages latest-first; list text shows the real cap", () => {
+  it("loader stays lookup-only and pages latest-first; list is server-paginated (no whole-list cap)", () => {
     const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
     const loader = read("lib/admin-delivery-orders/load-admin-store-order-chat.ts");
     expect(loader).toContain("lookupStoreOrderMessengerRoomReadOnly");
@@ -135,8 +135,9 @@ describe("R1-B C-7 — order chat viewer data", () => {
     expect(lookup).not.toMatch(/\.insert\(|\.update\(|\.upsert\(/);
     const hub = read("app/admin/order-chats/page.tsx");
     expect(hub).not.toContain("120");
-    expect(hub).toContain("ADMIN_STORE_ORDER_CHAT_LIST_LIMIT");
-    expect(ADMIN_STORE_ORDER_CHAT_LIST_LIMIT).toBe(200);
+    // R7: 목록 전체 상한 문구 없음 — 상수는 한 페이지 최대 건수(서버 페이지네이션 limit 상한)
+    expect(hub).not.toContain("ADMIN_STORE_ORDER_CHAT_LIST_LIMIT");
+    expect(ADMIN_STORE_ORDER_CHAT_LIST_LIMIT).toBe(100);
     expect(read("lib/admin-delivery-orders/list-admin-store-order-chats.ts")).toContain("ADMIN_STORE_ORDER_CHAT_LIST_LIMIT");
   });
 });
