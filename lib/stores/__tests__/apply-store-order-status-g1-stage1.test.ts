@@ -273,7 +273,7 @@ describe("ORD-06 cancel request decision → store_order_cancel_request_decide_a
       audit: ownerAudit,
     });
     expect(r.ok).toBe(true);
-    const args = b.rpc.mock.calls.find((c) => c[0] === "store_order_cancel_request_decide_atomic")?.[1] as Record<string, unknown>;
+    const args = (b.rpc.mock.calls as unknown[][]).find((c) => c[0] === "store_order_cancel_request_decide_atomic")?.[1] as Record<string, unknown>;
     expect(args).toMatchObject({ p_decision: "reject", p_restore_status: "arrived", p_reason: "이미 도착", p_actor_role: "owner" });
     expect(typeof args.p_auto_complete_at).toBe("string");
   });
@@ -464,7 +464,8 @@ describe("DLV-02 delivery_sync edge + close open delivery row", () => {
   });
 
   it.each(["cancelled", "refunded"])("order → %s closes an open delivery row (delivery_failed)", async (to) => {
-    const rpcResults = to === "refunded" ? { gift_certificate_refund_order_atomic: { data: { ok: true }, error: null } } : {};
+    const rpcResults: Record<string, { data: unknown; error: { message: string } | null }> =
+      to === "refunded" ? { gift_certificate_refund_order_atomic: { data: { ok: true }, error: null } } : {};
     const { sb, writes } = fakeSb(baseOrder(to === "refunded" ? "refund_requested" : "accepted"), rpcResults);
     const r = await applyStoreOrderStatusTransition(sb, {
       orderId: "o1",
