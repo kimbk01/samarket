@@ -20,7 +20,7 @@ export function AdminDeletionRequestsQueue() {
   const { t, safeT, language } = useI18n();
   const locale = language === "en" ? "en-US" : "ko-KR";
   const [state, setState] = useState<
-    { kind: "loading" } | { kind: "error"; message: string } | { kind: "ok"; items: QueueItem[] }
+    { kind: "loading" } | { kind: "error"; message: string } | { kind: "ok"; items: QueueItem[]; total: number }
   >({ kind: "loading" });
 
   const load = useCallback(async () => {
@@ -33,13 +33,15 @@ export function AdminDeletionRequestsQueue() {
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         items?: QueueItem[];
+        total?: number;
         error?: string;
       };
       if (!res.ok || data.ok === false) {
         setState({ kind: "error", message: data.error ?? t("admin_users_action_failed") });
         return;
       }
-      setState({ kind: "ok", items: Array.isArray(data.items) ? data.items : [] });
+      const items = Array.isArray(data.items) ? data.items : [];
+      setState({ kind: "ok", items, total: typeof data.total === "number" ? data.total : items.length });
     } catch {
       setState({ kind: "error", message: t("admin_users_action_failed") });
     }
@@ -99,6 +101,11 @@ export function AdminDeletionRequestsQueue() {
             fallbackKo: "회원 삭제 요청 대기",
             fallbackEn: "Pending deletion requests",
           })}
+          {state.kind === "ok" ? (
+            <span className="ml-2 font-normal tabular-nums text-[#667085]" data-admin-deletion-total="1">
+              {language === "en" ? `Total ${state.total}` : `총 ${state.total}건`}
+            </span>
+          ) : null}
         </h2>
         <button
           type="button"

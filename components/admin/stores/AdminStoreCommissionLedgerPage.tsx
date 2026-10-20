@@ -41,6 +41,7 @@ import type {
 import {
   buildStoreCommissionLedgerSearch,
   formatManilaDateTime,
+  parseStoreCommissionPeriodParams,
   type StoreCommissionPeriod,
 } from "@/lib/stores/commission/store-commission-ledger-query";
 import {
@@ -201,10 +202,10 @@ export function AdminStoreCommissionLedgerPage() {
   const tab: CommissionTab =
     resolved.tab ?? (legacyQueueLink ? "payable" : urlState === "review_required" ? "review" : "ledger");
 
-  const [period, setPeriod] = useState<{ period: StoreCommissionPeriod; fromDay: string; toDay: string }>({
-    period: "all",
-    fromDay: "",
-    toDay: "",
+  // 첫 기간 = 주소 `period`·`from`·`to` (통합 대시보드 「순 수수료」 링크가 같은 기간을 연다)
+  const [period, setPeriod] = useState<{ period: StoreCommissionPeriod; fromDay: string; toDay: string }>(() => {
+    const p = parseStoreCommissionPeriodParams(searchParams);
+    return { period: p.period, fromDay: p.fromDay ?? "", toDay: p.toDay ?? "" };
   });
   const [ledgerState, setLedgerState] = useState<StoreCommissionLedgerFilterState>(
     urlState === "review_required" ? "all" : urlState

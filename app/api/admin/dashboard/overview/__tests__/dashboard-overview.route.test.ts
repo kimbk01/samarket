@@ -15,11 +15,12 @@ vi.mock("@/lib/admin/metrics/load-admin-dashboard-sources", () => ({
         if (key === "commission") throw new Error("rpc_down");
         return new Map([
           ["members.total", { value: 10 }],
-          ["members.new_today", { value: 1 }],
+          ["members.new", { value: 1 }],
         ]);
       },
       queue: async () => [],
       trend: async () => [{ key: "2026-10-20", values: { signups: 1 } }],
+      recent: async () => [],
     };
   },
 }));
@@ -46,7 +47,7 @@ describe("GET /api/admin/dashboard/overview", () => {
       sb: {},
       actor: { role: "super_admin", permissions: [], isSuperAdmin: true },
     });
-    const res = await GET(req("?tab=finance&parts=metrics,band&range=30"));
+    const res = await GET(req("?tab=finance&parts=metrics,band&period=30d"));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toMatchObject({ ok: true, tab: "finance" });
@@ -56,14 +57,19 @@ describe("GET /api/admin/dashboard/overview", () => {
     const out = json.metrics.find((m: { id: string }) => m.id === "finance.commission_outstanding");
     expect(out.value).toBeNull();
     expect(out.error).toMatch(/commission:rpc_down/);
-    expect(sourcesInput.mock.calls[0][0]).toMatchObject({ scope: { isSuperAdmin: true, permissions: [] } });
+    expect(sourcesInput.mock.calls[0][0]).toMatchObject({
+      scope: { isSuperAdmin: true, permissions: [] },
+      range: { period: "30d", trendDays: 30 },
+    });
+    expect(json.period.id).toBe("30d");
     expect(res.headers.get("cache-control")).toBe("no-store");
   });
 
-  it("모르는 탭 = 전체 현황", async () => {
+  it("모르는 탭 = 전체 현황 · 모르는 기간 = 오늘", async () => {
     gate.mockResolvedValue({ ok: true, sb: {}, actor: { role: "super_admin", permissions: [], isSuperAdmin: true } });
-    const json = await (await GET(req("?tab=nope&parts=trend"))).json();
+    const json = await (await GET(req("?tab=nope&parts=trend&period=bogus"))).json();
     expect(json.tab).toBe("overview");
+    expect(json.period.id).toBe("today");
     expect(json.trend.id).toBe("signups_orders_daily");
   });
 });

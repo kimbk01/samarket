@@ -123,7 +123,8 @@ export async function handleAdminPointChargesListGet(
 }
 
 /** 상태 탭 배지 — 검색과 무관한 상태별 전체 건수 (head + exact count). 실패 시 생략. */
-async function countPointChargesByStatus(
+/** 상태별 전체 건수 — 포인트 충전 화면 요약 카드와 통합 대시보드가 같은 함수를 쓴다. 실패 = undefined. */
+export async function countPointChargesByStatus(
   sb: SupabaseClient
 ): Promise<Record<PointChargeRequestStatus, number> | undefined> {
   const results = await Promise.all(
