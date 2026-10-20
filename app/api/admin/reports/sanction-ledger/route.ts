@@ -31,11 +31,11 @@ type ReportRow = {
 
 /**
  * GET /api/admin/reports/sanction-ledger — 제재 기록 (report_actions + reports), 서버 페이지네이션.
- * 권한 = 신고 화면과 같은 `reports` 키. query: from/to(PHT 날짜) · action_type · q(대상 회원 닉네임/UUID)
+ * 권한 = 회원·권한 워크스페이스 `users` 키 (설계 v4 권한 표). query: from/to(PHT 날짜) · action_type · q(대상 회원 닉네임/UUID)
  * · limit(20/50/100) · offset. 응답 `{ ok, rows, total, limit, offset }` (total = exact).
  */
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminPermission("reports");
+  const admin = await requireAdminPermission("users");
   if (!admin.ok) return admin.response;
   const { sb } = admin;
   const parsed = parseSanctionLedgerQuery(req.nextUrl.searchParams);

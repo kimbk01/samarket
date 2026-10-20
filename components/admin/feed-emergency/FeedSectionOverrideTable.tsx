@@ -9,9 +9,11 @@ import {
   SECTION_OVERRIDE_LABELS,
 } from "@/lib/feed-emergency/feed-emergency-state";
 import { setSectionForcedDisabled } from "@/lib/feed-emergency/feed-emergency-utils";
-import { persistFeedEmergencyToServer } from "@/lib/feed-emergency/feed-emergency-sync-client";
+import { commitFeedEmergencyChange } from "@/lib/feed-emergency/feed-emergency-sync-client";
 import { feedEmergencySwitchConfirmCopy } from "@/lib/feed-emergency/feed-emergency-switch-confirm";
 import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
@@ -20,6 +22,9 @@ export function FeedSectionOverrideTable() {
   const [refresh, setRefresh] = useState(0);
   const [surface, setSurface] = useState<RecommendationSurface>("home");
   const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
+  // 쓰기 = 접근표 action(최고관리자). 서버 가드는 그대로 — 화면에서 미리 막고 사유를 보여 준다.
+  const writeAction = useAdminRouteAction("/admin/feed-emergency");
+  const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
 
   const overrides = useMemo(
     () => getFeedSectionOverrides(surface),
@@ -38,14 +43,16 @@ export function FeedSectionOverrideTable() {
       })
     );
     if (!ok) return;
-    setSectionForcedDisabled(
-      surface,
-      sectionKey,
-      isForcedDisabled,
-      isForcedDisabled ? "긴급 비활성화" : "긴급 해제"
+    // 저장 실패면 화면 상태를 되돌리고 실패를 알린다 (앱 반영 안 됨).
+    const r = await commitFeedEmergencyChange(() =>
+      setSectionForcedDisabled(
+        surface,
+        sectionKey,
+        isForcedDisabled,
+        isForcedDisabled ? "긴급 비활성화" : "긴급 해제"
+      )
     );
-    const r = await persistFeedEmergencyToServer();
-    if (!r.ok) console.warn("[feed-emergency] 저장 실패:", r.error);
+    setResult(r.ok ? { ok: true, message: "저장했습니다. 앱 피드에 반영됩니다." } : { ok: false, code: r.error ?? "save_failed" });
     setRefresh((x) => x + 1);
   };
 
@@ -56,6 +63,12 @@ export function FeedSectionOverrideTable() {
   return (
     <div className="space-y-4">
       {confirmDialog}
+      <AdminResultBanner ko result={result} onClose={() => setResult(null)} />
+      {writeAction.reason ? (
+        <p className="sam-text-body-secondary text-sam-muted" data-admin-action-denied="1">
+          변경 불가: {writeAction.reason}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <label className="sam-text-body font-medium text-sam-fg">surface</label>
         <select
@@ -119,6 +132,7 @@ export function FeedSectionOverrideTable() {
                   <td className="px-3 py-2.5">
                     <button
                       type="button"
+                      disabled={!writeAction.allowed}
                       onClick={() => void handleToggle(sectionKey, !disabled)}
                       className={`rounded border px-2 py-1 sam-text-body-secondary ${
                         disabled

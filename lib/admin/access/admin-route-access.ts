@@ -163,11 +163,14 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/store-fee-policies", requirement: ANY, action: SUPER },
 
   // ── 회원 · 신고 · 설정
+  // 휴대폰 인증 운영 — 조회·갱신 API `users/phone-verification/ops*` = requireAdminPermission("settings")
+  { path: "/admin/users/phone-verification", requirement: perm("settings") },
   { path: "/admin/users", requirement: perm("users") },
   { path: "/admin/push-devices", requirement: perm("users") },
   // 관리자 계정·권한 (F3) — 조회 `staff/memberships` · 변경 `staff`·`users/[id]/privilege` 모두 requireSuperAdmin
   { path: "/admin/staff", requirement: SUPER },
-  // 제재 기록 (F3) — 조회 API `reports/sanction-ledger` = requireAdminPermission("reports") (신고 화면과 같음)
+  // 제재 기록 — 회원·권한 워크스페이스 화면 = 회원 키 `users` (설계 v4 §4 권한 표). 조회 API 도 같은 키.
+  { path: "/admin/reports/log", requirement: perm("users") },
   { path: "/admin/reports", requirement: perm("reports") },
   { path: "/admin/settings/auth", requirement: perm("settings") },
   { path: "/admin/settings", requirement: ANY },

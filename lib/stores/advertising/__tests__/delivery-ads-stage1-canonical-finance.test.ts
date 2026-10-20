@@ -136,7 +136,9 @@ describe("Stage1 BC top-up", () => {
 
 describe("Stage1 Ads product path uses canonical Cash", () => {
   it("T11/T12 actions route uses canonical Cash, not legacy Store Cash debit", () => {
-    expect(actions).toContain("debitBusinessCashForDeliveryAd");
+    // V3-04: 제출 = 원자 함수(차감 + 전이) — 라우트는 writer 에 secureBusinessCash 를 넘긴다 (2단계 차감 폴백 없음)
+    expect(actions).toContain("secureBusinessCash");
+    expect(actions).not.toContain("debitBusinessCashForDeliveryAd");
     expect(actions).toContain("INSUFFICIENT_BUSINESS_CASH");
     expect(actions).not.toContain("debitStoreCashForDeliveryAd");
     expect(DELIVERY_AD_CANONICAL_PAYMENT_MODEL.id).toBe("DEBIT_REFUND_BUSINESS_CASH");
@@ -158,11 +160,13 @@ describe("Stage1 Ads product path uses canonical Cash", () => {
     expect(bind).toMatch(/duplicate\|unique\|23505/);
     expect(bind).toContain("existing_snapshot_mismatch");
     expect(actions).toContain("resubmit");
-    expect(actions).toContain("debitBusinessCashForDeliveryAd");
+    expect(actions).toContain("secureBusinessCash");
   });
 
   it("T16/T17 reject refunds BC exactly once", () => {
-    expect(adminWriter).toContain("refundBusinessCashForRejectedDeliveryAd");
+    // V3-04: 반려 + 환불 = 원자 함수 1번 (같은 트랜잭션에서 business_cash_delivery_ad_refund 를 부른다)
+    expect(adminWriter).toContain("ADMIN_DELIVERY_AD_REJECT_WITH_REFUND_RPC");
+    expect(adminWriter).not.toContain("refundBusinessCashForRejectedDeliveryAd");
     expect(mig).toContain("business_cash_delivery_ad_refund");
     expect(mig).toContain("already_refunded");
   });

@@ -19,10 +19,7 @@ import {
   attachOwnerPaidCommercialSnapshotOnSubmit,
   decodeOwnerAdPackagePricingModel,
 } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
-import {
-  debitBusinessCashForDeliveryAd,
-  type SecureCanonicalBcFailure,
-} from "@/lib/stores/advertising/canonical-business-cash-writer";
+import type { SecureCanonicalBcFailure } from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,30 +73,9 @@ function businessCashFailureResponse(secured: SecureCanonicalBcFailure): NextRes
   );
 }
 
-/**
- * Canonical Cash is secured for commercial spend.
- * V3-04 DEF-7: 기본 경로는 writer 의 원자 함수(차감 + 전이 한 트랜잭션). 이 2단계 경로는
- * 원자 함수 미배포 DB(atomic_submit_rpc_missing) 폴백 전용.
- */
-async function secureBusinessCashBeforeSubmit(input: {
-  sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>;
-  ownerUserId: string;
-  storeId: string;
-  campaignId: string;
-  productKind: "store_sponsored" | "banner";
-  campaignSource: string | null | undefined;
-}): Promise<NextResponse | null> {
-  if (String(input.campaignSource ?? "OWNER_PAID").trim() === "DIBAY_FIRST_PARTY") {
-    return null;
-  }
-  const secured = await debitBusinessCashForDeliveryAd(input.sb, {
-    ownerUserId: input.ownerUserId,
-    storeId: input.storeId,
-    applicationId: input.campaignId,
-    productKind: input.productKind,
-  });
-  if (!secured.ok) return businessCashFailureResponse(secured);
-  return null;
+/** V3-04 DEF-7: 원자 함수(차감 + 전이 한 트랜잭션) 미배포 DB — 2단계 폴백 없이 거절 (차감만 되고 제출 실패하는 상태 방지). */
+function atomicSubmitMissingResponse(): NextResponse {
+  return NextResponse.json({ ok: false, error: "atomic_submit_rpc_missing" }, { status: 503 });
 }
 
 export async function POST(
@@ -191,28 +167,14 @@ export async function POST(
       }
     }
 
-    let result = await transitionOwnerBannerCampaign(sb, {
+    const result = await transitionOwnerBannerCampaign(sb, {
       campaignId: cid,
       ownerUserId: userId,
       action,
       ...(isSubmit ? { secureBusinessCash: { storeId: sid } } : {}),
     });
-    if (!result.ok && result.error === "atomic_submit_rpc_missing") {
-      const cashBlock = await secureBusinessCashBeforeSubmit({
-        sb,
-        ownerUserId: userId,
-        storeId: sid,
-        campaignId: cid,
-        productKind: "banner",
-        campaignSource: "OWNER_PAID",
-      });
-      if (cashBlock) return cashBlock;
-      result = await transitionOwnerBannerCampaign(sb, {
-        campaignId: cid,
-        ownerUserId: userId,
-        action,
-      });
-    }
+    // V3-04: 차감 + 전이 = 원자 함수 1번만. 함수가 없으면 2단계로 나누지 않고 거절한다.
+    if (!result.ok && result.error === "atomic_submit_rpc_missing") return atomicSubmitMissingResponse();
     if (!result.ok && result.error === "business_cash_failed") {
       return businessCashFailureResponse(result.cash);
     }
@@ -273,30 +235,15 @@ export async function POST(
             ? "resumed_owner"
             : "ended_owner";
 
-  let result = await transitionOwnerSponsoredCampaign(sb, {
+  const result = await transitionOwnerSponsoredCampaign(sb, {
     campaignId: cid,
     ownerUserId: userId,
     to,
     actionLabel,
     ...(isSubmit ? { secureBusinessCash: { storeId: sid } } : {}),
   });
-  if (!result.ok && result.error === "atomic_submit_rpc_missing") {
-    const cashBlock = await secureBusinessCashBeforeSubmit({
-      sb,
-      ownerUserId: userId,
-      storeId: sid,
-      campaignId: cid,
-      productKind: "store_sponsored",
-      campaignSource: "OWNER_PAID",
-    });
-    if (cashBlock) return cashBlock;
-    result = await transitionOwnerSponsoredCampaign(sb, {
-      campaignId: cid,
-      ownerUserId: userId,
-      to,
-      actionLabel,
-    });
-  }
+  // V3-04: 차감 + 전이 = 원자 함수 1번만. 함수가 없으면 2단계로 나누지 않고 거절한다.
+  if (!result.ok && result.error === "atomic_submit_rpc_missing") return atomicSubmitMissingResponse();
   if (!result.ok && result.error === "business_cash_failed") {
     return businessCashFailureResponse(result.cash);
   }

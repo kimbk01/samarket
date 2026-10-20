@@ -374,7 +374,7 @@ export const OWNER_SUBMIT_DELIVERY_AD_WITH_BC_RPC =
 export type SecureCanonicalBcFailure = Extract<SecureCanonicalBcResult, { ok: false }>;
 
 export type OwnerSubmitDeliveryAdWithBcResult =
-  /** 함수 미배포 DB — 호출자는 기존 2단계(차감 → 전이) 경로로 폴백. */
+  /** 함수 미배포 DB — 호출자는 제출을 거절한다 (2단계 차감 → 전이 폴백 없음, V3-04). */
   | { status: "rpc_missing" }
   | { status: "rpc_error"; message: string }
   /** 차감 실패 — 아무것도 쓰지 않음. */
@@ -386,7 +386,7 @@ export type OwnerSubmitDeliveryAdWithBcResult =
 /** 사장님 전이 writer 의 추가 실패 결과 (submit/resubmit + secureBusinessCash 옵션일 때만). */
 export type OwnerDeliveryAdSubmitCashOutcome =
   | { ok: false; error: "business_cash_failed"; cash: SecureCanonicalBcFailure }
-  /** 원자 함수 미배포 — 라우트가 기존 차감 → 전이 2단계로 폴백한다. */
+  /** 원자 함수 미배포 — 라우트가 503 으로 거절한다 (2단계 폴백 없음, V3-04). */
   | { ok: false; error: "atomic_submit_rpc_missing" };
 
 function isMissingRpcError(err: { code?: string | null; message?: string | null }): boolean {
