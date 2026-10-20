@@ -19,7 +19,12 @@ import {
   type PopupSurfaceInventory,
 } from "@/lib/admin/ads-exposure/placement-inventory";
 import type { HeroPlacementSlot } from "@/lib/admin/ads-exposure/hero-placement-slots";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import {
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
 
 function creativeSpecLine(
   spec: { aspectLabel: string; pixelLabel: string; maxFileLabel: string | null },
@@ -37,7 +42,7 @@ function feedOperatingLabel(raw: string, ko: boolean): string {
   if (st === "paused") return ko ? "일시중지" : "Paused";
   if (st === "ended") return ko ? "종료" : "Ended";
   if (st === "draft") return ko ? "초안" : "Draft";
-  return raw;
+  return ko ? "알 수 없는 상태" : "Unknown status";
 }
 
 function feedExposureLabel(hint: string | null, ko: boolean): string {
@@ -85,7 +90,7 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
         </div>
       </div>
 
-      <p className="mt-2 text-[11px] text-sam-muted" data-placement-creative-spec="1">
+      <p className="mt-2 text-[12px] text-sam-muted" data-placement-creative-spec="1">
         {creativeSpecLine(pool.creativeSpec, ko)}
       </p>
 
@@ -142,15 +147,15 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
                     <span
                       className={
                         isEventPromo
-                          ? "rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-800"
-                          : "rounded bg-sam-app px-1.5 py-0.5 text-[10px] font-medium text-sam-muted"
+                          ? "rounded-ui-rect bg-sam-primary-soft px-1.5 py-0.5 text-[12px] font-medium text-sam-primary"
+                          : "rounded-ui-rect bg-sam-app px-1.5 py-0.5 text-[12px] font-medium text-sam-muted"
                       }
                       data-placement-source-badge="1"
                     >
                       {sourceBadge}
                     </span>
                   </div>
-                  <p className="text-[11px] text-sam-muted">
+                  <p className="text-[12px] text-sam-muted">
                     {feedOperatingLabel(c.operatingStatus, ko)} ·{" "}
                     {feedExposureLabel(c.exposureHint, ko)}
                     {c.periodLabel ? ` · ${c.periodLabel}` : ""}
@@ -158,22 +163,24 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {c.previewHref ? (
-                    <Link
+                    <AdminActionLink
                       href={c.previewHref}
-                      className="rounded border border-sam-border px-2 py-1 text-[11px] text-sam-fg"
+                      variant="secondary"
+                      size="sm"
                       data-placement-preview="1"
                     >
                       {ko ? "미리보기" : "Preview"}
-                    </Link>
+                    </AdminActionLink>
                   ) : null}
-                  <Link
+                  <AdminActionLink
                     href={primaryManageHref}
-                    className="rounded border border-sam-border px-2 py-1 text-[11px] text-sam-fg"
+                    variant="secondary"
+                    size="sm"
                     data-placement-ops={isEventPromo ? "event-dist" : "1"}
                     data-placement-canonical-edit="1"
                   >
                     {primaryManageLabel}
-                  </Link>
+                  </AdminActionLink>
                 </div>
               </li>
             );
@@ -183,14 +190,15 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {pool.status === "available" ? (
-          <Link
+          <AdminActionLink
             href={pool.createHref}
-            className={Sam.btn.primary}
+            variant="secondary"
+            size="sm"
             data-placement-create={pool.domain}
             data-r2-canonical="1"
           >
             {ko ? pool.createLabelKo : pool.createLabelEn}
-          </Link>
+          </AdminActionLink>
         ) : (
           <div
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px]"
@@ -230,7 +238,7 @@ function PopupSurfaceCard({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-[14px] font-semibold text-sam-fg">{title}</p>
-          <p className="text-[11px] font-mono text-sam-muted">{row.surfaceKey}</p>
+          <p className="text-[12px] font-mono text-sam-muted">{row.surfaceKey}</p>
         </div>
         <p className="text-[12px] text-sam-muted">
           {ko ? "상태" : "Status"}:{" "}
@@ -244,13 +252,13 @@ function PopupSurfaceCard({
         </p>
       </div>
 
-      <p className="mt-2 text-[11px] text-sam-muted" data-placement-creative-spec="1">
+      <p className="mt-2 text-[12px] text-sam-muted" data-placement-creative-spec="1">
         {creativeSpecLine(row.creativeSpec, ko)}
       </p>
 
       <div className="mt-3 space-y-2 text-[13px]">
         <div>
-          <p className="text-[11px] font-semibold text-sam-muted">
+          <p className="text-[12px] font-semibold text-sam-muted">
             {ko ? "현재 노출" : "Current"}
           </p>
           {row.currentWinner ? (
@@ -268,24 +276,26 @@ function PopupSurfaceCard({
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-sam-fg">{row.currentWinner.title}</p>
                 {row.currentWinner.periodLabel ? (
-                  <p className="text-[11px] text-sam-muted">{row.currentWinner.periodLabel}</p>
+                  <p className="text-[12px] text-sam-muted">{row.currentWinner.periodLabel}</p>
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-1">
                 {row.currentWinner.previewHref ? (
-                  <Link
+                  <AdminActionLink
                     href={row.currentWinner.previewHref}
-                    className="rounded border border-sam-border px-2 py-1 text-[11px]"
+                    variant="secondary"
+                    size="sm"
                   >
                     {ko ? "미리보기" : "Preview"}
-                  </Link>
+                  </AdminActionLink>
                 ) : null}
-                <Link
+                <AdminActionLink
                   href={row.currentWinner.operationsHref}
-                  className="rounded border border-sam-border px-2 py-1 text-[11px]"
+                  variant="secondary"
+                  size="sm"
                 >
                   {ko ? "노출 관리에서 보기" : "View in operations"}
-                </Link>
+                </AdminActionLink>
               </div>
             </div>
           ) : (
@@ -299,14 +309,15 @@ function PopupSurfaceCard({
       </div>
 
       <div className="mt-3">
-        <Link
+        <AdminActionLink
           href={row.createHref}
-          className={Sam.btn.primary}
+          variant="secondary"
+          size="sm"
           data-placement-create="popup"
           data-r2-canonical="1"
         >
           {ko ? "Popup 등록" : "Register Popup"}
-        </Link>
+        </AdminActionLink>
       </div>
     </article>
   );
@@ -317,7 +328,9 @@ export function AdminAdsPlacementManagementView() {
   const ko = language !== "en";
   const [inventory, setInventory] = useState<PlacementInventoryModel | null>(null);
   const [err, setErr] = useState("");
-  const [msg, setMsg] = useState("");
+  const [result, setResult] = useState<
+    { ok: true; message: string } | { ok: false; code: string } | null
+  >(null);
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
@@ -335,10 +348,7 @@ export function AdminAdsPlacementManagementView() {
       inventory?: PlacementInventoryModel;
     };
     if (!res.ok || !json.ok || !json.inventory) {
-      setErr(
-        json.error ||
-          (ko ? "광고 위치 정보를 불러오지 못했습니다." : "Could not load placement inventory.")
-      );
+      setErr(json.error || "load_failed");
       setInventory(null);
       setOrderedIds([]);
       return;
@@ -347,7 +357,7 @@ export function AdminAdsPlacementManagementView() {
     setOrderedIds(
       json.inventory.hero.slots.flatMap((slot) => (slot.campaignId ? [slot.campaignId] : []))
     );
-  }, [ko]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -373,8 +383,11 @@ export function AdminAdsPlacementManagementView() {
 
   const saveOrder = async () => {
     setBusy(true);
-    setMsg("");
-    setErr("");
+    setResult(null);
+    const restoreOrder = () =>
+      setOrderedIds(
+        inventory?.hero.slots.flatMap((slot) => (slot.campaignId ? [slot.campaignId] : [])) ?? []
+      );
     try {
       const res = await fetch("/api/admin/advertising/reorder-hero-banners", {
         method: "POST",
@@ -387,14 +400,18 @@ export function AdminAdsPlacementManagementView() {
         error?: string;
       };
       if (!res.ok || !json.ok) {
-        setErr(json.error || (ko ? ADS_FEEDBACK.saveFailed.ko : ADS_FEEDBACK.saveFailed.en));
+        setConfirmOpen(false);
+        setResult({ ok: false, code: json.error || "save_failed" });
+        restoreOrder();
         return;
       }
       setConfirmOpen(false);
-      setMsg(ko ? ADS_FEEDBACK.orderSaved.ko : ADS_FEEDBACK.orderSaved.en);
+      setResult({ ok: true, message: ko ? ADS_FEEDBACK.orderSaved.ko : ADS_FEEDBACK.orderSaved.en });
       await load();
     } catch {
-      setErr(ko ? ADS_FEEDBACK.saveFailed.ko : ADS_FEEDBACK.saveFailed.en);
+      setConfirmOpen(false);
+      setResult({ ok: false, code: "save_failed" });
+      restoreOrder();
     } finally {
       setBusy(false);
     }
@@ -416,7 +433,7 @@ export function AdminAdsPlacementManagementView() {
           {" › "}
           {t("admin_menu_ads_authority_placements_inventory")}
         </p>
-        <h1 className="text-lg font-semibold text-sam-fg" data-admin-placements-title="1">
+        <h1 className="text-[20px] font-semibold text-sam-fg" data-admin-placements-title="1">
           {t("admin_menu_ads_authority_placements_inventory")}
         </h1>
         <p className="text-[13px] text-sam-muted" data-admin-placements-purpose="1">
@@ -426,22 +443,18 @@ export function AdminAdsPlacementManagementView() {
         </p>
       </header>
 
+      <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
       {err ? (
-        <p className="text-sm text-sam-danger" role="alert">
-          {err}
-        </p>
-      ) : null}
-      {msg ? (
-        <p className="text-sm text-sam-success" role="status">
-          {msg}
-        </p>
+        <AdminErrorState ko={ko} code={err} onRetry={() => void load()} />
+      ) : !inventory ? (
+        <AdminLoadingState ko={ko} />
       ) : null}
 
       <section
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="community"
       >
-        <h2 className="text-[15px] font-bold text-sam-fg">Community</h2>
+        <h2 className="text-[16px] font-bold text-sam-fg">Community</h2>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {communityPools.map((pool) => (
             <FeedPoolCard key={pool.placementKey} pool={pool} ko={ko} />
@@ -453,7 +466,7 @@ export function AdminAdsPlacementManagementView() {
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="trade"
       >
-        <h2 className="text-[15px] font-bold text-sam-fg">{ko ? "거래" : "Trade"}</h2>
+        <h2 className="text-[16px] font-bold text-sam-fg">{ko ? "거래" : "Trade"}</h2>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {tradePools.map((pool) => (
             <FeedPoolCard key={pool.placementKey} pool={pool} ko={ko} />
@@ -465,7 +478,7 @@ export function AdminAdsPlacementManagementView() {
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="delivery"
       >
-        <h2 className="text-[15px] font-bold text-sam-fg">{ko ? "배달" : "Delivery"}</h2>
+        <h2 className="text-[16px] font-bold text-sam-fg">{ko ? "배달" : "Delivery"}</h2>
         {hero ? (
           <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -473,13 +486,13 @@ export function AdminAdsPlacementManagementView() {
                 <p className="text-[14px] font-semibold text-sam-fg">
                   {ko ? hero.humanTitleKo : hero.humanTitleEn}
                 </p>
-                <p className="text-[11px] font-mono text-sam-muted">{hero.placementKey}</p>
+                <p className="text-[12px] font-mono text-sam-muted">{hero.placementKey}</p>
               </div>
               <p className="text-[12px] text-sam-muted">
                 {ko ? "현재 사용" : "In use"}: {orderedIds.length} / {cap}
               </p>
             </div>
-            <p className="mt-2 text-[11px] text-sam-muted" data-placement-creative-spec="1">
+            <p className="mt-2 text-[12px] text-sam-muted" data-placement-creative-spec="1">
               {creativeSpecLine(hero.creativeSpec, ko)}
             </p>
 
@@ -496,7 +509,7 @@ export function AdminAdsPlacementManagementView() {
                     data-hero-slot-empty={empty ? "1" : "0"}
                   >
                     <span className="w-16 shrink-0 text-[12px] font-semibold text-sam-muted">
-                      Slide {i + 1}
+                      {ko ? `슬라이드 ${i + 1}` : `Slide ${i + 1}`}
                     </span>
                     {slot ? (
                       <>
@@ -514,7 +527,7 @@ export function AdminAdsPlacementManagementView() {
                           <p className="truncate text-[13px] font-medium text-sam-fg">
                             {slot.campaignLabel}
                           </p>
-                          <div className="mt-0.5 text-[11px] text-sam-muted">
+                          <div className="mt-0.5 text-[12px] text-sam-muted">
                             <span>
                               {ko ? "운영" : "Lifecycle"}:{" "}
                               {slot.lifecycleLabel
@@ -527,38 +540,42 @@ export function AdminAdsPlacementManagementView() {
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-1">
-                          <button
-                            type="button"
-                            className="rounded border border-sam-border px-2 py-1 text-[11px]"
+                          <AdminActionButton
+                            variant="secondary"
+                            size="sm"
+                            aria-label={ko ? "위로 이동" : "Move up"}
                             disabled={busy || i === 0}
                             onClick={() => move(i, -1)}
                             data-hero-reorder="1"
                           >
                             ↑
-                          </button>
-                          <button
-                            type="button"
-                            className="rounded border border-sam-border px-2 py-1 text-[11px]"
+                          </AdminActionButton>
+                          <AdminActionButton
+                            variant="secondary"
+                            size="sm"
+                            aria-label={ko ? "아래로 이동" : "Move down"}
                             disabled={busy || i >= orderedIds.length - 1}
                             onClick={() => move(i, 1)}
                             data-hero-reorder="1"
                           >
                             ↓
-                          </button>
-                          <Link
+                          </AdminActionButton>
+                          <AdminActionLink
                             href="/stores"
-                            className="rounded border border-sam-border px-2 py-1 text-[11px]"
+                            variant="secondary"
+                            size="sm"
                             data-placement-preview="1"
                           >
                             {ko ? "미리보기" : "Preview"}
-                          </Link>
-                          <Link
+                          </AdminActionLink>
+                          <AdminActionLink
                             href={ADS_PLACEMENT_OPS_HREF}
-                            className="rounded border border-sam-border px-2 py-1 text-[11px]"
+                            variant="secondary"
+                            size="sm"
                             data-placement-ops="1"
                           >
                             {ko ? "노출 관리에서 보기" : "View in operations"}
-                          </Link>
+                          </AdminActionLink>
                         </div>
                       </>
                     ) : (
@@ -566,15 +583,16 @@ export function AdminAdsPlacementManagementView() {
                         <span className="text-[12px] text-sam-muted">
                           {ko ? "비어 있음" : "Empty"}
                         </span>
-                        <Link
+                        <AdminActionLink
                           href={`${hero.createBaseHref}?slot=${i + 1}`}
-                          className={Sam.btn.primary}
+                          variant="secondary"
+                          size="sm"
                           data-placement-create="delivery"
                           data-r2-canonical="1"
                           data-hero-empty-create={i + 1}
                         >
                           {ko ? "이 위치에 배너 등록" : "Register banner here"}
-                        </Link>
+                        </AdminActionLink>
                       </div>
                     )}
                   </li>
@@ -582,15 +600,15 @@ export function AdminAdsPlacementManagementView() {
               })}
             </ol>
 
-            <button
-              type="button"
-              className={`${Sam.btn.primary} mt-3`}
+            <AdminActionButton
+              variant="primary"
+              className="mt-3"
               disabled={busy || orderedIds.length === 0}
               data-hero-reorder-save="1"
               onClick={() => setConfirmOpen(true)}
             >
-              {busy ? "…" : ko ? "배너 순서 저장" : "Save banner order"}
-            </button>
+              {ko ? "배너 순서 저장" : "Save banner order"}
+            </AdminActionButton>
           </div>
         ) : null}
       </section>
@@ -599,7 +617,7 @@ export function AdminAdsPlacementManagementView() {
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="popup"
       >
-        <h2 className="text-[15px] font-bold text-sam-fg">Popup</h2>
+        <h2 className="text-[16px] font-bold text-sam-fg">Popup</h2>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {(inventory?.popupSurfaces ?? []).map((row) => (
             <PopupSurfaceCard key={row.surfaceKey} row={row} ko={ko} />

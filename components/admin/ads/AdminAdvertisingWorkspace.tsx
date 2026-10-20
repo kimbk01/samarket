@@ -13,6 +13,9 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type { AdsActionItem, AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { fetchAdsControlPlane } from "@/lib/admin/ads-control-plane/fetch-ads-control-plane";
@@ -291,11 +294,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       storeId: storeFilter || undefined,
     });
     if (!result.ok) {
-      setErr(adminOperatorErrorMessage(result.error === "network" ? "network_error" : result.error, ko));
+      setErr(result.error === "network" ? "network_error" : result.error || "load_failed");
       return;
     }
     setModel(result.plane);
-  }, [boostOrderIdRaw, ko, storeFilter]);
+  }, [boostOrderIdRaw, storeFilter]);
 
   useEffect(() => {
     void load();
@@ -498,9 +501,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           action === "end" && fam === "boost_community" && typeof j.refundPoints === "number"
             ? ko
               ? j.refundPoints > 0
-                ? ` 환급 ${j.refundPoints.toLocaleString()} P`
+                ? ` 환급 ${formatAdminNumber(j.refundPoints)} P`
                 : " 환급 없음"
-              : ` Refund ${j.refundPoints.toLocaleString()} P`
+              : ` Refund ${formatAdminNumber(j.refundPoints)} P`
             : "";
         setActionMsg(
           communityRefund
@@ -623,7 +626,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           className={
             boostFocusState === "matched"
               ? "rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px] text-sam-fg"
-              : "rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800"
+              : "rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-[13px] text-sam-danger"
           }
           role={boostFocusState === "matched" ? "status" : "alert"}
           data-admin-boost-order-focus-banner={boostFocusState}
@@ -655,7 +658,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       ) : null}
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-lg font-semibold text-sam-fg" data-admin-ads-workspace-title="1">
+          <h1 className="text-[20px] font-semibold text-sam-fg" data-admin-ads-workspace-title="1">
             {t(modeTitleKey(mode))}
           </h1>
           <p className="text-[13px] text-sam-muted" data-admin-ads-workspace-purpose="1">
@@ -681,14 +684,15 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               <span className="truncate" title={storeFilter}>
                 {ko ? "매장 필터" : "Store filter"}: {storeFilterLabel}
               </span>
-              <button
-                type="button"
-                className="shrink-0 font-medium underline"
+              <AdminActionButton
+                variant="quiet"
+                size="sm"
+                className="shrink-0"
                 onClick={clearStoreFilter}
                 aria-label={ko ? "매장 필터 해제" : "Clear store filter"}
               >
                 {ko ? "해제" : "Clear"}
-              </button>
+              </AdminActionButton>
             </span>
           ) : null}
         </div>
@@ -698,7 +702,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               <AdminActionLink
                 href="/admin/advertising/direct"
                 variant="primary"
-                className="min-h-12 px-6 text-base font-bold shadow-sm !bg-[var(--admin-console-accent,#1d4ed8)] !text-white"
+                className="min-h-12 px-6 text-base font-bold shadow-sm"
                 data-admin-ads-register-cta="1"
               >
                 {ko ? "+ 광고 등록" : "+ Register ad"}
@@ -735,10 +739,10 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             ],
           ] as const
         ).map(([key, label, value]) => (
-          <button
+          <AdminActionButton
             key={key}
-            type="button"
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-left"
+            variant="secondary"
+            className="!h-auto flex-col !items-start px-3 py-2 text-left font-normal"
             onClick={() => {
               if (
                 key === "pending" ||
@@ -751,49 +755,39 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               }
             }}
           >
-            <div className="text-[11px] text-sam-muted">{label}</div>
-            <div className="text-lg font-semibold tabular-nums text-sam-fg">
+            <div className="text-[12px] text-sam-muted">{label}</div>
+            <div className="text-[16px] font-semibold tabular-nums text-sam-fg">
               {key === "hero"
                 ? `${summary.heroCap - summary.vacant}/${summary.heroCap}`
-                : value}
+                : formatAdminNumber(value)}
             </div>
-          </button>
+          </AdminActionButton>
         ))}
       </div>
 
       <div className="flex flex-wrap gap-2" data-shell-status-tabs="1">
         {statusTabsForMode(mode).map((t) => (
-          <button
+          <AdminChipButton
             key={t.id}
-            type="button"
-            className={`rounded-ui-rect border px-3 py-1.5 text-sm ${
-              statusTab === t.id
-                ? "border-sam-brand bg-sam-brand/10 font-semibold text-sam-fg"
-                : "border-sam-border bg-sam-surface text-sam-muted"
-            }`}
+            selected={statusTab === t.id}
             data-status-tab={t.id}
             onClick={() => setStatusTab(t.id)}
           >
             {ko ? t.ko : t.en}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
 
       <div className="flex flex-wrap gap-2" data-shell-family-tabs="1">
         {familyTabsForMode(mode).map((t) => (
-          <button
+          <AdminChipButton
             key={t.id}
-            type="button"
-            className={`rounded-ui-rect border px-2.5 py-1 text-sm ${
-              family === t.id
-                ? "border-sam-brand bg-sam-brand/10 font-semibold"
-                : "border-sam-border bg-sam-app text-sam-muted"
-            }`}
+            selected={family === t.id}
             data-family-tab={t.id}
             onClick={() => setFamily(t.id)}
           >
             {ko ? t.ko : t.en}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
 
@@ -847,11 +841,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         </section>
       ) : null}
 
-      {err ? (
-        <p className="text-sm text-sam-danger" role="alert">
-          {err}
-        </p>
-      ) : null}
+      {err ? <AdminErrorState ko={ko} code={err} onRetry={() => void load()} /> : null}
       {actionMsg ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm" role="status">
           {actionMsg}
@@ -919,7 +909,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                     colSpan={opsControlMode ? 7 : 11}
                     className="px-3 py-8 text-center text-sam-muted"
                   >
-                    {mode === "applications"
+                    {!model && !err ? (
+                      <AdminLoadingState ko={ko} />
+                    ) : mode === "applications"
                       ? ko
                         ? "승인 대기 중인 광고가 없습니다."
                         : "No applications awaiting approval."
@@ -932,13 +924,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                           : "No ads in this filter."}
                     {mode === "operations" ? (
                       <div className="mt-3">
-                        <Link
+                        <AdminActionLink
                           href="/admin/advertising/direct"
-                          className="inline-flex rounded-ui-rect bg-sam-primary px-3 py-1.5 text-[12px] font-semibold text-sam-on-primary"
+                          variant="primary"
+                          size="sm"
                           data-admin-ads-ops-empty-register="1"
                         >
                           {ko ? "+ 광고 등록" : "+ Register ad"}
-                        </Link>
+                        </AdminActionLink>
                       </div>
                     ) : null}
                   </td>
@@ -998,11 +991,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                               className="h-10 w-10 shrink-0 rounded-ui-rect object-cover"
                             />
                           ) : creativeMissing ? (
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-app px-0.5 text-center text-[9px] leading-tight text-sam-muted">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-app px-0.5 text-center text-[12px] leading-tight text-sam-muted">
                               {ko ? "이미지 없음" : "No image"}
                             </span>
                           ) : (
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect border border-dashed border-sam-border text-[10px] text-sam-muted">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect border border-dashed border-sam-border text-[12px] text-sam-muted">
                               {ko ? "대상" : "Tgt"}
                             </span>
                           )}
@@ -1012,7 +1005,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                       <td className="px-2 py-2 max-w-[180px]">
                         <div className="truncate font-medium">{r.title}</div>
                         {opsControlMode ? (
-                          <div className="mt-0.5 truncate text-[11px] text-sam-muted">
+                          <div className="mt-0.5 truncate text-[12px] text-sam-muted">
                             {r.targetLabel !== r.title ? r.targetLabel : r.applicantLabel}
                           </div>
                         ) : null}
@@ -1033,7 +1026,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                       <td className="px-2 py-2 whitespace-nowrap text-[12px]">
                         <div>{r.periodLabel}</div>
                         {opsControlMode ? (
-                          <div className="text-[11px] text-sam-muted">{r.remainingLabel}</div>
+                          <div className="text-[12px] text-sam-muted">{r.remainingLabel}</div>
                         ) : null}
                       </td>
                       {opsControlMode ? null : (
@@ -1048,19 +1041,19 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                       <td className="px-2 py-2">
                         <div>{r.runtimeExposureStatusLabel}</div>
                         {mode !== "applications" && r.waitingReasonLabel ? (
-                          <div className="mt-1 max-w-[180px] text-[11px] text-sam-muted">
+                          <div className="mt-1 max-w-[180px] text-[12px] text-sam-muted">
                             {r.waitingReasonLabel}
                           </div>
                         ) : null}
                         {opsControlMode &&
                         r.statusTab === "waiting" &&
                         !r.waitingReasonLabel ? (
-                          <div className="mt-1 max-w-[180px] text-[11px] text-sam-muted">
+                          <div className="mt-1 max-w-[180px] text-[12px] text-sam-muted">
                             {operationsWaitingFallback(ko)}
                           </div>
                         ) : null}
                         {mode !== "applications" && r.winnerOccupantLabel ? (
-                          <div className="mt-1 max-w-[180px] text-[11px] text-sam-muted">
+                          <div className="mt-1 max-w-[180px] text-[12px] text-sam-muted">
                             {ko ? "현재 점유" : "Occupant"}: {r.winnerOccupantLabel}
                           </div>
                         ) : null}
@@ -1068,17 +1061,18 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                       <td className="relative px-2 py-2">
                         {mode === "applications" ? (
                           <div className="flex flex-col items-start gap-1">
-                            <Link
+                            <AdminActionLink
                               href={r.href}
-                              className="inline-flex rounded-ui-rect bg-sam-primary px-3 py-1.5 text-[12px] font-semibold text-sam-on-primary"
+                              variant="primary"
+                              size="sm"
                               data-admin-ads-review-cta="1"
                               data-shell-review="1"
                             >
                               {ko ? "검토하기" : "Review"}
-                            </Link>
-                            <button
-                              type="button"
-                              className="text-[11px] text-sam-muted underline"
+                            </AdminActionLink>
+                            <AdminActionButton
+                              variant="quiet"
+                              size="sm"
                               data-shell-manage="1"
                               onClick={() => {
                                 setManageOpenId(open ? null : r.id);
@@ -1086,7 +1080,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                               }}
                             >
                               {ko ? "더보기" : "More"}
-                            </button>
+                            </AdminActionButton>
                             {open && item ? (
                               <div
                                 className="absolute right-0 z-20 mt-1 min-w-[160px] rounded-ui-rect border border-sam-border bg-sam-surface p-2 shadow-md"
@@ -1112,9 +1106,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                         ) : opsControlMode && primary ? (
                           <div className="flex flex-col items-start gap-1">
                             {primary.mutation && item ? (
-                              <button
-                                type="button"
-                                className="inline-flex rounded-ui-rect bg-sam-primary px-3 py-1.5 text-[12px] font-semibold text-sam-on-primary disabled:opacity-50"
+                              <AdminActionButton
+                                variant="primary"
+                                size="sm"
                                 data-admin-ads-ops-primary={primary.kind}
                                 disabled={busyAction != null || pendingMutation != null}
                                 onClick={() => {
@@ -1123,7 +1117,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                 }}
                               >
                                 {ko ? primary.labelKo : primary.labelEn}
-                              </button>
+                              </AdminActionButton>
                             ) : primary.href ? (
                               <a
                                 href={primary.href}
@@ -1135,17 +1129,18 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                 {ko ? primary.labelKo : primary.labelEn}
                               </a>
                             ) : primary.adminHref && !primary.selectDetail ? (
-                              <Link
+                              <AdminActionLink
                                 href={primary.adminHref}
-                                className="inline-flex rounded-ui-rect bg-sam-primary px-3 py-1.5 text-[12px] font-semibold text-sam-on-primary"
+                                variant="primary"
+                                size="sm"
                                 data-admin-ads-ops-primary={primary.kind}
                               >
                                 {ko ? primary.labelKo : primary.labelEn}
-                              </Link>
+                              </AdminActionLink>
                             ) : (
-                              <button
-                                type="button"
-                                className="inline-flex rounded-ui-rect bg-sam-primary px-3 py-1.5 text-[12px] font-semibold text-sam-on-primary"
+                              <AdminActionButton
+                                variant="primary"
+                                size="sm"
                                 data-admin-ads-ops-primary={primary.kind}
                                 onClick={() => {
                                   if (item) setSelected(item);
@@ -1153,11 +1148,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                 }}
                               >
                                 {ko ? primary.labelKo : primary.labelEn}
-                              </button>
+                              </AdminActionButton>
                             )}
-                            <button
-                              type="button"
-                              className="text-[11px] text-sam-muted underline"
+                            <AdminActionButton
+                              variant="quiet"
+                              size="sm"
                               data-shell-manage="1"
                               onClick={() => {
                                 setManageOpenId(open ? null : r.id);
@@ -1165,7 +1160,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                               }}
                             >
                               {ko ? "더보기" : "More"}
-                            </button>
+                            </AdminActionButton>
                             {open && item ? (
                               <div
                                 className="absolute right-0 z-20 mt-1 min-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface p-2 shadow-md"
@@ -1198,10 +1193,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                   </a>
                                 ) : null}
                                 {actions.map((a) => (
-                                  <button
+                                  <AdminActionButton
                                     key={a}
-                                    type="button"
-                                    className="block w-full px-2 py-1.5 text-left text-[12px] hover:bg-sam-app"
+                                    variant={a === "delete_safe_draft" ? "danger" : "quiet"}
+                                    size="sm"
+                                    className="w-full !justify-start"
                                     disabled={busyAction != null || pendingMutation != null}
                                     onClick={() => requestDrawerAction(a, item)}
                                   >
@@ -1212,7 +1208,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                       : ko
                                         ? ACTION_LABEL[a].ko
                                         : ACTION_LABEL[a].en}
-                                  </button>
+                                  </AdminActionButton>
                                 ))}
                                 {mode === "operations" && r.domain === "delivery" ? (
                                   <Link
@@ -1227,9 +1223,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                           </div>
                         ) : (
                           <>
-                            <button
-                              type="button"
-                              className="text-sam-brand underline"
+                            <AdminActionButton
+                              variant="ghost"
+                              size="sm"
                               data-shell-manage="1"
                               onClick={() => {
                                 setManageOpenId(open ? null : r.id);
@@ -1237,7 +1233,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                               }}
                             >
                               {ko ? "관리 ▼" : "Manage ▼"}
-                            </button>
+                            </AdminActionButton>
                             {open && item ? (
                               <div
                                 className="absolute right-0 z-20 mt-1 min-w-[160px] rounded-ui-rect border border-sam-border bg-sam-surface p-2 shadow-md"
@@ -1269,10 +1265,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                   </a>
                                 ) : null}
                                 {actions.map((a) => (
-                                  <button
+                                  <AdminActionButton
                                     key={a}
-                                    type="button"
-                                    className="block w-full px-2 py-1.5 text-left text-[12px] hover:bg-sam-app"
+                                    variant={a === "delete_safe_draft" ? "danger" : "quiet"}
+                                    size="sm"
+                                    className="w-full !justify-start"
                                     disabled={busyAction != null || pendingMutation != null}
                                     onClick={() => requestDrawerAction(a, item)}
                                   >
@@ -1283,7 +1280,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                       : ko
                                         ? ACTION_LABEL[a].ko
                                         : ACTION_LABEL[a].en}
-                                  </button>
+                                  </AdminActionButton>
                                 ))}
                               </div>
                             ) : null}
@@ -1311,7 +1308,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           {(
             <div className="space-y-3">
               <div>
-                <p className="text-[11px] font-semibold text-sam-muted">{selectedShell.kindLabel}</p>
+                <p className="text-[12px] font-semibold text-sam-muted">{selectedShell.kindLabel}</p>
                 <h2 className="mt-0.5 font-semibold text-sam-fg">{selectedShell.title}</h2>
                 <p className="mt-1 text-[12px] text-sam-fg">
                   <span className="text-sam-muted">{ko ? "운영" : "Ops"}: </span>
@@ -1411,7 +1408,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
 
               {selectedActions.includes("change_period") ? (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="block text-[11px] text-sam-muted">
+                  <label className="block text-[12px] text-sam-muted">
                     {ko ? "시작" : "Start"}
                     <input
                       type="datetime-local"
@@ -1420,7 +1417,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                       onChange={(e) => setPeriodStart(e.target.value)}
                     />
                   </label>
-                  <label className="block text-[11px] text-sam-muted">
+                  <label className="block text-[12px] text-sam-muted">
                     {ko ? "종료" : "End"}
                     <input
                       type="datetime-local"
@@ -1432,7 +1429,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 </div>
               ) : null}
 
-              <label className="block text-[11px] text-sam-muted">
+              <label className="block text-[12px] text-sam-muted">
                 {ko ? "신청자 메시지 (반려·보류·연장)" : "Applicant-visible message"}
                 <textarea
                   className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm"
@@ -1442,7 +1439,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 />
               </label>
               {selectedActions.includes("extend_compensation") ? (
-                <label className="block text-[11px] text-sam-muted">
+                <label className="block text-[12px] text-sam-muted">
                   {ko ? "연장 일수" : "Extend days"}
                   <input
                     type="number"
@@ -1454,7 +1451,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                   />
                 </label>
               ) : null}
-              <label className="block text-[11px] text-sam-muted">
+              <label className="block text-[12px] text-sam-muted">
                 {ko ? "내부 메모" : "Internal memo"}
                 <textarea
                   className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm"
@@ -1527,7 +1524,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         ) : null}
       </div>
 
-      <p className="text-[11px] text-sam-muted">
+      <p className="text-[12px] text-sam-muted">
         <Link href="/admin/advertising/products" className="underline">
           {ko ? "광고 상품 / 가격" : "Products & pricing"}
         </Link>
@@ -1599,11 +1596,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             ) : null}
             {endPreview && !("error" in endPreview) && endPreview.fault === endFault ? (
               <p className="font-semibold">
-                {ko ? "환급 예정" : "Refund"} {endPreview.refundPoints.toLocaleString()} P
+                {ko ? "환급 예정" : "Refund"} {formatAdminNumber(endPreview.refundPoints)} P
               </p>
             ) : null}
             {endPreview && "error" in endPreview ? (
-              <p className="text-red-700">{adminOperatorErrorMessage(endPreview.error, ko)}</p>
+              <p className="text-sam-danger">{adminOperatorErrorMessage(endPreview.error, ko)}</p>
             ) : null}
           </div>
         ) : null}

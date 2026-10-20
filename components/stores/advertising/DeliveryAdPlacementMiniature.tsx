@@ -21,12 +21,12 @@ export function DeliveryAdPlacementMiniature({
         aria-hidden
       >
         <div className="relative h-10 w-full rounded-sm bg-sam-surface">
-          <div className="absolute inset-x-2 top-1.5 h-6 rounded-sm bg-[#0A823E]/20" />
-          <span className="absolute left-3 top-2.5 text-[9px] font-bold text-[#0A823E]">
+          <div className="absolute inset-x-2 top-1.5 h-6 rounded-sm bg-sam-primary/20" />
+          <span className="absolute left-3 top-2.5 text-[12px] font-bold text-sam-primary">
             {adLabel}
           </span>
           <div className="absolute bottom-1 left-1/2 flex -translate-x-1/2 gap-0.5">
-            <span className="h-1 w-1 rounded-full bg-[#0A823E]" />
+            <span className="h-1 w-1 rounded-full bg-sam-primary" />
             <span className="h-1 w-1 rounded-full bg-sam-border" />
             <span className="h-1 w-1 rounded-full bg-sam-border" />
           </div>
@@ -43,8 +43,8 @@ export function DeliveryAdPlacementMiniature({
         aria-hidden
       >
         <div className="mb-1 h-2 w-3/5 rounded-sm bg-sam-border/80" />
-        <div className="mb-1 flex h-7 items-center rounded-sm bg-[#0A823E]/15 px-2">
-          <span className="text-[9px] font-bold text-[#0A823E]">{adLabel}</span>
+        <div className="mb-1 flex h-7 items-center rounded-sm bg-sam-primary/15 px-2">
+          <span className="text-[12px] font-bold text-sam-primary">{adLabel}</span>
         </div>
         <div className="space-y-1">
           <div className="h-2 w-full rounded-sm bg-sam-border/70" />
@@ -66,19 +66,19 @@ export function DeliveryAdPlacementMiniature({
       aria-hidden
     >
       {kind === "category_interleave" || kind === "home_plus_category" ? (
-        <div className="mb-1.5 text-[9px] font-semibold text-sam-muted">···</div>
+        <div className="mb-1.5 text-[12px] font-semibold text-sam-muted">···</div>
       ) : null}
       <div className="space-y-1">
         {rows.map((row, i) =>
           row === "ad" ? (
             <div
               key={`ad-${i}`}
-              className="flex items-center gap-1.5 rounded-sm border border-[#0A823E]/40 bg-[#0A823E]/10 px-1.5 py-1"
+              className="flex items-center gap-1.5 rounded-sm border border-sam-primary/40 bg-sam-primary/10 px-1.5 py-1"
             >
-              <span className="rounded-[3px] bg-[#f97316] px-1 text-[8px] font-bold text-white">
+              <span className="rounded-[3px] bg-sam-warning px-1 text-[12px] font-bold text-white">
                 {adLabel}
               </span>
-              <span className="h-1.5 flex-1 rounded-sm bg-[#0A823E]/30" />
+              <span className="h-1.5 flex-1 rounded-sm bg-sam-primary/30" />
             </div>
           ) : (
             <div
@@ -97,11 +97,11 @@ export function DeliveryAdPlacementMiniature({
             <span className="h-3 w-3 rounded-sm bg-sam-border" />
             <span className="h-1.5 flex-1 rounded-sm bg-sam-border/70" />
           </div>
-          <div className="flex items-center gap-1.5 rounded-sm border border-[#0A823E]/40 bg-[#0A823E]/10 px-1.5 py-1">
-            <span className="rounded-[3px] bg-[#f97316] px-1 text-[8px] font-bold text-white">
+          <div className="flex items-center gap-1.5 rounded-sm border border-sam-primary/40 bg-sam-primary/10 px-1.5 py-1">
+            <span className="rounded-[3px] bg-sam-warning px-1 text-[12px] font-bold text-white">
               {adLabel}
             </span>
-            <span className="h-1.5 flex-1 rounded-sm bg-[#0A823E]/30" />
+            <span className="h-1.5 flex-1 rounded-sm bg-sam-primary/30" />
           </div>
         </div>
       ) : null}
