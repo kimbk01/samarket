@@ -556,6 +556,8 @@ export const uiPhaseFinishMessages = {
     mypage_r5_offer_title: "가격 제안",
     mypage_r5_offer_tab_received: "받은 제안",
     mypage_r5_offer_tab_sent: "보낸 제안",
+    /** S23 탭 옆 숫자 = 대기(pending) 개수 */
+    mypage_r5_offer_tab_pending: "· 대기 {count}",
     mypage_r5_offer_accept: "수락",
     mypage_r5_offer_reject: "거절",
     mypage_r5_offer_reject_confirm_title: "이 제안을 거절할까요?",
@@ -1158,6 +1160,7 @@ export const uiPhaseFinishMessages = {
     mypage_r5_offer_title: "Price offers",
     mypage_r5_offer_tab_received: "Received",
     mypage_r5_offer_tab_sent: "Sent",
+    mypage_r5_offer_tab_pending: "· {count} pending",
     mypage_r5_offer_accept: "Accept",
     mypage_r5_offer_reject: "Decline",
     mypage_r5_offer_reject_confirm_title: "Decline this offer?",

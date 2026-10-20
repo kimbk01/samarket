@@ -65,7 +65,11 @@ export function MyOffersTabsScreen() {
               data-testid={`offers-tab-${id}`}
             >
               {labels[id]}
-              {n != null && n > 0 ? <span className="ml-1 opacity-80">({n})</span> : null}
+              {n != null && n > 0 ? (
+                <span className="ml-1 opacity-80" data-testid={`offers-tab-${id}-pending`}>
+                  {t("mypage_r5_offer_tab_pending", { count: n })}
+                </span>
+              ) : null}
             </button>
           );
         })}

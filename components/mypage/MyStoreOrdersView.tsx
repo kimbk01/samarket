@@ -366,7 +366,7 @@ function MyStoreOrderCard({
             />
           )}
           <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 {storeHref ? (
                   <Link
@@ -380,18 +380,6 @@ function MyStoreOrderCard({
                     {o.store_name || safeT("mypage_comp_store_fallback_name")}
                   </p>
                 )}
-                <p className={`mt-0.5 sam-text-body-secondary leading-snug ${FB_MUTED}`}>
-                  <span>{relTime}</span>
-                  <span className="mx-1 text-[color:var(--sol-separator)]" aria-hidden>
-                    ·
-                  </span>
-                  <span className="font-mono sam-text-helper">{o.order_no}</span>
-                </p>
-                {o.buyer_note?.trim() ? (
-                  <p className={`mt-1.5 sam-text-body-secondary font-medium text-[color:var(--sol-note-fg)]`}>
-                    {safeT("mypage_comp_buyer_note_present")}
-                  </p>
-                ) : null}
               </div>
               <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5">
                 <span
@@ -400,34 +388,34 @@ function MyStoreOrderCard({
                 >
                   {buyerOrderStatusLabel(o.order_status, language, o.fulfillment_type)}
                 </span>
-                <span className="relative inline-flex shrink-0 overflow-visible">
-                  <span
-                    className={`rounded-ui-rect px-2 py-0.5 sam-text-xxs font-bold ${
-                      delivery
-                        ? "bg-[color:var(--sol-info-bg)] text-[color:var(--sol-info-fg)]"
-                        : "bg-[color:var(--sol-pickup-bg)] text-[color:var(--sol-pickup-fg)]"
-                    }`}
-                  >
-                    {delivery ? safeT("common_delivery_label") : safeT("member_order_pickup_short")}
-                  </span>
-                  {orderChatUnread > 0 ? (
-                    <span
-                      className="pointer-events-none absolute -right-1 -top-1 z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[color:var(--sol-danger)] px-0.5 sam-text-xxs font-bold leading-none text-[color:var(--sol-on-accent)] ring-2 ring-[color:var(--sol-ring)]"
-                      aria-label={t("mypage_comp_order_chat_unread_aria", {
-                        count: orderChatUnread > 99 ? "99+" : orderChatUnread,
-                      })}
-                    >
-                      {orderChatUnread > 99 ? "99+" : orderChatUnread}
-                    </span>
-                  ) : null}
+                <span
+                  className={`shrink-0 whitespace-nowrap rounded-ui-rect px-2 py-0.5 sam-text-xxs font-bold ${
+                    delivery
+                      ? "bg-[color:var(--sol-info-bg)] text-[color:var(--sol-info-fg)]"
+                      : "bg-[color:var(--sol-pickup-bg)] text-[color:var(--sol-pickup-fg)]"
+                  }`}
+                >
+                  {delivery ? safeT("common_delivery_label") : safeT("member_order_pickup_short")}
                 </span>
+                {orderChatUnread > 0 ? (
+                  /* 채팅 미읽음 — 칩 위에 겹치지 않도록 흐름 안에 둔다 */
+                  <span
+                    className="pointer-events-none flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[color:var(--sol-danger)] px-1 sam-text-xxs font-bold leading-none text-[color:var(--sol-on-accent)]"
+                    aria-label={t("mypage_comp_order_chat_unread_aria", {
+                      count: orderChatUnread > 99 ? "99+" : orderChatUnread,
+                    })}
+                  >
+                    {orderChatUnread > 99 ? "99+" : orderChatUnread}
+                  </span>
+                ) : null}
                 {allowDelete && onDelete ? (
                   <button
                     type="button"
                     onClick={() => onDelete(o.id)}
                     disabled={deleteBusy}
                     data-store-order-more="1"
-                    className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${FB_MUTED} transition-colors ${FB_HOVER_ROW} disabled:opacity-50`}
+                    /* 44px 터치 영역은 유지, 줄 높이는 칩 기준(-my-2.5) — 아래 시간·주문번호 줄과 간격 고정 */
+                    className={`-my-2.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${FB_MUTED} transition-colors ${FB_HOVER_ROW} disabled:opacity-50`}
                     aria-label={t("mypage_oa_order_more_aria")}
                     title={t("mypage_comp_orders_list_delete_title")}
                   >
@@ -443,6 +431,22 @@ function MyStoreOrderCard({
                 ) : null}
               </div>
             </div>
+
+            {/* 시간·주문번호 — 칩 묶음 아래 전체 폭 한 줄(줄바꿈 없이 말줄임) */}
+            <p className={`mt-0.5 flex min-w-0 items-baseline sam-text-body-secondary leading-snug ${FB_MUTED}`}>
+              <span className="shrink-0 whitespace-nowrap">{relTime}</span>
+              <span className="mx-1 shrink-0 text-[color:var(--sol-separator)]" aria-hidden>
+                ·
+              </span>
+              <span className="min-w-0 truncate font-mono sam-text-helper" title={o.order_no}>
+                {o.order_no}
+              </span>
+            </p>
+            {o.buyer_note?.trim() ? (
+              <p className={`mt-1.5 sam-text-body-secondary font-medium text-[color:var(--sol-note-fg)]`}>
+                {safeT("mypage_comp_buyer_note_present")}
+              </p>
+            ) : null}
 
             <div className={`mt-3 border-t ${FB_DIVIDER} pt-3`}>
               {expandMode && onToggleExpand ? (
