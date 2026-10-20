@@ -178,11 +178,7 @@ export const MYPAGE_HOME_ACCOUNT_ITEMS: MypageHomeMenuItemConfig[] = [
     icon: "bell",
   },
   { kind: "language-toggle", icon: "languages" },
-  {
-    href: "/mypage/section/settings/country",
-    titleKey: "mypage_comp_menu_account_region_title",
-    icon: "globe",
-  },
+  // C-4: 국가 설정은 저장값을 읽는 기능이 없어 홈 행만 숨김 — 경로·데이터 유지 (LEGACY-IA-FEATURE-PRESERVATION)
 ];
 
 /** Danger — leave (logout is LogoutActionTrigger in UI, not a link row). */
@@ -212,11 +208,6 @@ export const MYPAGE_HOME_SERVICE_ITEMS: MypageHomeLinkMenuItem[] = [
     icon: "eye-off",
   },
   {
-    href: "/mypage/section/settings/video-autoplay",
-    titleKey: "settings_video_autoplay",
-    icon: "play-circle",
-  },
-  {
     href: "/mypage/section/settings/region",
     titleKey: "settings_bulk_region_change",
     icon: "map-pin",
@@ -226,11 +217,7 @@ export const MYPAGE_HOME_SERVICE_ITEMS: MypageHomeLinkMenuItem[] = [
     titleKey: "settings_chat",
     icon: "message-square",
   },
-  {
-    href: "/mypage/section/settings/personalization",
-    titleKey: "settings_personalization",
-    icon: "sliders",
-  },
+  // C-4: 동영상 자동재생·개인화 설정은 저장값을 읽는 기능이 없어 홈 행만 숨김 — 경로·데이터 유지
   {
     href: "/mypage/section/settings/cache",
     titleKey: "settings_cache_clear",

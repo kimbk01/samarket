@@ -19,7 +19,7 @@ SLICE 2.5 DESIGN SYSTEM + ACCESSIBILITY HARD LOCK
 |------|--------|-------------------|
 | Color Token | **LOCKED** | `--sam-primary` ← `--dibay-green` `#0B421A`; surface/text/border/danger/success via `--sam-*` |
 | Typography | **LOCKED** | `--sam-text-*-size` / `--sm-font-*`; input ≥ `--sm-font-input` **16px** |
-| Radius | **LOCKED** | `--sam-radius-sm` (8px rect via product bridge) · `--sam-radius-pill` |
+| Radius | **LOCKED** | 컴포넌트별: 화면에 붙은 카드·섹션·목록·버튼·입력·칩 `--sam-radius-sm`/`--ui-radius-rect` **4px** · 바텀시트 위 `--overlay-radius-xl` 24px · 다이얼로그 패널 `--overlay-radius-lg` 16px · 시트·다이얼로그 안 버튼 `--overlay-radius-md` 12px · 아바타·토글·배지·FAB `--sam-radius-pill` (2026-10-20 Owner 개정 C-2 — CSS 값 변경 없음, 문서를 실제 기준으로 정정) |
 | Elevation | **LOCKED** | `--sam-shadow-elevated` (card soft/none by default) |
 | Motion | **LOCKED** | → [03](./03-NAVIGATION.md#motion-contract) · `MYPAGE_MOTION_MS` |
 | Spacing | **LOCKED** | `--sam-space-1`…`6` (4–24px) · `--sam-card-padding` |

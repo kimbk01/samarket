@@ -19,7 +19,8 @@
 | notifications | notifications | member | account | 0 | KEEP |
 | language | toggle | member | account | 0 | KEEP |
 | region/country | country | member | account | 0 | KEEP |
-| service rows | settings/* | member | service | 0 | KEEP (all SERVICE_ITEMS) |
+| service rows | settings/* | member | service | 0 | KEEP (all SERVICE_ITEMS, 아래 3종 홈 행 제외) |
+| 읽는 기능 없는 설정 3종 (video-autoplay · personalization · country) | settings/video-autoplay · settings/personalization · settings/country | member | service · account | 0 | 경로·저장 데이터·레지스트리 KEEP, **홈 행 HIDE** (2026-10-20 Owner 개정 C-4 — 저장값을 읽는 기능 0) |
 | notices | notices | member | support | 0 | KEEP |
 | CS | customer-center | member | support | 0 | KEEP |
 | inquiries | /mypage/inquiries | member | support | 0 | KEEP |
