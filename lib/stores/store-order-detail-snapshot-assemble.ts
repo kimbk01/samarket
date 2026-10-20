@@ -2,6 +2,7 @@
  * SOD1 store order detail — CPU-only assemble + shared buyer GET body builder.
  */
 import { stripStoreInternalOrderFields } from "@/lib/stores/buyer-store-order-money";
+import { stripDeliveryProofStorageFromClientRow } from "@/lib/stores/delivery-proof-admin-view";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import {
   mapBuyerStoreOrderReviewRow,
@@ -34,11 +35,43 @@ export type BuyerStoreOrderDetailGateData = {
   reviewsUnavailable: boolean;
 };
 
-/** 구매자 노출: 증빙 이미지 URL 제외·수령자 이름 마스킹 */
-export function sanitizeBuyerDeliveryPublic(
-  raw: Record<string, unknown> | null
+/**
+ * ORD-07 ⊃ DLV-04 — 오너·구매자 공용: 배달 행에서 관리자 메모·증빙 저장 경로/URL·증빙/실패 좌표 제거.
+ * DB 스냅샷 RPC 가 명시 컬럼만 반환하지만(20270602140200), 캐시된 구 페이로드·폴백 경로 방어 이중화.
+ */
+export const STORE_ORDER_DELIVERY_CLIENT_HIDDEN_FIELDS = [
+  "admin_note",
+  "delivered_proof_lat",
+  "delivered_proof_lng",
+  "failure_report_lat",
+  "failure_report_lng",
+] as const;
+
+export function stripStoreOrderDeliveryForClient(
+  raw: Record<string, unknown> | null | undefined
 ): Record<string, unknown> | null {
   if (!raw) return null;
+  const rest = stripDeliveryProofStorageFromClientRow(raw);
+  for (const k of STORE_ORDER_DELIVERY_CLIENT_HIDDEN_FIELDS) delete rest[k];
+  return rest;
+}
+
+/** 구매자 배달 행에서 추가로 빼는 라이더 내부 사유·메모 (구매자 화면 미사용). */
+const BUYER_DELIVERY_EXTRA_HIDDEN_FIELDS = [
+  "rider_decline_reason",
+  "rider_failure_report_reason",
+  "rider_failure_reported_at",
+  "failure_note",
+  "delivered_proof_note",
+] as const;
+
+/** 구매자 노출: 공용 정제 + 라이더 내부 필드 제외 + 수령자 이름 마스킹 */
+export function sanitizeBuyerDeliveryPublic(
+  input: Record<string, unknown> | null
+): Record<string, unknown> | null {
+  const raw = stripStoreOrderDeliveryForClient(input);
+  if (!raw) return null;
+  for (const k of BUYER_DELIVERY_EXTRA_HIDDEN_FIELDS) delete raw[k];
   const name =
     typeof raw.delivered_receiver_name === "string" ? raw.delivered_receiver_name.trim() : "";
   const hint =
