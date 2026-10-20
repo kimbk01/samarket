@@ -13,6 +13,11 @@ import {
 import { excerptCustomerCenterMarkdown } from "@/lib/notices/customer-center-safe-markdown";
 import { notifStatusLabel } from "@/components/admin/points/admin-points-notifications-i18n";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 type AdminNotice = AppNoticeRow & {
   content_type?: string | null;
@@ -42,6 +47,7 @@ function readAppNoticeId(payload: unknown): string {
 
 export function AdminAppNoticesPage() {
   const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const [items, setItems] = useState<AdminNotice[]>([]);
   const [campaignByContent, setCampaignByContent] = useState<
     Record<string, { status: string; when: string }>
@@ -98,7 +104,7 @@ export function AdminAppNoticesPage() {
           if (!cid || map[cid]) continue;
           map[cid] = {
             status: c.status,
-            when: String(c.sent_at ?? c.created_at ?? "").slice(0, 16).replace("T", " "),
+            when: c.sent_at ?? c.created_at ? formatAdminManilaDateTime(c.sent_at ?? c.created_at) : "",
           };
         }
         setCampaignByContent(map);
@@ -145,26 +151,13 @@ export function AdminAppNoticesPage() {
 
       <div className="flex flex-wrap gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
         <div className="flex flex-wrap gap-1">
-          <button
-            type="button"
-            onClick={() => setFilterType("all")}
-            className={`rounded-ui-rect px-2.5 py-1.5 text-xs ${
-              filterType === "all" ? "bg-signature text-white" : "border border-sam-border"
-            }`}
-          >
+          <AdminChipButton selected={filterType === "all"} onClick={() => setFilterType("all")}>
             {safeT("admin_cc_filter_all", { fallbackKo: "전체", fallbackEn: "All" })}
-          </button>
+          </AdminChipButton>
           {CUSTOMER_CENTER_CONTENT_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setFilterType(type)}
-              className={`rounded-ui-rect px-2.5 py-1.5 text-xs ${
-                filterType === type ? "bg-signature text-white" : "border border-sam-border"
-              }`}
-            >
+            <AdminChipButton key={type} selected={filterType === type} onClick={() => setFilterType(type)}>
               {BOARD_LABEL[type][language === "en" ? "en" : "ko"]}
-            </button>
+            </AdminChipButton>
           ))}
         </div>
         <input
@@ -176,16 +169,12 @@ export function AdminAppNoticesPage() {
           })}
           className="min-w-[160px] flex-1 rounded border border-sam-border bg-sam-app px-2 py-1.5 text-sm"
         />
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm"
-        >
-          {safeT("admin_cc_search", { fallbackKo: "조회", fallbackEn: "Search" })}
-        </button>
+        <AdminActionButton variant="primary" size="sm" onClick={() => void load()} disabled={loading}>
+          {adminCta("search", ko)}
+        </AdminActionButton>
       </div>
 
-      {err ? <p className="text-sm text-red-600">{err}</p> : null}
+      {err ? <p className="text-sm text-sam-danger">{adminOperatorErrorMessage(err, ko)}</p> : null}
 
       {loading ? (
         <p className="text-sam-muted">{t("admin_dashboard_loading")}</p>
@@ -236,7 +225,7 @@ export function AdminAppNoticesPage() {
                 const excerpt = excerptCustomerCenterMarkdown(String(n.body ?? ""), 80);
                 return (
                   <tr key={n.id} className="border-b border-sam-border-soft hover:bg-sam-app/60">
-                    <td className="px-3 py-2 font-mono text-[11px] text-sam-muted">
+                    <td className="px-3 py-2 font-mono text-[12px] text-sam-muted">
                       <AdminTechId id={String(n.id)} />
                     </td>
                     <td className="px-3 py-2">

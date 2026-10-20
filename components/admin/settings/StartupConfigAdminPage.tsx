@@ -14,6 +14,7 @@ import {
   normalizeStartupConfig,
   type StartupConfig,
 } from "@/lib/startup/startup-config";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 export function StartupConfigAdminPage() {
   const { safeT, t } = useI18n();
@@ -151,9 +152,9 @@ export function StartupConfigAdminPage() {
                 </option>
               </select>
             </div>
-            <button
+            <AdminActionButton
+              variant="secondary"
               type="button"
-              className="sam-btn sam-btn-secondary"
               disabled={savingTab}
               onClick={() => void saveInitialTab()}
             >
@@ -163,7 +164,7 @@ export function StartupConfigAdminPage() {
                     fallbackKo: "시작 탭 저장",
                     fallbackEn: "Save launch tab",
                   })}
-            </button>
+            </AdminActionButton>
             {tabMessage ? (
               <span className="sam-text-caption text-sam-muted">{tabMessage}</span>
             ) : null}

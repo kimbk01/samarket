@@ -21,6 +21,8 @@ import {
 } from "@/lib/main-menu/lucide-bottom-nav-icon-registry";
 import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 export type MainBottomNavIconPickerValue = {
   icon: BottomNavIconKey;
@@ -127,26 +129,12 @@ export function MainBottomNavIconPickerModal({
           </div>
 
           <div className="mt-3 flex gap-1">
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => setTab("lucide")}
-              className={`rounded-ui-rect px-3 py-1 sam-text-xxs font-medium ${
-                tab === "lucide" ? "bg-signature text-white" : "bg-sam-app text-sam-muted hover:bg-sam-border-soft"
-              }`}
-            >
+            <AdminChipButton selected={tab === "lucide"} disabled={disabled} onClick={() => setTab("lucide")}>
               Lucide
-            </button>
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => setTab("builtin")}
-              className={`rounded-ui-rect px-3 py-1 sam-text-xxs font-medium ${
-                tab === "builtin" ? "bg-signature text-white" : "bg-sam-app text-sam-muted hover:bg-sam-border-soft"
-              }`}
-            >
+            </AdminChipButton>
+            <AdminChipButton selected={tab === "builtin"} disabled={disabled} onClick={() => setTab("builtin")}>
               {t("admin_menu_bottom_icon_builtin_heading")}
-            </button>
+            </AdminChipButton>
           </div>
         </div>
 
@@ -155,23 +143,13 @@ export function MainBottomNavIconPickerModal({
             <>
               <div className="mb-2 flex flex-wrap gap-1">
                 {LUCIDE_CATEGORY_KEYS.map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => setCategory(key)}
-                    className={`rounded-full px-2.5 py-0.5 sam-text-xxs ${
-                      category === key
-                        ? "bg-signature text-white"
-                        : "bg-sam-app text-sam-muted hover:bg-sam-border-soft"
-                    }`}
-                  >
+                  <AdminChipButton key={key} selected={category === key} disabled={disabled} onClick={() => setCategory(key)}>
                     {t(
                       key === "all"
                         ? "admin_menu_bottom_icon_cat_all"
                         : (`admin_menu_bottom_icon_cat_${key}` as "admin_menu_bottom_icon_cat_nav")
                     )}
-                  </button>
+                  </AdminChipButton>
                 ))}
               </div>
 
@@ -206,26 +184,25 @@ export function MainBottomNavIconPickerModal({
                     const LucideIcon = resolveLucideBottomNavIcon(entry.name);
                     if (!LucideIcon) return null;
                     return (
-                      <button
+                      <AdminActionButton
                         key={entry.name}
-                        type="button"
+                        variant="neutral"
+                        size="sm"
                         disabled={disabled}
                         title={entry.name}
                         aria-pressed={selected}
                         onClick={() =>
                           setDraft({ source: "lucide", icon: draft.icon, lucideIcon: entry.name })
                         }
-                        className={`flex flex-col items-center gap-0.5 rounded-ui-rect border px-1 py-1.5 transition-colors disabled:opacity-50 ${
-                          selected
-                            ? "border-signature bg-signature/5 ring-1 ring-signature/30"
-                            : "border-transparent hover:border-sam-border hover:bg-sam-app"
+                        className={`!h-auto !flex-col !gap-0.5 !px-1 py-1.5 font-normal ${
+                          selected ? "!border-signature bg-signature/5 ring-1 ring-signature/30" : "!border-transparent"
                         }`}
                       >
                         <LucideIcon className="h-5 w-5 text-sam-fg" />
                         <span className="line-clamp-1 w-full text-center sam-text-xxs leading-none text-sam-muted">
                           {entry.name}
                         </span>
-                      </button>
+                      </AdminActionButton>
                     );
                   })}
                 </div>
@@ -236,17 +213,16 @@ export function MainBottomNavIconPickerModal({
               {ADMIN_MAIN_BOTTOM_NAV_ICON_OPTIONS.map((iconKey) => {
                 const selected = draft.source === "builtin" && draft.icon === iconKey;
                 return (
-                  <button
+                  <AdminActionButton
                     key={iconKey}
-                    type="button"
+                    variant="neutral"
+                    size="sm"
                     disabled={disabled}
                     title={t(BOTTOM_NAV_ICON_LABEL_KEYS[iconKey])}
                     aria-pressed={selected}
                     onClick={() => setDraft({ source: "builtin", icon: iconKey })}
-                    className={`flex flex-col items-center gap-1 rounded-ui-rect border px-2 py-2.5 transition-colors disabled:opacity-50 ${
-                      selected
-                        ? "border-signature bg-signature/5 ring-1 ring-signature/30"
-                        : "border-sam-border bg-sam-surface hover:border-signature/40 hover:bg-sam-app"
+                    className={`!h-auto !flex-col !whitespace-normal py-2.5 font-normal ${
+                      selected ? "!border-signature bg-signature/5 ring-1 ring-signature/30" : ""
                     }`}
                   >
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sam-border-soft text-sam-fg">
@@ -255,7 +231,7 @@ export function MainBottomNavIconPickerModal({
                     <span className="line-clamp-2 sam-text-xxs font-medium leading-tight text-sam-fg">
                       {t(BOTTOM_NAV_ICON_LABEL_KEYS[iconKey])}
                     </span>
-                  </button>
+                  </AdminActionButton>
                 );
               })}
             </div>
@@ -299,17 +275,18 @@ export function MainBottomNavIconPickerTrigger({
   const { t } = useI18n();
 
   return (
-    <button
-      type="button"
+    <AdminActionButton
+      variant="neutral"
+      size="sm"
       disabled={disabled}
       onClick={onOpen}
       title={t("admin_menu_bottom_icon_configure_title", { name: label })}
-      className="inline-flex max-w-[120px] items-center gap-1 rounded border border-sam-border bg-sam-app px-1.5 py-0.5 transition-colors hover:border-signature/40 hover:bg-sam-surface disabled:opacity-50"
+      className="max-w-[120px] !px-1.5 font-normal"
     >
       <span className="flex h-5 w-5 shrink-0 items-center justify-center text-sam-fg">
         <MainBottomNavTabIcon tab={value} className="h-4 w-4" />
       </span>
       <span className="truncate sam-text-xxs text-signature">{mainBottomNavIconLabel(value)}</span>
-    </button>
+    </AdminActionButton>
   );
 }

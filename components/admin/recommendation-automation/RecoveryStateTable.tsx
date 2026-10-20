@@ -7,6 +7,7 @@ import {
   recRecoveryModeLabel,
   recSurfaceLabel,
 } from "@/components/admin/recommendation-admin-i18n";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function RecoveryStateTable() {
   const { t } = useI18n();
@@ -59,10 +60,10 @@ export function RecoveryStateTable() {
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                     s.currentMode === "normal"
-                      ? "bg-emerald-50 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : s.currentMode === "fallback"
-                        ? "bg-amber-50 text-amber-800"
-                        : "bg-red-50 text-red-800"
+                        ? "bg-sam-warning-soft text-sam-warning"
+                        : "bg-sam-danger-soft text-sam-danger"
                   }`}
                 >
                   {recRecoveryModeLabel(t, s.currentMode)}
@@ -70,7 +71,7 @@ export function RecoveryStateTable() {
               </td>
               <td className="px-3 py-2.5">
                 {s.recoveryEligible ? (
-                  <span className="sam-text-body-secondary text-emerald-600">
+                  <span className="sam-text-body-secondary text-sam-success">
                     {t("admin_rec_recovery_possible")}
                   </span>
                 ) : (
@@ -81,7 +82,7 @@ export function RecoveryStateTable() {
                 {s.recoveryReason || "-"}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(s.checkedAt).toLocaleString(undefined, { hour12: false })}
+                {formatAdminManilaDateTime(s.checkedAt)}
               </td>
             </tr>
           ))}

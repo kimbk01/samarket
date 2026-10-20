@@ -2,10 +2,11 @@
 
 import { useMemo } from "react";
 import { getAllRecentViewedProducts } from "@/lib/recommendation/recommendation-recent-viewed-state";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const SOURCE_LABELS: Record<string, string> = {
   home: "홈",
-  search: "검색",
+  search: "검색 화면",
   chat: "채팅",
   recommendation: "추천",
   shop: "상점",
@@ -57,7 +58,7 @@ export function RecentViewedAdminTable() {
               </td>
               <td className="px-3 py-2.5 text-sam-muted">{r.sectionKey ?? "-"}</td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(r.viewedAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(r.viewedAt)}
               </td>
             </tr>
           ))}

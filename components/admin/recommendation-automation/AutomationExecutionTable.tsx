@@ -8,9 +8,12 @@ import {
   recAutoActionLabel,
   recSurfaceLabel,
 } from "@/components/admin/recommendation-admin-i18n";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import { PLATFORM_REC_EXECUTION_NS } from "@/lib/admin/status-labels/platform-status-labels";
 
 export function AutomationExecutionTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const [surfaceFilter, setSurfaceFilter] = useState<RecommendationSurface | "">("");
 
@@ -80,7 +83,7 @@ export function AutomationExecutionTable() {
                   className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(e.createdAt).toLocaleString(undefined, { hour12: false })}
+                    {formatAdminManilaDateTime(e.createdAt)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
                     {recSurfaceLabel(t, e.surface)}
@@ -94,17 +97,7 @@ export function AutomationExecutionTable() {
                       : t("admin_rec_auto_sim_mode_live")}
                   </td>
                   <td className="px-3 py-2.5">
-                    <span
-                      className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
-                        e.status === "success"
-                          ? "bg-emerald-50 text-emerald-800"
-                          : e.status === "failed"
-                            ? "bg-red-50 text-red-800"
-                            : "bg-sam-surface-muted text-sam-muted"
-                      }`}
-                    >
-                      {e.status}
-                    </span>
+<AdminStatusLabel namespace={PLATFORM_REC_EXECUTION_NS} code={e.status} ko={language !== "en"} />
                   </td>
                   <td className="max-w-[180px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                     {e.reason}

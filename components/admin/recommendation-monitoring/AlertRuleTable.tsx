@@ -13,6 +13,7 @@ import {
   recAlertSeverityLabel,
   recSurfaceLabel,
 } from "@/components/admin/recommendation-admin-i18n";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 const COMPARATOR_LABELS: Record<string, string> = {
   lt: "<",
@@ -84,8 +85,8 @@ export function AlertRuleTable() {
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                     r.severity === "critical"
-                      ? "bg-red-50 text-red-800"
-                      : "bg-amber-50 text-amber-800"
+                      ? "bg-sam-danger-soft text-sam-danger"
+                      : "bg-sam-warning-soft text-sam-warning"
                   }`}
                 >
                   {recAlertSeverityLabel(t, r.severity)}
@@ -95,17 +96,13 @@ export function AlertRuleTable() {
                 {recAlertChannelLabel(t, r.channel)}
               </td>
               <td className="px-3 py-2.5">
-                <button
+                <AdminChipButton
+                  selected={r.isActive}
                   type="button"
                   onClick={() => void handleToggleActive(r.id, r.isActive)}
-                  className={`rounded border px-2 py-1 sam-text-body-secondary ${
-                    r.isActive
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-sam-border bg-sam-surface-muted text-sam-muted"
-                  }`}
                 >
                   {r.isActive ? "ON" : "OFF"}
-                </button>
+                </AdminChipButton>
               </td>
             </tr>
           ))}

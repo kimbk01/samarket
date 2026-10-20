@@ -11,6 +11,7 @@ import { chooseWinner } from "@/lib/recommendation-experiments/recommendation-ex
 import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { ASSIGNED_GROUP_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import { persistRecommendationExperimentsToServer } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const WINNING_METRIC_LABELS: Record<WinningMetric, string> = {
   ctr: "CTR 우선",
@@ -114,7 +115,7 @@ export function ExperimentWinnerTable() {
                   </td>
                   <td className="px-3 py-2.5">
                     {s.autoDeployRecommended ? (
-                      <span className="sam-text-body-secondary text-emerald-600">{t("admin_rec_deploy_k4b0ea2fc")}</span>
+                      <span className="sam-text-body-secondary text-sam-success">{t("admin_rec_deploy_k4b0ea2fc")}</span>
                     ) : (
                       "-"
                     )}
@@ -138,14 +139,15 @@ export function ExperimentWinnerTable() {
                   <td className="px-3 py-2.5 text-sam-muted">-</td>
                   <td className="px-3 py-2.5 text-sam-muted">-</td>
                   <td className="px-3 py-2.5">
-                    <button
+                    <AdminActionButton
+                      variant="ghost"
+                      size="sm"
                       type="button"
                       onClick={() => handleChooseWinner(e.id)}
                       disabled={!!choosingId}
-                      className="sam-text-body-secondary text-signature hover:underline disabled:opacity-50"
                     >
                       승자 선택
-                    </button>
+                    </AdminActionButton>
                   </td>
                 </tr>
               ))}

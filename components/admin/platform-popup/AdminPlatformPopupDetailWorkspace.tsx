@@ -6,7 +6,8 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
-import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
@@ -93,7 +94,6 @@ type AuditRow = {
 export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: string }) {
   const { safeT, language } = useI18n();
   const router = useRouter();
-  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
   const searchParams = useSearchParams();
   const [campaign, setCampaign] = useState<PlatformPopupAdminDetail | null>(null);
   const [audit, setAudit] = useState<AuditRow[]>([]);
@@ -369,7 +369,72 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     );
   };
 
+  /**
+   * 상태 전이 확인 (확인 단계 표준): 노출 시작·승인 = L2(사유 필수) · 노출 중지 = L1 · 종료 = L3(캠페인 이름 재입력).
+   * 전이 API 는 사유 필드를 받지 않으므로 요청 본문은 그대로 둔다(사유는 확인창에서만 받는다).
+   */
+  const confirmTransition = async (body: Record<string, unknown>): Promise<boolean> => {
+    const ko = language !== "en";
+    const name = campaign?.name?.trim() || campaignId;
+    const next = body.nextStatus;
+    if (body.action === "approve" || body.activate || body.schedule) {
+      const activate = Boolean(body.activate);
+      const r = await confirmAdminAction({
+        level: "L2",
+        ko,
+        title: activate
+          ? ko
+            ? "팝업 노출 시작"
+            : "Start popup exposure"
+          : ko
+            ? "팝업 승인 (예약 노출)"
+            : "Approve popup (scheduled)",
+        description: ko ? `「${name}」` : `"${name}"`,
+        confirmLabel: activate ? adminCta("exposeStart", ko) : adminCta("approve", ko),
+      });
+      return r.ok;
+    }
+    if (next === "active") {
+      const r = await confirmAdminAction({
+        level: "L2",
+        ko,
+        title: ko ? "팝업 노출 시작" : "Start popup exposure",
+        description: ko ? `「${name}」` : `"${name}"`,
+        confirmLabel: adminCta("exposeStart", ko),
+      });
+      return r.ok;
+    }
+    if (next === "paused") {
+      const r = await confirmAdminAction({
+        level: "L1",
+        ko,
+        title: ko ? "팝업 노출 중지" : "Stop popup exposure",
+        description: ko
+          ? `「${name}」 노출을 중지합니다. 나중에 다시 노출할 수 있습니다.`
+          : `Stop showing "${name}". You can resume it later.`,
+        confirmLabel: adminCta("exposeStop", ko),
+      });
+      return r.ok;
+    }
+    if (next === "ended") {
+      const r = await confirmAdminAction({
+        level: "L3",
+        ko,
+        title: ko ? "팝업 종료" : "End popup",
+        description: ko
+          ? `「${name}」을(를) 종료합니다. 종료한 팝업은 다시 노출할 수 없습니다.`
+          : `End "${name}". An ended popup cannot be shown again.`,
+        confirmLabel: ko ? "종료" : "End",
+        destructive: true,
+        retypeValue: name,
+      });
+      return r.ok;
+    }
+    return true;
+  };
+
   const transition = async (body: Record<string, unknown>) => {
+    if (!(await confirmTransition(body))) return;
     setBusy(true);
     setError(null);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}/transition`, {
@@ -390,17 +455,19 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   };
 
   const deleteDraft = async () => {
-    const ok = await askConfirm({
-      title: language === "en" ? "Delete draft popup" : "임시저장 팝업 삭제",
-      description:
-        language === "en"
-          ? "Delete this draft popup? This cannot be undone."
-          : "임시저장 팝업을 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
-      confirmLabel: language === "en" ? "Delete" : "삭제",
-      cancelLabel: language === "en" ? "Cancel" : "취소",
-      tone: "danger",
+    const ko = language !== "en";
+    const confirmed = await confirmAdminAction({
+      level: "L3",
+      ko,
+      title: ko ? "임시저장 팝업 삭제" : "Delete draft popup",
+      description: ko
+        ? "임시저장 팝업을 삭제할까요? 이 작업은 되돌릴 수 없습니다."
+        : "Delete this draft popup? This cannot be undone.",
+      confirmLabel: adminCta("delete", ko),
+      destructive: true,
+      retypeValue: campaign?.name?.trim() || campaignId,
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
     setBusy(true);
     setError(null);
     const res = await fetch("/api/admin/advertising-workspace/action", {
@@ -544,7 +611,6 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
   return (
     <div className="space-y-4" data-admin-platform-popup-detail="1">
-      {confirmDialog}
       <AdminPageHeader
         backHref="/admin/platform-popup"
         title={campaign?.name || "…"}

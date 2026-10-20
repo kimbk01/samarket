@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import type { PlatformEventRow } from "@/lib/platform-events/types";
 import {
   formatPromotionAdminSchedule,
@@ -28,10 +29,12 @@ export function AdminPlatformEventsListClient() {
   const [events, setEvents] = useState<ListEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [httpStatus, setHttpStatus] = useState<number | undefined>(undefined);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setHttpStatus(undefined);
     try {
       const res = await fetch("/api/admin/platform-events", { credentials: "same-origin" });
       const json = (await res.json().catch(() => ({}))) as {
@@ -40,27 +43,18 @@ export function AdminPlatformEventsListClient() {
         error?: string;
       };
       if (!res.ok || !json.ok) {
-        setError(
-          json.error
-            ? lang === "en"
-              ? "Could not load events. Try again."
-              : "이벤트를 불러오지 못했습니다. 다시 시도해 주세요."
-            : lang === "en"
-              ? "Could not load events."
-              : "이벤트를 불러오지 못했습니다."
-        );
+        setError(json.error || "load_failed");
+        setHttpStatus(res.status);
         setEvents([]);
         return;
       }
       setEvents(json.events ?? []);
     } catch {
-      setError(
-        lang === "en" ? "Could not load events." : "이벤트를 불러오지 못했습니다."
-      );
+      setError("network_error");
     } finally {
       setLoading(false);
     }
-  }, [lang]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -70,7 +64,7 @@ export function AdminPlatformEventsListClient() {
     <div className="space-y-4 p-4" data-admin-platform-events-list="1">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">
+          <h1 className="text-[16px] font-semibold">
             {t("admin_menu_promotion_events")}
           </h1>
           <p
@@ -93,11 +87,9 @@ export function AdminPlatformEventsListClient() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-sam-muted">…</p>
+        <AdminLoadingState ko={lang !== "en"} />
       ) : error ? (
-        <p className="text-sm text-red-600" role="alert">
-          {error}
-        </p>
+        <AdminErrorState ko={lang !== "en"} code={error} httpStatus={httpStatus} onRetry={() => void load()} />
       ) : events.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4">
           <p className="text-sm text-sam-muted">
@@ -132,7 +124,7 @@ export function AdminPlatformEventsListClient() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold">{ev.title}</div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-sam-muted">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-sam-muted">
                       <AdminToneBadge tone={promotionOperatorStatusTone(op)}>
                         {promotionOperatorStatusLabel(op, lang)}
                       </AdminToneBadge>

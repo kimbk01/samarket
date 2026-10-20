@@ -315,7 +315,7 @@ describe("P4 Admin lifecycle mirrors the DB state machine", () => {
     expect(admin).toContain("launchIntroCanReactivate(live, p.id)");
     expect(admin).not.toMatch(/disabled=\{[^}]*live\.state/);
     // confirm: publish, delete, cancel, and the shared state-change path
-    expect(admin.match(/await dibayConfirm\(/g)?.length).toBeGreaterThanOrEqual(7);
+    expect(admin.match(/await confirmAdminAction\(/g)?.length).toBeGreaterThanOrEqual(7);
     // every server action reports its result in a popup
     expect(admin).toContain("await dibayAlert({ title: okTitle, description: okDescription })");
     expect(admin).not.toContain("sam-btn");

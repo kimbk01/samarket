@@ -6,6 +6,7 @@ import { getRollbackPolicies } from "@/lib/recommendation-experiments/recommenda
 import { saveRollbackPolicy } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { persistRecommendationExperimentsToServer } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 export function RollbackPolicyForm() {
   const policies = useMemo(() => getRollbackPolicies(), []);
@@ -147,13 +148,13 @@ export function RollbackPolicyForm() {
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
-      <button
+      <AdminActionButton
+        variant="primary"
         type="button"
         onClick={handleSave}
-        className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
       >
         {saved ? "저장됨" : "저장"}
-      </button>
+      </AdminActionButton>
     </div>
   );
 }

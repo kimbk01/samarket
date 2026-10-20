@@ -59,8 +59,8 @@ export function EscalationRuleTable() {
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                     r.severity === "critical"
-                      ? "bg-red-50 text-red-800"
-                      : "bg-amber-50 text-amber-800"
+                      ? "bg-sam-danger-soft text-sam-danger"
+                      : "bg-sam-warning-soft text-sam-warning"
                   }`}
                 >
                   {recAlertSeverityLabel(t, r.severity)}
@@ -77,7 +77,7 @@ export function EscalationRuleTable() {
               </td>
               <td className="px-3 py-2.5">
                 {r.isActive ? (
-                  <span className="sam-text-body-secondary text-emerald-600">ON</span>
+                  <span className="sam-text-body-secondary text-sam-success">ON</span>
                 ) : (
                   <span className="sam-text-body-secondary text-sam-meta">OFF</span>
                 )}

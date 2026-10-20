@@ -97,8 +97,9 @@ describe("CUT5 payment != active + Owner cannot approve", () => {
     expect(approve).toContain("owner_request_id");
     expect(approve).toContain("idempotent: true");
     expect(approve).toContain("validatePlatformPopupCampaignForApproval");
-    expect(approve).toContain('productKind: "platform_popup"');
-    expect(approve).toContain("refundBusinessCashForRejectedDeliveryAd");
+    // V3-03: 반려 = 환불 + 상태 변경 원자 함수 1번 (2단계 환불 폴백 없음)
+    expect(approve).toContain("ADMIN_REJECT_POPUP_OWNER_REQUEST_RPC");
+    expect(approve).not.toContain("refundBusinessCashForRejectedDeliveryAd");
     expect(approve).toContain("revision_required");
     expect(approve).toContain("refunded: false");
   });

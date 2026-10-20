@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
 import type { PlatformEventOwnerRequestRow } from "@/lib/platform-event-owner-requests/types";
 import {
   ownerRequestOperatorStatusLabel,
@@ -45,7 +46,7 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
   return (
     <div className="space-y-4 p-4" data-admin-event-owner-request-queue="1">
       <div>
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-[16px] font-semibold">
           {t("admin_menu_promotion_owner_requests")}
         </h1>
         <p className="mt-1 text-sm text-sam-muted" data-admin-owner-request-boundary="1">
@@ -57,16 +58,16 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
           })}
         </p>
       </div>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <AdminErrorState ko={lang !== "en"} code={error} onRetry={() => void load()} /> : null}
       <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
         {items.map((item) => {
           const op = resolveOwnerRequestOperatorStatus(item.requestStatus);
           const ch = item.requestedChannels;
           const channels = [
-            ch.popup ? "popup" : null,
-            ch.banner ? "banner" : null,
-            ch.push ? "push" : null,
-            ch.bell ? "bell" : null,
+            ch.popup ? (lang === "en" ? "Popup" : "팝업") : null,
+            ch.banner ? (lang === "en" ? "Banner" : "배너") : null,
+            ch.push ? "Push" : null,
+            ch.bell ? (lang === "en" ? "Bell" : "알림함") : null,
           ]
             .filter(Boolean)
             .join(", ");

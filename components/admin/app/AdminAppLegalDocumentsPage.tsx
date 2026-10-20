@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { pickCurrentPublishedLegalDoc, type AppLegalDocumentRow } from "@/lib/legal/app-legal-documents";
 
 export function AdminAppLegalDocumentsPage() {
@@ -12,6 +13,7 @@ export function AdminAppLegalDocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [loadStatus, setLoadStatus] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +32,10 @@ export function AdminAppLegalDocumentsPage() {
         if (cancelled) return;
         if (json.table_missing) setTableMissing(true);
         if (res.ok && json.ok && Array.isArray(json.documents)) setItems(json.documents);
-        else if (!json.table_missing) setLoadError(json.error || `HTTP ${res.status}`);
+        else if (!json.table_missing) {
+          setLoadError(json.error || "load_failed");
+          setLoadStatus(res.status);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -66,11 +71,9 @@ export function AdminAppLegalDocumentsPage() {
         </Link>
       </div>
       {loading ? (
-        <p className="text-sam-muted">{t("admin_dashboard_loading")}</p>
+        <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} />
       ) : loadError ? (
-        <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-red-600">
-          {ko ? "목록을 불러오지 못했습니다" : "Could not load documents"}: {loadError}
-        </p>
+        <AdminErrorState ko={ko} code={loadError} httpStatus={loadStatus} />
       ) : tableMissing ? (
         <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
           {safeT("admin_app_legal_table_missing", {

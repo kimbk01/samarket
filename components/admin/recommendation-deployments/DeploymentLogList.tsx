@@ -6,6 +6,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getRecommendationDeploymentLogs } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { getRecommendationDeployments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const ACTION_LABELS: Record<string, string> = {
   create: "생성",
@@ -76,7 +77,7 @@ export function DeploymentLogList() {
                   className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(l.createdAt).toLocaleString("ko-KR")}
+                    {formatAdminManilaDateTime(l.createdAt)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">{l.deploymentId}</td>
                   <td className="px-3 py-2.5 text-sam-fg">

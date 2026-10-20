@@ -11,6 +11,8 @@ import {
   recAlertSeverityLabel,
   recSurfaceLabel,
 } from "@/components/admin/recommendation-admin-i18n";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const ADMIN_ID = "admin1";
 
@@ -84,7 +86,7 @@ export function AlertEventTable() {
                   className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(e.createdAt).toLocaleString()}
+                    {formatAdminManilaDateTime(e.createdAt)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
                     {recSurfaceLabel(t, e.surface)}
@@ -93,8 +95,8 @@ export function AlertEventTable() {
                     <span
                       className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                         e.severity === "critical"
-                          ? "bg-red-50 text-red-800"
-                          : "bg-amber-50 text-amber-800"
+                          ? "bg-sam-danger-soft text-sam-danger"
+                          : "bg-sam-warning-soft text-sam-warning"
                       }`}
                     >
                       {recAlertSeverityLabel(t, e.severity)}
@@ -108,16 +110,17 @@ export function AlertEventTable() {
                       <span className="sam-text-body-secondary text-sam-muted">
                         {t("admin_rec_mon_acknowledged")}
                         {e.acknowledgedAt &&
-                          ` ${new Date(e.acknowledgedAt).toLocaleString()}`}
+                          ` ${formatAdminManilaDateTime(e.acknowledgedAt)}`}
                       </span>
                     ) : (
-                      <button
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         onClick={() => handleAck(e.id)}
-                        className="rounded border border-sam-border bg-sam-app px-2 py-1 sam-text-body-secondary text-sam-fg"
                       >
                         {t("common_confirm")}
-                      </button>
+                      </AdminActionButton>
                     )}
                   </td>
                 </tr>

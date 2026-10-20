@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { FeedVersion } from "@/lib/types/recommendation-experiment";
 import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface FeedVersionTableProps {
   versions: FeedVersion[];
@@ -75,7 +76,7 @@ export function FeedVersionTable({
               <td className="px-3 py-2.5">
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
-                    v.isActive ? "bg-emerald-50 text-emerald-800" : "bg-sam-border-soft text-sam-muted"
+                    v.isActive ? "bg-sam-success-soft text-sam-success" : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
                   {v.isActive ? t("admin_rec_exp_status_active") : t("admin_rec_exp_status_inactive")}
@@ -83,13 +84,14 @@ export function FeedVersionTable({
               </td>
               {onEdit && (
                 <td className="px-3 py-2.5">
-                  <button
+                  <AdminActionButton
+                    variant="ghost"
+                    size="sm"
                     type="button"
                     onClick={() => onEdit(v)}
-                    className="sam-text-body-secondary text-signature hover:underline"
                   >
                     {t("common_edit")}
-                  </button>
+                  </AdminActionButton>
                 </td>
               )}
             </tr>

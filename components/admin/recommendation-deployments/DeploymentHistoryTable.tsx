@@ -7,18 +7,12 @@ import { useMemo, useState } from "react";
 import { getRecommendationDeployments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
-import type { DeploymentStatus } from "@/lib/types/recommendation-deployment";
-
-const STATUS_LABELS: Record<DeploymentStatus, string> = {
-  scheduled: "예약됨",
-  deploying: "배포중",
-  success: "성공",
-  rolled_back: "롤백됨",
-  failed: "실패",
-};
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import { PLATFORM_REC_DEPLOYMENT_NS } from "@/lib/admin/status-labels/platform-status-labels";
 
 export function DeploymentHistoryTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [surfaceFilter, setSurfaceFilter] = useState<string>("");
 
   const deployments = useMemo(
@@ -109,20 +103,10 @@ export function DeploymentHistoryTable() {
                     {version?.versionName ?? d.deployedVersionId}
                   </td>
                   <td className="px-3 py-2.5">
-                    <span
-                      className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
-                        d.deploymentStatus === "success"
-                          ? "bg-emerald-50 text-emerald-800"
-                          : d.deploymentStatus === "rolled_back"
-                            ? "bg-amber-50 text-amber-800"
-                            : "bg-sam-border-soft text-sam-muted"
-                      }`}
-                    >
-                      {STATUS_LABELS[d.deploymentStatus]}
-                    </span>
+                    <AdminStatusLabel namespace={PLATFORM_REC_DEPLOYMENT_NS} code={d.deploymentStatus} ko={language !== "en"} />
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(d.deployedAt).toLocaleString("ko-KR")}
+                    {formatAdminManilaDateTime(d.deployedAt)}
                   </td>
                   <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                     {d.createdByAdminNickname}

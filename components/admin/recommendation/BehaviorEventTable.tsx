@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState, useMemo } from "react";
 import type { UserBehaviorEvent, BehaviorEventType } from "@/lib/types/recommendation";
 import { getBehaviorEvents } from "@/lib/recommendation/recommendation-behavior-state";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const EVENT_LABELS: Record<BehaviorEventType, string> = {
   product_view: "상품 조회",
@@ -99,7 +100,7 @@ export function BehaviorEventTable() {
                   className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(e.createdAt).toLocaleString("ko-KR")}
+                    {formatAdminManilaDateTime(e.createdAt)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">{e.userId}</td>
                   <td className="px-3 py-2.5 text-sam-fg">

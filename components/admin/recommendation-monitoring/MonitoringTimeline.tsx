@@ -7,6 +7,7 @@ import { getRecommendationIncidents } from "@/lib/recommendation-ops/recommendat
 import { getRecommendationDeployments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { getRecommendationAlertEvents } from "@/lib/recommendation-ops/recommendation-runtime-state";
 import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type TimelineItem =
   | {
@@ -95,10 +96,10 @@ export function MonitoringTimeline() {
           <span
             className={`shrink-0 rounded px-2 py-0.5 sam-text-xxs font-medium ${
               item.type === "incident"
-                ? "bg-amber-50 text-amber-800"
+                ? "bg-sam-warning-soft text-sam-warning"
                 : item.type === "deployment"
                   ? "bg-sam-surface-muted text-sam-fg"
-                  : "bg-red-50 text-red-800"
+                  : "bg-sam-danger-soft text-sam-danger"
             }`}
           >
             {item.type === "incident"
@@ -118,7 +119,7 @@ export function MonitoringTimeline() {
             </p>
           </div>
           <span className="shrink-0 sam-text-helper text-sam-muted">
-            {new Date(item.at).toLocaleString()}
+            {formatAdminManilaDateTime(item.at)}
           </span>
         </div>
       ))}

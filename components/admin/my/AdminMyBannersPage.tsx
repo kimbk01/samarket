@@ -1,13 +1,14 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { AdminBanner } from "@/lib/types/admin-banner";
 
 /** V3-11 — 브라우저 직접 조회 대신 기존 관리자 API(`GET /api/admin/banners`, my_page_banners) 사용. */
 export function AdminMyBannersPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [items, setItems] = useState<AdminBanner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,9 +31,9 @@ export function AdminMyBannersPage() {
           setError(null);
           setItems(json.banners ?? []);
         }
-      } catch (e) {
+      } catch {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : String(e));
+        setError("network_error");
         setItems([]);
       }
       setLoading(false);
@@ -43,11 +44,12 @@ export function AdminMyBannersPage() {
   }, []);
 
   return (
-    <AdminMyBannersView title={t("admin_menu_my_banners")} loadingLabel={t("common_loading")} loading={loading} error={error} items={items} />
+    <AdminMyBannersView ko={language !== "en"} title={t("admin_menu_my_banners")} loadingLabel={t("common_loading")} loading={loading} error={error} items={items} />
   );
 }
 
 export function AdminMyBannersView({
+  ko = true,
   title,
   loadingLabel,
   loading,
@@ -59,6 +61,7 @@ export function AdminMyBannersView({
   loading: boolean;
   error: string | null;
   items: AdminBanner[];
+  ko?: boolean;
 }) {
   return (
     <div>
@@ -74,7 +77,7 @@ export function AdminMyBannersView({
       {loading ? (
         <p className="text-sam-muted">{loadingLabel}</p>
       ) : error ? (
-        <p className="rounded-ui-rect bg-red-50 p-4 sam-text-body text-red-700">{error}</p>
+        <AdminErrorState ko={ko} code={error} />
       ) : items.length === 0 ? (
         <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
           등록된 배너가 없습니다.

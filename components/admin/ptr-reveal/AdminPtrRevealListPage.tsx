@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { popupSurfaceOperatorLabel } from "@/lib/admin/promotion-ownership-visibility";
 import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PlatformPopupAdminListItem } from "@/lib/platform-popup/admin-campaign-loader";
@@ -106,7 +111,7 @@ export function AdminPtrRevealListPage() {
       {confirmDialog}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-sam-fg">{L("당겨서 새로고침 광고", "Pull-to-refresh ads")}</h1>
+          <h1 className="text-[16px] font-semibold text-sam-fg">{L("당겨서 새로고침 광고", "Pull-to-refresh ads")}</h1>
           <p className="mt-1 max-w-2xl text-sm text-sam-muted">
             {L(
               "목록을 아래로 당겨 새로고침할 때 스피너 뒤에 드러나는 띠 광고입니다. 팝업과 별도로 운영되며 승인·기간·통계 규칙은 팝업과 같습니다.",
@@ -114,9 +119,9 @@ export function AdminPtrRevealListPage() {
             )}
           </p>
         </div>
-        <button type="button" className="rounded bg-sam-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={busy} onClick={() => void create()} data-admin-ptr-create="">
+        <AdminActionButton variant="primary" disabled={busy} onClick={() => void create()} data-admin-ptr-create="">
           {L("새 광고 만들기", "New ad")}
-        </button>
+        </AdminActionButton>
       </div>
 
       <div className="flex flex-wrap gap-2 text-sm">
@@ -137,14 +142,20 @@ export function AdminPtrRevealListPage() {
         </select>
       </div>
 
-      {error ? <p className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
+      {error ? <p className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger" role="alert">{error}</p> : null}
 
       {loading ?
-        <p className="text-sm text-sam-muted">{L("불러오는 중…", "Loading…")}</p>
+        <AdminLoadingState ko={lang !== "en"} />
       : filtered.length === 0 ?
-        <p className="rounded-ui-rect border border-dashed border-sam-border px-4 py-8 text-center text-sm text-sam-muted">
-          {L("등록된 당겨서 새로고침 광고가 없습니다.", "No pull-to-refresh ads yet.")}
-        </p>
+        status || query.trim() ?
+          <AdminEmptyState
+            ko={lang !== "en"}
+            onReset={() => {
+              setStatus("");
+              setQuery("");
+            }}
+          />
+        : <AdminEmptyState ko={lang !== "en"} message={L("등록된 당겨서 새로고침 광고가 없습니다.", "No pull-to-refresh ads yet.")} />
       : <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
           {filtered.map((item) => (
             <li key={item.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5" data-admin-ptr-row={item.id}>
@@ -159,19 +170,20 @@ export function AdminPtrRevealListPage() {
                   {item.name}
                 </Link>
                 <p className="truncate text-xs text-sam-muted">
-                  {item.surfaces.join(", ") || "—"} · {item.startAt ? new Date(item.startAt).toLocaleString() : L("시작 즉시", "Immediate")} ~{" "}
-                  {item.endAt ? new Date(item.endAt).toLocaleString() : L("종료일 없음", "No end")}
+                  {item.surfaces.map((sf) => popupSurfaceOperatorLabel(sf, lang)).join(", ") || "—"} ·{" "}
+                  {item.startAt ? formatAdminManilaDateTime(item.startAt) : L("시작 즉시", "Immediate")} ~{" "}
+                  {item.endAt ? formatAdminManilaDateTime(item.endAt) : L("종료일 없음", "No end")}
                 </p>
               </div>
               <AdminToneBadge tone={item.status === "active" ? "success" : item.status === "rejected" || item.status === "ended" ? "danger" : "neutral"}>
                 {platformPopupCampaignStatusLabel(item.status, lang)}
               </AdminToneBadge>
-              <button type="button" className="rounded border border-sam-border px-2 py-1 text-xs" disabled={busy} onClick={() => void copy(item)}>
+              <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => void copy(item)}>
                 {L("복사", "Copy")}
-              </button>
-              <Link href={`/admin/ptr-reveal-ads/${item.id}`} className="rounded border border-sam-border px-2 py-1 text-xs">
-                {L("수정", "Edit")}
-              </Link>
+              </AdminActionButton>
+              <AdminActionLink href={`/admin/ptr-reveal-ads/${item.id}`} variant="ghost" size="sm">
+                {adminCta("edit", lang !== "en")}
+              </AdminActionLink>
             </li>
           ))}
         </ul>

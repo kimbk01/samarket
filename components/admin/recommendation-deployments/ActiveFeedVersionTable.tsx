@@ -6,6 +6,9 @@ import { rollbackSurface } from "@/lib/recommendation-deployments/recommendation
 import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 
 export function ActiveFeedVersionTable() {
   const [refresh, setRefresh] = useState(0);
@@ -67,20 +70,29 @@ export function ActiveFeedVersionTable() {
                 </td>
                 <td className="px-3 py-2.5 text-sam-fg">{a.rolloutPercent}%</td>
                 <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                  {new Date(a.updatedAt).toLocaleString("ko-KR")}
+                  {formatAdminManilaDateTime(a.updatedAt)}
                 </td>
                 <td className="px-3 py-2.5">
                   {canRollback ? (
-                    <button
+                    <AdminActionButton
+                      variant="ghost"
+                      size="sm"
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
+                        const confirmed = await confirmAdminAction({
+                          level: "L1",
+                          ko: true,
+                          title: "이전 버전으로 롤백",
+                          description: `${SURFACE_LABELS[a.surface as RecommendationSurface] ?? a.surface} 피드를 이전 버전으로 되돌립니다.`,
+                          confirmLabel: "롤백",
+                        });
+                        if (!confirmed.ok) return;
                         rollbackSurface(a.surface as RecommendationSurface);
                         setRefresh((r) => r + 1);
                       }}
-                      className="sam-text-body-secondary text-amber-600 hover:underline"
                     >
                       이전 버전으로 롤백
-                    </button>
+                    </AdminActionButton>
                   ) : (
                     "-"
                   )}

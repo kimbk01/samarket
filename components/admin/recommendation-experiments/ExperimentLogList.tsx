@@ -8,6 +8,7 @@ import {
   recLogActionLabel,
   recLogNoteLabel,
 } from "@/components/admin/recommendation-admin-i18n";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface ExperimentLogListProps {
   experimentId?: string;
@@ -77,7 +78,7 @@ export function ExperimentLogList({ experimentId }: ExperimentLogListProps) {
                     className="border-b border-sam-border-soft hover:bg-sam-app"
                   >
                     <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                      {new Date(l.createdAt).toLocaleString()}
+                      {formatAdminManilaDateTime(l.createdAt)}
                     </td>
                     <td className="px-3 py-2.5 text-sam-fg">
                       {exp?.experimentName ?? l.experimentId}

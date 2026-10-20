@@ -7,6 +7,7 @@ import {
   recSurfaceLabel,
   recTrafficAllocLabel,
 } from "@/components/admin/recommendation-admin-i18n";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface ExperimentTableProps {
   experiments: RecommendationExperiment[];
@@ -79,11 +80,11 @@ export function ExperimentTable({
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                     e.status === "running"
-                      ? "bg-emerald-50 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : e.status === "draft"
                         ? "bg-sam-border-soft text-sam-muted"
                         : e.status === "paused"
-                          ? "bg-amber-50 text-amber-800"
+                          ? "bg-sam-warning-soft text-sam-warning"
                           : "bg-sam-surface-muted text-sam-fg"
                   }`}
                 >
@@ -93,58 +94,64 @@ export function ExperimentTable({
               <td className="px-3 py-2.5">
                 <div className="flex flex-wrap gap-1">
                   {onEdit && (
-                    <button
+                    <AdminActionButton
+                      variant="ghost"
+                      size="sm"
                       type="button"
                       onClick={() => onEdit(e)}
-                      className="sam-text-body-secondary text-signature hover:underline"
                     >
                       {t("common_edit")}
-                    </button>
+                    </AdminActionButton>
                   )}
                   {onStatusChange && e.status === "draft" && (
-                    <button
+                    <AdminActionButton
+                      variant="ghost"
+                      size="sm"
                       type="button"
                       onClick={() => onStatusChange(e, "running")}
-                      className="sam-text-body-secondary text-emerald-600 hover:underline"
                     >
                       {t("admin_rec_exp_btn_start")}
-                    </button>
+                    </AdminActionButton>
                   )}
                   {onStatusChange && e.status === "running" && (
                     <>
-                      <button
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         onClick={() => onStatusChange(e, "paused")}
-                        className="sam-text-body-secondary text-amber-600 hover:underline"
                       >
                         {t("admin_rec_exp_btn_pause")}
-                      </button>
-                      <button
+                      </AdminActionButton>
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         onClick={() => onStatusChange(e, "ended")}
-                        className="sam-text-body-secondary text-sam-muted hover:underline"
                       >
                         {t("admin_rec_exp_btn_end")}
-                      </button>
+                      </AdminActionButton>
                     </>
                   )}
                   {onStatusChange && e.status === "paused" && (
-                    <button
+                    <AdminActionButton
+                      variant="ghost"
+                      size="sm"
                       type="button"
                       onClick={() => onStatusChange(e, "running")}
-                      className="sam-text-body-secondary text-emerald-600 hover:underline"
                     >
                       {t("admin_rec_exp_btn_resume")}
-                    </button>
+                    </AdminActionButton>
                   )}
                   {onChooseWinner && e.status === "ended" && (
-                    <button
+                    <AdminActionButton
+                      variant="ghost"
+                      size="sm"
                       type="button"
                       onClick={() => onChooseWinner(e)}
-                      className="sam-text-body-secondary text-signature hover:underline"
                     >
                       {t("admin_rec_exp_btn_choose_winner")}
-                    </button>
+                    </AdminActionButton>
                   )}
                 </div>
               </td>

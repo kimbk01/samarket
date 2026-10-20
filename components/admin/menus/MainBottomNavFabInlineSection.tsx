@@ -22,6 +22,7 @@ import {
   createMainBottomNavFabStoreAdminItem,
   isMainBottomNavFabStoreAdminItem,
 } from "@/lib/main-menu/main-bottom-nav-fab-store-admin";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface MainBottomNavFabInlineSectionProps {
   row: MainBottomNavAdminRow;
@@ -98,14 +99,14 @@ export function MainBottomNavFabInlineSection({
   };
 
   return (
-    <div className="rounded-ui-rect border border-violet-200/80 bg-violet-50/40 px-3 py-2">
+    <div className="rounded-ui-rect border border-sam-primary-border/80 bg-sam-primary-soft px-3 py-2">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="sam-text-helper font-semibold text-violet-900">
+          <span className="sam-text-helper font-semibold text-sam-primary">
             {t("admin_menu_bottom_fab_title")}
           </span>
           {enabled ? (
-            <span className="rounded-full bg-violet-100 px-2 py-0.5 sam-text-xxs text-violet-800">
+            <span className="rounded-full bg-sam-primary-soft px-2 py-0.5 sam-text-xxs text-sam-primary">
               {t("admin_menu_bottom_fab_enabled_count", { count: items.length })}
             </span>
           ) : null}
@@ -113,49 +114,53 @@ export function MainBottomNavFabInlineSection({
         <div className="flex flex-wrap gap-1.5">
           {row.id === "stores" ? (
             <>
-              <button
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
                 type="button"
                 disabled={disabled}
                 onClick={applyDeliveryDefaults}
-                className="rounded border border-violet-300 bg-white px-2 py-0.5 sam-text-xxs text-violet-900 hover:bg-violet-50"
               >
                 {t("admin_menu_bottom_fab_apply_defaults")}
-              </button>
-              <button
+              </AdminActionButton>
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
                 type="button"
                 disabled={
                   disabled || items.some((item) => isMainBottomNavFabStoreAdminItem(item))
                 }
                 onClick={addStoreAdminItem}
-                className="rounded border border-emerald-400 bg-emerald-50 px-2 py-0.5 sam-text-xxs text-emerald-900 hover:bg-emerald-100 disabled:opacity-40"
               >
                 {t("admin_menu_bottom_fab_add_store_admin")}
-              </button>
+              </AdminActionButton>
             </>
           ) : null}
-          <button
+          <AdminActionButton
+            variant="primary"
+            size="sm"
             type="button"
             disabled={disabled || items.length >= MAIN_BOTTOM_NAV_FAB_MAX_ITEMS}
             onClick={addItem}
-            className="rounded border border-violet-400 bg-violet-600 px-2.5 py-0.5 sam-text-xxs font-medium text-white hover:bg-violet-700 disabled:opacity-40"
           >
             + {t("admin_menu_bottom_fab_add_item")}
-          </button>
+          </AdminActionButton>
           {enabled ? (
-            <button
+            <AdminActionButton
+              variant="quiet"
+              size="sm"
               type="button"
               disabled={disabled}
               onClick={disableFab}
-              className="rounded border border-sam-border bg-white px-2 py-0.5 sam-text-xxs text-sam-muted hover:bg-sam-app"
             >
               {t("admin_menu_bottom_fab_disable")}
-            </button>
+            </AdminActionButton>
           ) : null}
         </div>
       </div>
 
       {row.id === "stores" ? (
-        <p className="mb-2 sam-text-xxs leading-relaxed text-violet-900/80">
+        <p className="mb-2 sam-text-xxs leading-relaxed text-sam-primary/80">
           {t("admin_menu_bottom_fab_store_admin_hint")}
         </p>
       ) : null}
@@ -165,7 +170,7 @@ export function MainBottomNavFabInlineSection({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[620px] border-collapse sam-text-xxs">
             <thead>
-              <tr className="border-b border-violet-200/60 text-left text-violet-900/80">
+              <tr className="border-b border-sam-primary-border/60 text-left text-sam-primary/80">
                 <th className="px-1 py-1 font-medium">{t("admin_menu_bottom_th_order")}</th>
                 <th className="px-1 py-1 font-medium">{t("admin_menu_bottom_th_visible")}</th>
                 <th className="px-1 py-1 font-medium">{t("admin_menu_bottom_th_icon")}</th>
@@ -177,25 +182,29 @@ export function MainBottomNavFabInlineSection({
             </thead>
             <tbody>
               {items.map((item, i) => (
-                <tr key={item.id} className="border-b border-violet-100/80 align-middle">
+                <tr key={item.id} className="border-b border-sam-primary-border/80 align-middle">
                   <td className="px-1 py-0.5">
                     <div className="flex gap-0.5">
-                      <button
+                      <AdminActionButton
+                        variant="quiet"
+                        size="sm"
                         type="button"
                         disabled={disabled || i === 0}
                         onClick={() => moveItem(i, -1)}
-                        className="rounded border border-sam-border px-1 disabled:opacity-30"
+                        aria-label={t("admin_menu_bottom_move_up")}
                       >
                         ↑
-                      </button>
-                      <button
+                      </AdminActionButton>
+                      <AdminActionButton
+                        variant="quiet"
+                        size="sm"
                         type="button"
                         disabled={disabled || i === items.length - 1}
                         onClick={() => moveItem(i, 1)}
-                        className="rounded border border-sam-border px-1 disabled:opacity-30"
+                        aria-label={t("admin_menu_bottom_move_down")}
                       >
                         ↓
-                      </button>
+                      </AdminActionButton>
                     </div>
                   </td>
                   <td className="px-1 py-0.5">
@@ -243,14 +252,15 @@ export function MainBottomNavFabInlineSection({
                     />
                   </td>
                   <td className="px-1 py-0.5 text-right">
-                    <button
+                    <AdminActionButton
+                      variant="ghost"
+                      size="sm"
                       type="button"
                       disabled={disabled}
                       onClick={() => removeItem(i)}
-                      className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-red-800 hover:bg-red-100"
                     >
                       {t("common_delete")}
-                    </button>
+                    </AdminActionButton>
                   </td>
                 </tr>
               ))}

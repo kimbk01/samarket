@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
 import { useEffect, useState } from "react";
 import type { MyServiceRow } from "@/lib/my/types";
 
@@ -9,7 +10,7 @@ import type { MyServiceRow } from "@/lib/my/types";
  * 편집 API·편집 화면이 없어 404 이던 수정/추가 링크는 제거하고 안내 문구만 표시한다.
  */
 export function AdminMyServicesPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [items, setItems] = useState<MyServiceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,9 +33,9 @@ export function AdminMyServicesPage() {
           setError(null);
           setItems(json.services ?? []);
         }
-      } catch (e) {
+      } catch {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : String(e));
+        setError("network_error");
         setItems([]);
       }
       setLoading(false);
@@ -46,6 +47,7 @@ export function AdminMyServicesPage() {
 
   return (
     <AdminMyServicesView
+      ko={language !== "en"}
       title={t("admin_menu_my_services")}
       loadingLabel={t("common_loading")}
       editUnavailableNote={t("admin_my_edit_unavailable_note")}
@@ -57,6 +59,7 @@ export function AdminMyServicesPage() {
 }
 
 export function AdminMyServicesView({
+  ko = true,
   title,
   loadingLabel,
   editUnavailableNote,
@@ -70,6 +73,7 @@ export function AdminMyServicesView({
   loading: boolean;
   error: string | null;
   items: MyServiceRow[];
+  ko?: boolean;
 }) {
   return (
     <div>
@@ -80,7 +84,7 @@ export function AdminMyServicesView({
       {loading ? (
         <p className="text-sam-muted">{loadingLabel}</p>
       ) : error ? (
-        <p className="rounded-ui-rect bg-red-50 p-4 sam-text-body text-red-700">{error}</p>
+        <AdminErrorState ko={ko} code={error} />
       ) : items.length === 0 ? (
         <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
           등록된 서비스가 없습니다.

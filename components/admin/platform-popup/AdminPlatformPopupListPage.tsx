@@ -7,7 +7,10 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
-import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PLATFORM_POPUP_CAMPAIGN_STATUSES } from "@/lib/platform-popup/types";
 import type { PlatformPopupAdminListItem } from "@/lib/platform-popup/admin-campaign-loader";
@@ -52,12 +55,12 @@ export function AdminPlatformPopupListPage() {
   const { safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
-  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
   const [items, setItems] = useState<PlatformPopupAdminListItem[]>([]);
   const [status, setStatus] = useState<string>("");
   const [compositionFilter, setCompositionFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailure, setLoadFailure] = useState<{ code: string; httpStatus: number } | null>(null);
   const [creating, setCreating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [deleting, setDeleting] = useState(false);
@@ -65,6 +68,7 @@ export function AdminPlatformPopupListPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setLoadFailure(null);
     const q = status ? `?status=${encodeURIComponent(status)}` : "";
     const res = await fetch(`/api/admin/platform-popup-campaigns${q}`, {
       credentials: "same-origin",
@@ -75,11 +79,7 @@ export function AdminPlatformPopupListPage() {
       error?: string;
     };
     if (!res.ok || !json.ok) {
-      setError(
-        lang === "en"
-          ? "Could not load popup campaigns."
-          : "팝업 캠페인을 불러오지 못했습니다."
-      );
+      setLoadFailure({ code: json.error || "load_failed", httpStatus: res.status });
       setItems([]);
     } else {
       setItems(json.items ?? []);
@@ -164,14 +164,22 @@ export function AdminPlatformPopupListPage() {
         : lang === "en"
           ? `Delete ${ids.length} selected popup campaigns? This cannot be undone.`
           : `선택한 ${ids.length}개 팝업 캠페인을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`;
-    const ok = await askConfirm({
-      title: lang === "en" ? "Delete popup campaigns" : "팝업 캠페인 삭제",
+    const ko = lang !== "en";
+    const confirmed = await confirmAdminAction({
+      level: "L3",
+      ko,
+      title: ko ? "팝업 캠페인 삭제" : "Delete popup campaigns",
       description: msg,
-      confirmLabel: lang === "en" ? "Delete" : "삭제",
-      cancelLabel: lang === "en" ? "Cancel" : "취소",
-      tone: "danger",
+      confirmLabel: adminCta("delete", ko),
+      destructive: true,
+      retypeValue:
+        ids.length === 1
+          ? titles[0] || ids[0]
+          : ko
+            ? `${ids.length}개 삭제`
+            : `delete ${ids.length}`,
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
     setDeleting(true);
     setError(null);
     try {
@@ -189,8 +197,8 @@ export function AdminPlatformPopupListPage() {
       if (!res.ok || !json.ok) {
         setError(
           lang === "en"
-            ? `Delete rejected (${json.error || res.status}). None deleted.`
-            : `삭제 거부 (${json.error || res.status}). 선택된 항목은 삭제되지 않았습니다.`
+            ? `Could not delete: ${formatPlatformPopupAdminError(json.error || "delete_failed", lang)} None deleted.`
+            : `삭제하지 못했습니다: ${formatPlatformPopupAdminError(json.error || "delete_failed", lang)} 선택된 항목은 삭제되지 않았습니다.`
         );
         await load();
         setSelectedIds(new Set());
@@ -205,7 +213,6 @@ export function AdminPlatformPopupListPage() {
 
   return (
     <div className="space-y-4 p-4" data-admin-platform-popup-list="1">
-      {confirmDialog}
       <AdminPageHeader
         title={title}
         description={safeT("admin_platform_popup_list_desc", {
@@ -290,7 +297,7 @@ export function AdminPlatformPopupListPage() {
       </AdminCard>
 
       {error ? (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="text-sm text-sam-danger" role="alert">
           {error}
         </p>
       ) : null}
@@ -315,14 +322,15 @@ export function AdminPlatformPopupListPage() {
                 : `${selectedIds.size}개 선택`}
             </span>
             <AdminActionButton
-              variant="quiet"
+              variant="danger"
+              size="sm"
               disabled={deleting || selectedIds.size === 0}
               onClick={() => void onBulkDelete()}
               data-admin-popup-bulk-delete="1"
             >
-              {lang === "en" ? "Delete" : "삭제"}
+              {adminCta("delete", lang !== "en")}
             </AdminActionButton>
-            <span className="text-[11px] text-sam-muted">
+            <span className="text-[12px] text-sam-muted">
               {lang === "en"
                 ? "Only Admin Direct drafts can be deleted. Active rows are protected."
                 : "Admin Direct 초안만 삭제 가능. 노출 중 행은 선택되지 않습니다."}
@@ -330,12 +338,22 @@ export function AdminPlatformPopupListPage() {
           </div>
         ) : null}
         {loading ? (
-          <p className="text-sm text-sam-muted">
-            {safeT("admin_platform_popup_loading", {
+          <AdminLoadingState
+            ko={lang !== "en"}
+            label={safeT("admin_platform_popup_loading", {
               fallbackKo: "불러오는 중…",
               fallbackEn: "Loading…",
             })}
-          </p>
+          />
+        ) : loadFailure ? (
+          <AdminErrorState
+            ko={lang !== "en"}
+            code={loadFailure.code}
+            httpStatus={loadFailure.httpStatus}
+            onRetry={() => void load()}
+          />
+        ) : empty && status ? (
+          <AdminEmptyState ko={lang !== "en"} onReset={() => setStatus("")} />
         ) : empty ? (
           <div>
             <p className="text-sm text-sam-muted">
@@ -357,12 +375,14 @@ export function AdminPlatformPopupListPage() {
             </AdminActionButton>
           </div>
         ) : emptyFiltered ? (
-          <p className="text-sm text-sam-muted">
-            {safeT("admin_platform_popup_filter_empty", {
+          <AdminEmptyState
+            ko={lang !== "en"}
+            message={safeT("admin_platform_popup_filter_empty", {
               fallbackKo: "선택한 형태에 해당하는 팝업이 없습니다.",
               fallbackEn: "No popups match this form filter.",
             })}
-          </p>
+            onReset={() => setCompositionFilter("")}
+          />
         ) : (
           <ul className="divide-y divide-sam-border" data-admin-popup-operational-list="1">
             {visibleItems.map((item) => {
@@ -425,10 +445,10 @@ export function AdminPlatformPopupListPage() {
                       >
                         {item.name}
                       </Link>
-                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-sam-muted">
+                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[12px] text-sam-muted">
                         <span data-admin-popup-form-label="1">{compositionLabel}</span>
                         {benefitLabel ? (
-                          <span className="text-amber-700" data-admin-popup-benefit-hint="1">
+                          <span className="text-sam-warning" data-admin-popup-benefit-hint="1">
                             {benefitLabel}
                           </span>
                         ) : null}
@@ -471,7 +491,7 @@ export function AdminPlatformPopupListPage() {
                       </span>
                     </AdminToneBadge>
                     <span
-                      className="rounded border border-sam-border px-1.5 py-0.5 text-[10px] text-sam-muted"
+                      className="rounded border border-sam-border px-1.5 py-0.5 text-[12px] text-sam-muted"
                       data-admin-popup-approval-status="1"
                     >
                       {lang === "en" ? "Approval" : "승인"}:{" "}

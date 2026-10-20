@@ -6,6 +6,7 @@ import { getUserFeedAssignments } from "@/lib/recommendation-experiments/recomme
 import { getRecommendationExperiments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { recAssignedGroupLabel } from "@/components/admin/recommendation-admin-i18n";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function UserAssignmentTable() {
   const { t } = useI18n();
@@ -93,7 +94,7 @@ export function UserAssignmentTable() {
                       {a.region} / {a.memberType}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                      {new Date(a.assignedAt).toLocaleString()}
+                      {formatAdminManilaDateTime(a.assignedAt)}
                     </td>
                   </tr>
                 );
