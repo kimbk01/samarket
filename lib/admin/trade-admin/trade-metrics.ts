@@ -10,7 +10,6 @@ import {
   countTradePosts,
   loadTradePostsContext,
   parseTradePostsFilter,
-  resolveTradePostLguIds,
 } from "@/lib/admin/trade-admin/trade-posts-query";
 import { applyTradeReportTabFilter } from "@/lib/admin/metrics/admin-metric-filters";
 import { TRADE_POST_TABS, type TradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
@@ -212,45 +211,37 @@ export async function loadTradeOverview(
   const promotionPointsUsed = promoStats && !summaryOnly ? statNum(promoStats.points_used) : null;
   const promotionPointsRefunded = promoStats && !summaryOnly ? statNum(promoStats.points_refunded) : null;
 
-  // 기간 내 신규 글 — 카테고리·지역 분포 (최대 5,000행, 넘으면 null)
+  // 기간 내 신규 글 — 카테고리·지역 분포 (DB 집계 · 상위 10). 행 상한 없음 — 실패만 null + errors.
+  //   카테고리 = admin_trade_category_stats · 지역 = admin_trade_region_stats (거래 지역 화면과 같은 지역 판정)
   let byCategory: TradeOverview["byCategory"] = null;
   let byRegion: TradeOverview["byRegion"] = null;
   if (!summaryOnly) {
-    const { data, error, count } = await range(
-      s.from("posts").select("id, trade_category_id, trade_lgu_id, region, city", { count: "exact" }),
-      "created_at"
-    ).limit(5000);
-    if (error) errors.push(`distribution:${error.message}`);
-    else if ((count ?? 0) <= 5000) {
-      const rows = (data ?? []) as { id: string; trade_category_id: string | null }[];
-      const catCount = new Map<string, number>();
-      for (const r of rows) catCount.set(r.trade_category_id ?? "", (catCount.get(r.trade_category_id ?? "") ?? 0) + 1);
-      const lguByPost = await resolveTradePostLguIds(sb, rows as { id: unknown }[]);
-      const lguCount = new Map<string, number>();
-      for (const r of rows) {
-        const k = lguByPost.get(r.id) ?? "";
-        lguCount.set(k, (lguCount.get(k) ?? 0) + 1);
-      }
-      const catIds = [...catCount.keys()].filter(Boolean);
-      const lguIds = [...lguCount.keys()].filter(Boolean);
-      const [cats, lgus] = await Promise.all([
-        catIds.length ? s.from("categories").select("id, name").in("id", catIds) : Promise.resolve({ data: [] }),
-        lguIds.length
-          ? s.from("trade_national_lgu").select("canonical_id, display_name").in("canonical_id", lguIds)
-          : Promise.resolve({ data: [] }),
-      ]);
-      const catName = new Map(((cats.data ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]));
-      const lguName = new Map(
-        ((lgus.data ?? []) as { canonical_id: string; display_name: string }[]).map((l) => [l.canonical_id, l.display_name])
-      );
-      byCategory = [...catCount.entries()]
-        .map(([id, n]) => ({ id: id || null, name: id ? (catName.get(id) ?? "알 수 없는 카테고리") : "카테고리 없음", count: n }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-      byRegion = [...lguCount.entries()]
-        .map(([id, n]) => ({ lguId: id || null, name: id ? (lguName.get(id) ?? id) : "지역 확인 불가", count: n }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
+    const [catRes, regionRes] = await Promise.all([
+      s.rpc("admin_trade_category_stats", { p_from: period.fromIso, p_to: period.toIso, p_limit: 10 }),
+      s.rpc("admin_trade_region_stats", { p_from: period.fromIso, p_to: period.toIso, p_limit: 10, p_offset: 0 }),
+    ]);
+    if (catRes.error) errors.push(`distribution_category:${catRes.error.message}`);
+    else {
+      const rows = (((catRes.data ?? {}) as { rows?: unknown[] }).rows ?? []) as {
+        id: string | null;
+        name: string | null;
+        count: number;
+      }[];
+      byCategory = rows.map((r) => ({
+        id: r.id ?? null,
+        name: r.id ? (r.name ?? "알 수 없는 카테고리") : "카테고리 없음",
+        count: Number(r.count) || 0,
+      }));
+    }
+    const region = (regionRes.data ?? {}) as { ok?: boolean; error?: string; rows?: unknown[] };
+    if (regionRes.error || region.ok === false) {
+      errors.push(`distribution_region:${regionRes.error?.message ?? region.error ?? "error"}`);
+    } else {
+      byRegion = ((region.rows ?? []) as { lgu_id: string | null; name: string; posts: number }[]).map((r) => ({
+        lguId: r.lgu_id ?? null,
+        name: r.name,
+        count: Number(r.posts) || 0,
+      }));
     }
   }
 
