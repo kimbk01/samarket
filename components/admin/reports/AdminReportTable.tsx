@@ -3,25 +3,11 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { Report } from "@/lib/types/report";
-import {
-  REPORT_STATUS_LABEL_KEYS,
-  REPORT_TARGET_TYPE_LABEL_KEYS,
-} from "@/lib/admin-reports/report-admin-i18n-keys";
+import { REPORT_TARGET_TYPE_LABEL_KEYS } from "@/lib/admin-reports/report-admin-i18n-keys";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
-
-const STATUS_CLASS: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-800",
-  reviewing: "bg-amber-100 text-amber-800",
-  reviewed: "bg-sam-surface-muted text-sam-fg",
-  resolved: "bg-sam-surface-muted text-sam-fg",
-  rejected: "bg-red-50 text-red-700",
-  sanctioned: "bg-red-50 text-red-700",
-};
-
-function localeForTable(language: string): string {
-  if (language === "en") return "en-US";
-  return "ko-KR";
-}
+import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { MEMBERS_REPORT_STATUS_NS } from "@/lib/admin/status-labels/members-status-labels";
 
 interface AdminReportTableProps {
   reports: Report[];
@@ -29,6 +15,7 @@ interface AdminReportTableProps {
 
 export function AdminReportTable({ reports }: AdminReportTableProps) {
   const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
@@ -36,7 +23,7 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_id")}</th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_source")}</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_date")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_date")} (PHT)</th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_reporter")}</th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_target_type")}</th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_target_party")}</th>
@@ -65,7 +52,7 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
                     })}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(r.createdAt).toLocaleString(localeForTable(language))}
+                {formatAdminManilaDateTime(r.createdAt)}
               </td>
               <td className="max-w-[80px] truncate px-3 py-2.5 text-sam-fg">
                 {r.reporterNickname ?? r.reporterId}
@@ -81,11 +68,7 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
               </td>
               <td className="max-w-[100px] truncate px-3 py-2.5 text-sam-fg">{r.reasonLabel}</td>
               <td className="px-3 py-2.5">
-                <span
-                  className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[r.status] ?? "bg-sam-surface-muted text-sam-fg"}`}
-                >
-                  {REPORT_STATUS_LABEL_KEYS[r.status] ? t(REPORT_STATUS_LABEL_KEYS[r.status]!) : r.status}
-                </span>
+                <AdminStatusLabel namespace={MEMBERS_REPORT_STATUS_NS} code={r.status} ko={ko} />
               </td>
               <td className="max-w-[80px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {r.resolvedBy ?? "-"}

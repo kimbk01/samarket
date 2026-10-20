@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { AdminManualMemberAddressBlock } from "@/components/admin/users/AdminManualMemberAddressBlock";
 import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import {
@@ -60,7 +61,7 @@ interface CreateMemberFormProps {
 }
 
 export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(true);
   const [username, setUsername] = useState("");
@@ -223,7 +224,8 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         const errKey =
           (data.errorKey as MessageKey | undefined) ??
           (mapped ? mapServerFieldToKey(mapped, res.status, data.error) : undefined);
-        let message = data.error?.trim() || "";
+        const rawError = data.error?.trim() || "";
+        let message = rawError ? adminOperatorErrorMessage(rawError, language !== "en") : "";
         if (res.status === 401) {
           message = t("admin_users_err_login_retry");
         } else if (res.status === 403) {
@@ -451,14 +453,14 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
               <FieldError message={resolvedFieldMessages.accountType} />
             </div>
             <div className="space-y-2">
-              <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/70 px-3 py-2 sam-text-body-secondary text-sam-fg">
+              <div className="rounded-ui-rect border border-sam-success bg-sam-success-soft px-3 py-2 sam-text-body-secondary text-sam-fg">
                 {t("admin_users_manual_account_hint")}
               </div>
               <p className="sam-text-xxs text-sam-muted">{t("admin_users_admin_via_staff_tab_hint")}</p>
             </div>
 
             {formError || resolvedFieldMessages.form ? (
-              <p className="sam-text-body-secondary text-red-600" role="alert">
+              <p className="sam-text-body-secondary text-sam-danger" role="alert">
                 {formError ?? resolvedFieldMessages.form}
               </p>
             ) : null}

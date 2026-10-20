@@ -60,7 +60,7 @@ export function AdminManagementBulkBar(props: {
             data-admin-mgmt-hard-delete={isHard ? "1" : undefined}
             className={
               isHard
-                ? "ring-2 ring-red-800/70 font-semibold shadow-sm"
+                ? "ring-2 ring-sam-danger/70 font-semibold shadow-sm"
                 : isSoftDestructive
                   ? "font-medium"
                   : undefined

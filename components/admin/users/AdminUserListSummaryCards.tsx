@@ -1,6 +1,8 @@
 "use client";
 
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import {
   memberListSummaryChipLabelKo,
   type MemberListSummaryChipId,
@@ -80,23 +82,15 @@ export function AdminUserListSummaryCards({
         const count = countFor(chip, summary);
         const label = memberListSummaryChipLabelKo(chip);
         return (
-          <button
+          <AdminChipButton
             key={chip}
-            type="button"
+            selected={selected}
             onClick={() => onSelect(chip)}
-            className={
-              selected
-                ? "inline-flex items-center gap-1.5 rounded-full border border-[#2563eb] bg-[#eff6ff] px-3 py-1.5 text-[12px] font-semibold text-[#2563eb]"
-                : "inline-flex items-center gap-1.5 rounded-full border border-[#e4e7ec] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#475467] hover:bg-[#f9fafb]"
-            }
-            aria-pressed={selected}
             data-member-list-summary-chip={chip}
           >
             <span>{label}</span>
-            <span className={selected ? "text-[#2563eb]" : "text-[#98a2b3]"}>
-              {count == null ? "—" : count.toLocaleString("ko-KR")}
-            </span>
-          </button>
+            <span className="tabular-nums opacity-80">{count == null ? "—" : formatAdminNumber(count)}</span>
+          </AdminChipButton>
         );
       })}
       <span className="sr-only">{MEMBER_ADMIN_COPY.member_management}</span>

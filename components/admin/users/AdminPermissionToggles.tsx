@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
@@ -49,13 +50,9 @@ export function AdminPermissionToggles({
       {showRoleDefaultsButton && (
         <div className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
           <span className="sam-text-body-secondary text-sam-muted">{t("admin_users_perm_apply_role_hint")}</span>
-          <button
-            type="button"
-            onClick={applyRoleDefaults}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-surface-muted"
-          >
+          <AdminActionButton variant="secondary" size="sm" onClick={applyRoleDefaults}>
             {t(ROLE_DEFAULT_KEYS[currentRole])}
-          </button>
+          </AdminActionButton>
         </div>
       )}
       <p className="sam-text-body-secondary font-medium text-sam-fg">

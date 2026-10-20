@@ -333,9 +333,9 @@ export function AdminStaffAccountsPage() {
                   onClick={() => openDrawer(r)}
                 >
                   <td className="px-3 py-2">
-                    <button type="button" className="text-left font-medium text-sam-fg hover:underline">
+                    <AdminActionButton variant="ghost" size="sm" className="!px-0 text-left">
                       {personLabel(r)}
-                    </button>
+                    </AdminActionButton>
                     {r.loginId && r.nickname ? <span className="ml-1.5 text-[12px] text-sam-muted">{r.loginId}</span> : null}
                   </td>
                   <td className="px-3 py-2">{roleLabel(r.uiRole)}</td>

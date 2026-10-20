@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
@@ -65,8 +66,8 @@ const ACTOR_TYPE_LABEL: Record<string, { ko: string; en: string }> = {
 };
 
 const FIELD =
-  "h-10 rounded-ui-rect border border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] px-2.5 text-[16px] text-[var(--admin-console-fg,#1f2937)]";
-const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted,#667085)]";
+  "h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 text-[16px] text-sam-fg";
+const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-sam-muted";
 
 const pht = (iso: string | null | undefined) => (iso ? `${formatAdminManilaDateTime(iso)} PHT` : "—");
 
@@ -159,7 +160,7 @@ export function AdminAuditLogsPage() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_menu_dev_audit" />
       <div
-        className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+        className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-fg"
         data-testid="admin-audit-ownership-banner"
       >
         {safeT("admin_audit_ownership_banner", {
@@ -220,9 +221,9 @@ export function AdminAuditLogsPage() {
       {query.extras.target_id ? (
         <p className="text-[13px] text-sam-muted">
           {ko ? "특정 대상만 보는 중" : "Filtered to one target"} ·{" "}
-          <button type="button" className="underline" onClick={() => lq.setExtra("target_id", "")}>
+          <AdminActionButton variant="quiet" size="sm" onClick={() => lq.setExtra("target_id", "")}>
             {ko ? "대상 조건 해제" : "Clear target"}
-          </button>
+          </AdminActionButton>
         </p>
       ) : null}
 
@@ -236,7 +237,11 @@ export function AdminAuditLogsPage() {
           onRetry={lq.refresh}
         />
       ) : state.rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_audit_no_logs")} />
+        <AdminEmptyState
+          ko={ko}
+          message={lq.isFiltered ? undefined : t("admin_audit_no_logs")}
+          onReset={lq.isFiltered ? lq.reset : undefined}
+        />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[760px] border-collapse text-[14px]" data-admin-audit-table="1">
@@ -258,9 +263,9 @@ export function AdminAuditLogsPage() {
                   <td className="whitespace-nowrap px-3 py-2 text-sam-muted">{pht(r.created_at)}</td>
                   <td className="px-3 py-2">{actorLabel(r, ko)}</td>
                   <td className="px-3 py-2">
-                    <button type="button" className="text-left font-medium text-sam-fg hover:underline">
+                    <AdminActionButton variant="ghost" size="sm" className="!px-0 text-left">
                       {r.action}
-                    </button>
+                    </AdminActionButton>
                   </td>
                   <td className="px-3 py-2 text-sam-muted">{r.target_type}</td>
                 </tr>

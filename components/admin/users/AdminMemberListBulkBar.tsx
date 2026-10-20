@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { dibayAlert, dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   executeMemberManagementActionsBulk,
   summarizeBulkResults,
@@ -11,6 +11,12 @@ import {
 import type { AdminUser } from "@/lib/types/admin-user";
 import { displayNameForAdminUser, publicIdForAdminUser } from "./admin-user-lite-display";
 import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { membersOperatorErrorCode } from "@/lib/admin/status-labels/members-status-labels";
 
 const ACTIONS: { id: MemberManagementActionId; label: string; destructive?: boolean }[] = [
   { id: "suspend", label: "정지", destructive: true },
@@ -20,6 +26,16 @@ const ACTIONS: { id: MemberManagementActionId; label: string; destructive?: bool
   { id: "withdraw", label: "탈퇴 처리", destructive: true },
   { id: "purge", label: "영구 삭제", destructive: true },
 ];
+
+function actionLabel(action: MemberManagementActionId): string {
+  return ACTIONS.find((a) => a.id === action)?.label ?? action;
+}
+
+function resultLine(r: MemberManagementActionResult, ko: boolean): string {
+  if (r.ok) return ko ? "성공" : "Done";
+  if (r.message) return r.message;
+  return adminOperatorErrorMessage(membersOperatorErrorCode(r.error, "action_failed"), ko);
+}
 
 function isProtectedMember(user: AdminUser): boolean {
   return Boolean(user.isSuperAdmin || user.hasAdminMembership);
@@ -36,25 +52,42 @@ export function AdminMemberListBulkBar({
   onClear: () => void;
   onCompleted?: () => void;
 }) {
+  const { language } = useI18n();
+  const ko = language !== "en";
   const [busy, setBusy] = useState(false);
   const [lastResults, setLastResults] = useState<MemberManagementActionResult[] | null>(null);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const inFlight = useRef(false);
 
-  if (selectedIds.length === 0 && !lastResults) return null;
+  const noticeBanner = notice ? (
+    <div
+      data-admin-result={notice.ok ? "success" : "error"}
+      role={notice.ok ? "status" : "alert"}
+      className={`flex items-start justify-between gap-3 border-b px-3 py-2 text-[13px] text-sam-fg ${
+        notice.ok ? "border-sam-success bg-sam-success-soft" : "border-sam-danger bg-sam-danger-soft"
+      }`}
+    >
+      <span className="whitespace-pre-wrap">{notice.text}</span>
+      <AdminActionButton variant="quiet" size="sm" className="shrink-0" onClick={() => setNotice(null)}>
+        {adminCta("close", ko)}
+      </AdminActionButton>
+    </div>
+  ) : null;
+
+  if (selectedIds.length === 0 && !lastResults) return noticeBanner;
   if (selectedIds.length === 0 && lastResults) {
     return (
-      <div className="border-b border-[#e4e7ec] bg-[#f8fafc] px-3 py-2" data-member-list-bulk-results="1">
-        <p className="text-[12px] font-semibold text-[#344054]">최근 일괄 결과</p>
-        <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap text-[11px] text-[#475467]">
-          {summarizeBulkResults(lastResults)}
-        </pre>
-        <button
-          type="button"
-          className="mt-1 text-[11px] font-semibold text-[#667085] underline"
-          onClick={() => setLastResults(null)}
-        >
-          결과 닫기
-        </button>
+      <div data-member-list-bulk-root="1">
+        {noticeBanner}
+        <div className="border-b border-sam-border bg-sam-surface-muted px-3 py-2" data-member-list-bulk-results="1">
+          <p className="text-[12px] font-semibold text-sam-fg">최근 일괄 결과</p>
+          <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap text-[12px] text-sam-muted">
+            {summarizeBulkResults(lastResults)}
+          </pre>
+          <AdminActionButton variant="quiet" size="sm" className="mt-1" onClick={() => setLastResults(null)}>
+            결과 닫기
+          </AdminActionButton>
+        </div>
       </div>
     );
   }
@@ -66,18 +99,23 @@ export function AdminMemberListBulkBar({
     .slice(0, 8)
     .map((u) => `${displayNameForAdminUser(u)} (${publicIdForAdminUser(u) || formatAdminShortId(u.id)})`)
     .join(", ");
-  const more = selectedUsers.length > 8 ? ` 외 ${selectedUsers.length - 8}명` : "";
+  const more = selectedUsers.length > 8 ? ` 외 ${formatAdminNumber(selectedUsers.length - 8)}명` : "";
 
   const run = async (action: MemberManagementActionId) => {
     if (inFlight.current || busy) return;
     const meta = ACTIONS.find((a) => a.id === action);
+    setNotice(null);
     if (actionable.length === 0) {
-      await dibayAlert({
-        title: "선택한 회원 중 실행 가능한 대상이 없습니다. 관리자·최고관리자는 보호됩니다.",
+      setNotice({
+        ok: false,
+        text: "선택한 회원 중 실행 가능한 대상이 없습니다. 관리자·최고관리자는 보호됩니다.",
       });
       return;
     }
 
+    const label = meta?.label ?? action;
+    const retype = `${formatAdminNumber(actionable.length)}명 ${label}`;
+    let descriptionLines: string[];
     if (action === "purge") {
       const impactLines: string[] = [];
       for (const u of actionable.slice(0, 10)) {
@@ -92,57 +130,50 @@ export function AdminMemberListBulkBar({
             blockers?: string[];
             protectedTarget?: boolean;
           };
-          const label = displayNameForAdminUser(u);
+          const name = displayNameForAdminUser(u);
           if (!res.ok || !data.ok) {
-            impactLines.push(`${label}: 영향 조회 실패`);
+            impactLines.push(`${name}: 영향 조회 실패`);
           } else if (data.protectedTarget) {
-            impactLines.push(`${label}: 보호 대상`);
+            impactLines.push(`${name}: 보호 대상`);
           } else if (!data.purgeAllowed) {
-            impactLines.push(`${label}: 차단 ${ (data.blockers ?? []).join(",") || "unknown" }`);
+            impactLines.push(`${name}: 차단 ${(data.blockers ?? []).join(",") || "unknown"}`);
           } else {
-            impactLines.push(`${label}: 삭제 가능`);
+            impactLines.push(`${name}: 삭제 가능`);
           }
         } catch {
           impactLines.push(`${displayNameForAdminUser(u)}: 영향 조회 오류`);
         }
       }
-      const confirmed = await dibayConfirm({
-        title: [
-          `선택한 ${actionable.length}명을 영구 삭제할까요? 되돌릴 수 없습니다.`,
-          protectedSelected.length ? `보호로 제외 ${protectedSelected.length}명` : "",
-          "영향 미리보기:",
-          ...impactLines,
-        ]
-          .filter(Boolean)
-          .join("\n"),
-        confirmTone: "destructive",
-      });
-      if (!confirmed) return;
+      descriptionLines = [
+        `선택한 ${formatAdminNumber(actionable.length)}명을 영구 삭제합니다. 되돌릴 수 없습니다.`,
+        protectedSelected.length ? `보호로 제외 ${formatAdminNumber(protectedSelected.length)}명` : "",
+        "영향 미리보기:",
+        ...impactLines,
+      ];
     } else {
-      const confirmed = await dibayConfirm({
-        title: [
-          `선택한 ${actionable.length}명에 「${meta?.label ?? action}」을(를) 실행할까요?`,
-          protectedSelected.length ? `보호로 제외 ${protectedSelected.length}명` : "",
-          `대상: ${preview}${more}`,
-        ]
-          .filter(Boolean)
-          .join("\n"),
-        confirmTone: meta?.destructive ? "destructive" : "primary",
-      });
-      if (!confirmed) return;
+      descriptionLines = [
+        `선택한 ${formatAdminNumber(actionable.length)}명에 「${label}」을(를) 실행합니다.`,
+        protectedSelected.length ? `보호로 제외 ${formatAdminNumber(protectedSelected.length)}명` : "",
+        `대상: ${preview}${more}`,
+      ];
     }
+
+    /** 일괄 처리 = L3 (사유 + 대상 재입력). */
+    const confirmed = await confirmAdminAction({
+      level: "L3",
+      ko,
+      title: `회원 일괄 ${label}`,
+      description: descriptionLines.filter(Boolean).join("\n"),
+      confirmLabel: label,
+      destructive: Boolean(meta?.destructive),
+      retypeValue: retype,
+    });
+    if (!confirmed.ok) return;
 
     let reason = `${action}_bulk_by_admin`;
     if (action === "purge") reason = "admin_permanent_delete";
     else if (action === "withdraw") reason = "admin_withdraw";
-    else {
-      const prompted = await dibayPrompt({
-        title: "처리 사유를 입력해 주세요.",
-        required: true,
-      });
-      if (!prompted?.trim()) return;
-      reason = prompted.trim();
-    }
+    else reason = confirmed.reason?.trim() || reason;
 
     inFlight.current = true;
     setBusy(true);
@@ -161,11 +192,13 @@ export function AdminMemberListBulkBar({
       });
       const results = [...bulk.results, ...skipped];
       setLastResults(results);
-      await dibayAlert({ title: summarizeBulkResults(results) });
+      setNotice({ ok: bulk.failureCount === 0 && skipped.length === 0, text: summarizeBulkResults(results) });
       if (bulk.successCount > 0) {
         onClear();
         onCompleted?.();
       }
+    } catch {
+      setNotice({ ok: false, text: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       inFlight.current = false;
       setBusy(false);
@@ -174,55 +207,49 @@ export function AdminMemberListBulkBar({
 
   return (
     <div className="space-y-0" data-member-list-bulk-root="1">
+      {noticeBanner}
       <div
-        className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-[#e4e7ec] bg-white px-3 py-2"
+        className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-sam-border bg-sam-surface px-3 py-2"
         data-member-list-bulk-bar="1"
         data-member-list-select-scope="current_page"
         data-member-list-bulk-busy={busy ? "1" : "0"}
       >
-        <span className="text-[13px] font-semibold text-[#101828]">선택 {selectedIds.length}명</span>
+        <span className="text-[13px] font-semibold text-sam-fg">
+          선택 {formatAdminNumber(selectedIds.length)}명
+        </span>
         {protectedSelected.length > 0 ? (
-          <span className="text-[11px] font-semibold text-[#b42318]">
-            보호 제외 예정 {protectedSelected.length}
+          <span className="text-[12px] font-semibold text-sam-danger">
+            보호 제외 예정 {formatAdminNumber(protectedSelected.length)}
           </span>
         ) : null}
-        <span className="max-w-[420px] truncate text-[11px] text-[#667085]" title={`${preview}${more}`}>
+        <span className="max-w-[420px] truncate text-[12px] text-sam-muted" title={`${preview}${more}`}>
           {preview}
           {more}
         </span>
         {ACTIONS.map((a) => (
-          <button
+          <AdminActionButton
             key={a.id}
-            type="button"
+            variant={a.id === "purge" ? "danger" : "secondary"}
+            size="sm"
             disabled={busy}
             onClick={() => void run(a.id)}
-            className={
-              a.destructive
-                ? "rounded-md border border-[#fecdca] bg-[#fef3f2] px-2.5 py-1.5 text-[12px] font-semibold text-[#b42318] disabled:opacity-50"
-                : "rounded-md border border-[#d0d5dd] bg-white px-2.5 py-1.5 text-[12px] font-semibold text-[#344054] disabled:opacity-50"
-            }
+            className={a.destructive && a.id !== "purge" ? "text-sam-danger" : undefined}
             data-member-bulk-action={a.id}
           >
             {a.label}
-          </button>
+          </AdminActionButton>
         ))}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onClear}
-          className="rounded-md px-2.5 py-1.5 text-[12px] font-semibold text-[#667085] hover:bg-[#f2f4f7]"
-          data-member-bulk-clear="1"
-        >
+        <AdminActionButton variant="quiet" size="sm" disabled={busy} onClick={onClear} data-member-bulk-clear="1">
           선택 해제
-        </button>
+        </AdminActionButton>
       </div>
       {lastResults ? (
-        <div className="border-b border-[#e4e7ec] bg-[#f8fafc] px-3 py-2" data-member-list-bulk-results="1">
-          <p className="text-[12px] font-semibold text-[#344054]">최근 일괄 결과 (회원별)</p>
-          <ul className="mt-1 max-h-32 space-y-0.5 overflow-auto text-[11px] text-[#475467]">
+        <div className="border-b border-sam-border bg-sam-surface-muted px-3 py-2" data-member-list-bulk-results="1">
+          <p className="text-[12px] font-semibold text-sam-fg">최근 일괄 결과 (회원별)</p>
+          <ul className="mt-1 max-h-32 space-y-0.5 overflow-auto text-[12px] text-sam-muted">
             {lastResults.map((r) => (
               <li key={`${r.userId}-${r.action}`} data-member-bulk-result={r.ok ? "ok" : "fail"}>
-                <AdminTechId id={r.userId} /> · {r.action} · {r.ok ? "성공" : r.message ?? r.error ?? "실패"}
+                <AdminTechId id={r.userId} /> · {actionLabel(r.action)} · {resultLine(r, ko)}
               </li>
             ))}
           </ul>
