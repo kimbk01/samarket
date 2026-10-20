@@ -186,7 +186,7 @@ describe("3. work state is read live from the queue, separate from read state", 
   it("adjustment_status → label/state", () => {
     expect(settlementWorkStatusFromAdjustment("review_required")).toMatchObject({ state: "pending", labelKo: "검토 대기" });
     expect(settlementWorkStatusFromAdjustment("refunded")).toMatchObject({ state: "done", labelKo: "환급 승인 완료" });
-    expect(settlementWorkStatusFromAdjustment("kept")).toMatchObject({ state: "done", labelKo: "환급 거절 완료" });
+    expect(settlementWorkStatusFromAdjustment("kept")).toMatchObject({ state: "done", labelKo: "환급 반려 완료" });
   });
 
   it("decision updates the existing alert's state (no new alert); read state untouched", async () => {
@@ -209,7 +209,7 @@ describe("3. work state is read live from the queue, separate from read state", 
     expect(out[1].workStatus).toMatchObject({ state: "done", labelKo: "환급 승인 완료" });
     expect(out[1].readAt).toBe("2026-10-17T01:00:00Z");
     expect(out[0].readAt).toBeNull();
-    expect(out[2].workStatus?.labelKo).toBe("환급 거절 완료");
+    expect(out[2].workStatus?.labelKo).toBe("환급 반려 완료");
     expect(out[3].workStatus).toMatchObject({ state: "attention", labelKo: "확인 필요" });
     expect(out[4]).toEqual(items[4]); // other admin kinds untouched
     expect(reads).toEqual([["ob1", "ob2", "ob3"]]); // one batched read

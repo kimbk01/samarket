@@ -56,7 +56,7 @@ export function settlementWorkStatusFromAdjustment(adjustmentStatus: string | nu
     case "refunded":
       return { state: "done", labelKo: "환급 승인 완료", labelEn: "Refund approved" };
     case "kept":
-      return { state: "done", labelKo: "환급 거절 완료", labelEn: "Refund rejected" };
+      return { state: "done", labelKo: "환급 반려 완료", labelEn: "Refund rejected" };
     default:
       return { state: "done", labelKo: "처리됨", labelEn: "Resolved" };
   }

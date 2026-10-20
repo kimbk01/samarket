@@ -76,7 +76,7 @@
   - 예외 스캔: cron `admin-notification-delivery` 가 워커 전에 `store_commission_enqueue_exception_notifications()` 호출 — 누락 검토 재생, 잔액≠원장, 무결성 위반, 코인 과다·과거 수동 지급. 키가 고정이라 재실행 시 추가 0.
   - 알림 함수 실패는 RAISE WARNING 후 false — 주문·수수료 트랜잭션을 롤백시키지 않는다.
 - 표시: 제목 `[취소·환불 수수료 검토] 매장명 · #주문번호`, 본문 부과·캐시 차감·미납, 발생 시간. 링크 `/admin/store-settlements?tab=ledger&order_no=…&open=<의무 id>` → 해당 주문 상세 자동 열림.
-- 처리 상태: 알림에 저장하지 않고 조회 시 `store_sale_fee_obligations.adjustment_status` 를 읽어 계산(`withSettlementWorkStatus`) — 검토 대기(노랑) / 환급 승인 완료·환급 거절 완료(초록) / 확인 필요(경고색). 텍스트 배지 동시 표기. **읽음(`read_at`)과 분리**.
+- 처리 상태: 알림에 저장하지 않고 조회 시 `store_sale_fee_obligations.adjustment_status` 를 읽어 계산(`withSettlementWorkStatus`) — 검토 대기(노랑) / 환급 승인 완료·환급 반려 완료(초록) / 확인 필요(경고색). 텍스트 배지 동시 표기. **읽음(`read_at`)과 분리**.
 - 권한: 헬퍼·스캔은 service_role 전용, `notify_review` 는 내부 전용(service_role 포함 회수).
 
 ### N-3. 검증
