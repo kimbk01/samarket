@@ -1,0 +1,666 @@
+<title>DIBAY Admin 통합 설계 v4</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (max 1120) with sticky section index; tables scroll inside their own boxes. */
+:root{
+  --bg:#f5f6f9; --surface:#ffffff; --fg:#1d2230; --muted:#5d6577; --line:#d7dce6;
+  --accent:#5b3fd1; --accent-soft:#ece8fb;
+  --ok:#1f7a4d; --ok-soft:#e3f3ea; --warn:#9a5b00; --warn-soft:#fbf0dc; --bad:#b42828; --bad-soft:#fbe6e6;
+  --wf-1:#e9ecf3; --wf-2:#d4d9e5; --wf-3:#c4b8f0;
+  --sans:"Noto Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12141a; --surface:#1a1d25; --fg:#e6e8ef; --muted:#9aa2b4; --line:#2e3340;
+  --accent:#a593ff; --accent-soft:#2a2442;
+  --ok:#5fd19a; --ok-soft:#183027; --warn:#f0b65a; --warn-soft:#33281a; --bad:#ff8c8c; --bad-soft:#3a1d1f;
+  --wf-1:#232733; --wf-2:#2f3443; --wf-3:#4a3f80; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12141a; --surface:#1a1d25; --fg:#e6e8ef; --muted:#9aa2b4; --line:#2e3340;
+  --accent:#a593ff; --accent-soft:#2a2442;
+  --ok:#5fd19a; --ok-soft:#183027; --warn:#f0b65a; --warn-soft:#33281a; --bad:#ff8c8c; --bad-soft:#3a1d1f;
+  --wf-1:#232733; --wf-2:#2f3443; --wf-3:#4a3f80; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.65;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 64px}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1{font-size:26px;line-height:1.3;margin:0;text-wrap:balance}
+h2{font-size:20px;margin:0 0 12px;text-wrap:balance;scroll-margin-top:16px}
+h3{font-size:16px;margin:20px 0 8px}
+p{margin:0 0 10px;max-width:72ch}
+section{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px 22px;min-width:0}
+.meta{color:var(--muted);font-size:13px;display:flex;flex-wrap:wrap;gap:6px 18px}
+.eyebrow{font-size:12px;letter-spacing:.06em;color:var(--accent);font-weight:700}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px}
+nav.toc a{font-size:13px;color:var(--fg);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:3px 11px;background:var(--surface)}
+nav.toc a:hover,nav.toc a:focus-visible{border-color:var(--accent);color:var(--accent);outline:none}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:4px;margin:8px 0 12px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{background:var(--wf-1);font-weight:500;white-space:nowrap;position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+td.n{font-variant-numeric:tabular-nums;color:var(--muted);text-align:right}
+code{font-family:var(--mono);font-size:12.5px;background:var(--wf-1);padding:1px 4px;border-radius:3px;word-break:break-all}
+.pill{display:inline-block;font-size:12px;font-weight:500;border-radius:999px;padding:1px 9px;white-space:nowrap}
+.ok{background:var(--ok-soft);color:var(--ok)} .warn{background:var(--warn-soft);color:var(--warn)}
+.bad{background:var(--bad-soft);color:var(--bad)} .muted{background:var(--wf-1);color:var(--muted)}
+.acc{background:var(--accent-soft);color:var(--accent)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.note{border-left:3px solid var(--warn);background:var(--warn-soft);padding:10px 14px;border-radius:0 4px 4px 0;font-size:14px}
+.key{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.key div{border:1px solid var(--line);border-radius:4px;padding:10px 12px}
+.key b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.key span{font-size:12.5px;color:var(--muted)}
+ul,ol{margin:0 0 10px;padding-left:20px} li{margin:2px 0}
+/* wireframes */
+.wf-wrap{overflow-x:auto;padding:4px 0 8px}
+.wf{position:relative;background:var(--wf-1);border:1px solid var(--line);font-size:10.5px;line-height:1.25;color:var(--fg);flex:none}
+.wf .b{position:absolute;background:var(--surface);border:1px solid var(--wf-2);border-radius:3px;padding:3px 5px;overflow:hidden}
+.wf .b.hd{background:var(--wf-2)} .wf .b.ac{background:var(--wf-3)} .wf .b.dash{border-style:dashed}
+.wf .b small{color:var(--muted);font-size:9.5px;display:block}
+.wf-cap{font-size:12.5px;color:var(--muted);margin-top:6px}
+.dim{font-family:var(--mono);font-size:12px;color:var(--muted)}
+footer{font-size:12.5px;color:var(--muted)}
+a{color:var(--accent)}
+@media (max-width:560px){h1{font-size:22px} section{padding:16px 14px}}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:10px">
+  <div class="eyebrow">OWNER 승인 (2026-10-20 PHT) · O-1~O-9 권장안 채택 · F0부터 구현</div>
+  <h1>DIBAY Admin 통합 운영 설계 v4</h1>
+  <div class="meta">
+    <span>작성 2026-10-20 PHT</span><span>기준 main <code>d3c2c286</code></span>
+    <span>운영 DB <code>ckdosyydvgzqwpbwuhon</code> 읽기 전용 조회</span>
+    <span>승인 시점 기준 문서 — 구현 경과는 각 단계 PR 참조</span>
+  </div>
+  <p>v3의 감사 결과와 방향을 유지하고, Owner 보완 지시 10개 항목만 반영했다. 같은 감사는 반복하지 않았고, 보완 과정에서 새로 확인한 사실만 추가했다. 증거 표기: <span class="pill acc">정적</span> 코드 추적, <span class="pill acc">DB</span> 운영 읽기 전용 조회. 화면·실기기 확인은 하지 않았으므로 해당 항목은 모두 <span class="pill warn">NOT_PROVEN</span>이다.</p>
+  <nav class="toc" aria-label="목차">
+    <a href="#chg">v3→v4 변경</a><a href="#menu">1 메뉴</a><a href="#land">2 가로 전용</a><a href="#dash">3 대시보드 배치</a>
+    <a href="#perm">4 권한</a><a href="#p0">5 P0</a><a href="#time">6 시간</a><a href="#ui">7 공통 UI</a>
+    <a href="#tools">8 내부 도구</a><a href="#owner">Owner 결정</a><a href="#plan">구현 순서</a><a href="#appx">부록 메뉴 195</a>
+  </nav>
+</header>
+
+<section id="chg">
+  <h2>v3 → v4에서 바뀐 결론</h2>
+  <div class="tbl"><table>
+    <tr><th>항목</th><th>v3</th><th>v4 (보완 후)</th><th>근거</th></tr>
+    <tr><td>사이드바 순서</td><td>지시서 12그룹 순서로 변경</td><td><b>CUT J 승인 순서 유지</b>, 그룹 이름만 지시서 명칭으로</td><td>J-AMD-2(전면 재정렬) 거부 기록</td></tr>
+    <tr><td>전체 신고 현황 · 감사 기록</td><td>고객지원 · 시스템으로 이동</td><td><b>회원·권한에 유지</b> (고객지원에는 카드)</td><td>J-AMD-1 승인 위치</td></tr>
+    <tr><td>전체 처리 대기함</td><td>운영 홈으로 이동</td><td><b>고객지원 유지</b>, 시스템 중복 leaf만 제거</td><td>J-AMD-3 승인 위치</td></tr>
+    <tr><td>팝업·당겨서 새로고침·배너</td><td>광고·배너로 이동</td><td><b>플랫폼 운영(구 프로모션)에 유지</b></td><td>CUT C 레지스트리 분리 · B-X1 거부</td></tr>
+    <tr><td>채팅 가이드</td><td>내부 도구로 이동</td><td><b>채팅 유지</b></td><td>J-AMD-4 승인 위치</td></tr>
+    <tr><td>내부 도구</td><td>23개</td><td><b>24개</b>: 운영 가이드 2개 제외, 수동 JSON 보드 3개(보안점검·성능·비용) 추가</td><td><span class="pill acc">DB</span> 운영 저장 0건</td></tr>
+    <tr><td>가로 전용</td><td>웹 안내 화면 먼저, 네이티브는 나중</td><td><b>웹 가드 + Android 태블릿·iPad 네이티브 고정을 하나의 설계로</b> (F5 단계, 네이티브 재빌드)</td><td>항목 2</td></tr>
+    <tr><td>V3-11 마이페이지 3화면</td><td>P0 (브라우저 직접 쓰기)</td><td><b>P1로 재분류</b>. 브라우저 직접 <i>조회</i>뿐이고, 섹션·서비스는 「수정·등록」 링크가 없는 경로(404)</td><td><span class="pill acc">정적</span> <code>components/admin/my/*.tsx:27</code>, <code>app/admin/my/sections</code>에 하위 경로 없음</td></tr>
+    <tr><td>권한</td><td>L3 전부 super_admin</td><td><b>기존 승인 정책 그대로</b>. 정책이 없는 4건만 Owner 결정(O-6), 메뉴=서버 단일 접근표</td><td>거래 O-2 · 커뮤니티 E-1/승인② · 채팅 O-C1</td></tr>
+    <tr><td>구현 단계</td><td>F0~F6 표기 오류</td><td><b>F0~F6 = 7단계</b>, 웹/네이티브 구분</td><td>항목 10</td></tr>
+  </table></div>
+  <div class="key">
+    <div><b>195</b><span>메뉴 leaf (공개 182 · 숨김 13)</span></div>
+    <div><b>11</b><span>P0 확정 (12건 중 1건 P1 재분류)</span></div>
+    <div><b>0</b><span>URL 변경 · 라우트 삭제</span></div>
+    <div><b>1</b><span>신규 화면 (관리자 계정·권한)</span></div>
+    <div><b>9</b><span>Owner 결정 항목</span></div>
+  </div>
+</section>
+
+<section id="menu">
+  <h2>1. 메뉴 최종안</h2>
+  <p>원칙: 도메인 4종(배달·거래·커뮤니티·채팅) 83 leaf는 완료 상태 그대로 둔다. 공통 운영 메뉴만 재배치하고, 기존 Owner 승인과 충돌하는 변경은 하지 않는 쪽을 최종안으로 정했다. 충돌이 불가피한 2건만 새 승인 조항(J-AMD-5)으로 요청한다.</p>
+
+  <h3>1-1. 승인 사항 충돌 비교</h3>
+  <div class="tbl"><table>
+    <tr><th>변경 후보</th><th>관련 승인</th><th>충돌</th><th>최종안</th></tr>
+    <tr><td>사이드바를 지시서 순서(커뮤니티→거래→배달, 결제를 고객지원 뒤)로</td><td>CUT J 순서 고정 · J-AMD-2 <b>거부</b></td><td><span class="pill bad">충돌</span></td><td>순서 유지. 그룹 이름만 변경 (O-1)</td></tr>
+    <tr><td>회원 → 「회원·권한」, 재무 → 「결제·정산」, 광고/노출 → 「광고·배너」, 프로모션/이벤트 → 「플랫폼 운영」, 운영 → 「운영 홈」</td><td>CUT J (key 불변 조건)</td><td><span class="pill ok">없음</span></td><td>i18n 값만 변경, key 불변</td></tr>
+    <tr><td>전체 신고 현황 · 관리자 작업 기록을 다른 그룹으로</td><td>J-AMD-1 <b>승인·구현</b></td><td><span class="pill bad">충돌</span></td><td>회원·권한 유지. 고객지원에 조회 카드</td></tr>
+    <tr><td>전체 처리 대기함 이동</td><td>J-AMD-3 <b>승인·구현</b> (고객지원)</td><td><span class="pill bad">충돌</span></td><td>고객지원 유지. 라벨을 승인된 「전체 처리 대기함」으로 정정, 시스템 「Action Queue」 중복 leaf 제거</td></tr>
+    <tr><td>팝업·PTR·배너를 광고로</td><td>CUT C · B-X1 <b>거부</b></td><td><span class="pill bad">충돌</span></td><td>플랫폼 운영 유지. M2 상호 카드 유지</td></tr>
+    <tr><td>채팅 가이드 이동</td><td>J-AMD-4 <b>승인·구현</b></td><td><span class="pill bad">충돌</span></td><td>채팅 유지</td></tr>
+    <tr><td>시스템 → 플랫폼 운영으로 이동 (추천 6 · 공통 콘텐츠 4 · 앱 화면 구성 5)</td><td>M4(시스템 내부 재정렬) <b>보류</b>, 새 조항 필요</td><td><span class="pill warn">새 승인</span></td><td><b>J-AMD-5</b>로 요청 (O-2). key·path 불변</td></tr>
+    <tr><td>시스템 내부 도구 24개를 「내부 도구」 섹션으로</td><td>M4 보류 · CUT A 메뉴 role</td><td><span class="pill warn">새 승인</span></td><td><b>J-AMD-5</b>에 포함 (O-3)</td></tr>
+    <tr><td>회원·권한에 휴대폰 인증 · 탈퇴 요청 leaf 노출, 관리자 계정·권한 신규</td><td>CUT J 불변식 (path당 primary 1개)</td><td><span class="pill ok">없음</span></td><td>기존 하위 화면 2개 노출 + 신규 화면 1개</td></tr>
+  </table></div>
+
+  <h3>1-2. 최종 메뉴 트리 (CUT J 순서)</h3>
+  <div class="tbl"><table>
+    <tr><th>그룹 (구 이름)</th><th>leaf</th><th>구성</th></tr>
+    <tr><td>운영 홈 (운영)</td><td>1</td><td>통합 대시보드 <code>/admin</code> (탭 7)</td></tr>
+    <tr><td>회원·권한 (회원)</td><td>4 → 7</td><td>회원 관리 · 휴대폰 인증★ · 탈퇴 요청★ · 전체 신고 현황 · 제재 기록 · 관리자 작업 기록 · 관리자 계정·권한★ (<code>/admin/staff</code> 신규)</td></tr>
+    <tr><td>배달·매장 · 거래 · 커뮤니티 · 채팅</td><td>32 · 19 · 22 · 10</td><td>완료 구조 불변</td></tr>
+    <tr><td>결제·정산 (재무)</td><td>16</td><td>라벨 한글화만 (Point → 회원 포인트, Cash → 매장 캐시 내역, 주문별 정산 → 주문별 금액 추적)</td></tr>
+    <tr><td>광고·배너 (광고/노출)</td><td>7 + 숨김 13</td><td>불변</td></tr>
+    <tr><td>플랫폼 운영 (프로모션/이벤트)</td><td>8 → 23</td><td>운영 홈 · 이벤트 · 사장님 이벤트 신청 · 팝업 · 당겨서 새로고침 광고 · 프로모션 배너 · <b>앱 화면 구성</b>(OS 시작 · 인트로 · 앱 첫 진입 · 하단 메뉴 · 마이페이지 배너/섹션/서비스) · <b>추천</b>(6) · <b>공통 콘텐츠</b>(공지 · FAQ · 약관 · 사업자 정보). 「알림」 링크 허브 leaf 제거(알림 그룹과 중복)</td></tr>
+    <tr><td>고객지원</td><td>4</td><td>고객지원 관제 · 이전 문의 기록 · 관리자 알림함 · 전체 처리 대기함 + [카드] 전체 신고 현황</td></tr>
+    <tr><td>알림</td><td>3</td><td>불변</td></tr>
+    <tr><td>시스템</td><td>55 → 14 + 내부 도구 24</td><td>시스템 개요 · 모니터링 · 시스템 상태 · 런타임 상태 · 릴리즈 게이트 · 배포 · 설정관리 · 로그인 설정 · 긴급 조치 · 데이터 초기화 · 운영 가이드(게시판) · (국가·언어·앱 메타 숨김 후보) · <b>내부 도구</b>(접힘, §8)</td></tr>
+  </table></div>
+  <p>부록의 195행 처리 결과: 유지 130(숨김 13 포함) · 위치 이동 38 · 명칭 변경 19 · 메뉴 중복 제거 3(URL 보존) · 숨김 후보 4 · 개선 1. <b>URL 변경 0, 라우트 삭제 0.</b></p>
+</section>
+
+<section id="land">
+  <h2>2. 가로 전용 최종 설계</h2>
+  <p>목표: 관리자 화면은 태블릿 가로와 Windows 가로에서 완성된 형태로만 동작한다. 일반 회원 앱의 세로 정책(폰 세로 고정, 태블릿 회전 허용)은 바꾸지 않는다. 적용 범위는 <code>/admin</code> 경로뿐이다.</p>
+
+  <h3>2-1. 현재 사실 <span class="pill acc">정적</span></h3>
+  <ul>
+    <li>관리자 화면은 앱 WebView 안에서 열린다. <code>capacitor.config.ts</code>의 <code>server.url</code>이 운영 주소이고, 마이페이지·설정에 관리자 진입점이 있다 (<code>MyPageAdminMenuEntry.tsx:160</code>).</li>
+    <li>Android: <code>smallestScreenWidthDp ≥ 600</code>이면 태블릿으로 분류한다 (<code>DibayDeviceClassClassifier.java:58-102</code>). 폰만 <code>onCreate</code>에서 세로로 고정하고, 태블릿은 요청하지 않는다. 회전 시 액티비티는 재생성되지 않는다 (<code>configChanges</code>).</li>
+    <li>iOS: <code>userInterfaceIdiom</code>으로 구분한다. 루트 VC의 <code>supportedInterfaceOrientations</code>가 매번 계산되며, iPad는 4방향을 허용한다. <code>UIRequiresFullScreen</code>이 없어 iPad 멀티태스킹이 켜져 있다.</li>
+    <li>네이티브는 Next.js의 화면 이동(<code>pushState</code>)을 감지하지 못한다. 방향 관련 플러그인은 없다.</li>
+    <li>방향 고정을 금지하는 계약 테스트가 있다 (<code>lib/device/tests/dibay-orientation-policy.test.ts</code>). 이번 설계는 이 계약을 의도적으로 바꾸므로 테스트도 함께 갱신한다.</li>
+  </ul>
+
+  <h3>2-2. 최종 설계: 3개 층</h3>
+  <div class="tbl"><table>
+    <tr><th>층</th><th>대상</th><th>동작</th><th>배포 구분</th></tr>
+    <tr><td><b>A. 웹 가드</b> (모든 환경의 최종 보장)</td><td>브라우저·WebView 전부</td><td><code>app/admin/layout</code>의 클라이언트 셸에서 <code>(orientation: portrait)</code> 또는 폭 &lt; 1024px이면 작업 화면 대신 안내 화면을 보여 준다: 「관리자 화면은 태블릿 가로 또는 PC에서 사용합니다」, 회전 안내, 로그아웃. 입력 중인 폼 상태는 언마운트하지 않고 가린다(회전 시 작업 보존). 폰 앱에서는 마이페이지 관리자 진입점에 같은 안내를 표시한다.</td><td>웹</td></tr>
+    <tr><td><b>B. Android 태블릿 가로 고정</b></td><td>앱, <code>TABLET_ANDROID</code></td><td>신규 플러그인 <code>DibayAppOrientation.setRouteMode({mode:"admin"|"default"})</code>. 관리자 셸 진입 시 <code>admin</code> → <code>SCREEN_ORIENTATION_SENSOR_LANDSCAPE</code>, 이탈 시 <code>default</code> → <code>UNSPECIFIED</code>(현행 복귀). 안전장치: <code>onPageStarted</code>에서 항상 default로 초기화하고 관리자 셸이 다시 요청한다(고정이 남는 사고 방지). <code>onConfigurationChanged</code>에서 재분류·재적용(분할 화면 진입 대비). 폰은 항상 세로.</td><td>네이티브 (versionCode 6→7)</td></tr>
+    <tr><td><b>C. iPad 가로 고정</b></td><td>앱, <code>TABLET_IPAD</code></td><td>루트 VC에 <code>adminLandscape</code> 플래그를 두고, 켜지면 <code>supportedInterfaceOrientations = .landscape</code>. iOS 16+는 <code>setNeedsUpdateOfSupportedInterfaceOrientations()</code> + <code>requestGeometryUpdate(.landscape)</code>로 즉시 회전한다. iOS 15는 <code>attemptRotationToDeviceOrientation()</code>까지만 쓴다(기기를 돌려야 회전, 비공개 API 사용 안 함). Info.plist의 iPad 4방향은 유지한다(회원 앱 영향 없음).</td><td>네이티브 (iOS 빌드 5→6, 4곳)</td></tr>
+  </table></div>
+
+  <h3>2-3. 플랫폼 한계 (명시)</h3>
+  <div class="note">
+    <b>일반 브라우저는 방향을 강제할 수 없다.</b> Screen Orientation API(<code>screen.orientation.lock</code>)는 Android Chrome에서 전체 화면이나 설치된 PWA일 때만 동작하고, iOS Safari·WKWebView는 지원하지 않는다. Windows PC 브라우저도 마찬가지다. 그래서 브라우저에서는 A층(안내 화면)이 유일한 통제다. <span class="pill muted">플랫폼 일반 지식, 저장소 검증 아님</span>
+  </div>
+  <div class="tbl"><table>
+    <tr><th>환경</th><th>네이티브 고정 효과</th><th>설계 대응</th></tr>
+    <tr><td>Android 15 이하 태블릿</td><td>동작 예상 (실기기 NOT_PROVEN)</td><td>B층</td></tr>
+    <tr><td><b>Android 16+ 대화면(≥600dp), targetSdk 36</b></td><td><b>시스템이 방향 요청을 무시한다.</b> 이 앱은 SDK 36 대상이다 (<code>android/variables.gradle:5</code>). 임시 예외 속성 <code>PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY</code>는 SDK 36에서만 유효하다. <span class="pill muted">플랫폼 지식</span></td><td>예외 속성은 쓰지 않는다(회원 앱 전체에 영향, 다음 SDK에서 사라짐). A층 가드로 세로를 막고, 가로 레이아웃을 완성한다.</td></tr>
+    <tr><td>Android 분할 화면·자유형 창·Samsung DeX</td><td>무시됨</td><td>A층이 폭 &lt; 1024를 차단. 1024 이상이면 정상 사용</td></tr>
+    <tr><td>iPad 전체 화면</td><td>동작 예상 (NOT_PROVEN)</td><td>C층</td></tr>
+    <tr><td>iPad Split View · Slide Over · Stage Manager</td><td>방향 마스크 무시</td><td>A층. <code>UIRequiresFullScreen</code>은 켜지 않는다(회원 앱 멀티태스킹까지 꺼지고 iOS 26에서 폐지 예정)</td></tr>
+    <tr><td>Windows·노트북 브라우저</td><td>해당 없음 (항상 가로)</td><td>창 폭 &lt; 1024이면 A층</td></tr>
+    <tr><td>폰 (Android·iPhone)</td><td>세로 고정 유지</td><td>A층 안내만. 관리자 작업 불가 (O-5)</td></tr>
+  </table></div>
+  <p>결론: <b>A층(웹)이 모든 환경에서 세로 사용을 막는 최종 보장이고, B·C층(네이티브)은 지원되는 태블릿에서 회전 자체를 막아 사용감을 높인다.</b> 네이티브를 무조건 미루지 않고 F5 단계에 넣는다. 다만 Android 16+ 태블릿에서는 OS 정책상 고정이 되지 않는다는 점을 완료 기준에 반영한다.</p>
+
+  <h3>2-4. 해상도 규격</h3>
+  <div class="tbl"><table>
+    <tr><th>등급</th><th>CSS px</th><th>사이드 메뉴</th><th>표 열</th><th>목록+상세</th></tr>
+    <tr><td>최소</td><td>1024×768 (CUT G 기준)</td><td>72 (자동 접힘, 펼치면 오버레이)</td><td>P1</td><td>상세 = 오버레이 드로어</td></tr>
+    <tr><td>기준</td><td>1280×800 (Android 10–11" 가로)</td><td>240 (사용자가 접기 가능, 기억)</td><td>P1+P2</td><td>좌 목록 / 우 상세 분할 (min(720px, 50vw))</td></tr>
+    <tr><td>노트북</td><td>1366×768 · 1440×900</td><td>240</td><td>P1+P2</td><td>분할</td></tr>
+    <tr><td>모니터</td><td>1920×1080 이상</td><td>240</td><td>P1+P2+P3</td><td>분할</td></tr>
+  </table></div>
+  <ul>
+    <li>세로 스크롤: 페이지 전체는 스크롤하지 않는다(셸이 이미 높이 고정 <code>AdminPlatformShell.tsx:165</code>). 목록·처리 대기만 영역 안에서 스크롤한다. 높이가 690px 미만(브라우저 주소창이 있는 태블릿)이면 본문 영역만 스크롤한다.</li>
+    <li>표: 열마다 우선순위 P1(식별·상태·작업) / P2 / P3를 지정한다. 폭이 부족하면 P3, P2 순으로 숨기고, 숨긴 열은 상세 드로어에 보인다. 첫 열과 작업 열은 고정하고, 그래도 넘치면 표 안에서만 가로 스크롤한다.</li>
+    <li>팝업: 확인창 440 · 입력 시트 480(기본)/640(넓음). 높이는 화면 − 헤더 − 32. 하단 작업 바는 고정한다(작은 높이에서도 버튼이 보임).</li>
+    <li>터치: 버튼·행 최소 40px, 아이콘 버튼 터치 영역 44px.</li>
+  </ul>
+</section>
+
+<section id="dash">
+  <h2>3. 통합 대시보드 화면 배치 (1024×768 · 1280×800)</h2>
+  <p>구조: 헤더 → 요약 띠(8칸 한 줄) → 탭(7) → 본문(좌 지표·추세 / 우 처리 대기) → 상태 줄. 페이지 전체는 스크롤하지 않고, 처리 대기 목록만 안에서 스크롤한다. 아래 그림은 실제 픽셀을 50% 축소해 그렸다.</p>
+
+  <h3>3-1. 1280×800 (기준, 사이드 240)</h3>
+  <div class="wf-wrap"><div class="wf" style="width:640px;height:400px" role="img" aria-label="1280x800 대시보드 와이어프레임">
+    <div class="b hd" style="left:0;top:0;width:638px;height:27px">DIBAY 관리자 │ 운영 홈 │ 2026-10-20 (화) 17:27 PHT │ 🔔 3 │ 검색(회원·주문번호·게시물) │ 계정</div>
+    <div class="b" style="left:0;top:28px;width:119px;height:370px">사이드 240px<small>12 그룹 · 접기 가능</small></div>
+    <div class="b ac" style="left:128px;top:36px;width:59px;height:40px">전체 회원<small>120</small></div>
+    <div class="b ac" style="left:191px;top:36px;width:59px;height:40px">활성·신규<small>7일/오늘</small></div>
+    <div class="b ac" style="left:254px;top:36px;width:59px;height:40px">처리 대기<small>합계·P0</small></div>
+    <div class="b ac" style="left:317px;top:36px;width:59px;height:40px">거래<small>판매중·완료</small></div>
+    <div class="b ac" style="left:380px;top:36px;width:59px;height:40px">배달 주문<small>진행·오늘</small></div>
+    <div class="b ac" style="left:443px;top:36px;width:59px;height:40px">결제·정산<small>대기·₱</small></div>
+    <div class="b ac" style="left:506px;top:36px;width:59px;height:40px">광고<small>노출·승인 대기</small></div>
+    <div class="b ac" style="left:569px;top:36px;width:62px;height:40px">고객지원<small>미처리·SLA</small></div>
+    <div class="b hd" style="left:128px;top:82px;width:503px;height:20px">전체 현황 │ 회원·고객 │ 커뮤니티·거래 │ 배달·매장 │ 결제·정산 │ 광고·운영 │ 고객지원·알림</div>
+    <div class="b" style="left:128px;top:108px;width:105px;height:36px">지표 1</div>
+    <div class="b" style="left:237px;top:108px;width:105px;height:36px">지표 2</div>
+    <div class="b" style="left:346px;top:108px;width:106px;height:36px">지표 3</div>
+    <div class="b" style="left:128px;top:148px;width:105px;height:36px">지표 4</div>
+    <div class="b" style="left:237px;top:148px;width:105px;height:36px">지표 5</div>
+    <div class="b" style="left:346px;top:148px;width:106px;height:36px">지표 6</div>
+    <div class="b" style="left:128px;top:190px;width:324px;height:158px">추세 차트 (7/30일, PHT 일별)<small>높이 가변 · 최소 80px(실제 160)</small></div>
+    <div class="b" style="left:128px;top:354px;width:324px;height:20px">바로가기 4–6 (필터 적용 딥링크)</div>
+    <div class="b dash" style="left:458px;top:108px;width:173px;height:266px">처리 대기 (탭 범위)<small>행 48px · 약 10행 · 내부 스크롤</small><small>우선순위 P0→P3 · 클릭 시 필터된 목록</small></div>
+    <div class="b hd" style="left:128px;top:380px;width:503px;height:16px">17:27 PHT 갱신 · 자동 60초 │ 기간: 오늘 · 어제 · 7일 · 30일 (PHT)</div>
+  </div></div>
+  <div class="dim">세로 예산: 헤더 56 · 여백 16 · 요약 띠 80 · 간격 12 · 탭 40 · 간격 12 · 본문 532 · 상태 줄 28 + 여백 24 = 800</div>
+  <div class="dim">가로 예산: 사이드 240 · 여백 16×2 · 콘텐츠 1008 → 요약 칸 (1008−7×8)/8 = 119 · 본문 좌 648 · 간격 16 · 우 344</div>
+
+  <h3>3-2. 1024×768 (최소, 사이드 72 자동 접힘)</h3>
+  <div class="wf-wrap"><div class="wf" style="width:512px;height:384px" role="img" aria-label="1024x768 대시보드 와이어프레임">
+    <div class="b hd" style="left:0;top:0;width:510px;height:27px">DIBAY 관리자 │ 운영 홈 │ 10-20 17:27 PHT │ 🔔 │ 🔍 │ 계정</div>
+    <div class="b" style="left:0;top:28px;width:35px;height:354px">72<small>아이콘</small></div>
+    <div class="b ac" style="left:44px;top:36px;width:54px;height:36px">회원</div>
+    <div class="b ac" style="left:102px;top:36px;width:54px;height:36px">활성</div>
+    <div class="b ac" style="left:160px;top:36px;width:54px;height:36px">대기</div>
+    <div class="b ac" style="left:218px;top:36px;width:54px;height:36px">거래</div>
+    <div class="b ac" style="left:276px;top:36px;width:54px;height:36px">배달</div>
+    <div class="b ac" style="left:334px;top:36px;width:54px;height:36px">결제</div>
+    <div class="b ac" style="left:392px;top:36px;width:54px;height:36px">광고</div>
+    <div class="b ac" style="left:450px;top:36px;width:52px;height:36px">지원</div>
+    <div class="b hd" style="left:44px;top:78px;width:458px;height:20px">전체 │ 회원 │ 커뮤·거래 │ 배달 │ 결제 │ 광고·운영 │ 지원·알림 (가로 스크롤)</div>
+    <div class="b" style="left:44px;top:104px;width:95px;height:32px">지표 1</div>
+    <div class="b" style="left:143px;top:104px;width:95px;height:32px">지표 2</div>
+    <div class="b" style="left:242px;top:104px;width:96px;height:32px">지표 3</div>
+    <div class="b" style="left:44px;top:140px;width:95px;height:32px">지표 4</div>
+    <div class="b" style="left:143px;top:140px;width:95px;height:32px">지표 5</div>
+    <div class="b" style="left:242px;top:140px;width:96px;height:32px">지표 6</div>
+    <div class="b" style="left:44px;top:178px;width:294px;height:150px">추세 차트<small>최소 80px(실제 160)</small></div>
+    <div class="b" style="left:44px;top:334px;width:294px;height:20px">바로가기</div>
+    <div class="b dash" style="left:344px;top:104px;width:158px;height:250px">처리 대기<small>행 44px · 약 10행 · 내부 스크롤</small></div>
+    <div class="b hd" style="left:44px;top:360px;width:458px;height:16px">갱신 시각 · 기간</div>
+  </div></div>
+  <div class="dim">세로 예산: 헤더 56 · 여백 16 · 요약 띠 72 · 간격 12 · 탭 40 · 간격 12 · 본문 516 · 상태 줄 28 + 여백 16 = 768</div>
+  <div class="dim">가로 예산: 사이드 72 · 여백 16×2 · 콘텐츠 920 → 요약 칸 (920−56)/8 = 108 (라벨 12px + 값 20px, 증감 표시는 툴팁) · 본문 좌 588 · 간격 16 · 우 316</div>
+
+  <h3>3-3. 배치 규칙</h3>
+  <ul>
+    <li>요약 띠 8칸은 탭과 상관없이 항상 보인다. 클릭하면 해당 탭으로 전환하거나, 탭이 없는 지표는 필터가 적용된 관리 화면으로 이동한다.</li>
+    <li>탭 7개는 1280에서 한 줄에 다 보인다. 1024에서는 짧은 라벨을 쓰고, 넘치면 탭 바 안에서만 가로 스크롤한다. 선택한 탭은 주소(<code>?tab=</code>)에 남아 새로고침·뒤로가기 후에도 유지된다.</li>
+    <li>탭 본문은 모두 같은 틀이다: 지표 6칸(3×2) · 추세 1개 · 바로가기 4–6 · 오른쪽 처리 대기. 탭마다 지표·대기 카테고리만 바뀐다(v3 §6.2 표 유지).</li>
+    <li>브라우저 주소창이 차지해 높이가 줄면 추세 차트가 먼저 줄어든다(최소 160). 높이 690 미만이면 본문 영역만 스크롤하고, 헤더·요약 띠·탭은 고정한다.</li>
+    <li>모든 수치는 공통 지표 정의 <code>lib/admin/metrics/registry.ts</code>에서 가져온다. 오류가 나면 0 대신 이전 값과 「불러오기 실패」를 표시한다. 오늘 = PHT 00:00 기준(현재 결함 V3-13 수정).</li>
+  </ul>
+</section>
+
+<section id="perm">
+  <h2>4. 권한 재검토</h2>
+  <p>기준: 이미 승인된 관리자 운영 정책. 권한을 임의로 줄이거나 늘리지 않는다. 승인 정책이 없는 항목만 Owner 결정으로 올린다. 운영 관리자는 활성 4명이다(super_admin 2 · operator 2, 매니저 등급 0명) <span class="pill acc">DB</span>.</p>
+
+  <h3>4-1. 현재 승인된 정책 (유지)</h3>
+  <div class="tbl"><table>
+    <tr><th>영역</th><th>관리자 전원 (또는 기존 키)</th><th>최고관리자(super_admin) 전용</th><th>출처</th></tr>
+    <tr><td>거래</td><td>활성 관리자 전원 동일 권한 (포인트·충전·정책 포함)</td><td>영구 삭제</td><td>거래 O-2(승인 ①) · O-3</td></tr>
+    <tr><td>커뮤니티</td><td>기존 키 <code>boards</code>·<code>reports</code>·<code>ads</code>·<code>point</code>. <code>ads</code>는 운영자 전원 기본</td><td>영구 삭제</td><td>커뮤니티 E-1/O-12 · 승인 ②</td></tr>
+    <tr><td>채팅</td><td><code>chats</code> 키</td><td>개인 대화 열람(사유 10자+, 감사)</td><td>채팅 O-C1 (O-C8 키 분리는 미구현, 범위 밖)</td></tr>
+    <tr><td>배달</td><td><code>business</code> (강제 취소·환불 기록 포함)</td><td>수수료 정책·수수료 조정 결정</td><td>배달 B-1 · B-2 · B-7</td></tr>
+    <tr><td>회원</td><td><code>users</code></td><td>관리자 생성 (<code>create_admin</code>)</td><td>CUT A · 권한 기본값</td></tr>
+    <tr><td>시스템</td><td>조회</td><td>긴급 조치 · 런타임 · 릴리즈 게이트 · 데이터 초기화 쓰기. 배포 = 배포 담당자 목록</td><td>현행 코드 (<code>requireSuperAdmin</code>·<code>requireDeployOwner</code>)</td></tr>
+    <tr><td>메뉴 역할 제한</td><td colspan="2">「관리」 섹션 = admin·master 역할 · 「플랫폼 시스템」 섹션 = master 역할</td><td>CUT A 메뉴 SSOT (<code>admin-menu.ts:1564,1603</code>)</td></tr>
+  </table></div>
+
+  <h3>4-2. 메뉴 숨김과 서버 권한이 어긋난 곳 <span class="pill acc">정적</span></h3>
+  <div class="tbl"><table>
+    <tr><th>#</th><th>현재</th><th>영향</th><th>정렬 방법 (권한 변경 아님)</th></tr>
+    <tr><td>1</td><td>메뉴 역할은 사이드바만 숨긴다. 페이지·API에 역할 검사가 없어 운영자도 URL로 「관리」·「플랫폼 시스템」 24개 화면을 열고 PUT으로 덮어쓸 수 있다</td><td>승인된 메뉴 제한이 서버에서 무효</td><td>서버를 승인된 메뉴 제한에 맞춘다: 「관리」 = <code>manage</code> 키, 「플랫폼 시스템」 = super_admin. 페이지는 레이아웃 접근표로 차단(접근 거부 패널), API는 같은 표로 가드</td></tr>
+    <tr><td>2</td><td>운영자에게 보이는 메뉴가 <code>point</code>(27개 API)·<code>settings</code>(7개) 키를 요구해 403</td><td>보이는데 안 되는 버튼</td><td>메뉴를 서버 권한에 맞춰 숨기거나 「권한 없음」으로 표시. 권한 자체는 변경 없음</td></tr>
+    <tr><td>3</td><td>배포 메뉴는 모든 super_admin에게 보이지만 작업은 배포 담당자만 가능</td><td>보이는데 403</td><td>배포 담당자에게만 작업 버튼 표시, 나머지는 조회</td></tr>
+    <tr><td>4</td><td>메뉴 로딩 중 기본 역할이 operator</td><td>순간적으로 메뉴 깜빡임</td><td>서버 렌더 시 역할을 함께 전달</td></tr>
+  </table></div>
+
+  <h3>4-3. 단일 접근표 설계</h3>
+  <p><code>lib/admin/access/admin-route-access.ts</code>(신설, 코드만): 경로 접두사 → 필요 권한(<code>any_admin</code> · <code>key:x</code> · <code>super_admin</code> · <code>deploy_owner</code> · 도메인 가드). 이 하나의 표를 세 곳이 사용한다.</p>
+  <ol>
+    <li><b>사이드바·바로가기</b>: 권한이 없으면 숨긴다.</li>
+    <li><b>페이지</b>: <code>app/admin/layout</code>이 경로를 표와 대조해, 권한이 없으면 직접 URL로 들어와도 접근 거부 패널을 보여 준다.</li>
+    <li><b>API</b>: 계약 테스트가 메뉴 leaf마다 호출 API의 가드가 표의 권한 이상인지 검사한다(불일치 시 CI 실패).</li>
+  </ol>
+
+  <h3>4-4. 승인 정책이 없는 4건 (O-6에서 결정)</h3>
+  <div class="tbl"><table>
+    <tr><th>기능</th><th>현재</th><th>권장</th><th>사유</th></tr>
+    <tr><td>로그인 설정 (OAuth 클라이언트 키·비밀값, 중복 로그인 정책)</td><td>관리자 전원 · 감사 없음</td><td><code>settings</code> 키 (휴대폰 인증 설정과 같은 기존 키) + 감사(비밀값 가림) + 2중 확인</td><td>같은 로그인 영역의 휴대폰 인증이 이미 <code>settings</code>. 운영자 2명은 이 기능을 쓰지 못하게 된다</td></tr>
+    <tr><td>대량 푸시 발송</td><td>관리자 전원 · 감사 ✔ · 단건 테스트만 <code>dev</code></td><td>권한 현행 유지(전원) + 수신자 수 재입력 2중 확인. 단건 테스트도 전원으로 맞춤</td><td>축소하지 않고 역전만 해소</td></tr>
+    <tr><td>이벤트 푸시 발송</td><td>관리자 전원 · 감사 없음</td><td>대량 푸시와 같은 규칙 + 감사</td><td>같은 발송 행위</td></tr>
+    <tr><td>배달 광고 유료 연장·승인</td><td>관리자 전원</td><td>현행 유지 + 사유·감사 확인</td><td>운영자 <code>ads</code>·<code>business</code> 기본 보유 정책과 일치</td></tr>
+  </table></div>
+</section>
+
+<section id="p0">
+  <h2>5. P0 12건: 원인 · 수정 · 검증</h2>
+  <p>v3의 P0 12건 중 V3-11은 재검증 결과 P1로 낮췄다. <b>확정 P0는 11건이다.</b> 해결된 15건(DEF-2·8·9·10·11, P-15, T-4, T-5/6, T-9, T-15/16, T-17, M-6/7, M-9, M-5/U-2)은 다시 작업하지 않는다.</p>
+  <div class="tbl"><table>
+    <tr><th>ID</th><th>원인</th><th>영향</th><th>수정 방안</th><th>DB 변경</th><th>회귀 위험</th><th>검증</th></tr>
+    <tr><td><b>V3-01</b><br><small>DEF-3</small></td><td>수수료 원자 함수 마이그레이션(<code>20270515120000</code>)이 운영에 미적용. <span class="pill acc">DB</span> <code>pg_proc</code>에 <code>admin_supersede_store_fee_policy</code> 없음 → 코드가 2단계 보정 경로로 동작 (<code>store-fee-policies/[id]/route.ts:375</code>)</td><td>예약 변경 중간 실패 시 유효 수수료 정책 공백 → 주문 수수료 부과 누락 가능</td><td>기존 마이그레이션 SQL을 수동 적용 위치 규정대로 운영 적용. 코드 변경 없음(폴백 유지)</td><td>예 (함수 1개, 테이블 변경 없음)</td><td>낮음</td><td>적용 후 <code>pg_proc</code> 조회 · 다음 정책 변경의 감사 기록에 RPC 경로 표시 확인</td></tr>
+    <tr><td><b>V3-02</b><br><small>P-3 OPEN</small></td><td>피드 배너 반려가 포인트 해제 → 상태 변경을 별도 호출로 처리 (<code>feed-ad-requests/[id]/route.ts:307-323</code>)</td><td>상태 변경 실패 시 포인트는 돌려줬는데 신청은 대기로 남음 → 이후 승인되면 무료 노출. 운영 대기 0건 <span class="pill acc">DB</span>, 경로는 살아 있음(메뉴 밖 상세 화면)</td><td>RPC <code>admin_reject_feed_ad_request</code>: 행 잠금 → 상태 확인 → 해제 → 반려 → 감사를 한 트랜잭션으로. 라우트는 RPC 호출만</td><td>예 (함수)</td><td>낮음 (레거시, 대기 0건)</td><td>단위 테스트(실패 주입 시 해제 0) · 409 재요청 테스트</td></tr>
+    <tr><td><b>V3-03</b><br><small>P-4 OPEN</small></td><td>팝업 전이 UPDATE가 <code>id</code>만 조건 (<code>admin-transitions.ts:130-135</code>), 사장님 이벤트 신청 반려는 환불이 상태 변경보다 먼저</td><td>동시 처리 시 덮어쓰기. <span class="pill acc">DB</span> 「종료인데 승인 대기」 상태 팝업 4건 존재(상태 불일치 실증)</td><td>팝업: <code>.eq(status).eq(approval_status)</code> 조건 + 0행이면 409. 신청 반려: 환불+상태를 RPC 1회. 불일치 4건은 데이터 수정하지 않고 보고(운영 결정)</td><td>예 (반려 함수), 팝업은 코드만</td><td>중 (팝업 운영 화면)</td><td>동시 요청 테스트(1건 성공·1건 409) · 반려 실패 주입 시 환불 0</td></tr>
+    <tr><td><b>V3-04</b><br><small>DEF-5·7 PARTIAL</small></td><td>배달 광고 반려 환불(<code>admin-delivery-ad-writer.ts:275-296</code>)과 사장님 광고 제출 차감(<code>me/stores/.../actions/route.ts:181-195</code>)이 트랜잭션 밖</td><td>실패 시 캐시와 광고 상태 불일치 (현재는 실패 노출·큐잉으로 완화)</td><td>RPC 2개: 전이+환불, 차감+제출을 각각 1 트랜잭션. 원장 멱등 키 유지</td><td>예 (함수 2)</td><td>중 (금전·사장님 앱)</td><td>원장 합계 불변 테스트 · 배포 후 운영 원장 대조 쿼리(읽기)</td></tr>
+    <tr><td><b>V3-05</b><br><small>DEF-6 PARTIAL</small></td><td>요청에 버전이 없으면 서버가 현재 <code>updated_at</code>을 채움 (<code>advertising-workspace/action/route.ts:396-398</code>)</td><td>동시성 검사 무력화 → 두 관리자의 처리가 덮어씀</td><td>버전 누락 시 400. 모든 호출처가 버전을 보내는지 확인(워크스페이스는 전송 중)</td><td>아니오</td><td>낮음 (누락 호출처 있으면 400)</td><td>버전 누락 400 · 낡은 버전 409 테스트, 호출처 전수 grep</td></tr>
+    <tr><td><b>V3-06</b><br><small>P-17 PARTIAL</small></td><td>포인트 소멸이 회원별 루프로 여러 번 쓰기 (<code>point-expire-db.ts:256-318</code>). 확인창 없음. 기본 날짜 UTC (<code>run/route.ts:22</code>)</td><td>중간 실패 시 일부 회원만 소멸. <span class="pill acc">DB</span> 실행 이력 0건 → 첫 실행 전에 고쳐야 함</td><td>RPC <code>admin_run_point_expire(as_of_date)</code> 1 트랜잭션 · 기본 날짜 PHT 오늘 · 미리보기 후 대상 수·총 포인트 재입력 2중 확인</td><td>예 (함수)</td><td>낮음 (미사용 기능)</td><td>실패 주입 시 전체 롤백 · 같은 날짜 재실행 시 0건(멱등)</td></tr>
+    <tr><td><b>V3-07</b><br><small>P-16 PARTIAL</small></td><td>「Point 실행」이 실제 포인트 지급. super_admin·감사는 있으나 사유·확인 없음 (<code>AdminPointExecutionPage.tsx:68</code>)</td><td>오조작 시 실자산 생성</td><td>사유 필수 + 대상·금액 재입력 2중 확인 + 화면 이름 「포인트 지급 시험(실지급)」</td><td>아니오</td><td>낮음</td><td>사유 없음 400 · 확인 취소 시 요청 0</td></tr>
+    <tr><td><b>V3-08</b><br><small>U-10 PARTIAL</small></td><td>메뉴는 역할 제한인데 API 19개(+보안·성능·비용 3개)가 관리자 전원 PUT, 감사 없음. 배포 쓰기 감사 없음</td><td>승인된 메뉴 제한 무효 (§4-2 #1)</td><td>접근표로 서버 정렬(<code>manage</code>/super_admin) + PUT 감사. 배포 rollback·promote 등 감사 추가</td><td>아니오</td><td>낮음 (운영 저장 데이터 0건 <span class="pill acc">DB</span>)</td><td>역할별 403/200 계약 테스트 · 감사 기록 테스트</td></tr>
+    <tr><td><b>V3-09</b><br><small>신규</small></td><td>로그인 설정·OAuth 제공자 API가 관리자 전원 · 감사 없음 (<code>auth-settings/route.ts:41</code>, <code>auth-providers/route.ts:60</code>)</td><td>누구나 로그인 수단을 끄거나 OAuth 비밀값을 바꿔 전체 로그인 장애 가능, 흔적 없음</td><td>권한은 O-6 결정대로(권장 <code>settings</code>) + 감사(비밀값 가림) + 2중 확인</td><td>아니오</td><td>중 (운영자 2명 접근 변화 — O-6)</td><td>권한별 계약 테스트 · 감사 기록에 비밀값 미포함 테스트</td></tr>
+    <tr><td><b>V3-10</b><br><small>P-9·10 PARTIAL</small></td><td>대량 발송=전원, 단건 테스트=<code>dev</code>(역전). 이벤트 푸시 발송 감사 없음</td><td>대량 오발송 시 통제·흔적 부족</td><td>O-6 권장대로 역전 해소 + 이벤트 푸시 감사 + 수신자 수 재입력 2중 확인</td><td>아니오</td><td>낮음</td><td>2중 확인 미입력 시 발송 0 · 감사 기록 테스트</td></tr>
+    <tr><td><b>V3-11</b><br><small>재분류</small></td><td colspan="6"><span class="pill muted">P1로 이동</span> 마이페이지 배너·섹션·서비스: 브라우저 직접 <i>조회</i>(쓰기 아님). 섹션·서비스의 「수정·등록」 링크가 없는 경로(404). 배너 쓰기는 <code>/api/admin/banners</code>(관리자 전원, 감사 없음). F3에서 조회 API화 + 404 링크 처리 + 배너 감사.</td></tr>
+    <tr><td><b>V3-12</b><br><small>X-9 PARTIAL</small></td><td>변경 라우트 282개 중 감사 헬퍼 호출 100개. 무감사 정책 쓰기: 재무 전환 정책 · 앱 설정 · 알림 소리 · 공지 · 사업자 정보 · 포인트 회수/소멸 정책 · 피드 광고 상품 · 배달 광고 상업 설정 · 광고 위치 순서 · 마이페이지 배너</td><td>정책 변경 추적 불가</td><td>공통 래퍼 <code>withAdminAudit</code>로 위 목록 적용 + 계약 테스트: 모든 변경 라우트는 감사 또는 예외 목록 등재</td><td>아니오</td><td>낮음</td><td>계약 테스트(미등재 라우트 0) · 래퍼 단위 테스트</td></tr>
+  </table></div>
+
+  <h3>5-1. v1 PARTIAL 11건 · OPEN 2건과의 관계</h3>
+  <div class="tbl"><table>
+    <tr><th>v1 상태</th><th>v1 ID</th><th>v4 처리</th></tr>
+    <tr><td><span class="pill bad">OPEN 2</span></td><td>P-3 · P-4</td><td>V3-02 · V3-03</td></tr>
+    <tr><td rowspan="3"><span class="pill warn">PARTIAL 11</span></td><td>DEF-5 · DEF-7 · DEF-6 · P-17 · P-16 · U-10 · P-9/10 · X-9 (8건)</td><td>V3-04 · V3-04 · V3-05 · V3-06 · V3-07 · V3-08 · V3-10 · V3-12</td></tr>
+    <tr><td>DEF-1 (유료 연장·광고 승인 권한)</td><td>P0 결함 아님 → 권한 정책 O-6에서 결정 (현행 유지 권장)</td></tr>
+    <tr><td>U-9 (긴급 조치 UI 확인창) · DEF-4 (환불 시 레거시 정산 행 갱신)</td><td>U-9 → F6 공통 확인창 적용(P1). DEF-4 → 배달 도메인 잔여로 <b>보고만</b> (배달 정산 SSOT 범위, 이번 작업 밖)</td></tr>
+    <tr><td><span class="pill ok">FIXED</span>이나 운영 미적용</td><td>DEF-3</td><td>V3-01</td></tr>
+    <tr><td>신규</td><td>—</td><td>V3-09 (P0) · V3-11 (P1 재분류)</td></tr>
+  </table></div>
+</section>
+
+<section id="time">
+  <h2>6. 시간 기준: Asia/Manila 일원화</h2>
+  <div class="tbl"><table>
+    <tr><th>구분</th><th>규칙</th><th>현재 결함</th><th>조치</th></tr>
+    <tr><td>저장</td><td>UTC 그대로 (<span class="pill acc">DB</span> <code>TimeZone=UTC</code>)</td><td>—</td><td><b>저장값 변경 금지</b></td></tr>
+    <tr><td>표시</td><td><code>YYYY-MM-DD HH:mm</code> PHT, 헤더 시계는 「2026-10-20 (화) 17:27 PHT」</td><td>약 159개 파일이 기기 시간대로 표시 (V3-15)</td><td>기존 <code>formatAdminManilaDateTime</code>(<code>lib/admin/metrics/manila-period.ts</code>) 하나로 통일 + eslint 규칙: admin 경로에서 시간대 없는 날짜 포맷 금지</td></tr>
+    <tr><td>검색·조회 기간</td><td>PHT 날짜 경계 → UTC 범위로 서버가 계산</td><td>대시보드 「오늘」= UTC 자정(PHT 08:00) (V3-13) · 배달 경고 · 포인트 소멸 기본일 · CSV 파일명 등 UTC 날짜 (V3-14)</td><td><code>manilaTodayRangeUtc</code> 등 기존 함수만 사용, 중복 헬퍼 7개는 이 함수에 위임</td></tr>
+    <tr><td>집계</td><td>SQL 일·월 버킷 <code>AT TIME ZONE 'Asia/Manila'</code></td><td>대시보드 RPC <code>admin_dashboard_aggregate_json</code>이 서버 자정 기준 인자 사용</td><td>RPC 인자만 PHT 경계로 (함수 변경 없음)</td></tr>
+    <tr><td>정산 기준일</td><td colspan="3"><b>이미 결정된 정책을 따른다:</b> 매장 수수료·캐시 정산 = Asia/Manila 영업일 [00:00, 다음 날 00:00) PHT, 저장 UTC (<code>docs/store-commission-cash-settlement-ssot.md</code> 「기간 SSOT」 · 결정 #9 「결정됨: Asia/Manila」, 운영 9월 대조 일치 기록). <b>제안:</b> 같은 기준을 회원 포인트 소멸 기준일 · 코인 출금 · 재무 일별 표에도 적용. 외부 계약서의 별도 기준일 조항은 저장소에 없으므로 O-7에서 Owner 확인만 받는다.</td></tr>
+    <tr><td>통화·숫자</td><td>₱ PHP (<code>formatMoneyPhp</code>), 숫자 <code>en-PH</code> 천 단위, 포인트 「1,234P」</td><td>숫자 locale 혼용 (ko-KR 93파일)</td><td>포매터 통일</td></tr>
+  </table></div>
+</section>
+
+<section id="ui">
+  <h2>7. 공통 관리자 디자인 규격</h2>
+  <p>새 디자인 체계를 만들지 않는다. 기존 <code>[data-admin]</code> 콘솔 토큰과 <code>--sm-font-*</code>/<code>--sam-*</code> 토큰, 기존 Admin 컴포넌트를 표준으로 지정한다. 도메인 4종 완료 화면은 기능·구조를 건드리지 않고, F6에서 외형 위반(window.confirm·원시 ID·시간대)만 고친다.</p>
+  <div class="grid2">
+    <div>
+      <h3>글꼴·간격</h3>
+      <div class="tbl"><table>
+        <tr><th>요소</th><th>토큰 (값)</th></tr>
+        <tr><td>페이지 제목</td><td><code>--sm-font-page-title</code> 17px · 700</td></tr>
+        <tr><td>카드 제목</td><td><code>--sm-font-card-title</code> 15px · 600</td></tr>
+        <tr><td>섹션 제목·탭·버튼</td><td>14px · 600 / 500</td></tr>
+        <tr><td>본문·표</td><td><code>--sm-font-body</code> 14px</td></tr>
+        <tr><td>보조·메타</td><td>13px</td></tr>
+        <tr><td>캡션·배지</td><td>12px</td></tr>
+        <tr><td>입력</td><td>16px (태블릿 확대 방지)</td></tr>
+        <tr><td>간격</td><td>섹션 16 · 카드 안 16 · 필터 요소 8 · 표 행 44 (PC 밀집 36)</td></tr>
+        <tr><td>모서리</td><td>카드·시트 4px(<code>--sam-radius-sm</code>, AGENTS.md 8px 표기는 정정 필요) · 배지·칩 원형</td></tr>
+      </table></div>
+    </div>
+    <div>
+      <h3>버튼</h3>
+      <div class="tbl"><table>
+        <tr><th>종류</th><th>높이·용도</th></tr>
+        <tr><td>Primary (브랜드 보라)</td><td>40 · 조회·저장·승인·등록 (한 영역에 1개)</td></tr>
+        <tr><td>Secondary (테두리)</td><td>40 · 취소·새로고침·내보내기·보류</td></tr>
+        <tr><td>Ghost</td><td>40 · 초기화·닫기</td></tr>
+        <tr><td>Danger (빨강)</td><td>40 · 삭제·정지·강제 취소. 일반 버튼과 떨어진 왼쪽에</td></tr>
+        <tr><td>Danger-outline</td><td>반려</td></tr>
+        <tr><td>Text</td><td>행 안의 상세 보기·수정</td></tr>
+        <tr><td>상태</td><td>기본 · 호버 · 포커스 링 · 처리 중(스피너+비활성) · 비활성(사유 툴팁)</td></tr>
+      </table></div>
+    </div>
+  </div>
+  <h3>구성 요소</h3>
+  <div class="tbl"><table>
+    <tr><th>요소</th><th>규격</th><th>표준 컴포넌트</th></tr>
+    <tr><td>페이지 골격</td><td>헤더 → 브레드크럼 → 제목(= 메뉴 라벨) + 우측 주요 작업 → 탭 → 필터 바 → 목록 → 페이지네이션</td><td><code>AdminPageHeader</code></td></tr>
+    <tr><td>탭</td><td>높이 40, 밑줄형, 건수 배지, 주소(<code>?tab=</code>)에 보존, 넘치면 탭 바 안 가로 스크롤</td><td>신설 <code>AdminTabs</code></td></tr>
+    <tr><td>필터 바</td><td>순서: 기간 → 상태 → 도메인 특수 → 검색어 → 조회·초기화. 상태 탭·칩·정렬·페이지 크기 = 즉시 조회, 검색어·기간 = 「조회」/Enter</td><td>신설 <code>AdminFilterBar</code> + <code>useAdminListQuery</code>(주소에 조건 보존)</td></tr>
+    <tr><td>목록</td><td>열 우선순위 P1/P2/P3, 첫 열·작업 열 고정, 「전체 1,234건 중 1–50」 표시, 실패 시 기존 목록 유지 + 오류 배너</td><td><code>AdminTable</code> + <code>AdminTableBottomHorizontalScroll</code></td></tr>
+    <tr><td>페이지네이션</td><td>서버 페이지, 크기 20/50/100, 이전·번호(최대 7)·다음, 하단 우측</td><td>신설 <code>AdminPagination</code></td></tr>
+    <tr><td>시트 (입력·편집)</td><td>오른쪽, 480/640, 하단 고정 바(취소 왼쪽·저장 오른쪽), 미저장 닫기 확인</td><td><code>AdminFormSheet</code></td></tr>
+    <tr><td>상세 드로어</td><td>오른쪽, min(720px, 50vw), 하단 고정 작업(승인·반려·보류, 위험 작업은 왼쪽)</td><td>신설 <code>AdminDetailDrawer</code></td></tr>
+    <tr><td>팝업 (확인)</td><td>440, L2는 사유 2자 이상, L3는 대상명·금액·수신자 수 재입력. <code>window.confirm</code> 금지</td><td><code>AdminActionConfirmDialog</code></td></tr>
+    <tr><td>상태 표시</td><td>회색 대기·초안 · 파랑 진행 · 초록 완료·정상 · 주황 주의·보류 · 빨강 실패·제재·위험. 미등록 코드 = 「알 수 없는 상태」</td><td><code>AdminToneBadge</code> + 신설 상태 라벨 레지스트리</td></tr>
+    <tr><td>화면 상태</td><td>로딩 · 빈 데이터 · 불러오기 실패 · 접근 거부 4종 구분</td><td><code>AdminEmptyState</code> · <code>AdminErrorState</code> · <code>AdminAccessDeniedPanel</code></td></tr>
+    <tr><td>결과 안내</td><td>성공·실패 배너, 오류 코드 → 한국어 문구. 409 = 「다른 관리자가 먼저 처리했습니다」, 403 = 「권한이 없습니다」</td><td>신설 오류 문구 맵</td></tr>
+    <tr><td>기술 정보</td><td>UUID·원시 JSON·오류 코드는 접이식 「기술 정보」에만 (복사 버튼)</td><td>—</td></tr>
+  </table></div>
+  <p>CTA 명칭·위치·등급(L0~L3)과 버튼 동작 계약(중복 클릭 방지·처리 중·결과·권한·실패 시 보존·뒤로가기·필터 유지)은 v3 §7.2~7.4 그대로 확정한다.</p>
+</section>
+
+<section id="tools">
+  <h2>8. 내부 도구 분리</h2>
+  <p>대상 24개(v3의 23개에서 운영 가이드 2개 제외, 수동 JSON 보드 3개 추가). 모두 <code>admin_settings</code>의 JSON 묶음을 화면에서 편집하는 도구이고, 다른 기능이 이 값을 읽지 않는다. <span class="pill acc">DB</span> 운영 <code>admin_settings</code>에는 이 도구들의 저장 행이 <b>하나도 없다</b>(13개 키 전부 다른 기능용). 즉 운영에서 한 번도 저장된 적이 없다.</p>
+  <div class="tbl"><table>
+    <tr><th>묶음</th><th>화면</th><th>실제 운영 필요성</th><th>처리</th></tr>
+    <tr><td>운영 지식·평가 (8)</td><td>운영보드 · 운영문서 · 런북 · 지식베이스 · 지식그래프 · 운영학습 · 성숙도 · 벤치마크</td><td>없음. 런북·운영문서는 장애 대응 문구가 있지만 실행 기능이 없고 저장 0건</td><td>내부 도구</td></tr>
+    <tr><td>개발 과정 (7)</td><td>QA보드 · 장기운영 · 제품백로그 · 스프린트 · 릴리즈노트 · 릴리즈아카이브 · 프로덕션 전환</td><td>없음 (개발 관리)</td><td>내부 도구</td></tr>
+    <tr><td>모의 화면 (3)</td><td>백업/복구 · DR · 자동화</td><td>없음, 오해 위험 (「리허설 실행 (mock)」, 실행기 없음)</td><td>내부 도구 + 「(모의)」 표기</td></tr>
+    <tr><td>출시 점검 (2)</td><td>Launch readiness · Launch week</td><td>출시 시점에만</td><td>내부 도구 (한글 라벨)</td></tr>
+    <tr><td>수동 보드 (3)</td><td>보안점검 · 성능 · 비용</td><td>없음 (실측 아님, 수동 JSON)</td><td>내부 도구</td></tr>
+    <tr><td>메모 (1)</td><td>운영 메모</td><td>없음 (하드코딩 1건)</td><td>내부 도구</td></tr>
+    <tr><td colspan="4"><b>제외(일반 메뉴 유지):</b> 게시판 가이드 → 시스템 「운영 가이드」로, 역할 제한 그룹 밖(전 관리자 조회). 실제 운영자 매뉴얼이라 운영자에게 필요하다. 채팅 가이드는 채팅 그룹(J-AMD-4) 유지.</td></tr>
+  </table></div>
+  <h3>직접 URL 통제</h3>
+  <p>현재는 메뉴만 숨기고 페이지·API가 관리자 전원에게 열려 있어, 숨겨도 URL로 열고 덮어쓸 수 있다 <span class="pill acc">정적</span>. 분리와 함께 §4-3 접근표로 통제한다.</p>
+  <ul>
+    <li>섹션: 시스템 › 「내부 도구」, 기본 접힘, super_admin에게만 표시.</li>
+    <li>페이지: 레이아웃이 접근표로 차단 → 다른 관리자는 직접 URL에서도 접근 거부 패널.</li>
+    <li>API: GET·PUT 모두 super_admin(현재 「관리」 섹션의 <code>manage</code> 키 보유자는 매니저 등급인데 운영에 0명이라 실제 영향 없음) + PUT 감사.</li>
+    <li>삭제하지 않는다. 경로·코드 보존.</li>
+  </ul>
+</section>
+
+<section id="owner">
+  <h2>Owner 결정 사항 O-1 ~ O-9</h2>
+  <div class="tbl"><table>
+    <tr><th>ID</th><th>결정 사항</th><th>기존 승인과 충돌</th><th>권장</th></tr>
+    <tr><td>O-1</td><td>사이드바 순서: CUT J 유지 vs 지시서 12그룹 순서</td><td>지시서 순서는 J-AMD-2(거부)와 <span class="pill bad">충돌</span></td><td><b>CUT J 순서 유지</b>, 그룹 이름만 지시서 명칭으로</td></tr>
+    <tr><td>O-2</td><td>J-AMD-5: 시스템의 추천 6 · 공통 콘텐츠 4 · 앱 화면 구성 5를 플랫폼 운영으로, 중복 leaf 3개(Action Queue·카테고리·프로모션 알림) 메뉴 제거</td><td>M4 보류와 범위 인접, 새 조항 필요 <span class="pill warn">새 승인</span> · key·path·redirect 불변</td><td><b>승인</b></td></tr>
+    <tr><td>O-3</td><td>내부 도구 24개 분리 + 서버 권한을 메뉴 제한에 정렬(super_admin)</td><td>CUT A 메뉴 제한을 서버에서 구현하는 것으로 <span class="pill ok">충돌 없음</span></td><td><b>승인</b></td></tr>
+    <tr><td>O-4</td><td>가로 전용: 웹 가드 + Android 태블릿·iPad 네이티브 고정 (F5, 재빌드)</td><td>방향 계약 테스트(태블릿 회전 허용)를 의도적으로 갱신 <span class="pill warn">계약 변경</span> · 회원 앱 정책 불변</td><td><b>승인</b>. Android 16+ 태블릿은 OS가 고정을 무시하므로 웹 가드로 보장</td></tr>
+    <tr><td>O-5</td><td>폰·세로·폭 1024 미만에서 관리자 작업 차단 (안내 화면만)</td><td><span class="pill ok">충돌 없음</span> (현재 폰 관리자 사용자는 작업 불가가 됨)</td><td><b>차단</b></td></tr>
+    <tr><td>O-6</td><td>승인 정책이 없는 4건: 로그인 설정 · 대량 푸시 · 이벤트 푸시 · 광고 유료 연장 (§4-4)</td><td>정책 없음. 로그인 설정만 운영자 2명 권한 축소</td><td>로그인 설정 <code>settings</code> 키 · 나머지 현행 권한 유지 + 감사·2중 확인</td></tr>
+    <tr><td>O-7</td><td>정산 기준일 PHT 영업일을 포인트 소멸·출금·재무 일별 표까지 확대</td><td>정산 SSOT 결정 #9(Asia/Manila)와 <span class="pill ok">일치</span></td><td><b>승인</b> (외부 계약에 다른 기준일이 있으면 알려 주세요)</td></tr>
+    <tr><td>O-8</td><td>미구현·모의 화면: FAQ · 국가 · 언어 · 앱 메타 메뉴 숨김(코드 보존), 메뉴 밖 모의 화면(home-feed·personalized-feed) 유지 숨김</td><td>기능 삭제 아님 <span class="pill ok">충돌 없음</span></td><td><b>숨김</b>. FAQ는 별도 요청 시 구현</td></tr>
+    <tr><td>O-9</td><td>운영 DB: 수수료 원자 함수 적용(V3-01) + 신규 함수 5개(V3-02·03·04×2·06). 테이블 변경 없음</td><td>운영 DB 변경 <span class="pill warn">승인 필요</span></td><td><b>승인</b>. 수동 적용 위치 규정·롤백 SQL 동봉</td></tr>
+  </table></div>
+</section>
+
+<section id="plan">
+  <h2>구현 순서와 완료 기준 (F0 ~ F6, 7단계)</h2>
+  <p>각 단계 = 통합 PR 1개. 단계마다 최종 HEAD에서 <code>npm run typecheck:build</code> + 관련 vitest + 변경 파일 eslint를 1회 실행한다. 네이티브는 F5 한 단계뿐이다.</p>
+  <div class="tbl"><table>
+    <tr><th>단계</th><th>내용</th><th>배포 구분</th><th>선결</th><th>완료 기준</th></tr>
+    <tr><td><b>F0</b> P0 보호</td><td>V3-01~10, V3-12 (V3-11은 F3)</td><td>웹 + 운영 DB 함수</td><td>O-6 · O-9</td><td>함수 존재 <span class="pill acc">DB</span> · 권한 403/200 · 409 동시성 · 감사 기록 · 실패 주입 롤백 테스트 PASS</td></tr>
+    <tr><td><b>F1</b> 공통 기반</td><td>접근표 · <code>AdminTabs</code>/<code>FilterBar</code>/<code>Pagination</code>/<code>DetailDrawer</code>/<code>useAdminListQuery</code> · 상태 라벨 · 날짜·금액 포매터 + eslint 규칙 · 지표 정의 골격 · <b>웹 가로 가드(A층)</b></td><td>웹</td><td>O-4 · O-5</td><td>단위 테스트 · 5개 해상도(1024×768 · 1280×800 · 1366×768 · 1920×1080 · 800×1280 세로=가드) Playwright 스냅샷</td></tr>
+    <tr><td><b>F2</b> 메뉴·권한 정렬</td><td>J-AMD-5 메뉴 · 그룹 이름 · 라벨 한글화 · 내부 도구 섹션 · 접근표를 사이드바·레이아웃·API에 연결</td><td>웹</td><td>O-1 · O-2 · O-3</td><td>195 경로 보존 스냅샷 · <code>verify:routes</code> · CUT A/C/J 게이트 PASS · 메뉴 leaf↔API 가드 계약 테스트 · 내부 도구 직접 URL 403</td></tr>
+    <tr><td><b>F3</b> 공통 화면 정비</td><td>관리자 계정·권한 화면 · 관리자 작업 기록(필터·페이지·cron 제외) · 제재 기록 API화 · 고객지원·알림·결제·시스템·플랫폼 운영 화면 규격 적용 · V3-11 · 모의·빈 화면 숨김</td><td>웹</td><td>F1 · F2 · O-8</td><td>버튼 동작 계약 e2e(처리 중·결과·403·409·필터 유지) · 해당 화면 정적 위반 0</td></tr>
+    <tr><td><b>F4</b> 통합 대시보드</td><td>§3 배치 · 탭 7 · 요약 8 · 지표 정의 · 오늘=PHT · 거래 대시보드 공통 모델 전환</td><td>웹</td><td>F1</td><td>같은 지표 id의 전체 vs 도메인 값 일치 · 1024×768 / 1280×800에서 페이지 스크롤 0 · 오류 시 0 미표시</td></tr>
+    <tr><td><b>F5</b> 가로 전용 네이티브</td><td>Android 플러그인·정책(B층) · iOS 플래그(C층) · 방향 계약 테스트 갱신 · versionCode 6→7 · iOS 빌드 5→6(4곳)</td><td><b>네이티브 재빌드·재설치</b></td><td>O-4 · F1</td><td><code>verify:native-version-bump</code> · CI android/ios 잡 PASS · <code>native:prepare</code> 후 Mac 빌드 · 실기기: Android 15 이하 태블릿·iPad 전체 화면 고정, 폰 세로 유지, Android 16+ 태블릿은 가드 동작. 설치 확인 = <code>user_devices.app_version</code></td></tr>
+    <tr><td><b>F6</b> 전면 적용·통합 검증</td><td>도메인 4종 포함 전 화면 외형 위반 수정(window.confirm 0 · 원시 ID 0 · 날짜 시간대 100% · 제목=메뉴 라벨) · U-9 확인창 · 195 메뉴 진입 스모크 · 권한별 계약 · 대시보드 → 도메인 → 공통 → 돌아가기 왕복</td><td>웹</td><td>F0~F5</td><td>지시서 §15 기준 중 실측된 항목만 PASS, 나머지 NOT_PROVEN 별도 표기 · 도메인 기존 테스트 전부 PASS · 중요 결함 0</td></tr>
+  </table></div>
+  <div class="note">회귀 위험이 큰 곳: F0의 금전 함수(V3-03·04, 사장님 앱 경로), F2의 메뉴 게이트 상수·테스트 동시 갱신, F5의 방향 계약 변경. 운영 주소(samarket.vercel.app)는 main 병합 전에는 바뀌지 않는다. 화면·실기기 확인이 이 작업 환경에서 불가능하면 Production·실기기는 NOT_PROVEN으로 1회 표기하고 Owner 확인을 받는다.</div>
+</section>
+
+<section id="appx">
+  <h2>부록. 메뉴 195 leaf 최종 처리표</h2>
+  <p>현재 그룹은 CUT J 워크스페이스, 최종 그룹은 v4 이름이다. 「(메뉴 제거)」는 사이드바 leaf만 빼고 URL은 그대로 둔다.</p>
+  <div class="tbl" style="max-height:640px;overflow:auto"><table>
+    <tr><th>#</th><th>현재 그룹</th><th>현재 메뉴</th><th>URL</th><th>최종 그룹</th><th>처리</th><th>비고</th></tr>
+<tr><td class="n">1</td><td>운영</td><td>운영</td><td><code>/admin</code></td><td>운영 홈</td><td>개선</td><td>탭 7 통합 대시보드 (§3)</td></tr>
+<tr><td class="n">2</td><td>회원</td><td>회원관리</td><td><code>/admin/users</code></td><td>회원·권한</td><td>유지·개선</td><td>원시 ID → 기술 정보 영역</td></tr>
+<tr><td class="n">3</td><td>회원</td><td>신고 표시 큐 (관찰)</td><td><code>/admin/reports</code></td><td>회원·권한</td><td>명칭 변경</td><td>「전체 신고 현황」 — 위치 유지(J-AMD-1), 고객지원에 카드</td></tr>
+<tr><td class="n">4</td><td>회원</td><td>처리로그</td><td><code>/admin/reports/log</code></td><td>회원·권한</td><td>명칭 변경·개선</td><td>「제재 기록」 — API·서버 페이지네이션</td></tr>
+<tr><td class="n">5</td><td>회원</td><td>로그감사 (audit_logs)</td><td><code>/admin/audit-logs</code></td><td>회원·권한</td><td>명칭 변경·개선</td><td>「관리자 작업 기록」 — 위치 유지(J-AMD-1), 필터·cron 기본 제외</td></tr>
+<tr><td class="n">6</td><td>배달</td><td>배달 대시보드</td><td><code>/admin/delivery</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">7</td><td>배달 › 매장</td><td>입점 심사</td><td><code>/admin/stores</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">8</td><td>배달 › 매장</td><td>매장 운영</td><td><code>/admin/business</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">9</td><td>배달 › 매장</td><td>메뉴·상품 검수</td><td><code>/admin/store-products</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">10</td><td>배달 › 매장</td><td>매장 문의</td><td><code>/admin/store-inquiries</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">11</td><td>배달 › 매장</td><td>매장 신고</td><td><code>/admin/store-reports</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">12</td><td>배달 › 매장</td><td>매장 리뷰</td><td><code>/admin/store-reviews</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">13</td><td>배달 › 주문</td><td>주문 목록</td><td><code>/admin/stores/orders</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">14</td><td>배달 › 주문</td><td>처리 필요 주문</td><td><code>/admin/store-orders</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">15</td><td>배달 › 주문</td><td>취소 요청</td><td><code>/admin/stores/orders/cancellations</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">16</td><td>배달 › 주문</td><td>환불 요청</td><td><code>/admin/stores/orders/refunds</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">17</td><td>배달 › 주문</td><td>주문 처리 기록</td><td><code>/admin/stores/orders/logs</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">18</td><td>배달 › 주문</td><td>주문 채팅</td><td><code>/admin/order-chats</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">19</td><td>배달 › 배달 현장</td><td>실시간 상황판</td><td><code>/admin/ops-console</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">20</td><td>배달 › 배달 현장</td><td>배달 통계</td><td><code>/admin/delivery-operations</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">21</td><td>배달 › 배달 현장</td><td>라이더</td><td><code>/admin/delivery-riders</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">22</td><td>배달 › 배달 현장</td><td>배달 경고</td><td><code>/admin/delivery-alerts</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">23</td><td>배달 › 배달 현장</td><td>자동 조치 승인</td><td><code>/admin/delivery-auto-actions</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">24</td><td>배달 › 수수료·정산</td><td>수수료 정책</td><td><code>/admin/store-fee-policies</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">25</td><td>배달 › 수수료·정산</td><td>수수료 내역·검토</td><td><code>/admin/store-settlements</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">26</td><td>배달 › 혜택·프로모션</td><td>쿠폰 운영</td><td><code>/admin/store-coupon-control</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">27</td><td>배달 › 혜택·프로모션</td><td>상품권 관리</td><td><code>/admin/gift-certificates</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">28</td><td>배달 › 혜택·프로모션</td><td>기획 프로모션</td><td><code>/admin/store-discovery</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">29</td><td>배달 › 매장 홈 화면 구성</td><td>홈 화면 구성</td><td><code>/admin/stores-home-shelves</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">30</td><td>배달 › 매장 홈 화면 구성 > 업종 관리</td><td>1차 업종</td><td><code>/admin/stores/application-settings?menu=stores&amp;focus=category</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">31</td><td>배달 › 매장 홈 화면 구성 > 업종 관리</td><td>2차 업종</td><td><code>/admin/stores/application-settings?menu=stores&amp;focus=topic</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">32</td><td>배달 › 매장 홈 화면 구성</td><td>매장 목록 노출 정책</td><td><code>/admin/stores-category-policy</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">33</td><td>배달 › 매장 홈 화면 구성</td><td>하단 메뉴</td><td><code>/admin/stores/bottom-nav</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">34</td><td>배달 › 배달 설정</td><td>배달 거리 정책</td><td><code>/admin/delivery-distance</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">35</td><td>배달 › 배달 설정</td><td>매장 알림 설정</td><td><code>/admin/stores/application-settings?menu=alerts</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">36</td><td>배달 › 배달 설정</td><td>커머스 기본값</td><td><code>/admin/commerce-settings</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">37</td><td>배달 › 배달 설정</td><td>결제 수신 기록</td><td><code>/admin/store-payment-events</code></td><td>배달·매장</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">38</td><td>거래 › 운영 현황</td><td>거래 대시보드</td><td><code>/admin/trade</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">39</td><td>거래 › 신고·제재</td><td>거래 신고</td><td><code>/admin/trade/reports</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">40</td><td>거래 › 신고·제재</td><td>거래 활동 제한</td><td><code>/admin/trade/restrictions</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">41</td><td>거래 › 신고·제재</td><td>이의신청</td><td><code>/admin/trade/support?type=appeal</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">42</td><td>거래 › 게시물</td><td>거래 게시물</td><td><code>/admin/posts-management</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">43</td><td>거래 › 게시물</td><td>거래 후기</td><td><code>/admin/reviews</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">44</td><td>거래 › 거래 채팅</td><td>거래 채팅방</td><td><code>/admin/chats/trade</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">45</td><td>거래 › 거래 채팅</td><td>거래 진행·완료</td><td><code>/admin/trade-flow</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">46</td><td>거래 › 거래 채팅</td><td>채팅 신고</td><td><code>/admin/chats/reported?domain=trade</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">47</td><td>거래 › 회원</td><td>판매자·구매자</td><td><code>/admin/trade/members</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">48</td><td>거래 › 홍보</td><td>거래 홍보</td><td><code>/admin/trade/promotions</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">49</td><td>거래 › 홍보</td><td>홍보 상품·가격</td><td><code>/admin/trade-ad-policies</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">50</td><td>거래 › 포인트·충전</td><td>포인트</td><td><code>/admin/trade/points</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">51</td><td>거래 › 포인트·충전</td><td>충전</td><td><code>/admin/trade/point-charges</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">52</td><td>거래 › 문의</td><td>거래 문의</td><td><code>/admin/trade/support</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">53</td><td>거래 › 운영 설정</td><td>카테고리</td><td><code>/admin/menus/trade</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">54</td><td>거래 › 운영 설정</td><td>거래 정책</td><td><code>/admin/trade/settings</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">55</td><td>거래 › 운영 설정</td><td>지역 현황</td><td><code>/admin/trade/regions</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">56</td><td>거래 › 기록</td><td>운영 기록</td><td><code>/admin/trade/audit</code></td><td>거래</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">57</td><td>커뮤니티 › 운영 현황</td><td>커뮤니티 대시보드</td><td><code>/admin/community</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">58</td><td>커뮤니티 › 신고·제재</td><td>신고 처리함</td><td><code>/admin/community/reports</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">59</td><td>커뮤니티 › 신고·제재</td><td>모임 신고</td><td><code>/admin/philife/meeting-reports</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">60</td><td>커뮤니티 › 신고·제재</td><td>활동 제한 회원</td><td><code>/admin/community/restrictions</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">61</td><td>커뮤니티 › 신고·제재</td><td>이의신청</td><td><code>/admin/community/support?type=appeal</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">62</td><td>커뮤니티 › 게시물·댓글</td><td>게시글</td><td><code>/admin/community/posts</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">63</td><td>커뮤니티 › 게시물·댓글</td><td>댓글</td><td><code>/admin/community/comments</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">64</td><td>커뮤니티 › 게시물·댓글</td><td>모임</td><td><code>/admin/community/meetings</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">65</td><td>커뮤니티 › 회원·작성자</td><td>작성자 조회</td><td><code>/admin/community/members</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">66</td><td>커뮤니티 › 홍보</td><td>게시글 홍보</td><td><code>/admin/community/promotions</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">67</td><td>커뮤니티 › 포인트·충전</td><td>포인트 내역·지급</td><td><code>/admin/community/points</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">68</td><td>커뮤니티 › 포인트·충전</td><td>충전 신청</td><td><code>/admin/community/point-charges</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">69</td><td>커뮤니티 › 포인트·충전</td><td>포인트 정책</td><td><code>/admin/community/point-policies</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">70</td><td>커뮤니티 › 문의</td><td>커뮤니티 문의</td><td><code>/admin/community/support</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">71</td><td>커뮤니티 › 콘텐츠 운영</td><td>카테고리</td><td><code>/admin/community/topics</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">72</td><td>커뮤니티 › 콘텐츠 운영</td><td>피드 섹션</td><td><code>/admin/community/sections</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">73</td><td>커뮤니티 › 콘텐츠 운영</td><td>외부 글 가져오기</td><td><code>/admin/community/external-import</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">74</td><td>커뮤니티 › 콘텐츠 운영</td><td>공지·고정</td><td><code>/admin/community/notices</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">75</td><td>커뮤니티 › 운영 기록·설정</td><td>운영 기록</td><td><code>/admin/community/audit</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">76</td><td>커뮤니티 › 운영 기록·설정</td><td>모임 운영 로그</td><td><code>/admin/philife/meeting-events</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">77</td><td>커뮤니티 › 운영 기록·설정</td><td>운영 통계</td><td><code>/admin/community/stats</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">78</td><td>커뮤니티 › 운영 기록·설정</td><td>운영 설정</td><td><code>/admin/community/settings</code></td><td>커뮤니티</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">79</td><td>채팅</td><td>채팅 대시보드</td><td><code>/admin/messenger</code></td><td>채팅</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">80</td><td>채팅 › 신고·제재</td><td>채팅 신고</td><td><code>/admin/chats/reported</code></td><td>채팅</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">81</td><td>채팅 › 통화 기록</td><td>통화·강제 종료 기록</td><td><code>/admin/chats/calls</code></td><td>채팅</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">82</td><td>채팅 › 채팅방</td><td>전체채팅</td><td><code>/admin/chats</code></td><td>채팅</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">83</td><td>채팅 › 채팅방</td><td>거래</td><td><code>/admin/chats?type=trade</code></td><td>채팅</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">84</td><td>채팅 › 채팅방</td><td>배달 주문</td><td><code>/admin/chats?type=store_order</code></td><td>채팅</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">85</td><td>채팅 › 채팅방</td><td>일반 1:1</td><td><code>/admin/chats/general</code></td><td>채팅</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">86</td><td>채팅 › 채팅방</td><td>그룹</td><td><code>/admin/chats/group</code></td><td>채팅</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">87</td><td>채팅 › 시스템</td><td>메신저 성능</td><td><code>/admin/chats/messenger-performance</code></td><td>채팅</td><td>유지</td><td>도메인 완료 구조 불변</td></tr>
+<tr><td class="n">88</td><td>채팅 › 시스템</td><td>채팅 가이드</td><td><code>/admin/docs/chat</code></td><td>채팅</td><td>유지</td><td>J-AMD-4 승인 위치</td></tr>
+<tr><td class="n">89</td><td>재무</td><td>재무 관제</td><td><code>/admin/finance</code></td><td>결제·정산</td><td>유지</td><td></td></tr>
+<tr><td class="n">90</td><td>재무 › Point</td><td>Point 충전</td><td><code>/admin/point-charges</code></td><td>결제·정산</td><td>명칭 변경</td><td>「Point」 → 「회원 포인트」</td></tr>
+<tr><td class="n">91</td><td>재무 › Point</td><td>Point 원장</td><td><code>/admin/points/ledger</code></td><td>결제·정산</td><td>명칭 변경</td><td>「Point」 → 「회원 포인트」</td></tr>
+<tr><td class="n">92</td><td>재무 › Point</td><td>Point 충전플랜</td><td><code>/admin/point-plans</code></td><td>결제·정산</td><td>명칭 변경</td><td>「Point」 → 「회원 포인트」</td></tr>
+<tr><td class="n">93</td><td>재무 › Point</td><td>Point 정책</td><td><code>/admin/point-policies</code></td><td>결제·정산</td><td>명칭 변경</td><td>「Point」 → 「회원 포인트」</td></tr>
+<tr><td class="n">94</td><td>재무 › Point</td><td>Point 실행</td><td><code>/admin/point-executions</code></td><td>결제·정산</td><td>명칭 변경·개선</td><td>「포인트 지급 시험」 V3-07</td></tr>
+<tr><td class="n">95</td><td>재무 › Point</td><td>Point 만료</td><td><code>/admin/points/expire</code></td><td>결제·정산</td><td>명칭 변경·개선</td><td>「포인트 소멸」 V3-06</td></tr>
+<tr><td class="n">96</td><td>재무 › 재무 관제</td><td>전체 거래</td><td><code>/admin/finance/transactions</code></td><td>결제·정산</td><td>유지</td><td></td></tr>
+<tr><td class="n">97</td><td>재무 › 재무 관제</td><td>매장별</td><td><code>/admin/finance/stores</code></td><td>결제·정산</td><td>유지</td><td></td></tr>
+<tr><td class="n">98</td><td>재무 › 재무 관제</td><td>주문별 금액 추적</td><td><code>/admin/finance/orders</code></td><td>결제·정산</td><td>명칭 변경</td><td>「주문별 금액 추적」</td></tr>
+<tr><td class="n">99</td><td>재무 › 재무 관제</td><td>매장 코인 내역</td><td><code>/admin/finance/transactions?wallet=COIN</code></td><td>결제·정산</td><td>명칭 변경</td><td>「매장 코인 내역」</td></tr>
+<tr><td class="n">100</td><td>재무 › 재무 관제</td><td>매장 캐시 내역</td><td><code>/admin/finance/transactions?wallet=CASH</code></td><td>결제·정산</td><td>명칭 변경</td><td>「매장 캐시 내역」</td></tr>
+<tr><td class="n">101</td><td>재무 › 재무 관제</td><td>수수료 / 미납</td><td><code>/admin/finance/outstanding</code></td><td>결제·정산</td><td>유지</td><td></td></tr>
+<tr><td class="n">102</td><td>재무 › 재무 관제</td><td>광고 지출</td><td><code>/admin/finance/ads</code></td><td>결제·정산</td><td>유지</td><td></td></tr>
+<tr><td class="n">103</td><td>재무 › 재무 관제</td><td>출금</td><td><code>/admin/finance/withdrawals</code></td><td>결제·정산</td><td>유지</td><td></td></tr>
+<tr><td class="n">104</td><td>재무 › 재무 관제</td><td>재무 설정</td><td><code>/admin/finance/settings</code></td><td>결제·정산</td><td>유지</td><td></td></tr>
+<tr><td class="n">105</td><td>광고 / 노출</td><td>전체 광고</td><td><code>/admin/advertising</code></td><td>광고·배너</td><td>유지</td><td></td></tr>
+<tr><td class="n">106</td><td>광고 / 노출</td><td>상위노출 관리</td><td><code>/admin/advertising/boosts</code></td><td>광고·배너</td><td>유지</td><td></td></tr>
+<tr><td class="n">107</td><td>광고 / 노출</td><td>광고 승인</td><td><code>/admin/advertising/applications</code></td><td>광고·배너</td><td>유지</td><td></td></tr>
+<tr><td class="n">108</td><td>광고 / 노출</td><td>노출 관리</td><td><code>/admin/advertising/operations</code></td><td>광고·배너</td><td>유지</td><td></td></tr>
+<tr><td class="n">109</td><td>광고 / 노출</td><td>광고 노출 위치 현황</td><td><code>/admin/advertising/placements</code></td><td>광고·배너</td><td>유지</td><td></td></tr>
+<tr><td class="n">110</td><td>광고 / 노출</td><td>광고 상품 / 가격</td><td><code>/admin/advertising/products</code></td><td>광고·배너</td><td>유지</td><td></td></tr>
+<tr><td class="n">111</td><td>광고 / 노출</td><td>광고 이력</td><td><code>/admin/advertising/history</code></td><td>광고·배너</td><td>유지</td><td></td></tr>
+<tr><td class="n">112</td><td>광고 / 노출 › 광고 이력</td><td>광고 / 노출 현황 <span class="pill muted">숨김</span></td><td><code>/admin/delivery-ads</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">113</td><td>광고 / 노출 › 광고 이력</td><td>배너 광고 신청 <span class="pill muted">숨김</span></td><td><code>/admin/ad-applications?domain=feed</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">114</td><td>광고 / 노출 › 광고 이력</td><td>거래 더 알리기 신청 <span class="pill muted">숨김</span></td><td><code>/admin/ad-applications?domain=trade</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">115</td><td>광고 / 노출 › 광고 이력</td><td>커뮤니티 게시물 홍보 <span class="pill muted">숨김</span></td><td><code>/admin/ad-applications?domain=community</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">116</td><td>광고 / 노출 › 광고 이력</td><td>배달 광고 <span class="pill muted">숨김</span></td><td><code>/admin/delivery-ads/manage</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">117</td><td>광고 / 노출 › 광고 이력</td><td>피드 배너 <span class="pill muted">숨김</span></td><td><code>/admin/feed-ads</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">118</td><td>광고 / 노출 › 광고 이력</td><td>팝업 광고 <span class="pill muted">숨김</span></td><td><code>(없음)</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">119</td><td>광고 / 노출 › 광고 이력</td><td>이벤트 <span class="pill muted">숨김</span></td><td><code>(없음)</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">120</td><td>광고 / 노출 › 광고 이력</td><td>오너 프로모션 신청 <span class="pill muted">숨김</span></td><td><code>(없음)</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">121</td><td>광고 / 노출 › 광고 이력</td><td>노출 위치 <span class="pill muted">숨김</span></td><td><code>/admin/delivery-ads/inventory#placement-map</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">122</td><td>광고 / 노출 › 광고 이력</td><td>배너 광고 상품 / 가격 <span class="pill muted">숨김</span></td><td><code>/admin/feed-ad-products</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">123</td><td>광고 / 노출 › 광고 이력</td><td>광고 상품 설정 <span class="pill muted">숨김</span></td><td><code>/admin/delivery-ads/commercial-settings</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">124</td><td>광고 / 노출 › 광고 이력</td><td>이전 Point 노출 기록 <span class="pill muted">숨김</span></td><td><code>/admin/promoted-items</code></td><td>광고·배너</td><td>유지</td><td>숨김 레거시 경로 보존 (CUT C)</td></tr>
+<tr><td class="n">125</td><td>프로모션 / 이벤트</td><td>운영 홈</td><td><code>/admin/platform-promotion</code></td><td>플랫폼 운영</td><td>명칭 변경</td><td>「플랫폼 운영 홈」</td></tr>
+<tr><td class="n">126</td><td>프로모션 / 이벤트</td><td>이벤트</td><td><code>/admin/platform-events</code></td><td>플랫폼 운영</td><td>유지</td><td></td></tr>
+<tr><td class="n">127</td><td>프로모션 / 이벤트</td><td>팝업</td><td><code>/admin/platform-popup</code></td><td>플랫폼 운영</td><td>유지·개선</td><td>window.confirm → 공통 확인창, CAS (V3-03)</td></tr>
+<tr><td class="n">128</td><td>프로모션 / 이벤트</td><td>당겨서 새로고침 광고</td><td><code>/admin/ptr-reveal-ads</code></td><td>플랫폼 운영</td><td>유지·개선</td><td>window.confirm ×8 → 공통 확인창</td></tr>
+<tr><td class="n">129</td><td>프로모션 / 이벤트</td><td>배너</td><td><code>/admin/platform-promotion/banners</code></td><td>플랫폼 운영</td><td>명칭 변경</td><td>「프로모션 배너」</td></tr>
+<tr><td class="n">130</td><td>프로모션 / 이벤트</td><td>알림</td><td><code>/admin/platform-promotion/notifications</code></td><td>(메뉴 제거)</td><td>통합</td><td>링크 허브 — 알림 그룹과 중복</td></tr>
+<tr><td class="n">131</td><td>프로모션 / 이벤트 › 시작 화면</td><td>OS 시작 화면</td><td><code>/admin/platform-promotion/os-start</code></td><td>플랫폼 운영</td><td>유지</td><td></td></tr>
+<tr><td class="n">132</td><td>프로모션 / 이벤트 › 시작 화면</td><td>Intro</td><td><code>/admin/platform-promotion/intro</code></td><td>플랫폼 운영</td><td>명칭 변경</td><td>「인트로」</td></tr>
+<tr><td class="n">133</td><td>프로모션 / 이벤트</td><td>오너 요청</td><td><code>/admin/platform-event-owner-requests</code></td><td>플랫폼 운영</td><td>명칭 변경</td><td>「사장님 이벤트 신청」</td></tr>
+<tr><td class="n">134</td><td>고객지원</td><td>고객지원 관제</td><td><code>/admin/support</code></td><td>고객지원</td><td>유지</td><td></td></tr>
+<tr><td class="n">135</td><td>고객지원</td><td>이전 문의 기록</td><td><code>/admin/support/archive</code></td><td>고객지원</td><td>유지</td><td></td></tr>
+<tr><td class="n">136</td><td>고객지원</td><td>관리자 알림함</td><td><code>/admin/inbox</code></td><td>고객지원</td><td>유지</td><td></td></tr>
+<tr><td class="n">137</td><td>고객지원</td><td>전체 처리 대기함</td><td><code>/admin/order-notifications</code></td><td>고객지원</td><td>명칭 변경</td><td>「전체 처리 대기함」 (J-AMD-3 승인 라벨 적용)</td></tr>
+<tr><td class="n">138</td><td>알림</td><td>푸시·알림 발송</td><td><code>/admin/notifications</code></td><td>알림</td><td>유지</td><td></td></tr>
+<tr><td class="n">139</td><td>알림</td><td>알림 설정</td><td><code>/admin/settings/notifications</code></td><td>알림</td><td>유지</td><td></td></tr>
+<tr><td class="n">140</td><td>알림</td><td>푸시 디바이스</td><td><code>/admin/push-devices</code></td><td>알림</td><td>유지</td><td></td></tr>
+<tr><td class="n">141</td><td>시스템 › 시스템 허브</td><td>시스템 개요</td><td><code>/admin/customer-platform</code></td><td>시스템</td><td>유지</td><td></td></tr>
+<tr><td class="n">142</td><td>시스템 › 시스템 허브</td><td>Action Queue</td><td><code>/admin/customer-platform#action-queue</code></td><td>(메뉴 제거)</td><td>통합</td><td>전체 처리 대기함과 같은 화면 — 시스템 leaf 제거, URL 보존</td></tr>
+<tr><td class="n">143</td><td>시스템 › 시스템 허브</td><td>Monitoring</td><td><code>/admin/customer-platform#monitoring</code></td><td>시스템</td><td>명칭 변경</td><td>「모니터링」</td></tr>
+<tr><td class="n">144</td><td>시스템 › 시스템 허브 > 콘텐츠</td><td>공지관리</td><td><code>/admin/app/notices</code></td><td>플랫폼 운영</td><td>위치 이동</td><td>공통 콘텐츠</td></tr>
+<tr><td class="n">145</td><td>시스템 › 시스템 허브 > 콘텐츠</td><td>FAQ</td><td><code>/admin/customer-platform/faq</code></td><td>플랫폼 운영</td><td>숨김 후보</td><td>페이지 없음 (O-8)</td></tr>
+<tr><td class="n">146</td><td>시스템 › 시스템 허브 > 콘텐츠</td><td>약관·개인정보</td><td><code>/admin/app/legal</code></td><td>플랫폼 운영</td><td>위치 이동</td><td>공통 콘텐츠</td></tr>
+<tr><td class="n">147</td><td>시스템 › 시스템 허브 > 콘텐츠</td><td>사업자 정보</td><td><code>/admin/app/business</code></td><td>플랫폼 운영</td><td>위치 이동</td><td>공통 콘텐츠</td></tr>
+<tr><td class="n">148</td><td>시스템 › 추천 운영</td><td>A/B실험</td><td><code>/admin/recommendation-experiments</code></td><td>플랫폼 운영</td><td>위치 이동·명칭 변경</td><td>추천 — 한글 라벨</td></tr>
+<tr><td class="n">149</td><td>시스템 › 추천 운영</td><td>추천 Analytics</td><td><code>/admin/recommendation-analytics</code></td><td>플랫폼 운영</td><td>위치 이동·명칭 변경</td><td>추천 — 한글 라벨</td></tr>
+<tr><td class="n">150</td><td>시스템 › 추천 운영</td><td>추천 Monitoring</td><td><code>/admin/recommendation-monitoring</code></td><td>플랫폼 운영</td><td>위치 이동·명칭 변경</td><td>추천 — 한글 라벨</td></tr>
+<tr><td class="n">151</td><td>시스템 › 추천 운영</td><td>추천 Deployments</td><td><code>/admin/recommendation-deployments</code></td><td>플랫폼 운영</td><td>위치 이동·명칭 변경</td><td>추천 — 한글 라벨</td></tr>
+<tr><td class="n">152</td><td>시스템 › 추천 운영</td><td>추천 Automation</td><td><code>/admin/recommendation-automation</code></td><td>플랫폼 운영</td><td>위치 이동·명칭 변경</td><td>추천 — 한글 라벨</td></tr>
+<tr><td class="n">153</td><td>시스템 › 추천 운영</td><td>추천보고서</td><td><code>/admin/recommendation-reports</code></td><td>플랫폼 운영</td><td>위치 이동·명칭 변경</td><td>추천 — 한글 라벨</td></tr>
+<tr><td class="n">154</td><td>시스템 › 앱 설정</td><td>설정관리</td><td><code>/admin/settings</code></td><td>시스템</td><td>유지</td><td></td></tr>
+<tr><td class="n">155</td><td>시스템 › 앱 설정</td><td>앱 첫 진입 화면</td><td><code>/admin/settings/startup-config</code></td><td>플랫폼 운영</td><td>위치 이동</td><td>앱 화면 구성</td></tr>
+<tr><td class="n">156</td><td>시스템 › 앱 설정</td><td>Auth 로그인 설정</td><td><code>/admin/settings/auth</code></td><td>시스템</td><td>명칭 변경·개선</td><td>「로그인 설정」 V3-09</td></tr>
+<tr><td class="n">157</td><td>시스템 › 앱 설정</td><td>메뉴 관리</td><td><code>/admin/menus/main-bottom-nav</code></td><td>플랫폼 운영</td><td>위치 이동</td><td>앱 화면 구성</td></tr>
+<tr><td class="n">158</td><td>시스템 › 앱 설정</td><td>카테고리</td><td><code>/admin/categories</code></td><td>(메뉴 제거)</td><td>통합</td><td>거래 › 카테고리로 리다이렉트되는 중복 leaf, URL 보존</td></tr>
+<tr><td class="n">159</td><td>시스템 › 앱 설정</td><td>국가</td><td><code>/admin/app/countries</code></td><td>시스템</td><td>숨김 후보</td><td>TODO 빈 화면 (O-8)</td></tr>
+<tr><td class="n">160</td><td>시스템 › 앱 설정</td><td>언어</td><td><code>/admin/app/languages</code></td><td>시스템</td><td>숨김 후보</td><td>TODO 빈 화면 (O-8)</td></tr>
+<tr><td class="n">161</td><td>시스템 › 앱 설정</td><td>앱 메타</td><td><code>/admin/app/meta</code></td><td>시스템</td><td>숨김 후보</td><td>TODO 빈 화면 (O-8)</td></tr>
+<tr><td class="n">162</td><td>시스템 › 앱 설정</td><td>마이페이지 배너</td><td><code>/admin/my/banners</code></td><td>플랫폼 운영</td><td>위치 이동·개선</td><td>앱 화면 구성 — 배너 쓰기 감사</td></tr>
+<tr><td class="n">163</td><td>시스템 › 앱 설정</td><td>마이페이지 섹션</td><td><code>/admin/my/sections</code></td><td>플랫폼 운영</td><td>위치 이동·개선</td><td>「수정」 링크 404 (V3-11)</td></tr>
+<tr><td class="n">164</td><td>시스템 › 앱 설정</td><td>마이페이지 서비스</td><td><code>/admin/my/services</code></td><td>플랫폼 운영</td><td>위치 이동·개선</td><td>「등록·수정」 링크 404 (V3-11)</td></tr>
+<tr><td class="n">165</td><td>시스템 › 플랫폼 운영 > 관리/보고</td><td>운영보드</td><td><code>/admin/ops-board</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">166</td><td>시스템 › 플랫폼 운영 > 관리/보고 > 운영 지식</td><td>운영문서</td><td><code>/admin/ops-docs</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">167</td><td>시스템 › 플랫폼 운영 > 관리/보고 > 운영 지식</td><td>런북실행</td><td><code>/admin/ops-runbooks</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">168</td><td>시스템 › 플랫폼 운영 > 관리/보고 > 운영 지식</td><td>지식베이스</td><td><code>/admin/ops-knowledge</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">169</td><td>시스템 › 플랫폼 운영 > 관리/보고 > 운영 지식</td><td>지식그래프</td><td><code>/admin/ops-knowledge-graph</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">170</td><td>시스템 › 플랫폼 운영 > 관리/보고 > 운영 평가</td><td>운영학습</td><td><code>/admin/ops-learning</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">171</td><td>시스템 › 플랫폼 운영 > 관리/보고 > 운영 평가</td><td>운영성숙도</td><td><code>/admin/ops-maturity</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">172</td><td>시스템 › 플랫폼 운영 > 관리/보고 > 운영 평가</td><td>운영벤치마크</td><td><code>/admin/ops-benchmarks</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">173</td><td>시스템 › 플랫폼 운영 > 개발/시스템</td><td>QA보드</td><td><code>/admin/qa-board</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">174</td><td>시스템 › 플랫폼 운영 > 개발/시스템</td><td>핫수정/긴급조치</td><td><code>/admin/feed-emergency</code></td><td>시스템</td><td>유지</td><td></td></tr>
+<tr><td class="n">175</td><td>시스템 › 플랫폼 운영 > 개발/시스템</td><td>장기운영</td><td><code>/admin/ops-routines</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">176</td><td>시스템 › 플랫폼 운영 > 개발/시스템</td><td>제품백로그</td><td><code>/admin/product-backlog</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">177</td><td>시스템 › 플랫폼 운영 > 개발/시스템</td><td>스프린트</td><td><code>/admin/dev-sprints</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">178</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 릴리즈관리</td><td>릴리즈노트</td><td><code>/admin/release-notes</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">179</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 릴리즈관리</td><td>릴리즈아카이브</td><td><code>/admin/release-archive</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">180</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 릴리즈관리</td><td>프로덕션전환</td><td><code>/admin/production-migration</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">181</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 시스템관리</td><td>백업/복구</td><td><code>/admin/backup</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">182</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 시스템관리</td><td>데이터 초기화</td><td><code>/admin/system/data-reset</code></td><td>시스템</td><td>유지</td><td></td></tr>
+<tr><td class="n">183</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 시스템관리</td><td>배포 · 운영 적용</td><td><code>/admin/system/deploy</code></td><td>시스템</td><td>유지</td><td></td></tr>
+<tr><td class="n">184</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 시스템관리</td><td>DR시나리오</td><td><code>/admin/dr</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">185</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 시스템관리</td><td>보안점검</td><td><code>/admin/security</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>수동 JSON 보드 (운영 데이터 없음)</td></tr>
+<tr><td class="n">186</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 시스템관리</td><td>성능</td><td><code>/admin/performance</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>수동 JSON 보드</td></tr>
+<tr><td class="n">187</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 시스템관리</td><td>비용</td><td><code>/admin/usage</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>수동 JSON 보드</td></tr>
+<tr><td class="n">188</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 시스템관리</td><td>자동화</td><td><code>/admin/automation</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">189</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 시스템관리</td><td>시스템상태</td><td><code>/admin/system</code></td><td>시스템</td><td>유지</td><td></td></tr>
+<tr><td class="n">190</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 시스템관리</td><td>런타임 상태</td><td><code>/admin/runtime-health</code></td><td>시스템</td><td>유지</td><td></td></tr>
+<tr><td class="n">191</td><td>시스템 › 플랫폼 운영 > 개발/시스템 > 시스템관리</td><td>릴리즈 게이트</td><td><code>/admin/delivery-release-gate</code></td><td>시스템</td><td>유지</td><td></td></tr>
+<tr><td class="n">192</td><td>시스템 › 플랫폼 운영 > 개발/시스템</td><td>Launch readiness</td><td><code>/admin/launch-readiness</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">193</td><td>시스템 › 플랫폼 운영 > 개발/시스템</td><td>Launch week</td><td><code>/admin/launch-week</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td>운영 DB 저장 0건 · 서버 권한 메뉴와 정렬</td></tr>
+<tr><td class="n">194</td><td>시스템 › 플랫폼 운영 > 개발/시스템</td><td>게시판 가이드</td><td><code>/admin/docs/board</code></td><td>시스템</td><td>위치 유지·노출 확대 없음</td><td>운영 가이드 — 역할 제한 그룹 밖으로(전 관리자 조회)</td></tr>
+<tr><td class="n">195</td><td>시스템 › 플랫폼 운영 > 개발/시스템</td><td>운영 메모</td><td><code>/admin/memo</code></td><td>시스템 › 내부 도구</td><td>위치 이동</td><td></td></tr>
+  </table></div>
+</section>
+
+<footer>
+  <p>증거: 저장소 main <code>d3c2c286</code> 정적 추적. 운영 DB 읽기 전용 SELECT로 관리자 계정 분포, 감사 기록 구성, 함수 존재, 마이그레이션 이력, 피드 광고·팝업·포인트 소멸 상태, <code>admin_settings</code> 키를 조회했다(쓰기 0, 테스트 DB 미접근). 미검증(NOT_PROVEN): 모든 화면 렌더와 버튼 동작, 해상도별 잘림, 네이티브 방향 고정 실동작, Android 16 동작(플랫폼 지식 기반), RLS 실제 차단, 외부 서비스 관리자 화면(비공개라 확인하지 않음).</p>
+</footer>
+</div>

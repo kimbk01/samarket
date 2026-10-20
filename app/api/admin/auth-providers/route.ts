@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   buildSupabaseCallbackUrl,
   normalizeOAuthProvider,
@@ -9,6 +10,7 @@ import {
   type AuthProviderRow,
 } from "@/lib/auth/auth-providers";
 import { loadAuthProviderByProvider, loadAuthProviderRows } from "@/lib/auth/auth-provider-store";
+import { maskAuthProviderForAudit } from "@/lib/auth/auth-provider-audit";
 import { clientSafeInternalErrorMessage, jsonError, jsonOk } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -40,8 +42,9 @@ function toPublicRow(row: AuthProviderRow): AuthProviderPublicMeta {
   };
 }
 
+/** V3-09: OAuth 로그인 수단 — 전체 회원 로그인에 영향 → settings 권한 (auth-phone 과 동일 키). */
 export async function GET() {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("settings");
   if (!admin.ok) return admin.response;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return jsonError("supabase_service_unconfigured", 503);
@@ -57,7 +60,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("settings");
   if (!admin.ok) return admin.response;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return jsonError("supabase_service_unconfigured", 503);
@@ -124,5 +127,16 @@ export async function POST(req: NextRequest) {
       500
     );
   }
+  await appendAdminRouteAudit(admin.sb, req, {
+    actorId: admin.actor.userId,
+    targetType: "auth_provider",
+    targetId: provider,
+    action: existing ? "auth_provider.update" : "auth_provider.create",
+    before: existing ? maskAuthProviderForAudit(existing) : null,
+    after: {
+      ...maskAuthProviderForAudit(row),
+      client_secret_changed: (existing?.client_secret ?? "") !== row.client_secret,
+    },
+  });
   return jsonOk({ provider: toPublicRow(refreshed as AuthProviderRow) });
 }

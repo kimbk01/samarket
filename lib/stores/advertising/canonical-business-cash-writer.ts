@@ -367,6 +367,92 @@ export async function debitBusinessCashForDeliveryAd(
   };
 }
 
+/** V3-04 DEF-7 — 사장님 제출 = 비즈캐시 차감 + 상태 전이 단일 트랜잭션 RPC. */
+export const OWNER_SUBMIT_DELIVERY_AD_WITH_BC_RPC =
+  "owner_submit_delivery_ad_with_business_cash" as const;
+
+export type SecureCanonicalBcFailure = Extract<SecureCanonicalBcResult, { ok: false }>;
+
+export type OwnerSubmitDeliveryAdWithBcResult =
+  /** 함수 미배포 DB — 호출자는 기존 2단계(차감 → 전이) 경로로 폴백. */
+  | { status: "rpc_missing" }
+  | { status: "rpc_error"; message: string }
+  /** 차감 실패 — 아무것도 쓰지 않음. */
+  | { status: "cash_failed"; cash: SecureCanonicalBcFailure }
+  /** 전이 실패 — 차감까지 DB 에서 롤백됨. error = owner_delivery_ad_transition 원본 코드. */
+  | { status: "transition_failed"; error: string | undefined }
+  | { status: "ok"; auditId: string | null };
+
+/** 사장님 전이 writer 의 추가 실패 결과 (submit/resubmit + secureBusinessCash 옵션일 때만). */
+export type OwnerDeliveryAdSubmitCashOutcome =
+  | { ok: false; error: "business_cash_failed"; cash: SecureCanonicalBcFailure }
+  /** 원자 함수 미배포 — 라우트가 기존 차감 → 전이 2단계로 폴백한다. */
+  | { ok: false; error: "atomic_submit_rpc_missing" };
+
+function isMissingRpcError(err: { code?: string | null; message?: string | null }): boolean {
+  return (
+    err.code === "PGRST202" ||
+    err.code === "42883" ||
+    /could not find the function/i.test(String(err.message ?? ""))
+  );
+}
+
+/**
+ * DEF-7: submit/resubmit 의 캐시 차감(business_cash_delivery_ad_spend)과
+ * 상태 전이(owner_delivery_ad_transition)를 DB 함수 하나로 — 전이 실패 시 차감도 남지 않는다.
+ */
+export async function ownerSubmitDeliveryAdWithBusinessCash(
+  sb: SupabaseClient,
+  input: {
+    ownerUserId: string;
+    storeId: string;
+    productKind: "store_sponsored" | "banner";
+    campaignId: string;
+    action: "submit" | "resubmit";
+    expectedLifecycle: string;
+    auditAction: string;
+  }
+): Promise<OwnerSubmitDeliveryAdWithBcResult> {
+  const { data, error } = await sb.rpc(OWNER_SUBMIT_DELIVERY_AD_WITH_BC_RPC, {
+    p_owner_user_id: input.ownerUserId,
+    p_store_id: input.storeId,
+    p_product_kind: input.productKind,
+    p_campaign_id: input.campaignId,
+    p_action: input.action,
+    p_expected_lifecycle: input.expectedLifecycle,
+    p_audit_action: input.auditAction,
+  });
+  if (error) {
+    if (isMissingRpcError(error)) return { status: "rpc_missing" };
+    return { status: "rpc_error", message: error.message };
+  }
+  const payload = (data ?? null) as Record<string, unknown> | null;
+  if (!payload || payload.ok !== true) {
+    if (payload?.stage === "cash") {
+      const cash = (payload.cash ?? null) as Record<string, unknown> | null;
+      const insufficient = parseInsufficientBusinessCashRpc(cash);
+      return {
+        status: "cash_failed",
+        cash: insufficient
+          ? { ok: false, error: "INSUFFICIENT_BUSINESS_CASH", insufficient }
+          : {
+              ok: false,
+              error: typeof cash?.error === "string" ? cash.error : "debit_failed",
+              detail: typeof cash?.detail === "string" ? cash.detail : undefined,
+            },
+      };
+    }
+    return {
+      status: "transition_failed",
+      error: typeof payload?.error === "string" ? payload.error : undefined,
+    };
+  }
+  return {
+    status: "ok",
+    auditId: typeof payload.audit_id === "string" ? payload.audit_id : null,
+  };
+}
+
 export async function refundBusinessCashForRejectedDeliveryAd(
   sb: SupabaseClient,
   input: {

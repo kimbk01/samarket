@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
 import {
   APP_NOTICES_CONTENT_SELECT,
@@ -13,6 +14,13 @@ import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-noti
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** 감사 로그 — 본문 전체 대신 길이만 남긴다. */
+function noticeAuditSnapshot(row: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  if (!row) return null;
+  const { body, ...rest } = row;
+  return { ...rest, body_length: typeof body === "string" ? body.length : null };
+}
 
 /** GET /api/admin/app-notices — list Customer Center contents */
 export async function GET(req: NextRequest) {
@@ -113,6 +121,13 @@ export async function POST(req: NextRequest) {
   }
 
   const id = String(data.id);
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "app_notice",
+    targetId: id,
+    action: "app_notice.create",
+    after: noticeAuditSnapshot(data as unknown as Record<string, unknown>),
+  });
   return NextResponse.json({
     ok: true,
     notice: data,

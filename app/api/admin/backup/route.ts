@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
+import { appendAdminSettingsBundleAudit } from "@/lib/admin/audit/admin-settings-bundle-audit";
+import { BACKUP_SETTINGS_KEY } from "@/lib/backup/backup-keys";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
 import { loadBackupBundleFromDb, saveBackupBundleToDb } from "@/lib/backup/backup-db";
@@ -17,7 +19,7 @@ function isBundle(x: unknown): x is BackupBundleV1 {
 
 /** 관리자: 백업 상태 조회 */
 export async function GET() {
-  const admin = await requireAdminApiUser();
+  const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
 
   try {
@@ -58,7 +60,7 @@ export async function GET() {
 
 /** 관리자: 백업 상태 저장 */
 export async function PUT(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
 
   let body: { bundle?: unknown };
@@ -78,6 +80,12 @@ export async function PUT(req: NextRequest) {
     if (!saved.ok) {
       return NextResponse.json({ ok: false, error: saved.error }, { status: 503 });
     }
+    await appendAdminSettingsBundleAudit(admin.sb, req, {
+      actorId: admin.actor.userId,
+      settingsKey: BACKUP_SETTINGS_KEY,
+      tool: "backup",
+      bundle: body.bundle,
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

@@ -51,6 +51,17 @@ export const CUT_F_ADMIN_TRANSACTIONAL_MUTATION = {
   legacyAdminWriters: "disabled_mutation",
 } as const;
 
+/** V3-04 DEF-5 — 반려 + 비즈캐시 환불 단일 트랜잭션 RPC. */
+export const ADMIN_DELIVERY_AD_REJECT_WITH_REFUND_RPC = "admin_delivery_ad_reject_with_refund" as const;
+
+function isMissingRpcError(err: { code?: string | null; message?: string | null }): boolean {
+  return (
+    err.code === "PGRST202" ||
+    err.code === "42883" ||
+    /could not find the function/i.test(String(err.message ?? ""))
+  );
+}
+
 export type AdminDeliveryAdWriterError =
   | "forbidden"
   | "invalid_product"
@@ -70,6 +81,7 @@ export type AdminDeliveryAdWriterError =
   | "funding_required"
   | "use_extension_flow"
   | "capacity_full"
+  | "reject_refund_failed"
   | "db_error"
   | "rpc_failed";
 
@@ -84,7 +96,7 @@ export type AdminTransitionResult =
       auditId?: string;
       /**
        * 반려는 커밋됐지만 매장 캐시 환불이 실패한 경우 — 관리자 화면에 경고로 노출 (DEF-5).
-       * 원자화(D-2) 전까지 은닉 금지.
+       * V3-04 원자 함수(admin_delivery_ad_reject_with_refund) 미배포 DB 폴백에서만 발생.
        */
       refundWarning?: string;
       /** 환불 실패 건을 광고 운영 처리 대기(case WAITING_ADMIN)로 올렸는지 (DEF-5 · D-2 전 임시 노출). */
@@ -111,6 +123,7 @@ function mapRpcError(raw: unknown): AdminDeliveryAdWriterError {
     e === "destination_not_ready" ||
     e === "funding_required" ||
     e === "capacity_full" ||
+    e === "reject_refund_failed" ||
     e === "db_error"
   ) {
     return e;
@@ -239,22 +252,54 @@ export async function adminTransitionDeliveryAdCampaign(
     }
   }
 
-  const { data, error } = await sb.rpc("admin_delivery_ad_transition", {
-    p_admin_user_id: input.adminUserId,
-    p_product_kind: input.productKind,
-    p_campaign_id: input.campaignId,
-    p_action: input.action,
-    p_expected_lifecycle: input.expectedLifecycle,
-    p_expected_updated_at: input.expectedUpdatedAt,
-    p_reason: input.reason?.trim() || null,
-    p_owner_visible_notes: input.ownerVisibleNotes?.trim() || input.reason?.trim() || null,
-  });
+  const reason = input.reason?.trim() || null;
+  const ownerVisibleNotes = input.ownerVisibleNotes?.trim() || input.reason?.trim() || null;
+
+  // V3-04 DEF-5 (O-9): 반려 = 상태 전이 + 캐시 환불 한 트랜잭션. 함수 미배포 DB 에서만 아래 2단계 폴백.
+  let atomicReject = false;
+  let rpc: { data: unknown; error: { code?: string; message: string } | null } | null = null;
+  if (input.action === "reject") {
+    const atomic = await sb.rpc(ADMIN_DELIVERY_AD_REJECT_WITH_REFUND_RPC, {
+      p_admin_user_id: input.adminUserId,
+      p_product_kind: input.productKind,
+      p_campaign_id: input.campaignId,
+      p_expected_lifecycle: input.expectedLifecycle,
+      p_expected_updated_at: input.expectedUpdatedAt,
+      p_reason: reason,
+      p_owner_visible_notes: ownerVisibleNotes,
+    });
+    if (!atomic.error || !isMissingRpcError(atomic.error)) {
+      atomicReject = true;
+      rpc = atomic;
+    }
+  }
+  if (!rpc) {
+    rpc = await sb.rpc("admin_delivery_ad_transition", {
+      p_admin_user_id: input.adminUserId,
+      p_product_kind: input.productKind,
+      p_campaign_id: input.campaignId,
+      p_action: input.action,
+      p_expected_lifecycle: input.expectedLifecycle,
+      p_expected_updated_at: input.expectedUpdatedAt,
+      p_reason: reason,
+      p_owner_visible_notes: ownerVisibleNotes,
+    });
+  }
+  const { data, error } = rpc;
 
   if (error) {
     return { ok: false, error: "rpc_failed", detail: error.message };
   }
   const payload = data as Record<string, unknown> | null;
   if (!payload || payload.ok !== true) {
+    if (atomicReject && payload?.error === "refund_failed") {
+      // 환불 실패 → DB 에서 반려까지 롤백됨. 캠페인 상태는 그대로.
+      return {
+        ok: false,
+        error: "reject_refund_failed",
+        detail: typeof payload?.detail === "string" ? payload.detail : undefined,
+      };
+    }
     return {
       ok: false,
       error: mapRpcError(payload?.error),
@@ -273,7 +318,8 @@ export async function adminTransitionDeliveryAdCampaign(
   let refundWarning: string | undefined;
   let refundQueued: boolean | undefined;
   // Terminal REJECT refunds canonical Cash exactly once (not on request_changes).
-  if (input.action === "reject") {
+  // 원자 함수 경로에서는 이미 같은 트랜잭션에서 환불됨 — 아래는 함수 미배포 폴백 전용.
+  if (input.action === "reject" && !atomicReject) {
     const productKind = input.productKind === "banner" ? "banner" : "store_sponsored";
     const { refundBusinessCashForRejectedDeliveryAd } = await import(
       "@/lib/stores/advertising/canonical-business-cash-writer"

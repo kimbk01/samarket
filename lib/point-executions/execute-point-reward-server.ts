@@ -26,6 +26,13 @@ export interface ExecutePointRewardInput {
   userId: string;
   userNickname: string;
   userType: "free" | "premium";
+  /** V3-07: 관리자 실지급 사유 — 원장 설명에 함께 남긴다. */
+  reason?: string;
+  /**
+   * V3-07: 관리자가 확인창에서 다시 입력한 지급 포인트(미리보기 상한).
+   * 실제 계산된 지급액이 이 값을 넘으면 지급하지 않고 blocked 로 기록한다.
+   */
+  confirmedMaxPoint?: number;
 }
 
 async function recordBlocked(
@@ -129,6 +136,19 @@ export async function executePointRewardServer(
     });
   }
 
+  if (
+    input.confirmedMaxPoint != null &&
+    Number.isFinite(input.confirmedMaxPoint) &&
+    sim.rewardPoint > input.confirmedMaxPoint
+  ) {
+    return recordBlocked(sb, input, executionKey, {
+      basePoint: sim.basePoint,
+      appliedMultiplier: sim.appliedMultiplier,
+      capped: sim.capped,
+      reason: `확인 금액 초과 (계산 ${sim.rewardPoint}P > 확인 ${input.confirmedMaxPoint}P)`,
+    });
+  }
+
   const rewardType =
     input.actionType === "write" ? policy.writeRewardType : policy.commentRewardType;
   const expirePolicy = await getActivePointExpirePolicyDb(sb);
@@ -142,7 +162,9 @@ export async function executePointRewardServer(
     entryType: "reward",
     relatedType: "community_reward",
     relatedId: input.targetId,
-    description: `${input.actionType === "write" ? "글쓰기" : "댓글"} 보상 (${policy.boardName})`,
+    description: `${input.actionType === "write" ? "글쓰기" : "댓글"} 보상 (${policy.boardName})${
+      input.reason?.trim() ? ` · 관리자 지급 사유: ${input.reason.trim()}` : ""
+    }`,
     actorType: "system",
     earnedAt: withExpire ? nowIso : undefined,
     expiresAt: withExpire ? computeExpiresAt(nowIso, expirePolicy.expireAfterDays) : undefined,

@@ -30,6 +30,18 @@ import type {
 import { PLATFORM_POPUP_DEFAULT_TIMEZONE } from "@/lib/platform-popup/types";
 import { refundBusinessCashForRejectedDeliveryAd } from "@/lib/stores/advertising/canonical-business-cash-writer";
 
+/** V3-03 — 거절 = 비즈캐시 환불 + 상태 rejected 단일 트랜잭션. */
+export const ADMIN_REJECT_POPUP_OWNER_REQUEST_RPC =
+  "admin_reject_platform_popup_owner_request" as const;
+
+function isMissingRpcError(err: { code?: string | null; message?: string | null }): boolean {
+  return (
+    err.code === "PGRST202" ||
+    err.code === "42883" ||
+    /could not find the function/i.test(String(err.message ?? ""))
+  );
+}
+
 export type AdminPlatformPopupRequestActionResult =
   | {
       ok: true;
@@ -281,36 +293,72 @@ export async function adminActOnPlatformPopupOwnerRequest(
   }
 
   if (input.action === "reject") {
+    // V3-03 (O-9): 환불 + 상태 rejected 를 DB 함수 한 트랜잭션으로 (행 잠금 + 상태 전제).
+    const atomic = await sb.rpc(ADMIN_REJECT_POPUP_OWNER_REQUEST_RPC, {
+      p_request_id: request.id,
+      p_reason: input.reason?.trim() || null,
+      p_actor: input.adminUserId,
+    });
     let paymentStatus = request.paymentStatus;
-    if (request.paymentStatus === "funded") {
-      const refund = await refundBusinessCashForRejectedDeliveryAd(sb, {
-        adminUserId: input.adminUserId,
-        applicationId: request.id,
-        productKind: "platform_popup",
-      });
-      if (!refund.ok) {
+    if (atomic.error && !isMissingRpcError(atomic.error)) {
+      return { ok: false, error: atomic.error.message, httpStatus: 500 };
+    }
+    if (!atomic.error) {
+      const out = (atomic.data ?? {}) as {
+        ok?: boolean;
+        error?: string;
+        detail?: string | null;
+        payment_status?: string;
+      };
+      if (!out.ok) {
+        const error = String(out.error ?? "reject_failed");
         return {
           ok: false,
-          error: `refund_failed:${refund.error}`,
-          detail: refund.detail,
-          httpStatus: 400,
+          error,
+          detail: out.detail ?? undefined,
+          httpStatus:
+            error === "not_found"
+              ? 404
+              : error === "illegal_transition"
+                ? 409
+                : error.startsWith("refund_failed:")
+                  ? 400
+                  : 500,
         };
       }
-      paymentStatus = nextPaymentAfterReject(request.paymentStatus);
-    }
+      paymentStatus = (out.payment_status ?? paymentStatus) as typeof paymentStatus;
+    } else {
+      // 배포 순서 안전: RPC 미적용 DB 에서만 기존 2단계 경로.
+      if (request.paymentStatus === "funded") {
+        const refund = await refundBusinessCashForRejectedDeliveryAd(sb, {
+          adminUserId: input.adminUserId,
+          applicationId: request.id,
+          productKind: "platform_popup",
+        });
+        if (!refund.ok) {
+          return {
+            ok: false,
+            error: `refund_failed:${refund.error}`,
+            detail: refund.detail,
+            httpStatus: 400,
+          };
+        }
+        paymentStatus = nextPaymentAfterReject(request.paymentStatus);
+      }
 
-    const now = new Date().toISOString();
-    const { error } = await sb
-      .from(PLATFORM_POPUP_OWNER_REQUEST_TABLE)
-      .update({
-        request_status: "rejected",
-        payment_status: paymentStatus,
-        rejection_reason: input.reason?.trim() || null,
-        reviewed_at: now,
-        updated_at: now,
-      })
-      .eq("id", request.id);
-    if (error) return { ok: false, error: error.message, httpStatus: 500 };
+      const now = new Date().toISOString();
+      const { error } = await sb
+        .from(PLATFORM_POPUP_OWNER_REQUEST_TABLE)
+        .update({
+          request_status: "rejected",
+          payment_status: paymentStatus,
+          rejection_reason: input.reason?.trim() || null,
+          reviewed_at: now,
+          updated_at: now,
+        })
+        .eq("id", request.id);
+      if (error) return { ok: false, error: error.message, httpStatus: 500 };
+    }
 
     // If a campaign was somehow linked, reject it too (should be rare pre-approve).
     if (request.adminCampaignId) {

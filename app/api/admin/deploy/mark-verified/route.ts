@@ -17,6 +17,7 @@ import {
   normalizeImpactScope,
 } from "@/lib/admin/deploy-promotion/deploy-evidence-gates";
 import { requireDeployOwner } from "@/lib/admin/deploy-promotion/deploy-owner";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,6 +86,19 @@ export async function POST(req: Request) {
   });
 
   const persist = await tryPersistLedgerRow(gate.sb, record, evidence);
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "deploy_promotion",
+    targetId: sha,
+    action: "deploy.mark_verified",
+    before: { status: existing.status },
+    after: {
+      status: record.status,
+      layers: layerCheck.layers,
+      impact_scope: impact,
+      ledger_persisted: persist.persisted,
+    },
+  });
 
   return NextResponse.json({
     ok: true,

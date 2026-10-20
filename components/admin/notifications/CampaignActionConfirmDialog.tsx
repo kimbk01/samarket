@@ -7,6 +7,10 @@ import {
   type CampaignConfirmAction,
   type CampaignConfirmFacts,
 } from "@/lib/admin/notification-campaigns/campaign-action-confirm-copy";
+import {
+  campaignSendConfirmMatchLabel,
+  campaignSendConfirmMatchText,
+} from "@/lib/admin/notification-campaigns/campaign-send-typed-confirm";
 
 /**
  * Campaign mutation confirm — every send/schedule/cancel/stop/resend/archive re-shows
@@ -31,6 +35,9 @@ export function CampaignActionConfirmDialog({
 }) {
   const open = action != null && facts != null;
   const copy = action ? campaignConfirmCopy(action, lang) : null;
+  const confirmMatchText = campaignSendConfirmMatchText(action, facts, lang);
+  const confirmMatchLabel = campaignSendConfirmMatchLabel(confirmMatchText, facts, lang);
+
   return (
     <AdminActionConfirmDialog
       open={open}
@@ -40,6 +47,8 @@ export function CampaignActionConfirmDialog({
       cancelLabel={cancelLabel}
       tone={copy?.tone ?? "primary"}
       pending={pending}
+      confirmMatchText={confirmMatchText}
+      confirmMatchLabel={confirmMatchLabel}
       onCancel={onCancel}
       onConfirm={() => onConfirm()}
     >

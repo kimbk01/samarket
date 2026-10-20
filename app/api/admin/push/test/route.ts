@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
 import { getNotificationEventDefinition } from "@/lib/notifications/core/notification-event-registry";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
@@ -25,8 +26,11 @@ type TestBody = {
   idempotency_key?: unknown;
 };
 
+/**
+ * V3-10: 단건 테스트 푸시 — 대량 발송과 같은 기준(관리자 누구나). 발송 시 감사 로그 1건.
+ */
 export async function POST(req: NextRequest) {
-  const perm = await requireAdminPermission("dev");
+  const perm = await requireAdminApiUser();
   if (!perm.ok) return perm.response;
 
   const parsed = await parseJsonBody<TestBody>(req);
@@ -146,6 +150,20 @@ export async function POST(req: NextRequest) {
     targets_found: dispatchResult.targets_found,
     delivery_audits: dispatchResult.deliveries.length,
     skipped_reason: dispatchResult.skipped_reason ?? null,
+  });
+
+  await appendAdminRouteAudit(svc, req, {
+    actorId: perm.userId,
+    targetType: "user",
+    targetId: userId,
+    action: "push.test_send",
+    after: {
+      notification_event_id: created.row.id,
+      target_device_id: targetDeviceId || null,
+      targets_found: dispatchResult.targets_found,
+      deliveries: dispatchResult.deliveries.length,
+      skipped_reason: dispatchResult.skipped_reason ?? null,
+    },
   });
 
   const recentDeliveries = dispatchResult.deliveries;

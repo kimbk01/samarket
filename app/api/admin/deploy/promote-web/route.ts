@@ -11,6 +11,7 @@ import {
   upsertDeployPromotionRecord,
 } from "@/lib/admin/deploy-promotion/deploy-promotion-store";
 import { requireDeployOwner } from "@/lib/admin/deploy-promotion/deploy-owner";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { evaluateProductionPromoteExecution } from "@/lib/admin/deploy-promotion/deploy-execution-guard";
 import { promoteWebShaViaGithub } from "@/lib/admin/deploy-promotion/promote-web-sha-github";
 
@@ -89,6 +90,14 @@ export async function POST(req: Request) {
 
   const result = await promoteWebShaViaGithub({ sha });
   if (!result.ok) {
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: gate.actor.userId,
+      targetType: "deploy_promotion",
+      targetId: sha,
+      action: "deploy.promote_web",
+      before: { status: existing.status },
+      after: { status: "failed", layers: layerCheck.layers, error: result.error },
+    });
     upsertDeployPromotionRecord({
       ...existing,
       status: "failed",
@@ -114,6 +123,18 @@ export async function POST(req: Request) {
     promotedBy: gate.actor.userId,
     promotedAt: new Date().toISOString(),
     githubResult: `${result.mode}:${result.ref}`,
+  });
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "deploy_promotion",
+    targetId: sha,
+    action: "deploy.promote_web",
+    before: { status: existing.status },
+    after: {
+      status: record.status,
+      layers: layerCheck.layers,
+      github_result: record.githubResult ?? null,
+    },
   });
 
   return NextResponse.json({ ok: true, record, result });

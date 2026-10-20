@@ -17,7 +17,9 @@ import {
 import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useAdminPointExecutionData } from "@/hooks/useAdminPointExecutionData";
 import {
   filterPointRewardExecutions,
@@ -31,6 +33,19 @@ import { PointRewardLogList } from "./PointRewardLogList";
 
 type TabId = "executions" | "reclaim" | "logs";
 
+type PendingRewardGrant = {
+  boardKey: string;
+  actionType: "write" | "comment";
+  targetId: string;
+  targetType: "post" | "comment";
+  userId: string;
+  userNickname: string;
+  userType: "free" | "premium";
+  reason: string;
+  /** 정책 미리보기 지급액 (잔액 0 기준 = 실제 지급 상한) */
+  previewPoint: number;
+};
+
 const DEFAULT_FILTERS: AdminPointExecutionFilters = {
   status: "",
   boardKey: "",
@@ -39,7 +54,8 @@ const DEFAULT_FILTERS: AdminPointExecutionFilters = {
 };
 
 export function AdminPointExecutionPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const tabs: { id: TabId; label: string }[] = [
     { id: "executions", label: t("admin_points_exec_tab_executions") },
     { id: "reclaim", label: t("admin_points_exec_tab_reclaim") },
@@ -48,6 +64,9 @@ export function AdminPointExecutionPage() {
   const [activeTab, setActiveTab] = useState<TabId>("executions");
   const [filters, setFilters] = useState<AdminPointExecutionFilters>(DEFAULT_FILTERS);
   const [refresh, setRefresh] = useState(0);
+  const [pendingGrant, setPendingGrant] = useState<PendingRewardGrant | null>(null);
+  const [grantBusy, setGrantBusy] = useState(false);
+  const [grantMsg, setGrantMsg] = useState<string | null>(null);
 
   const { executions, reclaimPolicies, rewardLogs } = useAdminPointExecutionData(refresh);
   const filteredExecutions = useMemo(
@@ -55,31 +74,99 @@ export function AdminPointExecutionPage() {
     [executions, filters]
   );
 
+  /**
+   * V3-07: 실제 포인트가 지급된다 — 사유(2자 이상) 입력 → 정책 미리보기로 지급액 확인 →
+   * 확인창에서 「닉네임 지급액」 을 다시 입력해야 POST.
+   */
   const handleTestExecute = async (e: React.FormEvent) => {
     e.preventDefault();
+    setGrantMsg(null);
     const form = e.target as HTMLFormElement;
     const boardKey = (form.querySelector('[name="boardKey"]') as HTMLSelectElement)?.value ?? "general";
     const actionType = ((form.querySelector('[name="actionType"]') as HTMLSelectElement)?.value ?? "write") as "write" | "comment";
     const targetId = (form.querySelector('[name="targetId"]') as HTMLInputElement)?.value ?? "post-test-1";
     const targetType = ((form.querySelector('[name="targetType"]') as HTMLSelectElement)?.value ?? "post") as "post" | "comment";
     const userId = (form.querySelector('[name="userId"]') as HTMLInputElement)?.value ?? "me";
-    const userNickname = (form.querySelector('[name="userNickname"]') as HTMLInputElement)?.value ?? t("admin_points_test_nickname");
+    const userNickname = ((form.querySelector('[name="userNickname"]') as HTMLInputElement)?.value ?? "").trim();
     const userType = ((form.querySelector('[name="userType"]') as HTMLSelectElement)?.value ?? "free") as "free" | "premium";
-    await adminFetch("/api/admin/point-executions/reward", {
+    const reason = ((form.querySelector('[name="reason"]') as HTMLInputElement)?.value ?? "").trim();
+    if (reason.length < 2) {
+      setGrantMsg(ko ? "지급 사유를 2자 이상 입력하세요." : "Enter a reason (2+ characters).");
+      return;
+    }
+    if (!userNickname) {
+      setGrantMsg(ko ? "대상 닉네임을 입력하세요." : "Enter the target nickname.");
+      return;
+    }
+    // 정책 미리보기 (잔액 0 기준 — 무상 한도 적용 전이라 실제 지급액의 상한)
+    const simRes = await adminFetch("/api/admin/point-policies/simulate", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        boardKey,
-        actionType,
-        targetId,
-        targetType,
-        userId,
-        userNickname,
-        userType,
-      }),
+      body: JSON.stringify({ boardKey, actionType, userType, currentPointBalance: 0 }),
     });
-    setRefresh((r) => r + 1);
+    const simJson = (await simRes.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+      result?: { rewardPoint?: number } | null;
+    };
+    if (!simRes.ok || !simJson.ok) {
+      setGrantMsg(adminOperatorErrorMessage(simJson.error || "db_error", ko));
+      return;
+    }
+    const previewPoint = Math.max(0, Math.trunc(Number(simJson.result?.rewardPoint ?? 0)));
+    if (previewPoint < 1) {
+      setGrantMsg(ko ? "현재 정책으로는 지급할 포인트가 없습니다." : "The current policy grants 0 points.");
+      return;
+    }
+    setPendingGrant({
+      boardKey,
+      actionType,
+      targetId,
+      targetType,
+      userId,
+      userNickname,
+      userType,
+      reason,
+      previewPoint,
+    });
+  };
+
+  const confirmGrant = async () => {
+    if (!pendingGrant) return;
+    setGrantBusy(true);
+    try {
+      const { previewPoint, ...rest } = pendingGrant;
+      const res = await adminFetch("/api/admin/point-executions/reward", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...rest, confirmedPoint: previewPoint }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        execution?: { status?: string; finalPoint?: number; reason?: string } | null;
+      };
+      if (!res.ok || !json.ok) {
+        setGrantMsg(adminOperatorErrorMessage(json.error || "db_error", ko));
+        return;
+      }
+      const ex = json.execution;
+      setGrantMsg(
+        ex?.status === "success"
+          ? ko
+            ? `실지급 완료: ${pendingGrant.userNickname} +${ex.finalPoint ?? 0}P`
+            : `Granted: ${pendingGrant.userNickname} +${ex.finalPoint ?? 0}P`
+          : ko
+            ? `지급되지 않음: ${ex?.reason ?? "차단"}`
+            : `Not granted: ${ex?.reason ?? "blocked"}`
+      );
+      setPendingGrant(null);
+      setRefresh((r) => r + 1);
+    } finally {
+      setGrantBusy(false);
+    }
   };
 
   return (
@@ -157,9 +244,54 @@ export function AdminPointExecutionPage() {
                   <option value="premium">{pointUserTypeLabel(t, "premium")}</option>
                 </select>
               </div>
-              <button type="submit" className="rounded border border-signature bg-signature px-3 py-1.5 sam-text-body-secondary font-medium text-white"> {t("admin_points_btn_run")}
+              <div>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">
+                  {ko ? "지급 사유 (필수)" : "Reason (required)"}
+                </label>
+                <input
+                  name="reason"
+                  type="text"
+                  required
+                  minLength={2}
+                  maxLength={300}
+                  className="w-48 rounded border border-sam-border px-2 py-1.5"
+                />
+              </div>
+              <button type="submit" className="rounded border border-signature bg-signature px-3 py-1.5 sam-text-body-secondary font-medium text-white">
+                {ko ? "실지급 실행" : "Grant (real points)"}
               </button>
             </form>
+            <p className="mt-2 sam-text-helper text-sam-muted">
+              {ko
+                ? "시험용이 아닙니다 — 대상 회원에게 실제 포인트가 지급되고 원장에 기록됩니다."
+                : "Not a dry run — real points are credited to the member and recorded in the ledger."}
+            </p>
+            {grantMsg ? <p className="mt-1 sam-text-body text-sam-fg">{grantMsg}</p> : null}
+            <AdminActionConfirmDialog
+              open={pendingGrant != null}
+              title={ko ? "포인트 실지급" : "Grant real points"}
+              description={
+                pendingGrant
+                  ? ko
+                    ? `${pendingGrant.userNickname} (${pendingGrant.userId}) 에게 최대 ${pendingGrant.previewPoint}P 가 실제로 지급됩니다. 사유: ${pendingGrant.reason}`
+                    : `Up to ${pendingGrant.previewPoint}P will actually be credited to ${pendingGrant.userNickname} (${pendingGrant.userId}). Reason: ${pendingGrant.reason}`
+                  : ""
+              }
+              confirmLabel={ko ? "실지급" : "Grant"}
+              cancelLabel={ko ? "취소" : "Cancel"}
+              tone="danger"
+              confirmMatchText={pendingGrant ? `${pendingGrant.userNickname} ${pendingGrant.previewPoint}` : ""}
+              confirmMatchLabel={
+                pendingGrant
+                  ? ko
+                    ? `확인을 위해 대상 닉네임과 지급액 「${pendingGrant.userNickname} ${pendingGrant.previewPoint}」 를 입력하세요`
+                    : `Type the nickname and amount 「${pendingGrant.userNickname} ${pendingGrant.previewPoint}」 to confirm`
+                  : undefined
+              }
+              pending={grantBusy}
+              onCancel={() => setPendingGrant(null)}
+              onConfirm={() => void confirmGrant()}
+            />
           </AdminCard>
           <AdminCard titleKey="admin_points_exec_card_history">
             <div className="mb-3">

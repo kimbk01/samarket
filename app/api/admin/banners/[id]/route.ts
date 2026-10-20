@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   getAdminBannerById,
   insertBannerChangeLog,
@@ -60,6 +61,7 @@ export async function PATCH(
   }
 
   try {
+    const beforeBanner = await getAdminBannerById(sb, id).catch(() => null);
     const banner = await updateAdminBanner(sb, id, body);
     const { data: prof } = await sb
       .from("profiles")
@@ -76,6 +78,14 @@ export async function PATCH(
       adminId: admin.userId,
       adminNickname: nick || "admin",
       note: "배너 수정",
+    });
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "admin_banner",
+      targetId: id,
+      action: "banner.update",
+      before: (beforeBanner as unknown as Record<string, unknown> | null) ?? null,
+      after: banner as unknown as Record<string, unknown>,
     });
     return NextResponse.json({ ok: true, banner });
   } catch (e) {

@@ -34,7 +34,11 @@ import type { DeliveryAdCtaTarget } from "@/lib/stores/advertising/delivery-ad-c
 import type { OwnerCampaignAction } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import { ownerActionTargetLifecycle } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import { safeFanOutDeliveryAdLifecycleAudit } from "@/lib/stores/advertising/delivery-ad-operations-lifecycle-fanout";
-import { hasCanonicalBcFundingSecured } from "@/lib/stores/advertising/canonical-business-cash-writer";
+import {
+  hasCanonicalBcFundingSecured,
+  ownerSubmitDeliveryAdWithBusinessCash,
+  type OwnerDeliveryAdSubmitCashOutcome,
+} from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 const BANNER_JUNCTION = "delivery_banner_campaign_inventories" as const;
 const INVENTORY_TABLE = "delivery_ad_inventories" as const;
@@ -478,8 +482,10 @@ export async function transitionOwnerBannerCampaign(
     campaignId: string;
     ownerUserId: string;
     action: OwnerCampaignAction;
+    /** V3-04 DEF-7: submit/resubmit 시 비즈캐시 차감을 같은 DB 트랜잭션에서 수행. */
+    secureBusinessCash?: { storeId: string };
   }
-): Promise<OwnerBannerWriterResult<OwnerBannerCampaignRow>> {
+): Promise<OwnerBannerWriterResult<OwnerBannerCampaignRow> | OwnerDeliveryAdSubmitCashOutcome> {
   const loaded = await loadOwnerBannerCampaign(sb, input.campaignId, input.ownerUserId);
   if (!loaded.ok) return loaded;
   const row = loaded.row;
@@ -526,27 +532,52 @@ export async function transitionOwnerBannerCampaign(
     }
   }
 
-  const { data, error } = await sb.rpc("owner_delivery_ad_transition", {
-    p_owner_user_id: input.ownerUserId,
-    p_product_kind: "banner",
-    p_campaign_id: input.campaignId,
-    p_action: input.action,
-    p_expected_lifecycle: row.lifecycleStatus,
-    p_audit_action: `owner_banner_${input.action}`,
-  });
-  if (error) {
-    console.error("[transitionOwnerBannerCampaign]", error.message);
-    return { ok: false, error: "db_error" };
+  let auditId: string | null;
+  if (input.secureBusinessCash && (input.action === "submit" || input.action === "resubmit")) {
+    const atomic = await ownerSubmitDeliveryAdWithBusinessCash(sb, {
+      ownerUserId: input.ownerUserId,
+      storeId: input.secureBusinessCash.storeId,
+      productKind: "banner",
+      campaignId: input.campaignId,
+      action: input.action,
+      expectedLifecycle: row.lifecycleStatus,
+      auditAction: `owner_banner_${input.action}`,
+    });
+    if (atomic.status === "rpc_missing") return { ok: false, error: "atomic_submit_rpc_missing" };
+    if (atomic.status === "cash_failed") {
+      return { ok: false, error: "business_cash_failed", cash: atomic.cash };
+    }
+    if (atomic.status === "rpc_error") {
+      console.error("[transitionOwnerBannerCampaign]", atomic.message);
+      return { ok: false, error: "db_error" };
+    }
+    if (atomic.status === "transition_failed") {
+      return { ok: false, error: mapOwnerBannerTransitionRpcError(atomic.error) };
+    }
+    auditId = atomic.auditId;
+  } else {
+    const { data, error } = await sb.rpc("owner_delivery_ad_transition", {
+      p_owner_user_id: input.ownerUserId,
+      p_product_kind: "banner",
+      p_campaign_id: input.campaignId,
+      p_action: input.action,
+      p_expected_lifecycle: row.lifecycleStatus,
+      p_audit_action: `owner_banner_${input.action}`,
+    });
+    if (error) {
+      console.error("[transitionOwnerBannerCampaign]", error.message);
+      return { ok: false, error: "db_error" };
+    }
+    const payload = data as {
+      ok?: boolean;
+      error?: string;
+      audit_id?: string;
+    } | null;
+    if (!payload?.ok) {
+      return { ok: false, error: mapOwnerBannerTransitionRpcError(payload?.error) };
+    }
+    auditId = typeof payload.audit_id === "string" ? payload.audit_id : null;
   }
-  const payload = data as {
-    ok?: boolean;
-    error?: string;
-    audit_id?: string;
-  } | null;
-  if (!payload?.ok) {
-    return { ok: false, error: mapOwnerBannerTransitionRpcError(payload?.error) };
-  }
-  const auditId = typeof payload.audit_id === "string" ? payload.audit_id : null;
   if (!auditId) return { ok: false, error: "db_error" };
 
   const reloaded = await loadOwnerBannerCampaign(sb, row.id, input.ownerUserId);
