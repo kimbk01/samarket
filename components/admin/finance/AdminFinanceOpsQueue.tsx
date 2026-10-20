@@ -40,11 +40,12 @@ export function AdminFinanceOpsQueue() {
       const [pointRes, cashRes, coinRes] = await Promise.all([
         // 서버 exact count (`total`) — 처리 대기(pending·waiting_confirm·on_hold)만, 행은 1건만 받는다.
         fetch("/api/admin/point-charges?status=open&limit=1", { credentials: "include", cache: "no-store" }),
-        fetch("/api/admin/business-cash-charges?status=PENDING", {
+        // 건수 = 서버 count(total) — 예전 100건 목록 길이로 세면 100건 넘을 때 덜 셌다 (R7)
+        fetch("/api/admin/business-cash-charges?status=PENDING&limit=20&offset=0", {
           credentials: "include",
           cache: "no-store",
         }),
-        fetch("/api/admin/coin-withdrawals?status=REQUESTED", {
+        fetch("/api/admin/coin-withdrawals?status=REQUESTED&limit=20&offset=0", {
           credentials: "include",
           cache: "no-store",
         }),
@@ -71,19 +72,21 @@ export function AdminFinanceOpsQueue() {
       if (cashRes.ok) {
         const json = (await cashRes.json()) as {
           ok?: boolean;
+          total?: number;
           requests?: unknown[];
         };
-        if (json.ok) cashPending = (json.requests ?? []).length;
+        if (json.ok) cashPending = typeof json.total === "number" ? json.total : (json.requests ?? []).length;
       }
 
       let coinWithdrawOpen = 0;
       if (coinRes.ok) {
         const json = (await coinRes.json()) as {
           ok?: boolean;
+          total?: number;
           requests?: unknown[];
         };
         if (json.ok) {
-          coinWithdrawOpen = (json.requests ?? []).length;
+          coinWithdrawOpen = typeof json.total === "number" ? json.total : (json.requests ?? []).length;
         }
       }
 

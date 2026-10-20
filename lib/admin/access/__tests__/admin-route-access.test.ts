@@ -221,6 +221,26 @@ describe("canAccessAdminRoute / canActOnAdminRoute", () => {
     expect(canAccessAdminRoute("/admin/users/phone-verification", { role: "admin", permissions: ["settings"] })).toBe(true);
   });
 
+  it("정지된 운영자 — 서버 가드와 같이 거래·거래 채팅·커뮤니티 홍보 조치 불가 (열람 키 화면은 그대로) · 최고관리자 예외", () => {
+    const suspended: AdminRouteAccessActor = { role: "admin", permissions: ["ads", "boards"], accountSuspended: true };
+    expect(canAccessAdminRoute("/admin/trade/posts", suspended)).toBe(false);
+    expect(canAccessAdminRoute("/admin/chats?type=trade", suspended)).toBe(false);
+    expect(canAccessAdminRoute("/admin/community/promotions", suspended)).toBe(true);
+    expect(canActOnAdminRoute("/admin/community/promotions", suspended)).toBe(false);
+    expect(canActOnAdminRoute("/admin/community/promotions", { ...suspended, accountSuspended: false })).toBe(true);
+    expect(canAccessAdminRoute("/admin/community/posts", suspended)).toBe(true);
+    const superSuspendedFlag: AdminRouteAccessActor = { role: "super_admin", permissions: [], accountSuspended: true };
+    expect(canActOnAdminRoute("/admin/community/promotions", superSuspendedFlag)).toBe(true);
+    // 서버 가드도 같은 규칙을 가진다
+    for (const f of [
+      "lib/admin/trade-admin/trade-admin-guards.ts",
+      "lib/admin/chat-admin/chat-admin-guards.ts",
+      "lib/admin/community-admin/community-admin-guards.ts",
+    ]) {
+      expect(readFileSync(path.join(ROOT, f), "utf8"), f).toContain("isSuspendedMemberAccount(");
+    }
+  });
+
   it("관리자가 아니면 전부 거부", () => {
     expect(canAccessAdminRoute("/admin", member)).toBe(false);
     expect(canAccessAdminRoute("/admin/users", member)).toBe(false);

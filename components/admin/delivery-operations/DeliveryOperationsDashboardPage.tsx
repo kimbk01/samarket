@@ -7,6 +7,7 @@
  */
 
 import Link from "next/link";
+import { useAdminAutoRefresh } from "@/lib/admin/use-admin-auto-refresh";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
@@ -232,10 +233,9 @@ export function DeliveryOperationsDashboardPage() {
     load({ showLoading: true });
   }, [load]);
 
-  useEffect(() => {
-    const id = window.setInterval(() => load({ showLoading: false }), 45_000);
-    return () => window.clearInterval(id);
-  }, [load]);
+  // 60초 자동 갱신 (대시보드 기본 주기) — 탭이 숨겨지면 멈춤 · 이전 조회가 끝나지 않았으면 건너뜀
+  const autoRefresh = useCallback(() => load({ showLoading: false }), [load]);
+  useAdminAutoRefresh(autoRefresh, { intervalMs: 60_000 });
 
   const loading = loadState === "loading";
 

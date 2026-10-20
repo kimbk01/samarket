@@ -113,7 +113,6 @@ vi.mock("@/components/admin/philife/AdminPhilifeMeetingReportsHeader", () => ({ 
 // ── 공용 카운트 함수 — 실제 구현 + 호출 기록 ──
 vi.mock("@/lib/admin/metrics/admin-metric-filters", async (orig) => H.wrapAll(await orig<Record<string, unknown>>()));
 vi.mock("@/lib/admin-users/admin-member-list-query", async (orig) => H.wrapAll(await orig<Record<string, unknown>>()));
-vi.mock("@/lib/platform-popup/admin-campaign-loader", async (orig) => H.wrapAll(await orig<Record<string, unknown>>()));
 vi.mock("@/lib/admin/advertising-workspace/workspace-summary", async (orig) =>
   H.wrapAll(await orig<Record<string, unknown>>())
 );
@@ -231,7 +230,6 @@ import * as financeToday from "@/lib/finance/today-summary/load-finance-today-su
 import * as ledger from "@/lib/stores/commission/load-store-commission-ledger";
 import * as commissionContract from "@/lib/stores/commission/store-commission-contract";
 import * as adsSummary from "@/lib/admin/advertising-workspace/workspace-summary";
-import * as popupLoader from "@/lib/platform-popup/admin-campaign-loader";
 import * as communityReports from "@/lib/community-feed/admin-community-reports";
 import * as campaigns from "@/lib/admin/notification-campaigns/campaign-list-service";
 import { parseCampaignListQuery } from "@/lib/admin/notification-campaigns/campaign-status-machine";
@@ -251,7 +249,6 @@ import { GET as pointsGET } from "@/app/api/admin/point-charges/route";
 import { GET as financeGET } from "@/app/api/admin/finance-control-plane/route";
 import { GET as ledgerGET } from "@/app/api/admin/store-commission-ledger/route";
 import { GET as adsGET } from "@/app/api/admin/ads-control-plane/route";
-import { GET as popupGET } from "@/app/api/admin/platform-popup-campaigns/route";
 import { GET as ordersGET } from "@/app/api/admin/store-orders/ops/route";
 import { GET as notificationsGET } from "@/app/api/admin/notification-campaigns/route";
 import CommunityReportsPage from "@/app/admin/community/reports/page";
@@ -616,7 +613,7 @@ describe("결제·정산 5", () => {
 });
 
 describe("광고 6 — 광고 운영 화면 API 모델 + 화면 요약 함수", () => {
-  it("노출·승인 대기·예약·노출 대기·홈 배너: 대시보드 = computeAdsWorkspace*(화면 API plane, 화면 mode=all)", async () => {
+  it("노출·승인 대기·예약·노출 대기·불완전·홈 배너: 대시보드 = computeAdsWorkspace*(화면 API plane, 화면 mode=all)", async () => {
     const { sources } = setup();
     const map = await phase(() => sources.metrics("ads"));
     const dashArgs = argsOf(adsSummary.computeAdsWorkspaceSummaryCounts, false);
@@ -631,42 +628,9 @@ describe("광고 6 — 광고 운영 화면 API 모델 + 화면 요약 함수", 
     expect(map?.get("ads.pending")?.value).toBe(screen.pending);
     expect(map?.get("ads.scheduled")?.value).toBe(screen.scheduled);
     expect(map?.get("ads.waiting")?.value).toBe(screen.waiting);
+    expect(map?.get("ads.incomplete")?.value).toBe(screen.incomplete);
     expect(map?.get("ads.hero_used")?.value).toBe(hero.used);
-    cover("ads.live", "ads.pending", "ads.scheduled", "ads.waiting", "ads.hero_used");
-  });
-
-  it("집행 중 팝업: 대시보드 count 필터 = 팝업 목록 API 가 링크(?status=live)에서 읽은 필터 · 같은 DB 조건 · total", async () => {
-    const { db, range, sources } = setup();
-    const map = await phase(() => sources.metrics("ads"));
-    const dash = argsOf(popupLoader.countPlatformPopupAdminCampaigns);
-    const dashQuery = db.queries.filter((q) => q.table === "platform_popup_campaigns");
-    expect(hrefOf("ads.popup_live", range)).toBe("/admin/platform-popup?status=live");
-    const sp = hrefParams("ads.popup_live", range);
-    sp.set("limit", "20");
-    sp.set("offset", "0");
-    const before = db.queries.length;
-    const res = await phase(() => popupGET(req("/api/admin/platform-popup-campaigns", sp)));
-    const screen = argsOf(popupLoader.listPlatformPopupAdminCampaignPage);
-    const screenQuery = db.queries.slice(before).filter((q) => q.table === "platform_popup_campaigns");
-    const pick = (f: Record<string, unknown>) => ({
-      scope: f.scope ?? "popup",
-      status: f.status ?? null,
-      composition: f.composition ?? null,
-      q: f.q ?? null,
-    });
-    expect(pick(dash[0][0] as Record<string, unknown>)).toEqual(
-      pick((screen[0][0] as { filter: Record<string, unknown> }).filter)
-    );
-    // 필터 조건(eq·lte·or 등) 메서드 순서가 같다 — select·order·range(목록 전용)는 제외
-    const conds = (q: { calls: [string, unknown[]][] }) =>
-      q.calls.map(([m]) => m).filter((m) => !["select", "order", "range"].includes(m));
-    expect(conds(dashQuery[0])).toEqual(conds(screenQuery[0]));
-    // and=(…) 그룹: 「지금」 시각만 다르고 조건 모양이 같다
-    const andShape = (q: { url?: URL }) => (q.url?.searchParams.get("and") ?? "").replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, "<now>");
-    expect(andShape(dashQuery[0])).toContain("start_at.lte.");
-    expect(andShape(dashQuery[0])).toEqual(andShape(screenQuery[0]));
-    expect((await json(res)).total).toBe(map?.get("ads.popup_live")?.value);
-    cover("ads.popup_live");
+    cover("ads.live", "ads.pending", "ads.scheduled", "ads.waiting", "ads.incomplete", "ads.hero_used");
   });
 });
 

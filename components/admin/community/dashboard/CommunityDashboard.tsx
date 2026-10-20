@@ -9,7 +9,7 @@
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useTransition, type ReactNode } from "react";
+import { useTransition, type ReactNode } from "react";
 import type { AdminDomainDashboardModel, AdminDomainMetric } from "@/lib/admin/domain-dashboard/types";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import {
@@ -27,7 +27,6 @@ import { AdminUnavailableChip } from "@/components/admin/ui/AdminToneBadge";
 import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 
-const AUTO_REFRESH_MS = 60_000;
 
 function MetricValue({ value }: { value: number | null }) {
   if (value === null) return <AdminUnavailableChip ko />;
@@ -105,12 +104,8 @@ export function CommunityDashboard({
 
   const refresh = () => startRefresh(() => router.refresh());
 
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") router.refresh();
-    }, AUTO_REFRESH_MS);
-    return () => window.clearInterval(id);
-  }, [router]);
+  // 자동 갱신 없음 — 서버 화면 전체를 다시 그리는 router.refresh 주기 호출 금지(관리자 자동 갱신 정책).
+  // 처리 대기는 운영 홈 대시보드(60초 핵심 지표)와 상단 알림이 갱신한다. 이 화면은 진입·[새로고침] 때 읽는다.
 
   const updated = model.lastUpdatedAt ? formatAdminManilaDateTime(model.lastUpdatedAt).slice(11) : null;
   const pending = [...model.issues.map((i) => ({ ...i, danger: true })), ...model.actionRequired.map((i) => ({ ...i, danger: false }))];
@@ -152,7 +147,7 @@ export function CommunityDashboard({
         </div>
       ) : null}
 
-      <Section title="지금 처리할 일" hint="화면이 열려 있는 동안 1분마다 자동 갱신">
+      <Section title="지금 처리할 일" hint="[새로고침]으로 최신 값 확인">
         {pending.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4 text-center text-[13px] text-sam-muted">
             지금 처리할 일이 없습니다.

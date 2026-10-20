@@ -13,16 +13,26 @@ import {
   readPointPolicyRow,
 } from "@/lib/points/point-policy-admin-change";
 import type { BoardPointPolicy } from "@/lib/types/point-policy";
+import { loadAllCommunityTopicsForAdmin } from "@/lib/community-topics/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(): Promise<NextResponse> {
+/**
+ * GET — 게시판별 포인트 정책. `?include=topics` 면 정책을 걸 주제 목록(id·slug·이름·정렬 탭 여부)도 함께.
+ * 포인트 정책 화면은 포인트(point) 권한으로 열리므로 주제 목록도 같은 가드로 준다
+ * (커뮤니티 게시판 관리 `content` 권한 API 를 부르면 point 전용 관리자에게 403 — R9).
+ */
+export async function GET(req: NextRequest): Promise<NextResponse> {
   const gate = await requireAdminPermission("point");
   if (!gate.ok) return gate.response;
   try {
     const policies = await listBoardPointPolicies(gate.sb);
-    return NextResponse.json({ ok: true, policies });
+    if (req.nextUrl.searchParams.get("include") !== "topics") return NextResponse.json({ ok: true, policies });
+    const { rows, error } = await loadAllCommunityTopicsForAdmin();
+    if (error) return NextResponse.json({ ok: false, error: "topics_load_failed" }, { status: 500 });
+    const topics = rows.map((t) => ({ id: t.id, slug: t.slug, name: t.name, is_feed_sort: t.is_feed_sort === true }));
+    return NextResponse.json({ ok: true, policies, topics });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
   }

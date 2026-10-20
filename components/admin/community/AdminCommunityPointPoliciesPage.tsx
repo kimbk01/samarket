@@ -76,7 +76,8 @@ export function AdminCommunityPointPoliciesPage() {
   useEffect(() => {
     void (async () => {
       try {
-        const res = await adminFetch("/api/admin/community/topics", { credentials: "include" });
+        // 주제 목록 = 포인트(point) 권한 API — 게시판 관리(content) 권한 없는 포인트 담당도 정책을 볼 수 있게 (R9)
+        const res = await adminFetch("/api/admin/point-policies/board?include=topics", { credentials: "include" });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; topics?: TopicRow[] };
         if (!res.ok || json.ok === false || !Array.isArray(json.topics)) {
           // 실패해도 직전 목록은 지우지 않는다 (§8-5) — 「게시판 없음」으로 보이지 않게 오류 상태로

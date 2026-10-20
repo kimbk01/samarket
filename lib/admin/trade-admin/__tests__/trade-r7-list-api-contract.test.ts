@@ -205,6 +205,19 @@ describe("거래 후기 /api/admin/transaction-reviews — 500건 고정 상한 
     expect((j.reviews as unknown[]).length).toBe(1);
   });
 
+  it("채팅(거래) 번호 일부 검색 — 예전 화면처럼 부분 일치 (room_id 열만 읽어 고른 뒤 in 조건)", async () => {
+    const ROOM = "6b1e2f30-aaaa-4bbb-8ccc-0123456789ab";
+    handler = (c) =>
+      c.table === "transaction_reviews" && c.selectCols === "room_id"
+        ? { data: [{ room_id: ROOM }, { room_id: "00000000-0000-4000-8000-000000000000" }], error: null }
+        : { data: [], error: null, count: 0 };
+    await reviewsGET(req("/api/admin/transaction-reviews", { q: "2F30-AA" }));
+    const list = calls.find((c) => c.table === "transaction_reviews" && c.range);
+    const or = list?.filters.find((f) => f[0] === "or")?.[2] as string;
+    expect(or).toContain(`room_id.in.(${ROOM})`);
+    expect(or).not.toContain("00000000-0000");
+  });
+
   it("필터는 DB 조건으로 — 별점 5 = good · 역할 seller_to_buyer", async () => {
     await reviewsGET(req("/api/admin/transaction-reviews", { rating: "5", role: "seller_to_buyer" }));
     const c = listCall("transaction_reviews");

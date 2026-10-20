@@ -14,6 +14,8 @@ export type AdminMeSnapshot = {
   displayName: string;
   /** `/api/admin/me.isDeployOwner` — 배포 담당자 여부 (구버전 응답이면 false). */
   isDeployOwner?: boolean;
+  /** `/api/admin/me.accountSuspended` — 정지된 운영자 (홍보 조치 불가 · 구버전 응답이면 false). */
+  accountSuspended?: boolean;
 };
 
 let cached: AdminMeSnapshot | null = null;
@@ -69,6 +71,7 @@ export async function fetchAdminMeSnapshot(options?: {
         loginId?: string;
         displayName?: string;
         isDeployOwner?: boolean;
+        accountSuspended?: boolean;
       };
       if (!data.ok || !data.userId) {
         if (generation === fetchGeneration) cached = null;
@@ -84,6 +87,7 @@ export async function fetchAdminMeSnapshot(options?: {
         loginId: data.loginId ?? "",
         displayName: data.displayName ?? "",
         isDeployOwner: data.isDeployOwner === true,
+        accountSuspended: data.accountSuspended === true,
       };
       return cached;
     } catch {

@@ -160,7 +160,7 @@ describe("Admin Metric Registry (설계 v4 §3 · 통합 §2.5)", () => {
 
   it("출처 없는 지표는 생략 목록에 사유와 함께 남긴다", () => {
     expect(ADMIN_DASHBOARD_OMITTED_METRICS.map((o) => o.labelKo)).toEqual(
-      expect.arrayContaining(["SLA 초과", "광고 환불 실패", "알림 기기별 발송 실패", "배달 경고"])
+      expect.arrayContaining(["SLA 초과", "광고 환불 실패", "알림 기기별 발송 실패", "배달 경고", "집행 중 팝업"])
     );
     for (const o of ADMIN_DASHBOARD_OMITTED_METRICS) expect(o.reason.length).toBeGreaterThan(5);
   });

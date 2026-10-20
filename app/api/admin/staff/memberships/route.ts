@@ -39,16 +39,31 @@ type ProfileLite = { id: string; nickname: string | null; username: string | nul
 const MEMBERSHIP_SELECT =
   "id, user_id, role, admin_tier, status, granted_at, granted_by, revoked_at, revoked_by, revoke_reason, created_at";
 
-/** 검색어 → 대상 회원 id (닉네임·아이디·이메일 부분 일치, 또는 회원 UUID). null = 검색 없음. */
+/**
+ * 검색어 → 대상 회원 id. null = 검색 없음.
+ * 예전 화면 검색과 같은 범위: 닉네임·아이디(username·이메일)·**회원 ID 일부** (대소문자 무시 부분 일치).
+ * 회원 ID 일부 일치는 관리자 멤버십 회원(admin_memberships.user_id — 관리자 수만큼) 안에서 찾는다
+ * (uuid 열은 PostgREST ilike 불가).
+ */
 async function resolveSearchUserIds(sb: SupabaseClient, q: string): Promise<string[] | null> {
   if (!q) return null;
   if (isAdminListUuid(q)) return [q];
   const pat = quotePostgrestOrValue(`%${escapeAdminIlike(q)}%`);
+  const ids = new Set<string>();
   const { data } = await sb
     .from("profiles")
     .select("id")
     .or(`nickname.ilike.${pat},username.ilike.${pat},email.ilike.${pat}`);
-  return ((data ?? []) as { id?: string }[]).map((p) => String(p.id ?? "")).filter(Boolean);
+  for (const p of (data ?? []) as { id?: string }[]) if (p.id) ids.add(String(p.id));
+  const needle = q.toLowerCase();
+  if (/^[0-9a-f-]+$/.test(needle)) {
+    const { data: members } = await sb.from("admin_memberships").select("user_id");
+    for (const m of (members ?? []) as { user_id?: string }[]) {
+      const id = String(m.user_id ?? "");
+      if (id && id.toLowerCase().includes(needle)) ids.add(id);
+    }
+  }
+  return [...ids];
 }
 
 type SegmentResult = { rows: MembershipRow[]; total: number; error: string | null };

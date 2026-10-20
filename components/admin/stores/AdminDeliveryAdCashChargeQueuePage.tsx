@@ -19,6 +19,8 @@ import { AdminErrorState, AdminTechDetails } from "@/components/admin/ui/AdminSt
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import type { AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
 type ChargeRequest = {
   id: string;
@@ -68,44 +70,53 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   const [successLedgerId, setSuccessLedgerId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  /** R7 서버 페이지 — 대기(PENDING) 목록 20/50/100건 · 총 건수 (예전 100건 상한 없음). */
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState<AdminListPageSize>(20);
+  const [total, setTotal] = useState(0);
+  useEffect(() => setPage(1), [storeFilter]);
+
   const load = useCallback(async () => {
     setError(null);
     setErrorStatus(undefined);
     try {
-      // Deep-link requestId may point at a decided row — load all when focusing.
-      const statusQ = focusRequestId ? "all" : "PENDING";
-      const qs = new URLSearchParams({ status: statusQ });
+      const qs = new URLSearchParams({ status: "PENDING", limit: String(size), offset: String((page - 1) * size) });
       if (storeFilter) qs.set("store_id", storeFilter);
-      const res = await fetch(`/api/admin/business-cash-charges?${qs.toString()}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
+      // 딥링크 신고 1건은 상태·쪽과 무관하게 따로 읽어 맨 위에 둔다 (이미 처리된 건이어도 보이게)
+      const focusQs = focusRequestId ? new URLSearchParams({ status: "all", request_id: focusRequestId }) : null;
+      const [res, focusRes] = await Promise.all([
+        fetch(`/api/admin/business-cash-charges?${qs.toString()}`, { credentials: "include", cache: "no-store" }),
+        focusQs
+          ? fetch(`/api/admin/business-cash-charges?${focusQs.toString()}`, { credentials: "include", cache: "no-store" })
+          : Promise.resolve(null),
+      ]);
       const json = (await res.json()) as {
         ok?: boolean;
         requests?: ChargeRequest[];
+        total?: number;
         error?: string;
       };
       if (!res.ok || !json.ok) {
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5)
         setError(json.error || "load_failed");
         setErrorStatus(res.status);
         setLoaded(true);
         return;
       }
       let next = json.requests ?? [];
-      if (focusRequestId) {
-        const hit = next.find((r) => r.id === focusRequestId);
-        const pending = next.filter((r) => String(r.status).toUpperCase() === "PENDING");
-        next = hit
-          ? [hit, ...pending.filter((r) => r.id !== hit.id)]
-          : pending;
+      if (focusRes?.ok) {
+        const fj = (await focusRes.json().catch(() => null)) as { ok?: boolean; requests?: ChargeRequest[] } | null;
+        const hit = fj?.ok ? (fj.requests ?? [])[0] : undefined;
+        if (hit) next = [hit, ...next.filter((r) => r.id !== hit.id)];
       }
       setRows(next);
+      setTotal(typeof json.total === "number" ? json.total : next.length);
     } catch {
       setError("network_error");
     } finally {
       setLoaded(true);
     }
-  }, [focusRequestId, storeFilter]);
+  }, [focusRequestId, storeFilter, page, size]);
 
   const storeFilterLabel =
     (storeFilter && rows.find((r) => r.store_id === storeFilter)?.store_name?.trim()) || storeFilter;
@@ -320,6 +331,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
             })}
           </p>
         ) : (
+          <>
           <ul className="divide-y divide-sam-border">
             {rows.map((r) => (
               <li
@@ -389,6 +401,19 @@ export function AdminDeliveryAdCashChargeQueuePage() {
               </li>
             ))}
           </ul>
+          <AdminPagination
+            ko={ko}
+            page={page}
+            size={size}
+            total={total}
+            onPageChange={setPage}
+            onSizeChange={(n) => {
+              setSize(n);
+              setPage(1);
+            }}
+            className="mt-3"
+          />
+          </>
         )}
       </AdminCard>
     </div>

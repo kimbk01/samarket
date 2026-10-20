@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useAdminAutoRefresh } from "@/lib/admin/use-admin-auto-refresh";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -302,11 +303,12 @@ function AdminDeliveryAlertsPageInner() {
       .catch(() => setOperators([]));
   }, []);
 
-  const load = useCallback(() => {
-    setLoading(true);
+  const load = useCallback((opts?: { silent?: boolean }) => {
+    // 자동 갱신은 로딩 표시를 바꾸지 않는다 (깜빡임 방지)
+    if (opts?.silent !== true) setLoading(true);
     // 처리·동기화 직후 재조회가 10초 GET 캐시의 이전 목록을 받지 않도록 매번 무효화한다.
     invalidateAdminFetchCache("admin:delivery-operation-alerts:");
-    void fetchAdminDeliveryOperationAlertsDeduped(filter, assignment, { limit: pageLimit, offset: pageOffset }).then(({ status, json }) => {
+    return fetchAdminDeliveryOperationAlertsDeduped(filter, assignment, { limit: pageLimit, offset: pageOffset }).then(({ status, json }) => {
       const parsed = parsePayload(json);
       if (status === 200 && parsed) {
         setRules(parsed.rules);
@@ -328,10 +330,9 @@ function AdminDeliveryAlertsPageInner() {
     load();
   }, [load]);
 
-  useEffect(() => {
-    const id = window.setInterval(load, 60_000);
-    return () => window.clearInterval(id);
-  }, [load]);
+  // 60초 자동 갱신 — 탭이 숨겨지면 멈춤 · 이전 조회가 끝나지 않았으면 건너뜀
+  const autoRefresh = useCallback(() => load({ silent: true }), [load]);
+  useAdminAutoRefresh(autoRefresh, { intervalMs: 60_000 });
 
   const runSync = useCallback(() => {
     setResult(null);

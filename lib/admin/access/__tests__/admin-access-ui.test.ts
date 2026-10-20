@@ -126,13 +126,15 @@ describe("decideAdminPageGate — 셸 본문 게이트 (순수)", () => {
 });
 
 describe("adminAccessActorFromMe", () => {
-  it("/me 스냅샷 → actor (구버전 응답은 isDeployOwner=false)", () => {
+  it("/me 스냅샷 → actor (구버전 응답은 isDeployOwner·accountSuspended=false)", () => {
     expect(adminAccessActorFromMe(null)).toBeNull();
     expect(adminAccessActorFromMe({ role: "admin", permissions: ["users"] })).toEqual({
       role: "admin",
       permissions: ["users"],
       isDeployOwner: false,
+      accountSuspended: false,
     });
+    expect(adminAccessActorFromMe({ role: "admin", permissions: [], accountSuspended: true })?.accountSuspended).toBe(true);
     expect(adminAccessActorFromMe({ role: "super_admin", permissions: [], isDeployOwner: true })?.isDeployOwner).toBe(
       true
     );
