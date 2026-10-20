@@ -5,6 +5,13 @@ import {
   APP_NOTICES_CONTENT_SELECT,
   isCustomerCenterContentPublishedNow,
 } from "@/lib/notices/customer-center-content";
+import {
+  CC_COMMENTS_PAGE_DEFAULT,
+  isCcMissingTableError,
+  parseCcCursor,
+  parseCcPageLimit,
+} from "@/lib/mypage/customer-center-board-query";
+import { encodeMypageListCursor, mypageKeysetOrFilter } from "@/lib/mypage/mypage-list-cursor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,36 +37,41 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const limitRaw = Number(req.nextUrl.searchParams.get("limit") ?? 30);
-  const limit = Number.isFinite(limitRaw) ? Math.min(50, Math.max(1, Math.floor(limitRaw))) : 30;
-  const cursor = req.nextUrl.searchParams.get("cursor");
+  const limit = parseCcPageLimit(req.nextUrl.searchParams.get("limit"), CC_COMMENTS_PAGE_DEFAULT);
+  const cursorParse = parseCcCursor(req.nextUrl.searchParams.get("cursor"), { allowLegacyTs: true });
+  if (!cursorParse.ok) {
+    return NextResponse.json({ ok: false, error: "invalid_cursor" }, { status: 400 });
+  }
 
   let q = sb
     .from("customer_center_comments")
     .select(COMMENT_SELECT)
     .eq("content_id", contentId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(limit + 1);
+    .is("deleted_at", null);
 
-  if (cursor) {
-    q = q.lt("created_at", cursor);
+  if (cursorParse.cursor) {
+    q = q.or(mypageKeysetOrFilter(cursorParse.cursor, "created_at"));
+  } else if (cursorParse.legacyTs) {
+    q = q.lt("created_at", cursorParse.legacyTs);
   }
 
-  const { data, error } = await q;
+  const { data, error } = await q
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(limit + 1);
+  /** 최종 설계 S62 · API A13 — DB 오류를 빈 성공으로 응답하지 않는다 */
   if (error) {
-    return NextResponse.json({
-      ok: true,
-      comments: [],
-      nextCursor: null,
-      hint: error.message,
-    });
+    if (isCcMissingTableError(error, "customer_center_comments")) {
+      return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
+    }
+    return NextResponse.json({ ok: false, error: "comments_fetch_failed" }, { status: 500 });
   }
 
   const rows = data ?? [];
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
-  const nextCursor = hasMore ? String(page[page.length - 1]?.created_at ?? "") || null : null;
+  const last = page[page.length - 1];
+  const nextCursor = hasMore && last ? encodeMypageListCursor(String(last.created_at ?? ""), String(last.id ?? "")) : null;
 
   return NextResponse.json({
     ok: true,
@@ -125,7 +137,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   if (error || !inserted) {
     return NextResponse.json(
-      { ok: false, error: error?.message ?? "insert_failed" },
+      { ok: false, error: "insert_failed" },
       { status: 500 }
     );
   }

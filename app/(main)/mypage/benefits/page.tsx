@@ -8,6 +8,8 @@ import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 
 const CARD_CLASS = "rounded-ui-rect border border-sam-border-soft bg-sam-surface sam-card-pad";
 
@@ -42,40 +44,71 @@ type BenefitsState =
   | { kind: "error" }
   | { kind: "ready"; memberType: string; policies: MemberBenefitPolicy[] };
 
+type ReadyBenefits = Extract<BenefitsState, { kind: "ready" }>;
+
+/** 재진입 캐시(Part A §1.7-4) — viewer 키 메모리 5분. 재진입은 즉시 그리고 30초가 지났으면 조용히 재검증 1회. */
+const BENEFITS_CACHE_TTL_MS = 5 * 60_000;
+const BENEFITS_REVALIDATE_AFTER_MS = 30_000;
+let benefitsCache: { viewerId: string; value: ReadyBenefits; at: number } | null = null;
+
+function readBenefitsCache(viewerId: string): { value: ReadyBenefits; at: number } | null {
+  if (!viewerId || !benefitsCache || benefitsCache.viewerId !== viewerId) return null;
+  if (Date.now() - benefitsCache.at > BENEFITS_CACHE_TTL_MS) return null;
+  return benefitsCache;
+}
+
+type BenefitsFetch = { status: number; ok: boolean; json: { ok?: boolean; memberType?: string; policies?: MemberBenefitPolicy[] } };
+
 export default function MypageBenefitsPage() {
   const { t } = useI18n();
-  const [state, setState] = useState<BenefitsState>({ kind: "loading" });
+  const [state, setState] = useState<BenefitsState>(() => {
+    const hit = readBenefitsCache(getSyncViewerUserIdForClient() ?? "");
+    return hit ? hit.value : { kind: "loading" };
+  });
 
   /** D19 — 정책 SSOT(member_benefit_policies) 중 내 회원 구분에 적용되는 활성 정책만. 하드코딩 빈 배열 제거 */
-  const load = useCallback(async () => {
-    setState({ kind: "loading" });
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setState({ kind: "loading" });
+    const viewerId = getSyncViewerUserIdForClient() ?? "";
     try {
-      const res = await fetch("/api/me/benefits", { credentials: "include", cache: "no-store" });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        memberType?: string;
-        policies?: MemberBenefitPolicy[];
-      };
-      if (res.status === 401) {
+      // 본문은 비행 안에서 1회만 파싱 — 합류한 호출이 같은 Response 를 다시 읽지 않게
+      const { status, ok, json } = await runSingleFlight(
+        `me:benefits:get:${viewerId}`,
+        async (): Promise<BenefitsFetch> => {
+          const res = await fetch("/api/me/benefits", { credentials: "include", cache: "no-store" });
+          const body = (await res.json().catch(() => ({}))) as BenefitsFetch["json"];
+          return { status: res.status, ok: res.ok, json: body };
+        }
+      );
+      if (status === 401) {
+        benefitsCache = null;
         setState({ kind: "guest" });
         return;
       }
-      if (!res.ok || !json.ok) {
-        setState({ kind: "error" });
+      if (!ok || !json.ok) {
+        // 조용한 재검증 실패는 기존 값 유지
+        if (!opts?.silent) setState({ kind: "error" });
         return;
       }
-      setState({
+      const next: ReadyBenefits = {
         kind: "ready",
         memberType: json.memberType ?? "normal",
         policies: Array.isArray(json.policies) ? json.policies : [],
-      });
+      };
+      if (viewerId) benefitsCache = { viewerId, value: next, at: Date.now() };
+      setState(next);
     } catch {
-      setState({ kind: "error" });
+      if (!opts?.silent) setState({ kind: "error" });
     }
   }, []);
 
   useEffect(() => {
-    void load();
+    const hit = readBenefitsCache(getSyncViewerUserIdForClient() ?? "");
+    if (!hit) {
+      void load();
+      return;
+    }
+    if (Date.now() - hit.at > BENEFITS_REVALIDATE_AFTER_MS) void load({ silent: true });
   }, [load]);
 
   function memberTypeLabel(memberType: string): string {

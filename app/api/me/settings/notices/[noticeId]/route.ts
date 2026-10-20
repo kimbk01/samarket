@@ -97,6 +97,7 @@ export async function GET(_req: Request, ctx: Ctx) {
           authorLabel: row.author_label,
       }),
       viewCount: Number(row.view_count) || 0,
+      commentCount: Number(row.comment_count) || 0,
       commentEnabled: row.comment_enabled !== false,
       createdAt: String(row.published_at ?? row.created_at ?? ""),
       href,

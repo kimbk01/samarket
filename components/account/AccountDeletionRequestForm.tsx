@@ -292,7 +292,7 @@ function PublicAccountDeletionRequestForm({ source }: Props) {
           <p className="sam-text-body font-medium text-emerald-800">{t("ui_account_delete_submitted")}</p>
           <p className="mt-1 sam-text-body-secondary text-emerald-700">
             {t("ui_account_delete_submitted_at", {
-              time: new Date(submittedAt).toLocaleString(),
+              time: formatMypageDate(submittedAt, { style: "datetime" }),
             })}
           </p>
         </div>

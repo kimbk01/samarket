@@ -30,6 +30,7 @@ import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
+import { formatMypageDate, formatMypageMoney, formatMypagePoint } from "@/lib/mypage/format-mypage-date";
 
 type Cat = { id: string; name: string; nameEn: string | null };
 type Topic = { id: string; slug: string; name: string; nameEn: string | null };
@@ -943,7 +944,7 @@ export default function MemberFeedAdRequestPage() {
                           <span className="line-clamp-2 sam-text-body">{p.title}</span>
                           {p.createdAt ? (
                             <span className="block sam-text-helper text-sam-muted">
-                              {new Date(p.createdAt).toLocaleDateString(en ? "en-US" : "ko-KR")}
+                              {formatMypageDate(p.createdAt, { lang: language })}
                             </span>
                           ) : null}
                         </button>
@@ -973,7 +974,7 @@ export default function MemberFeedAdRequestPage() {
                       >
                         <span className="line-clamp-2 sam-text-body">{p.title}</span>
                         <span className="block sam-text-helper text-sam-muted">
-                          ₱{Number(p.price).toLocaleString()}
+                          {formatMypageMoney(p.price)}
                         </span>
                       </button>
                     </li>
@@ -997,7 +998,7 @@ export default function MemberFeedAdRequestPage() {
               fallbackEn: "My Point",
             })}
             {": "}
-            {balance == null ? "—" : `${balance.toLocaleString()}P`}
+            {balance == null ? "—" : formatMypagePoint(balance, { lang: language })}
           </p>
           <div className="space-y-2">
             {catalog.map((p) => {
@@ -1032,7 +1033,7 @@ export default function MemberFeedAdRequestPage() {
                   <div className="flex justify-between gap-2">
                     <span className="font-medium text-sam-fg">
                       {p.durationDays}
-                      {en ? " days" : "일"} · {p.pointCost.toLocaleString()}P
+                      {en ? " days" : "일"} · {formatMypagePoint(p.pointCost, { lang: language })}
                     </span>
                     {unaffordable ? (
                       <span className="sam-text-helper font-medium text-sam-warning">
@@ -1042,13 +1043,13 @@ export default function MemberFeedAdRequestPage() {
                   </div>
                   {balance != null ? (
                     <p className="sam-text-helper text-sam-muted">
-                      {en ? "Current" : "현재"} {balance.toLocaleString()}P
+                      {en ? "Current" : "현재"} {formatMypagePoint(balance, { lang: language })}
                       {" · "}
-                      {en ? "Required" : "필요"} {p.pointCost.toLocaleString()}P
+                      {en ? "Required" : "필요"} {formatMypagePoint(p.pointCost, { lang: language })}
                       {shortfall != null
-                        ? ` · ${en ? "Short" : "부족"} ${shortfall.toLocaleString()}P`
+                        ? ` · ${en ? "Short" : "부족"} ${formatMypagePoint(shortfall, { lang: language })}`
                         : after != null
-                          ? ` · ${en ? "After" : "신청 후"} ${after.toLocaleString()}P`
+                          ? ` · ${en ? "After" : "신청 후"} ${formatMypagePoint(after, { lang: language })}`
                           : ""}
                     </p>
                   ) : null}
@@ -1176,19 +1177,19 @@ export default function MemberFeedAdRequestPage() {
             <div className="flex justify-between gap-2">
               <dt className="text-sam-muted">{en ? "Use Point" : "사용 포인트"}</dt>
               <dd className="font-medium">
-                {selected ? `${selected.pointCost.toLocaleString()}P` : "—"}
+                {selected ? formatMypagePoint(selected.pointCost, { lang: language }) : "—"}
               </dd>
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-sam-muted">{en ? "Current Point" : "현재 포인트"}</dt>
               <dd className="font-medium">
-                {balance == null ? "—" : `${balance.toLocaleString()}P`}
+                {balance == null ? "—" : formatMypagePoint(balance, { lang: language })}
               </dd>
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-sam-muted">{en ? "After submit" : "신청 후"}</dt>
               <dd className="font-medium">
-                {afterBalance == null ? "—" : `${afterBalance.toLocaleString()}P`}
+                {afterBalance == null ? "—" : formatMypagePoint(afterBalance, { lang: language })}
               </dd>
             </div>
             <p className="pt-1 text-sam-muted">

@@ -78,3 +78,26 @@ export function supportPriorityLabel(priority: string | null | undefined, ko: bo
       return ko ? "일반" : "Normal";
   }
 }
+
+/**
+ * 고객 상담 내역 상태 탭 (최종 설계 S63) — 위 고객 라벨 SSOT 의 「상담 종료」 판정과 같은 분류.
+ *   진행중(active) = OPEN · WAITING_ADMIN · WAITING_USER
+ *   완료(done)     = RESOLVED · ARCHIVED
+ */
+export type SupportCaseHistoryTab = "active" | "done";
+
+export const SUPPORT_CASE_HISTORY_TABS: readonly SupportCaseHistoryTab[] = ["active", "done"];
+
+export const SUPPORT_CASE_HISTORY_TAB_STATUSES: Record<SupportCaseHistoryTab, readonly SupportCaseStatus[]> = {
+  active: ["OPEN", "WAITING_ADMIN", "WAITING_USER"],
+  done: ["RESOLVED", "ARCHIVED"],
+};
+
+export function supportCaseHistoryTab(status: SupportCaseStatus | null): SupportCaseHistoryTab {
+  return supportCaseStatusLabelMeta(status).key === "support_status_resolved" ? "done" : "active";
+}
+
+export function parseSupportCaseHistoryTab(raw: string | null | undefined): SupportCaseHistoryTab | null {
+  const v = String(raw ?? "").trim().toLowerCase();
+  return v === "active" || v === "done" ? v : null;
+}

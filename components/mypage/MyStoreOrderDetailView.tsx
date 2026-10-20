@@ -74,6 +74,7 @@ import {
   type MyStickyCtaAction,
 } from "@/components/mypage/ds/MyStickyCta";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
@@ -228,21 +229,14 @@ function buildDetailReorderPayload(order: OrderDetail, items: ItemRow[]): Comple
   };
 }
 
-function formatPrepClock(iso: string | null | undefined, locale: string): string | null {
+function formatPrepClock(iso: string | null | undefined, lang: AppLanguageCode): string | null {
   const s = typeof iso === "string" ? iso.trim() : "";
   if (!s) return null;
-  const ms = new Date(s).getTime();
-  if (!Number.isFinite(ms)) return null;
-  return new Date(ms).toLocaleTimeString(locale, {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+  return formatMypageDate(s, { style: "time", lang }) || null;
 }
 
 export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: boolean }) {
   const { t, safeT, language } = useI18n();
-  const dateLocale = language === "ko" ? "ko-KR" : "en-PH";
   const params = useParams();
   const router = useRouter();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -592,7 +586,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const chatHref = canonicalOrderChatHref;
   const orderStatusLabel = (status: string) => buyerOrderStatusLabel(status, language, order.fulfillment_type);
   const eventLabels = storeOrderEventLabels(t);
-  const prepClock = formatPrepClock(order.estimated_ready_at, dateLocale);
+  const prepClock = formatPrepClock(order.estimated_ready_at, language);
   const buyerProg = buyerStoreOrderProgressCopy(t, order, orderStatusLabel, prepClock);
   const reviewProcess = buyerReviewProcessLabel(t, {
     orderStatus: order.order_status,

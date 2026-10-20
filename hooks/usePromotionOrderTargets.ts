@@ -35,9 +35,18 @@ export function usePromotionOrderTargets(): {
     setUnauthorized(false);
     try {
       // Stores: me-stores TTL/single-flight authority. Posts remain independent.
+      // 글 목록 본문은 비행 안에서 1회만 파싱 — 합류한 호출(StrictMode 재마운트·폼 2곳)이 같은 Response 를 두 번 읽지 않게 한다.
       const [postsRes, storesResult] = await runSingleFlight("me:promotion-targets", () =>
         Promise.all([
-          fetch("/api/my/posts", { cache: "no-store", credentials: "include" }),
+          fetch("/api/my/posts", { cache: "no-store", credentials: "include" }).then(async (res) => ({
+            status: res.status,
+            ok: res.ok,
+            json: res.ok
+              ? ((await res.json().catch(() => ({}))) as {
+                  posts?: { id?: string; title?: string; status?: string }[];
+                })
+              : null,
+          })),
           fetchMeStoresListDeduped(),
         ])
       );
@@ -49,9 +58,8 @@ export function usePromotionOrderTargets(): {
         return;
       }
 
-      if (postsRes.ok) {
-        const j = (await postsRes.json()) as { posts?: { id?: string; title?: string; status?: string }[] };
-        const products = (j.posts ?? [])
+      if (postsRes.ok && postsRes.json) {
+        const products = (postsRes.json.posts ?? [])
           .filter((p) => p.id && p.status !== "hidden" && p.status !== "deleted")
           .map((p) => ({
             id: String(p.id),

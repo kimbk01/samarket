@@ -4,7 +4,8 @@ import { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { MemberCsNoteListClient } from "@/components/mypage/cs/MemberCsNoteListClient";
 import { MemberCsNoteThreadClient } from "@/components/mypage/cs/MemberCsNoteThreadClient";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { MyStateSkeleton } from "@/components/mypage/ds/MyStateView";
+import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import {
@@ -15,6 +16,15 @@ import {
  * Store owners land on Owner Customer Care for the same note thread.
  * Non-owners keep /mypage/inbox|inquiries (Customer Communication HARD LOCK).
  */
+/** 사장님 판별 대기 — 목록 모양 스켈레톤 4행 (최종 설계 S64) */
+function BridgeSkeleton() {
+  return (
+    <div className={`mx-auto w-full ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} pt-16`}>
+      <MyStateSkeleton template="list" rows={4} />
+    </div>
+  );
+}
+
 export function MypageCsOwnerCareBridge({
   kind,
   mode,
@@ -59,7 +69,7 @@ export function MypageCsOwnerCareBridge({
     };
   }, [kind, mode, router, threadId]);
 
-  if (!ready) return <MainFeedRouteLoading rows={4} />;
+  if (!ready) return <BridgeSkeleton />;
   if (mode === "thread") {
     return <MemberCsNoteThreadClient kind={kind} />;
   }
@@ -71,7 +81,7 @@ export function MypageCsOwnerCareBridgeSuspense(props: {
   mode: "list" | "thread";
 }) {
   return (
-    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+    <Suspense fallback={<BridgeSkeleton />}>
       <MypageCsOwnerCareBridge {...props} />
     </Suspense>
   );

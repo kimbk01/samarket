@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { fetchPhoneVerificationJson } from "@/lib/mypage/load-phone-verification-state";
 import { useRegion } from "@/contexts/RegionContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
@@ -187,11 +187,9 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
       })
       .catch((): { ok: false; rows: UserAddressDTO[] } => ({ ok: false, rows: [] }));
 
-    const phoneSettingsPromise = runSingleFlight("me:phone-verification:get", () =>
-      fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" }),
-    )
-      .then(async (res) => {
-        const j = (await res.json().catch(() => ({}))) as {
+    const phoneSettingsPromise = fetchPhoneVerificationJson()
+      .then((res) => {
+        const j = (res.json ?? {}) as {
           ok?: boolean;
           verification?: {
             settings?: {

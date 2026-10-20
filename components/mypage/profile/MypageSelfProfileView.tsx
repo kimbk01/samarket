@@ -5,9 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { formatAtUsername } from "@/lib/users/user-label";
 import { resolveMypageSelfDisplayName } from "@/lib/mypage/mypage-self-display-name";
-import {
-  MYPAGE_PROFILE_EDIT_HREF,
-} from "@/lib/mypage/mypage-profile-routes";
+import { MYPAGE_PROFILE_EDIT_SHEET_HREF } from "@/lib/mypage/mypage-profile-routes";
 import type { ProfileRow } from "@/lib/profile/types";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -43,7 +41,7 @@ export function MypageSelfProfileView({ profile }: { profile: ProfileRow }) {
             })}
           </Link>
         ) : null}
-        <Link href={MYPAGE_PROFILE_EDIT_HREF} className={`${Sam.btn.primary} w-full justify-center`}>
+        <Link href={MYPAGE_PROFILE_EDIT_SHEET_HREF} className={`${Sam.btn.primary} w-full justify-center`}>
           {safeT("mypage_settings_profile_edit", {
             fallbackKo: "프로필 수정",
             fallbackEn: "Edit profile",

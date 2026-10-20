@@ -7,6 +7,7 @@ import type { MypageHomeSummaryState } from "@/lib/mypage/mypage-home-summary-cl
 import {
   mypageHomeCountRowProps,
   resolveMypageHomeCountValue,
+  resolveMypageHomeOffersHref,
   resolveMypageHomePointsValue,
 } from "@/lib/mypage/mypage-home-row-values";
 import type { MypageHomeRowValueSource } from "@/lib/mypage/mypage-home-menu-types";
@@ -65,6 +66,15 @@ function useInstalledVersionLabel(enabled: boolean): string | null {
     };
   }, [enabled]);
   return label;
+}
+
+/**
+ * 행 목적지 — `hrefSource` 가 있으면 summary 값으로 정한다(S23 가격 제안 탭). Provider 밖이면 기본 href.
+ */
+export function useMypageHomeRowHref(defaultHref: string, hrefSource: "offers-tab" | undefined): string {
+  const ctx = useContext(MypageHomeValuesContext);
+  if (hrefSource !== "offers-tab") return defaultHref;
+  return resolveMypageHomeOffersHref(ctx?.summary ?? null);
 }
 
 /** 행 값 출처 → `MyRow` props. Provider 밖(비로그인)이면 빈 객체. */

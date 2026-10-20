@@ -12,6 +12,15 @@ import {
   resolveAdminRecipientAuthority,
 } from "@/lib/admin/notifications/admin-notification-service";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  mypageKeysetOrFilter,
+  sliceMypageKeysetPage,
+  type MypageListCursor,
+} from "@/lib/mypage/mypage-list-cursor";
+import {
+  SUPPORT_CASE_HISTORY_TAB_STATUSES,
+  type SupportCaseHistoryTab,
+} from "@/lib/support/support-status-label";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 import type { SupportContext } from "@/lib/support/support-context";
 import { isSupportContextEnabled } from "@/lib/support/support-context";
@@ -483,14 +492,19 @@ export async function listSupportCasesForRequester(
     audience?: "MEMBER" | "OWNER";
     storeId?: string | null;
     limit?: number;
+    /** 고객 상담 내역 상태 탭 (S63) — 생략 시 전체(OWNER 기본 동작 불변) */
+    status?: SupportCaseHistoryTab | null;
+    /** `last_message_at|id` keyset 커서 — 지정하면(또는 `paged`) `nextCursor` 를 돌려준다 */
+    cursor?: MypageListCursor | null;
+    paged?: boolean;
   }
-): Promise<{ ok: true; cases: SupportCaseRow[] } | { ok: false; error: string }> {
+): Promise<{ ok: true; cases: SupportCaseRow[]; nextCursor: string | null } | { ok: false; error: string }> {
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
+  const paged = Boolean(input.paged || input.cursor);
   let query = sb
     .from("support_cases")
     .select("*")
-    .eq("requester_user_id", input.userId)
-    .order("last_message_at", { ascending: false })
-    .limit(Math.min(Math.max(input.limit ?? 50, 1), 100));
+    .eq("requester_user_id", input.userId);
 
   if (input.audience) {
     query = query.eq("audience", input.audience);
@@ -498,13 +512,54 @@ export async function listSupportCasesForRequester(
   if (input.audience === "OWNER" && input.storeId) {
     query = query.eq("owner_store_id", input.storeId);
   }
+  if (input.status) {
+    query = query.in("status", [...SUPPORT_CASE_HISTORY_TAB_STATUSES[input.status]]);
+  }
+  if (input.cursor) {
+    query = query.or(mypageKeysetOrFilter(input.cursor, "last_message_at"));
+  }
 
-  const { data, error } = await query;
+  query = query.order("last_message_at", { ascending: false });
+  if (paged) query = query.order("id", { ascending: false });
+  const { data, error } = await query.limit(paged ? limit + 1 : limit);
   if (error) {
     if (isMissingSupportTable(error.message ?? "")) return { ok: false, error: "missing_table" };
     return { ok: false, error: error.message };
   }
-  return { ok: true, cases: (data ?? []) as SupportCaseRow[] };
+  const rows = (data ?? []) as SupportCaseRow[];
+  if (!paged) return { ok: true, cases: rows, nextCursor: null };
+  const page = sliceMypageKeysetPage(
+    rows,
+    limit,
+    (r) => String(r.last_message_at ?? ""),
+    (r) => String(r.id ?? "")
+  );
+  return { ok: true, cases: page.items, nextCursor: page.next_cursor };
+}
+
+/** 상담 내역 탭 개수(count 모드, S63) — 같은 조건으로 head count */
+export async function countSupportCasesForRequester(
+  sb: SupabaseClient,
+  input: {
+    userId: string;
+    audience?: "MEMBER" | "OWNER";
+    storeId?: string | null;
+    status: SupportCaseHistoryTab;
+  }
+): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  let query = sb
+    .from("support_cases")
+    .select("id", { count: "exact", head: true })
+    .eq("requester_user_id", input.userId)
+    .in("status", [...SUPPORT_CASE_HISTORY_TAB_STATUSES[input.status]]);
+  if (input.audience) query = query.eq("audience", input.audience);
+  if (input.audience === "OWNER" && input.storeId) query = query.eq("owner_store_id", input.storeId);
+  const { count, error } = await query;
+  if (error) {
+    if (isMissingSupportTable(error.message ?? "")) return { ok: false, error: "missing_table" };
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, count: count ?? 0 };
 }
 
 export async function listSupportMessages(

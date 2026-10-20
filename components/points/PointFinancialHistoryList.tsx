@@ -7,13 +7,14 @@ import { pointFinancialDayKey } from "@/lib/points/point-financial-history";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { CurrencyAmount } from "@/components/currency";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { formatMypageDate, mypageDateGroupKey } from "@/lib/mypage/format-mypage-date";
 
-function formatRange(startAt: string, endAt: string, locale: string): string {
-  const s = startAt ? new Date(startAt) : null;
-  const e = endAt ? new Date(endAt) : null;
-  if (!s || !e || Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return "";
-  const opts: Intl.DateTimeFormatOptions = { month: "2-digit", day: "2-digit" };
-  return `${s.toLocaleDateString(locale, opts)} ~ ${e.toLocaleDateString(locale, opts)}`;
+function formatRange(startAt: string, endAt: string, lang: AppLanguageCode): string {
+  const s = formatMypageDate(startAt, { lang });
+  const e = formatMypageDate(endAt, { lang });
+  if (!s || !e) return "";
+  return `${s} ~ ${e}`;
 }
 
 type Props = {
@@ -21,7 +22,7 @@ type Props = {
   loading?: boolean;
   emptyLabel?: string;
   onSelect?: (item: PointFinancialHistoryItem) => void;
-  /** Viewer timezone offset minutes (Date#getTimezoneOffset). */
+  /** 날짜 묶음 기준 시간대 오프셋(분, Date#getTimezoneOffset). 생략 시 필리핀 시간(PHT) 달력 날짜. */
   timeZoneOffsetMinutes?: number;
 };
 
@@ -33,24 +34,20 @@ export function PointFinancialHistoryList({
   timeZoneOffsetMinutes,
 }: Props) {
   const { t, language, safeT } = useI18n();
-  const locale = language === "en" ? "en-US" : "ko-KR";
-  const offset =
-    typeof timeZoneOffsetMinutes === "number"
-      ? timeZoneOffsetMinutes
-      : typeof Date !== "undefined"
-        ? new Date().getTimezoneOffset()
-        : 0;
 
   const groups = useMemo(() => {
     const map = new Map<string, PointFinancialHistoryItem[]>();
     for (const item of items) {
-      const key = pointFinancialDayKey(item.occurredAt, offset);
+      const key =
+        typeof timeZoneOffsetMinutes === "number"
+          ? pointFinancialDayKey(item.occurredAt, timeZoneOffsetMinutes)
+          : mypageDateGroupKey(item.occurredAt, "day") || "unknown";
       const list = map.get(key) ?? [];
       list.push(item);
       map.set(key, list);
     }
     return [...map.entries()];
-  }, [items, offset]);
+  }, [items, timeZoneOffsetMinutes]);
 
   if (loading) {
     return <p className="py-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
@@ -74,11 +71,7 @@ export function PointFinancialHistoryList({
           <h3 className="mb-2 px-1 sam-text-helper font-semibold text-sam-muted">
             {day === "unknown"
               ? "—"
-              : new Date(`${day}T12:00:00`).toLocaleDateString(locale, {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+              : formatMypageDate(`${day}T12:00:00+08:00`, { lang: language })}
           </h3>
           <ul className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface divide-y divide-sam-border-soft">
             {rows.map((item) => {
@@ -89,7 +82,7 @@ export function PointFinancialHistoryList({
                   ? item.promotion?.productLabelEn
                   : item.promotion?.productLabelKo;
               const range = item.promotion
-                ? formatRange(item.promotion.startAt, item.promotion.endAt, locale)
+                ? formatRange(item.promotion.startAt, item.promotion.endAt, language)
                 : "";
               const relatedLabel =
                 item.relatedObject?.missing && language === "en"
@@ -117,12 +110,7 @@ export function PointFinancialHistoryList({
                         </p>
                       ) : null}
                       <p className="mt-1 sam-text-helper text-sam-meta">
-                        {new Date(item.occurredAt).toLocaleString(locale, {
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatMypageDate(item.occurredAt, { style: "time", lang: language })}
                       </p>
                     </div>
                     <CurrencyAmount
@@ -150,7 +138,6 @@ type SheetProps = {
 
 export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
   const { language, safeT, t } = useI18n();
-  const locale = language === "en" ? "en-US" : "ko-KR";
   if (!item) return null;
   const title = language === "en" ? item.fallbackTitleEn : item.fallbackTitleKo;
   const promoLabel =
@@ -170,7 +157,7 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
           <dt className={OverlayUi.bodySecondary}>
             {safeT("point_fin_detail_time", { fallbackKo: "거래 일시", fallbackEn: "Time" })}
           </dt>
-          <dd>{new Date(item.occurredAt).toLocaleString(locale)}</dd>
+          <dd>{formatMypageDate(item.occurredAt, { style: "datetime", lang: language })}</dd>
         </div>
         <div className="flex justify-between gap-3">
           <dt className={OverlayUi.bodySecondary}>
@@ -206,7 +193,7 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
                 {safeT("point_fin_detail_period", { fallbackKo: "홍보 기간", fallbackEn: "Period" })}
               </dt>
               <dd className="text-right">
-                {formatRange(item.promotion.startAt, item.promotion.endAt, locale)}
+                {formatRange(item.promotion.startAt, item.promotion.endAt, language)}
               </dd>
             </div>
             <div className="flex justify-between gap-3">

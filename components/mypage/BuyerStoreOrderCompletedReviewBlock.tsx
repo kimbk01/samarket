@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
 import type { BuyerStoreOrderReviewSummary } from "@/lib/stores/buyer-store-order-review-meta";
 
@@ -149,7 +150,10 @@ export function BuyerStoreOrderCompletedReviewBlock({
               </p>
               {review.owner_reply_created_at ? (
                 <p className="mt-1 text-right text-[12px] tabular-nums" style={{ color: STORE_ORDER_BRAND.muted }}>
-                  {new Date(review.owner_reply_created_at).toLocaleDateString(dateLocale)}
+                  {compact
+                    ? /* 목록(배달 허브 카드 전용) — 기존 출력 유지 */
+                      new Date(review.owner_reply_created_at).toLocaleDateString(dateLocale)
+                    : formatMypageDate(review.owner_reply_created_at, { lang: language })}
                 </p>
               ) : null}
             </div>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
+import { formatMypageNumber } from "@/lib/mypage/format-mypage-date";
 import {
   listActiveMemberPromotionProducts,
   type MemberPromotionProductId,
@@ -163,7 +164,7 @@ export function PointPromotionOrderForm({
           className="mt-1 sam-text-page-title font-semibold"
         />
         <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-          {t("points_ui_owned", { balance: balance === null ? "—" : balance.toLocaleString() })}
+          {t("points_ui_owned", { balance: balance === null ? "—" : formatMypageNumber(balance, { lang: language }) })}
         </p>
         {insufficient ? (
           <p className="mt-2 sam-text-body-secondary font-medium text-sam-danger">

@@ -3,6 +3,8 @@ import {
   MYPAGE_DISPLAY_TIME_ZONE,
   formatMypageDate,
   formatMypageMoney,
+  formatMypageNumber,
+  formatMypagePoint,
   mypageDateGroupKey,
 } from "@/lib/mypage/format-mypage-date";
 
@@ -41,5 +43,12 @@ describe("format-mypage-date", () => {
   it("money delegates to formatMoneyPhp", () => {
     expect(formatMypageMoney(12500)).toBe("₱12,500");
     expect(formatMypageMoney(null)).toBe("");
+  });
+  it("point / number use member-language grouping (R7 — no raw toLocaleString)", () => {
+    expect(formatMypagePoint(1500, { lang: "en" })).toBe("1,500P");
+    expect(formatMypagePoint(-38, { lang: "ko" })).toBe("-38P");
+    expect(formatMypagePoint(null)).toBe("");
+    expect(formatMypageNumber(1234567, { lang: "ko" })).toBe("1,234,567");
+    expect(formatMypageNumber("x", { lang: "en" })).toBe("");
   });
 });

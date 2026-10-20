@@ -13,8 +13,12 @@ export async function GET() {
   }
 
   const sb = tryGetSupabaseForStores();
+  /** 최종 설계 S22 — 실패를 「찜 없음」(200 빈 목록)으로 응답하지 않는다 → 클라이언트 오류·재시도 */
   if (!sb) {
-    return NextResponse.json({ items: [], authenticated: true });
+    return NextResponse.json(
+      { items: [], authenticated: true, error: "service_unavailable" },
+      { status: 503 }
+    );
   }
 
   const { data: favs, error: favError } = await sb
@@ -27,7 +31,10 @@ export async function GET() {
     if (process.env.NODE_ENV === "development") {
       console.error("[me/store-favorites/list] favorites select:", favError.message);
     }
-    return NextResponse.json({ items: [], authenticated: true });
+    return NextResponse.json(
+      { items: [], authenticated: true, error: "favorites_fetch_failed" },
+      { status: 500 }
+    );
   }
 
   if (!favs?.length) {
@@ -46,7 +53,10 @@ export async function GET() {
     if (process.env.NODE_ENV === "development") {
       console.error("[me/store-favorites/list] stores select:", storeError.message);
     }
-    return NextResponse.json({ items: [], authenticated: true });
+    return NextResponse.json(
+      { items: [], authenticated: true, error: "stores_fetch_failed" },
+      { status: 500 }
+    );
   }
 
   const byId = new Map(

@@ -7,6 +7,7 @@
 
 import type { MypageHomeSummaryState } from "@/lib/mypage/mypage-home-summary-client";
 import type { MypageSummaryCountKey } from "@/lib/mypage/mypage-summary-types";
+import { MYPAGE_HOME_TRADE_OFFERS_HREF } from "@/lib/mypage/mypage-home-hub-links";
 
 export type MypageHomeCountValue =
   | { kind: "hidden" }
@@ -58,4 +59,18 @@ export function mypageHomeCountRowProps(
     case "count":
       return { value: format(value.count), valueState: "ready" };
   }
+}
+
+/**
+ * 홈 「가격 제안」 행 목적지 (최종 설계 S23) — summary 의 받은 대기 수를 그대로 사용.
+ * 받은 대기 > 0 → `?tab=received`, 받은 대기 0(확정) → `?tab=sent`.
+ * 값을 모를 때(로딩·실패·비로그인)는 기본 탭인 받은 제안.
+ */
+export function resolveMypageHomeOffersHref(summary: MypageHomeSummaryState | null): string {
+  const field = summary?.fields?.offersReceivedPending;
+  if (field && field.status === "ok") {
+    const n = Number(field.value);
+    if (Number.isFinite(n) && n <= 0) return `${MYPAGE_HOME_TRADE_OFFERS_HREF}?tab=sent`;
+  }
+  return `${MYPAGE_HOME_TRADE_OFFERS_HREF}?tab=received`;
 }

@@ -11,6 +11,8 @@ import {
   CUSTOMER_CENTER_PAGE_SHELL_CLASS,
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
 } from "@/lib/mypage/customer-center-layout";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 
 type Message = {
   id: string;
@@ -34,7 +36,7 @@ export function MemberCsNoteThreadClient({
   listBasePath?: string;
   hideChrome?: boolean;
 }) {
-  const { t, language, safeT } = useI18n();
+  const { t, safeT } = useI18n();
   const params = useParams();
   const searchParams = useSearchParams();
   const from = searchParams.get("from") ?? (listBasePath ? "owner-care" : null);
@@ -64,7 +66,8 @@ export function MemberCsNoteThreadClient({
         error?: string;
       };
       if (!res.ok || !j.ok) {
-        setError(j.error ?? t("common_content_unavailable"));
+        // B2 — 내부 오류 코드 비노출
+        setError(t("common_content_unavailable"));
         return;
       }
       setThread(j.thread ?? null);
@@ -101,9 +104,21 @@ export function MemberCsNoteThreadClient({
       )}
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
         <div className={`${CUSTOMER_CENTER_FORM_COLUMN_CLASS} flex flex-col gap-3 py-3`}>
-          {loading ? <p className="text-sm text-sam-muted">{t("common_loading")}</p> : null}
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          {loading ? null : (
+          {loading ? <MyStateView kind="loading" template="list" rows={4} /> : null}
+          {!loading && error ? (
+            <MyStateView
+              kind="error"
+              template="list"
+              error={{
+                message: error,
+                onRetry: () => {
+                  setLoading(true);
+                  void load();
+                },
+              }}
+            />
+          ) : null}
+          {loading || error ? null : (
             <ul className="space-y-2">
               {messages.map((m) => (
                 <li
@@ -119,7 +134,7 @@ export function MemberCsNoteThreadClient({
                       ? t("notif_admin_notes_from_admin")
                       : t("notif_admin_notes_from_me")}
                     {" · "}
-                    {new Date(m.created_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US")}
+                    {formatMypageDate(m.created_at, { style: "datetime" })}
                   </p>
                   <p className="mt-1 whitespace-pre-wrap break-words text-[14px] text-sam-fg">{m.body}</p>
                 </li>

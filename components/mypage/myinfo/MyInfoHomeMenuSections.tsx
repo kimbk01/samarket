@@ -6,7 +6,7 @@ import { MyInfoLanguageToggleRow } from "@/components/mypage/myinfo/MyInfoLangua
 import { MyInfoMenuItem } from "@/components/mypage/myinfo/MyInfoMenuItem";
 import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection";
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
-import { useMypageHomeRowValue } from "@/components/mypage/home/mypage-home-values-context";
+import { useMypageHomeRowHref, useMypageHomeRowValue } from "@/components/mypage/home/mypage-home-values-context";
 import {
   MYPAGE_HOME_ACCOUNT_ITEMS,
   MYPAGE_HOME_ASSET_ITEMS,
@@ -40,7 +40,7 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 function MyInfoHomeLinkRow({
   item,
   first,
-  href = item.href,
+  href: hrefProp,
   onItemPress,
 }: {
   item: MypageHomeLinkMenuItem;
@@ -50,6 +50,7 @@ function MyInfoHomeLinkRow({
 }) {
   const { safeT } = useI18n();
   const valueProps = useMypageHomeRowValue(item.valueSource);
+  const href = useMypageHomeRowHref(hrefProp ?? item.href, item.hrefSource);
   return (
     <MyInfoMenuItem
       first={first}

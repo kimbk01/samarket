@@ -45,15 +45,17 @@ export function NativePushSettingsRow({ pushEnabled }: { pushEnabled: boolean })
     }
     void (async () => {
       try {
-        const [permState, res] = await Promise.all([
+        const [permState, next] = await Promise.all([
           checkNativeNotificationPermission(),
-          runSingleFlight("me:devices:status:get", () =>
-            fetch("/api/me/devices/status", { credentials: "include" })
-          ),
+          // 본문은 비행 안에서 1회만 파싱 — 합류한 호출이 같은 Response 본문을 두 번 읽지 않게 한다.
+          runSingleFlight("me:devices:status:get", async (): Promise<DeviceStatusRes> => {
+            const res = await fetch("/api/me/devices/status", { credentials: "include" });
+            const j = (await res.json().catch(() => ({}))) as DeviceStatusRes;
+            return res.ok && j?.ok ? j : { ok: false };
+          }),
         ]);
         setPerm(permState);
-        const j = (await res.json().catch(() => ({}))) as DeviceStatusRes;
-        setStatus(res.ok && j?.ok ? j : { ok: false });
+        setStatus(next);
       } catch {
         setStatus({ ok: false });
       } finally {
