@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { AlertCircle } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SellerHubEmptyState } from "@/components/mypage/seller/SellerHubEmptyState";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -223,8 +224,16 @@ export function MyStateView(props: MyStateViewProps) {
     <div
       role="alert"
       data-testid="my-state-error"
-      className="flex flex-col items-center justify-center gap-3 px-4 py-12 text-center"
+      className="flex flex-col items-center justify-center gap-3 px-4 pb-12 pt-10 text-center"
     >
+      {/* 빈 상태 아이콘과 같은 48px 원형 — 위험 토큰 */}
+      <span
+        aria-hidden
+        data-testid="my-state-error-icon"
+        className="mb-9 flex h-12 w-12 items-center justify-center rounded-full bg-sam-danger-soft text-sam-danger"
+      >
+        <AlertCircle className="h-6 w-6" />
+      </span>
       <p className="sam-text-body text-sam-fg">{error?.message?.trim() || t("mypage_comp_ds_error_default")}</p>
       {error?.onRetry ? (
         <button

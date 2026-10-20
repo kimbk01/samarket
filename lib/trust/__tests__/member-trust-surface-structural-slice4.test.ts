@@ -9,7 +9,13 @@ const root = path.resolve(__dirname, "../../..");
 
 describe("Slice4 trust surface structural", () => {
   it("trust page and home manner row both use buildMemberTrustSurface", () => {
-    const trustPage = readFileSync(path.join(root, "app/(main)/mypage/trust/page.tsx"), "utf8");
+    // S02: 페이지는 MypageTrustContent 만 렌더 — 계약 검사는 실제 화면 컴포넌트 기준
+    const trustRoute = readFileSync(path.join(root, "app/(main)/mypage/trust/page.tsx"), "utf8");
+    expect(trustRoute).toContain("MypageTrustContent");
+    const trustPage = readFileSync(
+      path.join(root, "components/mypage/trust/MypageTrustContent.tsx"),
+      "utf8",
+    );
     const home = readFileSync(
       path.join(root, "components/mypage/home/MypageProfileSummary.tsx"),
       "utf8",
