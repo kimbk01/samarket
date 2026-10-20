@@ -22,7 +22,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - 단일 정의: **`docs/native-build-release-process.md`** (Cursor: `.cursor/rules/dibay-native-build-release-process.mdc`).
 - **보고 첫 줄** = `npm run verify:native-version-bump` 의 `[배포 구분]` (웹만 → 배포 후 앱 재시작 / 네이티브 → 재빌드·재설치 필요 + 목표 버전).
-- **네이티브 변경**(`android/**`·`ios/**`·`capacitor.config.ts`·Capacitor 의존성)은 같은 PR 에서 Android `versionCode`·iOS `CURRENT_PROJECT_VERSION`(4곳) 증가 — CI `native-version-bump` 잡이 강제.
+- **네이티브 변경**(`android/**`·`ios/**`·`capacitor.config.ts`·Capacitor 의존성)은 그 변경을 담은 커밋에서 Android `versionCode`·iOS `CURRENT_PROJECT_VERSION`(4곳)을 **작업당 1회** 증가 — CI `native-version-bump` 잡이 강제. 빌드 시점·종류는 아래 「개발 프로세스」 6번.
 - **Mac 빌드는 `npm run native:prepare` 성공 후에만** Run. 오래된 폴더·미커밋 변경·로컬 버전 수정으로 빌드 금지.
 - **설치 확인은 작업자가 `public.user_devices.app_version`(`버전 (빌드)`)으로 직접** 한다. "폰에서 안 된다" 보고 시 코드 수정 전에 설치 버전부터 확인(구 바이너리면 코드 수정 금지).
 
@@ -58,14 +58,31 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Supabase 유지 vs 최적화 vs 분리: `docs/messenger-supabase-split-evaluation.md` (트래픽 단계별는 `messenger-service-split-criteria.md` 와 연동).
 <!-- END:nextjs-agent-rules -->
 
+## 개발 프로세스 (Claude Code·Cursor 공통 · 단일 정의 · Owner 2026-10-20)
+
+브랜치·커밋·검증·CI·배포·앱 빌드 절차는 **이 절 하나만** 정의한다. `.cursor/rules/*.mdc`·`docs/*` 는 이 절을 참조하고, 절차가 충돌하면 이 절이 우선한다. 위 「절대 금지」·운영 DB 보호·배포 권한(`docs/dibay-build-deploy-hard-lock.md`)·네이티브 안전장치(`docs/native-build-release-process.md`)·통화·메신저·알림 hard-lock 은 약화하지 않는다.
+
+1. **브랜치·PR 없음 (기본)** — 최신 `origin/main` 위에서 직접 수정·검증·커밋하고 `git push origin HEAD:main` 으로 반영한다. 작업마다 브랜치·PR 을 만들지 않는다 (`main` 은 2026-10-20 기준 브랜치 보호 없음).
+   - 클라우드 Claude 세션이 `claude/*` 지정 브랜치를 받아도 그 브랜치는 작업 공간일 뿐이다. 검증 PASS 커밋을 지정 브랜치에 푸시한 뒤 **같은 커밋을 `main` 에 fast-forward 푸시**한다 — 이 절이 Owner 의 상시 허가다. PR 은 Owner 가 요청할 때만 만든다.
+   - `main` 이 앞서 있으면 `git fetch origin main` → 자기 커밋만 `git rebase origin/main`. 겹치는 파일이 없으면 재검증 없이 푸시, 겹치면 관련 검증만 1회 재실행. force-push 금지. 다른 세션의 커밋·미커밋 변경을 삭제·덮어쓰지 않는다.
+   - 브랜치 보호·필수 상태 검사가 생겨 직접 푸시가 거부되면 우회하지 않고 Owner 에게 보고한다 (그때만 PR 경로).
+2. **main 반영 = 웹 Production 배포** — `main` 푸시는 Vercel Git Integration 이 Production 으로 배포한다 (`*.md`·`docs/`·`.cursor/` 만 바뀌면 `scripts/vercel-ignored-build-step.mjs` 가 빌드 생략). Owner 가 **구현을 지시한 작업**은 검증 PASS 후 main 반영까지가 승인 범위다. 다음은 각각 Owner 별도 승인: 「보고만·감사만·배포 보류」 지시 작업의 반영 · 운영 DB 적용(마이그레이션·함수·RLS·트리거·데이터 변경) · 스토어 업로드·출시 · GitHub·Vercel·Supabase 설정 변경.
+3. **검증은 로컬 1회** — 최종 트리에서 `npm run typecheck:build` + 변경 관련 `vitest` + 변경 파일 `eslint` (+ 해당 도메인 `verify:*`) 를 **한 번** 돌리고, 통과하면 `git commit --no-verify` (pre-commit 의 같은 tsc 재실행 금지). 같은 트리에서 PASS 한 검사는 다시 돌리지 않는다. 전체 `npm run ci` 는 로컬에서 돌리지 않고, `npm run build` 는 빌드 설정·라우트 구조 변경 때만 1회. 문서·규칙만 바뀐 커밋은 코드 검증을 생략한다.
+4. **GitHub CI 는 기다리지 않는다** — main 푸시 때 CI 가 자동 실행되는 것은 유지하되, 결과를 기다리거나 조회하지 않는다 (절대 금지 2번·훅 차단). 완료 보고는 로컬 검증 결과 + 푸시 SHA 로 한다. CI 실패가 알려지면 (GitHub 알림·Owner 전달) 이 변경과 관련된 오류인지 판단해 관련 오류만 새 커밋으로 고친다. 무관한 기존 실패는 보고만 한다.
+5. **변경 분류는 작업자가 자동 판정** (Owner 에게 묻지 않는다) — 실제 변경 파일과 기능 의존성으로 정하고, 보고 첫 줄에 `npm run verify:native-version-bump` 의 `[배포 구분]` 을 쓴다.
+   - **웹** (`app/`·`components/`·`lib/`·API·관리자 UI 등): main 반영 후 앱 재시작만. APK·AAB·iOS 빌드·버전 변경 없음.
+   - **DB** (`supabase/` 마이그레이션·함수·RLS·트리거): 파일 커밋은 웹과 같다. 운영 DB 적용은 Owner 승인 후 적용 결과를 확인한다. DB 변경만으로 앱을 재빌드하지 않는다.
+   - **네이티브** (`android/**`·`ios/**`·`capacitor.config.ts`·Capacitor 플러그인·앱 설정·네이티브 브리지 계약, 또는 새 네이티브 기능을 요구하는 웹 코드): 6번.
+6. **앱 빌드는 필요할 때만** — Android APK 는 실기기 직접 설치 검증이 필요할 때, AAB 는 Google Play 에 새 버전을 등록할 때, iOS 는 실기기 검증·TestFlight·App Store 배포가 필요할 때만 만든다. 웹·DB 수정마다 빌드하지 않는다. 빌드 번호는 네이티브 변경과 **같은 커밋에서 작업당 1회** 올린다 (한 작업의 네이티브 변경은 한 커밋으로 묶어 반복 증가 금지 · 푸시 전 로컬 `npm run verify:native-version-bump` PASS). Mac 빌드는 `npm run native:prepare` 성공 후에만 (`docs/native-build-release-process.md` §4). 스토어 업로드와 출시 승인은 별개 — Owner 승인 없이 출시하지 않는다.
+
 ## Claude 작업 효율 규정 (Owner 지시 · 예외 없음)
 
 1. **범위 고정**: 지시받은 범위만 구현한다. 다른 화면·정책·감사·문서로 넓히지 않는다. 범위 밖 결함은 보고만 한다.
-2. **검증은 1회**: 최종 트리에서 `npm run typecheck:build` + 변경 관련 `vitest` + 변경 파일 `eslint` 를 **한 번** 돌린다. 통과한 트리는 `git commit --no-verify` 로 커밋한다 (pre-commit 의 같은 tsc 재실행 금지). 전체 `npm run ci` 는 GitHub CI 에 맡기고 로컬에서 중복 실행하지 않는다.
-3. **대기 금지**: 10분 이상 걸리는 작업(빌드·CI·서브에이전트)은 백그라운드로 돌리고, 그동안 다음 작업을 한다. 결과를 기다리며 설명을 늘어놓지 않는다. **CI 대기 단축 (2026-10-19 · 2026-10-20 보강)**: PR CI 는 **1회만** 기다린다. PR CI 통과 후 바로 병합하고 완료 보고한다. 그 사이 main 이 바뀌었어도 **겹치는 파일 0개·병합 충돌 없음**이면 main 을 PR 에 다시 합치거나 PR CI 를 다시 돌리지 않고 바로 병합한다(통합 트리 검증은 main CI 몫). 겹치는 파일이나 충돌이 있을 때만 main 을 합쳐 로컬 검증 1회 후 PR CI 를 다시 받는다. main CI 는 기다리거나 조회하지 않고, 실패 알림이 올 때만 보고한다(절대 금지 2번).
+2. **검증·커밋·푸시·CI**: 위 「개발 프로세스」 1~4번.
+3. **대기 금지**: 10분 이상 걸리는 작업(빌드·서브에이전트)은 백그라운드로 돌리고, 그동안 다음 작업을 한다. 결과를 기다리며 설명을 늘어놓지 않는다. CI·배포 결과는 기다리지 않는다 (절대 금지 2번).
 4. **푸시 전 필수 확인**: `git show HEAD:<file>` 로 수정 파일이 실제 커밋에 들어갔는지 확인한다. `"use client"` 파일이 서버 전용 모듈(`next/server` after, 알림 append, web-push, service-role supabase, `lib/audit`)을 import 하지 않는지 확인한다.
-5. **결과 구분 보고**: 브랜치 코드 PASS / Preview PASS / Production PASS / 실기기 PASS 를 구분한다. Preview 는 선택 — 확인 불가 시 NOT_PROVEN 1회 표기. 측정하지 않은 것은 NOT_PROVEN. 운영 주소(samarket.vercel.app)는 main 병합 전에는 바뀌지 않는다는 점을 명시한다.
+5. **결과 구분 보고**: 로컬 검증 PASS / Preview PASS / Production PASS / 실기기 PASS 를 구분한다. Preview 는 선택 — 확인 불가 시 NOT_PROVEN 1회 표기. 측정하지 않은 것은 NOT_PROVEN. 운영 주소(samarket.vercel.app)는 main 반영 전에는 바뀌지 않는다는 점을 명시한다.
 6. **데이터 먼저 확인**: 화면 숫자·지표를 고칠 때는 운영 DB 를 읽기 전용으로 조회해 실제 값이 맞는지 먼저 확인한다.
 7. **보고는 짧게**: 한 일·결과·남은 일만. 같은 계획·감사를 반복하지 않는다. 선택지(A/B/C)를 Owner 에게 떠넘기지 않는다.
-8. **Owner 고정 작업 방식 (2026-10-19)**: 기존 감사·설계 재사용(같은 분석 반복 금지) · 한 작업 = 한 통합 PR(불필요한 분할 커밋·보고 금지) · 다른 도메인 수정 혼합 금지 · 검사·빌드·CI 는 최종 통합 HEAD 에서 · Preview 는 필수 단계 아님(접근 불가 시 반복 확인 금지) · 승인 변경은 충돌·회귀 확인 후 main 병합 + Production 반영 확인 (작업 환경에서 Vercel·운영 주소 접근 불가면 main CI PASS(또는 규정 3 의 동일 트리 PR CI PASS) + 배포 SHA 로 보고하고 Production 은 NOT_PROVEN 1회 표기 후 Owner 확인 — 반복 확인 금지) · main CI 진행 중 추가 병합 금지 (병합할 변경은 한 PR 로 묶는다) · 웹 변경은 기존 앱 재시작으로 확인, 네이티브 변경 시에만 새 빌드 · 승인된 완료 기준 외 조건 추가 금지 · 실제 결함만 수정(개선 과제 무한 추가 금지) · 완료 보고 = 원인·수정·검증·배포 SHA·남은 위험.
+8. **Owner 고정 작업 방식 (2026-10-19)**: 기존 감사·설계 재사용(같은 분석 반복 금지) · 한 작업 = main 에 한 번 반영(불필요한 분할 커밋·보고 금지) · 다른 도메인 수정 혼합 금지 · 검사는 최종 HEAD 에서 1회 · Preview 는 필수 단계 아님(접근 불가 시 반복 확인 금지) · 승인 변경은 충돌·회귀 확인 후 main 반영 + Production 반영 1회 확인 (작업 환경에서 Vercel·운영 주소 접근 불가면 로컬 검증 PASS + 배포 SHA 로 보고하고 Production 은 NOT_PROVEN 1회 표기 후 Owner 확인 — 반복 확인 금지) · 웹 변경은 기존 앱 재시작으로 확인, 네이티브 변경 시에만 새 빌드 · 승인된 완료 기준 외 조건 추가 금지 · 실제 결함만 수정(개선 과제 무한 추가 금지) · 완료 보고 = 원인·수정·검증·배포 SHA·남은 위험.
 9. **시간 기준 = 필리핀 현지 시간 (2026-10-19)**: Owner 보고·일정·예약 작업의 시간은 **필리핀 시간(PHT, `Asia/Manila`, UTC+8)** 으로 표기한다 (예: `17:27 PHT`). 예약 작업 cron 은 `CRON_TZ=Asia/Manila` 로 등록한다. 서버(GitHub·Vercel·Supabase) 시계와 **DB 저장값은 UTC 그대로 두고 변경하지 않는다** — 필리핀 시간 변환은 표시 단계에서만 한다.

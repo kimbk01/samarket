@@ -6,8 +6,8 @@ alwaysApply: true
 # DIBAY 네이티브 빌드·배포 규정 (요약 — 원문 `docs/native-build-release-process.md`)
 
 1. **모든 작업 보고 첫 줄**: `npm run verify:native-version-bump` 의 `[배포 구분]` 한 줄(웹만 / 네이티브 — 재빌드 필요 + 목표 버전).
-2. **네이티브 변경**(`android/**`, `ios/**`, `capacitor.config.ts`, Capacitor 의존성) → 같은 PR 에서 Android `versionCode` +1 / iOS `CURRENT_PROJECT_VERSION` 4곳 +1. CI `native-version-bump` 가 강제.
+2. **네이티브 변경**(`android/**`, `ios/**`, `capacitor.config.ts`, Capacitor 의존성) → 같은 커밋에서 Android `versionCode` +1 / iOS `CURRENT_PROJECT_VERSION` 4곳 +1 (작업당 1회, 반복 증가 금지). CI `native-version-bump` 가 강제. APK·AAB·iOS 빌드는 설치 검증·스토어 등록에 필요할 때만.
 3. **Mac 빌드는 `npm run native:prepare` 성공 후에만** Xcode/Android Studio Run. 오래된 폴더·다른 브랜치·미커밋 변경으로 빌드 금지. 로컬에서 버전 임의 수정 금지. Cursor 샌드박스에서 `npm ci` 금지(일반 터미널).
 4. **설치 확인은 작업자가 직접**: `public.user_devices.app_version`(형식 `버전 (빌드)`)을 조회한다. Owner 에게 "빌드했나요?"를 묻지 않는다.
 5. **"폰에서 안 된다" → 코드 수정 전에 설치 버전부터 확인**. main 목표 버전과 다르면 구 바이너리 — 코드 수정 금지, 3번 후 재확인.
-6. 로컬 전용 변경은 브랜치 커밋·PR 로만 반영한다. 근거 없으면 `NOT_PROVEN`.
+6. 로컬 전용 변경은 main 커밋·푸시로만 반영한다 (`AGENTS.md` 「개발 프로세스」). 근거 없으면 `NOT_PROVEN`.

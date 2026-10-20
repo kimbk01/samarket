@@ -63,6 +63,7 @@ User-specified order/STOP is execution authority. “추가 승인 질문 금지
 11. Do not re-investigate already confirmed facts.
 12. Do not invent a follow-up improvement Phase after completion.
 
+Canonical dev process (branch · PR · 검증 · CI · 앱 빌드, Claude Code·Cursor 공통): `AGENTS.md` 「개발 프로세스」 — 작업마다 브랜치·PR 생성 금지, main 직접 반영, CI 대기 금지.  
 Canonical deploy: `docs/dibay-build-deploy-hard-lock.md` · `dibay-production-deploy-authority-hard-lock.mdc`.  
 Canonical inspection: `samarket-dev-inspection-regulation.mdc`.  
 Canonical i18n: `samarket-i18n-core.mdc`.

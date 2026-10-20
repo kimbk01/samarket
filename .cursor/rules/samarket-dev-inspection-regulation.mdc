@@ -5,7 +5,7 @@ alwaysApply: true
 
 # 디바이 개발 검사 규정
 
-Agent 행동·중복 금지 원칙은 `dibay-master-execution-contract.mdc` 와 같다. Deploy 권한은 `dibay-production-deploy-authority-hard-lock.mdc`. i18n **제품** 계약은 `samarket-i18n-core.mdc`.
+브랜치·PR·CI·푸시 절차는 `AGENTS.md` 「개발 프로세스」가 단일 정의다 (충돌 시 그쪽 우선). Agent 행동·중복 금지 원칙은 `dibay-master-execution-contract.mdc` 와 같다. Deploy 권한은 `dibay-production-deploy-authority-hard-lock.mdc`. i18n **제품** 계약은 `samarket-i18n-core.mdc`.
 
 ## 0. 동일 상태 1회
 
@@ -28,9 +28,9 @@ Agent 행동·중복 금지 원칙은 `dibay-master-execution-contract.mdc` 와 
 
 사용자가 **커밋을 요청**했을 때만. 통과 전 커밋 금지. **이 단계에서 `npm run build` 금지.**
 
-1. `npm run lint` — error 1개라도 FAIL
+1. 변경 파일 `eslint` — error 1개라도 FAIL
 2. `npm run typecheck:build` — test 스테이징 시 `typecheck:test` 추가
-3. `npm run verify:i18n-key-exposure`
+3. `npm run verify:i18n-key-exposure` — `messages/`·i18n 키 변경 시만
 4. diff **관련** `verify:*` 만 (아래 표)
 5. 관련 unit: `vitest run <경로>`
 
@@ -49,8 +49,9 @@ PASS → `git add` → `git commit`.
 
 사용자가 **푸시를 요청**했을 때만.
 
-1. `npm run build` **1회**
+1. 로컬 `npm run build` 는 기본 생략 (Production build 는 Vercel 전용). 빌드 설정·라우트 구조 변경 때만 1회
 2. add에서 안 돌린 **diff 관련** contract만
+3. GitHub CI 결과는 기다리지 않는다
 
 ### Retry
 
@@ -85,4 +86,4 @@ PASS → `git add` → `git commit`.
 | 1–5 | add pre-gate | PASS/FAIL |
 | build | `npm run build` | PASS/FAIL/ABORTED |
 
-ABORTED면 build만 재시도 후 보고. 1–5 재실행 금지.
+ABORTED면 build만 재시도 후 보고. 1–5 재실행 금지. build 를 돌리지 않았으면 `SKIPPED (Vercel)`.

@@ -15,19 +15,21 @@ DIBAY 앱은 Capacitor 셸이 `https://samarket.vercel.app` 을 불러오는 구
 
 | 분류 | 경로 | 반영 방법 |
 |---|---|---|
-| **웹만** | `app/` `components/` `lib/` `hooks/` `messages/` `public/` `supabase/` 등 | main 병합 → Vercel Production 배포 → **앱 재시작만** |
+| **웹만** | `app/` `components/` `lib/` `hooks/` `messages/` `public/` `supabase/` 등 | main 반영 → Vercel Production 배포 → **앱 재시작만** |
 | **네이티브** | `android/**` · `ios/**` · `capacitor.config.ts` · `package.json` 의 Capacitor 의존성(`@capacitor/*`, `@capawesome/*`, `*capacitor-*`) | 위 + **APK·iOS 재빌드·재설치** |
 
 - `.md` 와 sync 생성 파일(`capacitor-www/**`, `ios/App/App/public/**`, `lib/build/generated-app-build-fingerprint.ts`, 지문 키만 바뀐 `Info.plist` 등)은 네이티브 변경이 아니다.
 - 판정은 사람이 하지 않는다: `npm run verify:native-version-bump` 첫 줄이 `[배포 구분]` 을 출력한다(로직: `scripts/lib/native-release.mjs`).
 
-## 2. 네이티브 변경 = 같은 PR 에서 빌드 번호 증가 (CI 강제)
+## 2. 네이티브 변경 = 같은 커밋에서 빌드 번호 증가 (작업당 1회 · CI 강제)
 
 - Android 네이티브 변경 → `android/app/build.gradle` 의 `versionCode` +1
 - iOS 네이티브 변경 → `ios/App/App.xcodeproj/project.pbxproj` 의 `CURRENT_PROJECT_VERSION` **4곳 모두** +1 (App·푸시 확장 × Debug·Release, 값 동일)
 - 공통(`capacitor.config.ts`, Capacitor 의존성) → 둘 다
 - 사용자에게 보이는 릴리스면 `versionName` / `MARKETING_VERSION` 도 올린다(선택). **로컬에서 버전을 임의로 바꿔 빌드하지 않는다**(예: 저장소에 없는 `1.0.1`).
-- CI `native-version-bump` 잡이 위반 시 실패한다. 빨간 상태로 병합하지 않는다.
+- 한 작업의 네이티브 변경은 한 커밋으로 묶고 번호는 **작업당 1회만** 올린다. 개발 중 커밋마다 반복해 올리지 않는다.
+- 푸시 전 로컬 `npm run verify:native-version-bump` PASS 필수. CI `native-version-bump` 잡도 위반 시 실패한다 — 실패하면 다음 커밋으로 바로 고친다.
+- 빌드 시점: APK = 실기기 설치 검증이 필요할 때 · AAB = Google Play 새 버전 등록 때 · iOS = 실기기 검증·TestFlight·App Store 때만. 웹·DB 수정마다 빌드하지 않는다. 스토어 업로드 ≠ 출시 — 출시는 Owner 승인.
 
 ## 3. 보고 형식 — 모든 작업 보고의 첫 줄
 
@@ -56,7 +58,7 @@ npm run native:prepare
 - Android: `cd android && ./gradlew assembleRelease && adb -d install -r app/build/outputs/apk/release/app-release.apk`
 
 금지: 오래된 폴더/다른 브랜치/미커밋 변경 상태에서 Run, 로컬에서 버전 임의 수정, Cursor 샌드박스에서 `npm ci`(권한 문제 — 일반 터미널 사용).
-로컬 변경이 필요하면 브랜치에 커밋·푸시 → PR → main 병합 후 다시 §4.
+로컬 변경이 필요하면 main 에 커밋·푸시(`AGENTS.md` 「개발 프로세스」) 후 다시 §4.
 Mac 에서 Claude 가 직접 수행해야 하면 Owner 가 `claude remote-control` 을 켠다(그 세션이 §4 를 실행).
 
 ## 5. 설치 확인 — Owner 에게 "빌드했나요?" 묻지 않는다
@@ -88,3 +90,4 @@ Mac 에서 Claude 가 직접 수행해야 하면 Owner 가 `claude remote-contro
 ## 변경 이력
 
 - 2026-10-17: 최초 제정(사진 저장 사고). `native:prepare`, CI `native-version-bump`, `app_version` 에 빌드 번호 기록.
+- 2026-10-20: 브랜치·PR 전제 제거 — main 직접 반영(`AGENTS.md` 「개발 프로세스」), 빌드 번호 작업당 1회, 빌드 시점(APK·AAB·iOS) 명시.
