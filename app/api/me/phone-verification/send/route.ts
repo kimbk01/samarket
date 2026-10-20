@@ -7,7 +7,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { enforcePhoneVerificationSendQuota } from "@/lib/security/rate-limit-presets";
 import { STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
 import { sendPhoneOtpForUser } from "@/lib/auth/phone-otp-service";
-import { patchProfileDisplayName } from "@/lib/auth/phone-otp-server-sync";
+import { patchProfileDisplayName, precheckProfileDisplayName } from "@/lib/auth/phone-otp-server-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,13 +47,17 @@ export async function POST(req: NextRequest) {
   if (!displayName) {
     return jsonError("닉네임을 입력해 주세요.", 400);
   }
+  const nameCheck = await precheckProfileDisplayName(sb, auth.userId, displayName);
+  if (!nameCheck.ok) {
+    return jsonError(nameCheck.message, nameCheck.status);
+  }
   const result = await sendPhoneOtpForUser(sb, auth.userId, inputPhone);
   if (!result.ok) {
     return jsonError(result.message, { status: result.status, code: result.code });
   }
   const namePatch = await patchProfileDisplayName(sb, auth.userId, displayName);
   if (!namePatch.ok) {
-    return jsonError(namePatch.message, 500);
+    return jsonError(namePatch.message, namePatch.status);
   }
   return jsonOk({
     verification: {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
+import { hasPhilippinePhoneVerification } from "@/lib/auth/store-member-policy";
 import { evaluateProfileRequirements } from "@/lib/profile/require-profile-completion";
 import { ACTION_ACCESS_BASE_FIELDS } from "@/lib/profile/profile-requirements";
 
@@ -115,13 +116,31 @@ describe("hasVerifiedPhone admin_manual alignment", () => {
     expect(hasVerifiedPhone({ phone_verified_at: "2026-01-01T00:00:00.000Z" })).toBe(true);
   });
 
-  it("passes phone_verification_method=admin_manual", () => {
-    expect(
-      hasVerifiedPhone({
+  it("method=admin_manual label alone is not evidence (PR #94 — legacy seed asas22/33/44)", () => {
+    for (const status of ["unverified", "verified"]) {
+      const row = {
+        role: "user",
         phone_verified: false,
+        phone_verified_at: null,
         phone_verification_method: "admin_manual",
-      })
-    ).toBe(true);
+        phone_verification_status: status,
+        provider: "email",
+        auth_provider: "email",
+        email: "seed@example.com",
+      };
+      expect(hasVerifiedPhone(row)).toBe(false);
+      expect(hasPhilippinePhoneVerification(row)).toBe(false);
+    }
+  });
+
+  it("admin approval (phone_verified + verified_at + admin_manual) still passes", () => {
+    const row = {
+      phone_verified: true,
+      phone_verified_at: "2026-06-15T00:00:00.000Z",
+      phone_verification_method: "admin_manual",
+    };
+    expect(hasVerifiedPhone(row)).toBe(true);
+    expect(hasPhilippinePhoneVerification(row)).toBe(true);
   });
 
   it("passes legacy manual_admin provider without phone_verified", () => {

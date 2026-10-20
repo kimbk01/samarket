@@ -5,6 +5,7 @@ import {
   type ProfilePhoneRowSlice,
 } from "@/lib/profile/resolve-profile-phone";
 import { formatPhMobileDisplayPlus63 } from "@/lib/utils/ph-mobile";
+import { hasVerifiedPhone, type PhoneVerificationGateInput } from "@/lib/auth/post-login-profile-policy";
 
 export type ProfilePhoneVerificationMethod = "admin_manual" | "semaphore_local";
 
@@ -94,11 +95,15 @@ export function buildPhoneVerificationStatusPatch(input: {
     return buildPhoneVerificationResetPatch(input.nowIso);
   }
   const ts = input.nowIso ?? new Date().toISOString();
+  /**
+   * pending·rejected 는 인증 완료가 아니다. method 를 `admin_manual` 로 두면 `hasVerifiedPhone` 이
+   * 인증 완료로 판정해 앱(통과)과 관리자(미인증) 상태가 어긋난다(감사 #8) — method 는 비운다.
+   */
   const patch: Record<string, unknown> = {
     phone_verified: false,
     phone_verified_at: null,
     phone_verification_status: status,
-    phone_verification_method: "admin_manual",
+    phone_verification_method: null,
     member_status: "pending",
     verified_member_at: null,
     updated_at: ts,
@@ -110,3 +115,18 @@ export function buildPhoneVerificationStatusPatch(input: {
   return patch;
 }
 
+
+export type PhoneVerificationDisplayStatus = "verified" | "pending" | "rejected" | "unverified";
+
+/**
+ * 앱·관리자 공통 표시 상태 — 인증 완료 여부는 앱 게이트와 같은 `hasVerifiedPhone` 으로만 판정한다.
+ * `phone_verification_status` 원시값만 보면 과거 OTP 인증 회원(상태 컬럼 미갱신)이 관리자에서 미인증으로 보인다.
+ */
+export function resolvePhoneVerificationDisplayStatus(
+  row: PhoneVerificationGateInput & { phone_verification_status?: string | null; phone?: string | null }
+): PhoneVerificationDisplayStatus {
+  if (hasVerifiedPhone(row)) return "verified";
+  const raw = String(row.phone_verification_status ?? "").trim().toLowerCase();
+  if (raw === "pending" || raw === "rejected") return raw;
+  return "unverified";
+}

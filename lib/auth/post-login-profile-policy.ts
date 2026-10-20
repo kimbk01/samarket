@@ -58,8 +58,11 @@ export function hasVerifiedPhone(profile: PhoneVerificationGateInput | null | un
   if (profile.phone_verified === true || Boolean(pickTrimmedProfileField(profile.phone_verified_at))) {
     return true;
   }
-  const method = pickTrimmedProfileField(profile.phone_verification_method)?.toLowerCase();
-  if (method === "admin_manual") return true;
+  /**
+   * `phone_verification_method` 는 "어떻게 인증했는가" 라벨일 뿐 인증 근거가 아니다.
+   * 관리자 승인 경로(buildPhoneVerifiedMemberPatch·관리자 생성)는 항상 phone_verified·phone_verified_at 을 함께 쓰므로
+   * method 단독으로 통과시키지 않는다 — 근거 없는 레거시 시드 3건이 게이트를 통과하던 결함(PR #94 감사 #8).
+   */
   return isAdminManualProvider(profile);
 }
 

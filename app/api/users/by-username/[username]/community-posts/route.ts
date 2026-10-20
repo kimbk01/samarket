@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { listCommunityPostsForUser } from "@/lib/community-feed/list-community-posts-for-user";
+import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
   const { data: prof } = await sbAny
     .from("profiles")
     .select("id")
-    .ilike("username", username)
+    .ilike("username", escapeIlikePatternFragment(username))
     .maybeSingle();
 
   const userId = typeof (prof as { id?: string } | null)?.id === "string" ? (prof as { id: string }).id : "";

@@ -19,6 +19,7 @@ import { REGIONS } from "@/lib/products/form-options";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
+import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -220,7 +221,7 @@ export async function POST(req: NextRequest) {
   const { data: nicknameRows } = await supabase
     .from("profiles")
     .select("id")
-    .ilike("nickname", nickname)
+    .ilike("nickname", escapeIlikePatternFragment(nickname))
     .limit(1);
   if (Array.isArray(nicknameRows) && nicknameRows.length > 0) {
     return jsonFieldError("nickname", "admin_users_err_nickname_taken", 409);

@@ -187,6 +187,8 @@ const SELECT_ME_PROFILE_LITE = [
   "display_name",
   "nickname",
   "avatar_url",
+  /** 한줄인사 — 내정보 홈 카드가 boot lite 로 표시하므로 lite 에도 포함 (감사 #3) */
+  "bio",
   "profile_completed",
   "username",
   "dibay_id",

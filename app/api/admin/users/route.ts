@@ -37,6 +37,7 @@ import {
   type ProfileFilterOp,
 } from "@/lib/admin-users/admin-member-list-query";
 import { resolveDisplayName } from "@/lib/users/user-label";
+import { resolvePhoneVerificationDisplayStatus } from "@/lib/profile/admin-phone-verification-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,6 +68,7 @@ type ProfileRow = {
   phone_verified: boolean | null;
   phone_verified_at: string | null;
   phone_verification_status: string | null;
+  phone_verification_method?: string | null;
   member_status: string | null;
   verified_member_at: string | null;
   provider: string | null;
@@ -204,8 +206,9 @@ function mapProfileRowToAdminUser(input: {
   const dibayId = r.dibay_id?.trim() || null;
   const username = r.username?.trim() || null;
   const nickname = r.nickname?.trim() || "";
+  /** 공개 이름 SSOT = nickname (앱 게시판·거래와 동일) — display_name 은 사본 (감사 #4) */
   const displayName = resolveDisplayName({
-    display_name: r.display_name,
+    display_name: nickname || r.display_name,
     nickname: r.nickname,
     email: displayEmail ?? r.email,
     username,
@@ -239,7 +242,8 @@ function mapProfileRowToAdminUser(input: {
     location: r.region_name?.trim() || undefined,
     phoneVerified: r.phone_verified === true,
     phoneVerifiedAt: r.phone_verified_at ?? undefined,
-    verificationStatus: r.phone_verification_status ?? undefined,
+    /** 앱 게이트(hasVerifiedPhone)와 같은 판정 (감사 #8) */
+    verificationStatus: resolvePhoneVerificationDisplayStatus(r),
     memberStatus: r.member_status ?? undefined,
     verifiedMemberAt: r.verified_member_at ?? undefined,
     productCount: 0,
@@ -298,9 +302,9 @@ export async function GET(req: NextRequest) {
   const uuidSearch = Boolean(search) && isAdminMemberUuidSearch(search);
 
   const profileSelect =
-    "id, email, auth_login_email, provider_user_id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
+    "id, email, auth_login_email, provider_user_id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, phone, phone_verified, phone_verified_at, phone_verification_status, phone_verification_method, verified_member_at, provider, auth_provider, last_login_at, created_at";
   const profileSelectLegacy =
-    "id, email, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
+    "id, email, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, phone, phone_verified, phone_verified_at, phone_verification_status, phone_verification_method, verified_member_at, provider, auth_provider, last_login_at, created_at";
 
   const isMissingProfileColumn = (message: string) => {
     const lower = message.toLowerCase();

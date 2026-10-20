@@ -21,6 +21,7 @@ import { hasVerifiedPhone, resolveOAuthSeedDisplayName } from "@/lib/auth/post-l
 import { isVerifiedMember } from "@/lib/auth/member-status";
 import { assignAutoDibayIdForUser } from "@/lib/auth/assign-auto-dibay-id.server";
 import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access-constants";
+import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
 
 export type MemberAccessState = {
   userId: string;
@@ -210,7 +211,7 @@ async function resolveUniqueNicknameForInsert(
       const { data, error } = await sb
         .from("profiles")
         .select("id")
-        .ilike("nickname", name)
+        .ilike("nickname", escapeIlikePatternFragment(name))
         .limit(2);
       if (error || !Array.isArray(data)) return true;
       const taken = data.find((row) => {

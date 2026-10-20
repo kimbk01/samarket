@@ -9,6 +9,8 @@ import {
   normalizeDibayIdInput,
 } from "@/lib/auth/dibay-id-policy";
 
+const DIBAY_ID_REASON_MAX = 300;
+
 export function AdminMemberDibayIdDialog({
   open,
   userId,
@@ -24,12 +26,15 @@ export function AdminMemberDibayIdDialog({
 }) {
   const currentDisplay = adminMemberPublicIdAt(currentDibayId) || "—";
   const [nextId, setNextId] = useState(() => normalizeDibayIdInput(currentDibayId));
+  /** 변경 사유 — 필수 (서버·DB admin_set_dibay_id 가 같은 트랜잭션에서 감사 기록) */
+  const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setNextId(normalizeDibayIdInput(currentDibayId));
+    setReason("");
     setErrorText(null);
     setPending(false);
   }, [open, currentDibayId]);
@@ -37,6 +42,7 @@ export function AdminMemberDibayIdDialog({
   const normalized = normalizeDibayIdInput(nextId);
   const currentNorm = normalizeDibayIdInput(currentDibayId);
   const dirty = normalized !== currentNorm;
+  const trimmedReason = reason.trim();
 
   const clientError = useMemo(() => {
     if (!dirty) return null;
@@ -44,8 +50,10 @@ export function AdminMemberDibayIdDialog({
     if (!isValidDibayIdFormat(normalized)) {
       return "사용할 수 없는 @회원 ID 형식입니다. 영문 소문자·숫자·._ 조합(3–20자)만 가능합니다.";
     }
+    if (!trimmedReason) return "변경 사유를 입력해 주세요.";
+    if (trimmedReason.length > DIBAY_ID_REASON_MAX) return `변경 사유는 ${DIBAY_ID_REASON_MAX}자 이내로 입력해 주세요.`;
     return null;
-  }, [dirty, normalized]);
+  }, [dirty, normalized, trimmedReason]);
 
   const handleChange = async () => {
     setErrorText(null);
@@ -59,7 +67,7 @@ export function AdminMemberDibayIdDialog({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dibayId: normalized }),
+        body: JSON.stringify({ dibayId: normalized, dibayIdReason: trimmedReason }),
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
@@ -67,7 +75,20 @@ export function AdminMemberDibayIdDialog({
           setErrorText("이미 사용 중인 @회원 ID입니다.");
           return;
         }
-        if (data.error === "invalid_dibay_id") {
+        if (data.error === "dibay_id_reason_required" || data.error === "reason_required") {
+          setErrorText("변경 사유를 입력해 주세요.");
+          return;
+        }
+        if (data.error === "dibay_id_reason_too_long" || data.error === "reason_too_long") {
+          setErrorText(`변경 사유는 ${DIBAY_ID_REASON_MAX}자 이내로 입력해 주세요.`);
+          return;
+        }
+        if (
+          data.error === "invalid_dibay_id" ||
+          data.error === "dibay_id_invalid_format" ||
+          data.error === "dibay_id_reserved" ||
+          data.error === "dibay_id_reserved_pattern"
+        ) {
           setErrorText("사용할 수 없는 @회원 ID 형식입니다.");
           return;
         }
@@ -123,6 +144,21 @@ export function AdminMemberDibayIdDialog({
               data-member-dibay-id-input="1"
             />
           </div>
+        </label>
+        <label className="block text-[13px]">
+          <span className="mb-1 block text-[#667085]">변경 사유 (필수)</span>
+          <textarea
+            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+            rows={2}
+            maxLength={DIBAY_ID_REASON_MAX}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="예) 회원 요청 — 오타 정정"
+            data-member-dibay-id-reason="1"
+          />
+          <span className="mt-1 block text-[12px] text-[#667085]">
+            관리자 변경은 회원 본인의 1회 변경권을 사용하지 않습니다. 사유는 관리자 작업 기록에 남습니다.
+          </span>
         </label>
       </div>
     </MemberAdminDialog>

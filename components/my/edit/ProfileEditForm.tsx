@@ -6,6 +6,8 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRegion } from "@/contexts/RegionContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
+import { fetchMeProfileFresh } from "@/lib/profile/fetch-me-profile-deduped";
+import { diffProfileEdit } from "@/lib/profile/profile-patch-concurrency";
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
 import { ProfileBasicFields } from "./ProfileBasicFields";
@@ -38,7 +40,6 @@ import { normalizeRequiredSlugFromUrl } from "@/lib/profile/profile-requirements
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
-import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import {
@@ -216,7 +217,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
       .catch(() => null);
 
     const [data, addrPack, pvSettings] = await Promise.all([
-      getMyProfile(),
+      /** 편집 기준 원본은 DB 최신 full — boot lite 스냅샷(bio 없음·저장 전 값) 금지 */
+      fetchMeProfileFresh("profile_edit_form_open").then((p) => p ?? getMyProfile()),
       addressesPromise,
       phoneSettingsPromise,
     ]);
@@ -261,9 +263,10 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     if (opts?.freshProfile && merged.id) {
       setSupabaseProfileCache(profileRowToClientProfile(merged));
     }
-    const nextDisplayName = merged.display_name ?? merged.nickname ?? "";
+    const nextDisplayName = merged.nickname ?? merged.display_name ?? "";
     setDisplayName(nextDisplayName);
-    const nextAvatarUrl = withDefaultAvatar(merged.avatar_url);
+    /** DB 원본 그대로 — 사진 저장 시 기대값(compare-and-set)으로 쓰이므로 기본 이미지로 치환하지 않는다 (표시는 아바타 컴포넌트가 처리) */
+    const nextAvatarUrl = merged.avatar_url ?? null;
     setAvatarUrl(nextAvatarUrl);
     const nextBio = merged.bio ?? "";
     setBio(nextBio);
@@ -460,14 +463,14 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     const fa = mapFullAddress.trim();
     const hasMap = mapLat != null && mapLng != null && Boolean(fa);
 
-    const payload: ProfileUpdatePayload = {
-      avatar_url: withDefaultAvatar(avatarUrl),
-      bio: bio.trim() || null,
-    };
-
-    if (trimmedName.length >= 2) {
-      payload.display_name = trimmedName;
-    }
+    /** 바뀐 필드만 저장 — 사진은 ProfileImageField 가 업로드 직후 자체 저장 */
+    const diff = diffProfileEdit(
+      { nickname: profile?.nickname ?? profile?.display_name ?? null, bio: profile?.bio ?? null },
+      { nickname: trimmedName.length >= 2 ? trimmedName : "", bio }
+    );
+    const payload: ProfileUpdatePayload = { ...diff.payload };
+    const expected = { ...diff.expected };
+    if (payload.nickname !== undefined) expected.nickname = profile?.nickname ?? null;
 
     if (hasMap) {
       const matched = matchRegionCityFromFullAddress(fa);
@@ -483,7 +486,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     }
 
     setSaving(true);
-    const result = await updateMyProfile(payload);
+    const result = await updateMyProfile(payload, { expected });
     setSaving(false);
     if (result.ok) {
       const warn = "warning" in result && result.warning ? result.warning : "";
@@ -496,7 +499,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
       void refreshProfileLocation();
 
       const [freshProfile, freshAddrPack] = await Promise.all([
-        getMyProfile(),
+        fetchMeProfileFresh("profile_edit_form_verify"),
         fetchMeAddressesListSingleFlight().catch(() => ({ ok: false as const, rows: [] as UserAddressDTO[] })),
       ]);
       const freshRows = freshAddrPack.ok ? freshAddrPack.rows : addressList ?? [];

@@ -311,15 +311,24 @@ export function ProfileDibayIdSection({
     );
   }
 
-  if (publicIdView.autoAssigned && publicIdView.canChangeOnce && publicIdView.atDisplay) {
+  if (publicIdView.canChangeOnce && publicIdView.atDisplay) {
     return (
-      <div className={wrapClass} data-profile-field="dibay_id" data-state="auto-assigned">
+      <div
+        className={wrapClass}
+        data-profile-field="dibay_id"
+        data-state={publicIdView.autoAssigned ? "auto-assigned" : "change-available"}
+      >
         <p className="mt-1 text-[16px] font-semibold text-[#1E3932]">{publicIdView.atDisplay}</p>
         <p className="mt-1 text-[13px] text-[#6F4E37]">
-          {safeT("mypage_required_dibay_id_auto_assigned_hint", {
-            fallbackKo: "자동 부여된 아이디입니다. 원하시면 1회 변경할 수 있습니다.",
-            fallbackEn: "This ID was assigned automatically. You can change it once.",
-          })}
+          {publicIdView.autoAssigned
+            ? safeT("mypage_required_dibay_id_auto_assigned_hint", {
+                fallbackKo: "자동 부여된 아이디입니다. 원하시면 1회 변경할 수 있습니다.",
+                fallbackEn: "This ID was assigned automatically. You can change it once.",
+              })
+            : safeT("mypage_required_dibay_id_change_available_hint", {
+                fallbackKo: "현재 아이디입니다. 원하시면 1회 변경할 수 있습니다.",
+                fallbackEn: "This is your current ID. You can change it once.",
+              })}
         </p>
         {!showChangeForm ? (
           <button

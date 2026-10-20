@@ -4,6 +4,7 @@ import {
   resolveManualMemberSignInEmail,
 } from "@/lib/auth/manual-member-email";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
 
 export type ResolvedPasswordLoginIdentifier =
   | { ok: true; identifier: string }
@@ -81,7 +82,7 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
     .select("id, username, email, auth_login_email, provider, auth_provider");
   const fetchByUsername = async () => {
     return await baseQuery
-      .ilike("username", normalized)
+      .ilike("username", escapeIlikePatternFragment(normalized))
       .limit(2);
   };
   const fetchByAuthLoginEmail = async () => {

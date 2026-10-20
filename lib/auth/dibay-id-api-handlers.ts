@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isValidDibayIdFormat, normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
+import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
 
 export async function reserveDibayIdForUser(
   sb: SupabaseClient,
@@ -22,7 +23,7 @@ export async function reserveDibayIdForUser(
   const { data: dibayHits, error: dibayErr } = await sb
     .from("profiles")
     .select("id, dibay_id")
-    .ilike("dibay_id", normalized)
+    .ilike("dibay_id", escapeIlikePatternFragment(normalized))
     .limit(3);
   if (dibayErr) {
     return { ok: false, error: dibayErr.message, status: 500 };
@@ -31,7 +32,7 @@ export async function reserveDibayIdForUser(
   const { data: usernameHits, error: userErr } = await sb
     .from("profiles")
     .select("id, username, username_confirmed")
-    .ilike("username", normalized)
+    .ilike("username", escapeIlikePatternFragment(normalized))
     .limit(3);
   if (userErr) {
     return { ok: false, error: userErr.message, status: 500 };
