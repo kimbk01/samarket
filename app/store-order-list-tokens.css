@@ -1,0 +1,121 @@
+/**
+ * 공용 주문 카드 색 토큰 — 내정보 주문 내역(`/mypage/store-orders`)과 배달 허브 주문 탭(`/orders`)이
+ * 같은 컴포넌트(`MyStoreOrdersView` · `MyStoreOrderExpandPanel`)를 쓴다.
+ *
+ * - 내정보·임베드(기본): `sam-*` 토큰 (최종 설계 S30 매핑 — 다크는 sam 토큰이 처리).
+ * - 배달 허브(`data-store-orders-surface="delivery-hub"`): 기존 하드코딩 값과 **같은 값**(X19 · C5 —
+ *   배달 허브 시각 불변). 팔레트 값은 Tailwind v4 테마 값 그대로, 다크 값은 기존 `dark:` 변형
+ *   (= prefers-color-scheme) 과 동일.
+ * - 컴포넌트는 hex·팔레트를 직접 쓰지 않고 `var(--sol-*)` 만 참조한다.
+ */
+
+:root {
+  /* 기본(내정보) — sam 토큰 */
+  --sol-fg: var(--sam-text-primary);
+  --sol-muted: var(--sam-text-secondary);
+  --sol-disabled: var(--sam-text-muted);
+  --sol-divider: var(--sam-border-default);
+  --sol-divider-soft: var(--sam-border-default);
+  --sol-separator: var(--sam-border-default);
+  --sol-action-hover: var(--sam-bg-surface-muted);
+  --sol-row-hover: var(--sam-bg-surface-muted);
+  --sol-thumb-bg: var(--sam-bg-surface-muted);
+  --sol-card-bg: var(--sam-bg-surface);
+  --sol-card-border: var(--sam-border-default);
+  --sol-card-shadow: var(--sam-shadow-card);
+  --sol-ring: var(--sam-bg-surface);
+  --sol-page-bg: var(--sam-bg-app);
+  --sol-info-bg: var(--sam-info-soft);
+  --sol-info-fg: var(--sam-info);
+  --sol-pickup-bg: var(--sam-success-soft);
+  --sol-pickup-fg: var(--sam-success);
+  --sol-note-fg: var(--sam-warning);
+  --sol-danger: var(--sam-danger);
+  --sol-on-accent: var(--sam-text-on-primary);
+  --sol-toast-bg: var(--sam-text-primary);
+  --sol-toast-fg: var(--sam-bg-surface);
+  --sol-empty-fg: var(--sam-text-secondary);
+  --sol-box-bg: var(--sam-bg-surface);
+  --sol-warn-fg: var(--sam-warning);
+
+  /* 펼침 패널(배달 허브에서만 렌더) — 기본값도 sam 토큰 */
+  --sol-panel-bg: var(--sam-bg-surface-muted);
+  --sol-panel-border: var(--sam-border-default);
+  --sol-panel-card-bg: var(--sam-bg-surface);
+  --sol-panel-fg: var(--sam-text-primary);
+  --sol-panel-muted: var(--sam-text-secondary);
+  --sol-panel-line: var(--sam-border-soft);
+  --sol-panel-line-bg: var(--sam-bg-app);
+  --sol-panel-bone: var(--sam-border-soft);
+  --sol-panel-danger: var(--sam-danger);
+  --sol-panel-danger-border: var(--sam-danger-soft);
+  --sol-panel-success: var(--sam-success);
+  --sol-panel-info-bg: var(--sam-info-soft);
+  --sol-panel-info-fg: var(--sam-text-primary);
+}
+
+[data-store-orders-surface="delivery-hub"] {
+  --sol-fg: #050505;
+  --sol-muted: #65676b;
+  --sol-disabled: #bcc0c4;
+  --sol-divider: rgb(206 208 212 / 0.8);
+  --sol-divider-soft: rgb(206 208 212 / 0.7);
+  --sol-separator: #ced0d4;
+  --sol-action-hover: var(--sam-bg-surface-muted);
+  --sol-row-hover: #f6fafc;
+  --sol-thumb-bg: #e4e6eb;
+  --sol-card-bg: #ffffff;
+  --sol-card-border: #dde5e0;
+  --sol-card-shadow: none;
+  --sol-ring: var(--sam-bg-surface);
+  --sol-page-bg: #f6f6f6;
+  --sol-info-bg: #e7f3ff;
+  --sol-info-fg: #1877f2;
+  --sol-pickup-bg: oklch(97.9% 0.021 166.113);
+  --sol-pickup-fg: oklch(37.8% 0.077 168.94);
+  --sol-note-fg: oklch(47.3% 0.137 46.201);
+  --sol-danger: #f02849;
+  --sol-on-accent: #ffffff;
+  --sol-toast-bg: #050505;
+  --sol-toast-fg: #ffffff;
+  --sol-empty-fg: #6b7280;
+  --sol-box-bg: var(--sam-bg-surface);
+  --sol-warn-fg: oklch(41.4% 0.112 45.904);
+
+  --sol-panel-bg: #f6fafc;
+  --sol-panel-border: #dde5e0;
+  --sol-panel-card-bg: #ffffff;
+  --sol-panel-fg: #123b4a;
+  --sol-panel-muted: #6b7280;
+  --sol-panel-line: #eef2f0;
+  --sol-panel-line-bg: #fafcfb;
+  --sol-panel-bone: #eef2f0;
+  --sol-panel-danger: oklch(57.7% 0.245 27.325);
+  --sol-panel-danger-border: oklch(88.5% 0.062 18.334);
+  --sol-panel-success: oklch(50.8% 0.118 165.612);
+  --sol-panel-info-bg: oklch(97% 0.014 254.604);
+  --sol-panel-info-fg: oklch(28.2% 0.091 267.935);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-store-orders-surface="delivery-hub"] {
+    --sol-fg: #e4e6eb;
+    --sol-muted: #b0b3b8;
+    --sol-disabled: #6f7175;
+    --sol-divider: #3e4042;
+    --sol-divider-soft: #3e4042;
+    --sol-separator: #5f6164;
+    --sol-action-hover: #3a3b3c;
+    --sol-thumb-bg: #3a3b3c;
+    --sol-ring: #242526;
+    --sol-info-bg: color-mix(in oklab, var(--signature) 15%, transparent);
+    --sol-info-fg: var(--signature);
+    --sol-pickup-bg: color-mix(in oklab, oklch(37.8% 0.077 168.94) 25%, transparent);
+    --sol-pickup-fg: oklch(90.5% 0.093 164.15);
+    --sol-note-fg: oklch(92.4% 0.12 95.746);
+    --sol-toast-bg: #e4e6eb;
+    --sol-toast-fg: #050505;
+    --sol-box-bg: #242526;
+    --sol-warn-fg: oklch(92.4% 0.12 95.746);
+  }
+}

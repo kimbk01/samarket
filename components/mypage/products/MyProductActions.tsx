@@ -1,8 +1,8 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
-import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
+import { DibayActionSheet, dibayConfirm, type DibayActionSheetItem } from "@/components/ui/dibay-overlay";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Product } from "@/lib/types/product";
 import type { ProductStatus } from "@/lib/types/product";
 import { resolveMarketplacePublicListingStatus } from "@/lib/trade/marketplace/public-listing-status";
@@ -25,22 +25,11 @@ export function MyProductActions({
   onPromoteClick,
 }: MyProductActionsProps) {
   const { t, safeT } = useI18n();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const listingPost = tradeListingPostFromProduct(product);
   const isSold = resolveMarketplacePublicListingStatus(listingPost) === "sold";
   const isHidden = product.status === "hidden" || product.status === "blinded";
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [open]);
 
   const handleStatusChange = async (newStatus: ProductStatus) => {
     const statusLabel = productStatusLabel(t, newStatus);
@@ -49,10 +38,7 @@ export function MyProductActions({
       cancelLabel: t("common_cancel"),
       confirmLabel: t("common_confirm"),
     });
-    if (ok) {
-      onStatusChange(product.id, newStatus);
-      setOpen(false);
-    }
+    if (ok) onStatusChange(product.id, newStatus);
   };
 
   const handleDelete = async () => {
@@ -62,10 +48,7 @@ export function MyProductActions({
       confirmLabel: t("common_delete"),
       confirmTone: "destructive",
     });
-    if (ok) {
-      onDelete(product.id);
-      setOpen(false);
-    }
+    if (ok) onDelete(product.id);
   };
 
   const promoteLabel = safeT("marketplace_seller_promote_cta", {
@@ -73,63 +56,56 @@ export function MyProductActions({
     fallbackEn: "Promote more",
   });
 
+  /** UI-6 ⋮ 항목·순서·문구 그대로 — 표면만 인라인 드롭다운 → `DibayActionSheet`(최종 설계 S20) */
+  const items: DibayActionSheetItem[] = [
+    {
+      key: "edit",
+      label: t("mypage_comp_product_edit"),
+      onClick: () => router.push(`/products/${product.id}/edit`),
+    },
+  ];
+  if (product.status === "active" && !isSold && onPromoteClick) {
+    items.push({ key: "promote", label: promoteLabel, onClick: () => onPromoteClick() });
+  }
+  if (isHidden) {
+    items.push({
+      key: "relist",
+      label: t("mypage_comp_product_relist_active"),
+      onClick: () => void handleStatusChange("active"),
+    });
+  } else if (!isSold) {
+    items.push({
+      key: "hide",
+      label: t("mypage_comp_product_hide"),
+      onClick: () => void handleStatusChange("hidden"),
+    });
+  }
+  items.push({
+    key: "delete",
+    label: t("mypage_comp_product_delete"),
+    danger: true,
+    onClick: () => void handleDelete(),
+  });
+
   return (
-    <div className="relative shrink-0 self-start" ref={menuRef}>
+    <div className="relative shrink-0 self-start">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(true)}
         className="flex h-9 w-9 items-center justify-center rounded-full text-sam-muted hover:bg-sam-surface-muted"
         aria-label={t("mypage_comp_more_aria")}
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
         <MoreIcon />
       </button>
-      {open && (
-        <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sm">
-          <Link
-            href={`/products/${product.id}/edit`}
-            className="block px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
-            onClick={() => setOpen(false)}
-          >
-            {t("mypage_comp_product_edit")}
-          </Link>
-          {product.status === "active" && !isSold && onPromoteClick ? (
-            <button
-              type="button"
-              onClick={() => {
-                onPromoteClick();
-                setOpen(false);
-              }}
-              className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
-            >
-              {promoteLabel}
-            </button>
-          ) : null}
-          {isHidden ? (
-            <button
-              type="button"
-              onClick={() => handleStatusChange("active")}
-              className="w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
-            >
-              {t("mypage_comp_product_relist_active")}
-            </button>
-          ) : !isSold ? (
-            <button
-              type="button"
-              onClick={() => handleStatusChange("hidden")}
-              className="w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
-            >
-              {t("mypage_comp_product_hide")}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="w-full px-4 py-2.5 text-left sam-text-body text-red-600 hover:bg-red-50"
-          >
-            {t("mypage_comp_product_delete")}
-          </button>
-        </div>
-      )}
+      <DibayActionSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={product.title || undefined}
+        items={items}
+        cancelLabel={t("common_cancel")}
+      />
     </div>
   );
 }

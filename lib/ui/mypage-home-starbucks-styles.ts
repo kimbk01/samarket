@@ -108,7 +108,8 @@ export const MYPAGE_HOME_SEGMENT_WRAP_CLASS =
   "inline-flex shrink-0 rounded-ui-rect border border-sam-primary/18 bg-sam-app p-0.5";
 
 export const MYPAGE_HOME_SEGMENT_BTN_CLASS =
-  "min-h-[32px] min-w-[56px] rounded-ui-rect px-2.5 text-[12px] font-semibold leading-none transition-colors";
+  /** 터치 영역 44px 이상 (S12) */
+  "min-h-[44px] min-w-[56px] rounded-ui-rect px-2.5 text-[12px] font-semibold leading-none transition-colors";
 
 /** 주 버튼 위 글자 = `--sam-icon-on-primary`(크림) — `text-white` 하드코딩 제거(§1.1) */
 export const MYPAGE_HOME_SEGMENT_BTN_ACTIVE_CLASS = "bg-sam-primary text-[var(--sam-icon-on-primary)] shadow-sm";

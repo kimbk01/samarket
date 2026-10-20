@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
 import type { PointChargeRequest, PointChargeRequestStatus, PointPaymentMethod } from "@/lib/types/point";
 
 const STATUS_KEYS: Record<PointChargeRequestStatus, MessageKey> = {
@@ -25,12 +26,13 @@ interface PointChargeRequestListProps {
   onCancel?: (id: string) => void;
 }
 
+/** 상태 뱃지 — sam 토큰만 (C.0.2 색 규칙) */
 const STATUS_CLASS: Record<PointChargeRequest["requestStatus"], string> = {
   pending: "bg-sam-surface-muted text-sam-fg",
-  waiting_confirm: "bg-amber-100 text-amber-800",
+  waiting_confirm: "bg-sam-warning-soft text-sam-warning",
   on_hold: "bg-sam-border-soft text-sam-muted",
-  approved: "bg-emerald-50 text-emerald-800",
-  rejected: "bg-red-50 text-red-700",
+  approved: "bg-sam-success-soft text-sam-success",
+  rejected: "bg-sam-danger-soft text-sam-danger",
   cancelled: "bg-sam-border-soft text-sam-muted",
 };
 
@@ -38,7 +40,7 @@ export function PointChargeRequestList({
   requests,
   onCancel,
 }: PointChargeRequestListProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
 
   const handleCancel = (id: string) => {
     onCancel?.(id);
@@ -61,7 +63,7 @@ export function PointChargeRequestList({
         >
           <p className="font-medium text-sam-fg">{r.planName}</p>
           <div className="mt-0.5 flex items-center gap-1 sam-text-body-secondary text-sam-muted">
-            <span>₱{r.paymentAmount.toLocaleString()} →</span>
+            <span>{formatMypageMoney(r.paymentAmount)} →</span>
             <CurrencyAmount
               currency="point"
               amount={r.pointAmount}
@@ -74,19 +76,19 @@ export function PointChargeRequestList({
           </p>
           <div className="mt-2 flex items-center gap-2">
             <span
-              className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[r.requestStatus]}`}
+              className={`inline-block rounded-full px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[r.requestStatus]}`}
             >
               {t(STATUS_KEYS[r.requestStatus])}
             </span>
           </div>
           <p className="mt-1 sam-text-helper text-sam-meta">
-            {new Date(r.requestedAt).toLocaleString("ko-KR")}
+            {formatMypageDate(r.requestedAt, { style: "datetime", lang: language })}
           </p>
           {onCancel && ["pending", "waiting_confirm"].includes(r.requestStatus) && (
             <button
               type="button"
               onClick={() => handleCancel(r.id)}
-              className="mt-2 sam-text-body-secondary text-red-600 hover:underline"
+              className="mt-2 min-h-[44px] sam-text-body-secondary font-semibold text-sam-danger hover:underline"
             >
               {t("points_ui_cancel_request")}
             </button>

@@ -123,3 +123,58 @@ export function computeExpiringPointsFromLedger(
     expiringEntriesCount: valid.length,
   };
 }
+
+export type ExpiringPointEntry = { expiresAt: string; amount: number };
+
+/**
+ * S42·A8 — 소멸 예정 적립분별 금액(잔액 상한 FIFO 배분).
+ * `computeExpiringPointsFromLedger` 와 같은 입력·같은 대상 행을 쓰고, 합은 그 합계와 같다.
+ * 현재 잔액을 만료일이 빠른 적립분부터 채운다 → 잔액이 원장 합보다 작으면 **늦은 만료분부터** 깎인다
+ * (이미 사용된 포인트를 소멸 예정으로 이중 표시하지 않음). 0 이 된 적립분은 빼고 반환한다.
+ */
+export function allocateExpiringEntries(
+  rows: Array<{ amount: number; expires_at: string | null; expired_amount: number | null }>,
+  balance: number,
+  nowIso: string = new Date().toISOString()
+): ExpiringPointEntry[] {
+  const valid = rows
+    .filter((r) => Number(r.amount) > 0 && r.expires_at && r.expired_amount == null && String(r.expires_at) > nowIso)
+    .map((r) => ({ expiresAt: String(r.expires_at), amount: Math.trunc(Number(r.amount)) }))
+    .sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime());
+  let remaining = Math.max(0, Math.trunc(Number(balance) || 0));
+  const out: ExpiringPointEntry[] = [];
+  for (const e of valid) {
+    if (remaining <= 0) break;
+    const take = Math.min(e.amount, remaining);
+    if (take > 0) out.push({ expiresAt: e.expiresAt, amount: take });
+    remaining -= take;
+  }
+  return out;
+}
+
+export type ExpiringPointMonth = { monthKey: string; amount: number; earliestExpiresAt: string };
+
+/**
+ * 월별 묶음 — `monthKeyOf(expiresAt)` 는 표시 시간대(필리핀 `Asia/Manila`) 기준 `YYYY-MM`
+ * (`mypageDateGroupKey(iso, "month")`). DB 저장값(UTC)은 바꾸지 않는다. 월 오름차순.
+ */
+export function groupExpiringEntriesByMonth(
+  entries: readonly ExpiringPointEntry[],
+  monthKeyOf: (iso: string) => string
+): ExpiringPointMonth[] {
+  const map = new Map<string, ExpiringPointMonth>();
+  for (const e of entries) {
+    const key = monthKeyOf(e.expiresAt);
+    if (!key) continue;
+    const cur = map.get(key);
+    if (cur) {
+      cur.amount += e.amount;
+      if (new Date(e.expiresAt).getTime() < new Date(cur.earliestExpiresAt).getTime()) {
+        cur.earliestExpiresAt = e.expiresAt;
+      }
+    } else {
+      map.set(key, { monthKey: key, amount: e.amount, earliestExpiresAt: e.expiresAt });
+    }
+  }
+  return [...map.values()].sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+}

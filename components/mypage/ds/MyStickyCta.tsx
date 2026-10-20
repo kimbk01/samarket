@@ -11,6 +11,8 @@ export type MyStickyCtaAction = {
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
+  /** 기존 화면의 계약 testid 보존용(예: `feed-ad-submit`). 생략 시 공통 testid */
+  testId?: string;
 };
 
 export type MyStickyCtaProps = {
@@ -18,6 +20,16 @@ export type MyStickyCtaProps = {
   secondary?: Omit<MyStickyCtaAction, "loading">;
   /** 변경이 있을 때만 주 버튼 활성 (v2.1 §3.2 · Telegram 방식) */
   dirty: boolean;
+  /**
+   * 주 버튼 색 — primary(기본) / secondary(캐시 삭제 등 보조 동작, S17) / danger(탈퇴 요청 등 위험 동작, S19)
+   */
+  primaryTone?: "primary" | "secondary" | "danger";
+};
+
+const PRIMARY_TONE_CLASS: Record<NonNullable<MyStickyCtaProps["primaryTone"]>, string> = {
+  primary: Sam.btn.primaryCombo,
+  secondary: Sam.btn.secondaryCombo,
+  danger: Sam.btn.dangerCombo,
 };
 
 /** 토스트가 CTA 위 8px 에 뜨도록 문서 루트에 지정하는 변수 (`MypageToastHost`) */
@@ -31,7 +43,7 @@ export const MY_STICKY_CTA_BODY_CLEARANCE_CLASS =
  * 하단 고정 주/보조 CTA (최종 설계 §1.2) — 키보드가 열리면 키보드 위, 닫히면 safe-area 위.
  * 주 버튼은 `dirty && !disabled && !loading` 일 때만 누를 수 있다. 로딩 = 버튼 안 스피너·폭 유지.
  */
-export function MyStickyCta({ primary, secondary, dirty }: MyStickyCtaProps) {
+export function MyStickyCta({ primary, secondary, dirty, primaryTone = "primary" }: MyStickyCtaProps) {
   const { t } = useI18n();
   const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport();
   const barRef = useRef<HTMLDivElement | null>(null);
@@ -65,7 +77,7 @@ export function MyStickyCta({ primary, secondary, dirty }: MyStickyCtaProps) {
         {secondary ? (
           <button
             type="button"
-            data-testid="my-sticky-cta-secondary"
+            data-testid={secondary.testId ?? "my-sticky-cta-secondary"}
             onClick={secondary.onPress}
             disabled={Boolean(secondary.disabled)}
             className={`${Sam.btn.secondaryCombo} ${Sam.focusRing} flex-1 disabled:opacity-45`}
@@ -75,11 +87,12 @@ export function MyStickyCta({ primary, secondary, dirty }: MyStickyCtaProps) {
         ) : null}
         <button
           type="button"
-          data-testid="my-sticky-cta-primary"
+          data-testid={primary.testId ?? "my-sticky-cta-primary"}
           onClick={primaryDisabled ? undefined : primary.onPress}
           disabled={primaryDisabled}
           aria-busy={primaryLoading}
-          className={`${Sam.btn.primaryCombo} ${Sam.focusRing} relative flex-[1.2] disabled:opacity-45`}
+          data-tone={primaryTone}
+          className={`${PRIMARY_TONE_CLASS[primaryTone]} ${Sam.focusRing} relative flex-[1.2] disabled:opacity-45`}
         >
           <span className={primaryLoading ? "invisible" : undefined}>{primary.label}</span>
           {primaryLoading ? (

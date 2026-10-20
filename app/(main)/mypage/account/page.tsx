@@ -2,22 +2,14 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyAccountContent } from "@/components/my/MyAccountContent";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
 
+/** 계정 `/mypage/account` (최종 설계 S03) — 헤더 즉시, 본문 1열 40rem */
 export default function MypageAccountPage() {
   const { t } = useI18n();
   return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-      <MySubpageHeader
-        title={t("account_title")}
-        subtitle={t("account_subtitle")}
-        backHref="/mypage"
-        hideCtaStrip
-      />
-      <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} py-4`}>
-        <MyAccountContent />
-      </div>
-    </div>
+    <MyScreen title={t("account_title")} template="hub">
+      <MyAccountContent />
+    </MyScreen>
   );
 }

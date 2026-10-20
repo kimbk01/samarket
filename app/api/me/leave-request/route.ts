@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { isAccountDeletionConfirmationValid } from "@/lib/account/account-deletion-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
   } catch {
     body = {};
   }
-  if (String(body.confirmationText ?? "").trim() !== "계정삭제") {
+  if (!isAccountDeletionConfirmationValid(body.confirmationText)) {
     return NextResponse.json({ ok: false, error: "최종 확인 입력이 올바르지 않습니다." }, { status: 400 });
   }
 

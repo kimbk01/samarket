@@ -69,3 +69,36 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   }
 }
+
+/**
+ * DELETE — 본인 저장 해제 전용(최종 설계 C.0.3 A6 · S27). POST 토글 규칙은 불변.
+ * - 본인 행 삭제는 글 공개 여부(숨김·삭제)·차단 관계와 무관하게 허용(v2 D12).
+ * - 행이 없어도 200(멱등). 다른 회원의 행에는 영향 없음(`user_id = 세션`).
+ */
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
+  const auth = await requireAuthenticatedUserId();
+  if (!auth.ok) return auth.response;
+  const { postId } = await ctx.params;
+  const raw = postId?.trim();
+  if (!raw) return NextResponse.json({ ok: false }, { status: 400 });
+
+  try {
+    const id = (await resolveCanonicalCommunityPostId(raw)) ?? raw;
+    const sb = getSupabaseServer();
+    const { error: delErr } = await sb
+      .from("community_post_saves")
+      .delete()
+      .eq("post_id", id)
+      .eq("user_id", auth.userId);
+    if (delErr) {
+      const msg = delErr.message ?? "";
+      if (msg.includes("community_post_saves") && msg.includes("does not exist")) {
+        return NextResponse.json({ ok: false, error: "migration_required" }, { status: 503 });
+      }
+      return NextResponse.json({ ok: false, error: "unsave_failed" }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, saved: false });
+  } catch {
+    return NextResponse.json({ ok: false, error: "unsave_failed" }, { status: 500 });
+  }
+}

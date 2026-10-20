@@ -17,7 +17,7 @@ import { UserListContent } from "@/components/my/settings/UserListContent";
 import { VersionContent } from "@/components/my/settings/VersionContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
 import { DevicePermissionsSettingsContent } from "@/components/my/settings/DevicePermissionsSettingsContent";
-import { AccountTab } from "@/components/mypage/tabs/AccountTab";
+import { AccountTab, AccountUserListSection } from "@/components/mypage/tabs/AccountTab";
 import { CommunityTab } from "@/components/mypage/tabs/CommunityTab";
 import { MessengerTab } from "@/components/mypage/tabs/MessengerTab";
 import { StoreTab } from "@/components/mypage/tabs/StoreTab";
@@ -25,9 +25,6 @@ import { TradeTab } from "@/components/mypage/tabs/TradeTab";
 import type { MyPageConsoleProps } from "@/components/mypage/types";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { MYPAGE_DOMAIN_ROOT_PATH } from "@/lib/mypage/mypage-authority-contract";
-import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
-import { mannerBatteryAccentClass, mannerBatteryTier, mannerRawToPercent } from "@/lib/trust/manner-battery";
-import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 function LogoutItemRedirectToHub() {
@@ -46,12 +43,53 @@ function AddressItemRedirectToBook() {
   return null;
 }
 
+/**
+ * hub 데이터 없이 바로 그리는 섹션 화면 본문 (최종 설계 Part B 공통 전제 — S10~S19 hub 대기 0).
+ * 해당 없으면 null. `MyPageItemScreen` 도 같은 매핑을 쓴다(분기 1곳).
+ */
+export function MyPageItemStaticContent({ section, item }: { section: string; item: string }) {
+  if (section === "account") {
+    if (item === "favorite-users") return <AccountUserListSection kind="favorite-users" />;
+    if (item === "blocked-users") return <AccountUserListSection kind="blocked-users" />;
+    if (item === "hidden-users") return <AccountUserListSection kind="hidden-users" />;
+    return null;
+  }
+  if (section !== "settings") return null;
+  switch (item) {
+    case "device-permissions":
+      return <DevicePermissionsSettingsContent />;
+    case "language":
+      return <LanguageSettingsContent />;
+    case "country":
+      return <CountrySettingsContent />;
+    case "chat-settings":
+      return <ChatSettingsContent />;
+    case "notifications":
+      return <NotificationsSettingsContent />;
+    case "personalization":
+      return <PersonalizationContent />;
+    case "video-autoplay":
+      return <VideoAutoplayContent />;
+    case "cache":
+      return <CacheSettingsContent />;
+    case "version":
+      return <VersionContent />;
+    case "leave":
+      return <LeaveContent />;
+    default:
+      return null;
+  }
+}
+
 export function MyPageItemScreen(
   props: MyPageConsoleProps & { section: string; item: string },
 ) {
   const { t } = useI18n();
   const router = useRouter();
   const { section, item, ...hub } = props;
+
+  const staticContent = MyPageItemStaticContent({ section, item });
+  if (staticContent) return staticContent;
 
   if (section === "account") {
     if (item === "profile") {
@@ -166,9 +204,6 @@ export function MyPageItemScreen(
         </div>
       );
     }
-    if (item === "manner") {
-      return <MannerTrustEmbed />;
-    }
     if (item === "chat-settings") {
       return <ChatSettingsContent />;
     }
@@ -226,45 +261,6 @@ export function MyPageItemScreen(
       <div className="mt-4">
         <Link href={buildMypageSectionHref("settings")} className="sam-text-body font-medium text-sam-fg underline">
           {t("mypage_comp_go_to_settings")}
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function MannerTrustEmbed() {
-  const { t } = useI18n();
-  const temp = getHydrationSafeCurrentUser()?.temperature ?? null;
-  const mannerPercent = temp != null ? mannerRawToPercent(temp) : null;
-  const mannerTier = mannerPercent != null ? mannerBatteryTier(mannerPercent) : null;
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <div className="flex items-center gap-3">
-          {mannerPercent != null && mannerTier != null ? (
-            <MannerBatteryIcon tier={mannerTier} percent={mannerPercent} size="lg" className="shrink-0" />
-          ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-ui-rect bg-sam-surface-muted sam-text-helper text-sam-meta">
-              —
-            </div>
-          )}
-          <div>
-            <p className="sam-text-helper text-sam-muted">{t("mypage_comp_manner_battery_label")}</p>
-            <p
-              className={`sam-text-page-title font-bold tabular-nums ${
-                mannerTier ? mannerBatteryAccentClass(mannerTier) : "text-sam-meta"
-              }`}
-            >
-              {mannerPercent != null ? `${mannerPercent}%` : "—"}
-            </p>
-          </div>
-        </div>
-        <Link
-          href="/mypage/trust"
-          className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-ui-rect border border-sam-border px-4 sam-text-body font-medium text-sam-fg"
-        >
-          {t("mypage_comp_manner_detail_link")}
         </Link>
       </div>
     </div>

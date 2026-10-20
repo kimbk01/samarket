@@ -91,12 +91,16 @@ export function resolveVersionScreenCta(args: {
     args.updateInfo?.installStatus ??
     null;
 
+  /**
+   * 최종 설계 X6/S18 — 업데이트 버튼은 **Android 네이티브에서만** 렌더. iOS·웹은 버튼 자체가 없다
+   * (배포 채널 미확인 상태에서 비활성 버튼·App Store 언급 금지).
+   */
   if (!args.platformIsAndroidNative) {
     return {
       statusKind: "unavailable",
       primaryEnabled: false,
       primaryAction: "none",
-      showPrimaryButton: true,
+      showPrimaryButton: false,
       primaryLabelKind: "update",
     };
   }

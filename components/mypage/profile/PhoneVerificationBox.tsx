@@ -13,6 +13,14 @@ import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phon
 import { resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
+import { maskProfilePhoneForDisplay } from "@/lib/mypage/mask-profile-phone";
+import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
+import { Sam } from "@/lib/ui/sam-component-classes";
+
+/** 재전송 남은 초 — 렌더 시점 계산이 아니라 1초마다 갱신되는 `now` 로 계산 (S05) */
+export function resolvePhoneOtpCooldownLeft(cooldownUntil: number, now: number): number {
+  return Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
+}
 
 type VerificationSettings = {
   enabled: boolean;
@@ -52,6 +60,9 @@ export function PhoneVerificationBox({
   compact = false,
   setupError = false,
   fieldIncomplete = false,
+  verifyCtaPlacement = "inline",
+  settingsLoadFailed = false,
+  onRetrySettings,
 }: {
   snapshot: VerifySnapshot;
   onRefreshProfile: () => Promise<void>;
@@ -59,6 +70,11 @@ export function PhoneVerificationBox({
   compact?: boolean;
   setupError?: boolean;
   fieldIncomplete?: boolean;
+  /** [인증 완료] 위치 — inline(시트·설정 폼) / sticky(필수정보 페이지 하단 고정, S05) */
+  verifyCtaPlacement?: "inline" | "sticky";
+  /** 설정 조회 실패 — 무한 로딩 대신 오류 + [다시 시도] (S05) */
+  settingsLoadFailed?: boolean;
+  onRetrySettings?: () => void;
 }) {
   const { t } = useI18n();
   const [phone, setPhone] = useState(snapshot.phone ?? "");
@@ -69,6 +85,7 @@ export function PhoneVerificationBox({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const resolvedSnapshotPhone = useMemo(() => resolveSnapshotPhoneDb09(snapshot), [snapshot]);
 
@@ -90,8 +107,19 @@ export function PhoneVerificationBox({
 
   const settings = snapshot.settings;
   const cooldownSec = Math.max(1, Number(settings?.resend_cooldown_seconds ?? 60));
-  const now = Date.now();
-  const cooldownLeft = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
+  const cooldownLeft = resolvePhoneOtpCooldownLeft(cooldownUntil, nowMs);
+
+  /** 재전송 타이머 — 쿨다운 동안 1초마다 다시 그린다 (S05: 남은 초가 줄지 않던 결함) */
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) return;
+    setNowMs(Date.now());
+    const id = window.setInterval(() => {
+      const n = Date.now();
+      setNowMs(n);
+      if (n >= cooldownUntil) window.clearInterval(id);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [cooldownUntil]);
   const normalizedPhone = useMemo(() => normalizePhilippinesPhoneNumber(phone), [phone]);
   const phoneForApi = useMemo(() => {
     const db = normalizePhMobileDb(phone);
@@ -186,10 +214,36 @@ export function PhoneVerificationBox({
   };
 
   if (!settings) {
+    if (settingsLoadFailed) {
+      return (
+        <div
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"
+          role="alert"
+          data-testid="phone-verify-settings-error"
+        >
+          <p className="sam-text-body font-semibold text-sam-fg">{t("my_phone_verify_title")}</p>
+          <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("mypage_s05_load_failed")}</p>
+          {onRetrySettings ? (
+            <button
+              type="button"
+              onClick={onRetrySettings}
+              className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} ${Sam.focusRing} mt-2`}
+            >
+              {t("common_retry")}
+            </button>
+          ) : null}
+        </div>
+      );
+    }
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+      <div
+        className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"
+        aria-busy="true"
+        data-testid="phone-verify-settings-loading"
+      >
         <p className="sam-text-body font-semibold text-sam-fg">{t("my_phone_verify_title")}</p>
-        <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("mypage_comp_loading_short")}</p>
+        <span className="mt-2 block h-3 w-[60%] rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
+        <span className="mt-3 block h-[46px] w-full rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
       </div>
     );
   }
@@ -216,16 +270,21 @@ export function PhoneVerificationBox({
     : `sam-input${showFieldIncomplete ? ` ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}` : ""}`;
   const verifyBtnClass = compact
     ? PROFILE_EDIT_PRIMARY_BTN_CLASS + " px-3 py-2 text-[13px]"
-    : "rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white disabled:opacity-50";
+    : `${Sam.btn.primaryCombo} ${Sam.btn.sm} disabled:opacity-45`;
   const otpBtnClass = compact
     ? "rounded-ui-rect border border-sam-primary/25 px-3 py-2 text-[13px] font-semibold text-sam-primary disabled:opacity-50"
     : "rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body font-medium text-sam-fg disabled:opacity-50";
 
+  /** 인증된 번호는 마스킹 표시 (S05·S03 같은 규칙) */
   const verifiedDisplayPhone =
-    formatPhMobileDisplayPlus63(resolvedSnapshotPhone ?? "") ||
-    formatPhMobileDisplayPlus63(snapshot.phone ?? "") ||
-    snapshot.phone ||
-    "—";
+    maskProfilePhoneForDisplay(
+      formatPhMobileDisplayPlus63(resolvedSnapshotPhone ?? "") ||
+        formatPhMobileDisplayPlus63(snapshot.phone ?? "") ||
+        snapshot.phone ||
+        "",
+    ) || "—";
+  const stickyVerify = verifyCtaPlacement === "sticky";
+  const otpReady = validPhone && isValidPhoneOtpCodeInput(otp);
 
   return (
     <div className={shellClass}>
@@ -249,14 +308,14 @@ export function PhoneVerificationBox({
           className={
             compact
               ? "flex flex-wrap items-center justify-between gap-2 rounded-ui-rect bg-sam-pressed-surface px-3 py-2.5"
-              : "rounded-ui-rect border border-emerald-200 bg-emerald-50 px-3 py-2"
+              : "rounded-ui-rect border border-sam-success/30 bg-sam-success-soft px-3 py-2"
           }
         >
           <div className="min-w-0">
-            <p className={compact ? "text-[13px] font-bold text-sam-primary" : "sam-text-body font-semibold text-emerald-800"}>
+            <p className={compact ? "text-[13px] font-bold text-sam-primary" : "sam-text-body font-semibold text-sam-success"}>
               {t("my_phone_status_verified")}
             </p>
-            <p className={compact ? "text-[14px] text-sam-fg" : "sam-text-body-secondary text-emerald-700"}>
+            <p className={compact ? "text-[14px] text-sam-fg" : "sam-text-body-secondary tabular-nums text-sam-fg"}>
               {verifiedDisplayPhone}
             </p>
           </div>
@@ -265,7 +324,7 @@ export function PhoneVerificationBox({
             className={
               compact
                 ? "shrink-0 text-[13px] font-semibold text-sam-primary underline"
-                : "mt-2 rounded-ui-rect border border-emerald-300 bg-sam-surface px-3 py-1.5 sam-text-helper text-emerald-800"
+                : `${Sam.btn.secondaryCombo} ${Sam.btn.sm} mt-2`
             }
             onClick={() => setAllowEdit(true)}
           >
@@ -296,20 +355,24 @@ export function PhoneVerificationBox({
             <input
               type="text"
               inputMode="numeric"
+              autoComplete="one-time-code"
+              name="one-time-code"
               maxLength={PHONE_OTP_CODE_LENGTH}
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D+/g, ""))}
               placeholder={t("my_phone_verify_code_placeholder")}
               className={inputClass}
             />
-            <button
-              type="button"
-              disabled={verifying}
-              onClick={() => void verifyOtp()}
-              className={verifyBtnClass}
-            >
-              {verifying ? t("my_phone_verifying") : t("my_phone_verify_submit")}
-            </button>
+            {stickyVerify ? null : (
+              <button
+                type="button"
+                disabled={verifying}
+                onClick={() => void verifyOtp()}
+                className={verifyBtnClass}
+              >
+                {verifying ? t("my_phone_verifying") : t("my_phone_verify_submit")}
+              </button>
+            )}
             <button
               type="button"
               disabled={sending || cooldownLeft > 0}
@@ -331,6 +394,16 @@ export function PhoneVerificationBox({
         </p>
       ) : null}
       {message ? <p className="text-[13px] text-sam-primary">{message}</p> : null}
+      {stickyVerify && allowEdit ? (
+        <MyStickyCta
+          dirty={otpReady}
+          primary={{
+            label: t("my_phone_verify_submit"),
+            onPress: () => void verifyOtp(),
+            loading: verifying,
+          }}
+        />
+      ) : null}
     </div>
   );
 }

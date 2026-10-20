@@ -1,22 +1,15 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyStoreInquiriesView } from "@/components/mypage/MyStoreInquiriesView";
 
+/** S34 매장 문의 내역 — 공통 셸(`MyScreen` 40rem·16/20px · `bg-sam-app`) */
 export default function MyStoreInquiriesPage() {
   const { t } = useI18n();
   return (
-    <div className="min-h-screen bg-background">
-      <MySubpageHeader
-        title={t("mypage_store_inquiries_title")}
-        subtitle={t("mypage_store_inquiries_subtitle")}
-        backHref="/mypage"
-        section="orders"
-      />
-      <div className="mx-auto max-w-4xl px-4 py-4">
-        <MyStoreInquiriesView />
-      </div>
-    </div>
+    <MyScreen title={t("mypage_store_inquiries_title")} backHref="/mypage" template="list">
+      <MyStoreInquiriesView />
+    </MyScreen>
   );
 }

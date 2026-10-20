@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
+import { PenLine } from "lucide-react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -10,13 +11,17 @@ import {
   tradePurchasesPath,
   tradeSalesPath,
 } from "@/lib/mypage/trade-hub-paths";
-import { getAppSettings } from "@/lib/app-settings";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import { formatPrice } from "@/lib/utils/format";
 import { formatAdminReviewTagKeys } from "@/lib/admin-reviews/admin-review-utils";
 import { WRITTEN_REVIEW_UPDATED_EVENT } from "@/lib/mypage/written-review-events";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { MyListPager, MyStateView } from "@/components/mypage/ds";
+import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
+import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
+import { fetchMypageListJson, useMypageCursorList } from "@/lib/mypage/use-mypage-cursor-list";
+import { MYPAGE_LIST_PAGE_DEFAULT } from "@/lib/mypage/mypage-list-cursor";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -54,7 +59,7 @@ function tagLine(
   return parts.length ? parts.join(" · ") : "";
 }
 
-export function WrittenReviewCard({ it, currency }: { it: MyWrittenReviewItem; currency: string }) {
+export function WrittenReviewCard({ it }: { it: MyWrittenReviewItem; currency?: string }) {
   const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const mode = tradeHubModeFromPathname(pathname);
@@ -88,7 +93,7 @@ export function WrittenReviewCard({ it, currency }: { it: MyWrittenReviewItem; c
           </div>
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{it.title || t("mypage_comp_image_placeholder")}</p>
-            <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatPrice(it.price, currency)}</p>
+            <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatMypageMoney(it.price)}</p>
             <p className="mt-0.5 truncate sam-text-helper text-sam-muted">
               {counterpartyLabel} {it.revieweeNickname}
             </p>
@@ -116,7 +121,7 @@ export function WrittenReviewCard({ it, currency }: { it: MyWrittenReviewItem; c
               <p className="mt-1 line-clamp-2 whitespace-pre-wrap sam-text-helper text-sam-fg">{it.comment}</p>
             ) : null}
             <p className="mt-1.5 sam-text-xxs text-sam-meta">
-              {t("mypage_comp_review_written_at_prefix")} {new Date(it.createdAt).toLocaleString()}
+              {t("mypage_comp_review_written_at_prefix")} {formatMypageDate(it.createdAt, { style: "datetime" })}
             </p>
           </div>
         </Link>
@@ -138,79 +143,96 @@ export function WrittenReviewCard({ it, currency }: { it: MyWrittenReviewItem; c
   );
 }
 
+/**
+ * 보낸(작성한) 거래 후기 (최종 설계 S24 보낸 탭) — A3 커서 페이지(`?limit=20&cursor=`), 첫 페이지 `total` → `onTotal`.
+ * 조회 실패는 빈 목록이 아니라 오류 + 다시 시도.
+ */
 export function MyWrittenReviewsView({
   variant = "default",
-}: { variant?: "default" | "tradeHub" | "tabPanel" } = {}) {
+  onTotal,
+}: { variant?: "default" | "tradeHub" | "tabPanel"; onTotal?: (total: number) => void } = {}) {
   const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const hubPurchasesPath = tradePurchasesPath(tradeHubModeFromPathname(pathname));
-  const currency = getAppSettings().defaultCurrency ?? "KRW";
-  const [items, setItems] = useState<MyWrittenReviewItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const viewerId = getCurrentUser()?.id?.trim() ?? "";
 
-  const load = useCallback((opts?: { silent?: boolean }) => {
-    const silent = !!opts?.silent;
-    const user = getCurrentUser();
-    const uid = user?.id?.trim();
-    if (!uid) {
-      setItems([]);
-      if (!silent) setLoading(false);
-      return;
-    }
-    if (!silent) setLoading(true);
-    void (async () => {
-      try {
-        const r = await runSingleFlight("me:written-reviews:get", () =>
-          fetch("/api/my/written-reviews", { credentials: "include", cache: "no-store" })
-        );
-        const d = (await r.clone().json()) as { items?: MyWrittenReviewItem[] };
-        setItems(Array.isArray(d.items) ? d.items : []);
-      } catch {
-        if (!silent) setItems([]);
-      } finally {
-        if (!silent) setLoading(false);
-      }
-    })();
-  }, []);
+  const fetchPage = useCallback(
+    async (cursor: string | null) => {
+      const qs = new URLSearchParams({ limit: String(MYPAGE_LIST_PAGE_DEFAULT) });
+      if (cursor) qs.set("cursor", cursor);
+      const d = await runSingleFlight(`me:written-reviews:get:${cursor ?? ""}`, () =>
+        fetchMypageListJson<{ items?: MyWrittenReviewItem[]; next_cursor?: string | null; total?: number }>(
+          `/api/my/written-reviews?${qs}`
+        )
+      );
+      if (typeof d.total === "number") onTotal?.(d.total);
+      return { items: Array.isArray(d.items) ? d.items : [], next_cursor: d.next_cursor ?? null };
+    },
+    [onTotal]
+  );
+  const list = useMypageCursorList<MyWrittenReviewItem>({
+    cacheKey: viewerId ? `mypage:trade-reviews:written:${viewerId}` : null,
+    fetchPage,
+    getId: (it) => it.id,
+  });
+  const { reload } = list;
+  const items = list.items;
+  useMypageListRestore({ ready: list.status === "ready", loadedPages: list.pages });
 
   useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
-    const onAuth = () => load();
-    const onWritten = () => load();
+    const onAuth = () => void reload();
+    const onWritten = () => void reload();
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
     window.addEventListener(WRITTEN_REVIEW_UPDATED_EVENT, onWritten);
     return () => {
       window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
       window.removeEventListener(WRITTEN_REVIEW_UPDATED_EVENT, onWritten);
     };
-  }, [load]);
+  }, [reload]);
 
-  useRefetchOnPageShowRestore(() => void load({ silent: true }));
+  useRefetchOnPageShowRestore(() => void reload());
 
-  const pyClass = variant === "tradeHub" || variant === "tabPanel" ? "py-6" : "py-12";
+  const pager = (
+    <MyListPager
+      hasMore={Boolean(list.nextCursor)}
+      loading={list.loadingMore}
+      error={list.loadMoreError}
+      onLoadMore={list.loadMore}
+    />
+  );
 
-  if (loading) {
-    return <p className={`${pyClass} text-center sam-text-body text-sam-muted`}>{t("mypage_comp_loading_short")}</p>;
+  if (viewerId && list.status === "loading") {
+    return <WrittenReviewsSkeleton />;
+  }
+
+  if (viewerId && list.status === "error") {
+    return (
+      <MyStateView kind="error" error={{ message: t("common_fetch_list_failed"), onRetry: () => void reload() }} />
+    );
   }
 
   if (variant === "tabPanel") {
     if (items.length === 0) {
       return (
-        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-6 text-center">
-          <p className="sam-text-body text-sam-muted">{t("mypage_comp_review_written_empty")}</p>
-          <p className="mt-1 sam-text-helper text-sam-muted">{t("mypage_comp_review_written_hint")}</p>
-        </div>
+        <MyStateView
+          kind="empty"
+          empty={{
+            icon: <PenLine className="h-6 w-6" aria-hidden />,
+            title: t("mypage_comp_review_written_empty"),
+            body: t("mypage_comp_review_written_hint"),
+          }}
+        />
       );
     }
     return (
-      <ul className="space-y-2">
-        {items.map((it) => (
-          <WrittenReviewCard key={it.id} it={it} currency={currency} />
-        ))}
-      </ul>
+      <>
+        <ul className="space-y-2">
+          {items.map((it) => (
+            <WrittenReviewCard key={it.id} it={it} />
+          ))}
+        </ul>
+        {pager}
+      </>
     );
   }
 
@@ -237,7 +259,7 @@ export function MyWrittenReviewsView({
           ) : (
             <ul className="mt-3 space-y-2">
               {buyerItems.map((it) => (
-                <WrittenReviewCard key={it.id} it={it} currency={currency} />
+                <WrittenReviewCard key={it.id} it={it} />
               ))}
             </ul>
           )}
@@ -250,11 +272,12 @@ export function MyWrittenReviewsView({
           ) : (
             <ul className="mt-3 space-y-2">
               {sellerItems.map((it) => (
-                <WrittenReviewCard key={it.id} it={it} currency={currency} />
+                <WrittenReviewCard key={it.id} it={it} />
               ))}
             </ul>
           )}
         </div>
+        {pager}
       </div>
     );
   }
@@ -266,7 +289,7 @@ export function MyWrittenReviewsView({
         <p className="sam-text-body-secondary text-sam-muted">{t("mypage_comp_review_written_hint_purchase")}</p>
         <Link
           href={hubPurchasesPath}
-          className="inline-block rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-medium text-white"
+          className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} inline-flex items-center justify-center`}
         >
           {t("nav_trade_hub_chat")}
         </Link>
@@ -275,9 +298,37 @@ export function MyWrittenReviewsView({
   }
 
   return (
-    <ul className="space-y-2">
-      {items.map((it) => (
-        <WrittenReviewCard key={it.id} it={it} currency={currency} />
+    <>
+      <ul className="space-y-2">
+        {items.map((it) => (
+          <WrittenReviewCard key={it.id} it={it} />
+        ))}
+      </ul>
+      {pager}
+    </>
+  );
+}
+
+/** 스켈레톤 — 카드 4개(아이콘 원 + 3줄 + 하단 버튼 2개), 받은 탭과 같은 모양 */
+function WrittenReviewsSkeleton() {
+  const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
+  return (
+    <ul aria-busy="true" data-testid="written-reviews-skeleton" className="space-y-2">
+      {Array.from({ length: 4 }, (_, i) => (
+        <li key={i} className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface">
+          <div className="flex gap-3 p-3">
+            <span className="h-10 w-10 shrink-0 rounded-full bg-sam-border-soft/70 motion-safe:animate-pulse" />
+            <span className="flex min-w-0 flex-1 flex-col gap-2">
+              <span className={`h-3.5 w-[60%] ${bone}`} />
+              <span className={`h-3 w-[45%] ${bone}`} />
+              <span className={`h-3 w-[30%] ${bone}`} />
+            </span>
+          </div>
+          <div className="flex gap-3 border-t border-sam-border-soft px-3 py-2">
+            <span className={`h-3.5 w-16 ${bone}`} />
+            <span className={`h-3.5 w-16 ${bone}`} />
+          </div>
+        </li>
       ))}
     </ul>
   );

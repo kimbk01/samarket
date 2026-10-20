@@ -6,6 +6,9 @@ export const dynamic = "force-dynamic";
 /**
  * 내가 받은 거래 후기 (transaction_reviews.reviewee_id = 세션)
  * GET /api/my/received-reviews
+ *
+ * 페이지 모드(최종 설계 C.0.3 A3): `?limit=20&cursor=<created_at|id>` → `{ items, next_cursor, total? }`
+ * (`total` 은 첫 페이지만 — 탭 개수). 무인자 = 현행 최근 100건 `{ items }` 그대로.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -13,8 +16,21 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import {
+  mypageKeysetOrFilter,
+  parseMypageListCursor,
+  parseMypageListLimit,
+  sliceMypageKeysetPage,
+} from "@/lib/mypage/mypage-list-cursor";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const sp = req?.nextUrl?.searchParams ?? new URLSearchParams();
+  const pageLimit = parseMypageListLimit(sp.get("limit"));
+  const rawCursor = sp.get("cursor");
+  const cursor = parseMypageListCursor(rawCursor);
+  if (pageLimit != null && rawCursor && rawCursor.trim() && !cursor) {
+    return NextResponse.json({ error: "invalid_cursor" }, { status: 400 });
+  }
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
@@ -24,20 +40,43 @@ export async function GET(_req: NextRequest) {
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  const { data: rows, error } = await sbAny
+  let q = sbAny
     .from("transaction_reviews")
     .select(
       "id, product_id, room_id, reviewer_id, reviewee_id, role_type, public_review_type, positive_tag_keys, negative_tag_keys, review_comment, is_anonymous_negative, created_at"
     )
     .eq("reviewee_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(100);
+    .order("created_at", { ascending: false });
+  if (pageLimit != null) {
+    q = q.order("id", { ascending: false }).limit(pageLimit + 1);
+    if (cursor) q = q.or(mypageKeysetOrFilter(cursor, "created_at"));
+  } else {
+    q = q.limit(100);
+  }
+  const { data: rawRows, error } = await q;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: pageLimit != null ? "reviews_load_failed" : error.message }, { status: 500 });
   }
 
-  const list = (rows ?? []) as Array<{
+  let nextCursor: string | null = null;
+  let rows = (rawRows ?? []) as Array<{ id: string; created_at: string }>;
+  let total: number | undefined;
+  if (pageLimit != null) {
+    const page = sliceMypageKeysetPage(rows, pageLimit, (r) => r.created_at, (r) => String(r.id));
+    rows = page.items;
+    nextCursor = page.next_cursor;
+    if (!cursor) {
+      const { count, error: countError } = await sbAny
+        .from("transaction_reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("reviewee_id", userId);
+      if (countError) return NextResponse.json({ error: "reviews_load_failed" }, { status: 500 });
+      total = count ?? 0;
+    }
+  }
+
+  const list = rows as unknown as Array<{
     id: string;
     product_id: string;
     room_id: string | null;
@@ -130,5 +169,8 @@ export async function GET(_req: NextRequest) {
     };
   });
 
+  if (pageLimit != null) {
+    return NextResponse.json({ items, next_cursor: nextCursor, ...(total != null ? { total } : {}) });
+  }
   return NextResponse.json({ items });
 }

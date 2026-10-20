@@ -20,9 +20,19 @@ import {
   resolveCanonicalDisplayLines,
 } from "@/lib/addresses/canonical-address-display";
 import {
+  addressDesignationBadgeClass,
   addressMasterBadgeClass,
   addressStoreLinkedBadgeClass,
 } from "@/lib/ui/address-list-starbucks-styles";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+/** 주소 라벨 뱃지 글자 — 집 · 회사 · 기타 · 매장 (S06 행 표시) */
+const ADDRESS_LABEL_KIND_KEYS: Record<UserAddressDTO["labelType"], MessageKey> = {
+  home: "addr_ui_kind_home",
+  office: "addr_ui_kind_office",
+  shop: "addr_ui_kind_shop",
+  other: "mypage_s07_label_other",
+};
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 const ADDR_LIST_ADDRESS_TEXT = `${ADDR_BODY} text-[12px] leading-snug text-sam-muted`;
@@ -93,6 +103,15 @@ export function AddressListRowBody({
       : null}
 
       <div className="flex min-h-[26px] flex-wrap items-center gap-1.5">
+        {useStarbucksBadges && !isStoreAddress ?
+          <span
+            className={addressDesignationBadgeClass(row.labelType)}
+            translate="no"
+            data-testid="address-row-label"
+          >
+            {t(ADDRESS_LABEL_KIND_KEYS[row.labelType])}
+          </span>
+        : null}
         {row.isDefaultMaster ?
           <span
             className={

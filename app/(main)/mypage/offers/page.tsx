@@ -1,28 +1,13 @@
 "use client";
 
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { MyOffersView } from "@/components/offers/MyOffersView";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { Suspense } from "react";
+import { MyOffersTabsScreen } from "@/components/offers/MyOffersTabsScreen";
 
-/** Slice 5: offers KEEP + unified back chrome to /mypage */
+/** 가격 제안 — `/mypage/offers?tab=received|sent` (최종 설계 S23). 기본 = 받은 제안. */
 export default function MyOffersPage() {
-  const { t } = useI18n();
   return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-      <MySubpageHeader
-        title={t("mypage_offers_sent_title")}
-        backHref="/mypage"
-        hideCtaStrip
-      />
-      <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-        <MyOffersView
-          mode="sent"
-          title={t("mypage_offers_sent_title")}
-          emptyLabel={t("mypage_offers_sent_empty")}
-          embedded
-        />
-      </div>
-    </div>
+    <Suspense fallback={null}>
+      <MyOffersTabsScreen />
+    </Suspense>
   );
 }

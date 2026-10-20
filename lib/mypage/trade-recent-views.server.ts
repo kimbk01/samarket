@@ -41,9 +41,21 @@ export async function recordTradeRecentView(sb: SupabaseClient, userId: string, 
   }
 }
 
-export type ListTradeRecentViewsResult = { ok: true; items: TradeRecentViewItem[] } | { ok: false };
+/** 글이 삭제된 기록 — 화면은 회색 「삭제된 상품」 행(⋯ 삭제만, 탭 비활성) (최종 설계 S25) */
+export type TradeRecentViewDeletedItem = { postId: string; viewedAt: string; deleted: true };
 
-/** 본인 최근 본 상품 — 최근 순, 삭제된 글은 제외(숨김·판매완료는 카드 상태로 표시) */
+export type TradeRecentViewListEntry = TradeRecentViewItem | TradeRecentViewDeletedItem;
+
+export type ListTradeRecentViewsResult = { ok: true; items: TradeRecentViewListEntry[] } | { ok: false };
+
+export function isTradeRecentViewDeleted(e: TradeRecentViewListEntry): e is TradeRecentViewDeletedItem {
+  return (e as TradeRecentViewDeletedItem).deleted === true;
+}
+
+/**
+ * 본인 최근 본 상품 — 최근 순. 글 행이 없거나 `status=deleted` 인 기록은 `{ postId, viewedAt, deleted:true }` 로 포함
+ * (숨김·판매완료는 카드 상태로 표시).
+ */
 export async function listTradeRecentViews(sb: SupabaseClient, userId: string): Promise<ListTradeRecentViewsResult> {
   const { data: views, error } = await sb
     .from(TABLE)
@@ -65,10 +77,11 @@ export async function listTradeRecentViews(sb: SupabaseClient, userId: string): 
   if (postError) return { ok: false };
 
   const byId = new Map(mapPostRowsToTradeList((posts ?? []) as unknown[]).map((p) => [p.id, p]));
-  const items: TradeRecentViewItem[] = [];
+  const items: TradeRecentViewListEntry[] = [];
   for (const r of rows) {
     const post = byId.get(r.post_id);
-    if (post) items.push({ ...post, viewed_at: r.viewed_at });
+    if (post && String(post.status ?? "").toLowerCase() !== "deleted") items.push({ ...post, viewed_at: r.viewed_at });
+    else items.push({ postId: r.post_id, viewedAt: r.viewed_at, deleted: true });
   }
   return { ok: true, items };
 }

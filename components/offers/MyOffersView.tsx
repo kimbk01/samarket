@@ -1,326 +1,304 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Tag } from "lucide-react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { broadcastPriceOfferCreatedForProduct } from "@/lib/offers/normalize-offer-product-id";
-import { getAppSettings } from "@/lib/app-settings";
 import { openCreateTradeChat } from "@/lib/chats/trade-chat-entry-navigation";
-import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import type { PriceOfferListItem, PriceOfferStatus } from "@/lib/offers/types";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { MyStateView } from "@/components/mypage/ds";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
+import {
+  fetchMypageListJson,
+  useMypageCursorList,
+  type MypageCursorPage,
+} from "@/lib/mypage/use-mypage-cursor-list";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
-const OFFER_STATUS_KO: Record<PriceOfferStatus, string> = {
-  pending: "판매자 응답 대기",
-  accepted: "수락됨",
-  rejected: "거절됨",
-  withdrawn: "철회함",
+export type MyOffersMode = "sent" | "received";
+
+/** 상태 라벨 — i18n (한국어 하드코딩 맵 제거, 최종 설계 S23) */
+export const OFFER_STATUS_LABEL_KEY: Record<PriceOfferStatus, MessageKey> = {
+  pending: "ui_offer_status_pending",
+  accepted: "ui_offer_status_accepted",
+  rejected: "ui_offer_status_rejected",
+  withdrawn: "ui_offer_status_withdrawn",
 };
 
 function statusBadgeClass(status: PriceOfferStatus): string {
   switch (status) {
     case "pending":
-      return "bg-amber-100 text-amber-900";
+      return "bg-sam-warning-soft text-sam-fg";
     case "accepted":
-      return "bg-emerald-100 text-emerald-900";
+      return "bg-sam-success-soft text-sam-success";
     case "rejected":
-      return "bg-red-100 text-red-900";
+      return "bg-sam-danger-soft text-sam-danger";
     default:
       return "bg-sam-surface-muted text-sam-muted";
   }
 }
 
+export function myOffersEndpoint(mode: MyOffersMode): string {
+  return mode === "sent" ? "/api/offers/mine" : "/api/offers/received";
+}
+
 type Props = {
-  mode: "sent" | "received";
-  title: string;
+  mode: MyOffersMode;
   emptyLabel: string;
-  /** When true, omit full-page min-height (parent shell provides chrome). */
-  embedded?: boolean;
+  /** 대기 건수 — 탭 라벨 `(n)` */
+  onPendingCount?: (mode: MyOffersMode, count: number) => void;
 };
 
-export function MyOffersView({ mode, title, emptyLabel, embedded = false }: Props) {
-  const { t, safeT } = useI18n();
+/**
+ * 가격 제안 목록 1탭 (최종 설계 S23). 탭 셸은 `/mypage/offers` 페이지(`?tab=received|sent`).
+ * - 받은·대기: [수락](즉시) · [거절](확인 시트 danger 후에만 API)
+ * - 보낸·대기: [제안 철회](확인 시트, M4) · 보낸·수락: 채팅 · 보낸·거절/철회: 다시 제안
+ * - 실패는 i18n 오류 토스트(서버 원문 노출 금지). 로딩 = 행 스켈레톤, 오류 = 오류+재시도(빈 문구와 동시 표시 금지).
+ */
+export function MyOffersView({ mode, emptyLabel, onPendingCount }: Props) {
+  const { t } = useI18n();
   const router = useRouter();
-  const pathname = usePathname();
-  const currency = getAppSettings().defaultCurrency || "PHP";
-  const [offers, setOffers] = useState<PriceOfferListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const viewer = getCurrentUser()?.id ?? "session";
   const [busyOfferId, setBusyOfferId] = useState<string | null>(null);
-  const [error, setError] = useState("");
   const [withdrawTarget, setWithdrawTarget] = useState<PriceOfferListItem | null>(null);
-  /** 다시 시도 — 증가 시 목록 재조회 */
-  const [reloadNonce, setReloadNonce] = useState(0);
+  const [rejectTarget, setRejectTarget] = useState<PriceOfferListItem | null>(null);
+  const { run } = useMypageSubmitGuard();
 
-  /** M4 — 보낸 대기 제안 철회(구매자 본인·대기 건만, 서버가 행 잠금 후 처리) */
-  const withdrawOffer = async (offer: PriceOfferListItem) => {
-    setWithdrawTarget(null);
-    setBusyOfferId(offer.id);
-    setError("");
-    try {
-      const res = await fetch(`/api/offers/${encodeURIComponent(offer.id)}/withdraw`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; offer?: PriceOfferListItem };
-      if (!res.ok || !json?.ok) {
-        setError(t("ui_offer_withdraw_failed"));
-        return;
-      }
-      broadcastPriceOfferCreatedForProduct(offer.productId);
-      setOffers((prev) => prev.map((item) => (item.id === offer.id ? { ...item, status: "withdrawn" } : item)));
-    } catch {
-      setError(t("ui_offer_withdraw_failed"));
-    } finally {
-      setBusyOfferId(null);
-    }
-  };
+  const fetchPage = useCallback(
+    async (): Promise<MypageCursorPage<PriceOfferListItem>> => {
+      const json = await runSingleFlight(`my-offers:${mode}`, () =>
+        fetchMypageListJson<{ offers?: PriceOfferListItem[] }>(myOffersEndpoint(mode))
+      );
+      return { items: Array.isArray(json.offers) ? json.offers : [], next_cursor: null };
+    },
+    [mode]
+  );
+  const list = useMypageCursorList<PriceOfferListItem>({
+    cacheKey: `my-offers:${viewer}:${mode}`,
+    fetchPage,
+    getId: (o) => o.id,
+  });
+  const { setItems } = list;
 
+  const pendingCount = list.items.filter((o) => o.status === "pending").length;
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError("");
-    void (async () => {
-      try {
-        const href = mode === "sent" ? "/api/offers/mine" : "/api/offers/received";
-        // 본문은 single-flight 안에서 1회만 파싱 — StrictMode 이중 실행이 같은 Response 를 다시 읽지 않게
-        const { resOk, json } = await runSingleFlight(`my-offers:${mode}`, async () => {
-          const res = await fetch(href, { credentials: "include", cache: "no-store" });
-          const body = (await res.json().catch(() => ({}))) as {
-            offers?: PriceOfferListItem[];
-            error?: string;
-          };
-          return { resOk: res.ok, json: body };
-        });
-        if (!resOk) {
-          throw new Error(typeof json?.error === "string" ? json.error : "가격 제안을 불러오지 못했습니다.");
+    if (list.status === "ready") onPendingCount?.(mode, pendingCount);
+  }, [list.status, mode, onPendingCount, pendingCount]);
+
+  const setStatus = useCallback(
+    (offerId: string, status: PriceOfferStatus) => {
+      setItems((prev) => prev.map((item) => (item.id === offerId ? { ...item, status } : item)));
+    },
+    [setItems]
+  );
+
+  const transition = useCallback(
+    (offer: PriceOfferListItem, action: "accept" | "reject" | "withdraw") =>
+      run(async () => {
+        setBusyOfferId(offer.id);
+        const failKey: MessageKey =
+          action === "withdraw"
+            ? "ui_offer_withdraw_failed"
+            : action === "accept"
+              ? "mypage_r5_offer_accept_failed"
+              : "mypage_r5_offer_reject_failed";
+        try {
+          const res = await fetch(`/api/offers/${encodeURIComponent(offer.id)}/${action}`, {
+            method: "POST",
+            credentials: "include",
+          });
+          const json = (await res.json().catch(() => ({}))) as { ok?: boolean; offer?: PriceOfferListItem };
+          if (!res.ok || !json?.ok) {
+            showMypageToast(t(failKey), "error");
+            return;
+          }
+          broadcastPriceOfferCreatedForProduct(json.offer?.productId ?? offer.productId);
+          setStatus(
+            offer.id,
+            action === "accept" ? "accepted" : action === "reject" ? "rejected" : "withdrawn"
+          );
+          invalidateMypageSummary();
+        } catch {
+          showMypageToast(t(failKey), "error");
+        } finally {
+          setBusyOfferId(null);
         }
-        if (!cancelled) {
-          setOffers(Array.isArray(json.offers) ? json.offers : []);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "가격 제안을 불러오지 못했습니다.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [mode, reloadNonce]);
+      }),
+    [run, setStatus, t]
+  );
+
+  if (list.status === "loading") {
+    return <MyOffersSkeleton />;
+  }
+
+  if (list.status === "error") {
+    return (
+      <MyStateView
+        kind="error"
+        error={{ message: t("mypage_r5_offer_load_failed"), onRetry: () => void list.reload() }}
+      />
+    );
+  }
+
+  if (list.items.length === 0) {
+    return (
+      <MyStateView
+        kind="empty"
+        empty={{
+          icon: <Tag className="h-6 w-6" aria-hidden />,
+          title: emptyLabel,
+          cta:
+            mode === "sent" ? (
+              <Link href="/market" className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} inline-flex items-center justify-center`}>
+                {t("mypage_r5_trade_browse")}
+              </Link>
+            ) : undefined,
+        }}
+      />
+    );
+  }
 
   return (
-    <div className={embedded ? "px-0 py-2" : "min-h-screen bg-sam-app px-3 py-4 sm:px-4"}>
-      <div className="mx-auto max-w-2xl space-y-3">
-        <nav className="flex flex-wrap gap-2">
-          <Link
-            href="/mypage/offers/sent"
-            className={`min-h-[44px] rounded-full px-3 py-1.5 text-[13px] font-semibold inline-flex items-center ${
-              pathname === "/mypage/offers" || pathname === "/mypage/offers/sent"
-                ? "bg-sam-primary text-white"
-                : "border border-sam-border bg-sam-surface text-sam-fg"
-            }`}
+    <div className="flex flex-col gap-2" data-testid={`my-offers-${mode}`}>
+      {list.items.map((offer) => {
+        const busy = busyOfferId === offer.id;
+        const actions: ReactNode[] = [];
+        if (mode === "sent" && offer.status === "pending") {
+          actions.push(
+            <button
+              key="withdraw"
+              type="button"
+              disabled={busy}
+              onClick={() => setWithdrawTarget(offer)}
+              className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} ${Sam.focusRing} w-full md:w-auto`}
+            >
+              {t("ui_offer_withdraw")}
+            </button>
+          );
+        }
+        if (mode === "sent" && offer.status === "accepted") {
+          actions.push(
+            <button
+              key="chat"
+              type="button"
+              onClick={() =>
+                openCreateTradeChat(router, {
+                  productId: offer.productId,
+                  composePreview: {
+                    productTitle: offer.productTitle.trim() || t("mypage_r5_offer_product_fallback"),
+                    productThumbnail: offer.productThumbnailUrl?.trim() ?? "",
+                    priceText: formatMypageMoney(offer.originalPrice),
+                    sellerName: offer.sellerNickname?.trim() || t("mypage_r5_offer_seller_fallback"),
+                  },
+                })
+              }
+              className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} ${Sam.focusRing} col-span-2 w-full md:w-auto`}
+            >
+              {t("ui_offer_chat_continue")}
+            </button>
+          );
+        }
+        if (mode === "sent" && (offer.status === "rejected" || offer.status === "withdrawn")) {
+          actions.push(
+            <button
+              key="retry"
+              type="button"
+              onClick={() => router.push(offer.productHref)}
+              className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} ${Sam.focusRing} col-span-2 w-full md:w-auto`}
+            >
+              {t("ui_offer_retry_label")}
+            </button>
+          );
+        }
+        if (mode === "received" && offer.status === "pending") {
+          actions.push(
+            <button
+              key="reject"
+              type="button"
+              disabled={busy}
+              onClick={() => setRejectTarget(offer)}
+              className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} ${Sam.focusRing} w-full md:w-auto`}
+              data-testid="offer-reject"
+            >
+              {t("mypage_r5_offer_reject")}
+            </button>,
+            <button
+              key="accept"
+              type="button"
+              disabled={busy}
+              aria-busy={busy}
+              onClick={() => void transition(offer, "accept")}
+              className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} ${Sam.focusRing} w-full md:w-auto`}
+              data-testid="offer-accept"
+            >
+              {t("mypage_r5_offer_accept")}
+            </button>
+          );
+        }
+        const dateText = formatMypageDate(offer.createdAt, { style: "relative" });
+        return (
+          <article
+            key={offer.id}
+            className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-3 md:px-5"
+            data-offer-id={offer.id}
           >
-            {safeT("mypage_offers_sent_title", {
-              fallbackKo: "내가 보낸 가격 제안",
-              fallbackEn: "Offers I sent",
-            })}
-          </Link>
-          <Link
-            href="/mypage/offers/received"
-            className={`min-h-[44px] rounded-full px-3 py-1.5 text-[13px] font-semibold inline-flex items-center ${
-              pathname === "/mypage/offers/received"
-                ? "bg-sam-primary text-white"
-                : "border border-sam-border bg-sam-surface text-sam-fg"
-            }`}
-          >
-            {safeT("mypage_offers_received_title", {
-              fallbackKo: "받은 가격 제안",
-              fallbackEn: "Offers received",
-            })}
-          </Link>
-        </nav>
-        {!embedded ? (
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <h1 className="text-[20px] font-bold text-sam-fg">{title}</h1>
-            <p className="mt-1 text-[12px] text-sam-muted">
-              {safeT("mypage_offers_hint", {
-                fallbackKo: "가격 제안은 채팅과 분리된 요청이며, 수락 시에만 기존 거래 채팅으로 연결됩니다.",
-                fallbackEn: "Offers are separate from chat and connect only after acceptance.",
-              })}
-            </p>
-          </div>
-        ) : null}
-
-        {loading ? <p className="text-[13px] text-sam-muted">{t("common_loading")}</p> : null}
-        {error ? <p className="text-[13px] text-sam-danger">{error}</p> : null}
-        {error && !loading && offers.length === 0 ? (
-          <button
-            type="button"
-            onClick={() => setReloadNonce((n) => n + 1)}
-            className="sam-btn sam-btn--secondary sam-btn--sm"
-          >
-            {t("common_retry")}
-          </button>
-        ) : null}
-        {!loading && !error && offers.length === 0 ? (
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-[13px] text-sam-muted">
-            {emptyLabel}
-          </div>
-        ) : null}
-
-        {offers.map((offer) => (
-          <article key={offer.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <div className="flex flex-wrap items-start gap-3">
-              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-              <SamarketThumbnail
-                src={offer.productThumbnailUrl}
-                fill
-                roundedClassName="rounded-ui-rect"
-                className="bg-sam-surface-muted"
-                fallbackSrc=""
-                fallbackNode={
-                  <div className="flex h-full w-full items-center justify-center text-[10px] text-sam-muted">
-                    {t("ui_product_gallery_fallback")}
-                  </div>
-                }
-              />
-              </div>
+            <div className="flex items-start gap-3">
+              <Link
+                href={offer.productHref}
+                className="relative h-14 w-14 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted"
+              >
+                <SamarketThumbnail
+                  src={offer.productThumbnailUrl}
+                  fill
+                  roundedClassName="rounded-ui-rect"
+                  className="bg-sam-surface-muted"
+                  fallbackSrc=""
+                  fallbackNode={
+                    <div className="flex h-full w-full items-center justify-center text-[10px] text-sam-muted">
+                      {t("ui_product_gallery_fallback")}
+                    </div>
+                  }
+                />
+              </Link>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link href={offer.productHref} className="text-[15px] font-semibold text-sam-fg hover:underline">
-                    {offer.productTitle}
-                  </Link>
+                <Link href={offer.productHref} className="block truncate sam-text-body font-semibold text-sam-fg">
+                  {offer.productTitle}
+                </Link>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadgeClass(offer.status)}`}
+                    className={`inline-flex rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${statusBadgeClass(offer.status)}`}
                   >
-                    {OFFER_STATUS_KO[offer.status] ?? offer.status}
+                    {t(OFFER_STATUS_LABEL_KEY[offer.status] ?? "ui_offer_status_pending")}
                   </span>
+                  {dateText ? <span className="sam-text-helper text-sam-meta">{dateText}</span> : null}
                 </div>
-                <p className="mt-1 text-[12px] text-sam-muted">
-                  제안가 {formatPrice(offer.offeredPrice, currency)} · 판매가 {formatPrice(offer.originalPrice, currency)}
+                <p className="mt-1 sam-text-helper text-sam-muted">
+                  {t("ui_offer_list_price", { price: formatMypageMoney(offer.originalPrice) })}
                 </p>
-                <p className="mt-1 text-[11px] text-sam-muted">{t("ui_offer_date_label", { time: formatTimeAgo(offer.createdAt) })}</p>
               </div>
-
-              <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                {mode === "sent" && offer.status === "pending" ? (
-                  <button
-                    type="button"
-                    disabled={busyOfferId === offer.id}
-                    onClick={() => setWithdrawTarget(offer)}
-                    className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-semibold text-sam-fg disabled:opacity-60"
-                  >
-                    {t("ui_offer_withdraw")}
-                  </button>
-                ) : null}
-                {mode === "sent" && offer.status === "accepted" ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openCreateTradeChat(router, {
-                        productId: offer.productId,
-                        composePreview: {
-                          productTitle: offer.productTitle.trim() || "상품",
-                          productThumbnail: offer.productThumbnailUrl?.trim() ?? "",
-                          priceText: formatPrice(offer.originalPrice, currency),
-                          sellerName: offer.sellerNickname?.trim() || "판매자",
-                        },
-                      })
-                    }
-                    className="rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white"
-                  >
-                    채팅 이어가기
-                  </button>
-                ) : null}
-                {mode === "sent" && (offer.status === "rejected" || offer.status === "withdrawn") ? (
-                  <button
-                    type="button"
-                    onClick={() => router.push(offer.productHref)}
-                    className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-semibold text-sam-fg"
-                  >
-                    {t("ui_offer_retry_label")}
-                  </button>
-                ) : null}
-                {mode === "received" && offer.status === "pending" ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={busyOfferId === offer.id}
-                      onClick={async () => {
-                        setBusyOfferId(offer.id);
-                        setError("");
-                        try {
-                          const res = await fetch(`/api/offers/${encodeURIComponent(offer.id)}/accept`, {
-                            method: "POST",
-                            credentials: "include",
-                          });
-                          const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; offer?: PriceOfferListItem };
-                          if (!res.ok || !json?.ok) {
-                            setError(typeof json?.error === "string" ? json.error : "제안을 수락하지 못했습니다.");
-                            return;
-                          }
-                          if (json.offer?.productId) {
-                            broadcastPriceOfferCreatedForProduct(json.offer.productId);
-                          }
-                          setOffers((prev) =>
-                            prev.map((item) => (item.id === offer.id ? { ...item, status: "accepted" } : item))
-                          );
-                        } catch {
-                          setError("네트워크 오류가 발생했습니다.");
-                        } finally {
-                          setBusyOfferId(null);
-                        }
-                      }}
-                      className="rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-60"
-                    >
-                      수락
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busyOfferId === offer.id}
-                      onClick={async () => {
-                        setBusyOfferId(offer.id);
-                        setError("");
-                        try {
-                          const res = await fetch(`/api/offers/${encodeURIComponent(offer.id)}/reject`, {
-                            method: "POST",
-                            credentials: "include",
-                          });
-                          const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; offer?: PriceOfferListItem };
-                          if (!res.ok || !json?.ok) {
-                            setError(typeof json?.error === "string" ? json.error : "제안을 거절하지 못했습니다.");
-                            return;
-                          }
-                          if (json.offer?.productId) {
-                            broadcastPriceOfferCreatedForProduct(json.offer.productId);
-                          }
-                          setOffers((prev) =>
-                            prev.map((item) => (item.id === offer.id ? { ...item, status: "rejected" } : item))
-                          );
-                        } catch {
-                          setError("네트워크 오류가 발생했습니다.");
-                        } finally {
-                          setBusyOfferId(null);
-                        }
-                      }}
-                      className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] font-semibold text-sam-fg disabled:opacity-60"
-                    >
-                      거절
-                    </button>
-                  </>
-                ) : null}
-              </div>
+              <p className="shrink-0 text-right sam-text-body font-bold text-sam-fg">
+                {formatMypageMoney(offer.offeredPrice)}
+              </p>
             </div>
-
             {offer.message ? (
-              <p className="mt-3 text-[13px] leading-snug text-sam-muted">{offer.message}</p>
+              <p className="mt-2 sam-text-helper leading-snug text-sam-muted">{offer.message}</p>
+            ) : null}
+            {actions.length ? (
+              <div className="mt-3 grid grid-cols-2 gap-2 md:flex md:justify-end">{actions}</div>
             ) : null}
           </article>
-        ))}
-      </div>
+        );
+      })}
       <MobileConfirmBottomSheet
         open={withdrawTarget != null}
         onCancel={() => setWithdrawTarget(null)}
@@ -329,9 +307,44 @@ export function MyOffersView({ mode, title, emptyLabel, embedded = false }: Prop
         cancelLabel={t("common_cancel")}
         confirmLabel={t("ui_offer_withdraw")}
         onConfirm={() => {
-          if (withdrawTarget) void withdrawOffer(withdrawTarget);
+          const target = withdrawTarget;
+          setWithdrawTarget(null);
+          if (target) void transition(target, "withdraw");
         }}
       />
+      <MobileConfirmBottomSheet
+        open={rejectTarget != null}
+        onCancel={() => setRejectTarget(null)}
+        title={t("mypage_r5_offer_reject_confirm_title")}
+        description={t("mypage_r5_offer_reject_confirm_body")}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("mypage_r5_offer_reject")}
+        confirmTone="danger"
+        onConfirm={() => {
+          const target = rejectTarget;
+          setRejectTarget(null);
+          if (target) void transition(target, "reject");
+        }}
+      />
+    </div>
+  );
+}
+
+/** 스켈레톤 — 행 5개(56 썸네일 + 2줄 + 우측 금액 블록) */
+function MyOffersSkeleton() {
+  const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
+  return (
+    <div aria-busy="true" data-testid="my-offers-skeleton" className="flex flex-col gap-2">
+      {Array.from({ length: 5 }, (_, i) => (
+        <div key={i} className="flex items-start gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-3">
+          <span className={`h-14 w-14 shrink-0 ${bone}`} />
+          <span className="flex min-w-0 flex-1 flex-col gap-2">
+            <span className={`h-3.5 w-[60%] ${bone}`} />
+            <span className={`h-3 w-[40%] ${bone}`} />
+          </span>
+          <span className={`h-4 w-14 shrink-0 ${bone}`} />
+        </div>
+      ))}
     </div>
   );
 }

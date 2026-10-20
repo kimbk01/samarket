@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Check } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
@@ -38,27 +39,36 @@ export function VideoAutoplayContent() {
     });
   }, [refresh, userId]);
 
+  /** 즉시 저장 — 실패 시 스토어가 되돌리고(구독으로 표시 복귀) 토스트 (S15) */
   const select = (value: VideoAutoplayMode) => {
-    updateUserSettings(userId, { video_autoplay_mode: value });
     setMode(value);
+    void updateUserSettings(userId, { video_autoplay_mode: value });
   };
 
   return (
-    <ul className="divide-y divide-sam-border-soft">
-      {options.map((opt) => (
-        <li key={opt.value}>
-          <button
-            type="button"
-            className="flex w-full items-center justify-between py-3 text-left sam-text-body text-sam-fg"
-            onClick={() => select(opt.value)}
-          >
-            <span>{t(opt.labelKey)}</span>
-            {mode === opt.value ? (
-              <span className="sam-text-body-secondary font-medium text-signature">{t("common_selected")}</span>
-            ) : null}
-          </button>
-        </li>
-      ))}
+    <ul
+      className="divide-y divide-sam-border-soft overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface"
+      role="radiogroup"
+    >
+      {options.map((opt) => {
+        const selected = mode === opt.value;
+        return (
+          <li key={opt.value}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              className="flex min-h-[52px] w-full items-center justify-between px-4 py-3 text-left text-[15px] font-semibold text-sam-fg transition-colors active:bg-sam-pressed-surface md:px-5"
+              onClick={() => select(opt.value)}
+            >
+              <span>{t(opt.labelKey)}</span>
+              {selected ? (
+                <Check className="h-[18px] w-[18px] text-sam-primary" strokeWidth={2.5} aria-label={t("common_selected")} />
+              ) : null}
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }

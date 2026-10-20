@@ -8,7 +8,15 @@ import { normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import { formatCommunityPublicRegionLabel } from "@/lib/addresses/community-public-region-label";
 import { resolveCommunityAuthorForFeedRow } from "@/lib/community/resolve-community-author";
-import { normalizeCommunityPostOriginKind } from "@/lib/community/community-post-origin";
+import {
+  isCommunityImportedOrigin,
+  normalizeCommunityPostOriginKind,
+} from "@/lib/community/community-post-origin";
+import {
+  mypageKeysetOrFilter,
+  sliceMypageKeysetPage,
+  type MypageListCursor,
+} from "@/lib/mypage/mypage-list-cursor";
 
 type Sb = ReturnType<typeof getSupabaseServer>;
 
@@ -230,4 +238,143 @@ export async function listCommunityPostsForUser(
 ): Promise<CommunityFeedPostDTO[]> {
   const res = await listCommunityPostsForUserResult(userId, limit);
   return res.ok ? res.posts : [];
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * 내정보 「내가 쓴 글」 owner 페이지 (최종 설계 C.0.3 A4 · S26) — 함수 추가만, 위 공개용 함수는 불변.
+ * 범위: `user_id = 본인` · 삭제 글 제외(`is_deleted=true` 또는 `status='deleted'`).
+ *   active = 공개 가시(`isCommunityPostPubliclyVisible`) · hidden = `is_hidden=true` 또는 `status='hidden'`(삭제 제외).
+ * keyset `created_at desc, id desc`, 커서 `created_at|id`. 조회 실패는 `ok:false`(빈 목록 금지).
+ * ---------------------------------------------------------------------------------------------- */
+
+export type OwnCommunityPostStatus = "active" | "hidden";
+
+export type OwnCommunityPostDTO = CommunityFeedPostDTO & {
+  isHiddenForOwner: boolean;
+  /** 숨김 사유 — 현재 스키마에 사유 컬럼이 없어 항상 생략(있으면 1줄 표시) */
+  hiddenReason?: string;
+  /** 가져온 글(`origin_kind` 외부) — 수정·삭제 불가 */
+  isImported: boolean;
+};
+
+export type ListOwnCommunityPostsPageResult =
+  | { ok: true; posts: OwnCommunityPostDTO[]; next_cursor: string | null; total?: number }
+  | { ok: false; error: "supabase_unavailable" | "posts_query_failed" };
+
+const OWN_PAGE_SCAN_BATCH = 100;
+
+function isOwnPostDeleted(r: Record<string, unknown>): boolean {
+  return r.is_deleted === true || String(r.status ?? "").trim().toLowerCase() === "deleted";
+}
+
+/** owner 탭 술어 — 삭제 글은 어느 탭에도 없다 */
+export function ownCommunityPostMatchesStatus(r: Record<string, unknown>, status: OwnCommunityPostStatus): boolean {
+  if (isOwnPostDeleted(r)) return false;
+  const s = String(r.status ?? "").trim().toLowerCase();
+  const hidden = r.is_hidden === true || s === "hidden";
+  // 공개 피드 쿼리(`is_hidden=false` + 공개 가시)와 같은 기준
+  if (status === "active") return !hidden && isCommunityPostPubliclyVisible(r as never);
+  return hidden;
+}
+
+async function fetchOwnPostRowsBatch(
+  sb: Sb,
+  uid: string,
+  cursor: MypageListCursor | null
+): Promise<Record<string, unknown>[] | null> {
+  const attempts = [EMBED_WITH_SKIN(true), EMBED_NO_SKIN(true), BASE_WITH_ORIGIN(true), BASE_WITH_ORIGIN(false)];
+  for (const cols of attempts) {
+    let q = sb
+      .from("community_posts")
+      .select(cols)
+      .eq("user_id", uid)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(OWN_PAGE_SCAN_BATCH);
+    if (cursor) q = q.or(mypageKeysetOrFilter(cursor, "created_at"));
+    const { data, error } = await q;
+    if (!error && Array.isArray(data)) return data as unknown as Record<string, unknown>[];
+    logListCommunityPostsForUserIssue("own_page", uid, error);
+  }
+  return null;
+}
+
+async function countOwnCommunityPosts(sb: Sb, uid: string, status: OwnCommunityPostStatus): Promise<number | null> {
+  for (const cols of ["id, status, is_hidden, is_deleted", "id, is_hidden, is_deleted"]) {
+    const { data, error } = await sb.from("community_posts").select(cols).eq("user_id", uid);
+    if (!error && Array.isArray(data)) {
+      return (data as unknown as Record<string, unknown>[]).filter((r) => ownCommunityPostMatchesStatus(r, status))
+        .length;
+    }
+    logListCommunityPostsForUserIssue("own_count", uid, error);
+  }
+  return null;
+}
+
+export async function listOwnCommunityPostsPage(
+  userId: string,
+  opts: { status: OwnCommunityPostStatus; limit: number; cursor: MypageListCursor | null; withTotal?: boolean }
+): Promise<ListOwnCommunityPostsPageResult> {
+  const uid = userId?.trim();
+  if (!uid) return { ok: true, posts: [], next_cursor: null, ...(opts.withTotal ? { total: 0 } : {}) };
+  let sb: Sb;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    return { ok: false, error: "supabase_unavailable" };
+  }
+
+  const want = opts.limit + 1;
+  const matched: Record<string, unknown>[] = [];
+  let scan: MypageListCursor | null = opts.cursor;
+  for (;;) {
+    const rows = await fetchOwnPostRowsBatch(sb, uid, scan);
+    if (rows == null) return { ok: false, error: "posts_query_failed" };
+    for (const r of rows) if (ownCommunityPostMatchesStatus(r, opts.status)) matched.push(r);
+    if (matched.length >= want || rows.length < OWN_PAGE_SCAN_BATCH) break;
+    const last = rows[rows.length - 1]!;
+    scan = { ts: String(last.created_at ?? ""), id: String(last.id ?? "") };
+    if (!scan.ts || !scan.id) break;
+  }
+  const page = sliceMypageKeysetPage(
+    matched,
+    opts.limit,
+    (r) => String(r.created_at ?? ""),
+    (r) => String(r.id ?? "")
+  );
+
+  let total: number | undefined;
+  if (opts.withTotal) {
+    const n = await countOwnCommunityPosts(sb, uid, opts.status);
+    if (n == null) return { ok: false, error: "posts_query_failed" };
+    total = n;
+  }
+
+  if (page.items.length === 0) return { ok: true, posts: [], next_cursor: null, ...(total != null ? { total } : {}) };
+
+  const nickMap = await fetchNicknamesForUserIds(sb as never, [uid]);
+  const ids = page.items.map((r) => String(r.id));
+  const { data: thumbs } = await sb
+    .from("community_post_images")
+    .select("post_id, image_url, sort_order")
+    .in("post_id", ids)
+    .order("sort_order", { ascending: true });
+  const thumbByPost = new Map<string, string | null>();
+  if (Array.isArray(thumbs)) {
+    for (const im of thumbs as { post_id?: string; image_url?: string | null }[]) {
+      const pid = String(im.post_id ?? "");
+      const u = im.image_url ?? null;
+      if (pid && !thumbByPost.has(pid) && u) thumbByPost.set(pid, u);
+    }
+  }
+
+  const posts = page.items.map((r): OwnCommunityPostDTO => {
+    const dto = mapAuthorPostRow(r, uid, nickMap, thumbByPost);
+    return {
+      ...dto,
+      isHiddenForOwner: !ownCommunityPostMatchesStatus(r, "active"),
+      isImported: isCommunityImportedOrigin(r.origin_kind),
+    };
+  });
+  return { ok: true, posts, next_cursor: page.next_cursor, ...(total != null ? { total } : {}) };
 }

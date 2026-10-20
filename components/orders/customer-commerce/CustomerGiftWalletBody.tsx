@@ -278,7 +278,7 @@ export function CustomerGiftWalletBody({
         </CommercePrimaryCtaLink>
       </div>
       {!ready ? (
-        <div className="flex min-h-[24vh] items-center justify-center text-sm text-sam-muted">…</div>
+        <GiftWalletCardsSkeleton />
       ) : !isAuthed ? (
         <p className="text-sm text-sam-muted">
           {safeT("gift_certificate_wallet_login", {
@@ -511,5 +511,25 @@ export function CustomerGiftWalletBody({
         />
       ) : null}
     </div>
+  );
+}
+
+/** S45 목록 스켈레톤 — 상품권 카드 3 ("…" 대체). 탭·[상품권 사기]는 실제로 먼저 그린다. */
+function GiftWalletCardsSkeleton() {
+  const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
+  return (
+    <ul aria-busy="true" data-testid="gift-wallet-skeleton" className="min-w-0 space-y-3 pb-8">
+      {[0, 1, 2].map((i) => (
+        <li
+          key={i}
+          data-skeleton-row=""
+          className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3"
+        >
+          <span className={`block h-24 w-full ${bone}`} />
+          <span className={`mt-3 block h-4 w-[55%] ${bone}`} />
+          <span className={`mt-2 block h-3 w-[35%] ${bone}`} />
+        </li>
+      ))}
+    </ul>
   );
 }

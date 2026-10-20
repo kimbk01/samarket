@@ -3,10 +3,9 @@
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
-import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { getClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
 import {
   MYPAGE_ADDRESSES_HREF,
@@ -31,6 +30,26 @@ import { useRepresentativeFullAddressLine } from "@/hooks/use-representative-add
 import { evaluatePublicIdProfileView, resolvePublicIdAtDisplay } from "@/lib/auth/dibay-public-id-ssot";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
+import { MyGroup } from "@/components/mypage/ds/MyGroup";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
+import { resolveAccountPhoneDisplay } from "@/lib/mypage/mask-profile-phone";
+import {
+  LINKED_LOGIN_ANCHOR_ID,
+  countLinkedAuthProviders,
+  fetchMeAuthProviders,
+} from "@/lib/mypage/fetch-me-auth-providers";
+import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import {
+  MYPAGE_HOME_CHEVRON_CLASS,
+  MYPAGE_HOME_MENU_TITLE_CLASS,
+  MYPAGE_HOME_ROW_CLASS,
+  MYPAGE_HOME_ROW_DIVIDER_CLASS,
+} from "@/lib/ui/mypage-home-starbucks-styles";
+
+/** S03 → 기기 권한 화면 안 연동 로그인 그룹(X14) */
+export const MYPAGE_LINKED_LOGIN_HREF = `/mypage/section/settings/device-permissions#${LINKED_LOGIN_ANCHOR_ID}`;
 
 /** 재진입 시 로딩 깜빡임 방지 — 캐시된 full profile 우선 */
 function peekCachedProfile(): ProfileRow | null {
@@ -39,13 +58,6 @@ function peekCachedProfile(): ProfileRow | null {
   const json = cached.json as { ok?: boolean; profile?: ProfileRow | null } | null;
   if (!json?.ok || !json.profile?.id?.trim()) return null;
   return json.profile;
-}
-
-function statusBadgeClass(done: boolean, pending = false): string {
-  if (pending) return "bg-sam-pressed-surface text-sam-muted";
-  return done
-    ? "bg-[rgba(0,130,72,0.12)] text-sam-primary"
-    : "bg-[rgba(245,158,11,0.12)] text-sam-warning";
 }
 
 function memberStatusMessageKey(status: StoreMemberStatus): MessageKey {
@@ -64,15 +76,109 @@ function memberStatusMessageKey(status: StoreMemberStatus): MessageKey {
   }
 }
 
+type BadgeTone = "done" | "needed" | "pending";
+
+function StatusBadge({ tone, children }: { tone: BadgeTone; children: ReactNode }) {
+  const cls =
+    tone === "done"
+      ? Sam.badge.success
+      : tone === "needed"
+        ? Sam.badge.warning
+        : Sam.badge.neutral;
+  return <span className={`${cls} shrink-0`}>{children}</span>;
+}
+
+/**
+ * 계정 정보 행 — 값(오른쪽) + 선택 뱃지 + (이동 가능하면) chevron. 이동 없는 정보 행은 `href` 생략.
+ * 행 모양은 `MyRow`(`MyInfoMenuItem`)와 같은 52px·15/14 규칙.
+ */
+function AccountRow({
+  title,
+  value,
+  badge,
+  href,
+  first = false,
+  icon,
+  testId,
+  valueLoading = false,
+  mono = false,
+}: {
+  title: string;
+  value?: ReactNode;
+  badge?: ReactNode;
+  href?: string;
+  first?: boolean;
+  icon?: ReactNode;
+  testId?: string;
+  valueLoading?: boolean;
+  mono?: boolean;
+}) {
+  const rowClass = `${MYPAGE_HOME_ROW_CLASS} ${first ? "" : MYPAGE_HOME_ROW_DIVIDER_CLASS}`;
+  const inner = (
+    <>
+      {icon ? <span className="shrink-0">{icon}</span> : null}
+      <span className={`shrink-0 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>{title}</span>
+      <span
+        className={`min-w-0 flex-1 truncate text-right text-[14px] font-medium leading-snug text-sam-muted ${
+          mono ? "font-mono tabular-nums" : ""
+        }`}
+        data-row-value={valueLoading ? "loading" : "ready"}
+      >
+        {valueLoading ? (
+          <span
+            aria-hidden
+            className="ml-auto block h-3.5 w-16 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse"
+          />
+        ) : (
+          value
+        )}
+      </span>
+      {badge}
+      {href ? <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden /> : null}
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} className={rowClass} data-testid={testId}>
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <div className={`${rowClass} hover:bg-transparent active:bg-transparent`} data-testid={testId}>
+      {inner}
+    </div>
+  );
+}
+
+/** 캐시 없을 때 — 행 6줄(제목 실제 글자 · 값 자리 회색 바) */
+function AccountRowsSkeleton({ labels }: { labels: readonly string[] }) {
+  return (
+    <div aria-busy="true" data-testid="account-rows-skeleton">
+      <MyGroup>
+        {labels.map((label, i) => (
+          <AccountRow key={label} title={label} first={i === 0} valueLoading />
+        ))}
+      </MyGroup>
+    </div>
+  );
+}
+
+/**
+ * 계정 (최종 설계 S03) — T5 허브. 그룹 1 계정 정보 · 그룹 2 필수 정보(미완료가 있을 때만) · 그룹 3 인증 센터.
+ * 행 탭 = 이동만. 홈과 중복인 상단 프로필 카드·"설정으로"는 두지 않는다(프로필 수정 = 홈 시트).
+ */
 export function MyAccountContent() {
   const { t } = useI18n();
   const router = useRouter();
   const [profile, setProfile] = useState<ProfileRow | null>(() => peekCachedProfile());
   const [loading, setLoading] = useState(() => profile == null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [linkedCount, setLinkedCount] = useState<number | null | "loading">("loading");
   const profileRef = useRef(profile);
   profileRef.current = profile;
   const addressState = useRepresentativeFullAddressLine();
+  useMypageListRestore({ ready: profile != null });
 
   const load = useCallback(async () => {
     // 이미 보이는 프로필이 있으면 백그라운드 갱신 (로딩 표시 안 함)
@@ -93,40 +199,50 @@ export function MyAccountContent() {
     void load();
   }, [load]);
 
+  /** 연동 로그인 수 — 화면 표시 후 지연 조회 1회(실패 시 행 값만 비움) */
+  const hasProfile = profile != null;
+  useEffect(() => {
+    if (!hasProfile) return;
+    let cancelled = false;
+    void fetchMeAuthProviders().then((r) => {
+      if (cancelled) return;
+      setLinkedCount(r.ok ? countLinkedAuthProviders(r.providers) : null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasProfile]);
+
+  const skeletonLabels = [
+    t("my_account_username"),
+    t("account_phone"),
+    t("account_email"),
+    t("mypage_s03_linked_login"),
+    t("mypage_s03_joined_at"),
+    t("my_account_member_status"),
+  ] as const;
+
   if (loading) {
-    return <p className="py-4 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
+    return <AccountRowsSkeleton labels={skeletonLabels} />;
   }
   if (!profile && loadFailed) {
     return (
-      <div className="space-y-4">
-        <div
-          className="rounded-ui-rect border border-sam-border bg-sam-surface p-5 text-center shadow-sm"
-          role="alert"
-        >
-          <p className="sam-text-body font-semibold text-sam-fg">{t("mypage_home_load_failed")}</p>
-          <button
-            type="button"
-            className="sam-btn sam-btn--secondary sam-btn--sm mt-3"
-            onClick={() => void load()}
-          >
-            {t("common_retry")}
-          </button>
-        </div>
-        <Link href="/mypage" className="block text-center sam-text-body text-sam-muted">
-          {t("common_back_to_mypage")}
-        </Link>
-      </div>
+      <MyStateView
+        kind="error"
+        template="hub"
+        error={{ message: t("mypage_home_load_failed"), onRetry: () => void load() }}
+      />
     );
   }
   if (!profile) {
     return (
       <div className="space-y-4">
-        <div className="rounded-[20px] border border-sam-border bg-sam-surface p-5 text-center shadow-sm">
+        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-5 text-center">
           <div className="mx-auto flex justify-center">
             <SamarketUserAvatar avatarUrl={null} sizePx={72} alt="" />
           </div>
           <p className="mt-3 sam-text-section-title font-semibold text-sam-fg">{t("profile_guest_name")}</p>
-          <p className="mt-1 sam-text-body text-sam-fg/70">{t("profile_guest_desc")}</p>
+          <p className="mt-1 sam-text-body text-sam-muted">{t("profile_guest_desc")}</p>
           <button
             type="button"
             onClick={() => {
@@ -134,7 +250,7 @@ export function MyAccountContent() {
                 next: "/mypage/account",
               });
             }}
-            className="mt-4 w-full rounded-full bg-sam-primary px-4 py-3 sam-text-body font-semibold text-white active:bg-sam-fg"
+            className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.focusRing} mt-4`}
           >
             {t("profile_guest_login_cta")}
           </button>
@@ -146,9 +262,6 @@ export function MyAccountContent() {
     );
   }
 
-  const phoneVerificationStatus = (profile as ProfileRow & { phone_verification_status?: string })
-    .phone_verification_status;
-
   const displayNickname = resolveMypageSelfDisplayName(profile) || t("account_nickname");
   const atUsername = formatAtUsername(profile.username ?? null);
   const publicIdView = evaluatePublicIdProfileView(profile);
@@ -157,192 +270,131 @@ export function MyAccountContent() {
     profile.username?.trim() ||
     "";
   const hasDibayId = Boolean(dibayIdDisplay);
-  const displayPhone =
+  const dibayIdValue = atUsername || (dibayIdDisplay ? `@${dibayIdDisplay.replace(/^@/, "")}` : "");
+  /** 아이디 변경 불가(변경 완료·잠김) — 값 행만, chevron 없음 */
+  const dibayIdChangeable = !hasDibayId || publicIdView.canChangeOnce;
+  const formattedPhone =
     formatProfilePhoneForDisplay({
       phone: profile.phone ?? null,
       phone_country_code: profile.phone_country_code ?? null,
       phone_number: profile.phone_number ?? null,
-    }) ||
-    profile.phone?.trim() ||
-    "";
+    }) || "";
   const contactVerified = isProfileContactVerified(profile);
+  const phoneDisplay = resolveAccountPhoneDisplay({ formattedPhone, verified: contactVerified });
   const storeMemberStatus = deriveStoreMemberStatus(profile);
   const consentDone = hasStoreTermsConsent(profile, getClientRequiredConsentVersions());
-  const profileCompleted = profile.profile_completed === true;
   const addressLine = addressState.status === "ready" ? addressState.line?.trim() ?? "" : "";
-  const addressDone = Boolean(addressLine?.trim());
+  const addressDone = Boolean(addressLine);
   const addressPending = !addressDone && addressState.status !== "ready";
+  const joinedAt = formatMypageDate(profile.created_at ?? null, { style: "date" });
 
-  const essentials = [
-    {
-      key: "dibay-id",
-      title: t("account_essentials_id"),
-      desc: hasDibayId
-        ? atUsername || `@${dibayIdDisplay}`
-        : t("account_essentials_id_needed"),
-      done: hasDibayId,
-      pending: false,
-      badge: hasDibayId ? t("account_essentials_done") : t("account_essentials_needed"),
-      href: hasDibayId && !publicIdView.canChangeOnce ? MYPAGE_PROFILE_EDIT_HREF : MYPAGE_REQUIRED_DIBAY_ID_HREF,
-    },
-    {
-      key: "phone",
-      title: t("profile_verification_phone"),
-      desc: contactVerified
-        ? displayPhone || t("profile_verification_phone_done")
-        : t("account_essentials_phone_needed"),
-      done: contactVerified,
-      pending: false,
-      badge: contactVerified ? t("profile_verification_done") : t("profile_verification_needed"),
-      href: buildPhoneVerificationHref(),
-    },
-    {
-      key: "address",
-      title: t("profile_verification_address"),
-      desc: addressDone
-        ? addressLine
-        : addressState.status === "ready"
-          ? t("profile_verification_address_needed")
-          : t("common_loading"),
-      done: addressDone,
-      // 주소 로딩 중엔 경고 대신 중립 배지
-      pending: addressPending,
-      badge: addressDone
-        ? t("profile_verification_address_done")
-        : addressPending
-          ? t("mypage_account_address_checking")
-          : t("profile_verification_address_needed_short"),
-      href: MYPAGE_ADDRESSES_HREF,
-    },
-  ] as const;
+  const phoneValue =
+    phoneDisplay.kind === "verified_with_number" || phoneDisplay.kind === "unverified_with_number"
+      ? phoneDisplay.masked
+      : phoneDisplay.kind === "missing"
+        ? t("account_missing_phone")
+        : null;
+
+  const essentialsIncomplete = !hasDibayId || !contactVerified || (!addressDone && !addressPending);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 rounded-[20px] border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <SamarketUserAvatar
-          avatarUrl={profile.avatar_url}
-          sizePx={64}
-          badge={profileCompleted ? "verified" : "none"}
-          alt=""
-        />
-        <div className="min-w-0 flex-1">
-          <p className="sam-text-section-title font-semibold text-sam-fg">{displayNickname}</p>
-          {atUsername ? (
-            <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-fg/65 tabular-nums">{atUsername}</p>
-          ) : null}
-          <p className="mt-0.5 truncate sam-text-body-secondary text-sam-fg/70">
-            {profileCompleted ? t("account_nickname_note") : t("profile_complete_desc")}
-          </p>
-          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="mt-2 inline-block sam-text-body font-semibold text-sam-primary">
-            {profileCompleted ? t("account_edit_profile") : t("profile_complete_cta")}
-          </Link>
-        </div>
-      </div>
-
-      <section
-        className="rounded-[20px] border border-sam-border bg-sam-surface p-4 shadow-sm"
-        data-testid="account-essentials-block"
-      >
-        <h2 className="sam-text-section-title font-semibold text-sam-fg">
-          {t("account_essentials_title")}
-        </h2>
-        <p className="mt-1 sam-text-body-secondary text-sam-fg/70">
-          {t("account_essentials_desc")}
-        </p>
-        <div className="mt-3 divide-y divide-sam-border">
-          {essentials.map((row) => {
-            const inner = (
-              <>
-                <span className="flex min-w-0 items-start gap-2">
-                  {row.key === "address" ? (
-                    <AddressKindHeadPin kind="master" className="mt-0.5 h-5 w-5 shrink-0 [&_svg]:h-5 [&_svg]:w-[1rem]" />
-                  ) : null}
-                  <span className="min-w-0">
-                    <span className="block sam-text-body font-semibold text-sam-fg">{row.title}</span>
-                    <span className="mt-0.5 block truncate sam-text-body-secondary text-sam-fg/65">{row.desc}</span>
-                  </span>
-                </span>
-                <span className={`shrink-0 rounded-full px-2.5 py-1 sam-text-xxs font-semibold ${statusBadgeClass(row.done, row.pending)}`}>
-                  {row.badge}
-                </span>
-              </>
-            );
-            const className = "flex w-full items-center justify-between gap-3 py-3 text-left active:opacity-90";
-            return row.key === "address" ? (
-              <button key={row.key} type="button" onClick={() => router.push(row.href)} className={className}>
-                {inner}
-              </button>
+    <div className="space-y-2" data-testid="account-hub">
+      <MyGroup title={t("account_info_title")}>
+        <AccountRow first title={t("account_nickname")} value={displayNickname} />
+        <AccountRow
+          title={t("my_account_username")}
+          value={dibayIdValue || t("account_essentials_id_needed")}
+          mono={Boolean(dibayIdValue)}
+          href={dibayIdChangeable ? MYPAGE_REQUIRED_DIBAY_ID_HREF : undefined}
+          testId="account-row-dibay-id"
+          badge={
+            hasDibayId ? (
+              <StatusBadge tone={publicIdView.canChangeOnce ? "pending" : "done"}>
+                {publicIdView.canChangeOnce ? t("mypage_s03_id_change_once") : t("mypage_s03_id_change_done")}
+              </StatusBadge>
             ) : (
-              <Link key={row.key} href={row.href} className={className}>
-                {inner}
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+              <StatusBadge tone="needed">{t("account_essentials_needed")}</StatusBadge>
+            )
+          }
+        />
+        <AccountRow
+          title={t("account_phone")}
+          value={phoneValue}
+          mono={phoneValue != null && phoneDisplay.kind !== "missing"}
+          href={buildPhoneVerificationHref()}
+          testId="account-row-phone"
+          badge={
+            contactVerified ? (
+              <StatusBadge tone="done">{t("profile_verification_done")}</StatusBadge>
+            ) : (
+              <StatusBadge tone="needed">{t("profile_verification_needed")}</StatusBadge>
+            )
+          }
+        />
+        <AccountRow title={t("account_email")} value={profile.email ?? "—"} />
+        <AccountRow
+          title={t("mypage_s03_linked_login")}
+          href={MYPAGE_LINKED_LOGIN_HREF}
+          testId="account-row-linked-login"
+          valueLoading={linkedCount === "loading"}
+          value={
+            typeof linkedCount === "number" ? t("mypage_s03_linked_count", { count: linkedCount }) : null
+          }
+        />
+        <AccountRow title={t("mypage_s03_joined_at")} value={joinedAt || "—"} testId="account-row-joined" />
+        <AccountRow title={t("my_account_member_status")} value={t(memberStatusMessageKey(storeMemberStatus))} />
+        <AccountRow
+          title={t("account_realname")}
+          value={profile.realname_verified ? t("account_verified") : t("account_unverified")}
+        />
+        <AccountRow
+          title={t("my_account_terms")}
+          value={consentDone ? t("my_account_terms_done") : t("my_account_terms_required")}
+        />
+      </MyGroup>
 
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="sam-text-section-title font-semibold text-sam-fg">{t("account_info_title")}</h2>
-          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="sam-text-body font-semibold text-signature">
-            {t("account_edit")}
-          </Link>
-        </div>
-        <dl className="space-y-4">
-          {(
-            [
-              { label: t("account_nickname"), value: displayNickname },
-              { label: t("my_account_username"), value: atUsername || "—", mono: true },
-              { label: t("account_email"), value: profile.email ?? "—" },
-              { label: t("account_phone"), value: displayPhone || t("account_missing_phone") },
-              {
-                label: t("account_realname"),
-                value: profile.realname_verified ? t("account_verified") : t("account_unverified"),
-              },
-              {
-                label: t("my_account_member_status"),
-                value: t(memberStatusMessageKey(storeMemberStatus)),
-              },
-              {
-                label: t("account_phone_verification"),
-                value: contactVerified
-                  ? t("my_phone_status_verified")
-                  : phoneVerificationStatus === "pending"
-                    ? t("account_pending")
-                    : t("account_unverified"),
-              },
-              {
-                label: t("my_account_terms"),
-                value: consentDone ? t("my_account_terms_done") : t("my_account_terms_required"),
-              },
-            ] as const
-          ).map((row) => (
-            <div key={row.label} className="border-b border-sam-border/60 pb-3 last:border-b-0 last:pb-0">
-              <dt className="text-[11px] font-bold uppercase tracking-[0.06em] text-sam-muted">{row.label}</dt>
-              <dd
-                className={`mt-1 sam-text-body font-semibold text-sam-fg ${"mono" in row && row.mono ? "font-mono tabular-nums" : ""}`}
+      {essentialsIncomplete ? (
+        <div data-testid="account-essentials-block">
+          <MyGroup title={t("account_essentials_title")}>
+            {!hasDibayId ? (
+              <AccountRow
+                first
+                title={t("account_essentials_id")}
+                value={t("account_essentials_id_needed")}
+                href={MYPAGE_REQUIRED_DIBAY_ID_HREF}
+                badge={<StatusBadge tone="needed">{t("account_essentials_needed")}</StatusBadge>}
+              />
+            ) : null}
+            {!contactVerified ? (
+              <AccountRow
+                first={hasDibayId}
+                title={t("profile_verification_phone")}
+                value={t("account_essentials_phone_needed")}
+                href={buildPhoneVerificationHref()}
+                badge={<StatusBadge tone="needed">{t("profile_verification_needed")}</StatusBadge>}
+              />
+            ) : null}
+            {!addressDone ? (
+              <button
+                type="button"
+                onClick={() => router.push(MYPAGE_ADDRESSES_HREF)}
+                className={`${MYPAGE_HOME_ROW_CLASS} ${hasDibayId && contactVerified ? "" : MYPAGE_HOME_ROW_DIVIDER_CLASS} text-left`}
               >
-                {row.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-        {!contactVerified ? (
-          <Link
-            href="/mypage/required/phone"
-            className="mt-4 block rounded-ui-rect border border-signature/20 bg-signature/5 px-4 py-3 text-center sam-text-body font-semibold text-signature"
-          >
-            {t("account_phone_cta")}
-          </Link>
-        ) : null}
-      </div>
+                <AddressKindHeadPin kind="master" className="h-5 w-5 shrink-0 [&_svg]:h-5 [&_svg]:w-[1rem]" />
+                <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>
+                  {t("profile_verification_address")}
+                </span>
+                <StatusBadge tone={addressPending ? "pending" : "needed"}>
+                  {addressPending ? t("mypage_account_address_checking") : t("profile_verification_address_needed_short")}
+                </StatusBadge>
+                <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
+          </MyGroup>
+        </div>
+      ) : null}
+
       <ProfileVerificationCenter profile={profile} />
-      <Link
-        href={buildMypageInfoHubHref()}
-        className="block rounded-ui-rect bg-sam-surface px-4 py-3 text-center sam-text-body font-medium text-sam-fg shadow-sm"
-      >
-        {t("account_to_settings")}
-      </Link>
     </div>
   );
 }

@@ -3,6 +3,9 @@
 import { useRef, useState } from "react";
 import { Camera } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayActionSheet } from "@/components/ui/dibay-overlay/DibayActionSheet";
+import { ensureCameraWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { patchSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { SAMARKET_DEFAULT_AVATAR_URL } from "@/lib/profile/default-avatar";
@@ -19,7 +22,7 @@ export interface ProfileImageFieldProps {
 }
 
 const AVATAR_CAMERA_BADGE_CLASS =
-  "pointer-events-none absolute bottom-0 right-0 z-[2] flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-sam-primary text-white shadow-[0_1px_4px_rgba(30,57,50,0.18)]";
+  "pointer-events-none absolute bottom-0 right-0 z-[2] flex h-7 w-7 items-center justify-center rounded-full border-2 border-sam-surface bg-sam-primary text-[var(--sam-icon-on-primary)] shadow-[var(--sam-shadow-elevated)]";
 
 export function ProfileImageField({
   avatarUrl,
@@ -28,13 +31,36 @@ export function ProfileImageField({
 }: ProfileImageFieldProps) {
   const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [actionSheetOpen, setActionSheetOpen] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const isHero = variant === "hero";
   const sizePx = isHero ? 96 : 80;
   const hasCustomPhoto = hasCustomUserAvatar(avatarUrl);
 
   const pickFile = () => inputRef.current?.click();
+
+  /**
+   * 사진 촬영 — `<input capture="user">`. 네이티브 앱은 기존 기기 권한 게이트(카메라)를 먼저 통과한다.
+   * 웹은 브라우저가 권한을 직접 묻는다.
+   */
+  const takePhoto = async () => {
+    if (isCapacitorNativePlatform()) {
+      const gate = await ensureCameraWithDiBaYGate();
+      if (!gate.ok && gate.reason === "denied") {
+        setUploadError(t("mypage_s01_photo_camera_denied"));
+        return;
+      }
+    }
+    cameraInputRef.current?.click();
+  };
+
+  /** 사진 탭 → 액션시트 [앨범에서 선택] · [사진 촬영] · [기본 사진으로](사용자 사진일 때만) · [취소] (S01) */
+  const openPhotoActions = () => {
+    if (uploading) return;
+    setActionSheetOpen(true);
+  };
 
   /** 409 profile_conflict — 다른 곳에서 바뀐 최신 사진으로 맞춰 같은 기대값으로 409 가 반복되지 않게 한다 */
   const syncLatestAvatarOnConflict = async (save: { ok: false; code?: string }) => {
@@ -119,8 +145,9 @@ export function ProfileImageField({
     <div className="flex flex-col items-center gap-2">
       <button
         type="button"
-        onClick={pickFile}
+        onClick={openPhotoActions}
         disabled={uploading}
+        data-testid="profile-photo-trigger"
         className="relative shrink-0 rounded-full disabled:opacity-60"
         style={{ width: sizePx, height: sizePx }}
         aria-label={t("profile_edit_photo_aria")}
@@ -143,34 +170,41 @@ export function ProfileImageField({
         type="file"
         accept="image/jpeg,image/png,image/webp"
         className="hidden"
+        data-testid="profile-photo-input-album"
+        onChange={(ev) => void onFile(ev)}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        capture="user"
+        className="hidden"
+        data-testid="profile-photo-input-camera"
         onChange={(ev) => void onFile(ev)}
       />
 
-      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[13px] font-semibold">
-        <button
-          type="button"
-          onClick={pickFile}
-          disabled={uploading}
-          className="text-sam-primary disabled:opacity-60"
-        >
-          {uploading ? t("profile_edit_photo_uploading") : t("profile_edit_photo_pick")}
-        </button>
-        {hasCustomPhoto ? (
-          <>
-            <span className="text-sam-muted/35" aria-hidden>
-              ·
-            </span>
-            <button
-              type="button"
-              className="text-sam-muted disabled:opacity-60"
-              onClick={removePhoto}
-              disabled={uploading}
-            >
-              {t("profile_edit_photo_remove")}
-            </button>
-          </>
-        ) : null}
-      </div>
+      <button
+        type="button"
+        onClick={openPhotoActions}
+        disabled={uploading}
+        className="min-h-[44px] px-2 text-[13px] font-semibold text-sam-primary disabled:opacity-60"
+      >
+        {uploading ? t("profile_edit_photo_uploading") : t("profile_edit_photo_pick")}
+      </button>
+
+      <DibayActionSheet
+        open={actionSheetOpen}
+        onClose={() => setActionSheetOpen(false)}
+        title={t("profile_edit_photo_aria")}
+        cancelLabel={t("common_cancel")}
+        items={[
+          { key: "album", label: t("mypage_s01_photo_album"), onClick: pickFile },
+          { key: "camera", label: t("mypage_s01_photo_camera"), onClick: () => void takePhoto() },
+          ...(hasCustomPhoto
+            ? [{ key: "default", label: t("mypage_s01_photo_default"), onClick: removePhoto }]
+            : []),
+        ]}
+      />
 
       {uploadError ? <p className="text-center text-[12px] text-sam-danger">{uploadError}</p> : null}
     </div>

@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import { normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
 import {
   evaluatePublicIdProfileView,
@@ -24,9 +27,16 @@ type ConfirmResp =
   | { ok: true; dibay_id: string; idempotent?: boolean }
   | { ok: false; error: string };
 
+/** 입력이 멈춘 뒤 자동 중복 확인까지 대기(ms) — S04 */
+export const DIBAY_ID_AUTO_CHECK_DEBOUNCE_MS = 400;
+
 type ProfileDibayIdSectionProps = ProfilePublicIdFields & {
   highlighted?: boolean;
   fieldComplete?: boolean;
+  /**
+   * [확정] 위치 — inline(기본: 시트·설정 폼 안) / sticky(필수정보 페이지 하단 고정 `MyStickyCta`, S04)
+   */
+  ctaPlacement?: "inline" | "sticky";
   onConfirmed: (confirmedDibayId: string) => void | Promise<void>;
 };
 
@@ -39,6 +49,7 @@ export function ProfileDibayIdSection({
   username_confirmed: usernameConfirmed = null,
   highlighted = false,
   fieldComplete = true,
+  ctaPlacement = "inline",
   onConfirmed,
 }: ProfileDibayIdSectionProps) {
   const { t, safeT } = useI18n();
@@ -49,8 +60,11 @@ export function ProfileDibayIdSection({
   const [showChangeForm, setShowChangeForm] = useState(false);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmSheetOpen, setConfirmSheetOpen] = useState(false);
   const inFlightRef = useRef(false);
   const userEditedRef = useRef(false);
+  /** 자동 확인 순번 — 마지막 입력 결과만 반영(이전 요청 결과 폐기) */
+  const checkSeqRef = useRef(0);
 
   const profileFields = useMemo(
     () => ({
@@ -74,33 +88,52 @@ export function ProfileDibayIdSection({
 
   const normalized = useMemo(() => normalizeDibayIdInput(raw), [raw]);
 
-  const reserve = async () => {
-    if (!normalized) return;
-    setChecking(true);
-    setError(null);
-    setAvailable(null);
-    try {
-      const res = await fetch("/api/me/dibay-id/reserve", {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ dibay_id: normalized }),
-      });
-      const json = (await res.json().catch(() => null)) as ReserveResp | null;
-      if (!res.ok || !json || json.ok !== true) {
-        setError(t("profile_edit_dibay_id_err_check_failed"));
-        return;
-      }
-      setAvailable(json.available);
-      if (!json.available) {
-        setError(t("profile_edit_dibay_id_err_duplicate"));
-      }
-    } catch {
-      setError(t("profile_edit_dibay_id_err_check_network"));
-    } finally {
+  const formVisible =
+    !(!publicIdView.setupComplete && !dibayId?.trim()) &&
+    !(publicIdView.setupComplete && publicIdView.atDisplay && !publicIdView.canChangeOnce) &&
+    (!(publicIdView.canChangeOnce && publicIdView.atDisplay) || showChangeForm);
+
+  /**
+   * 자동 중복 확인 (S04) — 입력이 멈추고 400ms 뒤 `/api/me/dibay-id/reserve` 1회.
+   * 순번 비교로 마지막 입력의 결과만 반영한다. [중복 확인] 버튼 없음.
+   */
+  useEffect(() => {
+    const seq = ++checkSeqRef.current;
+    if (!formVisible || !normalized || submitting) {
       setChecking(false);
+      return;
     }
-  };
+    setChecking(true);
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch("/api/me/dibay-id/reserve", {
+            method: "POST",
+            credentials: "include",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ dibay_id: normalized }),
+          });
+          const json = (await res.json().catch(() => null)) as ReserveResp | null;
+          if (seq !== checkSeqRef.current) return;
+          if (!res.ok || !json || json.ok !== true) {
+            setAvailable(null);
+            setError(t("profile_edit_dibay_id_err_check_failed"));
+            return;
+          }
+          setAvailable(json.available);
+          setError(json.available ? null : t("profile_edit_dibay_id_err_duplicate"));
+        } catch {
+          if (seq !== checkSeqRef.current) return;
+          setAvailable(null);
+          setError(t("profile_edit_dibay_id_err_check_network"));
+        } finally {
+          if (seq === checkSeqRef.current) setChecking(false);
+        }
+      })();
+    }, DIBAY_ID_AUTO_CHECK_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 입력값·표시 상태가 바뀔 때만 재확인
+  }, [normalized, formVisible]);
 
   const scrollInputAboveKeyboard = () => {
     window.setTimeout(() => {
@@ -113,6 +146,8 @@ export function ProfileDibayIdSection({
   const confirm = async () => {
     if (inFlightRef.current || submitting || !normalized) return;
     inFlightRef.current = true;
+    checkSeqRef.current += 1;
+    setChecking(false);
     setSubmitting(true);
     setError(null);
     setAvailable(null);
@@ -210,6 +245,57 @@ export function ProfileDibayIdSection({
     ? OWNER_STORE_PROFILE_CONTROL_CLASS
     : `${OWNER_STORE_PROFILE_CONTROL_CLASS} ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}`;
 
+  const canConfirm = Boolean(normalized) && available === true && !checking && !submitting;
+  const confirmLabel = publicIdView.canChangeOnce
+    ? safeT("profile_edit_dibay_id_change_confirm_btn", {
+        fallbackKo: "1회 변경 확정",
+        fallbackEn: "Confirm change",
+      })
+    : t("profile_edit_dibay_id_confirm_btn");
+  const showInputError = Boolean(error) || available === false;
+
+  /** 상태 줄 — 확인 중 / 사용 가능 / 이미 사용 중·오류 */
+  const statusLine = checking ? (
+    <p className="text-[13px] text-sam-muted" role="status" data-testid="dibay-id-status-checking">
+      {t("profile_edit_dibay_id_checking")}
+    </p>
+  ) : error ? (
+    <p className="text-[13px] font-medium text-sam-danger" role="alert" data-testid="dibay-id-status-error">
+      {error}
+    </p>
+  ) : available === true ? (
+    <p
+      className="flex items-center gap-1 text-[13px] font-medium text-sam-primary"
+      data-testid="dibay-id-status-available"
+    >
+      <Check className="h-4 w-4" aria-hidden />
+      {t("profile_edit_dibay_id_available")}
+    </p>
+  ) : null;
+
+  const confirmButton =
+    ctaPlacement === "sticky" ? (
+      <MyStickyCta
+        dirty={canConfirm}
+        primary={{
+          label: confirmLabel,
+          onPress: () => setConfirmSheetOpen(true),
+          loading: submitting,
+        }}
+      />
+    ) : (
+      <button
+        type="button"
+        data-testid="dibay-id-confirm"
+        disabled={!canConfirm}
+        aria-busy={submitting}
+        onClick={() => setConfirmSheetOpen(true)}
+        className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.focusRing} disabled:opacity-45`}
+      >
+        {submitting ? t("profile_edit_saving") : confirmLabel}
+      </button>
+    );
+
   const changeForm = (
     <div className="space-y-3">
       <div>
@@ -230,7 +316,8 @@ export function ProfileDibayIdSection({
             fallbackKo: "아이디 입력",
             fallbackEn: "Enter ID",
           })}
-          className={inputClass}
+          aria-invalid={showInputError}
+          className={`${inputClass} text-[16px] ${showInputError ? Sam.input.error : ""}`}
         />
         <p className="mt-1 text-[13px] text-sam-muted">
           {publicIdView.canChangeOnce
@@ -241,42 +328,21 @@ export function ProfileDibayIdSection({
             : t("profile_edit_dibay_id_helper")}
         </p>
       </div>
-      {error ? (
-        <p className="text-[13px] font-medium text-sam-danger" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {available === true ? (
-        <p className="flex items-center gap-1 text-[13px] font-medium text-sam-primary">
-          <Check className="h-4 w-4" aria-hidden />
-          {t("profile_edit_dibay_id_available")}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={!normalized || checking}
-          onClick={() => void reserve()}
-          className="rounded-full border border-sam-primary px-4 py-2 text-[14px] font-semibold text-sam-primary disabled:opacity-50"
-        >
-          {checking ? t("profile_edit_dibay_id_checking") : t("profile_edit_dibay_id_check_btn")}
-        </button>
-        <button
-          type="button"
-          disabled={!normalized || available !== true || submitting}
-          onClick={() => void confirm()}
-          className="rounded-full bg-sam-primary px-4 py-2 text-[14px] font-semibold text-white disabled:opacity-50"
-        >
-          {submitting
-            ? t("profile_edit_saving")
-            : publicIdView.canChangeOnce
-              ? safeT("profile_edit_dibay_id_change_confirm_btn", {
-                  fallbackKo: "1회 변경 확정",
-                  fallbackEn: "Confirm change",
-                })
-              : t("profile_edit_dibay_id_confirm_btn")}
-        </button>
-      </div>
+      <div className="min-h-[20px]">{statusLine}</div>
+      {confirmButton}
+      <MobileConfirmBottomSheet
+        open={confirmSheetOpen}
+        title={t("mypage_s04_confirm_title", { id: normalized })}
+        description={t("mypage_s04_confirm_body")}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("mypage_s04_confirm_cta")}
+        confirmTone="primary"
+        onCancel={() => setConfirmSheetOpen(false)}
+        onConfirm={() => {
+          setConfirmSheetOpen(false);
+          void confirm();
+        }}
+      />
     </div>
   );
 
@@ -298,7 +364,7 @@ export function ProfileDibayIdSection({
           type="button"
           disabled={recovering}
           onClick={() => void recoverAutoId()}
-          className="mt-3 rounded-full bg-sam-primary px-4 py-2 text-[14px] font-semibold text-white disabled:opacity-50"
+          className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} ${Sam.focusRing} mt-3 disabled:opacity-45`}
         >
           {recovering
             ? t("profile_edit_saving")

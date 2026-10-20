@@ -219,6 +219,10 @@ export function VersionContent() {
   const [userCanceled, setUserCanceled] = useState(false);
   const [confirmStartOpen, setConfirmStartOpen] = useState(false);
   const [confirmInstallOpen, setConfirmInstallOpen] = useState(false);
+  /** 실행 환경 — android(Play 업데이트) / ios(버전만) / web(웹 실행 + SHA) */
+  const [runtimeSurface, setRuntimeSurface] = useState<"android" | "ios" | "web">(() =>
+    isAndroidNative ? "android" : "web",
+  );
 
   const loadInstalled = useCallback(async () => {
     setLoading(true);
@@ -251,24 +255,18 @@ export function VersionContent() {
         if (cap) {
           setVersionName(cap.versionName || "");
           setBuildNumber(cap.versionCode);
-          setWebFallbackNote(
-            safeT("settings_version_ios_note", {
-              fallbackKo: "iOS에서는 App Store 업데이트를 사용합니다",
-              fallbackEn: "On iOS, updates are delivered through the App Store",
-            })
-          );
+          /** S18 — iOS 는 「iOS 앱 버전」 표시만(업데이트 버튼·스토어 채널 언급 없음) */
+          setRuntimeSurface("ios");
+          setWebFallbackNote(safeT("mypage_s18_ios_app_version"));
           setFreshness("unavailable");
           return;
         }
       }
 
       setVersionName("");
-      setWebFallbackNote(
-        safeT("settings_version_web_note", {
-          fallbackKo: "웹에서는 설치 앱 버전(Play)을 표시하지 않습니다",
-          fallbackEn: "Installed Play app version is not shown on web",
-        })
-      );
+      /** S18 — 웹은 앱 버전 줄 대신 「웹에서 실행 중」 + 배포 SHA */
+      setRuntimeSurface("web");
+      setWebFallbackNote(safeT("mypage_s18_web_running"));
       setFreshness("unavailable");
     } finally {
       setLoading(false);
@@ -545,11 +543,14 @@ export function VersionContent() {
         />
 
         {loading ? (
-          <p className={`${Sam.text.body} text-sam-muted`}>
-            {safeT("settings_version_loading", {
-              fallbackKo: "확인 중",
-              fallbackEn: "Checking",
-            })}
+          <span
+            aria-busy="true"
+            data-testid="version-number-skeleton"
+            className="block h-6 w-40 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse"
+          />
+        ) : runtimeSurface === "web" ? (
+          <p className={`${Sam.text.bodyLg} text-sam-fg`} data-testid="version-web-running">
+            {safeT("mypage_s18_web_running")}
           </p>
         ) : showCurrentVersionLabel ? (
           <p className={`${Sam.text.bodyLg} text-sam-fg`}>
@@ -579,15 +580,22 @@ export function VersionContent() {
           </p>
         ) : null}
 
-        <p className={`mt-3 min-h-[1.5rem] ${Sam.text.body} ${statusToneClass}`} aria-live="polite">
-          {webFallbackNote && cta.statusKind === "unavailable" ? webFallbackNote : statusLine}
-        </p>
+        {runtimeSurface === "android" ? (
+          <p className={`mt-3 min-h-[1.5rem] ${Sam.text.body} ${statusToneClass}`} aria-live="polite">
+            {statusLine}
+          </p>
+        ) : runtimeSurface === "ios" && webFallbackNote ? (
+          <p className={`mt-3 ${Sam.text.helper} text-sam-muted`} data-testid="version-ios-note">
+            {webFallbackNote}
+          </p>
+        ) : null}
 
         {errorDetail && cta.statusKind === "check_failed" ? (
           <p className={`mt-2 max-w-sm ${Sam.text.helper} text-sam-muted`}>{errorDetail}</p>
         ) : null}
 
-        {cta.showPrimaryButton ? (
+        {/* Android 네이티브에서만 렌더 (X6) — 비활성 색 #D1D5DB/#6B7280 는 HARD LOCK 유지 */}
+        {isAndroidNative && cta.showPrimaryButton ? (
           <button
             type="button"
             disabled={!cta.primaryEnabled}

@@ -8,9 +8,20 @@ import {
   PointPromotionOrderForm,
   type PointPromotionOrderFormValues,
 } from "@/components/points/PointPromotionOrderForm";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { MyStickyCta, MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
 import { usePromotionOrderTargets } from "@/hooks/usePromotionOrderTargets";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
+import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
+const FORM_ID = "mypage-ads-apply-form";
+
+/**
+ * S46 신청 화면(포인트 홍보) — T3: 기존 폼 + 하단 고정 [신청](제출 방지), 잔액 "—" 처리, 오류 토스트.
+ */
 export function MyAdsApplyPageClient() {
   const { t } = useI18n();
   const router = useRouter();
@@ -18,67 +29,97 @@ export function MyAdsApplyPageClient() {
   const { productOptions, loading: targetsLoading, unauthorized } =
     usePromotionOrderTargets();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [canSubmit, setCanSubmit] = useState(false);
+  const guard = useMypageSubmitGuard();
+  const busy = guard.pending;
 
-  const handleSubmit = async (values: PointPromotionOrderFormValues) => {
-    if (busy) return;
-    setSubmitError(null);
-    setBusy(true);
-    try {
-      const res = await fetch("/api/me/points/promotion-orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(values),
-      });
-      const j = (await res.json()) as { ok?: boolean; code?: string; error?: string };
-      if (!res.ok || !j.ok) {
-        if (j.code === "insufficient_balance" || j.error === "insufficient_balance") {
-          setSubmitError(t("points_ui_insufficient"));
-        } else if (j.error === "already_active_promotion") {
-          setSubmitError(t("points_ui_promotion_conflict"));
-        } else {
-          setSubmitError(t("points_ui_request_failed"));
+  const handleSubmit = (values: PointPromotionOrderFormValues) =>
+    guard.run(async () => {
+      setSubmitError(null);
+      try {
+        const res = await fetch("/api/me/points/promotion-orders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(values.idempotencyKey ? { "Idempotency-Key": values.idempotencyKey } : {}),
+          },
+          credentials: "include",
+          body: JSON.stringify(values),
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; code?: string; error?: string };
+        if (!res.ok || !j.ok) {
+          const msg =
+            j.code === "insufficient_balance" || j.error === "insufficient_balance"
+              ? t("points_ui_insufficient")
+              : j.error === "already_active_promotion"
+                ? t("points_ui_promotion_conflict")
+                : t("points_ui_request_failed");
+          setSubmitError(msg);
+          showMypageToast(msg, "error");
+          return;
         }
-        return;
+        showMypageToast(t("mypage_oa_promotion_applied"), "success");
+        invalidateMypageSummary();
+        router.push("/mypage/points/promotions");
+      } catch {
+        setSubmitError(t("points_ui_request_failed"));
+        showMypageToast(t("points_ui_request_failed"), "error");
       }
-      router.push("/mypage/points/promotions");
-    } finally {
-      setBusy(false);
-    }
+    });
+
+  const submitForm = () => {
+    const form = typeof document !== "undefined" ? (document.getElementById(FORM_ID) as HTMLFormElement | null) : null;
+    form?.requestSubmit();
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-sam-app">
       <MySubpageHeader
         title={t("mypage_ads_apply_title")}
         subtitle={t("mypage_ads_apply_subtitle")}
         backHref="/mypage/ads"
+        preferHistoryBack
         hideCtaStrip
       />
-      <div className="mx-auto max-w-lg px-4 py-4">
+      <div
+        className={`mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} py-4 ${MY_STICKY_CTA_BODY_CLEARANCE_CLASS}`}
+      >
         {unauthorized ? (
-          <p className="mb-4 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
+          <p className="mb-4 rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-fg">
             {t("auth_resource_access_denied")}
           </p>
         ) : null}
-        {submitError && (
-          <p className="mb-4 rounded-ui-rect bg-red-50 px-3 py-2 sam-text-body-secondary text-red-700">
+        {submitError ? (
+          <p role="alert" className="mb-4 rounded-ui-rect bg-sam-danger-soft px-3 py-2 sam-text-body-secondary text-sam-danger">
             {submitError}
           </p>
-        )}
+        ) : null}
         {targetsLoading ? (
-          <p className="py-10 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>
+          <MyStateView kind="loading" template="form" rows={3} />
         ) : (
           <PointPromotionOrderForm
+            formId={FORM_ID}
+            hideSubmitButton
+            onCanSubmitChange={setCanSubmit}
             balance={balanceError ? null : balance}
             balanceLoading={balanceLoading}
             productOptions={productOptions}
             onSubmit={(v) => void handleSubmit(v)}
-            submitLabel={busy ? t("common_loading") : t("ads_apply_submit")}
+            submitting={busy}
           />
         )}
       </div>
+      {!targetsLoading ? (
+        <MyStickyCta
+          dirty={canSubmit}
+          primary={{
+            label: t("ads_apply_submit"),
+            onPress: submitForm,
+            loading: busy,
+            disabled: busy,
+          }}
+        />
+      ) : null}
     </div>
   );
 }

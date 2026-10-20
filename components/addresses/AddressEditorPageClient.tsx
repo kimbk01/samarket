@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { peekMemberAddressCallerContext } from "@/lib/addresses/member-address-caller-context";
+import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AddressPlatformDetailClient } from "@/components/addresses/AddressPlatformDetailClient";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -36,8 +43,10 @@ function AddressEditorPageChrome(props: {
   titleKey: MessageKey;
   backHref: string;
   children: ReactNode;
+  /** 지정 시 헤더 뒤로가 이 함수를 거친다(미저장 확인, S07) */
+  onBack?: () => void;
 }) {
-  const { titleKey, backHref, children } = props;
+  const { titleKey, backHref, children, onBack } = props;
   return (
     <div className={MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS}>
       <MySubpageHeader
@@ -45,6 +54,9 @@ function AddressEditorPageChrome(props: {
         registerMainTier1={false}
         titleKey={titleKey}
         backHref={backHref}
+        leftSlot={
+          onBack ? <AppBackButton preferHistoryBack={false} onBack={onBack} ariaLabelKey="nav_back" /> : undefined
+        }
         hideCtaStrip
         showHubQuickActions
       />
@@ -72,6 +84,28 @@ function AddressEditorPageInner() {
   const [platformDraft, setPlatformDraft] = useState<CanonicalAddressDraft | null>(null);
 
   const mapHandledRef = useRef(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [dirty, setDirty] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  /** 대표 지정 목적으로 들어온 경우(`set_default_master`) — 추가 시 대표 토글 기본 ON (S07 확인 필요 항목) */
+  const [callerPrefersMaster] = useState(
+    () => peekMemberAddressCallerContext()?.apply.kind === "set_default_master",
+  );
+
+  const leaveNow = useCallback(() => {
+    runHistoryBackWithFallback(router, addressesListHref);
+  }, [addressesListHref, router]);
+
+  const requestLeave = useCallback(() => {
+    if (dirty) {
+      setLeaveConfirmOpen(true);
+      return;
+    }
+    leaveNow();
+  }, [dirty, leaveNow]);
+
+  /** Android 뒤로 — 변경 있으면 미저장 확인 */
+  useOverlayHardwareBack(dirty && !leaveConfirmOpen, () => setLeaveConfirmOpen(true));
 
   useEffect(() => {
     let cancelled = false;
@@ -156,14 +190,12 @@ function AddressEditorPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [idFromUrl, mapBootstrapUrl, returnTo, router, t]);
+  }, [idFromUrl, mapBootstrapUrl, returnTo, router, t, reloadKey]);
 
   if (bootstrapping) {
     return (
       <AddressEditorPageChrome titleKey={headerTitleKey} backHref={addressesListHref}>
-        <div className="flex min-h-[40vh] items-center justify-center sam-text-body-secondary text-sam-muted">
-          {t("common_loading")}
-        </div>
+        <AddressEditorSkeleton />
       </AddressEditorPageChrome>
     );
   }
@@ -171,52 +203,78 @@ function AddressEditorPageInner() {
   if (loadErr) {
     return (
       <AddressEditorPageChrome titleKey={headerTitleKey} backHref={addressesListHref}>
-        <div className="flex flex-col px-4 py-8">
-          <p className="text-center sam-text-body-secondary text-sam-danger">{loadErr}</p>
+        <div className="flex flex-col px-4">
+          <MyStateView
+            kind="error"
+            template="form"
+            error={{
+              message: loadErr,
+              onRetry: () => {
+                setBootstrapping(true);
+                setReloadKey((k) => k + 1);
+              },
+            }}
+          />
           {loadErrMigrationHint ? (
-            <p className="mt-2 text-center sam-text-helper text-sam-muted">{t("addr_ui_migration_hint")}</p>
+            <p className="-mt-6 text-center sam-text-helper text-sam-muted">{t("addr_ui_migration_hint")}</p>
           ) : null}
-          <button
-            type="button"
-            className="mx-auto mt-4 rounded-lg border border-sam-border px-4 py-2 sam-text-body font-semibold text-sam-fg"
-            onClick={() => router.replace(addressesListHref)}
-          >
-            {t("addr_ui_back_to_list")}
-          </button>
         </div>
       </AddressEditorPageChrome>
     );
   }
 
   return (
-    <AddressEditorPageChrome titleKey="addr_ui_address_detail_header" backHref={addressesListHref}>
+    <AddressEditorPageChrome titleKey="addr_ui_address_detail_header" backHref={addressesListHref} onBack={requestLeave}>
       <AddressPlatformDetailClient
         mode={mode}
         initial={editTarget}
         draft={platformDraft}
         allAddresses={list}
+        callerPrefersMaster={callerPrefersMaster}
+        onDirtyChange={setDirty}
         onSaved={async () => {
           try {
             clearAddressPlatformV2Draft();
             await commitUserAddressListAfterMutation();
+            invalidateMypageSummary();
           } finally {
             if (returnTo) writeAddressFlowExitHref(returnTo);
             router.replace(returnTo || addressesListHref);
           }
         }}
       />
+      <MobileConfirmBottomSheet
+        open={leaveConfirmOpen}
+        title={t("mypage_s01_discard_title")}
+        cancelLabel={t("mypage_s01_discard_keep")}
+        confirmLabel={t("mypage_s01_discard_confirm")}
+        confirmTone="danger"
+        onCancel={() => setLeaveConfirmOpen(false)}
+        onConfirm={() => {
+          setLeaveConfirmOpen(false);
+          setDirty(false);
+          leaveNow();
+        }}
+      />
     </AddressEditorPageChrome>
   );
 }
 
+/** 진입 부트스트랩 — 지도 240 회색 + 입력 3줄 (S07 구조 일치 스켈레톤) */
+function AddressEditorSkeleton() {
+  return (
+    <div className="space-y-3 px-[10px] py-3" aria-busy="true" data-testid="address-editor-skeleton">
+      <div className="h-[240px] rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse md:h-[280px]" />
+      <MyStateView kind="loading" template="form" rows={3} />
+    </div>
+  );
+}
+
 function AddressEditorPageFallback() {
-  const { t } = useI18n();
   const addressesListHref = buildMypageAddressesHref(null);
   return (
     <AddressEditorPageChrome titleKey="addr_ui_add_title" backHref={addressesListHref}>
-      <div className="flex min-h-[40vh] items-center justify-center sam-text-body-secondary text-sam-muted">
-        {t("common_loading")}
-      </div>
+      <AddressEditorSkeleton />
     </AddressEditorPageChrome>
   );
 }

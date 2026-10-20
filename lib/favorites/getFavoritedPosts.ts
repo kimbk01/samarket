@@ -1,6 +1,8 @@
 "use client";
 
 import type { PostWithMeta } from "@/lib/posts/schema";
+import { fetchMypageListJson } from "@/lib/mypage/use-mypage-cursor-list";
+import { MYPAGE_LIST_PAGE_DEFAULT } from "@/lib/mypage/mypage-list-cursor";
 
 export interface FavoritedPost extends PostWithMeta {
   favorited_at: string;
@@ -39,4 +41,43 @@ export async function getFavoritedPosts(): Promise<GetFavoritedPostsResult> {
   } catch {
     return { items: [], authenticated: true, error: true };
   }
+}
+
+export type FavoriteChipId = "all" | "active" | "sold" | "gone";
+
+export type FavoritedPostPageItem = FavoritedPost & { favorite_id?: string };
+
+export type GetFavoritedPostsPageResult = {
+  items: FavoritedPostPageItem[];
+  authenticated: boolean;
+  next_cursor: string | null;
+  counts?: Record<FavoriteChipId, number>;
+};
+
+/**
+ * 찜한 게시글 페이지(최종 설계 A2) — `/api/favorites/list?limit=&chip=&cursor=&counts=1`.
+ * 실패는 던진다(`MypageListHttpError` / 네트워크) — 화면은 오류 상태(빈 목록·로그인 이동 금지, D10·D11).
+ * 비로그인은 200 `authenticated:false`.
+ */
+export async function getFavoritedPostsPage(opts: {
+  chip: FavoriteChipId;
+  cursor: string | null;
+  limit?: number;
+  withCounts?: boolean;
+}): Promise<GetFavoritedPostsPageResult> {
+  const qs = new URLSearchParams({ limit: String(opts.limit ?? MYPAGE_LIST_PAGE_DEFAULT), chip: opts.chip });
+  if (opts.cursor) qs.set("cursor", opts.cursor);
+  if (opts.withCounts && !opts.cursor) qs.set("counts", "1");
+  const d = await fetchMypageListJson<{
+    items?: unknown;
+    authenticated?: unknown;
+    next_cursor?: unknown;
+    counts?: Record<FavoriteChipId, number>;
+  }>(`/api/favorites/list?${qs}`);
+  return {
+    items: Array.isArray(d.items) ? (d.items as FavoritedPostPageItem[]) : [],
+    authenticated: d.authenticated === true,
+    next_cursor: typeof d.next_cursor === "string" && d.next_cursor ? d.next_cursor : null,
+    ...(d.counts ? { counts: d.counts } : {}),
+  };
 }

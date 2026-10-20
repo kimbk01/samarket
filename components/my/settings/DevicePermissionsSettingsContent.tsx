@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PermissionRequiredBanner } from "@/components/permissions/PermissionRequiredBanner";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -22,6 +22,8 @@ import {
 import { LinkedLoginProvidersContent } from "@/components/my/settings/LinkedLoginProvidersContent";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { MyGroup } from "@/components/mypage/ds/MyGroup";
+import { LINKED_LOGIN_ANCHOR_ID, shouldScrollToLinkedLogin } from "@/lib/mypage/fetch-me-auth-providers";
 
 const PERMISSION_KINDS: readonly DevicePermissionKind[] = [
   "location",
@@ -73,6 +75,10 @@ export function DevicePermissionsSettingsContent() {
   const [permissionStates, setPermissionStates] = useState<Record<DevicePermissionKind, BrowserPermissionState>>(
     initialPermissionStates,
   );
+  /** 권한 상태 첫 조회 완료 전에는 값 자리만 스켈레톤 (S10) */
+  const [statesLoaded, setStatesLoaded] = useState(false);
+  const linkedLoginRef = useRef<HTMLElement | null>(null);
+  const scrolledToAnchorRef = useRef(false);
   const [spkState, setSpkState] = useState<BrowserPermissionState>("unknown");
   const [busy, setBusy] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
@@ -107,6 +113,17 @@ export function DevicePermissionsSettingsContent() {
     );
     setPermissionStates(Object.fromEntries(entries) as Record<DevicePermissionKind, BrowserPermissionState>);
     setSpkState(refreshSpeakerOutputState());
+    setStatesLoaded(true);
+  }, []);
+
+  /** `#linked-login` — 연동 목록이 그려진 뒤 1회 스크롤 */
+  const scrollToLinkedLoginIfRequested = useCallback(() => {
+    if (scrolledToAnchorRef.current || typeof window === "undefined") return;
+    if (!shouldScrollToLinkedLogin(window.location.hash)) return;
+    scrolledToAnchorRef.current = true;
+    window.requestAnimationFrame(() => {
+      linkedLoginRef.current?.scrollIntoView({ block: "start" });
+    });
   }, []);
 
   useEffect(() => {
@@ -225,12 +242,19 @@ export function DevicePermissionsSettingsContent() {
         const state = permissionStates[kind];
         const isBusy = busy?.startsWith(`${kind}:`) ?? false;
         return (
-          <section key={kind} className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <section key={kind} className="space-y-2 border-t border-sam-border-soft px-4 py-3 first:border-t-0 md:px-5">
             <h3 className={`${Sam.text.cardTitle} text-sam-fg`}>{t(PERMISSION_LABEL_KEYS[kind])}</h3>
             <p className={`${Sam.text.bodySecondary} text-sam-muted`}>{t(PERMISSION_DESC_KEYS[kind])}</p>
-            <p className={`${Sam.text.bodySecondary} text-sam-muted`}>
-              {t("settings_device_status", { label: labelForBrowserState(state) })}
-            </p>
+            {statesLoaded ? (
+              <p className={`${Sam.text.bodySecondary} text-sam-muted`} data-permission-state={state}>
+                {t("settings_device_status", { label: labelForBrowserState(state) })}
+              </p>
+            ) : (
+              <span
+                aria-hidden
+                className="block h-3.5 w-24 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse"
+              />
+            )}
             {state === "denied" ? (
               kind === "notification" && !isNativeShell ? (
                 <p className={`${Sam.text.helper} text-sam-muted`}>
@@ -287,17 +311,13 @@ export function DevicePermissionsSettingsContent() {
       onRecheckPermission,
       onShowGuide,
       permissionStates,
+      statesLoaded,
       t,
     ],
   );
 
   return (
     <div className="space-y-6">
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h3 className={`${Sam.text.cardTitle} text-sam-fg`}>{t("mypage_linked_login_providers_title")}</h3>
-        <LinkedLoginProvidersContent />
-      </section>
-
       <p className={`${Sam.text.bodySecondary} text-sam-muted`}>{t("settings_device_intro")}</p>
 
       {hint ? (
@@ -306,7 +326,7 @@ export function DevicePermissionsSettingsContent() {
         </div>
       ) : null}
 
-      <div className="space-y-3">{permissionCards}</div>
+      <MyGroup title={t("mypage_s10_device_group")}>{permissionCards}</MyGroup>
 
       <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h3 className={`${Sam.text.cardTitle} text-sam-fg`}>{t("settings_device_speaker")}</h3>
@@ -348,6 +368,19 @@ export function DevicePermissionsSettingsContent() {
         <button type="button" onClick={onResetGuides} className={`${Sam.btn.ghostCombo} ${Sam.btn.sm}`}>
           {t("settings_device_onboarding_reset")}
         </button>
+      </section>
+
+      {/* 연동 로그인 — 권한 그룹 뒤 독립 그룹(X14 · v2.1 S10 순서) */}
+      <section
+        id={LINKED_LOGIN_ANCHOR_ID}
+        ref={linkedLoginRef}
+        className="scroll-mt-16 space-y-3"
+        data-testid="linked-login-group"
+      >
+        <h3 className="px-1 text-[11px] font-bold uppercase tracking-[0.08em] text-sam-muted">
+          {t("mypage_linked_login_providers_title")}
+        </h3>
+        <LinkedLoginProvidersContent onLoaded={scrollToLinkedLoginIfRequested} />
       </section>
     </div>
   );
