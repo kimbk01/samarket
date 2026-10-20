@@ -38,7 +38,7 @@
 | 0-A(P0-3·P0-4) | LOC-006·LOC-007 은 소유 검사 정상화 후, PRD-16 은 `lib/stores/store-owned-image-urls.ts` 재사용 | 완료 |
 | **1-B 게이트**(IA-01·02·03, ACC-03) | 3단계 오너 쓰기 라우트(쿠폰·광고·공지·지역)는 공통 게이트 1개를 호출해야 한다. 3단계는 게이트를 **호출만** 하고 정의하지 않는다 | 구현 중 — 3-C·3-D 착수 전 main 반영 필요 |
 | 2-E(PRD-03~09, OPS-02) | 3-E(PRD-10~16)가 `sold_out_reason`(PRD-06)·`expected_updated_at`(PRD-07)·공용 캐시 세대(OPS-02)를 사용 | 승인 대기 — 3-E 는 2-E 뒤 |
-| 주문 RPC 최신 정의 | OPS-08·LOC-004 가 `create_store_order_atomic` 을 재정의. PRD-03(2-E)도 같은 함수를 바꾼다 → 3단계 마이그레이션은 **운영 `pg_get_functiondef` 최신본**에서 시작(저장소 파일과 드리프트 가능, FIND-30) | 착수 시 확인 |
+| 주문 RPC 최신 정의 | OPS-08·LOC-004 가 `create_store_order_atomic` 을 재정의. PRD-03(2-E)도 같은 함수를 바꾼다 → 3단계 마이그레이션은 **운영 `pg_get_functiondef` 최신본**에서 시작(저장소 파일과 드리프트 가능, FIN-10) | 착수 시 확인 |
 
 ## 3-1. 근본 원인 통합 (중복 원인 병합)
 
