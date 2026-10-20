@@ -18,21 +18,13 @@ import {
 } from "@/lib/mypage/customer-center-layout";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { PointPlan } from "@/lib/types/point";
-<<<<<<< ours
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
-=======
-import { MYPAGE_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
->>>>>>> theirs
 
 /** S41 스켈레톤 — 플랜 카드 3 + 안내 박스 */
 function PointChargeSkeleton() {
   const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
   return (
-<<<<<<< ours
     <div aria-busy="true" data-testid="point-charge-skeleton" className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-2 pt-2`}>
-=======
-    <div aria-busy="true" data-testid="point-charge-skeleton" className={`mx-auto w-full ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} space-y-2 pt-2`}>
->>>>>>> theirs
       <span className={`mb-2 block h-4 w-24 ${bone}`} />
       <div className="grid gap-2 md:grid-cols-2">
         {[0, 1, 2].map((i) => (
