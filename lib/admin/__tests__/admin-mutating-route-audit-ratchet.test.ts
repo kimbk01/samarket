@@ -114,91 +114,46 @@ function computeUnauditedMutatingRoutes(): string[] {
     if (isReExportShim(src) || isGoneOnlyRoute(src)) continue;
     if (hasAuditCall(src)) continue;
     if (importedSources(file, src).some(hasAuditCall)) continue;
+    const rel = path.relative(ROOT, file).split(path.sep).join("/");
+    if (rel in NON_MUTATING_ADMIN_ROUTES || rel in DB_AUDITED_ADMIN_ROUTES) continue;
     missing.push(path.relative(ROOT, file).split(path.sep).join("/"));
   }
   return missing.sort();
 }
 
 /**
- * 도입 시점(2026-10-20) 감사 미기록 변경 route 스냅샷 — 줄어들기만 해야 한다(추가 금지).
+ * 감사 미기록 변경 route 허용목록 — 2026-10-20 도입 시 75개 → PR-2 에서 0 (수정 계획 2-3).
+ * 새 변경 route 는 감사를 남기거나, 아래 두 예외 목록 중 하나에 **근거와 함께** 올린다.
  */
-const UNAUDITED_ADMIN_MUTATING_ROUTES_ALLOWLIST: readonly string[] = [
-  "app/api/admin/ad-applications/[id]/route.ts",
-  "app/api/admin/ad-products/[id]/route.ts",
-  "app/api/admin/ads/[adId]/route.ts",
-  "app/api/admin/advertising/direct-popup/route.ts",
-  "app/api/admin/app-notices/upload-image/route.ts",
-  "app/api/admin/community-messenger-home-cutover-gate/route.ts",
-  "app/api/admin/community/external-import/collect/route.ts",
-  "app/api/admin/delivery-ads/[campaignId]/messages/read/route.ts",
-  "app/api/admin/delivery-ads/[campaignId]/messages/route.ts",
-  "app/api/admin/delivery-ads/partner/memberships/route.ts",
-  "app/api/admin/delivery-ads/upload-banner-image/route.ts",
-  "app/api/admin/exposure-policies/[id]/route.ts",
-  "app/api/admin/exposure-policies/simulate/route.ts",
-  "app/api/admin/feed-ads/route.ts",
-  "app/api/admin/feed-ads/upload/route.ts",
-  "app/api/admin/gift-certificates/applications/[id]/route.ts",
-  "app/api/admin/gift-certificates/conversions/[id]/approve/route.ts",
-  "app/api/admin/gift-certificates/instances/[id]/corrective/route.ts",
-  "app/api/admin/gift-certificates/products/[id]/route.ts",
-  "app/api/admin/gift-certificates/products/route.ts",
-  "app/api/admin/gift-certificates/promo/settle/route.ts",
-  "app/api/admin/gift-certificates/upload-image/route.ts",
-  "app/api/admin/home-feed-policies/route.ts",
-  "app/api/admin/inbox/read/route.ts",
-  "app/api/admin/launch-intro/publish/route.ts",
-  "app/api/admin/launch-intro/route.ts",
-  "app/api/admin/launch-intro/state/route.ts",
-  "app/api/admin/launch-intro/upload/route.ts",
-  "app/api/admin/member-benefits/[id]/route.ts",
-  "app/api/admin/member-benefits/route.ts",
-  "app/api/admin/messenger-call-sounds/route.ts",
-  "app/api/admin/messenger-call-sounds/upload/route.ts",
-  "app/api/admin/notification-campaigns/[campaignId]/test-send/route.ts",
-  "app/api/admin/notification-campaigns/audience-preview/route.ts",
-  "app/api/admin/notification-campaigns/upload-image/route.ts",
-  "app/api/admin/notification-settings/route.ts",
-  "app/api/admin/notification-settings/upload-sound/route.ts",
-  "app/api/admin/notification-sound-ssot/preview-resolver/route.ts",
-  "app/api/admin/notification-sound-ssot/upload/route.ts",
-  "app/api/admin/os-launch/logo/route.ts",
-  "app/api/admin/os-launch/route.ts",
-  "app/api/admin/personalized-feed-policies/route.ts",
-  "app/api/admin/platform-events/[eventId]/distribution/route.ts",
-  "app/api/admin/platform-events/[eventId]/route.ts",
-  "app/api/admin/platform-events/route.ts",
-  "app/api/admin/platform-events/upload-image/route.ts",
-  "app/api/admin/point-expire/simulate/route.ts",
-  "app/api/admin/point-policies/simulate/route.ts",
-  "app/api/admin/prelaunch-reset/dry-run/route.ts",
-  "app/api/admin/prelaunch-reset/execute/route.ts",
-  "app/api/admin/recommendation-analytics/route.ts",
-  "app/api/admin/recommendation-experiments/route.ts",
-  "app/api/admin/recommendation-ops/route.ts",
-  "app/api/admin/recommendation-runtime/route.ts",
-  "app/api/admin/reports/[reportId]/action/route.ts",
-  "app/api/admin/service-categories/route.ts",
-  "app/api/admin/settings/auth-phone/route.ts",
-  "app/api/admin/store-orders/[orderId]/mark-paid/route.ts",
-  "app/api/admin/store-point-policies/route.ts",
-  "app/api/admin/stores-composition-policy/route.ts",
-  "app/api/admin/stores-home-before-rest-banner/route.ts",
-  "app/api/admin/support/cases/route.ts",
-  "app/api/admin/system-ops/route.ts",
-  "app/api/admin/trade-completion/route.ts",
-  "app/api/admin/trade-flow/route.ts",
-  "app/api/admin/trade-promotion-orders/[id]/route.ts",
-  "app/api/admin/trade/posts/[id]/moderation/route.ts",
-  "app/api/admin/trade/posts/[id]/route.ts",
-  "app/api/admin/trade/promotions/[id]/route.ts",
-  "app/api/admin/trade/reports/[id]/route.ts",
-  "app/api/admin/trade/restrictions/[id]/revoke/route.ts",
-  "app/api/admin/trade/restrictions/route.ts",
-  "app/api/admin/transaction-reviews/route.ts",
-  "app/api/admin/trust-score/route.ts",
-  "app/api/admin/users/cleanup/route.ts",
-];
+const UNAUDITED_ADMIN_MUTATING_ROUTES_ALLOWLIST: readonly string[] = [];
+
+/** 변경 HTTP 메서드지만 DB·스토리지에 쓰지 않는 route (계산·미리보기·퇴역 응답). 근거 = 파일 확인 결과. */
+const NON_MUTATING_ADMIN_ROUTES: Readonly<Record<string, string>> = {
+  "app/api/admin/gift-certificates/conversions/[id]/approve/route.ts": "가드 후 410 만 반환 (await context.params 로 410 전용 판정 밖)",
+  "app/api/admin/notification-campaigns/audience-preview/route.ts": "previewCampaignAudience 집계 조회만",
+  "app/api/admin/notification-sound-ssot/preview-resolver/route.ts": "설정 조회 + 메모리 resolver 만",
+  "app/api/admin/point-expire/simulate/route.ts": "simulatePointExpireDb 읽기·계산만",
+  "app/api/admin/point-policies/simulate/route.ts": "조회 3건 + computePointRewardSimulation 계산만",
+  "app/api/admin/prelaunch-reset/dry-run/route.ts": "인증·DB 접근 전 항상 410",
+  "app/api/admin/prelaunch-reset/execute/route.ts": "인증·DB 접근 전 항상 410",
+  "app/api/admin/store-point-policies/route.ts": "POST = 관리자 확인 후 410 만",
+  "app/api/admin/support/cases/route.ts": "POST = 405 만",
+  "app/api/admin/trade-completion/route.ts": "POST = product_chats·posts 조회만",
+  "app/api/admin/trade-flow/route.ts": "POST = 조회만",
+  "app/api/admin/transaction-reviews/route.ts": "POST = 조회만",
+};
+
+/** DB 함수가 같은 트랜잭션에서 audit_logs 에 기록하는 route — TS 에서 또 남기면 이력이 두 줄이 된다. */
+const DB_AUDITED_ADMIN_ROUTES: Readonly<Record<string, string>> = {
+  "app/api/admin/reports/[reportId]/action/route.ts": "admin_decide_trade_report (20270522120300)",
+  "app/api/admin/trade/reports/[id]/route.ts": "admin_decide_trade_report (20270522120300)",
+  "app/api/admin/trade/posts/[id]/moderation/route.ts": "admin_trade_post_moderate (20270522120600)",
+  "app/api/admin/trade/posts/[id]/route.ts": "admin_trade_post_edit (20270522120100)",
+  "app/api/admin/trade/restrictions/route.ts": "admin_apply_trade_sanction (20270522120300)",
+  "app/api/admin/trade/restrictions/[id]/revoke/route.ts": "admin_revoke_trade_sanction (20270522120300)",
+  "app/api/admin/trade/promotions/[id]/route.ts": "admin_trade_promotion_* → trade_promotion_audit (20270522120400)",
+  "app/api/admin/trade-promotion-orders/[id]/route.ts": "admin_trade_promotion_* → trade_promotion_audit (20270522120400)",
+};
 
 describe("V3-12 admin mutating route audit ratchet", () => {
   const current = computeUnauditedMutatingRoutes();
@@ -215,6 +170,24 @@ describe("V3-12 admin mutating route audit ratchet", () => {
   it("감사가 추가된 route 는 allowlist 에서 제거해야 한다 (목록은 줄어들기만)", () => {
     const now = new Set(current);
     expect(UNAUDITED_ADMIN_MUTATING_ROUTES_ALLOWLIST.filter((f) => !now.has(f))).toEqual([]);
+  });
+
+  it("예외 목록(비변경·DB 감사)은 실제 파일이고 사유가 있으며, 겹치지 않는다", () => {
+    for (const [file, reason] of [...Object.entries(NON_MUTATING_ADMIN_ROUTES), ...Object.entries(DB_AUDITED_ADMIN_ROUTES)]) {
+      expect(existsSync(path.join(ROOT, file)), file).toBe(true);
+      expect(reason.trim().length, file).toBeGreaterThan(5);
+    }
+    const overlap = Object.keys(NON_MUTATING_ADMIN_ROUTES).filter((f) => f in DB_AUDITED_ADMIN_ROUTES);
+    expect(overlap).toEqual([]);
+  });
+
+  it("DB 감사 예외 route 는 실제로 해당 DB 함수를 부른다", () => {
+    for (const [file, reason] of Object.entries(DB_AUDITED_ADMIN_ROUTES)) {
+      const fn = reason.split(" ")[0].replace(/\*$/, "");
+      const src = readFileSync(path.join(ROOT, file), "utf8");
+      const imported = importedSources(path.join(ROOT, file), src).join("\n");
+      expect(src.includes(fn) || imported.includes(fn), `${file} → ${fn}`).toBe(true);
+    }
   });
 
   it("allowlist 는 정렬·중복 없음", () => {
