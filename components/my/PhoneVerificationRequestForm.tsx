@@ -9,7 +9,7 @@ import {
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
 import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { fetchPhoneVerificationJson } from "@/lib/mypage/load-phone-verification-state";
 import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
 import { resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
 import { refreshClientMemberAccountAfterMutation } from "@/lib/auth/sync-member-account-client";
@@ -41,10 +41,8 @@ export function PhoneVerificationRequestForm() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await runSingleFlight("me:phone-verification:get", () =>
-          fetch("/api/me/phone-verification", { credentials: "include" })
-        );
-        const data = await res.json().catch(() => null);
+        const res = await fetchPhoneVerificationJson();
+        const data = res.json as { ok?: boolean; error?: string; verification?: unknown } | null;
         if (cancelled) return;
         if (!res.ok || !data?.ok) {
           setError(data?.error || t("my_phone_load_status_failed"));

@@ -9,6 +9,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
@@ -29,7 +30,7 @@ export function BuyerReviewReadSheet({
   perspective: "buyer_self" | "seller_sees_buyer";
   onClose: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [rev, setRev] = useState<ReviewPayload | null>(null);
@@ -118,7 +119,7 @@ export function BuyerReviewReadSheet({
             <p className={`whitespace-pre-wrap ${OverlayUi.bodySecondary}`}>{rev.review_comment}</p>
           ) : null}
           <p className={OverlayUi.caption}>
-            {rev.created_at ? new Date(rev.created_at).toLocaleString() : ""}
+            {formatMypageDate(rev.created_at, { style: "datetime", lang: language })}
           </p>
         </div>
       ) : (

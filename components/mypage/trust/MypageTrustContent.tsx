@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { getCurrentUser, getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getAppSettings } from "@/lib/app-settings";
 import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
 import { MYPAGE_PROFILE_EDIT_SHEET_HREF } from "@/lib/mypage/mypage-profile-routes";
@@ -81,9 +82,12 @@ export function MypageTrustContent() {
     setLoadFailed(false);
     try {
       // Slice 1/4: bypass route memory cache so Member matches Admin Facts.
-      const res = await fetch("/api/me/profile?fresh=1", { credentials: "include" });
-      if (!res.ok) throw new Error(`trust_load_${res.status}`);
-      const data = (await res.json()) as { profile?: TrustApiRow } & TrustApiRow;
+      // 본문은 비행 안에서 1회만 파싱 — StrictMode 재마운트 등 같은 진입의 중복 호출을 1요청으로 합친다.
+      const data = await runSingleFlight(`mypage:trust:profile-fresh:${currentViewerId()}`, async () => {
+        const res = await fetch("/api/me/profile?fresh=1", { credentials: "include" });
+        if (!res.ok) throw new Error(`trust_load_${res.status}`);
+        return (await res.json()) as { profile?: TrustApiRow } & TrustApiRow;
+      });
       const row = data.profile ?? data;
       if (gen !== loadGenRef.current) return;
       authorityFromApiRef.current = true;

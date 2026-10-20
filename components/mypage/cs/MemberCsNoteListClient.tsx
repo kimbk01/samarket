@@ -14,13 +14,14 @@ import {
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
 } from "@/lib/mypage/customer-center-layout";
 import {
-  CC_BODY_CLASS,
   CC_CARD_CLASS,
   CC_HEADER_CLASS,
   CC_NOTE_CLASS,
   CC_SURFACE_PAGE_CLASS,
 } from "@/lib/mypage/customer-center-ui";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 
 type Thread = {
   id: string;
@@ -128,7 +129,7 @@ function MemberCsNoteSection({
   showTitle: boolean;
   scrollIntoView: boolean;
 }) {
-  const { t, language, safeT } = useI18n();
+  const { t, safeT } = useI18n();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -218,15 +219,10 @@ function MemberCsNoteSection({
         </h2>
       ) : null}
       {loading ? (
-        <p className={CC_NOTE_CLASS}>{t("common_loading")}</p>
+        <MyStateView kind="loading" template="list" rows={4} />
       ) : error ? (
-        // 오류와 빈 목록 문구는 동시에 보이지 않게
-        <div className="flex flex-col items-start gap-2">
-          <p className={`${CC_BODY_CLASS} text-red-600`}>{error}</p>
-          <button type="button" className="sam-btn sam-btn--secondary sam-btn--sm" onClick={() => void load()}>
-            {t("common_retry")}
-          </button>
-        </div>
+        // 오류와 빈 목록 문구는 동시에 보이지 않게 · 내부 코드 비노출(B2)
+        <MyStateView kind="error" template="list" error={{ message: error, onRetry: () => void load() }} />
       ) : threads.length === 0 ? (
         <p className={CC_NOTE_CLASS}>
           {safeT("mypage_cs_notes_empty", {
@@ -240,7 +236,7 @@ function MemberCsNoteSection({
             <li
               key={th.id}
               className={`flex items-stretch gap-2 px-3 py-2 ${
-                index === 0 ? "" : "border-t border-[rgba(14,92,58,0.08)]"
+                index === 0 ? "" : "border-t border-sam-border-soft"
               }`}
             >
               <Link
@@ -250,15 +246,13 @@ function MemberCsNoteSection({
                 <span className="min-w-0 flex-1">
                   <span className={`block truncate ${CC_HEADER_CLASS}`}>{th.subject}</span>
                   <span className={`mt-0.5 block ${CC_NOTE_CLASS}`}>
-                    {new Date(th.last_message_at).toLocaleString(
-                      language === "ko" ? "ko-KR" : "en-US",
-                    )}
+                    {formatMypageDate(th.last_message_at, { style: "datetime" })}
                     {" · "}
                     {statusText(th.status)}
                   </span>
                 </span>
                 {th.member_unread_count > 0 ? (
-                  <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-[#F57F76] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold text-sam-surface">
                     {th.member_unread_count > 99 ? "99+" : th.member_unread_count}
                   </span>
                 ) : null}
@@ -267,7 +261,7 @@ function MemberCsNoteSection({
                 type="button"
                 disabled={busy}
                 onClick={() => setArchiveId(th.id)}
-                className="min-h-11 shrink-0 rounded-xl border border-[rgba(14,92,58,0.14)] px-2.5 text-[11px] text-[#8F9D95] disabled:opacity-50"
+                className="min-h-11 shrink-0 rounded-ui-rect border border-sam-border-soft px-2.5 text-[11px] text-sam-muted disabled:opacity-50"
               >
                 {safeT("mypage_cs_archive", {
                   fallbackKo: "보관",

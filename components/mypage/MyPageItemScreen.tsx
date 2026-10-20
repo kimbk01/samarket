@@ -17,6 +17,7 @@ import { UserListContent } from "@/components/my/settings/UserListContent";
 import { VersionContent } from "@/components/my/settings/VersionContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
 import { DevicePermissionsSettingsContent } from "@/components/my/settings/DevicePermissionsSettingsContent";
+import { MyPolicyHub } from "@/components/mypage/settings/MyPolicyHub";
 import { AccountTab, AccountUserListSection } from "@/components/mypage/tabs/AccountTab";
 import { CommunityTab } from "@/components/mypage/tabs/CommunityTab";
 import { MessengerTab } from "@/components/mypage/tabs/MessengerTab";
@@ -231,17 +232,8 @@ export function MyPageItemScreen(
       return <LegacySupportStubRedirect />;
     }
     if (item === "terms") {
-      return (
-        <div className="mx-auto w-full min-w-0 max-w-[40rem] md:max-w-[48rem] space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:p-6 sam-text-body leading-relaxed text-sam-fg">
-          <p className="break-words">{t("mypage_comp_settings_terms_p1")}</p>
-          <Link
-            href="/terms"
-            className="inline-flex min-h-11 items-center sam-text-body font-medium text-signature underline"
-          >
-            {t("mypage_comp_settings_terms_link")}
-          </Link>
-        </div>
-      );
+      /** 최종 설계 S65(X13) — 약관·개인정보·사업자정보 3행 허브 */
+      return <MyPolicyHub />;
     }
     if (item === "version") {
       return <VersionContent />;

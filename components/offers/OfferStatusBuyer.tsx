@@ -45,13 +45,14 @@ export function OfferStatusBuyer({
     setLoading(true);
     void (async () => {
       try {
-        const res = await runSingleFlight(`offers:mine:${productId}`, () =>
-          fetch(`/api/offers/mine?productId=${encodeURIComponent(productId)}`, {
+        // 본문은 비행 안에서 1회만 파싱 — 합류한 호출이 같은 Response 본문을 두 번 읽지 않게 한다.
+        const json = await runSingleFlight(`offers:mine:${productId}`, async () => {
+          const res = await fetch(`/api/offers/mine?productId=${encodeURIComponent(productId)}`, {
             credentials: "include",
             cache: "no-store",
-          })
-        );
-        const json = (await res.json().catch(() => ({}))) as { offers?: PriceOfferListItem[] };
+          });
+          return (await res.json().catch(() => ({}))) as { offers?: PriceOfferListItem[] };
+        });
         if (cancelled) return;
         setInternalOffers(Array.isArray(json.offers) ? json.offers : []);
       } catch {

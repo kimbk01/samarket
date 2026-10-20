@@ -57,6 +57,7 @@ export const MYPAGE_HOME_TRADE_ITEMS: MypageHomeLinkMenuItem[] = [
     titleKey: "mypage_home_menu_offers",
     icon: "receipt-text",
     valueSource: { kind: "summary-count", field: "offersReceivedPending", format: "pending" },
+    hrefSource: "offers-tab",
   },
   {
     href: MYPAGE_HOME_RECENT_VIEWED_HREF,

@@ -65,6 +65,8 @@ export type MypageHomeLinkMenuItem = {
   icon: MypageHomeMenuIconId;
   tone?: "default" | "danger";
   valueSource?: MypageHomeRowValueSource;
+  /** 목적지를 summary 값으로 정하는 행 — `offers-tab` = 받은 대기 있으면 `?tab=received`, 없으면 `?tab=sent` (S23) */
+  hrefSource?: "offers-tab";
   /** 기존 testid 보존용 */
   testId?: string;
 };

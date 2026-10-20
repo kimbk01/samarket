@@ -18,7 +18,7 @@ import {
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { fetchPhoneVerificationJson } from "@/lib/mypage/load-phone-verification-state";
 import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
 import {
   deriveRequiredInfoBundleFromProfile,
@@ -49,10 +49,7 @@ export function RequiredInfoFlowClient() {
 
   const loadPhoneSettings = useCallback(async () => {
     try {
-      const settingsRes = await runSingleFlight("me:phone-verification:get", () =>
-        fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" }),
-      );
-      const j = (await settingsRes.json()) as {
+      const j = (await fetchPhoneVerificationJson()).json as {
         ok?: boolean;
         verification?: {
           settings?: {

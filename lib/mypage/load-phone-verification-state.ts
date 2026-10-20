@@ -2,7 +2,7 @@
  * 전화 인증 화면 진입 데이터 (최종 설계 S05) — 프로필 + 관리자 인증 설정을 병렬 조회.
  *
  * 무한 로딩 금지: 둘 중 하나라도 실패(null·HTTP 오류·fetch 거부·타임아웃 15초)면 `{ ok:false }` 를 돌려
- * 화면이 오류 + [다시 시도] 를 그리게 한다. 설정 조회는 single-flight(`me:phone-verification:get`) 유지.
+ * 화면이 오류 + [다시 시도] 를 그리게 한다. 설정 조회는 single-flight(`me:phone-verification:get`, 파싱한 JSON 공유) 유지.
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
@@ -45,14 +45,29 @@ export function parsePhoneVerificationSettings(json: unknown): PhoneVerification
   };
 }
 
+export const PHONE_VERIFICATION_FLIGHT_KEY = "me:phone-verification:get";
+
+/** `GET /api/me/phone-verification` 결과 — 본문은 비행 안에서 1회만 파싱한다. */
+export type PhoneVerificationGetResult = { ok: boolean; status: number; json: Record<string, unknown> | null };
+
+/**
+ * 전화 인증 상태·설정 조회 단일 경로. 같은 키 동시 호출(StrictMode 재마운트·프로필 편집+시트 등)은
+ * 한 요청에 합치고 **파싱한 JSON** 을 공유한다 — Response 를 공유하면 두 번째 `res.json()` 이 실패해
+ * 오류 화면·설정 누락이 난다. 네트워크 거부는 reject 그대로 전달.
+ */
+export function fetchPhoneVerificationJson(): Promise<PhoneVerificationGetResult> {
+  return runSingleFlight(PHONE_VERIFICATION_FLIGHT_KEY, async (): Promise<PhoneVerificationGetResult> => {
+    const res = await fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" });
+    const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    return { ok: res.ok, status: res.status, json };
+  });
+}
+
 export async function fetchPhoneVerificationSettings(): Promise<PhoneVerificationSettings | null> {
   try {
-    const res = await runSingleFlight("me:phone-verification:get", () =>
-      fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" }),
-    );
-    if (!res.ok) return null;
-    const json = await res.clone().json().catch(() => null);
-    return parsePhoneVerificationSettings(json);
+    const r = await fetchPhoneVerificationJson();
+    if (!r.ok) return null;
+    return parsePhoneVerificationSettings(r.json);
   } catch {
     return null;
   }

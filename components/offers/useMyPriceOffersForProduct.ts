@@ -74,15 +74,20 @@ export function useMyPriceOffersForProduct(
     }
     void (async () => {
       try {
-        const res = await runSingleFlight(`offers:mine:${pidNorm}:${refreshToken}:rt${rtEpoch}`, () =>
-          fetch(`/api/offers/mine?productId=${encodeURIComponent(pidNorm)}`, {
-            credentials: "include",
-            cache: "no-store",
-          })
+        // 본문은 비행 안에서 1회만 파싱 — 합류한 호출이 같은 Response 본문을 두 번 읽지 않게 한다.
+        const { resOk, json } = await runSingleFlight(
+          `offers:mine:${pidNorm}:${refreshToken}:rt${rtEpoch}`,
+          async () => {
+            const res = await fetch(`/api/offers/mine?productId=${encodeURIComponent(pidNorm)}`, {
+              credentials: "include",
+              cache: "no-store",
+            });
+            const body = (await res.json().catch(() => ({}))) as { ok?: boolean; offers?: PriceOfferListItem[] };
+            return { resOk: res.ok, json: body };
+          }
         );
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; offers?: PriceOfferListItem[] };
         if (cancelled) return;
-        if (res.ok && json.ok !== false && Array.isArray(json.offers)) {
+        if (resOk && json.ok !== false && Array.isArray(json.offers)) {
           setOffers(json.offers);
         } else if (!cancelled) {
           setOffers((prev) => (prev.length > 0 ? prev : []));

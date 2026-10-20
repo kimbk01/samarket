@@ -19,6 +19,8 @@ export type MyScreenProps = {
   state?: MyStateViewProps;
   /** 하단 고정 CTA (`MyStickyCta`) — 본문 아래 여백 자동 확보 */
   stickyCta?: ReactNode;
+  /** 헤더 오른쪽 아이콘 CTA (예: 게시판 검색, S61) */
+  headerRight?: ReactNode;
   children?: ReactNode;
 };
 
@@ -62,6 +64,7 @@ export function MyScreen({
   template,
   state,
   stickyCta,
+  headerRight,
   children,
 }: MyScreenProps) {
   const backGuardRef = useRef<MyScreenBackGuard | null>(null);
@@ -111,6 +114,7 @@ export function MyScreen({
             />
           ) : undefined
         }
+        rightSlot={headerRight}
         hideCtaStrip
         showHubQuickActions
       />

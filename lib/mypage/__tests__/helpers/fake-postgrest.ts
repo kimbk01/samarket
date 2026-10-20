@@ -1,5 +1,5 @@
 /**
- * 테스트 전용 메모리 PostgREST 흉내 — select/eq/not/in/order/limit/or(keyset)/delete/count(head) 만.
+ * 테스트 전용 메모리 PostgREST 흉내 — select/eq/not/is/in/lt/ilike/order/limit/or(keyset)/delete/count(head) 만.
  * `.or()` 는 `mypageKeysetOrFilter` 가 만드는 `col.lt."ts",and(col.eq."ts",id.lt."id")` 형태만 해석한다.
  */
 type Row = Record<string, unknown>;
@@ -14,7 +14,15 @@ function cmp(a: unknown, b: unknown): number {
   return as < bs ? -1 : as > bs ? 1 : 0;
 }
 
-export function createFakeSupabase(db: FakeDb, opts?: { failTables?: string[]; calls?: FakeCall[] }) {
+export function createFakeSupabase(
+  db: FakeDb,
+  opts?: {
+    failTables?: string[];
+    /** 테이블별 오류 객체 지정(테이블 없음 등) — `failTables` 보다 우선 */
+    failErrors?: Record<string, { message: string; code?: string }>;
+    calls?: FakeCall[];
+  }
+) {
   const calls = opts?.calls ?? [];
   const from = (table: string) => {
     const filters: Array<(r: Row) => boolean> = [];
@@ -47,6 +55,22 @@ export function createFakeSupabase(db: FakeDb, opts?: { failTables?: string[]; c
       filters.push((r) => !(op === "is" && r[col] === v));
       return q;
     };
+    q.is = (col: string, v: unknown) => {
+      rec("is", [col, v]);
+      filters.push((r) => (v === null ? r[col] == null : r[col] === v));
+      return q;
+    };
+    q.lt = (col: string, v: unknown) => {
+      rec("lt", [col, v]);
+      filters.push((r) => cmp(r[col], v) < 0);
+      return q;
+    };
+    q.ilike = (col: string, pattern: string) => {
+      rec("ilike", [col, pattern]);
+      const body = pattern.replace(/^%|%$/g, "").replace(/\\([\\%_])/g, "$1").toLowerCase();
+      filters.push((r) => String(r[col] ?? "").toLowerCase().includes(body));
+      return q;
+    };
     q.in = (col: string, vs: unknown[]) => {
       rec("in", [col, vs]);
       filters.push((r) => vs.includes(r[col]));
@@ -72,6 +96,8 @@ export function createFakeSupabase(db: FakeDb, opts?: { failTables?: string[]; c
     };
     q.maybeSingle = () => run().then((res) => ({ data: (res.data as Row[] | null)?.[0] ?? null, error: res.error }));
     const run = async () => {
+      const failError = opts?.failErrors?.[table];
+      if (failError) return { data: null, error: failError, count: null };
       if (opts?.failTables?.includes(table)) return { data: null, error: { message: `${table} boom` }, count: null };
       const all = db[table] ?? [];
       let rows = all.filter((r) => filters.every((f) => f(r)));

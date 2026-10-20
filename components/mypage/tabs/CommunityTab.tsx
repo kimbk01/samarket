@@ -123,18 +123,20 @@ function MyCommunityPostsPanel() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await runSingleFlight("me:community-posts:limit=6", () =>
-          fetch("/api/me/community-posts?limit=6", {
+        // 본문은 비행 안에서 1회만 파싱 — 합류한 호출이 같은 Response 본문을 두 번 읽지 않게 한다.
+        const posts = await runSingleFlight("me:community-posts:limit=6", async () => {
+          const res = await fetch("/api/me/community-posts?limit=6", {
             credentials: "include",
             cache: "no-store",
-          })
-        );
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          posts?: CommunityPostPreview[];
-        };
+          });
+          const json = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            posts?: CommunityPostPreview[];
+          };
+          return res.ok && json.ok && Array.isArray(json.posts) ? json.posts : [];
+        });
         if (!cancelled) {
-          setItems(res.ok && json.ok && Array.isArray(json.posts) ? json.posts : []);
+          setItems(posts);
         }
       } finally {
         if (!cancelled) setLoading(false);

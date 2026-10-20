@@ -12,6 +12,8 @@ import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
 import { localeTagForAppLanguage } from "@/lib/i18n/locale-for-app-language";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { formatCurrencyAmount } from "@/lib/currency/currency-display-contract";
+import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 
 export const MYPAGE_DISPLAY_TIME_ZONE = "Asia/Manila";
 
@@ -75,6 +77,36 @@ export function mypageDateGroupKey(
 export function formatMypageMoney(amount: number | string | null | undefined): string {
   if (amount == null || amount === "") return "";
   return formatMoneyPhp(amount);
+}
+
+/**
+ * 숫자(천 단위 구분) — 회원 언어 locale. 번역 문구가 단위(`{cost}P` 등)를 이미 갖고 있을 때 쓴다.
+ * 숫자가 아니면 빈 문자열.
+ */
+export function formatMypageNumber(
+  value: number | string | null | undefined,
+  opts?: { lang?: AppLanguageCode }
+): string {
+  if (value == null || value === "") return "";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  const lang = opts?.lang ?? getRuntimeAppLanguage();
+  return new Intl.NumberFormat(localeTagForAppLanguage(lang)).format(n);
+}
+
+/**
+ * 포인트 수량(문장 안 문자열) — `CurrencyAmount` 와 같은 `formatCurrencyAmount` 계약(`1,000P`).
+ * 굵은 금액 표시가 필요한 자리는 `CurrencyAmount` 컴포넌트를 쓴다. 숫자가 아니면 빈 문자열.
+ */
+export function formatMypagePoint(
+  amount: number | string | null | undefined,
+  opts?: { lang?: AppLanguageCode }
+): string {
+  if (amount == null || amount === "") return "";
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return "";
+  const lang = opts?.lang ?? getRuntimeAppLanguage();
+  return formatCurrencyAmount({ currency: "point", amount: n, compactPoint: true, locale: catalogDateLocale(lang) });
 }
 
 /** 최근 본 상품 날짜 묶음 (최종 설계 S25) — 필리핀 시간 기준 */

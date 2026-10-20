@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
 import { getRoomPreviewText } from "@/lib/community-messenger/cm-home-list-copy";
@@ -20,7 +21,6 @@ type MessengerBootstrapPayload = {
 
 export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
   const { t, language } = useI18n();
-  const dateLocale = language === "en" ? "en-US" : "ko-KR";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabs, setTabs] = useState<Record<string, number>>({});
@@ -62,14 +62,7 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
     mode === "dm" ? t("mypage_comp_messenger_empty_dm") : t("mypage_comp_messenger_empty_groups");
 
   function formatDateTime(iso: string): string {
-    const value = new Date(iso);
-    if (Number.isNaN(value.getTime())) return "";
-    return value.toLocaleString(dateLocale, {
-      month: "numeric",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return formatMypageDate(iso, { style: "datetime", lang: language });
   }
 
   return (

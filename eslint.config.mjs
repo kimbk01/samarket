@@ -3,6 +3,15 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import reactHooks from "eslint-plugin-react-hooks";
 
+const TELEGRAM_LIST_RESTRICTED_MESSAGE =
+  "Deleted (Telegram list authority). Use Domain canary patch / applyHomeListPatch only.";
+const TELEGRAM_LIST_RESTRICTED_PATHS = [
+  { name: "@/lib/chat-domain/list/dual-write-domain-list-from-rooms", message: TELEGRAM_LIST_RESTRICTED_MESSAGE },
+];
+const TELEGRAM_LIST_RESTRICTED_PATTERNS = [
+  { group: ["**/dual-write-domain-list-from-rooms*"], message: TELEGRAM_LIST_RESTRICTED_MESSAGE },
+];
+
 /**
  * Lint policy (점진적 품질): 레거시 대량 수정 없이 CI를 녹이고, 경고는 로그로 남김.
  * - any·effect 내 setState 등은 신규 코드에서도 가능하면 피할 것
@@ -97,21 +106,25 @@ const eslintConfig = defineConfig([
   {
     files: ["**/*.{ts,tsx}"],
     rules: {
+      "no-restricted-imports": ["error", { paths: TELEGRAM_LIST_RESTRICTED_PATHS, patterns: TELEGRAM_LIST_RESTRICTED_PATTERNS }],
+    },
+  },
+  /**
+   * 내정보 공통 부품(`components/mypage/ds`)은 내정보 전용 — 관리자 화면 import 금지
+   * (내정보 최종 설계 Part A §1.2, v2 §7.3). flat config 는 규칙 옵션을 합치지 않으므로 위 Telegram 제한을 함께 둔다.
+   */
+  {
+    files: ["components/admin/**/*.{ts,tsx}", "app/admin/**/*.{ts,tsx}"],
+    rules: {
       "no-restricted-imports": [
         "error",
         {
-          paths: [
-            {
-              name: "@/lib/chat-domain/list/dual-write-domain-list-from-rooms",
-              message:
-                "Deleted (Telegram list authority). Use Domain canary patch / applyHomeListPatch only.",
-            },
-          ],
+          paths: TELEGRAM_LIST_RESTRICTED_PATHS,
           patterns: [
+            ...TELEGRAM_LIST_RESTRICTED_PATTERNS,
             {
-              group: ["**/dual-write-domain-list-from-rooms*"],
-              message:
-                "Deleted (Telegram list authority). Use Domain canary patch / applyHomeListPatch only.",
+              group: ["@/components/mypage/ds", "@/components/mypage/ds/*", "**/components/mypage/ds", "**/components/mypage/ds/*"],
+              message: "내정보 전용 부품(components/mypage/ds)은 관리자 화면에서 import 금지 — Admin 컴포넌트를 사용하세요.",
             },
           ],
         },

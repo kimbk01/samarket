@@ -3,8 +3,7 @@
 import { Megaphone } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
-import { localeTagForAppLanguage } from "@/lib/i18n/locale-for-app-language";
-import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
+import { formatMypageDate, formatMypageNumber } from "@/lib/mypage/format-mypage-date";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { PointPromotionOrder, PointPromotionOrderStatus, PointPromotionPlacement } from "@/lib/types/point";
 
@@ -43,7 +42,6 @@ const STATUS_CLASS: Record<PointPromotionOrder["orderStatus"], string> = {
 
 export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps) {
   const { t, language } = useI18n();
-  const numberFormat = new Intl.NumberFormat(localeTagForAppLanguage(language));
 
   if (orders.length === 0) {
     return (
@@ -66,7 +64,7 @@ export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps
             {t(PLACEMENT_KEYS[o.placement])} · {t("points_ui_days", { days: o.durationDays })}
           </p>
           <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-            {t("points_ui_promo_cost", { cost: numberFormat.format(o.pointCost) })}
+            {t("points_ui_promo_cost", { cost: formatMypageNumber(o.pointCost, { lang: language }) })}
           </p>
           <span
             className={`mt-2 inline-block rounded-full px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[o.orderStatus]}`}

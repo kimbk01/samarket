@@ -4,7 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRouter } from "next/navigation";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
-import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { MYPAGE_PROFILE_EDIT_SHEET_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { formatAtUsername } from "@/lib/users/user-label";
 import { resolveMypageSelfDisplayName } from "@/lib/mypage/mypage-self-display-name";
 import { buildMyPageHref, MYPAGE_NAV } from "./mypage-nav";
@@ -53,7 +53,7 @@ export function MyPageSidebar({
         </div>
         <button
           type="button"
-          onClick={() => router.push(MYPAGE_PROFILE_EDIT_HREF)}
+          onClick={() => router.push(MYPAGE_PROFILE_EDIT_SHEET_HREF)}
           className={`mt-3 w-full rounded-ui-rect border border-sam-border py-2 text-center font-medium text-sam-fg hover:bg-sam-app ${MYPAGE_TYPO.navItem}`}
         >
           {t("mypage_comp_profile_edit")}

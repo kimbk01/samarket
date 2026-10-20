@@ -1,16 +1,17 @@
 "use client";
 
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { SupportCasesHistoryList } from "@/components/support/SupportCasesHistoryList";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { resolveCustomerCenterBackHref } from "@/lib/mypage/customer-center-paths";
 import { useSearchParams } from "next/navigation";
-import {
-  CUSTOMER_CENTER_LIST_COLUMN_CLASS,
-  CUSTOMER_CENTER_SCROLL_BODY_CLASS,
-} from "@/lib/mypage/customer-center-layout";
-import { CC_PAGE_WHITE_CLASS } from "@/lib/mypage/customer-center-ui";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
+import { SupportCasesHistoryList } from "@/components/support/SupportCasesHistoryList";
+import { SupportContextProvider } from "@/components/support/SupportContextProvider";
+import { resolveCustomerCenterBackHref } from "@/lib/mypage/customer-center-paths";
+import { DISABLED_SUPPORT_CONTEXT } from "@/lib/support/support-context";
 
+/**
+ * 고객 상담 내역 `/mypage/support-history` (최종 설계 S63) — 상태 탭 `?tab=active|done` + 더 보기.
+ * 뒤로 = 고객센터 허브(`?from=customer-center`).
+ */
 export function MemberSupportHistoryClient() {
   const { safeT } = useI18n();
   const sp = useSearchParams();
@@ -18,21 +19,18 @@ export function MemberSupportHistoryClient() {
   const backHref = resolveCustomerCenterBackHref(from, "/mypage/customer-center");
 
   return (
-    <div className={`flex min-h-screen flex-col ${CC_PAGE_WHITE_CLASS}`}>
-      <MySubpageHeader
+    <SupportContextProvider value={DISABLED_SUPPORT_CONTEXT}>
+      <MyScreen
         title={safeT("support_history_title", {
           fallbackKo: "상담 내역",
           fallbackEn: "Support history",
         })}
         backHref={backHref}
         preferHistoryBack={false}
-        hideCtaStrip
-      />
-      <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={CUSTOMER_CENTER_LIST_COLUMN_CLASS}>
-          <SupportCasesHistoryList audience="MEMBER" />
-        </div>
-      </div>
-    </div>
+        template="list"
+      >
+        <SupportCasesHistoryList audience="MEMBER" withStatusTabs />
+      </MyScreen>
+    </SupportContextProvider>
   );
 }
