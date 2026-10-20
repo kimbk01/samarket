@@ -40,7 +40,7 @@ function ActivityTabs({
             aria-selected={selected}
             className={`min-h-11 min-w-[5.5rem] rounded-ui-rect px-4 py-2.5 text-sm font-medium transition-colors ${
               selected
-                ? "bg-sam-brand text-white"
+                ? "bg-sam-primary text-white"
                 : "border border-sam-border bg-sam-surface text-sam-fg"
             }`}
             onClick={() => onChange(tab)}
@@ -54,12 +54,13 @@ function ActivityTabs({
 }
 
 function CommentRow({ row }: { row: CommunityActivityCommentItem }) {
+  const { t } = useI18n();
   const href = row.postId ? `/philife/${row.postId}` : undefined;
   const body = (
     <div className={`${Sam.card.base} flex min-h-[4.5rem] flex-col gap-1 px-4 py-3`}>
-      {row.postTitle ? (
-        <p className="line-clamp-1 text-xs font-medium text-sam-muted">{row.postTitle}</p>
-      ) : null}
+      <p className="line-clamp-1 text-xs font-medium text-sam-muted">
+        {row.postTitle || t("mypage_activity_post_unavailable")}
+      </p>
       <p className="line-clamp-2 text-sm text-sam-fg">{row.content || "—"}</p>
       <p className="text-xs text-sam-muted">{formatWhen(row.createdAt)}</p>
     </div>
@@ -73,10 +74,11 @@ function CommentRow({ row }: { row: CommunityActivityCommentItem }) {
 }
 
 function ReactionRow({ row }: { row: CommunityActivityReactionItem }) {
+  const { t } = useI18n();
   const href = row.postId ? `/philife/${row.postId}` : undefined;
   const body = (
     <div className={`${Sam.card.base} flex min-h-[4.5rem] flex-col gap-1 px-4 py-3`}>
-      <p className="line-clamp-2 text-sm font-medium text-sam-fg">{row.title || "—"}</p>
+      <p className="line-clamp-2 text-sm font-medium text-sam-fg">{row.title || t("mypage_activity_post_unavailable")}</p>
       <p className="text-xs text-sam-muted">{formatWhen(row.createdAt)}</p>
     </div>
   );
@@ -89,9 +91,16 @@ function ReactionRow({ row }: { row: CommunityActivityReactionItem }) {
 }
 
 function ReportRow({ row }: { row: CommunityActivityReportItem }) {
+  const { t } = useI18n();
+  const fallbackTitle =
+    row.channel === "messenger"
+      ? t("mypage_activity_report_messenger")
+      : row.targetType === "comment"
+        ? t("mypage_activity_report_comment")
+        : t("mypage_activity_report_community");
   return (
     <div className={`${Sam.card.base} flex min-h-[4.5rem] flex-col gap-1 px-4 py-3`}>
-      <p className="line-clamp-2 text-sm text-sam-fg">{row.title || "—"}</p>
+      <p className="line-clamp-2 text-sm text-sam-fg">{row.title || fallbackTitle}</p>
       <p className="text-xs text-sam-muted">
         {row.reasonType} · {formatWhen(row.createdAt)}
       </p>

@@ -94,6 +94,12 @@ export const MYPAGE_HOME_STORE_TAIL_ITEMS: MypageHomeLinkMenuItem[] = [
     titleKey: "mypage_comp_menu_store_rider_title",
     icon: "truck",
   },
+  /** D19 — 진입 경로가 없던 매장 문의 내역 */
+  {
+    href: "/mypage/store-inquiries",
+    titleKey: "mypage_store_inquiries_title",
+    icon: "message-question",
+  },
 ];
 
 /**

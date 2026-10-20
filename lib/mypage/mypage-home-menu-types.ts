@@ -37,7 +37,8 @@ export type MypageHomeMenuIconId =
   | "file-text"
   | "lock"
   | "building"
-  | "sliders";
+  | "sliders"
+  | "message-question";
 
 export type MypageHomeLinkMenuItem = {
   kind?: "link";

@@ -52,6 +52,9 @@ export async function loadCommunityActivityHubServer(
       .from("community_comments")
       .select("id, post_id, content, created_at")
       .eq("user_id", uid)
+      // 삭제·숨김 처리된 댓글은 내 활동에 보이지 않게 (D12)
+      .not("is_deleted", "is", true)
+      .not("is_hidden", "is", true)
       .order("created_at", { ascending: false })
       .limit(20),
     sb
@@ -133,7 +136,8 @@ export async function loadCommunityActivityHubServer(
     }
   }
 
-  const deletedTitle = "삭제되었거나 숨김 처리된 글";
+  /** 글이 없거나(삭제) 숨김이면 빈 제목 — 화면이 회원 언어로 안내 문구를 붙인다 (D12, 서버 한국어 하드코딩 제거) */
+  const deletedTitle = "";
   const likedPosts = mapPostEngagementRows(likeRows, postMap, deletedTitle);
   const savedPosts = mapPostEngagementRows(saveRows, postMap, deletedTitle);
 
@@ -167,12 +171,7 @@ export async function loadCommunityActivityHubServer(
           channel: "community" as const,
           targetType,
           targetId,
-          title:
-            typeof post?.title === "string"
-              ? post.title
-              : targetType === "comment"
-                ? "커뮤니티 댓글 신고"
-                : "커뮤니티 신고",
+          title: typeof post?.title === "string" ? post.title : "",
           reasonType: String(row.reason ?? row.reason_type ?? "etc"),
           status: String(row.status ?? "open"),
           createdAt: String(row.created_at ?? ""),
@@ -186,7 +185,7 @@ export async function loadCommunityActivityHubServer(
           String(row.room_id ?? "").trim() ||
           String(row.message_id ?? "").trim() ||
           String(row.reported_user_id ?? "").trim(),
-        title: "메신저 신고",
+        title: "",
         reasonType: String(row.reason_type ?? "etc"),
         status: String(row.status ?? "received"),
         createdAt: String(row.created_at ?? ""),

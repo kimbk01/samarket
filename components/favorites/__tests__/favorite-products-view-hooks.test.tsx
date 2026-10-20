@@ -6,7 +6,7 @@ import type { FavoritedPost } from "@/lib/favorites/getFavoritedPosts";
 
 /** D2 — 찜 목록: 로딩 → 데이터 전환·탭 전환·0개 전환 시 React 훅 순서 오류(#310) 없음 */
 
-let favoritesResult: { items: FavoritedPost[]; authenticated: boolean };
+let favoritesResult: { items: FavoritedPost[]; authenticated: boolean; error?: boolean };
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }) }));
 vi.mock("next/link", () => ({ default: ({ children }: { children: unknown }) => children }));
@@ -83,6 +83,15 @@ describe("FavoriteProductsView hook order (D2)", () => {
     favoritesResult = { items: [], authenticated: true };
     await renderView();
     expect(container.textContent).toContain("ui_fav_empty_title");
+    expect(errors).toEqual([]);
+  });
+
+  it("D10·D11: 조회 오류는 빈 목록·로그인 이동이 아니라 오류 + 다시 시도", async () => {
+    favoritesResult = { items: [], authenticated: true, error: true };
+    await renderView();
+    expect(container.textContent).toContain("ui_fav_load_failed");
+    expect(container.textContent).toContain("common_retry");
+    expect(container.textContent).not.toContain("ui_fav_empty_title");
     expect(errors).toEqual([]);
   });
 });

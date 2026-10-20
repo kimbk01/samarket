@@ -35,11 +35,13 @@ export function FavoriteProductsView({
   const [sessionAuthenticated, setSessionAuthenticated] = useState<boolean | null>(null);
   const [tab, setTab] = useState<FavoriteManageTabId>(initialTab ?? "all");
   const [mounted, setMounted] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { items, authenticated } = await getFavoritedPosts();
+    const { items, authenticated, error } = await getFavoritedPosts();
     setPosts(items);
+    setLoadError(Boolean(error));
     setSessionAuthenticated(authenticated);
     setLoading(false);
   }, []);
@@ -117,6 +119,17 @@ export function FavoriteProductsView({
       <div className={`flex flex-col items-center justify-center text-center ${embedded ? "py-8" : "py-16"}`}>
         <div className="h-8 w-8 animate-pulse rounded-full bg-sam-border-soft" />
         <p className="mt-3 text-[14px] text-sam-muted">{t("ui_fav_redirect_login")}</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className={`flex flex-col items-center justify-center text-center ${embedded ? "py-8" : "py-16"}`} role="alert">
+        <p className="text-[14px] text-sam-muted">{t("ui_fav_load_failed")}</p>
+        <button type="button" onClick={() => void load()} className="sam-btn sam-btn--secondary sam-btn--sm mt-4">
+          {t("common_retry")}
+        </button>
       </div>
     );
   }

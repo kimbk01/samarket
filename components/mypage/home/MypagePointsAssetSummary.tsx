@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Coins, Megaphone, Ticket, Wallet } from "lucide-react";
+import { BadgePercent, ChevronRight, Coins, Gift, Megaphone, Ticket, Wallet } from "lucide-react";
 import { CurrencyAmount } from "@/components/currency";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
@@ -76,6 +76,14 @@ export function MypagePointsAssetSummary() {
         </span>
         <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
       </Link>
+      {/* D19 — 진입 경로가 없던 화면: 상품권 · 회원 혜택 */}
+      <Link href="/mypage/gift-certificates" className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}>
+        <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>
+          <Gift className="h-5 w-5" aria-hidden />
+        </span>
+        <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>{safeT("commerce_hub_tab_gifts")}</span>
+        <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
+      </Link>
       <Link
         href="/mypage/ads"
         className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}
@@ -102,6 +110,13 @@ export function MypagePointsAssetSummary() {
             fallbackEn: "Top-up request",
           })}
         </span>
+        <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
+      </Link>
+      <Link href="/mypage/benefits" className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}>
+        <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>
+          <BadgePercent className="h-5 w-5" aria-hidden />
+        </span>
+        <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>{safeT("route_benefits_title")}</span>
         <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
       </Link>
     </section>

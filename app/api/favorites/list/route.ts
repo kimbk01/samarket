@@ -41,7 +41,8 @@ export async function GET() {
     if (process.env.NODE_ENV === "development") {
       console.error("[favorites/list] favorites select:", favError.message);
     }
-    return NextResponse.json({ items: [], authenticated: true });
+    // 조회 실패를 「찜 없음」으로 보이지 않게 오류로 응답 (D10)
+    return NextResponse.json({ items: [], authenticated: true, error: "favorites_load_failed" }, { status: 500 });
   }
 
   if (!favs?.length) {
@@ -59,7 +60,7 @@ export async function GET() {
     if (process.env.NODE_ENV === "development") {
       console.error("[favorites/list] posts select:", postError.message);
     }
-    return NextResponse.json({ items: [], authenticated: true });
+    return NextResponse.json({ items: [], authenticated: true, error: "favorites_load_failed" }, { status: 500 });
   }
 
   if (!Array.isArray(posts)) {
