@@ -126,7 +126,7 @@
 ### 검증
 | 검증 | 결과 |
 |---|---|
-| 단위·정적 `lib/stores/__tests__/three-party-order-money-ssot.test.ts` | 14/14 PASS (실제 조립 함수로 목록·상세 응답에 내부 필드 0, 카드 금액, 문구, 오너 CTA·딥링크, 지원 카테고리) |
+| 단위·정적 `lib/stores/__tests__/three-party-order-money-ssot.test.ts` | 14/14 PASS (실제 조립 함수로 목록·상세 응답에 내부 필드 0, 카드 금액, 문구, 오너 CTA·딥링크, 지원 카테고리 + UI/UX/CTA 계약 5건: 관리자 결정·차단 대화상자 = `DibayDialog` + 위험색 확정, 관리자 콘솔 배경 유지, 터치·눌림 피드백과 행 키보드·터치 조작, 오너 CTA = `OwnerCta` 계약 + 지원 시트 전 패널 닫기, 주문자 상세의 결제 수단·결제 상태 분리) |
 | 영향 범위 기존 테스트 (finance·support·stores·delivery·mypage) | 297 파일 / 2,258 PASS |
 | 브라우저 3자 대조 (실제 화면 컴포넌트, API 응답 = 실제 조립 함수·로더 + SQL 결과 복제 데이터; 모의 API) | **58/58 PASS** — iPhone 390 · Android 폰 412(다크) · Android 태블릿 800 · 태블릿 1024(다크) · PC 1440. 같은 주문 S0QACOUPON: 주문자 상세 총액·목록 카드 ₱460, 수수료·관리자 문구 0, 응답 내부 필드 0, 가로 스크롤 0 / 오너 딥링크 → 상세 자동 열림, 기준액 ₱500 = ₱460 + 플랫폼 쿠폰 ₱40, 충전 CTA → 충전 폼, 문의 CTA → 정산 문의 모달(관련 항목 주문), 결정 CTA 0 / 관리자 = 오너 금액 블록 문자 단위 일치 |
 | 실제 계정 · 실제 DB 3자 E2E | **NOT_PROVEN** (모의 API) |
