@@ -39,22 +39,32 @@ describe("CUT3 Promotion IA navigation", () => {
     const promo = findAdminMenuByKey(adminMenu, "promotion");
     expect(promo).toBeTruthy();
     const keys = (promo?.children ?? []).map((c) => c.key);
-    // Menu SSOT (admin-menu.ts): Startup group sits after notifications, before owner-requests.
+    // J-AMD-5: 「플랫폼 운영」 — top leaves, then 앱 화면 구성 · 추천 · 공통 콘텐츠 sections.
+    // The 「알림」 link-hub leaf is removed (notifications workspace owns the URL via matchPaths).
     expect(keys).toEqual([
       "promotion-home",
       "promotion-events",
       "promotion-popup",
       "promotion-ptr-ads",
       "promotion-banners",
-      "promotion-notifications",
-      "settings-startup",
       "promotion-owner-requests",
+      "settings-startup",
+      "growth-rec",
+      "cp-content",
     ]);
     expect(keys).not.toContain("promotion-intro");
     // Startup group: build-time OS start screen + runtime launch Intro (separate systems).
     expect(
       (findAdminMenuByKey(adminMenu, "settings-startup")?.children ?? []).map((c) => c.key)
-    ).toEqual(["settings-os-start", "settings-intro"]);
+    ).toEqual([
+      "settings-os-start",
+      "settings-intro",
+      "settings-startup-config",
+      "menu-main-bottom-nav",
+      "my-banners",
+      "my-sections",
+      "my-services",
+    ]);
     const publicAds = filterMenuForPublicSidebar(
       findAdminMenuByKey(adminMenu, "ads")?.children ?? []
     ).map((c) => c.key);
@@ -70,8 +80,9 @@ describe("CUT3 Promotion IA navigation", () => {
     expect(resolveActiveWorkspace("/admin/platform-promotion/banners", "master").id).toBe(
       "promotion"
     );
+    // J-AMD-5: link hub URL kept; highlighted under notifications › 푸시·알림 발송.
     expect(resolveActiveWorkspace("/admin/platform-promotion/notifications", "master").id).toBe(
-      "promotion"
+      "notifications"
     );
     expect(resolveActiveWorkspace("/admin/platform-event-owner-requests", "master").id).toBe(
       "promotion"

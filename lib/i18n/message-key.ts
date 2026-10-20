@@ -95,6 +95,7 @@ import { adminDeliveryR4AMessages } from "./catalog/admin-delivery-r4-stores";
 import { adminCommunityR4Messages } from "./catalog/admin-community-r4";
 import { adminTradeAdminMessages } from "./catalog/admin-trade-admin";
 import { adminShellFrameMessages } from "./catalog/admin-shell-frame";
+import { adminMenuJAmd5Messages } from "./catalog/admin-menu-j-amd-5";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -116,6 +117,7 @@ export type MessageKey =
   | KeyOf<typeof adminCommunityR4Messages.ko>
   | KeyOf<typeof adminTradeAdminMessages.ko>
   | KeyOf<typeof adminShellFrameMessages.ko>
+  | KeyOf<typeof adminMenuJAmd5Messages.ko>
   | KeyOf<typeof commonMessages.ko>
   | KeyOf<typeof myMessages.ko>
   | KeyOf<typeof mypageHubMessages.ko>
@@ -290,6 +292,7 @@ type EnMessageKey =
   | KeyOf<typeof adminCommunityR4Messages.en>
   | KeyOf<typeof adminTradeAdminMessages.en>
   | KeyOf<typeof adminShellFrameMessages.en>
+  | KeyOf<typeof adminMenuJAmd5Messages.en>
   | KeyOf<typeof enJson>;
 
 type _MissingInEn = Exclude<MessageKey, EnMessageKey>;

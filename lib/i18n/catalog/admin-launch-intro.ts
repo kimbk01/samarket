@@ -6,7 +6,7 @@
 export const adminLaunchIntroMessages = {
   ko: {
     launch_intro_skip: "건너뛰기",
-    admin_menu_settings_intro: "Intro",
+    admin_menu_settings_intro: "인트로",
     admin_launch_intro_title: "Intro",
     admin_launch_intro_desc:
       "앱(Android·iOS)을 새로 켤 때 OS 시작 화면 다음에 한 번 보여주는 화면입니다. 웹·Windows에는 나오지 않습니다.",

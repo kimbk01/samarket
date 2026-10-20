@@ -38,6 +38,10 @@ for (const s of [
   'fullWorkspaceReorder_J_AMD_2: true',
   'adsPromotionSingleParent_B_X1: true',
   "cutJFullUnlock: true",
+  // J-AMD-5 Owner-approved (design v4 O-1..O-3)
+  "CUT_J_J_AMD_5_OWNER_APPROVED = true",
+  "CUT_J_J_AMD_5_INTERNAL_TOOLS",
+  "CUT_J_J_AMD_5_REMOVED_LEAVES",
 ]) {
   if (!a.includes(s)) fail(`anchor missing: ${s}`);
 }
@@ -47,7 +51,7 @@ if (!m.includes('key: "finance"')) fail("menu missing finance workspace");
 if (!m.includes('key: "ads"')) fail("menu missing ads workspace");
 if (!m.includes('key: "support"')) fail("menu missing support workspace");
 if (!m.includes('key: "notifications"')) fail("menu missing notifications workspace");
-// Top-level common/growth dissolved; growth-rec under system is OK
+// Top-level common/growth dissolved; growth-rec section under promotion is OK (J-AMD-5)
 if (!m.includes("// ── FINANCE") || !m.includes("// ── ADS")) {
   fail("menu missing CUT J section markers");
 }
@@ -86,6 +90,14 @@ for (const shell of [
   "app/admin/control-plane-v2/page.tsx",
 ]) {
   if (existsSync(resolve(root, shell))) fail(`forbidden shell: ${shell}`);
+}
+
+// J-AMD-5: duplicate leaves removed from the menu (URLs kept via coveredBy / matchPaths).
+for (const key of ["cp-action-queue", "app-categories", "promotion-notifications"]) {
+  if (m.includes(`key: "${key}"`)) fail(`J-AMD-5 removed leaf must not return: ${key}`);
+}
+if (!/key: "platform-system",\n\s+title: "",\n\s+roles: \["master"\]/.test(m)) {
+  fail("J-AMD-5 internal tools section (platform-system) must stay master-only");
 }
 
 if (m.includes('path: "/admin/platform-inquiries"')) {

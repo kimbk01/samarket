@@ -11,6 +11,11 @@ import {
   type AdminMenuRole,
 } from "@/components/admin/admin-menu";
 import { resolveWorkspaceRootPath } from "@/lib/admin/admin-workspace-routing";
+import { filterAdminMenuByAccess } from "@/lib/admin/access/admin-access-ui";
+import {
+  canAccessAdminRoute,
+  type AdminRouteAccessActor,
+} from "@/lib/admin/access/admin-route-access";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 export type DashboardQuickLinkSection = "ops" | "manage" | "dev";
@@ -98,8 +103,8 @@ function isKeyVisibleInFilteredTree(key: string, filtered: AdminMenuItem[]): boo
 
 function projectSection(
   section: DashboardQuickLinkSection,
-  role: AdminMenuRole,
-  filtered: AdminMenuItem[]
+  filtered: AdminMenuItem[],
+  actor: AdminRouteAccessActor | null
 ): DashboardQuickLink[] {
   const out: DashboardQuickLink[] = [];
   for (const menuKey of DASHBOARD_QUICK_LINK_MENU_KEYS[section]) {
@@ -113,9 +118,13 @@ function projectSection(
     if (!labelKey) {
       throw new Error(`Dashboard quick link missing titleKey: ${menuKey}`);
     }
+    // 접근표 필터가 걸린 경우 워크스페이스 바로가기는 "열 수 있는" 첫 leaf 로 간다.
+    const hrefSource = actor ? (locateMenuItem(menuKey, filtered)?.item ?? item) : item;
+    const href = resolveQuickLinkHref(hrefSource, menuKey);
+    if (actor && !canAccessAdminRoute(href, actor)) continue;
     out.push({
       menuKey,
-      href: resolveQuickLinkHref(item, menuKey),
+      href,
       labelKey,
       roles: effectiveRoles(item, ancestors),
       section,
@@ -124,22 +133,33 @@ function projectSection(
   return out;
 }
 
-export function projectDashboardQuickLinks(role: AdminMenuRole): {
+/**
+ * `actor` (`/api/admin/me` 기반) 가 있으면 사이드바와 같은 접근표 필터를 적용해
+ * 거부될 화면을 가리키는 바로가기를 뺀다 (설계 v4 §4-3). 없으면 역할 필터만 (기존 동작).
+ */
+export function projectDashboardQuickLinks(
+  role: AdminMenuRole,
+  actor: AdminRouteAccessActor | null = null
+): {
   ops: DashboardQuickLink[];
   manage: DashboardQuickLink[];
   dev: DashboardQuickLink[];
 } {
-  const filtered = filterMenuByRole(adminMenu, role);
+  const roleFiltered = filterMenuByRole(adminMenu, role);
+  const filtered = actor ? filterAdminMenuByAccess(roleFiltered, actor) : roleFiltered;
   return {
-    ops: projectSection("ops", role, filtered),
-    manage: projectSection("manage", role, filtered),
-    dev: projectSection("dev", role, filtered),
+    ops: projectSection("ops", filtered, actor),
+    manage: projectSection("manage", filtered, actor),
+    dev: projectSection("dev", filtered, actor),
   };
 }
 
 /** Flat projection for contract tests / adapters. */
-export function listDashboardQuickLinks(role: AdminMenuRole): DashboardQuickLink[] {
-  const sections = projectDashboardQuickLinks(role);
+export function listDashboardQuickLinks(
+  role: AdminMenuRole,
+  actor: AdminRouteAccessActor | null = null
+): DashboardQuickLink[] {
+  const sections = projectDashboardQuickLinks(role, actor);
   return [...sections.ops, ...sections.manage, ...sections.dev];
 }
 

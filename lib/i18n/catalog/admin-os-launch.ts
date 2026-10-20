@@ -6,7 +6,7 @@
 
 export const adminOsLaunchMessages = {
   ko: {
-    admin_menu_settings_startup_group: "시작 화면",
+    admin_menu_settings_startup_group: "앱 화면 구성",
     admin_menu_settings_os_start: "OS 시작 화면",
     admin_os_launch_title: "OS 시작 화면",
     admin_os_launch_desc:
@@ -46,7 +46,7 @@ export const adminOsLaunchMessages = {
     admin_os_launch_error: "처리하지 못했습니다: {error}",
   },
   en: {
-    admin_menu_settings_startup_group: "Startup",
+    admin_menu_settings_startup_group: "App screens",
     admin_menu_settings_os_start: "OS start screen",
     admin_os_launch_title: "OS start screen",
     admin_os_launch_desc:

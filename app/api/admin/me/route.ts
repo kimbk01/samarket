@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApiActor } from "@/lib/admin/require-admin-permission";
 import { loadActiveAdminMembership } from "@/lib/admin/admin-membership";
 import { adminTierToUiRole, loadEffectiveStaffPermissions } from "@/lib/admin/admin-user-server";
+import { isDeployOwnerUserId } from "@/lib/admin/deploy-promotion/deploy-owner";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import type { AdminRole } from "@/lib/admin-menu-config";
 
@@ -38,5 +39,7 @@ export async function GET() {
     permissions,
     loginId,
     displayName: String(actor.profile.nickname ?? actor.profile.display_name ?? loginId),
+    /** 배포 담당자(`DIBAY_DEPLOY_OWNER_IDS`) — `requireDeployOwner` 와 같은 판정. UI 버튼 노출용(서버 가드는 그대로). */
+    isDeployOwner: actor.isSuperAdmin && isDeployOwnerUserId(actor.userId),
   });
 }

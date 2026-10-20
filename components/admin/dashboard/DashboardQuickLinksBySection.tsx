@@ -7,6 +7,7 @@ import {
   adminUiRoleToMenuRole,
   projectDashboardQuickLinks,
 } from "@/lib/admin/dashboard-quick-links";
+import { useAdminAccessActor } from "@/components/admin/access/use-admin-route-access";
 
 interface LinkItem {
   href: string;
@@ -44,10 +45,12 @@ function Card({
 
 export function DashboardQuickLinksBySection() {
   const { t } = useI18n();
+  const { actor } = useAdminAccessActor();
   const role = getAdminRole();
   if (!role) return null;
   const menuRole = adminUiRoleToMenuRole(role);
-  const sections = projectDashboardQuickLinks(menuRole);
+  // 사이드바와 같은 접근표 필터 — 거부될 화면을 가리키는 바로가기는 숨긴다.
+  const sections = projectDashboardQuickLinks(menuRole, actor);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

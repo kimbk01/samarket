@@ -6,8 +6,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 /**
  * 관리자 미인증 시 안내 — `AdminGuard`(클라)와 `app/admin/layout`(서버 게이트) 공통.
  * Must be a Client Component: layout may render this from the server tree.
+ * `backHref` — 로그인된 관리자가 권한 없는 화면에 들어온 경우(셸 접근표 게이트) 관리자 홈으로 되돌아가는 링크.
  */
-export function AdminAccessDeniedPanel() {
+export function AdminAccessDeniedPanel({ backHref }: { backHref?: string } = {}) {
   const { t } = useI18n();
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
@@ -15,9 +16,15 @@ export function AdminAccessDeniedPanel() {
       <p className="mt-2 sam-text-body-secondary text-sam-muted">
         {t("admin_access_denied_desc")}
       </p>
-      <Link href="/philife" className="mt-4 sam-text-body font-medium text-signature underline">
-        {t("common_homepage")}
-      </Link>
+      {backHref ? (
+        <Link href={backHref} className="mt-4 sam-text-body font-medium text-signature underline">
+          {t("admin_error_home")}
+        </Link>
+      ) : (
+        <Link href="/philife" className="mt-4 sam-text-body font-medium text-signature underline">
+          {t("common_homepage")}
+        </Link>
+      )}
     </div>
   );
 }

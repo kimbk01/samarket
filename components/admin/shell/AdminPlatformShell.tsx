@@ -29,6 +29,10 @@ import {
   resolveAdminBreadcrumb,
 } from "@/lib/admin/admin-workspace-routing";
 import { isDeliveryCmsSurface } from "@/lib/admin/delivery-cms-nav";
+import { adminMenu, filterMenuByRole } from "@/components/admin/admin-menu";
+import { filterAdminMenuByAccess } from "@/lib/admin/access/admin-access-ui";
+import { AdminRoutePageGate } from "@/components/admin/access/AdminRoutePageGate";
+import { useAdminAccessActor } from "@/components/admin/access/use-admin-route-access";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 import { getAdminRole } from "@/lib/admin-permission";
 import type { AdminRole } from "@/lib/admin-menu-config";
@@ -114,11 +118,27 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
     [adminMe?.uiRole, adminMeLoading]
   );
   const resolvedMenuRole = menuRole ?? "operator";
+  const { actor: accessActor } = useAdminAccessActor();
 
-  const workspaces = useMemo(() => listAdminWorkspaces(resolvedMenuRole), [resolvedMenuRole]);
+  /**
+   * 메뉴 노출 = 서버 권한 (설계 v4 §4-3): 역할 필터 + 접근표 필터.
+   * `/me` 로딩 중(actor 없음)에는 기존처럼 역할 필터만 적용한다.
+   */
+  const accessMenu = useMemo(
+    () =>
+      accessActor
+        ? filterAdminMenuByAccess(filterMenuByRole(adminMenu, resolvedMenuRole), accessActor)
+        : adminMenu,
+    [accessActor, resolvedMenuRole]
+  );
+
+  const workspaces = useMemo(
+    () => listAdminWorkspaces(resolvedMenuRole, accessMenu),
+    [resolvedMenuRole, accessMenu]
+  );
   const activeWorkspace = useMemo(
-    () => resolveActiveWorkspace(effectiveNavPath, resolvedMenuRole),
-    [effectiveNavPath, resolvedMenuRole]
+    () => resolveActiveWorkspace(effectiveNavPath, resolvedMenuRole, accessMenu),
+    [effectiveNavPath, resolvedMenuRole, accessMenu]
   );
   const crumbs = useMemo(
     () => resolveAdminBreadcrumb(effectiveNavPath, activeWorkspace),
@@ -260,7 +280,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
                 className="admin-platform-shell__content min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4"
                 data-admin-main-content="1"
               >
-                {children}
+                <AdminRoutePageGate>{children}</AdminRoutePageGate>
               </main>
               {showDeliveryCmsRightMenu ? (
                 <Suspense fallback={null}>
