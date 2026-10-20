@@ -41,8 +41,10 @@ export async function GET(
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  const owned = await getStoreIfOwner(sb, userId, storeId);
-  if (!owned) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  const gate = await getStoreIfOwner(sb, userId, storeId);
+  if (!gate.ok) {
+    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+  }
 
   try {
     const store = await loadStoreGeo(sb, storeId);
@@ -74,8 +76,10 @@ export async function PUT(
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  const owned = await getStoreIfOwner(sb, userId, storeId);
-  if (!owned) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  const gate = await getStoreIfOwner(sb, userId, storeId);
+  if (!gate.ok) {
+    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+  }
 
   let body: { geoIdentities?: unknown; activateV2?: unknown };
   try {
@@ -149,8 +153,10 @@ export async function POST(
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  const owned = await getStoreIfOwner(sb, userId, storeId);
-  if (!owned) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  const gate = await getStoreIfOwner(sb, userId, storeId);
+  if (!gate.ok) {
+    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+  }
 
   let body: { q?: unknown };
   try {

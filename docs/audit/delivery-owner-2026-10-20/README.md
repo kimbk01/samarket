@@ -1,10 +1,39 @@
 # DIBAY 배달 오너 시스템 전면 감사 패키지 (2026-10-20)
 
-**상태: 감사·설계 완료 → Owner 승인 대기.** 코드 수정·DB 변경·운영 데이터 변경·배포는 하지 않았다.
+**상태: 감사·설계 완료. 2026-10-21 Owner 승인분(P0 5건)만 수정·적용, 나머지는 승인 대기.** 운영 데이터(과거 금전·주문)는 변경하지 않았다.
 
 - 감사 기준: HEAD `8c151baa` · 운영 DB `ckdosyydvgzqwpbwuhon` **읽기 전용**(카탈로그·집계 SELECT 만, 개인정보 컬럼 미조회) · 테스트 DB(`dibay-test`·`dibay-reset-qa`) 미사용.
 - 관리자·오너 로그인 화면은 실측하지 않았다 → 화면 실측 PASS **0건**. 모든 PASS 는 코드·DB 근거 기준이다.
 - 레거시 플랫폼 원문 포털은 이 작업 환경에서 접속이 차단되어, 공개 검색 결과·앱스토어·공식 보도로만 비교했다(문서 A §0).
+
+## 승인 범위 처리 현황 (2026-10-21 PHT, Owner 승인 D-0·D-1·D-5·P0-3·P0-4)
+
+**구분: 승인 범위 내 P0 5건 수정 완료 ≠ 전체 배달 오너 시스템 감사·정상화 완료.** P1 16 · P2 41 · P3 58 과 메뉴·UI/UX/CTA·SSOT 불일치는 **미완료**로 유지한다(문서 D·F).
+
+| 결함 | 수정 | 자동 검증 | 운영 DB 연동 검증 | 화면 실측 |
+|---|---|---|---|---|
+| P0-1 `stores` 직접 쓰기 | 마이그레이션 `20270602100000` — anon/authenticated INSERT·UPDATE·DELETE·TRUNCATE 회수 + 클라이언트 역할 쓰기 거부 트리거 | — | 운영 적용. authenticated UPDATE → `permission denied`, service_role 쓰기 OK, authenticated SELECT 유지, 쓰기 함수 전부 SECURITY DEFINER(postgres) 확인 | NOT_PROVEN |
+| P0-2 `store_products` 직접 쓰기 | 같은 마이그레이션 | — | 위와 동일 | NOT_PROVEN |
+| P0-3 배달 지역 IDOR | `delivery-service-areas/route.ts` 3 핸들러 `!gate.ok` 판정 | vitest 4건(타인 403·없는 매장 404·교체 미호출) | — (웹 배포 후) | NOT_PROVEN |
+| P0-4 Storage 타 테넌트 삭제 | `lib/stores/store-owned-image-urls.ts` — 상품·배너·공지 삭제 대상을 `store-product-images/{storeId}/` 원본으로 제한 | vitest 6건(타 매장·post-images·외부·경로 우회·render URL) | — | NOT_PROVEN |
+| P0-5 수수료 트리거 비활성 | 마이그레이션 `20270602100100` — 트리거 재활성 + 기준 시각 `2026-10-20 20:30 UTC` 이전 생성 주문 부과 제외(소급 금지). 수수료율·부과 시점 불변 | — | 운영 적용 `tgenabled='O'`. 롤백 트랜잭션 실측: 과거 주문 상태 전이 → 의무 0건, 기준 이후 주문 → 의무 1건(₱73 = 7%). 롤백 후 의무 13건 그대로 | NOT_PROVEN |
+
+D-5: 과거 잔액·Coin·상품권·광고비·주문 기록은 정리·차감·환불하지 않았다(운영 데이터 변경 0).
+
+### 전체 연동 영향 확인 (Owner 지시 8개 항목 · 이번 수정 기준)
+
+| # | 확인 항목 | 이번 수정의 영향 | 근거 | 남은 결함(미완료) |
+|---|---|---|---|---|
+| 1 | 오너 상품 등록·수정 → 주문자 반영 | 영향 없음 — 상품 쓰기는 service_role 서버 API 경유(브라우저 직접 쓰기 코드 0건). 이미지 교체 시 자기 매장 원본만 정리 | 운영 service_role UPDATE 통과, 코드 grep | PRD-03·05·07·09, OPS-02 |
+| 2 | 주문 → 오너 접수·관리 | 영향 없음 — 주문 RPC 재고 차감·복원은 SECURITY DEFINER(postgres)라 새 트리거 통과. 캐시 게이트 OFF 유지 | 함수 소유자·DEFINER 조회 | ORD-02·03·05 |
+| 3 | 접수·취소·완료 → 주문자·관리자 동일 반영 | 상태 전이 코드 불변. 기준 이후 주문은 조리 진입 시 같은 트랜잭션에서 수수료 부과(부과 실패 시 상태 롤백 — 정책 미해석 매장 0곳) | 롤백 실측 | ORD-04·06·09, DLV-02 |
+| 4 | 위치·배달 지역·배달비 동일 판정 | 판정 함수 불변. 타 매장 배달 지역 변경 차단, 자기 매장 편집은 그대로 | vitest | LOC-003·004·005·006·007 |
+| 5 | 관리자 승인·정지 → 오너 권한·주문자 노출 | 관리자 쓰기(service_role) 불변. 오너가 REST 로 승인·정지를 되돌리는 경로 제거 | 운영 권한 조회 | ACC-03, IA-01·02·03 |
+| 6 | 주문·환불·수수료·코인·캐시·상품권·광고비·정산 동일 원장 | 수수료 원장(`store_sale_fee_obligations`·캐시 원장) 기록 재개. 그 외 원장 경로 불변 | 롤백 실측 | FIN-02·03·04·05·06·07·08, GFT-01·05, ADS-01~03 |
+| 7 | 오너의 관리자 권한 우회·타 매장 변경 | P0-1~P0-4 경로 제거 | 운영·vitest | OPS-06(문의 원문), LOC-014(주소 LGU), ACC-05(서류 정책), FIN-09(Coin 원장 권한), IA-03(정지 매장 쓰기) — 미승인 |
+| 8 | 기존 정상 기능 손상 여부 | 앱의 두 테이블 쓰기 경로 전부 service_role 또는 DEFINER 함수 → 차단 대상 아님. authenticated 조회·Realtime SELECT 유지 | 운영 역할별 실측 | 화면 실측 NOT_PROVEN |
+
+**새로 발견(범위 밖, 보고만)**: 운영 `internal.is_admin_user()` 에 anon EXECUTE 권한이 없어 anon 역할의 `stores`·`store_products` 직접 SELECT 가 `permission denied` 로 실패한다(이번 변경 전부터 존재 — 함수 권한은 건드리지 않음). 앱 공개 목록은 service_role 서버 경유라 화면 영향은 확인되지 않았다(NOT_PROVEN).
 
 ## 문서 구성
 

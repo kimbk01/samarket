@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { filterStoreOwnedImageUrls } from "@/lib/stores/store-owned-image-urls";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
 import { coerceStoreBannerLink, STORE_BANNER_LINK_TYPES } from "@/lib/stores/store-banner-link";
 import {
@@ -141,7 +142,10 @@ export async function PATCH(
   }
 
   if (body.image_url !== undefined) {
-    const removed = diffRemovedImageUrls([ex.image_url ?? null], [patch.image_url as string]);
+    const removed = filterStoreOwnedImageUrls(
+      sid,
+      diffRemovedImageUrls([ex.image_url ?? null], [patch.image_url as string])
+    );
     if (removed.length > 0) {
       const removal = await removeCanonicalImagesFromPublicUrls({
         sb,
@@ -193,10 +197,11 @@ export async function DELETE(
   }
 
   const imageUrl = (row as { image_url?: string } | null)?.image_url;
-  if (imageUrl) {
+  const ownedImageUrls = filterStoreOwnedImageUrls(sid, [imageUrl]);
+  if (ownedImageUrls.length > 0) {
     const removal = await removeCanonicalImagesFromPublicUrls({
       sb,
-      urls: [imageUrl],
+      urls: ownedImageUrls,
       context: "owner/banner/hard-delete",
     });
     if (removal.failed.length > 0) {

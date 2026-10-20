@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { filterStoreOwnedImageUrls } from "@/lib/stores/store-owned-image-urls";
 import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
 import {
@@ -100,7 +101,7 @@ export async function PATCH(
   if (body.images_json !== undefined) {
     const before = parseNoticeImages((existing as { images_json?: unknown }).images_json);
     const after = parseNoticeImages(patch.images_json);
-    const removed = diffRemovedImageUrls(before, after);
+    const removed = filterStoreOwnedImageUrls(sid, diffRemovedImageUrls(before, after));
     if (removed.length > 0) {
       const removal = await removeCanonicalImagesFromPublicUrls({
         sb,
@@ -149,7 +150,10 @@ export async function DELETE(
   const { error: delErr } = await sb.from("store_notices").delete().eq("id", nid).eq("store_id", sid);
   if (delErr) return NextResponse.json({ ok: false, error: delErr.message }, { status: 500 });
 
-  const urls = collectCanonicalImagePublicUrls(parseNoticeImages((row as { images_json?: unknown } | null)?.images_json));
+  const urls = filterStoreOwnedImageUrls(
+    sid,
+    collectCanonicalImagePublicUrls(parseNoticeImages((row as { images_json?: unknown } | null)?.images_json))
+  );
   if (urls.length > 0) {
     const removal = await removeCanonicalImagesFromPublicUrls({
       sb,

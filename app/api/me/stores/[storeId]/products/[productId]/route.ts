@@ -5,6 +5,7 @@ import {
   canOwnerSellProducts,
   getStoreIfOwner,
 } from "@/lib/stores/owner-product-gate";
+import { filterStoreOwnedImageUrls } from "@/lib/stores/store-owned-image-urls";
 import { parseProductOptionsJsonField } from "@/lib/stores/parse-product-options-json";
 import { loadUserAppLanguage } from "@/lib/i18n/load-user-app-language";
 import { validateOwnerOptionsJsonPayload } from "@/lib/stores/owner-product-options-validate";
@@ -505,7 +506,7 @@ export async function PATCH(
           ? (productRow.images_json as string[])
           : []),
     ];
-    const removed = diffRemovedImageUrls(beforeUrls, afterUrls);
+    const removed = filterStoreOwnedImageUrls(sid, diffRemovedImageUrls(beforeUrls, afterUrls));
     if (removed.length > 0) {
       const removal = await removeCanonicalImagesFromPublicUrls({
         sb,
