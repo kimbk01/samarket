@@ -655,8 +655,10 @@ export async function notifyBuyerStoreOrderOwnerStatus(
     storeOrderEventId?: string | null;
     /** ADMIN 이면 「매장이 처리」가 아닌 관리자 처리 문구 (DEF-72) */
     actor?: "ADMIN" | "OWNER" | "CUSTOMER" | "SYSTEM";
-    /** SYSTEM accept_timeout 취소는 「매장이 취소」가 아닌 미접수 자동 취소 문구 */
+    /** SYSTEM accept_timeout 취소는 「매장이 취소」가 아닌 미접수 자동 취소 문구 · delivery_sync 는 배달 완료 문구 */
     systemPurpose?: StoreOrderSystemPurpose;
+    /** 매장 직접 취소 사유 — 구매자에게 원문 그대로(최대 500자) 전달 (ORD-09 · D-22) */
+    cancelReason?: string | null;
   }
 ): Promise<void> {
   const bid = opts.buyerUserId.trim();
@@ -668,8 +670,24 @@ export async function notifyBuyerStoreOrderOwnerStatus(
   const storeName = await loadStoreName(sb, opts.storeId);
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
+  const cancelReason =
+    opts.nextStatus === "cancelled" && opts.actor === "OWNER" ? truncateNote(opts.cancelReason, 500) : "";
   const copy =
-    opts.actor === "ADMIN" && opts.nextStatus === "cancelled"
+    cancelReason
+      ? {
+          title: nt(language, "notify_commerce_owner_status_cancelled_title"),
+          body: nt(language, "notify_commerce_owner_status_cancelled_body_reason", {
+            store: label,
+            orderNo,
+            reason: cancelReason,
+          }),
+        }
+      : opts.actor === "SYSTEM" && opts.systemPurpose === "delivery_sync" && opts.nextStatus === "arrived"
+        ? {
+            title: nt(language, "notify_commerce_delivery_sync_arrived_title"),
+            body: nt(language, "notify_commerce_delivery_sync_arrived_body", { store: label, orderNo }),
+          }
+        : opts.actor === "ADMIN" && opts.nextStatus === "cancelled"
       ? {
           title: nt(language, "notify_commerce_owner_status_cancelled_title"),
           body: nt(language, "notify_commerce_admin_cancelled_body", { store: label, orderNo }),
@@ -722,6 +740,7 @@ export async function notifyBuyerStoreOrderOwnerStatus(
       ...(opts.estimatedPrepMinutes != null
         ? { estimated_prep_minutes: Math.floor(Number(opts.estimatedPrepMinutes)) }
         : {}),
+      ...(cancelReason ? { cancel_reason: cancelReason } : {}),
       store_display_name: label,
       ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },

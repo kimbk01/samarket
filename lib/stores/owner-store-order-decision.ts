@@ -11,6 +11,7 @@
  * 5. the status write is `applyStoreOrderStatusTransition` (OWNER graph, CAS on the status checked in
  *    step 2 — a concurrent change is a 409, never applied on the newer status); commission and
  *    refunds follow its existing paths (DB trigger / atomic refund RPC) — nothing is written here.
+ *    Cancel-request decisions write the ledger in the same DB transaction (ORD-06 decide RPC).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -95,26 +96,17 @@ export async function runOwnerStoreOrderDecision(
 
     if (input.action === "cancel_request_approve") {
       toStatus = "cancelled";
+      // ORD-06: ledger decision + status in one DB transaction (store_order_cancel_request_decide_atomic).
       const applied = await applyStoreOrderStatusTransition(sb, {
         orderId: oid,
         nextStatus: toStatus,
         actor: "OWNER",
         expectedCurrentStatus: current,
+        cancelRequestDecision: { decision: "approve", actorRole: "owner" },
         eventMetadata: { source: "owner_cancel_request_approve" },
         audit: { ...audit, action: "store_order.owner_cancel_request_approve" },
       });
       if (!applied.ok) return { ok: false, error: applied.error, httpStatus: applied.httpStatus, currentStatus: current };
-      const { error: uErr } = await sb
-        .from("store_order_cancel_requests")
-        .update({
-          status: "approved",
-          approved_by: input.ownerUserId,
-          approved_at: new Date().toISOString(),
-          refund_status: "pending",
-        })
-        .eq("id", requestRowId)
-        .eq("status", "pending");
-      if (uErr) console.error("[owner decision] cancel approve ledger", uErr);
     } else {
       const previous = String((reqRow as { previous_order_status?: unknown }).previous_order_status ?? "").trim();
       if (!ADMIN_CANCEL_REQUEST_RESTORE_STATUSES.has(previous)) {
@@ -127,22 +119,12 @@ export async function runOwnerStoreOrderDecision(
         actor: "OWNER",
         expectedCurrentStatus: current,
         restoreToStatus: toStatus,
+        cancelRequestDecision: { decision: "reject", actorRole: "owner", reason },
         eventMessage: reason,
         eventMetadata: { source: "owner_cancel_request_reject", rejected_reason: reason },
         audit: { ...audit, action: "store_order.owner_cancel_request_reject" },
       });
       if (!applied.ok) return { ok: false, error: applied.error, httpStatus: applied.httpStatus, currentStatus: current };
-      const { error: uErr } = await sb
-        .from("store_order_cancel_requests")
-        .update({
-          status: "rejected",
-          rejected_at: new Date().toISOString(),
-          rejected_reason: reason,
-          refund_status: "not_applicable",
-        })
-        .eq("id", requestRowId)
-        .eq("status", "pending");
-      if (uErr) console.error("[owner decision] cancel reject ledger", uErr);
     }
   } else if (input.action === "refund_approve") {
     toStatus = "refunded";

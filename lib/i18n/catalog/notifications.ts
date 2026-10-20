@@ -171,6 +171,11 @@ export const notificationMessages = {
     notify_commerce_owner_status_completed_body: "「{store}」 {orderNo} 주문이 완료 처리되었습니다.",
     notify_commerce_owner_status_cancelled_title: "주문이 취소됐어요",
     notify_commerce_owner_status_cancelled_body: "「{store}」 {orderNo} 주문이 매장에 의해 취소되었습니다.",
+    notify_commerce_owner_status_cancelled_body_reason:
+      "「{store}」 {orderNo} 주문이 매장에 의해 취소되었습니다. 사유: {reason}",
+    notify_commerce_delivery_sync_arrived_title: "배달이 완료됐어요",
+    notify_commerce_delivery_sync_arrived_body:
+      "「{store}」 {orderNo} 주문 배달이 완료되었습니다. 받으셨다면 주문 상세에서 수령을 확인해 주세요.",
     notify_commerce_admin_cancelled_body: "「{store}」 {orderNo} 주문이 DIBAY 운영팀에 의해 취소되었습니다.",
     notify_commerce_accept_timeout_cancelled_body:
       "「{store}」 {orderNo} 주문이 {minutes}분 안에 접수되지 않아 자동 취소되었습니다.",
@@ -498,6 +503,11 @@ export const notificationMessages = {
     notify_commerce_owner_status_completed_body: "\"{store}\" order {orderNo} has been marked completed.",
     notify_commerce_owner_status_cancelled_title: "Order cancelled",
     notify_commerce_owner_status_cancelled_body: "\"{store}\" order {orderNo} was cancelled by the store.",
+    notify_commerce_owner_status_cancelled_body_reason:
+      "\"{store}\" order {orderNo} was cancelled by the store. Reason: {reason}",
+    notify_commerce_delivery_sync_arrived_title: "Order delivered",
+    notify_commerce_delivery_sync_arrived_body:
+      "\"{store}\" order {orderNo} has been delivered. Once you have it, please confirm receipt in the order details.",
     notify_commerce_admin_cancelled_body: "\"{store}\" order {orderNo} was cancelled by the DIBAY operations team.",
     notify_commerce_accept_timeout_cancelled_body:
       "\"{store}\" order {orderNo} was cancelled automatically because the store did not accept it within {minutes} minutes.",
