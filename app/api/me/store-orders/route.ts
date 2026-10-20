@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-order-delivery-address-display";
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadBuyerStoreOrderTabCounts } from "@/lib/delivery/customer/load-buyer-store-order-tab-counts";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { notifyStoreOwnerNewOrder, notifyStoreOwnerProductSoldOutFromOrder } from "@/lib/notifications/notify-store-commerce";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
@@ -146,6 +147,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: summary.error }, { status: 500 });
     }
     return NextResponse.json({ ok: true, hub_summary: summary.hub_summary });
+  }
+
+  const tabCountsFlag = req.nextUrl.searchParams.get("tab_counts");
+  if (tabCountsFlag === "1" || tabCountsFlag === "true") {
+    const r = await loadBuyerStoreOrderTabCounts(sb as SupabaseClient, buyerId);
+    if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: 500 });
+    return NextResponse.json({ ok: true, tab_counts: r.counts });
   }
 
   const rawLimit = req.nextUrl.searchParams.get("limit");

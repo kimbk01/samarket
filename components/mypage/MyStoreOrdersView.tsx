@@ -18,6 +18,7 @@ import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MemberOrderTabs } from "@/components/member-orders/MemberOrderTabs";
 import type { MemberOrderTab } from "@/lib/member-orders/types";
+import { countMemberOrderTabs, memberOrderStatusInTab } from "@/lib/member-orders/member-order-tab-status";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
@@ -122,30 +123,11 @@ function resolveBuyerStoreOrderChatHref(args: {
 }
 
 function filterByTab(rows: OrderRow[], tab: MemberOrderTab): OrderRow[] {
-  return rows.filter((o) => {
-    const s = o.order_status;
-    switch (tab) {
-      case "all":
-        return true;
-      case "active":
-        return ["pending", "accepted", "preparing", "delivering", "ready_for_pickup", "arrived"].includes(
-          s
-        );
-      case "done":
-        return s === "completed";
-      case "issue":
-        return ["cancelled", "cancel_requested", "refund_requested", "refunded"].includes(s);
-      default:
-        return true;
-    }
-  });
+  return rows.filter((o) => memberOrderStatusInTab(o.order_status, tab));
 }
 
 function tabCounts(rows: OrderRow[]): Record<MemberOrderTab, number> {
-  const keys: MemberOrderTab[] = ["all", "active", "done", "issue"];
-  const o: Record<MemberOrderTab, number> = { all: 0, active: 0, done: 0, issue: 0 };
-  for (const k of keys) o[k] = filterByTab(rows, k).length;
-  return o;
+  return countMemberOrderTabs(rows.map((o) => o.order_status));
 }
 
 function isDeliveryFulfillment(ft: string) {
@@ -620,6 +602,8 @@ export function MyStoreOrdersView({
     | { kind: "ok"; orders: OrderRow[]; nextCursor: string | null; extraPages: boolean }
   >({ kind: "loading" });
   const [moreBusy, setMoreBusy] = useState(false);
+  /** 주문이 한 페이지(100건)를 넘을 때만 서버 전체 기준 탭 개수 */
+  const [serverTabCounts, setServerTabCounts] = useState<Record<MemberOrderTab, number> | null>(null);
   const [moreError, setMoreError] = useState(false);
 
   const load = useCallback(
@@ -669,6 +653,16 @@ export function MyStoreOrdersView({
           }
           return { kind: "ok", orders: firstPage, nextCursor: firstCursor, extraPages: false };
         });
+        if (firstCursor) {
+          void fetch("/api/me/store-orders?tab_counts=1", { credentials: "include", cache: "no-store" })
+            .then((r) => r.json())
+            .then((j: { ok?: boolean; tab_counts?: Record<MemberOrderTab, number> }) => {
+              if (j?.ok && j.tab_counts) setServerTabCounts(j.tab_counts);
+            })
+            .catch(() => {});
+        } else {
+          setServerTabCounts(null);
+        }
       } catch {
         if (!silent) setState({ kind: "error", message: "network_error" });
       }
@@ -832,7 +826,7 @@ export function MyStoreOrdersView({
     );
   }, [state]);
 
-  const counts = useMemo(() => tabCounts(allSorted), [allSorted]);
+  const counts = useMemo(() => serverTabCounts ?? tabCounts(allSorted), [serverTabCounts, allSorted]);
   const filtered = useMemo(
     () => {
       const base = isDeliveryHub ? allSorted : filterByTab(allSorted, tab);
