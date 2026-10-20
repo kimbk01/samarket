@@ -530,7 +530,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     return (
       <div className={PROFILE_EDIT_PAGE_BG_CLASS}>
         <ProfileEditHeader backHref={backHref} />
-        <div className="py-16 text-center text-[15px] text-[#6F4E37]">{t("profile_edit_loading_profile")}</div>
+        <div className="py-16 text-center text-[15px] text-sam-muted">{t("profile_edit_loading_profile")}</div>
       </div>
     );
   }
@@ -539,7 +539,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     return (
       <div className={PROFILE_EDIT_PAGE_BG_CLASS}>
         <ProfileEditHeader backHref={backHref} />
-        <div className="py-16 text-center text-[15px] text-[#6F4E37]">{t("auth_resource_access_denied")}</div>
+        <div className="py-16 text-center text-[15px] text-sam-muted">{t("auth_resource_access_denied")}</div>
       </div>
     );
   }
@@ -547,7 +547,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   const dibayIdLocked = profile.dibay_id_locked === true;
   const usernameComplete = isPublicIdSetupComplete(profile);
   const sectionHighlight = (slug: string) =>
-    isRequiredSlug(slug) ? "rounded-ui-rect ring-2 ring-[#00704A]/40" : undefined;
+    isRequiredSlug(slug) ? "rounded-ui-rect ring-2 ring-sam-primary/40" : undefined;
   const setupCompleteInput = {
     needsBlock: addressNeedsBlock,
     phoneVerified: phoneSatisfiedForSetup,
@@ -619,7 +619,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
         <ProfileEditFormShell>
           {setupPending ? (
             <div
-              className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2.5 text-[14px] font-medium text-red-700"
+              className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2.5 text-[14px] font-medium text-sam-danger"
               role="status"
             >
               <p>{t("profile_setup_banner")}</p>
@@ -635,8 +635,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
             <div
               className={
                 message.type === "ok"
-                  ? "rounded-ui-rect border border-[#00704A]/25 bg-[#E8F3EE] px-3 py-2.5 text-[14px] font-medium text-[#00704A]"
-                  : "rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2.5 text-[14px] font-medium text-red-700"
+                  ? "rounded-ui-rect border border-sam-primary/25 bg-sam-pressed-surface px-3 py-2.5 text-[14px] font-medium text-sam-primary"
+                  : "rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2.5 text-[14px] font-medium text-sam-danger"
               }
               role="status"
             >

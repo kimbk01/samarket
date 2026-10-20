@@ -10,7 +10,6 @@ import { MyInfoStatGrid } from "@/components/mypage/myinfo/MyInfoStatGrid";
 import { MyInfoQuickAccessSection } from "@/components/mypage/myinfo/MyInfoQuickAccessSection";
 import {
   MyInfoAccountMenuSection,
-  MyInfoDangerMenuSection,
   MyInfoPolicyMenuSection,
   MyInfoServiceMenuSection,
   MyInfoStoreMenuSection,
@@ -19,11 +18,14 @@ import {
 import { useMypageGuestMenuNav } from "@/hooks/use-mypage-guest-menu-nav";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { buildMypageHomeStatRows } from "@/lib/mypage/mypage-home-stat-config";
+import { useMypageHubScrollRestore } from "@/lib/mypage/use-mypage-hub-scroll-restore";
 
 /**
  * 비로그인 `/mypage` — 로그인과 동일 1열 behavior-flow (grid catalog 금지).
  */
 export function MyPageGuestHomeDashboard() {
+  /** 비로그인 홈도 하위 화면에서 돌아오면 직전 위치로 (D21) */
+  useMypageHubScrollRestore(true);
   const { t } = useI18n();
   const pathname = usePathname() ?? "/mypage";
   const guestNav = useMypageGuestMenuNav();
@@ -58,7 +60,6 @@ export function MyPageGuestHomeDashboard() {
         <MyInfoServiceMenuSection onItemPress={guestNav} />
         <MyInfoSupportMenuSection onItemPress={guestNav} />
         <MyInfoPolicyMenuSection onItemPress={guestNav} />
-        <MyInfoDangerMenuSection onItemPress={guestNav} />
       </div>
     </div>
   );

@@ -114,7 +114,7 @@ function NoticeDetailPageInner({ noticeId }: { noticeId: string }) {
             </div>
           ) : error ? (
             <div className="space-y-3">
-              <p className="sam-text-body text-red-600">{error}</p>
+              <p className="sam-text-body text-sam-danger">{error}</p>
               <Link href={backHref} className="text-signature underline">
                 {t("settings_notices")}
               </Link>

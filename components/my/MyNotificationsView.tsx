@@ -788,7 +788,7 @@ export function MyNotificationsView({
             type="button"
             disabled={busy || selectedKeys.size === 0}
             onClick={() => setPendingSelectedDelete(true)}
-            className="rounded-ui-rect bg-red-600 px-2.5 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
+            className="rounded-ui-rect bg-sam-danger px-2.5 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
           >
             {t("notif_center_delete_selected")}
           </button>

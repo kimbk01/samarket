@@ -43,8 +43,8 @@ function ControlRow({
     <li
       className={`rounded-ui-rect border ${
         tone === "action"
-          ? "border-[#E53935]/45 bg-[#FFF5F5] shadow-[inset_3px_0_0_0_#E53935]"
-          : "border-[#D4E9E2] bg-white"
+          ? "border-sam-danger/45 bg-sam-danger-soft shadow-[inset_3px_0_0_0_var(--sam-danger)]"
+          : "border-sam-icon-surface bg-sam-surface"
       } ${clickable ? "cursor-pointer active:opacity-90" : ""}`}
       data-testid={testId}
       onClick={clickable ? onActivate : undefined}
@@ -62,7 +62,7 @@ function ControlRow({
       tabIndex={clickable ? 0 : undefined}
     >
       <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className={`mt-0.5 ${isAddress || tone !== "action" ? "text-[#00704A]" : "text-[#C62828]"}`}>
+        <span className={`mt-0.5 ${isAddress || tone !== "action" ? "text-sam-primary" : "text-sam-danger"}`}>
           {isAddress ? (
             <AddressKindHeadPin kind="master" className="[&_svg]:h-5 [&_svg]:w-[1rem]" />
           ) : tone === "action" ? (
@@ -73,24 +73,24 @@ function ControlRow({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className={`text-[15px] font-semibold ${tone === "action" ? "text-[#B71C1C]" : "text-[#1E3932]"}`}>
+            <p className={`text-[15px] font-semibold ${tone === "action" ? "text-sam-danger" : "text-sam-fg"}`}>
               {title}
             </p>
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                tone === "action" ? "bg-[#FDECEC] text-[#C62828]" : "bg-[#E8F3EE] text-[#00704A]"
+                tone === "action" ? "bg-sam-danger-soft text-sam-danger" : "bg-sam-pressed-surface text-sam-primary"
               }`}
             >
               {badge}
             </span>
           </div>
-          <p className={`mt-1 truncate text-[13px] leading-snug ${tone === "action" ? "text-[#C62828]" : "text-[#6F4E37]"}`}>
+          <p className={`mt-1 truncate text-[13px] leading-snug ${tone === "action" ? "text-sam-danger" : "text-sam-muted"}`}>
             {value}
           </p>
-          <p className="mt-0.5 text-[12px] leading-snug text-[#6F4E37]">{hint}</p>
+          <p className="mt-0.5 text-[12px] leading-snug text-sam-muted">{hint}</p>
         </div>
         {ctaLabel ? (
-          <span className="shrink-0 text-[13px] font-semibold text-[#00704A] underline underline-offset-2">
+          <span className="shrink-0 text-[13px] font-semibold text-sam-primary underline underline-offset-2">
             {ctaLabel}
           </span>
         ) : null}
@@ -139,7 +139,7 @@ export function MypageRequiredInfoSummary({
               fallbackEn: "Account & verification",
             })}
           </h2>
-          <p className="text-[13px] leading-snug text-[#6F4E37]">
+          <p className="text-[13px] leading-snug text-sam-muted">
             {safeT("mypage_account_control_checking_desc", {
               fallbackKo: "계정 정보를 확인하고 있습니다.",
               fallbackEn: "Checking account info.",
@@ -167,7 +167,7 @@ export function MypageRequiredInfoSummary({
             fallbackEn: "Account & verification",
           })}
         </h2>
-        <p className="text-[13px] leading-snug text-[#6F4E37]">
+        <p className="text-[13px] leading-snug text-sam-muted">
           {safeT("mypage_account_control_desc", {
             fallbackKo: "아이디·전화번호·기본 주소를 관리하세요.",
             fallbackEn: "Manage your ID, phone, and default address.",

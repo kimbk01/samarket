@@ -160,10 +160,10 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
           <span className="text-[14px] font-medium text-sam-fg">{t("settings_web_push_title")}</span>
           <p className="mt-0.5 text-[11px] leading-snug text-sam-muted">{t("settings_web_push_desc")}</p>
           {!supported ? (
-            <p className="mt-1 text-[11px] leading-snug text-amber-800">{t("settings_web_push_unsupported_env")}</p>
+            <p className="mt-1 text-[11px] leading-snug text-sam-warning">{t("settings_web_push_unsupported_env")}</p>
           ) : null}
           {status?.table_missing ? (
-            <p className="mt-1 text-[11px] leading-snug text-amber-800">{t("settings_web_push_no_table")}</p>
+            <p className="mt-1 text-[11px] leading-snug text-sam-warning">{t("settings_web_push_no_table")}</p>
           ) : null}
           {!status?.vapid_configured ? (
             <p className="mt-1 text-[11px] leading-snug text-sam-muted">{t("settings_web_push_no_vapid")}</p>
@@ -171,7 +171,7 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
           {status?.vapid_configured && !status?.web_push_enabled ? (
             <p className="mt-1 text-[11px] leading-snug text-sam-muted">{t("settings_web_push_enabled_hint")}</p>
           ) : null}
-          {hint ? <p className="mt-1 text-[11px] leading-snug text-red-600">{hint}</p> : null}
+          {hint ? <p className="mt-1 text-[11px] leading-snug text-sam-danger">{hint}</p> : null}
           {supported && canRegister ? (
             <p className="mt-1 text-[11px] leading-snug text-sam-muted">
               {t("settings_web_push_devices", { count: String(count) })}
@@ -179,7 +179,7 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
             </p>
           ) : null}
           {supported && Notification.permission === "denied" ? (
-            <p className="mt-1 text-[11px] leading-snug text-amber-800">
+            <p className="mt-1 text-[11px] leading-snug text-sam-warning">
               {t("settings_web_notification_denied_inline")}
             </p>
           ) : null}

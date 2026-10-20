@@ -8,6 +8,7 @@ import { MypageSessionReloginCard } from "@/components/mypage/home/MypageSession
 import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
 import {
   MyInfoAccountMenuSection,
+  MyInfoCommunityMenuSection,
   MyInfoDangerMenuSection,
   MyInfoPolicyMenuSection,
   MyInfoServiceMenuSection,
@@ -64,6 +65,7 @@ export function MyPageHomeDashboard({
         )}
 
         <MyInfoTradeMenuSection />
+        <MyInfoCommunityMenuSection />
         <MyInfoStoreMenuSection
           ownerStoreGate={ownerStoreGateSeed?.ownerStoreGate}
           ownerStoreGateFirstId={ownerStoreGateSeed?.ownerStoreGateFirstId}

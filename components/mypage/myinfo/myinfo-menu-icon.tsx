@@ -4,19 +4,24 @@ import type { ReactNode } from "react";
 import {
   Bell,
   BookOpen,
+  Building2,
   CalendarDays,
   CreditCard,
   EllipsisVertical,
   EyeOff,
+  FileText,
   Globe,
   Hand,
   Heart,
   HelpCircle,
+  History,
   Info,
   Languages,
+  Lock,
   MapPin,
   MessageCircle,
   MessageSquare,
+  MessagesSquare,
   Package,
   Phone,
   PlayCircle,
@@ -24,6 +29,8 @@ import {
   Settings,
   Shield,
   ShoppingBag,
+  SlidersHorizontal,
+  Star,
   Store,
   Trash2,
   Truck,
@@ -36,7 +43,7 @@ import type { MypageHomeMenuIconId } from "@/lib/mypage/mypage-home-menu-config"
 
 const ICON_CLASS = "h-[18px] w-[18px]";
 
-export function renderMypageHomeMenuIcon(icon: MypageHomeMenuIconId | "languages"): ReactNode {
+export function renderMypageHomeMenuIcon(icon: MypageHomeMenuIconId): ReactNode {
   const stroke = { strokeWidth: 2 as const };
   switch (icon) {
     case "package":
@@ -97,6 +104,20 @@ export function renderMypageHomeMenuIcon(icon: MypageHomeMenuIconId | "languages
       return <Phone className={ICON_CLASS} {...stroke} />;
     case "languages":
       return <Languages className={ICON_CLASS} {...stroke} />;
+    case "history":
+      return <History className={ICON_CLASS} {...stroke} />;
+    case "star":
+      return <Star className={ICON_CLASS} {...stroke} />;
+    case "messages-square":
+      return <MessagesSquare className={ICON_CLASS} {...stroke} />;
+    case "file-text":
+      return <FileText className={ICON_CLASS} {...stroke} />;
+    case "lock":
+      return <Lock className={ICON_CLASS} {...stroke} />;
+    case "building":
+      return <Building2 className={ICON_CLASS} {...stroke} />;
+    case "sliders":
+      return <SlidersHorizontal className={ICON_CLASS} {...stroke} />;
     default:
       return null;
   }

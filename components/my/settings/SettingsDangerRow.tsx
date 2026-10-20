@@ -14,7 +14,7 @@ export function SettingsDangerRow({ href, icon, label, danger = true }: Settings
     <Link
       href={href}
       className={`flex items-center gap-3 border-b border-sam-border-soft px-4 py-3 text-left last:border-b-0 ${
-        danger ? "text-red-600" : "text-sam-fg"
+        danger ? "text-sam-danger" : "text-sam-fg"
       }`}
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center text-current opacity-80">

@@ -18,7 +18,7 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
         className="relative flex flex-col items-center rounded-ui-rect border border-sam-border bg-sam-surface py-4 active:bg-sam-primary-soft"
       >
         {favoriteCount != null && favoriteCount > 0 ? (
-          <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold text-white ring-2 ring-sam-surface">
+          <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-sam-danger px-1 sam-text-xxs font-bold text-white ring-2 ring-sam-surface">
             {favoriteCount > 99 ? "99+" : favoriteCount}
           </span>
         ) : null}
@@ -50,7 +50,7 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
         className="relative flex flex-col items-center rounded-ui-rect border border-sam-border bg-sam-surface py-4 active:bg-sam-primary-soft"
       >
         {notificationUnreadCount != null && notificationUnreadCount > 0 ? (
-          <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold text-white ring-2 ring-sam-surface">
+          <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-sam-danger px-1 sam-text-xxs font-bold text-white ring-2 ring-sam-surface">
             {notificationUnreadCount > 99 ? "99+" : notificationUnreadCount}
           </span>
         ) : null}

@@ -12,7 +12,8 @@ import {
 } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
 import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
-import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
+import { formatAtUsername } from "@/lib/users/user-label";
+import { resolveMypageSelfDisplayName } from "@/lib/mypage/mypage-self-display-name";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = Pick<
@@ -58,7 +59,7 @@ export function AccountTab({
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <div className="space-y-2">
             <p className="sam-text-body font-semibold text-sam-fg">
-              {resolveDisplayName(profile) || t("mypage_comp_display_name_empty")}
+              {resolveMypageSelfDisplayName(profile) || t("mypage_comp_display_name_empty")}
             </p>
             <p className="font-mono sam-text-xxs text-sam-muted tabular-nums">
               {formatAtUsername((profile as { username?: string | null }).username)}
@@ -157,7 +158,7 @@ export function AccountTab({
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <div className="space-y-2">
           <p className="sam-text-body font-bold text-sam-fg">
-            {resolveDisplayName(profile) || t("mypage_comp_display_name_empty")}
+            {resolveMypageSelfDisplayName(profile) || t("mypage_comp_display_name_empty")}
           </p>
           <p className="font-mono sam-text-xxs text-sam-muted tabular-nums">
             {formatAtUsername((profile as { username?: string | null }).username)}

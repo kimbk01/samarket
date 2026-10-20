@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
-import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
+import { formatAtUsername } from "@/lib/users/user-label";
+import { resolveMypageSelfDisplayName } from "@/lib/mypage/mypage-self-display-name";
 import {
   MYPAGE_PROFILE_EDIT_HREF,
 } from "@/lib/mypage/mypage-profile-routes";
@@ -12,7 +13,7 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 
 export function MypageSelfProfileView({ profile }: { profile: ProfileRow }) {
   const { safeT, t } = useI18n();
-  const displayName = resolveDisplayName(profile) || t("mypage_comp_display_name_empty");
+  const displayName = resolveMypageSelfDisplayName(profile) || t("mypage_comp_display_name_empty");
   const handleRaw = (profile.username ?? profile.dibay_id ?? "").trim();
   const handle = handleRaw ? formatAtUsername(handleRaw.replace(/^@/, "")) : null;
   const bio = (profile.bio ?? "").trim();

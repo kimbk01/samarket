@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
+import { formatAtUsername } from "@/lib/users/user-label";
+import { resolveMypageSelfDisplayName } from "@/lib/mypage/mypage-self-display-name";
 import { buildMyPageHref, MYPAGE_NAV } from "./mypage-nav";
 import { MYPAGE_TYPO } from "./mypage-typography";
 import type { MyPageTabId } from "./types";
@@ -29,7 +30,7 @@ export function MyPageSidebar({
     router.replace(buildMyPageHref(tab, section), { scroll: false });
   };
 
-  const displayName = resolveDisplayName(profile) || t("mypage_comp_sidebar_display_fallback");
+  const displayName = resolveMypageSelfDisplayName(profile) || t("mypage_comp_sidebar_display_fallback");
   const atUsername = formatAtUsername(profile.username ?? null);
   const regionLine =
     resolveProfileLocationAddressLines(profile).join(" · ") || t("mypage_comp_sidebar_region_placeholder");

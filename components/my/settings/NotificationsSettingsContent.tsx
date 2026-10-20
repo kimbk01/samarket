@@ -256,12 +256,12 @@ export function NotificationsSettingsContent() {
                 <p className="mt-0.5 text-[11px] leading-snug text-sam-muted">
                   {t("notifications_commerce_email_desc")}
                   {commerceEmailColumnMissing ? (
-                    <span className="mt-1 block text-[11px] leading-snug text-amber-700">
+                    <span className="mt-1 block text-[11px] leading-snug text-sam-warning">
                       {t("settings_notif_db_migration", { file: "manual-apply-notifications-full.sql" })}
                     </span>
                   ) : null}
                   {commerceEmailPatchError ? (
-                    <span className="mt-1 block text-[11px] leading-snug text-red-600">{commerceEmailPatchError}</span>
+                    <span className="mt-1 block text-[11px] leading-snug text-sam-danger">{commerceEmailPatchError}</span>
                   ) : null}
                 </p>
               </div>

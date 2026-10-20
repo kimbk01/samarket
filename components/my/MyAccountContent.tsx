@@ -22,7 +22,8 @@ import {
   hasStoreTermsConsent,
   type StoreMemberStatus,
 } from "@/lib/auth/store-member-policy";
-import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
+import { formatAtUsername } from "@/lib/users/user-label";
+import { resolveMypageSelfDisplayName } from "@/lib/mypage/mypage-self-display-name";
 import { ProfileVerificationCenter } from "@/components/profile/ProfileVerificationCenter";
 import { buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
 import { useRepresentativeFullAddressLine } from "@/hooks/use-representative-address-line";
@@ -32,8 +33,8 @@ import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 function statusBadgeClass(done: boolean): string {
   return done
-    ? "bg-[rgba(0,130,72,0.12)] text-[#008248]"
-    : "bg-[rgba(245,158,11,0.12)] text-[#b45309]";
+    ? "bg-[rgba(0,130,72,0.12)] text-sam-primary"
+    : "bg-[rgba(245,158,11,0.12)] text-sam-warning";
 }
 
 function memberStatusMessageKey(status: StoreMemberStatus): MessageKey {
@@ -76,12 +77,12 @@ export function MyAccountContent() {
   if (!profile) {
     return (
       <div className="space-y-4">
-        <div className="rounded-[20px] border border-[#d9e5df] bg-white p-5 text-center shadow-sm">
+        <div className="rounded-[20px] border border-sam-border bg-sam-surface p-5 text-center shadow-sm">
           <div className="mx-auto flex justify-center">
             <SamarketUserAvatar avatarUrl={null} sizePx={72} alt="" />
           </div>
-          <p className="mt-3 sam-text-section-title font-semibold text-[#1e3932]">{t("profile_guest_name")}</p>
-          <p className="mt-1 sam-text-body text-[#1e3932]/70">{t("profile_guest_desc")}</p>
+          <p className="mt-3 sam-text-section-title font-semibold text-sam-fg">{t("profile_guest_name")}</p>
+          <p className="mt-1 sam-text-body text-sam-fg/70">{t("profile_guest_desc")}</p>
           <button
             type="button"
             onClick={() => {
@@ -89,7 +90,7 @@ export function MyAccountContent() {
                 next: "/mypage/account",
               });
             }}
-            className="mt-4 w-full rounded-full bg-[#006241] px-4 py-3 sam-text-body font-semibold text-white active:bg-[#1e3932]"
+            className="mt-4 w-full rounded-full bg-sam-primary px-4 py-3 sam-text-body font-semibold text-white active:bg-sam-fg"
           >
             {t("profile_guest_login_cta")}
           </button>
@@ -104,7 +105,7 @@ export function MyAccountContent() {
   const phoneVerificationStatus = (profile as ProfileRow & { phone_verification_status?: string })
     .phone_verification_status;
 
-  const displayNickname = resolveDisplayName(profile) || t("account_nickname");
+  const displayNickname = resolveMypageSelfDisplayName(profile) || t("account_nickname");
   const atUsername = formatAtUsername(profile.username ?? null);
   const publicIdView = evaluatePublicIdProfileView(profile);
   const dibayIdDisplay =
@@ -166,7 +167,7 @@ export function MyAccountContent() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 rounded-[20px] border border-[#d9e5df] bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-4 rounded-[20px] border border-sam-border bg-sam-surface p-4 shadow-sm">
         <SamarketUserAvatar
           avatarUrl={profile.avatar_url}
           sizePx={64}
@@ -174,30 +175,30 @@ export function MyAccountContent() {
           alt=""
         />
         <div className="min-w-0 flex-1">
-          <p className="sam-text-section-title font-semibold text-[#1e3932]">{displayNickname}</p>
+          <p className="sam-text-section-title font-semibold text-sam-fg">{displayNickname}</p>
           {atUsername ? (
-            <p className="mt-0.5 truncate font-mono sam-text-xxs text-[#1e3932]/65 tabular-nums">{atUsername}</p>
+            <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-fg/65 tabular-nums">{atUsername}</p>
           ) : null}
-          <p className="mt-0.5 truncate sam-text-body-secondary text-[#1e3932]/70">
+          <p className="mt-0.5 truncate sam-text-body-secondary text-sam-fg/70">
             {profileCompleted ? t("account_nickname_note") : t("profile_complete_desc")}
           </p>
-          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="mt-2 inline-block sam-text-body font-semibold text-[#006241]">
+          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="mt-2 inline-block sam-text-body font-semibold text-sam-primary">
             {profileCompleted ? t("account_edit_profile") : t("profile_complete_cta")}
           </Link>
         </div>
       </div>
 
       <section
-        className="rounded-[20px] border border-[#d9e5df] bg-white p-4 shadow-sm"
+        className="rounded-[20px] border border-sam-border bg-sam-surface p-4 shadow-sm"
         data-testid="account-essentials-block"
       >
-        <h2 className="sam-text-section-title font-semibold text-[#1e3932]">
+        <h2 className="sam-text-section-title font-semibold text-sam-fg">
           {t("account_essentials_title")}
         </h2>
-        <p className="mt-1 sam-text-body-secondary text-[#1e3932]/70">
+        <p className="mt-1 sam-text-body-secondary text-sam-fg/70">
           {t("account_essentials_desc")}
         </p>
-        <div className="mt-3 divide-y divide-[#d9e5df]">
+        <div className="mt-3 divide-y divide-sam-border">
           {essentials.map((row) => {
             const inner = (
               <>
@@ -206,8 +207,8 @@ export function MyAccountContent() {
                     <AddressKindHeadPin kind="master" className="mt-0.5 h-5 w-5 shrink-0 [&_svg]:h-5 [&_svg]:w-[1rem]" />
                   ) : null}
                   <span className="min-w-0">
-                    <span className="block sam-text-body font-semibold text-[#1e3932]">{row.title}</span>
-                    <span className="mt-0.5 block truncate sam-text-body-secondary text-[#1e3932]/65">{row.desc}</span>
+                    <span className="block sam-text-body font-semibold text-sam-fg">{row.title}</span>
+                    <span className="mt-0.5 block truncate sam-text-body-secondary text-sam-fg/65">{row.desc}</span>
                   </span>
                 </span>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 sam-text-xxs font-semibold ${statusBadgeClass(row.done)}`}>

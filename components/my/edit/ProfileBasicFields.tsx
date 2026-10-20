@@ -75,7 +75,7 @@ export function ProfileBasicFields({
           maxLength={20}
         />
         {errors.displayName ? (
-          <p className="mt-1 text-[12px] text-red-600">{errors.displayName}</p>
+          <p className="mt-1 text-[12px] text-sam-danger">{errors.displayName}</p>
         ) : null}
       </ProfileEditFieldRow>
 

@@ -60,9 +60,9 @@ function RequiredInfoStatusRow({ row }: { row: RequiredInfoRow }) {
   const isDone = row.state === "done";
   const isIncomplete = row.state === "incomplete";
   const shellClass = isIncomplete
-    ? "border-[#E53935]/45 bg-[#FFF5F5] shadow-[inset_3px_0_0_0_#E53935] cursor-pointer active:opacity-90"
-    : "border-[#D4E9E2] bg-white";
-  const badgeClass = isIncomplete ? "bg-[#FDECEC] text-[#C62828]" : "bg-[#E8F3EE] text-[#00704A]";
+    ? "border-sam-danger/45 bg-sam-danger-soft shadow-[inset_3px_0_0_0_var(--sam-danger)] cursor-pointer active:opacity-90"
+    : "border-sam-icon-surface bg-sam-surface";
+  const badgeClass = isIncomplete ? "bg-sam-danger-soft text-sam-danger" : "bg-sam-pressed-surface text-sam-primary";
 
   const openSheet = () => {
     if (isIncomplete && row.onCtaClick) row.onCtaClick();
@@ -89,20 +89,20 @@ function RequiredInfoStatusRow({ row }: { row: RequiredInfoRow }) {
       tabIndex={isIncomplete ? 0 : undefined}
     >
       <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className={row.id === "address" || isDone ? "mt-0.5 text-[#00704A]" : "mt-0.5 text-[#C62828]"}>
+        <span className={row.id === "address" || isDone ? "mt-0.5 text-sam-primary" : "mt-0.5 text-sam-danger"}>
           {row.id === "address" ? renderMypageHomeMenuIcon(row.icon) : isDone ? <CheckCircle2 className="h-5 w-5" aria-hidden /> : renderMypageHomeMenuIcon(row.icon)}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className={`text-[15px] font-semibold ${isIncomplete ? "text-[#B71C1C]" : "text-[#1E3932]"}`}>{row.title}</p>
+            <p className={`text-[15px] font-semibold ${isIncomplete ? "text-sam-danger" : "text-sam-fg"}`}>{row.title}</p>
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${badgeClass}`}>{row.badge}</span>
           </div>
-          <p className={`mt-1 truncate text-[13px] leading-snug ${isIncomplete ? "text-[#C62828]" : "text-[#6F4E37]"}`}>
+          <p className={`mt-1 truncate text-[13px] leading-snug ${isIncomplete ? "text-sam-danger" : "text-sam-muted"}`}>
             {row.value}
           </p>
         </div>
         {row.onCtaClick && row.ctaLabel ? (
-          <span className="shrink-0 rounded-full bg-[#C62828] px-3.5 py-2 text-[13px] font-semibold text-white">
+          <span className="shrink-0 rounded-full bg-sam-danger px-3.5 py-2 text-[13px] font-semibold text-white">
             {row.ctaLabel}
           </span>
         ) : row.onChangeClick && row.changeLabel ? (
@@ -112,7 +112,7 @@ function RequiredInfoStatusRow({ row }: { row: RequiredInfoRow }) {
               event.stopPropagation();
               row.onChangeClick?.();
             }}
-            className="shrink-0 text-[13px] font-semibold text-[#00704A] underline underline-offset-2"
+            className="shrink-0 text-[13px] font-semibold text-sam-primary underline underline-offset-2"
           >
             {row.changeLabel}
           </button>
@@ -257,13 +257,13 @@ export function RequiredInfoList({
     >
       {bundleComplete ? (
         <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-1.5`}>
-          <p className={`${MYPAGE_HOME_SECTION_LABEL_CLASS} text-[#00704A]`} data-testid="mypage-required-info-complete">
+          <p className={`${MYPAGE_HOME_SECTION_LABEL_CLASS} text-sam-primary`} data-testid="mypage-required-info-complete">
             {safeT("mypage_required_bundle_complete", {
               fallbackKo: "필수정보 · 완료",
               fallbackEn: "Required info · Complete",
             })}
           </p>
-          <p className="text-[13px] leading-snug text-[#6F4E37]">
+          <p className="text-[13px] leading-snug text-sam-muted">
             {safeT("mypage_required_complete_desc", {
               fallbackKo: "필수 정보가 모두 등록되었습니다.",
               fallbackEn: "All required info has been completed.",
@@ -281,13 +281,13 @@ export function RequiredInfoList({
             </h2>
             <span
               className={`rounded-full px-2.5 py-1 text-[12px] font-bold ${
-                completeCount < 3 ? "bg-[#FDECEC] text-[#C62828]" : "bg-[#F2F0EB] text-[#6F4E37]"
+                completeCount < 3 ? "bg-sam-danger-soft text-sam-danger" : "bg-sam-app text-sam-muted"
               }`}
             >
               {completeCount}/3
             </span>
           </div>
-          <p className="text-[13px] leading-snug text-[#6F4E37]">
+          <p className="text-[13px] leading-snug text-sam-muted">
             {safeT("mypage_required_incomplete_desc", {
               fallbackKo: "서비스 이용을 위해 아래 항목을 완료해 주세요.",
               fallbackEn: "Complete the required items below to continue using the service.",

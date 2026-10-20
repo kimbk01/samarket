@@ -10,7 +10,6 @@ import { fetchMeProfileFresh, invalidateMeProfileDedupedCache } from "@/lib/prof
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import { PROFILE_CONFLICT_ERROR_CODE } from "@/lib/profile/profile-patch-concurrency";
 import { hasCustomUserAvatar } from "@/lib/profile/user-avatar-display";
-import { ADDR_SB_GREEN } from "@/lib/ui/profile-edit-starbucks-styles";
 
 export interface ProfileImageFieldProps {
   avatarUrl: string | null;
@@ -20,7 +19,7 @@ export interface ProfileImageFieldProps {
 }
 
 const AVATAR_CAMERA_BADGE_CLASS =
-  "pointer-events-none absolute bottom-0 right-0 z-[2] flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-white shadow-[0_1px_4px_rgba(30,57,50,0.18)]";
+  "pointer-events-none absolute bottom-0 right-0 z-[2] flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-sam-primary text-white shadow-[0_1px_4px_rgba(30,57,50,0.18)]";
 
 export function ProfileImageField({
   avatarUrl,
@@ -131,10 +130,10 @@ export function ProfileImageField({
           sizePx={sizePx}
           alt=""
           innerClassName={
-            hasCustomPhoto ? "ring-2 ring-[#00704A]/20 ring-offset-2 ring-offset-[#F2F0EB]" : ""
+            hasCustomPhoto ? "ring-2 ring-sam-primary/20 ring-offset-2 ring-offset-sam-app" : ""
           }
         />
-        <span className={AVATAR_CAMERA_BADGE_CLASS} style={{ backgroundColor: ADDR_SB_GREEN }} aria-hidden>
+        <span className={AVATAR_CAMERA_BADGE_CLASS} aria-hidden>
           <Camera className="h-3.5 w-3.5" strokeWidth={2.5} />
         </span>
       </button>
@@ -152,18 +151,18 @@ export function ProfileImageField({
           type="button"
           onClick={pickFile}
           disabled={uploading}
-          className="text-[#00704A] disabled:opacity-60"
+          className="text-sam-primary disabled:opacity-60"
         >
           {uploading ? t("profile_edit_photo_uploading") : t("profile_edit_photo_pick")}
         </button>
         {hasCustomPhoto ? (
           <>
-            <span className="text-[#6F4E37]/35" aria-hidden>
+            <span className="text-sam-muted/35" aria-hidden>
               ·
             </span>
             <button
               type="button"
-              className="text-[#6F4E37] disabled:opacity-60"
+              className="text-sam-muted disabled:opacity-60"
               onClick={removePhoto}
               disabled={uploading}
             >
@@ -173,7 +172,7 @@ export function ProfileImageField({
         ) : null}
       </div>
 
-      {uploadError ? <p className="text-center text-[12px] text-red-600">{uploadError}</p> : null}
+      {uploadError ? <p className="text-center text-[12px] text-sam-danger">{uploadError}</p> : null}
     </div>
   );
 }

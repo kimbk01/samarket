@@ -88,7 +88,7 @@ export function NativePushSettingsRow({ pushEnabled }: { pushEnabled: boolean })
             OS {t("settings_device_notification")}: {permissionLabel(t, perm)}
           </p>
           {status?.table_missing ? (
-            <p className="mt-1 text-[11px] leading-snug text-amber-700">{t("settings_native_push_no_table")}</p>
+            <p className="mt-1 text-[11px] leading-snug text-sam-warning">{t("settings_native_push_no_table")}</p>
           ) : (
             <p className="mt-1 text-[11px] leading-snug text-sam-muted">
               {registered
@@ -97,7 +97,7 @@ export function NativePushSettingsRow({ pushEnabled }: { pushEnabled: boolean })
               {status?.has_voip ? ` · ${t("settings_native_push_voip_ok")}` : ""}
             </p>
           )}
-          {hint ? <p className="mt-1 text-[11px] leading-snug text-red-600">{hint}</p> : null}
+          {hint ? <p className="mt-1 text-[11px] leading-snug text-sam-danger">{hint}</p> : null}
         </div>
         <div className="flex shrink-0 flex-col gap-1.5">
           <button

@@ -14,7 +14,7 @@ import {
   MYPAGE_HOME_TRADE_SALES_HREF,
 } from "@/lib/mypage/mypage-home-hub-links";
 
-const LEGACY_HUB_REDIRECTS: Record<string, string> = {
+export const LEGACY_HUB_REDIRECTS: Readonly<Record<string, string>> = {
   "trade:sales": MYPAGE_HOME_TRADE_SALES_HREF,
   "trade:purchases": TRADE_CHAT_MESSENGER_LIST_HREF,
   "trade:favorites": MYPAGE_HOME_TRADE_FAVORITES_HREF,
@@ -23,7 +23,8 @@ const LEGACY_HUB_REDIRECTS: Record<string, string> = {
   "trade:trade-chat": "/mypage/trade/chat",
   "trade:reviews": "/mypage/trade/reviews",
   "store:orders": MYPAGE_HOME_STORE_ORDERS_HREF,
-  "store:order-chat": "/mypage/section/store/order-chat",
+  /** 주문 채팅은 주문별 진입(주문 내역 → 주문 채팅) — 자기 자신으로 리다이렉트 금지(무한 루프) */
+  "store:order-chat": MYPAGE_HOME_STORE_ORDERS_HREF,
   /** Slice 6: address shells → addresses hub */
   "store:address": MYPAGE_HOME_ADDRESSES_HREF,
   "settings:address": MYPAGE_HOME_ADDRESSES_HREF,
@@ -35,10 +36,12 @@ const LEGACY_HUB_REDIRECTS: Record<string, string> = {
   /** CUT1: 저장한 글 is a dedicated management surface (unsave) — do not absorb into activity hub */
   "messenger:dm": MYPAGE_HOME_MESSENGER_HREF,
   "messenger:groups": "/community-messenger?section=groups",
-  "messenger:friends": "/mypage/section/messenger/friends",
-  "messenger:chat-alerts": "/mypage/section/messenger/chat-alerts",
+  "messenger:friends": "/mypage/section/account/favorite-users",
+  "messenger:chat-alerts": "/mypage/section/settings/notifications",
   /** App CS — stub support → full-page hub */
   "settings:support": "/mypage/customer-center",
+  /** 매너 배터리는 스냅샷 SSOT 화면 하나 — 세션 temperature 를 쓰던 임베드 대신 (D15) */
+  "settings:manner": "/mypage/trust",
   /**
    * DO NOT map settings:leave → MYPAGE_HOME_ACCOUNT_LEAVE_HREF.
    * That href IS /mypage/section/settings/leave (canonical SSOT). A self-redirect

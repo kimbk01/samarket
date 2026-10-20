@@ -25,17 +25,17 @@ export function MypageSessionReloginCard() {
 
   return (
     <div
-      className={`${MYPAGE_HOME_CARD_CLASS} border border-[#E53935]/35 bg-[#FFF5F5] px-4 py-4`}
+      className={`${MYPAGE_HOME_CARD_CLASS} border border-sam-danger/35 bg-sam-danger-soft px-4 py-4`}
       data-mypage-session-relogin="1"
       role="alert"
     >
-      <p className="text-[15px] font-semibold text-[#B71C1C]">
+      <p className="text-[15px] font-semibold text-sam-danger">
         {safeT("mypage_comp_profile_load_failed_short", {
           fallbackKo: "프로필을 불러오지 못했어요. 다시 로그인해 주세요.",
           fallbackEn: "Couldn't load your profile. Please sign in again.",
         })}
       </p>
-      <p className="mt-1.5 text-[13px] leading-5 text-[#6F4E37]">
+      <p className="mt-1.5 text-[13px] leading-5 text-sam-muted">
         {safeT("auth_session_expired_notice", {
           fallbackKo: "로그인이 만료되었습니다. 다시 로그인해 주세요.",
           fallbackEn: "Your session has expired. Please sign in again.",
@@ -43,7 +43,7 @@ export function MypageSessionReloginCard() {
       </p>
       <button
         type="button"
-        className="mt-3 inline-flex min-h-11 items-center justify-center rounded-ui-rect bg-[#00704A] px-4 text-[14px] font-semibold text-white disabled:opacity-60"
+        className="mt-3 inline-flex min-h-11 items-center justify-center rounded-ui-rect bg-sam-primary px-4 text-[14px] font-semibold text-white disabled:opacity-60"
         disabled={busy}
         onClick={() => void onRelogin()}
       >

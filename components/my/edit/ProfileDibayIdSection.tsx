@@ -203,7 +203,7 @@ export function ProfileDibayIdSection({
   };
 
   const wrapClass = highlighted
-    ? "rounded-ui-rect ring-2 ring-[#00704A]/40 p-3 -m-1"
+    ? "rounded-ui-rect ring-2 ring-sam-primary/40 p-3 -m-1"
     : "";
 
   const inputClass = fieldComplete
@@ -232,7 +232,7 @@ export function ProfileDibayIdSection({
           })}
           className={inputClass}
         />
-        <p className="mt-1 text-[13px] text-[#6F4E37]">
+        <p className="mt-1 text-[13px] text-sam-muted">
           {publicIdView.canChangeOnce
             ? safeT("profile_edit_dibay_id_change_once_helper", {
                 fallbackKo: "원하는 @아이디로 1회 변경할 수 있습니다.",
@@ -242,12 +242,12 @@ export function ProfileDibayIdSection({
         </p>
       </div>
       {error ? (
-        <p className="text-[13px] font-medium text-red-600" role="alert">
+        <p className="text-[13px] font-medium text-sam-danger" role="alert">
           {error}
         </p>
       ) : null}
       {available === true ? (
-        <p className="flex items-center gap-1 text-[13px] font-medium text-[#00704A]">
+        <p className="flex items-center gap-1 text-[13px] font-medium text-sam-primary">
           <Check className="h-4 w-4" aria-hidden />
           {t("profile_edit_dibay_id_available")}
         </p>
@@ -257,7 +257,7 @@ export function ProfileDibayIdSection({
           type="button"
           disabled={!normalized || checking}
           onClick={() => void reserve()}
-          className="rounded-full border border-[#00704A] px-4 py-2 text-[14px] font-semibold text-[#00704A] disabled:opacity-50"
+          className="rounded-full border border-sam-primary px-4 py-2 text-[14px] font-semibold text-sam-primary disabled:opacity-50"
         >
           {checking ? t("profile_edit_dibay_id_checking") : t("profile_edit_dibay_id_check_btn")}
         </button>
@@ -265,7 +265,7 @@ export function ProfileDibayIdSection({
           type="button"
           disabled={!normalized || available !== true || submitting}
           onClick={() => void confirm()}
-          className="rounded-full bg-[#00704A] px-4 py-2 text-[14px] font-semibold text-white disabled:opacity-50"
+          className="rounded-full bg-sam-primary px-4 py-2 text-[14px] font-semibold text-white disabled:opacity-50"
         >
           {submitting
             ? t("profile_edit_saving")
@@ -283,14 +283,14 @@ export function ProfileDibayIdSection({
   if (!publicIdView.setupComplete && !dibayId?.trim()) {
     return (
       <div className={wrapClass} data-profile-field="dibay_id" data-state="recovery">
-        <p className="text-[13px] text-[#6F4E37]">
+        <p className="text-[13px] text-sam-muted">
           {safeT("mypage_required_dibay_id_recover_hint", {
             fallbackKo: "아이디가 없습니다. 자동으로 아이디를 부여해 주세요.",
             fallbackEn: "No ID found. Assign an ID automatically.",
           })}
         </p>
         {error ? (
-          <p className="mt-2 text-[13px] font-medium text-red-600" role="alert">
+          <p className="mt-2 text-[13px] font-medium text-sam-danger" role="alert">
             {error}
           </p>
         ) : null}
@@ -298,7 +298,7 @@ export function ProfileDibayIdSection({
           type="button"
           disabled={recovering}
           onClick={() => void recoverAutoId()}
-          className="mt-3 rounded-full bg-[#00704A] px-4 py-2 text-[14px] font-semibold text-white disabled:opacity-50"
+          className="mt-3 rounded-full bg-sam-primary px-4 py-2 text-[14px] font-semibold text-white disabled:opacity-50"
         >
           {recovering
             ? t("profile_edit_saving")
@@ -318,8 +318,8 @@ export function ProfileDibayIdSection({
         data-profile-field="dibay_id"
         data-state={publicIdView.autoAssigned ? "auto-assigned" : "change-available"}
       >
-        <p className="mt-1 text-[16px] font-semibold text-[#1E3932]">{publicIdView.atDisplay}</p>
-        <p className="mt-1 text-[13px] text-[#6F4E37]">
+        <p className="mt-1 text-[16px] font-semibold text-sam-fg">{publicIdView.atDisplay}</p>
+        <p className="mt-1 text-[13px] text-sam-muted">
           {publicIdView.autoAssigned
             ? safeT("mypage_required_dibay_id_auto_assigned_hint", {
                 fallbackKo: "자동 부여된 아이디입니다. 원하시면 1회 변경할 수 있습니다.",
@@ -334,7 +334,7 @@ export function ProfileDibayIdSection({
           <button
             type="button"
             onClick={() => setShowChangeForm(true)}
-            className="mt-3 text-[13px] font-semibold text-[#00704A] underline underline-offset-2"
+            className="mt-3 text-[13px] font-semibold text-sam-primary underline underline-offset-2"
           >
             {safeT("mypage_required_dibay_id_change_once_action", {
               fallbackKo: "1회 변경",
@@ -351,8 +351,8 @@ export function ProfileDibayIdSection({
   if (publicIdView.setupComplete && publicIdView.atDisplay && !publicIdView.canChangeOnce) {
     return (
       <div className={wrapClass} data-profile-field="dibay_id" data-state="locked">
-        <p className="mt-1 text-[16px] font-semibold text-[#1E3932]">{publicIdView.atDisplay}</p>
-        <p className="mt-1 text-[13px] text-[#6F4E37]">
+        <p className="mt-1 text-[16px] font-semibold text-sam-fg">{publicIdView.atDisplay}</p>
+        <p className="mt-1 text-[13px] text-sam-muted">
           {publicIdView.changeComplete
             ? safeT("mypage_required_dibay_id_change_complete_hint", {
                 fallbackKo: "아이디 변경이 완료되었습니다. 다시 변경할 수 없습니다.",

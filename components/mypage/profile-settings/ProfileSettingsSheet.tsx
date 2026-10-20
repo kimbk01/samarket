@@ -24,14 +24,14 @@ function SettingsRow({
   href?: string;
 }) {
   const className = `flex w-full min-w-0 items-center gap-3 py-3.5 text-left active:opacity-80 ${
-    danger ? "text-red-600" : "text-sam-fg"
+    danger ? "text-sam-danger" : "text-sam-fg"
   }`;
   const inner = (
     <>
       <span className="min-w-0 flex-1">
         <span className={`block truncate sam-text-body font-medium ${danger ? "" : ""}`}>{label}</span>
         {description ? (
-          <span className={`mt-0.5 block truncate sam-text-helper ${danger ? "text-red-500" : "text-sam-muted"}`}>
+          <span className={`mt-0.5 block truncate sam-text-helper ${danger ? "text-sam-danger" : "text-sam-muted"}`}>
             {description}
           </span>
         ) : null}

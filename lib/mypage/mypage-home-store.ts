@@ -4,6 +4,7 @@
  */
 
 import type { ProfileRow } from "@/lib/profile/types";
+import { resolveMypageSelfDisplayName } from "@/lib/mypage/mypage-self-display-name";
 import type { RequiredInfoStatus } from "@/lib/mypage/mypage-home-snapshot";
 import {
   writeMypageHomeSessionLite,
@@ -72,7 +73,7 @@ export function projectionFromProfile(
   return {
     viewerId: profile.id.trim(),
     profile,
-    displayName: (profile.display_name ?? profile.nickname ?? "").trim(),
+    displayName: resolveMypageSelfDisplayName(profile),
     avatarUrl: profile.avatar_url ?? null,
     username: publicId.atDisplay,
     bio: (profile.bio ?? "").trim() || null,

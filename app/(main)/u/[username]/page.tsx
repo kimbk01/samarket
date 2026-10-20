@@ -54,6 +54,23 @@ export default async function PublicUserProfilePage({ params }: { params: Promis
 
   if (prof && isPublicProfileHidden(prof as { status?: string | null; deleted_at?: string | null })) notFound();
 
+  if (prof && typeof (prof as { id?: string }).id === "string") {
+    // 매너 배터리 = 스냅샷 SSOT (공개 프로필 API 와 동일). 스냅샷 없으면 trust_score 브리지 (D15)
+    try {
+      const { data: snap } = await sbAny
+        .from("member_trust_snapshots")
+        .select("manner_battery_percent")
+        .eq("member_id", (prof as { id: string }).id)
+        .maybeSingle();
+      const pct = (snap as { manner_battery_percent?: number } | null)?.manner_battery_percent;
+      if (pct != null && Number.isFinite(Number(pct))) {
+        (prof as Record<string, unknown>).trust_score = Number(pct);
+      }
+    } catch {
+      /* snapshot table may not exist yet — bridge trust_score */
+    }
+  }
+
   let profile = prof && typeof (prof as { id?: string }).id === "string"
     ? mapProfileRowToPublicSeller(prof as Record<string, unknown>)
     : null;

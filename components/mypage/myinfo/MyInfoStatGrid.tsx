@@ -43,7 +43,7 @@ export function MyInfoStatGrid({
           const isLastOddMobile = oddLast && index === items.length - 1;
           const cellClass = `${MYPAGE_HOME_STAT_CELL_CLASS} ${
             isLastOddMobile ? "col-span-2 md:col-span-1" : ""
-          } ${index >= 2 ? "border-t border-[#D4E9E2]/60 md:border-t-0" : ""}`;
+          } ${index >= 2 ? "border-t border-sam-icon-surface/60 md:border-t-0" : ""}`;
           const content = (
             <>
               <p className={MYPAGE_HOME_STAT_LABEL_CLASS}>{it.label}</p>

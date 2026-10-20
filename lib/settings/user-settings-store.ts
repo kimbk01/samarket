@@ -170,13 +170,44 @@ export async function syncUserSettings(
   return pending;
 }
 
-/** 설정 일부 업데이트 (UI는 즉시 갱신하고 서버로 동기화) */
-export function updateUserSettings(userId: string, partial: Partial<UserSettingsRow>): void {
+/** 저장 실패 이벤트 — 화면은 토스트로 알린다 (`MypageToastHost`). detail: { userId, keys } */
+export const USER_SETTINGS_SAVE_FAILED_EVENT = "samarket:user-settings-save-failed";
+
+/**
+ * 설정 일부 업데이트 — UI 는 즉시 갱신하고 서버로 동기화한다.
+ * 서버 저장이 실패하면(D16):
+ *  - `revert`(기본): 바꾼 항목만 이전 값으로 되돌리고 실패 이벤트를 보낸다 — 화면에 저장된 것처럼 남기지 않는다.
+ *  - `keepLocal`: 기기 설정 성격(언어)은 기기 값 유지(다음 동기화에서 재업로드).
+ * 반환값: 서버 저장 성공 여부.
+ */
+export function updateUserSettings(
+  userId: string,
+  partial: Partial<UserSettingsRow>,
+  options?: { onFailure?: "revert" | "keepLocal" }
+): Promise<boolean> {
+  const before = { ...(cache.get(userId) ?? getStored(userId)) };
   applySettings(userId, {
-    ...(cache.get(userId) ?? getStored(userId)),
+    ...before,
     ...partial,
   });
-  void fetch("/api/me/settings", {
+  const onFailure = options?.onFailure ?? "revert";
+  const fail = (): boolean => {
+    if (onFailure === "revert") {
+      const current = cache.get(userId) ?? getStored(userId);
+      const restored: Partial<UserSettingsRow> = { ...current };
+      for (const key of Object.keys(partial) as Array<keyof UserSettingsRow>) {
+        (restored as Record<string, unknown>)[key] = (before as Record<string, unknown>)[key];
+      }
+      applySettings(userId, restored);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(USER_SETTINGS_SAVE_FAILED_EVENT, { detail: { userId, keys: Object.keys(partial) } })
+        );
+      }
+    }
+    return false;
+  };
+  return fetch("/api/me/settings", {
     method: "PATCH",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -186,11 +217,11 @@ export function updateUserSettings(userId: string, partial: Partial<UserSettings
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; settings?: Partial<UserSettingsRow> };
       if (res.ok && json?.ok) {
         applyMergedRemoteSettings(userId, json.settings ?? partial, { allowUpload: false });
+        return true;
       }
+      return fail();
     })
-    .catch(() => {
-      /* optimistic cache 유지 */
-    });
+    .catch(() => fail());
 }
 
 export function subscribeUserSettings(

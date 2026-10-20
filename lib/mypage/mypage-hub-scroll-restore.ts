@@ -14,13 +14,15 @@ import {
 const KEY_SCROLL = "dibay:mypage-hub-scroll";
 const KEY_POPSTATE_PENDING = "dibay:mypage-hub-scroll-popstate-pending";
 const HUB = "/mypage";
+/** `/my` 는 같은 홈(MyContent)을 그리는 별칭 */
+const HUB_ALIASES = new Set([HUB, "/my"]);
 const TTL_MS = 60_000;
 
 let manualScrollRestorationApplied = false;
 
 export function isMypageHubPath(pathname: string | null | undefined): boolean {
   const p = (pathname || "").split("?")[0]?.replace(/\/+$/, "") || "/";
-  return p === HUB;
+  return HUB_ALIASES.has(p);
 }
 
 export function ensureMypageHubManualScrollRestoration(): void {
@@ -69,6 +71,15 @@ export function noteMypageHubScrollPopstatePending(): void {
     sessionStorage.setItem(KEY_POPSTATE_PENDING, HUB);
   } catch {
     /* quota */
+  }
+}
+
+export function clearMypageHubScrollPopstatePending(): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.removeItem(KEY_POPSTATE_PENDING);
+  } catch {
+    /* ignore */
   }
 }
 

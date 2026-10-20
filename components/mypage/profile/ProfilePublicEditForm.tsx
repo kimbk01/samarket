@@ -134,7 +134,7 @@ export function ProfilePublicEditForm({
           maxLength={20}
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         />
-        {error ? <p className="mt-1 text-[12px] text-red-600">{error}</p> : null}
+        {error ? <p className="mt-1 text-[12px] text-sam-danger">{error}</p> : null}
       </div>
       <div>
         <label className="mb-1 block sam-text-helper font-medium text-sam-muted">
@@ -148,7 +148,7 @@ export function ProfilePublicEditForm({
           placeholder={t("profile_edit_status_placeholder")}
         />
       </div>
-      {message ? <p className="text-[13px] font-medium text-[#00704A]">{message}</p> : null}
+      {message ? <p className="text-[13px] font-medium text-sam-primary">{message}</p> : null}
       <button
         type="button"
         disabled={saving}

@@ -24,7 +24,7 @@ export function ProfileEditBottomSaveBar({
     <div
       data-form-keyboard-footer="1"
       data-form-keyboard-open={keyboardOpen ? "true" : "false"}
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 border-t border-[#00704A]/12 bg-[#F2F0EB]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[#F2F0EB]/88"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 border-t border-sam-primary/12 bg-sam-app/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-app/88"
       style={{
         paddingBottom: `${effectiveBottomInset}px`,
       }}
@@ -34,7 +34,7 @@ export function ProfileEditBottomSaveBar({
           type="button"
           onClick={onCancel}
           onPointerDown={(e) => triggerInteractionFeedback("light", e)}
-          className={`flex flex-1 items-center justify-center rounded-ui-rect border border-[#00704A]/25 bg-white py-3 text-[15px] font-semibold text-[#1E3932] ${FORM_INTERACTIVE_PRESS_CLASS}`}
+          className={`flex flex-1 items-center justify-center rounded-ui-rect border border-sam-primary/25 bg-sam-surface py-3 text-[15px] font-semibold text-sam-fg ${FORM_INTERACTIVE_PRESS_CLASS}`}
         >
           {t("common_cancel")}
         </button>

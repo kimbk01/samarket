@@ -114,7 +114,7 @@ export function AppLanguageProvider({
       persistExplicitLanguage(explicit);
       const userId = getCurrentUser()?.id;
       if (userId) {
-        updateUserSettings(userId, { preferred_language: explicit });
+        void updateUserSettings(userId, { preferred_language: explicit }, { onFailure: "keepLocal" });
       }
       applyPresentation({ preference: explicit, resolved: explicit });
     },
@@ -191,7 +191,7 @@ export function AppLanguageProvider({
       });
       const settingsExplicit = parseExplicitAppLanguage(settings.preferred_language);
       if (presentation.preference != null && presentation.preference !== settingsExplicit) {
-        updateUserSettings(userId, { preferred_language: presentation.preference });
+        void updateUserSettings(userId, { preferred_language: presentation.preference }, { onFailure: "keepLocal" });
       }
       applyPresentation(presentation);
     });

@@ -39,17 +39,17 @@ export function ProfileMapLocationBlock({
 
   const emptyBtnClass =
     fieldIncomplete || setupError
-      ? `flex w-full items-center rounded-ui-rect border border-dashed px-3 py-3 text-left text-[14px] font-semibold active:bg-red-100/60 ${PROFILE_EDIT_ADDRESS_INCOMPLETE_CLASS}`
-      : "flex w-full items-center rounded-ui-rect border border-dashed border-[#00704A]/35 bg-[#E8F3EE]/60 px-3 py-3 text-left text-[14px] font-semibold text-[#00704A] active:bg-[#D4E9E2]/60";
+      ? `flex w-full items-center rounded-ui-rect border border-dashed px-3 py-3 text-left text-[14px] font-semibold active:bg-sam-danger-soft/60 ${PROFILE_EDIT_ADDRESS_INCOMPLETE_CLASS}`
+      : "flex w-full items-center rounded-ui-rect border border-dashed border-sam-primary/35 bg-sam-pressed-surface/60 px-3 py-3 text-left text-[14px] font-semibold text-sam-primary active:bg-sam-icon-surface/60";
 
   return (
     <div className="space-y-3">
       {listError ? (
-        <p className="text-[14px] text-[#6F4E37]" role="alert">
+        <p className="text-[14px] text-sam-muted" role="alert">
           {t("profile_edit_map_load_failed")}
         </p>
       ) : addresses === null ? (
-        <p className="text-[14px] text-[#6F4E37]/70">{t("common_loading")}</p>
+        <p className="text-[14px] text-sam-muted/70">{t("common_loading")}</p>
       ) : !representative ? (
         <button
           type="button"
@@ -64,7 +64,7 @@ export function ProfileMapLocationBlock({
           type="button"
           onClick={goAddresses}
           aria-label={t("profile_edit_address_row_aria")}
-          className="w-full rounded-ui-rect border border-[#00704A]/15 bg-[#E8F3EE]/50 px-3 py-2.5 text-left active:bg-[#D4E9E2]/60"
+          className="w-full rounded-ui-rect border border-sam-primary/15 bg-sam-pressed-surface/50 px-3 py-2.5 text-left active:bg-sam-icon-surface/60"
         >
           <AddressListRowBody row={representative} badgeStyle="starbucks" />
         </button>
@@ -79,7 +79,7 @@ export function ProfileMapLocationBlock({
         {t("address_manage_title")}
       </button>
       {setupError && !representative ? (
-        <p className="text-[12px] text-red-600" role="alert">
+        <p className="text-[12px] text-sam-danger" role="alert">
           {t("profile_setup_err_address_required")}
         </p>
       ) : null}
