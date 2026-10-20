@@ -1069,7 +1069,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             </section>
             <section className="mt-3">
               <h3 className="text-xs font-semibold text-sam-muted">{ko ? "바로가기" : "Shortcuts"}</h3>
-              <ul className="mt-1 space-y-1">
+              <ul className="mt-1 space-y-1" data-admin-support-context-links="1">
                 {resolveSupportCaseContextLinks({
                   ownerStoreId: activeCase.owner_store_id,
                   requesterUserId: activeCase.requester_user_id,

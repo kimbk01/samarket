@@ -1,5 +1,5 @@
 /**
- * 설계 v4 §7 — 관리자 확인 팝업은 AdminActionConfirmDialog 만 쓴다. `window.confirm` / 전역 `confirm(` 금지.
+ * 설계 v4 §7 — 관리자 확인 팝업은 AdminActionConfirmDialog 만 쓴다. `window.confirm`·`window.prompt` / 전역 `confirm(`·`prompt(` 금지.
  * 대상: components/admin/**, app/admin/** (테스트 제외). `askConfirm(`·`onConfirm(`·`x.confirm(` 같은
  * 식별자·메서드 호출은 허용(앞 글자가 식별자 문자이거나 `.` 인 경우 = 전역 호출이 아님).
  */
@@ -31,7 +31,7 @@ function listSourceFiles(dir: string): string[] {
 }
 
 /** `window.confirm(` · `globalThis.confirm(` · 전역 `confirm(` 호출. */
-const GLOBAL_CONFIRM = /(?:\b(?:window|globalThis|self)\s*\.\s*confirm\s*\(|(?<![\w$.])confirm\s*\()/;
+const GLOBAL_CONFIRM = /(?:\b(?:window|globalThis|self)\s*\.\s*(?:confirm|prompt)\s*\(|(?<![\w$.])(?:confirm|prompt)\s*\()/;
 
 function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
@@ -51,6 +51,8 @@ describe("admin: window.confirm 금지 (AdminActionConfirmDialog 사용)", () =>
     expect(hasGlobalConfirmCall(`dialog.confirm(x)`)).toBe(false);
     expect(hasGlobalConfirmCall(`const { confirm: askConfirm } = useAdminConfirmDialog();`)).toBe(false);
     expect(hasGlobalConfirmCall(`// window.confirm(x) 금지`)).toBe(false);
+    expect(hasGlobalConfirmCall(`const name = window.prompt("이름", "");`)).toBe(true);
+    expect(hasGlobalConfirmCall(`const name = await askInput({ title })`)).toBe(false);
   });
 
   it("components/admin · app/admin 에 전역 confirm 호출이 없다", () => {

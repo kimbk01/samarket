@@ -19,7 +19,7 @@ export function AdminPtrRevealListPage() {
   const lang = language === "en" ? "en" : "ko";
   const L = useCallback((ko: string, en: string) => (lang === "en" ? en : ko), [lang]);
   const router = useRouter();
-  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
+  const { confirm: askConfirm, prompt: askInput, dialog: confirmDialog } = useAdminConfirmDialog();
   const [items, setItems] = useState<PlatformPopupAdminListItem[]>([]);
   const [status, setStatus] = useState("");
   const [query, setQuery] = useState("");
@@ -53,8 +53,14 @@ export function AdminPtrRevealListPage() {
   }, [items, query]);
 
   const create = async () => {
-    const name = window.prompt(L("새 당겨서 새로고침 광고 이름", "Name for the new pull-to-refresh ad"), "");
-    if (!name?.trim()) return;
+    const name = await askInput({
+      title: L("새 당겨서 새로고침 광고", "New pull-to-refresh ad"),
+      description: L("광고 이름을 입력하세요. 나머지 설정은 다음 화면에서 합니다.", "Enter a name. You set the rest on the next screen."),
+      inputLabel: L("광고 이름", "Ad name"),
+      confirmLabel: L("만들기", "Create"),
+      cancelLabel: L("취소", "Cancel"),
+    });
+    if (!name) return;
     setBusy(true);
     const res = await fetch("/api/admin/platform-popup-campaigns", {
       method: "POST",

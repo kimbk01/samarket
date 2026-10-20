@@ -35,7 +35,7 @@ if (!queue.includes("cash_charges")) fail("action queue missing cash_charges");
 if (!queue.includes('business_cash_charge_requests')) {
   fail("action queue must count business_cash_charge_requests");
 }
-if (!queue.includes("const charges = cash_charges + user_charges")) {
+if (!/\bcharges\s*[:=]\s*cash_charges\s*\+\s*user_charges\b/.test(queue)) {
   fail("actionable charges must be cash+user, not AST-002 store_charges");
 }
 
@@ -69,7 +69,7 @@ if (!overview.includes("cash_charge_pending: counts.cash_charges")) {
 
 const hub = read("components/admin/business/AdminBusinessOpsOverview.tsx");
 if (!hub.includes("data-admin-store-ops-hub-links")) fail("Store ops hub links missing");
-if (!hub.includes("data-store-hub-finance")) fail("Store finance link missing");
+if (!hub.includes("data-store-hub-financial-statement")) fail("Store finance link missing");
 
 const adsHub = read("components/admin/stores/AdminDeliveryAdsControlPlane.tsx");
 if (!adsHub.includes('searchParams.get("view")')) {
