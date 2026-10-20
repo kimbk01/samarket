@@ -1,4 +1,5 @@
 "use client";
+import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 
@@ -224,6 +225,9 @@ export function StoreDetailPublic({
   initialApiResponse?: StoreApiJsonResponse | null;
 }) {
   const { t, language } = useI18n();
+  const regionViewerUserId = useRegionViewerUserId();
+  /** serviceability 캐시·게스트 판정 — 장바구니와 동일 viewer 키 (ADDR-SSOT-003/007) */
+  const serviceabilityViewerId = regionViewerUserId === "guest" ? null : regionViewerUserId;
   const storeLifecycle = useDeliverySurfaceLifecycle("store");
   const storeActive = storeLifecycle === "active";
   const storeEffectsEnabled = storeLifecycle !== "exiting";
@@ -1314,9 +1318,13 @@ export function StoreDetailPublic({
     const run = () => {
       ac?.abort();
       ac = new AbortController();
-      void fetchStoreDeliveryServiceabilityClient(slugKey, ac.signal).then((svc) => {
+      void fetchStoreDeliveryServiceabilityClient(slugKey, ac.signal, {
+        viewerUserId: serviceabilityViewerId,
+      }).then((svc) => {
         if (cancelled) return;
-        setDistanceOutOfRange(isDeliveryDistanceOrderBlocked(svc));
+        setDistanceOutOfRange(
+          isDeliveryDistanceOrderBlocked(svc, { viewerIsGuest: serviceabilityViewerId == null })
+        );
       });
     };
     run();
@@ -1327,7 +1335,7 @@ export function StoreDetailPublic({
       ac?.abort();
       window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     };
-  }, [storeEffectsEnabled, store?.slug]);
+  }, [storeEffectsEnabled, store?.slug, serviceabilityViewerId]);
 
   useEffect(() => {
     const slugKey = store?.slug?.trim();
