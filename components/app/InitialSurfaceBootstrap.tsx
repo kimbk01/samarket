@@ -5,11 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { getStartupConfigCached, scheduleStartupConfigRefresh } from "@/lib/startup/startup-config-client";
 import { resolveInitialAppSurfacePath } from "@/lib/startup/initial-app-surface";
 import { getAppEntryDecision } from "@/lib/lifecycle/app-entry-kind";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 const APPLIED_KEY = "dibay:startup:initial-surface-applied";
 
 function isRootCommunityPath(pathname: string): boolean {
-  return pathname === "/" || pathname === "/philife" || pathname === "/community";
+  return isCommunityHomeSurfacePath(pathname);
 }
 
 /**

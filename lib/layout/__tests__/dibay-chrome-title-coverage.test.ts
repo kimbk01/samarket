@@ -137,64 +137,70 @@ export type ChromeTitleAuthority =
   | "resolve_title"
   | "extras_required";
 
-/** Routes that rely on MySubpageHeader / page extras (not resolve alone). */
-const EXTRAS_REQUIRED = new Set<string>([
-  "/home",
-  "/philife/purchases",
-  "/philife/purchases/x",
-  "/philife/sales",
-  "/philife/reviews",
-  "/philife/my",
-  "/community/posts/00000000-0000-4000-8000-000000000001",
+/**
+ * Routes that rely on page extras (not resolve alone) — each entry carries SOURCE evidence:
+ * - `registers`: one of `files` registers a tier1 title (`MySubpageHeader`/`MyScreen` without
+ *   `registerMainTier1={false}`, or `setMainTier1Extras({ tier1: { title… } })`).
+ * - `redirect`: the page only redirects (never paints chrome) — file must contain `redirect(`.
+ * A route listed here without matching source evidence FAILS (no false PASS — `/home` was one).
+ */
+type ExtrasEvidence =
+  | { kind: "registers"; files: readonly string[] }
+  | { kind: "redirect"; file: string };
+
+const EXTRAS_REQUIRED: Readonly<Record<string, ExtrasEvidence>> = {
+  "/philife/purchases": { kind: "redirect", file: "app/(main)/philife/purchases/page.tsx" },
+  "/philife/purchases/x": { kind: "redirect", file: "app/(main)/philife/purchases/[chatId]/page.tsx" },
+  "/philife/sales": { kind: "registers", files: ["app/(main)/philife/sales/page.tsx"] },
+  "/philife/reviews": { kind: "registers", files: ["app/(main)/philife/reviews/page.tsx"] },
+  "/community/posts/00000000-0000-4000-8000-000000000001": {
+    kind: "registers",
+    files: ["components/community/post-detail/CommunityPostDetailHeader.tsx"],
+  },
+  "/mypage/offers/received": { kind: "redirect", file: "app/(main)/mypage/offers/received/page.tsx" },
+  "/mypage/offers/sent": { kind: "redirect", file: "app/(main)/mypage/offers/sent/page.tsx" },
+  "/mypage/store-orders/o1/chat": {
+    kind: "redirect",
+    file: "app/(main)/mypage/store-orders/[orderId]/chat/page.tsx",
+  },
+  "/notifications": { kind: "registers", files: ["app/(main)/notifications/page.tsx"] },
+  "/notifications/n1": { kind: "registers", files: ["app/(main)/notifications/[notificationId]/page.tsx"] },
+  "/notifications/notes/t1": {
+    kind: "redirect",
+    file: "app/(main)/notifications/notes/[threadId]/page.tsx",
+  },
+  "/onboarding/address": { kind: "redirect", file: "app/(main)/onboarding/address/page.tsx" },
+  "/onboarding/username": { kind: "redirect", file: "app/(main)/onboarding/username/page.tsx" },
+};
+
+/**
+ * 범위 밖 결함(보고만 — P4 2026-10-20): resolve 제목도, 소스 tier1 등록도 없다.
+ * 전역 1단이 그려지면 「내용을 표시할 수 없습니다」. 각 도메인 작업에서 제목 등록 후 여기서 제거한다.
+ * 테스트가 이 목록과 실제 누락 집합의 **일치**를 강제 — 새 누락은 실패, 고친 경로는 목록에서 빼야 통과.
+ */
+export const KNOWN_TIER1_TITLE_GAPS: readonly string[] = [
   "/write/c1",
   "/posts/new",
-  "/mypage/section/account",
-  "/mypage/section/account/profile",
-  "/mypage/required/dibay-id",
-  "/mypage/required/phone",
-  "/mypage/addresses/search",
-  "/mypage/points/charge",
-  "/mypage/points/expiring",
-  "/mypage/points/promotions",
-  "/mypage/ads",
-  "/mypage/ads/apply",
-  "/mypage/ads/feed-request",
-  "/mypage/products",
-  "/mypage/offers",
-  "/mypage/offers/received",
-  "/mypage/offers/sent",
-  "/mypage/community-posts",
-  "/mypage/community-activity",
-  "/mypage/store-inquiries",
-  "/mypage/customer-center",
-  "/mypage/customer-center/notice",
-  "/mypage/customer-center/notice/1",
-  "/mypage/customer-center/system",
-  "/mypage/customer-center/system/1",
-  "/mypage/customer-center/marketing",
-  "/mypage/customer-center/marketing/1",
-  "/mypage/inbox",
-  "/mypage/inbox/t1",
-  "/mypage/inquiries",
-  "/mypage/inquiries/t1",
-  "/mypage/notices/n1",
-  "/notifications",
-  "/notifications/n1",
-  "/notifications/notes/t1",
-  "/onboarding/address",
-  "/onboarding/profile",
-  "/onboarding/username",
-  "/u/user",
-  "/my/ads/apply",
-  "/group-chat/r1",
-  "/group/tok",
-  "/community-messenger/calls/logs",
-  "/community-messenger/calls/outgoing",
+  "/orders/store/o1/chat",
   "/community-messenger/calls-v3/c1",
   "/community-messenger/calls-v4/c1",
-  "/orders/store/o1/chat",
-  "/mypage/store-orders/o1/chat",
-]);
+  "/group-chat/r1",
+  "/group/tok",
+  "/onboarding/profile",
+  "/u/user",
+];
+
+const TIER1_TITLE_REGISTRATION_RE =
+  /<(?:MySubpageHeader|MyScreen)\b(?![^>]*registerMainTier1=\{false\})[^>]*\btitle(?:Key)?=|setMainTier1Extras\(\{\s*tier1:\s*\{[^}]*\btitle(?:Text)?:/;
+
+function hasExtrasSourceEvidence(evidence: ExtrasEvidence): boolean {
+  if (evidence.kind === "redirect") {
+    return /\bredirect\(/.test(readFileSync(join(process.cwd(), evidence.file), "utf8"));
+  }
+  return evidence.files.some((f) =>
+    TIER1_TITLE_REGISTRATION_RE.test(readFileSync(join(process.cwd(), f), "utf8"))
+  );
+}
 
 export function resolveChromeTitleAuthority(pathname: string): ChromeTitleAuthority {
   const hub = resolveMainTabKeepAliveHub(pathname);
@@ -220,7 +226,8 @@ export function resolveChromeTitleAuthority(pathname: string): ChromeTitleAuthor
   if (resolved && resolved.titleText.trim() && resolved.titleText !== "dibaY") {
     return "resolve_title";
   }
-  if (EXTRAS_REQUIRED.has(pathname)) {
+  const evidence = EXTRAS_REQUIRED[pathname];
+  if (evidence && hasExtrasSourceEvidence(evidence)) {
     return "extras_required";
   }
   throw new Error(`Chrome title authority missing for ${pathname}`);
@@ -237,7 +244,25 @@ describe("dibay chrome title coverage", () => {
         missing.push(route);
       }
     }
-    expect(missing).toEqual([]);
+    expect(missing).toEqual([...KNOWN_TIER1_TITLE_GAPS]);
+  });
+
+  it("every EXTRAS_REQUIRED route has source evidence (no false PASS)", () => {
+    const noEvidence = Object.entries(EXTRAS_REQUIRED)
+      .filter(([, ev]) => !hasExtrasSourceEvidence(ev))
+      .map(([route]) => route);
+    expect(noEvidence).toEqual([]);
+  });
+
+  it("/home is the community MAIN HUB (same as `/`), not an extras route", () => {
+    expect(resolveChromeTitleAuthority("/home")).toBe("main_hub");
+    expect(resolveChromeTitleAuthority("/")).toBe("main_hub");
+    expect(EXTRAS_REQUIRED["/home"]).toBeUndefined();
+  });
+
+  it("mypage section routes resolve a title in the route table (`/mypage/section/` bug)", () => {
+    expect(resolveChromeTitleAuthority("/mypage/section/account")).toBe("resolve_title");
+    expect(resolveMainTier1Subpage("/mypage/section/zzz/unknown")?.titleText).toBe("tier1_myinfo");
   });
 
   it("maps trade hub children via resolve (no empty title)", () => {

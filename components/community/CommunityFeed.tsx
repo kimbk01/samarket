@@ -133,6 +133,7 @@ import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext"
 import { useCommunityLocalFilter } from "@/hooks/use-community-local-filter";
 import { CommunityLocalFilterPickerSheet } from "@/components/community/CommunityLocalFilterPickerSheet";
 import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 declare global {
   interface Window {
@@ -155,7 +156,7 @@ function philifePerfDiagEnabled(): boolean {
   return (
     process.env.NODE_ENV === "development" &&
     typeof window !== "undefined" &&
-    (window.location.pathname === "/philife" || window.location.pathname === "/") &&
+    isCommunityHomeSurfacePath(window.location.pathname) &&
     isSamarketPhilifeFeedPerfDiagEnabled()
   );
 }
@@ -166,8 +167,7 @@ function philifePerfDiag(event: string, extra: Record<string, unknown>): void {
 }
 
 function isCommunityHubPath(pathname: string): boolean {
-  const p = pathname.replace(/\/+$/, "") || "/";
-  return p === "/" || p === "/philife" || p === "/community";
+  return isCommunityHomeSurfacePath(pathname);
 }
 
 /** `CommunityNavComposeItem` → 해당 항목을 선택했을 때의 `CommunityNavSelection` */

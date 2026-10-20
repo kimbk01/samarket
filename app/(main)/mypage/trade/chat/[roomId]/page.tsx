@@ -1,6 +1,4 @@
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
 import {
@@ -15,22 +13,9 @@ function firstQueryString(v: string | string[] | undefined): string | undefined 
 
 /**
  * 레거시 거래 허브 방 URL — 메신저 방으로 통일 리다이렉트.
+ * 항상 리다이렉트만 하므로 Suspense·스켈레톤 없이 실행(실제 HTTP 리다이렉트, 피드 스켈레톤 노출 금지).
  */
-export default function TradeHubChatRoomPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ roomId: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={3} />}>
-      <TradeHubChatRoomPageBody params={params} searchParams={searchParams} />
-    </Suspense>
-  );
-}
-
-async function TradeHubChatRoomPageBody({
+export default async function TradeHubChatRoomPage({
   params,
   searchParams,
 }: {

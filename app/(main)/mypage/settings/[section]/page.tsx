@@ -1,6 +1,4 @@
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 
 const SECTION_REDIRECTS: Record<string, string> = {
   account: "/mypage/section/account/account-info",
@@ -25,19 +23,8 @@ const SECTION_REDIRECTS: Record<string, string> = {
   "device-permissions": "/mypage/section/settings/device-permissions",
 };
 
-export default function SettingsSectionPage({
-  params,
-}: {
-  params: Promise<{ section: string }>;
-}) {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={3} />}>
-      <SettingsSectionPageBody params={params} />
-    </Suspense>
-  );
-}
-
-async function SettingsSectionPageBody({
+/** 레거시 설정 경로 — 항상 리다이렉트. Suspense 밖에서 실행해 실제 HTTP 리다이렉트(대체 스켈레톤 노출 없음). */
+export default async function SettingsSectionPage({
   params,
 }: {
   params: Promise<{ section: string }>;

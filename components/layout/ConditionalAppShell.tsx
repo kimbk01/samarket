@@ -78,6 +78,7 @@ import { SupportFabRegistryProvider } from "@/lib/support/support-fab-registry";
 import { SupportModalHost } from "@/components/support/SupportModalHost";
 import { SupportInAppNoticeHost } from "@/components/support/SupportInAppNoticeHost";
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 const PhilifeFeedWarmPrefetch = dynamic(
   () => import("@/components/community/PhilifeFeedWarmPrefetch").then((mod) => mod.PhilifeFeedWarmPrefetch),
@@ -129,7 +130,7 @@ function MarkAppShellReadyOnce({
       BOTTOM_NAV_ITEMS.find((t) => {
         const hrefPath = t.href.split("?")[0] ?? t.href;
         const cur = (pathname ?? "/").split("?")[0] || "/";
-        if (t.id === "community") return cur === "/" || cur === "/philife" || cur.startsWith("/philife/");
+        if (t.id === "community") return isCommunityHomeSurfacePath(cur) || cur.startsWith("/philife/");
         return cur === hrefPath || cur.startsWith(`${hrefPath}/`);
       })?.id ?? "community";
     const lang =
@@ -225,12 +226,11 @@ export function ConditionalAppShell({
   const tradeWriteSheet = useTradeWriteSheetOptional();
   const pathNoQuery = pathname?.split("?")[0] ?? "";
   const isMessengerStackSurface = isMessengerFromHeaderStackSurface(pathNoQuery);
-  const isPhilifeFeedPath = pathNoQuery === "/philife" || pathNoQuery === "/";
+  const isPhilifeFeedPath = isCommunityHomeSurfacePath(pathNoQuery);
   const isTradeWriteSheetSurface =
     Boolean(tradeWriteSheet?.isOpen) &&
     (pathNoQuery === "/market" ||
-      pathNoQuery === "/philife" ||
-      pathNoQuery === "/" ||
+      isPhilifeFeedPath ||
       (pathNoQuery.startsWith("/market/") &&
         pathNoQuery !== "/market/trade-meet-spot" &&
         !pathNoQuery.startsWith("/market/trade-meet-spot/")));

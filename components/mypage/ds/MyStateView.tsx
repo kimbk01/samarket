@@ -5,6 +5,7 @@ import { AlertCircle } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SellerHubEmptyState } from "@/components/mypage/seller/SellerHubEmptyState";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 /**
  * 화면 유형 (최종 설계 §1.2 `MyScreen.template` · §1.5 스켈레톤 표)
@@ -182,6 +183,22 @@ export function MyStateSkeleton({
   return (
     <div aria-busy="true" data-testid="my-state-loading" data-template={template}>
       {body}
+    </div>
+  );
+}
+
+/**
+ * 라우트 `Suspense`·`loading.tsx` 대체 화면 (설계서 §4 ③) — `MyScreen` 본문 열(40rem·16/20px)과 같은 자리에
+ * 화면 유형 스켈레톤만 그린다. 헤더는 1단 셸이 경로 표 제목으로 즉시 그리므로 여기서 그리지 않는다.
+ * 피드 스켈레톤(`MainFeedRouteLoading`)·임의 `pt-16` 여백 대체용.
+ */
+export function MyRouteSkeleton(props: Pick<MyStateViewProps, "template" | "rows" | "listVariant" | "rowLabels">) {
+  return (
+    <div
+      className={`mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} pt-2`}
+      data-testid="my-route-skeleton"
+    >
+      <MyStateSkeleton {...props} />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 type PhilifeWriteSheetContextValue = {
   isOpen: boolean;
@@ -97,7 +98,7 @@ export function PhilifeWriteSheetProvider({ children }: { children: React.ReactN
     if (!isOpen) return;
     const p = pathname.split("?")[0] ?? "";
     /** 글쓰기 시트는 필라이프/커뮤니티 **피드** 루트에만 둔다(상세·작성 풀페이지 등은 닫힘) */
-    if (p === "/philife" || p === "/" || p === "/community") return;
+    if (isCommunityHomeSurfacePath(p)) return;
     close();
   }, [isOpen, pathname, close]);
 

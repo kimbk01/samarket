@@ -1,5 +1,6 @@
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 const COMMUNITY_POST_DETAIL_RE = /^\/community\/post\/[^/]+$/;
 const PHILIFE_POST_DETAIL_RE = /^\/philife\/post\/[^/]+$/;
@@ -58,9 +59,8 @@ let tier1RuleCache: MobileTopTier1RuleSet | null = null;
 
 function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSet {
   const isTradeExploration = isTradeFloatingMenuSurface(pathNoQuery);
-  /** Community home hubs — `/` · `/philife` · `/community` (SSOT: resolve-main-surface) */
-  const isPhilifeExploration =
-    pathNoQuery === "/" || pathNoQuery === "/philife" || pathNoQuery === "/community";
+  /** Community home hubs (SSOT: `isCommunityHomeSurfacePath`) */
+  const isPhilifeExploration = isCommunityHomeSurfacePath(pathNoQuery);
   const isTradeMeetSpotPick =
     pathNoQuery === "/market/trade-meet-spot" || pathNoQuery.startsWith("/market/trade-meet-spot/");
   const isTradeBrowseLocation =

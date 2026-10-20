@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 
 /** `RegionBar` 1단에 합쳐지는 페이지별 오버라이드(제목·우측 등) */
 export type MainTier1Partial = {
@@ -35,7 +36,28 @@ export type MainTier1ExtrasState = {
   /** `MyManagedCtaStrip`용 */
   ctaLinks?: { href: string; label: string }[];
   stickyBelow?: ReactNode;
+  /**
+   * 등록한 화면의 pathname. 있으면 현재 pathname 과 같을 때만 헤더에 반영한다
+   * (전환 중 이전 화면 제목·아이콘 잔존 차단 — 설계서 §12 「전환 중」·§13-4).
+   * 생략 시(레거시 등록) 경로 무관하게 반영.
+   */
+  pathname?: string;
 };
+
+/**
+ * 현재 pathname 기준으로 유효한 extras 만 돌려준다.
+ * 다른 경로에서 등록된 extras(이전 화면 잔존)는 `null`.
+ */
+export function mainTier1ExtrasForPathname(
+  extras: MainTier1ExtrasState | null | undefined,
+  pathname: string | null | undefined
+): MainTier1ExtrasState | null {
+  if (!extras) return null;
+  if (extras.pathname == null) return extras;
+  return normalizeAppPathnameForTier1(extras.pathname) === normalizeAppPathnameForTier1(pathname)
+    ? extras
+    : null;
+}
 
 function sameMainTier1Partial(a: MainTier1Partial | undefined, b: MainTier1Partial | undefined): boolean {
   if (a === b) return true;
@@ -62,7 +84,8 @@ export function sameMainTier1ExtrasState(a: MainTier1ExtrasState, b: MainTier1Ex
   return (
     sameMainTier1Partial(a.tier1, b.tier1) &&
     a.ctaLinks === b.ctaLinks &&
-    a.stickyBelow === b.stickyBelow
+    a.stickyBelow === b.stickyBelow &&
+    a.pathname === b.pathname
   );
 }
 

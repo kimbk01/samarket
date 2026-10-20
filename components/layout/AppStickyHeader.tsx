@@ -14,7 +14,7 @@ const TradePrimaryTabs = dynamic(
   { ssr: false }
 );
 import { getMobileTopTier1RuleSet } from "@/lib/layout/mobile-top-tier1-rules";
-import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { mainTier1ExtrasForPathname, useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";
 import { isDeliveryConsumerPath } from "@/lib/design/delivery-chrome";
 import { resolveMainSurface } from "@/lib/layout/resolve-main-surface";
@@ -70,7 +70,7 @@ export function AppStickyHeader() {
     };
   }, [pathname]);
   const extrasOpt = useMainTier1ExtrasOptional();
-  const extras = extrasOpt?.extras ?? null;
+  const extras = mainTier1ExtrasForPathname(extrasOpt?.extras, pathname);
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
   const isCommunityMessengerSurface =
     pathname === "/community-messenger" || (pathname?.startsWith("/community-messenger/") ?? false);

@@ -947,6 +947,42 @@ a,
   transition-duration: var(--main-shell-push-ms, 300ms);
 }
 
+/**
+ * 내정보 스택(mypage-stack-forward/back) — 1단 헤더 고정 + 본문만 슬라이드 (설계서 §12 「전환 중」).
+ * `AppRouteTransition` 이 내정보 스택 kind + 허브 헤더 슬롯일 때만 `data-mypage-stack-header-fixed` 를 단다.
+ * surface 는 움직이지 않고 헤더(`.main-hub-scroll-header`)를 뺀 자식(본문)만 translate — 제목·우측 아이콘은
+ * 같은 커밋에서 교체되어 흔들림 0. 다른 도메인 전환(헤더+본문 한 surface)은 불변.
+ */
+[data-main-shell-push-surface][data-mypage-stack-header-fixed="1"].main-shell-push-surface-from-ltr,
+[data-main-shell-push-surface][data-mypage-stack-header-fixed="1"].main-shell-push-surface-from-rtl,
+[data-main-shell-push-surface][data-mypage-stack-header-fixed="1"].main-shell-push-surface-enter-ltr,
+[data-main-shell-push-surface][data-mypage-stack-header-fixed="1"].main-shell-push-surface-enter-rtl {
+  transform: translate3d(0, 0, 0);
+  transition: none;
+}
+
+[data-main-shell-push-surface][data-mypage-stack-header-fixed="1"].main-shell-push-surface-from-ltr
+  > :not(.main-hub-scroll-header) {
+  transform: translate3d(-100%, 0, 0);
+  transition: none;
+}
+
+[data-main-shell-push-surface][data-mypage-stack-header-fixed="1"].main-shell-push-surface-from-rtl
+  > :not(.main-hub-scroll-header) {
+  transform: translate3d(100%, 0, 0);
+  transition: none;
+}
+
+[data-main-shell-push-surface][data-mypage-stack-header-fixed="1"].main-shell-push-surface-enter-ltr
+  > :not(.main-hub-scroll-header),
+[data-main-shell-push-surface][data-mypage-stack-header-fixed="1"].main-shell-push-surface-enter-rtl
+  > :not(.main-hub-scroll-header) {
+  backface-visibility: hidden;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--main-shell-push-ms, 300ms) cubic-bezier(0.25, 0.9, 0.35, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mypage-stack-route-enter-forward,
   .mypage-stack-route-enter-back {
@@ -959,6 +995,10 @@ a,
 
   [data-main-shell-push-surface][data-mypage-stack-motion="1"].main-shell-push-surface-enter-ltr,
   [data-main-shell-push-surface][data-mypage-stack-motion="1"].main-shell-push-surface-enter-rtl {
+    transition: none !important;
+  }
+
+  [data-main-shell-push-surface][data-mypage-stack-header-fixed="1"] > :not(.main-hub-scroll-header) {
     transition: none !important;
   }
 }

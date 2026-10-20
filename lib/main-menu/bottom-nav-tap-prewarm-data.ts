@@ -7,6 +7,7 @@
 
 import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { prewarmBottomNavStoresTab, type BottomNavStoresPrewarmOptions } from "@/lib/main-menu/bottom-nav-tap-prewarm-stores";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 export type BottomNavTapPrewarmSource = "pointer_intent" | "route_commit" | "boot" | "idle";
 
@@ -53,7 +54,7 @@ export function prewarmBottomNavTapTargetClientCache(
     return;
   }
 
-  if (path === "/philife" || path === "/" || path === "/community") {
+  if (isCommunityHomeSurfacePath(path)) {
     void Promise.all([
       import("@/lib/main-menu/bottom-nav-tap-prewarm-philife"),
       import("@/lib/app-boot/app-boot-store"),

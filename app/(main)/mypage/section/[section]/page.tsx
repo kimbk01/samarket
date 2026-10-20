@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { MyRouteSkeleton } from "@/components/mypage/ds/MyStateView";
 import { findMypageMobileSection } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { MyPageSectionMenuClient } from "@/components/mypage/MyPageSectionMenuClient";
 
@@ -10,7 +10,8 @@ export default function MypageSectionListPage({
   params: Promise<{ section: string }>;
 }) {
   return (
-    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+    /** 섹션 메뉴 = 카드 행 목록 — 같은 구조 스켈레톤(피드 스켈레톤 금지) */
+    <Suspense fallback={<MyRouteSkeleton template="list" listVariant="text" rows={5} />}>
       <MypageSectionListPageBody params={params} />
     </Suspense>
   );

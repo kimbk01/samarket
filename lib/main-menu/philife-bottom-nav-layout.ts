@@ -6,6 +6,7 @@ import { mainBottomNavMessengerTabHref } from "@/lib/community-messenger/messeng
 import { normalizeDeliveryBottomNavPath } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MainBottomNavSecondaryRailKind } from "@/lib/main-menu/main-bottom-nav-split-layout";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 /** 커뮤니티(필라이프) 셸 하단 5탭 — 홈 · 거래 · 배달 · 디바톡 · 내정보 */
 export const PHILIFE_BOTTOM_NAV_TAB_IDS = [
@@ -30,11 +31,11 @@ export function isPhilifeBottomNavRail(kind: MainBottomNavSecondaryRailKind): bo
   return kind === "philife";
 }
 
-/** `/` · `/philife` · 레거시 `/community` — 커뮤니티 5탭 셸 표면 */
+/** 커뮤니티 허브 루트(SSOT `isCommunityHomeSurfacePath`) + `/philife/*`·`/community/*` — 커뮤니티 5탭 셸 표면 */
 export function isPhilifeConsumerBottomNavSurface(pathname: string | null | undefined): boolean {
   const p = normalizeDeliveryBottomNavPath(pathname);
-  if (p === "/" || p === "/philife" || p.startsWith("/philife/")) return true;
-  if (p === "/community" || p.startsWith("/community/")) return true;
+  if (isCommunityHomeSurfacePath(p)) return true;
+  if (p.startsWith("/philife/") || p.startsWith("/community/")) return true;
   return false;
 }
 

@@ -13,14 +13,14 @@ import {
   isSameCommunityNavSelection,
   type CommunityNavSelection,
 } from "@/lib/community/community-nav";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 export const COMMUNITY_HUB_STATE_KEY = "community_hub_state_v1";
 
 export type CommunityHubStateShape = { nav: string; category: string; sort: string };
 
 export function isCommunityHubRootPath(pathname: string | null | undefined): boolean {
-  const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "/";
-  return p === "/" || p === "/philife" || p === "/community";
+  return isCommunityHomeSurfacePath(pathname);
 }
 
 export function readCommunityHubState(): CommunityHubStateShape | null {

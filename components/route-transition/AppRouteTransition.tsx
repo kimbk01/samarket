@@ -7,6 +7,7 @@ import {
   MAIN_SHELL_ROUTE_TRANSITION_MS,
   ROUTE_TRANSITION_ENTER_CLASSES,
   isMypageMotionKind,
+  isMypageStackHeaderFixedKind,
   routeTransitionClassForKind,
   routeTransitionPushAxisForKind,
   type MainShellRoutePushAxis,
@@ -141,12 +142,25 @@ function mypageMotionPushDurationMs(kind: RouteTransitionEnterKind): number | nu
  * `--main-shell-push-ms` + `data-mypage-stack-motion` 을 단다. 그 외 전환에서는 항상 제거 — 하단 탭·
  * 다른 도메인 hub 전환 시간은 불변(440ms).
  */
-function setMypageStackMotionOnSurface(el: HTMLDivElement | null, durationMs: number | null) {
+function setMypageStackMotionOnSurface(
+  el: HTMLDivElement | null,
+  durationMs: number | null,
+  opts?: { headerFixed?: boolean }
+) {
   if (!el) return;
   if (durationMs != null) {
     el.dataset.mypageStackMotion = "1";
     el.style.setProperty("--main-shell-push-ms", `${durationMs}ms`);
+    /**
+     * 내정보 스택 kind — 1단 헤더 고정, 본문만 슬라이드 (설계서 §12 「전환 중」).
+     * CSS(`globals.css` `data-mypage-stack-header-fixed`)가 surface 대신 헤더 밖 자식만 translate.
+     */
+    if (opts?.headerFixed) el.dataset.mypageStackHeaderFixed = "1";
+    else delete el.dataset.mypageStackHeaderFixed;
     return;
+  }
+  if (el.dataset.mypageStackHeaderFixed != null) {
+    delete el.dataset.mypageStackHeaderFixed;
   }
   if (el.dataset.mypageStackMotion != null) {
     delete el.dataset.mypageStackMotion;
@@ -613,8 +627,13 @@ export function AppRouteTransition({
         stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
         renderedRef.current = { pathname: pathKey, node: children };
         if (el) {
-          /** 내정보 하위 화면은 hubChromeHeader 가 있어 이 폴백을 탄다 — 내정보 kind 만 300ms. */
-          setMypageStackMotionOnSurface(el, mypageMotionPushDurationMs(kind));
+          /**
+           * 내정보 하위 화면은 hubChromeHeader 가 있어 이 폴백을 탄다 — 내정보 kind 만 300ms.
+           * 내정보 스택 kind 는 헤더 고정 + 본문만 슬라이드(제목·아이콘은 같은 커밋에서 교체).
+           */
+          setMypageStackMotionOnSurface(el, mypageMotionPushDurationMs(kind), {
+            headerFixed: Boolean(hubChromeHeader) && isMypageStackHeaderFixedKind(kind),
+          });
           return beginHubFallbackEnter(el, pushAxis, pathKey);
         }
         return undefined;

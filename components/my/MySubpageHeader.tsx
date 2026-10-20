@@ -95,6 +95,9 @@ export function MySubpageHeader({
     return [];
   }, [hideCtaStrip, ctaLinks, section, ownerStoreIdForCtas]);
 
+  /** 등록 경로 — `RegionBar` 가 현재 경로와 다르면 무시(이전 화면 제목 잔존 차단) */
+  const registeredPathname = pathname ?? undefined;
+
   useLayoutEffect(() => {
     if (inlineChrome || !setMainTier1Extras) return;
     if (registerMainTier1) {
@@ -112,11 +115,13 @@ export function MySubpageHeader({
         },
         ctaLinks: stripLinks.length > 0 ? stripLinks : undefined,
         stickyBelow,
+        pathname: registeredPathname,
       });
     } else {
       setMainTier1Extras({
         ctaLinks: stripLinks.length > 0 ? stripLinks : undefined,
         stickyBelow,
+        pathname: registeredPathname,
       });
     }
     return () => setMainTier1Extras(null);
@@ -136,6 +141,7 @@ export function MySubpageHeader({
     stripLinks,
     stickyBelow,
     inlineChrome,
+    registeredPathname,
   ]);
 
   if (inlineChrome || !tier1Provider) {

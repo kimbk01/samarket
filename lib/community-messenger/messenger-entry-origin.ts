@@ -1,5 +1,6 @@
 import type { MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
 import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
+import { isCommunityMainSurface } from "@/lib/layout/resolve-main-surface";
 
 /**
  * 메신저 진입 출처(`?from=...`) 단일 원천.
@@ -142,7 +143,7 @@ export function resolveMessengerHomeTier1BackHref(args: {
 /**
  * 페이지 경로(pathname) 만으로 메신저 진입 출처를 추정.
  * 하단 탭(커뮤니티·거래·배달) 및 해당 헤더 표면과 정렬한다.
- * - `/philife`, `/philife/...`, `/community`, `/community/...` → `community`
+ * - 커뮤니티 표면(`resolveMainSurface` = community: 허브 루트 `/`·`/home`·`/philife`·`/community` + 하위) → `community`
  * - `/market`, `/market/...` → `trade`
  * - `/stores`, `/stores/...` → `delivery`
  * - 그 외 → `null` (메신저 헤더 백은 기본 `/philife`)
@@ -150,8 +151,7 @@ export function resolveMessengerHomeTier1BackHref(args: {
 export function inferMessengerEntryOriginFromPath(pathname: string | null | undefined): MessengerEntryOrigin {
   const p = (pathname ?? "").split("?")[0]?.trim() ?? "";
   if (!p) return null;
-  if (p === "/philife" || p.startsWith("/philife/")) return "community";
-  if (p === "/community" || p.startsWith("/community/")) return "community";
+  if (isCommunityMainSurface(p)) return "community";
   if (p === "/market" || p.startsWith("/market/")) return "trade";
   if (p === "/stores" || p.startsWith("/stores/")) return "delivery";
   if (p === "/orders" || p.startsWith("/orders/")) return "delivery";

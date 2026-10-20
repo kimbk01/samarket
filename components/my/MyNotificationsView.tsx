@@ -16,6 +16,7 @@ import { NotificationDeleteConfirmDialog } from "@/components/notifications/Noti
 import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
 import { NotificationInboxEmptyState } from "@/components/notifications/NotificationInboxEmptyState";
 import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-notif-inbox-error-message";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
 import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
@@ -114,6 +115,9 @@ export type MyNotificationsViewProps = {
   } | null) => void;
 };
 
+/** 행동 실패 토스트 표시 시간 — 내정보 토스트(`MYPAGE_TOAST_MS`)와 같은 3초 */
+const NOTIFICATION_ACTION_TOAST_MS = 3000;
+
 export function MyNotificationsView({
   variant = "default",
   registerMarkAll,
@@ -142,7 +146,18 @@ export function MyNotificationsView({
   const [pollEnabled, setPollEnabled] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  /** 목록 로드 오류 전용(본문 하나) — 데이터와 동시에 표시하지 않는다 */
   const [error, setError] = useState<string | null>(null);
+  /**
+   * 읽음·삭제·제안 응답 등 **행동 실패** — 목록은 그대로 두고 토스트로만 알린다(설계서 §4 ⑤).
+   * 로드 오류 자리(`error`)를 쓰면 오류 문구와 목록이 함께 보였다.
+   */
+  const [actionErrorToast, setActionErrorToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!actionErrorToast) return;
+    const timer = setTimeout(() => setActionErrorToast(null), NOTIFICATION_ACTION_TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [actionErrorToast]);
   const [busy, setBusy] = useState(false);
   const tabFromUrl = parseCategoryTab(searchParams?.get("tab") ?? null);
   const [categoryFilter, setCategoryFilter] = useState<NotificationCenterCategoryKey>(tabFromUrl);
@@ -424,7 +439,6 @@ export function MyNotificationsView({
     if (busy) return;
     if (!hasUnreadToMark) return;
     setBusy((prev) => (prev ? prev : true));
-    setError((prev) => (prev === null ? prev : null));
     try {
       const res = await fetch("/api/me/notifications", {
         method: "PATCH",
@@ -438,7 +452,7 @@ export function MyNotificationsView({
       });
       const j = await res.json();
       if (!j?.ok) {
-        setError(typeof j?.error === "string" ? j.error : "failed");
+        setActionErrorToast(typeof j?.error === "string" ? j.error : "failed");
         return;
       }
       invalidateMeNotificationsListDedupedCache();
@@ -446,7 +460,7 @@ export function MyNotificationsView({
       resyncBadgesAfterNotificationEventsRead("notification_opened");
       await load(true, true, false, 0);
     } catch {
-      setError("network_error");
+      setActionErrorToast("network_error");
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
@@ -472,7 +486,9 @@ export function MyNotificationsView({
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
         if (!res.ok || !j?.ok) {
-          setError(typeof (j as { error?: string }).error === "string" ? (j as { error: string }).error : "delete_failed");
+          setActionErrorToast(
+            typeof (j as { error?: string }).error === "string" ? (j as { error: string }).error : "delete_failed"
+          );
           return;
         }
         setRows((prev) => {
@@ -480,12 +496,11 @@ export function MyNotificationsView({
           rowsLengthRef.current = next.length;
           return next;
         });
-        setError((prev) => (prev === null ? prev : null));
         invalidateMeNotificationsListDedupedCache();
         broadcastNotificationsUpdated();
         resyncBadgesAfterNotificationEventsRead("notification_opened");
       } catch {
-        setError("network_error");
+        setActionErrorToast("network_error");
       } finally {
         setDeleteBusyKey((prev) => (prev === null ? prev : null));
         setPendingDelete((prev) => (prev === null ? prev : null));
@@ -594,7 +609,7 @@ export function MyNotificationsView({
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j?.ok) {
-        setError(typeof j.error === "string" ? j.error : "delete_failed");
+        setActionErrorToast(typeof j.error === "string" ? j.error : "delete_failed");
         return;
       }
       setRows((prev) => {
@@ -608,7 +623,7 @@ export function MyNotificationsView({
       broadcastNotificationsUpdated();
       resyncBadgesAfterNotificationEventsRead("notification_opened");
     } catch {
-      setError("network_error");
+      setActionErrorToast("network_error");
     } finally {
       setBusy(false);
       setDeleteBusyKey(null);
@@ -691,7 +706,6 @@ export function MyNotificationsView({
       const offerId = meta?.offer_id?.trim() ?? "";
       if (!offerId) return;
       setOfferActionBusyId(offerId);
-      setError((prev) => (prev === null ? prev : null));
       try {
         const res = await fetch(`/api/offers/${encodeURIComponent(offerId)}/${action}`, {
           method: "POST",
@@ -699,7 +713,7 @@ export function MyNotificationsView({
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json?.ok) {
-          setError(typeof json?.error === "string" ? json.error : t("notif_inbox_offer_action_failed"));
+          setActionErrorToast(typeof json?.error === "string" ? json.error : "notif_inbox_offer_action_failed");
           return;
         }
         void markIdsRead(item.ids);
@@ -707,13 +721,21 @@ export function MyNotificationsView({
         broadcastNotificationsUpdated();
         await load(true, true, false, 0);
       } catch {
-        setError("network_error");
+        setActionErrorToast("network_error");
       } finally {
         setOfferActionBusyId((prev) => (prev === offerId ? null : prev));
       }
     },
-    [broadcastNotificationsUpdated, load, markIdsRead, t]
+    [broadcastNotificationsUpdated, load, markIdsRead]
   );
+
+  /** 오류 코드 → 문구. 알 수 없는 서버 코드는 상황별 기본 문구(「내용을 표시할 수 없습니다」 오표시 금지) */
+  const notifErrorMessage = (code: string, fallbackKey: MessageKey = "notif_inbox_error_load_failed"): string => {
+    const key = resolveNotifInboxErrorMessageKey(code);
+    if (key) return t(key);
+    if (code === "notif_inbox_offer_action_failed") return t("notif_inbox_offer_action_failed");
+    return t(fallbackKey);
+  };
 
   if (error === "login_required") {
     return <p className="text-sm text-sam-muted">{t("notif_inbox_login_required")}</p>;
@@ -815,14 +837,18 @@ export function MyNotificationsView({
       ) : (
       <>
       {error ? (
-        <p className="text-sm text-sam-danger">
-          {(() => {
-            const key = resolveNotifInboxErrorMessageKey(error);
-            return key ? t(key) : t("common_content_unavailable");
-          })()}
-        </p>
-      ) : null}
-      {grouped.length === 0 && !error ? (
+        /** 로드 오류 = 본문 하나 + 다시 시도. 목록과 동시에 그리지 않는다 */
+        <div role="alert" className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+          <p className="text-sm text-sam-danger">{notifErrorMessage(error)}</p>
+          <button
+            type="button"
+            onClick={() => void load(false, true)}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-semibold text-sam-fg"
+          >
+            {t("common_retry")}
+          </button>
+        </div>
+      ) : grouped.length === 0 ? (
         rows.length === 0 ? (
           <NotificationInboxEmptyState kind="empty" />
         ) : (
@@ -924,6 +950,19 @@ export function MyNotificationsView({
           void deleteSelected();
         }}
       />
+      {actionErrorToast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="notif-action-error-toast"
+          className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
+          style={{ bottom: "calc(76px + var(--safe-bottom, 0px))" }}
+        >
+          <p className="max-w-[24rem] rounded-ui-rect bg-sam-fg px-4 py-3 text-center text-[13px] font-medium text-sam-surface shadow-lg">
+            {notifErrorMessage(actionErrorToast, "notif_inbox_error_failed")}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
