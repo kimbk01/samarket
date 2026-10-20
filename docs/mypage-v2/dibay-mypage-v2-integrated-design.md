@@ -2,7 +2,7 @@
 
 - 작성: 2026-10-20 · 기준 main `5b43cf16` · Production SHA NOT_PROVEN(Vercel 조회 403)
 - 상태: **설계안 — Owner 승인 전 구현·DB·배포 금지**
-- **보완: `docs/mypage-v2/dibay-mypage-v2.1-supplement.md` 가 우선한다** (§3·§4·§7·§9·§10.1·§13 대체 — 기존 IA 계약 준수, 브랜드 색 `#0B421A`, 컴포넌트 재사용, 마이그레이션 건별 판정)
+- **최종본: `docs/mypage-v2/dibay-mypage-v2.1-supplement.md`(v2.1 최종 설계안)가 우선한다.** 이 문서는 결함 D1~D22 원인·근거와 화면 상세 참고용
 - 입력: 1차 감사(75 페이지 · 결함 D1~D22) · 운영 DB 읽기 전용 조회 · 공유 의존성 호출 그래프 · 상용 앱 벤치마킹
 - 판정 표기: PASS / DEFECT / MISSING / NOT_PROVEN / OUT_OF_SCOPE. 측정하지 않은 것은 NOT_PROVEN.
 
