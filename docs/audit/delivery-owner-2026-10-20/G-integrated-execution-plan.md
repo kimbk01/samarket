@@ -58,7 +58,7 @@
 | 1-G 정보 노출 | ORD-07 ⊃ DLV-04 | 스냅샷 RPC 가 `to_jsonb(o.*)`·`(d.*)` 전체 행 반환 | 오너·구매자 스냅샷 3종 명시 컬럼(관리자 메모·분쟁·플래그·증빙 경로/좌표, 구매자에겐 수수료 기준액·부담액 제외) + 웹 `stripStoreOrderDeliveryForClient` 이중 방어 | vitest · 격리 DB | `20270602140200` 적용, md5 = 파일. 운영 실주문 조회: 오너·구매자 응답에 `admin_note`·`commission_base_amount` 없음, 타 사용자 `forbidden`, 목록 106건 유지 |
 | 1-J 상품 검수·가격 | PRD-03~07 · PRD-09 · OPS-02 · **ND-1** | 검수 반려·대기·숨김 구역 상품이 주문 가능, 품절 사유 없음, 할인가 ≥ 판매가 허용, 동시 편집 덮어쓰기 | 주문 RPC Pass1 에서 검수 `rejected/pending`·숨김 구역 → `product_not_available`, 재고 소진 품절만 `sold_out_reason='stock'` → 취소 복원 시에만 자동 재판매. `admin_status_lock`(관리자 숨김·품절·차단 → 오너 변경 403, 관리자 activate 로만 해제). 할인가 CHECK(과거 위반 0 → VALIDATE). 편집은 변경 필드만 + `expected_updated_at` → 409. 오너 쓰기 후 공개 캐시 세대 bump | vitest · 격리 DB `store-products-1j`(단언·동시성·NOT VALID) | `20270602130000` 적용, 함수 3개 md5 = 파일, CHECK 3개 `convalidated=true`. 롤백 프로브: 없는 상품 `invalid_product`, 가격 불일치 `price_changed`, 복원 멱등 `idempotent` |
 | 1-I 매장 계약 | ACC-04 · ACC-06 · OPS-02 · **ND-2** | 반려 매장 재신청 경로 없음, 오너 변경 감사 없음, 승인 후 주소·좌표 변경 무검증 | 관리자 「재심사 열기」(rejected→revision_requested, CAS·감사·알림). 오너 PATCH 감사(바뀐 키만). 승인 매장의 주소·좌표 변경은 즉시 반영 + `core_info_review_status='pending_reverification'` + 관리자 알림, 관리자 「재검증 완료」(CAS). 단순 운영 정보는 재심사 없음 | vitest · 격리 DB `store-contract` | `20270602140100` 적용(컬럼 5·CHECK 2) |
-| 1-D 직접 DB 쓰기 | N-1(OPS-06) · N-2(LOC-014) · N-3(ACC-05 권한) · N-4A(FIN-09) · N-5 | 클라이언트 역할 INSERT/UPDATE/DELETE 권한·정책 잔존 | 10개 테이블 anon/authenticated 쓰기·TRUNCATE 회수 + `block_client_role_direct_writes` 트리거. TS 작성자 0인 Coin·출금·상품권 매출 원장 4개는 service_role 쓰기도 회수(작성 함수 전부 DEFINER·postgres — 운영 조회로 INVOKER 작성자 0 확인). N-5 관리자 판정 함수 원문 고정 | 격리 DB `store-contract`(거부·허용·재GRANT 방어) | `20270602140000` 적용. 권한 조회: 10개 테이블 클라이언트 쓰기 0, 트리거 10개. **남음**: 오너/회원 쓰기 정책 7개 DROP 미실행(아래 §5) |
+| 1-D 직접 DB 쓰기 | N-1(OPS-06) · N-2(LOC-014) · N-3(ACC-05 권한) · N-4A(FIN-09) · N-5 | 클라이언트 역할 INSERT/UPDATE/DELETE 권한·정책 잔존 | 10개 테이블 anon/authenticated 쓰기·TRUNCATE 회수 + `block_client_role_direct_writes` 트리거. TS 작성자 0인 Coin·출금·상품권 매출 원장 4개는 service_role 쓰기도 회수(작성 함수 전부 DEFINER·postgres — 운영 조회로 INVOKER 작성자 0 확인). N-5 관리자 판정 함수 원문 고정 | 격리 DB `store-contract`(거부·허용·재GRANT 방어) | `20270602140000` 적용. 권한 조회: 10개 테이블 클라이언트 쓰기 0, 트리거 10개. 쓰기 정책 7개 DROP 완료(Owner 수동 실행) |
 
 연동(주문자 → 오너 → DB → 관리자 → 주문자): 오너 취소·취소요청 결정은 상태·원장·수수료가 한 트랜잭션(어느 하나 실패 시 전부 롤백) → 구매자 알림에 오너 사유 원문 → 관리자 취소 원장과 같은 행. 관리자 조작은 화면 상태 CAS 로 오너 동시 조작과 한쪽만 성공. 관리자 상품 숨김·품절·차단은 오너가 되돌릴 수 없고, 주문 RPC·메뉴 스냅샷·공개 상세가 같은 검수 조건으로 거부. 실측(화면): NOT_PROVEN.
 
@@ -78,7 +78,7 @@
 
 | # | 요청 | 비고 |
 |---|---|---|
-| 1 | ~~1단계 잔여 구현 승인~~ — **승인·반영 완료**(§2-2) | 정책 DROP 7줄만 남음(§5) |
+| 1 | ~~1단계 잔여 구현 승인~~ — **승인·반영 완료**(§2-2) | 정책 DROP 7줄 Owner 실행 완료 |
 | 2 | **2단계 구현 승인** + **D-2**(권장 A: 레일 분리 — 상품권은 상품권 매출 원장 지급, 플랫폼 쿠폰 부담분은 Coin) · **D-3**(권장: 현행 계약 유지·문서화, `delivery_fee_mode='percent'` 저장 거부) · **D-4**(충전 입금 확인 방식 세부) — 계산 사례 [문서 H](H-stage2-money-policy.md) | 승인 전 구현 안 함 |
 | 3 | **3단계 구현 승인** + 기존 미결 D-9·D-10·D-17·D-18·D-19·D-23 — 「권장안대로」 한 줄 승인 가능(G-2 각 항목) | |
 | 4 | **4단계 구현 승인** + D-11(PC 고정 사이드바)·D-12(고아 삭제)·D-13(용어)·D-14(토글 확인창) | 권장안 G-2 |
@@ -91,6 +91,6 @@
 - 크론은 배포 후에 동작한다. Vercel 요금제의 1분 크론 허용은 기존 1분 크론(`notification-push-handoff`) 존재로 판단 — 실제 실행 기록은 NOT_PROVEN.
 - 접수 제한 10분은 권고안 값이다(문서 F D-7). 변경은 상수 1곳(`STORE_ORDER_ACCEPT_TIMEOUT_MINUTES`).
 - 주문 RPC(`create_store_order_atomic`)는 2·3단계 여러 결함이 같은 함수를 바꾼다 → 착수 때마다 운영 원문 대조(G-1 R-DB-1).
-- (1단계 잔여) `20270602140000` 의 정책 DROP 7개(`store_inquiries_update_owner`·`store_inquiries_insert_buyer`·`store_biz_ver_update_owner_admin`·`store_biz_ver_insert_owner`·`user_addresses_insert_own`·`_update_own`·`_delete_own`)는 작업 도구가 DROP 문 실행을 확인 대기로 막아 미실행. 테이블 권한 회수 + 거부 트리거가 이미 적용돼 클라이언트 쓰기는 불가(정책이 남아도 권한 없음) — Supabase SQL 편집기에서 파일의 해당 7줄 실행으로 정리.
+- ~~(1단계 잔여) `20270602140000` 의 정책 DROP 7개~~ — **2026-10-21 Owner 가 SQL 편집기에서 실행 완료.** 세 테이블에 SELECT 정책 3개만 남음(쓰기 정책 0, 운영 조회 확인).
 - (1단계 잔여) `store_order_deliveries_status_check` 는 NOT VALID(과거 행 미검증). VALIDATE 는 과거 행 위반 0 확인 + Owner 승인 후.
 - (기존) 운영 `store_order_deliveries.failure_reason` 컬럼 없음(저장소 `20260517120000` 미적용 드리프트) → 관리자 `delivery_failed` 503. 이번 범위 밖, 보고만.
