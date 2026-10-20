@@ -25,8 +25,12 @@ export async function GET(req: NextRequest) {
 
   const ctx = await loadOwnerStoreOrderContext(sb, userId, orderId);
   if (!ctx.ok) {
-    const status = ctx.error === "not_found" ? 404 : 403;
-    return NextResponse.json({ ok: false, error: ctx.error }, { status });
+    // ORD-10: another store's order answers exactly like a missing one (no existence oracle);
+    // the distinction stays in the server log only.
+    if (ctx.error === "forbidden") {
+      console.warn("[owner-store-order-context] order of another store", { orderId });
+    }
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
   return NextResponse.json({

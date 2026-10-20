@@ -62,7 +62,7 @@
 | 16 | 기획 프로모션 | 운영 | `/admin/store-discovery` | 플랫폼 기획 노출 | `store_discovery_campaigns` | admin | 정상 | 섹션 이동 |
 | 17 | 운영 콘솔 | 운영 | `/admin/ops-console` | 알림·자동액션·라이더·복구 종합 | `/api/admin/ops-console/summary` + RPC `admin_delivery_operations_dashboard` | admin | 정상·**결함** | 유지·중복 정리 |
 | 18 | 운영 통계 | 운영 | `/admin/delivery-operations` | KPI + 복구 센터 | **동일 RPC** + `/recovery` | admin | 정상 | 유지 (통계 전용화) |
-| 19 | 라이더 | 운영 | `/admin/delivery-riders` | 라이더 운영 (실테이블) | `delivery_riders`, `store_order_deliveries` | admin | 정상 | 유지 |
+| 19 | 라이더 | 운영 | `/admin/delivery-riders` | 라이더 운영 (실테이블) — **미운영(라이더 0)**: 배달 주체는 매장 자체배달(D-6). 화면 상단에 「미운영 (라이더 0)」 표시, 라이더 API·코드는 유지 | `delivery_riders`(0행), `store_order_deliveries` | admin | **미운영** (코드만 존재 · DLV-01) | 유지 (D-6 라이더 도입 시 재설계) |
 | 20 | 운영 알림 | 운영 | `/admin/delivery-alerts` | 규칙 기반 배달 경고 | `delivery_operation_alert_events/rules` | admin | 정상 | 명칭 |
 | 21 | 액션 큐 | 운영 | `/admin/order-notifications` | **전 도메인** 관리자 할 일 큐 (주문 아님) | `/api/admin/admin-bell` | admin | 정상 | 위치·명칭 변경 |
 | 22 | 자동 액션 | 운영 | `/admin/delivery-auto-actions` | 자동 조치 승인 큐 | `delivery_operation_alert_actions` | admin | 정상·**결함** | 명칭 |

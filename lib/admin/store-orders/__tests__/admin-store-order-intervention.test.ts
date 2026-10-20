@@ -126,7 +126,7 @@ describe("B. server re-check and dispatch", () => {
       audit: AUDIT,
     });
     expect(r).toEqual({ ok: true, fromStatus: "cancel_requested", toStatus: "cancelled" });
-    expect(ops.adminApproveStoreOrderCancelRequest).toHaveBeenCalledWith(expect.anything(), "o", AUDIT);
+    expect(ops.adminApproveStoreOrderCancelRequest).toHaveBeenCalledWith(expect.anything(), "o", AUDIT, { expectedStatus: "cancel_requested" });
     expect(audit.appendAuditLog).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -140,6 +140,71 @@ describe("B. server re-check and dispatch", () => {
   });
 });
 
+describe("B-2. ORD-04 — the status the admin saw is the CAS value of the write", () => {
+  const cases = [
+    ["cancel_request_approve", "cancel_requested", "adminApproveStoreOrderCancelRequest"],
+    ["cancel_request_reject", "cancel_requested", "adminRejectStoreOrderCancelRequest"],
+    ["refund_approve", "refund_requested", "adminCompleteRefundStoreOrder"],
+    ["force_cancel", "preparing", "adminForceCancelStoreOrder"],
+    ["refund_request_create", "preparing", "adminSetRefundRequestedStoreOrder"],
+  ] as const;
+
+  it.each(cases)("%s passes expectedStatus=%s to %s", async (action, status, fn) => {
+    const r = await runAdminStoreOrderIntervention(
+      fakeSb({ store_orders: { id: "o", order_status: status, payment_status: "paid" } }),
+      { orderId: "o", action, reason: "운영 확인", expectedStatus: status, audit: AUDIT }
+    );
+    expect(r.ok).toBe(true);
+    const call = (ops[fn] as unknown as { mock: { calls: unknown[][] } }).mock.calls[0];
+    expect(call[call.length - 1]).toEqual({ expectedStatus: status });
+  });
+
+  it.each(cases)("%s: order changed after the check (write CAS lost) → 409 status_changed", async (action, status, fn) => {
+    (ops[fn] as unknown as { mockResolvedValueOnce: (v: unknown) => void }).mockResolvedValueOnce({
+      ok: false,
+      error: "transition_conflict",
+      httpStatus: 409,
+    });
+    const r = await runAdminStoreOrderIntervention(
+      fakeSb({ store_orders: { id: "o", order_status: status, payment_status: "paid" } }),
+      { orderId: "o", action, reason: "운영 확인", expectedStatus: status, audit: AUDIT }
+    );
+    expect(r).toMatchObject({ ok: false, error: "status_changed", httpStatus: 409, currentStatus: status });
+    expect(audit.appendAuditLog).not.toHaveBeenCalled();
+  });
+
+  it("refund_reject: CAS lost → 409 status_changed", async () => {
+    ops.adminRejectRefundStoreOrder.mockResolvedValueOnce({ ok: false, error: "transition_conflict", httpStatus: 409 } as never);
+    const r = await runAdminStoreOrderIntervention(
+      fakeSb({
+        store_orders: { id: "o", order_status: "refund_requested", payment_status: "paid" },
+        store_order_events: ACCEPTED_THEN_REFUND,
+      }),
+      { orderId: "o", action: "refund_reject", reason: "구매자 오요청", expectedStatus: "refund_requested", audit: AUDIT }
+    );
+    expect(r).toMatchObject({ ok: false, error: "status_changed", httpStatus: 409 });
+  });
+
+  it("ops write with expectedCurrentStatus (never a value re-read inside the op)", () => {
+    const src = read("lib/stores/apply-admin-store-order-operations.ts");
+    for (const fn of [
+      "adminForceCancelStoreOrder",
+      "adminSetRefundRequestedStoreOrder",
+      "adminApproveStoreOrderCancelRequest",
+      "adminRejectStoreOrderCancelRequest",
+      "adminCompleteRefundStoreOrder",
+      "adminRejectRefundStoreOrder",
+    ]) {
+      const start = src.indexOf(`export async function ${fn}(`);
+      const body = src.slice(start, src.indexOf("\n}\n", start));
+      expect(body, fn).toContain("expectedCurrentStatus: expectedOf(opts)");
+    }
+    // approve no longer routes through the force-cancel op (which would CAS on any status)
+    const approve = src.slice(src.indexOf("export async function adminApproveStoreOrderCancelRequest("));
+    expect(approve.slice(0, approve.indexOf("\n}\n"))).not.toContain("adminForceCancelStoreOrder(");
+  });
+});
+
 describe("C. refund reject restores the server-recorded status (never client-chosen)", () => {
   it("restores the status before refund_requested (accepted, not completed)", async () => {
     const r = await runAdminStoreOrderIntervention(
@@ -150,7 +215,9 @@ describe("C. refund reject restores the server-recorded status (never client-cho
       { orderId: "o", action: "refund_reject", reason: "구매자 오요청", expectedStatus: "refund_requested", audit: AUDIT }
     );
     expect(r).toEqual({ ok: true, fromStatus: "refund_requested", toStatus: "accepted" });
-    expect(ops.adminRejectRefundStoreOrder).toHaveBeenCalledWith(expect.anything(), "o", "accepted", "구매자 오요청", AUDIT);
+    expect(ops.adminRejectRefundStoreOrder).toHaveBeenCalledWith(expect.anything(), "o", "accepted", "구매자 오요청", AUDIT, {
+      expectedStatus: "refund_requested",
+    });
   });
 
   it("unknown or not-restorable previous status (e.g. pending) → 409, no write", async () => {
@@ -251,9 +318,13 @@ describe("D. every admin decision path goes through the service", () => {
     }
   });
 
-  it("cancel-request ledger updates only a still-pending row", () => {
+  it("cancel-request ledger updates only a still-pending row — inside the decide RPC (ORD-06)", () => {
     const ops = read("lib/stores/apply-admin-store-order-operations.ts");
-    expect(ops.match(/\.eq\("status", "pending"\);/g)?.length).toBeGreaterThanOrEqual(2);
+    // No TS ledger write after the status change any more.
+    expect(ops).not.toMatch(/from\("store_order_cancel_requests"\)\s*\.update/);
+    expect(ops.match(/cancelRequestDecision: \{ decision: "(approve|reject)", actorRole: "admin"/g)?.length).toBe(2);
+    const sql = read("supabase/migrations/20270602120000_store_order_cancel_ledger_atomic.sql");
+    expect(sql.match(/WHERE id = v_req\.id\s+AND status = 'pending';/g)?.length).toBe(2);
   });
 
   it("list and refund queue no longer decide; they send the admin to the order detail", () => {

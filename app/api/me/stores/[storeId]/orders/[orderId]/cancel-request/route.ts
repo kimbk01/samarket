@@ -84,12 +84,17 @@ export async function POST(
   const rm = getAuditRequestMeta(req);
 
   {
+    // ORD-06: approved ledger row + status change in one DB transaction (store_order_owner_cancel_atomic);
+    // the courier-pickup check above is re-done under the row locks there. ORD-09: the reason reaches the buyer.
     const applied = await applyStoreOrderStatusTransition(sb, {
       orderId: oid,
       nextStatus: "cancelled",
       actor: "OWNER",
       // Policy and the ledger's previous_order_status were decided on this status.
       expectedCurrentStatus: String(order.order_status ?? ""),
+      ownerDirectCancel: { reason, detail: detailReason || null },
+      eventMessage: reason,
+      eventMetadata: { source: "owner_direct_cancel", cancel_reason: reason },
       audit: {
         actor_type: "user",
         actor_id: userId,
@@ -101,20 +106,6 @@ export async function POST(
     if (!applied.ok) {
       return NextResponse.json({ ok: false, error: applied.error }, { status: applied.httpStatus });
     }
-
-    const { error: ledgerErr } = await sb.from("store_order_cancel_requests").insert({
-      order_id: oid,
-      previous_order_status: String(order.order_status ?? ""),
-      requested_by: userId,
-      requested_role: "owner",
-      reason,
-      detail_reason: detailReason || null,
-      status: "approved",
-      approved_by: userId,
-      approved_at: new Date().toISOString(),
-      refund_status: "not_applicable",
-    });
-    if (ledgerErr) console.error("[owner cancel] ledger insert", ledgerErr);
 
     invalidateOwnerHubBadgeCache(userId);
     invalidateOwnerDeliverySurfacesAfterMutation(sid, userId, {

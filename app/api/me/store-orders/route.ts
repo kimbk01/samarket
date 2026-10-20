@@ -785,6 +785,41 @@ export async function POST(req: NextRequest) {
 
   // G7: gift redemption is inside create_store_order_atomic (same TX). No post-order redeem.
 
+  /**
+   * ORD-11: an idempotent replay returns what was STORED for the first request (prices/coupons may
+   * have changed since) and writes nothing (the coupon display snapshot belongs to the first request).
+   */
+  if (atomic.idempotent) {
+    const { data: stored } = await sb
+      .from("store_orders")
+      .select("order_no, total_amount, discount_amount, payment_amount, gift_redemption_amount, amount_before_gift")
+      .eq("id", orderId)
+      .maybeSingle();
+    const row = (stored ?? {}) as Record<string, unknown>;
+    const num = (v: unknown, fallback: number) => {
+      const n = Number(v);
+      return v != null && Number.isFinite(n) ? Math.round(n) : Math.round(fallback);
+    };
+    const storedPayment = num(row.payment_amount, paymentAmount);
+    const storedGift = num(row.gift_redemption_amount, giftRedemptionAmount);
+    return NextResponse.json({
+      ok: true,
+      order: {
+        id: orderId,
+        order_no: String(row.order_no ?? "").trim() || resolvedOrderNo,
+        payment_amount: storedPayment,
+        total_amount: num(row.total_amount, paymentGrandTotal),
+        discount_amount: num(row.discount_amount, discountAmount),
+        amount_before_gift: num(row.amount_before_gift, storedPayment + storedGift),
+        gift_redemption_amount: storedGift,
+      },
+      roomId: orderChatAck.roomId,
+      chatHref: orderChatAck.chatHref,
+      order_chat_ready: orderChatAck.orderChatReady,
+      idempotent: true,
+    });
+  }
+
   if (userCouponId && discountAmount > 0) {
     try {
       const { data: entSnap } = await sb
@@ -823,25 +858,6 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error("[POST /api/me/store-orders] coupon display snapshot", e);
     }
-  }
-
-  if (atomic.idempotent) {
-    return NextResponse.json({
-      ok: true,
-      order: {
-        id: orderId,
-        order_no: resolvedOrderNo,
-        payment_amount: paymentAmount,
-        total_amount: Math.round(paymentGrandTotal),
-        discount_amount: Math.round(discountAmount),
-        amount_before_gift: Math.round(amountBeforeGift),
-        gift_redemption_amount: giftRedemptionAmount,
-      },
-      roomId: orderChatAck.roomId,
-      chatHref: orderChatAck.chatHref,
-      order_chat_ready: orderChatAck.orderChatReady,
-      idempotent: true,
-    });
   }
 
   if (serviceabilitySnapshot && STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY) {

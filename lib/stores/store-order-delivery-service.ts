@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { appendStoreOrderMessengerDeliveryStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
 import { allowedDeliveryTransitions, isValidDeliveryStatus, type StoreOrderDeliveryStatus } from "@/lib/stores/store-order-delivery-status";
+import { syncOrderArrivedFromDeliveredRow } from "@/lib/stores/store-order-delivery-order-sync";
 import { createStoreOrderDeliveryLifecycleEvent } from "@/lib/stores/store-order-events";
 import type { StoreOrderDeliveryMilestone } from "@/lib/stores/store-order-events";
 
@@ -516,6 +517,9 @@ export async function adminPatchStoreOrderDelivery(
       toDeliveryStatus: nextDeliveryStatus,
       metadata: { source: "store_order.delivery.admin_patch" },
     });
+    if (nextDeliveryStatus === "delivered") {
+      await syncOrderArrivedFromDeliveredRow(sb, { orderId: opts.orderId, source: "store_order.delivery.admin_patch" });
+    }
   }
 
   return { ok: true, row: updated as unknown as StoreOrderDeliveryRow, previous_status: prev };
@@ -621,13 +625,16 @@ export async function ownerPatchStoreOrderDelivery(
   if (desiredRaw === "delivering" && !ensured.row.picked_up_at) patch.picked_up_at = nowIso();
   if (desiredRaw === "delivered" && !ensured.row.delivered_at) patch.delivered_at = nowIso();
 
+  // DLV-02 ⑤: conditional on the status this decision was made on (a concurrent change → 409, not overwrite).
   const { data: updated, error: uErr } = await deliveryRowMaybeSingle(sb, opts.orderId.trim(), "update", {
     patch,
     storeId: opts.storeId,
+    matchDeliveryStatus: prev,
   });
   if (isPickupBlockedByOrderStatus(uErr?.message)) {
     return { ok: false, error: "order_status_blocks_dispatch", httpStatus: 409 };
   }
+  if (!uErr && !updated) return { ok: false, error: "delivery_status_stale_retry", httpStatus: 409 };
   if (uErr || !updated) return { ok: false, error: uErr?.message ?? "update_failed", httpStatus: 500 };
 
   void appendAuditLog(sb, {
@@ -656,6 +663,9 @@ export async function ownerPatchStoreOrderDelivery(
       metadata: { source: "store_order.delivery.owner_patch", buyer_user_id: guard.buyer_user_id },
     });
     void appendStoreOrderMessengerDeliveryStatusTransition(sb, opts.orderId.trim(), nextDeliveryOwner);
+    if (nextDeliveryOwner === "delivered") {
+      await syncOrderArrivedFromDeliveredRow(sb, { orderId: opts.orderId, source: "store_order.delivery.owner_patch" });
+    }
   }
 
   return { ok: true, row: updated as unknown as StoreOrderDeliveryRow, previous_status: prev };
@@ -1137,6 +1147,9 @@ export async function riderPatchStoreOrderDelivery(
       milestone: deliveryMilestoneForStatus(safeTrim(action.delivery_status)),
       toDeliveryStatus: safeTrim(action.delivery_status),
     });
+    if (nextDs === "delivered" && prev !== "delivered") {
+      await syncOrderArrivedFromDeliveredRow(sb, { orderId: oid, source: "store_order.delivery.rider_patch" });
+    }
   }
 
   return { ok: true, row: updated as unknown as StoreOrderDeliveryRow, previous_status: prev };

@@ -106,11 +106,16 @@ describe("owner decision service", () => {
     expect(r).toEqual({ ok: true, fromStatus: "cancel_requested", toStatus: "cancelled" });
     expect(apply.applyStoreOrderStatusTransition).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ orderId: "o1", nextStatus: "cancelled", actor: "OWNER", expectedCurrentStatus: "cancel_requested" })
+      expect.objectContaining({
+        orderId: "o1",
+        nextStatus: "cancelled",
+        actor: "OWNER",
+        expectedCurrentStatus: "cancel_requested",
+        // ORD-06: the ledger approval is written by the decide RPC in the status transaction.
+        cancelRequestDecision: { decision: "approve", actorRole: "owner" },
+      })
     );
-    const ledger = calls.updates.find((u) => u.table === "store_order_cancel_requests");
-    expect(ledger?.patch).toMatchObject({ status: "approved", approved_by: "owner-1" });
-    expect(ledger?.eqs).toEqual(expect.arrayContaining([["id", "req-1"], ["status", "pending"]]));
+    expect(calls.updates.find((u) => u.table === "store_order_cancel_requests")).toBeUndefined();
     expect(audit.appendAuditLog).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ action: "store_order.owner_decision", actor_id: "owner-1" })
@@ -136,11 +141,11 @@ describe("owner decision service", () => {
         nextStatus: "accepted",
         actor: "OWNER",
         restoreToStatus: "accepted",
+        cancelRequestDecision: { decision: "reject", actorRole: "owner", reason: "이미 조리 중입니다" },
         eventMetadata: { source: "owner_cancel_request_reject", rejected_reason: "이미 조리 중입니다" },
       })
     );
-    const ledger = calls.updates.find((u) => u.table === "store_order_cancel_requests");
-    expect(ledger?.patch).toMatchObject({ status: "rejected", rejected_reason: "이미 조리 중입니다" });
+    expect(calls.updates.find((u) => u.table === "store_order_cancel_requests")).toBeUndefined();
   });
 
   it("unknown recorded previous status → 409, no write", async () => {
