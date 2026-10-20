@@ -1,10 +1,13 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayPrompt } from "@/components/ui/dibay-overlay";
+import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -59,6 +62,7 @@ const FILTERS: { value: string; labelKey: MessageKey }[] = [
 export function AdminStoreProductsPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
+  const { prompt: adminPrompt, dialog: promptDialog } = useAdminConfirmDialog();
   const searchParams = useSearchParams();
   const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
   const [filter, setFilter] = useState("all");
@@ -150,16 +154,29 @@ export function AdminStoreProductsPage() {
   };
 
   const runCorrectName = async (id: string, currentTitle: string) => {
-    const name = (await dibayPrompt({ title: t("admin_stores_product_correct_name_prompt"), defaultValue: currentTitle }))?.trim();
+    const name = (
+      await adminPrompt({
+        title: t("admin_stores_product_correct_name_prompt"),
+        description: ko ? `현재: ${currentTitle}` : `Current: ${currentTitle}`,
+        confirmLabel: adminCta("edit", ko),
+        cancelLabel: adminCta("cancel", ko),
+        inputLabel: t("admin_stores_product_correct_name"),
+        inputPlaceholder: currentTitle,
+      })
+    )?.trim();
     if (!name) return;
     await run(id, currentTitle, "correct_name", { name }, `→ ${name}`);
   };
 
   const runCorrectPrice = async (id: string, productTitle: string, currentPrice: number) => {
     const raw = (
-      await dibayPrompt({
+      await adminPrompt({
         title: t("admin_stores_product_correct_price_prompt"),
-        defaultValue: String(Math.round(currentPrice)),
+        description: ko ? `현재: ${formatMoneyPhp(currentPrice)}` : `Current: ${formatMoneyPhp(currentPrice)}`,
+        confirmLabel: adminCta("edit", ko),
+        cancelLabel: adminCta("cancel", ko),
+        inputLabel: t("admin_stores_product_correct_price"),
+        inputPlaceholder: String(Math.round(currentPrice)),
       })
     )?.trim();
     if (raw == null || raw === "") return;
@@ -173,6 +190,7 @@ export function AdminStoreProductsPage() {
 
   return (
     <div className="space-y-4">
+      {promptDialog}
       <AdminPageHeader title={ko ? "메뉴·상품 검수" : "Menu & product review"} />
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_products_desc")}</p>
       {storeIdFilter ? (
@@ -190,18 +208,9 @@ export function AdminStoreProductsPage() {
 
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => setFilter(f.value)}
-            className={`rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
-              filter === f.value
-                ? "bg-sam-ink text-white"
-                : "border border-sam-border bg-sam-surface text-sam-fg"
-            }`}
-          >
+          <AdminChipButton selected={filter === f.value} key={f.value} onClick={() => setFilter(f.value)}>
             {t(f.labelKey)}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
 
@@ -273,84 +282,44 @@ export function AdminStoreProductsPage() {
                     <td className="px-3 py-2 align-top">
                       <div className="flex flex-col gap-1">
                         {r.product_status !== "blocked" && (
-                          <button
-                            type="button"
-                            disabled={dis}
-                            className="rounded border border-red-200 bg-red-50 px-2 py-1 text-left sam-text-helper text-red-900 disabled:opacity-50"
-                            onClick={() => void run(r.id, r.title, "block")}
-                          >
+                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "block")}>
                             {ko ? "차단" : "Block"}
-                          </button>
+                          </AdminActionButton>
                         )}
                         {/* DEF-36: 「숨김」·「보관(숨김)」 은 같은 동작 → 「숨김」 하나 */}
                         {r.product_status !== "hidden" &&
                           r.product_status !== "deleted" &&
                           r.product_status !== "blocked" && (
-                          <button
-                            type="button"
-                            disabled={dis}
-                            className="rounded border border-sam-border bg-sam-app px-2 py-1 text-left sam-text-helper disabled:opacity-50"
-                            onClick={() => void run(r.id, r.title, "hide")}
-                          >
+                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "hide")}>
                             {ko ? "숨김" : "Hide"}
-                          </button>
+                          </AdminActionButton>
                         )}
                         {(r.product_status === "active" || r.product_status === "hidden") && (
-                          <button
-                            type="button"
-                            disabled={dis}
-                            className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-left sam-text-helper text-amber-950 disabled:opacity-50"
-                            onClick={() => void run(r.id, r.title, "sold_out")}
-                          >
+                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "sold_out")}>
                             {ko ? "품절" : "Sold out"}
-                          </button>
+                          </AdminActionButton>
                         )}
                         {r.product_status !== "active" && r.product_status !== "deleted" && (
-                          <button
-                            type="button"
-                            disabled={dis}
-                            className="rounded border border-green-200 bg-green-50 px-2 py-1 text-left sam-text-helper text-green-900 disabled:opacity-50"
-                            onClick={() => void run(r.id, r.title, "activate")}
-                          >
+                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "activate")}>
                             {ko ? "판매 활성" : "Activate"}
-                          </button>
+                          </AdminActionButton>
                         )}
                         {r.admin_review_status !== "approved" && (
-                          <button
-                            type="button"
-                            disabled={dis}
-                            className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-left sam-text-helper disabled:opacity-50"
-                            onClick={() => void run(r.id, r.title, "approve_review")}
-                          >
+                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "approve_review")}>
                             {ko ? "검수 승인" : "Approve"}
-                          </button>
+                          </AdminActionButton>
                         )}
                         {r.admin_review_status !== "rejected" && (
-                          <button
-                            type="button"
-                            disabled={dis}
-                            className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-left sam-text-helper disabled:opacity-50"
-                            onClick={() => void run(r.id, r.title, "reject_review")}
-                          >
+                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "reject_review")}>
                             {ko ? "검수 반려" : "Reject"}
-                          </button>
+                          </AdminActionButton>
                         )}
-                        <button
-                          type="button"
-                          disabled={dis}
-                          className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-left sam-text-helper disabled:opacity-50"
-                          onClick={() => void runCorrectName(r.id, r.title)}
-                        >
+                        <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void runCorrectName(r.id, r.title)}>
                           {t("admin_stores_product_correct_name")}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={dis}
-                          className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-left sam-text-helper disabled:opacity-50"
-                          onClick={() => void runCorrectPrice(r.id, r.title, r.price)}
-                        >
+                        </AdminActionButton>
+                        <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void runCorrectPrice(r.id, r.title, r.price)}>
                           {t("admin_stores_product_correct_price")}
-                        </button>
+                        </AdminActionButton>
                       </div>
                     </td>
                   </tr>

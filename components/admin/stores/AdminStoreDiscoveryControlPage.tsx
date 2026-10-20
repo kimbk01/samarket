@@ -1,5 +1,8 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -9,7 +12,6 @@ import {
   AdminStoreDiscoveryCampaignWriterPanel,
   type AdminDiscoveryCampaignRow,
 } from "@/components/admin/stores/AdminStoreDiscoveryCampaignWriterPanel";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 
@@ -169,15 +171,15 @@ export function AdminStoreDiscoveryControlPage() {
       />
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={Sam.btn.secondary} onClick={refreshAll}>
-          {t("admin_store_discovery_refresh")}
-        </button>
+        <AdminActionButton variant="secondary" onClick={refreshAll}>
+          {adminCta("refresh", ko)}
+        </AdminActionButton>
       </div>
 
       <AdminCard titleKey="admin_store_discovery_policy_title">
-        <p className="mb-2 text-[11px] text-sam-muted">{monitorReadOnly}</p>
+        <p className="mb-2 text-[12px] text-sam-muted">{monitorReadOnly}</p>
         {policyErr ? (
-          <p className="mb-2 text-[13px] text-red-700">{t("admin_store_discovery_policy_fail")}</p>
+          <p className="mb-2 text-[13px] text-sam-danger">{t("admin_store_discovery_policy_fail")}</p>
         ) : null}
         {policyLoading ? (
           <p className="text-[13px] text-sam-muted">{t("admin_store_discovery_policy_loading")}</p>
@@ -197,7 +199,7 @@ export function AdminStoreDiscoveryControlPage() {
             />
             <Field
               label={t("admin_r4c_discovery_field_updated_at")}
-              value={policy.updated_at ? new Date(policy.updated_at).toLocaleString(ko ? "ko-KR" : "en-US", { timeZone: "Asia/Manila" }) : "—"}
+              value={policy.updated_at ? formatAdminManilaDateTime(policy.updated_at) : "—"}
             />
             <Field
               label={t("admin_r4c_discovery_field_status")}
@@ -225,7 +227,7 @@ export function AdminStoreDiscoveryControlPage() {
       </AdminCard>
 
       <AdminCard titleKey="admin_store_discovery_snapshot_title">
-        <p className="mb-2 text-[11px] text-sam-muted">{monitorReadOnly}</p>
+        <p className="mb-2 text-[12px] text-sam-muted">{monitorReadOnly}</p>
         <p className="mb-3 text-[13px] text-sam-muted">{t("admin_store_discovery_snapshot_hint")}</p>
         <div className="mb-3 flex flex-wrap items-end gap-2">
           <label className="block text-[12px] text-sam-muted">
@@ -237,9 +239,8 @@ export function AdminStoreDiscoveryControlPage() {
               placeholder={t("admin_store_discovery_snapshot_store_id")}
             />
           </label>
-          <button
-            type="button"
-            className={Sam.btn.primary}
+          <AdminActionButton
+            variant="primary"
             onClick={() => {
               const id = snapshotStoreId.trim();
               if (!id) return;
@@ -247,7 +248,7 @@ export function AdminStoreDiscoveryControlPage() {
             }}
           >
             {t("admin_store_discovery_snapshot_load")}
-          </button>
+          </AdminActionButton>
         </div>
         {snapshotQueryId ? (
           <AdminStoreDiscoverySnapshotPanel storeId={snapshotQueryId} compact />
@@ -257,10 +258,10 @@ export function AdminStoreDiscoveryControlPage() {
       </AdminCard>
 
       <AdminCard titleKey="admin_store_discovery_diagnostics_title">
-        <p className="mb-2 text-[11px] text-sam-muted">{monitorReadOnly}</p>
+        <p className="mb-2 text-[12px] text-sam-muted">{monitorReadOnly}</p>
         <p className="mb-3 text-[13px] text-sam-muted">{t("admin_store_discovery_diagnostics_note")}</p>
         {diagErr ? (
-          <p className="mb-2 text-[13px] text-red-700">{t("admin_store_discovery_diagnostics_fail")}</p>
+          <p className="mb-2 text-[13px] text-sam-danger">{t("admin_store_discovery_diagnostics_fail")}</p>
         ) : null}
         {diagLoading ? (
           <p className="text-[13px] text-sam-muted">{t("common_loading")}</p>

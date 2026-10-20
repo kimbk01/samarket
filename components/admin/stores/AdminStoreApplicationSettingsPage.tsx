@@ -5,6 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { AdminGlobalAlertSoundSection } from "@/components/admin/stores/AdminGlobalAlertSoundSection";
@@ -214,7 +217,7 @@ export function AdminStoreApplicationSettingsPage() {
       <AdminPageHeader titleKey={pageTitleKey} />
 
       {msg ? (
-        <p className="mt-4 rounded-ui-rect border border-green-200 bg-green-50 px-3 py-2 sam-text-body-secondary text-green-800">
+        <p className="mt-4 rounded-ui-rect border border-sam-success bg-sam-success-soft px-3 py-2 sam-text-body-secondary text-sam-success">
           {msg}
         </p>
       ) : null}
@@ -224,20 +227,15 @@ export function AdminStoreApplicationSettingsPage() {
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
             <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_rider_tracking")}</h2>
             {riderLocationError ? (
-              <p role="alert" className="mt-2 sam-text-body-secondary text-red-700">
+              <p role="alert" className="mt-2 sam-text-body-secondary text-sam-danger">
                 {riderLocationError}
               </p>
             ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
+              <AdminChipButton
+                selected={riderLocationEnabled}
                 disabled={riderLocationLoading || riderLocationSaving}
                 onClick={() => void saveRiderLocationSetting(!riderLocationEnabled)}
-                className={`rounded-ui-rect border px-4 py-2 sam-text-body-secondary font-semibold disabled:opacity-50 ${
-                  riderLocationEnabled
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
-                    : "border-sam-border bg-sam-app text-sam-fg"
-                }`}
               >
                 {riderLocationLoading
                   ? t("common_loading")
@@ -246,15 +244,15 @@ export function AdminStoreApplicationSettingsPage() {
                     : riderLocationEnabled
                       ? t("admin_stores_app_rider_on")
                       : t("admin_stores_app_rider_off")}
-              </button>
-              <button
-                type="button"
+              </AdminChipButton>
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
                 disabled={riderLocationLoading || riderLocationSaving}
                 onClick={() => void loadRiderLocationSetting()}
-                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-fg disabled:opacity-50"
               >
-                {t("admin_stores_fee_refresh")}
-              </button>
+                {adminCta("refresh", ko)}
+              </AdminActionButton>
             </div>
           </section>
 
@@ -288,7 +286,7 @@ export function AdminStoreApplicationSettingsPage() {
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
             <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_ride_time_title")}</h2>
             {rideTimeSourceError ? (
-              <p role="alert" className="mt-2 sam-text-body-secondary text-red-700">
+              <p role="alert" className="mt-2 sam-text-body-secondary text-sam-danger">
                 {rideTimeSourceError}
               </p>
             ) : null}
@@ -314,22 +312,20 @@ export function AdminStoreApplicationSettingsPage() {
               </label>
             </fieldset>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                disabled={riderLocationLoading || rideTimeSourceSaving || !rideTimeSourceDirty}
-                onClick={() => void commitRideTimeSource()}
-                className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body-secondary font-semibold text-white disabled:opacity-50"
-              >
-                {rideTimeSourceSaving ? t("admin_stores_saving") : t("common_save")}
-              </button>
-              <button
-                type="button"
+              <AdminActionButton
+                variant="secondary"
                 disabled={riderLocationLoading || rideTimeSourceSaving || !rideTimeSourceDirty}
                 onClick={() => setRideTimeSourceDraft(rideTimeSourceSaved)}
-                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg disabled:opacity-50"
               >
-                {t("admin_stores_app_ride_time_cancel")}
-              </button>
+                {adminCta("cancel", ko)}
+              </AdminActionButton>
+              <AdminActionButton
+                variant="primary"
+                disabled={riderLocationLoading || rideTimeSourceSaving || !rideTimeSourceDirty}
+                onClick={() => void commitRideTimeSource()}
+              >
+                {adminCta("save", ko)}
+              </AdminActionButton>
             </div>
           </section>
 

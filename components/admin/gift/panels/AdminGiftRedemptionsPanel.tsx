@@ -4,10 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type Row = {
   id: string;
@@ -37,14 +40,14 @@ const FILTERS = [
 
 function dt(v: string): string {
   try {
-    return new Date(v).toLocaleString();
+    return formatAdminManilaDateTime(v);
   } catch {
     return v;
   }
 }
 
 export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: string; q: string }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const router = useRouter();
   const activeFilter = FILTERS.some((f) => f.id === filter) ? filter : "all";
   const [q, setQ] = useState(initialQ);
@@ -117,9 +120,9 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
           onChange={(e) => setQ(e.target.value)}
           placeholder="Store / Gift # / Customer / Order"
         />
-        <button
+        <AdminActionButton
           type="button"
-          className={`${Sam.btn.primary} min-h-[44px]`}
+          variant="primary"
           onClick={() =>
             router.push(
               buildAdminGiftOpsHref({
@@ -129,22 +132,22 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
             )
           }
         >
-          {safeT("gift_ops_search", { fallbackKo: "검색", fallbackEn: "Search" })}
-        </button>
+          {adminCta("search", language !== "en")}
+        </AdminActionButton>
       </div>
 
       {state === "loading" ? <p className="text-sm text-sam-muted">…</p> : null}
       {state === "error" ? (
         <div className="space-y-2">
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-sam-danger">
             {safeT("gift_ops_red_error", {
               fallbackKo: "사용 내역을 불러오지 못했습니다.",
               fallbackEn: "Couldn’t load redemptions.",
             })}
           </p>
-          <button type="button" className={Sam.btn.secondary} onClick={() => void load()}>
-            {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-          </button>
+          <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
+            {adminCta("refresh", language !== "en")}
+          </AdminActionButton>
         </div>
       ) : null}
       {state === "empty" ? (
@@ -189,11 +192,11 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
                     <td className="px-2 py-2 font-mono text-xs">{r.publicGiftNumber || "—"}</td>
                     <td className="px-2 py-2">{r.productTitle || "—"}</td>
                     <td className="px-2 py-2">{r.orderNo || formatAdminShortId(r.orderId)}</td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(r.gross)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.gross)}</td>
                     <td className="px-2 py-2 tabular-nums">
-                      {r.feeRate}% / {formatMoneyPhp(r.platformFee)}
+                      {r.feeRate}% / {formatAdminPhp(r.platformFee)}
                     </td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(r.merchantNet)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.merchantNet)}</td>
                     <td className="px-2 py-2">{r.orderStatus || "—"}</td>
                     <td className="px-2 py-2 uppercase">{r.recognitionState}</td>
                     <td className="px-2 py-2">
@@ -220,7 +223,7 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
               <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
                 <p className="font-mono text-sm">{r.publicGiftNumber}</p>
                 <p className="text-sm">
-                  {r.storeName} · {r.customerLabel} · {formatMoneyPhp(r.gross)}
+                  {r.storeName} · {r.customerLabel} · {formatAdminPhp(r.gross)}
                 </p>
                 <p className="text-xs text-sam-muted">
                   {r.recognitionState} · {r.orderStatus} · {dt(r.usedAt)}

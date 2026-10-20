@@ -13,6 +13,12 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
+import { AdminSwitch } from "@/components/admin/ui/AdminSwitch";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminDeliveryAdBrowsePolicyPanel } from "@/components/admin/stores/AdminDeliveryAdPlacementPolicyPanel";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
@@ -213,8 +219,8 @@ function secondaryDraftFrom(row: SecondaryRow): DraftSecondary {
 function statusBadge(enabled: boolean, ko: boolean) {
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-        enabled ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
+      className={`rounded-full px-2 py-0.5 text-[12px] font-bold ${
+        enabled ? "bg-sam-success-soft text-sam-success" : "bg-sam-surface-muted text-sam-muted"
       }`}
     >
       {enabled ? label(ko, "사용", "On") : label(ko, "비활성", "Off")}
@@ -253,28 +259,7 @@ function Toggle({
   disabled?: boolean;
   labelText: string;
 }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-label={labelText}
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={(e) => {
-        e.stopPropagation();
-        onChange(!checked);
-      }}
-      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
-        checked ? "bg-emerald-500" : "bg-slate-300"
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-          checked ? "left-5" : "left-0.5"
-        }`}
-      />
-    </button>
-  );
+  return <AdminSwitch checked={checked} onChange={onChange} disabled={disabled} label={labelText} />;
 }
 
 function FieldLabel({
@@ -309,7 +294,7 @@ function TextInput({
       maxLength={maxLength}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="mt-1 w-full rounded-ui-rect border border-sam-border bg-white px-3 py-2 text-[13px] text-sam-fg outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+      className="mt-1 w-full rounded-ui-rect border border-sam-border bg-white px-3 py-2 text-[13px] text-sam-fg outline-none focus:border-sam-success focus:ring-2 focus:ring-sam-success"
     />
   );
 }
@@ -329,7 +314,7 @@ function NumberInput({
       min={min}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="mt-1 w-full rounded-ui-rect border border-sam-border bg-white px-3 py-2 text-[13px] text-sam-fg outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+      className="mt-1 w-full rounded-ui-rect border border-sam-border bg-white px-3 py-2 text-[13px] text-sam-fg outline-none focus:border-sam-success focus:ring-2 focus:ring-sam-success"
     />
   );
 }
@@ -657,7 +642,7 @@ export function AdminStoresCategoryPolicyPage() {
   };
 
   const formattedLoadedAt = loadedAt
-    ? new Date(loadedAt).toLocaleString(ko ? "ko-KR" : "en-US")
+    ? formatAdminManilaDateTime(loadedAt)
     : label(ko, "아직 없음", "Not loaded");
 
   const previewTitle =
@@ -737,7 +722,7 @@ export function AdminStoresCategoryPolicyPage() {
             <div className="mt-3 flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2">
               <div>
                 <p className="text-[13px] font-bold text-sam-fg">{label(ko, "상태", "Status")}</p>
-                <p className="text-[11px] text-sam-muted">
+                <p className="text-[12px] text-sam-muted">
                   {label(ko, "OFF면 고객 화면에서 이 1차 업종이 숨겨집니다.", "When off, this primary category is hidden from customers.")}
                 </p>
               </div>
@@ -749,7 +734,7 @@ export function AdminStoresCategoryPolicyPage() {
             </div>
             <div className="mt-3">
               <FieldLabel labelText={t("admin_stores_browse_ranking_criteria")}>
-                <p className="mb-2 text-[11px] text-sam-muted">{t("admin_stores_browse_ranking_criteria_hint")}</p>
+                <p className="mb-2 text-[12px] text-sam-muted">{t("admin_stores_browse_ranking_criteria_hint")}</p>
                 <ul className="space-y-1">
                   {STORES_BROWSE_ADMIN_RANKING_CRITERION_IDS.map((id) => {
                     const selected = draftPrimary.rankingCriteria.includes(id);
@@ -778,9 +763,10 @@ export function AdminStoresCategoryPolicyPage() {
                         />
                         <span className="w-5 text-[12px] text-sam-muted">{selected ? `${index + 1}.` : ""}</span>
                         <span className="flex-1 text-[13px]">{t(`admin_stores_browse_criterion_${id}`)}</span>
-                        <button
-                          type="button"
-                          className="rounded-ui-rect border border-sam-border px-2 py-0.5 text-[11px]"
+                        <AdminActionButton
+                          variant="secondary"
+                          size="sm"
+                          aria-label={label(ko, "위로", "Move up")}
                           disabled={!selected || index <= 0}
                           onClick={() => {
                             const next = [...draftPrimary.rankingCriteria];
@@ -791,10 +777,11 @@ export function AdminStoresCategoryPolicyPage() {
                           }}
                         >
                           ↑
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-ui-rect border border-sam-border px-2 py-0.5 text-[11px]"
+                        </AdminActionButton>
+                        <AdminActionButton
+                          variant="secondary"
+                          size="sm"
+                          aria-label={label(ko, "아래로", "Move down")}
                           disabled={!selected || index < 0 || index >= draftPrimary.rankingCriteria.length - 1}
                           onClick={() => {
                             const next = [...draftPrimary.rankingCriteria];
@@ -805,7 +792,7 @@ export function AdminStoresCategoryPolicyPage() {
                           }}
                         >
                           ↓
-                        </button>
+                        </AdminActionButton>
                       </li>
                     );
                   })}
@@ -814,7 +801,7 @@ export function AdminStoresCategoryPolicyPage() {
             </div>
             <div className="mt-3">
               <p className="text-[12px] font-bold text-sam-fg">{t("admin_stores_browse_customer_sort")}</p>
-              <p className="mb-2 text-[11px] text-sam-muted">{t("admin_stores_browse_customer_sort_hint")}</p>
+              <p className="mb-2 text-[12px] text-sam-muted">{t("admin_stores_browse_customer_sort_hint")}</p>
               {(["popular", "rating", "distance"] as const).map((id) => (
                 <div key={id} className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2">
                   <span className="text-[12px] font-bold">{t(`admin_stores_browse_customer_sort_${id}`)}</span>
@@ -831,13 +818,12 @@ export function AdminStoresCategoryPolicyPage() {
                 </div>
               ))}
             </div>
-            <button
-              type="button"
-              className="mt-3 w-full rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-left text-[12px] text-sam-fg"
+            <AdminListItemButton
+              className="mt-3 border border-sam-border bg-sam-surface-muted px-3 text-[12px] text-sam-fg"
               onClick={() => setTab("shelf")}
             >
               {t("admin_stores_browse_discovery_basic_pointer")}
-            </button>
+            </AdminListItemButton>
             <div className="mt-3">
               <FieldLabel labelText={t("admin_stores_browse_order_axis_window")}>
                 <select
@@ -860,7 +846,7 @@ export function AdminStoresCategoryPolicyPage() {
               {(() => {
                 const meta = buildStorePopularityWindowMeta(draftPrimary.popularityWindowDays);
                 return (
-                  <div className="mt-2 space-y-1 text-[11px] text-sam-muted">
+                  <div className="mt-2 space-y-1 text-[12px] text-sam-muted">
                     <p>
                       {t("admin_stores_popularity_rolling")} · {t("admin_stores_popularity_tz")} ·{" "}
                       {t("admin_stores_popularity_metric")} · {t("admin_stores_popularity_column")}
@@ -1089,7 +1075,7 @@ export function AdminStoresCategoryPolicyPage() {
             ) : null}
             {draftPrimary.discoveryShelf.sourceMode === "selected" &&
             draftPrimary.discoveryShelf.sourcePrimarySlugs.length === 0 ? (
-              <p className="mt-2 text-[12px] font-semibold text-red-700">
+              <p className="mt-2 text-[12px] font-semibold text-sam-danger">
                 {t("admin_stores_browse_discovery_selected_empty")}
               </p>
             ) : null}
@@ -1134,7 +1120,7 @@ export function AdminStoresCategoryPolicyPage() {
             <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
               <div>
                 <p className="text-[13px] font-bold">{label(ko, "네이티브 매장 홍보 허용", "Allow native store promotion")}</p>
-                <p className="text-[11px] text-sam-muted">
+                <p className="text-[12px] text-sam-muted">
                   {label(
                     ko,
                     "목록 카드 삽입(광고 라벨). max/interval은 「노출」탭. 배너와 별개입니다.",
@@ -1152,7 +1138,7 @@ export function AdminStoresCategoryPolicyPage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[13px] font-bold">{label(ko, "업종 상단 배너 허용", "Allow category top banner")}</p>
-                  <p className="text-[11px] text-sam-muted">
+                  <p className="text-[12px] text-sam-muted">
                     {label(
                       ko,
                       "이미지 배너 지면(top_context). 네이티브 삽입 플래너와 무관합니다.",
@@ -1186,7 +1172,7 @@ export function AdminStoresCategoryPolicyPage() {
             <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
               <div>
                 <p className="text-[13px] font-bold">{label(ko, "이 카테고리에서 유효한 쿠폰 배지 표시 허용", "Allow valid coupon badges in this category")}</p>
-                <p className="text-[11px] text-sam-muted">{label(ko, "캠페인 생성은 「쿠폰」메뉴에서 합니다. 여기는 배지 표면 허용만 설정합니다.", "Create campaigns under Coupons. This toggles badge surface permission only.")}</p>
+                <p className="text-[12px] text-sam-muted">{label(ko, "캠페인 생성은 「쿠폰」메뉴에서 합니다. 여기는 배지 표면 허용만 설정합니다.", "Create campaigns under Coupons. This toggles badge surface permission only.")}</p>
               </div>
               <Toggle
                 checked={draftPrimary.couponEnabled}
@@ -1272,11 +1258,11 @@ export function AdminStoresCategoryPolicyPage() {
       <div className="space-y-3" data-admin-category-cms="mockup-rewrite">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-[12px] font-semibold text-emerald-700">
+            <p className="text-[12px] font-semibold text-sam-success">
               {label(ko, "배달 CMS / 카테고리", "Delivery CMS / Category")}
             </p>
             {/* DEF-50: 제목 = 메뉴 라벨 키 (노출 정책) */}
-            <h1 className="text-[22px] font-black tracking-tight text-sam-fg">{t("admin_menu_stores_browse_policy")}</h1>
+            <h1 className="text-[20px] font-black tracking-tight text-sam-fg">{t("admin_menu_stores_browse_policy")}</h1>
             <p className="mt-1 text-[12px] text-sam-muted">
               {label(ko, "1차 업종, 2차 상속, 광고/쿠폰/노출 정책을 한 번에 저장합니다.", "Save primary, secondary inheritance, ads, coupons, and exposure policy together.")}
             </p>
@@ -1296,14 +1282,14 @@ export function AdminStoresCategoryPolicyPage() {
             >
               {label(ko, "앱에서 위치 보기", "View in app map")}
             </Link>
-            <button type="button" className={Sam.btn.secondary} onClick={() => void load()} disabled={loading}>
-              {label(ko, "새로고침", "Reload")}
-            </button>
+            <AdminActionButton variant="secondary" onClick={() => void load()} disabled={loading}>
+              {adminCta("refresh", ko)}
+            </AdminActionButton>
           </div>
         </div>
 
         <p
-          className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950"
+          className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[12px] text-sam-warning"
           data-admin-category-ads-boundary="1"
         >
           {label(
@@ -1313,9 +1299,9 @@ export function AdminStoresCategoryPolicyPage() {
           )}
         </p>
 
-        {saveMsg ? <p className="rounded-ui-rect bg-emerald-50 px-3 py-2 text-[13px] font-semibold text-emerald-800">{saveMsg}</p> : null}
+        {saveMsg ? <p className="rounded-ui-rect bg-sam-success-soft px-3 py-2 text-[13px] font-semibold text-sam-success">{saveMsg}</p> : null}
         {saveErr ? (
-          <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] font-semibold text-red-700">
+          <p className="rounded-ui-rect bg-sam-danger-soft px-3 py-2 text-[13px] font-semibold text-sam-danger">
             {saveErr === "stale_revision"
               ? label(ko, "다른 변경이 먼저 저장되었습니다. 새로고침 후 다시 저장하세요.", "Another change was saved first. Reload and save again.")
               : saveErr === "selected_source_empty"
@@ -1324,7 +1310,7 @@ export function AdminStoresCategoryPolicyPage() {
           </p>
         ) : null}
         {err ? (
-          <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] font-semibold text-red-700">
+          <p className="rounded-ui-rect bg-sam-danger-soft px-3 py-2 text-[13px] font-semibold text-sam-danger">
             {label(ko, "불러오지 못했습니다.", "Failed to load.")}{" "}
             {err === "load_fail" ? null : adminOperatorErrorMessage(err, ko)}
           </p>
@@ -1340,43 +1326,36 @@ export function AdminStoresCategoryPolicyPage() {
               <div className="flex items-center justify-between gap-2 border-b border-sam-border px-3 py-3">
                 <div>
                   <p className="text-[13px] font-black text-sam-fg">{label(ko, "1차 업종", "Primary")}</p>
-                  <p className="text-[11px] text-sam-muted">{label(ko, "플랫폼 taxonomy", "Platform taxonomy")}</p>
+                  <p className="text-[12px] text-sam-muted">{label(ko, "플랫폼 taxonomy", "Platform taxonomy")}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setPrimaryModalOpen(true)}
-                  className="rounded-ui-rect bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white"
-                >
+                <AdminActionButton variant="primary" size="sm" onClick={() => setPrimaryModalOpen(true)}>
                   {label(ko, "+ 1차 업종 추가", "+ Add primary")}
-                </button>
+                </AdminActionButton>
               </div>
               <ul className="max-h-[76vh] space-y-1 overflow-y-auto p-2">
                 {primaries.map((primary) => {
                   const active = primary.primarySlug === selectedPrimary;
                   return (
                     <li key={primary.primarySlug}>
-                      <button
-                        type="button"
+                      <AdminListItemButton
+                        selected={active}
                         onClick={() => selectPrimary(primary.primarySlug, "primary")}
-                        className={`w-full rounded-ui-rect px-2 py-2 text-left transition ${
-                          active ? "bg-emerald-50 ring-1 ring-emerald-300" : "hover:bg-sam-surface-muted"
-                        }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="truncate text-[13px] font-bold text-sam-fg">
                               {ko ? primary.nameKo : primary.nameEn}
                             </p>
-                            <p className="mt-0.5 font-mono text-[10px] text-sam-muted">{primary.primarySlug}</p>
+                            <p className="mt-0.5 font-mono text-[12px] text-sam-muted">{primary.primarySlug}</p>
                           </div>
                           {statusBadge(primary.resolved.enabled, ko)}
                         </div>
                         {active ? (
-                          <p className="mt-1 text-[11px] font-semibold text-emerald-800">
+                          <p className="mt-1 text-[12px] font-semibold text-sam-success">
                             {label(ko, `2차 ${secondaries.length}개`, `${secondaries.length} secondary`)}
                           </p>
                         ) : null}
-                      </button>
+                      </AdminListItemButton>
                     </li>
                   );
                 })}
@@ -1385,18 +1364,19 @@ export function AdminStoresCategoryPolicyPage() {
 
             <section className={tier === "secondary" ? "space-y-3 opacity-90" : "space-y-3"}>
               {tier === "secondary" && selectedPrimary ? (
-                <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2">
-                  <p className="text-[12px] leading-5 text-amber-950">{t("admin_stores_browse_discovery_not_ads")}</p>
-                  <button
-                    type="button"
-                    className="mt-2 rounded-ui-rect bg-emerald-600 px-3 py-1.5 text-[12px] font-bold text-white"
+                <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2">
+                  <p className="text-[12px] leading-5 text-sam-warning">{t("admin_stores_browse_discovery_not_ads")}</p>
+                  <AdminActionButton
+                    variant="primary"
+                    size="sm"
+                    className="mt-2"
                     onClick={() => {
                       replaceUrl({ primary: selectedPrimary, tier: "primary" });
                       setTab("shelf");
                     }}
                   >
                     {t("admin_stores_browse_discovery_open_tab")}
-                  </button>
+                  </AdminActionButton>
                 </div>
               ) : null}
               {!primaryMeta || !draftPrimary ? (
@@ -1409,11 +1389,11 @@ export function AdminStoresCategoryPolicyPage() {
                     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-sam-border px-4 py-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="truncate text-[18px] font-black text-sam-fg">
+                          <h2 className="truncate text-[16px] font-black text-sam-fg">
                             {ko ? primaryMeta.nameKo : primaryMeta.nameEn}
                           </h2>
                           {statusBadge(draftPrimary.enabled, ko)}
-                          <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 font-mono text-[10px] text-sam-muted">
+                          <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 font-mono text-[12px] text-sam-muted">
                             {primaryMeta.scopeKey}
                           </span>
                         </div>
@@ -1422,34 +1402,24 @@ export function AdminStoresCategoryPolicyPage() {
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          className={Sam.btn.secondary}
+                        <AdminActionButton
+                          variant="secondary"
                           onClick={() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
                         >
                           {label(ko, "미리보기", "Preview")}
-                        </button>
-                        <button type="button" className={Sam.btn.secondary} onClick={() => setHistoryOpen((v) => !v)}>
+                        </AdminActionButton>
+                        <AdminActionButton variant="secondary" onClick={() => setHistoryOpen((v) => !v)}>
                           {t("admin_r4c_history_title")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDraftPrimary({ ...draftPrimary, enabled: false })}
-                          className="rounded-ui-rect border border-red-200 px-3 py-1.5 text-[12px] font-bold text-red-600 hover:bg-red-50"
-                        >
+                        </AdminActionButton>
+                        <AdminActionButton variant="secondary" onClick={() => setDraftPrimary({ ...draftPrimary, enabled: false })}>
                           {label(ko, "비활성화", "Deactivate")}
-                        </button>
-                        <button type="button" className={Sam.btn.secondary} onClick={onCancel} disabled={saving}>
-                          {label(ko, "취소", "Cancel")}
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-ui-rect bg-emerald-600 px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
-                          disabled={saving}
-                          onClick={() => void onSaveAll()}
-                        >
-                          {saving ? label(ko, "저장 중", "Saving") : label(ko, "저장", "Save")}
-                        </button>
+                        </AdminActionButton>
+                        <AdminActionButton variant="secondary" onClick={onCancel} disabled={saving}>
+                          {adminCta("cancel", ko)}
+                        </AdminActionButton>
+                        <AdminActionButton variant="primary" disabled={saving} onClick={() => void onSaveAll()}>
+                          {saving ? label(ko, "저장 중", "Saving") : adminCta("save", ko)}
+                        </AdminActionButton>
                       </div>
                     </div>
 
@@ -1459,7 +1429,7 @@ export function AdminStoresCategoryPolicyPage() {
                           <div
                             key={`${item}-${idx}`}
                             className={`rounded-ui-rect border px-3 py-2 text-[12px] font-bold ${
-                              idx === 0 ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-sam-border bg-white text-sam-muted"
+                              idx === 0 ? "border-sam-success bg-sam-success-soft text-sam-success" : "border-sam-border bg-white text-sam-muted"
                             }`}
                           >
                             {item}
@@ -1478,21 +1448,14 @@ export function AdminStoresCategoryPolicyPage() {
                       </div>
                     ) : null}
 
-                    <div className="flex gap-1 overflow-x-auto border-b border-sam-border px-3 pt-2">
-                      {CAT_TABS.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setTab(item.id)}
-                          className={`shrink-0 rounded-t-ui-rect px-3 py-2 text-[12px] font-bold ${
-                            tab === item.id
-                              ? "bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200"
-                              : "text-sam-muted hover:text-sam-fg"
-                          }`}
-                        >
-                          {ko ? item.labelKo : item.labelEn}
-                        </button>
-                      ))}
+                    <div className="px-3 pt-2">
+                      <AdminTabs
+                        tabs={CAT_TABS.map((item) => ({ id: item.id, label: ko ? item.labelKo : item.labelEn }))}
+                        ariaLabel={label(ko, "업종 설정", "Category settings")}
+                        value={tab}
+                        onChange={(id) => setTab(id as CatTab)}
+                        syncUrl={false}
+                      />
                     </div>
 
                     <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_270px]">
@@ -1501,7 +1464,7 @@ export function AdminStoresCategoryPolicyPage() {
                         <p className="mb-1 text-center text-[12px] font-black text-sam-fg">
                           {label(ko, "고객 화면 미리보기", "Customer preview")}
                         </p>
-                        <p className="mb-2 text-center text-[10px] text-sam-muted">
+                        <p className="mb-2 text-center text-[12px] text-sam-muted">
                           {label(
                             ko,
                             "카테고리=메뉴(업종) 위주. 목록은 선택 1·2차 스코프만.",
@@ -1532,24 +1495,24 @@ export function AdminStoresCategoryPolicyPage() {
             <aside
               ref={secondaryColumnRef}
               className={`rounded-ui-rect border bg-white ${
-                tier === "secondary" ? "border-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]" : "border-sam-border"
+                tier === "secondary" ? "border-sam-success shadow-[0_0_0_3px_rgba(16,185,129,0.12)]" : "border-sam-border"
               }`}
             >
               <div className="flex items-start justify-between gap-2 border-b border-sam-border px-3 py-3">
                 <div>
                   <p className="text-[13px] font-black text-sam-fg">{label(ko, "2차 업종", "Secondary")}</p>
-                  <p className="text-[11px] text-sam-muted">
+                  <p className="text-[12px] text-sam-muted">
                     {label(ko, `전체 ${secondaries.length}개`, `${secondaries.length} total`)}
                   </p>
                 </div>
-                <button
-                  type="button"
+                <AdminActionButton
+                  variant="primary"
+                  size="sm"
                   onClick={() => setSecondaryModalOpen(true)}
                   disabled={!selectedPrimary}
-                  className="rounded-ui-rect bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white disabled:opacity-40"
                 >
                   {label(ko, "+ 2차 업종 추가", "+ Add secondary")}
-                </button>
+                </AdminActionButton>
               </div>
 
               {!selectedPrimary ? (
@@ -1563,15 +1526,12 @@ export function AdminStoresCategoryPolicyPage() {
                       const inherit = draft?.mode !== "override";
                       return (
                         <li key={secondary.subSlug}>
-                          <button
-                            type="button"
+                          <AdminListItemButton
+                            selected={active}
                             onClick={() => {
                               setSelectedSub(secondary.subSlug);
                               replaceUrl({ primary: selectedPrimary, tier: "secondary" });
                             }}
-                            className={`w-full rounded-ui-rect px-2 py-2 text-left ${
-                              active ? "bg-emerald-50 ring-1 ring-emerald-300" : "hover:bg-sam-surface-muted"
-                            }`}
                           >
                             <div className="flex items-start gap-2">
                               <div className="min-w-0 flex-1">
@@ -1580,8 +1540,8 @@ export function AdminStoresCategoryPolicyPage() {
                                 </p>
                                 <div className="mt-1 flex flex-wrap gap-1">
                                   <span
-                                    className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                                      inherit ? "bg-slate-100 text-slate-600" : "bg-amber-100 text-amber-800"
+                                    className={`rounded px-1.5 py-0.5 text-[12px] font-bold ${
+                                      inherit ? "bg-sam-surface-muted text-sam-muted" : "bg-sam-warning-soft text-sam-warning"
                                     }`}
                                   >
                                     {inherit
@@ -1603,7 +1563,7 @@ export function AdminStoresCategoryPolicyPage() {
                                 }
                               />
                             </div>
-                          </button>
+                          </AdminListItemButton>
                         </li>
                       );
                     })}
@@ -1617,7 +1577,7 @@ export function AdminStoresCategoryPolicyPage() {
                             <p className="text-[12px] font-black text-sam-fg">
                               {ko ? selectedSubMeta.nameKo : selectedSubMeta.nameEn}
                             </p>
-                            <p className="text-[11px] text-amber-700">
+                            <p className="text-[12px] text-sam-warning">
                               {label(ko, "개별 override 편집 중", "Editing custom override")}
                             </p>
                           </div>
@@ -1696,7 +1656,7 @@ export function AdminStoresCategoryPolicyPage() {
                               />
                             </FieldLabel>
                           </div>
-                          <p className="text-[11px] text-sam-muted">{t("admin_stores_browse_secondary_inherits_list_policy")}</p>
+                          <p className="text-[12px] text-sam-muted">{t("admin_stores_browse_secondary_inherits_list_policy")}</p>
                         </div>
                       ) : (
                         <div className="rounded-ui-rect bg-sam-surface-muted p-3 text-[12px] text-sam-muted">
@@ -1709,9 +1669,9 @@ export function AdminStoresCategoryPolicyPage() {
                   </div>
 
                   <div className="border-t border-sam-border p-3">
-                    <button type="button" onClick={focusSecondary} className="w-full rounded-ui-rect border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] font-black text-emerald-800">
+                    <AdminActionButton variant="secondary" className="w-full" onClick={focusSecondary}>
                       {label(ko, "2차 업종 전체 관리", "Manage all secondary")}
-                    </button>
+                    </AdminActionButton>
                   </div>
                 </>
               )}
@@ -1734,18 +1694,17 @@ export function AdminStoresCategoryPolicyPage() {
               </p>
             ) : (
               disabledPrimaries.map((primary) => (
-                <button
+                <AdminListItemButton
                   key={primary.primarySlug}
-                  type="button"
                   onClick={() => reactivatePrimary(primary.primarySlug)}
-                  className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2 text-left hover:bg-emerald-50"
+                  className="flex items-center justify-between border border-sam-border px-3"
                 >
                   <span>
                     <span className="block text-[13px] font-bold text-sam-fg">{ko ? primary.nameKo : primary.nameEn}</span>
-                    <span className="font-mono text-[10px] text-sam-muted">{primary.primarySlug}</span>
+                    <span className="font-mono text-[12px] text-sam-muted">{primary.primarySlug}</span>
                   </span>
-                  <span className="text-[12px] font-bold text-emerald-700">{label(ko, "다시 사용", "Re-enable")}</span>
-                </button>
+                  <span className="text-[12px] font-bold text-sam-success">{label(ko, "다시 사용", "Re-enable")}</span>
+                </AdminListItemButton>
               ))
             )}
           </div>
@@ -1771,18 +1730,17 @@ export function AdminStoresCategoryPolicyPage() {
               </p>
             ) : (
               disabledSecondaries.map((secondary) => (
-                <button
+                <AdminListItemButton
                   key={secondary.subSlug}
-                  type="button"
                   onClick={() => reactivateSecondary(secondary.subSlug)}
-                  className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2 text-left hover:bg-emerald-50"
+                  className="flex items-center justify-between border border-sam-border px-3"
                 >
                   <span>
                     <span className="block text-[13px] font-bold text-sam-fg">{ko ? secondary.nameKo : secondary.nameEn}</span>
-                    <span className="font-mono text-[10px] text-sam-muted">{secondary.subSlug}</span>
+                    <span className="font-mono text-[12px] text-sam-muted">{secondary.subSlug}</span>
                   </span>
-                  <span className="text-[12px] font-bold text-emerald-700">{label(ko, "다시 사용", "Re-enable")}</span>
-                </button>
+                  <span className="text-[12px] font-bold text-sam-success">{label(ko, "다시 사용", "Re-enable")}</span>
+                </AdminListItemButton>
               ))
             )}
           </div>

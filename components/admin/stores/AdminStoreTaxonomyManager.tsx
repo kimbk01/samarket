@@ -1,6 +1,9 @@
 "use client";
 
-import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
@@ -177,14 +180,9 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
           <li className="px-3 py-4">
             <p className="sam-text-body-secondary text-sam-muted">{emptyLabel}</p>
             {onSeed && seedLabel ? (
-              <button
-                type="button"
-                onClick={onSeed}
-                disabled={seeding}
-                className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg disabled:opacity-50"
-              >
+              <AdminActionButton variant="secondary" className="mt-2" onClick={onSeed} disabled={seeding}>
                 {seeding ? t("admin_stores_app_taxonomy_seeding") : seedLabel}
-              </button>
+              </AdminActionButton>
             ) : null}
           </li>
         ) : (
@@ -248,22 +246,12 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                         />
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          disabled={saving || isUploading}
-                          onClick={() => void onSave()}
-                          className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-semibold text-white disabled:opacity-50"
-                        >
+                        <AdminActionButton variant="primary" size="sm" disabled={saving || isUploading} onClick={() => void onSave()}>
                           {saving || isUploading ? t("admin_stores_saving") : t("common_save")}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={saving || isUploading}
-                          onClick={onCancelEdit}
-                          className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper font-semibold text-sam-fg"
-                        >
+                        </AdminActionButton>
+                        <AdminActionButton variant="secondary" size="sm" disabled={saving || isUploading} onClick={onCancelEdit}>
                           {t("common_cancel")}
-                        </button>
+                        </AdminActionButton>
                       </div>
                     </div>
                   ) : (
@@ -282,15 +270,11 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                         className="flex shrink-0 flex-col gap-1"
                         onClick={selectable ? (e) => e.stopPropagation() : undefined}
                       >
-                        <button
-                          type="button"
-                          onClick={() => onStartEdit(row)}
-                          className="sam-text-xxs font-semibold text-signature underline"
-                        >
+                        <AdminActionButton variant="ghost" size="sm" className="!h-auto !px-0" onClick={() => onStartEdit(row)}>
                           {t("common_edit")}
-                        </button>
-                        <button
-                          type="button"
+                        </AdminActionButton>
+                        <AdminActionButton
+                          variant="ghost" size="sm" className="!h-auto !px-0 !text-sam-danger"
                           onClick={() => {
                             void (async () => {
                               const nextActive = !row.is_active;
@@ -300,26 +284,29 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                                   ? "숨김 처리할까요?"
                                   : "Hide this item?";
                               if (
-                                !(await dibayConfirm({
+                                !(
+                                  await confirmAdminAction({
+                                  level: "L1",
+                                  ko,
                                   title: label,
                                   description: nextActive
                                     ? undefined
                                     : ko
                                       ? "고객 매장 목록(/stores)에서 보이지 않게 됩니다. 삭제되지 않으며 「복구」로 다시 노출할 수 있습니다."
                                       : "It will be hidden from the store list (/stores). It is not deleted and can be restored.",
-                                  confirmLabel: nextActive ? undefined : ko ? "숨김" : "Hide",
-                                  confirmTone: nextActive ? "primary" : "destructive",
-                                }))
+                                  confirmLabel: nextActive ? t("admin_stores_app_taxonomy_restore") : ko ? "숨김" : "Hide",
+                                  destructive: !nextActive,
+                                })
+                                ).ok
                               ) {
                                 return;
                               }
                               onToggleActive(row.id, nextActive);
                             })();
                           }}
-                          className="sam-text-xxs font-semibold text-red-600 underline"
                         >
                           {row.is_active ? (ko ? "숨김" : "Hide") : t("admin_stores_app_taxonomy_restore")}
-                        </button>
+                        </AdminActionButton>
                       </div>
                     </div>
                   );
@@ -327,9 +314,21 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
             return (
               <li key={row.id}>
                 {selectable ? (
-                  <button type="button" onClick={() => onSelect(row.id)} className={rowShellClass}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onSelect(row.id)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelect(row.id);
+                      }
+                    }}
+                    className={`cursor-pointer ${rowShellClass}`}
+                  >
                     {rowBody}
-                  </button>
+                  </div>
                 ) : (
                   <div className={rowShellClass}>{rowBody}</div>
                 )}
@@ -359,14 +358,9 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
             className="rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
             placeholder={addLabels.slug}
           />
-          <button
-            type="button"
-            onClick={onAdd}
-            disabled={addDisabled}
-            className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body-secondary font-semibold text-white disabled:opacity-50"
-          >
+          <AdminActionButton variant="primary" onClick={onAdd} disabled={addDisabled}>
             {addLabels.button}
-          </button>
+          </AdminActionButton>
         </div>
       </div>
     </div>
@@ -646,7 +640,18 @@ export function AdminStoreTaxonomyManager({
   );
 
   const seedDefaults = useCallback(async () => {
-    if (!(await dibayConfirm({ title: t("admin_stores_app_taxonomy_confirm_seed"), confirmTone: "destructive" }))) return;
+    if (
+      !(
+        await confirmAdminAction({
+          level: "L1",
+          ko,
+          title: t("admin_stores_app_taxonomy_confirm_seed"),
+          confirmLabel: t("admin_stores_app_taxonomy_seed"),
+          destructive: true,
+        })
+      ).ok
+    )
+      return;
     setSeeding(true);
     try {
       const res = await fetch("/api/admin/stores/taxonomy", {
@@ -735,32 +740,22 @@ export function AdminStoreTaxonomyManager({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_taxonomy_title")}</h2>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => void reloadTaxonomy({ silent: true })}
-            disabled={refreshing}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg disabled:opacity-50"
-          >
-            {refreshing ? t("common_loading") : t("admin_stores_fee_refresh")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void seedDefaults()}
-            disabled={seeding}
-            className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg disabled:opacity-50"
-          >
+          <AdminActionButton variant="secondary" onClick={() => void reloadTaxonomy({ silent: true })} disabled={refreshing}>
+            {adminCta("refresh", ko)}
+          </AdminActionButton>
+          <AdminActionButton variant="secondary" onClick={() => void seedDefaults()} disabled={seeding}>
             {seeding ? t("admin_stores_app_taxonomy_seeding") : t("admin_stores_app_taxonomy_seed")}
-          </button>
+          </AdminActionButton>
         </div>
       </div>
 
       {loadError ? (
-        <p role="alert" className="mt-3 sam-text-body-secondary text-red-700">
+        <p role="alert" className="mt-3 sam-text-body-secondary text-sam-danger">
           {loadError}
         </p>
       ) : null}
       {subtopicsTableMissing ? (
-        <p className="mt-2 sam-text-helper text-amber-800">{subtopicsNotReadyText(ko)}</p>
+        <p className="mt-2 sam-text-helper text-sam-warning">{subtopicsNotReadyText(ko)}</p>
       ) : null}
 
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">

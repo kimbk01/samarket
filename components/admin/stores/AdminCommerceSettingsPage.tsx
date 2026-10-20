@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminErrorState, AdminLoadingState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminConflictReloadedCode } from "@/lib/admin/operator-ux/operator-labels";
@@ -147,13 +148,9 @@ export function AdminCommerceSettingsPage() {
               <span className="mt-0.5 block sam-text-xxs text-sam-meta">1~90</span>
             </label>
             <div className="flex flex-wrap gap-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-ui-rect bg-sam-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-              >
+              <AdminActionButton type="submit" variant="primary" disabled={saving}>
                 {saving ? t("admin_stores_saving") : t("common_save")}
-              </button>
+              </AdminActionButton>
             </div>
           </form>
 
@@ -173,10 +170,10 @@ export function AdminCommerceSettingsPage() {
             <p className="sam-text-xxs text-sam-muted">
               {legacyStored ? t("admin_r4c_commerce_reset_desc_with_legacy") : t("admin_r4c_commerce_reset_desc")}
             </p>
-            <button
-              type="button"
+            <AdminActionButton
+              variant="secondary"
+              size="sm"
               disabled={saving}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
               onClick={async () => {
                 if (saving) return;
                 // DEF-46: L2 확인 + 사유 (작업 기록).
@@ -203,7 +200,7 @@ export function AdminCommerceSettingsPage() {
               }}
             >
               {t("admin_r4c_commerce_reset_cta")}
-            </button>
+            </AdminActionButton>
           </div>
         </>
       )}

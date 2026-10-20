@@ -3,18 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog } from "@/components/ui/dibay-overlay";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
+/** 표시 = 선택 대화상자와 같은 날짜·시·분 ("YYYY-MM-DD HH:mm"). */
 function formatDisplay(value: string, emptyLabel: string): string {
   const v = value.trim();
   if (!v) return emptyLabel;
-  try {
-    const d = new Date(v);
-    if (!Number.isFinite(d.getTime())) return v;
-    return d.toLocaleString();
-  } catch {
-    return v;
-  }
+  const parts = parseParts(v);
+  if (!parts.date) return v;
+  return `${parts.date} ${parts.hour}:${parts.minute}`;
 }
 
 function pad2(n: number | string): string {
@@ -109,9 +107,9 @@ export function GiftSalesDateTimeField({
   return (
     <div className="block space-y-1 text-sm" data-gift-sales-datetime-field={dataTestId ?? "1"}>
       <span className="block">{label}</span>
-      <button
-        type="button"
-        className={`${Sam.input.base} flex min-h-[44px] w-full items-center justify-between gap-2 text-left`}
+      <AdminActionButton
+        variant="neutral"
+        className="w-full justify-between bg-sam-surface text-left font-normal"
         data-gift-sales-datetime-trigger="1"
         onClick={() => setOpen(true)}
       >
@@ -124,7 +122,7 @@ export function GiftSalesDateTimeField({
             fallbackEn: "Change",
           })}
         </span>
-      </button>
+      </AdminActionButton>
 
       {showDiff ? (
         <p className="text-xs text-sam-muted" data-gift-sales-datetime-diff="1">
@@ -215,9 +213,9 @@ export function GiftSalesDateTimeField({
             </label>
           </div>
           {allowEmpty ? (
-            <button
-              type="button"
-              className={`${Sam.btn.secondary} min-h-[44px] w-full px-4`}
+            <AdminActionButton
+              variant="secondary"
+              className="w-full"
               data-gift-sales-datetime-clear="1"
               onClick={() => {
                 setDraftDate("");
@@ -229,7 +227,7 @@ export function GiftSalesDateTimeField({
                 fallbackKo: "비우기",
                 fallbackEn: "Clear",
               })}
-            </button>
+            </AdminActionButton>
           ) : null}
           {previousValue !== undefined && draftLocal !== value ? (
             <p className="text-xs text-sam-muted">

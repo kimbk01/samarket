@@ -146,23 +146,23 @@ export function AdminStoresCategoryBrowseLivePreview({
       data-preview-sub={subSlug}
     >
       <div className="bg-sam-app px-3 pb-3 pt-2">
-        <p className="mb-1 text-center text-[9px] font-bold uppercase tracking-wide text-emerald-700">
+        <p className="mb-1 text-center text-[12px] font-bold uppercase tracking-wide text-sam-success">
           {ko ? "실데이터 · 업종 스코프" : "Live · industry scope"}
         </p>
-        <div className="mb-2 flex h-7 items-center rounded-full bg-white px-3 text-[10px] font-semibold text-sam-muted ring-1 ring-sam-border">
+        <div className="mb-2 flex h-7 items-center rounded-full bg-white px-3 text-[12px] font-semibold text-sam-muted ring-1 ring-sam-border">
           dibay
         </div>
-        <p className="mb-1 truncate text-[10px] font-semibold text-sam-muted" title={scopeBreadcrumb}>
+        <p className="mb-1 truncate text-[12px] font-semibold text-sam-muted" title={scopeBreadcrumb}>
           {scopeBreadcrumb}
         </p>
         {readyState?.popularityRange ? (
-          <p className="mb-1 break-all text-[9px] text-sam-muted">{readyState.popularityRange}</p>
+          <p className="mb-1 break-all text-[12px] text-sam-muted">{readyState.popularityRange}</p>
         ) : null}
         <div className="mb-2 flex gap-1 overflow-x-auto">
-          <span className="shrink-0 rounded-full bg-sam-fg px-2 py-1 text-[10px] font-bold text-white">
+          <span className="shrink-0 rounded-full bg-sam-fg px-2 py-1 text-[12px] font-bold text-white">
             {headerTitle}
           </span>
-          <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-bold text-sam-muted">
+          <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[12px] font-bold text-sam-muted">
             {subSlug === "all"
               ? ko
                 ? "1차 전체(혼합)"
@@ -174,27 +174,27 @@ export function AdminStoresCategoryBrowseLivePreview({
         </div>
 
         {!draftEnabled ? (
-          <p className="rounded-ui-rect bg-rose-50 px-2 py-6 text-center text-[11px] font-semibold text-rose-800">
+          <p className="rounded-ui-rect bg-sam-danger-soft px-2 py-6 text-center text-[12px] font-semibold text-sam-danger">
             {ko
               ? "초안 OFF — 저장 시 고객 목록이 비워집니다."
               : "Draft OFF — customer list will be empty after save."}
           </p>
         ) : state.status === "loading" || state.status === "idle" ? (
-          <p className="px-2 py-8 text-center text-[11px] text-sam-muted">{ko ? "실데이터 로딩…" : "Loading live…"}</p>
+          <p className="px-2 py-8 text-center text-[12px] text-sam-muted">{ko ? "실데이터 로딩…" : "Loading live…"}</p>
         ) : state.status === "error" ? (
-          <p className="px-2 py-6 text-center text-[11px] text-rose-700">{state.message}</p>
+          <p className="px-2 py-6 text-center text-[12px] text-sam-danger">{state.message}</p>
         ) : !readyState || !effectiveEnabled ? (
-          <p className="rounded-ui-rect bg-rose-50 px-2 py-6 text-center text-[11px] font-semibold text-rose-800">
+          <p className="rounded-ui-rect bg-sam-danger-soft px-2 py-6 text-center text-[12px] font-semibold text-sam-danger">
             {ko ? "저장 정책 OFF — 고객 목록 비움" : "Saved policy OFF — customer list empty"}
           </p>
         ) : (
           <>
             {insertionBanner ? (
               <div
-                className={`mb-2 rounded-ui-rect px-2 py-2 text-[11px] font-bold ${
+                className={`mb-2 rounded-ui-rect px-2 py-2 text-[12px] font-bold ${
                   insertionBanner.kind === "paid_ad"
-                    ? "bg-emerald-100 text-emerald-800"
-                    : "bg-purple-100 text-purple-800"
+                    ? "bg-sam-success-soft text-sam-success"
+                    : "bg-sam-primary-soft text-sam-primary"
                 }`}
               >
                 {insertionBanner.kind === "paid_ad"
@@ -208,7 +208,7 @@ export function AdminStoresCategoryBrowseLivePreview({
               </div>
             ) : null}
             {readyState.stores.length === 0 ? (
-              <p className="rounded-ui-rect border border-dashed border-sam-border bg-white px-2 py-6 text-center text-[11px] text-sam-muted">
+              <p className="rounded-ui-rect border border-dashed border-sam-border bg-white px-2 py-6 text-center text-[12px] text-sam-muted">
                 {ko
                   ? "이 1·2차 스코프에 매장이 없습니다. (다른 업종 매장은 섞이지 않습니다)"
                   : "No stores in this primary/secondary scope. (Other industries are not mixed in.)"}

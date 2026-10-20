@@ -15,6 +15,10 @@ import {
   resolveEffectiveStoreDeliveryRadiusKm,
 } from "@/lib/delivery/store-delivery-radius";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import {
   adminConflictReloadedMessage,
   adminOperatorErrorMessage,
@@ -55,7 +59,7 @@ const DEFAULT_POLICY: DeliveryDistancePolicy = {
 };
 
 /** 매장 목록 서버 페이지 크기 — 이전 300건 고정 상한 대신 페이지네이션 (`/api/admin/stores?page=`). */
-const STORE_PAGE_SIZE = 50;
+const STORE_PAGE_SIZE = 50 as const;
 
 const DEFAULT_OVERRIDES: DeliveryStoreDistanceOverrides = {
   stores: {},
@@ -222,7 +226,6 @@ export function AdminDeliveryDistanceSettingsPage() {
     void loadStores();
   }, [loadStores]);
 
-  const pageCount = Math.max(1, Math.ceil(totalStores / STORE_PAGE_SIZE));
   const applySearch = useCallback(() => {
     setPage(1);
     setAppliedQuery(query.trim());
@@ -277,7 +280,7 @@ export function AdminDeliveryDistanceSettingsPage() {
         ko,
         title: ko ? `「${name}」 배달 설정을 저장할까요?` : `Save delivery settings for "${name}"?`,
         description: changes.join(" · "),
-        confirmLabel: ko ? "저장" : "Save",
+        confirmLabel: adminCta("save", ko),
       });
       if (!c.ok) return;
 
@@ -409,12 +412,12 @@ export function AdminDeliveryDistanceSettingsPage() {
       />
 
       {message ? (
-        <p className="mb-4 rounded-ui-rect border border-green-200 bg-green-50 px-3 py-2 sam-text-body-secondary text-green-800">
+        <p className="mb-4 rounded-ui-rect border border-sam-success bg-sam-success-soft px-3 py-2 sam-text-body-secondary text-sam-success">
           {message}
         </p>
       ) : null}
       {error ? (
-        <p role="alert" className="mb-4 rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
+        <p role="alert" className="mb-4 rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-body-secondary text-sam-danger">
           {error}
         </p>
       ) : null}
@@ -425,14 +428,9 @@ export function AdminDeliveryDistanceSettingsPage() {
             <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_delivery_distance_global_title")}</h2>
             <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_delivery_distance_global_desc")}</p>
           </div>
-          <button
-            type="button"
-            disabled={loading || saving || !dirty}
-            onClick={() => void save()}
-            className="rounded-ui-rect border border-sam-primary bg-sam-primary px-4 py-2 sam-text-body-secondary font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? t("admin_stores_saving") : t("admin_delivery_distance_save")}
-          </button>
+          <AdminActionButton variant="primary" disabled={loading || saving || !dirty} onClick={() => void save()}>
+            {t("admin_delivery_distance_save")}
+          </AdminActionButton>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -494,12 +492,9 @@ export function AdminDeliveryDistanceSettingsPage() {
               placeholder={t("admin_delivery_distance_store_search")}
               className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-fg md:w-72"
             />
-            <button
-              type="submit"
-              className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary"
-            >
-              {t("admin_r4c_search")}
-            </button>
+            <AdminActionButton type="submit" variant="secondary" className="shrink-0">
+              {adminCta("search", ko)}
+            </AdminActionButton>
           </form>
         </div>
 
@@ -575,7 +570,7 @@ export function AdminDeliveryDistanceSettingsPage() {
                       </td>
                       <td className="px-2 py-2 sam-text-helper text-sam-muted">
                         {store.updated_at
-                          ? new Date(store.updated_at).toLocaleString(ko ? "ko-KR" : "en-US", { timeZone: "Asia/Manila" })
+                          ? formatAdminManilaDateTime(store.updated_at)
                           : "—"}
                       </td>
                       <td className="px-2 py-2">
@@ -595,14 +590,14 @@ export function AdminDeliveryDistanceSettingsPage() {
                         </select>
                       </td>
                       <td className="px-2 py-2">
-                        <button
-                          type="button"
+                        <AdminActionButton
+                          variant="ghost"
+                          size="sm"
                           disabled={radiusSavingId !== null || !rowDirty}
                           onClick={() => void saveStoreRow(store)}
-                          className="rounded-ui-rect border border-sam-primary bg-sam-primary px-3 py-1.5 sam-text-helper font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {radiusSavingId === store.id ? t("admin_stores_saving") : t("common_save")}
-                        </button>
+                          {adminCta("save", ko)}
+                        </AdminActionButton>
                       </td>
                     </tr>
                   );
@@ -611,36 +606,14 @@ export function AdminDeliveryDistanceSettingsPage() {
             </tbody>
           </table>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 sam-text-helper text-sam-muted">
-          <span>
-            {t("admin_r4c_distance_page_summary", {
-              from: totalStores === 0 ? 0 : (page - 1) * STORE_PAGE_SIZE + 1,
-              to: Math.min(page * STORE_PAGE_SIZE, totalStores),
-              total: totalStores,
-            })}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={storesLoading || page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 disabled:opacity-40"
-            >
-              {t("admin_r4c_prev_page")}
-            </button>
-            <span className="tabular-nums">
-              {page} / {pageCount}
-            </span>
-            <button
-              type="button"
-              disabled={storesLoading || page >= pageCount}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 disabled:opacity-40"
-            >
-              {t("admin_r4c_next_page")}
-            </button>
-          </div>
-        </div>
+        <AdminPagination
+          ko={ko}
+          page={page}
+          size={STORE_PAGE_SIZE}
+          total={totalStores}
+          onPageChange={setPage}
+          disabled={storesLoading}
+        />
       </section>
     </div>
   );

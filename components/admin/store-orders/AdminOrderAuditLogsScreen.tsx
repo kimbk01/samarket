@@ -10,6 +10,9 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminOrderAuditTable } from "@/components/admin/store-orders/AdminOrderAuditTable";
 import {
@@ -17,7 +20,7 @@ import {
   useAdminOrderDetailParam,
   withoutAdminOrderModalParams,
 } from "@/components/admin/store-orders/AdminOrderDetailModal";
-import { OPS_INPUT, OPS_PRIMARY_BTN, OPS_SECONDARY_BTN, OpsPager, OpsPeriodFilter } from "@/components/admin/store-orders/AdminOrderOpsParts";
+import { OPS_INPUT, OpsPager, OpsPeriodFilter } from "@/components/admin/store-orders/AdminOrderOpsParts";
 import { ADMIN_AUDIT_CATEGORY_LABEL } from "@/lib/admin/store-orders/admin-store-order-audit-labels";
 import { ADMIN_STORE_ORDER_STATUS_LABEL_KEYS } from "@/lib/admin/store-orders/admin-store-order-status-labels";
 import {
@@ -118,25 +121,13 @@ export function AdminOrderAuditLogsScreen() {
         }
       />
 
-      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={ko ? "구분" : "Category"}>
-        {ADMIN_AUDIT_FILTER_CATEGORIES.map((c) => {
-          const active = c === applied.category;
-          return (
-            <button
-              key={c}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => go({ category: c })}
-              className={`inline-flex min-h-9 items-center rounded-full border px-3 py-1 sam-text-helper ${
-                active ? "border-signature bg-signature/10 font-semibold text-signature" : "border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-surface-muted"
-              }`}
-            >
-              {catLabel(c)}
-            </button>
-          );
-        })}
-      </div>
+      <AdminTabs
+        tabs={ADMIN_AUDIT_FILTER_CATEGORIES.map((c) => ({ id: c, label: catLabel(c) }))}
+        ariaLabel={ko ? "구분" : "Category"}
+        value={applied.category}
+        syncUrl={false}
+        onChange={(c) => go({ category: c as (typeof ADMIN_AUDIT_FILTER_CATEGORIES)[number] })}
+      />
 
       <form onSubmit={onSubmit} className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -147,22 +138,21 @@ export function AdminOrderAuditLogsScreen() {
             placeholder={ko ? "주문번호" : "Order number"}
             aria-label={ko ? "주문번호" : "Order number"}
           />
-          <button type="submit" className={OPS_PRIMARY_BTN}>
-            {ko ? "조회" : "Search"}
-          </button>
-          <button
-            type="button"
-            className={OPS_SECONDARY_BTN}
+          <AdminActionButton type="submit" variant="primary">
+            {adminCta("search", ko)}
+          </AdminActionButton>
+          <AdminActionButton
+            variant="secondary"
             onClick={() => {
               setDraftQ("");
               router.push(pathname, { scroll: false });
             }}
           >
-            {ko ? "초기화" : "Reset"}
-          </button>
-          <button type="button" className={OPS_SECONDARY_BTN} onClick={() => setReload((n) => n + 1)}>
-            {ko ? "새로고침" : "Refresh"}
-          </button>
+            {adminCta("reset", ko)}
+          </AdminActionButton>
+          <AdminActionButton variant="secondary" onClick={() => setReload((n) => n + 1)}>
+            {adminCta("refresh", ko)}
+          </AdminActionButton>
         </div>
         <OpsPeriodFilter
           period={applied.period}

@@ -11,9 +11,9 @@ import {
 import {
   AdminStoreReviewTheme,
   ReviewRow,
-  sbBtnPrimary,
-  sbBtnSecondary,
 } from "@/components/admin/stores/admin-store-review-ui";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -242,7 +242,7 @@ export function AdminStoresPage() {
   return (
     <AdminStoreReviewTheme>
       <div className="space-y-4">
-        <div className="flex items-start justify-between gap-3 border-b border-[#D4C5B9] pb-4">
+        <div className="flex items-start justify-between gap-3 border-b border-sam-border pb-4">
           <div className="min-w-0 flex-1">
             <AdminPageHeader titleKey="admin_page_store_review_queue" />
           </div>
@@ -254,37 +254,33 @@ export function AdminStoresPage() {
             const n = countValue(counts, f.value);
             const active = filter === f.value;
             return (
-              <button
+              <AdminChipButton
                 key={f.value}
-                type="button"
+                selected={active}
+                count={n}
+                className="shrink-0"
                 onClick={() => setFilter(f.value)}
-                className={`min-w-[7.5rem] shrink-0 rounded-sm border px-3 py-2 text-left transition ${
-                  active
-                    ? "border-[#00704A] bg-[#00704A] text-white"
-                    : "border-[#D4C5B9] bg-white text-[#1E3932] hover:bg-[#F2F0EB]"
-                }`}
               >
-                <span className="block text-[12px] font-medium leading-4 opacity-90">{label}</span>
-                <span className="mt-0.5 block text-[20px] font-semibold leading-none tabular-nums">{n}</span>
-              </button>
+                {label}
+              </AdminChipButton>
             );
           })}
         </div>
 
         <AdminResultBanner ko={ko} result={actionResult} onClose={() => setActionResult(null)} />
 
-        <div className="overflow-hidden rounded-sm border border-[#D4C5B9] bg-white">
-          <div className="border-b border-[#D4C5B9] bg-[#F2F0EB] px-4 py-3">
-            <label className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#1E3932]">
+        <div className="overflow-hidden rounded-sm border border-sam-border bg-white">
+          <div className="border-b border-sam-border bg-sam-surface-muted px-4 py-3">
+            <label className="text-[12px] font-bold uppercase tracking-[0.08em] text-sam-fg">
               {t("common_search")}
             </label>
             <input
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               placeholder={t("admin_stores_search_placeholder")}
-              className="mt-2 w-full rounded-sm border border-[#D4C5B9] bg-white px-3 py-2 text-[#1E3932] outline-none focus:border-[#00704A]"
+              className="mt-2 w-full rounded-sm border border-sam-border bg-white px-3 py-2 text-sam-fg outline-none focus:border-sam-primary"
             />
-            <p className="mt-2 text-[13px] text-[#6B6B6B]">
+            <p className="mt-2 text-[13px] text-sam-muted">
               {loading ? t("common_loading") : error ? "—" : t("admin_stores_result_count", { count: total })}
             </p>
           </div>
@@ -323,15 +319,15 @@ export function AdminStoresPage() {
                       key={r.id}
                       className={
                         active
-                          ? "mx-3 my-4 overflow-hidden rounded-sm border-2 border-[#00704A] bg-white shadow-[0_2px_10px_rgba(30,57,50,0.1)]"
-                          : "border-b border-[#D4C5B9] bg-white last:border-b-0"
+                          ? "mx-3 my-4 overflow-hidden rounded-sm border-2 border-sam-primary bg-white shadow-[0_2px_10px_rgba(30,57,50,0.1)]"
+                          : "border-b border-sam-border bg-white last:border-b-0"
                       }
                     >
-                      <div className={`px-4 py-3 ${active ? "border-b border-[#D4C5B9] bg-[#FAFAF8]" : ""}`}>
+                      <div className={`px-4 py-3 ${active ? "border-b border-sam-border bg-sam-surface-muted" : ""}`}>
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="min-w-0 flex-1 space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h2 className="text-[15px] font-bold leading-5 text-[#1E3932]">{storeName}</h2>
+                              <h2 className="text-[14px] font-bold leading-5 text-sam-fg">{storeName}</h2>
                               <AdminToneBadge tone={approval.tone}>{approval.label}</AdminToneBadge>
                               {r.approval_status === "pending" && (r.revision_note ?? "").trim() ? (
                                 <AdminToneBadge tone="warning">{t("admin_r4a_resubmitted_badge")}</AdminToneBadge>
@@ -350,7 +346,7 @@ export function AdminStoresPage() {
                                     href={publicHref}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-[#00704A] underline-offset-2 hover:underline"
+                                    className="text-sam-primary underline-offset-2 hover:underline"
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     {ko ? "공개 매장 보기" : "Open public page"}
@@ -373,7 +369,7 @@ export function AdminStoresPage() {
                               <ReviewRow
                                 label={ko ? "요청사항" : "Request"}
                                 value={requestPreview}
-                                valueClassName="text-[#6B6B6B]"
+                                valueClassName="text-sam-muted"
                               />
                               <AdminTechDetails ko={ko}>
                                 <div>store_id: {r.id}</div>
@@ -383,25 +379,25 @@ export function AdminStoresPage() {
                             </div>
                           </div>
 
-                          <button
-                            type="button"
+                          <AdminActionButton
+                            variant={active ? "secondary" : "primary"}
+                            size="sm"
                             onClick={() => setSheetStore((prev) => (prev?.id === r.id ? null : r))}
-                            className={active ? sbBtnSecondary : sbBtnPrimary}
                             aria-expanded={active}
                           >
                             {active ? t("admin_stores_close_review") : t("admin_stores_open_review")}
-                          </button>
+                          </AdminActionButton>
                         </div>
                       </div>
 
                       {active ? (
                         <>
-                          <div className="flex items-center border-b border-[#00704A]/25 bg-[#E8F2ED] px-4 py-2">
-                            <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#00704A]">
+                          <div className="flex items-center border-b border-sam-primary/25 bg-sam-primary-soft px-4 py-2">
+                            <span className="text-[12px] font-bold uppercase tracking-[0.1em] text-sam-primary">
                               {ko ? "심사 상세" : "Review detail"}
                             </span>
                           </div>
-                          <div className="bg-[#F2F0EB]">
+                          <div className="bg-sam-surface-muted">
                             <AdminStoreReviewPanel
                               store={r}
                               salesStatus={r.sales_permission?.sales_status ?? null}
@@ -434,10 +430,10 @@ export function AdminStoresPage() {
           </div>
           {!loading && !error && total > pageSize ? (
             <div
-              className="flex flex-wrap items-center justify-between gap-2 border-t border-[#D4C5B9] bg-[#F2F0EB] px-4 py-3"
+              className="flex flex-wrap items-center justify-between gap-2 border-t border-sam-border bg-sam-surface-muted px-4 py-3"
               data-admin-stores-pagination="1"
             >
-              <p className="text-[13px] text-[#6B6B6B]">
+              <p className="text-[13px] text-sam-muted">
                 {t("admin_biz_ops_page_range", {
                   from: String((page - 1) * pageSize + 1),
                   to: String(Math.min(page * pageSize, total)),
@@ -445,25 +441,25 @@ export function AdminStoresPage() {
                 })}
               </p>
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
+                <AdminActionButton
+                  variant="secondary"
+                  size="sm"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className={sbBtnSecondary}
                 >
                   {t("admin_biz_ops_page_prev")}
-                </button>
-                <span className="px-2 text-[13px] tabular-nums text-[#1E3932]">
+                </AdminActionButton>
+                <span className="px-2 text-[13px] tabular-nums text-sam-fg">
                   {page} / {Math.max(1, Math.ceil(total / pageSize))}
                 </span>
-                <button
-                  type="button"
+                <AdminActionButton
+                  variant="secondary"
+                  size="sm"
                   disabled={page >= Math.ceil(total / pageSize)}
                   onClick={() => setPage((p) => p + 1)}
-                  className={sbBtnSecondary}
                 >
                   {t("admin_biz_ops_page_next")}
-                </button>
+                </AdminActionButton>
               </div>
             </div>
           ) : null}

@@ -12,6 +12,11 @@
  * Return: list state lives in the URL; the scroll position is kept per URL in sessionStorage.
  */
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import type { MessageKey } from "@/lib/i18n/messages";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -27,8 +32,6 @@ import {
 import {
   elapsedSince,
   OPS_INPUT,
-  OPS_PRIMARY_BTN,
-  OPS_ROW_BTN,
   OPS_SECONDARY_BTN,
   OpsPager,
   OpsPeriodFilter,
@@ -494,9 +497,9 @@ export function AdminOrderOpsScreen({
     return ko ? ADMIN_ORDER_REQUESTER_LABEL[k].ko : ADMIN_ORDER_REQUESTER_LABEL[k].en;
   };
   const OrderNo = ({ r }: { r: AdminOrderOpsRow }) => (
-    <button type="button" onClick={() => open(r)} className="font-mono font-medium text-sam-fg underline-offset-2 hover:underline" data-open-order={r.order_no}>
+    <AdminActionButton variant="ghost" size="sm" onClick={() => open(r)} className="!h-auto !px-0 font-mono font-medium" data-open-order={r.order_no}>
       {r.order_no}
-    </button>
+    </AdminActionButton>
   );
 
   const header = (labels: string[]) => (
@@ -580,9 +583,14 @@ export function AdminOrderOpsScreen({
                       </Link>
                     ) : null}
                     {r.money_mismatch ? (
-                      <button type="button" onClick={() => modal.openOrder(r.id, "payment")} className="whitespace-nowrap rounded-full bg-sam-danger-soft px-2 py-0.5 sam-text-xxs font-semibold text-sam-danger">
+                      <AdminActionButton
+                        variant="quiet"
+                        size="sm"
+                        onClick={() => modal.openOrder(r.id, "payment")}
+                        className="!h-auto !rounded-full bg-sam-danger-soft !px-2 py-0.5 !text-[12px] !text-sam-danger"
+                      >
                         {ko ? "금액 불일치" : "Amount mismatch"}
-                      </button>
+                      </AdminActionButton>
                     ) : null}
                     {r.sla_warning_level ? <span className="sam-text-xxs text-sam-warning">{ko ? "지연" : "Delayed"}</span> : null}
                   </div>
@@ -592,9 +600,9 @@ export function AdminOrderOpsScreen({
                 </td>
                 <td className={`whitespace-nowrap tabular-nums text-sam-muted ${td}`}>{r.completed_at ? formatManilaDateTime(r.completed_at) : "—"}</td>
                 <td className={td}>
-                  <button type="button" className={OPS_ROW_BTN} onClick={() => open(r)}>
-                    {ko ? "상세" : "Detail"}
-                  </button>
+                  <AdminActionButton variant="ghost" size="sm" onClick={() => open(r)}>
+                    {adminCta("detail", ko)}
+                  </AdminActionButton>
                 </td>
               </tr>
             ))}
@@ -633,12 +641,12 @@ export function AdminOrderOpsScreen({
                     {statusLabel(r.order_status)}
                   </span>
                 </td>
-                <td className={`whitespace-nowrap text-sam-fg ${td}`}>{r.delivery_status ?? "—"}</td>
+                <td className={`whitespace-nowrap text-sam-fg ${td}`}>{r.delivery_status ? adminStatusLabel("rider_delivery", r.delivery_status, ko).label : "—"}</td>
                 <td className={`whitespace-nowrap text-right tabular-nums ${td}`}>{formatMoneyPhp(r.payment_amount)}</td>
                 <td className={td}>
-                  <button type="button" className={OPS_PRIMARY_BTN} onClick={() => modal.openOrder(r.id, "admin")}>
-                    {ko ? "처리하기" : "Handle"}
-                  </button>
+                  <AdminActionButton variant="ghost" size="sm" onClick={() => modal.openOrder(r.id, "admin")}>
+                    {ko ? "처리" : "Handle"}
+                  </AdminActionButton>
                 </td>
               </tr>
             ))}
@@ -714,9 +722,9 @@ export function AdminOrderOpsScreen({
                     <td className={td}>
                       {r.commission_state ? <CommissionStateChip state={r.commission_state} lang={lang} /> : <span className="sam-text-xxs text-sam-muted">{ko ? "부과 없음" : "Not charged"}</span>}
                       {r.commission_state === "review_required" ? (
-                        <Link href={`/admin/store-settlements?state=review_required&order_no=${encodeURIComponent(r.order_no)}`} className={`mt-1 ${OPS_ROW_BTN}`}>
+                        <AdminActionLink variant="ghost" size="sm" className="mt-1" href={`/admin/store-settlements?state=review_required&order_no=${encodeURIComponent(r.order_no)}`}>
                           {ko ? "수수료 검토" : "Review commission"}
-                        </Link>
+                        </AdminActionLink>
                       ) : null}
                     </td>
                   </>
@@ -738,12 +746,12 @@ export function AdminOrderOpsScreen({
                 </td>
                 <td className={td}>
                   <div className="flex flex-col items-start gap-1">
-                    <button type="button" className={OPS_ROW_BTN} onClick={() => open(r)}>
-                      {ko ? "상세" : "Detail"}
-                    </button>
-                    <Link href={`/admin/stores/orders/logs?q=${encodeURIComponent(r.order_no)}`} className={OPS_ROW_BTN}>
+                    <AdminActionButton variant="ghost" size="sm" onClick={() => open(r)}>
+                      {adminCta("detail", ko)}
+                    </AdminActionButton>
+                    <AdminActionLink variant="ghost" size="sm" href={`/admin/stores/orders/logs?q=${encodeURIComponent(r.order_no)}`}>
                       {ko ? "처리 이력" : "History"}
-                    </Link>
+                    </AdminActionLink>
                   </div>
                 </td>
               </tr>
@@ -782,12 +790,12 @@ export function AdminOrderOpsScreen({
         <div className="flex flex-wrap items-center gap-2">
           {screen !== "exceptions" ? (
             <a href={exportHref} className={OPS_SECONDARY_BTN} download data-cta="csv">
-              {ko ? "CSV 내려받기" : "Download CSV"}
+              {adminCta("exportCsv", ko)}
             </a>
           ) : null}
-          <button type="button" className={OPS_SECONDARY_BTN} onClick={onRefresh} disabled={loadingAny || !result} data-cta="refresh">
-            {busy === "refresh" ? (ko ? "새로고침 중…" : "Refreshing…") : ko ? "새로고침" : "Refresh"}
-          </button>
+          <AdminActionButton variant="secondary" onClick={onRefresh} disabled={loadingAny || !result} data-cta="refresh">
+            {adminCta("refresh", ko)}
+          </AdminActionButton>
         </div>
       </header>
 
@@ -819,29 +827,16 @@ export function AdminOrderOpsScreen({
       ) : null}
 
       {cfg.tabs.length > 1 ? (
-        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={ko ? "구분" : "Tabs"}>
-          {cfg.tabs.map((tb) => {
-            const active = tab.key === tb.key;
+        <AdminTabs
+          ariaLabel={ko ? "구분" : "Tabs"}
+          syncUrl={false}
+          value={tab.key}
+          onChange={(id) => onTab(id, { orderStatus: null })}
+          tabs={cfg.tabs.map((tb) => {
             const count = result?.tabCounts[tb.key];
-            return (
-              <button
-                key={tb.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => onTab(tb.key, { orderStatus: null })}
-                disabled={loadingAny && active}
-                data-tab={tb.key}
-                className={`inline-flex min-h-10 items-center gap-1.5 rounded-ui-rect border px-3 py-1.5 sam-text-helper ${
-                  active ? "border-signature bg-signature/5 font-semibold text-signature" : "border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-surface-muted"
-                }`}
-              >
-                {ko ? tb.ko : tb.en}
-                <span className="tabular-nums text-sam-muted">{typeof count === "number" ? count.toLocaleString() : ""}</span>
-              </button>
-            );
+            return { id: tb.key, label: ko ? tb.ko : tb.en, count: typeof count === "number" ? count : null };
           })}
-        </div>
+        />
       ) : null}
 
       <form onSubmit={onSearch} className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4" aria-label={ko ? "주문 검색" : "Search orders"}>
@@ -912,20 +907,20 @@ export function AdminOrderOpsScreen({
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className={OPS_SECONDARY_BTN} onClick={onReset} disabled={loadingAny} data-cta="reset">
-              {ko ? "초기화" : "Reset"}
-            </button>
-            <button type="submit" className={OPS_PRIMARY_BTN} disabled={loadingAny} data-cta="search">
-              {busy === "query" ? (ko ? "조회 중…" : "Searching…") : ko ? "조회" : "Search"}
-            </button>
+            <AdminActionButton variant="secondary" onClick={onReset} disabled={loadingAny} data-cta="reset">
+              {adminCta("reset", ko)}
+            </AdminActionButton>
+            <AdminActionButton type="submit" variant="primary" disabled={loadingAny} data-cta="search">
+              {adminCta("search", ko)}
+            </AdminActionButton>
           </div>
         </div>
         {deepLinks.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {deepLinks.map((d) => (
-              <button key={d.key} type="button" className={OPS_ROW_BTN} onClick={() => clearDeepLink(d.key)} disabled={loadingAny} aria-label={ko ? `${d.label} 해제` : `Clear ${d.label}`}>
+              <AdminChipButton key={d.key} selected onClick={() => clearDeepLink(d.key)} disabled={loadingAny} aria-label={ko ? `${d.label} 해제` : `Clear ${d.label}`}>
                 {d.label} ✕
-              </button>
+              </AdminChipButton>
             ))}
           </div>
         ) : null}
@@ -945,9 +940,9 @@ export function AdminOrderOpsScreen({
             {result ? (ko ? " · 직전 조회 결과를 표시하고 있습니다." : " · Showing the previous result.") : ""}
           </span>
           {error !== "forbidden" ? (
-            <button type="button" className={OPS_ROW_BTN} onClick={onRefresh} disabled={loadingAny}>
-              {ko ? "다시 시도" : "Retry"}
-            </button>
+            <AdminActionButton variant="secondary" size="sm" onClick={onRefresh} disabled={loadingAny}>
+              {adminCta("refresh", ko)}
+            </AdminActionButton>
           ) : null}
         </div>
       ) : null}
@@ -964,9 +959,9 @@ export function AdminOrderOpsScreen({
         <div className="space-y-2 py-8 text-center" data-state="empty">
           <p className="sam-text-body text-sam-muted">{emptyText}</p>
           {screen !== "exceptions" ? (
-            <button type="button" className={OPS_ROW_BTN} onClick={onReset} disabled={loadingAny}>
-              {ko ? "조건 초기화" : "Reset filters"}
-            </button>
+            <AdminActionButton variant="secondary" size="sm" onClick={onReset} disabled={loadingAny}>
+              {adminCta("reset", ko)}
+            </AdminActionButton>
           ) : null}
         </div>
       ) : result ? (

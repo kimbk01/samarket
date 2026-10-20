@@ -5,11 +5,13 @@
  * `?order_id=` (주문 상세 → LNK-5) 는 URL 이 바뀔 때마다 그대로 조회 조건이 된다. 원시 값(source ·
  * event_type · payload · UUID)은 「기술 정보」에만 둔다. 주문 링크는 주문 상세(DEF-49).
  */
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
@@ -58,7 +60,6 @@ export function AdminStorePaymentEventsPage() {
 function AdminStorePaymentEventsPageInner() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const locale = catalogDateLocale(language);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -138,9 +139,9 @@ function AdminStorePaymentEventsPageInner() {
           <Link className="text-signature underline" href={returnTo ?? `/admin/stores/orders/${encodeURIComponent(orderId)}`}>
             {t("admin_r4b_pay_back_order")}
           </Link>
-          <button type="button" className="text-sam-muted underline" onClick={() => pushFilters({ order_id: "" })}>
+          <AdminActionButton variant="quiet" size="sm" onClick={() => pushFilters({ order_id: "" })}>
             {t("admin_r4b_pay_clear_order")}
-          </button>
+          </AdminActionButton>
         </div>
       ) : null}
 
@@ -182,13 +183,9 @@ function AdminStorePaymentEventsPageInner() {
             ))}
           </select>
         </label>
-        <button
-          type="submit"
-          className="rounded-ui-rect bg-sam-primary px-3 py-1.5 font-medium text-sam-on-primary disabled:opacity-50"
-          disabled={loading}
-        >
-          {loading ? t("admin_r4b_pay_searching") : t("admin_r4b_pay_search")}
-        </button>
+        <AdminActionButton variant="primary" size="sm" type="submit" disabled={loading}>
+          {adminCta("search", ko)}
+        </AdminActionButton>
       </form>
 
       {error ? (
@@ -217,7 +214,7 @@ function AdminStorePaymentEventsPageInner() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className="border-b border-sam-border-soft align-top">
-                  <td className="whitespace-nowrap px-2 py-2 text-sam-muted">{new Date(r.created_at).toLocaleString(locale)}</td>
+                  <td className="whitespace-nowrap px-2 py-2 text-sam-muted">{formatAdminManilaDateTime(r.created_at)}</td>
                   <td className="px-2 py-2 text-sam-fg">{t(sourceKey(r.source))}</td>
                   <td className="px-2 py-2 text-sam-fg">{t(eventKey(r.event_type))}</td>
                   <td className="px-2 py-2">

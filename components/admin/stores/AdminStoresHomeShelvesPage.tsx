@@ -9,6 +9,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminSwitch } from "@/components/admin/ui/AdminSwitch";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
@@ -144,27 +148,7 @@ function Toggle({
   onChange: (v: boolean) => void;
   disabled?: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={(e) => {
-        e.stopPropagation();
-        onChange(!checked);
-      }}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
-        checked ? "bg-emerald-500" : "bg-sam-border"
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-          checked ? "left-4" : "left-0.5"
-        }`}
-      />
-    </button>
-  );
+  return <AdminSwitch checked={checked} onChange={onChange} disabled={disabled} />;
 }
 
 export function AdminStoresHomeShelvesPage() {
@@ -506,7 +490,7 @@ export function AdminStoresHomeShelvesPage() {
             ))}
           </select>
         </label>
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
           <dt className="text-sam-muted">{ko ? "집계 기준" : "Window"}</dt>
           <dd>{t(`admin_stores_popularity_window_${days}`)}</dd>
           <dt className="text-sam-muted">{ko ? "방식" : "Mode"}</dt>
@@ -522,7 +506,7 @@ export function AdminStoresHomeShelvesPage() {
             {meta.popularitySinceIso} ~ {meta.popularityUntilIso}
           </dd>
         </dl>
-        <p className="text-[11px] leading-snug text-sam-muted">{t("admin_stores_popularity_window_limitation")}</p>
+        <p className="text-[12px] leading-snug text-sam-muted">{t("admin_stores_popularity_window_limitation")}</p>
       </div>
     );
   };
@@ -602,7 +586,7 @@ export function AdminStoresHomeShelvesPage() {
         />
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className="block text-[11px] font-medium text-sam-muted">
+        <label className="block text-[12px] font-medium text-sam-muted">
           {ko ? "버튼 문구 (KO)" : "Label (KO)"}
           <input
             disabled={!shelf.productConfig.showAllEnabled}
@@ -611,7 +595,7 @@ export function AdminStoresHomeShelvesPage() {
             onChange={(e) => updateProductConfig(shelf, { showAllLabelKo: e.target.value || null })}
           />
         </label>
-        <label className="block text-[11px] font-medium text-sam-muted">
+        <label className="block text-[12px] font-medium text-sam-muted">
           {ko ? "버튼 문구 (EN)" : "Label (EN)"}
           <input
             disabled={!shelf.productConfig.showAllEnabled}
@@ -633,7 +617,7 @@ export function AdminStoresHomeShelvesPage() {
           </option>
         ))}
       </select>
-      {showAllHref ? <p className="mt-1.5 font-mono text-[11px] text-sam-muted">{showAllHref}</p> : null}
+      {showAllHref ? <p className="mt-1.5 font-mono text-[12px] text-sam-muted">{showAllHref}</p> : null}
     </div>
   );
 
@@ -649,7 +633,7 @@ export function AdminStoresHomeShelvesPage() {
               value={shelf.titleKo}
               onChange={(e) => update(shelf.shelfId, { titleKo: e.target.value })}
             />
-            <span className="mt-0.5 block text-right text-[10px]">{shelf.titleKo.length}/20</span>
+            <span className="mt-0.5 block text-right text-[12px]">{shelf.titleKo.length}/20</span>
           </label>
           <label className="block text-[12px] font-medium text-sam-muted">
             {ko ? "부제목 (선택)" : "Subtitle (optional)"}
@@ -659,7 +643,7 @@ export function AdminStoresHomeShelvesPage() {
               value={shelf.subtitleKo ?? ""}
               onChange={(e) => update(shelf.shelfId, { subtitleKo: e.target.value || null })}
             />
-            <span className="mt-0.5 block text-right text-[10px]">{(shelf.subtitleKo ?? "").length}/40</span>
+            <span className="mt-0.5 block text-right text-[12px]">{(shelf.subtitleKo ?? "").length}/40</span>
           </label>
           {renderDataSourceSelect(shelf)}
           {renderPopularityWindowSelect(shelf)}
@@ -685,7 +669,7 @@ export function AdminStoresHomeShelvesPage() {
     if (tab === "data") {
       return (
         <div className="space-y-3">
-          <p className="rounded-ui-rect bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+          <p className="rounded-ui-rect bg-sam-warning-soft px-3 py-2 text-[12px] text-sam-warning">
             {t("admin_stores_home_shelves_ranking_lock")}
           </p>
           <label className="block text-[12px] font-medium text-sam-muted">
@@ -804,7 +788,7 @@ export function AdminStoresHomeShelvesPage() {
           value={shelf.productConfig.operatorMemo ?? ""}
           onChange={(e) => updateProductConfig(shelf, { operatorMemo: e.target.value || null })}
         />
-        <span className="mt-0.5 block text-right text-[10px]">{(shelf.productConfig.operatorMemo ?? "").length}/200</span>
+        <span className="mt-0.5 block text-right text-[12px]">{(shelf.productConfig.operatorMemo ?? "").length}/200</span>
       </label>
     );
   };
@@ -832,14 +816,14 @@ export function AdminStoresHomeShelvesPage() {
             >
               {ko ? "앱에서 위치 보기" : "View in app map"}
             </Link>
-            <button type="button" className={Sam.btn.secondary} onClick={() => void load()} disabled={loading}>
+            <AdminActionButton variant="secondary" onClick={() => void load()} disabled={loading}>
               {t("admin_stores_home_shelves_reload")}
-            </button>
+            </AdminActionButton>
           </div>
         </div>
 
         <p
-          className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950"
+          className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[12px] text-sam-warning"
           data-admin-home-ads-boundary="1"
         >
           {ko
@@ -847,9 +831,9 @@ export function AdminStoresHomeShelvesPage() {
             : "This screen manages organic HOME composition and slot allowance only. Approve / pause / end paid ads in Ads ops. Do not mutate paid execution here."}
         </p>
 
-        {toast ? <p className="text-[13px] text-emerald-700">{toast}</p> : null}
+        {toast ? <p className="text-[13px] text-sam-success">{toast}</p> : null}
         {saveErr ? (
-          <p className="text-[13px] text-red-700">
+          <p className="text-[13px] text-sam-danger">
             {saveErr === "stale_revision"
               ? t("admin_stores_home_shelves_stale_revision")
               : t("admin_stores_home_shelves_save_fail")}
@@ -865,15 +849,11 @@ export function AdminStoresHomeShelvesPage() {
               <div className="flex items-center justify-between gap-2 border-b border-sam-border px-3 py-2.5">
                 <div>
                   <p className="text-[13px] font-bold text-sam-fg">{ko ? "HOME 선반 목록" : "HOME shelf list"}</p>
-                  <p className="text-[11px] text-sam-muted">{ko ? "드래그하여 순서를 변경하세요" : "Drag to change order"}</p>
+                  <p className="text-[12px] text-sam-muted">{ko ? "드래그하여 순서를 변경하세요" : "Drag to change order"}</p>
                 </div>
-                <button
-                  type="button"
-                  className="rounded-ui-rect bg-emerald-600 px-2.5 py-1.5 text-[12px] font-semibold text-white hover:bg-emerald-700"
-                  onClick={openAddModal}
-                >
+                <AdminActionButton variant="primary" size="sm" onClick={openAddModal}>
                   {ko ? "+ 선반 추가" : "+ Add shelf"}
-                </button>
+                </AdminActionButton>
               </div>
 
               <ul className="max-h-[70vh] space-y-1 overflow-y-auto p-2">
@@ -916,7 +896,7 @@ export function AdminStoresHomeShelvesPage() {
                         }}
                         onClick={() => selectShelf(row.shelfId)}
                         className={`flex cursor-pointer items-center gap-2 rounded-ui-rect px-2 py-2 ${
-                          active ? "bg-emerald-50 ring-1 ring-emerald-200" : "hover:bg-sam-surface-muted"
+                          active ? "bg-sam-success-soft ring-1 ring-sam-success" : "hover:bg-sam-surface-muted"
                         } ${row.enabled ? "" : "opacity-70"}`}
                       >
                         <span className="cursor-grab text-sam-muted" aria-hidden>
@@ -925,13 +905,14 @@ export function AdminStoresHomeShelvesPage() {
                         <span className="w-5 shrink-0 text-center text-[12px] font-semibold text-sam-muted">{index + 1}</span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-semibold text-sam-fg">{name}</p>
-                          <p className="truncate text-[11px] text-sam-muted">{typeLine}</p>
-                          <p className="truncate text-[10px] text-sam-muted">{statusLine}</p>
+                          <p className="truncate text-[12px] text-sam-muted">{typeLine}</p>
+                          <p className="truncate text-[12px] text-sam-muted">{statusLine}</p>
                         </div>
                         <Toggle checked={row.enabled} onChange={(value) => update(row.shelfId, { enabled: value })} />
-                        <button
-                          type="button"
-                          className="rounded px-1 text-[18px] leading-none text-sam-muted hover:bg-white hover:text-sam-fg"
+                        <AdminActionButton
+                          variant="quiet"
+                          size="sm"
+                          className="px-1.5"
                           aria-label={ko ? "선반 메뉴" : "Shelf menu"}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -939,20 +920,22 @@ export function AdminStoresHomeShelvesPage() {
                           }}
                         >
                           ⋯
-                        </button>
+                        </AdminActionButton>
                       </div>
                       {menuShelfId === row.shelfId ? (
                         <div className="absolute right-2 top-9 z-10 w-28 overflow-hidden rounded-ui-rect border border-sam-border bg-white py-1 text-[12px] shadow-lg">
-                          <button
-                            type="button"
-                            className="block w-full px-3 py-2 text-left hover:bg-sam-surface-muted"
+                          <AdminActionButton
+                            variant="quiet"
+                            size="sm"
+                            className="w-full justify-start rounded-none"
                             onClick={() => openDuplicateModal(row.shelfId)}
                           >
                             {ko ? "복제" : "Duplicate"}
-                          </button>
-                          <button
-                            type="button"
-                            className="block w-full px-3 py-2 text-left hover:bg-sam-surface-muted"
+                          </AdminActionButton>
+                          <AdminActionButton
+                            variant="quiet"
+                            size="sm"
+                            className="w-full justify-start rounded-none"
                             onClick={() => {
                               update(row.shelfId, { enabled: false });
                               setMenuShelfId(null);
@@ -960,14 +943,15 @@ export function AdminStoresHomeShelvesPage() {
                             }}
                           >
                             {ko ? "사용안함" : "Disable"}
-                          </button>
-                          <button
-                            type="button"
-                            className="block w-full px-3 py-2 text-left hover:bg-sam-surface-muted"
+                          </AdminActionButton>
+                          <AdminActionButton
+                            variant="quiet"
+                            size="sm"
+                            className="w-full justify-start rounded-none"
                             onClick={() => selectShelf(row.shelfId)}
                           >
                             {ko ? "선택" : "Select"}
-                          </button>
+                          </AdminActionButton>
                         </div>
                       ) : null}
                     </li>
@@ -977,7 +961,7 @@ export function AdminStoresHomeShelvesPage() {
 
               {unavailableRows.length > 0 ? (
                 <div className="border-t border-sam-border p-3">
-                  <p className="mb-2 text-[11px] font-semibold text-sam-muted">
+                  <p className="mb-2 text-[12px] font-semibold text-sam-muted">
                     {ko ? "사용 불가 선반 (데이터 authority 없음)" : "Unavailable shelves (missing authority)"}
                   </p>
                   <ul className="space-y-1">
@@ -988,7 +972,7 @@ export function AdminStoresHomeShelvesPage() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="truncate">{ko ? row.titleKo : row.titleEn}</span>
-                          <span className="shrink-0 rounded bg-sam-border/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase">
+                          <span className="shrink-0 rounded bg-sam-border/60 px-1.5 py-0.5 text-[12px] font-semibold uppercase">
                             UNAVAILABLE
                           </span>
                         </div>
@@ -1008,9 +992,9 @@ export function AdminStoresHomeShelvesPage() {
                         {ko ? selectedEditable.titleKo : selectedEditable.titleEn}
                       </h2>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${
                           selectedEditable.enabled
-                            ? "bg-emerald-100 text-emerald-800"
+                            ? "bg-sam-success-soft text-sam-success"
                             : "bg-sam-surface-muted text-sam-muted"
                         }`}
                       >
@@ -1018,41 +1002,30 @@ export function AdminStoresHomeShelvesPage() {
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2 text-[12px]">
-                      <button
-                        type="button"
-                        className={Sam.btn.secondary}
+                      <AdminActionButton
+                        variant="secondary"
+                        size="sm"
                         onClick={() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
                       >
                         {ko ? "미리보기" : "Preview"}
-                      </button>
-                      <button type="button" className={Sam.btn.secondary} onClick={() => openDuplicateModal(selectedEditable.shelfId)}>
+                      </AdminActionButton>
+                      <AdminActionButton variant="secondary" size="sm" onClick={() => openDuplicateModal(selectedEditable.shelfId)}>
                         {ko ? "복제" : "Duplicate"}
-                      </button>
-                      <button
-                        type="button"
-                        className={Sam.btn.secondary}
-                        onClick={() => setModalMode("delete")}
-                      >
-                        {ko ? "삭제" : "Delete"}
-                      </button>
+                      </AdminActionButton>
+                      <AdminActionButton variant="danger" size="sm" onClick={() => setModalMode("delete")}>
+                        {adminCta("delete", ko)}
+                      </AdminActionButton>
                     </div>
                   </div>
 
-                  <div className="flex gap-1 overflow-x-auto border-b border-sam-border px-2 pt-2">
-                    {HOME_TABS.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setTab(item.id)}
-                        className={`shrink-0 rounded-t-ui-rect px-3 py-2 text-[12px] font-semibold ${
-                          tab === item.id
-                            ? "bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200"
-                            : "text-sam-muted hover:text-sam-fg"
-                        }`}
-                      >
-                        {ko ? item.labelKo : item.labelEn}
-                      </button>
-                    ))}
+                  <div className="px-2 pt-2">
+                    <AdminTabs
+                      tabs={HOME_TABS.map((item) => ({ id: item.id, label: ko ? item.labelKo : item.labelEn }))}
+                      ariaLabel={ko ? "선반 설정" : "Shelf settings"}
+                      value={tab}
+                      onChange={(id) => setTab(id as HomeTab)}
+                      syncUrl={false}
+                    />
                   </div>
 
                   <div
@@ -1066,7 +1039,7 @@ export function AdminStoresHomeShelvesPage() {
                     {tab === "basic" || tab === "presentation" ? (
                       <div ref={previewRef} className="space-y-3">
                         <p className="text-[12px] font-bold text-sam-fg">{t("admin_stores_home_shelves_preview_title")}</p>
-                        <p className="text-[11px] text-sam-muted">
+                        <p className="text-[12px] text-sam-muted">
                           {ko
                             ? "HOME은 선반(composer slot) 위주입니다. 미리보기는 고객 home-feed 실데이터입니다."
                             : "HOME is shelf-led (composer slots). Preview uses live customer home-feed data."}
@@ -1095,17 +1068,12 @@ export function AdminStoresHomeShelvesPage() {
                   </div>
 
                   <div className="sticky bottom-0 flex justify-end gap-2 border-t border-sam-border bg-white px-4 py-3">
-                    <button type="button" className={Sam.btn.secondary} onClick={onCancel} disabled={saving}>
-                      {ko ? "취소" : "Cancel"}
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-ui-rect bg-emerald-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                      onClick={() => void onSave()}
-                      disabled={saving || loading}
-                    >
+                    <AdminActionButton variant="secondary" onClick={onCancel} disabled={saving}>
+                      {adminCta("cancel", ko)}
+                    </AdminActionButton>
+                    <AdminActionButton variant="primary" onClick={() => void onSave()} disabled={saving || loading}>
                       {t("admin_stores_home_shelves_save")}
-                    </button>
+                    </AdminActionButton>
                   </div>
                 </>
               ) : (
@@ -1166,7 +1134,7 @@ export function AdminStoresHomeShelvesPage() {
             <div className="space-y-2 border-t border-sam-border pt-3">
               <p className="text-[12px] font-semibold text-sam-fg">{ko ? "사용 불가" : "Unavailable"}</p>
               {unavailableRows.map((row) => (
-                <p key={row.shelfId} className="rounded-ui-rect bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                <p key={row.shelfId} className="rounded-ui-rect bg-sam-warning-soft px-3 py-2 text-[12px] text-sam-warning">
                   <span className="font-semibold">{ko ? row.titleKo : row.titleEn}</span>
                   <br />
                   {ko ? row.unavailableReasonKo : row.unavailableReasonEn}

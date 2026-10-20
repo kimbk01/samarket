@@ -17,6 +17,9 @@ import {
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
 
@@ -566,53 +569,53 @@ function AdminDeliveryAlertsPageInner() {
 
       <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
         <div className="flex flex-wrap gap-2">
-          <button
+          <AdminChipButton
             type="button"
-            className={`sam-btn sam-btn--sm ${filter === "open" ? "sam-btn--primary" : "sam-btn--outline"}`}
+            selected={filter === "open"}
             onClick={() => setFilter("open")}
           >
             {t("admin_del_alert_filter_open")}
-          </button>
-          <button
+          </AdminChipButton>
+          <AdminChipButton
             type="button"
-            className={`sam-btn sam-btn--sm ${filter === "all" ? "sam-btn--primary" : "sam-btn--outline"}`}
+            selected={filter === "all"}
             onClick={() => setFilter("all")}
           >
             {t("common_all")}
-          </button>
+          </AdminChipButton>
           <span className="mx-1 hidden text-sam-muted sm:inline">|</span>
-          <button
+          <AdminChipButton
             type="button"
-            className={`sam-btn sam-btn--sm ${assignment === "all" ? "sam-btn--primary" : "sam-btn--outline"}`}
+            selected={assignment === "all"}
             onClick={() => setAssignment("all")}
           >
             {t("admin_del_alert_filter_assign_all")}
-          </button>
-          <button
+          </AdminChipButton>
+          <AdminChipButton
             type="button"
-            className={`sam-btn sam-btn--sm ${assignment === "mine" ? "sam-btn--primary" : "sam-btn--outline"}`}
+            selected={assignment === "mine"}
             onClick={() => setAssignment("mine")}
           >
             {t("admin_del_alert_filter_assign_mine")}
-          </button>
-          <button
+          </AdminChipButton>
+          <AdminChipButton
             type="button"
-            className={`sam-btn sam-btn--sm ${assignment === "unassigned" ? "sam-btn--primary" : "sam-btn--outline"}`}
+            selected={assignment === "unassigned"}
             onClick={() => setAssignment("unassigned")}
           >
             {t("admin_del_alert_filter_assign_unassigned")}
-          </button>
+          </AdminChipButton>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/admin/delivery-auto-actions" className="sam-btn sam-btn--outline sam-btn--sm">
             {t("admin_del_alert_link_auto_actions")}
           </Link>
-          <button type="button" className="sam-btn sam-btn--outline sam-btn--sm" onClick={runSync} disabled={loading}>
+          <AdminActionButton type="button" variant="secondary" size="sm" onClick={runSync} disabled={loading}>
             {t("admin_del_alert_btn_sync_now")}
-          </button>
-          <button type="button" className="sam-btn sam-btn--outline sam-btn--sm" onClick={() => load()} disabled={loading}>
-            {t("admin_del_common_refresh")}
-          </button>
+          </AdminActionButton>
+          <AdminActionButton type="button" variant="secondary" size="sm" onClick={() => load()} disabled={loading}>
+            {adminCta("refresh", ko)}
+          </AdminActionButton>
         </div>
       </div>
 
@@ -751,23 +754,23 @@ function AdminDeliveryAlertsPageInner() {
                   </td>
                   <td className="py-2 pr-2">
                     <div className="flex flex-col gap-1">
-                      <button
+                      <AdminActionButton
                         type="button"
-                        className="sam-btn sam-btn--primary sam-btn--sm"
+                        variant="primary" size="sm"
                         disabled={busy || !dirty || (ruleBusyId !== null && ruleBusyId !== ru.id)}
                         onClick={() => void saveRule(ru)}
                       >
-                        {busy ? (ko ? "저장 중…" : "Saving…") : ko ? "저장" : "Save"}
-                      </button>
+                        {adminCta("save", ko)}
+                      </AdminActionButton>
                       {dirty ? (
-                        <button
+                        <AdminActionButton
                           type="button"
-                          className="sam-btn sam-btn--outline sam-btn--sm"
+                          variant="secondary" size="sm"
                           disabled={busy}
                           onClick={() => resetDraft(ru.id)}
                         >
-                          {ko ? "취소" : "Cancel"}
-                        </button>
+                          {adminCta("cancel", ko)}
+                        </AdminActionButton>
                       ) : null}
                     </div>
                   </td>
@@ -872,9 +875,9 @@ function AdminDeliveryAlertsPageInner() {
                           onChange={(e) => setAssignMemo((m) => ({ ...m, [ev.id]: e.target.value }))}
                         />
                         <div className="flex flex-wrap gap-1">
-                          <button
+                          <AdminActionButton
                             type="button"
-                            className="sam-btn sam-btn--outline sam-btn--sm"
+                            variant="secondary" size="sm"
                             disabled={busyId === ev.id || !assignPick[ev.id]}
                             onClick={() =>
                               void patchEventJson(
@@ -889,15 +892,15 @@ function AdminDeliveryAlertsPageInner() {
                             }
                           >
                             {t("admin_del_alert_btn_assign")}
-                          </button>
-                          <button
+                          </AdminActionButton>
+                          <AdminActionButton
                             type="button"
-                            className="sam-btn sam-btn--outline sam-btn--sm"
+                            variant="secondary" size="sm"
                             disabled={busyId === ev.id || !ev.assigned_admin_id}
                             onClick={() => void patchEventJson(ev.id, { action: "unassign" }, t("admin_r4d_alert_unassign_done"))}
                           >
                             {t("admin_del_alert_btn_unassign")}
-                          </button>
+                          </AdminActionButton>
                         </div>
                       </div>
                     ) : null}
@@ -923,9 +926,9 @@ function AdminDeliveryAlertsPageInner() {
                           value={handlingDraft[ev.id] ?? ev.handling_note ?? ""}
                           onChange={(e) => setHandlingDraft((m) => ({ ...m, [ev.id]: e.target.value }))}
                         />
-                        <button
+                        <AdminActionButton
                           type="button"
-                          className="sam-btn sam-btn--outline sam-btn--sm shrink-0"
+                          variant="secondary" size="sm" className="shrink-0"
                           disabled={
                             busyId === ev.id ||
                             !(handlingDraft[ev.id] ?? "").trim() ||
@@ -941,13 +944,13 @@ function AdminDeliveryAlertsPageInner() {
                           }}
                         >
                           {t("admin_r4d_handling_save")}
-                        </button>
+                        </AdminActionButton>
                       </div>
                     ) : null}
                     <div className="flex flex-wrap gap-1">
-                      <button
+                      <AdminActionButton
                         type="button"
-                        className="sam-btn sam-btn--outline sam-btn--sm"
+                        variant="secondary" size="sm"
                         disabled={busyId === ev.id || ev.event_status !== "open"}
                         onClick={() =>
                           void patchEventJson(
@@ -958,10 +961,10 @@ function AdminDeliveryAlertsPageInner() {
                         }
                       >
                         {t("admin_del_alert_btn_acknowledge")}
-                      </button>
-                      <button
+                      </AdminActionButton>
+                      <AdminActionButton
                         type="button"
-                        className="sam-btn sam-btn--outline sam-btn--sm"
+                        variant="secondary" size="sm"
                         disabled={busyId === ev.id || (ev.event_status !== "open" && ev.event_status !== "acknowledged")}
                         onClick={async () => {
                           const c = await confirmAdminAction({
@@ -980,10 +983,10 @@ function AdminDeliveryAlertsPageInner() {
                         }}
                       >
                         {ko ? "알림 끄기" : "Mute alerts"}
-                      </button>
-                      <button
+                      </AdminActionButton>
+                      <AdminActionButton
                         type="button"
-                        className="sam-btn sam-btn--primary sam-btn--sm"
+                        variant="primary" size="sm"
                         disabled={busyId === ev.id || ev.event_status === "resolved"}
                         onClick={async () => {
                           const c = await confirmAdminAction({
@@ -1002,7 +1005,7 @@ function AdminDeliveryAlertsPageInner() {
                         }}
                       >
                         {t("admin_del_alert_btn_resolve")}
-                      </button>
+                      </AdminActionButton>
                     </div>
                   </td>
                 </tr>

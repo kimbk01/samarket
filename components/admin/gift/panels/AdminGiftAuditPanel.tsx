@@ -4,10 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type AuditEvent = {
   id: string;
@@ -26,7 +29,7 @@ type AuditEvent = {
 
 function dt(v: string): string {
   try {
-    return new Date(v).toLocaleString();
+    return formatAdminManilaDateTime(v);
   } catch {
     return v;
   }
@@ -61,7 +64,7 @@ function entityHref(e: AuditEvent): string | null {
 }
 
 export function AdminGiftAuditPanel({ q: initialQ, event: initialEvent }: { q: string; event: string }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const router = useRouter();
   const [q, setQ] = useState(initialQ);
   const [event, setEvent] = useState(initialEvent);
@@ -104,7 +107,7 @@ export function AdminGiftAuditPanel({ q: initialQ, event: initialEvent }: { q: s
   return (
     <div className="space-y-4" data-admin-gift-audit="1" data-audit-interim={interim ? "1" : "0"}>
       {interim ? (
-        <p className="rounded-ui-rect border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded-ui-rect border border-sam-warning/60 bg-sam-warning-soft px-3 py-2 text-xs text-sam-warning">
           {safeT("gift_ops_audit_interim", {
             fallbackKo: "감사 이력이 합성 스트림입니다(interim). gift_admin_events 적용 후 정식 소스로 전환됩니다.",
             fallbackEn: "Audit is an interim synthetic stream until gift_admin_events is live.",
@@ -124,9 +127,9 @@ export function AdminGiftAuditPanel({ q: initialQ, event: initialEvent }: { q: s
           onChange={(e) => setEvent(e.target.value)}
           placeholder="EVENT type"
         />
-        <button
+        <AdminActionButton
           type="button"
-          className={`${Sam.btn.primary} min-h-[44px]`}
+          variant="primary"
           onClick={() =>
             router.push(
               buildAdminGiftOpsHref({
@@ -136,22 +139,22 @@ export function AdminGiftAuditPanel({ q: initialQ, event: initialEvent }: { q: s
             )
           }
         >
-          {safeT("gift_ops_search", { fallbackKo: "검색", fallbackEn: "Search" })}
-        </button>
+          {adminCta("search", language !== "en")}
+        </AdminActionButton>
       </div>
 
       {state === "loading" ? <p className="text-sm text-sam-muted">…</p> : null}
       {state === "error" ? (
         <div className="space-y-2">
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-sam-danger">
             {safeT("gift_ops_audit_error", {
               fallbackKo: "감사 이력을 불러오지 못했습니다.",
               fallbackEn: "Couldn’t load audit history.",
             })}
           </p>
-          <button type="button" className={Sam.btn.secondary} onClick={() => void load()}>
-            {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-          </button>
+          <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
+            {adminCta("refresh", language !== "en")}
+          </AdminActionButton>
         </div>
       ) : null}
       {state === "empty" ? (
@@ -181,7 +184,7 @@ export function AdminGiftAuditPanel({ q: initialQ, event: initialEvent }: { q: s
                   {e.storeName || "—"}
                   {e.publicGiftNumber ? ` · ${e.publicGiftNumber}` : ""}
                   {e.userLabel ? ` · ${e.userLabel}` : ""}
-                  {e.amount != null ? ` · ${formatMoneyPhp(e.amount)}` : ""}
+                  {e.amount != null ? ` · ${formatAdminPhp(e.amount)}` : ""}
                 </p>
                 <p className="text-xs text-sam-muted">{e.summary}</p>
                 {e.orderId ? (

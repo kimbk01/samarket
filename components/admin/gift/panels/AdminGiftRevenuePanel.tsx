@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type RevenueSummary = {
   pendingGross: number;
@@ -59,13 +62,13 @@ function kpi(label: string, value: number, testId: string) {
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-admin-gift-kpi={testId}>
       <p className="text-xs text-sam-muted">{label}</p>
-      <p className="mt-1 text-base font-semibold tabular-nums">{formatMoneyPhp(value)}</p>
+      <p className="mt-1 text-base font-semibold tabular-nums">{formatAdminPhp(value)}</p>
     </div>
   );
 }
 
 export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const [summary, setSummary] = useState<RevenueSummary | null>(null);
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [detail, setDetail] = useState<StoreDetail | null>(null);
@@ -128,15 +131,15 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
       {state === "loading" ? <p className="text-sm text-sam-muted">…</p> : null}
       {state === "error" ? (
         <div className="space-y-2">
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-sam-danger">
             {safeT("gift_ops_rev_error", {
               fallbackKo: "정산·수익을 불러오지 못했습니다.",
               fallbackEn: "Couldn’t load revenue settlement.",
             })}
           </p>
-          <button type="button" className={Sam.btn.secondary} onClick={() => void load()}>
-            {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-          </button>
+          <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
+            {adminCta("refresh", language !== "en")}
+          </AdminActionButton>
         </div>
       ) : null}
 
@@ -199,12 +202,12 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
                         <td className="px-2 py-2">{r.storeName}</td>
                         <td className="px-2 py-2 font-mono text-xs">{r.publicGiftNumber || "—"}</td>
                         <td className="px-2 py-2">{r.orderNo || formatAdminShortId(r.orderId)}</td>
-                        <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(r.gross)}</td>
-                        <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(r.platformFee)}</td>
-                        <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(r.merchantNet)}</td>
+                        <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.gross)}</td>
+                        <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.platformFee)}</td>
+                        <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.merchantNet)}</td>
                         <td className="px-2 py-2 uppercase">{r.recognitionState}</td>
                         <td className="px-2 py-2 text-xs text-sam-muted">
-                          {r.recognizedAt ? new Date(r.recognizedAt).toLocaleString() : "—"}
+                          {r.recognizedAt ? formatAdminManilaDateTime(r.recognizedAt) : "—"}
                         </td>
                       </tr>
                     ))}
@@ -249,18 +252,18 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
                 <tr key={s.storeId} className="border-b border-sam-border/60" data-store-id={s.storeId}>
                   <td className="px-2 py-2 font-semibold">{s.storeName || "—"}</td>
                   <td className="px-2 py-2">{s.ownerLabel || "—"}</td>
-                  <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(s.redeemedGross)}</td>
-                  <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(s.pendingMerchantNet)}</td>
-                  <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(s.recognizedMerchantNet)}</td>
-                  <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(s.availableRevenue)}</td>
+                  <td className="px-2 py-2 tabular-nums">{formatAdminPhp(s.redeemedGross)}</td>
+                  <td className="px-2 py-2 tabular-nums">{formatAdminPhp(s.pendingMerchantNet)}</td>
+                  <td className="px-2 py-2 tabular-nums">{formatAdminPhp(s.recognizedMerchantNet)}</td>
+                  <td className="px-2 py-2 tabular-nums">{formatAdminPhp(s.availableRevenue)}</td>
                   <td className="px-2 py-2 text-xs">
-                    req {formatMoneyPhp(s.cashOutRequested)} / paid {formatMoneyPhp(s.cashOutPaid)}
+                    req {formatAdminPhp(s.cashOutRequested)} / paid {formatAdminPhp(s.cashOutPaid)}
                   </td>
                   <td className="px-2 py-2 text-xs">
-                    pend {formatMoneyPhp(s.storeCashConversionPending)} / bal{" "}
-                    {formatMoneyPhp(s.storeCashBalance)}
+                    pend {formatAdminPhp(s.storeCashConversionPending)} / bal{" "}
+                    {formatAdminPhp(s.storeCashBalance)}
                   </td>
-                  <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(s.openRecoveryAmount)}</td>
+                  <td className="px-2 py-2 tabular-nums">{formatAdminPhp(s.openRecoveryAmount)}</td>
                   <td className="px-2 py-2">
                     <Link
                       href={buildAdminGiftOpsHref({
@@ -289,7 +292,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
               {safeT("gift_ops_close_detail", { fallbackKo: "닫기", fallbackEn: "Close" })}
             </Link>
           </div>
-          <p className={`text-sm font-semibold ${detail.parityOk ? "text-green-700" : "text-red-600"}`}>
+          <p className={`text-sm font-semibold ${detail.parityOk ? "text-sam-success" : "text-sam-danger"}`}>
             {detail.parityOk
               ? safeT("gift_ops_parity_ok", {
                   fallbackKo: "ADMIN == OWNER (동일 canonical 값)",
@@ -306,7 +309,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
               <ul className="mt-1 space-y-1 text-sm tabular-nums">
                 {Object.entries(detail.adminValue).map(([k, v]) => (
                   <li key={k}>
-                    {k}: {formatMoneyPhp(v)}
+                    {k}: {formatAdminPhp(v)}
                   </li>
                 ))}
               </ul>
@@ -316,7 +319,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
               <ul className="mt-1 space-y-1 text-sm tabular-nums">
                 {Object.entries(detail.ownerValue).map(([k, v]) => (
                   <li key={k}>
-                    {k}: {formatMoneyPhp(v)}
+                    {k}: {formatAdminPhp(v)}
                   </li>
                 ))}
               </ul>

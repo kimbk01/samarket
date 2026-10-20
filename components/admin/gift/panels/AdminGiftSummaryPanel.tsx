@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import { formatMoneyPhp } from "@/lib/utils/format";
-import { Sam } from "@/lib/ui/css-vars";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type ScopeKpis = {
   activeProducts: number;
@@ -35,11 +36,11 @@ type Summary = {
 const RANGES = ["all", "today", "7d", "30d"] as const;
 
 function fmtCount(n: number): string {
-  return Math.trunc(n || 0).toLocaleString();
+  return formatAdminNumber(Math.trunc(n || 0));
 }
 
 export function AdminGiftSummaryPanel({ range }: { range: string }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const activeRange = (RANGES as readonly string[]).includes(range) ? range : "all";
   const [data, setData] = useState<Summary | null>(null);
   const [state, setState] = useState<"loading" | "error" | "empty" | "data">("loading");
@@ -144,16 +145,16 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
       ) : null}
 
       {state === "error" ? (
-        <div className="space-y-2 rounded-ui-rect border border-red-200 bg-sam-surface p-4">
-          <p className="text-sm text-red-600">
+        <div className="space-y-2 rounded-ui-rect border border-sam-danger bg-sam-surface p-4">
+          <p className="text-sm text-sam-danger">
             {safeT("gift_ops_summary_error", {
               fallbackKo: "요약을 불러오지 못했습니다.",
               fallbackEn: "Couldn’t load summary.",
             })}
           </p>
-          <button type="button" className={Sam.btn.secondary} onClick={() => void load()}>
-            {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-          </button>
+          <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
+            {adminCta("refresh", language !== "en")}
+          </AdminActionButton>
         </div>
       ) : null}
 
@@ -187,12 +188,12 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
                   {kpi("Issued", fmtCount(data.storeGift?.issuedInstances ?? 0), "storeIssued")}
                   {kpi(
                     "Outstanding",
-                    formatMoneyPhp(data.storeGift?.outstanding ?? 0),
+                    formatAdminPhp(data.storeGift?.outstanding ?? 0),
                     "storeOutstanding"
                   )}
                   {kpi(
                     "Redeemed",
-                    formatMoneyPhp(data.storeGift?.redeemedGross ?? 0),
+                    formatAdminPhp(data.storeGift?.redeemedGross ?? 0),
                     "storeRedeemed"
                   )}
                 </div>
@@ -209,12 +210,12 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
                   {kpi("Issued", fmtCount(data.platformGift?.issuedInstances ?? 0), "platIssued")}
                   {kpi(
                     "Outstanding",
-                    formatMoneyPhp(data.platformGift?.outstanding ?? 0),
+                    formatAdminPhp(data.platformGift?.outstanding ?? 0),
                     "platOutstanding"
                   )}
                   {kpi(
                     "Redeemed",
-                    formatMoneyPhp(data.platformGift?.redeemedGross ?? 0),
+                    formatAdminPhp(data.platformGift?.redeemedGross ?? 0),
                     "platRedeemed"
                   )}
                 </div>
@@ -249,7 +250,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
                 fallbackKo: "미사용 잔액",
                 fallbackEn: "Outstanding gift value",
               }),
-              formatMoneyPhp(data.outstandingGiftValue),
+              formatAdminPhp(data.outstandingGiftValue),
               "outstandingGiftValue",
               buildAdminGiftOpsHref({ tab: "instances", extra: { balance: "gt0" } })
             )}
@@ -267,7 +268,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
                 fallbackKo: "사용액",
                 fallbackEn: "Redeemed gross",
               }),
-              formatMoneyPhp(data.redeemedGross),
+              formatAdminPhp(data.redeemedGross),
               "redeemedGross",
               buildAdminGiftOpsHref({ tab: "ledger", ledger: "usage" })
             )}
@@ -276,7 +277,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
                 fallbackKo: "Pending Gross",
                 fallbackEn: "Pending gross",
               }),
-              formatMoneyPhp(data.pendingGross),
+              formatAdminPhp(data.pendingGross),
               "pendingGross",
               buildAdminGiftOpsHref({ tab: "ledger", ledger: "settlement" })
             )}
@@ -285,7 +286,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
                 fallbackKo: "Pending Fee",
                 fallbackEn: "Pending platform fee",
               }),
-              formatMoneyPhp(data.pendingPlatformFee),
+              formatAdminPhp(data.pendingPlatformFee),
               "pendingPlatformFee",
               buildAdminGiftOpsHref({ tab: "ledger", ledger: "settlement" })
             )}
@@ -294,7 +295,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
                 fallbackKo: "Platform 수익",
                 fallbackEn: "Recognized platform fee",
               }),
-              formatMoneyPhp(data.recognizedPlatformFee),
+              formatAdminPhp(data.recognizedPlatformFee),
               "recognizedPlatformFee",
               buildAdminGiftOpsHref({ tab: "ledger", ledger: "settlement" })
             )}
@@ -303,7 +304,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
                 fallbackKo: "Merchant Net",
                 fallbackEn: "Recognized merchant net",
               }),
-              formatMoneyPhp(data.recognizedMerchantNet),
+              formatAdminPhp(data.recognizedMerchantNet),
               "recognizedMerchantNet",
               buildAdminGiftOpsHref({ tab: "ledger", ledger: "settlement" })
             )}

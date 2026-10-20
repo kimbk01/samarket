@@ -4,24 +4,25 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import {
   buildAdminGiftOpsHref,
   type AdminGiftOpsProductsSubtab,
 } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import { formatMoneyPhp } from "@/lib/utils/format";
 import { resolveGiftProductFundingFromGap } from "@/lib/gift-certificate/gift-promo-economics";
-import {
-  ADMIN_GIFT_PRIMARY_BTN_STYLE,
-  adminGiftPrimaryBtnClass,
-} from "@/lib/gift-certificate/admin-gift-primary-button";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { GiftSalesDateTimeField } from "@/components/gift-certificate/GiftSalesDateTimeField";
-import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { AdminGiftIssuanceCreateConsole } from "@/components/admin/gift/panels/AdminGiftIssuanceCreateConsole";
 import { AdminGiftProductDetailConsole } from "@/components/admin/gift/panels/AdminGiftProductDetailConsole";
 import { Sam } from "@/lib/ui/css-vars";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 type ApplicationRow = {
   id: string;
@@ -77,7 +78,7 @@ type ProductRow = {
 function dt(v: string | null | undefined): string {
   if (!v) return "—";
   try {
-    return new Date(v).toLocaleString();
+    return formatAdminManilaDateTime(v);
   } catch {
     return v;
   }
@@ -327,28 +328,25 @@ export function AdminGiftIssuancePanel({
     storeId?: string;
   }) => {
     if (busy) return;
-    const confirmed = await dibayConfirm({
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko: language !== "en",
       title: safeT("gift_admin_register_confirm_title", {
         fallbackKo: "상품권을 등록할까요?",
         fallbackEn: "Register this gift product?",
       }),
       description: safeT("gift_admin_register_confirm_body", {
         fallbackKo:
-          "확인을 누르면 초안 상품이 등록됩니다. 판매는 상품 상세에서 [판매 시작]으로 시작합니다. 취소하면 등록되지 않습니다.",
+          "등록하면 초안 상품이 만들어집니다. 판매는 상품 상세에서 [판매 시작]으로 시작합니다. 취소하면 등록되지 않습니다.",
         fallbackEn:
           "Confirm to create a draft product. Selling starts only after [Start selling] on product detail. Cancel leaves it unregistered.",
-      }),
-      cancelLabel: safeT("gift_admin_register_confirm_cancel", {
-        fallbackKo: "취소",
-        fallbackEn: "Cancel",
       }),
       confirmLabel: safeT("gift_admin_register_confirm_ok", {
         fallbackKo: "등록 확정",
         fallbackEn: "Confirm registration",
       }),
-      blocking: true,
     });
-    if (!confirmed) return;
+    if (!confirmed.ok) return;
 
     setBusy(true);
     setError(null);
@@ -533,7 +531,7 @@ export function AdminGiftIssuancePanel({
     return (
       <section className="space-y-4" data-admin-gift-issuance-success="1">
         {subTabs}
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-[16px] font-semibold">
           {safeT("gift_admin_product_success_title", {
             fallbackKo: "초안 상품이 등록되었습니다. 판매는 상품 상세에서 시작합니다.",
             fallbackEn: "Draft product registered. Start selling from product detail.",
@@ -552,13 +550,12 @@ export function AdminGiftIssuancePanel({
           </p>
           <p className="font-semibold">{prodSuccess.title}</p>
           <p className="tabular-nums">
-            Face {formatMoneyPhp(prodSuccess.face_value)} · Fee {prodSuccess.platform_fee_rate}%
+            Face {formatAdminPhp(prodSuccess.face_value)} · Fee {prodSuccess.platform_fee_rate}%
           </p>
         </div>
-        <button
+        <AdminActionButton
           type="button"
-          className={adminGiftPrimaryBtnClass("min-h-[44px] w-full")}
-          style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+          variant="primary" className="w-full"
           onClick={() =>
             go({
               tab: "products",
@@ -567,7 +564,7 @@ export function AdminGiftIssuancePanel({
           }
         >
           {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
-        </button>
+        </AdminActionButton>
       </section>
     );
   }
@@ -632,16 +629,15 @@ export function AdminGiftIssuancePanel({
             </p>
             <p className="font-semibold">{prodTitle}</p>
             <p className="tabular-nums">
-              Face {formatMoneyPhp(face)} · Purchase {formatMoneyPhp(price)} · Fee{" "}
+              Face {formatAdminPhp(face)} · Purchase {formatAdminPhp(price)} · Fee{" "}
               {Math.trunc(Number(prodFee) || 0)}%
             </p>
           </div>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
           <div className="sticky bottom-0 z-20 -mx-1 flex flex-col gap-2 border-t border-sam-border bg-sam-app/95 p-3 backdrop-blur-sm">
-            <button
+            <AdminActionButton
               type="button"
-              className={adminGiftPrimaryBtnClass("min-h-[48px] w-full")}
-              style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+              variant="primary" className="w-full"
               disabled={busy}
               data-admin-gift-app-start="1"
               onClick={() =>
@@ -653,14 +649,14 @@ export function AdminGiftIssuancePanel({
               }
             >
               {safeT("gift_ops_cta_start_sale", { fallbackKo: "판매 시작", fallbackEn: "Start selling" })}
-            </button>
-            <button
+            </AdminActionButton>
+            <AdminActionButton
               type="button"
-              className="min-h-[44px] w-full rounded-ui-rect border border-sam-border text-sm font-semibold"
+              variant="secondary" className="w-full"
               onClick={() => setProdReview(false)}
             >
               {safeT("gift_admin_cta_back", { fallbackKo: "돌아가기", fallbackEn: "Back" })}
-            </button>
+            </AdminActionButton>
           </div>
         </section>
       );
@@ -670,7 +666,7 @@ export function AdminGiftIssuancePanel({
     return (
       <section className="space-y-4" data-admin-gift-product-create="1">
         {subTabs}
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-[16px] font-semibold">
           {safeT("gift_admin_product_create_title", {
             fallbackKo: "신청 승인 후 상품 만들기",
             fallbackEn: "Approve & create product",
@@ -680,12 +676,11 @@ export function AdminGiftIssuancePanel({
           {detail.store_name} · {detail.owner_label || shortId(detail.owner_user_id)}
         </p>
         {formFields}
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
         <div className="sticky bottom-0 z-20 -mx-1 flex flex-col gap-2 border-t border-sam-border bg-sam-app/95 p-3 backdrop-blur-sm">
-          <button
+          <AdminActionButton
             type="button"
-            className={adminGiftPrimaryBtnClass("min-h-[48px] w-full")}
-            style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+            variant="primary" className="w-full"
             disabled={!prodTitle.trim() || face <= 0 || price < 0}
             data-admin-gift-app-review="1"
             onClick={() => setProdReview(true)}
@@ -694,14 +689,14 @@ export function AdminGiftIssuancePanel({
               fallbackKo: "판매 내용 확인",
               fallbackEn: "Review product",
             })}
-          </button>
-          <button
+          </AdminActionButton>
+          <AdminActionButton
             type="button"
-            className="min-h-[44px] w-full rounded-ui-rect border border-sam-border text-sm font-semibold"
+            variant="secondary" className="w-full"
             onClick={() => go({ tab: "products", products: "applications", extra: { id } })}
           >
             {safeT("gift_admin_cta_back", { fallbackKo: "돌아가기", fallbackEn: "Back" })}
-          </button>
+          </AdminActionButton>
         </div>
       </section>
     );
@@ -711,7 +706,7 @@ export function AdminGiftIssuancePanel({
     return (
       <section className="space-y-4" data-admin-gift-application-detail="1">
         {subTabs}
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-[16px] font-semibold">
           {safeT("gift_admin_detail_title", {
             fallbackKo: "상품권 판매 신청 검토",
             fallbackEn: "Review gift application",
@@ -727,18 +722,17 @@ export function AdminGiftIssuancePanel({
             {safeT("gift_ops_field_owner", { fallbackKo: "오너", fallbackEn: "Owner" })}:{" "}
             {detail.owner_label || shortId(detail.owner_user_id)}
           </p>
-          <p className="tabular-nums">Face {formatMoneyPhp(detail.requested_face_value)}</p>
+          <p className="tabular-nums">Face {formatAdminPhp(detail.requested_face_value)}</p>
           <p>Status: {detail.status}</p>
           <p className="text-xs text-sam-muted">{dt(detail.created_at)}</p>
         </div>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
         {detail.status === "submitted" ||
         detail.status === "under_review" ||
         detail.status === "approved" ? (
-          <button
+          <AdminActionButton
             type="button"
-            className={adminGiftPrimaryBtnClass("min-h-[48px] w-full")}
-            style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+            variant="primary" className="w-full"
             onClick={() =>
               go({ tab: "products", products: "applications", extra: { id, create: "1" } })
             }
@@ -747,13 +741,13 @@ export function AdminGiftIssuancePanel({
               fallbackKo: "승인 후 상품 만들기",
               fallbackEn: "Approve & create product",
             })}
-          </button>
+          </AdminActionButton>
         ) : null}
         {detail.status === "submitted" || detail.status === "under_review" ? (
           <>
-            <button
+            <AdminActionButton
               type="button"
-              className="min-h-[44px] w-full rounded-ui-rect border border-sam-border text-sm font-semibold"
+              variant="secondary" className="w-full"
               disabled={busy}
               onClick={() => void patchStatus("under_review")}
             >
@@ -761,14 +755,14 @@ export function AdminGiftIssuancePanel({
                 fallbackKo: "검토 중으로 표시",
                 fallbackEn: "Mark under review",
               })}
-            </button>
-            <button
-              type="button"
-              className="min-h-[44px] w-full rounded-ui-rect border border-red-300 text-sm font-semibold text-red-700"
+            </AdminActionButton>
+            <AdminActionButton
+              variant="secondary"
+              className="w-full"
               onClick={() => setRejectOpen(true)}
             >
               {safeT("gift_admin_cta_reject", { fallbackKo: "반려", fallbackEn: "Reject" })}
-            </button>
+            </AdminActionButton>
           </>
         ) : null}
         {rejectOpen ? (
@@ -778,9 +772,9 @@ export function AdminGiftIssuancePanel({
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
             />
-            <button
-              type="button"
-              className="mt-3 min-h-[44px] w-full rounded-ui-rect bg-red-600 text-sm font-semibold text-white disabled:opacity-60"
+            <AdminActionButton
+              variant="danger"
+              className="mt-3 w-full"
               disabled={busy || !rejectReason.trim()}
               onClick={() => void patchStatus("rejected", rejectReason.trim())}
             >
@@ -788,16 +782,16 @@ export function AdminGiftIssuancePanel({
                 fallbackKo: "반려 확정",
                 fallbackEn: "Confirm rejection",
               })}
-            </button>
+            </AdminActionButton>
           </div>
         ) : null}
-        <button
+        <AdminActionButton
           type="button"
-          className="min-h-[44px] w-full rounded-ui-rect border border-sam-border text-sm font-semibold"
+          variant="secondary" className="w-full"
           onClick={() => go({ tab: "products", products: "applications" })}
         >
           {safeT("gift_admin_cta_back_list", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
-        </button>
+        </AdminActionButton>
       </section>
     );
   }
@@ -843,17 +837,16 @@ export function AdminGiftIssuancePanel({
         </p>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          <AdminActionButton
             type="button"
-            className={adminGiftPrimaryBtnClass("min-h-[40px] px-4 text-sm")}
-            style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+            variant="primary"
             onClick={() => go({ tab: "products", products: "products", extra: { create: "1" } })}
           >
             {safeT("gift_ops_cta_new_product", {
               fallbackKo: "+ 새 상품권 만들기",
               fallbackEn: "+ Create gift product",
             })}
-          </button>
+          </AdminActionButton>
           {(["ALL", "STORE", "PLATFORM"] as const).map((sc) => (
             <Link
               key={sc}
@@ -887,14 +880,10 @@ export function AdminGiftIssuancePanel({
             data-admin-gift-product-search="1"
           />
           {(["ALL", "ACTIVE", "PAUSED", "ARCHIVED"] as const).map((st) => (
-            <button
+            <AdminChipButton
               key={st}
-              type="button"
               data-admin-gift-product-status={st}
-              className={[
-                "rounded-ui-rect px-3 py-1.5 text-xs font-semibold min-h-[40px]",
-                statusFilter === st ? "bg-sam-fg text-sam-app" : "border border-sam-border bg-sam-surface",
-              ].join(" ")}
+              selected={statusFilter === st}
               onClick={() => setStatusFilter(st)}
             >
               {st === "ALL"
@@ -904,7 +893,7 @@ export function AdminGiftIssuancePanel({
                   : st === "PAUSED"
                     ? safeT("gift_ops_status_paused", { fallbackKo: "중지", fallbackEn: "Paused" })
                     : safeT("gift_ops_status_archived", { fallbackKo: "보관", fallbackEn: "Archived" })}
-            </button>
+            </AdminChipButton>
           ))}
         </div>
       )}
@@ -917,19 +906,19 @@ export function AdminGiftIssuancePanel({
 
       {listState === "error" ? (
         <div className="space-y-2">
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-sam-danger">
             {safeT("gift_ops_list_error", {
               fallbackKo: "목록을 불러오지 못했습니다.",
               fallbackEn: "Couldn’t load the list.",
             })}
           </p>
-          <button
+          <AdminActionButton
             type="button"
-            className={Sam.btn.secondary}
+            variant="secondary"
             onClick={() => void (productsSubtab === "applications" ? loadApps() : loadProducts())}
           >
-            {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-          </button>
+            {adminCta("refresh", language !== "en")}
+          </AdminActionButton>
         </div>
       ) : null}
 
@@ -966,19 +955,18 @@ export function AdminGiftIssuancePanel({
                   <td className="px-2 py-2">{r.store_name || "—"}</td>
                   <td className="px-2 py-2">{r.owner_label || shortId(r.owner_user_id)}</td>
                   <td className="px-2 py-2 font-semibold">{r.title}</td>
-                  <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(r.requested_face_value)}</td>
+                  <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.requested_face_value)}</td>
                   <td className="px-2 py-2">{r.status}</td>
                   <td className="px-2 py-2">
-                    <button
+                    <AdminActionButton
                       type="button"
-                      className={adminGiftPrimaryBtnClass("px-3 py-1.5 text-xs")}
-                      style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                      variant="primary" size="sm"
                       onClick={() =>
                         go({ tab: "products", products: "applications", extra: { id: r.id } })
                       }
                     >
                       {safeT("gift_admin_cta_review", { fallbackKo: "검토", fallbackEn: "Review" })}
-                    </button>
+                    </AdminActionButton>
                   </td>
                 </tr>
               ))}
@@ -1022,7 +1010,7 @@ export function AdminGiftIssuancePanel({
                         {p.image_url ? (
                           <SamarketThumbnail src={p.image_url} alt="" fill className="relative h-full w-full" imageClassName="object-cover" />
                         ) : (
-                          <span className="flex h-full items-center justify-center text-[10px] text-sam-muted">—</span>
+                          <span className="flex h-full items-center justify-center text-[12px] text-sam-muted">—</span>
                         )}
                       </div>
                     </td>
@@ -1035,8 +1023,8 @@ export function AdminGiftIssuancePanel({
                           })
                         : p.store_name || "—"}
                     </td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(p.face_value)}</td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(p.purchase_price)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(p.face_value)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(p.purchase_price)}</td>
                     <td className="px-2 py-2">{p.platform_fee_rate}%</td>
                     <td className="px-2 py-2 text-xs">
                       {dt(p.sales_starts_at)} → {dt(p.sales_ends_at)}
@@ -1044,17 +1032,17 @@ export function AdminGiftIssuancePanel({
                     <td className="px-2 py-2">
                       <div className="flex flex-col gap-0.5 text-xs" data-admin-gift-product-ops-state="1">
                         <span>{ops.sales}</span>
-                        <span className={p.mall_visible === false ? "text-amber-700" : "text-sam-muted"}>
+                        <span className={p.mall_visible === false ? "text-sam-warning" : "text-sam-muted"}>
                           {ops.mall}
                         </span>
-                        {ops.window ? <span className="text-amber-700">{ops.window}</span> : null}
+                        {ops.window ? <span className="text-sam-warning">{ops.window}</span> : null}
                       </div>
                     </td>
                     <td className="px-2 py-2">
                       <span
                         className={[
                           "text-xs font-semibold",
-                          p.customer_purchasable ? "text-emerald-700" : "text-sam-muted",
+                          p.customer_purchasable ? "text-sam-success" : "text-sam-muted",
                         ].join(" ")}
                         data-admin-gift-customer-purchasable={p.customer_purchasable ? "1" : "0"}
                         data-admin-gift-customer-reason={p.customer_purchase_reason || ""}
@@ -1066,18 +1054,17 @@ export function AdminGiftIssuancePanel({
                       {p.issued_count}
                       {p.max_issuance != null ? ` / ${p.max_issuance}` : ""}
                     </td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(p.outstanding_balance)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(p.outstanding_balance)}</td>
                     <td className="px-2 py-2 text-xs">{dt(p.updated_at || null)}</td>
                     <td className="px-2 py-2">
-                      <button
+                      <AdminActionButton
                         type="button"
-                        className={adminGiftPrimaryBtnClass("px-3 py-1.5 text-xs min-h-[36px]")}
-                        style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                        variant="primary" size="sm"
                         data-admin-gift-product-open-detail="1"
                         onClick={() => go({ tab: "products", extra: { id: p.id } })}
                       >
                         {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
-                      </button>
+                      </AdminActionButton>
                     </td>
                   </tr>
                 );
@@ -1108,7 +1095,7 @@ export function AdminGiftIssuancePanel({
                     <p className="text-xs text-sam-muted">{labelScope(sc)}</p>
                     <p className="font-semibold">{p.title}</p>
                     <p className="text-xs tabular-nums">
-                      {formatMoneyPhp(p.face_value)} · {ops.sales} · {ops.mall}
+                      {formatAdminPhp(p.face_value)} · {ops.sales} · {ops.mall}
                     </p>
                     <p
                       className="text-xs font-semibold"
@@ -1120,15 +1107,14 @@ export function AdminGiftIssuancePanel({
                     </p>
                   </div>
                 </div>
-                <button
+                <AdminActionButton
                   type="button"
-                  className={adminGiftPrimaryBtnClass("mt-3 w-full min-h-[40px] text-sm")}
-                  style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                  variant="primary" className="mt-3 w-full"
                   data-admin-gift-product-open-detail="1"
                   onClick={() => go({ tab: "products", extra: { id: p.id } })}
                 >
                   {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
-                </button>
+                </AdminActionButton>
               </li>
             );
           })}

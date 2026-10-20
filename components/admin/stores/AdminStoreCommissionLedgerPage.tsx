@@ -5,10 +5,13 @@
  *
  * 매장 직접 결제 모델: 정상 주문에는 수동 "정산/지급" CTA 가 없다.
  * - 조리 시작 시 수수료 자동 부과·캐시 차감 (DB 트리거, 부족분은 미납 → 순잔액 마이너스)
- * - 관리자 개입: 취소·환불 수수료 결정(승인 전액/부분 · 거절) + 캐시 부족 주문 차단 정책 + 금융 예외 확인
+ * - 관리자 개입: 취소·환불 수수료 결정(승인 전액/부분 · 반려) + 캐시 부족 주문 차단 정책 + 금융 예외 확인
  * - 원장 직접 수정 기능 없음 — 정정은 결정 기록으로만
  * Owner 화면과 같은 SQL 함수·컴포넌트(StoreCommissionLedgerParts / StoreCommissionLedgerTable)를 쓴다.
  */
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -54,14 +57,12 @@ import {
   CommissionReviewFilterChips,
   CommissionRowMoney,
   CommissionSummaryGrid,
-  chipClass,
   formatCashMinor,
   LedgerPager,
   pickCommissionCopy,
   PlatformPayableSummaryGrid,
   PlatformPayableTable,
   resolveCommissionTab,
-  ROW_ACTION_BTN,
   StoreCashPositionCard,
   tabLedgerState,
   type CommissionBreakdownGroup,
@@ -148,8 +149,6 @@ const CHECK_LABEL: Record<string, { ko: string; en: string }> = {
 };
 
 /** Admin console primary CTA — locked contrast (sam-primary is intentionally washed out under data-admin). */
-const ADMIN_PRIMARY_BTN =
-  "inline-flex min-h-9 touch-manipulation select-none items-center justify-center whitespace-nowrap rounded-ui-rect bg-[var(--admin-action-primary-bg)] px-3 py-2 sam-text-helper font-semibold text-[var(--admin-action-primary-fg)] transition-[background-color,transform] duration-150 hover:bg-[var(--admin-action-primary-hover)] active:scale-[0.98] active:bg-[var(--admin-action-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:scale-100 disabled:bg-[var(--admin-action-primary-disabled-bg)] disabled:text-[var(--admin-action-primary-disabled-fg)]";
 
 function newKey(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
@@ -172,18 +171,16 @@ function WorkCard({
 }) {
   const valueTone = tone === "danger" ? "text-sam-danger" : tone === "warn" ? "text-sam-warning" : tone === "good" ? "text-sam-success" : "text-sam-fg";
   return (
-    <button
-      type="button"
+    <AdminActionButton
+      variant="secondary"
+      className={`!h-auto min-w-0 !flex-col !items-start !justify-start !whitespace-normal p-3 text-left font-normal ${active ? "!border-signature bg-signature/5" : ""}`}
       onClick={onClick}
       aria-pressed={active}
-      className={`min-w-0 touch-manipulation select-none rounded-ui-rect border p-3 text-left transition-[background-color,border-color,transform] duration-150 active:scale-[0.99] ${
-        active ? "border-signature bg-signature/5" : "border-sam-border bg-sam-surface hover:bg-sam-surface-muted"
-      }`}
     >
       <p className="sam-text-xxs font-semibold text-sam-muted">{title}</p>
-      <p className={`mt-0.5 text-lg font-bold tabular-nums ${valueTone}`}>{value}</p>
+      <p className={`mt-0.5 text-[16px] font-bold tabular-nums ${valueTone}`}>{value}</p>
       <p className="break-words sam-text-xxs text-sam-muted">{sub}</p>
-    </button>
+    </AdminActionButton>
   );
 }
 
@@ -450,7 +447,7 @@ export function AdminStoreCommissionLedgerPage() {
             ADJUST_ERROR[code]?.[lang] ??
             pickCommissionCopy(
               lang,
-              `처리하지 못했습니다. 내용은 그대로 두었으니 다시 시도해 주세요. ${adminOperatorErrorMessage(code, true)}`,
+              `처리하지 못했습니다. 입력 내용은 그대로 두었습니다. ${adminOperatorErrorMessage(code, true)}`,
               `Not saved. Your input is kept — please try again. ${adminOperatorErrorMessage(code, false)}`
             )
         );
@@ -467,7 +464,7 @@ export function AdminStoreCommissionLedgerPage() {
               `#${decidedNo} 환급 승인 완료 — 캐시 환급 ${formatCashMinor(json.cashRefundMinor ?? 0)} · 미납 취소 ${formatCashMinor(json.outstandingCancelMinor ?? 0)}`,
               `#${decidedNo} refund approved — Cash ${formatCashMinor(json.cashRefundMinor ?? 0)} · unpaid cancelled ${formatCashMinor(json.outstandingCancelMinor ?? 0)}`
             )
-          : pickCommissionCopy(lang, `#${decidedNo} 환급 거절 완료 — 금액 이동 없음`, `#${decidedNo} refund rejected — no money moved`)
+          : pickCommissionCopy(lang, `#${decidedNo} 환급 반려 완료 — 금액 이동 없음`, `#${decidedNo} refund rejected — no money moved`)
       );
       emitAdminQueueChanged("settlements");
       await Promise.all([load(), loadHeadline()]);
@@ -506,15 +503,9 @@ export function AdminStoreCommissionLedgerPage() {
 
   const decideButton = (r: StoreCommissionLedgerRow) =>
     r.state === "review_required" ? (
-      <button
-        type="button"
-        className={ADMIN_PRIMARY_BTN}
-        disabled={busy || !canDecide}
-        title={decideLockedTitle}
-        onClick={() => openDecision(r)}
-      >
+      <AdminActionButton variant="ghost" size="sm" disabled={busy || !canDecide} title={decideLockedTitle} onClick={() => openDecision(r)}>
         {pickCommissionCopy(lang, "수수료 결정", "Decide")}
-      </button>
+      </AdminActionButton>
     ) : null;
 
   return (
@@ -541,9 +532,9 @@ export function AdminStoreCommissionLedgerPage() {
       {notice ? (
         <div className="flex items-start justify-between gap-2 rounded-ui-rect border border-sam-success bg-sam-success-soft px-3 py-2 sam-text-helper text-sam-fg" role="status" data-decision-result="1">
           <span>{notice}</span>
-          <button type="button" className="sam-text-xxs underline" onClick={() => setNotice(null)}>
-            {pickCommissionCopy(lang, "닫기", "Dismiss")}
-          </button>
+          <AdminActionButton variant="quiet" size="sm" onClick={() => setNotice(null)}>
+            {adminCta("close", lang === "ko")}
+          </AdminActionButton>
         </div>
       ) : null}
 
@@ -604,17 +595,17 @@ export function AdminStoreCommissionLedgerPage() {
 
       <nav className="flex flex-wrap items-center gap-1.5" aria-label="tabs">
         {TABS.map((t) => (
-          <button key={t} type="button" className={chipClass(tab === t)} aria-current={tab === t ? "page" : undefined} onClick={() => setUrl({ tab: t, state: "" })}>
+          <AdminChipButton selected={tab === t} key={t} aria-current={tab === t ? "page" : undefined} onClick={() => setUrl({ tab: t, state: "" })}>
             {COMMISSION_TAB_LABEL[t][lang]}
             {t === "review" && (headline.summary?.reviewCount ?? 0) > 0 ? ` ${headline.summary?.reviewCount}` : ""}
-          </button>
+          </AdminChipButton>
         ))}
         {storeId ? (
           <span className="ml-1 inline-flex items-center gap-2 rounded-full bg-sam-surface-muted px-3 py-1 sam-text-xxs text-sam-fg">
             <span title={storeId}>{storeNames.get(storeId) || pickCommissionCopy(lang, "선택한 매장", "Selected store")}</span>
-            <button type="button" className="font-medium text-signature underline" onClick={() => setUrl({ store_id: "" })}>
+            <AdminActionButton variant="ghost" size="sm" className="!h-auto !px-0" onClick={() => setUrl({ store_id: "" })}>
               {pickCommissionCopy(lang, "전체 매장", "All stores")}
-            </button>
+            </AdminActionButton>
           </span>
         ) : null}
       </nav>
@@ -690,9 +681,9 @@ export function AdminStoreCommissionLedgerPage() {
               placeholder={pickCommissionCopy(lang, "주문번호 검색", "Search order no.")}
               aria-label="order no"
             />
-            <button type="button" className={ROW_ACTION_BTN} onClick={() => void load()} disabled={loading} data-ledger-refresh="1">
-              {loading ? pickCommissionCopy(lang, "불러오는 중…", "Loading…") : pickCommissionCopy(lang, "새로고침", "Refresh")}
-            </button>
+            <AdminActionButton variant="secondary" size="sm" onClick={() => void load()} disabled={loading} data-ledger-refresh="1">
+              {adminCta("refresh", lang === "ko")}
+            </AdminActionButton>
           </div>
           <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={totalRows} loading={loading} onChange={setOffset} lang={lang} />
           {loading && rows.length === 0 ? (
@@ -726,19 +717,17 @@ export function AdminStoreCommissionLedgerPage() {
                 {pickCommissionCopy(lang, "캐시 부족 매장 신규 주문 차단", "Block new orders when Cash is short")}
               </span>
               {STORE_CASH_ORDER_GATE_MODES.map((mode) => (
-                <button
+                <AdminChipButton
+                  selected={gateMode === mode}
                   key={mode}
-                  type="button"
                   disabled={busy || loading || gateMode === mode}
                   onClick={() => {
                     setModalError(null);
                     setGateModal({ mode, reason: "", step: "form" });
                   }}
-                  className={chipClass(gateMode === mode)}
-                  aria-pressed={gateMode === mode}
                 >
                   {STORE_CASH_ORDER_GATE_LABEL[mode][lang]}
-                </button>
+                </AdminChipButton>
               ))}
             </div>
             {data?.gate?.changedAt ? (
@@ -798,13 +787,9 @@ export function AdminStoreCommissionLedgerPage() {
                               </span>
                             </td>
                             <td className={`sticky right-0 z-10 border-b border-sam-border-soft px-3 py-2 text-right ${bg}`}>
-                              <button
-                                type="button"
-                                className={ROW_ACTION_BTN}
-                                onClick={() => setUrl({ store_id: p.storeId, tab: "ledger" })}
-                              >
+                              <AdminActionButton variant="ghost" size="sm" onClick={() => setUrl({ store_id: p.storeId, tab: "ledger" })}>
                                 {pickCommissionCopy(lang, "원장 보기", "Ledger")}
-                              </button>
+                              </AdminActionButton>
                             </td>
                           </tr>
                         );
@@ -905,26 +890,24 @@ export function AdminStoreCommissionLedgerPage() {
         <section className="min-w-0 space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4">
           {data?.payableSummary ? <PlatformPayableSummaryGrid summary={data.payableSummary} lang={lang} /> : null}
           <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              className={chipClass(!payableAll)}
+            <AdminChipButton
+              selected={!payableAll}
               onClick={() => {
                 setOffset(0);
                 setPayableAll(false);
               }}
             >
               {pickCommissionCopy(lang, "지급 의무만", "Payable only")}
-            </button>
-            <button
-              type="button"
-              className={chipClass(payableAll)}
+            </AdminChipButton>
+            <AdminChipButton
+              selected={payableAll}
               onClick={() => {
                 setOffset(0);
                 setPayableAll(true);
               }}
             >
               {pickCommissionCopy(lang, "완료 주문 전체", "All completed orders")}
-            </button>
+            </AdminChipButton>
           </div>
           {payable ? <PlatformPayableTable page={payable} lang={lang} showStore={!storeId} /> : null}
           {payable ? <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={payable.totalRows} loading={loading} onChange={setOffset} lang={lang} /> : null}
@@ -940,15 +923,14 @@ export function AdminStoreCommissionLedgerPage() {
           onClose={() => setSelected(null)}
           footer={
             selected.state === "review_required" ? (
-              <button
-                type="button"
-                className={`${ADMIN_PRIMARY_BTN} w-full`}
+              <AdminActionButton
+                variant="primary" className="w-full"
                 disabled={busy || !canDecide}
                 title={decideLockedTitle}
                 onClick={() => openDecision(selected)}
               >
-                {pickCommissionCopy(lang, "수수료 결정 (승인 · 거절)", "Decide (approve · reject)")}
-              </button>
+                {pickCommissionCopy(lang, "수수료 결정 (승인 · 반려)", "Decide (approve · reject)")}
+              </AdminActionButton>
             ) : (
               <p className="sam-text-xxs text-sam-muted">
                 {pickCommissionCopy(lang, "정상 처리된 주문입니다. 수동 정산·지급 조치가 없습니다.", "Processed automatically — no manual settlement action.")}
@@ -1053,7 +1035,7 @@ export function AdminStoreCommissionLedgerPage() {
                       label:
                         modal.decision === "approve"
                           ? pickCommissionCopy(lang, "환급 승인 확정", "Confirm approval")
-                          : pickCommissionCopy(lang, "환급 거절 확정", "Confirm rejection"),
+                          : pickCommissionCopy(lang, "환급 반려 확정", "Confirm rejection"),
                       roleTone: modal.decision === "approve" ? "primary" : "destructive",
                       loading: busy,
                       disabled: busy,
@@ -1104,7 +1086,7 @@ export function AdminStoreCommissionLedgerPage() {
                   >
                     <input type="radio" name="decision" checked={modal.decision === "reject"} onChange={() => setModal({ ...modal, decision: "reject" })} />
                     <span className="sam-text-helper text-sam-fg">
-                      <b>{pickCommissionCopy(lang, "환급 거절", "Reject refund")}</b>
+                      <b>{pickCommissionCopy(lang, "환급 반려", "Reject refund")}</b>
                       <br />
                       {pickCommissionCopy(lang, "매장 귀책 취소 등. 차감액 유지, 미납이 있으면 계속 청구됩니다.", "e.g. store-fault cancel. Charge stays; unpaid remains owed.")}
                     </span>

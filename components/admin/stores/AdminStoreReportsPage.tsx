@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -104,9 +105,9 @@ export function AdminStoreReportsPage() {
     const el = rowRefs.current[id];
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.classList.add("ring-2", "ring-amber-400");
+      el.classList.add("ring-2", "ring-sam-warning");
       const timeoutId = window.setTimeout(() => {
-        el.classList.remove("ring-2", "ring-amber-400");
+        el.classList.remove("ring-2", "ring-sam-warning");
       }, 2500);
       return () => window.clearTimeout(timeoutId);
     }
@@ -265,22 +266,12 @@ export function AdminStoreReportsPage() {
                   </p>
                 ) : (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={busyId === r.id}
-                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs font-medium text-sam-fg disabled:opacity-50"
-                      onClick={() => void patchStatus(r, "dismissed")}
-                    >
+                    <AdminActionButton variant="secondary" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "dismissed")}>
                       {ko ? "기각" : "Dismiss"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busyId === r.id}
-                      className="rounded-ui-rect bg-sam-ink px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-                      onClick={() => void patchStatus(r, "actioned")}
-                    >
+                    </AdminActionButton>
+                    <AdminActionButton variant="primary" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "actioned")}>
                       {ko ? "조치 완료" : "Actioned"}
-                    </button>
+                    </AdminActionButton>
                   </div>
                 )}
                 {r.store_id ? (

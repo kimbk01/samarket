@@ -1,10 +1,10 @@
 "use client";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   AdminEmptyState,
@@ -55,7 +55,6 @@ export function AdminStoreInquiriesPage() {
 function AdminStoreInquiriesPageInner() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const locale = catalogDateLocale(language);
   const searchParams = useSearchParams();
   const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
   const [rows, setRows] = useState<Row[]>([]);
@@ -137,7 +136,7 @@ function AdminStoreInquiriesPageInner() {
                 <p className="mt-1 text-xs text-sam-muted">
                   {type ? (ko ? type[0] : type[1]) : ko ? "기타 문의" : "Other"} ·{" "}
                   {ko ? "문의자" : "From"}: {r.from_user_label || (ko ? "이름 확인 불가" : "Name unavailable")} ·{" "}
-                  {new Date(r.created_at).toLocaleString(locale)}
+                  {formatAdminManilaDateTime(r.created_at)}
                 </p>
                 <p className="mt-2 font-medium text-sam-fg">{r.subject}</p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
@@ -147,7 +146,7 @@ function AdminStoreInquiriesPageInner() {
                     <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
                     {r.answered_at ? (
                       <p className="mt-1 sam-text-xxs text-sam-meta">
-                        {new Date(r.answered_at).toLocaleString(locale)}
+                        {formatAdminManilaDateTime(r.answered_at)}
                       </p>
                     ) : null}
                   </div>

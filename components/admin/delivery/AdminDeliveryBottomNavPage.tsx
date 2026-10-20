@@ -1,6 +1,5 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -16,6 +15,15 @@ import {
 } from "@/lib/admin/operator-ux/operator-labels";
 import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { DESIGN_SYSTEM_BRAND } from "@/lib/ui/design-system-hard-lock";
+
+/** 새 메뉴 기본 색 = 브랜드 색 (디자인 시스템 SSOT). */
+const DEFAULT_NAV_COLOR = DESIGN_SYSTEM_BRAND.primaryHex;
 
 type Row = {
   id: string;
@@ -137,7 +145,7 @@ export function AdminDeliveryBottomNavPage() {
     sort_order: 0,
     is_active: true,
     is_center: false,
-    color: "#0B421A",
+    color: DEFAULT_NAV_COLOR,
   });
 
   const tableHeaders = useMemo(
@@ -266,7 +274,7 @@ export function AdminDeliveryBottomNavPage() {
     const label = String(editDraft.label ?? "").trim();
     const icon_key = String(editDraft.icon_key ?? "").trim();
     const href = String(editDraft.href ?? "").trim();
-    const color = String(editDraft.color ?? "").trim() || "#0B421A";
+    const color = String(editDraft.color ?? "").trim() || DEFAULT_NAV_COLOR;
     if (!label || !icon_key || !href) {
       setError(t("admin_del_err_required_fields"));
       return;
@@ -346,7 +354,7 @@ export function AdminDeliveryBottomNavPage() {
               <span className="sam-text-body font-medium text-sam-fg">{t("admin_del_field_color")}</span>
               <input
                 className="sam-input"
-                value={draft.color ?? "#0B421A"}
+                value={draft.color ?? DEFAULT_NAV_COLOR}
                 onChange={(e) => setDraft((p) => ({ ...p, color: e.target.value }))}
                 placeholder={t("admin_del_ph_color")}
               />
@@ -368,8 +376,8 @@ export function AdminDeliveryBottomNavPage() {
                 />
                 {t("admin_del_field_is_center_count", { count: centerCount })}
               </label>
-              <button
-                className="sam-btn-primary"
+              <AdminActionButton
+                variant="primary"
                 onClick={async () => {
                   setError(null);
                   const res = await apiCreate(draft);
@@ -382,13 +390,13 @@ export function AdminDeliveryBottomNavPage() {
                 }}
               >
                 {t("admin_del_btn_add")}
-              </button>
-              <button className="sam-btn" onClick={load}>
-                {t("admin_del_common_refresh")}
-              </button>
+              </AdminActionButton>
+              <AdminActionButton variant="secondary" onClick={() => void load()}>
+                {adminCta("refresh", ko)}
+              </AdminActionButton>
             </div>
             {error ? (
-              <p role="alert" className="sam-text-body text-red-600">
+              <p role="alert" className="sam-text-body text-sam-danger">
                 {error}
               </p>
             ) : null}
@@ -397,7 +405,9 @@ export function AdminDeliveryBottomNavPage() {
 
         <AdminCard titleKey="admin_del_card_menu_list">
           {loading ? (
-            <div className="sam-text-body text-sam-muted">{t("common_loading")}</div>
+            <AdminLoadingState ko={ko} label={t("common_loading")} />
+          ) : rows.length === 0 && !error ? (
+            <AdminEmptyState ko={ko} />
           ) : (
             <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
               <table className="w-full min-w-[820px] border-collapse sam-text-body">
@@ -466,30 +476,24 @@ export function AdminDeliveryBottomNavPage() {
                           )}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          <button
-                            type="button"
+                          <AdminChipButton
+                            selected={r.is_active}
                             disabled={rowBusy}
                             onClick={() => void updateRow(r, { is_active: !r.is_active })}
-                            className={`rounded px-1.5 py-0.5 sam-text-helper ${
-                              r.is_active ? "text-signature hover:bg-signature/10" : "text-sam-muted hover:bg-sam-border-soft"
-                            }`}
                             title={t("admin_del_toggle_visible_title")}
                           >
                             {r.is_active ? t("admin_del_state_on") : t("admin_del_state_off")}
-                          </button>
+                          </AdminChipButton>
                         </td>
                         <td className="px-3 py-2 text-center">
-                          <button
-                            type="button"
+                          <AdminChipButton
+                            selected={r.is_center}
                             disabled={rowBusy || r.is_center}
                             onClick={() => void updateRow(r, { is_center: true })}
-                            className={`rounded px-1.5 py-0.5 sam-text-helper ${
-                              r.is_center ? "text-signature hover:bg-signature/10" : "text-sam-muted hover:bg-sam-border-soft"
-                            }`}
                             title={t("admin_del_center_only_one_title")}
                           >
                             {r.is_center ? t("admin_del_center_badge") : t("admin_del_normal_badge")}
-                          </button>
+                          </AdminChipButton>
                         </td>
                         <td className="px-3 py-2">
                           {isEditing ? (
@@ -501,7 +505,7 @@ export function AdminDeliveryBottomNavPage() {
                               />
                               <input
                                 type="color"
-                                value={String(editDraft?.color ?? "#0B421A")}
+                                value={String(editDraft?.color ?? DEFAULT_NAV_COLOR)}
                                 onChange={(e) => setEditDraft((p) => ({ ...(p ?? {}), color: e.target.value }))}
                                 className="h-9 w-10 rounded border border-sam-border bg-sam-surface"
                                 aria-label={t("admin_del_pick_color_aria")}
@@ -513,56 +517,58 @@ export function AdminDeliveryBottomNavPage() {
                         </td>
                         <td className="px-3 py-2 text-right">
                           <div className="flex flex-wrap items-center justify-end gap-1">
-                            <button
-                              type="button"
+                            <AdminActionButton
+                              variant="quiet"
+                              size="sm"
                               onClick={() => void move(r.id, "up")}
                               disabled={idx === 0 || rowBusy}
-                              className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
                               title={t("admin_del_move_up_title")}
+                              aria-label={t("admin_del_move_up_title")}
                             >
                               ▲
-                            </button>
-                            <button
-                              type="button"
+                            </AdminActionButton>
+                            <AdminActionButton
+                              variant="quiet"
+                              size="sm"
                               onClick={() => void move(r.id, "down")}
                               disabled={idx === rows.length - 1 || rowBusy}
-                              className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
                               title={t("admin_del_move_down_title")}
+                              aria-label={t("admin_del_move_down_title")}
                             >
                               ▼
-                            </button>
+                            </AdminActionButton>
                             {isEditing ? (
                               <>
-                                <button
-                                  type="button"
+                                <AdminActionButton
+                                  variant="ghost"
+                                  size="sm"
                                   disabled={saving}
                                   onClick={() => void saveEdit()}
-                                  className="rounded px-1.5 py-0.5 sam-text-helper text-signature hover:bg-signature/10 disabled:opacity-50"
                                 >
-                                  {t("common_save")}
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={saving}
-                                  onClick={cancelEdit}
-                                  className="rounded px-1.5 py-0.5 sam-text-helper text-sam-muted hover:bg-sam-border-soft disabled:opacity-50"
-                                >
-                                  {t("common_cancel")}
-                                </button>
+                                  {adminCta("save", ko)}
+                                </AdminActionButton>
+                                <AdminActionButton variant="quiet" size="sm" disabled={saving} onClick={cancelEdit}>
+                                  {adminCta("cancel", ko)}
+                                </AdminActionButton>
                               </>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => enterEdit(r)}
-                                className="rounded px-1.5 py-0.5 sam-text-helper text-signature hover:bg-signature/10"
-                              >
-                                {t("common_edit")}
-                              </button>
+                              <AdminActionButton variant="ghost" size="sm" onClick={() => enterEdit(r)}>
+                                {adminCta("edit", ko)}
+                              </AdminActionButton>
                             )}
-                            <button
-                              type="button"
+                            <AdminActionButton
+                              variant="danger"
+                              size="sm"
                               onClick={async () => {
-                                if (!(await dibayConfirm({ title: t("admin_del_confirm_delete"), confirmTone: "destructive" }))) return;
+                                const ok = await confirmAdminAction({
+                                  level: "L3",
+                                  ko,
+                                  title: t("admin_del_confirm_delete"),
+                                  confirmLabel: adminCta("delete", ko),
+                                  destructive: true,
+                                  retypeValue: r.label,
+                                });
+                                if (!ok.ok) return;
                                 const res = await apiDelete(r.id);
                                 if (!res.ok) {
                                   setError(errText(res.error));
@@ -571,10 +577,9 @@ export function AdminDeliveryBottomNavPage() {
                                 if (editingId === r.id) cancelEdit();
                                 await load();
                               }}
-                              className="rounded px-1.5 py-0.5 sam-text-helper text-red-600 hover:bg-red-50"
                             >
-                              {t("common_delete")}
-                            </button>
+                              {adminCta("delete", ko)}
+                            </AdminActionButton>
                           </div>
                         </td>
                       </tr>

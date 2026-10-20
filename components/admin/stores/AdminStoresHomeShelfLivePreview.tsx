@@ -4,6 +4,8 @@
  * Admin HOME shelf preview — live home-feed + draft overlay + customer card components.
  */
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { composeLiveHomeFeed } from "@/lib/stores/composition/stores-composition-live";
@@ -161,7 +163,7 @@ export function AdminStoresHomeShelfLivePreview({ shelf }: { shelf: AdminHomeShe
     }
     if (!shelf.composerSlot) {
       return (
-        <p className="rounded-ui-rect bg-amber-50 px-3 py-6 text-center text-[12px] text-amber-800">
+        <p className="rounded-ui-rect bg-sam-warning-soft px-3 py-6 text-center text-[12px] text-sam-warning">
           {ko ? "composerSlot 없음 — 고객 선반에 연결되지 않습니다." : "No composerSlot — not wired to customer HOME."}
         </p>
       );
@@ -170,7 +172,7 @@ export function AdminStoresHomeShelfLivePreview({ shelf }: { shelf: AdminHomeShe
       return <p className="px-2 py-6 text-center text-[12px] text-sam-muted">{ko ? "실데이터 로딩…" : "Loading live data…"}</p>;
     }
     if (feed.status === "error") {
-      return <p className="px-2 py-6 text-center text-[12px] text-rose-700">{feed.message}</p>;
+      return <p className="px-2 py-6 text-center text-[12px] text-sam-danger">{feed.message}</p>;
     }
     if (!composed) return null;
 
@@ -234,29 +236,25 @@ export function AdminStoresHomeShelfLivePreview({ shelf }: { shelf: AdminHomeShe
       data-preview-slot={shelf.composerSlot ?? ""}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-sam-success">
           {ko ? "실데이터 미리보기 · HOME 선반" : "Live preview · HOME shelf"}
         </p>
-        <button
-          type="button"
-          className="text-[10px] font-semibold text-emerald-700 underline"
-          onClick={() => setReloadTick((n) => n + 1)}
-        >
-          {ko ? "새로고침" : "Refresh"}
-        </button>
+        <AdminActionButton variant="ghost" size="sm" onClick={() => setReloadTick((n) => n + 1)}>
+          {adminCta("refresh", ko)}
+        </AdminActionButton>
       </div>
-      <p className="mb-2 text-[10px] text-sam-muted">
+      <p className="mb-2 text-[12px] text-sam-muted">
         {ko
           ? `표현: ${presentation} · 데이터: ${shelf.productConfig.dataSource ?? ""} (초안 overlay · 고객 카드)`
           : `Presentation: ${presentation} · data: ${shelf.productConfig.dataSource ?? ""} (draft overlay · customer cards)`}
       </p>
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-[15px] font-bold text-sam-fg">{shelf.titleKo}</p>
+          <p className="truncate text-[14px] font-bold text-sam-fg">{shelf.titleKo}</p>
           {shelf.subtitleKo ? <p className="truncate text-[12px] text-sam-muted">{shelf.subtitleKo}</p> : null}
         </div>
         {showAll ? (
-          <span className="shrink-0 text-[12px] font-semibold text-emerald-600">
+          <span className="shrink-0 text-[12px] font-semibold text-sam-success">
             {shelf.productConfig.showAllLabelKo?.trim() || t("store_browse_view_all")} ›
           </span>
         ) : null}

@@ -4,12 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import {
   buildAdminGiftOpsHref,
   type AdminGiftOpsMoneySubtab,
 } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import { formatMoneyPhp } from "@/lib/utils/format";
-import { Sam } from "@/lib/ui/css-vars";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type CashOutRow = {
   id: string;
@@ -51,7 +53,7 @@ const CASH_STATUSES = ["", "REQUESTED", "APPROVED", "PAID", "REJECTED", "CANCELL
 function dt(v: string | null | undefined): string {
   if (!v) return "—";
   try {
-    return new Date(v).toLocaleString();
+    return formatAdminManilaDateTime(v);
   } catch {
     return v;
   }
@@ -72,7 +74,7 @@ export function AdminGiftMoneyPanel({
 
   return (
     <div className="space-y-4" data-admin-gift-money="1">
-      <div className="rounded-ui-rect border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+      <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft p-3 text-sm text-sam-warning">
         <p className="font-semibold">
           {safeT("gift_ops_legacy_money_archive_title", {
             fallbackKo: "Gift 정산 과거 기록 보관함",
@@ -135,7 +137,7 @@ function ExternalCashOuts({
   status: string;
   routerPush: (href: string) => void;
 }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const [rows, setRows] = useState<CashOutRow[]>([]);
   const [detail, setDetail] = useState<CashOutRow | null>(null);
   const [state, setState] = useState<"loading" | "error" | "empty" | "data">("loading");
@@ -206,15 +208,15 @@ function ExternalCashOuts({
       {state === "loading" ? <p className="text-sm text-sam-muted">…</p> : null}
       {state === "error" ? (
         <div className="space-y-2">
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-sam-danger">
             {safeT("gift_ops_cash_error", {
               fallbackKo: "환전 요청을 불러오지 못했습니다.",
               fallbackEn: "Couldn’t load cash-out requests.",
             })}
           </p>
-          <button type="button" className={Sam.btn.secondary} onClick={() => void loadList()}>
-            {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-          </button>
+          <AdminActionButton type="button" variant="secondary" onClick={() => void loadList()}>
+            {adminCta("refresh", language !== "en")}
+          </AdminActionButton>
         </div>
       ) : null}
       {state === "empty" ? (
@@ -234,9 +236,9 @@ function ExternalCashOuts({
                 <div className="min-w-0">
                   <p className="font-semibold">{r.storeName || "—"}</p>
                   <p className="text-sm">{r.ownerLabel || "—"}</p>
-                  <p className="text-sm tabular-nums font-semibold">{formatMoneyPhp(r.amount)}</p>
+                  <p className="text-sm tabular-nums font-semibold">{formatAdminPhp(r.amount)}</p>
                   <p className="text-xs text-sam-muted">
-                    {r.status} · {r.destinationType} · avail {formatMoneyPhp(r.availableRevenue)} ·{" "}
+                    {r.status} · {r.destinationType} · avail {formatAdminPhp(r.availableRevenue)} ·{" "}
                     {dt(r.createdAt)}
                   </p>
                   <details className="mt-1 text-xs text-sam-muted">
@@ -246,9 +248,9 @@ function ExternalCashOuts({
                     <p className="break-all font-mono">{r.id}</p>
                   </details>
                 </div>
-                <button
+                <AdminActionButton
                   type="button"
-                  className={`${Sam.btn.secondary} min-h-[40px] px-3`}
+                  variant="secondary"
                   onClick={() =>
                     routerPush(
                       buildAdminGiftOpsHref({
@@ -260,7 +262,7 @@ function ExternalCashOuts({
                   }
                 >
                   {safeT("gift_ops_cta_review", { fallbackKo: "검토", fallbackEn: "Review" })}
-                </button>
+                </AdminActionButton>
               </div>
             </li>
           ))}
@@ -269,16 +271,17 @@ function ExternalCashOuts({
 
       {id && detail ? (
         <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <button
-            type="button"
-            className="text-sm font-semibold text-signature underline"
+          <AdminActionButton
+            variant="ghost"
+            size="sm"
+            className="!px-0"
             onClick={() =>
               routerPush(buildAdminGiftOpsHref({ tab: "finance", money: "external", extra: { status: status || null } }))
             }
           >
             ← {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
-          </button>
-          <p className="text-lg font-semibold tabular-nums">{formatMoneyPhp(detail.amount)}</p>
+          </AdminActionButton>
+          <p className="text-[16px] font-semibold tabular-nums">{formatAdminPhp(detail.amount)}</p>
           <p className="text-sm">
             {detail.storeName} · {detail.ownerLabel || "—"}
           </p>
@@ -306,7 +309,7 @@ function StoreCashConversions({
   id: string;
   routerPush: (href: string) => void;
 }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const [rows, setRows] = useState<ConversionRow[]>([]);
   const [detail, setDetail] = useState<ConversionRow | null>(null);
   const [state, setState] = useState<"loading" | "error" | "empty" | "data">("loading");
@@ -354,15 +357,15 @@ function StoreCashConversions({
       {state === "loading" ? <p className="text-sm text-sam-muted">…</p> : null}
       {state === "error" ? (
         <div className="space-y-2">
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-sam-danger">
             {safeT("gift_ops_conv_error", {
               fallbackKo: "과거 전환 요청을 불러오지 못했습니다.",
               fallbackEn: "Couldn’t load historical conversions.",
             })}
           </p>
-          <button type="button" className={Sam.btn.secondary} onClick={() => void loadList()}>
-            {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-          </button>
+          <AdminActionButton type="button" variant="secondary" onClick={() => void loadList()}>
+            {adminCta("refresh", language !== "en")}
+          </AdminActionButton>
         </div>
       ) : null}
       {state === "empty" ? (
@@ -382,10 +385,10 @@ function StoreCashConversions({
                 <div>
                   <p className="font-semibold">{r.storeName || "—"}</p>
                   <p className="text-sm">{r.ownerLabel || "—"}</p>
-                  <p className="text-sm tabular-nums font-semibold">{formatMoneyPhp(r.amount)}</p>
+                  <p className="text-sm tabular-nums font-semibold">{formatAdminPhp(r.amount)}</p>
                   <p className="text-xs text-sam-muted">
-                    {r.status} · avail {formatMoneyPhp(r.availableRevenue)} · cash{" "}
-                    {formatMoneyPhp(r.storeCashBalance)} · {dt(r.createdAt)}
+                    {r.status} · avail {formatAdminPhp(r.availableRevenue)} · cash{" "}
+                    {formatAdminPhp(r.storeCashBalance)} · {dt(r.createdAt)}
                   </p>
                   <details className="mt-1 text-xs text-sam-muted">
                     <summary>
@@ -394,9 +397,9 @@ function StoreCashConversions({
                     <p className="break-all font-mono">{r.id}</p>
                   </details>
                 </div>
-                <button
+                <AdminActionButton
                   type="button"
-                  className={`${Sam.btn.secondary} min-h-[40px] px-3`}
+                  variant="secondary"
                   onClick={() =>
                     routerPush(
                       buildAdminGiftOpsHref({
@@ -408,7 +411,7 @@ function StoreCashConversions({
                   }
                 >
                   {safeT("gift_ops_cta_review", { fallbackKo: "검토", fallbackEn: "Review" })}
-                </button>
+                </AdminActionButton>
               </div>
             </li>
           ))}
@@ -417,21 +420,22 @@ function StoreCashConversions({
 
       {id && detail ? (
         <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <button
-            type="button"
-            className="text-sm font-semibold text-signature underline"
+          <AdminActionButton
+            variant="ghost"
+            size="sm"
+            className="!px-0"
             onClick={() => routerPush(buildAdminGiftOpsHref({ tab: "finance", money: "store-cash" }))}
           >
             ← {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
-          </button>
-          <p className="text-lg font-semibold tabular-nums">{formatMoneyPhp(detail.amount)}</p>
+          </AdminActionButton>
+          <p className="text-[16px] font-semibold tabular-nums">{formatAdminPhp(detail.amount)}</p>
           <p className="text-sm">
             {detail.storeName} · {detail.ownerLabel || "—"}
           </p>
           <p className="text-sm">{detail.status}</p>
           <p className="text-xs text-sam-muted">
-            Available {formatMoneyPhp(detail.availableRevenue)} · Historical converted amount{" "}
-            {formatMoneyPhp(detail.storeCashBalance)}
+            Available {formatAdminPhp(detail.availableRevenue)} · Historical converted amount{" "}
+            {formatAdminPhp(detail.storeCashBalance)}
           </p>
           <p className="rounded-ui-rect bg-sam-surface-muted p-3 text-sm text-sam-muted">
             {safeT("gift_ops_legacy_read_only", {

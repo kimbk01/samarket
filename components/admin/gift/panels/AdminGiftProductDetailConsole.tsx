@@ -3,16 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { GiftSalesDateTimeField } from "@/components/gift-certificate/GiftSalesDateTimeField";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { formatGiftProductExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
-import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import {
-  ADMIN_GIFT_PRIMARY_BTN_STYLE,
-  adminGiftPrimaryBtnClass,
-} from "@/lib/gift-certificate/admin-gift-primary-button";
 import {
   isGiftDiscountFundingParty,
   isGiftExpiryPolicy,
@@ -20,11 +20,12 @@ import {
   type GiftDiscountFundingParty,
   type GiftExpiryPolicy,
 } from "@/lib/gift-certificate/gift-certificate-domain-contract";
-import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 import { adminConflictReloadedMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 type ProductDetail = {
   id: string;
@@ -106,7 +107,7 @@ function mapPaneToSection(pane: string | undefined): SectionId | null {
 function dt(v: string | null | undefined): string {
   if (!v) return "—";
   try {
-    return new Date(v).toLocaleString();
+    return formatAdminManilaDateTime(v);
   } catch {
     return v;
   }
@@ -375,13 +376,13 @@ export function AdminGiftProductDetailConsole({
     );
     push(
       safeT("gift_ops_field_face_amount", { fallbackKo: "표시 금액", fallbackEn: "Face value" }),
-      formatMoneyPhp(product.face_value),
-      formatMoneyPhp(Math.trunc(Number(editFace) || 0))
+      formatAdminPhp(product.face_value),
+      formatAdminPhp(Math.trunc(Number(editFace) || 0))
     );
     push(
       safeT("gift_ops_field_purchase", { fallbackKo: "판매 가격", fallbackEn: "Sale price" }),
-      formatMoneyPhp(product.purchase_price),
-      formatMoneyPhp(Math.trunc(Number(editPrice) || 0))
+      formatAdminPhp(product.purchase_price),
+      formatAdminPhp(Math.trunc(Number(editPrice) || 0))
     );
     push(
       safeT("gift_ops_field_fee_dibay", { fallbackKo: "수수료", fallbackEn: "Fee" }),
@@ -561,7 +562,9 @@ export function AdminGiftProductDetailConsole({
 
   const saveEdit = async () => {
     if (!product || busy || !isDirty) return;
-    const confirmed = await dibayConfirm({
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko: language !== "en",
       title: safeT("gift_admin_save_confirm_title", {
         fallbackKo: "변경 내용을 저장할까요?",
         fallbackEn: "Save these changes?",
@@ -572,16 +575,12 @@ export function AdminGiftProductDetailConsole({
           fallbackKo: "변경 내용이 저장됩니다.",
           fallbackEn: "Your edits will be saved.",
         }),
-      cancelLabel: safeT("gift_admin_edit_confirm_cancel", {
-        fallbackKo: "취소",
-        fallbackEn: "Cancel",
-      }),
       confirmLabel: safeT("gift_admin_save_confirm_ok", {
         fallbackKo: "변경 저장",
         fallbackEn: "Save changes",
       }),
     });
-    if (!confirmed) return;
+    if (!confirmed.ok) return;
 
     setBusy(true);
     setError(null);
@@ -625,7 +624,7 @@ export function AdminGiftProductDetailConsole({
           fallbackKo: "수정이 완료되었습니다",
           fallbackEn: "Changes saved",
         }),
-        confirmLabel: safeT("gift_admin_edit_success_ok", { fallbackKo: "확인", fallbackEn: "OK" }),
+        confirmLabel: adminCta("close", language !== "en"),
       });
     } catch {
       setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
@@ -636,17 +635,19 @@ export function AdminGiftProductDetailConsole({
 
   const confirmDelete = async () => {
     if (!product || busy || product.issued_count > 0) return;
-    const ok = await dibayConfirm({
+    const ok = await confirmAdminAction({
+      level: "L3",
+      ko: language !== "en",
+      retypeValue: product.title,
       title: safeT("gift_ops_delete_confirm_title", { fallbackKo: "상품 삭제", fallbackEn: "Delete product" }),
       description: safeT("gift_ops_delete_confirm_body", {
         fallbackKo: "이 상품권 상품을 삭제합니다. 발급된 상품권이 없는 경우에만 삭제할 수 있습니다.",
         fallbackEn: "Delete this gift product. Only allowed when no instances have been issued.",
       }),
       confirmLabel: safeT("gift_ops_cta_delete", { fallbackKo: "삭제", fallbackEn: "Delete" }),
-      cancelLabel: safeT("gift_admin_cta_back", { fallbackKo: "취소", fallbackEn: "Cancel" }),
-      confirmTone: "destructive",
+      destructive: true,
     });
-    if (!ok) return;
+    if (!ok.ok) return;
     setBusy(true);
     setError(null);
     try {
@@ -677,29 +678,31 @@ export function AdminGiftProductDetailConsole({
   };
 
   const handlePause = async () => {
-    const ok = await dibayConfirm({
+    const ok = await confirmAdminAction({
+      level: "L1",
+      ko: language !== "en",
       title: safeT("gift_ops_cta_pause", { fallbackKo: "판매 중지", fallbackEn: "Pause sales" }),
       description: safeT("gift_ops_pause_confirm", {
         fallbackKo: "이 상품권 판매를 중지합니다.",
         fallbackEn: "Pause sales for this gift product.",
       }),
       confirmLabel: safeT("gift_ops_cta_pause", { fallbackKo: "판매 중지", fallbackEn: "Pause" }),
-      cancelLabel: safeT("gift_admin_cta_back", { fallbackKo: "취소", fallbackEn: "Cancel" }),
     });
-    if (ok) await patchAction("pause");
+    if (ok.ok) await patchAction("pause");
   };
 
   const handleArchive = async () => {
-    const ok = await dibayConfirm({
+    const ok = await confirmAdminAction({
+      level: "L1",
+      ko: language !== "en",
       title: safeT("gift_ops_cta_archive", { fallbackKo: "보관", fallbackEn: "Archive" }),
       description: safeT("gift_ops_archive_confirm", {
         fallbackKo: "이 상품권을 보관합니다. 신규 판매는 중지됩니다.",
         fallbackEn: "Archive this product. New sales will stop.",
       }),
       confirmLabel: safeT("gift_ops_cta_archive", { fallbackKo: "보관", fallbackEn: "Archive" }),
-      cancelLabel: safeT("gift_admin_cta_back", { fallbackKo: "취소", fallbackEn: "Cancel" }),
     });
-    if (ok) await patchAction("archive");
+    if (ok.ok) await patchAction("archive");
   };
 
   if (state === "loading" && !payload) {
@@ -713,18 +716,18 @@ export function AdminGiftProductDetailConsole({
   if (state === "error" || !product || !payload) {
     return (
       <div className="space-y-3">
-        <button type="button" className={`${Sam.btn.secondary} min-h-[44px] px-4 text-sm`} onClick={onBack}>
+        <AdminActionButton type="button" variant="secondary" onClick={onBack}>
           ← {safeT("gift_admin_cta_back_list", { fallbackKo: "목록", fallbackEn: "List" })}
-        </button>
-        <p className="text-sm text-red-600">
+        </AdminActionButton>
+        <p className="text-sm text-sam-danger">
           {safeT("gift_ops_detail_load_fail", {
             fallbackKo: "상품 상세를 불러오지 못했습니다.",
             fallbackEn: "Couldn’t load product detail.",
           })}
         </p>
-        <button type="button" className={Sam.btn.secondary} onClick={() => void load()}>
-          {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-        </button>
+        <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
+          {adminCta("refresh", language !== "en")}
+        </AdminActionButton>
       </div>
     );
   }
@@ -736,9 +739,9 @@ export function AdminGiftProductDetailConsole({
 
   return (
     <section className="space-y-4 pb-24" data-admin-gift-product-detail="1">
-      <button type="button" className={`${Sam.btn.secondary} min-h-[44px] px-4 text-sm`} onClick={onBack}>
+      <AdminActionButton type="button" variant="secondary" onClick={onBack}>
         ← {safeT("gift_admin_cta_back_list", { fallbackKo: "목록", fallbackEn: "List" })}
-      </button>
+      </AdminActionButton>
 
       {refreshing ? (
         <p className="text-xs text-sam-muted" aria-live="polite">
@@ -747,7 +750,7 @@ export function AdminGiftProductDetailConsole({
       ) : null}
 
       {product.issued_count > 0 ? (
-        <p className="rounded-ui-rect border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+        <p className="rounded-ui-rect border border-sam-warning/60 bg-sam-warning-soft px-3 py-2 text-xs text-sam-warning">
           {safeT("gift_ops_edit_issued_note", {
             fallbackKo: "기존 발급 상품권은 변경되지 않습니다. 신규 발급분부터 적용됩니다.",
             fallbackEn: "Existing issued certificates are not changed. Changes apply from new issuances.",
@@ -811,7 +814,7 @@ export function AdminGiftProductDetailConsole({
               </span>
             ) : null}
           </div>
-          <h2 className="text-lg font-semibold break-words">{editOpen ? editTitle : product.title}</h2>
+          <h2 className="text-[16px] font-semibold break-words">{editOpen ? editTitle : product.title}</h2>
           <p className="text-xs text-sam-muted break-all">
             {safeT("gift_ops_product_id", { fallbackKo: "Product ID", fallbackEn: "Product ID" })}: {product.id}
           </p>
@@ -826,88 +829,84 @@ export function AdminGiftProductDetailConsole({
 
           {!editOpen ? (
             <div className="flex flex-wrap gap-2 pt-1" data-admin-gift-product-actions="1">
-              <button
+              <AdminActionButton
                 type="button"
-                className={adminGiftPrimaryBtnClass("min-h-[40px] px-3 text-sm")}
-                style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                variant="primary"
                 data-admin-gift-product-edit="1"
                 onClick={enterEdit}
               >
                 {safeT("gift_ops_cta_edit", { fallbackKo: "수정", fallbackEn: "Edit" })}
-              </button>
+              </AdminActionButton>
               {product.active && !product.archived_at ? (
-                <button
+                <AdminActionButton
                   type="button"
-                  className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}
+                  variant="secondary"
                   disabled={busy}
                   onClick={() => void handlePause()}
                 >
                   {safeT("gift_ops_cta_pause", { fallbackKo: "판매 중지", fallbackEn: "Pause" })}
-                </button>
+                </AdminActionButton>
               ) : null}
               {!product.active && !product.archived_at ? (
-                <button
+                <AdminActionButton
                   type="button"
-                  className={adminGiftPrimaryBtnClass("min-h-[40px] px-3 text-sm")}
-                  style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                  variant="primary"
                   disabled={busy}
                   data-admin-gift-product-activate="1"
                   onClick={() => void patchAction("activate")}
                 >
                   {safeT("gift_ops_cta_resume", { fallbackKo: "판매 재개", fallbackEn: "Resume" })}
-                </button>
+                </AdminActionButton>
               ) : null}
               {mallVisible ? (
-                <button
+                <AdminActionButton
                   type="button"
-                  className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}
+                  variant="secondary"
                   disabled={busy}
                   data-admin-gift-product-hide="1"
                   onClick={() => void patchAction("hide")}
                 >
                   {safeT("gift_ops_cta_mall_hide", { fallbackKo: "몰 숨김", fallbackEn: "Hide from mall" })}
-                </button>
+                </AdminActionButton>
               ) : (
-                <button
+                <AdminActionButton
                   type="button"
-                  className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}
+                  variant="secondary"
                   disabled={busy}
                   data-admin-gift-product-show="1"
                   onClick={() => void patchAction("show")}
                 >
                   {safeT("gift_ops_cta_mall_show", { fallbackKo: "몰 노출", fallbackEn: "Show in mall" })}
-                </button>
+                </AdminActionButton>
               )}
               {product.archived_at ? (
-                <button
+                <AdminActionButton
                   type="button"
-                  className={adminGiftPrimaryBtnClass("min-h-[40px] px-3 text-sm")}
-                  style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                  variant="primary"
                   disabled={busy}
                   data-admin-gift-product-unarchive="1"
                   onClick={() => void patchAction("unarchive")}
                 >
                   {safeT("gift_ops_cta_unarchive", { fallbackKo: "보관 해제", fallbackEn: "Unarchive" })}
-                </button>
+                </AdminActionButton>
               ) : (
-                <button
+                <AdminActionButton
                   type="button"
-                  className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}
+                  variant="secondary"
                   disabled={busy}
                   onClick={() => void handleArchive()}
                 >
                   {safeT("gift_ops_cta_archive", { fallbackKo: "보관", fallbackEn: "Archive" })}
-                </button>
+                </AdminActionButton>
               )}
               {product.issued_count === 0 ? (
-                <button
-                  type="button"
-                  className="min-h-[40px] rounded-ui-rect border border-red-300 px-3 text-sm font-semibold text-red-700"
+                <AdminActionButton
+                  variant="danger"
                   disabled={busy}
                   onClick={() => void confirmDelete()}
                 >
                   {safeT("gift_ops_cta_delete", { fallbackKo: "삭제", fallbackEn: "Delete" })}
-                </button>
+                </AdminActionButton>
               ) : null}
             </div>
           ) : null}
@@ -917,9 +916,9 @@ export function AdminGiftProductDetailConsole({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-admin-gift-product-kpis="1">
         {[
           { label: safeT("gift_ops_kpi_issued", { fallbackKo: "발급 수", fallbackEn: "Issued" }), value: String(payload.stats.issued) },
-          { label: safeT("gift_ops_kpi_outstanding", { fallbackKo: "미사용 잔액", fallbackEn: "Outstanding" }), value: formatMoneyPhp(payload.stats.outstanding) },
-          { label: safeT("gift_ops_kpi_redeemed_gross", { fallbackKo: "누적 사용", fallbackEn: "Redeemed" }), value: formatMoneyPhp(payload.stats.redeemedGross) },
-          { label: safeT("gift_ops_detail_recognized_net", { fallbackKo: "Merchant net", fallbackEn: "Merchant net" }), value: formatMoneyPhp(payload.stats.merchantNet) },
+          { label: safeT("gift_ops_kpi_outstanding", { fallbackKo: "미사용 잔액", fallbackEn: "Outstanding" }), value: formatAdminPhp(payload.stats.outstanding) },
+          { label: safeT("gift_ops_kpi_redeemed_gross", { fallbackKo: "누적 사용", fallbackEn: "Redeemed" }), value: formatAdminPhp(payload.stats.redeemedGross) },
+          { label: safeT("gift_ops_detail_recognized_net", { fallbackKo: "Merchant net", fallbackEn: "Merchant net" }), value: formatAdminPhp(payload.stats.merchantNet) },
         ].map((kpi) => (
           <div key={kpi.label} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
             <p className="text-xs text-sam-muted">{kpi.label}</p>
@@ -930,18 +929,15 @@ export function AdminGiftProductDetailConsole({
 
       <div className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto bg-sam-app/95 py-1 backdrop-blur-sm">
         {sections.map((sec) => (
-          <button
+          <AdminChipButton
             key={sec.id}
-            type="button"
             data-admin-gift-product-section={sec.id}
-            className={[
-              "shrink-0 rounded-ui-rect px-3 py-2 text-xs font-semibold min-h-[40px]",
-              section === sec.id ? "bg-sam-fg text-sam-app" : "border border-sam-border bg-sam-surface",
-            ].join(" ")}
+            selected={section === sec.id}
+            className="shrink-0"
             onClick={() => setSection(sec.id)}
           >
             {safeT(sec.key, { fallbackKo: sec.ko, fallbackEn: sec.en })}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
 
@@ -1127,7 +1123,7 @@ export function AdminGiftProductDetailConsole({
           ) : (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm space-y-1">
               <p className="tabular-nums">
-                {formatMoneyPhp(product.face_value)} · {formatMoneyPhp(product.purchase_price)} · {product.platform_fee_rate}%
+                {formatAdminPhp(product.face_value)} · {formatAdminPhp(product.purchase_price)} · {product.platform_fee_rate}%
               </p>
               <p>
                 {dt(product.sales_starts_at)} → {dt(product.sales_ends_at)}
@@ -1157,7 +1153,7 @@ export function AdminGiftProductDetailConsole({
         </div>
       ) : null}
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
 
       {section === "instances" ? (
         <div className="space-y-2" data-admin-gift-product-instances="1">
@@ -1165,7 +1161,7 @@ export function AdminGiftProductDetailConsole({
             <div key={String(row.id)} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm">
               <p className="font-semibold">{String(row.publicGiftNumber || row.id)}</p>
               <p className="text-xs text-sam-muted">
-                {String(row.status)} · {formatMoneyPhp(Number(row.remainingBalance) || 0)}
+                {String(row.status)} · {formatAdminPhp(Number(row.remainingBalance) || 0)}
               </p>
               <p className="text-xs">{String(row.currentOwnerLabel || shortId(String(row.currentOwnerUserId)))}</p>
               <Link
@@ -1219,7 +1215,7 @@ export function AdminGiftProductDetailConsole({
                   </span>
                 </p>
                 <p className="tabular-nums text-xs">
-                  {formatMoneyPhp(Number(item.row.usedAmount) || 0)} · {String(item.row.recognitionState)} ·{" "}
+                  {formatAdminPhp(Number(item.row.usedAmount) || 0)} · {String(item.row.recognitionState)} ·{" "}
                   {String(item.row.orderStatus || "—")}
                 </p>
                 <p className="text-xs text-sam-muted">{dt(item.at)}</p>
@@ -1242,19 +1238,19 @@ export function AdminGiftProductDetailConsole({
           <div className="grid grid-cols-2 gap-2 text-sm">
             <p>
               {safeT("gift_ops_money_pending", { fallbackKo: "확정 대기 Gross", fallbackEn: "Pending gross" })}:{" "}
-              {formatMoneyPhp(payload.stats.pendingGross)}
+              {formatAdminPhp(payload.stats.pendingGross)}
             </p>
             <p>
               {safeT("gift_ops_money_recognized", { fallbackKo: "확정 Gross", fallbackEn: "Recognized gross" })}:{" "}
-              {formatMoneyPhp(payload.stats.recognizedGross)}
+              {formatAdminPhp(payload.stats.recognizedGross)}
             </p>
             <p>
               {safeT("gift_ops_kpi_recognized_fee", { fallbackKo: "DIBAY 수수료", fallbackEn: "DIBAY fee" })}:{" "}
-              {formatMoneyPhp(payload.stats.platformFee)}
+              {formatAdminPhp(payload.stats.platformFee)}
             </p>
             <p>
               {safeT("gift_ops_detail_recognized_net", { fallbackKo: "Merchant Net", fallbackEn: "Merchant net" })}:{" "}
-              {formatMoneyPhp(payload.stats.merchantNet)}
+              {formatAdminPhp(payload.stats.merchantNet)}
             </p>
           </div>
           {scope === "PLATFORM" && (product.redemption_by_store?.length ?? 0) > 0 ? (
@@ -1265,8 +1261,8 @@ export function AdminGiftProductDetailConsole({
               <ul className="space-y-1 text-sm">
                 {product.redemption_by_store!.map((row) => (
                   <li key={row.store_id} className="tabular-nums rounded-ui-rect border border-sam-border p-2">
-                    {row.store_name || shortId(row.store_id)}: Gross {formatMoneyPhp(row.gross)} · Fee {formatMoneyPhp(row.fee)} · Net{" "}
-                    {formatMoneyPhp(row.net)}
+                    {row.store_name || shortId(row.store_id)}: Gross {formatAdminPhp(row.gross)} · Fee {formatAdminPhp(row.fee)} · Net{" "}
+                    {formatAdminPhp(row.net)}
                   </li>
                 ))}
               </ul>
@@ -1302,9 +1298,9 @@ export function AdminGiftProductDetailConsole({
               </p>
             ) : null}
             <div className="flex gap-2">
-              <button
+              <AdminActionButton
                 type="button"
-                className={`${Sam.btn.secondary} min-h-[48px] flex-1 px-4`}
+                variant="secondary" className="flex-1"
                 disabled={busy}
                 data-admin-gift-product-cancel="1"
                 onClick={cancelEdit}
@@ -1313,17 +1309,16 @@ export function AdminGiftProductDetailConsole({
                   fallbackKo: "취소",
                   fallbackEn: "Cancel",
                 })}
-              </button>
-              <button
+              </AdminActionButton>
+              <AdminActionButton
                 type="button"
-                className={adminGiftPrimaryBtnClass("min-h-[48px] flex-1")}
-                style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                variant="primary" className="flex-1"
                 disabled={busy || !isDirty || uploading}
                 data-admin-gift-product-save="1"
                 onClick={() => void saveEdit()}
               >
                 {safeT("gift_ops_cta_save", { fallbackKo: "저장", fallbackEn: "Save" })}
-              </button>
+              </AdminActionButton>
             </div>
           </div>
         </div>

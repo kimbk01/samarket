@@ -19,6 +19,8 @@ import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labe
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { DeliveryOperationRecoveryAction } from "@/lib/admin/delivery-operation-recovery-actions";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
 
@@ -338,9 +340,9 @@ function AdminDeliveryAutoActionsPageInner() {
             ? {
                 level: "L2",
                 ko,
-                title: ko ? `자동 조치 거절: ${target}` : `Reject auto action: ${target}`,
-                description: ko ? "거절하면 이 조치는 실행되지 않습니다." : "This action will not run.",
-                confirmLabel: ko ? "거절" : "Reject",
+                title: ko ? `자동 조치 반려: ${target}` : `Reject auto action: ${target}`,
+                description: ko ? "반려하면 이 조치는 실행되지 않습니다." : "This action will not run.",
+                confirmLabel: ko ? "반려" : "Reject",
               }
             : {
                 level: "L1",
@@ -385,7 +387,7 @@ function AdminDeliveryAutoActionsPageInner() {
               : "Approved."
             : path === "reject"
               ? ko
-                ? "거절했습니다."
+                ? "반려했습니다."
                 : "Rejected."
               : ko
                 ? "재실행을 요청했습니다."
@@ -592,24 +594,20 @@ function AdminDeliveryAutoActionsPageInner() {
                   ? "전체 중지됨"
                   : "All stopped"}
           </strong>
-          <button
-            type="button"
-            className={`sam-btn sam-btn--sm ${killOn ? "sam-btn--outline" : "sam-btn--primary"}`}
+          <AdminActionButton
+            variant={killOn ? "danger" : "primary"}
+            size="sm"
             disabled={!settingsLoaded || killBusy}
             onClick={() => void toggleKill(!killOn)}
           >
-            {killBusy
-              ? ko
-                ? "저장 중…"
-                : "Saving…"
-              : killOn
+            {killOn
                 ? ko
                   ? "자동 조치 전체 중지"
                   : "Stop all auto actions"
                 : ko
                   ? "자동 조치 다시 허용"
                   : "Allow auto actions"}
-          </button>
+          </AdminActionButton>
         </div>
         <span className="text-sam-muted sam-text-xxs" data-auto-actions-authority="delivery_auto_actions_runtime_settings">
           {t("admin_r4d_auto_authority_note")}
@@ -634,51 +632,51 @@ function AdminDeliveryAutoActionsPageInner() {
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
           {AUTO_BULK_ACTIONS.map((b) => (
-            <button
+            <AdminActionButton
               key={b.action}
               type="button"
-              className="sam-btn sam-btn--outline sam-btn--sm"
+              variant="secondary" size="sm"
               disabled={bulkBusy || busyId !== null}
               onClick={() => void runBulk(b.action, t(b.labelKey))}
             >
               {t(b.labelKey)}
-            </button>
+            </AdminActionButton>
           ))}
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
         {STATUS_FILTERS.map((f) => (
-          <button
+          <AdminChipButton
             key={f}
             type="button"
-            className={`sam-btn sam-btn--sm ${filterStatus === f ? "sam-btn--primary" : "sam-btn--outline"}`}
+            selected={filterStatus === f}
             onClick={() => setFilterStatus(f)}
           >
             {filterStatusLabel(f)}
-          </button>
+          </AdminChipButton>
         ))}
-        <button
+        <AdminChipButton
           type="button"
-          className={`sam-btn sam-btn--sm ${dangerousOnly ? "sam-btn--primary" : "sam-btn--outline"}`}
+          selected={dangerousOnly}
           onClick={() => setDangerousOnly((v) => !v)}
         >
           {t("admin_del_alert_filter_dangerous_only")}
-        </button>
-        <button
+        </AdminChipButton>
+        <AdminChipButton
           type="button"
-          className={`sam-btn sam-btn--sm ${retryOnly ? "sam-btn--primary" : "sam-btn--outline"}`}
+          selected={retryOnly}
           onClick={() => setRetryOnly((v) => !v)}
         >
           {t("admin_del_alert_filter_retry_only")}
-        </button>
-        <button
+        </AdminChipButton>
+        <AdminChipButton
           type="button"
-          className={`sam-btn sam-btn--sm ${todayOnly ? "sam-btn--primary" : "sam-btn--outline"}`}
+          selected={todayOnly}
           onClick={() => setTodayOnly((v) => !v)}
         >
           {t("admin_del_alert_filter_today_utc")}
-        </button>
+        </AdminChipButton>
         <select
           className="sam-input h-8 min-w-[160px] sam-text-xxs"
           value={ruleId}
@@ -691,9 +689,9 @@ function AdminDeliveryAutoActionsPageInner() {
             </option>
           ))}
         </select>
-        <button type="button" className="sam-btn sam-btn--outline sam-btn--sm" onClick={() => loadData()} disabled={loading}>
+        <AdminActionButton type="button" variant="secondary" size="sm" onClick={() => loadData()} disabled={loading}>
           {t("admin_del_common_refresh")}
-        </button>
+        </AdminActionButton>
       </div>
 
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -718,17 +716,17 @@ function AdminDeliveryAutoActionsPageInner() {
                 <td className="py-2 px-2 whitespace-nowrap tabular-nums">
                   {a.executed_at ? formatAdminManilaDateTime(a.executed_at) : dash}
                   {a.stale_pending ? (
-                    <div className="text-[10px] text-sam-warning">{t("admin_del_alert_stale_pending_badge")}</div>
+                    <div className="text-[12px] text-sam-warning">{t("admin_del_alert_stale_pending_badge")}</div>
                   ) : null}
                   {a.dangerous_action ? (
-                    <div className="text-[10px] text-sam-muted">{t("admin_del_alert_dangerous_badge")}</div>
+                    <div className="text-[12px] text-sam-muted">{t("admin_del_alert_dangerous_badge")}</div>
                   ) : null}
                 </td>
                 <td className="py-2 px-2 text-sam-fg">
                   <div className="font-medium">{a.rule_name || "—"}</div>
                   {a.rule_key ? <AdminTechDetails ko={ko}>{a.rule_key}</AdminTechDetails> : null}
                 </td>
-                <td className="py-2 px-2 text-[11px] text-sam-fg">
+                <td className="py-2 px-2 text-[12px] text-sam-fg">
                   {AUTO_ACTION_TYPE_KEYS[a.action_type] ? t(AUTO_ACTION_TYPE_KEYS[a.action_type]) : dash}
                 </td>
                 <td className="py-2 px-2">{adminStatusLabel("auto_action", a.action_status, ko).label}</td>
@@ -751,40 +749,40 @@ function AdminDeliveryAutoActionsPageInner() {
                   {a.action_status === "pending_approval" ? (
                     <div className="flex flex-col gap-1">
                       <input
-                        className="sam-input h-7 text-[11px]"
+                        className="sam-input h-7 text-[12px]"
                         placeholder={t("admin_del_alert_ph_memo")}
                         value={memo[a.id] ?? ""}
                         disabled={busyId === a.id}
                         onChange={(e) => setMemo((m) => ({ ...m, [a.id]: e.target.value }))}
                       />
                       <div className="flex gap-1">
-                        <button
+                        <AdminActionButton
                           type="button"
-                          className="sam-btn sam-btn--primary sam-btn--sm px-2 py-1 text-[11px]"
+                          variant="primary" size="sm"
                           disabled={busyId !== null}
                           onClick={() => void postAction(a, "approve")}
                         >
                           {t("admin_del_alert_btn_approve")}
-                        </button>
-                        <button
+                        </AdminActionButton>
+                        <AdminActionButton
                           type="button"
-                          className="sam-btn sam-btn--outline sam-btn--sm px-2 py-1 text-[11px]"
+                          variant="secondary" size="sm"
                           disabled={busyId !== null}
                           onClick={() => void postAction(a, "reject")}
                         >
                           {t("admin_del_alert_btn_reject")}
-                        </button>
+                        </AdminActionButton>
                       </div>
                     </div>
                   ) : a.action_status === "failed" ? (
-                    <button
+                    <AdminActionButton
                       type="button"
-                      className="sam-btn sam-btn--outline sam-btn--sm px-2 py-1 text-[11px]"
+                      variant="secondary" size="sm"
                       disabled={busyId !== null || (a.retry_count ?? 0) >= (a.max_retries ?? 3)}
                       onClick={() => void postAction(a, "retry")}
                     >
                       {ko ? "자동 조치 재실행" : "Re-run auto action"}
-                    </button>
+                    </AdminActionButton>
                   ) : (
                     <span className="text-sam-muted">{dash}</span>
                   )}
@@ -804,7 +802,7 @@ function AdminDeliveryAutoActionsPageInner() {
 
       <details className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sam-text-xxs text-sam-muted">
         <summary className="cursor-pointer text-sam-fg">{t("admin_del_alert_metadata_summary")}</summary>
-        <ul className="mt-2 space-y-2 font-mono text-[10px]">
+        <ul className="mt-2 space-y-2 font-mono text-[12px]">
           {actions.slice(0, 5).map((a) => (
             <li key={`meta-${a.id}`} className="break-all">
               <span className="text-sam-fg">{a.id}</span> {JSON.stringify(a.metadata ?? {})}

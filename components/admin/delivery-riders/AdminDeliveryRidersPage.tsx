@@ -16,6 +16,8 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
 
@@ -331,11 +333,11 @@ export function AdminDeliveryRidersPage() {
           {ko ? "주의 표시 라이더" : "Flagged riders"} <strong className="text-sam-fg">{riderCounts.flagged}</strong>
         </span>
         {generatedAt ? (
-          <span className="font-mono text-[10px]">{t("admin_del_generated_at", { at: fmtTs(generatedAt) })}</span>
+          <span className="font-mono text-[12px]">{t("admin_del_generated_at", { at: fmtTs(generatedAt) })}</span>
         ) : null}
-        <button type="button" className="sam-btn sam-btn--outline sam-btn--sm" disabled={loading} onClick={() => load()}>
+        <AdminActionButton type="button" variant="secondary" size="sm" disabled={loading} onClick={() => load()}>
           {t("admin_del_common_refresh")}
-        </button>
+        </AdminActionButton>
       </div>
 
       <label className="inline-flex cursor-pointer items-center gap-2 sam-text-xxs text-sam-muted">
@@ -349,20 +351,20 @@ export function AdminDeliveryRidersPage() {
       {loadErr ? <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={() => load()} /> : null}
 
       <div className="flex flex-wrap gap-2">
-        <button
+        <AdminChipButton
           type="button"
-          className={`sam-btn sam-btn--sm ${tab === "riders" ? "sam-btn--primary" : "sam-btn--outline"}`}
+          selected={tab === "riders"}
           onClick={() => setTab("riders")}
         >
           {t("admin_del_tab_riders", { count: riders.length })}
-        </button>
-        <button
+        </AdminChipButton>
+        <AdminChipButton
           type="button"
-          className={`sam-btn sam-btn--sm ${tab === "queue" ? "sam-btn--primary" : "sam-btn--outline"}`}
+          selected={tab === "queue"}
           onClick={() => setTab("queue")}
         >
           {t("admin_del_tab_unassigned", { count: unassigned.length })}
-        </button>
+        </AdminChipButton>
       </div>
 
       {tab === "riders" ? (
@@ -386,12 +388,12 @@ export function AdminDeliveryRidersPage() {
                   </td>
                   <td className="py-2 px-2">
                     <div>{r.is_online ? t("admin_del_online") : t("admin_del_offline")}</div>
-                    <div className="text-[10px] text-sam-muted">
+                    <div className="text-[12px] text-sam-muted">
                       {t("admin_del_admin_status_prefix", {
                         status: r.admin_status ? adminStatusLabel("rider_admin", r.admin_status, ko).label : dash,
                       })}
                     </div>
-                    {r.suspended_at ? <div className="text-[10px] text-sam-warning">{t("admin_del_suspended")}</div> : null}
+                    {r.suspended_at ? <div className="text-[12px] text-sam-warning">{t("admin_del_suspended")}</div> : null}
                   </td>
                   <td className="py-2 px-2 tabular-nums">{num(r.in_progress_count)}</td>
                   <td className="py-2 px-2 tabular-nums">{num(r.completed_today)}</td>
@@ -400,7 +402,7 @@ export function AdminDeliveryRidersPage() {
                   </td>
                   <td className="py-2 px-2 tabular-nums">{num(r.failed_delivery_rows)}</td>
                   <td className="py-2 px-2 tabular-nums">{num(r.long_delivery_count)}</td>
-                  <td className="py-2 px-2 text-[10px] text-sam-muted">
+                  <td className="py-2 px-2 text-[12px] text-sam-muted">
                     <div>{fmtTs(r.last_active_at ?? null)}</div>
                     {r.current_lat != null && r.current_lng != null ? (
                       <div className="font-mono">
@@ -412,10 +414,10 @@ export function AdminDeliveryRidersPage() {
                   </td>
                   <td className="py-2 px-2">
                     <div className="flex flex-col gap-1">
-                      <button
+                      <AdminActionButton
                         type="button"
                         disabled={busyRider === r.id}
-                        className="sam-btn sam-btn--outline sam-btn--sm px-2 py-0.5 text-[11px]"
+                        variant="secondary" size="sm"
                         onClick={async () => {
                           if (busyRider) return;
                           const c = await confirmAdminAction({
@@ -436,11 +438,11 @@ export function AdminDeliveryRidersPage() {
                         }}
                       >
                         {r.is_online ? t("admin_del_btn_go_offline") : t("admin_del_btn_go_online")}
-                      </button>
-                      <button
+                      </AdminActionButton>
+                      <AdminActionButton
                         type="button"
                         disabled={busyRider === r.id}
-                        className="sam-btn sam-btn--outline sam-btn--sm px-2 py-0.5 text-[11px]"
+                        variant="secondary" size="sm"
                         onClick={async () => {
                           if (busyRider) return;
                           const c = await confirmAdminAction({
@@ -469,20 +471,20 @@ export function AdminDeliveryRidersPage() {
                         }}
                       >
                         {r.suspended_at ? t("admin_del_btn_resume") : t("admin_del_btn_suspend")}
-                      </button>
+                      </AdminActionButton>
                     </div>
                     <details className="mt-1">
-                      <summary className="cursor-pointer text-[10px] text-signature">{t("admin_del_memo_summary")}</summary>
+                      <summary className="cursor-pointer text-[12px] text-signature">{t("admin_del_memo_summary")}</summary>
                       {/* 명시적 저장 — 입력 이탈 시 자동 저장하지 않는다 */}
                       <textarea
-                        className="sam-input mt-1 h-16 w-full text-[11px]"
+                        className="sam-input mt-1 h-16 w-full text-[12px]"
                         value={memoDraft[r.id] ?? r.admin_note ?? ""}
                         disabled={busyRider === r.id}
                         onChange={(e) => setMemoDraft((m) => ({ ...m, [r.id]: e.target.value }))}
                       />
-                      <button
+                      <AdminActionButton
                         type="button"
-                        className="sam-btn sam-btn--outline sam-btn--sm mt-1 px-2 py-0.5 text-[11px]"
+                        variant="secondary" size="sm" className="mt-1"
                         disabled={
                           busyRider === r.id ||
                           memoDraft[r.id] === undefined ||
@@ -498,14 +500,14 @@ export function AdminDeliveryRidersPage() {
                         }}
                       >
                         {t("admin_r4d_rider_memo_save")}
-                      </button>
+                      </AdminActionButton>
                     </details>
-                    <div className="mt-1 space-y-0.5 text-[10px]">
+                    <div className="mt-1 space-y-0.5 text-[12px]">
                       {(r.active_orders ?? []).slice(0, 4).map((o) => (
                         <div key={o.order_id}>
-                          <button type="button" className="text-signature underline" onClick={() => openDetail(o.order_id)}>
+                          <AdminActionButton variant="ghost" size="sm" className="!px-0" onClick={() => openDetail(o.order_id)}>
                             {o.order_no || (ko ? "주문" : "Order")} · {deliveryStatusText(o.delivery_status)}
-                          </button>
+                          </AdminActionButton>
                         </div>
                       ))}
                     </div>
@@ -538,16 +540,16 @@ export function AdminDeliveryRidersPage() {
               {unassigned.map((u) => (
                 <tr key={u.order_id} className="border-b border-sam-border/60 align-top">
                   <td className="py-2 px-2">
-                    <button type="button" className="font-medium text-signature underline" onClick={() => openDetail(u.order_id)}>
+                    <AdminActionButton variant="ghost" size="sm" className="!px-0" onClick={() => openDetail(u.order_id)}>
                       {u.order_no || (ko ? "주문 보기" : "View order")}
-                    </button>
+                    </AdminActionButton>
                   </td>
                   <td className="py-2 px-2">{u.order_status ? adminStatusLabel("store_order", u.order_status, ko).label : dash}</td>
                   <td className="py-2 px-2">{deliveryStatusText(u.delivery_status)}</td>
                   <td className="py-2 px-2 font-mono tabular-nums">{fmtTs(u.updated_at)}</td>
                   <td className="py-2 px-2">
                     <select
-                      className="sam-input h-8 min-w-[140px] text-[11px]"
+                      className="sam-input h-8 min-w-[140px] text-[12px]"
                       value={assignMap[u.order_id] ?? ""}
                       onChange={(e) => setAssignMap((m) => ({ ...m, [u.order_id]: e.target.value }))}
                     >
@@ -558,10 +560,10 @@ export function AdminDeliveryRidersPage() {
                         </option>
                       ))}
                     </select>
-                    <button
+                    <AdminActionButton
                       type="button"
                       disabled={busyOrder === u.order_id || !(assignMap[u.order_id] ?? "").trim()}
-                      className="sam-btn sam-btn--primary sam-btn--sm ml-1 mt-1 text-[11px]"
+                      variant="primary" size="sm" className="ml-1 mt-1"
                       onClick={async () => {
                         if (busyOrder) return;
                         const c = await confirmAdminAction({
@@ -580,7 +582,7 @@ export function AdminDeliveryRidersPage() {
                       }}
                     >
                       {t("admin_del_btn_assign")}
-                    </button>
+                    </AdminActionButton>
                   </td>
                 </tr>
               ))}
@@ -653,7 +655,7 @@ export function AdminDeliveryRidersPage() {
                 </div>
                 <div>
                   <dt className="text-sam-muted">{t("admin_del_pod_location")}</dt>
-                  <dd className="mt-1 font-mono text-[10px]">
+                  <dd className="mt-1 font-mono text-[12px]">
                     {detail.delivered_proof_lat != null && detail.delivered_proof_lng != null
                       ? `${detail.delivered_proof_lat}, ${detail.delivered_proof_lng}`
                       : dash}
@@ -664,7 +666,7 @@ export function AdminDeliveryRidersPage() {
                     <dt className="text-sam-muted">{t("admin_del_pod_photo")}</dt>
                     <dd className="mt-2 space-y-1">
                       {detail.delivered_proof_admin_view_legacy_public ? (
-                        <span className="inline-block rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-900 sam-text-xxs">
+                        <span className="inline-block rounded px-1.5 py-0.5 bg-sam-warning/15 text-sam-warning sam-text-xxs">
                           {t("admin_del_legacy_public_url")}
                         </span>
                       ) : (
@@ -703,7 +705,7 @@ export function AdminDeliveryRidersPage() {
                 </div>
                 <div>
                   <dt className="text-sam-muted">{t("admin_del_failure_proof_location")}</dt>
-                  <dd className="mt-1 font-mono text-[10px]">
+                  <dd className="mt-1 font-mono text-[12px]">
                     {detail.failure_report_lat != null && detail.failure_report_lng != null
                       ? `${detail.failure_report_lat}, ${detail.failure_report_lng}`
                       : dash}
@@ -714,7 +716,7 @@ export function AdminDeliveryRidersPage() {
                     <dt className="text-sam-muted">{t("admin_del_failure_proof_photo")}</dt>
                     <dd className="mt-2 space-y-1">
                       {detail.failure_proof_admin_view_legacy_public ? (
-                        <span className="inline-block rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-900 sam-text-xxs">
+                        <span className="inline-block rounded px-1.5 py-0.5 bg-sam-warning/15 text-sam-warning sam-text-xxs">
                           {t("admin_del_legacy_public_url")}
                         </span>
                       ) : (
@@ -764,7 +766,7 @@ export function AdminDeliveryRidersPage() {
 
             <div className="mt-4 flex flex-wrap gap-2 border-t border-[color:var(--overlay-border)] pt-3">
               <select
-                className="sam-input h-8 flex-1 min-w-[160px] text-[11px]"
+                className="sam-input h-8 flex-1 min-w-[160px] text-[12px]"
                 value={reassignPick}
                 disabled={!detail?.rider_id}
                 onChange={(e) => setReassignPick(e.target.value)}
@@ -776,9 +778,9 @@ export function AdminDeliveryRidersPage() {
                   </option>
                 ))}
               </select>
-              <button
+              <AdminActionButton
                 type="button"
-                className="sam-btn sam-btn--outline sam-btn--sm text-[11px]"
+                variant="secondary" size="sm"
                 disabled={!detailOrderId || busyOrder === detailOrderId || !reassignPick.trim()}
                 onClick={async () => {
                   if (busyOrder) return;
@@ -806,10 +808,10 @@ export function AdminDeliveryRidersPage() {
                 }}
               >
                 {t("admin_del_btn_reassign")}
-              </button>
-              <button
+              </AdminActionButton>
+              <AdminActionButton
                 type="button"
-                className="sam-btn sam-btn--outline sam-btn--sm text-[11px]"
+                variant="secondary" size="sm"
                 disabled={!detailOrderId || busyOrder === detailOrderId}
                 onClick={async () => {
                   if (busyOrder) return;
@@ -826,10 +828,10 @@ export function AdminDeliveryRidersPage() {
                 }}
               >
                 {t("admin_del_btn_release_rider")}
-              </button>
-              <button
+              </AdminActionButton>
+              <AdminActionButton
                 type="button"
-                className="sam-btn sam-btn--outline sam-btn--sm text-[11px]"
+                variant="secondary" size="sm"
                 disabled={!detailOrderId || busyOrder === detailOrderId}
                 onClick={async () => {
                   if (busyOrder) return;
@@ -852,18 +854,18 @@ export function AdminDeliveryRidersPage() {
                 }}
               >
                 {t("admin_del_btn_mark_failed")}
-              </button>
-              <button
+              </AdminActionButton>
+              <AdminActionButton
                 type="button"
-                className="sam-btn sam-btn--outline sam-btn--sm text-[11px]"
+                variant="secondary" size="sm"
                 disabled={!detailOrderId || busyOrder === detailOrderId}
                 onClick={() => void markAttention(detailOrderId)}
               >
                 {t("admin_del_btn_mark_attention")}
-              </button>
+              </AdminActionButton>
               <Link
                 href={`/admin/stores/orders/${encodeURIComponent(detailOrderId)}`}
-                className="sam-btn sam-btn--outline sam-btn--sm text-[11px]"
+                className="sam-btn sam-btn--outline sam-btn--sm text-[12px]"
               >
                 {ko ? "주문 상세" : "Order detail"}
               </Link>

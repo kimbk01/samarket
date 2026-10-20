@@ -12,7 +12,8 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { COMMISSION_PRESS, ROW_ACTION_BTN } from "@/components/stores/commission/StoreCommissionLedgerParts";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminStoreOrderInterventionPanel } from "@/components/admin/delivery-orders/AdminStoreOrderInterventionPanel";
 import { AdminStoreOrderHistoryPanel } from "@/components/admin/delivery-orders/AdminStoreOrderHistoryPanel";
 import { AdminOrderAuditTable } from "@/components/admin/store-orders/AdminOrderAuditTable";
@@ -82,18 +83,18 @@ function Section({
   const t = SECTION_TITLE[id];
   return (
     <section className="border-b border-sam-border-soft last:border-b-0" data-order-section={id}>
-      <button
-        type="button"
+      <AdminActionButton
+        variant="quiet"
         onClick={onToggle}
         aria-expanded={open}
-        className={`flex w-full items-center justify-between gap-2 px-4 py-3 text-left ${COMMISSION_PRESS} hover:bg-sam-surface-muted`}
+        className="!h-auto w-full !justify-between !whitespace-normal !rounded-none px-4 py-3 text-left hover:bg-sam-surface-muted hover:no-underline"
       >
         <span className="sam-text-body font-semibold text-sam-fg">
           <span className="mr-1.5 text-sam-meta">{t.letter}</span>
           {ko ? t.ko : t.en}
         </span>
         <span className="sam-text-xxs text-sam-muted">{open ? (ko ? "접기" : "Hide") : ko ? "펼치기" : "Show"}</span>
-      </button>
+      </AdminActionButton>
       {open ? <div className="px-4 pb-4">{children}</div> : null}
     </section>
   );
@@ -235,9 +236,9 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
           {text}
         </p>
         {error !== "forbidden" && error !== "order_not_found" ? (
-          <button type="button" className={ROW_ACTION_BTN} onClick={() => void load()}>
-            {ko ? "다시 시도" : "Retry"}
-          </button>
+          <AdminActionButton variant="secondary" size="sm" onClick={() => void load()}>
+            {adminCta("refresh", ko)}
+          </AdminActionButton>
         ) : null}
       </div>
     );
@@ -297,13 +298,9 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
       <div className="space-y-2 border-b border-sam-border px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-base font-semibold text-sam-fg">{o.orderNo}</span>
-          <button
-            type="button"
-            className="sam-text-xxs text-sam-muted underline"
-            onClick={() => void navigator.clipboard?.writeText(o.orderNo)}
-          >
+          <AdminActionButton variant="quiet" size="sm" onClick={() => void navigator.clipboard?.writeText(o.orderNo)}>
             {ko ? "복사" : "Copy"}
-          </button>
+          </AdminActionButton>
           <span className="sam-text-helper text-sam-muted">{formatManilaDateTime(o.createdAt)}</span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -327,9 +324,9 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
           {related
             .filter((r) => r.show)
             .map((r) => (
-              <Link key={r.href} href={r.href} className={ROW_ACTION_BTN}>
+              <AdminActionLink key={r.href} href={r.href} variant="secondary" size="sm">
                 {r.label}
-              </Link>
+              </AdminActionLink>
             ))}
         </div>
         {error ? (
@@ -685,34 +682,29 @@ function AdminOrderMetaControls({
     await patch({ dispute_status: urgent ? "urgent" : "" }, ko ? "긴급 표시를 변경했습니다." : "Urgent updated.");
   };
 
-  const BTN = `inline-flex min-h-9 items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50 ${COMMISSION_PRESS}`;
   return (
     <div className="space-y-2" data-admin-order-meta="1">
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={BTN} disabled={busy} onClick={() => void toggleLock()}>
+        <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void toggleLock()}>
           {o.adminLocked ? (ko ? "잠금 해제" : "Unlock") : ko ? "주문 잠금" : "Lock order"}
-        </button>
-        <button
-          type="button"
-          className={BTN}
+        </AdminActionButton>
+        <AdminActionButton variant="secondary" size="sm"
           disabled={busy}
           onClick={() => void toggleFlag()}
         >
           {o.adminFlagged ? (ko ? "확인 필요 해제" : "Clear review mark") : ko ? "확인 필요 표시" : "Mark for review"}
-        </button>
+        </AdminActionButton>
         {o.needsAdminAttention ? (
-          <button type="button" className={BTN} disabled={busy} onClick={() => void clearAttention()}>
+          <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void clearAttention()}>
             {ko ? "운영 예외 해제" : "Resolve exception"}
-          </button>
+          </AdminActionButton>
         ) : null}
-        <button
-          type="button"
-          className={BTN}
+        <AdminActionButton variant="secondary" size="sm"
           disabled={busy}
           onClick={() => void toggleUrgent()}
         >
           {o.disputeStatus === "urgent" ? (ko ? "긴급 해제" : "Clear urgent") : ko ? "긴급 표시" : "Mark urgent"}
-        </button>
+        </AdminActionButton>
       </div>
       <label className="block">
         <span className="sam-text-xxs text-sam-muted">{ko ? "운영 메모 (관리자만 봅니다)" : "Ops note (admins only)"}</span>
@@ -724,14 +716,12 @@ function AdminOrderMetaControls({
           className="mt-1 w-full rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper text-sam-fg"
         />
       </label>
-      <button
-        type="button"
-        className={BTN}
+      <AdminActionButton variant="secondary" size="sm"
         disabled={busy || note === (o.adminNote ?? "")}
         onClick={() => void patch({ admin_note: note }, ko ? "메모를 저장했습니다." : "Note saved.")}
       >
         {ko ? "메모 저장" : "Save note"}
-      </button>
+      </AdminActionButton>
       {notice ? (
         <p
           role={notice.tone === "error" ? "alert" : "status"}

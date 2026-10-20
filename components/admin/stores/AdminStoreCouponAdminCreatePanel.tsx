@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -25,9 +26,6 @@ function fromLocalInput(value: string): string {
 
 const FIELD =
   "flex min-w-0 flex-col gap-1";
-const CTA =
-  "min-h-[44px] w-full rounded-ui-rect bg-signature px-4 text-sm font-medium text-white disabled:opacity-50 sm:w-auto";
-
 export function AdminStoreCouponAdminCreatePanel({
   stores,
   onCreated,
@@ -259,15 +257,9 @@ export function AdminStoreCouponAdminCreatePanel({
           </div>
         </div>
         <div className="flex min-h-[44px] items-center">
-          <button
-            type="button"
-            className={CTA}
-            disabled={busy || !storeId}
-            data-admin-coupon-create-submit="1"
-            onClick={() => void publish()}
-          >
+          <AdminActionButton variant="primary" disabled={busy || !storeId} data-admin-coupon-create-submit="1" onClick={() => void publish()}>
             {t("store_coupon_admin_create_submit")}
-          </button>
+          </AdminActionButton>
         </div>
       </div>
     </AdminCard>

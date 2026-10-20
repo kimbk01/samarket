@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -182,7 +183,7 @@ export function AdminStoreReviewsPage() {
                 {" · "}
                 {ko ? "작성자" : "Buyer"}: {r.buyer_label || (ko ? "이름 확인 불가" : "Name unavailable")}
               </p>
-              <p className="mt-2 text-amber-800">{"★".repeat(r.rating)}</p>
+              <p className="mt-2 text-sam-warning">{"★".repeat(r.rating)}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
               {r.owner_reply_content?.trim() ? (
                 <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
@@ -203,23 +204,13 @@ export function AdminStoreReviewsPage() {
               )}
               <div className="mt-3 flex gap-2">
                 {r.status === "visible" ? (
-                  <button
-                    type="button"
-                    disabled={busyId !== null}
-                    onClick={() => void setStatus(r.id, "hidden")}
-                    className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs"
-                  >
+                  <AdminActionButton variant="secondary" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "hidden")}>
                     {ko ? "숨김" : "Hide"}
-                  </button>
+                  </AdminActionButton>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={busyId !== null}
-                    onClick={() => void setStatus(r.id, "visible")}
-                    className="rounded-ui-rect bg-signature px-3 py-1.5 text-xs text-white"
-                  >
+                  <AdminActionButton variant="primary" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "visible")}>
                     {ko ? "복구" : "Restore"}
-                  </button>
+                  </AdminActionButton>
                 )}
               </div>
               <AdminTechDetails ko={ko}>

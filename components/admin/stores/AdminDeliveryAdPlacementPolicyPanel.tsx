@@ -118,7 +118,7 @@ export function AdminDeliveryAdHomePolicyPanel({
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
       <p className="text-[13px] font-bold text-sam-fg">{t("admin_delivery_ads_home_policy_title")}</p>
-      <p className="mt-1 text-[11px] text-sam-muted">{t("admin_delivery_ads_browse_policy_authority")}</p>
+      <p className="mt-1 text-[12px] text-sam-muted">{t("admin_delivery_ads_browse_policy_authority")}</p>
       {summary ? (
         <dl className="mt-3 grid gap-2 text-[13px] sm:grid-cols-3">
           <div>
@@ -177,7 +177,7 @@ export function AdminDeliveryAdHomePolicyPanel({
             fallbackEn: "Before-rest banner (HOME composition)",
           })}
         </p>
-        <p className="mt-1 text-[11px] text-sam-muted">
+        <p className="mt-1 text-[12px] text-sam-muted">
           {safeT("admin_delivery_ads_home_banner_slot_hint", {
             fallbackKo:
               "네이티브 매장 홍보(rest_stores 삽입)와 별개입니다. HOME 구성이 물리 지면을 소유합니다.",
@@ -211,7 +211,7 @@ export function AdminDeliveryAdHomePolicyPanel({
       <Link href={hubHref} className="mt-3 inline-block text-[13px] font-semibold text-signature underline">
         {t("admin_delivery_ads_open_campaigns")}
       </Link>
-      <p className="mt-2 text-[11px] text-sam-muted">
+      <p className="mt-2 text-[12px] text-sam-muted">
         {safeT("admin_delivery_ads_home_policy_switch_hint", {
           fallbackKo:
             "HOME 네이티브 매장 홍보 ON/OFF는 매장 홈 선반(rest_stores)의 광고 연동 또는 composition homePaidAdInsertion으로 제어합니다. 코드 기본값은 OFF입니다.",
@@ -304,7 +304,7 @@ export function AdminDeliveryAdBrowsePolicyPanel({
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
       <p className="text-[13px] font-bold text-sam-fg">{t("admin_delivery_ads_browse_policy_title")}</p>
-      <p className="mt-1 text-[11px] text-sam-muted">{t("admin_delivery_ads_browse_policy_authority")}</p>
+      <p className="mt-1 text-[12px] text-sam-muted">{t("admin_delivery_ads_browse_policy_authority")}</p>
       <dl className="mt-3 grid gap-2 text-[13px] sm:grid-cols-3">
         <div>
           <dt className="text-sam-muted">{t("admin_delivery_ads_browse_policy_enabled")}</dt>

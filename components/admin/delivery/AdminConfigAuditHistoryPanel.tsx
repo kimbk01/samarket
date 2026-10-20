@@ -18,12 +18,9 @@ import {
   type AdminConfigAuditRow,
   type AdminConfigAuditScope,
 } from "@/lib/admin/audit/admin-config-audit-scopes";
-
-function fmtDateTime(iso: string, ko: boolean): string {
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return "—";
-  return d.toLocaleString(ko ? "ko-KR" : "en-US", { timeZone: "Asia/Manila" });
-}
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function AdminConfigAuditHistoryPanel({
   scope,
@@ -79,14 +76,9 @@ export function AdminConfigAuditHistoryPanel({
           <h2 className="text-sm font-semibold text-sam-fg">{t("admin_r4c_history_title")}</h2>
           <p className="mt-0.5 sam-text-xxs text-sam-muted">{t("admin_r4c_history_desc")}</p>
         </div>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => void load()}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1 text-[12px] disabled:opacity-40"
-        >
-          {t("admin_r4c_history_reload")}
-        </button>
+        <AdminActionButton variant="secondary" size="sm" disabled={loading} onClick={() => void load()}>
+          {adminCta("refresh", ko)}
+        </AdminActionButton>
       </div>
       {loading && !rows ? (
         <AdminLoadingState ko={ko} />
@@ -100,7 +92,7 @@ export function AdminConfigAuditHistoryPanel({
             <li key={row.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 text-sm">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="font-medium text-sam-fg">{t(adminConfigAuditActionKey(row.action))}</p>
-                <p className="sam-text-xxs tabular-nums text-sam-muted">{fmtDateTime(row.created_at, ko)}</p>
+                <p className="sam-text-xxs tabular-nums text-sam-muted">{formatAdminManilaDateTime(row.created_at)}</p>
               </div>
               <p className="mt-0.5 sam-text-helper text-sam-muted">
                 {t("admin_r4c_history_actor")}: {row.actor_label ?? t("admin_r4c_history_actor_system")}

@@ -7,6 +7,7 @@
  */
 import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import {
   ADMIN_AUDIT_CATEGORY_LABEL,
   describeStoreOrderAudit,
@@ -76,9 +77,14 @@ export function AdminOrderAuditTable({
                 {onOpenOrder ? (
                   <td className="whitespace-nowrap px-2 py-2">
                     {r.order_id ? (
-                      <button type="button" className="font-mono text-sam-fg underline" onClick={() => onOpenOrder(r.order_id as string)}>
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
+                        className="!px-0 font-mono"
+                        onClick={() => onOpenOrder(r.order_id as string)}
+                      >
                         {r.order_no || (ko ? "주문 보기" : "Open")}
-                      </button>
+                      </AdminActionButton>
                     ) : (
                       <span className="text-sam-muted">—</span>
                     )}

@@ -10,6 +10,8 @@ import { useCallback, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DibayOverlayRoot } from "@/components/ui/dibay-overlay/DibayOverlayRoot";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminOrderDetailView } from "@/components/admin/store-orders/AdminOrderDetailView";
 import {
   parseAdminOrderDetailSection,
@@ -89,14 +91,9 @@ export function AdminOrderDetailModal({
         >
           <div className="flex items-center justify-between border-b border-sam-border px-4 py-2">
             <span className="sam-text-body font-semibold text-sam-fg">{ko ? "주문 상세" : "Order detail"}</span>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-ui-rect text-sam-muted hover:bg-sam-surface-muted"
-              aria-label={ko ? "닫기" : "Close"}
-            >
+            <AdminActionButton variant="quiet" size="sm" onClick={onClose} aria-label={adminCta("close", ko)}>
               ✕
-            </button>
+            </AdminActionButton>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <AdminOrderDetailView key={orderId} orderId={orderId} initialSection={section} onChanged={onChanged} />

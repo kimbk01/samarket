@@ -83,9 +83,9 @@ export function AdminStoreDiscoverySnapshotPanel({
   return (
     <ReviewBlock title={t("admin_store_discovery_panel_review_title")}>
       {loading ? (
-        <p className="px-4 py-2 text-[13px] text-[#6B6B6B]">{t("admin_store_discovery_snapshot_loading")}</p>
+        <p className="px-4 py-2 text-[13px] text-sam-muted">{t("admin_store_discovery_snapshot_loading")}</p>
       ) : err ? (
-        <p className="px-4 py-2 text-[13px] text-[#B71C1C]">{t("admin_store_discovery_snapshot_fail")}</p>
+        <p className="px-4 py-2 text-[13px] text-sam-danger">{t("admin_store_discovery_snapshot_fail")}</p>
       ) : snapshot ? (
         <>
           <ReviewRow label={t("admin_store_discovery_field_store_name")} value={dash(snapshot.store_name)} />

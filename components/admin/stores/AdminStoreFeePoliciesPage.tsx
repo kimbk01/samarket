@@ -1,5 +1,9 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -174,7 +178,7 @@ function fmtRate(pct: number | null | undefined, fixed?: number | null) {
 }
 
 function fmtMoney(n: number) {
-  return `${Math.round(Number(n) || 0).toLocaleString()} PHP`;
+  return formatAdminPhp(Math.round(Number(n) || 0));
 }
 
 function fmtDate(iso: string | null | undefined) {
@@ -726,14 +730,9 @@ export function AdminStoreFeePoliciesPage() {
           <AdminPageHeader titleKey="admin_page_store_fee_policies" />
           <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("admin_stores_fee_desc")}</p>
         </div>
-        <button
-          type="button"
-          disabled={loading || busy}
-          onClick={() => void load()}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-sm disabled:opacity-40"
-        >
-          {t("admin_stores_fee_refresh")}
-        </button>
+        <AdminActionButton variant="secondary" disabled={loading || busy} onClick={() => void load()}>
+          {adminCta("refresh", language !== "en")}
+        </AdminActionButton>
       </div>
 
       <p className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper text-sam-muted">
@@ -744,7 +743,7 @@ export function AdminStoreFeePoliciesPage() {
         <p
           data-admin-state="forbidden-edit"
           role="note"
-          className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+          className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-warning"
         >
           {t("admin_r4c_fee_super_admin_only_notice")}
         </p>
@@ -755,7 +754,7 @@ export function AdminStoreFeePoliciesPage() {
       {error ? (
         <p
           role="alert"
-          className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+          className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-warning"
         >
           {feePolicyErrorMessage(t, error)}
         </p>
@@ -774,11 +773,10 @@ export function AdminStoreFeePoliciesPage() {
                   : t("admin_stores_fee_platform_missing")}
               </p>
             </div>
-            <button
-              type="button"
+            <AdminActionButton
+              variant="primary"
               disabled={busy || !canEdit}
               title={canEdit ? undefined : t("admin_r4c_fee_super_admin_only_notice")}
-              className="rounded bg-sam-ink px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
               onClick={() =>
                 openApply(
                   { kind: "default", policyId: overview.platform_default?.id ?? null },
@@ -792,7 +790,7 @@ export function AdminStoreFeePoliciesPage() {
               }
             >
               {t("admin_stores_fee_platform_edit")}
-            </button>
+            </AdminActionButton>
           </section>
 
           <p className="sam-text-helper text-sam-muted">
@@ -807,22 +805,13 @@ export function AdminStoreFeePoliciesPage() {
           </p>
           <p className="sam-text-xxs text-sam-muted">{t("admin_stores_fee_immediate_apply_note")}</p>
 
-          <div className="flex flex-wrap gap-1 border-b border-sam-border-soft">
-            {tabs.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`px-3 py-2 text-sm ${
-                  tab === item.id
-                    ? "border-b-2 border-sam-ink font-semibold text-sam-fg"
-                    : "text-sam-muted hover:text-sam-fg"
-                }`}
-                onClick={() => setTab(item.id)}
-              >
-                {t(item.label)}
-              </button>
-            ))}
-          </div>
+          <AdminTabs
+            ariaLabel={language !== "en" ? "수수료 적용 구분" : "Fee scope"}
+            syncUrl={false}
+            value={tab}
+            onChange={(id) => setTab(id as TabId)}
+            tabs={tabs.map((item) => ({ id: item.id, label: t(item.label) }))}
+          />
 
           {tab === "industry" ? (
             <IndustryApplyTab
@@ -1189,7 +1178,7 @@ function IndustryApplyTab({
             </div>
             <div>
               <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_current_rate")}</p>
-              <p className="text-lg font-semibold tabular-nums text-sam-fg">{currentRate}</p>
+              <p className="text-[16px] font-semibold tabular-nums text-sam-fg">{currentRate}</p>
             </div>
             <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-xxs text-sam-muted">
               <p>{t("admin_stores_fee_apply_semantics")}</p>
@@ -1208,33 +1197,18 @@ function IndustryApplyTab({
               ) : null}
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                className="rounded bg-sam-ink px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
-                onClick={industryLevel === "category" ? onApplyCategory : onApplyTopic}
-              >
+              <AdminActionButton variant="primary" disabled={busy} onClick={industryLevel === "category" ? onApplyCategory : onApplyTopic}>
                 {t("admin_stores_fee_bulk_apply_open")}
-              </button>
+              </AdminActionButton>
               {industryLevel === "category" && selectedCategory?.policy ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  className="rounded border border-sam-border px-3 py-2 text-sm disabled:opacity-40"
-                  onClick={() => onDeactivate(selectedCategory.policy!.id)}
-                >
+                <AdminActionButton variant="secondary" disabled={busy} onClick={() => onDeactivate(selectedCategory.policy!.id)}>
                   {t("admin_stores_fee_deactivate")}
-                </button>
+                </AdminActionButton>
               ) : null}
               {industryLevel === "topic" && selectedTopic?.policy ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  className="rounded border border-sam-border px-3 py-2 text-sm disabled:opacity-40"
-                  onClick={() => onDeactivate(selectedTopic.policy!.id)}
-                >
+                <AdminActionButton variant="secondary" disabled={busy} onClick={() => onDeactivate(selectedTopic.policy!.id)}>
                   {t("admin_stores_fee_deactivate")}
-                </button>
+                </AdminActionButton>
               ) : null}
             </div>
           </div>
@@ -1302,14 +1276,9 @@ function StoresApplyTab({
           value={storeQuery}
           onChange={(e) => onStoreQuery(e.target.value)}
         />
-        <button
-          type="button"
-          disabled={busy || selectedStoreIds.length === 0}
-          className="rounded bg-sam-ink px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
-          onClick={onApplyBulk}
-        >
+        <AdminActionButton variant="primary" size="sm" disabled={busy || selectedStoreIds.length === 0} onClick={onApplyBulk}>
           {t("admin_stores_fee_bulk_apply", { n: selectedStoreIds.length })}
-        </button>
+        </AdminActionButton>
       </div>
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-[920px] w-full text-left sam-text-body-secondary">
@@ -1351,23 +1320,13 @@ function StoresApplyTab({
                 </td>
                 <td className="px-3 py-2 text-sam-muted">{t(reasonKey(s.effective.scope))}</td>
                 <td className="px-3 py-2">
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className="text-sm underline disabled:opacity-40"
-                    onClick={() => onApplyOne(s)}
-                  >
+                  <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => onApplyOne(s)}>
                     {t("admin_stores_fee_set_rate")}
-                  </button>
+                  </AdminActionButton>
                   {s.has_store_override && s.ladder.store.policy_id ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      className="ml-2 text-sm text-sam-muted underline disabled:opacity-40"
-                      onClick={() => onClearOverride(s.ladder.store.policy_id!)}
-                    >
+                    <AdminActionButton variant="quiet" size="sm" className="ml-2" disabled={busy} onClick={() => onClearOverride(s.ladder.store.policy_id!)}>
                       {t("admin_stores_fee_clear_override")}
-                    </button>
+                    </AdminActionButton>
                   ) : null}
                 </td>
               </tr>
@@ -1459,9 +1418,9 @@ function VerifyTab({
                   </td>
                   <td className="px-3 py-2">
                     {r.matched ? (
-                      <span className="text-emerald-700">{t("admin_stores_fee_verify_match")}</span>
+                      <span className="text-sam-success">{t("admin_stores_fee_verify_match")}</span>
                     ) : (
-                      <span className="text-red-700">{t("admin_stores_fee_verify_mismatch")}</span>
+                      <span className="text-sam-danger">{t("admin_stores_fee_verify_mismatch")}</span>
                     )}
                   </td>
                 </tr>
@@ -1634,8 +1593,8 @@ function ApplyModal({
               </dl>
               <p className="tabular-nums text-sam-muted">
                 {t("admin_stores_fee_rate_formula_preview", {
-                  gross: previewGross.toLocaleString(),
-                  fee: previewAmount != null ? previewAmount.toLocaleString() : "—",
+                  gross: formatAdminNumber(previewGross),
+                  fee: previewAmount != null ? formatAdminNumber(previewAmount) : "—",
                 })}
               </p>
               <p className="sam-text-xxs text-sam-muted">{t("admin_stores_fee_settlement_note")}</p>
@@ -1678,7 +1637,7 @@ function ApplyModal({
                   {t("admin_stores_fee_new_rate")}: <strong>{rateLabel}</strong>
                   <span className="mt-1 block sam-text-xxs text-sam-muted">
                     {t("admin_stores_fee_rate_formula_preview", {
-                      gross: previewGross.toLocaleString(),
+                      gross: formatAdminNumber(previewGross),
                       fee: String(previewAmount ?? "—"),
                     })}
                   </span>
@@ -1738,7 +1697,7 @@ function ApplyModal({
         {errorText ? (
           <p
             role="alert"
-            className="mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+            className="mt-3 rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-warning"
           >
             {errorText}
           </p>

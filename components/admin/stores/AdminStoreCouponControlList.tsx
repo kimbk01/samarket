@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -178,9 +179,8 @@ export function AdminStoreCouponControlList({
                 ];
                 return (
                   <li key={row.id}>
-                    <button
-                      type="button"
-                      className="w-full min-w-0 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left"
+                    <AdminActionButton
+                      variant="secondary" className="!h-auto w-full min-w-0 !flex-col !items-stretch !justify-start !whitespace-normal p-3 text-left font-normal"
                       data-admin-coupon-list-row="1"
                       onClick={() => onOpenDetail(row.id)}
                     >
@@ -205,36 +205,26 @@ export function AdminStoreCouponControlList({
                       <dl className="mt-2 grid min-w-0 grid-cols-2 gap-x-2 gap-y-1" data-admin-coupon-ops-grid="1">
                         {meta.map(([label, value]) => (
                           <div key={label} className="min-w-0">
-                            <dt className="truncate text-[11px] text-sam-muted">{label}</dt>
+                            <dt className="truncate text-[12px] text-sam-muted">{label}</dt>
                             <dd className="truncate text-xs tabular-nums text-sam-fg">{value}</dd>
                           </div>
                         ))}
                       </dl>
-                    </button>
+                    </AdminActionButton>
                   </li>
                 );
               })}
             </ul>
             <div className="flex min-h-[44px] items-center justify-between gap-2">
-              <button
-                type="button"
-                className="min-h-[44px] rounded-ui-rect border border-sam-border px-3 text-sm disabled:opacity-40"
-                disabled={safePage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
+              <AdminActionButton variant="secondary" disabled={safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
                 {t("store_coupon_admin_list_prev")}
-              </button>
+              </AdminActionButton>
               <p className="text-sm text-sam-muted">
                 {t("store_coupon_admin_list_page", { page: String(safePage), pages: String(pages) })}
               </p>
-              <button
-                type="button"
-                className="min-h-[44px] rounded-ui-rect border border-sam-border px-3 text-sm disabled:opacity-40"
-                disabled={safePage >= pages}
-                onClick={() => setPage((p) => p + 1)}
-              >
+              <AdminActionButton variant="secondary" disabled={safePage >= pages} onClick={() => setPage((p) => p + 1)}>
                 {t("store_coupon_admin_list_next")}
-              </button>
+              </AdminActionButton>
             </div>
           </>
         )}

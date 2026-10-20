@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayPrompt } from "@/components/ui/dibay-overlay";
+import { AdminActionButton, AdminActionLink, type AdminActionVariant } from "@/components/admin/ui/AdminActionButton";
 import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction, type AdminConfirmLevel } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import {
@@ -23,11 +23,6 @@ import {
   ReviewAddressValue,
   ReviewBlock,
   ReviewRow,
-  sbBtnDanger,
-  sbBtnDangerSoft,
-  sbBtnPrimary,
-  sbBtnSecondary,
-  sbBtnWarn,
 } from "@/components/admin/stores/admin-store-review-ui";
 import { StoreOpsOnOffSwitch } from "@/components/business/admin/StoreOpsOnOffSwitch";
 import {
@@ -90,14 +85,14 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
   },
   reject_store: {
     level: "L2",
-    ko: "입점 거절",
+    ko: "입점 반려",
     en: "Reject store",
-    titleKo: "입점을 거절할까요?",
+    titleKo: "입점을 반려할까요?",
     titleEn: "Reject this store?",
-    descKo: "거절 사유는 사장님에게 알림으로 전달됩니다.",
+    descKo: "반려 사유는 사장님에게 알림으로 전달됩니다.",
     descEn: "The reason is sent to the owner.",
     destructive: true,
-    successKo: "입점을 거절했습니다. 사장님에게 알림을 보냈습니다.",
+    successKo: "입점을 반려했습니다. 사장님에게 알림을 보냈습니다.",
     successEn: "Store rejected. The owner was notified.",
   },
   request_revision: {
@@ -145,12 +140,12 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
   },
   reject_sales: {
     level: "L2",
-    ko: "판매 거절",
+    ko: "판매 반려",
     en: "Reject sales",
-    titleKo: "판매를 거절할까요?",
+    titleKo: "판매를 반려할까요?",
     titleEn: "Reject sales?",
     destructive: true,
-    successKo: "판매를 거절했습니다.",
+    successKo: "판매를 반려했습니다.",
     successEn: "Sales rejected.",
   },
   suspend_sales: {
@@ -186,12 +181,16 @@ const APPROVAL_BUTTON_ORDER: AdminStoreApprovalAction[] = [
   "resume_store",
 ];
 
-function approvalButtonClass(action: string): string {
-  if (action === "approve_store" || action === "resume_store") return sbBtnPrimary;
-  if (action === "reject_store") return sbBtnDanger;
-  if (action === "suspend_store") return sbBtnDangerSoft;
-  if (action === "request_revision") return sbBtnWarn;
-  return sbBtnSecondary;
+function approvalButtonVariant(action: string): AdminActionVariant {
+  if (action === "approve_store" || action === "resume_store") return "primary";
+  if (action === "reject_store" || action === "suspend_store") return "danger";
+  return "secondary";
+}
+
+function salesButtonVariant(action: string): AdminActionVariant {
+  if (action === "approve_sales") return "primary";
+  if (action === "suspend_sales") return "danger";
+  return "secondary";
 }
 
 /** 판매 상태별 노출 버튼 (서버 전이표 없음 — 의미 없는 버튼만 숨긴다). */
@@ -234,6 +233,9 @@ export function AdminStoreReviewPanel({
   const [adminStoreName, setAdminStoreName] = useState(store?.store_name ?? "");
   const [visibleBusy, setVisibleBusy] = useState(false);
   const [notifyBusy, setNotifyBusy] = useState(false);
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  const [noticeTitle, setNoticeTitle] = useState("");
+  const [noticeBody, setNoticeBody] = useState("");
   const [notifyResult, setNotifyResult] = useState<
     { ok: true; message: string } | { ok: false; code: string } | null
   >(null);
@@ -241,6 +243,9 @@ export function AdminStoreReviewPanel({
   useEffect(() => {
     setAdminStoreName(store?.store_name ?? "");
     setNotifyResult(null);
+    setNoticeOpen(false);
+    setNoticeTitle("");
+    setNoticeBody("");
   }, [store?.id, store?.store_name]);
 
   if (!store) return null;
@@ -270,16 +275,9 @@ export function AdminStoreReviewPanel({
   const busy = Boolean(actionBusy || identityActionBusy || visibleBusy || notifyBusy);
 
   const sendOwnerNotice = async () => {
-    const title =
-      (await dibayPrompt({ title: t("admin_stores_notify_title_prompt"), defaultValue: "" }))?.trim() ||
-      "";
-    if (!title) return;
-    const body =
-      (await dibayPrompt({
-        title: t("admin_stores_notify_body_prompt"),
-        defaultValue: "",
-      }))?.trim() || "";
-    if (!body) return;
+    const title = noticeTitle.trim();
+    const body = noticeBody.trim();
+    if (!title || !body) return;
     setNotifyBusy(true);
     setNotifyResult(null);
     try {
@@ -295,6 +293,9 @@ export function AdminStoreReviewPanel({
         return;
       }
       setNotifyResult({ ok: true, message: t("admin_stores_notify_sent") });
+      setNoticeOpen(false);
+      setNoticeTitle("");
+      setNoticeBody("");
     } catch {
       setNotifyResult({ ok: false, code: "network_error" });
     } finally {
@@ -358,7 +359,7 @@ export function AdminStoreReviewPanel({
             store.is_visible ? t("admin_stores_visible_toggle_aria_off") : t("admin_stores_visible_toggle_aria_on")
           }
         />
-        <span className="text-[13px] text-[#6B6B6B]">
+        <span className="text-[13px] text-sam-muted">
           {store.is_visible ? t("admin_stores_visible_y") : t("admin_stores_visible_n")}
         </span>
       </div>
@@ -381,7 +382,7 @@ export function AdminStoreReviewPanel({
           }
         />
         {resubmitted ? (
-          <p className="py-1 text-[12px] text-[#6B6B6B]" data-admin-store-resubmitted="1">
+          <p className="py-1 text-[12px] text-sam-muted" data-admin-store-resubmitted="1">
             {t("admin_r4a_resubmitted_hint")}
           </p>
         ) : null}
@@ -397,9 +398,9 @@ export function AdminStoreReviewPanel({
         ))}
         {detailHref && (store.approval_status === "approved" || store.approval_status === "suspended") ? (
           <div className="py-2">
-            <Link href={detailHref} className={sbBtnSecondary}>
+            <AdminActionLink href={detailHref} variant="secondary">
               {ko ? "매장 상세" : "Store detail"}
-            </Link>
+            </AdminActionLink>
           </div>
         ) : null}
       </ReviewBlock>
@@ -424,7 +425,7 @@ export function AdminStoreReviewPanel({
               <span>{ko ? "3. 노출 켜기" : "3. Turn visibility on"}</span>
             </li>
           </ol>
-          <p className="pb-2 text-[12px] text-[#6B6B6B]">
+          <p className="pb-2 text-[12px] text-sam-muted">
             {ko
               ? "세 단계가 모두 끝나야 고객 앱에서 매장이 보이고 주문을 받을 수 있습니다."
               : "All three steps are required before customers can see and order from the store."}
@@ -442,12 +443,13 @@ export function AdminStoreReviewPanel({
                   <input
                     value={adminStoreName}
                     onChange={(e) => setAdminStoreName(e.target.value)}
-                    className="min-w-[12rem] flex-1 rounded-sm border border-[#D4C5B9] bg-white px-2.5 py-1.5 text-[#1E3932] outline-none focus:border-[#00704A]"
+                    className="min-w-[12rem] flex-1 rounded-sm border border-sam-border bg-white px-2.5 py-1.5 text-sam-fg outline-none focus:border-sam-primary"
                     placeholder={t("admin_stores_field_store_name_ph")}
                     disabled={busy}
                   />
-                  <button
-                    type="button"
+                  <AdminActionButton
+                    variant="primary"
+                    size="sm"
                     disabled={busy || adminStoreName.trim().length < 2}
                     onClick={async () => {
                       const confirmed = await confirmAdminAction({
@@ -460,10 +462,9 @@ export function AdminStoreReviewPanel({
                       if (!confirmed.ok) return;
                       await onRunAction("set_store_name", { store_name: adminStoreName.trim() });
                     }}
-                    className={sbBtnPrimary}
                   >
                     {t("admin_stores_save_store_name")}
-                  </button>
+                  </AdminActionButton>
                 </div>
               }
             />
@@ -471,8 +472,10 @@ export function AdminStoreReviewPanel({
               <ReviewRow
                 label={ko ? "사장님 매장명 수정" : "Owner name edit"}
                 value={
-                  <button
-                    type="button"
+                  <AdminActionButton
+                    variant="secondary"
+                    size="sm"
+                    aria-pressed={Boolean(store.owner_can_edit_store_identity)}
                     disabled={identityActionBusy}
                     onClick={async () => {
                       const next = !store.owner_can_edit_store_identity;
@@ -491,11 +494,7 @@ export function AdminStoreReviewPanel({
                       if (!confirmed.ok) return;
                       onSetOwnerIdentityEditable(next);
                     }}
-                    className={`rounded-sm border px-2.5 py-0.5 text-[13px] font-medium disabled:opacity-50 ${
-                      store.owner_can_edit_store_identity
-                        ? "border-[#A5D6A7] bg-[#E8F5E9] text-[#1B5E20]"
-                        : "border-[#D4C5B9] bg-[#F2F0EB] text-[#6B6B6B]"
-                    }`}
+                    className={store.owner_can_edit_store_identity ? "text-sam-success" : "text-sam-muted"}
                   >
                     {identityActionBusy
                       ? t("common_processing")
@@ -506,53 +505,87 @@ export function AdminStoreReviewPanel({
                         : ko
                           ? "차단"
                           : "Blocked"}
-                  </button>
+                  </AdminActionButton>
                 }
               />
             ) : null}
           </div>
 
-          <div className="border-t border-[#E8E2D8]/80 py-3">
-            <p className="text-[12px] text-[#6B6B6B]">
+          <div className="border-t border-sam-border-soft/80 py-3">
+            <p className="text-[12px] text-sam-muted">
               {ko
-                ? "입점·운영 결정을 하면 사장님에게 자동으로 알림이 갑니다. 거절·보완·중지는 사유를 입력해야 합니다."
+                ? "입점·운영 결정을 하면 사장님에게 자동으로 알림이 갑니다. 반려·보완·중지는 사유를 입력해야 합니다."
                 : "The owner is notified automatically of store decisions. Reject, changes, and suspend require a reason."}
             </p>
             {approvalActions.length > 0 ? (
               <div className="mt-3 flex flex-wrap gap-2" data-admin-store-approval-actions="1">
                 {approvalActions.map((a) => (
-                  <button
+                  <AdminActionButton
                     key={a}
-                    type="button"
+                    variant={approvalButtonVariant(a)}
                     disabled={busy}
-                    className={approvalButtonClass(a)}
                     onClick={() => void runConfirmedAction(a)}
                   >
                     {ko ? ADMIN_STORE_ACTION_COPY[a].ko : ADMIN_STORE_ACTION_COPY[a].en}
-                  </button>
+                  </AdminActionButton>
                 ))}
               </div>
             ) : null}
             {salesActions.length > 0 ? (
               <div className="mt-2 flex flex-wrap gap-2" data-admin-store-sales-actions="1">
                 {salesActions.map((a) => (
-                  <button
+                  <AdminActionButton
                     key={a}
-                    type="button"
+                    variant={salesButtonVariant(a)}
                     disabled={busy}
-                    className={a === "approve_sales" ? sbBtnPrimary : a === "suspend_sales" ? sbBtnWarn : sbBtnSecondary}
                     onClick={() => void runConfirmedAction(a)}
                   >
                     {ko ? ADMIN_STORE_ACTION_COPY[a].ko : ADMIN_STORE_ACTION_COPY[a].en}
-                  </button>
+                  </AdminActionButton>
                 ))}
               </div>
             ) : null}
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" disabled={busy} className={sbBtnSecondary} onClick={() => void sendOwnerNotice()}>
-                {ko ? "사장님에게 알림 보내기" : "Send owner a notice"}
-              </button>
-            </div>
+            {noticeOpen ? (
+              <div className="mt-2 space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface-muted p-3" data-admin-store-owner-notice-form="1">
+                <label className="block text-[13px] font-medium text-sam-fg">
+                  {t("admin_stores_notify_title_prompt")}
+                  <input
+                    value={noticeTitle}
+                    onChange={(e) => setNoticeTitle(e.target.value)}
+                    disabled={busy}
+                    className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[14px] text-sam-fg outline-none focus:border-sam-primary"
+                  />
+                </label>
+                <label className="block text-[13px] font-medium text-sam-fg">
+                  {t("admin_stores_notify_body_prompt")}
+                  <textarea
+                    value={noticeBody}
+                    onChange={(e) => setNoticeBody(e.target.value)}
+                    disabled={busy}
+                    rows={3}
+                    className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[14px] text-sam-fg outline-none focus:border-sam-primary"
+                  />
+                </label>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <AdminActionButton variant="secondary" disabled={notifyBusy} onClick={() => setNoticeOpen(false)}>
+                    {adminCta("cancel", ko)}
+                  </AdminActionButton>
+                  <AdminActionButton
+                    variant="primary"
+                    disabled={busy || !noticeTitle.trim() || !noticeBody.trim()}
+                    onClick={() => void sendOwnerNotice()}
+                  >
+                    {ko ? "알림 보내기" : "Send notice"}
+                  </AdminActionButton>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <AdminActionButton variant="secondary" disabled={busy} onClick={() => setNoticeOpen(true)}>
+                  {ko ? "사장님에게 알림 보내기" : "Send owner a notice"}
+                </AdminActionButton>
+              </div>
+            )}
             {notifyResult ? (
               <div className="mt-2">
                 <AdminResultBanner ko={ko} result={notifyResult} onClose={() => setNotifyResult(null)} />
@@ -594,13 +627,13 @@ export function AdminStoreReviewPanel({
         {store.revision_note?.trim() ? (
           <ReviewRow
             label={t("admin_stores_section_revision")}
-            value={<span className="whitespace-pre-wrap text-[#F57F17]">{store.revision_note.trim()}</span>}
+            value={<span className="whitespace-pre-wrap text-sam-warning">{store.revision_note.trim()}</span>}
           />
         ) : null}
         {store.rejected_reason?.trim() ? (
           <ReviewRow
             label={t("admin_stores_section_reject_reason")}
-            value={<span className="whitespace-pre-wrap text-[#B71C1C]">{store.rejected_reason.trim()}</span>}
+            value={<span className="whitespace-pre-wrap text-sam-danger">{store.rejected_reason.trim()}</span>}
           />
         ) : null}
         {store.suspended_reason?.trim() ? (
@@ -613,7 +646,7 @@ export function AdminStoreReviewPanel({
           <ReviewRow
             label={t("admin_stores_image_profile")}
             value={
-              <a href={profileUrl} target="_blank" rel="noopener noreferrer" className="block max-w-xs overflow-hidden rounded-sm border border-[#D4C5B9]">
+              <a href={profileUrl} target="_blank" rel="noopener noreferrer" className="block max-w-xs overflow-hidden rounded-sm border border-sam-border">
                 <img src={profileUrl} alt="" className="max-h-40 w-full object-cover" />
               </a>
             }
@@ -632,10 +665,10 @@ export function AdminStoreReviewPanel({
       </div>
 
       {onClose ? (
-        <div className="flex justify-end border-t border-[#D4C5B9] px-4 py-2">
-          <button type="button" onClick={onClose} className={sbBtnSecondary}>
-            {t("common_close")}
-          </button>
+        <div className="flex justify-end border-t border-sam-border px-4 py-2">
+          <AdminActionButton variant="secondary" onClick={onClose}>
+            {adminCta("close", ko)}
+          </AdminActionButton>
         </div>
       ) : null}
     </div>

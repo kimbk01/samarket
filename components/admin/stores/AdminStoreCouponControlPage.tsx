@@ -1,5 +1,8 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -194,18 +197,9 @@ export function AdminStoreCouponControlPage() {
           {ADMIN_COUPON_CONTROL_ROLES.map((id) => {
             const selected = role === id;
             return (
-              <button
-                key={id}
-                type="button"
-                data-admin-coupon-role-tab={id}
-                aria-current={selected ? "page" : undefined}
-                className={`flex min-h-[48px] min-w-0 items-center justify-center rounded-ui-rect px-3 text-sm font-medium ${
-                  selected ? "bg-signature text-white" : "border border-sam-border bg-sam-surface text-sam-fg"
-                }`}
-                onClick={() => goRole(id)}
-              >
+              <AdminChipButton selected={selected} key={id} className="justify-center" data-admin-coupon-role-tab={id} aria-current={selected ? "page" : undefined} onClick={() => goRole(id)}>
                 {t(ROLE_LABEL[id])}
-              </button>
+              </AdminChipButton>
             );
           })}
         </nav>
@@ -227,7 +221,7 @@ export function AdminStoreCouponControlPage() {
               ).map(([key, value]) => (
                 <div key={key} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
                   <p className="text-sm text-sam-muted">{t(key)}</p>
-                  <p className="mt-1 text-lg font-bold tabular-nums text-sam-fg">{value}</p>
+                  <p className="mt-1 text-[16px] font-bold tabular-nums text-sam-fg">{value}</p>
                 </div>
               ))}
             </div>
@@ -273,13 +267,9 @@ export function AdminStoreCouponControlPage() {
                   onChange={(e) => setCouponNumberQuery(e.target.value)}
                   data-admin-coupon-number-search="1"
                 />
-                <button
-                  type="button"
-                  className="shrink-0 rounded-ui-rect bg-signature px-4 text-sm font-medium text-white"
-                  onClick={() => void load(couponNumberQuery)}
-                >
-                  {t("admin_r4c_search")}
-                </button>
+                <AdminActionButton variant="primary" className="shrink-0" onClick={() => void load(couponNumberQuery)}>
+                  {adminCta("search", ko)}
+                </AdminActionButton>
               </div>
             </label>
             {loadError ? (

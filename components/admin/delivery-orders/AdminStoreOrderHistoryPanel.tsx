@@ -8,6 +8,7 @@ import { adminOperatorErrorMessage, adminOperatorLabel } from "@/lib/admin/opera
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminCard } from "@/components/admin/AdminCard";
 import {
   CommissionRowMoney,
@@ -188,9 +189,9 @@ export function AdminStoreOrderHistoryPanel({
       <AdminCard title={ko ? "주문 상태 이력" : "Status history"}>
         <div className="space-y-2" data-admin-order-events="1">
           <div className="flex justify-end">
-            <button type="button" className={ROW_ACTION_BTN} onClick={() => void load()} disabled={loading}>
-              {loading ? (ko ? "불러오는 중…" : "Loading…") : ko ? "이력 새로고침" : "Refresh history"}
-            </button>
+            <AdminActionButton variant="secondary" size="sm" onClick={() => void load()} disabled={loading}>
+              {ko ? "이력 새로고침" : "Refresh history"}
+            </AdminActionButton>
           </div>
           {data && data.events.length === 0 ? (
             <p className="sam-text-helper text-sam-muted">{ko ? "기록된 이력이 없습니다." : "No history recorded."}</p>

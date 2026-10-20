@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
@@ -109,20 +111,13 @@ export function AdminOrderChatList() {
         placeholder={ko ? "주문번호 · 매장 · 고객 닉네임 · 회원 ID" : "Order no · store · customer · member ID"}
         className="min-w-[240px] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       />
-      <button
-        type="submit"
-        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
-      >
-        {ko ? "검색" : "Search"}
-      </button>
+      <AdminActionButton type="submit" variant="primary">
+        {adminCta("search", ko)}
+      </AdminActionButton>
       {urlQ ? (
-        <button
-          type="button"
-          onClick={() => updateUrl({ q: null })}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
-        >
-          {ko ? "검색 해제" : "Clear"}
-        </button>
+        <AdminActionButton variant="secondary" onClick={() => updateUrl({ q: null })}>
+          {adminCta("reset", ko)}
+        </AdminActionButton>
       ) : null}
     </form>
   );
@@ -219,14 +214,15 @@ export function AdminOrderChatList() {
                   })}
                 </Link>
                 <div className="mt-1">
-                  <button
-                    type="button"
+                  <AdminActionButton
+                    variant="ghost"
+                    size="sm"
+                    className="!px-0 font-mono"
                     onClick={() => modal.openOrder(row.orderId, "basic")}
-                    className="inline-block rounded bg-sam-app px-1.5 py-0.5 font-mono sam-text-xxs text-sam-fg underline"
                     data-open-order={row.orderNo || row.orderId}
                   >
                     {row.orderNo || (language === "en" ? "Open order" : "주문 보기")}
-                  </button>
+                  </AdminActionButton>
                   <span className="ml-2 sam-text-xxs text-sam-muted">{statusLabel(row.orderStatus)}</span>
                 </div>
               </td>
@@ -257,25 +253,25 @@ export function AdminOrderChatList() {
     </div>
     {pageCount > 1 ? (
       <nav className="mt-3 flex flex-wrap items-center gap-2 sam-text-body-secondary" data-admin-list-pager="page">
-        <button
-          type="button"
+        <AdminActionButton
+          variant="secondary"
+          size="sm"
           disabled={currentPage <= 1}
           onClick={() => updateUrl({ page: currentPage - 1 > 1 ? String(currentPage - 1) : null })}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 font-medium text-sam-fg disabled:opacity-40"
         >
           {ko ? "이전" : "Previous"}
-        </button>
+        </AdminActionButton>
         <span className="text-sam-muted">
           {currentPage} / {pageCount}
         </span>
-        <button
-          type="button"
+        <AdminActionButton
+          variant="secondary"
+          size="sm"
           disabled={currentPage >= pageCount}
           onClick={() => updateUrl({ page: String(currentPage + 1) })}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 font-medium text-sam-fg disabled:opacity-40"
         >
           {ko ? "다음" : "Next"}
-        </button>
+        </AdminActionButton>
       </nav>
     ) : null}
     </div>

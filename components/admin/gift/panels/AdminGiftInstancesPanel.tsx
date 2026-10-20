@@ -3,14 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import {
-  ADMIN_GIFT_PRIMARY_BTN_STYLE,
-  adminGiftPrimaryBtnClass,
-} from "@/lib/gift-certificate/admin-gift-primary-button";
-import { formatMoneyPhp } from "@/lib/utils/format";
-import { Sam } from "@/lib/ui/css-vars";
 import { AdminGiftInstanceDetailConsole } from "@/components/admin/gift/panels/AdminGiftInstanceDetailConsole";
 
 const TRACKING_API = "/api/admin/gift-certificates/tracking";
@@ -45,13 +42,14 @@ const STATUS_OPTIONS = ["", "ACTIVE", "GIFT_LOCKED", "PARTIALLY_REDEEMED", "FULL
 function dt(v: string | null | undefined): string {
   if (!v) return "—";
   try {
-    return new Date(v).toLocaleString();
+    return formatAdminManilaDateTime(v);
   } catch {
     return v;
   }
 }
 
 import { formatGiftAdminValidityLabel } from "@/lib/gift-certificate/format-gift-admin-validity";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 function formatValidity(from: string | null | undefined, until: string | null | undefined): string {
   return formatGiftAdminValidityLabel({
@@ -81,7 +79,7 @@ export function AdminGiftInstancesPanel({
   balance?: string;
   focus?: string;
 }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const router = useRouter();
 
   const [draftQ, setDraftQ] = useState(urlQ);
@@ -193,14 +191,13 @@ export function AdminGiftInstancesPanel({
             ))}
           </select>
         </label>
-        <button
+        <AdminActionButton
           type="button"
-          className={adminGiftPrimaryBtnClass("min-h-[44px]")}
-          style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+          variant="primary"
           onClick={applySearch}
         >
-          {safeT("gift_ops_search", { fallbackKo: "검색", fallbackEn: "Search" })}
-        </button>
+          {adminCta("search", language !== "en")}
+        </AdminActionButton>
       </div>
 
       {listStatus === "loading" && rows.length === 0 ? (
@@ -209,15 +206,15 @@ export function AdminGiftInstancesPanel({
 
       {listStatus === "error" ? (
         <div className="space-y-2">
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-sam-danger">
             {safeT("gift_ops_instances_error", {
               fallbackKo: "상품권 현황을 불러오지 못했습니다.",
               fallbackEn: "Couldn’t load gift instances.",
             })}
           </p>
-          <button type="button" className={Sam.btn.secondary} onClick={() => void fetchList()}>
-            {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-          </button>
+          <AdminActionButton type="button" variant="secondary" onClick={() => void fetchList()}>
+            {adminCta("refresh", language !== "en")}
+          </AdminActionButton>
         </div>
       ) : null}
 
@@ -259,7 +256,7 @@ export function AdminGiftInstancesPanel({
                         {row.productImageUrl ? (
                           <SamarketThumbnail src={row.productImageUrl} alt="" fill className="relative h-full w-full" imageClassName="object-cover" />
                         ) : (
-                          <span className="flex h-full items-center justify-center text-[10px] text-sam-muted">—</span>
+                          <span className="flex h-full items-center justify-center text-[12px] text-sam-muted">—</span>
                         )}
                       </div>
                     </td>
@@ -267,21 +264,20 @@ export function AdminGiftInstancesPanel({
                     <td className="px-2 py-2">{row.giftScope === "PLATFORM" ? "DIBAY" : row.storeName || "—"}</td>
                     <td className="px-2 py-2">{row.originalBuyerLabel || "—"}</td>
                     <td className="px-2 py-2">{row.currentOwnerLabel || "—"}</td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(row.faceValue)}</td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(row.remainingBalance)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(row.faceValue)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(row.remainingBalance)}</td>
                     <td className="px-2 py-2 text-xs text-sam-muted">{dt(row.purchasedAt || row.createdAt)}</td>
                     <td className="px-2 py-2 text-xs">{formatValidity(row.validFrom, row.validUntil)}</td>
                     <td className="px-2 py-2">{row.status}</td>
                     <td className="px-2 py-2">
-                      <button
+                      <AdminActionButton
                         type="button"
-                        className={adminGiftPrimaryBtnClass("min-h-[36px] px-3 text-xs")}
-                        style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                        variant="primary" size="sm"
                         data-admin-gift-instance-detail-open="1"
                         onClick={() => openInstanceDetail(row)}
                       >
                         {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
-                      </button>
+                      </AdminActionButton>
                     </td>
                   </tr>
                 ))}
@@ -304,20 +300,19 @@ export function AdminGiftInstancesPanel({
                       {row.giftScope === "PLATFORM" ? "DIBAY" : row.storeName} · {row.status}
                     </p>
                     <p className="text-xs tabular-nums">
-                      {formatMoneyPhp(row.remainingBalance)} / {formatMoneyPhp(row.faceValue)}
+                      {formatAdminPhp(row.remainingBalance)} / {formatAdminPhp(row.faceValue)}
                     </p>
                     <p className="text-xs text-sam-muted">{formatValidity(row.validFrom, row.validUntil)}</p>
                   </div>
                 </div>
-                <button
+                <AdminActionButton
                   type="button"
-                  className={adminGiftPrimaryBtnClass("mt-3 w-full min-h-[40px] text-sm")}
-                  style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                  variant="primary" className="mt-3 w-full"
                   data-admin-gift-instance-detail-open="1"
                   onClick={() => openInstanceDetail(row)}
                 >
                   {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
-                </button>
+                </AdminActionButton>
               </li>
             ))}
           </ul>

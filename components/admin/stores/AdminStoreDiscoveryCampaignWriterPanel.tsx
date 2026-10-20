@@ -1,8 +1,9 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { Fragment, useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminConflictReloadedMessage } from "@/lib/admin/operator-ux/operator-labels";
@@ -11,7 +12,7 @@ import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected
 function fmtDateTime(iso: string): string {
   const ms = Date.parse(iso);
   if (!Number.isFinite(ms)) return iso || "—";
-  return new Date(ms).toLocaleString();
+  return formatAdminManilaDateTime(iso);
 }
 
 export type AdminDiscoveryCampaignRow = {
@@ -334,8 +335,8 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         <span className="inline-flex items-center rounded-ui-rect border border-sam-border px-2 text-[12px] text-sam-muted">
           {t("admin_store_discovery_campaigns_writer_badge")}
         </span>
-        {msg ? <span className="text-[12px] text-green-700">{msg}</span> : null}
-        {saveErr ? <span className="text-[12px] text-red-700">{saveErr}</span> : null}
+        {msg ? <span className="text-[12px] text-sam-success">{msg}</span> : null}
+        {saveErr ? <span className="text-[12px] text-sam-danger">{saveErr}</span> : null}
       </div>
 
       <div className="mb-4 rounded-ui-rect border border-sam-border/80 p-3">
@@ -344,19 +345,14 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         </h3>
         {renderFormFields(createForm, setCreateForm, { showStoreId: true })}
         <div className="mt-3">
-          <button
-            type="button"
-            className={Sam.btn.primary}
-            disabled={busy}
-            onClick={() => void onCreate()}
-          >
+          <AdminActionButton variant="primary" disabled={busy} onClick={() => void onCreate()}>
             {t("admin_store_discovery_campaigns_create_btn")}
-          </button>
+          </AdminActionButton>
         </div>
       </div>
 
       {error ? (
-        <p className="mb-2 text-[13px] text-red-700">{t("admin_store_discovery_campaigns_fail")}</p>
+        <p className="mb-2 text-[13px] text-sam-danger">{t("admin_store_discovery_campaigns_fail")}</p>
       ) : null}
       {loading ? (
         <p className="text-[13px] text-sam-muted">{t("admin_store_discovery_campaigns_loading")}</p>
@@ -393,23 +389,13 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
                     <td className="px-2 py-1.5">{stateLabel(c.computed_state)}</td>
                     <td className="whitespace-nowrap px-2 py-1.5">
                       <div className="flex flex-wrap gap-1">
-                        <button
-                          type="button"
-                          className={Sam.btn.secondary}
-                          disabled={busy}
-                          onClick={() => startEdit(c)}
-                        >
+                        <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => startEdit(c)}>
                           {t("admin_store_discovery_campaigns_edit_btn")}
-                        </button>
+                        </AdminActionButton>
                         {c.is_active ? (
-                          <button
-                            type="button"
-                            className={Sam.btn.secondary}
-                            disabled={busy}
-                            onClick={() => void onDeactivate(c)}
-                          >
+                          <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => void onDeactivate(c)}>
                             {t("admin_store_discovery_campaigns_deactivate_btn")}
-                          </button>
+                          </AdminActionButton>
                         ) : null}
                       </div>
                     </td>
@@ -422,22 +408,12 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
                         </h4>
                         {renderFormFields(editForm, setEditForm, { showStoreId: false })}
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            className={Sam.btn.primary}
-                            disabled={busy}
-                            onClick={() => void onSaveEdit()}
-                          >
+                          <AdminActionButton variant="primary" size="sm" disabled={busy} onClick={() => void onSaveEdit()}>
                             {t("admin_store_discovery_campaigns_save_btn")}
-                          </button>
-                          <button
-                            type="button"
-                            className={Sam.btn.secondary}
-                            disabled={busy}
-                            onClick={() => setEditingId(null)}
-                          >
+                          </AdminActionButton>
+                          <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => setEditingId(null)}>
                             {t("admin_store_discovery_campaigns_cancel_btn")}
-                          </button>
+                          </AdminActionButton>
                         </div>
                       </td>
                     </tr>

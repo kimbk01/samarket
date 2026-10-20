@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { COMMISSION_PRESS } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
@@ -147,21 +148,17 @@ export function AdminStoreOrderInterventionPanel({
               const label = panelLabel(a);
               const isBusy = busy === a;
               return (
-                <button
+                <AdminActionButton
                   key={a}
-                  type="button"
+                  variant={label.destructive ? "danger" : "secondary"}
                   disabled={busy !== null}
                   aria-busy={isBusy}
                   data-intervention-action={a}
                   onClick={() => void run(a)}
-                  className={`inline-flex min-h-10 items-center rounded-ui-rect px-4 py-2 sam-text-helper font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${COMMISSION_PRESS} ${
-                    label.destructive
-                      ? "border border-sam-danger/40 bg-sam-danger-soft text-sam-danger hover:opacity-90 active:opacity-80"
-                      : "border border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted"
-                  }`}
+                  className={COMMISSION_PRESS}
                 >
-                  {isBusy ? (ko ? "처리 중…" : "Working…") : ko ? label.ko : label.en}
-                </button>
+                  {ko ? label.ko : label.en}
+                </AdminActionButton>
               );
             })}
           </div>

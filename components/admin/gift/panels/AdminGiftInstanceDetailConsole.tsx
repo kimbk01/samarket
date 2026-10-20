@@ -3,16 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import {
-  ADMIN_GIFT_PRIMARY_BTN_STYLE,
-  adminGiftPrimaryBtnClass,
-} from "@/lib/gift-certificate/admin-gift-primary-button";
 import { formatGiftAdminValidityLabel } from "@/lib/gift-certificate/format-gift-admin-validity";
-import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const TRACKING_API = "/api/admin/gift-certificates/tracking";
 
@@ -108,7 +107,7 @@ type TrackingDetail = {
 function dt(v: string | null | undefined): string {
   if (!v) return "—";
   try {
-    return new Date(v).toLocaleString();
+    return formatAdminManilaDateTime(v);
   } catch {
     return v;
   }
@@ -266,7 +265,7 @@ export function AdminGiftInstanceDetailConsole({
         id: `issued:${inst.id}`,
         at: inst.purchasedAt || inst.createdAt,
         kind: "ISSUED",
-        label: `ISSUED · ${formatMoneyPhp(inst.faceValue)}`,
+        label: `ISSUED · ${formatAdminPhp(inst.faceValue)}`,
       });
     }
     for (const e of detail.ownership) {
@@ -290,7 +289,7 @@ export function AdminGiftInstanceDetailConsole({
         id: `redeem:${r.id}`,
         at: r.createdAt,
         kind: "REDEMPTION",
-        label: `REDEEM ${formatMoneyPhp(r.usedAmount)} · ${recognitionLabel(r.revenue ?? [], r.reversed)}${
+        label: `REDEEM ${formatAdminPhp(r.usedAmount)} · ${recognitionLabel(r.revenue ?? [], r.reversed)}${
           r.orderNo ? ` · #${r.orderNo}` : ""
         }`,
         focus: focusRedemptionId === r.id,
@@ -316,15 +315,15 @@ export function AdminGiftInstanceDetailConsole({
         <Link href={backHref} className={`${Sam.btn.secondary} inline-flex min-h-[44px] items-center px-4 text-sm`}>
           ← {safeT("gift_ops_instance_back_list", { fallbackKo: "발급 상품권", fallbackEn: "Issued gifts" })}
         </Link>
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-sam-danger">
           {safeT("gift_ops_instance_detail_error", {
             fallbackKo: "상품권 상세를 불러오지 못했습니다.",
             fallbackEn: "Couldn’t load gift instance detail.",
           })}
         </p>
-        <button type="button" className={Sam.btn.secondary} onClick={() => void load()}>
-          {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-        </button>
+        <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
+          {adminCta("refresh", language !== "en")}
+        </AdminActionButton>
       </div>
     );
   }
@@ -357,7 +356,7 @@ export function AdminGiftInstanceDetailConsole({
           )}
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="font-mono text-lg font-semibold">{row.publicGiftNumber || "—"}</p>
+          <p className="font-mono text-[16px] font-semibold">{row.publicGiftNumber || "—"}</p>
           <p className="text-sm font-semibold">{row.productTitle || "—"}</p>
           <p className="text-sm text-sam-muted">
             {row.giftScope === "PLATFORM"
@@ -384,15 +383,15 @@ export function AdminGiftInstanceDetailConsole({
         {[
           {
             label: safeT("gift_ops_kpi_face", { fallbackKo: "최초 금액", fallbackEn: "Face value" }),
-            value: formatMoneyPhp(row.faceValue),
+            value: formatAdminPhp(row.faceValue),
           },
           {
             label: safeT("gift_ops_kpi_remaining", { fallbackKo: "현재 잔액", fallbackEn: "Remaining" }),
-            value: formatMoneyPhp(row.remainingBalance),
+            value: formatAdminPhp(row.remainingBalance),
           },
           {
             label: safeT("gift_ops_kpi_redeemed_gross", { fallbackKo: "누적 사용", fallbackEn: "Redeemed" }),
-            value: formatMoneyPhp(redeemedGross),
+            value: formatAdminPhp(redeemedGross),
           },
           {
             label: safeT("gift_ops_field_validity", { fallbackKo: "유효기간", fallbackEn: "Validity" }),
@@ -470,7 +469,7 @@ export function AdminGiftInstanceDetailConsole({
         </h3>
         <p className="tabular-nums">
           {safeT("gift_ops_kpi_remaining", { fallbackKo: "현재 잔액", fallbackEn: "Remaining" })}:{" "}
-          {formatMoneyPhp(row.remainingBalance)}
+          {formatAdminPhp(row.remainingBalance)}
         </p>
       </div>
 
@@ -490,7 +489,7 @@ export function AdminGiftInstanceDetailConsole({
                   fallbackKo: "Available Gift Revenue",
                   fallbackEn: "Available Gift Revenue",
                 })}
-                : {formatMoneyPhp(detail.settlement.availableRevenue)}
+                : {formatAdminPhp(detail.settlement.availableRevenue)}
               </p>
             ) : null}
             {(detail.settlement?.cashOuts.length ?? 0) === 0 &&
@@ -506,13 +505,13 @@ export function AdminGiftInstanceDetailConsole({
                 {(detail.settlement?.cashOuts ?? []).map((c) => (
                   <li key={c.id}>
                     {safeT("gift_ops_cash_out", { fallbackKo: "외부 환전", fallbackEn: "Cash out" })}{" "}
-                    {formatMoneyPhp(c.amount)} · {c.status} · {dt(c.createdAt)}
+                    {formatAdminPhp(c.amount)} · {c.status} · {dt(c.createdAt)}
                   </li>
                 ))}
                 {(detail.settlement?.conversions ?? []).map((c) => (
                   <li key={c.id}>
                     {safeT("gift_ops_store_cash", { fallbackKo: "과거 전환 기록", fallbackEn: "Historical conversion" })}{" "}
-                    {formatMoneyPhp(c.amount)} · {c.status} · {dt(c.createdAt)}
+                    {formatAdminPhp(c.amount)} · {c.status} · {dt(c.createdAt)}
                   </li>
                 ))}
               </ul>
@@ -523,7 +522,7 @@ export function AdminGiftInstanceDetailConsole({
                 <ul className="mt-1 space-y-1 text-xs">
                   {(detail.recovery ?? []).map((r) => (
                     <li key={r.id}>
-                      {r.linkage} · {formatMoneyPhp(r.amountRemaining)} / {formatMoneyPhp(r.amountOriginal)} · {r.status}
+                      {r.linkage} · {formatAdminPhp(r.amountRemaining)} / {formatAdminPhp(r.amountOriginal)} · {r.status}
                     </li>
                   ))}
                 </ul>
@@ -575,27 +574,27 @@ export function AdminGiftInstanceDetailConsole({
             onChange={(e) => setAdjustUntil(e.target.value)}
           />
         </label>
-        {actionError ? <p className="text-sm text-red-600">{actionError}</p> : null}
+        {actionError ? <p className="text-sm text-sam-danger">{actionError}</p> : null}
         <div className="flex flex-wrap gap-2">
-          <button
+          <AdminActionButton
             type="button"
-            className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}
+            variant="secondary"
             disabled={actionBusy}
             onClick={() => void runCorrective("suspend")}
           >
             {safeT("gift_ops_cta_suspend", { fallbackKo: "사용 정지", fallbackEn: "Suspend" })}
-          </button>
-          <button
+          </AdminActionButton>
+          <AdminActionButton
             type="button"
-            className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}
+            variant="secondary"
             disabled={actionBusy}
             onClick={() => void runCorrective("resume")}
           >
             {safeT("gift_ops_cta_resume_instance", { fallbackKo: "사용 재개", fallbackEn: "Resume" })}
-          </button>
-          <button
+          </AdminActionButton>
+          <AdminActionButton
             type="button"
-            className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}
+            variant="secondary"
             disabled={actionBusy}
             onClick={() => void runCorrective("adjust_validity")}
           >
@@ -603,7 +602,7 @@ export function AdminGiftInstanceDetailConsole({
               fallbackKo: "유효기간 조정",
               fallbackEn: "Adjust validity",
             })}
-          </button>
+          </AdminActionButton>
         </div>
       </div>
     </section>

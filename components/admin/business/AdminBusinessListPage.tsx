@@ -11,7 +11,9 @@ import {
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import type { AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTableBottomHorizontalScroll } from "@/components/admin/AdminTableBottomHorizontalScroll";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
@@ -274,9 +276,6 @@ function AdminBusinessListPageInner() {
     if (tableEl && bottomEl) bottomEl.scrollLeft = tableEl.scrollLeft;
   }, [showBottomFixedScroll, measureTableScroll, tableScrollWidth]);
 
-  const pages = Math.max(1, Math.ceil(total / pageSize));
-  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to = Math.min(page * pageSize, total);
 
   return (
     <div
@@ -307,9 +306,11 @@ function AdminBusinessListPageInner() {
           onRetry={() => void load()}
         />
       ) : rows.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-white py-12 text-center sam-text-body text-sam-muted shadow-sm">
-          {t("admin_biz_empty_list")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={t("admin_biz_empty_list")}
+          onReset={() => setFilters({ ...DEFAULT_OPS_FILTERS })}
+        />
       ) : (
         <>
           <AdminBusinessTable
@@ -319,53 +320,15 @@ function AdminBusinessListPageInner() {
             onHorizontalScroll={onTableHorizontalScroll}
             returnTo={listUrl}
           />
-          <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-white px-4 py-3 shadow-sm">
-            <p className="sam-text-helper text-sam-muted">
-              {t("admin_biz_ops_page_range", {
-                from: String(from),
-                to: String(to),
-                total: String(total),
-              })}
-            </p>
-            <div className="flex flex-wrap items-center gap-1">
-              <button
-                type="button"
-                disabled={page <= 1}
-                className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 sam-text-helper disabled:opacity-40"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                {t("admin_biz_ops_page_prev")}
-              </button>
-              {Array.from({ length: Math.min(pages, 7) }, (_, i) => {
-                const p =
-                  pages <= 7
-                    ? i + 1
-                    : Math.min(Math.max(page - 3, 1), Math.max(pages - 6, 1)) + i;
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    className={`min-w-8 rounded-ui-rect px-2 py-1.5 sam-text-helper ${
-                      p === page
-                        ? "bg-signature text-white"
-                        : "border border-sam-border bg-sam-app text-sam-fg"
-                    }`}
-                    onClick={() => setPage(p)}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                disabled={page >= pages}
-                className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 sam-text-helper disabled:opacity-40"
-                onClick={() => setPage((p) => p + 1)}
-              >
-                {t("admin_biz_ops_page_next")}
-              </button>
-            </div>
-          </div>
+          <AdminPagination
+            ko={ko}
+            page={page}
+            size={pageSize as AdminListPageSize}
+            total={total}
+            onPageChange={setPage}
+            disabled={loading}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 shadow-sm"
+          />
         </>
       )}
 

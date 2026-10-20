@@ -1,6 +1,9 @@
 "use client";
 
-import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { previewStoreDeliveryBuiltinSound } from "@/lib/business/store-order-alert-sound";
@@ -30,7 +33,8 @@ export function AdminGlobalAlertSoundSection({
   onAfterMutation,
   readOnly = false,
 }: AdminGlobalAlertSoundSectionProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [soundSelect, setSoundSelect] = useState<StoreDeliveryAlertSoundSelectId | "">("builtin");
   const [soundLegacyUrl, setSoundLegacyUrl] = useState<string | null>(null);
   const [soundFromDb, setSoundFromDb] = useState(false);
@@ -45,7 +49,9 @@ export function AdminGlobalAlertSoundSection({
       ? t("common_network_error")
       : soundError === "forbidden"
         ? t("admin_audit_err_no_permission")
-        : soundError;
+        : soundError
+          ? adminOperatorErrorMessage(soundError, ko)
+          : null;
 
   const uploadAdminSoundFromPc = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,7 +103,18 @@ export function AdminGlobalAlertSoundSection({
   );
 
   const deleteGlobalSound = useCallback(async () => {
-    if (!(await dibayConfirm({ title: t("admin_stores_alert_delete_confirm"), confirmTone: "destructive" }))) return;
+    if (
+      !(
+        await confirmAdminAction({
+          level: "L1",
+          ko,
+          title: t("admin_stores_alert_delete_confirm"),
+          confirmLabel: t("admin_stores_alert_remove_db"),
+          destructive: true,
+        })
+      ).ok
+    )
+      return;
     setSoundSaving(true);
     setSoundError(null);
     setSoundMsg(null);
@@ -122,7 +139,7 @@ export function AdminGlobalAlertSoundSection({
     } finally {
       setSoundSaving(false);
     }
-  }, [apiPath, onAfterMutation, t]);
+  }, [apiPath, ko, onAfterMutation, t]);
 
   const persistSoundChoice = useCallback(
     async (id: StoreDeliveryAlertSoundSelectId) => {
@@ -213,12 +230,12 @@ export function AdminGlobalAlertSoundSection({
         <code className="rounded bg-sam-surface-muted px-1">{codeKey}</code>
       </p>
       {soundLegacyUrl ? (
-        <p className="mt-2 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
+        <p className="mt-2 rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-warning">
           {t("admin_stores_alert_legacy_url")}
         </p>
       ) : null}
-      {displayError ? <p className="mt-2 sam-text-body-secondary text-red-700">{displayError}</p> : null}
-      {soundMsg ? <p className="mt-2 sam-text-body-secondary text-green-800">{soundMsg}</p> : null}
+      {displayError ? <p className="mt-2 sam-text-body-secondary text-sam-danger">{displayError}</p> : null}
+      {soundMsg ? <p className="mt-2 sam-text-body-secondary text-sam-success">{soundMsg}</p> : null}
       {soundLoading ? (
         <p className="mt-3 sam-text-body-secondary text-sam-muted">{t("admin_stores_alert_loading")}</p>
       ) : (
@@ -276,14 +293,15 @@ export function AdminGlobalAlertSoundSection({
               ) : null}
             </p>
             {soundFromDb && !readOnly ? (
-              <button
-                type="button"
+              <AdminActionButton
+                variant="danger"
+                size="sm"
+                className="shrink-0"
                 disabled={soundSaving}
                 onClick={() => void deleteGlobalSound()}
-                className="shrink-0 rounded-ui-rect border border-red-200 bg-sam-surface px-2.5 py-1.5 sam-text-helper font-medium text-red-800 disabled:opacity-50"
               >
                 {t("admin_stores_alert_remove_db")}
-              </button>
+              </AdminActionButton>
             ) : null}
           </div>
           {!readOnly ? (
@@ -295,19 +313,14 @@ export function AdminGlobalAlertSoundSection({
                 className="sr-only"
                 onChange={uploadAdminSoundFromPc}
               />
-              <button
-                type="button"
-                disabled={soundSaving}
-                onClick={() => adminSoundFileRef.current?.click()}
-                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:opacity-50"
-              >
-                {soundSaving ? t("common_processing") : t("admin_stores_alert_upload_pc")}
-              </button>
+              <AdminActionButton variant="secondary" disabled={soundSaving} onClick={() => adminSoundFileRef.current?.click()}>
+                {t("admin_stores_alert_upload_pc")}
+              </AdminActionButton>
             </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
+            <AdminActionButton
+              variant="secondary"
               disabled={soundSaving || (soundSelect === "" && !soundLegacyUrl)}
               onClick={() => {
                 if (soundSelect === "builtin") {
@@ -338,10 +351,9 @@ export function AdminGlobalAlertSoundSection({
                   }
                 }
               }}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:opacity-50"
             >
               {t("admin_stores_alert_preview")}
-            </button>
+            </AdminActionButton>
           </div>
         </div>
       )}

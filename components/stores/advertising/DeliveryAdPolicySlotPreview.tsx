@@ -30,7 +30,7 @@ export function DeliveryAdPolicySlotPreview({
     >
       <p className="text-[12px] font-bold text-sam-fg">{t("delivery_ads_policy_slot_preview_title")}</p>
       {!surfaceEnabled ? (
-        <p className="mt-2 text-[12px] text-amber-800">{t("delivery_ads_preview_surface_disabled")}</p>
+        <p className="mt-2 text-[12px] text-sam-warning">{t("delivery_ads_preview_surface_disabled")}</p>
       ) : null}
       <ul className="mt-3 space-y-1.5">
         {markers.map((m, i) =>
@@ -51,7 +51,7 @@ export function DeliveryAdPolicySlotPreview({
           )
         )}
       </ul>
-      <p className="mt-2 text-[11px] text-sam-muted">
+      <p className="mt-2 text-[12px] text-sam-muted">
         {t("delivery_ads_policy_slot_summary")
           .replace("{organic}", String(Math.max(0, organicCount - (adSlots > 0 ? 1 : 0))))
           .replace("{interval}", String(intervalEveryN))

@@ -1,7 +1,8 @@
 "use client";
 
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useState } from "react";
-import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { CouponCampaignOpsView } from "@/lib/stores/load-coupon-campaign-ops-bundle";
@@ -22,11 +23,6 @@ import {
 } from "@/lib/stores/admin-coupon-control-view";
 import { processStatusLabel } from "@/lib/stores/store-order-process-model";
 import { formatMoneyPhp } from "@/lib/utils/format";
-
-const CTA_PRIMARY =
-  "min-h-[44px] rounded-ui-rect bg-signature px-4 text-sm font-medium text-white disabled:opacity-50";
-const CTA_OUTLINE =
-  "min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-sm font-medium text-sam-fg disabled:opacity-50";
 
 /** Date-aware lifecycle states keep the owner status key (upcoming / ended by window); others use the shared coupon labels. */
 const DATE_AWARE_LIFECYCLE = new Set(["active", "approved", "scheduled"]);
@@ -96,11 +92,11 @@ export function AdminStoreCouponControlDetail({
         ? await confirmAdminAction({
             level: "L2",
             ko,
-            title: ko ? `쿠폰 거절 · ${title}` : `Reject coupon · ${title}`,
-            description: ko ? "거절 사유는 매장에 전달되고 작업 기록에 남습니다." : "The reason is sent to the store and recorded.",
-            confirmLabel: ko ? "거절" : "Reject",
+            title: ko ? `쿠폰 반려 · ${title}` : `Reject coupon · ${title}`,
+            description: ko ? "반려 사유는 매장에 전달되고 작업 기록에 남습니다." : "The reason is sent to the store and recorded.",
+            confirmLabel: adminCta("reject", ko),
             destructive: true,
-            reasonPlaceholder: ko ? "거절 사유" : "Rejection reason",
+            reasonPlaceholder: ko ? "반려 사유" : "Rejection reason",
           })
         : action === "revoke"
           ? await confirmAdminAction({
@@ -343,51 +339,27 @@ export function AdminStoreCouponControlDetail({
         {actions.pause ? <p className="mb-2 text-sm text-sam-muted">{t("store_coupon_admin_pause_hint")}</p> : null}
         <div className="flex min-w-0 flex-wrap gap-2">
           {actions.approve ? (
-            <button
-              type="button"
-              className={CTA_PRIMARY}
-              disabled={busy !== null}
-              aria-busy={busy === "approve"}
-              onClick={() => void runAction("approve")}
-            >
-              {busy === "approve" ? (ko ? "처리 중…" : "Working…") : t("store_coupon_admin_approve")}
-            </button>
+            <AdminActionButton variant="primary" disabled={busy !== null} aria-busy={busy === "approve"} onClick={() => void runAction("approve")}>
+              {adminCta("approve", ko)}
+            </AdminActionButton>
           ) : null}
           {actions.reject ? (
-            <button
-              type="button"
-              className={CTA_OUTLINE}
-              disabled={busy !== null}
-              aria-busy={busy === "reject"}
-              onClick={() => void runAction("reject")}
-            >
-              {busy === "reject" ? (ko ? "처리 중…" : "Working…") : t("store_coupon_admin_reject")}
-            </button>
+            <AdminActionButton variant="secondary" disabled={busy !== null} aria-busy={busy === "reject"} onClick={() => void runAction("reject")}>
+              {adminCta("reject", ko)}
+            </AdminActionButton>
           ) : null}
           {actions.pause ? (
-            <button
-              type="button"
-              className={CTA_OUTLINE}
-              disabled={busy !== null}
-              aria-busy={busy === "pause"}
-              onClick={() => void runAction("pause")}
-            >
-              {busy === "pause" ? (ko ? "처리 중…" : "Working…") : t("store_coupon_owner_pause")}
-            </button>
+            <AdminActionButton variant="secondary" disabled={busy !== null} aria-busy={busy === "pause"} onClick={() => void runAction("pause")}>
+              {t("store_coupon_owner_pause")}
+            </AdminActionButton>
           ) : null}
           {actions.resume ? (
-            <button
-              type="button"
-              className={CTA_OUTLINE}
-              disabled={busy !== null}
-              aria-busy={busy === "resume"}
-              onClick={() => void runAction("resume")}
-            >
-              {busy === "resume" ? (ko ? "처리 중…" : "Working…") : t("store_coupon_owner_resume")}
-            </button>
+            <AdminActionButton variant="secondary" disabled={busy !== null} aria-busy={busy === "resume"} onClick={() => void runAction("resume")}>
+              {t("store_coupon_owner_resume")}
+            </AdminActionButton>
           ) : null}
-          <Link
-            className={`${CTA_OUTLINE} inline-flex items-center justify-center`}
+          <AdminActionLink
+            variant="secondary"
             href={buildAdminPromotionCreateHref({
               storeId: campaign.store_id,
               offerId: campaign.id,
@@ -397,7 +369,7 @@ export function AdminStoreCouponControlDetail({
             data-admin-coupon-promo-cta="1"
           >
             {t("store_coupon_admin_promo_cta")}
-          </Link>
+          </AdminActionLink>
         </div>
         <p className="mt-2 text-xs text-sam-muted">{t("store_coupon_admin_promo_hint")}</p>
         {actions.revoke ? (
@@ -407,15 +379,9 @@ export function AdminStoreCouponControlDetail({
                 ? "강제 회수는 사유 입력과 쿠폰 이름 재입력 후 처리됩니다."
                 : "Force revoke asks for a reason and the coupon name typed again."}
             </p>
-            <button
-              type="button"
-              className={`${CTA_OUTLINE} text-sam-danger`}
-              disabled={busy !== null}
-              aria-busy={busy === "revoke"}
-              onClick={() => void runAction("revoke")}
-            >
-              {busy === "revoke" ? (ko ? "처리 중…" : "Working…") : ko ? "강제 회수" : "Force revoke"}
-            </button>
+            <AdminActionButton variant="danger" disabled={busy !== null} aria-busy={busy === "revoke"} onClick={() => void runAction("revoke")}>
+              {ko ? "강제 회수" : "Force revoke"}
+            </AdminActionButton>
           </div>
         ) : null}
       </AdminCard>

@@ -4,6 +4,9 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ADMIN_STORE_STATUS_FILTER } from "@/components/admin/stores/admin-store-review-model";
 import type { AdminBusinessListOpsKpi } from "@/lib/admin-business/load-admin-business-list";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 export type AdminBusinessOpsFilters = {
   q: string;
@@ -171,24 +174,20 @@ export function AdminBusinessOpsFilterBar({
         <option value="name">{t("admin_biz_ops_sort_name")}</option>
       </select>
       <div className="inline-flex shrink-0 overflow-hidden rounded-ui-rect border border-sam-border">
-        <button
-          type="button"
-          className={`px-2.5 py-1.5 sam-text-helper ${
-            viewMode === "list" ? "bg-signature text-white" : "bg-white text-sam-fg"
-          }`}
+        <AdminChipButton
+          selected={viewMode === "list"}
+          className="!rounded-none !border-0"
           onClick={() => onViewModeChange("list")}
         >
           {t("admin_biz_ops_view_list")}
-        </button>
-        <button
-          type="button"
-          className={`px-2.5 py-1.5 sam-text-helper ${
-            viewMode === "grid" ? "bg-signature text-white" : "bg-white text-sam-fg"
-          }`}
+        </AdminChipButton>
+        <AdminChipButton
+          selected={viewMode === "grid"}
+          className="!rounded-none !border-0"
           onClick={() => onViewModeChange("grid")}
         >
           {t("admin_biz_ops_view_grid")}
-        </button>
+        </AdminChipButton>
       </div>
     </div>
   );
@@ -205,9 +204,9 @@ export function AdminBusinessOpsFilterBar({
                 ? ((n / kpi.totalStores) * 100).toFixed(1)
                 : null;
             return (
-              <button
+              <AdminChipButton
                 key={def.key}
-                type="button"
+                selected={active}
                 onClick={() =>
                   onChange({
                     ...DEFAULT_OPS_FILTERS,
@@ -216,12 +215,8 @@ export function AdminBusinessOpsFilterBar({
                     ...def.apply,
                   })
                 }
-                className={`rounded-ui-rect border px-3 py-3 text-left shadow-sm transition ${
-                  active
-                    ? "border-signature bg-signature/10 ring-1 ring-signature/30"
-                    : def.warn && n > 0
-                      ? "border-amber-200 bg-amber-50/80 hover:bg-amber-50"
-                      : "border-sam-border bg-white hover:bg-sam-app"
+                className={`!h-auto !flex-col !items-start !gap-0 !whitespace-normal !rounded-ui-rect !px-3 !py-3 text-left !font-normal shadow-sm ${
+                  !active && def.warn && n > 0 ? "!border-sam-warning !bg-sam-warning-soft" : ""
                 }`}
               >
                 <div className="sam-text-helper text-sam-muted leading-tight">
@@ -229,17 +224,17 @@ export function AdminBusinessOpsFilterBar({
                 </div>
                 <div
                   className={`mt-1 text-xl font-bold tabular-nums tracking-tight ${
-                    def.warn && n > 0 ? "text-amber-900" : "text-sam-fg"
+                    def.warn && n > 0 ? "text-sam-warning" : "text-sam-fg"
                   }`}
                 >
-                  {n.toLocaleString()}
+                  {formatAdminNumber(n)}
                 </div>
                 {pct != null ? (
-                  <div className="mt-0.5 text-[11px] tabular-nums text-sam-muted">{pct}%</div>
+                  <div className="mt-0.5 text-[12px] tabular-nums text-sam-muted">{pct}%</div>
                 ) : (
                   <div className="mt-0.5 h-[14px]" />
                 )}
-              </button>
+              </AdminChipButton>
             );
           })}
         </div>
@@ -345,13 +340,14 @@ export function AdminBusinessOpsFilterBar({
                 <option value="yes">{t("admin_biz_ops_filter_yes")}</option>
                 <option value="no">{t("admin_biz_ops_filter_no")}</option>
               </select>
-              <button
-                type="button"
-                className="h-9 shrink-0 rounded-ui-rect border border-sam-border bg-sam-app px-3 sam-text-helper font-medium whitespace-nowrap text-sam-fg hover:bg-sam-surface-muted"
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
+                className="shrink-0"
                 onClick={() => onChange({ ...DEFAULT_OPS_FILTERS })}
               >
                 {t("admin_biz_ops_filter_reset")}
-              </button>
+              </AdminActionButton>
             </div>
           </div>
           {sortAndView}

@@ -4,9 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type Obligation = {
   id: string;
@@ -28,7 +31,7 @@ type Obligation = {
 function dt(v: string | null): string {
   if (!v) return "—";
   try {
-    return new Date(v).toLocaleString();
+    return formatAdminManilaDateTime(v);
   } catch {
     return v;
   }
@@ -80,15 +83,15 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
       {state === "loading" ? <p className="text-sm text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p> : null}
       {state === "error" ? (
         <div className="space-y-2">
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-sam-danger">
             {safeT("gift_ops_recovery_error", {
               fallbackKo: "회수 기록을 불러오지 못했습니다.",
               fallbackEn: "Couldn’t load recovery obligations.",
             })}
           </p>
-          <button type="button" className={Sam.btn.secondary} onClick={() => void load()}>
-            {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-          </button>
+          <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
+            {adminCta("refresh", language !== "en")}
+          </AdminActionButton>
         </div>
       ) : null}
       {state === "empty" ? (
@@ -122,15 +125,15 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
                 {rows.map((r) => (
                   <tr key={r.id} className="border-b border-sam-border/60">
                     <td className="px-2 py-2 font-semibold">{r.storeName || "—"}</td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(r.amountOriginal)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.amountOriginal)}</td>
                     <td className="px-2 py-2">{sourceLabel(r)}</td>
                     <td className="px-2 py-2 text-xs">
                       {r.linkage === "POOL_LEVEL" ? "—" : r.publicGiftNumber || "—"}
                     </td>
                     <td className="px-2 py-2">{r.status}</td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(r.recoveredAmount)}</td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(r.amountRemaining)}</td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(r.storeCashBalance)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.recoveredAmount)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.amountRemaining)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.storeCashBalance)}</td>
                     <td className="px-2 py-2 text-xs">{dt(r.createdAt)}</td>
                     <td className="px-2 py-2">
                       <Link
@@ -150,7 +153,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
               <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
                 <p className="font-semibold">{r.storeName}</p>
                 <p className="text-sm tabular-nums">
-                  {ko ? "남은 금액" : "Remaining"} {formatMoneyPhp(r.amountRemaining)} ·{" "}
+                  {ko ? "남은 금액" : "Remaining"} {formatAdminPhp(r.amountRemaining)} ·{" "}
                   {r.linkage === "POOL_LEVEL" ? sourceLabel(r) : r.publicGiftNumber}
                 </p>
                 <Link
@@ -167,13 +170,14 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
 
       {selected ? (
         <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <button
-            type="button"
-            className="text-sm font-semibold text-signature underline"
+          <AdminActionButton
+            variant="ghost"
+            size="sm"
+            className="!px-0"
             onClick={() => router.push(buildAdminGiftOpsHref({ tab: "recovery" }))}
           >
             ← {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
-          </button>
+          </AdminActionButton>
           <p className="font-semibold">{selected.storeName}</p>
           <p className="text-sm">
             {selected.linkage === "POOL_LEVEL"
@@ -182,8 +186,8 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
             · {selected.status}
           </p>
           <p className="text-sm tabular-nums">
-            {ko ? "남은 금액" : "Remaining"} {formatMoneyPhp(selected.amountRemaining)} ·{" "}
-            {ko ? "당시 환산 금액" : "Historical converted amount"} {formatMoneyPhp(selected.storeCashBalance)}
+            {ko ? "남은 금액" : "Remaining"} {formatAdminPhp(selected.amountRemaining)} ·{" "}
+            {ko ? "당시 환산 금액" : "Historical converted amount"} {formatAdminPhp(selected.storeCashBalance)}
           </p>
           <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-xs text-sam-muted">
             {ko ? "이전 기록 조회 전용 — 처리할 수 없습니다." : "Historical record — view only."}

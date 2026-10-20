@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   parseDeliveryOperationsPayload,
@@ -16,12 +17,13 @@ import {
 } from "@/lib/admin-delivery-ops/delivery-operations-payload";
 import { fetchAdminDeliveryOperationsDeduped } from "@/lib/admin/fetch-admin-delivery-operations-deduped";
 import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
-import { formatMoneyPhp } from "@/lib/utils/format";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminManilaDateTime, rebucketUtcHoursToManila } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 const HEALTH_NOT_READY_KO = "운영 상태 기능이 아직 준비되지 않았습니다. 시스템 관리자에게 문의하세요.";
 const HEALTH_NOT_READY_EN = "The operations health feature is not ready yet. Contact a system admin.";
@@ -48,7 +50,7 @@ const QUEUE_META_KEYS: { key: string; titleKey: MessageKey }[] = [
 ];
 
 function fmtInt(n: number): string {
-  return Number.isFinite(n) ? Math.round(n).toLocaleString() : "0";
+  return Number.isFinite(n) ? formatAdminNumber(Math.round(n)) : "0";
 }
 
 function numMeta(v: unknown): number {
@@ -267,7 +269,7 @@ export function DeliveryOperationsDashboardPage() {
     return payload.charts.refunds_by_day.map((d) => ({
       label: d.date.slice(5).replace("-", "/"),
       value: d.amount,
-      hint: t("admin_del_ops_chart_hint_day_amount", { date: d.date, amount: formatMoneyPhp(d.amount) }),
+      hint: t("admin_del_ops_chart_hint_day_amount", { date: d.date, amount: formatAdminPhp(d.amount) }),
     }));
   }, [payload, t]);
 
@@ -276,7 +278,7 @@ export function DeliveryOperationsDashboardPage() {
     return payload.charts.platform_revenue_by_day.map((d) => ({
       label: d.date.slice(5).replace("-", "/"),
       value: d.amount,
-      hint: t("admin_del_ops_chart_hint_day_amount", { date: d.date, amount: formatMoneyPhp(d.amount) }),
+      hint: t("admin_del_ops_chart_hint_day_amount", { date: d.date, amount: formatAdminPhp(d.amount) }),
     }));
   }, [payload, t]);
 
@@ -304,12 +306,12 @@ export function DeliveryOperationsDashboardPage() {
     { labelKey: "admin_del_ops_kpi_unassigned", value: kpis ? fmtInt(kpis.unassigned_delivery_orders) : null },
     {
       labelKey: "admin_del_ops_kpi_revenue_today",
-      value: kpis?.platform_revenue_today != null ? formatMoneyPhp(kpis.platform_revenue_today) : null,
+      value: kpis?.platform_revenue_today != null ? formatAdminPhp(kpis.platform_revenue_today) : null,
     },
-    { labelKey: "admin_del_ops_kpi_refund_today", value: kpis ? formatMoneyPhp(kpis.refund_amount_today) : null },
+    { labelKey: "admin_del_ops_kpi_refund_today", value: kpis ? formatAdminPhp(kpis.refund_amount_today) : null },
     {
       labelKey: "admin_del_ops_kpi_settlement_today",
-      value: kpis?.settlement_pending_amount_today != null ? formatMoneyPhp(kpis.settlement_pending_amount_today) : null,
+      value: kpis?.settlement_pending_amount_today != null ? formatAdminPhp(kpis.settlement_pending_amount_today) : null,
     },
     { labelKey: "admin_del_ops_kpi_online_riders", value: kpis ? fmtInt(kpis.online_riders) : null },
   ];
@@ -358,7 +360,7 @@ export function DeliveryOperationsDashboardPage() {
               key={b}
               className={`rounded-ui-rect border px-3 py-2 sam-text-xxs ${
                 verdict === "danger"
-                  ? "border-red-500/30 bg-red-500/10 text-red-200"
+                  ? "border-sam-danger/30 bg-sam-danger-soft text-sam-danger"
                   : verdict === "warning"
                     ? "border-sam-warning/25 bg-sam-warning-soft text-sam-warning"
                     : "border-sam-border bg-sam-surface text-sam-muted"
@@ -378,7 +380,7 @@ export function DeliveryOperationsDashboardPage() {
               <span
                 className={`rounded-full px-2 py-0.5 font-medium ${
                   verdict === "danger"
-                    ? "bg-red-500/15 text-red-200"
+                    ? "bg-sam-danger-soft text-sam-danger"
                     : verdict === "warning"
                       ? "bg-sam-warning-soft text-sam-warning"
                       : "bg-sam-border/40 text-sam-fg"
@@ -459,9 +461,9 @@ export function DeliveryOperationsDashboardPage() {
         >
           <p className="font-medium">{t("admin_del_ops_load_failed_title")}</p>
           {lastError ? <p className="mt-1 text-sam-muted">{lastError}</p> : null}
-          <button type="button" onClick={() => load({ showLoading: true })} className="sam-btn sam-btn--outline sam-btn--sm mt-3">
+          <AdminActionButton type="button" onClick={() => load({ showLoading: true })} variant="secondary" size="sm" className="mt-3">
             {t("common_retry")}
-          </button>
+          </AdminActionButton>
         </div>
       )}
 
@@ -469,14 +471,14 @@ export function DeliveryOperationsDashboardPage() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="sam-text-helper text-sam-muted">{t("admin_del_ops_period_label")}</span>
           {DAY_OPTIONS.map((d) => (
-            <button
+            <AdminChipButton
               key={d}
               type="button"
               onClick={() => setDays(d)}
-              className={`sam-btn sam-btn--sm ${days === d ? "sam-btn--primary" : "sam-btn--outline"}`}
+              selected={days === d}
             >
               {t("admin_del_ops_days", { days: d })}
-            </button>
+            </AdminChipButton>
           ))}
         </div>
         <div className="flex items-center gap-2">
@@ -485,14 +487,14 @@ export function DeliveryOperationsDashboardPage() {
               {t("admin_r4d_generated_at", { at: formatAdminManilaDateTime(payload.generated_at) })}
             </span>
           ) : null}
-          <button
+          <AdminActionButton
             type="button"
             onClick={() => load({ showLoading: true })}
-            className="sam-btn sam-btn--outline sam-btn--sm"
+            variant="secondary" size="sm"
             disabled={loading}
           >
             {t("admin_do_common_refresh")}
-          </button>
+          </AdminActionButton>
         </div>
       </div>
 
@@ -553,14 +555,14 @@ export function DeliveryOperationsDashboardPage() {
             <h3 className="mb-3 sam-text-body font-medium text-sam-fg">{t("admin_del_ops_chart_refunds")}</h3>
             <MiniBarList
               rows={loading && !payload ? CHART_SKELETON_ROWS : refundDayBars}
-              valueFmt={(n) => formatMoneyPhp(n)}
+              valueFmt={(n) => formatAdminPhp(n)}
             />
           </div>
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
             <h3 className="mb-3 sam-text-body font-medium text-sam-fg">{t("admin_del_ops_chart_revenue")}</h3>
             <MiniBarList
               rows={loading && !payload ? CHART_SKELETON_ROWS : revenueDayBars}
-              valueFmt={(n) => formatMoneyPhp(n)}
+              valueFmt={(n) => formatAdminPhp(n)}
             />
           </div>
         </div>
@@ -603,8 +605,8 @@ export function DeliveryOperationsDashboardPage() {
                   <td className="py-2 pr-3 tabular-nums">{rate(bad, orders)}</td>
                   <td className="py-2 pr-3 tabular-nums">{rate(refunds, orders)}</td>
                   <td className="py-2 pr-3 tabular-nums">{fmtInt(sla)}</td>
-                  <td className="py-2 pr-3 tabular-nums">{formatMoneyPhp(gross)}</td>
-                  <td className="py-2 tabular-nums">{formatMoneyPhp(fees)}</td>
+                  <td className="py-2 pr-3 tabular-nums">{formatAdminPhp(gross)}</td>
+                  <td className="py-2 tabular-nums">{formatAdminPhp(fees)}</td>
                 </tr>
               );
             })}
@@ -636,7 +638,7 @@ export function DeliveryOperationsDashboardPage() {
                 <td className="py-2 pr-3 font-medium text-sam-fg">{String(row.region_key ?? "")}</td>
                 <td className="py-2 pr-3 tabular-nums">{fmtInt(Number(row.orders ?? 0))}</td>
                 <td className="py-2 pr-3 tabular-nums">{fmtInt(Number(row.sla_flags ?? 0))}</td>
-                <td className="py-2 tabular-nums">{formatMoneyPhp(Number(row.gross ?? 0))}</td>
+                <td className="py-2 tabular-nums">{formatAdminPhp(Number(row.gross ?? 0))}</td>
               </tr>
             ))}
             {!loading && (payload?.charts.top_regions.length ?? 0) === 0 ? (

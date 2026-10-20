@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -30,6 +31,8 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { getDeliveryMetricDefinition } from "@/lib/admin/metrics/delivery-metrics";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 /** API 응답에서 운영자 오류 코드만 추출 (원시 HTTP 상태·메시지 노출 금지). */
 function apiErrorCode(status: number, j: unknown, fallback: string): string {
@@ -98,7 +101,7 @@ const SEVERITY_KEYS: Record<PriorityInfo["severity"], MessageKey> = {
 
 function fmtInt(v: unknown): string {
   const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? Math.round(n).toLocaleString() : "0";
+  return Number.isFinite(n) ? formatAdminNumber(Math.round(n)) : "0";
 }
 
 function getQueueCount(p: DeliveryOperationsPayload | null, keys: string[]): number {
@@ -271,7 +274,7 @@ function PrevAdminNote({ ko, prev }: { ko: boolean; prev: PrevNoteState }) {
       {prev.state === "loading" ? (
         <div className="mt-1">{ko ? "불러오는 중…" : "Loading…"}</div>
       ) : prev.state === "error" ? (
-        <div className="mt-1 text-red-700">
+        <div className="mt-1 text-sam-danger">
           {ko
             ? "기존 메모를 불러오지 못했습니다. 메모를 덮어쓰지 않도록 새 메모 저장은 막혀 있습니다."
             : "Could not load the existing note. Adding a note is disabled so it is not overwritten."}
@@ -666,7 +669,7 @@ export function AdminOpsConsolePage() {
           <div className="min-w-0 flex-1">
             <AdminPageHeader
               titleKey="admin_menu_delivery_ops_console"
-              titleClassName="text-lg font-semibold text-sam-fg truncate !mb-0"
+              titleClassName="text-[16px] font-semibold text-sam-fg truncate !mb-0"
             />
             <p className="text-xs text-sam-muted -mt-1">{t("admin_r4d_console_subtitle")}</p>
             <div className="mt-1 flex flex-wrap gap-x-3 text-xs">
@@ -681,9 +684,9 @@ export function AdminOpsConsolePage() {
               </Link>
             </div>
           </div>
-          <button className={Sam.btn.secondary} disabled={busy} onClick={() => void load()} type="button">
+          <AdminActionButton variant="secondary" disabled={busy} onClick={() => void load()} type="button">
             {t("admin_ops_console_btn_refresh")}
-          </button>
+          </AdminActionButton>
         </div>
       </div>
 
@@ -699,11 +702,11 @@ export function AdminOpsConsolePage() {
         ) : null}
 
         {runtimeWarnings.length ? (
-          <div className={`${Sam.card.base} ${Sam.card.pad} border border-amber-300`}>
-            <div className="font-medium text-amber-800">
+          <div className={`${Sam.card.base} ${Sam.card.pad} border border-sam-warning`}>
+            <div className="font-medium text-sam-warning">
               {ko ? "운영 알림 (설정 불일치)" : t("admin_ops_console_runtime_warning_title")}
             </div>
-            <ul className="mt-2 space-y-1 text-sm text-amber-900">
+            <ul className="mt-2 space-y-1 text-sm text-sam-warning">
               {runtimeWarnings.slice(0, 6).map((w) => (
                 <li key={w.code}>{w.message}</li>
               ))}
@@ -717,7 +720,7 @@ export function AdminOpsConsolePage() {
             const body = (
               <>
                 <div className="text-xs text-sam-muted">{t(c.labelKey)}</div>
-                <div className="text-lg font-semibold text-sam-fg">{c.value}</div>
+                <div className="text-[16px] font-semibold text-sam-fg">{c.value}</div>
               </>
             );
             return c.href ? (
@@ -740,15 +743,15 @@ export function AdminOpsConsolePage() {
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               {QUICK_RECOVERY.map((b) => (
-                <button
+                <AdminActionButton
                   key={b.action}
-                  className={Sam.btn.secondary}
+                  variant="secondary"
                   disabled={busy || !!actionBusyKey || !!modal}
                   onClick={() => void runRecovery(b.action, t(b.labelKey))}
                   type="button"
                 >
                   {t(b.labelKey)}
-                </button>
+                </AdminActionButton>
               ))}
             </div>
           </div>
@@ -780,39 +783,39 @@ export function AdminOpsConsolePage() {
 
           <div className="mt-3 flex flex-wrap gap-2">
             {TABS.map((d) => (
-              <button
+              <AdminChipButton
                 key={d.key}
                 type="button"
-                className={tab === d.key ? Sam.btn.primary : Sam.btn.secondary}
+                selected={tab === d.key}
                 onClick={() => setTab(d.key)}
               >
                 {t(d.labelKey)} ({fmtInt(tabCounts[d.key] ?? 0)})
-              </button>
+              </AdminChipButton>
             ))}
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <div className="text-xs text-sam-muted">{t("admin_ops_console_focus_label")}</div>
             {(["all", "critical", "sla", "rider_issues", "settlements", "refund", "attention", "mine"] as const).map((k) => (
-              <button
+              <AdminChipButton
                 key={k}
                 type="button"
-                className={focus === k ? Sam.btn.primary : Sam.btn.secondary}
+                selected={focus === k}
                 onClick={() => setFocus(k)}
               >
                 {focusLabel(k)}
-              </button>
+              </AdminChipButton>
             ))}
             <div className="ml-2 text-xs text-sam-muted">{t("admin_ops_console_group_label")}</div>
             {(["none", "store", "rider", "region"] as const).map((g) => (
-              <button
+              <AdminChipButton
                 key={g}
                 type="button"
-                className={groupMode === g ? Sam.btn.primary : Sam.btn.secondary}
+                selected={groupMode === g}
                 onClick={() => setGroupMode(g)}
               >
                 {groupLabel(g)}
-              </button>
+              </AdminChipButton>
             ))}
             <div className="ml-auto text-xs text-sam-muted">{t("admin_ops_console_sort_hint")}</div>
           </div>
@@ -845,9 +848,11 @@ export function AdminOpsConsolePage() {
                     const headerRow = (
                       <tr key={`group:${g.key}`} className="border-t border-sam-border bg-sam-surface-muted/40">
                         <td colSpan={7} className="px-3 py-2">
-                          <button
-                            type="button"
-                            className="flex items-center gap-2 text-sm text-sam-fg"
+                          <AdminActionButton
+                            variant="quiet"
+                            size="sm"
+                            className="!px-0 !gap-2 !font-normal !text-sam-fg"
+                            aria-expanded={!isCollapsed}
                             onClick={() => toggleCollapsed(g.key)}
                           >
                             <span className="font-medium">{isCollapsed ? "▶" : "▼"}</span>
@@ -859,7 +864,7 @@ export function AdminOpsConsolePage() {
                             {low ? (
                               <span className="ml-2 text-xs text-sam-muted">{t("admin_ops_console_low_auto_collapse")}</span>
                             ) : null}
-                          </button>
+                          </AdminActionButton>
                         </td>
                       </tr>
                     );
@@ -874,9 +879,9 @@ export function AdminOpsConsolePage() {
                       const riderId = field(row, "rider_id", "riderId");
                       const sevClass =
                         pr.severity === "critical"
-                          ? "text-red-700"
+                          ? "text-sam-danger"
                           : pr.severity === "high"
-                            ? "text-amber-800"
+                            ? "text-sam-warning"
                             : pr.severity === "medium"
                               ? "text-sam-fg"
                               : "text-sam-muted";
@@ -898,8 +903,8 @@ export function AdminOpsConsolePage() {
                           <td className="px-3 py-2">
                             <div className="flex flex-wrap gap-2">
                               {oid ? (
-                                <button
-                                  className={Sam.btn.secondary}
+                                <AdminActionButton
+                                  variant="secondary"
                                   disabled={!!actionBusyKey || !!modal}
                                   onClick={() =>
                                     setModal({ kind: "order_attention", orderId: oid, adminNote: "", prev: { state: "loading" } })
@@ -907,20 +912,20 @@ export function AdminOpsConsolePage() {
                                   type="button"
                                 >
                                   {ko ? "주의 표시" : t("admin_ops_console_btn_attention")}
-                                </button>
+                                </AdminActionButton>
                               ) : null}
                               {oid && tab === "riders" ? (
                                 <>
-                                  <button
-                                    className={Sam.btn.secondary}
+                                  <AdminActionButton
+                                    variant="secondary"
                                     disabled={!!actionBusyKey || !!modal}
                                     onClick={() => setModal({ kind: "rider_release", orderId: oid, failureReason: "" })}
                                     type="button"
                                   >
                                     {ko ? "배정 해제" : t("admin_ops_console_btn_release")}
-                                  </button>
-                                  <button
-                                    className={Sam.btn.primary}
+                                  </AdminActionButton>
+                                  <AdminActionButton
+                                    variant="primary"
                                     disabled={!!actionBusyKey || !!modal}
                                     onClick={() =>
                                       setModal({
@@ -937,7 +942,7 @@ export function AdminOpsConsolePage() {
                                     type="button"
                                   >
                                     {ko ? "라이더 재배정" : t("admin_ops_console_btn_reassign")}
-                                  </button>
+                                  </AdminActionButton>
                                 </>
                               ) : null}
                               {!oid && tab === "riders" ? (
@@ -994,11 +999,11 @@ export function AdminOpsConsolePage() {
               rows={4}
             />
             <div className="mt-3 flex justify-end gap-2">
-              <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
+              <AdminActionButton variant="secondary" disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
                 {t("admin_ops_console_btn_cancel")}
-              </button>
-              <button
-                className={Sam.btn.primary}
+              </AdminActionButton>
+              <AdminActionButton
+                variant="primary"
                 disabled={!!actionBusyKey || modal.prev.state !== "ready"}
                 onClick={() =>
                   void execAction(`attention:${modal.orderId}`, t("admin_r4d_attention_done"), async () => {
@@ -1015,7 +1020,7 @@ export function AdminOpsConsolePage() {
                 type="button"
               >
                 {ko ? "주의 표시" : t("admin_ops_console_btn_apply")}
-              </button>
+              </AdminActionButton>
             </div>
           </ModalShell>
         ) : modal.kind === "rider_release" ? (
@@ -1028,11 +1033,11 @@ export function AdminOpsConsolePage() {
               onChange={(e) => setModal({ ...modal, failureReason: e.target.value })}
             />
             <div className="mt-3 flex justify-end gap-2">
-              <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
+              <AdminActionButton variant="secondary" disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
                 {t("admin_ops_console_btn_cancel")}
-              </button>
-              <button
-                className={Sam.btn.primary}
+              </AdminActionButton>
+              <AdminActionButton
+                variant="primary"
                 disabled={!!actionBusyKey}
                 onClick={() =>
                   void execAction(`release:${modal.orderId}`, t("admin_r4d_release_done"), () =>
@@ -1046,7 +1051,7 @@ export function AdminOpsConsolePage() {
                 type="button"
               >
                 {ko ? "배정 해제" : t("admin_ops_console_btn_release")}
-              </button>
+              </AdminActionButton>
             </div>
           </ModalShell>
         ) : (
@@ -1071,7 +1076,7 @@ export function AdminOpsConsolePage() {
                 {t("admin_ops_console_allow_offline_assign")}
               </label>
               {riderOptionsErr ? (
-                <div className="text-sm text-red-700">
+                <div className="text-sm text-sam-danger">
                   {t("admin_ops_console_rider_load_failed", { error: adminOperatorErrorMessage(riderOptionsErr, ko) })}
                 </div>
               ) : riderOptions == null ? (
@@ -1100,10 +1105,10 @@ export function AdminOpsConsolePage() {
                 </select>
               )}
               {modal.selectedRiderId && modal.currentRiderId && modal.selectedRiderId === modal.currentRiderId ? (
-                <div className="text-sm text-amber-800">{t("admin_ops_console_rider_same_warning")}</div>
+                <div className="text-sm text-sam-warning">{t("admin_ops_console_rider_same_warning")}</div>
               ) : null}
               {modal.selectedRiderId && !modal.allowOffline && riderOptions?.find((x) => x.id === modal.selectedRiderId && !x.is_online) ? (
-                <div className="text-sm text-amber-800">{t("admin_ops_console_rider_offline_warning")}</div>
+                <div className="text-sm text-sam-warning">{t("admin_ops_console_rider_offline_warning")}</div>
               ) : null}
               <PrevAdminNote ko={ko} prev={modal.prev} />
               <textarea
@@ -1115,11 +1120,11 @@ export function AdminOpsConsolePage() {
               />
             </div>
             <div className="mt-3 flex justify-end gap-2">
-              <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
+              <AdminActionButton variant="secondary" disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
                 {t("admin_ops_console_btn_cancel")}
-              </button>
-              <button
-                className={Sam.btn.primary}
+              </AdminActionButton>
+              <AdminActionButton
+                variant="primary"
                 disabled={
                   !!actionBusyKey ||
                   safeTrim(modal.selectedRiderId).length === 0 ||
@@ -1151,7 +1156,7 @@ export function AdminOpsConsolePage() {
                 type="button"
               >
                 {ko ? "라이더 재배정" : t("admin_ops_console_btn_reassign")}
-              </button>
+              </AdminActionButton>
             </div>
           </ModalShell>
         )

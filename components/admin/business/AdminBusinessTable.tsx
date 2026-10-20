@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { forwardRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import {
   businessOpsOpenLabelKey,
   businessOpsSettlementLabelKey,
@@ -12,29 +13,28 @@ import {
 import type { AdminBusinessListOpsRow } from "@/lib/admin-business/load-admin-business-list";
 import { businessCcOwnerMemberHref } from "@/lib/admin-business/business-control-center-links";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
-import { formatMoneyPhp } from "@/lib/utils/format";
 
 function openBadgeClass(kind: BusinessOpsOpenKind): string {
   switch (kind) {
     case "open":
-      return "bg-emerald-500 text-white border-emerald-500";
+      return "bg-sam-success text-white border-sam-success";
     case "break":
-      return "bg-amber-500 text-white border-amber-500";
+      return "bg-sam-warning text-white border-sam-warning";
     case "temp_closed":
-      return "bg-orange-500 text-white border-orange-500";
+      return "bg-sam-warning text-white border-sam-warning";
     default:
-      return "bg-slate-400 text-white border-slate-400";
+      return "bg-sam-muted text-white border-sam-border";
   }
 }
 
 function settleBadgeClass(kind: BusinessOpsSettlementKind): string {
   switch (kind) {
     case "held":
-      return "bg-red-50 text-red-800 border-red-200";
+      return "bg-sam-danger-soft text-sam-danger border-sam-danger";
     case "needs_check":
-      return "bg-amber-50 text-amber-900 border-amber-200";
+      return "bg-sam-warning-soft text-sam-warning border-sam-warning";
     default:
-      return "bg-emerald-50 text-emerald-800 border-emerald-200";
+      return "bg-sam-success-soft text-sam-success border-sam-success";
   }
 }
 
@@ -64,7 +64,7 @@ function StoreThumb({ url }: { url: string | null }) {
     );
   }
   return (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface-muted text-[11px] text-sam-muted">
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface-muted text-[12px] text-sam-muted">
       —
     </div>
   );
@@ -127,14 +127,14 @@ export const AdminBusinessTable = forwardRef<
               <StoreCell r={r} returnTo={returnTo} />
               <div className="mt-3 flex flex-wrap gap-1.5">
                 <span
-                  className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${openBadgeClass(
+                  className={`rounded-full border px-2 py-0.5 text-[12px] font-semibold ${openBadgeClass(
                     r.openKind
                   )}`}
                 >
                   {t(businessOpsOpenLabelKey(r.openKind))}
                 </span>
                 {r.hoursLabel ? (
-                  <span className="rounded-full border border-sam-border px-2 py-0.5 text-[11px] text-sam-muted">
+                  <span className="rounded-full border border-sam-border px-2 py-0.5 text-[12px] text-sam-muted">
                     {r.hoursLabel}
                   </span>
                 ) : null}
@@ -145,7 +145,7 @@ export const AdminBusinessTable = forwardRef<
                   <div className="truncate font-medium tabular-nums">
                     {t("admin_biz_ops_today_n", { n: String(r.todayOrderCount) })}
                     {r.todaySalesAmount > 0 ? (
-                      <span className="text-sam-muted"> · {formatMoneyPhp(r.todaySalesAmount)}</span>
+                      <span className="text-sam-muted"> · {formatAdminPhp(r.todaySalesAmount)}</span>
                     ) : null}
                   </div>
                 </div>
@@ -154,7 +154,7 @@ export const AdminBusinessTable = forwardRef<
                   <div className="truncate font-medium tabular-nums">
                     {r.pointBalance == null
                       ? "—"
-                      : t("admin_biz_ops_credit_n", { n: r.pointBalance.toLocaleString() })}
+                      : t("admin_biz_ops_credit_n", { n: formatAdminNumber(r.pointBalance) })}
                   </div>
                 </div>
               </div>
@@ -182,7 +182,7 @@ export const AdminBusinessTable = forwardRef<
       {/* w-max: never compress columns on resize — parent scrolls horizontally instead */}
       <table className="w-max min-w-[1320px] border-collapse sam-text-body">
         <thead>
-          <tr className="border-b border-sam-border bg-slate-50">
+          <tr className="border-b border-sam-border bg-sam-surface-muted">
             <th className={TH}>{t("admin_biz_ops_th_store")}</th>
             <th className={TH}>{t("admin_biz_ops_th_owner")}</th>
             <th className={TH}>{t("admin_biz_ops_th_open")}</th>
@@ -200,7 +200,7 @@ export const AdminBusinessTable = forwardRef<
           {rows.map((r) => {
             const detailHref = businessDetailHref(r.id, returnTo);
             return (
-              <tr key={r.id} className="border-b border-sam-border-soft hover:bg-slate-50/80">
+              <tr key={r.id} className="border-b border-sam-border-soft hover:bg-sam-surface-muted/80">
                 <td className={TD}>
                   <StoreCell r={r} returnTo={returnTo} />
                 </td>
@@ -213,33 +213,33 @@ export const AdminBusinessTable = forwardRef<
                       {r.owner.label}
                     </Link>
                   ) : (
-                    <span className="text-amber-800">{t("admin_biz_ops_owner_missing")}</span>
+                    <span className="text-sam-warning">{t("admin_biz_ops_owner_missing")}</span>
                   )}
                 </td>
                 <td className={TD}>
                   <div className="space-y-1">
                     <span
-                      className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${openBadgeClass(
+                      className={`inline-flex rounded-full border px-2.5 py-0.5 text-[12px] font-semibold ${openBadgeClass(
                         r.openKind
                       )}`}
                     >
                       {t(businessOpsOpenLabelKey(r.openKind))}
                     </span>
                     {r.hoursLabel ? (
-                      <div className="text-[11px] tabular-nums text-sam-muted">{r.hoursLabel}</div>
+                      <div className="text-[12px] tabular-nums text-sam-muted">{r.hoursLabel}</div>
                     ) : null}
                   </div>
                 </td>
                 <td className={TD}>
                   <div className="text-[12px] leading-5">
-                    <div className="font-medium text-sky-700">
+                    <div className="font-medium text-sam-info">
                       {t("admin_biz_ops_in_progress_n", { n: String(r.inProgressOrderCount) })}
                       {" / "}
-                      <span className="text-emerald-700">
+                      <span className="text-sam-success">
                         {t("admin_biz_ops_delivering_n", { n: String(r.deliveringOrderCount) })}
                       </span>
                     </div>
-                    <div className={r.orderable ? "text-emerald-700" : "text-red-600"}>
+                    <div className={r.orderable ? "text-sam-success" : "text-sam-danger"}>
                       {r.orderable
                         ? t("admin_biz_ops_orderable_yes")
                         : t("admin_biz_ops_orderable_no")}
@@ -247,9 +247,9 @@ export const AdminBusinessTable = forwardRef<
                     <div
                       className={
                         r.deliveryAvailable === true
-                          ? "text-emerald-700"
+                          ? "text-sam-success"
                           : r.deliveryAvailable === false
-                            ? "text-red-600"
+                            ? "text-sam-danger"
                             : "text-sam-muted"
                       }
                     >
@@ -266,17 +266,17 @@ export const AdminBusinessTable = forwardRef<
                     {t("admin_biz_ops_today_n", { n: String(r.todayOrderCount) })}
                   </div>
                   <div className="text-[12px] text-sam-muted">
-                    {r.todaySalesAmount > 0 ? formatMoneyPhp(r.todaySalesAmount) : "—"}
+                    {r.todaySalesAmount > 0 ? formatAdminPhp(r.todaySalesAmount) : "—"}
                   </div>
                 </td>
                 <td className={`${TD} font-semibold tabular-nums`}>
                   {r.pointBalance == null
                     ? "—"
-                    : t("admin_biz_ops_credit_n", { n: r.pointBalance.toLocaleString() })}
+                    : t("admin_biz_ops_credit_n", { n: formatAdminNumber(r.pointBalance) })}
                 </td>
                 <td className={TD}>
                   <span
-                    className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${settleBadgeClass(
+                    className={`inline-flex rounded-full border px-2.5 py-0.5 text-[12px] font-semibold ${settleBadgeClass(
                       r.settlementKind
                     )}`}
                   >
@@ -290,7 +290,7 @@ export const AdminBusinessTable = forwardRef<
                 </td>
                 <td
                   className={`${TD} tabular-nums font-semibold ${
-                    r.openReportCount > 0 ? "text-red-600" : "text-sam-muted"
+                    r.openReportCount > 0 ? "text-sam-danger" : "text-sam-muted"
                   }`}
                 >
                   {r.openReportCount}

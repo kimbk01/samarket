@@ -95,7 +95,7 @@ export function DeliveryAlertLogTimeline({ eventId }: { eventId: string }) {
           </div>
           {log.note ? <p className="mt-1 whitespace-pre-wrap text-sam-fg">{log.note}</p> : null}
           {log.metadata && Object.keys(log.metadata).length > 0 ? (
-            <pre className="mt-1 max-h-24 overflow-auto rounded bg-sam-surface-muted/50 p-2 font-mono text-[10px] text-sam-muted">
+            <pre className="mt-1 max-h-24 overflow-auto rounded bg-sam-surface-muted/50 p-2 font-mono text-[12px] text-sam-muted">
               {JSON.stringify(log.metadata)}
             </pre>
           ) : null}
