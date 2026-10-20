@@ -1,0 +1,349 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`mypage home menu order — snapshot per role > admin (admin row last, after danger) 1`] = `
+[
+  {
+    "group": "identity",
+    "rows": [
+      "profile",
+      "manner",
+      "required_info(incomplete only)",
+      "banner",
+    ],
+  },
+  {
+    "group": "activity",
+    "rows": [
+      "mypage_comp_menu_trade_active_title",
+      "mypage_home_menu_trade_chat",
+      "mypage_comp_menu_trade_favorites_title",
+      "mypage_home_menu_offers",
+      "mypage_hub_recent_viewed",
+      "mypage_comp_nav_sec_trade_reviews_label",
+      "mypage_comp_menu_community_posts_title",
+      "mypage_home_menu_community_activity",
+    ],
+  },
+  {
+    "group": "store_order",
+    "rows": [
+      "mypage_hub_store_apply",
+      "mypage_comp_menu_store_order_history_title",
+      "mypage_comp_menu_store_rider_title",
+      "mypage_store_inquiries_title",
+    ],
+  },
+  {
+    "group": "assets",
+    "rows": [
+      "mypage_comp_stat_points",
+      "store_coupon_wallet_title",
+      "commerce_hub_tab_gifts",
+      "mypage_comp_business_ads",
+      "points_charge",
+      "route_benefits_title",
+    ],
+  },
+  {
+    "group": "account",
+    "rows": [
+      "mypage_settings_account",
+      "mypage_comp_menu_account_address_title",
+      "mypage_comp_menu_account_payment_title",
+      "mypage_comp_menu_account_security_title",
+      "mypage_comp_menu_account_notifications_title",
+      "kind:language-toggle",
+    ],
+  },
+  {
+    "group": "service",
+    "rows": [
+      "settings_following_users",
+      "settings_blocked_users",
+      "settings_hidden_users",
+      "settings_bulk_region_change",
+      "settings_chat",
+      "settings_cache_clear",
+      "settings_version",
+    ],
+  },
+  {
+    "group": "support",
+    "rows": [
+      "mypage_comp_menu_support_cs_title",
+    ],
+  },
+  {
+    "group": "policy",
+    "rows": [
+      "mypage_comp_menu_support_terms_title",
+      "mypage_comp_settings_privacy_link",
+      "mypage_comp_menu_support_business_title",
+    ],
+  },
+  {
+    "group": "danger",
+    "rows": [
+      "settings_leave",
+      "logout(menu_row)",
+    ],
+  },
+  {
+    "group": "admin",
+    "rows": [
+      "admin_console",
+    ],
+  },
+]
+`;
+
+exports[`mypage home menu order — snapshot per role > guest 1`] = `
+[
+  {
+    "group": "identity",
+    "rows": [
+      "guest_profile_card",
+    ],
+  },
+  {
+    "group": "guest_stats",
+    "rows": [
+      "guest_stat_grid",
+    ],
+  },
+  {
+    "group": "guest_quick",
+    "rows": [
+      "guest_quick_access",
+    ],
+  },
+  {
+    "group": "store_order",
+    "rows": [
+      "mypage_hub_store_apply",
+      "mypage_comp_menu_store_order_history_title",
+      "mypage_comp_menu_store_rider_title",
+      "mypage_store_inquiries_title",
+    ],
+  },
+  {
+    "group": "account",
+    "rows": [
+      "mypage_settings_account",
+      "mypage_comp_menu_account_address_title",
+      "mypage_comp_menu_account_payment_title",
+      "mypage_comp_menu_account_security_title",
+      "mypage_comp_menu_account_notifications_title",
+      "kind:language-toggle",
+    ],
+  },
+  {
+    "group": "service",
+    "rows": [
+      "settings_following_users",
+      "settings_blocked_users",
+      "settings_hidden_users",
+      "settings_bulk_region_change",
+      "settings_chat",
+      "settings_cache_clear",
+      "settings_version",
+    ],
+  },
+  {
+    "group": "support",
+    "rows": [
+      "mypage_comp_menu_support_cs_title",
+    ],
+  },
+  {
+    "group": "policy",
+    "rows": [
+      "mypage_comp_menu_support_terms_title",
+      "mypage_comp_settings_privacy_link",
+      "mypage_comp_menu_support_business_title",
+    ],
+  },
+]
+`;
+
+exports[`mypage home menu order — snapshot per role > member 1`] = `
+[
+  {
+    "group": "identity",
+    "rows": [
+      "profile",
+      "manner",
+      "required_info(incomplete only)",
+      "banner",
+    ],
+  },
+  {
+    "group": "activity",
+    "rows": [
+      "mypage_comp_menu_trade_active_title",
+      "mypage_home_menu_trade_chat",
+      "mypage_comp_menu_trade_favorites_title",
+      "mypage_home_menu_offers",
+      "mypage_hub_recent_viewed",
+      "mypage_comp_nav_sec_trade_reviews_label",
+      "mypage_comp_menu_community_posts_title",
+      "mypage_home_menu_community_activity",
+    ],
+  },
+  {
+    "group": "store_order",
+    "rows": [
+      "mypage_hub_store_apply",
+      "mypage_comp_menu_store_order_history_title",
+      "mypage_comp_menu_store_rider_title",
+      "mypage_store_inquiries_title",
+    ],
+  },
+  {
+    "group": "assets",
+    "rows": [
+      "mypage_comp_stat_points",
+      "store_coupon_wallet_title",
+      "commerce_hub_tab_gifts",
+      "mypage_comp_business_ads",
+      "points_charge",
+      "route_benefits_title",
+    ],
+  },
+  {
+    "group": "account",
+    "rows": [
+      "mypage_settings_account",
+      "mypage_comp_menu_account_address_title",
+      "mypage_comp_menu_account_payment_title",
+      "mypage_comp_menu_account_security_title",
+      "mypage_comp_menu_account_notifications_title",
+      "kind:language-toggle",
+    ],
+  },
+  {
+    "group": "service",
+    "rows": [
+      "settings_following_users",
+      "settings_blocked_users",
+      "settings_hidden_users",
+      "settings_bulk_region_change",
+      "settings_chat",
+      "settings_cache_clear",
+      "settings_version",
+    ],
+  },
+  {
+    "group": "support",
+    "rows": [
+      "mypage_comp_menu_support_cs_title",
+    ],
+  },
+  {
+    "group": "policy",
+    "rows": [
+      "mypage_comp_menu_support_terms_title",
+      "mypage_comp_settings_privacy_link",
+      "mypage_comp_menu_support_business_title",
+    ],
+  },
+  {
+    "group": "danger",
+    "rows": [
+      "settings_leave",
+      "logout(menu_row)",
+    ],
+  },
+]
+`;
+
+exports[`mypage home menu order — snapshot per role > owner (approved store → first store row = store enter) 1`] = `
+[
+  {
+    "group": "identity",
+    "rows": [
+      "profile",
+      "manner",
+      "required_info(incomplete only)",
+      "banner",
+    ],
+  },
+  {
+    "group": "activity",
+    "rows": [
+      "mypage_comp_menu_trade_active_title",
+      "mypage_home_menu_trade_chat",
+      "mypage_comp_menu_trade_favorites_title",
+      "mypage_home_menu_offers",
+      "mypage_hub_recent_viewed",
+      "mypage_comp_nav_sec_trade_reviews_label",
+      "mypage_comp_menu_community_posts_title",
+      "mypage_home_menu_community_activity",
+    ],
+  },
+  {
+    "group": "store_order",
+    "rows": [
+      "mypage_comp_menu_store_enter_title",
+      "mypage_comp_menu_store_order_history_title",
+      "mypage_comp_menu_store_rider_title",
+      "mypage_store_inquiries_title",
+    ],
+  },
+  {
+    "group": "assets",
+    "rows": [
+      "mypage_comp_stat_points",
+      "store_coupon_wallet_title",
+      "commerce_hub_tab_gifts",
+      "mypage_comp_business_ads",
+      "points_charge",
+      "route_benefits_title",
+    ],
+  },
+  {
+    "group": "account",
+    "rows": [
+      "mypage_settings_account",
+      "mypage_comp_menu_account_address_title",
+      "mypage_comp_menu_account_payment_title",
+      "mypage_comp_menu_account_security_title",
+      "mypage_comp_menu_account_notifications_title",
+      "kind:language-toggle",
+    ],
+  },
+  {
+    "group": "service",
+    "rows": [
+      "settings_following_users",
+      "settings_blocked_users",
+      "settings_hidden_users",
+      "settings_bulk_region_change",
+      "settings_chat",
+      "settings_cache_clear",
+      "settings_version",
+    ],
+  },
+  {
+    "group": "support",
+    "rows": [
+      "mypage_comp_menu_support_cs_title",
+    ],
+  },
+  {
+    "group": "policy",
+    "rows": [
+      "mypage_comp_menu_support_terms_title",
+      "mypage_comp_settings_privacy_link",
+      "mypage_comp_menu_support_business_title",
+    ],
+  },
+  {
+    "group": "danger",
+    "rows": [
+      "settings_leave",
+      "logout(menu_row)",
+    ],
+  },
+]
+`;

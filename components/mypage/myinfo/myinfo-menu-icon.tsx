@@ -2,7 +2,13 @@
 
 import type { ReactNode } from "react";
 import {
+  BadgePercent,
   Bell,
+  Coins,
+  Gift,
+  Megaphone,
+  Ticket,
+  Wallet,
   BookOpen,
   Building2,
   CalendarDays,
@@ -121,6 +127,18 @@ export function renderMypageHomeMenuIcon(icon: MypageHomeMenuIconId): ReactNode 
       return <SlidersHorizontal className={ICON_CLASS} {...stroke} />;
     case "message-question":
       return <MessageCircleQuestion className={ICON_CLASS} {...stroke} />;
+    case "coins":
+      return <Coins className={ICON_CLASS} {...stroke} />;
+    case "ticket":
+      return <Ticket className={ICON_CLASS} {...stroke} />;
+    case "gift":
+      return <Gift className={ICON_CLASS} {...stroke} />;
+    case "megaphone":
+      return <Megaphone className={ICON_CLASS} {...stroke} />;
+    case "wallet":
+      return <Wallet className={ICON_CLASS} {...stroke} />;
+    case "badge-percent":
+      return <BadgePercent className={ICON_CLASS} {...stroke} />;
     default:
       return null;
   }

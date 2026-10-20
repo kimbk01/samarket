@@ -173,4 +173,112 @@ describe("mypage root network contract", () => {
     unsub();
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("verify-mypage-root-network-contract.cjs passes on this tree (K11)", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const out = execFileSync(process.execPath, ["scripts/verify-mypage-root-network-contract.cjs"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+    });
+    expect(out).toContain("[verify:mypage-root-network-contract] OK");
+  });
+
+  it("cold boot: RSC page awaits only the 2 tiny seeds — summary is never awaited on the server", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const page = fs.readFileSync(path.join(process.cwd(), "app/(main)/mypage/page.tsx"), "utf8");
+    expect(page).not.toMatch(/mypage-summary|loadMypageSummary/);
+    const model = fs.readFileSync(path.join(process.cwd(), "hooks/use-mypage-home-model.ts"), "utf8");
+    expect(model).not.toMatch(/mypage-summary|useMypageHomeSummary/);
+    const dash = fs.readFileSync(path.join(process.cwd(), "components/mypage/MyPageHomeDashboard.tsx"), "utf8");
+    expect(dash).toMatch(/useMypageHomeSummary\(/);
+    const asset = fs.readFileSync(path.join(process.cwd(), "components/mypage/home/MypagePointsAssetSummary.tsx"), "utf8");
+    expect(asset).not.toMatch(/useUserPointBalance/);
+    const banner = fs.readFileSync(path.join(process.cwd(), "components/mypage/home/MypageHomeCmsBanner.tsx"), "utf8");
+    expect(banner).not.toMatch(/\.from\(\s*["']my_page_banners|getSupabaseClient/);
+  });
+
+  it("summary client: parallel callers share one GET; re-entry within 30s = 0 requests", async () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("window", {
+      sessionStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+        key: (i: number) => [...store.keys()][i] ?? null,
+        get length() {
+          return store.size;
+        },
+      },
+      dispatchEvent: () => true,
+    });
+    let starts = 0;
+    fetchMock.mockImplementation(async () => {
+      starts += 1;
+      await new Promise((r) => setTimeout(r, 20));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          viewerId: "u1",
+          generatedAt: new Date().toISOString(),
+          fields: { favoritesCount: { status: "ok", value: 2 } },
+        }),
+      };
+    });
+    const mod = await import("@/lib/mypage/mypage-home-summary-client");
+    mod.__resetMypageHomeSummaryForTests();
+    // 첫 렌더 시드 — 스냅샷 없음 → loading(미니 스켈레톤), 네트워크 0
+    expect(mod.seedMypageHomeSummary("u1")?.loading).toBe(true);
+    expect(starts).toBe(0);
+    await Promise.all([mod.loadMypageHomeSummary("u1"), mod.loadMypageHomeSummary("u1"), mod.loadMypageHomeSummary("u1")]);
+    expect(starts).toBe(1);
+    expect(mod.getMypageHomeSummaryState()?.fields?.favoritesCount).toEqual({ status: "ok", value: 2 });
+    await mod.loadMypageHomeSummary("u1");
+    expect(starts).toBe(1);
+    // 재진입(메모리 비움) — 세션 스냅샷이 첫 렌더 값, 로딩 아님
+    mod.__resetMypageHomeSummaryForTests();
+    const seeded = mod.seedMypageHomeSummary("u1");
+    expect(seeded?.loading).toBe(false);
+    expect(seeded?.fields?.favoritesCount).toEqual({ status: "ok", value: 2 });
+    // 다른 viewer 의 스냅샷은 쓰지 않음
+    mod.__resetMypageHomeSummaryForTests();
+    expect(mod.seedMypageHomeSummary("u2")?.fields).toBeNull();
+  });
+
+  it("summary client: failure stays failure (no 0 / empty success cached)", async () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("window", {
+      sessionStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+        key: (i: number) => [...store.keys()][i] ?? null,
+        get length() {
+          return store.size;
+        },
+      },
+      dispatchEvent: () => true,
+    });
+    fetchMock.mockResolvedValue({ ok: false, status: 503, json: async () => ({ ok: false }) });
+    const mod = await import("@/lib/mypage/mypage-home-summary-client");
+    mod.__resetMypageHomeSummaryForTests();
+    await mod.loadMypageHomeSummary("u1");
+    const st = mod.getMypageHomeSummaryState();
+    expect(st?.failed).toBe(true);
+    expect(st?.fields).toBeNull();
+    expect(store.size).toBe(0);
+    // 실패 후 재진입은 재시도
+    expect(mod.shouldRevalidateMypageHomeSummary("u1")).toBe(true);
+    // 응답 viewer 불일치는 버림
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, viewerId: "other", fields: {} }),
+    });
+    await mod.loadMypageHomeSummary("u1", { force: true });
+    expect(mod.getMypageHomeSummaryState()?.fields).toBeNull();
+  });
 });
+

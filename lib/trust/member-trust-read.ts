@@ -14,6 +14,28 @@ export type MemberTrustRead = {
   source: "member_trust_snapshots" | "profiles.trust_score_bridge" | "neutral_default";
 };
 
+/**
+ * `member_trust_snapshots.manner_battery_percent` 원값(없거나 읽기 실패 = null).
+ * `/api/me/profile` 파이프라인이 `trust_score` 에 덮어쓰는 값과 내정보 요약 `trust` 가 같은 함수를 쓴다.
+ */
+export async function readMemberTrustSnapshotPercent(
+  sb: SupabaseClient<any>,
+  memberId: string
+): Promise<number | null> {
+  try {
+    const { data: snap } = await sb
+      .from("member_trust_snapshots")
+      .select("manner_battery_percent")
+      .eq("member_id", memberId)
+      .maybeSingle();
+    const pct = (snap as { manner_battery_percent?: number } | null)?.manner_battery_percent;
+    if (pct != null && Number.isFinite(Number(pct))) return Number(pct);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function readMemberMannerBattery(
   sb: SupabaseClient<any>,
   memberId: string

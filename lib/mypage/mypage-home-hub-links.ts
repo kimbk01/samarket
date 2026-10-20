@@ -3,6 +3,11 @@ import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 /** 거래 허브 — 구매·판매·찜·후기 상단 탭 */
 export const MYPAGE_HOME_TRADE_HUB_HREF = "/mypage/trade" as const;
 export const MYPAGE_HOME_TRADE_SALES_HREF = "/mypage/trade/sales" as const;
+/**
+ * 홈 「진행중 거래」 행 전용 — `/mypage/trade/sales` 서버 리다이렉트 왕복 없이 내 판매물품으로 직접(최종 설계 §2.1).
+ * `MYPAGE_HOME_TRADE_SALES_HREF` 값은 다른 사용처 때문에 그대로 둔다.
+ */
+export const MYPAGE_HOME_MY_PRODUCTS_HREF = "/mypage/products" as const;
 export const MYPAGE_HOME_TRADE_FAVORITES_HREF = MYPAGE_TRADE_FAVORITES_HREF;
 
 /** 스토어 주문 허브 */

@@ -17,6 +17,18 @@ import {
 
 export type MyInfoMenuTrailing = "chevron" | "value" | "badge" | "status" | "none";
 
+/** `MyRow` 오른쪽 값 상태 — loading = 작은 스켈레톤, empty = 값 자리 비움(부분 오류 포함) */
+export type MyInfoMenuValueState = "loading" | "ready" | "empty";
+
+export type MyInfoMenuBadge = { count: number; tone: "danger" | "primary" };
+
+/** 오른쪽 값 — 행 제목 15 / 값 14 보조색 (최종 설계 §1.1) */
+const MY_ROW_VALUE_CLASS = "text-[14px] font-medium leading-snug text-sam-muted";
+
+function formatBadgeCount(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}
+
 export function MyInfoMenuItem({
   title,
   href,
@@ -29,6 +41,10 @@ export function MyInfoMenuItem({
   armed = false,
   onNavigate,
   onPress,
+  value,
+  valueState = "ready",
+  badge,
+  testId,
 }: {
   title: string;
   /** @deprecated 설명 미표시 — 호환용 */
@@ -53,6 +69,16 @@ export function MyInfoMenuItem({
   onNavigate?: () => void;
   /** 비로그인 — Link 대신 탭 시 로그인 유도 */
   onPress?: () => void;
+  /**
+   * `MyRow` 오른쪽 값 — 지정하면 값과 chevron 을 **함께** 표시(`trailing="none"` 이면 chevron 숨김).
+   * 기존 `accessory`+`trailing` 동작은 그대로.
+   */
+  value?: ReactNode;
+  valueState?: MyInfoMenuValueState;
+  /** 숫자 뱃지 — 0 이하이면 숨김, 100 이상은 99+ */
+  badge?: MyInfoMenuBadge;
+  /** 계약 testid 보존(예: `mypage-revenue-hub-entry`) */
+  testId?: string;
 }) {
   const titleClass = tone === "danger" ? MYPAGE_HOME_DANGER_TEXT_CLASS : MYPAGE_HOME_MENU_TITLE_CLASS;
   const rowClass = [
@@ -63,13 +89,37 @@ export function MyInfoMenuItem({
   ]
     .filter(Boolean)
     .join(" ");
-  const showChevron = trailing === "chevron";
+  const usesValueSlot = value !== undefined || valueState !== "ready";
+  const showChevron = usesValueSlot ? trailing !== "none" : trailing === "chevron";
   const showAccessory = accessory != null && trailing !== "none";
+  const showBadge = badge != null && badge.count > 0;
 
   const inner = (
     <>
       {icon ? <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>{icon}</span> : null}
       <span className={`min-w-0 flex-1 ${titleClass}`}>{title}</span>
+      {usesValueSlot ? (
+        <span className={`shrink-0 tabular-nums ${MY_ROW_VALUE_CLASS}`} data-row-value={valueState}>
+          {valueState === "loading" ? (
+            <span
+              aria-hidden
+              className="block h-3.5 w-12 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse"
+            />
+          ) : valueState === "empty" ? null : (
+            value
+          )}
+        </span>
+      ) : null}
+      {showBadge && badge ? (
+        <span
+          data-row-badge={badge.tone}
+          className={`inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums text-sam-surface ${
+            badge.tone === "danger" ? "bg-sam-danger" : "bg-sam-primary"
+          }`}
+        >
+          {formatBadgeCount(badge.count)}
+        </span>
+      ) : null}
       {showAccessory ? (
         <span className={`shrink-0 tabular-nums ${MYPAGE_HOME_META_TEXT_CLASS}`} data-trailing={trailing}>
           {accessory}
@@ -81,7 +131,7 @@ export function MyInfoMenuItem({
 
   if (onPress) {
     return (
-      <button type="button" onClick={onPress} className={`${rowClass} w-full text-left`}>
+      <button type="button" onClick={onPress} className={`${rowClass} w-full text-left`} data-testid={testId}>
         {inner}
       </button>
     );
@@ -91,6 +141,7 @@ export function MyInfoMenuItem({
     <Link
       href={href}
       className={rowClass}
+      data-testid={testId}
       onClick={onNavigate ? () => onNavigate() : undefined}
     >
       {inner}

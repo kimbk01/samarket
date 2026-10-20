@@ -13,6 +13,7 @@ import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { resolveTrustScoreAuthority } from "@/lib/trust/trust-score-ssot";
+import { readMemberTrustSnapshotPercent } from "@/lib/trust/member-trust-read";
 import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 
 /** `runMeProfileReadPipeline` 단계별 벽시계(ms) — `[dev-api-perf]` 합산용 + `ensureUserProfile` 세부 */
@@ -218,19 +219,11 @@ export async function runMeProfileReadPipeline(args: {
   }
   profile = await attachCanonicalPrivilegedAdmin(profile, writeSb, authUserId);
   if (profile?.id) {
-    try {
-      const snapSb = tryCreateSupabaseServiceClient() ?? writeSb;
-      const { data: snap } = await snapSb
-        .from("member_trust_snapshots")
-        .select("manner_battery_percent")
-        .eq("member_id", profile.id)
-        .maybeSingle();
-      const pct = (snap as { manner_battery_percent?: number } | null)?.manner_battery_percent;
-      if (pct != null && Number.isFinite(Number(pct))) {
-        profile = { ...profile, trust_score: Number(pct) };
-      }
-    } catch {
-      /* snapshot unavailable — keep bridge trust_score */
+    const snapSb = tryCreateSupabaseServiceClient() ?? writeSb;
+    /* snapshot unavailable → null — keep bridge trust_score */
+    const pct = await readMemberTrustSnapshotPercent(snapSb as never, profile.id);
+    if (pct != null) {
+      profile = { ...profile, trust_score: pct };
     }
   }
   finalizePerf(profile);

@@ -376,6 +376,14 @@ export async function loadGiftWallet(
   };
 }
 
+/**
+ * 상품권 화면 「보유」 탭 = `wallet.available`(ACTIVE) + `wallet.locked`(GIFT_LOCKED).
+ * 요약 개수(`loadGiftWalletOverviewSummary.owned`·내정보 홈)도 같은 상태 집합만 센다.
+ */
+export function isGiftWalletOwnedStatus(status: string): boolean {
+  return status === "ACTIVE" || status === "GIFT_LOCKED";
+}
+
 export type GiftWalletOverviewSummary = {
   owned: number;
   receivedPending: number;
@@ -408,7 +416,7 @@ export async function loadGiftWalletOverviewSummary(
   let owned = 0;
   for (const raw of instRes.data ?? []) {
     const status = String((raw as { status?: string }).status ?? "");
-    if (status === "ACTIVE" || status === "GIFT_LOCKED") {
+    if (isGiftWalletOwnedStatus(status)) {
       owned += 1;
     }
   }

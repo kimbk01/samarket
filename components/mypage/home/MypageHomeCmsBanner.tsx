@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { MyTopBanner } from "@/components/my/MyTopBanner";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { MY_PAGE_BANNERS_SELECT } from "@/lib/my/mypage-tables-select";
 import type { MyPageBannerRow } from "@/lib/my/types";
 import {
   isMypageBannerDismissed,
@@ -11,42 +9,24 @@ import {
 } from "@/lib/mypage/mypage-banner-dismissed";
 
 /**
- * 내정보 홈 CMS 배너 (v2.1 PR-2c · §6) — 관리자 `my_page_banners` 활성 1건을 프로필 아래에 표시.
- * 첫 화면을 기다리게 하지 않도록 마운트 후 조회하고, 배너가 없으면 자리를 만들지 않는다.
+ * 내정보 홈 CMS 배너 (v2.1 PR-2c · §6 · 최종 설계 H0 1-b) — 관리자 `my_page_banners` 활성 1건을
+ * 프로필 블록(필수정보 포함) 바로 아래에 표시.
+ * 데이터 = `GET /api/me/mypage-summary` 의 `banner` 필드(별도 Supabase 조회 없음).
+ * 세션 스냅샷이 있으면 첫 렌더에 포함 → 늦게 끼어들며 메뉴를 밀어내는 흔들림·스크롤 복원 어긋남 제거.
  * 닫은 배너는 배너 id 단위로 기기에 저장 — 새 배너는 다시 보인다.
  */
-export function MypageHomeCmsBanner() {
-  const [banner, setBanner] = useState<MyPageBannerRow | null>(null);
-
-  useEffect(() => {
-    const sb = getSupabaseClient();
-    if (!sb) return;
-    let cancelled = false;
-    void sb
-      .from("my_page_banners")
-      .select(MY_PAGE_BANNERS_SELECT)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled || error || !data) return;
-        const row = data as MyPageBannerRow;
-        if (row.dismissible && isMypageBannerDismissed(row.id)) return;
-        setBanner(row);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+export function MypageHomeCmsBanner({ banner }: { banner: MyPageBannerRow | null }) {
+  const [dismissedId, setDismissedId] = useState<string | null>(null);
 
   if (!banner) return null;
+  if (dismissedId === banner.id) return null;
+  if (banner.dismissible && isMypageBannerDismissed(banner.id)) return null;
   return (
     <MyTopBanner
       banner={banner}
       onDismiss={() => {
         rememberMypageBannerDismissed(banner.id);
-        setBanner(null);
+        setDismissedId(banner.id);
       }}
     />
   );

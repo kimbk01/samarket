@@ -38,8 +38,12 @@ export type RouteTransitionEnterKind =
   | "profile-edit-back"
   /** 임의 화면 → 주소록/검색/상세 — 440ms 우→좌 80% */
   | "address-platform-forward"
-  /** 주소록/검색/상세 복귀 — 360ms 좌→우 80% */
-  | "address-platform-back";
+  /** 주소록/검색/상세 복귀 — 360ms 좌→우 80% (내정보 kind — 시간은 `MYPAGE_MOTION_MS`) */
+  | "address-platform-back"
+  /** 내정보 ↔ 내정보 push — 300ms 우→좌 (X2) */
+  | "mypage-stack-forward"
+  /** 내정보 ↔ 내정보 back — 300ms 좌→우 (X2) */
+  | "mypage-stack-back";
 
 export function normalizePathForRouteTransition(pathname: string | null): string {
   return (pathname ?? "").split("?")[0]?.trim() ?? "";
@@ -169,6 +173,10 @@ export function routeTransitionPushAxisForKind(
       return "rtl";
     case "address-platform-back":
       return "ltr";
+    case "mypage-stack-forward":
+      return "rtl";
+    case "mypage-stack-back":
+      return "ltr";
     case "none":
     case "subtle":
     case "store-enter-forward":
@@ -195,6 +203,8 @@ export const ROUTE_TRANSITION_ENTER_CLASSES = [
   "profile-edit-route-enter-back",
   "address-platform-route-enter-forward",
   "address-platform-route-enter-back",
+  "mypage-stack-route-enter-forward",
+  "mypage-stack-route-enter-back",
 ] as const;
 
 export const ROUTE_TRANSITION_EXIT_CLASSES = [
@@ -235,6 +245,10 @@ export function routeTransitionClassForKind(kind: RouteTransitionEnterKind): str
       return "address-platform-route-enter-forward";
     case "address-platform-back":
       return "address-platform-route-enter-back";
+    case "mypage-stack-forward":
+      return "mypage-stack-route-enter-forward";
+    case "mypage-stack-back":
+      return "mypage-stack-route-enter-back";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -262,6 +276,8 @@ export function routeTransitionExitClassForKind(kind: RouteTransitionEnterKind):
     case "profile-edit-back":
     case "address-platform-forward":
     case "address-platform-back":
+    case "mypage-stack-forward":
+    case "mypage-stack-back":
       return null;
     default: {
       const _exhaustive: never = kind;
@@ -293,10 +309,30 @@ export function ownerStackRouteTransitionClassForKind(
     case "profile-edit-back":
     case "address-platform-forward":
     case "address-platform-back":
+    case "mypage-stack-forward":
+    case "mypage-stack-back":
       return null;
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
     }
   }
+}
+
+/**
+ * 내정보 전환 kind (X2) — push 시간을 `MYPAGE_MOTION_MS.push`(300ms)로 주입하는 대상.
+ * 프로필 편집·주소 플랫폼 kind 는 `/mypage/**` 목적지 전용이라 함께 300ms.
+ */
+export const MYPAGE_STACK_KINDS = ["mypage-stack-forward", "mypage-stack-back"] as const satisfies readonly RouteTransitionEnterKind[];
+
+const MYPAGE_MOTION_KINDS: ReadonlySet<RouteTransitionEnterKind> = new Set<RouteTransitionEnterKind>([
+  ...MYPAGE_STACK_KINDS,
+  "profile-edit-forward",
+  "profile-edit-back",
+  "address-platform-forward",
+  "address-platform-back",
+]);
+
+export function isMypageMotionKind(kind: RouteTransitionEnterKind | null | undefined): boolean {
+  return kind != null && MYPAGE_MOTION_KINDS.has(kind);
 }
