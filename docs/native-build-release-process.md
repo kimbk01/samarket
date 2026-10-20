@@ -1,7 +1,7 @@
 # DIBAY 네이티브 빌드·배포 규정 (SSOT)
 
 > 적용 대상: 모든 작업자(Owner·Claude 클라우드·Claude 로컬·Cursor). 작업 수가 늘어도 이 순서를 생략하지 않는다.
-> 강제 장치: `npm run native:prepare`(로컬 빌드 준비) · CI `native-version-bump` 잡(빌드 번호) · `user_devices.app_version`(설치 확인).
+> 강제 장치: `npm run native:prepare`(로컬 빌드 준비 + 빌드 번호 가드) · CI `native-version-bump` 잡(분류·번호 역행 차단) · `user_devices.app_version`(설치 확인).
 
 ## 0. 왜 이 규정이 있는가 (2026-10-17 사고)
 
@@ -21,14 +21,15 @@ DIBAY 앱은 Capacitor 셸이 `https://samarket.vercel.app` 을 불러오는 구
 - `.md` 와 sync 생성 파일(`capacitor-www/**`, `ios/App/App/public/**`, `lib/build/generated-app-build-fingerprint.ts`, 지문 키만 바뀐 `Info.plist` 등)은 네이티브 변경이 아니다.
 - 판정은 사람이 하지 않는다: `npm run verify:native-version-bump` 첫 줄이 `[배포 구분]` 을 출력한다(로직: `scripts/lib/native-release.mjs`).
 
-## 2. 네이티브 변경 = 같은 커밋에서 빌드 번호 증가 (작업당 1회 · CI 강제)
+## 2. 빌드 번호 = 설치·배포할 빌드를 만들 때 1회 증가 (빌드 시점 강제)
 
-- Android 네이티브 변경 → `android/app/build.gradle` 의 `versionCode` +1
-- iOS 네이티브 변경 → `ios/App/App.xcodeproj/project.pbxproj` 의 `CURRENT_PROJECT_VERSION` **4곳 모두** +1 (App·푸시 확장 × Debug·Release, 값 동일)
-- 공통(`capacitor.config.ts`, Capacitor 의존성) → 둘 다
-- 사용자에게 보이는 릴리스면 `versionName` / `MARKETING_VERSION` 도 올린다(선택). **로컬에서 버전을 임의로 바꿔 빌드하지 않는다**(예: 저장소에 없는 `1.0.1`).
-- 한 작업의 네이티브 변경은 한 커밋으로 묶고 번호는 **작업당 1회만** 올린다. 개발 중 커밋마다 반복해 올리지 않는다.
-- 푸시 전 로컬 `npm run verify:native-version-bump` PASS 필수. CI `native-version-bump` 잡도 위반 시 실패한다 — 실패하면 다음 커밋으로 바로 고친다.
+- 네이티브 변경 커밋마다 번호를 올리지 않는다. **설치·스토어용 빌드를 만들 때**, 마지막 번호 증가 이후 네이티브 변경이 있는 플랫폼만 올린다.
+  - Android → `android/app/build.gradle` 의 `versionCode` +1
+  - iOS → `ios/App/App.xcodeproj/project.pbxproj` 의 `CURRENT_PROJECT_VERSION` **4곳 모두** +1 (App·푸시 확장 × Debug·Release, 값 동일)
+  - 공통(`capacitor.config.ts`, Capacitor 의존성) → 둘 다
+- 번호 증가는 main 커밋으로 올린 뒤 빌드한다. 사용자에게 보이는 릴리스면 `versionName` / `MARKETING_VERSION` 도 올린다(선택). **로컬에서 버전을 임의로 바꿔 빌드하지 않는다**(예: 저장소에 없는 `1.0.1`).
+- 강제: `npm run native:prepare` 가 `verify:native-version-bump --release` 로 확인 — 플랫폼별 마지막 번호 변경 커밋 이후 네이티브 변경이 있는데 번호가 그대로면 **빌드 전에 중단**(같은 번호로 다른 바이너리가 설치되는 것 방지). CI 빌드로 설치·스토어 산출물을 만들 때도 먼저 `--release` 를 통과시킨다.
+- CI `native-version-bump` 잡(커밋 단위): `[배포 구분]` 출력 + 번호 역행·iOS 4곳 불일치만 실패. 네이티브 변경에 번호 증가가 없어도 실패하지 않는다.
 - 빌드 시점: APK = 실기기 설치 검증이 필요할 때 · AAB = Google Play 새 버전 등록 때 · iOS = 실기기 검증·TestFlight·App Store 때만. 웹·DB 수정마다 빌드하지 않는다. 스토어 업로드 ≠ 출시 — 출시는 Owner 승인.
 
 ## 3. 보고 형식 — 모든 작업 보고의 첫 줄
@@ -84,10 +85,11 @@ Mac 에서 Claude 가 직접 수행해야 하면 Owner 가 `claude remote-contro
 ## 7. PASS 기준
 
 - 웹 변경: Production 배포 완료 + 기능 확인
-- 네이티브 변경: CI `native-version-bump`·Native build 통과 + §5 에서 목표 빌드 설치 확인 + 실기기 기능 확인
+- 네이티브 변경: `native:prepare`(빌드 번호 가드 포함)·Native build 통과 + §5 에서 목표 빌드 설치 확인 + 실기기 기능 확인
 - 하나라도 없으면 `NOT_PROVEN`.
 
 ## 변경 이력
 
 - 2026-10-17: 최초 제정(사진 저장 사고). `native:prepare`, CI `native-version-bump`, `app_version` 에 빌드 번호 기록.
 - 2026-10-20: 브랜치·PR 전제 제거 — main 직접 반영(`AGENTS.md` 「개발 프로세스」), 빌드 번호 작업당 1회, 빌드 시점(APK·AAB·iOS) 명시.
+- 2026-10-20 (Owner 승인): 빌드 번호 증가를 커밋 단위 CI 강제 → 빌드 시점(`native:prepare` → `--release`) 강제로 이동. CI 잡은 분류·역행·불일치만 검사.

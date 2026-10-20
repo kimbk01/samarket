@@ -5,6 +5,7 @@
  *
  * 1) main 브랜치 · 사람이 만든 미커밋 변경 없음 · android/ios 아래 미추적 파일 없음 을 확인 (있으면 중단)
  * 2) origin/main 과 정확히 같게 맞춘다 (뒤처졌으면 fast-forward pull, 앞섰거나 갈라졌으면 중단)
+ * 2b) 빌드 번호 가드 — 마지막 번호 증가 이후 네이티브 변경이 있으면 중단 (verify-native-version-bump --release)
  * 3) npm ci → cap sync (Production server.url) — Android + (macOS 면) iOS
  * 4) 빌드할 SHA 와 목표 버전(Android versionName/versionCode · iOS Version/Build)을 출력
  *
@@ -95,7 +96,7 @@ if (before.human.length > 0) {
     "커밋되지 않은 변경이 있습니다 — 이 상태로 빌드하면 저장소에 없는 코드가 앱에 들어갑니다:",
     ...before.human.slice(0, 30).map((h) => `  ${h}`),
     ...(before.human.length > 30 ? [`  … 외 ${before.human.length - 30}개`] : []),
-    "필요한 변경이면 브랜치에 커밋·푸시(PR)하고, 아니면 'git stash push -u -m backup-<날짜>' 로 백업한 뒤 다시 실행하세요.",
+    "필요한 변경이면 main 에 커밋·푸시하고, 아니면 'git stash push -u -m backup-<날짜>' 로 백업한 뒤 다시 실행하세요.",
   ]);
 }
 if (before.generated.length > 0) {
@@ -107,10 +108,18 @@ if (before.generated.length > 0) {
 run("최신 main 가져오기", "git", ["fetch", "origin", "main"]);
 const counts = git(["rev-list", "--left-right", "--count", "HEAD...origin/main"]).split(/\s+/).map(Number);
 const [ahead, behind] = counts;
-if (ahead > 0) fail(`로컬 main 에 원격에 없는 커밋 ${ahead}개가 있습니다. 브랜치로 옮겨 PR 로 올린 뒤 다시 실행하세요.`);
+if (ahead > 0) fail(`로컬 main 에 원격에 없는 커밋 ${ahead}개가 있습니다. origin/main 에 푸시(필요하면 rebase)한 뒤 다시 실행하세요.`);
 if (behind > 0) run(`origin/main 보다 ${behind}커밋 뒤처짐 → 업데이트`, "git", ["pull", "--ff-only", "origin", "main"]);
 const sha = git(["rev-parse", "--short", "HEAD"]);
 if (git(["rev-parse", "HEAD"]) !== git(["rev-parse", "origin/main"])) fail("HEAD 가 origin/main 과 다릅니다.");
+
+// 2b) 빌드 번호 — 번호는 커밋마다가 아니라 빌드 시점에 올린다. 마지막 증가 이후 네이티브 변경이 있으면 같은 번호로
+//     다른 바이너리가 설치되므로 중단한다 (Owner 2026-10-20 · docs/native-build-release-process.md §2).
+run("빌드 번호 확인", "node", [
+  "scripts/verify-native-version-bump.mjs",
+  "--release",
+  ...(withIos ? [] : ["--android-only"]),
+]);
 
 // 3) 의존성 · Capacitor sync (Production server.url)
 if (!args.has("--skip-install")) run("의존성 설치", "npm", ["ci"]);

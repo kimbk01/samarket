@@ -48,7 +48,7 @@ Android 버전·자동 업데이트 운영 계약. HARD LOCK은 **출시 안전 
 ## 향후 AAB 출시 규칙
 
 1. Cursor에서 릴리스 대상 코드 확정
-2. `versionCode` 증가 (네이티브 변경 시 CI `native-version-bump`)
+2. `versionCode` 증가 (마지막 증가 이후 네이티브 변경 시 — `verify:native-version-bump --release` 로 확인)
 3. 공식 AAB 빌드 파이프라인 사용
 4. Capacitor Production URL 확인
 5. package ID·서명·Native Plugin·Play Core 검증

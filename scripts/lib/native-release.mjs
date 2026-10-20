@@ -3,7 +3,8 @@
  *
  * - 네이티브 버전 읽기(Android versionCode/versionName, iOS MARKETING_VERSION/CURRENT_PROJECT_VERSION)
  * - 변경 파일 → 웹 전용 / 네이티브(Android·iOS) 분류
- * - 네이티브 변경 시 빌드 번호 증가 여부 판정
+ * - 빌드 번호 판정: 커밋 단위 강제 없음(CI 는 역행·불일치만 실패). 빌드(설치·스토어) 시점에 마지막 번호 증가 이후
+ *   네이티브 변경이 있으면 증가 필요 — Owner 2026-10-20 (AGENTS.md 「개발 프로세스」 6번)
  * - `cap sync`·지문 생성이 다시 쓰는 생성 파일 판정(로컬 준비 스크립트의 "깨끗한 작업 트리" 검사용)
  *
  * 사용처: scripts/native-prepare.mjs (Mac 로컬 빌드 준비), scripts/verify-native-version-bump.mjs (CI 가드).
@@ -106,7 +107,30 @@ export function classifyNativeChanges(files, ctx = {}) {
 }
 
 /**
- * 네이티브 변경이 있으면 해당 플랫폼 빌드 번호가 기준보다 커야 한다.
+ * CI 가드(커밋 단위) — 빌드 번호 역행·iOS 빌드 구성 불일치만 실패. 네이티브 변경마다 증가를 요구하지 않는다.
+ * @returns {string[]} 위반 사유(빈 배열 = 통과)
+ */
+export function checkVersionIntegrity({ base, head }) {
+  const problems = [];
+  if (!head.ios.consistent) {
+    problems.push(
+      `iOS 빌드 구성마다 MARKETING_VERSION/CURRENT_PROJECT_VERSION 값이 다릅니다 (${IOS_PBXPROJ_PATH}) — 앱·푸시 확장 4곳을 같은 값으로 맞추세요.`,
+    );
+  }
+  const a = [base.android.versionCode, head.android.versionCode];
+  if (a[0] != null && (a[1] == null || a[1] < a[0])) {
+    problems.push(`Android versionCode 가 ${a[0]} → ${a[1] ?? "?"} 로 내려갔습니다 (${ANDROID_GRADLE_PATH}).`);
+  }
+  const i = [base.ios.buildNumber, head.ios.buildNumber];
+  if (i[0] != null && (i[1] == null || i[1] < i[0])) {
+    problems.push(`iOS CURRENT_PROJECT_VERSION 이 ${i[0]} → ${i[1] ?? "?"} 로 내려갔습니다 (${IOS_PBXPROJ_PATH}).`);
+  }
+  return problems;
+}
+
+/**
+ * 빌드(설치·스토어) 시점 가드 — base = 해당 플랫폼 빌드 번호를 마지막으로 바꾼 커밋.
+ * 그 이후 네이티브 변경이 있으면 빌드 번호가 base 보다 커야 한다.
  * @returns {string[]} 위반 사유(빈 배열 = 통과)
  */
 export function checkNativeVersionBump({ changes, base, head }) {
@@ -138,12 +162,22 @@ export function checkNativeVersionBump({ changes, base, head }) {
 }
 
 /** 보고 첫 줄 — docs/native-build-release-process.md §3 형식. */
-export function formatReleaseClassLine({ changes, head }) {
+export function formatReleaseClassLine({ changes, head, base }) {
   const needAndroid = changes.android.length > 0;
   const needIos = changes.ios.length > 0;
   if (!needAndroid && !needIos) return "[배포 구분] 웹만 — Vercel 배포 후 앱 재시작만 하면 반영 (재빌드 불필요)";
+  /** 이 범위에서 번호를 올리지 않았으면 다음 빌드 때 올릴 목표 번호를 표시한다. */
+  const target = (h, b) => (h != null && b != null && h <= b ? `${h + 1} · 빌드 시 증가` : `${h}`);
   const parts = [];
-  if (needAndroid) parts.push(`Android ${head.android.versionName} (versionCode ${head.android.versionCode})`);
-  if (needIos) parts.push(`iOS ${head.ios.marketingVersion} (build ${head.ios.buildNumber})`);
+  if (needAndroid) {
+    parts.push(`Android ${head.android.versionName} (versionCode ${target(head.android.versionCode, base?.android.versionCode)})`);
+  }
+  if (needIos) parts.push(`iOS ${head.ios.marketingVersion} (build ${target(head.ios.buildNumber, base?.ios.buildNumber)})`);
   return `[배포 구분] 네이티브 — 재빌드·재설치 필요: ${parts.join(" / ")}`;
 }
+
+/** 해당 플랫폼 빌드 번호 줄을 마지막으로 바꾼 커밋 (`git log -G`). */
+export const BUILD_NUMBER_LOG_ARGS = {
+  android: ["log", "-n", "1", "--format=%H", "-G", "versionCode  *[0-9]", "HEAD", "--", ANDROID_GRADLE_PATH],
+  ios: ["log", "-n", "1", "--format=%H", "-G", "CURRENT_PROJECT_VERSION = ", "HEAD", "--", IOS_PBXPROJ_PATH],
+};

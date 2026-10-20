@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   checkNativeVersionBump,
+  checkVersionIntegrity,
   classifyNativeChanges,
   formatReleaseClassLine,
   isSyncGeneratedPath,
@@ -73,4 +74,23 @@ test("native change without build bump fails; with bump passes", () => {
     formatReleaseClassLine({ changes, head: versions(4, "1.2", "1.2", 5) }),
     /재빌드·재설치 필요: Android 1\.2 \(versionCode 4\) \/ iOS 1\.2 \(build 5\)/,
   );
+});
+
+test("CI integrity: no per-commit bump required; regression and iOS mismatch fail", () => {
+  const base = versions(3, "1.2", "1.2", 4);
+  assert.deepEqual(checkVersionIntegrity({ base, head: versions(3, "1.2", "1.2", 4) }), []);
+  assert.deepEqual(checkVersionIntegrity({ base, head: versions(4, "1.2", "1.2", 5) }), []);
+  assert.match(checkVersionIntegrity({ base, head: versions(2, "1.2", "1.2", 4) })[0], /versionCode/);
+  assert.match(checkVersionIntegrity({ base, head: versions(3, "1.2", "1.2", 3) })[0], /CURRENT_PROJECT_VERSION/);
+  assert.equal(checkVersionIntegrity({ base, head: versions(3, "1.2", "1.2", 5, 4) }).length, 1);
+});
+
+test("release class line shows the next build number when not yet bumped", () => {
+  const changes = { android: ["android/x.java"], ios: ["ios/y.swift"] };
+  const base = versions(3, "1.2", "1.2", 4);
+  assert.match(
+    formatReleaseClassLine({ changes, head: versions(3, "1.2", "1.2", 4), base }),
+    /Android 1\.2 \(versionCode 4 · 빌드 시 증가\) \/ iOS 1\.2 \(build 5 · 빌드 시 증가\)/,
+  );
+  assert.match(formatReleaseClassLine({ changes, head: versions(4, "1.2", "1.2", 5), base }), /versionCode 4\) \/ iOS 1\.2 \(build 5\)$/);
 });

@@ -22,7 +22,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - 단일 정의: **`docs/native-build-release-process.md`** (Cursor: `.cursor/rules/dibay-native-build-release-process.mdc`).
 - **보고 첫 줄** = `npm run verify:native-version-bump` 의 `[배포 구분]` (웹만 → 배포 후 앱 재시작 / 네이티브 → 재빌드·재설치 필요 + 목표 버전).
-- **네이티브 변경**(`android/**`·`ios/**`·`capacitor.config.ts`·Capacitor 의존성)은 그 변경을 담은 커밋에서 Android `versionCode`·iOS `CURRENT_PROJECT_VERSION`(4곳)을 **작업당 1회** 증가 — CI `native-version-bump` 잡이 강제. 빌드 시점·종류는 아래 「개발 프로세스」 6번.
+- **네이티브 변경**(`android/**`·`ios/**`·`capacitor.config.ts`·Capacitor 의존성)이 있으면 Android `versionCode`·iOS `CURRENT_PROJECT_VERSION`(4곳)을 **설치·배포용 빌드를 만들 때 1회** 증가 — `npm run native:prepare`(`verify:native-version-bump --release`)가 강제. 커밋마다 올리지 않는다. 빌드 시점·종류는 아래 「개발 프로세스」 6번.
 - **Mac 빌드는 `npm run native:prepare` 성공 후에만** Run. 오래된 폴더·미커밋 변경·로컬 버전 수정으로 빌드 금지.
 - **설치 확인은 작업자가 `public.user_devices.app_version`(`버전 (빌드)`)으로 직접** 한다. "폰에서 안 된다" 보고 시 코드 수정 전에 설치 버전부터 확인(구 바이너리면 코드 수정 금지).
 
@@ -73,7 +73,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
    - **웹** (`app/`·`components/`·`lib/`·API·관리자 UI 등): main 반영 후 앱 재시작만. APK·AAB·iOS 빌드·버전 변경 없음.
    - **DB** (`supabase/` 마이그레이션·함수·RLS·트리거): 파일 커밋은 웹과 같다. 운영 DB 적용은 Owner 승인 후 적용 결과를 확인한다. DB 변경만으로 앱을 재빌드하지 않는다.
    - **네이티브** (`android/**`·`ios/**`·`capacitor.config.ts`·Capacitor 플러그인·앱 설정·네이티브 브리지 계약, 또는 새 네이티브 기능을 요구하는 웹 코드): 6번.
-6. **앱 빌드는 필요할 때만** — Android APK 는 실기기 직접 설치 검증이 필요할 때, AAB 는 Google Play 에 새 버전을 등록할 때, iOS 는 실기기 검증·TestFlight·App Store 배포가 필요할 때만 만든다. 웹·DB 수정마다 빌드하지 않는다. 빌드 번호는 네이티브 변경과 **같은 커밋에서 작업당 1회** 올린다 (한 작업의 네이티브 변경은 한 커밋으로 묶어 반복 증가 금지 · 푸시 전 로컬 `npm run verify:native-version-bump` PASS). Mac 빌드는 `npm run native:prepare` 성공 후에만 (`docs/native-build-release-process.md` §4). 스토어 업로드와 출시 승인은 별개 — Owner 승인 없이 출시하지 않는다.
+6. **앱 빌드는 필요할 때만** — Android APK 는 실기기 직접 설치 검증이 필요할 때, AAB 는 Google Play 에 새 버전을 등록할 때, iOS 는 실기기 검증·TestFlight·App Store 배포가 필요할 때만 만든다. 웹·DB 수정마다 빌드하지 않는다. 빌드 번호는 커밋마다가 아니라 **설치·배포용 빌드를 만들 때 1회** 올린다 (마지막 증가 이후 네이티브 변경이 있는 플랫폼만 · main 커밋 후 빌드 · `native:prepare` 가 미증가 시 중단). Mac 빌드는 `npm run native:prepare` 성공 후에만 (`docs/native-build-release-process.md` §4). 스토어 업로드와 출시 승인은 별개 — Owner 승인 없이 출시하지 않는다.
 
 ## Claude 작업 효율 규정 (Owner 지시 · 예외 없음)
 
