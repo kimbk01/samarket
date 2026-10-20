@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
@@ -96,15 +96,8 @@ export function MypageProfileSummary({
         className="flex w-full items-center gap-3 px-4 py-3.5 text-left active:bg-sam-pressed-surface md:px-5"
       >
         <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-sam-app">
-          <SamarketThumbnail
-            src={projection.avatarUrl}
-            alt=""
-            size={56}
-            roundedClassName="rounded-full"
-            className="h-14 w-14"
-            imageClassName="object-cover"
-            fetchDisplayPx={112}
-          />
+          {/* 수정 시트(ProfileImageField)와 같은 컴포넌트·같은 src 판정 → 같은 이미지 · 캐시 공유 (§14) */}
+          <SamarketUserAvatar avatarUrl={projection.avatarUrl} sizePx={56} alt="" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[16px] font-semibold text-sam-fg">{name}</span>

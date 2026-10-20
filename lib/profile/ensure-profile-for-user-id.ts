@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { withVerifiedOAuthAvatar } from "@/lib/profile/verify-remote-profile-image.server";
 import { extractOAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
 import type { ProfileRow } from "./types";
 import { withDefaultAvatar } from "./default-avatar";
@@ -90,7 +91,10 @@ export async function ensureProfileForUserId(
   const nowIso = new Date().toISOString();
   /** `profiles_status_check` 호환 (`'sns_pending','verified_user','suspended','deleted'`) */
   const dbStatus: "verified_user" | "sns_pending" = isAdminManual ? "verified_user" : "sns_pending";
-  const oauthAvatar = withDefaultAvatar(extractOAuthProfileSeed(user).avatarCandidate);
+  /** 새 행에 사진을 기록하므로 https 200 + image/* 확인 (§14 — 실패 시 기본 아바타) */
+  const oauthAvatar = withDefaultAvatar(
+    (await withVerifiedOAuthAvatar(extractOAuthProfileSeed(user), null)).avatarCandidate,
+  );
 
   const fullPayload: Record<string, unknown> = {
     id: uid,

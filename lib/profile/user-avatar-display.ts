@@ -20,9 +20,15 @@ export function hasCustomUserAvatar(avatarUrl: string | null | undefined): boole
 }
 
 import { resolveCanonicalThumbImageUrl } from "@/lib/media/canonical-image-resolver";
+import { resolveProfileImageSrc } from "@/lib/profile/resolve-profile-image-src";
 
-/** `<Image>` / `<SamarketThumbnail>` 에 넣을 커스텀 사진 URL — 없으면 null(기본 얼굴 SVG 사용) */
+/**
+ * `<Image>` / `<SamarketThumbnail>` 에 넣을 커스텀 사진 URL — 없으면 null(기본 얼굴 SVG 사용).
+ * 출처·http·카카오 기본 이미지 판정은 `resolveProfileImageSrc`(문자열만, 네트워크 0 — real-screen-redesign §14).
+ */
 export function resolveUserAvatarImageSrc(avatarUrl: string | null | undefined): string | null {
   if (!hasCustomUserAvatar(avatarUrl)) return null;
-  return resolveCanonicalThumbImageUrl(avatarUrl!.trim()) ?? avatarUrl!.trim();
+  const src = resolveProfileImageSrc(avatarUrl);
+  if (!src) return null;
+  return resolveCanonicalThumbImageUrl(src) ?? src;
 }

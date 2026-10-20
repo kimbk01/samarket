@@ -1,0 +1,20 @@
+[
+  { "protocol": "https", "hostname": "*.supabase.co", "pathname": "/storage/v1/object/public/**" },
+  { "protocol": "https", "hostname": "*.supabase.co", "pathname": "/storage/v1/render/image/public/**" },
+  { "protocol": "https", "hostname": "lh3.googleusercontent.com", "pathname": "/**" },
+  { "protocol": "https", "hostname": "lh4.googleusercontent.com", "pathname": "/**" },
+  { "protocol": "https", "hostname": "lh5.googleusercontent.com", "pathname": "/**" },
+  { "protocol": "https", "hostname": "lh6.googleusercontent.com", "pathname": "/**" },
+  { "protocol": "https", "hostname": "*.googleusercontent.com", "pathname": "/**" },
+  { "protocol": "https", "hostname": "*.ggpht.com", "pathname": "/**" },
+  { "protocol": "https", "hostname": "k.kakaocdn.net", "pathname": "/**" },
+  { "protocol": "https", "hostname": "*.kakaocdn.net", "pathname": "/**" },
+  { "protocol": "https", "hostname": "*.pstatic.net", "pathname": "/**" },
+  { "protocol": "https", "hostname": "graph.facebook.com", "pathname": "/**" },
+  { "protocol": "https", "hostname": "*.fbcdn.net", "pathname": "/**" },
+  { "protocol": "https", "hostname": "*.fbsbx.com", "pathname": "/**" },
+  { "protocol": "http", "hostname": "127.0.0.1", "pathname": "/storage/v1/object/public/**" },
+  { "protocol": "http", "hostname": "127.0.0.1", "pathname": "/storage/v1/render/image/public/**" },
+  { "protocol": "http", "hostname": "localhost", "pathname": "/storage/v1/object/public/**" },
+  { "protocol": "http", "hostname": "localhost", "pathname": "/storage/v1/render/image/public/**" }
+]
