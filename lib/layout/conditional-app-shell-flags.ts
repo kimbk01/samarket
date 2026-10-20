@@ -85,6 +85,8 @@ export type ConditionalAppShellResolvedFlags = {
   suppressIncomingCallOverlay: boolean;
   isAddressMapSelect: boolean;
   isMypageAddressEditPage: boolean;
+  /** `/mypage/addresses*` 뷰포트 잠금 흐름 — 로컬 헤더 기기 폭 (설계서 §12) */
+  isMypageAddressFlowPage: boolean;
   isViewportLockedChatDetail: boolean;
   isAnyChatRoomDetail: boolean;
   appShellRootClass: string;
