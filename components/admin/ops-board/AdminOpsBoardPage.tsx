@@ -15,6 +15,7 @@ import { OpsRetrospectiveForm } from "./OpsRetrospectiveForm";
 import { OpsActionBoard } from "./OpsActionBoard";
 import { loadOpsBoardFromServer } from "@/lib/ops-board/ops-board-sync-client";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId =
   | "summary"
@@ -33,7 +34,8 @@ const TABS: { id: TabId; labelKey: MessageKey }[] = [
 
 export function AdminOpsBoardPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("summary");
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(["summary", "checklist", "templates", "retro", "actions"] as const, "summary");
   const [retroRefresh, setRetroRefresh] = useState(0);
   const { state: loadState, reload } = useAdminSyncLoad(loadOpsBoardFromServer);
   const hydrated = loadState.status === "ready";
@@ -60,9 +62,8 @@ export function AdminOpsBoardPage() {
         className="mb-4"
         tabs={TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="summary"
+        resetParams={adminSyncTabResetParams(["date"])}
       />
       {activeTab === "summary" && (
         <AdminCard titleKey="admin_ops_tools_board_card_summary">

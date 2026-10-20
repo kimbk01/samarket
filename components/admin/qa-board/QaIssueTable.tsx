@@ -4,7 +4,7 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getQaIssueLogs } from "@/lib/qa-board/qa-board-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
@@ -14,6 +14,11 @@ import {
 import { QA_TABLE_HEADER_KEYS } from "@/components/admin/i18n/admin-qa-label-keys";
 import type { QaIssueStatus, QaIssueSeverity } from "@/lib/types/qa-board";
 import Link from "next/link";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const FILTER_EXTRAS = ["severity"] as const;
 
 export function QaIssueTable() {
   const { t, language } = useI18n();
@@ -31,8 +36,10 @@ export function QaIssueTable() {
       ].map((k) => t(k)),
     [t]
   );
-  const [status, setStatus] = useState<QaIssueStatus | "">("");
-  const [severity, setSeverity] = useState<QaIssueSeverity | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const status = lq.query.status as QaIssueStatus | "";
+  const severity = lq.query.extras.severity as QaIssueSeverity | "";
   const logs = useMemo(
     () =>
       getQaIssueLogs({
@@ -44,37 +51,31 @@ export function QaIssueTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_status_2")}</span>
-        <select
-          value={status}
-          onChange={(e) =>
-            setStatus((e.target.value || "") as QaIssueStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_qa_status_2")} name="status" value={lq.query.status} onChange={lq.setStatus}>
           <option value="">{t("common_all")}</option>
           <option value="open">{t("admin_qa_open")}</option>
           <option value="in_progress">{t("admin_qa_in_progress")}</option>
           <option value="fixed">{t("admin_qa_fixed")}</option>
           <option value="verified">{t("admin_qa_verified")}</option>
           <option value="wont_fix">{t("admin_qa_wont_fix")}</option>
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_severity")}</span>
-        <select
-          value={severity}
-          onChange={(e) =>
-            setSeverity((e.target.value || "") as QaIssueSeverity | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_qa_severity")} name="severity" value={lq.query.extras.severity} onChange={(v) => lq.setExtra("severity", v)}>
           <option value="">{t("common_all")}</option>
           <option value="critical">{t("admin_qa_critical")}</option>
           <option value="high">{t("admin_qa_high")}</option>
           <option value="medium">{t("admin_qa_medium")}</option>
           <option value="low">{t("admin_qa_low")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">
         {t("admin_qa_visible")}
@@ -83,8 +84,8 @@ export function QaIssueTable() {
       {logs.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={status || severity ? undefined : t("admin_qa_empty_issues")}
-          onReset={status || severity ? () => { setStatus(""); setSeverity(""); } : undefined}
+          message={lq.isFiltered ? undefined : t("admin_qa_empty_issues")}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable headers={headers}>

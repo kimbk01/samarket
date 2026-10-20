@@ -2,7 +2,6 @@
 
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
-import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -14,12 +13,14 @@ import { OpsRoadmapBoard } from "./OpsRoadmapBoard";
 import { OpsMaturityHistoryChart } from "./OpsMaturityHistoryChart";
 import { OpsImprovementSummaryCards } from "./OpsImprovementSummaryCards";
 import { loadOpsMaturityFromServer } from "@/lib/ops-maturity/ops-maturity-sync-client";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId = "scores" | "kpi" | "roadmap" | "history" | "summary";
 
 export function AdminOpsMaturityPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("scores");
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(["scores", "kpi", "roadmap", "history", "summary"] as const, "scores");
   const { state: loadState, reload } = useAdminSyncLoad(loadOpsMaturityFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -46,9 +47,8 @@ export function AdminOpsMaturityPage() {
       <AdminTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="scores"
+        resetParams={adminSyncTabResetParams(["domain", "period"])}
         className="mb-4"
       />
 

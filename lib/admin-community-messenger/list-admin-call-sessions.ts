@@ -50,9 +50,16 @@ export type AdminChatCallAuditRow = {
   note: string;
 };
 
+/** 쪽 번호 모드(`offset` 지정)에서만 `total` (조건에 맞는 전체 건수, `count: "exact"`). */
 export type AdminChatCallsPage =
-  | { tab: "active" | "records"; rows: AdminChatCallRow[]; nextCursor: string | null }
-  | { tab: "audits"; rows: AdminChatCallAuditRow[]; nextCursor: string | null };
+  | { tab: "active" | "records"; rows: AdminChatCallRow[]; nextCursor: string | null; total?: number }
+  | { tab: "audits"; rows: AdminChatCallAuditRow[]; nextCursor: string | null; total?: number };
+
+/**
+ * R7 목록 표준 — `offset` 을 주면 keyset·진행 중 상한(ADMIN_CHAT_ACTIVE_CALLS_MAX) 대신
+ * `limit`/`offset` 쪽 번호 + 전체 건수. 생략하면 기존 동작 그대로.
+ */
+export type AdminChatCallsPaging = { limit: number; offset: number };
 
 type Sb = ReturnType<typeof getSupabaseServer>;
 const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -79,16 +86,19 @@ async function userIdsForSearch(sb: Sb, q: string): Promise<string[]> {
   return ((data ?? []) as Array<{ id: string }>).map((p) => p.id);
 }
 
-async function listSessions(sb: Sb, query: AdminChatCallsQuery): Promise<AdminChatCallsPage> {
+async function listSessions(sb: Sb, query: AdminChatCallsQuery, paging?: AdminChatCallsPaging): Promise<AdminChatCallsPage> {
   const active = query.tab === "active";
   const asc = active; // 진행 중: 오래된(멈춘) 통화 먼저
-  const limit = active ? ADMIN_CHAT_ACTIVE_CALLS_MAX : ADMIN_CHAT_CALLS_PAGE_SIZE;
+  const limit = paging ? paging.limit : active ? ADMIN_CHAT_ACTIVE_CALLS_MAX : ADMIN_CHAT_CALLS_PAGE_SIZE;
   let rq = sb
     .from("community_messenger_call_sessions")
-    .select("id, room_id, initiator_user_id, call_kind, status, session_mode, ended_reason, created_at, answered_at, ended_at, chat_domain")
+    .select(
+      "id, room_id, initiator_user_id, call_kind, status, session_mode, ended_reason, created_at, answered_at, ended_at, chat_domain",
+      paging ? { count: "exact" } : undefined
+    )
     .order("created_at", { ascending: asc })
-    .order("id", { ascending: asc })
-    .limit(limit + 1);
+    .order("id", { ascending: asc });
+  rq = paging ? rq.range(paging.offset, paging.offset + paging.limit - 1) : rq.limit(limit + 1);
   if (active) rq = rq.in("status", query.status === "ringing" || query.status === "active" ? [query.status] : ["ringing", "active"]);
   else if (query.status) rq = rq.eq("status", query.status);
   if (query.stuck) rq = rq.eq("status", "ringing").lt("created_at", chatStuckRingingBeforeIso());
@@ -103,21 +113,26 @@ async function listSessions(sb: Sb, query: AdminChatCallsQuery): Promise<AdminCh
       rq = rq.or(`room_id.eq.${query.q},initiator_user_id.eq.${query.q},recipient_user_id.eq.${query.q},id.eq.${query.q}`);
     } else {
       const ids = await userIdsForSearch(sb, query.q);
-      if (!ids.length) return { tab: query.tab as "active" | "records", rows: [], nextCursor: null };
+      if (!ids.length) {
+        return paging
+          ? { tab: query.tab as "active" | "records", rows: [], nextCursor: null, total: 0 }
+          : { tab: query.tab as "active" | "records", rows: [], nextCursor: null };
+      }
       rq = rq.or(`initiator_user_id.in.(${ids.join(",")}),recipient_user_id.in.(${ids.join(",")})`);
     }
   }
-  const cursor = active ? null : decodeAdminKeysetCursor(query.cursor);
+  const cursor = active || paging ? null : decodeAdminKeysetCursor(query.cursor);
   if (cursor?.ts) {
     rq = rq.or(`created_at.lt.${quote(cursor.ts)},and(created_at.eq.${quote(cursor.ts)},id.lt.${cursor.id})`);
   }
-  const { data, error } = await rq;
+  const { data, error, count } = await rq;
   if (error) throw new Error(error.message);
   const all = (data ?? []) as Array<Record<string, unknown>>;
   const page = all.slice(0, limit);
   const last = page[page.length - 1];
   const nextCursor =
-    !active && all.length > limit && last ? encodeAdminKeysetCursor({ ts: s(last.created_at), id: s(last.id) }) : null;
+    !paging && !active && all.length > limit && last ? encodeAdminKeysetCursor({ ts: s(last.created_at), id: s(last.id) }) : null;
+  const total = paging ? (typeof count === "number" ? count : paging.offset + page.length) : undefined;
 
   const sessionIds = page.map((r) => s(r.id));
   const roomIds = [...new Set(page.map((r) => s(r.room_id)).filter(Boolean))];
@@ -156,30 +171,34 @@ async function listSessions(sb: Sb, query: AdminChatCallsQuery): Promise<AdminCh
       durationSeconds: Number.isFinite(dur as number) ? dur : null,
     };
   });
-  return { tab: query.tab as "active" | "records", rows, nextCursor };
+  return paging
+    ? { tab: query.tab as "active" | "records", rows, nextCursor, total }
+    : { tab: query.tab as "active" | "records", rows, nextCursor };
 }
 
-async function listForceEndAudits(sb: Sb, query: AdminChatCallsQuery): Promise<AdminChatCallsPage> {
-  const limit = ADMIN_CHAT_CALLS_PAGE_SIZE;
+async function listForceEndAudits(sb: Sb, query: AdminChatCallsQuery, paging?: AdminChatCallsPaging): Promise<AdminChatCallsPage> {
+  const limit = paging ? paging.limit : ADMIN_CHAT_CALLS_PAGE_SIZE;
   let rq = sb
     .from("audit_logs")
-    .select("id, actor_id, target_id, before_json, after_json, created_at")
+    .select("id, actor_id, target_id, before_json, after_json, created_at", paging ? { count: "exact" } : undefined)
     .eq("action", ADMIN_FORCE_END_AUDIT_ACTION)
     .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(limit + 1);
+    .order("id", { ascending: false });
+  rq = paging ? rq.range(paging.offset, paging.offset + paging.limit - 1) : rq.limit(limit + 1);
   if (query.window) rq = rq.gte("created_at", new Date(Date.now() - adminChatCallWindowMs(query.window)).toISOString());
   if (query.q && isAdminUuid(query.q)) rq = rq.or(`target_id.eq.${query.q},actor_id.eq.${query.q}`);
-  const cursor = decodeAdminKeysetCursor(query.cursor);
+  const cursor = paging ? null : decodeAdminKeysetCursor(query.cursor);
   if (cursor?.ts) {
     rq = rq.or(`created_at.lt.${quote(cursor.ts)},and(created_at.eq.${quote(cursor.ts)},id.lt.${cursor.id})`);
   }
-  const { data, error } = await rq;
+  const { data, error, count } = await rq;
   if (error) throw new Error(error.message);
   const all = (data ?? []) as Array<Record<string, unknown>>;
   const page = all.slice(0, limit);
   const last = page[page.length - 1];
-  const nextCursor = all.length > limit && last ? encodeAdminKeysetCursor({ ts: s(last.created_at), id: s(last.id) }) : null;
+  const nextCursor =
+    !paging && all.length > limit && last ? encodeAdminKeysetCursor({ ts: s(last.created_at), id: s(last.id) }) : null;
+  const total = paging ? (typeof count === "number" ? count : paging.offset + page.length) : undefined;
   const labels = await labelsFor(sb, page.map((r) => s(r.actor_id)));
   const rows = page.map<AdminChatCallAuditRow>((r) => {
     const after = (r.after_json ?? {}) as Record<string, unknown>;
@@ -194,10 +213,10 @@ async function listForceEndAudits(sb: Sb, query: AdminChatCallsQuery): Promise<A
       note: s(after.adminNote) || s(before.adminNote),
     };
   });
-  return { tab: "audits", rows, nextCursor };
+  return paging ? { tab: "audits", rows, nextCursor, total } : { tab: "audits", rows, nextCursor };
 }
 
-export async function listAdminChatCalls(query: AdminChatCallsQuery): Promise<AdminChatCallsPage> {
+export async function listAdminChatCalls(query: AdminChatCallsQuery, paging?: AdminChatCallsPaging): Promise<AdminChatCallsPage> {
   const sb = getSupabaseServer();
-  return query.tab === "audits" ? listForceEndAudits(sb, query) : listSessions(sb, query);
+  return query.tab === "audits" ? listForceEndAudits(sb, query, paging) : listSessions(sb, query, paging);
 }

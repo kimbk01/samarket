@@ -4,16 +4,17 @@
  * 모임 신고 `/admin/philife/meeting-reports` (설계 §C-4) — 신고 처리함과 같은 목록 틀·버튼.
  * 원장: meeting_reports (피드 신고와 다른 원장). 상태 변경은 PATCH /api/admin/philife/meeting-reports/:id 만 —
  * 모든 요청에 expectedStatus(CAS) · 인정/기각/다시 열기는 사유 필수 · 실패하면 화면 상태를 바꾸지 않고 배너(C-11).
- * 탭·필터·페이지는 URL (`?status=` 대시보드 진입 = 처리 대기).
+ * 탭·필터·페이지(20/50/100, URL size)는 URL (`?status=` 대시보드 진입 = 처리 대기).
+ * 행 버튼 2개 이하(검토 시작 · 처리하기) — 인정·기각·다시 열기는 처리 Drawer 하단([닫기] · [보조][주 동작]).
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { ARO_IA_001_OWNERS } from "@/lib/admin/aro-ia-001-community-common-links";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
-import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
 import { COMMUNITY_ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/community-admin/community-admin-reason";
 import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-labels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
@@ -22,12 +23,11 @@ import {
   COMMUNITY_TD,
   CommunityActionSheet,
   CommunityAuthorCell,
+  CommunityFilterBar,
   CommunityFilterField,
+  CommunityListEmpty,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityPeriodFilter,
-  CommunityResetFilters,
-  CommunitySearchInput,
   CommunitySelect,
   CommunityStatusBadge,
   CommunitySummaryCard,
@@ -35,11 +35,12 @@ import {
   CommunityTabs,
   CommunityTimeCell,
   CommunityTimeline,
+  useCommunityListQuery,
   useCommunityQueryState,
   type CommunitySheetSettle,
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminErrorState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { AdminErrorState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import {
   MEETING_REPORT_TABS,
   MEETING_REPORT_TARGET_OPTIONS,
@@ -75,6 +76,9 @@ const EMPTY_TEXT: Record<MeetingReportTab, string> = {
   rejected: "기각한 모임 신고가 없습니다.",
   all: "모임 신고가 없습니다.",
 };
+
+/** 조회 조건 추가 키 (URL) — 탭(`status`)은 [초기화] 후에도 유지 */
+const MEETING_REPORT_EXTRAS = ["type"] as const;
 
 const REASON_LABEL: Record<string, string> = {
   spam: "스팸·도배",
@@ -122,18 +126,22 @@ function TargetCell({ r, ko }: { r: MeetingReportAdminRow; ko: boolean }) {
 export function AdminMeetingReportsPage({
   result,
   filters,
-  pageSize,
 }: {
   result: MeetingReportListResult;
   filters: MeetingReportFilters;
-  pageSize: number;
+  /** 서버가 쓴 페이지 크기 (URL size 와 같다 — 표시는 lq 기준) */
+  pageSize?: number;
 }) {
   const router = useRouter();
   const { language } = useI18n();
   const ko = language !== "en";
   const qs = useCommunityQueryState();
-  const { permissions, isSuperAdmin, loading: meLoading } = useAdminMe();
-  const canModerate = meLoading || communityAreaAllowed(permissions, "moderation", isSuperAdmin);
+  const lq = useCommunityListQuery({ extras: MEETING_REPORT_EXTRAS, keepOnReset: { status: true } });
+  /** 다시 열기는 최고 관리자만 (전이표) — 나머지 쓰기 판정은 접근표 action community("moderation"). 서버 가드는 그대로. */
+  const { isSuperAdmin } = useAdminMe();
+  const action = useAdminRouteAction("/admin/philife/meeting-reports");
+  const canModerate = action.allowed;
+  const deniedTitle = canModerate ? undefined : (action.reason ?? undefined);
   // ?rid= (다른 화면에서 특정 신고로 진입) → 이 페이지에 있으면 처리 시트를 연다
   const [openId, setOpenId] = useState(() => qs.get("rid"));
   const [banner, setBanner] = useState<CommunityBanner>(null);
@@ -151,6 +159,7 @@ export function AdminMeetingReportsPage({
 
   /** 「검토 시작」 L0 */
   const startReview = async (r: MeetingReportAdminRow) => {
+    if (!canModerate) return;
     setBusyId(r.id);
     setBanner(null);
     const { result: res, json } = await communityActionFetch(
@@ -187,28 +196,77 @@ export function AdminMeetingReportsPage({
     afterChange({ tone: warn.length ? "warning" : "success", text: okText, extra: warn });
   };
 
-  const actionsFor = (r: MeetingReportAdminRow, compact: boolean) => {
-    const allowed = canModerate ? meetingReportActions(r.status, isSuperAdmin) : [];
-    const cls = compact ? "min-h-8 px-2 py-1 text-[12px]" : "";
+  /** 표 행 — ghost/sm 2개 이하 (검토 시작 · 처리하기/보기) */
+  const rowActions = (r: MeetingReportAdminRow) => {
+    const allowed = meetingReportActions(r.status, isSuperAdmin);
+    return (
+      <div className="flex flex-wrap justify-end gap-1.5" data-admin-report-cta-state={r.status}>
+        {allowed.includes("review") ? (
+          <AdminActionButton
+            variant="ghost"
+            size="sm"
+            disabled={busyId === r.id || !canModerate}
+            title={deniedTitle}
+            onClick={() => void startReview(r)}
+          >
+            {busyId === r.id ? "처리 중" : "검토 시작"}
+          </AdminActionButton>
+        ) : null}
+        <AdminActionButton variant="ghost" size="sm" onClick={() => setOpenId(r.id)}>
+          {r.status === "pending" || r.status === "reviewing" ? "처리하기" : "보기"}
+        </AdminActionButton>
+      </div>
+    );
+  };
+
+  /** 처리 Drawer 하단 오른쪽 — [보조][주 동작] (신고 인정이 주 동작) */
+  const drawerActions = (r: MeetingReportAdminRow) => {
+    const allowed = meetingReportActions(r.status, isSuperAdmin);
     return (
       <div className="flex flex-wrap justify-end gap-1.5" data-admin-report-cta-state={r.status}>
         {allowed.includes("reopen") ? (
-          <AdminActionButton variant="secondary" className={cls} onClick={() => setSheet({ kind: "reopen", row: r })}>
+          <AdminActionButton
+            variant="secondary"
+            disabled={busyId === r.id || !canModerate}
+            title={deniedTitle}
+            onClick={() => {
+              if (canModerate) setSheet({ kind: "reopen", row: r });
+            }}
+          >
             다시 열기
           </AdminActionButton>
         ) : null}
         {allowed.includes("review") ? (
-          <AdminActionButton variant="secondary" className={cls} disabled={busyId === r.id} onClick={() => void startReview(r)}>
+          <AdminActionButton
+            variant="secondary"
+            disabled={busyId === r.id || !canModerate}
+            title={deniedTitle}
+            onClick={() => void startReview(r)}
+          >
             {busyId === r.id ? "처리 중" : "검토 시작"}
           </AdminActionButton>
         ) : null}
         {allowed.includes("reject") ? (
-          <AdminActionButton variant="secondary" className={cls} disabled={busyId === r.id} onClick={() => setSheet({ kind: "reject", row: r })}>
+          <AdminActionButton
+            variant="secondary"
+            disabled={busyId === r.id || !canModerate}
+            title={deniedTitle}
+            onClick={() => {
+              if (canModerate) setSheet({ kind: "reject", row: r });
+            }}
+          >
             신고 기각
           </AdminActionButton>
         ) : null}
         {allowed.includes("resolve") ? (
-          <AdminActionButton variant="primary" className={cls} disabled={busyId === r.id} onClick={() => setSheet({ kind: "resolve", row: r })}>
+          <AdminActionButton
+            variant="primary"
+            disabled={busyId === r.id || !canModerate}
+            title={deniedTitle}
+            onClick={() => {
+              if (canModerate) setSheet({ kind: "resolve", row: r });
+            }}
+          >
             신고 인정
           </AdminActionButton>
         ) : null}
@@ -230,12 +288,17 @@ export function AdminMeetingReportsPage({
         title="모임 신고"
         description="모임·모임 회원·모임 게시물에 대한 신고를 확인하고 인정 또는 기각합니다."
         actions={
-          <AdminActionButton variant="secondary" onClick={() => router.refresh()}>
+          <AdminActionButton variant="secondary" disabled={busyId !== null} onClick={() => router.refresh()}>
             새로고침
           </AdminActionButton>
         }
         banner={
           <>
+            {!action.allowed && action.reason ? (
+              <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
+                {ko ? `검토 시작·인정·기각·다시 열기 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+              </p>
+            ) : null}
             <CommunityBannerView banner={banner} onClose={() => setBanner(null)} />
             {filters.periodError ? (
               <CommunityBannerView banner={{ tone: "error", text: communityAdminErrorText(filters.periodError, ko) }} />
@@ -249,45 +312,26 @@ export function AdminMeetingReportsPage({
             tabs={MEETING_REPORT_TABS.map((k) => ({ value: k, label: TAB_LABEL[k], count: result.counts?.[k] ?? null }))}
           />
         }
-        filters={
-          <>
-            <CommunityFilterField label="검색어">
-              <CommunitySearchInput value={filters.q} onCommit={(v) => qs.set({ q: v })} placeholder="모임 이름·신고자 닉네임" />
-            </CommunityFilterField>
+        filterBar={
+          <CommunityFilterBar lq={lq} searchPlaceholder="모임 이름·신고자 닉네임">
             <CommunityFilterField label="신고 대상">
               <CommunitySelect
                 value={filters.type}
-                onChange={(v) => qs.set({ type: v })}
+                onChange={(v) => lq.setExtra("type", v)}
                 options={[
                   { value: "", label: "전체" },
                   ...MEETING_REPORT_TARGET_OPTIONS.map((t) => ({ value: t, label: adminCommunityLabel("report_target", t, ko).label })),
                 ]}
               />
             </CommunityFilterField>
-            <CommunityPeriodFilter
-              period={qs.get("period")}
-              from={qs.get("from")}
-              to={qs.get("to")}
-              onChange={(v) => qs.set({ period: v.period, from: v.from, to: v.to })}
-            />
-            <CommunityResetFilters onReset={() => qs.reset(["status"])} />
-          </>
+          </CommunityFilterBar>
         }
-        footer={
-          result.ok && result.total > 0 ? (
-            <CommunityPagination
-              page={qs.page}
-              pageSize={pageSize}
-              total={result.total}
-              onPage={(p) => qs.set({ page: p > 1 ? p : null })}
-            />
-          ) : null
-        }
+        footer={result.ok ? <CommunityListPagination lq={lq} total={result.total} /> : null}
       >
         {!result.ok ? (
           <AdminErrorState ko={ko} code="load_failed" onRetry={() => router.refresh()} />
         ) : result.rows.length === 0 ? (
-          <AdminEmptyState ko={ko} message={EMPTY_TEXT[filters.tab]} />
+          <CommunityListEmpty lq={lq} message={EMPTY_TEXT[filters.tab]} />
         ) : (
           <CommunityTable head={["대상", "사유", "신고자", "접수", "상태", "처리"]}>
             {result.rows.map((r) => (
@@ -313,7 +357,7 @@ export function AdminMeetingReportsPage({
                   <CommunityStatusBadge domain="meeting_report_status" value={r.status} ko={ko} />
                 </td>
                 <td className={COMMUNITY_TD} onClick={(e) => e.stopPropagation()}>
-                  {actionsFor(r, true)}
+                  {rowActions(r)}
                 </td>
               </tr>
             ))}
@@ -322,7 +366,18 @@ export function AdminMeetingReportsPage({
       </CommunityListShell>
 
       {open ? (
-        <CommunityDrawer title="모임 신고 처리" onClose={() => setOpenId("")}>
+        <CommunityDrawer
+          title="모임 신고 처리"
+          onClose={() => setOpenId("")}
+          footer={
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <AdminActionButton variant="neutral" onClick={() => setOpenId("")}>
+                닫기
+              </AdminActionButton>
+              {drawerActions(open)}
+            </div>
+          }
+        >
           <div className="space-y-4">
             <CommunityBannerView banner={banner} onClose={() => setBanner(null)} />
             <CommunitySection title="신고 대상">
@@ -373,11 +428,17 @@ export function AdminMeetingReportsPage({
               />
             </CommunitySection>
             <CommunitySection title="처리">
-              {!canModerate ? <p className="text-[13px] text-sam-muted">권한 필요: 신고 처리</p> : null}
+              {!canModerate && action.reason ? (
+                <p className="text-[13px] text-sam-muted" data-admin-action-denied="1">
+                  {ko ? `처리 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+                </p>
+              ) : null}
               {canModerate && (open.status === "resolved" || open.status === "rejected") && !isSuperAdmin ? (
                 <p className="text-[13px] text-sam-muted">처리가 끝난 신고입니다. 다시 열기는 최고 관리자만 할 수 있습니다.</p>
               ) : null}
-              {actionsFor(open, false)}
+              {canModerate && (open.status === "pending" || open.status === "reviewing") ? (
+                <p className="text-[13px] text-sam-muted">아래 버튼으로 검토 시작·기각·인정합니다.</p>
+              ) : null}
             </CommunitySection>
             <AdminTechDetails ko={ko}>
               <div>신고 ID: {open.id}</div>
@@ -405,6 +466,7 @@ export function AdminMeetingReportsPage({
           confirmLabel={sheet.kind === "resolve" ? "신고 인정" : sheet.kind === "reject" ? "신고 기각" : "다시 열기"}
           onClose={() => setSheet(null)}
           onSubmit={async (reason) => {
+            if (!canModerate) return { ok: false, status: 403, code: "forbidden" };
             const next = sheet.kind === "resolve" ? "resolved" : sheet.kind === "reject" ? "rejected" : "pending";
             const { result: res, json } = await communityActionFetch(
               `/api/admin/philife/meeting-reports/${encodeURIComponent(sheet.row.id)}`,

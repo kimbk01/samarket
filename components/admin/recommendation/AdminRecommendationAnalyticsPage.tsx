@@ -59,7 +59,8 @@ export function AdminRecommendationAnalyticsPage() {
         ariaLabel="추천 분석 탭"
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
-        syncUrl={false}
+        defaultValue="performance"
+        resetParams={["page", "status", "q", "section"]}
       />
 
       {activeTab === "events" && (

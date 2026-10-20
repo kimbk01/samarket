@@ -21,7 +21,7 @@ export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistor
   const { t, language } = useI18n();
   const ko = language !== "en";
   const histories = useMemo(
-    () => getOpsLearningHistories({ status: statusFilter || undefined }),
+    () => getOpsLearningHistories({ status: statusFilter || undefined, limit: Number.MAX_SAFE_INTEGER }),
     [statusFilter]
   );
 

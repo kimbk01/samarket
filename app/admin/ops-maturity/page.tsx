@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { AdminOpsMaturityPage } from "@/components/admin/ops-maturity/AdminOpsMaturityPage";
 
 export default function OpsMaturityPage() {
-  return <AdminOpsMaturityPage />;
+  return (
+    <Suspense fallback={null}>
+      <AdminOpsMaturityPage />
+    </Suspense>
+  );
 }

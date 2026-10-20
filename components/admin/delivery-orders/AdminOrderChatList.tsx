@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
@@ -68,13 +68,13 @@ export function AdminOrderChatList() {
         error?: string;
       } | null;
       if (!res.ok || !json?.ok) {
-        setRows([]);
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5) — 권한 없음만 비운다.
+        if (res.status === 401 || res.status === 403) setRows([]);
         setError({ code: res.status === 401 || res.status === 403 ? "forbidden" : json?.error || "load_failed", status: res.status });
         return;
       }
       setRows(Array.isArray(json.rows) ? json.rows : []);
     } catch {
-      setRows([]);
       setError({ code: "network_error" });
     } finally {
       setLoading(false);
@@ -98,31 +98,29 @@ export function AdminOrderChatList() {
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / ORDER_CHAT_PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = filteredRows.slice((currentPage - 1) * ORDER_CHAT_PAGE_SIZE, currentPage * ORDER_CHAT_PAGE_SIZE);
-  const onSearch = (e: FormEvent) => {
-    e.preventDefault();
-    updateUrl({ q: draft.trim() || null });
+  const resetSearch = () => {
+    setDraft("");
+    updateUrl({ q: null });
   };
 
   const searchBar = (
-    <form onSubmit={onSearch} className="mb-3 flex flex-wrap items-center gap-2" data-admin-list-filters="order-chats">
-      <input
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        placeholder={ko ? "주문번호 · 매장 · 고객 닉네임 · 회원 ID" : "Order no · store · customer · member ID"}
-        className="min-w-[240px] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
+    <div className="mb-3" data-admin-list-filters="order-chats">
+      <AdminFilterBar
+        ko={ko}
+        draft={{ q: draft, from: "", to: "" }}
+        onDraftChange={(p) => {
+          if (p.q !== undefined) setDraft(p.q);
+        }}
+        onSubmit={() => updateUrl({ q: draft.trim() || null })}
+        onReset={resetSearch}
+        pending={loading}
+        showPeriod={false}
+        searchPlaceholder={ko ? "주문번호 · 매장 · 고객 닉네임 · 회원 ID" : "Order no · store · customer · member ID"}
       />
-      <AdminActionButton type="submit" variant="primary">
-        {adminCta("search", ko)}
-      </AdminActionButton>
-      {urlQ ? (
-        <AdminActionButton variant="secondary" onClick={() => updateUrl({ q: null })}>
-          {adminCta("reset", ko)}
-        </AdminActionButton>
-      ) : null}
-    </form>
+    </div>
   );
 
-  if (loading) {
+  if (loading && rows.length === 0) {
     return (
       <div data-admin-surface="live" data-admin-domain="delivery">
         <AdminLoadingState
@@ -133,7 +131,7 @@ export function AdminOrderChatList() {
     );
   }
 
-  if (error) {
+  if (error && rows.length === 0) {
     return (
       <div data-admin-surface="live" data-admin-domain="delivery">
         <AdminErrorState ko={ko} code={error.code} httpStatus={error.status} onRetry={() => void load()} />
@@ -152,6 +150,7 @@ export function AdminOrderChatList() {
         {searchBar}
         <AdminEmptyState
           ko={ko}
+          onReset={urlQ ? resetSearch : undefined}
           message={
             urlQ
               ? ko
@@ -172,6 +171,11 @@ export function AdminOrderChatList() {
   return (
     <div>
     {searchBar}
+    {error ? (
+      <div className="mb-3">
+        <AdminErrorState ko={ko} code={error.code} httpStatus={error.status} onRetry={() => void load()} />
+      </div>
+    ) : null}
     <div
       className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface"
       data-admin-surface="live"

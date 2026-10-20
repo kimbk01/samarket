@@ -3,7 +3,8 @@
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
@@ -44,6 +45,9 @@ const TYPE_LABELS: Record<string, [string, string]> = {
   complaint: ["불만 접수", "Complaint"],
 };
 
+/** 목록 조건 = 주소 (`store_id` 딥링크 · `page` · `size`). 필터 UI 는 없다 (매장 딥링크만). */
+const LIST_CONFIG = { extras: ["store_id"] as const };
+
 export function AdminStoreInquiriesPage() {
   return (
     <Suspense fallback={null}>
@@ -55,8 +59,10 @@ export function AdminStoreInquiriesPage() {
 function AdminStoreInquiriesPageInner() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const searchParams = useSearchParams();
-  const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
+  const lq = useAdminListQuery(LIST_CONFIG);
+  const storeIdFilter = lq.query.extras.store_id.trim();
+  const apiQs = lq.apiQueryString;
+  const [total, setTotal] = useState(0);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
@@ -65,26 +71,26 @@ function AdminStoreInquiriesPageInner() {
     setLoading(true);
     setLoadError(null);
     try {
-      const qs = storeIdFilter ? `?store_id=${encodeURIComponent(storeIdFilter)}` : "";
-      const res = await fetch(`/api/admin/store-inquiries${qs}`, { credentials: "include" });
+      const res = await fetch(`/api/admin/store-inquiries?${apiQs}`, { credentials: "include" });
       const json = await res.json().catch(() => null);
       if (!json?.ok) {
-        setLoadError({ code: res.status === 403 ? "forbidden" : "load_failed", status: res.status });
-        setRows([]);
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5). 잘못된 매장 ID(400)는 오류 맵 문구로.
+        setLoadError({ code: res.status === 403 ? "forbidden" : json?.error === "invalid_store_id" ? "invalid_store_id" : "load_failed", status: res.status });
         return;
       }
       setRows(json.inquiries ?? []);
+      setTotal(Number(json.total) || 0);
     } catch {
       setLoadError({ code: "network_error" });
-      setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [storeIdFilter]);
+  }, [apiQs]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey 는 같은 조건 다시 불러오기 포함
+  }, [lq.refreshKey]);
 
   return (
     <div className="space-y-4">
@@ -103,12 +109,13 @@ function AdminStoreInquiriesPageInner() {
         </p>
       ) : null}
 
-      {loading ? (
+      {loadError ? (
+        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={lq.refresh} />
+      ) : null}
+      {loading && rows.length === 0 ? (
         <AdminLoadingState ko={ko} />
-      ) : loadError ? (
-        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void load()} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_stores_inquiries_empty")} />
+        loadError ? null : <AdminEmptyState ko={ko} message={t("admin_stores_inquiries_empty")} />
       ) : (
         <div className="space-y-3">
           {rows.map((r) => {
@@ -162,6 +169,17 @@ function AdminStoreInquiriesPageInner() {
           })}
         </div>
       )}
+      {rows.length > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+      ) : null}
     </div>
   );
 }

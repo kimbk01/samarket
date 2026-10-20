@@ -12,7 +12,7 @@ import {
   isRepeatRingEvent,
 } from "@/lib/notifications/notification-sound-ssot-repeat-policy";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
@@ -321,8 +321,9 @@ function NotificationSoundSsotRow({
           {t("admin_notif_sound_restore_default")}
         </AdminActionButton>
 
+        {/* 이벤트 행마다 저장 — 한 화면에 여러 행이라 primary 가 아닌 보조 (R7 버튼 배치: 화면당 primary 1개). */}
         <AdminActionButton
-          variant="primary"
+          variant="secondary"
           size="sm"
           disabled={!dirty || isSaving || isUploading}
           onClick={onSave}
@@ -618,6 +619,10 @@ export function AdminNotificationSoundSsotTable() {
         <div role="status" className="rounded-ui-rect border border-sam-success bg-sam-success-soft px-4 py-2 sam-text-body-secondary text-sam-success">
           {msg}
         </div>
+      ) : null}
+
+      {events.length === 0 ? (
+        <AdminEmptyState ko={ko} message={ko ? "설정할 알림 이벤트가 없습니다." : "No notification events to configure."} />
       ) : null}
 
       {sections.map(([titleKey, domains]) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getReleaseLearningNotes,
@@ -10,14 +10,21 @@ import {
 } from "@/lib/release-archive/release-archive-state";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 interface ReleaseLearningCardProps {
   releaseArchiveId?: string;
 }
 
+const FILTER_EXTRAS = ["release"] as const;
+
 export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardProps) {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [versionFilter, setVersionFilter] = useState<string>(releaseArchiveId ?? "");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const versionFilter = lq.query.extras.release || releaseArchiveId || "";
 
   const archives = useMemo(() => getReleaseArchives(), []);
   const notes = useMemo(
@@ -30,24 +37,27 @@ export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardPro
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_release")}</span>
-        <select
-          value={versionFilter}
-          onChange={(e) => setVersionFilter(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_rel_filter_release")} name="release" value={lq.query.extras.release} onChange={(v) => lq.setExtra("release", v)}>
           <option value="">{t("admin_rel_filter_all")}</option>
           {archives.map((a) => (
             <option key={a.id} value={a.id}>
               {a.releaseVersion} - {a.releaseTitle}
             </option>
           ))}
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {notes.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_rel_learning_empty_filter")} />
+        <AdminEmptyState ko={ko} message={t("admin_rel_learning_empty_filter")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <div className="space-y-4">
           {notes.map((n) => {

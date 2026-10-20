@@ -1,7 +1,10 @@
 import { Suspense } from "react";
-import { parseCommunityAdminPeriod } from "@/lib/admin/community-admin/community-admin-period";
 import {
-  ADMIN_MEETING_REPORTS_PAGE_SIZE,
+  communityAdminListPeriodParams,
+  parseCommunityAdminPeriod,
+} from "@/lib/admin/community-admin/community-admin-period";
+import { normalizeAdminListPage, normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import {
   loadAdminMeetingReports,
   resolveAdminMeetingReportSearch,
 } from "@/lib/admin/community-admin/load-admin-meeting-reports";
@@ -30,9 +33,14 @@ export default async function AdminPhilifeMeetingReportsRoute({ searchParams }: 
   const tab = resolveMeetingReportTab(one(sp, "status"));
   const typeRaw = one(sp, "type");
   const type = (MEETING_REPORT_TARGET_OPTIONS as readonly string[]).includes(typeRaw) ? typeRaw : "";
-  const page = Math.max(1, Math.floor(Number(one(sp, "page") || 1)) || 1);
+  // 화면 표준 (R7): page · size(20/50/100, 기본 20) — 화면의 AdminPagination 과 같은 해석
+  const page = normalizeAdminListPage(one(sp, "page"));
+  const pageSize = normalizeAdminListPageSize(one(sp, "size"));
   const q = one(sp, "q");
-  const period = parseCommunityAdminPeriod({ period: one(sp, "period"), from: one(sp, "from"), to: one(sp, "to") });
+  // 필터 바 날짜(from/to) · 옛 period 프리셋 링크 — 화면과 같은 변환
+  const period = parseCommunityAdminPeriod(
+    communityAdminListPeriodParams({ period: one(sp, "period"), from: one(sp, "from"), to: one(sp, "to") })
+  );
 
   const filters: MeetingReportFilters = { tab, type, q, periodError: period.ok ? null : period.error };
   const search = q ? await resolveAdminMeetingReportSearch(q) : null;
@@ -48,14 +56,16 @@ export default async function AdminPhilifeMeetingReportsRoute({ searchParams }: 
             meetingIds: search?.meetingIds ?? null,
             reporterIds: search?.reporterIds ?? null,
           },
-          page
+          page,
+          undefined,
+          { pageSize }
         );
 
   return (
     <div className="space-y-3 p-4">
       <AdminPhilifeMeetingReportsHeader />
       <Suspense fallback={null}>
-        <AdminMeetingReportsPage result={result} filters={filters} pageSize={ADMIN_MEETING_REPORTS_PAGE_SIZE} />
+        <AdminMeetingReportsPage result={result} filters={filters} pageSize={pageSize} />
       </Suspense>
     </div>
   );

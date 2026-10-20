@@ -4,7 +4,7 @@
  * 유형: promotion_order(거래 홍보 주문 — 차감·보류·확정·해제·환급) · trade_post_ad(이전 거래 광고) ·
  *       admin_manual(관리자 지급·회수 — 도메인 구분 없음)
  * query: userId · type(위 유형 중 하나) · entryType · period=today|7d|30d|custom|all (+from,to, 마닐라) ·
- *        limit(≤100) · offset
+ *        limit(20/50/100, 그 외 50) · offset
  * → { ok, total, limit, offset, period, sums: { count, amountIn, amountOut } | null, rows: [{ id, createdAt, userId,
  *      userNickname, entryType, amount, balanceAfter, relatedType, relatedId, description, actorType, actorId,
  *      actorNickname }] }
@@ -12,9 +12,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadPromotionLedgerRelatedIds, postgrestInList } from "@/lib/points/promotion-ledger-related-ids";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
 import {
   communityAdminUuidOrNull,
-  parseCommunityAdminPage,
   parseCommunityAdminPeriodFromSearch,
 } from "@/lib/admin/community-admin/community-admin-period";
 import {
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const period = parseCommunityAdminPeriodFromSearch(sp, { defaultPeriod: "30d" });
   if (!period.ok) return communityPeriodError(period.error);
-  const { limit, offset } = parseCommunityAdminPage(sp);
+  const { limit, offset } = parseTradeAdminListPage(sp);
 
   const userRaw = sp.get("userId");
   const userId = userRaw ? communityAdminUuidOrNull(userRaw) : null;

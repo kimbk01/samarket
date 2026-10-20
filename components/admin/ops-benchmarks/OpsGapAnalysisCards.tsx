@@ -4,10 +4,12 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getHighGapDomains } from "@/lib/ops-benchmarks/ops-benchmarks-utils";
 import type { OpsBenchmarkScope, OpsBenchmarkDomain } from "@/lib/types/ops-benchmarks";
-import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 const SCOPE_LABELS: Record<OpsBenchmarkScope, string> = {
   quarterly: "분기",
@@ -23,25 +25,36 @@ const DOMAIN_LABELS: Record<OpsBenchmarkDomain, string> = {
   learning: "학습/회고 성숙도",
 };
 
+const SCOPE_EXTRAS = ["scope"] as const;
+
 export function OpsGapAnalysisCards() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [scope, setScope] = useState<OpsBenchmarkScope>("quarterly");
+  /** 기간 범위는 주소(`?scope=`)에 보존 (R7). 기본 분기. */
+  const lq = useAdminListQuery({ extras: SCOPE_EXTRAS, extraDefaults: { scope: "quarterly" } });
+  const scope: OpsBenchmarkScope = lq.query.extras.scope === "yearly" ? "yearly" : "quarterly";
   const highGap = useMemo(() => getHighGapDomains(scope, 6), [scope]);
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_benchmark_kf6b7b470")}</span>
-        {(["quarterly", "yearly"] as const).map((s) => (
-          <AdminChipButton
-            key={s}
-            selected={scope === s}
-            onClick={() => setScope(s)}
-            >
-            {SCOPE_LABELS[s]}
-          </AdminChipButton>
-        ))}
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect
+          ko={ko}
+          label={t("admin_ops_benchmark_kf6b7b470")}
+          name="scope"
+          includeAll={false}
+          value={scope}
+          onChange={(v) => lq.setExtra("scope", v)}
+          options={(["quarterly", "yearly"] as const).map((s) => ({ value: s, label: SCOPE_LABELS[s] }))}
+        />
+      </AdminFilterBar>
 
       {highGap.length === 0 ? (
         <AdminEmptyState ko={ko} message={"목표 대비 갭이 큰 영역이 없습니다."} />

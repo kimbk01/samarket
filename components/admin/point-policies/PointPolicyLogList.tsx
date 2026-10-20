@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import type { PointPolicyLog } from "@/lib/types/point-policy";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
@@ -9,7 +10,7 @@ interface PointPolicyLogListProps {
 }
 
 export function PointPolicyLogList({ logs }: PointPolicyLogListProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
 
   const policyTypeLabels: Record<PointPolicyLog["policyType"], string> = {
     board_policy: t("admin_points_policy_log_type_board"),
@@ -26,9 +27,7 @@ export function PointPolicyLogList({ logs }: PointPolicyLogListProps) {
   };
 
   if (logs.length === 0) {
-    return (
-      <p className="sam-text-body text-sam-muted">{t("admin_points_policy_log_empty")}</p>
-    );
+    return <AdminEmptyState ko={language !== "en"} message={t("admin_points_policy_log_empty")} />;
   }
 
   return (

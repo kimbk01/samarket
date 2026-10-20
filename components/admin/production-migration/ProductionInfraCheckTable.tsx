@@ -4,7 +4,7 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getProductionInfraChecks } from "@/lib/production-migration/production-migration-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
@@ -15,11 +15,18 @@ import type {
   ProductionInfraCategory,
   ProductionInfraCheckStatus,
 } from "@/lib/types/production-migration";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const FILTER_EXTRAS = ["category"] as const;
 
 export function ProductionInfraCheckTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [category, setCategory] = useState<ProductionInfraCategory | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const category = lq.query.extras.category as ProductionInfraCategory | "";
   const checks = useMemo(
     () =>
       getProductionInfraChecks(
@@ -43,25 +50,26 @@ export function ProductionInfraCheckTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_category")}</span>
-        <select
-          value={category}
-          onChange={(e) =>
-            setCategory((e.target.value || "") as ProductionInfraCategory | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_qa_category")} name="category" value={lq.query.extras.category} onChange={(v) => lq.setExtra("category", v)}>
           {categories.map((c) => (
             <option key={c.value || "all"} value={c.value}>
               {c.label}
             </option>
           ))}
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {checks.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"인프라 점검 항목이 없습니다."} />
+        <AdminEmptyState ko={ko} message={"인프라 점검 항목이 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={["분류", "대상", "상태", "차단 사유", "비고"]}

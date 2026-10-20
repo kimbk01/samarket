@@ -17,7 +17,7 @@ import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
-import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -135,6 +135,10 @@ export function AdminDeliveryBottomNavPage() {
   const [rowBusy, setRowBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** 목록 불러오기 실패 (작업 실패 문구 `error` 와 분리) → AdminErrorState + [새로고침]. */
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  /** 추가 처리 중 — [추가] 중복 클릭 방지 */
+  const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   /** 재조회마다 증가 — 처리 이력 패널 refetch. */
   const [historyBump, setHistoryBump] = useState(0);
@@ -181,11 +185,12 @@ export function AdminDeliveryBottomNavPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setLoadErr(null);
     try {
       const data = await apiList();
       if (!data.ok) {
-        setError(errText(data.error));
-        setRows([]);
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5).
+        setLoadErr(!data.error || data.error === "update_failed" ? "load_failed" : data.error);
       } else {
         const sorted = (data.items ?? []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
         setRows(sorted.filter((r) => !isDeliveryBottomNavBuiltinOwnerStoreItem(r)));
@@ -194,7 +199,7 @@ export function AdminDeliveryBottomNavPage() {
     } finally {
       setLoading(false);
     }
-  }, [errText]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -381,15 +386,22 @@ export function AdminDeliveryBottomNavPage() {
               </label>
               <AdminActionButton
                 variant="primary"
+                disabled={adding}
                 onClick={async () => {
+                  if (adding) return;
                   setError(null);
-                  const res = await apiCreate(draft);
-                  if (!res.ok) {
-                    setError(errText(res.error));
-                    return;
+                  setAdding(true);
+                  try {
+                    const res = await apiCreate(draft);
+                    if (!res.ok) {
+                      setError(errText(res.error));
+                      return;
+                    }
+                    setDraft((p) => ({ ...p, label: "" }));
+                    await load();
+                  } finally {
+                    setAdding(false);
                   }
-                  setDraft((p) => ({ ...p, label: "" }));
-                  await load();
                 }}
               >
                 {t("admin_del_btn_add")}
@@ -407,9 +419,14 @@ export function AdminDeliveryBottomNavPage() {
         </AdminCard>
 
         <AdminCard titleKey="admin_del_card_menu_list">
-          {loading ? (
+          {loadErr ? (
+            <div className="mb-3">
+              <AdminErrorState ko={ko} code={loadErr} onRetry={() => void load()} />
+            </div>
+          ) : null}
+          {loading && rows.length === 0 ? (
             <AdminLoadingState ko={ko} label={t("common_loading")} />
-          ) : rows.length === 0 && !error ? (
+          ) : rows.length === 0 && !error && !loadErr ? (
             <AdminEmptyState ko={ko} />
           ) : (
             <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -559,9 +576,12 @@ export function AdminDeliveryBottomNavPage() {
                                 {adminCta("edit", ko)}
                               </AdminActionButton>
                             )}
+                            {/* 행 버튼 = ghost/sm 2개 (수정·삭제, 편집 중엔 저장·취소) + ▲▼ 정렬 핸들. 삭제는 L3 재입력 확인 그대로 */}
+                            {isEditing ? null : (
                             <AdminActionButton
-                              variant="danger"
+                              variant="ghost"
                               size="sm"
+                              disabled={rowBusy}
                               onClick={async () => {
                                 const ok = await confirmAdminAction({
                                   level: adminActionLevel("delete"),
@@ -583,6 +603,7 @@ export function AdminDeliveryBottomNavPage() {
                             >
                               {adminCta("delete", ko)}
                             </AdminActionButton>
+                            )}
                           </div>
                         </td>
                       </tr>

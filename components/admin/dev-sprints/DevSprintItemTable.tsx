@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -17,12 +17,20 @@ import {
   getSprintItemOwnerTypeLabel,
 } from "@/lib/dev-sprints/dev-sprint-utils";
 import type { DevSprintItemStatus } from "@/lib/types/dev-sprints";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const ITEM_STATUSES = ["todo", "in_progress", "review", "qa_ready", "done", "blocked"] as const;
+const ITEM_EXTRAS = ["sprint"] as const;
 
 export function DevSprintItemTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [sprintId, setSprintId] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<DevSprintItemStatus | "">("");
+  /** 스프린트·상태 필터는 주소(`?sprint=`·`?status=`)에 보존 (R7). */
+  const lq = useAdminListQuery({ statuses: ITEM_STATUSES, extras: ITEM_EXTRAS });
+  const sprintId = lq.query.extras.sprint;
+  const statusFilter = lq.query.status as DevSprintItemStatus | "";
 
   const sprints = useMemo(() => getDevSprints(), []);
   const items = useMemo(
@@ -64,41 +72,37 @@ export function DevSprintItemTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_dev_sprint_label_sprint")}</span>
-        <select
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+        status={{
+          label: t("admin_dev_sprint_label_status"),
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          options: statusOptions.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+        }}
+      >
+        <AdminFilterSelect
+          ko={ko}
+          label={t("admin_dev_sprint_label_sprint")}
+          name="sprint"
           value={sprintId}
-          onChange={(e) => setSprintId(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
-          <option value="">{t("common_all")}</option>
-          {sprints.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.sprintName}
-            </option>
-          ))}
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_dev_sprint_label_status")}</span>
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter((e.target.value || "") as DevSprintItemStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
-          {statusOptions.map((opt) => (
-            <option key={opt.value || "all"} value={opt.value}>
-              {t(opt.labelKey)}
-            </option>
-          ))}
-        </select>
-      </div>
+          onChange={(v) => lq.setExtra("sprint", v)}
+          allLabel={t("common_all")}
+          options={sprints.map((s) => ({ value: s.id, label: s.sprintName }))}
+        />
+      </AdminFilterBar>
 
       {items.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={sprintId || statusFilter ? undefined : t("admin_dev_sprint_empty_items")}
-          onReset={sprintId || statusFilter ? () => { setSprintId(""); setStatusFilter(""); } : undefined}
+          message={lq.isFiltered ? undefined : t("admin_dev_sprint_empty_items")}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable headers={headers.map((k) => t(k))}>

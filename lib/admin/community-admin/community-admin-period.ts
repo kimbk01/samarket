@@ -100,6 +100,37 @@ export function parseCommunityAdminPeriodFromSearch(
   return parseCommunityAdminPeriod({ period: sp.get("period"), from: sp.get("from"), to: sp.get("to") }, opts);
 }
 
+/**
+ * 목록 필터 바(from/to 날짜) → 커뮤니티 목록 API 기간 파라미터 (R7).
+ * - from/to 중 하나라도 있으면 `custom`. 종료일만 비면 오늘(PHT), 시작일만 비면 종료일 기준 최대 범위의 첫날.
+ * - 날짜가 없고 옛 프리셋(today/7d/30d — 딥링크 호환)이 있으면 그 프리셋.
+ * - 그 외 `all`.
+ */
+export function communityAdminListPeriodParams(
+  input: { period?: string | null; from?: string | null; to?: string | null },
+  now: Date = new Date()
+): { period: CommunityAdminPeriod; from?: string; to?: string } {
+  const from = String(input.from ?? "").trim();
+  const to = String(input.to ?? "").trim();
+  if (from || to) {
+    const today = manilaDateKey(now.toISOString()) ?? "";
+    let f = from;
+    let t = to;
+    if (!t) t = today && f <= today ? today : f;
+    if (!f) {
+      const toStart = manilaDayStartMs(t);
+      f =
+        toStart == null
+          ? t
+          : manilaDateKey(new Date(toStart - (COMMUNITY_ADMIN_MAX_RANGE_DAYS - 1) * DAY_MS).toISOString()) ?? t;
+    }
+    return { period: "custom", from: f, to: t };
+  }
+  const p = String(input.period ?? "").trim().toLowerCase();
+  if (p === "today" || p === "7d" || p === "30d") return { period: p };
+  return { period: "all" };
+}
+
 /** limit ≤ 100, offset ≥ 0 */
 export function parseCommunityAdminPage(sp: URLSearchParams): { limit: number; offset: number } {
   const l = Math.floor(Number(sp.get("limit")));

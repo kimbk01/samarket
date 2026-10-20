@@ -25,7 +25,7 @@ export function OpsIssuePatternTable({
   const { t, language } = useI18n();
   const ko = language !== "en";
   const patterns = useMemo(
-    () => getOpsIssuePatterns({ status: statusFilter || undefined }),
+    () => getOpsIssuePatterns({ status: statusFilter || undefined, limit: Number.MAX_SAFE_INTEGER }),
     [statusFilter]
   );
 

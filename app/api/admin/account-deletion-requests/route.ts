@@ -3,6 +3,7 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { isMissingRelation } from "@/lib/admin-users/member-tab-query";
 import { applyAccountDeletionRequestStatusFilter } from "@/lib/admin/metrics/admin-metric-filters";
+import { memberOpsListRange, parseMemberOpsListPage } from "@/lib/admin/member-ops-list/member-ops-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ type DeletionRequestRow = {
 /**
  * 회원 탈퇴·삭제 요청 큐 (사용자 `/api/me/leave-request` 가 쌓는 account_deletion_requests).
  * 관리자는 목록 확인 후 회원 상세에서 거절·탈퇴·영구삭제를 실행한다.
+ * R7 목록 표준: `limit`(20/50/100, 그 외 20)·`offset` 서버 페이지 + `total`(count exact). 예전 화면의 30건 고정 조회 제거.
+ * 호출자: `AdminDeletionRequestsQueue`(목록) · `AdminUserListPage`(대기 건수 = `total`).
  */
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("users");
@@ -28,7 +31,8 @@ export async function GET(req: NextRequest) {
 
   const { sb } = gate;
   const statusRaw = String(req.nextUrl.searchParams.get("status") ?? "open").trim().toLowerCase();
-  const limit = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("limit") ?? 50) || 50));
+  const page = parseMemberOpsListPage(req.nextUrl.searchParams);
+  const [from, to] = memberOpsListRange(page);
 
   // count exact = 같은 조건의 전체 건수 (화면 「총 N건」 · 통합 대시보드 「탈퇴 요청」과 같은 필터 함수)
   const q = applyAccountDeletionRequestStatusFilter(
@@ -36,14 +40,15 @@ export async function GET(req: NextRequest) {
       .from("account_deletion_requests")
       .select("id, user_id, status, reason, requested_at, processed_at, processed_by, admin_note", { count: "exact" })
       .order("requested_at", { ascending: false })
-      .limit(limit),
+      .order("id", { ascending: false })
+      .range(from, to),
     statusRaw
   );
 
   const { data, error, count } = await q;
   if (error) {
     if (isMissingRelation(error.message, "account_deletion_requests")) {
-      return NextResponse.json({ ok: true, items: [], total: 0, note: "table_missing" });
+      return NextResponse.json({ ok: true, items: [], total: 0, limit: page.limit, offset: page.offset, note: "table_missing" });
     }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
@@ -91,7 +96,7 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ ok: true, items, total: count ?? items.length });
+  return NextResponse.json({ ok: true, items, total: count ?? items.length, limit: page.limit, offset: page.offset });
 }
 
 /**

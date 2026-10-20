@@ -3,7 +3,9 @@
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -12,7 +14,7 @@ import {
   AdminStoreDiscoveryCampaignWriterPanel,
   type AdminDiscoveryCampaignRow,
 } from "@/components/admin/stores/AdminStoreDiscoveryCampaignWriterPanel";
-import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { AdminErrorState, AdminLoadingState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 
 type Policy = {
@@ -47,6 +49,14 @@ function fmt(v: string | number | null | undefined): string {
 }
 
 export function AdminStoreDiscoveryControlPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminStoreDiscoveryControlPageInner />
+    </Suspense>
+  );
+}
+
+function AdminStoreDiscoveryControlPageInner() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const monitorReadOnly = t("admin_store_discovery_read_only_badge");
@@ -58,6 +68,10 @@ export function AdminStoreDiscoveryControlPage() {
   const [campaignsLoading, setCampaignsLoading] = useState(true);
   const [campaignsErr, setCampaignsErr] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
+  /** 캠페인 목록 = 서버 페이지 (주소 `page`·`size`) — 예전 200건 고정 상한 제거 (R7). */
+  const lq = useAdminListQuery();
+  const [campaignsTotal, setCampaignsTotal] = useState(0);
+  const campaignsQs = lq.apiQueryString;
 
   const [diagLoading, setDiagLoading] = useState(true);
   const [diagErr, setDiagErr] = useState<string | null>(null);
@@ -93,28 +107,29 @@ export function AdminStoreDiscoveryControlPage() {
     setCampaignsLoading(true);
     setCampaignsErr(null);
     try {
-      const res = await fetch("/api/admin/store-discovery/campaigns", {
+      const res = await fetch(`/api/admin/store-discovery/campaigns?${campaignsQs}`, {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         campaigns?: CampaignRow[];
+        total?: number;
       };
       if (!res.ok || !json.ok) {
-        setCampaignsErr(json.error ?? "campaigns_load_error");
-        setCampaigns([]);
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5).
+        setCampaignsErr(res.status === 403 ? "forbidden" : json.error ?? "campaigns_load_error");
         return;
       }
       setCampaigns(json.campaigns ?? []);
+      setCampaignsTotal(Number(json.total) || 0);
     } catch {
-      setCampaignsErr("campaigns_load_error");
-      setCampaigns([]);
+      setCampaignsErr("network_error");
     } finally {
       setCampaignsLoading(false);
     }
-  }, []);
+  }, [campaignsQs]);
 
   const loadDiagnostics = useCallback(async () => {
     setDiagLoading(true);
@@ -151,9 +166,13 @@ export function AdminStoreDiscoveryControlPage() {
 
   useEffect(() => {
     void loadPolicy();
-    void loadCampaigns();
     void loadDiagnostics();
-  }, [loadPolicy, loadCampaigns, loadDiagnostics]);
+  }, [loadPolicy, loadDiagnostics]);
+
+  useEffect(() => {
+    void loadCampaigns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey 는 같은 조건 다시 불러오기 포함
+  }, [lq.refreshKey]);
 
   const stateLabel = (state: CampaignRow["computed_state"]) => {
     if (state === "active") return t("admin_store_discovery_state_active");
@@ -179,10 +198,10 @@ export function AdminStoreDiscoveryControlPage() {
       <AdminCard titleKey="admin_store_discovery_policy_title">
         <p className="mb-2 text-[12px] text-sam-muted">{monitorReadOnly}</p>
         {policyErr ? (
-          <p className="mb-2 text-[13px] text-sam-danger">{t("admin_store_discovery_policy_fail")}</p>
+          <AdminErrorState ko={ko} code={policyErr} onRetry={() => void loadPolicy()} />
         ) : null}
         {policyLoading ? (
-          <p className="text-[13px] text-sam-muted">{t("admin_store_discovery_policy_loading")}</p>
+          <AdminLoadingState ko={ko} label={t("admin_store_discovery_policy_loading")} />
         ) : policy ? (
           <div>
             <Field
@@ -220,6 +239,17 @@ export function AdminStoreDiscoveryControlPage() {
           onRefresh={loadCampaigns}
           stateLabel={stateLabel}
         />
+        {campaigns.length > 0 ? (
+          <AdminPagination
+            ko={ko}
+            page={lq.query.page}
+            size={lq.query.size}
+            total={campaignsTotal}
+            onPageChange={lq.setPage}
+            onSizeChange={lq.setSize}
+            disabled={campaignsLoading}
+          />
+        ) : null}
         {/* DEF-40: 기획 프로모션 생성·수정 감사 기록 */}
         <div className="mt-4 border-t border-sam-border-soft pt-3">
           <AdminConfigAuditHistoryPanel scope="discovery" limit={20} refreshToken={campaigns.length} />
@@ -240,7 +270,7 @@ export function AdminStoreDiscoveryControlPage() {
             />
           </label>
           <AdminActionButton
-            variant="primary"
+            variant="secondary"
             onClick={() => {
               const id = snapshotStoreId.trim();
               if (!id) return;
@@ -261,10 +291,10 @@ export function AdminStoreDiscoveryControlPage() {
         <p className="mb-2 text-[12px] text-sam-muted">{monitorReadOnly}</p>
         <p className="mb-3 text-[13px] text-sam-muted">{t("admin_store_discovery_diagnostics_note")}</p>
         {diagErr ? (
-          <p className="mb-2 text-[13px] text-sam-danger">{t("admin_store_discovery_diagnostics_fail")}</p>
+          <AdminErrorState ko={ko} code={diagErr} onRetry={() => void loadDiagnostics()} />
         ) : null}
         {diagLoading ? (
-          <p className="text-[13px] text-sam-muted">{t("common_loading")}</p>
+          <AdminLoadingState ko={ko} />
         ) : diagnostics ? (
           <div>
             <Field label={t("admin_r4c_discovery_note")} value={diagnostics.note} />

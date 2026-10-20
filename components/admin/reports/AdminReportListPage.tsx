@@ -1,34 +1,25 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
+import type { AdminListQueryPatch } from "@/lib/admin/list-query/admin-list-query";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getReportsForAdminFromDb } from "@/lib/admin-reports/getReportsFromDb";
 import type { Report } from "@/lib/types/report";
 import {
   filterReports,
+  REPORT_STATUS_OPTIONS,
   resolveAdminReportDomainFromQuery,
+  type AdminReportDomainFilter,
 } from "@/lib/admin-reports/report-admin-utils";
+import type { ReportStatus } from "@/lib/types/report";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import type { AdminReportFilters } from "./AdminReportFilterBar";
 import { AdminReportFilterBar } from "./AdminReportFilterBar";
 import { AdminReportTable } from "./AdminReportTable";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import Link from "next/link";
-
-function buildDefaultFilters(
-  reportSource: AdminReportFilters["reportSource"],
-  targetType: AdminReportFilters["targetType"] = ""
-): AdminReportFilters {
-  return {
-    reportSource,
-    targetType,
-    status: "",
-    reasonCode: "",
-  };
-}
 
 function resolveTargetTypeFromQuery(raw: string | null): AdminReportFilters["targetType"] {
   const v = (raw ?? "").trim().toLowerCase();
@@ -38,35 +29,55 @@ function resolveTargetTypeFromQuery(raw: string | null): AdminReportFilters["tar
   return "";
 }
 
+const REPORT_STATUS_VALUES = REPORT_STATUS_OPTIONS.map((o) => o.value).filter(Boolean) as ReportStatus[];
+/** 주소 키 — `domain`(예전 딥링크 `?domain=community`·`?from=community` 호환) · `target_type` · `reason`. */
+const REPORT_LIST_EXTRAS = ["domain", "target_type", "reason"] as const;
+
+/** 화면 도메인 → 주소 값. Trade 는 `trade` 가 아닌 `reports` (page.tsx 가 `?domain=trade` 를 거래 신고 화면으로 보낸다). */
+function domainParamOf(source: AdminReportDomainFilter): string {
+  if (source === "community_feed") return "community";
+  if (source === "reports") return "reports";
+  return "";
+}
+
 export function AdminReportListPage() {
   const { t, safeT, language } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
   const targetFromQuery = (searchParams.get("target") ?? "").trim();
-  const domainFromQuery = resolveAdminReportDomainFromQuery({
-    domain: searchParams.get("domain"),
-    from: searchParams.get("from"),
+  /** R7 — 조건(도메인·상태·대상 유형·사유)은 주소에 남는다 (새로고침·링크 공유·상세 복귀 유지). */
+  const lq = useAdminListQuery<(typeof REPORT_LIST_EXTRAS)[number]>({
+    statuses: REPORT_STATUS_VALUES,
+    extras: REPORT_LIST_EXTRAS,
   });
-  const targetTypeFromQuery = resolveTargetTypeFromQuery(
-    searchParams.get("target_type") ?? searchParams.get("targetType")
+  const legacyFrom = searchParams.get("from");
+  const legacyTargetType = searchParams.get("targetType");
+  const filters = useMemo<AdminReportFilters>(
+    () => ({
+      reportSource: resolveAdminReportDomainFromQuery({ domain: lq.query.extras.domain, from: legacyFrom }),
+      targetType: resolveTargetTypeFromQuery(lq.query.extras.target_type || legacyTargetType),
+      status: lq.query.status as ReportStatus | "",
+      reasonCode: lq.query.extras.reason,
+    }),
+    [lq.query.extras.domain, lq.query.extras.target_type, lq.query.extras.reason, lq.query.status, legacyFrom, legacyTargetType]
   );
-
-  const [filters, setFilters] = useState<AdminReportFilters>(() =>
-    buildDefaultFilters(domainFromQuery, targetTypeFromQuery)
-  );
+  /** 예전 `?from=community`·`?targetType=` 링크도 첫 변경 때 표준 키로 옮겨 적는다 (`from` 은 공통 기간 키라 지워진다). */
+  const setFilters = (next: AdminReportFilters) => {
+    const patch: AdminListQueryPatch<(typeof REPORT_LIST_EXTRAS)[number]> = {
+      status: next.status,
+      extras: {
+        domain: domainParamOf(next.reportSource),
+        target_type: next.targetType,
+        reason: next.reasonCode,
+      },
+    };
+    lq.patch(patch);
+  };
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   /** A source failed to load — the list is partial and must not read as "nothing pending". */
-  const [loadFailed, setLoadFailed] = useState(false);
-
-  useEffect(() => {
-    setFilters((prev) => {
-      const nextSource = prev.reportSource === domainFromQuery ? prev.reportSource : domainFromQuery;
-      const nextType = prev.targetType === targetTypeFromQuery ? prev.targetType : targetTypeFromQuery;
-      if (nextSource === prev.reportSource && nextType === prev.targetType) return prev;
-      return { ...prev, reportSource: nextSource, targetType: nextType };
-    });
-  }, [domainFromQuery, targetTypeFromQuery]);
+  const [loadFailure, setLoadFailure] = useState<{ code: string; httpStatus?: number } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,22 +87,42 @@ export function AdminReportListPage() {
         () => ({ ok: false as const, list: [] as Report[] })
       ),
       fetch("/api/admin/community-reports", { credentials: "include", cache: "no-store" })
-        .then((r) => r.json())
-        .catch(() => null),
+        .then(async (r) => ({ status: r.status, json: (await r.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          reports?: Report[];
+        } | null }))
+        .catch(() => ({ status: 0, json: null })),
     ]);
-    const feedOk = Boolean(feedRes?.ok && Array.isArray(feedRes.reports));
-    const feedList: Report[] = feedOk ? (feedRes.reports as Report[]) : [];
+    const feedOk = Boolean(feedRes.json?.ok && Array.isArray(feedRes.json.reports));
+    if (!tradeRes.ok && !feedOk) {
+      // 두 출처 모두 실패 — 직전 정상 목록은 지우지 않는다 (§8-5).
+      setLoadFailure({
+        code: feedRes.json?.error || (feedRes.status ? "load_failed" : "network_error"),
+        httpStatus: feedRes.status || undefined,
+      });
+      setLoading(false);
+      return;
+    }
+    const feedList: Report[] = feedOk ? (feedRes.json!.reports as Report[]) : [];
     const merged = [...tradeRes.list, ...feedList].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
     setReports(merged);
-    setLoadFailed(!tradeRes.ok || !feedOk);
+    setLoaded(true);
+    setLoadFailure(
+      feedOk
+        ? tradeRes.ok
+          ? null
+          : { code: "load_failed" }
+        : { code: feedRes.json?.error || (feedRes.status ? "load_failed" : "network_error"), httpStatus: feedRes.status || undefined }
+    );
     setLoading(false);
   }, []);
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, lq.refreshKey]);
 
   const filtered = useMemo(
     () =>
@@ -126,21 +157,22 @@ export function AdminReportListPage() {
           })}
         </div>
       ) : null}
-      {loadFailed ? (
-        <div
-          className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-fg"
-          role="alert"
-          data-testid="admin-report-load-failed"
-        >
-          <span>
-            {safeT("admin_report_list_load_failed", {
-              fallbackKo: "일부 신고 목록을 불러오지 못했습니다. 새로고침 후 다시 확인하세요.",
-              fallbackEn: "Some reports could not be loaded. Refresh and check again.",
-            })}
-          </span>
-          <AdminActionButton variant="secondary" size="sm" disabled={loading} onClick={() => void load()}>
-            {adminCta("refresh", ko)}
-          </AdminActionButton>
+      {loadFailure ? (
+        <div data-testid="admin-report-load-failed">
+          {loaded && !(loadFailure.httpStatus === 403) ? (
+            <p className="mb-2 sam-text-helper text-sam-muted">
+              {safeT("admin_report_list_load_failed", {
+                fallbackKo: "일부 신고 목록을 불러오지 못했습니다. 새로고침 후 다시 확인하세요.",
+                fallbackEn: "Some reports could not be loaded. Refresh and check again.",
+              })}
+            </p>
+          ) : null}
+          <AdminErrorState
+            ko={ko}
+            code={loadFailure.code}
+            httpStatus={loadFailure.httpStatus}
+            onRetry={() => void load()}
+          />
         </div>
       ) : null}
       {targetFromQuery ? (
@@ -211,21 +243,20 @@ export function AdminReportListPage() {
           })}
         </Link>
       </div>
-      <AdminReportFilterBar filters={filters} onChange={setFilters} />
-      {loading ? (
-        <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} />
+      <AdminReportFilterBar
+        filters={filters}
+        onChange={setFilters}
+        onReset={lq.reset}
+        onSubmit={lq.refresh}
+        pending={loading}
+      />
+      {!loaded ? (
+        loadFailure ? null : <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} />
       ) : filtered.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={t("admin_report_list_empty_filtered")}
-          onReset={
-            filters.status ||
-            filters.reasonCode ||
-            filters.targetType !== targetTypeFromQuery ||
-            filters.reportSource !== domainFromQuery
-              ? () => setFilters(buildDefaultFilters(domainFromQuery, targetTypeFromQuery))
-              : undefined
-          }
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminReportTable reports={filtered} />

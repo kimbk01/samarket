@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiActor } from "@/lib/admin/require-admin-permission";
+import { parseMemberOpsListPage } from "@/lib/admin/member-ops-list/member-ops-list-page";
 import {
   countUnreadAdminNotifications,
   listAdminNotifications,
+  listAdminNotificationsPage,
   loadAdminNotificationDeliveryHealth,
   type AdminRecipientAuthority,
 } from "@/lib/admin/notifications/admin-notification-service";
@@ -13,7 +15,8 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/admin/inbox — ADMIN NOTIFICATION inbox (R13).
  *   ?summary=1          → { unread } only (header inbox badge)
- *   ?limit&before&unread=1 → page of the caller's own notifications
+ *   ?limit&before&unread=1 → page of the caller's own notifications (커서 · 예전 「더 보기」)
+ *   ?offset&limit(20/50/100)&unread=1 → R7 서버 페이지 { items, total, unread, limit, offset } (`/admin/inbox` 화면)
  *
  * HARD LOCK: inbox unread ≠ Admin Action Queue total (/api/admin/admin-bell).
  * Authority is re-resolved on every request (revoked admin → 401/403, rows stay stored).
@@ -39,6 +42,19 @@ export async function GET(req: NextRequest) {
       delivery = h.ok ? h.health : { unavailable: true };
     }
     return NextResponse.json({ ok: true, unread: r.unread, ...(delivery !== undefined ? { delivery } : {}) });
+  }
+
+  if (sp.has("offset")) {
+    const page = parseMemberOpsListPage(sp);
+    const r = await listAdminNotificationsPage(gate.sb, {
+      adminUserId: gate.actor.userId,
+      authority,
+      limit: page.limit,
+      offset: page.offset,
+      unreadOnly: sp.get("unread") === "1",
+    });
+    if (!r.ok) return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+    return NextResponse.json({ ok: true, items: r.items, total: r.total, unread: r.unread, limit: page.limit, offset: page.offset });
   }
 
   const before = sp.get("before")?.trim() || null;

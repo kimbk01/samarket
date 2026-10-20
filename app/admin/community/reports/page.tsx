@@ -8,9 +8,11 @@ import {
   resolveCommunityReportInboxTab,
   type CommunityReportTargetFilter,
 } from "@/lib/community-feed/admin-community-reports";
-import { parseCommunityAdminPeriod } from "@/lib/admin/community-admin/community-admin-period";
-
-const PAGE_SIZE = 50;
+import {
+  communityAdminListPeriodParams,
+  parseCommunityAdminPeriod,
+} from "@/lib/admin/community-admin/community-admin-period";
+import { normalizeAdminListPage, normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
 type Sp = Record<string, string | string[] | undefined>;
 
@@ -26,8 +28,13 @@ export default async function AdminCommunityReportsRoute({ searchParams }: { sea
   const typeRaw = one(sp, "type");
   const targetType: CommunityReportTargetFilter =
     typeRaw === "post" || typeRaw === "comment" || typeRaw === "user" ? typeRaw : "";
-  const page = Math.max(1, Math.floor(Number(one(sp, "page") || 1)) || 1);
-  const period = parseCommunityAdminPeriod({ period: one(sp, "period"), from: one(sp, "from"), to: one(sp, "to") });
+  // 화면 표준 (R7): page · size(20/50/100, 기본 20) — 화면의 AdminPagination 과 같은 해석
+  const page = normalizeAdminListPage(one(sp, "page"));
+  const pageSize = normalizeAdminListPageSize(one(sp, "size"));
+  // 필터 바 날짜(from/to) · 옛 period 프리셋 링크 — 화면과 같은 변환
+  const period = parseCommunityAdminPeriod(
+    communityAdminListPeriodParams({ period: one(sp, "period"), from: one(sp, "from"), to: one(sp, "to") })
+  );
 
   const filters: AdminCommunityReportsFilters = {
     tab,
@@ -50,8 +57,8 @@ export default async function AdminCommunityReportsRoute({ searchParams }: { sea
     authorId: filters.authorId || undefined,
     createdFromIso: period.ok ? period.fromIso : null,
     createdToIso: period.ok ? period.toIso : null,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   });
 
   return (
@@ -59,7 +66,7 @@ export default async function AdminCommunityReportsRoute({ searchParams }: { sea
       <AdminCommunityReportsPage
         result={result}
         filters={filters}
-        pageSize={PAGE_SIZE}
+        pageSize={pageSize}
         highlightId={one(sp, "rid")}
       />
     </Suspense>

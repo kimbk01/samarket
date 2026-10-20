@@ -3,38 +3,38 @@
 /**
  * 거래 포인트 (설계 v2 §G-2) — 거래 홍보 주문·이전 거래 광고·관리자 지급/회수 내역 + 「포인트 지급·회수」.
  * 지급·회수: 회원 선택 → 현재 잔액 → 지급/회수·금액·사유 → 2단계 확인. 확인 화면을 열 때 멱등 키를 1회 만들고 재시도에 재사용.
- * URL: type · entryType · userId · period/from/to · page
+ * URL: type · entryType · userId · from/to(PHT) · period(호환 프리셋 · all=전체 기간, 없으면 최근 30일) · page · size(20/50/100)
  */
 import { useState } from "react";
 import {
   COMMUNITY_TD,
+  CommunityFilterBar,
   CommunityFilterField,
+  CommunityListBody,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityPeriodFilter,
-  CommunityResetFilters,
   CommunitySelect,
   CommunityTable,
   CommunityTimeCell,
-  useCommunityQueryState,
+  useCommunityListQuery,
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { useCommunityAdminJson, type CommunityBannerState } from "@/components/admin/community/members/use-community-admin-data";
-import {
-  AdminEmptyState,
-  AdminErrorState,
-  AdminLoadingState,
-  AdminResultBanner,
-  AdminTechDetails,
-} from "@/components/admin/ui/AdminStateViews";
+import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
-import { TradeMemberCell, formatTradePoints, tradeErrorText } from "@/components/admin/trade/kit/TradeAdminKit";
+import {
+  TradeDefaultPeriodField,
+  TradeMemberCell,
+  formatTradePoints,
+  tradeErrorText,
+  tradeListApiParams,
+} from "@/components/admin/trade/kit/TradeAdminKit";
 
-const PAGE_SIZE = 50;
+const LIST_EXTRAS = ["type", "entryType", "userId"] as const;
 
 const TYPE_OPTIONS = [
   { value: "", label: "전체 유형" },
@@ -98,30 +98,14 @@ function actorLabel(r: LedgerRow): string {
 }
 
 export function TradePointsPage() {
-  const q = useCommunityQueryState();
+  const q = useCommunityListQuery({ extras: LIST_EXTRAS });
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [banner, setBanner] = useState<CommunityBannerState>(null);
-  const type = q.get("type");
-  const entryType = q.get("entryType");
-  const userId = q.get("userId");
-  const period = q.get("period") || "30d";
+  const { type, entryType, userId } = q.query.extras;
 
-  const params = new URLSearchParams();
-  if (type) params.set("type", type);
-  if (entryType) params.set("entryType", entryType);
-  if (userId) params.set("userId", userId);
-  params.set("period", period);
-  if (period === "custom") {
-    if (q.get("from")) params.set("from", q.get("from"));
-    if (q.get("to")) params.set("to", q.get("to"));
-  }
-  params.set("limit", String(PAGE_SIZE));
-  params.set("offset", String((q.page - 1) * PAGE_SIZE));
-  const customIncomplete = period === "custom" && (!q.get("from") || !q.get("to"));
-  const { state, reload } = useCommunityAdminJson<PointsResponse>(
-    customIncomplete ? null : `/api/admin/trade/points?${params.toString()}`
-  );
-  const rows = state.status === "ok" ? state.data.rows ?? [] : [];
+  const params = tradeListApiParams(q, { defaultPeriod: "30d" });
+  const { state, reload } = useCommunityAdminJson<PointsResponse>(`/api/admin/trade/points?${params.toString()}`);
+  const rows = state.data?.rows ?? [];
   const total = state.status === "ok" ? (typeof state.data.total === "number" ? state.data.total : null) : null;
   const sums = state.status === "ok" ? state.data.sums ?? null : null;
   const memberName = userId ? rows.find((r) => r.userId === userId)?.userNickname : null;
@@ -131,7 +115,7 @@ export function TradePointsPage() {
       title="거래 포인트"
       description="거래 홍보와 관리자 지급·회수로 오간 포인트 내역입니다. 포인트는 전체 서비스 공통입니다."
       actions={
-        <AdminActionButton variant="primary" onClick={() => setAdjustOpen(true)}>
+        <AdminActionButton variant="secondary" onClick={() => setAdjustOpen(true)}>
           포인트 지급·회수
         </AdminActionButton>
       }
@@ -152,48 +136,30 @@ export function TradePointsPage() {
           ) : null}
         </div>
       }
-      filters={
-        <>
+      filterBar={
+        <CommunityFilterBar lq={q} showSearch={false} pending={state.status === "loading"}>
+          <TradeDefaultPeriodField lq={q} />
           <CommunityFilterField label="유형">
-            <CommunitySelect value={type} onChange={(v) => q.set({ type: v })} options={TYPE_OPTIONS} />
+            <CommunitySelect value={type} onChange={(v) => q.setExtra("type", v)} options={TYPE_OPTIONS} />
           </CommunityFilterField>
           <CommunityFilterField label="종류">
-            <CommunitySelect value={entryType} onChange={(v) => q.set({ entryType: v })} options={ENTRY_OPTIONS} />
+            <CommunitySelect value={entryType} onChange={(v) => q.setExtra("entryType", v)} options={ENTRY_OPTIONS} />
           </CommunityFilterField>
-          <CommunityPeriodFilter
-            period={period === "all" ? "" : period}
-            from={q.get("from")}
-            to={q.get("to")}
-            onChange={(v) => q.set({ period: v.period === "30d" ? null : v.period || "all", from: v.from, to: v.to })}
-          />
           {userId ? (
             <CommunityFilterField label="회원">
-              <span className="flex items-center gap-2 text-[13px] text-sam-fg">
+              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
                 {memberName || "선택한 회원"}
-                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ userId: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.setExtra("userId", "")}>
                   해제
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
-          <CommunityResetFilters onReset={() => q.reset()} />
-        </>
+        </CommunityFilterBar>
       }
-      footer={
-        total !== null && total > 0 ? (
-          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
-        ) : null
-      }
+      footer={<CommunityListPagination lq={q} total={total} disabled={state.status === "loading"} />}
     >
-      {customIncomplete ? (
-        <AdminEmptyState ko message="직접 지정 기간의 시작일과 종료일을 모두 선택하세요." />
-      ) : state.status === "loading" && !state.data ? (
-        <AdminLoadingState ko />
-      ) : state.status === "error" ? (
-        <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
-      ) : rows.length === 0 ? (
-        <AdminEmptyState ko message="조건에 맞는 포인트 내역이 없습니다." />
-      ) : (
+      <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage="최근 30일 포인트 내역이 없습니다.">
         <CommunityTable head={["시각", "회원", "유형", "포인트", "잔액", "내용", "처리자"]}>
           {rows.map((r) => {
             const amt = r.amount ?? 0;
@@ -209,7 +175,7 @@ export function TradePointsPage() {
                       variant="quiet"
                       size="sm"
                       className="!h-auto !px-0 text-left text-[12px] font-normal"
-                      onClick={() => q.set({ userId: r.userId })}
+                      onClick={() => q.setExtra("userId", r.userId ?? "")}
                     >
                       이 회원만 보기
                     </AdminActionButton>
@@ -235,7 +201,7 @@ export function TradePointsPage() {
             );
           })}
         </CommunityTable>
-      )}
+      </CommunityListBody>
 
       {adjustOpen ? (
         <AdjustSheet

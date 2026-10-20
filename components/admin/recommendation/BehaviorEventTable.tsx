@@ -2,6 +2,8 @@
 
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState, useMemo } from "react";
 import type { UserBehaviorEvent, BehaviorEventType } from "@/lib/types/recommendation";
@@ -20,11 +22,29 @@ const EVENT_LABELS: Record<BehaviorEventType, string> = {
 };
 
 export function BehaviorEventTable() {
-  const { t, language } = useI18n();
+  const { language } = useI18n();
   const ko = language !== "en";
-  const [eventType, setEventType] = useState<BehaviorEventType | "">("");
-  const [userIdFilter, setUserIdFilter] = useState("");
-  const [sectionKeyFilter, setSectionKeyFilter] = useState("");
+  /**
+   * 필터 — 주소 보존 (R7): `?status=`(이벤트 유형) · `?q=`(userId) · `?section=`(sectionKey).
+   * 유형은 즉시 적용, userId·sectionKey 는 [조회]/Enter 로 적용.
+   */
+  const lq = useAdminListQuery<"section">({
+    statuses: Object.keys(EVENT_LABELS),
+    extras: ["section"],
+  });
+  const eventType = lq.query.status as BehaviorEventType | "";
+  const userIdFilter = lq.query.q;
+  const sectionKeyFilter = lq.query.extras.section;
+  const [sectionDraft, setSectionDraft] = useState<{ applied: string; value: string }>({
+    applied: sectionKeyFilter,
+    value: sectionKeyFilter,
+  });
+  // 주소의 sectionKey 가 바뀌면(초기화·뒤로가기) 입력값을 다시 맞춘다
+  let sectionInput = sectionDraft.value;
+  if (sectionDraft.applied !== sectionKeyFilter) {
+    sectionInput = sectionKeyFilter;
+    setSectionDraft({ applied: sectionKeyFilter, value: sectionKeyFilter });
+  }
 
   const events = useMemo(
     () =>
@@ -38,39 +58,37 @@ export function BehaviorEventTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="text"
-          placeholder="userId"
-          value={userIdFilter}
-          onChange={(e) => setUserIdFilter(e.target.value)}
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        />
-        <select
-          value={eventType}
-          onChange={(e) => setEventType(e.target.value as BehaviorEventType | "")}
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
-          <option value="">{t("common_all")}</option>
-          {(Object.keys(EVENT_LABELS) as BehaviorEventType[]).map((k) => (
-            <option key={k} value={k}>
-              {EVENT_LABELS[k]}
-            </option>
-          ))}
-        </select>
-        <input
-          type="text"
-          placeholder="sectionKey"
-          value={sectionKeyFilter}
-          onChange={(e) => setSectionKeyFilter(e.target.value)}
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        />
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={() => lq.patch({ q: lq.draft.q, extras: { section: sectionInput.trim() } })}
+        onReset={lq.reset}
+        showPeriod={false}
+        searchPlaceholder="userId"
+        status={{
+          value: eventType,
+          onChange: lq.setStatus,
+          label: ko ? "이벤트" : "Event",
+          options: (Object.keys(EVENT_LABELS) as BehaviorEventType[]).map((k) => ({ value: k, label: EVENT_LABELS[k] })),
+        }}
+      >
+        <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
+          sectionKey
+          <input
+            type="text"
+            value={sectionInput}
+            onChange={(e) => setSectionDraft({ applied: sectionKeyFilter, value: e.target.value })}
+            className="h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
+            name="section"
+          />
+        </label>
+      </AdminFilterBar>
       {events.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={eventType || userIdFilter || sectionKeyFilter ? undefined : "이벤트가 없습니다."}
-          onReset={eventType || userIdFilter || sectionKeyFilter ? () => { setEventType(""); setUserIdFilter(""); setSectionKeyFilter(""); } : undefined}
+          onReset={eventType || userIdFilter || sectionKeyFilter ? lq.reset : undefined}
         />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">

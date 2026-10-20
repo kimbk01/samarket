@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -14,11 +14,18 @@ import { CHANGE_TYPE_KEYS } from "@/components/admin/i18n/admin-release-label-ke
 import type {
   ReleaseArchiveChangeType,
 } from "@/lib/types/release-archive";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+const FILTER_EXTRAS = ["release", "change_type"] as const;
+
 export function ReleaseChangeHistoryTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [versionFilter, setVersionFilter] = useState<string>("");
-  const [changeTypeFilter, setChangeTypeFilter] = useState<ReleaseArchiveChangeType | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const versionFilter = lq.query.extras.release as string;
+  const changeTypeFilter = lq.query.extras.change_type as ReleaseArchiveChangeType | "";
 
   const archives = useMemo(() => getReleaseArchives(), []);
   const items = useMemo(
@@ -32,28 +39,24 @@ export function ReleaseChangeHistoryTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_release")}</span>
-        <select
-          value={versionFilter}
-          onChange={(e) => setVersionFilter(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_rel_filter_release")} name="release" value={lq.query.extras.release} onChange={(v) => lq.setExtra("release", v)}>
           <option value="">{t("admin_rel_filter_all")}</option>
           {archives.map((a) => (
             <option key={a.id} value={a.id}>
               {a.releaseVersion} - {a.releaseTitle}
             </option>
           ))}
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_change_type")}</span>
-        <select
-          value={changeTypeFilter}
-          onChange={(e) =>
-            setChangeTypeFilter((e.target.value || "") as ReleaseArchiveChangeType | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_rel_filter_change_type")} name="change_type" value={lq.query.extras.change_type} onChange={(v) => lq.setExtra("change_type", v)}>
           <option value="">{t("admin_rel_filter_all")}</option>
           <option value="feature">{t("admin_rel_type_feature")}</option>
           <option value="improvement">{t("admin_rel_type_improvement")}</option>
@@ -61,11 +64,11 @@ export function ReleaseChangeHistoryTable() {
           <option value="hotfix">{t("admin_rel_type_hotfix")}</option>
           <option value="ops_change">{t("admin_rel_type_ops")}</option>
           <option value="config_change">{t("admin_rel_type_config")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {items.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_rel_history_empty")} />
+        <AdminEmptyState ko={ko} message={t("admin_rel_history_empty")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={[

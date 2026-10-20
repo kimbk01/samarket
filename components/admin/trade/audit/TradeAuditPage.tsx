@@ -2,33 +2,41 @@
 
 /**
  * 거래 운영 기록 (설계 v2 §F-4) — 탭: 운영 기록(관리자 조치) | 찜 기록.
- * URL: tab=favorites · targetType · targetId · actorId · userId · postId · action · period/from/to · page
+ * URL: tab=favorites · targetType · targetId · actorId · userId · postId · action · from/to(PHT) ·
+ *      period(호환 프리셋 · 운영 기록은 all=전체 기간, 없으면 최근 30일) · page · size(20/50/100)
  */
 import Link from "next/link";
 import { useState } from "react";
 import {
   COMMUNITY_TD,
+  CommunityFilterBar,
   CommunityFilterField,
+  CommunityListBody,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityPeriodFilter,
-  CommunityResetFilters,
   CommunitySelect,
   CommunitySummaryCard,
   CommunityTable,
   CommunityTabs,
   CommunityTimeCell,
+  useCommunityListQuery,
   useCommunityQueryState,
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
-import { TradeMemberCell, tradeDetailHref } from "@/components/admin/trade/kit/TradeAdminKit";
+import {
+  TradeDefaultPeriodField,
+  TradeMemberCell,
+  tradeDetailHref,
+  tradeListApiParams,
+} from "@/components/admin/trade/kit/TradeAdminKit";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
-const PAGE_SIZE = 50;
+const OPS_EXTRAS = ["targetType", "targetId", "actorId"] as const;
+const FAVORITE_EXTRAS = ["userId", "postId", "action"] as const;
 
 /* ───────── 라벨 (대시보드 「최근 관리자 조치」와 공용) ───────── */
 
@@ -185,35 +193,14 @@ function AuditTabs() {
   );
 }
 
-function periodParams(q: ReturnType<typeof useCommunityQueryState>, params: URLSearchParams, fallback: string) {
-  const period = q.get("period") || fallback;
-  params.set("period", period);
-  if (period === "custom") {
-    if (q.get("from")) params.set("from", q.get("from"));
-    if (q.get("to")) params.set("to", q.get("to"));
-  }
-  return period === "custom" && (!q.get("from") || !q.get("to"));
-}
-
 function OpsTab() {
-  const q = useCommunityQueryState();
+  const q = useCommunityListQuery({ extras: OPS_EXTRAS });
   const [detail, setDetail] = useState<AuditRow | null>(null);
-  const targetType = q.get("targetType");
-  const targetId = q.get("targetId");
-  const actorId = q.get("actorId");
-  const period = q.get("period") || "30d";
+  const { targetType, targetId, actorId } = q.query.extras;
 
-  const params = new URLSearchParams();
-  if (targetType) params.set("targetType", targetType);
-  if (targetId) params.set("targetId", targetId);
-  if (actorId) params.set("actorId", actorId);
-  const customIncomplete = periodParams(q, params, "30d");
-  params.set("limit", String(PAGE_SIZE));
-  params.set("offset", String((q.page - 1) * PAGE_SIZE));
-  const { state, reload } = useCommunityAdminJson<AuditResponse>(
-    customIncomplete ? null : `/api/admin/trade/audit?${params.toString()}`
-  );
-  const rows = state.status === "ok" ? state.data.rows ?? [] : [];
+  const params = tradeListApiParams(q, { defaultPeriod: "30d" });
+  const { state, reload } = useCommunityAdminJson<AuditResponse>(`/api/admin/trade/audit?${params.toString()}`);
+  const rows = state.data?.rows ?? [];
   const total = state.status === "ok" ? Number(state.data.total ?? 0) : null;
   const actorName = actorId ? rows.find((r) => r.actor_id === actorId)?.actor_label : null;
 
@@ -222,26 +209,21 @@ function OpsTab() {
       title="운영 기록"
       description="거래에서 관리자가 한 조치를 누가·언제·무엇을·왜 했는지 확인합니다."
       tabs={<AuditTabs />}
-      filters={
-        <>
+      filterBar={
+        <CommunityFilterBar lq={q} showSearch={false} pending={state.status === "loading"}>
+          <TradeDefaultPeriodField lq={q} />
           <CommunityFilterField label="대상 유형">
             <CommunitySelect
               value={targetType}
-              onChange={(v) => q.set({ targetType: v, targetId: null })}
+              onChange={(v) => q.patch({ extras: { targetType: v, targetId: "" } })}
               options={[{ value: "", label: "전체" }, ...TRADE_AUDIT_TARGET_OPTIONS]}
             />
           </CommunityFilterField>
-          <CommunityPeriodFilter
-            period={period === "all" ? "" : period}
-            from={q.get("from")}
-            to={q.get("to")}
-            onChange={(v) => q.set({ period: v.period === "30d" ? null : v.period || "all", from: v.from, to: v.to })}
-          />
           {actorId ? (
             <CommunityFilterField label="처리자">
-              <span className="flex items-center gap-2 text-[13px] text-sam-fg">
+              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
                 {actorName || "선택한 관리자"}
-                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ actorId: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.setExtra("actorId", "")}>
                   해제
                 </AdminActionButton>
               </span>
@@ -249,32 +231,25 @@ function OpsTab() {
           ) : null}
           {targetId ? (
             <CommunityFilterField label="대상">
-              <span className="flex items-center gap-2 text-[13px] text-sam-fg">
+              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
                 한 대상의 기록만
-                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ targetId: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.setExtra("targetId", "")}>
                   해제
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
-          <CommunityResetFilters onReset={() => q.reset()} />
-        </>
+        </CommunityFilterBar>
       }
-      footer={
-        total !== null && total > 0 ? (
-          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
-        ) : null
-      }
+      footer={<CommunityListPagination lq={q} total={total} disabled={state.status === "loading"} />}
     >
-      {customIncomplete ? (
-        <AdminEmptyState ko message="직접 지정 기간의 시작일과 종료일을 모두 선택하세요." />
-      ) : state.status === "loading" && !state.data ? (
-        <AdminLoadingState ko />
-      ) : state.status === "error" ? (
-        <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
-      ) : rows.length === 0 ? (
-        <AdminEmptyState ko message="조건에 맞는 운영 기록이 없습니다." />
-      ) : (
+      <CommunityListBody
+        state={state}
+        empty={rows.length === 0}
+        lq={q}
+        onRetry={reload}
+        emptyMessage="최근 30일 운영 기록이 없습니다."
+      >
         <CommunityTable head={["시각 (PHT)", "처리자", "대상", "조치", "사유", ""]}>
           {rows.map((r) => {
             const href = targetHref(r.target_type, r.target_id, r.after_json);
@@ -292,7 +267,7 @@ function OpsTab() {
                       size="sm"
                       className="!h-auto !px-0 text-left"
                       title="이 처리자의 기록만 보기"
-                      onClick={() => q.set({ actorId: r.actor_id })}
+                      onClick={() => q.setExtra("actorId", r.actor_id ?? "")}
                     >
                       {actor}
                     </AdminActionButton>
@@ -313,7 +288,7 @@ function OpsTab() {
                       variant="quiet"
                       size="sm"
                       className="!h-auto !px-0 text-left text-[12px] font-normal"
-                      onClick={() => q.set({ targetType: r.target_type, targetId: r.target_id })}
+                      onClick={() => q.patch({ extras: { targetType: r.target_type ?? "", targetId: r.target_id ?? "" } })}
                     >
                       이 대상 기록만 보기
                     </AdminActionButton>
@@ -331,7 +306,7 @@ function OpsTab() {
                   {reasonOf(r.after_json) || "—"}
                 </td>
                 <td className={COMMUNITY_TD}>
-                  <AdminActionButton variant="ghost" onClick={() => setDetail(r)}>
+                  <AdminActionButton variant="ghost" size="sm" onClick={() => setDetail(r)}>
                     자세히
                   </AdminActionButton>
                 </td>
@@ -339,7 +314,7 @@ function OpsTab() {
             );
           })}
         </CommunityTable>
-      )}
+      </CommunityListBody>
 
       {detail ? (
         <AdminFormSheet
@@ -384,23 +359,11 @@ const FAVORITE_ACTIONS = [
 ];
 
 function FavoritesTab() {
-  const q = useCommunityQueryState();
-  const userId = q.get("userId");
-  const postId = q.get("postId");
-  const action = q.get("action");
-  const period = q.get("period");
+  const q = useCommunityListQuery({ extras: FAVORITE_EXTRAS });
+  const { userId, postId, action } = q.query.extras;
 
-  const params = new URLSearchParams();
-  if (userId) params.set("userId", userId);
-  if (postId) params.set("postId", postId);
-  if (action) params.set("action", action);
-  const customIncomplete = periodParams(q, params, "all");
-  params.set("limit", String(PAGE_SIZE));
-  params.set("offset", String((q.page - 1) * PAGE_SIZE));
-  const { state, reload } = useCommunityAdminJson<FavoriteResponse>(
-    customIncomplete ? null : `/api/admin/favorite-audit?${params.toString()}`
-  );
-  const rows = state.status === "ok" ? state.data.items ?? [] : [];
+  const { state, reload } = useCommunityAdminJson<FavoriteResponse>(`/api/admin/favorite-audit?${q.apiParams().toString()}`);
+  const rows = state.data?.items ?? [];
   const total = state.status === "ok" ? Number(state.data.total ?? 0) : null;
   const memberName = userId ? rows.find((r) => r.user_id === userId)?.user_label : null;
   const postName = postId ? rows.find((r) => r.post_id === postId)?.post_title : null;
@@ -410,22 +373,16 @@ function FavoritesTab() {
       title="운영 기록"
       description="회원이 거래글을 찜하거나 해제한 기록입니다."
       tabs={<AuditTabs />}
-      filters={
-        <>
+      filterBar={
+        <CommunityFilterBar lq={q} showSearch={false} pending={state.status === "loading"}>
           <CommunityFilterField label="동작">
-            <CommunitySelect value={action} onChange={(v) => q.set({ action: v })} options={FAVORITE_ACTIONS} />
+            <CommunitySelect value={action} onChange={(v) => q.setExtra("action", v)} options={FAVORITE_ACTIONS} />
           </CommunityFilterField>
-          <CommunityPeriodFilter
-            period={period}
-            from={q.get("from")}
-            to={q.get("to")}
-            onChange={(v) => q.set({ period: v.period, from: v.from, to: v.to })}
-          />
           {userId ? (
             <CommunityFilterField label="회원">
-              <span className="flex items-center gap-2 text-[13px] text-sam-fg">
+              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
                 {memberName || "선택한 회원"}
-                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ userId: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.setExtra("userId", "")}>
                   해제
                 </AdminActionButton>
               </span>
@@ -433,32 +390,19 @@ function FavoritesTab() {
           ) : null}
           {postId ? (
             <CommunityFilterField label="게시물">
-              <span className="flex items-center gap-2 text-[13px] text-sam-fg">
+              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
                 {postName || "선택한 게시물"}
-                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ postId: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.setExtra("postId", "")}>
                   해제
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
-          <CommunityResetFilters onReset={() => q.reset(["tab"])} />
-        </>
+        </CommunityFilterBar>
       }
-      footer={
-        total !== null && total > 0 ? (
-          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
-        ) : null
-      }
+      footer={<CommunityListPagination lq={q} total={total} disabled={state.status === "loading"} />}
     >
-      {customIncomplete ? (
-        <AdminEmptyState ko message="직접 지정 기간의 시작일과 종료일을 모두 선택하세요." />
-      ) : state.status === "loading" && !state.data ? (
-        <AdminLoadingState ko />
-      ) : state.status === "error" ? (
-        <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
-      ) : rows.length === 0 ? (
-        <AdminEmptyState ko message="조건에 맞는 찜 기록이 없습니다." />
-      ) : (
+      <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage="찜 기록이 없습니다.">
         <CommunityTable head={["시각 (PHT)", "회원", "게시물", "동작"]}>
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-sam-border-soft">
@@ -472,7 +416,7 @@ function FavoritesTab() {
                     variant="quiet"
                     size="sm"
                     className="!h-auto !px-0 text-left text-[12px] font-normal"
-                    onClick={() => q.set({ userId: r.user_id })}
+                    onClick={() => q.setExtra("userId", r.user_id ?? "")}
                   >
                     이 회원만 보기
                   </AdminActionButton>
@@ -494,7 +438,7 @@ function FavoritesTab() {
                     variant="quiet"
                     size="sm"
                     className="!h-auto !px-0 text-left text-[12px] font-normal"
-                    onClick={() => q.set({ postId: r.post_id })}
+                    onClick={() => q.setExtra("postId", r.post_id ?? "")}
                   >
                     이 게시물만 보기
                   </AdminActionButton>
@@ -512,7 +456,7 @@ function FavoritesTab() {
             </tr>
           ))}
         </CommunityTable>
-      )}
+      </CommunityListBody>
     </CommunityListShell>
   );
 }

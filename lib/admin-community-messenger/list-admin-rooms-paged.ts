@@ -36,7 +36,15 @@ export type AdminChatRoomListRow = {
   linked: { kind: "trade"; postId: string; title: string } | { kind: "store_order"; orderId: string; orderNo: string; storeName: string } | null;
 };
 
-export type AdminChatRoomListPage = { rows: AdminChatRoomListRow[]; nextCursor: string | null };
+export type AdminChatRoomListPage = {
+  rows: AdminChatRoomListRow[];
+  nextCursor: string | null;
+  /** 쪽 번호 모드(`offset` 지정)에서만 — 조건에 맞는 전체 방 수 (`count: "exact"`). */
+  total?: number;
+};
+
+/** R7 목록 표준 — `offset` 을 주면 keyset 대신 쪽 번호(limit/offset) + 전체 건수. */
+export type AdminChatRoomListPaging = { offset?: number | null };
 
 const ROOM_SELECT =
   "id, chat_domain, room_type, room_status, is_readonly, title, created_by, owner_user_id, domain_identity_key, direct_key, last_message_type, last_message_at, created_at";
@@ -194,9 +202,13 @@ async function loadLinkedTargets(
 
 export async function listAdminChatRoomsPaged(
   query: AdminChatRoomListQuery,
-  limit: number
+  limit: number,
+  paging: AdminChatRoomListPaging = {}
 ): Promise<AdminChatRoomListPage> {
   const sb = getSupabaseServer();
+  const offsetMode = typeof paging.offset === "number" && Number.isFinite(paging.offset) && paging.offset >= 0;
+  const offset = offsetMode ? Math.floor(paging.offset as number) : 0;
+  const empty = (): AdminChatRoomListPage => (offsetMode ? { rows: [], nextCursor: null, total: 0 } : { rows: [], nextCursor: null });
 
   // 1) 후보 방 ID 제한 (참여 회원 · 미처리 신고 · UUID 검색)
   let restrict: Set<string> | null = null;
@@ -229,7 +241,7 @@ export async function listAdminChatRoomsPaged(
     ids.add(q.toLowerCase());
     restrict = intersect(restrict, ids);
   }
-  if (restrict && restrict.size === 0) return { rows: [], nextCursor: null };
+  if (restrict && restrict.size === 0) return empty();
 
   // 2) 텍스트 검색 — 방 제목 OR 닉네임/아이디가 일치하는 회원이 참여한 방
   let textOr: string | null = null;
@@ -251,7 +263,7 @@ export async function listAdminChatRoomsPaged(
 
   // 3) keyset 조건 — 정렬 열: 최근 메시지(기본) · 생성 시각(`sort=created`)
   const col = query.sort === "created" ? "created_at" : "last_message_at";
-  const cursor = decodeAdminKeysetCursor(query.cursor);
+  const cursor = offsetMode ? null : decodeAdminKeysetCursor(query.cursor);
   let keysetOr: string | null = null;
   if (cursor?.ts) {
     keysetOr = `${col}.lt.${quote(cursor.ts)},and(${col}.eq.${quote(cursor.ts)},id.lt.${cursor.id}),${col}.is.null`;
@@ -259,10 +271,10 @@ export async function listAdminChatRoomsPaged(
 
   let rq = sb
     .from("community_messenger_rooms")
-    .select(ROOM_SELECT)
+    .select(ROOM_SELECT, offsetMode ? { count: "exact" } : undefined)
     .order(col, { ascending: false, nullsFirst: false })
-    .order("id", { ascending: false })
-    .limit(limit + 1);
+    .order("id", { ascending: false });
+  rq = offsetMode ? rq.range(offset, offset + limit - 1) : rq.limit(limit + 1);
   if (query.type !== "all") rq = rq.eq("chat_domain", query.type);
   if (query.status) rq = rq.eq("room_status", query.status);
   // 대시보드 지표와 같은 경계 (마닐라 자정 기준) — chat-metrics 의 같은 함수.
@@ -274,16 +286,17 @@ export async function listAdminChatRoomsPaged(
   else if (textOr) rq = rq.or(textOr);
   else if (keysetOr) rq = rq.or(keysetOr);
 
-  const { data: roomData, error } = await rq;
+  const { data: roomData, error, count } = await rq;
   if (error) throw new Error(error.message);
   const all = (roomData ?? []) as RoomRow[];
   const page = all.slice(0, limit);
   const last = page[page.length - 1];
   const nextCursor =
-    all.length > limit && last
+    !offsetMode && all.length > limit && last
       ? encodeAdminKeysetCursor({ ts: s(col === "created_at" ? last.created_at : last.last_message_at), id: last.id })
       : null;
-  if (!page.length) return { rows: [], nextCursor: null };
+  const total = offsetMode ? (typeof count === "number" ? count : offset + page.length) : undefined;
+  if (!page.length) return offsetMode ? { rows: [], nextCursor: null, total } : { rows: [], nextCursor: null };
 
   // 4) 페이지 단위 보조 조회 — 참여자 · 미처리 신고 수 · 프로필
   const roomIds = page.map((r) => r.id);
@@ -355,5 +368,5 @@ export async function listAdminChatRoomsPaged(
       linked: linkedByRoom.get(room.id) ?? null,
     };
   });
-  return { rows, nextCursor };
+  return offsetMode ? { rows, nextCursor, total } : { rows, nextCursor };
 }

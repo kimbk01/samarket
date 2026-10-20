@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadActorLabels } from "@/lib/admin-business/load-store-hub-summary";
+import { deliveryListRange, parseDeliveryListPageIfRequested } from "@/lib/admin/delivery-list/delivery-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 관리자: 매장·상품 신고 목록 */
+/**
+ * 관리자: 매장·상품 신고 목록
+ * - `limit`/`offset` 이 있으면 서버 페이지(R7): 20/50/100 · `total`(count exact) — 고정 상한 없음.
+ * - 없으면 예전 응답(최근 400건) 그대로 — 매장 허브 요약·포인트 대기·배달 신고 화면 호환.
+ */
 export async function GET(req: NextRequest) {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
@@ -18,20 +23,22 @@ export async function GET(req: NextRequest) {
   }
 
   const storeIdFilter = req.nextUrl.searchParams.get("store_id")?.trim() || "";
+  const page = parseDeliveryListPageIfRequested(req.nextUrl.searchParams);
 
   let q = sb
     .from("store_reports")
     .select(
-      "id, reporter_user_id, target_type, target_id, store_id, reason_type, message, status, action_type, action_memo, reviewed_at, created_at"
+      "id, reporter_user_id, target_type, target_id, store_id, reason_type, message, status, action_type, action_memo, reviewed_at, created_at",
+      page ? { count: "exact" } : undefined
     )
-    .order("created_at", { ascending: false })
-    .limit(400);
+    .order("created_at", { ascending: false });
 
   if (storeIdFilter) {
     q = q.eq("store_id", storeIdFilter);
   }
+  q = page ? q.order("id", { ascending: false }).range(...deliveryListRange(page)) : q.limit(400);
 
-  const { data: rows, error } = await q;
+  const { data: rows, error, count } = await q;
 
   if (error) {
     if (error.message?.includes("store_reports") && error.message.includes("does not exist")) {
@@ -67,6 +74,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     store_id: storeIdFilter || null,
+    ...(page ? { total: count ?? list.length, limit: page.limit, offset: page.offset } : {}),
     reports: list.map((r) => ({
       ...r,
       reporter_label: reporterLabels.get(String(r.reporter_user_id ?? "")) ?? null,

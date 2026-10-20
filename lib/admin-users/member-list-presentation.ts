@@ -16,6 +16,7 @@ import type {
 } from "@/lib/admin-users/admin-member-list-query";
 import type { AdminAuthProvider, AdminUser, AdminUserStatusCategory } from "@/lib/types/admin-user";
 import { resolveCanonicalMemberStore } from "@/lib/admin-users/member-store-relation-ssot";
+import { ADMIN_LIST_QUERY_DEFAULT_SIZE, normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
 export type MemberListLifecycleState =
   | "ACTIVE"
@@ -265,7 +266,8 @@ export function parseMemberListQueryState(sp: URLSearchParams): MemberListQueryS
   const joinedTo = parseDateYmd(String(sp.get("joinedTo") ?? ""));
   const sort = parseSort(String(sp.get("sort") ?? ""));
   const page = Math.max(1, Math.trunc(Number(sp.get("page")) || 1));
-  const pageSize = Math.min(50, Math.max(1, Math.trunc(Number(sp.get("pageSize")) || 10)));
+  // R7 목록 표준 — 페이지 크기 20/50/100 (그 외·없음 → 20). 예전 10/20/50 링크의 10 은 20 으로 열린다.
+  const pageSize = normalizeAdminListPageSize(sp.get("pageSize"));
   return { search, status, verify, store, privilege, origin, joinedFrom, joinedTo, sort, page, pageSize };
 }
 
@@ -281,6 +283,6 @@ export function buildMemberListQueryString(input: MemberListQueryState): string 
   if (input.joinedTo) params.set("joinedTo", input.joinedTo);
   if (input.sort && input.sort !== "created_at_desc") params.set("sort", input.sort);
   if (input.page > 1) params.set("page", String(input.page));
-  if (input.pageSize !== 10) params.set("pageSize", String(input.pageSize));
+  if (input.pageSize !== ADMIN_LIST_QUERY_DEFAULT_SIZE) params.set("pageSize", String(input.pageSize));
   return params.toString();
 }

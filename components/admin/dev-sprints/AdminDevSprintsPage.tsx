@@ -2,7 +2,7 @@
 
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -12,12 +12,14 @@ import { DevSprintSummaryCards } from "./DevSprintSummaryCards";
 import { DevSprintBoard } from "./DevSprintBoard";
 import { DevSprintItemTable } from "./DevSprintItemTable";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId = "summary" | "board" | "items";
 
 export function AdminDevSprintsPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("summary");
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(["summary", "board", "items"] as const, "summary");
   const { state: loadState, reload } = useAdminSyncLoad(loadDevSprintsFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -47,9 +49,8 @@ export function AdminDevSprintsPage() {
         className="mb-4"
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="summary"
+        resetParams={adminSyncTabResetParams(["sprint"])}
       />
       {activeTab === "summary" && (
         <AdminCard titleKey="admin_dev_sprint_card_summary">

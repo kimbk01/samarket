@@ -2,7 +2,6 @@
 
 /** Shared UI parts for the order-ops screens (period filter · pager · summary panel · buttons). */
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { COMMISSION_PRESS } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import {
   ADMIN_ORDER_OPS_BASIS_LABEL,
@@ -52,73 +51,6 @@ export function OpsPeriodFilter({
           <input type="date" className={`${OPS_INPUT} w-auto`} value={toDay} onChange={(e) => onChange({ period, fromDay, toDay: e.target.value })} aria-label={ko ? "종료일" : "To"} />
         </span>
       ) : null}
-    </div>
-  );
-}
-
-export function OpsPager({
-  page,
-  pageSize,
-  total,
-  busy,
-  ko,
-  onGo,
-}: {
-  page: number;
-  pageSize: number;
-  total: number;
-  busy: boolean;
-  ko: boolean;
-  onGo: (page: number) => void;
-}) {
-  const pages = Math.max(1, Math.ceil(total / pageSize));
-  const [jump, setJump] = useState(String(page));
-  useEffect(() => setJump(String(page)), [page]);
-  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to = Math.min(page * pageSize, total);
-  const go = (p: number) => {
-    const next = Math.min(pages, Math.max(1, Math.floor(p) || 1));
-    if (next !== page) onGo(next);
-    else setJump(String(page));
-  };
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 sam-text-helper" data-admin-orders-pager="1">
-      <span className="tabular-nums text-sam-muted">
-        {ko
-          ? `전체 ${formatAdminNumber(total)}건 · ${formatAdminNumber(from)}–${formatAdminNumber(to)}`
-          : `${formatAdminNumber(from)}–${formatAdminNumber(to)} of ${formatAdminNumber(total)}`}
-      </span>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <AdminActionButton size="sm" disabled={busy || page <= 1} onClick={() => go(1)} aria-label={ko ? "첫 페이지" : "First page"}>
-          «
-        </AdminActionButton>
-        <AdminActionButton size="sm" disabled={busy || page <= 1} onClick={() => go(page - 1)}>
-          {ko ? "이전" : "Prev"}
-        </AdminActionButton>
-        <form
-          className="flex items-center gap-1"
-          onSubmit={(e) => {
-            e.preventDefault();
-            go(Number(jump));
-          }}
-        >
-          <input
-            className="w-14 rounded-ui-rect border border-sam-border bg-sam-surface px-1.5 py-1.5 text-center tabular-nums text-sam-fg"
-            inputMode="numeric"
-            value={jump}
-            onChange={(e) => setJump(e.target.value.replace(/\D/g, ""))}
-            disabled={busy || pages <= 1}
-            aria-label={ko ? "페이지 번호" : "Page number"}
-          />
-          <span className="tabular-nums text-sam-muted">/ {formatAdminNumber(pages)}</span>
-        </form>
-        <AdminActionButton size="sm" disabled={busy || page >= pages} onClick={() => go(page + 1)}>
-          {ko ? "다음" : "Next"}
-        </AdminActionButton>
-        <AdminActionButton size="sm" disabled={busy || page >= pages} onClick={() => go(pages)} aria-label={ko ? "마지막 페이지" : "Last page"}>
-          »
-        </AdminActionButton>
-      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -176,7 +177,9 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
 
       <ul className="min-h-0 flex-1 divide-y divide-sam-border-soft overflow-y-auto">
         {loading && rows.length === 0 ? (
-          <li className="px-3 py-4 sam-text-body-secondary text-sam-muted">{t("common_loading")}</li>
+          <li className="px-3 py-4">
+            <AdminLoadingState ko={ko} />
+          </li>
         ) : rows.length === 0 ? (
           <li className="px-3 py-4">
             <p className="sam-text-body-secondary text-sam-muted">{emptyLabel}</p>
@@ -247,7 +250,8 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                         />
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <AdminActionButton variant="primary" size="sm" disabled={saving || isUploading} onClick={() => void onSave()}>
+                        {/* 행 편집 저장 = secondary (화면 primary 는 메뉴별 저장 1개) */}
+                        <AdminActionButton variant="secondary" size="sm" disabled={saving || isUploading} onClick={() => void onSave()}>
                           {saving || isUploading ? t("admin_stores_saving") : t("common_save")}
                         </AdminActionButton>
                         <AdminActionButton variant="secondary" size="sm" disabled={saving || isUploading} onClick={onCancelEdit}>
@@ -359,7 +363,7 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
             className="rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
             placeholder={addLabels.slug}
           />
-          <AdminActionButton variant="primary" onClick={onAdd} disabled={addDisabled}>
+          <AdminActionButton variant="secondary" onClick={onAdd} disabled={addDisabled}>
             {addLabels.button}
           </AdminActionButton>
         </div>
@@ -397,7 +401,8 @@ export function AdminStoreTaxonomyManager({
   const [newCategory, setNewCategory] = useState({ name: "", nameEn: "", slug: "" });
   const [newTopic, setNewTopic] = useState({ name: "", nameEn: "", slug: "" });
   const [newSubtopic, setNewSubtopic] = useState({ name: "", nameEn: "", slug: "" });
-  const [loadError, setLoadError] = useState<string | null>(null);
+  /** 불러오기 실패 — 코드·HTTP 상태 → AdminErrorState (3차 업종 테이블 미적용은 준비 중 안내 문구). */
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
   const [subtopicsTableMissing, setSubtopicsTableMissing] = useState(false);
 
   const applyServerTaxonomy = useCallback(
@@ -439,13 +444,8 @@ export function AdminStoreTaxonomyManager({
         };
         if (ac.signal.aborted) return;
         if (!res.ok || !j?.ok || !Array.isArray(j.categories) || !Array.isArray(j.topics)) {
-          setLoadError(
-            taxonomyErrText(
-              typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "load_failed",
-              ko,
-              adminOperatorErrorMessage("load_failed", ko)
-            )
-          );
+          const code = typeof j?.error === "string" && /^[a-z][a-z0-9_]*$/i.test(j.error.trim()) ? j.error.trim() : res.status === 403 ? "forbidden" : "load_failed";
+          setLoadError({ code, status: res.status });
           return;
         }
         const payload: AdminTaxonomyState = {
@@ -456,7 +456,7 @@ export function AdminStoreTaxonomyManager({
         applyServerTaxonomy(payload, j.meta);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
-        setLoadError(adminOperatorErrorMessage("network_error", ko));
+        setLoadError({ code: "network_error" });
       } finally {
         if (reloadAbortRef.current === ac) reloadAbortRef.current = null;
         reloadInFlightRef.current = false;
@@ -464,7 +464,7 @@ export function AdminStoreTaxonomyManager({
         setRefreshing(false);
       }
     },
-    [applyServerTaxonomy, ko]
+    [applyServerTaxonomy]
   );
 
   useEffect(() => {
@@ -751,9 +751,15 @@ export function AdminStoreTaxonomyManager({
       </div>
 
       {loadError ? (
-        <p role="alert" className="mt-3 sam-text-body-secondary text-sam-danger">
-          {loadError}
-        </p>
+        loadError.code === "store_subtopics_table_missing" ? (
+          <p role="status" className="mt-3 sam-text-body-secondary text-sam-warning">
+            {taxonomyErrText(loadError.code, ko, "")}
+          </p>
+        ) : (
+          <div className="mt-3">
+            <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void reloadTaxonomy()} />
+          </div>
+        )
       ) : null}
       {subtopicsTableMissing ? (
         <p className="mt-2 sam-text-helper text-sam-warning">{subtopicsNotReadyText(ko)}</p>

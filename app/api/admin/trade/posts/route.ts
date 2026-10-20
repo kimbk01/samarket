@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
 import {
   countTradePosts,
   listTradePosts,
@@ -13,7 +14,6 @@ import {
   parseTradePostTab,
   TRADE_POST_TABS,
 } from "@/lib/admin/trade-admin/trade-post-tabs";
-import { parseCommunityAdminPage } from "@/lib/admin/community-admin/community-admin-period";
 import {
   formatAdminMemberLabel,
   loadAdminMemberIdentityMap,
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
   const filter = parsed.filter;
   const tab = parseTradePostTab(sp.get("tab"));
   const sort = parseTradePostSort(sp.get("sort"));
-  const { limit, offset } = parseCommunityAdminPage(sp);
+  const { limit, offset } = parseTradeAdminListPage(sp);
 
   const ctxRes = await loadTradePostsContext(sb, { lguId: filter.lguId });
   if (!ctxRes.ok) return NextResponse.json({ ok: false, error: ctxRes.error }, { status: 500 });

@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { AdminOpsRunbookPage } from "@/components/admin/ops-runbooks/AdminOpsRunbookPage";
 
 export default function OpsRunbooksPage() {
-  return <AdminOpsRunbookPage />;
+  return (
+    <Suspense fallback={null}>
+      <AdminOpsRunbookPage />
+    </Suspense>
+  );
 }

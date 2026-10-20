@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { AdminOpsBoardPage } from "@/components/admin/ops-board/AdminOpsBoardPage";
 
 export default function OpsBoardPage() {
-  return <AdminOpsBoardPage />;
+  return (
+    <Suspense fallback={null}>
+      <AdminOpsBoardPage />
+    </Suspense>
+  );
 }

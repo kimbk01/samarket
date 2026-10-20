@@ -133,6 +133,54 @@ export function AdminDeliveryAdCommercialSettingsView() {
     }
   };
 
+  /**
+   * 가격표 한 행(지면)의 바뀐 기간 칸들을 한 번에 저장 — R7 버튼 배치(행당 버튼 1개).
+   * 확인 단계는 칸별 저장과 같은 `save` 1회(대상·변경 내용 표시), 요청은 패키지마다 기존 `update_package` 그대로.
+   * 하나라도 실패하면 거기서 멈추고 오류를 보인다 (앞서 저장된 칸은 서버 카탈로그로 반영).
+   */
+  const patchPackages = async (targetLabel: string, bodies: Array<{ label: string; body: Record<string, unknown> }>) => {
+    if (bodies.length === 0) return;
+    const ko = lang !== "en";
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "광고 가격을 저장할까요?" : "Save the ad price?",
+      description: `${targetLabel} · ${bodies.map((b) => b.label).join(", ")} — ${
+        ko
+          ? "신규 신청부터 적용됩니다. 이미 승인된 광고에는 소급되지 않습니다."
+          : "Applies to new applications only. Approved campaigns are not changed."
+      }`,
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
+    setBusy(true);
+    setError(null);
+    setMsg(null);
+    try {
+      for (const { body } of bodies) {
+        const res = await adminFetch("/api/admin/delivery-ads/commercial", {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          catalog?: Catalog;
+          error?: string;
+        };
+        if (!res.ok || !j.ok || !j.catalog) {
+          setError(j.error ?? "save_failed");
+          return;
+        }
+        setCatalog(j.catalog);
+      }
+      setMsg(lang === "en" ? "Saved." : "저장했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const packageIndex = useMemo(() => {
     const map = new Map<string, DeliveryAdPackageRow>();
     if (!catalog) return map;
@@ -305,40 +353,41 @@ export function AdminDeliveryAdCommercialSettingsView() {
                                 {lang === "en" ? "d" : "일"}
                               </th>
                             ))}
+                            <th className="border border-sam-border p-2 font-semibold">
+                              <span className="sr-only">{adminCta("save", lang !== "en")}</span>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
                           {placements.map((inv) => (
-                            <tr key={inv} className="bg-sam-surface">
-                              <td className="border border-sam-border p-2 font-medium text-sam-fg">
-                                {deliveryAdCommercialPlacementLabel(inv, lang)}
-                              </td>
-                              {R3_COMMERCIAL_MATRIX_DURATIONS.map((days, i) => {
+                            <MatrixRow
+                              key={inv}
+                              label={deliveryAdCommercialPlacementLabel(inv, lang)}
+                              pkgs={R3_COMMERCIAL_MATRIX_DURATIONS.map((days, i) => {
                                 const code = R3_COMMERCIAL_MATRIX_SEED_CODES[i];
-                                const pkg =
+                                return (
                                   packageIndex.get(`${product}:${inv}:${days}`) ??
                                   packageIndex.get(`${product}:${inv}:${code}`) ??
-                                  null;
-                                return (
-                                  <td key={days} className="border border-sam-border p-2">
-                                    <MatrixCell
-                                      pkg={pkg}
-                                      busy={busy}
-                                      lang={lang}
-                                      onSave={(body) => {
-                                        if (!pkg) return;
-                                        void patch({
-                                          op: "update_package",
-                                          packageId: pkg.id,
-                                          reason: "admin_package_settings",
-                                          ...body,
-                                        });
-                                      }}
-                                    />
-                                  </td>
+                                  null
                                 );
                               })}
-                            </tr>
+                              busy={busy}
+                              lang={lang}
+                              onSave={(changes) =>
+                                void patchPackages(
+                                  `${adminDeliveryAdProductHumanLabel(product, lang)} · ${deliveryAdCommercialPlacementLabel(inv, lang)}`,
+                                  changes.map(({ pkg, body }) => ({
+                                    label: `${pkg.durationDays}${lang === "en" ? "d" : "일"}`,
+                                    body: {
+                                      op: "update_package",
+                                      packageId: pkg.id,
+                                      reason: "admin_package_settings",
+                                      ...body,
+                                    },
+                                  }))
+                                )
+                              }
+                            />
                           ))}
                         </tbody>
                       </table>
@@ -585,30 +634,101 @@ export function AdminDeliveryAdCommercialSettingsView() {
   );
 }
 
+type MatrixCellDraft = { price: string; enabled: boolean };
+
+function matrixDraftOf(pkg: DeliveryAdPackageRow | null): MatrixCellDraft {
+  return {
+    price:
+      pkg == null || isAdminDeliveryAdPriceUnset(pkg.priceAmountMinor)
+        ? ""
+        : (pkg.priceAmountMinor! / 100).toFixed(2),
+    enabled: pkg?.enabled ?? false,
+  };
+}
+
+/** 가격표 한 행 — 기간 칸 3개 입력 + 행당 [저장] 1개 (바뀐 칸만 저장). */
+function MatrixRow(props: {
+  label: string;
+  pkgs: Array<DeliveryAdPackageRow | null>;
+  busy: boolean;
+  lang: "ko" | "en";
+  onSave: (changes: Array<{ pkg: DeliveryAdPackageRow; body: Record<string, unknown> }>) => void;
+}) {
+  const { label, pkgs, busy, lang, onSave } = props;
+  const [drafts, setDrafts] = useState<MatrixCellDraft[]>(() => pkgs.map(matrixDraftOf));
+  const pkgKey = pkgs.map((p) => (p ? `${p.id}:${p.priceAmountMinor ?? ""}:${p.enabled}` : "-")).join("|");
+  useEffect(() => {
+    setDrafts(pkgs.map(matrixDraftOf));
+    // pkgKey 가 바뀔 때(서버 카탈로그 갱신)만 입력값을 다시 맞춘다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pkgKey]);
+
+  const changes: Array<{ pkg: DeliveryAdPackageRow; body: Record<string, unknown> }> = [];
+  let invalid = false;
+  pkgs.forEach((pkg, i) => {
+    const d = drafts[i];
+    if (!pkg || !d) return;
+    const base = matrixDraftOf(pkg);
+    if (d.price.trim() === base.price.trim() && d.enabled === base.enabled) return;
+    const priceAmountMinor = d.price.trim() === "" ? null : parseDeliveryAdPhpMajorToMinor(d.price);
+    if (d.price.trim() !== "" && priceAmountMinor == null) {
+      invalid = true;
+      return;
+    }
+    changes.push({
+      pkg,
+      body: {
+        displayName: pkg.displayName,
+        durationDays: pkg.durationDays,
+        priceAmountMinor,
+        enabled: d.enabled,
+      },
+    });
+  });
+
+  return (
+    <tr className="bg-sam-surface">
+      <td className="border border-sam-border p-2 font-medium text-sam-fg">{label}</td>
+      {pkgs.map((pkg, i) => (
+        <td key={i} className="border border-sam-border p-2">
+          <MatrixCell
+            pkg={pkg}
+            busy={busy}
+            lang={lang}
+            draft={drafts[i] ?? matrixDraftOf(pkg)}
+            onChange={(patch) =>
+              setDrafts((prev) => prev.map((d, j) => (j === i ? { ...d, ...patch } : d)))
+            }
+          />
+        </td>
+      ))}
+      <td className="border border-sam-border p-2 align-middle">
+        <AdminActionButton
+          variant="ghost"
+          size="sm"
+          disabled={busy || invalid || changes.length === 0}
+          data-commercial-matrix-row-save="1"
+          onClick={() => onSave(changes)}
+        >
+          {adminCta("save", lang !== "en")}
+        </AdminActionButton>
+      </td>
+    </tr>
+  );
+}
+
 function MatrixCell(props: {
   pkg: DeliveryAdPackageRow | null;
   busy: boolean;
   lang: "ko" | "en";
-  onSave: (body: Record<string, unknown>) => void;
+  draft: MatrixCellDraft;
+  onChange: (patch: Partial<MatrixCellDraft>) => void;
 }) {
-  const { pkg, busy, lang, onSave } = props;
+  const { pkg, busy, lang, draft, onChange } = props;
   const unset =
     pkg == null || isAdminDeliveryAdPriceUnset(pkg.priceAmountMinor) || !pkg.enabled;
-  const [price, setPrice] = useState(
-    pkg == null || isAdminDeliveryAdPriceUnset(pkg.priceAmountMinor)
-      ? ""
-      : (pkg.priceAmountMinor! / 100).toFixed(2)
-  );
-  const [enabled, setEnabled] = useState(pkg?.enabled ?? false);
-  useEffect(() => {
-    setPrice(
-      pkg == null || isAdminDeliveryAdPriceUnset(pkg.priceAmountMinor)
-        ? ""
-        : (pkg.priceAmountMinor! / 100).toFixed(2)
-    );
-    setEnabled(pkg?.enabled ?? false);
-  }, [pkg]);
-
+  const price = draft.price;
+  const enabled = draft.enabled;
   if (!pkg) {
     return (
       <div
@@ -658,7 +778,7 @@ function MatrixCell(props: {
         placeholder={lang === "en" ? "PHP major" : "PHP 금액"}
         value={price}
         disabled={busy}
-        onChange={(e) => setPrice(e.target.value)}
+        onChange={(e) => onChange({ price: e.target.value })}
         data-price-null-safe="1"
       />
       <label className="flex items-center gap-1 text-[12px]">
@@ -666,27 +786,10 @@ function MatrixCell(props: {
           type="checkbox"
           checked={enabled}
           disabled={busy}
-          onChange={(e) => setEnabled(e.target.checked)}
+          onChange={(e) => onChange({ enabled: e.target.checked })}
         />
         {lang === "en" ? "Active" : "활성"}
       </label>
-      <AdminActionButton
-        variant="secondary"
-        size="sm"
-        disabled={busy}
-        onClick={() => {
-          const priceAmountMinor = price.trim() === "" ? null : parseDeliveryAdPhpMajorToMinor(price);
-          if (price.trim() !== "" && priceAmountMinor == null) return;
-          onSave({
-            displayName: pkg.displayName,
-            durationDays: pkg.durationDays,
-            priceAmountMinor,
-            enabled,
-          });
-        }}
-      >
-        {adminCta("save", lang !== "en")}
-      </AdminActionButton>
     </div>
   );
 }

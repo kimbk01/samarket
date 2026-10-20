@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getProductBacklogItems } from "@/lib/product-backlog/product-backlog-state";
 import { ProductBacklogCard } from "./ProductBacklogCard";
@@ -14,6 +14,9 @@ import type {
   ProductBacklogStatus,
   ProductFeedbackCategory,
 } from "@/lib/types/product-backlog";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 const STATUS_COLUMNS: ProductBacklogStatus[] = [
   "inbox",
@@ -23,11 +26,15 @@ const STATUS_COLUMNS: ProductBacklogStatus[] = [
   "released",
 ];
 
+const FILTER_EXTRAS = ["category"] as const;
+
 export function ProductBacklogBoard() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [categoryFilter, setCategoryFilter] = useState<ProductFeedbackCategory | "">("");
-  const [statusFilter, setStatusFilter] = useState<ProductBacklogStatus | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const categoryFilter = lq.query.extras.category as ProductFeedbackCategory | "";
+  const statusFilter = lq.query.status as ProductBacklogStatus | "";
 
   const allItems = useMemo(
     () =>
@@ -57,43 +64,33 @@ export function ProductBacklogBoard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">
-          {t("admin_product_backlog_label_category")}
-        </span>
-        <select
-          value={categoryFilter}
-          onChange={(e) =>
-            setCategoryFilter((e.target.value || "") as ProductFeedbackCategory | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_product_backlog_label_category")} name="category" value={lq.query.extras.category} onChange={(v) => lq.setExtra("category", v)}>
           {PRODUCT_BACKLOG_CATEGORY_FILTER_OPTIONS.map((opt) => (
             <option key={opt.value || "all"} value={opt.value}>
               {t(opt.labelKey)}
             </option>
           ))}
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">
-          {t("admin_product_backlog_label_status")}
-        </span>
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter((e.target.value || "") as ProductBacklogStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_product_backlog_label_status")} name="status" value={lq.query.status} onChange={lq.setStatus}>
           {PRODUCT_BACKLOG_BOARD_STATUS_FILTER_OPTIONS.map((opt) => (
             <option key={opt.value || "all"} value={opt.value}>
               {t(opt.labelKey)}
             </option>
           ))}
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {allItems.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_product_backlog_empty_backlog")} />
+        <AdminEmptyState ko={ko} message={t("admin_product_backlog_empty_backlog")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <div className="grid gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-5">
           {columnsToShow.map((status) => (

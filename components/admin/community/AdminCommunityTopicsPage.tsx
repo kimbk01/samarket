@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -19,7 +19,7 @@ import { topicBelongsToPhilifeNeighborhoodSection } from "@/lib/neighborhood/mee
 import type { CommunityTopicContentStats } from "@/lib/community-topics/admin-topic-content-stats";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
-import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { AdminErrorState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type Banner = { ok: true; message: string } | { ok: false; code: string } | null;
@@ -56,15 +56,21 @@ export function AdminCommunityTopicsPage({
   topics: initial,
   philifeNeighborhoodSectionSlug,
   topicStatsBySlug = {},
+  loadError = null,
 }: {
   sections: CommunitySectionAdminRow[];
   topics: CommunityTopicAdminRow[];
   philifeNeighborhoodSectionSlug: string;
   topicStatsBySlug?: Record<string, CommunityTopicContentStats>;
+  /** 서버 조회 실패 코드 — 「카테고리 없음」과 구분 */
+  loadError?: string | null;
 }) {
   const router = useRouter();
   const { t: tr } = useI18n();
   const [topics, setTopics] = useState(initial);
+  const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(
+    loadError ? { code: loadError, status: 500 } : null
+  );
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
   const fail = (code: unknown) =>
@@ -115,9 +121,13 @@ export function AdminCommunityTopicsPage({
 
   async function refresh() {
     const res = await fetch("/api/admin/community/topics", { credentials: "include", cache: "no-store" });
-    const j = await res.json();
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; topics?: unknown };
     if (j.ok && Array.isArray(j.topics)) {
       setTopics(j.topics as CommunityTopicAdminRow[]);
+      setLoadErr(null);
+    } else {
+      // 실패해도 직전 목록은 지우지 않는다 (§8-5) — 오류 상태로 알린다
+      setLoadErr({ code: typeof j.error === "string" && j.error ? j.error : "load_failed", status: res.status });
     }
     router.refresh();
   }
@@ -429,7 +439,12 @@ export function AdminCommunityTopicsPage({
         titleClassName="sam-text-section-title text-sam-fg"
         title={tr("admin_topics_list_content")}
       >
-        {contentTopics.length === 0 ? (
+        {loadErr ? (
+          <div className="mb-3">
+            <AdminErrorState ko code={loadErr.code} httpStatus={loadErr.status} onRetry={() => void refresh()} />
+          </div>
+        ) : null}
+        {loadErr && contentTopics.length === 0 ? null : contentTopics.length === 0 ? (
           <p className="sam-text-body-secondary text-sam-muted">{tr("admin_topics_empty_content")}</p>
         ) : (
           <div className="overflow-x-auto">
@@ -459,7 +474,8 @@ export function AdminCommunityTopicsPage({
                   const commentsHref = `/admin/community/comments?topicSlug=${encodeURIComponent(slugKey)}`;
                   const reportsHref = `/admin/community/reports?topicSlug=${encodeURIComponent(slugKey)}`;
                   return edit?.id === topic.id ? (
-                    <tr key={topic.id} className="border-b border-sam-border-soft bg-sam-warning-soft/40 align-top">
+                    <Fragment key={topic.id}>
+                    <tr className="border-b border-sam-border-soft bg-sam-warning-soft/40 align-top">
                       <td className="py-2.5 pr-2">
                         <input
                           type="number"
@@ -526,6 +542,18 @@ export function AdminCommunityTopicsPage({
                         </AdminActionButton>
                       </td>
                     </tr>
+                    {/* 행 버튼 2개 이하 — 되돌릴 수 없는 삭제는 수정 중일 때 아래 줄에서만 */}
+                    <tr className="border-b border-sam-border-soft bg-sam-warning-soft/40">
+                      <td colSpan={8} className="py-2">
+                        <span className="flex flex-wrap items-center justify-end gap-2 sam-text-xxs text-sam-muted">
+                          글이 없는 카테고리만 삭제할 수 있습니다. 되돌릴 수 없습니다.
+                          <AdminActionButton variant="danger" size="sm" disabled={busy} onClick={() => void removeRow(topic)}>
+                            {tr("admin_topics_btn_delete")}
+                          </AdminActionButton>
+                        </span>
+                      </td>
+                    </tr>
+                    </Fragment>
                   ) : (
                     <tr key={topic.id} className="border-b border-sam-border-soft">
                       <td className="py-2.5 pr-2">
@@ -596,19 +624,11 @@ export function AdminCommunityTopicsPage({
                       </td>
                       <td className="py-2.5">
                         <span className="flex flex-wrap gap-1">
-                          <AdminActionButton variant="neutral" disabled={busy} onClick={() => setEdit({ ...topic })}>
+                          <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => setEdit({ ...topic })}>
                             {tr("admin_topics_btn_edit")}
                           </AdminActionButton>
-                          <AdminActionButton
-                            variant="secondary"
-                            className={topic.is_active ? "border-sam-warning text-sam-warning" : undefined}
-                            disabled={busy}
-                            onClick={() => void toggleActive(topic)}
-                          >
+                          <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => void toggleActive(topic)}>
                             {topic.is_active ? "사용 중지" : "다시 사용"}
-                          </AdminActionButton>
-                          <AdminActionButton variant="danger" disabled={busy} onClick={() => void removeRow(topic)}>
-                            {tr("admin_topics_btn_delete")}
                           </AdminActionButton>
                         </span>
                       </td>

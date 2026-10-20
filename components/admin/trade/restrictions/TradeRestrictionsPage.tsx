@@ -3,6 +3,7 @@
 /**
  * 거래 활동 제한 `/admin/trade/restrictions` (설계 v2 §C-5).
  * 탭: 진행 중 / 만료 / 해제 / 전체 · 필터: 종류(경고·거래 활동 제한) · 닉네임 · 특정 회원(?userId=).
+ * URL: tab(탭) · kind · q · userId · page · size(20/50/100)
  * 「해제」 2단계 확인 → POST ./restrictions/:id/revoke · 「제한 추가」 → POST ./restrictions.
  * 추가·해제 시트는 판매자·구매자 상세에서도 그대로 쓴다.
  */
@@ -11,25 +12,21 @@ import { useRef, useState } from "react";
 import {
   COMMUNITY_TD,
   CommunityActionSheet,
+  CommunityFilterBar,
   CommunityFilterField,
+  CommunityListBody,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityResetFilters,
-  CommunitySearchInput,
   CommunitySelect,
   CommunityTable,
   CommunityTabs,
   CommunityTimeCell,
+  useCommunityListQuery,
   useCommunityQueryState,
   type CommunitySheetSettle,
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import {
-  AdminEmptyState,
-  AdminErrorState,
-  AdminLoadingState,
-  AdminTechDetails,
-} from "@/components/admin/ui/AdminStateViews";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import {
@@ -42,7 +39,6 @@ import {
 import { TradeMemberCell, tradeDetailHref, tradeErrorText } from "@/components/admin/trade/kit/TradeAdminKit";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
-const PAGE_SIZE = 50;
 const REASON_MIN = 2;
 
 type Rec = Record<string, unknown>;
@@ -200,7 +196,7 @@ export function TradeAddRestrictionSheet({
     setSearching(true);
     setMemberErr(null);
     try {
-      const res = await fetch(`/api/admin/trade/members?q=${encodeURIComponent(v)}&limit=10`, {
+      const res = await fetch(`/api/admin/trade/members?q=${encodeURIComponent(v)}&limit=20`, {
         credentials: "include",
         cache: "no-store",
       });
@@ -382,32 +378,36 @@ const KIND_OPTIONS = [
 
 type ListResponse = { ok?: boolean; error?: string; total?: number; rows?: TradeRestrictionRow[] };
 
+const LIST_EXTRAS = ["kind", "userId"] as const;
+
 export function TradeRestrictionsPage() {
+  /** `tab` 은 조회 조건 밖 키 — [초기화] 후에도 유지, 탭을 바꾸면 1쪽으로 */
   const qs = useCommunityQueryState();
+  const lq = useCommunityListQuery({ extras: LIST_EXTRAS });
   const tabRaw = qs.get("tab");
   const tab: TabKey = (TABS.find((t) => t.value === tabRaw)?.value ?? "active") as TabKey;
-  const kind = qs.get("kind");
-  const q = qs.get("q");
-  const userId = qs.get("userId");
-  const page = qs.page;
+  const kind = lq.query.extras.kind;
+  const userId = lq.query.extras.userId;
   const [banner, setBanner] = useState<CommunityBanner>(null);
   const [revokeRow, setRevokeRow] = useState<TradeRestrictionRow | null>(null);
   const [adding, setAdding] = useState(false);
 
-  const buildUrl = (status: TabKey, limit: number, offset: number) => {
-    const p = new URLSearchParams({ status, limit: String(limit), offset: String(offset) });
-    if (kind) p.set("kind", kind);
-    if (q) p.set("q", q);
-    if (userId) p.set("userId", userId);
+  const buildUrl = (status: TabKey, limit?: number) => {
+    const p = lq.apiParams({ period: false });
+    p.set("status", status);
+    // 탭 건수 — 총 건수만 (가장 작은 페이지 크기로 1쪽 조회)
+    if (limit !== undefined) {
+      p.set("limit", String(limit));
+      p.set("offset", "0");
+    }
     return `/api/admin/trade/restrictions?${p.toString()}`;
   };
 
-  const { state, reload } = useCommunityAdminJson<ListResponse>(buildUrl(tab, PAGE_SIZE, (page - 1) * PAGE_SIZE));
-  // 탭 건수 — 총 건수만 (1행 조회)
-  const cActive = useCommunityAdminJson<ListResponse>(buildUrl("active", 1, 0));
-  const cExpired = useCommunityAdminJson<ListResponse>(buildUrl("expired", 1, 0));
-  const cRevoked = useCommunityAdminJson<ListResponse>(buildUrl("revoked", 1, 0));
-  const cAll = useCommunityAdminJson<ListResponse>(buildUrl("all", 1, 0));
+  const { state, reload } = useCommunityAdminJson<ListResponse>(buildUrl(tab));
+  const cActive = useCommunityAdminJson<ListResponse>(buildUrl("active", 20));
+  const cExpired = useCommunityAdminJson<ListResponse>(buildUrl("expired", 20));
+  const cRevoked = useCommunityAdminJson<ListResponse>(buildUrl("revoked", 20));
+  const cAll = useCommunityAdminJson<ListResponse>(buildUrl("all", 20));
   const countOf = (x: typeof cAll) => (x.state.status === "ok" ? Number(x.state.data.total ?? 0) : null);
   const counts: Record<TabKey, number | null> = {
     active: countOf(cActive),
@@ -446,7 +446,7 @@ export function TradeRestrictionsPage() {
           <AdminActionButton variant="secondary" onClick={reloadAll}>
             새로고침
           </AdminActionButton>
-          <AdminActionButton variant="primary" onClick={() => setAdding(true)}>
+          <AdminActionButton variant="secondary" onClick={() => setAdding(true)}>
             제한 추가
           </AdminActionButton>
         </>
@@ -459,49 +459,31 @@ export function TradeRestrictionsPage() {
           tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] }))}
         />
       }
-      filters={
-        <>
+      filterBar={
+        <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder="닉네임" pending={state.status === "loading"}>
           <CommunityFilterField label="종류">
-            <CommunitySelect value={kind} onChange={(v) => qs.set({ kind: v })} options={KIND_OPTIONS} />
-          </CommunityFilterField>
-          <CommunityFilterField label="회원 검색">
-            <CommunitySearchInput value={q} onCommit={(v) => qs.set({ q: v })} placeholder="닉네임" />
+            <CommunitySelect value={kind} onChange={(v) => lq.setExtra("kind", v)} options={KIND_OPTIONS} />
           </CommunityFilterField>
           {userId ? (
-            <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
-              특정 회원만 보기
-              <AdminActionButton
-                variant="quiet"
-                size="sm"
-                className="!h-6 !px-1"
-                aria-label="특정 회원 해제"
-                onClick={() => qs.set({ userId: null })}
-              >
-                ×
-              </AdminActionButton>
-            </span>
+            <CommunityFilterField label="회원">
+              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
+                특정 회원만 보기
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("userId", "")}>
+                  해제
+                </AdminActionButton>
+              </span>
+            </CommunityFilterField>
           ) : null}
-          <CommunityResetFilters onReset={() => qs.reset(["tab"])} />
-        </>
+        </CommunityFilterBar>
       }
-      footer={
-        total !== null && total > 0 ? (
-          <CommunityPagination page={page} pageSize={PAGE_SIZE} total={total} onPage={(p) => qs.set({ page: p > 1 ? p : null })} />
-        ) : null
-      }
+      footer={<CommunityListPagination lq={lq} total={total} disabled={state.status === "loading"} />}
     >
-      {state.status === "loading" && !state.data ? (
-        <AdminLoadingState ko />
-      ) : state.status === "error" ? (
-        <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
-      ) : rows.length === 0 ? (
-        <AdminEmptyState ko message={EMPTY_TEXT[tab]} />
-      ) : (
+      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage={EMPTY_TEXT[tab]}>
         <CommunityTable head={["회원", "종류", "범위", "기간", "사유", "처리자", "출처 신고", "상태", "처리"]}>
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-sam-border-soft">
               <td className={COMMUNITY_TD}>
-                <TradeMemberCell userId={r.user_id} label={r.user_label} returnTo={qs.selfHref} />
+                <TradeMemberCell userId={r.user_id} label={r.user_label} returnTo={lq.selfHref} />
               </td>
               <td className={COMMUNITY_TD}>{tradeSanctionKindLabel(r.sanction_type)}</td>
               <td className={COMMUNITY_TD}>
@@ -534,7 +516,7 @@ export function TradeRestrictionsPage() {
                   <Link
                     href={tradeDetailHref(
                       `/admin/trade/reports?tab=all&reportId=${encodeURIComponent(r.source_report_id)}`,
-                      qs.selfHref
+                      lq.selfHref
                     )}
                     className="text-sam-primary hover:underline"
                   >
@@ -549,11 +531,7 @@ export function TradeRestrictionsPage() {
               </td>
               <td className={COMMUNITY_TD}>
                 {r.status === "active" ? (
-                  <AdminActionButton
-                    variant="secondary"
-                    className="min-h-8 px-2 py-1 text-[12px]"
-                    onClick={() => setRevokeRow(r)}
-                  >
+                  <AdminActionButton variant="ghost" size="sm" onClick={() => setRevokeRow(r)}>
                     해제
                   </AdminActionButton>
                 ) : null}
@@ -565,7 +543,7 @@ export function TradeRestrictionsPage() {
             </tr>
           ))}
         </CommunityTable>
-      )}
+      </CommunityListBody>
 
       {revokeRow ? (
         <TradeRevokeRestrictionSheet row={revokeRow} onClose={() => setRevokeRow(null)} onSettled={afterSheet} />

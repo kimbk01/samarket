@@ -3,6 +3,7 @@
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -43,7 +44,12 @@ const EXP_TABS: { id: TabId; labelKey: MessageKey }[] = [
 
 export function AdminRecommendationExperimentPage() {
   const { t, language } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("experiments");
+  /** 탭은 주소 `?tab=` 보존 — 필터(`?experiment=`)와 함께 새로고침·링크 공유 시 유지 (R7). */
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const raw = searchParams?.get("tab") ?? "";
+    return EXP_TABS.some((tab) => tab.id === raw) ? (raw as TabId) : "experiments";
+  });
   const [refresh, setRefresh] = useState(0);
   const [editingExperimentId, setEditingExperimentId] = useState<string | null>(
     null
@@ -53,13 +59,18 @@ export function AdminRecommendationExperimentPage() {
   const hydrated = loadState.status === "ready";
 
   const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
+  /** 서버 저장 중 — 행 동작 비활성 (중복 전이 방지) */
+  const [saving, setSaving] = useState(false);
 
   /** 변경 → 서버 저장. 실패면 commit 이 화면 상태를 되돌리고 실패 문구를 표시한다 (예전: 실패 무시). */
   const commit = (mutate: () => void) => {
-    void commitRecommendationExperimentsChange(mutate).then((r) => {
-      setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" });
-      setRefresh((n) => n + 1);
-    });
+    setSaving(true);
+    void commitRecommendationExperimentsChange(mutate)
+      .then((r) => {
+        setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" });
+        setRefresh((n) => n + 1);
+      })
+      .finally(() => setSaving(false));
   };
 
   const experiments = useMemo(
@@ -148,7 +159,8 @@ export function AdminRecommendationExperimentPage() {
         ariaLabel="추천 실험 탭"
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
-        syncUrl={false}
+        defaultValue="experiments"
+        resetParams={["page", "experiment"]}
       />
 
       {activeTab === "experiments" && (
@@ -171,6 +183,8 @@ export function AdminRecommendationExperimentPage() {
             }
             onStatusChange={handleExperimentStatus}
             onChooseWinner={handleChooseWinner}
+            editingId={editingExperimentId}
+            busy={saving}
           />
         </AdminCard>
       )}

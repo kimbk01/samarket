@@ -21,7 +21,8 @@ export function OpsKnowledgeNodeTable({
   nodeTypeFilter = "",
   categoryFilter = "",
   onSelectNode,
-}: OpsKnowledgeNodeTableProps) {
+  onReset,
+}: OpsKnowledgeNodeTableProps & { onReset?: () => void }) {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const nodes = useMemo(
@@ -29,13 +30,14 @@ export function OpsKnowledgeNodeTable({
       getOpsKnowledgeGraphNodes({
         nodeType: nodeTypeFilter || undefined,
         category: categoryFilter || undefined,
+        limit: Number.MAX_SAFE_INTEGER,
       }),
     [nodeTypeFilter, categoryFilter]
   );
 
   if (nodes.length === 0) {
     return (
-      <AdminEmptyState ko={ko} message={t("admin_ops_tools_kg_nodes_empty")} />
+      <AdminEmptyState ko={ko} message={onReset ? undefined : t("admin_ops_tools_kg_nodes_empty")} onReset={onReset} />
     );
   }
 

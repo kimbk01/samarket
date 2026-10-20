@@ -5,6 +5,7 @@ import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
@@ -34,7 +35,12 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export function AdminRecommendationDeploymentPage() {
-  const [activeTab, setActiveTab] = useState<TabId>("active");
+  /** 탭은 주소 `?tab=` 보존 — 목록 필터와 함께 새로고침·링크 공유 시 유지 (R7). */
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const raw = searchParams?.get("tab") ?? "";
+    return TABS.some((tab) => tab.id === raw) ? (raw as TabId) : "active";
+  });
   const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationExperimentsFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -57,7 +63,8 @@ export function AdminRecommendationDeploymentPage() {
         ariaLabel="추천 배포 탭"
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
-        syncUrl={false}
+        defaultValue="active"
+        resetParams={["page", "surface", "deployment"]}
         className="mb-4"
       />
       <AdminCard>

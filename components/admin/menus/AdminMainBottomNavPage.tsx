@@ -33,6 +33,7 @@ import {
 } from "@/lib/main-menu/resolve-main-bottom-nav";
 import { notifyMainBottomNavConfigChanged } from "@/lib/app/fetch-main-bottom-nav-deduped";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 
 const MAX_TABS = 10;
 
@@ -70,6 +71,8 @@ export function AdminMainBottomNavPage() {
   const [iconPickerRowId, setIconPickerRowId] = useState<string | null>(null);
   const [expandedFabRowIds, setExpandedFabRowIds] = useState<Set<string>>(() => new Set(["stores"]));
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  /** 첫 조회 실패 — 오류 상태 + [새로고침] (R7 화면 상태) */
+  const [loadErr, setLoadErr] = useState<{ code: string; httpStatus?: number } | null>(null);
 
   const baselineById = useMemo(() => {
     if (!baselineRows) return new Map<string, MainBottomNavAdminRow>();
@@ -128,26 +131,24 @@ export function AdminMainBottomNavPage() {
     setMessage(null);
     setIconPickerRowId(null);
     setExpandedFabRowIds(new Set(["stores"]));
+    setLoadErr(null);
     try {
       const { res, data } = await fetchMainBottomNavList();
       if (!res.ok || !data?.ok || !Array.isArray(data.items)) {
-        setMessage({
-          type: "err",
-          text: resolveAdminBottomNavApiError(t, data?.error, "admin_menu_bottom_err_load"),
-        });
+        setLoadErr({ code: data?.error || "load_failed", httpStatus: res.status });
         setRows(null);
         setBaselineRows(null);
         return;
       }
       applyLoadedRows(data.items, Boolean(data.from_db), typeof data.updated_at === "string" ? data.updated_at : null);
     } catch {
-      setMessage({ type: "err", text: t("admin_menu_bottom_err_network") });
+      setLoadErr({ code: "network_error" });
       setRows(null);
       setBaselineRows(null);
     } finally {
       setLoading(false);
     }
-  }, [applyLoadedRows, t]);
+  }, [applyLoadedRows]);
 
   useEffect(() => {
     void load();
@@ -473,17 +474,16 @@ export function AdminMainBottomNavPage() {
       </div>
 
       {loading ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("common_loading")}
-        </div>
+        <AdminLoadingState ko={language !== "en"} label={t("common_loading")} />
       ) : !rows ? (
-        <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 sam-text-body text-sam-warning">
-          {t("admin_menu_bottom_load_fail")}
-        </div>
+        <AdminErrorState
+          ko={language !== "en"}
+          code={loadErr?.code ?? "load_failed"}
+          httpStatus={loadErr?.httpStatus}
+          onRetry={() => void load()}
+        />
       ) : rows.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_menu_table_empty")}
-        </div>
+        <AdminEmptyState ko={language !== "en"} message={t("admin_menu_table_empty")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[860px] border-collapse sam-text-helper">
@@ -575,7 +575,7 @@ export function AdminMainBottomNavPage() {
                           maxLength={160}
                         />
                         <AdminActionButton
-                          variant="ghost"
+                          variant="quiet"
                           size="sm"
                           className="shrink-0"
                           type="button"
@@ -603,36 +603,41 @@ export function AdminMainBottomNavPage() {
                     </td>
                     <td className="px-2 py-1 align-middle">
                       <div className="flex flex-wrap items-center justify-end gap-1">
+                        {/* FAB 펼침은 표시 전환(quiet). 행 동작은 ghost 2개 이하 — 변경 중 [저장][취소], 그 외 [삭제] */}
                         <AdminActionButton
-                          variant="ghost"
+                          variant="quiet"
                           size="sm"
                           type="button"
                           disabled={saving}
                           onClick={() => toggleFabSection(row.id)}
                           title={t("admin_menu_bottom_fab_title")}
+                          aria-expanded={fabExpanded}
                         >
                           {fabExpanded ? "▾" : "▸"} {t("admin_menu_bottom_fab_manage")}
                         </AdminActionButton>
-                        <AdminActionButton
-                          variant="ghost"
-                          size="sm"
-                          type="button"
-                          disabled={saving || !rowDirty}
-                          onClick={() => void saveRow(row.id)}
-                        >
-                          {rowSaving ? t("admin_menu_saving") : t("admin_menu_bottom_row_save")}
-                        </AdminActionButton>
-                        <AdminActionButton
-                          variant="ghost"
-                          size="sm"
-                          type="button"
-                          disabled={saving || !canCancelRow}
-                          onClick={() => cancelRow(i)}
-                          title={t("admin_menu_bottom_row_cancel_title")}
-                        >
-                          {t("admin_menu_bottom_row_cancel")}
-                        </AdminActionButton>
-                        {!builtin ? (
+                        {rowDirty || canCancelRow ? (
+                          <>
+                            <AdminActionButton
+                              variant="ghost"
+                              size="sm"
+                              type="button"
+                              disabled={saving || !rowDirty}
+                              onClick={() => void saveRow(row.id)}
+                            >
+                              {rowSaving ? t("admin_menu_saving") : t("admin_menu_bottom_row_save")}
+                            </AdminActionButton>
+                            <AdminActionButton
+                              variant="ghost"
+                              size="sm"
+                              type="button"
+                              disabled={saving || !canCancelRow}
+                              onClick={() => cancelRow(i)}
+                              title={t("admin_menu_bottom_row_cancel_title")}
+                            >
+                              {t("admin_menu_bottom_row_cancel")}
+                            </AdminActionButton>
+                          </>
+                        ) : !builtin ? (
                           <AdminActionButton
                             variant="ghost"
                             size="sm"

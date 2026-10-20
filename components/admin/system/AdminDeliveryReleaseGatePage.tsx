@@ -13,6 +13,7 @@ import {
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 
 /** 서버가 내려주는 영어 링크 이름 → 운영자 문구 (경로 기준). */
 const LINK_LABELS: Record<string, { ko: string; en: string }> = {
@@ -104,6 +105,8 @@ export function AdminDeliveryReleaseGatePage() {
   const [errStatus, setErrStatus] = useState<number | undefined>(undefined);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [data, setData] = useState<GatePayload | null>(null);
+  /** 수동 점검 체크 = 최고관리자 (접근표 action · 서버 PATCH requireSuperAdmin) */
+  const writeAction = useAdminRouteAction("/admin/delivery-release-gate");
 
   const load = useCallback(async () => {
     setErr(null);
@@ -114,7 +117,8 @@ export function AdminDeliveryReleaseGatePage() {
       if (!r.ok || !j?.ok) {
         setErr(errCode(r.status, j, "load_failed"));
         setErrStatus(r.status);
-        setData(j);
+        /** 갱신 실패 시 직전 정상 판정은 유지 (지시서 §8-5) — 힌트만 갱신. */
+        setData((prev) => (prev?.gate ? { ...prev, hint: j?.hint } : j));
         return;
       }
       setData(j);
@@ -151,7 +155,7 @@ export function AdminDeliveryReleaseGatePage() {
   }, [items]);
 
   const onToggleManual = async (key: string, checked: boolean, note: string | null) => {
-    if (busyKey) return;
+    if (busyKey || !writeAction.allowed) return;
     setBusyKey(key);
     setSaveErr(null);
     try {
@@ -192,6 +196,12 @@ export function AdminDeliveryReleaseGatePage() {
         </div>
       </div>
 
+      {!writeAction.allowed && writeAction.reason ? (
+        <p data-admin-action-denied="1" className="mt-3 sam-text-helper text-sam-muted">
+          {ko ? `수동 점검 체크 비활성: ${writeAction.reason}` : `Manual checks disabled: ${writeAction.reason}`}
+        </p>
+      ) : null}
+
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
         <div className="text-sm text-sam-muted">{ko ? "전체 판정" : "Overall"}</div>
         <div className={`mt-1 text-[20px] font-semibold ${overallClass(overall)}`}>
@@ -223,7 +233,7 @@ export function AdminDeliveryReleaseGatePage() {
         <div className="font-medium text-sam-fg">{t("admin_delivery_gate_auto_checks")}</div>
         <div className="mt-3 space-y-3">
           {sortedItems.length === 0 ? (
-            <AdminEmptyState ko={ko} message={t("admin_delivery_gate_no_items")} />
+            gate ? <AdminEmptyState ko={ko} message={t("admin_delivery_gate_no_items")} /> : null
           ) : (
             sortedItems.map((it) => (
               <div key={it.key} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
@@ -263,7 +273,7 @@ export function AdminDeliveryReleaseGatePage() {
         <div className="font-medium text-sam-fg">{t("admin_delivery_gate_manual_checks")}</div>
         <div className="mt-3 space-y-3">
           {manual.length === 0 ? (
-            <AdminEmptyState ko={ko} message={t("admin_delivery_gate_manual_empty")} />
+            gate ? <AdminEmptyState ko={ko} message={t("admin_delivery_gate_manual_empty")} /> : null
           ) : (
             manual.map((m) => (
               <div key={m.key} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
@@ -272,7 +282,7 @@ export function AdminDeliveryReleaseGatePage() {
                     <input
                       type="checkbox"
                       checked={m.checked}
-                      disabled={busyKey === m.key}
+                      disabled={busyKey === m.key || !writeAction.allowed}
                       onChange={(e) => void onToggleManual(m.key, e.target.checked, m.note)}
                     />
                     {m.label}

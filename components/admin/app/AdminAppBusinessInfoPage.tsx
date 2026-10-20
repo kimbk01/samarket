@@ -3,14 +3,19 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import type { AppPlatformBusinessInfoRow } from "@/lib/business/app-platform-business-info";
 
 export function AdminAppBusinessInfoPage() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const [items, setItems] = useState<AppPlatformBusinessInfoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
+  const [loadErr, setLoadErr] = useState<{ code: string; httpStatus?: number } | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
+  /** 조회 실패를 빈 목록으로 숨기지 않는다 — 오류 상태 + [새로고침], 직전 목록 유지 (R7). */
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -23,10 +28,14 @@ export function AdminAppBusinessInfoPage() {
           ok?: boolean;
           documents?: AppPlatformBusinessInfoRow[];
           table_missing?: boolean;
+          error?: string;
         };
         if (cancelled) return;
         if (json.table_missing) setTableMissing(true);
         if (res.ok && json.ok && Array.isArray(json.documents)) setItems(json.documents);
+        else if (!json.table_missing) setLoadErr({ code: json.error || "load_failed", httpStatus: res.status });
+      } catch {
+        if (!cancelled) setLoadErr({ code: "network_error" });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -34,7 +43,13 @@ export function AdminAppBusinessInfoPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
+
+  const reload = () => {
+    setLoading(true);
+    setLoadErr(null);
+    setReloadKey((k) => k + 1);
+  };
 
   return (
     <div>
@@ -50,7 +65,9 @@ export function AdminAppBusinessInfoPage() {
         </Link>
       </div>
       {loading ? (
-        <p className="text-sam-muted">{t("admin_dashboard_loading")}</p>
+        <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} />
+      ) : loadErr ? (
+        <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={reload} />
       ) : tableMissing ? (
         <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
           {safeT("admin_app_business_table_missing", {
@@ -59,12 +76,13 @@ export function AdminAppBusinessInfoPage() {
           })}
         </p>
       ) : items.length === 0 ? (
-        <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
-          {safeT("admin_app_business_empty", {
+        <AdminEmptyState
+          ko={ko}
+          message={safeT("admin_app_business_empty", {
             fallbackKo: "등록된 사업자 정보가 없습니다.",
             fallbackEn: "No business information yet.",
           })}
-        </p>
+        />
       ) : (
         <ul className="space-y-2">
           {items.map((d) => (

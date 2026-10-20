@@ -1,6 +1,9 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { RecommendationFilterSelect } from "@/components/admin/recommendation-admin-filter-select";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
@@ -17,7 +20,13 @@ export function AutomationExecutionTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const [refresh, setRefresh] = useState(0);
-  const [surfaceFilter, setSurfaceFilter] = useState<RecommendationSurface | "">("");
+  /** surface 필터 — 주소 `?surface=` 보존 (R7) */
+  const lq = useAdminListQuery<"surface">({ extras: ["surface"] });
+  const surfaceFilter: RecommendationSurface | "" = (["home", "search", "shop"] as const).includes(
+    lq.query.extras.surface as "home"
+  )
+    ? (lq.query.extras.surface as RecommendationSurface)
+    : "";
 
   const executions = useMemo(
     () =>
@@ -30,27 +39,33 @@ export function AutomationExecutionTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <select
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <RecommendationFilterSelect
+          label={t("admin_rec_th_surface")}
           value={surfaceFilter}
-          onChange={(e) =>
-            setSurfaceFilter(
-              e.target.value === "" ? "" : (e.target.value as RecommendationSurface)
-            )
-          }
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
-          <option value="">{t("admin_rec_filter_all_surface")}</option>
-          <option value="home">{t("admin_rec_surface_home")}</option>
-          <option value="search">{t("admin_rec_surface_search")}</option>
-          <option value="shop">{t("admin_rec_surface_shop")}</option>
-        </select>
-      </div>
+          allLabel={t("admin_rec_filter_all_surface")}
+          options={[
+            { value: "home", label: t("admin_rec_surface_home") },
+            { value: "search", label: t("admin_rec_surface_search") },
+            { value: "shop", label: t("admin_rec_surface_shop") },
+          ]}
+          onChange={(v) => lq.setExtra("surface", v)}
+          name="surface"
+        />
+      </AdminFilterBar>
       {executions.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={surfaceFilter ? undefined : t("admin_rec_auto_empty_executions")}
-          onReset={surfaceFilter ? () => { setSurfaceFilter(""); } : undefined}
+          onReset={surfaceFilter ? lq.reset : undefined}
         />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">

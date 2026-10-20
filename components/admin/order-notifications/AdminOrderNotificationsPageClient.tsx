@@ -6,6 +6,8 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionQueueCardGrid } from "@/components/admin/action-queue/AdminActionQueueCardGrid";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { ADMIN_ACTION_QUEUE_REGISTRY_BY_KEY } from "@/lib/admin/admin-action-queue-registry";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 
 /**
  * /admin/order-notifications — Admin ops Action Queue surface (URL kept for compatibility).
@@ -15,9 +17,17 @@ import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
  */
 export function AdminOrderNotificationsPageClient() {
   const { language, safeT } = useI18n();
-  const { adminBellCount, queueCategories, queueTotalComplete, queueLoadState } =
+  const ko = language !== "en";
+  const { adminBellCount, queueCategories, queueTotalComplete, queueLoadState, refresh } =
     useAdminStorePointPendingCount();
   const loading = queueLoadState === "loading";
+  /** 카드 그리드가 실제로 그리는 카드 수 (그리드와 같은 조건 — 권한 없음·보관·링크 없음 제외). */
+  const visibleCards = queueCategories.filter(
+    (c) =>
+      c.status !== "forbidden" &&
+      c.listHref &&
+      ADMIN_ACTION_QUEUE_REGISTRY_BY_KEY.get(c.key)?.lifecycle === "active"
+  ).length;
 
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -44,14 +54,30 @@ export function AdminOrderNotificationsPageClient() {
         </p>
       ) : null}
       {queueLoadState === "error" ? (
-        <p className="text-sm text-sam-danger" role="status">
-          {safeT("admin_cp_action_queue_stale", {
-            fallbackKo: "최근 갱신에 실패했습니다. 마지막으로 불러온 값입니다.",
-            fallbackEn: "The latest refresh failed. Showing the last loaded values.",
-          })}
-        </p>
+        visibleCards > 0 ? (
+          <p className="text-sm text-sam-danger" role="status">
+            {safeT("admin_cp_action_queue_stale", {
+              fallbackKo: "최근 갱신에 실패했습니다. 마지막으로 불러온 값입니다.",
+              fallbackEn: "The latest refresh failed. Showing the last loaded values.",
+            })}
+          </p>
+        ) : (
+          <AdminErrorState ko={ko} code="load_failed" onRetry={() => void refresh()} />
+        )
       ) : null}
-      <AdminActionQueueCardGrid categories={queueCategories} loading={loading} />
+      {/* 화면 상태 (R7 · 6): 첫 로딩 = 로딩 상태 · 처리할 카드 0 = 빈 상태 · 직전 카드는 실패해도 유지 */}
+      {loading && visibleCards === 0 ? (
+        <AdminLoadingState ko={ko} />
+      ) : visibleCards === 0 ? (
+        queueLoadState === "error" ? null : (
+          <AdminEmptyState
+            ko={ko}
+            message={ko ? "지금 처리할 업무가 없습니다." : "Nothing to handle right now."}
+          />
+        )
+      ) : (
+        <AdminActionQueueCardGrid categories={queueCategories} loading={loading} />
+      )}
       <p className="text-xs text-sam-muted">
         <Link href="/admin/order-notifications/settings" className="text-signature underline">
           {language === "en" ? "Notification sound settings" : "알림음 설정"}

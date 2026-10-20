@@ -8,11 +8,10 @@
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
-import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -21,10 +20,11 @@ import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import {
   AdminEmptyState,
   AdminErrorState,
-  AdminLoadingState,
   AdminResultBanner,
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
+import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
+import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { AdminPermissionToggles } from "@/components/admin/users/AdminPermissionToggles";
 import { CreateAdminForm } from "@/components/admin/users/CreateAdminForm";
@@ -38,18 +38,11 @@ import {
   ADMIN_STAFF_MEMBERSHIP_STATUS_NAMESPACE,
   ADMIN_STAFF_STATUS_FILTERS,
   adminStaffRevokeMatchText,
-  filterAdminStaffMemberships,
-  parseAdminStaffStatusFilter,
   type AdminStaffMembershipRow,
 } from "@/lib/admin-users/admin-staff-membership-list";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
-
-type LoadState =
-  | { status: "loading" }
-  | { status: "error"; code: string; httpStatus?: number }
-  | { status: "ok"; rows: AdminStaffMembershipRow[] };
 
 type Banner = { ok: true; message: string } | { ok: false; code: string } | null;
 
@@ -161,9 +154,7 @@ export function AdminStaffAccountsPage() {
     statuses: ADMIN_STAFF_STATUS_FILTERS,
   });
   const { query } = lq;
-  const statusFilter = parseAdminStaffStatusFilter(query.status || "all");
 
-  const [state, setState] = useState<LoadState>({ status: "loading" });
   const [banner, setBanner] = useState<Banner>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -175,35 +166,20 @@ export function AdminStaffAccountsPage() {
   const [editPerms, setEditPerms] = useState<AdminPermissionKey[]>([]);
   const [pending, setPending] = useState(false);
 
-  const load = useCallback(async () => {
-    setState({ status: "loading" });
-    try {
-      const res = await fetch("/api/admin/staff/memberships", { credentials: "include", cache: "no-store" });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        memberships?: AdminStaffMembershipRow[];
-      };
-      if (!res.ok || !json.ok) {
-        setState({ status: "error", code: json.error ?? "load_failed", httpStatus: res.status });
-        return;
-      }
-      setState({ status: "ok", rows: json.memberships ?? [] });
-    } catch {
-      setState({ status: "error", code: "network_error" });
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const allRows = useMemo(() => (state.status === "ok" ? state.rows : []), [state]);
-  const filtered = useMemo(
-    () => filterAdminStaffMemberships(allRows, statusFilter, query.q),
-    [allRows, statusFilter, query.q]
+  /** R7 — 서버 페이지(상태·검색·쪽 = 주소). 예전 1,000건 조회 + 화면 메모리 페이지 대체. 「전체 이력」= status=all. */
+  const apiQs = useMemo(() => {
+    const qs = new URLSearchParams(lq.apiQueryString);
+    if (!qs.get("status")) qs.set("status", "all");
+    return qs.toString();
+  }, [lq.apiQueryString]);
+  const list = useMemberOpsPagedFetch<AdminStaffMembershipRow>(
+    `/api/admin/staff/memberships?${apiQs}`,
+    "memberships",
+    lq.refreshKey
   );
-  const pageRows = filtered.slice((query.page - 1) * query.size, query.page * query.size);
+  const load = list.reload;
+  const allRows = list.rows;
+  const pageRows = allRows;
   const openRow = allRows.find((r) => r.membershipId === openId) ?? null;
   const editable = Boolean(openRow && openRow.status === "active" && openRow.uiRole !== "master");
   const dirty =
@@ -298,6 +274,8 @@ export function AdminStaffAccountsPage() {
 
   return (
     <div className="space-y-4" data-admin-staff-page="1">
+      {/* 생성 버튼은 헤더 오른쪽 · 보조(secondary) — 화면의 primary 는 필터 바 [조회] 하나 (R7 버튼 배치). */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
       <AdminPageHeader
         titleKey="admin_menu_admin_staff"
         description={
@@ -306,15 +284,16 @@ export function AdminStaffAccountsPage() {
             : "Accounts with admin access and their revoke history. Revoking never deletes the member account."
         }
       />
-
-      <div className="flex flex-wrap gap-2">
-        <AdminActionButton type="button" variant="primary" onClick={() => setCreating(true)}>
-          {ko ? "관리자 계정 만들기" : "Create admin account"}
-        </AdminActionButton>
-        <AdminActionButton type="button" onClick={() => setPicking(true)}>
-          {ko ? "기존 회원을 관리자로 지정" : "Promote existing member"}
-        </AdminActionButton>
+        <div className="flex flex-wrap gap-2">
+          <AdminActionButton type="button" variant="secondary" onClick={() => setCreating(true)}>
+            {ko ? "관리자 계정 만들기" : "Create admin account"}
+          </AdminActionButton>
+          <AdminActionButton type="button" variant="secondary" onClick={() => setPicking(true)}>
+            {ko ? "기존 회원을 관리자로 지정" : "Promote existing member"}
+          </AdminActionButton>
+        </div>
       </div>
+
 
       <AdminResultBanner ko={ko} result={banner} onClose={() => setBanner(null)} />
 
@@ -337,13 +316,21 @@ export function AdminStaffAccountsPage() {
         }}
       />
 
-      {state.status === "loading" ? (
-        <AdminLoadingState ko={ko} />
-      ) : state.status === "error" ? (
-        <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={() => void load()} />
-      ) : filtered.length === 0 ? (
-        <AdminEmptyState ko={ko} />
-      ) : (
+      <MemberOpsListBody
+        ko={ko}
+        loading={list.loading}
+        loaded={list.loaded}
+        error={list.error}
+        onRetry={lq.refresh}
+        rowCount={pageRows.length}
+        total={list.total}
+        page={query.page}
+        size={query.size}
+        onPageChange={lq.setPage}
+        onSizeChange={lq.setSize}
+        isFiltered={lq.isFiltered}
+        onReset={lq.reset}
+      >
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[820px] border-collapse text-[14px]" data-admin-staff-table="1">
             <thead>
@@ -397,19 +384,7 @@ export function AdminStaffAccountsPage() {
             </tbody>
           </table>
         </div>
-      )}
-
-      {state.status === "ok" && filtered.length > 0 ? (
-        <AdminPagination
-          ko={ko}
-          page={query.page}
-          size={query.size}
-          total={filtered.length}
-          onPageChange={lq.setPage}
-          onSizeChange={lq.setSize}
-        />
-      ) : null}
-
+      </MemberOpsListBody>
       <AdminDetailDrawer
         open={openRow != null}
         onClose={() => setOpenId(null)}
@@ -420,7 +395,8 @@ export function AdminStaffAccountsPage() {
         subtitle={openRow ? roleLabel(openRow.uiRole) : undefined}
         dangerActions={
           editable ? (
-            <AdminActionButton type="button" variant="danger" disabled={pending} onClick={() => void askRevoke()}>
+            /* 권한 해제는 재지정으로 되돌릴 수 있어 danger 가 아닌 보조 — 확인 단계(L3 사유 + 재입력)는 그대로. */
+            <AdminActionButton type="button" variant="secondary" disabled={pending} onClick={() => void askRevoke()}>
               {ko ? "관리자 권한 해제" : "Revoke admin access"}
             </AdminActionButton>
           ) : null

@@ -32,6 +32,8 @@ export type AdminOrderAuditQuery = {
 };
 
 export const ADMIN_ORDER_AUDIT_PAGE_SIZE = ADMIN_ORDER_OPS_PAGE_SIZE;
+/** 화면 표준 페이지 크기 (R7) — `page_size` 가 이 값이 아니면 기본 50. */
+export const ADMIN_ORDER_AUDIT_PAGE_SIZES = [20, 50, 100] as const;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -46,7 +48,9 @@ export function parseAdminOrderAuditQuery(sp: URLSearchParams): AdminOrderAuditQ
     fromDay: day(sp.get("from")),
     toDay: day(sp.get("to")),
     page: Math.max(1, Math.floor(Number(sp.get("page")) || 1)),
-    pageSize: ADMIN_ORDER_AUDIT_PAGE_SIZE,
+    pageSize: ADMIN_ORDER_AUDIT_PAGE_SIZES.includes(Number(sp.get("page_size")) as (typeof ADMIN_ORDER_AUDIT_PAGE_SIZES)[number])
+      ? Number(sp.get("page_size"))
+      : ADMIN_ORDER_AUDIT_PAGE_SIZE,
   };
 }
 
@@ -60,6 +64,7 @@ export function adminOrderAuditQueryToParams(q: AdminOrderAuditQuery): URLSearch
     if (q.toDay) p.set("to", q.toDay);
   }
   if (q.page > 1) p.set("page", String(q.page));
+  if (q.pageSize !== ADMIN_ORDER_AUDIT_PAGE_SIZE) p.set("page_size", String(q.pageSize));
   return p;
 }
 

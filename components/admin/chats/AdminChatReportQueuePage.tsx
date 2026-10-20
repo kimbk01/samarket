@@ -7,7 +7,7 @@
  */
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
@@ -20,6 +20,7 @@ import {
   AdminResultBanner,
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import {
   AdminChatReportSheet,
   adminChatReportActionsFor,
@@ -75,7 +76,8 @@ const STATUS_FILTER_KEY: Record<ChatReportStatusFilter, MessageKey> = {
   all: "admin_chat_reports_status_all",
 };
 
-const INPUT = "rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg";
+const INPUT = "h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 text-[16px] text-sam-fg";
+const FILTER_LABEL = "flex flex-col gap-1 text-[12px] font-medium text-sam-muted";
 const TH = "px-3 py-2.5 text-left text-xs font-medium text-sam-muted";
 
 function sheetInputFor(
@@ -110,6 +112,8 @@ export function AdminChatReportQueuePage() {
   const trail = useMemo(() => readAdminListTrail(new URLSearchParams(spKey)), [spKey]);
   const returnTo = currentAdminListHref(pathname, spKey ? `?${spKey}` : "");
   const [state, setState] = useState<LoadState>({ kind: "loading" });
+  /** 마지막 정상 목록 — 다시 불러오기 실패 시 지우지 않는다 (지시서 §8-5). */
+  const [lastReady, setLastReady] = useState<Extract<LoadState, { kind: "ready" }> | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [searchDraft, setSearchDraft] = useState(query.q);
   const [sheetRow, setSheetRow] = useState<ChatReportQueueRow | null>(null);
@@ -151,12 +155,14 @@ export function AdminChatReportQueuePage() {
           setState({ kind: "error", code: json?.error || "load_failed", httpStatus: res.status });
           return;
         }
-        setState({
-          kind: "ready",
+        const ready = {
+          kind: "ready" as const,
           rows: Array.isArray(json.rows) ? json.rows : [],
           nextCursor: json.nextCursor ?? null,
           failedSources: Array.isArray(json.failedSources) ? json.failedSources : [],
-        });
+        };
+        setState(ready);
+        setLastReady(ready);
       } catch {
         if (!cancelled) setState({ kind: "error", code: "network_error" });
       }
@@ -171,98 +177,98 @@ export function AdminChatReportQueuePage() {
     (patch: Partial<ChatReportQueueQuery>, opts?: { trail?: string[] }) => {
       const next: ChatReportQueueQuery = { ...query, cursor: "", ...patch };
       const href = `${pathname}${withAdminListTrail(buildChatReportQueueSearch(next), opts?.trail ?? [])}`;
+      if (href === `${pathname}${spKey ? `?${spKey}` : ""}`) {
+        setReloadToken((n) => n + 1);
+        return;
+      }
       if (opts?.trail) router.push(href, { scroll: true });
       else router.replace(href, { scroll: false });
     },
-    [pathname, query, router]
+    [pathname, query, router, spKey, setReloadToken]
   );
 
-  const onSearch = (e: FormEvent) => {
-    e.preventDefault();
-    navigate({ q: searchDraft });
-  };
+  const resetFilters = () => navigate({ q: "", target: "", source: "all", status: "open", sort: "", domain: "" });
 
   const filtered = Boolean(
     query.q || query.target || query.source !== "all" || query.status !== "open" || query.sort || query.domain
   );
+  /** 표시할 목록 — 불러오는 중·실패 시에도 마지막 정상 목록 유지. */
+  const view = state.kind === "ready" ? state : lastReady;
 
   return (
     <div className="space-y-4 p-4 md:p-6" data-admin-chat-report-queue="1">
       <AdminPageHeader titleKey="admin_menu_chat_report_queue" description={t("admin_chat_reports_desc")} />
 
-      <form
-        onSubmit={onSearch}
-        className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
-        data-admin-list-filters="chat-reports"
-      >
-        <input
-          value={searchDraft}
-          onChange={(e) => setSearchDraft(e.target.value)}
-          placeholder={t("admin_chat_reports_search_placeholder")}
-          className={`${INPUT} min-w-[220px] flex-1`}
-          aria-label={t("admin_chat_list_search")}
-        />
-        <select
-          value={query.status}
-          onChange={(e) => navigate({ status: e.target.value as ChatReportStatusFilter })}
-          className={INPUT}
-          aria-label={t("admin_chat_reports_filter_status")}
+      <div data-admin-list-filters="chat-reports">
+        <AdminFilterBar
+          ko={ko}
+          draft={{ q: searchDraft, from: "", to: "" }}
+          onDraftChange={(p) => {
+            if (p.q !== undefined) setSearchDraft(p.q);
+          }}
+          onSubmit={() => navigate({ q: searchDraft })}
+          onReset={resetFilters}
+          pending={state.kind === "loading"}
+          showPeriod={false}
+          searchPlaceholder={t("admin_chat_reports_search_placeholder")}
         >
-          {CHAT_REPORT_STATUS_FILTERS.map((st) => (
-            <option key={st} value={st}>
-              {t(STATUS_FILTER_KEY[st])}
-            </option>
-          ))}
-        </select>
-        <select
-          value={query.source}
-          onChange={(e) => navigate({ source: e.target.value as ChatReportQueueQuery["source"] })}
-          className={INPUT}
-          aria-label={t("admin_chat_reports_filter_source")}
-        >
-          <option value="all">{t("admin_chat_reports_source_all")}</option>
-          {CHAT_REPORT_SOURCES.map((src) => (
-            <option key={src} value={src}>
-              {t(SOURCE_KEY[src])}
-            </option>
-          ))}
-        </select>
-        <select
-          value={query.domain}
-          onChange={(e) => navigate({ domain: e.target.value as ChatReportQueueQuery["domain"] })}
-          className={INPUT}
-          aria-label={t("admin_chat_reports_filter_domain")}
-        >
-          <option value="">{t("admin_chat_rooms_filter_type_all")}</option>
-          {CHAT_REPORT_ROOM_DOMAINS.map((d) => (
-            <option key={d} value={d}>
-              {adminChatLabel("chat_domain", d, ko).label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={asc ? "oldest" : "newest"}
-          onChange={(e) => navigate({ sort: e.target.value === "oldest" ? "oldest" : "newest" })}
-          className={INPUT}
-          aria-label={t("admin_chat_list_sort")}
-        >
-          <option value="oldest">{t("admin_chat_reports_sort_oldest")}</option>
-          <option value="newest">{t("admin_chat_reports_sort_newest")}</option>
-        </select>
-        <div className="ml-auto flex gap-2">
-          {filtered ? (
-            <AdminActionButton
-              variant="ghost"
-              onClick={() => navigate({ q: "", target: "", source: "all", status: "open", sort: "", domain: "" })}
+          <label className={FILTER_LABEL}>
+            {t("admin_chat_reports_filter_status")}
+            <select
+              value={query.status}
+              onChange={(e) => navigate({ status: e.target.value as ChatReportStatusFilter })}
+              className={INPUT}
             >
-              {t("admin_chat_list_clear_filters")}
-            </AdminActionButton>
-          ) : null}
-          <AdminActionButton type="submit" variant="primary">
-            {t("admin_chat_list_search")}
-          </AdminActionButton>
-        </div>
-      </form>
+              {CHAT_REPORT_STATUS_FILTERS.map((st) => (
+                <option key={st} value={st}>
+                  {t(STATUS_FILTER_KEY[st])}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={FILTER_LABEL}>
+            {t("admin_chat_reports_filter_source")}
+            <select
+              value={query.source}
+              onChange={(e) => navigate({ source: e.target.value as ChatReportQueueQuery["source"] })}
+              className={INPUT}
+            >
+              <option value="all">{t("admin_chat_reports_source_all")}</option>
+              {CHAT_REPORT_SOURCES.map((src) => (
+                <option key={src} value={src}>
+                  {t(SOURCE_KEY[src])}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={FILTER_LABEL}>
+            {t("admin_chat_reports_filter_domain")}
+            <select
+              value={query.domain}
+              onChange={(e) => navigate({ domain: e.target.value as ChatReportQueueQuery["domain"] })}
+              className={INPUT}
+            >
+              <option value="">{t("admin_chat_rooms_filter_type_all")}</option>
+              {CHAT_REPORT_ROOM_DOMAINS.map((d) => (
+                <option key={d} value={d}>
+                  {adminChatLabel("chat_domain", d, ko).label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={FILTER_LABEL}>
+            {t("admin_chat_list_sort")}
+            <select
+              value={asc ? "oldest" : "newest"}
+              onChange={(e) => navigate({ sort: e.target.value === "oldest" ? "oldest" : "newest" })}
+              className={INPUT}
+            >
+              <option value="oldest">{t("admin_chat_reports_sort_oldest")}</option>
+              <option value="newest">{t("admin_chat_reports_sort_newest")}</option>
+            </select>
+          </label>
+        </AdminFilterBar>
+      </div>
 
       {query.target ? (
         <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
@@ -276,17 +282,18 @@ export function AdminChatReportQueuePage() {
 
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
 
-      {state.kind === "ready" && state.failedSources.length > 0 ? (
+      {view && view.failedSources.length > 0 ? (
         <div role="alert" className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-warning">
-          {t("admin_chat_reports_partial_failed", { sources: state.failedSources.map((src) => t(SOURCE_KEY[src])).join(", ") })}
+          {t("admin_chat_reports_partial_failed", { sources: view.failedSources.map((src) => t(SOURCE_KEY[src])).join(", ") })}
         </div>
       ) : null}
 
-      {state.kind === "loading" ? (
-        <AdminLoadingState ko={ko} />
-      ) : state.kind === "error" ? (
+      {state.kind === "error" ? (
         <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={() => setReloadToken((n) => n + 1)} />
-      ) : state.rows.length === 0 ? (
+      ) : null}
+      {view == null ? (
+        state.kind === "loading" ? <AdminLoadingState ko={ko} /> : null
+      ) : view.rows.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={
@@ -296,6 +303,7 @@ export function AdminChatReportQueuePage() {
                 ? t("admin_chat_reports_empty_open")
                 : t("admin_chat_reports_empty_filtered")
           }
+          onReset={filtered ? resetFilters : undefined}
         />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -311,7 +319,7 @@ export function AdminChatReportQueuePage() {
               </tr>
             </thead>
             <tbody>
-              {state.rows.map((row) => {
+              {view.rows.map((row) => {
                 const status = adminChatLabel("report_status", row.rawStatus, ko);
                 const reason = adminChatLabel("report_reason", row.reasonCode, ko);
                 const target = adminChatLabel("report_target", row.targetType, ko);
@@ -369,7 +377,8 @@ export function AdminChatReportQueuePage() {
                     <td className="px-3 py-2.5">
                       {canHandle ? (
                         <AdminActionButton
-                          variant="primary"
+                          variant="ghost"
+                          size="sm"
                           disabled={sheetRow !== null}
                           onClick={() => setSheetRow(row)}
                           data-admin-chat-report-action="handle"
@@ -394,7 +403,7 @@ export function AdminChatReportQueuePage() {
         </div>
       )}
 
-      {state.kind === "ready" && (query.cursor || state.nextCursor) ? (
+      {view && (query.cursor || view.nextCursor) ? (
         <nav className="flex flex-wrap items-center justify-end gap-2" aria-label={t("admin_chat_list_pages")} data-admin-list-pager="keyset">
           <AdminActionButton disabled={!query.cursor} onClick={() => navigate({ cursor: "" })}>
             {t("admin_chat_list_first")}
@@ -409,9 +418,9 @@ export function AdminChatReportQueuePage() {
             {t("admin_chat_list_prev")}
           </AdminActionButton>
           <AdminActionButton
-            disabled={!state.nextCursor}
+            disabled={!view.nextCursor || state.kind === "loading"}
             onClick={() => {
-              const n = adminListNextPage(trail, query.cursor, state.nextCursor ?? "");
+              const n = adminListNextPage(trail, query.cursor, view.nextCursor ?? "");
               navigate({ cursor: n.cursor }, { trail: n.trail });
             }}
           >

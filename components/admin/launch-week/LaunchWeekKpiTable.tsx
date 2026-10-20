@@ -4,14 +4,21 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getLaunchWeekKpis } from "@/lib/launch-week/launch-week-state";
 import { AdminTable } from "@/components/admin/AdminTable";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const FILTER_EXTRAS = ["date"] as const;
 
 export function LaunchWeekKpiTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [observedDate, setObservedDate] = useState<string>("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const observedDate = lq.query.extras.date as string;
   const kpis = useMemo(
     () =>
       getLaunchWeekKpis(
@@ -27,28 +34,31 @@ export function LaunchWeekKpiTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_week_kdf8167af")}</span>
-        <select
-          value={observedDate}
-          onChange={(e) => setObservedDate(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_launch_week_kdf8167af")} name="date" value={lq.query.extras.date} onChange={(v) => lq.setExtra("date", v)}>
           <option value="">{t("admin_launch_week_filter_all_days")}</option>
           {dates.map((d) => (
             <option key={d} value={d}>
               {d}
             </option>
           ))}
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">
         시간대별 운영 타임라인은 placeholder로 확장 가능합니다.
       </p>
 
       {kpis.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 일자 KPI가 없습니다."} />
+        <AdminEmptyState ko={ko} message={"해당 일자 KPI가 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={[

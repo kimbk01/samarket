@@ -4,7 +4,7 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getSecurityIssues, getSecurityCheckById } from "@/lib/security/security-state";
 import {
   getIssueSeverityLabel,
@@ -12,11 +12,18 @@ import {
   getCheckTypeLabel,
 } from "@/lib/security/security-utils";
 import type { SecurityIssueStatus } from "@/lib/types/security";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const FILTER_EXTRAS = ["issue_status"] as const;
 
 export function SecurityIssueList() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [statusFilter, setStatusFilter] = useState<SecurityIssueStatus | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const statusFilter = lq.query.extras.issue_status as SecurityIssueStatus | "";
   const issues = useMemo(
     () =>
       getSecurityIssues(
@@ -27,26 +34,27 @@ export function SecurityIssueList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_security_status_issues")}</span>
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter((e.target.value || "") as SecurityIssueStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_security_status_issues")} name="issue_status" value={lq.query.extras.issue_status} onChange={(v) => lq.setExtra("issue_status", v)}>
           <option value="">{t("common_all")}</option>
           <option value="open">{t("admin_qa_open_2")}</option>
           <option value="fixed">{t("admin_launch_week_resolved")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {issues.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={statusFilter ? undefined : "해당 조건의 보안 이슈가 없습니다."}
-          onReset={statusFilter ? () => { setStatusFilter(""); } : undefined}
+          message={lq.isFiltered ? undefined : "해당 조건의 보안 이슈가 없습니다."}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <ul className="space-y-2">

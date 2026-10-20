@@ -6,7 +6,7 @@
  * Menu leaf reduction is NOT in scope.
  */
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
@@ -16,7 +16,9 @@ import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminA
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
-import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type { AdsActionItem, AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -48,7 +50,6 @@ import {
 } from "@/lib/admin/ads-exposure/operations-primary-cta";
 import { adsLiveLinkLabel } from "@/lib/admin/ads-exposure/live-route";
 import {
-  ADS_WORKSPACE_STATUS_URL_PARAM,
   collectAdsWorkspacePool as collectPool,
   computeAdsWorkspaceHeroOccupancy,
   computeAdsWorkspaceSummaryCounts,
@@ -261,14 +262,25 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     mode === "boosts" ? (searchParams.get(ADS_BOOST_ORDER_URL_PARAM) ?? "").trim() : "";
   const [model, setModel] = useState<AdsControlPlaneModel | null>(null);
   const [err, setErr] = useState("");
-  // 대시보드 링크 `?status=` 는 이 화면의 상태 탭을 그대로 연다 (요약 카드 숫자 = 탭 개수).
-  const [statusTab, setStatusTab] = useState<AdsShellStatusTab>(() => {
-    const fromUrl = (searchParams.get(ADS_WORKSPACE_STATUS_URL_PARAM) ?? "").trim();
-    return statusTabsForMode(mode).some((t) => t.id === fromUrl)
-      ? (fromUrl as AdsShellStatusTab)
-      : defaultStatusTabForMode(mode);
+  const [errStatus, setErrStatus] = useState<number | undefined>(undefined);
+  /**
+   * R7 목록 표준 8 — 상태 탭(`?status=`)·종류 탭(`?family=`)을 주소에 둔다 (새로고침·링크 공유·상세 복귀 시 유지).
+   * 대시보드 링크 `?status=` 는 이 화면의 상태 탭을 그대로 연다 (요약 카드 숫자 = 탭 개수).
+   * 요약 카드(승인 대기 등)는 화면 탭 목록 밖 상태도 열 수 있으므로 허용 상태 = 전체 상태 탭.
+   */
+  const lq = useAdminListQuery<"family">({
+    statuses: STATUS_TABS_ALL.map((t) => t.id),
+    defaults: { status: defaultStatusTabForMode(mode) },
+    extras: ["family"],
+    extraDefaults: { family: "all" },
   });
-  const [family, setFamily] = useState<AdsShellProductFamily>("all");
+  const statusTab: AdsShellStatusTab =
+    (lq.query.status as AdsShellStatusTab) || defaultStatusTabForMode(mode);
+  const family: AdsShellProductFamily = familyTabsForMode(mode).some((t) => t.id === lq.query.extras.family)
+    ? (lq.query.extras.family as AdsShellProductFamily)
+    : "all";
+  const { setStatus: setStatusTab, setExtra: setListExtra, patch: patchListQuery } = lq;
+  const setFamily = useCallback((f: AdsShellProductFamily) => setListExtra("family", f), [setListExtra]);
   const [selected, setSelected] = useState<AdsActionItem | null>(null);
   const [manageOpenId, setManageOpenId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -291,12 +303,15 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
 
   const load = useCallback(async () => {
     setErr("");
+    setErrStatus(undefined);
     const result = await fetchAdsControlPlane({
       orderId: boostOrderIdRaw || undefined,
       storeId: storeFilter || undefined,
     });
     if (!result.ok) {
+      // 실패해도 이전 정상 목록(model)은 지우지 않는다 (지시서 §8-5).
       setErr(result.error === "network" ? "network_error" : result.error || "load_failed");
+      setErrStatus(result.status);
       return;
     }
     setModel(result.plane);
@@ -335,6 +350,16 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     return findBoostActionItemByOrderId(collectPool(model), boostOrderIdRaw);
   }, [mode, model, boostOrderIdRaw]);
 
+  const boostFocusAppliedRef = useRef<string | null>(null);
+  /** 최신 탭 상태로 「전체」 적용 — effect 의존값을 늘리지 않으려고 ref 로 둔다. */
+  const boostFocusShowAllRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    boostFocusShowAllRef.current = () => {
+      if (statusTab !== "all" || family !== "all") {
+        patchListQuery({ status: "all", extras: { family: "all" } });
+      }
+    };
+  }, [statusTab, family, patchListQuery]);
   const boostFocusState = useMemo(
     () =>
       resolveAdsBoostOrderFocusState({
@@ -353,8 +378,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       return;
     }
     if (boostFocusState === "matched" && boostFocusMatch) {
-      setStatusTab("all");
-      setFamily("all");
+      // 주문 포커스는 한 번만 「전체」 탭으로 연다 — 이후 운영자가 고른 탭을 되돌리지 않는다.
+      if (boostFocusAppliedRef.current !== boostFocusMatch.id) {
+        boostFocusAppliedRef.current = boostFocusMatch.id;
+        boostFocusShowAllRef.current();
+      }
       setSelected(boostFocusMatch);
     }
   }, [mode, boostFocusState, boostFocusMatch]);
@@ -794,17 +822,15 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2" data-shell-status-tabs="1">
-        {statusTabsForMode(mode).map((t) => (
-          <AdminChipButton
-            key={t.id}
-            selected={statusTab === t.id}
-            data-status-tab={t.id}
-            onClick={() => setStatusTab(t.id)}
-          >
-            {ko ? t.ko : t.en}
-          </AdminChipButton>
-        ))}
+      <div data-shell-status-tabs="1">
+        <AdminTabs
+          ariaLabel={ko ? "상태" : "Status"}
+          param="status"
+          syncUrl={false}
+          value={statusTab}
+          onChange={(id) => setStatusTab(id)}
+          tabs={statusTabsForMode(mode).map((t) => ({ id: t.id, label: ko ? t.ko : t.en }))}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2" data-shell-family-tabs="1">
@@ -870,7 +896,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         </section>
       ) : null}
 
-      {err ? <AdminErrorState ko={ko} code={err} onRetry={() => void load()} /> : null}
+      {err ? <AdminErrorState ko={ko} code={err} httpStatus={errStatus} onRetry={() => void load()} /> : null}
       {actionMsg ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm" role="status">
           {actionMsg}
@@ -878,6 +904,39 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       ) : null}
 
       <div className="grid gap-4">
+        {!model ? (
+          err ? null : <AdminLoadingState ko={ko} />
+        ) : shellRows.length === 0 ? (
+          <AdminEmptyState
+            ko={ko}
+            message={
+              lq.isFiltered
+                ? undefined
+                : mode === "applications"
+                  ? ko
+                    ? "승인 대기 중인 광고가 없습니다."
+                    : "No applications awaiting approval."
+                  : mode === "operations"
+                    ? ko
+                      ? "현재 운영 중인 광고가 없습니다."
+                      : "No ads currently in operations."
+                    : undefined
+            }
+            onReset={lq.isFiltered ? lq.reset : undefined}
+            action={
+              mode === "operations" ? (
+                <AdminActionLink
+                  href="/admin/advertising/direct"
+                  variant="secondary"
+                  size="sm"
+                  data-admin-ads-ops-empty-register="1"
+                >
+                  {ko ? "+ 광고 등록" : "+ Register ad"}
+                </AdminActionLink>
+              ) : undefined
+            }
+          />
+        ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
           <table className="min-w-full text-left text-[12px]" data-shell-table="1">
             <thead className="bg-sam-app text-sam-muted">
@@ -932,41 +991,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               </tr>
             </thead>
             <tbody>
-              {shellRows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={opsControlMode ? 7 : 11}
-                    className="px-3 py-8 text-center text-sam-muted"
-                  >
-                    {!model && !err ? (
-                      <AdminLoadingState ko={ko} />
-                    ) : mode === "applications"
-                      ? ko
-                        ? "승인 대기 중인 광고가 없습니다."
-                        : "No applications awaiting approval."
-                      : mode === "operations"
-                        ? ko
-                          ? "현재 운영 중인 광고가 없습니다."
-                          : "No ads currently in operations."
-                        : ko
-                          ? "표시할 광고가 없습니다."
-                          : "No ads in this filter."}
-                    {mode === "operations" ? (
-                      <div className="mt-3">
-                        <AdminActionLink
-                          href="/admin/advertising/direct"
-                          variant="primary"
-                          size="sm"
-                          data-admin-ads-ops-empty-register="1"
-                        >
-                          {ko ? "+ 광고 등록" : "+ Register ad"}
-                        </AdminActionLink>
-                      </div>
-                    ) : null}
-                  </td>
-                </tr>
-              ) : (
-                shellRows.map((r) => {
+              {shellRows.map((r) => {
                   const item = itemById.get(r.id);
                   const fam = item ? resolveFamily(item) : null;
                   const actions =
@@ -1092,7 +1117,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                           <div className="flex flex-col items-start gap-1">
                             <AdminActionLink
                               href={r.href}
-                              variant="primary"
+                              variant="ghost"
                               size="sm"
                               data-admin-ads-review-cta="1"
                               data-shell-review="1"
@@ -1136,7 +1161,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                           <div className="flex flex-col items-start gap-1">
                             {primary.mutation && item ? (
                               <AdminActionButton
-                                variant="primary"
+                                variant="ghost"
                                 size="sm"
                                 data-admin-ads-ops-primary={primary.kind}
                                 disabled={busyAction != null || pendingMutation != null}
@@ -1148,19 +1173,20 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                 {ko ? primary.labelKo : primary.labelEn}
                               </AdminActionButton>
                             ) : primary.href ? (
-                              <a
+                              <AdminActionLink
                                 href={primary.href}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex rounded-ui-rect bg-sam-primary px-3 py-1.5 text-[12px] font-semibold text-sam-on-primary"
+                                variant="ghost"
+                                size="sm"
                                 data-admin-ads-ops-primary={primary.kind}
                               >
                                 {ko ? primary.labelKo : primary.labelEn}
-                              </a>
+                              </AdminActionLink>
                             ) : primary.adminHref && !primary.selectDetail ? (
                               <AdminActionLink
                                 href={primary.adminHref}
-                                variant="primary"
+                                variant="ghost"
                                 size="sm"
                                 data-admin-ads-ops-primary={primary.kind}
                               >
@@ -1168,7 +1194,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                               </AdminActionLink>
                             ) : (
                               <AdminActionButton
-                                variant="primary"
+                                variant="ghost"
                                 size="sm"
                                 data-admin-ads-ops-primary={primary.kind}
                                 onClick={() => {
@@ -1318,11 +1344,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                       </td>
                     </tr>
                   );
-                })
-              )}
+                })}
             </tbody>
           </table>
         </div>
+        )}
 
         {opsControlMode && selected && selectedShell ? (
         <aside
@@ -1341,7 +1367,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 <h2 className="mt-0.5 font-semibold text-sam-fg">{selectedShell.title}</h2>
                 <p className="mt-1 text-[12px] text-sam-fg">
                   <span className="text-sam-muted">{ko ? "운영" : "Ops"}: </span>
-                  {selectedShell.operatingStatusLabel || selected.status}
+                  {selectedShell.operatingStatusLabel || "—"}
                   {" · "}
                   <span className="text-sam-muted">{ko ? "실제 노출" : "Runtime"}: </span>
                   {selectedShell.runtimeExposureStatusLabel}

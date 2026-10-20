@@ -4,7 +4,7 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getLaunchWeekIssues } from "@/lib/launch-week/launch-week-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
@@ -18,12 +18,19 @@ import type {
 } from "@/lib/types/launch-week";
 import Link from "next/link";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const FILTER_EXTRAS = ["day"] as const;
 
 export function LaunchWeekIssueBoard() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [dayNumber, setDayNumber] = useState<LaunchWeekDayNumber | "">("");
-  const [status, setStatus] = useState<LaunchWeekIssueStatus | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const dayNumber = (lq.query.extras.day ? Number(lq.query.extras.day) : "") as LaunchWeekDayNumber | "";
+  const status = lq.query.status as LaunchWeekIssueStatus | "";
   const issues = useMemo(
     () =>
       getLaunchWeekIssues({
@@ -35,43 +42,37 @@ export function LaunchWeekIssueBoard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">Day</span>
-        <select
-          value={dayNumber}
-          onChange={(e) =>
-            setDayNumber((e.target.value || "") as LaunchWeekDayNumber | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={"Day"} name="day" value={lq.query.extras.day} onChange={(v) => lq.setExtra("day", v)}>
           <option value="">{t("common_all")}</option>
           {([1, 2, 3, 4, 5, 6, 7] as const).map((d) => (
             <option key={d} value={d}>
               Day {d}
             </option>
           ))}
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_status_2")}</span>
-        <select
-          value={status}
-          onChange={(e) =>
-            setStatus((e.target.value || "") as LaunchWeekIssueStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_qa_status_2")} name="status" value={lq.query.status} onChange={lq.setStatus}>
           <option value="">{t("common_all")}</option>
           <option value="open">{t("admin_qa_open")}</option>
           <option value="investigating">{t("admin_launch_week_kd59552c1")}</option>
           <option value="mitigated">{t("admin_launch_week_k0e7ca9ba")}</option>
           <option value="resolved">{t("admin_launch_week_resolved")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {issues.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={dayNumber || status ? undefined : "긴급 이슈가 없습니다."}
-          onReset={dayNumber || status ? () => { setDayNumber(""); setStatus(""); } : undefined}
+          message={lq.isFiltered ? undefined : "긴급 이슈가 없습니다."}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable

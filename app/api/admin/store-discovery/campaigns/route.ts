@@ -9,6 +9,7 @@ import {
   type StoreDiscoveryCampaignWriterError,
 } from "@/lib/stores/store-discovery-campaign-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { parseDeliveryListPageIfRequested } from "@/lib/admin/delivery-list/delivery-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,8 +39,11 @@ function writerErrorStatus(error: StoreDiscoveryCampaignWriterError): number {
   }
 }
 
-/** Admin Discovery Control — campaign monitor READ + W Campaign HTTP Writer. */
-export async function GET() {
+/**
+ * Admin Discovery Control — campaign monitor READ + W Campaign HTTP Writer.
+ * GET: `limit`/`offset` 이 있으면 서버 페이지(R7) — 20/50/100 · `total`. 없으면 예전 응답(최근 200건).
+ */
+export async function GET(req: NextRequest) {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
@@ -47,7 +51,8 @@ export async function GET() {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  const result = await loadAdminStoreDiscoveryCampaignMonitor(sb);
+  const page = parseDeliveryListPageIfRequested(req.nextUrl.searchParams);
+  const result = await loadAdminStoreDiscoveryCampaignMonitor(sb, page ? { page } : undefined);
   if (!result.ok) {
     return NextResponse.json(
       {
@@ -63,6 +68,7 @@ export async function GET() {
     ok: true,
     now: result.now,
     campaigns: result.campaigns,
+    ...(page ? { total: result.total ?? result.campaigns.length, limit: page.limit, offset: page.offset } : {}),
     writer: "admin_http",
   });
 }

@@ -2,11 +2,11 @@
 
 /**
  * 커뮤니티 모임 (설계 §C-8 · §C-0-1 목록 화면 틀).
- * 탭(승인 대기/진행 중/종료/반려/전체) · 검색(모임 이름·개설자 닉네임·ID) · 페이지 — URL 유지, 서버에서 거르고 총 건수 표시. 개설자 열.
+ * 탭(승인 대기/진행 중/종료/반려/전체) · 검색(모임 이름·개설자 닉네임·ID) · 페이지(20/50/100) — URL 유지, 서버에서 거르고 총 건수 표시. 개설자 열.
+ * 행 버튼 2개(다음 조치 1개 + 자세히) — 나머지 조치·운영 로그·채팅방 점검은 펼친 상세에서.
  * 버튼: 승인 L1 · 반려 L2 · 숨김 L2 · 다시 공개 L1 · 모임 종료 L2 · 재개 L1 — 현재 상태(expected*)를 함께 보내 CAS (409 → 다시 불러오기).
  * 연결 채팅방 점검(펼치기)은 기존 기능 유지.
  */
-import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -21,28 +21,22 @@ import {
   COMMUNITY_TD,
   CommunityActionSheet,
   CommunityAuthorCell,
-  CommunityFilterField,
+  CommunityFilterBar,
+  CommunityListBody,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityResetFilters,
-  CommunitySearchInput,
   CommunityTable,
   CommunityTabs,
   CommunityTimeCell,
+  useCommunityListQuery,
   useCommunityQueryState,
+  type CommunityListLoadState,
 } from "@/components/admin/community/kit/CommunityAdminKit";
-import {
-  AdminEmptyState,
-  AdminErrorState,
-  AdminLoadingState,
-  AdminResultBanner,
-  AdminTechDetails,
-} from "@/components/admin/ui/AdminStateViews";
+import { AdminLoadingState, AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import {
   COMMUNITY_GONE_MESSAGE,
-  COMMUNITY_PAGE_SIZE,
   COMMUNITY_STALE_MESSAGE,
   communityJsonFetch,
   toCommunitySheetResult,
@@ -110,6 +104,9 @@ const ACTION_META: Record<MeetingAction, { label: string; kind: AdminActionKind;
 
 const CLOSED = new Set(["closed", "ended", "cancelled"]);
 
+/** 조회 조건 추가 키 — 탭(`tab`)은 [초기화] 후에도 유지 */
+const MEETING_EXTRAS = ["meetingId"] as const;
+
 function str(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
@@ -151,16 +148,19 @@ function bodyFor(action: MeetingAction, r: Row, reason: string): Record<string, 
 export function AdminCommunityEngineMeetingsClient() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const { get, set, reset, page } = useCommunityQueryState();
+  const { get, set } = useCommunityQueryState();
+  const lq = useCommunityListQuery({ extras: MEETING_EXTRAS });
+  const page = lq.query.page;
+  const pageSize = lq.query.size;
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
   const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
   const noPermTitle = canContent ? undefined : "권한 필요: 게시판 관리";
 
   const tabRaw = get("tab");
   const tab = TABS.some((x) => x.value === tabRaw) ? tabRaw : "all";
-  const q = get("q").trim();
+  const q = lq.query.q;
   /** 모임 신고·운영 로그 화면에서 넘어온 특정 모임 */
-  const focusId = get("meetingId").trim();
+  const focusId = lq.query.extras.meetingId.trim();
 
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState<number | null>(null);
@@ -181,8 +181,8 @@ export function AdminCommunityEngineMeetingsClient() {
   // 탭·검색·페이지 모두 서버에서 거른다 (총 건수 = count exact).
   const apiQuery = useMemo(() => {
     const sp = new URLSearchParams({
-      limit: String(COMMUNITY_PAGE_SIZE),
-      offset: String((page - 1) * COMMUNITY_PAGE_SIZE),
+      limit: String(pageSize),
+      offset: String((page - 1) * pageSize),
     });
     if (focusId) sp.set("meetingId", focusId);
     else {
@@ -190,7 +190,7 @@ export function AdminCommunityEngineMeetingsClient() {
       if (q) sp.set("q", q);
     }
     return sp.toString();
-  }, [focusId, tab, q, page]);
+  }, [focusId, tab, q, page, pageSize]);
 
   useEffect(() => {
     let cancel = false;
@@ -206,8 +206,7 @@ export function AdminCommunityEngineMeetingsClient() {
         setTotal(typeof r.json.total === "number" ? r.json.total : null);
         setLoadErr(null);
       } else {
-        setRows([]);
-        setTotal(null);
+        // 실패해도 직전 목록은 지우지 않는다 (지시서 §8-5)
         setLoadErr({ code: r.code, status: r.status });
       }
       setLoading(false);
@@ -215,7 +214,7 @@ export function AdminCommunityEngineMeetingsClient() {
     return () => {
       cancel = true;
     };
-  }, [apiQuery, reloadKey]);
+  }, [apiQuery, reloadKey, lq.refreshKey]);
 
   const visible = rows;
 
@@ -322,24 +321,35 @@ export function AdminCommunityEngineMeetingsClient() {
     return out;
   };
 
-  let body: ReactNode;
-  if (loading) body = <AdminLoadingState ko={ko} />;
-  else if (loadErr) body = <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={reload} />;
-  else if (visible.length === 0)
-    body = (
-      <AdminEmptyState
-        ko={ko}
-        message={
-          focusId
-            ? t("admin_community_meetings_focus_missing")
-            : q
-              ? t("admin_community_meetings_empty_search")
-              : "해당하는 모임이 없습니다."
-        }
-      />
-    );
-  else
-    body = (
+  const hasData = total !== null || rows.length > 0;
+  const listState: CommunityListLoadState = loadErr
+    ? { status: "error", data: hasData ? rows : null, code: loadErr.code, httpStatus: loadErr.status }
+    : loading
+      ? { status: "loading", data: hasData ? rows : null }
+      : { status: "ok", data: rows };
+  const actionButton = (r: Row, a: MeetingAction, variant: "ghost" | "secondary") => (
+    <AdminActionButton
+      key={a}
+      variant={variant}
+      size="sm"
+      disabled={!canContent || !!pending}
+      title={noPermTitle}
+      onClick={() => setPending({ action: a, row: r })}
+    >
+      {ACTION_META[a].label}
+    </AdminActionButton>
+  );
+  const body: ReactNode = (
+    <CommunityListBody
+      state={listState}
+      empty={visible.length === 0}
+      lq={lq}
+      onRetry={reload}
+      emptyMessage="해당하는 모임이 없습니다."
+      filteredEmptyMessage={
+        focusId ? t("admin_community_meetings_focus_missing") : t("admin_community_meetings_empty_search")
+      }
+    >
       <CommunityTable head={["모임", "개설자", "상태", "모임 글", "정원", "신고", "개설", ""]}>
         {visible.map((r) => {
           const id = str(r.id);
@@ -402,32 +412,26 @@ export function AdminCommunityEngineMeetingsClient() {
                 </td>
                 <td className={COMMUNITY_TD}>
                   <span className="flex flex-wrap gap-1">
-                    {actionsFor(r).map((a) => {
-                      const meta = ACTION_META[a];
-                      return (
-                        <AdminActionButton
-                          key={a}
-                          variant={meta.destructive ? "danger" : a === "approve" ? "primary" : "secondary"}
-                          disabled={!canContent || !!pending}
-                          title={noPermTitle}
-                          onClick={() => setPending({ action: a, row: r })}
-                        >
-                          {meta.label}
-                        </AdminActionButton>
-                      );
-                    })}
-                    <AdminActionButton variant="neutral" disabled={insightLoading && !isOpen} onClick={() => toggleInsight(id)}>
-                      {isOpen ? t("admin_meeting_engine_insight_close") : t("admin_meeting_engine_insight_open")}
+                    {(() => {
+                      const first = actionsFor(r)[0];
+                      return first ? actionButton(r, first, "ghost") : null;
+                    })()}
+                    <AdminActionButton variant="ghost" size="sm" disabled={insightLoading && !isOpen} onClick={() => toggleInsight(id)} aria-expanded={isOpen}>
+                      {isOpen ? "접기" : "자세히"}
                     </AdminActionButton>
-                    <AdminActionLink href={`/admin/philife/meeting-events?meetingId=${encodeURIComponent(id)}`} variant="quiet">
-                      운영 로그
-                    </AdminActionLink>
                   </span>
                 </td>
               </tr>
               {isOpen ? (
                 <tr className="border-b border-sam-border bg-sam-app">
                   <td colSpan={8} className="px-3 py-3 text-[13px] text-sam-fg">
+                    <div className="mb-3 flex flex-wrap items-center gap-2" data-meeting-detail-actions={id}>
+                      {actionsFor(r).map((a) => actionButton(r, a, "secondary"))}
+                      <AdminActionLink href={`/admin/philife/meeting-events?meetingId=${encodeURIComponent(id)}`} variant="quiet">
+                        운영 로그
+                      </AdminActionLink>
+                    </div>
+                    <p className="mb-2 font-semibold">{t("admin_meeting_engine_insight_open")}</p>
                     {insightLoading && !insight ? (
                       <AdminLoadingState ko={ko} />
                     ) : insightErr && !insight ? (
@@ -450,7 +454,8 @@ export function AdminCommunityEngineMeetingsClient() {
           );
         })}
       </CommunityTable>
-    );
+    </CommunityListBody>
+  );
 
   const meta = pending ? ACTION_META[pending.action] : null;
 
@@ -480,41 +485,24 @@ export function AdminCommunityEngineMeetingsClient() {
             onChange={(v) => set({ tab: v === "all" ? null : v })}
           />
         }
-        filters={
-          <>
-            <CommunityFilterField label={t("admin_community_meetings_search_label")}>
-              <CommunitySearchInput
-                value={get("q")}
-                placeholder={t("admin_community_meetings_search_placeholder")}
-                onCommit={(v) => set({ q: v })}
-              />
-            </CommunityFilterField>
+        filterBar={
+          <CommunityFilterBar
+            lq={lq}
+            showPeriod={false}
+            searchPlaceholder={t("admin_community_meetings_search_placeholder")}
+            pending={loading}
+          >
             {focusId ? (
-              <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
+              <span className="flex h-10 items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 text-[12px] text-sam-fg">
                 특정 모임 1건만 보기
-                <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => set({ meetingId: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => lq.setExtra("meetingId", "")}>
                   해제
                 </AdminActionButton>
               </span>
             ) : null}
-            {get("q") || focusId ? <CommunityResetFilters onReset={() => reset(["tab"])} /> : null}
-            {!loading && !loadErr && typeof total === "number" ? (
-              <span className="pb-1.5 text-[12px] font-semibold text-sam-fg" data-community-list-total={total}>
-                {t("admin_community_list_total", { count: formatAdminNumber(total) })}
-              </span>
-            ) : null}
-          </>
+          </CommunityFilterBar>
         }
-        footer={
-          !loading && !loadErr && (rows.length > 0 || page > 1) ? (
-            <CommunityPagination
-              page={page}
-              pageSize={COMMUNITY_PAGE_SIZE}
-              total={total}
-              onPage={(p) => set({ page: p > 1 ? p : null }, { keepPage: true })}
-            />
-          ) : null
-        }
+        footer={<CommunityListPagination lq={lq} total={total} disabled={loading} />}
       >
         {body}
       </CommunityListShell>

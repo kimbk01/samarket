@@ -4,7 +4,7 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getQaTestCases } from "@/lib/qa-board/qa-board-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
@@ -19,11 +19,18 @@ import type {
 import Link from "next/link";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+const FILTER_EXTRAS = ["case_status", "env"] as const;
+
 export function QaTestCaseTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [status, setStatus] = useState<QaTestCaseStatus | "">("");
-  const [environment, setEnvironment] = useState<QaTestEnvironment | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const status = lq.query.extras.case_status as QaTestCaseStatus | "";
+  const environment = lq.query.extras.env as QaTestEnvironment | "";
   const cases = useMemo(
     () =>
       getQaTestCases({
@@ -37,39 +44,33 @@ export function QaTestCaseTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_status_2")}</span>
-        <select
-          value={status}
-          onChange={(e) =>
-            setStatus((e.target.value || "") as QaTestCaseStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_qa_status_2")} name="case_status" value={lq.query.extras.case_status} onChange={(v) => lq.setExtra("case_status", v)}>
           <option value="">{t("common_all")}</option>
           <option value="not_started">{t("admin_qa_not_started")}</option>
           <option value="in_progress">{t("admin_qa_in_progress")}</option>
           <option value="passed">{t("admin_qa_passed_2")}</option>
           <option value="failed">{t("admin_qa_failed")}</option>
           <option value="blocked">{t("admin_qa_blocked")}</option>
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_environment")}</span>
-        <select
-          value={environment}
-          onChange={(e) =>
-            setEnvironment((e.target.value || "") as QaTestEnvironment | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_qa_environment")} name="env" value={lq.query.extras.env} onChange={(v) => lq.setExtra("env", v)}>
           <option value="">{t("common_all")}</option>
           <option value="local">Local</option>
           <option value="staging">Staging</option>
           <option value="production_candidate">{t("admin_production_candidate")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {cases.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"테스트 케이스가 없습니다."} />
+        <AdminEmptyState ko={ko} message={"테스트 케이스가 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={[

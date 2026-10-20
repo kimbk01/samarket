@@ -1,5 +1,7 @@
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import { ADMIN_LIST_MAX_OFFSET } from "@/lib/admin/pagination/parse-admin-list-page";
 import { mapPointPromotionOrderRow } from "@/lib/points/point-promotion-orders-db";
 import {
   formatAdminMemberLabel,
@@ -20,7 +22,7 @@ const TAB_STATUSES: Record<string, string[] | null> = {
 
 /**
  * GET /api/admin/community-promotion-orders?status=active|paused|ended|rejected|pending|all&page=1&pageSize=30
- * (domain=community 고정)
+ * (domain=community 고정) · R7 목록 표준: `limit`(20/50/100, 그 외 20) + `offset` 을 주면 page/pageSize 대신 그것을 쓴다.
  * → { ok, status, page, pageSize, total, orders: [{ ...PointPromotionOrder, reviewReason,
  *      buyerNickname, buyerLabel, paidPoints, refundPoints, refundLedgerId, fault, endReasonCode, endedAt, endedBy,
  *      pausedAt, pausedSecondsTotal, post: { id, title, status, authorId, authorLabel } | null }] }
@@ -35,11 +37,22 @@ export async function GET(req: NextRequest) {
   // 탭 이름 또는 기존 화면이 보내는 원래 상태값(pending_review, expired …) 둘 다 받는다.
   const RAW_STATUSES = ["pending", "pending_review", "active", "paused", "expired", "ended", "rejected", "cancelled"];
   const status = statusRaw in TAB_STATUSES || RAW_STATUSES.includes(statusRaw) ? statusRaw : "all";
-  const pageRaw = Number(sp.get("page") ?? 1);
-  const sizeRaw = Number(sp.get("pageSize") ?? 30);
-  const page = Number.isFinite(pageRaw) ? Math.max(1, Math.floor(pageRaw)) : 1;
-  const pageSize = Number.isFinite(sizeRaw) ? Math.min(100, Math.max(1, Math.floor(sizeRaw))) : 30;
-  const from = (page - 1) * pageSize;
+  let page: number;
+  let pageSize: number;
+  let from: number;
+  if (sp.has("limit")) {
+    pageSize = normalizeAdminListPageSize(sp.get("limit"));
+    const offRaw = Math.floor(Number(sp.get("offset") ?? 0));
+    from = Number.isFinite(offRaw) && offRaw > 0 ? Math.min(offRaw, ADMIN_LIST_MAX_OFFSET) : 0;
+    page = Math.floor(from / pageSize) + 1;
+  } else {
+    // 기존 계약 (page/pageSize) — 그대로
+    const pageRaw = Number(sp.get("page") ?? 1);
+    const sizeRaw = Number(sp.get("pageSize") ?? 30);
+    page = Number.isFinite(pageRaw) ? Math.max(1, Math.floor(pageRaw)) : 1;
+    pageSize = Number.isFinite(sizeRaw) ? Math.min(100, Math.max(1, Math.floor(sizeRaw))) : 30;
+    from = (page - 1) * pageSize;
+  }
 
   let q = sb
     .from("point_promotion_orders")
@@ -122,5 +135,14 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ ok: true, status, page, pageSize, total: count ?? orders.length, orders });
+  return NextResponse.json({
+    ok: true,
+    status,
+    page,
+    pageSize,
+    limit: pageSize,
+    offset: from,
+    total: count ?? orders.length,
+    orders,
+  });
 }

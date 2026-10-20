@@ -6,6 +6,7 @@ import { pointBoardLabel } from "@/components/admin/points/admin-points-notifica
 import type { PointRewardLog } from "@/lib/types/point-execution";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
@@ -14,13 +15,10 @@ interface PointRewardLogListProps {
 }
 
 export function PointRewardLogList({ logs }: PointRewardLogListProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
 
   if (logs.length === 0) {
-    return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted"> {t("admin_points_exec_logs_empty")}
-      </div>
-    );
+    return <AdminEmptyState ko={language !== "en"} message={t("admin_points_exec_logs_empty")} />;
   }
 
   return (

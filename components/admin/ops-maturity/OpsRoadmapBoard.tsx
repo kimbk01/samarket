@@ -5,10 +5,13 @@ import {
   OPS_TOOLS_CHECKLIST_STATUS_KEYS,
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { OpsRoadmapStatus, OpsRoadmapDomain } from "@/lib/types/ops-maturity";
 import { getOpsImprovementRoadmapItems } from "@/lib/ops-maturity/ops-maturity-state";
 import { OpsRoadmapCard } from "./OpsRoadmapCard";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 const STATUS_COLUMNS: OpsRoadmapStatus[] = [
   "planned",
@@ -19,12 +22,17 @@ const STATUS_COLUMNS: OpsRoadmapStatus[] = [
   "deferred",
 ];
 
+const ROADMAP_EXTRAS = ["domain"] as const;
+
 export function OpsRoadmapBoard() {
-  const { t } = useI18n();
-  const [domainFilter, setDomainFilter] = useState<OpsRoadmapDomain | "">("");
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  /** 영역 필터는 주소(`?domain=`)에 보존 (R7). */
+  const lq = useAdminListQuery({ extras: ROADMAP_EXTRAS });
+  const domainFilter = lq.query.extras.domain as OpsRoadmapDomain | "";
 
   const items = useMemo(
-    () => getOpsImprovementRoadmapItems({ domain: domainFilter || undefined }),
+    () => getOpsImprovementRoadmapItems({ domain: domainFilter || undefined, limit: Number.MAX_SAFE_INTEGER }),
     [domainFilter]
   );
 
@@ -45,12 +53,16 @@ export function OpsRoadmapBoard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <select
-          value={domainFilter}
-          onChange={(e) => setDomainFilter(e.target.value as OpsRoadmapDomain | "")}
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={ko ? "영역" : "Area"} name="domain" value={lq.query.extras.domain} onChange={(v) => lq.setExtra("domain", v)}>
           <option value="">{t("admin_ops_tools_maturity_filter_area")}</option>
           <option value="monitoring">{t("admin_ops_tools_cat_monitoring")}</option>
           <option value="automation">{t("admin_ops_tools_cat_automation")}</option>
@@ -58,8 +70,8 @@ export function OpsRoadmapBoard() {
           <option value="response">{t("admin_ops_tools_area_response")}</option>
           <option value="recommendation_quality">{t("admin_ops_tools_area_recommendation")}</option>
           <option value="learning">{t("admin_ops_tools_area_learning")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
       <div className="grid gap-3 overflow-x-auto lg:grid-cols-6">
         {STATUS_COLUMNS.map((status) => (
           <div key={status} className="min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-app/50 p-3">

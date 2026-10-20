@@ -13,7 +13,8 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
-import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode } from "@/lib/admin/admin-load-failure";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 type EditableProvider = AuthProviderPublicMeta & { client_secret: string };
@@ -33,6 +34,15 @@ function getProviderTitle(provider: OAuthProvider): string {
   return "Facebook";
 }
 
+class AuthSettingsLoadError extends Error {
+  constructor(
+    readonly code: string,
+    readonly httpStatus?: number
+  ) {
+    super(code);
+  }
+}
+
 export function AuthLoginSettingsForm() {
   const { t, language } = useI18n();
   const ko = language === "ko";
@@ -43,7 +53,9 @@ export function AuthLoginSettingsForm() {
   const [phoneSettings, setPhoneSettings] = useState<AuthPhoneSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [policySaving, setPolicySaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /** 불러오기 실패 (코드 + HTTP 상태) — 원문 메시지를 화면에 쓰지 않는다. */
+  const [loadErr, setLoadErr] = useState<{ code: string; httpStatus?: number } | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [providerSaving, setProviderSaving] = useState<Record<string, boolean>>({});
   const [providerStatus, setProviderStatus] = useState<Record<string, string | null>>({});
   const [providerError, setProviderError] = useState<Record<string, string | null>>({});
@@ -64,7 +76,7 @@ export function AuthLoginSettingsForm() {
       error?: string;
     } | null;
     if (!providersRes.ok || !providersJson?.ok || !Array.isArray(providersJson.providers)) {
-      throw new Error((providersJson?.error ? adminOperatorErrorMessage(providersJson.error, ko) : null) || t("admin_auth_err_load_providers"));
+      throw new AuthSettingsLoadError(adminSafeErrorCode(providersJson?.error, "load_failed"), providersRes.status);
     }
     setProviders(providersJson.providers.map(toEditable));
   };
@@ -81,7 +93,7 @@ export function AuthLoginSettingsForm() {
       error?: string;
     } | null;
     if (!policyRes.ok || !policyJson?.ok || !Array.isArray(policyJson.settings) || !policyJson.sessionPolicy) {
-      throw new Error((policyJson?.error ? adminOperatorErrorMessage(policyJson.error, ko) : null) || t("admin_auth_err_load_policy"));
+      throw new AuthSettingsLoadError(adminSafeErrorCode(policyJson?.error, "load_failed"), policyRes.status);
     }
     setLegacySettings(policyJson.settings);
     setSessionPolicy(policyJson.sessionPolicy);
@@ -98,22 +110,28 @@ export function AuthLoginSettingsForm() {
       error?: string;
     } | null;
     if (!res.ok || !json?.ok || !json.settings) {
-      throw new Error((json?.error ? adminOperatorErrorMessage(json.error, ko) : null) || t("admin_auth_err_load_phone"));
+      throw new AuthSettingsLoadError(adminSafeErrorCode(json?.error, "load_failed"), res.status);
     }
     setPhoneSettings(json.settings);
   };
 
   useEffect(() => {
     void (async () => {
-      try {
-        await Promise.all([loadProviders(), loadPolicy(), loadPhoneSettings()]);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : t("admin_auth_err_load_settings"));
-      } finally {
-        setLoading(false);
+      setLoading(true);
+      setLoadErr(null);
+      /** 하나가 실패해도 나머지 영역은 그린다 — 실패한 영역만 오류 상태. */
+      const results = await Promise.allSettled([loadProviders(), loadPolicy(), loadPhoneSettings()]);
+      const failed = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (failed) {
+        const e = failed.reason;
+        setLoadErr(
+          e instanceof AuthSettingsLoadError ? { code: e.code, httpStatus: e.httpStatus } : { code: "network_error" }
+        );
       }
+      setLoading(false);
     })();
-  }, [t]);
+  }, [reloadNonce]);
+  const retryLoad = () => setReloadNonce((n) => n + 1);
 
   const updateProvider = (provider: OAuthProvider, patch: Partial<EditableProvider>) => {
     setProviders((prev) => prev.map((row) => (row.provider === provider ? { ...row, ...patch } : row)));
@@ -333,6 +351,8 @@ export function AuthLoginSettingsForm() {
         <AdminCard title={t("admin_auth_settings_oauth_card_title")}>
         {loading ? (
           <AdminLoadingState ko={ko} label={t("common_loading")} />
+        ) : loadErr && providers.length === 0 ? (
+          <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={retryLoad} />
         ) : (
           <div className="space-y-3">
             {providers.map((row) => (
@@ -473,7 +493,7 @@ export function AuthLoginSettingsForm() {
                 ) : null}
                 <div className="flex justify-end">
                   <AdminActionButton
-                    variant="primary"
+                    variant="secondary"
                     onClick={() => void requestSave({ kind: "provider", provider: row.provider })}
                     disabled={providerSaving[row.provider] === true}
                   >
@@ -482,14 +502,18 @@ export function AuthLoginSettingsForm() {
                 </div>
               </div>
             ))}
-            {error ? <p className="sam-text-body-secondary text-sam-danger">{error}</p> : null}
+            {loadErr ? (
+              <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={retryLoad} />
+            ) : null}
           </div>
         )}
       </AdminCard>
       ) : activeSection === "policy" ? (
       <AdminCard title={t("admin_auth_settings_policy_card_title")}>
-        {loading || !sessionPolicy ? (
+        {loading ? (
           <AdminLoadingState ko={ko} label={t("common_loading")} />
+        ) : !sessionPolicy ? (
+          <AdminErrorState ko={ko} code={loadErr?.code ?? "load_failed"} httpStatus={loadErr?.httpStatus} onRetry={retryLoad} />
         ) : (
           <div className="space-y-3">
             <p className="sam-text-body-secondary text-sam-muted">{t("admin_auth_policy_intro")}</p>
@@ -547,8 +571,10 @@ export function AuthLoginSettingsForm() {
       </AdminCard>
       ) : (
       <AdminCard title={t("admin_auth_settings_phone_card_title")}>
-        {loading || !phoneSettings ? (
+        {loading ? (
           <AdminLoadingState ko={ko} label={t("common_loading")} />
+        ) : !phoneSettings ? (
+          <AdminErrorState ko={ko} code={loadErr?.code ?? "load_failed"} httpStatus={loadErr?.httpStatus} onRetry={retryLoad} />
         ) : (
           <div className="space-y-3">
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 sam-text-body text-sam-fg">

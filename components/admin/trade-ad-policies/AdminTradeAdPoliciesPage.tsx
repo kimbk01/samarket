@@ -5,7 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
@@ -16,27 +16,31 @@ type Row = Record<string, unknown>;
 export function AdminTradeAdPoliciesPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<Row[] | null>(null);
   const [loading, setLoading] = useState(true);
+  /** 목록 조회 실패 (오류 코드·HTTP 상태 — 권한 없음 구분) — 직전 목록은 지우지 않는다 */
+  const [loadErr, setLoadErr] = useState<{ code: string; httpStatus: number } | null>(null);
+  /** 사용/중지 저장 실패 안내 */
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setErr("");
+    setLoadErr(null);
     try {
       const res = await fetch("/api/admin/trade-ad-products", { cache: "no-store" });
-      const j = (await res.json()) as { ok?: boolean; rows?: Row[]; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; rows?: Row[]; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ? adminOperatorErrorMessage(j.error, ko) : t("admin_trade_post_ads_list_load_failed"));
-        setRows([]);
+        setLoadErr({ code: j.error || `http_${res.status}`, httpStatus: res.status });
       } else {
         setRows(j.rows ?? []);
       }
+    } catch {
+      setLoadErr({ code: "network_error", httpStatus: 0 });
     } finally {
       setLoading(false);
     }
-  }, [ko, t]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -61,12 +65,14 @@ export function AdminTradeAdPoliciesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_active: !r.is_active }),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
         setErr(j.error ? adminOperatorErrorMessage(j.error, ko) : t("admin_trade_ad_policies_save_failed"));
         return;
       }
       await load();
+    } catch {
+      setErr(adminOperatorErrorMessage("network_error", ko));
     } finally {
       setBusyId(null);
     }
@@ -90,8 +96,10 @@ export function AdminTradeAdPoliciesPage() {
         </div>
       ) : null}
 
-      {loading ? (
-        <AdminLoadingState ko={ko} label={t("common_loading")} />
+      {loadErr ? <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={() => void load()} /> : null}
+
+      {rows === null ? (
+        loading ? <AdminLoadingState ko={ko} label={t("common_loading")} /> : null
       ) : rows.length === 0 ? (
         <AdminEmptyState ko={ko} message={t("admin_trade_ad_policies_empty")} />
       ) : (

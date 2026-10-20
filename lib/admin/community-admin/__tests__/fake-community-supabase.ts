@@ -10,6 +10,10 @@ export type FakeCall = {
   selectCols?: string;
   returning?: string;
   terminal?: "maybeSingle" | "single" | "many";
+  /** `.range(from, to)` 인자 (목록 페이지 계약 테스트용) */
+  range?: [number, number];
+  /** `.limit(n)` 인자 */
+  limit?: number;
 };
 export type FakeRpcCall = { fn: string; args: Record<string, unknown> };
 export type FakeResult = { data: unknown; error: unknown; count?: number };
@@ -61,8 +65,12 @@ export function createFakeCommunitySupabase(
       not: chain((c, op, v) => call.filters.push(["not", String(c), [op, v]])),
       or: chain((v) => call.filters.push(["or", "", v])),
       order: chain(() => undefined),
-      limit: chain(() => undefined),
-      range: chain(() => undefined),
+      limit: chain((n) => {
+        call.limit = Number(n);
+      }),
+      range: chain((f, t) => {
+        call.range = [Number(f), Number(t)];
+      }),
       maybeSingle: () => resolve("maybeSingle"),
       single: () => resolve("single"),
       then: (onOk: (v: FakeResult) => unknown, onErr?: (e: unknown) => unknown) =>

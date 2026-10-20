@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
 import {
   communityAdminUuidOrNull,
-  parseCommunityAdminPage,
   parseCommunityAdminPeriodFromSearch,
 } from "@/lib/admin/community-admin/community-admin-period";
 import {
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   }
   const period = parseCommunityAdminPeriodFromSearch(sp, { defaultPeriod: "all" });
   if (!period.ok) return NextResponse.json({ ok: false, error: period.error }, { status: 400 });
-  const { limit, offset } = parseCommunityAdminPage(sp);
+  const { limit, offset } = parseTradeAdminListPage(sp);
 
   /* eslint-disable @typescript-eslint/no-explicit-any -- PostgREST builder chain */
   const base = (tabKey: TradeReportTab, head: boolean): any => {

@@ -1,21 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type {
-  PointFinancialFilter,
-  PointFinancialHistoryItem,
-} from "@/lib/points/point-financial-history";
+import type { PointFinancialHistoryItem } from "@/lib/points/point-financial-history";
 import { AdminPointAdjustPanel } from "@/components/admin/points/AdminPointAdjustPanel";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
+import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 function formatSigned(signed: number): string {
@@ -23,75 +19,35 @@ function formatSigned(signed: number): string {
   return signed < 0 ? `-${abs} P` : `+${abs} P`;
 }
 
-const LEDGER_FILTER_LABEL: Record<PointFinancialFilter, { ko: string; en: string }> = {
-  all: { ko: "전체", en: "All" },
+const LEDGER_FILTER_LABEL: Record<"credit" | "debit", { ko: string; en: string }> = {
   credit: { ko: "적립", en: "Credit" },
   debit: { ko: "차감", en: "Debit" },
 };
 
+const LEDGER_STATUSES = ["credit", "debit"] as const;
+
+type LedgerRow = PointFinancialHistoryItem & { userNickname?: string };
+
+/** `useSearchParams` 사용 — Suspense 경계 안에서 그린다 (Next App Router 규칙). */
 export function AdminPointLedgerPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminPointLedgerPageInner />
+    </Suspense>
+  );
+}
+
+/**
+ * 포인트 원장 (R7 목록 표준) — 조건(구분·회원 UUID·기간 PHT)은 주소에 남고, 서버 페이지(limit/offset + 총 건수).
+ * 예전 「더 보기」 커서(50건씩)·조건 미보존 대체.
+ */
+function AdminPointLedgerPageInner() {
   const { t, language, safeT } = useI18n();
   const ko = language !== "en";
   const action = useAdminRouteAction("/admin/points/ledger");
-  const [items, setItems] = useState<(PointFinancialHistoryItem & { userNickname?: string })[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<{ code: string; httpStatus?: number } | null>(null);
-  const [moreError, setMoreError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<PointFinancialFilter>("all");
-  const [userId, setUserId] = useState("");
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-
-  const load = useCallback(
-    async (opts?: { append?: boolean; cursor?: string | null }) => {
-      const append = Boolean(opts?.append);
-      if (!append) setLoading(true);
-      setLoadError(null);
-      setMoreError(null);
-      try {
-        const qs = new URLSearchParams({ filter, limit: "50" });
-        if (userId.trim()) qs.set("userId", userId.trim());
-        if (opts?.cursor) qs.set("cursor", opts.cursor);
-        const res = await fetch(`/api/admin/points/ledger?${qs}`, { credentials: "include" });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          history?: {
-            items?: (PointFinancialHistoryItem & { userNickname?: string })[];
-            hasMore?: boolean;
-            nextCursor?: string | null;
-          };
-        };
-        if (!res.ok || json.ok === false) {
-          if (append) {
-            setMoreError(adminOperatorErrorMessage(json.error ?? "load_failed", ko));
-          } else {
-            setItems([]);
-            setLoadError({ code: json.error ?? "load_failed", httpStatus: res.status });
-          }
-          return;
-        }
-        const page = Array.isArray(json.history?.items) ? json.history!.items! : [];
-        setItems((prev) => (append ? [...prev, ...page] : page));
-        setHasMore(Boolean(json.history?.hasMore));
-        setNextCursor(json.history?.nextCursor ?? null);
-      } catch {
-        if (append) {
-          setMoreError(adminOperatorErrorMessage("network_error", ko));
-        } else {
-          setItems([]);
-          setLoadError({ code: "network_error" });
-        }
-      } finally {
-        setLoading(false);
-      }
-    },
-    [filter, userId, ko]
-  );
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const lq = useAdminListQuery({ statuses: LEDGER_STATUSES });
+  const list = useMemberOpsPagedFetch<LedgerRow>(`/api/admin/points/ledger?${lq.apiQueryString}`, "items", lq.refreshKey);
+  const items = list.rows;
 
   return (
     <div className="space-y-4">
@@ -103,40 +59,43 @@ export function AdminPointLedgerPage() {
         </p>
       ) : null}
 
-      <AdminPointAdjustPanel actionAllowed={action.allowed} onChanged={() => void load()} />
+      <AdminPointAdjustPanel actionAllowed={action.allowed} onChanged={list.reload} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-          placeholder={safeT("point_fin_admin_user_filter", {
-            fallbackKo: "회원 UUID (선택)",
-            fallbackEn: "Member UUID (optional)",
-          })}
-          className="min-w-[240px] flex-1 rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-        />
-        {(["all", "credit", "debit"] as const).map((id) => (
-          <AdminChipButton key={id} selected={filter === id} onClick={() => setFilter(id)}>
-            {ko ? LEDGER_FILTER_LABEL[id].ko : LEDGER_FILTER_LABEL[id].en}
-          </AdminChipButton>
-        ))}
-        <AdminActionButton variant="primary" onClick={() => void load()}>
-          {adminCta("search", ko)}
-        </AdminActionButton>
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        pending={list.loading}
+        searchPlaceholder={safeT("point_fin_admin_user_filter", {
+          fallbackKo: "회원 UUID (선택)",
+          fallbackEn: "Member UUID (optional)",
+        })}
+        status={{
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          label: ko ? "구분" : "Type",
+          options: LEDGER_STATUSES.map((id) => ({ value: id, label: ko ? LEDGER_FILTER_LABEL[id].ko : LEDGER_FILTER_LABEL[id].en })),
+        }}
+      />
 
-      {loading ? (
-        <AdminLoadingState ko={ko} />
-      ) : loadError ? (
-        <AdminErrorState
-          ko={ko}
-          code={loadError.code}
-          httpStatus={loadError.httpStatus}
-          onRetry={() => void load()}
-        />
-      ) : items.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_points_ledger_empty")} />
-      ) : (
+      <MemberOpsListBody
+        ko={ko}
+        loading={list.loading}
+        loaded={list.loaded}
+        error={list.error}
+        onRetry={lq.refresh}
+        rowCount={items.length}
+        total={list.total}
+        page={lq.query.page}
+        size={lq.query.size}
+        onPageChange={lq.setPage}
+        onSizeChange={lq.setSize}
+        isFiltered={lq.isFiltered}
+        onReset={lq.reset}
+        emptyMessage={t("admin_points_ledger_empty")}
+      >
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[720px] border-collapse sam-text-body">
             <thead>
@@ -180,21 +139,7 @@ export function AdminPointLedgerPage() {
             </tbody>
           </table>
         </div>
-      )}
-      {moreError ? (
-        <p role="alert" className="sam-text-helper text-sam-danger">
-          {moreError}
-        </p>
-      ) : null}
-      {hasMore && !loadError ? (
-        <AdminActionButton
-          variant="secondary"
-          className="w-full"
-          onClick={() => void load({ append: true, cursor: nextCursor })}
-        >
-          {safeT("point_fin_load_more", { fallbackKo: "더 보기", fallbackEn: "Load more" })}
-        </AdminActionButton>
-      ) : null}
+      </MemberOpsListBody>
     </div>
   );
 }

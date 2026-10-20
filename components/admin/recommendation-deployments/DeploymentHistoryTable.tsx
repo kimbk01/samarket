@@ -2,9 +2,12 @@
 
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { RecommendationFilterSelect } from "@/components/admin/recommendation-admin-filter-select";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getRecommendationDeployments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
@@ -15,7 +18,33 @@ import { PLATFORM_REC_DEPLOYMENT_NS } from "@/lib/admin/status-labels/platform-s
 export function DeploymentHistoryTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [surfaceFilter, setSurfaceFilter] = useState<string>("");
+  /** surface 필터 — 주소 `?surface=` 보존 (R7) */
+  const lq = useAdminListQuery<"surface">({ extras: ["surface"] });
+  const surfaceFilter = ["home", "search", "shop"].includes(lq.query.extras.surface) ? lq.query.extras.surface : "";
+  const filterBar = (
+    <AdminFilterBar
+      ko={ko}
+      draft={lq.draft}
+      onDraftChange={lq.setDraft}
+      onSubmit={lq.submit}
+      onReset={lq.reset}
+      showPeriod={false}
+      showSearch={false}
+    >
+      <RecommendationFilterSelect
+        label="surface"
+        value={surfaceFilter}
+        allLabel={t("admin_rec_deploy_all")}
+        options={[
+          { value: "home", label: t("admin_surface_home") },
+          { value: "search", label: t("admin_surface_search") },
+          { value: "shop", label: t("admin_rec_deploy_shop") },
+        ]}
+        onChange={(v) => lq.setExtra("surface", v)}
+        name="surface"
+      />
+    </AdminFilterBar>
+  );
 
   const deployments = useMemo(
     () =>
@@ -30,22 +59,11 @@ export function DeploymentHistoryTable() {
   if (deployments.length === 0) {
     return (
       <div className="space-y-2">
-        <div className="flex gap-2">
-          <select
-            value={surfaceFilter}
-            onChange={(e) => setSurfaceFilter(e.target.value)}
-            className="rounded border border-sam-border px-3 py-2 sam-text-body"
-          >
-            <option value="">{t("admin_rec_deploy_all")}</option>
-            <option value="home">{t("admin_surface_home")}</option>
-            <option value="search">{t("admin_surface_search")}</option>
-            <option value="shop">{t("admin_rec_deploy_shop")}</option>
-          </select>
-        </div>
+        {filterBar}
         <AdminEmptyState
           ko={ko}
           message={surfaceFilter ? undefined : "배포 이력이 없습니다."}
-          onReset={surfaceFilter ? () => { setSurfaceFilter(""); } : undefined}
+          onReset={surfaceFilter ? lq.reset : undefined}
         />
       </div>
     );
@@ -53,18 +71,7 @@ export function DeploymentHistoryTable() {
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
-        <select
-          value={surfaceFilter}
-          onChange={(e) => setSurfaceFilter(e.target.value)}
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
-          <option value="">{t("admin_rec_deploy_all")}</option>
-          <option value="home">{t("admin_surface_home")}</option>
-          <option value="search">{t("admin_surface_search")}</option>
-          <option value="shop">{t("admin_rec_deploy_shop")}</option>
-        </select>
-      </div>
+      {filterBar}
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[640px] border-collapse sam-text-body">
           <thead>

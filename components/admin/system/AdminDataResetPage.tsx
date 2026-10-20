@@ -12,7 +12,12 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminLoadingState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type {
@@ -175,6 +180,8 @@ export function AdminDataResetPage() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** 요약 목록 불러오기 실패 — 동작 오류(error)와 분리. 직전 목록은 지우지 않는다. */
+  const [summaryErr, setSummaryErr] = useState<{ code: string; httpStatus?: number } | null>(null);
 
   const [domain, setDomain] = useState<DataResetDomain | null>(
     initialDomain && DOMAIN_SCOPES[initialDomain] ? initialDomain : null
@@ -189,25 +196,25 @@ export function AdminDataResetPage() {
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setSummaryErr(null);
     try {
       const res = await fetch("/api/admin/system/data-reset/summary", {
         credentials: "include",
       });
-      const data = (await res.json()) as {
+      const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         rows?: DataResetDomainSummaryRow[];
         warnings?: string[];
         error?: string;
       };
       if (!res.ok || !data.ok) {
-        setError(data.error ?? "summary_failed");
+        setSummaryErr({ code: data.error ?? "summary_failed", httpStatus: res.status });
         return;
       }
       setRows(data.rows ?? []);
       setWarnings(data.warnings ?? []);
     } catch {
-      setError("network_error");
+      setSummaryErr({ code: "network_error" });
     } finally {
       setLoading(false);
     }
@@ -403,8 +410,18 @@ export function AdminDataResetPage() {
 
       {view === "list" ? (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          {loading ? (
+          {summaryErr ? (
+            <AdminErrorState
+              ko={ko}
+              code={summaryErr.code}
+              httpStatus={summaryErr.httpStatus}
+              onRetry={() => void loadSummary()}
+            />
+          ) : null}
+          {loading && rows.length === 0 ? (
             <AdminLoadingState ko={ko} />
+          ) : rows.length === 0 ? (
+            summaryErr ? null : <AdminEmptyState ko={ko} />
           ) : (
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-sam-border bg-sam-app text-sam-muted">

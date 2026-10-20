@@ -4,7 +4,7 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getLaunchReadinessItems } from "@/lib/launch-readiness/launch-readiness-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
@@ -15,12 +15,21 @@ import {
   getPriorityLabel,
 } from "@/lib/launch-readiness/launch-readiness-utils";
 import type { LaunchReadinessPhase } from "@/lib/types/launch-readiness";
-import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const LAUNCH_PHASES = ["pre_launch", "launch_day", "post_launch"] as const;
+const PHASE_EXTRAS = ["phase"] as const;
 
 export function LaunchChecklistTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [phase, setPhase] = useState<LaunchReadinessPhase>("pre_launch");
+  /** 단계 선택은 주소(`?phase=`)에 보존 (R7). 기본 Pre-Launch. */
+  const lq = useAdminListQuery({ extras: PHASE_EXTRAS, extraDefaults: { phase: "pre_launch" } });
+  const phase: LaunchReadinessPhase = (LAUNCH_PHASES as readonly string[]).includes(lq.query.extras.phase)
+    ? (lq.query.extras.phase as LaunchReadinessPhase)
+    : "pre_launch";
   const items = useMemo(
     () => getLaunchReadinessItems({ phase }),
     [phase]
@@ -28,18 +37,25 @@ export function LaunchChecklistTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_readiness_k0e685c7c")}</span>
-        {(["pre_launch", "launch_day", "post_launch"] as const).map((p) => (
-          <AdminChipButton
-            key={p}
-            selected={phase === p}
-            onClick={() => setPhase(p)}
-            >
-            {getPhaseLabel(p)}
-          </AdminChipButton>
-        ))}
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect
+          ko={ko}
+          label={t("admin_launch_readiness_k0e685c7c")}
+          name="phase"
+          includeAll={false}
+          value={phase}
+          onChange={(v) => lq.setExtra("phase", v)}
+          options={LAUNCH_PHASES.map((p) => ({ value: p, label: getPhaseLabel(p) }))}
+        />
+      </AdminFilterBar>
 
       {items.length === 0 ? (
         <AdminEmptyState ko={ko} message={"해당 단계 점검 항목이 없습니다."} />

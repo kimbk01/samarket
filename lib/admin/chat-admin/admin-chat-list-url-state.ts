@@ -1,7 +1,16 @@
 /**
  * 채팅 Admin 목록 URL 상태 (C-11) — 검색·필터·keyset 커서를 쿼리스트링 하나로.
  * Client-safe pure module: 목록 화면(URL 동기화)과 서버 API(파라미터 파싱)가 같은 규칙을 쓴다.
+ * R7 목록 표준: 관리자 목록 화면은 쪽 번호(`page`·`size` → API `limit`/`offset` + `total`)를 쓴다.
+ * keyset(`cursor`)은 쪽 번호를 쓰지 않는 기존 호출자(연결 채팅방 카드 등)용으로 남긴다.
  */
+
+import {
+  ADMIN_LIST_QUERY_DEFAULT_SIZE,
+  normalizeAdminListPage,
+  normalizeAdminListPageSize,
+  type AdminListPageSize,
+} from "@/lib/admin/list-query/admin-list-query";
 
 export const ADMIN_CHAT_ROOM_DOMAINS = ["general_direct", "group", "trade", "store_order"] as const;
 export type AdminChatRoomDomain = (typeof ADMIN_CHAT_ROOM_DOMAINS)[number];
@@ -150,8 +159,35 @@ export function buildAdminChatRoomListSearch(
   return s ? `?${s}` : "";
 }
 
-/** API 요청용 쿼리 — `type` 은 항상 포함 (서버가 화면 고정 유형을 알 수 있도록). */
-export function buildAdminChatRoomListApiSearch(query: AdminChatRoomListQuery, limit: number): string {
+/** 화면 쪽 번호 (`page` 1부터 · `size` 20/50/100, 기본 20) — 기본값은 주소에서 생략. */
+export type AdminChatListPaging = { page: number; size: AdminListPageSize };
+
+export function parseAdminChatListPaging(sp: SearchLike): AdminChatListPaging {
+  return { page: normalizeAdminListPage(sp.get("page")), size: normalizeAdminListPageSize(sp.get("size")) };
+}
+
+/** 검색 문자열(선두 `?` 선택)에 쪽 번호를 덧붙인다 — 1쪽·기본 크기는 생략. */
+export function withAdminChatListPaging(search: string, paging: Partial<AdminChatListPaging>): string {
+  const sp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  sp.delete("page");
+  sp.delete("size");
+  const size = normalizeAdminListPageSize(paging.size);
+  const page = normalizeAdminListPage(paging.page);
+  if (size !== ADMIN_LIST_QUERY_DEFAULT_SIZE) sp.set("size", String(size));
+  if (page > 1) sp.set("page", String(page));
+  const out = sp.toString();
+  return out ? `?${out}` : "";
+}
+
+/**
+ * API 요청용 쿼리 — `type` 은 항상 포함 (서버가 화면 고정 유형을 알 수 있도록).
+ * `paging` 을 주면 keyset 대신 `limit`/`offset` (서버가 `total` 을 돌려준다).
+ */
+export function buildAdminChatRoomListApiSearch(
+  query: AdminChatRoomListQuery,
+  limit: number,
+  paging?: AdminChatListPaging
+): string {
   const sp = new URLSearchParams();
   sp.set("type", query.type);
   if (query.status) sp.set("status", query.status);
@@ -161,6 +197,11 @@ export function buildAdminChatRoomListApiSearch(query: AdminChatRoomListQuery, l
   if (query.userId) sp.set("user_id", query.userId);
   if (query.reported) sp.set("reported", "1");
   appendAdminChatRoomExtras(sp, query);
+  if (paging) {
+    sp.set("limit", String(paging.size));
+    sp.set("offset", String((normalizeAdminListPage(paging.page) - 1) * paging.size));
+    return `?${sp.toString()}`;
+  }
   if (query.cursor) sp.set("cursor", query.cursor);
   sp.set("limit", String(limit));
   return `?${sp.toString()}`;

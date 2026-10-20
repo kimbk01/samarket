@@ -1,10 +1,12 @@
 "use client";
 
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -51,7 +53,6 @@ type Row = {
 };
 
 const FILTERS: { value: string; labelKey: MessageKey }[] = [
-  { value: "all", labelKey: "admin_stores_product_filter_all" },
   { value: "active", labelKey: "admin_stores_product_filter_active" },
   { value: "draft", labelKey: "common_draft" },
   { value: "hidden", labelKey: "common_hidden" },
@@ -59,52 +60,53 @@ const FILTERS: { value: string; labelKey: MessageKey }[] = [
   { value: "sold_out", labelKey: "admin_stores_product_filter_sold_out" },
 ];
 
+const PRODUCT_STATUSES = FILTERS.map((f) => f.value);
+const LIST_CONFIG = { statuses: PRODUCT_STATUSES, extras: ["store_id"] as const };
+
 export function AdminStoreProductsPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  /** 상품명·가격 수정 — 행 안 입력 폼 (값 입력 후 「저장」 → 실행 확인은 confirmAdminAction). */
+  /** 상품명·가격 수정 — 상세 안 입력 폼 (값 입력 후 「저장」 → 실행 확인은 confirmAdminAction). */
   const [edit, setEdit] = useState<{ id: string; field: "name" | "price"; value: string } | null>(null);
-  const searchParams = useSearchParams();
-  const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
-  const [filter, setFilter] = useState("all");
+  /** 목록 조건 = 주소 (`status`·`q`·`store_id`·`page`·`size`) — 새로고침·링크 공유·상세 복귀 시 유지. */
+  const lq = useAdminListQuery(LIST_CONFIG);
+  const storeIdFilter = lq.query.extras.store_id.trim();
   const [rows, setRows] = useState<Row[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(
     null
   );
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const openRow = openId ? rows.find((r) => r.id === openId) ?? null : null;
 
-  const qs = useMemo(() => {
-    const parts: string[] = [];
-    if (filter !== "all") parts.push(`status=${encodeURIComponent(filter)}`);
-    if (storeIdFilter) parts.push(`store_id=${encodeURIComponent(storeIdFilter)}`);
-    return parts.length ? `?${parts.join("&")}` : "";
-  }, [filter, storeIdFilter]);
-
+  const apiQs = lq.apiQueryString;
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await fetch(`/api/admin/store-products${qs}`, { credentials: "include" });
+      const res = await fetch(`/api/admin/store-products?${apiQs}`, { credentials: "include" });
       const json = await res.json().catch(() => null);
       if (!json?.ok) {
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5).
         setLoadError({ code: res.status === 403 ? "forbidden" : "load_failed", status: res.status });
-        setRows([]);
         return;
       }
       setRows(json.products ?? []);
+      setTotal(Number(json.total) || 0);
     } catch {
       setLoadError({ code: "network_error" });
-      setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [qs]);
+  }, [apiQs]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey 는 같은 조건 다시 불러오기 포함
+  }, [lq.refreshKey]);
 
   /** 확인 팝업을 취소하면 아무 것도 실행하지 않는다 (DEF-37). L2 사유는 reason(감사)·memo(검수 메모)로 전송. */
   const run = async (
@@ -178,6 +180,51 @@ export function AdminStoreProductsPage() {
     if (await run(r.id, r.title, "correct_price", { price }, `→ ${formatMoneyPhp(price)}`)) setEdit(null);
   };
 
+  const actionButtons = (r: Row) => {
+    const dis = busyId === r.id;
+    return (
+      <div className="flex flex-wrap gap-2">
+        {r.product_status !== "blocked" && (
+          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "block")}>
+            {ko ? "차단" : "Block"}
+          </AdminActionButton>
+        )}
+        {/* DEF-36: 「숨김」·「보관(숨김)」 은 같은 동작 → 「숨김」 하나 */}
+        {r.product_status !== "hidden" && r.product_status !== "deleted" && r.product_status !== "blocked" && (
+          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "hide")}>
+            {ko ? "숨김" : "Hide"}
+          </AdminActionButton>
+        )}
+        {(r.product_status === "active" || r.product_status === "hidden") && (
+          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "sold_out")}>
+            {ko ? "품절" : "Sold out"}
+          </AdminActionButton>
+        )}
+        {r.product_status !== "active" && r.product_status !== "deleted" && (
+          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "activate")}>
+            {ko ? "판매 활성" : "Activate"}
+          </AdminActionButton>
+        )}
+        {r.admin_review_status !== "rejected" && (
+          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "reject_review")}>
+            {ko ? "검수 반려" : "Reject"}
+          </AdminActionButton>
+        )}
+        <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => setEdit({ id: r.id, field: "name", value: r.title })}>
+          {t("admin_stores_product_correct_name")}
+        </AdminActionButton>
+        <AdminActionButton
+          variant="secondary"
+          size="sm"
+          disabled={dis}
+          onClick={() => setEdit({ id: r.id, field: "price", value: String(Math.round(r.price)) })}
+        >
+          {t("admin_stores_product_correct_price")}
+        </AdminActionButton>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <AdminPageHeader title={ko ? "메뉴·상품 검수" : "Menu & product review"} />
@@ -195,24 +242,36 @@ export function AdminStoreProductsPage() {
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <AdminChipButton selected={filter === f.value} key={f.value} onClick={() => setFilter(f.value)}>
-            {t(f.labelKey)}
-          </AdminChipButton>
-        ))}
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        pending={loading}
+        showPeriod={false}
+        searchPlaceholder={ko ? "상품명" : "Product name"}
+        status={{
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          options: FILTERS.map((f) => ({ value: f.value, label: t(f.labelKey) })),
+        }}
+      />
 
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
 
-      {loading ? (
+      {loadError ? (
+        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={lq.refresh} />
+      ) : null}
+
+      {loading && rows.length === 0 ? (
         <AdminLoadingState ko={ko} />
-      ) : loadError ? (
-        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void load()} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_stores_products_empty")} />
+        loadError ? null : (
+          <AdminEmptyState ko={ko} message={lq.isFiltered ? undefined : t("admin_stores_products_empty")} onReset={lq.isFiltered ? lq.reset : undefined} />
+        )
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
+        <div className={`overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface ${loading ? "opacity-70" : ""}`} aria-busy={loading}>
           <table className="min-w-[900px] w-full border-collapse text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border bg-sam-app sam-text-helper text-sam-muted">
               <tr>
@@ -225,7 +284,6 @@ export function AdminStoreProductsPage() {
             </thead>
             <tbody>
               {rows.map((r) => {
-                const dis = busyId === r.id;
                 const ps = adminStatusLabel("product", r.product_status, ko);
                 const rs = adminStatusLabel("product_review", r.admin_review_status || "none", ko);
                 return (
@@ -253,14 +311,6 @@ export function AdminStoreProductsPage() {
                       ) : (
                         r.store?.store_name ?? "-"
                       )}
-                      <AdminTechDetails ko={ko}>
-                        <div>product_id: {r.id}</div>
-                        <div>store_id: {r.store_id}</div>
-                        <div>slug: {r.store?.slug ?? "—"}</div>
-                        <div>
-                          status: {r.product_status} / {r.admin_review_status}
-                        </div>
-                      </AdminTechDetails>
                     </td>
                     <td className="px-3 py-2 align-top">
                       <AdminToneBadge tone={ps.tone}>{ps.label}</AdminToneBadge>
@@ -269,91 +319,17 @@ export function AdminStoreProductsPage() {
                       <AdminToneBadge tone={rs.tone}>{rs.label}</AdminToneBadge>
                     </td>
                     <td className="px-3 py-2 align-top">
-                      <div className="flex flex-col gap-1">
-                        {r.product_status !== "blocked" && (
-                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "block")}>
-                            {ko ? "차단" : "Block"}
-                          </AdminActionButton>
-                        )}
-                        {/* DEF-36: 「숨김」·「보관(숨김)」 은 같은 동작 → 「숨김」 하나 */}
-                        {r.product_status !== "hidden" &&
-                          r.product_status !== "deleted" &&
-                          r.product_status !== "blocked" && (
-                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "hide")}>
-                            {ko ? "숨김" : "Hide"}
-                          </AdminActionButton>
-                        )}
-                        {(r.product_status === "active" || r.product_status === "hidden") && (
-                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "sold_out")}>
-                            {ko ? "품절" : "Sold out"}
-                          </AdminActionButton>
-                        )}
-                        {r.product_status !== "active" && r.product_status !== "deleted" && (
-                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "activate")}>
-                            {ko ? "판매 활성" : "Activate"}
-                          </AdminActionButton>
-                        )}
-                        {r.admin_review_status !== "approved" && (
-                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "approve_review")}>
-                            {ko ? "검수 승인" : "Approve"}
-                          </AdminActionButton>
-                        )}
-                        {r.admin_review_status !== "rejected" && (
-                          <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "reject_review")}>
-                            {ko ? "검수 반려" : "Reject"}
-                          </AdminActionButton>
-                        )}
-                        <AdminActionButton
-                          variant="secondary"
-                          size="sm"
-                          disabled={dis}
-                          onClick={() => setEdit({ id: r.id, field: "name", value: r.title })}
-                        >
-                          {t("admin_stores_product_correct_name")}
-                        </AdminActionButton>
-                        <AdminActionButton
-                          variant="secondary"
-                          size="sm"
-                          disabled={dis}
-                          onClick={() => setEdit({ id: r.id, field: "price", value: String(Math.round(r.price)) })}
-                        >
-                          {t("admin_stores_product_correct_price")}
-                        </AdminActionButton>
-                        {edit?.id === r.id ? (
-                          <form
-                            className="mt-1 flex flex-col gap-1"
-                            onSubmit={(e) => {
-                              e.preventDefault();
-                              void saveEdit(r);
-                            }}
-                          >
-                            <label className="sam-text-helper text-sam-muted">
-                              {edit.field === "name"
-                                ? t("admin_stores_product_correct_name")
-                                : t("admin_stores_product_correct_price")}
-                              <input
-                                className="mt-1 block w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[13px] text-sam-fg"
-                                inputMode={edit.field === "price" ? "decimal" : undefined}
-                                value={edit.value}
-                                autoFocus
-                                onChange={(e) => setEdit({ ...edit, value: e.target.value })}
-                              />
-                            </label>
-                            <span className="sam-text-helper text-sam-muted">
-                              {ko ? "현재: " : "Current: "}
-                              {edit.field === "name" ? r.title : formatMoneyPhp(r.price)}
-                            </span>
-                            <div className="flex gap-1">
-                              <AdminActionButton type="submit" variant="secondary" size="sm" disabled={dis || !edit.value.trim()}>
-                                {adminCta("save", ko)}
-                              </AdminActionButton>
-                              <AdminActionButton variant="quiet" size="sm" onClick={() => setEdit(null)}>
-                                {adminCta("cancel", ko)}
-                              </AdminActionButton>
-                            </div>
-                          </form>
-                        ) : null}
-                      </div>
+                      {/* 행 버튼은 「상세」 하나 — 차단·숨김·검수·수정은 상세에서 (행당 2개 이하) */}
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEdit(null);
+                          setOpenId(r.id);
+                        }}
+                      >
+                        {adminCta("detail", ko)}
+                      </AdminActionButton>
                     </td>
                   </tr>
                 );
@@ -362,6 +338,110 @@ export function AdminStoreProductsPage() {
           </table>
         </div>
       )}
+
+      {rows.length > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+      ) : null}
+
+      <AdminDetailDrawer
+        open={openRow != null}
+        onClose={() => {
+          setOpenId(null);
+          setEdit(null);
+        }}
+        ko={ko}
+        pending={openRow != null && busyId === openRow.id}
+        title={openRow?.title ?? ""}
+        subtitle={openRow?.store?.store_name ?? undefined}
+        dangerActions={
+          <AdminActionButton
+            variant="secondary"
+            disabled={openRow != null && busyId === openRow.id}
+            onClick={() => {
+              setOpenId(null);
+              setEdit(null);
+            }}
+          >
+            {adminCta("close", ko)}
+          </AdminActionButton>
+        }
+        primaryActions={
+          openRow && openRow.admin_review_status !== "approved" ? (
+            <AdminActionButton
+              variant="primary"
+              disabled={busyId === openRow.id}
+              onClick={() => void run(openRow.id, openRow.title, "approve_review")}
+            >
+              {ko ? "검수 승인" : "Approve"}
+            </AdminActionButton>
+          ) : null
+        }
+      >
+        {openRow ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <AdminToneBadge tone={adminStatusLabel("product", openRow.product_status, ko).tone}>
+                {adminStatusLabel("product", openRow.product_status, ko).label}
+              </AdminToneBadge>
+              <AdminToneBadge tone={adminStatusLabel("product_review", openRow.admin_review_status || "none", ko).tone}>
+                {adminStatusLabel("product_review", openRow.admin_review_status || "none", ko).label}
+              </AdminToneBadge>
+              <span className="sam-text-helper text-sam-muted">
+                {typeof openRow.price === "number" ? formatMoneyPhp(openRow.price) : openRow.price}
+              </span>
+            </div>
+            {actionButtons(openRow)}
+            {edit?.id === openRow.id ? (
+              <form
+                className="flex flex-col gap-1"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void saveEdit(openRow);
+                }}
+              >
+                <label className="sam-text-helper text-sam-muted">
+                  {edit.field === "name" ? t("admin_stores_product_correct_name") : t("admin_stores_product_correct_price")}
+                  <input
+                    className="mt-1 block w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[13px] text-sam-fg"
+                    inputMode={edit.field === "price" ? "decimal" : undefined}
+                    value={edit.value}
+                    autoFocus
+                    onChange={(e) => setEdit({ ...edit, value: e.target.value })}
+                  />
+                </label>
+                <span className="sam-text-helper text-sam-muted">
+                  {ko ? "현재: " : "Current: "}
+                  {edit.field === "name" ? openRow.title : formatMoneyPhp(openRow.price)}
+                </span>
+                <div className="flex gap-1">
+                  <AdminActionButton type="submit" variant="secondary" size="sm" disabled={busyId === openRow.id || !edit.value.trim()}>
+                    {adminCta("save", ko)}
+                  </AdminActionButton>
+                  <AdminActionButton variant="quiet" size="sm" onClick={() => setEdit(null)}>
+                    {adminCta("cancel", ko)}
+                  </AdminActionButton>
+                </div>
+              </form>
+            ) : null}
+            <AdminTechDetails ko={ko}>
+              <div>product_id: {openRow.id}</div>
+              <div>store_id: {openRow.store_id}</div>
+              <div>slug: {openRow.store?.slug ?? "—"}</div>
+              <div>
+                status: {openRow.product_status} / {openRow.admin_review_status}
+              </div>
+            </AdminTechDetails>
+          </div>
+        ) : null}
+      </AdminDetailDrawer>
     </div>
   );
 }

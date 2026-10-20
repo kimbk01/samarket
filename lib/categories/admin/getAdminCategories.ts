@@ -53,9 +53,14 @@ function mapRow(row: CategoryDbRow): CategoryWithSettings {
   };
 }
 
-export async function getAdminCategories(): Promise<CategoryWithSettings[]> {
+export type AdminCategoriesLoad =
+  | { ok: true; data: CategoryWithSettings[] }
+  | { ok: false; code: string; httpStatus: number };
+
+/** 조회 결과를 오류와 구분해 돌려준다 (관리 화면의 오류·권한 없음 상태용) */
+export async function loadAdminCategories(): Promise<AdminCategoriesLoad> {
   const supabase = getSupabaseClient();
-  if (!supabase) return [];
+  if (!supabase) return { ok: false, code: "supabase_unavailable", httpStatus: 0 };
 
   try {
     const { data, error } = await (supabase as any)
@@ -64,9 +69,20 @@ export async function getAdminCategories(): Promise<CategoryWithSettings[]> {
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
 
-    if (error || !Array.isArray(data)) return [];
-    return (data as CategoryDbRow[]).map(mapRow);
+    if (error) {
+      const code = String((error as { code?: unknown }).code ?? "") || "categories_load_failed";
+      // PostgREST 권한 거부(42501) → 권한 없음 화면
+      return { ok: false, code, httpStatus: code === "42501" ? 403 : 500 };
+    }
+    if (!Array.isArray(data)) return { ok: false, code: "categories_load_failed", httpStatus: 500 };
+    return { ok: true, data: (data as CategoryDbRow[]).map(mapRow) };
   } catch {
-    return [];
+    return { ok: false, code: "network_error", httpStatus: 0 };
   }
+}
+
+/** 실패 시 빈 목록 (선택 상자 옵션 등 — 목록 화면이 아닌 보조 조회용) */
+export async function getAdminCategories(): Promise<CategoryWithSettings[]> {
+  const res = await loadAdminCategories();
+  return res.ok ? res.data : [];
 }

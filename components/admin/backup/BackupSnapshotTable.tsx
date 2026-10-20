@@ -16,6 +16,9 @@ import type {
 } from "@/lib/types/backup";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 /** 서버/클라이언트 로케일 차이로 인한 hydration 방지: 마운트 후에만 날짜 표시 */
 function ClientDate({ value }: { value: string }) {
@@ -25,11 +28,16 @@ function ClientDate({ value }: { value: string }) {
   return <>{formatAdminManilaDateTime(value)}</>;
 }
 
+const BACKUP_STATUSES = ["pending", "running", "completed", "failed"] as const;
+const BACKUP_EXTRAS = ["type"] as const;
+
 export function BackupSnapshotTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [statusFilter, setStatusFilter] = useState<BackupSnapshotStatus | "">("");
-  const [typeFilter, setTypeFilter] = useState<BackupSnapshotType | "">("");
+  /** 상태·유형 필터는 주소(`?status=`·`?type=`)에 보존 (R7). */
+  const lq = useAdminListQuery({ statuses: BACKUP_STATUSES, extras: BACKUP_EXTRAS });
+  const statusFilter = lq.query.status as BackupSnapshotStatus | "";
+  const typeFilter = lq.query.extras.type as BackupSnapshotType | "";
 
   const snapshots = useMemo(
     () =>
@@ -58,46 +66,36 @@ export function BackupSnapshotTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">
-          {t("admin_backup_filter_status")}
-        </span>
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter((e.target.value || "") as BackupSnapshotStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
-          {statusOptions.map((opt) => (
-            <option key={opt.value || "all"} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">
-          {t("admin_backup_filter_type")}
-        </span>
-        <select
-          value={typeFilter}
-          onChange={(e) =>
-            setTypeFilter((e.target.value || "") as BackupSnapshotType | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
-          {typeOptions.map((opt) => (
-            <option key={opt.value || "all-type"} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+        status={{
+          label: t("admin_backup_filter_status"),
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          options: statusOptions,
+        }}
+      >
+        <AdminFilterSelect
+          ko={ko}
+          label={t("admin_backup_filter_type")}
+          name="type"
+          value={lq.query.extras.type}
+          onChange={(v) => lq.setExtra("type", v)}
+          options={typeOptions}
+        />
+      </AdminFilterBar>
 
       {snapshots.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={statusFilter || typeFilter ? undefined : t("admin_backup_empty_filtered")}
-          onReset={statusFilter || typeFilter ? () => { setStatusFilter(""); setTypeFilter(""); } : undefined}
+          message={lq.isFiltered ? undefined : t("admin_backup_empty_filtered")}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable

@@ -164,6 +164,8 @@ export type AdminStoreDiscoveryCampaignsLoadResult = {
   error?: string;
   now: string;
   campaigns: AdminStoreDiscoveryCampaignMonitorRow[];
+  /** 서버 페이지 요청 때만 — DB 전체 건수 (count exact). */
+  total?: number;
 };
 
 type CampaignDbRow = {
@@ -178,18 +180,28 @@ type CampaignDbRow = {
   updated_at?: unknown;
 };
 
+/**
+ * `page` 가 있으면 서버 페이지(R7 목록 표준): `range(offset, offset+limit-1)` + `total`(count exact) — 고정 상한 없음.
+ * 없으면 예전 동작(최근 `limit`(기본 200, 최대 500)건).
+ */
 export async function loadAdminStoreDiscoveryCampaignMonitor(
   sb: SupabaseClient,
-  opts?: { nowMs?: number; limit?: number }
+  opts?: { nowMs?: number; limit?: number; page?: { limit: number; offset: number } }
 ): Promise<AdminStoreDiscoveryCampaignsLoadResult> {
   const nowMs = opts?.nowMs ?? Date.now();
   const limit = Math.min(Math.max(opts?.limit ?? 200, 1), 500);
+  const page = opts?.page ?? null;
   try {
-    const { data, error } = await sb
+    const base = sb
       .from(STORE_DISCOVERY_CAMPAIGN_TABLE)
-      .select("id, store_id, campaign_type, title, body_copy, start_at, end_at, is_active, updated_at")
-      .order("end_at", { ascending: false })
-      .limit(limit);
+      .select(
+        "id, store_id, campaign_type, title, body_copy, start_at, end_at, is_active, updated_at",
+        page ? { count: "exact" } : undefined
+      )
+      .order("end_at", { ascending: false });
+    const { data, error, count } = page
+      ? await base.order("id", { ascending: false }).range(page.offset, page.offset + page.limit - 1)
+      : await base.limit(limit);
     if (error) {
       return {
         ok: false,
@@ -249,6 +261,7 @@ export async function loadAdminStoreDiscoveryCampaignMonitor(
       ok: true,
       now: new Date(nowMs).toISOString(),
       campaigns,
+      ...(page ? { total: count ?? campaigns.length } : {}),
     };
   } catch {
     return {

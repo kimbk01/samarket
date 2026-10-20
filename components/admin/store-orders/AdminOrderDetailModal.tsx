@@ -10,7 +10,8 @@ import { useCallback, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DibayOverlayRoot } from "@/components/ui/dibay-overlay/DibayOverlayRoot";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminOrderDetailView } from "@/components/admin/store-orders/AdminOrderDetailView";
 import {
@@ -76,6 +77,16 @@ export function AdminOrderDetailModal({
 }) {
   const { language } = useI18n();
   const ko = language === "ko";
+  const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  // 하단 주 동작 = 같은 주문을 전체 화면 상세(/admin/stores/orders/[id])로 연다 — 돌아오면 지금 목록 조건 그대로.
+  const listQs = withoutAdminOrderModalParams(searchParams?.toString() ?? "");
+  const fullPageHref = orderId
+    ? withAdminReturnTo(
+        `/admin/stores/orders/${orderId}${section ? `?section=${section}` : ""}`,
+        listQs ? `${pathname}?${listQs}` : pathname
+      )
+    : "";
   return (
     <DibayOverlayRoot
       open={Boolean(orderId)}
@@ -97,6 +108,15 @@ export function AdminOrderDetailModal({
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <AdminOrderDetailView key={orderId} orderId={orderId} initialSection={section} onChanged={onChanged} />
+          </div>
+          {/* 하단 표준 배치 — 왼쪽 [닫기] · 오른쪽 [주 동작] 1개 */}
+          <div className="flex shrink-0 items-center gap-2 border-t border-sam-border px-4 py-3" data-admin-order-modal-footer="1">
+            <AdminActionButton variant="secondary" onClick={onClose} data-cta="close">
+              {adminCta("close", ko)}
+            </AdminActionButton>
+            <AdminActionLink variant="primary" href={fullPageHref} className="ml-auto" data-cta="open-full">
+              {ko ? "전체 화면으로 보기" : "Open full page"}
+            </AdminActionLink>
           </div>
         </div>
       ) : null}

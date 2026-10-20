@@ -9,12 +9,17 @@ import {
   recTrafficAllocLabel,
 } from "@/components/admin/recommendation-admin-i18n";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 
 interface ExperimentTableProps {
   experiments: RecommendationExperiment[];
   onEdit?: (exp: RecommendationExperiment) => void;
   onStatusChange?: (exp: RecommendationExperiment, status: RecommendationExperiment["status"]) => void;
   onChooseWinner?: (exp: RecommendationExperiment) => void;
+  /** 편집 중인 실험 (이름 셀 강조) */
+  editingId?: string | null;
+  /** 서버 저장 중 — 행 동작 비활성 */
+  busy?: boolean;
 }
 
 export function ExperimentTable({
@@ -22,6 +27,8 @@ export function ExperimentTable({
   onEdit,
   onStatusChange,
   onChooseWinner,
+  editingId = null,
+  busy = false,
 }: ExperimentTableProps) {
   const { t, language } = useI18n();
   const ko = language !== "en";
@@ -61,9 +68,26 @@ export function ExperimentTable({
               className="border-b border-sam-border-soft hover:bg-sam-app"
             >
               <td className="px-3 py-2.5">
-                <span className="font-medium text-sam-fg">{e.experimentName}</span>
-                {e.description && (
-                  <p className="sam-text-helper text-sam-muted">{e.description}</p>
+                {onEdit ? (
+                  /* 이름 = 편집 열기 (행 버튼은 상태 동작 2개 이하) */
+                  <AdminListItemButton
+                    selected={editingId === e.id}
+                    disabled={busy}
+                    onClick={() => onEdit(e)}
+                    aria-label={`${t("common_edit")} — ${e.experimentName}`}
+                  >
+                    <span className="font-medium text-sam-fg">{e.experimentName}</span>
+                    {e.description && (
+                      <p className="sam-text-helper text-sam-muted">{e.description}</p>
+                    )}
+                  </AdminListItemButton>
+                ) : (
+                  <>
+                    <span className="font-medium text-sam-fg">{e.experimentName}</span>
+                    {e.description && (
+                      <p className="sam-text-helper text-sam-muted">{e.description}</p>
+                    )}
+                  </>
                 )}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
@@ -93,21 +117,12 @@ export function ExperimentTable({
               </td>
               <td className="px-3 py-2.5">
                 <div className="flex flex-wrap gap-1">
-                  {onEdit && (
-                    <AdminActionButton
-                      variant="ghost"
-                      size="sm"
-                      type="button"
-                      onClick={() => onEdit(e)}
-                    >
-                      {t("common_edit")}
-                    </AdminActionButton>
-                  )}
                   {onStatusChange && e.status === "draft" && (
                     <AdminActionButton
                       variant="ghost"
                       size="sm"
                       type="button"
+                      disabled={busy}
                       onClick={() => onStatusChange(e, "running")}
                     >
                       {t("admin_rec_exp_btn_start")}
@@ -119,6 +134,7 @@ export function ExperimentTable({
                         variant="ghost"
                         size="sm"
                         type="button"
+                        disabled={busy}
                         onClick={() => onStatusChange(e, "paused")}
                       >
                         {t("admin_rec_exp_btn_pause")}
@@ -127,6 +143,7 @@ export function ExperimentTable({
                         variant="ghost"
                         size="sm"
                         type="button"
+                        disabled={busy}
                         onClick={() => onStatusChange(e, "ended")}
                       >
                         {t("admin_rec_exp_btn_end")}
@@ -138,6 +155,7 @@ export function ExperimentTable({
                       variant="ghost"
                       size="sm"
                       type="button"
+                      disabled={busy}
                       onClick={() => onStatusChange(e, "running")}
                     >
                       {t("admin_rec_exp_btn_resume")}
@@ -148,6 +166,7 @@ export function ExperimentTable({
                       variant="ghost"
                       size="sm"
                       type="button"
+                      disabled={busy}
                       onClick={() => onChooseWinner(e)}
                     >
                       {t("admin_rec_exp_btn_choose_winner")}

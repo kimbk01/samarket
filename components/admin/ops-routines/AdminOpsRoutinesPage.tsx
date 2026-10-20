@@ -2,7 +2,6 @@
 
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
-import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -15,6 +14,7 @@ import { OpsCarryOverBoard } from "./OpsCarryOverBoard";
 import { OpsMonthlyNoteList } from "./OpsMonthlyNoteList";
 import { OpsOperationalizationStatusCard } from "./OpsOperationalizationStatusCard";
 import { loadOpsRoutinesFromServer } from "@/lib/ops-routines/ops-routines-sync-client";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId =
   | "overview"
@@ -33,7 +33,8 @@ const TABS: { id: TabId; labelKey: MessageKey }[] = [
 
 export function AdminOpsRoutinesPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(TABS, "overview");
   const { state: loadState, reload } = useAdminSyncLoad(loadOpsRoutinesFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -52,9 +53,8 @@ export function AdminOpsRoutinesPage() {
       <AdminTabs
         tabs={TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="overview"
+        resetParams={adminSyncTabResetParams(["period", "exec_status", "category", "cadence", "month"])}
         className="mb-4"
       />
       {activeTab === "overview" && (

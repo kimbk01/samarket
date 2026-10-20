@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { AppNoticeRow } from "@/lib/types/settings-db";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -13,11 +13,13 @@ import {
 import { excerptCustomerCenterMarkdown } from "@/lib/notices/customer-center-safe-markdown";
 import { notifStatusLabel } from "@/components/admin/points/admin-points-notifications-i18n";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 
 type AdminNotice = AppNoticeRow & {
   content_type?: string | null;
@@ -45,95 +47,95 @@ function readAppNoticeId(payload: unknown): string {
   return "";
 }
 
+/** 목록 조건 (주소 보존) — 분류(`content_type`) · 검색어(`q`: 제목, UUID 면 ID). */
+const NOTICES_LIST_QUERY_CONFIG = { extras: ["content_type"] as const };
+
+/**
+ * 고객센터 콘텐츠 목록 (R7) — 서버 페이지(`limit`/`offset` → `total`) · 분류·검색은 서버 필터 · 조건은 주소에 보존.
+ * 불러오기 실패 시 직전 목록 유지.
+ */
 export function AdminAppNoticesPage() {
   const { t, safeT, language } = useI18n();
   const ko = language !== "en";
+  const lq = useAdminListQuery<"content_type">(NOTICES_LIST_QUERY_CONFIG);
+  const filterTypeRaw = lq.query.extras.content_type;
+  const filterType: "all" | CustomerCenterContentType = (CUSTOMER_CENTER_CONTENT_TYPES as readonly string[]).includes(
+    filterTypeRaw
+  )
+    ? (filterTypeRaw as CustomerCenterContentType)
+    : "all";
   const [items, setItems] = useState<AdminNotice[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const [campaignByContent, setCampaignByContent] = useState<
     Record<string, { status: string; when: string }>
   >({});
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [tableMissing, setTableMissing] = useState(false);
-  const [filterType, setFilterType] = useState<"all" | CustomerCenterContentType>("all");
-  const [q, setQ] = useState("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setErr(null);
-    try {
-      const sp = new URLSearchParams();
-      if (filterType !== "all") sp.set("content_type", filterType);
-      const res = await fetch(`/api/admin/app-notices?${sp.toString()}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        notices?: AdminNotice[];
-        table_missing?: boolean;
-        error?: string;
-      };
-      if (json.table_missing) setTableMissing(true);
-      if (!res.ok || !json.ok) {
-        setItems([]);
-        setErr(
-          typeof json.error === "string"
-            ? json.error
-            : safeT("admin_app_notices_empty", {
-                fallbackKo: "목록을 불러오지 못했습니다",
-                fallbackEn: "Could not load list",
-              })
-        );
-        return;
-      }
-      setItems(Array.isArray(json.notices) ? json.notices : []);
-
-      const cr = await fetch(`/api/admin/notification-campaigns?audience=ops`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const cj = (await cr.json().catch(() => ({}))) as {
-        ok?: boolean;
-        campaigns?: CampaignLite[];
-      };
-      if (cr.ok && cj.ok && Array.isArray(cj.campaigns)) {
-        const map: Record<string, { status: string; when: string }> = {};
-        for (const c of cj.campaigns) {
-          const cid = readAppNoticeId(c.target_payload);
-          if (!cid || map[cid]) continue;
-          map[cid] = {
-            status: c.status,
-            when: c.sent_at ?? c.created_at ? formatAdminManilaDateTime(c.sent_at ?? c.created_at) : "",
-          };
-        }
-        setCampaignByContent(map);
-      }
-    } catch {
-      setErr(
-        safeT("admin_app_notices_empty", {
-          fallbackKo: "목록을 불러오지 못했습니다",
-          fallbackEn: "Could not load list",
-        })
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [filterType, safeT]);
+  const { apiQueryString, refreshKey, refresh } = lq;
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    setLoading(true);
+    setErr(null);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/app-notices?${apiQueryString}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          notices?: AdminNotice[];
+          total?: number;
+          table_missing?: boolean;
+          error?: string;
+        };
+        if (cancelled) return;
+        setTableMissing(Boolean(json.table_missing));
+        if (!res.ok || !json.ok) {
+          // 실패 시 직전 목록 유지
+          setErr({ code: typeof json.error === "string" ? json.error : "load_failed", httpStatus: res.status });
+          return;
+        }
+        const rows = Array.isArray(json.notices) ? json.notices : [];
+        setItems(rows);
+        setTotal(typeof json.total === "number" ? json.total : rows.length);
+        setLoaded(true);
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return items;
-    return items.filter((n) => {
-      const id = String(n.id ?? "").toLowerCase();
-      const title = String(n.title ?? "").toLowerCase();
-      return id.includes(needle) || title.includes(needle);
-    });
-  }, [items, q]);
+        const cr = await fetch(`/api/admin/notification-campaigns?audience=ops`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const cj = (await cr.json().catch(() => ({}))) as {
+          ok?: boolean;
+          campaigns?: CampaignLite[];
+        };
+        if (cancelled) return;
+        if (cr.ok && cj.ok && Array.isArray(cj.campaigns)) {
+          const map: Record<string, { status: string; when: string }> = {};
+          for (const c of cj.campaigns) {
+            const cid = readAppNoticeId(c.target_payload);
+            if (!cid || map[cid]) continue;
+            map[cid] = {
+              status: c.status,
+              when: c.sent_at ?? c.created_at ? formatAdminManilaDateTime(c.sent_at ?? c.created_at) : "",
+            };
+          }
+          setCampaignByContent(map);
+        }
+      } catch {
+        if (!cancelled) setErr({ code: "network_error" });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // refreshKey = apiQueryString + 새로고침 횟수
+  }, [apiQueryString, refreshKey]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4">
@@ -141,55 +143,60 @@ export function AdminAppNoticesPage() {
         <h1 className="sam-text-page-title font-semibold text-sam-fg">
           {t("admin_menu_notices")}
         </h1>
-        <Link
-          href="/admin/app/notices/create"
-          className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white"
-        >
+        <AdminActionLink href="/admin/app/notices/create" variant="secondary">
           {t("admin_app_add")}
-        </Link>
+        </AdminActionLink>
       </div>
 
-      <div className="flex flex-wrap gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-        <div className="flex flex-wrap gap-1">
-          <AdminChipButton selected={filterType === "all"} onClick={() => setFilterType("all")}>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        pending={loading}
+        searchPlaceholder={safeT("admin_cc_search_ph", {
+          fallbackKo: "제목 / ID",
+          fallbackEn: "Title / ID",
+        })}
+      >
+        <div className="flex flex-wrap gap-1 pb-1">
+          <AdminChipButton selected={filterType === "all"} onClick={() => lq.setExtra("content_type", "")}>
             {safeT("admin_cc_filter_all", { fallbackKo: "전체", fallbackEn: "All" })}
           </AdminChipButton>
           {CUSTOMER_CENTER_CONTENT_TYPES.map((type) => (
-            <AdminChipButton key={type} selected={filterType === type} onClick={() => setFilterType(type)}>
+            <AdminChipButton
+              key={type}
+              selected={filterType === type}
+              onClick={() => lq.setExtra("content_type", type)}
+            >
               {BOARD_LABEL[type][language === "en" ? "en" : "ko"]}
             </AdminChipButton>
           ))}
         </div>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={safeT("admin_cc_search_ph", {
-            fallbackKo: "제목 / ID",
-            fallbackEn: "Title / ID",
-          })}
-          className="min-w-[160px] flex-1 rounded border border-sam-border bg-sam-app px-2 py-1.5 text-sm"
-        />
-        <AdminActionButton variant="primary" size="sm" onClick={() => void load()} disabled={loading}>
-          {adminCta("search", ko)}
-        </AdminActionButton>
-      </div>
+      </AdminFilterBar>
 
-      {err ? <p className="text-sm text-sam-danger">{adminOperatorErrorMessage(err, ko)}</p> : null}
+      {err ? <AdminErrorState ko={ko} code={err.code} httpStatus={err.httpStatus} onRetry={refresh} /> : null}
 
-      {loading ? (
-        <p className="text-sam-muted">{t("admin_dashboard_loading")}</p>
-      ) : tableMissing ? (
-        <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
-          {t("admin_app_notices_empty")}
-        </p>
-      ) : filtered.length === 0 ? (
-        <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
-          {safeT("admin_cc_list_empty", {
-            fallbackKo: "등록된 콘텐츠가 없습니다.",
-            fallbackEn: "No content yet.",
-          })}
-        </p>
+      {loading && !loaded ? (
+        <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} />
+      ) : !loaded ? null : tableMissing ? (
+        <AdminEmptyState ko={ko} message={t("admin_app_notices_empty")} />
+      ) : items.length === 0 ? (
+        lq.isFiltered ? (
+          <AdminEmptyState ko={ko} onReset={lq.reset} />
+        ) : (
+          <AdminEmptyState
+            ko={ko}
+            message={safeT("admin_cc_list_empty", {
+              fallbackKo: "등록된 콘텐츠가 없습니다.",
+              fallbackEn: "No content yet.",
+            })}
+          />
+        )
       ) : (
+        <>
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
@@ -219,7 +226,7 @@ export function AdminAppNoticesPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((n) => {
+              {items.map((n) => {
                 const contentType = parseCustomerCenterContentType(n.content_type, "notice");
                 const camp = campaignByContent[n.id];
                 const excerpt = excerptCustomerCenterMarkdown(String(n.body ?? ""), 80);
@@ -264,6 +271,16 @@ export function AdminAppNoticesPage() {
             </tbody>
           </table>
         </div>
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+        </>
       )}
     </div>
   );

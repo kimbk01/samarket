@@ -3,15 +3,22 @@
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getLaunchWeekDailyNotes } from "@/lib/launch-week/launch-week-state";
 import type { LaunchWeekDayNumber } from "@/lib/types/launch-week";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const FILTER_EXTRAS = ["day"] as const;
 
 export function LaunchWeekDailyNoteList() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [dayNumber, setDayNumber] = useState<LaunchWeekDayNumber | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const dayNumber = (lq.query.extras.day ? Number(lq.query.extras.day) : "") as LaunchWeekDayNumber | "";
   const notes = useMemo(
     () =>
       getLaunchWeekDailyNotes(
@@ -22,30 +29,31 @@ export function LaunchWeekDailyNoteList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">Day</span>
-        <select
-          value={dayNumber}
-          onChange={(e) =>
-            setDayNumber((e.target.value || "") as LaunchWeekDayNumber | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={"Day"} name="day" value={lq.query.extras.day} onChange={(v) => lq.setExtra("day", v)}>
           <option value="">{t("common_all")}</option>
           {([1, 2, 3, 4, 5, 6, 7] as const).map((d) => (
             <option key={d} value={d}>
               Day {d}
             </option>
           ))}
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">
         Day별 summary note. 37단계 운영 보고서 handoff 요약과 연결 가능한 placeholder.
       </p>
 
       {notes.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 Day 메모가 없습니다."} />
+        <AdminEmptyState ko={ko} message={"해당 Day 메모가 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <div className="space-y-4">
           {notes.map((n) => (

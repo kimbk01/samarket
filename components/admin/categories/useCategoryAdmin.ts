@@ -5,7 +5,7 @@ import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { useCallback, useEffect, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { getAdminCategories } from "@/lib/categories/admin/getAdminCategories";
+import { loadAdminCategories } from "@/lib/categories/admin/getAdminCategories";
 import { createCategory } from "@/lib/categories/admin/createCategory";
 import { updateCategoryAdmin } from "@/lib/categories/admin/updateCategory";
 import { deleteCategory } from "@/lib/categories/admin/deleteCategory";
@@ -23,11 +23,18 @@ export function useCategoryAdmin() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<CategoryAdminMessage>(null);
   const [supabaseAvailable, setSupabaseAvailable] = useState<boolean | null>(null);
+  /** 목록 조회 실패 (오류 코드·HTTP 상태) — 실패해도 직전 목록은 유지한다 */
+  const [loadError, setLoadError] = useState<{ code: string; httpStatus: number } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const data = await getAdminCategories();
-    setList(data);
+    const res = await loadAdminCategories();
+    if (res.ok) {
+      setList(res.data);
+      setLoadError(null);
+    } else {
+      setLoadError({ code: res.code, httpStatus: res.httpStatus });
+    }
     setSupabaseAvailable(getSupabaseClient() !== null);
     setLoading(false);
   }, []);
@@ -180,6 +187,7 @@ export function useCategoryAdmin() {
   return {
     list,
     loading,
+    loadError,
     message,
     supabaseAvailable,
     load,

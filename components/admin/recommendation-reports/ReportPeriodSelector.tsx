@@ -101,8 +101,9 @@ export function ReportPeriodSelector({
         <div className="sam-text-body-secondary text-sam-muted">
           {range.dateFrom} ~ {range.dateTo}
         </div>
+        {/* 같은 화면 목록 필터 바 [조회]가 primary — 생성은 secondary (R7 버튼 배치) */}
         <AdminActionButton
-          variant="primary"
+          variant="secondary"
           type="button"
           onClick={handleGenerate}
           disabled={generating}

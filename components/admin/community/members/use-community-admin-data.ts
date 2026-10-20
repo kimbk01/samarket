@@ -35,13 +35,14 @@ export function useCommunityAdminJson<T extends { ok?: boolean; error?: string }
         const json = (await res.json().catch(() => ({}))) as T;
         if (my !== seq.current) return;
         if (!res.ok || json.ok === false) {
-          setState({ status: "error", data: null, code: json.error || `http_${res.status}`, httpStatus: res.status });
+          // 실패해도 직전 정상 목록은 지우지 않는다 (지시서 §8-5) — 화면이 오류 안내와 함께 유지할지 정한다.
+          setState((s) => ({ status: "error", data: s.data, code: json.error || `http_${res.status}`, httpStatus: res.status }));
           return;
         }
         setState({ status: "ok", data: json });
       } catch {
         if (my !== seq.current) return;
-        setState({ status: "error", data: null, code: "network_error", httpStatus: 0 });
+        setState((s) => ({ status: "error", data: s.data, code: "network_error", httpStatus: 0 }));
       }
     })();
   }, [url, tick]);

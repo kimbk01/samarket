@@ -2,7 +2,8 @@
 
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -34,11 +35,16 @@ type Row = {
   owner_reply_created_at?: string | null;
 };
 
+/** 목록 조건 = 주소 (`store_id` 딥링크 · `page` · `size`). 필터 UI 는 없다 (매장 딥링크만). */
+const LIST_CONFIG = { extras: ["store_id"] as const };
+
 export function AdminStoreReviewsPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const searchParams = useSearchParams();
-  const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
+  const lq = useAdminListQuery(LIST_CONFIG);
+  const storeIdFilter = lq.query.extras.store_id.trim();
+  const apiQs = lq.apiQueryString;
+  const [total, setTotal] = useState(0);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
@@ -51,28 +57,26 @@ export function AdminStoreReviewsPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const qs = storeIdFilter
-        ? `?store_id=${encodeURIComponent(storeIdFilter)}`
-        : "";
-      const res = await fetch(`/api/admin/store-reviews${qs}`, { credentials: "include" });
+      const res = await fetch(`/api/admin/store-reviews?${apiQs}`, { credentials: "include" });
       const json = await res.json().catch(() => null);
       if (!json?.ok) {
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5).
         setLoadError({ code: res.status === 403 ? "forbidden" : "load_failed", status: res.status });
-        setRows([]);
         return;
       }
       setRows(json.reviews ?? []);
+      setTotal(Number(json.total) || 0);
     } catch {
       setLoadError({ code: "network_error" });
-      setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [storeIdFilter]);
+  }, [apiQs]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey 는 같은 조건 다시 불러오기 포함
+  }, [lq.refreshKey]);
 
   /** 숨김 = L2 (사유), 복구 = L1. 실패는 결과 배너로 표시 (DEF-44). */
   async function setStatus(id: string, status: "visible" | "hidden") {
@@ -154,12 +158,13 @@ export function AdminStoreReviewsPage() {
         </p>
       ) : null}
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
-      {loading ? (
+      {loadError ? (
+        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={lq.refresh} />
+      ) : null}
+      {loading && rows.length === 0 ? (
         <AdminLoadingState ko={ko} />
-      ) : loadError ? (
-        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void load()} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_stores_reviews_empty")} />
+        loadError ? null : <AdminEmptyState ko={ko} message={t("admin_stores_reviews_empty")} />
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => {
@@ -204,11 +209,11 @@ export function AdminStoreReviewsPage() {
               )}
               <div className="mt-3 flex gap-2">
                 {r.status === "visible" ? (
-                  <AdminActionButton variant="secondary" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "hidden")}>
+                  <AdminActionButton variant="ghost" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "hidden")}>
                     {ko ? "숨김" : "Hide"}
                   </AdminActionButton>
                 ) : (
-                  <AdminActionButton variant="primary" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "visible")}>
+                  <AdminActionButton variant="ghost" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "visible")}>
                     {ko ? "복구" : "Restore"}
                   </AdminActionButton>
                 )}
@@ -225,6 +230,17 @@ export function AdminStoreReviewsPage() {
           })}
         </ul>
       )}
+      {rows.length > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+      ) : null}
     </div>
   );
 }

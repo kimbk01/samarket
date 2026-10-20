@@ -6,10 +6,11 @@
  * CUT I — optional ?execution=campaignId ACTIVE/eligibility panel (domain loaders only).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
-import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { DeliveryAdPlacementMiniature } from "@/components/stores/advertising/DeliveryAdPlacementMiniature";
@@ -112,11 +113,44 @@ function Factor({
 }
 
 export function AdminPlacementMapPanel() {
+  return (
+    <Suspense fallback={<AdminLoadingState ko />}>
+      <AdminPlacementMapPanelInner />
+    </Suspense>
+  );
+}
+
+const DEFAULT_MAP_DOMAIN: PlacementMapDomain | "ALL" = "DELIVERY";
+
+function AdminPlacementMapPanelInner() {
   const { safeT, language } = useI18n();
   const ko = language !== "en";
   const allRows = useMemo(() => listAllPlacementMapRows(), []);
-  const [domain, setDomain] = useState<PlacementMapDomain | "ALL">("DELIVERY");
-  const [screen, setScreen] = useState<PlacementMapScreen | "ALL">("ALL");
+  /**
+   * R7 목록 표준 8 — 영역(`?area=`)·화면(`?screen=`) 칩 필터를 주소에 둔다.
+   * `focus`·`execution` 딥링크 키는 관리하지 않는 키라 그대로 유지된다.
+   */
+  const lq = useAdminListQuery<"area" | "screen">({
+    extras: ["area", "screen"],
+    extraDefaults: { area: DEFAULT_MAP_DOMAIN, screen: "ALL" },
+  });
+  const domain: PlacementMapDomain | "ALL" = DOMAINS.some((d) => d.id === lq.query.extras.area)
+    ? (lq.query.extras.area as PlacementMapDomain | "ALL")
+    : DEFAULT_MAP_DOMAIN;
+  const screen: PlacementMapScreen | "ALL" = SCREENS.some((s) => s.id === lq.query.extras.screen)
+    ? (lq.query.extras.screen as PlacementMapScreen | "ALL")
+    : "ALL";
+  const { patch: patchMapQuery } = lq;
+  const setDomainAndResetScreen = useCallback(
+    (d: PlacementMapDomain | "ALL") => patchMapQuery({ extras: { area: d, screen: "ALL" } }),
+    [patchMapQuery]
+  );
+  const setScreen = useCallback(
+    (sc: PlacementMapScreen | "ALL") => patchMapQuery({ extras: { screen: sc } }),
+    [patchMapQuery]
+  );
+  const [occupancyNonce, setOccupancyNonce] = useState(0);
+  const [executionNonce, setExecutionNonce] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [executionId, setExecutionId] = useState<string | null>(null);
   const [executionSnap, setExecutionSnap] = useState<PlacementMapExecutionSnapshot | null>(
@@ -141,8 +175,11 @@ export function AdminPlacementMapPanel() {
     "loading"
   );
 
+  const [occupancyError, setOccupancyError] = useState<{ code: string; status?: number } | null>(null);
   useEffect(() => {
     let cancelled = false;
+    setOccupancyState("loading");
+    setOccupancyError(null);
     void (async () => {
       try {
         const res = await fetch("/api/admin/ads-control-plane", { credentials: "include" });
@@ -164,6 +201,10 @@ export function AdminPlacementMapPanel() {
         if (cancelled) return;
         if (!res.ok || !json.ok || json.plane?.queues?.vacantSlots?.unavailable) {
           setOccupancyState("unavailable");
+          setOccupancyError({
+            code: !res.ok || !json.ok ? "load_failed" : "occupancy_unavailable",
+            status: res.ok ? undefined : res.status,
+          });
           setOccupancyByKey({});
           return;
         }
@@ -183,6 +224,7 @@ export function AdminPlacementMapPanel() {
       } catch {
         if (!cancelled) {
           setOccupancyState("unavailable");
+          setOccupancyError({ code: "network_error" });
           setOccupancyByKey({});
         }
       }
@@ -190,10 +232,12 @@ export function AdminPlacementMapPanel() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [occupancyNonce]);
 
+  const focusAppliedRef = useRef(false);
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || focusAppliedRef.current) return;
+    focusAppliedRef.current = true;
     const params = new URLSearchParams(window.location.search);
     const focus = params.get("focus")?.trim() || "";
     const execution = params.get("execution")?.trim() || "";
@@ -201,12 +245,11 @@ export function AdminPlacementMapPanel() {
       setSelectedId(focus);
       const row = allRows.find((r) => r.placementId === focus);
       if (row) {
-        setDomain(row.domain);
-        setScreen(row.screen);
+        patchMapQuery({ extras: { area: row.domain, screen: row.screen } });
       }
     }
     if (execution) setExecutionId(execution);
-  }, [allRows]);
+  }, [allRows, patchMapQuery]);
 
   useEffect(() => {
     if (!executionId) {
@@ -299,7 +342,7 @@ export function AdminPlacementMapPanel() {
     return () => {
       cancelled = true;
     };
-  }, [executionId, selectedId]);
+  }, [executionId, selectedId, executionNonce]);
 
   const rows = useMemo(
     () => filterPlacementMapRows(allRows, { domain, screen }),
@@ -334,11 +377,19 @@ export function AdminPlacementMapPanel() {
           })}
         </p>
         {occupancyState === "unavailable" ? (
-          <p className="mt-2 text-[12px] font-semibold text-sam-warning">
-            {ko
-              ? "점유 정보를 불러올 수 없습니다. 빈 자리 0으로 간주하지 마세요."
-              : "Occupancy unavailable — do not treat as vacancy 0."}
-          </p>
+          <div className="mt-2 space-y-2">
+            <p className="text-[12px] font-semibold text-sam-warning">
+              {ko
+                ? "점유 정보를 불러올 수 없습니다. 빈 자리 0으로 간주하지 마세요."
+                : "Occupancy unavailable — do not treat as vacancy 0."}
+            </p>
+            <AdminErrorState
+              ko={ko}
+              code={occupancyError?.code ?? "load_failed"}
+              httpStatus={occupancyError?.status}
+              onRetry={() => setOccupancyNonce((n) => n + 1)}
+            />
+          </div>
         ) : null}
       </div>
 
@@ -347,10 +398,7 @@ export function AdminPlacementMapPanel() {
           <AdminChipButton
             key={d.id}
             selected={domain === d.id}
-            onClick={() => {
-              setDomain(d.id);
-              setScreen("ALL");
-            }}
+            onClick={() => setDomainAndResetScreen(d.id)}
           >
             {ko ? d.ko : d.en}
           </AdminChipButton>
@@ -388,7 +436,7 @@ export function AdminPlacementMapPanel() {
             {executionLoading ? <AdminLoadingState ko={ko} /> : null}
             {executionError ? (
               <div data-admin-placement-map-active-error="1">
-                <AdminErrorState ko={ko} code={executionError} />
+                <AdminErrorState ko={ko} code={executionError} onRetry={() => setExecutionNonce((n) => n + 1)} />
               </div>
             ) : null}
             {executionSnap ? (
@@ -490,12 +538,14 @@ export function AdminPlacementMapPanel() {
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
         <div className="space-y-2" data-admin-placement-map-markers="1">
           {rows.length === 0 ? (
-            <p className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-[13px] text-sam-muted">
-              {safeT("admin_placement_map_empty", {
+            <AdminEmptyState
+              ko={ko}
+              message={safeT("admin_placement_map_empty", {
                 fallbackKo: "이 화면에는 광고 지면이 없습니다.",
                 fallbackEn: "No ad placements on this screen.",
               })}
-            </p>
+              onReset={lq.isFiltered ? lq.reset : undefined}
+            />
           ) : (
             rows.map((row) => {
               const active = selectedId === row.placementId;
@@ -548,7 +598,7 @@ export function AdminPlacementMapPanel() {
                           {ko ? occ.vacancyLabelKo : occ.vacancyLabelEn}
                         </p>
                       ) : occupancyState === "loading" ? (
-                        <p className="mt-1 text-[12px] text-sam-muted">
+                        <p className="mt-1 text-[12px] text-sam-muted" role="status" data-admin-state="loading">
                           {ko ? "점유 불러오는 중…" : "Loading occupancy…"}
                         </p>
                       ) : occupancyState === "unavailable" ? (

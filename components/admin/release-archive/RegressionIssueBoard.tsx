@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getReleaseRegressionIssues,
@@ -13,6 +13,9 @@ import type {
   RegressionIssueStatus,
   RegressionCategory,
 } from "@/lib/types/release-archive";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 const STATUS_COLUMNS: RegressionIssueStatus[] = [
   "detected",
@@ -23,12 +26,16 @@ const STATUS_COLUMNS: RegressionIssueStatus[] = [
   "archived",
 ];
 
+const FILTER_EXTRAS = ["release", "category"] as const;
+
 export function RegressionIssueBoard() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [releaseFilter, setReleaseFilter] = useState<string>("");
-  const [categoryFilter, setCategoryFilter] = useState<RegressionCategory | "">("");
-  const [statusFilter, setStatusFilter] = useState<RegressionIssueStatus | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const releaseFilter = lq.query.extras.release as string;
+  const categoryFilter = lq.query.extras.category as RegressionCategory | "";
+  const statusFilter = lq.query.status as RegressionIssueStatus | "";
 
   const archives = useMemo(() => getReleaseArchives(), []);
   const issues = useMemo(
@@ -70,28 +77,24 @@ export function RegressionIssueBoard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_release")}</span>
-        <select
-          value={releaseFilter}
-          onChange={(e) => setReleaseFilter(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_rel_filter_release")} name="release" value={lq.query.extras.release} onChange={(v) => lq.setExtra("release", v)}>
           <option value="">{t("admin_rel_filter_all")}</option>
           {archives.map((a) => (
             <option key={a.id} value={a.id}>
               {a.releaseVersion}
             </option>
           ))}
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_category")}</span>
-        <select
-          value={categoryFilter}
-          onChange={(e) =>
-            setCategoryFilter((e.target.value || "") as RegressionCategory | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_rel_filter_category")} name="category" value={lq.query.extras.category} onChange={(v) => lq.setExtra("category", v)}>
           <option value="">{t("admin_rel_filter_all")}</option>
           <option value="auth">{t("admin_rel_cat_auth")}</option>
           <option value="product">{t("admin_rel_cat_product")}</option>
@@ -102,15 +105,8 @@ export function RegressionIssueBoard() {
           <option value="ads">{t("admin_rel_cat_ads")}</option>
           <option value="admin">{t("admin_rel_cat_admin")}</option>
           <option value="ops">{t("admin_rel_cat_ops")}</option>
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_status")}</span>
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter((e.target.value || "") as RegressionIssueStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_rel_filter_status")} name="status" value={lq.query.status} onChange={lq.setStatus}>
           <option value="">{t("admin_rel_kanban_all")}</option>
           <option value="detected">{t("admin_rel_reg_detected")}</option>
           <option value="investigating">{t("admin_rel_reg_investigating")}</option>
@@ -118,14 +114,14 @@ export function RegressionIssueBoard() {
           <option value="fixed">{t("admin_rel_reg_fixed")}</option>
           <option value="verified">{t("admin_rel_reg_verified")}</option>
           <option value="archived">{t("admin_rel_reg_archived")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {issues.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={releaseFilter || categoryFilter || statusFilter ? undefined : t("admin_rel_regression_empty_filter")}
-          onReset={releaseFilter || categoryFilter || statusFilter ? () => { setReleaseFilter(""); setCategoryFilter(""); setStatusFilter(""); } : undefined}
+          message={lq.isFiltered ? undefined : t("admin_rel_regression_empty_filter")}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <div className="grid gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

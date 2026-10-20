@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { getStableFeedVersions } from "@/lib/feed-emergency/feed-emergency-state";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 
 export function StableFeedVersionTable() {
   const [refresh] = useState(0);
@@ -11,9 +12,7 @@ export function StableFeedVersionTable() {
 
   if (stable.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        안정 버전 후보가 없습니다. Fallback 우선순위 설정 시 여기서 참조됩니다.
-      </div>
+      <AdminEmptyState ko message="안정 버전 후보가 없습니다. Fallback 우선순위 설정 시 여기서 참조됩니다." />
     );
   }
 

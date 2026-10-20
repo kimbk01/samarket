@@ -4,16 +4,21 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getProductionRlsChecks } from "@/lib/production-migration/production-migration-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { getRlsStatusLabel } from "@/lib/production-migration/production-migration-utils";
 import type { ProductionRlsCheckStatus } from "@/lib/types/production-migration";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 export function ProductionRlsCheckTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [status, setStatus] = useState<ProductionRlsCheckStatus | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery();
+  const status = lq.query.status as ProductionRlsCheckStatus | "";
   const checks = useMemo(
     () =>
       getProductionRlsChecks(
@@ -24,25 +29,26 @@ export function ProductionRlsCheckTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_status_2")}</span>
-        <select
-          value={status}
-          onChange={(e) =>
-            setStatus((e.target.value || "") as ProductionRlsCheckStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_qa_status_2")} name="status" value={lq.query.status} onChange={lq.setStatus}>
           <option value="">{t("common_all")}</option>
           <option value="missing">{t("admin_prod_migration_kdd9b3e2e")}</option>
           <option value="draft">{t("admin_prod_migration_kd9aaeb45")}</option>
           <option value="ready">{t("admin_prod_migration_k0ea2b779")}</option>
           <option value="verified">{t("admin_qa_verified")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {checks.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"RLS 점검 항목이 없습니다."} />
+        <AdminEmptyState ko={ko} message={"RLS 점검 항목이 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={["테이블", "정책명", "유형", "역할", "상태", "비고"]}

@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getPostReleaseChecks } from "@/lib/dev-sprints/dev-sprints-state";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -17,12 +17,19 @@ import type {
 import Link from "next/link";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+const FILTER_EXTRAS = ["release", "phase"] as const;
+
 export function PostReleaseCheckTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [versionFilter, setVersionFilter] = useState<string>("");
-  const [phaseFilter, setPhaseFilter] = useState<PostReleaseCheckPhase | "">("");
-  const [statusFilter, setStatusFilter] = useState<PostReleaseCheckStatus | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const versionFilter = lq.query.extras.release as string;
+  const phaseFilter = lq.query.extras.phase as PostReleaseCheckPhase | "";
+  const statusFilter = lq.query.status as PostReleaseCheckStatus | "";
 
   const checks = useMemo(
     () =>
@@ -47,49 +54,38 @@ export function PostReleaseCheckTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_version")}</span>
-        <select
-          value={versionFilter}
-          onChange={(e) => setVersionFilter(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_rel_filter_version")} name="release" value={lq.query.extras.release} onChange={(v) => lq.setExtra("release", v)}>
           <option value="">{t("admin_rel_filter_all")}</option>
           {versions.map((v) => (
             <option key={v} value={v}>
               {v}
             </option>
           ))}
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_stage")}</span>
-        <select
-          value={phaseFilter}
-          onChange={(e) =>
-            setPhaseFilter((e.target.value || "") as PostReleaseCheckPhase | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_rel_filter_stage")} name="phase" value={lq.query.extras.phase} onChange={(v) => lq.setExtra("phase", v)}>
           <option value="">{t("admin_rel_filter_all")}</option>
           <option value="before_release">{t("admin_rel_stage_before")}</option>
           <option value="just_after_release">{t("admin_rel_stage_just_after")}</option>
           <option value="after_24h">{t("admin_rel_stage_24h")}</option>
           <option value="after_72h">{t("admin_rel_stage_72h")}</option>
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_status")}</span>
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter((e.target.value || "") as PostReleaseCheckStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_rel_filter_status")} name="status" value={lq.query.status} onChange={lq.setStatus}>
           <option value="">{t("admin_rel_filter_all")}</option>
           <option value="todo">{t("admin_rel_status_todo")}</option>
           <option value="in_progress">{t("admin_rel_status_in_progress")}</option>
           <option value="done">{t("admin_rel_status_done")}</option>
           <option value="blocked">{t("admin_rel_status_blocked")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {criticalBlocked.length > 0 && (
         <div className="rounded-ui-rect border border-sam-danger/40 bg-sam-danger-soft/50 p-3 sam-text-body-secondary text-sam-danger">
@@ -100,8 +96,8 @@ export function PostReleaseCheckTable() {
       {checks.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={versionFilter || phaseFilter || statusFilter ? undefined : t("admin_rel_post_empty")}
-          onReset={versionFilter || phaseFilter || statusFilter ? () => { setVersionFilter(""); setPhaseFilter(""); setStatusFilter(""); } : undefined}
+          message={lq.isFiltered ? undefined : t("admin_rel_post_empty")}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable

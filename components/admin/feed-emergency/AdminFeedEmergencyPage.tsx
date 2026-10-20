@@ -1,9 +1,6 @@
 "use client";
 
 
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
-import { useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { FeedEmergencyPolicyTable } from "./FeedEmergencyPolicyTable";
@@ -13,8 +10,9 @@ import { StableFeedVersionTable } from "./StableFeedVersionTable";
 import { FeedEmergencyLogList } from "./FeedEmergencyLogList";
 import { loadFeedEmergencyFromServer } from "@/lib/feed-emergency/feed-emergency-sync-client";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
-import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId = "policy" | "sections" | "fallback" | "stable" | "logs";
 
@@ -27,26 +25,19 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export function AdminFeedEmergencyPage() {
-  const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("policy");
-  const [hydrated, setHydrated] = useState(false);
-  const [hydrateError, setHydrateError] = useState<string | null>(null);
+  /** 탭은 주소(`?tab=`)에 보존 — 로그 필터·쪽과 함께 새로고침·링크 공유 시 유지. */
+  const activeTab = useAdminUrlTab<TabId>(TABS, "policy");
+  /** 불러오기 실패를 기본값 표시로 숨기지 않는다 — 킬스위치 상태를 기본값으로 오인하지 않게 (R6). */
+  const { state: loadState, reload } = useAdminSyncLoad(loadFeedEmergencyFromServer);
 
-  useEffect(() => {
-    void loadFeedEmergencyFromServer().then((r) => {
-      if (!r.ok) setHydrateError(r.error ?? "load_failed");
-      setHydrated(true);
-    });
-  }, []);
-
-  if (!hydrated) {
+  if (loadState.status !== "ready") {
     return (
       <>
         <AdminPageHeader titleKey="admin_feed_emergency_kca379512"
           description="킬스위치·섹션 비활성화·Fallback·긴급 조치 로그"
         />
         <AdminCard>
-          <AdminLoadingState ko label={t("admin_loading_ops_settings")} />
+          <AdminSyncLoadGate state={loadState} onRetry={reload} />
         </AdminCard>
       </>
     );
@@ -57,21 +48,12 @@ export function AdminFeedEmergencyPage() {
       <AdminPageHeader titleKey="admin_feed_emergency_kca379512"
         description="킬스위치·섹션 비활성화·Fallback·긴급 조치 로그 — 변경 시 DB(admin_settings)에 저장됩니다."
       />
-      {hydrateError && (
-        <div
-          className="mb-4 rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-fg"
-          role="alert"
-        >
-          서버에서 피드 긴급 설정을 불러오지 못했습니다. 기본값으로 표시 중입니다. ({adminOperatorErrorMessage(hydrateError, true)})
-        </div>
-      )}
       <AdminTabs
         className="mb-4"
         tabs={TABS.map((tab) => ({ id: tab.id, label: tab.label }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="policy"
+        resetParams={adminSyncTabResetParams(["surface"])}
       />
       <AdminCard>
         {activeTab === "policy" && <FeedEmergencyPolicyTable />}

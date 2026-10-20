@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type {
@@ -59,8 +62,10 @@ const DEFAULT_POLICY: DeliveryDistancePolicy = {
   overDistanceBehavior: "exclude",
 };
 
-/** 매장 목록 서버 페이지 크기 — 이전 300건 고정 상한 대신 페이지네이션 (`/api/admin/stores?page=`). */
-const STORE_PAGE_SIZE = 50 as const;
+/**
+ * 매장 목록 = 서버 페이지 (`/api/admin/stores?page=&page_size=`) — 조건은 주소 (`q`·`page`·`size` 20/50/100, 기본 50).
+ */
+const STORE_LIST_CONFIG = { defaults: { size: 50 as const } };
 
 const DEFAULT_OVERRIDES: DeliveryStoreDistanceOverrides = {
   stores: {},
@@ -119,6 +124,14 @@ function withStoreMode(
 }
 
 export function AdminDeliveryDistanceSettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminDeliveryDistanceSettingsPageInner />
+    </Suspense>
+  );
+}
+
+function AdminDeliveryDistanceSettingsPageInner() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const [policySaved, setPolicySaved] = useState<DeliveryDistancePolicy>(DEFAULT_POLICY);
@@ -130,10 +143,13 @@ export function AdminDeliveryDistanceSettingsPage() {
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [radiusDrafts, setRadiusDrafts] = useState<Record<string, string>>({});
   const [radiusSavingId, setRadiusSavingId] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [appliedQuery, setAppliedQuery] = useState("");
-  const [page, setPage] = useState(1);
+  const lq = useAdminListQuery(STORE_LIST_CONFIG);
+  const appliedQuery = lq.query.q;
+  const page = lq.query.page;
+  const pageSize = lq.query.size;
   const [totalStores, setTotalStores] = useState(0);
+  /** 불러오기 실패 (설정·매장 목록) — 코드·HTTP 상태 → AdminErrorState. 저장 실패 문구는 `error`. */
+  const [loadErr, setLoadErr] = useState<{ code: string; status?: number } | null>(null);
   const [storesLoading, setStoresLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -153,8 +169,9 @@ export function AdminDeliveryDistanceSettingsPage() {
   /** 승인 매장 한 페이지 — 검색은 서버(DB)에서 적용한다. */
   const loadStores = useCallback(async (): Promise<boolean> => {
     setStoresLoading(true);
+    setLoadErr(null);
     try {
-      const qs = new URLSearchParams({ status: "approved", page: String(page), page_size: String(STORE_PAGE_SIZE) });
+      const qs = new URLSearchParams({ status: "approved", page: String(page), page_size: String(pageSize) });
       if (appliedQuery.trim()) qs.set("q", appliedQuery.trim());
       const storesRes = await fetch(`/api/admin/stores?${qs.toString()}`, { credentials: "include", cache: "no-store" });
       const storesJson = (await storesRes.json().catch(() => ({}))) as {
@@ -164,7 +181,8 @@ export function AdminDeliveryDistanceSettingsPage() {
         total?: number;
       };
       if (!storesRes.ok || !storesJson.ok || !Array.isArray(storesJson.stores)) {
-        setError(adminOperatorErrorMessage(errCode(storesRes.status, storesJson, "load_failed"), ko));
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5).
+        setLoadErr({ code: errCode(storesRes.status, storesJson, "load_failed"), status: storesRes.status });
         return false;
       }
       const nextStores = storesJson.stores as StoreRow[];
@@ -177,12 +195,13 @@ export function AdminDeliveryDistanceSettingsPage() {
       setRadiusDrafts(drafts);
       return true;
     } catch {
-      setError(t("admin_delivery_distance_error_network"));
+      setLoadErr({ code: "network_error" });
       return false;
     } finally {
       setStoresLoading(false);
     }
-  }, [page, appliedQuery, ko, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey 는 같은 조건 다시 불러오기 포함
+  }, [page, pageSize, appliedQuery, lq.refreshKey]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -197,7 +216,7 @@ export function AdminDeliveryDistanceSettingsPage() {
         settings_updated_at?: Record<string, string | null> | null;
       };
       if (!settingsRes.ok || !settingsJson.ok) {
-        setError(adminOperatorErrorMessage(errCode(settingsRes.status, settingsJson, "load_failed"), ko));
+        setLoadErr({ code: errCode(settingsRes.status, settingsJson, "load_failed"), status: settingsRes.status });
         return;
       }
       const nextPolicy = normalizePolicy(settingsJson.distance_policy);
@@ -227,10 +246,6 @@ export function AdminDeliveryDistanceSettingsPage() {
     void loadStores();
   }, [loadStores]);
 
-  const applySearch = useCallback(() => {
-    setPage(1);
-    setAppliedQuery(query.trim());
-  }, [query]);
 
   /** 검색은 서버에서 적용 — 현재 페이지 행 그대로. */
   const filteredStores = stores;
@@ -422,6 +437,19 @@ export function AdminDeliveryDistanceSettingsPage() {
           {error}
         </p>
       ) : null}
+      {loadErr ? (
+        <div className="mb-4">
+          <AdminErrorState
+            ko={ko}
+            code={loadErr.code}
+            httpStatus={loadErr.status}
+            onRetry={() => {
+              void load();
+              lq.refresh();
+            }}
+          />
+        </div>
+      ) : null}
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -429,7 +457,8 @@ export function AdminDeliveryDistanceSettingsPage() {
             <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_delivery_distance_global_title")}</h2>
             <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_delivery_distance_global_desc")}</p>
           </div>
-          <AdminActionButton variant="primary" disabled={loading || saving || !dirty} onClick={() => void save()}>
+          {/* 화면 primary 는 매장 목록 필터 바 [조회] 1개 — 전역 저장은 secondary (처리 중·미변경 시 비활성) */}
+          <AdminActionButton variant="secondary" disabled={loading || saving || !dirty} onClick={() => void save()}>
             {t("admin_delivery_distance_save")}
           </AdminActionButton>
         </div>
@@ -480,24 +509,18 @@ export function AdminDeliveryDistanceSettingsPage() {
             <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_delivery_distance_store_title")}</h2>
             <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_delivery_distance_store_desc")}</p>
           </div>
-          <form
-            className="flex w-full gap-2 md:w-auto"
-            onSubmit={(e) => {
-              e.preventDefault();
-              applySearch();
-            }}
-          >
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("admin_delivery_distance_store_search")}
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-fg md:w-72"
-            />
-            <AdminActionButton type="submit" variant="secondary" className="shrink-0">
-              {adminCta("search", ko)}
-            </AdminActionButton>
-          </form>
         </div>
+        <AdminFilterBar
+          className="mt-3"
+          ko={ko}
+          draft={lq.draft}
+          onDraftChange={lq.setDraft}
+          onSubmit={lq.submit}
+          onReset={lq.reset}
+          pending={storesLoading}
+          showPeriod={false}
+          searchPlaceholder={t("admin_delivery_distance_store_search")}
+        />
 
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full border-collapse sam-text-body-secondary">
@@ -512,20 +535,7 @@ export function AdminDeliveryDistanceSettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {loading || storesLoading ? (
-                <tr>
-                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={6}>
-                    {t("common_loading")}
-                  </td>
-                </tr>
-              ) : filteredStores.length === 0 ? (
-                <tr>
-                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={6}>
-                    {t("admin_delivery_distance_store_empty")}
-                  </td>
-                </tr>
-              ) : (
-                filteredStores.map((store) => {
+              {filteredStores.map((store) => {
                   const override = overridesDraft.stores[store.id] ?? {
                     mode: "inherit" as const,
                     maxKm: null,
@@ -602,19 +612,30 @@ export function AdminDeliveryDistanceSettingsPage() {
                       </td>
                     </tr>
                   );
-                })
-              )}
+                })}
             </tbody>
           </table>
         </div>
-        <AdminPagination
-          ko={ko}
-          page={page}
-          size={STORE_PAGE_SIZE}
-          total={totalStores}
-          onPageChange={setPage}
-          disabled={storesLoading}
-        />
+        {(loading || storesLoading) && filteredStores.length === 0 ? (
+          <AdminLoadingState ko={ko} />
+        ) : filteredStores.length === 0 && !loadErr ? (
+          <AdminEmptyState
+            ko={ko}
+            message={lq.isFiltered ? undefined : t("admin_delivery_distance_store_empty")}
+            onReset={lq.isFiltered ? lq.reset : undefined}
+          />
+        ) : null}
+        {filteredStores.length > 0 ? (
+          <AdminPagination
+            ko={ko}
+            page={page}
+            size={pageSize}
+            total={totalStores}
+            onPageChange={lq.setPage}
+            onSizeChange={lq.setSize}
+            disabled={storesLoading}
+          />
+        ) : null}
       </section>
     </div>
   );

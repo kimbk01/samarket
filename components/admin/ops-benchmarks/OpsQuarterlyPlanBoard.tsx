@@ -11,6 +11,9 @@ import type {
   OpsQuarterlyPlanStatus,
   OpsBenchmarkDomain,
 } from "@/lib/types/ops-benchmarks";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 const STATUS_COLUMNS: OpsQuarterlyPlanStatus[] = [
   "planned",
@@ -40,11 +43,15 @@ const DOMAIN_OPTIONS: { value: OpsBenchmarkDomain | ""; label: string }[] = [
   { value: "learning", label: "학습/회고" },
 ];
 
+const FILTER_EXTRAS = ["domain"] as const;
+
 export function OpsQuarterlyPlanBoard() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const [year] = useState(() => new Date().getFullYear());
-  const [domainFilter, setDomainFilter] = useState<OpsBenchmarkDomain | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const domainFilter = lq.query.extras.domain as OpsBenchmarkDomain | "";
 
   const plans = useMemo(
     () => getOpsQuarterlyPlans({ year, domain: domainFilter || undefined }),
@@ -66,29 +73,30 @@ export function OpsQuarterlyPlanBoard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_prod_migration_k48750694")}</span>
-        <select
-          value={domainFilter}
-          onChange={(e) =>
-            setDomainFilter((e.target.value || "") as OpsBenchmarkDomain | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_prod_migration_k48750694")} name="domain" value={lq.query.extras.domain} onChange={(v) => lq.setExtra("domain", v)}>
           {DOMAIN_OPTIONS.map((opt) => (
             <option key={opt.value || "all"} value={opt.value}>
               {opt.label}
             </option>
           ))}
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{year}년</span>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
+      <p className="sam-text-body-secondary text-sam-muted">{year}년</p>
 
       {plans.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={domainFilter ? undefined : "분기별 개선 계획이 없습니다."}
-          onReset={domainFilter ? () => { setDomainFilter(""); } : undefined}
+          message={lq.isFiltered ? undefined : "분기별 개선 계획이 없습니다."}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <div className="overflow-x-auto">

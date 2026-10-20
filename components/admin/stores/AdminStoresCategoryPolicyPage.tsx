@@ -7,12 +7,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
-import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { AdminErrorState, AdminLoadingState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { AdminSwitch } from "@/components/admin/ui/AdminSwitch";
@@ -330,6 +329,7 @@ export function AdminStoresCategoryPolicyPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [errStatus, setErrStatus] = useState<number | undefined>(undefined);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [revision, setRevision] = useState<number | null>(null);
@@ -375,6 +375,7 @@ export function AdminStoresCategoryPolicyPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
+    setErrStatus(undefined);
     setSaveMsg(null);
     try {
       const qs = selectedPrimary ? `?primary=${encodeURIComponent(selectedPrimary)}` : "";
@@ -390,7 +391,8 @@ export function AdminStoresCategoryPolicyPage() {
         secondary?: SecondaryRow[];
       };
       if (!res.ok || !json.ok || !json.primaries) {
-        setErr(json.error ?? "load_fail");
+        setErr(res.status === 403 ? "forbidden" : json.error ?? "load_failed");
+        setErrStatus(res.status);
         setRevision(null);
         setLoadedAt(null);
         setPrimaries([]);
@@ -423,7 +425,8 @@ export function AdminStoresCategoryPolicyPage() {
       setBaselineSubs(cloneSubs(nextSubs));
       setSelectedSub((prev) => (prev && nextSubs[prev] ? prev : secs[0]?.subSlug ?? null));
     } catch {
-      setErr("load_fail");
+      setErr("network_error");
+      setErrStatus(undefined);
     } finally {
       setLoading(false);
     }
@@ -1310,16 +1313,11 @@ export function AdminStoresCategoryPolicyPage() {
           </p>
         ) : null}
         {err ? (
-          <p className="rounded-ui-rect bg-sam-danger-soft px-3 py-2 text-[13px] font-semibold text-sam-danger">
-            {label(ko, "불러오지 못했습니다.", "Failed to load.")}{" "}
-            {err === "load_fail" ? null : adminOperatorErrorMessage(err, ko)}
-          </p>
+          <AdminErrorState ko={ko} code={err} httpStatus={errStatus} onRetry={() => void load()} />
         ) : null}
 
         {loading ? (
-          <div className="rounded-ui-rect border border-sam-border bg-white p-6 text-[13px] text-sam-muted">
-            {label(ko, "불러오는 중...", "Loading...")}
-          </div>
+          <AdminLoadingState ko={ko} />
         ) : (
           <div className="grid gap-3 xl:grid-cols-[minmax(210px,240px)_minmax(0,1fr)_minmax(280px,320px)]">
             <aside className="rounded-ui-rect border border-sam-border bg-white">
@@ -1328,7 +1326,8 @@ export function AdminStoresCategoryPolicyPage() {
                   <p className="text-[13px] font-black text-sam-fg">{label(ko, "1차 업종", "Primary")}</p>
                   <p className="text-[12px] text-sam-muted">{label(ko, "플랫폼 taxonomy", "Platform taxonomy")}</p>
                 </div>
-                <AdminActionButton variant="primary" size="sm" onClick={() => setPrimaryModalOpen(true)}>
+                {/* 화면 primary 는 「전체 저장」 1개 — 추가·이동 버튼은 secondary */}
+                <AdminActionButton variant="secondary" size="sm" onClick={() => setPrimaryModalOpen(true)}>
                   {label(ko, "+ 1차 업종 추가", "+ Add primary")}
                 </AdminActionButton>
               </div>
@@ -1367,7 +1366,7 @@ export function AdminStoresCategoryPolicyPage() {
                 <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2">
                   <p className="text-[12px] leading-5 text-sam-warning">{t("admin_stores_browse_discovery_not_ads")}</p>
                   <AdminActionButton
-                    variant="primary"
+                    variant="secondary"
                     size="sm"
                     className="mt-2"
                     onClick={() => {
@@ -1506,7 +1505,7 @@ export function AdminStoresCategoryPolicyPage() {
                   </p>
                 </div>
                 <AdminActionButton
-                  variant="primary"
+                  variant="secondary"
                   size="sm"
                   onClick={() => setSecondaryModalOpen(true)}
                   disabled={!selectedPrimary}

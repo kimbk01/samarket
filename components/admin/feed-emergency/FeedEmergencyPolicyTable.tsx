@@ -21,7 +21,7 @@ import { commitFeedEmergencyChange } from "@/lib/feed-emergency/feed-emergency-s
 import { feedEmergencySwitchConfirmCopy } from "@/lib/feed-emergency/feed-emergency-switch-confirm";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
-import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -48,8 +48,11 @@ export function FeedEmergencyPolicyTable() {
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
 
   /** 변경 → 저장. 실패면 화면 상태를 되돌리고 실패를 알린다 (앱 반영 안 됨). */
+  const [saving, setSaving] = useState(false);
   const commit = async (mutate: () => void, reason?: string | null) => {
-    const r = await commitFeedEmergencyChange(mutate, { reason });
+    if (saving) return;
+    setSaving(true);
+    const r = await commitFeedEmergencyChange(mutate, { reason }).finally(() => setSaving(false));
     setResult(r.ok ? { ok: true, message: "저장했습니다. 앱 피드에 반영됩니다." } : { ok: false, code: r.error ?? "save_failed" });
     setRefresh((x) => x + 1);
   };
@@ -99,9 +102,7 @@ export function FeedEmergencyPolicyTable() {
 
   if (policies.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        정책이 없습니다.
-      </div>
+      <AdminEmptyState ko message="정책이 없습니다." />
     );
   }
 
@@ -156,7 +157,7 @@ export function FeedEmergencyPolicyTable() {
                     <AdminActionButton
                       size="sm"
                       variant={p.killSwitchEnabled ? "secondary" : "danger"}
-                      disabled={!writeAction.allowed}
+                      disabled={!writeAction.allowed || saving}
                       onClick={() => void handleKillSwitch(p.surface, !p.killSwitchEnabled)}
                     >
                       {p.killSwitchEnabled ? "차단 해제" : "긴급 차단"}
@@ -174,7 +175,7 @@ export function FeedEmergencyPolicyTable() {
                     <AdminActionButton
                       size="sm"
                       variant={mode === "fallback" ? "secondary" : "danger"}
-                      disabled={!writeAction.allowed}
+                      disabled={!writeAction.allowed || saving}
                       onClick={() => void handleFallback(p.surface, mode !== "fallback")}
                     >
                       {mode === "fallback" ? "폴백 해제" : "폴백 전환"}
@@ -184,7 +185,7 @@ export function FeedEmergencyPolicyTable() {
                 <td className="px-3 py-2.5 text-sam-fg">
                   <select
                     value={p.fallbackMode}
-                    disabled={!writeAction.allowed}
+                    disabled={!writeAction.allowed || saving}
                     onChange={(e) =>
                       void handlePolicyChange(p.id, p.surface, "fallbackMode", e.target.value)
                     }
@@ -204,7 +205,7 @@ export function FeedEmergencyPolicyTable() {
                     <input
                       type="checkbox"
                       checked={p.emergencyNoticeEnabled}
-                      disabled={!writeAction.allowed}
+                      disabled={!writeAction.allowed || saving}
                       onChange={(e) =>
                         void handlePolicyChange(
                           p.id,
@@ -221,7 +222,7 @@ export function FeedEmergencyPolicyTable() {
                     <input
                       type="text"
                       value={p.emergencyNoticeText}
-                      disabled={!writeAction.allowed}
+                      disabled={!writeAction.allowed || saving}
                       onChange={(e) =>
                         void handlePolicyChange(
                           p.id,
@@ -240,7 +241,7 @@ export function FeedEmergencyPolicyTable() {
                     <input
                       type="checkbox"
                       checked={p.autoDisableEnabled}
-                      disabled={!writeAction.allowed}
+                      disabled={!writeAction.allowed || saving}
                       onChange={(e) =>
                         void handlePolicyChange(
                           p.id,

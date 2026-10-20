@@ -16,9 +16,11 @@ import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 interface OpsDocumentTableProps {
   filterState: OpsDocumentFilterState;
   refresh?: number;
+  /** 필터가 걸린 상태면 빈 목록에 [초기화] */
+  onReset?: () => void;
 }
 
-export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableProps) {
+export function OpsDocumentTable({ filterState, refresh = 0, onReset }: OpsDocumentTableProps) {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const documents = useMemo(
@@ -29,13 +31,15 @@ export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableP
         category: filterState.category || undefined,
         search: filterState.search.trim() || undefined,
         sort: filterState.sort,
+        /** 고정 상한(100건) 없이 번들 전체 — 운영 문서 번들은 한 행(JSON)으로 통째로 불러오는 구조. */
+        limit: Number.MAX_SAFE_INTEGER,
       }),
     [filterState.search, filterState.docType, filterState.status, filterState.category, filterState.sort, refresh]
   );
 
   if (documents.length === 0) {
     return (
-      <AdminEmptyState ko={ko} message={t("admin_ops_doc_empty")} />
+      <AdminEmptyState ko={ko} message={onReset ? undefined : t("admin_ops_doc_empty")} onReset={onReset} />
     );
   }
 

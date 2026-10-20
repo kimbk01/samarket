@@ -8,12 +8,19 @@ export async function listMeetingEventsAdminPage(options: {
   eventType?: string | null;
   limit?: number;
   offset?: number;
-}): Promise<{ events: AdminMeetingEventRow[]; hasMore: boolean }> {
+}): Promise<{
+  events: AdminMeetingEventRow[];
+  hasMore: boolean;
+  /** 같은 조건의 전체 건수 (count exact) — 실패 시 null */
+  total: number | null;
+  /** 조회 실패 코드 (성공 시 없음) — 빈 목록과 실패를 구분 */
+  error?: string;
+}> {
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
   } catch {
-    return { events: [], hasMore: false };
+    return { events: [], hasMore: false, total: null, error: "server_config" };
   }
 
   const pageSize = Math.min(Math.max(options.limit ?? 50, 1), 100);
@@ -22,7 +29,7 @@ export async function listMeetingEventsAdminPage(options: {
 
   let q = sb
     .from("meeting_events")
-    .select("id, meeting_id, actor_user_id, target_user_id, event_type, payload, created_at")
+    .select("id, meeting_id, actor_user_id, target_user_id, event_type, payload, created_at", { count: "exact" })
     .order("created_at", { ascending: false })
     .order("id", { ascending: false });
 
@@ -32,9 +39,11 @@ export async function listMeetingEventsAdminPage(options: {
   const et = options.eventType?.trim() ?? "";
   if (et && isMeetingEventType(et)) q = q.eq("event_type", et);
 
-  const { data, error } = await q.range(offset, offset + fetchCount - 1);
+  const { data, error, count } = await q.range(offset, offset + fetchCount - 1);
 
-  if (error || !Array.isArray(data)) return { events: [], hasMore: false };
+  if (error || !Array.isArray(data)) {
+    return { events: [], hasMore: false, total: null, error: error?.message ?? "load_failed" };
+  }
 
   const hasMore = data.length > pageSize;
   const slice = hasMore ? data.slice(0, pageSize) : data;
@@ -81,5 +90,5 @@ export async function listMeetingEventsAdminPage(options: {
     };
   });
 
-  return { events, hasMore };
+  return { events, hasMore, total: typeof count === "number" ? count : null };
 }

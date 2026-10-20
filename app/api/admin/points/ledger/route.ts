@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PointFinancialFilter } from "@/lib/points/point-financial-history";
 import {
   loadPointFinancialHistory,
+  loadPointFinancialHistoryOffsetPage,
   serializePointFinancialPage,
 } from "@/lib/points/project-point-financial-history";
+import { parseMemberOpsListPage } from "@/lib/admin/member-ops-list/member-ops-list-page";
+import { manilaDateRangeToUtc } from "@/lib/admin/metrics/manila-period";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,10 +19,57 @@ function parseFilter(raw: string | null): PointFinancialFilter {
   return "all";
 }
 
-/** GET /api/admin/points/ledger?userId=&filter=&limit=&cursor=&dateFrom=&dateTo= */
+async function nicknameMap(sb: SupabaseClient, userIds: string[]): Promise<Record<string, string>> {
+  const nickById: Record<string, string> = {};
+  if (userIds.length) {
+    const { data: profiles } = await sb.from("profiles").select("id, nickname").in("id", userIds);
+    for (const p of profiles ?? []) {
+      nickById[String(p.id)] = String((p as { nickname?: string }).nickname ?? "");
+    }
+  }
+  return nickById;
+}
+
+/**
+ * GET /api/admin/points/ledger
+ * - 기본(R7 목록 표준): `limit`(20/50/100)·`offset` 서버 페이지 + `total`(count exact).
+ *   필터 `status`(credit|debit, 예전 키 `filter` 도 허용) · `q`(회원 UUID, 예전 키 `userId` 도 허용) · `from`/`to`(PHT 날짜).
+ *   Response `{ ok, items, total, limit, offset }`.
+ * - `cursor` 가 있으면 예전 커서 응답(`history`·`entries`) 그대로 — 호환용.
+ */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const gate = await requireAdminPermission("point");
   if (!gate.ok) return gate.response;
+
+  const sp = req.nextUrl.searchParams;
+  if (!sp.has("cursor")) {
+    const page = parseMemberOpsListPage(sp);
+    const filter = parseFilter(sp.get("status") ?? sp.get("filter"));
+    const userId = (sp.get("q") ?? sp.get("userId") ?? "").trim();
+    const period = manilaDateRangeToUtc(sp.get("from"), sp.get("to"));
+    const res = await loadPointFinancialHistoryOffsetPage(gate.sb, {
+      userId: userId || undefined,
+      filter,
+      limit: page.limit,
+      offset: page.offset,
+      fromIso: period.fromIso,
+      toIso: period.toIso,
+    });
+    if (!res.ok) {
+      if (res.code === "table_missing") {
+        return NextResponse.json({ ok: true, items: [], total: 0, limit: page.limit, offset: page.offset });
+      }
+      return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+    }
+    const nickById = await nicknameMap(gate.sb, [...new Set(res.items.map((i) => i.userId).filter(Boolean))]);
+    return NextResponse.json({
+      ok: true,
+      items: res.items.map((e) => ({ ...e, userNickname: nickById[e.userId] ?? "" })),
+      total: res.total,
+      limit: page.limit,
+      offset: page.offset,
+    });
+  }
 
   const userId = req.nextUrl.searchParams.get("userId")?.trim() ?? "";
   const filter = parseFilter(req.nextUrl.searchParams.get("filter"));

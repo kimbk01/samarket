@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionQueueCardGrid } from "@/components/admin/action-queue/AdminActionQueueCardGrid";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
-import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 /** Overview supplies Monitoring only; Action Queue reads the same Bell payload (provider). */
@@ -141,6 +141,7 @@ export function CustomerPlatformDashboardPage() {
             fallbackEn: "Monitoring",
           })}
         </h2>
+        {loadState === "loading" ? <AdminLoadingState ko={language !== "en"} /> : null}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Link
             href="/admin/app/notices"

@@ -2,15 +2,18 @@
 
 /**
  * 결제 수신 기록 `/admin/store-payment-events` — 결제사 자동 알림으로 들어온 기록 (조회 전용).
+ * 목록 조건 = 주소 (`order_id`·`source`·`event_type`·`page`·`size`, R7 목록 표준 — 서버 페이지 + 총 건수).
  * `?order_id=` (주문 상세 → LNK-5) 는 URL 이 바뀔 때마다 그대로 조회 조건이 된다. 원시 값(source ·
  * event_type · payload · UUID)은 「기술 정보」에만 둔다. 주문 링크는 주문 상세(DEF-49).
  */
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -47,7 +50,8 @@ function eventKey(eventType: string): MessageKey {
   return EVENT_OPTIONS.find((o) => o.value === eventType)?.key ?? "admin_r4b_pay_event_other";
 }
 
-const INPUT = "rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-helper text-sam-fg";
+const INPUT = "h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2 sam-text-helper text-sam-fg";
+const LIST_CONFIG = { extras: ["order_id", "source", "event_type"] as const };
 
 export function AdminStorePaymentEventsPage() {
   return (
@@ -60,61 +64,42 @@ export function AdminStorePaymentEventsPage() {
 function AdminStorePaymentEventsPageInner() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   // URL is the filter state (deep links from order detail keep working on back/forward).
-  const orderId = (searchParams.get("order_id") ?? "").trim();
-  const source = (searchParams.get("source") ?? "").trim();
-  const eventType = (searchParams.get("event_type") ?? "").trim();
+  const lq = useAdminListQuery(LIST_CONFIG);
+  const orderId = lq.query.extras.order_id.trim();
+  const source = lq.query.extras.source.trim();
+  const eventType = lq.query.extras.event_type.trim();
   const returnTo = readAdminReturnToFromSearch(searchParams);
 
   const [draftOrderId, setDraftOrderId] = useState(orderId);
   useEffect(() => setDraftOrderId(orderId), [orderId]);
 
   const [rows, setRows] = useState<Row[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ code: string; status?: number } | null>(null);
-  const [reload, setReload] = useState(0);
-
-  const pushFilters = useCallback(
-    (next: { order_id?: string; source?: string; event_type?: string }) => {
-      const sp = new URLSearchParams(searchParams.toString());
-      for (const [k, v] of Object.entries(next)) {
-        const val = (v ?? "").trim();
-        if (val) sp.set(k, val);
-        else sp.delete(k);
-      }
-      const qs = sp.toString();
-      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [pathname, router, searchParams]
-  );
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
     setError(null);
-    const params = new URLSearchParams();
-    if (orderId) params.set("order_id", orderId);
-    if (source) params.set("source", source);
-    if (eventType) params.set("event_type", eventType);
-    const qs = params.toString();
-    fetch(`/api/admin/store-payment-events${qs ? `?${qs}` : ""}`, { credentials: "include", cache: "no-store" })
+    fetch(`/api/admin/store-payment-events?${lq.apiQueryString}`, { credentials: "include", cache: "no-store" })
       .then(async (res) => {
-        const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; events?: Row[] } | null;
+        const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; events?: Row[]; total?: number } | null;
         if (!alive) return;
         if (!res.ok || !json?.ok) {
+          // 실패해도 직전 목록은 지우지 않는다 (§8-5).
           setError({ code: res.status === 403 ? "forbidden" : json?.error || "load_failed", status: res.status });
-          setRows([]);
           return;
         }
         setRows(json.events ?? []);
+        setTotal(Number(json.total) || 0);
       })
       .catch(() => {
         if (!alive) return;
         setError({ code: "network_error" });
-        setRows([]);
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -122,7 +107,8 @@ function AdminStorePaymentEventsPageInner() {
     return () => {
       alive = false;
     };
-  }, [orderId, source, eventType, reload]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey = 같은 조건 다시 불러오기 포함 (order_id · source · event_type · page · size)
+  }, [lq.refreshKey]);
 
   const errorCode = error?.code === "table_missing" ? null : error?.code;
 
@@ -139,31 +125,30 @@ function AdminStorePaymentEventsPageInner() {
           <Link className="text-signature underline" href={returnTo ?? `/admin/stores/orders/${encodeURIComponent(orderId)}`}>
             {t("admin_r4b_pay_back_order")}
           </Link>
-          <AdminActionButton variant="quiet" size="sm" onClick={() => pushFilters({ order_id: "" })}>
+          <AdminActionButton variant="quiet" size="sm" onClick={() => lq.setExtra("order_id", "")}>
             {t("admin_r4b_pay_clear_order")}
           </AdminActionButton>
         </div>
       ) : null}
 
-      <form
-        className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 sam-text-body-secondary"
-        onSubmit={(ev) => {
-          ev.preventDefault();
-          pushFilters({ order_id: draftOrderId });
+      <AdminFilterBar
+        ko={ko}
+        draft={{ q: draftOrderId, from: "", to: "" }}
+        onDraftChange={(p) => {
+          if (p.q !== undefined) setDraftOrderId(p.q);
         }}
+        onSubmit={() => lq.setExtra("order_id", draftOrderId.trim())}
+        onReset={() => {
+          setDraftOrderId("");
+          lq.reset();
+        }}
+        pending={loading}
+        showPeriod={false}
+        searchPlaceholder={t("admin_r4b_pay_filter_order")}
       >
-        <label className="flex flex-col gap-0.5">
-          <span className="text-sam-muted">{t("admin_r4b_pay_filter_order")}</span>
-          <input
-            className={`${INPUT} min-w-[220px] font-mono`}
-            value={draftOrderId}
-            onChange={(ev) => setDraftOrderId(ev.target.value)}
-            placeholder={t("admin_r4b_pay_filter_order")}
-          />
-        </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="text-sam-muted">{t("admin_stores_payment_filter_source")}</span>
-          <select className={INPUT} value={source} onChange={(ev) => pushFilters({ source: ev.target.value })}>
+        <label className="flex flex-col gap-1 sam-text-xxs text-sam-muted">
+          {t("admin_stores_payment_filter_source")}
+          <select className={INPUT} value={source} onChange={(ev) => lq.setExtra("source", ev.target.value)}>
             <option value="">{t("admin_r4b_pay_filter_all")}</option>
             {SOURCE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -172,9 +157,9 @@ function AdminStorePaymentEventsPageInner() {
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="text-sam-muted">{t("admin_stores_payment_filter_event")}</span>
-          <select className={INPUT} value={eventType} onChange={(ev) => pushFilters({ event_type: ev.target.value })}>
+        <label className="flex flex-col gap-1 sam-text-xxs text-sam-muted">
+          {t("admin_stores_payment_filter_event")}
+          <select className={INPUT} value={eventType} onChange={(ev) => lq.setExtra("event_type", ev.target.value)}>
             <option value="">{t("admin_r4b_pay_filter_all")}</option>
             {EVENT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -183,21 +168,32 @@ function AdminStorePaymentEventsPageInner() {
             ))}
           </select>
         </label>
-        <AdminActionButton variant="primary" size="sm" type="submit" disabled={loading}>
-          {adminCta("search", ko)}
-        </AdminActionButton>
-      </form>
+      </AdminFilterBar>
 
       {error ? (
         error.code === "table_missing" ? (
           <AdminEmptyState ko={ko} message={t("admin_stores_payment_err_table_missing")} />
         ) : (
-          <AdminErrorState ko={ko} code={errorCode} httpStatus={error.status} onRetry={() => setReload((n) => n + 1)} />
+          <AdminErrorState ko={ko} code={errorCode} httpStatus={error.status} onRetry={lq.refresh} />
         )
-      ) : loading ? (
+      ) : null}
+      {loading && rows.length === 0 ? (
         <AdminLoadingState ko={ko} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_stores_payment_empty")} />
+        error ? null : (
+          <AdminEmptyState
+            ko={ko}
+            message={lq.isFiltered ? undefined : t("admin_stores_payment_empty")}
+            onReset={
+              lq.isFiltered
+                ? () => {
+                    setDraftOrderId("");
+                    lq.reset();
+                  }
+                : undefined
+            }
+          />
+        )
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface sam-text-helper">
           <table className="min-w-full text-left">
@@ -252,6 +248,17 @@ function AdminStorePaymentEventsPageInner() {
           </table>
         </div>
       )}
+      {rows.length > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+      ) : null}
     </div>
   );
 }

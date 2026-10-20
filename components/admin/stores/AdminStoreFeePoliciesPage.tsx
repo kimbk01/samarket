@@ -4,16 +4,24 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
-import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { useAdminListQuery, type UseAdminListQueryResult } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 type RateLite = {
@@ -357,12 +365,25 @@ async function upsertPolicy(opts: {
   return { ok: true };
 }
 
+/** 「매장별 적용」 탭 목록 조건 = 주소 (`q` 매장 검색 · `cat` 업종) — 새로고침·링크 공유 시 유지. */
+const STORE_LIST_CONFIG = { extras: ["cat"] as const };
+
 export function AdminStoreFeePoliciesPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminStoreFeePoliciesPageInner />
+    </Suspense>
+  );
+}
+
+function AdminStoreFeePoliciesPageInner() {
   const { t, language } = useI18n();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 화면 불러오기 실패 (작업 실패 `error` 와 분리) — 직전 화면은 지우지 않는다 (§8-5). */
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
   const [result, setResult] = useState<{ ok: true; message: string } | null>(null);
   const [historyToken, setHistoryToken] = useState(0);
   const [tab, setTab] = useState<TabId>("industry");
@@ -371,8 +392,9 @@ export function AdminStoreFeePoliciesPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
 
-  const [storeQuery, setStoreQuery] = useState("");
-  const [storeCatFilter, setStoreCatFilter] = useState("");
+  const storeLq = useAdminListQuery(STORE_LIST_CONFIG);
+  const storeQuery = storeLq.query.q;
+  const storeCatFilter = storeLq.query.extras.cat;
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([]);
 
   const [verifyMismatchOnly, setVerifyMismatchOnly] = useState(true);
@@ -390,6 +412,7 @@ export function AdminStoreFeePoliciesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setLoadError(null);
     try {
       const oRes = await fetch("/api/admin/store-fee-policies/overview", { credentials: "include" });
       const oJson = (await oRes.json().catch(() => ({}))) as {
@@ -397,8 +420,7 @@ export function AdminStoreFeePoliciesPage() {
         error?: string;
       } & Partial<Overview>;
       if (!oJson.ok) {
-        setOverview(null);
-        setError(feePolicyApiErrorCode(oJson.error, oRes.status));
+        setLoadError({ code: feePolicyApiErrorCode(oJson.error, oRes.status), status: oRes.status });
         return;
       }
       setOverview({
@@ -423,8 +445,7 @@ export function AdminStoreFeePoliciesPage() {
         verification: oJson.verification ?? [],
       });
     } catch {
-      setOverview(null);
-      setError("network_error");
+      setLoadError({ code: "network_error" });
     } finally {
       setLoading(false);
     }
@@ -434,7 +455,9 @@ export function AdminStoreFeePoliciesPage() {
     void load();
   }, [load]);
 
-  const canEdit = overview?.viewer?.can_edit_fee_policy === true;
+  // 쓰기 = 서버 응답(can_edit_fee_policy) + 접근표 쓰기 권한(useAdminRouteAction) 둘 다 — 서버 가드가 최종 판정
+  const writeAction = useAdminRouteAction("/admin/store-fee-policies");
+  const canEdit = overview?.viewer?.can_edit_fee_policy === true && writeAction.allowed;
 
   /** 정책 id → 화면 로드 시점 updated_at (CAS). */
   const policyUpdatedAt = useMemo(() => {
@@ -761,8 +784,12 @@ export function AdminStoreFeePoliciesPage() {
         </p>
       ) : null}
 
+      {loadError ? (
+        <AdminErrorState ko={language !== "en"} code={loadError.code} httpStatus={loadError.status} onRetry={() => void load()} />
+      ) : null}
+
       {loading && !overview ? (
-        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+        <AdminLoadingState ko={language !== "en"} />
       ) : overview ? (
         <>
           <section className={`${panelClass()} flex flex-wrap items-center justify-between gap-3`}>
@@ -775,7 +802,7 @@ export function AdminStoreFeePoliciesPage() {
               </p>
             </div>
             <AdminActionButton
-              variant="primary"
+              variant="secondary"
               disabled={busy || !canEdit}
               title={canEdit ? undefined : t("admin_r4c_fee_super_admin_only_notice")}
               onClick={() =>
@@ -880,12 +907,10 @@ export function AdminStoreFeePoliciesPage() {
               t={t}
               busy={busy || !canEdit}
               overview={overview}
-              storeQuery={storeQuery}
-              storeCatFilter={storeCatFilter}
+              ko={language !== "en"}
+              listQuery={storeLq}
               filteredStores={filteredStores}
               selectedStoreIds={selectedStoreIds}
-              onStoreQuery={setStoreQuery}
-              onStoreCatFilter={setStoreCatFilter}
               onToggleStore={(id) => {
                 setSelectedStoreIds((prev) =>
                   prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -1223,12 +1248,10 @@ function StoresApplyTab({
   t,
   busy,
   overview,
-  storeQuery,
-  storeCatFilter,
+  ko,
+  listQuery,
   filteredStores,
   selectedStoreIds,
-  onStoreQuery,
-  onStoreCatFilter,
   onToggleStore,
   onToggleAllFiltered,
   onApplyOne,
@@ -1238,12 +1261,10 @@ function StoresApplyTab({
   t: (key: MessageKey, params?: Record<string, string | number>) => string;
   busy: boolean;
   overview: Overview;
-  storeQuery: string;
-  storeCatFilter: string;
+  ko: boolean;
+  listQuery: UseAdminListQueryResult<"cat">;
   filteredStores: OverviewStore[];
   selectedStoreIds: string[];
-  onStoreQuery: (v: string) => void;
-  onStoreCatFilter: (v: string) => void;
   onToggleStore: (id: string) => void;
   onToggleAllFiltered: () => void;
   onApplyOne: (s: OverviewStore) => void;
@@ -1258,30 +1279,47 @@ function StoresApplyTab({
     <section className={panelClass()}>
       <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_stores_title")}</h2>
       <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_fee_stores_bulk_help")}</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <select
-          className="rounded border border-sam-border px-2 py-1.5 text-sm"
-          value={storeCatFilter}
-          onChange={(e) => onStoreCatFilter(e.target.value)}
-        >
-          <option value="">{t("admin_stores_fee_filter_all")}</option>
-          {overview.categories.map((c) => (
-            <option key={c.category_id} value={c.category_id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <input
-          className="min-w-[12rem] flex-1 rounded border border-sam-border px-2 py-1.5 text-sm"
-          placeholder={t("admin_stores_fee_search_store_list")}
-          value={storeQuery}
-          onChange={(e) => onStoreQuery(e.target.value)}
-        />
-        <AdminActionButton variant="primary" size="sm" disabled={busy || selectedStoreIds.length === 0} onClick={onApplyBulk}>
+      <AdminFilterBar
+        className="mt-3"
+        ko={ko}
+        draft={listQuery.draft}
+        onDraftChange={listQuery.setDraft}
+        onSubmit={listQuery.submit}
+        onReset={listQuery.reset}
+        showPeriod={false}
+        searchPlaceholder={t("admin_stores_fee_search_store_list")}
+      >
+        <label className="flex flex-col gap-1 sam-text-xxs text-sam-muted">
+          {t("admin_stores_fee_th_taxonomy")}
+          <select
+            className="h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2 sam-text-helper text-sam-fg"
+            value={listQuery.query.extras.cat}
+            onChange={(e) => listQuery.setExtra("cat", e.target.value)}
+          >
+            <option value="">{t("admin_stores_fee_filter_all")}</option>
+            {overview.categories.map((c) => (
+              <option key={c.category_id} value={c.category_id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </AdminFilterBar>
+      <div className="mt-2 flex justify-end">
+        {/* 필터 바 [조회] 가 primary — 일괄 적용은 secondary (화면당 primary 1개) */}
+        <AdminActionButton variant="secondary" size="sm" disabled={busy || selectedStoreIds.length === 0} onClick={onApplyBulk}>
           {t("admin_stores_fee_bulk_apply", { n: selectedStoreIds.length })}
         </AdminActionButton>
       </div>
-      <div className="mt-3 overflow-x-auto">
+      {filteredStores.length === 0 ? (
+        <div className="mt-3">
+          <AdminEmptyState
+            ko={ko}
+            onReset={listQuery.isFiltered ? listQuery.reset : undefined}
+          />
+        </div>
+      ) : null}
+      <div className={`mt-3 overflow-x-auto ${filteredStores.length === 0 ? "hidden" : ""}`}>
         <table className="min-w-[920px] w-full text-left sam-text-body-secondary">
           <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
             <tr>

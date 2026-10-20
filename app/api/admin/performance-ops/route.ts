@@ -10,6 +10,11 @@ import {
 } from "@/lib/performance/performance-ops-db";
 import type { PerformanceOpsBundleV1 } from "@/lib/performance/performance-state";
 import { createDefaultPerformanceOpsBundle } from "@/lib/performance/performance-state";
+import {
+  parseAdminJsonListPage,
+  sliceAdminJsonList,
+  sortAdminJsonListByDateDesc,
+} from "@/lib/admin/pagination/admin-json-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,9 +25,37 @@ function isBundle(x: unknown): x is PerformanceOpsBundleV1 {
   return o.version === 1 && Array.isArray(o.metrics) && Array.isArray(o.slowQueries);
 }
 
-export async function GET() {
+/**
+ * `?part=slow-queries` — 해당 목록만 서버 페이지로 (`limit` 20/50/100 · `offset`) → `{ items, total }` (R7, 화면 고정 상한 없음).
+ * 파라미터가 없으면 기존 번들 응답 그대로.
+ */
+export async function GET(req: NextRequest) {
   const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
+
+  const sp = req.nextUrl.searchParams;
+  const part = sp.get("part");
+  if (part) {
+    try {
+      const loaded = await loadPerformanceOpsBundleFromDb(getSupabaseServer());
+      if (!loaded.ok && loaded.reason !== "missing_table") {
+        return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
+      }
+      const b = loaded.ok ? loaded.bundle : createDefaultPerformanceOpsBundle();
+      const page = parseAdminJsonListPage(sp);
+      if (part === "slow-queries") {
+        const all = b.slowQueries?.length ? b.slowQueries : createDefaultPerformanceOpsBundle().slowQueries;
+        const rows = all;
+        return NextResponse.json({
+          ok: true,
+          ...sliceAdminJsonList(sortAdminJsonListByDateDesc(rows, (r) => r.detectedAt), page),
+        });
+      }
+      return NextResponse.json({ ok: false, error: "invalid_part" }, { status: 400 });
+    } catch {
+      return NextResponse.json({ ok: false, error: "server_config" }, { status: 503 });
+    }
+  }
 
   try {
     const sb = getSupabaseServer();

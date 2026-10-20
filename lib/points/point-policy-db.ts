@@ -263,14 +263,20 @@ export async function setPointEventPolicyActiveDb(
   return data ? rowToEventPolicy(data as Record<string, unknown>) : null;
 }
 
-export async function listPointPolicyLogs(sb: SupabaseClient, limit = 100): Promise<PointPolicyLog[]> {
-  const { data, error } = await sb
+/** 정책 변경 로그 한 쪽 + 정확한 전체 건수 (R7 — 예전 100건 고정 상한 제거). */
+export async function listPointPolicyLogsPage(
+  sb: SupabaseClient,
+  page: { limit: number; offset: number }
+): Promise<{ logs: PointPolicyLog[]; total: number }> {
+  const { data, error, count } = await sb
     .from("point_policy_logs")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("id", { ascending: false })
+    .range(page.offset, page.offset + page.limit - 1);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => rowToPolicyLog(r as Record<string, unknown>));
+  const logs = (data ?? []).map((r) => rowToPolicyLog(r as Record<string, unknown>));
+  return { logs, total: count ?? logs.length };
 }
 
 export async function addPointPolicyLogDb(

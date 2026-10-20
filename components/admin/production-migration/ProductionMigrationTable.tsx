@@ -4,7 +4,7 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getProductionMigrationTables } from "@/lib/production-migration/production-migration-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
@@ -15,11 +15,18 @@ import type {
   ProductionMigrationDomain,
   ProductionTableStatus,
 } from "@/lib/types/production-migration";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const FILTER_EXTRAS = ["domain"] as const;
 
 export function ProductionMigrationTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [domain, setDomain] = useState<ProductionMigrationDomain | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const domain = lq.query.extras.domain as ProductionMigrationDomain | "";
   const tables = useMemo(
     () =>
       getProductionMigrationTables(
@@ -43,28 +50,29 @@ export function ProductionMigrationTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_prod_migration_k48750694")}</span>
-        <select
-          value={domain}
-          onChange={(e) =>
-            setDomain((e.target.value || "") as ProductionMigrationDomain | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_prod_migration_k48750694")} name="domain" value={lq.query.extras.domain} onChange={(v) => lq.setExtra("domain", v)}>
           {domains.map((d) => (
             <option key={d.value || "all"} value={d.value}>
               {d.label}
             </option>
           ))}
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {tables.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={domain ? undefined : "해당 도메인 테이블이 없습니다."}
-          onReset={domain ? () => { setDomain(""); } : undefined}
+          message={lq.isFiltered ? undefined : "해당 도메인 테이블이 없습니다."}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable

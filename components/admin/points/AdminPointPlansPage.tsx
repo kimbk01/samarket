@@ -205,7 +205,12 @@ export function AdminPointPlansPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <AdminPageHeader titleKey="admin_menu_points_plans" />
-        <AdminActionButton variant="primary" disabled={!action.allowed} onClick={startCreate}>
+        {/* 폼이 열려 있으면 폼 [저장]이 화면의 주 동작 — 헤더 생성 버튼은 보조 (primary 1개). */}
+        <AdminActionButton
+          variant={creating || editingId ? "secondary" : "primary"}
+          disabled={!action.allowed}
+          onClick={startCreate}
+        >
           {ko ? "플랜 등록" : "Create plan"}
         </AdminActionButton>
       </div>

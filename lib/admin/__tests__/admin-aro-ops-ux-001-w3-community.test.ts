@@ -147,8 +147,10 @@ describe("ARO-OPS-UX-001-W3 community domain migration", () => {
     expect(kit).toContain("/admin/community/members/");
     const posts = read("app/admin/community/posts/AdminPostsPageContent.tsx");
     expect(posts).toContain("CommunityAuthorCell");
-    expect(posts).toContain('data-admin-mgmt-state="EMPTY"');
-    expect(posts).toContain('data-admin-mgmt-state="ERROR"');
+    // 화면 상태 4종은 키트 CommunityListBody(로딩·오류·빈 목록 [초기화]) — 상태 표식은 유지
+    expect(posts).toContain("data-admin-mgmt-state={mgmtState}");
+    expect(posts).toMatch(/"ERROR"[\s\S]*"EMPTY"/);
+    expect(posts).toContain("CommunityListBody");
     expect(posts).toContain("/api/admin/community/engine/posts");
     const comments = read("components/admin/community/AdminCommunityCommentsPage.tsx");
     expect(comments).toContain("CommunityAuthorCell");

@@ -14,7 +14,8 @@ import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
-import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { CommunityListPagination, useCommunityListQuery } from "@/components/admin/community/kit/CommunityAdminKit";
 import { TRADE_FLOW_STATUS_NAMESPACE } from "@/lib/admin/status-labels/pr3-trade-status-labels";
 
 interface Row {
@@ -31,8 +32,16 @@ interface Row {
   lastMessageAt: string | null;
 }
 
+/**
+ * 구매자 확인 (거래 운영 `/admin/trade-flow?panel=complete` 탭) — 판매자가 거래완료한 채팅.
+ * R7: 서버 페이지(`/api/admin/trade-completion` 본문 limit/offset → total) · URL page/size(20/50/100). `<Suspense>` 안에서 렌더.
+ */
 export function AdminTradeCompletionPage({ embedded = false }: { embedded?: boolean }) {
   const { t, language } = useI18n();
+  const ko = language !== "en";
+  const lq = useCommunityListQuery();
+  const limit = lq.query.size;
+  const offset = (lq.query.page - 1) * lq.query.size;
   const confirmSourceLabel = (v: string | null) =>
     v === "user"
       ? t("admin_trade_confirm_source_user")
@@ -43,34 +52,38 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
           : v
             ? t("admin_trade_label_unknown")
             : "—";
-  const [items, setItems] = useState<Row[]>([]);
+  const [items, setItems] = useState<Row[] | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  /** 조회 실패 — 직전 목록은 지우지 않는다 */
+  const [loadErr, setLoadErr] = useState<{ code: string; httpStatus: number } | null>(null);
+  /** 구매자 확인 처리 실패 안내 */
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setLoadErr(null);
     try {
       const res = await fetch("/api/admin/trade-completion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ limit, offset }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(resolveAdminHttpErrorMessage(res, data, t, "admin_trade_completion_fetch_failed"));
-        setItems([]);
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; items?: Row[]; total?: number };
+      if (!res.ok || data.ok === false) {
+        setLoadErr({ code: data.error || `http_${res.status}`, httpStatus: res.status });
         return;
       }
-      setItems(Array.isArray(data.items) ? data.items : []);
+      const list = Array.isArray(data.items) ? data.items : [];
+      setItems(list);
+      setTotal(typeof data.total === "number" ? data.total : list.length);
     } catch {
-      setError(t("common_network_error"));
-      setItems([]);
+      setLoadErr({ code: "network_error", httpStatus: 0 });
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [limit, offset]);
 
   useEffect(() => {
     void load();
@@ -125,8 +138,11 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
           {error}
         </div>
       ) : null}
-      {loading ? (
-        <AdminLoadingState ko={language !== "en"} label={t("common_loading")} />
+      {loadErr ? (
+        <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={() => void load()} />
+      ) : null}
+      {items === null ? (
+        loading ? <AdminLoadingState ko={ko} label={t("common_loading")} /> : null
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
           <table className="w-full min-w-[960px] border-collapse sam-text-body-secondary">
@@ -178,7 +194,7 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
                   <td className="px-3 py-2">
                     {r.buyerPending ? (
                       <AdminActionButton
-                        variant="secondary"
+                        variant="ghost"
                         size="sm"
                         disabled={busyId === r.roomId}
                         onClick={() => void confirmBuyer(r.roomId)}
@@ -194,8 +210,11 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
             </tbody>
           </table>
           {items.length === 0 && (
-            <AdminEmptyState ko={language !== "en"} message={t("admin_trade_completion_no_items")} />
+            <AdminEmptyState ko={ko} message={t("admin_trade_completion_no_items")} />
           )}
+          <div className="border-t border-sam-border-soft px-3 py-2">
+            <CommunityListPagination lq={lq} total={total} disabled={loading} />
+          </div>
         </div>
       )}
     </div>

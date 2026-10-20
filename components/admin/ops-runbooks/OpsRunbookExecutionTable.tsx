@@ -1,6 +1,5 @@
 "use client";
 
-import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OPS_DOC_TYPE_KEYS } from "@/components/admin/i18n/admin-ops-doc-label-keys";
 import {
@@ -8,38 +7,39 @@ import {
   OPS_TOOLS_RUNBOOK_LINK_KEYS,
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
-import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsRunbookExecutions } from "@/lib/ops-runbooks/ops-runbooks-state";
-import type { OpsRunbookExecutionStatus, OpsRunbookLinkedType } from "@/lib/types/ops-runbook";
+import type { OpsRunbookExecution } from "@/lib/types/ops-runbook";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import type { UseAdminListQueryResult } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminServerListFrame } from "@/components/admin/sync-list/AdminServerListFrame";
+import { useAdminServerPage } from "@/components/admin/sync-list/useAdminServerPage";
 interface OpsRunbookExecutionTableProps {
-  statusFilter?: OpsRunbookExecutionStatus | "";
-  refresh?: number;
+  lq: UseAdminListQueryResult<"view">;
 }
 
-export function OpsRunbookExecutionTable({
-  statusFilter = "",
-  refresh = 0,
-}: OpsRunbookExecutionTableProps) {
+/** 런북 실행 이력 = 서버 페이지 (`GET /api/admin/ops-runbooks?part=executions`, R7) — 고정 상한(100건) 없음. */
+export function OpsRunbookExecutionTable({ lq }: OpsRunbookExecutionTableProps) {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const executions = useMemo(
-    () =>
-      getOpsRunbookExecutions({
-        status: statusFilter || undefined,
-      }),
-    [statusFilter, refresh]
+  const page = useAdminServerPage<OpsRunbookExecution>(
+    `/api/admin/ops-runbooks?part=executions&${lq.apiQueryString}`,
+    lq.refreshKey
   );
 
-  if (executions.length === 0) {
-    return (
-      <AdminEmptyState ko={ko} message={t("admin_ops_tools_runbook_history_empty")} />
-    );
-  }
-
   return (
+    <AdminServerListFrame
+      ko={ko}
+      state={page}
+      page={lq.query.page}
+      size={lq.query.size}
+      onPageChange={lq.setPage}
+      onSizeChange={lq.setSize}
+      onRetry={lq.refresh}
+      onReset={lq.isFiltered ? lq.reset : undefined}
+      emptyMessage={t("admin_ops_tools_runbook_history_empty")}
+    >
+      {(executions) => (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
@@ -96,5 +96,7 @@ export function OpsRunbookExecutionTable({
         </tbody>
       </table>
     </div>
+      )}
+    </AdminServerListFrame>
   );
 }

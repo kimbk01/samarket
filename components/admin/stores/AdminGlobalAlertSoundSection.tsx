@@ -2,6 +2,7 @@
 
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
@@ -40,6 +41,8 @@ export function AdminGlobalAlertSoundSection({
   const [soundLegacyUrl, setSoundLegacyUrl] = useState<string | null>(null);
   const [soundFromDb, setSoundFromDb] = useState(false);
   const [soundLoading, setSoundLoading] = useState(true);
+  /** 불러오기 실패 (저장 실패 문구 `soundError` 와 분리) → AdminErrorState + [새로고침]. */
+  const [soundLoadErr, setSoundLoadErr] = useState<{ code: string; status?: number } | null>(null);
   const [soundSaving, setSoundSaving] = useState(false);
   const [soundError, setSoundError] = useState<string | null>(null);
   const [soundMsg, setSoundMsg] = useState<string | null>(null);
@@ -181,15 +184,16 @@ export function AdminGlobalAlertSoundSection({
   const loadSound = useCallback(async () => {
     setSoundLoading(true);
     setSoundError(null);
+    setSoundLoadErr(null);
     try {
       const res = await fetch(apiPath, { credentials: "include" });
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
       if (res.status === 403) {
-        setSoundError("forbidden");
+        setSoundLoadErr({ code: "forbidden", status: 403 });
         return;
       }
       if (!json?.ok) {
-        setSoundError(typeof json?.error === "string" ? json.error : "load_failed");
+        setSoundLoadErr({ code: typeof json?.error === "string" ? json.error : "load_failed", status: res.status });
         return;
       }
       const url = typeof json.url === "string" ? json.url : "";
@@ -204,7 +208,7 @@ export function AdminGlobalAlertSoundSection({
         setSoundLegacyUrl(null);
       }
     } catch {
-      setSoundError("network_error");
+      setSoundLoadErr({ code: "network_error" });
     } finally {
       setSoundLoading(false);
     }
@@ -237,8 +241,14 @@ export function AdminGlobalAlertSoundSection({
       ) : null}
       {displayError ? <p className="mt-2 sam-text-body-secondary text-sam-danger">{displayError}</p> : null}
       {soundMsg ? <p className="mt-2 sam-text-body-secondary text-sam-success">{soundMsg}</p> : null}
-      {soundLoading ? (
-        <p className="mt-3 sam-text-body-secondary text-sam-muted">{t("admin_stores_alert_loading")}</p>
+      {soundLoadErr ? (
+        <div className="mt-3">
+          <AdminErrorState ko={language !== "en"} code={soundLoadErr.code} httpStatus={soundLoadErr.status} onRetry={() => void loadSound()} />
+        </div>
+      ) : soundLoading ? (
+        <div className="mt-3">
+          <AdminLoadingState ko={language !== "en"} label={t("admin_stores_alert_loading")} />
+        </div>
       ) : (
         <div className="mt-3 space-y-3">
           <label className="block sam-text-helper font-medium text-sam-fg">

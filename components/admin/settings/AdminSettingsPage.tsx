@@ -154,7 +154,7 @@ export function AdminSettingsPage() {
         {activeSection === "general" && (
           <>
             <GeneralSettingsForm values={display} onChange={handleChange} />
-            <OpsTradePolicyPanel />
+            <OpsTradePolicyPanel saveVariant="secondary" />
           </>
         )}
         {activeSection === "product" && (

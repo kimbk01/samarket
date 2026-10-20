@@ -165,7 +165,7 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
                   {c.previewHref ? (
                     <AdminActionLink
                       href={c.previewHref}
-                      variant="secondary"
+                      variant="ghost"
                       size="sm"
                       data-placement-preview="1"
                     >
@@ -174,7 +174,7 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
                   ) : null}
                   <AdminActionLink
                     href={primaryManageHref}
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
                     data-placement-ops={isEventPromo ? "event-dist" : "1"}
                     data-placement-canonical-edit="1"
@@ -283,7 +283,7 @@ function PopupSurfaceCard({
                 {row.currentWinner.previewHref ? (
                   <AdminActionLink
                     href={row.currentWinner.previewHref}
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
                   >
                     {ko ? "미리보기" : "Preview"}
@@ -291,7 +291,7 @@ function PopupSurfaceCard({
                 ) : null}
                 <AdminActionLink
                   href={row.currentWinner.operationsHref}
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                 >
                   {ko ? "노출 관리에서 보기" : "View in operations"}
@@ -484,9 +484,18 @@ export function AdminAdsPlacementManagementView() {
                 </p>
                 <p className="text-[12px] font-mono text-sam-muted">{hero.placementKey}</p>
               </div>
-              <p className="text-[12px] text-sam-muted">
-                {ko ? "현재 사용" : "In use"}: {orderedIds.length} / {cap}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[12px] text-sam-muted">
+                  {ko ? "현재 사용" : "In use"}: {orderedIds.length} / {cap}
+                </p>
+                {/* 슬라이드 행마다 같던 링크 — 행 버튼은 순서 이동 2개만 두고 카드에 한 번만 (R7 버튼 배치). */}
+                <AdminActionLink href="/stores" variant="secondary" size="sm" data-placement-preview="1">
+                  {ko ? "미리보기" : "Preview"}
+                </AdminActionLink>
+                <AdminActionLink href={ADS_PLACEMENT_OPS_HREF} variant="secondary" size="sm" data-placement-ops="1">
+                  {ko ? "노출 관리에서 보기" : "View in operations"}
+                </AdminActionLink>
+              </div>
             </div>
             <p className="mt-2 text-[12px] text-sam-muted" data-placement-creative-spec="1">
               {creativeSpecLine(hero.creativeSpec, ko)}
@@ -537,7 +546,7 @@ export function AdminAdsPlacementManagementView() {
                         </div>
                         <div className="flex flex-wrap gap-1">
                           <AdminActionButton
-                            variant="secondary"
+                            variant="ghost"
                             size="sm"
                             aria-label={ko ? "위로 이동" : "Move up"}
                             disabled={busy || i === 0}
@@ -547,7 +556,7 @@ export function AdminAdsPlacementManagementView() {
                             ↑
                           </AdminActionButton>
                           <AdminActionButton
-                            variant="secondary"
+                            variant="ghost"
                             size="sm"
                             aria-label={ko ? "아래로 이동" : "Move down"}
                             disabled={busy || i >= orderedIds.length - 1}
@@ -556,22 +565,6 @@ export function AdminAdsPlacementManagementView() {
                           >
                             ↓
                           </AdminActionButton>
-                          <AdminActionLink
-                            href="/stores"
-                            variant="secondary"
-                            size="sm"
-                            data-placement-preview="1"
-                          >
-                            {ko ? "미리보기" : "Preview"}
-                          </AdminActionLink>
-                          <AdminActionLink
-                            href={ADS_PLACEMENT_OPS_HREF}
-                            variant="secondary"
-                            size="sm"
-                            data-placement-ops="1"
-                          >
-                            {ko ? "노출 관리에서 보기" : "View in operations"}
-                          </AdminActionLink>
                         </div>
                       </>
                     ) : (

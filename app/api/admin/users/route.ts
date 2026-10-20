@@ -29,7 +29,7 @@ import {
   applyProfileFilterOps,
   isAdminMemberUuidSearch,
   normalizeAdminMemberSearchToken,
-  parseAdminMemberListPage,
+  parseAdminMemberListStandardPage,
   uniqueAdminMemberIds,
   type AdminMemberOriginFilter,
   type AdminMemberPrivilegeFilter,
@@ -299,7 +299,7 @@ export async function GET(req: NextRequest) {
   const sortColumn =
     sortRaw === "last_login_asc" || sortRaw === "last_login_desc" ? "last_login_at" : "created_at";
   const sortAscending = sortRaw === "created_at_asc" || sortRaw === "last_login_asc";
-  const { page, pageSize, from, to } = parseAdminMemberListPage(
+  const { page, pageSize, from, to } = parseAdminMemberListStandardPage(
     req.nextUrl.searchParams.get("page"),
     req.nextUrl.searchParams.get("pageSize"),
   );

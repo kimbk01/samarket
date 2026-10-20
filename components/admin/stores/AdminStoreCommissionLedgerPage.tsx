@@ -17,7 +17,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import {
+  normalizeAdminListPage,
+  normalizeAdminListPageSize,
+  type AdminListPageSize,
+} from "@/lib/admin/list-query/admin-list-query";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
@@ -59,7 +66,7 @@ import {
   CommissionRowMoney,
   CommissionSummaryGrid,
   formatCashMinor,
-  LedgerPager,
+  COMMISSION_REVIEW_FILTERS,
   pickCommissionCopy,
   PlatformPayableSummaryGrid,
   PlatformPayableTable,
@@ -78,7 +85,8 @@ import {
 } from "@/components/stores/commission/StoreCommissionLedgerTable";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
-const PAGE_SIZE = 100;
+/** 기본 페이지 크기 (예전 고정값 100 유지) — 주소 `size` 로 20/50/100 선택, `page` 는 1부터. */
+const DEFAULT_PAGE_SIZE: AdminListPageSize = 100;
 const TABS: readonly CommissionTab[] = ["ledger", "review", "cash", "exceptions", "payable"];
 const BREAKDOWN_GROUPS: readonly CommissionBreakdownGroup[] = ["day", "month", "store"];
 /** Old per-order settlement queue links (`?unpaid_only=1`, `?settlement_status=…`, `?id=…`). */
@@ -200,25 +208,39 @@ export function AdminStoreCommissionLedgerPage() {
   const tab: CommissionTab =
     resolved.tab ?? (legacyQueueLink ? "payable" : urlState === "review_required" ? "review" : "ledger");
 
-  // 첫 기간 = 주소 `period`·`from`·`to` (통합 대시보드 「순 수수료」 링크가 같은 기간을 연다)
-  const [period, setPeriod] = useState<{ period: StoreCommissionPeriod; fromDay: string; toDay: string }>(() => {
-    const p = parseStoreCommissionPeriodParams(searchParams);
-    return { period: p.period, fromDay: p.fromDay ?? "", toDay: p.toDay ?? "" };
-  });
-  const [ledgerState, setLedgerState] = useState<StoreCommissionLedgerFilterState>(
-    urlState === "review_required" ? "all" : urlState
-  );
-  const [reviewFilter, setReviewFilter] = useState<CommissionReviewFilter>(resolved.review ?? "review_required");
+  // 목록 조건 = 주소 (R7) — 기간 `period`·`from`·`to` · 상태 `state` · 검토 `review` · 주문번호 `order_no` ·
+  // 캐시 종류 `kinds` · 지급 보기 `payable=all` · 쪽 `page`·`size`. 새로고침·링크 공유·상세 복귀 시 그대로 열린다.
+  // (통합 대시보드 「순 수수료」 링크가 같은 기간을 연다)
+  const periodRaw = parseStoreCommissionPeriodParams(searchParams);
+  const periodKey = `${periodRaw.period}|${periodRaw.fromDay ?? ""}|${periodRaw.toDay ?? ""}`;
+  const period = useMemo<{ period: StoreCommissionPeriod; fromDay: string; toDay: string }>(() => {
+    const [p, f, t] = periodKey.split("|");
+    return { period: p as StoreCommissionPeriod, fromDay: f, toDay: t };
+  }, [periodKey]);
+  // 「수수료 원장」 탭을 명시하면 `state=review_required` 도 원장 필터로 쓴다 (탭 없이 오면 환불 검토 탭으로 연다).
+  const ledgerState: StoreCommissionLedgerFilterState = tab === "ledger" || urlState !== "review_required" ? urlState : "all";
+  const reviewParam = searchParams.get("review")?.trim() ?? "";
+  const reviewFilter: CommissionReviewFilter =
+    resolved.review ??
+    ((COMMISSION_REVIEW_FILTERS as readonly string[]).includes(reviewParam) ? (reviewParam as CommissionReviewFilter) : "review_required");
   // Admin alert deep link: ?order_no=…&open=<obligation id> → filter to the order and open its detail.
-  const [orderNo, setOrderNo] = useState(() => searchParams.get("order_no")?.trim() ?? "");
+  const orderNo = searchParams.get("order_no")?.trim() ?? "";
+  const [orderNoDraft, setOrderNoDraft] = useState(orderNo);
+  useEffect(() => setOrderNoDraft(orderNo), [orderNo]);
   const openParam = searchParams.get("open")?.trim() ?? "";
   const openedFromLinkRef = useRef<string | null>(null);
-  const [kinds, setKinds] = useState<BusinessCashLedgerKind[]>([]);
-  const [offset, setOffset] = useState(0);
+  const kindsParam = searchParams.get("kinds")?.trim() ?? "";
+  const kinds = useMemo<BusinessCashLedgerKind[]>(
+    () => (kindsParam ? (kindsParam.split(",").filter(Boolean) as BusinessCashLedgerKind[]) : []),
+    [kindsParam]
+  );
+  const payableAll = searchParams.get("payable") === "all";
+  const pageSize = normalizeAdminListPageSize(searchParams.get("size"), DEFAULT_PAGE_SIZE);
+  const page = normalizeAdminListPage(searchParams.get("page"));
+  const offset = (page - 1) * pageSize;
   const [data, setData] = useState<LedgerResponse | null>(null);
   const [cash, setCash] = useState<CashResponse | null>(null);
   const [payable, setPayable] = useState<PayableResponse | null>(null);
-  const [payableAll, setPayableAll] = useState(false);
   const [exceptionsPage, setExceptionsPage] = useState<PayableResponse | null>(null);
   const [group, setGroup] = useState<CommissionBreakdownGroup>("day");
   const [headline, setHeadline] = useState<Headline>({ summary: null, positions: [], integrity: null, exceptionOrders: null });
@@ -241,13 +263,14 @@ export function AdminStoreCommissionLedgerPage() {
       const sp = new URLSearchParams(searchParams.toString());
       for (const k of LEGACY_QUEUE_PARAMS) sp.delete(k);
       sp.delete("open");
+      // 조건이 바뀌면 1쪽으로 (쪽 이동 자체는 `page` 를 넘긴다).
+      if (!("page" in next)) sp.delete("page");
       for (const [k, v] of Object.entries(next)) {
         if (v && v !== "all") sp.set(k, v);
         else sp.delete(k);
       }
-      setOffset(0);
       setSelected(null);
-      router.replace(`${pathname}${sp.toString() ? `?${sp}` : ""}`);
+      router.replace(`${pathname}${sp.toString() ? `?${sp}` : ""}`, { scroll: false });
     },
     [pathname, router, searchParams]
   );
@@ -289,15 +312,15 @@ export function AdminStoreCommissionLedgerPage() {
         state: effectiveState,
         orderNo: orderNo || null,
         group,
-        limit: listTab ? PAGE_SIZE : 1,
+        limit: listTab ? pageSize : 1,
         offset: listTab ? offset : 0,
       });
       const ledgerReq = fetch(`/api/admin/store-commission-ledger?${ledgerQs}`, { credentials: "include" });
-      const pagedQs = buildStoreCommissionLedgerSearch({ ...common, limit: PAGE_SIZE, offset });
+      const pagedQs = buildStoreCommissionLedgerSearch({ ...common, limit: pageSize, offset });
       const cashReq =
         tab === "cash"
           ? fetch(
-              `/api/admin/store-commission-ledger/cash-ledger?${buildStoreCommissionLedgerSearch({ ...common, kinds, limit: PAGE_SIZE, offset })}`,
+              `/api/admin/store-commission-ledger/cash-ledger?${buildStoreCommissionLedgerSearch({ ...common, kinds, limit: pageSize, offset })}`,
               { credentials: "include" }
             )
           : null;
@@ -312,8 +335,8 @@ export function AdminStoreCommissionLedgerPage() {
       const res = await ledgerReq;
       const json = (await res.json()) as LedgerResponse;
       if (!res.ok || !json.ok) {
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5).
         setError(json.error ?? "load_failed", res.status);
-        setData(null);
         return;
       }
       setData(json);
@@ -337,11 +360,10 @@ export function AdminStoreCommissionLedgerPage() {
       }
     } catch {
       setError("network_error");
-      setData(null);
     } finally {
       setLoading(false);
     }
-  }, [effectiveState, group, kinds, offset, orderNo, payableAll, period, setError, storeId, tab]);
+  }, [effectiveState, group, kinds, offset, orderNo, pageSize, payableAll, period, setError, storeId, tab]);
 
   useEffect(() => {
     void load();
@@ -502,6 +524,22 @@ export function AdminStoreCommissionLedgerPage() {
   const canDecide = data?.viewer?.can_decide_adjustment !== false;
   const decideLockedTitle = canDecide ? undefined : t("admin_r4c_ledger_decide_super_only");
 
+  const ko = lang === "ko";
+  const listFiltered = ledgerState !== "all" || reviewFilter !== "review_required" || Boolean(orderNo) || period.period !== "all";
+  const resetListFilters = () => setUrl({ state: "", review: "", order_no: "", period: "", from: "", to: "", kinds: "", payable: "" });
+  const pager = (total: number) =>
+    total > 0 ? (
+      <AdminPagination
+        ko={ko}
+        page={page}
+        size={pageSize}
+        total={total}
+        disabled={loading}
+        onPageChange={(p) => setUrl({ page: p > 1 ? String(p) : "" })}
+        onSizeChange={(size) => setUrl({ size: size === DEFAULT_PAGE_SIZE ? "" : String(size) })}
+      />
+    ) : null;
+
   const decideButton = (r: StoreCommissionLedgerRow) =>
     r.state === "review_required" ? (
       <AdminActionButton variant="ghost" size="sm" disabled={busy || !canDecide} title={decideLockedTitle} onClick={() => openDecision(r)}>
@@ -616,10 +654,13 @@ export function AdminStoreCommissionLedgerPage() {
         fromDay={period.fromDay}
         toDay={period.toDay}
         lang={lang}
-        onChange={(p) => {
-          setOffset(0);
-          setPeriod(p);
-        }}
+        onChange={(p) =>
+          setUrl({
+            period: p.period,
+            from: p.period === "custom" ? p.fromDay : "",
+            to: p.period === "custom" ? p.toDay : "",
+          })
+        }
       />
 
       {error ? <AdminErrorState ko={lang === "ko"} code={error.code} httpStatus={error.status} onRetry={() => void load()} /> : null}
@@ -651,50 +692,51 @@ export function AdminStoreCommissionLedgerPage() {
               lang={lang}
             />
           ) : null}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex justify-end">
+            <AdminActionButton variant="secondary" size="sm" onClick={() => void load()} disabled={loading} data-ledger-refresh="1">
+              {adminCta("refresh", ko)}
+            </AdminActionButton>
+          </div>
+          <AdminFilterBar
+            ko={ko}
+            draft={{ q: orderNoDraft, from: "", to: "" }}
+            onDraftChange={(d) => {
+              if (d.q !== undefined) setOrderNoDraft(d.q);
+            }}
+            onSubmit={() => setUrl({ order_no: orderNoDraft.trim() })}
+            onReset={() => {
+              setOrderNoDraft("");
+              resetListFilters();
+            }}
+            pending={loading}
+            showPeriod={false}
+            searchPlaceholder={pickCommissionCopy(lang, "주문번호", "Order no.")}
+          >
             {tab === "ledger" ? (
-              <CommissionFilterChips
-                value={ledgerState}
-                lang={lang}
-                onChange={(s) => {
-                  setOffset(0);
-                  setLedgerState(s);
-                }}
-              />
+              <CommissionFilterChips value={ledgerState} lang={lang} onChange={(st) => setUrl({ state: st, tab: "ledger" })} />
             ) : (
               <CommissionReviewFilterChips
                 value={reviewFilter}
                 lang={lang}
                 reviewCount={headline.summary?.reviewCount}
-                onChange={(f) => {
-                  setOffset(0);
-                  setReviewFilter(f);
-                }}
+                onChange={(f) => setUrl({ review: f === "review_required" ? "" : f, ...(searchParams.get("tab") === "decided" ? { tab: "review" } : {}) })}
               />
             )}
-            <input
-              className="min-w-[10rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-helper"
-              value={orderNo}
-              onChange={(e) => {
-                setOffset(0);
-                setOrderNo(e.target.value);
-              }}
-              placeholder={pickCommissionCopy(lang, "주문번호 검색", "Search order no.")}
-              aria-label="order no"
-            />
-            <AdminActionButton variant="secondary" size="sm" onClick={() => void load()} disabled={loading} data-ledger-refresh="1">
-              {adminCta("refresh", lang === "ko")}
-            </AdminActionButton>
-          </div>
-          <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={totalRows} loading={loading} onChange={setOffset} lang={lang} />
+          </AdminFilterBar>
           {loading && rows.length === 0 ? (
-            <p className="py-6 text-center sam-text-body text-sam-muted" data-state="loading">{pickCommissionCopy(lang, "불러오는 중…", "Loading…")}</p>
+            <AdminLoadingState ko={ko} />
           ) : rows.length === 0 ? (
-            <p className="py-6 text-center sam-text-body text-sam-muted" data-state="empty">
-              {tab === "review"
-                ? pickCommissionCopy(lang, "해당 조건의 취소·환불 건이 없습니다.", "No cancelled/refunded orders for this filter.")
-                : pickCommissionCopy(lang, "해당하는 수수료 내역이 없습니다.", "No commission rows.")}
-            </p>
+            error ? null : (
+              <AdminEmptyState
+                ko={ko}
+                message={
+                  tab === "review"
+                    ? pickCommissionCopy(lang, "해당 조건의 취소·환불 건이 없습니다.", "No cancelled/refunded orders for this filter.")
+                    : pickCommissionCopy(lang, "해당하는 수수료 내역이 없습니다.", "No commission rows.")
+                }
+                onReset={listFiltered ? resetListFilters : undefined}
+              />
+            )
           ) : (
             <CommissionLedgerTable
               rows={rows}
@@ -706,7 +748,7 @@ export function AdminStoreCommissionLedgerPage() {
               anomalyObligationIds={anomalyIds}
             />
           )}
-          <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={totalRows} loading={loading} onChange={setOffset} lang={lang} />
+          {pager(totalRows)}
         </section>
       ) : null}
 
@@ -807,13 +849,10 @@ export function AdminStoreCommissionLedgerPage() {
             <CashLedgerKindChips
               value={kinds}
               lang={lang}
-              onChange={(k) => {
-                setOffset(0);
-                setKinds(k);
-              }}
+              onChange={(k) => setUrl({ kinds: k.join(",") })}
             />
-            {cash ? <CashLedgerView page={cash} lang={lang} showStore={!storeId} /> : null}
-            {cash ? <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={cash.totalRows} loading={loading} onChange={setOffset} lang={lang} /> : null}
+            {cash ? <CashLedgerView page={cash} lang={lang} showStore={!storeId} /> : loading ? <AdminLoadingState ko={ko} /> : null}
+            {cash ? pager(cash.totalRows) : null}
           </section>
         </>
       ) : null}
@@ -873,16 +912,14 @@ export function AdminStoreCommissionLedgerPage() {
             </p>
             {exceptionsPage ? (
               exceptionsPage.rows.length === 0 ? (
-                <p className="py-4 text-center sam-text-body text-sam-muted" data-state="empty">{pickCommissionCopy(lang, "예외 없음", "No exceptions")}</p>
+                <AdminEmptyState ko={ko} message={pickCommissionCopy(lang, "예외 없음", "No exceptions")} />
               ) : (
                 <PlatformPayableTable page={exceptionsPage} lang={lang} showStore={!storeId} />
               )
-            ) : (
-              <p className="py-4 text-center sam-text-body text-sam-muted">{pickCommissionCopy(lang, "불러오는 중…", "Loading…")}</p>
+            ) : error ? null : (
+              <AdminLoadingState ko={ko} />
             )}
-            {exceptionsPage ? (
-              <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={exceptionsPage.totalRows} loading={loading} onChange={setOffset} lang={lang} />
-            ) : null}
+            {exceptionsPage ? pager(exceptionsPage.totalRows) : null}
           </section>
         </>
       ) : null}
@@ -891,27 +928,15 @@ export function AdminStoreCommissionLedgerPage() {
         <section className="min-w-0 space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4">
           {data?.payableSummary ? <PlatformPayableSummaryGrid summary={data.payableSummary} lang={lang} /> : null}
           <div className="flex flex-wrap gap-1.5">
-            <AdminChipButton
-              selected={!payableAll}
-              onClick={() => {
-                setOffset(0);
-                setPayableAll(false);
-              }}
-            >
+            <AdminChipButton selected={!payableAll} onClick={() => setUrl({ payable: "" })}>
               {pickCommissionCopy(lang, "지급 의무만", "Payable only")}
             </AdminChipButton>
-            <AdminChipButton
-              selected={payableAll}
-              onClick={() => {
-                setOffset(0);
-                setPayableAll(true);
-              }}
-            >
+            <AdminChipButton selected={payableAll} onClick={() => setUrl({ payable: "all" })}>
               {pickCommissionCopy(lang, "완료 주문 전체", "All completed orders")}
             </AdminChipButton>
           </div>
-          {payable ? <PlatformPayableTable page={payable} lang={lang} showStore={!storeId} /> : null}
-          {payable ? <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={payable.totalRows} loading={loading} onChange={setOffset} lang={lang} /> : null}
+          {payable ? <PlatformPayableTable page={payable} lang={lang} showStore={!storeId} /> : error ? null : <AdminLoadingState ko={ko} />}
+          {payable ? pager(payable.totalRows) : null}
         </section>
       ) : null}
 
@@ -923,20 +948,30 @@ export function AdminStoreCommissionLedgerPage() {
           orderHref={`/admin/stores/orders/${encodeURIComponent(selected.orderId)}`}
           onClose={() => setSelected(null)}
           footer={
-            selected.state === "review_required" ? (
-              <AdminActionButton
-                variant="primary" className="w-full"
-                disabled={busy || !canDecide}
-                title={decideLockedTitle}
-                onClick={() => openDecision(selected)}
-              >
-                {pickCommissionCopy(lang, "수수료 결정 (승인 · 반려)", "Decide (approve · reject)")}
-              </AdminActionButton>
-            ) : (
-              <p className="sam-text-xxs text-sam-muted">
-                {pickCommissionCopy(lang, "정상 처리된 주문입니다. 수동 정산·지급 조치가 없습니다.", "Processed automatically — no manual settlement action.")}
-              </p>
-            )
+            // 하단 표준 배치 — 왼쪽 [닫기] · 오른쪽 [주 동작] 1개
+            <div className="space-y-2">
+              {selected.state === "review_required" ? null : (
+                <p className="sam-text-xxs text-sam-muted">
+                  {pickCommissionCopy(lang, "정상 처리된 주문입니다. 수동 정산·지급 조치가 없습니다.", "Processed automatically — no manual settlement action.")}
+                </p>
+              )}
+              <div className="flex items-center gap-2" data-commission-detail-footer="1">
+                <AdminActionButton variant="secondary" disabled={busy} onClick={() => setSelected(null)}>
+                  {adminCta("close", ko)}
+                </AdminActionButton>
+                {selected.state === "review_required" ? (
+                  <AdminActionButton
+                    variant="primary"
+                    className="ml-auto"
+                    disabled={busy || !canDecide}
+                    title={decideLockedTitle}
+                    onClick={() => openDecision(selected)}
+                  >
+                    {pickCommissionCopy(lang, "수수료 결정 (승인 · 반려)", "Decide (approve · reject)")}
+                  </AdminActionButton>
+                ) : null}
+              </div>
+            </div>
           }
         />
       ) : null}

@@ -8,24 +8,25 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
-import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import {
   AdminEmptyState,
   AdminErrorState,
   AdminLoadingState,
   AdminResultBanner,
 } from "@/components/admin/ui/AdminStateViews";
+import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
+import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
+import { ADMIN_LIST_QUERY_DEFAULT_SIZE, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
-import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useAdminPointExecutionData } from "@/hooks/useAdminPointExecutionData";
 import { BOARD_OPTIONS } from "@/lib/point-policies/point-policy-utils";
-import type { PointReclaimPolicy } from "@/lib/types/point-execution";
+import type { PointReclaimPolicy, PointRewardLog } from "@/lib/types/point-execution";
 import {
   AdminPointExecutionFilterBar,
   POINT_EXECUTION_FILTER_EXTRAS,
@@ -68,9 +69,19 @@ export function AdminPointExecutionPage() {
     null
   );
 
-  const { executions, total, reclaimPolicies, rewardLogs, loading, error } = useAdminPointExecutionData(
+  const { executions, total, reclaimPolicies, loading, loaded, error } = useAdminPointExecutionData(
     `${lq.refreshKey}:${refresh}`,
     lq.apiQueryString
+  );
+  /** 보상 로그 탭 — 서버 페이지 (`view=logs`, 예전 200건 고정 상한 제거). 필터가 없어 쪽·크기만 화면 상태로 둔다. */
+  const [logPage, setLogPage] = useState(1);
+  const [logSize, setLogSize] = useState<AdminListPageSize>(ADMIN_LIST_QUERY_DEFAULT_SIZE);
+  const logs = useMemberOpsPagedFetch<PointRewardLog>(
+    activeTab === "logs"
+      ? `/api/admin/point-executions?view=logs&limit=${logSize}&offset=${(logPage - 1) * logSize}`
+      : null,
+    "rewardLogs",
+    refresh
   );
 
   const toggleReclaim = async (p: PointReclaimPolicy) => {
@@ -166,7 +177,6 @@ export function AdminPointExecutionPage() {
         ? `${userNickname} (${userId}) 에게 최대 ${previewPoint}P 가 실제로 지급됩니다.`
         : `Up to ${previewPoint}P will actually be credited to ${userNickname} (${userId}).`,
       confirmLabel: adminCta("payout", ko),
-      destructive: true,
       reasonPlaceholder: ko ? "지급 사유" : "Reason",
     });
     if (!c.ok || !c.reason) return;
@@ -295,33 +305,24 @@ export function AdminPointExecutionPage() {
             <div className="mb-3">
               <AdminPointExecutionFilterBar lq={lq} pending={loading} />
             </div>
-            <p className="mb-2 sam-text-body-secondary tabular-nums text-sam-muted" data-admin-list-total="1">
-              {ko ? `총 ${formatAdminNumber(total)}건` : `${formatAdminNumber(total)} total`}
-            </p>
-            {loading ? (
-              <AdminLoadingState ko={ko} />
-            ) : error ? (
-              <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={lq.refresh} />
-            ) : executions.length === 0 ? (
-              <AdminEmptyState
-                ko={ko}
-                message={lq.isFiltered ? undefined : t("admin_points_exec_history_empty")}
-                onReset={lq.isFiltered ? lq.reset : undefined}
-              />
-            ) : (
+            <MemberOpsListBody
+              ko={ko}
+              loading={loading}
+              loaded={loaded}
+              error={error}
+              onRetry={lq.refresh}
+              rowCount={executions.length}
+              total={total}
+              page={lq.query.page}
+              size={lq.query.size}
+              onPageChange={lq.setPage}
+              onSizeChange={lq.setSize}
+              isFiltered={lq.isFiltered}
+              onReset={lq.reset}
+              emptyMessage={t("admin_points_exec_history_empty")}
+            >
               <AdminPointExecutionTable executions={executions} />
-            )}
-            {!error && total > 0 ? (
-              <AdminPagination
-                ko={ko}
-                page={lq.query.page}
-                size={lq.query.size}
-                total={total}
-                onPageChange={lq.setPage}
-                onSizeChange={lq.setSize}
-                disabled={loading}
-              />
-            ) : null}
+            </MemberOpsListBody>
           </AdminCard>
         </>
       )}
@@ -333,10 +334,11 @@ export function AdminPointExecutionPage() {
               <AdminResultBanner ko={ko} result={reclaimResult} onClose={() => setReclaimResult(null)} />
             </div>
           ) : null}
-          {loading ? (
-            <AdminLoadingState ko={ko} />
-          ) : error ? (
+          {error ? (
             <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={lq.refresh} />
+          ) : null}
+          {!loaded ? (
+            error ? null : <AdminLoadingState ko={ko} />
           ) : reclaimPolicies.length === 0 ? (
             <AdminEmptyState ko={ko} message={t("admin_points_exec_reclaim_empty")} />
           ) : (
@@ -351,13 +353,25 @@ export function AdminPointExecutionPage() {
 
       {activeTab === "logs" && (
         <AdminCard titleKey="admin_points_exec_card_logs">
-          {loading ? (
-            <AdminLoadingState ko={ko} />
-          ) : error ? (
-            <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={lq.refresh} />
-          ) : (
-            <PointRewardLogList logs={rewardLogs} />
-          )}
+          <MemberOpsListBody
+            ko={ko}
+            loading={logs.loading}
+            loaded={logs.loaded}
+            error={logs.error}
+            onRetry={logs.reload}
+            rowCount={logs.rows.length}
+            total={logs.total}
+            page={logPage}
+            size={logSize}
+            onPageChange={setLogPage}
+            onSizeChange={(n) => {
+              setLogSize(n);
+              setLogPage(1);
+            }}
+            emptyMessage={t("admin_points_exec_logs_empty")}
+          >
+            <PointRewardLogList logs={logs.rows} />
+          </MemberOpsListBody>
         </AdminCard>
       )}
     </div>

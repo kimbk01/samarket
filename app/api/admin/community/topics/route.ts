@@ -2,7 +2,7 @@ import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-adm
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { listAllCommunityTopicsForAdmin } from "@/lib/community-topics/server";
+import { loadAllCommunityTopicsForAdmin } from "@/lib/community-topics/server";
 import {
   adminTopicCreateSortMetadata,
   assertAdminTopicSlugNotSortSlot,
@@ -19,7 +19,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const gate = await requireCommunityAdmin("content");
   if (!gate.ok) return gate.response;
-  const topics = await listAllCommunityTopicsForAdmin();
+  // 조회 실패를 빈 목록(ok)으로 숨기지 않는다 — 화면이 오류 상태를 보인다
+  const { rows: topics, error } = await loadAllCommunityTopicsForAdmin();
+  if (error) return NextResponse.json({ ok: false, error }, { status: 500 });
   return NextResponse.json({ ok: true, topics });
 }
 

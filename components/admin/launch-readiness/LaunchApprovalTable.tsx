@@ -4,12 +4,15 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getLaunchApprovals } from "@/lib/launch-readiness/launch-readiness-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { getPhaseLabel } from "@/lib/launch-readiness/launch-readiness-utils";
 import type { LaunchReadinessPhase } from "@/lib/types/launch-readiness";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 const ROLE_LABELS: Record<string, string> = {
   product_owner: "PO",
@@ -24,10 +27,14 @@ const DECISION_LABELS: Record<string, string> = {
   rejected: "반려",
 };
 
+const PHASE_EXTRAS = ["phase"] as const;
+
 export function LaunchApprovalTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [phase, setPhase] = useState<LaunchReadinessPhase | "">("");
+  /** 단계 필터는 주소(`?phase=`)에 보존 (R7). */
+  const lq = useAdminListQuery({ extras: PHASE_EXTRAS });
+  const phase = lq.query.extras.phase as LaunchReadinessPhase | "";
   const approvals = useMemo(
     () => getLaunchApprovals(phase ? { phase } : undefined),
     [phase]
@@ -35,21 +42,29 @@ export function LaunchApprovalTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_readiness_k0e685c7c")}</span>
-        <select
-          value={phase}
-          onChange={(e) =>
-            setPhase((e.target.value || "") as LaunchReadinessPhase | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
-          <option value="">{t("common_all")}</option>
-          <option value="pre_launch">Pre-Launch</option>
-          <option value="launch_day">Launch Day</option>
-          <option value="post_launch">Post-Launch</option>
-        </select>
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect
+          ko={ko}
+          label={t("admin_launch_readiness_k0e685c7c")}
+          name="phase"
+          value={lq.query.extras.phase}
+          onChange={(v) => lq.setExtra("phase", v)}
+          allLabel={t("common_all")}
+          options={[
+            { value: "pre_launch", label: "Pre-Launch" },
+            { value: "launch_day", label: "Launch Day" },
+            { value: "post_launch", label: "Post-Launch" },
+          ]}
+        />
+      </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">
         승인자(approver) placeholder: approverAdminId / approverAdminNickname
@@ -59,8 +74,8 @@ export function LaunchApprovalTable() {
       {approvals.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={phase ? undefined : "해당 단계 승인 내역이 없습니다."}
-          onReset={phase ? () => { setPhase(""); } : undefined}
+          message={lq.isFiltered ? undefined : "해당 단계 승인 내역이 없습니다."}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable

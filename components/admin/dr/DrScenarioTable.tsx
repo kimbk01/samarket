@@ -3,18 +3,25 @@
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getDrScenarios } from "@/lib/dr/dr-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { getScenarioTypeLabel, getDrSeverityLabel } from "@/lib/dr/dr-utils";
 import type { DrScenarioType, DrSeverity } from "@/lib/types/dr";
 import Link from "next/link";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const DR_EXTRAS = ["type", "severity"] as const;
 
 export function DrScenarioTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [typeFilter, setTypeFilter] = useState<DrScenarioType | "">("");
-  const [severityFilter, setSeverityFilter] = useState<DrSeverity | "">("");
+  /** 유형·심각도 필터는 주소(`?type=`·`?severity=`)에 보존 (R7). */
+  const lq = useAdminListQuery({ extras: DR_EXTRAS });
+  const typeFilter = lq.query.extras.type as DrScenarioType | "";
+  const severityFilter = lq.query.extras.severity as DrSeverity | "";
 
   const scenarios = useMemo(
     () =>
@@ -27,44 +34,52 @@ export function DrScenarioTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_dr_k74dab07c")}</span>
-        <select
-          value={typeFilter}
-          onChange={(e) =>
-            setTypeFilter((e.target.value || "") as DrScenarioType | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
-          <option value="">{t("common_all")}</option>
-          <option value="db_down">{t("admin_db_failure")}</option>
-          <option value="api_failure">{t("admin_api_failure")}</option>
-          <option value="auth_failure">{t("admin_dr_k4804459c")}</option>
-          <option value="storage_failure">{t("admin_dr_k02e6bf26")}</option>
-          <option value="chat_failure">{t("admin_dr_chat")}</option>
-          <option value="payment_failure">{t("admin_dr_k8440d176")}</option>
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_severity")}</span>
-        <select
-          value={severityFilter}
-          onChange={(e) =>
-            setSeverityFilter((e.target.value || "") as DrSeverity | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
-          <option value="">{t("common_all")}</option>
-          <option value="low">{t("admin_qa_low")}</option>
-          <option value="medium">{t("admin_qa_medium")}</option>
-          <option value="high">{t("admin_qa_high")}</option>
-          <option value="critical">{t("admin_qa_critical")}</option>
-        </select>
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect
+          ko={ko}
+          label={t("admin_dr_k74dab07c")}
+          name="type"
+          value={lq.query.extras.type}
+          onChange={(v) => lq.setExtra("type", v)}
+          allLabel={t("common_all")}
+          options={[
+            { value: "db_down", label: t("admin_db_failure") },
+            { value: "api_failure", label: t("admin_api_failure") },
+            { value: "auth_failure", label: t("admin_dr_k4804459c") },
+            { value: "storage_failure", label: t("admin_dr_k02e6bf26") },
+            { value: "chat_failure", label: t("admin_dr_chat") },
+            { value: "payment_failure", label: t("admin_dr_k8440d176") },
+          ]}
+        />
+        <AdminFilterSelect
+          ko={ko}
+          label={t("admin_qa_severity")}
+          name="severity"
+          value={lq.query.extras.severity}
+          onChange={(v) => lq.setExtra("severity", v)}
+          allLabel={t("common_all")}
+          options={[
+            { value: "low", label: t("admin_qa_low") },
+            { value: "medium", label: t("admin_qa_medium") },
+            { value: "high", label: t("admin_qa_high") },
+            { value: "critical", label: t("admin_qa_critical") },
+          ]}
+        />
+      </AdminFilterBar>
 
       {scenarios.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={typeFilter || severityFilter ? undefined : "해당 조건의 시나리오가 없습니다."}
-          onReset={typeFilter || severityFilter ? () => { setTypeFilter(""); setSeverityFilter(""); } : undefined}
+          message={lq.isFiltered ? undefined : "해당 조건의 시나리오가 없습니다."}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable headers={["제목", "유형", "심각도", "설명", ""]}>

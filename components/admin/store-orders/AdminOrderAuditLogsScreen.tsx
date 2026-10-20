@@ -6,12 +6,15 @@
  * and Back returns here with the same filters. QA records (D8) appear only under their own category.
  */
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminOrderAuditTable } from "@/components/admin/store-orders/AdminOrderAuditTable";
@@ -20,11 +23,12 @@ import {
   useAdminOrderDetailParam,
   withoutAdminOrderModalParams,
 } from "@/components/admin/store-orders/AdminOrderDetailModal";
-import { OPS_INPUT, OpsPager, OpsPeriodFilter } from "@/components/admin/store-orders/AdminOrderOpsParts";
+import { OpsPeriodFilter } from "@/components/admin/store-orders/AdminOrderOpsParts";
 import { ADMIN_AUDIT_CATEGORY_LABEL } from "@/lib/admin/store-orders/admin-store-order-audit-labels";
 import { ADMIN_STORE_ORDER_STATUS_LABEL_KEYS } from "@/lib/admin/store-orders/admin-store-order-status-labels";
 import {
   ADMIN_AUDIT_FILTER_CATEGORIES,
+  ADMIN_ORDER_AUDIT_PAGE_SIZE,
   adminOrderAuditQueryToParams,
   parseAdminOrderAuditQuery,
   type AdminAuditFilterCategory,
@@ -70,9 +74,12 @@ export function AdminOrderAuditLogsScreen() {
         const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; total?: number; rows?: AdminOrderAuditPageRow[] } | null;
         if (!alive) return;
         if (!res.ok || !json?.ok) {
-          setError({ code: res.status === 403 ? "forbidden" : "load_failed", status: res.status });
-          setRows([]);
-          setTotal(0);
+          // 실패해도 직전 목록은 지우지 않는다 (§8-5).
+          setError({ code: res.status === 403 ? "forbidden" : json?.error || "load_failed", status: res.status });
+          if (res.status === 403) {
+            setRows([]);
+            setTotal(0);
+          }
           return;
         }
         setRows(json.rows ?? []);
@@ -81,8 +88,6 @@ export function AdminOrderAuditLogsScreen() {
       .catch(() => {
         if (!alive) return;
         setError({ code: "network_error" });
-        setRows([]);
-        setTotal(0);
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -101,10 +106,12 @@ export function AdminOrderAuditLogsScreen() {
     [applied, pathname, router]
   );
 
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    go({ q: draftQ.trim() });
+  const onSubmit = () => go({ q: draftQ.trim() });
+  const onReset = () => {
+    setDraftQ("");
+    router.push(pathname, { scroll: false });
   };
+  const isFiltered = applied.category !== "all" || Boolean(applied.q) || applied.period !== "all";
 
   const catLabel = (c: AdminAuditFilterCategory) =>
     c === "all" ? (ko ? "전체 (QA 제외)" : "All (no QA)") : ko ? ADMIN_AUDIT_CATEGORY_LABEL[c].ko : ADMIN_AUDIT_CATEGORY_LABEL[c].en;
@@ -120,6 +127,11 @@ export function AdminOrderAuditLogsScreen() {
             : "Records left on store orders, by record time (Manila). Records are never edited or deleted. Tap an order number to open its detail."
         }
       />
+      <div className="flex justify-end">
+        <AdminActionButton variant="secondary" disabled={loading} onClick={() => setReload((n) => n + 1)} data-cta="refresh">
+          {adminCta("refresh", ko)}
+        </AdminActionButton>
+      </div>
 
       <AdminTabs
         tabs={ADMIN_AUDIT_FILTER_CATEGORIES.map((c) => ({ id: c, label: catLabel(c) }))}
@@ -129,31 +141,18 @@ export function AdminOrderAuditLogsScreen() {
         onChange={(c) => go({ category: c as (typeof ADMIN_AUDIT_FILTER_CATEGORIES)[number] })}
       />
 
-      <form onSubmit={onSubmit} className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            className={`${OPS_INPUT} max-w-xs`}
-            value={draftQ}
-            onChange={(e) => setDraftQ(e.target.value)}
-            placeholder={ko ? "주문번호" : "Order number"}
-            aria-label={ko ? "주문번호" : "Order number"}
-          />
-          <AdminActionButton type="submit" variant="primary">
-            {adminCta("search", ko)}
-          </AdminActionButton>
-          <AdminActionButton
-            variant="secondary"
-            onClick={() => {
-              setDraftQ("");
-              router.push(pathname, { scroll: false });
-            }}
-          >
-            {adminCta("reset", ko)}
-          </AdminActionButton>
-          <AdminActionButton variant="secondary" onClick={() => setReload((n) => n + 1)}>
-            {adminCta("refresh", ko)}
-          </AdminActionButton>
-        </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={{ q: draftQ, from: "", to: "" }}
+        onDraftChange={(p) => {
+          if (p.q !== undefined) setDraftQ(p.q);
+        }}
+        onSubmit={onSubmit}
+        onReset={onReset}
+        pending={loading}
+        showPeriod={false}
+        searchPlaceholder={ko ? "주문번호" : "Order number"}
+      >
         <OpsPeriodFilter
           period={applied.period}
           fromDay={applied.fromDay ?? ""}
@@ -161,7 +160,7 @@ export function AdminOrderAuditLogsScreen() {
           ko={ko}
           onChange={(n) => go({ period: n.period, fromDay: n.fromDay || null, toDay: n.toDay || null })}
         />
-      </form>
+      </AdminFilterBar>
 
       {error ? (
         <AdminErrorState ko={ko} code={error.code} httpStatus={error.status} onRetry={() => setReload((n) => n + 1)} />
@@ -171,13 +170,21 @@ export function AdminOrderAuditLogsScreen() {
         {loading && rows.length === 0 ? (
           <AdminLoadingState ko={ko} />
         ) : rows.length === 0 && !error ? (
-          <AdminEmptyState ko={ko} message={ko ? "조건에 맞는 기록이 없습니다." : "No records match these filters."} />
+          <AdminEmptyState ko={ko} onReset={isFiltered ? onReset : undefined} />
         ) : rows.length === 0 ? null : (
           <AdminOrderAuditTable rows={rows} statusLabel={statusLabel} onOpenOrder={(id) => modal.openOrder(id, "history")} />
         )}
-        <div className="mt-3">
-          <OpsPager page={applied.page} pageSize={applied.pageSize} total={total} busy={loading} ko={ko} onGo={(p) => go({ page: p })} />
-        </div>
+        {rows.length > 0 ? (
+          <AdminPagination
+            ko={ko}
+            page={applied.page}
+            size={normalizeAdminListPageSize(applied.pageSize, ADMIN_ORDER_AUDIT_PAGE_SIZE)}
+            total={total}
+            disabled={loading}
+            onPageChange={(p) => go({ page: p })}
+            onSizeChange={(size) => go({ pageSize: size })}
+          />
+        ) : null}
       </section>
 
       <p className="sam-text-xxs text-sam-meta">

@@ -1,14 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+/**
+ * 설정 변경 이력 — 서버 페이지 (`GET /api/admin/app-settings?part=change-logs`, R7).
+ * 쪽·크기(20/50/100)는 주소에 보존, 「총 N건」 표시. 자체 이전/다음(30건 고정) 대체.
+ */
+
 import type { SettingChangeLog } from "@/lib/types/admin-settings";
-import { getSettingChangeLogs } from "@/lib/admin-settings/app-settings-client";
 import type { AppSettings } from "@/lib/types/admin-settings";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
-const PAGE_SIZE = 30;
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminServerListFrame } from "@/components/admin/sync-list/AdminServerListFrame";
+import { useAdminServerPage } from "@/components/admin/sync-list/useAdminServerPage";
 
 const KEY_LABEL_KEYS: Partial<Record<keyof AppSettings, MessageKey>> = {
   siteName: "admin_settings_key_site_name",
@@ -34,54 +38,41 @@ const KEY_LABEL_KEYS: Partial<Record<keyof AppSettings, MessageKey>> = {
 };
 
 interface SettingChangeLogListProps {
+  /** 저장·초기화 후 다시 불러오기 신호 */
   refreshKey?: number;
 }
 
 export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListProps) {
-  const { t } = useI18n();
-  const [page, setPage] = useState(1);
-
-  const result = useMemo(
-    () => getSettingChangeLogs({ page, pageSize: PAGE_SIZE }),
-    [page, refreshKey]
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const lq = useAdminListQuery();
+  const page = useAdminServerPage<SettingChangeLog>(
+    `/api/admin/app-settings?part=change-logs&${lq.apiQueryString}`,
+    `${lq.refreshKey}#${refreshKey}`
   );
-
-  const { logs, total, totalPages, page: currentPage } = result as {
-    logs: SettingChangeLog[];
-    total: number;
-    totalPages: number;
-    page: number;
-  };
-
-  const from = (currentPage - 1) * PAGE_SIZE + 1;
-  const to = Math.min(currentPage * PAGE_SIZE, total);
+  const offset = (lq.query.page - 1) * lq.query.size;
 
   const getKeyLabel = (key: string): string => {
     const labelKey = KEY_LABEL_KEYS[key as keyof AppSettings];
     return labelKey ? t(labelKey) : key;
   };
 
-  if (logs.length === 0 && total === 0) {
-    return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-app/50 py-10 text-center">
-        <p className="sam-text-body text-sam-muted">{t("admin_settings_changelog_empty")}</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between border-b border-sam-border-soft pb-3">
         <h3 className="sam-text-body font-semibold text-sam-fg">{t("admin_settings_changelog_heading")}</h3>
-        <p className="sam-text-body-secondary text-sam-muted">
-          {t("admin_settings_changelog_pagination", {
-            total,
-            page: currentPage,
-            totalPages,
-          })}
-        </p>
       </div>
-
+      <AdminServerListFrame
+        ko={ko}
+        state={page}
+        page={lq.query.page}
+        size={lq.query.size}
+        onPageChange={lq.setPage}
+        onSizeChange={lq.setSize}
+        onRetry={lq.refresh}
+        emptyMessage={t("admin_settings_changelog_empty")}
+      >
+        {(logs) => (
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[640px] text-left sam-text-body-secondary">
           <thead>
@@ -112,7 +103,7 @@ export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListPro
                 key={log.id}
                 className="border-b border-sam-border-soft last:border-0 hover:bg-sam-app/50"
               >
-                <td className="px-3 py-2.5 text-sam-muted">{from + i}</td>
+                <td className="px-3 py-2.5 text-sam-muted">{offset + i + 1}</td>
                 <td className="px-3 py-2.5 font-medium text-sam-fg">{getKeyLabel(log.key)}</td>
                 <td className="max-w-[140px] truncate px-3 py-2.5 text-sam-muted" title={log.oldValue}>
                   {log.oldValue}
@@ -129,35 +120,8 @@ export function SettingChangeLogList({ refreshKey = 0 }: SettingChangeLogListPro
           </tbody>
         </table>
       </div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-sam-border-soft pt-3">
-          <p className="sam-text-body-secondary text-sam-muted">
-            {t("admin_settings_changelog_range", { from, to, total })}
-          </p>
-          <div className="flex items-center gap-1">
-            <AdminActionButton
-              variant="secondary"
-              size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage <= 1}
-            >
-              {t("admin_settings_changelog_prev")}
-            </AdminActionButton>
-            <span className="px-2 sam-text-body-secondary text-sam-muted">
-              {currentPage} / {totalPages}
-            </span>
-            <AdminActionButton
-              variant="secondary"
-              size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage >= totalPages}
-            >
-              {t("admin_settings_changelog_next")}
-            </AdminActionButton>
-          </div>
-        </div>
-      )}
+        )}
+      </AdminServerListFrame>
     </div>
   );
 }

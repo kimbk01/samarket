@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import {
+  memberOpsListRange,
+  parseMemberOpsListPageIfRequested,
+} from "@/lib/admin/member-ops-list/member-ops-list-page";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   COIN_WITHDRAWAL_REQUESTS_TABLE,
@@ -11,17 +15,53 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/admin/coin-withdrawals */
+const COIN_WITHDRAWAL_LIST_SELECT =
+  "id, store_id, owner_user_id, amount, status, destination_type, account_number, account_name, bank_name, source_kind, created_at, paid_at, paid_by, rejected_by, rejected_at, approved_by";
+
+/**
+ * GET /api/admin/coin-withdrawals
+ * - `limit`/`offset` 이 있으면 (R7 목록 표준): limit 20/50/100 서버 페이지 + `total`(count exact).
+ *   `focusId` 가 있으면 그 요청 행을 `focus` 로 함께 돌려준다 (지원 딥링크 — 다른 쪽에 있어도 맨 위에 표시).
+ * - 없으면 기존 응답 그대로(최근 100건) — 다른 호출자 `AdminFinanceOpsQueue`(?status=REQUESTED) 호환.
+ */
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("business");
   if (!gate.ok) return gate.response;
 
-  const status = String(req.nextUrl.searchParams.get("status") ?? "REQUESTED").trim();
+  const sp = req.nextUrl.searchParams;
+  const status = String(sp.get("status") ?? "REQUESTED").trim();
+  const page = parseMemberOpsListPageIfRequested(sp);
+  if (page) {
+    const [from, to] = memberOpsListRange(page);
+    let q = gate.sb
+      .from(COIN_WITHDRAWAL_REQUESTS_TABLE)
+      .select(COIN_WITHDRAWAL_LIST_SELECT, { count: "exact" })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+    if (status && status !== "all") q = q.eq("status", status);
+    const focusId = String(sp.get("focusId") ?? "").trim();
+    const [listRes, focusRes] = await Promise.all([
+      q,
+      focusId
+        ? gate.sb.from(COIN_WITHDRAWAL_REQUESTS_TABLE).select(COIN_WITHDRAWAL_LIST_SELECT).eq("id", focusId).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    if (listRes.error) return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+    const requests = listRes.data ?? [];
+    return NextResponse.json({
+      ok: true,
+      requests,
+      total: listRes.count ?? requests.length,
+      limit: page.limit,
+      offset: page.offset,
+      focus: focusRes.error ? null : (focusRes.data ?? null),
+    });
+  }
+
   let q = gate.sb
     .from(COIN_WITHDRAWAL_REQUESTS_TABLE)
-    .select(
-      "id, store_id, owner_user_id, amount, status, destination_type, account_number, account_name, bank_name, source_kind, created_at, paid_at, paid_by, rejected_by, rejected_at, approved_by"
-    )
+    .select(COIN_WITHDRAWAL_LIST_SELECT)
     .order("created_at", { ascending: false })
     .limit(100);
   if (status && status !== "all") q = q.eq("status", status);

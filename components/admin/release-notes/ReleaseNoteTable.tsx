@@ -1,18 +1,23 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getReleaseNotes } from "@/lib/dev-sprints/dev-sprints-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { RELEASE_NOTE_STATUS_KEYS } from "@/components/admin/i18n/admin-release-label-keys";
 import type { ReleaseNoteStatus } from "@/lib/types/dev-sprints";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 export function ReleaseNoteTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [statusFilter, setStatusFilter] = useState<ReleaseNoteStatus | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery();
+  const statusFilter = lq.query.status as ReleaseNoteStatus | "";
   const notes = useMemo(
     () => getReleaseNotes(statusFilter ? { status: statusFilter } : undefined),
     [statusFilter]
@@ -20,22 +25,25 @@ export function ReleaseNoteTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_status")}</span>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter((e.target.value || "") as ReleaseNoteStatus | "")}
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_rel_filter_status")} name="status" value={lq.query.status} onChange={lq.setStatus}>
           <option value="">{t("admin_rel_filter_all")}</option>
           <option value="draft">{t("admin_rel_status_draft")}</option>
           <option value="published">{t("admin_rel_status_published")}</option>
           <option value="archived">{t("admin_rel_status_archived")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {notes.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_rel_notes_empty")} />
+        <AdminEmptyState ko={ko} message={t("admin_rel_notes_empty")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={[

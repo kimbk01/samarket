@@ -32,13 +32,18 @@ export type AdminMeetingReportFilter = {
   reporterIds: string[] | null;
 };
 
-/** 모임 신고 목록 — 서버 페이지네이션 + 탭 건수. `sb` 생략 = 서버 service-role 클라이언트. */
+/**
+ * 모임 신고 목록 — 서버 페이지네이션 + 탭 건수. `sb` 생략 = 서버 service-role 클라이언트.
+ * `opts.pageSize` (R7: 20/50/100) — 생략하면 기존 50.
+ */
 export async function loadAdminMeetingReports(
   tab: MeetingReportTabKey,
   f: AdminMeetingReportFilter,
   page: number,
-  client?: SupabaseClient
+  client?: SupabaseClient,
+  opts?: { pageSize?: number }
 ): Promise<MeetingReportListResult> {
+  const pageSize = opts?.pageSize && opts.pageSize > 0 ? Math.min(Math.floor(opts.pageSize), 100) : ADMIN_MEETING_REPORTS_PAGE_SIZE;
   const fail: MeetingReportListResult = { ok: false, rows: [], total: 0, counts: null };
   let sb: SupabaseClient;
   try {
@@ -66,7 +71,7 @@ export async function loadAdminMeetingReports(
   const [list, ...countVals] = await Promise.all([
     applyMeetingReportTabFilter(build(SELECT, { count: "exact" }), tab)
       .order("created_at", { ascending: false })
-      .range((page - 1) * ADMIN_MEETING_REPORTS_PAGE_SIZE, page * ADMIN_MEETING_REPORTS_PAGE_SIZE - 1),
+      .range((page - 1) * pageSize, page * pageSize - 1),
     ...MEETING_REPORT_TAB_KEYS.map((t) => countFor(t)),
   ]);
   if (list.error) return fail;

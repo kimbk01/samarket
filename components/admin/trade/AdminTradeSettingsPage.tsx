@@ -1,13 +1,14 @@
 "use client";
 
 import { dibayAlert } from "@/components/ui/dibay-overlay";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { OpsTradePolicyPanel } from "@/components/admin/settings/OpsTradePolicyPanel";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { TradeDetailOpsSettings } from "@/services/trade/trade-settings.service";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 
 function regionGroupsToText(groups: Record<string, string>): string {
   return Object.entries(groups)
@@ -31,14 +32,21 @@ function parseRegionGroupText(text: string): Record<string, string> {
 }
 
 export function AdminTradeSettingsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<TradeDetailOpsSettings | null>(null);
   const [regionGroupsText, setRegionGroupsText] = useState("");
+  /** 설정 조회 실패 (오류 코드·HTTP 상태 — 권한 없음 구분) */
+  const [loadErr, setLoadErr] = useState<{ code: string; httpStatus: number } | null>(null);
+  const [tick, setTick] = useState(0);
+  const reload = useCallback(() => setTick((n) => n + 1), []);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setLoadErr(null);
     (async () => {
       try {
         const res = await fetch("/api/admin/trade/settings", {
@@ -50,10 +58,15 @@ export function AdminTradeSettingsPage() {
           settings?: TradeDetailOpsSettings;
           error?: string;
         };
-        if (!cancelled && data.ok && data.settings) {
+        if (cancelled) return;
+        if (res.ok && data.ok && data.settings) {
           setSettings(data.settings);
           setRegionGroupsText(regionGroupsToText(data.settings.regionGroups));
+        } else {
+          setLoadErr({ code: data.error || `http_${res.status}`, httpStatus: res.status });
         }
+      } catch {
+        if (!cancelled) setLoadErr({ code: "network_error", httpStatus: 0 });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -61,7 +74,7 @@ export function AdminTradeSettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tick]);
 
   const canSave = useMemo(() => settings != null && !saving, [settings, saving]);
 
@@ -97,11 +110,15 @@ export function AdminTradeSettingsPage() {
     }
   }
 
-  if (loading || !settings) {
+  if (!settings) {
     return (
       <div className="space-y-4" data-admin>
         <AdminPageHeader titleKey="admin_menu_trade_settings" backHref="/admin/trade" />
-        <p className="sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
+        {loadErr ? (
+          <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={reload} />
+        ) : loading ? (
+          <AdminLoadingState ko={ko} label={t("common_loading")} />
+        ) : null}
       </div>
     );
   }
@@ -212,8 +229,9 @@ export function AdminTradeSettingsPage() {
           </AdminActionButton>
         </form>
       </AdminCard>
-      {/* 거래 채팅 자동 확정·후기 기한 — 같은 거래 정책 화면에서 함께 관리 (거래 Admin 설계 v2 §C-10) */}
-      <OpsTradePolicyPanel />
+      {/* 거래 채팅 자동 확정·후기 기한 — 같은 거래 정책 화면에서 함께 관리 (거래 Admin 설계 v2 §C-10).
+          화면의 주 동작은 위 「저장」 하나 — 이 패널 저장은 보조 (화면당 primary 1개) */}
+      <OpsTradePolicyPanel saveVariant="secondary" />
     </div>
   );
 }

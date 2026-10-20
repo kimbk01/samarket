@@ -8,6 +8,11 @@ import { loadFeedEmergencyBundleFromDb, saveFeedEmergencyBundleToDb } from "@/li
 import type { FeedEmergencyBundleV1 } from "@/lib/feed-emergency/feed-emergency-state";
 import { createDefaultFeedEmergencyBundle } from "@/lib/feed-emergency/feed-emergency-state";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
+import {
+  parseAdminJsonListPage,
+  sliceAdminJsonList,
+  sortAdminJsonListNewestFirst,
+} from "@/lib/admin/pagination/admin-json-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,10 +50,35 @@ function changedEmergencySwitches(
   return changed;
 }
 
-/** 관리자: 피드 긴급 상태 조회 */
-export async function GET() {
+const LOG_SURFACES = new Set<string>(["home", "search", "shop"]);
+
+/**
+ * 관리자: 피드 긴급 상태 조회.
+ * `?part=logs` — 긴급 조치 로그만 서버 페이지로 (`limit` 20/50/100 · `offset` · `surface`) → `{ items, total }` (R7).
+ * 파라미터가 없으면 기존 번들 응답 그대로.
+ */
+export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
+
+  const sp = req.nextUrl.searchParams;
+  if (sp.get("part") === "logs") {
+    try {
+      const loaded = await loadFeedEmergencyBundleFromDb(getSupabaseServer());
+      if (!loaded.ok && loaded.reason !== "missing_table") {
+        return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
+      }
+      const logs = loaded.ok ? loaded.bundle.logs ?? [] : [];
+      const surface = String(sp.get("surface") ?? "").trim();
+      const filtered = LOG_SURFACES.has(surface) ? logs.filter((l) => l.surface === surface) : logs;
+      return NextResponse.json({
+        ok: true,
+        ...sliceAdminJsonList(sortAdminJsonListNewestFirst(filtered), parseAdminJsonListPage(sp)),
+      });
+    } catch {
+      return NextResponse.json({ ok: false, error: "server_config" }, { status: 503 });
+    }
+  }
 
   try {
     const sb = getSupabaseServer();

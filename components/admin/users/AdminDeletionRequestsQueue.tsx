@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
-import {
-  AdminEmptyState,
-  AdminErrorState,
-  AdminLoadingState,
-  AdminResultBanner,
-} from "@/components/admin/ui/AdminStateViews";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
+import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
+import { ADMIN_LIST_QUERY_DEFAULT_SIZE, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
@@ -35,41 +33,19 @@ type QueueItem = {
 export function AdminDeletionRequestsQueue() {
   const { safeT, language } = useI18n();
   const ko = language !== "en";
-  const [state, setState] = useState<
-    | { kind: "loading" }
-    | { kind: "error"; code: string; httpStatus?: number }
-    | { kind: "ok"; items: QueueItem[]; total: number }
-  >({ kind: "loading" });
+  /** R7 — 서버 페이지(20/50/100 + 총 건수). 예전 30건 고정 조회(31건째부터 안 보임) 제거. 필터가 없어 쪽·크기만 화면 상태. */
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState<AdminListPageSize>(ADMIN_LIST_QUERY_DEFAULT_SIZE);
+  const list = useMemberOpsPagedFetch<QueueItem>(
+    `/api/admin/account-deletion-requests?status=open&limit=${size}&offset=${(page - 1) * size}`,
+    "items"
+  );
+  const listError = list.error
+    ? { code: membersOperatorErrorCode(list.error.code, "load_failed"), httpStatus: list.error.httpStatus }
+    : null;
+  const load = list.reload;
   const [busyId, setBusyId] = useState<string | null>(null);
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
-
-  const load = useCallback(async () => {
-    setState({ kind: "loading" });
-    try {
-      const res = await fetch("/api/admin/account-deletion-requests?status=open&limit=30", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        items?: QueueItem[];
-        total?: number;
-        error?: string;
-      };
-      if (!res.ok || data.ok === false) {
-        setState({ kind: "error", code: membersOperatorErrorCode(data.error, "load_failed"), httpStatus: res.status });
-        return;
-      }
-      const items = Array.isArray(data.items) ? data.items : [];
-      setState({ kind: "ok", items, total: typeof data.total === "number" ? data.total : items.length });
-    } catch {
-      setState({ kind: "error", code: "network_error" });
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   const reject = async (item: QueueItem) => {
     const confirmed = await confirmAdminAction({
@@ -102,7 +78,7 @@ export function AdminDeletionRequestsQueue() {
         return;
       }
       setResult({ ok: true, message: ko ? "삭제 요청을 반려했습니다." : "Deletion request rejected." });
-      await load();
+      load();
     } catch {
       setResult({ ok: false, code: "network_error" });
     } finally {
@@ -118,32 +94,40 @@ export function AdminDeletionRequestsQueue() {
             fallbackKo: "회원 삭제 요청 대기",
             fallbackEn: "Pending deletion requests",
           })}
-          {state.kind === "ok" ? (
+          {list.loaded ? (
             <span className="ml-2 font-normal tabular-nums text-sam-muted" data-admin-deletion-total="1">
-              {ko ? `총 ${formatAdminNumber(state.total)}건` : `Total ${formatAdminNumber(state.total)}`}
+              {ko ? `총 ${formatAdminNumber(list.total)}건` : `Total ${formatAdminNumber(list.total)}`}
             </span>
           ) : null}
         </h2>
-        <AdminActionButton variant="secondary" size="sm" disabled={state.kind === "loading"} onClick={() => void load()}>
+        <AdminActionButton variant="secondary" size="sm" disabled={list.loading} onClick={load}>
           {adminCta("refresh", ko)}
         </AdminActionButton>
       </div>
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
-      {state.kind === "loading" ? (
-        <AdminLoadingState ko={ko} />
-      ) : state.kind === "error" ? (
-        <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={() => void load()} />
-      ) : state.items.length === 0 ? (
-        <AdminEmptyState
-          ko={ko}
-          message={safeT("admin_users_deletion_queue_empty", {
-            fallbackKo: "대기 중인 삭제 요청이 없습니다.",
-            fallbackEn: "No pending deletion requests.",
-          })}
-        />
-      ) : (
+      <MemberOpsListBody
+        ko={ko}
+        loading={list.loading}
+        loaded={list.loaded}
+        error={listError}
+        onRetry={load}
+        rowCount={list.rows.length}
+        total={list.total}
+        page={page}
+        size={size}
+        onPageChange={setPage}
+        onSizeChange={(n) => {
+          setSize(n);
+          setPage(1);
+        }}
+        showTotal={false}
+        emptyMessage={safeT("admin_users_deletion_queue_empty", {
+          fallbackKo: "대기 중인 삭제 요청이 없습니다.",
+          fallbackEn: "No pending deletion requests.",
+        })}
+      >
         <ul className="divide-y divide-sam-border-soft">
-          {state.items.map((item) => (
+          {list.rows.map((item) => (
             <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-[13px]">
               <div className="min-w-0">
                 <p className="font-semibold text-sam-fg">
@@ -186,7 +170,7 @@ export function AdminDeletionRequestsQueue() {
             </li>
           ))}
         </ul>
-      )}
+      </MemberOpsListBody>
     </section>
   );
 }

@@ -24,7 +24,8 @@ export function AdminDrPage() {
     <>
       <AdminPageHeader titleKey="admin_menu_dev_dr" />
       <div className="mb-4 flex items-center gap-2">
-        <AdminActionButton variant="secondary">
+        {/* 실제 리허설 실행 API 없음(mock) — 누를 수 있는 것처럼 보이지 않게 비활성. 단계별 실행은 시나리오 상세에서. */}
+        <AdminActionButton variant="secondary" disabled aria-disabled="true">
           리허설 실행 (mock)
         </AdminActionButton>
         <span className="sam-text-helper text-sam-muted">

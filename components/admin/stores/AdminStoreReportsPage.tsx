@@ -1,6 +1,8 @@
 "use client";
 
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -54,11 +56,17 @@ function reasonLabel(raw: string, ko: boolean): string {
   return hit ? (ko ? hit[0] : hit[1]) : ko ? "기타" : "Other";
 }
 
+/** 목록 조건 = 주소 (`store_id` 딥링크 · `page` · `size`). 필터 UI 는 없다 (매장 딥링크만). */
+const LIST_CONFIG = { extras: ["store_id"] as const };
+
 export function AdminStoreReportsPage() {
   const { language } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
-  const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
+  const lq = useAdminListQuery(LIST_CONFIG);
+  const storeIdFilter = lq.query.extras.store_id.trim();
+  const apiQs = lq.apiQueryString;
+  const [total, setTotal] = useState(0);
   const focusRequestId = parseAdminStoreReportFocusRequestId(searchParams);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,29 +84,29 @@ export function AdminStoreReportsPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const qs = storeIdFilter ? `?store_id=${encodeURIComponent(storeIdFilter)}` : "";
-      const res = await fetch(`/api/admin/store-reports${qs}`, { credentials: "include" });
+      const res = await fetch(`/api/admin/store-reports?${apiQs}`, { credentials: "include" });
       const json = await res.json().catch(() => null);
       if (!json?.ok) {
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5).
         setLoadError({
           code: res.status === 403 ? "forbidden" : "load_failed",
           status: res.status,
         });
-        setRows([]);
         return;
       }
       setRows(json.reports ?? []);
+      setTotal(Number(json.total) || 0);
     } catch {
       setLoadError({ code: "network_error" });
-      setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [storeIdFilter]);
+  }, [apiQs]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey 는 같은 조건 다시 불러오기 포함
+  }, [lq.refreshKey]);
 
   useEffect(() => {
     const id = focusRequestId.trim();
@@ -204,12 +212,13 @@ export function AdminStoreReportsPage() {
         </p>
       ) : null}
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
-      {loading ? (
+      {loadError ? (
+        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={lq.refresh} />
+      ) : null}
+      {loading && rows.length === 0 ? (
         <AdminLoadingState ko={ko} />
-      ) : loadError ? (
-        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void load()} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={ko ? "접수된 신고가 없습니다." : "No reports."} />
+        loadError ? null : <AdminEmptyState ko={ko} message={ko ? "접수된 신고가 없습니다." : "No reports."} />
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => {
@@ -267,10 +276,11 @@ export function AdminStoreReportsPage() {
                   </p>
                 ) : (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <AdminActionButton variant="secondary" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "dismissed")}>
+                    {/* 행(카드) 버튼 = ghost/sm 2개 이하 — 화면 primary 는 두지 않는다 */}
+                    <AdminActionButton variant="ghost" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "dismissed")}>
                       {ko ? "기각" : "Dismiss"}
                     </AdminActionButton>
-                    <AdminActionButton variant="primary" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "actioned")}>
+                    <AdminActionButton variant="ghost" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "actioned")}>
                       {ko ? "조치 완료" : "Actioned"}
                     </AdminActionButton>
                   </div>
@@ -299,6 +309,17 @@ export function AdminStoreReportsPage() {
           })}
         </ul>
       )}
+      {rows.length > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { AdminReviewListPage } from "@/components/admin/reviews/AdminReviewListPage";
 
 export default function AdminReviewsPage() {
-  return <AdminReviewListPage />;
+  return (
+    <Suspense fallback={null}>
+      <AdminReviewListPage />
+    </Suspense>
+  );
 }

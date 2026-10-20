@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { adminListRange, parseAdminListPage } from "@/lib/admin/pagination/parse-admin-list-page";
-import {
-  listPointReclaimPolicies,
-  listPointRewardExecutions,
-  listPointRewardLogs,
-} from "@/lib/points/point-execution-db";
+import { memberOpsListRange, parseMemberOpsListPage } from "@/lib/admin/member-ops-list/member-ops-list-page";
+import { listPointReclaimPolicies, listPointRewardLogsPage } from "@/lib/points/point-execution-db";
 import type { PointRewardExecution } from "@/lib/types/point-execution";
 
 export const runtime = "nodejs";
@@ -40,28 +36,23 @@ function rowToExecution(row: Record<string, unknown>): PointRewardExecution {
 }
 
 /**
- * GET /api/admin/point-executions
- * - 파라미터 없음: 기존 동작 그대로 (실행 이력 최근 200건 + 회수 정책 + 지급 로그).
- * - `limit`/`offset` 이 있으면 서버 페이지네이션: `status`·`boardKey`·`actionType`·`userId` 필터 적용 후
- *   해당 쪽 실행 이력 + 정확한 전체 건수(`total`, `limit`, `offset`)를 함께 돌려준다.
+ * GET /api/admin/point-executions — 서버 페이지네이션 (R7 목록 표준, 고정 상한 없음).
+ * - `limit`(20/50/100, 그 외 20)·`offset`: `status`·`boardKey`·`actionType`·`userId` 필터 적용 후
+ *   해당 쪽 실행 이력 + 정확한 전체 건수(`total`, `limit`, `offset`) + 회수 정책을 돌려준다.
+ * - `view=logs`: 보상 로그 한 쪽 `{ rewardLogs, total, limit, offset }` (예전 200건 고정 상한 제거).
+ * 호출자: `hooks/useAdminPointExecutionData.ts` 하나 (예전 무파라미터 200건 응답은 호출자 없음 → 제거).
  */
 export async function GET(req: Request): Promise<NextResponse> {
   const gate = await requireAdminPermission("point");
   if (!gate.ok) return gate.response;
   try {
     const sp = new URL(req.url).searchParams;
-    const paged = sp.has("limit") || sp.has("offset");
-    if (!paged) {
-      const [executions, reclaimPolicies, rewardLogs] = await Promise.all([
-        listPointRewardExecutions(gate.sb),
-        listPointReclaimPolicies(gate.sb),
-        listPointRewardLogs(gate.sb),
-      ]);
-      return NextResponse.json({ ok: true, executions, reclaimPolicies, rewardLogs });
+    const page = parseMemberOpsListPage(sp);
+    if (sp.get("view") === "logs") {
+      const { logs, total } = await listPointRewardLogsPage(gate.sb, page);
+      return NextResponse.json({ ok: true, rewardLogs: logs, total, limit: page.limit, offset: page.offset });
     }
-
-    const page = parseAdminListPage(sp, { defaultLimit: 20, maxLimit: 100 });
-    const [from, to] = adminListRange(page);
+    const [from, to] = memberOpsListRange(page);
     let q = gate.sb.from("point_reward_executions").select("*", { count: "exact" });
     const status = (sp.get("status") ?? "").trim();
     if (EXEC_STATUSES.has(status)) q = q.eq("status", status);
@@ -72,10 +63,9 @@ export async function GET(req: Request): Promise<NextResponse> {
     const userId = (sp.get("userId") ?? "").trim();
     if (userId) q = q.eq("user_id", userId);
 
-    const [execRes, reclaimPolicies, rewardLogs] = await Promise.all([
+    const [execRes, reclaimPolicies] = await Promise.all([
       q.order("created_at", { ascending: false }).order("id", { ascending: false }).range(from, to),
       listPointReclaimPolicies(gate.sb),
-      listPointRewardLogs(gate.sb),
     ]);
     if (execRes.error) {
       return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
@@ -88,7 +78,6 @@ export async function GET(req: Request): Promise<NextResponse> {
       limit: page.limit,
       offset: page.offset,
       reclaimPolicies,
-      rewardLogs,
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });

@@ -119,6 +119,33 @@ const CALL_STATUS: Registry = {
   active: { ko: "통화 중", en: "In call", tone: "progress" },
 };
 
+/** 통화 종료 사유 — `community_messenger_call_sessions.ended_reason` 의 `:` 앞 코드 (운영 DB 실제 값 기준). */
+const CALL_ENDED_REASON: Registry = {
+  ended: { ko: "정상 종료", en: "Ended", tone: "neutral" },
+  ended_by_caller: { ko: "발신자 종료", en: "Ended by caller", tone: "neutral" },
+  ended_by_callee: { ko: "수신자 종료", en: "Ended by callee", tone: "neutral" },
+  canceled: { ko: "발신 취소", en: "Cancelled", tone: "neutral" },
+  cancelled: { ko: "발신 취소", en: "Cancelled", tone: "neutral" },
+  missed: { ko: "응답 없음", en: "No answer", tone: "warning" },
+  missed_timeout: { ko: "응답 없음", en: "No answer", tone: "warning" },
+  declined: { ko: "수신 거부", en: "Declined", tone: "neutral" },
+  rejected: { ko: "수신 거부", en: "Declined", tone: "neutral" },
+  stale_ringing_expired: { ko: "연결 대기 만료", en: "Ringing expired", tone: "warning" },
+  heartbeat_timeout: { ko: "연결 끊김", en: "Connection lost", tone: "danger" },
+  failed_signaling: { ko: "연결 실패 (신호)", en: "Failed (signaling)", tone: "danger" },
+  failed_network: { ko: "연결 실패 (네트워크)", en: "Failed (network)", tone: "danger" },
+  failed_media: { ko: "연결 실패 (미디어)", en: "Failed (media)", tone: "danger" },
+  failed_ice: { ko: "연결 실패 (ICE)", en: "Failed (ICE)", tone: "danger" },
+  failed_permission: { ko: "연결 실패 (권한)", en: "Failed (permission)", tone: "danger" },
+  admin_force_end: { ko: "관리자 강제 종료", en: "Ended by admin", tone: "warning" },
+  redial_replaced: { ko: "재발신으로 대체", en: "Replaced by redial", tone: "neutral" },
+  incoming_policy_superseded: { ko: "다른 통화로 대체", en: "Superseded", tone: "neutral" },
+  qa_cleanup: { ko: "점검 정리", en: "QA cleanup", tone: "neutral" },
+  cold_start_qa_cleanup: { ko: "점검 정리", en: "QA cleanup", tone: "neutral" },
+  qa_owner_assist_end: { ko: "점검 정리", en: "QA cleanup", tone: "neutral" },
+  boundary_a_server_path_preclear: { ko: "점검 정리", en: "QA cleanup", tone: "neutral" },
+};
+
 /** 통화 종류. */
 const CALL_KIND: Registry = {
   voice: { ko: "음성", en: "Voice", tone: "neutral" },
@@ -136,6 +163,7 @@ const REGISTRIES = {
   message_type: MESSAGE_TYPE,
   call_status: CALL_STATUS,
   call_kind: CALL_KIND,
+  call_ended_reason: CALL_ENDED_REASON,
 } as const;
 
 export type AdminChatLabelDomain = keyof typeof REGISTRIES;

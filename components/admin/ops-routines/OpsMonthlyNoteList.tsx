@@ -2,14 +2,21 @@
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getOpsMonthlyNotes } from "@/lib/ops-routines/ops-routines-state";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+const FILTER_EXTRAS = ["month"] as const;
+
 export function OpsMonthlyNoteList() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [monthKey, setMonthKey] = useState<string>("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const monthKey = lq.query.extras.month as string;
   const notes = useMemo(
     () =>
       getOpsMonthlyNotes(monthKey ? { monthKey } : undefined),
@@ -23,26 +30,29 @@ export function OpsMonthlyNoteList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_routines_month_label")}</span>
-        <select
-          value={monthKey}
-          onChange={(e) => setMonthKey(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_ops_tools_routines_month_label")} name="month" value={lq.query.extras.month} onChange={(v) => lq.setExtra("month", v)}>
           <option value="">{t("admin_ops_tools_surface_all")}</option>
           {months.map((m) => (
             <option key={m} value={m}>
               {m}
             </option>
           ))}
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_routines_month_hint")}</p>
 
       {notes.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_ops_tools_routines_month_empty")} />
+        <AdminEmptyState ko={ko} message={t("admin_ops_tools_routines_month_empty")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <div className="space-y-4">
           {notes.map((n) => (

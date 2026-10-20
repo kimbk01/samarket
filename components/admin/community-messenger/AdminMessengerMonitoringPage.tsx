@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerMonitoringSummary } from "@/lib/community-messenger/monitoring/types";
 import {
   MESSENGER_PERF_REFERENCE_BOOTSTRAP_FETCH_CLIENT_MS,
@@ -16,33 +18,34 @@ import {
 } from "@/lib/community-messenger/monitoring/thresholds";
 import { useCmAdminLabels } from "./useCmAdminLabels";
 
-type SummaryResponse = { ok?: boolean; summary?: MessengerMonitoringSummary };
+type SummaryResponse = { ok?: boolean; summary?: MessengerMonitoringSummary; error?: string };
 
 export function AdminMessengerMonitoringPage() {
   const { t, formatDateTime } = useCmAdminLabels();
+  const { language } = useI18n();
+  const ko = language !== "en";
   const [summary, setSummary] = useState<MessengerMonitoringSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  /** 화면 상태 (R7 · 수정 계획 2-5) — 오류 코드 + HTTP 상태. 실패해도 이전 표본은 지우지 않는다. */
+  const [error, setError] = useState<{ code: string; httpStatus?: number } | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/community-messenger/monitoring/summary", { cache: "no-store" });
-      const json = (await res.json()) as SummaryResponse;
+      const json = (await res.json().catch(() => ({}))) as SummaryResponse;
       if (res.ok && json.ok && json.summary) {
         setSummary(json.summary);
       } else {
-        setSummary(null);
-        setError(t("admin_cm_err_summary_load_failed"));
+        setError({ code: json.error || "load_failed", httpStatus: res.status });
       }
     } catch {
-      setSummary(null);
-      setError(t("admin_cm_err_network"));
+      setError({ code: "network_error" });
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -63,6 +66,11 @@ export function AdminMessengerMonitoringPage() {
           {loading ? t("admin_chat_perf_refreshing") : t("admin_chat_perf_refresh")}
         </AdminActionButton>
       </div>
+
+      {error ? (
+        <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={() => void refresh()} />
+      ) : null}
+      {!summary && loading ? <AdminLoadingState ko={ko} /> : null}
 
       {/* C-12: 서버리스 인스턴스별 프로세스 메모리 표본 — 플랫폼 합계·SLO 판정 근거가 아님. */}
       <div
@@ -106,6 +114,9 @@ export function AdminMessengerMonitoringPage() {
         </pre>
       </AdminCard>
 
+      {/* 표본 카드는 불러온 뒤에만 — 불러오는 중·실패를 「기록 없음」으로 보이지 않는다. */}
+      {summary ? (
+        <>
       <AdminCard titleKey="admin_chat_perf_sample_summary_title">
         {!summary?.sloDigest?.length ? (
           <p className="sam-text-body text-sam-muted">{t("admin_cm_empty_slo_samples")}</p>
@@ -198,11 +209,7 @@ export function AdminMessengerMonitoringPage() {
       </AdminCard>
 
       <AdminCard titleKey="admin_cm_card_api_routes">
-        {loading ? (
-          <p className="sam-text-body text-sam-muted">{t("admin_cm_common_loading")}</p>
-        ) : error ? (
-          <p className="sam-text-body text-sam-danger">{error}</p>
-        ) : apiRows.length === 0 ? (
+        {apiRows.length === 0 ? (
           <p className="sam-text-body text-sam-muted">{t("admin_cm_empty_api_records")}</p>
         ) : (
           <div className="overflow-x-auto">
@@ -263,6 +270,9 @@ export function AdminMessengerMonitoringPage() {
           </pre>
         )}
       </AdminCard>
+
+        </>
+      ) : null}
 
       <p className="sam-text-helper text-sam-muted">
         {t("admin_cm_common_generated_at", {

@@ -14,7 +14,8 @@ import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 export function OpsResolutionCaseTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const cases = useMemo(() => getOpsResolutionCases(), []);
+  /** 고정 상한 없이 번들 전체 — 지식 그래프는 문서·런북 번들에서 통째로 만들어지는 구조. */
+  const cases = useMemo(() => getOpsResolutionCases({ limit: Number.MAX_SAFE_INTEGER }), []);
 
   if (cases.length === 0) {
     return (

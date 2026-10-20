@@ -1,13 +1,13 @@
 /**
  * GET /api/admin/favorite-audit — 찜 기록 (거래 Admin 운영 기록 탭, 설계 v2 §F-4 · D-39)
  * 사용자 찜 목록(`/api/favorites/list` → `favorites`)과 별도로, 토글 시 쌓이는 `favorite_audit_log` 조회.
- * query: userId · postId · action · period/from/to · limit · offset (서버 페이지네이션 + 총 건수)
+ * query: userId · postId · action · period/from/to · limit(20/50/100) · offset (서버 페이지네이션 + 총 건수)
  */
 import { NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
 import {
   communityAdminUuidOrNull,
-  parseCommunityAdminPage,
   parseCommunityAdminPeriodFromSearch,
 } from "@/lib/admin/community-admin/community-admin-period";
 import {
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   const sb = admin.sb;
 
   const { searchParams } = new URL(req.url);
-  const { limit, offset } = parseCommunityAdminPage(searchParams);
+  const { limit, offset } = parseTradeAdminListPage(searchParams);
   const period = parseCommunityAdminPeriodFromSearch(searchParams, { defaultPeriod: "all" });
   if (!period.ok) return NextResponse.json({ ok: false, error: period.error, items: [] }, { status: 400 });
   const userId = communityAdminUuidOrNull(searchParams.get("userId"));

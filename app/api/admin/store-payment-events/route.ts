@@ -1,17 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { deliveryListRange, parseDeliveryListPage } from "@/lib/admin/delivery-list/delivery-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function clampLimit(raw: string | null, fallback: number) {
-  const n = Number.parseInt(raw ?? "", 10);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(300, Math.max(1, n));
-}
-
-/** 관리자: 결제 수신 기록 (쿼리: order_id · source · event_type 정확히 일치, limit) — 조회 전용 */
+/**
+ * 관리자: 결제 수신 기록 (쿼리: order_id · source · event_type 정확히 일치) — 조회 전용.
+ * 서버 페이지(R7): `limit`(20/50/100, 그 외 20)·`offset` · `total`(count exact) — 고정 상한(200) 없음.
+ * 호출자는 관리자 「결제 수신 기록」 화면 하나뿐이다.
+ */
 export async function GET(req: NextRequest) {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
@@ -26,23 +25,23 @@ export async function GET(req: NextRequest) {
   const orderId = searchParams.get("order_id")?.trim() || null;
   const sourceRaw = searchParams.get("source")?.trim() || null;
   const eventRaw = searchParams.get("event_type")?.trim() || null;
-  const limit = clampLimit(searchParams.get("limit"), 200);
+  const page = parseDeliveryListPage(searchParams);
   if (orderId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
     return NextResponse.json({ ok: false, error: "invalid_order_id" }, { status: 400 });
   }
 
   let q = sb
     .from("store_payment_events")
-    .select("id, source, order_id, event_type, provider, transmission_id, payload, created_at")
+    .select("id, source, order_id, event_type, provider, transmission_id, payload, created_at", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("id", { ascending: false });
 
   // Admin screen sends exact values from its select boxes (labels are mapped in the UI).
   if (orderId) q = q.eq("order_id", orderId);
   if (sourceRaw) q = q.eq("source", sourceRaw.slice(0, 80));
   if (eventRaw) q = q.eq("event_type", eventRaw.slice(0, 80));
 
-  const { data: rows, error } = await q;
+  const { data: rows, error, count } = await q.range(...deliveryListRange(page));
 
   if (error) {
     if (error.message?.includes("store_payment_events") && error.message.includes("does not exist")) {
@@ -52,5 +51,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, events: rows ?? [] });
+  const events = rows ?? [];
+  return NextResponse.json({ ok: true, events, total: count ?? events.length, limit: page.limit, offset: page.offset });
 }

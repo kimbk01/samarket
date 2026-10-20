@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { AdminLoadingFallback } from "@/components/admin/AdminLoadingFallback";
 import { AdminAppNoticesPage } from "@/components/admin/app/AdminAppNoticesPage";
 
 /**
@@ -5,5 +7,9 @@ import { AdminAppNoticesPage } from "@/components/admin/app/AdminAppNoticesPage"
  * 목록 / 추가 / 수정 / 노출 on·off
  */
 export default function Page() {
-  return <AdminAppNoticesPage />;
+  return (
+    <Suspense fallback={<AdminLoadingFallback />}>
+      <AdminAppNoticesPage />
+    </Suspense>
+  );
 }

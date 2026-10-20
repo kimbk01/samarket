@@ -13,7 +13,7 @@ import {
   DELIVERY_AD_STATUS_NAMESPACE,
   DELIVERY_STORE_ORDER_STATUS_NAMESPACE,
 } from "@/lib/admin/status-labels/r5-delivery-status-labels";
-import { adminChatLabelCodes } from "@/lib/admin/status-labels/chat-status-labels";
+import { adminChatLabel, adminChatLabelCodes } from "@/lib/admin/status-labels/chat-status-labels";
 
 const PLAN_NAMESPACES: Record<string, string> = {
   회원: MEMBERS_ACCOUNT_STATUS_NS,
@@ -42,6 +42,15 @@ describe("상태 라벨 네임스페이스 (계획 2-4)", () => {
 
   it("채팅방 — chat-status-labels 의 방 상태", () => {
     expect(adminChatLabelCodes("room_status").length).toBeGreaterThan(1);
+  });
+
+  it("통화 종료 사유 — 운영 DB 값(`:` 앞 코드)이 한글 라벨, 모르는 값은 원문 대신 「알 수 없음」", () => {
+    for (const code of ["canceled", "ended", "missed", "declined", "ended_by_callee", "failed_signaling", "admin_force_end"]) {
+      const r = adminChatLabel("call_ended_reason", code, true);
+      expect(r.known, code).toBe(true);
+      expect(r.label).not.toBe(code);
+    }
+    expect(adminChatLabel("call_ended_reason", "weird_reason", true).label).not.toContain("weird_reason");
   });
 
   it("모르는 값은 원문이 아니라 「알 수 없는 상태」", () => {

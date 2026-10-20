@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -8,6 +8,14 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import {
+  PLATFORM_POPUP_ADMIN_LIST_STATUS_FILTERS,
+  PLATFORM_POPUP_LIVE_STATUS_FILTER,
+  platformPopupLiveStatusFilterLabel,
+} from "@/lib/platform-popup/admin-list-filter";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -42,6 +50,12 @@ import {
   PLATFORM_POPUP_COMPOSITIONS,
   resolvePlatformPopupComposition,
 } from "@/lib/platform-popup/resolve-presentation-composition";
+
+/** 목록 조건 (주소 보존) — 상태(`live` = 지금 노출 중 · DB 상태값) · 팝업 형태. 대시보드 딥링크 `?status=live`. */
+const POPUP_LIST_QUERY_CONFIG = {
+  statuses: PLATFORM_POPUP_ADMIN_LIST_STATUS_FILTERS,
+  extras: ["composition"] as const,
+};
 import { platformPopupCampaignStatusLabel } from "@/lib/platform-popup/popup-product-labels";
 
 function isPopupDraftDeletable(item: PlatformPopupAdminListItem): boolean {
@@ -56,41 +70,58 @@ export function AdminPlatformPopupListPage() {
   const { safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
+  const ko = lang !== "en";
+  const lq = useAdminListQuery<"composition">(POPUP_LIST_QUERY_CONFIG);
+  const status = lq.query.status;
+  const compositionFilter = lq.query.extras.composition;
   const [items, setItems] = useState<PlatformPopupAdminListItem[]>([]);
-  const [status, setStatus] = useState<string>("");
-  const [compositionFilter, setCompositionFilter] = useState<string>("");
+  const [total, setTotal] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [loadFailure, setLoadFailure] = useState<{ code: string; httpStatus: number } | null>(null);
+  const [loadFailure, setLoadFailure] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [creating, setCreating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [deleting, setDeleting] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setLoadFailure(null);
-    const q = status ? `?status=${encodeURIComponent(status)}` : "";
-    const res = await fetch(`/api/admin/platform-popup-campaigns${q}`, {
-      credentials: "same-origin",
-    });
-    const json = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      items?: PlatformPopupAdminListItem[];
-      error?: string;
-    };
-    if (!res.ok || !json.ok) {
-      setLoadFailure({ code: json.error || "load_failed", httpStatus: res.status });
-      setItems([]);
-    } else {
-      setItems(json.items ?? []);
-    }
-    setLoading(false);
-  }, [status, lang]);
+  const { apiQueryString, refreshKey, refresh } = lq;
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    setLoading(true);
+    setLoadFailure(null);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/platform-popup-campaigns?${apiQueryString}`, {
+          credentials: "same-origin",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          items?: PlatformPopupAdminListItem[];
+          total?: number;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || !json.ok) {
+          // 실패 시 직전 목록은 유지하고 오류만 표시
+          setLoadFailure({ code: json.error || "load_failed", httpStatus: res.status });
+          return;
+        }
+        const rows = json.items ?? [];
+        setItems(rows);
+        setTotal(typeof json.total === "number" ? json.total : rows.length);
+        setLoaded(true);
+        setSelectedIds(new Set());
+      } catch {
+        if (!cancelled) setLoadFailure({ code: "network_error" });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // refreshKey = apiQueryString + 새로고침 횟수
+  }, [apiQueryString, refreshKey]);
 
   const title = safeT("admin_menu_promotion_popup", {
     fallbackKo: "팝업",
@@ -126,30 +157,13 @@ export function AdminPlatformPopupListPage() {
     router.push(popupEditHref(json.id));
   };
 
-  const empty = useMemo(() => !loading && items.length === 0, [loading, items.length]);
-  const visibleItems = useMemo(() => {
-    if (!compositionFilter) return items;
-    return items.filter((item) => {
-      const composition = resolvePlatformPopupComposition({
-        presentationType: item.presentationType,
-        creativeMode: item.creativeMode,
-      });
-      return composition === compositionFilter;
-    });
-  }, [items, compositionFilter]);
-  const emptyFiltered = useMemo(
-    () => !loading && items.length > 0 && visibleItems.length === 0,
-    [loading, items.length, visibleItems.length]
-  );
+  /** 형태·상태 필터는 서버에서 적용 (`composition`·`status` → API) — 현재 쪽 행이 곧 표시 행 */
+  const visibleItems = items;
   const deletableIds = useMemo(
     () => visibleItems.filter(isPopupDraftDeletable).map((i) => i.id),
     [visibleItems]
   );
   const headerSelectState = selectionHeaderState(selectedIds, deletableIds);
-
-  useEffect(() => {
-    setSelectedIds(new Set());
-  }, [status, compositionFilter]);
 
   const onBulkDelete = async () => {
     const ids = [...selectedIds].filter((id) => deletableIds.includes(id));
@@ -165,7 +179,6 @@ export function AdminPlatformPopupListPage() {
         : lang === "en"
           ? `Delete ${ids.length} selected popup campaigns? This cannot be undone.`
           : `선택한 ${ids.length}개 팝업 캠페인을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`;
-    const ko = lang !== "en";
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(ids.length > 1 ? "bulk" : "delete"),
       ko,
@@ -201,12 +214,12 @@ export function AdminPlatformPopupListPage() {
             ? `Could not delete: ${formatPlatformPopupAdminError(json.error || "delete_failed", lang)} None deleted.`
             : `삭제하지 못했습니다: ${formatPlatformPopupAdminError(json.error || "delete_failed", lang)} 선택된 항목은 삭제되지 않았습니다.`
         );
-        await load();
         setSelectedIds(new Set());
+        refresh();
         return;
       }
       setSelectedIds(new Set());
-      await load();
+      refresh();
     } finally {
       setDeleting(false);
     }
@@ -224,78 +237,81 @@ export function AdminPlatformPopupListPage() {
         })}
       />
 
-      <AdminCard>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-sm text-sam-muted">
-            {safeT("admin_platform_popup_filter_status", {
-              fallbackKo: "운영 상태",
-              fallbackEn: "Status",
-            })}
-            <select
-              className="ml-2 rounded border border-sam-border bg-sam-surface px-2 py-1"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              data-admin-popup-filter-status="1"
-            >
-              <option value="">
-                {safeT("admin_platform_popup_filter_all", {
-                  fallbackKo: "전체",
-                  fallbackEn: "All",
-                })}
-              </option>
-              {PLATFORM_POPUP_CAMPAIGN_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {platformPopupCampaignStatusLabel(s, lang)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm text-sam-muted">
-            {safeT("admin_platform_popup_filter_composition", {
-              fallbackKo: "팝업 형태",
-              fallbackEn: "Form",
-            })}
-            <select
-              className="ml-2 rounded border border-sam-border bg-sam-surface px-2 py-1"
-              value={compositionFilter}
-              onChange={(e) => setCompositionFilter(e.target.value)}
-              data-admin-popup-filter-composition="1"
-            >
-              <option value="">
-                {safeT("admin_platform_popup_filter_all", {
-                  fallbackKo: "전체",
-                  fallbackEn: "All",
-                })}
-              </option>
-              {PLATFORM_POPUP_COMPOSITIONS.map((c) => (
-                <option key={c} value={c}>
-                  {resolvePopupListCompositionLabel({
-                    presentationType:
-                      c === "bottom_promotion_sheet"
-                        ? "bottom_sheet"
-                        : c === "benefit_dialog"
-                          ? "benefit_dialog"
-                          : "center_modal",
-                    creativeMode: c === "artwork_modal" ? "artwork" : "card",
-                    lang,
-                  })}
-                </option>
-              ))}
-            </select>
-          </label>
-          <AdminActionButton
-            className="ml-auto"
-            variant="primary"
-            disabled={creating}
-            onClick={() => void onCreate()}
+      <div className="flex justify-end">
+        <AdminActionButton
+          variant="secondary"
+          disabled={creating}
+          onClick={() => void onCreate()}
+        >
+          {safeT("admin_platform_popup_create", {
+            fallbackKo: "캠페인 만들기",
+            fallbackEn: "Create campaign",
+          })}
+        </AdminActionButton>
+      </div>
+
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+        pending={loading}
+        status={{
+          value: status,
+          onChange: lq.setStatus,
+          label: safeT("admin_platform_popup_filter_status", {
+            fallbackKo: "운영 상태",
+            fallbackEn: "Status",
+          }),
+          options: [
+            {
+              value: PLATFORM_POPUP_LIVE_STATUS_FILTER,
+              label: platformPopupLiveStatusFilterLabel(lang),
+            },
+            ...PLATFORM_POPUP_CAMPAIGN_STATUSES.map((s) => ({
+              value: s,
+              label: platformPopupCampaignStatusLabel(s, lang),
+            })),
+          ],
+        }}
+      >
+        <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
+          {safeT("admin_platform_popup_filter_composition", {
+            fallbackKo: "팝업 형태",
+            fallbackEn: "Form",
+          })}
+          <select
+            className="h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
+            value={compositionFilter}
+            onChange={(e) => lq.setExtra("composition", e.target.value)}
+            data-admin-popup-filter-composition="1"
           >
-            {safeT("admin_platform_popup_create", {
-              fallbackKo: "캠페인 만들기",
-              fallbackEn: "Create campaign",
-            })}
-          </AdminActionButton>
-        </div>
-      </AdminCard>
+            <option value="">
+              {safeT("admin_platform_popup_filter_all", {
+                fallbackKo: "전체",
+                fallbackEn: "All",
+              })}
+            </option>
+            {PLATFORM_POPUP_COMPOSITIONS.map((c) => (
+              <option key={c} value={c}>
+                {resolvePopupListCompositionLabel({
+                  presentationType:
+                    c === "bottom_promotion_sheet"
+                      ? "bottom_sheet"
+                      : c === "benefit_dialog"
+                        ? "benefit_dialog"
+                        : "center_modal",
+                  creativeMode: c === "artwork_modal" ? "artwork" : "card",
+                  lang,
+                })}
+              </option>
+            ))}
+          </select>
+        </label>
+      </AdminFilterBar>
 
       {error ? (
         <p className="text-sm text-sam-danger" role="alert">
@@ -329,7 +345,7 @@ export function AdminPlatformPopupListPage() {
               onClick={() => void onBulkDelete()}
               data-admin-popup-bulk-delete="1"
             >
-              {adminCta("delete", lang !== "en")}
+              {adminCta("delete", ko)}
             </AdminActionButton>
             <span className="text-[12px] text-sam-muted">
               {lang === "en"
@@ -338,53 +354,45 @@ export function AdminPlatformPopupListPage() {
             </span>
           </div>
         ) : null}
-        {loading ? (
+        {loadFailure ? (
+          <AdminErrorState
+            ko={ko}
+            code={loadFailure.code}
+            httpStatus={loadFailure.httpStatus}
+            onRetry={refresh}
+          />
+        ) : null}
+        {loading && !loaded ? (
           <AdminLoadingState
-            ko={lang !== "en"}
+            ko={ko}
             label={safeT("admin_platform_popup_loading", {
               fallbackKo: "불러오는 중…",
               fallbackEn: "Loading…",
             })}
           />
-        ) : loadFailure ? (
-          <AdminErrorState
-            ko={lang !== "en"}
-            code={loadFailure.code}
-            httpStatus={loadFailure.httpStatus}
-            onRetry={() => void load()}
-          />
-        ) : empty && status ? (
-          <AdminEmptyState ko={lang !== "en"} onReset={() => setStatus("")} />
-        ) : empty ? (
-          <div>
-            <p className="text-sm text-sam-muted">
-              {safeT("admin_platform_popup_empty", {
-                fallbackKo: "등록된 프로모션 팝업이 없습니다.",
-                fallbackEn: "No promotion popups yet.",
-              })}
-            </p>
-            <AdminActionButton
-              className="mt-3"
-              variant="primary"
-              disabled={creating}
-              onClick={() => void onCreate()}
-            >
-              {safeT("admin_platform_popup_create", {
-                fallbackKo: "캠페인 만들기",
-                fallbackEn: "Create campaign",
-              })}
-            </AdminActionButton>
-          </div>
-        ) : emptyFiltered ? (
+        ) : !loaded ? null : items.length === 0 && lq.isFiltered ? (
           <AdminEmptyState
-            ko={lang !== "en"}
-            message={safeT("admin_platform_popup_filter_empty", {
-              fallbackKo: "선택한 형태에 해당하는 팝업이 없습니다.",
-              fallbackEn: "No popups match this form filter.",
+            ko={ko}
+            message={
+              compositionFilter && !status
+                ? safeT("admin_platform_popup_filter_empty", {
+                    fallbackKo: "선택한 형태에 해당하는 팝업이 없습니다.",
+                    fallbackEn: "No popups match this form filter.",
+                  })
+                : undefined
+            }
+            onReset={lq.reset}
+          />
+        ) : items.length === 0 ? (
+          <AdminEmptyState
+            ko={ko}
+            message={safeT("admin_platform_popup_empty", {
+              fallbackKo: "등록된 프로모션 팝업이 없습니다.",
+              fallbackEn: "No promotion popups yet.",
             })}
-            onReset={() => setCompositionFilter("")}
           />
         ) : (
+          <>
           <ul className="divide-y divide-sam-border" data-admin-popup-operational-list="1">
             {visibleItems.map((item) => {
               const op = resolvePopupOperatorStatus({
@@ -412,6 +420,10 @@ export function AdminPlatformPopupListPage() {
                   key={item.id}
                   className={`flex flex-wrap items-start justify-between gap-2 py-2.5 pl-3 ${adminOperatorRowClassFromPromotionStatus(op)}`}
                   data-admin-popup-composition={compositionLabel}
+                  data-admin-popup-composition-kind={resolvePlatformPopupComposition({
+                    presentationType: item.presentationType,
+                    creativeMode: item.creativeMode,
+                  })}
                   data-admin-op-status={op}
                 >
                   <div className="flex min-w-0 flex-1 gap-2">
@@ -498,13 +510,13 @@ export function AdminPlatformPopupListPage() {
                       {lang === "en" ? "Approval" : "승인"}:{" "}
                       {popupApprovalStatusLabel(item.approvalStatus, lang)}
                     </span>
-                    <AdminActionLink href={popupEditHref(item.id)} variant="secondary">
+                    <AdminActionLink href={popupEditHref(item.id)} variant="ghost" size="sm">
                       {safeT("admin_promotion_action_preview", {
                         fallbackKo: "미리보기",
                         fallbackEn: "Preview",
                       })}
                     </AdminActionLink>
-                    <AdminActionLink href={popupEditHref(item.id)} variant="secondary">
+                    <AdminActionLink href={popupEditHref(item.id)} variant="ghost" size="sm">
                       {safeT("admin_promotion_action_edit", {
                         fallbackKo: "수정",
                         fallbackEn: "Edit",
@@ -515,6 +527,16 @@ export function AdminPlatformPopupListPage() {
               );
             })}
           </ul>
+          <AdminPagination
+            ko={ko}
+            page={lq.query.page}
+            size={lq.query.size}
+            total={total}
+            onPageChange={lq.setPage}
+            onSizeChange={lq.setSize}
+            disabled={loading}
+          />
+          </>
         )}
       </AdminCard>
     </div>

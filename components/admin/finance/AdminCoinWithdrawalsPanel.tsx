@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
@@ -13,7 +13,10 @@ import { financeStatusLabel, formatFinanceAmount } from "@/lib/finance/presentat
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
+import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
@@ -45,59 +48,36 @@ type PendingAct = {
   payoutMethod?: string;
 };
 
+const WITHDRAWAL_STATUSES = ["REQUESTED", "PAID", "REJECTED"] as const;
+
 /**
  * Coin withdrawal ops list — reject | mark_paid only (no approve invent).
+ * R7: 상태 조건은 주소(`?status=`)에 남고, 서버 페이지(limit/offset + 총 건수). 예전 100건 고정 상한 제거.
  */
 export function AdminCoinWithdrawalsPanel() {
   const { safeT, language } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
   const focusRequestId = (searchParams.get("coinWithdrawalRequestId") ?? "").trim();
-  const [rows, setRows] = useState<WithdrawalRow[]>([]);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [loading, setLoading] = useState(true);
+  const lq = useAdminListQuery({ statuses: WITHDRAWAL_STATUSES });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<PendingAct | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      // Support deep-link may target a decided row — load all when focusing.
-      const statusQ = focusRequestId ? "all" : statusFilter;
-      const qs = new URLSearchParams({ status: statusQ });
-      const res = await fetch(`/api/admin/coin-withdrawals?${qs}`, { cache: "no-store" });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; requests?: WithdrawalRow[] };
-      if (res.ok && json.ok) {
-        let next = json.requests ?? [];
-        if (focusRequestId) {
-          const hit = next.find((r) => r.id === focusRequestId);
-          next = hit ? [hit, ...next.filter((r) => r.id !== hit.id)] : next;
-        }
-        setRows(next);
-      } else
-        setError(
-          safeT("admin_store_finance_withdrawals_load_failed", {
-            fallbackKo: "Coin 출금 요청을 불러오지 못했습니다.",
-            fallbackEn: "Couldn’t load Coin withdrawal requests.",
-          })
-        );
-    } catch {
-      setError(
-        safeT("common_network_error", {
-          fallbackKo: "네트워크 오류가 발생했습니다.",
-          fallbackEn: "A network error occurred.",
-        })
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [safeT, statusFilter, focusRequestId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const apiQs = useMemo(() => {
+    const qs = new URLSearchParams(lq.apiQueryString);
+    if (!qs.get("status")) qs.set("status", "all");
+    // Support deep-link may target a decided row — 서버가 `focus` 로 함께 돌려준다.
+    if (focusRequestId) qs.set("focusId", focusRequestId);
+    return qs.toString();
+  }, [lq.apiQueryString, focusRequestId]);
+  const list = useMemberOpsPagedFetch<WithdrawalRow>(`/api/admin/coin-withdrawals?${apiQs}`, "requests", lq.refreshKey);
+  const loading = list.loading;
+  const rows = useMemo(() => {
+    const focus = (list.json?.focus ?? null) as WithdrawalRow | null;
+    if (!focus) return list.rows;
+    return [focus, ...list.rows.filter((r) => r.id !== focus.id)];
+  }, [list.rows, list.json]);
+  const load = list.reload;
 
   useEffect(() => {
     if (!focusRequestId || loading) return;
@@ -163,7 +143,7 @@ export function AdminCoinWithdrawalsPanel() {
       }
       setPending(null);
       emitAdminQueueChanged("coin_withdrawals");
-      await load();
+      load();
     } catch {
       setError(
         safeT("common_network_error", {
@@ -226,48 +206,58 @@ export function AdminCoinWithdrawalsPanel() {
             })}
           </h2>
         </div>
-        <label className="sam-text-helper">
-          <span className="text-sam-muted">{ko ? "상태" : "Status"}</span>
-          <select
-            className="ml-2 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            data-finance-withdrawal-status-filter="1"
-          >
-            <option value="REQUESTED">{ko ? "신청" : "Requested"}</option>
-            <option value="PAID">{ko ? "지급 완료" : "Paid"}</option>
-            <option value="REJECTED">{ko ? "반려" : "Rejected"}</option>
-            <option value="all">{ko ? "전체" : "All"}</option>
-          </select>
-        </label>
       </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        pending={loading}
+        showPeriod={false}
+        showSearch={false}
+        status={{
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          options: [
+            { value: "REQUESTED", label: ko ? "신청" : "Requested" },
+            { value: "PAID", label: ko ? "지급 완료" : "Paid" },
+            { value: "REJECTED", label: ko ? "반려" : "Rejected" },
+          ],
+        }}
+      />
       <p className="sam-text-helper text-sam-muted">
         {ko
           ? "CTA: 출금 반려 · 지급 완료만. 승인(approve) writer는 없습니다. Cash 출금은 없습니다."
           : "CTAs: reject · mark paid only. No approve writer. Cash withdrawal does not exist."}
       </p>
       {error ? (
-        <div
+        <p
           role="alert"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-[14px] text-sam-fg"
+          className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-[14px] text-sam-fg"
         >
-          <span>{error}</span>
-          <AdminActionButton variant="secondary" size="sm" onClick={() => void load()}>
-            {adminCta("refresh", ko)}
-          </AdminActionButton>
-        </div>
+          {error}
+        </p>
       ) : null}
-      {loading ? (
-        <AdminLoadingState ko={ko} />
-      ) : rows.length === 0 ? (
-        <AdminEmptyState
-          ko={ko}
-          message={safeT("admin_store_finance_withdrawals_empty", {
-            fallbackKo: "해당 상태의 출금 요청이 없습니다.",
-            fallbackEn: "No withdrawal requests for this status.",
-          })}
-        />
-      ) : (
+      <MemberOpsListBody
+        ko={ko}
+        loading={loading}
+        loaded={list.loaded}
+        error={list.error}
+        onRetry={lq.refresh}
+        rowCount={rows.length}
+        total={list.total}
+        page={lq.query.page}
+        size={lq.query.size}
+        onPageChange={lq.setPage}
+        onSizeChange={lq.setSize}
+        isFiltered={lq.isFiltered}
+        onReset={lq.reset}
+        emptyMessage={safeT("admin_store_finance_withdrawals_empty", {
+          fallbackKo: "해당 상태의 출금 요청이 없습니다.",
+          fallbackEn: "No withdrawal requests for this status.",
+        })}
+      >
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[56rem] text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
@@ -375,7 +365,7 @@ export function AdminCoinWithdrawalsPanel() {
             </tbody>
           </table>
         </div>
-      )}
+      </MemberOpsListBody>
 
       <p className="sam-text-xxs text-sam-muted" data-finance-withdrawal-admin-actor="note">
         {ko

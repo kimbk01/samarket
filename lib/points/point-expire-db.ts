@@ -123,27 +123,62 @@ export async function getActivePointExpirePolicyDb(
   return data ? rowToExpirePolicy(data as Record<string, unknown>) : null;
 }
 
-export async function listPointExpireExecutions(
+/** 소멸 실행 이력 한 쪽 + 정확한 전체 건수 (R7 — 예전 100건 고정 상한 제거). */
+export async function listPointExpireExecutionsPage(
   sb: SupabaseClient,
-  limit = 100
-): Promise<PointExpireExecution[]> {
-  const { data, error } = await sb
+  page: { limit: number; offset: number }
+): Promise<{ executions: PointExpireExecution[]; total: number }> {
+  const { data, error, count } = await sb
     .from("point_expire_executions")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("id", { ascending: false })
+    .range(page.offset, page.offset + page.limit - 1);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => rowToExpireExecution(r as Record<string, unknown>));
+  const executions = (data ?? []).map((r) => rowToExpireExecution(r as Record<string, unknown>));
+  return { executions, total: count ?? executions.length };
 }
 
-export async function listPointExpireLogs(sb: SupabaseClient, limit = 200): Promise<PointExpireLog[]> {
-  const { data, error } = await sb
+/** 소멸 로그 한 쪽 + 정확한 전체 건수 (R7 — 예전 200건 고정 상한 제거). */
+export async function listPointExpireLogsPage(
+  sb: SupabaseClient,
+  page: { limit: number; offset: number }
+): Promise<{ logs: PointExpireLog[]; total: number }> {
+  const { data, error, count } = await sb
     .from("point_expire_logs")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("id", { ascending: false })
+    .range(page.offset, page.offset + page.limit - 1);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => rowToExpireLog(r as Record<string, unknown>));
+  const logs = (data ?? []).map((r) => rowToExpireLog(r as Record<string, unknown>));
+  return { logs, total: count ?? logs.length };
+}
+
+const EXPIRE_SUMMARY_CHUNK = 1000;
+
+/**
+ * 소멸 실행 요약 — 전체 실행 횟수(count exact)와 전체 소멸 포인트 합계.
+ * 합계는 `expired_point` 한 열만 1,000건씩 끝까지 읽어 더한다 (상한 없음 · DB 집계 함수 신설 없이).
+ */
+export async function summarizePointExpireExecutions(
+  sb: SupabaseClient
+): Promise<{ runCount: number; totalExpired: number }> {
+  let runCount = 0;
+  let totalExpired = 0;
+  for (let offset = 0; ; offset += EXPIRE_SUMMARY_CHUNK) {
+    const { data, error, count } = await sb
+      .from("point_expire_executions")
+      .select("expired_point", { count: "exact" })
+      .order("id", { ascending: true })
+      .range(offset, offset + EXPIRE_SUMMARY_CHUNK - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as { expired_point?: unknown }[];
+    if (offset === 0) runCount = count ?? rows.length;
+    for (const r of rows) totalExpired += Number(r.expired_point ?? 0) || 0;
+    if (rows.length < EXPIRE_SUMMARY_CHUNK || offset + rows.length >= runCount) break;
+  }
+  return { runCount, totalExpired };
 }
 
 export interface ExpireSimulationItem {

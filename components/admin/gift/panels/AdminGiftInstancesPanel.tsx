@@ -6,9 +6,12 @@ import {
 } from "@/lib/admin/status-labels/r5-delivery-status-labels";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
@@ -39,9 +42,12 @@ type InstanceRow = {
   validUntil?: string | null;
 };
 
-type ListStatus = "loading" | "error" | "empty" | "ready";
-
-const STATUS_OPTIONS = ["", "ACTIVE", "GIFT_LOCKED", "PARTIALLY_REDEEMED", "FULLY_REDEEMED", "EXPIRED", "CANCELLED"];
+const STATUS_OPTIONS = ["ACTIVE", "GIFT_LOCKED", "PARTIALLY_REDEEMED", "FULLY_REDEEMED", "EXPIRED", "CANCELLED"];
+/**
+ * 목록 조건 = 주소 (R7) — 기존 키 `q`·`status`·`balance`(=gt0, 대시보드 딥링크) 유지 + `page`·`size`.
+ * `tab=instances`·`id` 등 다른 키는 그대로 둔다.
+ */
+const LIST_CONFIG = { statuses: STATUS_OPTIONS, extras: ["balance"] as const };
 
 function dt(v: string | null | undefined): string {
   if (!v) return "—";
@@ -63,12 +69,6 @@ function formatValidity(from: string | null | undefined, until: string | null | 
   });
 }
 
-function buildTrackingQuery(args: { q?: string; status?: string }): string {
-  const qs = new URLSearchParams();
-  if (args.q?.trim()) qs.set("q", args.q.trim());
-  if (args.status?.trim()) qs.set("status", args.status.trim());
-  return qs.toString();
-}
 
 export function AdminGiftInstancesPanel({
   id: urlInstanceId,
@@ -84,58 +84,45 @@ export function AdminGiftInstancesPanel({
   focus?: string;
 }) {
   const { safeT, language } = useI18n();
+  const ko = language !== "en";
   const router = useRouter();
+  const lq = useAdminListQuery(LIST_CONFIG);
 
-  const [draftQ, setDraftQ] = useState(urlQ);
-  const [draftStatus, setDraftStatus] = useState(urlStatus);
   const [rows, setRows] = useState<InstanceRow[]>([]);
-  const [listStatus, setListStatus] = useState<ListStatus>("loading");
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState<{ code: string; status?: number } | null>(null);
 
-  useEffect(() => {
-    setDraftQ(urlQ);
-    setDraftStatus(urlStatus);
-  }, [urlQ, urlStatus]);
-
+  const apiQs = lq.apiQueryString;
   const fetchList = useCallback(async () => {
-    setListStatus("loading");
-    const query = buildTrackingQuery({ q: urlQ, status: urlStatus });
-
+    setLoading(true);
+    setLoadErr(null);
     try {
-      const res = await fetch(`${TRACKING_API}?${query}`, {
+      const res = await fetch(`${TRACKING_API}?${apiQs}`, {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as { ok?: boolean; instances?: InstanceRow[] };
-      if (!res.ok || !json.ok) {
-        setRows([]);
-        setListStatus("error");
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; instances?: InstanceRow[]; total?: number } | null;
+      if (!res.ok || !json?.ok) {
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5).
+        setLoadErr({ code: res.status === 403 ? "forbidden" : "load_failed", status: res.status });
         return;
       }
-      const list = (json.instances ?? []).filter((row) => {
-        if (urlBalance === "gt0") return Math.trunc(Number(row.remainingBalance) || 0) > 0;
-        return true;
-      });
+      const list = json.instances ?? [];
       setRows(list);
-      setListStatus(list.length === 0 ? "empty" : "ready");
+      setTotal(Number(json.total) || 0);
     } catch {
-      setRows([]);
-      setListStatus("error");
+      setLoadErr({ code: "network_error" });
+    } finally {
+      setLoading(false);
     }
-  }, [urlQ, urlStatus, urlBalance]);
+  }, [apiQs]);
 
   useEffect(() => {
     if (urlInstanceId.trim()) return;
     void fetchList();
-  }, [fetchList, urlInstanceId]);
-
-  const applySearch = () => {
-    router.push(
-      buildAdminGiftOpsHref({
-        tab: "instances",
-        extra: { q: draftQ.trim() || null, status: draftStatus.trim() || null },
-      })
-    );
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey 는 같은 조건 다시 불러오기 포함
+  }, [lq.refreshKey, urlInstanceId]);
 
   const openInstanceDetail = (row: InstanceRow) => {
     router.push(
@@ -145,6 +132,7 @@ export function AdminGiftInstancesPanel({
           id: row.id,
           q: urlQ || null,
           status: urlStatus || null,
+          balance: urlBalance || null,
         },
       })
     );
@@ -163,75 +151,54 @@ export function AdminGiftInstancesPanel({
 
   return (
     <div className="space-y-4" data-admin-gift-instances="1">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-        <label className="min-w-0 flex-1 text-sm">
-          <span className="text-sam-muted">
-            {safeT("gift_ops_instance_search", {
-              fallbackKo: "Public Gift Number / Store / 구매자",
-              fallbackEn: "Public Gift Number / Store / buyer",
-            })}
-          </span>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        pending={loading}
+        showPeriod={false}
+        searchPlaceholder={safeT("gift_ops_instance_search", {
+          fallbackKo: "Public Gift Number / Store / 구매자",
+          fallbackEn: "Public Gift Number / Store / buyer",
+        })}
+        status={{
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          options: STATUS_OPTIONS.map((st) => ({ value: st, label: r5DeliveryStatusLabel(GIFT_INSTANCE_STATUS_NAMESPACE, st, ko) })),
+        }}
+      >
+        <label className="flex h-10 items-center gap-1.5 sam-text-helper text-sam-fg">
           <input
-            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2"
-            value={draftQ}
-            onChange={(e) => setDraftQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") applySearch();
-            }}
-            data-admin-gift-instance-q="1"
+            type="checkbox"
+            checked={lq.query.extras.balance === "gt0"}
+            onChange={(e) => lq.setExtra("balance", e.target.checked ? "gt0" : "")}
           />
+          {ko ? "잔액 있는 것만" : "With balance only"}
         </label>
-        <label className="text-sm">
-          <span className="text-sam-muted">Status</span>
-          <select
-            className="mt-1 block w-full rounded-ui-rect border border-sam-border px-3 py-2 sm:w-48"
-            value={draftStatus}
-            onChange={(e) => setDraftStatus(e.target.value)}
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s || "all"} value={s}>
-                {s || "ALL"}
-              </option>
-            ))}
-          </select>
-        </label>
-        <AdminActionButton
-          type="button"
-          variant="primary"
-          onClick={applySearch}
-        >
-          {adminCta("search", language !== "en")}
-        </AdminActionButton>
-      </div>
+      </AdminFilterBar>
 
-      {listStatus === "loading" && rows.length === 0 ? (
-        <p className="text-sm text-sam-muted">…</p>
+      {loadErr ? <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={lq.refresh} /> : null}
+
+      {loading && rows.length === 0 ? <AdminLoadingState ko={ko} /> : null}
+
+      {!loading && !loadErr && rows.length === 0 ? (
+        <AdminEmptyState
+          ko={ko}
+          message={
+            lq.isFiltered
+              ? undefined
+              : safeT("gift_ops_instances_empty", {
+                  fallbackKo: "조건에 맞는 상품권이 없습니다.",
+                  fallbackEn: "No gift instances match this filter.",
+                })
+          }
+          onReset={lq.isFiltered ? lq.reset : undefined}
+        />
       ) : null}
 
-      {listStatus === "error" ? (
-        <div className="space-y-2">
-          <p className="text-sm text-sam-danger">
-            {safeT("gift_ops_instances_error", {
-              fallbackKo: "상품권 현황을 불러오지 못했습니다.",
-              fallbackEn: "Couldn’t load gift instances.",
-            })}
-          </p>
-          <AdminActionButton type="button" variant="secondary" onClick={() => void fetchList()}>
-            {adminCta("refresh", language !== "en")}
-          </AdminActionButton>
-        </div>
-      ) : null}
-
-      {listStatus === "empty" ? (
-        <p className="text-sm text-sam-muted">
-          {safeT("gift_ops_instances_empty", {
-            fallbackKo: "조건에 맞는 상품권이 없습니다.",
-            fallbackEn: "No gift instances match this filter.",
-          })}
-        </p>
-      ) : null}
-
-      {listStatus === "ready" || rows.length > 0 ? (
+      {rows.length > 0 ? (
         <>
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
@@ -276,7 +243,7 @@ export function AdminGiftInstancesPanel({
                     <td className="px-2 py-2">
                       <AdminActionButton
                         type="button"
-                        variant="primary" size="sm"
+                        variant="ghost" size="sm"
                         data-admin-gift-instance-detail-open="1"
                         onClick={() => openInstanceDetail(row)}
                       >
@@ -312,7 +279,7 @@ export function AdminGiftInstancesPanel({
                 </div>
                 <AdminActionButton
                   type="button"
-                  variant="primary" className="mt-3 w-full"
+                  variant="ghost" size="sm" className="mt-3 w-full"
                   data-admin-gift-instance-detail-open="1"
                   onClick={() => openInstanceDetail(row)}
                 >
@@ -321,6 +288,15 @@ export function AdminGiftInstancesPanel({
               </li>
             ))}
           </ul>
+          <AdminPagination
+            ko={ko}
+            page={lq.query.page}
+            size={lq.query.size}
+            total={total}
+            onPageChange={lq.setPage}
+            onSizeChange={lq.setSize}
+            disabled={loading}
+          />
         </>
       ) : null}
     </div>

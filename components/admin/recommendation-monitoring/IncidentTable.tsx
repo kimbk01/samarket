@@ -11,6 +11,9 @@ import {
 } from "@/lib/recommendation-ops/recommendation-runtime-state";
 import { commitRecommendationRuntimeChange } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
 import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { RecommendationFilterSelect } from "@/components/admin/recommendation-admin-filter-select";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import {
   recIncidentStatusLabel,
   recIncidentTypeLabel,
@@ -21,6 +24,8 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const ADMIN_ID = "admin1";
+const INCIDENT_STATUSES: readonly IncidentStatus[] = ["open", "acknowledged", "resolved"];
+const INCIDENT_SURFACES: readonly RecommendationSurface[] = ["home", "search", "shop"];
 
 export function IncidentTable() {
   const { t, language } = useI18n();
@@ -28,8 +33,12 @@ export function IncidentTable() {
   const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
-  const [statusFilter, setStatusFilter] = useState<IncidentStatus | "">("");
-  const [surfaceFilter, setSurfaceFilter] = useState<RecommendationSurface | "">("");
+  /** 필터 — 주소 `?status=`·`?surface=` 보존 (R7) */
+  const lq = useAdminListQuery<"surface">({ statuses: INCIDENT_STATUSES, extras: ["surface"] });
+  const statusFilter = lq.query.status as IncidentStatus | "";
+  const surfaceFilter = (INCIDENT_SURFACES as readonly string[]).includes(lq.query.extras.surface)
+    ? (lq.query.extras.surface as RecommendationSurface)
+    : "";
 
   const incidents = useMemo(
     () =>
@@ -57,48 +66,44 @@ export function IncidentTable() {
   return (
     <div className="space-y-4">
       <AdminResultBanner ko={ko} result={saveResult} onClose={() => setSaveResult(null)} />
-      <div className="flex flex-wrap gap-2">
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter(
-              e.target.value === "" ? "" : (e.target.value as IncidentStatus)
-            )
-          }
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
-          <option value="">{t("admin_rec_filter_all_status")}</option>
-          <option value="open">{t("admin_rec_incident_status_open")}</option>
-          <option value="acknowledged">{t("admin_rec_incident_status_acknowledged")}</option>
-          <option value="resolved">{t("admin_rec_incident_status_resolved")}</option>
-        </select>
-        <select
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+        status={{
+          value: statusFilter,
+          onChange: lq.setStatus,
+          label: t("admin_rec_th_status"),
+          options: [
+            { value: "", label: t("admin_rec_filter_all_status") },
+            { value: "open", label: t("admin_rec_incident_status_open") },
+            { value: "acknowledged", label: t("admin_rec_incident_status_acknowledged") },
+            { value: "resolved", label: t("admin_rec_incident_status_resolved") },
+          ],
+        }}
+      >
+        <RecommendationFilterSelect
+          label={t("admin_rec_th_surface")}
           value={surfaceFilter}
-          onChange={(e) =>
-            setSurfaceFilter(
-              e.target.value === "" ? "" : (e.target.value as RecommendationSurface)
-            )
-          }
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
-          <option value="">{t("admin_rec_filter_all_surface")}</option>
-          <option value="home">{t("admin_rec_surface_home")}</option>
-          <option value="search">{t("admin_rec_surface_search")}</option>
-          <option value="shop">{t("admin_rec_surface_shop")}</option>
-        </select>
-      </div>
+          allLabel={t("admin_rec_filter_all_surface")}
+          options={[
+            { value: "home", label: t("admin_rec_surface_home") },
+            { value: "search", label: t("admin_rec_surface_search") },
+            { value: "shop", label: t("admin_rec_surface_shop") },
+          ]}
+          onChange={(v) => lq.setExtra("surface", v)}
+          name="surface"
+        />
+      </AdminFilterBar>
       {incidents.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={statusFilter || surfaceFilter ? undefined : t("admin_rec_mon_empty_incidents")}
-          onReset={
-            statusFilter || surfaceFilter
-              ? () => {
-                  setStatusFilter("");
-                  setSurfaceFilter("");
-                }
-              : undefined
-          }
+          onReset={statusFilter || surfaceFilter ? lq.reset : undefined}
         />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">

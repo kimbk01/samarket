@@ -1,11 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import {
+  PLATFORM_POPUP_ADMIN_LIST_STATUS_FILTERS,
+  PLATFORM_POPUP_LIVE_STATUS_FILTER,
+  platformPopupLiveStatusFilterLabel,
+} from "@/lib/platform-popup/admin-list-filter";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { popupSurfaceOperatorLabel } from "@/lib/admin/promotion-ownership-visibility";
@@ -18,8 +26,12 @@ import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platf
 import { platformPopupCampaignStatusLabel } from "@/lib/platform-popup/popup-product-labels";
 import { PLATFORM_POPUP_CAMPAIGN_STATUSES } from "@/lib/platform-popup/types";
 
+/** 목록 조건 (주소 보존) — 상태(`live` = 지금 노출 중 · DB 상태값) · 검색어(이름·문구·이동 경로). */
+const PTR_LIST_QUERY_CONFIG = { statuses: PLATFORM_POPUP_ADMIN_LIST_STATUS_FILTERS };
+
 /**
  * 관리자 「당겨서 새로고침 광고」 목록 — Platform Popup 캠페인 중 `ptr_reveal` 만 (팝업 목록과 분리).
+ * R7: 서버 페이지(`limit`/`offset` → `total`) · 상태·검색은 서버 필터.
  */
 export function AdminPtrRevealListPage() {
   const { language } = useI18n();
@@ -28,37 +40,53 @@ export function AdminPtrRevealListPage() {
   const router = useRouter();
   // 폼 대화상자 — 새 광고 이름 입력(prompt)만. 확인은 confirmAdminAction (R2).
   const { prompt: askInput, dialog: confirmDialog } = useAdminConfirmDialog();
+  const ko = lang !== "en";
+  const lq = useAdminListQuery(PTR_LIST_QUERY_CONFIG);
   const [items, setItems] = useState<PlatformPopupAdminListItem[]>([]);
-  const [status, setStatus] = useState("");
-  const [query, setQuery] = useState("");
+  const [total, setTotal] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadFailure, setLoadFailure] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const q = new URLSearchParams({ scope: "ptr" });
-    if (status) q.set("status", status);
-    const res = await fetch(`/api/admin/platform-popup-campaigns?${q.toString()}`, { credentials: "same-origin" });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; items?: PlatformPopupAdminListItem[]; error?: string };
-    setLoading(false);
-    if (!res.ok || !json.ok) {
-      setError(formatPlatformPopupAdminError(json.error || "load_failed", lang));
-      return;
-    }
-    setItems(json.items ?? []);
-  }, [status, lang]);
+  const { apiQueryString, refreshKey, refresh } = lq;
 
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) => `${i.name} ${i.title ?? ""} ${i.ctaTarget} ${i.externalUrl ?? ""}`.toLowerCase().includes(q));
-  }, [items, query]);
+    let cancelled = false;
+    setLoading(true);
+    setLoadFailure(null);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/platform-popup-campaigns?scope=ptr&${apiQueryString}`, {
+          credentials: "same-origin",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          items?: PlatformPopupAdminListItem[];
+          total?: number;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || !json.ok) {
+          // 실패 시 직전 목록은 유지
+          setLoadFailure({ code: json.error || "load_failed", httpStatus: res.status });
+          return;
+        }
+        const rows = json.items ?? [];
+        setItems(rows);
+        setTotal(typeof json.total === "number" ? json.total : rows.length);
+        setLoaded(true);
+      } catch {
+        if (!cancelled) setLoadFailure({ code: "network_error" });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // refreshKey = apiQueryString + 새로고침 횟수
+  }, [apiQueryString, refreshKey]);
 
   const create = async () => {
     const name = await askInput({
@@ -88,7 +116,7 @@ export function AdminPtrRevealListPage() {
   const copy = async (item: PlatformPopupAdminListItem) => {
     const copyOk = await confirmAdminAction({
       level: adminActionLevel("save"),
-      ko: lang !== "en",
+      ko: ko,
       title: L("광고 복사", "Copy ad"),
       description: L(`「${item.name}」을 복사할까요? (승인·기간 제외)`, `Copy “${item.name}”? (approval and schedule excluded)`),
       confirmLabel: L("복사", "Copy"),
@@ -107,7 +135,7 @@ export function AdminPtrRevealListPage() {
       setError(formatPlatformPopupAdminError(json.error || "copy_failed", lang));
       return;
     }
-    await load();
+    refresh();
   };
 
   return (
@@ -123,45 +151,49 @@ export function AdminPtrRevealListPage() {
             )}
           </p>
         </div>
-        <AdminActionButton variant="primary" disabled={busy} onClick={() => void create()} data-admin-ptr-create="">
+        <AdminActionButton variant="secondary" disabled={busy} onClick={() => void create()} data-admin-ptr-create="">
           {L("새 광고 만들기", "New ad")}
         </AdminActionButton>
       </div>
 
-      <div className="flex flex-wrap gap-2 text-sm">
-        <input
-          className="min-w-[200px] flex-1 rounded border border-sam-border px-2 py-1.5"
-          placeholder={L("이름·문구·이동 경로 검색", "Search name, text or link")}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          data-admin-ptr-search=""
-        />
-        <select className="rounded border border-sam-border px-2 py-1.5" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">{L("모든 상태", "All statuses")}</option>
-          {PLATFORM_POPUP_CAMPAIGN_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {platformPopupCampaignStatusLabel(s, lang)}
-            </option>
-          ))}
-        </select>
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        pending={loading}
+        searchPlaceholder={L("이름·문구·이동 경로 검색", "Search name, text or link")}
+        status={{
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          label: L("상태", "Status"),
+          options: [
+            { value: "", label: L("모든 상태", "All statuses") },
+            { value: PLATFORM_POPUP_LIVE_STATUS_FILTER, label: platformPopupLiveStatusFilterLabel(lang) },
+            ...PLATFORM_POPUP_CAMPAIGN_STATUSES.map((s) => ({ value: s, label: platformPopupCampaignStatusLabel(s, lang) })),
+          ],
+        }}
+      />
 
       {error ? <p className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger" role="alert">{error}</p> : null}
 
-      {loading ?
-        <AdminLoadingState ko={lang !== "en"} />
-      : filtered.length === 0 ?
-        status || query.trim() ?
-          <AdminEmptyState
-            ko={lang !== "en"}
-            onReset={() => {
-              setStatus("");
-              setQuery("");
-            }}
-          />
-        : <AdminEmptyState ko={lang !== "en"} message={L("등록된 당겨서 새로고침 광고가 없습니다.", "No pull-to-refresh ads yet.")} />
-      : <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
-          {filtered.map((item) => (
+      {loadFailure ?
+        <AdminErrorState ko={ko} code={loadFailure.code} httpStatus={loadFailure.httpStatus} onRetry={refresh} />
+      : null}
+
+      {loading && !loaded ?
+        <AdminLoadingState ko={ko} />
+      : !loaded ?
+        null
+      : items.length === 0 ?
+        lq.isFiltered ?
+          <AdminEmptyState ko={ko} onReset={lq.reset} />
+        : <AdminEmptyState ko={ko} message={L("등록된 당겨서 새로고침 광고가 없습니다.", "No pull-to-refresh ads yet.")} />
+      : <>
+        <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
+          {items.map((item) => (
             <li key={item.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5" data-admin-ptr-row={item.id}>
               <div className="h-10 w-40 shrink-0 overflow-hidden rounded bg-sam-surface-muted">
                 {item.creativeThumbUrl ?
@@ -186,11 +218,21 @@ export function AdminPtrRevealListPage() {
                 {L("복사", "Copy")}
               </AdminActionButton>
               <AdminActionLink href={`/admin/ptr-reveal-ads/${item.id}`} variant="ghost" size="sm">
-                {adminCta("edit", lang !== "en")}
+                {adminCta("edit", ko)}
               </AdminActionLink>
             </li>
           ))}
         </ul>
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+      </>
       }
     </div>
   );

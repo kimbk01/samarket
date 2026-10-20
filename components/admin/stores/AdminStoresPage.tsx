@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
@@ -44,7 +47,9 @@ type SalesPerm = {
 
 type AdminStoreRow = AdminStoreReviewRow & { sales_permission: SalesPerm };
 
-const ADMIN_STORES_PAGE_SIZE = 30;
+/** 목록 조건 = 주소 (`status`·`q`·`page`·`size`) — 대시보드 딥링크 `?status=` 그대로 호환. */
+const STORE_STATUS_VALUES = ADMIN_STORE_STATUS_FILTER.map((f) => f.value).filter((v) => v !== "all");
+const LIST_CONFIG = { statuses: STORE_STATUS_VALUES };
 
 type AdminStoreCounts = Partial<Record<(typeof ADMIN_STORE_STATUS_FILTER)[number]["value"], number>>;
 
@@ -68,11 +73,9 @@ export function AdminStoresPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
-  const [filter, setFilter] = useState(() => {
-    const status = searchParams.get("status")?.trim() ?? "";
-    if (ADMIN_STORE_STATUS_FILTER.some((f) => f.value === status)) return status;
-    return "all";
-  });
+  const pathname = usePathname() ?? "/admin/stores";
+  const lq = useAdminListQuery(LIST_CONFIG);
+  const filter = lq.query.status || "all";
   const [rows, setRows] = useState<AdminStoreRow[]>([]);
   const [counts, setCounts] = useState<AdminStoreCounts>({});
   const [loading, setLoading] = useState(true);
@@ -83,53 +86,23 @@ export function AdminStoresPage() {
   >(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [sheetStore, setSheetStore] = useState<AdminStoreRow | null>(null);
-  const [searchText, setSearchText] = useState(() => searchParams.get("q")?.trim() ?? "");
-  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("q")?.trim() ?? "");
-  const [page, setPage] = useState(() => {
-    const n = Number(searchParams.get("page"));
-    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
-  });
+  const page = lq.query.page;
+  const pageSize = lq.query.size;
+  const search = lq.query.q;
   const [total, setTotal] = useState(0);
-  const [pageSize, setPageSize] = useState(ADMIN_STORES_PAGE_SIZE);
   const rtRefreshTimeoutRef = useRef<number | null>(null);
-  const firstFilterRunRef = useRef(true);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(searchText.trim()), 250);
-    return () => window.clearTimeout(timer);
-  }, [searchText]);
-
-  useEffect(() => {
-    // 필터·검색이 바뀌면 1페이지로 (첫 렌더는 URL page 유지).
-    if (firstFilterRunRef.current) {
-      firstFilterRunRef.current = false;
-      return;
-    }
-    setPage(1);
-  }, [filter, debouncedSearch]);
-
-  /** 화면 URL (뒤로가기·상세 복귀용) — status·q·page */
-  const qs = useMemo(() => {
-    const parts: string[] = [];
-    if (filter !== "all") parts.push(`status=${encodeURIComponent(filter)}`);
-    if (debouncedSearch) parts.push(`q=${encodeURIComponent(debouncedSearch)}`);
-    if (page > 1) parts.push(`page=${page}`);
-    return parts.length ? `?${parts.join("&")}` : "";
-  }, [filter, debouncedSearch, page]);
+  /** 화면 URL (뒤로가기·상세 복귀용) — useAdminListQuery 가 주소에 쓴 조건 그대로. */
+  const spKey = searchParams?.toString() ?? "";
+  const qs = spKey ? `?${spKey}` : "";
 
   /** DEF-15 — 서버 페이지네이션 (전체 건수·상태별 건수는 서버 집계). */
   const apiQs = useMemo(() => {
-    const parts = [`page=${page}`, `page_size=${ADMIN_STORES_PAGE_SIZE}`];
+    const parts = [`page=${page}`, `page_size=${pageSize}`];
     if (filter !== "all") parts.push(`status=${encodeURIComponent(filter)}`);
-    if (debouncedSearch) parts.push(`q=${encodeURIComponent(debouncedSearch)}`);
+    if (search) parts.push(`q=${encodeURIComponent(search)}`);
     return `?${parts.join("&")}`;
-  }, [filter, debouncedSearch, page]);
-
-  useEffect(() => {
-    const next = `/admin/stores${qs}`;
-    const current = `${window.location.pathname}${window.location.search}`;
-    if (current !== next) window.history.replaceState(window.history.state, "", next);
-  }, [qs]);
+  }, [filter, search, page, pageSize]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -146,18 +119,15 @@ export function AdminStoresPage() {
         return;
       }
       if (!json?.ok) {
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5).
         setError(json?.error ?? "load_failed");
         setErrorStatus(res.status);
-        setRows([]);
-        setCounts({});
-        setSheetStore(null);
         return;
       }
       const nextRows = (json.stores ?? []) as AdminStoreRow[];
       setRows(nextRows);
       setCounts(typeof json.counts === "object" && json.counts ? (json.counts as AdminStoreCounts) : {});
       setTotal(typeof json.total === "number" ? json.total : nextRows.length);
-      setPageSize(typeof json.pageSize === "number" && json.pageSize > 0 ? json.pageSize : ADMIN_STORES_PAGE_SIZE);
       setSheetStore((prev) => {
         if (prev && nextRows.some((r) => r.id === prev.id)) {
           return nextRows.find((r) => r.id === prev.id) ?? prev;
@@ -166,9 +136,6 @@ export function AdminStoresPage() {
       });
     } catch {
       setError("network_error");
-      setRows([]);
-      setCounts({});
-      setSheetStore(null);
     } finally {
       setLoading(false);
     }
@@ -237,7 +204,7 @@ export function AdminStoresPage() {
     }
   };
 
-  const returnToHere = `/admin/stores${qs}`;
+  const returnToHere = `${pathname}${qs}`;
 
   return (
     <AdminStoreReviewTheme>
@@ -259,7 +226,7 @@ export function AdminStoresPage() {
                 selected={active}
                 count={n}
                 className="shrink-0"
-                onClick={() => setFilter(f.value)}
+                onClick={() => lq.setStatus(f.value === "all" ? "" : f.value)}
               >
                 {label}
               </AdminChipButton>
@@ -271,14 +238,15 @@ export function AdminStoresPage() {
 
         <div className="overflow-hidden rounded-sm border border-sam-border bg-white">
           <div className="border-b border-sam-border bg-sam-surface-muted px-4 py-3">
-            <label className="text-[12px] font-bold uppercase tracking-[0.08em] text-sam-fg">
-              {t("common_search")}
-            </label>
-            <input
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder={t("admin_stores_search_placeholder")}
-              className="mt-2 w-full rounded-sm border border-sam-border bg-white px-3 py-2 text-sam-fg outline-none focus:border-sam-primary"
+            <AdminFilterBar
+              ko={ko}
+              draft={lq.draft}
+              onDraftChange={lq.setDraft}
+              onSubmit={lq.submit}
+              onReset={lq.reset}
+              pending={loading}
+              showPeriod={false}
+              searchPlaceholder={t("admin_stores_search_placeholder")}
             />
             <p className="mt-2 text-[13px] text-sam-muted">
               {loading ? t("common_loading") : error ? "—" : t("admin_stores_result_count", { count: total })}
@@ -286,18 +254,25 @@ export function AdminStoresPage() {
           </div>
 
           <div className="min-h-[50vh]">
-            {loading ? (
-              <div className="p-4">
-                <AdminLoadingState ko={ko} />
-              </div>
-            ) : error ? (
+            {error ? (
               <div className="p-4">
                 <AdminErrorState ko={ko} code={error} httpStatus={errorStatus} onRetry={() => void load()} />
               </div>
-            ) : rows.length === 0 ? (
+            ) : null}
+            {loading && rows.length === 0 ? (
               <div className="p-4">
-                <AdminEmptyState ko={ko} message={t("admin_stores_empty_list")} />
+                <AdminLoadingState ko={ko} />
               </div>
+            ) : rows.length === 0 ? (
+              error ? null : (
+                <div className="p-4">
+                  <AdminEmptyState
+                    ko={ko}
+                    message={lq.isFiltered ? undefined : t("admin_stores_empty_list")}
+                    onReset={lq.isFiltered ? lq.reset : undefined}
+                  />
+                </div>
+              )
             ) : (
               <div>
                 {rows.map((r) => {
@@ -380,7 +355,7 @@ export function AdminStoresPage() {
                           </div>
 
                           <AdminActionButton
-                            variant={active ? "secondary" : "primary"}
+                            variant="ghost"
                             size="sm"
                             onClick={() => setSheetStore((prev) => (prev?.id === r.id ? null : r))}
                             aria-expanded={active}
@@ -428,39 +403,17 @@ export function AdminStoresPage() {
               </div>
             )}
           </div>
-          {!loading && !error && total > pageSize ? (
-            <div
-              className="flex flex-wrap items-center justify-between gap-2 border-t border-sam-border bg-sam-surface-muted px-4 py-3"
-              data-admin-stores-pagination="1"
-            >
-              <p className="text-[13px] text-sam-muted">
-                {t("admin_biz_ops_page_range", {
-                  from: String((page - 1) * pageSize + 1),
-                  to: String(Math.min(page * pageSize, total)),
-                  total: String(total),
-                })}
-              </p>
-              <div className="flex items-center gap-1">
-                <AdminActionButton
-                  variant="secondary"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  {t("admin_biz_ops_page_prev")}
-                </AdminActionButton>
-                <span className="px-2 text-[13px] tabular-nums text-sam-fg">
-                  {page} / {Math.max(1, Math.ceil(total / pageSize))}
-                </span>
-                <AdminActionButton
-                  variant="secondary"
-                  size="sm"
-                  disabled={page >= Math.ceil(total / pageSize)}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  {t("admin_biz_ops_page_next")}
-                </AdminActionButton>
-              </div>
+          {rows.length > 0 ? (
+            <div className="border-t border-sam-border bg-sam-surface-muted px-4" data-admin-stores-pagination="1">
+              <AdminPagination
+                ko={ko}
+                page={page}
+                size={pageSize}
+                total={total}
+                onPageChange={lq.setPage}
+                onSizeChange={lq.setSize}
+                disabled={loading}
+              />
             </div>
           ) : null}
         </div>

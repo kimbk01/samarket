@@ -3,10 +3,10 @@
 /**
  * 커뮤니티 댓글 (설계 §C-7 · §C-0-1 목록 화면 틀).
  * 탭(공개/관리자 숨김/삭제됨/신고 있음/전체) · 검색(내용·작성자 닉네임·ID) · 카테고리 · 유형(댓글/답글) · 작성자 · 게시글 · 기간(PHT) — 모두 URL.
+ * 필터 바 = `CommunityFilterBar`(AdminFilterBar) · 페이지 = `CommunityListPagination`(20/50/100, URL size).
  * 상태 select 즉시 반영 없음 (C-18). 버튼: 숨기기 L2 · 다시 공개 L1 · 삭제 L2 — expectedStatus(CAS)+사유 전송.
  * 답글은 부모 댓글을 함께 보여 준다. 삭제는 상태 변경만(복구 가능) — 영구 삭제 없음.
  */
-import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -21,33 +21,31 @@ import {
   COMMUNITY_TD,
   CommunityActionSheet,
   CommunityAuthorCell,
+  CommunityFilterBar,
   CommunityFilterField,
+  CommunityListBody,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityPeriodFilter,
-  CommunityResetFilters,
-  CommunitySearchInput,
   CommunitySelect,
   CommunityStatusBadge,
   CommunityTable,
   CommunityTabs,
   CommunityTimeCell,
   communityDetailHref,
+  useCommunityListQuery,
   useCommunityQueryState,
+  type CommunityListLoadState,
 } from "@/components/admin/community/kit/CommunityAdminKit";
-import {
-  AdminEmptyState,
-  AdminErrorState,
-  AdminLoadingState,
-  AdminResultBanner,
-} from "@/components/admin/ui/AdminStateViews";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-labels";
 import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
-import { parseCommunityAdminPeriod } from "@/lib/admin/community-admin/community-admin-period";
 import {
-  COMMUNITY_PAGE_SIZE,
+  communityAdminListPeriodParams,
+  parseCommunityAdminPeriod,
+} from "@/lib/admin/community-admin/community-admin-period";
+import {
   COMMUNITY_POSTS_LIST_PATH,
   COMMUNITY_STALE_MESSAGE,
   communityJsonFetch,
@@ -88,7 +86,8 @@ const TABS = [
   { value: "all", label: "전체" },
 ] as const;
 
-const FILTER_KEYS = ["q", "topicSlug", "type", "userId", "postId", "commentId", "period", "from", "to"];
+/** 조회 조건 추가 키 (URL) — 탭(`tab`)과 옛 딥링크 키(`status`·`reported`)는 탭 쪽이 관리 */
+const COMMENT_EXTRAS = ["topicSlug", "type", "userId", "postId", "commentId"] as const;
 
 const NEXT_STATUS: Record<Action["kind"], "hidden" | "active" | "deleted"> = {
   hide: "hidden",
@@ -100,7 +99,11 @@ const ACTION_LABEL: Record<Action["kind"], string> = { hide: "숨기기", restor
 export function AdminCommunityCommentsPage() {
   const { t: tr, language } = useI18n();
   const ko = language !== "en";
-  const { sp: searchParams, set, reset, selfHref, page } = useCommunityQueryState();
+  const { sp: searchParams, set } = useCommunityQueryState();
+  const lq = useCommunityListQuery({ extras: COMMENT_EXTRAS });
+  const { selfHref } = lq;
+  const page = lq.query.page;
+  const pageSize = lq.query.size;
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
   const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
   const noPermTitle = canContent ? undefined : "권한 필요: 게시판 관리";
@@ -120,16 +123,15 @@ export function AdminCommunityCommentsPage() {
       : ["active", "hidden", "deleted"].includes(statusParam)
         ? statusParam
         : "all";
-  const qParam = (searchParams.get("q") ?? "").trim();
-  const postId = searchParams.get("postId") ?? "";
-  const topicSlug = searchParams.get("topicSlug") ?? "";
-  const userId = searchParams.get("userId") ?? "";
-  const from = searchParams.get("from") ?? "";
-  const to = searchParams.get("to") ?? "";
-  const period = searchParams.get("period") ?? (from || to ? "custom" : "");
+  const qParam = lq.query.q;
+  const postId = lq.query.extras.postId;
+  const topicSlug = lq.query.extras.topicSlug;
+  const userId = lq.query.extras.userId;
+  const from = lq.query.from;
+  const to = lq.query.to;
+  const period = lq.legacyPeriod;
 
   const [rows, setRows] = useState<CommunityCommentRow[]>([]);
-  const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(null);
@@ -139,15 +141,15 @@ export function AdminCommunityCommentsPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
-  const queryScopeKey = [tab, qParam, typeFilter, postId, topicSlug, userId, commentId, period, from, to, page].join("|");
+  const queryScopeKey = [tab, qParam, typeFilter, postId, topicSlug, userId, commentId, period, from, to, page, pageSize].join("|");
   const selectableIds = useMemo(() => rows.map((r) => r.id).filter(Boolean), [rows]);
   const selection = useAdminManagementSelection({ queryScopeKey, selectableIds });
   const reload = useCallback(() => setReloadKey((n) => n + 1), []);
 
   const apiQuery = useMemo(() => {
     const q = new URLSearchParams({
-      limit: String(COMMUNITY_PAGE_SIZE),
-      offset: String((page - 1) * COMMUNITY_PAGE_SIZE),
+      limit: String(pageSize),
+      offset: String((page - 1) * pageSize),
     });
     if (commentId) q.set("commentId", commentId);
     if (qParam) q.set("q", qParam);
@@ -158,15 +160,16 @@ export function AdminCommunityCommentsPage() {
     else if (tab !== "all") q.set("status", tab);
     if (typeFilter === "comment" || typeFilter === "reply") q.set("type", typeFilter);
     // 기간: 마닐라 날짜 경계를 공용 파서로 UTC 로 바꿔 넘긴다 (브라우저 시간대·new Date("YYYY-MM-DD") 사용 안 함)
-    if (period) {
-      const range = parseCommunityAdminPeriod({ period, from, to });
+    const periodParams = communityAdminListPeriodParams({ period, from, to });
+    if (periodParams.period !== "all") {
+      const range = parseCommunityAdminPeriod(periodParams);
       if (range.ok && range.fromIso && range.toIso) {
         q.set("createdFrom", range.fromIso);
         q.set("createdTo", new Date(Date.parse(range.toIso) - 1).toISOString());
       }
     }
     return q.toString();
-  }, [commentId, qParam, postId, topicSlug, userId, tab, typeFilter, period, from, to, page]);
+  }, [commentId, qParam, postId, topicSlug, userId, tab, typeFilter, period, from, to, page, pageSize]);
 
   useEffect(() => {
     let cancel = false;
@@ -181,16 +184,12 @@ export function AdminCommunityCommentsPage() {
       );
       if (cancel) return;
       if (!r.ok) {
+        // 실패해도 직전 목록은 지우지 않는다 (지시서 §8-5)
         setLoadErr({ code: r.code, status: r.status });
-        setRows([]);
-        setHasMore(false);
-        setTotal(null);
-        setTopicFilterTruncated(false);
       } else {
         const list = r.json.comments ?? [];
         setLoadErr(null);
         setRows(list);
-        setHasMore(list.length >= COMMUNITY_PAGE_SIZE);
         setTotal(typeof r.json.total === "number" ? r.json.total : null);
         setTopicFilterTruncated(r.json.topicFilterTruncated === true);
       }
@@ -199,7 +198,7 @@ export function AdminCommunityCommentsPage() {
     return () => {
       cancel = true;
     };
-  }, [apiQuery, reloadKey]);
+  }, [apiQuery, reloadKey, lq.refreshKey]);
 
   useEffect(() => {
     if (!commentId || loading) return;
@@ -246,7 +245,6 @@ export function AdminCommunityCommentsPage() {
     [reload, rows, selection]
   );
 
-  const hasFilters = FILTER_KEYS.some((k) => searchParams.get(k));
   const n = selection.selectedCount;
   const postTitleChip = postId ? String(rows.find((r) => r.post_id === postId)?.post_title ?? "").trim() || "선택한 게시글" : "";
   const authorChip = userId ? String(rows.find((r) => r.user_id === userId)?.author_label ?? "").trim() || "선택한 작성자" : "";
@@ -260,19 +258,12 @@ export function AdminCommunityCommentsPage() {
     </span>
   );
 
-  const filters = (
-    <>
-      <CommunityFilterField label={tr("admin_community_comments_search_label")}>
-        <CommunitySearchInput
-          value={qParam}
-          placeholder={tr("admin_community_comments_search_placeholder")}
-          onCommit={(v) => set({ q: v })}
-        />
-      </CommunityFilterField>
+  const filterBar = (
+    <CommunityFilterBar lq={lq} searchPlaceholder={tr("admin_community_comments_search_placeholder")} pending={loading}>
       <CommunityFilterField label="카테고리">
         <CommunitySelect
           value={topicSlug}
-          onChange={(v) => set({ topicSlug: v })}
+          onChange={(v) => lq.setExtra("topicSlug", v)}
           options={[
             { value: "", label: "전체 카테고리" },
             ...topics.map((t) => ({ value: t.slug, label: t.name })),
@@ -283,7 +274,7 @@ export function AdminCommunityCommentsPage() {
       <CommunityFilterField label="유형">
         <CommunitySelect
           value={typeFilter}
-          onChange={(v) => set({ type: v })}
+          onChange={(v) => lq.setExtra("type", v)}
           options={[
             { value: "", label: "전체" },
             { value: "comment", label: tr("admin_community_target_type_comment") },
@@ -291,17 +282,10 @@ export function AdminCommunityCommentsPage() {
           ]}
         />
       </CommunityFilterField>
-      <CommunityPeriodFilter period={period} from={from} to={to} onChange={(v) => set({ period: v.period, from: v.from, to: v.to })} />
-      {postId ? chip(`게시글: ${postTitleChip.slice(0, 24)}`, () => set({ postId: null })) : null}
-      {userId ? chip(`작성자: ${authorChip}`, () => set({ userId: null })) : null}
-      {commentId ? chip("특정 댓글 1건만 보기", () => set({ commentId: null })) : null}
-      {hasFilters ? <CommunityResetFilters onReset={() => reset(["tab"])} /> : null}
-      {!loading && !loadErr && typeof total === "number" ? (
-        <span className="pb-1.5 text-[12px] font-semibold text-sam-fg" data-community-list-total={total}>
-          {tr("admin_community_list_total", { count: formatAdminNumber(total) })}
-        </span>
-      ) : null}
-    </>
+      {postId ? chip(`게시글: ${postTitleChip.slice(0, 24)}`, () => lq.setExtra("postId", "")) : null}
+      {userId ? chip(`작성자: ${authorChip}`, () => lq.setExtra("userId", "")) : null}
+      {commentId ? chip("특정 댓글 1건만 보기", () => lq.setExtra("commentId", "")) : null}
+    </CommunityFilterBar>
   );
 
   const rowButtons = (r: CommunityCommentRow) => {
@@ -310,8 +294,8 @@ export function AdminCommunityCommentsPage() {
       <span className="flex flex-wrap gap-1">
         {status === "active" ? (
           <AdminActionButton
-            variant="secondary"
-            className="border-sam-warning text-sam-warning"
+            variant="ghost"
+            size="sm"
             disabled={!canContent}
             title={noPermTitle}
             onClick={() => setAction({ kind: "hide", ids: [r.id] })}
@@ -320,7 +304,8 @@ export function AdminCommunityCommentsPage() {
           </AdminActionButton>
         ) : (
           <AdminActionButton
-            variant="secondary"
+            variant="ghost"
+            size="sm"
             disabled={!canContent}
             title={noPermTitle}
             onClick={() => setAction({ kind: "restore", ids: [r.id] })}
@@ -329,8 +314,10 @@ export function AdminCommunityCommentsPage() {
           </AdminActionButton>
         )}
         {status !== "deleted" ? (
+          // 삭제 = 상태 변경(복구 가능) — danger 아님
           <AdminActionButton
-            variant="danger"
+            variant="ghost"
+            size="sm"
             disabled={!canContent}
             title={noPermTitle}
             onClick={() => setAction({ kind: "delete", ids: [r.id] })}
@@ -343,14 +330,20 @@ export function AdminCommunityCommentsPage() {
     );
   };
 
-  let body: ReactNode;
-  if (loading) body = <AdminLoadingState ko={ko} />;
-  else if (loadErr)
-    body = <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={reload} />;
-  else if (rows.length === 0)
-    body = <AdminEmptyState ko={ko} message={hasFilters ? "조건에 맞는 댓글이 없습니다." : "댓글이 없습니다."} />;
-  else
-    body = (
+  const listState: CommunityListLoadState = loadErr
+    ? { status: "error", data: total === null && rows.length === 0 ? null : rows, code: loadErr.code, httpStatus: loadErr.status }
+    : loading
+      ? { status: "loading", data: total === null && rows.length === 0 ? null : rows }
+      : { status: "ok", data: rows };
+  const body: ReactNode = (
+    <CommunityListBody
+      state={listState}
+      empty={rows.length === 0}
+      lq={lq}
+      onRetry={reload}
+      emptyMessage="댓글이 없습니다."
+      filteredEmptyMessage="조건에 맞는 댓글이 없습니다."
+    >
       <CommunityTable head={["", "유형", "댓글", "게시글", "작성자", "상태", "신고", "작성 시각", ""]}>
         {rows.map((r) => {
           const id = r.id;
@@ -430,7 +423,8 @@ export function AdminCommunityCommentsPage() {
           );
         })}
       </CommunityTable>
-    );
+    </CommunityListBody>
+  );
 
   const bulkBar =
     n > 0 ? (
@@ -446,7 +440,6 @@ export function AdminCommunityCommentsPage() {
         </AdminActionButton>
         <AdminActionButton
           variant="secondary"
-          className="border-sam-warning text-sam-warning"
           disabled={!canContent}
           title={noPermTitle}
           onClick={() => setAction({ kind: "hide", ids: [...selection.selected] })}
@@ -455,7 +448,7 @@ export function AdminCommunityCommentsPage() {
         </AdminActionButton>
         {isBulkActionAllowed(policy, "soft_delete") ? (
           <AdminActionButton
-            variant="danger"
+            variant="secondary"
             disabled={!canContent}
             title={noPermTitle}
             onClick={() => setAction({ kind: "delete", ids: [...selection.selected] })}
@@ -510,7 +503,7 @@ export function AdminCommunityCommentsPage() {
             onChange={(v) => set({ tab: v, status: null, reported: null })}
           />
         }
-        filters={filters}
+        filterBar={filterBar}
         bulkBar={
           <>
             {rows.length > 0 && !loading ? (
@@ -527,16 +520,7 @@ export function AdminCommunityCommentsPage() {
             {bulkBar}
           </>
         }
-        footer={
-          !loading && !loadErr && (rows.length > 0 || page > 1) ? (
-            <CommunityPagination
-              page={page}
-              pageSize={COMMUNITY_PAGE_SIZE}
-              total={total ?? (hasMore ? null : (page - 1) * COMMUNITY_PAGE_SIZE + rows.length)}
-              onPage={(p) => set({ page: p > 1 ? p : null }, { keepPage: true })}
-            />
-          ) : null
-        }
+        footer={<CommunityListPagination lq={lq} total={total} disabled={loading} />}
       >
         {body}
       </CommunityListShell>

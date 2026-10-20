@@ -965,7 +965,7 @@ export function AdminGiftIssuancePanel({
                   <td className="px-2 py-2">
                     <AdminActionButton
                       type="button"
-                      variant="primary" size="sm"
+                      variant="ghost" size="sm"
                       onClick={() =>
                         go({ tab: "products", products: "applications", extra: { id: r.id } })
                       }
@@ -1064,7 +1064,7 @@ export function AdminGiftIssuancePanel({
                     <td className="px-2 py-2">
                       <AdminActionButton
                         type="button"
-                        variant="primary" size="sm"
+                        variant="ghost" size="sm"
                         data-admin-gift-product-open-detail="1"
                         onClick={() => go({ tab: "products", extra: { id: p.id } })}
                       >
@@ -1114,7 +1114,7 @@ export function AdminGiftIssuancePanel({
                 </div>
                 <AdminActionButton
                   type="button"
-                  variant="primary" className="mt-3 w-full"
+                  variant="ghost" size="sm" className="mt-3 w-full"
                   data-admin-gift-product-open-detail="1"
                   onClick={() => go({ tab: "products", extra: { id: p.id } })}
                 >

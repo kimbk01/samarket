@@ -17,14 +17,48 @@ import { OpsResponseQualityTable } from "./OpsResponseQualityTable";
 import { OpsImprovementSuggestionTable } from "./OpsImprovementSuggestionTable";
 import type { OpsLearningStatus } from "@/lib/types/ops-learning";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId = "history" | "patterns" | "quality" | "suggestions" | "patternLogs";
 
+const LEARNING_STATUSES = ["detected", "reviewing", "action_created", "mitigated", "closed"] as const satisfies readonly OpsLearningStatus[];
+type LearningFilterStatus = (typeof LEARNING_STATUSES)[number];
+const LEARNING_STATUS_LABEL_KEYS: Record<LearningFilterStatus, MessageKey> = {
+  detected: "admin_ops_tools_pattern_detected",
+  reviewing: "admin_ops_tools_pattern_reviewing",
+  action_created: "admin_ops_tools_pattern_action_created",
+  mitigated: "admin_ops_tools_resolution_mitigated",
+  closed: "admin_ops_tools_pattern_closed",
+};
+
 export function AdminOpsLearningPage() {
-  const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("history");
-  const [historyStatusFilter, setHistoryStatusFilter] = useState<OpsLearningStatus | "">("");
-  const [patternStatusFilter, setPatternStatusFilter] = useState<OpsLearningStatus | "">("");
+  const { t, language } = useI18n();
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(["history", "patterns", "quality", "suggestions", "patternLogs"] as const, "history");
+  /** 상태 필터는 주소(`?status=`)에 보존 (R7) — 탭을 바꾸면 초기화. */
+  const lq = useAdminListQuery({ statuses: LEARNING_STATUSES });
+  const ko = language !== "en";
+  const historyStatusFilter = lq.query.status as OpsLearningStatus | "";
+  const patternStatusFilter = lq.query.status as OpsLearningStatus | "";
+  const statusBar = (codes: readonly LearningFilterStatus[]) => (
+    <AdminFilterBar
+      ko={ko}
+      className="mb-3"
+      draft={lq.draft}
+      onDraftChange={lq.setDraft}
+      onSubmit={lq.submit}
+      onReset={lq.reset}
+      showPeriod={false}
+      showSearch={false}
+      status={{
+        value: lq.query.status,
+        onChange: lq.setStatus,
+        options: codes.map((c) => ({ value: c, label: t(LEARNING_STATUS_LABEL_KEYS[c]) })),
+      }}
+    />
+  );
   const [selectedPatternId, setSelectedPatternId] = useState<string | null>(null);
   const { state: loadState, reload } = useAdminSyncLoad(loadOpsLearningFromServer);
   const hydrated = loadState.status === "ready";
@@ -52,9 +86,8 @@ export function AdminOpsLearningPage() {
       <AdminTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="history"
+        resetParams={adminSyncTabResetParams([])}
         className="mb-4"
       />
 
@@ -62,20 +95,7 @@ export function AdminOpsLearningPage() {
         <div className="space-y-4">
           <OpsLearningSummaryCards />
           <AdminCard titleKey="admin_ops_tools_learning_tab_history">
-            <div className="mb-3">
-              <select
-                value={historyStatusFilter}
-                onChange={(e) => setHistoryStatusFilter(e.target.value as OpsLearningStatus | "")}
-                className="rounded border border-sam-border px-3 py-2 sam-text-body"
-              >
-                <option value="">{t("admin_ops_tools_board_filter_status")}</option>
-                <option value="detected">{t("admin_ops_tools_pattern_detected")}</option>
-                <option value="reviewing">{t("admin_ops_tools_pattern_reviewing")}</option>
-                <option value="action_created">{t("admin_ops_tools_pattern_action_created")}</option>
-                <option value="mitigated">{t("admin_ops_tools_resolution_mitigated")}</option>
-                <option value="closed">{t("admin_ops_tools_pattern_closed")}</option>
-              </select>
-            </div>
+            {statusBar(LEARNING_STATUSES)}
             <OpsLearningHistoryTable statusFilter={historyStatusFilter} />
           </AdminCard>
         </div>
@@ -86,18 +106,7 @@ export function AdminOpsLearningPage() {
           <div className="space-y-4">
             <OpsLearningSummaryCards />
             <AdminCard titleKey="admin_ops_tools_learning_card_patterns">
-              <div className="mb-3">
-                <select
-                  value={patternStatusFilter}
-                  onChange={(e) => setPatternStatusFilter(e.target.value as OpsLearningStatus | "")}
-                  className="rounded border border-sam-border px-3 py-2 sam-text-body"
-                >
-                  <option value="">{t("admin_ops_tools_board_filter_status")}</option>
-                  <option value="detected">{t("admin_ops_tools_pattern_detected")}</option>
-                  <option value="reviewing">{t("admin_ops_tools_pattern_reviewing")}</option>
-                  <option value="mitigated">{t("admin_ops_tools_resolution_mitigated")}</option>
-                </select>
-              </div>
+              {statusBar(["detected", "reviewing", "mitigated"])}
               <OpsIssuePatternTable
                 statusFilter={patternStatusFilter}
                 onSelectPattern={setSelectedPatternId}

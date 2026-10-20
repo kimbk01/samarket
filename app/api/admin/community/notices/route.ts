@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import { ADMIN_LIST_MAX_OFFSET } from "@/lib/admin/pagination/parse-admin-list-page";
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/community-admin-reason";
@@ -19,8 +21,10 @@ export const dynamic = "force-dynamic";
 type Tab = "live" | "scheduled" | "ended";
 
 /**
- * GET /api/admin/community/notices?tab=live|scheduled|ended
- * → { ok, tab, notices: Row[], pinned: Row[] (지금 고정된 글 — 공지 포함), pinLimits: { feed: {limit,count}, topic: {limit, counts: {topicId: n}} } }
+ * GET /api/admin/community/notices?tab=live|scheduled|ended[&limit=20|50|100&offset=n]
+ * R7: `limit` 을 주면 서버 페이지(`total` = exact count, range) — 없으면 기존처럼 최근 100건.
+ * 「게시 중」의 종료 조건도 DB 에서 거른다 (메모리 필터 시 total 과 행이 어긋나므로).
+ * → { ok, tab, total, limit, offset, notices: Row[], pinned: Row[] (지금 고정된 글 — 공지 포함), pinLimits: { feed: {limit,count}, topic: {limit, counts: {topicId: n}} } }
  * Row: community_posts 필드 + author_label, pinned_by_label
  */
 export async function GET(req: NextRequest) {
@@ -32,16 +36,30 @@ export async function GET(req: NextRequest) {
   const tab: Tab = tabRaw === "scheduled" || tabRaw === "ended" ? tabRaw : "live";
   const now = new Date().toISOString();
 
-  let q = sb.from("community_posts").select(COMMUNITY_NOTICE_LIST_SELECT).eq("is_notice", true);
+  const sp = req.nextUrl.searchParams;
+  const paged = sp.has("limit");
+  const limit = paged ? normalizeAdminListPageSize(sp.get("limit")) : 100;
+  const offRaw = Math.floor(Number(sp.get("offset") ?? 0));
+  const offset = paged && Number.isFinite(offRaw) && offRaw > 0 ? Math.min(offRaw, ADMIN_LIST_MAX_OFFSET) : 0;
+
+  let q = sb
+    .from("community_posts")
+    .select(COMMUNITY_NOTICE_LIST_SELECT, paged ? { count: "exact" } : undefined)
+    .eq("is_notice", true);
   if (tab === "live") {
-    // 시작 조건은 DB, 종료 조건은 아래에서 거른다 (or 필터 1개만 사용).
-    q = q.eq("status", "active").or(`notice_starts_at.is.null,notice_starts_at.lte."${now}"`);
+    // 시작·종료 조건 모두 DB 에서 (or 필터 1개 안에 and(or, or)).
+    q = q
+      .eq("status", "active")
+      .or(
+        `and(or(notice_starts_at.is.null,notice_starts_at.lte."${now}"),or(notice_ends_at.is.null,notice_ends_at.gt."${now}"))`
+      );
   } else if (tab === "scheduled") {
     q = q.eq("status", "active").gt("notice_starts_at", now);
   } else {
     q = q.or(`notice_ends_at.lte."${now}",status.neq.active`);
   }
-  const noticesP = q.order("created_at", { ascending: false }).limit(100);
+  const ordered = q.order("created_at", { ascending: false });
+  const noticesP = paged ? ordered.range(offset, offset + limit - 1) : ordered.limit(100);
   const pinnedP = sb
     .from("community_posts")
     .select(COMMUNITY_NOTICE_LIST_SELECT)
@@ -57,10 +75,8 @@ export async function GET(req: NextRequest) {
   if (noticesRes.error) return NextResponse.json({ ok: false, error: noticesRes.error.message }, { status: 500 });
   if (pinnedRes.error) return NextResponse.json({ ok: false, error: pinnedRes.error.message }, { status: 500 });
 
-  const nowMs = Date.parse(now);
-  const notices = ((noticesRes.data ?? []) as unknown as Array<Record<string, unknown>>).filter(
-    (r) => tab !== "live" || !r.notice_ends_at || Date.parse(String(r.notice_ends_at)) > nowMs
-  );
+  const notices = (noticesRes.data ?? []) as unknown as Array<Record<string, unknown>>;
+  const total = paged ? (noticesRes as { count?: number | null }).count ?? notices.length : notices.length;
   const pinned = (pinnedRes.data ?? []) as unknown as Array<Record<string, unknown>>;
   const ids = [...notices, ...pinned].flatMap((r) => [String(r.user_id ?? ""), String(r.pinned_by ?? "")]);
   const identityMap = await loadAdminMemberIdentityMap(sb, ids);
@@ -87,6 +103,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     tab,
+    total,
+    limit,
+    offset,
     notices: notices.map(decorate),
     pinned: pinned.map(decorate),
     pinLimits: { feed: { limit: 3, count: feedCount }, topic: { limit: 2, counts: topicCounts } },

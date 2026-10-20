@@ -10,6 +10,12 @@ import {
 } from "@/lib/ops-knowledge/ops-knowledge-db";
 import type { OpsKnowledgeBundleV1 } from "@/lib/ops-knowledge/ops-knowledge-state";
 import { createDefaultOpsKnowledgeBundle } from "@/lib/ops-knowledge/ops-knowledge-state";
+import {
+  parseAdminJsonListPage,
+  sliceAdminJsonList,
+  sortAdminJsonListByDateDesc,
+  sortAdminJsonListNewestFirst,
+} from "@/lib/admin/pagination/admin-json-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,9 +31,44 @@ function isBundle(x: unknown): x is OpsKnowledgeBundleV1 {
   );
 }
 
-export async function GET() {
+/**
+ * `?part=search-logs` · `?part=recommendation-logs` · `?part=recent-views&admin_id=` — 로그만 서버 페이지로 (`limit` 20/50/100 · `offset`) → `{ items, total }` (R7).
+ * 파라미터가 없으면 기존 번들 응답 그대로.
+ */
+export async function GET(req: NextRequest) {
   const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
+
+  const part = req.nextUrl.searchParams.get("part");
+  if (part === "search-logs" || part === "recommendation-logs" || part === "recent-views") {
+    try {
+      const loaded = await loadOpsKnowledgeBundleFromDb(getSupabaseServer());
+      if (!loaded.ok && loaded.reason !== "missing_table") {
+        return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
+      }
+      const bundle = loaded.ok ? loaded.bundle : createDefaultOpsKnowledgeBundle();
+      const page = parseAdminJsonListPage(req.nextUrl.searchParams);
+      /** 화면 스토어와 같은 규칙 — 저장본이 비면 기본 시드 (import 시 빈 배열 → 기본값). */
+      const seed = createDefaultOpsKnowledgeBundle();
+      const orSeed = <T,>(rows: T[] | undefined, fallback: T[]): T[] => (rows?.length ? rows : fallback);
+      if (part === "recent-views") {
+        const adminId = String(req.nextUrl.searchParams.get("admin_id") ?? "").trim();
+        const views = orSeed(bundle.recentViews, seed.recentViews);
+        const rows = adminId ? views.filter((v) => v.adminId === adminId) : views;
+        return NextResponse.json({
+          ok: true,
+          ...sliceAdminJsonList(sortAdminJsonListByDateDesc(rows, (v) => v.viewedAt), page),
+        });
+      }
+      const result =
+        part === "search-logs"
+          ? sliceAdminJsonList(sortAdminJsonListNewestFirst(orSeed(bundle.searchLogs, seed.searchLogs)), page)
+          : sliceAdminJsonList(sortAdminJsonListNewestFirst(orSeed(bundle.recommendationLogs, seed.recommendationLogs)), page);
+      return NextResponse.json({ ok: true, ...result });
+    } catch {
+      return NextResponse.json({ ok: false, error: "server_config" }, { status: 503 });
+    }
+  }
 
   try {
     const sb = getSupabaseServer();

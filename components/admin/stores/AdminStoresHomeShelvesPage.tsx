@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
-import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminSwitch } from "@/components/admin/ui/AdminSwitch";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
@@ -842,7 +842,7 @@ export function AdminStoresHomeShelvesPage() {
         {err ? <AdminErrorState ko={ko} code={err} httpStatus={errStatus} onRetry={() => void load()} /> : null}
 
         {loading ? (
-          <p className="text-[13px] text-sam-muted">{t("admin_stores_home_shelves_loading")}</p>
+          <AdminLoadingState ko={ko} label={t("admin_stores_home_shelves_loading")} />
         ) : err ? null : (
           <div className="grid gap-4 xl:grid-cols-[minmax(300px,340px)_minmax(0,1fr)]">
             <aside className="rounded-ui-rect border border-sam-border bg-white">
@@ -851,7 +851,8 @@ export function AdminStoresHomeShelvesPage() {
                   <p className="text-[13px] font-bold text-sam-fg">{ko ? "HOME 선반 목록" : "HOME shelf list"}</p>
                   <p className="text-[12px] text-sam-muted">{ko ? "드래그하여 순서를 변경하세요" : "Drag to change order"}</p>
                 </div>
-                <AdminActionButton variant="primary" size="sm" onClick={openAddModal}>
+                {/* 화면 primary 는 「저장」 1개 — 선반 추가는 secondary */}
+                <AdminActionButton variant="secondary" size="sm" onClick={openAddModal}>
                   {ko ? "+ 선반 추가" : "+ Add shelf"}
                 </AdminActionButton>
               </div>

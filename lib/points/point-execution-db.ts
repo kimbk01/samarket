@@ -94,19 +94,6 @@ export async function listPointRewardLogsByExecutionId(
   return (data ?? []).map((r) => rowToRewardLog(r as Record<string, unknown>));
 }
 
-export async function listPointRewardExecutions(
-  sb: SupabaseClient,
-  limit = 200
-): Promise<PointRewardExecution[]> {
-  const { data, error } = await sb
-    .from("point_reward_executions")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => rowToRewardExecution(r as Record<string, unknown>));
-}
-
 export async function getPointRewardExecutionByKeyDb(
   sb: SupabaseClient,
   executionKey: string
@@ -171,14 +158,20 @@ export async function insertPointRewardExecution(
   return rowToRewardExecution(data as Record<string, unknown>);
 }
 
-export async function listPointRewardLogs(sb: SupabaseClient, limit = 200): Promise<PointRewardLog[]> {
-  const { data, error } = await sb
+/** 보상 로그 한 쪽 + 정확한 전체 건수 (R7 — 200건 고정 상한 없이 서버 페이지). */
+export async function listPointRewardLogsPage(
+  sb: SupabaseClient,
+  page: { limit: number; offset: number }
+): Promise<{ logs: PointRewardLog[]; total: number }> {
+  const { data, error, count } = await sb
     .from("point_reward_logs")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("id", { ascending: false })
+    .range(page.offset, page.offset + page.limit - 1);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => rowToRewardLog(r as Record<string, unknown>));
+  const logs = (data ?? []).map((r) => rowToRewardLog(r as Record<string, unknown>));
+  return { logs, total: count ?? logs.length };
 }
 
 export async function insertPointRewardLog(

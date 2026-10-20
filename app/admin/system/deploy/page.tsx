@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   AdminDeployOpsPanels,
@@ -20,6 +20,9 @@ import { adminStatusLabelText } from "@/lib/admin/status-labels/admin-status-lab
 import "@/lib/admin/status-labels/pr3-system-a-status-labels";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminServerListFrame } from "@/components/admin/sync-list/AdminServerListFrame";
+import { useAdminServerPage } from "@/components/admin/sync-list/useAdminServerPage";
 
 type GateRow = {
   gateId: string;
@@ -149,6 +152,8 @@ export default function AdminSystemDeployPage() {
   const [confirmOpen, setConfirmOpen] = useState<ConfirmKind | null>(null);
 
   const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
+  /** 상태를 다시 불러올 때마다 이력 쪽도 다시 조회 */
+  const [statusVersion, setStatusVersion] = useState(0);
 
   /** 상태 조회 — 실패(HTTP·네트워크)는 오류 상태 + [새로고침], 403 은 접근 거부 (R6). */
   const load = useCallback(async () => {
@@ -162,6 +167,7 @@ export default function AdminSystemDeployPage() {
       }
       setLoadErr(null);
       setStatus(json);
+      setStatusVersion((v) => v + 1);
       if (json.runtimeSha) setConfirmSha(json.runtimeSha);
     } catch {
       setLoadErr({ code: "network_error" });
@@ -808,24 +814,6 @@ export default function AdminSystemDeployPage() {
     return actionMap[confirmOpen];
   }, [confirmOpen]);
 
-  const historyRows = useMemo(() => {
-    const audit = status?.auditHistory ?? [];
-    if (audit.length > 0) return audit.map((r) => ({
-      key: `${r.sha}-${r.action}-${r.at}`,
-      at: r.at,
-      sha: r.sha,
-      label: r.action,
-      detail: r.detail ?? "",
-    }));
-    return (status?.recent ?? []).map((r) => ({
-      key: `${r.sha}-${r.status}-${r.verifiedAt ?? r.updatedAt ?? ""}`,
-      at: r.verifiedAt ?? r.promotedAt ?? r.updatedAt ?? "",
-      sha: r.sha,
-      label: r.status,
-      detail: "",
-    }));
-  }, [status]);
-
   const stages = status?.currentRecord?.pipeline?.stages;
 
   const statusColor = (kind: OwnerStatusKind) => {
@@ -1417,22 +1405,9 @@ export default function AdminSystemDeployPage() {
             fallbackEn: "History & error detail",
           })}
         </h2>
-        <ul className="space-y-1 text-sm">
-          {historyRows.length === 0 ? (
-            <li className="text-sam-muted">—</li>
-          ) : (
-            historyRows.map((r) => (
-              <li key={r.key} className="text-xs text-sam-fg">
-                <span className="text-sam-muted">{formatAt(r.at)}</span>
-                {" · "}
-                <span className="font-mono">{shortSha(r.sha)}</span>
-                {" · "}
-                {adminStatusLabelText("pr3-system-a.deploy-history", r.label, language !== "en")}
-                {r.detail ? ` · ${r.detail}` : ""}
-              </li>
-            ))
-          )}
-        </ul>
+        <Suspense fallback={null}>
+          <DeployHistoryList ko={language !== "en"} refreshSignal={statusVersion} />
+        </Suspense>
       </section>
 
       {confirmOpen && confirmMeta ? (
@@ -1548,5 +1523,45 @@ export default function AdminSystemDeployPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+type DeployHistoryRow = { key: string; at: string; sha: string; label: string; detail: string };
+
+/**
+ * 「이력 및 오류 상세」 — 서버 페이지 (`GET /api/admin/deploy/status?part=history`, R7).
+ * 고정 상한(감사 30건·최근 20건) 없이 쪽으로 넘긴다. 쪽·크기는 주소에 보존.
+ */
+function DeployHistoryList({ ko, refreshSignal }: { ko: boolean; refreshSignal: number }) {
+  const lq = useAdminListQuery();
+  const page = useAdminServerPage<DeployHistoryRow>(
+    `/api/admin/deploy/status?part=history&${lq.apiQueryString}`,
+    `${lq.refreshKey}#${refreshSignal}`
+  );
+  return (
+    <AdminServerListFrame
+      ko={ko}
+      state={page}
+      page={lq.query.page}
+      size={lq.query.size}
+      onPageChange={lq.setPage}
+      onSizeChange={lq.setSize}
+      onRetry={lq.refresh}
+    >
+      {(rows) => (
+        <ul className="space-y-1 text-sm">
+          {rows.map((r) => (
+            <li key={r.key} className="text-xs text-sam-fg">
+              <span className="text-sam-muted">{formatAt(r.at)}</span>
+              {" · "}
+              <span className="font-mono">{shortSha(r.sha)}</span>
+              {" · "}
+              {adminStatusLabelText("pr3-system-a.deploy-history", r.label, ko)}
+              {r.detail ? ` · ${r.detail}` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
+    </AdminServerListFrame>
   );
 }

@@ -25,7 +25,10 @@ import {
 import { useRouter } from "next/navigation";
 import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { CommunityListPagination, useCommunityListQuery } from "@/components/admin/community/kit/CommunityAdminKit";
+import { ADMIN_LIST_QUERY_DEFAULT_SIZE, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
 interface SessionRow {
   id: string;
@@ -112,6 +115,22 @@ const TRADE_CHAT_MODE_KEYS: Record<string, MessageKey> = {
   readonly: "admin_trade_chat_mode_readonly",
 };
 
+type FlowData = {
+  sessions: SessionRow[];
+  sessionsTotal: number;
+  logs: RepRow[];
+  logsTotal: number | null;
+  reviews: ReviewRow[];
+  reviewsTotal: number | null;
+};
+
+type SectionPage = { page: number; size: AdminListPageSize };
+const FIRST_SECTION_PAGE: SectionPage = { page: 1, size: ADMIN_LIST_QUERY_DEFAULT_SIZE };
+
+/**
+ * 거래 운영 `/admin/trade-flow` — 거래 세션 · 거래 후기 · 온도 기록 (R7: 세 목록 모두 서버 페이지 · 「총 N건」).
+ * URL: panel(complete) · 딥링크 postId/productChatId/roomId · page · size(거래 세션 20/50/100). 후기·기록 페이지는 화면 안 상태.
+ */
 export function AdminTradeFlowPage() {
   const { t, safeT, language } = useI18n();
   const tradeFlowStatusLabel = (v: string | null | undefined) => {
@@ -131,6 +150,7 @@ export function AdminTradeFlowPage() {
   };
   const router = useRouter();
   const searchParams = useSearchParams();
+  const lq = useCommunityListQuery();
   const panel = searchParams.get("panel") === "complete" ? "complete" : "flow";
   const deepLink = useMemo(() => parseAdminTradeFlowDeepLink(searchParams), [searchParams]);
   const deepLinkActive = adminTradeFlowDeepLinkActive(deepLink);
@@ -150,47 +170,65 @@ export function AdminTradeFlowPage() {
     [t]
   );
 
-  const [sessions, setSessions] = useState<SessionRow[]>([]);
-  const [logs, setLogs] = useState<RepRow[]>([]);
-  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [data, setData] = useState<FlowData | null>(null);
   const [loading, setLoading] = useState(true);
+  /** 조회 실패 — 직전 목록은 지우지 않는다 (오류 안내 + 기존 목록) */
+  const [loadErr, setLoadErr] = useState<{ code: string; httpStatus: number } | null>(null);
+  /** 되돌리기 실패 안내 */
   const [error, setError] = useState<string | null>(null);
   const [revertingId, setRevertingId] = useState<string | null>(null);
+  const [reviewPage, setReviewPage] = useState<SectionPage>(FIRST_SECTION_PAGE);
+  const [logPage, setLogPage] = useState<SectionPage>(FIRST_SECTION_PAGE);
+  const sessionLimit = lq.query.size;
+  const sessionOffset = (lq.query.page - 1) * lq.query.size;
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setLoadErr(null);
     try {
       const res = await fetch("/api/admin/trade-flow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          limit: sessionLimit,
+          offset: sessionOffset,
+          postId: deepLink.postId || undefined,
+          productChatId: deepLink.productChatId || undefined,
+          reviewsLimit: reviewPage.size,
+          reviewsOffset: (reviewPage.page - 1) * reviewPage.size,
+          logsLimit: logPage.size,
+          logsOffset: (logPage.page - 1) * logPage.size,
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(resolveAdminHttpErrorMessage(res, data, t, "admin_trade_completion_fetch_failed"));
-        setSessions([]);
-        setLogs([]);
-        setReviews([]);
+      const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok || json.ok === false) {
+        setLoadErr({ code: String(json.error || `http_${res.status}`), httpStatus: res.status });
         return;
       }
-      setSessions(Array.isArray(data.sessions) ? data.sessions : []);
-      setLogs(Array.isArray(data.reputationLogs) ? data.reputationLogs : []);
-      setReviews(Array.isArray(data.transactionReviews) ? data.transactionReviews : []);
+      const sessions = Array.isArray(json.sessions) ? (json.sessions as SessionRow[]) : [];
+      setData({
+        sessions,
+        sessionsTotal: typeof json.sessionsTotal === "number" ? json.sessionsTotal : sessions.length,
+        logs: Array.isArray(json.reputationLogs) ? (json.reputationLogs as RepRow[]) : [],
+        logsTotal: typeof json.logsTotal === "number" ? json.logsTotal : null,
+        reviews: Array.isArray(json.transactionReviews) ? (json.transactionReviews as ReviewRow[]) : [],
+        reviewsTotal: typeof json.reviewsTotal === "number" ? json.reviewsTotal : null,
+      });
     } catch {
-      setError(t("common_network_error"));
-      setSessions([]);
-      setLogs([]);
-      setReviews([]);
+      setLoadErr({ code: "network_error", httpStatus: 0 });
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [sessionLimit, sessionOffset, deepLink.postId, deepLink.productChatId, reviewPage, logPage]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (panel === "flow") void load();
+  }, [load, panel]);
 
+  const sessions = useMemo(() => data?.sessions ?? [], [data]);
+  const reviews = data?.reviews ?? [];
+  const logs = data?.logs ?? [];
+  const ko = language !== "en";
   const visibleSessions = useMemo(
     () => (deepLinkActive ? matchAdminTradeFlowSessionToDeepLink(sessions, deepLink) : sessions),
     [deepLinkActive, deepLink, sessions]
@@ -232,7 +270,7 @@ export function AdminTradeFlowPage() {
         setRevertingId(null);
       }
     },
-    [load, t]
+    [language, load, t]
   );
 
   return (
@@ -264,7 +302,7 @@ export function AdminTradeFlowPage() {
               fallbackKo: "거래 세션",
               fallbackEn: "Sessions",
             }),
-            count: loading ? null : visibleSessions.length,
+            count: !data ? null : deepLinkActive ? visibleSessions.length : data.sessionsTotal,
           },
           {
             id: "complete",
@@ -281,6 +319,8 @@ export function AdminTradeFlowPage() {
           const q = new URLSearchParams(searchParams.toString());
           if (id === "complete") q.set("panel", "complete");
           else q.delete("panel");
+          // 두 탭은 서로 다른 목록 — 쪽 번호는 1쪽부터
+          q.delete("page");
           const qs = q.toString();
           router.replace(qs ? `/admin/trade-flow?${qs}` : "/admin/trade-flow");
         }}
@@ -305,7 +345,7 @@ export function AdminTradeFlowPage() {
           })}
         </div>
       ) : null}
-      {deepLinkActive && !loading && !focusedSession ? (
+      {deepLinkActive && data && !loading && !focusedSession ? (
         <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-body text-sam-fg">
           {safeT("admin_trade_deep_link_no_match", {
             fallbackKo: "딥링크 조건에 맞는 거래가 목록에 없습니다.",
@@ -318,8 +358,11 @@ export function AdminTradeFlowPage() {
           {error}
         </div>
       )}
-      {loading ? (
-        <AdminLoadingState ko={language !== "en"} label={t("common_loading")} />
+      {loadErr ? (
+        <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={() => void load()} />
+      ) : null}
+      {!data ? (
+        loading ? <AdminLoadingState ko={ko} label={t("common_loading")} /> : null
       ) : (
         <>
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
@@ -408,8 +451,11 @@ export function AdminTradeFlowPage() {
                 </tbody>
               </table>
               {visibleSessions.length === 0 && (
-                <AdminEmptyState ko={language !== "en"} message={t("admin_trade_flow_no_data")} />
+                <AdminEmptyState ko={ko} message={t("admin_trade_flow_no_data")} />
               )}
+            </div>
+            <div className="border-t border-sam-border-soft px-3 py-2">
+              <CommunityListPagination lq={lq} total={data.sessionsTotal} disabled={loading} />
             </div>
           </section>
 
@@ -483,6 +529,19 @@ export function AdminTradeFlowPage() {
                 <p className="px-4 py-8 text-center sam-text-body text-sam-muted">{t("admin_trade_flow_no_reviews")}</p>
               )}
             </div>
+            {typeof data.reviewsTotal === "number" && data.reviewsTotal > 0 ? (
+              <div className="border-t border-sam-border-soft px-3 py-2">
+                <AdminPagination
+                  ko={ko}
+                  page={reviewPage.page}
+                  size={reviewPage.size}
+                  total={data.reviewsTotal}
+                  onPageChange={(page) => setReviewPage((p) => ({ ...p, page }))}
+                  onSizeChange={(size) => setReviewPage({ page: 1, size })}
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
           </section>
 
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
@@ -522,6 +581,19 @@ export function AdminTradeFlowPage() {
                 <p className="px-4 py-8 text-center sam-text-body text-sam-muted">{t("admin_trade_flow_no_logs")}</p>
               )}
             </div>
+            {typeof data.logsTotal === "number" && data.logsTotal > 0 ? (
+              <div className="border-t border-sam-border-soft px-3 py-2">
+                <AdminPagination
+                  ko={ko}
+                  page={logPage.page}
+                  size={logPage.size}
+                  total={data.logsTotal}
+                  onPageChange={(page) => setLogPage((p) => ({ ...p, page }))}
+                  onSizeChange={(size) => setLogPage({ page: 1, size })}
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
           </section>
         </>
       )}

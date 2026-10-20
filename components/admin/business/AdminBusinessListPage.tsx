@@ -13,7 +13,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
-import type { AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import { normalizeAdminListPageSize, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTableBottomHorizontalScroll } from "@/components/admin/AdminTableBottomHorizontalScroll";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
@@ -84,7 +84,10 @@ function AdminBusinessListPageInner() {
   const [rows, setRows] = useState<AdminBusinessListOpsRow[]>([]);
   const [kpi, setKpi] = useState<AdminBusinessListOpsKpi | null>(null);
   const [total, setTotal] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  /** 페이지 크기 20/50/100 — 주소 `size` (기본 20, 기본값은 주소에 쓰지 않는다). */
+  const [pageSize, setPageSize] = useState<AdminListPageSize>(() =>
+    normalizeAdminListPageSize(new URLSearchParams(searchParams.toString()).get("size"), 20)
+  );
   const [filterOptions, setFilterOptions] = useState<{
     categories: { id: string; name: string }[];
     regions: string[];
@@ -126,7 +129,7 @@ function AdminBusinessListPageInner() {
   const qs = useMemo(() => {
     const parts = new URLSearchParams();
     parts.set("page", String(page));
-    parts.set("pageSize", "20");
+    parts.set("pageSize", String(pageSize));
     parts.set("sort", filters.sort || "last_order");
     if (debouncedQ) parts.set("q", debouncedQ);
     if (filters.approval && filters.approval !== "all") parts.set("approval", filters.approval);
@@ -139,7 +142,7 @@ function AdminBusinessListPageInner() {
     if (filters.category_id) parts.set("category_id", filters.category_id);
     if (filters.region) parts.set("region", filters.region);
     return `?${parts.toString()}`;
-  }, [filters, debouncedQ, page]);
+  }, [filters, debouncedQ, page, pageSize]);
 
   /** DEF-53 — 현재 필터를 URL 에 반영 (뒤로가기·공유·상세에서 복귀 시 유지). */
   const listUrl = useMemo(() => {
@@ -149,10 +152,11 @@ function AdminBusinessListPageInner() {
       if (!v || v === DEFAULT_OPS_FILTERS[key]) continue;
       sp.set(key, v);
     }
+    if (pageSize !== 20) sp.set("size", String(pageSize));
     if (page > 1) sp.set("page", String(page));
     const q = sp.toString();
     return `${pathname || "/admin/business"}${q ? `?${q}` : ""}`;
-  }, [filters, debouncedQ, page, pathname]);
+  }, [filters, debouncedQ, page, pageSize, pathname]);
 
   useEffect(() => {
     const current = `${pathname || "/admin/business"}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
@@ -184,21 +188,15 @@ function AdminBusinessListPageInner() {
         setRows(Array.isArray(j.stores) ? j.stores : []);
         setKpi(j.kpi ?? null);
         setTotal(typeof j.total === "number" ? j.total : 0);
-        setPageSize(typeof j.pageSize === "number" ? j.pageSize : 20);
         setFilterOptions(j.filterOptions ?? { categories: [], regions: [] });
       } else {
-        setRows([]);
-        setKpi(null);
-        setTotal(0);
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5).
         setLoadError({
           code: j.error ?? (res.status === 403 ? "forbidden" : "load_failed"),
           status: res.status,
         });
       }
     } catch {
-      setRows([]);
-      setKpi(null);
-      setTotal(0);
       setLoadError({ code: "network_error" });
     } finally {
       setLoading(false);
@@ -296,17 +294,18 @@ function AdminBusinessListPageInner() {
           onViewModeChange={setViewMode}
         />
       </div>
-      {loading ? (
-        <AdminLoadingState ko={ko} />
-      ) : loadError ? (
+      {loadError ? (
         <AdminErrorState
           ko={ko}
           code={loadError.code}
           httpStatus={loadError.status}
           onRetry={() => void load()}
         />
+      ) : null}
+      {loading && rows.length === 0 ? (
+        <AdminLoadingState ko={ko} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState
+        loadError ? null : <AdminEmptyState
           ko={ko}
           message={t("admin_biz_empty_list")}
           onReset={() => setFilters({ ...DEFAULT_OPS_FILTERS })}
@@ -323,9 +322,13 @@ function AdminBusinessListPageInner() {
           <AdminPagination
             ko={ko}
             page={page}
-            size={pageSize as AdminListPageSize}
+            size={pageSize}
             total={total}
             onPageChange={setPage}
+            onSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
             disabled={loading}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 shadow-sm"
           />

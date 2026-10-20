@@ -9,7 +9,7 @@ import { getOpsResponseQualityFeedback } from "@/lib/ops-learning/ops-learning-s
 export function OpsResponseQualityTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const feedback = useMemo(() => getOpsResponseQualityFeedback(), []);
+  const feedback = useMemo(() => getOpsResponseQualityFeedback({ limit: Number.MAX_SAFE_INTEGER }), []);
 
   if (feedback.length === 0) {
     return (

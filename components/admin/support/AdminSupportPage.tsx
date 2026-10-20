@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
@@ -41,14 +41,30 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
-import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import type { AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 
-const SUPPORT_LIST_PAGE_SIZE = 50;
+/** 주소 추가 키 (`tab`·`filter`·`search`·연결 조건은 예전 딥링크와 같은 이름). */
+const SUPPORT_LIST_EXTRAS = [
+  "tab",
+  "audience",
+  "group",
+  "assignee",
+  "stale",
+  "search",
+  "reference_type",
+  "reference_id",
+  "store_id",
+  "filter",
+] as const;
+type SupportListExtra = (typeof SUPPORT_LIST_EXTRAS)[number];
 
 /**
  * Admin Support console (Owner-approved redesign 2026-10-05).
@@ -180,43 +196,81 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   }, []);
   const searchParams = useSearchParams();
   const supportReturnTo = readAdminReturnToFromSearch(searchParams);
-  const initial = useMemo(() => {
-    const tabParam = searchParams.get("tab")?.trim().toUpperCase() ?? "";
-    if (isAdminSupportTab(tabParam)) return { tab: tabParam, audience: null, assignee: null };
-    // Domain deep links (주문 상세 · 매장 허브) look for every case of that reference, not only open ones.
-    if (searchParams.get("reference_id") || searchParams.get("store_id")) {
-      return { tab: "ALL" as AdminSupportTab, audience: null, assignee: null };
-    }
-    // Legacy `?filter=` deep links (Action Center, dashboard tile) keep working.
-    return adminSupportTabFromLegacyFilter(searchParams.get("filter"));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const [tab, setTab] = useState<AdminSupportTab>(initial.tab);
-  const [audience, setAudience] = useState<Audience>(initial.audience ?? "ALL");
-  const [group, setGroup] = useState<string>("ALL");
-  const [assignee, setAssignee] = useState<Assignee>(initial.assignee ?? "ALL");
-  const [staleOnly, setStaleOnly] = useState(false);
-  const [search, setSearch] = useState(searchParams.get("search")?.trim() ?? "");
-  /** Exact deep-link scope from domain Admin — shown as a removable chip, server-filtered. */
-  const [scope, setScope] = useState(() => ({
-    referenceType: searchParams.get("reference_type")?.trim().toUpperCase() || null,
-    referenceId: searchParams.get("reference_id")?.trim() || null,
-    storeId: searchParams.get("store_id")?.trim() || null,
-  }));
-  /** The query actually sent; typing settles 300ms first, button/Enter apply at once. */
-  const [appliedSearch, setAppliedSearch] = useState(search);
+  /**
+   * R7 — 조건(상태 탭·대상·분야·담당·24h·검색·연결 조건)과 쪽·크기는 주소에 남는다 (새로고침·링크 공유·복귀 유지).
+   * 예전 딥링크 키 그대로: `tab` · `filter`(Action Center·대시보드) · `search` · `reference_type`/`reference_id`/`store_id`.
+   * 변경할 때마다 현재 조건 전체를 표준 키로 다시 적고 옛 `filter` 는 지운다.
+   */
+  const lq = useAdminListQuery<SupportListExtra>({ extras: SUPPORT_LIST_EXTRAS, defaults: { size: 50 } });
+  const ex = lq.query.extras;
+  const legacy = adminSupportTabFromLegacyFilter(ex.filter || null);
+  const tabParam = ex.tab.trim().toUpperCase();
+  const scope = {
+    referenceType: ex.reference_type.trim().toUpperCase() || null,
+    referenceId: ex.reference_id.trim() || null,
+    storeId: ex.store_id.trim() || null,
+  };
+  const tab: AdminSupportTab = isAdminSupportTab(tabParam)
+    ? tabParam
+    : // Domain deep links (주문 상세 · 매장 허브) look for every case of that reference, not only open ones.
+      scope.referenceId || scope.storeId
+      ? "ALL"
+      : legacy.tab;
+  const audience: Audience = (["ALL", "MEMBER", "OWNER"] as const).includes(ex.audience as Audience)
+    ? (ex.audience as Audience)
+    : (legacy.audience ?? "ALL");
+  const assignee: Assignee = (["ALL", "ME", "UNASSIGNED"] as const).includes(ex.assignee as Assignee)
+    ? (ex.assignee as Assignee)
+    : (legacy.assignee ?? "ALL");
+  const group = ex.group || "ALL";
+  const staleOnly = ex.stale === "1";
+  /** The query actually sent (주소 `search`); typing settles 300ms first, button/Enter apply at once. */
+  const appliedSearch = ex.search;
+  const writeSupportQuery = (
+    patch: Partial<Record<SupportListExtra, string>>,
+    pageOnly?: { page?: number; size?: AdminListPageSize }
+  ) => {
+    const current: Record<SupportListExtra, string> = {
+      tab,
+      audience,
+      group,
+      assignee,
+      stale: staleOnly ? "1" : "",
+      search: appliedSearch,
+      reference_type: scope.referenceType ?? "",
+      reference_id: scope.referenceId ?? "",
+      store_id: scope.storeId ?? "",
+      filter: "",
+    };
+    lq.patch({ ...(pageOnly ?? {}), extras: { ...current, ...patch } });
+  };
+  const setTab = (v: AdminSupportTab) => writeSupportQuery({ tab: v });
+  const setAudience = (v: Audience) => writeSupportQuery({ audience: v });
+  const setGroup = (v: string) => writeSupportQuery({ group: v });
+  const setAssignee = (v: Assignee) => writeSupportQuery({ assignee: v });
+  const setStaleOnly = (v: boolean) => writeSupportQuery({ stale: v ? "1" : "" });
+  const setAppliedSearch = (v: string) => {
+    if (v.trim() !== appliedSearch) writeSupportQuery({ search: v.trim() });
+  };
+  const clearScope = () => writeSupportQuery({ reference_type: "", reference_id: "", store_id: "" });
+  /** 검색 입력 — 주소의 검색어가 바뀌면(뒤로가기·초기화) 다시 맞춘다 (렌더 중 동기화). */
+  const [searchDraft, setSearchDraft] = useState({ applied: appliedSearch, value: appliedSearch });
+  let search = searchDraft.value;
+  if (searchDraft.applied !== appliedSearch) {
+    search = appliedSearch;
+    setSearchDraft({ applied: appliedSearch, value: appliedSearch });
+  }
+  const setSearch = (value: string) => setSearchDraft({ applied: appliedSearch, value });
 
   const [cases, setCases] = useState<SupportCaseAdminDisplayRow[]>([]);
   const [counts, setCounts] = useState<Partial<Record<AdminSupportTab, number>>>({});
-  const [listError, setListError] = useState<string | null>(null);
+  const [listError, setListError] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [listLoading, setListLoading] = useState(true);
-  // Server-side pagination — page resets to 1 whenever the filter set changes (keyed, no effect).
+  const [listLoaded, setListLoaded] = useState(false);
+  // Server-side pagination — page·size 는 주소 (조건이 바뀌면 1쪽으로: useAdminListQuery 규칙).
   const [listTotal, setListTotal] = useState(0);
-  const listFilterKey = JSON.stringify([tab, audience, group, assignee, staleOnly, appliedSearch.trim(), scope]);
-  const [listPageState, setListPageState] = useState({ key: listFilterKey, page: 1 });
-  const listPage = listPageState.key === listFilterKey ? listPageState.page : 1;
-  const goListPage = (page: number) => setListPageState({ key: listFilterKey, page: Math.max(1, page) });
+  const listPage = lq.query.page;
+  const listSize = lq.query.size;
 
   const [activeId, setActiveId] = useState<string | null>(initialCaseId ?? null);
   const [activeCase, setActiveCase] = useState<SupportCaseAdminDisplayRow | null>(null);
@@ -245,8 +299,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       if (scope.referenceType) qs.set("reference_type", scope.referenceType);
       if (scope.referenceId) qs.set("reference_id", scope.referenceId);
       if (scope.storeId) qs.set("store_id", scope.storeId);
-      qs.set("limit", String(SUPPORT_LIST_PAGE_SIZE));
-      qs.set("offset", String(adminListOffsetForPage(listPage, SUPPORT_LIST_PAGE_SIZE)));
+      qs.set("limit", String(listSize));
+      qs.set("offset", String(adminListOffsetForPage(listPage, listSize)));
       const res = await fetch(`/api/admin/support/cases?${qs.toString()}`, { credentials: "include" });
       const json = (await res.json()) as {
         ok?: boolean;
@@ -257,19 +311,21 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       };
       // DEF-07: a failed list call is an error, not an empty queue (keep the last list).
       if (!res.ok || !json.ok) {
-        setListError(json.error ?? `http_${res.status}`);
+        setListError({ code: json.error ?? "load_failed", httpStatus: res.status });
         return;
       }
       setListError(null);
+      setListLoaded(true);
       setCases(json.cases ?? []);
       setListTotal(typeof json.total === "number" ? json.total : (json.cases ?? []).length);
       if (json.counts) setCounts(json.counts);
     } catch {
-      setListError("network_error");
+      setListError({ code: "network_error" });
     } finally {
       setListLoading(false);
     }
-  }, [tab, audience, group, assignee, staleOnly, appliedSearch, scope, listPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 조건은 주소(apiQueryString/refreshKey) 하나로 바뀐다
+  }, [lq.refreshKey]);
 
   const loadDetail = useCallback(async (caseId: string) => {
     setDetailLoading(true);
@@ -301,7 +357,13 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     void loadList();
   }, [loadList]);
 
+  /** 최신 조건으로 검색어를 적용 (300ms 사이 다른 조건이 바뀌어도 되돌리지 않게 ref 로 최신 함수 사용). */
+  const applySearchRef = useRef(setAppliedSearch);
   useEffect(() => {
+    applySearchRef.current = setAppliedSearch;
+  });
+  useEffect(() => {
+    const setAppliedSearch = (v: string) => applySearchRef.current(v);
     const t = window.setTimeout(() => setAppliedSearch(search), 300);
     return () => window.clearTimeout(t);
   }, [search]);
@@ -440,14 +502,19 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     staleOnly ||
     Boolean(search.trim()) ||
     Boolean(scope.referenceId || scope.storeId);
+  /** 「초기화」 — 상태 탭은 그대로 두고 나머지 조건을 기본값으로. */
   const resetFilters = () => {
-    setAudience("ALL");
-    setGroup("ALL");
-    setAssignee("ALL");
-    setStaleOnly(false);
     setSearch("");
-    setAppliedSearch("");
-    setScope({ referenceType: null, referenceId: null, storeId: null });
+    writeSupportQuery({
+      audience: "",
+      group: "",
+      assignee: "",
+      stale: "",
+      search: "",
+      reference_type: "",
+      reference_id: "",
+      store_id: "",
+    });
   };
 
   /**
@@ -531,81 +598,74 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         />
       </div>
 
-      {/* ── Secondary filters ─────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2" data-admin-support-filters="1">
-        <Seg<Audience>
-          testId="audience"
-          value={audience}
-          onChange={setAudience}
-          options={[
-            { id: "ALL", label: ko ? "전체" : "All" },
-            { id: "MEMBER", label: supportAudienceLabel("MEMBER", ko) },
-            { id: "OWNER", label: supportAudienceLabel("OWNER", ko) },
-          ]}
-        />
-        <select
-          value={group}
-          onChange={(e) => setGroup(e.target.value)}
-          className="h-8 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-xs"
-          data-admin-support-group="1"
+      {/* ── Secondary filters (표준 필터 바 · 주소 유지) ───────── */}
+      <div data-admin-support-filters="1">
+        <AdminFilterBar
+          ko={ko}
+          draft={{ q: search, from: "", to: "" }}
+          onDraftChange={(p) => {
+            if (p.q !== undefined) setSearch(p.q);
+          }}
+          onSubmit={() => {
+            if (appliedSearch === search.trim()) lq.refresh();
+            else setAppliedSearch(search);
+          }}
+          onReset={resetFilters}
+          pending={listLoading}
+          showPeriod={false}
+          searchPlaceholder={ko ? "SC번호 · 이름 · 이메일 · 매장 · 내용" : "Case no · name · email · store · text"}
         >
-          {groupOptions.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.label}
-            </option>
-          ))}
-        </select>
-        <Seg<Assignee>
-          testId="assignee"
-          value={assignee}
-          onChange={setAssignee}
-          options={[
-            { id: "ALL", label: ko ? "담당 전체" : "Any owner" },
-            { id: "ME", label: ko ? "내 담당" : "Mine" },
-            { id: "UNASSIGNED", label: ko ? "미배정" : "Unassigned" },
-          ]}
-        />
-        <label className="flex items-center gap-1 text-xs text-sam-fg">
-          <input type="checkbox" checked={staleOnly} onChange={(e) => setStaleOnly(e.target.checked)} />
-          {ko ? "24시간 이상" : "24h+"}
-        </label>
-        {scope.referenceId || scope.storeId ? (
-          <AdminChipButton
-            selected
-            onClick={() => setScope({ referenceType: null, referenceId: null, storeId: null })}
-            title={ko ? "연결 조건 해제" : "Clear linked filter"}
-            aria-label={ko ? "연결 조건 해제" : "Clear linked filter"}
-          >
-            {scope.referenceId
-              ? `${scope.referenceType ? supportReferenceLabel(safeT, scope.referenceType) : ko ? "연결 대상" : "Reference"} · ${formatAdminShortId(scope.referenceId)}`
-              : `${ko ? "매장" : "Store"} · ${formatAdminShortId(scope.storeId)}`}
-            <span aria-hidden>✕</span>
-          </AdminChipButton>
-        ) : null}
-        <div className="ml-auto flex min-w-[220px] flex-1 gap-1 sm:max-w-sm">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") setAppliedSearch(search);
-            }}
-            placeholder={ko ? "SC번호 · 이름 · 이메일 · 매장 · 내용" : "Case no · name · email · store · text"}
-            className="h-8 min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-xs"
+          <Seg<Audience>
+            testId="audience"
+            value={audience}
+            onChange={setAudience}
+            options={[
+              { id: "ALL", label: ko ? "전체" : "All" },
+              { id: "MEMBER", label: supportAudienceLabel("MEMBER", ko) },
+              { id: "OWNER", label: supportAudienceLabel("OWNER", ko) },
+            ]}
           />
-          <AdminActionButton variant="secondary" size="sm" disabled={!filtersActive} onClick={resetFilters}>
-            {adminCta("reset", ko)}
-          </AdminActionButton>
-          <AdminActionButton
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              if (appliedSearch === search) void loadList();
-              else setAppliedSearch(search);
-            }}
+          <select
+            value={group}
+            onChange={(e) => setGroup(e.target.value)}
+            className="h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 text-[16px]"
+            data-admin-support-group="1"
+            aria-label={ko ? "분야" : "Topic"}
           >
-            {adminCta("search", ko)}
-          </AdminActionButton>
-        </div>
+            {groupOptions.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.label}
+              </option>
+            ))}
+          </select>
+          <Seg<Assignee>
+            testId="assignee"
+            value={assignee}
+            onChange={setAssignee}
+            options={[
+              { id: "ALL", label: ko ? "담당 전체" : "Any owner" },
+              { id: "ME", label: ko ? "내 담당" : "Mine" },
+              { id: "UNASSIGNED", label: ko ? "미배정" : "Unassigned" },
+            ]}
+          />
+          <label className="flex h-10 items-center gap-1 text-[13px] text-sam-fg">
+            <input type="checkbox" checked={staleOnly} onChange={(e) => setStaleOnly(e.target.checked)} />
+            {ko ? "24시간 이상" : "24h+"}
+          </label>
+          {scope.referenceId || scope.storeId ? (
+            <AdminChipButton
+              selected
+              onClick={clearScope}
+              title={ko ? "연결 조건 해제" : "Clear linked filter"}
+              aria-label={ko ? "연결 조건 해제" : "Clear linked filter"}
+            >
+              {scope.referenceId
+                ? `${scope.referenceType ? supportReferenceLabel(safeT, scope.referenceType) : ko ? "연결 대상" : "Reference"} · ${formatAdminShortId(scope.referenceId)}`
+                : `${ko ? "매장" : "Store"} · ${formatAdminShortId(scope.storeId)}`}
+              <span aria-hidden>✕</span>
+            </AdminChipButton>
+          ) : null}
+        </AdminFilterBar>
       </div>
 
       {/* ── Queue | Conversation | Info ───────────────────── */}
@@ -628,20 +688,17 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {listError ? (
-              <div
-                role="alert"
-                className="flex items-center justify-between gap-2 border-b border-sam-danger bg-sam-danger-soft px-3 py-2 text-xs text-sam-danger"
-                data-admin-support-list-error="1"
-              >
-                <span>
-                  {ko ? "목록을 불러오지 못했습니다" : "Could not load the queue"} · {supportErrorLabel(safeT, listError)}
-                </span>
-                <AdminActionButton variant="secondary" size="sm" onClick={() => void loadList()}>
-                  {adminCta("refresh", ko)}
-                </AdminActionButton>
+              // DEF-07 · R7 — 오류 상태(코드 + HTTP 상태, 403 은 권한 없음) · 직전 목록은 아래에 그대로.
+              <div className="p-2" data-admin-support-list-error="1">
+                <AdminErrorState
+                  ko={ko}
+                  code={listError.code}
+                  httpStatus={listError.httpStatus}
+                  onRetry={() => void loadList()}
+                />
               </div>
             ) : null}
-            {listLoading && cases.length === 0 ? (
+            {listLoading && !listLoaded ? (
               <AdminLoadingState ko={ko} />
             ) : cases.length === 0 ? (
               listError ? null : (
@@ -700,15 +757,16 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
               </ul>
             )}
           </div>
-          {listTotal > SUPPORT_LIST_PAGE_SIZE || listPage > 1 ? (
+          {listLoaded ? (
             <div className="shrink-0 border-t border-sam-border px-3" data-admin-support-pager="1">
               <AdminPagination
                 ko={ko}
                 page={listPage}
-                size={SUPPORT_LIST_PAGE_SIZE}
+                size={listSize}
                 total={listTotal}
                 disabled={listLoading}
-                onPageChange={goListPage}
+                onPageChange={lq.setPage}
+                onSizeChange={lq.setSize}
               />
             </div>
           ) : null}
@@ -816,8 +874,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   </AdminChipButton>
                   <div className="ml-auto flex gap-2">
                     {activeOpen ? (
+                      // 진행 중 상담의 주 동작은 아래 [답변] — 종료는 보조 (primary 1개).
                       <AdminActionButton
-                        variant="primary"
+                        variant="secondary"
                         size="sm"
                         disabled={busy}
                         onClick={() =>
@@ -950,7 +1009,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                                 {adminCta("cancel", ko)}
                               </AdminActionButton>
                               <AdminActionButton
-                                variant="primary"
+                                variant="secondary"
                                 size="sm"
                                 disabled={busy || !editDraft.trim()}
                                 onClick={async () => {

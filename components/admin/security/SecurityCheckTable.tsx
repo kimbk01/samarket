@@ -4,7 +4,7 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getSecurityChecks } from "@/lib/security/security-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
@@ -15,11 +15,18 @@ import type { SecurityCheckType, SecurityStatus } from "@/lib/types/security";
 import Link from "next/link";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+const FILTER_EXTRAS = ["type"] as const;
+
 export function SecurityCheckTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [typeFilter, setTypeFilter] = useState<SecurityCheckType | "">("");
-  const [statusFilter, setStatusFilter] = useState<SecurityStatus | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const typeFilter = lq.query.extras.type as SecurityCheckType | "";
+  const statusFilter = lq.query.status as SecurityStatus | "";
 
   const checks = useMemo(
     () =>
@@ -32,42 +39,36 @@ export function SecurityCheckTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_security_k3e0fa017")}</span>
-        <select
-          value={typeFilter}
-          onChange={(e) =>
-            setTypeFilter((e.target.value || "") as SecurityCheckType | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_security_k3e0fa017")} name="type" value={lq.query.extras.type} onChange={(v) => lq.setExtra("type", v)}>
           <option value="">{t("common_all")}</option>
           <option value="rls">RLS</option>
           <option value="api">API</option>
           <option value="admin">{t("admin_security_admin")}</option>
           <option value="auth">{t("admin_security_kce715622")}</option>
           <option value="storage">{t("admin_security_ke5b6b308")}</option>
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_status_2")}</span>
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter((e.target.value || "") as SecurityStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_qa_status_2")} name="status" value={lq.query.status} onChange={lq.setStatus}>
           <option value="">{t("common_all")}</option>
           <option value="safe">{t("admin_security_safe")}</option>
           <option value="warning">{t("admin_security_warning")}</option>
           <option value="critical">{t("admin_security_critical")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {checks.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={typeFilter || statusFilter ? undefined : "해당 조건의 점검 항목이 없습니다."}
-          onReset={typeFilter || statusFilter ? () => { setTypeFilter(""); setStatusFilter(""); } : undefined}
+          message={lq.isFiltered ? undefined : "해당 조건의 점검 항목이 없습니다."}
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable headers={["유형", "대상", "상태", "설명", "점검일", ""]}>

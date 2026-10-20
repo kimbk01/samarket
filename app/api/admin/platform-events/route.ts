@@ -23,21 +23,40 @@ import {
   channelSummaryFromDistributionRowsPreferringPresentation,
   listDistributionsForEvents,
 } from "@/lib/platform-promotion-distribution/repository";
+import {
+  parsePlatformAdminListPage,
+  platformAdminListRange,
+} from "@/lib/admin/platform-list/admin-platform-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/admin/platform-events — list */
-export async function GET() {
+/**
+ * GET /api/admin/platform-events — list
+ * - `limit`(20/50/100)·`offset` 이 있으면 서버 페이지 + `total`(count exact) — 이벤트 목록 화면.
+ * - 없으면 기존 응답(최근 수정 200건) — 알림 캠페인 화면의 이벤트 제목 맵 호출자 호환.
+ */
+export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  const { data, error } = await selectPlatformEventsWithBoardFallback((select) =>
-    sb.from("platform_events").select(select).order("updated_at", { ascending: false }).limit(200)
-  );
+  const page = parsePlatformAdminListPage(req.nextUrl.searchParams);
+  const result = await selectPlatformEventsWithBoardFallback((select) => {
+    if (page) {
+      const [from, to] = platformAdminListRange(page);
+      return sb
+        .from("platform_events")
+        .select(select, { count: "exact" })
+        .order("updated_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to);
+    }
+    return sb.from("platform_events").select(select).order("updated_at", { ascending: false }).limit(200);
+  });
+  const { data, error } = result;
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
@@ -69,6 +88,13 @@ export async function GET() {
       ...e,
       channelSummary: channelByEventId[e.id] ?? "채널 없음",
     })),
+    ...(page
+      ? {
+          total: (result as unknown as { count?: number | null }).count ?? events.length,
+          limit: page.limit,
+          offset: page.offset,
+        }
+      : {}),
   });
 }
 

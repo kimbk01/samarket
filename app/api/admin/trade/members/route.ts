@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
-import { communityAdminUuidOrNull, parseCommunityAdminPage } from "@/lib/admin/community-admin/community-admin-period";
+import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
+import { communityAdminUuidOrNull } from "@/lib/admin/community-admin/community-admin-period";
 import { sanitizeAdminListSearch, escapeAdminIlike } from "@/lib/admin/pagination/parse-admin-list-page";
 import {
   formatAdminMemberLabel,
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
   const q = sanitizeAdminListSearch(sp.get("q"));
   /** 특정 회원 1명 (상세 화면 머리말용) — 거래 활동이 없어도 돌려준다 */
   const onlyUserId = communityAdminUuidOrNull(sp.get("userId"));
-  const { limit, offset } = parseCommunityAdminPage(sp);
+  const { limit, offset } = parseTradeAdminListPage(sp);
   const nowIso = new Date().toISOString();
 
   const [sellers, buyers, restrictions] = await Promise.all([

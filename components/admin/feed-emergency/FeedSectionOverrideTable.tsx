@@ -14,15 +14,23 @@ import { feedEmergencySwitchConfirmCopy } from "@/lib/feed-emergency/feed-emerge
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
+const SURFACE_EXTRAS = ["surface"] as const;
 
 export function FeedSectionOverrideTable() {
   const [refresh, setRefresh] = useState(0);
-  const [surface, setSurface] = useState<RecommendationSurface>("home");
+  /** 관리 대상 surface — 주소(`?surface=`)에 보존 (R7). */
+  const lq = useAdminListQuery({ extras: SURFACE_EXTRAS, extraDefaults: { surface: "home" } });
+  const surface: RecommendationSurface = (SURFACES as readonly string[]).includes(lq.query.extras.surface)
+    ? (lq.query.extras.surface as RecommendationSurface)
+    : "home";
   // 쓰기 = 접근표 action(최고관리자). 서버 가드는 그대로 — 화면에서 미리 막고 사유를 보여 준다.
   const writeAction = useAdminRouteAction("/admin/feed-emergency");
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
@@ -32,6 +40,7 @@ export function FeedSectionOverrideTable() {
     [surface, refresh]
   );
 
+  const [saving, setSaving] = useState(false);
   const handleToggle = async (
     sectionKey: FeedSectionOverrideKey,
     isForcedDisabled: boolean
@@ -51,7 +60,8 @@ export function FeedSectionOverrideTable() {
       destructive: true,
       retypeValue: copy.confirmMatchText,
     });
-    if (!c.ok) return;
+    if (!c.ok || saving) return;
+    setSaving(true);
     // 저장 실패면 화면 상태를 되돌리고 실패를 알린다 (앱 반영 안 됨).
     const r = await commitFeedEmergencyChange(() =>
       setSectionForcedDisabled(
@@ -61,7 +71,7 @@ export function FeedSectionOverrideTable() {
         isForcedDisabled ? "긴급 비활성화" : "긴급 해제"
       ),
       { reason: c.reason }
-    );
+    ).finally(() => setSaving(false));
     setResult(r.ok ? { ok: true, message: "저장했습니다. 앱 피드에 반영됩니다." } : { ok: false, code: r.error ?? "save_failed" });
     setRefresh((x) => x + 1);
   };
@@ -78,22 +88,26 @@ export function FeedSectionOverrideTable() {
           변경 불가: {writeAction.reason}
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="sam-text-body font-medium text-sam-fg">surface</label>
-        <select
+      <AdminFilterBar
+        ko
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+        pending={saving}
+      >
+        <AdminFilterSelect
+          ko
+          label="surface"
+          name="surface"
+          includeAll={false}
           value={surface}
-          onChange={(e) =>
-            setSurface(e.target.value as RecommendationSurface)
-          }
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
-          {SURFACES.map((s) => (
-            <option key={s} value={s}>
-              {SURFACE_LABELS[s]}
-            </option>
-          ))}
-        </select>
-      </div>
+          onChange={(v) => lq.setExtra("surface", v)}
+          options={SURFACES.map((s) => ({ value: s, label: SURFACE_LABELS[s] }))}
+        />
+      </AdminFilterBar>
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[480px] border-collapse sam-text-body">
           <thead>
@@ -142,7 +156,7 @@ export function FeedSectionOverrideTable() {
                     <AdminActionButton
                       size="sm"
                       variant={disabled ? "secondary" : "danger"}
-                      disabled={!writeAction.allowed}
+                      disabled={!writeAction.allowed || saving}
                       onClick={() => void handleToggle(sectionKey, !disabled)}
                     >
                       {disabled ? "차단 해제" : "긴급 차단"}

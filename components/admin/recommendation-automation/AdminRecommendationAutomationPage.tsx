@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -28,7 +29,12 @@ const AUTO_TABS: { id: TabId; labelKey: MessageKey }[] = [
 
 export function AdminRecommendationAutomationPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("policy");
+  /** 탭은 주소 `?tab=` 보존 — 목록 필터와 함께 새로고침·링크 공유 시 유지 (R7). */
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const raw = searchParams?.get("tab") ?? "";
+    return AUTO_TABS.some((tab) => tab.id === raw) ? (raw as TabId) : "policy";
+  });
   const { state: loadState, reload } = useAdminSyncLoad(loadFullRecommendationAdminState);
 
   if (loadState.status !== "ready") {
@@ -57,7 +63,8 @@ export function AdminRecommendationAutomationPage() {
         ariaLabel="추천 자동화 탭"
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
-        syncUrl={false}
+        defaultValue="policy"
+        resetParams={["page", "surface"]}
         className="mb-4"
       />
       <AdminCard>

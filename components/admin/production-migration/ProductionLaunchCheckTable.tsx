@@ -4,7 +4,7 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getProductionLaunchChecks } from "@/lib/production-migration/production-migration-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
@@ -18,12 +18,18 @@ import type {
   ProductionLaunchCheckStatus,
 } from "@/lib/types/production-migration";
 import Link from "next/link";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
-import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+const FILTER_EXTRAS = ["phase"] as const;
+
 export function ProductionLaunchCheckTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [phase, setPhase] = useState<ProductionLaunchPhase | "">("");
+  /** 단계 필터는 주소(`?phase=`)에 보존 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const phase = lq.query.extras.phase as ProductionLaunchPhase | "";
   const checks = useMemo(
     () =>
       getProductionLaunchChecks(
@@ -34,21 +40,31 @@ export function ProductionLaunchCheckTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_readiness_k0e685c7c")}</span>
-        {(["before_cutover", "cutover", "after_cutover"] as const).map((p) => (
-          <AdminChipButton key={p} selected={phase === p} onClick={() => setPhase(p === phase ? "" : p)}>
-            {getPhaseLabel(p)}
-          </AdminChipButton>
-        ))}
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect
+          ko={ko}
+          label={t("admin_launch_readiness_k0e685c7c")}
+          name="phase"
+          value={lq.query.extras.phase}
+          onChange={(v) => lq.setExtra("phase", v)}
+          options={(["before_cutover", "cutover", "after_cutover"] as const).map((p) => ({ value: p, label: getPhaseLabel(p) }))}
+        />
+      </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">
         SQL 적용·view/rpc/trigger 필요 항목은 비고에 placeholder로 정리됩니다.
       </p>
 
       {checks.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 단계 체크 항목이 없습니다."} />
+        <AdminEmptyState ko={ko} message={"해당 단계 체크 항목이 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={[

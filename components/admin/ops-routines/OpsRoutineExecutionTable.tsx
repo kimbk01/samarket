@@ -1,12 +1,7 @@
 "use client";
 
-import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useMemo, useState } from "react";
-import {
-  getOpsRoutineExecutions,
-  getOpsRoutineTemplateById,
-} from "@/lib/ops-routines/ops-routines-state";
+import { getOpsRoutineTemplateById } from "@/lib/ops-routines/ops-routines-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   getCategoryLabel,
@@ -14,68 +9,69 @@ import {
   getExecutionStatusLabel,
   getPriorityLabel,
 } from "@/lib/ops-routines/ops-routines-utils";
-import type {
-  OpsRoutinePeriodType,
-  OpsRoutineExecutionStatus,
-} from "@/lib/types/ops-routines";
+import type { OpsRoutineExecution } from "@/lib/types/ops-routines";
 import Link from "next/link";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+import { AdminServerListFrame } from "@/components/admin/sync-list/AdminServerListFrame";
+import { useAdminServerPage } from "@/components/admin/sync-list/useAdminServerPage";
+
+/** 같은 탭의 템플릿 표(category·cadence)와 키가 겹치지 않게 상태는 `exec_status`. */
+const FILTER_EXTRAS = ["period", "exec_status"] as const;
 
 export function OpsRoutineExecutionTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [periodType, setPeriodType] = useState<OpsRoutinePeriodType | "">("");
-  const [status, setStatus] = useState<OpsRoutineExecutionStatus | "">("");
-  const executions = useMemo(
-    () =>
-      getOpsRoutineExecutions({
-        ...(periodType ? { periodType: periodType as OpsRoutinePeriodType } : {}),
-        ...(status ? { status: status as OpsRoutineExecutionStatus } : {}),
-      }),
-    [periodType, status]
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  /** 실행 이력 = 서버 페이지 (`GET /api/admin/ops-routines?part=executions`, R7) — 전체를 한 번에 그리지 않는다. */
+  const page = useAdminServerPage<OpsRoutineExecution>(
+    `/api/admin/ops-routines?part=executions&${lq.apiQueryString}`,
+    lq.refreshKey
   );
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_routines_label_period")}</span>
-        <select
-          value={periodType}
-          onChange={(e) =>
-            setPeriodType((e.target.value || "") as OpsRoutinePeriodType | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_ops_tools_routines_label_period")} name="period" value={lq.query.extras.period} onChange={(v) => lq.setExtra("period", v)}>
           <option value="">{t("admin_ops_tools_surface_all")}</option>
           <option value="weekly">{t("admin_ops_tools_period_weekly")}</option>
           <option value="monthly">{t("admin_ops_tools_period_monthly")}</option>
           <option value="quarterly">{t("admin_ops_tools_period_quarterly")}</option>
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_board_th_status")}</span>
-        <select
-          value={status}
-          onChange={(e) =>
-            setStatus((e.target.value || "") as OpsRoutineExecutionStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_ops_tools_board_th_status")} name="exec_status" value={lq.query.extras.exec_status} onChange={(v) => lq.setExtra("exec_status", v)}>
           <option value="">{t("admin_ops_tools_surface_all")}</option>
           <option value="todo">{t("admin_ops_tools_routine_todo")}</option>
           <option value="in_progress">{t("admin_ops_tools_checklist_in_progress")}</option>
           <option value="done">{t("admin_ops_tools_checklist_done")}</option>
           <option value="skipped">{t("admin_ops_tools_routine_skipped")}</option>
           <option value="overdue">{t("admin_ops_tools_routine_overdue")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_routines_sla_hint")}</p>
 
-      {executions.length === 0 ? (
-        <AdminEmptyState
-          ko={ko}
-          message={periodType || status ? undefined : t("admin_ops_tools_routines_exec_empty")}
-          onReset={periodType || status ? () => { setPeriodType(""); setStatus(""); } : undefined}
-        />
-      ) : (
+      <AdminServerListFrame
+        ko={ko}
+        state={page}
+        page={lq.query.page}
+        size={lq.query.size}
+        onPageChange={lq.setPage}
+        onSizeChange={lq.setSize}
+        onRetry={lq.refresh}
+        onReset={lq.isFiltered ? lq.reset : undefined}
+        emptyMessage={t("admin_ops_tools_routines_exec_empty")}
+      >
+        {(executions) => (
         <AdminTable
           headers={[
             "템플릿",
@@ -174,7 +170,8 @@ export function OpsRoutineExecutionTable() {
             );
           })}
         </AdminTable>
-      )}
+        )}
+      </AdminServerListFrame>
     </div>
   );
 }

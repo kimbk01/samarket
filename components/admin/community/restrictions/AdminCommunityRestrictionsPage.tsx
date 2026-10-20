@@ -9,8 +9,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useAdminMe } from "@/hooks/useAdminMe";
-import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { COMMUNITY_ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/community-admin/community-admin-reason";
 import { COMMUNITY_RESTRICTION_DAY_OPTIONS } from "@/lib/admin/community-admin/community-sanction-input";
 import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-labels";
@@ -19,21 +18,22 @@ import {
   COMMUNITY_TD,
   CommunityActionSheet,
   CommunityAuthorCell,
-  CommunityFilterField,
+  CommunityFilterBar,
+  CommunityListBody,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityResetFilters,
-  CommunitySearchInput,
   CommunityStatusBadge,
   CommunityTable,
   CommunityTabs,
   CommunityTimeCell,
   communityDetailHref,
+  useCommunityListQuery,
   useCommunityQueryState,
+  type CommunityListLoadState,
   type CommunitySheetSettle,
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import {
   COMMUNITY_STALE_TEXT,
@@ -44,7 +44,7 @@ import {
   type CommunityBanner,
 } from "@/components/admin/community/reports/community-report-admin-shared";
 
-const PAGE_SIZE = 50;
+const RESTRICTION_EXTRAS = ["userId"] as const;
 
 type TabKey = "active" | "expired" | "revoked" | "warnings" | "all";
 
@@ -103,21 +103,26 @@ function periodText(r: RestrictionRow): string {
 export function AdminCommunityRestrictionsPage() {
   const { language } = useI18n();
   const ko = language !== "en";
+  /** 탭(`tab`)·강조(`sanctionId`)는 조회 조건 밖 키 — [초기화] 후에도 탭 유지 */
   const qs = useCommunityQueryState();
-  const { permissions, isSuperAdmin, loading: meLoading } = useAdminMe();
-  const canModerate = meLoading || communityAreaAllowed(permissions, "moderation", isSuperAdmin);
+  const lq = useCommunityListQuery({ extras: RESTRICTION_EXTRAS });
+  /** 쓰기(활동 제한 추가·제한 해제) — 접근표 action community("moderation"). 서버 가드는 그대로. */
+  const action = useAdminRouteAction("/admin/community/restrictions");
+  const canModerate = action.allowed;
 
   const tab = resolveTab(qs.get("tab"));
   const tabDef = TABS.find((t) => t.key === tab) ?? TABS[0];
-  const q = qs.get("q");
-  const userId = qs.get("userId");
+  const q = lq.query.q;
+  const userId = lq.query.extras.userId;
   const sanctionId = qs.get("sanctionId");
-  const page = qs.page;
+  const page = lq.query.page;
+  const pageSize = lq.query.size;
 
   const [rows, setRows] = useState<RestrictionRow[] | null>(null);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<Partial<Record<TabKey, number>>>({});
   const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(null);
+  const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState<CommunityBanner>(null);
   const [revokeRow, setRevokeRow] = useState<RestrictionRow | null>(null);
   const [adding, setAdding] = useState(false);
@@ -135,23 +140,26 @@ export function AdminCommunityRestrictionsPage() {
   );
 
   const load = useCallback(async () => {
-    setLoadErr(null);
+    setLoading(true);
     try {
-      const res = await fetch(buildQuery(tabDef, PAGE_SIZE, (page - 1) * PAGE_SIZE), {
+      const res = await fetch(buildQuery(tabDef, pageSize, (page - 1) * pageSize), {
         credentials: "include",
         cache: "no-store",
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; rows?: RestrictionRow[]; total?: number; error?: string };
       if (!res.ok || !j.ok) {
+        // 실패해도 직전 목록은 지우지 않는다 (지시서 §8-5)
         setLoadErr({ code: j.error ?? `http_${res.status}`, status: res.status });
-        setRows(null);
         return;
       }
+      setLoadErr(null);
       setRows(j.rows ?? []);
       setTotal(Number(j.total ?? 0));
     } catch {
       setLoadErr({ code: "network_error", status: 0 });
-      setRows(null);
+      return;
+    } finally {
+      setLoading(false);
     }
     // 탭 건수 (총 건수만 — 1행 조회)
     const entries = await Promise.all(
@@ -166,12 +174,17 @@ export function AdminCommunityRestrictionsPage() {
       })
     );
     setCounts(Object.fromEntries(entries.filter(([, v]) => typeof v === "number")));
-  }, [buildQuery, page, tabDef]);
+  }, [buildQuery, page, pageSize, tabDef]);
 
   useEffect(() => {
-    setRows(null);
     void load();
-  }, [load]);
+  }, [load, lq.refreshKey]);
+
+  const listState: CommunityListLoadState = loadErr
+    ? { status: "error", data: rows, code: loadErr.code, httpStatus: loadErr.status }
+    : loading
+      ? { status: "loading", data: rows }
+      : { status: "ok", data: rows };
 
   const onSettled = async (kind: CommunitySheetSettle, okText: (json: Record<string, unknown>) => CommunityBanner) => {
     setRevokeRow(null);
@@ -188,20 +201,32 @@ export function AdminCommunityRestrictionsPage() {
       description="커뮤니티 경고·활동 제한을 확인하고 해제하거나 새로 적용합니다. 계정 정지는 회원 관리에서 합니다."
       actions={
         <>
-          <AdminActionButton variant="secondary" onClick={() => void load()}>
+          <AdminActionButton variant="secondary" disabled={loading} onClick={() => void load()}>
             새로고침
           </AdminActionButton>
           <AdminActionButton
-            variant="primary"
+            variant="secondary"
             disabled={!canModerate}
-            title={canModerate ? undefined : "권한 필요: 신고 처리"}
-            onClick={() => setAdding(true)}
+            title={canModerate ? undefined : (action.reason ?? undefined)}
+            onClick={() => {
+              if (!canModerate) return;
+              setAdding(true);
+            }}
           >
             활동 제한 추가
           </AdminActionButton>
         </>
       }
-      banner={<CommunityBannerView banner={banner} onClose={() => setBanner(null)} />}
+      banner={
+        <>
+          {!action.allowed && action.reason ? (
+            <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
+              {ko ? `활동 제한 추가·제한 해제 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+            </p>
+          ) : null}
+          <CommunityBannerView banner={banner} onClose={() => setBanner(null)} />
+        </>
+      }
       tabs={
         <CommunityTabs
           value={tab}
@@ -209,37 +234,29 @@ export function AdminCommunityRestrictionsPage() {
           tabs={TABS.map((t) => ({ value: t.key, label: t.label, count: counts[t.key] ?? null }))}
         />
       }
-      filters={
-        <>
-          <CommunityFilterField label="회원 검색">
-            <CommunitySearchInput value={q} onCommit={(v) => qs.set({ q: v })} placeholder="닉네임" />
-          </CommunityFilterField>
+      filterBar={
+        <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder="회원 닉네임" pending={loading}>
           {userId ? (
-            <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
+            <span className="inline-flex h-10 items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 text-[12px] text-sam-fg">
               특정 회원만 보기
-              <AdminActionButton variant="quiet" size="sm" aria-label="특정 회원 해제" onClick={() => qs.set({ userId: null })} className="h-auto! px-1!">
+              <AdminActionButton variant="quiet" size="sm" aria-label="특정 회원 해제" onClick={() => lq.setExtra("userId", "")} className="h-auto! px-1!">
                 ×
               </AdminActionButton>
             </span>
           ) : null}
-          <CommunityResetFilters onReset={() => qs.reset(["tab"])} />
-        </>
+        </CommunityFilterBar>
       }
-      footer={
-        rows && total > 0 ? (
-          <CommunityPagination page={page} pageSize={PAGE_SIZE} total={total} onPage={(p) => qs.set({ page: p > 1 ? p : null })} />
-        ) : null
-      }
+      footer={<CommunityListPagination lq={lq} total={rows ? total : null} disabled={loading} />}
     >
-      {loadErr ? (
-        <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={() => void load()} />
-      ) : !rows ? (
-        <AdminLoadingState ko={ko} />
-      ) : rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={EMPTY_TEXT[tab]} />
-      ) : (
+      <CommunityListBody
+        state={listState}
+        empty={!rows || rows.length === 0}
+        lq={lq}
+        onRetry={() => void load()}
+        emptyMessage={EMPTY_TEXT[tab]}
+      >
         <CommunityTable head={["회원", "종류·범위", "기간", "사유", "처리자", "원인 신고", "상태", "처리"]}>
-          {rows.map((r) => (
+          {(rows ?? []).map((r) => (
             <tr
               key={r.id}
               data-sanction-row={r.id}
@@ -294,11 +311,14 @@ export function AdminCommunityRestrictionsPage() {
               <td className={COMMUNITY_TD}>
                 {r.kind === "community_restriction" && r.status === "active" ? (
                   <AdminActionButton
-                    variant="secondary"
-                    className="min-h-8 px-2 py-1 text-[12px]"
+                    variant="ghost"
+                    size="sm"
                     disabled={!canModerate}
-                    title={canModerate ? undefined : "권한 필요: 신고 처리"}
-                    onClick={() => setRevokeRow(r)}
+                    title={canModerate ? undefined : (action.reason ?? undefined)}
+                    onClick={() => {
+                      if (!canModerate) return;
+                      setRevokeRow(r);
+                    }}
                   >
                     제한 해제
                   </AdminActionButton>
@@ -311,7 +331,7 @@ export function AdminCommunityRestrictionsPage() {
             </tr>
           ))}
         </CommunityTable>
-      )}
+      </CommunityListBody>
 
       {revokeRow ? (
         <CommunityActionSheet
@@ -327,6 +347,7 @@ export function AdminCommunityRestrictionsPage() {
           confirmLabel="제한 해제"
           onClose={() => setRevokeRow(null)}
           onSubmit={async (reason) => {
+            if (!canModerate) return { ok: false, status: 403, code: "forbidden" };
             const { result, json } = await communityActionFetch(
               `/api/admin/community/restrictions/${encodeURIComponent(revokeRow.id)}/revoke`,
               "POST",
@@ -347,6 +368,7 @@ export function AdminCommunityRestrictionsPage() {
       {adding ? (
         <AddRestrictionSheet
           initialUserId={userId}
+          canWrite={canModerate}
           lastJson={lastJson}
           onClose={() => setAdding(false)}
           onSettled={(kind) =>
@@ -365,11 +387,13 @@ export function AdminCommunityRestrictionsPage() {
 /** 「활동 제한 추가」 시트 — 회원 선택(?userId= 미리 선택 또는 닉네임 검색) · 종류 · 범위 · 기간 · 사유 */
 function AddRestrictionSheet({
   initialUserId,
+  canWrite,
   lastJson,
   onClose,
   onSettled,
 }: {
   initialUserId: string;
+  canWrite: boolean;
   lastJson: { current: Record<string, unknown> };
   onClose: () => void;
   onSettled: (kind: CommunitySheetSettle) => void;
@@ -465,11 +489,12 @@ function AddRestrictionSheet({
           : "활동 제한은 커뮤니티 글·댓글·신고·모임만 막습니다. 거래·배달·메신저는 그대로입니다. 회원에게 알림이 갑니다."
       }
       reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: "사유 (회원 알림·운영 기록에 남습니다)" }}
-      ready={Boolean(member)}
+      ready={Boolean(member) && canWrite}
       destructive={kind === "community_restriction"}
       confirmLabel={kind === "warning" ? "경고 보내기" : "활동 제한"}
       onClose={onClose}
       onSubmit={async (reason) => {
+        if (!canWrite) return { ok: false, status: 403, code: "forbidden" };
         if (!member) return { ok: false, status: 400, code: "invalid_user_id" };
         const { result, json } = await communityActionFetch("/api/admin/community/restrictions", "POST", {
           userId: member.id,

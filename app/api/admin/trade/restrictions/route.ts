@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
 import { callTradeAdminRpc, readJsonBody, tradeAuditMetaArgs } from "@/lib/admin/trade-admin/trade-admin-rpc";
 import {
   parseTradeRestrictionDays,
@@ -8,7 +9,6 @@ import {
 import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/community-admin-reason";
 import {
   communityAdminUuidOrNull,
-  parseCommunityAdminPage,
 } from "@/lib/admin/community-admin/community-admin-period";
 import {
   formatAdminMemberLabel,
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   if (kind && kind !== "warning" && kind !== "trade_restriction") {
     return NextResponse.json({ ok: false, error: "invalid_kind" }, { status: 400 });
   }
-  const { limit, offset } = parseCommunityAdminPage(sp);
+  const { limit, offset } = parseTradeAdminListPage(sp);
   const userId = communityAdminUuidOrNull(sp.get("userId"));
   const q = sanitizeAdminListSearch(sp.get("q"));
 

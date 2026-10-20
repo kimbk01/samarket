@@ -158,16 +158,14 @@ export function AdminPointChargeInlineActions({
                       >
                         {adminCta("reject", ko)}
                       </AdminActionButton>
-                      {r.requestStatus !== "on_hold" && (
-                        <AdminActionButton
-                          variant="quiet"
-                          size="sm"
-                          disabled={busy || !actionAllowed}
-                          onClick={() => void doAction(r, "hold", memo)}
-                        >
-                          {adminCta("hold", ko)}
-                        </AdminActionButton>
-                      )}
+                      {/* 행 버튼은 2개까지 — 보류는 상세 화면에서 (R7 버튼 배치). */}
+                      <Link
+                        href={`/admin/point-charges/${encodeURIComponent(r.id)}`}
+                        className="self-center sam-text-xxs font-medium text-sam-primary hover:underline"
+                        data-point-charge-detail-link="1"
+                      >
+                        {ko ? "상세" : "Details"}
+                      </Link>
                     </div>
                   ) : (
                     <span className="sam-text-xxs text-sam-meta">{t("admin_points_done")}</span>

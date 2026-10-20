@@ -4,7 +4,7 @@
  * 게시글 홍보 (설계 §C-12 · §F-1) — 커뮤니티 홍보 주문만 (`point_promotion_orders` domain=community).
  * 조치: 「노출 중지」 L2(사유) · 「노출 재개」 L2(exposeStart · 사유 · 종료일을 중지 시간만큼 연장) ·
  *       「홍보 종료」 L3(귀책 선택 → 환급 미리보기 → 대상 재입력 → 실행).
- * URL: tab=active|paused|ended|rejected|all · page
+ * URL: tab=active|paused|ended|rejected|all · page · size(20/50/100)
  */
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   COMMUNITY_TD,
   CommunityActionSheet,
+  CommunityListBody,
   CommunityListShell,
   CommunityPagination,
   CommunityStatusBadge,
@@ -22,28 +23,21 @@ import {
   useCommunityQueryState,
   type CommunitySheetSettle,
 } from "@/components/admin/community/kit/CommunityAdminKit";
-import {
-  AdminEmptyState,
-  AdminErrorState,
-  AdminLoadingState,
-  AdminResultBanner,
-  AdminTechDetails,
-} from "@/components/admin/ui/AdminStateViews";
+import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-labels";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import {
   COMMUNITY_GONE_MESSAGE,
   COMMUNITY_STALE_MESSAGE,
   formatCommunityPoints,
-  useCommunityAdminAccess,
   useCommunityAdminJson,
   type CommunityBannerState,
 } from "@/components/admin/community/members/use-community-admin-data";
 
-const PAGE_SIZE = 50;
 const TABS = ["active", "paused", "ended", "rejected", "all"] as const;
 
 type Order = {
@@ -86,17 +80,18 @@ type Sheet = { kind: "pause" | "end"; order: Order } | null;
 
 export function AdminCommunityPromotionsPage() {
   const q = useCommunityQueryState();
-  const access = useCommunityAdminAccess();
-  const canAct = access.allowed("promotion");
+  /** 쓰기(노출 중지·재개·홍보 종료) — 접근표 action community("promotion"). 서버 가드는 그대로. */
+  const action = useAdminRouteAction("/admin/community/promotions");
+  const canAct = action.allowed;
   const tab = (TABS as readonly string[]).includes(q.get("tab")) ? q.get("tab") : "active";
   const [sheet, setSheet] = useState<Sheet>(null);
   const [banner, setBanner] = useState<CommunityBannerState>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const { state, reload } = useCommunityAdminJson<ListResponse>(
-    `/api/admin/community-promotion-orders?status=${tab}&page=${q.page}&pageSize=${PAGE_SIZE}`
+    `/api/admin/community-promotion-orders?status=${tab}&limit=${q.size}&offset=${(q.page - 1) * q.size}`
   );
-  const rows = state.status === "ok" ? state.data.orders ?? [] : [];
+  const rows = state.data?.orders ?? [];
   const total = state.status === "ok" ? Number(state.data.total ?? 0) : null;
 
   const settle = (kind: CommunitySheetSettle, okMessage: string) => {
@@ -106,7 +101,7 @@ export function AdminCommunityPromotionsPage() {
   };
 
   const resume = async (o: Order) => {
-    if (busyId) return;
+    if (busyId || !canAct) return;
     const c = await confirmAdminAction({
       level: adminActionLevel("exposeStart"),
       ko: true,
@@ -138,7 +133,16 @@ export function AdminCommunityPromotionsPage() {
           전체 상위노출(거래 포함) 보기
         </AdminActionLink>
       }
-      banner={<AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />}
+      banner={
+        <>
+          {!action.allowed && action.reason ? (
+            <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
+              {`노출 중지·재개·홍보 종료 버튼 비활성: ${action.reason}`}
+            </p>
+          ) : null}
+          <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
+        </>
+      }
       tabs={
         <CommunityTabs
           value={tab}
@@ -154,17 +158,18 @@ export function AdminCommunityPromotionsPage() {
       }
       footer={
         total !== null && total > 0 ? (
-          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
+          <CommunityPagination
+            page={q.page}
+            pageSize={q.size}
+            total={total}
+            onPage={(p) => q.set({ page: p })}
+            onPageSize={(size) => q.set({ size })}
+            disabled={state.status === "loading"}
+          />
         ) : null
       }
     >
-      {state.status === "loading" && !state.data ? (
-        <AdminLoadingState ko />
-      ) : state.status === "error" ? (
-        <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
-      ) : rows.length === 0 ? (
-        <AdminEmptyState ko message="이 상태의 홍보가 없습니다." />
-      ) : (
+      <CommunityListBody state={state} empty={rows.length === 0} onRetry={reload} emptyMessage="이 상태의 홍보가 없습니다.">
         <CommunityTable head={["게시글", "구매자", "기간", "결제 포인트", "상태", "환급", "조치"]}>
           {rows.map((o) => {
             const title = o.post?.title || o.targetTitle || "게시글";
@@ -223,18 +228,22 @@ export function AdminCommunityPromotionsPage() {
                     <div className="flex flex-wrap gap-1">
                       {o.orderStatus === "active" ? (
                         <AdminActionButton
-                          variant="secondary"
+                          variant="ghost"
+                          size="sm"
                           disabled={!canAct || busyId === o.id}
-                          title={access.deniedTitle("promotion")}
-                          onClick={() => setSheet({ kind: "pause", order: o })}
+                          title={canAct ? undefined : (action.reason ?? undefined)}
+                          onClick={() => {
+                            if (canAct) setSheet({ kind: "pause", order: o });
+                          }}
                         >
                           노출 중지
                         </AdminActionButton>
                       ) : (
                         <AdminActionButton
-                          variant="secondary"
+                          variant="ghost"
+                          size="sm"
                           disabled={!canAct || busyId === o.id}
-                          title={access.deniedTitle("promotion")}
+                          title={canAct ? undefined : (action.reason ?? undefined)}
                           onClick={() => void resume(o)}
                         >
                           {busyId === o.id ? "처리 중" : "노출 재개"}
@@ -242,9 +251,12 @@ export function AdminCommunityPromotionsPage() {
                       )}
                       <AdminActionButton
                         variant="danger"
+                        size="sm"
                         disabled={!canAct || busyId === o.id}
-                        title={access.deniedTitle("promotion")}
-                        onClick={() => setSheet({ kind: "end", order: o })}
+                        title={canAct ? undefined : (action.reason ?? undefined)}
+                        onClick={() => {
+                          if (canAct) setSheet({ kind: "end", order: o });
+                        }}
                       >
                         홍보 종료
                       </AdminActionButton>
@@ -261,7 +273,7 @@ export function AdminCommunityPromotionsPage() {
             );
           })}
         </CommunityTable>
-      )}
+      </CommunityListBody>
 
       {sheet?.kind === "pause" ? (
         <CommunityActionSheet
@@ -271,7 +283,9 @@ export function AdminCommunityPromotionsPage() {
           reason={{ minLength: 2, placeholder: "중지 사유" }}
           confirmLabel="노출 중지"
           onSubmit={(reason) =>
-            communitySheetFetch(`/api/admin/community-promotion-orders/${encodeURIComponent(sheet.order.id)}`, {
+            !canAct
+              ? Promise.resolve({ ok: false as const, status: 403, code: "forbidden" })
+              : communitySheetFetch(`/api/admin/community-promotion-orders/${encodeURIComponent(sheet.order.id)}`, {
               method: "PATCH",
               credentials: "include",
               headers: { "Content-Type": "application/json" },
@@ -286,6 +300,7 @@ export function AdminCommunityPromotionsPage() {
       {sheet?.kind === "end" ? (
         <EndPromotionSheet
           order={sheet.order}
+          canWrite={canAct}
           onClose={() => setSheet(null)}
           onSettled={(k, refund) =>
             settle(k, refund > 0 ? `홍보를 종료했습니다. ${formatAdminNumber(refund)} P 를 환급했습니다.` : "홍보를 종료했습니다. 환급은 없습니다.")
@@ -309,10 +324,12 @@ function orderRows(o: Order) {
 /** 홍보 종료 L3 — 귀책을 고르면 서버 미리보기로 환급 예정 포인트를 먼저 보여 준다. */
 function EndPromotionSheet({
   order,
+  canWrite,
   onClose,
   onSettled,
 }: {
   order: Order;
+  canWrite: boolean;
   onClose: () => void;
   onSettled: (k: CommunitySheetSettle, refund: number) => void;
 }) {
@@ -374,10 +391,11 @@ function EndPromotionSheet({
       notice="종료하면 다시 노출할 수 없습니다. 회원에게 종료 사유와 환급 포인트가 알림으로 전달됩니다."
       reason={{ minLength: 2, placeholder: "종료 사유 (회원에게 전달됩니다)" }}
       retypeValue={retype}
-      ready={ready}
+      ready={ready && canWrite}
       destructive
       confirmLabel="홍보 종료"
       onSubmit={async (reason) => {
+        if (!canWrite) return { ok: false, status: 403, code: "forbidden" };
         try {
           const res = await fetch(url, {
             method: "PATCH",

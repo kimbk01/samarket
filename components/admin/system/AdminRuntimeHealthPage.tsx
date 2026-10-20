@@ -14,6 +14,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 
 type RuntimeHealthPayload = {
   ok?: boolean;
@@ -97,6 +98,8 @@ function toBool(v: unknown): boolean {
 export function AdminRuntimeHealthPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
+  /** 쓰기(런타임 설정 켜기·끄기) — 접근표 action SUPER. 서버 가드는 그대로. */
+  const action = useAdminRouteAction("/admin/runtime-health");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -148,7 +151,7 @@ export function AdminRuntimeHealthPage() {
   }, [settings, effective]);
 
   const patchSetting = async (key: (typeof SETTINGS_KEYS)[number], next: boolean) => {
-    if (busy) return;
+    if (busy || !action.allowed) return;
     const label = ko ? SETTING_LABELS[key].ko : SETTING_LABELS[key].en;
     const c = await confirmAdminAction({
       level: adminActionLevel("runtimeSettingChange"),
@@ -206,6 +209,11 @@ export function AdminRuntimeHealthPage() {
           {adminCta("refresh", ko)}
         </AdminActionButton>
       </div>
+      {!action.allowed && action.reason ? (
+        <p className="mt-2 sam-text-helper text-sam-muted" data-admin-action-denied="1">
+          {ko ? `켜기·끄기 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+        </p>
+      ) : null}
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
         <div className="text-sm text-sam-muted">{ko ? "데이터베이스 버전" : "Database version"}</div>
@@ -309,7 +317,7 @@ export function AdminRuntimeHealthPage() {
                 <AdminActionButton
                   variant="secondary"
                   size="sm"
-                  disabled={busy || !r.desired}
+                  disabled={busy || !r.desired || !action.allowed}
                   onClick={() => void patchSetting(r.key, false)}
                 >
                   {ko ? "끄기" : "OFF"}
@@ -317,7 +325,7 @@ export function AdminRuntimeHealthPage() {
                 <AdminActionButton
                   variant="secondary"
                   size="sm"
-                  disabled={busy || r.desired}
+                  disabled={busy || r.desired || !action.allowed}
                   onClick={() => void patchSetting(r.key, true)}
                 >
                   {ko ? "켜기" : "ON"}

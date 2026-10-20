@@ -182,15 +182,16 @@ const APPROVAL_BUTTON_ORDER: AdminStoreApprovalAction[] = [
   "resume_store",
 ];
 
+/**
+ * 버튼 표준 (R7 3번) — 패널의 primary 는 입점 결정(승인·재개) 1개뿐.
+ * 반려·중지는 다시 승인·재개로 되돌릴 수 있어 danger 가 아니라 secondary (확인 단계는 그대로 L2 사유).
+ */
 function approvalButtonVariant(action: string): AdminActionVariant {
   if (action === "approve_store" || action === "resume_store") return "primary";
-  if (action === "reject_store" || action === "suspend_store") return "danger";
   return "secondary";
 }
 
-function salesButtonVariant(action: string): AdminActionVariant {
-  if (action === "approve_sales") return "primary";
-  if (action === "suspend_sales") return "danger";
+function salesButtonVariant(_action: string): AdminActionVariant {
   return "secondary";
 }
 
@@ -455,7 +456,7 @@ export function AdminStoreReviewPanel({
                     disabled={busy}
                   />
                   <AdminActionButton
-                    variant="primary"
+                    variant="secondary"
                     size="sm"
                     disabled={busy || adminStoreName.trim().length < 2}
                     onClick={async () => {
@@ -578,7 +579,7 @@ export function AdminStoreReviewPanel({
                     {adminCta("cancel", ko)}
                   </AdminActionButton>
                   <AdminActionButton
-                    variant="primary"
+                    variant="secondary"
                     disabled={busy || !noticeTitle.trim() || !noticeBody.trim()}
                     onClick={() => void sendOwnerNotice()}
                   >
@@ -672,7 +673,7 @@ export function AdminStoreReviewPanel({
       </div>
 
       {onClose ? (
-        <div className="flex justify-end border-t border-sam-border px-4 py-2">
+        <div className="flex justify-start border-t border-sam-border px-4 py-2">
           <AdminActionButton variant="secondary" onClick={onClose}>
             {adminCta("close", ko)}
           </AdminActionButton>

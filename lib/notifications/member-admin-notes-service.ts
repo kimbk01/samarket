@@ -142,6 +142,29 @@ export async function listAdminNoteThreads(
   return { ok: true, threads: (data ?? []) as NoteThreadRow[] };
 }
 
+/** 관리자 보관함(이전 문의 기록) — 쪽지 스레드 한 쪽 + 정확한 전체 건수 (R7, 200건 고정 상한 없음). */
+export async function listAdminNoteThreadsPage(
+  sb: SupabaseClient,
+  opts: { kind?: MemberAdminNoteKind; limit: number; offset: number }
+): Promise<{ ok: true; threads: NoteThreadRow[]; total: number } | { ok: false; error: string }> {
+  let q = sb
+    .from("member_admin_note_threads")
+    .select("*", { count: "exact" })
+    .order("last_message_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(opts.offset, opts.offset + opts.limit - 1);
+  if (opts.kind) {
+    q = q.eq("started_by", startedByFromKind(opts.kind));
+  }
+  const { data, error, count } = await q;
+  if (error) {
+    if (isMissingNotesTable(error.message ?? "")) return { ok: true, threads: [], total: 0 };
+    return { ok: false, error: error.message };
+  }
+  const threads = (data ?? []) as NoteThreadRow[];
+  return { ok: true, threads, total: count ?? threads.length };
+}
+
 export async function getNoteThreadWithMessages(
   sb: SupabaseClient,
   threadId: string

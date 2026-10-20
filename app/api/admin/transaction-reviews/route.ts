@@ -9,24 +9,62 @@ import {
   mapTransactionReviewRowToAdminReview,
   type TransactionReviewDbRow,
 } from "@/lib/admin-reviews/map-transaction-review-to-admin";
+import {
+  ADMIN_TRANSACTION_REVIEW_SELECT_FIELDS,
+  enrichAdminTransactionReviews,
+  listAdminTransactionReviewRows,
+  parseAdminTransactionReviewsListParams,
+} from "@/lib/admin-reviews/admin-transaction-reviews-list";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SELECT_FIELDS =
-  "id, product_id, room_id, reviewer_id, reviewee_id, role_type, public_review_type, private_manner_score, private_tags, is_anonymous_negative, created_at, positive_tag_keys, negative_tag_keys, review_comment";
+const SELECT_FIELDS = ADMIN_TRANSACTION_REVIEW_SELECT_FIELDS;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 서비스 롤/anon 클라이언트 공용 (스키마 제네릭 없음)
+type AdminReviewsDb = import("@supabase/supabase-js").SupabaseClient<any>;
 // Production has no transaction_reviews.is_hidden_by_admin — omit from SELECT.
+
+/**
+ * 목록 (R7 목록 표준) — query/body: limit(20/50/100, 그 외 50) · offset · q · status · rating · role
+ * → `{ ok, reviews, total(count: "exact"), limit, offset }`. DB 에서 필터·페이지 (고정 500건 상한 없음).
+ */
+async function listResponse(sbAny: AdminReviewsDb, sp: URLSearchParams) {
+  const params = parseAdminTransactionReviewsListParams(sp);
+  const listed = await listAdminTransactionReviewRows(sbAny, params);
+  if (!listed.ok) return NextResponse.json({ ok: false, error: listed.error }, { status: 500 });
+  const reviews = await enrichAdminTransactionReviews(sbAny, listed.rows);
+  return NextResponse.json({ ok: true, reviews, total: listed.total, limit: params.limit, offset: params.offset });
+}
+
+function adminReviewsClient() {
+  const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
+  if (!supabaseEnv.ok) return { ok: false as const, error: supabaseEnv.error };
+  const anon = createClient(supabaseEnv.url, supabaseEnv.anonKey);
+  const sb = supabaseEnv.serviceKey
+    ? createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } })
+    : anon;
+  return { ok: true as const, sbAny: sb as AdminReviewsDb };
+}
+
+/** GET 목록 — 관리자 「거래 후기」 화면 */
+export async function GET(req: NextRequest) {
+  const admin = await requireTradeAdmin();
+  if (!admin.ok) return admin.response;
+  const client = adminReviewsClient();
+  if (!client.ok) return NextResponse.json({ ok: false, error: client.error }, { status: 500 });
+  return listResponse(client.sbAny, req.nextUrl.searchParams);
+}
 
 export async function POST(req: NextRequest) {
   const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
-  const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
-  if (!supabaseEnv.ok) {
-    return NextResponse.json({ error: supabaseEnv.error }, { status: 500 });
+  const client = adminReviewsClient();
+  if (!client.ok) {
+    return NextResponse.json({ error: client.error }, { status: 500 });
   }
 
-  let body: { reviewId?: string };
+  let body: { reviewId?: string; limit?: unknown; offset?: unknown; q?: unknown; status?: unknown; rating?: unknown; role?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -34,12 +72,7 @@ export async function POST(req: NextRequest) {
   }
   const reviewId = typeof body.reviewId === "string" ? body.reviewId.trim() : "";
 
-  const anon = createClient(supabaseEnv.url, supabaseEnv.anonKey);
-
-  const sb = supabaseEnv.serviceKey
-    ? createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } })
-    : anon;
-  const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
+  const sbAny = client.sbAny;
 
   if (reviewId) {
     const { data: row, error } = await sbAny
@@ -71,50 +104,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ review });
   }
 
-  const { data: rows, error: listErr } = await sbAny
-    .from("transaction_reviews")
-    .select(SELECT_FIELDS)
-    .order("created_at", { ascending: false })
-    .limit(500);
-
-  if (listErr) {
-    return NextResponse.json({ error: listErr.message }, { status: 500 });
+  // 목록 (본문 키 = GET 쿼리 키)
+  const sp = new URLSearchParams();
+  for (const k of ["limit", "offset", "q", "status", "rating", "role"] as const) {
+    const v = body[k];
+    if (typeof v === "string" || typeof v === "number") sp.set(k, String(v));
   }
-
-  const list = (rows ?? []) as TransactionReviewDbRow[];
-  const productIds = [...new Set(list.map((x) => x.product_id).filter(Boolean))];
-  const userIds = [...new Set(list.flatMap((x) => [x.reviewer_id, x.reviewee_id]).filter(Boolean))];
-
-  const postById = new Map<string, Record<string, unknown>>();
-  if (productIds.length) {
-    const { data: posts } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).in("id", productIds);
-    (posts ?? []).forEach((p: Record<string, unknown>) => {
-      const id = String(p.id ?? "");
-      if (id) postById.set(id, p);
-    });
-    const missing = productIds.filter((id) => !postById.has(id));
-    for (const mid of missing.slice(0, 40)) {
-      const { data: one } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).eq("id", mid).maybeSingle();
-      if (one) postById.set(String(mid), one as Record<string, unknown>);
-    }
-  }
-
-  const nicknameById = await batchNicknamesByUserIds(sbAny, userIds);
-  const identityById = await batchUserIdentityByUserIds(sbAny, userIds);
-  const reviews = list.map((r) =>
-    mapTransactionReviewRowToAdminReview(r, postById.get(r.product_id), nicknameById)
-  );
-  reviews.forEach((review) => {
-    review.reviewerUsername = identityById[review.reviewerId]?.username ?? null;
-    review.reviewerDisplayName = identityById[review.reviewerId]?.displayName ?? null;
-    review.targetUsername = identityById[review.targetUserId]?.username ?? null;
-    review.targetDisplayName = identityById[review.targetUserId]?.displayName ?? null;
-    const role = review.role;
-    const sellerId = role === "seller_to_buyer" ? review.reviewerId : review.targetUserId;
-    const buyerId = role === "buyer_to_seller" ? review.reviewerId : review.targetUserId;
-    review.sellerUsername = identityById[sellerId]?.username ?? null;
-    review.buyerUsername = identityById[buyerId]?.username ?? null;
-  });
-
-  return NextResponse.json({ reviews });
+  return listResponse(sbAny, sp);
 }

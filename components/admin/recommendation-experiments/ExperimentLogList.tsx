@@ -1,7 +1,10 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { RecommendationFilterSelect } from "@/components/admin/recommendation-admin-filter-select";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getExperimentLogs } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { getRecommendationExperiments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
@@ -18,7 +21,12 @@ interface ExperimentLogListProps {
 export function ExperimentLogList({ experimentId }: ExperimentLogListProps) {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [filterExp, setFilterExp] = useState(experimentId ?? "");
+  /** 실험 필터 — 주소 `?experiment=` 보존 (R7). 다른 탭 「사용자 배정」과 같은 키. */
+  const lq = useAdminListQuery<"experiment">({
+    extras: ["experiment"],
+    extraDefaults: experimentId ? { experiment: experimentId } : undefined,
+  });
+  const filterExp = lq.query.extras.experiment;
 
   const experiments = useMemo(() => getRecommendationExperiments(), []);
   const logs = useMemo(
@@ -28,25 +36,30 @@ export function ExperimentLogList({ experimentId }: ExperimentLogListProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="sam-text-body font-medium text-sam-fg">
-          {t("admin_rec_exp_label_experiment")}
-        </label>
-        <select
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <RecommendationFilterSelect
+          label={t("admin_rec_exp_label_experiment")}
           value={filterExp}
-          onChange={(e) => setFilterExp(e.target.value)}
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
-          <option value="">{t("admin_rec_filter_all")}</option>
-          {experiments.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.experimentName}
-            </option>
-          ))}
-        </select>
-      </div>
+          allLabel={t("admin_rec_filter_all")}
+          options={experiments.map((e) => ({ value: e.id, label: e.experimentName }))}
+          onChange={(v) => lq.setExtra("experiment", v)}
+          name="experiment"
+        />
+      </AdminFilterBar>
       {logs.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_rec_exp_empty_logs")} />
+        lq.isFiltered ? (
+          <AdminEmptyState ko={ko} onReset={lq.reset} />
+        ) : (
+          <AdminEmptyState ko={ko} message={t("admin_rec_exp_empty_logs")} />
+        )
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[560px] border-collapse sam-text-body">

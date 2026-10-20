@@ -10,6 +10,7 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminConflictReloadedCode } from "@/lib/admin/operator-ux/operator-labels";
 import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 
 type Overridden = {
   store_auto_complete_days: boolean;
@@ -28,6 +29,8 @@ type SettingsVersions = Record<string, string | null>;
 export function AdminCommerceSettingsPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
+  /** 쓰기(저장·기본값 복원) — 접근표 action perm("business"). 서버 가드는 그대로. */
+  const action = useAdminRouteAction("/admin/commerce-settings");
   const [autoDays, setAutoDays] = useState("");
   const [overridden, setOverridden] = useState<Overridden | null>(null);
   const [versions, setVersions] = useState<SettingsVersions | null>(null);
@@ -69,7 +72,7 @@ export function AdminCommerceSettingsPage() {
   }, [load]);
 
   async function save(partial: Record<string, number | string | null>, successMessage: string) {
-    if (saving) return;
+    if (saving || !action.allowed) return;
     setSaving(true);
     setResult(null);
     try {
@@ -119,6 +122,11 @@ export function AdminCommerceSettingsPage() {
         </Link>
         {t("admin_stores_commerce_settings_desc_suffix")}
       </p>
+      {!action.allowed && action.reason ? (
+        <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
+          {ko ? `저장·기본값 복원 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+        </p>
+      ) : null}
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
       {loading ? (
         <AdminLoadingState ko={ko} />
@@ -130,6 +138,7 @@ export function AdminCommerceSettingsPage() {
             className="space-y-5 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
             onSubmit={(e) => {
               e.preventDefault();
+              if (!action.allowed) return;
               void save({ store_auto_complete_days: Math.round(Number(autoDays)) }, t("admin_stores_saved"));
             }}
           >
@@ -149,7 +158,7 @@ export function AdminCommerceSettingsPage() {
               <span className="mt-0.5 block sam-text-xxs text-sam-meta">1~90</span>
             </label>
             <div className="flex flex-wrap gap-2">
-              <AdminActionButton type="submit" variant="primary" disabled={saving}>
+              <AdminActionButton type="submit" variant="primary" disabled={saving || !action.allowed}>
                 {saving ? t("admin_stores_saving") : t("common_save")}
               </AdminActionButton>
             </div>
@@ -174,9 +183,9 @@ export function AdminCommerceSettingsPage() {
             <AdminActionButton
               variant="secondary"
               size="sm"
-              disabled={saving}
+              disabled={saving || !action.allowed}
               onClick={async () => {
-                if (saving) return;
+                if (saving || !action.allowed) return;
                 // DEF-46: L2 확인 + 사유 (작업 기록).
                 const c = await confirmAdminAction({
                   level: adminActionLevel("approve"),

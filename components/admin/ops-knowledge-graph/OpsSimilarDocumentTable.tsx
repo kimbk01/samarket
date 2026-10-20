@@ -2,10 +2,12 @@
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { getOpsSimilarDocumentRecommendations } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-state";
 import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 
 interface OpsSimilarDocumentTableProps {
   sourceDocumentId?: string | null;
@@ -14,12 +16,15 @@ interface OpsSimilarDocumentTableProps {
 export function OpsSimilarDocumentTable({ sourceDocumentId }: OpsSimilarDocumentTableProps) {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [selectedSource, setSelectedSource] = useState(sourceDocumentId ?? "");
+  /** 기준 문서 ID 는 주소(`?q=`)에 보존 — 입력 후 「조회」/Enter 로 적용 (R7). */
+  const lq = useAdminListQuery();
+  const selectedSource = lq.query.q || sourceDocumentId || "";
 
   const recs = useMemo(
     () =>
       getOpsSimilarDocumentRecommendations({
         sourceDocumentId: selectedSource || undefined,
+        limit: Number.MAX_SAFE_INTEGER,
       }),
     [selectedSource]
   );
@@ -38,34 +43,37 @@ export function OpsSimilarDocumentTable({ sourceDocumentId }: OpsSimilarDocument
 
   if (!selectedSource && recs.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <label className="mb-2 block sam-text-body font-medium text-sam-fg">{t("admin_ops_tools_kg_similar_title")}</label>
-        <input
-          type="text"
-          value={selectedSource}
-          onChange={(e) => setSelectedSource(e.target.value)}
-          placeholder="od-1"
-          className="w-full max-w-xs rounded border border-sam-border px-3 py-2 sam-text-body"
-        />
-        <p className="mt-4 sam-text-body text-sam-muted">{t("admin_ops_tools_kg_similar_hint")}</p>
+      <div className="space-y-3">
+        <p className="sam-text-body font-medium text-sam-fg">{t("admin_ops_tools_kg_similar_title")}</p>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        searchPlaceholder="od-1"
+      />
+        <p className="sam-text-body text-sam-muted">{t("admin_ops_tools_kg_similar_hint")}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      <div>
-        <label className="mb-1 block sam-text-helper text-sam-muted">{t("admin_ops_tools_kg_base_doc")}</label>
-        <input
-          type="text"
-          value={selectedSource}
-          onChange={(e) => setSelectedSource(e.target.value)}
-          placeholder="od-1"
-          className="w-full max-w-xs rounded border border-sam-border px-3 py-2 sam-text-body"
-        />
-      </div>
+      <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_kg_base_doc")}</p>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        searchPlaceholder="od-1"
+      />
+
       {recs.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_ops_tools_kg_no_similar")} />
+        <AdminEmptyState ko={ko} message={t("admin_ops_tools_kg_no_similar")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[480px] border-collapse sam-text-body">

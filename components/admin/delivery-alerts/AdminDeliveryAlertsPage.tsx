@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -10,16 +9,21 @@ import { AUTO_ACTION_TYPE_KEYS } from "@/components/admin/i18n/admin-delivery-al
 import { fetchAdminDeliveryOperationAlertsDeduped } from "@/lib/admin/fetch-admin-delivery-operation-alerts-deduped";
 import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
 import {
+  AdminEmptyState,
   AdminErrorState,
+  AdminLoadingState,
   AdminResultBanner,
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
@@ -136,7 +140,7 @@ type EventRow = {
   assigned_label?: string;
 };
 
-function parsePayload(json: unknown): { rules: RuleRow[]; events: EventRow[]; summary: Summary } | null {
+function parsePayload(json: unknown): { rules: RuleRow[]; events: EventRow[]; eventsTotal: number; summary: Summary } | null {
   if (json == null || typeof json !== "object" || Array.isArray(json)) return null;
   const o = json as Record<string, unknown>;
   const rules = Array.isArray(o.rules) ? o.rules : [];
@@ -164,18 +168,17 @@ function parsePayload(json: unknown): { rules: RuleRow[]; events: EventRow[]; su
   return {
     rules: rules.filter((x): x is RuleRow => x != null && typeof x === "object"),
     events: events.filter((x): x is EventRow => x != null && typeof x === "object"),
+    eventsTotal: Number(o.events_total ?? events.length) || 0,
     summary,
   };
 }
 
 /** URL 필터 (`filter=open|all`, `assignment=all|mine|unassigned`) — 대시보드·상황판 링크가 그대로 열린다. */
-function readFilter(sp: URLSearchParams): "open" | "all" {
-  return sp.get("filter") === "all" ? "all" : "open";
-}
-function readAssignment(sp: URLSearchParams): "all" | "mine" | "unassigned" {
-  const v = sp.get("assignment");
-  return v === "mine" || v === "unassigned" ? v : "all";
-}
+/** 목록 조건 = 주소 (기존 키 `filter`(open 기본)·`assignment`(all 기본) 유지 + `page`·`size`). */
+const LIST_CONFIG = {
+  extras: ["filter", "assignment"] as const,
+  extraDefaults: { filter: "open", assignment: "all" },
+};
 
 export function AdminDeliveryAlertsPage() {
   return (
@@ -187,9 +190,6 @@ export function AdminDeliveryAlertsPage() {
 
 function AdminDeliveryAlertsPageInner() {
   const { t, language } = useI18n();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const ko = language !== "en";
   const dash = t("admin_del_common_dash");
 
@@ -260,44 +260,18 @@ function AdminDeliveryAlertsPageInner() {
     []
   );
 
-  const [filter, setFilterState] = useState<"open" | "all">(() =>
-    readFilter(new URLSearchParams(searchParams.toString()))
-  );
-  const [assignment, setAssignmentState] = useState<"all" | "mine" | "unassigned">(() =>
-    readAssignment(new URLSearchParams(searchParams.toString()))
-  );
-  const syncUrl = useCallback(
-    (next: { filter?: "open" | "all"; assignment?: "all" | "mine" | "unassigned" }) => {
-      const qs = new URLSearchParams(searchParams.toString());
-      if (next.filter) {
-        if (next.filter === "open") qs.delete("filter");
-        else qs.set("filter", next.filter);
-      }
-      if (next.assignment) {
-        if (next.assignment === "all") qs.delete("assignment");
-        else qs.set("assignment", next.assignment);
-      }
-      const q = qs.toString();
-      router.replace(`${pathname || "/admin/delivery-alerts"}${q ? `?${q}` : ""}`, { scroll: false });
-    },
-    [pathname, router, searchParams]
-  );
-  const setFilter = useCallback(
-    (v: "open" | "all") => {
-      setFilterState(v);
-      syncUrl({ filter: v });
-    },
-    [syncUrl]
-  );
-  const setAssignment = useCallback(
-    (v: "all" | "mine" | "unassigned") => {
-      setAssignmentState(v);
-      syncUrl({ assignment: v });
-    },
-    [syncUrl]
-  );
+  const lq = useAdminListQuery(LIST_CONFIG);
+  const filter: "open" | "all" = lq.query.extras.filter === "all" ? "all" : "open";
+  const assignmentRaw = lq.query.extras.assignment;
+  const assignment: "all" | "mine" | "unassigned" =
+    assignmentRaw === "mine" || assignmentRaw === "unassigned" ? assignmentRaw : "all";
+  const pageLimit = lq.query.size;
+  const pageOffset = (lq.query.page - 1) * lq.query.size;
   const [rules, setRules] = useState<RuleRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [eventsTotal, setEventsTotal] = useState(0);
+  /** 경고 처리 Drawer — 행 버튼은 「처리」 하나, 배정·메모·확인·끄기·해결은 Drawer 에서. */
+  const [openEventId, setOpenEventId] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary>({
     mine_open: 0,
     unassigned_open: 0,
@@ -332,22 +306,23 @@ function AdminDeliveryAlertsPageInner() {
     setLoading(true);
     // 처리·동기화 직후 재조회가 10초 GET 캐시의 이전 목록을 받지 않도록 매번 무효화한다.
     invalidateAdminFetchCache("admin:delivery-operation-alerts:");
-    void fetchAdminDeliveryOperationAlertsDeduped(filter, assignment).then(({ status, json }) => {
+    void fetchAdminDeliveryOperationAlertsDeduped(filter, assignment, { limit: pageLimit, offset: pageOffset }).then(({ status, json }) => {
       const parsed = parsePayload(json);
       if (status === 200 && parsed) {
         setRules(parsed.rules);
         setEvents(parsed.events);
+        setEventsTotal(parsed.eventsTotal);
         setSummary(parsed.summary);
         setLoadErr(null);
         setLoading(false);
         return;
       }
-      setRules([]);
-      setEvents([]);
+      // 실패해도 직전 목록은 지우지 않는다 (§8-5).
       setLoadErr({ code: status === 503 ? "schema_missing" : apiErr(status, json, "load_failed"), status });
       setLoading(false);
     });
-  }, [filter, assignment]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey 는 같은 조건 다시 불러오기 포함
+  }, [filter, assignment, pageLimit, pageOffset, lq.refreshKey]);
 
   useEffect(() => {
     load();
@@ -541,6 +516,8 @@ function AdminDeliveryAlertsPageInner() {
     [ruleBusyId, ruleDrafts, ko, load, resetDraft]
   );
 
+  const openEvent = openEventId ? events.find((e) => e.id === openEventId) ?? null : null;
+
   const rowStress = (ev: EventRow) =>
     ev.severity === "critical" || (typeof ev.escalation_count === "number" && ev.escalation_count > 0);
 
@@ -568,45 +545,41 @@ function AdminDeliveryAlertsPageInner() {
         ))}
       </section>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-2">
-          <AdminChipButton
-            type="button"
-            selected={filter === "open"}
-            onClick={() => setFilter("open")}
-          >
-            {t("admin_del_alert_filter_open")}
-          </AdminChipButton>
-          <AdminChipButton
-            type="button"
-            selected={filter === "all"}
-            onClick={() => setFilter("all")}
-          >
-            {t("common_all")}
-          </AdminChipButton>
-          <span className="mx-1 hidden text-sam-muted sm:inline">|</span>
-          <AdminChipButton
-            type="button"
-            selected={assignment === "all"}
-            onClick={() => setAssignment("all")}
-          >
-            {t("admin_del_alert_filter_assign_all")}
-          </AdminChipButton>
-          <AdminChipButton
-            type="button"
-            selected={assignment === "mine"}
-            onClick={() => setAssignment("mine")}
-          >
-            {t("admin_del_alert_filter_assign_mine")}
-          </AdminChipButton>
-          <AdminChipButton
-            type="button"
-            selected={assignment === "unassigned"}
-            onClick={() => setAssignment("unassigned")}
-          >
-            {t("admin_del_alert_filter_assign_unassigned")}
-          </AdminChipButton>
-        </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
+        <AdminFilterBar
+          ko={ko}
+          draft={lq.draft}
+          onDraftChange={lq.setDraft}
+          onSubmit={lq.submit}
+          onReset={lq.reset}
+          pending={loading}
+          showPeriod={false}
+          showSearch={false}
+        >
+          <label className="flex flex-col gap-1 sam-text-xxs text-sam-muted">
+            {ko ? "상태" : "Status"}
+            <select
+              className="h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2 sam-text-helper text-sam-fg"
+              value={filter}
+              onChange={(e) => lq.setExtra("filter", e.target.value)}
+            >
+              <option value="open">{t("admin_del_alert_filter_open")}</option>
+              <option value="all">{t("common_all")}</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 sam-text-xxs text-sam-muted">
+            {ko ? "담당" : "Assignee"}
+            <select
+              className="h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2 sam-text-helper text-sam-fg"
+              value={assignment}
+              onChange={(e) => lq.setExtra("assignment", e.target.value)}
+            >
+              <option value="all">{t("admin_del_alert_filter_assign_all")}</option>
+              <option value="mine">{t("admin_del_alert_filter_assign_mine")}</option>
+              <option value="unassigned">{t("admin_del_alert_filter_assign_unassigned")}</option>
+            </select>
+          </label>
+        </AdminFilterBar>
         <div className="flex flex-wrap gap-2">
           <Link href="/admin/delivery-auto-actions" className="sam-btn sam-btn--outline sam-btn--sm">
             {t("admin_del_alert_link_auto_actions")}
@@ -757,7 +730,7 @@ function AdminDeliveryAlertsPageInner() {
                     <div className="flex flex-col gap-1">
                       <AdminActionButton
                         type="button"
-                        variant="primary" size="sm"
+                        variant="ghost" size="sm"
                         disabled={busy || !dirty || (ruleBusyId !== null && ruleBusyId !== ru.id)}
                         onClick={() => void saveRule(ru)}
                       >
@@ -766,7 +739,7 @@ function AdminDeliveryAlertsPageInner() {
                       {dirty ? (
                         <AdminActionButton
                           type="button"
-                          variant="secondary" size="sm"
+                          variant="ghost" size="sm"
                           disabled={busy}
                           onClick={() => resetDraft(ru.id)}
                         >
@@ -778,16 +751,14 @@ function AdminDeliveryAlertsPageInner() {
                 </tr>
                 );
               })}
-              {!loading && rules.length === 0 ? (
-                <tr>
-                  <td colSpan={12} className="py-6 text-center text-sam-muted">
-                    {t("admin_del_alert_empty_rules")}
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
         </div>
+        {loading && rules.length === 0 ? (
+          <AdminLoadingState ko={ko} />
+        ) : rules.length === 0 && !loadErr ? (
+          <AdminEmptyState ko={ko} message={t("admin_del_alert_empty_rules")} />
+        ) : null}
       </section>
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -855,56 +826,6 @@ function AdminDeliveryAlertsPageInner() {
                   </td>
                   <td className="py-2 pr-2 sam-text-xxs">
                     <div className="max-w-[10rem]">{ev.assigned_label || dash}</div>
-                    {ev.event_status !== "resolved" ? (
-                      <div className="mt-1 flex flex-col gap-1">
-                        <select
-                          className="sam-input h-8 max-w-[10rem] text-xxs"
-                          value={assignPick[ev.id] ?? ""}
-                          onChange={(e) => setAssignPick((p) => ({ ...p, [ev.id]: e.target.value }))}
-                        >
-                          <option value="">{t("admin_del_alert_select_assignee")}</option>
-                          {operators.map((op) => (
-                            <option key={op.id} value={op.id}>
-                              {(op.nickname || op.username || op.id).slice(0, 24)}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          className="sam-input h-8 max-w-[10rem] text-xxs"
-                          placeholder={t("admin_del_alert_ph_assign_memo")}
-                          value={assignMemo[ev.id] ?? ""}
-                          onChange={(e) => setAssignMemo((m) => ({ ...m, [ev.id]: e.target.value }))}
-                        />
-                        <div className="flex flex-wrap gap-1">
-                          <AdminActionButton
-                            type="button"
-                            variant="secondary" size="sm"
-                            disabled={busyId === ev.id || !assignPick[ev.id]}
-                            onClick={() =>
-                              void patchEventJson(
-                                ev.id,
-                                {
-                                  action: "assign",
-                                  assigned_admin_id: assignPick[ev.id],
-                                  assignment_note: assignMemo[ev.id] || undefined,
-                                },
-                                t("admin_r4d_alert_assign_done")
-                              )
-                            }
-                          >
-                            {t("admin_del_alert_btn_assign")}
-                          </AdminActionButton>
-                          <AdminActionButton
-                            type="button"
-                            variant="secondary" size="sm"
-                            disabled={busyId === ev.id || !ev.assigned_admin_id}
-                            onClick={() => void patchEventJson(ev.id, { action: "unassign" }, t("admin_r4d_alert_unassign_done"))}
-                          >
-                            {t("admin_del_alert_btn_unassign")}
-                          </AdminActionButton>
-                        </div>
-                      </div>
-                    ) : null}
                   </td>
                   <td className="py-2 pr-2">{adminStatusLabel("alert_event", ev.event_status, ko).label}</td>
                   <td className="py-2 pr-2 font-medium">{adminStatusLabel("alert_severity", ev.severity, ko).label}</td>
@@ -912,116 +833,257 @@ function AdminDeliveryAlertsPageInner() {
                   <td className="py-2 pr-2 tabular-nums">{ev.repeat_fire_count ?? 0}</td>
                   <td className="py-2 pr-2 tabular-nums">{elapsedLabel(ev.first_triggered_at)}</td>
                   <td className="py-2 pr-2">
-                    <input
-                      className="sam-input mb-1 h-8 w-full min-w-[8rem] text-xxs"
-                      placeholder={t("admin_del_alert_ph_action_note")}
-                      value={actionNotes[ev.id] ?? ""}
-                      onChange={(e) => setActionNotes((n) => ({ ...n, [ev.id]: e.target.value }))}
-                    />
-                    {ev.event_status !== "resolved" ? (
-                      // 명시적 저장 — 입력 이탈 시 자동 저장하지 않는다
-                      <div className="mb-1 flex gap-1">
-                        <input
-                          className="sam-input h-8 w-full min-w-[8rem] text-xxs"
-                          placeholder={t("admin_del_alert_ph_handling_note")}
-                          value={handlingDraft[ev.id] ?? ev.handling_note ?? ""}
-                          onChange={(e) => setHandlingDraft((m) => ({ ...m, [ev.id]: e.target.value }))}
-                        />
-                        <AdminActionButton
-                          type="button"
-                          variant="secondary" size="sm" className="shrink-0"
-                          disabled={
-                            busyId === ev.id ||
-                            !(handlingDraft[ev.id] ?? "").trim() ||
-                            (handlingDraft[ev.id] ?? "").trim() === (ev.handling_note ?? "").trim()
-                          }
-                          onClick={async () => {
-                            const ok = await patchEventJson(
-                              ev.id,
-                              { action: "handling", handling_note: (handlingDraft[ev.id] ?? "").trim() },
-                              t("admin_r4d_handling_saved")
-                            );
-                            if (ok) setHandlingDraft(({ [ev.id]: _done, ...rest }) => (void _done, rest));
-                          }}
-                        >
-                          {t("admin_r4d_handling_save")}
-                        </AdminActionButton>
-                      </div>
+                    {ev.handling_note ? (
+                      <p className="mb-1 line-clamp-2 max-w-[12rem] sam-text-xxs text-sam-muted">{ev.handling_note}</p>
                     ) : null}
-                    <div className="flex flex-wrap gap-1">
-                      <AdminActionButton
-                        type="button"
-                        variant="secondary" size="sm"
-                        disabled={busyId === ev.id || ev.event_status !== "open"}
-                        onClick={() =>
-                          void patchEventJson(
-                            ev.id,
-                            { action: "acknowledge", note: actionNotes[ev.id] || undefined },
-                            t("admin_r4d_alert_ack_done")
-                          )
-                        }
-                      >
-                        {t("admin_del_alert_btn_acknowledge")}
-                      </AdminActionButton>
-                      <AdminActionButton
-                        type="button"
-                        variant="secondary" size="sm"
-                        disabled={busyId === ev.id || (ev.event_status !== "open" && ev.event_status !== "acknowledged")}
-                        onClick={async () => {
-                          const c = await confirmAdminAction({
-                            level: adminActionLevel("disable"),
-                            ko,
-                            title: t("admin_r4d_alert_mute_title"),
-                            description: t("admin_r4d_alert_mute_desc"),
-                            confirmLabel: ko ? "알림 끄기" : "Mute alerts",
-                          });
-                          if (!c.ok) return;
-                          void patchEventJson(
-                            ev.id,
-                            { action: "mute", note: actionNotes[ev.id] || undefined },
-                            t("admin_r4d_alert_mute_done")
-                          );
-                        }}
-                      >
-                        {ko ? "알림 끄기" : "Mute alerts"}
-                      </AdminActionButton>
-                      <AdminActionButton
-                        type="button"
-                        variant="primary" size="sm"
-                        disabled={busyId === ev.id || ev.event_status === "resolved"}
-                        onClick={async () => {
-                          const c = await confirmAdminAction({
-                            level: adminActionLevel("save"),
-                            ko,
-                            title: t("admin_r4d_alert_resolve_title"),
-                            description: ev.rule?.rule_name || undefined,
-                            confirmLabel: t("admin_del_alert_btn_resolve"),
-                          });
-                          if (!c.ok) return;
-                          void patchEventJson(
-                            ev.id,
-                            { action: "resolve", note: actionNotes[ev.id] || undefined },
-                            t("admin_r4d_alert_resolve_done")
-                          );
-                        }}
-                      >
-                        {t("admin_del_alert_btn_resolve")}
-                      </AdminActionButton>
-                    </div>
+                    {/* 행 버튼 = ghost/sm 1개 — 배정·메모·확인·알림 끄기·해결은 「처리」 Drawer 에서 */}
+                    <AdminActionButton type="button" variant="ghost" size="sm" onClick={() => setOpenEventId(ev.id)}>
+                      {ko ? "처리" : "Handle"}
+                    </AdminActionButton>
                   </td>
                 </tr>
               ))}
-              {!loading && events.length === 0 ? (
-                <tr>
-                  <td colSpan={11} className="py-8 text-center text-sam-muted">
-                    {t("admin_del_alert_empty_events")}
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
         </div>
+        {loading && events.length === 0 ? (
+          <AdminLoadingState ko={ko} />
+        ) : events.length === 0 && !loadErr ? (
+          <AdminEmptyState
+            ko={ko}
+            message={lq.isFiltered ? undefined : t("admin_del_alert_empty_events")}
+            onReset={lq.isFiltered ? lq.reset : undefined}
+          />
+        ) : null}
+        {events.length > 0 ? (
+          <AdminPagination
+            ko={ko}
+            page={lq.query.page}
+            size={lq.query.size}
+            total={eventsTotal}
+            onPageChange={lq.setPage}
+            onSizeChange={lq.setSize}
+            disabled={loading}
+          />
+        ) : null}
       </section>
+
+      <AdminDetailDrawer
+        open={openEvent != null}
+        onClose={() => setOpenEventId(null)}
+        ko={ko}
+        pending={openEvent != null && busyId === openEvent.id}
+        title={openEvent?.rule?.rule_name || (ko ? "배달 경고 처리" : "Handle alert")}
+        subtitle={
+          openEvent
+            ? `${adminStatusLabel("alert_event", openEvent.event_status, ko).label} · ${adminStatusLabel("alert_severity", openEvent.severity, ko).label}`
+            : undefined
+        }
+        dangerActions={
+          <AdminActionButton type="button" variant="secondary" disabled={openEvent != null && busyId === openEvent.id} onClick={() => setOpenEventId(null)}>
+            {adminCta("close", ko)}
+          </AdminActionButton>
+        }
+        primaryActions={
+          openEvent && openEvent.event_status !== "resolved" ? (
+            <AdminActionButton
+              type="button"
+              variant="primary"
+              disabled={busyId === openEvent.id}
+              onClick={async () => {
+                const ev = openEvent;
+                const c = await confirmAdminAction({
+                  level: adminActionLevel("save"),
+                  ko,
+                  title: t("admin_r4d_alert_resolve_title"),
+                  description: ev.rule?.rule_name || undefined,
+                  confirmLabel: t("admin_del_alert_btn_resolve"),
+                });
+                if (!c.ok) return;
+                void patchEventJson(
+                  ev.id,
+                  { action: "resolve", note: actionNotes[ev.id] || undefined },
+                  t("admin_r4d_alert_resolve_done")
+                );
+              }}
+            >
+              {t("admin_del_alert_btn_resolve")}
+            </AdminActionButton>
+          ) : null
+        }
+      >
+        {openEvent ? (() => {
+          const ev = openEvent;
+          return (
+            <div className="space-y-4 sam-text-body-secondary">
+              <dl className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1.5">
+                <dt className="text-sam-muted">{t("admin_del_alert_th_order")}</dt>
+                <dd>
+                  {ev.order_id ? (
+                    <Link href={`/admin/stores/orders/${encodeURIComponent(ev.order_id)}`} className="text-signature underline">
+                      {ev.order_no || (ko ? "주문 상세" : "Order detail")}
+                    </Link>
+                  ) : (
+                    dash
+                  )}
+                </dd>
+                <dt className="text-sam-muted">{t("admin_del_alert_th_store")}</dt>
+                <dd>{ev.store_name || (ev.store_id ? formatAdminShortId(ev.store_id) : dash)}</dd>
+                <dt className="text-sam-muted">{t("admin_del_alert_th_assignee")}</dt>
+                <dd>{ev.assigned_label || dash}</dd>
+                <dt className="text-sam-muted">{t("admin_del_alert_th_elapsed")}</dt>
+                <dd className="tabular-nums">{elapsedLabel(ev.first_triggered_at)}</dd>
+              </dl>
+
+              {ev.event_status !== "resolved" ? (
+                <section className="space-y-2">
+                  <h3 className="sam-text-helper font-semibold text-sam-fg">{t("admin_del_alert_th_assignee")}</h3>
+                  <select
+                    className="sam-input h-9 w-full"
+                    value={assignPick[ev.id] ?? ""}
+                    onChange={(e) => setAssignPick((p) => ({ ...p, [ev.id]: e.target.value }))}
+                  >
+                    <option value="">{t("admin_del_alert_select_assignee")}</option>
+                    {operators.map((op) => (
+                      <option key={op.id} value={op.id}>
+                        {(op.nickname || op.username || op.id).slice(0, 24)}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="sam-input h-9 w-full"
+                    placeholder={t("admin_del_alert_ph_assign_memo")}
+                    value={assignMemo[ev.id] ?? ""}
+                    onChange={(e) => setAssignMemo((m) => ({ ...m, [ev.id]: e.target.value }))}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <AdminActionButton
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={busyId === ev.id || !assignPick[ev.id]}
+                      onClick={() =>
+                        void patchEventJson(
+                          ev.id,
+                          {
+                            action: "assign",
+                            assigned_admin_id: assignPick[ev.id],
+                            assignment_note: assignMemo[ev.id] || undefined,
+                          },
+                          t("admin_r4d_alert_assign_done")
+                        )
+                      }
+                    >
+                      {t("admin_del_alert_btn_assign")}
+                    </AdminActionButton>
+                    <AdminActionButton
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={busyId === ev.id || !ev.assigned_admin_id}
+                      onClick={() => void patchEventJson(ev.id, { action: "unassign" }, t("admin_r4d_alert_unassign_done"))}
+                    >
+                      {t("admin_del_alert_btn_unassign")}
+                    </AdminActionButton>
+                  </div>
+                </section>
+              ) : null}
+
+              {ev.event_status !== "resolved" ? (
+                // 명시적 저장 — 입력 이탈 시 자동 저장하지 않는다
+                <section className="space-y-2">
+                  <h3 className="sam-text-helper font-semibold text-sam-fg">{t("admin_del_alert_th_handling")}</h3>
+                  <div className="flex gap-2">
+                    <input
+                      className="sam-input h-9 w-full"
+                      placeholder={t("admin_del_alert_ph_handling_note")}
+                      value={handlingDraft[ev.id] ?? ev.handling_note ?? ""}
+                      onChange={(e) => setHandlingDraft((m) => ({ ...m, [ev.id]: e.target.value }))}
+                    />
+                    <AdminActionButton
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="shrink-0"
+                      disabled={
+                        busyId === ev.id ||
+                        !(handlingDraft[ev.id] ?? "").trim() ||
+                        (handlingDraft[ev.id] ?? "").trim() === (ev.handling_note ?? "").trim()
+                      }
+                      onClick={async () => {
+                        const ok = await patchEventJson(
+                          ev.id,
+                          { action: "handling", handling_note: (handlingDraft[ev.id] ?? "").trim() },
+                          t("admin_r4d_handling_saved")
+                        );
+                        if (ok) setHandlingDraft(({ [ev.id]: _done, ...rest }) => (void _done, rest));
+                      }}
+                    >
+                      {t("admin_r4d_handling_save")}
+                    </AdminActionButton>
+                  </div>
+                </section>
+              ) : null}
+
+              <section className="space-y-2">
+                <input
+                  className="sam-input h-9 w-full"
+                  placeholder={t("admin_del_alert_ph_action_note")}
+                  value={actionNotes[ev.id] ?? ""}
+                  onChange={(e) => setActionNotes((n) => ({ ...n, [ev.id]: e.target.value }))}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <AdminActionButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={busyId === ev.id || ev.event_status !== "open"}
+                    onClick={() =>
+                      void patchEventJson(
+                        ev.id,
+                        { action: "acknowledge", note: actionNotes[ev.id] || undefined },
+                        t("admin_r4d_alert_ack_done")
+                      )
+                    }
+                  >
+                    {t("admin_del_alert_btn_acknowledge")}
+                  </AdminActionButton>
+                  <AdminActionButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={busyId === ev.id || (ev.event_status !== "open" && ev.event_status !== "acknowledged")}
+                    onClick={async () => {
+                      const c = await confirmAdminAction({
+                        level: adminActionLevel("disable"),
+                        ko,
+                        title: t("admin_r4d_alert_mute_title"),
+                        description: t("admin_r4d_alert_mute_desc"),
+                        confirmLabel: ko ? "알림 끄기" : "Mute alerts",
+                      });
+                      if (!c.ok) return;
+                      void patchEventJson(
+                        ev.id,
+                        { action: "mute", note: actionNotes[ev.id] || undefined },
+                        t("admin_r4d_alert_mute_done")
+                      );
+                    }}
+                  >
+                    {ko ? "알림 끄기" : "Mute alerts"}
+                  </AdminActionButton>
+                </div>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="sam-text-helper font-semibold text-sam-fg">{t("admin_del_alert_timeline")}</h3>
+                <div className="max-h-64 overflow-y-auto rounded-ui-rect border border-sam-border p-2">
+                  <DeliveryAlertLogTimeline eventId={ev.id} />
+                </div>
+              </section>
+            </div>
+          );
+        })() : null}
+      </AdminDetailDrawer>
     </div>
   );
 }

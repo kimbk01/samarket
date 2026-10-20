@@ -2,7 +2,6 @@
 
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
-import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -15,6 +14,7 @@ import { LaunchWeekIssueBoard } from "./LaunchWeekIssueBoard";
 import { LaunchWeekDailyNoteList } from "./LaunchWeekDailyNoteList";
 import { LaunchWeekBlockerBoard } from "./LaunchWeekBlockerBoard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId =
   | "overview"
@@ -26,7 +26,8 @@ type TabId =
 
 export function AdminLaunchWeekPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(["overview", "kpi", "checklist", "issues", "daily", "blocker"] as const, "overview");
   const { state: loadState, reload } = useAdminSyncLoad(loadLaunchWeekFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -55,9 +56,8 @@ export function AdminLaunchWeekPage() {
         className="mb-4"
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="overview"
+        resetParams={adminSyncTabResetParams(["day", "date"])}
       />
 
       {activeTab === "overview" && (

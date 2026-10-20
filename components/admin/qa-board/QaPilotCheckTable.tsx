@@ -4,7 +4,7 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getQaPilotChecks } from "@/lib/qa-board/qa-board-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
@@ -15,11 +15,18 @@ import type {
   QaPilotCategory,
   QaPilotCheckStatus,
 } from "@/lib/types/qa-board";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const FILTER_EXTRAS = ["category"] as const;
 
 export function QaPilotCheckTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [category, setCategory] = useState<QaPilotCategory | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const category = lq.query.extras.category as QaPilotCategory | "";
   const checks = useMemo(
     () =>
       getQaPilotChecks(
@@ -41,29 +48,30 @@ export function QaPilotCheckTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_category")}</span>
-        <select
-          value={category}
-          onChange={(e) =>
-            setCategory((e.target.value || "") as QaPilotCategory | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_qa_category")} name="category" value={lq.query.extras.category} onChange={(v) => lq.setExtra("category", v)}>
           {categories.map((c) => (
             <option key={c.value || "all"} value={c.value}>
               {c.label}
             </option>
           ))}
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">
         파일럿 사용자 피드백 목록은 별도 placeholder로 확장 가능합니다.
       </p>
 
       {checks.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"파일럿 체크 항목이 없습니다."} />
+        <AdminEmptyState ko={ko} message={"파일럿 체크 항목이 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={["제목", "분류", "상태", "담당", "비고"]}

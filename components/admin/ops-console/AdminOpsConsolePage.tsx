@@ -7,7 +7,9 @@
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -21,6 +23,7 @@ import {
 } from "@/lib/admin-delivery-ops/delivery-operations-payload";
 import type { DeliveryOperationRecoveryAction } from "@/lib/admin/delivery-operation-recovery-actions";
 import {
+  AdminEmptyState,
   AdminErrorState,
   AdminLoadingState,
   AdminResultBanner,
@@ -273,7 +276,9 @@ function PrevAdminNote({ ko, prev }: { ko: boolean; prev: PrevNoteState }) {
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-xs text-sam-muted">
       <div className="font-medium text-sam-fg">{ko ? "기존 메모" : "Existing note"}</div>
       {prev.state === "loading" ? (
-        <div className="mt-1">{ko ? "불러오는 중…" : "Loading…"}</div>
+        <div className="mt-1">
+          <AdminLoadingState ko={ko} />
+        </div>
       ) : prev.state === "error" ? (
         <div className="mt-1 text-sam-danger">
           {ko
@@ -287,10 +292,29 @@ function PrevAdminNote({ ko, prev }: { ko: boolean; prev: PrevNoteState }) {
   );
 }
 
+const FOCUS_MODES = ["all", "critical", "sla", "rider_issues", "settlements", "refund", "attention", "mine"] as const;
+const GROUP_MODES = ["none", "store", "rider", "region"] as const;
+/** 큐 조건 = 주소 (R7) — `tab`(기본 risk)·`focus`(기본 all)·`group`(기본 store). 새로고침·링크 공유 시 유지. */
+const LIST_CONFIG = {
+  extras: ["tab", "focus", "group"] as const,
+  extraDefaults: { tab: "risk", focus: "all", group: "store" },
+};
+
 export function AdminOpsConsolePage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminOpsConsolePageInner />
+    </Suspense>
+  );
+}
+
+function AdminOpsConsolePageInner() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [tab, setTab] = useState<TabKey>("risk");
+  const lq = useAdminListQuery(LIST_CONFIG);
+  const tabRaw = lq.query.extras.tab;
+  const tab: TabKey = (TABS.some((d) => d.key === tabRaw) ? tabRaw : "risk") as TabKey;
+  const setTab = (k: TabKey) => lq.setExtra("tab", k);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [actionBusyKey, setActionBusyKey] = useState<string | null>(null);
@@ -299,8 +323,8 @@ export function AdminOpsConsolePage() {
   const [ops, setOps] = useState<DeliveryOperationsPayload | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [result, setResult] = useState<ResultState>(null);
-  const [focus, setFocus] = useState<FocusMode>("all");
-  const [groupMode, setGroupMode] = useState<GroupMode>("store");
+  const focus: FocusMode = ((FOCUS_MODES as readonly string[]).includes(lq.query.extras.focus) ? lq.query.extras.focus : "all") as FocusMode;
+  const groupMode: GroupMode = ((GROUP_MODES as readonly string[]).includes(lq.query.extras.group) ? lq.query.extras.group : "store") as GroupMode;
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [riderOptions, setRiderOptions] = useState<
     { id: string; display_name: string; is_online: boolean; admin_status: string; suspended_at: string | null }[] | null
@@ -795,31 +819,47 @@ export function AdminOpsConsolePage() {
             ))}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="text-xs text-sam-muted">{t("admin_ops_console_focus_label")}</div>
-            {(["all", "critical", "sla", "rider_issues", "settlements", "refund", "attention", "mine"] as const).map((k) => (
-              <AdminChipButton
-                key={k}
-                type="button"
-                selected={focus === k}
-                onClick={() => setFocus(k)}
+          <AdminFilterBar
+            className="mt-3"
+            ko={ko}
+            draft={lq.draft}
+            onDraftChange={lq.setDraft}
+            onSubmit={lq.submit}
+            onReset={lq.reset}
+            pending={loading}
+            showPeriod={false}
+            showSearch={false}
+          >
+            <label className="flex flex-col gap-1 text-xs text-sam-muted">
+              {t("admin_ops_console_focus_label")}
+              <select
+                className="h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-sm text-sam-fg"
+                value={focus}
+                onChange={(e) => lq.setExtra("focus", e.target.value)}
               >
-                {focusLabel(k)}
-              </AdminChipButton>
-            ))}
-            <div className="ml-2 text-xs text-sam-muted">{t("admin_ops_console_group_label")}</div>
-            {(["none", "store", "rider", "region"] as const).map((g) => (
-              <AdminChipButton
-                key={g}
-                type="button"
-                selected={groupMode === g}
-                onClick={() => setGroupMode(g)}
+                {FOCUS_MODES.map((k) => (
+                  <option key={k} value={k}>
+                    {focusLabel(k)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-sam-muted">
+              {t("admin_ops_console_group_label")}
+              <select
+                className="h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-sm text-sam-fg"
+                value={groupMode}
+                onChange={(e) => lq.setExtra("group", e.target.value)}
               >
-                {groupLabel(g)}
-              </AdminChipButton>
-            ))}
-            <div className="ml-auto text-xs text-sam-muted">{t("admin_ops_console_sort_hint")}</div>
-          </div>
+                {GROUP_MODES.map((g) => (
+                  <option key={g} value={g}>
+                    {groupLabel(g)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </AdminFilterBar>
+          <div className="mt-1 text-right text-xs text-sam-muted">{t("admin_ops_console_sort_hint")}</div>
 
           <div className="mt-4 overflow-auto border border-sam-border rounded-ui-rect">
             <table className="min-w-[1120px] w-full text-sm">
@@ -837,8 +877,16 @@ export function AdminOpsConsolePage() {
               <tbody>
                 {smartRows.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-6 text-sam-muted" colSpan={7}>
-                      {t("admin_ops_console_empty_queue")}
+                    <td className="px-3 py-3" colSpan={7}>
+                      {loading ? (
+                        <AdminLoadingState ko={ko} />
+                      ) : (
+                        <AdminEmptyState
+                          ko={ko}
+                          message={focus === "all" ? t("admin_ops_console_empty_queue") : undefined}
+                          onReset={focus !== "all" ? () => lq.setExtra("focus", "all") : undefined}
+                        />
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -903,9 +951,11 @@ export function AdminOpsConsolePage() {
                           <td className="px-3 py-2 text-sam-muted truncate max-w-[520px]">{pr.reasons.join(" · ")}</td>
                           <td className="px-3 py-2">
                             <div className="flex flex-wrap gap-2">
-                              {oid ? (
+                              {/* 행 버튼 = ghost/sm 2개 이하 — 라이더 탭은 해제·재배정, 그 외는 주의 표시 (나머지는 주문 상세) */}
+                              {oid && tab !== "riders" ? (
                                 <AdminActionButton
-                                  variant="secondary"
+                                  variant="ghost"
+                                  size="sm"
                                   disabled={!!actionBusyKey || !!modal}
                                   onClick={() =>
                                     setModal({ kind: "order_attention", orderId: oid, adminNote: "", prev: { state: "loading" } })
@@ -918,7 +968,8 @@ export function AdminOpsConsolePage() {
                               {oid && tab === "riders" ? (
                                 <>
                                   <AdminActionButton
-                                    variant="secondary"
+                                    variant="ghost"
+                                    size="sm"
                                     disabled={!!actionBusyKey || !!modal}
                                     onClick={() => setModal({ kind: "rider_release", orderId: oid, failureReason: "" })}
                                     type="button"
@@ -926,7 +977,8 @@ export function AdminOpsConsolePage() {
                                     {ko ? "배정 해제" : t("admin_ops_console_btn_release")}
                                   </AdminActionButton>
                                   <AdminActionButton
-                                    variant="primary"
+                                    variant="ghost"
+                                    size="sm"
                                     disabled={!!actionBusyKey || !!modal}
                                     onClick={() =>
                                       setModal({
@@ -953,18 +1005,19 @@ export function AdminOpsConsolePage() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex flex-wrap gap-2">
+                              {/* 바로가기 = 글자 링크 (행 버튼 수에 넣지 않는다 — 주문 상세는 주문번호 링크) */}
                               {oid ? (
-                                <Link className={Sam.btn.secondary} href={`/admin/stores/orders/${encodeURIComponent(oid)}`}>
+                                <Link className="text-xs text-signature underline" href={`/admin/stores/orders/${encodeURIComponent(oid)}`}>
                                   {t("admin_r4d_order_detail")}
                                 </Link>
                               ) : null}
                               {eventId ? (
-                                <Link className={Sam.btn.secondary} href={alertsHref}>
+                                <Link className="text-xs text-signature underline" href={alertsHref}>
                                   {t("admin_r4d_console_alert_link")}
                                 </Link>
                               ) : null}
                               {settlementId ? (
-                                <Link className={Sam.btn.secondary} href="/admin/store-settlements">
+                                <Link className="text-xs text-signature underline" href="/admin/store-settlements">
                                   {t("admin_ops_console_link_settlement")}
                                 </Link>
                               ) : null}

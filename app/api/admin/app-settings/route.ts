@@ -15,6 +15,11 @@ import {
 import type { AppSettings } from "@/lib/types/admin-settings";
 import { DEFAULT_APP_SETTINGS } from "@/lib/admin-settings/admin-settings-utils";
 import { invalidateAppSettingsServerCache } from "@/lib/admin-settings/get-app-settings-server";
+import {
+  parseAdminJsonListPage,
+  sliceAdminJsonList,
+  sortAdminJsonListNewestFirst,
+} from "@/lib/admin/pagination/admin-json-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,9 +36,30 @@ function mergeSettings(base: AppSettings, incoming: Partial<AppSettings>): AppSe
   };
 }
 
-export async function GET(): Promise<NextResponse> {
+/**
+ * 관리자 설정 번들 조회.
+ * `?part=change-logs` — 변경 이력만 서버 페이지로 (`limit` 20/50/100 · `offset`) → `{ items, total }` (R7).
+ * 파라미터가 없으면 기존 번들 응답 그대로.
+ */
+export async function GET(req: NextRequest): Promise<NextResponse> {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
+
+  if (req.nextUrl.searchParams.get("part") === "change-logs") {
+    try {
+      const loaded = await loadAppSettingsBundleFromDb(getSupabaseServer());
+      if (!loaded.ok && loaded.reason !== "missing_table") {
+        return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
+      }
+      const logs = loaded.ok ? loaded.bundle.changeLogs ?? [] : [];
+      return NextResponse.json({
+        ok: true,
+        ...sliceAdminJsonList(sortAdminJsonListNewestFirst(logs), parseAdminJsonListPage(req.nextUrl.searchParams)),
+      });
+    } catch {
+      return NextResponse.json({ ok: false, error: "server_config" }, { status: 503 });
+    }
+  }
 
   try {
     const sb = getSupabaseServer();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { MEETING_EVENT_TYPES } from "@/lib/neighborhood/meeting-event-format";
 import { listMeetingEventsAdminPage } from "@/lib/neighborhood/meeting-events-admin-query";
+import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +14,8 @@ function csvEscape(value: string): string {
 
 /**
  * GET /api/admin/meeting-events
- * Query: meetingId?, type?, limit? (1–100, default 50), offset? (0–10000), format=json|csv
+ * Query: meetingId?, type?, limit? (JSON: 20|50|100, 그 외 50 · CSV: 1–100), offset? (0–10000), format=json|csv
+ * → JSON `{ ok, events, hasMore, total(count exact), offset, limit }` · 조회 실패는 500 (빈 목록으로 숨기지 않음)
  */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -26,19 +28,21 @@ export async function GET(req: NextRequest) {
 
   const limitRaw = Number(sp.get("limit"));
   const offsetRaw = Number(sp.get("offset"));
-  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(Math.floor(limitRaw), 1), 100) : 50;
+  const csvLimit = Number.isFinite(limitRaw) && sp.has("limit") ? Math.min(Math.max(Math.floor(limitRaw), 1), 100) : 50;
+  const limit = format === "csv" ? csvLimit : normalizeAdminListPageSize(sp.get("limit"), 50);
   const offset = Number.isFinite(offsetRaw) ? Math.min(Math.max(Math.floor(offsetRaw), 0), 10_000) : 0;
 
   if (eventType && !(MEETING_EVENT_TYPES as readonly string[]).includes(eventType)) {
     return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
   }
 
-  const { events, hasMore } = await listMeetingEventsAdminPage({
+  const { events, hasMore, total, error } = await listMeetingEventsAdminPage({
     meetingId,
     eventType,
-    limit: format === "csv" ? Math.min(limit, 500) : limit,
-    offset: format === "csv" ? offset : offset,
+    limit,
+    offset,
   });
+  if (error) return NextResponse.json({ ok: false, error }, { status: 500 });
 
   if (format === "csv") {
     const header = [
@@ -80,5 +84,5 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: true, events, hasMore, offset, limit });
+  return NextResponse.json({ ok: true, events, hasMore, total, offset, limit });
 }

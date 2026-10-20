@@ -157,7 +157,8 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
               if (e.key === "Enter" && url.trim() && !busy) void doDetect();
             }}
           />
-          <AdminActionButton variant="primary" disabled={!url.trim() || !!busy} onClick={() => void doDetect()}>
+          {/* 화면 주 동작은 「등록」 1개 — 분석은 보조 */}
+          <AdminActionButton variant="secondary" disabled={!url.trim() || !!busy} onClick={() => void doDetect()}>
             {busy === "detect" ? "분석 중… (최대 45초)" : "사이트 분석"}
           </AdminActionButton>
         </div>

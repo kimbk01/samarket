@@ -18,8 +18,7 @@ import {
 import { fetchAdminDeliveryOperationsDeduped } from "@/lib/admin/fetch-admin-delivery-operations-deduped";
 import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminErrorState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminManilaDateTime, rebucketUtcHoursToManila } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -196,7 +195,8 @@ export function DeliveryOperationsDashboardPage() {
   const [days, setDays] = useState<number>(14);
   const [payload, setPayload] = useState<DeliveryOperationsPayload | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [lastError, setLastError] = useState<string | null>(null);
+  /** 불러오기 실패 — 코드·HTTP 상태 (AdminErrorState: 403 은 권한 없음, 나머지 오류 맵 + [새로고침]). */
+  const [lastError, setLastError] = useState<{ code: string; status: number } | null>(null);
 
   const load = useCallback(
     (opts?: { showLoading?: boolean }) => {
@@ -214,25 +214,18 @@ export function DeliveryOperationsDashboardPage() {
           setLastError(null);
           return;
         }
-        setPayload(null);
+        // 실패해도 직전 집계는 지우지 않는다 (§8-5) — 권한 없음만 비운다.
+        if (status === 403) setPayload(null);
         setLoadState("error");
         const rawErr =
           json && typeof json === "object" && typeof (json as { error?: unknown }).error === "string"
             ? String((json as { error: string }).error)
             : "";
         const code = /^[a-z][a-z0-9_]*$/i.test(rawErr) ? rawErr : "";
-        setLastError(
-          status === 403
-            ? adminOperatorErrorMessage(code || "forbidden", ko)
-            : status === 503
-              ? ko
-                ? HEALTH_NOT_READY_KO
-                : HEALTH_NOT_READY_EN
-              : adminOperatorErrorMessage(code || "load_failed", ko)
-        );
+        setLastError({ code: status === 403 ? code || "forbidden" : code || "load_failed", status });
       });
     },
-    [days, ko]
+    [days]
   );
 
   useEffect(() => {
@@ -454,18 +447,19 @@ export function DeliveryOperationsDashboardPage() {
         </section>
       ) : null}
 
-      {loadState === "error" && (
+      {loadState === "error" && lastError?.status === 503 ? (
+        // 집계 함수 미적용(준비 중) — 오류가 아니라 준비 상태 안내
         <div
           className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-warning"
-          role="alert"
+          role="status"
         >
           <p className="font-medium">{t("admin_del_ops_load_failed_title")}</p>
-          {lastError ? <p className="mt-1 text-sam-muted">{lastError}</p> : null}
-          <AdminActionButton type="button" onClick={() => load({ showLoading: true })} variant="secondary" size="sm" className="mt-3">
-            {t("common_retry")}
-          </AdminActionButton>
+          <p className="mt-1 text-sam-muted">{ko ? HEALTH_NOT_READY_KO : HEALTH_NOT_READY_EN}</p>
         </div>
-      )}
+      ) : loadState === "error" && lastError ? (
+        <AdminErrorState ko={ko} code={lastError.code} httpStatus={lastError.status} onRetry={() => load({ showLoading: true })} />
+      ) : null}
+
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">

@@ -2,7 +2,7 @@
 
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -16,12 +16,14 @@ import { QaTestCaseTable } from "./QaTestCaseTable";
 import { QaPilotCheckTable } from "./QaPilotCheckTable";
 import { QaIssueTable } from "./QaIssueTable";
 import { QaBlockerBoard } from "./QaBlockerBoard";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId = keyof typeof QA_TAB_KEYS;
 
 export function AdminQaBoardPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(Object.keys(QA_TAB_KEYS) as TabId[], "overview");
   const { state: loadState, reload } = useAdminSyncLoad(loadQaBoardFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -49,9 +51,8 @@ export function AdminQaBoardPage() {
       <AdminTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="overview"
+        resetParams={adminSyncTabResetParams(["severity", "category", "domain", "case_status", "env"])}
         className="mb-4"
       />
 

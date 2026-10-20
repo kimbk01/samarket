@@ -2,8 +2,12 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { OpsDocType, OpsDocStatus, OpsDocCategory } from "@/lib/types/ops-docs";
+import type { OpsDocType, OpsDocStatus } from "@/lib/types/ops-docs";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+import type { AdminListQueryConfig, AdminListQueryState } from "@/lib/admin/list-query/admin-list-query";
+import type { UseAdminListQueryResult } from "@/lib/admin/list-query/use-admin-list-query";
 
 export interface OpsDocumentFilterState {
   search: string;
@@ -13,13 +17,34 @@ export interface OpsDocumentFilterState {
   sort: "updated" | "title" | "status";
 }
 
-interface OpsDocumentFilterBarProps {
-  state: OpsDocumentFilterState;
-  onChange: (state: OpsDocumentFilterState) => void;
+/** 주소 키: `q`(검색어) · `status` · `doc_type` · `category` · `sort` (R7 — 새로고침·링크 공유·상세 복귀 시 유지). */
+export const OPS_DOC_LIST_QUERY_CONFIG = {
+  statuses: ["active", "draft", "archived"],
+  sorts: ["updated", "title", "status"],
+  defaults: { sort: "updated" },
+  extras: ["doc_type", "category", "view"],
+} as const satisfies AdminListQueryConfig<"doc_type" | "category" | "view">;
+
+export function opsDocumentFilterStateFromQuery(
+  query: AdminListQueryState<"doc_type" | "category" | "view">
+): OpsDocumentFilterState {
+  const sort = query.sort === "title" || query.sort === "status" ? query.sort : "updated";
+  return {
+    search: query.q,
+    docType: (["sop", "playbook", "scenario"].includes(query.extras.doc_type) ? query.extras.doc_type : "") as OpsDocType | "",
+    status: query.status as OpsDocStatus | "",
+    category: query.extras.category,
+    sort,
+  };
 }
 
-export function OpsDocumentFilterBar({ state, onChange }: OpsDocumentFilterBarProps) {
-  const { t } = useI18n();
+interface OpsDocumentFilterBarProps {
+  lq: UseAdminListQueryResult<"doc_type" | "category" | "view">;
+}
+
+export function OpsDocumentFilterBar({ lq }: OpsDocumentFilterBarProps) {
+  const { t, language } = useI18n();
+  const ko = language !== "en";
 
   const docTypeOptions = useMemo(
     () =>
@@ -70,60 +95,41 @@ export function OpsDocumentFilterBar({ state, onChange }: OpsDocumentFilterBarPr
   );
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-      <input
-        type="search"
-        placeholder={t("admin_ops_doc_search_ph")}
-        value={state.search}
-        onChange={(e) => onChange({ ...state, search: e.target.value })}
-        className="min-w-[160px] rounded border border-sam-border px-3 py-2 sam-text-body"
-      />
-      <select
-        value={state.docType}
-        onChange={(e) => onChange({ ...state, docType: e.target.value as OpsDocType | "" })}
-        className="rounded border border-sam-border px-3 py-2 sam-text-body"
-      >
+    <AdminFilterBar
+      ko={ko}
+      draft={lq.draft}
+      onDraftChange={lq.setDraft}
+      onSubmit={lq.submit}
+      onReset={lq.reset}
+      showPeriod={false}
+      searchPlaceholder={t("admin_ops_doc_search_ph")}
+      status={{
+        value: lq.query.status,
+        onChange: lq.setStatus,
+        options: statusOptions.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+      }}
+    >
+      <AdminFilterSelect ko={ko} label={t("admin_ops_doc_th_type")} name="doc_type" value={lq.query.extras.doc_type} onChange={(v) => lq.setExtra("doc_type", v)}>
         {docTypeOptions.map((o) => (
           <option key={o.value || "all"} value={o.value}>
             {t(o.labelKey)}
           </option>
         ))}
-      </select>
-      <select
-        value={state.status}
-        onChange={(e) => onChange({ ...state, status: e.target.value as OpsDocStatus | "" })}
-        className="rounded border border-sam-border px-3 py-2 sam-text-body"
-      >
-        {statusOptions.map((o) => (
-          <option key={o.value || "all"} value={o.value}>
-            {t(o.labelKey)}
-          </option>
-        ))}
-      </select>
-      <select
-        value={state.category}
-        onChange={(e) => onChange({ ...state, category: e.target.value })}
-        className="rounded border border-sam-border px-3 py-2 sam-text-body"
-      >
+      </AdminFilterSelect>
+      <AdminFilterSelect ko={ko} label={t("admin_ops_doc_th_category")} name="category" value={lq.query.extras.category} onChange={(v) => lq.setExtra("category", v)}>
         {categoryOptions.map((o) => (
           <option key={o.value || "all"} value={o.value}>
             {t(o.labelKey)}
           </option>
         ))}
-      </select>
-      <select
-        value={state.sort}
-        onChange={(e) =>
-          onChange({ ...state, sort: e.target.value as OpsDocumentFilterState["sort"] })
-        }
-        className="rounded border border-sam-border px-3 py-2 sam-text-body"
-      >
+      </AdminFilterSelect>
+      <AdminFilterSelect ko={ko} label={ko ? "정렬" : "Sort"} name="sort" value={lq.query.sort} onChange={lq.setSort}>
         {sortOptions.map((o) => (
           <option key={o.value} value={o.value}>
             {t(o.labelKey)}
           </option>
         ))}
-      </select>
-    </div>
+      </AdminFilterSelect>
+    </AdminFilterBar>
   );
 }

@@ -11,6 +11,15 @@ import {
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
+import {
+  escapeAdminIlike,
+  isAdminListUuid,
+  sanitizeAdminListSearch,
+} from "@/lib/admin/pagination/parse-admin-list-page";
+import {
+  parsePlatformAdminListPage,
+  platformAdminListRange,
+} from "@/lib/admin/platform-list/admin-platform-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +31,12 @@ function noticeAuditSnapshot(row: Record<string, unknown> | null | undefined): R
   return { ...rest, body_length: typeof body === "string" ? body.length : null };
 }
 
-/** GET /api/admin/app-notices — list Customer Center contents */
+/**
+ * GET /api/admin/app-notices — list Customer Center contents
+ * - `limit`(20/50/100)·`offset` 이 있으면 서버 페이지 + `total`(count exact) — 고객센터 콘텐츠 목록 화면.
+ *   필터: `content_type` · `q`(제목 검색, UUID 면 id 일치).
+ * - 없으면 기존 응답(최근 200건) — 알림 캠페인 화면·캠페인 작성 화면의 콘텐츠 선택 호출자 호환.
+ */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -32,26 +46,57 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const typeRaw = req.nextUrl.searchParams.get("content_type");
-  let q = sb
-    .from("app_notices")
-    .select(APP_NOTICES_CONTENT_SELECT)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const params = req.nextUrl.searchParams;
+  const typeRaw = params.get("content_type");
+  const page = parsePlatformAdminListPage(params);
+  let q = page
+    ? sb
+        .from("app_notices")
+        .select(APP_NOTICES_CONTENT_SELECT, { count: "exact" })
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(...platformAdminListRange(page))
+    : sb
+        .from("app_notices")
+        .select(APP_NOTICES_CONTENT_SELECT)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(200);
   if (isCustomerCenterContentType(typeRaw)) {
     q = q.eq("content_type", typeRaw);
   }
+  if (page) {
+    const term = sanitizeAdminListSearch(params.get("q"));
+    if (term) {
+      q = isAdminListUuid(term) ? q.eq("id", term) : q.ilike("title", `%${escapeAdminIlike(term)}%`);
+    }
+  }
 
-  const { data, error } = await q;
+  const { data, error, count } = await q;
 
   if (error) {
     if (isMissingAppNoticesTableError(error.message ?? "")) {
-      return NextResponse.json({ ok: true, notices: [], table_missing: true });
+      return NextResponse.json({
+        ok: true,
+        notices: [],
+        table_missing: true,
+        ...(page ? { total: 0, limit: page.limit, offset: page.offset } : {}),
+      });
     }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  if (page) {
+    const notices = data ?? [];
+    return NextResponse.json({
+      ok: true,
+      notices,
+      total: count ?? notices.length,
+      limit: page.limit,
+      offset: page.offset,
+    });
+  }
   return NextResponse.json({ ok: true, notices: data ?? [] });
 }
 

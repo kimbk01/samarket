@@ -7,6 +7,12 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import {
+  CommunityFilterField,
+  type CommunityListQuery,
+} from "@/components/admin/community/kit/CommunityAdminKit";
+import { communityAdminListPeriodParams } from "@/lib/admin/community-admin/community-admin-period";
 import { imageSanitizeViewerMediaUrl } from "@/lib/image/image-url";
 import { loadTradeFeedThumbnailFetchUrl } from "@/lib/image/image-loader";
 import {
@@ -143,4 +149,52 @@ export function tradeErrorText(code: string | null | undefined): string {
 
 export function tradeDetailHref(href: string, returnTo: string): string {
   return withAdminReturnTo(href, returnTo);
+}
+
+/* ───────── R7 목록 — 기본 기간이 있는 목록 (운영 기록·포인트 내역 = 최근 30일) ───────── */
+
+/**
+ * 거래 목록 API 파라미터 — `lq.apiParams` + 기간. 날짜(from/to)·옛 프리셋(today/7d/30d)이 없으면
+ * URL `period=all` 은 전체 기간, 그 외 `defaultPeriod`(기존 화면 기본값 그대로).
+ */
+export function tradeListApiParams<E extends string>(
+  lq: CommunityListQuery<E>,
+  opts: { statusKey?: string; qKey?: string; omit?: readonly string[]; defaultPeriod?: "30d" | "all"; period?: boolean } = {}
+): URLSearchParams {
+  const out = lq.apiParams({ statusKey: opts.statusKey, qKey: opts.qKey, omit: opts.omit, period: false });
+  if (opts.period === false) return out;
+  const { from, to } = lq.query;
+  const raw = String(lq.query.extras["period" as E | "period"] ?? "").trim();
+  const p =
+    from || to || lq.legacyPeriod
+      ? communityAdminListPeriodParams({ period: lq.legacyPeriod, from, to })
+      : { period: raw === "all" ? "all" : opts.defaultPeriod ?? "all" };
+  out.set("period", p.period);
+  if ("from" in p && p.from) out.set("from", p.from);
+  if ("to" in p && p.to) out.set("to", p.to);
+  return out;
+}
+
+/**
+ * 기본 기간 안내 (필터 바 안) — 날짜를 고르지 않았을 때 「최근 30일 (기본)」 [전체 기간] / 「전체 기간」 [최근 30일로].
+ * 날짜나 옛 프리셋이 걸려 있으면 표시하지 않는다 (필터 바가 직접 보여 준다).
+ */
+export function TradeDefaultPeriodField<E extends string>({ lq }: { lq: CommunityListQuery<E> }) {
+  if (lq.query.from || lq.query.to || lq.legacyPeriod) return null;
+  const all = String(lq.query.extras["period" as E | "period"] ?? "").trim() === "all";
+  return (
+    <CommunityFilterField label="기간 (필리핀 시간)">
+      <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
+        {all ? "전체 기간" : "최근 30일 (기본)"}
+        <AdminActionButton
+          variant="quiet"
+          size="sm"
+          className="h-auto! px-1!"
+          onClick={() => lq.patch({ extras: { period: all ? "" : "all" } as Partial<Record<E | "period", string>> })}
+        >
+          {all ? "최근 30일로" : "전체 기간 보기"}
+        </AdminActionButton>
+      </span>
+    </CommunityFilterField>
+  );
 }

@@ -1,10 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
-import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import type { PlatformEventRow } from "@/lib/platform-events/types";
 import {
   formatPromotionAdminSchedule,
@@ -23,42 +26,55 @@ import { adminOperatorRowClassFromPromotionStatus } from "@/lib/admin/admin-oper
 
 type ListEventRow = PlatformEventRow & { channelSummary?: string };
 
+/**
+ * 이벤트 목록 (R7) — 서버 페이지(`limit`/`offset` → `total`) · 쪽·크기는 주소에 보존.
+ * 필터 없음(8 N/A). 불러오기 실패 시 직전 목록은 지우지 않는다.
+ */
 export function AdminPlatformEventsListClient() {
   const { safeT, language, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
+  const ko = lang !== "en";
+  const lq = useAdminListQuery();
   const [events, setEvents] = useState<ListEventRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [httpStatus, setHttpStatus] = useState<number | undefined>(undefined);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setHttpStatus(undefined);
-    try {
-      const res = await fetch("/api/admin/platform-events", { credentials: "same-origin" });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        events?: ListEventRow[];
-        error?: string;
-      };
-      if (!res.ok || !json.ok) {
-        setError(json.error || "load_failed");
-        setHttpStatus(res.status);
-        setEvents([]);
-        return;
-      }
-      setEvents(json.events ?? []);
-    } catch {
-      setError("network_error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { refreshKey, apiQueryString } = lq;
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/platform-events?${apiQueryString}`, { credentials: "same-origin" });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          events?: ListEventRow[];
+          total?: number;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || !json.ok) {
+          setError({ code: json.error || "load_failed", httpStatus: res.status });
+          return;
+        }
+        const rows = json.events ?? [];
+        setEvents(rows);
+        setTotal(typeof json.total === "number" ? json.total : rows.length);
+        setLoaded(true);
+      } catch {
+        if (!cancelled) setError({ code: "network_error" });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // refreshKey = apiQueryString + 새로고침 횟수
+  }, [apiQueryString, refreshKey]);
 
   return (
     <div className="space-y-4 p-4" data-admin-platform-events-list="1">
@@ -86,27 +102,21 @@ export function AdminPlatformEventsListClient() {
         </AdminActionLink>
       </div>
 
-      {loading ? (
-        <AdminLoadingState ko={lang !== "en"} />
-      ) : error ? (
-        <AdminErrorState ko={lang !== "en"} code={error} httpStatus={httpStatus} onRetry={() => void load()} />
-      ) : events.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4">
-          <p className="text-sm text-sam-muted">
-            {safeT("admin_platform_events_empty", {
-              fallbackKo: "등록된 이벤트가 없습니다.",
-              fallbackEn: "No events yet.",
-            })}
-          </p>
-          <AdminActionLink
-            href="/admin/platform-events/new"
-            variant="primary"
-            className="mt-3"
-          >
-            {promotionAdminActionLabel("CREATE", lang)}
-          </AdminActionLink>
-        </div>
+      {error ? (
+        <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={lq.refresh} />
+      ) : null}
+      {loading && !loaded ? (
+        <AdminLoadingState ko={ko} />
+      ) : !loaded ? null : events.length === 0 ? (
+        <AdminEmptyState
+          ko={ko}
+          message={safeT("admin_platform_events_empty", {
+            fallbackKo: "등록된 이벤트가 없습니다.",
+            fallbackEn: "No events yet.",
+          })}
+        />
       ) : (
+        <>
         <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
           {events.map((ev) => {
             const op = resolveEventOperatorStatus({
@@ -123,7 +133,13 @@ export function AdminPlatformEventsListClient() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold">{ev.title}</div>
+                    <Link
+                      href={eventEditHref(ev.id)}
+                      className="block truncate text-sm font-semibold text-sam-fg hover:underline"
+                      data-admin-event-edit-link="1"
+                    >
+                      {ev.title}
+                    </Link>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-sam-muted">
                       <AdminToneBadge tone={promotionOperatorStatusTone(op)}>
                         {promotionOperatorStatusLabel(op, lang)}
@@ -192,18 +208,13 @@ export function AdminPlatformEventsListClient() {
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-1.5">
-                    <AdminActionLink href={eventPreviewHref(ev.id)} variant="secondary">
+                    <AdminActionLink href={eventPreviewHref(ev.id)} variant="ghost" size="sm">
                       {promotionAdminActionLabel("PREVIEW", lang)}
-                    </AdminActionLink>
-                    <AdminActionLink href={eventEditHref(ev.id)} variant="secondary">
-                      {safeT("admin_promotion_action_edit", {
-                        fallbackKo: "수정",
-                        fallbackEn: "Edit",
-                      })}
                     </AdminActionLink>
                     <AdminActionLink
                       href={eventDistributionHref(ev.id)}
-                      variant="secondary"
+                      variant="ghost"
+                      size="sm"
                       data-admin-event-exposure-cta="1"
                     >
                       {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}
@@ -214,6 +225,16 @@ export function AdminPlatformEventsListClient() {
             );
           })}
         </ul>
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+        </>
       )}
     </div>
   );

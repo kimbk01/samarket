@@ -13,6 +13,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LaunchIntroPlayer } from "@/components/launch-intro/LaunchIntroPlayer";
 import { dibayAlert } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
@@ -418,9 +419,40 @@ export function LaunchIntroAdminPage() {
     [apply, t]
   );
 
+  /** 첫 조회 — 로딩 표시 · 실패는 오류 상태 + [새로고침] (팝업 대신, R7 화면 상태). */
+  const [initialLoad, setInitialLoad] = useState<
+    { state: "loading" } | { state: "ok" } | { state: "error"; code: string; httpStatus?: number }
+  >({ state: "loading" });
+  const [initialLoadKey, setInitialLoadKey] = useState(0);
   useEffect(() => {
-    void call("/api/admin/launch-intro", { method: "GET" }, "");
-  }, [call]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/launch-intro", { credentials: "same-origin", method: "GET" });
+        const json = (await res.json().catch(() => ({ ok: false }))) as Snapshot | ApiError;
+        if (cancelled) return;
+        if (res.ok && json.ok) {
+          apply(json);
+          setInitialLoad({ state: "ok" });
+        } else {
+          setInitialLoad({
+            state: "error",
+            code: (!json.ok && json.error) || "load_failed",
+            httpStatus: res.status,
+          });
+        }
+      } catch {
+        if (!cancelled) setInitialLoad({ state: "error", code: "network_error" });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apply, initialLoadKey]);
+  const retryInitialLoad = useCallback(() => {
+    setInitialLoad({ state: "loading" });
+    setInitialLoadKey((k) => k + 1);
+  }, []);
 
   const sceneCount = doc?.scenes.length ?? 0;
   const sel = Math.min(selected, Math.max(sceneCount - 1, 0));
@@ -776,6 +808,16 @@ export function LaunchIntroAdminPage() {
         />
       </div>
 
+
+      {!snap && initialLoad.state === "loading" ? <AdminLoadingState ko={ko} /> : null}
+      {!snap && initialLoad.state === "error" ? (
+        <AdminErrorState
+          ko={ko}
+          code={initialLoad.code}
+          httpStatus={initialLoad.httpStatus}
+          onRetry={retryInitialLoad}
+        />
+      ) : null}
 
       {view === "status" && live ? (
         <AdminCard title={t("admin_launch_intro_live_title")}>

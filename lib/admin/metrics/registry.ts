@@ -14,6 +14,7 @@
  *
  * 클라이언트 안전 — 서버 전용 모듈 import 금지.
  */
+import { PLATFORM_POPUP_LIVE_STATUS_FILTER } from "@/lib/platform-popup/admin-list-filter";
 import {
   ADMIN_ACTION_QUEUE_REGISTRY,
   getAdminActionQueueCategoryDef,
@@ -572,18 +573,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     unit: "count",
     href: adsWorkspaceHref("waiting"),
   },
-  {
-    id: "ads.incomplete",
-    labelKo: "불완전·임시 광고",
-    labelEn: "Ads incomplete",
-    domain: "ads",
-    source: "ads",
-    sourceDetail: "computeAdsWorkspaceSummaryCounts(all).incomplete = 광고 운영 「불완전/임시」",
-    periodBasis: "pht",
-    period: "now",
-    unit: "count",
-    href: adsWorkspaceHref("incomplete"),
-  },
+
   {
     id: "ads.hero_used",
     labelKo: "홈 배너 사용 칸",
@@ -595,6 +585,19 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     period: "now",
     unit: "count",
     href: "/admin/advertising",
+  },
+  {
+    id: "ads.popup_live",
+    labelKo: "집행 중 팝업",
+    labelEn: "Popups live",
+    domain: "ads",
+    source: "ads",
+    sourceDetail:
+      "countPlatformPopupAdminCampaigns(scope=popup, status=live) = 팝업 목록 「지금 노출 중」 필터 total (같은 함수·같은 필터)",
+    periodBasis: "pht",
+    period: "now",
+    unit: "count",
+    href: `/admin/platform-popup?status=${PLATFORM_POPUP_LIVE_STATUS_FILTER}`,
   },
 
   // ── 알림 발송 (알림 발송 화면 = 캠페인 목록, 같은 질의의 total) ──
@@ -655,11 +658,6 @@ export function getAdminMetricDefinition(id: string): AdminMetricDefinition {
 export const ADMIN_DASHBOARD_OMITTED_METRICS: readonly { tab: AdminDashboardTabId; labelKo: string; reason: string }[] = [
   { tab: "ads_ops", labelKo: "광고 환불 실패", reason: "환불 실패가 저장되는 상태·테이블이 없음 (요청 응답 오류로만 존재)" },
   { tab: "ads_ops", labelKo: "진행 중 이벤트", reason: "운영 중 이벤트 집계 출처 없음" },
-  {
-    tab: "ads_ops",
-    labelKo: "집행 중 팝업",
-    reason: "팝업 목록 화면에 노출 중 개수·URL 필터가 없음 (팝업 목록 수정 후 같은 함수로 복원) — 팝업은 광고 운영 「노출 중」에 포함",
-  },
   { tab: "ads_ops", labelKo: "광고 충돌 (차단)", reason: "이동할 충돌 목록 화면 없음 (배달 광고 화면에 충돌 구역 없음) · 원본이 40건에서 잘림" },
   { tab: "support", labelKo: "SLA 초과", reason: "support_cases 에 SLA 기한 열이 없음" },
   {
@@ -1043,7 +1041,7 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
     labelEn: "Ads · Ops",
     shortKo: "광고",
     shortEn: "Ads",
-    metricIds: ["ads.live", "ads.pending", "ads.scheduled", "ads.waiting", "ads.incomplete", "ads.hero_used"],
+    metricIds: ["ads.live", "ads.pending", "ads.scheduled", "ads.waiting", "ads.popup_live", "ads.hero_used"],
     trend: "ad_spend_daily",
     shortcuts: [
       { id: "workspace", labelKo: "광고 운영", labelEn: "Advertising", href: "/admin/advertising" },

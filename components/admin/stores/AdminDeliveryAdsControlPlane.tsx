@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
@@ -36,11 +37,11 @@ import {
 import { aggregateAdminHubTodayCounts } from "@/lib/stores/advertising/delivery-ad-admin-hub-today-counts";
 import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
 import { isDeliveryBannerCreativeAssetReady as creativeReady } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
-import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { ARO_IA_001_COMMUNITY_PROMOTIONS_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 import { adminDisplayApplicantLabel } from "@/lib/admin/operator-ux/operator-labels";
 
 type ProductFilter = "all" | "store_sponsored" | "banner";
+const PRODUCT_FILTERS: readonly ProductFilter[] = ["all", "store_sponsored", "banner"];
 
 const HUB_VIEWS: AdminDeliveryAdsHubView[] = [
   "actionable",
@@ -65,36 +66,31 @@ export function AdminDeliveryAdsControlPlane() {
   const { t, safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const searchParams = useSearchParams();
-  const router = useRouter();
   const inventoryFilter = searchParams.get("inventory")?.trim() || "";
   const primarySlugFilter =
     searchParams.get("primarySlug")?.trim() || searchParams.get("primary")?.trim() || "";
   const subSlugFilter =
     searchParams.get("subSlug")?.trim() || searchParams.get("sub")?.trim() || "";
-  const [hubView, setHubView] = useState<AdminDeliveryAdsHubView>(() => {
-    const v = searchParams.get("view")?.trim();
-    if (v && (HUB_VIEWS as readonly string[]).includes(v)) {
-      return v as AdminDeliveryAdsHubView;
-    }
-    return ADMIN_DELIVERY_ADS_HUB_DEFAULT_VIEW;
+  /**
+   * R7 목록 표준 8 — 보기(`?view=`)·상품(`?product=`)을 주소에 둔다 (기존 `?view=` 딥링크 호환).
+   * 기본값(보기 ADMIN_DELIVERY_ADS_HUB_DEFAULT_VIEW · 상품 전체)은 주소에서 생략된다.
+   */
+  const lq = useAdminListQuery<"view" | "product">({
+    extras: ["view", "product"],
+    extraDefaults: { view: ADMIN_DELIVERY_ADS_HUB_DEFAULT_VIEW, product: "all" },
   });
-
-  useEffect(() => {
-    const v = searchParams.get("view")?.trim();
-    if (v && (HUB_VIEWS as readonly string[]).includes(v)) {
-      setHubView(v as AdminDeliveryAdsHubView);
-    }
-  }, [searchParams]);
-
-  const selectHubView = (view: AdminDeliveryAdsHubView) => {
-    setHubView(view);
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("view", view);
-    router.replace(`${DELIVERY_AD_ADMIN_ROUTES.hub}?${next.toString()}`, { scroll: false });
-  };
-  const [product, setProduct] = useState<ProductFilter>("all");
+  const hubView: AdminDeliveryAdsHubView = (HUB_VIEWS as readonly string[]).includes(lq.query.extras.view)
+    ? (lq.query.extras.view as AdminDeliveryAdsHubView)
+    : ADMIN_DELIVERY_ADS_HUB_DEFAULT_VIEW;
+  const product: ProductFilter = (PRODUCT_FILTERS as readonly string[]).includes(lq.query.extras.product)
+    ? (lq.query.extras.product as ProductFilter)
+    : "all";
+  const listFiltered = hubView !== ADMIN_DELIVERY_ADS_HUB_DEFAULT_VIEW || product !== "all";
+  const selectHubView = (view: AdminDeliveryAdsHubView) => lq.setExtra("view", view);
+  const setProduct = (p: ProductFilter) => lq.setExtra("product", p);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
   const [campaigns, setCampaigns] = useState<AdminDeliveryAdListItem[]>([]);
   const [policyCounts, setPolicyCounts] = useState<PolicyCampaignCounts | null>(null);
   const [summary, setSummary] = useState({
@@ -115,6 +111,7 @@ export function AdminDeliveryAdsControlPlane() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setErrorStatus(undefined);
     try {
       const qs = new URLSearchParams({ bucket: apiBucket, product });
       if (inventoryFilter) qs.set("inventory", inventoryFilter);
@@ -132,9 +129,9 @@ export function AdminDeliveryAdsControlPlane() {
         policyCounts?: PolicyCampaignCounts | null;
       };
       if (!res.ok || !json.ok) {
+        // 실패해도 이전 정상 목록은 지우지 않는다 (지시서 §8-5).
         setError(json.error || "load_failed");
-        setCampaigns([]);
-        setPolicyCounts(null);
+        setErrorStatus(res.status);
         return;
       }
       setCampaigns(json.campaigns ?? []);
@@ -142,12 +139,12 @@ export function AdminDeliveryAdsControlPlane() {
       if (json.summary) setSummary(json.summary);
     } catch {
       setError("network_error");
-      setCampaigns([]);
-      setPolicyCounts(null);
     } finally {
       setLoading(false);
     }
-  }, [apiBucket, product, inventoryFilter, primarySlugFilter, subSlugFilter]);
+    // lq.refreshKey — 같은 조건으로 다시 불러오기(빈 목록 [초기화] 가 같은 주소일 때 포함).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiBucket, product, inventoryFilter, primarySlugFilter, subSlugFilter, lq.refreshKey]);
 
   useEffect(() => {
     void load();
@@ -392,7 +389,7 @@ export function AdminDeliveryAdsControlPlane() {
 
           {error ? (
             <div className="mt-3">
-              <AdminErrorState ko={lang !== "en"} code={error} onRetry={() => void load()} />
+              <AdminErrorState ko={lang !== "en"} code={error} httpStatus={errorStatus} onRetry={() => void load()} />
             </div>
           ) : null}
 
@@ -404,6 +401,7 @@ export function AdminDeliveryAdsControlPlane() {
                   fallbackKo: "해당 조건의 광고가 없습니다.",
                   fallbackEn: "No campaigns for this filter.",
                 })}
+                onReset={listFiltered ? lq.reset : undefined}
               />
             </div>
           ) : null}

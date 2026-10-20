@@ -2,7 +2,7 @@
 
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useCommunityQueryState } from "@/components/admin/community/kit/CommunityAdminKit";
+import { useCommunityListQuery, useCommunityQueryState } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { call, type InboxRow, keyOf, type ManagedSource, type TopicOption, importErrorText } from "./external-import/api";
 import { ImportEditorPanel } from "./external-import/ImportEditorPanel";
@@ -17,18 +17,15 @@ type Tab = "inbox" | "sources" | "rules";
  * sources & real boards → inbox (collected, never auto-published) → compare editor → publish / update,
  * plus bulk jobs and replace rules.
  */
-const DEFAULT_STATUS = "new,draft,source_updated,failed";
+export const IMPORT_INBOX_DEFAULT_STATUS = "new,draft,source_updated,failed";
 const DEFAULT_LANG = "ko";
 const TABS: Tab[] = ["inbox", "sources", "rules"];
+/** 수집함 조회 조건 추가 키 (URL) — 상태는 공통 `status`, 검색은 `q`, 페이지는 `page`·`size` */
+export const IMPORT_INBOX_EXTRAS = ["site", "board", "quality", "lang"] as const;
 
-/** URL 값 ↔ 필터 — 비어 있으면 기본값, "all" 은 「전체」 */
-function fromUrl(v: string, fallback: string): string {
-  if (!v) return fallback;
+/** URL 값 → API 필터 — "all"(예전 링크·「전체」) 은 빈 값 */
+function fromUrl(v: string): string {
   return v === "all" ? "" : v;
-}
-function toUrl(v: string, fallback: string): string | null {
-  if (v === fallback) return null;
-  return v === "" ? "all" : v;
 }
 
 export function AdminExternalImportOperatorPage() {
@@ -40,32 +37,27 @@ export function AdminExternalImportOperatorPage() {
 }
 
 function ExternalImportOperatorInner() {
-  // 탭·수집함 필터는 URL 에 둔다 (새로고침·복귀 시 유지)
+  // 탭·수집함 필터·페이지는 URL 에 둔다 (새로고침·복귀 시 유지) — 필터 바·페이지네이션은 수집함 패널이 그린다
   const { get, set } = useCommunityQueryState();
+  const lq = useCommunityListQuery({
+    defaults: { status: IMPORT_INBOX_DEFAULT_STATUS },
+    extras: IMPORT_INBOX_EXTRAS,
+    extraDefaults: { lang: DEFAULT_LANG },
+  });
   const tabRaw = get("tab") as Tab;
   const tab: Tab = TABS.includes(tabRaw) ? tabRaw : "inbox";
   const setTab = (t: Tab) => set({ tab: t === "inbox" ? null : t });
-  const site = get("site");
-  const board = get("board");
-  const status = fromUrl(get("status"), DEFAULT_STATUS);
-  const quality = get("quality");
-  const lang = fromUrl(get("lang"), DEFAULT_LANG);
-  const q = get("q");
+  const site = lq.query.extras.site;
+  const board = lq.query.extras.board;
+  const status = fromUrl(lq.query.status);
+  const quality = lq.query.extras.quality;
+  const lang = fromUrl(lq.query.extras.lang);
+  const q = lq.query.q;
   // 수집함은 filter 객체가 바뀔 때만 다시 불러온다 — 값이 같으면 같은 객체 유지
   const filter: InboxFilter = useMemo(
     () => ({ site, board, status, quality, lang, q }),
     [site, board, status, quality, lang, q]
   );
-  const setFilter = (f: InboxFilter, extra: Record<string, string | null> = {}) =>
-    set({
-      site: f.site,
-      board: f.board,
-      status: toUrl(f.status, DEFAULT_STATUS),
-      quality: f.quality,
-      lang: toUrl(f.lang, DEFAULT_LANG),
-      q: f.q,
-      ...extra,
-    });
   const [sources, setSources] = useState<ManagedSource[]>([]);
   const [topics, setTopics] = useState<TopicOption[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -119,7 +111,7 @@ function ExternalImportOperatorInner() {
               sources={sources}
               topics={topics}
               filter={filter}
-              setFilter={setFilter}
+              lq={lq}
               activeKey={active ? keyOf(active) : null}
               onOpen={setActive}
               refreshToken={refreshToken}
@@ -145,7 +137,8 @@ function ExternalImportOperatorInner() {
             topics={topics}
             onChanged={() => void loadSources()}
             onOpenBoard={(site, board) => {
-              setFilter({ ...filter, site, board, status: "" }, { tab: null });
+              // 수집함 탭으로 — 그 게시판의 모든 상태 (status=all: 「전체 상태」)
+              set({ tab: null, site, board, status: "all", quality: null, q: null });
               setActive(null);
               bump();
             }}

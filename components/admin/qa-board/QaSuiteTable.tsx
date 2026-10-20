@@ -4,16 +4,23 @@
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getQaTestSuites, getQaTestCases } from "@/lib/qa-board/qa-board-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { getDomainLabel } from "@/lib/qa-board/qa-board-utils";
 import type { QaTestDomain } from "@/lib/types/qa-board";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const FILTER_EXTRAS = ["domain"] as const;
 
 export function QaSuiteTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [domain, setDomain] = useState<QaTestDomain | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const domain = lq.query.extras.domain as QaTestDomain | "";
   const suites = useMemo(
     () =>
       getQaTestSuites(
@@ -47,25 +54,26 @@ export function QaSuiteTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_area")}</span>
-        <select
-          value={domain}
-          onChange={(e) =>
-            setDomain((e.target.value || "") as QaTestDomain | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_qa_area")} name="domain" value={lq.query.extras.domain} onChange={(v) => lq.setExtra("domain", v)}>
           {domains.map((d) => (
             <option key={d.value || "all"} value={d.value}>
               {d.label}
             </option>
           ))}
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {suites.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 영역 스위트가 없습니다."} />
+        <AdminEmptyState ko={ko} message={"해당 영역 스위트가 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={["영역", "제목", "설명", "Critical", "통과/전체"]}

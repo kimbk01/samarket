@@ -288,18 +288,25 @@ export async function adminActOnOwnerEventPromoRequest(
   return { ok: true, request: next };
 }
 
+/**
+ * 관리자 오너 이벤트 요청 목록 — 서버 페이지 (R7: `limit`/`offset` + `total` = count exact).
+ * 호출자: `GET /api/admin/platform-event-owner-requests` 하나.
+ */
 export async function listAdminOwnerEventPromoRequests(
   sb: SupabaseClient,
-  input?: { status?: string | null }
-): Promise<PlatformEventOwnerRequestRow[]> {
+  input: { status?: string | null; limit: number; offset: number }
+): Promise<{ items: PlatformEventOwnerRequestRow[]; total: number }> {
   let q = sb
     .from(PLATFORM_EVENT_OWNER_REQUEST_TABLE)
-    .select("*")
-    .order("submitted_at", { ascending: false, nullsFirst: false });
-  if (input?.status) q = q.eq("request_status", input.status);
-  const { data, error } = await q;
+    .select("*", { count: "exact" })
+    .order("submitted_at", { ascending: false, nullsFirst: false })
+    .order("id", { ascending: false })
+    .range(input.offset, input.offset + input.limit - 1);
+  if (input.status) q = q.eq("request_status", input.status);
+  const { data, error, count } = await q;
   if (error) throw new Error(error.message);
-  return ((data ?? []) as PlatformEventOwnerRequestDbRow[]).map(mapPlatformEventOwnerRequestDbRow);
+  const items = ((data ?? []) as PlatformEventOwnerRequestDbRow[]).map(mapPlatformEventOwnerRequestDbRow);
+  return { items, total: count ?? items.length };
 }
 
 export async function getAdminOwnerEventPromoRequest(

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
+import { deliveryListRange, parseDeliveryListPageIfRequested } from "@/lib/admin/delivery-list/delivery-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,14 +106,21 @@ export async function GET(req: NextRequest) {
   const q = s(url.searchParams.get("q")).toUpperCase();
   const status = s(url.searchParams.get("status")).toUpperCase();
   const selected = s(url.searchParams.get("id") || url.searchParams.get("number"));
+  /**
+   * R7 서버 페이지 — `limit`/`offset` 이 있으면 20/50/100 · `total`(count exact) · `balance=gt0`(잔액 있는 것만)을 DB 에서 적용.
+   * 없으면 예전 응답(최근 200건 + 선택 상세) 그대로 — 상세 화면(AdminGiftInstanceDetailConsole) 호환.
+   */
+  const page = parseDeliveryListPageIfRequested(url.searchParams);
+  const balanceGt0 = s(url.searchParams.get("balance")) === "gt0";
 
   const runList = async (select: string) => {
     let query = sb
       .from(GIFT_TABLES.instances)
-      .select(select)
-      .order("created_at", { ascending: false })
-      .limit(200);
+      .select(select, page ? { count: "exact" } : undefined)
+      .order("created_at", { ascending: false });
+    query = page ? query.order("id", { ascending: false }).range(...deliveryListRange(page)) : query.limit(200);
     if (status) query = query.eq("status", status);
+    if (page && balanceGt0) query = query.gt("remaining_balance", 0);
     if (q) {
       const parts = [`public_gift_number.ilike.%${q}%`];
       if (isUuid(q)) {
@@ -140,7 +148,7 @@ export async function GET(req: NextRequest) {
   } else if (!listResult.error && instanceValidityColumns !== false) {
     instanceValidityColumns = true;
   }
-  const { data, error } = listResult;
+  const { data, error, count } = listResult;
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
   const rows = (data as unknown as Record<string, unknown>[] | null) ?? [];
@@ -177,7 +185,12 @@ export async function GET(req: NextRequest) {
   }
 
   if (!selectedRow) {
-    return NextResponse.json({ ok: true, instances, detail: null });
+    return NextResponse.json({
+      ok: true,
+      instances,
+      ...(page ? { total: count ?? instances.length, limit: page.limit, offset: page.offset } : {}),
+      detail: null,
+    });
   }
 
   const instanceId = selectedRow.id;

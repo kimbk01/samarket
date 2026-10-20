@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getOpsDevHandoffItems,
@@ -13,11 +13,16 @@ import {
   OPS_DEV_HANDOFF_STATUS_FILTER_OPTIONS,
 } from "@/lib/product-backlog/product-backlog-utils";
 import type { OpsDevHandoffStatus } from "@/lib/types/product-backlog";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 export function OpsDevHandoffTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [statusFilter, setStatusFilter] = useState<OpsDevHandoffStatus | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery();
+  const statusFilter = lq.query.status as OpsDevHandoffStatus | "";
   const items = useMemo(
     () =>
       getOpsDevHandoffItems(
@@ -40,30 +45,29 @@ export function OpsDevHandoffTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">
-          {t("admin_product_backlog_label_handoff_status")}
-        </span>
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter((e.target.value || "") as OpsDevHandoffStatus | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_product_backlog_label_handoff_status")} name="status" value={lq.query.status} onChange={lq.setStatus}>
           {OPS_DEV_HANDOFF_STATUS_FILTER_OPTIONS.map((opt) => (
             <option key={opt.value || "all"} value={opt.value}>
               {t(opt.labelKey)}
             </option>
           ))}
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
       <p className="sam-text-helper text-sam-muted">
         {t("admin_product_backlog_handoff_hint")}
       </p>
 
       {items.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_product_backlog_empty_handoff")} />
+        <AdminEmptyState ko={ko} message={t("admin_product_backlog_empty_handoff")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable headers={headers}>
           {items.map((h) => {

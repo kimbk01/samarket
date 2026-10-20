@@ -3,30 +3,27 @@
 /**
  * 판매자·구매자 `/admin/trade/members` (설계 v2 §C-6) — 거래글을 올렸거나 거래 채팅을 한 회원.
  * 탭: 전체 / 거래 제한 중 / 계정 정지 (건수) · 닉네임 검색 · 행 → 판매자·구매자 상세.
- * URL: tab · q · page
+ * URL: tab(탭 — 대시보드 딥링크 호환) · q · page · size(20/50/100)
  */
 import Link from "next/link";
 import {
   COMMUNITY_TD,
-  CommunityFilterField,
+  CommunityFilterBar,
+  CommunityListBody,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityResetFilters,
-  CommunitySearchInput,
   CommunityStatusBadge,
   CommunityTable,
   CommunityTabs,
+  useCommunityListQuery,
   useCommunityQueryState,
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import { tradeDetailHref } from "@/components/admin/trade/kit/TradeAdminKit";
 import { TRADE_RESTRICTION_SCOPE_LABEL } from "@/components/admin/trade/restrictions/TradeRestrictionsPage";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
-
-const PAGE_SIZE = 50;
 
 type TabKey = "all" | "restricted" | "suspended";
 const TABS: { value: TabKey; label: string }[] = [
@@ -69,13 +66,14 @@ export function tradeAccountStatusKey(raw: string | null | undefined): string {
 }
 
 export function TradeMembersPage() {
+  /** `tab` 은 조회 조건 밖 키 — [초기화] 후에도 유지, 탭을 바꾸면 1쪽으로 */
   const qs = useCommunityQueryState();
+  const lq = useCommunityListQuery();
   const tabRaw = qs.get("tab");
   const tab: TabKey = (TABS.find((t) => t.value === tabRaw)?.value ?? "all") as TabKey;
-  const q = qs.get("q");
 
-  const params = new URLSearchParams({ tab, limit: String(PAGE_SIZE), offset: String((qs.page - 1) * PAGE_SIZE) });
-  if (q) params.set("q", q);
+  const params = lq.apiParams({ period: false });
+  params.set("tab", tab);
   const { state, reload } = useCommunityAdminJson<ListResponse>(`/api/admin/trade/members?${params.toString()}`);
   const rows = state.data?.rows ?? [];
   const total = state.status === "ok" ? Number(state.data.total ?? 0) : null;
@@ -92,35 +90,21 @@ export function TradeMembersPage() {
           tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] ?? null }))}
         />
       }
-      filters={
-        <>
-          <CommunityFilterField label="회원 검색">
-            <CommunitySearchInput value={q} onCommit={(v) => qs.set({ q: v })} placeholder="닉네임" />
-          </CommunityFilterField>
-          <CommunityResetFilters onReset={() => qs.reset()} />
+      filterBar={
+        <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder="닉네임" pending={state.status === "loading"}>
           {state.data?.capped ? (
             <p className="w-full text-[12px] text-sam-muted">
               거래 회원이 많아 최근 활동 일부만 집계했습니다. 특정 회원은 닉네임으로 검색하세요.
             </p>
           ) : null}
-        </>
+        </CommunityFilterBar>
       }
-      footer={
-        total !== null && total > 0 ? (
-          <CommunityPagination page={qs.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => qs.set({ page: p > 1 ? p : null })} />
-        ) : null
-      }
+      footer={<CommunityListPagination lq={lq} total={total} disabled={state.status === "loading"} />}
     >
-      {state.status === "loading" && !state.data ? (
-        <AdminLoadingState ko />
-      ) : state.status === "error" ? (
-        <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
-      ) : rows.length === 0 ? (
-        <AdminEmptyState ko message={EMPTY_TEXT[tab]} />
-      ) : (
+      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage={EMPTY_TEXT[tab]}>
         <CommunityTable head={["회원", "계정 상태", "판매글 수", "구매 채팅 수", "거래 제한", "회원 신고(대기)", "상세"]}>
           {rows.map((r) => {
-            const href = tradeDetailHref(`/admin/trade/members/${encodeURIComponent(r.user_id)}`, qs.selfHref);
+            const href = tradeDetailHref(`/admin/trade/members/${encodeURIComponent(r.user_id)}`, lq.selfHref);
             return (
               <tr key={r.user_id} className="border-b border-sam-border-soft hover:bg-sam-app">
                 <td className={COMMUNITY_TD}>
@@ -154,7 +138,7 @@ export function TradeMembersPage() {
                   )}
                 </td>
                 <td className={COMMUNITY_TD}>
-                  <AdminActionLink href={href} variant="secondary" className="min-h-8 px-2 py-1 text-[12px]">
+                  <AdminActionLink href={href} variant="ghost" size="sm">
                     상세
                   </AdminActionLink>
                 </td>
@@ -162,7 +146,7 @@ export function TradeMembersPage() {
             );
           })}
         </CommunityTable>
-      )}
+      </CommunityListBody>
     </CommunityListShell>
   );
 }

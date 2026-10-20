@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
+  AdminEmptyState,
   AdminErrorState,
   AdminLoadingState,
   AdminResultBanner,
@@ -121,6 +124,8 @@ export function AdminDeliveryRidersPage() {
   const [detail, setDetail] = useState<DeliveryDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [reassignPick, setReassignPick] = useState("");
+  /** 라이더 관리 Drawer — 행 버튼은 「관리」 하나 (온라인 전환·정지·메모·진행 주문은 Drawer 에서). */
+  const [openRiderId, setOpenRiderId] = useState<string | null>(null);
 
   const riderTableHeaders = useMemo(
     () =>
@@ -179,6 +184,8 @@ export function AdminDeliveryRidersPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const openRider = openRiderId ? riders.find((x) => x.id === openRiderId) ?? null : null;
 
   const assignableRiders = useMemo(
     () =>
@@ -414,116 +421,21 @@ export function AdminDeliveryRidersPage() {
                     )}
                   </td>
                   <td className="py-2 px-2">
-                    <div className="flex flex-col gap-1">
-                      <AdminActionButton
-                        type="button"
-                        disabled={busyRider === r.id}
-                        variant="secondary" size="sm"
-                        onClick={async () => {
-                          if (busyRider) return;
-                          const c = await confirmAdminAction({
-                            level: adminActionLevel(r.is_online ? "disable" : "resume"),
-                            ko,
-                            title: r.is_online
-                              ? ko
-                                ? "이 라이더를 오프라인으로 바꿀까요?"
-                                : "Set this rider offline?"
-                              : ko
-                                ? "이 라이더를 온라인으로 바꿀까요?"
-                                : "Set this rider online?",
-                            description: r.display_name ?? undefined,
-                            confirmLabel: r.is_online ? t("admin_del_btn_go_offline") : t("admin_del_btn_go_online"),
-                          });
-                          if (!c.ok) return;
-                          void patchRider(r.id, { is_online: !r.is_online });
-                        }}
-                      >
-                        {r.is_online ? t("admin_del_btn_go_offline") : t("admin_del_btn_go_online")}
-                      </AdminActionButton>
-                      <AdminActionButton
-                        type="button"
-                        disabled={busyRider === r.id}
-                        variant="secondary" size="sm"
-                        onClick={async () => {
-                          if (busyRider) return;
-                          const c = await confirmAdminAction({
-                            level: r.suspended_at ? "L1" : "L2",
-                            ko,
-                            title: r.suspended_at
-                              ? ko
-                                ? "이 라이더의 정지를 해제할까요?"
-                                : "Resume this rider?"
-                              : ko
-                                ? "이 라이더를 정지할까요?"
-                                : "Suspend this rider?",
-                            description: r.suspended_at
-                              ? (r.display_name ?? undefined)
-                              : ko
-                                ? `${r.display_name ?? ""} — 정지하면 새 배정을 받을 수 없습니다.`.trim()
-                                : `${r.display_name ?? ""} — a suspended rider cannot receive new assignments.`.trim(),
-                            confirmLabel: r.suspended_at ? t("admin_del_btn_resume") : t("admin_del_btn_suspend"),
-                            destructive: !r.suspended_at,
-                          });
-                          if (!c.ok) return;
-                          void patchRider(
-                            r.id,
-                            r.suspended_at ? { resume: true } : { suspend: true, reason: c.reason }
-                          );
-                        }}
-                      >
-                        {r.suspended_at ? t("admin_del_btn_resume") : t("admin_del_btn_suspend")}
-                      </AdminActionButton>
-                    </div>
-                    <details className="mt-1">
-                      <summary className="cursor-pointer text-[12px] text-signature">{t("admin_del_memo_summary")}</summary>
-                      {/* 명시적 저장 — 입력 이탈 시 자동 저장하지 않는다 */}
-                      <textarea
-                        className="sam-input mt-1 h-16 w-full text-[12px]"
-                        value={memoDraft[r.id] ?? r.admin_note ?? ""}
-                        disabled={busyRider === r.id}
-                        onChange={(e) => setMemoDraft((m) => ({ ...m, [r.id]: e.target.value }))}
-                      />
-                      <AdminActionButton
-                        type="button"
-                        variant="secondary" size="sm" className="mt-1"
-                        disabled={
-                          busyRider === r.id ||
-                          memoDraft[r.id] === undefined ||
-                          (memoDraft[r.id] ?? "").trim() === (r.admin_note ?? "").trim()
-                        }
-                        onClick={async () => {
-                          const ok = await patchRider(
-                            r.id,
-                            { admin_note: (memoDraft[r.id] ?? "").trim(), expected_admin_note: r.admin_note ?? "" },
-                            t("admin_r4d_rider_memo_saved")
-                          );
-                          if (ok) setMemoDraft(({ [r.id]: _done, ...rest }) => (void _done, rest));
-                        }}
-                      >
-                        {t("admin_r4d_rider_memo_save")}
-                      </AdminActionButton>
-                    </details>
-                    <div className="mt-1 space-y-0.5 text-[12px]">
-                      {(r.active_orders ?? []).slice(0, 4).map((o) => (
-                        <div key={o.order_id}>
-                          <AdminActionButton variant="ghost" size="sm" className="!px-0" onClick={() => openDetail(o.order_id)}>
-                            {o.order_no || (ko ? "주문" : "Order")} · {deliveryStatusText(o.delivery_status)}
-                          </AdminActionButton>
-                        </div>
-                      ))}
-                    </div>
+                    {/* 행 버튼 = ghost/sm 1개 — 상태 변경·메모·진행 주문은 「관리」 Drawer 에서 */}
+                    <AdminActionButton type="button" variant="ghost" size="sm" onClick={() => setOpenRiderId(r.id)}>
+                      {ko ? "관리" : "Manage"}
+                    </AdminActionButton>
+                    {(r.active_orders ?? []).length > 0 ? (
+                      <div className="mt-1 text-[12px] text-sam-muted">
+                        {ko ? `진행 주문 ${(r.active_orders ?? []).length}건` : `${(r.active_orders ?? []).length} active orders`}
+                      </div>
+                    ) : null}
                   </td>
                 </tr>
               ))}
-              {!loading && riders.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-8 text-center text-sam-muted">
-                    {t("admin_del_empty_riders")}
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
+          {!loading && riders.length === 0 && !loadErr ? <AdminEmptyState ko={ko} message={t("admin_del_empty_riders")} /> : null}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -564,7 +476,7 @@ export function AdminDeliveryRidersPage() {
                     <AdminActionButton
                       type="button"
                       disabled={busyOrder === u.order_id || !(assignMap[u.order_id] ?? "").trim()}
-                      variant="primary" size="sm" className="ml-1 mt-1"
+                      variant="ghost" size="sm" className="ml-1 mt-1"
                       onClick={async () => {
                         if (busyOrder) return;
                         const c = await confirmAdminAction({
@@ -587,15 +499,9 @@ export function AdminDeliveryRidersPage() {
                   </td>
                 </tr>
               ))}
-              {!loading && unassigned.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-sam-muted">
-                    {t("admin_del_empty_unassigned")}
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
+          {!loading && unassigned.length === 0 && !loadErr ? <AdminEmptyState ko={ko} message={t("admin_del_empty_unassigned")} /> : null}
         </div>
       )}
 
@@ -611,15 +517,12 @@ export function AdminDeliveryRidersPage() {
             className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-2">
-              <h2 className={OverlayUi.title}>{t("admin_del_detail_title")}</h2>
-              <DibayOverlayButton roleTone="secondary" className="!min-h-9 !flex-none !px-3" onClick={() => setDetailOrderId(null)}>
-                {t("common_close")}
-              </DibayOverlayButton>
-            </div>
+            <h2 className={OverlayUi.title}>{t("admin_del_detail_title")}</h2>
             <AdminTechDetails ko={ko}>{detailOrderId}</AdminTechDetails>
             {detailLoading ? (
-              <p className="mt-4 text-sam-muted sam-text-xxs">{t("common_loading")}</p>
+              <div className="mt-4">
+                <AdminLoadingState ko={ko} />
+              </div>
             ) : detail ? (
               <dl className="mt-3 space-y-2 sam-text-xxs">
                 <div className="flex justify-between gap-2">
@@ -864,9 +767,15 @@ export function AdminDeliveryRidersPage() {
               >
                 {t("admin_del_btn_mark_attention")}
               </AdminActionButton>
+            </div>
+            {/* 하단 표준 배치 — 왼쪽 [닫기] · 오른쪽 이동 링크 (주 동작 없음: 조치는 위 보조 버튼, 모두 확인 단계) */}
+            <div className="mt-3 flex items-center gap-2 border-t border-[color:var(--overlay-border)] pt-3" data-rider-detail-footer="1">
+              <AdminActionButton type="button" variant="secondary" size="sm" onClick={() => setDetailOrderId(null)}>
+                {adminCta("close", ko)}
+              </AdminActionButton>
               <Link
                 href={`/admin/stores/orders/${encodeURIComponent(detailOrderId)}`}
-                className="sam-btn sam-btn--outline sam-btn--sm text-[12px]"
+                className="ml-auto sam-btn sam-btn--outline sam-btn--sm text-[12px]"
               >
                 {ko ? "주문 상세" : "Order detail"}
               </Link>
@@ -874,6 +783,134 @@ export function AdminDeliveryRidersPage() {
           </div>
         </DibayOverlayRoot>
       ) : null}
+
+      <AdminDetailDrawer
+        open={openRider != null}
+        onClose={() => setOpenRiderId(null)}
+        ko={ko}
+        pending={openRider != null && busyRider === openRider.id}
+        title={openRider?.display_name?.trim() || (ko ? "이름 없는 라이더" : "Unnamed rider")}
+        subtitle={openRider ? (openRider.is_online ? t("admin_del_online") : t("admin_del_offline")) : undefined}
+        dangerActions={
+          <AdminActionButton
+            type="button"
+            variant="secondary"
+            disabled={openRider != null && busyRider === openRider.id}
+            onClick={() => setOpenRiderId(null)}
+          >
+            {adminCta("close", ko)}
+          </AdminActionButton>
+        }
+      >
+        {openRider ? (() => {
+          const r = openRider;
+          return (
+            <div className="space-y-3 sam-text-xxs">
+                    <div className="flex flex-wrap gap-2">
+                      <AdminActionButton
+                        type="button"
+                        disabled={busyRider === r.id}
+                        variant="secondary" size="sm"
+                        onClick={async () => {
+                          if (busyRider) return;
+                          const c = await confirmAdminAction({
+                            level: adminActionLevel(r.is_online ? "disable" : "resume"),
+                            ko,
+                            title: r.is_online
+                              ? ko
+                                ? "이 라이더를 오프라인으로 바꿀까요?"
+                                : "Set this rider offline?"
+                              : ko
+                                ? "이 라이더를 온라인으로 바꿀까요?"
+                                : "Set this rider online?",
+                            description: r.display_name ?? undefined,
+                            confirmLabel: r.is_online ? t("admin_del_btn_go_offline") : t("admin_del_btn_go_online"),
+                          });
+                          if (!c.ok) return;
+                          void patchRider(r.id, { is_online: !r.is_online });
+                        }}
+                      >
+                        {r.is_online ? t("admin_del_btn_go_offline") : t("admin_del_btn_go_online")}
+                      </AdminActionButton>
+                      <AdminActionButton
+                        type="button"
+                        disabled={busyRider === r.id}
+                        variant="secondary" size="sm"
+                        onClick={async () => {
+                          if (busyRider) return;
+                          const c = await confirmAdminAction({
+                            level: r.suspended_at ? "L1" : "L2",
+                            ko,
+                            title: r.suspended_at
+                              ? ko
+                                ? "이 라이더의 정지를 해제할까요?"
+                                : "Resume this rider?"
+                              : ko
+                                ? "이 라이더를 정지할까요?"
+                                : "Suspend this rider?",
+                            description: r.suspended_at
+                              ? (r.display_name ?? undefined)
+                              : ko
+                                ? `${r.display_name ?? ""} — 정지하면 새 배정을 받을 수 없습니다.`.trim()
+                                : `${r.display_name ?? ""} — a suspended rider cannot receive new assignments.`.trim(),
+                            confirmLabel: r.suspended_at ? t("admin_del_btn_resume") : t("admin_del_btn_suspend"),
+                            destructive: !r.suspended_at,
+                          });
+                          if (!c.ok) return;
+                          void patchRider(
+                            r.id,
+                            r.suspended_at ? { resume: true } : { suspend: true, reason: c.reason }
+                          );
+                        }}
+                      >
+                        {r.suspended_at ? t("admin_del_btn_resume") : t("admin_del_btn_suspend")}
+                      </AdminActionButton>
+                    </div>
+                    <details className="mt-1" open>
+                      <summary className="cursor-pointer text-[12px] text-signature">{t("admin_del_memo_summary")}</summary>
+                      {/* 명시적 저장 — 입력 이탈 시 자동 저장하지 않는다 */}
+                      <textarea
+                        className="sam-input mt-1 h-16 w-full text-[12px]"
+                        value={memoDraft[r.id] ?? r.admin_note ?? ""}
+                        disabled={busyRider === r.id}
+                        onChange={(e) => setMemoDraft((m) => ({ ...m, [r.id]: e.target.value }))}
+                      />
+                      <AdminActionButton
+                        type="button"
+                        variant="secondary" size="sm" className="mt-1"
+                        disabled={
+                          busyRider === r.id ||
+                          memoDraft[r.id] === undefined ||
+                          (memoDraft[r.id] ?? "").trim() === (r.admin_note ?? "").trim()
+                        }
+                        onClick={async () => {
+                          const ok = await patchRider(
+                            r.id,
+                            { admin_note: (memoDraft[r.id] ?? "").trim(), expected_admin_note: r.admin_note ?? "" },
+                            t("admin_r4d_rider_memo_saved")
+                          );
+                          if (ok) setMemoDraft(({ [r.id]: _done, ...rest }) => (void _done, rest));
+                        }}
+                      >
+                        {t("admin_r4d_rider_memo_save")}
+                      </AdminActionButton>
+                    </details>
+                    <div className="mt-1 space-y-0.5 text-[12px]">
+                      {(r.active_orders ?? []).slice(0, 4).map((o) => (
+                        <div key={o.order_id}>
+                          <AdminActionButton variant="ghost" size="sm" className="!px-0" onClick={() => {
+                            setOpenRiderId(null);
+                            openDetail(o.order_id);
+                          }}>
+                            {o.order_no || (ko ? "주문" : "Order")} · {deliveryStatusText(o.delivery_status)}
+                          </AdminActionButton>
+                        </div>
+                      ))}
+                    </div>
+                              </div>
+          );
+        })() : null}
+      </AdminDetailDrawer>
     </div>
   );
 }

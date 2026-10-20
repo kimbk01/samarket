@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
+import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
+import { ADMIN_LIST_QUERY_DEFAULT_SIZE, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type ArchiveTab = "notes" | "platform";
@@ -89,31 +92,43 @@ function ArchiveRowToggle({
 /** B8 — read-only thread body, loaded on expand via the existing admin GET. */
 function ArchiveNoteThread({ threadId, ko }: { threadId: string; ko: boolean }) {
   const [messages, setMessages] = useState<NoteMessage[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<{ code: string; httpStatus?: number } | null>(null);
+  const [nonce, setNonce] = useState(0);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      setFailed(null);
       try {
         const res = await fetch(`/api/admin/member-notes/${encodeURIComponent(threadId)}`, {
           credentials: "include",
           cache: "no-store",
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; messages?: NoteMessage[] };
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; messages?: NoteMessage[] };
         if (cancelled) return;
-        if (!res.ok || !json.ok) setFailed(true);
+        if (!res.ok || !json.ok) setFailed({ code: json.error || "load_failed", httpStatus: res.status });
         else setMessages(Array.isArray(json.messages) ? json.messages : []);
       } catch {
-        if (!cancelled) setFailed(true);
+        if (!cancelled) setFailed({ code: "network_error" });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [threadId]);
+  }, [threadId, nonce]);
   if (failed) {
-    return <p className="mt-2 text-xs text-sam-danger" role="alert">{ko ? "대화를 불러오지 못했습니다" : "Could not load"}</p>;
+    return (
+      <div className="mt-2">
+        <AdminErrorState ko={ko} code={failed.code} httpStatus={failed.httpStatus} onRetry={() => setNonce((n) => n + 1)} />
+      </div>
+    );
   }
-  if (!messages) return <p className="mt-2 text-xs text-sam-muted">…</p>;
+  if (!messages) {
+    return (
+      <div className="mt-2">
+        <AdminLoadingState ko={ko} />
+      </div>
+    );
+  }
   return (
     <div className="mt-2 space-y-2" data-admin-archive-thread={threadId}>
       {messages.map((m) => (
@@ -140,54 +155,20 @@ function ArchiveNoteThread({ threadId, ko }: { threadId: string; ko: boolean }) 
 export function AdminSupportArchivePage() {
   const { safeT, language } = useI18n();
   const [tab, setTab] = useState<ArchiveTab>("notes");
-  const [notes, setNotes] = useState<NoteThread[]>([]);
-  const [platform, setPlatform] = useState<PlatformRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const ko = language !== "en";
   const [openId, setOpenId] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [notesRes, platRes] = await Promise.all([
-        fetch("/api/admin/member-notes", { credentials: "include", cache: "no-store" }),
-        fetch("/api/admin/platform-inquiries", { credentials: "include", cache: "no-store" }),
-      ]);
-      const notesJson = (await notesRes.json().catch(() => ({}))) as {
-        ok?: boolean;
-        threads?: NoteThread[];
-        error?: string;
-      };
-      const platJson = (await platRes.json().catch(() => ({}))) as {
-        ok?: boolean;
-        rows?: PlatformRow[];
-        inquiries?: PlatformRow[];
-        error?: string;
-      };
-      if (!notesRes.ok || !notesJson.ok) {
-        setError(notesJson.error ?? "notes_load_failed");
-      } else {
-        setNotes(Array.isArray(notesJson.threads) ? notesJson.threads : []);
-      }
-      if (platRes.ok && platJson.ok) {
-        const rows = platJson.rows ?? platJson.inquiries ?? [];
-        setPlatform(Array.isArray(rows) ? rows : []);
-      } else {
-        // DEF-07: platform archive failure must not look like an empty archive.
-        setError((prev) => prev ?? platJson.error ?? "platform_load_failed");
-      }
-    } catch {
-      setError("network_error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  /** R7 — 탭별 서버 페이지(20/50/100 + 총 건수). 예전 쪽지 200건·플랫폼 문의 300건 고정 상한 제거. 필터가 없어 쪽·크기만 화면 상태. */
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState<AdminListPageSize>(ADMIN_LIST_QUERY_DEFAULT_SIZE);
+  const pageQs = `limit=${size}&offset=${(page - 1) * size}`;
+  const notesList = useMemberOpsPagedFetch<NoteThread>(tab === "notes" ? `/api/admin/member-notes?${pageQs}` : null, "threads");
+  const platformList = useMemberOpsPagedFetch<PlatformRow>(
+    tab === "platform" ? `/api/admin/platform-inquiries?${pageQs}` : null,
+    "inquiries"
+  );
+  const list = tab === "notes" ? notesList : platformList;
+  const notes = notesList.rows;
+  const platform = platformList.rows;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4" data-admin-support-archive="1">
@@ -220,19 +201,33 @@ export function AdminSupportArchivePage() {
           ]}
           value={tab}
           syncUrl={false}
-          onChange={(id) => setTab(id as ArchiveTab)}
+          onChange={(id) => {
+            setTab(id as ArchiveTab);
+            setPage(1);
+            setOpenId(null);
+          }}
         />
         <Link href="/admin/support" className="ml-auto text-sm text-sam-primary underline">
           {safeT("admin_support_title", { fallbackKo: "고객센터", fallbackEn: "Support Center" })}
         </Link>
       </div>
-      {!loading && error ? <AdminErrorState ko={ko} code={error} onRetry={() => void load()} /> : null}
-      {loading ? (
-        <AdminLoadingState ko={ko} />
-      ) : tab === "notes" ? (
-        notes.length === 0 ? (
-          error ? null : <AdminEmptyState ko={ko} />
-        ) : (
+      <MemberOpsListBody
+        ko={ko}
+        loading={list.loading}
+        loaded={list.loaded}
+        error={list.error}
+        onRetry={list.reload}
+        rowCount={list.rows.length}
+        total={list.total}
+        page={page}
+        size={size}
+        onPageChange={setPage}
+        onSizeChange={(n) => {
+          setSize(n);
+          setPage(1);
+        }}
+      >
+      {tab === "notes" ? (
         <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
           {notes.map((n) => (
               <li key={n.id} className="px-3 py-3">
@@ -250,9 +245,6 @@ export function AdminSupportArchivePage() {
               </li>
             ))}
         </ul>
-        )
-      ) : platform.length === 0 ? (
-        error ? null : <AdminEmptyState ko={ko} />
       ) : (
         <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
           {platform.map((r) => (
@@ -284,6 +276,7 @@ export function AdminSupportArchivePage() {
             ))}
         </ul>
       )}
+      </MemberOpsListBody>
     </div>
   );
 }

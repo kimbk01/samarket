@@ -106,16 +106,24 @@ export async function listCommunitySections(): Promise<CommunitySectionDTO[]> {
 
 /** 관리자: 비활성 포함 전체 섹션 */
 export async function listAllCommunitySectionsForAdmin(): Promise<CommunitySectionAdminRow[]> {
+  return (await loadAllCommunitySectionsForAdmin()).rows;
+}
+
+/** 관리자 화면용 — 조회 실패(`error`)를 「섹션 없음」과 구분한다. */
+export async function loadAllCommunitySectionsForAdmin(): Promise<{
+  rows: CommunitySectionAdminRow[];
+  error: string | null;
+}> {
   try {
     const sb = getSupabaseServer();
     const { data, error } = await sb
       .from("community_sections")
       .select("id, name, slug, sort_order, is_active")
       .order("sort_order", { ascending: true });
-    if (error || !data?.length) return [];
-    return data as CommunitySectionAdminRow[];
+    if (error) return { rows: [], error: "load_failed" };
+    return { rows: (data ?? []) as CommunitySectionAdminRow[], error: null };
   } catch {
-    return [];
+    return { rows: [], error: "load_failed" };
   }
 }
 

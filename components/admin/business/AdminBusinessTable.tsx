@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { forwardRef } from "react";
+import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import {
@@ -299,12 +300,10 @@ export const AdminBusinessTable = forwardRef<
                   {formatRelative(r.lastOrderAt, language)}
                 </td>
                 <td className={TD}>
-                  <Link
-                    href={detailHref}
-                    className="inline-flex rounded-ui-rect border border-signature bg-signature px-3 py-1.5 text-[12px] font-semibold text-white hover:opacity-90"
-                  >
+                  {/* 행 버튼 = ghost/sm (화면 primary 는 필터 바 [조회]) */}
+                  <AdminActionLink href={detailHref} variant="ghost" size="sm">
                     {ko ? "상세 보기" : "View detail"}
-                  </Link>
+                  </AdminActionLink>
                 </td>
               </tr>
             );

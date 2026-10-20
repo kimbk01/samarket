@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getDevSprints,
@@ -11,6 +11,9 @@ import {
 import { DevSprintItemCard } from "./DevSprintItemCard";
 import { getSprintItemStatusLabel } from "@/lib/dev-sprints/dev-sprint-utils";
 import type { DevSprintItemStatus } from "@/lib/types/dev-sprints";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 const ITEM_STATUS_COLUMNS: DevSprintItemStatus[] = [
   "todo",
@@ -21,10 +24,14 @@ const ITEM_STATUS_COLUMNS: DevSprintItemStatus[] = [
   "blocked",
 ];
 
+const BOARD_EXTRAS = ["sprint"] as const;
+
 export function DevSprintBoard() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [sprintId, setSprintId] = useState<string>("");
+  /** 스프린트 선택은 주소(`?sprint=`)에 보존 (R7). 비우면 진행·예정 첫 스프린트. */
+  const lq = useAdminListQuery({ extras: BOARD_EXTRAS });
+  const sprintId = lq.query.extras.sprint;
 
   const sprints = useMemo(() => getDevSprints(), []);
   const activeOrPlanned = useMemo(
@@ -57,26 +64,28 @@ export function DevSprintBoard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_dev_sprint_label_sprint")}</span>
-        <select
-          value={selectedSprintId}
-          onChange={(e) => setSprintId(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
-          <option value="">{t("admin_dev_sprint_select_sprint")}</option>
-          {sprints.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.sprintName} ({s.status})
-            </option>
-          ))}
-        </select>
-        {selectedSprint && (
-          <span className="sam-text-body-secondary text-sam-muted">
-            {selectedSprint.sprintGoal}
-          </span>
-        )}
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect
+          ko={ko}
+          label={t("admin_dev_sprint_label_sprint")}
+          name="sprint"
+          value={sprintId}
+          onChange={(v) => lq.setExtra("sprint", v)}
+          allLabel={t("admin_dev_sprint_select_sprint")}
+          options={sprints.map((s) => ({ value: s.id, label: s.sprintName }))}
+        />
+      </AdminFilterBar>
+      {selectedSprint && (
+        <p className="sam-text-body-secondary text-sam-muted">{selectedSprint.sprintGoal}</p>
+      )}
 
       {items.length === 0 ? (
         <AdminEmptyState ko={ko} message={t("admin_dev_sprint_empty_board")} />

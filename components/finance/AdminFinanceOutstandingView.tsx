@@ -1,17 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
 import { financeOrderHref, financeStoreHref, parseFinanceFilters } from "@/lib/finance/routes";
 import { financeStatusLabel } from "@/lib/finance/presentation";
-import {
-  AdminEmptyState,
-  AdminErrorState,
-  AdminLoadingState,
-} from "@/components/admin/ui/AdminStateViews";
+import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
+import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminPhpMinor } from "@/lib/admin/ui-standard/admin-format";
 
@@ -37,42 +35,15 @@ export function AdminFinanceOutstandingView() {
   const router = useRouter();
   const sp = useSearchParams();
   const filters = useMemo(() => parseFinanceFilters(new URLSearchParams(sp.toString())), [sp]);
-  const [rows, setRows] = useState<ObligationRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const qs = new URLSearchParams();
-      if (filters.storeId) qs.set("storeId", filters.storeId);
-      const res = await fetch(`/api/admin/finance/outstanding?${qs.toString()}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        rows?: ObligationRow[];
-        error?: string;
-      };
-      if (!res.ok || !json.ok) {
-        setError(json.error || "load_failed");
-        setRows([]);
-        return;
-      }
-      setRows(json.rows ?? []);
-    } catch {
-      setError("network_error");
-      setRows([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters.storeId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  /** 쪽·크기만 주소에 (조건은 진입 링크의 `storeId` 하나 — 필터 입력 없음). 서버 페이지 + 총 건수. */
+  const lq = useAdminListQuery();
+  const apiQs = useMemo(() => {
+    const qs = new URLSearchParams(lq.apiQueryString);
+    if (filters.storeId) qs.set("storeId", filters.storeId);
+    return qs.toString();
+  }, [lq.apiQueryString, filters.storeId]);
+  const list = useMemberOpsPagedFetch<ObligationRow>(`/api/admin/finance/outstanding?${apiQs}`, "rows", lq.refreshKey);
+  const rows = list.rows;
 
   return (
     <div className="space-y-4" data-admin-finance-outstanding="1">
@@ -83,12 +54,20 @@ export function AdminFinanceOutstandingView() {
           ? "행을 누르면 OrderMoneyChain으로 이동합니다. 매장명은 stores 조인입니다."
           : "Row opens OrderMoneyChain. Store name comes from stores join."}
       </p>
-      {loading ? <AdminLoadingState ko={ko} /> : null}
-      {error ? <AdminErrorState ko={ko} code={error} onRetry={() => void load()} /> : null}
-      {!loading && !error && rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={ko ? "미납 수수료가 없습니다." : "No outstanding fees."} />
-      ) : null}
-      {rows.length > 0 ? (
+      <MemberOpsListBody
+        ko={ko}
+        loading={list.loading}
+        loaded={list.loaded}
+        error={list.error}
+        onRetry={lq.refresh}
+        rowCount={rows.length}
+        total={list.total}
+        page={lq.query.page}
+        size={lq.query.size}
+        onPageChange={lq.setPage}
+        onSizeChange={lq.setSize}
+        emptyMessage={ko ? "미납 수수료가 없습니다." : "No outstanding fees."}
+      >
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[56rem] text-left sam-text-body-secondary">
           <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
@@ -165,7 +144,7 @@ export function AdminFinanceOutstandingView() {
           </tbody>
         </table>
       </div>
-      ) : null}
+      </MemberOpsListBody>
     </div>
   );
 }

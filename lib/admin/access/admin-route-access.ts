@@ -191,6 +191,8 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
 
   // ── 거래 (O-2: 활성 관리자 전원)
   { path: "/admin/trade/support", requirement: ANY },
+  // 거래 포인트 충전 = 커뮤니티와 같은 화면·같은 조회 API(`/api/admin/point-charges` = point 키) — 거래 전원이 아니다
+  { path: "/admin/trade/point-charges", requirement: perm("point") },
   { path: "/admin/trade", requirement: TRADE },
   { path: "/admin/trade-ad-policies", requirement: TRADE },
   { path: "/admin/trade-flow", requirement: TRADE },

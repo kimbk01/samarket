@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -30,15 +33,30 @@ type DeliveryRow = {
   created_at: string;
 };
 
+/** `useSearchParams` 사용 — Suspense 경계 안에서 그린다. */
 export function AdminPushDevicesPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminPushDevicesPageInner />
+    </Suspense>
+  );
+}
+
+/**
+ * 회원 푸시 기기·발송 기록 조회 (R7) — 조회 조건(회원 UUID)은 주소 `?q=` 에 남는다 (새로고침·링크 공유 유지).
+ * 목록은 회원 1명의 등록 기기(소수)와 최근 발송 50건(진단용) — 서버 페이지 대상 아님.
+ */
+function AdminPushDevicesPageInner() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [userId, setUserId] = useState("");
+  const lq = useAdminListQuery();
+  const userId = lq.query.q;
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [testBusy, setTestBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [sessionHint, setSessionHint] = useState<string | null>(null);
 
@@ -50,35 +68,47 @@ export function AdminPushDevicesPage() {
       setSessionHint(t("admin_push_devices_session_missing"));
       return;
     }
-    setUserId(userIdFromSession);
+    lq.patch({ q: userIdFromSession });
     setSessionHint(t("admin_push_devices_session_filled"));
-  }, [t]);
+  }, [t, lq]);
 
-  const load = useCallback(async () => {
+  const refreshKey = lq.refreshKey;
+  useEffect(() => {
     const uid = userId.trim();
-    if (!uid) {
-      setErr(t("admin_push_devices_user_required"));
-      return;
-    }
-    setLoading(true);
-    setErr(null);
-    try {
-      const res = await fetch(`/api/admin/push/devices?userId=${encodeURIComponent(uid)}`, {
-        credentials: "include",
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j?.ok) {
-        setErr(t("admin_push_devices_load_failed"));
-        return;
+    if (!uid) return;
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/push/devices?userId=${encodeURIComponent(uid)}`, {
+          credentials: "include",
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          devices?: DeviceRow[];
+          deliveries?: DeliveryRow[];
+        };
+        if (cancelled) return;
+        if (!res.ok || !j?.ok) {
+          // 직전 정상 목록은 지우지 않는다 (§8-5).
+          setErr({ code: j.error || "load_failed", httpStatus: res.status });
+          return;
+        }
+        setErr(null);
+        setDevices(j.devices ?? []);
+        setDeliveries(j.deliveries ?? []);
+        setLoadedFor(uid);
+      } catch {
+        if (!cancelled) setErr({ code: "network_error" });
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setDevices(j.devices ?? []);
-      setDeliveries(j.deliveries ?? []);
-    } catch {
-      setErr(t("admin_push_devices_load_failed"));
-    } finally {
-      setLoading(false);
-    }
-  }, [t, userId]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, refreshKey]);
 
   const sendTest = useCallback(async () => {
     const uid = userId.trim();
@@ -129,27 +159,37 @@ export function AdminPushDevicesPage() {
       <AdminPageHeader titleKey="admin_menu_push_devices" description={t("admin_push_devices_desc")} />
       <AdminCard>
         <p className="px-4 pt-4 text-[12px] text-sam-muted">{t("admin_push_devices_query_hint")}</p>
-        <div className="flex flex-wrap items-end gap-2 p-4">
-          <label className="flex min-w-[280px] flex-1 flex-col gap-1">
-            <span className="text-[12px] font-medium text-sam-muted">{t("admin_push_devices_user_id")}</span>
-            <input
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="UUID"
-              className="rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-            />
-          </label>
-          <AdminActionButton variant="secondary" onClick={() => void fillCurrentSessionUserId()}>
-            {t("admin_push_devices_use_session_user")}
-          </AdminActionButton>
-          <AdminActionButton variant="secondary" disabled={testBusy || !userId.trim()} onClick={() => void sendTest()}>
-            {t("admin_push_test_send")}
-          </AdminActionButton>
-          <AdminActionButton variant="primary" disabled={loading} onClick={() => void load()}>
-            {t("admin_push_devices_load")}
-          </AdminActionButton>
+        <div className="p-4">
+          <AdminFilterBar
+            ko={ko}
+            draft={lq.draft}
+            onDraftChange={lq.setDraft}
+            onSubmit={lq.submit}
+            onReset={() => {
+              lq.reset();
+              setDevices([]);
+              setDeliveries([]);
+              setLoadedFor(null);
+              setErr(null);
+            }}
+            pending={loading}
+            showPeriod={false}
+            searchPlaceholder={`${t("admin_push_devices_user_id")} (UUID)`}
+          />
+          <div className="mt-2 flex flex-wrap gap-2">
+            <AdminActionButton variant="secondary" onClick={() => void fillCurrentSessionUserId()}>
+              {t("admin_push_devices_use_session_user")}
+            </AdminActionButton>
+            <AdminActionButton variant="secondary" disabled={testBusy || !userId.trim()} onClick={() => void sendTest()}>
+              {t("admin_push_test_send")}
+            </AdminActionButton>
+          </div>
         </div>
-        {err ? <p className="px-4 pb-2 text-[13px] text-sam-danger" role="alert">{err}</p> : null}
+        {err ? (
+          <div className="px-4 pb-3">
+            <AdminErrorState ko={ko} code={err.code} httpStatus={err.httpStatus} onRetry={lq.refresh} />
+          </div>
+        ) : null}
         {sessionHint ? <p className="px-4 pb-2 text-[13px] text-sam-muted">{sessionHint}</p> : null}
         {testResult ? <p className="px-4 pb-2 text-[13px] text-sam-fg">{testResult}</p> : null}
       </AdminCard>
@@ -169,8 +209,15 @@ export function AdminPushDevicesPage() {
             <tbody>
               {devices.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-4 text-sam-muted">
-                    {t("admin_push_devices_empty")}
+                  <td colSpan={5} className="py-4">
+                    {loading && loadedFor !== userId.trim() ? (
+                      <AdminLoadingState ko={ko} />
+                    ) : (
+                      <AdminEmptyState
+                        ko={ko}
+                        message={userId.trim() ? t("admin_push_devices_empty") : t("admin_push_devices_user_required")}
+                      />
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -203,8 +250,12 @@ export function AdminPushDevicesPage() {
             <tbody>
               {deliveries.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-4 text-sam-muted">
-                    {t("admin_push_deliveries_empty")}
+                  <td colSpan={4} className="py-4">
+                    {loading && loadedFor !== userId.trim() ? (
+                      <AdminLoadingState ko={ko} />
+                    ) : (
+                      <AdminEmptyState ko={ko} message={t("admin_push_deliveries_empty")} />
+                    )}
                   </td>
                 </tr>
               ) : (

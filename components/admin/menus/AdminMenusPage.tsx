@@ -11,6 +11,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCategoryAdmin } from "@/components/admin/categories/useCategoryAdmin";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CategoryIcon } from "@/components/home/CategoryIcon";
 import { CategoryFieldCompositionEditor } from "@/components/admin/categories/CategoryFieldCompositionEditor";
@@ -75,6 +76,7 @@ export function AdminMenusPage() {
   const {
     list,
     loading,
+    loadError,
     message,
     supabaseAvailable,
     load,
@@ -454,11 +456,12 @@ export function AdminMenusPage() {
 
   /* ───────── render ───────── */
 
-  if (loading && list.length === 0) {
-    return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        {t("common_loading")}
-      </div>
+  const ko = language !== "en";
+  if (list.length === 0 && (loading || loadError)) {
+    return loadError && !loading ? (
+      <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.httpStatus} onRetry={() => void load()} />
+    ) : (
+      <AdminLoadingState ko={ko} label={t("common_loading")} />
     );
   }
 
@@ -528,6 +531,10 @@ export function AdminMenusPage() {
         </div>
       )}
       {formError ? <p className="sam-text-body text-sam-danger">{formError}</p> : null}
+      {/* 다시 불러오기 실패 — 직전 목록은 그대로 두고 안내 */}
+      {loadError ? (
+        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.httpStatus} onRetry={() => void load()} />
+      ) : null}
 
       {/* LIST */}
       {view.kind === "list" ? (
@@ -570,15 +577,13 @@ export function AdminMenusPage() {
                     </div>
                     <span className="text-signature">›</span>
                   </AdminActionButton>
+                  {/* 행 버튼 2개 이하 — 순서 이동만. 사용/중지는 주제 상세 「기본 정보」에서 */}
                   <div className="flex gap-1 px-3 pb-2">
-                    <AdminActionButton variant="quiet" size="sm" aria-label={language === "en" ? "Move up" : "위로"} onClick={() => void moveRoot(r.id, -1)}>
+                    <AdminActionButton variant="ghost" size="sm" aria-label={language === "en" ? "Move up" : "위로"} onClick={() => void moveRoot(r.id, -1)}>
                       ↑
                     </AdminActionButton>
-                    <AdminActionButton variant="quiet" size="sm" aria-label={language === "en" ? "Move down" : "아래로"} onClick={() => void moveRoot(r.id, 1)}>
+                    <AdminActionButton variant="ghost" size="sm" aria-label={language === "en" ? "Move down" : "아래로"} onClick={() => void moveRoot(r.id, 1)}>
                       ↓
-                    </AdminActionButton>
-                    <AdminActionButton variant="ghost" size="sm" onClick={() => void toggleActive(r.id, r.is_active)}>
-                      {r.is_active ? t("admin_menu_status_inactive") : t("admin_menu_status_active")}
                     </AdminActionButton>
                   </div>
                 </li>
@@ -905,7 +910,8 @@ function RootDetail({
           setSort={setRootSort}
         />
         <div className="flex flex-wrap gap-2">
-          <ConsoleButton variant="primary" disabled={saving} onClick={onSaveBasics}>
+          {/* 이 화면의 주 동작은 「등록 옵션」 저장 — 기본 정보 저장은 보조 (화면당 primary 1개) */}
+          <ConsoleButton variant="secondary" disabled={saving} onClick={onSaveBasics}>
             {t("common_save")}
           </ConsoleButton>
           <ConsoleButton variant="danger" onClick={onDeleteRoot}>

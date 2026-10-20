@@ -2,7 +2,6 @@
 
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
-import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsBenchmarkCards } from "./OpsBenchmarkCards";
@@ -12,11 +11,13 @@ import { OpsAdminPerformanceReviewTable } from "./OpsAdminPerformanceReviewTable
 import { OpsBenchmarkSummaryCards } from "./OpsBenchmarkSummaryCards";
 import { loadOpsBenchmarksFromServer } from "@/lib/ops-benchmarks/ops-benchmarks-sync-client";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId = "benchmark" | "quarterly" | "performance" | "gap" | "summary";
 
 export function AdminOpsBenchmarksPage() {
-  const [activeTab, setActiveTab] = useState<TabId>("benchmark");
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(["benchmark", "quarterly", "performance", "gap", "summary"] as const, "benchmark");
   const { state: loadState, reload } = useAdminSyncLoad(loadOpsBenchmarksFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -44,9 +45,8 @@ export function AdminOpsBenchmarksPage() {
         className="mb-4"
         tabs={tabs.map((tab) => ({ id: tab.id, label: tab.label }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="benchmark"
+        resetParams={adminSyncTabResetParams(["scope", "domain"])}
       />
 
       {activeTab === "benchmark" && (

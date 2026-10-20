@@ -19,7 +19,8 @@ interface OpsKnowledgeEdgeTableProps {
 export function OpsKnowledgeEdgeTable({
   edgeTypeFilter = "",
   sourceNodeId,
-}: OpsKnowledgeEdgeTableProps) {
+  onReset,
+}: OpsKnowledgeEdgeTableProps & { onReset?: () => void }) {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const edges = useMemo(
@@ -27,13 +28,14 @@ export function OpsKnowledgeEdgeTable({
       getOpsKnowledgeGraphEdges({
         edgeType: edgeTypeFilter || undefined,
         sourceNodeId,
+        limit: Number.MAX_SAFE_INTEGER,
       }),
     [edgeTypeFilter, sourceNodeId]
   );
 
   if (edges.length === 0) {
     return (
-      <AdminEmptyState ko={ko} message={t("admin_ops_tools_kg_edges_empty")} />
+      <AdminEmptyState ko={ko} message={onReset ? undefined : t("admin_ops_tools_kg_edges_empty")} onReset={onReset} />
     );
   }
 

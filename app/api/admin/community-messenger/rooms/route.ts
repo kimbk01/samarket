@@ -10,6 +10,8 @@ import {
   clampAdminChatListLimit,
   parseAdminChatRoomListQuery,
 } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
+import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import { parseAdminListPage } from "@/lib/admin/pagination/parse-admin-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +20,8 @@ export const dynamic = "force-dynamic";
  * GET /api/admin/community-messenger/rooms
  * - Paged (C-11): `?type=all|general_direct|group|trade|store_order&status=&q=&user_id=&reported=1&cursor=&limit=`
  *   → `{ ok, rooms, nextCursor }` (keyset, server search incl. participant `user_id`).
+ * - 쪽 번호 (R7 목록 표준): `offset` 이 있으면 `limit`(20/50/100, 그 외 20)·`offset` → `{ ok, rooms, total, limit, offset }`.
+ *   `offset` 이 없는 기존 호출자(연결 채팅방 카드 등)는 keyset 응답 그대로.
  * - Legacy: `?domain=general_direct|group|store_order` (capped 200, no paging).
  * Thin list — no message preload. Detail: /admin/chats/messenger/[id]
  */
@@ -34,6 +38,12 @@ export async function GET(req: NextRequest) {
           : await requireChatAdmin();
     if (!admin.ok) return admin.response;
     try {
+      if (sp.has("offset")) {
+        const limit = normalizeAdminListPageSize(sp.get("limit"));
+        const { offset } = parseAdminListPage(sp);
+        const page = await listAdminChatRoomsPaged(query, limit, { offset });
+        return NextResponse.json({ ok: true, rooms: page.rows, total: page.total ?? 0, limit, offset });
+      }
       const page = await listAdminChatRoomsPaged(query, clampAdminChatListLimit(sp.get("limit")));
       return NextResponse.json({ ok: true, rooms: page.rows, nextCursor: page.nextCursor });
     } catch (e) {

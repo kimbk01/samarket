@@ -1,12 +1,11 @@
 "use client";
 
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type ScopeKpis = {
   activeProducts: number;
@@ -44,6 +43,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
   const activeRange = (RANGES as readonly string[]).includes(range) ? range : "all";
   const [data, setData] = useState<Summary | null>(null);
   const [state, setState] = useState<"loading" | "error" | "empty" | "data">("loading");
+  const [loadErr, setLoadErr] = useState<{ code: string; status?: number } | null>(null);
 
   const load = useCallback(async () => {
     setState("loading");
@@ -52,12 +52,14 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
         `/api/admin/gift-certificates/ops-summary?range=${encodeURIComponent(activeRange)}`,
         { credentials: "include", cache: "no-store" }
       );
-      const json = (await res.json()) as { ok?: boolean } & Partial<Summary>;
+      const json = ((await res.json().catch(() => null)) ?? {}) as { ok?: boolean } & Partial<Summary>;
       if (!res.ok || !json.ok) {
-        setData(null);
+        // 실패해도 직전 요약은 지우지 않는다 (§8-5).
+        setLoadErr({ code: res.status === 403 ? "forbidden" : "load_failed", status: res.status });
         setState("error");
         return;
       }
+      setLoadErr(null);
       const next: Summary = {
         range: String(json.range ?? activeRange),
         activeProducts: Math.trunc(Number(json.activeProducts) || 0),
@@ -82,7 +84,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
         next.activeProducts === 0 && next.issuedInstances === 0 ? "empty" : "data"
       );
     } catch {
-      setData(null);
+      setLoadErr({ code: "network_error" });
       setState("error");
     }
   }, [activeRange]);
@@ -138,36 +140,28 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
         ))}
       </div>
 
-      {state === "loading" ? (
-        <p className="text-sm text-sam-muted">
-          {safeT("gift_ops_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
-        </p>
-      ) : null}
+      {state === "loading" ? <AdminLoadingState ko={language !== "en"} /> : null}
 
       {state === "error" ? (
-        <div className="space-y-2 rounded-ui-rect border border-sam-danger bg-sam-surface p-4">
-          <p className="text-sm text-sam-danger">
-            {safeT("gift_ops_summary_error", {
-              fallbackKo: "요약을 불러오지 못했습니다.",
-              fallbackEn: "Couldn’t load summary.",
-            })}
-          </p>
-          <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
-            {adminCta("refresh", language !== "en")}
-          </AdminActionButton>
-        </div>
+        <AdminErrorState
+          ko={language !== "en"}
+          code={loadErr?.code ?? "load_failed"}
+          httpStatus={loadErr?.status}
+          onRetry={() => void load()}
+        />
       ) : null}
 
       {state === "empty" && data ? (
-        <p className="text-sm text-sam-muted">
-          {safeT("gift_ops_summary_empty", {
+        <AdminEmptyState
+          ko={language !== "en"}
+          message={safeT("gift_ops_summary_empty", {
             fallbackKo: "아직 상품권 운영 데이터가 없습니다.",
             fallbackEn: "No gift operations data yet.",
           })}
-        </p>
+        />
       ) : null}
 
-      {(state === "data" || state === "empty") && data ? (
+      {data ? (
         <>
           <p className="text-xs text-sam-muted">
             {safeT("gift_ops_summary_liability_note", {

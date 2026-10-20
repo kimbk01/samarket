@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -10,10 +9,14 @@ import {
   resolveDeliveryAlertBannerLabel,
 } from "@/components/admin/i18n/admin-delivery-alerts-label-keys";
 import {
+  AdminEmptyState,
   AdminErrorState,
+  AdminLoadingState,
   AdminResultBanner,
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
@@ -21,17 +24,20 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { DeliveryOperationRecoveryAction } from "@/lib/admin/delivery-operation-recovery-actions";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
 
 const STATUS_FILTERS = ["all", "pending_approval", "success", "failed", "rejected"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
-function readStatus(sp: URLSearchParams): StatusFilter {
-  const v = sp.get("status");
-  return (STATUS_FILTERS as readonly string[]).includes(v ?? "") ? (v as StatusFilter) : "all";
-}
+/**
+ * 목록 조건 = 주소 (R7) — `status`(대시보드·상황판 지표 딥링크 `?status=failed` 호환) · `rule_id` ·
+ * `dangerous_only`·`retry_only`·`today_only`(=1). 새로고침·링크 공유 시 유지.
+ */
+const LIST_CONFIG = {
+  statuses: STATUS_FILTERS.filter((f) => f !== "all"),
+  extras: ["rule_id", "dangerous_only", "retry_only", "today_only"] as const,
+};
 
 /** 자동 조치 관련 일괄 작업 — 실시간 상황판에서 이 화면으로 옮겼다 (DUP-2). L3 확인. */
 const AUTO_BULK_ACTIONS: { action: DeliveryOperationRecoveryAction; labelKey: MessageKey }[] = [
@@ -113,9 +119,6 @@ export function AdminDeliveryAutoActionsPage() {
 
 function AdminDeliveryAutoActionsPageInner() {
   const { t, language } = useI18n();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const ko = language !== "en";
   const dash = t("admin_del_common_dash");
   const [killOn, setKillOn] = useState(false);
@@ -128,24 +131,12 @@ function AdminDeliveryAutoActionsPageInner() {
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [rulePicklist, setRulePicklist] = useState<RulePick[]>([]);
   // URL `status` 필터 — 대시보드·상황판 지표 링크가 필터된 상태로 연다 (DEF-53 계열)
-  const [filterStatus, setFilterStatusState] = useState<StatusFilter>(() =>
-    readStatus(new URLSearchParams(searchParams.toString()))
-  );
-  const setFilterStatus = useCallback(
-    (v: StatusFilter) => {
-      setFilterStatusState(v);
-      const qs = new URLSearchParams(searchParams.toString());
-      if (v === "all") qs.delete("status");
-      else qs.set("status", v);
-      const q = qs.toString();
-      router.replace(`${pathname || "/admin/delivery-auto-actions"}${q ? `?${q}` : ""}`, { scroll: false });
-    },
-    [pathname, router, searchParams]
-  );
-  const [ruleId, setRuleId] = useState<string>("");
-  const [dangerousOnly, setDangerousOnly] = useState(false);
-  const [retryOnly, setRetryOnly] = useState(false);
-  const [todayOnly, setTodayOnly] = useState(false);
+  const lq = useAdminListQuery(LIST_CONFIG);
+  const filterStatus = (lq.query.status || "all") as StatusFilter;
+  const ruleId = lq.query.extras.rule_id;
+  const dangerousOnly = lq.query.extras.dangerous_only === "1";
+  const retryOnly = lq.query.extras.retry_only === "1";
+  const todayOnly = lq.query.extras.today_only === "1";
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loadErr, setLoadErr] = useState<{ code: string; status?: number } | null>(null);
@@ -188,9 +179,8 @@ function AdminDeliveryAutoActionsPageInner() {
       .then(async (r) => {
         const j = await r.json().catch(() => null);
         if (!r.ok) {
+          // 실패해도 직전 목록은 지우지 않는다 (§8-5).
           setLoadErr({ code: r.status === 503 ? "schema_missing" : apiErr(r.status, j, "load_failed"), status: r.status });
-          setActions([]);
-          setDashboard(null);
           setLoading(false);
           return;
         }
@@ -215,7 +205,7 @@ function AdminDeliveryAutoActionsPageInner() {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, lq.refreshKey]);
 
   /**
    * 자동 조치 전체 중지/재허용 — **권위 스위치** (DEF-42: 러너가 읽는 delivery_auto_actions_runtime_settings).
@@ -595,8 +585,9 @@ function AdminDeliveryAutoActionsPageInner() {
                   ? "전체 중지됨"
                   : "All stopped"}
           </strong>
+          {/* 다시 허용으로 되돌릴 수 있는 동작 → danger 아님 · 화면 primary 는 필터 바 [조회] (확인 단계는 그대로) */}
           <AdminActionButton
-            variant={killOn ? "danger" : "primary"}
+            variant="secondary"
             size="sm"
             disabled={!settingsLoaded || killBusy}
             onClick={() => void toggleKill(!killOn)}
@@ -646,50 +637,50 @@ function AdminDeliveryAutoActionsPageInner() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((f) => (
-          <AdminChipButton
-            key={f}
-            type="button"
-            selected={filterStatus === f}
-            onClick={() => setFilterStatus(f)}
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        pending={loading}
+        showPeriod={false}
+        showSearch={false}
+        status={{
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          options: STATUS_FILTERS.filter((f) => f !== "all").map((f) => ({ value: f, label: filterStatusLabel(f) })),
+        }}
+      >
+        <label className="flex flex-col gap-1 sam-text-xxs text-sam-muted">
+          {t("admin_del_alert_rule_all")}
+          <select
+            className="h-10 min-w-[160px] rounded-ui-rect border border-sam-border bg-sam-surface px-2 sam-text-helper text-sam-fg"
+            value={ruleId}
+            onChange={(e) => lq.setExtra("rule_id", e.target.value)}
           >
-            {filterStatusLabel(f)}
-          </AdminChipButton>
+            <option value="">{t("admin_del_alert_rule_all")}</option>
+            {rulePicklist.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.rule_name || r.rule_key}
+              </option>
+            ))}
+          </select>
+        </label>
+        {(
+          [
+            ["dangerous_only", dangerousOnly, "admin_del_alert_filter_dangerous_only"],
+            ["retry_only", retryOnly, "admin_del_alert_filter_retry_only"],
+            ["today_only", todayOnly, "admin_del_alert_filter_today_utc"],
+          ] as const
+        ).map(([key, on, label]) => (
+          <label key={key} className="flex h-10 items-center gap-1.5 sam-text-helper text-sam-fg">
+            <input type="checkbox" checked={on} onChange={(e) => lq.setExtra(key, e.target.checked ? "1" : "")} />
+            {t(label)}
+          </label>
         ))}
-        <AdminChipButton
-          type="button"
-          selected={dangerousOnly}
-          onClick={() => setDangerousOnly((v) => !v)}
-        >
-          {t("admin_del_alert_filter_dangerous_only")}
-        </AdminChipButton>
-        <AdminChipButton
-          type="button"
-          selected={retryOnly}
-          onClick={() => setRetryOnly((v) => !v)}
-        >
-          {t("admin_del_alert_filter_retry_only")}
-        </AdminChipButton>
-        <AdminChipButton
-          type="button"
-          selected={todayOnly}
-          onClick={() => setTodayOnly((v) => !v)}
-        >
-          {t("admin_del_alert_filter_today_utc")}
-        </AdminChipButton>
-        <select
-          className="sam-input h-8 min-w-[160px] sam-text-xxs"
-          value={ruleId}
-          onChange={(e) => setRuleId(e.target.value)}
-        >
-          <option value="">{t("admin_del_alert_rule_all")}</option>
-          {rulePicklist.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.rule_name || r.rule_key}
-            </option>
-          ))}
-        </select>
+      </AdminFilterBar>
+      <div className="flex justify-end">
         <AdminActionButton type="button" variant="secondary" size="sm" onClick={() => loadData()} disabled={loading}>
           {t("admin_del_common_refresh")}
         </AdminActionButton>
@@ -759,7 +750,7 @@ function AdminDeliveryAutoActionsPageInner() {
                       <div className="flex gap-1">
                         <AdminActionButton
                           type="button"
-                          variant="primary" size="sm"
+                          variant="ghost" size="sm"
                           disabled={busyId !== null}
                           onClick={() => void postAction(a, "approve")}
                         >
@@ -767,7 +758,7 @@ function AdminDeliveryAutoActionsPageInner() {
                         </AdminActionButton>
                         <AdminActionButton
                           type="button"
-                          variant="secondary" size="sm"
+                          variant="ghost" size="sm"
                           disabled={busyId !== null}
                           onClick={() => void postAction(a, "reject")}
                         >
@@ -778,7 +769,7 @@ function AdminDeliveryAutoActionsPageInner() {
                   ) : a.action_status === "failed" ? (
                     <AdminActionButton
                       type="button"
-                      variant="secondary" size="sm"
+                      variant="ghost" size="sm"
                       disabled={busyId !== null || (a.retry_count ?? 0) >= (a.max_retries ?? 3)}
                       onClick={() => void postAction(a, "retry")}
                     >
@@ -790,16 +781,18 @@ function AdminDeliveryAutoActionsPageInner() {
                 </td>
               </tr>
             ))}
-            {!loading && actions.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="py-8 text-center text-sam-muted">
-                  {t("admin_del_alert_empty_auto_actions")}
-                </td>
-              </tr>
-            ) : null}
           </tbody>
         </table>
       </div>
+      {loading && actions.length === 0 ? (
+        <AdminLoadingState ko={ko} />
+      ) : actions.length === 0 && !loadErr ? (
+        <AdminEmptyState
+          ko={ko}
+          message={lq.isFiltered ? undefined : t("admin_del_alert_empty_auto_actions")}
+          onReset={lq.isFiltered ? lq.reset : undefined}
+        />
+      ) : null}
 
       <details className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sam-text-xxs text-sam-muted">
         <summary className="cursor-pointer text-sam-fg">{t("admin_del_alert_metadata_summary")}</summary>

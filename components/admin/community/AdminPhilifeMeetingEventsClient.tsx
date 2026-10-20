@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 모임 운영 로그 (설계 §C-9). 필터(모임·유형·페이지)는 URL 에 둔다 → 새로고침·복귀 시 유지.
+ * 모임 운영 로그 (설계 §C-9). 필터(모임·유형·페이지·페이지 크기 20/50/100)는 URL 에 둔다 → 새로고침·복귀 시 유지.
  * 열: 시각(상대 + PHT) · 모임(Admin 모임 화면 링크) · 행위자 · 대상 회원 · 유형 · 내용.
  * 모임 이름 검색은 서버가 아직 지원하지 않아, 모임 목록의 「운영 로그」 링크(meetingId)로 좁힌다.
  */
@@ -19,30 +19,32 @@ import { philifeAppPaths } from "@domain/philife/paths";
 import {
   COMMUNITY_TD,
   CommunityAuthorCell,
+  CommunityFilterBar,
   CommunityFilterField,
+  CommunityListBody,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityResetFilters,
   CommunitySelect,
   CommunityTable,
   CommunityTimeCell,
-  useCommunityQueryState,
+  useCommunityListQuery,
+  type CommunityListLoadState,
 } from "@/components/admin/community/kit/CommunityAdminKit";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { communityJsonFetch } from "@/components/admin/community/posts/community-post-admin-shared";
 
-const PAGE = 50;
+const EVENT_EXTRAS = ["meetingId", "type"] as const;
 
 export function AdminPhilifeMeetingEventsClient() {
-  const { t, language } = useI18n();
-  const ko = language !== "en";
-  const { get, set, reset, page } = useCommunityQueryState();
-  const meetingId = get("meetingId").trim();
-  const typeFilter = get("type");
+  const { t } = useI18n();
+  const lq = useCommunityListQuery({ extras: EVENT_EXTRAS });
+  const page = lq.query.page;
+  const pageSize = lq.query.size;
+  const meetingId = lq.query.extras.meetingId.trim();
+  const typeFilter = lq.query.extras.type;
 
   const [events, setEvents] = useState<AdminMeetingEventRow[]>([]);
-  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -62,17 +64,16 @@ export function AdminPhilifeMeetingEventsClient() {
     let cancel = false;
     setLoading(true);
     void (async () => {
-      const r = await communityJsonFetch<{ events?: AdminMeetingEventRow[]; hasMore?: boolean }>(
-        `/api/admin/meeting-events?${buildQuery({ limit: String(PAGE), offset: String((page - 1) * PAGE) })}`
+      const r = await communityJsonFetch<{ events?: AdminMeetingEventRow[]; total?: number | null }>(
+        `/api/admin/meeting-events?${buildQuery({ limit: String(pageSize), offset: String((page - 1) * pageSize) })}`
       );
       if (cancel) return;
       if (r.ok) {
         setEvents(r.json.events ?? []);
-        setHasMore(r.json.hasMore === true);
+        setTotal(typeof r.json.total === "number" ? r.json.total : null);
         setLoadErr(null);
       } else {
-        setEvents([]);
-        setHasMore(false);
+        // 실패해도 직전 목록은 지우지 않는다 (지시서 §8-5)
         setLoadErr({ code: r.code, status: r.status });
       }
       setLoading(false);
@@ -80,16 +81,24 @@ export function AdminPhilifeMeetingEventsClient() {
     return () => {
       cancel = true;
     };
-  }, [buildQuery, page, reloadKey]);
+  }, [buildQuery, page, pageSize, reloadKey, lq.refreshKey]);
 
   const meetingTitle = meetingId ? events.find((e) => e.meeting_id === meetingId)?.meeting_title?.trim() || "선택한 모임" : "";
 
-  let body: ReactNode;
-  if (loading) body = <AdminLoadingState ko={ko} />;
-  else if (loadErr) body = <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={reload} />;
-  else if (events.length === 0) body = <AdminEmptyState ko={ko} message={t("admin_meeting_events_empty")} />;
-  else
-    body = (
+  const hasData = total !== null || events.length > 0;
+  const listState: CommunityListLoadState = loadErr
+    ? { status: "error", data: hasData ? events : null, code: loadErr.code, httpStatus: loadErr.status }
+    : loading
+      ? { status: "loading", data: hasData ? events : null }
+      : { status: "ok", data: events };
+  const body: ReactNode = (
+    <CommunityListBody
+      state={listState}
+      empty={events.length === 0}
+      lq={lq}
+      onRetry={reload}
+      emptyMessage={t("admin_meeting_events_empty")}
+    >
       <CommunityTable head={["시각", "모임", "행위자", "대상 회원", "유형", "내용"]}>
         {events.map((e) => {
           const typeLabel = isMeetingEventType(e.event_type) ? t(MEETING_EVENT_TYPE_LABEL_KEYS[e.event_type]) : "기타";
@@ -104,7 +113,7 @@ export function AdminPhilifeMeetingEventsClient() {
                   size="sm"
                   className="h-auto! justify-start! whitespace-normal! px-0! text-left"
                   title="이 모임 기록만 보기"
-                  onClick={() => set({ meetingId: e.meeting_id })}
+                  onClick={() => lq.setExtra("meetingId", e.meeting_id)}
                 >
                   {e.meeting_title || "이름 없음"}
                 </AdminActionButton>
@@ -140,7 +149,8 @@ export function AdminPhilifeMeetingEventsClient() {
           );
         })}
       </CommunityTable>
-    );
+    </CommunityListBody>
+  );
 
   return (
     <CommunityListShell
@@ -162,12 +172,12 @@ export function AdminPhilifeMeetingEventsClient() {
           </AdminActionButton>
         </>
       }
-      filters={
-        <>
+      filterBar={
+        <CommunityFilterBar lq={lq} showPeriod={false} showSearch={false} pending={loading}>
           <CommunityFilterField label={t("admin_meeting_events_type_label")}>
             <CommunitySelect
               value={typeFilter}
-              onChange={(v) => set({ type: v })}
+              onChange={(v) => lq.setExtra("type", v)}
               options={[
                 { value: "", label: "전체 유형" },
                 ...MEETING_EVENT_TYPES.map((ev) => ({ value: ev, label: t(MEETING_EVENT_TYPE_LABEL_KEYS[ev]) })),
@@ -175,28 +185,18 @@ export function AdminPhilifeMeetingEventsClient() {
             />
           </CommunityFilterField>
           {meetingId ? (
-            <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
+            <span className="flex h-10 items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 text-[12px] text-sam-fg">
               모임: {meetingTitle}
-              <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => set({ meetingId: null })}>
+              <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => lq.setExtra("meetingId", "")}>
                 해제
               </AdminActionButton>
             </span>
           ) : (
-            <span className="pb-1.5 text-[12px] text-sam-muted">모임 이름을 누르면 그 모임 기록만 봅니다.</span>
+            <span className="pb-2.5 text-[12px] text-sam-muted">모임 이름을 누르면 그 모임 기록만 봅니다.</span>
           )}
-          {meetingId || typeFilter ? <CommunityResetFilters onReset={() => reset()} /> : null}
-        </>
+        </CommunityFilterBar>
       }
-      footer={
-        !loading && !loadErr && (events.length > 0 || page > 1) ? (
-          <CommunityPagination
-            page={page}
-            pageSize={PAGE}
-            total={hasMore ? null : (page - 1) * PAGE + events.length}
-            onPage={(p) => set({ page: p > 1 ? p : null }, { keepPage: true })}
-          />
-        ) : null
-      }
+      footer={<CommunityListPagination lq={lq} total={total} disabled={loading} />}
     >
       {body}
     </CommunityListShell>

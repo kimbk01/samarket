@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { manilaTodayStartUtcIso } from "@/lib/admin/metrics/manila-period";
+import { deliveryListRange, parseDeliveryListPageIfRequested } from "@/lib/admin/delivery-list/delivery-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,8 @@ function dedupeStrings(ids: Iterable<unknown>): string[] {
 
 /**
  * GET: 룰 + 이벤트 + 요약 + 배정 필터.
+ * - `limit`/`offset` 이 있으면 이벤트 서버 페이지(R7): 20/50/100 · `events_total`(count exact) — 고정 상한(120/300) 없음.
+ * - 없으면 예전 응답(`events_limit`, 기본 120·최대 300) 그대로.
  */
 export async function GET(req: Request) {
   const admin = await requireAdminApiUser();
@@ -30,8 +33,9 @@ export async function GET(req: Request) {
   }
 
   const sp = new URL(req.url).searchParams;
+  const page = parseDeliveryListPageIfRequested(sp);
   const limitRaw = Number(sp.get("events_limit") ?? "120");
-  const limit = Number.isFinite(limitRaw) ? Math.min(300, Math.max(10, Math.floor(limitRaw))) : 120;
+  const limit = page ? page.limit : Number.isFinite(limitRaw) ? Math.min(300, Math.max(10, Math.floor(limitRaw))) : 120;
   const statusFilter = sp.get("event_status")?.trim() ?? "open";
   const assignmentFilter = sp.get("assignment")?.trim() ?? "all";
   const uid = admin.userId;
@@ -70,10 +74,11 @@ export async function GET(req: Request) {
         "resolve_note",
         "mute_note",
         "repeat_fire_count",
-      ].join(", ")
+      ].join(", "),
+      page ? { count: "exact" } : undefined
     )
-    .order("last_triggered_at", { ascending: false })
-    .limit(limit);
+    .order("last_triggered_at", { ascending: false });
+  evQ = page ? evQ.order("id", { ascending: false }).range(...deliveryListRange(page)) : evQ.limit(limit);
 
   if (statusFilter === "open") {
     evQ = evQ.in("event_status", ["open", "acknowledged", "muted"]);
@@ -229,6 +234,7 @@ export async function GET(req: Request) {
       today_resolved_mine,
       avg_handle_minutes_today_mine: avg_handle_minutes,
     },
+    ...(page ? { events_total: eventsRes.count ?? events.length, limit: page.limit, offset: page.offset } : {}),
     query: { events_limit: limit, event_status: statusFilter, assignment: assignmentFilter },
   });
 }

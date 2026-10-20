@@ -2,7 +2,7 @@
 
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -13,12 +13,14 @@ import { ProductBacklogSummaryCards } from "./ProductBacklogSummaryCards";
 import { ProductFeedbackTable } from "./ProductFeedbackTable";
 import { ProductBacklogBoard } from "./ProductBacklogBoard";
 import { OpsDevHandoffTable } from "./OpsDevHandoffTable";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId = "summary" | "feedback" | "backlog" | "handoff";
 
 export function AdminProductBacklogPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("summary");
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(["summary", "feedback", "backlog", "handoff"] as const, "summary");
   const { state: loadState, reload } = useAdminSyncLoad(loadProductBacklogFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -48,9 +50,8 @@ export function AdminProductBacklogPage() {
       <AdminTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="summary"
+        resetParams={adminSyncTabResetParams(["category", "source"])}
         className="mb-4"
       />
       {activeTab === "summary" && (

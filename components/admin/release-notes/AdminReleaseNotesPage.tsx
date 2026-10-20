@@ -2,7 +2,6 @@
 
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
-import { useState } from "react";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -12,6 +11,7 @@ import { loadDevSprintsFromServer } from "@/lib/dev-sprints/dev-sprints-sync-cli
 import { ReleaseNoteTable } from "./ReleaseNoteTable";
 import { PostReleaseCheckTable } from "./PostReleaseCheckTable";
 import { ReleaseReadinessCard } from "./ReleaseReadinessCard";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId = "notes" | "post-release" | "readiness";
 
@@ -23,7 +23,8 @@ const TAB_KEYS: { id: TabId; labelKey: MessageKey }[] = [
 
 export function AdminReleaseNotesPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("notes");
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(TAB_KEYS, "notes");
   const { state: loadState, reload } = useAdminSyncLoad(loadDevSprintsFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -42,9 +43,8 @@ export function AdminReleaseNotesPage() {
       <AdminTabs
         tabs={TAB_KEYS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="notes"
+        resetParams={adminSyncTabResetParams(["release", "phase"])}
         className="mb-4"
       />
       {activeTab === "notes" && (

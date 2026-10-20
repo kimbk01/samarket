@@ -121,13 +121,14 @@ describe("route contracts — meetings/comments list: q · total · range", () =
     expect(src).toMatch(/total: typeof count === "number"/);
   });
   it("UIs send q and render total + pagination", () => {
+    // R7 목록 표준: 검색은 표준 필터 바(URL), 총 건수·20/50/100 은 표준 페이지네이션(「총 N건」)
     const meetings = read("components/admin/community/AdminCommunityEngineMeetingsClient.tsx");
-    expect(meetings).toContain("CommunityPagination");
-    expect(meetings).toContain("admin_community_list_total");
+    expect(meetings).toContain("CommunityListPagination");
+    expect(meetings).toContain("CommunityFilterBar");
     expect(meetings).toContain('sp.set("q", q)');
     const comments = read("components/admin/community/AdminCommunityCommentsPage.tsx");
-    expect(comments).toContain("CommunitySearchInput");
-    expect(comments).toContain("admin_community_list_total");
+    expect(comments).toContain("CommunityFilterBar");
+    expect(comments).toContain("CommunityListPagination");
     expect(comments).toContain('q.set("q", qParam)');
   });
 });

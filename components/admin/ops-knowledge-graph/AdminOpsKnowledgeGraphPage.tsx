@@ -19,15 +19,25 @@ import type { OpsKnowledgeGraphEdgeType } from "@/lib/types/ops-knowledge-graph"
 import type { MessageKey } from "@/lib/i18n/messages";
 import { loadOpsKnowledgeGraphWorkspaceFromServer } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-sync-client";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId = "overview" | "similar" | "ranking" | "resolution" | "explore";
 
+const GRAPH_EXTRAS = ["node_type", "edge_type"] as const;
+
 export function AdminOpsKnowledgeGraphPage() {
-  const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const { t, language } = useI18n();
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(["overview", "similar", "ranking", "resolution", "explore"] as const, "overview");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [nodeTypeFilter, setNodeTypeFilter] = useState<OpsKnowledgeGraphNodeType | "">("");
-  const [edgeTypeFilter, setEdgeTypeFilter] = useState<OpsKnowledgeGraphEdgeType | "">("");
+  /** 탐색 탭의 노드·관계 유형 필터는 주소(`?node_type=`·`?edge_type=`)에 보존 (R7). */
+  const lq = useAdminListQuery({ extras: GRAPH_EXTRAS });
+  const ko = language !== "en";
+  const nodeTypeFilter = lq.query.extras.node_type as OpsKnowledgeGraphNodeType | "";
+  const edgeTypeFilter = lq.query.extras.edge_type as OpsKnowledgeGraphEdgeType | "";
   const { state: loadState, reload } = useAdminSyncLoad(loadOpsKnowledgeGraphWorkspaceFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -55,9 +65,8 @@ export function AdminOpsKnowledgeGraphPage() {
         className="mb-4"
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="overview"
+        resetParams={adminSyncTabResetParams(["node_type", "edge_type"])}
       />
 
       {activeTab === "overview" && (
@@ -96,44 +105,44 @@ export function AdminOpsKnowledgeGraphPage() {
       )}
 
       {activeTab === "explore" && (
+        <div className="space-y-4">
+        <AdminFilterBar
+          ko={ko}
+          draft={lq.draft}
+          onDraftChange={lq.setDraft}
+          onSubmit={lq.submit}
+          onReset={lq.reset}
+          showPeriod={false}
+          showSearch={false}
+        >
+          <AdminFilterSelect ko={ko} label={t("admin_ops_tools_kg_card_nodes")} name="node_type" value={lq.query.extras.node_type} onChange={(v) => lq.setExtra("node_type", v)}>
+            <option value="">{t("admin_ops_tools_kg_filter_node_type")}</option>
+            <option value="document">{t("admin_ops_tools_node_document")}</option>
+            <option value="incident">{t("admin_ops_tools_action_src_incident")}</option>
+            <option value="runbook_execution">{t("admin_ops_tools_node_runbook_exec")}</option>
+            <option value="deployment">{t("admin_ops_tools_action_src_deployment")}</option>
+            <option value="report">{t("admin_ops_tools_action_src_report")}</option>
+            <option value="action_item">{t("admin_ops_tools_node_action")}</option>
+          </AdminFilterSelect>
+          <AdminFilterSelect ko={ko} label={t("admin_ops_tools_kg_card_edges")} name="edge_type" value={lq.query.extras.edge_type} onChange={(v) => lq.setExtra("edge_type", v)}>
+            <option value="">{t("admin_ops_tools_kg_filter_edge_type")}</option>
+            <option value="executed_by">{t("admin_ops_tools_edge_executed")}</option>
+            <option value="recommended_for">{t("admin_ops_tools_edge_recommended")}</option>
+            <option value="resolved_with">{t("admin_ops_tools_edge_resolved")}</option>
+            <option value="related_to">{t("admin_ops_tools_edge_related")}</option>
+          </AdminFilterSelect>
+        </AdminFilterBar>
         <div className="grid gap-4 lg:grid-cols-[1fr,320px]">
           <div className="space-y-4">
             <AdminCard titleKey="admin_ops_tools_kg_card_nodes">
-              <div className="mb-3 flex flex-wrap gap-2">
-                <select
-                  value={nodeTypeFilter}
-                  onChange={(e) => setNodeTypeFilter(e.target.value as OpsKnowledgeGraphNodeType | "")}
-                  className="rounded border border-sam-border px-3 py-2 sam-text-body"
-                >
-                  <option value="">{t("admin_ops_tools_kg_filter_node_type")}</option>
-                  <option value="document">{t("admin_ops_tools_node_document")}</option>
-                  <option value="incident">{t("admin_ops_tools_action_src_incident")}</option>
-                  <option value="runbook_execution">{t("admin_ops_tools_node_runbook_exec")}</option>
-                  <option value="deployment">{t("admin_ops_tools_action_src_deployment")}</option>
-                  <option value="report">{t("admin_ops_tools_action_src_report")}</option>
-                  <option value="action_item">{t("admin_ops_tools_node_action")}</option>
-                </select>
-              </div>
               <OpsKnowledgeNodeTable
                 nodeTypeFilter={nodeTypeFilter}
                 onSelectNode={setSelectedNodeId}
+                onReset={nodeTypeFilter ? lq.reset : undefined}
               />
             </AdminCard>
             <AdminCard titleKey="admin_ops_tools_kg_card_edges">
-              <div className="mb-3 flex flex-wrap gap-2">
-                <select
-                  value={edgeTypeFilter}
-                  onChange={(e) => setEdgeTypeFilter(e.target.value as OpsKnowledgeGraphEdgeType | "")}
-                  className="rounded border border-sam-border px-3 py-2 sam-text-body"
-                >
-                  <option value="">{t("admin_ops_tools_kg_filter_edge_type")}</option>
-                  <option value="executed_by">{t("admin_ops_tools_edge_executed")}</option>
-                  <option value="recommended_for">{t("admin_ops_tools_edge_recommended")}</option>
-                  <option value="resolved_with">{t("admin_ops_tools_edge_resolved")}</option>
-                  <option value="related_to">{t("admin_ops_tools_edge_related")}</option>
-                </select>
-              </div>
-              <OpsKnowledgeEdgeTable edgeTypeFilter={edgeTypeFilter} />
+              <OpsKnowledgeEdgeTable edgeTypeFilter={edgeTypeFilter} onReset={edgeTypeFilter ? lq.reset : undefined} />
             </AdminCard>
           </div>
           <AdminCard titleKey="admin_ops_tools_kg_card_detail">
@@ -142,6 +151,7 @@ export function AdminOpsKnowledgeGraphPage() {
               onClose={() => setSelectedNodeId(null)}
             />
           </AdminCard>
+        </div>
         </div>
       )}
     </>

@@ -179,7 +179,7 @@ function ActionCard({ item, ko }: { item: FinanceActionItem; ko: boolean }) {
         <p className="sam-text-helper text-sam-muted">{adminOperatorLabel(item.status, ko)}</p>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <AdminActionLink href={item.href} variant="primary">
+        <AdminActionLink href={item.href} variant="secondary">
           {adminFinancePrimaryCta(item.type, ko)}
         </AdminActionLink>
         {item.actorKind === "store" && item.statementHref ? (

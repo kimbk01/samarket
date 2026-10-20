@@ -1,15 +1,16 @@
 import { AdminCommunitySectionsPage } from "@/components/admin/community/AdminCommunitySectionsPage";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
-import { listAllCommunitySectionsForAdmin } from "@/lib/community-feed/queries";
+import { loadAllCommunitySectionsForAdmin } from "@/lib/community-feed/queries";
 
 export default async function AdminCommunitySectionsRoute() {
-  const [sections, philifeNeighborhoodSectionSlug] = await Promise.all([
-    listAllCommunitySectionsForAdmin(),
+  const [sectionsRes, philifeNeighborhoodSectionSlug] = await Promise.all([
+    loadAllCommunitySectionsForAdmin(),
     getPhilifeNeighborhoodSectionSlugServer(),
   ]);
   return (
     <AdminCommunitySectionsPage
-      sections={sections}
+      sections={sectionsRes.rows}
+      loadError={sectionsRes.error}
       philifeNeighborhoodSectionSlug={philifeNeighborhoodSectionSlug}
     />
   );

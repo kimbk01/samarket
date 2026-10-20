@@ -24,6 +24,10 @@ import {
   AdminLoadingState,
   AdminResultBanner,
 } from "@/components/admin/ui/AdminStateViews";
+import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
+import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
+import { ADMIN_LIST_QUERY_DEFAULT_SIZE, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import type { PointPolicyLog } from "@/lib/types/point-policy";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
@@ -49,8 +53,26 @@ export function AdminPointPolicyPage() {
   const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
-  const { policies, eventPolicies, logs, probabilityRules, loadProbabilityRules, loading, error } =
-    useAdminPointPolicyData(refresh);
+  const {
+    policies,
+    eventPolicies,
+    probabilityRules,
+    probabilityError,
+    loadProbabilityRules,
+    loading,
+    loaded,
+    error,
+  } = useAdminPointPolicyData(refresh);
+  /** 변경 로그 탭 — 서버 페이지 (예전 100건 고정 상한 제거). 필터가 없어 쪽·크기만 화면 상태. */
+  const [logPage, setLogPage] = useState(1);
+  const [logSize, setLogSize] = useState<AdminListPageSize>(ADMIN_LIST_QUERY_DEFAULT_SIZE);
+  const logs = useMemberOpsPagedFetch<PointPolicyLog>(
+    activeTab === "logs" ? `/api/admin/point-policies/logs?limit=${logSize}&offset=${(logPage - 1) * logSize}` : null,
+    "logs",
+    refresh
+  );
+  /** 게시판·이벤트 정책 첫 로딩 전·실패 시 탭 본문(「정책 없음」 등)을 그리지 않는다. */
+  const policyReady = loaded;
   const action = useAdminRouteAction("/admin/point-policies");
   const selectedPolicy = useMemo(
     () => (selectedPolicyId ? policies.find((p) => p.id === selectedPolicyId) : null),
@@ -236,10 +258,15 @@ export function AdminPointPolicyPage() {
         </p>
       ) : null}
 
-      {loading ? <AdminLoadingState ko={ko} /> : null}
-      {!loading && error ? <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={refreshAll} /> : null}
+      {activeTab !== "logs" && activeTab !== "simulate" ? (
+        error ? (
+          <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={refreshAll} />
+        ) : loading && !loaded ? (
+          <AdminLoadingState ko={ko} />
+        ) : null
+      ) : null}
 
-      {activeTab === "board" && (
+      {activeTab === "board" && policyReady && (
         <>
           <AdminCard titleKey="admin_points_policy_card_board">
             <div className="mb-3 flex justify-end">
@@ -295,8 +322,20 @@ export function AdminPointPolicyPage() {
         </>
       )}
 
-      {activeTab === "probability" && (
+      {activeTab === "probability" && policyReady && (
         <AdminCard titleKey="admin_points_policy_card_probability">
+          {probabilityError ? (
+            <div className="mb-3">
+              <AdminErrorState
+                ko={ko}
+                code={probabilityError.code}
+                httpStatus={probabilityError.httpStatus}
+                onRetry={() => {
+                  if (selectedPolicyId) void loadProbabilityRules(selectedPolicyId);
+                }}
+              />
+            </div>
+          ) : null}
           <div className="mb-3">
             <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_select_policy")}
             </label>
@@ -359,7 +398,7 @@ export function AdminPointPolicyPage() {
         </AdminCard>
       )}
 
-      {activeTab === "event" && (
+      {activeTab === "event" && policyReady && (
         <>
           <AdminCard titleKey="admin_points_policy_card_event">
             <div className="mb-3 flex justify-end">
@@ -425,7 +464,25 @@ export function AdminPointPolicyPage() {
 
       {activeTab === "logs" && (
         <AdminCard titleKey="admin_points_policy_card_logs">
-          <PointPolicyLogList logs={logs} />
+          <MemberOpsListBody
+            ko={ko}
+            loading={logs.loading}
+            loaded={logs.loaded}
+            error={logs.error}
+            onRetry={logs.reload}
+            rowCount={logs.rows.length}
+            total={logs.total}
+            page={logPage}
+            size={logSize}
+            onPageChange={setLogPage}
+            onSizeChange={(n) => {
+              setLogSize(n);
+              setLogPage(1);
+            }}
+            emptyMessage={t("admin_points_policy_log_empty")}
+          >
+            <PointPolicyLogList logs={logs.rows} />
+          </MemberOpsListBody>
         </AdminCard>
       )}
     </div>

@@ -71,7 +71,7 @@ const VALUES: Record<string, Record<string, { value: number | null; forbidden?: 
     "ads.pending": { value: 5 },
     "ads.scheduled": { value: 2 },
     "ads.waiting": { value: 1 },
-    "ads.incomplete": { value: 3 },
+    "ads.popup_live": { value: 3 },
     "ads.hero_used": { value: 4 },
   },
   notifications: {

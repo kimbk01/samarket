@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import {
   getOrCreatePromotionRecord,
@@ -43,13 +43,55 @@ import {
   type EnvServerCard,
 } from "@/lib/admin/deploy-promotion/deploy-ops-remote";
 import { buildFeatureTestRows } from "@/lib/admin/deploy-promotion/deploy-feature-test-catalog";
+import { parseAdminJsonListPage, sliceAdminJsonList } from "@/lib/admin/pagination/admin-json-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+type DeployHistoryRow = { key: string; at: string; sha: string; label: string; detail: string };
+
+/**
+ * 「이력 및 오류 상세」 행 — 감사 이력(프로세스 기록)이 있으면 그것, 없으면 최근 승격 기록 (화면과 같은 규칙).
+ * 고정 상한(30·20건) 없이 전체를 최신순으로 — 쪽 자르기는 호출 측.
+ */
+function deployHistoryRows(): DeployHistoryRow[] {
+  const audit = listPromotionHistory(Number.MAX_SAFE_INTEGER);
+  const rows: DeployHistoryRow[] =
+    audit.length > 0
+      ? audit.map((r) => ({
+          key: `${r.sha}-${r.action}-${r.at}`,
+          at: r.at,
+          sha: r.sha,
+          label: r.action,
+          detail: r.detail ?? "",
+        }))
+      : listRecentDeployPromotionRecords(Number.MAX_SAFE_INTEGER).map((r) => ({
+          key: `${r.sha}-${r.status}-${r.verifiedAt ?? r.updatedAt ?? ""}`,
+          at: r.verifiedAt ?? r.promotedAt ?? r.updatedAt ?? "",
+          sha: r.sha,
+          label: r.status,
+          detail: "",
+        }));
+  return rows.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+}
+
+/**
+ * 배포 상태 조회.
+ * `?part=history` — 이력만 서버 페이지로 (`limit` 20/50/100 · `offset`) → `{ items, total }` (R7).
+ * 파라미터가 없으면 기존 응답 그대로.
+ */
+export async function GET(req: NextRequest) {
   const gate = await requireSuperAdmin();
   if (!gate.ok) return gate.response;
+
+  if (req.nextUrl.searchParams.get("part") === "history") {
+    const runtimeSha = readRuntimeGitSha();
+    if (runtimeSha) await hydratePromotionRecordFromLedger(gate.sb, runtimeSha);
+    return NextResponse.json({
+      ok: true,
+      ...sliceAdminJsonList(deployHistoryRows(), parseAdminJsonListPage(req.nextUrl.searchParams)),
+    });
+  }
 
   const sha = readRuntimeGitSha();
   const banner = resolveRuntimeBannerVariant();

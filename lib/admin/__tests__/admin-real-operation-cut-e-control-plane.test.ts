@@ -78,8 +78,9 @@ describe("CUT E Control Plane", () => {
     expect(sanitizeAdminReturnTo("/admin?x=1")).toBe("/admin?x=1");
     expect(sanitizeAdminReturnTo("https://evil.test")).toBeNull();
     expect(withAdminReturnTo("/admin/delivery-ads", "/admin")).toContain("returnTo=%2Fadmin");
+    // R7 목록 표준: `?view=` 는 useAdminListQuery 추가 키로 주소에 보존 (읽기·쓰기 모두).
     expect(read("components/admin/stores/AdminDeliveryAdsControlPlane.tsx")).toContain(
-      'searchParams.get("view")'
+      'extras: ["view", "product"]'
     );
     expect(read("components/admin/business/AdminBusinessDetailPage.tsx")).toContain(
       'searchParams.get("tab")'

@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import {
   pointActionTypeLabel,
   pointBoardLabel,
@@ -32,13 +33,10 @@ const EXPIRE_LOG_ACTION_KEYS: Record<
 };
 
 export function AdminPointExpireLogList({ logs }: AdminPointExpireLogListProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
 
   if (logs.length === 0) {
-    return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted"> {t("admin_points_expire_logs_empty")}
-      </div>
-    );
+    return <AdminEmptyState ko={language !== "en"} message={t("admin_points_expire_logs_empty")} />;
   }
 
   return (

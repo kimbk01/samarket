@@ -10,7 +10,8 @@ export function OpsRetrospectiveList({ refreshKey = 0 }: { refreshKey?: number }
   const { t, language } = useI18n();
   const ko = language !== "en";
   const retros = useMemo(
-    () => getOpsRetrospectives({ limit: 20 }),
+    /** 고정 상한(20건) 없이 번들 전체 (운영자가 직접 쓰는 회고 기록 — 번들 통째 로드 구조). */
+    () => getOpsRetrospectives({ limit: Number.MAX_SAFE_INTEGER }),
     [refreshKey]
   );
 

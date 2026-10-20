@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -27,9 +28,6 @@ import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labe
 /** Date-aware lifecycle states keep the owner status key (upcoming / ended by window); others use the shared coupon labels. */
 const DATE_AWARE_LIFECYCLE = new Set(["active", "approved", "scheduled"]);
 
-const FILTER_SELECT_CLASS =
-  "min-h-[44px] min-w-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-sm text-sam-fg";
-
 type AdminListRow = CouponControlCampaignView & Partial<CouponCampaignOpsView>;
 
 function benefitText(row: CouponControlCampaignView): string {
@@ -37,33 +35,33 @@ function benefitText(row: CouponControlCampaignView): string {
   return formatMoneyPhp(row.discount_value);
 }
 
+/**
+ * 쿠폰 목록 — 필터(상태·매장·재원)는 화면 상단 AdminFilterBar(주소 `status`·`store_id`·`funding`)가 정하고 여기서는 받기만 한다.
+ * 쪽 나누기는 현황 집계와 같은 전체 캠페인 배열 위에서 한다 (서버 페이지는 DB 승인 사항 — R7 보고).
+ */
 export function AdminStoreCouponControlList({
   campaigns,
   onOpenDetail,
+  status,
+  funding,
+  storeId,
+  onReset,
 }: {
   campaigns: AdminListRow[];
   onOpenDetail: (campaignId: string) => void;
+  status: AdminCouponListStatusFilter;
+  funding: AdminCouponListFundingFilter;
+  storeId: string;
+  /** 필터가 걸려 있으면 빈 목록에 [초기화] */
+  onReset?: () => void;
 }) {
   const { t, safeT, language } = useI18n();
   const ko = language !== "en";
-  const [status, setStatus] = useState<AdminCouponListStatusFilter>("all");
-  const [funding, setFunding] = useState<AdminCouponListFundingFilter>("all");
-  const [storeId, setStoreId] = useState("");
-  const [page, setPage] = useState(1);
-
-  const storeOptions = useMemo(() => {
-    const seen = new Set<string>();
-    const out: { id: string; name: string }[] = [];
-    for (const row of campaigns) {
-      const id = String(row.store_id ?? "").trim();
-      if (!id || seen.has(id)) continue;
-      const name = humanAdminStoreName(row.store_name);
-      if (!name) continue;
-      seen.add(id);
-      out.push({ id, name });
-    }
-    return out;
-  }, [campaigns]);
+  const [pageState, setPageState] = useState<{ key: string; page: number }>({ key: "", page: 1 });
+  const filterKey = `${status}|${funding}|${storeId}`;
+  // 필터가 바뀌면 1쪽으로 (렌더 중 동기화 패턴)
+  const page = pageState.key === filterKey ? pageState.page : 1;
+  const setPage = (fn: (p: number) => number) => setPageState({ key: filterKey, page: fn(page) });
 
   const filtered = useMemo(() => {
     return filterAdminCouponListRows(campaigns, { status, funding, storeId });
@@ -76,74 +74,12 @@ export function AdminStoreCouponControlList({
     [filtered, safePage]
   );
 
-  const setStatusFilter = (next: AdminCouponListStatusFilter) => {
-    setStatus(next);
-    setPage(1);
-  };
-  const setFundingFilter = (next: AdminCouponListFundingFilter) => {
-    setFunding(next);
-    setPage(1);
-  };
-  const setStoreFilter = (next: string) => {
-    setStoreId(next);
-    setPage(1);
-  };
 
   return (
     <AdminCard titleKey="store_coupon_admin_role_list">
       <div className="flex min-w-0 flex-col gap-3" data-admin-coupon-pane="list">
-        <div
-          className="flex min-w-0 flex-wrap items-center gap-2"
-          data-admin-coupon-list-filters="1"
-        >
-          <label className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 sm:flex-none">
-            <span className="shrink-0 text-sm text-sam-muted">{t("store_coupon_admin_filter_status")}</span>
-            <select
-              className={FILTER_SELECT_CLASS}
-              value={status}
-              aria-label={t("store_coupon_admin_filter_status")}
-              onChange={(e) => setStatusFilter(e.target.value as AdminCouponListStatusFilter)}
-            >
-              <option value="all">{t("store_coupon_admin_filter_all")}</option>
-              <option value="active">{t("store_coupon_admin_kpi_active")}</option>
-              <option value="waiting">{t("store_coupon_admin_kpi_waiting")}</option>
-              <option value="ended">{t("store_coupon_admin_kpi_ended")}</option>
-            </select>
-          </label>
-          <label className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 sm:flex-none">
-            <span className="shrink-0 text-sm text-sam-muted">{t("store_coupon_admin_pick_store")}</span>
-            <select
-              className={FILTER_SELECT_CLASS}
-              value={storeId}
-              aria-label={t("store_coupon_admin_pick_store")}
-              onChange={(e) => setStoreFilter(e.target.value)}
-            >
-              <option value="">{t("store_coupon_admin_filter_all")}</option>
-              {storeOptions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 sm:flex-none">
-            <span className="shrink-0 text-sm text-sam-muted">{t("store_coupon_funding")}</span>
-            <select
-              className={FILTER_SELECT_CLASS}
-              value={funding}
-              aria-label={t("store_coupon_funding")}
-              onChange={(e) => setFundingFilter(e.target.value as AdminCouponListFundingFilter)}
-            >
-              <option value="all">{t("store_coupon_admin_filter_all")}</option>
-              <option value="STORE_FUNDED">{t("store_coupon_funding_store")}</option>
-              <option value="PLATFORM_FUNDED">{t("store_coupon_funding_platform")}</option>
-              <option value="SHARED_FUNDED">{t("store_coupon_funding_shared")}</option>
-            </select>
-          </label>
-        </div>
-
         {filtered.length === 0 ? (
-          <p className="text-sm text-sam-muted">{t("store_coupon_admin_list_empty")}</p>
+          <AdminEmptyState ko={ko} message={onReset ? undefined : t("store_coupon_admin_list_empty")} onReset={onReset} />
         ) : (
           <>
             <ul className="flex min-w-0 flex-col gap-2" data-admin-coupon-list-scroll="1">

@@ -1,7 +1,9 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ReportType } from "@/lib/types/recommendation-report";
@@ -21,7 +23,9 @@ interface RecommendationReportTableProps {
 export function RecommendationReportTable({ refresh = 0 }: RecommendationReportTableProps) {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [typeFilter, setTypeFilter] = useState<ReportType | "">("");
+  /** 유형 필터 — 주소 `?status=daily|weekly|custom` 보존 (R7) */
+  const lq = useAdminListQuery({ statuses: REPORT_TYPES });
+  const typeFilter = lq.query.status as ReportType | "";
   const reports = useMemo(
     () =>
       getRecommendationReports({
@@ -33,27 +37,29 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <select
-          value={typeFilter}
-          onChange={(e) =>
-            setTypeFilter(e.target.value === "" ? "" : (e.target.value as ReportType))
-          }
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
-          <option value="">{t("admin_rec_report_filter_all_types")}</option>
-          {REPORT_TYPES.map((rt) => (
-            <option key={rt} value={rt}>
-              {recReportTypeLabel(t, rt)}
-            </option>
-          ))}
-        </select>
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+        status={{
+          value: typeFilter,
+          onChange: lq.setStatus,
+          label: t("admin_rec_th_report_type"),
+          options: [
+            { value: "", label: t("admin_rec_report_filter_all_types") },
+            ...REPORT_TYPES.map((rt) => ({ value: rt, label: recReportTypeLabel(t, rt) })),
+          ],
+        }}
+      />
       {reports.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={typeFilter ? undefined : t("admin_rec_report_empty_list")}
-          onReset={typeFilter ? () => { setTypeFilter(""); } : undefined}
+          onReset={typeFilter ? lq.reset : undefined}
         />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">

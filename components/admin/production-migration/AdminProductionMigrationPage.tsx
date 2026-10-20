@@ -2,7 +2,6 @@
 
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
-import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
@@ -13,6 +12,7 @@ import { ProductionInfraCheckTable } from "./ProductionInfraCheckTable";
 import { ProductionLaunchCheckTable } from "./ProductionLaunchCheckTable";
 import { ProductionBlockerBoard } from "./ProductionBlockerBoard";
 import { loadProductionMigrationFromServer } from "@/lib/production-migration/production-migration-sync-client";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId =
   | "overview"
@@ -23,7 +23,8 @@ type TabId =
   | "blocker";
 
 export function AdminProductionMigrationPage() {
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(["overview", "table", "rls", "infra", "launch", "blocker"] as const, "overview");
   const { state: loadState, reload } = useAdminSyncLoad(loadProductionMigrationFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -51,9 +52,8 @@ export function AdminProductionMigrationPage() {
       <AdminTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: tab.label }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="overview"
+        resetParams={adminSyncTabResetParams(["category", "domain", "phase"])}
         className="mb-4"
       />
 

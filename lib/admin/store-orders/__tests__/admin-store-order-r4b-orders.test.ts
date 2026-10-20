@@ -248,8 +248,10 @@ describe("DEF-49 — a single-order link opens the order detail", () => {
 
   it("payment events page links to the detail and honours ?order_id= from the URL", () => {
     const page = read("components/admin/stores/AdminStorePaymentEventsPage.tsx");
-    expect(page).toContain('searchParams.get("order_id")');
-    expect(page).toContain("[orderId, source, eventType, reload]");
+    // R7 — 주소가 조회 조건 (`order_id`·`source`·`event_type` = useAdminListQuery extras), 바뀌면 다시 조회.
+    expect(page).toContain('extras: ["order_id", "source", "event_type"]');
+    expect(page).toContain("lq.query.extras.order_id");
+    expect(page).toContain("[lq.refreshKey]");
     expect(page).toContain("/admin/stores/orders/${encodeURIComponent(r.order_id)}");
     expect(page).toContain('titleKey="admin_menu_store_payment_events"');
     expect(page).toContain("AdminTechDetails");

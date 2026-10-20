@@ -8,7 +8,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import { ADMIN_USERS_LITE_CARD, ADMIN_USERS_LITE_PAGE_BG } from "@/lib/ui/admin-users-lite-styles";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
@@ -91,6 +91,8 @@ export function AdminUserListPage() {
   const [membersPage, setMembersPage] = useState(urlState.page);
   const [membersPageSize, setMembersPageSize] = useState(urlState.pageSize);
   const [deletionOpenCount, setDeletionOpenCount] = useState<number | null>(null);
+  /** 마지막 목록 요청 실패의 HTTP 상태·오류 코드 — `AdminErrorState`(403 → 권한 없음) 에 그대로 넘긴다. */
+  const [membersLoadFailure, setMembersLoadFailure] = useState<{ code: string; httpStatus?: number } | null>(null);
   const { isSuperAdmin, hasPermission } = useAdminMe();
   const canManageUsers = isSuperAdmin || hasPermission("users");
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -195,13 +197,16 @@ export function AdminUserListPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/admin/account-deletion-requests?status=open&limit=30", {
+        // 대기 건수 = 서버 `total`(count exact) — 예전 30건 조회 행 수(30건 상한) 대체.
+        const res = await fetch("/api/admin/account-deletion-requests?status=open&limit=20", {
           credentials: "include",
           cache: "no-store",
         });
-        const data = (await res.json().catch(() => ({}))) as { items?: unknown[] };
+        const data = (await res.json().catch(() => ({}))) as { items?: unknown[]; total?: number };
         if (!cancelled && res.ok) {
-          setDeletionOpenCount(Array.isArray(data.items) ? data.items.length : 0);
+          setDeletionOpenCount(
+            typeof data.total === "number" ? data.total : Array.isArray(data.items) ? data.items.length : 0
+          );
         }
       } catch {
         if (!cancelled) setDeletionOpenCount(null);
@@ -308,6 +313,12 @@ export function AdminUserListPage() {
           error?: string;
           code?: string;
         };
+        if (!res.ok) {
+          setMembersLoadFailure({
+            code: membersOperatorErrorCode(data.error ?? data.code, "load_failed"),
+            httpStatus: res.status,
+          });
+        }
         if (res.status === 401) throw new Error("admin_users_error_login_required");
         if (res.status === 403) throw new Error("admin_users_error_admin_only");
         if (!res.ok) {
@@ -316,6 +327,7 @@ export function AdminUserListPage() {
           }
           throw new Error("admin_users_error_fetch_failed");
         }
+        setMembersLoadFailure(null);
         const users = data.users ?? [];
         const counts = data.summary?.accountCategoryCounts ?? {};
         const statusCounts = data.summary?.statusCategoryCounts ?? {};
@@ -342,6 +354,7 @@ export function AdminUserListPage() {
         };
       } catch (err) {
         if (err instanceof Error && err.message.startsWith("admin_")) throw err;
+        setMembersLoadFailure({ code: "network_error" });
         throw new Error("admin_users_error_network");
       }
     },
@@ -414,7 +427,8 @@ export function AdminUserListPage() {
   }, []);
 
   const isMaster = isSuperAdmin;
-  const showMembersTable = !membersError && !membersListPending && users.length > 0;
+  /** 요청 실패 시에도 직전 정상 목록은 지우지 않는다 (§8-5) — 오류 상태 아래 그대로 표시. */
+  const showMembersTable = !membersListPending && users.length > 0;
   const showTableScrollChrome = showMembersTable;
 
   const onTableHorizontalScroll = useCallback(() => {
@@ -586,10 +600,10 @@ export function AdminUserListPage() {
           </AdminActionLink>
           {canManageUsers ? (
             <AdminActionButton
-              variant="primary"
+              variant="secondary"
               onClick={() => setShowCreateMember(true)}
               data-member-list-register-cta="1"
-              data-member-cta-variant="primary"
+              data-member-cta-variant="secondary"
             >
               {MEMBER_ADMIN_COPY.member_register}
             </AdminActionButton>
@@ -624,7 +638,7 @@ export function AdminUserListPage() {
         onSearchDraftChange={setSearchDraft}
         onSearchSubmit={applySearch}
         onSearchClear={clearSearch}
-        onReset={hasActiveFilters ? resetFilters : undefined}
+        onReset={resetFilters}
         statusFilter={statusFilter}
         onStatusFilterChange={(value) => {
           setStatusFilter(value);
@@ -668,19 +682,19 @@ export function AdminUserListPage() {
         loading={membersListPending}
       />
       {membersError ? (
-        <div
-          className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-4 py-6 text-center text-sm text-sam-fg"
-          data-member-list-state="error"
-          data-admin-state="error"
-          role="alert"
-        >
-          <p className="font-bold text-sam-danger">{MEMBER_LIST_ERROR_KO}</p>
-          <p className="mt-1">{membersError}</p>
-          <AdminActionButton variant="secondary" size="sm" className="mt-3" onClick={refreshMembers}>
-            {adminCta("refresh", ko)}
-          </AdminActionButton>
+        <div data-member-list-state="error" aria-label={MEMBER_LIST_ERROR_KO}>
+          <AdminErrorState
+            ko={ko}
+            code={
+              membersLoadFailure?.code ??
+              (membersErrorCode === "admin_users_error_admin_only" ? "forbidden" : "load_failed")
+            }
+            httpStatus={membersLoadFailure?.httpStatus}
+            onRetry={refreshMembers}
+          />
         </div>
-      ) : membersListPending ? (
+      ) : null}
+      {membersError && users.length === 0 ? null : membersListPending ? (
         <div
           className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`}
           data-member-list-state="loading"

@@ -2,7 +2,7 @@
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getOpsRoutineTemplates } from "@/lib/ops-routines/ops-routines-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
@@ -15,12 +15,19 @@ import type {
   OpsRoutineCadence,
 } from "@/lib/types/ops-routines";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+
+const FILTER_EXTRAS = ["category", "cadence"] as const;
 
 export function OpsRoutineTemplateTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [category, setCategory] = useState<OpsRoutineCategory | "">("");
-  const [cadence, setCadence] = useState<OpsRoutineCadence | "">("");
+  /** 필터는 주소에 보존 — 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const lq = useAdminListQuery({ extras: FILTER_EXTRAS });
+  const category = lq.query.extras.category as OpsRoutineCategory | "";
+  const cadence = lq.query.extras.cadence as OpsRoutineCadence | "";
   const templates = useMemo(
     () =>
       getOpsRoutineTemplates({
@@ -46,38 +53,32 @@ export function OpsRoutineTemplateTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_board_tpl_category")}</span>
-        <select
-          value={category}
-          onChange={(e) =>
-            setCategory((e.target.value || "") as OpsRoutineCategory | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={t("admin_ops_tools_board_tpl_category")} name="category" value={lq.query.extras.category} onChange={(v) => lq.setExtra("category", v)}>
           {categories.map((c) => (
             <option key={c.value || "all"} value={c.value}>
               {t(c.labelKey)}
             </option>
           ))}
-        </select>
-        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_routines_label_period")}</span>
-        <select
-          value={cadence}
-          onChange={(e) =>
-            setCadence((e.target.value || "") as OpsRoutineCadence | "")
-          }
-          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-        >
+        </AdminFilterSelect>
+        <AdminFilterSelect ko={ko} label={t("admin_ops_tools_routines_label_period")} name="cadence" value={lq.query.extras.cadence} onChange={(v) => lq.setExtra("cadence", v)}>
           <option value="">{t("admin_ops_tools_surface_all")}</option>
           <option value="weekly">{t("admin_ops_tools_period_weekly")}</option>
           <option value="monthly">{t("admin_ops_tools_period_monthly")}</option>
           <option value="quarterly">{t("admin_ops_tools_period_quarterly")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
 
       {templates.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_ops_tools_routines_tpl_empty")} />
+        <AdminEmptyState ko={ko} message={t("admin_ops_tools_routines_tpl_empty")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={[

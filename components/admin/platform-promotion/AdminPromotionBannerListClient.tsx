@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import {
+  AdminEmptyState,
   AdminErrorState,
   AdminLoadingState,
   AdminResultBanner,
 } from "@/components/admin/ui/AdminStateViews";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -32,7 +35,6 @@ import {
   bannerListPurposeCopy,
   eventDistributionHref,
   eventEditHref,
-  eventPreviewHref,
   inlineSharesPlacementCopy,
   PLACEMENTS_INVENTORY_HREF,
 } from "@/lib/admin/promotion-ownership-visibility";
@@ -115,45 +117,55 @@ async function pauseBannerViaExistingDistributionWriter(row: BannerRow): Promise
 export function AdminPromotionBannerListClient() {
   const { language, safeT, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
+  const ko = lang !== "en";
+  const lq = useAdminListQuery();
   const [rows, setRows] = useState<BannerRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [pausingId, setPausingId] = useState<string | null>(null);
-  const [httpStatus, setHttpStatus] = useState<number | undefined>(undefined);
   const [actionResult, setActionResult] = useState<
     { ok: true; message: string } | { ok: false; code: string } | null
   >(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setHttpStatus(undefined);
-    try {
-      const res = await fetch("/api/admin/platform-promotion/banners", {
-        credentials: "same-origin",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        items?: BannerRow[];
-        error?: string;
-      };
-      if (!res.ok || !json.ok) {
-        setError(json.error || "load_failed");
-        setHttpStatus(res.status);
-        setRows([]);
-        return;
-      }
-      setRows(json.items ?? []);
-    } catch {
-      setError("network_error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { apiQueryString, refreshKey, refresh } = lq;
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/platform-promotion/banners?${apiQueryString}`, {
+          credentials: "same-origin",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          items?: BannerRow[];
+          total?: number;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || !json.ok) {
+          // 실패 시 직전 목록 유지
+          setError({ code: json.error || "load_failed", httpStatus: res.status });
+          return;
+        }
+        const items = json.items ?? [];
+        setRows(items);
+        setTotal(typeof json.total === "number" ? json.total : items.length);
+        setLoaded(true);
+      } catch {
+        if (!cancelled) setError({ code: "network_error" });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // refreshKey = apiQueryString + 새로고침 횟수
+  }, [apiQueryString, refreshKey]);
 
   return (
     <div className="space-y-4 p-4" data-admin-promotion-banner-list="1">
@@ -199,31 +211,25 @@ export function AdminPromotionBannerListClient() {
         </AdminActionLink>
       </div>
 
-      <AdminResultBanner ko={lang !== "en"} result={actionResult} onClose={() => setActionResult(null)} />
+      <AdminResultBanner ko={ko} result={actionResult} onClose={() => setActionResult(null)} />
 
-      {loading ? (
-        <AdminLoadingState ko={lang !== "en"} />
-      ) : error ? (
-        <AdminErrorState ko={lang !== "en"} code={error} httpStatus={httpStatus} onRetry={() => void load()} />
-      ) : rows.length === 0 ? (
-        <div
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4"
-          data-admin-promotion-banner-empty="1"
-        >
-          <p className="text-sm text-sam-muted">
-            {safeT("admin_promotion_banner_empty", {
+      {error ? (
+        <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={refresh} />
+      ) : null}
+      {loading && !loaded ? (
+        <AdminLoadingState ko={ko} />
+      ) : !loaded ? null : rows.length === 0 ? (
+        <div data-admin-promotion-banner-empty="1">
+          <AdminEmptyState
+            ko={ko}
+            message={safeT("admin_promotion_banner_empty", {
               fallbackKo: "설정된 이벤트 배너가 없습니다. 이벤트 노출 설정에서 추가하세요.",
               fallbackEn: "No event banners yet. Add them in Event exposure settings.",
             })}
-          </p>
-          <AdminActionLink href="/admin/platform-events" variant="primary" className="mt-3">
-            {safeT("admin_promotion_banner_goto_events", {
-              fallbackKo: "이벤트에서 노출 설정",
-              fallbackEn: "Configure via Events",
-            })}
-          </AdminActionLink>
+          />
         </div>
       ) : (
+        <>
         <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
           {rows.map((row) => {
             const op: PromotionOperatorStatus = resolveDistributionOperatorStatus({
@@ -255,7 +261,12 @@ export function AdminPromotionBannerListClient() {
                       <span className="h-9 w-14 shrink-0 rounded bg-sam-app" />
                     )}
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold">{row.eventTitle}</div>
+                      <Link
+                        href={eventEditHref(row.eventId)}
+                        className="block truncate text-sm font-semibold text-sam-fg hover:underline"
+                      >
+                        {row.eventTitle}
+                      </Link>
                       <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[12px] text-sam-muted">
                         <span>{eventBannerPresentationLabel(row.presentation, lang)}</span>
                         <span>{eventBannerPlacementLabel(row.placement, lang)}</span>
@@ -287,30 +298,22 @@ export function AdminPromotionBannerListClient() {
                     <AdminToneBadge tone={promotionOperatorStatusTone(op)}>
                       {promotionOperatorStatusLabel(op, lang)}
                     </AdminToneBadge>
-                    <AdminActionLink href={eventPreviewHref(row.eventId)} variant="secondary">
-                      {promotionAdminActionLabel("PREVIEW", lang)}
-                    </AdminActionLink>
-                    <AdminActionLink href={eventEditHref(row.eventId)} variant="secondary">
-                      {safeT("admin_promotion_action_edit", {
-                        fallbackKo: "수정",
-                        fallbackEn: "Edit",
-                      })}
-                    </AdminActionLink>
                     <AdminActionLink
                       href={eventDistributionHref(row.eventId)}
-                      variant="secondary"
+                      variant="ghost"
+                      size="sm"
                       data-admin-banner-exposure-cta="1"
                     >
                       {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}
                     </AdminActionLink>
                     {canDirectPause ? (
                       <AdminActionButton
-                        variant="secondary"
+                        variant="ghost"
+                        size="sm"
                         disabled={pausingId === row.distributionId}
                         data-admin-banner-direct-pause="1"
                         onClick={() => {
                           void (async () => {
-                            const ko = lang !== "en";
                             const confirmed = await confirmAdminAction({
                               level: adminActionLevel("exposeStop"),
                               ko,
@@ -333,27 +336,29 @@ export function AdminPromotionBannerListClient() {
                               ok: true,
                               message: ko ? "배너 노출을 중지했습니다." : "Banner exposure stopped.",
                             });
-                            await load();
+                            refresh();
                           })();
                         }}
                       >
                         {promotionAdminActionLabel("PAUSE_STOP", lang)}
                       </AdminActionButton>
-                    ) : (
-                      <AdminActionLink
-                        href={eventDistributionHref(row.eventId)}
-                        variant="quiet"
-                        data-admin-banner-stop-deeplink="1"
-                      >
-                        {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}
-                      </AdminActionLink>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </li>
             );
           })}
         </ul>
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+        </>
       )}
     </div>
   );

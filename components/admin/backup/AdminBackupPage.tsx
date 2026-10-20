@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -11,12 +10,14 @@ import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
 
 type TabId = "list" | "restore";
 
 export function AdminBackupPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("list");
+  /** 탭은 주소(`?tab=`)에 보존 — 목록 조건과 함께 새로고침·링크 공유·상세 복귀 시 유지 (R7). */
+  const activeTab = useAdminUrlTab<TabId>(["list", "restore"] as const, "list");
   const { state: loadState, reload } = useAdminSyncLoad(loadBackupFromServer);
 
   if (loadState.status !== "ready") {
@@ -40,14 +41,14 @@ export function AdminBackupPage() {
         className="mb-4"
         tabs={tabs.map((tab) => ({ id: tab.id, label: tab.label }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="list"
+        resetParams={adminSyncTabResetParams(["type"])}
       />
       {activeTab === "list" && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <AdminActionButton variant="secondary">
+            {/* 실제 백업 실행 API 없음(mock) — 누를 수 있는 것처럼 보이지 않게 비활성 */}
+            <AdminActionButton variant="secondary" disabled aria-disabled="true">
               {t("admin_backup_run_mock")}
             </AdminActionButton>
             <span className="sam-text-helper text-sam-muted">

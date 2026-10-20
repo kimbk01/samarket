@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  communityAdminListPeriodParams,
   manilaDateKeysInRange,
   manilaDayStartMs,
   parseCommunityAdminPage,
@@ -85,5 +86,27 @@ describe("community admin period parsing (Asia/Manila boundaries)", () => {
     expect(parseCommunityAdminPage(new URLSearchParams("limit=500&offset=-3"))).toEqual({ limit: 100, offset: 0 });
     expect(parseCommunityAdminPage(new URLSearchParams(""))).toEqual({ limit: 50, offset: 0 });
     expect(parseCommunityAdminPage(new URLSearchParams("limit=20&offset=40"))).toEqual({ limit: 20, offset: 40 });
+  });
+
+  it("R7 list filter bar dates → API period params (legacy preset links kept)", () => {
+    expect(communityAdminListPeriodParams({}, NOW_EARLY_PHT)).toEqual({ period: "all" });
+    expect(communityAdminListPeriodParams({ period: "7d" }, NOW_EARLY_PHT)).toEqual({ period: "7d" });
+    expect(communityAdminListPeriodParams({ period: "custom" }, NOW_EARLY_PHT)).toEqual({ period: "all" });
+    expect(communityAdminListPeriodParams({ period: "7d", from: "2026-10-01", to: "2026-10-05" })).toEqual({
+      period: "custom",
+      from: "2026-10-01",
+      to: "2026-10-05",
+    });
+    // 종료일만 비면 오늘(PHT) — UTC 로는 아직 18일이어도 19일
+    expect(communityAdminListPeriodParams({ from: "2026-10-01" }, NOW_EARLY_PHT)).toEqual({
+      period: "custom",
+      from: "2026-10-01",
+      to: "2026-10-19",
+    });
+    // 시작일만 비면 최대 범위(400일) 안의 첫날 — 서버 파서가 range_too_long 으로 막지 않는다
+    const onlyTo = communityAdminListPeriodParams({ to: "2026-10-19" }, NOW_EARLY_PHT);
+    expect(onlyTo.period).toBe("custom");
+    const parsed = parseCommunityAdminPeriod(onlyTo, { now: NOW_EARLY_PHT });
+    expect(parsed.ok).toBe(true);
   });
 });

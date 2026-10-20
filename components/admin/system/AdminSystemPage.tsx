@@ -108,7 +108,7 @@ export function AdminSystemPage() {
             ? "일반 삭제와 분리된 파괴적 초기화입니다. 운영 목록·콘텐츠 관리와 섞지 마세요."
             : "Destructive reset, separate from normal delete. Keep out of content ops lists."}
         </p>
-        <AdminActionLink href="/admin/system/data-reset" variant="danger" className="mt-3">
+        <AdminActionLink href="/admin/system/data-reset" variant="secondary" className="mt-3">
           {ko ? "데이터 초기화 열기" : "Open Data Reset"}
         </AdminActionLink>
       </div>

@@ -31,6 +31,13 @@ const ADMIN_TOPICS_SELECT_NO_SKIN =
   "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, community_sections ( slug, name )";
 
 export async function listAllCommunityTopicsForAdmin(): Promise<CommunityTopicAdminRow[]> {
+  return (await loadAllCommunityTopicsForAdmin()).rows;
+}
+
+/**
+ * 관리자 화면용 — 조회 실패를 빈 목록과 구분한다 (`error` 코드). 기존 `listAllCommunityTopicsForAdmin` 은 rows 만.
+ */
+export async function loadAllCommunityTopicsForAdmin(): Promise<{ rows: CommunityTopicAdminRow[]; error: string | null }> {
   try {
     const sb = getSupabaseServer();
     const a1 = await sb
@@ -63,8 +70,8 @@ export async function listAllCommunityTopicsForAdmin(): Promise<CommunityTopicAd
       adminRows = a2.data;
       error = a2.error;
     }
-    if (error || !Array.isArray(adminRows)) return [];
-    return (adminRows as Record<string, unknown>[]).map((r) => {
+    if (error || !Array.isArray(adminRows)) return { rows: [], error: "load_failed" };
+    const rows = (adminRows as Record<string, unknown>[]).map((r) => {
       const sec = r.community_sections as { slug?: string; name?: string } | null;
       return {
         id: String(r.id),
@@ -86,7 +93,8 @@ export async function listAllCommunityTopicsForAdmin(): Promise<CommunityTopicAd
         feed_list_skin: normalizeCommunityFeedListSkin(r.feed_list_skin),
       };
     });
+    return { rows, error: null };
   } catch {
-    return [];
+    return { rows: [], error: "load_failed" };
   }
 }

@@ -137,7 +137,7 @@ export function MainBottomNavFabInlineSection({
             </>
           ) : null}
           <AdminActionButton
-            variant="primary"
+            variant="secondary"
             size="sm"
             type="button"
             disabled={disabled || items.length >= MAIN_BOTTOM_NAV_FAB_MAX_ITEMS}

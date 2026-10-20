@@ -4,7 +4,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { Fragment, useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import {
@@ -356,12 +356,16 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
       </div>
 
       {error ? (
-        <p className="mb-2 text-[13px] text-sam-danger">{t("admin_store_discovery_campaigns_fail")}</p>
+        <div className="mb-2">
+          <AdminErrorState ko={ko} code={error} onRetry={onRefresh} />
+        </div>
       ) : null}
-      {loading ? (
-        <p className="text-[13px] text-sam-muted">{t("admin_store_discovery_campaigns_loading")}</p>
+      {loading && campaigns.length === 0 ? (
+        <AdminLoadingState ko={ko} label={t("admin_store_discovery_campaigns_loading")} />
       ) : campaigns.length === 0 ? (
-        <p className="text-[13px] text-sam-muted">{ko ? "등록된 캠페인이 없습니다." : t("admin_store_discovery_campaigns_empty")}</p>
+        error ? null : (
+          <AdminEmptyState ko={ko} message={ko ? "등록된 캠페인이 없습니다." : t("admin_store_discovery_campaigns_empty")} />
+        )
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-[12px]">
@@ -412,7 +416,8 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
                         </h4>
                         {renderFormFields(editForm, setEditForm, { showStoreId: false })}
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <AdminActionButton variant="primary" size="sm" disabled={busy} onClick={() => void onSaveEdit()}>
+                          {/* 화면 primary 는 「캠페인 만들기」 1개 — 행 편집 저장은 secondary */}
+                          <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void onSaveEdit()}>
                             {t("admin_store_discovery_campaigns_save_btn")}
                           </AdminActionButton>
                           <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => setEditingId(null)}>

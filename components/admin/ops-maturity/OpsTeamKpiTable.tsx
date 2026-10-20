@@ -5,10 +5,13 @@ import {
   OPS_TOOLS_KPI_KEYS,
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { getOpsTeamKpis } from "@/lib/ops-maturity/ops-maturity-state";
 import { getKpiComparison } from "@/lib/ops-maturity/ops-maturity-utils";
 import type { OpsKpiPeriodType } from "@/lib/types/ops-maturity";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
 function deltaBadge(current: number, previous: number, lowerIsBetter = false): React.ReactNode {
   const delta = current - previous;
@@ -21,9 +24,14 @@ function deltaBadge(current: number, previous: number, lowerIsBetter = false): R
   );
 }
 
+const KPI_EXTRAS = ["period"] as const;
+
 export function OpsTeamKpiTable() {
-  const { t } = useI18n();
-  const [periodType, setPeriodType] = useState<OpsKpiPeriodType>("weekly");
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  /** 기간 단위는 주소(`?period=`)에 보존 (R7). 기본 주간. */
+  const lq = useAdminListQuery({ extras: KPI_EXTRAS, extraDefaults: { period: "weekly" } });
+  const periodType: OpsKpiPeriodType = lq.query.extras.period === "monthly" ? "monthly" : "weekly";
 
   const kpis = useMemo(
     () => getOpsTeamKpis({ periodType }),
@@ -58,16 +66,20 @@ export function OpsTeamKpiTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <select
-          value={periodType}
-          onChange={(e) => setPeriodType(e.target.value as OpsKpiPeriodType)}
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <AdminFilterSelect ko={ko} label={ko ? "기간" : "Period"} name="period" value={periodType} onChange={(v) => lq.setExtra("period", v)}>
           <option value="weekly">{t("admin_ops_tools_maturity_kpi_weekly")}</option>
           <option value="monthly">{t("admin_ops_tools_maturity_kpi_monthly")}</option>
-        </select>
-      </div>
+        </AdminFilterSelect>
+      </AdminFilterBar>
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[520px] border-collapse sam-text-body">
           <thead>

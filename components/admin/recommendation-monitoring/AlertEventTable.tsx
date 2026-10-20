@@ -8,6 +8,8 @@ import {
 } from "@/lib/recommendation-ops/recommendation-runtime-state";
 import { commitRecommendationRuntimeChange } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
 import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import {
   recAlertSeverityLabel,
   recSurfaceLabel,
@@ -23,7 +25,9 @@ export function AlertEventTable() {
   const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
-  const [ackFilter, setAckFilter] = useState<boolean | "">("");
+  /** 확인 여부 필터 — 주소 `?status=ack|unack` 보존 (R7) */
+  const lq = useAdminListQuery({ statuses: ["ack", "unack"] });
+  const ackFilter: boolean | "" = lq.query.status === "" ? "" : lq.query.status === "ack";
 
   const events = useMemo(
     () =>
@@ -46,25 +50,29 @@ export function AlertEventTable() {
   return (
     <div className="space-y-4">
       <AdminResultBanner ko={ko} result={saveResult} onClose={() => setSaveResult(null)} />
-      <div className="flex flex-wrap gap-2">
-        <select
-          value={ackFilter === "" ? "" : ackFilter ? "ack" : "unack"}
-          onChange={(e) => {
-            const v = e.target.value;
-            setAckFilter(v === "" ? "" : v === "ack");
-          }}
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
-          <option value="">{t("admin_rec_filter_all")}</option>
-          <option value="unack">{t("admin_rec_filter_unack")}</option>
-          <option value="ack">{t("admin_rec_filter_ack")}</option>
-        </select>
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+        status={{
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          options: [
+            { value: "", label: t("admin_rec_filter_all") },
+            { value: "unack", label: t("admin_rec_filter_unack") },
+            { value: "ack", label: t("admin_rec_filter_ack") },
+          ],
+        }}
+      />
       {events.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={ackFilter === "" ? t("admin_rec_mon_empty_alert_events") : undefined}
-          onReset={ackFilter === "" ? undefined : () => setAckFilter("")}
+          onReset={ackFilter === "" ? undefined : lq.reset}
         />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">

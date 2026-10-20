@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { AdminBanner } from "@/lib/types/admin-banner";
@@ -12,7 +12,10 @@ export function AdminMyBannersPage() {
   const [items, setItems] = useState<AdminBanner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [httpStatus, setHttpStatus] = useState<number | undefined>(undefined);
+  const [reloadKey, setReloadKey] = useState(0);
 
+  /** 조회 실패 = 오류 상태 + [새로고침] (R7 화면 상태). */
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -25,23 +28,30 @@ export function AdminMyBannersPage() {
         };
         if (cancelled) return;
         if (!res.ok || json.ok === false) {
-          setError(json.error ?? `http_${res.status}`);
-          setItems([]);
+          setError(json.error ?? "load_failed");
+          setHttpStatus(res.status);
         } else {
           setError(null);
+          setHttpStatus(undefined);
           setItems(json.banners ?? []);
         }
       } catch {
         if (cancelled) return;
         setError("network_error");
-        setItems([]);
+        setHttpStatus(undefined);
       }
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
+
+  const reload = () => {
+    setLoading(true);
+    setError(null);
+    setReloadKey((k) => k + 1);
+  };
 
   return (
     <AdminMyBannersView
@@ -51,6 +61,8 @@ export function AdminMyBannersPage() {
       loadingLabel={t("common_loading")}
       loading={loading}
       error={error}
+      httpStatus={httpStatus}
+      onRetry={reload}
       items={items}
     />
   );
@@ -63,6 +75,8 @@ export function AdminMyBannersView({
   loadingLabel,
   loading,
   error,
+  httpStatus,
+  onRetry,
   items,
 }: {
   title: string;
@@ -71,6 +85,8 @@ export function AdminMyBannersView({
   loadingLabel: string;
   loading: boolean;
   error: string | null;
+  httpStatus?: number;
+  onRetry?: () => void;
   items: AdminBanner[];
   ko?: boolean;
 }) {
@@ -87,13 +103,11 @@ export function AdminMyBannersView({
       </div>
       {placementNote ? <p className="-mt-2 mb-4 sam-text-body-secondary text-sam-muted">{placementNote}</p> : null}
       {loading ? (
-        <p className="text-sam-muted">{loadingLabel}</p>
+        <AdminLoadingState ko={ko} label={loadingLabel} />
       ) : error ? (
-        <AdminErrorState ko={ko} code={error} />
+        <AdminErrorState ko={ko} code={error} httpStatus={httpStatus} onRetry={onRetry} />
       ) : items.length === 0 ? (
-        <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
-          등록된 배너가 없습니다.
-        </p>
+        <AdminEmptyState ko={ko} message="등록된 배너가 없습니다." />
       ) : (
         <ul className="space-y-2">
           {items.map((b) => (

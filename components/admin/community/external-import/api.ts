@@ -29,9 +29,10 @@ export async function call<T>(path: string, init?: { method?: string; body?: unk
   }
   const j = (json || {}) as { ok?: boolean; error?: string; code?: string };
   if (!res.ok || j.ok === false) {
-    const err = new Error(j.error || `HTTP ${res.status}`) as Error & { code?: string; body?: unknown };
+    const err = new Error(j.error || `HTTP ${res.status}`) as Error & { code?: string; body?: unknown; status?: number };
     err.code = j.code;
     err.body = json;
+    err.status = res.status;
     throw err;
   }
   return json as T;
@@ -101,6 +102,13 @@ export function verdictLabel(v: string | null | undefined): string {
  * 오류 → 운영자 문구. 서버가 보낸 한글 안내는 그대로(판정 코드는 한글로 바꿈),
  * 영문 코드·HTTP 상태는 공통 오류 문구로 바꾼다 (원시 오류 노출 금지).
  */
+/** 화면 오류 상태용 (AdminErrorState: code + httpStatus — 403 은 권한 없음으로) */
+export function importErrorState(e: unknown): { code: string; status: number } {
+  const err = (e ?? {}) as { message?: string; code?: string; status?: number };
+  const code = err.code && /^[a-z][a-z0-9_]*$/.test(err.code) ? err.code : "load_failed";
+  return { code, status: typeof err.status === "number" ? err.status : 0 };
+}
+
 export function importErrorText(e: unknown): string {
   const err = (e ?? {}) as { message?: string; code?: string };
   const msg = String(err.message ?? (typeof e === "string" ? e : ""));

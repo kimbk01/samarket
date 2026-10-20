@@ -2,10 +2,11 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { getLatestUsageMetric } from "@/lib/usage/usage-state";
 
 export function UsageCostCards() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const latest = useMemo(() => getLatestUsageMetric(), []);
 
   const surge = latest && (latest.apiRequests > 500000 || latest.estimatedCost > 90);
@@ -41,7 +42,7 @@ export function UsageCostCards() {
           </div>
         </div>
       ) : (
-        <p className="sam-text-body text-sam-muted">{t("admin_usage_no_data")}</p>
+        <AdminEmptyState ko={language !== "en"} message={t("admin_usage_no_data")} />
       )}
       <p className="sam-text-helper text-sam-muted">{t("admin_usage_graph_placeholder")}</p>
     </div>

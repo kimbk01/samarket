@@ -27,14 +27,14 @@ import {
   type CampaignListTab,
 } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
-import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { NOTIFICATIONS_CAMPAIGN_STATUS_NS } from "@/lib/admin/status-labels/notifications-status-labels";
 
@@ -313,7 +313,8 @@ export function AdminNotificationCampaignsPage() {
     <div className="mx-auto max-w-6xl space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-[20px] font-semibold text-sam-fg">{t("admin_menu_dibay_notification_campaigns")}</h1>
-        <AdminActionLink href="/admin/notifications/create" variant="primary">
+        {/* 화면의 primary 는 필터 바 [조회] 하나 — 생성은 헤더 오른쪽 보조 (R7 버튼 배치). */}
+        <AdminActionLink href="/admin/notifications/create" variant="secondary">
           {t("admin_notif_btn_new")}
         </AdminActionLink>
       </div>
@@ -333,58 +334,48 @@ export function AdminNotificationCampaignsPage() {
         </p>
       ) : null}
 
-      <form
-        className="flex flex-wrap gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          pushQuery({ q: qDraft.trim() ? qDraft.trim().slice(0, 80) : null });
+      {/* R7 — 표준 필터 바. 조건은 기존 캠페인 목록 주소 계약(parseCampaignListQuery: tab·status·type·q·page·page_size)에 남는다. */}
+      <AdminFilterBar
+        ko={ko}
+        draft={{ q: qDraft, from: "", to: "" }}
+        onDraftChange={(p) => {
+          if (p.q !== undefined) setQDraft(p.q);
         }}
+        onSubmit={() => pushQuery({ q: qDraft.trim() ? qDraft.trim().slice(0, 80) : null })}
+        onReset={resetFilters}
+        pending={loading}
+        showPeriod={false}
+        searchPlaceholder={t("admin_notif_ph_title_search")}
+        status={
+          statusOptions
+            ? {
+                value: query.status ?? "",
+                label: t("admin_notif_th_status"),
+                onChange: (v) => pushQuery({ status: v ? (v as CampaignListQuery["status"]) : null }),
+                options: [
+                  { value: "", label: t("admin_notif_filter_status_all") },
+                  ...statusOptions.map((st) => ({ value: st, label: campaignStatusLabel(st, lang) })),
+                ],
+              }
+            : undefined
+        }
       >
-        {statusOptions ? (
+        <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
+          {t("admin_notif_th_type")}
           <select
-            value={query.status ?? "all"}
+            value={query.type ?? "all"}
             onChange={(e) =>
-              pushQuery({ status: e.target.value === "all" ? null : (e.target.value as CampaignListQuery["status"]) })
+              pushQuery({ type: e.target.value === "all" ? null : (e.target.value as CampaignListQuery["type"]) })
             }
-            className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-sm"
-            aria-label={t("admin_notif_th_status")}
+            className="h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
           >
-            <option value="all">{t("admin_notif_filter_status_all")}</option>
-            {statusOptions.map((s) => (
-              <option key={s} value={s}>
-                {campaignStatusLabel(s, lang)}
-              </option>
-            ))}
+            <option value="all">{t("admin_notif_filter_type_all")}</option>
+            <option value="notice">{t("admin_notif_type_notice")}</option>
+            <option value="marketing">{t("admin_notif_type_marketing")}</option>
+            <option value="system">{t("admin_notif_type_system")}</option>
           </select>
-        ) : null}
-        <select
-          value={query.type ?? "all"}
-          onChange={(e) =>
-            pushQuery({ type: e.target.value === "all" ? null : (e.target.value as CampaignListQuery["type"]) })
-          }
-          className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-sm"
-          aria-label={t("admin_notif_th_type")}
-        >
-          <option value="all">{t("admin_notif_filter_type_all")}</option>
-          <option value="notice">{t("admin_notif_type_notice")}</option>
-          <option value="marketing">{t("admin_notif_type_marketing")}</option>
-          <option value="system">{t("admin_notif_type_system")}</option>
-        </select>
-        <input
-          value={qDraft}
-          onChange={(e) => setQDraft(e.target.value)}
-          placeholder={t("admin_notif_ph_title_search")}
-          className="min-w-[160px] flex-1 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-sm"
-        />
-        <div className="ml-auto flex gap-2">
-          <AdminActionButton variant="secondary" size="sm" onClick={resetFilters} disabled={loading}>
-            {adminCta("reset", ko)}
-          </AdminActionButton>
-          <AdminActionButton type="submit" variant="primary" size="sm" disabled={loading}>
-            {adminCta("search", ko)}
-          </AdminActionButton>
-        </div>
-      </form>
+        </label>
+      </AdminFilterBar>
 
       {loading ? (
         <AdminLoadingState ko={ko} />

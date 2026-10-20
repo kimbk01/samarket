@@ -2,6 +2,7 @@
 
 import { manilaDateRangeToUtc } from "@/lib/admin/metrics/manila-period";
 import type { AdminUserStatusCategory } from "@/lib/types/admin-user";
+import { ADMIN_LIST_QUERY_MAX_PAGE, normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
 export const ADMIN_MEMBER_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,6 +26,20 @@ export function parseAdminMemberListPage(
 ): { page: number; pageSize: number; from: number; to: number } {
   const page = Math.max(1, Math.trunc(Number(rawPage) || 1));
   const pageSize = Math.min(50, Math.max(1, Math.trunc(Number(rawSize) || 10)));
+  const from = (page - 1) * pageSize;
+  return { page, pageSize, from, to: from + pageSize - 1 };
+}
+
+/**
+ * 회원 목록 API(`GET /api/admin/users`) 페이지 — R7 목록 표준: pageSize 20/50/100 만 (그 외·없음 → 20).
+ * 회원 상세 탭(`member-tab-query`)은 기존 `parseAdminMemberListPage` 계약을 그대로 쓴다.
+ */
+export function parseAdminMemberListStandardPage(
+  rawPage: string | null,
+  rawSize: string | null,
+): { page: number; pageSize: number; from: number; to: number } {
+  const page = Math.min(ADMIN_LIST_QUERY_MAX_PAGE, Math.max(1, Math.trunc(Number(rawPage) || 1)));
+  const pageSize = normalizeAdminListPageSize(rawSize);
   const from = (page - 1) * pageSize;
   return { page, pageSize, from, to: from + pageSize - 1 };
 }

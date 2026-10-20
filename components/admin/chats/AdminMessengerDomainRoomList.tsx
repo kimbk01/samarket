@@ -2,12 +2,12 @@
 
 /**
  * 채팅방 목록 (설계 §3-4) — 전체·거래·배달 주문·일반 1:1·그룹 공용. 원천 = CM `community_messenger_rooms`.
- * 검색·필터·정렬·페이지는 전부 URL 상태. 이전 페이지는 URL `trail`(지나온 커서) — 브라우저 뒤로가기 의존 없음.
+ * 검색·필터·정렬·페이지는 전부 URL 상태. 페이지 = 쪽 번호(`page`·`size` 20/50/100 → API limit/offset + 「총 N건」, R7 목록 표준).
  * 행 동작 없음 — 조치는 방 상세(시트 S1~S6)에서만.
  */
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
@@ -18,18 +18,19 @@ import {
   AdminErrorState,
   AdminLoadingState,
 } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import type { AdminChatRoomListRow } from "@/lib/admin-community-messenger/list-admin-rooms-paged";
 import {
   ADMIN_CHAT_LIST_DEFAULT_LIMIT,
   ADMIN_CHAT_ROOM_DOMAINS,
-  adminListNextPage,
-  adminListPrevPage,
   buildAdminChatRoomListApiSearch,
   buildAdminChatRoomListSearch,
   currentAdminListHref,
+  parseAdminChatListPaging,
   parseAdminChatRoomListQuery,
-  readAdminListTrail,
-  withAdminListTrail,
+  withAdminChatListPaging,
+  type AdminChatListPaging,
   type AdminChatRoomListQuery,
   type AdminChatRoomTypeFilter,
 } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
@@ -66,9 +67,10 @@ type Props = {
 type LoadState =
   | { kind: "loading" }
   | { kind: "error"; code: string; httpStatus?: number }
-  | { kind: "ready"; rows: AdminChatRoomListRow[]; nextCursor: string | null };
+  | { kind: "ready"; rows: AdminChatRoomListRow[]; total: number };
 
-const INPUT = "rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg";
+const INPUT = "h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 text-[16px] text-sam-fg";
+const FILTER_LABEL = "flex flex-col gap-1 text-[12px] font-medium text-sam-muted";
 const TH = "px-3 py-2.5 text-left text-xs font-medium text-sam-muted";
 
 export function AdminMessengerDomainRoomList({ mode }: Props) {
@@ -83,9 +85,11 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
     () => parseAdminChatRoomListQuery(new URLSearchParams(spKey), fixedType),
     [spKey, fixedType]
   );
-  const trail = useMemo(() => readAdminListTrail(new URLSearchParams(spKey)), [spKey]);
+  const paging = useMemo(() => parseAdminChatListPaging(new URLSearchParams(spKey)), [spKey]);
   const returnTo = currentAdminListHref(pathname, spKey ? `?${spKey}` : "");
   const [state, setState] = useState<LoadState>({ kind: "loading" });
+  /** 마지막 정상 목록 — 다시 불러오기 실패 시 지우지 않고 오류와 함께 보인다 (지시서 §8-5). */
+  const [lastReady, setLastReady] = useState<Extract<LoadState, { kind: "ready" }> | null>(null);
   const [searchDraft, setSearchDraft] = useState(query.q);
   const [reloadToken, setReloadToken] = useState(0);
   /** 설계 §3-4: 「CM 방이 없는 과거 거래 N건」 — 레거시 거래 기록 화면과 같은 서버 판정. */
@@ -95,7 +99,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
     setSearchDraft(query.q);
   }, [query.q]);
 
-  const apiSearch = buildAdminChatRoomListApiSearch(query, ADMIN_CHAT_LIST_DEFAULT_LIMIT);
+  const apiSearch = buildAdminChatRoomListApiSearch(query, ADMIN_CHAT_LIST_DEFAULT_LIMIT, paging);
   useEffect(() => {
     let cancelled = false;
     setState({ kind: "loading" });
@@ -108,7 +112,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
         const json = (await res.json().catch(() => null)) as {
           ok?: boolean;
           rooms?: AdminChatRoomListRow[];
-          nextCursor?: string | null;
+          total?: number;
           error?: string;
         } | null;
         if (cancelled) return;
@@ -116,11 +120,13 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
           setState({ kind: "error", code: json?.error || "load_failed", httpStatus: res.status });
           return;
         }
-        setState({
-          kind: "ready",
+        const ready = {
+          kind: "ready" as const,
           rows: Array.isArray(json.rooms) ? json.rooms : [],
-          nextCursor: json.nextCursor ?? null,
-        });
+          total: typeof json.total === "number" ? json.total : 0,
+        };
+        setState(ready);
+        setLastReady(ready);
       } catch {
         if (!cancelled) setState({ kind: "error", code: "network_error" });
       }
@@ -130,25 +136,39 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
     };
   }, [apiSearch, reloadToken]);
 
-  /** 필터 변경 = 첫 페이지 (커서·trail 초기화, replace) · 페이지 이동 = push + trail. */
+  /** 필터 변경 = 1쪽 (크기 유지, replace) · 쪽 이동·크기 변경 = `pagingPatch`. */
   const navigate = useCallback(
-    (patch: Partial<AdminChatRoomListQuery>, opts?: { trail?: string[] }) => {
+    (patch: Partial<AdminChatRoomListQuery>, pagingPatch?: Partial<AdminChatListPaging>) => {
       const next: AdminChatRoomListQuery = { ...query, cursor: "", ...patch };
-      const search = withAdminListTrail(
+      const search = withAdminChatListPaging(
         buildAdminChatRoomListSearch(next, { fixedType: Boolean(fixedType) }),
-        opts?.trail ?? []
+        { size: paging.size, page: 1, ...pagingPatch }
       );
       const href = `${pathname}${search}`;
-      if (opts?.trail) router.push(href, { scroll: true });
-      else router.replace(href, { scroll: false });
+      if (href === `${pathname}${spKey ? `?${spKey}` : ""}`) {
+        setReloadToken((n) => n + 1);
+        return;
+      }
+      router.replace(href, { scroll: Boolean(pagingPatch?.page) });
     },
-    [fixedType, pathname, query, router]
+    [fixedType, paging.size, pathname, query, router, spKey]
   );
 
-  const onSearch = (e: FormEvent) => {
-    e.preventDefault();
-    navigate({ q: searchDraft });
-  };
+  const resetFilters = () =>
+    navigate({
+      q: "",
+      userId: "",
+      status: "",
+      reported: false,
+      activity: "",
+      idleDays: 0,
+      sort: "",
+      postId: "",
+      buyerId: "",
+      sellerId: "",
+      orderId: "",
+      type: fixedType ?? "all",
+    });
 
   const deepLinked = Boolean(query.postId || query.orderId || query.buyerId || query.sellerId);
   const filtered = Boolean(
@@ -161,6 +181,8 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
       deepLinked ||
       (mode === "all" && query.type !== "all")
   );
+  /** 표시할 목록 — 불러오는 중·실패 시에도 마지막 정상 목록을 유지한다. */
+  const view = state.kind === "ready" ? state : lastReady;
   const effectiveType = fixedType ?? query.type;
   useEffect(() => {
     if (effectiveType !== "trade") return;
@@ -190,109 +212,88 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
     >
       <AdminPageHeader titleKey={titleKey} description={t("admin_chat_rooms_desc")} />
 
-      <form
-        onSubmit={onSearch}
-        className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
-        data-admin-list-filters="chat-rooms"
-      >
-        <input
-          value={searchDraft}
-          onChange={(e) => setSearchDraft(e.target.value)}
-          placeholder={t("admin_chat_rooms_search_placeholder")}
-          className={`${INPUT} min-w-[240px] flex-1`}
-          aria-label={t("admin_chat_list_search")}
-        />
-        {mode === "all" ? (
-          <select
-            value={query.type}
-            onChange={(e) => navigate({ type: e.target.value as AdminChatRoomTypeFilter })}
-            className={INPUT}
-            aria-label={t("admin_chat_rooms_filter_type")}
-          >
-            <option value="all">{t("admin_chat_rooms_filter_type_all")}</option>
-            {ADMIN_CHAT_ROOM_DOMAINS.map((d) => (
-              <option key={d} value={d}>
-                {adminChatLabel("chat_domain", d, ko).label}
-              </option>
-            ))}
-          </select>
-        ) : null}
-        <select
-          value={query.status}
-          onChange={(e) => navigate({ status: e.target.value as AdminChatRoomListQuery["status"] })}
-          className={INPUT}
-          aria-label={t("admin_chat_rooms_filter_status")}
-        >
-          <option value="">{t("admin_chat_rooms_filter_status_all")}</option>
-          {(["active", "blocked", "archived"] as const).map((st) => (
-            <option key={st} value={st}>
-              {adminChatLabel("room_status", st, ko).label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={query.activity ? "active_7d" : query.idleDays ? `idle_${query.idleDays}` : ""}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v === "active_7d") navigate({ activity: "7d", idleDays: 0 });
-            else if (v.startsWith("idle_")) navigate({ activity: "", idleDays: Number(v.slice(5)) || 90 });
-            else navigate({ activity: "", idleDays: 0 });
+      <div data-admin-list-filters="chat-rooms">
+        <AdminFilterBar
+          ko={ko}
+          draft={{ q: searchDraft, from: "", to: "" }}
+          onDraftChange={(p) => {
+            if (p.q !== undefined) setSearchDraft(p.q);
           }}
-          className={INPUT}
-          aria-label={t("admin_chat_rooms_filter_activity")}
+          onSubmit={() => navigate({ q: searchDraft })}
+          onReset={resetFilters}
+          pending={state.kind === "loading"}
+          showPeriod={false}
+          searchPlaceholder={t("admin_chat_rooms_search_placeholder")}
+          status={{
+            value: query.status,
+            onChange: (v) => navigate({ status: v as AdminChatRoomListQuery["status"] }),
+            label: t("admin_chat_rooms_filter_status"),
+            options: [
+              { value: "", label: t("admin_chat_rooms_filter_status_all") },
+              ...(["active", "blocked", "archived"] as const).map((st) => ({
+                value: st,
+                label: adminChatLabel("room_status", st, ko).label,
+              })),
+            ],
+          }}
         >
-          <option value="">{t("admin_chat_rooms_filter_activity_all")}</option>
-          <option value="active_7d">{t("admin_chat_rooms_filter_activity_7d")}</option>
-          <option value={`idle_${query.idleDays || 90}`}>
-            {t("admin_chat_rooms_filter_idle", { days: query.idleDays || 90 })}
-          </option>
-        </select>
-        <select
-          value={query.sort}
-          onChange={(e) => navigate({ sort: e.target.value === "created" ? "created" : "" })}
-          className={INPUT}
-          aria-label={t("admin_chat_list_sort")}
-        >
-          <option value="">{t("admin_chat_rooms_sort_recent")}</option>
-          <option value="created">{t("admin_chat_rooms_sort_created")}</option>
-        </select>
-        <label className="flex min-h-9 items-center gap-1.5 sam-text-body text-sam-fg">
-          <input
-            type="checkbox"
-            checked={query.reported}
-            onChange={(e) => navigate({ reported: e.target.checked })}
-          />
-          {t("admin_chat_rooms_filter_reported")}
-        </label>
-        <div className="ml-auto flex gap-2">
-          {filtered ? (
-            <AdminActionButton
-              variant="ghost"
-              onClick={() =>
-                navigate({
-                  q: "",
-                  userId: "",
-                  status: "",
-                  reported: false,
-                  activity: "",
-                  idleDays: 0,
-                  sort: "",
-                  postId: "",
-                  buyerId: "",
-                  sellerId: "",
-                  orderId: "",
-                  type: fixedType ?? "all",
-                })
-              }
-            >
-              {t("admin_chat_list_clear_filters")}
-            </AdminActionButton>
+          {mode === "all" ? (
+            <label className={FILTER_LABEL}>
+              {t("admin_chat_rooms_filter_type")}
+              <select
+                value={query.type}
+                onChange={(e) => navigate({ type: e.target.value as AdminChatRoomTypeFilter })}
+                className={INPUT}
+              >
+                <option value="all">{t("admin_chat_rooms_filter_type_all")}</option>
+                {ADMIN_CHAT_ROOM_DOMAINS.map((d) => (
+                  <option key={d} value={d}>
+                    {adminChatLabel("chat_domain", d, ko).label}
+                  </option>
+                ))}
+              </select>
+            </label>
           ) : null}
-          <AdminActionButton type="submit" variant="primary">
-            {t("admin_chat_list_search")}
-          </AdminActionButton>
-        </div>
-      </form>
+          <label className={FILTER_LABEL}>
+            {t("admin_chat_rooms_filter_activity")}
+            <select
+              value={query.activity ? "active_7d" : query.idleDays ? `idle_${query.idleDays}` : ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "active_7d") navigate({ activity: "7d", idleDays: 0 });
+                else if (v.startsWith("idle_")) navigate({ activity: "", idleDays: Number(v.slice(5)) || 90 });
+                else navigate({ activity: "", idleDays: 0 });
+              }}
+              className={INPUT}
+            >
+              <option value="">{t("admin_chat_rooms_filter_activity_all")}</option>
+              <option value="active_7d">{t("admin_chat_rooms_filter_activity_7d")}</option>
+              <option value={`idle_${query.idleDays || 90}`}>
+                {t("admin_chat_rooms_filter_idle", { days: query.idleDays || 90 })}
+              </option>
+            </select>
+          </label>
+          <label className={FILTER_LABEL}>
+            {t("admin_chat_list_sort")}
+            <select
+              value={query.sort}
+              onChange={(e) => navigate({ sort: e.target.value === "created" ? "created" : "" })}
+              className={INPUT}
+            >
+              <option value="">{t("admin_chat_rooms_sort_recent")}</option>
+              <option value="created">{t("admin_chat_rooms_sort_created")}</option>
+            </select>
+          </label>
+          <label className="flex h-10 items-center gap-1.5 sam-text-body text-sam-fg">
+            <input
+              type="checkbox"
+              checked={query.reported}
+              onChange={(e) => navigate({ reported: e.target.checked })}
+            />
+            {t("admin_chat_rooms_filter_reported")}
+          </label>
+        </AdminFilterBar>
+      </div>
 
       {query.userId || deepLinked ? (
         <div
@@ -345,26 +346,28 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
         </p>
       ) : null}
 
-      {state.kind === "loading" ? (
-        <AdminLoadingState ko={ko} />
-      ) : state.kind === "error" ? (
+      {state.kind === "error" ? (
         <AdminErrorState
           ko={ko}
           code={state.code}
           httpStatus={state.httpStatus}
           onRetry={() => setReloadToken((n) => n + 1)}
         />
-      ) : state.rows.length === 0 ? (
+      ) : null}
+      {view == null ? (
+        state.kind === "loading" ? <AdminLoadingState ko={ko} /> : null
+      ) : view.rows.length === 0 ? (
         <div data-testid="admin-messenger-domain-empty">
           <AdminEmptyState
             ko={ko}
             message={
-              query.cursor
+              paging.page > 1
                 ? t("admin_chat_list_empty_after_page")
                 : filtered
                   ? t("admin_chat_rooms_empty_filtered")
                   : t("admin_chat_rooms_empty")
             }
+            onReset={filtered ? resetFilters : undefined}
           />
         </div>
       ) : (
@@ -380,7 +383,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
               </tr>
             </thead>
             <tbody>
-              {state.rows.map((room) => {
+              {view.rows.map((room) => {
                 const status = adminChatLabel("room_status", room.roomStatus, ko);
                 const domain = adminChatLabel("chat_domain", room.chatDomain, ko);
                 const msgType = room.lastMessageType ? adminChatLabel("message_type", room.lastMessageType, ko) : null;
@@ -449,33 +452,16 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
         </div>
       )}
 
-      {state.kind === "ready" && (query.cursor || state.nextCursor) ? (
-        <nav className="flex flex-wrap items-center justify-end gap-2" aria-label={t("admin_chat_list_pages")} data-admin-list-pager="keyset">
-          <span className="mr-auto sam-text-helper text-sam-muted">
-            {t("admin_chat_list_page_size", { count: ADMIN_CHAT_LIST_DEFAULT_LIMIT })}
-          </span>
-          <AdminActionButton disabled={!query.cursor} onClick={() => navigate({ cursor: "" })}>
-            {t("admin_chat_list_first")}
-          </AdminActionButton>
-          <AdminActionButton
-            disabled={!query.cursor}
-            onClick={() => {
-              const p = adminListPrevPage(trail);
-              navigate({ cursor: p.cursor }, { trail: p.trail });
-            }}
-          >
-            {t("admin_chat_list_prev")}
-          </AdminActionButton>
-          <AdminActionButton
-            disabled={!state.nextCursor}
-            onClick={() => {
-              const n = adminListNextPage(trail, query.cursor, state.nextCursor ?? "");
-              navigate({ cursor: n.cursor }, { trail: n.trail });
-            }}
-          >
-            {t("admin_chat_list_next")}
-          </AdminActionButton>
-        </nav>
+      {view ? (
+        <AdminPagination
+          ko={ko}
+          page={paging.page}
+          size={paging.size}
+          total={view.total}
+          disabled={state.kind === "loading"}
+          onPageChange={(page) => navigate({}, { page })}
+          onSizeChange={(size) => navigate({}, { size, page: 1 })}
+        />
       ) : null}
     </div>
   );

@@ -11,13 +11,19 @@ export type AdminDeliveryOperationAlertsResult = {
 
 export function fetchAdminDeliveryOperationAlertsDeduped(
   eventStatus: "open" | "all" | "resolved" | "acknowledged" | "muted" = "open",
-  assignment: "all" | "mine" | "unassigned" = "all"
+  assignment: "all" | "mine" | "unassigned" = "all",
+  /** R7 서버 페이지 — 있으면 `limit`/`offset` 을 보내고 응답에 `events_total` 이 온다. */
+  page?: { limit: number; offset: number }
 ): Promise<AdminDeliveryOperationAlertsResult> {
-  const key = `admin:delivery-operation-alerts:${eventStatus}:${assignment}`;
+  const key = `admin:delivery-operation-alerts:${eventStatus}:${assignment}${page ? `:${page.limit}:${page.offset}` : ""}`;
   const qs = new URLSearchParams({
     event_status: eventStatus,
     assignment,
   });
+  if (page) {
+    qs.set("limit", String(page.limit));
+    qs.set("offset", String(page.offset));
+  }
   const url = `/api/admin/delivery-operation-alerts?${qs.toString()}`;
   return runSingleFlight(key, () =>
     adminFetch(url, {

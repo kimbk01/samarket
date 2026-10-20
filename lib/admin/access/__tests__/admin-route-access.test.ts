@@ -130,6 +130,13 @@ const ACTION_CONTRACT: { page: string; route: string; method: string }[] = [
   { page: "/admin/runtime-health", route: "runtime-health/route.ts", method: "PATCH" },
   { page: "/admin/store-fee-policies", route: "store-fee-policies/route.ts", method: "POST" },
   { page: "/admin/app/legal", route: "app-legal-documents/route.ts", method: "POST" },
+  // R9 — 쓰기 권한이 따로인 나머지 화면 (화면은 useAdminRouteAction 으로 쓰기 버튼 비활성)
+  { page: "/admin/delivery-release-gate", route: "delivery-release-gate/route.ts", method: "PATCH" },
+  { page: "/admin/commerce-settings", route: "commerce-settings/route.ts", method: "PUT" },
+  { page: "/admin/community/restrictions", route: "community/restrictions/route.ts", method: "POST" },
+  { page: "/admin/community/promotions", route: "community-promotion-orders/[id]/route.ts", method: "PATCH" },
+  { page: "/admin/community/points", route: "points/adjust/route.ts", method: "POST" },
+  { page: "/admin/philife/meeting-reports", route: "philife/meeting-reports/[reportId]/route.ts", method: "PATCH" },
 ];
 
 describe("admin route access — API 가드 계약", () => {
@@ -147,6 +154,33 @@ describe("admin route access — API 가드 계약", () => {
     const body = handlerSource(route, method);
     const calls = guardCallsFor(actionRequirement);
     expect(calls.some((c) => body.includes(c)), `${route} ${method} should call one of ${calls.join(" | ")}`).toBe(true);
+  });
+
+  it("쓰기 권한(action)이 따로인 규칙은 전부 작업 계약 표에 있다", () => {
+    const withAction = ADMIN_ROUTE_ACCESS_RULES.filter((r) => r.action).map((r) => r.path).sort();
+    expect([...new Set(ACTION_CONTRACT.map((c) => c.page))].sort()).toEqual(withAction);
+  });
+
+  it("쓰기 권한이 따로인 화면은 useAdminRouteAction 으로 쓰기 버튼을 막는다 (화면 폐포 안에 호출)", () => {
+    for (const rule of ADMIN_ROUTE_ACCESS_RULES.filter((r) => r.action)) {
+      const page = path.join(ROOT, "app", rule.path, "page.tsx");
+      const seen = new Set<string>();
+      const stack = [page];
+      let found = false;
+      while (stack.length && !found) {
+        const f = stack.pop()!;
+        if (seen.has(f) || !existsSync(f)) continue;
+        seen.add(f);
+        const src = readFileSync(f, "utf8");
+        if (new RegExp(`useAdminRouteAction\\(\\s*"${rule.path}"`).test(src)) found = true;
+        for (const m of src.matchAll(/from\s+"(@\/components\/admin\/[^"]+|@\/app\/admin\/[^"]+|\.{1,2}\/[^"]+)"/g)) {
+          const spec = m[1];
+          const base = spec.startsWith("@/") ? path.join(ROOT, spec.slice(2)) : path.join(path.dirname(f), spec);
+          for (const ext of [".tsx", ".ts", "/index.tsx", "/index.ts"]) if (existsSync(base + ext)) stack.push(base + ext);
+        }
+      }
+      expect(found, rule.path).toBe(true);
+    }
   });
 
   it("내부 도구 API(app/api/admin/<tool>)는 전부 requireSuperAdmin", () => {

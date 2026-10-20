@@ -559,6 +559,69 @@ export async function listAdminNotifications(
 }
 
 /**
+ * `authorityAllows` 를 DB 조건으로 — 권한 없는 알림(required_permission)은 쿼리에서 미리 뺀다.
+ * super_admin = 전부 · 그 외 = 필요 권한 없음 또는 보유 권한(`users` 는 `users_edit_membership` 포함).
+ * null = 조건 없음.
+ */
+function authorityPostgrestFilter(authority: Extract<AdminRecipientAuthority, { active: true }>): string | null {
+  if (authority.isSuperAdmin) return null;
+  const keys = new Set<string>(authority.permissions);
+  if (keys.has("users")) keys.add("users_edit_membership");
+  const list = [...keys].filter((k) => /^[a-z0-9_]+$/.test(k));
+  return list.length ? `required_permission.is.null,required_permission.in.(${list.join(",")})` : "required_permission.is.null";
+}
+
+/**
+ * Inbox page — R7 목록 표준 (offset 서버 페이지 + 정확한 전체 건수).
+ * `listAdminNotifications`(커서 · 30건 「더 보기」)와 같은 범위(본인 · 미보관 · 보존 기간 · 권한 보유)를
+ * DB 조건으로 걸어 `total` 이 실제 표시 건수와 같다. `unread` 도 같은 조건의 count exact.
+ */
+export async function listAdminNotificationsPage(
+  sb: SupabaseClient,
+  input: {
+    adminUserId: string;
+    authority: AdminRecipientAuthority;
+    limit: number;
+    offset: number;
+    unreadOnly?: boolean;
+  }
+): Promise<
+  { ok: true; items: AdminNotificationDto[]; total: number; unread: number } | { ok: false; error: string }
+> {
+  if (!input.authority.active) return { ok: false, error: "admin_only" };
+  const perm = authorityPostgrestFilter(input.authority);
+  const cutoff = retentionCutoffIso();
+  let q = sb
+    .from(ADMIN_NOTIFICATIONS_TABLE)
+    .select(ROW_COLUMNS, { count: "exact" })
+    .eq("recipient_admin_id", input.adminUserId)
+    .is("archived_at", null)
+    .gte("created_at", cutoff);
+  if (perm) q = q.or(perm);
+  if (input.unreadOnly) q = q.is("read_at", null);
+  let u = sb
+    .from(ADMIN_NOTIFICATIONS_TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("recipient_admin_id", input.adminUserId)
+    .is("read_at", null)
+    .is("archived_at", null)
+    .gte("created_at", cutoff);
+  if (perm) u = u.or(perm);
+  const [list, unread] = await Promise.all([
+    q
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(input.offset, input.offset + input.limit - 1),
+    u,
+  ]);
+  if (list.error) return { ok: false, error: list.error.message };
+  if (unread.error) return { ok: false, error: unread.error.message };
+  const rows = (list.data ?? []) as AdminNotificationRow[];
+  const items = await withSettlementWorkStatus(sb, rows.map(toAdminNotificationDto));
+  return { ok: true, items, total: list.count ?? items.length, unread: unread.count ?? 0 };
+}
+
+/**
  * Settlement alerts: attach the LIVE work state of the linked review (store_sale_fee_obligations
  * .adjustment_status) — the queue is the single source, so the alert can never show a stale state.
  * A decision therefore updates the alert's status without creating a new notification.

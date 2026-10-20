@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
 import {
   communityAdminUuidOrNull,
-  parseCommunityAdminPage,
   parseCommunityAdminPeriodFromSearch,
 } from "@/lib/admin/community-admin/community-admin-period";
 import { TRADE_AUDIT_TARGET_TYPES } from "@/lib/admin/trade-admin/trade-metrics";
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const actorId = communityAdminUuidOrNull(sp.get("actorId"));
   const period = parseCommunityAdminPeriodFromSearch(sp, { defaultPeriod: "30d" });
   if (!period.ok) return NextResponse.json({ ok: false, error: period.error }, { status: 400 });
-  const { limit, offset } = parseCommunityAdminPage(sp);
+  const { limit, offset } = parseTradeAdminListPage(sp);
 
   let q = sb
     .from("audit_logs")

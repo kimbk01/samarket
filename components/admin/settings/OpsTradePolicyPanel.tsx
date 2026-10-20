@@ -11,7 +11,10 @@ import { logAdminMutation } from "@/lib/admin/admin-perf-logger";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
-export function OpsTradePolicyPanel() {
+/**
+ * `saveVariant` — 같은 화면에 다른 주 동작(설정 저장)이 있으면 "secondary" (화면당 primary 1개). 기본 primary.
+ */
+export function OpsTradePolicyPanel({ saveVariant = "primary" }: { saveVariant?: "primary" | "secondary" } = {}) {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const [autoDays, setAutoDays] = useState(7);
@@ -130,7 +133,7 @@ export function OpsTradePolicyPanel() {
         </div>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <AdminActionButton variant="primary" disabled={saving} onClick={() => void save()}>
+        <AdminActionButton variant={saveVariant} disabled={saving} onClick={() => void save()}>
           {t("admin_settings_trade_save")}
         </AdminActionButton>
       </div>

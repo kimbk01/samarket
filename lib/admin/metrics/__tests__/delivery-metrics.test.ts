@@ -65,8 +65,10 @@ describe("delivery metric definitions (§5)", () => {
     );
     expect(read("lib/admin/store-orders/admin-store-order-ops-contract.ts")).toContain('sp.get("period")');
     expect(read("components/admin/business/AdminBusinessListPage.tsx")).toContain('"restriction"');
-    expect(read("components/admin/delivery-alerts/AdminDeliveryAutoActionsPage.tsx")).toContain('get("status")');
-    expect(read("components/admin/delivery-alerts/AdminDeliveryAlertsPage.tsx")).toContain('get("filter")');
+    // R7 — `?status=` 는 useAdminListQuery 가 읽는다 (허용 값 = STATUS_FILTERS 중 all 제외).
+    expect(read("components/admin/delivery-alerts/AdminDeliveryAutoActionsPage.tsx")).toContain('statuses: STATUS_FILTERS.filter((f) => f !== "all")');
+    // R7 — `?filter=` 은 useAdminListQuery extras 로 읽는다 (기본 open).
+    expect(read("components/admin/delivery-alerts/AdminDeliveryAlertsPage.tsx")).toContain('extras: ["filter", "assignment"] as const');
   });
 
   it("today period is Manila (UTC+8): 00:00 Manila = 16:00Z previous day", () => {

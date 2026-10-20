@@ -4,7 +4,8 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ADMIN_STORE_STATUS_FILTER } from "@/components/admin/stores/admin-store-review-model";
 import type { AdminBusinessListOpsKpi } from "@/lib/admin-business/load-admin-business-list";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useEffect, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
@@ -139,7 +140,11 @@ export function AdminBusinessOpsFilterBar({
   viewMode: "list" | "grid";
   onViewModeChange: (m: "list" | "grid") => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  /** 검색어는 「조회」/Enter 때 적용 (필터 바 표준) — 선택 상자는 바꾸는 즉시 적용. */
+  const [draftQ, setDraftQ] = useState(filters.q);
+  useEffect(() => setDraftQ(filters.q), [filters.q]);
 
   const activeKpi = (def: (typeof KPI_DEFS)[number]): boolean => {
     if (def.key === "total") {
@@ -240,18 +245,22 @@ export function AdminBusinessOpsFilterBar({
         </div>
       ) : null}
 
-      <div className="w-full min-w-0 rounded-ui-rect border border-sam-border bg-white p-3 shadow-sm sm:p-4">
-        <input
-          value={filters.q}
-          onChange={(e) => onChange({ ...filters, q: e.target.value })}
-          placeholder={t("admin_biz_ops_search_ph")}
-          className="h-10 w-full min-w-0 rounded-ui-rect border border-sam-border bg-sam-app px-3 sam-text-body text-sam-fg outline-none focus:border-signature"
-        />
-
-        {/* Mockup: one horizontal filter strip; tablet/narrow → overflow-x scroll (no vertical stack). */}
-        <div className="mt-3 flex w-full min-w-0 items-center gap-2">
-          <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] touch-pan-x">
-            <div className="flex w-max flex-nowrap items-center gap-2 pb-0.5">
+      <div className="w-full min-w-0">
+        <AdminFilterBar
+          ko={ko}
+          draft={{ q: draftQ, from: "", to: "" }}
+          onDraftChange={(p) => {
+            if (p.q !== undefined) setDraftQ(p.q);
+          }}
+          onSubmit={() => onChange({ ...filters, q: draftQ.trim() })}
+          onReset={() => {
+            setDraftQ("");
+            onChange({ ...DEFAULT_OPS_FILTERS });
+          }}
+          pending={loading}
+          showPeriod={false}
+          searchPlaceholder={t("admin_biz_ops_search_ph")}
+        >
               <select
                 className={selectClass}
                 value={filters.category_id}
@@ -340,18 +349,8 @@ export function AdminBusinessOpsFilterBar({
                 <option value="yes">{t("admin_biz_ops_filter_yes")}</option>
                 <option value="no">{t("admin_biz_ops_filter_no")}</option>
               </select>
-              <AdminActionButton
-                variant="secondary"
-                size="sm"
-                className="shrink-0"
-                onClick={() => onChange({ ...DEFAULT_OPS_FILTERS })}
-              >
-                {t("admin_biz_ops_filter_reset")}
-              </AdminActionButton>
-            </div>
-          </div>
-          {sortAndView}
-        </div>
+        </AdminFilterBar>
+        <div className="mt-2 flex justify-end">{sortAndView}</div>
 
         <p className="mt-2 sam-text-helper text-sam-muted">
           {loading

@@ -10,7 +10,8 @@ import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 export function OpsDocumentRankingTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const rankings = useMemo(() => getOpsKnowledgeDocumentRankings(), []);
+  /** 고정 상한 없이 번들 전체 — 지식 그래프는 문서·런북 번들에서 통째로 만들어지는 구조. */
+  const rankings = useMemo(() => getOpsKnowledgeDocumentRankings({ limit: Number.MAX_SAFE_INTEGER }), []);
 
   if (rankings.length === 0) {
     return (

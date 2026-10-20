@@ -277,7 +277,8 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
               </AdminActionButton>
             )}
             {post.status !== "deleted" ? (
-              <AdminActionButton variant="danger" disabled={!!busy} onClick={() => void setPostStatus("deleted")}>
+              // 삭제 = 상태 변경(「다시 공개」로 복구 가능) — danger 아님
+              <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void setPostStatus("deleted")}>
                 삭제
               </AdminActionButton>
             ) : null}

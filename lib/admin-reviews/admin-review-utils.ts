@@ -43,13 +43,6 @@ export const ROLE_FILTER_OPTIONS: { value: ReviewRole | ""; labelKey: MessageKey
   { value: "seller_to_buyer", labelKey: "admin_review_role_seller_to_buyer" },
 ];
 
-export interface AdminReviewFilters {
-  reviewStatus: ReviewStatus | "";
-  rating: number | "";
-  role: ReviewRole | "";
-  sortKey: "createdAt";
-}
-
 /** 거래 후기 태그 키 → 라벨 (역할별, 태그 정의는 trade-review-tags) */
 export function formatAdminReviewTagKeys(
   t: AdminReviewTranslate,
@@ -75,39 +68,4 @@ export function formatAdminReviewSelectedTags(
   if (neg !== "—") parts.push(`${t("admin_review_negative_tags")}: ${neg}`);
   if (legacy) parts.push(`${t("admin_review_legacy_tags")}: ${legacy}`);
   return parts.length ? parts.join(" · ") : "—";
-}
-
-export function filterAndSortReviews(
-  reviews: AdminReview[],
-  filters: AdminReviewFilters,
-  searchQuery: string
-): AdminReview[] {
-  let list = [...reviews];
-
-  if (filters.reviewStatus) {
-    list = list.filter((r) => r.reviewStatus === filters.reviewStatus);
-  }
-  if (filters.rating !== "") {
-    list = list.filter((r) => r.rating === filters.rating);
-  }
-  if (filters.role) {
-    list = list.filter((r) => r.role === filters.role);
-  }
-
-  if (searchQuery.trim()) {
-    const q = searchQuery.trim().toLowerCase();
-    list = list.filter((r) => {
-      const matchProduct = r.productTitle.toLowerCase().includes(q);
-      const matchReviewer = r.reviewerNickname.toLowerCase().includes(q);
-      const matchTarget = r.targetNickname.toLowerCase().includes(q);
-      const matchTx = r.transactionId.toLowerCase().includes(q);
-      const matchComment = (r.comment ?? "").toLowerCase().includes(q);
-      return matchProduct || matchReviewer || matchTarget || matchTx || matchComment;
-    });
-  }
-
-  list.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-  return list;
 }

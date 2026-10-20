@@ -6,9 +6,9 @@
 import Link from "next/link";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { AdminErrorState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
@@ -50,12 +50,18 @@ async function jsonOf(res: Response): Promise<{ ok?: boolean; error?: string; [k
 export function AdminCommunitySectionsPage({
   sections: initial,
   philifeNeighborhoodSectionSlug: initialPhilifeSlug,
+  loadError: initialLoadError = null,
 }: {
   sections: CommunitySectionAdminRow[];
   philifeNeighborhoodSectionSlug: string;
+  /** 서버 조회 실패 코드 — 「등록된 섹션 없음」과 구분 */
+  loadError?: string | null;
 }) {
   const router = useRouter();
   const [sections, setSections] = useState(initial);
+  const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(
+    initialLoadError ? { code: initialLoadError, status: 500 } : null
+  );
   const [philifeSectionSlug, setPhilifeSectionSlug] = useState(initialPhilifeSlug);
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
@@ -73,7 +79,13 @@ export function AdminCommunitySectionsPage({
   async function refresh() {
     const res = await fetch("/api/admin/community/sections", { credentials: "include", cache: "no-store" });
     const j = await jsonOf(res);
-    if (j.ok && Array.isArray(j.sections)) setSections(j.sections as CommunitySectionAdminRow[]);
+    if (j.ok && Array.isArray(j.sections)) {
+      setSections(j.sections as CommunitySectionAdminRow[]);
+      setLoadErr(null);
+    } else {
+      // 실패해도 직전 목록은 지우지 않는다 (§8-5)
+      setLoadErr({ code: typeof j.error === "string" && j.error ? j.error : "load_failed", status: res.status });
+    }
     const r2 = await fetch("/api/admin/community/philife-neighborhood-section", { credentials: "include", cache: "no-store" });
     const j2 = await jsonOf(r2);
     if (j2.ok && typeof j2.section_slug === "string") setPhilifeSectionSlug(j2.section_slug);
@@ -256,7 +268,7 @@ export function AdminCommunitySectionsPage({
                 ))}
             </select>
           </label>
-          <AdminActionButton type="submit" variant="primary" disabled={busy || !philifeSectionSlug.trim()}>
+          <AdminActionButton type="submit" variant="secondary" disabled={busy || !philifeSectionSlug.trim()}>
             설정 저장
           </AdminActionButton>
         </form>
@@ -287,7 +299,12 @@ export function AdminCommunitySectionsPage({
       </AdminCard>
 
       <AdminCard title="섹션 목록">
-        {sections.length === 0 ? (
+        {loadErr ? (
+          <div className="mb-3">
+            <AdminErrorState ko code={loadErr.code} httpStatus={loadErr.status} onRetry={() => void refresh()} />
+          </div>
+        ) : null}
+        {loadErr && sections.length === 0 ? null : sections.length === 0 ? (
           <p className="text-[13px] text-sam-muted">등록된 섹션이 없습니다. 위에서 섹션을 추가하세요.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -304,7 +321,8 @@ export function AdminCommunitySectionsPage({
               <tbody>
                 {sections.map((s) =>
                   edit?.id === s.id ? (
-                    <tr key={s.id} className="border-b border-sam-border-soft bg-sam-warning-soft/40">
+                    <Fragment key={s.id}>
+                    <tr className="border-b border-sam-border-soft bg-sam-warning-soft/40">
                       <td className="py-2 pr-2">
                         <input className={`${INPUT} w-full`} value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
                       </td>
@@ -324,15 +342,27 @@ export function AdminCommunitySectionsPage({
                       </td>
                       <td className="py-2">
                         <span className="flex flex-wrap gap-1">
-                          <AdminActionButton variant="neutral" disabled={busy} onClick={() => setEdit(null)}>
+                          <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => setEdit(null)}>
                             취소
                           </AdminActionButton>
-                          <AdminActionButton variant="primary" disabled={busy} onClick={saveEdit}>
+                          <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={saveEdit}>
                             저장
                           </AdminActionButton>
                         </span>
                       </td>
                     </tr>
+                    {/* 행 버튼 2개 이하 — 되돌릴 수 없는 삭제는 수정 중일 때 아래 줄에서만 */}
+                    <tr className="border-b border-sam-border-soft bg-sam-warning-soft/40">
+                      <td colSpan={5} className="py-2">
+                        <span className="flex flex-wrap items-center justify-end gap-2 text-[12px] text-sam-muted">
+                          글이 없는 섹션만 삭제할 수 있습니다. 되돌릴 수 없습니다.
+                          <AdminActionButton variant="danger" size="sm" disabled={busy} onClick={() => removeRow(s)}>
+                            섹션 삭제
+                          </AdminActionButton>
+                        </span>
+                      </td>
+                    </tr>
+                    </Fragment>
                   ) : (
                     <tr key={s.id} className="border-b border-sam-border-soft">
                       <td className="py-2 pr-2 text-sam-fg">{s.name}</td>
@@ -343,19 +373,11 @@ export function AdminCommunitySectionsPage({
                       </td>
                       <td className="py-2">
                         <span className="flex flex-wrap gap-1">
-                          <AdminActionButton variant="neutral" disabled={busy} onClick={() => setEdit({ ...s })}>
+                          <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => setEdit({ ...s })}>
                             수정
                           </AdminActionButton>
-                          <AdminActionButton
-                            variant="secondary"
-                            className={s.is_active ? "border-sam-warning text-sam-warning" : undefined}
-                            disabled={busy}
-                            onClick={() => toggleActive(s)}
-                          >
+                          <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => toggleActive(s)}>
                             {s.is_active ? "사용 중지" : "다시 사용"}
-                          </AdminActionButton>
-                          <AdminActionButton variant="danger" disabled={busy} onClick={() => removeRow(s)}>
-                            삭제
                           </AdminActionButton>
                         </span>
                       </td>

@@ -6,6 +6,7 @@ import { getFeedFallbackStates } from "@/lib/feed-emergency/feed-emergency-state
 import { getFeedMode } from "@/lib/feed-emergency/feed-emergency-utils";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 
 const MODE_LABELS: Record<string, string> = {
   normal: "정상",
@@ -21,9 +22,7 @@ export function FeedFallbackStateCard() {
 
   if (states.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        상태가 없습니다.
-      </div>
+      <AdminEmptyState ko message="상태가 없습니다." />
     );
   }
 

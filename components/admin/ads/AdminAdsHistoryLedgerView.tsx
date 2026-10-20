@@ -4,7 +4,7 @@
  * CUT R7 — Ads History / Audit Ledger UI (read-only).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
   AdsHistoryDomainFilter,
@@ -14,6 +14,8 @@ import type {
 } from "@/lib/admin/ads-history/types";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -205,38 +207,76 @@ function RowCard({
   );
 }
 
+const HISTORY_DOMAINS: readonly Exclude<AdsHistoryDomainFilter, "all">[] = ["community", "trade", "delivery", "popup"];
+const HISTORY_STATUSES: readonly Exclude<AdsHistoryStatusFilter, "all">[] = [
+  "approved",
+  "rejected",
+  "ended",
+  "refunded",
+  "paused",
+];
+
 export function AdminAdsHistoryLedgerView() {
+  return (
+    <Suspense fallback={<AdminLoadingState ko />}>
+      <AdminAdsHistoryLedgerViewInner />
+    </Suspense>
+  );
+}
+
+function AdminAdsHistoryLedgerViewInner() {
   const { language, t } = useI18n();
   const ko = language !== "en";
   const [ledger, setLedger] = useState<AdsHistoryLedgerModel | null>(null);
   const [err, setErr] = useState("");
-  const [domain, setDomain] = useState<AdsHistoryDomainFilter>("all");
-  const [status, setStatus] = useState<AdsHistoryStatusFilter>("all");
-  const [q, setQ] = useState("");
+  const [errStatus, setErrStatus] = useState<number | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  /** R7 목록 표준 8 — 영역(`domain`)·상태(`status`)·검색어(`q`)를 주소에 둔다. */
+  const lq = useAdminListQuery<"domain">({
+    statuses: HISTORY_STATUSES,
+    extras: ["domain"],
+  });
+  const domain: AdsHistoryDomainFilter = (HISTORY_DOMAINS as readonly string[]).includes(lq.query.extras.domain)
+    ? (lq.query.extras.domain as AdsHistoryDomainFilter)
+    : "all";
+  const status = (lq.query.status || "all") as AdsHistoryStatusFilter;
+  const q = lq.query.q;
   const [openId, setOpenId] = useState<string | null>(null);
+  const { refreshKey } = lq;
 
   const load = useCallback(async () => {
     setErr("");
+    setErrStatus(undefined);
+    setBusy(true);
     const params = new URLSearchParams();
     if (domain !== "all") params.set("domain", domain);
     if (status !== "all") params.set("status", status);
     if (q.trim()) params.set("q", q.trim());
-    const res = await fetch(`/api/admin/advertising/history?${params.toString()}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const json = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      error?: string;
-      ledger?: AdsHistoryLedgerModel;
-    };
-    if (!res.ok || !json.ok || !json.ledger) {
-      setErr(json.error || "load_failed");
-      setLedger(null);
-      return;
+    try {
+      const res = await fetch(`/api/admin/advertising/history?${params.toString()}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        ledger?: AdsHistoryLedgerModel;
+      };
+      if (!res.ok || !json.ok || !json.ledger) {
+        // 실패해도 이전 정상 목록은 지우지 않는다 (지시서 §8-5).
+        setErr(json.error || "load_failed");
+        setErrStatus(res.status);
+        return;
+      }
+      setLedger(json.ledger);
+    } catch {
+      setErr("network_error");
+    } finally {
+      setBusy(false);
     }
-    setLedger(json.ledger);
-  }, [domain, q, status]);
+    // refreshKey — 같은 조건 「조회」도 다시 불러온다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [domain, q, status, refreshKey]);
 
   useEffect(() => {
     void load();
@@ -264,67 +304,55 @@ export function AdminAdsHistoryLedgerView() {
         </p>
       </header>
 
-      <div className="flex flex-wrap gap-2" data-ads-history-filters="1">
-        {(
-          [
-            ["all", ko ? "전체" : "All"],
-            ["community", "Community"],
-            ["trade", ko ? "거래" : "Trade"],
-            ["delivery", ko ? "배달" : "Delivery"],
-            ["popup", "Popup"],
-          ] as const
-        ).map(([id, label]) => (
-          <AdminChipButton
-            key={id}
-            selected={domain === id}
-            data-ads-history-domain={id}
-            onClick={() => setDomain(id)}
-          >
-            {label}
-          </AdminChipButton>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2" data-ads-history-status-filters="1">
-        {(
-          [
-            ["all", ko ? "전체 상태" : "All statuses"],
-            ["approved", ko ? "승인" : "Approved"],
-            ["rejected", ko ? "반려" : "Rejected"],
-            ["ended", ko ? "종료" : "Ended"],
-            ["refunded", ko ? "환불" : "Refunded"],
-            ["paused", ko ? "제재/중지" : "Paused"],
-          ] as const
-        ).map(([id, label]) => (
-          <AdminChipButton
-            key={id}
-            selected={status === id}
-            data-ads-history-status={id}
-            onClick={() => setStatus(id)}
-          >
-            {label}
-          </AdminChipButton>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={ko ? "캠페인·신청자·ID 조회" : "Search title, applicant, id"}
-          className="min-w-[16rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px]"
-          data-ads-history-search="1"
-        />
-        <AdminActionButton variant="secondary" onClick={() => void load()}>
-          {adminCta("refresh", ko)}
-        </AdminActionButton>
-        <span
-          className="text-[12px] text-sam-muted"
-          data-ads-history-export={ledger?.exportAvailable ? "1" : "0"}
-        >
-          {ko ? ledger?.exportGapKo : ledger?.exportGapEn}
-        </span>
-      </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        pending={busy}
+        showPeriod={false}
+        searchPlaceholder={ko ? "캠페인·신청자·ID" : "Title, applicant, id"}
+        status={{
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          options: [
+            { value: "", label: ko ? "전체 상태" : "All statuses" },
+            { value: "approved", label: ko ? "승인" : "Approved" },
+            { value: "rejected", label: ko ? "반려" : "Rejected" },
+            { value: "ended", label: ko ? "종료" : "Ended" },
+            { value: "refunded", label: ko ? "환불" : "Refunded" },
+            { value: "paused", label: ko ? "제재/중지" : "Paused" },
+          ],
+        }}
+      >
+        <div className="flex flex-wrap gap-2 pb-1" data-ads-history-filters="1">
+          {(
+            [
+              ["all", ko ? "전체" : "All"],
+              ["community", "Community"],
+              ["trade", ko ? "거래" : "Trade"],
+              ["delivery", ko ? "배달" : "Delivery"],
+              ["popup", "Popup"],
+            ] as const
+          ).map(([id, label]) => (
+            <AdminChipButton
+              key={id}
+              selected={domain === id}
+              data-ads-history-domain={id}
+              onClick={() => lq.setExtra("domain", id === "all" ? "" : id)}
+            >
+              {label}
+            </AdminChipButton>
+          ))}
+        </div>
+      </AdminFilterBar>
+      <p
+        className="text-[12px] text-sam-muted"
+        data-ads-history-export={ledger?.exportAvailable ? "1" : "0"}
+      >
+        {ko ? ledger?.exportGapKo : ledger?.exportGapEn}
+      </p>
 
       {ledger?.sectionErrors?.length ? (
         <div className="text-[12px] text-sam-warning" data-ads-history-section-errors="1">
@@ -350,29 +378,16 @@ export function AdminAdsHistoryLedgerView() {
       </div>
 
       {err ? (
-        <AdminErrorState ko={ko} code={err} onRetry={() => void load()} />
-      ) : !ledger ? (
-        <AdminLoadingState ko={ko} />
+        <AdminErrorState ko={ko} code={err} httpStatus={errStatus} onRetry={() => void load()} />
+      ) : null}
+      {!ledger ? (
+        err ? null : <AdminLoadingState ko={ko} />
       ) : rows.length === 0 ? (
         <div data-ads-history-empty="1">
           <AdminEmptyState
             ko={ko}
-            message={
-              domain !== "all" || status !== "all" || q.trim()
-                ? undefined
-                : ko
-                  ? "광고 이력이 없습니다."
-                  : "No ad history."
-            }
-            onReset={
-              domain !== "all" || status !== "all" || q.trim()
-                ? () => {
-                    setDomain("all");
-                    setStatus("all");
-                    setQ("");
-                  }
-                : undefined
-            }
+            message={lq.isFiltered ? undefined : ko ? "광고 이력이 없습니다." : "No ad history."}
+            onReset={lq.isFiltered ? lq.reset : undefined}
           />
         </div>
       ) : (

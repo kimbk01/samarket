@@ -6,23 +6,26 @@
  * 행을 누르면 처리 시트 — 신고 내용·대상 글·대상 회원·같은 게시물 다른 신고·처리 기록·회원의 기존 조치.
  * 처리(반려·게시물 숨김·경고·거래 활동 제한)는 POST /api/admin/trade/reports/:id 한 번 (2단계 확인·사유).
  * 계정 정지·차단은 여기서 하지 않는다 — 판매자·구매자 상세의 계정 조치로 이동.
+ * URL: tab(탭 — 대시보드 딥링크) · targetType · targetId · reporterId · sellerId · from/to(PHT) · (호환) period ·
+ *      reportId(시트) · page · size(20/50/100)
  */
 import Link from "next/link";
 import { useRef, useState } from "react";
 import {
   COMMUNITY_TD,
   CommunityActionSheet,
+  CommunityFilterBar,
   CommunityFilterField,
+  CommunityListBody,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityPeriodFilter,
-  CommunityResetFilters,
   CommunitySelect,
   CommunitySummaryCard,
   CommunityTable,
   CommunityTabs,
   CommunityTimeCell,
   CommunityTimeline,
+  useCommunityListQuery,
   useCommunityQueryState,
   type CommunitySheetSettle,
 } from "@/components/admin/community/kit/CommunityAdminKit";
@@ -63,7 +66,7 @@ import {
   tradeSanctionStatusOf,
 } from "@/components/admin/trade/restrictions/TradeRestrictionsPage";
 
-const PAGE_SIZE = 50;
+const LIST_EXTRAS = ["targetType", "targetId", "reporterId", "sellerId"] as const;
 const REASON_MIN = 2;
 
 type Rec = Record<string, unknown>;
@@ -191,34 +194,19 @@ const ACTION_LABEL: Record<string, string> = {
 /* ───────── 목록 ───────── */
 
 export function TradeReportsPage() {
+  /** `tab`·`reportId` 는 조회 조건 밖 키 — [초기화] 후에도 유지 */
   const qs = useCommunityQueryState();
+  const lq = useCommunityListQuery({ extras: LIST_EXTRAS });
   const tabRaw = qs.get("tab");
   const tab: TabKey = (TABS.find((t) => t.value === tabRaw)?.value ?? "open") as TabKey;
-  const targetType = qs.get("targetType");
-  const targetId = qs.get("targetId");
-  const reporterId = qs.get("reporterId");
-  const sellerId = qs.get("sellerId");
-  const period = qs.get("period");
-  const from = qs.get("from");
-  const to = qs.get("to");
+  const { targetType, targetId, reporterId, sellerId } = lq.query.extras;
   const reportId = qs.get("reportId");
   const [banner, setBanner] = useState<CommunityBanner>(null);
 
-  const params = new URLSearchParams({ tab, limit: String(PAGE_SIZE), offset: String((qs.page - 1) * PAGE_SIZE) });
-  if (targetType) params.set("targetType", targetType);
-  if (targetId) params.set("targetId", targetId);
-  if (reporterId) params.set("reporterId", reporterId);
-  if (sellerId) params.set("sellerId", sellerId);
-  params.set("period", period || "all");
-  if (period === "custom") {
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
-  }
-  const customIncomplete = period === "custom" && (!from || !to);
-  const { state, reload } = useCommunityAdminJson<ListResponse>(
-    customIncomplete ? null : `/api/admin/trade/reports?${params.toString()}`
-  );
-  const rows = state.status === "ok" ? state.data.rows ?? [] : state.data?.rows ?? [];
+  const params = lq.apiParams();
+  params.set("tab", tab);
+  const { state, reload } = useCommunityAdminJson<ListResponse>(`/api/admin/trade/reports?${params.toString()}`);
+  const rows = state.data?.rows ?? [];
   const total = state.status === "ok" ? Number(state.data.total ?? 0) : null;
   const counts = state.data?.tabCounts ?? {};
 
@@ -242,77 +230,46 @@ export function TradeReportsPage() {
           tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] ?? null }))}
         />
       }
-      filters={
-        <>
+      filterBar={
+        <CommunityFilterBar lq={lq} showSearch={false} pending={state.status === "loading"}>
           <CommunityFilterField label="대상 유형">
-            <CommunitySelect value={targetType} onChange={(v) => qs.set({ targetType: v })} options={TARGET_OPTIONS} />
+            <CommunitySelect value={targetType} onChange={(v) => lq.setExtra("targetType", v)} options={TARGET_OPTIONS} />
           </CommunityFilterField>
-          <CommunityPeriodFilter
-            period={period}
-            from={from}
-            to={to}
-            onChange={(v) => qs.set({ period: v.period, from: v.from, to: v.to })}
-          />
           {targetId ? (
-            <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
-              특정 대상만 보기
-              <AdminActionButton
-                variant="quiet"
-                size="sm"
-                className="!h-6 !px-1"
-                aria-label="특정 대상 해제"
-                onClick={() => qs.set({ targetId: null })}
-              >
-                ×
-              </AdminActionButton>
-            </span>
+            <CommunityFilterField label="대상">
+              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
+                특정 대상만 보기
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("targetId", "")}>
+                  해제
+                </AdminActionButton>
+              </span>
+            </CommunityFilterField>
           ) : null}
           {sellerId ? (
-            <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
-              특정 회원(본인·판매글) 신고만 보기
-              <AdminActionButton
-                variant="quiet"
-                size="sm"
-                className="!h-6 !px-1"
-                aria-label="특정 회원 해제"
-                onClick={() => qs.set({ sellerId: null })}
-              >
-                ×
-              </AdminActionButton>
-            </span>
+            <CommunityFilterField label="회원">
+              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
+                특정 회원(본인·판매글) 신고만 보기
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("sellerId", "")}>
+                  해제
+                </AdminActionButton>
+              </span>
+            </CommunityFilterField>
           ) : null}
           {reporterId ? (
-            <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
-              특정 신고자만 보기
-              <AdminActionButton
-                variant="quiet"
-                size="sm"
-                className="!h-6 !px-1"
-                aria-label="특정 신고자 해제"
-                onClick={() => qs.set({ reporterId: null })}
-              >
-                ×
-              </AdminActionButton>
-            </span>
+            <CommunityFilterField label="신고자">
+              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
+                특정 신고자만 보기
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("reporterId", "")}>
+                  해제
+                </AdminActionButton>
+              </span>
+            </CommunityFilterField>
           ) : null}
-          <CommunityResetFilters onReset={() => qs.reset(["tab"])} />
-        </>
+        </CommunityFilterBar>
       }
-      footer={
-        total !== null && total > 0 ? (
-          <CommunityPagination page={qs.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => qs.set({ page: p > 1 ? p : null })} />
-        ) : null
-      }
+      footer={<CommunityListPagination lq={lq} total={total} disabled={state.status === "loading"} />}
     >
-      {customIncomplete ? (
-        <AdminEmptyState ko message="직접 지정 기간의 시작일과 종료일을 모두 선택하세요." />
-      ) : state.status === "loading" && !state.data ? (
-        <AdminLoadingState ko />
-      ) : state.status === "error" ? (
-        <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
-      ) : rows.length === 0 ? (
-        <AdminEmptyState ko message={EMPTY_TEXT[tab]} />
-      ) : (
+      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage={EMPTY_TEXT[tab]}>
         <CommunityTable head={["접수", "대상", "신고 사유", "신고자", "상태", "처리자·처리 시각", "처리"]}>
           {rows.map((r) => (
             <tr
@@ -324,7 +281,7 @@ export function TradeReportsPage() {
                 <CommunityTimeCell iso={r.created_at} />
               </td>
               <td className={COMMUNITY_TD}>
-                <ReportTargetCell row={r} returnTo={qs.selfHref} />
+                <ReportTargetCell row={r} returnTo={lq.selfHref} />
               </td>
               <td className={COMMUNITY_TD}>
                 <span className="font-medium text-sam-fg">{tradeReportReasonLabel(r.reason_code)}</span>
@@ -333,7 +290,7 @@ export function TradeReportsPage() {
                 ) : null}
               </td>
               <td className={COMMUNITY_TD} onClick={(e) => e.stopPropagation()}>
-                <TradeMemberCell userId={r.reporter_id} label={r.reporter_label} returnTo={qs.selfHref} />
+                <TradeMemberCell userId={r.reporter_id} label={r.reporter_label} returnTo={lq.selfHref} />
               </td>
               <td className={COMMUNITY_TD}>
                 <TradeReportStatusBadge value={r.status} />
@@ -352,8 +309,8 @@ export function TradeReportsPage() {
               </td>
               <td className={COMMUNITY_TD}>
                 <AdminActionButton
-                  variant={isTradeReportOpen(r.status) ? "primary" : "secondary"}
-                  className="min-h-8 px-2 py-1 text-[12px]"
+                  variant="ghost"
+                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     openDetail(r.id);
@@ -365,12 +322,12 @@ export function TradeReportsPage() {
             </tr>
           ))}
         </CommunityTable>
-      )}
+      </CommunityListBody>
 
       {reportId ? (
         <TradeReportDetailSheet
           reportId={reportId}
-          returnTo={qs.selfHref}
+          returnTo={lq.selfHref}
           onClose={closeDetail}
           onDecided={(b) => {
             setBanner(b);
@@ -585,51 +542,57 @@ function TradeReportDetailSheet({
     );
   }
 
-  const footer =
-    report && open ? (
-      <div className="flex flex-wrap gap-2">
-        <AdminActionButton variant="secondary" onClick={() => setDecision("reject")}>
-          반려
-        </AdminActionButton>
-        <AdminActionButton variant="danger" disabled={!post} title={post ? undefined : "거래글 신고에서만 할 수 있습니다"} onClick={() => setDecision("hide")}>
-          게시물 숨김
-        </AdminActionButton>
-        <AdminActionButton
-          variant="secondary"
-          disabled={!targetUser}
-          onClick={() => {
-            setHidePost(false);
-            setDecision("warn");
-          }}
-        >
-          경고
-        </AdminActionButton>
-        <AdminActionButton
-          variant="danger"
-          disabled={!targetUser}
-          onClick={() => {
-            setHidePost(false);
-            setDecision("restrict");
-          }}
-        >
-          거래 활동 제한
-        </AdminActionButton>
-        {targetUser ? (
-          <Link
-            href={tradeDetailHref(`/admin/trade/members/${encodeURIComponent(targetUser.id)}?tab=account`, returnTo)}
-            className="ml-auto self-center text-[13px] font-medium text-sam-primary underline"
+  /** 하단: 왼쪽 [닫기] · 오른쪽 처리 버튼 (숨김·제한은 해제할 수 있어 danger 아님 — 확인 시트·사유는 그대로) */
+  const footer = (
+    <div className="flex flex-wrap items-center gap-2">
+      <AdminActionButton variant="secondary" onClick={onClose}>
+        닫기
+      </AdminActionButton>
+      {report && open ? (
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {targetUser ? (
+            <Link
+              href={tradeDetailHref(`/admin/trade/members/${encodeURIComponent(targetUser.id)}?tab=account`, returnTo)}
+              className="self-center text-[13px] font-medium text-sam-primary underline"
+            >
+              계정 정지는 회원 화면에서
+            </Link>
+          ) : null}
+          <AdminActionButton variant="secondary" onClick={() => setDecision("reject")}>
+            반려
+          </AdminActionButton>
+          <AdminActionButton
+            variant="secondary"
+            disabled={!post}
+            title={post ? undefined : "거래글 신고에서만 할 수 있습니다"}
+            onClick={() => setDecision("hide")}
           >
-            계정 정지는 회원 화면에서
-          </Link>
-        ) : null}
-      </div>
-    ) : (
-      <div className="flex justify-end">
-        <AdminActionButton variant="secondary" onClick={onClose}>
-          닫기
-        </AdminActionButton>
-      </div>
-    );
+            게시물 숨김
+          </AdminActionButton>
+          <AdminActionButton
+            variant="secondary"
+            disabled={!targetUser}
+            onClick={() => {
+              setHidePost(false);
+              setDecision("warn");
+            }}
+          >
+            경고
+          </AdminActionButton>
+          <AdminActionButton
+            variant="secondary"
+            disabled={!targetUser}
+            onClick={() => {
+              setHidePost(false);
+              setDecision("restrict");
+            }}
+          >
+            거래 활동 제한
+          </AdminActionButton>
+        </div>
+      ) : null}
+    </div>
+  );
 
   return (
     <AdminFormSheet title="거래 신고 처리" onClose={onClose} footer={footer} maxWidthClass="max-w-3xl">

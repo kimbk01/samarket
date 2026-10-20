@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useEffect, useState } from "react";
 import type { MyPageSectionRow } from "@/lib/my/types";
 
@@ -14,7 +14,10 @@ export function AdminMySectionsPage() {
   const [items, setItems] = useState<MyPageSectionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [httpStatus, setHttpStatus] = useState<number | undefined>(undefined);
+  const [reloadKey, setReloadKey] = useState(0);
 
+  /** 조회 실패 = 오류 상태 + [새로고침] (R7 화면 상태). */
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -27,23 +30,30 @@ export function AdminMySectionsPage() {
         };
         if (cancelled) return;
         if (!res.ok || json.ok === false) {
-          setError(json.error ?? `http_${res.status}`);
-          setItems([]);
+          setError(json.error ?? "load_failed");
+          setHttpStatus(res.status);
         } else {
           setError(null);
+          setHttpStatus(undefined);
           setItems(json.sections ?? []);
         }
       } catch {
         if (cancelled) return;
         setError("network_error");
-        setItems([]);
+        setHttpStatus(undefined);
       }
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
+
+  const reload = () => {
+    setLoading(true);
+    setError(null);
+    setReloadKey((k) => k + 1);
+  };
 
   return (
     <AdminMySectionsView
@@ -53,6 +63,8 @@ export function AdminMySectionsPage() {
       editUnavailableNote={t("admin_my_ia_locked_note")}
       loading={loading}
       error={error}
+      httpStatus={httpStatus}
+      onRetry={reload}
       items={items}
     />
   );
@@ -65,6 +77,8 @@ export function AdminMySectionsView({
   editUnavailableNote,
   loading,
   error,
+  httpStatus,
+  onRetry,
   items,
 }: {
   title: string;
@@ -72,6 +86,8 @@ export function AdminMySectionsView({
   editUnavailableNote: string;
   loading: boolean;
   error: string | null;
+  httpStatus?: number;
+  onRetry?: () => void;
   items: MyPageSectionRow[];
   ko?: boolean;
 }) {
@@ -82,13 +98,11 @@ export function AdminMySectionsView({
         <p className="mt-1 sam-text-body-secondary text-sam-muted">{editUnavailableNote}</p>
       </div>
       {loading ? (
-        <p className="text-sam-muted">{loadingLabel}</p>
+        <AdminLoadingState ko={ko} label={loadingLabel} />
       ) : error ? (
-        <AdminErrorState ko={ko} code={error} />
+        <AdminErrorState ko={ko} code={error} httpStatus={httpStatus} onRetry={onRetry} />
       ) : items.length === 0 ? (
-        <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
-          섹션이 없습니다.
-        </p>
+        <AdminEmptyState ko={ko} message="섹션이 없습니다." />
       ) : (
         <ul className="space-y-2">
           {items.map((s) => (

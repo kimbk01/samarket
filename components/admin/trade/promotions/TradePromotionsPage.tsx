@@ -3,20 +3,21 @@
 /**
  * 거래 홍보 (설계 v2 §G-1) — 거래글 홍보(더 알리기) 주문의 승인·반려·일시 중지·재개·종료.
  * 종료: 책임 구분 선택 → 환급 미리보기(변경 없음) → 사유 → 2단계 확인.
- * URL: tab · userId · postId · period/from/to · page
+ * URL: tab(탭 — 대시보드 딥링크) · userId · postId · from/to(PHT) · (호환) period · page · size(20/50/100)
  */
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   COMMUNITY_TD,
   CommunityActionSheet,
+  CommunityFilterBar,
   CommunityFilterField,
+  CommunityListBody,
+  CommunityListPagination,
   CommunityListShell,
-  CommunityPagination,
-  CommunityPeriodFilter,
-  CommunityResetFilters,
   CommunityTable,
   CommunityTabs,
+  useCommunityListQuery,
   useCommunityQueryState,
   type CommunitySheetResult,
   type CommunitySheetSettle,
@@ -27,13 +28,7 @@ import {
   useCommunityAdminJson,
   type CommunityBannerState,
 } from "@/components/admin/community/members/use-community-admin-data";
-import {
-  AdminEmptyState,
-  AdminErrorState,
-  AdminLoadingState,
-  AdminResultBanner,
-  AdminTechDetails,
-} from "@/components/admin/ui/AdminStateViews";
+import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
@@ -46,7 +41,7 @@ import {
 } from "@/components/admin/trade/kit/TradeAdminKit";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
-const PAGE_SIZE = 50;
+const LIST_EXTRAS = ["userId", "postId"] as const;
 const TABS = ["pending_review", "active", "paused", "ended", "rejected", "all"] as const;
 const TAB_LABELS: Record<string, string> = {
   pending_review: "승인 대기",
@@ -126,30 +121,19 @@ async function postAction(
 }
 
 export function TradePromotionsPage() {
+  /** `tab` 은 조회 조건 밖 키 — [초기화] 후에도 유지, 탭을 바꾸면 1쪽으로 */
   const q = useCommunityQueryState();
+  const lq = useCommunityListQuery({ extras: LIST_EXTRAS });
   const tab = (TABS as readonly string[]).includes(q.get("tab")) ? q.get("tab") : "pending_review";
-  const userId = q.get("userId");
-  const postId = q.get("postId");
-  const period = q.get("period");
+  const { userId, postId } = lq.query.extras;
   const [sheet, setSheet] = useState<Sheet>(null);
   const [banner, setBanner] = useState<CommunityBannerState>(null);
   const [warning, setWarning] = useState(false);
 
-  const params = new URLSearchParams({ tab });
-  if (userId) params.set("userId", userId);
-  if (postId) params.set("postId", postId);
-  if (period) params.set("period", period);
-  if (period === "custom") {
-    if (q.get("from")) params.set("from", q.get("from"));
-    if (q.get("to")) params.set("to", q.get("to"));
-  }
-  params.set("limit", String(PAGE_SIZE));
-  params.set("offset", String((q.page - 1) * PAGE_SIZE));
-  const customIncomplete = period === "custom" && (!q.get("from") || !q.get("to"));
-  const { state, reload } = useCommunityAdminJson<ListResponse>(
-    customIncomplete ? null : `/api/admin/trade/promotions?${params.toString()}`
-  );
-  const rows = state.status === "ok" ? state.data.rows ?? [] : [];
+  const params = lq.apiParams();
+  params.set("tab", tab);
+  const { state, reload } = useCommunityAdminJson<ListResponse>(`/api/admin/trade/promotions?${params.toString()}`);
+  const rows = state.data?.rows ?? [];
   const total = state.status === "ok" ? Number(state.data.total ?? 0) : null;
   const counts = state.data?.tabCounts ?? {};
   const memberName = userId ? rows.find((r) => r.user_id === userId)?.user_label : null;
@@ -181,19 +165,13 @@ export function TradePromotionsPage() {
           tabs={TABS.map((t) => ({ value: t, label: TAB_LABELS[t], count: counts[t] ?? null }))}
         />
       }
-      filters={
-        <>
-          <CommunityPeriodFilter
-            period={period}
-            from={q.get("from")}
-            to={q.get("to")}
-            onChange={(v) => q.set({ period: v.period, from: v.from, to: v.to })}
-          />
+      filterBar={
+        <CommunityFilterBar lq={lq} showSearch={false} pending={state.status === "loading"}>
           {userId ? (
             <CommunityFilterField label="신청자">
-              <span className="flex items-center gap-2 text-[13px] text-sam-fg">
+              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
                 {memberName || "선택한 회원"}
-                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ userId: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("userId", "")}>
                   해제
                 </AdminActionButton>
               </span>
@@ -201,32 +179,19 @@ export function TradePromotionsPage() {
           ) : null}
           {postId ? (
             <CommunityFilterField label="게시물">
-              <span className="flex items-center gap-2 text-[13px] text-sam-fg">
+              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
                 {postName ? titleOf(postName) : "선택한 게시물"}
-                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ postId: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("postId", "")}>
                   해제
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
-          <CommunityResetFilters onReset={() => q.reset(["tab"])} />
-        </>
+        </CommunityFilterBar>
       }
-      footer={
-        total !== null && total > 0 ? (
-          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
-        ) : null
-      }
+      footer={<CommunityListPagination lq={lq} total={total} disabled={state.status === "loading"} />}
     >
-      {customIncomplete ? (
-        <AdminEmptyState ko message="직접 지정 기간의 시작일과 종료일을 모두 선택하세요." />
-      ) : state.status === "loading" && !state.data ? (
-        <AdminLoadingState ko />
-      ) : state.status === "error" ? (
-        <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
-      ) : rows.length === 0 ? (
-        <AdminEmptyState ko message="이 상태의 홍보가 없습니다." />
-      ) : (
+      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage="이 상태의 홍보가 없습니다.">
         <CommunityTable head={["게시물", "신청자", "기간", "포인트", "상태", "환급", "처리"]}>
           {rows.map((r) => {
             const st = STATUS[r.order_status] ?? { label: "확인 필요", tone: "neutral" as AdminTone };
@@ -238,7 +203,7 @@ export function TradePromotionsPage() {
                     <div className="min-w-0">
                       {r.target_id ? (
                         <Link
-                          href={tradeDetailHref(`/admin/products/${encodeURIComponent(r.target_id)}`, q.selfHref)}
+                          href={tradeDetailHref(`/admin/products/${encodeURIComponent(r.target_id)}`, lq.selfHref)}
                           className="font-medium text-sam-primary hover:underline [overflow-wrap:anywhere]"
                         >
                           {titleOf(r)}
@@ -254,7 +219,7 @@ export function TradePromotionsPage() {
                           variant="quiet"
                           size="sm"
                           className="!h-auto !px-0 text-left text-[12px] font-normal"
-                          onClick={() => q.set({ postId: r.target_id })}
+                          onClick={() => lq.setExtra("postId", r.target_id ?? "")}
                         >
                           이 게시물만 보기
                         </AdminActionButton>
@@ -263,13 +228,13 @@ export function TradePromotionsPage() {
                   </div>
                 </td>
                 <td className={COMMUNITY_TD}>
-                  <TradeMemberCell userId={r.user_id} label={r.user_label} returnTo={q.selfHref} />
+                  <TradeMemberCell userId={r.user_id} label={r.user_label} returnTo={lq.selfHref} />
                   {r.user_id && !userId ? (
                     <AdminActionButton
                       variant="quiet"
                       size="sm"
                       className="!h-auto !px-0 text-left text-[12px] font-normal"
-                      onClick={() => q.set({ userId: r.user_id })}
+                      onClick={() => lq.setExtra("userId", r.user_id ?? "")}
                     >
                       이 회원만 보기
                     </AdminActionButton>
@@ -311,7 +276,7 @@ export function TradePromotionsPage() {
             );
           })}
         </CommunityTable>
-      )}
+      </CommunityListBody>
 
       {sheet && sheet.kind === "approve" ? (
         <ApproveSheet row={sheet.row} onClose={() => setSheet(null)} onSettled={settle} />
@@ -324,14 +289,15 @@ export function TradePromotionsPage() {
   );
 }
 
+/** 행 버튼 — ghost/sm 2개 이하 (각 조치는 확인 시트에서 2단계 확인) */
 function RowActions({ row, onPick }: { row: Row; onPick: (k: ActionKind) => void }) {
   if (row.order_status === "pending_review") {
     return (
       <div className="flex flex-wrap gap-1">
-        <AdminActionButton variant="primary" onClick={() => onPick("approve")}>
+        <AdminActionButton variant="ghost" size="sm" onClick={() => onPick("approve")}>
           승인
         </AdminActionButton>
-        <AdminActionButton variant="secondary" onClick={() => onPick("reject")}>
+        <AdminActionButton variant="ghost" size="sm" onClick={() => onPick("reject")}>
           반려
         </AdminActionButton>
       </div>
@@ -341,15 +307,15 @@ function RowActions({ row, onPick }: { row: Row; onPick: (k: ActionKind) => void
     return (
       <div className="flex flex-wrap gap-1">
         {row.order_status === "active" ? (
-          <AdminActionButton variant="secondary" onClick={() => onPick("pause")}>
+          <AdminActionButton variant="ghost" size="sm" onClick={() => onPick("pause")}>
             일시 중지
           </AdminActionButton>
         ) : (
-          <AdminActionButton variant="secondary" onClick={() => onPick("resume")}>
+          <AdminActionButton variant="ghost" size="sm" onClick={() => onPick("resume")}>
             재개
           </AdminActionButton>
         )}
-        <AdminActionButton variant="danger" onClick={() => onPick("end")}>
+        <AdminActionButton variant="ghost" size="sm" onClick={() => onPick("end")}>
           종료
         </AdminActionButton>
       </div>

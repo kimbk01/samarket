@@ -1,7 +1,10 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo, useState } from "react";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { RecommendationFilterSelect } from "@/components/admin/recommendation-admin-filter-select";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getUserFeedAssignments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { getRecommendationExperiments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
@@ -12,7 +15,9 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function UserAssignmentTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [experimentId, setExperimentId] = useState<string>("");
+  /** 실험 필터 — 주소 `?experiment=` 보존 (R7). 「로그」 탭과 같은 키. */
+  const lq = useAdminListQuery<"experiment">({ extras: ["experiment"] });
+  const experimentId = lq.query.extras.experiment;
 
   const experiments = useMemo(() => getRecommendationExperiments(), []);
   const assignments = useMemo(
@@ -25,28 +30,29 @@ export function UserAssignmentTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="sam-text-body font-medium text-sam-fg">
-          {t("admin_rec_exp_label_experiment")}
-        </label>
-        <select
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <RecommendationFilterSelect
+          label={t("admin_rec_exp_label_experiment")}
           value={experimentId}
-          onChange={(e) => setExperimentId(e.target.value)}
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
-        >
-          <option value="">{t("admin_rec_filter_all")}</option>
-          {experiments.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.experimentName}
-            </option>
-          ))}
-        </select>
-      </div>
+          allLabel={t("admin_rec_filter_all")}
+          options={experiments.map((e) => ({ value: e.id, label: e.experimentName }))}
+          onChange={(v) => lq.setExtra("experiment", v)}
+          name="experiment"
+        />
+      </AdminFilterBar>
       {assignments.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={experimentId ? undefined : t("admin_rec_exp_empty_assignments")}
-          onReset={experimentId ? () => { setExperimentId(""); } : undefined}
+          onReset={experimentId ? lq.reset : undefined}
         />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">

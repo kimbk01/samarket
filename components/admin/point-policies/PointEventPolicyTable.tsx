@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -25,10 +26,7 @@ export function PointEventPolicyTable({
   const ko = language !== "en";
 
   if (policies.length === 0) {
-    return (
-      <p className="sam-text-body text-sam-muted"> {t("admin_points_policy_event_empty")}
-      </p>
-    );
+    return <AdminEmptyState ko={language !== "en"} message={t("admin_points_policy_event_empty")} />;
   }
 
   return (

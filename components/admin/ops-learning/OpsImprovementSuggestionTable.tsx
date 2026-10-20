@@ -10,6 +10,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { getOpsImprovementSuggestions } from "@/lib/ops-learning/ops-learning-state";
 import type { OpsSuggestionStatus } from "@/lib/types/ops-learning";
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 
 interface OpsImprovementSuggestionTableProps {
   patternId?: string | null;
@@ -20,15 +21,15 @@ export function OpsImprovementSuggestionTable({
   patternId = null,
   compact = false,
 }: OpsImprovementSuggestionTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const suggestions = useMemo(
-    () => getOpsImprovementSuggestions({ patternId: patternId ?? undefined }),
+    () => getOpsImprovementSuggestions({ patternId: patternId ?? undefined, limit: Number.MAX_SAFE_INTEGER }),
     [patternId]
   );
 
   if (suggestions.length === 0) {
     return (
-      <div className="rounded border border-sam-border-soft bg-sam-surface py-4 text-center sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_learning_suggest_empty")}</div>
+      <AdminEmptyState ko={language !== "en"} message={t("admin_ops_tools_learning_suggest_empty")} />
     );
   }
 

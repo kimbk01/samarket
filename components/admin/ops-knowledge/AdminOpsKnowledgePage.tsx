@@ -1,14 +1,13 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { adminFirstLoadFailure } from "@/lib/admin/admin-load-failure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { OpsKnowledgeSearchBar } from "./OpsKnowledgeSearchBar";
 import { OpsKnowledgeResultList } from "./OpsKnowledgeResultList";
 import { OpsKnowledgePreviewCard } from "./OpsKnowledgePreviewCard";
 import { OpsKnowledgeRecommendationPanel } from "./OpsKnowledgeRecommendationPanel";
@@ -28,6 +27,14 @@ import {
 import { invalidateOpsKnowledgeIndexCache } from "@/lib/ops-knowledge/ops-knowledge-base-index";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+import { adminSyncTabResetParams, useAdminUrlTab } from "@/components/admin/sync-list/useAdminUrlTab";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import {
+  OPS_KNOWLEDGE_CATEGORY_FILTER_OPTIONS,
+  OPS_KNOWLEDGE_DOC_TYPE_FILTER_OPTIONS,
+} from "./ops-knowledge-filter-options";
 
 /** 문서 + 지식 번들 동시 로드 — 하나라도 실패하면 화면은 실패 상태 (기본값을 정상처럼 표시하지 않음). */
 async function loadOpsKnowledgeWorkspace() {
@@ -39,26 +46,64 @@ async function loadOpsKnowledgeWorkspace() {
 
 type TabId = "search" | "recommend" | "recent" | "searchLogs" | "recLogs";
 
+const TAB_DEFS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "search", labelKey: "admin_ops_tools_kb_tab_search" },
+  { id: "recommend", labelKey: "admin_ops_tools_kb_tab_recommend" },
+  { id: "recent", labelKey: "admin_ops_tools_kb_tab_recent" },
+  { id: "searchLogs", labelKey: "admin_ops_tools_kb_tab_search_logs" },
+  { id: "recLogs", labelKey: "admin_ops_tools_kb_tab_rec_logs" },
+];
+
+/** 주소 키: 검색 탭 `q`·`doc_type`·`category` · 추천 탭 `src_type`·`q`(연결 ID). */
+const EXTRAS = ["doc_type", "category", "src_type"] as const;
+const RECOMMEND_SOURCE_TYPES = ["incident", "deployment", "rollback", "fallback", "kill_switch"] as const;
+type RecommendSourceType = (typeof RECOMMEND_SOURCE_TYPES)[number];
+
 export function AdminOpsKnowledgePage() {
   const { t, language } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabId>("search");
-  const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<OpsKnowledgeSearchFilters>({});
-  const [searchResults, setSearchResults] = useState<OpsKnowledgeBaseIndexItem[]>([]);
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
-  const [recommendSourceType, setRecommendSourceType] = useState<"incident" | "deployment" | "rollback" | "fallback" | "kill_switch">("incident");
-  const [recommendSourceId, setRecommendSourceId] = useState("");
+  const ko = language !== "en";
+  /** 탭·검색 조건은 주소에 보존 (R7) — 새로고침·링크 공유·문서 상세에서 돌아올 때 유지. */
+  const activeTab = useAdminUrlTab<TabId>(TAB_DEFS, "search");
+  const lq = useAdminListQuery({ extras: EXTRAS, extraDefaults: { src_type: "incident" } });
+  const filters: OpsKnowledgeSearchFilters = useMemo(
+    () => ({
+      docType: (lq.query.extras.doc_type || undefined) as OpsKnowledgeSearchFilters["docType"],
+      category: (lq.query.extras.category || undefined) as OpsKnowledgeSearchFilters["category"],
+    }),
+    [lq.query.extras.doc_type, lq.query.extras.category]
+  );
+  const searched = activeTab === "search";
+  /** 결과 = 주소의 조건으로 계산 (고정 상한 50건 없음 — 문서 번들 전체가 대상). */
+  const searchResults: OpsKnowledgeBaseIndexItem[] = useMemo(
+    () =>
+      searched
+        ? searchOpsKnowledge(lq.query.q, { ...filters, status: "active" }, { limit: Number.MAX_SAFE_INTEGER })
+        : [],
+    [searched, lq.query.q, filters]
+  );
+  const [pickedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const selectedDocumentId =
+    pickedDocumentId && searchResults.some((r) => r.documentId === pickedDocumentId)
+      ? pickedDocumentId
+      : searchResults[0]?.documentId ?? null;
+  const recommendSourceType: RecommendSourceType = (RECOMMEND_SOURCE_TYPES as readonly string[]).includes(
+    lq.query.extras.src_type
+  )
+    ? (lq.query.extras.src_type as RecommendSourceType)
+    : "incident";
+  const recommendSourceId = activeTab === "recommend" ? lq.query.q : "";
   const { state: loadState, reload } = useAdminSyncLoad(loadOpsKnowledgeWorkspace);
   const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
 
+  /** 「조회」 = 검색 실행 기록(로그) + 조건을 주소에 적용. 결과 표시는 주소 조건으로 다시 계산한다. */
   const handleSearch = useCallback(() => {
-    const results = searchOpsKnowledge(query, { ...filters, status: "active" });
-    setSearchResults(results);
-    setSelectedDocumentId(results[0]?.documentId ?? null);
+    const q = lq.draft.q;
+    const results = searchOpsKnowledge(q, { ...filters, status: "active" }, { limit: Number.MAX_SAFE_INTEGER });
+    lq.submit();
     void commitOpsKnowledgeChange(() =>
-      logOpsKnowledgeSearch(query, filters as Record<string, string>, results.length)
+      logOpsKnowledgeSearch(q, filters as Record<string, string>, results.length)
     ).then((r) => setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" }));
-  }, [query, filters]);
+  }, [lq, filters]);
 
   const selectedItem =
     selectedDocumentId
@@ -80,14 +125,6 @@ export function AdminOpsKnowledgePage() {
     );
   }
 
-  const tabs: { id: TabId; labelKey: MessageKey }[] = [
-    { id: "search", labelKey: "admin_ops_tools_kb_tab_search" },
-    { id: "recommend", labelKey: "admin_ops_tools_kb_tab_recommend" },
-    { id: "recent", labelKey: "admin_ops_tools_kb_tab_recent" },
-    { id: "searchLogs", labelKey: "admin_ops_tools_kb_tab_search_logs" },
-    { id: "recLogs", labelKey: "admin_ops_tools_kb_tab_rec_logs" },
-  ];
-
   return (
     <>
       <AdminPageHeader titleKey="admin_menu_manage_kb" />
@@ -98,22 +135,42 @@ export function AdminOpsKnowledgePage() {
       ) : null}
       <AdminTabs
         className="mb-4"
-        tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        tabs={TAB_DEFS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="화면 탭"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        syncUrl={false}
+        defaultValue="search"
+        resetParams={adminSyncTabResetParams(EXTRAS)}
       />
 
       {activeTab === "search" && (
         <div className="space-y-4">
-          <OpsKnowledgeSearchBar
-            query={query}
-            filters={filters}
-            onQueryChange={setQuery}
-            onFiltersChange={setFilters}
-            onSearch={handleSearch}
-          />
+          <AdminFilterBar
+            ko={ko}
+            draft={lq.draft}
+            onDraftChange={lq.setDraft}
+            onSubmit={handleSearch}
+            onReset={lq.reset}
+            showPeriod={false}
+            searchPlaceholder={t("admin_ops_tools_kb_search_ph")}
+          >
+            <AdminFilterSelect
+              ko={ko}
+              label={ko ? "문서 유형" : "Doc type"}
+              name="doc_type"
+              allLabel={t("admin_ops_tools_kb_filter_all_type")}
+              value={lq.query.extras.doc_type}
+              onChange={(v) => lq.setExtra("doc_type", v)}
+              options={OPS_KNOWLEDGE_DOC_TYPE_FILTER_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
+            />
+            <AdminFilterSelect
+              ko={ko}
+              label={ko ? "분류" : "Category"}
+              name="category"
+              allLabel={t("admin_ops_tools_kb_filter_all_category")}
+              value={lq.query.extras.category}
+              onChange={(v) => lq.setExtra("category", v)}
+              options={OPS_KNOWLEDGE_CATEGORY_FILTER_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
+            />
+          </AdminFilterBar>
           <div className="grid gap-4 lg:grid-cols-[1fr,320px]">
             <AdminCard titleKey="admin_ops_tools_kb_card_results">
               <OpsKnowledgeResultList
@@ -140,27 +197,32 @@ export function AdminOpsKnowledgePage() {
       {activeTab === "recommend" && (
         <div className="space-y-4">
           <AdminCard titleKey="admin_ops_tools_kb_card_recommend">
-            <div className="mb-4 flex flex-wrap gap-2">
-              <label className="sam-text-body text-sam-fg">{t("admin_ops_tools_kb_source_type")}</label>
-              <select
+            <AdminFilterBar
+              ko={ko}
+              className="mb-4"
+              draft={lq.draft}
+              onDraftChange={lq.setDraft}
+              onSubmit={lq.submit}
+              onReset={lq.reset}
+              showPeriod={false}
+              searchPlaceholder={t("admin_ops_tools_runbook_link_id")}
+            >
+              <AdminFilterSelect
+                ko={ko}
+                label={t("admin_ops_tools_kb_source_type")}
+                name="src_type"
+                includeAll={false}
                 value={recommendSourceType}
-                onChange={(e) => setRecommendSourceType(e.target.value as typeof recommendSourceType)}
-                className="rounded border border-sam-border px-3 py-2 sam-text-body"
-              >
-                <option value="incident">{t("admin_ops_tools_rb_link_incident")}</option>
-                <option value="deployment">{t("admin_ops_tools_action_src_deployment")}</option>
-                <option value="rollback">{t("admin_ops_tools_node_rollback")}</option>
-                <option value="fallback">Fallback</option>
-                <option value="kill_switch">{t("admin_ops_tools_rb_link_kill_switch")}</option>
-              </select>
-              <input
-                type="text"
-                value={recommendSourceId}
-                onChange={(e) => setRecommendSourceId(e.target.value)}
-                placeholder={t("admin_ops_tools_runbook_link_id")}
-                className="w-28 rounded border border-sam-border px-3 py-2 sam-text-body"
+                onChange={(v) => lq.setExtra("src_type", v)}
+                options={[
+                  { value: "incident", label: t("admin_ops_tools_rb_link_incident") },
+                  { value: "deployment", label: t("admin_ops_tools_action_src_deployment") },
+                  { value: "rollback", label: t("admin_ops_tools_node_rollback") },
+                  { value: "fallback", label: "Fallback" },
+                  { value: "kill_switch", label: t("admin_ops_tools_rb_link_kill_switch") },
+                ]}
               />
-            </div>
+            </AdminFilterBar>
             <OpsKnowledgeRecommendationPanel
               sourceType={recommendSourceType}
               sourceId={recommendSourceId.trim() || null}

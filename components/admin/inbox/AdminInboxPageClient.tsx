@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
@@ -11,7 +11,10 @@ import {
   type AdminNotificationWorkState,
 } from "@/lib/admin/notifications/admin-notification-kinds";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
+import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
@@ -29,38 +32,35 @@ const WORK_STATE_BADGE: Record<AdminNotificationWorkState, string> = {
   attention: "bg-sam-danger-soft text-sam-danger",
 };
 
-type ListPayload = { ok?: boolean; items?: AdminNotificationDto[]; unread?: number; hasMore?: boolean; error?: string };
-
 function emitInboxChanged() {
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(ADMIN_INBOX_CHANGED_EVENT));
 }
 
+/** `useSearchParams` 사용 — Suspense 경계 안에서 그린다. */
+export function AdminInboxPageClient() {
+  return (
+    <Suspense fallback={null}>
+      <AdminInboxPageInner />
+    </Suspense>
+  );
+}
+
+const INBOX_EXTRAS = ["unread"] as const;
+
 /**
  * /admin/inbox — R13 ADMIN NOTIFICATION inbox (caller's own rows only).
  * Read ≠ resolved: opening or marking read never changes the linked work item.
+ * R7 — 「안 읽은 것만」은 주소(`?unread=1`)에 남고, 서버 페이지(20/50/100 + 총 건수). 예전 30건 「더 보기」 대체.
  */
-export function AdminInboxPageClient() {
+function AdminInboxPageInner() {
   const { t, language } = useI18n();
-  const [items, setItems] = useState<AdminNotificationDto[]>([]);
-  const [unread, setUnread] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [unreadOnly, setUnreadOnly] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const lq = useAdminListQuery<(typeof INBOX_EXTRAS)[number]>({ extras: INBOX_EXTRAS });
+  const unreadOnly = lq.query.extras.unread === "1";
+  const list = useMemberOpsPagedFetch<AdminNotificationDto>(`/api/admin/inbox?${lq.apiQueryString}`, "items", lq.refreshKey);
+  const items = list.rows;
+  const unread = typeof list.json?.unread === "number" ? list.json.unread : 0;
   const [busy, setBusy] = useState(false);
-
-  const fetchPage = useCallback(
-    async (before: string | null) => {
-      const qs = new URLSearchParams({ limit: "30" });
-      if (before) qs.set("before", before);
-      if (unreadOnly) qs.set("unread", "1");
-      const res = await fetch(`/api/admin/inbox?${qs.toString()}`, { credentials: "include", cache: "no-store" });
-      const json = (await res.json().catch(() => ({}))) as ListPayload;
-      if (!res.ok || !json.ok) throw new Error(json.error ?? `http_${res.status}`);
-      return json;
-    },
-    [unreadOnly]
-  );
+  const [actionError, setActionError] = useState(false);
 
   const [delivery, setDelivery] = useState<{
     outboxDead?: number;
@@ -70,44 +70,22 @@ export function AdminInboxPageClient() {
     unavailable?: boolean;
   } | null>(null);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try {
-      void fetch("/api/admin/inbox?summary=1", { credentials: "include", cache: "no-store" })
-        .then((r) => r.json())
-        .then((j: { delivery?: typeof delivery }) => setDelivery(j?.delivery ?? null))
-        .catch(() => setDelivery(null));
-      const json = await fetchPage(null);
-      setItems(json.items ?? []);
-      setUnread(json.unread ?? 0);
-      setHasMore(Boolean(json.hasMore));
-      setError(false);
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchPage]);
-
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    let cancelled = false;
+    void fetch("/api/admin/inbox?summary=1", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { delivery?: typeof delivery }) => {
+        if (!cancelled) setDelivery(j?.delivery ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setDelivery(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lq.refreshKey]);
 
-  const loadMore = async () => {
-    const last = items[items.length - 1];
-    if (!last) return;
-    setBusy(true);
-    try {
-      const json = await fetchPage(last.createdAt);
-      setItems((prev) => [...prev, ...(json.items ?? []).filter((n) => !prev.some((p) => p.id === n.id))]);
-      setHasMore(Boolean(json.hasMore));
-      setUnread(json.unread ?? 0);
-    } catch {
-      setError(true);
-    } finally {
-      setBusy(false);
-    }
-  };
+  const reload = lq.refresh;
 
   const markRead = async (body: { ids?: string[]; all?: boolean }) => {
     setBusy(true);
@@ -120,13 +98,14 @@ export function AdminInboxPageClient() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (!res.ok || !json.ok) {
-        setError(true);
+        setActionError(true);
         return;
       }
+      setActionError(false);
       emitInboxChanged();
-      await reload();
+      reload();
     } catch {
-      setError(true);
+      setActionError(true);
     } finally {
       setBusy(false);
     }
@@ -151,16 +130,28 @@ export function AdminInboxPageClient() {
   return (
     <div className="space-y-4 p-4 md:p-6" data-testid="admin-inbox-page">
       <AdminPageHeader titleKey="admin_inbox_title" descriptionKey="admin_inbox_desc" />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <label className="flex items-center gap-2 text-sm text-sam-muted">
-          <input
-            id="admin-inbox-unread-only"
-            type="checkbox"
-            checked={unreadOnly}
-            onChange={(e) => setUnreadOnly(e.target.checked)}
-          />
-          {t("admin_inbox_unread_only")}
-        </label>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <AdminFilterBar
+          ko={ko}
+          draft={lq.draft}
+          onDraftChange={lq.setDraft}
+          onSubmit={lq.submit}
+          onReset={lq.reset}
+          pending={list.loading}
+          showPeriod={false}
+          showSearch={false}
+          className="flex-1"
+        >
+          <label className="flex h-10 items-center gap-2 text-[14px] text-sam-muted">
+            <input
+              id="admin-inbox-unread-only"
+              type="checkbox"
+              checked={unreadOnly}
+              onChange={(e) => lq.setExtra("unread", e.target.checked ? "1" : "")}
+            />
+            {t("admin_inbox_unread_only")}
+          </label>
+        </AdminFilterBar>
         <AdminActionButton
           variant="secondary"
           size="sm"
@@ -170,7 +161,7 @@ export function AdminInboxPageClient() {
           {t("admin_inbox_mark_all_read")} ({formatAdminNumber(unread)})
         </AdminActionButton>
       </div>
-      {error && !(items.length === 0 && !loading) ? (
+      {actionError ? (
         <p className="text-sm text-sam-danger" role="alert">
           {t("admin_inbox_load_error")}
         </p>
@@ -187,17 +178,22 @@ export function AdminInboxPageClient() {
             : `${t("admin_inbox_delivery_failed")} · outbox ${formatAdminNumber(delivery.outboxDead ?? 0)} · push ${formatAdminNumber(delivery.pushDead ?? 0)}`}
         </div>
       ) : null}
-      {loading ? (
-        <AdminLoadingState ko={ko} />
-      ) : items.length === 0 && error ? (
-        <AdminErrorState ko={ko} code="load_failed" onRetry={() => void reload()} />
-      ) : items.length === 0 ? (
-        <AdminEmptyState
-          ko={ko}
-          message={unreadOnly ? undefined : t("admin_inbox_empty")}
-          onReset={unreadOnly ? () => setUnreadOnly(false) : undefined}
-        />
-      ) : (
+      <MemberOpsListBody
+        ko={ko}
+        loading={list.loading}
+        loaded={list.loaded}
+        error={list.error}
+        onRetry={reload}
+        rowCount={items.length}
+        total={list.total}
+        page={lq.query.page}
+        size={lq.query.size}
+        onPageChange={lq.setPage}
+        onSizeChange={lq.setSize}
+        isFiltered={lq.isFiltered}
+        onReset={lq.reset}
+        emptyMessage={t("admin_inbox_empty")}
+      >
         <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
           {items.map((n) => (
             <li
@@ -247,12 +243,7 @@ export function AdminInboxPageClient() {
             </li>
           ))}
         </ul>
-      )}
-      {hasMore ? (
-        <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void loadMore()}>
-          {t("admin_inbox_load_more")}
-        </AdminActionButton>
-      ) : null}
+      </MemberOpsListBody>
     </div>
   );
 }

@@ -516,6 +516,80 @@ export async function loadPointFinancialHistory(
   };
 }
 
+/**
+ * 관리자 포인트 원장 — offset 서버 페이지 + 정확한 전체 건수 (R7 목록 표준).
+ * 회원 앱(`/api/me/points`)의 커서 조회(`loadPointFinancialHistory`)는 그대로 두고, 같은 투영(promotion·charge·
+ * 커뮤니티 제목·피드 광고 hold/capture)만 재사용한다. 화면에서 숨기는 capture 감사 행(금액 0)은
+ * DB 조건으로 미리 빼서 `total` 이 실제 표시 행 수와 같게 한다.
+ * 기간은 UTC 경계 `[fromIso, toIso)` (PHT 날짜 변환은 호출 라우트 책임).
+ */
+export async function loadPointFinancialHistoryOffsetPage(
+  sb: SupabaseClient,
+  input: {
+    userId?: string;
+    filter?: PointFinancialFilter;
+    limit: number;
+    offset: number;
+    fromIso?: string | null;
+    toIso?: string | null;
+  }
+): Promise<
+  | { ok: true; items: PointFinancialHistoryItem[]; total: number }
+  | { ok: false; error: string; code?: "table_missing" }
+> {
+  const filter = input.filter ?? "all";
+  const userId = input.userId?.trim() || "";
+  let query = sb
+    .from("point_ledger")
+    .select(POINT_LEDGER_ROW_SELECT, { count: "exact" })
+    .or(
+      'entry_type.neq.ad_purchase,entry_type.is.null,related_type.neq.feed_ad_request,related_type.is.null,related_id.is.null,related_id.not.like."capture:*"'
+    )
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(input.offset, input.offset + input.limit - 1);
+  if (userId) query = query.eq("user_id", userId);
+  if (input.fromIso) query = query.gte("created_at", input.fromIso);
+  if (input.toIso) query = query.lt("created_at", input.toIso);
+  if (filter === "credit") query = query.gt("amount", 0);
+  if (filter === "debit") query = query.lt("amount", 0);
+
+  const { data, error, count } = await query;
+  if (error) {
+    if (isMissingPointsTable(error.message ?? "", "point_ledger")) {
+      return { ok: false, error: "table_missing", code: "table_missing" };
+    }
+    return { ok: false, error: error.message };
+  }
+  const pageRows = (data ?? []) as LedgerRow[];
+  const promoIds = pageRows
+    .filter((r) => String(r.related_type ?? "") === "promotion_order")
+    .map((r) => String(r.related_id ?? ""));
+  const chargeIds = pageRows
+    .filter((r) => String(r.related_type ?? "") === "point_charge")
+    .map((r) => String(r.related_id ?? ""));
+  const promotions = await loadPromotionMap(sb, promoIds);
+  const charges = await loadChargeMap(sb, chargeIds);
+  const postIds = [...promotions.values()].filter((o) => o.targetType === "product").map((o) => o.targetId);
+  const posts = await loadPostTitleMap(sb, postIds);
+  const communityIds = pageRows
+    .filter((r) => String(r.related_type ?? "") === "community_reward")
+    .map((r) => String(r.related_id ?? ""));
+  const communityPosts = await loadCommunityPostTitleMap(sb, communityIds);
+  const feedRequestIds = pageRows
+    .filter((r) => String(r.related_type ?? "") === "feed_ad_request")
+    .map((r) => String(r.related_id ?? "").replace(/^(hold:|release:|capture:)/, "").trim())
+    .filter(Boolean);
+  const holdStatus = await loadFeedAdHoldStatusMap(sb, feedRequestIds);
+
+  const items = pageRows
+    .map((row) => enrichCommunityItem(enrichItem(asLedgerItemBase(row), promotions, charges, posts), communityPosts))
+    .map((item) => applyFeedAdHoldCaptureProjection(item, holdStatus))
+    .filter((item): item is PointFinancialHistoryItem => item != null)
+    .filter((item) => matchesPointFinancialFilter(item, filter));
+  return { ok: true, items, total: count ?? items.length };
+}
+
 export function serializePointFinancialPage(page: PointFinancialHistoryPage) {
   return {
     items: page.items,

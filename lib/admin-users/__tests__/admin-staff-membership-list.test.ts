@@ -75,7 +75,8 @@ describe("admin staff membership list", () => {
       'adminActionLevel("delete")',
       "retypeValue: adminStaffRevokeMatchText(openRow)",
       "AdminDetailDrawer",
-      "AdminPagination",
+      // R7: 서버 페이지 — 「총 N건」 + AdminPagination(20/50/100) 은 공용 목록 본문이 그린다.
+      "MemberOpsListBody",
     ]) {
       expect(page, s).toContain(s);
     }

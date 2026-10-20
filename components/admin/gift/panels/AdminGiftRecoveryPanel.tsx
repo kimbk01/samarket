@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import {
   r5DeliveryStatusLabel,
   GIFT_RECOVERY_STATUS_NAMESPACE,
@@ -9,7 +10,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import { Sam } from "@/lib/ui/css-vars";
@@ -47,6 +47,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
   const router = useRouter();
   const [rows, setRows] = useState<Obligation[]>([]);
   const [state, setState] = useState<"loading" | "error" | "empty" | "data">("loading");
+  const [loadErr, setLoadErr] = useState<{ code: string; status?: number } | null>(null);
   const sourceLabel = (r: Obligation) =>
     r.linkage === "POOL_LEVEL" ? (ko ? "풀 단위" : "Pool level") : ko ? "상품권 사용" : "Redemption";
 
@@ -57,15 +58,18 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as { ok?: boolean; obligations?: Obligation[] };
-      if (!res.ok || !json.ok) {
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; obligations?: Obligation[] } | null;
+      if (!res.ok || !json?.ok) {
+        setLoadErr({ code: res.status === 403 ? "forbidden" : "load_failed", status: res.status });
         setState("error");
         return;
       }
+      setLoadErr(null);
       const list = json.obligations ?? [];
       setRows(list);
       setState(list.length === 0 ? "empty" : "data");
     } catch {
+      setLoadErr({ code: "network_error" });
       setState("error");
     }
   }, []);
@@ -84,27 +88,18 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
           ? "이전 기록 조회 전용입니다. 회수 기록은 더 이상 이 화면에서 처리하지 않습니다."
           : "Historical records — view only. Recovery records are no longer processed here."}
       </p>
-      {state === "loading" ? <p className="text-sm text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p> : null}
+      {state === "loading" ? <AdminLoadingState ko={ko} /> : null}
       {state === "error" ? (
-        <div className="space-y-2">
-          <p className="text-sm text-sam-danger">
-            {safeT("gift_ops_recovery_error", {
-              fallbackKo: "회수 기록을 불러오지 못했습니다.",
-              fallbackEn: "Couldn’t load recovery obligations.",
-            })}
-          </p>
-          <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
-            {adminCta("refresh", language !== "en")}
-          </AdminActionButton>
-        </div>
+        <AdminErrorState ko={ko} code={loadErr?.code ?? "load_failed"} httpStatus={loadErr?.status} onRetry={() => void load()} />
       ) : null}
       {state === "empty" ? (
-        <p className="text-sm text-sam-muted">
-          {safeT("gift_u6_recovery_empty", {
+        <AdminEmptyState
+          ko={ko}
+          message={safeT("gift_u6_recovery_empty", {
             fallbackKo: "회수 기록이 없습니다.",
             fallbackEn: "No open recovery obligations.",
           })}
-        </p>
+        />
       ) : null}
 
       {state === "data" ? (

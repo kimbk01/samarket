@@ -491,7 +491,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
                   {rows.length === 0 ? (
                     <li>—</li>
                   ) : (
-                    rows.slice(0, 80).map((f) => (
+                    rows.map((f) => (
                       <li key={`${kind}-${f.path}`} title={language === "en" ? f.summaryEn : f.summaryKo}>
                         <span className="text-sam-fg/80">[{f.category}]</span> {f.path}
                       </li>

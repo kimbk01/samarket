@@ -17,21 +17,32 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFilterDate } from "@/components/admin/sync-list/AdminFilterSelect";
+import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+
+const DATE_EXTRAS = ["date"] as const;
 
 export function OpsChecklistTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const [busy, setBusy] = useState(false);
   const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
-  const [checklistDate, setChecklistDate] = useState(() =>
-    formatAdminManilaDate(new Date())
-  );
+  /** 점검 일자는 주소(`?date=`)에 보존 (R7). 비우면 오늘(PHT). */
+  const lq = useAdminListQuery({ extras: DATE_EXTRAS });
+  const checklistDate = lq.query.extras.date || formatAdminManilaDate(new Date());
+  /** 행 버튼은 2개까지(완료·상세) — 진행·건너뜀은 상세 드로어에서 (설계 2-2). */
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
 
   const items = useMemo(
     () => getOpsDailyChecklistItems(checklistDate),
     [checklistDate, refresh]
   );
+
+  const detailItem = detailId ? items.find((x) => x.id === detailId) ?? null : null;
 
   /** 저장 실패면 commitOpsBoardChange 가 화면 상태를 되돌리고, 실패 문구를 표시한다. */
   const commit = async (mutate: () => void) => {
@@ -60,20 +71,31 @@ export function OpsChecklistTable() {
   return (
     <div className="space-y-4">
       <AdminResultBanner ko={ko} result={saveResult} onClose={() => setSaveResult(null)} />
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="sam-text-body font-medium text-sam-fg">{t("admin_ops_tools_board_check_date")}</label>
-        <input
-          type="date"
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+        pending={busy}
+      >
+        <AdminFilterDate
+          label={t("admin_ops_tools_board_check_date")}
+          name="date"
           value={checklistDate}
-          onChange={(e) => setChecklistDate(e.target.value)}
-          className="rounded border border-sam-border px-3 py-2 sam-text-body"
+          onChange={(v) => lq.setExtra("date", v)}
         />
-        <AdminActionButton variant="primary" disabled={busy} onClick={handleCreateFromTemplates}>
+      </AdminFilterBar>
+      <div className="flex justify-end">
+        {/* 필터 바 [조회] 가 화면 주 동작 — 생성은 보조 */}
+        <AdminActionButton variant="secondary" disabled={busy} onClick={handleCreateFromTemplates}>
           {t("admin_ops_tools_board_gen_checklist")}
         </AdminActionButton>
       </div>
       {items.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_ops_tools_board_no_checklist")} />
+        <AdminEmptyState ko={ko} message={t("admin_ops_tools_board_no_checklist")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[640px] border-collapse sam-text-body">
@@ -138,25 +160,12 @@ export function OpsChecklistTable() {
                           variant="ghost"
                           size="sm"
                           disabled={busy}
-                          onClick={() => handleStatusChange(i.id, "in_progress")}
-                        >
-                          {t("admin_ops_tools_board_btn_progress")}
-                        </AdminActionButton>
-                        <AdminActionButton
-                          variant="ghost"
-                          size="sm"
-                          disabled={busy}
                           onClick={() => handleStatusChange(i.id, "done")}
                         >
                           {t("admin_ops_tools_board_btn_complete")}
                         </AdminActionButton>
-                        <AdminActionButton
-                          variant="quiet"
-                          size="sm"
-                          disabled={busy}
-                          onClick={() => handleStatusChange(i.id, "skipped")}
-                        >
-                          {t("admin_ops_tools_board_btn_skip")}
+                        <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => setDetailId(i.id)}>
+                          {adminCta("detail", ko)}
                         </AdminActionButton>
                       </div>
                     )}
@@ -167,6 +176,68 @@ export function OpsChecklistTable() {
           </table>
         </div>
       )}
+      <AdminDetailDrawer
+        open={detailItem != null}
+        onClose={() => setDetailId(null)}
+        ko={ko}
+        pending={busy}
+        title={detailItem?.title ?? ""}
+        subtitle={detailItem ? t(opsToolsLabel(OPS_TOOLS_CHECKLIST_STATUS_KEYS, detailItem.status)) : undefined}
+        dangerActions={
+          <AdminActionButton variant="secondary" disabled={busy} onClick={() => setDetailId(null)}>
+            {adminCta("close", ko)}
+          </AdminActionButton>
+        }
+        primaryActions={
+          detailItem && detailItem.status !== "done" && detailItem.status !== "skipped" ? (
+            <>
+              <AdminActionButton
+                variant="secondary"
+                disabled={busy}
+                onClick={() => handleStatusChange(detailItem.id, "skipped")}
+              >
+                {t("admin_ops_tools_board_btn_skip")}
+              </AdminActionButton>
+              {detailItem.status !== "in_progress" ? (
+                <AdminActionButton
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => handleStatusChange(detailItem.id, "in_progress")}
+                >
+                  {t("admin_ops_tools_board_btn_progress")}
+                </AdminActionButton>
+              ) : null}
+              <AdminActionButton
+                variant="primary"
+                disabled={busy}
+                onClick={() => handleStatusChange(detailItem.id, "done")}
+              >
+                {t("admin_ops_tools_board_btn_complete")}
+              </AdminActionButton>
+            </>
+          ) : null
+        }
+      >
+        {detailItem ? (
+          <dl className="space-y-2 sam-text-body">
+            <div>
+              <dt className="text-sam-muted">{t("admin_ops_tools_board_th_category")}</dt>
+              <dd className="text-sam-fg">
+                {t(opsToolsLabel(OPS_TOOLS_CHECKLIST_CATEGORY_KEYS, detailItem.category))} /{" "}
+                {t(opsToolsLabel(OPS_TOOLS_SURFACE_KEYS, detailItem.surface))}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{t("admin_ops_tools_board_th_priority")}</dt>
+              <dd className="text-sam-fg">{t(opsToolsLabel(OPS_TOOLS_PRIORITY_KEYS, detailItem.priority))}</dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{t("admin_ops_tools_board_th_owner")}</dt>
+              <dd className="text-sam-fg">{detailItem.assignedAdminNickname ?? "-"}</dd>
+            </div>
+          </dl>
+        ) : null}
+      </AdminDetailDrawer>
     </div>
   );
 }
