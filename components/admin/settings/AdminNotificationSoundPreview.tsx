@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { NOTIFICATION_SOUND_ASSET_PATH } from "@/lib/notifications/play-notification-sound";
 import { NOTIFICATION_SOUND_MAX_PLAY_SEC } from "@/lib/notifications/notification-sound-engine";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 function formatTime(sec: number): string {
   if (!Number.isFinite(sec) || sec < 0) return "0:00";
@@ -188,10 +189,11 @@ export function AdminNotificationSoundPreview({
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-      <button
-        type="button"
+      <AdminActionButton
+        variant="secondary"
+        size="sm"
         onClick={() => void toggle()}
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app"
+        className="w-8 shrink-0 px-0"
         aria-label={playing ? t("common_pause") : t("common_play")}
       >
         {playing ? (
@@ -204,7 +206,7 @@ export function AdminNotificationSoundPreview({
             <path d="M8 5v14l11-7z" />
           </svg>
         )}
-      </button>
+      </AdminActionButton>
       <span className="shrink-0 font-mono sam-text-helper tabular-nums text-sam-muted">
         {formatTime(current)} / {fileDurationLabel}
       </span>

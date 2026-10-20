@@ -20,6 +20,8 @@
  *   Future report/store-apply subscribe here — do not add page RT.
  */
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import {
   createContext,
@@ -320,7 +322,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       if (!id) return;
       const amount =
         meta?.amount != null && Number.isFinite(Number(meta.amount))
-          ? `${Number(meta.amount).toLocaleString()}P`
+          ? `${formatAdminNumber(meta.amount)}P`
           : "";
       const label = [
         safeT("admin_member_point_charge_toast_title", {
@@ -347,7 +349,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       if (!id) return;
       const amount =
         meta?.amount != null && Number.isFinite(Number(meta.amount))
-          ? `${Number(meta.amount).toLocaleString()}P`
+          ? `${formatAdminNumber(meta.amount)}P`
           : "";
       const label = [
         safeT("admin_store_point_charge_toast_title", {
@@ -509,7 +511,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       persistSeenIds(seen);
 
       const domain = meta?.domain ?? "";
-      const point = meta?.pointCost != null ? `${meta.pointCost.toLocaleString()}P` : "";
+      const point = meta?.pointCost != null ? `${formatAdminNumber(meta.pointCost)}P` : "";
       const label = [
         safeT("admin_feed_ad_toast_title", {
           fallbackKo: "배너 광고 신청",
@@ -1495,15 +1497,16 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
                 })}
           </span>
         </Link>
-        <button
-          type="button"
+        <AdminActionButton
+          variant="quiet"
+          size="sm"
           onClick={dismissAwarenessToast}
-          className="shrink-0 rounded-full px-1 text-sam-muted hover:text-sam-fg"
+          className="shrink-0 px-1"
           aria-label={safeT("common_close", { fallbackKo: "닫기", fallbackEn: "Close" })}
           data-testid="admin-awareness-toast-close"
         >
           ×
-        </button>
+        </AdminActionButton>
         </div>
       ) : null}
       {children}

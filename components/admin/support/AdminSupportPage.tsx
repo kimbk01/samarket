@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
@@ -35,8 +35,17 @@ import {
   type SupportAdminContextLink,
 } from "@/lib/support/support-reference-admin-href";
 import { fetchAdminMeSnapshot, peekAdminMeSnapshot, type AdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
-import { adminListOffsetForPage, adminListPageCount } from "@/lib/admin/pagination/parse-admin-list-page";
+import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-page";
 import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 
 const SUPPORT_LIST_PAGE_SIZE = 50;
 
@@ -80,9 +89,9 @@ function statusTone(status: string): string {
   switch (status) {
     case "OPEN":
     case "WAITING_ADMIN":
-      return "bg-red-50 text-red-700 border-red-200";
+      return "bg-sam-danger-soft text-sam-danger border-sam-danger";
     case "WAITING_USER":
-      return "bg-amber-50 text-amber-800 border-amber-200";
+      return "bg-sam-warning-soft text-sam-warning border-sam-warning";
     case "RESOLVED":
       return "bg-sam-surface-muted text-sam-muted border-sam-border";
     default:
@@ -102,19 +111,46 @@ function Seg<T extends string>({
   testId: string;
 }) {
   return (
-    <div className="inline-flex overflow-hidden rounded-ui-rect border border-sam-border" data-admin-support-seg={testId}>
+    <div className="inline-flex flex-wrap gap-1" role="group" data-admin-support-seg={testId}>
       {options.map((o) => (
-        <button
-          key={o.id}
-          type="button"
-          onClick={() => onChange(o.id)}
-          className={`px-2.5 py-1 text-xs font-medium ${
-            value === o.id ? "bg-sam-fg text-white" : "bg-sam-surface text-sam-fg hover:bg-sam-surface-muted"
-          }`}
-        >
+        <AdminChipButton key={o.id} selected={value === o.id} onClick={() => onChange(o.id)}>
           {o.label}
-        </button>
+        </AdminChipButton>
       ))}
+    </div>
+  );
+}
+
+/** 행 선택 — 버튼 부품(높이 고정·한 줄)으로는 여러 줄 행을 그릴 수 없어 키보드 지원 role=button 으로 그린다. */
+function SupportQueueRow({
+  selected,
+  onSelect,
+  rowId,
+  children,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  rowId: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-current={selected ? "true" : undefined}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={`w-full cursor-pointer px-3 py-2.5 text-left hover:bg-sam-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sam-primary ${
+        selected ? "bg-sam-primary/10" : ""
+      }`}
+      data-admin-support-row={rowId}
+    >
+      {children}
     </div>
   );
 }
@@ -179,7 +215,6 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const listFilterKey = JSON.stringify([tab, audience, group, assignee, staleOnly, appliedSearch.trim(), scope]);
   const [listPageState, setListPageState] = useState({ key: listFilterKey, page: 1 });
   const listPage = listPageState.key === listFilterKey ? listPageState.page : 1;
-  const listPages = adminListPageCount(listTotal, SUPPORT_LIST_PAGE_SIZE);
   const goListPage = (page: number) => setListPageState({ key: listFilterKey, page: Math.max(1, page) });
 
   const [activeId, setActiveId] = useState<string | null>(initialCaseId ?? null);
@@ -192,7 +227,6 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selfAdminId = getCurrentUser()?.id?.trim() || "";
@@ -277,7 +311,6 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
 
   useEffect(() => {
     setEditingId(null);
-    setConfirmDeleteId(null);
     setDraft("");
     if (!activeId) {
       setActiveCase(null);
@@ -399,6 +432,33 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     if (ok) setDraft("");
   };
 
+  const filtersActive =
+    audience !== "ALL" ||
+    group !== "ALL" ||
+    assignee !== "ALL" ||
+    staleOnly ||
+    Boolean(search.trim()) ||
+    Boolean(scope.referenceId || scope.storeId);
+  const resetFilters = () => {
+    setAudience("ALL");
+    setGroup("ALL");
+    setAssignee("ALL");
+    setStaleOnly(false);
+    setSearch("");
+    setAppliedSearch("");
+    setScope({ referenceType: null, referenceId: null, storeId: null });
+  };
+
+  /** 상태 변경 CTA — L1 확인 후 기존 PATCH 그대로. */
+  const confirmThenPatch = async (
+    payload: Record<string, unknown>,
+    copy: { title: string; description: string; confirmLabel: string; destructive?: boolean }
+  ) => {
+    const confirmed = await confirmAdminAction({ level: "L1", ko, ...copy });
+    if (!confirmed.ok) return false;
+    return patchCase(payload);
+  };
+
   const groupOptions = [
     { id: "ALL", label: ko ? "전체 분야" : "All topics" },
     ...SUPPORT_CATEGORY_GROUPS.map((g) => ({ id: g.id, label: ko ? g.labelKo : g.labelEn })),
@@ -427,7 +487,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       {/* ── Header + status tabs ───────────────────────────── */}
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-lg font-bold text-sam-fg">
+          <h1 className="text-[20px] font-bold text-sam-fg">
             {t("admin_menu_cp_support_center")}
           </h1>
           <p className="text-xs text-sam-muted">
@@ -449,38 +509,21 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b border-sam-border" role="tablist">
-        {ADMIN_SUPPORT_TABS.map((t) => {
-          const n = counts[t];
-          const on = tab === t;
-          return (
-            <button
-              key={t}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              data-admin-support-tab={t}
-              onClick={() => {
-                setTab(t);
-                setActiveId(null);
-              }}
-              className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold ${
-                on ? "border-sam-fg text-sam-fg" : "border-transparent text-sam-muted hover:text-sam-fg"
-              }`}
-            >
-              {ko ? TAB_LABEL[t].ko : TAB_LABEL[t].en}
-              {typeof n === "number" ? (
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[11px] tabular-nums ${
-                    t === "ACTIONABLE" && n > 0 ? "bg-red-500 text-white" : "bg-sam-surface-muted text-sam-muted"
-                  }`}
-                >
-                  {n}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+      <div data-admin-support-tab={tab}>
+        <AdminTabs
+          ariaLabel={t("admin_menu_cp_support_center")}
+          tabs={ADMIN_SUPPORT_TABS.map((id) => ({
+            id,
+            label: ko ? TAB_LABEL[id].ko : TAB_LABEL[id].en,
+            count: typeof counts[id] === "number" ? counts[id] : null,
+          }))}
+          value={tab}
+          syncUrl={false}
+          onChange={(id) => {
+            setTab(id as AdminSupportTab);
+            setActiveId(null);
+          }}
+        />
       </div>
 
       {/* ── Secondary filters ─────────────────────────────── */}
@@ -522,17 +565,17 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           {ko ? "24시간 이상" : "24h+"}
         </label>
         {scope.referenceId || scope.storeId ? (
-          <button
-            type="button"
+          <AdminChipButton
+            selected
             onClick={() => setScope({ referenceType: null, referenceId: null, storeId: null })}
-            className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-sam-surface px-2 py-0.5 text-xs text-sam-fg"
             title={ko ? "연결 조건 해제" : "Clear linked filter"}
+            aria-label={ko ? "연결 조건 해제" : "Clear linked filter"}
           >
             {scope.referenceId
               ? `${scope.referenceType ? supportReferenceLabel(safeT, scope.referenceType) : ko ? "연결 대상" : "Reference"} · ${formatAdminShortId(scope.referenceId)}`
               : `${ko ? "매장" : "Store"} · ${formatAdminShortId(scope.storeId)}`}
             <span aria-hidden>✕</span>
-          </button>
+          </AdminChipButton>
         ) : null}
         <div className="ml-auto flex min-w-[220px] flex-1 gap-1 sm:max-w-sm">
           <input
@@ -544,16 +587,19 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             placeholder={ko ? "SC번호 · 이름 · 이메일 · 매장 · 내용" : "Case no · name · email · store · text"}
             className="h-8 min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-xs"
           />
-          <button
-            type="button"
-            className="h-8 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-xs font-medium"
+          <AdminActionButton variant="secondary" size="sm" disabled={!filtersActive} onClick={resetFilters}>
+            {adminCta("reset", ko)}
+          </AdminActionButton>
+          <AdminActionButton
+            variant="primary"
+            size="sm"
             onClick={() => {
               if (appliedSearch === search) void loadList();
               else setAppliedSearch(search);
             }}
           >
-            {safeT("common_search", { fallbackKo: "검색", fallbackEn: "Search" })}
-          </button>
+            {adminCta("search", ko)}
+          </AdminActionButton>
         </div>
       </div>
 
@@ -567,63 +613,62 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       >
         {/* LEFT — queue (own scroll) */}
         <div
-          className={`${activeId ? "hidden lg:flex" : "flex"} min-h-0 flex-col overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface`}
+          id="action-required"
+          className={`${activeId ? "hidden lg:flex" : "flex"} min-h-0 scroll-mt-16 flex-col overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface`}
           data-admin-support-queue="1"
         >
           <div className="shrink-0 border-b border-sam-border px-3 py-2 text-xs font-semibold text-sam-muted">
-            {ko ? TAB_LABEL[tab].ko : TAB_LABEL[tab].en} · {listTotal}
+            {ko ? TAB_LABEL[tab].ko : TAB_LABEL[tab].en} · {formatAdminNumber(listTotal)}
             {ko ? "건" : ""}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {listError ? (
               <div
-                className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+                role="alert"
+                className="flex items-center justify-between gap-2 border-b border-sam-danger bg-sam-danger-soft px-3 py-2 text-xs text-sam-danger"
                 data-admin-support-list-error="1"
               >
                 <span>
-                  {ko ? "목록을 불러오지 못했습니다" : "Could not load the queue"} ({listError})
+                  {ko ? "목록을 불러오지 못했습니다" : "Could not load the queue"} · {supportErrorLabel(safeT, listError)}
                 </span>
-                <button type="button" className="underline" onClick={() => void loadList()}>
-                  {safeT("common_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-                </button>
+                <AdminActionButton variant="secondary" size="sm" onClick={() => void loadList()}>
+                  {adminCta("refresh", ko)}
+                </AdminActionButton>
               </div>
             ) : null}
             {listLoading && cases.length === 0 ? (
-              <p className="p-4 text-sm text-sam-muted">…</p>
+              <AdminLoadingState ko={ko} />
             ) : cases.length === 0 ? (
-              <p className="p-6 text-center text-sm text-sam-muted">
-                {ko ? "해당하는 문의가 없습니다" : "No inquiries"}
-              </p>
+              listError ? null : (
+                <AdminEmptyState
+                  ko={ko}
+                  message={filtersActive ? undefined : ko ? "해당하는 문의가 없습니다" : "No inquiries"}
+                  onReset={filtersActive ? resetFilters : undefined}
+                />
+              )
             ) : (
               <ul className="divide-y divide-sam-border">
                 {cases.map((c) => {
                   const unread = Number(c.admin_unread_count) || 0;
                   return (
                     <li key={c.id}>
-                      <button
-                        type="button"
-                        onClick={() => setActiveId(c.id)}
-                        className={`w-full px-3 py-2.5 text-left hover:bg-sam-surface-muted ${
-                          activeId === c.id ? "bg-sam-primary/10" : ""
-                        }`}
-                        data-admin-support-row={c.id}
-                      >
+                      <SupportQueueRow selected={activeId === c.id} onSelect={() => setActiveId(c.id)} rowId={c.id}>
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs font-bold text-sam-fg">{c.public_case_no}</span>
-                          <span className="rounded border border-sam-border px-1 text-[10px] text-sam-muted">
+                          <span className="rounded border border-sam-border px-1 text-[12px] text-sam-muted">
                             {supportAudienceLabel(c.audience, ko)}
                           </span>
                           {unread > 0 ? (
-                            <span className="rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                              {unread}
+                            <span className="rounded-full bg-sam-danger px-1.5 text-[12px] font-bold text-white tabular-nums">
+                              {formatAdminNumber(unread)}
                             </span>
                           ) : null}
-                          <span className="ml-auto text-[10px] text-sam-muted">
+                          <span className="ml-auto text-[12px] text-sam-muted">
                             {waitingAgeLabel(c.last_message_at, ko)}
                           </span>
                         </div>
                         <p className="mt-0.5 truncate text-[12px] font-medium text-sam-fg">{whoLine(c)}</p>
-                        <p className="truncate text-[11px] text-sam-muted">
+                        <p className="truncate text-[12px] text-sam-muted">
                           {categoryLabel(c)}
                           {c.issue_type ? ` · ${issueLabel(c)}` : ""}
                         </p>
@@ -631,19 +676,19 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                           <p className="mt-0.5 line-clamp-1 text-[12px] text-sam-fg">{c.initial_summary}</p>
                         ) : null}
                         <div className="mt-1 flex flex-wrap items-center gap-1">
-                          <span className={`rounded border px-1 text-[10px] ${statusTone(c.status)}`}>
+                          <span className={`rounded border px-1 text-[12px] ${statusTone(c.status)}`}>
                             {supportAdminStatusLabel(c.status, ko)}
                           </span>
                           {c.priority !== "NORMAL" ? (
-                            <span className="rounded border border-red-300 px-1 text-[10px] text-red-700">
+                            <span className="rounded border border-sam-danger px-1 text-[12px] text-sam-danger">
                               {supportPriorityLabel(c.priority, ko)}
                             </span>
                           ) : null}
                           {!c.assigned_admin_id && c.status !== "RESOLVED" && c.status !== "ARCHIVED" ? (
-                            <span className="text-[10px] text-sam-muted">{ko ? "미배정" : "Unassigned"}</span>
+                            <span className="text-[12px] text-sam-muted">{ko ? "미배정" : "Unassigned"}</span>
                           ) : null}
                         </div>
-                      </button>
+                      </SupportQueueRow>
                     </li>
                   );
                 })}
@@ -651,31 +696,15 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             )}
           </div>
           {listTotal > SUPPORT_LIST_PAGE_SIZE || listPage > 1 ? (
-            <div
-              className="flex shrink-0 items-center justify-between gap-2 border-t border-sam-border px-3 py-2 text-xs text-sam-muted"
-              data-admin-support-pager="1"
-            >
-              <span>
-                {listPage}/{listPages}
-              </span>
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  disabled={listLoading || listPage <= 1}
-                  onClick={() => goListPage(listPage - 1)}
-                  className="rounded border border-sam-border px-2 py-1 disabled:opacity-40"
-                >
-                  {ko ? "이전" : "Prev"}
-                </button>
-                <button
-                  type="button"
-                  disabled={listLoading || listPage >= listPages}
-                  onClick={() => goListPage(listPage + 1)}
-                  className="rounded border border-sam-border px-2 py-1 disabled:opacity-40"
-                >
-                  {ko ? "다음" : "Next"}
-                </button>
-              </div>
+            <div className="shrink-0 border-t border-sam-border px-3" data-admin-support-pager="1">
+              <AdminPagination
+                ko={ko}
+                page={listPage}
+                size={SUPPORT_LIST_PAGE_SIZE}
+                total={listTotal}
+                disabled={listLoading}
+                onPageChange={goListPage}
+              />
             </div>
           ) : null}
         </div>
@@ -690,30 +719,34 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
               {ko ? "왼쪽 목록에서 문의를 선택하세요" : "Select an inquiry"}
             </p>
           ) : detailLoading && !activeCase ? (
-            <p className="p-4 text-sm text-sam-muted">…</p>
+            <AdminLoadingState ko={ko} />
           ) : !activeCase ? (
-            <p className="p-4 text-sm text-red-600">
-              {supportErrorLabel(safeT, error)} ({error})
-            </p>
+            <div className="space-y-2 p-4" role="alert">
+              <p className="text-sm text-sam-danger">{supportErrorLabel(safeT, error)}</p>
+              <AdminActionButton variant="secondary" size="sm" onClick={() => activeId && void loadDetail(activeId)}>
+                {adminCta("refresh", ko)}
+              </AdminActionButton>
+            </div>
           ) : (
             <>
               <div className="shrink-0 space-y-2 border-b border-sam-border px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Narrow screens: list ⇄ conversation (no stacked page scroll). */}
-                  <button
-                    type="button"
-                    className="rounded border border-sam-border px-2 py-0.5 text-xs lg:hidden"
+                  <AdminActionButton
+                    variant="quiet"
+                    size="sm"
+                    className="lg:hidden"
                     data-admin-support-back="1"
                     onClick={() => setActiveId(null)}
                   >
                     ← {ko ? "목록" : "List"}
-                  </button>
+                  </AdminActionButton>
                   <h2 className="text-base font-bold text-sam-fg">{activeCase.public_case_no}</h2>
-                  <span className={`rounded border px-1.5 text-[11px] ${statusTone(activeCase.status)}`}>
+                  <span className={`rounded border px-1.5 text-[12px] ${statusTone(activeCase.status)}`}>
                     {supportAdminStatusLabel(activeCase.status, ko)}
                   </span>
                   {activeCase.priority !== "NORMAL" ? (
-                    <span className="rounded border border-red-300 px-1.5 text-[11px] text-red-700">
+                    <span className="rounded border border-sam-danger px-1.5 text-[12px] text-sam-danger">
                       {supportPriorityLabel(activeCase.priority, ko)}
                     </span>
                   ) : null}
@@ -734,24 +767,24 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   {activeOpen ? (
                     <>
                       {activeCase.assigned_admin_id === selfAdminId ? (
-                        <button
-                          type="button"
+                        <AdminActionButton
+                          variant="secondary"
+                          size="sm"
                           disabled={busy}
-                          className="h-8 rounded-ui-rect border border-sam-border px-3 text-xs font-medium disabled:opacity-50"
                           onClick={() => void patchCase({ action: "assign", assigneeAdminId: null })}
                         >
                           {safeT("admin_support_unassign", { fallbackKo: "배정 해제", fallbackEn: "Unassign" })}
-                        </button>
+                        </AdminActionButton>
                       ) : (
-                        <button
-                          type="button"
+                        <AdminActionButton
+                          variant="secondary"
+                          size="sm"
                           disabled={busy || !selfAdminId}
-                          className="h-8 rounded-ui-rect border border-sam-border px-3 text-xs font-medium disabled:opacity-50"
                           data-admin-support-assign-self="1"
                           onClick={() => void patchCase({ action: "assign", assigneeAdminId: selfAdminId })}
                         >
                           {safeT("admin_support_assign_self", { fallbackKo: "나에게 배정", fallbackEn: "Assign to me" })}
-                        </button>
+                        </AdminActionButton>
                       )}
                       <select
                         value={activeCase.priority}
@@ -769,65 +802,106 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       </select>
                     </>
                   ) : null}
-                  <button
-                    type="button"
-                    className={`h-8 rounded-ui-rect border px-3 text-xs font-medium ${
-                      showInfo ? "border-sam-fg bg-sam-fg text-white" : "border-sam-border"
-                    }`}
+                  <AdminChipButton
+                    selected={showInfo}
                     data-admin-support-info-toggle="1"
                     onClick={() => setShowInfo((v) => !v)}
                   >
                     {ko ? "문의 정보" : "Details"}
-                  </button>
+                  </AdminChipButton>
                   <div className="ml-auto flex gap-2">
                     {activeOpen ? (
-                      <button
-                        type="button"
+                      <AdminActionButton
+                        variant="primary"
+                        size="sm"
                         disabled={busy}
-                        className="h-8 rounded-ui-rect bg-sam-fg px-3 text-xs font-semibold text-white disabled:opacity-50"
-                        onClick={() => void patchCase({ action: "status", status: "RESOLVED" })}
+                        onClick={() =>
+                          void confirmThenPatch(
+                            { action: "status", status: "RESOLVED" },
+                            {
+                              title: safeT("admin_support_resolve", { fallbackKo: "상담 종료", fallbackEn: "Close case" }),
+                              description: ko
+                                ? `${activeCase.public_case_no} 상담을 종료합니다. 고객에게 종료 상태로 보입니다.`
+                                : `Closes ${activeCase.public_case_no}. The customer sees it as closed.`,
+                              confirmLabel: safeT("admin_support_resolve", { fallbackKo: "상담 종료", fallbackEn: "Close case" }),
+                            }
+                          )
+                        }
                       >
                         {safeT("admin_support_resolve", { fallbackKo: "상담 종료", fallbackEn: "Close case" })}
-                      </button>
+                      </AdminActionButton>
                     ) : null}
                     {st === "RESOLVED" ? (
                       <>
-                        <button
-                          type="button"
+                        <AdminActionButton
+                          variant="secondary"
+                          size="sm"
                           disabled={busy}
-                          className="h-8 rounded-ui-rect border border-sam-border px-3 text-xs font-medium disabled:opacity-50"
                           data-admin-support-archive="1"
-                          onClick={() => void patchCase({ action: "archive" })}
+                          onClick={() =>
+                            void confirmThenPatch(
+                              { action: "archive" },
+                              {
+                                title: ko ? "상담 보관" : "Archive case",
+                                description: ko
+                                  ? `${activeCase.public_case_no} 상담을 보관함으로 옮깁니다. 「보관 해제」로 되돌릴 수 있습니다.`
+                                  : `Moves ${activeCase.public_case_no} to the archive. You can unarchive it later.`,
+                                confirmLabel: ko ? "보관" : "Archive",
+                              }
+                            )
+                          }
                         >
                           {ko ? "보관" : "Archive"}
-                        </button>
-                        <button
-                          type="button"
+                        </AdminActionButton>
+                        <AdminActionButton
+                          variant="primary"
+                          size="sm"
                           disabled={busy}
-                          className="h-8 rounded-ui-rect bg-sam-fg px-3 text-xs font-semibold text-white disabled:opacity-50"
                           data-admin-support-reopen="1"
-                          onClick={() => void patchCase({ action: "reopen" })}
+                          onClick={() =>
+                            void confirmThenPatch(
+                              { action: "reopen" },
+                              {
+                                title: safeT("admin_support_reopen", { fallbackKo: "재오픈", fallbackEn: "Reopen" }),
+                                description: ko
+                                  ? `${activeCase.public_case_no} 상담을 다시 엽니다.`
+                                  : `Reopens ${activeCase.public_case_no}.`,
+                                confirmLabel: safeT("admin_support_reopen", { fallbackKo: "재오픈", fallbackEn: "Reopen" }),
+                              }
+                            )
+                          }
                         >
                           {safeT("admin_support_reopen", { fallbackKo: "재오픈", fallbackEn: "Reopen" })}
-                        </button>
+                        </AdminActionButton>
                       </>
                     ) : null}
                     {st === "ARCHIVED" ? (
-                      <button
-                        type="button"
+                      <AdminActionButton
+                        variant="primary"
+                        size="sm"
                         disabled={busy}
-                        className="h-8 rounded-ui-rect bg-sam-fg px-3 text-xs font-semibold text-white disabled:opacity-50"
                         data-admin-support-unarchive="1"
-                        onClick={() => void patchCase({ action: "unarchive" })}
+                        onClick={() =>
+                          void confirmThenPatch(
+                            { action: "unarchive" },
+                            {
+                              title: ko ? "보관 해제" : "Unarchive",
+                              description: ko
+                                ? `${activeCase.public_case_no} 상담을 보관함에서 꺼냅니다.`
+                                : `Moves ${activeCase.public_case_no} out of the archive.`,
+                              confirmLabel: ko ? "보관 해제" : "Unarchive",
+                            }
+                          )
+                        }
                       >
                         {ko ? "보관 해제" : "Unarchive"}
-                      </button>
+                      </AdminActionButton>
                     ) : null}
                   </div>
                 </div>
                 {error ? (
-                  <p className="text-xs text-red-600">
-                    {supportErrorLabel(safeT, error)} ({error})
+                  <p className="text-xs text-sam-danger" role="alert">
+                    {supportErrorLabel(safeT, error)}
                   </p>
                 ) : null}
               </div>
@@ -840,7 +914,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   const own = admin && !!selfAdminId && m.sender_admin_id === selfAdminId && !m.deleted_at;
                   const align = system ? "mx-auto text-center" : admin ? "ml-auto" : "mr-auto";
                   const tone = internal
-                    ? "border border-dashed border-amber-400 bg-amber-50"
+                    ? "border border-dashed border-sam-warning bg-sam-warning-soft"
                     : system
                       ? "bg-transparent text-sam-muted"
                       : admin
@@ -849,8 +923,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   return (
                     <div key={m.id} className={`max-w-[80%] ${align}`} data-admin-support-msg={m.id}>
                       <div className={`rounded-ui-rect px-3 py-2 text-sm ${tone}`}>
-                        <p className="mb-0.5 text-[11px] text-sam-muted">
-                          {senderLabel(m)} · {new Date(m.created_at).toLocaleString()}
+                        <p className="mb-0.5 text-[12px] text-sam-muted">
+                          {senderLabel(m)} · {formatAdminManilaDateTime(m.created_at)}
                           {m.edited_at && !m.deleted_at ? ` · ${ko ? "수정됨" : "edited"}` : ""}
                         </p>
                         {m.deleted_at ? (
@@ -867,17 +941,13 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface p-2 text-sm"
                             />
                             <div className="flex justify-end gap-1">
-                              <button
-                                type="button"
-                                className="rounded border border-sam-border px-2 py-0.5 text-xs"
-                                onClick={() => setEditingId(null)}
-                              >
-                                {ko ? "취소" : "Cancel"}
-                              </button>
-                              <button
-                                type="button"
+                              <AdminActionButton variant="quiet" size="sm" onClick={() => setEditingId(null)}>
+                                {adminCta("cancel", ko)}
+                              </AdminActionButton>
+                              <AdminActionButton
+                                variant="primary"
+                                size="sm"
                                 disabled={busy || !editDraft.trim()}
-                                className="rounded bg-sam-fg px-2 py-0.5 text-xs text-white disabled:opacity-50"
                                 onClick={async () => {
                                   const ok = await patchCase({
                                     action: "edit_message",
@@ -887,8 +957,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                                   if (ok) setEditingId(null);
                                 }}
                               >
-                                {ko ? "저장" : "Save"}
-                              </button>
+                                {adminCta("save", ko)}
+                              </AdminActionButton>
                             </div>
                           </div>
                         ) : (
@@ -896,48 +966,39 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                         )}
                       </div>
                       {own && editingId !== m.id ? (
-                        <div className="mt-0.5 flex justify-end gap-2 text-[11px] text-sam-muted">
-                          {confirmDeleteId === m.id ? (
-                            <>
-                              <span>{ko ? "삭제할까요?" : "Delete?"}</span>
-                              <button
-                                type="button"
-                                className="font-semibold text-red-600"
-                                disabled={busy}
-                                data-admin-support-msg-delete-confirm={m.id}
-                                onClick={async () => {
-                                  const ok = await patchCase({ action: "delete_message", messageId: m.id });
-                                  if (ok) setConfirmDeleteId(null);
-                                }}
-                              >
-                                {ko ? "삭제" : "Delete"}
-                              </button>
-                              <button type="button" onClick={() => setConfirmDeleteId(null)}>
-                                {ko ? "취소" : "Cancel"}
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                data-admin-support-msg-edit={m.id}
-                                onClick={() => {
-                                  setEditingId(m.id);
-                                  setEditDraft(m.body);
-                                  setConfirmDeleteId(null);
-                                }}
-                              >
-                                {ko ? "수정" : "Edit"}
-                              </button>
-                              <button
-                                type="button"
-                                data-admin-support-msg-delete={m.id}
-                                onClick={() => setConfirmDeleteId(m.id)}
-                              >
-                                {ko ? "삭제" : "Delete"}
-                              </button>
-                            </>
-                          )}
+                        <div className="mt-0.5 flex justify-end gap-1 text-[12px] text-sam-muted">
+                          <AdminActionButton
+                            variant="ghost"
+                            size="sm"
+                            data-admin-support-msg-edit={m.id}
+                            onClick={() => {
+                              setEditingId(m.id);
+                              setEditDraft(m.body);
+                            }}
+                          >
+                            {adminCta("edit", ko)}
+                          </AdminActionButton>
+                          <AdminActionButton
+                            variant="ghost"
+                            size="sm"
+                            disabled={busy}
+                            data-admin-support-msg-delete={m.id}
+                            onClick={() =>
+                              void confirmThenPatch(
+                                { action: "delete_message", messageId: m.id },
+                                {
+                                  title: ko ? "메시지 삭제" : "Delete message",
+                                  description: ko
+                                    ? "내가 보낸 이 메시지를 삭제합니다. 고객에게는 「삭제된 메시지」로 보이고 작업 기록에 남습니다."
+                                    : "Deletes your message. The customer sees “Deleted message”; the action is audited.",
+                                  confirmLabel: adminCta("delete", ko),
+                                  destructive: true,
+                                }
+                              )
+                            }
+                          >
+                            {adminCta("delete", ko)}
+                          </AdminActionButton>
                         </div>
                       ) : null}
                     </div>
@@ -946,21 +1007,13 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
               </div>
 
               <div className="shrink-0 border-t border-sam-border p-3" data-admin-support-composer="1">
-                <div className="mb-2 inline-flex overflow-hidden rounded-ui-rect border border-sam-border text-xs">
-                  <button
-                    type="button"
-                    className={`px-3 py-1 font-medium ${composerMode === "public" ? "bg-sam-fg text-white" : "bg-sam-surface"}`}
-                    onClick={() => setComposerMode("public")}
-                  >
+                <div className="mb-2 inline-flex gap-1" role="group">
+                  <AdminChipButton selected={composerMode === "public"} onClick={() => setComposerMode("public")}>
                     {ko ? "공개 답변" : "Public reply"}
-                  </button>
-                  <button
-                    type="button"
-                    className={`px-3 py-1 font-medium ${composerMode === "internal" ? "bg-amber-500 text-white" : "bg-sam-surface"}`}
-                    onClick={() => setComposerMode("internal")}
-                  >
+                  </AdminChipButton>
+                  <AdminChipButton selected={composerMode === "internal"} onClick={() => setComposerMode("internal")}>
                     {safeT("admin_support_internal_note", { fallbackKo: "내부 메모", fallbackEn: "Internal note" })}
-                  </button>
+                  </AdminChipButton>
                 </div>
                 {composerMode === "public" && activeClosed ? (
                   <p
@@ -993,21 +1046,19 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                             : "Internal note (hidden from customer)"
                       }
                       className={`min-h-[4.5rem] flex-1 rounded-ui-rect border p-2 text-sm ${
-                        composerMode === "internal" ? "border-amber-400 bg-amber-50" : "border-sam-border bg-sam-surface"
+                        composerMode === "internal" ? "border-sam-warning bg-sam-warning-soft" : "border-sam-border bg-sam-surface"
                       }`}
                     />
-                    <button
-                      type="button"
+                    <AdminActionButton
+                      variant="primary"
                       disabled={busy || !draft.trim()}
-                      className={`h-10 shrink-0 rounded-ui-rect px-4 text-sm font-semibold text-white disabled:opacity-50 ${
-                        composerMode === "internal" ? "bg-amber-500" : "bg-sam-primary"
-                      }`}
+                      className="shrink-0"
                       onClick={() => void sendComposer()}
                     >
                       {composerMode === "public"
                         ? safeT("admin_support_reply", { fallbackKo: "답변", fallbackEn: "Reply" })
                         : safeT("admin_support_save_note", { fallbackKo: "메모 저장", fallbackEn: "Save note" })}
-                    </button>
+                    </AdminActionButton>
                   </div>
                 )}
               </div>
@@ -1021,26 +1072,27 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             className="fixed inset-y-0 right-0 z-40 flex w-[300px] max-w-[85vw] flex-col overflow-y-auto border-l border-sam-border bg-sam-surface p-3 text-sm shadow-xl lg:static lg:z-auto lg:w-auto lg:max-w-none lg:rounded-ui-rect lg:border lg:shadow-none"
             data-admin-support-context="1"
           >
-            <button
-              type="button"
-              className="mb-2 self-end text-xs text-sam-muted underline lg:hidden"
+            <AdminActionButton
+              variant="quiet"
+              size="sm"
+              className="mb-2 self-end lg:hidden"
               onClick={() => setShowInfo(false)}
             >
-              {ko ? "닫기" : "Close"}
-            </button>
+              {adminCta("close", ko)}
+            </AdminActionButton>
             <section>
               <h3 className="text-xs font-semibold text-sam-muted">{ko ? "고객" : "Customer"}</h3>
               <p className="mt-1 font-medium">{whoName(activeCase)}</p>
               {activeCase.requester_email ? (
                 <p className="text-xs text-sam-muted">{activeCase.requester_email}</p>
               ) : null}
-              <p className="break-all text-[11px] text-sam-muted">{activeCase.requester_user_id}</p>
+              <p className="break-all text-[12px] text-sam-muted">{activeCase.requester_user_id}</p>
             </section>
             {activeCase.owner_store_id ? (
               <section className="mt-3">
                 <h3 className="text-xs font-semibold text-sam-muted">{ko ? "매장" : "Store"}</h3>
                 <p className="mt-1 font-medium">{activeCase.owner_store_name || "—"}</p>
-                <p className="break-all text-[11px] text-sam-muted">{activeCase.owner_store_id}</p>
+                <p className="break-all text-[12px] text-sam-muted">{activeCase.owner_store_id}</p>
               </section>
             ) : null}
             <section className="mt-3">
@@ -1050,10 +1102,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                 {activeCase.issue_type ? ` · ${issueLabel(activeCase)}` : ""}
               </p>
               <p className="mt-1 text-xs text-sam-muted">
-                {ko ? "생성" : "Created"}: {new Date(activeCase.created_at).toLocaleString()}
+                {ko ? "생성" : "Created"}: {formatAdminManilaDateTime(activeCase.created_at)}
               </p>
               <p className="text-xs text-sam-muted">
-                {ko ? "최근" : "Last"}: {new Date(activeCase.last_message_at).toLocaleString()}
+                {ko ? "최근" : "Last"}: {formatAdminManilaDateTime(activeCase.last_message_at)}
               </p>
             </section>
             <section className="mt-3" data-admin-support-business-ref="1">

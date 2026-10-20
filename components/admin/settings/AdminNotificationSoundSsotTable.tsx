@@ -11,6 +11,10 @@ import {
   getRepeatPolicy,
   isRepeatRingEvent,
 } from "@/lib/notifications/notification-sound-ssot-repeat-policy";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 
 type AssetRow = {
   id: string;
@@ -176,7 +180,7 @@ function NotificationSoundSsotRow({
           <span
             className={`rounded-full px-2 py-0.5 sam-text-helper ${
               repeatPolicy === "repeat"
-                ? "bg-amber-100 text-amber-900"
+                ? "bg-sam-warning-soft text-sam-warning"
                 : "bg-sam-app text-sam-muted"
             }`}
           >
@@ -186,11 +190,11 @@ function NotificationSoundSsotRow({
           </span>
           {baseline ? (
             dirty ? (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 sam-text-helper text-amber-900">
+              <span className="rounded-full bg-sam-warning-soft px-2 py-0.5 sam-text-helper text-sam-warning">
                 {t("admin_notif_sound_unsaved_badge")}
               </span>
             ) : (
-              <span className="rounded-full bg-green-100 px-2 py-0.5 sam-text-helper text-green-900">
+              <span className="rounded-full bg-sam-success-soft px-2 py-0.5 sam-text-helper text-sam-success">
                 {t("admin_notif_sound_applied_badge")}
               </span>
             )
@@ -231,9 +235,10 @@ function NotificationSoundSsotRow({
         </div>
         {!mapping.use_device_default ? (
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app disabled:opacity-50"
+            <AdminActionButton
+              variant="secondary"
+              size="sm"
+              className="w-8 shrink-0 px-0"
               disabled={isUploading || isSaving}
               onClick={onUpload}
               aria-label={t("admin_settings_notif_pick_file")}
@@ -244,7 +249,7 @@ function NotificationSoundSsotRow({
               ) : (
                 <Music className="h-4 w-4" strokeWidth={2} aria-hidden />
               )}
-            </button>
+            </AdminActionButton>
             {!hasCustomAsset ? (
               <span className="sam-text-helper text-sam-muted">{t("admin_notif_sound_custom_upload_hint")}</span>
             ) : null}
@@ -269,14 +274,14 @@ function NotificationSoundSsotRow({
           />
           <span className="w-10 shrink-0 tabular-nums">{volumePct}%</span>
         </label>
-        <button
-          type="button"
-          className="rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper text-sam-muted hover:bg-sam-app disabled:opacity-50"
+        <AdminActionButton
+          variant="secondary"
+          size="sm"
           disabled={volumePct === defaultVolumePct}
           onClick={() => onPatch({ volume: DEFAULT_VOLUME })}
         >
           {t("admin_notif_sound_volume_reset")}
-        </button>
+        </AdminActionButton>
       </div>
 
       {repeatPolicy === "repeat" ? (
@@ -302,7 +307,7 @@ function NotificationSoundSsotRow({
           {soundFileName}
         </p>
         {!dirty && baseline ? (
-          <p className="mt-1 truncate sam-text-helper text-green-800" title={savedFileName}>
+          <p className="mt-1 truncate sam-text-helper text-sam-success" title={savedFileName}>
             {t("admin_notif_sound_saved_file")}: {savedFileName}
           </p>
         ) : null}
@@ -311,23 +316,18 @@ function NotificationSoundSsotRow({
       <div className="flex flex-wrap items-center gap-2">
         <AdminNotificationSoundPreview soundUrl={previewUrl} volume={currentVolume} />
 
-        <button
-          type="button"
-          className="rounded-ui-rect border border-sam-border px-3 py-1 sam-text-helper text-sam-muted hover:bg-sam-app disabled:opacity-50"
-          disabled={isSaving}
-          onClick={onRestore}
-        >
+        <AdminActionButton variant="secondary" size="sm" disabled={isSaving} onClick={onRestore}>
           {t("admin_notif_sound_restore_default")}
-        </button>
+        </AdminActionButton>
 
-        <button
-          type="button"
-          className="rounded-ui-rect bg-signature px-3 py-1 sam-text-helper font-medium text-white disabled:opacity-50"
+        <AdminActionButton
+          variant="primary"
+          size="sm"
           disabled={!dirty || isSaving || isUploading}
           onClick={onSave}
         >
-          {isSaving ? t("common_saving") : t("admin_notif_sound_row_save")}
-        </button>
+          {t("admin_notif_sound_row_save")}
+        </AdminActionButton>
       </div>
     </div>
   );
@@ -335,6 +335,8 @@ function NotificationSoundSsotRow({
 
 export function AdminNotificationSoundSsotTable() {
   const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
+  const [loadErr, setLoadErr] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [assets, setAssets] = useState<AssetRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [draft, setDraft] = useState<MappingRow[]>([]);
@@ -370,9 +372,9 @@ export function AdminNotificationSoundSsotTable() {
           vars: { field: payload.field },
         });
       }
-      return code || t("admin_settings_notif_save_failed");
+      return code ? adminOperatorErrorMessage(code, ko) : t("admin_settings_notif_save_failed");
     },
-    [safeT, t]
+    [ko, safeT, t]
   );
 
   const sections = useMemo(() => {
@@ -404,6 +406,7 @@ export function AdminNotificationSoundSsotTable() {
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
+    setLoadErr(null);
     try {
       const res = await fetch("/api/admin/notification-sound-ssot", { credentials: "include" });
       const j = (await res.json()) as {
@@ -414,16 +417,16 @@ export function AdminNotificationSoundSsotTable() {
         error?: string;
       };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? t("admin_settings_notif_load_failed"));
+        setLoadErr({ code: j.error ?? "load_failed", httpStatus: res.status });
         return;
       }
       applyPayload(j);
     } catch {
-      setErr(t("common_network_error_generic"));
+      setLoadErr({ code: "network_error" });
     } finally {
       setLoading(false);
     }
-  }, [applyPayload, t]);
+  }, [applyPayload]);
 
   useEffect(() => {
     void load();
@@ -480,7 +483,7 @@ export function AdminNotificationSoundSsotTable() {
           error?: string;
         };
         if (!res.ok || !j.ok || !j.asset_id) {
-          setErr(j.error ?? t("admin_settings_notif_upload_failed"));
+          setErr(j.error ? adminOperatorErrorMessage(j.error, ko) : t("admin_settings_notif_upload_failed"));
           return;
         }
         const newAsset: AssetRow = {
@@ -501,7 +504,7 @@ export function AdminNotificationSoundSsotTable() {
         setUploadingKey(null);
       }
     },
-    [patchDraft, t]
+    [ko, patchDraft, t]
   );
 
   const onFileChange = useCallback(
@@ -525,6 +528,15 @@ export function AdminNotificationSoundSsotTable() {
       const row = draft.find((r) => r.event_key === eventKey);
       const base = baselineByKey.get(eventKey);
       if (!row || !isRowDirty(row, base)) return;
+      const ev = eventsByKey.get(eventKey);
+      const confirmed = await confirmAdminAction({
+        level: "L1",
+        ko,
+        title: t("admin_notif_sound_row_save"),
+        description: ev ? (ko ? ev.label_ko : ev.label_en) : undefined,
+        confirmLabel: t("admin_notif_sound_row_save"),
+      });
+      if (!confirmed.ok) return;
 
       setSaving(true);
       setSavingKey(eventKey);
@@ -560,7 +572,7 @@ export function AdminNotificationSoundSsotTable() {
         setSavingKey(null);
       }
     },
-    [applyPayload, baselineByKey, draft, formatSaveError, t]
+    [applyPayload, baselineByKey, draft, eventsByKey, formatSaveError, ko, t]
   );
 
   const restoreDefault = useCallback(
@@ -576,11 +588,11 @@ export function AdminNotificationSoundSsotTable() {
   );
 
   if (loading) {
-    return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-8 text-center sam-text-body text-sam-muted">
-        {t("common_loading")}
-      </div>
-    );
+    return <AdminLoadingState ko={ko} label={t("common_loading")} />;
+  }
+
+  if (loadErr) {
+    return <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={() => void load()} />;
   }
 
   return (
@@ -597,12 +609,12 @@ export function AdminNotificationSoundSsotTable() {
       />
 
       {err ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 sam-text-body-secondary text-red-800">
+        <div role="alert" className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-4 py-2 sam-text-body-secondary text-sam-danger">
           {err}
         </div>
       ) : null}
       {msg ? (
-        <div className="rounded-ui-rect border border-green-200 bg-green-50 px-4 py-2 sam-text-body-secondary text-green-900">
+        <div role="status" className="rounded-ui-rect border border-sam-success bg-sam-success-soft px-4 py-2 sam-text-body-secondary text-sam-success">
           {msg}
         </div>
       ) : null}

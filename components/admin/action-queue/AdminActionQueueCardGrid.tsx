@@ -6,6 +6,7 @@ import {
   ADMIN_ACTION_QUEUE_REGISTRY_BY_KEY,
   type AdminActionQueueCategoryResult,
 } from "@/lib/admin/admin-action-queue-registry";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 /**
  * Action Queue cards — rendered ONLY from registry + /api/admin/admin-bell `categories`.
@@ -68,22 +69,22 @@ export function AdminActionQueueCardGrid({
                 {ko ? def.domainKo : def.domainEn}
                 {!c.inTotal ? ` · ${ownerLabel}` : ""}
               </p>
-              <p className="mt-1 text-[15px] font-semibold text-sam-fg">{ko ? def.titleKo : def.titleEn}</p>
+              <p className="mt-1 text-[14px] font-semibold text-sam-fg">{ko ? def.titleKo : def.titleEn}</p>
             </div>
             <div className="mt-3 flex items-center justify-between gap-2">
               <span className="text-[13px] font-semibold text-sam-primary">{ko ? def.ctaKo : def.ctaEn}</span>
               {loading ? (
-                <span className="text-[11px] text-sam-muted">…</span>
+                <span className="text-[12px] text-sam-muted">…</span>
               ) : unavailable ? (
-                <span className="rounded-ui-rect border border-amber-600 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                <span className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-2 py-0.5 text-[12px] font-bold text-sam-warning">
                   {unavailableLabel}
                 </span>
               ) : (c.count ?? 0) > 0 ? (
-                <span className="rounded-full bg-sam-primary px-2 py-0.5 text-[11px] font-bold text-white tabular-nums">
-                  {c.count}
+                <span className="rounded-full bg-sam-primary px-2 py-0.5 text-[12px] font-bold text-white tabular-nums">
+                  {formatAdminNumber(c.count)}
                 </span>
               ) : (
-                <span className="text-[11px] text-sam-muted">0</span>
+                <span className="text-[12px] text-sam-muted">0</span>
               )}
             </div>
           </Link>

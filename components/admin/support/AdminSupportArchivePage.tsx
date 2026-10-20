@@ -1,10 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type ArchiveTab = "notes" | "platform";
 
@@ -54,8 +57,37 @@ function startedByLabel(startedBy: string | undefined, ko: boolean): string {
   return "—";
 }
 
+/** 행 펼침 토글 — 버튼 부품(높이 고정·한 줄)으로는 여러 줄 행을 그릴 수 없어 키보드 지원 role=button 으로 그린다. */
+function ArchiveRowToggle({
+  expanded,
+  onToggle,
+  children,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      className="w-full cursor-pointer text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-primary"
+      aria-expanded={expanded}
+      onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 /** B8 — read-only thread body, loaded on expand via the existing admin GET. */
-function ArchiveNoteThread({ threadId, ko, locale }: { threadId: string; ko: boolean; locale: string }) {
+function ArchiveNoteThread({ threadId, ko }: { threadId: string; ko: boolean }) {
   const [messages, setMessages] = useState<NoteMessage[] | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -79,7 +111,7 @@ function ArchiveNoteThread({ threadId, ko, locale }: { threadId: string; ko: boo
     };
   }, [threadId]);
   if (failed) {
-    return <p className="mt-2 text-xs text-red-600">{ko ? "대화를 불러오지 못했습니다" : "Could not load"}</p>;
+    return <p className="mt-2 text-xs text-sam-danger" role="alert">{ko ? "대화를 불러오지 못했습니다" : "Could not load"}</p>;
   }
   if (!messages) return <p className="mt-2 text-xs text-sam-muted">…</p>;
   return (
@@ -93,7 +125,7 @@ function ArchiveNoteThread({ threadId, ko, locale }: { threadId: string; ko: boo
         >
           <p className="text-xs text-sam-muted">
             {m.sender_role === "admin" ? (ko ? "관리자" : "Admin") : ko ? "회원·사장님" : "Member"} ·{" "}
-            {new Date(m.created_at).toLocaleString(locale)}
+            {formatAdminManilaDateTime(m.created_at)}
           </p>
           <p className="whitespace-pre-wrap">{m.body}</p>
         </div>
@@ -112,7 +144,6 @@ export function AdminSupportArchivePage() {
   const [platform, setPlatform] = useState<PlatformRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const locale = language === "ko" ? "ko-KR" : "en-US";
   const ko = language !== "en";
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -170,83 +201,73 @@ export function AdminSupportArchivePage() {
           fallbackEn: "Legacy notes and platform inquiries. Read-only archive.",
         })}
       />
-      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+      <p className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg">
         {safeT("admin_support_archive_readonly_hint", {
           fallbackKo: "신규 문의는 「고객센터」에서 처리합니다. 여기에서는 답변·작성할 수 없습니다.",
           fallbackEn: "New support is handled in Support Center. This archive cannot reply or compose.",
         })}
       </p>
-      <div className="flex gap-2">
-        {(
-          [
-            { id: "notes" as const, ko: "쪽지·1:1", en: "Notes / 1:1" },
-            { id: "platform" as const, ko: "플랫폼 문의", en: "Platform inquiries" },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              tab === t.id
-                ? "bg-sam-primary text-white"
-                : "border border-sam-border bg-sam-surface text-sam-fg"
-            }`}
-          >
-            {language === "en" ? t.en : t.ko}
-          </button>
-        ))}
+      <div className="flex items-center gap-2">
+        <AdminTabs
+          className="flex-1"
+          ariaLabel={safeT("admin_menu_cp_support_archive", {
+            fallbackKo: "이전 문의 기록",
+            fallbackEn: "Previous inquiry archive",
+          })}
+          tabs={[
+            { id: "notes", label: ko ? "쪽지·1:1" : "Notes / 1:1" },
+            { id: "platform", label: ko ? "플랫폼 문의" : "Platform inquiries" },
+          ]}
+          value={tab}
+          syncUrl={false}
+          onChange={(id) => setTab(id as ArchiveTab)}
+        />
         <Link href="/admin/support" className="ml-auto text-sm text-sam-primary underline">
           {safeT("admin_support_title", { fallbackKo: "고객센터", fallbackEn: "Support Center" })}
         </Link>
       </div>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {!loading && error ? <AdminErrorState ko={ko} code={error} onRetry={() => void load()} /> : null}
       {loading ? (
-        <p className="text-sm text-sam-muted">…</p>
+        <AdminLoadingState ko={ko} />
       ) : tab === "notes" ? (
+        notes.length === 0 ? (
+          error ? null : <AdminEmptyState ko={ko} />
+        ) : (
         <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
-          {notes.length === 0 ? (
-            <li className="p-4 text-sm text-sam-muted">—</li>
-          ) : (
-            notes.map((n) => (
+          {notes.map((n) => (
               <li key={n.id} className="px-3 py-3">
-                <button
-                  type="button"
-                  className="w-full text-left"
-                  aria-expanded={openId === n.id}
-                  onClick={() => setOpenId((cur) => (cur === n.id ? null : n.id))}
+                <ArchiveRowToggle
+                  expanded={openId === n.id}
+                  onToggle={() => setOpenId((cur) => (cur === n.id ? null : n.id))}
                 >
                   <p className="text-sm font-medium">{n.subject}</p>
                   <p className="text-xs text-sam-muted">
                     {startedByLabel(n.started_by, ko)} · {legacyStatusLabel(n.status, ko)} ·{" "}
-                    {n.last_message_at ? new Date(n.last_message_at).toLocaleString(locale) : ""}
+                    {n.last_message_at ? formatAdminManilaDateTime(n.last_message_at) : ""}
                   </p>
-                </button>
-                {openId === n.id ? <ArchiveNoteThread threadId={n.id} ko={ko} locale={locale} /> : null}
+                </ArchiveRowToggle>
+                {openId === n.id ? <ArchiveNoteThread threadId={n.id} ko={ko} /> : null}
               </li>
-            ))
-          )}
+            ))}
         </ul>
+        )
+      ) : platform.length === 0 ? (
+        error ? null : <AdminEmptyState ko={ko} />
       ) : (
         <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
-          {platform.length === 0 ? (
-            <li className="p-4 text-sm text-sam-muted">—</li>
-          ) : (
-            platform.map((r) => (
+          {platform.map((r) => (
               <li key={r.id} className="px-3 py-3">
-                <button
-                  type="button"
-                  className="w-full text-left"
-                  aria-expanded={openId === r.id}
-                  onClick={() => setOpenId((cur) => (cur === r.id ? null : r.id))}
+                <ArchiveRowToggle
+                  expanded={openId === r.id}
+                  onToggle={() => setOpenId((cur) => (cur === r.id ? null : r.id))}
                 >
                   <p className="text-sm font-medium">{r.subject}</p>
                   <p className="text-xs text-sam-muted">
                     {legacyStatusLabel(r.status, ko)}
                     {r.store_id ? ` · ${ko ? "매장" : "Store"} ${formatAdminShortIdEllipsis(r.store_id)}` : ""} ·{" "}
-                    {r.created_at ? new Date(r.created_at).toLocaleString(locale) : ""}
+                    {r.created_at ? formatAdminManilaDateTime(r.created_at) : ""}
                   </p>
-                </button>
+                </ArchiveRowToggle>
                 {openId === r.id ? (
                   <div className="mt-2 space-y-2" data-admin-archive-platform={r.id}>
                     <p className="whitespace-pre-wrap rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-sm">
@@ -260,8 +281,7 @@ export function AdminSupportArchivePage() {
                   </div>
                 ) : null}
               </li>
-            ))
-          )}
+            ))}
         </ul>
       )}
     </div>

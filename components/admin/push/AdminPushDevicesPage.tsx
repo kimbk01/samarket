@@ -5,6 +5,11 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { NOTIFICATIONS_PUSH_DELIVERY_STATUS_NS } from "@/lib/admin/status-labels/notifications-status-labels";
 
 type DeviceRow = {
   id: string;
@@ -25,7 +30,8 @@ type DeliveryRow = {
 };
 
 export function AdminPushDevicesPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [userId, setUserId] = useState("");
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
@@ -76,6 +82,16 @@ export function AdminPushDevicesPage() {
   const sendTest = useCallback(async () => {
     const uid = userId.trim();
     if (!uid) return;
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: t("admin_push_test_send"),
+      description: ko
+        ? "이 회원의 등록 기기로 테스트 푸시를 보냅니다."
+        : "Sends a test push to this member's registered devices.",
+      confirmLabel: t("admin_push_test_send"),
+    });
+    if (!confirmed.ok) return;
     setTestBusy(true);
     setTestResult(null);
     setErr(null);
@@ -105,7 +121,7 @@ export function AdminPushDevicesPage() {
     } finally {
       setTestBusy(false);
     }
-  }, [t, userId]);
+  }, [ko, t, userId]);
 
   return (
     <div className="space-y-4">
@@ -122,31 +138,17 @@ export function AdminPushDevicesPage() {
               className="rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
             />
           </label>
-          <button
-            type="button"
-            onClick={() => void fillCurrentSessionUserId()}
-            className="rounded-ui-rect border border-sam-border px-4 py-2 text-[13px] font-medium"
-          >
+          <AdminActionButton variant="secondary" onClick={() => void fillCurrentSessionUserId()}>
             {t("admin_push_devices_use_session_user")}
-          </button>
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => void load()}
-            className="rounded-ui-rect bg-signature px-4 py-2 text-[13px] font-medium text-white disabled:opacity-50"
-          >
-            {loading ? t("admin_push_devices_loading") : t("admin_push_devices_load")}
-          </button>
-          <button
-            type="button"
-            disabled={testBusy || !userId.trim()}
-            onClick={() => void sendTest()}
-            className="rounded-ui-rect border border-sam-border px-4 py-2 text-[13px] font-medium disabled:opacity-50"
-          >
-            {testBusy ? t("admin_push_test_busy") : t("admin_push_test_send")}
-          </button>
+          </AdminActionButton>
+          <AdminActionButton variant="secondary" disabled={testBusy || !userId.trim()} onClick={() => void sendTest()}>
+            {t("admin_push_test_send")}
+          </AdminActionButton>
+          <AdminActionButton variant="primary" disabled={loading} onClick={() => void load()}>
+            {t("admin_push_devices_load")}
+          </AdminActionButton>
         </div>
-        {err ? <p className="px-4 pb-2 text-[13px] text-red-600">{err}</p> : null}
+        {err ? <p className="px-4 pb-2 text-[13px] text-sam-danger" role="alert">{err}</p> : null}
         {sessionHint ? <p className="px-4 pb-2 text-[13px] text-sam-muted">{sessionHint}</p> : null}
         {testResult ? <p className="px-4 pb-2 text-[13px] text-sam-fg">{testResult}</p> : null}
       </AdminCard>
@@ -176,7 +178,7 @@ export function AdminPushDevicesPage() {
                     <td className="py-2 pr-3">{d.platform}</td>
                     <td className="py-2 pr-3">{d.push_provider}</td>
                     <td className="py-2 pr-3">{d.is_active ? t("admin_push_active_yes") : t("admin_push_active_no")}</td>
-                    <td className="py-2 pr-3">{d.last_seen_at ?? "—"}</td>
+                    <td className="py-2 pr-3 tabular-nums">{formatAdminManilaDateTime(d.last_seen_at)}</td>
                     <td className="py-2">{d.app_version ?? "—"}</td>
                   </tr>
                 ))
@@ -208,9 +210,11 @@ export function AdminPushDevicesPage() {
                 deliveries.map((d) => (
                   <tr key={d.id} className="border-b border-sam-border-soft">
                     <td className="py-2 pr-3">{d.event_type ?? "—"}</td>
-                    <td className="py-2 pr-3">{d.status}</td>
-                    <td className="py-2 pr-3">{d.created_at}</td>
-                    <td className="py-2 font-mono text-[11px]">
+                    <td className="py-2 pr-3">
+                      <AdminStatusLabel namespace={NOTIFICATIONS_PUSH_DELIVERY_STATUS_NS} code={d.status} ko={ko} />
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums">{formatAdminManilaDateTime(d.created_at)}</td>
+                    <td className="py-2 font-mono text-[12px]">
                       {JSON.stringify(d.provider_response ?? {}).slice(0, 120)}
                     </td>
                   </tr>

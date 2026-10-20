@@ -26,8 +26,17 @@ import {
   type CampaignListQuery,
   type CampaignListTab,
 } from "@/lib/admin/notification-campaigns/campaign-status-machine";
-import { formatCampaignTime } from "@/lib/admin/notification-campaigns/campaign-action-confirm-copy";
 import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import { NOTIFICATIONS_CAMPAIGN_STATUS_NS } from "@/lib/admin/status-labels/notifications-status-labels";
 
 type LatestOccurrence = {
   id?: string;
@@ -83,8 +92,8 @@ function sendModeLabel(t: TFn, mode: string | undefined): string {
 /** 「발송 완료」 — delivered counts of the latest occurrence (push devices · in-app members). */
 function formatDelivered(occ: LatestOccurrence | null | undefined, lang: "ko" | "en"): string {
   if (!occ) return "—";
-  const push = `${occ.push_sent ?? 0}/${occ.push_device_count ?? 0}`;
-  const inApp = `${occ.in_app_sent ?? 0}/${occ.in_app_member_count ?? 0}`;
+  const push = `${formatAdminNumber(occ.push_sent ?? 0)}/${formatAdminNumber(occ.push_device_count ?? 0)}`;
+  const inApp = `${formatAdminNumber(occ.in_app_sent ?? 0)}/${formatAdminNumber(occ.in_app_member_count ?? 0)}`;
   return safeTranslate(lang, "admin_campaign_cms_push_in_app_counts", { fallbackKo: `푸시 ${push} · 인앱 ${inApp}`, fallbackEn: `Push ${push} · In-app ${inApp}`, vars: { push, in_app: inApp } });
 }
 
@@ -92,7 +101,9 @@ function formatDelivered(occ: LatestOccurrence | null | undefined, lang: "ko" | 
 function formatOpened(row: CampaignRow, lang: "ko" | "en"): string {
   if (!row.opened) return "—";
   const suffix = row.opened.capped ? "+" : "";
-  return safeTranslate(lang, "admin_campaign_cms_push_in_app_counts", { fallbackKo: `푸시 ${row.opened.push}${suffix} · 인앱 ${row.opened.in_app}${suffix}`, fallbackEn: `Push ${row.opened.push}${suffix} · In-app ${row.opened.in_app}${suffix}`, vars: { push: `${row.opened.push}${suffix}`, in_app: `${row.opened.in_app}${suffix}` } });
+  const push = `${formatAdminNumber(row.opened.push)}${suffix}`;
+  const inApp = `${formatAdminNumber(row.opened.in_app)}${suffix}`;
+  return safeTranslate(lang, "admin_campaign_cms_push_in_app_counts", { fallbackKo: `푸시 ${push} · 인앱 ${inApp}`, fallbackEn: `Push ${push} · In-app ${inApp}`, vars: { push, in_app: inApp } });
 }
 
 function formatRunTimes(t: TFn, row: CampaignRow): string {
@@ -100,11 +111,11 @@ function formatRunTimes(t: TFn, row: CampaignRow): string {
   const parts: string[] = [];
   const next = occ?.scheduled_for ?? row.scheduled_at;
   if (next && occ?.status === "queued") {
-    parts.push(t("admin_notif_run_next", { time: formatCampaignTime(next) }));
+    parts.push(t("admin_notif_run_next", { time: formatAdminManilaDateTime(next) }));
   }
   const last = occ?.completed_at ?? row.sent_at;
   if (last) {
-    parts.push(t("admin_notif_run_last", { time: formatCampaignTime(last) }));
+    parts.push(t("admin_notif_run_last", { time: formatAdminManilaDateTime(last) }));
   }
   return parts.length ? parts.join(" · ") : "—";
 }
@@ -148,7 +159,8 @@ export function AdminNotificationCampaignsPage() {
   const [noticeMap, setNoticeMap] = useState<Record<string, NoticeLite>>({});
   const [eventTitleMap, setEventTitleMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<{ code: string; httpStatus?: number } | null>(null);
+  const ko = lang !== "en";
 
   useEffect(() => {
     setQDraft(query.q ?? "");
@@ -226,7 +238,7 @@ export function AdminNotificationCampaignsPage() {
         error?: string;
       };
       if (!res.ok || !j?.ok) {
-        setErr(typeof j?.error === "string" ? j.error : t("admin_notif_err_load_list"));
+        setErr({ code: typeof j?.error === "string" ? j.error : "load_failed", httpStatus: res.status });
         setRows([]);
         setTotal(0);
         return;
@@ -234,6 +246,10 @@ export function AdminNotificationCampaignsPage() {
       setRows(j.campaigns ?? []);
       setTotal(typeof j.total === "number" ? j.total : (j.campaigns ?? []).length);
       setArchiveSupported(j.archive_supported !== false);
+    } catch {
+      setErr({ code: "network_error" });
+      setRows([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -286,42 +302,30 @@ export function AdminNotificationCampaignsPage() {
   }, [noticeMap, eventTitleMap, lang, safeT]);
 
   const tabLabels = lang === "en" ? CAMPAIGN_TAB_LABEL_EN : CAMPAIGN_TAB_LABEL_KO;
-  const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
   const statusOptions = TAB_STATUS_OPTIONS[query.tab];
+  const hasFilters = Boolean(query.status || query.type || query.q);
+  const resetFilters = () => {
+    setQDraft("");
+    pushQuery({ status: null, type: null, q: null });
+  };
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-sam-fg">{t("admin_menu_dibay_notification_campaigns")}</h1>
-        <Link
-          href="/admin/notifications/create"
-          className="rounded-ui-rect bg-signature px-3 py-2 text-sm font-medium text-white"
-        >
+        <h1 className="text-[20px] font-semibold text-sam-fg">{t("admin_menu_dibay_notification_campaigns")}</h1>
+        <AdminActionLink href="/admin/notifications/create" variant="primary">
           {t("admin_notif_btn_new")}
-        </Link>
+        </AdminActionLink>
       </div>
 
       {/* ADM-05 tabs: 작성 중 · 진행 중 · 완료 · 보관 · QA */}
-      <div className="flex flex-wrap gap-1 border-b border-sam-border" role="tablist">
-        {CAMPAIGN_LIST_TABS.map((tab) => {
-          const active = tab === query.tab;
-          return (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              data-admin-notif-tab={tab}
-              onClick={() => pushQuery({ tab, status: null })}
-              className={`-mb-px border-b-2 px-3 py-2 text-sm ${
-                active ? "border-signature font-semibold text-sam-fg" : "border-transparent text-sam-muted"
-              }`}
-            >
-              {tabLabels[tab]}
-            </button>
-          );
-        })}
-      </div>
+      <AdminTabs
+        ariaLabel={t("admin_menu_dibay_notification_campaigns")}
+        tabs={CAMPAIGN_LIST_TABS.map((tab) => ({ id: tab, label: tabLabels[tab] }))}
+        value={query.tab}
+        syncUrl={false}
+        onChange={(tab) => pushQuery({ tab: tab as CampaignListTab, status: null })}
+      />
 
       {query.tab === "archived" && !archiveSupported ? (
         <p className="rounded-ui-rect border border-dashed border-sam-border px-3 py-2 text-sm text-sam-muted">
@@ -372,15 +376,26 @@ export function AdminNotificationCampaignsPage() {
           placeholder={t("admin_notif_ph_title_search")}
           className="min-w-[160px] flex-1 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-sm"
         />
-        <button type="submit" className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm">
-          {t("admin_notif_btn_search")}
-        </button>
+        <div className="ml-auto flex gap-2">
+          <AdminActionButton variant="secondary" size="sm" onClick={resetFilters} disabled={loading}>
+            {adminCta("reset", ko)}
+          </AdminActionButton>
+          <AdminActionButton type="submit" variant="primary" size="sm" disabled={loading}>
+            {adminCta("search", ko)}
+          </AdminActionButton>
+        </div>
       </form>
 
-      {err ? <p className="text-sm text-red-600">{err}</p> : null}
-
       {loading ? (
-        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+        <AdminLoadingState ko={ko} />
+      ) : err ? (
+        <AdminErrorState ko={ko} code={err.code} httpStatus={err.httpStatus} onRetry={() => void load()} />
+      ) : rows.length === 0 ? (
+        <AdminEmptyState
+          ko={ko}
+          message={hasFilters ? undefined : t("admin_notif_empty_campaigns")}
+          onReset={hasFilters ? resetFilters : undefined}
+        />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
           <table className="min-w-full text-left text-sm">
@@ -425,7 +440,7 @@ export function AdminNotificationCampaignsPage() {
                         {r.title}
                       </Link>
                       {r.is_qa ? (
-                        <span className="ml-2 rounded-ui-rect bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">
+                        <span className="ml-2 rounded-ui-rect bg-sam-warning-soft px-1.5 py-0.5 text-[12px] text-sam-warning">
                           QA
                         </span>
                       ) : null}
@@ -460,7 +475,9 @@ export function AdminNotificationCampaignsPage() {
                     <td className="px-3 py-2">{notifTargetLabel(t, r.target_type)}</td>
                     <td className="px-3 py-2">{notifChannelLabel(t, r.channel ?? "push_and_in_app")}</td>
                     <td className="px-3 py-2">{sendModeLabel(t, r.send_mode)}</td>
-                    <td className="px-3 py-2">{campaignStatusLabel(status, lang)}</td>
+                    <td className="px-3 py-2">
+                      <AdminStatusLabel namespace={NOTIFICATIONS_CAMPAIGN_STATUS_NS} code={status} ko={ko} />
+                    </td>
                     <td className="px-3 py-2 text-[12px] text-sam-muted" data-admin-notif-col="delivered">
                       {formatDelivered(r.latest_occurrence, lang)}
                     </td>
@@ -486,45 +503,20 @@ export function AdminNotificationCampaignsPage() {
                   </tr>
                 );
               })}
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={12} className="px-3 py-8 text-center text-sam-muted">
-                    {t("admin_notif_empty_campaigns")}
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-sam-muted">
-        <span>
-          {safeT("admin_campaign_cms_pagination_summary", {
-            fallbackKo: `총 ${total.toLocaleString("ko-KR")}건 · ${query.page}/${totalPages} 페이지`,
-            fallbackEn: `${total.toLocaleString("en-US")} total · page ${query.page}/${totalPages}`,
-            vars: { total: total.toLocaleString(lang === "en" ? "en-US" : "ko-KR"), page: query.page, pages: totalPages },
-          })}
-        </span>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={loading || query.page <= 1}
-            onClick={() => pushQuery({ page: query.page - 1 }, { keepPage: true })}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 disabled:opacity-40"
-          >
-            {safeT("admin_campaign_cms_page_prev", { fallbackKo: "이전", fallbackEn: "Previous" })}
-          </button>
-          <button
-            type="button"
-            disabled={loading || query.page >= totalPages}
-            onClick={() => pushQuery({ page: query.page + 1 }, { keepPage: true })}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 disabled:opacity-40"
-          >
-            {safeT("admin_campaign_cms_page_next", { fallbackKo: "다음", fallbackEn: "Next" })}
-          </button>
-        </div>
-      </div>
+      <AdminPagination
+        ko={ko}
+        page={query.page}
+        size={normalizeAdminListPageSize(query.pageSize)}
+        total={total}
+        disabled={loading}
+        onPageChange={(page) => pushQuery({ page }, { keepPage: true })}
+        onSizeChange={(pageSize) => pushQuery({ pageSize })}
+      />
     </div>
   );
 }
