@@ -11,12 +11,13 @@ import { openCreateTradeChat } from "@/lib/chats/trade-chat-entry-navigation";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import type { PriceOfferListItem, PriceOfferStatus } from "@/lib/offers/types";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 
 const OFFER_STATUS_KO: Record<PriceOfferStatus, string> = {
   pending: "판매자 응답 대기",
   accepted: "수락됨",
   rejected: "거절됨",
-  expired: "만료",
+  withdrawn: "철회함",
 };
 
 function statusBadgeClass(status: PriceOfferStatus): string {
@@ -49,6 +50,31 @@ export function MyOffersView({ mode, title, emptyLabel, embedded = false }: Prop
   const [loading, setLoading] = useState(true);
   const [busyOfferId, setBusyOfferId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [withdrawTarget, setWithdrawTarget] = useState<PriceOfferListItem | null>(null);
+
+  /** M4 — 보낸 대기 제안 철회(구매자 본인·대기 건만, 서버가 행 잠금 후 처리) */
+  const withdrawOffer = async (offer: PriceOfferListItem) => {
+    setWithdrawTarget(null);
+    setBusyOfferId(offer.id);
+    setError("");
+    try {
+      const res = await fetch(`/api/offers/${encodeURIComponent(offer.id)}/withdraw`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; offer?: PriceOfferListItem };
+      if (!res.ok || !json?.ok) {
+        setError(t("ui_offer_withdraw_failed"));
+        return;
+      }
+      broadcastPriceOfferCreatedForProduct(offer.productId);
+      setOffers((prev) => prev.map((item) => (item.id === offer.id ? { ...item, status: "withdrawn" } : item)));
+    } catch {
+      setError(t("ui_offer_withdraw_failed"));
+    } finally {
+      setBusyOfferId(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -165,9 +191,14 @@ export function MyOffersView({ mode, title, emptyLabel, embedded = false }: Prop
 
               <div className="flex shrink-0 flex-wrap justify-end gap-2">
                 {mode === "sent" && offer.status === "pending" ? (
-                  <span className="inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-[12px] font-semibold text-sam-muted">
-                    응답 대기중
-                  </span>
+                  <button
+                    type="button"
+                    disabled={busyOfferId === offer.id}
+                    onClick={() => setWithdrawTarget(offer)}
+                    className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-semibold text-sam-fg disabled:opacity-60"
+                  >
+                    {t("ui_offer_withdraw")}
+                  </button>
                 ) : null}
                 {mode === "sent" && offer.status === "accepted" ? (
                   <button
@@ -188,7 +219,7 @@ export function MyOffersView({ mode, title, emptyLabel, embedded = false }: Prop
                     채팅 이어가기
                   </button>
                 ) : null}
-                {mode === "sent" && (offer.status === "rejected" || offer.status === "expired") ? (
+                {mode === "sent" && (offer.status === "rejected" || offer.status === "withdrawn") ? (
                   <button
                     type="button"
                     onClick={() => router.push(offer.productHref)}
@@ -274,6 +305,17 @@ export function MyOffersView({ mode, title, emptyLabel, embedded = false }: Prop
           </article>
         ))}
       </div>
+      <MobileConfirmBottomSheet
+        open={withdrawTarget != null}
+        onCancel={() => setWithdrawTarget(null)}
+        title={t("ui_offer_withdraw_confirm_title")}
+        description={t("ui_offer_withdraw_confirm_body")}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("ui_offer_withdraw")}
+        onConfirm={() => {
+          if (withdrawTarget) void withdrawOffer(withdrawTarget);
+        }}
+      />
     </div>
   );
 }

@@ -43,6 +43,9 @@ export const priceOffersMessages = {
     offer_err_reject_invalid_state: "대기 중인 제안만 거절할 수 있습니다.",
     offer_err_reject_forbidden: "판매자만 제안을 거절할 수 있습니다.",
     offer_err_reject_race_lost: "이미 처리된 가격 제안입니다.",
+    offer_err_withdraw_invalid_state: "판매자 응답 전인 제안만 철회할 수 있습니다.",
+    offer_err_withdraw_forbidden: "본인이 보낸 제안만 철회할 수 있습니다.",
+    offer_err_withdraw_failed: "가격 제안을 철회하지 못했습니다.",
   },
   en: {
     offer_fallback_product: "Item",
@@ -87,5 +90,8 @@ export const priceOffersMessages = {
     offer_err_reject_invalid_state: "Only pending offers can be declined.",
     offer_err_reject_forbidden: "Only the seller can decline offers.",
     offer_err_reject_race_lost: "This offer was already processed.",
+    offer_err_withdraw_invalid_state: "Only offers awaiting the seller's reply can be withdrawn.",
+    offer_err_withdraw_forbidden: "You can only withdraw offers you sent.",
+    offer_err_withdraw_failed: "Could not withdraw the price offer.",
   },
 };
