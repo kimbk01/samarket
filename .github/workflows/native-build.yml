@@ -5,10 +5,12 @@ name: Native build (APK · iOS)
 #   기존 앱 삭제 후 설치해야 한다) + 서명 시크릿이 있으면 Release APK.
 # - iOS: 시뮬레이터용 빌드(코드 서명 없음)로 Swift 컴파일 검증. 실기기 IPA 는 Apple 서명 인증서 필요.
 # 서버 URL 은 Production origin(https://samarket.vercel.app) — scripts/sync-capacitor-vercel.mjs.
+# 실행: main push 중 실제 네이티브 변경(scripts/native-build-targets.mjs 판정)이 있는 플랫폼만 · 수동 실행은 둘 다.
+# 작업 브랜치(claude/** 등) push 에서는 빌드하지 않는다 — AGENTS.md 「개발 프로세스」 6번 (Owner 2026-10-20).
 on:
   workflow_dispatch:
   push:
-    branches: ["main", "claude/**"]
+    branches: ["main"]
     paths:
       - "android/**"
       - "ios/**"
@@ -25,7 +27,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  targets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      android: ${{ steps.t.outputs.android }}
+      ios: ${{ steps.t.outputs.ios }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - id: t
+        name: Detect native changes (package.json 는 Capacitor 의존성 변경만)
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            printf 'android=true\nios=true\n' >> "$GITHUB_OUTPUT"
+          else
+            node scripts/native-build-targets.mjs --base="${{ github.event.before }}"
+          fi
+
   android:
+    needs: targets
+    if: ${{ needs.targets.outputs.android == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -77,6 +103,8 @@ jobs:
           retention-days: 14
 
   ios:
+    needs: targets
+    if: ${{ needs.targets.outputs.ios == 'true' }}
     runs-on: macos-15
     timeout-minutes: 50
     steps:
