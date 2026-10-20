@@ -4,7 +4,8 @@
  * 지금: RPC `admin_finance_ad_funding_page` 한 번 — 출처 UNION ALL · 매장/회원/결제 수단 필터 ·
  * 결정적 정렬(노출 시작 → 승인 → 생성 시각 DESC, 출처, id) · limit/offset · 정확한 total
  * (supabase/migrations/20270601120100_r7_admin_finance_pages.sql). 금액은 읽기만 한다 (ADMIN_DIRECT 는 금액 없음).
- * 회원 앱·사장님 화면(`/api/me/stores/.../finance/transparent`)은 기존 `loadAdFundingTraces` 를 그대로 쓴다.
+ * 사장님 재무(`/api/me/stores/.../finance/transparent?kind=ad-funding`)도 `loadAdFundingTraces` → 이 RPC·변환을
+ * 그대로 쓴다 (storeId 지정 시 그 매장 STORE_CASH 행만).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { adminAdDetailHref, adminFinanceLedgerHref } from "@/lib/finance/deep-links";

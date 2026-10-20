@@ -5,6 +5,7 @@
  * R7 서버 페이지 — 원천 합치기·영역/상태/검색 필터·정렬·페이지·전체 건수는 DB RPC 한 번
  * (`admin_ads_history_page`). 화면에는 페이지 행만 원천별 id 로 읽어 기존 projector 로 그린다
  * (원천별 고정 상한·audit 800·노출 5000 상한 없음). 상태 필터 규칙 원천 = `filterAdsHistoryRows`.
+ * 레거시 팝업 오너 신청(`platform_popup_owner_requests`)도 포함 — 운영 실제 열만 읽고 제목 = 신청 매장 이름.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -17,6 +18,7 @@ import {
   projectDeliveryHistoryRow,
   projectFeedBannerHistoryRow,
   projectPopupAdminHistoryRow,
+  projectPopupOwnerLegacyHistoryRow,
 } from "@/lib/admin/ads-history/project-history-timeline";
 import type {
   AdsHistoryDomainFilter,
@@ -92,7 +94,7 @@ export type AdsHistoryLedgerPage = AdsHistoryLedgerModel & {
 
 /**
  * 광고 이력 한 페이지 — `admin_ads_history_page` RPC(필터·정렬·페이지·total) → 페이지 행만 원천별로 읽어 projector.
- * 레거시 팝업 오너 신청은 기존 동작대로 포함하지 않는다 (기존 조회 열 title 이 운영 스키마에 없어 항상 빠져 있었음).
+ * 레거시 팝업 오너 신청 포함 (제목 열이 없어 신청 매장 이름 = RPC 와 같은 원천).
  */
 export async function loadAdsHistoryLedgerPage(
   sb: SupabaseClient,
@@ -143,8 +145,9 @@ export async function loadAdsHistoryLedgerPage(
   const feedCampIds = idsOf("feed_campaign");
   const deliveryIds = idsOf("delivery");
   const popupIds = idsOf("popup_campaign");
+  const popupRequestIds = idsOf("popup_request");
 
-  const [boostRes, feedReqRes, feedCampRes, popupRes] = await Promise.all([
+  const [boostRes, feedReqRes, feedCampRes, popupRes, popupReqRes] = await Promise.all([
     boostIds.length
       ? sb
           .from("point_promotion_orders")
@@ -170,6 +173,12 @@ export async function loadAdsHistoryLedgerPage(
           .from("platform_popup_campaigns")
           .select("id, name, status, approval_status, start_at, end_at, owner_request_id, created_at, created_by, approved_by, approved_at, updated_at")
           .in("id", popupIds)
+      : Promise.resolve({ data: [], error: null }),
+    popupRequestIds.length
+      ? sb
+          .from("platform_popup_owner_requests")
+          .select("id, store_id, owner_user_id, request_status, payment_status, price_minor, currency, created_at")
+          .in("id", popupRequestIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
 
@@ -380,6 +389,39 @@ export async function loadAdsHistoryLedgerPage(
         ownerRequestId: str(raw.owner_request_id),
       })
     );
+  }
+
+  if (popupReqRes.error) sectionErrors.push(`popup_owner:${popupReqRes.error.message}`);
+  const popupReqRows = (popupReqRes.error ? [] : (popupReqRes.data ?? [])) as Record<string, unknown>[];
+  if (popupReqRows.length > 0) {
+    const storeIds = [...new Set(popupReqRows.map((r) => String(r.store_id ?? "").trim()).filter(Boolean))];
+    const storeRes = storeIds.length
+      ? await sb.from("stores").select("id, store_name").in("id", storeIds)
+      : { data: [], error: null };
+    if (storeRes.error) sectionErrors.push(`popup_owner_stores:${storeRes.error.message}`);
+    const storeNameById = new Map<string, string>();
+    for (const r of (storeRes.error ? [] : (storeRes.data ?? [])) as Record<string, unknown>[]) {
+      storeNameById.set(String(r.id ?? ""), String(r.store_name ?? ""));
+    }
+    const str = (v: unknown) => (v == null ? null : String(v));
+    for (const raw of popupReqRows) {
+      const id = String(raw.id ?? "");
+      const storeId = str(raw.store_id);
+      byKey.set(
+        key("popup_request", id),
+        projectPopupOwnerLegacyHistoryRow({
+          id,
+          title: storeId ? (storeNameById.get(storeId) ?? null) : null,
+          requestStatus: String(raw.request_status ?? ""),
+          createdAt: str(raw.created_at),
+          ownerUserId: str(raw.owner_user_id),
+          storeId,
+          priceMinor: raw.price_minor,
+          currency: str(raw.currency),
+          paymentStatus: str(raw.payment_status),
+        })
+      );
+    }
   }
 
   // RPC 순서 유지 (정렬 = DB). 읽는 사이 지워진 행은 건너뛴다.

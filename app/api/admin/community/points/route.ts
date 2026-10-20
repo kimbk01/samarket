@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
   };
 
   // 유형 필터(홍보 주문 = 커뮤니티 홍보 주문에 연결된 원장 행만, D-30 보류·확정·해제 포함)·회원·원장 종류·기간 →
-  // 정렬·페이지·합계를 DB 가 한 번에 (lib/points/promotion-ledger-related-ids.ts 와 같은 연결 규칙)
+  // 정렬·페이지·합계를 DB 가 한 번에 (연결 규칙 = admin_point_ledger_domain_page, 20270601161000)
   const { data, error } = await sb.rpc(LEDGER_PAGE_RPC, {
     p_domain: "community",
     p_related_types: types,

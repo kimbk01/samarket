@@ -14,8 +14,7 @@ import {
 } from "@/lib/admin/trade-admin/trade-posts-query";
 import { applyTradeReportTabFilter } from "@/lib/admin/metrics/admin-metric-filters";
 import { TRADE_POST_TABS, type TradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
-import { supportTradeScopeOrFilter } from "@/lib/support/support-community-filter";
-import { loadPromotionLedgerRelatedIds, postgrestInList } from "@/lib/points/promotion-ledger-related-ids";
+import { SUPPORT_TRADE_CATEGORY, SUPPORT_TRADE_REFERENCE_TYPES } from "@/lib/support/support-community-filter";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- PostgREST builder chain */
 type Q = any;
@@ -32,6 +31,16 @@ export const TRADE_AUDIT_TARGET_TYPES = [
   "transaction_review",
   "product_chat",
 ] as const;
+
+/** 처리 대기 문의 상태 (거래 문의 범위 · open_support) */
+export const TRADE_OPEN_SUPPORT_STATUSES = ["OPEN", "WAITING_ADMIN"] as const;
+
+/**
+ * 거래 문의 범위·홍보 포인트 원장 집계 RPC (20270601182000_r7_trade_overview_promo_stats.sql).
+ * 거래 홍보 주문 id 를 N건만 모아 in(...) 으로 거르거나 원장 행을 N행만 읽어 합산하지 않는다 — 전체 데이터 기준 DB 집계.
+ * 문의 범위 상수는 supportTradeScopeOrFilter 와 같은 정의(SUPPORT_TRADE_REFERENCE_TYPES · SUPPORT_TRADE_CATEGORY)를 인자로 넘긴다.
+ */
+export const TRADE_OVERVIEW_PROMO_STATS_RPC = "admin_trade_overview_promo_stats";
 
 export type TradeOverview = {
   period: { fromIso: string | null; toIso: string | null; fromDate: string | null; toDate: string | null };
@@ -104,10 +113,31 @@ export async function loadTradeOverview(
 
   const ctxRes = await loadTradePostsContext(sb);
   if (!ctxRes.ok) errors.push(`posts_context:${ctxRes.error}`);
-  const tradePromo = await loadPromotionLedgerRelatedIds(sb, "trade", 500);
-  const tradeOrderIds = tradePromo.ok
-    ? tradePromo.relatedIds.filter((x) => !x.includes(":"))
-    : [];
+  const promoStatsReq = (async () => {
+    try {
+      const { data, error } = await sb.rpc(TRADE_OVERVIEW_PROMO_STATS_RPC, {
+        p_from: period.fromIso ?? null,
+        p_to: period.toIso ?? null,
+        p_open_statuses: [...TRADE_OPEN_SUPPORT_STATUSES],
+        p_reference_types: [...SUPPORT_TRADE_REFERENCE_TYPES],
+        p_category: SUPPORT_TRADE_CATEGORY,
+        p_with_points: !summaryOnly,
+      });
+      if (error) {
+        errors.push(`trade_promo_stats:${error.message}`);
+        return null;
+      }
+      return (data ?? null) as Record<string, unknown> | null;
+    } catch (e) {
+      errors.push(`trade_promo_stats:${e instanceof Error ? e.message : "error"}`);
+      return null;
+    }
+  })();
+  const statNum = (v: unknown): number | null => {
+    if (v === null || v === undefined) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
 
   // 현재 상태 = 목록 기본 필터(주소 필터 없음)와 같은 해석 — 거래글 목록 탭 건수와 같은 값
   const listDefault = parseTradePostsFilter(new URLSearchParams());
@@ -120,7 +150,7 @@ export async function loadTradeOverview(
   const [
     openReports,
     promotionReview,
-    openSupport,
+    promoStats,
     activeRestrictions,
     overduePromotions,
     activePromotions,
@@ -132,16 +162,11 @@ export async function loadTradeOverview(
     chatsStarted,
     promotionsStarted,
     promotionsEnded,
-    supportReceived,
     adminActions,
   ] = await Promise.all([
     headCount(applyTradeReportTabFilter(head("reports"), "open"), errors, "open_reports"),
     headCount(head("point_promotion_orders").eq("domain", "trade").eq("order_status", "pending_review"), errors, "promo_review"),
-    headCount(
-      head("support_cases").in("status", ["OPEN", "WAITING_ADMIN"]).or(supportTradeScopeOrFilter(tradeOrderIds)),
-      errors,
-      "open_support"
-    ),
+    promoStatsReq,
     headCount(
       head("sanctions")
         .eq("scope", "trade")
@@ -177,43 +202,15 @@ export async function loadTradeOverview(
     headCount(range(head("chat_rooms").eq("room_type", "item_trade"), "created_at"), errors, "chats_started"),
     headCount(range(head("point_promotion_orders").eq("domain", "trade").not("start_at", "is", null).not("order_status", "in", "(pending_review,rejected,cancelled)"), "start_at"), errors, "promo_started"),
     headCount(range(head("point_promotion_orders").eq("domain", "trade").not("ended_at", "is", null), "ended_at"), errors, "promo_ended"),
-    headCount(range(head("support_cases").or(supportTradeScopeOrFilter(tradeOrderIds)), "created_at"), errors, "support_received"),
     headCount(range(head("audit_logs").in("target_type", [...TRADE_AUDIT_TARGET_TYPES]), "created_at"), errors, "admin_actions"),
   ]);
 
-  // 홍보 포인트 사용·환급 (공용 원장, 거래 홍보 주문 연결 행)
-  let promotionPointsUsed: number | null = null;
-  let promotionPointsRefunded: number | null = null;
-  if (summaryOnly) {
-    // 요약 모드 — 원장 합계 생략 (null = 이 모드에서 집계하지 않음)
-  } else if (tradePromo.ok) {
-    if (tradePromo.relatedIds.length === 0) {
-      promotionPointsUsed = 0;
-      promotionPointsRefunded = 0;
-    } else {
-      const { data, error } = await range(
-        s
-          .from("point_ledger")
-          .select("entry_type, amount")
-          .eq("related_type", "promotion_order")
-          .filter("related_id", "in", `(${postgrestInList(tradePromo.relatedIds)})`),
-        "created_at"
-      ).limit(5000);
-      if (error) errors.push(`promo_points:${error.message}`);
-      else {
-        let used = 0;
-        let refunded = 0;
-        for (const r of (data ?? []) as { entry_type: string; amount: number }[]) {
-          const n = Number(r.amount ?? 0);
-          if (r.entry_type === "spend" || r.entry_type === "ad_hold") used += -n;
-          if (r.entry_type === "ad_hold_release") used -= n;
-          if (r.entry_type === "refund") refunded += n;
-        }
-        promotionPointsUsed = used;
-        promotionPointsRefunded = refunded;
-      }
-    }
-  } else errors.push(`promo_ledger_ids:${tradePromo.error}`);
+  // 거래 문의(처리 대기·기간 접수) · 홍보 포인트 사용·환급 — RPC 한 번 (전체 데이터 기준).
+  // 요약 모드는 원장 합계를 생략(p_with_points=false → null). RPC 실패는 null + errors (0 과 구분).
+  const openSupport = promoStats ? statNum(promoStats.open_support) : null;
+  const supportReceived = promoStats ? statNum(promoStats.support_received) : null;
+  const promotionPointsUsed = promoStats && !summaryOnly ? statNum(promoStats.points_used) : null;
+  const promotionPointsRefunded = promoStats && !summaryOnly ? statNum(promoStats.points_refunded) : null;
 
   // 기간 내 신규 글 — 카테고리·지역 분포 (최대 5,000행, 넘으면 null)
   let byCategory: TradeOverview["byCategory"] = null;

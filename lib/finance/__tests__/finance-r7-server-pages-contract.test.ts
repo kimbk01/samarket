@@ -248,7 +248,7 @@ describe("화면·SQL 계약", () => {
     expect(read("lib/finance/store-index/load-finance-stores-index.ts")).not.toContain("limit: 120");
   });
 
-  it("사장님 재무 화면(ad-funding)은 기존 로더 그대로 · 마이그레이션 권한(service_role 만)", () => {
+  it("사장님 재무 화면(ad-funding)은 loadAdFundingTraces → 같은 RPC · 마이그레이션 권한(service_role 만)", () => {
     expect(read("app/api/me/stores/[storeId]/finance/transparent/route.ts")).toContain("loadAdFundingTraces(");
     const sql = read("supabase/migrations/20270601120100_r7_admin_finance_pages.sql");
     for (const fn of ["admin_finance_unified_tx_page", "admin_finance_store_activity_page", "admin_finance_ad_funding_page"]) {

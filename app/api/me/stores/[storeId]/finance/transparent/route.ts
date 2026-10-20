@@ -47,12 +47,17 @@ export async function GET(
   }
 
   if (kind === "ad-funding") {
-    const traces = await loadAdFundingTraces(sb, {
-      storeId: sid,
-      fundingRail: "STORE_CASH",
-      limit: Math.trunc(Number(url.searchParams.get("limit") || 40)),
-    });
-    return NextResponse.json({ ok: true, traces });
+    // 자기 매장(getStoreIfOwner 통과한 sid)의 STORE_CASH 행만 — 관리자 「광고 지출」과 같은 RPC 정의.
+    try {
+      const traces = await loadAdFundingTraces(sb, {
+        storeId: sid,
+        fundingRail: "STORE_CASH",
+        limit: Math.trunc(Number(url.searchParams.get("limit") || 40)),
+      });
+      return NextResponse.json({ ok: true, traces });
+    } catch {
+      return NextResponse.json({ ok: false, error: "ad_funding_load_failed" }, { status: 500 });
+    }
   }
 
   const period = resolveStoreFinancialPeriod({

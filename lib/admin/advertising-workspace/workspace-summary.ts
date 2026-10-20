@@ -38,6 +38,7 @@ export function collectAdsWorkspacePool(model: AdsControlPlaneModel): AdsActionI
         amountLabel: null,
         currency: e.currency,
         status: e.status,
+        opsStatus: e.opsStatus ?? null,
         whyActionable: e.eligibility,
         paymentLabel: null,
         periodLabel: e.period,

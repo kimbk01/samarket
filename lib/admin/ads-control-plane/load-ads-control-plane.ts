@@ -5,6 +5,7 @@
  * R7 — 목록(`applications`)은 DB RPC `admin_ads_workspace_page` 한 번으로 원천 합치기·화면 모드·종류·상태 탭·
  * 정렬·페이지·전체 건수(total)·모드별 상태 탭 개수(summaryCounts)를 받는다 (원천별 120건 상한·메모리 합치기 없음).
  * 페이지 행만 원천별 id 로 읽어 기존 projector 로 그린다. 점유·충돌·종료 임박은 노출 일정 lifecycle 전체(상한 없음).
+ * 팝업 오너 신청(`platform_popup_owner_requests`)도 원천에 포함 — 운영 실제 열(`POPUP_REQUEST_SELECT`)만 읽는다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { listDeliveryAdAdminActionQueue } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
@@ -41,9 +42,12 @@ import {
   projectFeedRequestToActionItem,
   projectPopupCampaignToActionItem,
   projectPopupCampaignToExecutionRow,
+  projectPopupRequestToActionItem,
   projectPromoteOrderToActionItem,
   promoteOrderOpsStatus,
+  POPUP_REQUEST_SELECT,
   type FeedRequestRow,
+  type PopupRequestRow,
   type PromoteOrderRow,
 } from "@/lib/admin/ads-control-plane/project-family-rows";
 import type { PlatformPopupAdminListItem } from "@/lib/platform-popup/admin-campaign-loader";
@@ -144,8 +148,9 @@ async function hydrateWorkspaceRefs(
   const feedCampIds = idsOf("feed_campaign");
   const popupIds = idsOf("popup_campaign");
   const promoteIds = idsOf("promote");
+  const popupRequestIds = idsOf("popup_request");
 
-  const [deliveryRes, feedRes, feedCampsSettled, popupRes, boostRes] = await Promise.all([
+  const [deliveryRes, feedRes, feedCampsSettled, popupRes, boostRes, popupReqRes] = await Promise.all([
     deliveryIds.length
       ? loadAdminDeliveryAdCampaignsByIds(
           sb,
@@ -168,6 +173,9 @@ async function hydrateWorkspaceRefs(
       : Promise.resolve({ ok: true as const, items: [] as PlatformPopupAdminListItem[] }),
     promoteIds.length
       ? sb.from("point_promotion_orders").select(BOOST_ORDER_SELECT).in("id", promoteIds)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
+    popupRequestIds.length
+      ? sb.from("platform_popup_owner_requests").select(POPUP_REQUEST_SELECT).in("id", popupRequestIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
   ]);
 
@@ -250,6 +258,28 @@ async function hydrateWorkspaceRefs(
     if (exec) execution.set(exec.id, exec);
   }
 
+  if (popupReqRes.error) sectionErrors.push(`popup_requests:${popupReqRes.error.message}`);
+  const popupReqRows = (popupReqRes.error ? [] : (popupReqRes.data ?? [])) as unknown as PopupRequestRow[];
+  if (popupReqRows.length > 0) {
+    // 표시 제목 = 신청 매장 이름 (신청 표에 제목 열이 없다 — RPC 광고 이력 제목과 같은 원천).
+    const storeIds = [...new Set(popupReqRows.map((r) => String(r.store_id ?? "").trim()).filter(Boolean))];
+    const storeRes = storeIds.length
+      ? await sb.from("stores").select("id, store_name").in("id", storeIds)
+      : { data: [] as unknown[], error: null };
+    if (storeRes.error) sectionErrors.push(`popup_request_stores:${storeRes.error.message}`);
+    const storeNameById = new Map<string, string>();
+    for (const row of (storeRes.error ? [] : (storeRes.data ?? [])) as Array<{ id?: unknown; store_name?: unknown }>) {
+      storeNameById.set(String(row.id ?? ""), String(row.store_name ?? ""));
+    }
+    for (const r of popupReqRows) {
+      const item = projectPopupRequestToActionItem({
+        ...r,
+        store_name: storeNameById.get(String(r.store_id ?? "")) ?? null,
+      });
+      items.set(item.id, item);
+    }
+  }
+
   return { items, execution };
 }
 
@@ -264,6 +294,7 @@ function promoteExecutionRow(r: PromoteOrderRow): AdsExecutionRow | null {
     label: item.applicantLabel,
     placement: item.placementHint,
     status: item.status,
+    opsStatus: ops,
     eligibility: item.exposureLabel ?? item.status,
     period: item.periodLabel,
     remainingLabel: item.remainingLabel,
@@ -307,7 +338,7 @@ export async function loadAdsControlPlane(
     );
   }
 
-  // 레거시 팝업 오너 신청 처리 대기 (queues.popup) — 목록 행에는 기존 동작대로 포함하지 않는다.
+  // 팝업 오너 신청 처리 대기 (queues.popup) — 목록 행은 RPC 원천(popup_request)에 포함된다.
   const popupOwnerPendingQ = (() => {
     let q = sb
       .from("platform_popup_owner_requests")
@@ -427,9 +458,8 @@ export async function loadAdsControlPlane(
   if (!deliveryQueue.ok) sectionErrors.push(`delivery_queue:${deliveryQueue.error}`);
   if (globalSchedule.error) sectionErrors.push(`delivery_list:${globalSchedule.error}`);
   if (scopedSchedule?.error) sectionErrors.push(`delivery_list_store:${scopedSchedule.error}`);
-  const popupOwnerUnavailable =
-    !!popupOwnerPending.error &&
-    !isMissing(popupOwnerPending.error, /platform_popup_owner_requests|schema cache|does not exist/i);
+  // 오류를 「표 없음」으로 삼키지 않는다 (열 오류까지 0건으로 보이던 원인) — 조회 실패는 unavailable 로 드러낸다.
+  const popupOwnerUnavailable = !!popupOwnerPending.error;
   if (popupOwnerUnavailable) sectionErrors.push(`popup:${popupOwnerPending.error?.message}`);
 
   const deliveryUnavailable = !deliveryQueue.ok;

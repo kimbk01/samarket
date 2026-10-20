@@ -3,6 +3,8 @@
  * Composition only — no unified ads SSOT / mutation.
  */
 
+import type { AdsOpsStatus } from "@/lib/admin/ads-exposure/ops-status";
+
 export type AdsControlDomain = "delivery" | "feed" | "popup" | "trade_promote" | "community_promote";
 
 export type AdsBillingCurrency = "CASH" | "POINT" | "UNKNOWN" | "N_A";
@@ -26,6 +28,11 @@ export type AdsActionItem = {
   amountLabel: string | null;
   currency: AdsBillingCurrency;
   status: string;
+  /**
+   * 원천 projector 가 계산한 운영 상태 (schedule 반영). 상태 탭 = 이 값 (`resolveShellStatusTab`) —
+   * 표시 문구(status·exposureLabel)를 다시 읽지 않는다. SQL `admin_ads_workspace_rows` 의 ops 와 같은 정의.
+   */
+  opsStatus?: AdsOpsStatus | null;
   /** Operator-facing why this row needs Admin now (never raw enum dump). */
   whyActionable: string | null;
   paymentLabel: string | null;
@@ -84,6 +91,8 @@ export type AdsExecutionRow = {
   label: string;
   placement: string | null;
   status: string;
+  /** 원천 projector 가 계산한 운영 상태 — 상태 탭 원천 (AdsActionItem.opsStatus 와 같음). */
+  opsStatus?: AdsOpsStatus | null;
   /** Separate from status — operator exposure meaning */
   eligibility: string;
   period: string | null;

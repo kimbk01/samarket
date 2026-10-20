@@ -70,11 +70,12 @@ describe("shell-family-coverage.contract", () => {
     expect(src).toContain("projectPromoteOrderToActionItem");
     expect(src).toContain("projectFeedRequestToActionItem");
     expect(src).toContain("projectFeedCampaignToActionItem");
-    // 팝업 오너 신청 행: 기존 로더 조회 열(title)이 운영 스키마에 없어 목록에서 항상 빠져 있던 동작을 유지
-    // (R7 workspace RPC 도 포함하지 않음 — 범위 밖 결함 보고). 처리 대기 개수(queues.popup)만 센다.
-    expect(read("supabase/migrations/20270601100300_r7_admin_ads_workspace_page.sql")).toContain(
-      "platform_popup_owner_requests"
-    );
+    // 팝업 오너 신청 행: 운영 실제 열로 읽어 목록 원천에 포함 (R7 후속 — workspace RPC popup_request 원천)
+    expect(src).toContain("projectPopupRequestToActionItem");
+    expect(src).toContain("POPUP_REQUEST_SELECT");
+    expect(
+      read("supabase/migrations/20270601180000_r7_ads_popup_owner_requests_scheduled_tab.sql")
+    ).toContain("FROM public.platform_popup_owner_requests r, now_ n");
     expect(src).toContain("projectPopupCampaignToActionItem");
   });
 
