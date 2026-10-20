@@ -24,10 +24,21 @@ function iso(i: number): string {
 describe("추천 관리 목록 — 고정 상한 없음 (R7)", () => {
   it("리포트: limit null → 전체, 기본 호출은 기존 50 유지", () => {
     const base = createDefaultRecommendationAnalyticsBundle();
-    const tmpl = base.reports[0];
-    expect(tmpl).toBeTruthy();
+    // 예시 보고서는 없다 (R7 실측) — 테스트용 보고서 행을 직접 만든다
+    const tmpl = {
+      id: "rep-tmpl",
+      reportType: "daily" as const,
+      surface: "all" as const,
+      dateFrom: "2026-10-01",
+      dateTo: "2026-10-01",
+      generatedAt: iso(0),
+      generatedBy: "admin",
+      reportStatus: "ready" as const,
+      title: "t",
+      summaryNote: "",
+    };
     const reports = Array.from({ length: 75 }, (_, i) => ({
-      ...tmpl!,
+      ...tmpl,
       id: `rep-${i}`,
       reportType: "daily" as const,
       generatedAt: iso(i),
