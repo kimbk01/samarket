@@ -712,6 +712,47 @@ export function resolveMainTier1Subpage(
     };
   }
 
+  /** 1단 제목 누락 9경로 — 첫 프레임부터 제목 표시 (Owner 지시 2026-10-20). 페이지가 등록하는 제목이 있으면 그 값이 우선. */
+  if (/^\/write\/[^/]+$/.test(p) || p === "/posts/new") {
+    return { ...DEFAULT, backHref: "/write", preferHistoryBack: true, titleText: "tier1_write", showHubQuickActions: false };
+  }
+
+  if (/^\/orders\/store\/[^/]+\/chat$/.test(p)) {
+    return { ...DEFAULT, backHref: "/orders", preferHistoryBack: true, titleText: "tier1_order_chat", showHubQuickActions: false };
+  }
+
+  if (/^\/community-messenger\/calls-v[34]\/[^/]+$/.test(p)) {
+    return {
+      ...DEFAULT,
+      backHref: "/community-messenger",
+      preferHistoryBack: true,
+      titleText: "tier1_call",
+      showHubQuickActions: false,
+    };
+  }
+
+  if (/^\/group-chat\/[^/]+$/.test(p)) {
+    return { ...DEFAULT, backHref: "/group-chat", preferHistoryBack: true, titleText: "tier1_group_chat_room", showHubQuickActions: false };
+  }
+
+  if (/^\/group\/[^/]+$/.test(p)) {
+    return {
+      ...DEFAULT,
+      backHref: "/community-messenger",
+      preferHistoryBack: true,
+      titleText: "tier1_group_invite",
+      showHubQuickActions: false,
+    };
+  }
+
+  if (p === "/onboarding/profile") {
+    return { ...DEFAULT, backHref: "/", preferHistoryBack: true, titleText: "tier1_onboarding_profile", showHubQuickActions: false };
+  }
+
+  if (/^\/u\/[^/]+$/.test(p)) {
+    return { ...DEFAULT, backHref: "/", preferHistoryBack: true, titleText: "tier1_public_profile", showHubQuickActions: false };
+  }
+
   if (starts(p, "/my/settings") || starts(p, "/mypage/settings")) {
     return backMypage({ titleText: "tier1_app_settings", showHubQuickActions: true });
   }

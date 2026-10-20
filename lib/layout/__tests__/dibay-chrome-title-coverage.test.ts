@@ -174,21 +174,10 @@ const EXTRAS_REQUIRED: Readonly<Record<string, ExtrasEvidence>> = {
 };
 
 /**
- * 범위 밖 결함(보고만 — P4 2026-10-20): resolve 제목도, 소스 tier1 등록도 없다.
- * 전역 1단이 그려지면 「내용을 표시할 수 없습니다」. 각 도메인 작업에서 제목 등록 후 여기서 제거한다.
- * 테스트가 이 목록과 실제 누락 집합의 **일치**를 강제 — 새 누락은 실패, 고친 경로는 목록에서 빼야 통과.
+ * 1단 제목 누락 경로 — 2026-10-20 9경로 등록으로 0건. 새 누락이 생기면 이 목록이 아니라 제목을 등록한다.
+ * 테스트가 이 목록과 실제 누락 집합의 **일치**를 강제.
  */
-export const KNOWN_TIER1_TITLE_GAPS: readonly string[] = [
-  "/write/c1",
-  "/posts/new",
-  "/orders/store/o1/chat",
-  "/community-messenger/calls-v3/c1",
-  "/community-messenger/calls-v4/c1",
-  "/group-chat/r1",
-  "/group/tok",
-  "/onboarding/profile",
-  "/u/user",
-];
+export const KNOWN_TIER1_TITLE_GAPS: readonly string[] = [];
 
 const TIER1_TITLE_REGISTRATION_RE =
   /<(?:MySubpageHeader|MyScreen)\b(?![^>]*registerMainTier1=\{false\})[^>]*\btitle(?:Key)?=|setMainTier1Extras\(\{\s*tier1:\s*\{[^}]*\btitle(?:Text)?:/;
