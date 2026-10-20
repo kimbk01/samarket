@@ -1,13 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
-import type { AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import {
+  normalizeAdminListPage,
+  normalizeAdminListPageSize,
+  type AdminListPageSize,
+} from "@/lib/admin/list-query/admin-list-query";
 import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
 import { mapAdminDeliveryAdActionQueuePresentation } from "@/lib/stores/advertising/delivery-ad-admin-action-queue-presentation";
 import {
@@ -33,9 +38,27 @@ export function AdminDeliveryAdActionQueuePanel() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  /** R7 서버 페이지 — 결제 확인 Case 전체(total)를 페이지로 본다. */
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState<AdminListPageSize>(50);
+  /**
+   * R7 서버 페이지 — 결제 확인 Case 전체(total)를 페이지로 본다.
+   * 페이지·크기는 주소 `qpage`·`qsize` (같은 화면 하단 목록의 `page`·`size` 와 분리) — 새로고침·뒤로가기 유지.
+   */
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const page = normalizeAdminListPage(searchParams.get("qpage"));
+  const size = normalizeAdminListPageSize(searchParams.get("qsize"), 50);
+  const setQueuePage = useCallback(
+    (nextPage: number, nextSize: AdminListPageSize = size) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (nextPage > 1) params.set("qpage", String(nextPage));
+      else params.delete("qpage");
+      if (nextSize !== 50) params.set("qsize", String(nextSize));
+      else params.delete("qsize");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams, size]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -245,11 +268,8 @@ export function AdminDeliveryAdActionQueuePanel() {
             size={size}
             total={total}
             disabled={loading}
-            onPageChange={setPage}
-            onSizeChange={(next) => {
-              setSize(next);
-              setPage(1);
-            }}
+            onPageChange={(next) => setQueuePage(next)}
+            onSizeChange={(next) => setQueuePage(1, next)}
           />
         ) : null}
       </AdminCard>

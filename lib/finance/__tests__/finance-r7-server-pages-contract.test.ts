@@ -257,4 +257,11 @@ describe("화면·SQL 계약", () => {
     }
     expect(sql).not.toMatch(/\b(INSERT|UPDATE|DELETE)\b\s+(INTO|public\.|FROM)/i);
   });
+
+  it("주문 ID 필터는 포인트 원장에도 걸린다 (실측 F1 — 주문과 무관한 포인트 행 제외)", () => {
+    const sql = read("supabase/migrations/20270601170000_r7_fix_finance_tx_order_filter.sql");
+    const pointBranch = sql.slice(sql.indexOf("FROM public.point_ledger p"));
+    expect(pointBranch).toContain("AND (coalesce(p_order_id, '') = '' OR p.related_id = p_order_id)");
+    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.admin_finance_unified_tx_page\([^)]*\) TO service_role/);
+  });
 });
