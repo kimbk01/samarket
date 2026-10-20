@@ -1,0 +1,29 @@
+{
+  "project": "ckdosyydvgzqwpbwuhon",
+  "captured_at": "2026-10-20 PHT (read-only SELECT md5(pg_proc.prosrc))",
+  "functions": [
+    { "name": "settle_store_sale_fee_obligations", "args": "p_store_id uuid", "prod_md5": "e600e0e0256a091371f1da793e067645", "len": 2203, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "approve_business_cash_charge_request", "args": "p_admin_user_id uuid, p_request_id uuid", "prod_md5": "49aa771941ccc7e3ba56858ee52e6cf3", "len": 2395, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "convert_store_economic_points_to_business_cash", "args": "p_owner_user_id uuid, p_store_id uuid, p_points integer, p_expected_rate_version integer, p_idempotency_key text", "prod_md5": "df210f1dc578354ce78d22184982f1aa", "len": 8458, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "admin_decide_store_commission_adjustment", "args": "p_admin_user_id uuid, p_order_id uuid, p_decision text, p_approved_minor bigint, p_reason text, p_idempotency_key text", "prod_md5": "731ad5fe62d7ae8589186ae76c71254a", "len": 5582, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "gift_certificate_refund_order_atomic", "args": "p_order_id uuid, p_actor_user_id uuid", "prod_md5": "cb3267c206e2da28ee69aa5a3d31bef5", "len": 1945, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "gift_certificate_cancel_order_restore", "args": "p_order_id uuid", "prod_md5": "d3b8126d739a4161edeafaf57f41cc49", "len": 1424, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "gift_certificate_redemption_reverse", "args": "p_order_id uuid", "prod_md5": "da8e00cd131551f5454712b7571513df", "len": 4512, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "restore_store_coupon_entitlement", "args": "p_order_id uuid, p_allow_after_completed boolean", "prod_md5": "ac77b283ccb6e199e1622968948446d5", "len": 1318, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "create_store_order_atomic", "args": "p_buyer_user_id uuid, p_store_id uuid, p_client_order_key text, p_order jsonb, p_lines jsonb", "prod_md5": "1749beecbda87eb2596ad1e8f886cf78", "len": 33497, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "gift_certificate_purchase", "args": "p_buyer_user_id uuid, p_product_id uuid, p_idempotency_key text", "prod_md5": "416cfd27e0a645eb6e211567af58144c", "len": 7297, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "reverse_coin_credits_for_order", "args": "p_order_id uuid, p_idempotency_key text, p_reason text", "prod_md5": "d4b9c896ff27db5dd4ed87bcbe56690f", "len": 3837, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "credit_coin_from_confirmed_sale", "args": "p_store_id uuid, p_order_id uuid, p_settlement_id uuid, p_amount integer, p_idempotency_key text", "prod_md5": "49773271f36eda0227f9a3e2231fbc5b", "len": 2419, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "credit_coin_from_gift_revenue", "args": "p_store_id uuid, p_redemption_id uuid, p_amount integer, p_idempotency_key text", "prod_md5": "b41e41676c56520bdab8cd6c65cd852a", "len": 547, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "credit_coin_from_settlement", "args": "p_store_id uuid, p_settlement_id uuid, p_order_id uuid, p_amount integer, p_idempotency_key text", "prod_md5": "47e7cd77dad909ef21b720b6782825c7", "len": 1293, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "store_commission_charge_order_internal", "args": "p_order_id uuid, p_stage text", "prod_md5": "725433cd1d67818de7e220dd96ca07e1", "len": 2448, "owner": "postgres", "prosecdef": true, "lang": "plpgsql" },
+    { "name": "store_platform_payable_page", "args": "p_store_ids uuid[], p_from timestamp with time zone, p_to timestamp with time zone, p_view text, p_limit integer, p_offset integer", "prod_md5": "47b54ef1d02ff73bf472726208f4aabb", "len": 4777, "owner": "postgres", "prosecdef": true, "lang": "sql" },
+    { "name": "store_commission_integrity_report", "args": "p_store_ids uuid[]", "prod_md5": "b7871c44f74347ddd6d9e26fb1115270", "len": 3493, "owner": "postgres", "prosecdef": true, "lang": "sql" },
+    { "name": "store_orders_commission_lifecycle", "args": "", "prod_md5": "12c43cca8918bbae442b047084ec3331", "trigger": "store_orders.trg_store_orders_commission_lifecycle", "tgenabled": "O" },
+    { "name": "store_orders_enforce_cash_order_gate", "args": "", "prod_md5": "d550eb1e57472eefcc48484b9be386f3", "trigger": "store_orders.trg_store_orders_cash_order_gate", "tgenabled": "O" },
+    { "name": "trg_store_orders_gift_revenue_on_completed", "args": "", "prod_md5": "1f74933e36e5a17c13c725be51212d71", "trigger": "store_orders.trg_store_orders_gift_revenue_recognition", "tgenabled": "O" },
+    { "name": "store_commission_adjustments_immutable", "args": "", "prod_md5": "6062b7356ce1d95474ad8dd197195d41", "trigger": "store_commission_adjustments.store_commission_adjustments_no_mutation", "tgenabled": "O" },
+    { "name": "store_settlements_block_paid_when_coin_recognized", "args": "", "prod_md5": "b422655b7f6156b6f9fb86b0b33f34d2", "trigger": "store_settlements.trg_store_settlements_block_paid_when_coin_recognized", "tgenabled": "O" },
+    { "name": "business_cash_ledger_forbid_mutate", "args": "", "prod_md5": "778a44c379c3e1b654b7a0ed6a79c4d6", "trigger": "business_cash_ledger.business_cash_ledger_no_update", "tgenabled": "O" }
+  ]
+}
