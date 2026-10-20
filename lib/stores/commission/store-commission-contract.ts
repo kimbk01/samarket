@@ -162,14 +162,14 @@ export const STORE_COMMISSION_ROW_STATE_LABEL: Record<StoreCommissionRowState, {
   outstanding: { ko: "미납(캐시 부족)", en: "Outstanding" },
   review_required: { ko: "취소·환불 검토 중", en: "Under review" },
   refunded: { ko: "수수료 환급", en: "Fee refunded" },
-  kept: { ko: "환급 거절", en: "Refund rejected" },
+  kept: { ko: "환급 반려", en: "Refund rejected" },
 };
 
 export const STORE_COMMISSION_FILTER_LABEL: Record<StoreCommissionLedgerFilterState, { ko: string; en: string }> = {
   all: { ko: "전체", en: "All" },
   decided: { ko: "전체 결정", en: "All decisions" },
   approved: { ko: "환급 승인", en: "Refund approved" },
-  rejected: { ko: "환급 거절", en: "Refund rejected" },
+  rejected: { ko: "환급 반려", en: "Refund rejected" },
   ...STORE_COMMISSION_ROW_STATE_LABEL,
 };
 
@@ -184,7 +184,7 @@ export const STORE_COMMISSION_ROW_STATE_CHIP: Record<StoreCommissionRowState, st
 
 export const STORE_COMMISSION_DECISION_LABEL: Record<StoreCommissionAdjustmentRecordDecision, { ko: string; en: string }> = {
   approve: { ko: "환급 승인", en: "Refund approved" },
-  reject: { ko: "환급 거절", en: "Refund rejected" },
+  reject: { ko: "환급 반려", en: "Refund rejected" },
   legacy_auto: { ko: "자동 환급(이전 방식)", en: "Automatic refund (legacy)" },
 };
 

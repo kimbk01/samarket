@@ -441,7 +441,7 @@ export const COMMISSION_REVIEW_FILTERS: readonly CommissionReviewFilter[] = ["re
 const REVIEW_FILTER_LABEL: Record<CommissionReviewFilter, { ko: string; en: string }> = {
   review_required: { ko: "검토 대기", en: "Awaiting review" },
   approved: { ko: "환급 승인", en: "Refund approved" },
-  rejected: { ko: "환급 거절", en: "Refund rejected" },
+  rejected: { ko: "환급 반려", en: "Refund rejected" },
   decided: { ko: "전체 결정", en: "All decisions" },
 };
 

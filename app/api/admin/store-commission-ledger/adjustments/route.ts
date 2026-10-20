@@ -20,7 +20,7 @@ const ERROR_STATUS: Record<string, number> = {
 };
 
 /**
- * 관리자: 취소·환불 주문 수수료 처리 — 환급 승인(전액/부분) 또는 환급 거절.
+ * 관리자: 취소·환불 주문 수수료 처리 — 환급 승인(전액/부분) 또는 환급 반려.
  * 금액 이동·결정 기록은 DB `admin_decide_store_commission_adjustment` 단일 트랜잭션.
  * 같은 idempotency_key 재전송은 기록된 결정을 그대로 반환한다(중복 실행 없음).
  */

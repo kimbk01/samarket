@@ -52,7 +52,7 @@ export const COMMISSION_TONE_LABEL: Record<Exclude<CommissionRowTone, "normal">,
   anomaly: { ko: "원장 이상", en: "Ledger anomaly" },
   review: { ko: "검토 대기", en: "Awaiting review" },
   approved: { ko: "환급 승인", en: "Refund approved" },
-  rejected: { ko: "환급 거절", en: "Refund rejected" },
+  rejected: { ko: "환급 반려", en: "Refund rejected" },
 };
 
 const TONE_BADGE: Record<Exclude<CommissionRowTone, "normal">, string> = {
