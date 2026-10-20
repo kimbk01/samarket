@@ -48,6 +48,11 @@ export async function confirmAdminAction(input: {
     cancelLabel,
     confirmTone,
     required: true,
+    // 2자 미만이면 확인 버튼을 막고 안내한다 (예전: 확인 후 아무 안내 없이 취소되던 결함).
+    minLength: ADMIN_REASON_MIN_LENGTH,
+    invalidHint: input.ko
+      ? `사유를 ${ADMIN_REASON_MIN_LENGTH}자 이상 입력하세요.`
+      : `Enter at least ${ADMIN_REASON_MIN_LENGTH} characters.`,
   });
   if (raw === null) return { ok: false };
   const reason = raw.trim();
@@ -63,6 +68,9 @@ export async function confirmAdminAction(input: {
       cancelLabel,
       confirmTone,
       required: true,
+      // 일치할 때만 확인 가능 (예전: 불일치 시 안내 없이 취소되던 결함).
+      mustEqual: input.retypeValue,
+      invalidHint: input.ko ? "입력값이 일치해야 진행됩니다." : "The value must match to continue.",
     });
     if (typed === null || typed.trim() !== input.retypeValue.trim()) return { ok: false };
   }

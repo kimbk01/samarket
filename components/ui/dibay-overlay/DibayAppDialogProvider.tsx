@@ -38,6 +38,12 @@ export type DibayPromptRequest = {
   confirmTone?: "primary" | "destructive";
   /** When true, empty trimmed value cannot confirm. */
   required?: boolean;
+  /** Trimmed value must be at least this long. */
+  minLength?: number;
+  /** Trimmed value must equal this (retype confirmation). */
+  mustEqual?: string;
+  /** Hint under the input while the value is not yet valid. */
+  invalidHint?: string;
 };
 
 type HostApi = {
@@ -139,6 +145,9 @@ export function DibayAppDialogProvider({ children }: { children: ReactNode }) {
         confirmLabel={promptState?.confirmLabel ?? t("common_confirm")}
         confirmTone={promptState?.confirmTone ?? "primary"}
         required={promptState?.required ?? false}
+        minLength={promptState?.minLength}
+        mustEqual={promptState?.mustEqual}
+        invalidHint={promptState?.invalidHint}
         onCancel={() => {
           const cur = promptState;
           setPromptState(null);

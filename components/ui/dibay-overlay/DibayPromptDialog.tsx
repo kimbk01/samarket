@@ -18,10 +18,30 @@ export type DibayPromptDialogProps = {
   confirmTone?: "primary" | "destructive";
   /** When true, empty trimmed value disables confirm. */
   required?: boolean;
+  /** Trimmed value must be at least this long (e.g. admin reason ≥ 2). */
+  minLength?: number;
+  /** Trimmed value must equal this (retype confirmation). */
+  mustEqual?: string;
+  /** Shown under the input while the value is not yet valid. */
+  invalidHint?: ReactNode;
   busy?: boolean;
   zIndexClass?: string;
   ariaLabel?: string;
 };
+
+/** Confirm is enabled only when the trimmed value meets every given rule. */
+export function isDibayPromptValueValid(input: {
+  value: string;
+  required?: boolean;
+  minLength?: number;
+  mustEqual?: string;
+}): boolean {
+  const trimmed = input.value.trim();
+  if (input.required && trimmed.length === 0) return false;
+  if (input.minLength != null && trimmed.length < input.minLength) return false;
+  if (input.mustEqual != null && trimmed !== input.mustEqual.trim()) return false;
+  return true;
+}
 
 /**
  * Center prompt — text input + [취소][확인]. Replaces window.prompt for app-owned UX.
@@ -38,6 +58,9 @@ export function DibayPromptDialog({
   onConfirm,
   confirmTone = "primary",
   required = false,
+  minLength,
+  mustEqual,
+  invalidHint,
   busy = false,
   zIndexClass,
   ariaLabel,
@@ -56,8 +79,8 @@ export function DibayPromptDialog({
     return () => window.clearTimeout(t);
   }, [open, defaultValue]);
 
-  const trimmed = value.trim();
-  const confirmDisabled = busy || (required && trimmed.length === 0);
+  const valid = isDibayPromptValueValid({ value, required, minLength, mustEqual });
+  const confirmDisabled = busy || !valid;
 
   const actions: DibayOverlayAction[] = [
     {
@@ -109,6 +132,11 @@ export function DibayPromptDialog({
           }
         }}
       />
+      {!valid && invalidHint ? (
+        <p className="mt-1.5 text-xs text-sam-muted" data-dibay-prompt-invalid-hint="1">
+          {invalidHint}
+        </p>
+      ) : null}
     </DibayDialog>
   );
 }
