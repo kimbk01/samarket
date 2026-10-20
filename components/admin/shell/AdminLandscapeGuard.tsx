@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
+import { useDibayAdminLandscapeRouteMode } from "@/lib/device/use-dibay-admin-landscape-route-mode";
 
 /**
  * 관리자 가로 전용 가드 (설계 v4 §2-2 A층) — `/admin` 레이아웃 루트에서만 사용한다.
@@ -11,6 +12,7 @@ import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
  * - 표시/숨김은 CSS 미디어 쿼리(`app/samarket-components.css` `.admin-landscape-*`)가 담당 → 하이드레이션 전에도 적용(깜빡임 없음).
  * - 작업 화면은 언마운트하지 않는다(visibility 로만 가림) → 회전해도 입력 중인 폼 상태가 유지된다.
  * - JS 는 가려진 동안 `inert`/`aria-hidden` 만 동기화한다.
+ * - B·C층(F5): 앱(Capacitor) 태블릿에서는 마운트 동안 네이티브 가로 고정을 요청하고 언마운트 시 해제한다.
  */
 /** 인쇄(print)에는 적용하지 않는다 — 화면(screen)만. */
 export const ADMIN_LANDSCAPE_GUARD_MEDIA_QUERY =
@@ -41,6 +43,7 @@ function IconRotateLandscape() {
 export function AdminLandscapeGuard({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const contentRef = useRef<HTMLDivElement | null>(null);
+  useDibayAdminLandscapeRouteMode();
 
   useEffect(() => {
     const el = contentRef.current;
