@@ -1,6 +1,18 @@
 import type { UserRegion } from "@/lib/regions/types";
 import { getRegionCityName, getRegionName } from "@/lib/regions/region-utils";
 
+/**
+ * 동네 키는 City 단위만 — `${regionId}:${cityId}:` (세 번째 구간은 항상 비움).
+ * `region.barangay` 는 profiles.address_detail(동·호·출입 상세)일 수 있어 키·locations 에 넣지 않는다 (ADDR-PRIV-001).
+ */
+export function normalizeNeighborhoodLocationKeyToCity(key: string): string {
+  const parts = key.split(":").map((p) => p.trim());
+  const regionPart = parts[0] ?? "";
+  const cityPart = parts[1] ?? "";
+  if (!regionPart || !cityPart) return key.trim();
+  return `${regionPart}:${cityPart}:`;
+}
+
 /** 클라이언트→API 전달용 동네 키 (locations 행 upsert 시 사용) */
 export function neighborhoodLocationKeyFromRegion(region: UserRegion | null): string | null {
   if (!region) return null;
@@ -8,8 +20,7 @@ export function neighborhoodLocationKeyFromRegion(region: UserRegion | null): st
   const regionPart = sanitize(region.regionId ?? "") || "ph";
   const cityPart = sanitize(region.cityId ?? "") || sanitize(region.label ?? "");
   if (!cityPart) return null;
-  const barangayPart = sanitize(region.barangay ?? "");
-  return `${regionPart}:${cityPart}:${barangayPart}`;
+  return `${regionPart}:${cityPart}:`;
 }
 
 export function neighborhoodLocationLabelFromRegion(region: UserRegion | null): string {
@@ -28,12 +39,11 @@ export function neighborhoodLocationMetaFromRegion(region: UserRegion | null): {
   const city = getRegionName(region.regionId).trim();
   const name = getRegionCityName(region.regionId, region.cityId).trim();
   if (!city || !name) return null;
-  const district = (region.barangay ?? "").trim();
   const label = region.label?.trim() || `${city} · ${name}`;
   return {
     country: "Philippines",
     city,
-    district,
+    district: "",
     name,
     label,
   };

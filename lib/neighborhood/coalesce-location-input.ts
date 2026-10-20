@@ -12,12 +12,12 @@ export function coalesceNeighborhoodLocationInput(
   const parts = locationKey.split(":").map((p) => p.trim()).filter(Boolean);
   const cityFromKey = parts.length >= 2 ? parts[1]! : "";
   const city = (partial.city ?? "").trim() || cityFromKey || parts[0] || "";
-  const district = (partial.district ?? "").trim() || (parts.length >= 3 ? parts[2]! : "");
   const name = (partial.name ?? "").trim() || city || "동네";
   return {
     country: "Philippines",
     city: city || "unknown",
-    district,
+    /** City 단위만 — 클라가 보낸 district·키 3구간(상세주소 가능)은 저장하지 않는다 (ADDR-PRIV-002). */
+    district: "",
     name: name || "동네",
   };
 }

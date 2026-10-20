@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useRegion } from "@/contexts/RegionContext";
+import { useCommunityLocalFilter } from "@/hooks/use-community-local-filter";
 import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
 import {
   philifeArticleOgImageUrl,
@@ -33,11 +33,6 @@ import {
 import { fetchPhilifeNeighborhoodTopicOptionsForWrite } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { philifeAdminPaths, philifeAppPaths } from "@domain/philife/paths";
 import { buildCommunityFeedHref } from "@/lib/community/community-nav";
-import {
-  neighborhoodLocationKeyFromRegion,
-  neighborhoodLocationMetaFromRegion,
-  neighborhoodLocationLabelFromRegion,
-} from "@/lib/neighborhood/location-key";
 import { COMMUNITY_BUTTON_SECONDARY_CLASS, COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   APP_MAIN_COLUMN_CLASS,
@@ -146,7 +141,12 @@ export function PhilifeNeighborhoodWriteForm({
   const pointsLocale = language === "en" ? "en-US" : "ko-KR";
   const router = useRouter();
   const pathname = usePathname() ?? "/philife";
-  const { currentRegion } = useRegion();
+  /** 글쓰기 위치 = 커뮤니티 Local 필터(대표 주소 CITY seed / 명시 선택 CITY) — profiles 상세주소 미사용 (ADDR-PRIV-001) */
+  const {
+    locationKey: localLocationKey,
+    locationMeta: localLocationMeta,
+    filterLabel: localRegionLabel,
+  } = useCommunityLocalFilter();
   const isEditMode = Boolean(editPostId?.trim());
   const meetAccessOptions = useMemo(
     () =>
@@ -211,7 +211,7 @@ export function PhilifeNeighborhoodWriteForm({
   const MEETUP_TOPIC_SLUG = "meetup";
   const [meetIntro, setMeetIntro] = useState("");
   const [ageFeeNote, setAgeFeeNote] = useState("");
-  const [meetRegionText, setMeetRegionText] = useState(() => currentRegion?.label?.trim() || "");
+  const [meetRegionText, setMeetRegionText] = useState(() => localRegionLabel.trim());
   /** 모임 채팅(오픈그룹) — `messenger_discoverable`·`entry_policy`·비번과 동기 */
   const [meetAccessMode, setMeetAccessMode] = useState<PhilifeMeetAccessMode>("free_public");
   const [meetPassword, setMeetPassword] = useState("");
@@ -369,9 +369,9 @@ export function PhilifeNeighborhoodWriteForm({
 
   useEffect(() => {
     if (category === "meetup") {
-      setMeetRegionText(currentRegion?.label?.trim() || "");
+      setMeetRegionText(localRegionLabel.trim());
     }
-  }, [category, currentRegion]);
+  }, [category, localRegionLabel]);
 
   useEffect(() => {
     if (!promoteAdEnabled || category === "meetup") {
@@ -790,9 +790,9 @@ export function PhilifeNeighborhoodWriteForm({
         return;
       }
 
-      const locationKey = neighborhoodLocationKeyFromRegion(currentRegion);
-    const locationMeta = neighborhoodLocationMetaFromRegion(currentRegion);
-    const locationName = neighborhoodLocationLabelFromRegion(currentRegion);
+    const locationKey = localLocationKey || null;
+    const locationMeta = localLocationMeta;
+    const locationName = localRegionLabel.trim();
     if (!locationKey || !locationMeta) {
       setErr(t("philife_write_err_region_required"));
       return;
@@ -856,7 +856,7 @@ export function PhilifeNeighborhoodWriteForm({
         locationKey,
         city: locationMeta.city,
         district: locationMeta.district,
-        locationName: locationMeta.name || locationName || currentRegion?.label || "",
+        locationName: locationMeta.name || locationName,
         category,
         title: title.trim(),
         content: composedContent,
@@ -878,7 +878,6 @@ export function PhilifeNeighborhoodWriteForm({
           meetIntro.replace(/\s+/g, " ").trim().slice(0, 500) || composedContent.slice(0, 500);
         const regionFallback =
           meetRegionText.trim() ||
-          currentRegion?.label?.trim() ||
           locationName ||
           t("philife_write_default_neighborhood");
         const needsPassword = meetAccessMode === "password_public" || meetAccessMode === "password_hidden";
@@ -1021,7 +1020,7 @@ export function PhilifeNeighborhoodWriteForm({
           meetPassword.trim() ||
           ageFeeNote.trim() ||
           (meetRegionText.trim() &&
-            meetRegionText.trim() !== (currentRegion?.label ?? "").trim())
+            meetRegionText.trim() !== localRegionLabel.trim())
       );
     }
     return Boolean(
@@ -1042,7 +1041,7 @@ export function PhilifeNeighborhoodWriteForm({
     meetPassword,
     ageFeeNote,
     meetRegionText,
-    currentRegion?.label,
+    localRegionLabel,
     promoteAdEnabled,
     selectedAdProduct,
     adDepositorName,

@@ -30,7 +30,8 @@ describe("buildStoresBrowseClientQueryString", () => {
     expect(qs).toContain("primary=restaurant");
     expect(qs).toContain("sub=all");
     expect(qs).toContain("region=");
-    expect(qs).toContain("district=Ermita");
+    // ADDR-PRIV-004: primaryRegion.barangay 는 profiles 상세주소일 수 있어 전송하지 않는다
+    expect(qs).not.toContain("district=");
   });
 });
 
