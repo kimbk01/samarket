@@ -33,7 +33,7 @@ export function LaunchWeekBlockerBoard() {
             {blockedChecklist.map((c) => (
               <div
                 key={c.id}
-                className="rounded-ui-rect border border-red-200 bg-red-50/50 p-4"
+                className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft p-4"
               >
                 <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
                   <span>Day {c.dayNumber}</span>
@@ -43,7 +43,7 @@ export function LaunchWeekBlockerBoard() {
                   </span>
                 </div>
                 <p className="mt-2 font-medium text-sam-fg">{c.title}</p>
-                <p className="mt-2 sam-text-body text-red-800">
+                <p className="mt-2 sam-text-body text-sam-danger">
                   {c.blockerReason}
                 </p>
                 {c.ownerAdminNickname && (
@@ -66,14 +66,14 @@ export function LaunchWeekBlockerBoard() {
             {criticalIssues.map((i) => (
               <div
                 key={i.id}
-                className="rounded-ui-rect border border-red-200 bg-red-50/50 p-4"
+                className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft p-4"
               >
                 <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
                   <span>Day {i.dayNumber}</span>
                   <span>{getAreaLabel(i.category)}</span>
                 </div>
                 <p className="mt-2 font-medium text-sam-fg">{i.title}</p>
-                <p className="mt-2 sam-text-body text-red-800">{i.status}</p>
+                <p className="mt-2 sam-text-body text-sam-danger">{i.status}</p>
                 {i.linkedType && i.linkedId && (
                   <p className="mt-1 sam-text-helper text-sam-muted">
                     연결: {i.linkedType}{" "}

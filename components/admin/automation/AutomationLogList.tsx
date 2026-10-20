@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAutomationLogs, getAutomationRuleById } from "@/lib/automation/automation-state";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function AutomationLogList() {
   const { t } = useI18n();
@@ -26,7 +27,7 @@ export function AutomationLogList() {
               >
                 <span className="font-medium">{rule?.ruleName ?? l.ruleId}</span>
                 <span className="text-sam-muted">
-                  {new Date(l.triggeredAt).toLocaleString()}
+                  {formatAdminManilaDateTime(l.triggeredAt)}
                 </span>
                 <span className="text-sam-muted">→ {l.actionResult}</span>
               </li>

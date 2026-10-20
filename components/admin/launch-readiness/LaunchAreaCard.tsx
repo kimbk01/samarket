@@ -19,11 +19,11 @@ export function LaunchAreaCard({ entry }: LaunchAreaCardProps) {
     <div
       className={`rounded-ui-rect border p-4 ${
         isBlocked
-          ? "border-red-200 bg-red-50/50"
+          ? "border-sam-danger bg-sam-danger-soft"
           : isReady
-            ? "border-emerald-200 bg-emerald-50/30"
+            ? "border-sam-success bg-sam-success-soft"
             : isInProgress
-              ? "border-amber-200 bg-amber-50/30"
+              ? "border-sam-warning bg-sam-warning-soft"
               : "border-sam-border bg-sam-surface"
       }`}
     >
@@ -34,9 +34,9 @@ export function LaunchAreaCard({ entry }: LaunchAreaCardProps) {
         <span
           className={`rounded px-1.5 py-0.5 sam-text-helper ${
             isReady
-              ? "bg-emerald-100 text-emerald-800"
+              ? "bg-sam-success-soft text-sam-success"
               : isBlocked
-                ? "bg-red-100 text-red-800"
+                ? "bg-sam-danger-soft text-sam-danger"
                 : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
@@ -49,7 +49,7 @@ export function LaunchAreaCard({ entry }: LaunchAreaCardProps) {
       <p className="mt-1 sam-text-body-secondary text-sam-muted">
         완료 {entry.readyItems} / {entry.totalItems}
         {entry.blockedItems > 0 && (
-          <span className="ml-1 text-red-600">· {t("admin_blocked_count")} {entry.blockedItems}</span>
+          <span className="ml-1 text-sam-danger">· {t("admin_blocked_count")} {entry.blockedItems}</span>
         )}
       </p>
       {entry.ownerAdminNickname && (

@@ -41,9 +41,9 @@ export function OpsQuarterlyPlanCard({ plan }: OpsQuarterlyPlanCardProps) {
     <div
       className={`rounded-ui-rect border p-4 ${
         isAtRisk
-          ? "border-amber-200 bg-amber-50/50"
+          ? "border-sam-warning bg-sam-warning-soft"
           : isCompleted
-            ? "border-emerald-200 bg-emerald-50/30"
+            ? "border-sam-success bg-sam-success-soft"
             : isDropped
               ? "border-sam-border bg-sam-app"
               : "border-sam-border bg-sam-surface"

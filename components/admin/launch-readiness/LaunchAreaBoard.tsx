@@ -8,6 +8,7 @@ import { getLaunchReadinessAreasList } from "@/lib/launch-readiness/launch-readi
 import { LaunchAreaCard } from "./LaunchAreaCard";
 import type { LaunchReadinessPhase } from "@/lib/types/launch-readiness";
 import { getPhaseLabel } from "@/lib/launch-readiness/launch-readiness-utils";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 export function LaunchAreaBoard() {
   const { t } = useI18n();
@@ -22,18 +23,13 @@ export function LaunchAreaBoard() {
       <div className="flex flex-wrap items-center gap-2">
         <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_readiness_k0e685c7c")}</span>
         {(["pre_launch", "launch_day", "post_launch"] as const).map((p) => (
-          <button
+          <AdminChipButton
             key={p}
-            type="button"
+            selected={phase === p}
             onClick={() => setPhase(p)}
-            className={`rounded border px-3 py-1.5 sam-text-body-secondary ${
-              phase === p
-                ? "border-signature bg-signature/10 text-signature"
-                : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
-            }`}
-          >
+            >
             {getPhaseLabel(p)}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
 

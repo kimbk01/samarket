@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import { getLaunchWeekSummary } from "@/lib/launch-week/launch-week-summary";
 import { getStabilityLabel } from "@/lib/launch-week/launch-week-utils";
 import Link from "next/link";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function LaunchWeekSummaryCards() {
   const { t } = useI18n();
@@ -14,21 +15,21 @@ export function LaunchWeekSummaryCards() {
 
   const stabilityClass =
     summary.currentStabilityStatus === "critical"
-      ? "text-red-700"
+      ? "text-sam-danger"
       : summary.currentStabilityStatus === "warning"
-        ? "text-amber-700"
+        ? "text-sam-warning"
         : summary.currentStabilityStatus === "watch"
-          ? "text-amber-600"
-          : "text-emerald-700";
+          ? "text-sam-warning"
+          : "text-sam-success";
 
   const stabilityBg =
     summary.currentStabilityStatus === "critical"
-      ? "border-red-200 bg-red-50/50"
+      ? "border-sam-danger bg-sam-danger-soft"
       : summary.currentStabilityStatus === "warning"
-        ? "border-amber-200 bg-amber-50/50"
+        ? "border-sam-warning bg-sam-warning-soft"
         : summary.currentStabilityStatus === "watch"
-          ? "border-amber-200 bg-amber-50/30"
-          : "border-emerald-200 bg-emerald-50/30";
+          ? "border-sam-warning bg-sam-warning-soft"
+          : "border-sam-success bg-sam-success-soft";
 
   return (
     <div className="space-y-4">
@@ -57,7 +58,7 @@ export function LaunchWeekSummaryCards() {
             {summary.totalChecklistDone} / {summary.totalChecklistCount}
           </p>
           {summary.blockedChecklistCount > 0 && (
-            <p className="mt-1 sam-text-helper text-red-600">
+            <p className="mt-1 sam-text-helper text-sam-danger">
               차단 {summary.blockedChecklistCount}건
             </p>
           )}
@@ -99,7 +100,7 @@ export function LaunchWeekSummaryCards() {
 
       {summary.latestUpdatedAt && (
         <p className="sam-text-helper text-sam-muted">
-          최종 갱신: {new Date(summary.latestUpdatedAt).toLocaleString()}
+          최종 갱신: {formatAdminManilaDateTime(summary.latestUpdatedAt)}
         </p>
       )}
     </div>

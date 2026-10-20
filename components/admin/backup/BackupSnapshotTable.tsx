@@ -14,19 +14,18 @@ import type {
   BackupSnapshotType,
 } from "@/lib/types/backup";
 
-import { adminDateLocaleTag } from "@/components/admin/i18n/admin-date-locale";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 /** 서버/클라이언트 로케일 차이로 인한 hydration 방지: 마운트 후에만 날짜 표시 */
-function ClientDate({ value, locale }: { value: string; locale: string }) {
+function ClientDate({ value }: { value: string }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return <span className="invisible">-</span>;
-  return <>{new Date(value).toLocaleString(locale)}</>;
+  return <>{formatAdminManilaDateTime(value)}</>;
 }
 
 export function BackupSnapshotTable() {
-  const { t, language } = useI18n();
-  const locale = adminDateLocaleTag(language);
+  const { t } = useI18n();
   const [statusFilter, setStatusFilter] = useState<BackupSnapshotStatus | "">("");
   const [typeFilter, setTypeFilter] = useState<BackupSnapshotType | "">("");
 
@@ -119,11 +118,11 @@ export function BackupSnapshotTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     s.status === "completed"
-                      ? "bg-emerald-50 text-emerald-700"
+                      ? "bg-sam-success-soft text-sam-success"
                       : s.status === "failed"
-                        ? "bg-red-100 text-red-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
                         : s.status === "running"
-                          ? "bg-blue-50 text-blue-700"
+                          ? "bg-sam-info-soft text-sam-info"
                           : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
@@ -131,10 +130,10 @@ export function BackupSnapshotTable() {
                 </span>
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                <ClientDate value={s.startedAt} locale={locale} />
+                <ClientDate value={s.startedAt} />
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {s.completedAt ? <ClientDate value={s.completedAt} locale={locale} /> : "-"}
+                {s.completedAt ? <ClientDate value={s.completedAt} /> : "-"}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">{s.size}</td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">

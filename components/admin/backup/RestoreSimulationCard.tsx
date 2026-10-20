@@ -7,15 +7,11 @@ import {
   BACKUP_RESTORE_STATUS_LABEL_KEYS,
   BACKUP_RESTORE_TYPE_LABEL_KEYS,
 } from "@/lib/backup/backup-i18n-keys";
-
-function backupLocale(language: string): string {
-  if (language === "en") return "en-US";
-  return "ko-KR";
-}
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 export function RestoreSimulationCard() {
-  const { t, language } = useI18n();
-  const locale = backupLocale(language);
+  const { t } = useI18n();
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string>("");
   const [simulateResult, setSimulateResult] = useState<string | null>(null);
 
@@ -50,17 +46,12 @@ export function RestoreSimulationCard() {
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={handleSimulate}
-          disabled={!selectedSnapshotId}
-          className="rounded border border-sam-border bg-sam-app px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50"
-        >
+        <AdminActionButton variant="secondary" size="sm" onClick={handleSimulate} disabled={!selectedSnapshotId}>
           {t("admin_backup_restore_simulate_btn")}
-        </button>
+        </AdminActionButton>
       </div>
       {simulateResult ? (
-        <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/30 p-4 sam-text-body-secondary text-sam-fg">
+        <div className="rounded-ui-rect border border-sam-success bg-sam-success-soft p-4 sam-text-body-secondary text-sam-fg">
           {simulateResult}
         </div>
       ) : null}
@@ -80,7 +71,7 @@ export function RestoreSimulationCard() {
                 {t(BACKUP_RESTORE_TYPE_LABEL_KEYS[r.restoreType])} ·{" "}
                 {t(BACKUP_RESTORE_STATUS_LABEL_KEYS[r.restoreStatus])} ·{" "}
                 {r.completedAt
-                  ? new Date(r.completedAt).toLocaleString(locale)
+                  ? formatAdminManilaDateTime(r.completedAt)
                   : t("admin_backup_restore_in_progress")}
               </li>
             ))}

@@ -15,6 +15,7 @@ import {
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 export function OpsChecklistTable() {
   const { t } = useI18n();
@@ -53,13 +54,9 @@ export function OpsChecklistTable() {
           onChange={(e) => setChecklistDate(e.target.value)}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         />
-        <button
-          type="button"
-          onClick={handleCreateFromTemplates}
-          className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
-        >
+        <AdminActionButton variant="primary" onClick={handleCreateFromTemplates}>
           {t("admin_ops_tools_board_gen_checklist")}
-        </button>
+        </AdminActionButton>
       </div>
       {items.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
@@ -110,9 +107,9 @@ export function OpsChecklistTable() {
                     <span
                       className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                         i.status === "done"
-                          ? "bg-emerald-50 text-emerald-800"
+                          ? "bg-sam-success-soft text-sam-success"
                           : i.status === "in_progress"
-                            ? "bg-amber-50 text-amber-800"
+                            ? "bg-sam-warning-soft text-sam-warning"
                             : "bg-sam-surface-muted text-sam-muted"
                       }`}
                     >
@@ -125,27 +122,27 @@ export function OpsChecklistTable() {
                   <td className="px-3 py-2.5">
                     {i.status !== "done" && i.status !== "skipped" && (
                       <div className="flex gap-1">
-                        <button
-                          type="button"
+                        <AdminActionButton
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleStatusChange(i.id, "in_progress")}
-                          className="rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-helper text-amber-800"
                         >
                           {t("admin_ops_tools_board_btn_progress")}
-                        </button>
-                        <button
-                          type="button"
+                        </AdminActionButton>
+                        <AdminActionButton
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleStatusChange(i.id, "done")}
-                          className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 sam-text-helper text-emerald-800"
                         >
                           {t("admin_ops_tools_board_btn_complete")}
-                        </button>
-                        <button
-                          type="button"
+                        </AdminActionButton>
+                        <AdminActionButton
+                          variant="quiet"
+                          size="sm"
                           onClick={() => handleStatusChange(i.id, "skipped")}
-                          className="rounded border border-sam-border bg-sam-surface-muted px-2 py-1 sam-text-helper text-sam-muted"
                         >
                           {t("admin_ops_tools_board_btn_skip")}
-                        </button>
+                        </AdminActionButton>
                       </div>
                     )}
                   </td>

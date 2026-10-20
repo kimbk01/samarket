@@ -106,7 +106,7 @@ export const adminDeployMessages = {
     admin_deploy_next_verify: "필수 점검이 끝났습니다. 「검증 완료」를 눌러 주세요.",
     admin_deploy_next_promote_blocked:
       "검증은 끝났지만 실제 운영 적용은 아직 실행할 수 없습니다. Owner 승인(Area B)이 필요합니다.",
-    admin_deploy_next_owner: "지정 담당자로 로그인한 뒤 다시 시도하세요.",
+    admin_deploy_next_owner: "지정 담당자로 로그인한 뒤 다시 실행하세요.",
     admin_deploy_gate_runtime_isolation: "테스트·운영 데이터 분리",
     admin_deploy_gate_auth_login_profile: "로그인·프로필",
     admin_deploy_gate_test_allowlist_enforced: "테스트 접근 허용 목록",

@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type EnvCard = {
   envId: string;
@@ -103,7 +104,7 @@ function shortSha(sha: string | null | undefined): string {
 
 function formatAt(iso: string | null | undefined): string {
   if (!iso) return "—";
-  return iso.slice(0, 19).replace("T", " ");
+  return formatAdminManilaDateTime(iso);
 }
 
 type SafeT = (
@@ -171,9 +172,9 @@ function EnvCardView({
         <span
           className={
             card.status === "ok"
-              ? "text-green-700"
+              ? "text-sam-success"
               : card.status === "miswired" || card.status === "error"
-                ? "text-red-700"
+                ? "text-sam-danger"
                 : "text-sam-muted"
           }
         >
@@ -253,7 +254,7 @@ function EnvCardView({
             })}
             :{" "}
           </dt>
-          <dd className="inline text-red-700/90">{card.lastError ?? "—"}</dd>
+          <dd className="inline text-sam-danger">{card.lastError ?? "—"}</dd>
         </div>
         <div>
           <dt className="inline text-sam-fg/70">
@@ -276,7 +277,7 @@ function EnvCardView({
           <dd className="inline">{card.canPromoteToProduction ? "Y" : "N"}</dd>
         </div>
       </dl>
-      <p className="mt-2 text-[11px] text-sam-muted">
+      <p className="mt-2 text-[12px] text-sam-muted">
         {safeT("admin_deploy_ops_source", { fallbackKo: "조회 원천", fallbackEn: "Source" })}:{" "}
         {card.source} · {card.statusReason}
       </p>
@@ -302,7 +303,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
   return (
     <div className="space-y-6">
       {semantics ? (
-        <section className="space-y-2 rounded-ui-rect border border-amber-300/60 bg-amber-50/60 p-4">
+        <section className="space-y-2 rounded-ui-rect border border-sam-warning bg-sam-warning-soft p-4">
           <h2 className="text-sm font-semibold text-sam-fg">
             {safeT("admin_deploy_ops_semantics_title", {
               fallbackKo: "완료 의미 구분 (합치지 않음)",
@@ -310,7 +311,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
             })}
           </h2>
           {semantics.regularDeployPath ? (
-            <p className="text-xs font-medium text-amber-950">
+            <p className="text-xs font-medium text-sam-fg">
               {safeT("admin_deploy_regular_path_title", {
                 fallbackKo: "정규 배포 경로",
                 fallbackEn: "Regular deploy path",
@@ -318,7 +319,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
               : {semantics.regularDeployPath}
             </p>
           ) : null}
-          <ul className="list-inside list-disc space-y-1 text-xs text-amber-950">
+          <ul className="list-inside list-disc space-y-1 text-xs text-sam-fg">
             {(language === "en" ? semantics.notesEn : semantics.notesKo).map((n) => (
               <li key={n}>{n}</li>
             ))}
@@ -377,7 +378,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
                 fallbackEn: "Environments · live servers",
               })}
             </h2>
-            <p className="text-[11px] text-sam-muted">
+            <p className="text-[12px] text-sam-muted">
               {safeT("admin_deploy_ops_checked_at", {
                 fallbackKo: "최근 확인",
                 fallbackEn: "Last checked",
@@ -390,7 +391,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
             <EnvCardView card={envs.test} language={language} safeT={safeT} />
             <EnvCardView card={envs.preview} language={language} safeT={safeT} />
           </div>
-          <p className="text-[11px] text-sam-muted">
+          <p className="text-[12px] text-sam-muted">
             {safeT("admin_deploy_optional_test_body", {
               fallbackKo:
                 "TEST 서버·DB·앱은 보존되어 있습니다. Owner가 필요할 때만 사용합니다. 정규 Production 배포가 TEST에 의존하지 않습니다.",
@@ -436,7 +437,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
           </dl>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             {compare.hasDbMigration ? (
-              <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-800">
+              <span className="rounded-full bg-sam-danger-soft px-2 py-0.5 text-sam-danger">
                 {safeT("admin_deploy_ops_flag_db", {
                   fallbackKo: "DB·마이그레이션 — 별도 승인",
                   fallbackEn: "DB/migration — separate approval",
@@ -444,15 +445,15 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
               </span>
             ) : null}
             {compare.hasAndroidNative ? (
-              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-orange-900">
+              <span className="rounded-full bg-sam-warning-soft px-2 py-0.5 text-sam-warning">
                 Android 네이티브
               </span>
             ) : null}
             {compare.hasIosNative ? (
-              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-orange-900">iOS 네이티브</span>
+              <span className="rounded-full bg-sam-warning-soft px-2 py-0.5 text-sam-warning">iOS 네이티브</span>
             ) : null}
             {compare.hasEnvHint ? (
-              <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-yellow-900">
+              <span className="rounded-full bg-sam-warning-soft px-2 py-0.5 text-sam-warning">
                 {safeT("admin_deploy_ops_flag_env", {
                   fallbackKo: "환경변수 변경 가능",
                   fallbackEn: "Env change possible",
@@ -486,7 +487,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
                         })}{" "}
                   ({rows.length})
                 </h3>
-                <ul className="mt-1 max-h-40 space-y-1 overflow-y-auto text-[11px] text-sam-muted">
+                <ul className="mt-1 max-h-40 space-y-1 overflow-y-auto text-[12px] text-sam-muted">
                   {rows.length === 0 ? (
                     <li>—</li>
                   ) : (
@@ -554,7 +555,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
                   <tr key={f.featureId} className="border-b border-sam-border/60 align-top">
                     <td className="py-1.5 pr-2 text-sam-fg">
                       {language === "en" ? f.labelEn : f.labelKo}
-                      <div className="text-[10px] text-sam-muted">{f.platforms.join(", ")}</div>
+                      <div className="text-[12px] text-sam-muted">{f.platforms.join(", ")}</div>
                     </td>
                     <td className="py-1.5 pr-2 text-sam-muted">
                       {f.method === "automated_gate"
@@ -575,25 +576,25 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
                     <td
                       className={
                         f.result === "pass"
-                          ? "py-1.5 pr-2 text-green-700"
+                          ? "py-1.5 pr-2 text-sam-success"
                           : f.result === "fail"
-                            ? "py-1.5 pr-2 text-red-700"
+                            ? "py-1.5 pr-2 text-sam-danger"
                             : "py-1.5 pr-2 text-sam-muted"
                       }
                     >
                       {resultLabel(f.result, safeT)}
                       {f.reverifyNeeded ? (
-                        <div className="text-[10px] text-amber-800">
+                        <div className="text-[12px] text-sam-warning">
                           {safeT("admin_deploy_ops_reverify", {
                             fallbackKo: "재검증 필요",
                             fallbackEn: "Reverify needed",
                           })}
                         </div>
                       ) : null}
-                      {f.detail ? <div className="text-[10px] text-sam-muted">{f.detail}</div> : null}
+                      {f.detail ? <div className="text-[12px] text-sam-muted">{f.detail}</div> : null}
                     </td>
                     <td className="py-1.5 pr-2 text-sam-muted">{f.deviceEnv}</td>
-                    <td className="py-1.5 pr-2 font-mono text-[10px] text-sam-muted">
+                    <td className="py-1.5 pr-2 font-mono text-[12px] text-sam-muted">
                       {f.evidenceId ? shortSha(f.evidenceId) : "—"}
                       <div>{formatAt(f.executedAt)}</div>
                     </td>

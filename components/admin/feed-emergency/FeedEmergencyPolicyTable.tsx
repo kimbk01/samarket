@@ -23,6 +23,7 @@ import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDial
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 const FALLBACK_MODE_LABELS: Record<FeedFallbackMode, string> = {
   previous_live_version: "이전 live 버전",
@@ -139,39 +140,27 @@ export function FeedEmergencyPolicyTable() {
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
+                    <AdminChipButton
+                      selected={p.killSwitchEnabled}
                       disabled={!writeAction.allowed}
                       onClick={() => void handleKillSwitch(p.surface, !p.killSwitchEnabled)}
-                      className={`rounded border px-2 py-1 sam-text-body-secondary ${
-                        p.killSwitchEnabled
-                          ? "border-amber-300 bg-amber-50 text-amber-800"
-                          : "border-sam-border bg-sam-app text-sam-muted"
-                      }`}
-                    >
+                      >
                       {p.killSwitchEnabled ? "ON (해제)" : "OFF (활성화)"}
-                    </button>
+                    </AdminChipButton>
                     {mode === "kill_switch" && (
-                      <span className="sam-text-helper text-amber-600">{t("admin_feed_emergency_active_2")}</span>
+                      <span className="sam-text-helper text-sam-warning">{t("admin_feed_emergency_active_2")}</span>
                     )}
                   </div>
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
+                    <AdminChipButton
+                      selected={mode === "fallback"}
                       disabled={!writeAction.allowed}
-                      onClick={() =>
-                        void handleFallback(p.surface, mode !== "fallback")
-                      }
-                      className={`rounded border px-2 py-1 sam-text-body-secondary ${
-                        mode === "fallback"
-                          ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                          : "border-sam-border bg-sam-app text-sam-muted"
-                      }`}
-                    >
+                      onClick={() => void handleFallback(p.surface, mode !== "fallback")}
+                      >
                       {mode === "fallback" ? "Fallback 중 (해제)" : "Fallback 활성화"}
-                    </button>
+                    </AdminChipButton>
                   </div>
                 </td>
                 <td className="px-3 py-2.5 text-sam-fg">

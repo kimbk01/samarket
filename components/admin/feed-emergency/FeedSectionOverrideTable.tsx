@@ -15,6 +15,7 @@ import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDial
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 
@@ -119,7 +120,7 @@ export function FeedSectionOverrideTable() {
                     <span
                       className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                         disabled
-                          ? "bg-amber-50 text-amber-800"
+                          ? "bg-sam-warning-soft text-sam-warning"
                           : "bg-sam-surface-muted text-sam-muted"
                       }`}
                     >
@@ -130,18 +131,13 @@ export function FeedSectionOverrideTable() {
                     {ov?.reason ?? "-"}
                   </td>
                   <td className="px-3 py-2.5">
-                    <button
-                      type="button"
+                    <AdminChipButton
+                      selected={disabled}
                       disabled={!writeAction.allowed}
                       onClick={() => void handleToggle(sectionKey, !disabled)}
-                      className={`rounded border px-2 py-1 sam-text-body-secondary ${
-                        disabled
-                          ? "border-sam-border bg-sam-app text-sam-fg"
-                          : "border-amber-200 bg-amber-50 text-amber-800"
-                      }`}
-                    >
+                      >
                       {disabled ? "해제" : "비활성화"}
-                    </button>
+                    </AdminChipButton>
                   </td>
                 </tr>
               );

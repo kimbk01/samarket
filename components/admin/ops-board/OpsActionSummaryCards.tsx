@@ -47,7 +47,7 @@ export function OpsActionSummaryCards() {
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_board_overdue")}</p>
-          <p className={`sam-text-page-title font-semibold ${summary.overdueActions > 0 ? "text-red-600" : "text-sam-fg"}`}>
+          <p className={`sam-text-page-title font-semibold ${summary.overdueActions > 0 ? "text-sam-danger" : "text-sam-fg"}`}>
             {summary.overdueActions}
           </p>
           <p className="sam-text-body-secondary text-sam-muted">

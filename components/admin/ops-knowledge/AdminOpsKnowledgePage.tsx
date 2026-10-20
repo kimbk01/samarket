@@ -23,6 +23,7 @@ import {
 } from "@/lib/ops-knowledge/ops-knowledge-sync-client";
 import { invalidateOpsKnowledgeIndexCache } from "@/lib/ops-knowledge/ops-knowledge-base-index";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 
 type TabId = "search" | "recommend" | "recent" | "searchLogs" | "recLogs";
 
@@ -84,22 +85,14 @@ export function AdminOpsKnowledgePage() {
   return (
     <>
       <AdminPageHeader titleKey="admin_menu_manage_kb" />
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        className="mb-4"
+        tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        ariaLabel="화면 탭"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        syncUrl={false}
+      />
 
       {activeTab === "search" && (
         <div className="space-y-4">

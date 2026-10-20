@@ -52,7 +52,7 @@ export function OpsActionBoard() {
           ))}
         </select>
         {overdueItems.length > 0 && (
-          <span className="rounded bg-red-100 px-2 py-1 sam-text-body-secondary font-medium text-red-800">
+          <span className="rounded bg-sam-danger-soft px-2 py-1 sam-text-body-secondary font-medium text-sam-danger">
             {t("admin_ops_tools_board_overdue_count", { count: overdueItems.length })}
           </span>
         )}

@@ -6,6 +6,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getLatestOpsBenchmarks } from "@/lib/ops-benchmarks/ops-benchmarks-state";
 import type { OpsBenchmarkScope, OpsBenchmarkDomain } from "@/lib/types/ops-benchmarks";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 const SCOPE_LABELS: Record<OpsBenchmarkScope, string> = {
   quarterly: "분기",
@@ -48,18 +49,13 @@ export function OpsBenchmarkCards() {
       <div className="flex flex-wrap items-center gap-2">
         <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_benchmark_kf6b7b470")}</span>
         {(["quarterly", "yearly"] as const).map((s) => (
-          <button
+          <AdminChipButton
             key={s}
-            type="button"
+            selected={scope === s}
             onClick={() => setScope(s)}
-            className={`rounded border px-3 py-1.5 sam-text-body-secondary ${
-              scope === s
-                ? "border-signature bg-signature/10 text-signature"
-                : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
-            }`}
-          >
+            >
             {SCOPE_LABELS[s]}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -68,9 +64,9 @@ export function OpsBenchmarkCards() {
             key={b.id}
             className={`rounded-ui-rect border p-4 ${
               b.gapScore > 5
-                ? "border-amber-200 bg-amber-50/50"
+                ? "border-sam-warning bg-sam-warning-soft"
                 : b.gapScore <= 0
-                  ? "border-emerald-200 bg-emerald-50/30"
+                  ? "border-sam-success bg-sam-success-soft"
                   : "border-sam-border bg-sam-surface"
             }`}
           >
@@ -90,9 +86,9 @@ export function OpsBenchmarkCards() {
               <span
                 className={`sam-text-helper ${
                   b.gapScore > 5
-                    ? "text-amber-700"
+                    ? "text-sam-warning"
                     : b.gapScore <= 0
-                      ? "text-emerald-700"
+                      ? "text-sam-success"
                       : "text-sam-muted"
                 }`}
               >

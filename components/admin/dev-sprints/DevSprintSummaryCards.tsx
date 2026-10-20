@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getDevSprintSummary } from "@/lib/dev-sprints/dev-sprint-summary";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function DevSprintSummaryCards() {
   const { t } = useI18n();
@@ -22,7 +23,7 @@ export function DevSprintSummaryCards() {
           <p className="sam-text-helper text-sam-muted">{t("admin_dev_sprint_summary_tasks")}</p>
           <p className="sam-text-body text-sam-fg">
             {summary.totalItems} / {summary.completedItems} /{" "}
-            <span className={summary.blockedItems > 0 ? "font-medium text-red-600" : ""}>
+            <span className={summary.blockedItems > 0 ? "font-medium text-sam-danger" : ""}>
               {summary.blockedItems}
             </span>
           </p>
@@ -41,7 +42,7 @@ export function DevSprintSummaryCards() {
         </div>
       </div>
       {summary.blockedItems > 0 && (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50/50 p-3 sam-text-body-secondary text-red-800">
+        <div className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft p-3 sam-text-body-secondary text-sam-danger">
           {t("admin_dev_sprint_blocked_banner", { count: summary.blockedItems })}
         </div>
       )}
@@ -60,7 +61,7 @@ export function DevSprintSummaryCards() {
       </p>
       <p className="sam-text-helper text-sam-muted">
         {t("admin_dev_sprint_last_updated", {
-          at: new Date(summary.latestUpdatedAt).toLocaleString(),
+          at: formatAdminManilaDateTime(summary.latestUpdatedAt),
         })}
       </p>
     </div>

@@ -3,11 +3,10 @@
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getOpsDocumentSummary } from "@/lib/ops-docs/ops-docs-summary";
-import { adminDateLocaleTag } from "@/components/admin/i18n/admin-date-locale";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function OpsDocumentSummaryCards() {
-  const { t, language } = useI18n();
-  const dateLocale = adminDateLocaleTag(language);
+  const { t } = useI18n();
   const summary = useMemo(() => getOpsDocumentSummary(), []);
 
   return (
@@ -32,7 +31,7 @@ export function OpsDocumentSummaryCards() {
         <p className="sam-text-body-secondary text-sam-muted">
           {t("admin_ops_doc_summary_latest", {
             at: summary.latestUpdatedAt
-              ? new Date(summary.latestUpdatedAt).toLocaleString(dateLocale)
+              ? formatAdminManilaDateTime(summary.latestUpdatedAt)
               : "-",
           })}
         </p>

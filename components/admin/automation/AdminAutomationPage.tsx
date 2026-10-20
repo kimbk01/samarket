@@ -7,6 +7,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AutomationRulesTable } from "./AutomationRulesTable";
 import { AutomationLogList } from "./AutomationLogList";
 import { loadAutomationFromServer } from "@/lib/automation/automation-sync-client";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 
 type TabId = "rules" | "logs";
 
@@ -38,22 +39,14 @@ export function AdminAutomationPage() {
   return (
     <>
       <AdminPageHeader titleKey="admin_menu_dev_automation" />
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        className="mb-4"
+        tabs={tabs.map((tab) => ({ id: tab.id, label: tab.label }))}
+        ariaLabel="화면 탭"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        syncUrl={false}
+      />
       {activeTab === "rules" && (
         <AdminCard titleKey="admin_automation_card_rules_table">
           <AutomationRulesTable />

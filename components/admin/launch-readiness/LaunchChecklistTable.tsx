@@ -14,6 +14,7 @@ import {
   getPriorityLabel,
 } from "@/lib/launch-readiness/launch-readiness-utils";
 import type { LaunchReadinessPhase } from "@/lib/types/launch-readiness";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 export function LaunchChecklistTable() {
   const { t } = useI18n();
@@ -28,18 +29,13 @@ export function LaunchChecklistTable() {
       <div className="flex flex-wrap items-center gap-2">
         <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_readiness_k0e685c7c")}</span>
         {(["pre_launch", "launch_day", "post_launch"] as const).map((p) => (
-          <button
+          <AdminChipButton
             key={p}
-            type="button"
+            selected={phase === p}
             onClick={() => setPhase(p)}
-            className={`rounded border px-3 py-1.5 sam-text-body-secondary ${
-              phase === p
-                ? "border-signature bg-signature/10 text-signature"
-                : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
-            }`}
-          >
+            >
             {getPhaseLabel(p)}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
 
@@ -66,9 +62,9 @@ export function LaunchChecklistTable() {
               key={i.id}
               className={`border-b border-sam-border-soft ${
                 i.status === "blocked"
-                  ? "bg-red-50/30"
+                  ? "bg-sam-danger-soft"
                   : i.status !== "ready"
-                    ? "bg-amber-50/20"
+                    ? "bg-sam-warning-soft"
                     : ""
               }`}
             >
@@ -82,9 +78,9 @@ export function LaunchChecklistTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     i.gateType === "must_have"
-                      ? "bg-red-100 text-red-800"
+                      ? "bg-sam-danger-soft text-sam-danger"
                       : i.gateType === "should_have"
-                        ? "bg-amber-100 text-amber-800"
+                        ? "bg-sam-warning-soft text-sam-warning"
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
@@ -95,11 +91,11 @@ export function LaunchChecklistTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     i.status === "ready"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : i.status === "blocked"
-                        ? "bg-red-100 text-red-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
                         : i.status === "in_progress"
-                          ? "bg-blue-100 text-blue-800"
+                          ? "bg-sam-info-soft text-sam-info"
                           : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
@@ -115,7 +111,7 @@ export function LaunchChecklistTable() {
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {i.dueDate ?? "-"}
               </td>
-              <td className="max-w-[160px] px-3 py-2.5 sam-text-body-secondary text-red-700">
+              <td className="max-w-[160px] px-3 py-2.5 sam-text-body-secondary text-sam-danger">
                 {i.blockerReason ?? "-"}
               </td>
               <td className="max-w-[120px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">

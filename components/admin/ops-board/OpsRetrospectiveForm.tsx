@@ -8,6 +8,7 @@ import { persistOpsBoardToServer } from "@/lib/ops-board/ops-board-sync-client";
 import type { OpsSurface } from "@/lib/types/ops-board";
 import { OPS_TOOLS_SURFACE_KEYS } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const SURFACE_OPTIONS: { value: OpsSurface; labelKey: MessageKey }[] = [
   { value: "all", labelKey: OPS_TOOLS_SURFACE_KEYS.all },
@@ -134,12 +135,9 @@ export function OpsRetrospectiveForm({
           />
         </div>
       </div>
-      <button
-        type="submit"
-        className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
-      >
+      <AdminActionButton type="submit" variant="primary">
         {t("admin_ops_tools_board_save_retro")}
-      </button>
+      </AdminActionButton>
     </form>
   );
 }

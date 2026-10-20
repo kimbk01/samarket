@@ -63,7 +63,7 @@ export function OpsChecklistTemplateTable() {
               </td>
               <td className="px-3 py-2.5">
                 {tpl.isActive ? (
-                  <span className="sam-text-body-secondary text-emerald-600">ON</span>
+                  <span className="sam-text-body-secondary text-sam-success">ON</span>
                 ) : (
                   <span className="sam-text-body-secondary text-sam-meta">OFF</span>
                 )}

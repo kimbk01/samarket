@@ -72,9 +72,9 @@ export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableP
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                     d.status === "active"
-                      ? "bg-emerald-50 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : d.status === "draft"
-                        ? "bg-amber-50 text-amber-800"
+                        ? "bg-sam-warning-soft text-sam-warning"
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >

@@ -76,9 +76,9 @@ export function DrScenarioTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     s.severity === "critical"
-                      ? "bg-red-100 text-red-800"
+                      ? "bg-sam-danger-soft text-sam-danger"
                       : s.severity === "high"
-                        ? "bg-amber-100 text-amber-800"
+                        ? "bg-sam-warning-soft text-sam-warning"
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >

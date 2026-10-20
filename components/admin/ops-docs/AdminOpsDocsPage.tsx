@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -9,6 +8,7 @@ import { OpsDocumentFilterBar, type OpsDocumentFilterState } from "./OpsDocument
 import { OpsDocumentTable } from "./OpsDocumentTable";
 import { OpsDocumentSummaryCards } from "./OpsDocumentSummaryCards";
 import { loadOpsDocsFromServer } from "@/lib/ops-docs/ops-docs-sync-client";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 
 const INIT_FILTER: OpsDocumentFilterState = {
   search: "",
@@ -44,19 +44,15 @@ export function AdminOpsDocsPage() {
     <>
       <AdminPageHeader titleKey="admin_menu_manage_docs" />
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Link
-          href="/admin/ops-docs/create"
-          className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
-        >
+        <AdminActionLink href="/admin/ops-docs/create" variant="primary">
           {t("admin_ops_doc_create")}
-        </Link>
-        <button
-          type="button"
+        </AdminActionLink>
+        <AdminActionButton
+          variant="secondary"
           onClick={() => setActiveTab(activeTab === "list" ? "summary" : "list")}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
           {activeTab === "list" ? t("admin_ops_doc_view_summary") : t("admin_ops_doc_view_list")}
-        </button>
+        </AdminActionButton>
       </div>
       {activeTab === "summary" ? (
         <AdminCard titleKey="admin_ops_doc_card_summary">

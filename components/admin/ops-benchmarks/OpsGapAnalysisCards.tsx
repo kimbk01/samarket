@@ -6,6 +6,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getHighGapDomains } from "@/lib/ops-benchmarks/ops-benchmarks-utils";
 import type { OpsBenchmarkScope, OpsBenchmarkDomain } from "@/lib/types/ops-benchmarks";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 const SCOPE_LABELS: Record<OpsBenchmarkScope, string> = {
   quarterly: "분기",
@@ -30,18 +31,13 @@ export function OpsGapAnalysisCards() {
       <div className="flex flex-wrap items-center gap-2">
         <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_benchmark_kf6b7b470")}</span>
         {(["quarterly", "yearly"] as const).map((s) => (
-          <button
+          <AdminChipButton
             key={s}
-            type="button"
+            selected={scope === s}
             onClick={() => setScope(s)}
-            className={`rounded border px-3 py-1.5 sam-text-body-secondary ${
-              scope === s
-                ? "border-signature bg-signature/10 text-signature"
-                : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
-            }`}
-          >
+            >
             {SCOPE_LABELS[s]}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
 
@@ -59,12 +55,12 @@ export function OpsGapAnalysisCards() {
               {highGap.map(({ domain, gapScore }) => (
                 <div
                   key={domain}
-                  className="rounded-ui-rect border border-amber-200 bg-amber-50/50 p-4"
+                  className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft p-4"
                 >
                   <p className="sam-text-helper text-sam-muted">
                     {DOMAIN_LABELS[domain]}
                   </p>
-                  <p className="mt-1 sam-text-page-title font-semibold text-amber-800">
+                  <p className="mt-1 sam-text-page-title font-semibold text-sam-warning">
                     갭 +{gapScore}
                   </p>
                   <p className="mt-1 sam-text-helper text-sam-muted">

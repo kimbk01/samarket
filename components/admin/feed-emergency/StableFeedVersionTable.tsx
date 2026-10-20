@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { getStableFeedVersions } from "@/lib/feed-emergency/feed-emergency-state";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function StableFeedVersionTable() {
   const [refresh] = useState(0);
@@ -38,7 +39,7 @@ export function StableFeedVersionTable() {
               <td className="px-3 py-2.5 text-sam-fg">{(s.avgCtr * 100).toFixed(2)}%</td>
               <td className="px-3 py-2.5 text-sam-fg">{(s.avgConversionRate * 100).toFixed(2)}%</td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(s.markedAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(s.markedAt)}
               </td>
             </tr>
           ))}

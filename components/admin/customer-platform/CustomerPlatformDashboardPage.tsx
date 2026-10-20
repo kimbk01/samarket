@@ -6,6 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionQueueCardGrid } from "@/components/admin/action-queue/AdminActionQueueCardGrid";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 /** Overview supplies Monitoring only; Action Queue reads the same Bell payload (provider). */
 type OverviewPayload = {
@@ -21,7 +23,7 @@ type OverviewPayload = {
 type LoadState = "loading" | "ready" | "error";
 
 export function CustomerPlatformDashboardPage() {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const [payload, setPayload] = useState<OverviewPayload | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
 
@@ -88,9 +90,9 @@ export function CustomerPlatformDashboardPage() {
               fallbackEn: "Could not load Customer Platform overview.",
             })}
           </p>
-          <button type="button" onClick={() => void load()} className="sam-btn sam-btn--outline sam-btn--sm mt-3">
-            {safeT("admin_dashboard_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-          </button>
+          <AdminActionButton variant="secondary" size="sm" className="mt-3" onClick={() => void load()}>
+            {adminCta("refresh", language !== "en")}
+          </AdminActionButton>
         </div>
       ) : null}
 

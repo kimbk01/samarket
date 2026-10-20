@@ -7,6 +7,10 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { BackupSnapshotTable } from "./BackupSnapshotTable";
 import { RestoreSimulationCard } from "./RestoreSimulationCard";
 import { loadBackupFromServer } from "@/lib/backup/backup-sync-client";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 
 type TabId = "list" | "restore";
 
@@ -28,9 +32,7 @@ export function AdminBackupPage() {
       <>
         <AdminPageHeader titleKey="admin_menu_dev_backup" />
         <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">
-            {t("admin_loading_ops_settings")}
-          </p>
+          <AdminLoadingState ko label={t("admin_loading_ops_settings")} />
         </AdminCard>
       </>
     );
@@ -46,37 +48,26 @@ export function AdminBackupPage() {
       <AdminPageHeader titleKey="admin_menu_dev_backup" />
       {hydrateError ? (
         <div
-          className="mb-4 rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-4 py-3 sam-text-body-secondary text-sam-fg"
+          className="mb-4 rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-fg"
           role="alert"
         >
-          서버에서 백업 설정을 불러오지 못했습니다. 기본값으로 표시 중입니다. ({hydrateError})
+          서버에서 백업 설정을 불러오지 못했습니다. 기본값으로 표시 중입니다. ({adminOperatorErrorMessage(hydrateError, true)})
         </div>
       ) : null}
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        className="mb-4"
+        tabs={tabs.map((tab) => ({ id: tab.id, label: tab.label }))}
+        ariaLabel="화면 탭"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        syncUrl={false}
+      />
       {activeTab === "list" && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded border border-signature bg-signature/10 px-3 py-2 sam-text-body font-medium text-signature hover:bg-signature/20"
-            >
+            <AdminActionButton variant="secondary">
               {t("admin_backup_run_mock")}
-            </button>
+            </AdminActionButton>
             <span className="sam-text-helper text-sam-muted">
               manual / scheduled / pre-release / emergency
             </span>

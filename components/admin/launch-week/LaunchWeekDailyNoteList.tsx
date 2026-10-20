@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getLaunchWeekDailyNotes } from "@/lib/launch-week/launch-week-state";
 import type { LaunchWeekDayNumber } from "@/lib/types/launch-week";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function LaunchWeekDailyNoteList() {
   const { t } = useI18n();
@@ -56,7 +57,7 @@ export function LaunchWeekDailyNoteList() {
                 <span>Day {n.dayNumber}</span>
                 <span>
                   {n.createdByAdminNickname} ·{" "}
-                  {new Date(n.createdAt).toLocaleString()}
+                  {formatAdminManilaDateTime(n.createdAt)}
                 </span>
               </div>
               <p className="mt-2 sam-text-body font-medium text-sam-fg">

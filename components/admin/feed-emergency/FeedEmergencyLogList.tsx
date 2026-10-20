@@ -12,6 +12,7 @@ import {
 } from "@/lib/feed-emergency/feed-emergency-state";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import type { FeedSectionOverrideKey } from "@/lib/types/feed-emergency";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function FeedEmergencyLogList() {
   const { t } = useI18n();
@@ -83,7 +84,7 @@ export function FeedEmergencyLogList() {
                   className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(l.createdAt).toLocaleString("ko-KR")}
+                    {formatAdminManilaDateTime(l.createdAt)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
                     {SURFACE_LABELS[l.surface]}

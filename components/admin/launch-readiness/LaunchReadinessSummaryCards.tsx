@@ -10,6 +10,7 @@ import {
   getAreaLabel,
 } from "@/lib/launch-readiness/launch-readiness-utils";
 import type { LaunchReadinessPhase } from "@/lib/types/launch-readiness";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const PHASE_OPTIONS: { value: LaunchReadinessPhase | ""; label: string }[] = [
   { value: "", label: "전체" },
@@ -31,10 +32,10 @@ export function LaunchReadinessSummaryCards() {
 
   const goClass =
     summary.goLiveRecommendation === "go"
-      ? "text-emerald-700"
+      ? "text-sam-success"
       : summary.goLiveRecommendation === "conditional_go"
-        ? "text-amber-700"
-        : "text-red-700";
+        ? "text-sam-warning"
+        : "text-sam-danger";
 
   return (
     <div className="space-y-4">
@@ -68,7 +69,7 @@ export function LaunchReadinessSummaryCards() {
             {summary.mustHaveReady} / {summary.mustHaveTotal}
           </p>
           {summary.mustHaveReady < summary.mustHaveTotal && (
-            <p className="mt-1 sam-text-helper text-amber-600">{t("admin_launch_readiness_done_2")}</p>
+            <p className="mt-1 sam-text-helper text-sam-warning">{t("admin_launch_readiness_done_2")}</p>
           )}
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -80,10 +81,10 @@ export function LaunchReadinessSummaryCards() {
         <div
           className={`rounded-ui-rect border p-4 ${
             summary.goLiveRecommendation === "no_go"
-              ? "border-red-200 bg-red-50/50"
+              ? "border-sam-danger bg-sam-danger-soft"
               : summary.goLiveRecommendation === "conditional_go"
-                ? "border-amber-200 bg-amber-50/50"
-                : "border-emerald-200 bg-emerald-50/30"
+                ? "border-sam-warning bg-sam-warning-soft"
+                : "border-sam-success bg-sam-success-soft"
           }`}
         >
           <p className="sam-text-helper text-sam-muted">{t("admin_launch_readiness_k91aaa88b")}</p>
@@ -91,7 +92,7 @@ export function LaunchReadinessSummaryCards() {
             {getGoLiveLabel(summary.goLiveRecommendation)}
           </p>
           {summary.blockedCount > 0 && (
-            <p className="mt-1 sam-text-helper text-red-600">
+            <p className="mt-1 sam-text-helper text-sam-danger">
               차단 {summary.blockedCount}건
             </p>
           )}
@@ -119,7 +120,7 @@ export function LaunchReadinessSummaryCards() {
 
       {summary.latestUpdatedAt && (
         <p className="sam-text-helper text-sam-muted">
-          최종 갱신: {new Date(summary.latestUpdatedAt).toLocaleString()}
+          최종 갱신: {formatAdminManilaDateTime(summary.latestUpdatedAt)}
         </p>
       )}
     </div>

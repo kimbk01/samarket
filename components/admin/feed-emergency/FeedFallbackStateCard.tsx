@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getFeedFallbackStates } from "@/lib/feed-emergency/feed-emergency-state";
 import { getFeedMode } from "@/lib/feed-emergency/feed-emergency-utils";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const MODE_LABELS: Record<string, string> = {
   normal: "정상",
@@ -35,9 +36,9 @@ export function FeedFallbackStateCard() {
             key={s.id}
             className={`rounded-ui-rect border p-4 ${
               mode === "kill_switch"
-                ? "border-amber-200 bg-amber-50/50"
+                ? "border-sam-warning bg-sam-warning-soft"
                 : mode === "fallback"
-                  ? "border-emerald-200 bg-emerald-50/50"
+                  ? "border-sam-success bg-sam-success-soft"
                   : "border-sam-border bg-sam-surface"
             }`}
           >
@@ -46,9 +47,9 @@ export function FeedFallbackStateCard() {
               <span
                 className={`rounded px-2 py-0.5 sam-text-helper font-medium ${
                   mode === "kill_switch"
-                    ? "bg-amber-100 text-amber-800"
+                    ? "bg-sam-warning-soft text-sam-warning"
                     : mode === "fallback"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : "bg-sam-surface-muted text-sam-muted"
                 }`}
               >
@@ -74,7 +75,7 @@ export function FeedFallbackStateCard() {
               )}
               <div>
                 <dt className="text-sam-muted">{t("admin_rec_deploy_k2d2acced")}</dt>
-                <dd className="text-sam-muted">{new Date(s.updatedAt).toLocaleString("ko-KR")}</dd>
+                <dd className="text-sam-muted">{formatAdminManilaDateTime(s.updatedAt)}</dd>
               </div>
             </dl>
           </div>

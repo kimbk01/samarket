@@ -8,6 +8,7 @@ import { getLaunchApprovals } from "@/lib/launch-readiness/launch-readiness-stat
 import { AdminTable } from "@/components/admin/AdminTable";
 import { getPhaseLabel } from "@/lib/launch-readiness/launch-readiness-utils";
 import type { LaunchReadinessPhase } from "@/lib/types/launch-readiness";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const ROLE_LABELS: Record<string, string> = {
   product_owner: "PO",
@@ -76,10 +77,10 @@ export function LaunchApprovalTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     a.decision === "approved"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : a.decision === "rejected"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
+                        : "bg-sam-warning-soft text-sam-warning"
                   }`}
                 >
                   {DECISION_LABELS[a.decision] ?? a.decision}
@@ -89,7 +90,7 @@ export function LaunchApprovalTable() {
                 {a.note || "-"}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(a.createdAt).toLocaleString()}
+                {formatAdminManilaDateTime(a.createdAt)}
               </td>
             </tr>
           ))}

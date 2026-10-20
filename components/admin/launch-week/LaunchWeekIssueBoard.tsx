@@ -89,7 +89,7 @@ export function LaunchWeekIssueBoard() {
               className={`border-b border-sam-border-soft ${
                 i.severity === "critical" &&
                 !["resolved", "mitigated"].includes(i.status)
-                  ? "bg-red-50/30"
+                  ? "bg-sam-danger-soft"
                   : ""
               }`}
             >
@@ -106,9 +106,9 @@ export function LaunchWeekIssueBoard() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     i.severity === "critical"
-                      ? "bg-red-100 text-red-800"
+                      ? "bg-sam-danger-soft text-sam-danger"
                       : i.severity === "high"
-                        ? "bg-amber-100 text-amber-800"
+                        ? "bg-sam-warning-soft text-sam-warning"
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
@@ -119,10 +119,10 @@ export function LaunchWeekIssueBoard() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     i.status === "resolved"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : i.status === "open"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
+                        : "bg-sam-warning-soft text-sam-warning"
                   }`}
                 >
                   {getIssueStatusLabel(i.status)}

@@ -11,6 +11,7 @@ import {
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface OpsActionCardProps {
   item: OpsActionItem;
@@ -34,7 +35,7 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
   return (
     <div
       className={`rounded-ui-rect border p-4 ${
-        isOverdue ? "border-red-200 bg-red-50/50" : "border-sam-border bg-sam-surface"
+        isOverdue ? "border-sam-danger bg-sam-danger-soft" : "border-sam-border bg-sam-surface"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -45,7 +46,7 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
             <span>{t(opsToolsLabel(OPS_TOOLS_ACTION_SOURCE_KEYS, item.sourceType))}</span>
             <span>{t(opsToolsLabel(OPS_TOOLS_PRIORITY_KEYS, item.priority))}</span>
             {item.dueDate && (
-              <span className={isOverdue ? "font-medium text-red-600" : ""}>
+              <span className={isOverdue ? "font-medium text-sam-danger" : ""}>
                 {t("admin_ops_tools_board_due", { date: item.dueDate })}
                 {isOverdue ? t("admin_ops_tools_board_overdue_suffix") : ""}
               </span>
@@ -58,9 +59,9 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
         <span
           className={`shrink-0 rounded px-2 py-0.5 sam-text-helper ${
             item.status === "done"
-              ? "bg-emerald-50 text-emerald-800"
+              ? "bg-sam-success-soft text-sam-success"
               : item.status === "in_progress"
-                ? "bg-amber-50 text-amber-800"
+                ? "bg-sam-warning-soft text-sam-warning"
                 : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
@@ -69,20 +70,20 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
       </div>
       {item.status !== "done" && item.status !== "archived" && (
         <div className="mt-3 flex gap-2">
-          <button
-            type="button"
+          <AdminActionButton
+            variant="secondary"
+            size="sm"
             onClick={() => handleStatusChange("in_progress")}
-            className="rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-helper text-amber-800"
           >
             {t("admin_ops_tools_board_btn_progress")}
-          </button>
-          <button
-            type="button"
+          </AdminActionButton>
+          <AdminActionButton
+            variant="secondary"
+            size="sm"
             onClick={() => handleStatusChange("done")}
-            className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 sam-text-helper text-emerald-800"
           >
             {t("admin_ops_tools_board_btn_complete")}
-          </button>
+          </AdminActionButton>
         </div>
       )}
     </div>

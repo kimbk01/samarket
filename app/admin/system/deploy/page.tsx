@@ -7,7 +7,11 @@ import {
   type DeployOpsPayload,
 } from "@/components/admin/deploy/AdminDeployOpsPanels";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { Sam } from "@/lib/ui/css-vars";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { adminStatusLabelText } from "@/lib/admin/status-labels/admin-status-label-registry";
+import "@/lib/admin/status-labels/pr3-system-a-status-labels";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
@@ -116,7 +120,13 @@ function shortSha(sha: string | null | undefined): string {
 
 function formatAt(iso: string | null | undefined): string {
   if (!iso) return "—";
-  return iso.slice(0, 19).replace("T", " ");
+  return formatAdminManilaDateTime(iso);
+}
+
+/** 오류 코드(첫 구간)는 오류 맵 문구로, 서버 안내 문장(나머지)은 그대로. */
+function deployErrorText(error: string, ko: boolean): string {
+  const [code, ...rest] = error.split(" — ");
+  return [adminOperatorErrorMessage(code, ko), ...rest].join(" — ");
 }
 
 export default function AdminSystemDeployPage() {
@@ -360,7 +370,7 @@ export default function AdminSystemDeployPage() {
 
     const nextGates = !isOwner
       ? safeT("admin_deploy_next_owner", {
-          fallbackKo: "지정 담당자로 로그인한 뒤 다시 시도하세요.",
+          fallbackKo: "지정 담당자로 로그인한 뒤 진행하세요.",
           fallbackEn: "Sign in as the designated Owner and retry.",
         })
       : gatesOk
@@ -798,15 +808,15 @@ export default function AdminSystemDeployPage() {
   const statusColor = (kind: OwnerStatusKind) => {
     switch (kind) {
       case "done":
-        return "text-green-700";
+        return "text-sam-success";
       case "running":
-        return "text-amber-700";
+        return "text-sam-warning";
       case "waiting":
-        return "text-blue-700";
+        return "text-sam-info";
       case "failed":
-        return "text-red-700";
+        return "text-sam-danger";
       case "blocked":
-        return "text-amber-900";
+        return "text-sam-warning";
       default:
         return "text-sam-muted";
     }
@@ -818,13 +828,13 @@ export default function AdminSystemDeployPage() {
         <div className="flex flex-wrap items-center gap-2">
           {isTestSurface ? (
             <>
-              <span className="rounded-full bg-amber-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+              <span className="rounded-full bg-sam-warning px-2.5 py-0.5 text-xs font-semibold text-white">
                 {safeT("admin_deploy_env_badge", {
                   fallbackKo: "테스트 환경",
                   fallbackEn: "Test environment",
                 })}
               </span>
-              <span className="rounded-full border border-amber-500/50 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-900">
+              <span className="rounded-full border border-sam-warning bg-sam-warning-soft px-2.5 py-0.5 text-xs font-medium text-sam-fg">
                 {safeT("admin_deploy_env_data_badge", {
                   fallbackKo: "테스트 데이터",
                   fallbackEn: "Test data",
@@ -833,7 +843,7 @@ export default function AdminSystemDeployPage() {
             </>
           ) : null}
         </div>
-        <h1 className="text-lg font-semibold text-sam-fg">
+        <h1 className="text-[16px] font-semibold text-sam-fg">
           {t("admin_menu_system_deploy")}
         </h1>
         <p className="text-sm text-sam-muted">
@@ -877,18 +887,18 @@ export default function AdminSystemDeployPage() {
       </section>
 
       {error ? (
-        <div className="rounded-ui-rect border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {error}
+        <div className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-sm text-sam-fg" role="alert">
+          {deployErrorText(error, language !== "en")}
         </div>
       ) : null}
       {successHint ? (
-        <div className="rounded-ui-rect border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
+        <div className="rounded-ui-rect border border-sam-success bg-sam-success-soft px-3 py-2 text-sm text-sam-fg">
           {successHint}
         </div>
       ) : null}
 
       {promoteBlocked ? (
-        <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg">
           <p>
             {safeT("admin_deploy_promote_optional_hint", {
               fallbackKo:
@@ -902,7 +912,7 @@ export default function AdminSystemDeployPage() {
               ? status?.productionExecution.promote.messageEn
               : status?.productionExecution.promote.messageKo}
           </p>
-          <span className="mt-1 block text-xs text-amber-800/80">
+          <span className="mt-1 block text-xs text-sam-muted">
             {safeT("admin_deploy_version_hint", {
               fallbackKo: "기술 식별자(SHA)",
               fallbackEn: "Technical id (SHA)",
@@ -942,9 +952,8 @@ export default function AdminSystemDeployPage() {
             })}
           </h2>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={Sam.btn.secondary}
+            <AdminActionButton
+              variant="secondary"
               disabled={busy}
               onClick={() => {
                 setSuccessHint(null);
@@ -955,10 +964,9 @@ export default function AdminSystemDeployPage() {
                 fallbackKo: "검증 결과 새로고침",
                 fallbackEn: "Refresh results",
               })}
-            </button>
-            <button
-              type="button"
-              className={Sam.btn.secondary}
+            </AdminActionButton>
+            <AdminActionButton
+              variant="secondary"
               disabled={busy}
               onClick={() => {
                 setSuccessHint(null);
@@ -969,7 +977,7 @@ export default function AdminSystemDeployPage() {
                 fallbackKo: "테스트 배포 상태 확인",
                 fallbackEn: "Check TEST deploy status",
               })}
-            </button>
+            </AdminActionButton>
           </div>
         </div>
         <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
@@ -981,7 +989,7 @@ export default function AdminSystemDeployPage() {
               })}
             </dt>
             <dd className="text-sam-fg">{shortSha(runtimeSha)}</dd>
-            <dd className="mt-0.5 break-all font-mono text-[11px] text-sam-muted">
+            <dd className="mt-0.5 break-all font-mono text-[12px] text-sam-muted">
               {runtimeSha ?? "—"}
             </dd>
           </div>
@@ -1011,7 +1019,7 @@ export default function AdminSystemDeployPage() {
             <dd className="text-sam-fg">
               {status?.databaseTarget ?? "—"}
               {status?.projectRef ? (
-                <span className="mt-0.5 block font-mono text-[11px] text-sam-muted">
+                <span className="mt-0.5 block font-mono text-[12px] text-sam-muted">
                   {status.projectRef}
                 </span>
               ) : null}
@@ -1132,7 +1140,7 @@ export default function AdminSystemDeployPage() {
                     })}
                     :{" "}
                   </dt>
-                  <dd className="inline font-mono text-[11px] text-sam-fg">{row.evidence}</dd>
+                  <dd className="inline font-mono text-[12px] text-sam-fg">{row.evidence}</dd>
                 </div>
               </dl>
             </li>
@@ -1148,9 +1156,8 @@ export default function AdminSystemDeployPage() {
               fallbackEn: "Required check results",
             })}
           </h2>
-          <button
-            type="button"
-            className={Sam.btn.secondary}
+          <AdminActionButton
+            variant="secondary"
             disabled={busy || !runtimeSha || !isOwner}
             onClick={() => setConfirmOpen("gates")}
           >
@@ -1160,7 +1167,7 @@ export default function AdminSystemDeployPage() {
                   fallbackKo: "필수 점검 실행",
                   fallbackEn: "Run required checks",
                 })}
-          </button>
+          </AdminActionButton>
         </div>
         <ul className="space-y-2 text-sm">
           {(status?.evidenceMatrix?.matrix ?? []).length === 0 ? (
@@ -1174,14 +1181,14 @@ export default function AdminSystemDeployPage() {
                 <span className="text-sam-fg">
                   {gateLabel(row.gateId)}
                   {row.required ? " *" : ""}
-                  <span className="ml-2 font-mono text-[10px] text-sam-muted">{row.gateId}</span>
+                  <span className="ml-2 font-mono text-[12px] text-sam-muted">{row.gateId}</span>
                 </span>
                 <span
                   className={
                     row.result === "pass"
-                      ? "text-green-700"
+                      ? "text-sam-success"
                       : row.result === "fail"
-                        ? "text-red-700"
+                        ? "text-sam-danger"
                         : "text-sam-muted"
                   }
                 >
@@ -1204,9 +1211,8 @@ export default function AdminSystemDeployPage() {
       </section>
 
       <section className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={Sam.btn.secondary}
+        <AdminActionButton
+          variant="secondary"
           disabled={busy || !runtimeSha || !isOwner || !gatesOk || verified}
           onClick={() => setConfirmOpen("verify")}
         >
@@ -1214,10 +1220,9 @@ export default function AdminSystemDeployPage() {
             fallbackKo: "검증 완료",
             fallbackEn: "Mark verified",
           })}
-        </button>
-        <button
-          type="button"
-          className={Sam.btn.secondary}
+        </AdminActionButton>
+        <AdminActionButton
+          variant="secondary"
           disabled={busy || !runtimeSha || !isOwner || !verified}
           onClick={() => setConfirmOpen("cancel")}
         >
@@ -1225,10 +1230,9 @@ export default function AdminSystemDeployPage() {
             fallbackKo: "검증 취소",
             fallbackEn: "Cancel verified",
           })}
-        </button>
-        <button
-          type="button"
-          className={Sam.btn.secondary}
+        </AdminActionButton>
+        <AdminActionButton
+          variant="secondary"
           disabled={busy || !runtimeSha || !isOwner}
           onClick={() => setConfirmOpen("mock")}
         >
@@ -1236,7 +1240,7 @@ export default function AdminSystemDeployPage() {
             fallbackKo: "모의 배포 실행",
             fallbackEn: "Run mock deploy",
           })}
-        </button>
+        </AdminActionButton>
       </section>
 
       <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -1261,7 +1265,7 @@ export default function AdminSystemDeployPage() {
               <li key={id} className="flex justify-between gap-2 text-sm">
                 <span>
                   {stageLabel(id)}
-                  <span className="ml-2 font-mono text-[10px] text-sam-muted">{id}</span>
+                  <span className="ml-2 font-mono text-[12px] text-sam-muted">{id}</span>
                 </span>
                 <span className={statusColor(state === "pass" ? "done" : state === "fail" ? "failed" : "incomplete")}>
                   {stateLabel}
@@ -1308,9 +1312,8 @@ export default function AdminSystemDeployPage() {
           />
         </label>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={Sam.btn.primary}
+          <AdminActionButton
+            variant="primary"
             disabled={
               busy ||
               promoteBlocked ||
@@ -1327,10 +1330,9 @@ export default function AdminSystemDeployPage() {
               fallbackKo: "실제 운영에 적용",
               fallbackEn: "Apply to production",
             })}
-          </button>
-          <button
-            type="button"
-            className={Sam.btn.secondary}
+          </AdminActionButton>
+          <AdminActionButton
+            variant="secondary"
             disabled={busy || rollbackBlocked || !isOwner || !runtimeSha}
             onClick={() => setConfirmOpen("rollback")}
           >
@@ -1338,7 +1340,7 @@ export default function AdminSystemDeployPage() {
               fallbackKo: "이전 정상 버전으로 복구",
               fallbackEn: "Rollback to last good",
             })}
-          </button>
+          </AdminActionButton>
         </div>
         {promoteBlocked ? (
           <p className="text-xs text-sam-muted">
@@ -1369,7 +1371,7 @@ export default function AdminSystemDeployPage() {
                 {" · "}
                 <span className="font-mono">{shortSha(r.sha)}</span>
                 {" · "}
-                {r.label}
+                {adminStatusLabelText("pr3-system-a.deploy-history", r.label, language !== "en")}
                 {r.detail ? ` · ${r.detail}` : ""}
               </li>
             ))
@@ -1461,17 +1463,15 @@ export default function AdminSystemDeployPage() {
               </div>
             </dl>
             <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                className={Sam.btn.secondary}
+              <AdminActionButton
+                variant="secondary"
                 disabled={busy}
                 onClick={() => setConfirmOpen(null)}
               >
                 {safeT("admin_deploy_dialog_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
-              </button>
-              <button
-                type="button"
-                className={Sam.btn.primary}
+              </AdminActionButton>
+              <AdminActionButton
+                variant="primary"
                 disabled={busy}
                 onClick={() => {
                   if (confirmOpen === "gates") void runRequiredGates();
@@ -1482,8 +1482,11 @@ export default function AdminSystemDeployPage() {
                   else void rollback();
                 }}
               >
-                {safeT("admin_deploy_dialog_ok", { fallbackKo: "확인", fallbackEn: "Confirm" })}
-              </button>
+                {safeT(confirmMeta.actionKey, {
+                  fallbackKo: confirmMeta.actionKo,
+                  fallbackEn: confirmMeta.actionEn,
+                })}
+              </AdminActionButton>
             </div>
           </div>
         </div>

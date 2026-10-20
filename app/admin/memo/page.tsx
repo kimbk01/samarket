@@ -63,12 +63,12 @@ export default function AdminMemoPage() {
       <MemoList items={MANUAL_DURING_TEST} sectionTitleKey="admin_memo_section_manual" />
       <MemoList items={BEFORE_PRODUCTION} sectionTitleKey="admin_memo_section_before_prod" />
 
-      <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">
+      <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-fg">
         <p className="font-medium">{tr("admin_memo_apply_how_title")}</p>
-        <ul className="mt-1 list-inside list-disc space-y-0.5 text-amber-700">
+        <ul className="mt-1 list-inside list-disc space-y-0.5 text-sam-muted">
           <li>
             {tr("admin_memo_apply_li_edit_before")}
-            <code className="rounded bg-amber-100 px-1">lib/admin/production-memo.ts</code>
+            <code className="rounded bg-sam-surface-muted px-1">lib/admin/production-memo.ts</code>
             {tr("admin_memo_apply_li_edit_after")}
           </li>
           <li>{tr("admin_memo_apply_li_done")}</li>

@@ -15,6 +15,7 @@ import type {
   LaunchWeekDayNumber,
   LaunchWeekChecklistStatus,
 } from "@/lib/types/launch-week";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function LaunchWeekChecklistTable() {
   const { t } = useI18n();
@@ -84,7 +85,7 @@ export function LaunchWeekChecklistTable() {
             <tr
               key={i.id}
               className={`border-b border-sam-border-soft ${
-                i.status === "blocked" ? "bg-red-50/30" : ""
+                i.status === "blocked" ? "bg-sam-danger-soft" : ""
               }`}
             >
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
@@ -100,10 +101,10 @@ export function LaunchWeekChecklistTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     i.status === "done"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : i.status === "blocked"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
+                        : "bg-sam-warning-soft text-sam-warning"
                   }`}
                 >
                   {getChecklistStatusLabel(i.status)}
@@ -120,7 +121,7 @@ export function LaunchWeekChecklistTable() {
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {i.checkedAt
-                  ? new Date(i.checkedAt).toLocaleString()
+                  ? formatAdminManilaDateTime(i.checkedAt)
                   : "-"}
               </td>
             </tr>

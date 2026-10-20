@@ -46,7 +46,7 @@ export function AutomationRulesTable() {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     r.isActive
-                      ? "bg-emerald-50 text-emerald-700"
+                      ? "bg-sam-success-soft text-sam-success"
                       : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >

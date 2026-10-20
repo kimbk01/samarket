@@ -10,6 +10,8 @@ import {
   OPS_TOOLS_NODE_TYPE_KEYS,
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 interface OpsGraphDetailPanelProps {
   nodeId: string | null;
@@ -17,7 +19,7 @@ interface OpsGraphDetailPanelProps {
 }
 
 export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const node = useMemo(
     () => (nodeId ? getOpsKnowledgeGraphNodeById(nodeId) : null),
     [nodeId]
@@ -49,13 +51,9 @@ export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProp
       <div className="flex items-start justify-between gap-2">
         <h3 className="sam-text-body font-medium text-sam-fg">{node.title}</h3>
         {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-sam-meta hover:text-sam-muted"
-          >
+          <AdminActionButton variant="quiet" size="sm" onClick={onClose} aria-label={adminCta("close", language !== "en")}>
             ×
-          </button>
+          </AdminActionButton>
         )}
       </div>
       <p className="mt-1 sam-text-helper text-sam-muted">

@@ -20,7 +20,7 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
   return (
     <div
       className={`rounded-ui-rect border p-4 ${
-        isBlocked ? "border-red-200 bg-red-50/50" : "border-sam-border bg-sam-surface"
+        isBlocked ? "border-sam-danger bg-sam-danger-soft" : "border-sam-border bg-sam-surface"
       }`}
     >
       <div className="flex flex-wrap items-center gap-1.5 sam-text-helper text-sam-muted">
@@ -40,11 +40,11 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
         <span
           className={`rounded px-1.5 py-0.5 ${
             isBlocked
-              ? "bg-red-100 text-red-800"
+              ? "bg-sam-danger-soft text-sam-danger"
               : item.status === "done"
-                ? "bg-emerald-50 text-emerald-700"
+                ? "bg-sam-success-soft text-sam-success"
                 : item.status === "in_progress" || item.status === "review"
-                  ? "bg-blue-50 text-blue-700"
+                  ? "bg-sam-info-soft text-sam-info"
                   : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
@@ -53,7 +53,7 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
         {item.ownerName && <span className="text-sam-muted">{item.ownerName}</span>}
       </div>
       {item.blockerReason && (
-        <p className="mt-2 sam-text-helper font-medium text-red-700">
+        <p className="mt-2 sam-text-helper font-medium text-sam-danger">
           {t("admin_dev_sprint_blocker_prefix")} {item.blockerReason}
         </p>
       )}

@@ -104,7 +104,7 @@ export function DevSprintItemTable() {
               <tr
                 key={i.id}
                 className={`border-b border-sam-border-soft ${
-                  i.status === "blocked" ? "bg-red-50/30" : ""
+                  i.status === "blocked" ? "bg-sam-danger-soft" : ""
                 }`}
               >
                 <td className="px-3 py-2.5 font-medium text-sam-fg">{i.title}</td>
@@ -115,9 +115,9 @@ export function DevSprintItemTable() {
                   <span
                     className={`rounded px-1.5 py-0.5 sam-text-helper ${
                       i.status === "blocked"
-                        ? "bg-red-100 text-red-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
                         : i.status === "done"
-                          ? "bg-emerald-50 text-emerald-700"
+                          ? "bg-sam-success-soft text-sam-success"
                           : "bg-sam-surface-muted text-sam-muted"
                     }`}
                   >
@@ -130,7 +130,7 @@ export function DevSprintItemTable() {
                 <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {getSprintItemOwnerTypeLabel(t, i.ownerType)} {i.ownerName}
                 </td>
-                <td className="px-3 py-2.5 sam-text-body-secondary text-red-600">
+                <td className="px-3 py-2.5 sam-text-body-secondary text-sam-danger">
                   {i.blockerReason ?? "-"}
                 </td>
                 <td className="px-3 py-2.5 sam-text-body-secondary">
