@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { renderReceiptImage, shareOrSaveReceiptImage } from "@/lib/mypage/store-order-receipt-image";
 
 export type StoreOrderReceiptLine = { id: string; title: string; qty: number; subtotal: number };
 
@@ -60,14 +61,32 @@ export function StoreOrderReceiptSheet({
     t("mypage_receipt_not_tax_receipt"),
   ].join("\n");
 
+  /** 이미지(파일 공유 지원 시 공유 시트) → 파일 공유 미지원 + 글 공유 지원(앱 WebView 등)이면 글 → 그 외 PNG 내려받기 */
   const share = async () => {
     try {
-      if (typeof navigator.share === "function") {
-        await navigator.share({ title: t("mypage_receipt_title"), text: shareText });
+      const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+      const blob = await renderReceiptImage([
+        { kind: "title", text: t("mypage_receipt_title") },
+        { kind: "text", text: data.storeName },
+        ...data.storeAddressLines.map((line) => ({ kind: "text" as const, text: line, muted: true })),
+        { kind: "text", text: `${t("mypage_receipt_order_no")} ${data.orderNo}`, muted: true },
+        { kind: "text", text: `${t("mypage_receipt_ordered_at")} ${data.orderedAt}`, muted: true },
+        { kind: "divider" },
+        ...data.lines.map((l) => ({ kind: "row" as const, left: `${l.title} ×${l.qty}`, right: formatMoneyPhp(l.subtotal) })),
+        { kind: "divider" },
+        ...rows.map(([k, v]) => ({ kind: "row" as const, left: k, right: v })),
+        { kind: "row", left: t("mypage_comp_grand_total"), right: formatMoneyPhp(data.paymentAmount), bold: true },
+        { kind: "gap" },
+        { kind: "text", text: t("mypage_receipt_not_tax_receipt"), muted: true },
+      ]);
+      const fileName = `dibay-order-${data.orderNo.replace(/[^A-Za-z0-9_-]/g, "") || "receipt"}.png`;
+      const probe = new File([blob], fileName, { type: "image/png" });
+      if (typeof nav.share === "function" && !nav.canShare?.({ files: [probe] })) {
+        await nav.share({ title: t("mypage_receipt_title"), text: shareText });
         return;
       }
-      await navigator.clipboard.writeText(shareText);
-      showMypageToast(t("mypage_receipt_copied"));
+      const how = await shareOrSaveReceiptImage(blob, fileName, t("mypage_receipt_title"));
+      if (how === "saved") showMypageToast(t("mypage_receipt_saved"));
     } catch (e) {
       if ((e as { name?: string })?.name === "AbortError") return;
       showMypageToast(t("mypage_receipt_share_failed"), "error");

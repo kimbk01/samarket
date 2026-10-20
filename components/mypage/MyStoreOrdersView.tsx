@@ -617,8 +617,10 @@ export function MyStoreOrdersView({
     | { kind: "loading" }
     | { kind: "unauth" }
     | { kind: "error"; message: string }
-    | { kind: "ok"; orders: OrderRow[] }
+    | { kind: "ok"; orders: OrderRow[]; nextCursor: string | null; extraPages: boolean }
   >({ kind: "loading" });
+  const [moreBusy, setMoreBusy] = useState(false);
+  const [moreError, setMoreError] = useState(false);
 
   const load = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
@@ -650,13 +652,61 @@ export function MyStoreOrdersView({
           }
           return;
         }
-        setState({ kind: "ok", orders: (data.orders ?? []) as OrderRow[] });
+        const firstPage = (data.orders ?? []) as OrderRow[];
+        const firstCursor = typeof (data as { next_cursor?: unknown }).next_cursor === "string"
+          ? ((data as { next_cursor: string }).next_cursor)
+          : null;
+        setState((prev) => {
+          // 조용한 새로고침(실시간·복귀) 때 이미 더 불러온 주문은 유지 — 첫 페이지만 최신으로 교체
+          if (silent && prev.kind === "ok" && prev.extraPages) {
+            const ids = new Set(firstPage.map((o) => o.id));
+            return {
+              kind: "ok",
+              orders: [...firstPage, ...prev.orders.filter((o) => !ids.has(o.id))],
+              nextCursor: prev.nextCursor,
+              extraPages: true,
+            };
+          }
+          return { kind: "ok", orders: firstPage, nextCursor: firstCursor, extraPages: false };
+        });
       } catch {
         if (!silent) setState({ kind: "error", message: "network_error" });
       }
     },
     []
   );
+
+  /** 더 보기 — 주문이 100건을 넘는 회원 (v2.1 커서 페이지네이션) */
+  const loadMore = useCallback(async () => {
+    if (state.kind !== "ok" || !state.nextCursor || moreBusy) return;
+    const cursor = state.nextCursor;
+    setMoreBusy(true);
+    setMoreError(false);
+    try {
+      const res = await fetch(`/api/me/store-orders?cursor=${encodeURIComponent(cursor)}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; orders?: unknown; next_cursor?: unknown };
+      if (!res.ok || !json.ok) throw new Error("load_more_failed");
+      const page = (json.orders ?? []) as OrderRow[];
+      const next = typeof json.next_cursor === "string" ? json.next_cursor : null;
+      setState((prev) => {
+        if (prev.kind !== "ok") return prev;
+        const ids = new Set(prev.orders.map((o) => o.id));
+        return {
+          kind: "ok",
+          orders: [...prev.orders, ...page.filter((o) => !ids.has(o.id))],
+          nextCursor: next,
+          extraPages: true,
+        };
+      });
+    } catch {
+      setMoreError(true);
+    } finally {
+      setMoreBusy(false);
+    }
+  }, [state, moreBusy]);
 
   useSupabaseBuyerStoreOrdersRealtime({
     debounceMs: 400,
@@ -1007,6 +1057,19 @@ export function MyStoreOrdersView({
                 ))}
               </ul>
             )}
+            {state.nextCursor ? (
+              <div className="mt-3 flex flex-col items-center gap-2" data-store-orders-load-more="1">
+                {moreError ? <p className="text-sm text-sam-muted">{t("mypage_orders_load_more_failed")}</p> : null}
+                <button
+                  type="button"
+                  disabled={moreBusy}
+                  onClick={() => void loadMore()}
+                  className="sam-btn sam-btn--secondary sam-btn--sm disabled:opacity-60"
+                >
+                  {moreBusy ? t("common_loading") : moreError ? t("common_retry") : t("mypage_orders_load_more")}
+                </button>
+              </div>
+            ) : null}
           </>
         ) : null}
       </div>

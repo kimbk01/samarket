@@ -126,7 +126,7 @@ function normalizeOrderLineItem(raw: unknown): StoreOrderLineInput | null {
   return { product_id, qty, wire, line_note, client_unit_php };
 }
 
-/** 구매자: 매장 주문 목록 — `?limit=` (1~100, 기본 100) 로 홈 미리보기 등 부분 로드 */
+/** 구매자: 매장 주문 목록 — `?limit=` (1~100, 기본 100) 로 홈 미리보기 등 부분 로드, `?cursor=` 다음 페이지 */
 export async function GET(req: NextRequest) {
   const buyerId = await getRouteUserId();
   if (!buyerId) {
@@ -162,10 +162,13 @@ export async function GET(req: NextRequest) {
     req.nextUrl.searchParams.get("buyerOrdersListBypass") === "1" &&
     process.env.NODE_ENV === "development";
 
+  /** 더 보기 — 이전 응답의 `next_cursor` (`created_at|id`) */
+  const cursor = req.nextUrl.searchParams.get("cursor")?.trim() || undefined;
+
   const snap = await tryLoadBuyerStoreOrdersListFromSnapshot(
     sb as SupabaseClient<any>,
     buyerId,
-    { limit: rowLimit, bypassCounter: fresh || buyerOrdersListBypass }
+    { limit: rowLimit, cursor, bypassCounter: fresh || buyerOrdersListBypass }
   );
 
   if (snap && "body" in snap) {
