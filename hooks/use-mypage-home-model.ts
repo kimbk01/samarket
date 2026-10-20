@@ -29,8 +29,11 @@ import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime
 import { bumpMypageMountGeneration } from "@/lib/runtime/mypage-network-markers";
 import { cancelPendingOwnerLiteAutoHydrate } from "@/lib/stores/owner-lite-external-store";
 
-/** Local user present but profile API failed — do not leave 「확인 중」 forever. */
-export type MypageHomeProfilePhase = "pending" | "ready" | "needs_relogin";
+/**
+ * Local user present but profile API failed — do not leave 「확인 중」 forever.
+ * `needs_relogin` = 401/403 만. `error` = 5xx·네트워크 등 일시 장애 (기존 projection 유지 + 재시도).
+ */
+export type MypageHomeProfilePhase = "pending" | "ready" | "needs_relogin" | "error";
 
 /**
  * Address status for root summary — one address-defaults read max.
@@ -94,6 +97,8 @@ export function useMypageHomeModel(enabled: boolean) {
     }
 
     const gen = ++refreshGenRef.current;
+    // 재시도 시 오류 카드 → 확인 중으로 전환
+    setProfilePhase((prev) => (prev === "error" ? "pending" : prev));
     const run = (async () => {
       try {
         const [profileResult, addressStatus] = await Promise.all([
@@ -104,9 +109,14 @@ export function useMypageHomeModel(enabled: boolean) {
         const currentViewer = getCurrentUser()?.id?.trim() ?? "";
         if (!currentViewer || currentViewer !== viewerId) return;
         if (!profileResult.ok) {
-          clearMypageHomeStore();
-          // Local session still claims a user — recover via re-login, not endless checking.
-          setProfilePhase("needs_relogin");
+          if (profileResult.kind === "unauthenticated") {
+            clearMypageHomeStore();
+            // 401/403 — 실제 인증 실패만 재로그인
+            setProfilePhase("needs_relogin");
+            return;
+          }
+          // 5xx·네트워크 등 — 보이는 projection 유지, 재시도 UX
+          setProfilePhase("error");
           return;
         }
         const profile = profileResult.profile;
@@ -116,7 +126,14 @@ export function useMypageHomeModel(enabled: boolean) {
           return;
         }
         setMypageHomeProjection(projectionFromProfile(profile, addressStatus));
-        setProfilePhase("ready");
+        // 주소 조회 실패(unknown)면 확인 중 고착 대신 재시도 가능 상태
+        setProfilePhase(addressStatus === "unknown" ? "error" : "ready");
+      } catch {
+        if (gen !== refreshGenRef.current) return;
+        const currentViewer = getCurrentUser()?.id?.trim() ?? "";
+        if (!currentViewer || currentViewer !== viewerId) return;
+        // 네트워크 예외 — projection 은 지우지 않음
+        setProfilePhase("error");
       } finally {
         if (inflightRef.current) inflightRef.current = null;
       }
@@ -209,5 +226,6 @@ export function useMypageHomeModel(enabled: boolean) {
     hasSnapshot: Boolean(projection),
     profilePhase,
     needsRelogin: profilePhase === "needs_relogin",
+    loadFailed: profilePhase === "error",
   };
 }

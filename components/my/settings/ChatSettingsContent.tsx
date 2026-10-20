@@ -24,6 +24,7 @@ export function ChatSettingsContent() {
   const [tradePresence, setTradePresence] = useState<TradePresenceSettings | null>(null);
   const [tradePresenceErr, setTradePresenceErr] = useState<string | null>(null);
   const [tradePresenceSaving, setTradePresenceSaving] = useState(false);
+  const [tradePresenceReloadKey, setTradePresenceReloadKey] = useState(0);
 
   const refresh = useCallback(() => setSettings(getUserSettings(userId)), [userId]);
   useEffect(() => {
@@ -41,7 +42,10 @@ export function ChatSettingsContent() {
         const r = await runSingleFlight("me:trade-presence:get", () =>
           fetch("/api/me/trade-presence", { credentials: "include" })
         );
-        const j = (await r.json()) as {
+        const j = (await r
+          .clone()
+          .json()
+          .catch(() => ({}))) as {
           ok?: boolean;
           settings?: {
             showOnline?: boolean;
@@ -49,8 +53,10 @@ export function ChatSettingsContent() {
             audience?: string;
           };
         };
-        if (cancelled || !j.ok || !j.settings) {
-          if (!cancelled && j.ok === false) setTradePresenceErr(t("settings_trade_presence_load_failed"));
+        if (cancelled) return;
+        // HTTP 실패·ok 누락·settings 누락 모두 오류 처리 (로딩 문구에 갇히지 않게)
+        if (!r.ok || j.ok !== true || !j.settings) {
+          setTradePresenceErr(t("settings_trade_presence_load_failed"));
           return;
         }
         setTradePresenceErr((prev) => (prev === null ? prev : null));
@@ -68,7 +74,7 @@ export function ChatSettingsContent() {
     return () => {
       cancelled = true;
     };
-  }, [userId, t]);
+  }, [userId, t, tradePresenceReloadKey]);
 
   const toggle = (key: "chat_push_enabled" | "chat_preview_enabled") => {
     const v = settings[key];
@@ -150,6 +156,18 @@ export function ChatSettingsContent() {
         <p className="sam-text-body font-semibold text-sam-fg">{t("settings_trade_presence_title")}</p>
         <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">{t("settings_trade_presence_desc")}</p>
         {tradePresenceErr ? <p className="mt-2 sam-text-helper text-sam-danger">{tradePresenceErr}</p> : null}
+        {tradePresenceErr && !tradePresence ? (
+          <button
+            type="button"
+            className="sam-btn sam-btn--secondary sam-btn--sm mt-2"
+            onClick={() => {
+              setTradePresenceErr(null);
+              setTradePresenceReloadKey((k) => k + 1);
+            }}
+          >
+            {t("common_retry")}
+          </button>
+        ) : null}
         {tradePresence ? (
           <div className="mt-3 space-y-3">
             <div className="flex items-center justify-between gap-2">

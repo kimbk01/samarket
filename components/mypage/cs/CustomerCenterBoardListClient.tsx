@@ -53,17 +53,21 @@ export function CustomerCenterBoardListClient({
 }: {
   contentType: CustomerCenterContentType;
 }) {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const [items, setItems] = useState<BoardListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const boardLabel = BOARD_LABEL[contentType][lang];
 
   useEffect(() => {
     let cancelled = false;
+    // 재조회 시작 시 이전 오류 초기화
+    setError(null);
+    setLoading(true);
     void (async () => {
       try {
         const res = await runSingleFlight(`me:cc:board:${contentType}`, () =>
@@ -89,6 +93,7 @@ export function CustomerCenterBoardListClient({
           );
           return;
         }
+        setError(null);
         setItems(Array.isArray(json.notices) ? json.notices : []);
       } catch {
         if (!cancelled) {
@@ -106,7 +111,7 @@ export function CustomerCenterBoardListClient({
     return () => {
       cancelled = true;
     };
-  }, [contentType, safeT]);
+  }, [contentType, safeT, reloadKey]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -179,7 +184,16 @@ export function CustomerCenterBoardListClient({
               })}
             </p>
           ) : error ? (
-            <p className={`py-12 text-center ${CC_BODY_CLASS} text-red-600`}>{error}</p>
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
+              <p className={`${CC_BODY_CLASS} text-red-600`}>{error}</p>
+              <button
+                type="button"
+                className="sam-btn sam-btn--secondary sam-btn--sm"
+                onClick={() => setReloadKey((k) => k + 1)}
+              >
+                {t("common_retry")}
+              </button>
+            </div>
           ) : filtered.length === 0 ? (
             <p className={`py-12 text-center ${CC_BODY_CLASS} text-[#8F9D95]`}>
               {safeT("settings_notices_empty", {

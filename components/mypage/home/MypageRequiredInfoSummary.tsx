@@ -105,11 +105,15 @@ function ControlRow({
  */
 export function MypageRequiredInfoSummary({
   projection,
+  onProfileRefresh,
+  loadFailed = false,
 }: {
   projection: MypageHomeProjection | null;
   onProfileRefresh?: () => void;
+  /** 조회 실패 — 「확인 중」 고착 대신 오류 + 재시도 */
+  loadFailed?: boolean;
 }) {
-  const { safeT } = useI18n();
+  const { safeT, t } = useI18n();
   const router = useRouter();
   const { openSheet } = useMypageProfileSheets();
   const profile = projection?.profile ?? null;
@@ -130,7 +134,7 @@ export function MypageRequiredInfoSummary({
       <section
         className={`${MYPAGE_HOME_CARD_CLASS} mt-1 w-full self-start`}
         data-testid="mypage-account-control-card"
-        data-state="checking"
+        data-state={loadFailed ? "error" : "checking"}
       >
         <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-2.5`}>
           <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
@@ -139,12 +143,29 @@ export function MypageRequiredInfoSummary({
               fallbackEn: "Account & verification",
             })}
           </h2>
-          <p className="text-[13px] leading-snug text-sam-muted">
-            {safeT("mypage_account_control_checking_desc", {
-              fallbackKo: "계정 정보를 확인하고 있습니다.",
-              fallbackEn: "Checking account info.",
-            })}
-          </p>
+          {loadFailed ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[13px] leading-snug text-sam-muted">
+                {t("mypage_account_control_load_failed")}
+              </p>
+              {onProfileRefresh ? (
+                <button
+                  type="button"
+                  className="sam-btn sam-btn--secondary sam-btn--sm"
+                  onClick={onProfileRefresh}
+                >
+                  {t("common_retry")}
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-[13px] leading-snug text-sam-muted">
+              {safeT("mypage_account_control_checking_desc", {
+                fallbackKo: "계정 정보를 확인하고 있습니다.",
+                fallbackEn: "Checking account info.",
+              })}
+            </p>
+          )}
         </div>
       </section>
     );

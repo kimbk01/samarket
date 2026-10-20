@@ -45,8 +45,11 @@ async function fetchCoupons(signal: AbortSignal): Promise<CouponFetchResult> {
     markCommerceHubFetchUnauthed("commerce-hub:coupons");
     return { authed: false, cards: [] };
   }
+  // 실패는 throw — 빈 목록으로 캐시하지 않는다
+  if (!res.ok) throw new Error(`coupons_${res.status}`);
   const json = (await res.json()) as { ok?: boolean; cards?: CustomerCouponCardView[] };
-  return { authed: true, cards: json.ok ? json.cards ?? [] : [] };
+  if (json.ok !== true) throw new Error("coupons_not_ok");
+  return { authed: true, cards: json.cards ?? [] };
 }
 
 /** Coupons tab body — URL `couponTab` is source of truth. */
@@ -57,9 +60,9 @@ export function CustomerCouponWalletBody({
   couponTab: CouponSubTab;
   refresh?: boolean;
 }) {
-  const { safeT } = useI18n();
+  const { t, safeT } = useI18n();
   const tab = COUPON_TAB_MAP[couponTab];
-  const { data, ready, authed } = useCommerceHubTabFetch({
+  const { data, ready, authed, error, reload } = useCommerceHubTabFetch({
     cacheKey: "commerce-hub:coupons",
     enabled: true,
     refresh,
@@ -95,7 +98,7 @@ export function CustomerCouponWalletBody({
             fallbackEn: id === "held" ? "Held" : "Used",
           })
         }
-        countFor={(id) => counts[COUPON_TAB_MAP[id]]}
+        countFor={(id) => (ready && data ? counts[COUPON_TAB_MAP[id]] : null)}
         dataAttr="data-wallet-tab"
       />
       {!ready ? (
@@ -107,6 +110,13 @@ export function CustomerCouponWalletBody({
             fallbackEn: "Sign in to see your coupons.",
           })}
         </p>
+      ) : error && !data ? (
+        <div className="flex flex-col items-center gap-3 py-10 text-center" data-wallet-error="1">
+          <p className="text-sm text-sam-muted">{t("common_fetch_list_failed")}</p>
+          <button type="button" className="sam-btn sam-btn--secondary sam-btn--sm" onClick={reload}>
+            {t("common_retry")}
+          </button>
+        </div>
       ) : visible.length === 0 ? (
         <CommerceEmptyState
           icon="🎟️"

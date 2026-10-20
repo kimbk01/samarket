@@ -75,7 +75,7 @@ export function MyContent({
     Boolean(sessionUser?.id) || membership.status === "member";
   const isConfirmedGuest = !sessionUser?.id && membership.status === "guest";
 
-  const { projection, refresh, needsRelogin } = useMypageHomeModel(treatAsMember);
+  const { projection, refresh, needsRelogin, loadFailed } = useMypageHomeModel(treatAsMember);
 
   useEffect(() => {
     if (!pathname) return;
@@ -161,6 +161,7 @@ export function MyContent({
             projection={projection}
             onProfileRefresh={() => void refresh()}
             needsRelogin={needsRelogin}
+            loadFailed={loadFailed}
             ownerStoreGateSeed={ownerStoreGateSeed}
             adminMenuSeed={adminMenuSeed}
           />

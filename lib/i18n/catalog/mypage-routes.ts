@@ -1,6 +1,7 @@
 /** 내정보·마이페이지 라우트 (`app/(main)/mypage`, `app/(main)/my`) */
 export const mypageRoutesMessages = {
   ko: {
+    mypage_order_detail_load_failed: "주문 상세를 불러오지 못했습니다.",
     settings_logout: "로그아웃",
     route_benefits_title: "회원 혜택",
     route_benefits_subtitle: "이벤트·프로모션",
@@ -150,6 +151,7 @@ export const mypageRoutesMessages = {
     owner_store_need_store_id_suffix_menu_categories: "에서 「카테고리」를 눌러 주세요.",
   },
   en: {
+    mypage_order_detail_load_failed: "Could not load order details.",
     settings_logout: "Log out",
     route_benefits_title: "Member benefits",
     route_benefits_subtitle: "Events and promotions",

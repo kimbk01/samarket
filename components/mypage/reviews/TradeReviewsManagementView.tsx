@@ -149,6 +149,8 @@ export function TradeReviewsManagementView({
   const [received, setReceived] = useState<MyReceivedReviewItem[]>([]);
   const [writtenCount, setWrittenCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  /** 조회 실패 — 빈 목록(0건)과 구분해 오류·다시 시도 표시 */
+  const [loadError, setLoadError] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   const load = useCallback((opts?: { silent?: boolean }) => {
@@ -161,22 +163,23 @@ export function TradeReviewsManagementView({
         const [recv, writLen] = await runSingleFlight("mypage:trade-reviews-management:load", () =>
           Promise.all([
             fetch("/api/my/received-reviews", init).then(async (r) => {
+              if (!r.ok) throw new Error(`received_reviews_${r.status}`);
               const d = (await r.json().catch(() => ({}))) as { items?: MyReceivedReviewItem[] };
-              return r.ok && Array.isArray(d.items) ? d.items : [];
+              return Array.isArray(d.items) ? d.items : [];
             }),
             fetch("/api/my/written-reviews", init).then(async (r) => {
+              if (!r.ok) throw new Error(`written_reviews_${r.status}`);
               const d = (await r.json().catch(() => ({}))) as { items?: unknown[] };
-              return r.ok && Array.isArray(d.items) ? d.items.length : 0;
+              return Array.isArray(d.items) ? d.items.length : 0;
             }),
           ])
         );
         setReceived(recv);
         setWrittenCount(writLen);
+        setLoadError(false);
       } catch {
-        if (!silent) {
-          setReceived([]);
-          setWrittenCount(0);
-        }
+        // 조용한 재조회 실패는 기존 목록 유지
+        if (!silent) setLoadError(true);
       } finally {
         if (!silent) setLoading(false);
       }
@@ -236,6 +239,17 @@ export function TradeReviewsManagementView({
 
   if (loading) {
     return <p className="py-10 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_short")}</p>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-10 text-center">
+        <p className="sam-text-body text-sam-muted">{t("common_fetch_list_failed")}</p>
+        <button type="button" onClick={() => load()} className="sam-btn sam-btn--secondary sam-btn--sm">
+          {t("common_retry")}
+        </button>
+      </div>
+    );
   }
 
   return (

@@ -11,6 +11,7 @@ import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry"
 import { resolveCustomerCenterBackHref, CUSTOMER_CENTER_HREF } from "@/lib/mypage/customer-center-paths";
 import { MypageGuestSubrouteRedirect } from "@/components/mypage/MypageGuestSubrouteRedirect";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 
 export function MyPageItemRouteClient({
   initialMyPageData,
@@ -26,7 +27,9 @@ export function MyPageItemRouteClient({
   const { t } = useI18n();
   const searchParams = useSearchParams();
   const membership = useClientMembershipState("mypage-item-route");
-  const hubEnabled = membership.status === "member";
+  // 세션 사용자 있으면 member 취급 (terminal checking 에서 "…" 고착 방지 — MyContent 와 동일)
+  const sessionUser = getCurrentUser();
+  const hubEnabled = Boolean(sessionUser?.id) || membership.status === "member";
   const itemLabel = t(itemLabelKey);
   const defaultBack = buildMypageSectionHref(section);
   const backHref =
@@ -41,6 +44,7 @@ export function MyPageItemRouteClient({
     ownerHubStoreId,
     addressDefaults,
     neighborhoodFromLife,
+    load,
   } = useMypageHubModel(initialMyPageData ?? undefined, { enabled: hubEnabled });
   /* Mobile stack routes have no AccountTab home grid; badges only on desktop ?tab=account&section=home. */
   const favoriteBadge = null;
@@ -54,7 +58,7 @@ export function MyPageItemRouteClient({
         ? t("mypage_comp_store_attention_summary")
         : null;
 
-  if (membership.status === "checking") {
+  if (!hubEnabled && membership.status === "checking") {
     return (
       <MyPageStackShell title={itemLabel} backHref={backHref} preferHistoryBack={preferHistoryBack}>
         <div className="py-6 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</div>
@@ -62,7 +66,7 @@ export function MyPageItemRouteClient({
     );
   }
 
-  if (membership.status === "guest") {
+  if (!hubEnabled && membership.status === "guest") {
     return (
       <MyPageStackShell title={itemLabel} backHref="/mypage">
         <MypageGuestSubrouteRedirect />
@@ -81,8 +85,15 @@ export function MyPageItemRouteClient({
   if (!data?.profile) {
     return (
       <MyPageStackShell title={itemLabel} backHref={backHref} preferHistoryBack={preferHistoryBack}>
-        <div className="py-6 text-center sam-text-body text-sam-muted">
-          {t("mypage_comp_profile_load_failed_short")}
+        <div className="flex flex-col items-center gap-3 py-6 text-center sam-text-body text-sam-muted">
+          <p>{t("mypage_home_load_failed")}</p>
+          <button
+            type="button"
+            className="sam-btn sam-btn--secondary sam-btn--sm"
+            onClick={() => void load({ force: true })}
+          >
+            {t("common_retry")}
+          </button>
         </div>
       </MyPageStackShell>
     );

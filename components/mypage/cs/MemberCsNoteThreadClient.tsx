@@ -44,9 +44,14 @@ export function MemberCsNoteThreadClient({
   const [thread, setThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // 첫 로드 완료 전에는 기본 제목·빈 목록 대신 로딩 표시
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!threadId) return;
+    if (!threadId) {
+      setLoading(false);
+      return;
+    }
     try {
       const res = await fetch(`/api/me/admin-notes/${encodeURIComponent(threadId)}`, {
         credentials: "include",
@@ -67,6 +72,8 @@ export function MemberCsNoteThreadClient({
       setError(null);
     } catch {
       setError(t("common_content_unavailable"));
+    } finally {
+      setLoading(false);
     }
   }, [t, threadId]);
 
@@ -79,11 +86,13 @@ export function MemberCsNoteThreadClient({
       {hideChrome ? null : (
         <MySubpageHeader
           title={
-            thread?.subject ??
-            safeT("support_legacy_archive_title", {
-              fallbackKo: "이전 문의 기록",
-              fallbackEn: "Previous inquiry archive",
-            })
+            loading
+              ? ""
+              : (thread?.subject ??
+                safeT("support_legacy_archive_title", {
+                  fallbackKo: "이전 문의 기록",
+                  fallbackEn: "Previous inquiry archive",
+                }))
           }
           backHref={listHref}
           preferHistoryBack={false}
@@ -92,28 +101,31 @@ export function MemberCsNoteThreadClient({
       )}
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
         <div className={`${CUSTOMER_CENTER_FORM_COLUMN_CLASS} flex flex-col gap-3 py-3`}>
+          {loading ? <p className="text-sm text-sam-muted">{t("common_loading")}</p> : null}
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          <ul className="space-y-2">
-            {messages.map((m) => (
-              <li
-                key={m.id}
-                className={`rounded-ui-rect border px-3 py-2 ${
-                  m.sender_role === "admin"
-                    ? "border-signature/30 bg-signature/5"
-                    : "border-sam-border bg-sam-surface"
-                }`}
-              >
-                <p className="text-[11px] font-semibold text-sam-muted">
-                  {m.sender_role === "admin"
-                    ? t("notif_admin_notes_from_admin")
-                    : t("notif_admin_notes_from_me")}
-                  {" · "}
-                  {new Date(m.created_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US")}
-                </p>
-                <p className="mt-1 whitespace-pre-wrap break-words text-[14px] text-sam-fg">{m.body}</p>
-              </li>
-            ))}
-          </ul>
+          {loading ? null : (
+            <ul className="space-y-2">
+              {messages.map((m) => (
+                <li
+                  key={m.id}
+                  className={`rounded-ui-rect border px-3 py-2 ${
+                    m.sender_role === "admin"
+                      ? "border-signature/30 bg-signature/5"
+                      : "border-sam-border bg-sam-surface"
+                  }`}
+                >
+                  <p className="text-[11px] font-semibold text-sam-muted">
+                    {m.sender_role === "admin"
+                      ? t("notif_admin_notes_from_admin")
+                      : t("notif_admin_notes_from_me")}
+                    {" · "}
+                    {new Date(m.created_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US")}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap break-words text-[14px] text-sam-fg">{m.body}</p>
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-3 text-sm text-sam-muted">
             {safeT("support_legacy_archive_hint", {
               fallbackKo:
