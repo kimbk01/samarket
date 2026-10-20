@@ -70,7 +70,8 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
 
   const isMypageTradeChatRoom = /^\/mypage\/trade\/chat\/[^/]+$/.test(pathNoQuery);
   const isCommunityMessengerRoom = /^\/community-messenger\/rooms\/[^/]+$/.test(pathNoQuery);
-  const isCommunityMessengerCallPage = /^\/community-messenger\/calls\/[^/]+$/.test(pathNoQuery);
+  /** 통화 화면 — `/calls/[id]` 와 calls-v3·v4 모두 통화 전용 `CallHeader` 를 소유하므로 전역 1단을 끈다 (중복 헤더 방지). */
+  const isCommunityMessengerCallPage = /^\/community-messenger\/calls(?:-v[34])?\/[^/]+$/.test(pathNoQuery);
   const isLegacyChatRoomDetail =
     CHAT_ROOM_DETAIL_RE.test(pathNoQuery) &&
     pathNoQuery !== "/chats/new" &&

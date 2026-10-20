@@ -45,7 +45,8 @@ export function parseSupportCaseScope(raw: string | null | undefined): SupportCa
 /**
  * 거래 문의 범위 (거래 Admin 설계 v2 §G-4 · D-29) — 같은 support_cases 를 거래 참조로 거른다.
  * 홍보 주문 참조(POINT_PROMOTION_ORDER)는 거래·커뮤니티 공용 유형이라 주문 도메인으로 나눈다
- * (`promotionOrderIds` = 해당 도메인 주문 id — 서버에서 조회해 넘긴다).
+ * — 도메인 판정은 DB 계산 열 `support_case_promotion_domain` (20270601190000) 하나로 한다
+ * (주문 id 를 미리 모아 `in(...)` 으로 거르던 500건 상한 경로 제거).
  */
 export const SUPPORT_TRADE_REFERENCE_TYPES = ["TRADE_POST", "TRADE_CHAT_ROOM", "TRADE_SANCTION"] as const;
 export const SUPPORT_TRADE_APPEAL_REFERENCE_TYPES = ["TRADE_SANCTION"] as const;
@@ -53,16 +54,15 @@ export const SUPPORT_TRADE_APPEAL_REFERENCE_TYPES = ["TRADE_SANCTION"] as const;
 export const SUPPORT_TRADE_CATEGORY = "TRADE";
 /** 거래 문의 카테고리의 이의신청 세부 유형 */
 export const SUPPORT_TRADE_APPEAL_ISSUE_TYPE = "TRADE_RESTRICTION_APPEAL";
+/** support_cases 계산 열 — 참조한 홍보 주문의 도메인(trade·community), 홍보 주문 참조가 아니면 null */
+export const SUPPORT_CASE_PROMOTION_DOMAIN_COLUMN = "support_case_promotion_domain";
 
-export function supportTradeScopeOrFilter(promotionOrderIds: string[]): string {
-  const parts = [
+export function supportTradeScopeOrFilter(): string {
+  return [
     `reference_type.in.(${SUPPORT_TRADE_REFERENCE_TYPES.join(",")})`,
     `category.eq.${SUPPORT_TRADE_CATEGORY}`,
-  ];
-  if (promotionOrderIds.length) {
-    parts.push(`and(reference_type.eq.POINT_PROMOTION_ORDER,reference_id.in.(${promotionOrderIds.join(",")}))`);
-  }
-  return parts.join(",");
+    `${SUPPORT_CASE_PROMOTION_DOMAIN_COLUMN}.eq.trade`,
+  ].join(",");
 }
 
 /**
@@ -77,14 +77,16 @@ export function supportTradeAppealOrFilter(): string {
   ].join(",");
 }
 
-export function isSupportCaseInTradeScope(
-  c: { category?: string | null; reference_type?: string | null; reference_id?: string | null },
-  tradePromotionOrderIds: readonly string[]
-): boolean {
+/** 메모리 판정 — 위 or() 식과 같은 규칙 (`promotion_domain` = 계산 열 support_case_promotion_domain 값) */
+export function isSupportCaseInTradeScope(c: {
+  category?: string | null;
+  reference_type?: string | null;
+  promotion_domain?: string | null;
+}): boolean {
   const ref = String(c.reference_type ?? "");
   if (String(c.category ?? "") === SUPPORT_TRADE_CATEGORY) return true;
   if ((SUPPORT_TRADE_REFERENCE_TYPES as readonly string[]).includes(ref)) return true;
-  return ref === "POINT_PROMOTION_ORDER" && tradePromotionOrderIds.includes(String(c.reference_id ?? ""));
+  return c.promotion_domain === "trade";
 }
 
 /** `?type=appeal` → "appeal" */
@@ -94,22 +96,13 @@ export function parseSupportCaseKind(raw: string | null | undefined): SupportCas
 
 /**
  * PostgREST `or()` 식 — 커뮤니티 범위.
- * `communityPromotionOrderIds` 를 주면 홍보 주문 참조는 커뮤니티 주문만 (D-29: 거래 홍보 문의 섞임 해소).
- * 주지 않으면 기존 동작(홍보 주문 참조 전부).
+ * 홍보 주문 참조는 커뮤니티 주문만 (D-29: 거래 홍보 문의 섞임 해소) — 계산 열 `support_case_promotion_domain`.
  */
-export function supportCommunityScopeOrFilter(communityPromotionOrderIds?: string[]): string {
-  if (!communityPromotionOrderIds) {
-    return [
-      `reference_type.in.(${SUPPORT_COMMUNITY_RELATED_REFERENCE_TYPES.join(",")})`,
-      `category.in.(${SUPPORT_COMMUNITY_CATEGORIES.join(",")})`,
-    ].join(",");
-  }
+export function supportCommunityScopeOrFilter(): string {
   const plain = SUPPORT_COMMUNITY_RELATED_REFERENCE_TYPES.filter((t) => t !== "POINT_PROMOTION_ORDER");
   return [
     `reference_type.in.(${plain.join(",")})`,
-    ...(communityPromotionOrderIds.length
-      ? [`and(reference_type.eq.POINT_PROMOTION_ORDER,reference_id.in.(${communityPromotionOrderIds.join(",")}))`]
-      : []),
+    `${SUPPORT_CASE_PROMOTION_DOMAIN_COLUMN}.eq.community`,
     `category.in.(${SUPPORT_COMMUNITY_CATEGORIES.join(",")})`,
   ].join(",");
 }
@@ -126,9 +119,14 @@ export function supportAppealOrFilter(): string {
 export function isSupportCaseInCommunityScope(c: {
   category?: string | null;
   reference_type?: string | null;
+  promotion_domain?: string | null;
 }): boolean {
   const ref = String(c.reference_type ?? "");
-  if ((SUPPORT_COMMUNITY_RELATED_REFERENCE_TYPES as readonly string[]).includes(ref)) return true;
+  if (ref === "POINT_PROMOTION_ORDER") {
+    if (c.promotion_domain === "community") return true;
+  } else if ((SUPPORT_COMMUNITY_RELATED_REFERENCE_TYPES as readonly string[]).includes(ref)) {
+    return true;
+  }
   return (SUPPORT_COMMUNITY_CATEGORIES as readonly string[]).includes(String(c.category ?? ""));
 }
 

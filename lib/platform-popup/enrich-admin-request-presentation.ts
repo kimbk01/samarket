@@ -24,22 +24,24 @@ export async function enrichPlatformPopupOwnerRequestsForAdmin(
   const storeNameById = new Map<string, string>();
   const ownerById = new Map<string, { label: string | null; username: string | null }>();
 
+  // stores 의 이름 열은 store_name 뿐 (운영 스키마에 name 없음 — 예전엔 없는 열을 함께 조회해 오류가 나고,
+  // 오류를 확인하지 않아 매장 이름이 항상 비었다). 조회 오류는 덮지 않고 호출자(500)로 올린다.
   if (storeIds.length) {
-    const { data } = await sb.from("stores").select("id, store_name, name").in("id", storeIds);
+    const { data, error } = await sb.from("stores").select("id, store_name").in("id", storeIds);
+    if (error) throw new Error(`popup_request_stores:${error.message}`);
     for (const row of data ?? []) {
       const id = String((row as { id?: string }).id ?? "");
-      const name =
-        String((row as { store_name?: string }).store_name ?? "").trim() ||
-        String((row as { name?: string }).name ?? "").trim();
+      const name = String((row as { store_name?: string }).store_name ?? "").trim();
       if (id) storeNameById.set(id, name || id);
     }
   }
 
   if (ownerIds.length) {
-    const { data } = await sb
+    const { data, error } = await sb
       .from("profiles")
       .select("id, username, nickname")
       .in("id", ownerIds);
+    if (error) throw new Error(`popup_request_owners:${error.message}`);
     for (const row of data ?? []) {
       const id = String((row as { id?: string }).id ?? "");
       const username = String((row as { username?: string }).username ?? "").trim() || null;

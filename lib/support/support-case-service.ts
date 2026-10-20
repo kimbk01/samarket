@@ -884,7 +884,9 @@ export async function listSupportCasesForAdmin(
   if (input.audience === "MEMBER" || input.audience === "OWNER") {
     query = query.eq("audience", input.audience);
   }
-  const group = getSupportCategoryGroup(input.group);
+  // `?group=trade|community` 는 도메인 범위(scope)다 — 같은 값을 카테고리 그룹(category = TRADE 만)으로 겹쳐 걸면
+  // 범위에 속한 다른 카테고리 문의(예: AD 카테고리의 거래 홍보 주문 문의)가 빠진다. 범위가 있으면 범위만 쓴다.
+  const group = input.scope ? null : getSupportCategoryGroup(input.group);
   if (group) query = query.in("category", [...group.categories]);
   if (input.assignee === "UNASSIGNED") {
     query = query.is("assigned_admin_id", null);
@@ -899,18 +901,8 @@ export async function listSupportCasesForAdmin(
   if (input.referenceId && isUuid(input.referenceId)) query = query.eq("reference_id", input.referenceId);
   if (input.ownerStoreId && isUuid(input.ownerStoreId)) query = query.eq("owner_store_id", input.ownerStoreId);
   if (input.scope === "community" || input.scope === "trade") {
-    // 홍보 주문 참조는 주문 도메인으로 나눈다 (거래 Admin 설계 v2 §G-4)
-    const { data: promoRows } = await sb
-      .from("point_promotion_orders")
-      .select("id")
-      .eq("domain", input.scope)
-      .order("created_at", { ascending: false })
-      .limit(500);
-    const promoIds = ((promoRows ?? []) as { id: string }[]).map((r) => String(r.id));
-    query =
-      input.scope === "community"
-        ? query.or(supportCommunityScopeOrFilter(promoIds))
-        : query.or(supportTradeScopeOrFilter(promoIds));
+    // 홍보 주문 참조는 주문 도메인으로 나눈다 (거래 Admin 설계 v2 §G-4) — DB 계산 열로 판정 (주문 수 상한 없음)
+    query = input.scope === "community" ? query.or(supportCommunityScopeOrFilter()) : query.or(supportTradeScopeOrFilter());
   }
   if (input.kind === "appeal") {
     query = query.or(input.scope === "trade" ? supportTradeAppealOrFilter() : supportAppealOrFilter());
