@@ -26,7 +26,8 @@ import { checkFeedAdMemberImageFile } from "@/lib/ads/feed-ad-member-image-check
 import type { FeedAdMemberDisplayStatus } from "@/lib/ads/feed-ad-member-presentation";
 import { FEED_AD_SAMPLE_ASSET } from "@/lib/ads/feed-ad-sample-assets";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
-import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
+import { MyStickyCta, MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
@@ -518,14 +519,14 @@ export default function MemberFeedAdRequestPage() {
               fallbackEn: "Active",
             });
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-sam-app">
         <MySubpageHeader
           title={safeT("feed_ad_req_title", {
             fallbackKo: "배너 광고 만들기",
             fallbackEn: "Create banner ad",
           })}
         />
-        <div className="mx-auto max-w-lg space-y-4 px-4 py-6">
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-4 py-6`}>
           <p className="sam-text-body text-sam-fg">
             {safeT("feed_ad_req_current_exists", {
               fallbackKo: "현재 진행 중인 배너 광고가 있습니다. 내 광고에서 관리하세요.",
@@ -557,7 +558,7 @@ export default function MemberFeedAdRequestPage() {
         sourceSurface: "mypage_feed_ad_request",
       })}
     >
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-sam-app">
       <MySubpageHeader
         title={safeT("feed_ad_req_title", {
           fallbackKo: "배너 광고 만들기",
@@ -572,7 +573,7 @@ export default function MemberFeedAdRequestPage() {
         backHref="/mypage/ads"
         hideCtaStrip
       />
-      <div className="mx-auto max-w-lg space-y-4 px-4 py-4 pb-28">
+      <div className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-4 py-4 ${MY_STICKY_CTA_BODY_CLEARANCE_CLASS}`}>
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold">
             {safeT("feed_ad_req_domain", { fallbackKo: "1. 광고 영역", fallbackEn: "1. Ad area" })}

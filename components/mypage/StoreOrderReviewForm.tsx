@@ -16,7 +16,7 @@ import {
 import {
   STORE_ORDER_REVIEW_FOOTER_CHROME_CLASS,
   STORE_ORDER_REVIEW_SCROLL_BODY_CLASS,
-  STORE_ORDER_REVIEW_SCROLL_INNER_CLASS,
+  resolveStoreOrderReviewScrollInnerClass,
 } from "@/lib/stores/store-order-review-page-layout";
 import {
   resolveStoreOrderReviewSubmitErrorKey,
@@ -434,7 +434,7 @@ export function StoreOrderReviewForm({
   const inlineScrollShell = (body: React.ReactNode) => (
     <div className={viewportShellClass}>
       <div className={STORE_ORDER_REVIEW_SCROLL_BODY_CLASS}>
-        <div className={STORE_ORDER_REVIEW_SCROLL_INNER_CLASS}>{body}</div>
+        <div className={resolveStoreOrderReviewScrollInnerClass(ordersHub)}>{body}</div>
       </div>
     </div>
   );
@@ -447,7 +447,7 @@ export function StoreOrderReviewForm({
       }`}
     >
       <div className={STORE_ORDER_REVIEW_SCROLL_BODY_CLASS}>
-        <div className={`${STORE_ORDER_REVIEW_SCROLL_INNER_CLASS} space-y-6`}>{body}</div>
+        <div className={`${resolveStoreOrderReviewScrollInnerClass(ordersHub)} space-y-6`}>{body}</div>
       </div>
       {reviewSubmitFooter}
     </form>

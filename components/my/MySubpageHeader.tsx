@@ -14,6 +14,7 @@ import { DELIVERY_LOCKED_SUBPAGE_HEADER_CLASS } from "@/lib/layout/delivery-lock
 import { SECTOR_HEADER_SHELL_CLASS } from "@/lib/ui/sector-header-classes";
 import { getDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
 import { usePathname } from "next/navigation";
+import { isMypageSubpageHeaderPath } from "@/lib/mypage/mypage-subpage-header-defaults";
 
 export type MySubpageHeaderProps = {
   /** `registerMainTier1={false}` 일 때 생략 가능 */
@@ -41,7 +42,10 @@ export type MySubpageHeaderProps = {
   /** `section="store"` 일 때 「주문 접수」 등에 넣을 매장 id */
   ownerStoreIdForCtas?: string | null;
   hideCtaStrip?: boolean;
-  /** 내정보 허브와 동일: 알림음·설정 (rightSlot과 동시 사용 시 rightSlot 우선) */
+  /**
+   * 우측 기본 알림함(종) — rightSlot 과 동시 사용 시 rightSlot 우선.
+   * 생략 시 내정보 하위 경로(`/mypage/*`)는 기본 종 1개 (설계서 v3 §12 · 우측 최대 1개).
+   */
   showHubQuickActions?: boolean;
   /**
    * false면 `RegionBar` 등이 이미 1단을 그리므로, 여기서는 stickyBelow·ctaLinks만 MainTier1Extras에 넣음.
@@ -68,7 +72,7 @@ export function MySubpageHeader({
   ctaLinks,
   ownerStoreIdForCtas = null,
   hideCtaStrip = false,
-  showHubQuickActions = false,
+  showHubQuickActions: showHubQuickActionsProp,
   registerMainTier1 = true,
   inlineChrome = false,
   leftSlot,
@@ -76,6 +80,7 @@ export function MySubpageHeader({
   const { t, tt } = useI18n();
   const pathname = usePathname();
   const domainChrome = getDibayDomainChromeElementProps(pathname);
+  const showHubQuickActions = showHubQuickActionsProp ?? isMypageSubpageHeaderPath(pathname);
   const tier1Provider = useMainTier1ExtrasOptional();
   const setMainTier1Extras = tier1Provider?.setMainTier1Extras ?? null;
   const resolvedAriaLabel = tt(ariaLabel ?? t("common_back_to_mypage"));

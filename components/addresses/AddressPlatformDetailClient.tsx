@@ -26,6 +26,7 @@ import {
   type AddressDesignationPreset,
 } from "@/components/addresses/AddressDesignationField";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import {
   buildAddressDetailSaveBody,
   isAddressDetailDirty,
@@ -352,7 +353,7 @@ export function AddressPlatformDetailClient(props: {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-[10px] py-3 pr-2">
+      <div className={`${MYPAGE_BODY_COLUMN_CLASS} min-h-0 flex-1 space-y-3 overflow-y-auto py-3`}>
         {err ? (
           <p className="sam-text-body-secondary font-medium text-sam-danger" role="alert" data-testid="address-detail-error">
             {err}
@@ -466,20 +467,22 @@ export function AddressPlatformDetailClient(props: {
         )}
       </div>
       <div
-        className="shrink-0 border-t border-sam-border-soft bg-sam-surface/95 px-[10px] py-3 pr-2"
+        className="shrink-0 border-t border-sam-border-soft bg-sam-surface/95 py-3"
         data-form-keyboard-footer=""
         style={{ paddingBottom: `${effectiveBottomInset + 12}px` }}
       >
-        <button
-          type="button"
-          disabled={!canSave}
-          aria-busy={busy}
-          data-testid="address-detail-save"
-          onClick={() => void save()}
-          className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.focusRing} disabled:opacity-45`}
-        >
-          {busy ? t("addr_ui_saving") : t("addr_ui_save_address")}
-        </button>
+        <div className={MYPAGE_BODY_COLUMN_CLASS}>
+          <button
+            type="button"
+            disabled={!canSave}
+            aria-busy={busy}
+            data-testid="address-detail-save"
+            onClick={() => void save()}
+            className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.focusRing} disabled:opacity-45`}
+          >
+            {busy ? t("addr_ui_saving") : t("addr_ui_save_address")}
+          </button>
+        </div>
       </div>
     </div>
   );

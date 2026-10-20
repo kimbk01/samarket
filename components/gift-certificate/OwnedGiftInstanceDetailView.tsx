@@ -14,9 +14,11 @@ import {
   deliveryDiscoveryHref,
   type GiftSubTab,
 } from "@/lib/delivery/customer/commerce-hub-nav";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
-import { MyStickyCta, MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
+import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import {
@@ -118,10 +120,13 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
 
   /** 하단 고정 CTA — [주문에 사용하기](주) · [선물하기](보조, 양도 가능·ACTIVE 만). 사용 완료면 없음 */
   const showStickyCta = Boolean(instance) && !isUsed;
+  const bottomNavOccupies = useBottomNavOccupiesClearance();
 
   return (
     <div
-      className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} ${showStickyCta ? MY_STICKY_CTA_BODY_CLEARANCE_CLASS : ""}`}
+      className={`${MYPAGE_BODY_COLUMN_CLASS} flex min-h-0 flex-1 flex-col gap-1 pt-3 ${
+        showStickyCta ? resolveMyStickyCtaBodyClearanceClass(bottomNavOccupies) : "pb-4"
+      }`}
       data-owned-gift-instance-detail="1"
       data-instance-id={instanceId}
       data-ready={ready ? "1" : "0"}

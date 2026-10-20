@@ -32,6 +32,7 @@ import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { MyToggle } from "@/components/mypage/ds/MyToggle";
 import { MyRow } from "@/components/mypage/ds/MyRow";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
+import { BottomNavScrollChromeProvider } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import { MypageToastHost } from "@/components/mypage/MypageToastHost";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
@@ -211,6 +212,15 @@ describe("MyStickyCta", () => {
     expect(btn.getAttribute("aria-busy")).toBe("true");
     click(q("my-sticky-cta-secondary"));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("disabled primary uses token grey (no opacity) and bar has no tab clearance outside provider", () => {
+    mount(<MyStickyCta dirty={false} primary={{ label: "저장", onPress: () => undefined }} />);
+    const btn = q("my-sticky-cta-primary") as HTMLButtonElement;
+    expect(btn.className).toContain("disabled:bg-[color:var(--sam-primary-disabled)]");
+    expect(btn.className).not.toContain("disabled:opacity-45");
+    expect(q("my-sticky-cta")!.getAttribute("data-above-bottom-nav")).toBe("0");
+    expect(q("my-sticky-cta")!.style.bottom).toBe("0px");
   });
 
   it("publishes toast offset var while mounted", () => {
@@ -404,6 +414,38 @@ describe("MyScreen", () => {
       </MyScreen>
     );
     expect(q("body")).not.toBeNull();
+  });
+
+  it("applies the 16/20px gutter exactly once (no app feed gutter around the column) — v3 §2", () => {
+    mount(
+      <MyScreen title="가격 제안" template="list">
+        <p data-testid="body">body</p>
+      </MyScreen>
+    );
+    const body = q("body")!;
+    const chain: string[] = [];
+    for (let el: HTMLElement | null = body.parentElement; el && el !== host; el = el.parentElement) {
+      chain.push(el.className);
+    }
+    const joined = chain.join(" ");
+    expect(joined.match(/\bpx-4\b/g)).toHaveLength(1);
+    expect(joined.match(/\bmd:px-5\b/g)).toHaveLength(1);
+    expect(joined).not.toContain("pl-[10px]");
+    expect(joined).toContain("max-w-[40rem]");
+  });
+
+  it("CTA body clearance follows the bottom tab bar (tab + CTA + safe)", () => {
+    mount(
+      <BottomNavScrollChromeProvider hidden={false} occupiesClearance>
+        <MyScreen title="t" template="form" stickyCta={<MyStickyCta dirty primary={{ label: "저장", onPress: () => undefined }} />}>
+          <p data-testid="body">body</p>
+        </MyScreen>
+      </BottomNavScrollChromeProvider>
+    );
+    expect(q("body")!.parentElement!.className).toContain("pb-[calc(var(--sam-button-min-height,46px)+20px)]");
+    const bar = q("my-sticky-cta")!;
+    expect(bar.getAttribute("data-above-bottom-nav")).toBe("1");
+    expect(bar.className).toContain("sam-fixed-bottom-bar");
   });
 });
 

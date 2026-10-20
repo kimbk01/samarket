@@ -32,7 +32,6 @@ import {
   CUSTOMER_CENTER_PAGE_SHELL_CLASS,
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
 } from "@/lib/mypage/customer-center-layout";
-import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
@@ -47,6 +46,7 @@ import {
   POINTS_SCREEN_TAB_VALUES,
   type PointsScreenTab,
 } from "@/lib/points/points-screen-tabs";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 /** S40 스켈레톤 — 잔액 카드(큰 숫자 블록) + 버튼 2 + 줄 2 + 탭 + 내역 행 6 */
 function PointsScreenSkeleton() {
@@ -115,7 +115,7 @@ function PointsScreenFallback() {
   return (
     <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS}>
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={`mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} pt-2`}>
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} pt-2`}>
           <PointsScreenSkeleton />
         </div>
       </div>
@@ -297,7 +297,7 @@ function MypagePointsPageInner() {
         hideCtaStrip
       />
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={`mx-auto flex w-full min-w-0 flex-col gap-5 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} pt-2 pb-6`}>
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-col gap-5 pt-2 pb-6`}>
           {firstLoading ? (
             <PointsScreenSkeleton />
           ) : (

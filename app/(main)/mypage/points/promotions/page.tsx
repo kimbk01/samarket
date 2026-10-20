@@ -18,8 +18,8 @@ import type { PointPromotionOrder } from "@/lib/types/point";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
-import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { resolvePromotionsBackHref } from "@/lib/points/points-screen-tabs";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 
 const BONE = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
@@ -153,7 +153,7 @@ function MyPointsPromotionsPageInner() {
         section="account"
         hideCtaStrip
       />
-      <div className={`mx-auto w-full min-w-0 space-y-6 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} py-4`}>
+      <div className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-6 py-4`}>
         <div className="rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-fg">
           {t("mypage_points_promotions_notice")}
         </div>

@@ -38,6 +38,7 @@ import { writeAddressFlowExitHref } from "@/lib/addresses/mypage-address-flow-ex
 import {
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
 } from "@/lib/addresses/mypage-address-manage-layout";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 function AddressEditorPageChrome(props: {
   titleKey: MessageKey;
@@ -203,7 +204,7 @@ function AddressEditorPageInner() {
   if (loadErr) {
     return (
       <AddressEditorPageChrome titleKey={headerTitleKey} backHref={addressesListHref}>
-        <div className="flex flex-col px-4">
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-col`}>
           <MyStateView
             kind="error"
             template="form"
@@ -263,7 +264,7 @@ function AddressEditorPageInner() {
 /** 진입 부트스트랩 — 지도 240 회색 + 입력 3줄 (S07 구조 일치 스켈레톤) */
 function AddressEditorSkeleton() {
   return (
-    <div className="space-y-3 px-[10px] py-3" aria-busy="true" data-testid="address-editor-skeleton">
+    <div className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-3 py-3`} aria-busy="true" data-testid="address-editor-skeleton">
       <div className="h-[240px] rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse md:h-[280px]" />
       <MyStateView kind="loading" template="form" rows={3} />
     </div>

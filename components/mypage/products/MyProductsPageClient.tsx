@@ -11,7 +11,7 @@ import {
   parseMyProductListingFilterKey,
   parseMyProductPromotedOnly,
 } from "@/lib/products/my-product-listing-filter";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 function MyProductsPageInner() {
   const router = useRouter();
@@ -52,7 +52,7 @@ function MyProductsPageInner() {
       subtitleKey="marketplace_seller_products_subtitle"
       backHref="/mypage"
       section="trade"
-      bodyClassName={APP_MAIN_TAB_SCROLL_BODY_CLASS}
+      bodyClassName={`${MYPAGE_SCROLL_BODY_CLASS} pt-3`}
       stickyBelow={
         <MyProductFilter
           value={filter}

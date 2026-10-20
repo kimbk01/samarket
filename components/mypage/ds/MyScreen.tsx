@@ -5,10 +5,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { MyStateView, type MyScreenTemplate, type MyStateViewProps } from "@/components/mypage/ds/MyStateView";
-import { MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfNavClick } from "@/lib/runtime/dibay-myinfo-perf";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
-import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
+import { MYPAGE_BODY_COLUMN_CLASS, MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 export type MyScreenProps = {
   title: string;
@@ -74,6 +74,7 @@ export function MyScreen({
     setHasBackGuard(guard != null);
   }, []);
   const interceptBack = useMemo(() => () => backGuardRef.current?.() ?? false, []);
+  const bottomNavOccupies = useBottomNavOccupiesClearance();
 
   useEffect(() => {
     const s = (window as MyInfoPerfWindow).__dibayMyInfoPerf;
@@ -118,10 +119,14 @@ export function MyScreen({
         hideCtaStrip
         showHubQuickActions
       />
-      <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
+      {/**
+       * 본문 1열 — 폰 16px · 768px 이상 20px · 최대 640px (v3 §2). 거터는 `MYPAGE_BODY_COLUMN_CLASS` 한 번만:
+       * 바깥 래퍼는 가로 여백 없음 (앱 피드 거터 10/8 위에 다시 더하던 이중 여백 26/24px 제거).
+       */}
+      <div className={MYPAGE_SCROLL_BODY_CLASS} data-my-screen-body>
         <div
-          className={`mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} pt-2 ${
-            stickyCta ? MY_STICKY_CTA_BODY_CLEARANCE_CLASS : "pb-4"
+          className={`${MYPAGE_BODY_COLUMN_CLASS} pt-3 ${
+            stickyCta ? resolveMyStickyCtaBodyClearanceClass(bottomNavOccupies) : "pb-4"
           }`}
         >
           <MyScreenBackGuardContext.Provider value={registerBackGuard}>

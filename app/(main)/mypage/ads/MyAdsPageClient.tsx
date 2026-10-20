@@ -25,7 +25,6 @@ import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
-import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { feedAdMemberViewHref } from "@/lib/ads/feed-ad-destination";
 import {
   formatFeedAdRemaining,
@@ -38,6 +37,7 @@ import { feedAdPlacementHumanLabel, type FeedAdPlacement } from "@/lib/ads/feed-
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
 import { DibayActionSheet, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 type FeedRequestRow = {
   id: string;
@@ -404,7 +404,7 @@ export default function MyAdsPageClient() {
         backHref="/mypage"
         rightSlot={applyButton}
       />
-      <div className={`mx-auto w-full min-w-0 space-y-3 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} py-4`}>
+      <div className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-3 py-4`}>
         {authHint ? (
           <p className="rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-fg">
             {t("auth_resource_access_denied")}

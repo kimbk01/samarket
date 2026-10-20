@@ -3,7 +3,7 @@ import { TradeHubLayoutHeader } from "@/components/mypage/trade/TradeHubLayoutHe
 import { TradeHubPageBody } from "@/components/mypage/trade/TradeHubPageBody";
 import { COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
-import { APP_MAIN_FEED_STACK_CLASS } from "@/lib/ui/app-content-layout";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 /** `/philife` 피드와 동일 clearance — 셸 `pb-0` 와 쌍 */
 const TRADE_HUB_PAGE_ROOT_CLASS = [
@@ -16,7 +16,8 @@ export default function TradeHubLayout({ children }: { children: ReactNode }) {
   return (
     <div className={TRADE_HUB_PAGE_ROOT_CLASS}>
       <TradeHubLayoutHeader />
-      <div className={`flex-1 ${APP_MAIN_FEED_STACK_CLASS} max-w-none`}>
+      {/** 내정보 본문 1열 — 폰 16px · 768+ 20px · 최대 640px (v3 §2, 앱 피드 거터 10/8 대신) */}
+      <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-1 flex-col gap-1 pt-1`}>
         <TradeHubPageBody>{children}</TradeHubPageBody>
       </div>
     </div>

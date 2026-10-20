@@ -5,11 +5,10 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MemberBenefitList } from "@/components/member-benefits/MemberBenefitList";
 import type { MemberBenefitPolicy } from "@/lib/types/member-benefit";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
-import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
+import { MYPAGE_BODY_COLUMN_CLASS, MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 const CARD_CLASS = "rounded-ui-rect border border-sam-border-soft bg-sam-surface sam-card-pad";
 
@@ -125,8 +124,8 @@ export default function MypageBenefitsPage() {
         backHref="/mypage"
         hideCtaStrip
       />
-      <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-        <div className={`mx-auto flex w-full min-w-0 flex-col gap-3 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} py-4`}>
+      <div className={MYPAGE_SCROLL_BODY_CLASS}>
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-col gap-3 py-4`}>
           {state.kind === "loading" ? (
             <BenefitsSkeleton />
           ) : (

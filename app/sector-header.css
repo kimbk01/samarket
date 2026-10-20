@@ -1,9 +1,29 @@
-/** dibaY 공통 섹터 헤더 — Default / Section / Detail / Search 단일 시각 계약 */
+/**
+ * dibaY 공통 섹터 헤더 — Default / Section / Detail / Search 단일 시각 계약
+ *
+ * 하위 화면(제목 가운데 · 기본) — 설계서 v3 §12:
+ * - 좌우 대칭 3열 `[side] minmax(0,1fr) [side]` → 제목은 아이콘 유무·제목 길이와 무관하게 화면 실제 중앙.
+ *   side = 좌·우 슬롯 중 넓은 쪽 (기본 48px). `SectorHeaderBar` 가 슬롯 폭을 재서 `--sector-header-side` 를 행에 기록.
+ * - 뒤로·우측 아이콘 터치 48×48 · 아이콘 24px · 터치 영역끼리 간격 0.
+ * - 행 좌우 여백 = max(4px, 좌우 안전영역) → 아이콘 바깥 가장자리가 화면 끝에서 16px.
+ * - 행 최대폭 제한 없음 (기기 폭 − 안전영역 기준).
+ * 메인 허브(제목 왼쪽 · `--left-title`) — 채움 아이콘 타일 묶음이라 기존 36px·간격 기하를 유지하고 안전영역·폭 제한 해제만 적용.
+ */
 :root {
   --sector-header-h: 52px;
   --sector-header-h-with-subtitle: 56px;
-  --sector-header-max-width: 768px;
   --sector-header-pad-x: 12px;
+  /** 하위 화면 헤더 터치 영역·아이콘 (§12) */
+  --sector-header-touch: 48px;
+  --sector-header-touch-icon: 24px;
+  /** 대칭 격자 좌·우 열 최소 폭 — 행마다 실측값으로 덮어씀 */
+  --sector-header-side: var(--sector-header-touch);
+  /** 행 좌우 여백 — 화면 끝 기준 max(4px, 안전영역) */
+  --sector-header-edge-pad-left: max(4px, var(--safe-left));
+  --sector-header-edge-pad-right: max(4px, var(--safe-right));
+  /** 허브(제목 왼쪽) 행 좌우 여백 — 화면 끝 기준 max(12px, 안전영역) */
+  --sector-header-hub-pad-left: max(var(--sector-header-pad-x), var(--safe-left));
+  --sector-header-hub-pad-right: max(var(--sector-header-pad-x), var(--safe-right));
   --sector-header-col-gap: 6px;
   /** Image SSOT — action gap 6px */
   --sector-header-icon-cluster-gap: 8px;
@@ -22,7 +42,7 @@
   --sector-header-action-icon: 22px;
   --sector-header-title-size: 17px;
   --sector-header-title-lh: 22px;
-  --sector-header-title-weight: 700;
+  --sector-header-title-weight: 600;
   --sector-header-title-tracking: -0.3px;
   --sector-header-subtitle-size: 11px;
   --sector-header-subtitle-title-size: 15px;
@@ -65,18 +85,56 @@
   min-width: 0;
 }
 
+/**
+ * 메인 셸 루트(`.main-shell-viewport-root`)는 이미 좌우 안전영역만큼 안쪽으로 들어와 있다
+ * (`app-shell.css`). 그 안의 헤더는 남은 차이만 더해 화면 끝 기준 max(4px, safe) 를 지킨다.
+ */
+html.sam-main-shell-viewport-lock .main-shell-viewport-root {
+  --sector-header-edge-pad-left: max(0px, calc(4px - var(--safe-left)));
+  --sector-header-edge-pad-right: max(0px, calc(4px - var(--safe-right)));
+  --sector-header-hub-pad-left: var(--sector-header-pad-x);
+  --sector-header-hub-pad-right: var(--sector-header-pad-x);
+}
+
+/** 하위 화면(기본) — 좌우 대칭 3열, 48px 터치, 간격 0 */
 .sector-header-bar {
+  --sector-header-back-size: var(--sector-header-touch);
+  --sector-header-back-icon: var(--sector-header-touch-icon);
+  --sector-header-action-size: var(--sector-header-touch);
+  --sector-header-action-icon: var(--sector-header-touch-icon);
+  --sector-header-icon-cluster-gap: 0px;
+  --sector-header-col-gap: 0px;
+  --delivery-header-action: var(--sector-header-touch);
+  --delivery-header-icon-glyph: var(--sector-header-touch-icon);
   display: grid;
-  grid-template-columns: var(--sector-header-left-slot) 1fr auto;
+  grid-template-columns:
+    minmax(var(--sector-header-side), max-content)
+    minmax(0, 1fr)
+    minmax(var(--sector-header-side), max-content);
   align-items: center;
-  column-gap: var(--sector-header-col-gap);
+  column-gap: 0;
   width: 100%;
-  max-width: var(--sector-header-max-width);
+  max-width: none;
   height: var(--sector-header-h);
   min-height: var(--sector-header-h);
-  margin: 0 auto;
-  padding: 0 var(--sector-header-pad-x);
+  margin: 0;
+  padding: 0 var(--sector-header-edge-pad-right) 0 var(--sector-header-edge-pad-left);
   box-sizing: border-box;
+}
+
+/** 메인 허브(제목 왼쪽) — 기존 허브 기하 유지 (안전영역·폭 제한 해제만) */
+.sector-header-bar--left-title {
+  --sector-header-back-size: 40px;
+  --sector-header-back-icon: 24px;
+  --sector-header-action-size: 36px;
+  --sector-header-action-icon: 22px;
+  --sector-header-icon-cluster-gap: 8px;
+  --sector-header-col-gap: 6px;
+  --delivery-header-action: 36px;
+  --delivery-header-icon-glyph: 22px;
+  grid-template-columns: var(--sector-header-left-slot) minmax(0, 1fr) auto;
+  column-gap: var(--sector-header-col-gap);
+  padding: 0 var(--sector-header-hub-pad-right) 0 var(--sector-header-hub-pad-left);
 }
 
 .sector-header-bar--with-subtitle {
@@ -91,17 +149,31 @@
   min-width: 0;
 }
 
+/** 대칭 격자: 슬롯은 내용 폭만 차지(실측 대상) — 열 폭은 `--sector-header-side` */
 .sector-header-bar__left {
   justify-content: flex-start;
-  width: var(--sector-header-left-slot);
+  justify-self: start;
+  width: max-content;
   flex-shrink: 0;
 }
 
 .sector-header-bar__right {
   justify-content: flex-end;
+  justify-self: end;
+  width: max-content;
   gap: var(--sector-header-icon-cluster-gap);
-  min-width: var(--sector-header-right-min);
   flex-shrink: 0;
+}
+
+.sector-header-bar--left-title .sector-header-bar__left {
+  justify-self: stretch;
+  width: var(--sector-header-left-slot);
+}
+
+.sector-header-bar--left-title .sector-header-bar__right {
+  justify-self: stretch;
+  width: auto;
+  min-width: var(--sector-header-right-min);
 }
 
 .sector-header-bar__center {
@@ -143,6 +215,11 @@
 
 .sector-header-back:active {
   background: var(--sector-header-accent-hover);
+}
+
+/** 헤더 행 안 뒤로가기 — 48×48 터치 가운데 24px 아이콘 (아이콘 가장자리 = 화면 끝 16px) */
+.sector-header-bar .sector-header-back {
+  justify-content: center;
 }
 
 .sector-header-back svg {
@@ -472,7 +549,17 @@
     --sector-header-action-size: 34px;
     --sector-header-back-icon: 21px;
     --sector-header-action-icon: 21px;
-    --sector-header-title-size: 16px;
+  }
+
+  /** 좁은 폰 허브 — 기존 축소 기하 유지 (하위 화면은 48px 터치 고정) */
+  .sector-header-bar--left-title {
+    --sector-header-col-gap: 4px;
+    --sector-header-back-size: 38px;
+    --sector-header-action-size: 34px;
+    --sector-header-back-icon: 21px;
+    --sector-header-action-icon: 21px;
+    --delivery-header-action: 34px;
+    --delivery-header-icon-glyph: 21px;
   }
 
   .community-tier1-header-actions {
@@ -490,11 +577,17 @@
   }
 }
 
+/** 태블릿·웹 — 높이 52px·제목 17px 은 모든 기기 공통 (§12). 허브 아이콘 타일만 기존처럼 약간 키움 */
 @media (min-width: 768px) {
   :root {
-    --sector-header-h: 56px;
-    --sector-header-title-size: 18px;
     --sector-header-action-size: 38px;
     --sector-header-action-icon: 23px;
+  }
+
+  .sector-header-bar--left-title {
+    --sector-header-action-size: 38px;
+    --sector-header-action-icon: 23px;
+    --delivery-header-action: 38px;
+    --delivery-header-icon-glyph: 23px;
   }
 }

@@ -94,7 +94,7 @@ export function MemberCsNoteListClient({
         <MySubpageHeader title={title} subtitle={subtitle} backHref={backHref} preferHistoryBack={false} hideCtaStrip />
       )}
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4 px-3 sm:px-4`}>
+        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4`}>
           {sections.map((k) => (
             <MemberCsNoteSection
               key={k}

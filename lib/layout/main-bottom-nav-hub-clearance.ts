@@ -40,12 +40,26 @@ function isDeliveryConsumerHubBodyClearancePath(pathname: string): boolean {
   const p = normalizeHubPath(pathname);
   if (p === "/stores/owner" || p.startsWith("/stores/owner/")) return false;
   if (p === "/orders" || p.startsWith("/orders/")) return true;
-  if (p === "/mypage/store-orders" || p.startsWith("/mypage/store-orders/")) return true;
-  if (p === "/my/store-orders" || p.startsWith("/my/store-orders/")) return true;
+  /**
+   * `/mypage/store-orders(/*)` 는 제외 — 본문이 내정보 `MyScreen`(하단탭 여백 없음)이라 셸 `<main>` 이
+   * 탭+안전영역 여백을 준다 (설계서 v3 §4 ④ · 부록 C #34). 배달 `/orders` 판정은 그대로.
+   */
+  if (isMypageStoreOrdersPath(p)) return false;
   if (p === "/stores/cart") return true;
   if (p === "/stores/search" || p.startsWith("/stores/search/")) return true;
   if (p === "/stores/browse" || p.startsWith("/stores/browse/")) return true;
   return false;
+}
+
+/** 내정보 매장 주문 목록·상세 (`/my/*` 별칭 포함) */
+export function isMypageStoreOrdersPath(pathname: string | null | undefined): boolean {
+  const p = normalizeHubPath(pathname);
+  return (
+    p === "/mypage/store-orders" ||
+    p.startsWith("/mypage/store-orders/") ||
+    p === "/my/store-orders" ||
+    p.startsWith("/my/store-orders/")
+  );
 }
 
 /** 셸 `mainBottomClass=pb-0` — 본문이 clearance 를 직접 갖는 허브·피드만 */

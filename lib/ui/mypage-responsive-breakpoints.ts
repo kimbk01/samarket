@@ -46,3 +46,13 @@ export function mypageHubBreakpointAt(widthPx: number): "mobile" | "tablet" | "d
  */
 export const MYPAGE_COLUMN_MAX_WIDTH_CLASS = "max-w-[40rem]";
 export const MYPAGE_GUTTER_X_CLASS = "px-4 md:px-5";
+
+/**
+ * 내정보 하위 화면 본문 1열 — 폰 16px · 768px 이상 20px · 최대 640px 가운데 (설계서 v3 §2).
+ * 거터는 **이 클래스 한 번만** 적용한다. 앱 피드 거터(`APP_MAIN_GUTTER_X_CLASS` 10/8)나
+ * `APP_MAIN_TAB_SCROLL_BODY_CLASS` 안에 다시 넣지 않는다 (이중 여백 26/24px 금지).
+ */
+export const MYPAGE_BODY_COLUMN_CLASS = `mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS}`;
+
+/** 본문 바깥 스크롤 래퍼 — 가로 여백 없음 (거터는 `MYPAGE_BODY_COLUMN_CLASS` 단독 소유) */
+export const MYPAGE_SCROLL_BODY_CLASS = "flex min-h-0 w-full min-w-0 flex-1 flex-col";
