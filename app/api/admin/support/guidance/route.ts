@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { validateSupportCategoryForOpen } from "@/lib/support/support-category-registry";
 import {
   adminUpsertSupportGuidanceEntry,
@@ -112,5 +113,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: res.error }, { status });
   }
 
+  await appendAdminRouteAudit(sb, req, {
+    actorId: auth.userId,
+    targetType: "support_guidance",
+    targetId: res.entry.id,
+    action: body.id ? "support_guidance.update" : "support_guidance.create",
+    after: res.entry as unknown as Record<string, unknown>,
+  });
   return NextResponse.json({ ok: true, entry: res.entry });
 }

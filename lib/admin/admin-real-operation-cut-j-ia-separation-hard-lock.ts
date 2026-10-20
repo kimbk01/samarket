@@ -247,7 +247,10 @@ export const CUT_J_J_AMD_5_WORKSPACE_LABELS = [
   { key: "promotion", titleKey: "admin_menu_promotion", ko: "플랫폼 운영" },
 ] as const;
 
-/** J-AMD-5 — members leaves (in order). Two existing sub-screens exposed; /admin/staff is F3 (not here). */
+/**
+ * J-AMD-5 — members leaves (in order, design v4: 4 → 7). Two existing sub-screens exposed +
+ * 「관리자 계정·권한」 `/admin/staff` (F3 new screen, master-only — APIs require super_admin).
+ */
 export const CUT_J_J_AMD_5_MEMBERS_LEAVES = [
   { key: "users", path: "/admin/users" },
   { key: "users-phone-verification", path: "/admin/users/phone-verification" },
@@ -255,7 +258,17 @@ export const CUT_J_J_AMD_5_MEMBERS_LEAVES = [
   { key: "global-reports", path: "/admin/reports" },
   { key: "reports-logs", path: "/admin/reports/log" },
   { key: "audit-logs", path: "/admin/audit-logs" },
+  { key: "admin-staff", path: "/admin/staff" },
 ] as const;
+
+/** J-AMD-5 (F3) — new members leaf: new route, super_admin only (menu `roles: ["master"]`). */
+export const CUT_J_J_AMD_5_ADDED_STAFF_LEAF = {
+  key: "admin-staff",
+  path: "/admin/staff",
+  workspace: "members",
+  roles: ["master"],
+  titleKey: "admin_menu_admin_staff",
+} as const;
 
 /**
  * J-AMD-5 (O-2) — promotion (「플랫폼 운영」) tree, direct children in order.
@@ -531,6 +544,8 @@ export function assertAdminRealOperationCutJIaSeparationHardLock(): boolean {
   const jAmd5Ok =
     CUT_J_J_AMD_5_OWNER_APPROVED === true &&
     CUT_J_J_AMD_5_INTERNAL_TOOLS.length === 24 &&
+    CUT_J_J_AMD_5_MEMBERS_LEAVES.length === 7 &&
+    CUT_J_J_AMD_5_MEMBERS_LEAVES[6].path === CUT_J_J_AMD_5_ADDED_STAFF_LEAF.path &&
     CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.roles.length === 1 &&
     CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.roles[0] === "master" &&
     CUT_J_J_AMD_5_REMOVED_LEAVES.length === 3 &&

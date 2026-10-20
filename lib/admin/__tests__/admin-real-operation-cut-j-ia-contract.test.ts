@@ -36,6 +36,7 @@ import {
   CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION,
   CUT_J_J_AMD_5_MASTER_ONLY_SYSTEM_LEAVES,
   CUT_J_J_AMD_5_MEMBERS_LEAVES,
+  CUT_J_J_AMD_5_ADDED_STAFF_LEAF,
   CUT_J_J_AMD_5_MOVED_INTO_PROMOTION,
   CUT_J_J_AMD_5_PROMOTION_TREE,
   CUT_J_J_AMD_5_REMOVED_LEAVES,
@@ -281,7 +282,15 @@ describe("CUT J IA separation hard lock", () => {
       }))
     ).toEqual(CUT_J_J_AMD_5_MEMBERS_LEAVES.map((l) => ({ key: l.key, path: l.path })));
     expect(findAdminMenuByKey(adminMenu, "staff")).toBeUndefined();
-    expect(collectAdminMenuPathEntries(adminMenu).map((e) => e.path)).not.toContain("/admin/staff");
+    // F3: 관리자 계정·권한 — members 마지막 leaf, master-only, 경로 1개.
+    const staffLeaf = findAdminMenuByKey(adminMenu, CUT_J_J_AMD_5_ADDED_STAFF_LEAF.key);
+    expect(staffLeaf?.path).toBe(CUT_J_J_AMD_5_ADDED_STAFF_LEAF.path);
+    expect(staffLeaf?.roles).toEqual([...CUT_J_J_AMD_5_ADDED_STAFF_LEAF.roles]);
+    expect(CUT_J_J_AMD_5_MEMBERS_LEAVES.at(-1)?.key).toBe(CUT_J_J_AMD_5_ADDED_STAFF_LEAF.key);
+    expect(
+      collectAdminMenuPathEntries(adminMenu).filter((e) => e.path === "/admin/staff").map((e) => e.key)
+    ).toEqual([CUT_J_J_AMD_5_ADDED_STAFF_LEAF.key]);
+    expect(workspaceOf("/admin/staff")).toBe("members");
 
     expect(liveTree("promotion")).toEqual(
       CUT_J_J_AMD_5_PROMOTION_TREE.map((n) => ({ key: n.key, children: [...n.children] }))
@@ -372,8 +381,8 @@ describe("CUT J IA separation hard lock", () => {
       if (!removed) expect(findAdminMenuByKey(adminMenu, old.key)?.key, old.key).toBe(old.key);
       expect(activeLeafKeys(old.path).length, `not highlightable ${old.path}`).toBeGreaterThan(0);
     }
-    // J-AMD-5 added exactly the two member leaves (195 − 3 removed + 2 added = 194).
-    expect(leaves).toHaveLength(194);
+    // J-AMD-5 added the two member sub-screen leaves + F3 「관리자 계정·권한」 (195 − 3 removed + 3 added = 195).
+    expect(leaves).toHaveLength(195);
   });
 
   it("J21–J34 operational findability primary paths", () => {

@@ -116,6 +116,10 @@ const VIEW_CONTRACT: { page: string; route: string; method?: string }[] = [
   { page: "/admin/stores", route: "stores/route.ts" },
   { page: "/admin/store-orders", route: "store-orders/route.ts" },
   { page: "/admin/feed-emergency", route: "feed-emergency/route.ts" },
+  // F3 공통 화면
+  { page: "/admin/staff", route: "staff/memberships/route.ts" },
+  { page: "/admin/reports/log", route: "reports/sanction-ledger/route.ts" },
+  { page: "/admin/audit-logs", route: "audit-logs/route.ts" },
 ];
 
 /** 쓰기 작업 가드가 더 강한 화면 — `action` 이 실제 쓰기 API 가드와 같다. */
@@ -167,6 +171,16 @@ describe("canAccessAdminRoute / canActOnAdminRoute", () => {
   };
   const bare: AdminRouteAccessActor = { role: "admin", permissions: [] };
   const member: AdminRouteAccessActor = { role: "member", permissions: ["users", "point"] };
+
+  it("F3 관리자 계정·권한 = 최고관리자 전용, 제재 기록 = reports 키", () => {
+    expect(resolveAdminRouteAccess("/admin/staff").requirement).toEqual({ kind: "super_admin" });
+    expect(canAccessAdminRoute("/admin/staff", superAdmin)).toBe(true);
+    expect(canAccessAdminRoute("/admin/staff", operator)).toBe(false);
+    expect(canAccessAdminRoute("/admin/staff", bare)).toBe(false);
+    expect(resolveAdminRouteAccess("/admin/reports/log").requirement).toEqual({ kind: "permission", key: "reports" });
+    expect(canAccessAdminRoute("/admin/reports/log", operator)).toBe(true);
+    expect(canAccessAdminRoute("/admin/reports/log", bare)).toBe(false);
+  });
 
   it("관리자가 아니면 전부 거부", () => {
     expect(canAccessAdminRoute("/admin", member)).toBe(false);

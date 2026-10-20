@@ -165,8 +165,9 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   // ── 회원 · 신고 · 설정
   { path: "/admin/users", requirement: perm("users") },
   { path: "/admin/push-devices", requirement: perm("users") },
-  // 제재 기록은 클라이언트 조회(RLS) — 화면 가드 없음
-  { path: "/admin/reports/log", requirement: ANY },
+  // 관리자 계정·권한 (F3) — 조회 `staff/memberships` · 변경 `staff`·`users/[id]/privilege` 모두 requireSuperAdmin
+  { path: "/admin/staff", requirement: SUPER },
+  // 제재 기록 (F3) — 조회 API `reports/sanction-ledger` = requireAdminPermission("reports") (신고 화면과 같음)
   { path: "/admin/reports", requirement: perm("reports") },
   { path: "/admin/settings/auth", requirement: perm("settings") },
   { path: "/admin/settings", requirement: ANY },
