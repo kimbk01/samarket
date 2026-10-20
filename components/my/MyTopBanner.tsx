@@ -5,8 +5,6 @@ import type { MouseEvent } from "react";
 import { DestinationLink } from "@/components/destination/DestinationLink";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MyPageBannerRow } from "@/lib/my/types";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { updateMySettings } from "@/lib/my/updateMySettings";
 
 export interface MyTopBannerProps {
   banner: MyPageBannerRow | null;
@@ -21,11 +19,8 @@ export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
     // The close button sits inside the banner link — never let it navigate.
     e.preventDefault();
     e.stopPropagation();
-    const userId = getCurrentUser()?.id;
-    if (userId) {
-      updateMySettings(userId, { app_banner_hidden: true });
-      onDismiss?.();
-    }
+    // 닫힘 기억은 배너 id 단위(호출부) — 전체 배너 영구 숨김(app_banner_hidden)으로 새 배너까지 막지 않는다 (v2.1 §6)
+    onDismiss?.();
   };
 
   const content = (

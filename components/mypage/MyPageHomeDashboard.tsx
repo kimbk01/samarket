@@ -24,6 +24,7 @@ import { useMypageProfileSheets } from "@/components/mypage/profile-settings/myp
 import { useMypageHubScrollRestore } from "@/lib/mypage/use-mypage-hub-scroll-restore";
 import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
 import type { MypageAdminMenuSeed } from "@/lib/my/load-mypage-admin-menu-seed";
+import { MypageHomeCmsBanner } from "@/components/mypage/home/MypageHomeCmsBanner";
 
 /**
  * Legacy IA — single behavior-flow column (all viewports).
@@ -61,6 +62,7 @@ export function MyPageHomeDashboard({
           <>
             <MypageProfileSummary projection={projection} />
             <MypageRequiredInfoSummary projection={projection} onProfileRefresh={onProfileRefresh} />
+            <MypageHomeCmsBanner />
           </>
         )}
 
