@@ -27,13 +27,19 @@ export const ADDR_BODY = "leading-snug text-sam-muted";
 
 /** 내정보·주소 관리 목록 — designation / default 뱃지 공통 */
 export const ADDR_LIST_BADGE_BASE =
-  "inline-flex shrink-0 items-center rounded-[4px] border px-2 py-0.5 text-[10px] font-bold leading-snug";
+  "inline-flex shrink-0 items-center rounded-[4px] border px-2 py-0.5 sam-text-xxs font-bold leading-snug";
 
+/** 검색창 — 포커스 시 `.sam-input:focus` 와 같은 테두리·링(테두리 두께 불변) */
 export const ADDR_SEARCH_WRAP =
-  "flex w-full items-center gap-2 rounded-ui-rect border border-sam-primary-border/70 bg-white px-3 py-2 shadow-sm";
+  "flex w-full items-center gap-2 rounded-ui-rect border border-sam-primary-border/70 bg-sam-surface px-3 py-2 transition-[border-color,box-shadow] duration-150 focus-within:border-sam-primary focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--sam-primary)_18%,transparent)]";
 
+/** 입력 16px(`--sm-font-input`) 전 플랫폼 — iOS 포커스 확대 방지 */
 export const ADDR_SEARCH_INPUT =
-  "min-w-0 flex-1 border-0 bg-transparent py-1.5 sam-text-body text-sam-fg outline-none placeholder:text-sam-meta";
+  "min-w-0 flex-1 border-0 bg-transparent py-1.5 text-[length:var(--sm-font-input)] leading-snug text-sam-fg outline-none placeholder:text-sam-meta";
+
+/** 자체 지우기 버튼을 쓰는 검색 입력 — 네이티브 webkit 검색 취소 버튼 숨김 */
+export const ADDR_SEARCH_INPUT_NO_NATIVE_CANCEL =
+  "[&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none";
 
 /** 검색 자동완성 드롭다운 — 페이지 크림 배경·흰 검색창과 구분 */
 export const ADDR_SEARCH_DROPDOWN =
@@ -59,7 +65,7 @@ export const ADDR_BTN_PRIMARY_FULL =
   "w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white shadow-md transition-opacity hover:opacity-95 disabled:opacity-40";
 
 export const ADDR_BTN_SECONDARY_FULL =
-  "w-full rounded-ui-rect border border-sam-primary-border bg-white py-3.5 sam-text-body font-semibold text-signature shadow-sm transition-colors hover:bg-sam-primary-soft/50";
+  "w-full rounded-ui-rect border border-sam-primary-border bg-sam-surface py-3.5 sam-text-body font-semibold text-signature shadow-sm transition-colors hover:bg-sam-primary-soft/50";
 
 export const ADDR_BTN_TERTIARY_FULL =
   "sam-text-body-secondary font-medium text-sam-meta underline-offset-2 hover:text-signature hover:underline";

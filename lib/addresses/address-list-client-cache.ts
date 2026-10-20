@@ -78,15 +78,18 @@ export function invalidateMeAddressesListClientCache(): void {
   }
 }
 
-/** 저장·삭제 직후 — 단일 비행·sessionStorage 무효화 후 최신 목록 반환·캐시 갱신 */
-export async function refreshMeAddressesListAfterMutation(): Promise<UserAddressDTO[]> {
+/**
+ * 저장·삭제 직후 — 단일 비행·sessionStorage 무효화 후 최신 목록 반환·캐시 갱신.
+ * 재조회 실패 시 `null` — 호출 측은 빈 목록으로 덮지 말고 기존 목록을 유지한다.
+ */
+export async function refreshMeAddressesListAfterMutation(): Promise<UserAddressDTO[] | null> {
   invalidateMeAddressesListClientCache();
   const result = await fetchMeAddressesListSingleFlight();
   if (result.ok) {
     if (result.rows.length > 0) writeCachedMeAddressList(result.rows);
     return result.rows;
   }
-  return [];
+  return null;
 }
 
 export function fetchMeAddressesListSingleFlight(): Promise<MeAddressesListFetchResult> {

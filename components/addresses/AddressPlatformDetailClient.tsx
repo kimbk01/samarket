@@ -19,6 +19,13 @@ import {
 } from "@/lib/addresses/location-only-address-nickname";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
+import { useRouter } from "next/navigation";
+import {
+  clearAddressEditDraftV3,
+  readAddressEditDraftV3,
+  writeAddressEditDraftV3,
+} from "@/lib/addresses/canonical-address-draft-storage";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { MyToggle } from "@/components/mypage/ds/MyToggle";
 import {
@@ -76,10 +83,27 @@ export function AddressPlatformDetailClient(props: {
   callerPrefersMaster?: boolean;
   /** 변경 여부 — 부모가 뒤로 시 미저장 확인을 띄운다 */
   onDirtyChange?: (dirty: boolean) => void;
+  /** 편집 입력 초안 v3 키의 사용자 id — 빈 값이면 초안 저장·복원 안 함 (UX-008) */
+  draftUserId?: string;
+  /** draft 없음(만료 id·좌표 없음) 시 「주소 다시 검색」 이동 경로 (UX-002) */
+  researchHref?: string;
 }) {
   const { t } = useI18n();
-  const { mode, initial, onSaved, allAddresses, callerPrefersMaster = false, onDirtyChange } = props;
-  const { effectiveBottomInset } = useFormKeyboardViewport({ enabled: true });
+  const router = useRouter();
+  const {
+    mode,
+    initial,
+    onSaved,
+    allAddresses,
+    callerPrefersMaster = false,
+    onDirtyChange,
+    draftUserId = "",
+    researchHref,
+  } = props;
+  const { effectiveBottomInset, effectiveViewportBottom } = useFormKeyboardViewport({ enabled: true });
+  const scrollRootRef = useRef<HTMLDivElement | null>(null);
+  /** 하단 입력(랜드마크·메모) 포커스 시 키보드 위로 보이게 (UX-006) */
+  useFormKeyboardFocusVisibility({ effectiveViewportBottom, scrollRootRef });
   const isTablet = useIsTabletWidth();
   const isShop = initial?.labelType === "shop" || Boolean(initial?.linkedStoreId?.trim());
   const masterInit = useMemo(
@@ -126,6 +150,44 @@ export function AddressPlatformDetailClient(props: {
     }
   }, [initial, mode, props.draft]);
 
+  /** 편집 입력 초안 v3 (UX-008) — 진입 시 1회 복원, 변경 시 300ms 디바운스 저장 */
+  const draftAddressId = mode === "edit" ? initial?.id ?? null : null;
+  const draftBaseUpdatedAt = mode === "edit" ? initial?.updatedAt ?? null : null;
+  const draftRestoreAttemptedRef = useRef(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  useEffect(() => {
+    if (draftRestoreAttemptedRef.current || !draftUserId) return;
+    if (mode === "edit" && !initial) return;
+    draftRestoreAttemptedRef.current = true;
+    const saved = readAddressEditDraftV3({
+      userId: draftUserId,
+      addressId: draftAddressId,
+      baseUpdatedAt: draftBaseUpdatedAt,
+    });
+    if (!saved) return;
+    const f = saved.fields;
+    setDetail(f.detail ?? "");
+    setLandmark(f.landmark ?? "");
+    setDeliveryNote(f.note ?? "");
+    if (!isShop && (f.labelType === "home" || f.labelType === "office" || f.labelType === "other")) {
+      setLabel(f.labelType);
+    }
+    if (!isShop && !masterInit.locked) setMasterOn(f.isDefault === true);
+    setDraftRestored(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 진입 시 1회 복원
+  }, [draftUserId, mode, initial]);
+
+  const startOverFromDraft = useCallback(() => {
+    clearAddressEditDraftV3(draftUserId, draftAddressId);
+    setDetail(mode === "edit" && initial ? (initial.detailAddress ?? initial.unitFloorRoom ?? "").trim() : "");
+    setLandmark(mode === "edit" && initial ? (initial.landmark ?? "").trim() : "");
+    setDeliveryNote(mode === "edit" && initial ? (initial.deliveryNote ?? "").trim() : "");
+    setLabel(initial && initial.labelType !== "shop" ? initial.labelType : "other");
+    setMasterOn(mode === "edit" && initial ? initial.isDefaultMaster === true : masterInit.on);
+    setDraftRestored(false);
+  }, [draftAddressId, draftUserId, initial, masterInit.on, mode]);
+
   const lines = useMemo(() => {
     if (!draft) return { title: "", addressLine: "", detailLine: null };
     return resolveCanonicalDisplayLines(
@@ -151,6 +213,41 @@ export function AddressPlatformDetailClient(props: {
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!draftUserId || !draftRestoreAttemptedRef.current) return;
+    const timer = window.setTimeout(() => {
+      if (!dirty) {
+        clearAddressEditDraftV3(draftUserId, draftAddressId);
+        return;
+      }
+      writeAddressEditDraftV3({
+        userId: draftUserId,
+        addressId: draftAddressId,
+        baseUpdatedAt: draftBaseUpdatedAt,
+        fields: {
+          detail,
+          landmark,
+          note: deliveryNote,
+          labelType: label,
+          nickname: initial?.nickname ?? null,
+          isDefault: masterOn,
+        },
+      });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [
+    deliveryNote,
+    detail,
+    dirty,
+    draftAddressId,
+    draftBaseUpdatedAt,
+    draftUserId,
+    initial?.nickname,
+    label,
+    landmark,
+    masterOn,
+  ]);
 
   const canSave =
     Boolean(draft) && !resolving && !busy && Boolean(detail.trim()) && (mode === "create" || dirty);
@@ -341,9 +438,19 @@ export function AddressPlatformDetailClient(props: {
 
   if (!draft) {
     return (
-      <p className="px-4 py-8 text-center sam-text-body-secondary text-sam-muted">
-        {t("addr_ui_pick_search_result")}
-      </p>
+      <div className="flex flex-col items-center gap-4 px-4 py-8 text-center">
+        <p className="sam-text-body-secondary text-sam-muted">{t("addr_ui_pick_search_result")}</p>
+        {researchHref ? (
+          <button
+            type="button"
+            data-testid="address-detail-research"
+            onClick={() => router.replace(researchHref)}
+            className={`${Sam.btn.secondaryCombo} ${Sam.focusRing}`}
+          >
+            {t("addr_ui_research_address")}
+          </button>
+        ) : null}
+      </div>
     );
   }
 
@@ -353,7 +460,23 @@ export function AddressPlatformDetailClient(props: {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className={`${MYPAGE_BODY_COLUMN_CLASS} min-h-0 flex-1 space-y-3 overflow-y-auto py-3`}>
+      <div ref={scrollRootRef} className={`${MYPAGE_BODY_COLUMN_CLASS} min-h-0 flex-1 space-y-3 overflow-y-auto py-3`}>
+        {draftRestored ? (
+          <div
+            className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2"
+            role="status"
+            data-testid="address-edit-draft-restored"
+          >
+            <p className="min-w-0 flex-1 sam-text-helper text-sam-muted">{t("addr_ui_edit_draft_restored")}</p>
+            <button
+              type="button"
+              onClick={startOverFromDraft}
+              className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} ${Sam.focusRing}`}
+            >
+              {t("addr_ui_edit_draft_start_over")}
+            </button>
+          </div>
+        ) : null}
         {err ? (
           <p className="sam-text-body-secondary font-medium text-sam-danger" role="alert" data-testid="address-detail-error">
             {err}
@@ -393,6 +516,8 @@ export function AddressPlatformDetailClient(props: {
               onChange={(e) => setDetail(e.target.value)}
               placeholder={t("addr_ui_detail_ph")}
               rows={2}
+              autoComplete="address-line2"
+              enterKeyHint="next"
               className={inputClass}
             />
           </label>
@@ -427,6 +552,7 @@ export function AddressPlatformDetailClient(props: {
                 value={landmark}
                 onChange={(e) => setLandmark(e.target.value)}
                 placeholder={t("addr_v2_landmark_ph")}
+                enterKeyHint="next"
                 className={inputClass}
               />
             </label>
@@ -436,6 +562,7 @@ export function AddressPlatformDetailClient(props: {
                 value={deliveryNote}
                 onChange={(e) => setDeliveryNote(e.target.value)}
                 placeholder={t("addr_ui_delivery_ph")}
+                enterKeyHint="done"
                 className={inputClass}
               />
             </label>
@@ -468,7 +595,7 @@ export function AddressPlatformDetailClient(props: {
       </div>
       <div
         className="shrink-0 border-t border-sam-border-soft bg-sam-surface/95 py-3"
-        data-form-keyboard-footer=""
+        data-form-keyboard-footer="1"
         style={{ paddingBottom: `${effectiveBottomInset + 12}px` }}
       >
         <div className={MYPAGE_BODY_COLUMN_CLASS}>

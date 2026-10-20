@@ -12,6 +12,7 @@ import {
   isPhUserAddressRow,
 } from "@/lib/addresses/format-user-address-list-line";
 import { AddressListRowBody } from "@/components/addresses/AddressListRowBody";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   addressListRowSurfaceClass,
   resolveAddressListRowSurface,
@@ -44,7 +45,8 @@ export function AddressRowCard(props: {
   } = props;
   const { t } = useI18n();
   const [actionsOpen, setActionsOpen] = useState(false);
-  const rowBusy = globalBusy === row.id;
+  /** 목록 단위 잠금 (CTA-003) — 어떤 행이든 변경 중이면 모든 행 비활성 */
+  const rowBusy = globalBusy != null;
   const linkedStoreId = row.linkedStoreId?.trim() ?? "";
   const samarketStoreDisplayName =
     row.labelType === "shop" && linkedStoreId
@@ -105,7 +107,7 @@ export function AddressRowCard(props: {
           type="button"
           disabled={rowBusy}
           onClick={() => onPrimaryTap()}
-          className={`${primaryClass} disabled:opacity-50`}
+          className={`${primaryClass} transition-colors active:bg-sam-pressed-surface disabled:opacity-50 ${Sam.focusRing}`}
           aria-label={ariaPrimary}
         >
           {primaryInner}
@@ -120,7 +122,7 @@ export function AddressRowCard(props: {
           onClick={() => setActionsOpen(true)}
           disabled={rowBusy}
           data-testid="address-row-more"
-          className="sam-header-action flex h-12 w-12 items-center justify-center text-sam-muted transition-colors hover:text-sam-primary disabled:opacity-40"
+          className={`sam-header-action flex h-12 w-12 items-center justify-center text-sam-muted transition-colors hover:text-sam-primary disabled:opacity-40 ${Sam.focusRing}`}
           aria-label={t("mypage_s06_row_more_aria")}
           aria-haspopup="dialog"
         >
@@ -134,6 +136,7 @@ export function AddressRowCard(props: {
           title={designationPlain}
           cancelLabel={t("common_cancel")}
           items={actionItems}
+          anchor="device-bottom"
         />
       ) : null}
     </li>

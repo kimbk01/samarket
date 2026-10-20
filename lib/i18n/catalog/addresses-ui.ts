@@ -175,6 +175,11 @@ export const addressesUiMessages = {
     addr_v2_landmark_ph: "예: 초록 대문, Entrance 3",
     addr_v2_current_address: "현재 주소",
     addr_v2_book_search_placeholder: "도로명, 건물명, 상호명, 지번으로 검색",
+    addr_ui_search_clear_aria: "검색어 지우기",
+    addr_ui_list_refresh_failed: "주소 목록을 새로 불러오지 못했어요.",
+    addr_ui_research_address: "주소 다시 검색",
+    addr_ui_edit_draft_restored: "작성 중이던 내용을 불러왔어요.",
+    addr_ui_edit_draft_start_over: "처음부터",
   },
   en: {
     addr_ui_api_address_not_found: "Address not found.",
@@ -352,5 +357,10 @@ export const addressesUiMessages = {
     addr_v2_landmark_ph: "e.g. Green gate, Entrance 3",
     addr_v2_current_address: "Current",
     addr_v2_book_search_placeholder: "Search by street, building, business, or lot",
+    addr_ui_search_clear_aria: "Clear search",
+    addr_ui_list_refresh_failed: "Couldn't refresh the address list.",
+    addr_ui_research_address: "Search address again",
+    addr_ui_edit_draft_restored: "Restored your unsaved changes.",
+    addr_ui_edit_draft_start_over: "Start over",
   },
 } as const;

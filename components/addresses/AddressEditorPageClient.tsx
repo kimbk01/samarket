@@ -28,7 +28,9 @@ import {
   parseSafeInternalReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
 import {
+  clearAddressEditDraftV3,
   clearAddressPlatformV2Draft,
+  clearMypageAddressSearchQuery,
   readAddressPlatformV2Draft,
   shouldRedirectCreateDetailToSearch,
 } from "@/lib/addresses/canonical-address-draft-storage";
@@ -39,6 +41,7 @@ import {
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
 } from "@/lib/addresses/mypage-address-manage-layout";
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
 
 function AddressEditorPageChrome(props: {
   titleKey: MessageKey;
@@ -83,6 +86,8 @@ function AddressEditorPageInner() {
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [editTarget, setEditTarget] = useState<UserAddressDTO | null>(null);
   const [platformDraft, setPlatformDraft] = useState<CanonicalAddressDraft | null>(null);
+  const viewerUserId = useRegionViewerUserId();
+  const draftUserId = viewerUserId && viewerUserId !== "guest" ? viewerUserId : "";
 
   const mapHandledRef = useRef(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -171,7 +176,8 @@ function AddressEditorPageInner() {
           const row = rows.find((a) => a.id === idFromUrl);
           setEditTarget(row ?? null);
           setMode(row ? "edit" : "create");
-          if (row) setPlatformDraft(draftFromSavedRow(row));
+          /** 좌표 없는 저장 행 — 재검색(UX-002)으로 받은 handoff draft 사용 */
+          if (row) setPlatformDraft(draftFromSavedRow(row) ?? readAddressPlatformV2Draft()?.draft ?? null);
         } else {
           setMode("create");
           setEditTarget(null);
@@ -225,8 +231,10 @@ function AddressEditorPageInner() {
   }
 
   return (
-    <AddressEditorPageChrome titleKey="addr_ui_address_detail_header" backHref={addressesListHref} onBack={requestLeave}>
+    <AddressEditorPageChrome titleKey={headerTitleKey} backHref={addressesListHref} onBack={requestLeave}>
       <AddressPlatformDetailClient
+        draftUserId={draftUserId}
+        researchHref={buildMypageAddressSearchHref({ returnTo, id: mode === "edit" ? editTarget?.id : null })}
         mode={mode}
         initial={editTarget}
         draft={platformDraft}
@@ -236,6 +244,9 @@ function AddressEditorPageInner() {
         onSaved={async () => {
           try {
             clearAddressPlatformV2Draft();
+            clearAddressEditDraftV3(draftUserId, mode === "edit" ? editTarget?.id : null);
+            /** 저장 성공 — 다음 주소 추가 시 이전 검색어가 남지 않게 (UX-001) */
+            clearMypageAddressSearchQuery();
             await commitUserAddressListAfterMutation();
             invalidateMypageSummary();
           } finally {
@@ -254,6 +265,7 @@ function AddressEditorPageInner() {
         onConfirm={() => {
           setLeaveConfirmOpen(false);
           setDirty(false);
+          clearAddressEditDraftV3(draftUserId, mode === "edit" ? editTarget?.id : null);
           leaveNow();
         }}
       />

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -10,7 +10,10 @@ import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { resolveAddressSearchResultState } from "@/lib/addresses/address-search-result-state";
 import { resolveCanonicalAddressFromPlaceId, resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
-import { writeAddressPlatformV2Draft } from "@/lib/addresses/canonical-address-draft-storage";
+import {
+  MYPAGE_ADDRESS_SEARCH_QUERY_SESSION_KEY,
+  writeAddressPlatformV2Draft,
+} from "@/lib/addresses/canonical-address-draft-storage";
 import {
   buildMypageAddressEditHref,
   buildMypageAddressesHref,
@@ -23,8 +26,8 @@ import {
   MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS,
 } from "@/lib/addresses/mypage-address-manage-layout";
 
-/** 뒤로 돌아오면 입력어 유지 (S08) — 탭 세션 한정 */
-export const MYPAGE_ADDRESS_SEARCH_QUERY_SESSION_KEY = "dibay:mypage-address-search:q";
+/** 뒤로 돌아오면 입력어 유지 (S08) — 탭 세션 한정. 키 정의는 draft storage (저장 성공 시 제거) */
+export { MYPAGE_ADDRESS_SEARCH_QUERY_SESSION_KEY };
 
 function readSavedQuery(): string {
   if (typeof window === "undefined") return "";
@@ -50,6 +53,8 @@ function AddressPlatformSearchInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const returnTo = parseSafeInternalReturnTo(sp.get("returnTo"));
+  /** 편집 중 재검색(UX-002) — 결과를 같은 주소 편집으로 */
+  const editId = (sp.get("id") ?? "").trim();
   const listHref = buildMypageAddressesHref(returnTo);
   const [search, setSearchState] = useState("");
   const [searching, setSearching] = useState(false);
@@ -116,45 +121,84 @@ function AddressPlatformSearchInner() {
   });
 
   const goDetail = useCallback(() => {
-    router.replace(buildMypageAddressEditHref({ returnTo }));
-  }, [returnTo, router]);
+    router.replace(buildMypageAddressEditHref({ returnTo, id: editId || undefined }));
+  }, [editId, returnTo, router]);
+
+  /**
+   * 화면 단일 비행 (CTA-002) — 결과 행·현재 위치 중 하나라도 해석 중이면 다른 선택을 막고,
+   * 요청 토큰이 최신인 결과만 draft 를 쓰고 이동한다.
+   */
+  const resolveTokenRef = useRef(0);
+  const resolveInFlightRef = useRef(false);
+  const selectionBusy = resolvingPlaceId != null || locating;
+
+  useEffect(
+    () => () => {
+      resolveTokenRef.current += 1;
+    },
+    [],
+  );
+
+  function beginResolve(): number | null {
+    if (resolveInFlightRef.current) return null;
+    resolveInFlightRef.current = true;
+    resolveTokenRef.current += 1;
+    return resolveTokenRef.current;
+  }
+
+  function endResolve(token: number) {
+    if (token === resolveTokenRef.current) resolveInFlightRef.current = false;
+  }
 
   async function onSelectPrediction(row: PlacePredictionRow) {
     if (!row.placeId.trim()) return;
+    const token = beginResolve();
+    if (token == null) return;
     setErr(null);
     setResolvingPlaceId(row.placeId);
     try {
       const draft = await resolveCanonicalAddressFromPlaceId(row.placeId);
+      if (token !== resolveTokenRef.current) return;
       if (!draft) {
         setErr(t("addr_ui_coords_invalid"));
         return;
       }
       writeAddressPlatformV2Draft({ draft, source: "search" });
       goDetail();
+    } catch {
+      if (token === resolveTokenRef.current) setErr(t("addr_ui_resolve_failed"));
     } finally {
-      setResolvingPlaceId(null);
+      endResolve(token);
+      if (token === resolveTokenRef.current) setResolvingPlaceId(null);
     }
   }
 
   async function onCurrentLocation() {
+    const token = beginResolve();
+    if (token == null) return;
     setErr(null);
     setLocating(true);
     try {
       const res = await requestLocationWithDiBaYGate({ featureKey: "delivery_address_location" });
+      if (token !== resolveTokenRef.current) return;
       if (!res.ok) {
         if (res.reason === "later") return;
         setErr(res.reason === "denied" ? t("addr_ui_geo_hint_default") : t("addr_ui_geo_failed"));
         return;
       }
       const draft = await resolveCanonicalAddressFromLatLng(res.position.latitude, res.position.longitude);
+      if (token !== resolveTokenRef.current) return;
       if (!draft) {
         setErr(t("addr_ui_resolve_failed"));
         return;
       }
       writeAddressPlatformV2Draft({ draft, source: "current_location" });
       goDetail();
+    } catch {
+      if (token === resolveTokenRef.current) setErr(t("addr_ui_resolve_failed"));
     } finally {
-      setLocating(false);
+      endResolve(token);
+      if (token === resolveTokenRef.current) setLocating(false);
     }
   }
 
@@ -173,15 +217,20 @@ function AddressPlatformSearchInner() {
           <p className="mb-3 text-[18px] font-bold leading-snug text-sam-fg">{t("addr_v2_search_lead")}</p>
           <AddressEditorLocationSearch
             search={search}
-            searching={false}
+            searching={searching}
             predictions={resultState === "results" ? predictions : []}
             resolvingPlaceId={resolvingPlaceId}
+            selectionLocked={selectionBusy}
             onSearchChange={setSearch}
             onSearchFocus={() => undefined}
             onSelectPrediction={(p) => void onSelectPrediction(p)}
             placeholder={t("addr_v2_search_placeholder")}
           />
-          {err ? <p className="mt-2 sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
+          {err ? (
+            <p className="mt-2 sam-text-body-secondary font-medium text-sam-danger" role="alert">
+              {err}
+            </p>
+          ) : null}
           {resultState === "searching" ? (
             <div className="mt-2">
               <MyStateView kind="loading" template="list" rows={3} />
@@ -214,7 +263,7 @@ function AddressPlatformSearchInner() {
           <button
             type="button"
             className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} ${Sam.focusRing} mt-6 disabled:opacity-45`}
-            disabled={locating}
+            disabled={selectionBusy}
             onClick={() => void onCurrentLocation()}
           >
             {locating ? t("addr_ui_locating") : t("addr_ui_find_current")}

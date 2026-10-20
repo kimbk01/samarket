@@ -272,12 +272,15 @@ describe("S17 캐시 삭제 — 레지스트리 키만", () => {
       "dibay.permission.session.camera": "1",
       "samarket:address-mgmt-exit": "/write",
       "dibay.address.platform.v2.draft": "{}",
+      "dibay.address.edit.draft.v3:u1:new": "{}",
       "samarket:post_logout_guard": "1",
       "some-unknown-session-key": "1",
     };
     for (const [k, v] of Object.entries(keepLocal)) localStorage.setItem(k, v);
     for (const [k, v] of Object.entries(keepSession)) sessionStorage.setItem(k, v);
-    localStorage.setItem("samarket:me-addresses-list-cache:v1", "[]");
+    /** 주소 목록 캐시는 sessionStorage (SSOT-009) */
+    sessionStorage.setItem("samarket:me-addresses-list-cache:v1", "[]");
+    localStorage.setItem("temp_x", "[]");
     localStorage.setItem("cache_feed", "[]");
     sessionStorage.setItem("dibay:mypage-summary:u1", "{}");
     sessionStorage.setItem("dibay:mypage-list:/mypage/offers", "{}");
@@ -285,10 +288,10 @@ describe("S17 캐시 삭제 — 레지스트리 키만", () => {
 
     const r = await clearAppClientCaches();
     expect(r.localKeys).toBe(2);
-    expect(r.sessionKeys).toBe(3);
+    expect(r.sessionKeys).toBe(4);
     for (const [k, v] of Object.entries(keepLocal)) expect(localStorage.getItem(k)).toBe(v);
     for (const [k, v] of Object.entries(keepSession)) expect(sessionStorage.getItem(k)).toBe(v);
-    expect(localStorage.getItem("samarket:me-addresses-list-cache:v1")).toBeNull();
+    expect(sessionStorage.getItem("samarket:me-addresses-list-cache:v1")).toBeNull();
     expect(sessionStorage.getItem("dibay:mypage-summary:u1")).toBeNull();
   });
 

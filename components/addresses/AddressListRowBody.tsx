@@ -35,7 +35,7 @@ const ADDRESS_LABEL_KIND_KEYS: Record<UserAddressDTO["labelType"], MessageKey> =
 };
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
-const ADDR_LIST_ADDRESS_TEXT = `${ADDR_BODY} text-[12px] leading-snug text-sam-muted`;
+const ADDR_LIST_ADDRESS_TEXT = `${ADDR_BODY} sam-text-body-secondary leading-snug text-sam-muted`;
 
 export function AddressListRowBody({
   row,
@@ -92,7 +92,7 @@ export function AddressListRowBody({
   return (
     <>
       {showRecipientRow ?
-        <p className="mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12px]">
+        <p className="mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 sam-text-xxs">
           {recipientName ?
             <span className="font-bold text-sam-fg">{recipientName}</span>
           : null}
@@ -157,11 +157,11 @@ export function AddressListRowBody({
 
       {detailLine ?
         <div className="mt-2 flex min-w-0 max-w-full flex-nowrap items-end gap-2">
-          <span className="shrink-0 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-sam-primary">
+          <span className="shrink-0 pb-0.5 sam-text-xxs font-semibold uppercase tracking-wide text-sam-primary">
             {t("addr_ui_detail_address_label")}
           </span>
           <span
-            className="min-w-0 flex-1 border-b border-sam-primary-border/55 pb-0.5 text-left text-[12px] font-bold text-sam-fg"
+            className="min-w-0 flex-1 border-b border-sam-primary-border/55 pb-0.5 text-left sam-text-body-secondary font-bold text-sam-fg [overflow-wrap:anywhere]"
             translate="no"
           >
             {detailLine}

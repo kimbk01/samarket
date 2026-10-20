@@ -9,19 +9,23 @@
  * - 기기 권한 안내 상태(`dibay.permission.session.*`)
  * - 작성 중 초안: 거래 글쓰기(`samarket:trade-write-form*` — AGENTS「거래 글쓰기 임시저장·이어쓰기」),
  *   매장 신청(`samarket:business-apply-form-draft:v1`), 거래·구인 약속 장소 스테이징
- * - 주소 흐름 컨텍스트(`member-address-caller-context`, `samarket:address-mgmt-exit`, `dibay.address.platform.v2.draft`)
+ * - 주소 흐름 컨텍스트(`member-address-caller-context`, `samarket:address-mgmt-exit`, `dibay.address.platform.v2.draft`,
+ *   주소 편집 초안 `dibay.address.edit.draft.v3:*`)
  * - 언어·동의·기기 설정
  */
 
 /** localStorage — 정확히 이 키만 삭제 */
-export const CLEARABLE_LOCAL_STORAGE_KEYS: readonly string[] = [
-  /** 내 주소 목록 캐시(서버 재조회) */
-  "samarket:me-addresses-list-cache:v1",
-  "samarket:me-addresses-list-cache:updated-at:v1",
-];
+export const CLEARABLE_LOCAL_STORAGE_KEYS: readonly string[] = [];
 
 /** localStorage — 구버전 임시 캐시 접두(현행 코드는 쓰지 않음, 남은 값 정리용) */
 export const CLEARABLE_LOCAL_STORAGE_PREFIXES: readonly string[] = ["cache_", "temp_"];
+
+/** sessionStorage — 정확히 이 키만 삭제 */
+export const CLEARABLE_SESSION_STORAGE_KEYS: readonly string[] = [
+  /** 내 주소 목록 캐시(서버 재조회) — `address-list-client-cache.ts` 는 sessionStorage 사용 */
+  "samarket:me-addresses-list-cache:v1",
+  "samarket:me-addresses-list-cache:updated-at:v1",
+];
 
 /** sessionStorage — 이 접두로 시작하는 키만 삭제(목록·요약·스크롤 스냅샷, 서버 재조회로 복구) */
 export const CLEARABLE_SESSION_STORAGE_PREFIXES: readonly string[] = [
@@ -46,5 +50,6 @@ export function isClearableLocalStorageKey(key: string): boolean {
 }
 
 export function isClearableSessionStorageKey(key: string): boolean {
+  if (CLEARABLE_SESSION_STORAGE_KEYS.includes(key)) return true;
   return CLEARABLE_SESSION_STORAGE_PREFIXES.some((p) => key.startsWith(p));
 }
