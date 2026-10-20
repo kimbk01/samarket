@@ -14,6 +14,7 @@ import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import type { ProfileActionType } from "@/lib/profile/profile-requirements";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { assertTradeActivityAllowed } from "@/lib/trade/trade-activity-restriction";
 import { buildCreatePostInsertRow } from "@/lib/posts/build-create-post-insert-row";
 import type { CreatePostPayload, PostType } from "@/lib/posts/types";
 import { publicRegionLabelLeaksPrivateDetail } from "@/lib/addresses/community-public-region-label";
@@ -152,6 +153,16 @@ export async function POST(req: NextRequest) {
   let profileAction: ProfileActionType | null = null;
   if (parsed.type === "trade") profileAction = "trade_create_item";
   else if (parsed.type === "community") profileAction = "community_write";
+
+  if (parsed.type === "trade") {
+    // 거래 활동 제한(글 작성) — 설계 v2 §C-5
+    const restricted = await assertTradeActivityAllowed(
+      userId,
+      "post",
+      sb as import("@supabase/supabase-js").SupabaseClient
+    );
+    if (restricted) return restricted;
+  }
 
   if (profileAction) {
     const profileGate = await requireProfileFieldsForAction(

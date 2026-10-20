@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(__dirname, "../../..");
 const hub = readFileSync(
-  path.join(ROOT, "components/admin/trade/AdminTradeHub.tsx"),
+  // 거래 Admin 설계 v2 §E: 허브 = TradeDashboardPage (AdminTradeHub 삭제) — 카드 클릭으로 canonical 화면 이동
+  path.join(ROOT, "components/admin/trade/dashboard/TradeDashboardPage.tsx"),
   "utf8"
 );
 
@@ -12,17 +13,13 @@ describe("Cut C Trade Hub 1-click shortcuts", () => {
   it("exposes Marketplace ops shortcuts without payment/settlement", () => {
     const required = [
       "/admin/posts-management",
-      "/admin/trade-flow",
-      "/admin/chats/trade",
-      "/admin/reports?domain=trade&target_type=product",
-      "/admin/reviews",
-      "/admin/ad-applications",
-      "/admin/trade-post-ads",
-      "/admin/favorites",
-      "/admin/users?from=trade",
-      "/admin/audit-logs?target_type=post",
-      "/admin/menus/trade",
-      "/admin/trade/settings",
+      "/admin/trade/reports",
+      "/admin/trade/restrictions",
+      "/admin/trade/promotions",
+      "/admin/trade/points",
+      "/admin/trade/support",
+      "/admin/trade/regions",
+      "/admin/trade/audit",
     ];
     for (const href of required) {
       expect(hub, href).toContain(href);

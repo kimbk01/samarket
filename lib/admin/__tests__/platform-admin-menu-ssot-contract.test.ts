@@ -114,19 +114,25 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     // J-AMD-4: 채팅 신고 큐 lives under messenger › 신고·제재.
     const reportSection = findAdminMenuByKey(adminMenu, "messenger-section-reports")?.children ?? [];
     expect(reportSection.some((c) => c.key === "chat-reported")).toBe(true);
-    expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe(
-      "/admin/reports?domain=trade&target_type=product"
-    );
+    // 거래 Admin 설계 v2 §B-2: 거래 신고 큐 canonical = /admin/trade/reports (예전 /admin/reports?domain=trade 는 리다이렉트·matchPaths).
+    expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe("/admin/trade/reports");
   });
 
   it("Cut B + J: Trade keeps marketplace ops; ads-applications lives under ads", () => {
-    const trade = findAdminMenuByKey(adminMenu, "trade");
-    const tradeKeys = new Set((trade?.children ?? []).map((c) => c.key));
+    // 거래 Admin 설계 v2 §B-2: 10 그룹 — 그룹 아래 leaf key 까지 수집한다.
+    const tradeKeys = new Set<string>();
+    const walk = (items: typeof adminMenu) => {
+      for (const c of items) {
+        tradeKeys.add(c.key);
+        if (c.children?.length) walk(c.children);
+      }
+    };
+    walk(findAdminMenuByKey(adminMenu, "trade")?.children ?? []);
     expect(tradeKeys.has("reports-posts")).toBe(true);
     expect(tradeKeys.has("reviews-trade")).toBe(true);
     expect(tradeKeys.has("chat-trade")).toBe(true);
     expect(tradeKeys.has("ads-applications")).toBe(false);
-    expect(tradeKeys.has("trade-post-ads")).toBe(true);
+    expect(tradeKeys.has("trade-promotions")).toBe(true);
     expect(tradeKeys.has("trade-ad-policies")).toBe(true);
     expect(tradeKeys.has("store-settlements-admin")).toBe(false);
 

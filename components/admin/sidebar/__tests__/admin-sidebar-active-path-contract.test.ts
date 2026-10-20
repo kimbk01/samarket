@@ -126,14 +126,15 @@ describe("admin sidebar active path authority", () => {
       name: "trade reports product-open query",
       workspaceKey: "trade",
       path: "/admin/reports?domain=trade&target_type=product",
-      expectLeaf: "/admin/reports?domain=trade&target_type=product",
+      // 거래 Admin 설계 v2 §B-2: 예전 URL 은 canonical /admin/trade/reports leaf 를 강조한다.
+      expectLeaf: "/admin/trade/reports",
       expectCount: 1,
     },
     {
       name: "trade reports domain-only query",
       workspaceKey: "trade",
       path: "/admin/reports?domain=trade",
-      expectLeaf: "/admin/reports?domain=trade&target_type=product",
+      expectLeaf: "/admin/trade/reports",
       expectCount: 1,
     },
   ];

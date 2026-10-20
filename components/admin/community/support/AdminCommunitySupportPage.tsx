@@ -54,14 +54,24 @@ const REFERENCE_LABEL: Record<string, string> = {
   COMMUNITY_SANCTION: "활동 제한",
   POINT_CHARGE_REQUEST: "충전 신청",
   POINT_PROMOTION_ORDER: "게시글 홍보",
+  TRADE_POST: "거래글",
+  TRADE_CHAT_ROOM: "거래 채팅",
+  TRADE_SANCTION: "거래 활동 제한",
 };
 
-/** 커뮤니티 범위 참조는 커뮤니티 워크스페이스 화면으로 보낸다 */
-function referenceHref(type: string | null, id: string | null): string | null {
+/** 화면 범위 — 커뮤니티(기본) · 거래 (같은 support_cases, 범위 필터만 다름) */
+export type SupportScope = "community" | "trade";
+
+/** 참조는 해당 워크스페이스 화면으로 보낸다 (다른 관리 영역으로 나가지 않게) */
+function referenceHref(scope: SupportScope, type: string | null, id: string | null): string | null {
   if (!type || !id) return null;
   const enc = encodeURIComponent(id);
-  if (type === "POINT_CHARGE_REQUEST") return `/admin/community/point-charges?status=all&chargeId=${enc}`;
-  if (type === "POINT_PROMOTION_ORDER") return "/admin/community/promotions?tab=all";
+  const base = scope === "trade" ? "/admin/trade" : "/admin/community";
+  if (type === "POINT_CHARGE_REQUEST") return `${base}/point-charges?status=all&chargeId=${enc}`;
+  if (type === "POINT_PROMOTION_ORDER") return scope === "trade" ? "/admin/trade/promotions?tab=all" : "/admin/community/promotions?tab=all";
+  if (type === "TRADE_POST") return `/admin/products/${enc}`;
+  if (type === "TRADE_SANCTION") return `/admin/trade/restrictions?status=all`;
+  if (type === "TRADE_CHAT_ROOM") return `/admin/chats?type=trade&q=${enc}`;
   return resolveSupportReferenceAdminHref(type, id)?.href ?? null;
 }
 
@@ -83,13 +93,14 @@ type CaseRow = {
 
 type ListResponse = { ok?: boolean; error?: string; cases?: CaseRow[]; total?: number; limit?: number; offset?: number };
 
-export function AdminCommunitySupportPage() {
+export function AdminCommunitySupportPage({ scope = "community" }: { scope?: SupportScope } = {}) {
   const { safeT } = useI18n();
   const q = useCommunityQueryState();
   const appeal = q.get("type") === "appeal";
   const status = q.get("status") in STATUS_TAB ? q.get("status") : "waiting";
+  const trade = scope === "trade";
 
-  const params = new URLSearchParams({ group: "community", tab: STATUS_TAB[status] });
+  const params = new URLSearchParams({ group: scope, tab: STATUS_TAB[status] });
   if (appeal) params.set("type", "appeal");
   if (q.get("q")) params.set("search", q.get("q"));
   if (q.get("reference_type") && q.get("reference_id")) {
@@ -105,19 +116,21 @@ export function AdminCommunitySupportPage() {
 
   return (
     <CommunityListShell
-      title={appeal ? "이의신청" : "커뮤니티 문의"}
+      title={appeal ? "이의신청" : trade ? "거래 문의" : "커뮤니티 문의"}
       description={
         appeal
           ? "회원이 숨김·삭제·활동 제한에 이의를 제기한 문의입니다. 답변·처리는 상담 화면에서 합니다."
-          : "포인트·충전·홍보·게시물·신고·제재 관련 회원 문의입니다. 답변·담당자 배정은 상담 화면에서 합니다."
+          : trade
+            ? "거래글·거래 채팅·거래 제한·거래 홍보 관련 회원 문의입니다. 답변·담당자 배정은 상담 화면에서 합니다."
+            : "포인트·충전·홍보·게시물·신고·제재 관련 회원 문의입니다. 답변·담당자 배정은 상담 화면에서 합니다."
       }
       tabs={
         <div className="space-y-2">
           <CommunityTabs
-            value={appeal ? "appeal" : "community"}
+            value={appeal ? "appeal" : "inquiry"}
             onChange={(v) => q.set({ type: v === "appeal" ? "appeal" : null })}
             tabs={[
-              { value: "community", label: "커뮤니티 문의" },
+              { value: "inquiry", label: trade ? "거래 문의" : "커뮤니티 문의" },
               { value: "appeal", label: "이의신청" },
             ]}
           />
@@ -170,7 +183,7 @@ export function AdminCommunitySupportPage() {
       ) : (
         <CommunityTable head={["문의", "회원", "분류", "참조 대상", "담당자", "상태", "마지막 메시지"]}>
           {rows.map((c) => {
-            const refHref = referenceHref(c.reference_type, c.reference_id);
+            const refHref = referenceHref(scope, c.reference_type, c.reference_id);
             const refLabel = c.reference_type ? REFERENCE_LABEL[c.reference_type] ?? "관련 항목" : null;
             return (
               <tr key={c.id} className="border-b border-sam-border-soft hover:bg-sam-app">
@@ -188,7 +201,7 @@ export function AdminCommunitySupportPage() {
                 </td>
                 <td className={COMMUNITY_TD}>
                   <Link
-                    href={communityDetailHref(`/admin/community/members/${encodeURIComponent(c.requester_user_id)}`, q.selfHref)}
+                    href={communityDetailHref(`${trade ? "/admin/trade/members/" : "/admin/community/members/"}${encodeURIComponent(c.requester_user_id)}`, q.selfHref)}
                     className="text-sky-800 hover:underline"
                   >
                     {c.requester_display_name?.trim() || "이름 없음"}

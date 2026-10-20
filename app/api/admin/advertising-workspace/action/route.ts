@@ -7,12 +7,14 @@ import {
   approveCommunityPaidExposure,
   rejectCommunityPaidExposure,
 } from "@/lib/promotion/apply-community-paid-exposure";
-import {
-  approveTradePaidExposure,
-  rejectTradePaidExposure,
-} from "@/lib/promotion/apply-trade-paid-exposure";
 import { applyBoostLifecycle } from "@/lib/promotion/admin-boost-lifecycle";
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import {
+  runTradePromotionAction,
+  TRADE_PROMOTION_ACTIONS,
+  type TradePromotionAction,
+} from "@/lib/admin/trade-admin/trade-promotion-admin";
 import { notifyCommunityPromotionEnded } from "@/lib/notifications/notify-community-moderation";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
@@ -62,7 +64,7 @@ export async function POST(req: NextRequest) {
     startAt?: string;
     endAt?: string;
     /** 커뮤니티 홍보 종료 귀책 (설계 v2 §F-1) — 'operator' 환급 / 'member' 환급 없음 */
-    fault?: "operator" | "member";
+    fault?: "operator" | "member" | "none";
     reasonCode?: string;
     preview?: boolean;
     /** Compensation / paid extend days — required for extend_compensation */
@@ -100,8 +102,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, memo: "internal" });
   }
 
-  if (family === "boost_community" || family === "boost_trade") {
-    const domain = family === "boost_community" ? "community" : "trade";
+  if (family === "boost_trade") {
+    // 거래 홍보는 거래 Admin 과 같은 처리 (설계 v2 §G-0): 조치 1건 = DB 함수 1번 (상태·포인트·환급·감사 한 트랜잭션).
+    const gate = await requireTradeAdmin();
+    if (!gate.ok) return gate.response;
+    if (!(TRADE_PROMOTION_ACTIONS as readonly string[]).includes(action)) {
+      return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
+    }
+    const res = await runTradePromotionAction(gate.sb, {
+      orderId: entityId,
+      actorId: gate.userId,
+      action: action as TradePromotionAction,
+      reason: publicMsg || null,
+      fault:
+        body.fault === "operator" || body.fault === "member" || body.fault === "none" ? body.fault : null,
+      reasonCode: body.reasonCode ?? null,
+      preview: body.preview === true,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+    });
+    if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: res.httpStatus });
+    return NextResponse.json({ ok: true, ...res.data, ...(res.notifyWarning ? { sideEffectWarning: true } : {}) });
+  }
+
+  if (family === "boost_community") {
+    const domain = "community" as const;
     if (domain === "community") {
       // 커뮤니티 홍보는 커뮤니티 Admin 과 같은 권한(`ads`)·같은 규칙 (설계 v2 §E-1-2).
       const gate = await requireCommunityAdmin("promotion");
@@ -115,16 +140,10 @@ export async function POST(req: NextRequest) {
       }
     }
     if (action === "approve") {
-      const res =
-        domain === "community"
-          ? await approveCommunityPaidExposure(sb, {
-              orderId: entityId,
-              adminUserId: admin.userId,
-            })
-          : await approveTradePaidExposure(sb, {
-              orderId: entityId,
-              adminUserId: admin.userId,
-            });
+      const res = await approveCommunityPaidExposure(sb, {
+        orderId: entityId,
+        adminUserId: admin.userId,
+      });
       if (!res.ok) {
         return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
       }
@@ -145,10 +164,7 @@ export async function POST(req: NextRequest) {
       if (!publicMsg) {
         return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
       }
-      const res =
-        domain === "community"
-          ? await rejectCommunityPaidExposure(sb, { orderId: entityId, reason: publicMsg })
-          : await rejectTradePaidExposure(sb, { orderId: entityId, reason: publicMsg });
+      const res = await rejectCommunityPaidExposure(sb, { orderId: entityId, reason: publicMsg });
       if (!res.ok) {
         return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
       }

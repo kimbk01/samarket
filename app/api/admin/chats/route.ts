@@ -2,8 +2,7 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireAnyAdminPermission } from "@/lib/admin/chat-admin/chat-admin-guards";
-import { TRADE_CHAT_ADMIN_PERMISSION_KEYS } from "@/lib/admin/chat-admin/chat-content-access-policy";
+import { requireTradeChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import type { AdminChatRoom, RoomStatus } from "@/lib/types/admin-chat";
 import { ADMIN_LEGACY_PRODUCT_CHAT_LIST_LIMIT, CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
@@ -25,7 +24,7 @@ const MESSAGE_COUNT_BATCH = 25;
  * 관리자 채팅 목록 (서비스 롤) — 관리자 세션
  */
 export async function POST(req: NextRequest) {
-  const admin = await requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
+  const admin = await requireTradeChatAdmin();
   if (!admin.ok) return admin.response;
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
   if (!supabaseEnv.ok) {

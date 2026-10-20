@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { requireSupabaseEnv } from "@/lib/env/runtime";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import type { ReviewModerationActionType } from "@/lib/types/admin-review";
 
 export const runtime = "nodejs";
@@ -19,13 +17,8 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
-
-  const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
-  if (!supabaseEnv.ok) {
-    return NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 });
-  }
 
   const { id: reviewId } = await ctx.params;
   if (!reviewId?.trim()) {
@@ -44,11 +37,12 @@ export async function POST(
   if (!ALLOWED.includes(action)) {
     return NextResponse.json({ ok: false, error: "unsupported_action" }, { status: 400 });
   }
+  // 숨김·복원은 사유 필수 (설계 v2 §D-5)
+  if ((action === "hide_review" || action === "restore_review") && note.length < 2) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
 
-  const sb = supabaseEnv.serviceKey
-    ? createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } })
-    : createClient(supabaseEnv.url, supabaseEnv.anonKey);
-  const sbAny = sb as import("@supabase/supabase-js").SupabaseClient;
+  const sbAny = admin.sb;
 
   const { data: row, error: fetchErr } = await sbAny
     .from("transaction_reviews")
@@ -86,18 +80,14 @@ export async function POST(
     actor_admin_id: admin.userId,
   });
 
-  void appendAuditLog(sbAny, {
-    actor_type: "admin",
-    actor_id: admin.userId,
-    target_type: "transaction_review",
-    target_id: reviewId,
-    action,
-    after_json: {
-      note,
-      revieweeId,
-      hiddenColumnApplied: action === "hide_review" || action === "restore_review" ? "best_effort" : null,
-    },
+  const audit = await appendCommunityAdminAudit(sbAny, req, {
+    actorId: admin.userId,
+    targetType: "transaction_review",
+    targetId: reviewId,
+    action: `transaction_review.${action}`,
+    reason: note || null,
+    after: { revieweeId },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, ...(audit.ok ? {} : { auditWarning: true }) });
 }

@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
  * POST /api/chat/rooms/:roomId/messages — 메시지 전송 (body: body, messageType?)
  */
 import { NextRequest, NextResponse } from "next/server";
+import { loadActiveTradeRestriction, tradeRestrictedResponse } from "@/lib/trade/trade-activity-restriction";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
@@ -185,6 +186,7 @@ export async function POST(
     { data: room, error: roomFetchErr },
     access,
     { data: part, error: partFetchErr },
+    tradeRestriction,
   ] = await Promise.all([
     sbAny
       .from("chat_rooms")
@@ -200,6 +202,8 @@ export async function POST(
       .eq("room_id", roomId)
       .eq("user_id", userId)
       .maybeSingle(),
+    /** 거래 활동 제한(채팅) — 같은 RTT 묶음 (거래 Admin 설계 v2 §C-5 · D-19) */
+    loadActiveTradeRestriction(sbAny, userId, "chat"),
   ]);
   if (!access.ok) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, access.status);
@@ -249,6 +253,10 @@ export async function POST(
   if (roomTypePost !== "item_trade") {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 404);
     return NextResponse.json({ ok: false, error: "삭제된 채팅 유형입니다." }, { status: 404 });
+  }
+  if (tradeRestriction) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
+    return tradeRestrictedResponse(tradeRestriction);
   }
   if (partFetchErr) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 500);

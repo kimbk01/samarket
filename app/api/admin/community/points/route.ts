@@ -9,6 +9,7 @@
  *      actorNickname }] }
  */
 import { NextRequest, NextResponse } from "next/server";
+import { loadPromotionLedgerRelatedIds, postgrestInList } from "@/lib/points/promotion-ledger-related-ids";
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import {
   communityAdminUuidOrNull,
@@ -62,23 +63,21 @@ export async function GET(req: NextRequest) {
   const entryType = String(sp.get("entryType") ?? "").trim().replace(/[^a-z_]/g, "").slice(0, 40) || null;
 
   const sb = gate.sb;
-  let promoIds: string[] = [];
+  let promoRelatedIds: string[] = [];
   let promoCapped = false;
   if (types.includes("promotion_order")) {
-    const { data, error } = await sb
-      .from("point_promotion_orders")
-      .select("id")
-      .eq("domain", "community")
-      .order("created_at", { ascending: false })
-      .limit(PROMO_ORDER_ID_CAP);
-    if (error) return communityReadError(error.message, 500);
-    promoIds = ((data ?? []) as { id: string }[]).map((r) => String(r.id));
-    promoCapped = promoIds.length >= PROMO_ORDER_ID_CAP;
+    // D-30: 보류(hold:)·확정(capture:)·해제(release:) 원장 행까지 포함
+    const res = await loadPromotionLedgerRelatedIds(sb, "community", PROMO_ORDER_ID_CAP);
+    if (!res.ok) return communityReadError(res.error, 500);
+    promoRelatedIds = res.relatedIds;
+    promoCapped = res.capped;
   }
   const plain = types.filter((t) => t !== "promotion_order");
   const ors = [
     ...(plain.length ? [`related_type.in.(${plain.join(",")})`] : []),
-    ...(promoIds.length ? [`and(related_type.eq.promotion_order,related_id.in.(${promoIds.join(",")}))`] : []),
+    ...(promoRelatedIds.length
+      ? [`and(related_type.eq.promotion_order,related_id.in.(${postgrestInList(promoRelatedIds)}))`]
+      : []),
   ];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- PostgREST 빌더 체인 공용 필터
   const apply = (q: any): any => {

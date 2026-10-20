@@ -12,11 +12,7 @@ import {
   resolveMessengerMediaAccess,
   type MessengerMediaMessageRow,
 } from "@/lib/community-messenger/server/messenger-media-access";
-import {
-  appendChatContentViewAudit,
-  readChatAdminReason,
-  requireAnyAdminPermission,
-} from "@/lib/admin/chat-admin/chat-admin-guards";
+import { appendChatContentViewAudit, readChatAdminReason, requireAnyAdminPermission, requireTradeChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import {
   CHAT_ADMIN_GHOST_REASON_MIN_LENGTH,
   CM_REPORT_OPEN_STATUSES,
@@ -105,7 +101,10 @@ export async function GET(
           roomMeta as { chat_domain?: string; room_type?: string; direct_key?: string }
         );
         /** 방 유형별 권한 단일 규칙 (거래 `products` · 배달 `business` 도 허용 — 설계 §2-2). */
-        const admin = await requireAnyAdminPermission(chatRoomAdminPermissionKeys(domain));
+        const admin =
+          domain === "trade"
+            ? await requireTradeChatAdmin() // 거래 Admin O-2: 활성 관리자 전원
+            : await requireAnyAdminPermission(chatRoomAdminPermissionKeys(domain));
         if (!admin.ok) return { ok: false, status: admin.response.status, error: "admin_forbidden", response: admin.response };
         const [{ count: openReportCount }, { data: linkedOrder }] = await Promise.all([
           admin.sb

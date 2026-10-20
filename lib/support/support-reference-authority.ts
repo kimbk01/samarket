@@ -34,6 +34,9 @@ export type ReferenceAuthorityResult =
  * COMMUNITY_COMMENT            | community_comments: own or public (MEMBER)    | ACTIVE (Community C-23)
  * COMMUNITY_REPORT             | community_reports.user_id = reporter (MEMBER) | ACTIVE (Community C-23)
  * COMMUNITY_SANCTION           | sanctions.user_id + scope=community (MEMBER)  | ACTIVE (Community appeal)
+ * TRADE_POST                   | posts: own listing or visible (MEMBER)        | ACTIVE (Trade Admin D-29)
+ * TRADE_CHAT_ROOM              | chat_rooms item_trade: buyer/seller (MEMBER)  | ACTIVE (Trade Admin D-29)
+ * TRADE_SANCTION               | sanctions.user_id + scope=trade (MEMBER)      | ACTIVE (Trade appeal D-28)
  *
  * Any other / unknown type → DENY (fail-closed). No default pass-through.
  * Support does NOT mutate Ads / Finance / Partner — references are read pointers only.
@@ -56,6 +59,9 @@ export const SUPPORT_REFERENCE_TYPES = [
   "COMMUNITY_COMMENT",
   "COMMUNITY_REPORT",
   "COMMUNITY_SANCTION",
+  "TRADE_POST",
+  "TRADE_CHAT_ROOM",
+  "TRADE_SANCTION",
 ] as const;
 
 export type SupportReferenceType = (typeof SUPPORT_REFERENCE_TYPES)[number];
@@ -332,6 +338,52 @@ export async function assertSupportReferenceAuthority(
         .select("id, user_id, scope")
         .eq("id", referenceId)
         .eq("scope", "community")
+        .maybeSingle();
+      if (!data || String((data as { user_id?: string }).user_id) !== input.userId) {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      return { ok: true };
+    }
+    case "TRADE_POST": {
+      // 본인 거래글(이의신청·문의) 또는 앱에 보이는 거래글(신고·거래 문의). 숨김·삭제된 남의 글은 거부.
+      if (input.audience !== "MEMBER") {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      const { data } = await sb
+        .from("posts")
+        .select("id, user_id, status")
+        .eq("id", referenceId)
+        .maybeSingle();
+      if (!data) return { ok: false, error: "reference_forbidden" };
+      const row = data as { user_id?: string | null; status?: string | null };
+      if (String(row.user_id ?? "") === input.userId || (row.status && row.status !== "hidden")) return { ok: true };
+      return { ok: false, error: "reference_forbidden" };
+    }
+    case "TRADE_CHAT_ROOM": {
+      if (input.audience !== "MEMBER") {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      const { data } = await sb
+        .from("chat_rooms")
+        .select("id, buyer_id, seller_id, room_type")
+        .eq("id", referenceId)
+        .eq("room_type", "item_trade")
+        .maybeSingle();
+      const row = (data ?? null) as { buyer_id?: string | null; seller_id?: string | null } | null;
+      if (!row || (String(row.buyer_id ?? "") !== input.userId && String(row.seller_id ?? "") !== input.userId)) {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      return { ok: true };
+    }
+    case "TRADE_SANCTION": {
+      if (input.audience !== "MEMBER") {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      const { data } = await sb
+        .from("sanctions")
+        .select("id, user_id, scope")
+        .eq("id", referenceId)
+        .eq("scope", "trade")
         .maybeSingle();
       if (!data || String((data as { user_id?: string }).user_id) !== input.userId) {
         return { ok: false, error: "reference_forbidden" };

@@ -37,6 +37,7 @@ export function PostDetailSellerMoreSheet({
   onEdit,
   onDelete,
   onCancelSale,
+  onSelectSupport,
   busy,
   editLocked,
   deleteLocked,
@@ -48,6 +49,8 @@ export function PostDetailSellerMoreSheet({
   onEdit: () => void;
   onDelete: () => void;
   onCancelSale: () => void;
+  /** 내 거래글 「문의하기」 (숨김·삭제 이의 등 — 거래 문의 + 이 글 참조) — 없으면 숨김 */
+  onSelectSupport?: () => void;
   busy?: boolean;
   editLocked?: boolean;
   deleteLocked?: boolean;
@@ -127,6 +130,18 @@ export function PostDetailSellerMoreSheet({
           <IconTrash className="h-5 w-5 text-[color:var(--overlay-danger)]" />
           {t("common_delete")}
         </button>
+        {onSelectSupport ? (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onSelectSupport();
+            }}
+            className={rowClass}
+          >
+            {t("support_enter_cta")}
+          </button>
+        ) : null}
         <div className="mt-2 space-y-2">
           <DibayOverlayButton
             roleTone="destructive"

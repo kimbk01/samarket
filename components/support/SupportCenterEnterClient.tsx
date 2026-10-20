@@ -8,6 +8,7 @@ import {
   readPendingSupportContext,
 } from "@/lib/support/open-support-center";
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
+import { supportContextFromEnterQuery } from "@/lib/support/support-enter-href";
 
 /**
  * Cold-start bootstrap alias only — opens Support Modal, then leaves enter route.
@@ -18,7 +19,10 @@ export function SupportCenterEnterClient() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const context = readPendingSupportContext();
+    // 세션 맥락 우선, 없으면 알림 링크 쿼리 (`buildSupportEnterHref`)
+    const context =
+      readPendingSupportContext() ??
+      supportContextFromEnterQuery(typeof window === "undefined" ? null : new URLSearchParams(window.location.search));
     if (!context) {
       setError("missing_context");
       return;

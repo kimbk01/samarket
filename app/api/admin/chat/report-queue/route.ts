@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  requireAnyAdminPermission,
-  requireChatAdmin,
-  requireChatRoomAdmin,
-} from "@/lib/admin/chat-admin/chat-admin-guards";
-import { TRADE_CHAT_ADMIN_PERMISSION_KEYS } from "@/lib/admin/chat-admin/chat-content-access-policy";
+import { requireChatAdmin, requireChatRoomAdmin, requireTradeChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { listChatReportQueue } from "@/lib/admin-chat-reports/list-chat-report-queue";
 import { clampAdminChatListLimit } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
@@ -21,7 +16,12 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const query = parseChatReportQueueQuery(sp);
-  const admin = query.target ? await requireTargetScopedAdmin(query.target) : await requireChatAdmin();
+  // 거래 방 신고만 보는 큐(domain=trade)는 거래 Admin O-2: 활성 관리자 전원 (D-41)
+  const admin = query.target
+    ? await requireTargetScopedAdmin(query.target)
+    : query.domain === "trade"
+      ? await requireTradeChatAdmin()
+      : await requireChatAdmin();
   if (!admin.ok) return admin.response;
 
   try {
@@ -44,6 +44,6 @@ async function requireTargetScopedAdmin(target: string) {
     sb.from("chat_rooms").select("id").eq("id", target).maybeSingle(),
     sb.from("product_chats").select("id").eq("id", target).maybeSingle(),
   ]);
-  if (cr || pc) return requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
+  if (cr || pc) return requireTradeChatAdmin();
   return requireChatAdmin();
 }

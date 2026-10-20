@@ -14,6 +14,7 @@ import { fetchPostRowForTradeChatById } from "@/lib/posts/fetch-post-row-for-tra
 import { isPostgresUniqueViolation } from "@/lib/postgres/unique-violation";
 import type { TradeEntryPerfTrace } from "@/lib/trade/trade-entry-perf-log";
 import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
+import { loadActiveTradeRestriction } from "@/lib/trade/trade-activity-restriction";
 
 export type ItemTradeChatStartCoreResult =
   | {
@@ -237,12 +238,21 @@ export async function runItemTradeChatStartCore(args: {
   const { buyerId, itemId, sb: sbAny, perf = null } = args;
 
   perf?.mark("item_access_and_post_parallel");
-  const [access, post] = await Promise.all([
+  const [access, post, tradeRestriction] = await Promise.all([
     assertVerifiedMemberForAction(sbAny as never, buyerId),
     fetchPostRowForTradeChatById(sbAny, itemId),
+    // 거래 활동 제한(채팅) — 설계 v2 §C-5. 같은 병렬 묶음에서 조회 (추가 왕복 없음)
+    loadActiveTradeRestriction(sbAny, buyerId, "chat"),
   ]);
   if (!access.ok) {
     return { ok: false, httpStatus: access.status, body: { ok: false, error: access.error } };
+  }
+  if (tradeRestriction) {
+    return {
+      ok: false,
+      httpStatus: 403,
+      body: { ok: false, error: "거래 채팅이 제한되어 있습니다. 이의신청은 고객센터에서 할 수 있습니다." },
+    };
   }
 
   perf?.mark("item_post_validate");

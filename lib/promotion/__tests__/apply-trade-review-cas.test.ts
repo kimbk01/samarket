@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/points/user-point-ledger", () => ({
@@ -11,11 +13,7 @@ import {
   captureHeldPointsForPromotionOrder,
   releaseHeldPointsForPromotionOrder,
 } from "@/lib/promotion/promotion-point-hold-flow";
-import {
-  approveTradePaidExposure,
-  computeTradePromotionActiveWindow,
-  rejectTradePaidExposure,
-} from "@/lib/promotion/apply-trade-paid-exposure";
+import { computeTradePromotionActiveWindow } from "@/lib/promotion/apply-trade-paid-exposure";
 
 const creditMock = vi.mocked(creditUserPoints);
 
@@ -129,84 +127,23 @@ describe("trade promotion review CAS", () => {
     promotion_order_id: "ord-1",
   });
 
-  it("second approve after active does not credit and is not_pending on reject", async () => {
-    const sb = createMemorySb({ order: pendingOrder(), holds: [held()] });
-    const first = await approveTradePaidExposure(sb as never, {
-      orderId: "ord-1",
-      adminUserId: "admin",
-    });
-    expect(first.ok).toBe(true);
-    expect(sb.state.order.order_status).toBe("active");
-    expect(sb.state.holds[0]?.status).toBe("captured");
-
-    const second = await approveTradePaidExposure(sb as never, {
-      orderId: "ord-1",
-      adminUserId: "admin",
-    });
-    expect(second.ok).toBe(true);
-    expect(sb.state.holds.filter((h) => h.status === "captured")).toHaveLength(1);
-
-    const rej = await rejectTradePaidExposure(sb as never, {
-      orderId: "ord-1",
-      reason: "nope",
-    });
-    expect(rej.ok).toBe(false);
-    if (!rej.ok) expect(rej.error).toBe("not_pending");
-    expect(creditMock).not.toHaveBeenCalled();
-  });
-
-  it("second reject does not credit twice", async () => {
-    const sb = createMemorySb({ order: pendingOrder(), holds: [held()] });
-    const first = await rejectTradePaidExposure(sb as never, {
-      orderId: "ord-1",
-      reason: "spam",
-    });
-    expect(first.ok).toBe(true);
-    expect(sb.state.order.order_status).toBe("rejected");
-    expect(sb.state.holds[0]?.status).toBe("released");
-    expect(creditMock).toHaveBeenCalledTimes(1);
-
-    const second = await rejectTradePaidExposure(sb as never, {
-      orderId: "ord-1",
-      reason: "spam2",
-    });
-    expect(second.ok).toBe(false);
-    if (!second.ok) expect(second.error).toBe("not_pending");
-    expect(creditMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("concurrent-style approve then reject: reject loses CAS", async () => {
-    const sb = createMemorySb({ order: pendingOrder(), holds: [held()] });
-    const ok = await approveTradePaidExposure(sb as never, {
-      orderId: "ord-1",
-      adminUserId: "admin",
-    });
-    expect(ok.ok).toBe(true);
-    const rej = await rejectTradePaidExposure(sb as never, {
-      orderId: "ord-1",
-      reason: "late",
-    });
-    expect(rej.ok).toBe(false);
-    expect(sb.state.order.order_status).toBe("active");
-    expect(sb.state.holds[0]?.status).toBe("captured");
-    expect(creditMock).not.toHaveBeenCalled();
-  });
-
-  it("concurrent-style reject then approve: approve loses CAS", async () => {
-    const sb = createMemorySb({ order: pendingOrder(), holds: [held()] });
-    const rej = await rejectTradePaidExposure(sb as never, {
-      orderId: "ord-1",
-      reason: "no",
-    });
-    expect(rej.ok).toBe(true);
-    const ok = await approveTradePaidExposure(sb as never, {
-      orderId: "ord-1",
-      adminUserId: "admin",
-    });
-    expect(ok.ok).toBe(false);
-    if (!ok.ok) expect(ok.error).toBe("not_pending");
-    expect(sb.state.order.order_status).toBe("rejected");
-    expect(sb.state.holds[0]?.status).toBe("released");
+  // 거래 Admin 설계 v2 §G-0: approve/rejectTradePaidExposure(TS CAS) 삭제 — 승인·반려는 DB 함수 1번(주문 행 잠금 →
+  // pending_review 확인 → 보류 확정/해제 → 감사)으로 한 트랜잭션. 두 번째 승인·반려는 already_processed 로 끝난다.
+  it("approve / reject CAS lives in one DB transaction (row lock + pending_review gate)", () => {
+    const mig = readFileSync(
+      join(process.cwd(), "supabase/migrations/20270522120400_trade_admin_m8_trade_promotion_tx.sql"),
+      "utf8"
+    );
+    for (const fn of ["admin_trade_promotion_approve", "admin_trade_promotion_reject"]) {
+      const body = mig.slice(mig.indexOf(`function public.${fn}(`));
+      expect(body).toMatch(
+        /from public\.point_promotion_orders where id = p_order_id for update;[\s\S]{0,400}order_status <> 'pending_review'/
+      );
+      expect(body).toMatch(/from public\.promotion_point_holds where promotion_order_id = p_order_id for update/);
+    }
+    const admin = readFileSync(join(process.cwd(), "lib/admin/trade-admin/trade-promotion-admin.ts"), "utf8");
+    expect(admin).toContain('fn = "admin_trade_promotion_approve"');
+    expect(admin).toContain("admin_trade_promotion_${input.action}");
   });
 
   it("double capture CAS: second capture is no-op", async () => {

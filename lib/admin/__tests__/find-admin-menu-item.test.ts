@@ -28,10 +28,11 @@ describe("find-admin-menu-item", () => {
   });
 
   it("trade no longer owns ads-applications primary; keeps reports", () => {
-    const trade = findAdminMenuByKey(adminMenu, "trade");
-    expect(trade?.children?.some((c) => c.key === "ads-applications")).toBe(false);
-    expect(trade?.children?.some((c) => c.key === "reports-posts")).toBe(true);
-    expect(trade?.children?.some((c) => c.key === "trade-post-ads")).toBe(true);
+    // 거래 Admin 설계 v2 §B-2: trade 메뉴는 10 그룹 — 그룹 아래 leaf 를 중첩 검색한다.
+    const tradeChildren = findAdminMenuByKey(adminMenu, "trade")?.children ?? [];
+    expect(findAdminMenuByKey(tradeChildren, "ads-applications")).toBeUndefined();
+    expect(findAdminMenuByKey(tradeChildren, "reports-posts")).toBeTruthy();
+    expect(findAdminMenuByKey(tradeChildren, "trade-promotions")).toBeTruthy();
   });
 
   it("finds manage under platform-ops", () => {

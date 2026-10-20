@@ -76,6 +76,7 @@ import {
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
+import { openTradeSupport } from "@/lib/support/trade-support-entry";
 import { ReportReasonModal } from "@/components/post/ReportReasonModal";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSections";
@@ -1171,6 +1172,11 @@ export function PostDetailView({
         onSelectShare={() => {
           void handleShare();
         }}
+        onSelectSupport={
+          isTradeDetail
+            ? () => openTradeSupport({ sourceSurface: "trade_post_detail", referenceType: "TRADE_POST", referenceId: post.id })
+            : undefined
+        }
         authorUserId={post.author_id}
         authorNickname={author?.nickname ?? null}
         reportEnabled={reportEnabled && !promoteBuyerPrimaryActions}
@@ -1182,6 +1188,11 @@ export function PostDetailView({
         onEdit={handleOwnerEdit}
         onDelete={() => void runOwnerDelete()}
         onCancelSale={() => void runCancelOwnSale()}
+        onSelectSupport={
+          isTradeDetail
+            ? () => openTradeSupport({ sourceSurface: "trade_post_detail", referenceType: "TRADE_POST", referenceId: post.id })
+            : undefined
+        }
         busy={sellerSheetBusy}
         editLocked={sellerSheetEditLocked}
         deleteLocked={sellerSheetDeleteLocked}

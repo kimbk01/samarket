@@ -91,6 +91,9 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_trade_seller_closed");
     case "trade_sender_left":
       return t("nav_messenger_trade_viewer_left");
+    // 거래 활동 제한(채팅) — 관리자 조치 (거래 Admin 설계 v2 §C-5)
+    case "trade_restricted":
+      return t("nav_messenger_trade_restricted");
     // CHAT-01: 완료/취소 주문 채팅 전송 차단 문구.
     case "store_order_chat_closed":
       return t("nav_messenger_store_order_chat_closed");

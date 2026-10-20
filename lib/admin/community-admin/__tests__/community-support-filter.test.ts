@@ -65,7 +65,11 @@ describe("support community filter (C-23 · F-4)", () => {
       c.allowedReferenceTypes.some((r) => (SUPPORT_COMMUNITY_REFERENCE_TYPES as readonly string[]).includes(r))
     ).map((c) => c.id);
     expect(owners.sort()).toEqual(["ACCOUNT", "OTHER", "REPORT"]);
-    expect(SUPPORT_CATEGORY_REGISTRY.find((c) => c.id === "ACCOUNT")?.allowedReferenceTypes).toEqual(["COMMUNITY_SANCTION"]);
+    // 거래 Admin 설계 v2 D-28: 거래 제재 이의신청(TRADE_SANCTION)도 ACCOUNT 에서 허용.
+    expect(SUPPORT_CATEGORY_REGISTRY.find((c) => c.id === "ACCOUNT")?.allowedReferenceTypes).toEqual([
+      "COMMUNITY_SANCTION",
+      "TRADE_SANCTION",
+    ]);
   });
 
   it("admin hrefs point to the community workspace", () => {

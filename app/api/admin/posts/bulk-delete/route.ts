@@ -1,19 +1,19 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/admin/posts/bulk-delete
- * body: { ids: string[], surface?: string }
+ * POST /api/admin/posts/bulk-delete — 거래글 영구 삭제 (설계 v2 §F-1-4 · O-3 기본안)
+ * body: { ids: string[], reason, surface? }
  *
- * ARO-OPS-UX-002-B1R:
- * Trade Admin surfaces allowed with row-level eligibility
- * (sold / sold_buyer blocked). Existing delete + image cleanup owner preserved.
+ * - 최고 관리자 전용. 관리 화면에서는 노출하지 않는다 (일반 삭제 = 관리자 삭제 상태).
+ * - 관리자 삭제 상태이면서 신고·거래 채팅·홍보·판매 확정 기록이 하나도 없는 글만 (증거 보존).
+ * - 감사 기록을 먼저 남기고, 기록에 실패하면 삭제하지 않는다.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
+import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/community-admin-reason";
 import {
   collectPostRowImageUrls,
   removeCanonicalImagesFromPublicUrls,
@@ -45,8 +45,9 @@ function parseIds(body: unknown): string[] | null {
   return uniq.length ? uniq : null;
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- PostgREST builder chain */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
 
   let json: unknown;
@@ -72,16 +73,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
-  }
+  const reason = normalizeCommunityAdminReason(
+    json && typeof json === "object" ? (json as { reason?: unknown }).reason : null
+  );
+  if (!reason) return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
 
+  const sb = admin.sb;
   const { data: rowsBefore, error: loadErr } = await sb
-    .from(POSTS_TABLE_READ)
-    .select("id, images, thumbnail_url, status, sold_buyer_id")
+    .from("posts")
+    .select("id, user_id, title, images, thumbnail_url, status, sold_buyer_id, moderation_state")
     .in("id", ids);
 
   if (loadErr) {
@@ -94,7 +94,27 @@ export async function POST(req: NextRequest) {
     thumbnail_url?: unknown;
     status?: string | null;
     sold_buyer_id?: string | null;
+    moderation_state?: string | null;
   };
+
+  const countBy = async (table: string, col: string, extra?: (q: any) => any): Promise<Map<string, number>> => {
+    const m = new Map<string, number>();
+    let q = (sb as any).from(table).select(col).in(col, ids);
+    if (extra) q = extra(q);
+    const { data } = await q.limit(5000);
+    for (const r of (data ?? []) as Record<string, unknown>[]) {
+      const k = String(r[col] ?? "");
+      if (k) m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    return m;
+  };
+  const [repByProduct, repByTarget, roomsByItem, pcByPost, promoByTarget] = await Promise.all([
+    countBy("reports", "product_id"),
+    countBy("reports", "target_id"),
+    countBy("chat_rooms", "item_id"),
+    countBy("product_chats", "post_id"),
+    countBy("point_promotion_orders", "target_id"),
+  ]);
 
   const byId = new Map((rowsBefore ?? []).map((r) => [String((r as Row).id), r as Row]));
   const blocked: { id: string; blockers: TradePostHardDeleteBlocker[] }[] = [];
@@ -110,6 +130,10 @@ export async function POST(req: NextRequest) {
       id,
       status: row.status,
       soldBuyerId: row.sold_buyer_id,
+      moderationState: row.moderation_state ?? null,
+      reportCount: (repByProduct.get(id) ?? 0) + (repByTarget.get(id) ?? 0),
+      chatCount: (roomsByItem.get(id) ?? 0) + (pcByPost.get(id) ?? 0),
+      promotionCount: promoByTarget.get(id) ?? 0,
     });
     if (!ev.eligible) blocked.push({ id, blockers: ev.blockers });
     else eligibleIds.push(id);
@@ -139,8 +163,24 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 감사 기록 먼저 — 실패하면 삭제하지 않는다 (복구 불가 작업)
+  for (const id of eligibleIds) {
+    const row = byId.get(id) as (Row & { user_id?: string | null; title?: string | null }) | undefined;
+    const audit = await appendCommunityAdminAudit(sb, req, {
+      actorId: admin.actor.userId,
+      targetType: "trade_post",
+      targetId: id,
+      action: "trade_post.hard_delete",
+      reason,
+      before: { user_id: row?.user_id ?? null, title: row?.title ?? null, status: row?.status ?? null },
+    });
+    if (!audit.ok) {
+      return NextResponse.json({ ok: false, error: "audit_failed" }, { status: 500 });
+    }
+  }
+
   const { error, data } = await sb
-    .from(POSTS_TABLE_WRITE)
+    .from("posts")
     .delete()
     .in("id", eligibleIds)
     .select("id");
@@ -171,3 +211,4 @@ export async function POST(req: NextRequest) {
     blocked,
   });
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */

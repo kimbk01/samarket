@@ -68,6 +68,10 @@
     {
       "path": "/api/cron/stores-discovery-coverage-rebuild",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/trade-promotion-orders-expire",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

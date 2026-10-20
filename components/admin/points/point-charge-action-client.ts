@@ -20,6 +20,8 @@ export async function runPointChargeAction(input: {
   /** 확인창에 보여 줄 요약 (예: "홍길동 · 1,000P · ₱1,000") */
   summary: string;
   adminMemo?: string;
+  /** 거래 Admin(O-2)은 `/api/admin/trade/point-charges` — 같은 공용 처리 */
+  apiBase?: string;
 }): Promise<PointChargeActionResult> {
   const { ko, action } = input;
   let verificationNote: string | undefined;
@@ -63,7 +65,7 @@ export async function runPointChargeAction(input: {
     if (!c.ok) return { ok: false, cancelled: true };
   }
 
-  const res = await fetch(`/api/admin/point-charges/${encodeURIComponent(input.requestId)}`, {
+  const res = await fetch(`${input.apiBase ?? "/api/admin/point-charges"}/${encodeURIComponent(input.requestId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "include",

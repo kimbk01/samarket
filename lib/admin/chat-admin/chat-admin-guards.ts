@@ -11,6 +11,7 @@ import {
   type AdminApiActor,
 } from "@/lib/admin/require-admin-permission";
 import { permissionKeyAllowed } from "@/lib/admin/admin-user-server";
+import { isSuspendedMemberAccount } from "@/lib/auth/member-account-state";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
@@ -50,6 +51,29 @@ export async function requireAnyAdminPermission(keys: AdminPermissionKey[]): Pro
 }
 
 /**
+ * 거래 채팅 Admin 게이트 — 거래 Admin Owner 결정 O-2: 활성 관리자 전원 같은 권한
+ * (로그인·활성 멤버십 확인은 유지, 세부 키 검사 없음). 본문 열람 감사·사유 규칙은 각 라우트 그대로.
+ */
+export async function requireTradeChatAdmin(): Promise<ChatAdminGate> {
+  const base = await requireAdminApiActor();
+  if (!base.ok) return base;
+  const blocked = tradeChatSuspendedAdminBlock(base.actor);
+  return blocked ?? base;
+}
+
+/** O-2: 정지된 관리자 계정 차단 (requireTradeAdmin 과 같은 규칙) */
+function tradeChatSuspendedAdminBlock(actor: AdminApiActor): { ok: false; response: NextResponse } | null {
+  if (actor.isSuperAdmin || !isSuspendedMemberAccount(actor.profile)) return null;
+  return {
+    ok: false,
+    response: NextResponse.json(
+      { ok: false, error: "forbidden_permission", reason: "admin_account_suspended" },
+      { status: 403 }
+    ),
+  };
+}
+
+/**
  * CM 방 Admin 게이트 (설계 §2-2) — 방의 `chat_domain` 으로 허용 권한을 정한다.
  * 방이 없으면 404 `room_not_found`.
  */
@@ -76,6 +100,8 @@ export async function requireChatRoomAdmin(
   }
   const domain = resolveCmRoomContentDomain(data as { chat_domain?: string; room_type?: string; direct_key?: string });
   if (base.actor.isSuperAdmin) return { ...base, domain };
+  // 거래 방: O-2 (거래 Admin) — 활성 관리자 전원
+  if (domain === "trade") return tradeChatSuspendedAdminBlock(base.actor) ?? { ...base, domain };
   const keys = chatRoomAdminPermissionKeys(domain);
   if (keys.some((k) => permissionKeyAllowed(base.actor.permissions, k))) return { ...base, domain };
   return {

@@ -151,8 +151,8 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
       "/admin/ad-applications?domain=trade"
     );
     expect(findAdminMenuByKey(adminMenu, "ads-placement-map")?.path).toContain("#placement-map");
-    expect(findAdminMenuByKey(adminMenu, "jobs-management")?.path).toBe(
-      "/admin/posts-management?tab=jobs"
-    );
+    // 거래 Admin 설계 v2 D-37: 알바 관리 별도 메뉴 제거 — 같은 목록의 유형 탭(`?tab=jobs` 는 리다이렉트로 유지).
+    expect(findAdminMenuByKey(adminMenu, "jobs-management")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "posts-management")?.path).toBe("/admin/posts-management");
   });
 });

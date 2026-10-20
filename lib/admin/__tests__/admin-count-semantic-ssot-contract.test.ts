@@ -31,15 +31,15 @@ describe("Admin count semantic SSOT contract", () => {
   });
 
   it("Listing report drill targets Trade product report queue", () => {
-    const detail = read("components/admin/products/AdminProductDetailPage.tsx");
-    expect(detail).toContain(
-      "/admin/reports?domain=trade&target_type=product&target="
-    );
+    // 거래 Admin 설계 v2 §C-3: 게시물 상세 = TradePostDetailPage, 신고 큐 canonical = /admin/trade/reports
+    const detail = read("components/admin/trade/posts/TradePostDetailPage.tsx");
+    expect(detail).toContain("/admin/trade/reports?targetId=");
   });
 
   it("Listing promo drill targets TRADE_PROMO list", () => {
-    const detail = read("components/admin/products/AdminProductDetailPage.tsx");
-    expect(detail).toContain('/admin/ad-applications?domain=trade');
+    // 거래 Admin 설계 v2 §B-2: 거래 홍보 canonical = /admin/trade/promotions
+    const detail = read("components/admin/trade/posts/TradePostDetailPage.tsx");
+    expect(detail).toContain("/admin/trade/promotions?postId=");
   });
 
   it("does not invent Community promo durable badge consumer", () => {

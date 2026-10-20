@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic";
  * body: { action: "cancel_sale" | "force_complete", buyerId?, reason? }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
+import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/community-admin-reason";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -20,7 +20,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ postId: string }> }
 ) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
 
   const { postId } = await params;
@@ -42,30 +42,35 @@ export async function POST(
       { status: 400 }
     );
   }
-  const reason =
-    typeof body.reason === "string" && body.reason.trim() ? body.reason.trim().slice(0, 500) : null;
+  const reason = normalizeCommunityAdminReason(body.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
   const buyerRequested =
     typeof body.buyerId === "string" && body.buyerId.trim() ? body.buyerId.trim() : null;
 
-  const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
-  }
+  const sb = admin.sb;
   const now = new Date().toISOString();
 
   if (action === "cancel_sale") {
     const { data: before } = await sb
-      .from(POSTS_TABLE_READ)
-      .select("status, sold_buyer_id, reserved_buyer_id")
+      .from("posts")
+      .select("status, seller_listing_state, sold_buyer_id, reserved_buyer_id, moderation_state")
       .eq("id", id)
       .maybeSingle();
+    if (!before) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
+    // 판매 취소 = 판매 단계를 판매중으로 되돌리고 관리자 숨김 (노출은 moderation_state, status 는 트리거가 계산)
     const patch: Record<string, unknown> = {
-      status: "hidden",
       seller_listing_state: "inquiry",
       reserved_buyer_id: null,
       updated_at: now,
     };
+    if ((before as { moderation_state?: string }).moderation_state === "visible") {
+      patch.moderation_state = "admin_hidden";
+      patch.moderation_reason = reason;
+      patch.moderation_by = admin.userId;
+    }
     let { error } = await sb.from(POSTS_TABLE_WRITE).update(patch).eq("id", id);
     if (
       error &&
@@ -88,16 +93,16 @@ export async function POST(
     } catch {
       /* ignore */
     }
-    void appendAuditLog(sb, {
-      actor_type: "admin",
-      actor_id: admin.userId,
-      target_type: "post",
-      target_id: id,
-      action: "post.cancel_sale",
-      before_json: before ?? null,
-      after_json: { status: "hidden", reason },
+    const audit = await appendCommunityAdminAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "trade_post",
+      targetId: id,
+      action: "trade_post.cancel_sale",
+      reason,
+      before: before as Record<string, unknown>,
+      after: { seller_listing_state: "inquiry", moderation_state: patch.moderation_state ?? (before as { moderation_state?: string }).moderation_state },
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...(audit.ok ? {} : { auditWarning: true }) });
   }
 
   const { data: beforeSold } = await sb
@@ -185,15 +190,16 @@ export async function POST(
     /* ignore */
   }
 
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: admin.userId,
-    target_type: "post",
-    target_id: id,
-    action: "post.force_complete",
-    before_json: beforeSold ?? null,
-    after_json: { status: "sold", sold_buyer_id: soldBuyerId, reason },
+  // 판매자 완료 절차 없이 관리자가 완료로 정정 — 완료 시각(product_chats.seller_completed_at)은 만들지 않는다 (설계 v2 §E-4)
+  const audit = await appendCommunityAdminAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "trade_post",
+    targetId: id,
+    action: "trade_post.force_complete",
+    reason,
+    before: (beforeSold as Record<string, unknown> | null) ?? null,
+    after: { seller_listing_state: "completed", sold_buyer_id: soldBuyerId },
   });
 
-  return NextResponse.json({ ok: true, soldBuyerId });
+  return NextResponse.json({ ok: true, soldBuyerId, ...(audit.ok ? {} : { auditWarning: true }) });
 }

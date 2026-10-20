@@ -139,7 +139,8 @@ describe("admin UIs require payout reference before submit (static)", () => {
   });
 
   it("point-charges route maps snapshot_invalid → 400", () => {
-    const src = read("app/api/admin/point-charges/[id]/route.ts");
+    // 본문은 공용 처리로 이동 (라우트는 권한 키 `point` 확인 후 위임)
+    const src = read("lib/admin/shared-handlers/admin-point-charge-item.ts");
     expect(src).toMatch(/errCode === "snapshot_invalid"[\s\S]{0,500}status: 400/);
   });
 });

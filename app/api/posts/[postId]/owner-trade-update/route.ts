@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { assertTradeActivityAllowed } from "@/lib/trade/trade-activity-restriction";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import {
@@ -59,6 +60,10 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
   }
+
+  // 거래 활동 제한(글 수정) — 설계 v2 §C-5
+  const restricted = await assertTradeActivityAllowed(userId, "post", sb as import("@supabase/supabase-js").SupabaseClient);
+  if (restricted) return restricted;
 
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";

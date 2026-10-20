@@ -20,21 +20,19 @@ describe("Cut A Trade Admin SSOT (S1–S5)", () => {
     expect(list).toContain('.eq("type", "trade")');
   });
 
-  it("S3: product_hide writes visibility=hidden with status=hidden", () => {
-    const src = read("lib/admin-reports/applyReportActionDaangn.ts");
-    expect(src).toMatch(/product_hide[\s\S]*visibility:\s*"hidden"/);
-    expect(src).toMatch(/status:\s*"hidden"/);
+  it("S3: product_hide → admin_decide_trade_report (moderation_state, no direct status write)", () => {
+    // 거래 Admin 설계 v2 §C-4: applyReportActionDaangn 삭제 — 숨김은 DB 함수 한 트랜잭션에서 moderation_state 로.
+    const src = read("lib/admin/trade-admin/trade-report-decision.ts");
+    expect(src).toMatch(/case "product_hide":[\s\S]*decision: "hide"/);
+    expect(src).toContain('"admin_decide_trade_report"');
+    expect(src).not.toMatch(/status:\s*"hidden"/);
   });
 
   it("S3: /status SELECT survives missing posts.visibility column", () => {
     const src = read("app/api/admin/posts/[postId]/status/route.ts");
     // Authority: SELECT never asks for posts.visibility (prod has no column); no fail→retry probe.
-    expect(src).toContain("selectNoVis");
-    expect(src).toMatch(/Production has no posts\.visibility/);
-    expect(src).toMatch(/no fail→retry probe/);
-    expect(src).toMatch(
-      /const selectNoVis\s*=\s*[\r\n]+\s*"id, status, title, sold_buyer_id, reserved_buyer_id, seller_listing_state"/
-    );
+    // 거래 Admin 설계 v2 §F-1-1: 숨김·삭제는 admin_trade_post_moderate (moderation_state) — selectNoVis 상수는 제거됨.
+    expect(src).toContain('"admin_trade_post_moderate"');
     expect(src).not.toMatch(/\.select\(\s*["'`][^"'`]*visibility/);
     expect(src).not.toMatch(/42703[\s\S]{0,80}select|select[\s\S]{0,80}42703/);
   });

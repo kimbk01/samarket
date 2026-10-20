@@ -11,6 +11,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertActiveGroupMembershipIfGroup } from "@/lib/community-messenger/group/group-active-membership-gate";
 import { assertDirectRoomCommunicationNotBlocked } from "@/lib/community-messenger/direct-room-communication-gate";
+import { loadActiveTradeRestriction } from "@/lib/trade/trade-activity-restriction-core";
 
 export type MessengerSendGuardError =
   | "room_not_found"
@@ -24,6 +25,7 @@ export type MessengerSendGuardError =
   | "trade_flow_not_chatting"
   | "trade_sender_left"
   | "trade_seller_closed"
+  | "trade_restricted"
   | "store_order_chat_closed";
 
 export type MessengerSendGuardResult =
@@ -115,6 +117,8 @@ export async function assertMessengerRoomSendAllowed(input: {
       if (userId === sellerId && sellerLeft) return { ok: false, error: "trade_sender_left" };
       if (userId === buyerId && buyerLeft) return { ok: false, error: "trade_sender_left" };
       if (userId === buyerId && sellerLeft) return { ok: false, error: "trade_seller_closed" };
+      // 거래 활동 제한(채팅) — 거래 방에서만 조회 (설계 v2 §C-5 · D-19)
+      if (await loadActiveTradeRestriction(sb, userId, "chat")) return { ok: false, error: "trade_restricted" };
     }
   }
 

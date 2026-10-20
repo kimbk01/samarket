@@ -3,7 +3,8 @@
  * GET/PUT — 관리자 세션. PUT 본문: buyerAutoConfirmDays, buyerReviewDeadlineDays
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { getServiceOrAnonClient } from "@/lib/admin/verify-admin-user-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import {
@@ -17,7 +18,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
   if (!supabaseEnv.ok) {
@@ -56,7 +57,7 @@ export async function GET(_req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
   if (!supabaseEnv.ok) {
@@ -76,13 +77,12 @@ export async function PUT(req: NextRequest) {
     body.buyerReviewDeadlineDays ?? DEFAULT_BUYER_REVIEW_DEADLINE_DAYS,
     DEFAULT_BUYER_REVIEW_DEADLINE_DAYS
   );
-  const sb = getServiceOrAnonClient(
-    supabaseEnv.url,
-    supabaseEnv.anonKey,
-    supabaseEnv.serviceKey ?? undefined
-  );
-   
-  const sbAny = sb as any;
+  const sbAny = admin.sb;
+  const { data: beforeRow } = await sbAny
+    .from("ops_trade_policy")
+    .select("buyer_auto_confirm_days, buyer_review_deadline_days")
+    .eq("id", 1)
+    .maybeSingle();
   const now = new Date().toISOString();
   const { error } = await sbAny.from("ops_trade_policy").upsert(
     {
@@ -96,5 +96,18 @@ export async function PUT(req: NextRequest) {
   if (error) {
     return NextResponse.json({ ok: false, error: error.message ?? "저장 실패" }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, buyerAutoConfirmDays: d1, buyerReviewDeadlineDays: d2 });
+  const audit = await appendCommunityAdminAudit(sbAny, req, {
+    actorId: admin.userId,
+    targetType: "trade_settings",
+    targetId: "ops_trade_policy",
+    action: "trade_settings.ops_policy_update",
+    before: (beforeRow as Record<string, unknown> | null) ?? null,
+    after: { buyer_auto_confirm_days: d1, buyer_review_deadline_days: d2 },
+  });
+  return NextResponse.json({
+    ok: true,
+    buyerAutoConfirmDays: d1,
+    buyerReviewDeadlineDays: d2,
+    ...(audit.ok ? {} : { auditWarning: true }),
+  });
 }

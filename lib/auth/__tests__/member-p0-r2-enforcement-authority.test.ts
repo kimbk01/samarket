@@ -139,7 +139,7 @@ describe("P0-R2 lifecycle authority cache vs light session", () => {
 describe("P0-R2 moderation consistency model (ordering contract)", () => {
   it("ban path Auth-first + failure audit markers exist in route source", () => {
     const src = readFileSync(
-      resolve(process.cwd(), "app/api/admin/users/[id]/moderation/route.ts"),
+      resolve(process.cwd(), "lib/admin/shared-handlers/admin-member-moderation.ts" /* 본문 이동 — 라우트는 권한 키 확인 후 위임 */),
       "utf8"
     );
     expect(src).toContain("BAN / BLOCK —— Auth first");

@@ -69,12 +69,12 @@ describe("P1-3 Admin orphan / menu finalization", () => {
   });
 
   it("Trade HARD CLOSE surfaces remain in Trade workspace", () => {
-    const trade = findAdminMenuByKey(adminMenu, "trade");
-    const keys = new Set((trade?.children ?? []).map((c) => c.key));
-    expect(keys.has("chat-trade")).toBe(true);
-    expect(keys.has("reports-posts")).toBe(true);
+    // 거래 Admin 설계 v2 §B-2: trade 메뉴는 10 그룹 — 그룹 아래 leaf 를 중첩 검색한다.
+    const tradeChildren = findAdminMenuByKey(adminMenu, "trade")?.children ?? [];
+    expect(findAdminMenuByKey(tradeChildren, "chat-trade")).toBeTruthy();
+    expect(findAdminMenuByKey(tradeChildren, "reports-posts")).toBeTruthy();
     // CUT J: ads-applications moved to ads workspace (ads-trade-promote).
-    expect(keys.has("ads-applications")).toBe(false);
+    expect(findAdminMenuByKey(tradeChildren, "ads-applications")).toBeUndefined();
     expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
       "/admin/ad-applications?domain=trade"
     );

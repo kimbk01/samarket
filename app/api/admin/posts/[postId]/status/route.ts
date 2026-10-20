@@ -1,8 +1,9 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { callTradeAdminRpc, tradeAuditMetaArgs } from "@/lib/admin/trade-admin/trade-admin-rpc";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
+import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/community-admin-reason";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 async function resolveSoldBuyerId(
-  sb: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>,
+  sb: SupabaseClient,
   postId: string,
   before: { sold_buyer_id?: string | null; reserved_buyer_id?: string | null },
   requested: string | null
@@ -66,21 +67,24 @@ async function resolveSoldBuyerId(
 }
 
 /**
- * POST /api/admin/posts/[postId]/status
+ * POST /api/admin/posts/[postId]/status — 기존 호출 호환 (설계 v2 §F-1-1).
  * body: { status, reason?, soldBuyerId? }
- * Soft moderation + audit. status=sold requires resolvable sold_buyer_id (L4).
+ * - hidden / deleted → 관리자 노출 조치 (admin_trade_post_moderate: 상태 + 감사 한 트랜잭션, 사유 필수)
+ * - active (관리자 숨김 글) → 숨김 해제. 판매 단계는 보존된 값으로 돌아온다.
+ * - active / reserved / sold (노출 중 글) → 판매 단계 정정. sold 는 구매자 확인 필수 (L4).
  */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ postId: string }> }
 ) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
+  const sb = admin.sb;
 
   const { postId: rawId } = await params;
   const postId = typeof rawId === "string" ? rawId.trim() : "";
-  if (!postId) {
-    return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
+  if (!UUID_RE.test(postId)) {
+    return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
 
   let body: { status?: string; reason?: string | null; soldBuyerId?: string | null };
@@ -91,56 +95,53 @@ export async function POST(
   }
   const status = typeof body.status === "string" ? body.status.trim() : "";
   if (!ALLOWED.has(status)) {
-    return NextResponse.json(
-      { ok: false, error: "status는 active|reserved|sold|hidden|deleted" },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, error: "invalid_status" }, { status: 400 });
   }
-  const reason =
-    typeof body.reason === "string" && body.reason.trim() ? body.reason.trim().slice(0, 500) : null;
+  const reason = normalizeCommunityAdminReason(body.reason);
   const soldBuyerRequested =
-    typeof body.soldBuyerId === "string" && body.soldBuyerId.trim()
-      ? body.soldBuyerId.trim()
-      : null;
+    typeof body.soldBuyerId === "string" && body.soldBuyerId.trim() ? body.soldBuyerId.trim() : null;
 
-  const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+  const { data: beforeRow, error: readErr } = await sb
+    .from("posts")
+    .select("id, status, title, sold_buyer_id, reserved_buyer_id, seller_listing_state, moderation_state, owner_state")
+    .eq("id", postId)
+    .maybeSingle();
+  if (readErr) return NextResponse.json({ ok: false, error: readErr.message }, { status: 500 });
+  if (!beforeRow) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  const before = beforeRow as Record<string, unknown>;
+
+  const moderationAction =
+    status === "hidden"
+      ? "hide"
+      : status === "deleted"
+        ? "delete"
+        : status === "active" && before.moderation_state === "admin_hidden"
+          ? "unhide"
+          : null;
+  if (moderationAction) {
+    if (!reason) return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+    const res = await callTradeAdminRpc(sb, "admin_trade_post_moderate", {
+      p_post_id: postId,
+      p_actor_id: admin.userId,
+      p_action: moderationAction,
+      p_reason: reason,
+      p_expected_updated_at: null,
+      ...tradeAuditMetaArgs(req),
+    });
+    if (!res.ok) return res.response;
+    return NextResponse.json({ ok: true, status: res.data.status ?? null, moderationState: res.data.moderation_state ?? null });
   }
 
-  // Production has no posts.visibility — select without it (no fail→retry probe).
-  const selectNoVis =
-    "id, status, title, sold_buyer_id, reserved_buyer_id, seller_listing_state";
-  let before: Record<string, unknown> | null = null;
-  {
-    const first = await sb.from(POSTS_TABLE_READ).select(selectNoVis).eq("id", postId).maybeSingle();
-    if (first.error) {
-      return NextResponse.json({ ok: false, error: first.error.message }, { status: 500 });
-    }
-    before = (first.data as Record<string, unknown> | null) ?? null;
-  }
-
-  if (!before) {
-    return NextResponse.json({ ok: false, error: "게시물을 찾을 수 없습니다." }, { status: 404 });
-  }
-
-  const nextVisibility = status === "hidden" || status === "deleted" ? "hidden" : "public";
+  // 판매 단계 정정 (노출 상태는 건드리지 않는다)
   const now = new Date().toISOString();
-  // Production has no posts.visibility — status is the write authority.
-  const patch: Record<string, unknown> = {
-    status,
-    updated_at: now,
-  };
-
-  // Cut A / S4 — keep LISTING_OPS (posts.status) and SELLER_STAGE (seller_listing_state) aligned.
+  const patch: Record<string, unknown> = { updated_at: now };
+  let resolvedSoldBuyer: string | null = null;
   if (status === "active") {
     patch.seller_listing_state = "inquiry";
+    patch.reserved_buyer_id = null;
   } else if (status === "reserved") {
     patch.seller_listing_state = "reserved";
-  }
-
-  let resolvedSoldBuyer: string | null = null;
-  if (status === "sold") {
+  } else if (status === "sold") {
     const resolved = await resolveSoldBuyerId(
       sb,
       postId,
@@ -149,7 +150,7 @@ export async function POST(
     );
     if (!resolved.buyerId) {
       return NextResponse.json(
-        { ok: false, error: resolved.error ?? "sold_buyer_id 필요", code: "need_sold_buyer" },
+        { ok: false, error: resolved.error ?? "구매자를 선택하세요.", code: "need_sold_buyer" },
         { status: 400 }
       );
     }
@@ -159,50 +160,33 @@ export async function POST(
     patch.reserved_buyer_id = null;
   }
 
-  let { error: writeErr } = await sb.from(POSTS_TABLE_WRITE).update(patch).eq("id", postId);
-  if (writeErr && /visibility|sold_buyer|reserved_buyer|seller_listing|column/i.test(String(writeErr.message))) {
-    const rest = { ...patch };
-    if (/visibility/i.test(String(writeErr.message))) delete rest.visibility;
-    if (/sold_buyer/i.test(String(writeErr.message))) delete rest.sold_buyer_id;
-    if (/reserved_buyer/i.test(String(writeErr.message))) delete rest.reserved_buyer_id;
-    if (/seller_listing/i.test(String(writeErr.message))) delete rest.seller_listing_state;
-    writeErr = (await sb.from(POSTS_TABLE_WRITE).update(rest).eq("id", postId)).error;
-  }
-  if (writeErr) {
-    return NextResponse.json({ ok: false, error: writeErr.message }, { status: 500 });
-  }
+  const { data: updated, error: writeErr } = await sb
+    .from("posts")
+    .update(patch)
+    .eq("id", postId)
+    .eq("seller_listing_state", String(before.seller_listing_state ?? ""))
+    .select("id, status, seller_listing_state")
+    .maybeSingle();
+  if (writeErr) return NextResponse.json({ ok: false, error: writeErr.message }, { status: 500 });
+  if (!updated) return NextResponse.json({ ok: false, error: "stale_state" }, { status: 409 });
 
-  const beforeStatus = (before as { status?: string }).status ?? null;
-  const action =
-    status === "hidden"
-      ? "post.hide"
-      : status === "deleted"
-        ? "post.soft_delete"
-        : status === "active" && beforeStatus === "hidden"
-          ? "post.restore"
-          : status === "sold"
-            ? "post.mark_sold"
-            : `post.status.${status}`;
-
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: admin.userId,
-    target_type: "post",
-    target_id: postId,
-    action,
-    before_json: {
-      status: beforeStatus,
-      visibility: (before as { visibility?: string }).visibility ?? null,
-      title: (before as { title?: string }).title ?? null,
-      sold_buyer_id: (before as { sold_buyer_id?: string | null }).sold_buyer_id ?? null,
+  const audit = await appendCommunityAdminAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "trade_post",
+    targetId: postId,
+    action: `trade_post.sale_stage_${status}`,
+    reason,
+    before: {
+      status: before.status ?? null,
+      seller_listing_state: before.seller_listing_state ?? null,
+      sold_buyer_id: before.sold_buyer_id ?? null,
     },
-    after_json: {
-      status,
-      visibility: nextVisibility,
-      reason,
+    after: {
+      status: (updated as { status?: string }).status ?? null,
+      seller_listing_state: (updated as { seller_listing_state?: string }).seller_listing_state ?? null,
       sold_buyer_id: resolvedSoldBuyer,
     },
   });
 
-  return NextResponse.json({ ok: true, soldBuyerId: resolvedSoldBuyer });
+  return NextResponse.json({ ok: true, soldBuyerId: resolvedSoldBuyer, ...(audit.ok ? {} : { auditWarning: true }) });
 }

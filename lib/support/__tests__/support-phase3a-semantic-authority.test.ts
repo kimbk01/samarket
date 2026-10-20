@@ -276,6 +276,10 @@ describe("PHASE 3-A support semantic authority", () => {
       "COMMUNITY_COMMENT",
       "COMMUNITY_REPORT",
       "COMMUNITY_SANCTION",
+      // 거래 Admin 설계 v2 D-28 · D-29
+      "TRADE_POST",
+      "TRADE_CHAT_ROOM",
+      "TRADE_SANCTION",
     ]);
     const src = readSrc("lib/support/support-reference-authority.ts");
     expect(src).toContain("POINT_CHARGE_REQUEST");

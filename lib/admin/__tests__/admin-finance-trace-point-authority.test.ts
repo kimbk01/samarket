@@ -7,11 +7,19 @@ function read(rel: string): string {
 }
 
 describe("Admin Point adjust — ledger money authority (Admin Trace A)", () => {
-  const src = () => read("app/api/admin/points/adjust/route.ts");
+  // 거래 Admin 설계 v2: 본문은 공용 처리로 이동 — 라우트는 권한 키 `point` 확인 후 위임만 한다.
+  const src = () => read("lib/admin/shared-handlers/admin-points-adjust.ts");
+
+  it("route wrapper keeps `point` permission and delegates to shared handler", () => {
+    const route = read("app/api/admin/points/adjust/route.ts");
+    expect(route).toContain('requireAdminPermission("point")');
+    expect(route).toContain("handleAdminPointsAdjustPost");
+    expect(route).toContain("handleAdminPointsBalanceGet");
+  });
 
   it("T1 — GET preview derives balance from ledger SUM", () => {
     const route = src();
-    const getBlock = route.slice(route.indexOf("export async function GET"));
+    const getBlock = route.slice(route.indexOf("export async function handleAdminPointsBalanceGet"));
     expect(getBlock).toContain("readCanonicalAdminPointBalance");
     expect(route).toContain("sumUserPointLedger");
     expect(route).not.toContain("readUserPointBalance");
@@ -22,8 +30,8 @@ describe("Admin Point adjust — ledger money authority (Admin Trace A)", () => 
   it("T2 — debit sufficiency gate derives balance from ledger SUM", () => {
     const route = src();
     const postBlock = route.slice(
-      route.indexOf("export async function POST"),
-      route.indexOf("export async function GET")
+      route.indexOf("export async function handleAdminPointsAdjustPost"),
+      route.indexOf("export async function handleAdminPointsBalanceGet")
     );
     expect(postBlock).toContain("readCanonicalAdminPointBalance");
     expect(postBlock).toContain("insufficient_balance");
@@ -52,7 +60,7 @@ describe("Admin Point adjust — ledger money authority (Admin Trace A)", () => 
     const route = src();
     const helper = route.slice(
       route.indexOf("async function readCanonicalAdminPointBalance"),
-      route.indexOf("export async function POST")
+      route.indexOf("export async function handleAdminPointsAdjustPost")
     );
     expect(helper).toContain("sumUserPointLedger");
     expect(helper).not.toContain("profiles");

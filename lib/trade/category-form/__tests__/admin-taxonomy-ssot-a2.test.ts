@@ -19,12 +19,20 @@ describe("CUT A2 admin taxonomy SSOT", () => {
   });
 
   it("hub and sidebar do not keep a second feed-topics entry", () => {
-    const hub = read("components/admin/trade/AdminTradeHub.tsx");
-    expect(hub).not.toContain('href: "/admin/trade/feed-topics"');
-    expect(hub).toContain('href: "/admin/menus/trade"');
+    // 거래 Admin 설계 v2 §E: 허브 = TradeDashboardPage (AdminTradeHub 삭제)
+    const hub = read("components/admin/trade/dashboard/TradeDashboardPage.tsx");
+    expect(hub).not.toContain("/admin/trade/feed-topics");
 
+    // 설계 v2 §B-2: trade 메뉴는 10 그룹 — 그룹 아래 leaf 까지 펼친다.
     const trade = adminMenu.find((s) => s.key === "trade");
-    const children = trade?.children ?? [];
+    const children: NonNullable<typeof trade>[] = [];
+    const walk = (items: NonNullable<typeof trade>[]) => {
+      for (const c of items) {
+        children.push(c);
+        if (c.children?.length) walk(c.children);
+      }
+    };
+    walk(trade?.children ?? []);
     expect(children.some((c) => c.key === "trade-feed-topics")).toBe(false);
     expect(children.some((c) => c.path === "/admin/trade/feed-topics")).toBe(false);
     expect(children.some((c) => c.key === "menu-trade" && c.path === "/admin/menus/trade")).toBe(
@@ -41,9 +49,9 @@ describe("CUT A2 admin taxonomy SSOT", () => {
   });
 
   it("categories page points trade 주제/카테고리/옵션 at menus/trade", () => {
-    const page = read("components/admin/categories/AdminCategoriesPage.tsx");
-    expect(page).toContain('href="/admin/menus/trade"');
-    expect(page).toContain("admin_cat_trade_ssot_prefix");
+    // 거래 Admin 설계 v2 §B-3 (D-37): /admin/categories 는 /admin/menus/trade 로 리다이렉트 (AdminCategoriesPage 삭제).
+    const page = read("app/admin/categories/page.tsx");
+    expect(page).toContain('redirect("/admin/menus/trade")');
     expect(adminCategoriesMessages.ko.admin_cat_trade_ssot_link).toBe("거래 메뉴 설정");
     expect(adminCategoriesMessages.en.admin_cat_trade_ssot_link).toBe("Trade menu settings");
   });

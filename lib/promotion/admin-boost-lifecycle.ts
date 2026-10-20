@@ -1,7 +1,7 @@
 /**
  * Admin Boost lifecycle after CAPTURE (Trade + Community Point promote).
  * pause/resume/end.
- * - trade: 기존 상태 갱신 그대로. End does NOT auto-refund (ADMIN_END_REFUND_POLICY_REQUIRED).
+ * - trade: 거래 홍보 DB 함수 (거래 Admin 설계 v2 §G-0) — 재개 시 종료일 연장, 종료는 귀책 기준 비례 환급, 감사 포함.
  * - community: DB RPC (M9 `admin_promotion_pause|resume|end`) — 재개 시 중지 시간만큼 종료일 연장,
  *   종료는 귀책(fault) 필수 · 운영 귀책이면 남은 노출 비례 원장 환급 (설계 §F-1-2).
  */
@@ -43,8 +43,8 @@ export async function applyBoostLifecycle(
     action: BoostLifecycleAction;
     adminUserId: string;
     reason?: string | null;
-    /** community end only — 'operator' | 'member' (required) */
-    fault?: "operator" | "member" | null;
+    /** end — 'operator' | 'member' (거래는 'none' 도 허용) */
+    fault?: "operator" | "member" | "none" | null;
     /** community end only — end_reason_code (default admin_end) */
     reasonCode?: string | null;
     /** community end only — compute refund without changing anything */
@@ -78,54 +78,41 @@ export async function applyBoostLifecycle(
       buyerUserId: String((row as { user_id?: string | null }).user_id ?? "") || null,
     });
   }
-  void input.adminUserId;
-  void input.reason;
-
-  if (input.action === "pause") {
-    if (status !== "active") {
-      return { ok: false, error: "not_active", httpStatus: 409 };
-    }
-    const { error: upErr } = await sb
-      .from("point_promotion_orders")
-      .update({ order_status: "paused" })
-      .eq("id", orderId)
-      .eq("order_status", "active");
-    if (upErr) return { ok: false, error: upErr.message, httpStatus: 500 };
-    return {
-      ok: true,
-      orderId,
-      orderStatus: "paused",
-      endAt: String((row as { end_at?: string }).end_at ?? null),
-    };
-  }
-
-  if (input.action === "resume") {
-    if (status !== "paused") {
-      return { ok: false, error: "not_paused", httpStatus: 409 };
-    }
-    const endAt = String((row as { end_at?: string }).end_at ?? "");
-    if (endAt && new Date(endAt).getTime() <= Date.now()) {
-      return { ok: false, error: "already_ended", httpStatus: 409 };
-    }
-    const { error: upErr } = await sb
-      .from("point_promotion_orders")
-      .update({ order_status: "active" })
-      .eq("id", orderId)
-      .eq("order_status", "paused");
-    if (upErr) return { ok: false, error: upErr.message, httpStatus: 500 };
-    return { ok: true, orderId, orderStatus: "active", endAt: endAt || null };
-  }
-
-  if (status !== "active" && status !== "paused") {
-    return { ok: false, error: "not_running", httpStatus: 409 };
-  }
-  const { error: endErr } = await sb
-    .from("point_promotion_orders")
-    .update({ order_status: "ended", end_at: now })
-    .eq("id", orderId)
-    .in("order_status", ["active", "paused"]);
-  if (endErr) return { ok: false, error: endErr.message, httpStatus: 500 };
-  return { ok: true, orderId, orderStatus: "ended", endAt: now };
+  void status;
+  void now;
+  // 거래: DB 함수 (설계 v2 §G-0) — 상태·환급·감사 한 트랜잭션. 사유 필수, 종료는 귀책 필수.
+  const { runTradePromotionAction } = await import("@/lib/admin/trade-admin/trade-promotion-admin");
+  const res = await runTradePromotionAction(sb, {
+    orderId,
+    actorId: input.adminUserId,
+    action: input.action,
+    reason: input.reason ?? null,
+    fault: input.fault ?? null,
+    reasonCode: input.reasonCode ?? null,
+    preview: input.preview === true,
+  });
+  if (!res.ok) return { ok: false, error: res.error, httpStatus: res.httpStatus };
+  const d = res.data;
+  return {
+    ok: true,
+    orderId,
+    orderStatus: String(d.order_status ?? ""),
+    endAt: d.end_at != null ? String(d.end_at) : null,
+    buyerUserId: String((row as { user_id?: string | null }).user_id ?? "") || null,
+    refundPoints: Number(d.refund_points ?? 0) || 0,
+    refundLedgerId: d.refund_ledger_id != null ? String(d.refund_ledger_id) : null,
+    extendedSeconds: Number(d.extended_seconds ?? 0) || 0,
+    ...(d.preview === true
+      ? {
+          preview: {
+            refundPoints: Number(d.refund_points ?? 0) || 0,
+            paidPoints: d.paid_points != null ? Number(d.paid_points) : null,
+            remainingSeconds: d.remaining_seconds != null ? Number(d.remaining_seconds) : null,
+            hasPaymentRecord: d.has_payment_record === true,
+          },
+        }
+      : {}),
+  };
 }
 
 async function applyCommunityBoostLifecycleRpc(
@@ -135,7 +122,7 @@ async function applyCommunityBoostLifecycleRpc(
     action: BoostLifecycleAction;
     adminUserId: string;
     reason?: string | null;
-    fault?: "operator" | "member" | null;
+    fault?: "operator" | "member" | "none" | null;
     reasonCode?: string | null;
     preview?: boolean;
     buyerUserId: string | null;

@@ -1,6 +1,7 @@
 "use client";
 
 import { dibayConfirm, dibayAlert, DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { openTradeSupport } from "@/lib/support/trade-support-entry";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
@@ -2335,6 +2336,23 @@ export function ChatDetailView({
                 sellerListingStateOverride={postId ? displayListing : undefined}
               />
             </section>
+          ) : null}
+          {!isGeneralPurposeChat ? (
+            <button
+              type="button"
+              onClick={() => {
+                setRoomInfoSheetOpen(false);
+                // 거래 문의 + 이 거래 채팅 참조 (chat_rooms item_trade id) — 거래 Admin 설계 v2 §G-4
+                openTradeSupport({
+                  sourceSurface: "trade_chat_room",
+                  referenceType: "TRADE_CHAT_ROOM",
+                  referenceId: room.source === "chat_room" ? room.id : room.chatRoomId,
+                });
+              }}
+              className="w-full rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-3 text-left font-medium text-[color:var(--overlay-text-primary)]"
+            >
+              {t("support_enter_cta")}
+            </button>
           ) : null}
         </div>
       </DibayBottomSheet>

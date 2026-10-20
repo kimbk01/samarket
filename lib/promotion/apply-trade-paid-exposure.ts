@@ -1,18 +1,13 @@
 /**
  * Trade「더 알리기」— pending HOLD path for requiresAdminApproval=true only.
+ * 승인·반려·중지·재개·종료는 `lib/admin/trade-admin/trade-promotion-admin.ts` (DB 함수, 한 트랜잭션).
  * OWNER POLICY: active catalog uses purchase_member_content_promotion (immediate).
  * LIST projection reads order_status=active only.
  */
-import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMemberPromotionProduct } from "@/lib/points/promotion-products";
 import { assertPromotionTargetOwned } from "@/lib/points/point-promotion-orders-db";
 import { isPostEligibleForPromotionBoost } from "@/lib/promotion/trade-promotion-overlay";
-import {
-  captureHeldPointsForPromotionOrder,
-  holdPointsForPromotionOrder,
-  releaseHeldPointsForPromotionOrder,
-} from "@/lib/promotion/promotion-point-hold-flow";
 
 export function computeTradePromotionActiveWindow(
   nowMs: number,
@@ -93,186 +88,31 @@ export async function applyTradePaidExposurePending(
     return { ok: false, error: "target_unavailable" };
   }
 
-  const { data: conflict } = await sb
-    .from("point_promotion_orders")
-    .select("id")
-    .eq("target_id", input.postId.trim())
-    .eq("domain", "trade")
-    .in("order_status", ["pending_review", "active"])
-    .limit(1);
-  if ((conflict ?? []).length > 0) {
-    return { ok: false, error: "already_active_promotion" };
-  }
-
-  const orderId = randomUUID();
-  const now = new Date();
-  const end = new Date(now.getTime() + product.durationDays * 86_400_000);
-  const title = input.targetTitle?.trim() || owned.targetTitle;
-
-  const { error: insErr } = await sb.from("point_promotion_orders").insert({
-    id: orderId,
-    user_id: input.userId,
-    user_nickname: (input.userNickname ?? "").slice(0, 120),
-    target_type: "product",
-    target_id: input.postId.trim(),
-    target_title: title.slice(0, 500),
-    placement: product.placementPolicy,
-    duration_days: product.durationDays,
-    point_cost: product.pointCost,
-    order_status: "pending_review",
-    start_at: now.toISOString(),
-    end_at: end.toISOString(),
-    product_id: product.id,
-    domain: "trade",
-    idempotency_key: key,
+  // 주문 생성 + 포인트 보류(잔액 검사) + 감사 = DB 함수 1번 (거래 Admin 설계 v2 §G-0).
+  // 중복 진행 주문·멱등 키·잔액 부족은 함수가 행 잠금 안에서 판단한다.
+  const { data, error } = await sb.rpc("request_trade_promotion_review", {
+    p_user_id: input.userId,
+    p_post_id: input.postId.trim(),
+    p_product_id: product.id,
+    p_placement: product.placementPolicy,
+    p_duration_days: product.durationDays,
+    p_point_cost: product.pointCost,
+    p_target_title: (input.targetTitle?.trim() || owned.targetTitle).slice(0, 500),
+    p_user_nickname: (input.userNickname ?? "").slice(0, 120),
+    p_idempotency_key: key,
+    p_hold_label: `거래 더 알리기 신청 (${product.durationDays}일)`,
   });
-  if (insErr) {
-    return { ok: false, error: insErr.message || "insert_failed" };
-  }
-
-  const hold = await holdPointsForPromotionOrder(sb, {
-    userId: input.userId,
-    orderId,
-    pointCost: product.pointCost,
-    label: `거래 더 알리기 신청 (${product.durationDays}일)`,
-  });
-  if (!hold.ok) {
-    await sb.from("point_promotion_orders").delete().eq("id", orderId);
-    return { ok: false, error: hold.error };
-  }
-
+  if (error) return { ok: false, error: error.message || "rpc_failed" };
+  const r = (data ?? {}) as Record<string, unknown>;
+  if (r.ok !== true) return { ok: false, error: String(r.error ?? "apply_failed") };
+  const st = String(r.order_status ?? "pending_review");
   return {
     ok: true,
-    orderId,
-    status: "pending_review",
-    endAt: end.toISOString(),
-    pointCost: product.pointCost,
-    productId: product.id,
-    holdId: hold.holdId,
+    orderId: String(r.order_id),
+    status: st === "active" ? "active" : "pending_review",
+    endAt: String(r.end_at ?? ""),
+    pointCost: Number(r.point_cost ?? product.pointCost),
+    productId: String(r.product_id ?? product.id),
+    holdId: r.hold_id ? String(r.hold_id) : undefined,
   };
-}
-
-export async function approveTradePaidExposure(
-  sb: SupabaseClient,
-  input: { orderId: string; adminUserId: string }
-): Promise<{ ok: true; endAt: string } | { ok: false; error: string }> {
-  void input.adminUserId;
-  const { data: row, error } = await sb
-    .from("point_promotion_orders")
-    .select("*")
-    .eq("id", input.orderId)
-    .maybeSingle();
-  if (error || !row) return { ok: false, error: "not_found" };
-  const r = row as Record<string, unknown>;
-  if (String(r.domain) !== "trade") {
-    return { ok: false, error: "not_trade" };
-  }
-
-  const userId = String(r.user_id);
-  const pointCost = Number(r.point_cost ?? 0);
-  const durationDays = Math.max(1, Number(r.duration_days ?? 7));
-  const now = Date.now();
-  const window = computeTradePromotionActiveWindow(now, durationDays);
-  const currentStatus = String(r.order_status);
-
-  if (currentStatus === "active") {
-    const capturedAgain = await captureHeldPointsForPromotionOrder(sb, {
-      orderId: input.orderId,
-      userId,
-      pointCost,
-    });
-    if (!capturedAgain.ok && capturedAgain.error !== "hold_missing") {
-      return { ok: false, error: capturedAgain.error };
-    }
-    return { ok: true, endAt: String(r.end_at ?? window.endAt) };
-  }
-  if (currentStatus !== "pending_review") {
-    return { ok: false, error: "not_pending" };
-  }
-
-  const { data: updated, error: upd } = await sb
-    .from("point_promotion_orders")
-    .update({
-      order_status: "active",
-      start_at: window.startAt,
-      end_at: window.endAt,
-      review_reason: null,
-    })
-    .eq("id", input.orderId)
-    .eq("order_status", "pending_review")
-    .eq("domain", "trade")
-    .select("id")
-    .maybeSingle();
-  if (upd) return { ok: false, error: upd.message };
-  if (!updated?.id) {
-    const { data: again } = await sb
-      .from("point_promotion_orders")
-      .select("order_status, end_at")
-      .eq("id", input.orderId)
-      .maybeSingle();
-    const st = String(again?.order_status ?? "");
-    if (st === "active") {
-      const capturedAgain = await captureHeldPointsForPromotionOrder(sb, {
-        orderId: input.orderId,
-        userId,
-        pointCost,
-      });
-      if (!capturedAgain.ok && capturedAgain.error !== "hold_missing") {
-        return { ok: false, error: capturedAgain.error };
-      }
-      return { ok: true, endAt: String(again?.end_at ?? window.endAt) };
-    }
-    return { ok: false, error: "not_pending" };
-  }
-
-  const captured = await captureHeldPointsForPromotionOrder(sb, {
-    orderId: input.orderId,
-    userId,
-    pointCost,
-  });
-  if (!captured.ok) {
-    return { ok: false, error: captured.error };
-  }
-
-  return { ok: true, endAt: window.endAt };
-}
-
-export async function rejectTradePaidExposure(
-  sb: SupabaseClient,
-  input: { orderId: string; reason: string }
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const reason = input.reason.trim();
-  if (!reason) return { ok: false, error: "reason_required" };
-
-  const { data: row, error } = await sb
-    .from("point_promotion_orders")
-    .select("id, order_status, domain")
-    .eq("id", input.orderId)
-    .maybeSingle();
-  if (error || !row) return { ok: false, error: "not_found" };
-  if (String((row as { order_status?: string }).order_status) !== "pending_review") {
-    return { ok: false, error: "not_pending" };
-  }
-  if (String((row as { domain?: string }).domain) !== "trade") {
-    return { ok: false, error: "not_trade" };
-  }
-
-  const { data: updated, error: upd } = await sb
-    .from("point_promotion_orders")
-    .update({
-      order_status: "rejected",
-      review_reason: reason.slice(0, 500),
-    })
-    .eq("id", input.orderId)
-    .eq("order_status", "pending_review")
-    .eq("domain", "trade")
-    .select("id")
-    .maybeSingle();
-  if (upd) return { ok: false, error: upd.message };
-  if (!updated?.id) return { ok: false, error: "not_pending" };
-
-  const released = await releaseHeldPointsForPromotionOrder(sb, { orderId: input.orderId });
-  if (!released.ok) return { ok: false, error: released.error };
-
-  return { ok: true };
 }

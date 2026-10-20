@@ -150,8 +150,11 @@ export async function PATCH(
   if (reason.length < 2) {
     return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
   }
-  const idempotencyKey =
-    String(body.idempotencyKey ?? "").trim() || `admin_point:${crypto.randomUUID()}`;
+  // D-48: 재시도 시 이중 지급을 막으려면 화면이 만든 키가 반드시 있어야 한다 (서버 무작위 키 금지)
+  const idempotencyKey = String(body.idempotencyKey ?? "").trim();
+  if (idempotencyKey.length < 8 || idempotencyKey.length > 200) {
+    return NextResponse.json({ ok: false, error: "idempotency_key_required" }, { status: 400 });
+  }
 
   // C-45: 관리자 조정 경로 단일화 — /api/admin/points/adjust 와 같은 원자 RPC.
   const { sb, actor } = gate;

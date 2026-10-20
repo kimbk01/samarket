@@ -1,86 +1,40 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyReportActionDaangn } from "@/lib/admin-reports/applyReportActionDaangn";
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
-type Row = { id: string; status: string; target_type: string; target_id: string; product_id: string | null };
-
-/** In-memory fake: supports the exact chains the writer uses, including the status CAS. */
-function fakeSb(report: Row, opts: { failActionInsert?: boolean } = {}) {
-  const state = { report: { ...report }, actions: [] as unknown[], sanctions: [] as unknown[] };
-  const sb = {
-    from(table: string) {
-      const filters: { col: string; op: "eq" | "in"; val: unknown }[] = [];
-      let patch: Record<string, unknown> | null = null;
-      let insertRow: unknown = null;
-      const matches = () =>
-        filters.every((f) => {
-          const v = (state.report as Record<string, unknown>)[f.col];
-          return f.op === "eq" ? v === f.val : (f.val as unknown[]).includes(v);
-        });
-      const b: Record<string, unknown> = {
-        select: () => b,
-        eq: (col: string, val: unknown) => (filters.push({ col, op: "eq", val }), b),
-        in: (col: string, val: unknown[]) => (filters.push({ col, op: "in", val }), b),
-        update: (p: Record<string, unknown>) => ((patch = p), b),
-        insert: (row: unknown) => ((insertRow = row), b),
-        maybeSingle: () => Promise.resolve({ data: table === "reports" && matches() ? state.report : null, error: null }),
-        then: (resolve: (r: unknown) => unknown) => {
-          if (insertRow) {
-            if (table === "report_actions" && opts.failActionInsert) {
-              return resolve({ error: { message: "insert_failed" } });
-            }
-            (table === "sanctions" ? state.sanctions : state.actions).push(insertRow);
-            return resolve({ error: null });
-          }
-          if (patch && table === "reports") {
-            if (!matches()) return resolve({ data: [], error: null });
-            Object.assign(state.report, patch);
-            return resolve({ data: [{ id: state.report.id }], error: null });
-          }
-          return resolve({ data: null, error: null });
-        },
-      };
-      return b;
-    },
-  };
-  return { sb: sb as never, state };
-}
-
-const base: Row = { id: "r1", status: "pending", target_type: "user", target_id: "u1", product_id: null };
-
+/**
+ * 거래 Admin 설계 v2 §C-4 · §F-3: 예전 TS writer(applyReportActionDaangn, 상태 CAS + 기록 보상)는 삭제 —
+ * 처리 1건 = DB 함수 admin_decide_trade_report 1번 (신고 행 잠금 → 대기 상태 확인 → 같은 트랜잭션 기록).
+ */
 describe("Trade report server writer (R6)", () => {
-  it("first admin resolves; a concurrent second admin gets 409 and writes nothing", async () => {
-    const { sb, state } = fakeSb(base);
-    const a = await applyReportActionDaangn(sb, { reportId: "r1", actionType: "reject", targetUserId: "", adminUserId: "admin-a" });
-    expect(a).toMatchObject({ ok: true, previousStatus: "pending", status: "rejected" });
-    const b = await applyReportActionDaangn(sb, { reportId: "r1", actionType: "reject", targetUserId: "", adminUserId: "admin-b" });
-    expect(b).toMatchObject({ ok: false, httpStatus: 409 });
-    expect(state.actions).toHaveLength(1);
-    expect(state.report.status).toBe("rejected");
+  const MIG = "supabase/migrations/20270522120300_trade_admin_m7_trade_restrictions.sql";
+
+  it("first admin resolves; a concurrent second admin gets already_processed (row lock + pending check in one tx)", () => {
+    const mig = read(MIG);
+    expect(mig).toMatch(/from public\.reports where id = p_report_id for update/);
+    expect(mig).toMatch(/not in \('pending', 'reviewing'\)[\s\S]{0,120}already_processed/);
   });
 
-  it("restores the queue state when the action record cannot be written", async () => {
-    const { sb, state } = fakeSb(base, { failActionInsert: true });
-    const r = await applyReportActionDaangn(sb, { reportId: "r1", actionType: "reject", targetUserId: "", adminUserId: "admin-a" });
-    expect(r).toMatchObject({ ok: false, httpStatus: 500 });
-    expect(state.report.status).toBe("pending");
-  });
-
-  it("account actions stay MCC-only", async () => {
-    const { sb } = fakeSb(base);
-    const r = await applyReportActionDaangn(sb, { reportId: "r1", actionType: "account_ban", targetUserId: "", adminUserId: "a" });
-    expect(r).toMatchObject({ ok: false, httpStatus: 400 });
-  });
-
-  it("route enforces staff permission `reports` and the panel no longer writes from the browser", () => {
-    const route = read("app/api/admin/reports/[reportId]/action/route.ts");
-    expect(route).toContain('requireAdminPermission("reports")');
-    expect(route).toContain("appendAuditLog");
-    const writer = read("lib/admin-reports/applyReportActionDaangn.ts");
+  it("writer is the single DB function (no client-side multi-step write to restore)", () => {
+    const writer = read("lib/admin/trade-admin/trade-report-decision.ts");
     expect(writer).toContain('import "server-only"');
+    expect(writer).toContain('"admin_decide_trade_report"');
+    expect(writer).not.toMatch(/\.from\("report_actions"\)\s*\.insert/);
+  });
+
+  it("account actions stay MCC-only", () => {
+    const route = read("app/api/admin/reports/[reportId]/action/route.ts");
+    expect(route).toMatch(/account_suspend[\s\S]{0,80}account_ban[\s\S]{0,200}status: 400/);
+  });
+
+  it("route enforces trade admin gate (O-2) and the panel no longer writes from the browser", () => {
+    const route = read("app/api/admin/reports/[reportId]/action/route.ts");
+    expect(route).toContain("requireTradeAdmin()");
+    expect(route).toContain("decideTradeReport");
+    expect(route).toContain("reason_required");
+    const writer = read("lib/admin/trade-admin/trade-report-decision.ts");
     expect(writer).not.toContain('"use client"');
     expect(writer).not.toContain("getSupabaseClient");
     const panel = read("components/admin/reports/AdminSanctionPanel.tsx");

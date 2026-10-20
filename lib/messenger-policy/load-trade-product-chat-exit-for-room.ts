@@ -4,6 +4,7 @@ import {
   type TradeProductChatExitSnapshot,
 } from "@/lib/messenger-policy/chat-room-permission";
 import { parseTradeMessengerDirectKey } from "@/lib/messenger-policy/parse-trade-messenger-direct-key";
+import { loadActiveTradeRestriction } from "@/lib/trade/trade-activity-restriction-core";
 import { toMessengerPolicyRoomType, type MessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 
@@ -160,7 +161,11 @@ export async function assertMessengerProductChatLinkedSendAllowed(
     viewerUserId: input.viewerUserId,
     tradeProductChat: snap,
   });
-  if (gate.ok) return { ok: true };
+  if (gate.ok) {
+    // 거래 활동 제한(채팅) — 거래 연결 방에서만 조회 (설계 v2 §C-5 · D-19)
+    if (await loadActiveTradeRestriction(sb, input.viewerUserId, "chat")) return { ok: false, error: "trade_restricted" };
+    return { ok: true };
+  }
   /** API·클라 `pickMessengerApiErrorField` 가 기계 코드로 매핑할 수 있도록 `message` 대신 `code` 전달 */
   return { ok: false, error: gate.code };
 }

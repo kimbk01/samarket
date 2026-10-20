@@ -63,7 +63,8 @@ describe("parsePointChargeStatusFilter", () => {
 });
 
 describe("GET /api/admin/point-charges contract", () => {
-  const route = readFileSync(join(process.cwd(), "app/api/admin/point-charges/route.ts"), "utf8");
+  // 본문은 공용 처리로 이동 (라우트는 권한 키 `point` 확인 후 위임)
+  const route = readFileSync(join(process.cwd(), "lib/admin/shared-handlers/admin-point-charges-list.ts"), "utf8");
   it("pages server-side with exact count — no hard 300-row cap", () => {
     expect(route).not.toContain(".limit(300)");
     expect(route).toContain('{ count: "exact" }');

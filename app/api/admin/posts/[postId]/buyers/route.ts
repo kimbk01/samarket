@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +12,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ postId: string }> }
 ) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
 
   const { postId: raw } = await params;
@@ -22,10 +21,7 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
   }
 
-  const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
-  }
+  const sb = admin.sb;
 
   const { data, error } = await sb
     .from("product_chats")

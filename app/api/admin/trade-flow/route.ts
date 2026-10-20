@@ -1,36 +1,25 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { TRADE_FLOW_ADMIN_PERMISSION } from "@/lib/admin/trade-flow/trade-flow-admin-action";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { batchNicknamesByUserIds } from "@/lib/admin-reviews/batch-nicknames-server";
 import { formatAdminReviewTagKeys } from "@/lib/admin-reviews/admin-review-utils";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
-import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 거래 흐름(product_chats) + 온도 로그 샘플 — 관리자(테스트 계정 또는 profiles.role)
+ * 거래 흐름(product_chats) + 온도 로그 샘플 — 활성 관리자 (거래 Admin O-2)
  * POST (관리자 세션)
  */
 export async function POST(_req: NextRequest) {
-  const admin = await requireAdminPermission(TRADE_FLOW_ADMIN_PERMISSION);
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
-  const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
-  if (!supabaseEnv.ok) {
-    return NextResponse.json({ error: supabaseEnv.error }, { status: 500 });
-  }
-
-  const anon = createClient(supabaseEnv.url, supabaseEnv.anonKey);
-
-  const sb = supabaseEnv.serviceKey
-    ? createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } })
-    : anon;
+  // 서비스 롤만 사용 (D-40: 익명 키 대체 조회 제거) — 게이트가 서비스 클라이언트를 준다
+  const sb = admin.sb;
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
   const { data: sessions, error: sErr } = await sbAny

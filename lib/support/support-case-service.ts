@@ -1,6 +1,8 @@
 import {
   supportAppealOrFilter,
   supportCommunityScopeOrFilter,
+  supportTradeAppealOrFilter,
+  supportTradeScopeOrFilter,
   type SupportCaseKind,
   type SupportCaseScope,
 } from "@/lib/support/support-community-filter";
@@ -841,8 +843,23 @@ export async function listSupportCasesForAdmin(
   if (input.referenceType) query = query.eq("reference_type", input.referenceType);
   if (input.referenceId && isUuid(input.referenceId)) query = query.eq("reference_id", input.referenceId);
   if (input.ownerStoreId && isUuid(input.ownerStoreId)) query = query.eq("owner_store_id", input.ownerStoreId);
-  if (input.scope === "community") query = query.or(supportCommunityScopeOrFilter());
-  if (input.kind === "appeal") query = query.or(supportAppealOrFilter());
+  if (input.scope === "community" || input.scope === "trade") {
+    // 홍보 주문 참조는 주문 도메인으로 나눈다 (거래 Admin 설계 v2 §G-4)
+    const { data: promoRows } = await sb
+      .from("point_promotion_orders")
+      .select("id")
+      .eq("domain", input.scope)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    const promoIds = ((promoRows ?? []) as { id: string }[]).map((r) => String(r.id));
+    query =
+      input.scope === "community"
+        ? query.or(supportCommunityScopeOrFilter(promoIds))
+        : query.or(supportTradeScopeOrFilter(promoIds));
+  }
+  if (input.kind === "appeal") {
+    query = query.or(input.scope === "trade" ? supportTradeAppealOrFilter() : supportAppealOrFilter());
+  }
 
   const search = (input.search ?? "").trim();
   if (search) {

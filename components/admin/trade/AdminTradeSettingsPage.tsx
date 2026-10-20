@@ -4,6 +4,7 @@ import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { OpsTradePolicyPanel } from "@/components/admin/settings/OpsTradePolicyPanel";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { TradeDetailOpsSettings } from "@/services/trade/trade-settings.service";
 
@@ -214,6 +215,8 @@ export function AdminTradeSettingsPage() {
           </button>
         </form>
       </AdminCard>
+      {/* 거래 채팅 자동 확정·후기 기한 — 같은 거래 정책 화면에서 함께 관리 (거래 Admin 설계 v2 §C-10) */}
+      <OpsTradePolicyPanel />
     </div>
   );
 }

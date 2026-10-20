@@ -3,10 +3,9 @@
  * POST { roomId }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
-  TRADE_FLOW_ADMIN_PERMISSION,
   TRADE_FLOW_ADMIN_REASON_MIN_LENGTH,
   parseTradeFlowAdminReason,
 } from "@/lib/admin/trade-flow/trade-flow-admin-action";
@@ -20,7 +19,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminPermission(TRADE_FLOW_ADMIN_PERMISSION);
+  const admin = await requireTradeAdmin();
   if (!admin.ok) return admin.response;
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
   if (!supabaseEnv.ok) {

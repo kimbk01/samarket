@@ -89,7 +89,7 @@ describe("assertMemberModerationTargetAllowed", () => {
 describe("moderation route membership guard contract", () => {
   it("POST uses membership helper and does not read profiles.role for SA protection", () => {
     const src = readFileSync(
-      join(process.cwd(), "app/api/admin/users/[id]/moderation/route.ts"),
+      join(process.cwd(), "lib/admin/shared-handlers/admin-member-moderation.ts" /* 본문 이동 — 라우트는 권한 키 확인 후 위임 */),
       "utf8",
     );
     expect(src).toMatch(/assertMemberModerationTargetAllowed/);

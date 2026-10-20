@@ -42,7 +42,8 @@ describe("Finance legacy cleanup — money authority", () => {
   });
 
   it("Admin Point adjust still ledger-only (Admin Trace A preserved)", () => {
-    const adjust = read("app/api/admin/points/adjust/route.ts");
+    // 본문은 공용 처리로 이동 (라우트는 권한 확인 후 위임)
+    const adjust = read("lib/admin/shared-handlers/admin-points-adjust.ts");
     expect(adjust).toContain("sumUserPointLedger");
     expect(adjust).not.toContain("readUserPointBalance");
   });

@@ -27,13 +27,12 @@ function read(rel: string) {
 
 describe("ARO-OPS-UX-002-B1R delete operation UX", () => {
   it("R1–R3 Trade soft bulk uses one-confirm helper (no per-id prompt loop)", () => {
-    const table = read("components/admin/posts-management/AdminPostsManagementTable.tsx");
-    expect(table).toContain("confirmAndApplyBulkAdminPostStatus");
-    expect(table).not.toMatch(/for \(const id of selection\.selected\)[\s\S]*runAction\(action/);
-    const bulk = read("lib/admin-posts/confirm-admin-post-bulk-moderation.ts");
-    expect(bulk).toMatch(/cancelled: true/);
-    expect(bulk).toMatch(/for \(const p of products\)/);
-    expect(bulk).toMatch(/updatePostStatusAdmin/);
+    // 거래 Admin 설계 v2 §F-1-1: 숨김·삭제는 posts.moderation_state 를 RPC 한 번으로 바꾼다 (사유 필수, status 직접 쓰기 없음).
+    const route = read("app/api/admin/trade/posts/[id]/moderation/route.ts");
+    expect(route).toContain("requireTradeAdmin");
+    expect(route).toContain('"admin_trade_post_moderate"');
+    expect(route).toContain("reason_required");
+    expect(route).not.toMatch(/status:\s*"hidden"/);
   });
 
   it("R5–R6 Trade hard eligibility: sold blocked, active eligible", () => {
@@ -65,10 +64,9 @@ describe("ARO-OPS-UX-002-B1R delete operation UX", () => {
     const api = read("app/api/admin/posts/bulk-delete/route.ts");
     expect(api).toContain("evaluateTradePostHardDeleteEligibility");
     expect(api).not.toMatch(/permanent_delete_not_ready/);
-    const table = read("components/admin/posts-management/AdminPostsManagementTable.tsx");
-    expect(table).toContain("runBulkHardDelete");
-    expect(table).toContain("/api/admin/posts/bulk-delete");
-    expect(table).toMatch(/Type DELETE|DELETE 를 입력/);
+    // 거래 Admin 설계 v2 §F-1-4: 영구 삭제는 관리 화면에 노출하지 않음 — 최고 관리자·사유 필수 API 만.
+    expect(api).toContain("requireSuperAdmin");
+    expect(api).toContain("reason_required");
   });
 
   it("R8–R10 Community hard CTA stronger than soft in BulkBar", () => {
@@ -100,7 +98,5 @@ describe("ARO-OPS-UX-002-B1R delete operation UX", () => {
     );
     expect(buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.chat)).toContain("domain=chat");
     expect(read("app/admin/system/data-reset/page.tsx")).toContain("AdminDataResetPage");
-    const trade = read("components/admin/posts-management/AdminPostsManagementTable.tsx");
-    expect(trade).toContain('data-admin-domain-reset-entry="trade"');
   });
 });
