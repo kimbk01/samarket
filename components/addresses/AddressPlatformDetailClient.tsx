@@ -19,7 +19,19 @@ import {
 } from "@/lib/addresses/location-only-address-nickname";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
-import { ADDR_BTN_PRIMARY_FULL } from "@/lib/ui/address-flow-viber";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import { MyToggle } from "@/components/mypage/ds/MyToggle";
+import {
+  AddressDesignationField,
+  type AddressDesignationPreset,
+} from "@/components/addresses/AddressDesignationField";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import {
+  buildAddressDetailSaveBody,
+  isAddressDetailDirty,
+  resolveAddressMasterToggleInitial,
+  type AddressEditableLabel,
+} from "@/lib/addresses/address-detail-save-body";
 
 const AddressFineTuneMapLazy = dynamic(
   () =>
@@ -27,16 +39,66 @@ const AddressFineTuneMapLazy = dynamic(
   { ssr: false },
 );
 
+function presetFromLabel(label: AddressEditableLabel): AddressDesignationPreset {
+  return label === "other" ? "custom" : label;
+}
+
+function labelFromPreset(preset: AddressDesignationPreset): AddressEditableLabel {
+  if (preset === "home" || preset === "office") return preset;
+  return "other";
+}
+
+function useIsTabletWidth(): boolean {
+  const [tablet, setTablet] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => setTablet(mq.matches);
+    apply();
+    mq.addEventListener?.("change", apply);
+    return () => mq.removeEventListener?.("change", apply);
+  }, []);
+  return tablet;
+}
+
+/**
+ * 주소 편집 (최종 설계 S07) — 지도 → 상세(필수) → 라벨(집·회사·기타) → 랜드마크·배달 메모 → 대표 주소 토글 → 하단 [저장].
+ * **수정 저장은 대표 주소를 바꾸지 않는다** — 사용자가 토글을 켰을 때만 `isDefaultMaster: true`, 그 외에는 본문에서 생략.
+ */
 export function AddressPlatformDetailClient(props: {
   mode: "create" | "edit";
   initial: UserAddressDTO | null;
   draft: CanonicalAddressDraft | null;
   allAddresses: UserAddressDTO[];
   onSaved: () => void | Promise<void>;
+  /** 대표 지정 목적의 호출 컨텍스트(`set_default_master`) — 추가 시 토글 기본 ON */
+  callerPrefersMaster?: boolean;
+  /** 변경 여부 — 부모가 뒤로 시 미저장 확인을 띄운다 */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { t } = useI18n();
-  const { mode, initial, onSaved } = props;
+  const { mode, initial, onSaved, allAddresses, callerPrefersMaster = false, onDirtyChange } = props;
   const { effectiveBottomInset } = useFormKeyboardViewport({ enabled: true });
+  const isTablet = useIsTabletWidth();
+  const isShop = initial?.labelType === "shop" || Boolean(initial?.linkedStoreId?.trim());
+  const masterInit = useMemo(
+    () =>
+      resolveAddressMasterToggleInitial({
+        mode,
+        initialIsMaster: initial?.isDefaultMaster === true,
+        isShop,
+        activeAddressCount: allAddresses.length,
+        callerPrefersMaster,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 진입 시 1회 기준값
+    [mode, initial?.id],
+  );
+  const [label, setLabel] = useState<AddressEditableLabel>(() =>
+    initial && initial.labelType !== "shop" ? initial.labelType : "other",
+  );
+  const [masterOn, setMasterOn] = useState<boolean>(masterInit.on);
+  /** 신규 생성은 성공했지만 후속 보정이 실패한 경우 — 다시 저장하면 POST 가 아닌 PATCH(중복 생성 방지) */
+  const createdIdRef = useRef<string | null>(null);
 
   const [draft, setDraft] = useState<CanonicalAddressDraft | null>(props.draft);
   const [detail, setDetail] = useState("");
@@ -58,6 +120,8 @@ export function AddressPlatformDetailClient(props: {
       setDetail((initial.detailAddress ?? initial.unitFloorRoom ?? "").trim());
       setLandmark((initial.landmark ?? "").trim());
       setDeliveryNote((initial.deliveryNote ?? "").trim());
+      if (initial.labelType !== "shop") setLabel(initial.labelType);
+      setMasterOn(initial.isDefaultMaster === true);
     }
   }, [initial, mode, props.draft]);
 
@@ -67,6 +131,28 @@ export function AddressPlatformDetailClient(props: {
       displayInputFromDraft(draft, { detail, landmark, deliveryNote }),
     );
   }, [draft, detail, landmark, deliveryNote]);
+
+  const dirty = useMemo(
+    () =>
+      isAddressDetailDirty({
+        mode,
+        initial,
+        detail,
+        landmark,
+        deliveryNote,
+        label,
+        masterOn,
+        draft,
+      }),
+    [deliveryNote, detail, draft, initial, label, landmark, masterOn, mode],
+  );
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  const canSave =
+    Boolean(draft) && !resolving && !busy && Boolean(detail.trim()) && (mode === "create" || dirty);
 
   const onPinMove = useCallback(
     (lat: number, lng: number) => {
@@ -132,8 +218,6 @@ export function AddressPlatformDetailClient(props: {
       return;
     }
 
-    const isShop = initial?.labelType === "shop" || Boolean(initial?.linkedStoreId?.trim());
-    const submitLabel = isShop ? "shop" : "other";
     let resolvedNickname: string | null = null;
     if (isShop) {
       resolvedNickname = initial?.nickname ?? null;
@@ -143,6 +227,8 @@ export function AddressPlatformDetailClient(props: {
         resolvedNickname = existing;
       } else if (mode === "edit" && initial?.id) {
         resolvedNickname = encodeLocationOnlyAddressNickname(initial.id);
+      } else if (createdIdRef.current) {
+        resolvedNickname = encodeLocationOnlyAddressNickname(createdIdRef.current);
       } else {
         resolvedNickname = encodePendingLocationOnlyNickname();
       }
@@ -166,61 +252,87 @@ export function AddressPlatformDetailClient(props: {
         roadAddress: draft.formattedAddress,
         fullAddress: draft.formattedAddress,
       });
-      const body = {
-        labelType: submitLabel,
-        linkedStoreId: isShop ? initial?.linkedStoreId ?? null : null,
-        nickname: resolvedNickname,
-        barangay: draft.barangay,
-        cityMunicipality: draft.cityMunicipality,
-        province: draft.province,
-        streetAddress: draft.streetAddress,
-        buildingName: selectedPlaceName,
-        unitFloorRoom: detail.trim(),
-        landmark: landmark.trim() || null,
-        latitude: draft.latitude,
-        longitude: draft.longitude,
-        placeId: selectedPlaceId,
-        formattedAddress: draft.formattedAddress,
-        roadAddress: draft.formattedAddress,
-        detailAddress: detail.trim(),
-        deliveryNote: deliveryNote.trim() || null,
-        fullAddress: draft.formattedAddress,
-        neighborhoodName: draft.neighborhoodName,
-        appRegionId: taxonomy?.regionId ?? initial?.appRegionId ?? null,
-        appCityId: taxonomy?.cityId ?? initial?.appCityId ?? null,
-        useForLife: true,
-        useForTrade: true,
-        useForDelivery: true,
-        isDefaultMaster: isShop ? false : true,
-      };
-      const url = mode === "create" ? "/api/me/addresses" : `/api/me/addresses/${initial?.id}`;
+      const body = buildAddressDetailSaveBody({
+        isShop,
+        label,
+        masterOn,
+        initialIsMaster: initial?.isDefaultMaster === true,
+        mode: createdIdRef.current ? "edit" : mode,
+        createdNow: Boolean(createdIdRef.current),
+        masterLocked: masterInit.locked,
+        fields: {
+          linkedStoreId: isShop ? initial?.linkedStoreId ?? null : null,
+          nickname: resolvedNickname,
+          barangay: draft.barangay,
+          cityMunicipality: draft.cityMunicipality,
+          province: draft.province,
+          streetAddress: draft.streetAddress,
+          buildingName: selectedPlaceName,
+          unitFloorRoom: detail.trim(),
+          landmark: landmark.trim() || null,
+          latitude: draft.latitude,
+          longitude: draft.longitude,
+          placeId: selectedPlaceId,
+          formattedAddress: draft.formattedAddress,
+          roadAddress: draft.formattedAddress,
+          detailAddress: detail.trim(),
+          deliveryNote: deliveryNote.trim() || null,
+          fullAddress: draft.formattedAddress,
+          neighborhoodName: draft.neighborhoodName,
+          appRegionId: taxonomy?.regionId ?? initial?.appRegionId ?? null,
+          appCityId: taxonomy?.cityId ?? initial?.appCityId ?? null,
+          useForLife: true,
+          useForTrade: true,
+          useForDelivery: true,
+        },
+      });
+      const targetId = createdIdRef.current ?? initial?.id ?? "";
+      const isCreate = mode === "create" && !createdIdRef.current;
+      const url = isCreate ? "/api/me/addresses" : `/api/me/addresses/${targetId}`;
       const res = await fetch(url, {
-        method: mode === "create" ? "POST" : "PATCH",
+        method: isCreate ? "POST" : "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string; address?: { id?: string } };
       if (!res.ok || !j.ok) {
-        setErr(translateUserAddressApiError(j.error, t, "addr_ui_save_failed"));
+        const msg = translateUserAddressApiError(j.error, t, "addr_ui_save_failed");
+        setErr(msg);
+        showMypageToast(msg, "error");
         return;
       }
       const createdId = typeof j.address?.id === "string" ? j.address.id.trim() : "";
       if (
-        mode === "create" &&
+        isCreate &&
         createdId &&
         resolvedNickname &&
         isLocationOnlyAddressNickname(resolvedNickname) &&
         !decodeLocationOnlyAddressNicknameId(resolvedNickname)
       ) {
-        await fetch(`/api/me/addresses/${createdId}`, {
+        /** 생성 후 닉네임 보정 PATCH — 실패도 오류로 처리(다시 저장하면 같은 행을 PATCH) */
+        createdIdRef.current = createdId;
+        const fix = await fetch(`/api/me/addresses/${createdId}`, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ nickname: encodeLocationOnlyAddressNickname(createdId) }),
-        });
+        }).catch(() => null);
+        const fixJson = fix ? ((await fix.json().catch(() => ({}))) as { ok?: boolean; error?: string }) : null;
+        if (!fix || !fix.ok || !fixJson?.ok) {
+          const msg = translateUserAddressApiError(fixJson?.error, t, "addr_ui_save_failed");
+          setErr(msg);
+          showMypageToast(msg, "error");
+          return;
+        }
       }
+      createdIdRef.current = null;
+      showMypageToast(t("mypage_s07_saved_toast"), "success");
       await Promise.resolve(onSaved());
+    } catch {
+      const msg = t("addr_ui_save_failed");
+      setErr(msg);
+      showMypageToast(msg, "error");
     } finally {
       setBusy(false);
     }
@@ -234,21 +346,30 @@ export function AddressPlatformDetailClient(props: {
     );
   }
 
+  const mapHeight = isTablet ? 280 : 240;
+  const sectionClass = "rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4";
+  const inputClass = `${Sam.input.base} ${Sam.focusRing} rounded-ui-rect text-[16px]`;
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-[10px] py-3 pr-2">
-        <section className="overflow-hidden rounded-[24px] border border-signature/10 bg-white shadow-sm">
-          <div className="min-h-[220px] bg-sam-surface-muted">
+        {err ? (
+          <p className="sam-text-body-secondary font-medium text-sam-danger" role="alert" data-testid="address-detail-error">
+            {err}
+          </p>
+        ) : null}
+        <section className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface">
+          <div className="bg-sam-surface-muted" style={{ minHeight: mapHeight }}>
             <AddressFineTuneMapLazy
               latitude={draft.latitude}
               longitude={draft.longitude}
               onPositionChange={onPinMove}
-              heightPx={240}
+              heightPx={mapHeight}
             />
           </div>
-          <div className="border-t border-sam-border bg-gradient-to-b from-white to-signature/[0.04] px-4 py-3">
+          <div className="border-t border-sam-border-soft bg-sam-surface px-4 py-3">
             {resolving ? (
-              <p className="sam-text-helper font-semibold text-signature">{t("addr_ui_confirming_address")}</p>
+              <p className="sam-text-helper font-semibold text-sam-primary">{t("addr_ui_confirming_address")}</p>
             ) : (
               <>
                 {lines.title ? (
@@ -262,7 +383,7 @@ export function AddressPlatformDetailClient(props: {
           </div>
         </section>
 
-        <section className="rounded-[24px] border border-sam-border bg-white p-4 shadow-sm">
+        <section className={sectionClass}>
           <label className="block">
             <span className="mb-2 block sam-text-helper font-bold text-sam-fg">{t("addr_ui_detail_address_label")}</span>
             <textarea
@@ -271,17 +392,33 @@ export function AddressPlatformDetailClient(props: {
               onChange={(e) => setDetail(e.target.value)}
               placeholder={t("addr_ui_detail_ph")}
               rows={2}
-              className="w-full rounded-[18px] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body text-sam-fg outline-none transition-colors focus:border-signature/50 focus:bg-white"
+              className={inputClass}
             />
           </label>
-          {initial?.labelType === "shop" ? (
-            <p className="mt-2 rounded-[14px] bg-[#F7F3ED] px-3 py-2 sam-text-helper font-semibold text-[#6F4E37]">
-              {t("addr_ui_kind_shop")}
-            </p>
-          ) : null}
         </section>
 
-        <section className="rounded-[24px] border border-sam-border bg-white p-4 shadow-sm">
+        <section className={sectionClass} data-testid="address-label-section">
+          <p className="mb-2 sam-text-helper font-bold text-sam-fg">{t("mypage_s07_label_title")}</p>
+          {isShop ? (
+            <p className="rounded-ui-rect bg-sam-warning-soft px-3 py-2 sam-text-helper font-semibold text-sam-warning">
+              {t("addr_ui_kind_shop")}
+            </p>
+          ) : (
+            <AddressDesignationField
+              name="address-detail-label"
+              variant="chips"
+              allowCustomName={false}
+              hideSectionHeader
+              customLabelKey="mypage_s07_label_other"
+              value={presetFromLabel(label)}
+              onChange={(next) => setLabel(labelFromPreset(next))}
+              customName=""
+              onCustomNameChange={() => undefined}
+            />
+          )}
+        </section>
+
+        <section className={sectionClass}>
           <div className="space-y-3">
             <label className="block">
               <span className="mb-2 block sam-text-helper font-bold text-sam-fg">{t("addr_v2_landmark_label")}</span>
@@ -289,7 +426,7 @@ export function AddressPlatformDetailClient(props: {
                 value={landmark}
                 onChange={(e) => setLandmark(e.target.value)}
                 placeholder={t("addr_v2_landmark_ph")}
-                className="w-full rounded-[18px] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body text-sam-fg outline-none transition-colors focus:border-signature/50 focus:bg-white"
+                className={inputClass}
               />
             </label>
             <label className="block">
@@ -298,23 +435,48 @@ export function AddressPlatformDetailClient(props: {
                 value={deliveryNote}
                 onChange={(e) => setDeliveryNote(e.target.value)}
                 placeholder={t("addr_ui_delivery_ph")}
-                className="w-full rounded-[18px] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body text-sam-fg outline-none transition-colors focus:border-signature/50 focus:bg-white"
+                className={inputClass}
               />
             </label>
           </div>
         </section>
-        {err ? <p className="sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
+
+        {isShop ? null : (
+          <section className={sectionClass} data-testid="address-master-toggle-section">
+            <div className="flex items-center justify-between gap-3">
+              <span className="sam-text-body font-semibold text-sam-fg">{t("mypage_s07_master_toggle")}</span>
+              <MyToggle
+                checked={masterOn}
+                disabled={masterInit.locked}
+                ariaLabel={t("mypage_s07_master_toggle")}
+                onChange={async (next) => {
+                  setMasterOn(next);
+                  return true;
+                }}
+              />
+            </div>
+            {masterInit.locked ? (
+              <p className="mt-2 sam-text-helper text-sam-muted" data-testid="address-master-locked-hint">
+                {masterInit.reason === "first"
+                  ? t("mypage_s07_master_first_hint")
+                  : t("mypage_s07_master_locked_hint")}
+              </p>
+            ) : null}
+          </section>
+        )}
       </div>
       <div
-        className="shrink-0 border-t border-sam-border bg-white/95 px-[10px] py-3 pr-2 shadow-[0_-8px_20px_rgba(15,23,42,0.04)]"
+        className="shrink-0 border-t border-sam-border-soft bg-sam-surface/95 px-[10px] py-3 pr-2"
         data-form-keyboard-footer=""
         style={{ paddingBottom: `${effectiveBottomInset + 12}px` }}
       >
         <button
           type="button"
-          disabled={busy || resolving}
+          disabled={!canSave}
+          aria-busy={busy}
+          data-testid="address-detail-save"
           onClick={() => void save()}
-          className={ADDR_BTN_PRIMARY_FULL}
+          className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.focusRing} disabled:opacity-45`}
         >
           {busy ? t("addr_ui_saving") : t("addr_ui_save_address")}
         </button>

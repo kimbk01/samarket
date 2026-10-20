@@ -11,6 +11,9 @@ import type { MyPageConsoleProps } from "@/components/mypage/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { MyGroup } from "@/components/mypage/ds/MyGroup";
+import { MyRow } from "@/components/mypage/ds/MyRow";
+import { ClipboardList, Store, Wallet } from "lucide-react";
 
 type Props = Pick<MyPageConsoleProps, "hasOwnerStore" | "ownerHubStoreId" | "storeAttentionSummary">;
 
@@ -60,48 +63,55 @@ export function StoreTab({
         : "/stores/owner/apply";
     // 주문자에게는 정산·수수료·캐시·Coin 문구를 보여주지 않는다 (store-commission-cash-settlement-ssot §4).
     // 매장 사장님에게만 매장 재무(Coin·캐시) 안내.
+    /** 결제정보 (최종 설계 S09) — 안내 + 행 목록(MyGroup·MyRow), 이동만 */
+    const rowIcon = "h-[18px] w-[18px]";
     if (!hasOwnerStore) {
       return (
         <TabShell
+          variant="flush"
           title={t("mypage_mnav_store_payment")}
           description={t("mypage_comp_payment_member_desc")}
         >
-          <MyPageQuickActions
-            items={[
-              {
-                label: t("mypage_comp_nav_sec_store_orders_label"),
-                href: "/mypage/store-orders",
-                caption: t("mypage_comp_payment_member_orders_caption"),
-              },
-              {
-                label: t("mypage_comp_store_owner_cta_apply"),
-                href: financeHref,
-                caption: t("mypage_comp_store_owner_intro"),
-              },
-            ]}
-          />
+          <div data-testid="mypage-payment-member-rows">
+            <MyGroup>
+              <MyRow
+                first
+                title={t("mypage_comp_nav_sec_store_orders_label")}
+                href="/mypage/store-orders"
+                icon={<ClipboardList className={rowIcon} strokeWidth={2} aria-hidden />}
+              />
+              <MyRow
+                title={t("mypage_comp_store_owner_cta_apply")}
+                href={financeHref}
+                icon={<Store className={rowIcon} strokeWidth={2} aria-hidden />}
+              />
+            </MyGroup>
+          </div>
         </TabShell>
       );
     }
     return (
       <TabShell
+        variant="flush"
         title={safeT("mypage_comp_nav_sec_store_payment_label")}
         description={t("mypage_comp_nav_sec_store_payment_desc")}
       >
-        <MyPageQuickActions
-          items={[
-            {
-              label: t("biz_nav_finance"),
-              href: financeHref,
-              caption: t("biz_nav_finance_desc"),
-            },
-            {
-              label: t("mypage_comp_store_owner_hub"),
-              href: businessHref,
-              caption: storeAttentionSummary ?? t("mypage_comp_nav_sec_store_manage_desc"),
-            },
-          ]}
-        />
+        <div data-testid="mypage-payment-owner-rows">
+          <MyGroup>
+            <MyRow
+              first
+              title={t("biz_nav_finance")}
+              href={financeHref}
+              icon={<Wallet className={rowIcon} strokeWidth={2} aria-hidden />}
+            />
+            <MyRow
+              title={t("mypage_comp_store_owner_hub")}
+              href={businessHref}
+              icon={<Store className={rowIcon} strokeWidth={2} aria-hidden />}
+              value={storeAttentionSummary ?? undefined}
+            />
+          </MyGroup>
+        </div>
       </TabShell>
     );
   }

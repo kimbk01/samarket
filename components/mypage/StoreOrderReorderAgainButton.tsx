@@ -10,21 +10,18 @@ import {
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 
-export function StoreOrderReorderAgainButton({
-  payload,
-  className,
-  children,
-}: {
-  payload: CompletedOrderReorderPayload | null;
-  className?: string;
-  children?: React.ReactNode;
-}) {
+/** 재주문 동작 — 버튼(목록 카드)과 상세 하단 고정 CTA(S31)가 같은 로직을 쓴다. */
+export function useStoreOrderReorderAgain(payload: CompletedOrderReorderPayload | null): {
+  run: () => Promise<void>;
+  busy: boolean;
+  ready: boolean;
+} {
   const { t } = useI18n();
   const router = useRouter();
   const cart = useStoreCommerceCartOptional();
   const [busy, setBusy] = useState(false);
 
-  const onClick = useCallback(async () => {
+  const run = useCallback(async () => {
     if (!payload?.storeSlug?.trim() || !payload.storeId?.trim()) {
       await dibayAlert({ title: t("mypage_comp_store_reorder_store_missing") });
       return;
@@ -52,14 +49,29 @@ export function StoreOrderReorderAgainButton({
     }
   }, [cart, payload, router, t]);
 
+  return { run, busy, ready: Boolean(payload) && Boolean(cart?.hydrated) };
+}
+
+export function StoreOrderReorderAgainButton({
+  payload,
+  className,
+  children,
+}: {
+  payload: CompletedOrderReorderPayload | null;
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  const { t } = useI18n();
+  const { run, busy, ready } = useStoreOrderReorderAgain(payload);
+
   if (!payload) return null;
 
   return (
     <button
       type="button"
       className={className}
-      disabled={busy || !cart?.hydrated}
-      onClick={() => void onClick()}
+      disabled={busy || !ready}
+      onClick={() => void run()}
     >
       {busy ? t("mypage_comp_store_reorder_adding") : (children ?? t("mypage_comp_store_reorder_default"))}
     </button>

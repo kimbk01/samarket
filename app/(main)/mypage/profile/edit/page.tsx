@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
+import { MYPAGE_PROFILE_EDIT_SHEET_HREF } from "@/lib/mypage/mypage-profile-routes";
 
-/** 레거시 — 프로필·수정은 `/mypage` 한 페이지 */
+/** 레거시 직접 URL — 프로필 수정은 홈 위 시트 단일 표면(X1). */
 export default function MypageProfileEditRedirectPage() {
-  redirect(MYPAGE_MAIN_HREF);
+  redirect(MYPAGE_PROFILE_EDIT_SHEET_HREF);
 }

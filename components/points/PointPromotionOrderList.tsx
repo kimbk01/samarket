@@ -1,6 +1,10 @@
 "use client";
 
+import { Megaphone } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { localeTagForAppLanguage } from "@/lib/i18n/locale-for-app-language";
+import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { PointPromotionOrder, PointPromotionOrderStatus, PointPromotionPlacement } from "@/lib/types/point";
 
@@ -38,13 +42,15 @@ const STATUS_CLASS: Record<PointPromotionOrder["orderStatus"], string> = {
 };
 
 export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const numberFormat = new Intl.NumberFormat(localeTagForAppLanguage(language));
 
   if (orders.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
-        {t("points_ui_promo_empty")}
-      </div>
+      <MyStateView
+        kind="empty"
+        empty={{ icon: <Megaphone className="h-6 w-6" aria-hidden />, title: t("mypage_oa_promotions_empty") }}
+      />
     );
   }
 
@@ -60,15 +66,15 @@ export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps
             {t(PLACEMENT_KEYS[o.placement])} · {t("points_ui_days", { days: o.durationDays })}
           </p>
           <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-            {t("points_ui_promo_cost", { cost: o.pointCost.toLocaleString() })}
+            {t("points_ui_promo_cost", { cost: numberFormat.format(o.pointCost) })}
           </p>
           <span
-            className={`mt-2 inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[o.orderStatus]}`}
+            className={`mt-2 inline-block rounded-full px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[o.orderStatus]}`}
           >
             {t(STATUS_KEYS[o.orderStatus])}
           </span>
           <p className="mt-1 sam-text-helper text-sam-meta">
-            {new Date(o.createdAt).toLocaleDateString("ko-KR")}
+            {formatMypageDate(o.createdAt, { lang: language })}
           </p>
         </li>
       ))}

@@ -6,7 +6,35 @@ import { MemberBenefitList } from "@/components/member-benefits/MemberBenefitLis
 import type { MemberBenefitPolicy } from "@/lib/types/member-benefit";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
-import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+
+const CARD_CLASS = "rounded-ui-rect border border-sam-border-soft bg-sam-surface sam-card-pad";
+
+/** S47 스켈레톤 — 등급 카드 + 행 4 */
+function BenefitsSkeleton() {
+  const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
+  return (
+    <div aria-busy="true" data-testid="benefits-skeleton" className="flex flex-col gap-3">
+      <div className={CARD_CLASS}>
+        <span className={`block h-3.5 w-24 ${bone}`} />
+        <span className={`mt-2 block h-6 w-20 ${bone}`} />
+      </div>
+      <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            data-skeleton-row=""
+            className="flex min-h-[52px] items-center gap-3 border-t border-sam-border-soft px-4 first:border-t-0"
+          >
+            <span className="h-9 w-9 rounded-full bg-sam-border-soft/70 motion-safe:animate-pulse" />
+            <span className={`h-3.5 flex-1 ${bone}`} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 type BenefitsState =
   | { kind: "loading" }
@@ -65,46 +93,41 @@ export default function MypageBenefitsPage() {
         hideCtaStrip
       />
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-        <div className="flex min-w-0 flex-col gap-1 py-4">
-          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card-pad`}>
-            <p className="sam-text-body-secondary text-sam-muted">{t("benefits_member_tier_label")}</p>
-            <div className="mt-1 flex items-center gap-2">
-              {state.kind === "loading" ? (
-                <span className="sam-text-body text-sam-meta">{t("common_loading")}</span>
-              ) : state.kind === "guest" ? (
-                <span className="sam-text-body text-sam-muted">{t("benefits_login_prompt")}</span>
-              ) : state.kind === "error" ? (
-                <span className="sam-text-body text-sam-muted">—</span>
-              ) : (
-                <span className="rounded bg-sam-primary-soft px-2 py-1 sam-text-body font-medium text-foreground">
-                  {memberTypeLabel(state.memberType)}
-                </span>
-              )}
-            </div>
-          </div>
-          <div
-            className={`${PHILIFE_FB_CARD_CLASS} border-amber-100 bg-amber-50/90 sam-card-pad sam-text-body-secondary text-amber-900`}
-          >
-            {t("benefits_policy_notice")}
-          </div>
-          <div>
-            <h2 className="mb-2 sam-text-section-title text-sam-fg">{t("benefits_applied_section")}</h2>
-            {state.kind === "error" ? (
-              <div className="rounded-ui-rect bg-sam-surface p-8 text-center" role="alert">
-                <p className="sam-text-body text-sam-muted">{t("benefits_load_failed")}</p>
-                <button type="button" onClick={() => void load()} className="sam-btn sam-btn--secondary sam-btn--sm mt-4">
-                  {t("common_retry")}
-                </button>
+        <div className={`mx-auto flex w-full min-w-0 flex-col gap-3 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} py-4`}>
+          {state.kind === "loading" ? (
+            <BenefitsSkeleton />
+          ) : (
+            <>
+              <div className={CARD_CLASS}>
+                <p className="sam-text-body-secondary text-sam-muted">{t("benefits_member_tier_label")}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  {state.kind === "guest" ? (
+                    <span className="sam-text-body text-sam-muted">{t("benefits_login_prompt")}</span>
+                  ) : state.kind === "error" ? (
+                    <span className="sam-text-body text-sam-muted">—</span>
+                  ) : (
+                    <span className="rounded-full bg-sam-primary-soft px-2 py-1 sam-text-body font-medium text-sam-fg">
+                      {memberTypeLabel(state.memberType)}
+                    </span>
+                  )}
+                </div>
               </div>
-            ) : state.kind === "loading" ? (
-              <p className="py-8 text-center sam-text-body text-sam-meta">{t("common_loading")}</p>
-            ) : (
-              <MemberBenefitList
-                policies={state.kind === "ready" ? state.policies : []}
-                emptyMessage={state.kind === "guest" ? t("benefits_login_prompt") : t("benefits_empty_list")}
-              />
-            )}
-          </div>
+              <div className="rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft sam-card-pad sam-text-body-secondary text-sam-fg">
+                {t("benefits_policy_notice")}
+              </div>
+              <div>
+                <h2 className="mb-2 sam-text-section-title text-sam-fg">{t("benefits_applied_section")}</h2>
+                {state.kind === "error" ? (
+                  <MyStateView kind="error" error={{ message: t("benefits_load_failed"), onRetry: () => void load() }} />
+                ) : (
+                  <MemberBenefitList
+                    policies={state.kind === "ready" ? state.policies : []}
+                    emptyMessage={state.kind === "guest" ? t("benefits_login_prompt") : t("benefits_empty_list")}
+                  />
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

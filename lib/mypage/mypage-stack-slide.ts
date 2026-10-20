@@ -14,8 +14,19 @@ function normalize(path: string | null | undefined): string {
   return p.length > 1 ? p.replace(/\/+$/, "") : p;
 }
 
+/**
+ * 거래 채팅(`/mypage/trade/chat`, S28 채팅 준비 포함)은 거래 채팅 도메인 전환 규칙 그대로 —
+ * 내정보 300ms 슬라이드 규칙에서 제외(최종 설계 S28 「전환·복원」).
+ */
+export const MYPAGE_STACK_EXCLUDED_PREFIXES = ["/mypage/trade/chat"] as const;
+
+function isExcludedFromMypageStack(p: string): boolean {
+  return MYPAGE_STACK_EXCLUDED_PREFIXES.some((x) => p === x || p.startsWith(`${x}/`));
+}
+
 export function isMypageStackPath(path: string | null | undefined): boolean {
   const p = normalize(path);
+  if (isExcludedFromMypageStack(p)) return false;
   return p === "/mypage" || p.startsWith("/mypage/") || p === "/my" || p.startsWith("/my/");
 }
 

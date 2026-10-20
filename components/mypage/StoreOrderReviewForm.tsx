@@ -27,6 +27,29 @@ import {
   storeReviewThumbVoteButtonClass,
 } from "@/components/stores/review/StoreReviewThumbIcon";
 import { Star } from "lucide-react";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
+import { useMypageUnsavedLeaveGuard } from "@/lib/mypage/use-mypage-unsaved-leave-guard";
+
+/** S33 주문 정보 로딩 — 별 5 + 메뉴 행 2 + 사진 칸 1 + 입력 박스 */
+function StoreOrderReviewSkeleton() {
+  const bone = "bg-sam-border-soft/70 motion-safe:animate-pulse";
+  return (
+    <div aria-busy="true" data-testid="store-order-review-skeleton" className="space-y-6">
+      <div className="flex justify-center gap-1.5 py-1">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <span key={i} className={`h-11 w-11 rounded-full ${bone}`} />
+        ))}
+      </div>
+      <span className={`block h-36 w-full rounded-ui-rect ${bone}`} />
+      <span className={`block h-20 w-20 rounded-ui-rect ${bone}`} />
+      {[0, 1].map((i) => (
+        <span key={i} data-skeleton-row="" className={`block h-14 w-full rounded-ui-rect ${bone}`} />
+      ))}
+    </div>
+  );
+}
 
 type ItemRow = { id: string; product_id: string; product_title_snapshot: string; qty?: number };
 
@@ -79,6 +102,8 @@ export function StoreOrderReviewForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  /** 주문 정보 조회 실패 — "작성 불가" 안내와 구분해 오류+재시도 */
+  const [loadFailed, setLoadFailed] = useState(false);
   const [storeName, setStoreName] = useState("");
   const [items, setItems] = useState<ItemRow[]>([]);
   const [canSubmit, setCanSubmit] = useState(false);
@@ -100,6 +125,7 @@ export function StoreOrderReviewForm({
     }
     setLoading(true);
     setErr(null);
+    setLoadFailed(false);
     try {
       const { json } = await fetchMeStoreOrderDetailDeduped(orderId);
       const j = json as {
@@ -112,6 +138,7 @@ export function StoreOrderReviewForm({
       };
       if (!j?.ok) {
         setErr(t("mypage_comp_store_review_load_failed"));
+        setLoadFailed(true);
         return;
       }
       setStoreName(String(j.order?.store_name ?? ""));
@@ -130,10 +157,19 @@ export function StoreOrderReviewForm({
       setCanSubmit(!!j.can_submit_review);
     } catch {
       setErr(t("mypage_comp_network_error"));
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
   }, [orderId, t]);
+
+  /** 제출 중복 방지 — 연타해도 POST 1회 */
+  const submitGuard = useMypageSubmitGuard();
+  /** 내정보 인라인 화면만 미저장 이탈 확인(T3) — 배달 허브·슬라이드 패널은 기존 동작 유지 */
+  const leaveGuardEnabled = layout === "inline" && !ordersHub;
+  const formDirty =
+    content.trim().length > 0 || imageUrls.length > 0 || Object.keys(itemVote).length > 0 || ownerOnly;
+  const leaveGuard = useMypageUnsavedLeaveGuard(leaveGuardEnabled && formDirty && !submitGuard.pending);
 
   useEffect(() => {
     void load();
@@ -191,6 +227,10 @@ export function StoreOrderReviewForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!orderId || !canSubmit) return;
+    await submitGuard.run(() => submitOnce());
+  }
+
+  async function submitOnce() {
     setBusy(true);
     setErr(null);
     try {
@@ -240,7 +280,7 @@ export function StoreOrderReviewForm({
         <div className={`${APP_MAIN_COLUMN_CLASS} w-full min-w-0 px-4 md:px-6`}>
           <button
             type="submit"
-            disabled={busy || content.trim().length < 5}
+            disabled={busy || submitGuard.pending || content.trim().length < 5}
             className={STORE_COMMERCE_ACTION_SUBMIT_FULL_CLASS}
           >
             {busy ? t("mypage_comp_store_review_submitting") : t("mypage_comp_store_review_submit")}
@@ -262,7 +302,7 @@ export function StoreOrderReviewForm({
             aria-label={t("mypage_comp_store_review_rating_aria", { n })}
           >
             <Star
-              className={`h-8 w-8 ${n <= rating ? "text-amber-400" : "text-sam-meta"}`}
+              className={`h-8 w-8 ${n <= rating ? "text-sam-warning" : "text-sam-meta"}`}
               strokeWidth={1.5}
               fill={n <= rating ? "currentColor" : "none"}
             />
@@ -302,7 +342,7 @@ export function StoreOrderReviewForm({
               <button
                 type="button"
                 onClick={() => removeImage(i)}
-                className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-xs text-white"
+                className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-sam-fg/60 text-xs text-sam-surface"
                 aria-label={t("mypage_comp_store_review_photo_delete_aria")}
               >
                 ×
@@ -382,7 +422,7 @@ export function StoreOrderReviewForm({
         {t("mypage_comp_store_review_policy_hint")}
       </div>
 
-      {err ? <p className="text-center text-sm text-red-600">{err}</p> : null}
+      {err ? <p className="text-center text-sm text-sam-danger">{err}</p> : null}
     </>
   );
 
@@ -432,7 +472,15 @@ export function StoreOrderReviewForm({
   };
 
   if (loading) {
-    return shell(<p className="text-center text-sm text-sam-muted">{t("mypage_comp_loading_short")}</p>);
+    return shell(<StoreOrderReviewSkeleton />);
+  }
+  if (loadFailed) {
+    return shell(
+      <MyStateView
+        kind="error"
+        error={{ message: err ?? t("mypage_comp_store_review_load_failed"), onRetry: () => void load() }}
+      />
+    );
   }
   if (hasReview) {
     return shell(
@@ -482,5 +530,21 @@ export function StoreOrderReviewForm({
     );
   }
 
-  return reviewFormShell(reviewFormFields);
+  return (
+    <>
+      {reviewFormShell(reviewFormFields)}
+      {leaveGuardEnabled ? (
+        <MobileConfirmBottomSheet
+          open={leaveGuard.confirmOpen}
+          onCancel={leaveGuard.stay}
+          title={t("mypage_oa_unsaved_leave_title")}
+          description={t("mypage_oa_unsaved_leave_body")}
+          cancelLabel={t("mypage_oa_unsaved_keep_writing")}
+          confirmLabel={t("mypage_oa_unsaved_leave_confirm")}
+          confirmTone="danger"
+          onConfirm={leaveGuard.leave}
+        />
+      ) : null}
+    </>
+  );
 }

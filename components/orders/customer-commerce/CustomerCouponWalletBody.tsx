@@ -102,7 +102,7 @@ export function CustomerCouponWalletBody({
         dataAttr="data-wallet-tab"
       />
       {!ready ? (
-        <div className="flex min-h-[24vh] items-center justify-center text-sm text-sam-muted">…</div>
+        <CouponWalletCardsSkeleton />
       ) : !isAuthed ? (
         <p className="text-sm text-sam-muted">
           {safeT("store_coupon_wallet_login", {
@@ -153,5 +153,27 @@ export function CustomerCouponWalletBody({
         </ul>
       )}
     </div>
+  );
+}
+
+/** S44 스켈레톤 — 쿠폰 카드 3(좌 금액 블록 · 우 2줄). 탭은 실제 라벨로 먼저 그린다. */
+export function CouponWalletCardsSkeleton() {
+  const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
+  return (
+    <ul aria-busy="true" data-testid="coupon-wallet-skeleton" className="min-w-0 space-y-3 pb-8">
+      {[0, 1, 2].map((i) => (
+        <li
+          key={i}
+          data-skeleton-row=""
+          className="flex items-stretch gap-3 overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3"
+        >
+          <span className={`h-16 w-20 shrink-0 ${bone}`} />
+          <span className="flex min-w-0 flex-1 flex-col justify-center gap-2">
+            <span className={`h-4 w-[65%] ${bone}`} />
+            <span className={`h-3 w-[45%] ${bone}`} />
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }

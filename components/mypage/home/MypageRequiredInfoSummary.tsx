@@ -14,6 +14,7 @@ import {
 } from "@/lib/mypage/mypage-home-required-items";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 const ITEM_COPY: Record<MypageHomeRequiredItem, { titleKey: MessageKey; ctaKey: MessageKey }> = {
   handle: { titleKey: "mypage_home_required_handle_title", ctaKey: "mypage_home_required_handle_cta" },
@@ -105,7 +106,12 @@ export function MypageRequiredInfoSummary({
               onClick={() => activate(item)}
               className="flex min-h-[52px] w-full items-center gap-3 bg-sam-warning-soft px-4 text-left active:bg-sam-pressed-surface md:px-5"
             >
-              <AlertCircle className="h-[18px] w-[18px] shrink-0 text-sam-danger" strokeWidth={2} aria-hidden />
+              {item === "address" ? (
+                // 주소 플랫폼 HARD LOCK — 현재 주소 표면은 초록 지도 핀(AddressKindHeadPin)
+                <AddressKindHeadPin kind="master" className="h-[18px] w-[18px] shrink-0" />
+              ) : (
+                <AlertCircle className="h-[18px] w-[18px] shrink-0 text-sam-danger" strokeWidth={2} aria-hidden />
+              )}
               <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-sam-fg">
                 {t(ITEM_COPY[item].titleKey)}
               </span>

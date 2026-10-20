@@ -474,3 +474,27 @@ describe("master ≠ delivery contract", () => {
     expect(src).not.toContain("defs.life");
   });
 });
+
+describe("R4 S06·S07 — 대표 주소 임의 변경 금지 (최종 설계 Part B)", () => {
+  it("편집 저장은 대표를 강제하지 않는다 — 본문은 buildAddressDetailSaveBody", () => {
+    const detail = read("components/addresses/AddressPlatformDetailClient.tsx");
+    expect(detail).not.toContain("isDefaultMaster: isShop ? false : true");
+    expect(detail).toContain("buildAddressDetailSaveBody");
+    const body = read("lib/addresses/address-detail-save-body.ts");
+    expect(body).toContain("delete body.isDefaultMaster");
+    expect(body).toContain("if (userTurnedOn) body.isDefaultMaster = true;");
+  });
+
+  it("목록 — 빈 목록 안내·오류 재시도·⋯ 액션시트(매장 행 대표 지정 없음)", () => {
+    const manager = read("components/addresses/AddressManagementClient.tsx");
+    expect(manager).toContain('kind="empty"');
+    expect(manager).toContain('kind="error"');
+    expect(manager).toContain("onSetAsRepresentative={storeLinked ? undefined");
+    const row = read("components/addresses/AddressRowCard.tsx");
+    expect(row).toContain("DibayActionSheet");
+    expect(row).toContain("onSetAsRepresentative && !row.isDefaultMaster");
+    const styles = read("lib/ui/address-list-starbucks-styles.ts");
+    const stylesBody = styles.slice(styles.indexOf("export type AddressListRowSurface"));
+    expect(stylesBody).not.toMatch(/#[0-9A-Fa-f]{6}|bg-white/);
+  });
+});

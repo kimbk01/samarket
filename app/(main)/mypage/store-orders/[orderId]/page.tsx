@@ -5,7 +5,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MyStoreOrderDetailView } from "@/components/mypage/MyStoreOrderDetailView";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
+/** S31 주문 상세 — 본문 1열 40rem·16/20px(§1.8), 하단 고정 CTA 는 상세 뷰가 그린다(`MyStickyCta`). */
 export default function MypageStoreOrderDetailPage() {
   const { t } = useI18n();
   return (
@@ -19,7 +21,9 @@ export default function MypageStoreOrderDetailPage() {
         rightSlot={<CommerceCartHeaderLink />}
       />
       <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} py-4`}>
-        <MyStoreOrderDetailView />
+        <div className={`mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS}`}>
+          <MyStoreOrderDetailView />
+        </div>
       </div>
     </div>
   );

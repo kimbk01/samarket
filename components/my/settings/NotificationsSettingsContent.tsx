@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -14,10 +14,105 @@ import {
   fetchMeNotificationSettingsGet,
   invalidateMeNotificationSettingsGetFlight,
 } from "@/lib/me/fetch-me-notification-settings-client";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { MyToggle } from "@/components/mypage/ds/MyToggle";
+import { MyStateSkeleton } from "@/components/mypage/ds/MyStateView";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { saveDualNotificationToggle } from "@/lib/mypage/notification-toggle-dual-save";
+import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import { SettingsSection } from "./SettingsSection";
 import { WebPushSettingsRow } from "./WebPushSettingsRow";
 import { NativePushSettingsRow } from "./NativePushSettingsRow";
 
+/** 도메인 알림 설정(`/api/me/notification-settings`) 토글 키 */
+type DomainToggleKey =
+  | "sound_enabled"
+  | "trade_chat_enabled"
+  | "community_chat_enabled"
+  | "order_enabled"
+  | "store_enabled"
+  | "vibration_enabled"
+  | "trade_events_enabled"
+  | "community_social_enabled"
+  | "notice_enabled"
+  | "quiet_hours_enabled";
+
+type DomainState = Record<DomainToggleKey, boolean> & {
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+};
+
+const DOMAIN_DEFAULTS: DomainState = {
+  sound_enabled: true,
+  trade_chat_enabled: true,
+  community_chat_enabled: true,
+  order_enabled: true,
+  store_enabled: true,
+  vibration_enabled: true,
+  trade_events_enabled: true,
+  community_social_enabled: true,
+  notice_enabled: true,
+  quiet_hours_enabled: false,
+  quiet_hours_start: "22:00",
+  quiet_hours_end: "08:00",
+};
+
+/**
+ * PATCH `/api/me/notification-settings` — 성공 여부를 돌려준다(실패 무시 금지, S11).
+ * 성공 시 GET 단일 비행 무효화 + `kasama:user-notification-settings-changed` 발행(기존 계약).
+ */
+export async function patchMeNotificationDomain(partial: Record<string, boolean | string | null>): Promise<boolean> {
+  try {
+    const res = await fetch("/api/me/notification-settings", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(partial),
+    });
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+    if (res.ok && j?.ok) {
+      invalidateMeNotificationSettingsGetFlight();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
+      }
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function ToggleRow({
+  label,
+  hint,
+  children,
+  testId,
+}: {
+  label: string;
+  hint?: ReactNode;
+  children: ReactNode;
+  testId?: string;
+}) {
+  return (
+    <div className="border-b border-sam-border-soft px-3 py-2.5 last:border-b-0" data-testid={testId}>
+      <div className="flex min-h-[44px] items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <span className="text-[15px] font-semibold text-sam-fg">{label}</span>
+          {hint ? <div className="mt-0.5 text-[12px] leading-snug text-sam-muted">{hint}</div> : null}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 알림 설정 (최종 설계 S11) — 전체 푸시 → 채팅 → 거래 → 주문 → 커뮤니티 → 마케팅 → 알림 이메일 → 방해 금지·소리.
+ * 모든 토글 = `MyToggle`(낙관 반영 → 실패 시 원래 값 + 토스트). 전체 푸시·마케팅은 두 저장소를 함께 바꾸고
+ * 한쪽이라도 실패하면 둘 다 되돌린다.
+ */
 export function NotificationsSettingsContent() {
   const { t } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
@@ -27,24 +122,13 @@ export function NotificationsSettingsContent() {
   const [commerceEmailLoaded, setCommerceEmailLoaded] = useState(false);
   const [commerceEmailShowRow, setCommerceEmailShowRow] = useState(false);
   const [commerceEmailColumnMissing, setCommerceEmailColumnMissing] = useState(false);
-  const [commerceEmailBusy, setCommerceEmailBusy] = useState(false);
   const [commerceEmailPatchError, setCommerceEmailPatchError] = useState<string | null>(null);
 
-  const [domainSoundOn, setDomainSoundOn] = useState(true);
-  const [domainTradeChatOn, setDomainTradeChatOn] = useState(true);
-  const [domainCommunityChatOn, setDomainCommunityChatOn] = useState(true);
-  const [domainOrderOn, setDomainOrderOn] = useState(true);
-  const [domainStoreOn, setDomainStoreOn] = useState(true);
-  const [domainVibrationOn, setDomainVibrationOn] = useState(true);
-  const [domainTradeEventsOn, setDomainTradeEventsOn] = useState(true);
-  const [domainCommunitySocialOn, setDomainCommunitySocialOn] = useState(true);
-  const [domainNoticeOn, setDomainNoticeOn] = useState(true);
-  const [domainQuietEnabled, setDomainQuietEnabled] = useState(false);
-  const [domainQuietStart, setDomainQuietStart] = useState<string | null>("22:00");
-  const [domainQuietEnd, setDomainQuietEnd] = useState<string | null>("08:00");
+  const [domain, setDomain] = useState<DomainState>(DOMAIN_DEFAULTS);
   const [domainLoaded, setDomainLoaded] = useState(false);
   const [domainError, setDomainError] = useState(false);
   const [domainReloadKey, setDomainReloadKey] = useState(0);
+  useMypageListRestore({ ready: domainLoaded });
 
   const refresh = useCallback(() => setSettings(getUserSettings(userId)), [userId]);
   useEffect(() => {
@@ -66,7 +150,7 @@ export function NotificationsSettingsContent() {
         if (res.status === 401) {
           setCommerceEmailShowRow(false);
         } else {
-          const j = await res.json().catch(() => ({}));
+          const j = await res.clone().json().catch(() => ({}));
           if (!cancelled && j?.ok) {
             setCommerceEmailShowRow(true);
             setCommerceEmailOn(j.notify_commerce_email !== false);
@@ -77,7 +161,7 @@ export function NotificationsSettingsContent() {
           }
         }
       } catch {
-        /* ignore */
+        /* 행 숨김 — 이메일 알림은 보조 영역(부분 오류는 그 칸만 비움) */
       } finally {
         if (!cancelled) setCommerceEmailLoaded(true);
       }
@@ -92,19 +176,9 @@ export function NotificationsSettingsContent() {
     void (async () => {
       try {
         const res = await fetchMeNotificationSettingsGet();
-        const j = (await res.json().catch(() => ({}))) as {
+        const j = (await res.clone().json().catch(() => ({}))) as {
           ok?: boolean;
-          settings?: {
-            sound_enabled?: boolean;
-            trade_chat_enabled?: boolean;
-            community_chat_enabled?: boolean;
-            order_enabled?: boolean;
-            store_enabled?: boolean;
-            vibration_enabled?: boolean;
-            trade_events_enabled?: boolean;
-            community_social_enabled?: boolean;
-            notice_enabled?: boolean;
-            quiet_hours_enabled?: boolean;
+          settings?: Partial<Record<DomainToggleKey, boolean>> & {
             quiet_hours_start?: string | null;
             quiet_hours_end?: string | null;
           };
@@ -117,22 +191,22 @@ export function NotificationsSettingsContent() {
         }
         setDomainError(false);
         const s = j.settings;
-        setDomainSoundOn(s.sound_enabled !== false);
-        setDomainTradeChatOn(s.trade_chat_enabled !== false);
-        setDomainCommunityChatOn(s.community_chat_enabled !== false);
-        setDomainOrderOn(s.order_enabled !== false);
-        setDomainStoreOn(s.store_enabled !== false);
-        setDomainVibrationOn(s.vibration_enabled !== false);
-        setDomainTradeEventsOn(s.trade_events_enabled !== false);
-        setDomainCommunitySocialOn(s.community_social_enabled !== false);
-        setDomainNoticeOn(s.notice_enabled !== false);
-        setDomainQuietEnabled(s.quiet_hours_enabled === true);
-        setDomainQuietStart(
-          typeof s.quiet_hours_start === "string" && s.quiet_hours_start.trim() ? s.quiet_hours_start : "22:00"
-        );
-        setDomainQuietEnd(
-          typeof s.quiet_hours_end === "string" && s.quiet_hours_end.trim() ? s.quiet_hours_end : "08:00"
-        );
+        setDomain({
+          sound_enabled: s.sound_enabled !== false,
+          trade_chat_enabled: s.trade_chat_enabled !== false,
+          community_chat_enabled: s.community_chat_enabled !== false,
+          order_enabled: s.order_enabled !== false,
+          store_enabled: s.store_enabled !== false,
+          vibration_enabled: s.vibration_enabled !== false,
+          trade_events_enabled: s.trade_events_enabled !== false,
+          community_social_enabled: s.community_social_enabled !== false,
+          notice_enabled: s.notice_enabled !== false,
+          quiet_hours_enabled: s.quiet_hours_enabled === true,
+          quiet_hours_start:
+            typeof s.quiet_hours_start === "string" && s.quiet_hours_start.trim() ? s.quiet_hours_start : "22:00",
+          quiet_hours_end:
+            typeof s.quiet_hours_end === "string" && s.quiet_hours_end.trim() ? s.quiet_hours_end : "08:00",
+        });
       } catch {
         if (!cancelled) setDomainError(true);
       } finally {
@@ -151,505 +225,278 @@ export function NotificationsSettingsContent() {
     setDomainReloadKey((k) => k + 1);
   }, []);
 
-  const patchDomain = useCallback(async (partial: Record<string, boolean | string | null>) => {
-    try {
-      const res = await fetch("/api/me/notification-settings", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(partial),
-      });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-      if (res.ok && j?.ok) {
-        invalidateMeNotificationSettingsGetFlight();
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const update = useCallback(
-    (partial: Parameters<typeof updateUserSettings>[1]) => {
-      updateUserSettings(userId, partial);
-      refresh();
+  /** 도메인 토글 — 낙관 반영 → PATCH → 실패 시 원래 값 복귀(토스트는 `MyToggle`) */
+  const toggleDomain = useCallback(
+    async (key: DomainToggleKey, next: boolean): Promise<boolean> => {
+      const prev = domain[key];
+      setDomain((d) => ({ ...d, [key]: next }));
+      const ok = await patchMeNotificationDomain({ [key]: next });
+      if (!ok) setDomain((d) => ({ ...d, [key]: prev }));
+      return ok;
     },
-    [userId, refresh]
+    [domain],
   );
 
+  const saveQuietTime = useCallback(
+    async (key: "quiet_hours_start" | "quiet_hours_end", value: string) => {
+      const prev = domain[key];
+      setDomain((d) => ({ ...d, [key]: value }));
+      const ok = await patchMeNotificationDomain({ [key]: value });
+      if (!ok) {
+        setDomain((d) => ({ ...d, [key]: prev }));
+        showMypageToast(t("mypage_settings_save_failed_reverted"), "error");
+      }
+    },
+    [domain, t],
+  );
+
+  const saveUserSetting = useCallback(
+    (partial: Parameters<typeof updateUserSettings>[1]) => updateUserSettings(userId, partial),
+    [userId],
+  );
+
+  const pushOn = settings.push_enabled !== false;
+  const marketingOn = settings.marketing_push_enabled === true;
+
+  const domainRows: { key: DomainToggleKey; labelKey: MessageKey; hintKey?: MessageKey }[][] = [
+    /* 거래 */
+    [
+      { key: "trade_chat_enabled", labelKey: "settings_notif_trade_chat", hintKey: "settings_notif_domain_hint" },
+      { key: "trade_events_enabled", labelKey: "settings_notif_trade_events" },
+    ],
+    /* 주문 */
+    [
+      { key: "order_enabled", labelKey: "settings_notif_order" },
+      { key: "store_enabled", labelKey: "settings_notif_store" },
+    ],
+    /* 커뮤니티 */
+    [
+      { key: "community_chat_enabled", labelKey: "settings_notif_community_chat" },
+      { key: "community_social_enabled", labelKey: "settings_notif_community_social" },
+      { key: "notice_enabled", labelKey: "settings_notif_notice" },
+    ],
+  ];
+
+  const domainSkeletonLabels = [
+    t("settings_notif_trade_chat"),
+    t("settings_notif_trade_events"),
+    t("settings_notif_order"),
+    t("settings_notif_store"),
+    t("settings_notif_community_chat"),
+    t("settings_notif_community_social"),
+    t("settings_notif_notice"),
+  ];
+
+  const renderDomainToggle = (key: DomainToggleKey, label: string) => (
+    <MyToggle checked={domain[key]} ariaLabel={label} onChange={(next) => toggleDomain(key, next)} />
+  );
+
+  const timeInputClass = `${Sam.input.base} ${Sam.focusRing} !min-h-[40px] w-auto rounded-ui-rect !py-1.5 text-[16px]`;
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-testid="notifications-settings">
       <SettingsSection title={t("common_notifications")} titleClassName="!text-[12px] !font-semibold">
-        <div className="border-b border-sam-border-soft px-3 py-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-sam-fg">{t("notifications_all")}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={settings.push_enabled ?? true}
-              onClick={() => {
-                const next = !(settings.push_enabled ?? true);
-                update({ push_enabled: next });
-                void patchDomain({ service_enabled: next });
-              }}
-              className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                settings.push_enabled !== false ? "bg-signature" : "bg-sam-border-soft"
-              }`}
-            >
-              <span
-                className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                  settings.push_enabled !== false ? "translate-x-6" : "translate-x-0.5"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-        <div className="border-b border-sam-border-soft px-3 py-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-sam-fg">{t("notifications_chat")}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={settings.chat_push_enabled ?? true}
-              onClick={() => update({ chat_push_enabled: !(settings.chat_push_enabled ?? true) })}
-              className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                settings.chat_push_enabled !== false ? "bg-signature" : "bg-sam-border-soft"
-              }`}
-            >
-              <span
-                className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                  settings.chat_push_enabled !== false ? "translate-x-6" : "translate-x-0.5"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-        <div className="border-b border-sam-border-soft px-3 py-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-sam-fg">{t("notifications_marketing")}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={settings.marketing_push_enabled ?? false}
-              onClick={() => {
-                const next = !(settings.marketing_push_enabled ?? false);
-                update({ marketing_push_enabled: next });
-                void patchDomain({ marketing_enabled: next });
-              }}
-              className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                settings.marketing_push_enabled ? "bg-signature" : "bg-sam-border-soft"
-              }`}
-            >
-              <span
-                className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                  settings.marketing_push_enabled ? "translate-x-6" : "translate-x-0.5"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-        <WebPushSettingsRow pushEnabled={settings.push_enabled !== false} />
-        <NativePushSettingsRow pushEnabled={settings.push_enabled !== false} />
-        {!commerceEmailLoaded ? (
-          <div className="border-b border-sam-border-soft px-3 py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="h-4 w-28 rounded bg-sam-surface-muted" />
-                <div className="mt-2 h-3 w-44 rounded bg-sam-app" />
-              </div>
-              <div className="h-7 w-12 rounded-full bg-sam-surface-muted" />
-            </div>
-          </div>
-        ) : null}
-        {commerceEmailLoaded && commerceEmailShowRow ? (
-          <div className="border-b border-sam-border-soft px-3 py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <span className="text-[14px] font-medium text-sam-fg">{t("notifications_commerce_email")}</span>
-                <p className="mt-0.5 text-[11px] leading-snug text-sam-muted">
-                  {t("notifications_commerce_email_desc")}
-                  {commerceEmailColumnMissing ? (
-                    <span className="mt-1 block text-[11px] leading-snug text-sam-warning">
-                      {t("settings_notif_db_migration", { file: "manual-apply-notifications-full.sql" })}
-                    </span>
-                  ) : null}
-                  {commerceEmailPatchError ? (
-                    <span className="mt-1 block text-[11px] leading-snug text-sam-danger">{commerceEmailPatchError}</span>
-                  ) : null}
-                </p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                disabled={commerceEmailColumnMissing || commerceEmailBusy}
-                aria-checked={commerceEmailOn}
-                onClick={() => {
-                  if (commerceEmailColumnMissing || commerceEmailBusy) return;
-                  const next = !commerceEmailOn;
-                  setCommerceEmailBusy(true);
-                  setCommerceEmailPatchError(null);
-                  void (async () => {
-                    try {
-                      const res = await fetch("/api/me/profile/notification-email", {
-                        method: "PATCH",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ notify_commerce_email: next }),
-                      });
-                      const j = await res.json().catch(() => ({}));
-                      if (res.ok && j?.ok) {
-                        setCommerceEmailOn(next);
-                        setCommerceEmailPatchError(null);
-                      } else if (j?.error === "column_missing") {
-                        setCommerceEmailColumnMissing(true);
-                      } else if (j?.error === "profile_not_found") {
-                        setCommerceEmailPatchError(t("notifications_profile_missing"));
-                      } else if (j?.error === "server_error") {
-                        setCommerceEmailPatchError(t("notifications_save_failed"));
-                      } else {
-                        setCommerceEmailPatchError(
-                          typeof j?.error === "string" ? j.error : t("notifications_save_failed")
-                        );
-                      }
-                    } finally {
-                      setCommerceEmailBusy(false);
-                    }
-                  })();
-                }}
-                className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
-                  commerceEmailOn ? "bg-signature" : "bg-sam-border-soft"
-                }`}
-              >
-                <span
-                  className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                    commerceEmailOn ? "translate-x-6" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        ) : null}
-        {domainLoaded && domainError ? (
-          <div className="border-b border-sam-border-soft px-3 py-2.5">
+        <ToggleRow label={t("notifications_all")} testId="notif-row-all">
+          <MyToggle
+            checked={pushOn}
+            ariaLabel={t("notifications_all")}
+            onChange={(next) =>
+              saveDualNotificationToggle({
+                next,
+                prev: pushOn,
+                saveUser: (v) => saveUserSetting({ push_enabled: v }),
+                saveDomain: (v) => patchMeNotificationDomain({ service_enabled: v }),
+              })
+            }
+          />
+        </ToggleRow>
+        <ToggleRow label={t("notifications_chat")}>
+          <MyToggle
+            checked={settings.chat_push_enabled !== false}
+            ariaLabel={t("notifications_chat")}
+            onChange={(next) => saveUserSetting({ chat_push_enabled: next })}
+          />
+        </ToggleRow>
+        <WebPushSettingsRow pushEnabled={pushOn} />
+        <NativePushSettingsRow pushEnabled={pushOn} />
+      </SettingsSection>
+
+      {!domainLoaded ? (
+        <section className="pt-4" data-testid="notif-domain-skeleton">
+          <MyStateSkeleton template="settings" rowLabels={domainSkeletonLabels} />
+        </section>
+      ) : domainError ? (
+        <section className="pt-4">
+          <div className="sam-settings-group px-3 py-2.5" role="alert" data-testid="notif-domain-error">
             <p className="text-[12px] leading-snug text-sam-danger">{t("settings_notif_domain_load_failed")}</p>
-            <button type="button" className="sam-btn sam-btn--secondary sam-btn--sm mt-2" onClick={retryDomain}>
+            <button
+              type="button"
+              className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} ${Sam.focusRing} mt-2`}
+              onClick={retryDomain}
+            >
               {t("common_retry")}
             </button>
           </div>
-        ) : null}
-        {domainLoaded && !domainError ? (
-          <>
-            <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <p className="mb-2 text-[11px] leading-snug text-sam-muted">{t("settings_notif_domain_hint")}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_inapp_sound")}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={domainSoundOn}
-                  onClick={() => {
-                    const next = !domainSoundOn;
-                    setDomainSoundOn(next);
-                    void patchDomain({ sound_enabled: next });
-                  }}
-                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    domainSoundOn ? "bg-signature" : "bg-sam-border-soft"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                      domainSoundOn ? "translate-x-6" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-            <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_trade_chat")}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={domainTradeChatOn}
-                  onClick={() => {
-                    const next = !domainTradeChatOn;
-                    setDomainTradeChatOn(next);
-                    void patchDomain({ trade_chat_enabled: next });
-                  }}
-                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    domainTradeChatOn ? "bg-signature" : "bg-sam-border-soft"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                      domainTradeChatOn ? "translate-x-6" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-            <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_community_chat")}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={domainCommunityChatOn}
-                  onClick={() => {
-                    const next = !domainCommunityChatOn;
-                    setDomainCommunityChatOn(next);
-                    void patchDomain({ community_chat_enabled: next });
-                  }}
-                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    domainCommunityChatOn ? "bg-signature" : "bg-sam-border-soft"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                      domainCommunityChatOn ? "translate-x-6" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-            <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_order")}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={domainOrderOn}
-                  onClick={() => {
-                    const next = !domainOrderOn;
-                    setDomainOrderOn(next);
-                    void patchDomain({ order_enabled: next });
-                  }}
-                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    domainOrderOn ? "bg-signature" : "bg-sam-border-soft"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                      domainOrderOn ? "translate-x-6" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-            <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_trade_events")}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={domainTradeEventsOn}
-                  onClick={() => {
-                    const next = !domainTradeEventsOn;
-                    setDomainTradeEventsOn(next);
-                    void patchDomain({ trade_events_enabled: next });
-                  }}
-                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    domainTradeEventsOn ? "bg-signature" : "bg-sam-border-soft"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                      domainTradeEventsOn ? "translate-x-6" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-            <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_community_social")}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={domainCommunitySocialOn}
-                  onClick={() => {
-                    const next = !domainCommunitySocialOn;
-                    setDomainCommunitySocialOn(next);
-                    void patchDomain({ community_social_enabled: next });
-                  }}
-                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    domainCommunitySocialOn ? "bg-signature" : "bg-sam-border-soft"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                      domainCommunitySocialOn ? "translate-x-6" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-            <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_notice")}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={domainNoticeOn}
-                  onClick={() => {
-                    const next = !domainNoticeOn;
-                    setDomainNoticeOn(next);
-                    void patchDomain({ notice_enabled: next });
-                  }}
-                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    domainNoticeOn ? "bg-signature" : "bg-sam-border-soft"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                      domainNoticeOn ? "translate-x-6" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-            <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_store")}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={domainStoreOn}
-                  onClick={() => {
-                    const next = !domainStoreOn;
-                    setDomainStoreOn(next);
-                    void patchDomain({ store_enabled: next });
-                  }}
-                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    domainStoreOn ? "bg-signature" : "bg-sam-border-soft"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                      domainStoreOn ? "translate-x-6" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-            <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <p className="mb-2 text-[11px] leading-snug text-sam-muted">{t("settings_notif_quiet_hint")}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_quiet_hours")}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={domainQuietEnabled}
-                  onClick={() => {
-                    const next = !domainQuietEnabled;
-                    setDomainQuietEnabled(next);
-                    void patchDomain({ quiet_hours_enabled: next });
-                  }}
-                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    domainQuietEnabled ? "bg-signature" : "bg-sam-border-soft"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                      domainQuietEnabled ? "translate-x-6" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-              {domainQuietEnabled ? (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <input
-                    type="time"
-                    value={domainQuietStart ?? "22:00"}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setDomainQuietStart(v);
-                      void patchDomain({ quiet_hours_start: v });
-                    }}
-                    className="rounded border border-sam-border px-2.5 py-1.5 text-[13px]"
-                  />
-                  <span className="text-sam-muted">~</span>
-                  <input
-                    type="time"
-                    value={domainQuietEnd ?? "08:00"}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setDomainQuietEnd(v);
-                      void patchDomain({ quiet_hours_end: v });
-                    }}
-                    className="rounded border border-sam-border px-2.5 py-1.5 text-[13px]"
-                  />
-                </div>
-              ) : null}
-            </div>
-            <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_vibration")}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={domainVibrationOn}
-                  onClick={() => {
-                    const next = !domainVibrationOn;
-                    setDomainVibrationOn(next);
-                    void patchDomain({ vibration_enabled: next });
-                  }}
-                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                    domainVibrationOn ? "bg-signature" : "bg-sam-border-soft"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                      domainVibrationOn ? "translate-x-6" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-          </>
-        ) : null}
-      </SettingsSection>
-      <SettingsSection title={t("notifications_dnd")} titleClassName="!text-[12px] !font-semibold">
-        <div className="space-y-3 px-3 py-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-sam-fg">{t("notifications_use")}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={settings.do_not_disturb_enabled ?? false}
-              onClick={() => update({ do_not_disturb_enabled: !(settings.do_not_disturb_enabled ?? false) })}
-              className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                settings.do_not_disturb_enabled ? "bg-signature" : "bg-sam-border-soft"
-              }`}
+        </section>
+      ) : (
+        <>
+          {domainRows.map((group, gi) => (
+            <SettingsSection
+              key={gi}
+              title={
+                gi === 0
+                  ? t("mypage_s11_group_trade")
+                  : gi === 1
+                    ? t("mypage_s11_group_order")
+                    : t("mypage_s11_group_community")
+              }
+              titleClassName="!text-[12px] !font-semibold"
             >
-              <span
-                className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                  settings.do_not_disturb_enabled ? "translate-x-6" : "translate-x-0.5"
-                }`}
-              />
-            </button>
-          </div>
-          {(settings.do_not_disturb_enabled ?? false) && (
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="time"
-                value={settings.do_not_disturb_start ?? "22:00"}
-                onChange={(e) => update({ do_not_disturb_start: e.target.value })}
-                className="rounded border border-sam-border px-2.5 py-1.5 text-[13px]"
-              />
-              <span className="text-sam-muted">~</span>
-              <input
-                type="time"
-                value={settings.do_not_disturb_end ?? "08:00"}
-                onChange={(e) => update({ do_not_disturb_end: e.target.value })}
-                className="rounded border border-sam-border px-2.5 py-1.5 text-[13px]"
-              />
-            </div>
-          )}
-        </div>
+              {group.map((row) => (
+                <ToggleRow
+                  key={row.key}
+                  label={t(row.labelKey)}
+                  hint={row.hintKey ? t(row.hintKey) : undefined}
+                  testId={`notif-row-${row.key}`}
+                >
+                  {renderDomainToggle(row.key, t(row.labelKey))}
+                </ToggleRow>
+              ))}
+            </SettingsSection>
+          ))}
+        </>
+      )}
+
+      <SettingsSection title={t("mypage_s11_group_marketing")} titleClassName="!text-[12px] !font-semibold">
+        <ToggleRow label={t("notifications_marketing")} testId="notif-row-marketing">
+          <MyToggle
+            checked={marketingOn}
+            ariaLabel={t("notifications_marketing")}
+            onChange={(next) =>
+              saveDualNotificationToggle({
+                next,
+                prev: marketingOn,
+                saveUser: (v) => saveUserSetting({ marketing_push_enabled: v }),
+                saveDomain: (v) => patchMeNotificationDomain({ marketing_enabled: v }),
+              })
+            }
+          />
+        </ToggleRow>
+        {!commerceEmailLoaded ? (
+          <ToggleRow label={t("notifications_commerce_email")}>
+            <span className="h-[31px] w-[51px] shrink-0 rounded-full bg-sam-border-soft/70 motion-safe:animate-pulse" />
+          </ToggleRow>
+        ) : null}
+        {commerceEmailLoaded && commerceEmailShowRow ? (
+          <ToggleRow
+            label={t("notifications_commerce_email")}
+            hint={
+              <>
+                {t("notifications_commerce_email_desc")}
+                {commerceEmailColumnMissing ? (
+                  <span className="mt-1 block text-[11px] leading-snug text-sam-warning">
+                    {t("settings_notif_db_migration", { file: "manual-apply-notifications-full.sql" })}
+                  </span>
+                ) : null}
+                {commerceEmailPatchError ? (
+                  <span className="mt-1 block text-[11px] leading-snug text-sam-danger">{commerceEmailPatchError}</span>
+                ) : null}
+              </>
+            }
+          >
+            <MyToggle
+              checked={commerceEmailOn}
+              disabled={commerceEmailColumnMissing}
+              ariaLabel={t("notifications_commerce_email")}
+              onChange={async (next) => {
+                setCommerceEmailPatchError(null);
+                try {
+                  const res = await fetch("/api/me/profile/notification-email", {
+                    method: "PATCH",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ notify_commerce_email: next }),
+                  });
+                  const j = await res.json().catch(() => ({}));
+                  if (res.ok && j?.ok) {
+                    setCommerceEmailOn(next);
+                    return true;
+                  }
+                  if (j?.error === "column_missing") setCommerceEmailColumnMissing(true);
+                  else if (j?.error === "profile_not_found") setCommerceEmailPatchError(t("notifications_profile_missing"));
+                  return false;
+                } catch {
+                  return false;
+                }
+              }}
+            />
+          </ToggleRow>
+        ) : null}
       </SettingsSection>
+
+      <SettingsSection title={t("notifications_dnd")} titleClassName="!text-[12px] !font-semibold">
+        {domainLoaded && !domainError ? (
+          <ToggleRow label={t("settings_notif_quiet_hours")} hint={t("settings_notif_quiet_hint")}>
+            {renderDomainToggle("quiet_hours_enabled", t("settings_notif_quiet_hours"))}
+          </ToggleRow>
+        ) : null}
+        {domainLoaded && !domainError && domain.quiet_hours_enabled ? (
+          <div className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft px-3 py-2.5">
+            <input
+              type="time"
+              aria-label={t("settings_notif_quiet_hours")}
+              value={domain.quiet_hours_start}
+              onChange={(e) => void saveQuietTime("quiet_hours_start", e.target.value)}
+              className={timeInputClass}
+            />
+            <span className="text-sam-muted">~</span>
+            <input
+              type="time"
+              aria-label={t("settings_notif_quiet_hours")}
+              value={domain.quiet_hours_end}
+              onChange={(e) => void saveQuietTime("quiet_hours_end", e.target.value)}
+              className={timeInputClass}
+            />
+          </div>
+        ) : null}
+        <ToggleRow label={t("notifications_use")}>
+          <MyToggle
+            checked={settings.do_not_disturb_enabled === true}
+            ariaLabel={t("notifications_dnd")}
+            onChange={(next) => saveUserSetting({ do_not_disturb_enabled: next })}
+          />
+        </ToggleRow>
+        {settings.do_not_disturb_enabled === true ? (
+          <div className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft px-3 py-2.5">
+            <input
+              type="time"
+              aria-label={t("notifications_dnd")}
+              value={settings.do_not_disturb_start ?? "22:00"}
+              onChange={(e) => void saveUserSetting({ do_not_disturb_start: e.target.value })}
+              className={timeInputClass}
+            />
+            <span className="text-sam-muted">~</span>
+            <input
+              type="time"
+              aria-label={t("notifications_dnd")}
+              value={settings.do_not_disturb_end ?? "08:00"}
+              onChange={(e) => void saveUserSetting({ do_not_disturb_end: e.target.value })}
+              className={timeInputClass}
+            />
+          </div>
+        ) : null}
+      </SettingsSection>
+
+      {domainLoaded && !domainError ? (
+        <SettingsSection title={t("mypage_s11_group_sound")} titleClassName="!text-[12px] !font-semibold">
+          <ToggleRow label={t("settings_notif_inapp_sound")}>
+            {renderDomainToggle("sound_enabled", t("settings_notif_inapp_sound"))}
+          </ToggleRow>
+          <ToggleRow label={t("settings_notif_vibration")}>
+            {renderDomainToggle("vibration_enabled", t("settings_notif_vibration"))}
+          </ToggleRow>
+        </SettingsSection>
+      ) : null}
     </div>
   );
 }

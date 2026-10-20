@@ -50,29 +50,6 @@ export function storeOrderEventActorLabel(t: MypageT, role: string): string {
   }
 }
 
-export function buyerOrderStatusLabels(t: MypageT): Record<string, string> {
-  return {
-    pending: t("mypage_comp_order_status_pending"),
-    accepted: t("mypage_comp_order_status_accepted"),
-    preparing: t("mypage_comp_order_status_preparing"),
-    ready_for_pickup: t("mypage_comp_order_status_ready_for_pickup"),
-    delivering: t("mypage_comp_order_status_delivering"),
-    arrived: t("mypage_comp_order_status_arrived"),
-    completed: t("mypage_comp_order_status_completed"),
-    cancelled: t("mypage_comp_order_status_cancelled"),
-    refund_requested: t("mypage_comp_order_status_refund_requested"),
-    refunded: t("mypage_comp_order_status_refunded"),
-  };
-}
-
-export function fulfillLabels(t: MypageT): Record<string, string> {
-  return {
-    pickup: t("mypage_comp_fulfill_pickup"),
-    local_delivery: t("mypage_comp_fulfill_local_delivery"),
-    shipping: t("mypage_comp_fulfill_shipping"),
-  };
-}
-
 function deliveryStatusLine(t: MypageT, status: string): string | null {
   switch (status) {
     case "waiting_rider":

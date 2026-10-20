@@ -1,9 +1,11 @@
 "use client";
 
 import { buyerPaidAmountPhp } from "@/lib/stores/buyer-store-order-money";
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import "@/app/store-order-list-tokens.css";
+import { DibayActionSheet } from "@/components/ui/dibay-overlay";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, MoreHorizontal, Store } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
@@ -24,7 +26,6 @@ import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { PHILIFE_FEED_INSET_NEG_X_CLASS, PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
@@ -52,6 +53,21 @@ import {
   filterOrdersByHubFilter,
   type StoreOrdersHubFilter,
 } from "@/lib/delivery/customer/store-orders-hub-filter";
+import { MyListPager } from "@/components/mypage/ds/MyListPager";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
+import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import {
+  MEMBER_ORDER_TAB_VALUES,
+  resolveStoreOrderMutationErrorKey,
+  resolveStoreOrdersLoadErrorKey,
+} from "@/lib/mypage/my-store-orders-ui";
+import {
+  peekMypageListPageCache,
+  writeMypageListPageCache,
+} from "@/lib/mypage/mypage-list-scroll-restore";
 
 type ItemRow = {
   id: string;
@@ -161,15 +177,19 @@ function orderMenuSummaryLine(
   return rest > 0 ? formatMore(first, rest) : first;
 }
 
-const FB_MUTED = "text-[#65676B] dark:text-[#B0B3B8]";
-const FB_BODY = "text-[#050505] dark:text-[#E4E6EB]";
-const FB_HOVER_ROW = "hover:bg-sam-surface-muted dark:hover:bg-[#3A3B3C]";
-const FB_DIVIDER = "border-[#CED0D4]/80 dark:border-[#3E4042]";
+/**
+ * 색 = `app/store-order-list-tokens.css` 의 `--sol-*` 토큰만 (X19·C5).
+ * 내정보는 sam 토큰, 배달 허브(`data-store-orders-surface="delivery-hub"`)는 기존과 같은 값.
+ */
+const FB_MUTED = "text-[color:var(--sol-muted)]";
+const FB_BODY = "text-[color:var(--sol-fg)]";
+const FB_HOVER_ROW = "hover:bg-[color:var(--sol-action-hover)]";
+const FB_DIVIDER = "border-[color:var(--sol-divider)]";
 
 function FeedActionRow({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className={`flex min-h-[44px] divide-x divide-[#CED0D4]/70 dark:divide-[#3E4042] border-t ${FB_DIVIDER}`}
+      className={`flex min-h-[44px] divide-x divide-[color:var(--sol-divider-soft)] border-t ${FB_DIVIDER}`}
     >
       {children}
     </div>
@@ -308,8 +328,8 @@ function MyStoreOrderCard({
     <article
       className={
         cardVariant === "deliveryHub"
-          ? "relative overflow-hidden rounded-[4px] border border-[#DDE5E0] bg-white shadow-none"
-          : "relative overflow-hidden rounded-ui-rect bg-sam-surface shadow-[0_1px_2px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08]"
+          ? "relative overflow-hidden rounded-ui-rect border border-[color:var(--sol-card-border)] bg-[color:var(--sol-card-bg)] shadow-none"
+          : "relative overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-[var(--sam-shadow-card)]"
       }
     >
       <div className="px-3 pb-2 pt-3 sm:px-4">
@@ -321,7 +341,7 @@ function MyStoreOrderCard({
                 alt={o.store_name || safeT("mypage_comp_store_fallback_name")}
                 size={40}
                 roundedClassName="rounded-full"
-                className="bg-[#E4E6EB] dark:bg-[#3A3B3C]"
+                className="bg-[color:var(--sol-thumb-bg)]"
                 fallbackSrc=""
                 fallbackNode={
                   <div className={`sam-text-xxs font-semibold ${FB_MUTED}`}>
@@ -336,7 +356,7 @@ function MyStoreOrderCard({
               alt={o.store_name || safeT("mypage_comp_store_fallback_name")}
               size={40}
               roundedClassName="rounded-full"
-              className="bg-[#E4E6EB] dark:bg-[#3A3B3C]"
+              className="bg-[color:var(--sol-thumb-bg)]"
               fallbackSrc=""
               fallbackNode={
                 <div className={`sam-text-xxs font-semibold ${FB_MUTED}`}>
@@ -362,13 +382,13 @@ function MyStoreOrderCard({
                 )}
                 <p className={`mt-0.5 sam-text-body-secondary leading-snug ${FB_MUTED}`}>
                   <span>{relTime}</span>
-                  <span className="mx-1 text-[#CED0D4] dark:text-[#5F6164]" aria-hidden>
+                  <span className="mx-1 text-[color:var(--sol-separator)]" aria-hidden>
                     ·
                   </span>
                   <span className="font-mono sam-text-helper">{o.order_no}</span>
                 </p>
                 {o.buyer_note?.trim() ? (
-                  <p className={`mt-1.5 sam-text-body-secondary font-medium text-amber-800 dark:text-amber-200`}>
+                  <p className={`mt-1.5 sam-text-body-secondary font-medium text-[color:var(--sol-note-fg)]`}>
                     {safeT("mypage_comp_buyer_note_present")}
                   </p>
                 ) : null}
@@ -384,15 +404,15 @@ function MyStoreOrderCard({
                   <span
                     className={`rounded-ui-rect px-2 py-0.5 sam-text-xxs font-bold ${
                       delivery
-                        ? "bg-[#E7F3FF] text-[#1877F2] dark:bg-signature/15 dark:text-signature"
-                        : "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/25 dark:text-emerald-200"
+                        ? "bg-[color:var(--sol-info-bg)] text-[color:var(--sol-info-fg)]"
+                        : "bg-[color:var(--sol-pickup-bg)] text-[color:var(--sol-pickup-fg)]"
                     }`}
                   >
                     {delivery ? safeT("common_delivery_label") : safeT("member_order_pickup_short")}
                   </span>
                   {orderChatUnread > 0 ? (
                     <span
-                      className="pointer-events-none absolute -right-1 -top-1 z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#F02849] px-0.5 sam-text-xxs font-bold leading-none text-white ring-2 ring-sam-surface dark:ring-[#242526]"
+                      className="pointer-events-none absolute -right-1 -top-1 z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[color:var(--sol-danger)] px-0.5 sam-text-xxs font-bold leading-none text-[color:var(--sol-on-accent)] ring-2 ring-[color:var(--sol-ring)]"
                       aria-label={t("mypage_comp_order_chat_unread_aria", {
                         count: orderChatUnread > 99 ? "99+" : orderChatUnread,
                       })}
@@ -406,11 +426,19 @@ function MyStoreOrderCard({
                     type="button"
                     onClick={() => onDelete(o.id)}
                     disabled={deleteBusy}
-                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full sam-text-body font-semibold leading-none text-[#65676B] transition-colors hover:bg-sam-surface-muted disabled:opacity-50 dark:text-[#B0B3B8] dark:hover:bg-[#3A3B3C]`}
-                    aria-label={t("mypage_comp_orders_list_delete_aria")}
+                    data-store-order-more="1"
+                    className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${FB_MUTED} transition-colors ${FB_HOVER_ROW} disabled:opacity-50`}
+                    aria-label={t("mypage_oa_order_more_aria")}
                     title={t("mypage_comp_orders_list_delete_title")}
                   >
-                    {deleteBusy ? "…" : "×"}
+                    {deleteBusy ? (
+                      <span
+                        aria-hidden
+                        className="inline-block h-4 w-4 rounded-full border-2 border-sam-border border-t-sam-primary motion-safe:animate-spin"
+                      />
+                    ) : (
+                      <MoreHorizontal className="h-5 w-5" aria-hidden />
+                    )}
                   </button>
                 ) : null}
               </div>
@@ -423,13 +451,13 @@ function MyStoreOrderCard({
                   onClick={onToggleExpand}
                   onPointerEnter={onExpandPointerEnter}
                   onFocus={onExpandPointerEnter}
-                  className="block w-full rounded-[4px] text-left transition-colors hover:bg-[#F6FAFC]"
+                  className="block w-full rounded-ui-rect text-left transition-colors hover:bg-[color:var(--sol-row-hover)]"
                   aria-expanded={expanded}
                 >
                   {summaryInner}
                 </button>
               ) : (
-                <Link href={detailHref} className="block rounded-[4px] transition-colors hover:bg-[#F6FAFC]">
+                <Link href={detailHref} className="block rounded-ui-rect transition-colors hover:bg-[color:var(--sol-row-hover)]">
                   {summaryInner}
                 </Link>
               )}
@@ -520,7 +548,7 @@ function MyStoreOrderCard({
         )}
         {chatDisabled ? (
           <span
-            className={`flex min-h-[44px] min-w-0 flex-1 cursor-not-allowed items-center justify-center px-1 text-center sam-text-body-secondary font-medium text-[#BCC0C4] dark:text-[#6F7175] sm:text-sm`}
+            className={`flex min-h-[44px] min-w-0 flex-1 cursor-not-allowed items-center justify-center px-1 text-center sam-text-body-secondary font-medium text-[color:var(--sol-disabled)] sm:text-sm`}
           >
             {t("store_messenger_order_chat_label")}
           </span>
@@ -553,12 +581,55 @@ function MyStoreOrderCard({
           type="button"
           disabled={cancelBusy}
           onClick={() => onCancelPending(o.id)}
-          className={`w-full border-t ${FB_DIVIDER} py-2.5 text-center sam-text-body font-semibold text-[#F02849] transition-colors hover:bg-sam-surface-muted disabled:opacity-50 dark:hover:bg-[#3A3B3C]`}
+          className={`w-full border-t ${FB_DIVIDER} py-2.5 text-center sam-text-body font-semibold text-[color:var(--sol-danger)] transition-colors ${FB_HOVER_ROW} disabled:opacity-50`}
         >
           {cancelBusy ? t("mypage_comp_processing") : t("mypage_comp_cancel_order")}
         </button>
       ) : null}
     </article>
+  );
+}
+
+/** 내정보 주문 목록 재진입 캐시 — 뒤로 복귀 시 스켈레톤 없이 즉시 렌더 후 조용히 갱신 (§1.4·§1.7) */
+const MYPAGE_STORE_ORDERS_CACHE_KEY = "mypage:store-orders:list";
+type OrdersOkState = { kind: "ok"; orders: OrderRow[]; nextCursor: string | null; extraPages: boolean };
+
+/** S30 스켈레톤 — 탭 + 주문 카드 3개(40 원형 매장 사진 + 매장명·메뉴 2줄 + 우측 금액 + 하단 액션 셀 3칸) */
+function StoreOrdersListSkeleton({ showTabs }: { showTabs: boolean }) {
+  const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
+  return (
+    <div aria-busy="true" data-testid="store-orders-skeleton" className="flex flex-col gap-3">
+      {showTabs ? (
+        <div className="flex gap-4 border-b border-sam-border-soft px-1 pb-2 pt-1">
+          {[0, 1, 2, 3].map((i) => (
+            <span key={i} className={`h-4 w-12 ${bone}`} />
+          ))}
+        </div>
+      ) : null}
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          data-skeleton-row=""
+          className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface"
+        >
+          <div className="flex gap-2.5 px-3 pb-2 pt-3 sm:px-4">
+            <span className="h-10 w-10 shrink-0 rounded-full bg-sam-border-soft/70 motion-safe:animate-pulse" />
+            <span className="flex min-w-0 flex-1 flex-col gap-2">
+              <span className={`h-3.5 w-[45%] ${bone}`} />
+              <span className={`h-3 w-[70%] ${bone}`} />
+            </span>
+            <span className={`h-3.5 w-14 shrink-0 ${bone}`} />
+          </div>
+          <div className="flex min-h-[44px] divide-x divide-sam-border-soft border-t border-sam-border-soft">
+            {[0, 1, 2].map((c) => (
+              <span key={c} className="flex flex-1 items-center justify-center">
+                <span className={`h-3 w-12 ${bone}`} />
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -584,6 +655,8 @@ export function MyStoreOrdersView({
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const isDeliveryHub = variant === "deliveryHub";
   const ordersHubPaths = embedded || isDeliveryHub;
+  /** 내정보 단독 화면(`/mypage/store-orders`) — `?tab=`·공통 상태 부품·내정보 토스트 적용 */
+  const isMypageScreen = !ordersHubPaths;
   const ordersListHref = ordersHubPaths ? canonicalHubHref("orders") : "/mypage/store-orders";
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(
     initialExpandOrderId?.trim() || null
@@ -591,24 +664,63 @@ export function MyStoreOrdersView({
   const expandScrollRef = useRef<string | null>(null);
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
   const [reviewOrderId, setReviewOrderId] = useState<string | null>(null);
-  const [tab, setTab] = useState<MemberOrderTab>("all");
+  /**
+   * 탭 `?tab=` (S30 · §1.4) — 내정보 단독 화면만 URL 에 쓴다. 임베드(레거시 내정보 탭)는 부모의 `?tab=` 를
+   * 덮지 않도록 로컬 상태, 배달 허브는 `orderFilter` 쿼리를 쓰므로 탭 미사용.
+   */
+  const [urlTab, setUrlTab] = useMypageTabParam<MemberOrderTab>({
+    values: MEMBER_ORDER_TAB_VALUES,
+    defaultValue: "all",
+    key: isMypageScreen ? "tab" : "storeOrdersTab",
+  });
+  const [localTab, setLocalTab] = useState<MemberOrderTab>("all");
+  const tab = isMypageScreen ? urlTab : localTab;
+  const setTab = isMypageScreen ? setUrlTab : setLocalTab;
   const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
   const [deleteBusyId, setDeleteBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [actionSheetOrderId, setActionSheetOrderId] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{ kind: "cancel" | "hide"; orderId: string } | null>(null);
   const [state, setState] = useState<
     | { kind: "loading" }
     | { kind: "unauth" }
     | { kind: "error"; message: string }
-    | { kind: "ok"; orders: OrderRow[]; nextCursor: string | null; extraPages: boolean }
-  >({ kind: "loading" });
+    | OrdersOkState
+  >(() =>
+    isMypageScreen
+      ? (peekMypageListPageCache<OrdersOkState>(MYPAGE_STORE_ORDERS_CACHE_KEY) ?? { kind: "loading" })
+      : { kind: "loading" }
+  );
   const [moreBusy, setMoreBusy] = useState(false);
   /** 주문이 한 페이지(100건)를 넘을 때만 서버 전체 기준 탭 개수 */
   const [serverTabCounts, setServerTabCounts] = useState<Record<MemberOrderTab, number> | null>(null);
   const [moreError, setMoreError] = useState(false);
+  const stateRef = useRef(state);
+  useLayoutEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    if (isMypageScreen && state.kind === "ok") writeMypageListPageCache(MYPAGE_STORE_ORDERS_CACHE_KEY, state);
+  }, [isMypageScreen, state]);
+
+  /** 결과 알림 — 내정보 화면은 공통 토스트, 배달 허브·임베드는 기존 인라인 토스트 */
+  const notify = useCallback(
+    (message: string, tone: "success" | "error") => {
+      if (isMypageScreen) {
+        showMypageToast(message, tone);
+        return;
+      }
+      setToast(message);
+      setTimeout(() => setToast(null), tone === "error" ? 3200 : 2600);
+    },
+    [isMypageScreen]
+  );
 
   const load = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
-      const silent = opts?.silent === true;
+      // 캐시로 이미 그린 목록이 있으면 스켈레톤으로 비우지 않고 조용히 갱신
+      const silent = opts?.silent === true || stateRef.current.kind === "ok";
       const force = opts?.force === true;
       if (!silent) setState({ kind: "loading" });
       try {
@@ -713,6 +825,12 @@ export function MyStoreOrdersView({
 
   useRefetchOnPageShowRestore(() => {
     void load({ silent: true });
+  });
+
+  /** 상세 갔다 뒤로 → 탭(URL)·스크롤·불러온 페이지 유지 (§1.4) — 내정보 화면만 */
+  useMypageListRestore({
+    ready: isMypageScreen && state.kind === "ok",
+    loadedPages: state.kind === "ok" && state.extraPages ? 2 : 1,
   });
 
   useEffect(() => {
@@ -836,74 +954,69 @@ export function MyStoreOrdersView({
   );
   const loginHref = "/login";
 
-  const requestCancelPending = useCallback(
+  /** 결제 전 주문 취소 — 확인 시트(danger) 에서 확인한 뒤에만 호출 */
+  const runCancelPending = useCallback(
     async (orderId: string) => {
-      if (!(await dibayConfirm({ title: t("mypage_comp_orders_list_confirm_cancel"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
       setCancelBusyId(orderId);
       try {
         const { status, json } = await patchMeStoreOrder(orderId, { cancel: true });
         const j = json as { ok?: boolean; error?: string };
         if (status < 200 || status >= 300 || j?.ok === false) {
-          const code = typeof j?.error === "string" ? j.error : "cancel_failed";
-          const msg =
-            code === "cannot_cancel_after_accepted"
-              ? t("mypage_comp_orders_cancel_err_short")
-              : t("mypage_comp_cancel_failed_code", { code });
-          setToast(msg);
-          setTimeout(() => setToast(null), 3200);
+          notify(t(resolveStoreOrderMutationErrorKey("cancel", j?.error)), "error");
           return;
         }
-        setToast(t("mypage_comp_orders_cancel_success"));
-        setTimeout(() => setToast(null), 2800);
-        await load({ silent: true });
+        notify(t("mypage_comp_orders_cancel_success"), "success");
+        invalidateMypageSummary();
+        await load({ silent: true, force: true });
       } catch {
-        setToast(t("mypage_comp_network_error"));
-        setTimeout(() => setToast(null), 2800);
+        notify(t("mypage_comp_network_error"), "error");
       } finally {
         setCancelBusyId(null);
       }
     },
-    [load, t]
+    [load, notify, t]
   );
 
-  const requestHideOrder = useCallback(
+  /** 목록에서 숨기기 — 확인 시트에서 확인한 뒤에만 호출 */
+  const runHideOrder = useCallback(
     async (orderId: string) => {
-      if (!(await dibayConfirm({ title: t("mypage_comp_orders_list_confirm_hide"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm") }))) return;
       setDeleteBusyId(orderId);
       try {
         const { status, json } = await deleteMeStoreOrder(orderId);
         const j = json as { ok?: boolean; error?: string };
         if (status < 200 || status >= 300 || j?.ok === false) {
-          const code = typeof j?.error === "string" ? j.error : "hide_failed";
-          const msg =
-            code === "buyer_hide_schema_missing"
-              ? t("mypage_comp_orders_hide_schema_missing")
-              : t("mypage_comp_orders_hide_failed", { code });
-          setToast(msg);
-          setTimeout(() => setToast(null), 3200);
+          notify(t(resolveStoreOrderMutationErrorKey("hide", j?.error)), "error");
           return;
         }
-        setToast(t("mypage_comp_orders_hide_success"));
-        setTimeout(() => setToast(null), 2400);
-        await load({ silent: true });
+        notify(t("mypage_comp_orders_hide_success"), "success");
+        invalidateMypageSummary();
+        await load({ silent: true, force: true });
       } catch {
-        setToast(t("mypage_comp_network_error"));
-        setTimeout(() => setToast(null), 2800);
+        notify(t("mypage_comp_network_error"), "error");
       } finally {
         setDeleteBusyId(null);
       }
     },
-    [load, t]
+    [load, notify, t]
   );
+
+  const requestCancelPending = useCallback((orderId: string) => setConfirm({ kind: "cancel", orderId }), []);
+  /** 행 ⋯ — 액션 시트 [목록에서 숨기기] → 확인 시트 */
+  const openOrderActions = useCallback((orderId: string) => setActionSheetOrderId(orderId), []);
+
+  const showTabs = !isDeliveryHub;
+  const errorKey = state.kind === "error" ? resolveStoreOrdersLoadErrorKey(state.message) : null;
 
   return (
     <div
+      data-store-orders-surface={isDeliveryHub ? "delivery-hub" : "mypage"}
       className={
         isDeliveryHub
-          ? `min-h-0 min-w-0 flex-1 bg-[#f6f6f6] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`
+          ? // C5: 배달 허브 고유 배경 — 토큰 `--sol-page-bg` (기존 값과 같은 값)
+            `min-h-0 min-w-0 flex-1 bg-[color:var(--sol-page-bg)] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`
           : embedded
             ? "min-w-0 pb-1"
-            : "w-full min-h-0 bg-sam-app dark:bg-[#18191A]"
+            : "w-full min-h-0 bg-sam-app"
       }
     >
       <div
@@ -916,87 +1029,117 @@ export function MyStoreOrdersView({
         }
       >
         {toast ? (
-          <p className="mb-3 rounded-ui-rect bg-[#050505] px-3 py-2.5 text-center sam-text-body-secondary text-white shadow-md dark:bg-[#E4E6EB] dark:text-[#050505]">
+          <p className="mb-3 rounded-ui-rect bg-[color:var(--sol-toast-bg)] px-3 py-2.5 text-center sam-text-body-secondary text-[color:var(--sol-toast-fg)] shadow-md">
             {toast}
           </p>
         ) : null}
 
         {state.kind === "loading" ? (
-          <div
-            className={`mb-3 rounded-ui-rect bg-sam-surface px-4 py-10 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08]`}
-          >
-            {t("mypage_comp_loading_short")}
-          </div>
+          isMypageScreen ? (
+            <StoreOrdersListSkeleton showTabs={showTabs} />
+          ) : (
+            <div
+              className={`mb-3 rounded-ui-rect bg-[color:var(--sol-box-bg)] px-4 py-10 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06]`}
+            >
+              {t("mypage_comp_loading_short")}
+            </div>
+          )
         ) : null}
 
         {state.kind === "unauth" ? (
           <div
-            className={`rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface px-4 py-4 text-center sam-text-body text-amber-900 dark:bg-[#242526] dark:text-amber-200`}
+            className={`rounded-ui-rect border ${FB_DIVIDER} bg-[color:var(--sol-box-bg)] px-4 py-4 text-center sam-text-body text-[color:var(--sol-warn-fg)]`}
           >
             <p>{t("mypage_comp_orders_list_login_prompt")}</p>
             <Link
               href={loginHref}
-              className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-semibold text-white"
+              className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-semibold text-[color:var(--sol-on-accent)]"
             >
               {t("mypage_comp_orders_list_login_cta")}
             </Link>
           </div>
         ) : null}
 
-        {state.kind === "error" ? (
-          <div
-            className={`space-y-2 rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface px-4 py-4 dark:bg-[#242526]`}
-          >
-            {state.message === "supabase_unconfigured" ? (
-              <p className={`sam-text-body text-amber-800 dark:text-amber-200`}>
-                {t("mypage_comp_orders_supabase_unconfigured")}
-              </p>
-            ) : null}
-            <p className={`sam-text-body text-[#F02849]`}>
-              {t("mypage_comp_orders_list_load_failed")} ({state.message})
-            </p>
-            <button
-              type="button"
-              onClick={() => void load()}
-              className="sam-text-body font-semibold text-signature hover:underline"
+        {state.kind === "error" && errorKey ? (
+          isMypageScreen ? (
+            <MyStateView kind="error" error={{ message: t(errorKey), onRetry: () => void load() }} />
+          ) : (
+            <div
+              role="alert"
+              className={`space-y-2 rounded-ui-rect border ${FB_DIVIDER} bg-[color:var(--sol-box-bg)] px-4 py-4`}
             >
-              {t("common_retry")}
-            </button>
-          </div>
+              {/* 오류 코드·영문 메시지 노출 금지 — i18n 문구만 (C.0.2) */}
+              <p
+                className={`sam-text-body ${
+                  errorKey === "mypage_oa_orders_load_failed"
+                    ? "text-[color:var(--sol-danger)]"
+                    : "text-[color:var(--sol-note-fg)]"
+                }`}
+              >
+                {t(errorKey)}
+              </p>
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="sam-text-body font-semibold text-signature hover:underline"
+              >
+                {t("common_retry")}
+              </button>
+            </div>
+          )
         ) : null}
 
         {state.kind === "ok" ? (
           <>
-            {!isDeliveryHub ? (
+            {showTabs ? (
               <div
                 className={
                   embedded
-                    ? `sticky top-0 z-10 mb-3 -mx-3 rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface shadow-sm dark:bg-[#242526] sm:-mx-4 lg:mx-0`
-                    : `${PHILIFE_FEED_INSET_NEG_X_CLASS} shrink-0 border-b ${FB_DIVIDER} bg-sam-surface/95 backdrop-blur-sm dark:bg-[#242526]/95`
+                    ? `sticky top-0 z-10 mb-3 -mx-3 rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface shadow-sm sm:-mx-4 lg:mx-0`
+                    : `-mx-4 mb-2 shrink-0 border-b ${FB_DIVIDER} bg-sam-surface/95 backdrop-blur-sm md:-mx-5`
                 }
               >
-                <div className={embedded ? "px-0" : PHILIFE_FEED_INSET_X_CLASS}>
+                <div className={embedded ? "px-0" : "px-4 md:px-5"}>
                   <MemberOrderTabs variant="feed" active={tab} onChange={setTab} counts={counts} />
                 </div>
               </div>
             ) : null}
 
             {allSorted.length === 0 ? (
-              <div
-                className={
-                  isDeliveryHub
-                    ? "rounded-[4px] border border-[#DDE5E0] bg-white p-6 text-center text-[14px] leading-[1.35] text-[#6B7280]"
-                    : `rounded-ui-rect bg-sam-surface px-4 py-8 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08]`
-                }
-              >
-                <p className={FB_BODY}>{t("mypage_comp_orders_list_empty")}</p>
-                <Link
-                  href="/stores"
-                  className="mt-4 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95"
+              isMypageScreen ? (
+                <MyStateView
+                  kind="empty"
+                  empty={{
+                    icon: <Store className="h-6 w-6" aria-hidden />,
+                    title: t("mypage_comp_orders_list_empty"),
+                    cta: (
+                      <Link href="/stores" className="sam-btn sam-btn--primary sam-btn--sm">
+                        {t("mypage_comp_browse_stores")}
+                      </Link>
+                    ),
+                  }}
+                />
+              ) : (
+                <div
+                  className={
+                    isDeliveryHub
+                      ? "rounded-ui-rect border border-[color:var(--sol-card-border)] bg-[color:var(--sol-card-bg)] p-6 text-center text-[14px] leading-[1.35] text-[color:var(--sol-empty-fg)]"
+                      : `rounded-ui-rect bg-[color:var(--sol-box-bg)] px-4 py-8 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06]`
+                  }
                 >
-                  {t("mypage_comp_browse_stores")}
-                </Link>
-              </div>
+                  <p className={FB_BODY}>{t("mypage_comp_orders_list_empty")}</p>
+                  <Link
+                    href="/stores"
+                    className="mt-4 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-sm font-semibold text-[color:var(--sol-on-accent)] hover:opacity-95"
+                  >
+                    {t("mypage_comp_browse_stores")}
+                  </Link>
+                </div>
+              )
+            ) : filtered.length === 0 && isMypageScreen ? (
+              <p data-testid="store-orders-tab-empty" className="px-4 py-12 text-center sam-text-body text-sam-muted">
+                {t("mypage_oa_tab_empty")}
+              </p>
             ) : (
               <ul className={isDeliveryHub || embedded ? "space-y-2.5" : "min-w-0 space-y-3"}>
                 {filtered.map((o) => (
@@ -1024,7 +1167,7 @@ export function MyStoreOrdersView({
                       onCancelPending={requestCancelPending}
                       cancelBusy={cancelBusyId === o.id}
                       allowDelete={!ordersHubPaths}
-                      onDelete={requestHideOrder}
+                      onDelete={openOrderActions}
                       deleteBusy={deleteBusyId === o.id}
                       cardVariant={isDeliveryHub ? "deliveryHub" : "default"}
                       expandMode={isDeliveryHub}
@@ -1051,7 +1194,14 @@ export function MyStoreOrdersView({
                 ))}
               </ul>
             )}
-            {state.nextCursor ? (
+            {isMypageScreen ? (
+              <MyListPager
+                hasMore={Boolean(state.nextCursor)}
+                loading={moreBusy}
+                error={moreError}
+                onLoadMore={loadMore}
+              />
+            ) : state.nextCursor ? (
               <div className="mt-3 flex flex-col items-center gap-2" data-store-orders-load-more="1">
                 {moreError ? <p className="text-sm text-sam-muted">{t("mypage_orders_load_more_failed")}</p> : null}
                 <button
@@ -1067,6 +1217,41 @@ export function MyStoreOrdersView({
           </>
         ) : null}
       </div>
+      <DibayActionSheet
+        open={actionSheetOrderId != null}
+        onClose={() => setActionSheetOrderId(null)}
+        cancelLabel={t("common_cancel")}
+        items={[
+          {
+            key: "hide",
+            label: t("mypage_oa_order_hide_action"),
+            danger: true,
+            onClick: () => {
+              const id = actionSheetOrderId;
+              if (id) setConfirm({ kind: "hide", orderId: id });
+            },
+          },
+        ]}
+      />
+      <MobileConfirmBottomSheet
+        open={confirm != null}
+        onCancel={() => setConfirm(null)}
+        title={
+          confirm?.kind === "hide"
+            ? t("mypage_comp_orders_list_confirm_hide")
+            : t("mypage_comp_orders_list_confirm_cancel")
+        }
+        cancelLabel={t("common_cancel")}
+        confirmLabel={confirm?.kind === "hide" ? t("mypage_oa_order_hide_action") : t("mypage_comp_cancel_order")}
+        confirmTone="danger"
+        onConfirm={() => {
+          const c = confirm;
+          setConfirm(null);
+          if (!c) return;
+          if (c.kind === "hide") void runHideOrder(c.orderId);
+          else void runCancelPending(c.orderId);
+        }}
+      />
       {isDeliveryHub && chatOrderId && chatOrder ?
         <BuyerStoreOrderChatSlidePanel
           orderId={chatOrderId}

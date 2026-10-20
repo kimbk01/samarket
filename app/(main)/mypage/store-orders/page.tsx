@@ -1,26 +1,19 @@
 "use client";
 
+import { Suspense } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
-import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
-import { APP_MAIN_FEED_STACK_CLASS } from "@/lib/ui/app-content-layout";
 
+/** S30 주문 내역 — 공통 셸(`MyScreen` 40rem·16/20px) + `?tab=` (useSearchParams → Suspense) */
 export default function MypageStoreOrdersPage() {
   const { t } = useI18n();
   return (
-    <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col bg-sam-app">
-      <MySubpageHeader
-        title={t("route_store_orders_list_title")}
-        subtitle={t("route_store_orders_list_subtitle")}
-        backHref="/mypage"
-        hideCtaStrip
-      />
-      <div
-        className={`min-h-0 w-full min-w-0 flex-1 ${APP_MAIN_FEED_STACK_CLASS} ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
-      >
+    <MyScreen title={t("route_store_orders_list_title")} backHref="/mypage" template="list">
+      <Suspense fallback={<MyStateView kind="loading" template="list" rows={3} listVariant="thumb" />}>
         <MyStoreOrdersView suppressTier1Sync />
-      </div>
-    </div>
+      </Suspense>
+    </MyScreen>
   );
 }

@@ -94,3 +94,49 @@ export function isProfileEditFormDirty(
     baseline.avatarUrl !== current.avatarUrl
   );
 }
+
+/** 프로필 수정 시트(S01) — 소개 최대 글자 수 */
+export const PROFILE_EDIT_BIO_MAX = 60;
+/** 프로필 수정 시트(S01) — 닉네임 글자 수 범위 */
+export const PROFILE_EDIT_NICKNAME_MIN = 2;
+export const PROFILE_EDIT_NICKNAME_MAX = DISPLAY_NAME_MAX;
+
+export type ProfileEditNicknameIssue = "required" | "min" | "max" | null;
+
+/** 닉네임 실시간 검증 — 시트에서는 공개 이름이 필수(공백 불가), 2~20자 */
+export function resolveProfileEditNicknameIssue(nickname: string): ProfileEditNicknameIssue {
+  const trimmed = nickname.trim();
+  if (!trimmed) return "required";
+  if (trimmed.length < PROFILE_EDIT_NICKNAME_MIN) return "min";
+  if (trimmed.length > PROFILE_EDIT_NICKNAME_MAX) return "max";
+  return null;
+}
+
+export type ProfileEditSheetSaveState = {
+  /** 닉네임·소개가 기준값과 다름 (사진은 선택 즉시 저장되므로 제외) */
+  dirty: boolean;
+  nicknameIssue: ProfileEditNicknameIssue;
+  bioTooLong: boolean;
+  /** [저장] 활성 = 변경 있음 + 검증 통과 */
+  canSave: boolean;
+};
+
+/**
+ * 프로필 수정 시트 [저장] 활성 규칙 (최종 설계 S01) — 변경 있을 때만 + 닉네임 2~20자 + 소개 60자 이하.
+ * 비교는 앞뒤 공백 제거 후 값(서버 저장 형태)으로 한다.
+ */
+export function resolveProfileEditSheetSaveState(input: {
+  baseline: { nickname: string | null; bio: string | null } | null;
+  nickname: string;
+  bio: string;
+}): ProfileEditSheetSaveState {
+  const nicknameIssue = resolveProfileEditNicknameIssue(input.nickname);
+  const bioTooLong = input.bio.trim().length > PROFILE_EDIT_BIO_MAX;
+  if (!input.baseline) {
+    return { dirty: false, nicknameIssue, bioTooLong, canSave: false };
+  }
+  const dirty =
+    (input.baseline.nickname ?? "").trim() !== input.nickname.trim() ||
+    (input.baseline.bio ?? "").trim() !== input.bio.trim();
+  return { dirty, nicknameIssue, bioTooLong, canSave: dirty && nicknameIssue === null && !bioTooLong };
+}

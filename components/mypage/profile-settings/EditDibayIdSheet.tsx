@@ -8,22 +8,27 @@ import { ProfileDibayIdSection } from "@/components/my/edit/ProfileDibayIdSectio
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { MypageBottomSheetShell } from "./MypageBottomSheetShell";
 import { useMypageProfileSheets } from "./mypage-profile-sheets-context";
 import { getMypageHomeProjection, patchMypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 
+/** 아이디 확정 시트 (최종 설계 S04) — 페이지(`/mypage/required/dibay-id`)와 같은 `ProfileDibayIdSection` */
 export function EditDibayIdSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n();
   const { onProfileUpdated } = useMypageProfileSheets();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     void (async () => {
       setLoading(true);
-      const p = await getMyProfile();
+      const p = await getMyProfile().catch(() => null);
       if (!cancelled) {
         setProfile(p);
         setLoading(false);
@@ -32,12 +37,12 @@ export function EditDibayIdSheet({ open, onClose }: { open: boolean; onClose: ()
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, reloadKey]);
 
   const handleConfirmed = useCallback(
     async (confirmedDibayId: string) => {
       invalidateMeProfileDedupedCache();
-      const fresh = await getMyProfile();
+      const fresh = await getMyProfile().catch(() => null);
       if (fresh) {
         setProfile(fresh);
         setSupabaseProfileCache(profileRowToClientProfile(fresh));
@@ -47,10 +52,14 @@ export function EditDibayIdSheet({ open, onClose }: { open: boolean; onClose: ()
           addressStatus: current?.addressStatus ?? "unknown",
         });
       }
+      invalidateMypageSummary();
       onProfileUpdated();
-      if (confirmedDibayId) onClose();
+      if (confirmedDibayId) {
+        showMypageToast(t("mypage_s04_confirmed_toast"), "success");
+        onClose();
+      }
     },
-    [onClose, onProfileUpdated],
+    [onClose, onProfileUpdated, t],
   );
 
   return (
@@ -60,9 +69,16 @@ export function EditDibayIdSheet({ open, onClose }: { open: boolean; onClose: ()
       title={t("mypage_settings_dibay_id")}
     >
       {loading ? (
-        <p className="py-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>
+        <MyStateView kind="loading" template="form" rows={2} />
       ) : !profile ? (
-        <p className="py-8 text-center sam-text-body text-sam-muted">{t("mypage_comp_profile_load_failed_short")}</p>
+        <MyStateView
+          kind="error"
+          template="form"
+          error={{
+            message: t("mypage_comp_profile_load_failed_short"),
+            onRetry: () => setReloadKey((k) => k + 1),
+          }}
+        />
       ) : (
         <ProfileDibayIdSection
           dibay_id={profile.dibay_id ?? null}

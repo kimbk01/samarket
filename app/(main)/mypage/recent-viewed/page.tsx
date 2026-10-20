@@ -1,16 +1,8 @@
 "use client";
 
-import { RecentViewedList } from "@/components/recent-viewed/RecentViewedList";
-import { MypageSubpageShell } from "@/components/mypage/i18n/MypageSubpageShell";
+import { RecentViewedScreen } from "@/components/recent-viewed/RecentViewedList";
 
+/** 최근 본 상품 (최종 설계 S25) — 헤더 [전체 삭제] 는 화면 컴포넌트가 목록 상태와 함께 그린다 */
 export default function MypageRecentViewedPage() {
-  return (
-    <MypageSubpageShell
-      titleKey="route_recent_viewed_title"
-      subtitleKey="route_recent_viewed_subtitle"
-      bodyClassName="min-h-0 w-full min-w-0 flex-1 overflow-y-auto py-4"
-    >
-      <RecentViewedList />
-    </MypageSubpageShell>
-  );
+  return <RecentViewedScreen />;
 }

@@ -33,6 +33,12 @@ import {
   storeOrderEventLabels,
 } from "@/lib/mypage/store-order-detail-i18n";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
+import {
+  resolveStoreOrderMutationErrorKey,
+  resolveStoreOrdersLoadErrorKey,
+} from "@/lib/mypage/my-store-orders-ui";
+/** 색 = `--sol-panel-*` 토큰 (배달 허브에서는 기존과 같은 값 — X19·C5) */
+import "@/app/store-order-list-tokens.css";
 
 type ItemRow = {
   id: string;
@@ -245,10 +251,10 @@ function BuyerContactLine({ phone }: { phone: string }) {
   const label = d.length === 11 ? formatPhMobileDisplay(d) : phone;
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase text-[#6B7280]">
+      <p className="text-[11px] font-semibold uppercase text-[color:var(--sol-panel-muted)]">
         {t("mypage_comp_buyer_contact_heading")}
       </p>
-      <p className="mt-1 text-sm text-[#123B4A]">
+      <p className="mt-1 text-sm text-[color:var(--sol-panel-fg)]">
         {href ? (
           <a href={href} className="font-semibold text-signature underline">
             {label}
@@ -265,9 +271,9 @@ function AddressHydratingPlaceholder() {
   const { t } = useI18n();
   return (
     <div className="animate-pulse space-y-2" aria-busy="true">
-      <div className="h-3 w-24 rounded bg-[#EEF2F0]" />
-      <div className="h-4 w-full rounded bg-[#EEF2F0]" />
-      <div className="h-4 w-3/4 rounded bg-[#EEF2F0]" />
+      <div className="h-3 w-24 rounded bg-[color:var(--sol-panel-bone)]" />
+      <div className="h-4 w-full rounded bg-[color:var(--sol-panel-bone)]" />
+      <div className="h-4 w-3/4 rounded bg-[color:var(--sol-panel-bone)]" />
       <p className="sr-only">{t("mypage_comp_loading_short")}</p>
     </div>
   );
@@ -373,7 +379,7 @@ export function MyStoreOrderExpandPanel({
 
   if (state.kind === "loading") {
     return (
-      <div className="border-t border-[#DDE5E0] bg-[#F6FAFC] px-3 py-4 text-center text-sm text-[#6B7280]">
+      <div className="border-t border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-bg)] px-3 py-4 text-center text-sm text-[color:var(--sol-panel-muted)]">
         {t("mypage_comp_loading_short")}
       </div>
     );
@@ -381,14 +387,15 @@ export function MyStoreOrderExpandPanel({
 
   if (state.kind === "error") {
     return (
-      <div className="border-t border-[#DDE5E0] bg-[#F6FAFC] px-3 py-4 text-center text-sm text-red-600">
-        {t("mypage_comp_error_wrapped", { message: state.message })}
+      <div className="border-t border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-bg)] px-3 py-4 text-center text-sm text-[color:var(--sol-panel-danger)]">
+        {/* 오류 코드 노출 금지 — i18n 문구만 */}
+        {t(resolveStoreOrdersLoadErrorKey(state.message) === "mypage_oa_orders_load_failed" ? "mypage_order_detail_load_failed" : "mypage_comp_orders_supabase_unconfigured")}
       </div>
     );
   }
 
   const { order, items, orderEvents, hydratingDetail } = state;
-  const orderStatusLabel = (status: string) => buyerOrderStatusLabel(status, language);
+  const orderStatusLabel = (status: string) => buyerOrderStatusLabel(status, language, order.fulfillment_type);
   const prepClock = formatPrepClock(order.estimated_ready_at, dateLocale);
   const buyerProg = buyerStoreOrderProgressCopy(t, order, orderStatusLabel, prepClock);
   const isActive = ACTIVE_STATUSES.has(order.order_status);
@@ -436,13 +443,7 @@ export function MyStoreOrderExpandPanel({
       const j = json as { ok?: boolean; error?: string };
       if (!j?.ok) {
         const code = typeof j.error === "string" ? j.error : "cancel_request_failed";
-        setRefundErr(
-          code === "cannot_request_cancel"
-            ? t("mypage_comp_cancel_req_err_cannot")
-            : code === "cancel_reason_required"
-              ? t("mypage_comp_cancel_req_reason_required")
-              : t("mypage_comp_request_failed_code", { code })
-        );
+        setRefundErr(t(resolveStoreOrderMutationErrorKey("request_cancel", code)));
         return;
       }
       await load({ silent: true });
@@ -455,14 +456,14 @@ export function MyStoreOrderExpandPanel({
   }
 
   return (
-    <div className="border-t border-[#DDE5E0] bg-[#F6FAFC] px-3 py-3 sm:px-4">
+    <div className="border-t border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-bg)] px-3 py-3 sm:px-4">
       {isActive ? (
-        <div className="mb-3 rounded-[4px] border border-[#DDE5E0] bg-white px-3 py-3">
+        <div className="mb-3 rounded-ui-rect border border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-card-bg)] px-3 py-3">
           <p className="text-[12px] font-bold text-[color:var(--delivery-primary)]">
             {buyerProg.headline}
           </p>
           {buyerProg.lines.length ? (
-            <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-[12px] leading-snug text-[#6B7280]">
+            <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-[12px] leading-snug text-[color:var(--sol-panel-muted)]">
               {buyerProg.lines.map((line, i) => (
                 <li key={`${i}:${line}`}>{line}</li>
               ))}
@@ -478,17 +479,17 @@ export function MyStoreOrderExpandPanel({
         </div>
       ) : null}
 
-      <div className="space-y-3 rounded-[4px] border border-[#DDE5E0] bg-white p-3">
+      <div className="space-y-3 rounded-ui-rect border border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-card-bg)] p-3">
         {showAddressHydrating ?
           <AddressHydratingPlaceholder />
         : order.fulfillment_type === "pickup" ?
           order.store_pickup_address_lines && order.store_pickup_address_lines.length > 0 ?
-            <div className="text-sm text-[#123B4A]">
-              <p className="text-[11px] font-semibold uppercase text-[#6B7280]">
+            <div className="text-sm text-[color:var(--sol-panel-fg)]">
+              <p className="text-[11px] font-semibold uppercase text-[color:var(--sol-panel-muted)]">
                 {t("mypage_comp_address_pickup_heading")}
               </p>
               {order.store_pickup_address_lines.map((line, i) => (
-                <p key={i} className={i === 0 ? "mt-1 font-medium" : "text-[#6B7280]"}>
+                <p key={i} className={i === 0 ? "mt-1 font-medium" : "text-[color:var(--sol-panel-muted)]"}>
                   {line}
                 </p>
               ))}
@@ -496,10 +497,10 @@ export function MyStoreOrderExpandPanel({
           : null
         : hasDeliveryAddress ?
           <div>
-            <p className="text-[11px] font-semibold uppercase text-[#6B7280]">
+            <p className="text-[11px] font-semibold uppercase text-[color:var(--sol-panel-muted)]">
               {t("mypage_comp_address_delivery_heading")}
             </p>
-            <div className="mt-1 text-sm text-[#123B4A]">
+            <div className="mt-1 text-sm text-[color:var(--sol-panel-fg)]">
               <StoreOrderDeliveryAddressDisplay
                 summary={order.delivery_address_summary}
                 detail={order.delivery_address_detail}
@@ -515,7 +516,7 @@ export function MyStoreOrderExpandPanel({
 
         {items.length > 0 ? (
           <div>
-            <p className="text-[11px] font-semibold uppercase text-[#6B7280]">
+            <p className="text-[11px] font-semibold uppercase text-[color:var(--sol-panel-muted)]">
               {t("mypage_comp_order_lines_heading")}
             </p>
             <ul className="mt-2 space-y-2">
@@ -525,25 +526,25 @@ export function MyStoreOrderExpandPanel({
                 return (
                   <li
                     key={it.id}
-                    className="rounded-[4px] border border-[#EEF2F0] bg-[#FAFCFB] px-2.5 py-2 text-sm"
+                    className="rounded-ui-rect border border-[color:var(--sol-panel-line)] bg-[color:var(--sol-panel-line-bg)] px-2.5 py-2 text-sm"
                   >
                     <div className="flex justify-between gap-2">
-                      <span className="min-w-0 font-medium text-[#123B4A]">
+                      <span className="min-w-0 font-medium text-[color:var(--sol-panel-fg)]">
                         {it.product_title_snapshot}
                       </span>
-                      <span className="shrink-0 text-[#6B7280]">× {it.qty}</span>
+                      <span className="shrink-0 text-[color:var(--sol-panel-muted)]">× {it.qty}</span>
                     </div>
                     {optLines.length > 0 ? (
-                      <ul className="mt-1 space-y-0.5 text-[12px] text-[#6B7280]">
+                      <ul className="mt-1 space-y-0.5 text-[12px] text-[color:var(--sol-panel-muted)]">
                         {optLines.map((row, i) => (
                           <li key={i}>{row.title}</li>
                         ))}
                       </ul>
                     ) : optSum ? (
-                      <p className="mt-1 text-[12px] text-[#6B7280]">{optSum}</p>
+                      <p className="mt-1 text-[12px] text-[color:var(--sol-panel-muted)]">{optSum}</p>
                     ) : null}
                     <div className="mt-1 flex justify-between text-[12px]">
-                      <span className="text-[#6B7280]">
+                      <span className="text-[color:var(--sol-panel-muted)]">
                         {lineDiscountDisplayI18n(
                           t,
                           Number(it.price_snapshot) || 0,
@@ -551,7 +552,7 @@ export function MyStoreOrderExpandPanel({
                           Number(it.subtotal) || 0
                         )}
                       </span>
-                      <span className="font-semibold tabular-nums text-[#123B4A]">
+                      <span className="font-semibold tabular-nums text-[color:var(--sol-panel-fg)]">
                         {formatMoneyPhp(Number(it.subtotal) || 0)}
                       </span>
                     </div>
@@ -562,13 +563,13 @@ export function MyStoreOrderExpandPanel({
           </div>
         ) : null}
 
-        <div className="border-t border-[#EEF2F0] pt-3 text-sm">
-          <div className="flex justify-between gap-2 text-[#6B7280]">
+        <div className="border-t border-[color:var(--sol-panel-line)] pt-3 text-sm">
+          <div className="flex justify-between gap-2 text-[color:var(--sol-panel-muted)]">
             <span>{t("mypage_comp_items_subtotal")}</span>
             <span>{formatMoneyPhp(itemsSumPhp)}</span>
           </div>
           {Math.round(Number(order.discount_amount) || 0) > 0 ? (
-            <div className="mt-1 flex justify-between gap-2 text-red-600" data-order-coupon-discount="1">
+            <div className="mt-1 flex justify-between gap-2 text-[color:var(--sol-panel-danger)]" data-order-coupon-discount="1">
               <span>
                 {t("store_owner_order_coupon_discount")}
                 {[
@@ -592,7 +593,7 @@ export function MyStoreOrderExpandPanel({
           ) : null}
           {Math.round(Number((order as { gift_redemption_amount?: number }).gift_redemption_amount) || 0) >
           0 ? (
-            <div className="mt-1 flex justify-between gap-2 text-red-600" data-order-gift-redemption="1">
+            <div className="mt-1 flex justify-between gap-2 text-[color:var(--sol-panel-danger)]" data-order-gift-redemption="1">
               <span>
                 {safeT("gift_u4_order_gift_line", {
                   fallbackKo: "상품권 사용",
@@ -618,7 +619,7 @@ export function MyStoreOrderExpandPanel({
               st === "refunded" || st === "cancelled" || String(order.payment_status ?? "") === "refunded";
             if (!giftUsed || !refunded) return null;
             return (
-              <div className="mt-1 flex justify-between gap-2 text-emerald-700" data-order-gift-restored="1">
+              <div className="mt-1 flex justify-between gap-2 text-[color:var(--sol-panel-success)]" data-order-gift-restored="1">
                 <span>
                   {safeT("gift_u4_order_gift_restored", {
                     fallbackKo: "상품권 복구",
@@ -629,22 +630,22 @@ export function MyStoreOrderExpandPanel({
               </div>
             );
           })()}
-          <div className="mt-1 flex justify-between gap-2 text-[#6B7280]">
+          <div className="mt-1 flex justify-between gap-2 text-[color:var(--sol-panel-muted)]">
             <span>{t("mypage_comp_delivery_fee")}</span>
             <span>
               {deliveryFeePhp > 0 ? formatMoneyPhp(deliveryFeePhp) : t("mypage_comp_currency_zero")}
             </span>
           </div>
-          <div className="mt-2 flex justify-between gap-2 border-t border-[#EEF2F0] pt-2 font-bold text-[#123B4A]">
+          <div className="mt-2 flex justify-between gap-2 border-t border-[color:var(--sol-panel-line)] pt-2 font-bold text-[color:var(--sol-panel-fg)]">
             <span>{t("mypage_comp_grand_total")}</span>
             <span>{formatMoneyPhp(order.payment_amount)}</span>
           </div>
           {payDisplay !== dash ? (
-            <p className="mt-2 text-[12px] text-[#6B7280]">
+            <p className="mt-2 text-[12px] text-[color:var(--sol-panel-muted)]">
               {t("mypage_comp_payment_method_label", { method: payDisplay })}
             </p>
           ) : null}
-          <p className="mt-1 text-[12px] text-[#6B7280]">
+          <p className="mt-1 text-[12px] text-[color:var(--sol-panel-muted)]">
             {t("mypage_comp_order_date_line", {
               datetime: new Date(order.created_at).toLocaleString(dateLocale),
             })}
@@ -653,14 +654,14 @@ export function MyStoreOrderExpandPanel({
       </div>
 
       {orderEvents && orderEvents.length > 0 ? (
-        <div className="mt-3 rounded-[4px] border border-[#DDE5E0] bg-white p-3">
-          <p className="text-[11px] font-semibold uppercase text-[#6B7280]">
+        <div className="mt-3 rounded-ui-rect border border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-card-bg)] p-3">
+          <p className="text-[11px] font-semibold uppercase text-[color:var(--sol-panel-muted)]">
             {t("mypage_comp_order_history_heading")}
           </p>
           <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto">
             {orderEvents.slice(0, 8).map((ev) => (
-              <li key={ev.id} className="text-[12px] text-[#6B7280]">
-                <span className="font-medium text-[#123B4A]">
+              <li key={ev.id} className="text-[12px] text-[color:var(--sol-panel-muted)]">
+                <span className="font-medium text-[color:var(--sol-panel-fg)]">
                   {eventLabels[ev.event_type] ?? ev.event_type}
                 </span>
                 {" · "}
@@ -675,7 +676,7 @@ export function MyStoreOrderExpandPanel({
         <div className="mt-3">
           <Link
             href={`/stores/${encodeURIComponent(order.store_slug)}`}
-            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-[4px] border border-[#DDE5E0] bg-white px-3 text-sm font-semibold text-[#123B4A]"
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-card-bg)] px-3 text-sm font-semibold text-[color:var(--sol-panel-fg)]"
           >
             {t("mypage_comp_view_store")}
           </Link>
@@ -687,34 +688,34 @@ export function MyStoreOrderExpandPanel({
           type="button"
           disabled={cancelBusy}
           onClick={() => void cancelOrder()}
-          className="mt-2 w-full rounded-[4px] border border-red-200 bg-white py-2.5 text-sm font-semibold text-red-600 disabled:opacity-50"
+          className="mt-2 w-full rounded-ui-rect border border-[color:var(--sol-panel-danger-border)] bg-[color:var(--sol-panel-card-bg)] py-2.5 text-sm font-semibold text-[color:var(--sol-panel-danger)] disabled:opacity-50"
         >
           {cancelBusy ? t("mypage_comp_processing") : t("mypage_comp_cancel_order")}
         </button>
       : null}
 
       {refundPending || cancelRequestPending ?
-        <p className="mt-2 rounded-[4px] bg-blue-50 px-3 py-2 text-sm text-blue-950">
+        <p className="mt-2 rounded-ui-rect bg-[color:var(--sol-panel-info-bg)] px-3 py-2 text-sm text-[color:var(--sol-panel-info-fg)]">
           {t(cancelRequestPending ? "mypage_comp_cancel_req_pending_notice" : "mypage_comp_refund_pending_notice")}
         </p>
       : null}
 
       {canRefundRequest ?
-        <div className="mt-2 rounded-[4px] border border-[#DDE5E0] bg-white p-3">
+        <div className="mt-2 rounded-ui-rect border border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-card-bg)] p-3">
           <textarea
-            className="w-full rounded-[4px] border border-[#DDE5E0] px-2 py-1.5 text-sm"
+            className="w-full rounded-ui-rect border border-[color:var(--sol-panel-border)] px-2 py-1.5 text-sm"
             rows={2}
             maxLength={500}
             value={refundReason}
             onChange={(ev) => setRefundReason(ev.target.value)}
             placeholder={t("mypage_comp_cancel_req_reason_placeholder")}
           />
-          {refundErr ? <p className="mt-1 text-sm text-red-600">{refundErr}</p> : null}
+          {refundErr ? <p className="mt-1 text-sm text-[color:var(--sol-panel-danger)]">{refundErr}</p> : null}
           <button
             type="button"
             disabled={refundBusy || refundReason.trim().length < 2}
             onClick={() => void requestRefund()}
-            className="mt-2 w-full rounded-[4px] border border-[#DDE5E0] py-2 text-sm font-medium disabled:opacity-50"
+            className="mt-2 w-full rounded-ui-rect border border-[color:var(--sol-panel-border)] py-2 text-sm font-medium disabled:opacity-50"
           >
             {refundBusy ? t("mypage_comp_processing") : t("mypage_comp_cancel_req_submit")}
           </button>

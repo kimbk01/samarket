@@ -50,7 +50,7 @@ function MyProductsPageInner() {
     <MypageSubpageShell
       titleKey="marketplace_seller_products_title"
       subtitleKey="marketplace_seller_products_subtitle"
-      backHref="/market/sell"
+      backHref="/mypage"
       section="trade"
       bodyClassName={APP_MAIN_TAB_SCROLL_BODY_CLASS}
       stickyBelow={

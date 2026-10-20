@@ -10,6 +10,10 @@ import {
   syncUserSettings,
   updateUserSettings,
 } from "@/lib/settings/user-settings-store";
+import { MyToggle } from "@/components/mypage/ds/MyToggle";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 type TradePresenceSettings = {
   showOnline: boolean;
@@ -76,14 +80,13 @@ export function ChatSettingsContent() {
     };
   }, [userId, t, tradePresenceReloadKey]);
 
-  const toggle = (key: "chat_push_enabled" | "chat_preview_enabled") => {
-    const v = settings[key];
-    updateUserSettings(userId, { [key]: !(v ?? true) });
-    refresh();
-  };
+  /** 채팅 푸시·미리보기 — `user_settings` 저장(실패 시 스토어가 되돌림 + 토스트) */
+  const toggle = (key: "chat_push_enabled" | "chat_preview_enabled", next: boolean) =>
+    updateUserSettings(userId, { [key]: next });
 
-  const patchTradePresence = async (partial: Partial<TradePresenceSettings>) => {
-    if (!tradePresence) return;
+  /** 거래 접속 상태 — 낙관 반영 → PATCH → 실패 시 이전 값 복귀 + 토스트(S16 오류 표시 통일) */
+  const patchTradePresence = async (partial: Partial<TradePresenceSettings>): Promise<boolean> => {
+    if (!tradePresence) return false;
     const prev = tradePresence;
     const next: TradePresenceSettings = { ...prev, ...partial };
     setTradePresence(next);
@@ -100,125 +103,90 @@ export function ChatSettingsContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const j = (await r.json()) as { ok?: boolean; error?: string };
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!r.ok || !j.ok) {
         setTradePresence(prev);
-        setTradePresenceErr(j.error ?? t("settings_trade_presence_save_failed"));
+        return false;
       }
+      return true;
     } catch {
       setTradePresence(prev);
-      setTradePresenceErr(t("settings_trade_presence_network_failed"));
+      return false;
     } finally {
       setTradePresenceSaving((prev) => (prev ? false : prev));
     }
   };
 
+  const rowClass = "flex min-h-[52px] items-center justify-between gap-3 border-b border-sam-border-soft py-3";
+
   return (
-    <div className="space-y-0">
-      <div className="flex items-center justify-between border-b border-sam-border-soft py-3">
+    <div className="space-y-0" data-testid="chat-settings">
+      <div className={rowClass}>
         <span className="sam-text-body text-sam-fg">{t("settings_chat_push")}</span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={settings.chat_push_enabled !== false}
-          onClick={() => toggle("chat_push_enabled")}
-          className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-            settings.chat_push_enabled !== false ? "bg-signature" : "bg-sam-border-soft"
-          }`}
-        >
-          <span
-            className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-              settings.chat_push_enabled !== false ? "translate-x-6" : "translate-x-0.5"
-            }`}
-          />
-        </button>
+        <MyToggle
+          checked={settings.chat_push_enabled !== false}
+          ariaLabel={t("settings_chat_push")}
+          onChange={(next) => toggle("chat_push_enabled", next)}
+        />
       </div>
-      <div className="flex items-center justify-between border-b border-sam-border-soft py-3">
+      <div className={rowClass}>
         <span className="sam-text-body text-sam-fg">{t("settings_chat_preview")}</span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={settings.chat_preview_enabled !== false}
-          onClick={() => toggle("chat_preview_enabled")}
-          className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-            settings.chat_preview_enabled !== false ? "bg-signature" : "bg-sam-border-soft"
-          }`}
-        >
-          <span
-            className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-              settings.chat_preview_enabled !== false ? "translate-x-6" : "translate-x-0.5"
-            }`}
-          />
-        </button>
+        <MyToggle
+          checked={settings.chat_preview_enabled !== false}
+          ariaLabel={t("settings_chat_preview")}
+          onChange={(next) => toggle("chat_preview_enabled", next)}
+        />
       </div>
 
       <div className="border-b border-sam-border-soft py-3">
         <p className="sam-text-body font-semibold text-sam-fg">{t("settings_trade_presence_title")}</p>
         <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">{t("settings_trade_presence_desc")}</p>
-        {tradePresenceErr ? <p className="mt-2 sam-text-helper text-sam-danger">{tradePresenceErr}</p> : null}
         {tradePresenceErr && !tradePresence ? (
-          <button
-            type="button"
-            className="sam-btn sam-btn--secondary sam-btn--sm mt-2"
-            onClick={() => {
-              setTradePresenceErr(null);
-              setTradePresenceReloadKey((k) => k + 1);
+          <MyStateView
+            kind="error"
+            template="settings"
+            error={{
+              message: tradePresenceErr,
+              onRetry: () => {
+                setTradePresenceErr(null);
+                setTradePresenceReloadKey((k) => k + 1);
+              },
             }}
-          >
-            {t("common_retry")}
-          </button>
+          />
         ) : null}
         {tradePresence ? (
           <div className="mt-3 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <span className="sam-text-body text-sam-fg">{t("settings_trade_presence_online")}</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={tradePresence.showOnline}
+              <MyToggle
+                checked={tradePresence.showOnline}
                 disabled={tradePresenceSaving}
-                onClick={() => void patchTradePresence({ showOnline: !tradePresence.showOnline })}
-                className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                  tradePresence.showOnline ? "bg-signature" : "bg-sam-border-soft"
-                }`}
-              >
-                <span
-                  className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                    tradePresence.showOnline ? "translate-x-6" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
+                ariaLabel={t("settings_trade_presence_online")}
+                onChange={(next) => patchTradePresence({ showOnline: next })}
+              />
             </div>
             <div className="flex items-center justify-between gap-2">
               <span className="sam-text-body text-sam-fg">{t("settings_trade_presence_hide_last_seen")}</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={tradePresence.hideLastSeen}
+              <MyToggle
+                checked={tradePresence.hideLastSeen}
                 disabled={tradePresenceSaving}
-                onClick={() => void patchTradePresence({ hideLastSeen: !tradePresence.hideLastSeen })}
-                className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                  tradePresence.hideLastSeen ? "bg-signature" : "bg-sam-border-soft"
-                }`}
-              >
-                <span
-                  className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-                    tradePresence.hideLastSeen ? "translate-x-6" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
+                ariaLabel={t("settings_trade_presence_hide_last_seen")}
+                onChange={(next) => patchTradePresence({ hideLastSeen: next })}
+              />
             </div>
             <div>
               <span className="sam-text-body text-sam-fg">{t("settings_trade_presence_audience")}</span>
               <p className="mt-0.5 sam-text-xxs text-sam-muted">{t("settings_trade_presence_audience_hint")}</p>
               <select
-                className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
+                className={`${Sam.input.select} ${Sam.focusRing} mt-2 w-full rounded-ui-rect text-[16px]`}
                 disabled={tradePresenceSaving}
                 value={tradePresence.audience}
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === "everyone" || v === "friends" || v === "nobody") {
-                    void patchTradePresence({ audience: v });
+                    void patchTradePresence({ audience: v }).then((ok) => {
+                      if (!ok) showMypageToast(t("settings_trade_presence_save_failed"), "error");
+                    });
                   }
                 }}
               >
@@ -229,7 +197,13 @@ export function ChatSettingsContent() {
             </div>
           </div>
         ) : tradePresenceErr ? null : (
-          <p className="mt-2 sam-text-helper text-sam-muted">{t("settings_loading_settings")}</p>
+          <div className="mt-3" data-testid="trade-presence-skeleton">
+            <MyStateView
+              kind="loading"
+              template="settings"
+              rowLabels={[t("settings_trade_presence_online"), t("settings_trade_presence_hide_last_seen")]}
+            />
+          </div>
         )}
       </div>
     </div>

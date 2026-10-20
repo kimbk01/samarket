@@ -9,6 +9,7 @@ import {
   syncUserSettings,
   updateUserSettings,
 } from "@/lib/settings/user-settings-store";
+import { MyToggle } from "@/components/mypage/ds/MyToggle";
 
 export function PersonalizationContent() {
   const { t } = useI18n();
@@ -28,29 +29,14 @@ export function PersonalizationContent() {
     });
   }, [refresh, userId]);
 
-  const toggle = () => {
-    updateUserSettings(userId, { personalization_enabled: !enabled });
-    setEnabled(!enabled);
-  };
-
   return (
-    <div className="flex items-center justify-between border-b border-sam-border-soft py-3">
-      <span className="sam-text-body text-sam-fg">{t("settings_personalization_recommend")}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        onClick={toggle}
-        className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-          enabled ? "bg-signature" : "bg-sam-border-soft"
-        }`}
-      >
-        <span
-          className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
-            enabled ? "translate-x-6" : "translate-x-0.5"
-          }`}
-        />
-      </button>
+    <div className="flex min-h-[52px] items-center justify-between gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-3 md:px-5">
+      <span className="text-[15px] font-semibold text-sam-fg">{t("settings_personalization_recommend")}</span>
+      <MyToggle
+        checked={enabled}
+        ariaLabel={t("settings_personalization_recommend")}
+        onChange={(next) => updateUserSettings(userId, { personalization_enabled: next })}
+      />
     </div>
   );
 }

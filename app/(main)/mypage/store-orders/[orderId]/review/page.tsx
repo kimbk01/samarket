@@ -15,6 +15,7 @@ export default function MypageStoreOrderReviewPage() {
         title={t("route_store_order_review_title")}
         subtitle={t("route_store_order_review_subtitle")}
         backHref="/mypage/store-orders"
+        preferHistoryBack
         hideCtaStrip
       />
       <StoreOrderReviewForm layout="inline" ordersHub={false} />

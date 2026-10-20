@@ -4,7 +4,10 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { PointChargeForm } from "@/components/points/PointChargeForm";
 import { SupportContextProvider } from "@/components/support/SupportContextProvider";
 import { buildMemberSupportContext } from "@/lib/support/support-context";
@@ -16,9 +19,32 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { PointPlan } from "@/lib/types/point";
 
+/** S41 스켈레톤 — 플랜 카드 3 + 안내 박스 */
+function PointChargeSkeleton() {
+  const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
+  return (
+    <div aria-busy="true" data-testid="point-charge-skeleton" className="mx-auto w-full max-w-[40rem] space-y-2 px-4 pt-2 md:px-5">
+      <span className={`mb-2 block h-4 w-24 ${bone}`} />
+      <div className="grid gap-2 md:grid-cols-2">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            data-skeleton-row=""
+            className="flex min-h-[64px] items-center justify-between gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-3"
+          >
+            <span className={`h-4 w-[45%] ${bone}`} />
+            <span className={`h-4 w-16 ${bone}`} />
+          </div>
+        ))}
+      </div>
+      <span className={`mt-4 block h-20 w-full ${bone}`} />
+    </div>
+  );
+}
+
 export default function MyPointsChargePage() {
   return (
-    <Suspense fallback={<MainFeedRouteLoading rows={3} />}>
+    <Suspense fallback={<PointChargeSkeleton />}>
       <MyPointsChargePageInner />
     </Suspense>
   );
@@ -54,17 +80,15 @@ function MyPointsChargePageInner() {
         return { ok: res.ok, ...body };
       });
       if (!j.ok) {
-        setLoadError(j.error ?? t("points_ui_request_failed"));
+        // 오류 코드 노출 금지 — 공통 문구 + 재시도
+        setLoadError(t("mypage_oa_charge_plans_load_failed"));
         setPlans([]);
         return;
       }
-      const next = Array.isArray(j.plans) ? j.plans : [];
-      setPlans(next);
-      if (next.length === 0) {
-        setLoadError(t("points_ui_request_failed"));
-      }
+      // 플랜 0 = 빈 안내(오류 아님) — PointChargeForm 이 "지금은 충전할 수 있는 상품이 없어요" 표시
+      setPlans(Array.isArray(j.plans) ? j.plans : []);
     } catch {
-      setLoadError(t("points_ui_request_failed"));
+      setLoadError(t("mypage_oa_charge_plans_load_failed"));
       setPlans([]);
     } finally {
       setLoading(false);
@@ -92,25 +116,18 @@ function MyPointsChargePageInner() {
         section="account"
         hideCtaStrip
       />
-      <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
+      <div className={`${CUSTOMER_CENTER_SCROLL_BODY_CLASS} ${!loading && !loadError && plans.length > 0 ? MY_STICKY_CTA_BODY_CLEARANCE_CLASS : ""}`}>
         {loading ? (
-          <p className="px-4 py-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>
+          <PointChargeSkeleton />
         ) : loadError ? (
-          <div className="space-y-3 px-4 py-6">
-            <p className="text-center sam-text-body text-red-600">{loadError}</p>
-            <button
-              type="button"
-              onClick={() => void loadPlans()}
-              className="mx-auto block min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium"
-            >
-              {t("common_retry")}
-            </button>
-          </div>
+          <MyStateView kind="error" error={{ message: loadError, onRetry: () => void loadPlans() }} />
         ) : (
           <PointChargeForm
             layout="page"
             plans={plans}
             onSuccess={() => {
+              showMypageToast(t("mypage_oa_charge_request_done"), "success");
+              invalidateMypageSummary();
               router.replace(fromCs ? "/mypage/points?from=customer-center" : "/mypage/points");
             }}
           />

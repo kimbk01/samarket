@@ -1,123 +1,65 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getMyProfile } from "@/lib/profile/getMyProfile";
 import type { ProfileRow } from "@/lib/profile/types";
 import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificationBox";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { refreshClientMemberAccountAfterMutation } from "@/lib/auth/sync-member-account-client";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import {
+  buildPhoneVerifySnapshot,
+  fetchPhoneVerificationSettings,
+  loadPhoneVerificationState,
+  type PhoneVerificationSettings,
+} from "@/lib/mypage/load-phone-verification-state";
 import { MypageBottomSheetShell } from "./MypageBottomSheetShell";
 import { useMypageProfileSheets } from "./mypage-profile-sheets-context";
 
+type LoadState =
+  | { kind: "loading" }
+  | { kind: "error" }
+  | { kind: "ready"; profile: ProfileRow; settings: PhoneVerificationSettings };
+
+/** 전화 인증 시트 (최종 설계 S05) — 페이지와 같은 상태 규칙: 조회 실패 = 오류 + [다시 시도], 무한 로딩 금지 */
 export function PhoneVerificationSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n();
   const { onProfileUpdated } = useMypageProfileSheets();
-  const [profile, setProfile] = useState<ProfileRow | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [phoneSettings, setPhoneSettings] = useState<{
-    enabled: boolean;
-    provider: "supabase" | "semaphore";
-    guide_text: string;
-    resend_cooldown_seconds: number;
-  } | null>(null);
+  const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const genRef = useRef(0);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    const [p, settingsRes] = await Promise.all([
-      getMyProfile(),
-      runSingleFlight("me:phone-verification:get", () =>
-        fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" }),
-      ),
-    ]);
-    setProfile(p);
-    try {
-      const j = (await settingsRes.json()) as {
-        ok?: boolean;
-        verification?: {
-          settings?: {
-            enabled?: boolean;
-            provider?: string;
-            guide_text?: string;
-            resend_cooldown_seconds?: number;
-          };
-        };
-      };
-      const s = j?.verification?.settings;
-      if (j?.ok && s) {
-        setPhoneSettings({
-          enabled: s.enabled === true,
-          provider: (s.provider === "semaphore" ? "semaphore" : "supabase") as "supabase" | "semaphore",
-          guide_text: s.guide_text ?? "",
-          resend_cooldown_seconds: Number(s.resend_cooldown_seconds ?? 60),
-        });
-      } else {
-        setPhoneSettings(null);
-      }
-    } catch {
-      setPhoneSettings(null);
-    }
-    setLoading(false);
+    const gen = ++genRef.current;
+    setState({ kind: "loading" });
+    const result = await loadPhoneVerificationState();
+    if (gen !== genRef.current) return;
+    setState(result.ok ? { kind: "ready", profile: result.profile, settings: result.settings } : { kind: "error" });
   }, []);
 
   useEffect(() => {
     if (!open) return;
     void load();
+    return () => {
+      genRef.current += 1;
+    };
   }, [open, load]);
 
-  const snapshot = useMemo(() => {
-    if (!profile) return null;
-    return {
-      phone: profile.phone ?? null,
-      phone_country_code: profile.phone_country_code ?? null,
-      phone_number: profile.phone_number ?? null,
-      phone_verified: profile.phone_verified === true,
-      phone_verified_at: profile.phone_verified_at ?? null,
-      phone_verification_method: profile.phone_verification_method ?? null,
-      phone_verification_status: profile.phone_verification_status ?? null,
-      member_status: profile.member_status ?? null,
-      role: profile.role ?? null,
-      privilegedAdmin: profile.privilegedAdmin === true,
-      email: profile.auth_login_email ?? profile.email ?? null,
-      provider: profile.provider ?? profile.auth_provider ?? null,
-      auth_provider: profile.auth_provider ?? profile.provider ?? null,
-      settings: phoneSettings ?? undefined,
-    };
-  }, [profile, phoneSettings]);
+  const snapshot = useMemo(
+    () => (state.kind === "ready" ? buildPhoneVerifySnapshot(state.profile, state.settings) : null),
+    [state],
+  );
 
   const handleRefresh = useCallback(async () => {
-    const [p, settingsRes] = await Promise.all([
+    const [p, settings] = await Promise.all([
       refreshClientMemberAccountAfterMutation(),
-      runSingleFlight("me:phone-verification:get", () =>
-        fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" }),
-      ),
+      fetchPhoneVerificationSettings(),
     ]);
-    setProfile(p);
-    try {
-      const j = (await settingsRes.json()) as {
-        ok?: boolean;
-        verification?: {
-          settings?: {
-            enabled?: boolean;
-            provider?: string;
-            guide_text?: string;
-            resend_cooldown_seconds?: number;
-          };
-        };
-      };
-      const s = j?.verification?.settings;
-      if (j?.ok && s) {
-        setPhoneSettings({
-          enabled: s.enabled === true,
-          provider: (s.provider === "semaphore" ? "semaphore" : "supabase") as "supabase" | "semaphore",
-          guide_text: s.guide_text ?? "",
-          resend_cooldown_seconds: Number(s.resend_cooldown_seconds ?? 60),
-        });
-      }
-    } catch {
-      /* keep prior settings */
-    }
+    setState((prev) => {
+      if (prev.kind !== "ready") return prev;
+      return { kind: "ready", profile: p ?? prev.profile, settings: settings ?? prev.settings };
+    });
+    invalidateMypageSummary();
     onProfileUpdated();
     if (p && hasVerifiedPhone(p)) {
       onClose();
@@ -130,9 +72,15 @@ export function PhoneVerificationSheet({ open, onClose }: { open: boolean; onClo
       onClose={onClose}
       title={t("mypage_settings_phone")}
     >
-      {loading || !snapshot ? (
-        <p className="py-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>
-      ) : phoneSettings && !phoneSettings.enabled ? (
+      {state.kind === "loading" ? (
+        <MyStateView kind="loading" template="form" rows={3} />
+      ) : state.kind === "error" || !snapshot ? (
+        <MyStateView
+          kind="error"
+          template="form"
+          error={{ message: t("mypage_s05_load_failed"), onRetry: () => void load() }}
+        />
+      ) : !state.settings.enabled ? (
         <p className="py-4 sam-text-body text-sam-muted">
           {t("mypage_comp_phone_verify_disabled")}
         </p>

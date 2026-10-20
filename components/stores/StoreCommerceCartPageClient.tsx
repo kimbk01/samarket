@@ -1705,6 +1705,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             gift_redemption_amount: placed.gift_redemption_amount,
             store_id: store.id,
             store_name: store.store_name,
+            fulfillment_type: fulfillment,
             idempotent: orderJson.idempotent === true,
           })
         );

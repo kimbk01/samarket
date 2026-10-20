@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 export function MypageCommunityPostsChrome({ children }: { children: ReactNode }) {
   const { t } = useI18n();
@@ -16,7 +17,11 @@ export function MypageCommunityPostsChrome({ children }: { children: ReactNode }
         hideCtaStrip
       />
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-        <div className="flex min-w-0 flex-col gap-1 py-4">{children}</div>
+        <div
+          className={`mx-auto flex w-full min-w-0 flex-col gap-1 py-4 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS}`}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

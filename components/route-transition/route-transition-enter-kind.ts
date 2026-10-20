@@ -12,7 +12,7 @@ import {
   storesOwnerStackDepth,
 } from "@/lib/business/owner-stack-path";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { mypageStackDepth } from "@/lib/mypage/mypage-stack-slide";
+import { isMypageStackPath, mypageStackDepth } from "@/lib/mypage/mypage-stack-slide";
 import {
   isMypageAddressEditPath,
   isMypageAddressListPath,
@@ -299,9 +299,10 @@ export function computeRouteTransitionEnterKind(
     kind = "ltr-back";
   } else if (isStoresOwnerStackPath(nextPath)) {
     kind = computeStoresOwnerStackTransitionKind(prevPath, nextPath, opts);
-  } else if (isMypagePath(prevPath) && isMypagePath(nextPath)) {
+  } else if (isMypageStackPath(prevPath) && isMypageStackPath(nextPath)) {
     /**
      * 내정보 ↔ 내정보 (X2) — 300ms push/back. 양쪽 모두 내정보일 때만.
+     * 거래 채팅 `/mypage/trade/chat/*`(S28)은 내정보 스택에서 제외 — 거래 채팅 도메인 규칙 그대로.
      * 앞선 분기(프로필 편집·주소 플랫폼·판매자 허브 `/mypage/products` UI-6·상품권 상세 커머스 스택)가
      * 먼저 잡는 쌍은 그대로 둔다. 쿼리만 바뀌면(`?tab=`) pathname 동일 → 위에서 `none`.
      */

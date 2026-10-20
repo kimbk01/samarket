@@ -8,7 +8,7 @@ export default function TradeReviewsPage() {
   const { t } = useI18n();
   return (
     <TradeHubSectionShell title={t("nav_trade_reviews")}>
-      <TradeReviewsManagementView />
+      <TradeReviewsManagementView syncUrl />
     </TradeHubSectionShell>
   );
 }

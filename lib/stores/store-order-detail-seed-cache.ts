@@ -13,6 +13,11 @@ export type StoreOrderDetailSeed = {
   store_id: string;
   store_name: string;
   order_status: string;
+  /**
+   * 수령 방식(`local_delivery` | `pickup` | `shipping`) — 시드 상태 문구가 SSOT
+   * (`buyerOrderStatusLabel(status, lang, fulfillment)`)와 같도록 전달. 구 세션 캐시에는 없을 수 있음.
+   */
+  fulfillment_type?: string;
   payment_amount: number;
   total_amount: number;
   discount_amount?: number;
@@ -155,6 +160,7 @@ export function buildStoreOrderDetailSeedFromPostSuccess(args: {
   gift_redemption_amount?: number;
   store_id: string;
   store_name: string;
+  fulfillment_type?: string;
   idempotent?: boolean;
 }): StoreOrderDetailSeed {
   const pa = Math.round(Number(args.payment_amount) || 0);
@@ -166,6 +172,7 @@ export function buildStoreOrderDetailSeedFromPostSuccess(args: {
     store_id: args.store_id.trim(),
     store_name: String(args.store_name ?? "").trim() || "매장",
     order_status: "pending",
+    ...(args.fulfillment_type?.trim() ? { fulfillment_type: args.fulfillment_type.trim() } : {}),
     payment_amount: pa,
     total_amount: total,
     discount_amount: Math.max(0, Math.round(Number(args.discount_amount) || 0)),

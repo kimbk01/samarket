@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { MyStateView, type MyScreenTemplate, type MyStateViewProps } from "@/components/mypage/ds/MyStateView";
 import { MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfNavClick } from "@/lib/runtime/dibay-myinfo-perf";
@@ -23,6 +24,33 @@ export type MyScreenProps = {
 
 type MyInfoPerfWindow = Window & { __dibayMyInfoPerf?: { marks?: Record<string, unknown> } };
 
+/** 헤더 뒤로 가로채기 — true 를 돌려주면 이동하지 않는다(미저장 확인 등, T3). */
+type MyScreenBackGuard = () => boolean;
+
+const MyScreenBackGuardContext = createContext<((guard: MyScreenBackGuard | null) => void) | null>(null);
+
+/**
+ * 하위 화면 본문이 헤더 [뒤로]를 가로챌 때 사용 (예: 탈퇴 사유·동의 입력 후 뒤로 → 미저장 확인, S19).
+ * `guard` 가 true 를 돌려주면 이동하지 않는다. `MyScreen` 밖에서는 아무 동작도 하지 않는다.
+ */
+export function useMyScreenBackGuard(guard: MyScreenBackGuard | null): void {
+  const register = useContext(MyScreenBackGuardContext);
+  const guardRef = useRef(guard);
+  useEffect(() => {
+    guardRef.current = guard;
+  });
+  const active = guard != null;
+  useEffect(() => {
+    if (!register) return;
+    if (!active) {
+      register(null);
+      return;
+    }
+    register(() => guardRef.current?.() ?? false);
+    return () => register(null);
+  }, [active, register]);
+}
+
 /**
  * 내정보 하위 화면 골격 (최종 설계 §1.2) — 헤더(`MySubpageHeader`) + 본문 1열(40rem·16/20px, §1.8)
  * + 상태 슬롯 + 하단 CTA 슬롯. `MyPageStackShell` 의 성능 마크(`dibayMyInfoPerfMark`)를 그대로 유지한다.
@@ -36,6 +64,14 @@ export function MyScreen({
   stickyCta,
   children,
 }: MyScreenProps) {
+  const backGuardRef = useRef<MyScreenBackGuard | null>(null);
+  const [hasBackGuard, setHasBackGuard] = useState(false);
+  const registerBackGuard = useCallback((guard: MyScreenBackGuard | null) => {
+    backGuardRef.current = guard;
+    setHasBackGuard(guard != null);
+  }, []);
+  const interceptBack = useMemo(() => () => backGuardRef.current?.() ?? false, []);
+
   useEffect(() => {
     const s = (window as MyInfoPerfWindow).__dibayMyInfoPerf;
     if (!s?.marks?.route_start_ms) {
@@ -65,6 +101,16 @@ export function MyScreen({
         title={title}
         backHref={backHref}
         preferHistoryBack={preferHistoryBack}
+        leftSlot={
+          hasBackGuard ? (
+            <AppBackButton
+              backHref={backHref}
+              preferHistoryBack={preferHistoryBack}
+              interceptBack={interceptBack}
+              ariaLabelKey="nav_back"
+            />
+          ) : undefined
+        }
         hideCtaStrip
         showHubQuickActions
       />
@@ -74,7 +120,9 @@ export function MyScreen({
             stickyCta ? MY_STICKY_CTA_BODY_CLEARANCE_CLASS : "pb-4"
           }`}
         >
-          {state ? <MyStateView {...state} template={state.template ?? template} /> : children}
+          <MyScreenBackGuardContext.Provider value={registerBackGuard}>
+            {state ? <MyStateView {...state} template={state.template ?? template} /> : children}
+          </MyScreenBackGuardContext.Provider>
         </div>
       </div>
       {stickyCta}

@@ -2,12 +2,12 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samarket-store-address";
 import { ADDR_LIST_BADGE_BASE } from "@/lib/ui/address-flow-viber";
 
-/** Starbucks-inspired palette — 주소 관리 목록 전용 */
+/**
+ * 매장 메뉴 + 버튼(`lib/stores/store-menu-quick-add-button-styles.ts`, 배달 도메인) 전용 값 — 내정보 주소 목록은
+ * 아래 `sam-*` 토큰 클래스만 쓴다(최종 설계 S06 하드코딩 제거). 배달 화면 시각 불변을 위해 값만 유지.
+ */
 export const ADDR_SB_GREEN = "#00704A";
-export const ADDR_SB_GREEN_DARK = "#1E3932";
 export const ADDR_SB_MINT = "#D4E9E2";
-export const ADDR_SB_CREAM = "#F2F0EB";
-export const ADDR_SB_COFFEE = "#6F4E37";
 
 export type AddressListRowSurface = "master" | "store" | "default";
 
@@ -17,39 +17,41 @@ export function resolveAddressListRowSurface(row: UserAddressDTO): AddressListRo
   return "default";
 }
 
+/** 주소 목록 행 바탕 — 대표 = 눌림 그린 + 왼쪽 시그니처 선, 매장 = 경고(브라운·골드) 톤, 기본 = 흰 행 */
 export function addressListRowSurfaceClass(surface: AddressListRowSurface): string {
   switch (surface) {
     case "master":
-      return "rounded-ui-rect border border-[#00704A]/22 bg-[#E8F3EE] shadow-[inset_3px_0_0_0_#00704A]";
+      return "rounded-ui-rect border border-sam-primary/22 bg-sam-pressed-surface shadow-[inset_3px_0_0_0_var(--sam-primary)]";
     case "store":
-      return "rounded-ui-rect border border-[#6F4E37]/20 bg-[#F7F3ED] shadow-[inset_3px_0_0_0_#6F4E37]";
+      return "rounded-ui-rect border border-sam-warning/25 bg-sam-warning-soft/40 shadow-[inset_3px_0_0_0_var(--sam-warning)]";
     default:
-      return "rounded-ui-rect border border-sam-border bg-white shadow-sm";
+      return "rounded-ui-rect border border-sam-border-soft bg-sam-surface";
   }
 }
 
+/** 라벨 뱃지(집·회사·매장·기타) */
 export function addressDesignationBadgeClass(labelType: UserAddressDTO["labelType"]): string {
   switch (labelType) {
     case "home":
-      return `${ADDR_LIST_BADGE_BASE} border-[#00704A]/35 bg-[#D4E9E2] text-[#00704A]`;
+      return `${ADDR_LIST_BADGE_BASE} border-sam-primary/35 bg-sam-icon-surface text-sam-primary`;
     case "office":
-      return `${ADDR_LIST_BADGE_BASE} border-[#1E3932]/30 bg-[#E6EFEC] text-[#1E3932]`;
+      return `${ADDR_LIST_BADGE_BASE} border-sam-fg/25 bg-sam-surface-muted text-sam-fg`;
     case "shop":
-      return `${ADDR_LIST_BADGE_BASE} border-[#6F4E37]/35 bg-[#F2F0EB] text-[#6F4E37]`;
+      return `${ADDR_LIST_BADGE_BASE} border-sam-warning/35 bg-sam-warning-soft text-sam-warning`;
     case "other":
     default:
-      return `${ADDR_LIST_BADGE_BASE} border-[#6F4E37]/25 bg-white text-[#6F4E37]`;
+      return `${ADDR_LIST_BADGE_BASE} border-sam-border bg-sam-surface text-sam-muted`;
   }
 }
 
 export function addressMasterBadgeClass(): string {
-  return `${ADDR_LIST_BADGE_BASE} border-[#00704A] bg-[#00704A] text-white`;
+  return `${ADDR_LIST_BADGE_BASE} border-sam-primary bg-sam-primary text-[var(--sam-icon-on-primary)]`;
 }
 
 export function addressStoreLinkedBadgeClass(): string {
-  return `${ADDR_LIST_BADGE_BASE} border-[#6F4E37]/40 bg-[#6F4E37] text-[#F2F0EB]`;
+  return `${ADDR_LIST_BADGE_BASE} border-sam-warning/40 bg-sam-warning text-sam-surface`;
 }
 
 export function addressTapRepresentativeBadgeClass(): string {
-  return `${ADDR_LIST_BADGE_BASE} border-dashed border-[#00704A]/45 bg-white font-semibold text-[#00704A]`;
+  return `${ADDR_LIST_BADGE_BASE} border-dashed border-sam-primary/45 bg-sam-surface font-semibold text-sam-primary`;
 }

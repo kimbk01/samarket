@@ -4,7 +4,11 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import type { PointChargeRequest } from "@/lib/types/point";
 import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
 import { POINT_CHARGE_REQUEST_ROW_SELECT } from "@/lib/points/point-query-select";
-import { computeExpiringPointsFromLedger } from "@/lib/points/point-expire-utils";
+import {
+  allocateExpiringEntries,
+  computeExpiringPointsFromLedger,
+  type ExpiringPointEntry,
+} from "@/lib/points/point-expire-utils";
 import type { PointFinancialFilter } from "@/lib/points/point-financial-history";
 import {
   loadPointFinancialHistory,
@@ -119,8 +123,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const history = serializePointFinancialPage(historyRes.page);
 
-  /* SSOT-19 F-17: 소멸 예정 = 미만료·미래 만료 적립분 합, 잔액 상한 */
-  let expiring = { totalExpiringPoint: 0, nearestExpireAt: null as string | null, expiringEntriesCount: 0 };
+  /*
+   * SSOT-19 F-17: 소멸 예정 = 미만료·미래 만료 적립분 합, 잔액 상한.
+   * A8(S42): `entries` = 적립분별 금액(잔액 상한 FIFO 배분, 합 = totalExpiringPoint).
+   * 조회 실패를 0 으로 남기지 않는다 — `expiring:null` + `expiringError:true` (화면은 오류+재시도).
+   */
+  let expiring: {
+    totalExpiringPoint: number;
+    nearestExpireAt: string | null;
+    expiringEntriesCount: number;
+    entries: ExpiringPointEntry[];
+  } | null = { totalExpiringPoint: 0, nearestExpireAt: null, expiringEntriesCount: 0, entries: [] };
+  let expiringError = false;
   const expRes = await sb
     .from("point_ledger")
     .select("amount, expires_at, expired_amount")
@@ -132,10 +146,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order("expires_at", { ascending: true })
     .limit(1000);
   if (!expRes.error) {
-    expiring = computeExpiringPointsFromLedger(
-      (expRes.data ?? []) as Array<{ amount: number; expires_at: string | null; expired_amount: number | null }>,
-      summary.balance
-    );
+    const expRows = (expRes.data ?? []) as Array<{
+      amount: number;
+      expires_at: string | null;
+      expired_amount: number | null;
+    }>;
+    const nowIso = new Date().toISOString();
+    expiring = {
+      ...computeExpiringPointsFromLedger(expRows, summary.balance, nowIso),
+      entries: allocateExpiringEntries(expRows, summary.balance, nowIso),
+    };
+  } else {
+    console.error("[GET me/points] expiring lookup failed", expRes.error.message);
+    expiring = null;
+    expiringError = true;
   }
 
   return NextResponse.json({
@@ -159,6 +183,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     })),
     chargeRequests,
     expiring,
+    ...(expiringError ? { expiringError: true } : {}),
     source: "supabase",
   });
 }

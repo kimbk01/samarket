@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Check } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -57,30 +58,39 @@ export function CountrySettingsContent() {
     };
   }, [userId]);
 
+  /** 행 탭 = 즉시 저장 — 실패 시 스토어가 원래 값으로 되돌리고(구독으로 표시 복귀) 토스트(S13) */
   const select = useCallback(
     (code: string) => {
-      updateUserSettings(userId, { preferred_country: code });
       setCurrent(code);
+      void updateUserSettings(userId, { preferred_country: code });
     },
     [userId]
   );
 
   return (
-    <ul className="divide-y divide-sam-border-soft">
-      {list.map((c) => (
-        <li key={c.code}>
-          <button
-            type="button"
-            className="flex w-full items-center justify-between py-3 text-left sam-text-body text-sam-fg"
-            onClick={() => select(c.code)}
-          >
-            <span>{c.name}</span>
-            {current === c.code && (
-              <span className="sam-text-body-secondary font-medium text-signature">{t("common_selected")}</span>
-            )}
-          </button>
-        </li>
-      ))}
+    <ul
+      className="divide-y divide-sam-border-soft overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface"
+      role="radiogroup"
+    >
+      {list.map((c) => {
+        const selected = current === c.code;
+        return (
+          <li key={c.code}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              className="flex min-h-[52px] w-full items-center justify-between px-4 py-3 text-left text-[15px] font-semibold text-sam-fg transition-colors active:bg-sam-pressed-surface md:px-5"
+              onClick={() => select(c.code)}
+            >
+              <span>{c.name}</span>
+              {selected ? (
+                <Check className="h-[18px] w-[18px] text-sam-primary" strokeWidth={2.5} aria-label={t("common_selected")} />
+              ) : null}
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }

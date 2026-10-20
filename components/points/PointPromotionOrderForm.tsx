@@ -25,6 +25,13 @@ interface PointPromotionOrderFormProps {
   initialTargetId?: string | null;
   onSubmit: (values: PointPromotionOrderFormValues) => void;
   submitLabel?: string;
+  /** 제출 중 — 버튼 비활성(중복 제출 방지, S43) */
+  submitting?: boolean;
+  /** 하단 고정 CTA(`MyStickyCta`)가 대신 제출할 때 — 폼 id + 폼 안 버튼 숨김 (S46 apply T3) */
+  formId?: string;
+  hideSubmitButton?: boolean;
+  /** 제출 가능 여부 변화 — 바깥 고정 CTA 활성 상태 동기화 */
+  onCanSubmitChange?: (canSubmit: boolean) => void;
 }
 
 export function PointPromotionOrderForm({
@@ -34,6 +41,10 @@ export function PointPromotionOrderForm({
   initialTargetId = null,
   onSubmit,
   submitLabel,
+  submitting = false,
+  formId,
+  hideSubmitButton = false,
+  onCanSubmitChange,
 }: PointPromotionOrderFormProps) {
   const { t, language, safeT } = useI18n();
   const catalog = useMemo(() => listActiveMemberPromotionProducts(), []);
@@ -66,9 +77,13 @@ export function PointPromotionOrderForm({
     Boolean(selected) &&
     !insufficient;
 
+  useEffect(() => {
+    onCanSubmitChange?.(canSubmit);
+  }, [canSubmit, onCanSubmitChange]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit || !selected) return;
+    if (!canSubmit || !selected || submitting) return;
     const idem =
       typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
         ? crypto.randomUUID()
@@ -85,7 +100,7 @@ export function PointPromotionOrderForm({
   const langEn = language === "en";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           {t("points_ui_select_product")}
@@ -151,7 +166,7 @@ export function PointPromotionOrderForm({
           {t("points_ui_owned", { balance: balance === null ? "—" : balance.toLocaleString() })}
         </p>
         {insufficient ? (
-          <p className="mt-2 sam-text-body-secondary font-medium text-red-600">
+          <p className="mt-2 sam-text-body-secondary font-medium text-sam-danger">
             {t("points_ui_insufficient")}
           </p>
         ) : null}
@@ -159,8 +174,10 @@ export function PointPromotionOrderForm({
 
       <button
         type="submit"
-        disabled={!canSubmit}
-        className="w-full rounded-ui-rect bg-signature py-3 sam-text-body font-medium text-white disabled:opacity-50"
+        hidden={hideSubmitButton}
+        disabled={!canSubmit || submitting}
+        aria-busy={submitting}
+        className="w-full rounded-ui-rect bg-signature py-3 sam-text-body font-medium text-sam-on-primary disabled:opacity-50"
       >
         {submitText}
       </button>

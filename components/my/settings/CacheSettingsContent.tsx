@@ -1,19 +1,24 @@
 "use client";
 
-import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayConfirm } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
+import { MyStickyCta, MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
+import { MyGroup } from "@/components/mypage/ds/MyGroup";
 import { clearAppClientCaches } from "@/lib/mypage/clear-app-client-caches";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 
-/** 캐시 삭제 — 확인 → 실제 삭제(Cache Storage·세션 임시·목록 캐시) → 토스트. 로그인·기기 설정은 보존 (D16) */
+/**
+ * 캐시 삭제 (최종 설계 S17) — 지울 항목 설명 → 지우지 않는 것 → 하단 [캐시 삭제].
+ * 확인 → 레지스트리 키만 삭제(`client-cache-key-registry`) → 토스트. 진행 중 = 버튼 안 스피너.
+ * 정적 화면 — 로딩 없음, 서버 요청 0.
+ */
 export function CacheSettingsContent() {
   const { t } = useI18n();
-  const [busy, setBusy] = useState(false);
-  const inFlight = useRef(false);
+  const { run, pending } = useMypageSubmitGuard();
 
   const clear = async () => {
-    if (inFlight.current) return;
+    if (pending) return;
     const ok = await dibayConfirm({
       title: t("mypage_cache_clear_confirm_title"),
       description: t("mypage_cache_clear_confirm_desc"),
@@ -21,31 +26,39 @@ export function CacheSettingsContent() {
       confirmLabel: t("settings_cache_clear"),
     });
     if (!ok) return;
-    inFlight.current = true;
-    setBusy(true);
-    try {
-      await clearAppClientCaches();
-      showMypageToast(t("mypage_cache_clear_done"), "success");
-    } catch {
-      showMypageToast(t("mypage_cache_clear_failed"), "error");
-    } finally {
-      inFlight.current = false;
-      setBusy(false);
-    }
+    await run(async () => {
+      try {
+        await clearAppClientCaches();
+        showMypageToast(t("mypage_cache_clear_done"), "success");
+      } catch {
+        showMypageToast(t("mypage_cache_clear_failed"), "error");
+      }
+    });
   };
 
   return (
-    <div className="space-y-4">
-      <p className="sam-text-body text-sam-muted">{t("mypage_cache_clear_desc")}</p>
-      <button
-        type="button"
-        onClick={() => void clear()}
-        disabled={busy}
-        aria-busy={busy}
-        className="sam-btn sam-btn--secondary sam-btn--block"
-      >
-        {busy ? t("common_loading") : t("settings_cache_clear")}
-      </button>
+    <div className={`space-y-2 ${MY_STICKY_CTA_BODY_CLEARANCE_CLASS}`} data-testid="cache-settings">
+      <p className="px-1 pb-1 sam-text-body text-sam-muted">{t("mypage_cache_clear_desc")}</p>
+      <MyGroup title={t("mypage_s17_clears_title")}>
+        <ul className="list-disc space-y-1 px-4 py-3 pl-8 sam-text-body-secondary text-sam-fg md:px-5 md:pl-9">
+          <li>{t("mypage_s17_clears_images")}</li>
+          <li>{t("mypage_s17_clears_screens")}</li>
+          <li>{t("mypage_s17_clears_lists")}</li>
+        </ul>
+      </MyGroup>
+      <MyGroup title={t("mypage_s17_keeps_title")}>
+        <ul className="list-disc space-y-1 px-4 py-3 pl-8 sam-text-body-secondary text-sam-fg md:px-5 md:pl-9">
+          <li>{t("mypage_s17_keeps_login")}</li>
+          <li>{t("mypage_s17_keeps_consent")}</li>
+          <li>{t("mypage_s17_keeps_language")}</li>
+          <li>{t("mypage_s17_keeps_drafts")}</li>
+        </ul>
+      </MyGroup>
+      <MyStickyCta
+        dirty
+        primaryTone="secondary"
+        primary={{ label: t("settings_cache_clear"), onPress: () => void clear(), loading: pending }}
+      />
     </div>
   );
 }

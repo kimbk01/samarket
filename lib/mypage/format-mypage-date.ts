@@ -76,3 +76,36 @@ export function formatMypageMoney(amount: number | string | null | undefined): s
   if (amount == null || amount === "") return "";
   return formatMoneyPhp(amount);
 }
+
+/** 최근 본 상품 날짜 묶음 (최종 설계 S25) — 필리핀 시간 기준 */
+export type MypageRecencyBucket = "today" | "yesterday" | "this_week" | "earlier";
+
+export const MYPAGE_RECENCY_BUCKETS: readonly MypageRecencyBucket[] = ["today", "yesterday", "this_week", "earlier"];
+
+function dayNumber(key: string): number {
+  // `YYYY-MM-DD` → UTC 자정 기준 일 번호(같은 달력 날짜끼리 차이만 쓴다)
+  const ms = Date.parse(`${key}T00:00:00Z`);
+  return Number.isFinite(ms) ? Math.floor(ms / 86_400_000) : NaN;
+}
+
+/**
+ * 오늘·어제·이번 주·이전 — PHT(Asia/Manila) 달력 날짜 기준. 저장값(UTC)은 그대로.
+ * 「이번 주」 = 이번 주 월요일(PHT) 이후이면서 오늘·어제가 아닌 날. 미래 시각은 오늘로 본다.
+ */
+export function mypageRecencyBucket(
+  iso: string | number | Date | null | undefined,
+  now: number | Date = Date.now()
+): MypageRecencyBucket {
+  const dKey = mypageDateGroupKey(iso, "day");
+  const nKey = mypageDateGroupKey(now instanceof Date ? now : new Date(now), "day");
+  const d = dayNumber(dKey);
+  const n = dayNumber(nKey);
+  if (!Number.isFinite(d) || !Number.isFinite(n)) return "earlier";
+  const diff = n - d;
+  if (diff <= 0) return "today";
+  if (diff === 1) return "yesterday";
+  // 1970-01-01(일 번호 0)은 목요일 → 월요일=0 기준 요일
+  const dowMonday0 = (((n + 3) % 7) + 7) % 7;
+  const weekStart = n - dowMonday0;
+  return d >= weekStart ? "this_week" : "earlier";
+}

@@ -7,6 +7,10 @@ import { CUSTOMER_CENTER_FORM_COLUMN_CLASS } from "@/lib/mypage/customer-center-
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { CurrencyAmount } from "@/components/currency";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
+import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
+import { formatMypageMoney } from "@/lib/mypage/format-mypage-date";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
 
 interface PointChargeFormProps {
   plans: PointPlan[];
@@ -27,8 +31,10 @@ export function PointChargeForm({
   const [paymentMethod, setPaymentMethod] = useState<PointPaymentMethod>("manual_confirm");
   const [depositorName, setDepositorName] = useState("");
   const [userMemo, setUserMemo] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
+  /** S41 — 중복 제출 방지(진행 중 버튼 비활성+스피너, 연타 무시). X21: DB 멱등 키 없이 클라이언트 가드만 */
+  const guard = useMypageSubmitGuard();
+  const submitting = guard.pending;
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
   const totalPoint = selectedPlan
@@ -38,41 +44,45 @@ export function PointChargeForm({
   const methodLabel = (m: PointPaymentMethod) =>
     m === "manual_confirm" ? t("points_ui_method_manual") : t("points_ui_method_bank");
 
-  const submit = async () => {
-    if (!selectedPlanId || submitting) return;
-    if (paymentMethod === "manual_confirm" && !depositorName.trim()) {
-      setErr(t("points_ui_depositor_required_err"));
-      return;
-    }
-    setSubmitting(true);
-    setErr("");
-    try {
-      const res = await fetch("/api/me/points/charge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: selectedPlanId, paymentMethod, depositorName, userMemo }),
-      });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) {
-        setErr(j.error ?? t("points_ui_request_failed"));
+  const submit = () =>
+    guard.run(async () => {
+      if (!selectedPlanId) return;
+      if (paymentMethod === "manual_confirm" && !depositorName.trim()) {
+        setErr(t("points_ui_depositor_required_err"));
         return;
       }
-      onSuccess();
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      setErr("");
+      try {
+        const res = await fetch("/api/me/points/charge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId: selectedPlanId, paymentMethod, depositorName, userMemo }),
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !j.ok) {
+          // 서버 오류 코드는 노출하지 않는다 — 공통 실패 문구 + 실패 토스트
+          setErr(t("points_ui_request_failed"));
+          showMypageToast(t("points_ui_request_failed"), "error");
+          return;
+        }
+        onSuccess();
+      } catch {
+        setErr(t("points_ui_request_failed"));
+        showMypageToast(t("points_ui_request_failed"), "error");
+      }
+    });
 
   const body = (
-    <div className={layout === "page" ? `${CUSTOMER_CENTER_FORM_COLUMN_CLASS} pb-10 pt-2` : undefined}>
+    <div className={layout === "page" ? `${CUSTOMER_CENTER_FORM_COLUMN_CLASS} pb-4 pt-2` : undefined}>
       {plans.length === 0 ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-6 text-center sam-text-body text-sam-muted">
-          {t("common_content_unavailable")}
+          {t("mypage_oa_charge_no_plans")}
         </p>
       ) : (
         <>
           <p className="mb-2 sam-text-body-secondary font-semibold text-sam-fg">{t("points_ui_select_plan")}</p>
-          <div className="mb-4 space-y-2">
+          {/* 플랜 1열, 태블릿(820px) 2열 */}
+          <div className={`mb-4 grid gap-2 ${layout === "page" ? "md:grid-cols-2" : ""}`}>
             {plans.map((plan) => {
               const total = plan.pointAmount + (plan.bonusPointAmount ?? 0);
               const isSelected = selectedPlanId === plan.id;
@@ -81,8 +91,11 @@ export function PointChargeForm({
                   key={plan.id}
                   type="button"
                   onClick={() => setSelectedPlanId(plan.id)}
+                  aria-pressed={isSelected}
                   className={`min-h-11 w-full rounded-ui-rect border px-4 py-3 text-left transition-colors ${
-                    isSelected ? "border-sky-400 bg-sky-50" : "border-sam-border bg-sam-surface hover:bg-sam-app"
+                    isSelected
+                      ? "border-sam-primary bg-sam-pressed-surface"
+                      : "border-sam-border bg-sam-surface hover:bg-sam-app"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -99,9 +112,9 @@ export function PointChargeForm({
                         compactPoint
                         className="sam-text-body"
                       />
-                      <p className="sam-text-helper text-sam-muted">₱{plan.paymentAmount.toLocaleString()}</p>
+                      <p className="sam-text-helper text-sam-muted">{formatMypageMoney(plan.paymentAmount)}</p>
                       {(plan.bonusPointAmount ?? 0) > 0 && (
-                        <p className="sam-text-xxs text-emerald-600">
+                        <p className="sam-text-xxs text-sam-success">
                           {t("points_ui_bonus", { bonus: plan.bonusPointAmount ?? 0 })}
                         </p>
                       )}
@@ -121,7 +134,7 @@ export function PointChargeForm({
                 onClick={() => setPaymentMethod(m)}
                 className={`min-h-11 min-w-[8rem] flex-1 rounded-ui-rect border py-2.5 sam-text-body-secondary font-medium transition-colors ${
                   paymentMethod === m
-                    ? "border-sky-400 bg-sky-50 text-sky-800"
+                    ? "border-sam-primary bg-sam-pressed-surface text-sam-primary"
                     : "border-sam-border bg-sam-surface text-sam-fg"
                 }`}
               >
@@ -132,7 +145,7 @@ export function PointChargeForm({
 
           {paymentMethod === "manual_confirm" && (
             <div className="mb-4 space-y-2">
-              <div className="rounded-ui-rect bg-amber-50 px-3 py-2.5 sam-text-helper text-amber-800">
+              <div className="rounded-ui-rect bg-sam-warning-soft px-3 py-2.5 sam-text-helper text-sam-fg">
                 <p className="font-semibold">{t("points_ui_deposit_guide_title")}</p>
                 <p>{t("points_ui_deposit_guide_body")}</p>
                 <p className="mt-1 break-all font-mono">{t("points_ui_deposit_account")}</p>
@@ -168,23 +181,41 @@ export function PointChargeForm({
 
           {err ? <p className={`mb-3 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{err}</p> : null}
 
-          <DibayOverlayButton
-            roleTone="primary"
-            type="button"
-            onClick={() => void submit()}
-            disabled={submitting || !selectedPlanId}
-            loading={submitting}
-            className="w-full"
-          >
-            {submitting ? t("common_processing") : t("points_ui_submit_charge")}
-          </DibayOverlayButton>
+          {layout === "page" ? null : (
+            <DibayOverlayButton
+              roleTone="primary"
+              type="button"
+              onClick={() => void submit()}
+              disabled={submitting || !selectedPlanId}
+              loading={submitting}
+              className="w-full"
+            >
+              {submitting ? t("common_processing") : t("points_ui_submit_charge")}
+            </DibayOverlayButton>
+          )}
         </>
       )}
     </div>
   );
 
   if (layout === "page") {
-    return body;
+    // S41 — 하단 고정 [충전 요청] (활성 = 플랜 선택 & 미제출 중)
+    return (
+      <>
+        {body}
+        {plans.length > 0 ? (
+          <MyStickyCta
+            dirty={Boolean(selectedPlanId)}
+            primary={{
+              label: t("points_ui_submit_charge"),
+              onPress: () => void submit(),
+              loading: submitting,
+              disabled: submitting,
+            }}
+          />
+        ) : null}
+      </>
+    );
   }
 
   return (

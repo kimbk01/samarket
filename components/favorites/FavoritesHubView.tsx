@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FavoriteProductsView } from "@/components/favorites/FavoriteProductsView";
 import { FavoriteStoresView } from "@/components/favorites/FavoriteStoresView";
@@ -11,13 +10,13 @@ import {
   type FavoritesHubSegmentId,
 } from "@/lib/mypage/favorites-hub-segments";
 import { useMyFavoriteCount } from "@/hooks/useMyFavoriteCount";
+import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
 
-function parseSegment(raw: string | null): FavoritesHubSegmentId {
-  return raw === "store" ? "store" : "trade";
-}
+const SEGMENT_IDS = FAVORITES_HUB_SEGMENTS.map((s) => s.id) as readonly FavoritesHubSegmentId[];
 
 /**
- * 찜 허브 — 1단 중고거래|스토어, 2단(거래) 판매중/완료 탭은 FavoriteProductsView 내부
+ * 찜 허브 — 1단 중고거래|스토어(`?fav=trade|store`, 기존 키 유지 X17), 2단(거래) 칩은 FavoriteProductsView 내부(`?chip=`).
+ * 탭 전환은 `history.replaceState`(뒤로가기 기록 없음) — 공유 링크 `?fav=store` 그대로 진입.
  */
 export function FavoritesHubView({
   embedded = false,
@@ -27,11 +26,17 @@ export function FavoritesHubView({
   initialSegment?: FavoritesHubSegmentId;
 } = {}) {
   const { t } = useI18n();
-  const searchParams = useSearchParams();
-  const querySegment = parseSegment(searchParams?.get("fav") ?? null);
-  const [segment, setSegment] = useState<FavoritesHubSegmentId>(
-    initialSegment ?? querySegment
-  );
+  const [urlSegment, setUrlSegment] = useMypageTabParam<FavoritesHubSegmentId>({
+    key: "fav",
+    values: SEGMENT_IDS,
+    defaultValue: "trade",
+  });
+  const [localSegment, setLocalSegment] = useState<FavoritesHubSegmentId | null>(initialSegment ?? null);
+  const segment = localSegment ?? urlSegment;
+  const setSegment = (next: FavoritesHubSegmentId) => {
+    if (localSegment != null) setLocalSegment(next);
+    else setUrlSegment(next);
+  };
   const { tradeCount, storeCount } = useMyFavoriteCount();
 
   const segmentCounts = useMemo(
@@ -63,7 +68,7 @@ export function FavoritesHubView({
       {segment === "store" ? (
         <FavoriteStoresView embedded />
       ) : (
-        <FavoriteProductsView embedded hideOuterPadding />
+        <FavoriteProductsView embedded hideOuterPadding syncUrl={localSegment == null} />
       )}
     </div>
   );

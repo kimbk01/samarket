@@ -1,7 +1,6 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -11,6 +10,17 @@ import {
   collectActivePromotionTargetIds,
   filterMyProductsByListingAxis,
 } from "@/lib/products/my-product-listing-filter";
+import { MyListPager, MyStateView } from "@/components/mypage/ds";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
+import {
+  fetchMypageListJson,
+  forgetMypageListCache,
+  useMypageCursorList,
+  type MypageCursorPage,
+} from "@/lib/mypage/use-mypage-cursor-list";
+import { MYPAGE_LIST_PAGE_DEFAULT } from "@/lib/mypage/mypage-list-cursor";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -49,20 +59,11 @@ export function MyProductsView({
   const writeCtx = useWriteCategory();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => getCurrentUser()?.id ?? null);
-  const [rawProducts, setRawProducts] = useState<Product[]>([]);
   const [promotedTargetIds, setPromotedTargetIds] = useState<Set<string>>(() => new Set());
   const [salesRows, setSalesRows] = useState<SalesHistoryRow[]>([]);
   const [salesLoadFailed, setSalesLoadFailed] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   const tradesByPostId = useMemo(() => groupSalesRowsByPostId(salesRows), [salesRows]);
-
-  const products = filterMyProductsByListingAxis(
-    rawProducts,
-    filter,
-    promotedOnly,
-    promotedTargetIds
-  );
 
   useEffect(() => {
     const syncUser = () => setCurrentUserId(getCurrentUser()?.id ?? null);
@@ -71,12 +72,33 @@ export function MyProductsView({
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, syncUser);
   }, []);
 
-  const fetchMyPosts = useCallback(async (uid: string) => {
-    const res = await runSingleFlight(`me:my-posts:${uid.trim()}`, () => fetch("/api/my/posts"));
-    if (!res.ok) return [];
-    const data = (await res.clone().json()) as { posts?: Product[] };
-    return (data.posts ?? []) as Product[];
-  }, []);
+  /** A1 페이지 모드(옵트인) — 서버가 같은 술어(`filterMyProductsByListingAxis`)로 필터·keyset 커서 */
+  const listKey = currentUserId
+    ? `me:my-posts:${currentUserId.trim()}:${filter}:${promotedOnly ? 1 : 0}`
+    : null;
+  const fetchMyPostsPage = useCallback(
+    async (cursor: string | null): Promise<MypageCursorPage<Product>> => {
+      const qs = new URLSearchParams({ limit: String(MYPAGE_LIST_PAGE_DEFAULT), filter });
+      if (promotedOnly) qs.set("promoted", "1");
+      if (cursor) qs.set("cursor", cursor);
+      const data = await runSingleFlight(`${listKey}:${cursor ?? ""}`, () =>
+        fetchMypageListJson<{ posts?: Product[]; next_cursor?: string | null }>(`/api/my/posts?${qs}`)
+      );
+      return { items: (data.posts ?? []) as Product[], next_cursor: data.next_cursor ?? null };
+    },
+    [filter, listKey, promotedOnly]
+  );
+  const list = useMypageCursorList<Product>({
+    cacheKey: listKey,
+    fetchPage: fetchMyPostsPage,
+    getId: (p) => String(p.id),
+  });
+  const { reload: reloadList, setItems: setListItems } = list;
+
+  /** 낙관 갱신 후에도 현재 필터 술어를 그대로 적용(같은 술어 — 서버와 일치) */
+  const products = filterMyProductsByListingAxis(list.items, filter, promotedOnly, promotedTargetIds);
+
+  useMypageListRestore({ ready: list.status === "ready", loadedPages: list.pages });
 
   const fetchPromotedTargetIds = useCallback(async (uid: string) => {
     const res = await runSingleFlight(`me:promotion-orders:get:${uid.trim()}`, () =>
@@ -88,117 +110,85 @@ export function MyProductsView({
     return collectActivePromotionTargetIds(data.orders);
   }, []);
 
+  /** 보조 데이터(홍보 대상·판매 거래 행) — 본문 목록과 별개(부분 오류는 카드 단위 안내) */
   const loadListing = useCallback(
     async (uid: string) => {
-      const [list, ids, salesResult] = await Promise.all([
-        fetchMyPosts(uid),
-        fetchPromotedTargetIds(uid),
+      const [ids, salesResult] = await Promise.all([
+        fetchPromotedTargetIds(uid).catch(() => new Set<string>()),
         fetchTradeHistorySalesBySession()
           .then((rows) => ({ ok: true as const, rows: rows as SalesHistoryRow[] }))
           .catch(() => ({ ok: false as const, rows: [] as SalesHistoryRow[] })),
       ]);
       return {
-        list,
         ids,
         salesRows: salesResult.rows,
         salesOk: salesResult.ok,
       };
     },
-    [fetchMyPosts, fetchPromotedTargetIds]
+    [fetchPromotedTargetIds]
+  );
+
+  const applyListing = useCallback(
+    (r: { ids: Set<string>; salesRows: SalesHistoryRow[]; salesOk: boolean }) => {
+      setPromotedTargetIds(r.ids);
+      setSalesRows(r.salesRows);
+      setSalesLoadFailed(!r.salesOk);
+    },
+    []
   );
 
   useEffect(() => {
     if (!currentUserId) {
-      setRawProducts([]);
       setPromotedTargetIds(new Set());
       setSalesRows([]);
       setSalesLoadFailed(false);
-      setLoading(false);
       return;
     }
     let cancelled = false;
-    setLoading(true);
     loadListing(currentUserId)
-      .then(({ list, ids, salesRows: nextSalesRows, salesOk }) => {
-        if (!cancelled) {
-          setRawProducts(list);
-          setPromotedTargetIds(ids);
-          setSalesRows(nextSalesRows);
-          setSalesLoadFailed(!salesOk);
-        }
+      .then((r) => {
+        if (!cancelled) applyListing(r);
       })
       .catch(() => {
-        if (!cancelled) {
-          setRawProducts([]);
-          setPromotedTargetIds(new Set());
-          setSalesRows([]);
-          setSalesLoadFailed(true);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setSalesLoadFailed(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [currentUserId, loadListing]);
+  }, [applyListing, currentUserId, loadListing]);
 
-  useEffect(() => {
+  /** 조용한 재조회 — 첫 페이지만 교체(이미 불러온 추가 페이지 유지) + 보조 데이터 */
+  const refresh = useCallback(() => {
     if (!currentUserId) return;
-    const run = () => {
-      loadListing(currentUserId)
-        .then(({ list, ids, salesRows: nextSalesRows, salesOk }) => {
-          setRawProducts(list);
-          setPromotedTargetIds(ids);
-          setSalesRows(nextSalesRows);
-          setSalesLoadFailed(!salesOk);
-        })
-        .catch(() => {
-          setSalesLoadFailed(true);
-        });
-    };
-    const onVis = () => {
-      if (document.visibilityState === "visible") run();
-    };
-    window.addEventListener("focus", run);
-    document.addEventListener("visibilitychange", onVis);
-    return () => {
-      document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("focus", run);
-    };
-  }, [currentUserId, loadListing]);
-
-  const refetchPostsSilent = useCallback(() => {
-    if (!currentUserId) return;
+    void reloadList();
     void loadListing(currentUserId)
-      .then(({ list, ids, salesRows: nextSalesRows, salesOk }) => {
-        setRawProducts(list);
-        setPromotedTargetIds(ids);
-        setSalesRows(nextSalesRows);
-        setSalesLoadFailed(!salesOk);
-      })
+      .then(applyListing)
       .catch(() => {
         setSalesLoadFailed(true);
       });
-  }, [currentUserId, loadListing]);
+  }, [applyListing, currentUserId, loadListing, reloadList]);
 
-  useRefetchOnPageShowRestore(refetchPostsSilent, { enableVisibilityRefetch: false });
+  useEffect(() => {
+    if (!currentUserId) return;
+    const onVis = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [currentUserId, refresh]);
 
-  const refresh = useCallback(() => {
-    if (!currentUserId) {
-      setRawProducts([]);
-      setPromotedTargetIds(new Set());
-      setSalesRows([]);
-      setSalesLoadFailed(false);
-      return;
-    }
-    void loadListing(currentUserId).then(({ list, ids, salesRows: nextSalesRows, salesOk }) => {
-      setRawProducts(list);
-      setPromotedTargetIds(ids);
-      setSalesRows(nextSalesRows);
-      setSalesLoadFailed(!salesOk);
-    });
-  }, [currentUserId, loadListing]);
+  useRefetchOnPageShowRestore(refresh, { enableVisibilityRefetch: false });
+
+  /** 쓰기 후 — 다른 필터 캐시 무효화 + 홈 요약 무효화 + 현재 목록 재조회 */
+  const afterWrite = useCallback(() => {
+    if (currentUserId) forgetMypageListCache(`me:my-posts:${currentUserId.trim()}:`);
+    invalidateMypageSummary();
+    refresh();
+  }, [currentUserId, refresh]);
 
   const handleStatusChange = useCallback(
     async (productId: string, newStatus: Product["status"]) => {
@@ -211,20 +201,18 @@ export function MyProductsView({
             status: newStatus,
           }),
         });
-        const data = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-        };
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
         if (!res.ok || !data.ok) {
-          await dibayAlert({ title: data.error ?? "상태 변경에 실패했습니다." });
+          // 서버 원문(영문·한국어) 노출 금지 — i18n 오류 토스트
+          showMypageToast(t("mypage_comp_product_network_change_failed"), "error");
           return;
         }
-        refresh();
+        afterWrite();
       } catch {
-        await dibayAlert({ title: t("mypage_comp_product_network_change_failed") });
+        showMypageToast(t("mypage_comp_product_network_change_failed"), "error");
       }
     },
-    [currentUserId, refresh, t]
+    [afterWrite, currentUserId, t]
   );
 
   const handleDelete = useCallback(
@@ -234,20 +222,18 @@ export function MyProductsView({
         const res = await fetch(`/api/posts/${encodeURIComponent(productId)}/owner-delete`, {
           method: "POST",
         });
-        const data = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-        };
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
         if (!res.ok || !data.ok) {
-          await dibayAlert({ title: data.error ?? t("mypage_comp_product_network_change_failed") });
+          showMypageToast(t("mypage_comp_product_network_change_failed"), "error");
           return;
         }
-        refresh();
+        setListItems((prev) => prev.filter((p) => String(p.id) !== productId));
+        afterWrite();
       } catch {
-        await dibayAlert({ title: t("mypage_comp_product_network_change_failed") });
+        showMypageToast(t("mypage_comp_product_network_change_failed"), "error");
       }
     },
-    [currentUserId, refresh, t]
+    [afterWrite, currentUserId, setListItems, t]
   );
 
   const openWrite = useCallback(() => {
@@ -376,30 +362,40 @@ export function MyProductsView({
     );
   };
 
+  const loading = Boolean(currentUserId) && list.status === "loading";
+
   return (
-    <div className="flex min-w-0 flex-col pb-28">
+    <div className="mx-auto flex w-full min-w-0 max-w-[40rem] flex-col pb-28">
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="sam-text-body text-sam-muted">{t("mypage_comp_loading_short")}</p>
-        </div>
-      ) : products.length === 0 ? (
+        <MyProductsSkeleton />
+      ) : currentUserId && list.status === "error" ? (
+        <MyStateView kind="error" error={{ onRetry: () => void list.reload() }} />
+      ) : products.length === 0 && !list.nextCursor ? (
         renderEmpty()
       ) : (
-        <ul className="overflow-hidden rounded-ui-rect bg-sam-surface divide-y divide-sam-border-soft">
-          {products.map((product) => (
-            <li key={product.id}>
-              <MyProductCard
-                product={product}
-                isPromoted={promotedTargetIds.has(product.id)}
-                tradeRows={tradesByPostId.get(product.id) ?? []}
-                buyerChatsLoadFailed={salesLoadFailed}
-                onStatusChange={handleStatusChange}
-                onDelete={handleDelete}
-                onPromotionChanged={refresh}
-              />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="overflow-hidden rounded-ui-rect bg-sam-surface divide-y divide-sam-border-soft">
+            {products.map((product) => (
+              <li key={product.id}>
+                <MyProductCard
+                  product={product}
+                  isPromoted={promotedTargetIds.has(product.id)}
+                  tradeRows={tradesByPostId.get(product.id) ?? []}
+                  buyerChatsLoadFailed={salesLoadFailed}
+                  onStatusChange={handleStatusChange}
+                  onDelete={handleDelete}
+                  onPromotionChanged={refresh}
+                />
+              </li>
+            ))}
+          </ul>
+          <MyListPager
+            hasMore={Boolean(list.nextCursor)}
+            loading={list.loadingMore}
+            error={list.loadMoreError}
+            onLoadMore={list.loadMore}
+          />
+        </>
       )}
 
       <div
@@ -415,5 +411,30 @@ export function MyProductsView({
         </button>
       </div>
     </div>
+  );
+}
+
+/** 스켈레톤 — 카드 5개 [100×100 사진 + 가격 40% + 제목 2줄 + 지역 30% + 상태 1줄] (최종 설계 S20) */
+function MyProductsSkeleton() {
+  const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
+  return (
+    <ul
+      aria-busy="true"
+      data-testid="my-products-skeleton"
+      className="overflow-hidden rounded-ui-rect bg-sam-surface divide-y divide-sam-border-soft"
+    >
+      {Array.from({ length: 5 }, (_, i) => (
+        <li key={i} className="flex gap-3 px-3 py-3">
+          <span className={`h-[100px] w-[100px] shrink-0 ${bone}`} />
+          <span className="flex min-h-[100px] min-w-0 flex-1 flex-col justify-between py-0.5">
+            <span className={`h-4 w-[40%] ${bone}`} />
+            <span className={`h-3.5 w-[90%] ${bone}`} />
+            <span className={`h-3.5 w-[65%] ${bone}`} />
+            <span className={`h-3 w-[30%] ${bone}`} />
+            <span className={`h-3 w-[45%] ${bone}`} />
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }

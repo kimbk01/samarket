@@ -23,6 +23,7 @@ import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/netw
 import { MyPageGuestHomeDashboard } from "@/components/mypage/MyPageGuestHomeDashboard";
 import { MypageProfileSheetsHost } from "@/components/mypage/profile-settings/MypageProfileSheetsHost";
 import { MypageProfileSheetsProvider } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
+import { MypageProfileEditQueryOpener } from "@/components/mypage/profile-settings/MypageProfileEditQueryOpener";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
@@ -168,6 +169,8 @@ export function MyContent({
         </div>
       </div>
       <MypageProfileSheetsHost profile={projection?.profile ?? null} />
+      {/* `/mypage?edit=profile` → 프로필 수정 시트 1회 열기 후 쿼리 제거 (X1·S01) */}
+      <MypageProfileEditQueryOpener enabled={pathname === "/mypage" || pathname === "/my"} />
     </MypageProfileSheetsProvider>
   );
 }

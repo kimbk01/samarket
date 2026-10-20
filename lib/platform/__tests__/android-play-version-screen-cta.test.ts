@@ -60,7 +60,7 @@ describe("resolveVersionScreenCta", () => {
     expect(m.primaryEnabled).toBe(false);
   });
 
-  it("disables install CTA on non-android", () => {
+  it("renders no update button on non-android (X6/S18 — iOS·web)", () => {
     const m = resolveVersionScreenCta({
       ...base,
       platformIsAndroidNative: false,
@@ -69,6 +69,12 @@ describe("resolveVersionScreenCta", () => {
     expect(m.statusKind).toBe("unavailable");
     expect(m.primaryEnabled).toBe(false);
     expect(m.primaryAction).toBe("none");
+    expect(m.showPrimaryButton).toBe(false);
+  });
+
+  it("keeps the update button on android native", () => {
+    expect(resolveVersionScreenCta({ ...base, freshness: "latest" }).showPrimaryButton).toBe(true);
+    expect(resolveVersionScreenCta({ ...base, freshness: "update_available" }).showPrimaryButton).toBe(true);
   });
 
   it("surfaces canceled with retry when update still available", () => {

@@ -9,18 +9,22 @@ interface PointBalanceCardProps {
   className?: string;
 }
 
+/** 음수 잔액 = 위험색(S40 "음수 빨강") — 공용 카드는 건드리지 않고 금액 노드만 토큰으로 칠한다 */
+export const POINT_BALANCE_NEGATIVE_CLASS = "[&_[data-currency-amount]]:!text-sam-danger";
+
 export function PointBalanceCard({ balance, className = "" }: PointBalanceCardProps) {
   const { t } = useI18n();
+  const negative = balance !== null && balance < 0;
 
   return (
     <CurrencyBalanceCard
       currency="point"
       amount={balance}
       compactPoint
-      className={className}
+      className={`${negative ? POINT_BALANCE_NEGATIVE_CLASS : ""} ${className}`.trim()}
       footer={
-        balance !== null && balance < 0 ? (
-        <p className="mt-2 sam-text-helper text-sam-muted">
+        negative ? (
+        <p className="mt-2 sam-text-helper text-sam-danger" data-point-balance-negative="1">
           {t("point_fin_negative_balance_note")}
         </p>
         ) : null

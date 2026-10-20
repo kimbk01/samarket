@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
@@ -28,7 +28,6 @@ import { StoreCommerceOrderTimeline } from "@/components/stores/StoreCommerceOrd
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
-import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
 import { SupportContextProvider } from "@/components/support/SupportContextProvider";
 import { buildMemberSupportContext } from "@/lib/support/support-context";
 import { shouldEnableStoreOrderSupportFab } from "@/lib/support/store-order-support-fab";
@@ -66,6 +65,28 @@ import {
   dibayPerfRecordOrderDetailSeedUsed,
 } from "@/lib/dibay/delivery-flow-perf";
 import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import {
+  MyStickyCta,
+  MY_STICKY_CTA_BODY_CLEARANCE_CLASS,
+  type MyStickyCtaAction,
+} from "@/components/mypage/ds/MyStickyCta";
+import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
+import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import {
+  isStoreOrderCancelReasonValid,
+  resolveStoreOrderDetailCtaPlan,
+  resolveStoreOrderMutationErrorKey,
+  resolveStoreOrdersLoadErrorKey,
+  storeOrderSeedStatusLabel,
+  STORE_ORDER_CANCEL_REASON_MAX,
+  type StoreOrderDetailCtaAction,
+} from "@/lib/mypage/my-store-orders-ui";
+import { useStoreOrderReorderAgain } from "@/components/mypage/StoreOrderReorderAgainButton";
 
 type ItemRow = {
   id: string;
@@ -146,6 +167,67 @@ type OrderDetail = {
   checkout_route_distance_meters?: number | null;
 };
 
+/** S31 스켈레톤 — 상태 단계 바 + 매장 행 + 메뉴 3줄 + 금액 4줄 + 하단 CTA 자리 */
+function StoreOrderDetailSkeleton() {
+  const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
+  const card = "rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4";
+  return (
+    <div aria-busy="true" data-testid="store-order-detail-skeleton" className="space-y-4">
+      <div className={card}>
+        <div className="flex items-center gap-2.5">
+          <span className="h-11 w-11 shrink-0 rounded-full bg-sam-border-soft/70 motion-safe:animate-pulse" />
+          <span className="flex flex-1 flex-col gap-2">
+            <span className={`h-4 w-[45%] ${bone}`} />
+            <span className={`h-3 w-[30%] ${bone}`} />
+          </span>
+        </div>
+        <span className={`mt-3 block h-20 w-full ${bone}`} />
+      </div>
+      <div className={card}>
+        <span className={`block h-3 w-24 ${bone}`} />
+        {[0, 1, 2].map((i) => (
+          <span key={i} className={`mt-3 block h-4 w-[80%] ${bone}`} data-skeleton-row="" />
+        ))}
+      </div>
+      <div className={card}>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="mt-2 flex justify-between first:mt-0" data-skeleton-row="">
+            <span className={`h-3.5 w-[35%] ${bone}`} />
+            <span className={`h-3.5 w-[20%] ${bone}`} />
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <span className={`h-[46px] flex-1 ${bone}`} />
+        <span className={`h-[46px] flex-[1.2] ${bone}`} />
+      </div>
+    </div>
+  );
+}
+
+/** 완료 주문 재주문 payload — 상세 응답 그대로(추가 조회 0) */
+function buildDetailReorderPayload(order: OrderDetail, items: ItemRow[]): CompletedOrderReorderPayload | null {
+  if (order.order_status !== "completed") return null;
+  const slug = String(order.store_slug ?? "").trim();
+  const reorderItems = items
+    .map((it) => ({
+      product_id: String(it.product_id ?? "").trim(),
+      product_title_snapshot: it.product_title_snapshot,
+      price_snapshot: Math.round(Number(it.price_snapshot) || 0),
+      qty: Math.max(1, Math.floor(Number(it.qty) || 1)),
+      options_snapshot_json: it.options_snapshot_json,
+    }))
+    .filter((it) => it.product_id.length > 0);
+  if (!slug || reorderItems.length === 0) return null;
+  return {
+    storeId: order.store_id,
+    storeSlug: slug,
+    storeName: order.store_name,
+    fulfillmentType: order.fulfillment_type,
+    items: reorderItems,
+  };
+}
+
 function formatPrepClock(iso: string | null | undefined, locale: string): string | null {
   const s = typeof iso === "string" ? iso.trim() : "";
   if (!s) return null;
@@ -191,10 +273,15 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelErr, setCancelErr] = useState<string | null>(null);
-  const [refundBusy, setRefundBusy] = useState(false);
   const [refundErr, setRefundErr] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState("");
   const [receiptOpen, setReceiptOpen] = useState(false);
+  /** 결제 전 즉시 취소 — 확인 시트(danger) */
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  /** 결제 후 취소 요청 — 사유 시트(2~500자) */
+  const [reasonSheetOpen, setReasonSheetOpen] = useState(false);
+  const reasonGuard = useMypageSubmitGuard();
+  const cancelGuard = useMypageSubmitGuard();
   const detailPerfOnceRef = useRef<string | null>(null);
   const seedUsedOnceRef = useRef<string | null>(null);
   const orderNotificationReadOnceRef = useRef<string | null>(null);
@@ -348,10 +435,15 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     return () => setMainTier1Extras(null);
   }, [ordersHub, setMainTier1Extras]);
 
+  const reorderPayloadForCta = useMemo(
+    () => (state.kind === "ok" ? buildDetailReorderPayload(state.order, state.items) : null),
+    [state]
+  );
+  const reorder = useStoreOrderReorderAgain(reorderPayloadForCta);
+
   async function requestRefund() {
     if (!orderId || state.kind !== "ok") return;
     setRefundErr(null);
-    setRefundBusy(true);
     try {
       // 진행 중 취소 요청 — 매장이 승인·반려 (사유 필수)
       const { json } = await patchMeStoreOrder(orderId, {
@@ -360,23 +452,18 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       });
       const j = json as { ok?: boolean; error?: string };
       if (!j?.ok) {
-        const code = typeof j.error === "string" ? j.error : "cancel_request_failed";
-        setRefundErr(
-          code === "cannot_request_cancel"
-            ? t("mypage_comp_cancel_req_err_cannot")
-            : code === "cancel_reason_required"
-              ? t("mypage_comp_cancel_req_reason_required")
-              : t("mypage_comp_request_failed_code", { code })
-        );
+        setRefundErr(t(resolveStoreOrderMutationErrorKey("request_cancel", j?.error)));
         return;
       }
+      setReasonSheetOpen(false);
+      setRefundReason("");
+      showMypageToast(t("mypage_oa_cancel_request_sent"), "success");
+      invalidateMypageSummary();
       // 현재 화면 유지한 채 최신 상태로 갱신
       await load({ silent: true, force: true });
       router.refresh();
     } catch {
       setRefundErr(t("mypage_comp_network_error"));
-    } finally {
-      setRefundBusy(false);
     }
   }
 
@@ -388,26 +475,30 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       const { json } = await patchMeStoreOrder(orderId, { cancel: true });
       const j = json as { ok?: boolean; error?: string };
       if (!j?.ok) {
-        const code = typeof j.error === "string" ? j.error : "cancel_failed";
-        setCancelErr(
+        const code = typeof j?.error === "string" ? j.error : "";
+        const msg =
           code === "cannot_cancel_after_accepted"
             ? t("mypage_comp_cancel_err_after_accepted")
-            : t("mypage_comp_cancel_failed_code", { code })
-        );
+            : t(resolveStoreOrderMutationErrorKey("cancel", code));
+        setCancelErr(msg);
+        showMypageToast(msg, "error");
         return;
       }
+      showMypageToast(t("mypage_comp_orders_cancel_success"), "success");
+      invalidateMypageSummary();
       // 현재 화면 유지한 채 최신 상태로 갱신
       await load({ silent: true, force: true });
       router.refresh();
     } catch {
       setCancelErr(t("mypage_comp_network_error"));
+      showMypageToast(t("mypage_comp_network_error"), "error");
     } finally {
       setCancelBusy(false);
     }
   }
 
   if (state.kind === "loading") {
-    return <p className="text-sm text-sam-muted">{t("mypage_comp_loading_short")}</p>;
+    return <StoreOrderDetailSkeleton />;
   }
   if (state.kind === "seed") {
     const seed = state.seed;
@@ -421,7 +512,8 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             <span className="text-xs text-sam-meta">{seed.order_no}</span>
           </div>
           <p className="mt-3 sam-text-helper text-sam-fg">
-            {buyerOrderStatusLabel(seed.order_status, language)} · {t("mypage_comp_order_payment_amount_label")}{" "}
+            {storeOrderSeedStatusLabel(seed, language, t("mypage_oa_order_status_neutral"))} ·{" "}
+            {t("mypage_comp_order_payment_amount_label")}{" "}
             <span className="font-semibold">{formatMoneyPhp(seed.payment_amount)}</span>
             {seed.total_amount !== seed.payment_amount ? (
               <span className="text-sam-muted">
@@ -432,19 +524,21 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           </p>
           <p className="mt-2 sam-text-xxs text-sam-muted">
             {t("mypage_comp_order_date_line", {
-              datetime: new Date(seed.created_at).toLocaleString(dateLocale),
+              datetime: formatMypageDate(seed.created_at, { style: "datetime", lang: language }),
             })}
           </p>
           <p className="mt-4 sam-text-helper text-sam-muted">
             {state.failed ? t("mypage_order_detail_load_failed") : t("mypage_comp_order_loading_detail")}
           </p>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="mt-3 text-sm text-signature underline"
-          >
-            {t("mypage_comp_retry")}
-          </button>
+          {state.failed ? (
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="sam-btn sam-btn--secondary sam-btn--sm mt-3"
+            >
+              {t("common_retry")}
+            </button>
+          ) : null}
         </div>
       </div>
     );
@@ -458,54 +552,35 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   }
   if (state.kind === "not_found") {
     return (
-      <div className="space-y-3 text-sm text-sam-muted">
-        <p>{t("mypage_comp_order_not_found")}</p>
-        <Link href={listHref} className="text-signature underline">
-          {t("mypage_comp_back_to_list")}
-        </Link>
-      </div>
+      <MyStateView
+        kind="empty"
+        empty={{
+          title: t("mypage_oa_order_not_found"),
+          cta: (
+            <Link href={listHref} className="sam-btn sam-btn--primary sam-btn--sm">
+              {t("mypage_oa_back_to_orders")}
+            </Link>
+          ),
+        }}
+      />
     );
   }
   if (state.kind === "error") {
+    // 오류 코드·영문 메시지 노출 금지 — i18n 문구만 + [다시 시도]
+    const errKey = resolveStoreOrdersLoadErrorKey(state.message);
     return (
-      <div className="space-y-2">
-        <p className="text-sm text-red-600">{t("mypage_comp_error_wrapped", { message: state.message })}</p>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="text-sm text-signature underline"
-        >
-          {t("mypage_comp_retry")}
-        </button>
-      </div>
+      <MyStateView
+        kind="error"
+        error={{
+          message: errKey === "mypage_oa_orders_load_failed" ? t("mypage_order_detail_load_failed") : t(errKey),
+          onRetry: () => void load(),
+        }}
+      />
     );
   }
 
   const { order, items, review, can_submit_review, orderEvents } = state;
-  const reorderItems =
-    order.order_status === "completed"
-      ? items
-          .map((it) => ({
-            product_id: String(it.product_id ?? "").trim(),
-            product_title_snapshot: it.product_title_snapshot,
-            price_snapshot: Math.round(Number(it.price_snapshot) || 0),
-            qty: Math.max(1, Math.floor(Number(it.qty) || 1)),
-            options_snapshot_json: it.options_snapshot_json,
-          }))
-          .filter((it) => it.product_id.length > 0)
-      : [];
-  const reorderPayload: CompletedOrderReorderPayload | null =
-    order.order_status === "completed" &&
-    String(order.store_slug ?? "").trim() &&
-    reorderItems.length > 0
-      ? {
-          storeId: order.store_id,
-          storeSlug: String(order.store_slug).trim(),
-          storeName: order.store_name,
-          fulfillmentType: order.fulfillment_type,
-          items: reorderItems,
-        }
-      : null;
+  const reorderPayload = reorderPayloadForCta;
   const itemsSumPhp = items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
   const deliveryFeePhp = Math.max(0, Math.round(Number(order.delivery_fee_amount) || 0));
   const canBuyerCancel = storeOrderAwaitingFirstPayment(order);
@@ -528,6 +603,59 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const dash = t("mypage_comp_placeholder_dash");
   const storeProfileImageUrl = order.store_profile_image_url?.trim() || "";
 
+  const ctaPlan = resolveStoreOrderDetailCtaPlan({
+    orderStatus: order.order_status,
+    canBuyerCancel,
+    canRequestCancel: canRefundRequest,
+    chatDisabled: orderChatDisabled,
+    hasStore: Boolean(order.store_slug?.trim()),
+    canReorder: Boolean(reorderPayload),
+  });
+  const ctaFor = (action: StoreOrderDetailCtaAction | null): MyStickyCtaAction | null => {
+    switch (action) {
+      case "order_chat":
+        return { label: t("mypage_comp_order_chat_nav"), onPress: () => router.push(chatHref) };
+      case "view_store":
+        return {
+          label: t("mypage_comp_view_store"),
+          onPress: () => router.push(`/stores/${encodeURIComponent(String(order.store_slug).trim())}`),
+        };
+      case "order_list":
+        return { label: t("mypage_comp_view_order_list"), onPress: () => router.push(listHref) };
+      case "cancel_order":
+        return {
+          label: t("mypage_comp_cancel_order"),
+          onPress: () => setCancelConfirmOpen(true),
+          loading: cancelBusy,
+          disabled: cancelGuard.pending,
+        };
+      case "request_cancel":
+        return {
+          label: t("mypage_comp_cancel_req_submit"),
+          onPress: () => {
+            setRefundErr(null);
+            setReasonSheetOpen(true);
+          },
+        };
+      case "reorder":
+        return {
+          label: t("mypage_comp_store_reorder_default"),
+          onPress: () => void reorder.run(),
+          loading: reorder.busy,
+          disabled: !reorder.ready,
+        };
+      case "receipt":
+        return { label: t("mypage_receipt_open"), onPress: () => setReceiptOpen(true) };
+      default:
+        return null;
+    }
+  };
+  const ctaPrimary = ctaFor(ctaPlan.primary);
+  const ctaSecondaryRaw = ctaFor(ctaPlan.secondary);
+  const ctaSecondary = ctaSecondaryRaw
+    ? { label: ctaSecondaryRaw.label, onPress: ctaSecondaryRaw.onPress, disabled: ctaSecondaryRaw.disabled }
+    : null;
+
   const supportContext = buildMemberSupportContext({
     enabled:
       shouldEnableStoreOrderSupportFab(order) ||
@@ -542,8 +670,8 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
 
   return (
     <SupportContextProvider value={supportContext}>
-    <div className="space-y-4">
-      <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-4 shadow-sm">
+    <div className={`space-y-4 ${ctaPrimary ? MY_STICKY_CTA_BODY_CLEARANCE_CLASS : ""}`}>
+      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <SamarketThumbnail
@@ -551,30 +679,30 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               alt={order.store_name || t("mypage_comp_store_fallback_name")}
               size={44}
               roundedClassName="rounded-full"
-              className="bg-[#E4E6EB]"
+              className="bg-sam-surface-muted"
               fallbackSrc=""
               fallbackNode={
-                <div className="text-[11px] font-semibold text-[#6B7280]">
+                <div className="text-[11px] font-semibold text-sam-muted">
                   {t("mypage_comp_store_fallback_name")}
                 </div>
               }
             />
             <div className="min-w-0">
-              <p className="truncate sam-text-body font-bold text-[#123B4A]">
+              <p className="truncate sam-text-body font-bold text-sam-fg">
                 {order.store_name || t("mypage_comp_store_fallback_name")}
               </p>
-              <p className="mt-0.5 text-xs font-semibold text-[#6B7280]">{order.order_no}</p>
+              <p className="mt-0.5 text-xs font-semibold text-sam-muted">{order.order_no}</p>
             </div>
           </div>
         </div>
-        <div className="delivery-ui mt-3 rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] px-3 py-3 text-white">
+        <div className="delivery-ui mt-3 rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] px-3 py-3 text-sam-on-primary">
           {order.admin_locked === true ? (
-            <p className="mb-3 rounded-ui-rect border border-violet-200 bg-violet-50 px-3 py-2 sam-text-helper leading-snug text-violet-950">
+            <p className="mb-3 rounded-ui-rect border border-sam-border-soft bg-sam-info-soft px-3 py-2 sam-text-helper leading-snug text-sam-fg">
               {t("mypage_comp_admin_locked_notice")}
             </p>
           ) : null}
           {order.needs_admin_attention === true || (order.sla_warning_level ?? "").trim() ? (
-            <p className="mb-3 rounded-ui-rect border border-rose-200 bg-rose-50 px-3 py-2 sam-text-helper leading-snug text-rose-950">
+            <p className="mb-3 rounded-ui-rect border border-sam-danger-soft bg-sam-danger-soft px-3 py-2 sam-text-helper leading-snug text-sam-danger">
               {t("mypage_comp_sla_delay_notice")}
               {order.sla_warning_reason?.trim() ? (
                 <span className="ml-1 text-sam-muted">
@@ -583,65 +711,36 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               ) : null}
             </p>
           ) : null}
-          <p className="sam-text-xxs font-semibold uppercase tracking-[0.08em] text-white/75">
+          <p className="sam-text-xxs font-semibold uppercase tracking-[0.08em] text-sam-on-primary/75">
             {t("mypage_comp_order_current_status_heading")}
           </p>
-          <p className="mt-1 sam-text-page-title font-bold text-white">{buyerProg.headline}</p>
+          <p className="mt-1 sam-text-page-title font-bold text-sam-on-primary">{buyerProg.headline}</p>
           {buyerProg.lines.length ? (
-            <ul className="mt-2 list-inside list-disc space-y-1 sam-text-helper leading-relaxed text-white/90">
+            <ul className="mt-2 list-inside list-disc space-y-1 sam-text-helper leading-relaxed text-sam-on-primary/90">
               {buyerProg.lines.map((line, i) => (
                 <li key={`${i}:${line}`}>{line}</li>
               ))}
             </ul>
           ) : null}
-          <p className="mt-2 sam-text-helper leading-relaxed text-white/75">
+          <p className="mt-2 sam-text-helper leading-relaxed text-sam-on-primary/75">
             {t("mypage_comp_order_standard_step", {
               status: orderStatusLabel(order.order_status),
               payment: paymentStatusLabel(t, order.payment_status),
             })}
           </p>
-          <p className="mt-1 sam-text-xxs leading-relaxed text-white/70">{t("mypage_comp_order_chat_notice")}</p>
+          <p className="mt-1 sam-text-xxs leading-relaxed text-sam-on-primary/70">{t("mypage_comp_order_chat_notice")}</p>
         </div>
         <div
-          className={`mt-3 rounded-[4px] border px-3 py-3 ${
+          className={`mt-3 rounded-ui-rect border px-3 py-3 ${
             reviewProcess.tone === "done"
-              ? "border-[#DDE5E0] bg-[#EAF6FB] text-[#123B4A]"
+              ? "border-sam-border-soft bg-sam-info-soft text-sam-fg"
               : reviewProcess.tone === "action"
-                ? "border-amber-200 bg-amber-50 text-amber-950"
-                : "border-[#DDE5E0] bg-[#f6f6f6] text-[#6B7280]"
+                ? "border-sam-warning-soft bg-sam-warning-soft text-sam-fg"
+                : "border-sam-border-soft bg-sam-surface-muted text-sam-muted"
           }`}
         >
           <p className="text-[12px] font-bold leading-[1.35]">{t("mypage_comp_order_complete_review_heading")}</p>
           <p className="mt-1 text-[13px] font-semibold leading-[1.45]">{reviewProcess.label}</p>
-        </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {orderChatDisabled ? (
-            <span className="inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 text-sm font-medium text-sam-meta">
-              {t("mypage_comp_order_chat_disabled")}
-            </span>
-          ) : (
-            <Link
-              href={chatHref}
-              className="delivery-ui inline-flex items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-3 text-sm font-bold text-[color:var(--delivery-primary)] shadow-none"
-            >
-              {t("store_owner_order_progress_chat_title")}
-            </Link>
-          )}
-          {order.store_slug ? (
-            <Link
-              href={`/stores/${encodeURIComponent(order.store_slug)}`}
-              className="inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-sm font-medium text-sam-fg"
-            >
-              {t("mypage_comp_view_store")}
-            </Link>
-          ) : (
-            <Link
-              href={listHref}
-              className="inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-sm font-medium text-sam-fg"
-            >
-              {t("mypage_comp_view_order_list")}
-            </Link>
-          )}
         </div>
         {order.community_messenger_room_id ? (
           <div className="mt-3">
@@ -672,7 +771,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         order.auto_complete_at ? (
           <p className="mt-2 sam-text-xxs text-sam-muted">
             {t("mypage_comp_auto_complete_notice", {
-              datetime: new Date(order.auto_complete_at).toLocaleString(dateLocale),
+              datetime: formatMypageDate(order.auto_complete_at, { style: "datetime", lang: language }),
             })}
           </p>
         ) : null}
@@ -691,7 +790,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         ) : null}
         <p className="mt-2 sam-text-xxs text-sam-meta">
           {t("mypage_comp_order_date_line", {
-            datetime: new Date(order.created_at).toLocaleString(dateLocale),
+            datetime: formatMypageDate(order.created_at, { style: "datetime", lang: language }),
           })}
         </p>
       </div>
@@ -735,7 +834,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                       {autoCompleteCron ? t("mypage_comp_event_auto_confirm_suffix") : ""}
                     </span>
                     <span className="text-sam-meta">
-                      {new Date(ev.created_at).toLocaleString(dateLocale)}
+                      {formatMypageDate(ev.created_at, { style: "datetime", lang: language })}
                     </span>
                   </div>
                   <p className="mt-1 text-sam-meta">
@@ -777,7 +876,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                   </p>
                 ))
               ) : (
-                <p className="text-amber-800">{t("mypage_comp_store_address_missing")}</p>
+                <p className="text-sam-warning">{t("mypage_comp_store_address_missing")}</p>
               )}
               {order.store_slug ?
                 <Link
@@ -811,7 +910,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               })()}
             </div>
           ) : (
-            <p className="mt-1.5 text-sm text-amber-800">{t("mypage_comp_delivery_address_missing")}</p>
+            <p className="mt-1.5 text-sm text-sam-warning">{t("mypage_comp_delivery_address_missing")}</p>
           )}
         </div>
 
@@ -931,7 +1030,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                     </span>
                   ) : null}
                 </span>
-                <span className="font-medium text-red-600">
+                <span className="font-medium text-sam-danger">
                   −{formatMoneyPhp(Math.round(Number(order.discount_amount) || 0))}
                 </span>
               </div>
@@ -945,7 +1044,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                     fallbackEn: "Gift certificate",
                   })}
                 </span>
-                <span className="font-medium text-red-600">
+                <span className="font-medium text-sam-danger">
                   −
                   {formatMoneyPhp(
                     Math.round(Number((order as { gift_redemption_amount?: number }).gift_redemption_amount) || 0)
@@ -968,7 +1067,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                       fallbackEn: "Gift restored",
                     })}
                   </span>
-                  <span className="font-medium text-emerald-700">+{formatMoneyPhp(giftUsed)}</span>
+                  <span className="font-medium text-sam-success">+{formatMoneyPhp(giftUsed)}</span>
                 </div>
               );
             })()}
@@ -1006,108 +1105,110 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         </dl>
       </div>
 
-      {order.order_status === "completed" ? (
-        <div className="space-y-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-          {reorderPayload ? (
-            <StoreOrderReorderAgainButton
-              payload={reorderPayload}
-              className="inline-flex min-h-12 w-full items-center justify-center rounded-ui-rect border border-signature/40 bg-sam-surface px-3 py-3 text-sm font-semibold text-signature shadow-sm"
-            />
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setReceiptOpen(true)}
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-sm font-semibold text-sam-fg"
-            data-store-order-receipt-open="1"
-          >
-            {t("mypage_receipt_open")}
-          </button>
-          <StoreOrderReceiptSheet
-            open={receiptOpen}
-            onClose={() => setReceiptOpen(false)}
-            data={{
-              storeName: order.store_name || t("mypage_comp_store_fallback_name"),
-              storeAddressLines: order.store_pickup_address_lines ?? [],
-              orderNo: order.order_no,
-              orderedAt: new Date(order.created_at).toLocaleString(dateLocale),
-              lines: items.map((it) => ({
-                id: it.id,
-                title: it.product_title_snapshot,
-                qty: Number(it.qty) || 0,
-                subtotal: Number(it.subtotal) || 0,
-              })),
-              itemsSubtotal: itemsSumPhp,
-              discount: Math.round(Number(order.discount_amount) || 0),
-              giftUsed: Math.round(Number(order.gift_redemption_amount) || 0),
-              deliveryFee: deliveryFeePhp,
-              paymentMethod: payDisplay,
-              paymentAmount: order.payment_amount,
-            }}
-          />
-        </div>
-      ) : null}
+      <StoreOrderReceiptSheet
+        open={receiptOpen}
+        onClose={() => setReceiptOpen(false)}
+        data={{
+          storeName: order.store_name || t("mypage_comp_store_fallback_name"),
+          storeAddressLines: order.store_pickup_address_lines ?? [],
+          orderNo: order.order_no,
+          orderedAt: formatMypageDate(order.created_at, { style: "datetime", lang: language }),
+          lines: items.map((it) => ({
+            id: it.id,
+            title: it.product_title_snapshot,
+            qty: Number(it.qty) || 0,
+            subtotal: Number(it.subtotal) || 0,
+          })),
+          itemsSubtotal: itemsSumPhp,
+          discount: Math.round(Number(order.discount_amount) || 0),
+          giftUsed: Math.round(Number(order.gift_redemption_amount) || 0),
+          deliveryFee: deliveryFeePhp,
+          paymentMethod: payDisplay,
+          paymentAmount: order.payment_amount,
+        }}
+      />
 
       {refundPending || cancelRequestPending ? (
-        <div className="rounded-ui-rect border border-blue-100 bg-blue-50/80 p-4">
-          <p className="text-sm text-blue-950">
+        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-info-soft p-4" data-cancel-request-pending="1">
+          <p className="text-sm text-sam-fg">
             {t(cancelRequestPending ? "mypage_comp_cancel_req_pending_notice" : "mypage_comp_refund_pending_notice")}
           </p>
         </div>
       ) : null}
 
+      {canBuyerCancel ? (
+        <div className="rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft p-4">
+          <p className="text-sm text-sam-fg">{t("mypage_comp_cancel_allowed_notice")}</p>
+          {cancelErr ? <p className="mt-2 text-sm text-sam-danger">{cancelErr}</p> : null}
+        </div>
+      ) : null}
+
       {canRefundRequest ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4">
           <h3 className="text-sm font-semibold text-sam-fg">{t("mypage_comp_cancel_req_section_title")}</h3>
           <p className="mt-1 sam-text-helper text-sam-muted">{t("mypage_comp_cancel_req_section_body")}</p>
-          <label className="mt-3 block sam-text-helper text-sam-muted">
-            {t("mypage_comp_cancel_req_reason_label")}
-            <textarea
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm text-sam-fg"
-              rows={3}
-              maxLength={500}
-              value={refundReason}
-              onChange={(ev) => setRefundReason(ev.target.value)}
-              placeholder={t("mypage_comp_cancel_req_reason_placeholder")}
-            />
-          </label>
-          {refundErr ? <p className="mt-2 text-sm text-red-600">{refundErr}</p> : null}
-          <button
-            type="button"
-            disabled={refundBusy || refundReason.trim().length < 2}
-            onClick={() => void requestRefund()}
-            className="mt-3 w-full rounded-ui-rect border border-sam-border bg-sam-app py-2.5 text-sm font-medium text-sam-fg disabled:opacity-50"
-          >
-            {refundBusy ? t("mypage_comp_processing") : t("mypage_comp_cancel_req_submit")}
-          </button>
         </div>
       ) : null}
-
-      {canBuyerCancel ? (
-        <div className="rounded-ui-rect border border-amber-100 bg-amber-50/80 p-4">
-          <p className="text-sm text-amber-950">{t("mypage_comp_cancel_allowed_notice")}</p>
-          {cancelErr ? <p className="mt-2 text-sm text-red-600">{cancelErr}</p> : null}
-          <button
-            type="button"
-            disabled={cancelBusy}
-            onClick={() => void cancelOrder()}
-            className="mt-3 w-full rounded-ui-rect border border-red-200 bg-sam-surface py-2.5 text-sm font-medium text-red-700 disabled:opacity-50"
-          >
-            {cancelBusy ? t("mypage_comp_processing") : t("mypage_comp_cancel_order")}
-          </button>
-        </div>
-      ) : null}
-
-      <div className="space-y-2">
-        {!orderChatDisabled ? (
-          <Link href={chatHref} className="block text-center text-sm text-signature underline">
-            {t("mypage_comp_order_chat_nav")}
-          </Link>
-        ) : null}
-        <Link href={listHref} className="block text-center text-sm text-signature underline">
-          {t("mypage_comp_back_to_list_full")}
-        </Link>
-      </div>
     </div>
+
+    {/* S31 하단 고정 CTA — 상태별 1주 + 1보조 (본문 중간 버튼·하단 텍스트 링크 대체) */}
+    {ctaPrimary ? (
+      <MyStickyCta
+        dirty
+        primary={ctaPrimary}
+        secondary={ctaSecondary ?? undefined}
+      />
+    ) : null}
+
+    <MobileConfirmBottomSheet
+      open={cancelConfirmOpen}
+      onCancel={() => setCancelConfirmOpen(false)}
+      title={t("mypage_oa_cancel_order_confirm_title")}
+      description={t("mypage_comp_cancel_before_accept_hint")}
+      cancelLabel={t("common_cancel")}
+      confirmLabel={t("mypage_comp_cancel_order")}
+      confirmTone="danger"
+      onConfirm={() => {
+        setCancelConfirmOpen(false);
+        void cancelGuard.run(() => cancelOrder());
+      }}
+    />
+
+    <DibayBottomSheet
+      open={reasonSheetOpen}
+      onClose={() => {
+        if (!reasonGuard.pending) setReasonSheetOpen(false);
+      }}
+      title={t("mypage_comp_cancel_req_section_title")}
+      footer={
+        <button
+          type="button"
+          data-testid="store-order-cancel-request-submit"
+          disabled={reasonGuard.pending || !isStoreOrderCancelReasonValid(refundReason)}
+          onClick={() => void reasonGuard.run(() => requestRefund())}
+          className="sam-btn sam-btn--primary w-full disabled:opacity-45"
+        >
+          {reasonGuard.pending ? t("mypage_comp_processing") : t("mypage_oa_cancel_request_send")}
+        </button>
+      }
+    >
+      <p className="sam-text-helper text-sam-muted">{t("mypage_comp_cancel_req_section_body")}</p>
+      <label className="mt-3 block sam-text-helper text-sam-muted">
+        {t("mypage_comp_cancel_req_reason_label")}
+        <textarea
+          className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-base text-sam-fg"
+          rows={4}
+          maxLength={STORE_ORDER_CANCEL_REASON_MAX}
+          value={refundReason}
+          onChange={(ev) => setRefundReason(ev.target.value)}
+          placeholder={t("mypage_comp_cancel_req_reason_placeholder")}
+        />
+      </label>
+      <p className="mt-1 text-right sam-text-xxs text-sam-meta">
+        {refundReason.trim().length}/{STORE_ORDER_CANCEL_REASON_MAX}
+      </p>
+      {refundErr ? <p className="mt-2 text-sm text-sam-danger">{refundErr}</p> : null}
+    </DibayBottomSheet>
     </SupportContextProvider>
   );
 }

@@ -26,6 +26,10 @@ import { checkFeedAdMemberImageFile } from "@/lib/ads/feed-ad-member-image-check
 import type { FeedAdMemberDisplayStatus } from "@/lib/ads/feed-ad-member-presentation";
 import { FEED_AD_SAMPLE_ASSET } from "@/lib/ads/feed-ad-sample-assets";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
+import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 
 type Cat = { id: string; name: string; nameEn: string | null };
 type Topic = { id: string; slug: string; name: string; nameEn: string | null };
@@ -103,6 +107,8 @@ export default function MemberFeedAdRequestPage() {
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState("");
+  /** 연타해도 신청 1회 (S46 T3 제출 방지) */
+  const submitGuard = useMypageSubmitGuard();
   const [imgWarn, setImgWarn] = useState("");
 
   const placement: FeedAdPlacement = useMemo(() => {
@@ -465,11 +471,16 @@ export default function MemberFeedAdRequestPage() {
             })
           );
         } else {
-          setErr(code);
+          // 서버 오류 코드 원문 노출 금지
+          setErr(t("points_ui_request_failed"));
         }
+        showMypageToast(t("points_ui_request_failed"), "error");
         return;
       }
-      router.push("/mypage/ads");
+      showMypageToast(t("mypage_oa_ad_request_submitted"), "success");
+      invalidateMypageSummary();
+      // 신청 후 내 광고 — [대기] 탭 선택
+      router.push("/mypage/ads?tab=pending");
     } finally {
       setBusy(false);
     }
@@ -1195,23 +1206,27 @@ export default function MemberFeedAdRequestPage() {
           </p>
         </section>
 
-        {err ? <p className="text-sam-warning">{err}</p> : null}
-
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={() => void submit()}
-          className="w-full rounded-ui-rect bg-signature py-3 font-medium text-white disabled:opacity-50"
-          data-testid="feed-ad-submit"
-        >
-          {busy
-            ? t("common_loading")
-            : safeT("feed_ad_req_submit", {
-                fallbackKo: "광고 신청",
-                fallbackEn: "Submit ad request",
-              })}
-        </button>
+        {err ? (
+          <p role="alert" className="rounded-ui-rect bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-fg">
+            {err}
+          </p>
+        ) : null}
       </div>
+
+      {/* S46 T3 — 하단 고정 [광고 신청] (제출 방지: 진행 중 비활성+스피너, 계약 testid 유지) */}
+      <MyStickyCta
+        dirty={canSubmit}
+        primary={{
+          label: safeT("feed_ad_req_submit", {
+            fallbackKo: "광고 신청",
+            fallbackEn: "Submit ad request",
+          }),
+          onPress: () => void submitGuard.run(() => submit()),
+          loading: busy || submitGuard.pending,
+          disabled: busy || submitGuard.pending,
+          testId: "feed-ad-submit",
+        }}
+      />
     </div>
     </SupportContextProvider>
   );

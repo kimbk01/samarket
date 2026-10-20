@@ -2,6 +2,12 @@
 
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MapPin, Plus, Search } from "lucide-react";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
@@ -82,6 +88,8 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const [approvedStoresById, setApprovedStoresById] = useState<ReadonlyMap<string, string>>(() => new Map());
   const returnTo = useMemo(() => parseSafeInternalReturnTo(sp?.get("returnTo")), [sp]);
   const storesGreenHeader = !embedded && isStoreOwnerAdminReturnTo(returnTo);
+  /** 편집에서 돌아오면 스크롤 위치 복원 (S06) */
+  useMypageListRestore({ ready: !listBootstrapping });
 
   useEffect(() => {
     if (embedded) return;
@@ -173,11 +181,15 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       const res = await fetch(`/api/me/addresses/${id}`, { method: "DELETE", credentials: "include" });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: translateUserAddressApiError(j.error, t, "address_delete_failed") });
+        showMypageToast(translateUserAddressApiError(j.error, t, "address_delete_failed"), "error");
         return;
       }
       const rows = await commitUserAddressListAfterMutation();
       setList(rows);
+      invalidateMypageSummary();
+      showMypageToast(t("mypage_s06_deleted_toast"), "success");
+    } catch {
+      showMypageToast(t("address_delete_failed"), "error");
     } finally {
       setBusyId(null);
     }
@@ -268,7 +280,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       return;
     }
     if (isLinkedSamarketStoreAddressRow(row)) {
-      await dibayAlert({ title: t("addr_ui_store_not_master") });
+      showMypageToast(t("addr_ui_store_not_master"), "error");
       return;
     }
     setBusyId(id);
@@ -283,44 +295,36 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: translateUserAddressApiError(j.error, t, "addr_ui_set_default_failed") });
+        showMypageToast(translateUserAddressApiError(j.error, t, "addr_ui_set_default_failed"), "error");
         return;
       }
       const rows = await commitUserAddressListAfterMutation();
       setList(rows);
+      invalidateMypageSummary();
+      showMypageToast(t("mypage_s06_set_master_toast"), "success");
       closeAfterRepresentativePick();
+    } catch {
+      showMypageToast(t("addr_ui_set_default_failed"), "error");
     } finally {
       setBusyId(null);
     }
   }
 
+  /** 호출 컨텍스트(거래 글쓰기 지역·주소 선택 흐름 등)가 있으면 행 탭 = 그 주소 선택, 없으면 수정 (S06) */
+  const selectMode = Boolean(returnTo);
+
   const addressListBody = (
     <>
-      {loadErr ? (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
-          {loadErr}
-          {loadErrMigrationHint ? (
-            <p className="mt-2 sam-text-helper text-amber-900/90">{t("addr_ui_migration_hint")}</p>
-          ) : null}
-        </div>
-      ) : null}
-
       <div className="space-y-3">
-        <section className="rounded-[24px] border border-signature/10 bg-gradient-to-b from-white to-signature/[0.04] p-3 shadow-sm">
+        <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3">
           <button
             type="button"
             onClick={openCreate}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-[18px] border border-sam-border bg-white px-3 text-left shadow-[0_1px_8px_rgba(15,23,42,0.04)] transition-colors active:bg-signature/[0.04]"
+            data-testid="address-search-entry"
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 text-left transition-colors active:bg-sam-pressed-surface"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-signature/10 text-signature">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path
-                  d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM20 20l-3.5-3.5"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-icon-surface text-sam-primary">
+              <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block sam-text-body font-semibold text-sam-fg">{t("addr_v2_book_search_placeholder")}</span>
@@ -333,38 +337,81 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
             type="button"
             onClick={() => void openCurrentLocation()}
             disabled={busyId === "current"}
-            className="mt-2 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[18px] border border-signature/20 bg-signature/[0.06] px-3 sam-text-body font-bold text-signature transition-colors active:bg-signature/10 disabled:opacity-50"
+            className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} ${Sam.focusRing} mt-2 gap-2 disabled:opacity-45`}
           >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-signature text-white" aria-hidden>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2v3M12 19v3M2 12h3M19 12h3M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </span>
+            <MapPin className="h-4 w-4" aria-hidden />
             {busyId === "current" ? t("addr_ui_locating") : t("addr_ui_find_current")}
           </button>
         </section>
-        {list.length === 0 && !loadErr && listBootstrapping ? (
-          <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-            {t("common_loading")}
-          </p>
-        ) : list.length === 0 && !loadErr ? null : (
-          <ul className="space-y-2">
-            {list.map((row) => (
-              <AddressRowCard
-                key={row.id}
-                row={row}
-                busyId={busyId}
-                approvedStoresById={approvedStoresById}
-                onSetAsRepresentative={
-                  row.labelType === "shop" && (row.linkedStoreId?.trim() ?? "")
-                    ? undefined
-                    : () => void setAsRepresentative(row.id)
-                }
-                onEdit={() => openEdit(row)}
-                onDelete={() => void removeRow(row.id)}
-              />
-            ))}
-          </ul>
+        {loadErr && list.length === 0 ? (
+          <div>
+            <MyStateView
+              kind="error"
+              template="list"
+              error={{ message: loadErr, onRetry: () => void load({ force: true }) }}
+            />
+            {loadErrMigrationHint ? (
+              <p className="-mt-8 px-4 pb-4 text-center sam-text-helper text-sam-muted">{t("addr_ui_migration_hint")}</p>
+            ) : null}
+          </div>
+        ) : list.length === 0 && listBootstrapping ? (
+          <MyStateView kind="loading" template="list" rows={3} />
+        ) : list.length === 0 ? (
+          <MyStateView
+            kind="empty"
+            template="list"
+            empty={{
+              title: t("mypage_s06_empty_title"),
+              cta: (
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  data-testid="address-empty-add"
+                  className={`${Sam.btn.primaryCombo} ${Sam.focusRing}`}
+                >
+                  {t("mypage_s06_empty_cta")}
+                </button>
+              ),
+            }}
+          />
+        ) : (
+          <>
+            {loadErr ? (
+              <div className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2" role="alert">
+                <p className="min-w-0 flex-1 sam-text-helper text-sam-muted">{loadErr}</p>
+                <button
+                  type="button"
+                  onClick={() => void load({ force: true })}
+                  className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm}`}
+                >
+                  {t("common_retry")}
+                </button>
+              </div>
+            ) : null}
+            <ul className="space-y-2">
+              {list.map((row) => {
+                const storeLinked = row.labelType === "shop" && Boolean(row.linkedStoreId?.trim() ?? "");
+                return (
+                  <AddressRowCard
+                    key={row.id}
+                    row={row}
+                    busyId={busyId}
+                    approvedStoresById={approvedStoresById}
+                    onSetAsRepresentative={storeLinked ? undefined : () => void setAsRepresentative(row.id)}
+                    onPrimaryTap={
+                      selectMode
+                        ? storeLinked
+                          ? undefined
+                          : () => void setAsRepresentative(row.id)
+                        : () => openEdit(row)
+                    }
+                    onEdit={() => openEdit(row)}
+                    onDelete={() => void removeRow(row.id)}
+                  />
+                );
+              })}
+            </ul>
+          </>
         )}
       </div>
     </>
@@ -429,7 +476,17 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
             ) : undefined
           }
           hideCtaStrip
-          showHubQuickActions
+          rightSlot={
+            <button
+              type="button"
+              onClick={openCreate}
+              data-testid="address-header-add"
+              className={`sam-header-action inline-flex min-h-[44px] items-center gap-1 px-2 text-[14px] font-semibold text-sam-primary ${Sam.focusRing}`}
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              {t("mypage_s06_header_add")}
+            </button>
+          }
         />
       ) : null}
       {embedded ? (
