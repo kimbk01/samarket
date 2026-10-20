@@ -18,6 +18,11 @@ alter table public.sanctions add constraint sanctions_restriction_check
     or (sanction_type = 'trade_restriction' and restriction in ('post', 'chat', 'all'))
   );
 
+-- 신고 처리 기록에 「거래 제한」 조치 유형 추가 (기존 값 유지)
+alter table public.report_actions drop constraint if exists report_actions_action_type_check;
+alter table public.report_actions add constraint report_actions_action_type_check
+  check (action_type in ('reject', 'warn', 'chat_ban', 'product_hide', 'account_suspend', 'account_ban', 'trade_restriction'));
+
 create index if not exists idx_sanctions_trade_active
   on public.sanctions (user_id, end_at)
   where scope = 'trade' and revoked_at is null;
