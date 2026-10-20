@@ -6,6 +6,9 @@
  * dashboard · delivery · trade · community · messenger ·
  * finance · ads · promotion · support · notifications · system
  *
+ * J-AMD-5 (design v4 O-1..O-3): group labels renamed via i18n values only; system → 플랫폼 운영
+ * sections (앱 화면 구성 · 추천 · 공통 콘텐츠); master-only 「내부 도구」 under system.
+ *
  * Invariants:
  * - path(쿼리·hash 포함) 하나당 visible leaf 하나
  * - redirect-only route는 leaf 금지
@@ -414,13 +417,26 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     status: "done",
   },
 
-  // ── MEMBERS (J-AMD-1) ──────────────────────────
+  // ── MEMBERS (J-AMD-1 · J-AMD-5) ────────────────
   {
     key: "members",
     title: "",
     status: "done",
     children: [
       { key: "users", title: "", path: "/admin/users", status: "done" },
+      // J-AMD-5: existing member sub-screens exposed as leaves (pages already exist).
+      {
+        key: "users-phone-verification",
+        title: "",
+        path: "/admin/users/phone-verification",
+        status: "done",
+      },
+      {
+        key: "users-deletion-requests",
+        title: "",
+        path: "/admin/users/deletion-requests",
+        status: "done",
+      },
       { key: "global-reports", title: "", path: "/admin/reports", status: "done" },
       { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
       { key: "audit-logs", title: "", path: "/admin/audit-logs", status: "done" },
@@ -430,7 +446,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   // ── DELIVERY ───────────────────────────────────
   // J-AMD-3 (Owner-approved A-1): operator-task sections —
   // 매장 → 주문 → 배달 현장 → 수수료·정산 → 혜택·프로모션 → 매장 홈 화면 구성 → 배달 설정.
-  // Developer tools (runtime-health · delivery-release-gate) live under system › platform-system.
+  // Developer tools (runtime-health · delivery-release-gate) live under system (J-AMD-5: flat, master-only).
   // Global pending-work queue (delivery-order-notifications) lives under support.
   // delivery-ads primary ownership remains ads workspace (B5).
   {
@@ -1307,7 +1323,10 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     ],
   },
 
-  // ── PROMOTION / EVENT — Platform Promotion (NOT paid Ads) ──
+  // ── PROMOTION / EVENT — 「플랫폼 운영」 Platform Promotion (NOT paid Ads) ──
+  // J-AMD-5 (Owner O-2): top leaves unchanged; 앱 화면 구성 · 추천 · 공통 콘텐츠 sections moved
+  // from system (same keys / paths). 「알림」 link-hub leaf removed — URL kept as matchPaths of
+  // notifications › cp-notification-engine.
   {
     key: "promotion",
     title: "",
@@ -1352,12 +1371,14 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
       },
       {
-        key: "promotion-notifications",
+        key: "promotion-owner-requests",
         title: "",
-        path: "/admin/platform-promotion/notifications",
+        path: "/admin/platform-event-owner-requests",
+        matchPaths: ["/admin/platform-event-owner-requests/"],
         status: "done",
       },
       {
+        // J-AMD-5 「앱 화면 구성」 (section key reused from the former 시작 화면 group)
         key: "settings-startup",
         title: "",
         children: [
@@ -1373,14 +1394,86 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/platform-promotion/intro",
             status: "done",
           },
+          {
+            key: "settings-startup-config",
+            title: "",
+            path: "/admin/settings/startup-config",
+            status: "done",
+          },
+          {
+            key: "menu-main-bottom-nav",
+            title: "",
+            path: "/admin/menus/main-bottom-nav",
+            status: "done",
+          },
+          { key: "my-banners", title: "", path: "/admin/my/banners", status: "done" },
+          { key: "my-sections", title: "", path: "/admin/my/sections", status: "done" },
+          { key: "my-services", title: "", path: "/admin/my/services", status: "done" },
         ],
       },
       {
-        key: "promotion-owner-requests",
+        // J-AMD-5 「추천」 (moved from system)
+        key: "growth-rec",
         title: "",
-        path: "/admin/platform-event-owner-requests",
-        matchPaths: ["/admin/platform-event-owner-requests/"],
         status: "done",
+        children: [
+          {
+            key: "manage-ab",
+            title: "",
+            path: "/admin/recommendation-experiments",
+            status: "done",
+          },
+          {
+            key: "rec-analytics",
+            title: "",
+            path: "/admin/recommendation-analytics",
+            status: "done",
+          },
+          {
+            key: "rec-monitoring",
+            title: "",
+            path: "/admin/recommendation-monitoring",
+            status: "done",
+          },
+          {
+            key: "rec-deployments",
+            title: "",
+            path: "/admin/recommendation-deployments",
+            status: "done",
+          },
+          {
+            key: "rec-automation",
+            title: "",
+            path: "/admin/recommendation-automation",
+            status: "done",
+          },
+          {
+            key: "manage-reports",
+            title: "",
+            path: "/admin/recommendation-reports",
+            status: "done",
+          },
+        ],
+      },
+      {
+        // J-AMD-5 「공통 콘텐츠」 (moved from system › 시스템 허브)
+        key: "cp-content",
+        title: "",
+        status: "partial",
+        children: [
+          { key: "cp-notice", title: "", path: "/admin/app/notices", status: "done" },
+          {
+            // O-8: no page yet — hidden from sidebar (code kept).
+            key: "cp-faq",
+            title: "",
+            path: "/admin/customer-platform/faq",
+            pendingRoute: true,
+            status: "todo",
+            sidebarPublic: false,
+          },
+          { key: "cp-legal", title: "", path: "/admin/app/legal", status: "done" },
+          { key: "cp-business", title: "", path: "/admin/app/business", status: "done" },
+        ],
       },
     ],
   },
@@ -1431,6 +1524,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         key: "cp-notification-engine",
         title: "",
         path: "/admin/notifications",
+        // J-AMD-5: former promotion 「알림」 link hub (URL kept, no separate leaf).
+        matchPaths: ["/admin/platform-promotion/notifications"],
         status: "done",
       },
       {
@@ -1444,250 +1539,132 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── SYSTEM ─────────────────────────────────────
+  // J-AMD-5 (Owner O-2 · O-3): flat operator leaves + master-only 「내부 도구」 section.
+  // Previously master-only leaves keep `roles: ["master"]` (no visibility change).
+  // 운영 가이드 (/admin/docs/board) is visible to every admin. Keys / paths unchanged.
   {
     key: "system",
     title: "",
     children: [
+      { key: "cp-dashboard", title: "", path: "/admin/customer-platform", status: "done" },
       {
-        key: "customer-platform",
+        key: "cp-monitoring",
         title: "",
-        children: [
-          { key: "cp-dashboard", title: "", path: "/admin/customer-platform", status: "done" },
-          {
-            key: "cp-action-queue",
-            title: "",
-            path: "/admin/customer-platform#action-queue",
-            status: "done",
-          },
-          {
-            key: "cp-monitoring",
-            title: "",
-            path: "/admin/customer-platform#monitoring",
-            status: "done",
-          },
-          {
-            key: "cp-content",
-            title: "",
-            status: "partial",
-            children: [
-              { key: "cp-notice", title: "", path: "/admin/app/notices", status: "done" },
-              {
-                key: "cp-faq",
-                title: "",
-                path: "/admin/customer-platform/faq",
-                pendingRoute: true,
-                status: "todo",
-              },
-              { key: "cp-legal", title: "", path: "/admin/app/legal", status: "done" },
-              { key: "cp-business", title: "", path: "/admin/app/business", status: "done" },
-            ],
-          },
-        ],
-      },
-      {
-        key: "growth-rec",
-        title: "",
+        path: "/admin/customer-platform#monitoring",
         status: "done",
-        children: [
-          {
-            key: "manage-ab",
-            title: "",
-            path: "/admin/recommendation-experiments",
-            status: "done",
-          },
-          {
-            key: "rec-analytics",
-            title: "",
-            path: "/admin/recommendation-analytics",
-            status: "done",
-          },
-          {
-            key: "rec-monitoring",
-            title: "",
-            path: "/admin/recommendation-monitoring",
-            status: "done",
-          },
-          {
-            key: "rec-deployments",
-            title: "",
-            path: "/admin/recommendation-deployments",
-            status: "done",
-          },
-          {
-            key: "rec-automation",
-            title: "",
-            path: "/admin/recommendation-automation",
-            status: "done",
-          },
-          {
-            key: "manage-reports",
-            title: "",
-            path: "/admin/recommendation-reports",
-            status: "done",
-          },
-        ],
       },
       {
-        key: "app-config",
+        key: "system-status",
         title: "",
-        children: [
-          { key: "settings-general", title: "", path: "/admin/settings", status: "done" },
-          {
-            key: "settings-startup-config",
-            title: "",
-            path: "/admin/settings/startup-config",
-            status: "done",
-          },
-          { key: "settings-auth", title: "", path: "/admin/settings/auth", status: "done" },
-          {
-            key: "menu-main-bottom-nav",
-            title: "",
-            path: "/admin/menus/main-bottom-nav",
-            status: "done",
-          },
-          { key: "app-categories", title: "", path: "/admin/categories", status: "done" },
-          { key: "app-countries", title: "", path: "/admin/app/countries", status: "done" },
-          { key: "app-languages", title: "", path: "/admin/app/languages", status: "done" },
-          { key: "app-meta", title: "", path: "/admin/app/meta", status: "done" },
-          { key: "my-banners", title: "", path: "/admin/my/banners", status: "done" },
-          { key: "my-sections", title: "", path: "/admin/my/sections", status: "done" },
-          { key: "my-services", title: "", path: "/admin/my/services", status: "done" },
-        ],
+        path: "/admin/system",
+        roles: ["master"],
+        status: "done",
       },
       {
-        key: "platform-ops",
+        key: "runtime-health",
         title: "",
+        path: "/admin/runtime-health",
+        roles: ["master"],
+        status: "done",
+      },
+      {
+        key: "delivery-release-gate",
+        title: "",
+        path: "/admin/delivery-release-gate",
+        roles: ["master"],
+        status: "done",
+      },
+      {
+        key: "system-deploy",
+        title: "",
+        path: "/admin/system/deploy",
+        roles: ["master"],
+        status: "done",
+      },
+      { key: "settings-general", title: "", path: "/admin/settings", status: "done" },
+      { key: "settings-auth", title: "", path: "/admin/settings/auth", status: "done" },
+      {
+        key: "system-hotfix",
+        title: "",
+        path: "/admin/feed-emergency",
+        roles: ["master"],
+        status: "done",
+      },
+      {
+        key: "system-prelaunch-reset",
+        title: "",
+        path: "/admin/system/data-reset",
+        matchPaths: ["/admin/system/data-reset", "/admin/prelaunch-reset"],
+        roles: ["master"],
+        status: "done",
+      },
+      { key: "ops-docs-board", title: "", path: "/admin/docs/board", status: "done" },
+      // O-8: TODO empty screens — hidden from sidebar (code / URL kept).
+      {
+        key: "app-countries",
+        title: "",
+        path: "/admin/app/countries",
+        status: "done",
+        sidebarPublic: false,
+      },
+      {
+        key: "app-languages",
+        title: "",
+        path: "/admin/app/languages",
+        status: "done",
+        sidebarPublic: false,
+      },
+      { key: "app-meta", title: "", path: "/admin/app/meta", status: "done", sidebarPublic: false },
+      {
+        // J-AMD-5 「내부 도구」 (section key reused from the former master-only 플랫폼 시스템 group)
+        key: "platform-system",
+        title: "",
+        roles: ["master"],
         children: [
+          { key: "manage-ops-board", title: "", path: "/admin/ops-board", status: "done" },
+          { key: "manage-docs", title: "", path: "/admin/ops-docs", status: "done" },
+          { key: "manage-runbooks", title: "", path: "/admin/ops-runbooks", status: "done" },
+          { key: "manage-kb", title: "", path: "/admin/ops-knowledge", status: "done" },
+          { key: "manage-kg", title: "", path: "/admin/ops-knowledge-graph", status: "done" },
+          { key: "manage-learning", title: "", path: "/admin/ops-learning", status: "done" },
+          { key: "manage-maturity", title: "", path: "/admin/ops-maturity", status: "done" },
+          { key: "manage-benchmarks", title: "", path: "/admin/ops-benchmarks", status: "done" },
+          { key: "system-qa", title: "", path: "/admin/qa-board", status: "done" },
+          { key: "system-longrun", title: "", path: "/admin/ops-routines", status: "done" },
+          { key: "system-backlog", title: "", path: "/admin/product-backlog", status: "done" },
+          { key: "system-sprint", title: "", path: "/admin/dev-sprints", status: "done" },
           {
-            key: "manage",
+            key: "system-release-notes",
             title: "",
-            roles: ["admin", "master"],
-            children: [
-              { key: "manage-ops-board", title: "", path: "/admin/ops-board", status: "done" },
-              {
-                key: "manage-knowledge",
-                title: "",
-                status: "done",
-                children: [
-                  { key: "manage-docs", title: "", path: "/admin/ops-docs", status: "done" },
-                  { key: "manage-runbooks", title: "", path: "/admin/ops-runbooks", status: "done" },
-                  { key: "manage-kb", title: "", path: "/admin/ops-knowledge", status: "done" },
-                  {
-                    key: "manage-kg",
-                    title: "",
-                    path: "/admin/ops-knowledge-graph",
-                    status: "done",
-                  },
-                ],
-              },
-              {
-                key: "manage-eval",
-                title: "",
-                status: "done",
-                children: [
-                  { key: "manage-learning", title: "", path: "/admin/ops-learning", status: "done" },
-                  { key: "manage-maturity", title: "", path: "/admin/ops-maturity", status: "done" },
-                  {
-                    key: "manage-benchmarks",
-                    title: "",
-                    path: "/admin/ops-benchmarks",
-                    status: "done",
-                  },
-                ],
-              },
-            ],
+            path: "/admin/release-notes",
+            status: "done",
           },
           {
-            key: "platform-system",
+            key: "system-release-archive",
             title: "",
-            roles: ["master"],
-            children: [
-              { key: "system-qa", title: "", path: "/admin/qa-board", status: "done" },
-              { key: "system-hotfix", title: "", path: "/admin/feed-emergency", status: "done" },
-              { key: "system-longrun", title: "", path: "/admin/ops-routines", status: "done" },
-              { key: "system-backlog", title: "", path: "/admin/product-backlog", status: "done" },
-              { key: "system-sprint", title: "", path: "/admin/dev-sprints", status: "done" },
-              {
-                key: "system-release",
-                title: "",
-                status: "done",
-                children: [
-                  {
-                    key: "system-release-notes",
-                    title: "",
-                    path: "/admin/release-notes",
-                    status: "done",
-                  },
-                  {
-                    key: "system-release-archive",
-                    title: "",
-                    path: "/admin/release-archive",
-                    status: "done",
-                  },
-                  {
-                    key: "system-release-migration",
-                    title: "",
-                    path: "/admin/production-migration",
-                    status: "done",
-                  },
-                ],
-              },
-              {
-                key: "system-manage",
-                title: "",
-                status: "done",
-                children: [
-                  { key: "system-backup", title: "", path: "/admin/backup", status: "done" },
-                  {
-                    key: "system-prelaunch-reset",
-                    title: "",
-                    path: "/admin/system/data-reset",
-                    matchPaths: ["/admin/system/data-reset", "/admin/prelaunch-reset"],
-                    status: "done",
-                  },
-                  {
-                    key: "system-deploy",
-                    title: "",
-                    path: "/admin/system/deploy",
-                    status: "done",
-                  },
-                  { key: "system-dr", title: "", path: "/admin/dr", status: "done" },
-                  { key: "system-security", title: "", path: "/admin/security", status: "done" },
-                  {
-                    key: "system-performance",
-                    title: "",
-                    path: "/admin/performance",
-                    status: "done",
-                  },
-                  { key: "system-usage", title: "", path: "/admin/usage", status: "done" },
-                  {
-                    key: "system-automation",
-                    title: "",
-                    path: "/admin/automation",
-                    status: "done",
-                  },
-                  { key: "system-status", title: "", path: "/admin/system", status: "done" },
-                  // J-AMD-3: developer tools moved from delivery (keys/paths unchanged).
-                  { key: "runtime-health", title: "", path: "/admin/runtime-health", status: "done" },
-                  {
-                    key: "delivery-release-gate",
-                    title: "",
-                    path: "/admin/delivery-release-gate",
-                    status: "done",
-                  },
-                ],
-              },
-              {
-                key: "ops-launch-readiness",
-                title: "",
-                path: "/admin/launch-readiness",
-                status: "done",
-              },
-              { key: "ops-launch-week", title: "", path: "/admin/launch-week", status: "done" },
-              { key: "ops-docs-board", title: "", path: "/admin/docs/board", status: "done" },
-              { key: "ops-memo", title: "", path: "/admin/memo", status: "done" },
-            ],
+            path: "/admin/release-archive",
+            status: "done",
           },
+          {
+            key: "system-release-migration",
+            title: "",
+            path: "/admin/production-migration",
+            status: "done",
+          },
+          { key: "system-backup", title: "", path: "/admin/backup", status: "done" },
+          { key: "system-dr", title: "", path: "/admin/dr", status: "done" },
+          { key: "system-automation", title: "", path: "/admin/automation", status: "done" },
+          {
+            key: "ops-launch-readiness",
+            title: "",
+            path: "/admin/launch-readiness",
+            status: "done",
+          },
+          { key: "ops-launch-week", title: "", path: "/admin/launch-week", status: "done" },
+          { key: "system-security", title: "", path: "/admin/security", status: "done" },
+          { key: "system-performance", title: "", path: "/admin/performance", status: "done" },
+          { key: "system-usage", title: "", path: "/admin/usage", status: "done" },
+          { key: "ops-memo", title: "", path: "/admin/memo", status: "done" },
         ],
       },
     ],

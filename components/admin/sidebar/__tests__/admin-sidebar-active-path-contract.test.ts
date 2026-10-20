@@ -178,12 +178,13 @@ describe("admin sidebar active path authority", () => {
     expect(isLeafMenuActive("/admin/support/archive", "/admin/support/archive", scope)).toBe(true);
   });
 
-  it("distinguishes CP hash siblings (dashboard vs action-queue vs monitoring)", () => {
+  it("distinguishes CP hash siblings (dashboard vs monitoring)", () => {
     expect(activeLeaves("system", "/admin/customer-platform")).toEqual([
       "/admin/customer-platform",
     ]);
+    // J-AMD-5: duplicate 「Action Queue」 leaf removed — the anchor URL highlights 시스템 개요.
     expect(activeLeaves("system", "/admin/customer-platform#action-queue")).toEqual([
-      "/admin/customer-platform#action-queue",
+      "/admin/customer-platform",
     ]);
     expect(activeLeaves("system", "/admin/customer-platform#monitoring")).toEqual([
       "/admin/customer-platform#monitoring",

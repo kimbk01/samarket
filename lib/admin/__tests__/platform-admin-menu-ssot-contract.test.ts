@@ -99,8 +99,10 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     );
     const notifications = findAdminMenuByKey(adminMenu, "notifications");
     expect(notifications?.children?.some((c) => c.key === "settings-notifications")).toBe(true);
-    const appConfig = findAdminMenuByKey(adminMenu, "app-config");
-    expect(appConfig?.children?.some((c) => c.key === "settings-notifications")).toBe(false);
+    // J-AMD-5: app-config section dissolved; settings leaves are flat under system.
+    expect(findAdminMenuByKey(adminMenu, "app-config")).toBeUndefined();
+    const system = findAdminMenuByKey(adminMenu, "system");
+    expect(system?.children?.some((c) => c.key === "settings-notifications")).toBe(false);
   });
 
   it("J-AMD-1: members workspace owns global reports; trade reports stay domain-scoped", () => {

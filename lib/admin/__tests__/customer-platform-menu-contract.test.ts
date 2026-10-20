@@ -7,19 +7,24 @@ import {
 } from "@/lib/admin/find-admin-menu-item";
 
 describe("customer-platform menu IA (CUT J)", () => {
-  it("keeps Customer Platform under system workspace (slim hub)", () => {
+  it("keeps Customer Platform overview under system workspace (J-AMD-5: flat leaves)", () => {
     expect(adminMenu.some((w) => w.key === "customer-platform")).toBe(false);
+    // J-AMD-5: the 시스템 허브 section is dissolved — overview / monitoring are flat system leaves,
+    // 공통 콘텐츠 (cp-content) moved to 플랫폼 운영, duplicate Action Queue leaf removed.
+    expect(findAdminMenuByKey(adminMenu, "customer-platform")).toBeUndefined();
     const system = requireAdminMenuByKey(adminMenu, "system");
-    expect(system.children?.some((c) => c.key === "customer-platform")).toBe(true);
-    const cp = requireAdminMenuByKey(adminMenu, "customer-platform");
-    expect(cp.path).toBeUndefined();
-    expect(cp.children?.some((c) => c.key === "cp-dashboard")).toBe(true);
-    expect(cp.children?.some((c) => c.key === "cp-content")).toBe(true);
+    const systemKids = (system.children ?? []).map((c) => c.key);
+    expect(systemKids).toContain("cp-dashboard");
+    expect(systemKids).toContain("cp-monitoring");
+    expect(systemKids).not.toContain("cp-content");
+    expect(findAdminMenuByKey(adminMenu, "cp-action-queue")).toBeUndefined();
+    const promotionKids = topLevelChildrenByKey(adminMenu, "promotion").map((c) => c.key);
+    expect(promotionKids).toContain("cp-content");
     // Extracted to common workspaces
-    expect(cp.children?.some((c) => c.key === "cp-support")).toBe(false);
-    expect(cp.children?.some((c) => c.key === "cp-member-assets")).toBe(false);
-    expect(cp.children?.some((c) => c.key === "cp-store-assets")).toBe(false);
-    expect(cp.children?.some((c) => c.key === "cp-notification-engine")).toBe(false);
+    for (const k of ["cp-support", "cp-member-assets", "cp-store-assets"]) {
+      expect(findAdminMenuByKey(adminMenu, k)).toBeUndefined();
+    }
+    expect(systemKids).not.toContain("cp-notification-engine");
   });
 
   it("A2-2 + J + B7: Support Center top-level; store_inquiries route KEEP but not primary", () => {

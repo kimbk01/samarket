@@ -7,7 +7,15 @@ import path from "node:path";
 import {
   adminMenu,
   collectAdminMenuPathEntries,
+  filterMenuByRole,
+  filterMenuForPublicSidebar,
+  type AdminMenuItem,
 } from "@/components/admin/admin-menu";
+import {
+  collectMenuPathEntries,
+  isLeafMenuActive,
+} from "@/components/admin/sidebar/admin-sidebar-active-path";
+import { ADMIN_MENU_PRE_J_AMD_5_LEAVES } from "@/lib/admin/__tests__/fixtures/admin-menu-pre-j-amd-5-leaves";
 import { findAdminMenuByKey } from "@/lib/admin/find-admin-menu-item";
 import { resolveActiveWorkspace } from "@/lib/admin/admin-workspace-routing";
 import {
@@ -23,6 +31,17 @@ import {
   CUT_J_J_AMD_4_REDIRECTS,
   CUT_J_J_AMD_4_REMOVED_SECTIONS,
   CUT_J_J_AMD_4_REPOINTED_LEAVES,
+  CUT_J_J_AMD_5_HIDDEN_LEAVES,
+  CUT_J_J_AMD_5_INTERNAL_TOOLS,
+  CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION,
+  CUT_J_J_AMD_5_MASTER_ONLY_SYSTEM_LEAVES,
+  CUT_J_J_AMD_5_MEMBERS_LEAVES,
+  CUT_J_J_AMD_5_MOVED_INTO_PROMOTION,
+  CUT_J_J_AMD_5_PROMOTION_TREE,
+  CUT_J_J_AMD_5_REMOVED_LEAVES,
+  CUT_J_J_AMD_5_REMOVED_SECTIONS,
+  CUT_J_J_AMD_5_SYSTEM_TREE,
+  CUT_J_J_AMD_5_WORKSPACE_LABELS,
   CUT_J_LEGACY_PRIMARY_FORBIDDEN,
   CUT_J_NAV_SSOT,
   CUT_J_WORKSPACE_ORDER,
@@ -32,6 +51,36 @@ const ROOT = path.resolve(__dirname, "../../..");
 
 function workspaceOf(route: string) {
   return resolveActiveWorkspace(route, "master").id;
+}
+
+function liveTree(key: string) {
+  return (findAdminMenuByKey(adminMenu, key)?.children ?? []).map((c) => ({
+    key: c.key,
+    children: (c.children ?? []).map((k) => k.key),
+  }));
+}
+
+function walkLeaves(items: AdminMenuItem[], out: AdminMenuItem[] = []): AdminMenuItem[] {
+  for (const item of items) {
+    if (item.children?.length) walkLeaves(item.children, out);
+    else out.push(item);
+  }
+  return out;
+}
+
+/** Sidebar-equivalent: some leaf of the resolved workspace is active for `route`. */
+function activeLeafKeys(route: string): string[] {
+  const ws = resolveActiveWorkspace(route, "master");
+  const children = ws.item.children?.length ? ws.item.children : [ws.item];
+  const scope = collectMenuPathEntries(children);
+  return walkLeaves(children)
+    .filter((leaf) =>
+      isLeafMenuActive(leaf.path, route, scope, leaf.matchPaths, {
+        exactPath: leaf.exactPath === true,
+        matchPathPrefixes: leaf.matchPathPrefixes,
+      })
+    )
+    .map((leaf) => leaf.key);
 }
 
 describe("CUT J IA separation hard lock", () => {
@@ -218,6 +267,113 @@ describe("CUT J IA separation hard lock", () => {
       );
       expect(page).toContain(`redirect("${r.to}")`);
     }
+  });
+
+  it("J-AMD-5 members · promotion · system trees match live menu", () => {
+    expect(adminMenu.map((w) => w.key)).toEqual([...CUT_J_WORKSPACE_ORDER]);
+    for (const ws of CUT_J_J_AMD_5_WORKSPACE_LABELS) {
+      expect(findAdminMenuByKey(adminMenu, ws.key)?.titleKey).toBe(ws.titleKey);
+    }
+    expect(
+      (findAdminMenuByKey(adminMenu, "members")?.children ?? []).map((c) => ({
+        key: c.key,
+        path: c.path,
+      }))
+    ).toEqual(CUT_J_J_AMD_5_MEMBERS_LEAVES.map((l) => ({ key: l.key, path: l.path })));
+    expect(findAdminMenuByKey(adminMenu, "staff")).toBeUndefined();
+    expect(collectAdminMenuPathEntries(adminMenu).map((e) => e.path)).not.toContain("/admin/staff");
+
+    expect(liveTree("promotion")).toEqual(
+      CUT_J_J_AMD_5_PROMOTION_TREE.map((n) => ({ key: n.key, children: [...n.children] }))
+    );
+    expect(liveTree("system")).toEqual(
+      CUT_J_J_AMD_5_SYSTEM_TREE.map((n) => ({ key: n.key, children: [...n.children] }))
+    );
+    for (const ws of ["promotion", "system"]) {
+      for (const section of findAdminMenuByKey(adminMenu, ws)?.children ?? []) {
+        if (section.children?.length) expect(section.path).toBeUndefined();
+      }
+    }
+    for (const key of CUT_J_J_AMD_5_MOVED_INTO_PROMOTION) {
+      const path = findAdminMenuByKey(adminMenu, key)?.path;
+      expect(path, key).toBeTruthy();
+      expect(workspaceOf(path!), key).toBe("promotion");
+    }
+    for (const k of CUT_J_J_AMD_5_REMOVED_SECTIONS) {
+      expect(findAdminMenuByKey(adminMenu, k), k).toBeUndefined();
+    }
+  });
+
+  it("J-AMD-5 internal tools: 24 leaves, master-only; 운영 가이드 visible to every admin", () => {
+    const section = findAdminMenuByKey(adminMenu, CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.key);
+    expect(section?.roles).toEqual([...CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.roles]);
+    expect(section?.path).toBeUndefined();
+    expect((section?.children ?? []).map((c) => ({ key: c.key, path: c.path }))).toEqual(
+      CUT_J_J_AMD_5_INTERNAL_TOOLS.map((t) => ({ key: t.key, path: t.path }))
+    );
+    for (const role of ["admin", "operator", "viewer"] as const) {
+      const filtered = filterMenuByRole(adminMenu, role);
+      expect(findAdminMenuByKey(filtered, CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.key)).toBeUndefined();
+      for (const tool of CUT_J_J_AMD_5_INTERNAL_TOOLS) {
+        expect(findAdminMenuByKey(filtered, tool.key), `${role}:${tool.key}`).toBeUndefined();
+      }
+      for (const key of CUT_J_J_AMD_5_MASTER_ONLY_SYSTEM_LEAVES) {
+        expect(findAdminMenuByKey(filtered, key), `${role}:${key}`).toBeUndefined();
+      }
+      expect(findAdminMenuByKey(filtered, "ops-docs-board")?.path).toBe("/admin/docs/board");
+    }
+    const master = filterMenuByRole(adminMenu, "master");
+    for (const tool of CUT_J_J_AMD_5_INTERNAL_TOOLS) {
+      expect(findAdminMenuByKey(master, tool.key)?.path).toBe(tool.path);
+    }
+    // J-AMD-4 unchanged: chat guide stays in chat.
+    expect(workspaceOf("/admin/docs/chat")).toBe("messenger");
+    expect(workspaceOf("/admin/docs/board")).toBe("system");
+  });
+
+  it("J-AMD-5 hidden (O-8) and removed duplicate leaves keep URLs reachable", () => {
+    const publicMenu = filterMenuForPublicSidebar(adminMenu);
+    for (const hidden of CUT_J_J_AMD_5_HIDDEN_LEAVES) {
+      const node = findAdminMenuByKey(adminMenu, hidden.key);
+      expect(node?.path).toBe(hidden.path);
+      expect(node?.sidebarPublic).toBe(false);
+      expect(findAdminMenuByKey(publicMenu, hidden.key)).toBeUndefined();
+    }
+    const leafPaths = collectAdminMenuPathEntries(adminMenu).map((e) => e.path);
+    for (const removed of CUT_J_J_AMD_5_REMOVED_LEAVES) {
+      expect(findAdminMenuByKey(adminMenu, removed.key)).toBeUndefined();
+      expect(leafPaths).not.toContain(removed.path);
+      const cover = findAdminMenuByKey(adminMenu, removed.coveredBy);
+      expect(cover?.path).toBeTruthy();
+      if (removed.via === "matchPaths") expect(cover?.matchPaths ?? []).toContain(removed.path);
+      expect(activeLeafKeys(removed.path), removed.path).toEqual([removed.coveredBy]);
+    }
+    expect(workspaceOf("/admin/platform-promotion/notifications")).toBe("notifications");
+    expect(workspaceOf("/admin/categories")).toBe("trade");
+  });
+
+  it("J-AMD-5 195 pre-amendment leaves: every old path still resolves to an active menu entry", () => {
+    expect(ADMIN_MENU_PRE_J_AMD_5_LEAVES).toHaveLength(195);
+    const leaves = walkLeaves(adminMenu);
+    const removedByPath = new Map<string, (typeof CUT_J_J_AMD_5_REMOVED_LEAVES)[number]>(
+      CUT_J_J_AMD_5_REMOVED_LEAVES.map((r) => [r.path, r])
+    );
+    for (const old of ADMIN_MENU_PRE_J_AMD_5_LEAVES) {
+      if (old.path == null) {
+        // Path-less legacy keys (ads-platform-*) stay for redirects / findAdminMenuByKey.
+        expect(findAdminMenuByKey(adminMenu, old.key)?.key, old.key).toBe(old.key);
+        continue;
+      }
+      const direct = leaves.find(
+        (l) => l.path === old.path || (l.matchPaths ?? []).includes(old.path!)
+      );
+      const removed = removedByPath.get(old.path);
+      expect(direct != null || removed != null, `uncovered ${old.path}`).toBe(true);
+      if (!removed) expect(findAdminMenuByKey(adminMenu, old.key)?.key, old.key).toBe(old.key);
+      expect(activeLeafKeys(old.path).length, `not highlightable ${old.path}`).toBeGreaterThan(0);
+    }
+    // J-AMD-5 added exactly the two member leaves (195 − 3 removed + 2 added = 194).
+    expect(leaves).toHaveLength(194);
   });
 
   it("J21–J34 operational findability primary paths", () => {

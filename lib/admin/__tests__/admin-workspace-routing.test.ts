@@ -38,7 +38,7 @@ describe("admin-workspace-routing (CUT J)", () => {
     const operator = listAdminWorkspaces("operator").map((w) => w.id);
     expect(master).toContain("system");
     expect(operator).toContain("system");
-    expect(findWorkspaceItem("system", "operator")?.children?.some((c) => c.key === "platform-ops")).toBe(
+    expect(findWorkspaceItem("system", "operator")?.children?.some((c) => c.key === "platform-system")).toBe(
       false
     );
   });

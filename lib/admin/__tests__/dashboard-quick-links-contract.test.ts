@@ -42,7 +42,8 @@ describe("dashboard quick links ← menu SSOT (Slice 2A)", () => {
         expect(link.roles).toEqual(["master"]);
       }
       if (link.section === "manage") {
-        expect(link.roles).toEqual(["admin", "master"]);
+        // J-AMD-5 (O-3): former 관리/보고 tools live in master-only 「내부 도구」.
+        expect(link.roles).toEqual(["master"]);
       }
     }
   });
@@ -55,12 +56,13 @@ describe("dashboard quick links ← menu SSOT (Slice 2A)", () => {
     expect(sections.ops.every((l) => l.href.startsWith("/admin"))).toBe(true);
   });
 
-  it("admin (manager UI): manage visible, dev hidden", () => {
+  it("admin (manager UI): internal tools (manage + dev) hidden — J-AMD-5 O-3 master-only", () => {
     const sections = projectDashboardQuickLinks("admin");
-    expect(sections.manage.map((l) => l.menuKey)).toEqual([
+    expect(sections.manage).toEqual([]);
+    expect(sections.dev).toEqual([]);
+    expect(projectDashboardQuickLinks("master").manage.map((l) => l.menuKey)).toEqual([
       ...DASHBOARD_QUICK_LINK_MENU_KEYS.manage,
     ]);
-    expect(sections.dev).toEqual([]);
   });
 
   it("dev section matches former DEV_LINKS paths via SSOT leaves", () => {

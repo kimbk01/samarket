@@ -78,15 +78,19 @@ const OPS_ITEMS: AdminMenuItem[] = OPS_DOMAIN_KEYS.flatMap((key) =>
 const ADS_ITEMS = menuChildrenAsConfigItems("ads");
 /** Member point ops live under Finance (`finance-member-point`). */
 const POINT_ITEMS = menuChildrenAsConfigItems("finance-member-point");
-const APP_CONFIG_TOP = requireAdminMenuByKey(adminMenu, "app-config");
+/** J-AMD-5: app config leaves = 플랫폼 운영 › 「앱 화면 구성」 (`settings-startup`). */
+const APP_CONFIG_TOP = requireAdminMenuByKey(adminMenu, "settings-startup");
 const SETTINGS_ITEMS = (APP_CONFIG_TOP.children ?? []).map(cloneMenuItem);
-const MANAGE_TOP = requireAdminMenuByKey(adminMenu, "manage");
+/** J-AMD-5: former 관리/보고 tools live in system › 「내부 도구」 (`platform-system`, master-only). */
+const MANAGE_TOP = requireAdminMenuByKey(adminMenu, "platform-system");
 const SYSTEM_TOP = requireAdminMenuByKey(adminMenu, "system");
 
-export const MANAGE_MENU_GROUPS: OpsMenuGroup[] = (MANAGE_TOP.children ?? []).map((group) => ({
-  groupLabel: group.key,
-  items: flattenMenuLinks((group.children ?? []).map(cloneMenuItem)),
-}));
+export const MANAGE_MENU_GROUPS: OpsMenuGroup[] = [
+  {
+    groupLabel: MANAGE_TOP.key,
+    items: flattenMenuLinks((MANAGE_TOP.children ?? []).map(cloneMenuItem)),
+  },
+];
 
 const MANAGE_ITEMS: AdminMenuItem[] = MANAGE_MENU_GROUPS.flatMap((group) =>
   group.items.map((item) => ({ label: item.label, href: item.href }))

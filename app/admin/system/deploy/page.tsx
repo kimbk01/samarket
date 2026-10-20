@@ -8,6 +8,7 @@ import {
 } from "@/components/admin/deploy/AdminDeployOpsPanels";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { Sam } from "@/lib/ui/css-vars";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 
 type GateRow = {
   gateId: string;
@@ -143,7 +144,9 @@ export default function AdminSystemDeployPage() {
     void load();
   }, [load]);
 
-  const isOwner = status?.actor?.isDeployOwner === true;
+  // 접근표 `action: deploy_owner` (설계 v4 §4-2 #3) — `/me.isDeployOwner` 와 배포 상태 응답이 모두 담당자일 때만 작업 버튼 활성.
+  const deployAction = useAdminRouteAction("/admin/system/deploy");
+  const isOwner = status?.actor?.isDeployOwner === true && deployAction.allowed;
   const ownerConfigured = status?.actor?.deployOwnerConfigured === true;
   const promoteBlocked = status?.productionExecution?.promote?.allowed !== true;
   const rollbackBlocked = status?.productionExecution?.rollback?.allowed !== true;

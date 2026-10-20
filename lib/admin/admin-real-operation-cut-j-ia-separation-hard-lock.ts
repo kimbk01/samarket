@@ -8,6 +8,7 @@
  * J-AMD-1: `members` immediately after `dashboard` (Owner-approved; menu implemented).
  * J-AMD-3: Delivery workspace operator-task sections (Owner-approved A-1; menu implemented).
  * J-AMD-4: Chat (messenger) workspace sections (Owner-approved O-C12; menu implemented).
+ * J-AMD-5: Common-menu restructure (Owner-approved 2026-10-20, design v4 O-1..O-3; menu implemented).
  */
 
 export const ADMIN_REAL_OPERATION_CUT_J_LOCK_ID =
@@ -141,13 +142,14 @@ export const CUT_J_J_AMD_3_MOVED_OUT_OF_DELIVERY = [
     key: "runtime-health",
     path: "/admin/runtime-health",
     workspace: "system",
-    parent: "system-manage",
+    // J-AMD-5: `system-manage` dissolved — now a flat system leaf (master-only).
+    parent: "system",
   },
   {
     key: "delivery-release-gate",
     path: "/admin/delivery-release-gate",
     workspace: "system",
-    parent: "system-manage",
+    parent: "system",
   },
   {
     key: "delivery-order-notifications",
@@ -225,6 +227,233 @@ export const CUT_J_J_AMD_4_REDIRECTS = [
   { from: "/admin/chats/trade-complete", to: "/admin/trade-flow?panel=complete" },
 ] as const;
 
+export const CUT_J_J_AMD_5_OWNER_APPROVED = true as const;
+
+export const CUT_J_J_AMD_5_STATUS = "OWNER_APPROVED_IMPLEMENTED" as const;
+
+/** J-AMD-5 source: Owner-approved 2026-10-20 design v4 (O-1 · O-2 · O-3), §1 + appendix (195 rows). */
+export const CUT_J_J_AMD_5_SOURCE = "docs/admin/dibay-admin-unified-operations-design-v4.html" as const;
+
+/**
+ * J-AMD-5 (O-1) — workspace order unchanged; display labels change via i18n VALUES only
+ * (workspace keys and i18n keys unchanged).
+ */
+export const CUT_J_J_AMD_5_WORKSPACE_LABELS = [
+  { key: "dashboard", titleKey: "admin_menu_home", ko: "운영 홈" },
+  { key: "members", titleKey: "admin_menu_members", ko: "회원·권한" },
+  { key: "delivery", titleKey: "admin_menu_delivery", ko: "배달·매장" },
+  { key: "finance", titleKey: "admin_menu_finance", ko: "결제·정산" },
+  { key: "ads", titleKey: "admin_menu_ads", ko: "광고·배너" },
+  { key: "promotion", titleKey: "admin_menu_promotion", ko: "플랫폼 운영" },
+] as const;
+
+/** J-AMD-5 — members leaves (in order). Two existing sub-screens exposed; /admin/staff is F3 (not here). */
+export const CUT_J_J_AMD_5_MEMBERS_LEAVES = [
+  { key: "users", path: "/admin/users" },
+  { key: "users-phone-verification", path: "/admin/users/phone-verification" },
+  { key: "users-deletion-requests", path: "/admin/users/deletion-requests" },
+  { key: "global-reports", path: "/admin/reports" },
+  { key: "reports-logs", path: "/admin/reports/log" },
+  { key: "audit-logs", path: "/admin/audit-logs" },
+] as const;
+
+/**
+ * J-AMD-5 (O-2) — promotion (「플랫폼 운영」) tree, direct children in order.
+ * Section nodes are header-only; section keys reused (settings-startup = 앱 화면 구성,
+ * growth-rec = 추천, cp-content = 공통 콘텐츠). Leaf keys / paths unchanged.
+ */
+export const CUT_J_J_AMD_5_PROMOTION_TREE = [
+  { key: "promotion-home", children: [] },
+  { key: "promotion-events", children: [] },
+  { key: "promotion-popup", children: [] },
+  { key: "promotion-ptr-ads", children: [] },
+  { key: "promotion-banners", children: [] },
+  { key: "promotion-owner-requests", children: [] },
+  {
+    key: "settings-startup",
+    children: [
+      "settings-os-start",
+      "settings-intro",
+      "settings-startup-config",
+      "menu-main-bottom-nav",
+      "my-banners",
+      "my-sections",
+      "my-services",
+    ],
+  },
+  {
+    key: "growth-rec",
+    children: [
+      "manage-ab",
+      "rec-analytics",
+      "rec-monitoring",
+      "rec-deployments",
+      "rec-automation",
+      "manage-reports",
+    ],
+  },
+  { key: "cp-content", children: ["cp-notice", "cp-faq", "cp-legal", "cp-business"] },
+] as const;
+
+/** J-AMD-5 (O-3) — master-only 「내부 도구」 section (reused key `platform-system`). */
+export const CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION = {
+  key: "platform-system",
+  roles: ["master"],
+} as const;
+
+/** J-AMD-5 (O-3) — the 24 internal tools (in order). URLs / pages kept. */
+export const CUT_J_J_AMD_5_INTERNAL_TOOLS = [
+  { key: "manage-ops-board", path: "/admin/ops-board" },
+  { key: "manage-docs", path: "/admin/ops-docs" },
+  { key: "manage-runbooks", path: "/admin/ops-runbooks" },
+  { key: "manage-kb", path: "/admin/ops-knowledge" },
+  { key: "manage-kg", path: "/admin/ops-knowledge-graph" },
+  { key: "manage-learning", path: "/admin/ops-learning" },
+  { key: "manage-maturity", path: "/admin/ops-maturity" },
+  { key: "manage-benchmarks", path: "/admin/ops-benchmarks" },
+  { key: "system-qa", path: "/admin/qa-board" },
+  { key: "system-longrun", path: "/admin/ops-routines" },
+  { key: "system-backlog", path: "/admin/product-backlog" },
+  { key: "system-sprint", path: "/admin/dev-sprints" },
+  { key: "system-release-notes", path: "/admin/release-notes" },
+  { key: "system-release-archive", path: "/admin/release-archive" },
+  { key: "system-release-migration", path: "/admin/production-migration" },
+  { key: "system-backup", path: "/admin/backup" },
+  { key: "system-dr", path: "/admin/dr" },
+  { key: "system-automation", path: "/admin/automation" },
+  { key: "ops-launch-readiness", path: "/admin/launch-readiness" },
+  { key: "ops-launch-week", path: "/admin/launch-week" },
+  { key: "system-security", path: "/admin/security" },
+  { key: "system-performance", path: "/admin/performance" },
+  { key: "system-usage", path: "/admin/usage" },
+  { key: "ops-memo", path: "/admin/memo" },
+] as const;
+
+/**
+ * J-AMD-5 — system tree (direct children in order). Leaves that were master-only before
+ * (inside `platform-system`) keep `roles: ["master"]` — no menu visibility change.
+ * `ops-docs-board` (운영 가이드) is outside any role-restricted section (all admins).
+ */
+export const CUT_J_J_AMD_5_SYSTEM_TREE = [
+  { key: "cp-dashboard", children: [] },
+  { key: "cp-monitoring", children: [] },
+  { key: "system-status", children: [] },
+  { key: "runtime-health", children: [] },
+  { key: "delivery-release-gate", children: [] },
+  { key: "system-deploy", children: [] },
+  { key: "settings-general", children: [] },
+  { key: "settings-auth", children: [] },
+  { key: "system-hotfix", children: [] },
+  { key: "system-prelaunch-reset", children: [] },
+  { key: "ops-docs-board", children: [] },
+  { key: "app-countries", children: [] },
+  { key: "app-languages", children: [] },
+  { key: "app-meta", children: [] },
+  {
+    key: "platform-system",
+    children: [
+      "manage-ops-board",
+      "manage-docs",
+      "manage-runbooks",
+      "manage-kb",
+      "manage-kg",
+      "manage-learning",
+      "manage-maturity",
+      "manage-benchmarks",
+      "system-qa",
+      "system-longrun",
+      "system-backlog",
+      "system-sprint",
+      "system-release-notes",
+      "system-release-archive",
+      "system-release-migration",
+      "system-backup",
+      "system-dr",
+      "system-automation",
+      "ops-launch-readiness",
+      "ops-launch-week",
+      "system-security",
+      "system-performance",
+      "system-usage",
+      "ops-memo",
+    ],
+  },
+] as const;
+
+/** J-AMD-5 — system leaves that keep their previous master-only visibility. */
+export const CUT_J_J_AMD_5_MASTER_ONLY_SYSTEM_LEAVES = [
+  "system-status",
+  "runtime-health",
+  "delivery-release-gate",
+  "system-deploy",
+  "system-hotfix",
+  "system-prelaunch-reset",
+] as const;
+
+/** J-AMD-5 (O-8) — hidden via `sidebarPublic: false` (code / URL / key kept). */
+export const CUT_J_J_AMD_5_HIDDEN_LEAVES = [
+  { key: "cp-faq", path: "/admin/customer-platform/faq" },
+  { key: "app-countries", path: "/admin/app/countries" },
+  { key: "app-languages", path: "/admin/app/languages" },
+  { key: "app-meta", path: "/admin/app/meta" },
+] as const;
+
+/**
+ * J-AMD-5 (O-2) — duplicate leaves removed from the menu. URLs keep working and stay
+ * highlightable through `coveredBy` (its path prefix or matchPaths).
+ */
+export const CUT_J_J_AMD_5_REMOVED_LEAVES = [
+  {
+    key: "cp-action-queue",
+    path: "/admin/customer-platform#action-queue",
+    coveredBy: "cp-dashboard",
+    via: "path-prefix",
+  },
+  {
+    key: "app-categories",
+    path: "/admin/categories",
+    coveredBy: "menu-trade",
+    via: "matchPaths",
+  },
+  {
+    key: "promotion-notifications",
+    path: "/admin/platform-promotion/notifications",
+    coveredBy: "cp-notification-engine",
+    via: "matchPaths",
+  },
+] as const;
+
+/** J-AMD-5 — leaves moved from system into promotion (same keys / paths). */
+export const CUT_J_J_AMD_5_MOVED_INTO_PROMOTION = [
+  "settings-startup-config",
+  "menu-main-bottom-nav",
+  "my-banners",
+  "my-sections",
+  "my-services",
+  "manage-ab",
+  "rec-analytics",
+  "rec-monitoring",
+  "rec-deployments",
+  "rec-automation",
+  "manage-reports",
+  "cp-notice",
+  "cp-faq",
+  "cp-legal",
+  "cp-business",
+] as const;
+
+/** J-AMD-5 — old section nodes removed once empty (i18n keys kept). */
+export const CUT_J_J_AMD_5_REMOVED_SECTIONS = [
+  "customer-platform",
+  "app-config",
+  "platform-ops",
+  "manage",
+  "manage-knowledge",
+  "manage-eval",
+  "system-release",
+  "system-manage",
+] as const;
+
 export const CUT_J_NAV_SSOT = {
   menuTreeAuthority: "components/admin/admin-menu.ts",
   workspaceRoutingAuthority: "lib/admin/admin-workspace-routing.ts",
@@ -299,6 +528,15 @@ export function assertAdminRealOperationCutJIaSeparationHardLock(): boolean {
     CUT_J_J_AMD_4_MESSENGER_TREE.length === 5 &&
     CUT_J_J_AMD_4_REPOINTED_LEAVES.every((l) => !l.path.includes("from=messenger"));
 
+  const jAmd5Ok =
+    CUT_J_J_AMD_5_OWNER_APPROVED === true &&
+    CUT_J_J_AMD_5_INTERNAL_TOOLS.length === 24 &&
+    CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.roles.length === 1 &&
+    CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.roles[0] === "master" &&
+    CUT_J_J_AMD_5_REMOVED_LEAVES.length === 3 &&
+    CUT_J_J_AMD_5_HIDDEN_LEAVES.length === 4 &&
+    CUT_J_J_AMD_5_PROMOTION_TREE[0].key === "promotion-home";
+
   return (
     ADMIN_REAL_OPERATION_CUT_J_LOCKED === true &&
     CUT_J_NAV_SSOT.duplicatePrimaryLeafForbidden === true &&
@@ -310,6 +548,7 @@ export function assertAdminRealOperationCutJIaSeparationHardLock(): boolean {
     CUT_I_CARRY_INTO_J.resetStorage === "NOT_IMPLEMENTED" &&
     jAmd1Ok &&
     jAmd3Ok &&
-    jAmd4Ok
+    jAmd4Ok &&
+    jAmd5Ok
   );
 }

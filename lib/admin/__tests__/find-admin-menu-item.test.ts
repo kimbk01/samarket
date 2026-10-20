@@ -35,11 +35,12 @@ describe("find-admin-menu-item", () => {
     expect(findAdminMenuByKey(tradeChildren, "trade-promotions")).toBeTruthy();
   });
 
-  it("finds manage under platform-ops", () => {
+  it("finds internal tools section under system (J-AMD-5)", () => {
     const system = findAdminMenuByKey(adminMenu, "system");
-    expect(system?.children?.some((c) => c.key === "platform-ops")).toBe(true);
-    const manage = findAdminMenuByKey(adminMenu, "manage");
-    expect(manage?.roles).toEqual(["admin", "master"]);
+    expect(system?.children?.some((c) => c.key === "platform-system")).toBe(true);
+    expect(findAdminMenuByKey(adminMenu, "platform-system")?.roles).toEqual(["master"]);
+    expect(findAdminMenuByKey(adminMenu, "platform-ops")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "manage")).toBeUndefined();
   });
 
   it("returns undefined for removed operations workspace key", () => {
