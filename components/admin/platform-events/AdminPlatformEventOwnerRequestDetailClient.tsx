@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { ownerRequestStatusLabelKey } from "@/lib/platform-event-owner-requests/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PlatformEventDetailContent } from "@/components/platform-events/PlatformEventDetailContent";
 import type { PlatformEventOwnerRequestRow } from "@/lib/platform-event-owner-requests/types";
@@ -52,7 +58,6 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
 
   const load = useCallback(async () => {
     setError(null);
@@ -82,6 +87,39 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
 
   const act = useCallback(
     async (action: "approve" | "reject" | "start_review" | "revision_required") => {
+      // R2: 승인·반려 = L2 (사유 → API → 감사), 심사 시작 = L1.
+      const ko = language !== "en";
+      const kind = action === "approve" ? "approve" : action === "start_review" ? "save" : "reject";
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel(kind),
+        ko,
+        title:
+          action === "approve"
+            ? ko
+              ? "이벤트 신청을 승인할까요?"
+              : "Approve this event request?"
+            : action === "start_review"
+              ? ko
+                ? "심사를 시작할까요?"
+                : "Start review?"
+              : ko
+                ? "이벤트 신청을 반려할까요?"
+                : "Reject this event request?",
+        description:
+          action === "approve"
+            ? ko
+              ? "승인하면 이벤트 초안이 연결됩니다. 배포·푸시는 별도로 설정합니다."
+              : "Approval links an event draft. Distribution and push are configured separately."
+            : action === "start_review"
+              ? undefined
+              : ko
+                ? "반려 사유는 사장님에게 전달됩니다."
+                : "The reason is sent to the store owner.",
+        confirmLabel:
+          action === "approve" ? adminCta("approve", ko) : action === "start_review" ? (ko ? "심사 시작" : "Start review") : adminCta("reject", ko),
+        destructive: action === "reject" || action === "revision_required",
+      });
+      if (!confirmed.ok) return;
       setBusy(true);
       setError(null);
       setInfo(null);
@@ -94,7 +132,7 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               action,
-              reason: action === "reject" || action === "revision_required" ? rejectReason : undefined,
+              reason: confirmed.reason ?? undefined,
             }),
           }
         );
@@ -129,7 +167,7 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
         setBusy(false);
       }
     },
-    [requestId, rejectReason, safeT]
+    [requestId, safeT, language]
   );
 
   if (!request) {
@@ -139,11 +177,11 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
   return (
     <div className="grid gap-6 p-4 lg:grid-cols-2" data-admin-event-owner-request-detail="1">
       <div className="space-y-3">
-        <h1 className="text-lg font-semibold">{request.title}</h1>
+        <h1 className="text-[20px] font-semibold">{request.title}</h1>
         <p className="text-sm text-sam-muted">
-          {request.requestStatus} · store {request.storeId}
+          {safeT(ownerRequestStatusLabelKey(request.requestStatus) as never, { fallbackKo: "알 수 없는 상태", fallbackEn: "Unknown status" })} · store {request.storeId}
         </p>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-sam-danger">{adminOperatorErrorMessage(error, language !== "en")}</p> : null}
         {info ? <p className="text-sm text-sam-muted">{info}</p> : null}
         <p className="text-sm">
           {safeT("admin_event_owner_requested_channels", {
@@ -155,42 +193,16 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
           {String(request.requestedChannels.push)} bell=
           {String(request.requestedChannels.bell)}
         </p>
-        <label className="block text-sm">
-          {safeT("admin_event_owner_reject_reason", {
-            fallbackKo: "반려/수정 사유",
-            fallbackEn: "Reject / revision reason",
-          })}
-          <textarea
-            className="mt-1 h-20 w-full rounded border border-sam-border px-2 py-1.5"
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-          />
-        </label>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
-            onClick={() => void act("start_review")}
-          >
-            Review
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            className="rounded-ui-rect bg-sam-fg px-3 py-2 text-sm font-semibold text-sam-app"
-            onClick={() => void act("approve")}
-          >
+          <AdminActionButton variant="secondary" disabled={busy} onClick={() => void act("start_review")}>
+            {language !== "en" ? "심사 시작" : "Start review"}
+          </AdminActionButton>
+          <AdminActionButton variant="primary" disabled={busy} onClick={() => void act("approve")}>
             {safeT("admin_event_owner_approve", { fallbackKo: "승인", fallbackEn: "Approve" })}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
-            onClick={() => void act("reject")}
-          >
+          </AdminActionButton>
+          <AdminActionButton variant="secondary" disabled={busy} onClick={() => void act("reject")}>
             {safeT("admin_event_owner_reject", { fallbackKo: "반려", fallbackEn: "Reject" })}
-          </button>
+          </AdminActionButton>
         </div>
         {request.platformEventId ? (
           <Link

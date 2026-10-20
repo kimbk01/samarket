@@ -48,6 +48,7 @@ import {
 } from "@/components/admin/community/members/use-community-admin-data";
 import { restrictionUntilLabel } from "@/components/admin/community/members/AdminCommunityMembersPage";
 import { communityPointTypeLabel } from "@/components/admin/community/points/community-point-labels";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 type Rec = Record<string, unknown>;
 
@@ -114,7 +115,7 @@ type Sheet =
 
 const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 const n = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
-const count = (v: number | null | undefined) => (typeof v === "number" ? v.toLocaleString() : null);
+const count = (v: number | null | undefined) => (typeof v === "number" ? formatAdminNumber(v) : null);
 const abs = (iso: unknown) => (iso ? `${formatAdminManilaDateTime(String(iso))} PHT` : "—");
 
 function CountOr({ v }: { v: number | null | undefined }) {
@@ -209,7 +210,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
       <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
 
       {d.isImportPrincipal ? (
-        <p className="rounded-ui-rect border border-sky-300 bg-sky-50 px-3 py-2 text-[13px] text-sky-950">
+        <p className="rounded-ui-rect border border-[var(--admin-console-accent)] bg-[var(--admin-console-active-bg)] px-3 py-2 text-[13px] text-[var(--admin-console-accent)]">
           외부 수집 글을 게시하는 운영 계정입니다. 회원 조치 대상이 아닙니다.
         </p>
       ) : null}
@@ -432,7 +433,7 @@ function Empty({ text }: { text: string }) {
 
 function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse; selfHref: string; userId: string }): ReactNode {
   const link = (href: string, label: string) => (
-    <Link href={communityDetailHref(href, selfHref)} className="font-medium text-sky-800 hover:underline">
+    <Link href={communityDetailHref(href, selfHref)} className="font-medium text-[var(--admin-console-accent)] hover:underline">
       {label}
     </Link>
   );
@@ -550,9 +551,9 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
                   <CommunityTimeCell iso={s(r.created_at)} />
                 </td>
                 <td className={COMMUNITY_TD}>{communityPointTypeLabel(s(r.related_type), s(r.entry_type))}</td>
-                <td className={`${COMMUNITY_TD} whitespace-nowrap ${amt < 0 ? "text-red-700" : "text-emerald-800"}`}>
+                <td className={`${COMMUNITY_TD} whitespace-nowrap ${amt < 0 ? "text-sam-danger" : "text-sam-success"}`}>
                   {amt > 0 ? "+" : ""}
-                  {amt.toLocaleString()} P
+                  {formatAdminNumber(amt)} P
                 </td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{formatCommunityPoints(n(r.balance_after))}</td>
                 <td className={COMMUNITY_TD}>{s(r.description) || "—"}</td>
@@ -561,7 +562,7 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
           })}
         </CommunityTable>
         <div className="border-t border-sam-border-soft px-3 py-2 text-[13px]">
-          <Link href={`/admin/community/points?userId=${encodeURIComponent(userId)}`} className="text-sky-800 underline">
+          <Link href={`/admin/community/points?userId=${encodeURIComponent(userId)}`} className="text-[var(--admin-console-accent)] underline">
             포인트 내역 전체 보기
           </Link>
         </div>

@@ -6,6 +6,7 @@ import { buildHomeFeed } from "@/lib/home-feed/home-feed-utils";
 import { SECTION_LABELS } from "@/lib/home-feed/home-feed-labels";
 import type { FeedCandidate, HomeFeedPolicy } from "@/lib/types/home-feed";
 import type { UserRegionContext } from "@/lib/exposure/exposure-score-utils";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 
 const MOCK_PREVIEW_REGION: UserRegionContext = {
   region: "마닐라",
@@ -74,7 +75,7 @@ export function HomeFeedPreview({ policies }: HomeFeedPreviewProps) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-sam-fg">{item.title}</p>
                   <p className="text-sam-muted">
-                    ₱{item.price.toLocaleString()} · {item.reasonLabel}
+                    {formatAdminPhp(item.price)} · {item.reasonLabel}
                   </p>
                 </div>
               </li>

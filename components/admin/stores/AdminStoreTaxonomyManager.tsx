@@ -2,6 +2,7 @@
 
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -286,7 +287,7 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                               if (
                                 !(
                                   await confirmAdminAction({
-                                  level: "L1",
+                                  level: adminActionLevel(nextActive ? "resume" : "exposeStop"),
                                   ko,
                                   title: label,
                                   description: nextActive
@@ -643,7 +644,7 @@ export function AdminStoreTaxonomyManager({
     if (
       !(
         await confirmAdminAction({
-          level: "L1",
+          level: adminActionLevel("save"),
           ko,
           title: t("admin_stores_app_taxonomy_confirm_seed"),
           confirmLabel: t("admin_stores_app_taxonomy_seed"),

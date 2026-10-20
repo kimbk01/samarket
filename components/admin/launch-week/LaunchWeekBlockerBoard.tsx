@@ -6,7 +6,7 @@ import {
   getBlockedChecklistItems,
   getOpenCriticalIssues,
 } from "@/lib/launch-week/launch-week-state";
-import { getAreaLabel, getPriorityLabel } from "@/lib/launch-week/launch-week-utils";
+import { getAreaLabel, getIssueStatusLabel, getPriorityLabel } from "@/lib/launch-week/launch-week-utils";
 import Link from "next/link";
 
 export function LaunchWeekBlockerBoard() {
@@ -72,7 +72,7 @@ export function LaunchWeekBlockerBoard() {
                   <span>{getAreaLabel(i.category)}</span>
                 </div>
                 <p className="mt-2 font-medium text-sam-fg">{i.title}</p>
-                <p className="mt-2 sam-text-body text-sam-danger">{i.status}</p>
+                <p className="mt-2 sam-text-body text-sam-danger">{getIssueStatusLabel(i.status)}</p>
                 {i.linkedType && i.linkedId && (
                   <p className="mt-1 sam-text-helper text-sam-muted">
                     연결: {i.linkedType}{" "}

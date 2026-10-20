@@ -46,7 +46,7 @@ describe("Delivery Ads Recovery P3–P4 Admin/Customer contracts", () => {
   it("Partner page rejects ambiguous underline primary nav and uses selected filters", () => {
     const partner = read("components/admin/stores/AdminDeliveryAdPartnerMembershipsView.tsx");
     expect(partner).toContain("data-admin-partner-filters");
-    expect(partner).toContain("aria-selected");
+    expect(partner).toContain("<AdminChipButton selected={selected}");
     expect(partner).toContain("Partner 월 회비 자동 결제");
     expect(partner).not.toMatch(/className="text-signature underline"/);
   });

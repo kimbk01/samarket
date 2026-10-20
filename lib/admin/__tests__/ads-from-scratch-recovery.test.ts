@@ -11,9 +11,9 @@ import { adminMenu } from "@/components/admin/admin-menu";
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 describe("ads from-scratch recovery contracts", () => {
-  it("Approve CTA uses sam-primary (not undefined sam-brand)", () => {
+  it("Approve CTA uses the Admin primary button (not undefined sam-brand)", () => {
     const src = read("components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx");
-    expect(src).toContain("bg-sam-primary text-sam-on-primary");
+    expect(src).toContain('variant={action === "approve" ? "primary" : "secondary"}');
     expect(src).not.toMatch(/action === \"approve\"[\s\S]{0,80}bg-sam-brand/);
   });
 

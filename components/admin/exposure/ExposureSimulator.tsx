@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ExposureCandidate, ExposureScoreResult, ExposureSurface } from "@/lib/types/exposure";
 import { SURFACE_OPTIONS } from "@/lib/exposure/exposure-policy-utils";
 import { ExposureResultTable } from "./ExposureResultTable";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface ExposureSimulatorProps {
   onSimulated?: () => void;
@@ -65,16 +66,15 @@ export function ExposureSimulator({ onSimulated }: ExposureSimulatorProps) {
             </option>
           ))}
         </select>
-        <button
-          type="button"
+        <AdminActionButton
           disabled={busy}
           onClick={() => void runSimulation()}
-          className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white disabled:opacity-50"
+          variant="primary"
         >
           {busy ? "실행 중…" : "시뮬레이션 실행"}
-        </button>
+        </AdminActionButton>
       </div>
-      {err ? <p className="sam-text-body text-red-600">{err}</p> : null}
+      {err ? <p className="sam-text-body text-sam-danger">{err}</p> : null}
       {candidateCount === 0 && results.length === 0 && !busy && !err ? (
         <p className="sam-text-body text-sam-muted">거래 상품 후보가 없습니다. 시뮬레이션을 실행해 보세요.</p>
       ) : null}

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { PersonalizedFeedPolicy } from "@/lib/types/personalized-feed";
 import { PERSONALIZED_SECTION_LABELS } from "@/lib/personalized-feed/personalized-section-labels";
 
@@ -61,7 +62,7 @@ export function PersonalizedPolicyTable({
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                     p.isActive
-                      ? "bg-emerald-50 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
@@ -70,13 +71,9 @@ export function PersonalizedPolicyTable({
               </td>
               {onEdit && (
                 <td className="px-3 py-2.5">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(p)}
-                    className="sam-text-body-secondary text-signature hover:underline"
-                  >
-                    편집
-                  </button>
+                  <AdminActionButton variant="ghost" size="sm" onClick={() => onEdit(p)}>
+                    수정
+                  </AdminActionButton>
                 </td>
               )}
             </tr>

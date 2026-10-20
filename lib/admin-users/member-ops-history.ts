@@ -59,7 +59,7 @@ const ACTION_LABEL_KO: Record<string, string> = {
   user_withdraw: "탈퇴 처리(익명화)",
   user_purge: "영구 삭제",
   "my.account.leave_request": "회원 삭제 요청",
-  "admin.account_deletion.reject": "삭제 요청 거절",
+  "admin.account_deletion.reject": "삭제 요청 반려",
   promote_to_admin: "관리자 권한 부여",
   revoke_admin_privilege: "관리자 권한 해제",
   create_admin: "관리자 계정 생성",
@@ -70,7 +70,7 @@ const ACTION_LABEL_KO: Record<string, string> = {
   deletion_request_open: "삭제 요청(대기)",
   deletion_request_processing: "삭제 요청(처리중)",
   deletion_request_completed: "삭제 요청(완료)",
-  deletion_request_rejected: "삭제 요청(거절)",
+  deletion_request_rejected: "삭제 요청(반려)",
   deletion_request_cancelled: "삭제 요청(취소)",
 };
 

@@ -4,6 +4,7 @@ import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationRegionAnalytics } from "@/lib/recommendation-analytics/recommendation-analytics-state";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 interface RecommendationRegionAnalyticsTableProps {
   reportId: string;
@@ -58,10 +59,10 @@ export function RecommendationRegionAnalyticsTable({
                 {r.barangay ? ` · ${r.barangay}` : ""}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {r.impressionCount.toLocaleString()}
+                {formatAdminNumber(r.impressionCount)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {r.clickCount.toLocaleString()}
+                {formatAdminNumber(r.clickCount)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {(r.ctr * 100).toFixed(2)}%

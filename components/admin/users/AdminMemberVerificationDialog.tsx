@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { adminMemberPublicIdAt } from "@/lib/admin-users/admin-member-identity";
 
@@ -185,7 +186,7 @@ export function AdminMemberVerificationDialog({
         onPrimary={() => void runVerifyAction(confirm)}
       >
         <div data-member-verify-confirm={confirm}>
-          <p className="text-[13px] text-[#475467]">
+          <p className="text-[13px] text-sam-muted">
             현재 선택: {STATUS_OPTIONS.find((o) => o.value === statusValue)?.labelKo ?? statusValue}
           </p>
         </div>
@@ -215,18 +216,18 @@ export function AdminMemberVerificationDialog({
     >
       <div className="space-y-4" data-member-verification-dialog="1" data-member-screen="S15">
         <label className="block text-[13px]">
-          <span className="mb-1 block text-[#667085]">{MEMBER_ADMIN_COPY.verify_phone_label}</span>
+          <span className="mb-1 block text-sam-muted">{MEMBER_ADMIN_COPY.verify_phone_label}</span>
           <input
-            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+            className="w-full rounded-md border border-sam-border px-3 py-2"
             value={phoneValue}
             onChange={(e) => setPhoneValue(e.target.value)}
             data-member-verify-phone-input="1"
           />
         </label>
         <label className="block text-[13px]">
-          <span className="mb-1 block text-[#667085]">{MEMBER_ADMIN_COPY.verify_status_label}</span>
+          <span className="mb-1 block text-sam-muted">{MEMBER_ADMIN_COPY.verify_status_label}</span>
           <select
-            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+            className="w-full rounded-md border border-sam-border px-3 py-2"
             value={statusValue}
             onChange={(e) => setStatusValue(e.target.value as PhoneStatus)}
             data-member-verify-status-select="1"
@@ -240,28 +241,26 @@ export function AdminMemberVerificationDialog({
         </label>
         <div className="flex flex-wrap gap-2" data-member-verify-actions="1">
           {canApprove ? (
-            <button
-              type="button"
-              className="rounded-md bg-[#2563eb] px-3 py-2 text-[13px] font-semibold text-white"
+            <AdminActionButton
+              variant="primary"
               data-member-verify-action="approve"
               data-member-cta-cap="CAP-VERIFY-APPROVE"
               disabled={pending}
               onClick={() => setConfirm("approve")}
             >
               {MEMBER_ADMIN_COPY.verify_approve}
-            </button>
+            </AdminActionButton>
           ) : null}
           {canReset ? (
-            <button
-              type="button"
-              className="rounded-md border border-[#d0d5dd] px-3 py-2 text-[13px] font-semibold text-[#344054]"
+            <AdminActionButton
+              variant="secondary"
               data-member-verify-action="reset"
               data-member-cta-cap="CAP-VERIFY-RESET"
               disabled={pending}
               onClick={() => setConfirm("reset")}
             >
               {MEMBER_ADMIN_COPY.verify_reset}
-            </button>
+            </AdminActionButton>
           ) : null}
         </div>
       </div>

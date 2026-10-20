@@ -114,7 +114,7 @@ describe("D-1 / DEF-3 / DEF-62", () => {
   it("PATCH supports CAS and the UI ends policies with L3 confirm", () => {
     expect(read("app/api/admin/store-fee-policies/[id]/route.ts")).toContain("stale_policy");
     const page = read("components/admin/stores/AdminStoreFeePoliciesPage.tsx");
-    expect(page).toMatch(/level: "L3"[\s\S]*retypeValue: label/);
+    expect(page).toMatch(/level: adminActionLevel\("forceCancel"\)[\s\S]*retypeValue: label/);
     expect(page).toContain('scope="fee_policy"');
   });
 });
@@ -129,7 +129,7 @@ describe("C-9 / DEF-4 / DUP-4", () => {
     const page = read("components/admin/stores/AdminCommerceSettingsPage.tsx");
     expect(page).not.toContain("setFeeBp");
     expect(page).not.toContain("setDelayDays");
-    expect(page).toContain('level: "L2"');
+    expect(page).toContain('level: adminActionLevel("approve")');
   });
   it("auto_hold_settlement cannot be newly assigned", () => {
     expect(read("app/api/admin/delivery-operation-alerts/rules/[ruleId]/route.ts")).toContain("auto_action_type_retired");

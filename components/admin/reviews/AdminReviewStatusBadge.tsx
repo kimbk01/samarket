@@ -5,9 +5,9 @@ import type { ReviewStatus } from "@/lib/types/review";
 import { REVIEW_STATUS_KEYS } from "@/components/admin/i18n/admin-review-label-keys";
 
 const CLASSES: Record<ReviewStatus, string> = {
-  visible: "bg-emerald-50 text-emerald-800",
+  visible: "bg-sam-success-soft text-sam-success",
   hidden: "bg-sam-surface-muted text-sam-fg",
-  reported: "bg-amber-100 text-amber-800",
+  reported: "bg-sam-warning-soft text-sam-warning",
 };
 
 interface AdminReviewStatusBadgeProps {

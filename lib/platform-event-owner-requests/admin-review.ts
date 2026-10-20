@@ -77,7 +77,7 @@ export type ApproveEventPromoResult = {
 
 export async function adminApproveOwnerEventPromoRequest(
   sb: SupabaseClient,
-  input: { adminUserId: string; requestId: string }
+  input: { adminUserId: string; requestId: string; reason?: string | null }
 ): Promise<ApproveEventPromoResult | { ok: false; error: string; httpStatus: number }> {
   const { data, error } = await sb
     .from(PLATFORM_EVENT_OWNER_REQUEST_TABLE)
@@ -199,6 +199,7 @@ export async function adminApproveOwnerEventPromoRequest(
       eventStatus: "draft",
       pushDispatchCount: 0,
       requestedChannels: next.requestedChannels,
+      reason: input.reason ?? null,
     },
   });
 
@@ -230,6 +231,7 @@ export async function adminActOnOwnerEventPromoRequest(
     return adminApproveOwnerEventPromoRequest(sb, {
       adminUserId: input.adminUserId,
       requestId: input.requestId,
+      reason: input.reason ?? null,
     });
   }
 

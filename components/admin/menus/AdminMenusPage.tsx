@@ -6,6 +6,7 @@
  * SSOT KEEP: categories / field_composition / CUT A ROOT options.
  */
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
@@ -117,7 +118,7 @@ export function AdminMenusPage() {
     if (!optionsDirty) return true;
     const ko = language !== "en";
     const r = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: safeT("admin_menu_trade_unsaved_confirm", {
         fallbackKo: "저장하지 않은 옵션 변경이 있습니다. 나갈까요?",

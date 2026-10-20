@@ -9,13 +9,14 @@ import {
   executeMemberPrivilegePromote,
   executeMemberPrivilegeRevoke,
 } from "@/lib/admin-users/member-admin-privilege-mutation";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type PrivilegeBody = {
   op?: string;
-  reason?: string;
+  reason?: unknown;
 };
 
 async function parseBody(req: NextRequest): Promise<PrivilegeBody | null> {
@@ -65,10 +66,15 @@ export async function POST(
     }
 
     if (op === "revoke") {
+      // 권한 해제 = delete(L3) — 두 호출자(회원 상세 권한 대화상자 · 관리자 계정 화면) 모두 확인창 사유를 보낸다 → 필수.
+      const reason = parseAdminReason(body.reason);
+      if (!reason) {
+        return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+      }
       const result = await executeMemberPrivilegeRevoke(sb, {
         actor: { userId: actor.userId },
         targetUserId,
-        reason: body.reason,
+        reason,
       });
       if (!result.ok) {
         return NextResponse.json({ ok: false, error: result.error }, { status: result.status });

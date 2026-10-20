@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
@@ -69,10 +70,8 @@ export function AdminDeliveryAdPartnerConfigForm({ config, busy, lang, onSave }:
           onChange={(e) => setDiscount(e.target.value)}
         />
       </label>
-      <button
-        type="button"
+      <AdminActionButton variant="primary" className="sm:col-span-2 sm:justify-self-start"
         disabled={busy}
-        className="inline-flex min-h-[40px] items-center justify-center rounded-ui-rect border border-[#0A823E] bg-[#0A823E] px-4 text-[13px] font-semibold text-white transition hover:bg-[#087a38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:opacity-50 sm:col-span-2 sm:w-auto sm:justify-self-start"
         onClick={() => {
           const monthlyFeeMinor = fee.trim() === "" ? null : parseDeliveryAdPhpMajorToMinor(fee);
           if (fee.trim() !== "" && monthlyFeeMinor == null) return;
@@ -85,7 +84,7 @@ export function AdminDeliveryAdPartnerConfigForm({ config, busy, lang, onSave }:
         }}
       >
         {lang === "en" ? "Save Partner config" : "Partner 설정 저장"}
-      </button>
+      </AdminActionButton>
     </div>
   );
 }

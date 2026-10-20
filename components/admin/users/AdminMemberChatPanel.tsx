@@ -10,6 +10,8 @@ import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
 import type { MemberChatTabPayload } from "@/lib/admin-users/member-chat-tab";
 import { CHAT_DOMAINS, type ChatDomain } from "@/lib/chat-domain/four-domain-freeze";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 type DomainFilter = ChatDomain | "all" | "legacy_group";
 
@@ -20,11 +22,10 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
   const [state, setState] = useState<{ kind: "loading" } | { kind: "error" } | { kind: "ok"; data: MemberChatTabPayload }>({
     kind: "loading",
   });
-  const locale = language === "en" ? "en-US" : "ko-KR";
   const fmt = (value: string | null) => {
     if (!value) return t("admin_users_empty_placeholder");
     const time = new Date(value).getTime();
-    return Number.isFinite(time) ? new Date(time).toLocaleString(locale) : value;
+    return Number.isFinite(time) ? formatAdminManilaDateTime(value) : value;
   };
 
   useEffect(() => {
@@ -54,11 +55,11 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
   }, [userId, domain, page]);
 
   if (state.kind === "loading") {
-    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-[#667085]`}>{t("admin_users_detail_loading")}</div>;
+    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-sam-muted`}>{t("admin_users_detail_loading")}</div>;
   }
   if (state.kind === "error") {
     return (
-      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-[#b42318]`}>
+      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
         {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
       </div>
     );
@@ -97,28 +98,23 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
       />
       <div className="flex flex-wrap gap-2">
         {(["all", ...CHAT_DOMAINS, "legacy_group"] as DomainFilter[]).map((id) => (
-          <button
+          <AdminChipButton
             key={id}
-            type="button"
+            selected={domain === id}
             onClick={() => {
               setDomain(id);
               setPage(1);
             }}
-            className={
-              domain === id
-                ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
-                : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085]"
-            }
           >
             {id === "all"
               ? t("admin_users_tab_all")
               : id === "legacy_group"
                 ? safeT("admin_users_cc_summary_legacy_group", { fallbackKo: "레거시 그룹", fallbackEn: "Legacy groups" })
                 : domainLabel(id)}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
-      <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
+      <div className="flex flex-wrap gap-3 text-xs font-semibold text-[var(--admin-console-accent)]">
         <Link href={memberMessengerAdminHref(userId)}>
           {safeT("admin_users_cc_cta_messenger", { fallbackKo: "메신저 운영 화면에서 보기", fallbackEn: "Open messenger admin" })}
         </Link>
@@ -128,15 +124,15 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
           {t("admin_chat_member_reports_link")}
         </Link>
       </div>
-      <div className={`${ADMIN_USERS_LITE_CARD} divide-y divide-[#eaecf0]`}>
+      <div className={`${ADMIN_USERS_LITE_CARD} divide-y divide-sam-border`}>
         {rooms.map((row) => (
           <div key={`${row.source}:${row.id}`} className="space-y-1 px-4 py-3">
-            <p className="text-sm font-semibold text-[#101828]">{row.title || row.identity || row.id}</p>
-            <p className="text-xs text-[#667085]">
+            <p className="text-sm font-semibold text-sam-fg">{row.title || row.identity || row.id}</p>
+            <p className="text-xs text-sam-muted">
               {adminChatLabel("chat_domain", row.domain, language !== "en").label} ·{" "}
               {adminChatLabel("room_status", row.roomStatus || "active", language !== "en").label} · {fmt(row.lastMessageAt)}
             </p>
-            <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
+            <div className="flex flex-wrap gap-3 text-xs font-semibold text-[var(--admin-console-accent)]">
               {row.source === "legacy_group_rooms" ? (
                 <Link href={memberGroupAdminHref()}>
                   {safeT("admin_users_cc_cta_group_admin", { fallbackKo: "그룹 운영 화면에서 보기", fallbackEn: "Open group admin" })}
@@ -148,7 +144,7 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
           </div>
         ))}
         {rooms.length === 0 ? (
-          <p className="px-4 py-6 text-center text-sm text-[#667085]">
+          <p className="px-4 py-6 text-center text-sm text-sam-muted">
             {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}
           </p>
         ) : null}

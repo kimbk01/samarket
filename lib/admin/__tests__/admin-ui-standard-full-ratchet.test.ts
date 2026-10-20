@@ -31,6 +31,13 @@ const MEMBER_APP_SHARED = [
   /^components\/stores\/store-facebook-feed-tokens\.ts$/,
   /^components\/business\/admin\/StoreOpsOnOffSwitch\.tsx$/,
   /^components\/gift-certificate\/(?:DibayGiftCertificateFace|GiftVisualCard)\.tsx$/,
+  /^components\/ads\/FeedAdBannerCarousel\.tsx$/,
+  /^components\/notices\/CustomerCenterSafeMarkdownBody\.tsx$/,
+  /^components\/platform-events\/PlatformEventDetailContent\.tsx$/,
+  /^components\/platform-popup\/(?:presentations|primitives)\//,
+  /^components\/ptr\/(?:DibayPtrSlot|DibayPtrRevealBand)\.tsx$/,
+  /^components\/delivery\/DeliveryServiceAreaEditorCore\.tsx$/,
+  /^components\/stores\/advertising\/(?:DeliveryAdBanner|DeliveryAdOperationsComposer|DeliveryAdOperationsPanel|DeliveryAdOperationsTimeline|DeliveryAdOwnerPhoneFrame|DeliveryAdPlacementPreview)\.tsx$/,
 ];
 
 /** lib 중 관리자 화면 문구·라벨·표시를 만드는 곳만 검사 (그 밖의 lib 는 대상 밖). */
@@ -39,6 +46,15 @@ const ADMIN_LIB = /^lib\/admin(?:[-/])/;
 const FORMAT_SSOT = new Set(["lib/admin/ui-standard/admin-format.ts", "lib/admin/metrics/manila-period.ts"]);
 /** 금지 CTA 단어 표 자체 (금지어를 정의하는 파일). */
 const CTA_SSOT = "lib/admin/ui-standard/admin-cta.ts";
+/** 표준 버튼 부품 자체(AdminActionButton·AdminChipButton·AdminTabs 등) — `<button>` 을 정의하는 곳. */
+const UI_PRIMITIVES = /^components\/admin\/ui\//;
+/** 규칙 예외 — 근거가 있는 파일·규칙만 (화면 문구가 아닌 경우). */
+const RULE_EXEMPT: Readonly<Record<string, string>> = {
+  "lib/admin/ads-exposure/ops-status.ts::forbiddenCta": "원시 상태 문자열(「거절」)을 해석하는 코드 — 화면 문구 아님",
+  "lib/admin/platform/platform-launch-default-colors.ts::rawColor": "저장 데이터 기본값(#RRGGBB) — 서버가 hex 만 받음",
+  "lib/admin/operator-ux/admin-confirm-action.ts::directConfirm": "확인 엔진 자체 — 관리자 셸 밖에서 앱 대화상자로 대체하는 경로",
+  "components/admin/ptr-reveal/AdminPtrRevealListPage.tsx::confirmPath": "새 광고 이름 입력 폼(prompt) — 확인 단계가 아닌 입력 폼",
+};
 /** 확인창 호스트·엔진 자체. */
 const CONFIRM_ENGINE = /^(?:components\/admin\/ui\/|lib\/admin\/operator-ux\/)/;
 
@@ -103,7 +119,11 @@ export const ADMIN_UI_FULL_RULES: Record<string, (src: string, file: string) => 
     Object.entries(ADMIN_UI_STANDARD_RULES).map(([k, fn]) => [
       k,
       (s: string, file: string) =>
-        (k === "localeFormat" && FORMAT_SSOT.has(file)) || (k === "forbiddenCta" && file === CTA_SSOT) ? [] : fn(s),
+        (k === "localeFormat" && FORMAT_SSOT.has(file)) ||
+        (k === "forbiddenCta" && file === CTA_SSOT) ||
+        (k === "rawButton" && UI_PRIMITIVES.test(file))
+          ? []
+          : fn(s),
     ])
   ),
   /** 2-4 — 상태값(enum)을 라벨 없이 그대로 출력 (`>{row.status}<`). */
@@ -121,7 +141,7 @@ function computeCounts(): Record<string, number> {
   for (const f of collectAdminFiles()) {
     const src = stripComments(fs.readFileSync(path.join(ROOT, f), "utf8"));
     for (const [rule, find] of Object.entries(ADMIN_UI_FULL_RULES)) {
-      const n = find(src, f).length;
+      const n = RULE_EXEMPT[`${f}::${rule}`] ? 0 : find(src, f).length;
       if (n > 0) counts[`${f}::${rule}`] = n;
     }
   }

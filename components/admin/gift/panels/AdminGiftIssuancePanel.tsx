@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  r5DeliveryStatusLabel,
+  GIFT_APPLICATION_STATUS_NAMESPACE,
+} from "@/lib/admin/status-labels/r5-delivery-status-labels";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,6 +20,7 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { GiftSalesDateTimeField } from "@/components/gift-certificate/GiftSalesDateTimeField";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminGiftIssuanceCreateConsole } from "@/components/admin/gift/panels/AdminGiftIssuanceCreateConsole";
 import { AdminGiftProductDetailConsole } from "@/components/admin/gift/panels/AdminGiftProductDetailConsole";
 import { Sam } from "@/lib/ui/css-vars";
@@ -329,7 +334,7 @@ export function AdminGiftIssuancePanel({
   }) => {
     if (busy) return;
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko: language !== "en",
       title: safeT("gift_admin_register_confirm_title", {
         fallbackKo: "상품권을 등록할까요?",
@@ -723,7 +728,7 @@ export function AdminGiftIssuancePanel({
             {detail.owner_label || shortId(detail.owner_user_id)}
           </p>
           <p className="tabular-nums">Face {formatAdminPhp(detail.requested_face_value)}</p>
-          <p>Status: {detail.status}</p>
+          <p>{r5DeliveryStatusLabel(GIFT_APPLICATION_STATUS_NAMESPACE, detail.status, language !== "en")}</p>
           <p className="text-xs text-sam-muted">{dt(detail.created_at)}</p>
         </div>
         {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
@@ -956,7 +961,7 @@ export function AdminGiftIssuancePanel({
                   <td className="px-2 py-2">{r.owner_label || shortId(r.owner_user_id)}</td>
                   <td className="px-2 py-2 font-semibold">{r.title}</td>
                   <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.requested_face_value)}</td>
-                  <td className="px-2 py-2">{r.status}</td>
+                  <td className="px-2 py-2">{r5DeliveryStatusLabel(GIFT_APPLICATION_STATUS_NAMESPACE, r.status, language !== "en")}</td>
                   <td className="px-2 py-2">
                     <AdminActionButton
                       type="button"

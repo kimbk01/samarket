@@ -4,6 +4,7 @@ import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import Link from "next/link";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -23,7 +24,6 @@ import { AdminUserProviderIcon } from "./AdminUserProviderIcon";
 import { AdminUserTrustSection } from "./AdminUserTrustSection";
 import { AdminUserPointsSection } from "./AdminUserPointsSection";
 import {
-  ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY,
   ADMIN_USERS_LITE_CARD,
   ADMIN_USERS_LITE_PAGE_BG,
 } from "@/lib/ui/admin-users-lite-styles";
@@ -165,8 +165,8 @@ function providerAccountLabel(provider: AdminAuthProvider, t: (key: MessageKey) 
 function DetailCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className={`${ADMIN_USERS_LITE_CARD} flex h-full flex-col`}>
-      <div className="border-b border-[#eaecf0] px-5 py-4">
-        <h2 className="text-sm font-bold text-[#101828]">{title}</h2>
+      <div className="border-b border-sam-border px-5 py-4">
+        <h2 className="text-sm font-bold text-sam-fg">{title}</h2>
       </div>
       <div className="flex-1 p-5">{children}</div>
     </div>
@@ -183,10 +183,10 @@ function FieldRow({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-[#f2f4f7] py-3 last:border-b-0">
+    <div className="flex items-start justify-between gap-3 border-b border-sam-border-soft py-3 last:border-b-0">
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-[#667085]">{label}</p>
-        <p className="mt-1 text-sm font-semibold text-[#101828]">{value}</p>
+        <p className="text-xs font-medium text-sam-muted">{label}</p>
+        <p className="mt-1 text-sm font-semibold text-sam-fg">{value}</p>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -205,14 +205,14 @@ function VerifyRow({
   pendingLabel: string;
 }) {
   return (
-    <div className="flex items-center gap-2 py-2 text-sm font-medium text-[#344054]">
+    <div className="flex items-center gap-2 py-2 text-sm font-medium text-sam-fg">
       {done ? (
-        <CheckCircle2 className="h-4 w-4 text-[#12b76a]" aria-hidden />
+        <CheckCircle2 className="h-4 w-4 text-sam-success" aria-hidden />
       ) : (
-        <Circle className="h-4 w-4 text-[#d0d5dd]" aria-hidden />
+        <Circle className="h-4 w-4 text-sam-meta" aria-hidden />
       )}
       <span>{label}</span>
-      <span className={`ml-auto text-xs font-semibold ${done ? "text-[#067647]" : "text-[#98a2b3]"}`}>
+      <span className={`ml-auto text-xs font-semibold ${done ? "text-sam-success" : "text-sam-meta"}`}>
         {done ? doneLabel : pendingLabel}
       </span>
     </div>
@@ -232,23 +232,16 @@ function ActionButton({
   disabled?: boolean;
   onClick?: () => void;
 }) {
-  const toneClass =
-    tone === "danger"
-      ? "border-[#fecdca] text-[#b42318] hover:bg-[#fef3f2]"
-      : tone === "warn"
-        ? "border-[#fdead7] text-[#c4320a] hover:bg-[#fff6ed]"
-        : "border-[#d0d5dd] text-[#344054] hover:bg-[#f9fafb]";
-
   return (
-    <button
-      type="button"
+    <AdminActionButton
+      variant={tone === "danger" ? "danger" : "secondary"}
       disabled={disabled}
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-lg border bg-white px-4 py-3 text-left text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${toneClass}`}
+      className="w-full !justify-start gap-3"
     >
-      <span className="text-[#667085]">{icon}</span>
+      <span className={tone === "danger" ? "" : "text-sam-muted"}>{icon}</span>
       {label}
-    </button>
+    </AdminActionButton>
   );
 }
 
@@ -415,24 +408,15 @@ export function AdminMemberDetail({
   }, [onDeleted, presentation, safeT, t, user.id, language, purgeRetypeValue]);
 
   const editFieldBtn = (
-    <button
-      type="button"
-      onClick={() => setShowEdit(true)}
-      className="rounded-md border border-[#d0d5dd] px-2 py-1 text-xs font-semibold text-[#2563eb] hover:bg-[#f9fafb]"
-    >
+    <AdminActionButton variant="secondary" size="sm" onClick={() => setShowEdit(true)}>
       {t("admin_users_action_edit")}
-    </button>
+    </AdminActionButton>
   );
 
   const changeBtn = (
-    <button
-      type="button"
-      disabled
-      title={t("admin_users_lite_action_todo")}
-      className="rounded-md border border-[#d0d5dd] px-2 py-1 text-xs font-semibold text-[#667085] disabled:opacity-60"
-    >
+    <AdminActionButton variant="secondary" size="sm" disabled title={t("admin_users_lite_action_todo")}>
       {t("admin_users_lite_change_role")}
-    </button>
+    </AdminActionButton>
   );
 
   const content = (
@@ -440,25 +424,25 @@ export function AdminMemberDetail({
       {presentation === "page" ? (
         <>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <nav className="text-xs font-medium text-[#667085]" aria-label="Breadcrumb">
+            <nav className="text-xs font-medium text-sam-muted" aria-label="Breadcrumb">
               <span>{t("admin_users_lite_breadcrumb_members")}</span>
-              <span className="mx-1.5 text-[#98a2b3]">›</span>
-              <Link href="/admin/users" className="hover:text-[#344054]">
+              <span className="mx-1.5 text-sam-meta">›</span>
+              <Link href="/admin/users" className="hover:text-sam-fg">
                 {t("admin_users_lite_list_title")}
               </Link>
-              <span className="mx-1.5 text-[#98a2b3]">›</span>
-              <span className="text-[#344054]">{t("admin_users_detail_title")}</span>
+              <span className="mx-1.5 text-sam-meta">›</span>
+              <span className="text-sam-fg">{t("admin_users_detail_title")}</span>
             </nav>
-            <Link href="/admin/users" className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}>
+            <AdminActionLink href="/admin/users" variant="secondary">
               {t("admin_users_lite_back_to_list")}
-            </Link>
+            </AdminActionLink>
           </div>
-          <h1 className="text-2xl font-bold text-[#101828]">{t("admin_users_detail_title")}</h1>
+          <h1 className="text-[20px] font-bold text-sam-fg">{t("admin_users_detail_title")}</h1>
         </>
       ) : null}
 
       {isReadOnly ? (
-        <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950" role="status">
+        <div className="rounded-lg border border-sam-info/30 bg-sam-info-soft px-4 py-3 text-sm text-sam-info" role="status">
           <span className="font-semibold">{t("admin_users_profile_not_created")}</span>
           <span className="mx-1.5">·</span>
           <span>{t("admin_users_readonly")}</span>
@@ -468,27 +452,27 @@ export function AdminMemberDetail({
       <div className={`${ADMIN_USERS_LITE_CARD} p-5`}>
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 flex-1 items-start gap-4">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-3xl font-bold text-[#2563eb]">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-sam-primary-soft text-[20px] font-bold text-sam-primary">
               {display.slice(0, 1).toUpperCase()}
             </div>
             <div className="min-w-0 space-y-1">
-              <h2 className="text-xl font-bold text-[#101828]">{display}</h2>
-              {publicId ? <p className="text-sm font-medium text-[#667085]">{publicId}</p> : null}
-              <p className="flex flex-wrap items-center gap-2 font-mono text-xs text-[#667085]">
+              <h2 className="text-xl font-bold text-sam-fg">{display}</h2>
+              {publicId ? <p className="text-sm font-medium text-sam-muted">{publicId}</p> : null}
+              <p className="flex flex-wrap items-center gap-2 font-mono text-xs text-sam-muted">
                 <span className="break-all">{user.id}</span>
-                <button
-                  type="button"
-                  className="rounded-md border border-[#d0d5dd] px-2 py-0.5 text-[11px] font-semibold text-[#2563eb] hover:bg-[#f9fafb]"
+                <AdminActionButton
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     void navigator.clipboard.writeText(user.id).catch(() => {});
                   }}
                 >
                   {t("admin_users_action_copy_uuid")}
-                </button>
+                </AdminActionButton>
               </p>
-              <p className="text-sm text-[#475467]">{user.email?.trim() || t("admin_users_lite_no_email")}</p>
-              <p className="text-sm text-[#475467]">{phoneDisplay}</p>
-              <p className="inline-flex items-center gap-2 text-sm font-medium text-[#344054]">
+              <p className="text-sm text-sam-muted">{user.email?.trim() || t("admin_users_lite_no_email")}</p>
+              <p className="text-sm text-sam-muted">{phoneDisplay}</p>
+              <p className="inline-flex items-center gap-2 text-sm font-medium text-sam-fg">
                 <AdminUserProviderIcon provider={authProvider} />
                 {providerAccountLabel(authProvider, t)}
               </p>
@@ -508,13 +492,13 @@ export function AdminMemberDetail({
                 </span>
               ))}
             </div>
-            <div className="space-y-1 text-xs text-[#667085]">
+            <div className="space-y-1 text-xs text-sam-muted">
               <p>
-                {t("admin_users_col_joined")}: <span className="font-semibold text-[#344054]">{joinedAt}</span>
+                {t("admin_users_col_joined")}: <span className="font-semibold text-sam-fg">{joinedAt}</span>
               </p>
               <p>
                 {t("admin_users_col_last_login")}:{" "}
-                <span className="font-semibold text-[#344054]">{lastLogin}</span>
+                <span className="font-semibold text-sam-fg">{lastLogin}</span>
               </p>
             </div>
           </div>
@@ -528,13 +512,9 @@ export function AdminMemberDetail({
             value={display}
             action={
               !isReadOnly ? (
-                <button
-                  type="button"
-                  onClick={() => setShowEdit(true)}
-                  className="rounded-md border border-[#d0d5dd] px-2 py-1 text-xs font-semibold text-[#2563eb]"
-                >
+                <AdminActionButton variant="ghost" size="sm" onClick={() => setShowEdit(true)}>
                   {t("admin_users_action_edit")}
-                </button>
+                </AdminActionButton>
               ) : undefined
             }
           />
@@ -565,7 +545,7 @@ export function AdminMemberDetail({
             action={changeBtn}
           />
           <FieldRow label={t("admin_users_lite_col_status")} value={t(STATUS_LABEL_KEYS[statusCategory])} action={changeBtn} />
-          <div className="mt-2 border-t border-[#f2f4f7] pt-2">
+          <div className="mt-2 border-t border-sam-border-soft pt-2">
             <VerifyRow
               label={t("admin_users_lite_label_phone_verified")}
               done={user.phone_verified === true}
@@ -598,15 +578,15 @@ export function AdminMemberDetail({
 
         <DetailCard title={t("admin_users_lite_card_store_relation")}>
           {stores.length === 0 ? (
-            <p className="text-sm text-[#667085]">{t("admin_users_lite_store_relation_empty")}</p>
+            <p className="text-sm text-sam-muted">{t("admin_users_lite_store_relation_empty")}</p>
           ) : (
             <ul className="space-y-3">
               {stores.map((store) => (
-                <li key={store.id} className="border-b border-[#f2f4f7] pb-3 last:border-b-0 last:pb-0">
-                  <p className="text-sm font-semibold text-[#101828]">
+                <li key={store.id} className="border-b border-sam-border-soft pb-3 last:border-b-0 last:pb-0">
+                  <p className="text-sm font-semibold text-sam-fg">
                     {store.store_name?.trim() || store.slug?.trim() || store.id}
                   </p>
-                  <p className="mt-1 text-xs text-[#667085]">
+                  <p className="mt-1 text-xs text-sam-muted">
                     {store.approval_status ?? emptyDash}
                     {store.slug ? ` · /${store.slug}` : ""}
                   </p>
@@ -634,12 +614,12 @@ export function AdminMemberDetail({
               />
             </>
           ) : (
-            <p className="text-sm text-[#667085]">{t("admin_users_lite_admin_membership_empty")}</p>
+            <p className="text-sm text-sam-muted">{t("admin_users_lite_admin_membership_empty")}</p>
           )}
         </DetailCard>
 
         <DetailCard title={t("admin_users_lite_card_activity")}>
-          <p className="text-sm text-[#667085]">{t("admin_users_lite_activity_not_implemented")}</p>
+          <p className="text-sm text-sam-muted">{t("admin_users_lite_activity_not_implemented")}</p>
         </DetailCard>
 
         {hideLedgerSections ? null : (

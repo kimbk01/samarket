@@ -8,6 +8,7 @@
 import { useMemo, useState } from "react";
 import { DibayPopupAd } from "@/components/platform-popup/DibayPopupAd";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { PLATFORM_POPUP_TABLET_MAX_WIDTH_PX } from "@/lib/platform-popup/popup-geometry-tokens";
 import { resolvePlatformPopupPresentationSuppressionOptions } from "@/lib/platform-popup/popup-suppression-ui";
 import type { PlatformPopupPresentationWinner } from "@/lib/platform-popup/popup-presentation-types";
@@ -118,25 +119,20 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
 
   const contextTone =
     source?.surface === "ADMIN"
-      ? "linear-gradient(180deg,#1e293b 0%,#0f172a 40%,#334155 100%)"
+      ? "linear-gradient(180deg,var(--sam-bg-ink) 0%,var(--sam-bg-surface-dark) 100%)"
       : source?.surface === "DELIVERY_OWNER"
-        ? "linear-gradient(180deg,#ecfdf5 0%,#d1fae5 35%,#f8fafc 100%)"
+        ? "linear-gradient(180deg,var(--sam-success-soft) 0%,var(--sam-bg-app) 100%)"
         : source?.surface === "DELIVERY"
-          ? "linear-gradient(180deg,#fff7ed 0%,#ffedd5 40%,#f8fafc 100%)"
-          : "linear-gradient(180deg,#f8fafc 0%,#e2e8f0 100%)";
+          ? "linear-gradient(180deg,var(--sam-warning-soft) 0%,var(--sam-bg-app) 100%)"
+          : "linear-gradient(180deg,var(--sam-bg-app) 0%,var(--sam-bg-surface-muted) 100%)";
 
   const modeBtn = (mode: DeviceMode, labelKo: string, labelEn: string) => (
-    <button
-      key={mode}
-      type="button"
-      className={`rounded px-2 py-1 text-xs font-medium ${device === mode ? "bg-sam-fg text-white" : "border border-sam-border"}`}
-      onClick={() => setDevice(mode)}
-    >
+    <AdminChipButton key={mode} selected={device === mode} onClick={() => setDevice(mode)}>
       {safeT(`admin_platform_popup_preview_${mode}`, {
         fallbackKo: labelKo,
         fallbackEn: labelEn,
       })}
-    </button>
+    </AdminChipButton>
   );
 
   return (
@@ -148,7 +144,7 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
         {modeBtn("desktop", "데스크톱", "Desktop")}
         {surfaceLabel ? <span className="text-xs text-sam-muted">{surfaceLabel}</span> : null}
         {source?.unsaved ? (
-          <span className="text-xs text-amber-700">
+          <span className="text-xs text-sam-warning">
             {safeT("admin_platform_popup_preview_unsaved", {
               fallbackKo: "저장되지 않은 미리보기",
               fallbackEn: "Unsaved preview",

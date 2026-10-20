@@ -1,9 +1,9 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdApplicationLog } from "@/lib/types/ad-application";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const ACTION_KEYS = {
   apply: "admin_ads_log_apply",
@@ -16,17 +16,12 @@ const ACTION_KEYS = {
   expire: "admin_ads_log_expire",
 } as const satisfies Record<AdApplicationLog["actionType"], MessageKey>;
 
-function dateLocaleTag(language: AppLanguageCode): string {
-  return language === "en" ? "en-US" : "ko-KR";
-}
-
 interface AdminAdLogListProps {
   logs: AdApplicationLog[];
 }
 
 export function AdminAdLogList({ logs }: AdminAdLogListProps) {
-  const { t, language } = useI18n();
-  const dateLocale = dateLocaleTag(language);
+  const { t } = useI18n();
 
   if (logs.length === 0) {
     return (
@@ -44,7 +39,7 @@ export function AdminAdLogList({ logs }: AdminAdLogListProps) {
           <span className="text-sam-muted">{log.actorNickname}</span>
           <span className="text-sam-muted">{log.note}</span>
           <span className="ml-auto text-sam-meta">
-            {new Date(log.createdAt).toLocaleString(dateLocale)}
+            {formatAdminManilaDateTime(log.createdAt)}
           </span>
         </li>
       ))}

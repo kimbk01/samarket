@@ -4,6 +4,7 @@ import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import { useMemo } from "react";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -79,11 +80,11 @@ export function ReleaseArchiveDetailPage({
           <span
             className={`rounded px-1.5 py-0.5 ${
               archive.releaseStatus === "rolled_back"
-                ? "bg-red-100 text-red-800"
+                ? "bg-sam-danger-soft text-sam-danger"
                 : archive.releaseStatus === "active"
-                  ? "bg-blue-50 text-blue-700"
+                  ? "bg-sam-info-soft text-sam-info"
                   : archive.releaseStatus === "stable"
-                    ? "bg-emerald-50 text-emerald-700"
+                    ? "bg-sam-success-soft text-sam-success"
                     : "bg-sam-surface-muted text-sam-muted"
             }`}
           >
@@ -174,7 +175,7 @@ export function ReleaseArchiveDetailPage({
               <div key={n.id} className="border-b border-sam-border-soft pb-4 last:border-0 last:pb-0">
                 <p className="sam-text-helper text-sam-muted">
                   {n.createdByAdminNickname} ·{" "}
-                  {new Date(n.createdAt).toLocaleString()}
+                  {formatAdminManilaDateTime(n.createdAt)}
                 </p>
                 <p className="mt-2 sam-text-body-secondary font-medium text-sam-fg">{t("admin_rel_went_well")}</p>
                 <p className="mt-1 sam-text-body-secondary text-sam-muted">{n.whatWentWell}</p>

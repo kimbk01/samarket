@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -113,7 +114,7 @@ export function AdminMemberPasswordDialog({
     >
       <div className="space-y-3" data-member-password-dialog="1">
         <label className="block text-[13px]">
-          <span className="mb-1 block text-[#667085]">{MEMBER_ADMIN_COPY.password_new_label}</span>
+          <span className="mb-1 block text-sam-muted">{MEMBER_ADMIN_COPY.password_new_label}</span>
           <input
             type={inputType}
             autoComplete="new-password"
@@ -125,11 +126,11 @@ export function AdminMemberPasswordDialog({
             }}
             minLength={4}
             maxLength={128}
-            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2 text-[#101828] disabled:bg-[#f9fafb]"
+            className="w-full rounded-md border border-sam-border px-3 py-2 text-sam-fg disabled:bg-sam-surface-muted"
           />
         </label>
         <label className="block text-[13px]">
-          <span className="mb-1 block text-[#667085]">{MEMBER_ADMIN_COPY.password_new_confirm_label}</span>
+          <span className="mb-1 block text-sam-muted">{MEMBER_ADMIN_COPY.password_new_confirm_label}</span>
           <input
             type={inputType}
             autoComplete="new-password"
@@ -141,16 +142,12 @@ export function AdminMemberPasswordDialog({
             }}
             minLength={4}
             maxLength={128}
-            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2 text-[#101828] disabled:bg-[#f9fafb]"
+            className="w-full rounded-md border border-sam-border px-3 py-2 text-sam-fg disabled:bg-sam-surface-muted"
           />
         </label>
-        <button
-          type="button"
-          className="text-[12px] font-semibold text-[#2563eb]"
-          onClick={() => setShow((v) => !v)}
-        >
+        <AdminChipButton selected={show} onClick={() => setShow((v) => !v)}>
           {show ? "입력값 숨기기" : "입력값 보기"}
-        </button>
+        </AdminChipButton>
       </div>
     </MemberAdminDialog>
   );

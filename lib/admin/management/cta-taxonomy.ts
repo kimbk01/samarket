@@ -16,7 +16,7 @@ export function managementCtaSamClass(variant: ManagementCtaVariant): string {
     case "STATUS":
       return Sam.btn.outlineCombo;
     case "CRITICAL_DANGER":
-      return `${Sam.btn.dangerCombo} ring-2 ring-red-800/70 font-semibold`;
+      return `${Sam.btn.dangerCombo} ring-2 ring-sam-danger/70 font-semibold`;
     case "DANGER":
       return Sam.btn.dangerCombo;
     default:

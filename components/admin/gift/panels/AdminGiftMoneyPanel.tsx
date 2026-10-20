@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  r5DeliveryStatusLabel,
+  GIFT_CASH_OUT_STATUS_NAMESPACE,
+  GIFT_CONVERSION_STATUS_NAMESPACE,
+} from "@/lib/admin/status-labels/r5-delivery-status-labels";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -238,7 +243,7 @@ function ExternalCashOuts({
                   <p className="text-sm">{r.ownerLabel || "—"}</p>
                   <p className="text-sm tabular-nums font-semibold">{formatAdminPhp(r.amount)}</p>
                   <p className="text-xs text-sam-muted">
-                    {r.status} · {r.destinationType} · avail {formatAdminPhp(r.availableRevenue)} ·{" "}
+                    {r5DeliveryStatusLabel(GIFT_CASH_OUT_STATUS_NAMESPACE, r.status, language !== "en")} · {r.destinationType} · avail {formatAdminPhp(r.availableRevenue)} ·{" "}
                     {dt(r.createdAt)}
                   </p>
                   <details className="mt-1 text-xs text-sam-muted">
@@ -285,7 +290,7 @@ function ExternalCashOuts({
           <p className="text-sm">
             {detail.storeName} · {detail.ownerLabel || "—"}
           </p>
-          <p className="text-sm">{detail.status}</p>
+          <p className="text-sm">{r5DeliveryStatusLabel(GIFT_CASH_OUT_STATUS_NAMESPACE, detail.status, language !== "en")}</p>
           <p className="text-sm">
             {detail.destinationType}
             {detail.bankName ? ` · ${detail.bankName}` : ""} · {detail.accountNumber} · {detail.accountName}
@@ -387,7 +392,7 @@ function StoreCashConversions({
                   <p className="text-sm">{r.ownerLabel || "—"}</p>
                   <p className="text-sm tabular-nums font-semibold">{formatAdminPhp(r.amount)}</p>
                   <p className="text-xs text-sam-muted">
-                    {r.status} · avail {formatAdminPhp(r.availableRevenue)} · cash{" "}
+                    {r5DeliveryStatusLabel(GIFT_CONVERSION_STATUS_NAMESPACE, r.status, language !== "en")} · avail {formatAdminPhp(r.availableRevenue)} · cash{" "}
                     {formatAdminPhp(r.storeCashBalance)} · {dt(r.createdAt)}
                   </p>
                   <details className="mt-1 text-xs text-sam-muted">
@@ -432,7 +437,7 @@ function StoreCashConversions({
           <p className="text-sm">
             {detail.storeName} · {detail.ownerLabel || "—"}
           </p>
-          <p className="text-sm">{detail.status}</p>
+          <p className="text-sm">{r5DeliveryStatusLabel(GIFT_CONVERSION_STATUS_NAMESPACE, detail.status, language !== "en")}</p>
           <p className="text-xs text-sam-muted">
             Available {formatAdminPhp(detail.availableRevenue)} · Historical converted amount{" "}
             {formatAdminPhp(detail.storeCashBalance)}

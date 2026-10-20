@@ -142,7 +142,7 @@ export function AdminTabs({
       aria-orientation="horizontal"
       onKeyDown={onKeyDown}
       data-admin-tabs="1"
-      className={`flex h-10 items-stretch gap-1 overflow-x-auto overflow-y-hidden whitespace-nowrap border-b border-[var(--admin-console-border,#d0d7e2)] [scrollbar-width:thin] ${className}`.trim()}
+      className={`flex h-10 items-stretch gap-1 overflow-x-auto overflow-y-hidden whitespace-nowrap border-b border-[var(--admin-console-border)] [scrollbar-width:thin] ${className}`.trim()}
     >
       {tabs.map((t) => {
         const isSel = t.id === selected;
@@ -160,11 +160,11 @@ export function AdminTabs({
             onClick={() => select(t.id)}
             className={[
               "relative -mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 text-[14px] leading-5 transition-colors",
-              "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--admin-console-accent,#1d4ed8)]",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--admin-console-accent)]",
               "disabled:cursor-not-allowed disabled:opacity-40",
               isSel
-                ? "border-[var(--admin-console-accent,#1d4ed8)] font-semibold text-[var(--admin-console-fg,#1f2937)]"
-                : "border-transparent font-medium text-[var(--admin-console-muted,#667085)] hover:text-[var(--admin-console-fg,#1f2937)]",
+                ? "border-[var(--admin-console-accent)] font-semibold text-[var(--admin-console-fg)]"
+                : "border-transparent font-medium text-[var(--admin-console-muted)] hover:text-[var(--admin-console-fg)]",
             ].join(" ")}
           >
             <span>{t.label}</span>
@@ -174,8 +174,8 @@ export function AdminTabs({
                 className={[
                   "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[12px] font-semibold leading-5",
                   isSel
-                    ? "bg-[var(--admin-console-active-bg,#e8eefc)] text-[var(--admin-console-accent,#1d4ed8)]"
-                    : "bg-[var(--admin-console-hover,#eef1f6)] text-[var(--admin-console-muted,#667085)]",
+                    ? "bg-[var(--admin-console-active-bg)] text-[var(--admin-console-accent)]"
+                    : "bg-[var(--admin-console-hover)] text-[var(--admin-console-muted)]",
                 ].join(" ")}
               >
                 {formatAdminCount(t.count)}

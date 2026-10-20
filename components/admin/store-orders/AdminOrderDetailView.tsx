@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -609,7 +610,7 @@ function AdminOrderMetaControls({
   const toggleLock = async () => {
     const locking = !o.adminLocked;
     const c = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel(locking ? "hold" : "resume"),
       ko,
       title: locking ? (ko ? "주문 잠금" : "Lock order") : ko ? "잠금 해제" : "Unlock order",
       description: locking
@@ -629,7 +630,7 @@ function AdminOrderMetaControls({
   const toggleFlag = async () => {
     const flagging = !o.adminFlagged;
     const c = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("hold"),
       ko,
       title: flagging ? (ko ? "확인 필요 표시" : "Mark for review") : ko ? "확인 필요 표시 해제" : "Clear review mark",
       description: flagging
@@ -648,7 +649,7 @@ function AdminOrderMetaControls({
   /** 처리 필요 주문(운영 예외) 큐에서 내린다 — 서버 PATCH needs_admin_attention=false (CAS·감사). */
   const clearAttention = async () => {
     const c = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel("approve"),
       ko,
       title: ko ? "운영 예외 해제" : "Resolve order exception",
       description: ko
@@ -666,7 +667,7 @@ function AdminOrderMetaControls({
   const toggleUrgent = async () => {
     const urgent = o.disputeStatus !== "urgent";
     const c = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("hold"),
       ko,
       title: urgent ? (ko ? "긴급 표시" : "Mark urgent") : ko ? "긴급 해제" : "Clear urgent",
       description: urgent

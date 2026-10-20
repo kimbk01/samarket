@@ -7,6 +7,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminErrorState, AdminLoadingState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminConflictReloadedCode } from "@/lib/admin/operator-ux/operator-labels";
 import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 
@@ -178,7 +179,7 @@ export function AdminCommerceSettingsPage() {
                 if (saving) return;
                 // DEF-46: L2 확인 + 사유 (작업 기록).
                 const c = await confirmAdminAction({
-                  level: "L2",
+                  level: adminActionLevel("approve"),
                   ko,
                   title: t("admin_r4c_commerce_reset_confirm_title"),
                   description: legacyStored

@@ -13,6 +13,7 @@ import {
 } from "@/components/admin/ui/AdminStateViews";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import "@/lib/admin/status-labels/ads-status-labels";
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
@@ -75,7 +76,7 @@ export function AdminFeedAdProductsClient() {
   const save = async (row: Row) => {
     const ko = !en;
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: ko ? "배너 광고 상품을 저장할까요?" : "Save this banner ad product?",
       description: ko

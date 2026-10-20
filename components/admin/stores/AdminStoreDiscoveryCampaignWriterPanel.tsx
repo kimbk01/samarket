@@ -6,6 +6,11 @@ import { Fragment, useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import {
+  r5DeliveryStatusLabel,
+  STORE_DISCOVERY_CAMPAIGN_TYPE_NAMESPACE,
+} from "@/lib/admin/status-labels/r5-delivery-status-labels";
 import { adminConflictReloadedMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 
@@ -100,8 +105,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
 }: Props) {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const typeLabel = (v: string) =>
-    v === "promo" ? (ko ? "프로모션" : "Promotion") : v === "event" ? (ko ? "이벤트" : "Event") : v;
+  const typeLabel = (v: string) => r5DeliveryStatusLabel(STORE_DISCOVERY_CAMPAIGN_TYPE_NAMESPACE, v, ko);
   const [createForm, setCreateForm] = useState<CampaignFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   /** 수정 시작 시점 캠페인 updated_at — 저장 PATCH expected_updated_at */
@@ -211,7 +215,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
     if (busy) return;
     const id = row.id;
     const c = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel("sanction"),
       ko,
       title: ko ? `캠페인을 비활성화할까요? — ${row.title}` : `Deactivate campaign? — ${row.title}`,
       description: ko

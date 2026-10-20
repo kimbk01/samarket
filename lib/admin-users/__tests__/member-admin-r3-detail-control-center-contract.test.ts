@@ -121,7 +121,7 @@ describe("R3 Member Detail Control Center IA", () => {
     expect(header).toContain('data-member-cta-variant="primary"');
     expect(header).toContain('data-member-cta-variant="secondary"');
     expect(header).toContain('data-member-cta-variant="tertiary"');
-    expect(header).toMatch(/memberAdminCtaClass\("primary"\)/);
+    expect(header).toMatch(/<AdminActionButton\s+variant="primary"/);
     expect(header).toMatch(/data-member-cta-cap="CAP-PROFILE-EDIT"/);
     expect(header).toMatch(/data-member-cta-cap="CAP-MSG-MESSENGER"/);
     expect(header).toMatch(/data-member-cta-cap="CAP-PASSWORD"/);

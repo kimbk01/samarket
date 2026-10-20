@@ -12,6 +12,7 @@ import {
   SORT_MODE_LABELS,
   REGION_SCOPE_LABELS,
 } from "@/lib/home-feed/home-feed-labels";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface HomeFeedPolicyFormProps {
   initial: HomeFeedPolicy;
@@ -220,20 +221,19 @@ export function HomeFeedPolicyForm({
         />
       </div>
       <div className="flex gap-2">
-        <button
+        <AdminActionButton
           type="submit"
-          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
+          variant="primary"
         >
           저장
-        </button>
+        </AdminActionButton>
         {onCancel && (
-          <button
-            type="button"
+          <AdminActionButton
             onClick={onCancel}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
+            variant="secondary"
           >
             취소
-          </button>
+          </AdminActionButton>
         )}
       </div>
     </form>

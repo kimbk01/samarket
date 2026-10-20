@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useCallback, useState, useEffect } from "react";
 import type { AdminReview } from "@/lib/types/admin-review";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { fetchAdminTransactionReviewOne } from "@/lib/admin-reviews/fetch-admin-transaction-reviews";
 import { formatAdminReviewTagKeys } from "@/lib/admin-reviews/admin-review-utils";
 import {
@@ -63,7 +64,7 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
 
   if (loadError) {
     return (
-      <div className="py-8 text-center sam-text-body text-amber-800">
+      <div className="py-8 text-center sam-text-body text-sam-warning">
         {loadError}
       </div>
     );
@@ -117,10 +118,10 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
           ) : null}
           <p className="whitespace-pre-wrap text-sam-fg">{review.comment || "—"}</p>
           <p className="sam-text-body-secondary text-sam-muted">
-            {t("admin_review_created_at")}: {new Date(review.createdAt).toLocaleString("ko-KR")}
+            {t("admin_review_created_at")}: {formatAdminManilaDateTime(review.createdAt)}
           </p>
           {review.reportCount > 0 && (
-            <p className="text-amber-700">{t("admin_review_report_count")}: {review.reportCount}</p>
+            <p className="text-sam-warning">{t("admin_review_report_count")}: {review.reportCount}</p>
           )}
         </div>
       </AdminCard>

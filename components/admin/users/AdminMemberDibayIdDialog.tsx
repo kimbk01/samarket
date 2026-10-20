@@ -126,17 +126,17 @@ export function AdminMemberDibayIdDialog({
     >
       <div className="space-y-3" data-member-dibay-id-dialog="1" data-member-screen="S14">
         <div>
-          <p className="mb-1 text-[13px] text-[#667085]">{MEMBER_ADMIN_COPY.dibay_id_current_label}</p>
-          <p className="font-mono text-sm text-[#101828]" data-member-dibay-id-current="1">
+          <p className="mb-1 text-[13px] text-sam-muted">{MEMBER_ADMIN_COPY.dibay_id_current_label}</p>
+          <p className="font-mono text-sm text-sam-fg" data-member-dibay-id-current="1">
             {currentDisplay}
           </p>
         </div>
         <label className="block text-[13px]">
-          <span className="mb-1 block text-[#667085]">{MEMBER_ADMIN_COPY.dibay_id_new_label}</span>
+          <span className="mb-1 block text-sam-muted">{MEMBER_ADMIN_COPY.dibay_id_new_label}</span>
           <div className="flex items-center gap-1">
-            <span className="text-[#667085]">@</span>
+            <span className="text-sam-muted">@</span>
             <input
-              className="w-full rounded-md border border-[#d0d5dd] px-3 py-2 font-mono"
+              className="w-full rounded-md border border-sam-border px-3 py-2 font-mono"
               value={nextId}
               onChange={(e) => setNextId(e.target.value)}
               autoComplete="off"
@@ -146,9 +146,9 @@ export function AdminMemberDibayIdDialog({
           </div>
         </label>
         <label className="block text-[13px]">
-          <span className="mb-1 block text-[#667085]">변경 사유 (필수)</span>
+          <span className="mb-1 block text-sam-muted">변경 사유 (필수)</span>
           <textarea
-            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+            className="w-full rounded-md border border-sam-border px-3 py-2"
             rows={2}
             maxLength={DIBAY_ID_REASON_MAX}
             value={reason}
@@ -156,7 +156,7 @@ export function AdminMemberDibayIdDialog({
             placeholder="예) 회원 요청 — 오타 정정"
             data-member-dibay-id-reason="1"
           />
-          <span className="mt-1 block text-[12px] text-[#667085]">
+          <span className="mt-1 block text-[12px] text-sam-muted">
             관리자 변경은 회원 본인의 1회 변경권을 사용하지 않습니다. 사유는 관리자 작업 기록에 남습니다.
           </span>
         </label>

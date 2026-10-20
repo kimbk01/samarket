@@ -10,6 +10,8 @@ import { AdminBannerStatusBadge } from "./AdminBannerStatusBadge";
 import { AdminBannerPreview } from "./AdminBannerPreview";
 import { AdminBannerChangeLogList } from "./AdminBannerChangeLogList";
 import { bannerPlacementLabel } from "./admin-banner-i18n";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface AdminBannerDetailPageProps {
   bannerId: string;
@@ -90,31 +92,28 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
           {t("admin_banners_action_reorder_planned")}
         </span>
         {(banner.status === "draft" || banner.status === "paused" || banner.status === "hidden") && (
-          <button
-            type="button"
+          <AdminActionButton
             onClick={() => void handleStatus("active")}
-            className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 sam-text-body text-emerald-800 hover:bg-emerald-100"
+            variant="primary"
           >
             {t("admin_banners_status_active")}
-          </button>
+          </AdminActionButton>
         )}
         {banner.status === "active" && (
-          <button
-            type="button"
+          <AdminActionButton
             onClick={() => void handleStatus("paused")}
-            className="rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body text-amber-800 hover:bg-amber-100"
+            variant="secondary"
           >
             {t("admin_banners_status_paused")}
-          </button>
+          </AdminActionButton>
         )}
         {(banner.status === "active" || banner.status === "paused") && (
-          <button
-            type="button"
+          <AdminActionButton
             onClick={() => void handleStatus("hidden")}
-            className="rounded border border-red-200 bg-red-50 px-3 py-2 sam-text-body text-red-700 hover:bg-red-100"
+            variant="secondary"
           >
             {t("admin_banners_status_hidden")}
-          </button>
+          </AdminActionButton>
         )}
       </div>
 
@@ -146,7 +145,7 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
             <dt className="text-sam-muted">{t("admin_banners_label_period")}</dt>
             <dd>
               {banner.startAt && banner.endAt
-                ? `${new Date(banner.startAt).toLocaleString()} ~ ${new Date(banner.endAt).toLocaleString()}`
+                ? `${formatAdminManilaDateTime(banner.startAt)} ~ ${formatAdminManilaDateTime(banner.endAt)}`
                 : "-"}
             </dd>
           </div>
@@ -182,8 +181,8 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
           <div>
             <dt className="text-sam-muted">{t("admin_banners_label_dates")}</dt>
             <dd className="sam-text-body-secondary text-sam-muted">
-              {new Date(banner.createdAt).toLocaleString()} /{" "}
-              {new Date(banner.updatedAt).toLocaleString()}
+              {formatAdminManilaDateTime(banner.createdAt)} /{" "}
+              {formatAdminManilaDateTime(banner.updatedAt)}
             </dd>
           </div>
         </dl>

@@ -9,6 +9,7 @@ import type {
   AppBusinessStatus,
   AppPlatformBusinessInfoRow,
 } from "@/lib/business/app-platform-business-info";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type Props = { documentId?: string };
 
@@ -175,7 +176,7 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
           {safeT("admin_app_legal_back", { fallbackKo: "목록", fallbackEn: "Back" })}
         </Link>
       </div>
-      {err ? <p className="text-sm text-red-600">{err}</p> : null}
+      {err ? <p className="text-sm text-sam-danger">{err}</p> : null}
 
       <label className="block space-y-1">
         <span className="text-xs font-medium text-sam-muted">
@@ -235,22 +236,20 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
       )}
 
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
+        <AdminActionButton
           disabled={saving}
           onClick={() => void save("draft")}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-semibold disabled:opacity-60"
+          variant="secondary"
         >
           {safeT("admin_app_legal_save_draft", { fallbackKo: "임시저장", fallbackEn: "Save draft" })}
-        </button>
-        <button
-          type="button"
+        </AdminActionButton>
+        <AdminActionButton
           disabled={saving}
           onClick={() => void save("published")}
-          className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          variant="primary"
         >
           {safeT("admin_app_legal_publish", { fallbackKo: "게시", fallbackEn: "Publish" })}
-        </button>
+        </AdminActionButton>
       </div>
     </div>
   );

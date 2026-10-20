@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminUser } from "@/lib/types/admin-user";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { memberDetailContactEmail } from "@/lib/admin-users/member-detail-control-center-ia";
 
@@ -110,18 +111,18 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
     >
       <div className="space-y-3" data-member-profile-edit="1" data-member-screen="S13">
         <label className="block text-[13px]">
-          <span className="mb-1 block text-[#667085]">{t("admin_users_label_nickname")}</span>
+          <span className="mb-1 block text-sam-muted">{t("admin_users_label_nickname")}</span>
           <input
-            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+            className="w-full rounded-md border border-sam-border px-3 py-2"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             data-member-profile-field="nickname"
           />
         </label>
         <label className="block text-[13px]">
-          <span className="mb-1 block text-[#667085]">{t("admin_users_label_email")}</span>
+          <span className="mb-1 block text-sam-muted">{t("admin_users_label_email")}</span>
           <input
-            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+            className="w-full rounded-md border border-sam-border px-3 py-2"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -130,26 +131,22 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
           />
         </label>
         <label className="block text-[13px]">
-          <span className="mb-1 block text-[#667085]">{t("admin_users_lite_label_phone")}</span>
+          <span className="mb-1 block text-sam-muted">{t("admin_users_lite_label_phone")}</span>
           <input
-            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+            className="w-full rounded-md border border-sam-border px-3 py-2"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             data-member-profile-field="phone"
           />
         </label>
         {showMemberUuid ? (
-          <p className="text-[11px] text-[#98a2b3]" data-member-uuid-reveal="1">
+          <p className="text-[12px] text-sam-meta" data-member-uuid-reveal="1">
             {user.id}
           </p>
         ) : (
-          <button
-            type="button"
-            className="text-[11px] text-[#667085] underline"
-            onClick={() => setShowMemberUuid(true)}
-          >
+          <AdminActionButton variant="quiet" size="sm" onClick={() => setShowMemberUuid(true)}>
             {MEMBER_ADMIN_COPY.system_member_key}
-          </button>
+          </AdminActionButton>
         )}
       </div>
     </MemberAdminDialog>

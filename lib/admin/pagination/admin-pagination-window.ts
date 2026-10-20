@@ -6,6 +6,8 @@
  * - `adminPaginationSummary`: 「전체 1,234건 중 1–50」 (숫자는 en-PH 천 단위 쉼표).
  */
 
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+
 export type AdminPaginationItem = number | "ellipsis-start" | "ellipsis-end";
 
 export const ADMIN_PAGINATION_MAX_SLOTS = 7;
@@ -54,10 +56,8 @@ export function adminPaginationWindow(
   return [1, "ellipsis-start", ...middle, "ellipsis-end", count];
 }
 
-const GROUPING = new Intl.NumberFormat("en-PH");
-
 export function formatAdminCount(n: number): string {
-  return GROUPING.format(Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0);
+  return formatAdminNumber(Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0);
 }
 
 /** 현재 쪽의 1부터 시작하는 시작·끝 번호 (전체 0건이면 0–0). */

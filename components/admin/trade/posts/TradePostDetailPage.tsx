@@ -257,7 +257,7 @@ function TradeImageGallery({ images, size = 112 }: { images: string[]; size?: nu
               thumb
             )}
             {i === 0 ? (
-              <span className="absolute left-1 top-1 rounded-ui-rect bg-sam-fg/80 px-1.5 py-0.5 text-[11px] font-semibold text-sam-surface">
+              <span className="absolute left-1 top-1 rounded-ui-rect bg-sam-fg/80 px-1.5 py-0.5 text-[12px] font-semibold text-sam-surface">
                 대표
               </span>
             ) : null}
@@ -513,12 +513,12 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
 
       <AdminResultBanner ko={ko} result={banner} onClose={() => setBanner(null)} />
       {warnings.length > 0 ? (
-        <p role="alert" className="text-[12px] font-medium text-amber-800">
+        <p role="alert" className="text-[12px] font-medium text-sam-warning">
           {warnings.join(" · ")}
         </p>
       ) : null}
       {notice ? (
-        <div role="status" className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-950">
+        <div role="status" className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-fg">
           {notice.text}
         </div>
       ) : null}
@@ -618,28 +618,28 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
                     <span className="relative">
                       <TradePostThumb post={{ images: [u] }} size={88} />
                       {i === 0 ? (
-                        <span className="absolute left-1 top-1 rounded-ui-rect bg-sam-fg/80 px-1.5 py-0.5 text-[11px] font-semibold text-sam-surface">
+                        <span className="absolute left-1 top-1 rounded-ui-rect bg-sam-fg/80 px-1.5 py-0.5 text-[12px] font-semibold text-sam-surface">
                           대표
                         </span>
                       ) : null}
                     </span>
                     <span className="flex gap-1">
                       {i > 0 ? (
-                        <button
-                          type="button"
+                        <AdminActionButton
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setEImages((arr) => [arr[i]!, ...arr.filter((_, j) => j !== i)])}
-                          className="text-[12px] font-medium text-sky-800 underline"
                         >
                           대표로
-                        </button>
+                        </AdminActionButton>
                       ) : null}
-                      <button
-                        type="button"
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setEImages((arr) => arr.filter((_, j) => j !== i))}
-                        className="text-[12px] font-medium text-red-700 underline"
                       >
                         삭제
-                      </button>
+                      </AdminActionButton>
                     </span>
                   </li>
                 ))}

@@ -5,6 +5,8 @@ import type { PointChargeRequest } from "@/lib/types/point";
 import { useState } from "react";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 import { runPointChargeAction, type PointChargeAction } from "@/components/admin/points/point-charge-action-client";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 
 interface AdminPointActionPanelProps {
   request: PointChargeRequest;
@@ -34,7 +36,7 @@ export function AdminPointActionPanel({
         requestId: request.id,
         action,
         ko,
-        summary: `${request.userNickname} · ${request.pointAmount.toLocaleString()}P · ₱${request.paymentAmount.toLocaleString()} · ${request.depositorName || "-"}`,
+        summary: `${request.userNickname} · ${formatAdminNumber(request.pointAmount)}P · ${formatAdminPhp(request.paymentAmount)} · ${request.depositorName || "-"}`,
       });
       if (!out.ok) {
         if (!out.cancelled) setErr(resolveAdminApiErrorMessage(out.error, t, "admin_points_err_action_failed"));
@@ -48,35 +50,20 @@ export function AdminPointActionPanel({
 
   return (
     <div className="space-y-2">
-      {err ? <p className="sam-text-helper text-red-600">{err}</p> : null}
+      {err ? <p className="sam-text-helper text-sam-danger">{err}</p> : null}
       <div className="flex flex-wrap gap-2">
         {canAct && (
           <>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void doAction("approve")}
-              className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 sam-text-body text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
-            >
+            <AdminActionButton variant="primary" disabled={busy} onClick={() => void doAction("approve")}>
               {busy ? "…" : t("admin_points_action_approve")}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void doAction("reject")}
-              className="rounded border border-red-200 bg-red-50 px-3 py-2 sam-text-body text-red-700 hover:bg-red-100 disabled:opacity-50"
-            >
+            </AdminActionButton>
+            <AdminActionButton variant="secondary" disabled={busy} onClick={() => void doAction("reject")}>
               {t("admin_points_action_reject")}
-            </button>
+            </AdminActionButton>
             {request.requestStatus !== "on_hold" && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void doAction("hold")}
-                className="rounded border border-sam-border bg-sam-surface-muted px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-border-soft disabled:opacity-50"
-              >
+              <AdminActionButton variant="secondary" disabled={busy} onClick={() => void doAction("hold")}>
                 {t("admin_points_action_hold")}
-              </button>
+              </AdminActionButton>
             )}
           </>
         )}

@@ -9,6 +9,9 @@ import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/Adm
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
@@ -630,7 +633,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       />
 
       {error ? (
-        <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+        <p className="rounded border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger" role="alert">
           {error}
         </p>
       ) : null}
@@ -763,21 +766,17 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 const benefitDisabled =
                   kind === "benefit_dialog" && !benefitEligible && !eventBenefitLoading;
                 return (
-                  <button
+                  <AdminListItemButton
                     key={kind}
-                    type="button"
                     disabled={benefitDisabled}
                     aria-disabled={benefitDisabled}
+                    selected={selected}
                     data-admin-popup-composition={kind}
                     data-benefit-dialog-eligible={
                       kind === "benefit_dialog" ? (benefitEligible ? "1" : "0") : undefined
                     }
-                    className={`rounded border px-3 py-2 text-left text-sm ${
-                      benefitDisabled
-                        ? "cursor-not-allowed border-sam-border/60 opacity-50"
-                        : selected
-                          ? "border-sam-fg bg-sam-fg/5"
-                          : "border-sam-border"
+                    className={`border px-3 text-sm ${
+                      benefitDisabled ? "cursor-not-allowed border-sam-border/60" : "border-sam-border"
                     }`}
                     onClick={() => {
                       if (benefitDisabled) return;
@@ -811,13 +810,13 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                         })}
                       </div>
                     ) : null}
-                  </button>
+                  </AdminListItemButton>
                 );
               })}
             </div>
             {operatorComposition === "benefit_dialog" || benefitHint !== "none" ? (
               <div
-                className="mt-3 rounded border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm"
+                className="mt-3 rounded border border-sam-warning/30 bg-sam-warning-soft/80 px-3 py-2 text-sm"
                 data-admin-popup-benefit-gate="1"
               >
                 <p className="text-xs text-sam-muted">
@@ -992,9 +991,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 void onPickFile(f);
               }}
             />
-            <button
-              type="button"
-              className="rounded border border-sam-border bg-white px-3 py-1.5 text-sm font-medium"
+            <AdminActionButton
+              variant="secondary"
+              size="sm"
               disabled={busy}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -1002,7 +1001,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 fallbackKo: "이미지 불러오기",
                 fallbackEn: "Load image",
               })}
-            </button>
+            </AdminActionButton>
 
             {fileMeta ? (
               <ul className="mt-3 space-y-0.5 text-xs text-sam-muted" data-admin-popup-file-meta="1">
@@ -1023,8 +1022,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             ) : null}
 
             {requiresCardAspect && needsCrop && pendingCropFile && cropPreviewUrl ? (
-              <div className="mt-3 space-y-2 rounded border border-amber-300 bg-amber-50/80 p-3">
-                <p className="text-xs font-medium text-amber-900">
+              <div className="mt-3 space-y-2 rounded border border-sam-warning/40 bg-sam-warning-soft/80 p-3">
+                <p className="text-xs font-medium text-sam-fg">
                   {safeT("admin_platform_popup_crop_confirm", {
                     fallbackKo: "중앙 크롭 결과 (저장될 최종 이미지)",
                     fallbackEn: "Center-crop result (final asset to save)",
@@ -1037,9 +1036,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   className="w-full max-w-md border border-sam-border bg-white"
                   style={{ aspectRatio: "36 / 25" }}
                 />
-                <button
-                  type="button"
-                  className="rounded border border-amber-600 bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-950 disabled:opacity-50"
+                <AdminActionButton
+                  variant="secondary"
+                  size="sm"
                   disabled={busy}
                   onClick={() => void uploadCreative(pendingCropFile, true)}
                 >
@@ -1047,7 +1046,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     fallbackKo: "이 결과로 저장",
                     fallbackEn: "Save this crop",
                   })}
-                </button>
+                </AdminActionButton>
               </div>
             ) : null}
 
@@ -1174,7 +1173,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                       <span className="mt-0.5 block text-xs text-sam-muted">
                         {language === "en" ? opt.helpEn : opt.helpKo}
                       </span>
-                      <span className="mt-0.5 block font-mono text-[11px] text-sam-muted">
+                      <span className="mt-0.5 block font-mono text-[12px] text-sam-muted">
                         {language === "en" ? opt.pagesEn : opt.pagesKo}
                       </span>
                     </span>
@@ -1458,9 +1457,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   })}
             </h2>
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="rounded bg-sam-primary px-3 py-1.5 text-sm font-semibold text-sam-on-primary disabled:opacity-50"
+              <AdminActionButton
+                variant="primary"
+                size="sm"
                 disabled={busy || !dirty}
                 onClick={() => void save()}
                 data-admin-popup-save="1"
@@ -1473,11 +1472,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     })
                   : safeT("admin_platform_popup_save", { fallbackKo: "저장", fallbackEn: "Save" })}
                 {dirty && !busy ? " *" : ""}
-              </button>
+              </AdminActionButton>
               {!isAdminDirect ? (
-                <button
-                  type="button"
-                  className="rounded border border-sam-border px-3 py-1.5 text-sm"
+                <AdminActionButton
+                  variant="secondary"
+                  size="sm"
                   disabled={busy}
                   onClick={() =>
                     void transition({
@@ -1491,11 +1490,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     fallbackKo: "검토 요청",
                     fallbackEn: "Submit for review",
                   })}
-                </button>
+                </AdminActionButton>
               ) : null}
-              <button
-                type="button"
-                className="rounded border border-sam-border px-3 py-1.5 text-sm"
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
                 disabled={busy}
                 onClick={() => void transition({ action: "approve", schedule: true })}
                 data-admin-popup-schedule="1"
@@ -1509,10 +1508,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                       fallbackKo: "승인 후 예약 노출",
                       fallbackEn: "Approve → scheduled",
                     })}
-              </button>
-              <button
-                type="button"
-                className="rounded border border-sam-border px-3 py-1.5 text-sm"
+              </AdminActionButton>
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
                 disabled={busy}
                 onClick={() => void transition({ action: "approve", activate: true })}
                 data-admin-popup-go-live="1"
@@ -1526,10 +1525,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                       fallbackKo: "승인 후 노출 시작",
                       fallbackEn: "Approve → start exposure",
                     })}
-              </button>
-              <button
-                type="button"
-                className="rounded border border-sam-border px-3 py-1.5 text-sm"
+              </AdminActionButton>
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
                 disabled={busy || status === "paused" || status === "ended" || status === "draft"}
                 onClick={() => void transition({ action: "transition", nextStatus: "paused" })}
                 data-admin-popup-pause="1"
@@ -1538,10 +1537,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   fallbackKo: "노출 중지",
                   fallbackEn: "Stop exposure",
                 })}
-              </button>
-              <button
-                type="button"
-                className="rounded border border-sam-border px-3 py-1.5 text-sm"
+              </AdminActionButton>
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
                 disabled={busy || status !== "paused"}
                 onClick={() => void transition({ action: "transition", nextStatus: "active" })}
                 data-admin-popup-resume="1"
@@ -1550,10 +1549,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   fallbackKo: "다시 노출",
                   fallbackEn: "Resume",
                 })}
-              </button>
-              <button
-                type="button"
-                className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700"
+              </AdminActionButton>
+              <AdminActionButton
+                variant="danger"
+                size="sm"
                 disabled={busy || status === "ended" || status === "draft"}
                 onClick={() => void transition({ action: "transition", nextStatus: "ended" })}
                 data-admin-popup-end="1"
@@ -1562,11 +1561,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   fallbackKo: "종료",
                   fallbackEn: "End",
                 })}
-              </button>
+              </AdminActionButton>
               {canDeleteDraft ? (
-                <button
-                  type="button"
-                  className="rounded border border-red-500 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-800"
+                <AdminActionButton
+                  variant="danger"
+                  size="sm"
                   disabled={busy}
                   onClick={() => void deleteDraft()}
                   data-admin-popup-delete-draft="1"
@@ -1575,7 +1574,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     fallbackKo: "삭제",
                     fallbackEn: "Delete",
                   })}
-                </button>
+                </AdminActionButton>
               ) : null}
             </div>
           </AdminCard>
@@ -1651,7 +1650,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               ) : (
                 audit.map((row) => (
                   <li key={row.id}>
-                    {new Date(row.created_at).toLocaleString()} · {row.action} · {row.actor_type}
+                    {formatAdminManilaDateTime(row.created_at)} · {row.action} · {row.actor_type}
                   </li>
                 ))
               )}

@@ -7,6 +7,7 @@ import type { AdminBoardRow } from "@/lib/admin-boards/getBoardsFromDb";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminBoardCreateForm } from "@/components/admin/boards/AdminBoardCreateForm";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const BOARD_LIST_ERROR_KEYS: Record<string, MessageKey> = {
   supabase_unconfigured: "admin_board_err_supabase",
@@ -57,18 +58,18 @@ export function AdminBoardsPage() {
     <div className="space-y-4" data-admin-surface="legacy" data-admin-quarantine="boards">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <AdminPageHeader titleKey="admin_board_page_title" />
-        <button
-          type="button"
+        <AdminActionButton
           disabled={loading}
           onClick={() => setCreateOpen(true)}
-          className="shrink-0 rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
+          variant="primary"
+          className="shrink-0"
         >
           {t("admin_board_add_btn")}
-        </button>
+        </AdminActionButton>
       </div>
 
       <p
-        className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+        className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-warning"
         data-testid="admin-legacy-boards-quarantine-banner"
       >
         {safeT("admin_legacy_boards_quarantine_banner", {
@@ -88,7 +89,7 @@ export function AdminBoardsPage() {
       <AdminBoardCreateForm open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => void load()} />
 
       {listError ? (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-900">{listError}</div>
+        <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-warning">{listError}</div>
       ) : null}
 
       {loading ? (
@@ -126,7 +127,7 @@ export function AdminBoardsPage() {
                   <td className="px-3 py-2.5">
                     <span
                       className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
-                        b.is_active ? "bg-green-50 text-green-800" : "bg-sam-surface-muted text-sam-muted"
+                        b.is_active ? "bg-sam-success-soft text-sam-success" : "bg-sam-surface-muted text-sam-muted"
                       }`}
                     >
                       {b.is_active ? t("admin_board_visible") : t("admin_board_hidden")}

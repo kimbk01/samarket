@@ -10,6 +10,7 @@ import {
   AdminResultBanner,
 } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -311,7 +312,7 @@ export function AdminPromotionBannerListClient() {
                           void (async () => {
                             const ko = lang !== "en";
                             const confirmed = await confirmAdminAction({
-                              level: "L1",
+                              level: adminActionLevel("exposeStop"),
                               ko,
                               title: ko ? "배너 노출 중지" : "Stop banner exposure",
                               description: ko

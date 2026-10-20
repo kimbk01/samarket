@@ -16,6 +16,9 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminTabs, adminTabButtonId, adminTabPanelId, type AdminTabItem } from "@/components/admin/ui/AdminTabs";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import {
   ADMIN_DASHBOARD_DEFAULT_TAB,
   ADMIN_DASHBOARD_TABS,
@@ -48,6 +51,7 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export const ADMIN_DASHBOARD_REFRESH_MS = 60_000;
 const TABS_ID = "admin-dashboard";
+const SIDE_TABS_ID = "admin-dashboard-side";
 const ALL_PARTS = "band,metrics,trend,pending,recent,notices";
 
 export type AdminDashboardTabData = {
@@ -72,9 +76,9 @@ type SidePanel = "pending" | "recent";
 const EMPTY_TAB: AdminDashboardTabData = { metrics: [], shortcuts: [], trend: null, pending: null };
 
 const card =
-  "rounded-ui-rect border border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)]";
-const muted = "text-[var(--admin-console-muted,#667085)]";
-const fg = "text-[var(--admin-console-fg,#1f2937)]";
+  "rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)]";
+const muted = "text-[var(--admin-console-muted)]";
+const fg = "text-[var(--admin-console-fg)]";
 
 function markStale(m: AdminDashboardMetricValue): AdminDashboardMetricValue {
   return { ...m, error: m.error ?? "fetch_failed", stale: m.value !== null };
@@ -105,7 +109,7 @@ function unitSuffix(unit: AdminDashboardMetricValue["unit"], ko: boolean): strin
 function PeriodChip({ label }: { label: string }) {
   return (
     <span
-      className={`shrink-0 rounded-full bg-[var(--admin-console-hover,#eef1f6)] px-1.5 text-[11px] leading-4 ${muted}`}
+      className={`shrink-0 rounded-full bg-[var(--admin-console-hover)] px-1.5 text-[12px] leading-4 ${muted}`}
       data-admin-metric-period-chip="1"
     >
       {label}
@@ -138,7 +142,7 @@ function MetricValueText({
         </span>
       ) : null}
       {failed ? (
-        <span className="truncate text-[11px] font-medium text-sam-warning" data-admin-metric-failed="1">
+        <span className="truncate text-[12px] font-medium text-sam-warning" data-admin-metric-failed="1">
           {failedLabel}
         </span>
       ) : null}
@@ -192,13 +196,13 @@ function BandTileView({
       ) : null}
     </>
   );
-  const cls = `${card} flex h-full min-w-0 flex-col justify-center overflow-hidden px-2.5 text-left hover:border-[var(--admin-console-accent,#1d4ed8)] min-[1280px]:px-3`;
+  const cls = `${card} flex h-full min-w-0 flex-col justify-center overflow-hidden px-2.5 text-left hover:border-[var(--admin-console-accent)] min-[1280px]:px-3`;
   if (tile.tab) {
     const tab = tile.tab;
     return (
-      <button type="button" title={tip} className={cls} data-admin-band-tile={tile.id} onClick={() => onSelectTab(tab)}>
+      <AdminListItemButton title={tip} className={cls} data-admin-band-tile={tile.id} onClick={() => onSelectTab(tab)}>
         {body}
-      </button>
+      </AdminListItemButton>
     );
   }
   return (
@@ -229,7 +233,7 @@ function MetricTile({
       title={label}
       aria-label={`${t("admin_dash_v4_metric_go", { label })}: ${formatAdminDashboardValue(m.value, m.unit)}${m.value === null ? "" : unitSuffix(m.unit, ko)}`}
       data-admin-metric-tile={m.id}
-      className={`${card} group flex h-[76px] min-w-0 flex-col justify-center px-3 hover:border-[var(--admin-console-accent,#1d4ed8)]`}
+      className={`${card} group flex h-[76px] min-w-0 flex-col justify-center px-3 hover:border-[var(--admin-console-accent)]`}
     >
       <span className="flex min-w-0 items-center gap-1.5">
         <span className={`min-w-0 truncate text-[13px] leading-5 ${muted}`}>{label}</span>
@@ -257,7 +261,7 @@ function TrendView({
   failedLabel: string;
 }) {
   const max = Math.max(1, ...(trend?.points ?? []).flatMap((p) => Object.values(p.values)));
-  const seriesColors = ["bg-[var(--admin-console-accent,#1d4ed8)]", "bg-[var(--admin-console-muted,#667085)]"];
+  const seriesColors = ["bg-[var(--admin-console-accent)]", "bg-[var(--admin-console-muted)]"];
   const suffix = trend ? unitSuffix(trend.unit, ko) : "";
   const axis = (v: number) => (trend ? `${formatAdminDashboardValue(v, trend.unit)}${suffix}` : "");
   /** 계열별 창 합계 (예: 7일 활성 = 「마지막 로그인」 합계) */
@@ -300,14 +304,14 @@ function TrendView({
       {trend && trend.points.length ? (
         <div className="flex min-h-0 flex-1 gap-1 pt-1" role="img" aria-label={ko ? trend.labelKo : trend.labelEn}>
           <div
-            className={`flex w-12 shrink-0 flex-col justify-between pb-4 text-right text-[11px] leading-3 tabular-nums ${muted}`}
+            className={`flex w-12 shrink-0 flex-col justify-between pb-4 text-right text-[12px] leading-3 tabular-nums ${muted}`}
             data-admin-trend-y-axis="1"
           >
             <span>{axis(max)}</span>
             <span>{axis(Math.round(max / 2))}</span>
             <span>{axis(0)}</span>
           </div>
-          <div className="flex min-w-0 flex-1 items-stretch gap-1 border-l border-[var(--admin-console-border,#d0d7e2)] pl-1">
+          <div className="flex min-w-0 flex-1 items-stretch gap-1 border-l border-[var(--admin-console-border)] pl-1">
             {trend.points.map((p, i) => {
               const tip = `${p.key} · ${trend.series
                 .map((s) => `${ko ? s.labelKo : s.labelEn} ${formatAdminDashboardValue(p.values[s.key] ?? 0, trend.unit)}`)
@@ -315,7 +319,7 @@ function TrendView({
               const showLabel = trend.points.length <= 10 || i % 5 === 0 || i === trend.points.length - 1;
               return (
                 <div key={p.key} className="flex min-w-0 flex-1 flex-col" title={tip}>
-                  <div className="flex min-h-0 flex-1 items-end justify-center gap-px border-b border-[var(--admin-console-border,#d0d7e2)]">
+                  <div className="flex min-h-0 flex-1 items-end justify-center gap-px border-b border-[var(--admin-console-border)]">
                     {trend.series.map((s, si) => (
                       <span
                         key={s.key}
@@ -324,7 +328,7 @@ function TrendView({
                       />
                     ))}
                   </div>
-                  <span className={`h-4 truncate text-center text-[11px] leading-4 tabular-nums ${muted}`}>
+                  <span className={`h-4 truncate text-center text-[12px] leading-4 tabular-nums ${muted}`}>
                     {showLabel ? p.key.slice(5) : ""}
                   </span>
                 </div>
@@ -366,7 +370,7 @@ function PendingList({
           const rowBody = (
             <>
               <span
-                className={`shrink-0 rounded-full px-1.5 text-[11px] font-semibold leading-5 ${i.priority === "P0_CRITICAL" ? "bg-sam-danger-soft text-sam-danger" : "bg-[var(--admin-console-hover,#eef1f6)] " + muted}`}
+                className={`shrink-0 rounded-full px-1.5 text-[12px] font-semibold leading-5 ${i.priority === "P0_CRITICAL" ? "bg-sam-danger-soft text-sam-danger" : "bg-[var(--admin-console-hover)] " + muted}`}
               >
                 {i.priority.slice(0, 2)}
               </span>
@@ -378,18 +382,18 @@ function PendingList({
                   {i.href ? "" : ` · ${t("admin_dash_v4_pending_no_list")}`}
                 </span>
               </span>
-              <span className={`shrink-0 text-[15px] font-bold tabular-nums ${fg}`}>
+              <span className={`shrink-0 text-[16px] font-bold tabular-nums ${fg}`}>
                 {formatAdminDashboardValue(i.count, "count")}
               </span>
-              {i.status !== "ok" ? <span className="shrink-0 text-[11px] text-sam-warning">{failedLabel}</span> : null}
+              {i.status !== "ok" ? <span className="shrink-0 text-[12px] text-sam-warning">{failedLabel}</span> : null}
             </>
           );
           const rowCls =
-            "flex h-11 items-center gap-2 border-b border-[var(--admin-console-border,#d0d7e2)] px-3 min-[1280px]:h-12";
+            "flex h-11 items-center gap-2 border-b border-[var(--admin-console-border)] px-3 min-[1280px]:h-12";
           return (
             <li key={i.key} data-admin-pending-item={i.key}>
               {i.href ? (
-                <Link href={i.href} prefetch={false} className={`${rowCls} hover:bg-[var(--admin-console-hover,#eef1f6)]`}>
+                <Link href={i.href} prefetch={false} className={`${rowCls} hover:bg-[var(--admin-console-hover)]`}>
                   {rowBody}
                 </Link>
               ) : (
@@ -421,7 +425,7 @@ function RecentList({
     <div className="min-h-0 flex-1 overflow-y-auto" data-admin-dashboard-recent-list="1">
       {recent.error ? <p className="px-3 pt-2 text-[12px] text-sam-warning">{failedLabel}</p> : null}
       {recent.groups.map((g) => (
-        <section key={g.kind} data-admin-recent-group={g.kind} className="border-b border-[var(--admin-console-border,#d0d7e2)]">
+        <section key={g.kind} data-admin-recent-group={g.kind} className="border-b border-[var(--admin-console-border)]">
           <header className="flex h-8 items-center justify-between gap-2 px-3">
             <h3 className={`truncate text-[13px] font-semibold ${fg}`}>{ko ? g.labelKo : g.labelEn}</h3>
             <Link href={g.href} prefetch={false} className={`shrink-0 text-[12px] underline ${muted}`}>
@@ -437,13 +441,13 @@ function RecentList({
                   <Link
                     href={it.href}
                     prefetch={false}
-                    className="flex h-10 items-center gap-2 px-3 hover:bg-[var(--admin-console-hover,#eef1f6)]"
+                    className="flex h-10 items-center gap-2 px-3 hover:bg-[var(--admin-console-hover)]"
                   >
                     <span className="min-w-0 flex-1">
                       <span className={`block truncate text-[13px] leading-5 ${fg}`}>{it.title || "—"}</span>
-                      <span className={`block truncate text-[11px] leading-4 ${muted}`}>{it.sub}</span>
+                      <span className={`block truncate text-[12px] leading-4 ${muted}`}>{it.sub}</span>
                     </span>
-                    <span className={`shrink-0 text-[11px] tabular-nums ${muted}`}>
+                    <span className={`shrink-0 text-[12px] tabular-nums ${muted}`}>
                       {formatAdminManilaDateTime(it.at).slice(5)}
                     </span>
                   </Link>
@@ -527,8 +531,10 @@ function SidePanelView({
   t: ReturnType<typeof useI18n>["t"];
   failedLabel: string;
 }) {
-  const tabCls = (on: boolean) =>
-    `h-10 border-b-2 px-1 text-[14px] ${on ? `border-[var(--admin-console-accent,#1d4ed8)] font-semibold ${fg}` : `border-transparent ${muted}`}`;
+  const sideTabs: AdminTabItem[] = [
+    { id: "pending", label: t("admin_dash_v4_pending_title") },
+    { id: "recent", label: t("admin_dash_v4_recent_title") },
+  ];
   return (
     <section
       id="action-center"
@@ -536,24 +542,37 @@ function SidePanelView({
       data-admin-dashboard-side={side}
       className={`${card} flex min-h-0 flex-col overflow-hidden`}
     >
-      <header className="flex h-10 shrink-0 items-center gap-3 border-b border-[var(--admin-console-border,#d0d7e2)] px-3" role="tablist">
-        <button type="button" role="tab" aria-selected={side === "pending"} className={tabCls(side === "pending")} onClick={() => onSide("pending")}>
-          {t("admin_dash_v4_pending_title")}
-        </button>
-        <button type="button" role="tab" aria-selected={side === "recent"} className={tabCls(side === "recent")} onClick={() => onSide("recent")}>
-          {t("admin_dash_v4_recent_title")}
-        </button>
+      <header className="relative shrink-0">
+        <AdminTabs
+          tabs={sideTabs}
+          ariaLabel={`${t("admin_dash_v4_pending_title")} · ${t("admin_dash_v4_recent_title")}`}
+          value={side}
+          syncUrl={false}
+          onChange={(id) => onSide(id === "recent" ? "recent" : "pending")}
+          idBase={SIDE_TABS_ID}
+          className="px-3"
+        />
         {side === "pending" && pending ? (
-          <span className={`ml-auto shrink-0 text-[12px] tabular-nums ${muted}`} data-admin-pending-total="1">
+          <span
+            className={`pointer-events-none absolute right-3 top-0 flex h-10 items-center text-[12px] tabular-nums ${muted}`}
+            data-admin-pending-total="1"
+          >
             {t("admin_dash_v4_pending_total", { n: formatAdminDashboardValue(pending.total, "count") })}
           </span>
         ) : null}
       </header>
+      <div
+        id={adminTabPanelId(SIDE_TABS_ID, side)}
+        role="tabpanel"
+        aria-labelledby={adminTabButtonId(SIDE_TABS_ID, side)}
+        className="flex min-h-0 flex-1 flex-col"
+      >
       {side === "pending" ? (
         <PendingList pending={pending} ko={ko} t={t} failedLabel={failedLabel} />
       ) : (
         <RecentList recent={recent} ko={ko} t={t} failedLabel={failedLabel} />
       )}
+      </div>
     </section>
   );
 }
@@ -786,36 +805,34 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
 
       <footer
         data-admin-dashboard-status="1"
-        className={`mt-2 flex h-7 shrink-0 items-center gap-3 text-[12px] ${muted}`}
+        className={`mt-2 flex h-8 shrink-0 items-center gap-3 text-[12px] ${muted}`}
       >
         <span className="tabular-nums" data-admin-dashboard-updated="1">
           {t("admin_dash_v4_updated", { time: updated })}
         </span>
         <span>· {t("admin_dash_v4_auto_refresh")}</span>
-        <button
-          type="button"
+        <AdminActionButton
+          variant="secondary"
+          size="sm"
           onClick={refreshAll}
           disabled={status === "loading"}
           data-admin-dashboard-refresh="1"
-          className={`h-7 rounded-ui-rect border border-[var(--admin-console-border,#d0d7e2)] px-2 text-[12px] font-medium ${fg} hover:bg-[var(--admin-console-hover,#eef1f6)] disabled:opacity-50`}
         >
           {status === "loading" ? t("admin_dash_v4_loading") : t("admin_dash_v4_refresh")}
-        </button>
+        </AdminActionButton>
         {status === "failed" ? <span className="text-sam-warning">{failedLabel}</span> : null}
         {status === "partial" ? <span className="text-sam-warning">{t("admin_dash_v4_partial_failed")}</span> : null}
         <span className="ml-auto flex items-center gap-1" role="group" aria-label={t("admin_dash_v4_period_label")}>
           <span>{t("admin_dash_v4_period_label")}:</span>
           {ADMIN_DASHBOARD_PERIODS.map((p) => (
-            <button
+            <AdminChipButton
               key={p}
-              type="button"
-              aria-pressed={period === p}
+              selected={period === p}
               data-admin-dashboard-period-option={p}
               onClick={() => selectPeriod(p)}
-              className={`h-7 rounded-full px-2 text-[12px] ${period === p ? "bg-[var(--admin-console-active-bg,#e8eefc)] font-semibold text-[var(--admin-console-accent,#1d4ed8)]" : muted}`}
             >
               {ADMIN_DASHBOARD_PERIOD_LABEL[p][ko ? "ko" : "en"]}
-            </button>
+            </AdminChipButton>
           ))}
           <span>(PHT)</span>
         </span>

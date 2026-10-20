@@ -173,7 +173,7 @@ export function AdminBoardCreateForm({
           {loadingSvc ? (
             <p className="text-sam-muted">{t("admin_board_svc_loading")}</p>
           ) : services.length === 0 ? (
-            <p className="text-amber-800">{t("admin_board_no_active_service")}</p>
+            <p className="text-sam-warning">{t("admin_board_no_active_service")}</p>
           ) : null}
 
           <label className="block">
@@ -283,7 +283,7 @@ export function AdminBoardCreateForm({
             />
           </label>
 
-          {error ? <p className="rounded-ui-rect bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">{error}</p> : null}
+          {error ? <p className="rounded-ui-rect bg-sam-danger-soft px-3 py-2 sam-text-body-secondary text-sam-danger">{error}</p> : null}
 
           <div className={`${OverlayUi.actionsRow} border-t border-[color:var(--overlay-border)] pt-3`}>
             <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose}>

@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import type { MemberBenefitPolicy } from "@/lib/types/member-benefit";
 import { MEMBER_TYPE_OPTIONS } from "@/lib/member-benefits/member-benefit-utils";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface AdminMemberBenefitFormProps {
   initial?: Partial<MemberBenefitPolicy> | null;
@@ -262,20 +263,19 @@ export function AdminMemberBenefitForm({
         />
       </div>
       <div className="flex gap-2">
-        <button
+        <AdminActionButton
           type="submit"
-          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
+          variant="primary"
         >
           저장
-        </button>
+        </AdminActionButton>
         {onCancel && (
-          <button
-            type="button"
+          <AdminActionButton
             onClick={onCancel}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
+            variant="secondary"
           >
             취소
-          </button>
+          </AdminActionButton>
         )}
       </div>
     </form>

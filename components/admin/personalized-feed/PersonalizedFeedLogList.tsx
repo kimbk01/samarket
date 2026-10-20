@@ -1,5 +1,6 @@
 "use client";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { PersonalizedFeedLog } from "@/lib/types/personalized-feed";
 import { PERSONALIZED_SECTION_LABELS } from "@/lib/personalized-feed/personalized-section-labels";
 
@@ -48,7 +49,7 @@ export function PersonalizedFeedLogList({ logs }: PersonalizedFeedLogListProps) 
               className="border-b border-sam-border-soft hover:bg-sam-app"
             >
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(log.createdAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(log.createdAt)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">{log.userId}</td>
               <td className="px-3 py-2.5 text-sam-fg">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface AdminAuditJsonViewerProps {
   label: string;
@@ -25,14 +26,15 @@ export function AdminAuditJsonViewer({ label, data }: AdminAuditJsonViewerProps)
 
   return (
     <div className="rounded border border-sam-border-soft bg-sam-app">
-      <button
-        type="button"
+      <AdminActionButton
+        variant="quiet"
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-2 text-left sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-surface-muted"
+        className="w-full justify-between text-left text-sam-fg hover:no-underline"
       >
         {label}
         <span className="text-sam-muted">{open ? "▲" : "▼"}</span>
-      </button>
+      </AdminActionButton>
       {open && (
         <pre className="max-h-48 overflow-auto border-t border-sam-border-soft px-3 py-2 sam-text-helper text-sam-muted whitespace-pre-wrap break-all">
           {text}

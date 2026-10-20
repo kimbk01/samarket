@@ -15,24 +15,27 @@ import type {
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
-import type { AppLanguageCode } from "@/lib/i18n/config";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { adminStatusLabelText } from "@/lib/admin/status-labels/admin-status-label-registry";
+import { POINTS_CHARGE_STATUS_NS } from "@/lib/admin/status-labels/r5-points-status-labels";
 
 interface AdminUserPointsSectionProps {
   userId: string;
 }
 
-function dateLocaleTag(language: AppLanguageCode): string {
-  return language === "en" ? "en-US" : "ko-KR";
-}
-
 function formatSigned(signed: number): string {
-  const abs = Math.abs(signed).toLocaleString();
+  const abs = formatAdminNumber(Math.abs(signed));
   return signed < 0 ? `-${abs} P` : `+${abs} P`;
 }
 
 export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) {
   const { t, language, safeT } = useI18n();
-  const dateLocale = dateLocaleTag(language);
+  const ko = language !== "en";
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceUnavailable, setBalanceUnavailable] = useState(false);
   const [summary, setSummary] = useState<PointFinancialSummary | null>(null);
@@ -135,8 +138,8 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       level: adminActionLevel("payout"),
       ko: language !== "en",
       title: actionLabel,
-      description: `${sign === -1 ? "-" : "+"}${amount.toLocaleString()} P${
-        balance !== null ? `\n${balance.toLocaleString()} P → ${(balance + sign * amount).toLocaleString()} P` : ""
+      description: `${sign === -1 ? "-" : "+"}${formatAdminNumber(amount)} P${
+        balance !== null ? `\n${formatAdminNumber(balance)} P → ${formatAdminNumber(balance + sign * amount)} P` : ""
       }`,
       confirmLabel: actionLabel,
       destructive: sign === -1,
@@ -181,19 +184,19 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
 
   return (
     <AdminCard titleKey="admin_users_points_manage_title">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3 rounded-ui-rect bg-sky-50 px-4 py-3">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3 rounded-ui-rect bg-sam-info-soft px-4 py-3">
         <div>
-          <p className="sam-text-helper text-sky-700">{t("admin_users_points_balance")}</p>
-          <p className="sam-text-hero font-bold text-sky-800">
+          <p className="sam-text-helper text-sam-info">{t("admin_users_points_balance")}</p>
+          <p className="sam-text-hero font-bold text-sam-info">
             {balanceUnavailable || balance === null
               ? t("admin_users_points_balance_unavailable")
-              : `${balance.toLocaleString()}P`}
+              : `${formatAdminNumber(balance)}P`}
           </p>
           {summary ? (
-            <p className="mt-1 sam-text-helper text-sky-800/80">
-              +{summary.totalCredit.toLocaleString()}P / -{summary.totalDebit.toLocaleString()}P
+            <p className="mt-1 sam-text-helper text-sam-info/80">
+              +{formatAdminNumber(summary.totalCredit)}P / -{formatAdminNumber(summary.totalDebit)}P
               {summary.lastOccurredAt
-                ? ` · ${new Date(summary.lastOccurredAt).toLocaleString(dateLocale)}`
+                ? ` · ${formatAdminManilaDateTime(summary.lastOccurredAt)}`
                 : ""}
             </p>
           ) : null}
@@ -210,42 +213,27 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
           placeholder={safeT("point_fin_admin_amount_ph", { fallbackKo: "금액", fallbackEn: "Amount" })}
           className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
         />
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void openAdjustConfirm(1)}
-          className="rounded-ui-rect bg-emerald-600 px-3 py-2 sam-text-helper font-semibold text-white disabled:opacity-50"
-        >
+        <AdminActionButton variant="primary" disabled={busy} onClick={() => void openAdjustConfirm(1)}>
           {safeT("point_fin_admin_credit", { fallbackKo: "지급", fallbackEn: "Credit" })}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void openAdjustConfirm(-1)}
-          className="rounded-ui-rect bg-red-600 px-3 py-2 sam-text-helper font-semibold text-white disabled:opacity-50"
-        >
+        </AdminActionButton>
+        <AdminActionButton variant="secondary" disabled={busy} onClick={() => void openAdjustConfirm(-1)}>
           {safeT("point_fin_admin_debit", { fallbackKo: "차감", fallbackEn: "Debit" })}
-        </button>
+        </AdminActionButton>
       </div>
 
-      {err ? <p className="mb-2 sam-text-helper text-red-600">{err}</p> : null}
+      {err ? <p className="mb-2 sam-text-helper text-sam-danger">{err}</p> : null}
 
-      <div className="mb-3 flex gap-1 rounded-ui-rect bg-sam-surface-muted p-1">
-        {(["history", "charges"] as const).map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setSurface(key)}
-            className={`flex-1 rounded-ui-rect py-1.5 sam-text-helper font-semibold ${
-              surface === key ? "bg-sam-surface text-sam-fg shadow-sm" : "text-sam-muted"
-            }`}
-          >
-            {key === "history"
-              ? safeT("point_fin_tab_all", { fallbackKo: "회계 내역", fallbackEn: "Ledger" })
-              : t("admin_users_points_tab_charges", { count: charges.length })}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        className="mb-3"
+        ariaLabel={t("admin_users_points_manage_title")}
+        tabs={[
+          { id: "history", label: safeT("point_fin_tab_all", { fallbackKo: "회계 내역", fallbackEn: "Ledger" }) },
+          { id: "charges", label: t("admin_users_points_tab_charges", { count: charges.length }) },
+        ]}
+        value={surface}
+        syncUrl={false}
+        onChange={(id) => setSurface(id === "charges" ? "charges" : "history")}
+      />
 
       {surface === "history" ? (
         <>
@@ -255,20 +243,13 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
               ["credit", "충전/지급"],
               ["debit", "사용/차감"],
             ] as const).map(([id, ko]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setFilter(id)}
-                className={`rounded-full px-3 py-1 sam-text-helper font-semibold ${
-                  filter === id ? "bg-signature text-white" : "bg-sam-surface-muted text-sam-muted"
-                }`}
-              >
+              <AdminChipButton key={id} selected={filter === id} onClick={() => setFilter(id)}>
                 {id === "all"
                   ? safeT("point_fin_tab_all", { fallbackKo: ko, fallbackEn: "All" })
                   : id === "credit"
                     ? safeT("point_fin_tab_credit", { fallbackKo: ko, fallbackEn: "Credits" })
                     : safeT("point_fin_tab_debit", { fallbackKo: ko, fallbackEn: "Debits" })}
-              </button>
+              </AdminChipButton>
             ))}
           </div>
 
@@ -301,18 +282,18 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                       onClick={() => setSelected(item)}
                     >
                       <td className="whitespace-nowrap px-3 py-2 sam-text-helper text-sam-muted">
-                        {new Date(item.occurredAt).toLocaleString(dateLocale)}
+                        {formatAdminManilaDateTime(item.occurredAt)}
                       </td>
                       <td className="px-3 py-2">{title}</td>
                       <td className="max-w-[280px] truncate px-3 py-2 text-sam-muted">{usage}</td>
                       <td
                         className={`px-3 py-2 text-right font-semibold ${
-                          item.direction === "credit" ? "text-emerald-700" : "text-red-600"
+                          item.direction === "credit" ? "text-sam-success" : "text-sam-danger"
                         }`}
                       >
                         {formatSigned(item.signedAmount)}
                       </td>
-                      <td className="px-3 py-2 text-right">{item.balanceAfter.toLocaleString()}P</td>
+                      <td className="px-3 py-2 text-right">{formatAdminNumber(item.balanceAfter)}P</td>
                     </tr>
                   );
                 })}
@@ -325,13 +306,13 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             ) : null}
           </div>
           {hasMore ? (
-            <button
-              type="button"
-              className="mt-2 w-full rounded-ui-rect border border-sam-border py-2 sam-text-helper"
+            <AdminActionButton
+              variant="secondary"
+              className="mt-2 w-full"
               onClick={() => void load({ append: true, cursor: nextCursor })}
             >
               {safeT("point_fin_load_more", { fallbackKo: "더 보기", fallbackEn: "Load more" })}
-            </button>
+            </AdminActionButton>
           ) : null}
         </>
       ) : (
@@ -348,11 +329,11 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
               >
                 <div>
                   <p className="sam-text-body-secondary font-semibold">{c.planName}</p>
-                  <p className="sam-text-helper text-sky-700 font-bold">
-                    +{c.pointAmount.toLocaleString()}P
+                  <p className="sam-text-helper text-sam-info font-bold">
+                    +{formatAdminNumber(c.pointAmount)}P
                   </p>
                   <p className="sam-text-xxs text-sam-meta">
-                    {new Date(c.requestedAt).toLocaleString(dateLocale)}
+                    {formatAdminManilaDateTime(c.requestedAt)}
                   </p>
                 </div>
                 <PointChargeBadge status={c.requestStatus} />
@@ -373,7 +354,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             </h3>
             <p
               className={`mt-1 sam-text-page-title font-bold ${
-                selected.direction === "credit" ? "text-emerald-700" : "text-red-600"
+                selected.direction === "credit" ? "text-sam-success" : "text-sam-danger"
               }`}
             >
               {formatSigned(selected.signedAmount)}
@@ -391,7 +372,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-sam-muted">Time</dt>
-                <dd>{new Date(selected.occurredAt).toLocaleString(dateLocale)}</dd>
+                <dd>{formatAdminManilaDateTime(selected.occurredAt)}</dd>
               </div>
               {selected.promotion ? (
                 <>
@@ -410,8 +391,8 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                   <div className="flex justify-between gap-2">
                     <dt className="text-sam-muted">Period</dt>
                     <dd className="text-right">
-                      {new Date(selected.promotion.startAt).toLocaleString(dateLocale)} ~{" "}
-                      {new Date(selected.promotion.endAt).toLocaleString(dateLocale)}
+                      {formatAdminManilaDateTime(selected.promotion.startAt)} ~{" "}
+                      {formatAdminManilaDateTime(selected.promotion.endAt)}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
@@ -424,7 +405,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                 <div className="flex justify-between gap-2">
                   <dt className="text-sam-muted">Deposit</dt>
                   <dd className="text-right">
-                    {selected.deposit.planName} · {selected.deposit.requestStatus}
+                    {selected.deposit.planName} · {adminStatusLabelText(POINTS_CHARGE_STATUS_NS, selected.deposit.requestStatus, ko)}
                   </dd>
                 </div>
               ) : null}
@@ -437,7 +418,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             </dl>
             <div className={`${OverlayUi.actionsStack} mt-4`}>
               <DibayOverlayButton roleTone="primary" onClick={() => setSelected(null)}>
-                {t("common_confirm")}
+                {adminCta("close", ko)}
               </DibayOverlayButton>
             </div>
           </div>

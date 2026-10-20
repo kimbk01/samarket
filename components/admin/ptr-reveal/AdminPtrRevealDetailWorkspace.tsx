@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { adminStatusLabelText } from "@/lib/admin/status-labels/admin-status-label-registry";
+import { PLATFORM_POPUP_APPROVAL_STATUS_NS } from "@/lib/admin/status-labels/r5-platform-status-labels";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -309,23 +312,23 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
           <Link href="/admin/ptr-reveal-ads" className="text-xs text-sam-muted underline">
             ← {L("당겨서 새로고침 광고 목록", "Pull-to-refresh ads")}
           </Link>
-          <h1 className="mt-1 text-lg font-semibold text-sam-fg">{detail.name}</h1>
+          <h1 className="mt-1 text-[20px] font-semibold text-sam-fg">{detail.name}</h1>
           <div className="mt-1 flex flex-wrap gap-1.5">
             <AdminToneBadge tone={status === "active" ? "success" : status === "rejected" || status === "ended" ? "danger" : "neutral"}>
               {platformPopupCampaignStatusLabel(status, lang)}
             </AdminToneBadge>
             <AdminToneBadge tone="neutral">
-              {L("승인", "Approval")}: {detail.approvalStatus}
+              {L("승인", "Approval")}: {adminStatusLabelText(PLATFORM_POPUP_APPROVAL_STATUS_NS, detail.approvalStatus, lang !== "en")}
             </AdminToneBadge>
           </div>
         </div>
-        <button type="button" className="rounded border border-sam-border px-3 py-1.5 text-sm" disabled={busy} onClick={() => void copy()} data-admin-ptr-copy="">
+        <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void copy()} data-admin-ptr-copy="">
           {L("복사", "Copy")}
-        </button>
+        </AdminActionButton>
       </div>
 
-      {error ? <p className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
-      {notice ? <p className="rounded-ui-rect border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</p> : null}
+      {error ? <p className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger">{error}</p> : null}
+      {notice ? <p className="rounded-ui-rect border border-sam-success/30 bg-sam-success-soft px-3 py-2 text-sm text-sam-success">{notice}</p> : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-4">
@@ -447,7 +450,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
                     placeholder="00000000-0000-0000-0000-000000000000"
                     data-admin-ptr-audience-ids=""
                   />
-                  <span className="text-xs text-amber-700">
+                  <span className="text-xs text-sam-warning">
                     {L(
                       "목록이 비어 있으면 누구에게도 보이지 않습니다. QA·내부 검증 전에는 허용 목록만 쓰세요.",
                       "An empty allowlist serves nobody. Use allowlist-only until QA/internal verification is done."
@@ -455,7 +458,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
                   </span>
                 </label>
               : (
-                <p className="text-xs text-amber-700">
+                <p className="text-xs text-sam-warning">
                   {L(
                     "전체 사용자 모드는 Production에서 공개 노출입니다. 검증 전에는 허용 목록을 사용하세요.",
                     "Everyone mode is public exposure on Production. Prefer allowlist until verification is done."
@@ -492,34 +495,34 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
 
           <AdminCard title={L("승인·운영", "Approval & operation")}>
             <div className="flex flex-wrap gap-2 text-sm">
-              <button type="button" className="rounded border border-sam-border px-3 py-1.5" disabled={busy || status !== "draft"}
+              <AdminActionButton variant="secondary" size="sm" disabled={busy || status !== "draft"}
                 onClick={() => void transition({ action: "transition", nextStatus: "pending_review", nextApproval: "pending_review" }, "검토를 요청할까요?", "Submit for review?")}>
                 {L("검토 요청", "Submit for review")}
-              </button>
-              <button type="button" className="rounded border border-sam-border px-3 py-1.5" disabled={busy || status === "ended" || status === "active"} data-admin-ptr-approve-schedule=""
+              </AdminActionButton>
+              <AdminActionButton variant="secondary" size="sm" disabled={busy || status === "ended" || status === "active"} data-admin-ptr-approve-schedule=""
                 onClick={() => void transition({ action: "approve", schedule: true }, "승인하고 예약 노출로 둘까요? 시작 시각부터 앱에 표시됩니다." + audienceKo, "Approve and schedule? It shows in the app from the start time." + audienceEn)}>
                 {L("승인 후 예약", "Approve → schedule")}
-              </button>
-              <button type="button" className="rounded border border-sam-primary bg-sam-primary px-3 py-1.5 text-white" disabled={busy || status === "ended" || status === "active"} data-admin-ptr-approve-activate=""
+              </AdminActionButton>
+              <AdminActionButton variant="secondary" size="sm" disabled={busy || status === "ended" || status === "active"} data-admin-ptr-approve-activate=""
                 onClick={() => void transition({ action: "approve", activate: true }, "승인하고 바로 노출할까요? 실제 앱의 새로고침 화면에 표시됩니다." + audienceKo, "Approve and go live now? It will show on real app refresh screens." + audienceEn)}>
                 {L("승인 후 노출 시작", "Approve → go live")}
-              </button>
-              <button type="button" className="rounded border border-red-300 px-3 py-1.5 text-red-700" disabled={busy || status !== "pending_review"} data-admin-ptr-reject=""
+              </AdminActionButton>
+              <AdminActionButton variant="secondary" size="sm" disabled={busy || status !== "pending_review"} data-admin-ptr-reject=""
                 onClick={() => void transition({ action: "transition", nextStatus: "rejected", nextApproval: "rejected" }, "반려할까요?", "Reject this ad?")}>
                 {L("반려", "Reject")}
-              </button>
-              <button type="button" className="rounded border border-sam-border px-3 py-1.5" disabled={busy || (status !== "active" && status !== "scheduled")} data-admin-ptr-pause=""
+              </AdminActionButton>
+              <AdminActionButton variant="secondary" size="sm" disabled={busy || (status !== "active" && status !== "scheduled")} data-admin-ptr-pause=""
                 onClick={() => void transition({ action: "transition", nextStatus: "paused" }, "노출을 중지할까요? 앱에서 곧바로 빠집니다.", "Stop exposure? It leaves the app shortly.")}>
                 {L("노출 중지", "Stop")}
-              </button>
-              <button type="button" className="rounded border border-sam-border px-3 py-1.5" disabled={busy || status !== "paused"}
+              </AdminActionButton>
+              <AdminActionButton variant="secondary" size="sm" disabled={busy || status !== "paused"}
                 onClick={() => void transition({ action: "transition", nextStatus: "active" }, "다시 노출할까요?" + audienceKo, "Resume exposure?" + audienceEn)}>
                 {L("다시 노출", "Resume")}
-              </button>
-              <button type="button" className="rounded border border-red-300 px-3 py-1.5 text-red-700" disabled={busy || status === "ended" || status === "draft"}
+              </AdminActionButton>
+              <AdminActionButton variant="danger" size="sm" disabled={busy || status === "ended" || status === "draft"}
                 onClick={() => void transition({ action: "transition", nextStatus: "ended" }, "종료할까요? 종료한 광고는 다시 켤 수 없습니다.", "End this ad? Ended ads cannot be restarted.")}>
                 {L("종료", "End")}
-              </button>
+              </AdminActionButton>
             </div>
             <p className="mt-2 text-xs text-sam-muted">
               {L("반영까지 최대 5분(앱의 광고 캐시). 광고 조회가 실패해도 새로고침은 그대로 동작합니다.", "Changes reach apps within ~5 minutes (ad cache). Refresh keeps working even if the ad fails.")}
@@ -561,13 +564,13 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-sam-border bg-sam-surface px-4 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-end gap-2">
-          {dirty ? <span className="mr-auto text-xs text-amber-700">{L("저장하지 않은 변경이 있습니다", "Unsaved changes")}</span> : null}
-          <button type="button" className="rounded border border-sam-border px-4 py-2 text-sm" disabled={busy || !dirty} onClick={() => void cancel()}>
+          {dirty ? <span className="mr-auto text-xs text-sam-warning">{L("저장하지 않은 변경이 있습니다", "Unsaved changes")}</span> : null}
+          <AdminActionButton variant="secondary" disabled={busy || !dirty} onClick={() => void cancel()}>
             {L("취소", "Cancel")}
-          </button>
-          <button type="button" className="rounded bg-sam-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={busy || !dirty} onClick={() => void save()} data-admin-ptr-save="">
+          </AdminActionButton>
+          <AdminActionButton variant="primary" disabled={busy || !dirty} onClick={() => void save()} data-admin-ptr-save="">
             {busy ? L("처리 중…", "Working…") : L("저장", "Save")}
-          </button>
+          </AdminActionButton>
         </div>
       </div>
     </div>
@@ -715,7 +718,7 @@ function PtrBandUploadSlot({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-semibold">
           {lang === "en" ? spec.labelEn : spec.labelKo}
-          {required ? <span className="ml-1 text-red-600">*</span> : null}
+          {required ? <span className="ml-1 text-sam-danger">*</span> : null}
         </p>
         <p className="text-xs text-sam-muted">
           {spec.width}×{spec.height} · {spec.aspectW}:{spec.aspectH} · {L("최소", "min")} {spec.minSourceWidth}×{spec.minSourceHeight} ·{" "}
@@ -732,15 +735,16 @@ function PtrBandUploadSlot({
         />
       : null}
       {current ?
-        <button
-          type="button"
-          className="mt-1.5 rounded border border-red-300 px-2 py-1 text-xs text-red-700 disabled:opacity-50"
+        <AdminActionButton
+          variant="danger"
+          size="sm"
+          className="mt-1.5"
           disabled={disabled || busy}
           onClick={() => void remove()}
           data-admin-ptr-delete={variant}
         >
           {L("이미지 삭제", "Delete image")}
-        </button>
+        </AdminActionButton>
       : null}
       <div
         role="button"
@@ -777,7 +781,7 @@ function PtrBandUploadSlot({
         }}
       />
       {msg ?
-        <p className={`mt-1.5 text-xs ${msg.tone === "err" ? "text-red-700" : msg.tone === "warn" ? "text-amber-700" : "text-emerald-700"}`}>{msg.text}</p>
+        <p className={`mt-1.5 text-xs ${msg.tone === "err" ? "text-sam-danger" : msg.tone === "warn" ? "text-sam-warning" : "text-sam-success"}`}>{msg.text}</p>
       : null}
     </div>
   );

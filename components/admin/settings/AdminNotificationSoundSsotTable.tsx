@@ -15,6 +15,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
 type AssetRow = {
   id: string;
@@ -530,7 +531,7 @@ export function AdminNotificationSoundSsotTable() {
       if (!row || !isRowDirty(row, base)) return;
       const ev = eventsByKey.get(eventKey);
       const confirmed = await confirmAdminAction({
-        level: "L1",
+        level: adminActionLevel("save"),
         ko,
         title: t("admin_notif_sound_row_save"),
         description: ev ? (ko ? ev.label_ko : ev.label_en) : undefined,

@@ -107,6 +107,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       campaignId,
       expectedLifecycle,
       expectedUpdatedAt,
+      // R2 — 초안 삭제(delete L3) 확인창 사유를 기존 삭제 감사 행 reason 에 남긴다 (선택 · 계약 불변).
+      reason,
       history: {
         hasImpression: false,
         hasClick: false,

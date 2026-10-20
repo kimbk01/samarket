@@ -48,7 +48,7 @@ export function AdminMemberAlertStrip({
   }
   if (alerts.length === 0) return null;
   return (
-    <div className="rounded-md border border-[#fdead7] bg-[#fff6ed] px-3 py-2 text-[13px] font-semibold text-[#c4320a]">
+    <div className="rounded-md border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] font-semibold text-sam-warning">
       {alerts.map((text) => (
         <p key={text}>⚠ {text}</p>
       ))}

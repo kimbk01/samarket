@@ -8,6 +8,7 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import { getOpsRunbookExecutionLogs } from "@/lib/ops-runbooks/ops-runbooks-state";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface OpsRunbookExecutionLogListProps {
   executionId: string;
@@ -40,7 +41,7 @@ export function OpsRunbookExecutionLogList({ executionId }: OpsRunbookExecutionL
           <span className="text-sam-muted">{log.actorNickname}</span>
           {log.note && <span className="text-sam-muted">· {log.note}</span>}
           <span className="ml-auto text-sam-meta">
-            {new Date(log.createdAt).toLocaleString("ko-KR")}
+            {formatAdminManilaDateTime(log.createdAt)}
           </span>
         </li>
       ))}

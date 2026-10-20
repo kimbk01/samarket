@@ -6,6 +6,9 @@ import { Image as ImageIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import { feedAdPoolCapacity } from "@/lib/ads/feed-ad-pool-capacity";
 import {
@@ -312,8 +315,7 @@ export function AdminFeedAdCreatePage({
       };
       if (!res.ok || !j.ok) {
         setErr(
-          j.error ??
-            (ko ? "처리하지 못했습니다. 다시 시도해 주세요." : "Could not complete. Try again.")
+          adminOperatorErrorMessage(j.error, ko)
         );
         return;
       }
@@ -365,11 +367,9 @@ export function AdminFeedAdCreatePage({
           })}
         </h2>
         <div className="flex gap-2">
-          <button
-            type="button"
-            className={`flex-1 rounded-ui-rect border px-3 py-3 font-medium ${
-              domain === "trade" ? "border-sam-primary bg-sam-primary/5" : "border-sam-border"
-            }`}
+          <AdminChipButton
+            selected={domain === "trade"}
+            className="flex-1 justify-center"
             onClick={() => {
               setDomain("trade");
               setSurfaceMode("home");
@@ -377,12 +377,10 @@ export function AdminFeedAdCreatePage({
             }}
           >
             Trade
-          </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-ui-rect border px-3 py-3 font-medium ${
-              domain === "community" ? "border-sam-primary bg-sam-primary/5" : "border-sam-border"
-            }`}
+          </AdminChipButton>
+          <AdminChipButton
+            selected={domain === "community"}
+            className="flex-1 justify-center"
             onClick={() => {
               setDomain("community");
               setSurfaceMode("home");
@@ -390,7 +388,7 @@ export function AdminFeedAdCreatePage({
             }}
           >
             Community
-          </button>
+          </AdminChipButton>
         </div>
       </section>
       ) : null}
@@ -401,11 +399,9 @@ export function AdminFeedAdCreatePage({
           {ko ? "노출 위치" : "Placement"}
         </h2>
         <div className="flex gap-2">
-          <button
-            type="button"
-            className={`flex-1 rounded-ui-rect border px-3 py-3 ${
-              surfaceMode === "home" ? "border-sam-primary bg-sam-primary/5" : "border-sam-border"
-            }`}
+          <AdminChipButton
+            selected={surfaceMode === "home"}
+            className="flex-1 justify-center"
             onClick={() => setSurfaceMode("home")}
           >
             {domain === "trade"
@@ -415,12 +411,10 @@ export function AdminFeedAdCreatePage({
               : ko
                 ? "Community 홈 피드"
                 : "Community home feed"}
-          </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-ui-rect border px-3 py-3 ${
-              surfaceMode === "targeted" ? "border-sam-primary bg-sam-primary/5" : "border-sam-border"
-            }`}
+          </AdminChipButton>
+          <AdminChipButton
+            selected={surfaceMode === "targeted"}
+            className="flex-1 justify-center"
             onClick={() => setSurfaceMode("targeted")}
           >
             {domain === "trade"
@@ -430,13 +424,13 @@ export function AdminFeedAdCreatePage({
               : ko
                 ? "Community 주제 피드"
                 : "Community topic feed"}
-          </button>
+          </AdminChipButton>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" data-admin-feed-capacity="1">
           <p className="text-[13px] font-medium text-sam-fg">
             {humanPlacementLabel(placement, ko)}
           </p>
-          <p className="text-[11px] text-sam-muted">{placement}</p>
+          <p className="text-[12px] text-sam-muted">{placement}</p>
           <p className="mt-1 text-[13px] text-sam-fg">
             {ko ? `현재 사용: ${used} / ${capacity}` : `In use: ${used} / ${capacity}`}
           </p>
@@ -562,7 +556,7 @@ export function AdminFeedAdCreatePage({
                 </div>
               )}
               {s.fileName ? (
-                <p className="mb-2 truncate text-[11px] text-sam-muted">{s.fileName}</p>
+                <p className="mb-2 truncate text-[12px] text-sam-muted">{s.fileName}</p>
               ) : null}
               <input
                 ref={(el) => {
@@ -578,9 +572,9 @@ export function AdminFeedAdCreatePage({
                   e.target.value = "";
                 }}
               />
-              <button
-                type="button"
-                className="mb-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 text-[13px] font-semibold text-sam-fg"
+              <AdminActionButton
+                variant="secondary"
+                className="mb-2 w-full"
                 data-admin-feed-image-picker={i}
                 onClick={() => fileRefs.current[i]?.click()}
                 disabled={uploading != null}
@@ -593,7 +587,7 @@ export function AdminFeedAdCreatePage({
                   : ko
                     ? "내 PC에서 이미지 선택"
                     : "Choose image from PC"}
-              </button>
+              </AdminActionButton>
               <input
                 className="mb-2 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 sam-text-helper"
                 placeholder="alt"
@@ -618,9 +612,9 @@ export function AdminFeedAdCreatePage({
                   })
                 }
               />
-              <button type="button" className="sam-text-helper text-red-600" onClick={() => clearSlide(i)}>
+              <AdminActionButton variant="quiet" size="sm" onClick={() => clearSlide(i)}>
                 {t("common_delete")}
-              </button>
+              </AdminActionButton>
             </div>
           ))}
         </div>
@@ -773,7 +767,7 @@ export function AdminFeedAdCreatePage({
       </section>
 
       {err ? (
-        <p className="whitespace-pre-line text-red-600" role="alert">
+        <p className="whitespace-pre-line text-sam-danger" role="alert">
           {err}
         </p>
       ) : null}
@@ -783,11 +777,11 @@ export function AdminFeedAdCreatePage({
         </p>
       ) : null}
 
-      <button
-        type="button"
+      <AdminActionButton
+        variant="primary"
         disabled={busy || uploading != null}
         onClick={() => void requestSave()}
-        className="w-full rounded-ui-rect bg-signature px-4 py-3 font-medium text-white disabled:opacity-50"
+        className="w-full"
         data-admin-feed-register-cta="1"
       >
         {busy
@@ -795,7 +789,7 @@ export function AdminFeedAdCreatePage({
           : ko
             ? "광고 등록"
             : "Register ad"}
-      </button>
+      </AdminActionButton>
 
     </div>
   );

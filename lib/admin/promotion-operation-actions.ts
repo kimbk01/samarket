@@ -144,7 +144,7 @@ export const PROMOTION_ADMIN_ACTION_META: Record<
   REJECT: {
     id: "REJECT",
     variant: "danger",
-    labelKo: "거절",
+    labelKo: "반려",
     labelEn: "Reject",
     customerVisible: false,
     confirm: true,

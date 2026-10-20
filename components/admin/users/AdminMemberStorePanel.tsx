@@ -19,23 +19,23 @@ import {
   resolveCanonicalMemberStore,
 } from "@/lib/admin-users/member-store-relation-ssot";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function AdminMemberStorePanel({ stores }: { stores: AdminPersonStoreRow[] }) {
-  const { t, safeT, language } = useI18n();
-  const locale = language === "en" ? "en-US" : "ko-KR";
+  const { t, safeT } = useI18n();
   const canonical = resolveCanonicalMemberStore(stores);
   const anomaly = memberStoreRelationAnomalyCount(stores) > 1;
   const fmt = (value: string | null | undefined) => {
     if (!value) return t("admin_users_empty_placeholder");
     const time = new Date(value).getTime();
-    return Number.isFinite(time) ? new Date(time).toLocaleString(locale) : value;
+    return Number.isFinite(time) ? formatAdminManilaDateTime(value) : value;
   };
 
   if (!canonical) {
     return (
       <div className={`${ADMIN_USERS_LITE_CARD} px-4 py-8 text-center`} data-member-detail-store="none">
-        <p className="text-sm font-semibold text-[#667085]">{MEMBER_DETAIL_STORE_NONE_KO}</p>
-        <p className="mt-1 text-[12px] text-[#98a2b3]">{MEMBER_STORE_RELATION_COPY.none_body}</p>
+        <p className="text-sm font-semibold text-sam-muted">{MEMBER_DETAIL_STORE_NONE_KO}</p>
+        <p className="mt-1 text-[12px] text-sam-meta">{MEMBER_STORE_RELATION_COPY.none_body}</p>
       </div>
     );
   }
@@ -46,35 +46,35 @@ export function AdminMemberStorePanel({ stores }: { stores: AdminPersonStoreRow[
   return (
     <div className="space-y-3" data-member-detail-store="one">
       {anomaly ? (
-        <p className="rounded-ui-rect border border-[#fda29b] bg-[#fffbfa] px-3 py-2 text-[13px] text-[#b42318]">
+        <p className="rounded-ui-rect border border-sam-danger/40 bg-sam-danger-soft px-3 py-2 text-[13px] text-sam-danger">
           {MEMBER_STORE_RELATION_COPY.anomaly_multi}
         </p>
       ) : null}
-      <p className="text-[13px] font-medium text-[#344054]" data-member-store-relation-label="1">
+      <p className="text-[13px] font-medium text-sam-fg" data-member-store-relation-label="1">
         {MEMBER_STORE_RELATION_COPY.relationship_operator}
       </p>
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <p className="text-sm font-semibold text-[#101828]" data-member-store-name="1">
+            <p className="text-sm font-semibold text-sam-fg" data-member-store-name="1">
               {canonical.name}
             </p>
-            <p className="font-mono text-[12px] text-[#475467]" data-member-store-id="1">
+            <p className="font-mono text-[12px] text-sam-muted" data-member-store-id="1">
               #{canonical.id}
             </p>
-            <p className="text-[12px] text-[#475467]">
-              {MEMBER_STORE_RELATION_COPY.store_status}:{" "}
-              <span className="inline-flex rounded-full border border-[#e4e7ec] bg-[#f9fafb] px-2 py-0.5 text-[11px] font-semibold text-[#344054]">
+            <p className="text-[12px] text-sam-muted">
+              {MEMBER_STORE_RELATION_COPY.store_status_label}:{" "}
+              <span className="inline-flex rounded-full border border-sam-border bg-sam-surface-muted px-2 py-0.5 text-[12px] font-semibold text-sam-fg">
                 {memberStoreApprovalStatusLabelKo(canonical.approvalStatus)}
               </span>
             </p>
             {canonical.connectedAt ? (
-              <p className="text-[12px] tabular-nums text-[#475467]">
+              <p className="text-[12px] tabular-nums text-sam-muted">
                 {t("admin_users_col_joined")} {fmt(canonical.connectedAt)}
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
+          <div className="flex flex-wrap gap-3 text-xs font-semibold text-sam-primary">
             <Link href={href} data-member-store-detail-cta="1" data-member-cta-cap="CAP-STORE-VIEW">
               {MEMBER_STORE_RELATION_COPY.view_store}
             </Link>

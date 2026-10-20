@@ -18,8 +18,8 @@ import type { AdminListQueryDraft } from "@/lib/admin/list-query/use-admin-list-
 export type AdminFilterStatusOption = { value: string; label: string };
 
 const FIELD =
-  "h-10 rounded-ui-rect border border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] px-2.5 text-[16px] text-[var(--admin-console-fg,#1f2937)] focus:outline focus:outline-2 focus:-outline-offset-1 focus:outline-[var(--admin-console-accent,#1d4ed8)] disabled:opacity-50";
-const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted,#667085)]";
+  "h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)] focus:outline focus:outline-2 focus:-outline-offset-1 focus:outline-[var(--admin-console-accent)] disabled:opacity-50";
+const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]";
 
 export function AdminFilterBar({
   ko,
@@ -73,7 +73,7 @@ export function AdminFilterBar({
       role="search"
       onSubmit={handleSubmit}
       data-admin-filter-bar="1"
-      className={`flex flex-wrap items-end gap-2 rounded-ui-rect border border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] p-3 ${className}`.trim()}
+      className={`flex flex-wrap items-end gap-2 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] p-3 ${className}`.trim()}
     >
       {showPeriod ? (
         <div className="flex items-end gap-1" data-admin-filter-period="1">
@@ -88,7 +88,7 @@ export function AdminFilterBar({
               name="from"
             />
           </label>
-          <span aria-hidden className="pb-2.5 text-[var(--admin-console-muted,#667085)]">
+          <span aria-hidden className="pb-2.5 text-[var(--admin-console-muted)]">
             ~
           </span>
           <label className={LABEL}>

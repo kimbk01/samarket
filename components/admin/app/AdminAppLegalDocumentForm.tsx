@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import {
   pickCurrentPublishedLegalDoc,
   splitLegalBodyParagraphs,
@@ -13,6 +15,7 @@ import {
   type AppLegalLocale,
   type AppLegalStatus,
 } from "@/lib/legal/app-legal-documents";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type Props = {
   documentId?: string;
@@ -186,44 +189,51 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
         : ko
           ? "영문 문서는 표시용이며, 동의 기준 버전은 한국어(ko) 문서를 따릅니다."
           : "English text is display-only; the consent version follows the Korean (ko) document.";
-    const ok = await dibayConfirm({
+    // 게시 = save(L1) — 기존 확인 1회 유지.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
       title: ko ? "약관 게시" : "Publish legal document",
       description: [
         `${kind} · ${locale} · ${ko ? "버전" : "version"} ${version || "-"}`,
         future
           ? ko
-            ? `시행일(${new Date(effIso!).toLocaleString()}) 전까지는 기존 문서가 계속 적용됩니다.`
-            : `The current document stays in effect until ${new Date(effIso!).toLocaleString()}.`
+            ? `시행일(${formatAdminManilaDateTime(effIso)} PHT) 전까지는 기존 문서가 계속 적용됩니다.`
+            : `The current document stays in effect until ${formatAdminManilaDateTime(effIso)} PHT.`
           : ko
             ? "게시 즉시 회원 앱에 적용됩니다."
             : "Applies to the member app immediately.",
         consentLine,
       ].join("\n"),
       confirmLabel: ko ? "게시" : "Publish",
-      cancelLabel: ko ? "취소" : "Cancel",
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
     const json = await send({ ...draftPayload(), status: "published", confirm: true });
     if (json) afterSaved(json, ko ? "게시했습니다." : "Published.");
   }, [effectiveAt, kind, locale, version, currentPublished, ko, send, draftPayload, afterSaved]);
 
   const publishSameVersionEdit = useCallback(async () => {
-    const ok = await dibayConfirm({
+    // 같은 버전 본문 수정 = save(L1)
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
       title: ko ? "게시 문서 본문 수정" : "Edit published text",
       description: ko
         ? `같은 버전(${loaded?.version ?? ""})으로 본문을 수정합니다. 회원 재동의는 발생하지 않으므로 오탈자·표현 정리 등 경미한 수정에만 사용하세요. 법적 내용·필수 동의 항목·개인정보 처리 변경은 새 버전 문서로 게시해야 합니다. 수정 전후 본문 해시가 감사 로그에 남습니다.`
         : `Edits the text under the same version (${loaded?.version ?? ""}). No member re-consent — use only for minor fixes. Material changes must be published as a new version. Before/after body hashes are audit-logged.`,
       confirmLabel: ko ? "수정 게시" : "Publish edit",
-      cancelLabel: ko ? "취소" : "Cancel",
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
     const json = await send({ title, body, confirmNoReconsent: true });
     if (json) afterSaved(json, ko ? "같은 버전으로 본문을 수정했습니다." : "Text updated under the same version.");
   }, [ko, loaded?.version, send, title, body, afterSaved]);
 
   const unpublish = useCallback(async () => {
     const isCurrent = Boolean(currentPublished && loaded && currentPublished.id === loaded.id);
-    const ok = await dibayConfirm({
+    // 게시 중단 = exposeStop(L1)
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("exposeStop"),
+      ko,
       title: ko ? "게시 중단" : "Unpublish",
       description: isCurrent
         ? ko
@@ -233,10 +243,9 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           ? "이 문서를 회원 화면에서 내립니다."
           : "Removes this document from the member surface.",
       confirmLabel: ko ? "게시 중단" : "Unpublish",
-      cancelLabel: ko ? "취소" : "Cancel",
-      confirmTone: "destructive",
+      destructive: true,
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
     const json = await send({ action: "unpublish", confirm: true });
     if (json) afterSaved(json, ko ? "게시를 중단했습니다." : "Unpublished.");
   }, [currentPublished, loaded, ko, send, afterSaved]);
@@ -290,7 +299,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
         ) : null}
       </div>
 
-      {err ? <p className="text-sm text-red-600">{err}</p> : null}
+      {err ? <p className="text-sm text-sam-danger">{err}</p> : null}
       {notice ? <p className="text-sm text-signature">{notice}</p> : null}
 
       {identityLocked ? (
@@ -393,13 +402,14 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
       </label>
 
       <div>
-        <button
-          type="button"
+        <AdminActionButton
           onClick={() => setShowPreview((v) => !v)}
-          className="text-sm font-medium text-signature"
+          variant="ghost"
+          size="sm"
+          className="px-0"
         >
           {showPreview ? (ko ? "미리보기 닫기" : "Hide preview") : ko ? "회원 화면 미리보기" : "Member preview"}
-        </button>
+        </AdminActionButton>
         {showPreview ? (
           <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app px-4 py-4">
             <h2 className="text-xl font-semibold text-sam-fg">{title || "-"}</h2>
@@ -418,47 +428,43 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
       <div className="flex flex-wrap gap-2">
         {isPublished ? (
           <>
-            <button
-              type="button"
+            <AdminActionButton
               disabled={saving || (title === loaded?.title && body === loaded?.body)}
               onClick={() => void publishSameVersionEdit()}
-              className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              variant="primary"
             >
               {ko ? "본문 수정 게시(재동의 없음)" : "Publish text edit (no re-consent)"}
-            </button>
-            <button
-              type="button"
+            </AdminActionButton>
+            <AdminActionButton
               disabled={saving}
               onClick={() => void unpublish()}
-              className="rounded-ui-rect border border-red-300 bg-sam-surface px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-60"
+              variant="secondary"
             >
               {ko ? "게시 중단" : "Unpublish"}
-            </button>
+            </AdminActionButton>
           </>
         ) : (
           <>
-            <button
-              type="button"
+            <AdminActionButton
               disabled={saving}
               onClick={() => void saveDraft()}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-semibold disabled:opacity-60"
+              variant="secondary"
             >
               {safeT("admin_app_legal_save_draft", {
                 fallbackKo: "임시저장",
                 fallbackEn: "Save draft",
               })}
-            </button>
-            <button
-              type="button"
+            </AdminActionButton>
+            <AdminActionButton
               disabled={saving || !title.trim() || !body.trim() || !version.trim()}
               onClick={() => void publish()}
-              className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              variant="primary"
             >
               {safeT("admin_app_legal_publish", {
                 fallbackKo: "게시",
                 fallbackEn: "Publish",
               })}
-            </button>
+            </AdminActionButton>
           </>
         )}
       </div>

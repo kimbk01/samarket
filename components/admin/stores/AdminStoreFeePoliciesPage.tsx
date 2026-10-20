@@ -11,6 +11,7 @@ import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-over
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
@@ -614,7 +615,7 @@ export function AdminStoreFeePoliciesPage() {
       // 서버가 플랫폼 기본 정책 공백(would_leave_no_default_policy)을 다시 검사한다.
       const label = policyLabel(id);
       const c = await confirmAdminAction({
-        level: "L3",
+        level: adminActionLevel("forceCancel"),
         ko: language !== "en",
         title: t("admin_stores_fee_deactivate_confirm_title"),
         description: `${label}\n${t("admin_stores_fee_deactivate_confirm_desc")}`,

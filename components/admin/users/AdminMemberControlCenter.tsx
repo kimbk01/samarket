@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -10,6 +9,8 @@ import type {
   AdminPersonStoreRow,
   AdminUserDetailPayload,
 } from "@/components/admin/users/AdminTestUserDetail";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminMemberMasterHeader } from "@/components/admin/users/AdminMemberMasterHeader";
 import { AdminMemberAlertStrip } from "@/components/admin/users/AdminMemberAlertStrip";
 import { AdminMemberOverviewPanel } from "@/components/admin/users/AdminMemberOverviewPanel";
@@ -47,7 +48,6 @@ import {
 } from "@/lib/admin-users/member-detail-control-center-ia";
 import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges";
 import {
-  ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY,
   ADMIN_USERS_LITE_PAGE_BG,
 } from "@/lib/ui/admin-users-lite-styles";
 
@@ -274,38 +274,29 @@ export function AdminMemberControlCenter({
 
   return (
     <div className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-3 pb-6`} data-member-detail-control-center="1">
-      <div className="sticky top-0 z-20 space-y-3 bg-[#f4f6f9] pb-2">
+      <div className="sticky top-0 z-20 space-y-3 bg-sam-surface-muted pb-2">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <nav className="text-xs font-medium text-[#667085]" aria-label="Breadcrumb">
+          <nav className="text-xs font-medium text-sam-muted" aria-label="Breadcrumb">
             <span>{t("admin_users_lite_breadcrumb_members")}</span>
-            <span className="mx-1.5 text-[#98a2b3]">›</span>
-            <button type="button" className="hover:text-[#344054]" onClick={goBackToList}>
+            <span className="mx-1.5 text-sam-meta">›</span>
+            <AdminActionButton variant="quiet" size="sm" className="!h-auto !px-0 text-xs" onClick={goBackToList}>
               {MEMBER_DETAIL_BACK_LIST_KO}
-            </button>
-            <span className="mx-1.5 text-[#98a2b3]">›</span>
-            <span className="text-[#344054]">{t("admin_users_detail_title")}</span>
+            </AdminActionButton>
+            <span className="mx-1.5 text-sam-meta">›</span>
+            <span className="text-sam-fg">{t("admin_users_detail_title")}</span>
           </nav>
           <div className="flex flex-wrap items-center gap-2">
             {fromPostId ? (
-              <Link
-                href={`/admin/products/${fromPostId}`}
-                prefetch={false}
-                className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
-              >
+              <AdminActionLink href={`/admin/products/${fromPostId}`} variant="secondary">
                 {safeT("admin_users_back_to_post", {
                   fallbackKo: "← 게시물로",
                   fallbackEn: "← Back to listing",
                 })}
-              </Link>
+              </AdminActionLink>
             ) : null}
-            <button
-              type="button"
-              className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
-              onClick={goBackToList}
-              data-member-detail-back="1"
-            >
+            <AdminActionButton variant="secondary" onClick={goBackToList} data-member-detail-back="1">
               {t("admin_users_lite_back_to_list")}
-            </button>
+            </AdminActionButton>
           </div>
         </div>
         <AdminMemberMasterHeader
@@ -316,22 +307,15 @@ export function AdminMemberControlCenter({
           onOpenTab={(next) => selectTab(next)}
         />
         <AdminMemberAlertStrip user={user} stores={stores} />
-        <div className="flex gap-1 overflow-x-auto rounded-lg border border-[#e4e7ec] bg-white p-1" data-member-detail-tabs="1">
-          {ADMIN_MEMBER_CC_TABS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => selectTab(id)}
-              data-member-tab={id}
-              className={
-                tab === id
-                  ? "shrink-0 rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
-                  : "shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
-              }
-            >
-              {MEMBER_DETAIL_TAB_LABEL_KO[id]}
-            </button>
-          ))}
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-1" data-member-detail-tabs="1">
+          <AdminTabs
+            ariaLabel={t("admin_users_detail_title")}
+            tabs={ADMIN_MEMBER_CC_TABS.map((id) => ({ id, label: MEMBER_DETAIL_TAB_LABEL_KO[id] }))}
+            value={tab}
+            syncUrl={false}
+            onChange={(id) => selectTab(id as AdminMemberCcTab)}
+            className="border-b-0"
+          />
         </div>
       </div>
 

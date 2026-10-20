@@ -8,6 +8,7 @@ import { labelReasons } from "@/lib/community-operator-import/quality-labels";
 import { allowsFullContent, RIGHTS_BASES, RIGHTS_LABEL, type RightsBasis } from "@/lib/community-operator-import/rights";
 import { BoardProbePanel } from "./BoardProbePanel";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { call, type ContentPolicy, fmtDate, type ManagedSource, POLICY_LABEL, type TopicOption, VERDICT_TONE, importErrorText, verdictLabel } from "./api";
 
 export function VerdictBadge({ v }: { v: string | null | undefined }) {
@@ -114,7 +115,8 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
           : source.enabled
             ? { title: `「${source.displayName}」 출처 끄기`, description: "이 출처의 자동·수동 수집이 멈춥니다. 이미 게시한 글은 그대로입니다.", confirmLabel: "출처 끄기" }
             : { title: `「${source.displayName}」 출처 켜기`, description: "이 출처에서 다시 수집할 수 있게 됩니다.", confirmLabel: "출처 켜기" };
-    const ok = await confirmAdminAction({ level: "L1", ko: true, destructive: kind === "toggle" && source.enabled, ...meta });
+    const level = adminActionLevel(kind !== "toggle" ? "save" : source.enabled ? "disable" : "resume");
+    const ok = await confirmAdminAction({ level, ko: true, destructive: kind === "toggle" && source.enabled, ...meta });
     if (!ok.ok) return;
     if (kind === "toggle") await sourceAction(source.id, "update", { patch: { enabled: !source.enabled } });
     else await sourceAction(source.id, kind);

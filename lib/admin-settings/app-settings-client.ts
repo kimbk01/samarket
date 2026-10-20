@@ -191,7 +191,8 @@ export async function loadAppSettingsFromServer(): Promise<{
 
 /** 관리자 — 설정 저장 + 변경 이력 서버 반영 */
 export async function persistAppSettingsToServer(
-  partial: Partial<AppSettings>
+  partial: Partial<AppSettings>,
+  opts: { reason?: string | null } = {}
 ): Promise<{ ok: boolean; error?: string; httpStatus?: number }> {
   // 저장 실패 시 되돌릴 스냅샷 (R6 — 실패해도 바뀐 값이 화면·캐시에 남던 결함).
   const before = getAppSettings();
@@ -200,7 +201,7 @@ export async function persistAppSettingsToServer(
     const res = await fetch("/api/admin/app-settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ settings: getAppSettings() }),
+      body: JSON.stringify({ settings: getAppSettings(), ...(opts.reason ? { reason: opts.reason } : {}) }),
     });
     const j = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
@@ -221,9 +222,10 @@ export async function persistAppSettingsToServer(
   }
 }
 
-/** 관리자 — 섹션 기본값 복원 */
+/** 관리자 — 섹션 기본값 복원 (초기화 = dataReset L3 · 사유는 감사 기록 `after.reason`) */
 export async function resetAppSettingsSectionOnServer(
-  keys: (keyof AppSettings)[]
+  keys: (keyof AppSettings)[],
+  reason?: string | null
 ): Promise<{ ok: boolean; error?: string; httpStatus?: number }> {
   const partial: Partial<AppSettings> = {};
   for (const key of keys) {
@@ -232,7 +234,7 @@ export async function resetAppSettingsSectionOnServer(
       (partial as Record<string, string | number | boolean | undefined>)[key as string] = defaultVal;
     }
   }
-  return persistAppSettingsToServer(partial);
+  return persistAppSettingsToServer(partial, { reason });
 }
 
 export function isAppSettingsHydratedFromServer(): boolean {

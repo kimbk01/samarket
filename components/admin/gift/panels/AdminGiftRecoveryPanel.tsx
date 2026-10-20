@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  r5DeliveryStatusLabel,
+  GIFT_RECOVERY_STATUS_NAMESPACE,
+} from "@/lib/admin/status-labels/r5-delivery-status-labels";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -130,7 +134,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
                     <td className="px-2 py-2 text-xs">
                       {r.linkage === "POOL_LEVEL" ? "—" : r.publicGiftNumber || "—"}
                     </td>
-                    <td className="px-2 py-2">{r.status}</td>
+                    <td className="px-2 py-2">{r5DeliveryStatusLabel(GIFT_RECOVERY_STATUS_NAMESPACE, r.status, ko)}</td>
                     <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.recoveredAmount)}</td>
                     <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.amountRemaining)}</td>
                     <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.storeCashBalance)}</td>
@@ -183,7 +187,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
             {selected.linkage === "POOL_LEVEL"
               ? sourceLabel(selected)
               : `${ko ? "상품권" : "Gift"} ${selected.publicGiftNumber ?? "—"}`}{" "}
-            · {selected.status}
+            · {r5DeliveryStatusLabel(GIFT_RECOVERY_STATUS_NAMESPACE, selected.status, ko)}
           </p>
           <p className="text-sm tabular-nums">
             {ko ? "남은 금액" : "Remaining"} {formatAdminPhp(selected.amountRemaining)} ·{" "}

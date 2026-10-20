@@ -10,6 +10,8 @@ import {
   type MemberPrivilegePresentation,
 } from "@/lib/admin-users/member-admin-privilege-ssot";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
 export function AdminMemberPrivilegeDialog({
   open,
@@ -78,9 +80,28 @@ export function AdminMemberPrivilegeDialog({
       return;
     }
     setErrorText(null);
+    /**
+     * 권한 해제 = delete(L3: 사유 + 대상 재입력) — 관리자 계정 화면의 해제와 같은 단계. 사유는 API 본문 `reason` → 감사 `after.reason`.
+     * 권한 부여는 이 대화상자가 확인 단계다 (사유 없음 · 기존 그대로).
+     */
+    let reason: string | undefined;
+    if (op === "revoke") {
+      const c = await confirmAdminAction({
+        level: adminActionLevel("delete"),
+        ko: true,
+        title: MEMBER_ADMIN_PRIVILEGE_COPY.revoke_title,
+        description: MEMBER_ADMIN_PRIVILEGE_COPY.consequence_revoke,
+        confirmLabel: MEMBER_ADMIN_PRIVILEGE_COPY.revoke_primary,
+        destructive: true,
+        retypeValue: displayName.trim() || publicId?.trim() || userId,
+        reasonPlaceholder: "해제 사유",
+      });
+      if (!c.ok || !c.reason) return;
+      reason = c.reason;
+    }
     setPending(true);
     try {
-      const result = await mutateMemberPrivilegeApi({ userId, op });
+      const result = await mutateMemberPrivilegeApi({ userId, op, reason });
       if (!result.ok) {
         setErrorText(result.errorKo);
         return;
@@ -121,7 +142,7 @@ export function AdminMemberPrivilegeDialog({
             <dt className="text-sam-muted">{MEMBER_ADMIN_PRIVILEGE_COPY.target_label}</dt>
             <dd className="text-right font-medium text-sam-fg">
               <span className="block">{displayName}</span>
-              {publicId ? <span className="block font-mono text-[11px] text-sam-muted">@{publicId}</span> : null}
+              {publicId ? <span className="block font-mono text-[12px] text-sam-muted">@{publicId}</span> : null}
             </dd>
           </div>
           <div className="flex justify-between gap-3">

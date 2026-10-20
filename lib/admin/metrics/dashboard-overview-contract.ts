@@ -2,6 +2,7 @@
  * 통합 대시보드 API 응답 계약 (`GET /api/admin/dashboard/overview`) + 화면 병합 규칙.
  * 오류 시 0 대신 이전 값 + 「불러오기 실패」(설계 v4 §3-3). 클라이언트 안전.
  */
+import { formatAdminNumber, formatAdminPhpMinor } from "@/lib/admin/ui-standard/admin-format";
 import type { AdminActionQueueCategory, AdminActionQueuePriority } from "@/lib/admin/admin-action-queue-registry";
 import type { AdminDashboardPeriod } from "@/lib/admin/metrics/dashboard-period";
 import type {
@@ -224,15 +225,9 @@ export function mergeAdminDashboardPending(
   };
 }
 
-/** ₱ 표시 — 캐시 minor(센타보) → 페소, en-PH 천 단위. */
-export function formatAdminPhpMinor(minor: number): string {
-  const php = Math.trunc(minor) / 100;
-  return `₱${php.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
-}
-
 export function formatAdminDashboardValue(value: number | null, unit: AdminMetricUnit): string {
   if (value === null) return "—";
-  return unit === "php_minor" ? formatAdminPhpMinor(value) : Math.trunc(value).toLocaleString("en-PH");
+  return unit === "php_minor" ? formatAdminPhpMinor(value) : formatAdminNumber(value);
 }
 
 /** 숫자 뒤 단위 — 건 · 명 · 곳 (₱ 는 값 앞에 이미 붙는다). */

@@ -14,6 +14,7 @@ import {
   AdminResultBanner,
 } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import type { DeliveryAdCommercialCatalogReadModel } from "@/lib/stores/advertising/delivery-ad-commercial-catalog";
@@ -97,7 +98,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
               ? "광고 가격을 저장할까요?"
               : "Save the ad price?";
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title,
       description: ko

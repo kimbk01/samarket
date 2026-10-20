@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
@@ -175,6 +176,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "no_patch_fields" }, { status: 400 });
   }
 
+  // R2 — 런타임 설정 변경은 L2(확인 + 사유). 화면 확인창의 사유를 받아 감사 기록에 남긴다 (호출자: 런타임 상태 화면 1곳).
+  const reason = parseAdminReason((body as { reason?: unknown }).reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
+
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
@@ -207,7 +214,7 @@ export async function PATCH(req: NextRequest) {
     targetType: "platform_runtime_settings",
     targetId: "1",
     action: "runtime_settings.update",
-    after: { patch, settings: settings as unknown as Record<string, unknown> },
+    after: { patch, settings: settings as unknown as Record<string, unknown>, reason },
   });
 
   // reload caps (no force) for effective computation

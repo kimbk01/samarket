@@ -11,6 +11,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Image as ImageIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { adsCreateConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
@@ -153,9 +155,7 @@ export function AdminAdsDirectDeliveryCreateView() {
             ? ko
               ? "빈 위치가 없습니다."
               : "No vacant slots."
-            : ko
-              ? "처리하지 못했습니다. 다시 시도해 주세요."
-              : "Could not complete. Try again."
+            : adminOperatorErrorMessage(json.error, ko)
         );
         return;
       }
@@ -176,7 +176,7 @@ export function AdminAdsDirectDeliveryCreateView() {
           {" › "}
           {ko ? "배달 홈 상단 배너" : "Delivery home hero"}
         </p>
-        <h1 className="text-lg font-semibold text-sam-fg">
+        <h1 className="text-[20px] font-semibold text-sam-fg">
           {ko ? "배달 홈 상단 배너" : "Delivery home hero banner"}
         </h1>
         <p className="text-[12px] text-sam-muted">
@@ -252,9 +252,9 @@ export function AdminAdsDirectDeliveryCreateView() {
             e.target.value = "";
           }}
         />
-        <button
-          type="button"
-          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-4 text-[14px] font-semibold"
+        <AdminActionButton
+          variant="secondary"
+          className="mt-3"
           data-admin-delivery-image-picker="1"
           onClick={() => fileRef.current?.click()}
         >
@@ -266,7 +266,7 @@ export function AdminAdsDirectDeliveryCreateView() {
             : ko
               ? "내 PC에서 이미지 선택"
               : "Choose image from PC"}
-        </button>
+        </AdminActionButton>
         {fileName ? <p className="mt-2 text-[12px] text-sam-muted">{fileName}</p> : null}
         {assetPath ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -324,10 +324,10 @@ export function AdminAdsDirectDeliveryCreateView() {
       {error ? <p className="text-sm text-sam-danger" role="alert">{error}</p> : null}
       {successMsg ? <p className="text-sm text-sam-success" role="status">{successMsg}</p> : null}
 
-      <button
-        type="button"
+      <AdminActionButton
+        variant="primary"
         disabled={!canSubmit}
-        className="min-h-12 w-full rounded-ui-rect bg-[var(--admin-console-accent,#1d4ed8)] px-4 text-[15px] font-bold text-white disabled:opacity-50"
+        className="min-h-12 w-full text-[16px]"
         data-admin-delivery-register-cta="1"
         onClick={async () => {
           if (!canSubmit || busy) return;
@@ -344,7 +344,7 @@ export function AdminAdsDirectDeliveryCreateView() {
         }}
       >
         {ko ? "광고 등록" : "Register ad"}
-      </button>
+      </AdminActionButton>
 
     </div>
   );

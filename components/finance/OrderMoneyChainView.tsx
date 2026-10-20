@@ -18,7 +18,7 @@ export function OrderMoneyChainView({
   return (
     <div className="space-y-4" data-order-money-chain="1">
       <header>
-        <h2 className="text-lg font-semibold text-sam-fg">
+        <h2 className="text-[16px] font-semibold text-sam-fg">
           {chain.storeName} · #{chain.orderNo || chain.orderId.slice(0, 8)}
         </h2>
         <p className="sam-text-helper text-sam-muted">{chain.date}</p>

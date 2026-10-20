@@ -10,6 +10,22 @@ import {
 } from "@/lib/admin-users/member-deep-links";
 import type { MemberOrdersTabPayload } from "@/lib/admin-users/member-orders-tab";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+
+/** 매장 주문 상태 (`store_orders.order_status`) — 라벨 + 미등록 값은 기술 정보로만. */
+function AdminStoreOrderStatusCell({ status, ko }: { status: string; ko: boolean }) {
+  const r = adminStatusLabel("store_order", status, ko);
+  return (
+    <span data-admin-status-code={status}>
+      <AdminToneBadge tone={r.tone}>{r.label}</AdminToneBadge>
+      {!r.known && status ? <AdminTechDetails ko={ko}>{status}</AdminTechDetails> : null}
+    </span>
+  );
+}
 
 export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
   const { t, safeT, language } = useI18n();
@@ -17,11 +33,10 @@ export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
   const [state, setState] = useState<{ kind: "loading" } | { kind: "error" } | { kind: "ok"; data: MemberOrdersTabPayload }>({
     kind: "loading",
   });
-  const locale = language === "en" ? "en-US" : "ko-KR";
+  const ko = language !== "en";
   const fmt = (value: string | null) => {
     if (!value) return t("admin_users_empty_placeholder");
-    const time = new Date(value).getTime();
-    return Number.isFinite(time) ? new Date(time).toLocaleString(locale) : value;
+    return formatAdminManilaDateTime(value);
   };
 
   useEffect(() => {
@@ -51,11 +66,11 @@ export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
   }, [userId, page]);
 
   if (state.kind === "loading") {
-    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-[#667085]`}>{t("admin_users_detail_loading")}</div>;
+    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-sam-muted`}>{t("admin_users_detail_loading")}</div>;
   }
   if (state.kind === "error") {
     return (
-      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-[#b42318]`}>
+      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
         {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
       </div>
     );
@@ -84,14 +99,14 @@ export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
         ]}
       />
       <div className="flex justify-end">
-        <Link href={memberOrdersByBuyerHref(userId)} className="text-xs font-semibold text-[#2563eb]">
+        <Link href={memberOrdersByBuyerHref(userId)} className="text-xs font-semibold text-sam-primary">
           {safeT("admin_users_cc_cta_open_order_admin", { fallbackKo: "Admin 주문관리에서 열기", fallbackEn: "Open in order admin" })}
         </Link>
       </div>
       <div className={`${ADMIN_USERS_LITE_CARD} overflow-x-auto`}>
         <table className="min-w-full border-collapse text-[13px]">
           <thead>
-            <tr className="border-b border-[#eaecf0] bg-[#f8fafc] text-left text-[11px] font-semibold uppercase text-[#475467]">
+            <tr className="border-b border-sam-border bg-sam-surface-muted text-left text-[12px] font-semibold uppercase text-sam-muted">
               <th className="px-3 py-2">{safeT("admin_users_cc_col_order_no", { fallbackKo: "주문번호", fallbackEn: "Order no." })}</th>
               <th className="px-3 py-2">{t("admin_users_store_col_store_name")}</th>
               <th className="px-3 py-2">{safeT("admin_users_cc_col_amount", { fallbackKo: "주문금액", fallbackEn: "Amount" })}</th>
@@ -102,14 +117,16 @@ export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
           </thead>
           <tbody>
             {orders.map((row) => (
-              <tr key={row.id} className="border-b border-[#eaecf0]">
-                <td className="px-3 py-2 font-medium text-[#101828]">{row.orderNo}</td>
-                <td className="px-3 py-2 text-[#475467]">{row.storeName || row.storeId}</td>
-                <td className="px-3 py-2 tabular-nums">{row.paymentAmount == null ? "—" : row.paymentAmount.toLocaleString()}</td>
-                <td className="px-3 py-2">{row.status}</td>
-                <td className="px-3 py-2 tabular-nums text-[#475467]">{fmt(row.createdAt)}</td>
+              <tr key={row.id} className="border-b border-sam-border">
+                <td className="px-3 py-2 font-medium text-sam-fg">{row.orderNo}</td>
+                <td className="px-3 py-2 text-sam-muted">{row.storeName || row.storeId}</td>
+                <td className="px-3 py-2 tabular-nums">{row.paymentAmount == null ? "—" : formatAdminPhp(row.paymentAmount)}</td>
                 <td className="px-3 py-2">
-                  <Link href={memberOrderDetailHref(row.id)} className="text-xs font-semibold text-[#2563eb]">
+                  <AdminStoreOrderStatusCell status={row.status} ko={ko} />
+                </td>
+                <td className="px-3 py-2 tabular-nums text-sam-muted">{fmt(row.createdAt)}</td>
+                <td className="px-3 py-2">
+                  <Link href={memberOrderDetailHref(row.id)} className="text-xs font-semibold text-sam-primary">
                     {safeT("admin_users_cc_cta_order_detail", { fallbackKo: "주문 상세", fallbackEn: "Order detail" })}
                   </Link>
                 </td>
@@ -118,7 +135,7 @@ export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
           </tbody>
         </table>
         {orders.length === 0 ? (
-          <p className="px-4 py-6 text-center text-sm text-[#667085]">
+          <p className="px-4 py-6 text-center text-sm text-sam-muted">
             {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}
           </p>
         ) : null}

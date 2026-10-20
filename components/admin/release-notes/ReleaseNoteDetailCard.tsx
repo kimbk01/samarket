@@ -54,9 +54,9 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
           <span
             className={`rounded px-1.5 py-0.5 ${
               note.status === "published"
-                ? "bg-emerald-50 text-emerald-700"
+                ? "bg-sam-success-soft text-sam-success"
                 : note.status === "draft"
-                  ? "bg-amber-50 text-amber-700"
+                  ? "bg-sam-warning-soft text-sam-warning"
                   : "bg-sam-surface-muted text-sam-muted"
             }`}
           >

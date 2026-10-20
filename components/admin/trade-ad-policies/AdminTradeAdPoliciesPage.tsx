@@ -9,6 +9,7 @@ import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminS
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
 type Row = Record<string, unknown>;
 
@@ -46,7 +47,7 @@ export function AdminTradeAdPoliciesPage() {
     if (!id) return;
     const actionLabel = r.is_active ? t("admin_trade_ad_policies_toggle_off") : t("admin_trade_ad_policies_toggle_on");
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel(r.is_active ? "disable" : "resume"),
       ko,
       title: `${String(r.name ?? "")} · ${actionLabel}`,
       confirmLabel: actionLabel,

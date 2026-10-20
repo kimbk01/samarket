@@ -31,6 +31,7 @@ import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminA
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
 function getDisplaySettings(
   settings: AppSettings,
@@ -83,7 +84,7 @@ export function AdminSettingsPage() {
     });
     if (Object.keys(toSave).length === 0) return;
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: ko ? "설정 저장" : "Save settings",
       description: ko ? "변경한 설정을 서비스에 반영합니다." : "Applies the changed settings to the service.",
@@ -107,17 +108,20 @@ export function AdminSettingsPage() {
   }, [sectionKeys, draft, ko]);
 
   const handleReset = useCallback(async () => {
+    // 기본값 초기화 = dataReset(L3: 사유 + 「초기화」 재입력). 사유는 저장 API 본문으로 보내 감사에 남긴다.
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("dataReset"),
       ko,
       title: ko ? "이 탭 설정 초기화" : "Reset this tab's settings",
       description: ko ? "이 탭의 설정을 기본값으로 되돌립니다." : "Restores this tab's settings to defaults.",
       confirmLabel: adminCta("reset", ko),
+      destructive: true,
+      retypeValue: ko ? "초기화" : "reset",
     });
     if (!confirmed.ok) return;
     setSaving(true);
     setResult(null);
-    const r = await resetAppSettingsSectionOnServer(sectionKeys);
+    const r = await resetAppSettingsSectionOnServer(sectionKeys, confirmed.reason);
     setSaving(false);
     setResult(r.ok ? { ok: true, message: ko ? "초기화했습니다." : "Reset done." } : { ok: false, code: r.error ?? "save_failed" });
     if (r.ok) {

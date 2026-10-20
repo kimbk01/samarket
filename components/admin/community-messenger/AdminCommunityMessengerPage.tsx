@@ -720,7 +720,7 @@ function ForceEndReasonKpiCard({
         <p className="sam-text-hero font-semibold text-sam-fg">{count}</p>
       </div>
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
-        <div className="h-2 rounded-full bg-red-500" style={{ width: `${Math.max(percent, count > 0 ? 8 : 0)}%` }} />
+        <div className="h-2 rounded-full bg-sam-danger" style={{ width: `${Math.max(percent, count > 0 ? 8 : 0)}%` }} />
       </div>
       <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_cm_common_share_of_force_end", { percent })}</p>
     </div>
@@ -743,9 +743,9 @@ function ForceEndTrendCard({
   const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   const toneClass =
     direction === "up"
-      ? "text-red-700 bg-red-50"
+      ? "text-sam-danger bg-sam-danger-soft"
       : direction === "down"
-        ? "text-emerald-700 bg-emerald-50"
+        ? "text-sam-success bg-sam-success-soft"
         : "text-sam-fg bg-sam-surface-muted";
   const deltaLabel =
     direction === "up" ? `+${delta}` : direction === "down" ? `${delta}` : "0";
@@ -788,7 +788,7 @@ function ForceEndAdminRow({
         </div>
       </div>
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
-        <div className="h-2 rounded-full bg-sky-500" style={{ width: `${Math.max(percent, count > 0 ? 8 : 0)}%` }} />
+        <div className="h-2 rounded-full bg-sam-info" style={{ width: `${Math.max(percent, count > 0 ? 8 : 0)}%` }} />
       </div>
     </div>
   );
@@ -810,7 +810,7 @@ function ForceEndRoomTypeCard({
       <p className="sam-text-body-secondary text-sam-muted">{label}</p>
       <p className="mt-2 sam-text-hero font-semibold text-sam-fg">{count}</p>
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
-        <div className="h-2 rounded-full bg-violet-500" style={{ width: `${Math.max(percent, count > 0 ? 8 : 0)}%` }} />
+        <div className="h-2 rounded-full bg-sam-primary" style={{ width: `${Math.max(percent, count > 0 ? 8 : 0)}%` }} />
       </div>
       <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_cm_common_share_of_force_end", { percent })}</p>
     </div>
@@ -841,14 +841,14 @@ function ForceEndRecurrenceSummaryCard({
           <p className="sam-text-body-secondary text-sam-muted">{label}</p>
           <p className="mt-2 sam-text-hero font-semibold text-sam-fg">{subjectCount}</p>
         </div>
-        <span className="rounded bg-amber-50 px-2 py-1 sam-text-helper font-medium text-amber-700">{percent}%</span>
+        <span className="rounded bg-sam-warning-soft px-2 py-1 sam-text-helper font-medium text-sam-warning">{percent}%</span>
       </div>
       <p className="mt-2 sam-text-helper text-sam-muted">{helper}</p>
       <p className="mt-1 sam-text-helper text-sam-muted">
         {t("admin_cm_common_repeat_analyzed", { repeat: repeatCount, analyzed: analyzedCount })}
       </p>
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
-        <div className="h-2 rounded-full bg-amber-500" style={{ width: `${Math.max(percent, repeatCount > 0 ? 8 : 0)}%` }} />
+        <div className="h-2 rounded-full bg-sam-warning" style={{ width: `${Math.max(percent, repeatCount > 0 ? 8 : 0)}%` }} />
       </div>
     </div>
   );
@@ -924,7 +924,7 @@ function ForceEndReasonRecurrenceCard({
             <span className="font-medium text-sam-fg">{roomPercent}%</span>
           </div>
           <div className="mt-1 h-2 rounded-full bg-sam-surface-muted">
-            <div className="h-2 rounded-full bg-rose-500" style={{ width: `${Math.max(roomPercent, roomRepeatedEvents > 0 ? 8 : 0)}%` }} />
+            <div className="h-2 rounded-full bg-sam-danger" style={{ width: `${Math.max(roomPercent, roomRepeatedEvents > 0 ? 8 : 0)}%` }} />
           </div>
           <p className="mt-1 sam-text-helper text-sam-muted">
             {t("admin_cm_common_room_repeat", { rooms: roomRepeatedSubjects, events: roomRepeatedEvents })}
@@ -936,7 +936,7 @@ function ForceEndReasonRecurrenceCard({
             <span className="font-medium text-sam-fg">{callerPercent}%</span>
           </div>
           <div className="mt-1 h-2 rounded-full bg-sam-surface-muted">
-            <div className="h-2 rounded-full bg-sky-500" style={{ width: `${Math.max(callerPercent, callerRepeatedEvents > 0 ? 8 : 0)}%` }} />
+            <div className="h-2 rounded-full bg-sam-info" style={{ width: `${Math.max(callerPercent, callerRepeatedEvents > 0 ? 8 : 0)}%` }} />
           </div>
           <p className="mt-1 sam-text-helper text-sam-muted">
             {t("admin_cm_common_caller_repeat", { callers: callerRepeatedSubjects, events: callerRepeatedEvents })}
@@ -988,7 +988,7 @@ function ForceEndAdminEffectRow({
             <span className="font-medium text-sam-fg">{roomPercent}%</span>
           </div>
           <div className="mt-1 h-2 rounded-full bg-sam-surface-muted">
-            <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${Math.max(roomPercent, totalCount > 0 ? 8 : 0)}%` }} />
+            <div className="h-2 rounded-full bg-sam-success" style={{ width: `${Math.max(roomPercent, totalCount > 0 ? 8 : 0)}%` }} />
           </div>
         </div>
         <div>
@@ -998,7 +998,7 @@ function ForceEndAdminEffectRow({
           </div>
           <div className="mt-1 h-2 rounded-full bg-sam-surface-muted">
             <div
-              className="h-2 rounded-full bg-sky-500"
+              className="h-2 rounded-full bg-sam-info"
               style={{ width: `${Math.max(callerPercent, callerEvaluatedCount > 0 ? 8 : 0)}%` }}
             />
           </div>
@@ -1063,7 +1063,7 @@ function ForceEndHeatmapCard({
       <div className="mt-3 flex items-center gap-2 sam-text-xxs text-sam-muted">
         <span className="inline-block h-2 w-8 rounded bg-sam-surface-muted" />
         <span>{t("admin_cm_heatmap_low")}</span>
-        <span className={`inline-block h-2 w-8 rounded ${tone === "red" ? "bg-red-400" : "bg-amber-400"}`} />
+        <span className={`inline-block h-2 w-8 rounded ${tone === "red" ? "bg-sam-danger" : "bg-sam-warning"}`} />
         <span>{t("admin_cm_heatmap_high")}</span>
       </div>
       <div className="mt-3 space-y-1">
@@ -1211,7 +1211,7 @@ function ForceEndReasonAdminCard({
                   </div>
                 </div>
                 <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
-                  <div className="h-2 rounded-full bg-fuchsia-500" style={{ width: `${Math.max(percent, item.count > 0 ? 8 : 0)}%` }} />
+                  <div className="h-2 rounded-full bg-sam-primary" style={{ width: `${Math.max(percent, item.count > 0 ? 8 : 0)}%` }} />
                 </div>
               </div>
             );
@@ -1262,7 +1262,7 @@ function ActiveCallRow({ call }: { call: AdminCommunityMessengerActiveCallSessio
         <div>
           <p className="sam-text-body font-medium text-sam-fg">
             {call.roomTitle}
-            <span className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 sam-text-xxs text-sky-700">
+            <span className="ml-2 rounded bg-sam-info-soft px-1.5 py-0.5 sam-text-xxs text-sam-info">
               {call.sessionMode === "group" ? t("admin_cm_session_mode_group") : t("admin_cm_session_mode_direct")}
             </span>
           </p>
@@ -1302,18 +1302,18 @@ function CallAuditRow({ log }: { log: AdminCommunityMessengerCallAuditLog }) {
         <div>
           <p className="sam-text-body font-medium text-sam-fg">
             {log.roomTitle}
-            <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">{t("admin_cm_force_end_badge")}</span>
+            <span className="ml-2 rounded bg-sam-danger-soft px-1.5 py-0.5 sam-text-xxs text-sam-danger">{t("admin_cm_force_end_badge")}</span>
           </p>
           <p className="mt-1 sam-text-helper text-sam-muted">
             {t("admin_cm_common_admin_actor", { name: log.actorLabel })} · {log.beforeStatus} {"->"} {log.afterStatus}
           </p>
           {log.reasonCode ? (
-            <p className="mt-1 sam-text-helper text-sky-700">
+            <p className="mt-1 sam-text-helper text-sam-info">
               {t("admin_cm_common_reason_code", { label: log.reasonLabel, code: log.reasonCode ?? "" })}
             </p>
           ) : null}
           <p className="mt-1 sam-text-helper text-sam-fg font-mono">{log.sessionId}</p>
-          {log.note ? <p className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_note", { text: log.note })}</p> : null}
+          {log.note ? <p className="mt-1 sam-text-helper text-sam-warning">{t("admin_cm_common_note", { text: log.note })}</p> : null}
         </div>
         <div className="text-right sam-text-helper text-sam-meta">
           <div>{formatDateTime(log.createdAt)}</div>

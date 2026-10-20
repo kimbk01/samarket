@@ -34,6 +34,8 @@ import { confirmAdminAction, ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operato
 import { useAdminOlderMessages } from "./use-admin-older-messages";
 import { useAdminLocationReturnTo } from "./use-admin-location-return-to";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type TradeApiMessage = {
   id: string;
@@ -283,7 +285,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
     async (message: AdminChatMessage, hidden: boolean) => {
       if (!messengerRoomId) return;
       const c = await confirmAdminAction({
-        level: "L2",
+        level: adminActionLevel(hidden ? "sanction" : "liftSanction"),
         ko: language !== "en",
         title: hidden ? t("admin_chat_r1b_hide_message") : t("admin_chat_r1b_unhide_message"),
         confirmLabel: t("admin_chat_r1_action_confirm_cta"),
@@ -453,11 +455,11 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
         </section>
       ) : messenger?.legacyOnly ? (
         <section
-          className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3"
+          className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3"
           data-admin-trade-legacy-only="1"
         >
-          <p className="sam-text-body font-semibold text-amber-900">{t("admin_chat_r1b_legacy_only")}</p>
-          <p className="mt-1 sam-text-helper text-amber-800">{t("admin_chat_r1b_legacy_only_desc")}</p>
+          <p className="sam-text-body font-semibold text-sam-warning">{t("admin_chat_r1b_legacy_only")}</p>
+          <p className="mt-1 sam-text-helper text-sam-fg">{t("admin_chat_r1b_legacy_only_desc")}</p>
         </section>
       ) : null}
 
@@ -583,15 +585,10 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
       <AdminCard title={t("admin_chat_message_timeline")}>
         {olderMsgs.hasMore ? (
           <div className="mb-3 flex flex-col items-center gap-1">
-            <button
-              type="button"
-              disabled={olderMsgs.loading}
-              onClick={() => void olderMsgs.loadOlder()}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50"
-            >
+            <AdminActionButton size="sm" disabled={olderMsgs.loading} onClick={() => void olderMsgs.loadOlder()}>
               {olderMsgs.loading ? t("admin_chat_r1b_loading_older") : t("admin_chat_r1b_load_older")}
-            </button>
-            {olderMsgs.error ? <p className="sam-text-xxs text-red-700">{t("admin_chat_r1b_load_older_failed")}</p> : null}
+            </AdminActionButton>
+            {olderMsgs.error ? <p className="sam-text-xxs text-sam-danger">{t("admin_chat_r1b_load_older_failed")}</p> : null}
           </div>
         ) : null}
         <AdminChatMessageTimeline
@@ -613,13 +610,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             onChange={(e) => setMemoInput(e.target.value)}
             className="min-w-0 flex-1 rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
           />
-          <button
-            type="button"
-            onClick={handleSaveMemo}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
-          >
-            {t("admin_chat_save_memo")}
-          </button>
+          <AdminActionButton onClick={handleSaveMemo}>{t("admin_chat_save_memo")}</AdminActionButton>
         </div>
       </AdminCard>
 

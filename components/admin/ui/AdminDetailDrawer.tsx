@@ -180,16 +180,16 @@ export function AdminDetailDrawer({
         aria-label={ariaLabel}
         tabIndex={-1}
         onKeyDown={onPanelKeyDown}
-        className="absolute inset-y-0 right-0 flex w-full flex-col border-l border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] text-[var(--admin-console-fg,#1f2937)] shadow-xl outline-none md:w-[min(720px,50vw)] md:min-w-[480px]"
+        className="absolute inset-y-0 right-0 flex w-full flex-col border-l border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] text-[var(--admin-console-fg)] shadow-xl outline-none md:w-[min(720px,50vw)] md:min-w-[480px]"
         data-admin-detail-drawer-panel="1"
       >
-        <header className="flex shrink-0 items-start gap-3 border-b border-[var(--admin-console-border,#d0d7e2)] px-4 py-3">
+        <header className="flex shrink-0 items-start gap-3 border-b border-[var(--admin-console-border)] px-4 py-3">
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="truncate text-[15px] font-semibold leading-6">
+            <h2 id={titleId} className="truncate text-[16px] font-semibold leading-6">
               {title}
             </h2>
             {subtitle ? (
-              <p className="mt-0.5 text-[13px] text-[var(--admin-console-muted,#667085)]">{subtitle}</p>
+              <p className="mt-0.5 text-[13px] text-[var(--admin-console-muted)]">{subtitle}</p>
             ) : null}
           </div>
           <button
@@ -198,7 +198,7 @@ export function AdminDetailDrawer({
             disabled={pending}
             aria-label={ko ? "닫기" : "Close"}
             data-admin-detail-drawer-close="1"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-[18px] text-[var(--admin-console-muted,#667085)] hover:bg-[var(--admin-console-hover,#eef1f6)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--admin-console-accent,#1d4ed8)] disabled:opacity-40"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-[20px] text-[var(--admin-console-muted)] hover:bg-[var(--admin-console-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--admin-console-accent)] disabled:opacity-40"
           >
             <span aria-hidden>×</span>
           </button>
@@ -208,7 +208,7 @@ export function AdminDetailDrawer({
         </div>
         {hasFooter ? (
           <footer
-            className="flex shrink-0 items-center gap-2 border-t border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] px-4 py-3"
+            className="flex shrink-0 items-center gap-2 border-t border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-4 py-3"
             data-admin-detail-drawer-footer="1"
           >
             <div className="flex flex-wrap items-center gap-2" data-admin-detail-drawer-danger="1">

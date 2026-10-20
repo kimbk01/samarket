@@ -5,6 +5,8 @@
  */
 
 import { safeTranslate } from "@/lib/i18n/safe-translate";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 export const CAMPAIGN_CONFIRM_ACTIONS = [
   "send",
@@ -162,7 +164,7 @@ export function campaignConfirmCopy(action: CampaignConfirmAction, lang: "ko" | 
 /** Fact lines (대상 수 · 채널 · 시각) shown in every confirm dialog. */
 export function campaignConfirmFactLines(facts: CampaignConfirmFacts, lang: "ko" | "en" = "ko"): string[] {
   const n = (v: number | null | undefined) =>
-    typeof v === "number" && Number.isFinite(v) ? v.toLocaleString(lang === "en" ? "en-US" : "ko-KR") : "—";
+    typeof v === "number" && Number.isFinite(v) ? formatAdminNumber(v) : "—";
   const lines: string[] = [];
   if (facts.title) {
     lines.push(
@@ -205,21 +207,10 @@ export function campaignConfirmFactLines(facts: CampaignConfirmFacts, lang: "ko"
   return lines;
 }
 
-/** "YYYY-MM-DD HH:mm" in Asia/Seoul (admin ops timezone). */
+/** "YYYY-MM-DD HH:mm" — 관리자 표시 시간대 PHT(Asia/Manila). */
 export function formatCampaignTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(d);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  const hour = get("hour") === "24" ? "00" : get("hour");
-  return `${get("year")}-${get("month")}-${get("day")} ${hour}:${get("minute")}`;
+  return formatAdminManilaDateTime(d.toISOString());
 }

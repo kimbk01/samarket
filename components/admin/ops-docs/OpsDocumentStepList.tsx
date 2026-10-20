@@ -48,7 +48,7 @@ export function OpsDocumentStepList({ documentId }: OpsDocumentStepListProps) {
             <div className="flex items-center gap-2">
               <span className="font-medium text-sam-fg">{s.title}</span>
               {s.isRequired && (
-                <span className="rounded bg-amber-50 px-1.5 py-0.5 sam-text-xxs text-amber-800">
+                <span className="rounded bg-sam-warning-soft px-1.5 py-0.5 sam-text-xxs text-sam-warning">
                   {t("admin_ops_doc_step_required")}
                 </span>
               )}

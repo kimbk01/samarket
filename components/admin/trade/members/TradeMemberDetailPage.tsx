@@ -60,6 +60,7 @@ import {
 import { tradeAccountStatusKey } from "@/components/admin/trade/members/TradeMembersPage";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 type Rec = Record<string, unknown>;
 const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -146,7 +147,7 @@ function pointTypeLabel(relatedType: string, entryType: string): string {
 
 function metricText(m: Metric | undefined): ReactNode {
   if (!m || !m.ok) return <AdminUnavailableChip ko />;
-  return m.value.toLocaleString();
+  return formatAdminNumber(m.value);
 }
 
 function rowsOf(st: CommunityAdminLoad<RowsResponse>): Rec[] | null {
@@ -287,9 +288,9 @@ export function TradeMemberDetailPage({ userId }: { userId: string }) {
             value:
               reportRows === null
                 ? <AdminUnavailableChip ko />
-                : `${Number(reports.state.data?.total ?? reportRows.length).toLocaleString()}건 (대기 ${reportRows
-                    .filter((r) => s(r.status) === "pending" || s(r.status) === "reviewing")
-                    .length.toLocaleString()})`,
+                : `${formatAdminNumber(reports.state.data?.total ?? reportRows.length)}건 (대기 ${formatAdminNumber(
+                    reportRows.filter((r) => s(r.status) === "pending" || s(r.status) === "reviewing").length
+                  )})`,
           },
         ]}
       />
@@ -450,7 +451,7 @@ function TradeSection({
                       <td className={COMMUNITY_TD}>
                         <Link
                           href={tradeDetailHref(`/admin/products/${encodeURIComponent(r.id)}`, selfHref)}
-                          className="font-medium text-sky-800 hover:underline"
+                          className="font-medium text-[var(--admin-console-accent)] hover:underline"
                         >
                           {r.title || "제목 없음"}
                         </Link>
@@ -471,7 +472,7 @@ function TradeSection({
               )}
               {pager}
               <FooterLinks>
-                <Link href={tradeDetailHref(`/admin/posts-management?sellerId=${uid}`, selfHref)} className="text-sky-800 underline">
+                <Link href={tradeDetailHref(`/admin/posts-management?sellerId=${uid}`, selfHref)} className="text-[var(--admin-console-accent)] underline">
                   거래글 관리에서 이 회원 글 보기
                 </Link>
               </FooterLinks>
@@ -491,7 +492,7 @@ function TradeSection({
                       {r.postId ? (
                         <Link
                           href={tradeDetailHref(`/admin/products/${encodeURIComponent(r.postId)}`, selfHref)}
-                          className="font-medium text-sky-800 hover:underline"
+                          className="font-medium text-[var(--admin-console-accent)] hover:underline"
                         >
                           {r.postTitle || "제목 없음"}
                         </Link>
@@ -506,7 +507,7 @@ function TradeSection({
             )}
             {pager}
             <FooterLinks>
-              <Link href={tradeDetailHref(`/admin/chats?type=trade&buyerId=${uid}`, selfHref)} className="text-sky-800 underline">
+              <Link href={tradeDetailHref(`/admin/chats?type=trade&buyerId=${uid}`, selfHref)} className="text-[var(--admin-console-accent)] underline">
                 거래 채팅 관리에서 보기
               </Link>
             </FooterLinks>
@@ -549,7 +550,7 @@ function ReportsSection({
                     <td className={COMMUNITY_TD}>
                       <Link
                         href={tradeDetailHref(`/admin/trade/reports?tab=all&reportId=${encodeURIComponent(s(r.id))}`, selfHref)}
-                        className="font-medium text-sky-800 hover:underline"
+                        className="font-medium text-[var(--admin-console-accent)] hover:underline"
                       >
                         {tradeReportReasonLabel(s(r.reason_code))}
                       </Link>
@@ -566,7 +567,7 @@ function ReportsSection({
             <FooterLinks>
               <Link
                 href={tradeDetailHref(`/admin/trade/reports?tab=all&sellerId=${encodeURIComponent(userId)}`, selfHref)}
-                className="text-sky-800 underline"
+                className="text-[var(--admin-console-accent)] underline"
               >
                 거래 신고에서 모두 보기
               </Link>
@@ -650,7 +651,7 @@ function RestrictionsSection({
             <FooterLinks>
               <Link
                 href={tradeDetailHref(`/admin/trade/restrictions?tab=all&userId=${encodeURIComponent(userId)}`, selfHref)}
-                className="text-sky-800 underline"
+                className="text-[var(--admin-console-accent)] underline"
               >
                 거래 활동 제한에서 보기
               </Link>
@@ -689,7 +690,7 @@ function PromotionsSection({
                       {s(r.target_id) ? (
                         <Link
                           href={tradeDetailHref(`/admin/products/${encodeURIComponent(s(r.target_id))}`, selfHref)}
-                          className="font-medium text-sky-800 hover:underline"
+                          className="font-medium text-[var(--admin-console-accent)] hover:underline"
                         >
                           {s(r.target_title) || "거래글"}
                         </Link>
@@ -715,7 +716,7 @@ function PromotionsSection({
             <FooterLinks>
               <Link
                 href={tradeDetailHref(`/admin/trade/promotions?tab=all&userId=${encodeURIComponent(userId)}`, selfHref)}
-                className="text-sky-800 underline"
+                className="text-[var(--admin-console-accent)] underline"
               >
                 홍보 주문에서 모두 보기
               </Link>
@@ -746,9 +747,9 @@ function PointsSection({ st, reload, userId }: { st: CommunityAdminLoad<RowsResp
                         <CommunityTimeCell iso={s(r.createdAt) || null} />
                       </td>
                       <td className={COMMUNITY_TD}>{pointTypeLabel(s(r.relatedType), s(r.entryType))}</td>
-                      <td className={`${COMMUNITY_TD} whitespace-nowrap ${amt < 0 ? "text-red-700" : "text-emerald-800"}`}>
+                      <td className={`${COMMUNITY_TD} whitespace-nowrap ${amt < 0 ? "text-sam-danger" : "text-sam-success"}`}>
                         {amt > 0 ? "+" : ""}
-                        {amt.toLocaleString()} P
+                        {formatAdminNumber(amt)} P
                       </td>
                       <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{formatTradePoints(r.balanceAfter)}</td>
                       <td className={COMMUNITY_TD}>{s(r.description) || "—"}</td>
@@ -760,7 +761,7 @@ function PointsSection({ st, reload, userId }: { st: CommunityAdminLoad<RowsResp
             <FooterLinks>
               <Link
                 href={`/admin/trade/points?userId=${encodeURIComponent(userId)}&period=all`}
-                className="text-sky-800 underline"
+                className="text-[var(--admin-console-accent)] underline"
               >
                 포인트 원장에서 모두 보기
               </Link>

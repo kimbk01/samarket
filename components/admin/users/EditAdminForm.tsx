@@ -9,6 +9,7 @@ import { fetchAdminStaffList, updateAdminStaffApi } from "@/lib/admin-users/admi
 import { useAdminMe } from "@/hooks/useAdminMe";
 import { AdminPermissionToggles } from "./AdminPermissionToggles";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 const ROLE_OPTIONS: { value: AdminRole; labelKey: MessageKey }[] = [
@@ -144,7 +145,7 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
   if (loadingStaff) {
     return (
       <AdminFormSheet title={t("admin_users_form_edit_admin_title")} onClose={onClose}>
-        <p className="text-[13px] text-[#6F4E37]">{t("admin_users_detail_loading")}</p>
+        <p className="text-[13px] text-sam-muted">{t("admin_users_detail_loading")}</p>
       </AdminFormSheet>
     );
   }
@@ -152,14 +153,10 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
   if (!staff) {
     return (
       <AdminFormSheet title={t("admin_users_form_edit_admin_title")} onClose={onClose}>
-        <p className="text-[#6F4E37]">{t("admin_users_form_staff_not_found")}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-4 rounded-ui-rect border border-[#00704A]/25 px-4 py-2 text-[13px] font-semibold text-[#1E3932]"
-        >
+        <p className="text-sam-muted">{t("admin_users_form_staff_not_found")}</p>
+        <AdminActionButton variant="secondary" className="mt-4" onClick={onClose}>
           {t("common_close")}
-        </button>
+        </AdminActionButton>
       </AdminFormSheet>
     );
   }
@@ -171,54 +168,45 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-ui-rect border border-[#00704A]/25 px-4 py-2 text-[13px] font-semibold text-[#1E3932]"
-          >
+          <AdminActionButton variant="secondary" onClick={onClose}>
             {t("common_cancel")}
-          </button>
-          <button
-            type="submit"
-            form="edit-admin-form"
-            disabled={submitting}
-            className="rounded-ui-rect bg-[#00704A] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
-          >
+          </AdminActionButton>
+          <AdminActionButton variant="primary" type="submit" form="edit-admin-form" disabled={submitting}>
             {submitting ? t("admin_users_saving") : t("common_save")}
-          </button>
+          </AdminActionButton>
         </div>
       }
     >
       <form id="edit-admin-form" onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-[13px] font-medium text-[#1E3932]">{t("admin_users_label_login_id")}</label>
+            <label className="mb-1 block text-[13px] font-medium text-sam-fg">{t("admin_users_label_login_id")}</label>
             <input
               type="text"
               value={staff.loginId}
               readOnly
-              className="w-full rounded-ui-rect border border-[#D4E9E2] bg-[#F2F0EB] px-3 py-2 text-[13px] text-[#6F4E37]"
+              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-[13px] text-sam-muted"
             />
           </div>
           <div>
-            <label className="mb-1 block text-[13px] font-medium text-[#1E3932]">{t("admin_users_label_display_name")}</label>
+            <label className="mb-1 block text-[13px] font-medium text-sam-fg">{t("admin_users_label_display_name")}</label>
             <input
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               maxLength={64}
-              className="w-full rounded-ui-rect border border-[#D4E9E2] px-3 py-2 text-[13px]"
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
               placeholder={t("admin_users_ph_display_name")}
             />
           </div>
         </div>
         {staff.role !== "master" ? (
           <div>
-            <label className="mb-1 block text-[13px] font-medium text-[#1E3932]">{t("admin_users_label_role")}</label>
+            <label className="mb-1 block text-[13px] font-medium text-sam-fg">{t("admin_users_label_role")}</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as AdminRole)}
-              className="w-full max-w-xs rounded-ui-rect border border-[#D4E9E2] px-3 py-2 text-[13px]"
+              className="w-full max-w-xs rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
             >
               {ROLE_OPTIONS.filter((o) => o.value !== "master").map((o) => (
                 <option key={o.value} value={o.value}>
@@ -236,7 +224,7 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
             data-admin-staff-password-self={isSelfStaff ? "1" : "0"}
           >
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-[#1E3932]">{t("admin_users_label_password")}</label>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">{t("admin_users_label_password")}</label>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -244,14 +232,14 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
                 onChange={(e) => setNewPassword(e.target.value)}
                 minLength={4}
                 maxLength={128}
-                className="w-full rounded-ui-rect border border-[#D4E9E2] px-3 py-2 text-[13px]"
+                className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
                 placeholder={t("admin_users_ph_password_min")}
                 data-admin-staff-password-input="1"
               />
-              <p className="mt-1 text-[11px] text-[#6F4E37]">{t("admin_users_auth_password_hint")}</p>
+              <p className="mt-1 text-[12px] text-sam-muted">{t("admin_users_auth_password_hint")}</p>
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-[#1E3932]">{t("admin_users_label_password_confirm")}</label>
+              <label className="mb-1 block text-[13px] font-medium text-sam-fg">{t("admin_users_label_password_confirm")}</label>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -259,7 +247,7 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 minLength={4}
                 maxLength={128}
-                className="w-full rounded-ui-rect border border-[#D4E9E2] px-3 py-2 text-[13px]"
+                className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
                 placeholder={t("admin_users_ph_password_min")}
                 data-admin-staff-password-confirm="1"
               />
@@ -268,7 +256,7 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
         ) : null}
 
         {staff.role !== "master" ? (
-          <div className="border-t border-[#D4E9E2]/80 pt-4">
+          <div className="border-t border-sam-border/80 pt-4">
             <AdminPermissionToggles
               permissions={permissions}
               onToggle={togglePermission}
@@ -280,7 +268,7 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
           </div>
         ) : null}
 
-        {error && <p className="text-[13px] text-red-600">{error}</p>}
+        {error && <p className="text-[13px] text-sam-danger">{error}</p>}
       </form>
     </AdminFormSheet>
   );

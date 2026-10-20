@@ -14,6 +14,7 @@ import {
   type CustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type NoticeFormState = {
   content_type: CustomerCenterContentType;
@@ -262,7 +263,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
         })}
       </p>
 
-      {err ? <p className="sam-text-body text-red-600">{err}</p> : null}
+      {err ? <p className="sam-text-body text-sam-danger">{err}</p> : null}
 
       <label className="block space-y-1">
         <span className="sam-text-helper text-sam-muted">
@@ -350,13 +351,13 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
                 roundedClassName="rounded-ui-rect"
               />
             </div>
-            <button
-              type="button"
-              className="text-xs text-red-600"
+            <AdminActionButton
+              variant="quiet"
+              size="sm"
               onClick={() => setForm((f) => ({ ...f, hero_image_url: "" }))}
             >
               {safeT("admin_cc_hero_clear", { fallbackKo: "대표 이미지 제거", fallbackEn: "Remove hero" })}
-            </button>
+            </AdminActionButton>
           </div>
         ) : null}
       </div>
@@ -457,27 +458,25 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
+        <AdminActionButton
           disabled={busy}
           onClick={() => void onSave()}
-          className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
+          variant="primary"
         >
           {isEdit
             ? safeT("common_save", { fallbackKo: "저장", fallbackEn: "Save" })
             : safeT("common_save", { fallbackKo: "게시", fallbackEn: "Publish" })}
-        </button>
-        <button
-          type="button"
+        </AdminActionButton>
+        <AdminActionButton
           disabled={busy}
           onClick={() => setShowPreview((v) => !v)}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium"
+          variant="secondary"
         >
           {safeT("admin_cc_member_preview", {
             fallbackKo: "회원 화면 미리보기",
             fallbackEn: "Member preview",
           })}
-        </button>
+        </AdminActionButton>
       </div>
     </div>
   );

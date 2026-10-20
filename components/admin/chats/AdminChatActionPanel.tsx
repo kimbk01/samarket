@@ -1,10 +1,13 @@
 "use client";
 
-import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminChatRoom } from "@/lib/types/admin-chat";
 import { ADMIN_REASON_MIN_LENGTH, confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 // C-10: 「신고 보기」 = 채팅 신고 단일 큐, 큐가 읽는 `target`(방·회원 ID) 파라미터.
 import { ADMIN_CHAT_REPORT_QUEUE_PATH } from "@/lib/admin/chat-admin/admin-chat-links";
 
@@ -37,14 +40,17 @@ export function AdminChatActionPanel({
 
   const runBulkMessages = async (kind: BulkMsgAction) => {
     const isHide = kind === "bulk_hide";
-    if (
-      !(await dibayConfirm({
-        title: isHide ? t("admin_chat_bulk_hide_confirm") : t("admin_chat_bulk_unhide_confirm"),
-        confirmTone: "destructive",
-      }))
-    ) {
-      return;
-    }
+    // 방 전체 메시지 일괄 숨김·해제 = bulk (L3: 사유 + 대상 방 재입력) — 사유는 API `reason` → 감사 `after.reason`.
+    const c = await confirmAdminAction({
+      level: adminActionLevel("bulk"),
+      ko: language !== "en",
+      title: isHide ? t("admin_chat_bulk_hide_confirm") : t("admin_chat_bulk_unhide_confirm"),
+      confirmLabel: isHide ? t("admin_chat_bulk_hide") : t("admin_chat_bulk_unhide"),
+      destructive: isHide,
+      retypeValue: room.productTitle.trim() || formatAdminShortId(room.id),
+    });
+    if (!c.ok || !c.reason) return;
+    const bulkReason = c.reason;
     setLoading(kind);
     try {
       const path = isHide ? "bulk-hide" : "bulk-unhide";
@@ -53,9 +59,7 @@ export function AdminChatActionPanel({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reason: isHide ? t("admin_chat_bulk_hide_reason") : t("admin_chat_bulk_unhide_reason"),
-          }),
+          body: JSON.stringify({ reason: bulkReason }),
           credentials: "same-origin",
         },
       );
@@ -83,8 +87,9 @@ export function AdminChatActionPanel({
     // R1-A C-5: 사유 2자 이상 필수 (메모 입력값 사용, 없으면 L2 사유 입력) — 서버 상태 조건 갱신·감사.
     let reason = note.trim();
     if (reason.length < ADMIN_REASON_MIN_LENGTH) {
+      const lifting = action === "unblock_room" || action === "unarchive_room" || action === "readonly_off";
       const c = await confirmAdminAction({
-        level: "L2",
+        level: adminActionLevel(lifting ? "liftSanction" : "sanction"),
         ko: language !== "en",
         title: t("admin_chat_r1_action_confirm_title"),
         confirmLabel: t("admin_chat_r1_action_confirm_cta"),
@@ -122,12 +127,9 @@ export function AdminChatActionPanel({
     return (
       <div className="space-y-3" data-admin-trade-actions="legacy-read-only">
         <p className="sam-text-body-secondary text-sam-muted">{t("admin_chat_r1b_legacy_action_blocked")}</p>
-        <a
-          href={`${ADMIN_CHAT_REPORT_QUEUE_PATH}?status=all&target=${encodeURIComponent(room.id)}`}
-          className="inline-block rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
-        >
+        <AdminActionLink href={`${ADMIN_CHAT_REPORT_QUEUE_PATH}?status=all&target=${encodeURIComponent(room.id)}`}>
           {t("admin_chat_go_reports")}
-        </a>
+        </AdminActionLink>
       </div>
     );
   }
@@ -145,98 +147,77 @@ export function AdminChatActionPanel({
         />
       </div>
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
+        <AdminActionButton
           disabled={loading !== null}
           onClick={() => run("warn")}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
         >
           {loading === "warn" ? t("admin_chat_processing") : t("admin_chat_warn_log")}
-        </button>
+        </AdminActionButton>
         {room.roomStatus !== "blocked" ? (
-          <button
-            type="button"
+          <AdminActionButton
             disabled={loading !== null}
             onClick={() => run("block_room")}
-            className="rounded border border-red-100 bg-red-50 px-3 py-2 sam-text-body-secondary font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
           >
             {loading === "block_room" ? t("admin_chat_processing") : t("admin_chat_close_ops")}
-          </button>
+          </AdminActionButton>
         ) : (
-          <button
-            type="button"
+          <AdminActionButton
             disabled={loading !== null}
             onClick={() => run("unblock_room")}
-            className="rounded border border-emerald-100 bg-emerald-50 px-3 py-2 sam-text-body-secondary font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
           >
             {loading === "unblock_room" ? t("admin_chat_processing") : t("admin_chat_reopen_ops")}
-          </button>
+          </AdminActionButton>
         )}
         {room.roomStatus !== "archived" ? (
-          <button
-            type="button"
+          <AdminActionButton
             disabled={loading !== null}
             onClick={() => run("archive_room")}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "archive_room" ? t("admin_chat_processing") : t("admin_chat_archive")}
-          </button>
+          </AdminActionButton>
         ) : (
-          <button
-            type="button"
+          <AdminActionButton
             disabled={loading !== null}
             onClick={() => run("unarchive_room")}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "unarchive_room" ? t("admin_chat_processing") : t("admin_chat_unarchive")}
-          </button>
+          </AdminActionButton>
         )}
         {!readonly ? (
-          <button
-            type="button"
+          <AdminActionButton
             disabled={loading !== null}
             onClick={() => run("readonly_on")}
-            className="rounded border border-amber-100 bg-amber-50 px-3 py-2 sam-text-body-secondary font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
           >
             {loading === "readonly_on" ? t("admin_chat_processing") : t("admin_chat_readonly")}
-          </button>
+          </AdminActionButton>
         ) : (
-          <button
-            type="button"
+          <AdminActionButton
             disabled={loading !== null}
             onClick={() => run("readonly_off")}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "readonly_off" ? t("admin_chat_processing") : t("admin_chat_readonly_off")}
-          </button>
+          </AdminActionButton>
         )}
       </div>
       <div className="flex flex-wrap gap-2 border-t border-sam-border-soft pt-3">
         <span className="w-full sam-text-helper font-medium text-sam-muted">{t("admin_chat_bulk_actions")}</span>
-        <button
-          type="button"
+        <AdminActionButton
           disabled={loading !== null}
           onClick={() => runBulkMessages("bulk_hide")}
-          className="rounded border border-orange-100 bg-orange-50 px-3 py-2 sam-text-body-secondary font-medium text-orange-900 hover:bg-orange-100 disabled:opacity-50"
         >
           {loading === "bulk_hide" ? t("admin_chat_processing") : t("admin_chat_bulk_hide")}
-        </button>
-        <button
-          type="button"
+        </AdminActionButton>
+        <AdminActionButton
           disabled={loading !== null}
           onClick={() => runBulkMessages("bulk_unhide")}
-          className="rounded border border-lime-200 bg-lime-50 px-3 py-2 sam-text-body-secondary font-medium text-lime-900 hover:bg-lime-100 disabled:opacity-50"
         >
           {loading === "bulk_unhide" ? t("admin_chat_processing") : t("admin_chat_bulk_unhide")}
-        </button>
+        </AdminActionButton>
       </div>
       <div className="flex flex-wrap gap-2">
-        <a
-          href={`${ADMIN_CHAT_REPORT_QUEUE_PATH}?status=all&target=${encodeURIComponent(room.id)}`}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
-        >
+        <AdminActionLink href={`${ADMIN_CHAT_REPORT_QUEUE_PATH}?status=all&target=${encodeURIComponent(room.id)}`}>
           {t("admin_chat_go_reports")}
-        </a>
+        </AdminActionLink>
       </div>
     </div>
   );

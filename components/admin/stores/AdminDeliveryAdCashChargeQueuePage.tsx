@@ -5,6 +5,8 @@
  * Legacy `/api/admin/delivery-ads/business-cash/charge-requests` PATCH stays 410 (NO_NEW_WRITE).
  */
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -190,7 +192,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
     if (busyId != null) return;
     const { id, op } = target;
     const row = rows.find((r) => r.id === id);
-    const when = row?.created_at ? new Date(String(row.created_at)).toLocaleString() : "";
+    const when = row?.created_at ? formatAdminManilaDateTime(String(row.created_at)) : "";
     const amountLine = row ? `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when}` : "";
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(op === "approve" ? "moneyApprove" : "reject"),
@@ -255,14 +257,12 @@ export function AdminDeliveryAdCashChargeQueuePage() {
               <span className="truncate" title={storeFilter}>
                 {ko ? "매장 필터" : "Store filter"}: {storeFilterLabel}
               </span>
-              <button
-                type="button"
-                className="shrink-0 font-medium underline"
+              <AdminActionButton variant="quiet" size="sm" className="shrink-0"
                 onClick={clearStoreFilter}
                 aria-label={ko ? "매장 필터 해제" : "Clear store filter"}
               >
                 {ko ? "해제" : "Clear"}
-              </button>
+              </AdminActionButton>
             </span>
           ) : null}
         </div>
@@ -276,7 +276,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
 
       {success ? (
         <p
-          className="rounded-ui-rect border border-[#0A823E]/40 bg-[#0A823E]/10 px-3 py-2 text-[13px] text-[#0A823E]"
+          className="rounded-ui-rect border border-sam-success/40 bg-sam-success-soft px-3 py-2 text-[13px] text-sam-success"
           role="status"
           data-admin-cash-charge-success="1"
         >
@@ -287,7 +287,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
 
       {actionError ? (
         <p
-          className="rounded-ui-rect border border-red-300 bg-red-50 px-3 py-2 text-[13px] text-red-900"
+          className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-[13px] text-sam-danger"
           role="alert"
           data-admin-cash-charge-action-error="1"
         >
@@ -340,9 +340,9 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     {r.store_name?.trim() ||
                       (ko ? "매장 이름 없음 · 기술 정보 참고" : "Unnamed store · see technical details")}
                   </p>
-                  <p className="text-[11px] text-sam-muted">
+                  <p className="text-[12px] text-sam-muted">
                     {r.created_at
-                      ? new Date(String(r.created_at)).toLocaleString()
+                      ? formatAdminManilaDateTime(String(r.created_at))
                       : "—"}{" "}
                     · {adminOperatorLabel(r.status, language !== "en")}
                   </p>
@@ -365,9 +365,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                   </Link>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="min-h-[40px] rounded-ui-rect border border-[#0A823E] px-3 text-[12px] font-semibold text-[#0A823E]"
+                  <AdminActionButton variant="secondary" size="sm"
                     disabled={busyId != null}
                     onClick={() => void requestConfirm({ id: r.id, op: "approve" })}
                     data-admin-cash-charge-complete={r.id}
@@ -376,10 +374,8 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                       fallbackKo: "입금 확인 · 적립",
                       fallbackEn: "Confirm · Credit",
                     })}
-                  </button>
-                  <button
-                    type="button"
-                    className="min-h-[40px] rounded-ui-rect border border-red-300 px-3 text-[12px] font-semibold text-red-700"
+                  </AdminActionButton>
+                  <AdminActionButton variant="secondary" size="sm"
                     disabled={busyId != null}
                     onClick={() => void requestConfirm({ id: r.id, op: "reject" })}
                     data-admin-cash-charge-reject={r.id}
@@ -388,7 +384,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                       fallbackKo: "반려",
                       fallbackEn: "Reject",
                     })}
-                  </button>
+                  </AdminActionButton>
                 </div>
               </li>
             ))}

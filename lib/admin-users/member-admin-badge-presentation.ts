@@ -21,11 +21,11 @@ export type MemberAdminBadgeSpec = {
 
 const TONE_CLASS: Record<MemberAdminBadgeTone, string> = {
   neutral: "bg-sam-surface-muted text-sam-fg border-sam-border",
-  success: "bg-emerald-50 text-emerald-800 border-emerald-200",
-  warning: "bg-amber-50 text-amber-900 border-amber-200",
-  danger: "bg-red-50 text-red-800 border-red-200",
-  info: "bg-sky-50 text-sky-800 border-sky-200",
-  violet: "bg-violet-50 text-violet-800 border-violet-200",
+  success: "bg-sam-success-soft text-sam-success border-sam-success/30",
+  warning: "bg-sam-warning-soft text-sam-warning border-sam-warning/30",
+  danger: "bg-sam-danger-soft text-sam-danger border-sam-danger/30",
+  info: "bg-sam-info-soft text-sam-info border-sam-info/30",
+  violet: "bg-sam-primary-soft text-sam-primary border-sam-primary-border",
 };
 
 export function memberAdminBadgeClassName(tone: MemberAdminBadgeTone): string {

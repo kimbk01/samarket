@@ -13,6 +13,7 @@ import { displayNameForAdminUser, publicIdForAdminUser } from "./admin-user-lite
 import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
@@ -158,9 +159,9 @@ export function AdminMemberListBulkBar({
       ];
     }
 
-    /** 일괄 처리 = L3 (사유 + 대상 재입력). */
+    /** 일괄 처리 = bulk(L3: 사유 + 대상 재입력). 사유는 모든 동작(탈퇴·영구 삭제 포함)의 API 본문 `reason` 으로 보낸다. */
     const confirmed = await confirmAdminAction({
-      level: "L3",
+      level: adminActionLevel("bulk"),
       ko,
       title: `회원 일괄 ${label}`,
       description: descriptionLines.filter(Boolean).join("\n"),
@@ -169,11 +170,8 @@ export function AdminMemberListBulkBar({
       retypeValue: retype,
     });
     if (!confirmed.ok) return;
-
-    let reason = `${action}_bulk_by_admin`;
-    if (action === "purge") reason = "admin_permanent_delete";
-    else if (action === "withdraw") reason = "admin_withdraw";
-    else reason = confirmed.reason?.trim() || reason;
+    const reason = (confirmed.reason ?? "").trim();
+    if (!reason) return;
 
     inFlight.current = true;
     setBusy(true);

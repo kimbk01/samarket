@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { FinanceUnifiedTx } from "@/lib/finance/unified-transaction/types";
 import {
   formatFinanceAmount,
@@ -52,7 +53,7 @@ export function FinanceTransactionDetail({
     <article className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-finance-tx-detail="1">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-sam-fg">{financeTypeLabel(tx.entryKind, ko)}</h2>
+          <h2 className="text-[16px] font-semibold text-sam-fg">{financeTypeLabel(tx.entryKind, ko)}</h2>
           <p className="sam-text-helper text-sam-muted font-mono">{tx.txKey}</p>
         </div>
         <Link href={backHref} className="text-sm font-semibold text-signature hover:underline" data-finance-back="1">
@@ -63,7 +64,7 @@ export function FinanceTransactionDetail({
       <dl className="grid grid-cols-2 gap-3 sam-text-body-secondary sm:grid-cols-3">
         <div>
           <dt className="text-sam-muted">{ko ? "일시" : "When"}</dt>
-          <dd>{tx.occurredAt ? new Date(tx.occurredAt).toLocaleString() : "—"}</dd>
+          <dd>{formatAdminManilaDateTime(tx.occurredAt)}</dd>
         </div>
         <div>
           <dt className="text-sam-muted">{ko ? "자산" : "Wallet"}</dt>

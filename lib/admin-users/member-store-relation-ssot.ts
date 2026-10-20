@@ -92,7 +92,7 @@ export function memberStoreApprovalStatusLabelKo(status: string | null | undefin
     case "approved":
       return "승인됨";
     case "rejected":
-      return "거절됨";
+      return "반려됨";
     case "suspended":
       return "운영 정지";
     default:
@@ -110,7 +110,7 @@ export const MEMBER_STORE_RELATION_COPY = {
   current_store: "현재 매장",
   store_name: "매장명",
   store_id: "매장 ID",
-  store_status: "매장 상태",
+  store_status_label: "매장 상태",
   relationship: "매장 운영 관계",
   relationship_operator: "매장 운영자",
   view_store: "매장 상세 보기",
@@ -123,7 +123,7 @@ export const MEMBER_STORE_RELATION_COPY = {
   transfer_forbidden_body:
     "정산·주문·권한에 영향을 주는 이전은 별도 정책 없이 진행하지 않습니다.",
   detach_forbidden: "매장 운영 관계 해제는 이 화면에서 할 수 없습니다",
-  primary_confirm: "확인",
+  primary_confirm: "닫기",
   anomaly_multi:
     "매장 운영 관계 데이터가 비정상입니다. 새로고침 후에도 계속되면 개발팀에 알려 주세요.",
 } as const;

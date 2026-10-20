@@ -4,6 +4,7 @@ import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationCategoryAnalytics } from "@/lib/recommendation-analytics/recommendation-analytics-state";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 interface RecommendationCategoryAnalyticsTableProps {
   reportId: string;
@@ -57,10 +58,10 @@ export function RecommendationCategoryAnalyticsTable({
                 {r.category}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {r.impressionCount.toLocaleString()}
+                {formatAdminNumber(r.impressionCount)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {r.clickCount.toLocaleString()}
+                {formatAdminNumber(r.clickCount)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {(r.ctr * 100).toFixed(2)}%

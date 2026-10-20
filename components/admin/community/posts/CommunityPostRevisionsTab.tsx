@@ -4,6 +4,7 @@
  * 게시글 수정 이력 (설계 §C-6 · §E-3). API 의 각 행은 그 수정 **전** 값이다.
  * 비교: 이력 i 의 「수정 후」 = 바로 다음(더 최근) 이력의 「수정 전」, 가장 최근 이력은 현재 글.
  */
+import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { useEffect, useState } from "react";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
@@ -51,12 +52,12 @@ function CompareRow({ label, before, after }: { label: string; before: string; a
       </p>
       {same ? null : (
         <div className="grid gap-2 md:grid-cols-2">
-          <div className="rounded-ui-rect border border-red-200 bg-red-50 p-2">
-            <p className="mb-1 text-[11px] font-semibold text-red-800">수정 전</p>
+          <div className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft p-2">
+            <p className="mb-1 text-[12px] font-semibold text-sam-danger">수정 전</p>
             <p className="max-h-60 overflow-auto whitespace-pre-wrap text-[13px] text-sam-fg">{before || "—"}</p>
           </div>
-          <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50 p-2">
-            <p className="mb-1 text-[11px] font-semibold text-emerald-800">수정 후</p>
+          <div className="rounded-ui-rect border border-sam-success bg-sam-success-soft p-2">
+            <p className="mb-1 text-[12px] font-semibold text-sam-success">수정 후</p>
             <p className="max-h-60 overflow-auto whitespace-pre-wrap text-[13px] text-sam-fg">{after || "—"}</p>
           </div>
         </div>
@@ -119,21 +120,23 @@ export function CommunityPostRevisionsTab({
         const isOpen = open === key;
         return (
           <li key={key} className="rounded-ui-rect border border-sam-border bg-sam-surface">
-            <button
-              type="button"
-              className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left text-[13px]"
+            <AdminListItemButton
+              selected={isOpen}
+              className="px-3 text-[13px]"
               aria-expanded={isOpen}
               onClick={() => setOpen(isOpen ? null : key)}
             >
-              <span className="flex flex-wrap items-center gap-2">
-                <AdminToneBadge tone={role.tone}>{role.label}</AdminToneBadge>
-                <span className="font-medium text-sam-fg">{rev.editor_label?.trim() || "기록 없음"}</span>
-                {rev.reason ? <span className="text-sam-muted">사유: {rev.reason}</span> : null}
+              <span className="flex w-full flex-wrap items-center justify-between gap-2">
+                <span className="flex flex-wrap items-center gap-2">
+                  <AdminToneBadge tone={role.tone}>{role.label}</AdminToneBadge>
+                  <span className="font-medium text-sam-fg">{rev.editor_label?.trim() || "기록 없음"}</span>
+                  {rev.reason ? <span className="text-sam-muted">사유: {rev.reason}</span> : null}
+                </span>
+                <span className="text-sam-muted">
+                  {formatAdminManilaDateTime(rev.created_at)} PHT · {isOpen ? "접기" : "전후 비교"}
+                </span>
               </span>
-              <span className="text-sam-muted">
-                {formatAdminManilaDateTime(rev.created_at)} PHT · {isOpen ? "접기" : "전후 비교"}
-              </span>
-            </button>
+            </AdminListItemButton>
             {isOpen ? (
               <div className="space-y-3 border-t border-sam-border-soft px-3 py-3">
                 <CompareRow label="제목" before={String(rev.title ?? "")} after={after.title} />

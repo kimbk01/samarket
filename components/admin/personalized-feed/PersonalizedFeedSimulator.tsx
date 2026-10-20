@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import { buildPersonalizedFeedSections } from "@/lib/personalized-feed/personalized-feed-utils";
 import { createEmptyBehaviorProfile } from "@/lib/personalized-feed/empty-behavior-profile";
 import { getPersonalizedCandidatesFromFeedCandidates } from "@/lib/personalized-feed/personalized-candidates-from-feed";
@@ -65,7 +66,7 @@ export function PersonalizedFeedSimulator({ policies }: PersonalizedFeedSimulato
                   <li key={item.id} className="rounded border border-sam-border-soft p-2 sam-text-body-secondary">
                     <p className="truncate font-medium text-sam-fg">{item.title}</p>
                     <p className="text-sam-muted">
-                      ₱{item.price.toLocaleString()} · {item.reasonLabel}
+                      {formatAdminPhp(item.price)} · {item.reasonLabel}
                     </p>
                   </li>
                 ))}

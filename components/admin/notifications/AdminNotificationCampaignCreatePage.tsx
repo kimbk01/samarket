@@ -25,6 +25,8 @@ import {
 import { campaignStatusLabel } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/selected-user-ids";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 
 type Channel = "push_only" | "in_app_only" | "push_and_in_app" | "test_only";
 type RecurrenceKind = "daily" | "weekly" | "monthly";
@@ -765,18 +767,18 @@ export function AdminNotificationCampaignCreatePage() {
       <Link href="/admin/notifications" className="text-sm text-signature hover:underline">
         ← {t("admin_back_to_list")}
       </Link>
-      <h1 className="text-lg font-semibold text-sam-fg">
+      <h1 className="text-[16px] font-semibold text-sam-fg">
         {editId
           ? `${safeT("admin_campaign_cms_edit_title", { fallbackKo: "알림 수정", fallbackEn: "Edit notification" })}${editStatus ? ` · ${campaignStatusLabel(editStatus, lang)}` : ""}`
           : t("admin_notif_page_create")}
       </h1>
       {editBlocked ? (
-        <p className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-sam-fg dark:border-amber-800 dark:bg-amber-950/30">
+        <p className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg dark:border-sam-warning dark:bg-sam-warning/30">
           {editBlocked}
         </p>
       ) : null}
 
-      {err ? <p className="text-sm text-red-600">{err}</p> : null}
+      {err ? <p className="text-sm text-sam-danger">{err}</p> : null}
 
       {/* A. Linked original content */}
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -784,7 +786,7 @@ export function AdminNotificationCampaignCreatePage() {
         {linkedLoading ? (
           <p className="text-xs text-sam-muted">{t("common_loading")}</p>
         ) : linkedId && linkedContent ? (
-          <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+          <div className="space-y-2 rounded-ui-rect border border-sam-warning bg-sam-warning-soft/60 p-3 dark:border-sam-warning dark:bg-sam-warning/20">
             <div className="flex flex-wrap items-start gap-3">
               {linkedContent.hero_image_url ? (
                 <SamarketThumbnail
@@ -795,18 +797,18 @@ export function AdminNotificationCampaignCreatePage() {
                 />
               ) : null}
               <div className="min-w-0 flex-1 space-y-1">
-                <span className="inline-block rounded-ui-rect bg-sam-app px-1.5 py-0.5 text-[11px] font-medium text-sam-muted">
+                <span className="inline-block rounded-ui-rect bg-sam-app px-1.5 py-0.5 text-[12px] font-medium text-sam-muted">
                   {boardLabel}
                 </span>
                 <p className="break-words text-sm font-semibold text-sam-fg">{linkedContent.title}</p>
-                <p className="font-mono text-[11px] text-sam-meta">
+                <p className="font-mono text-[12px] text-sam-meta">
                   {safeT("admin_notif_content_id_label", {
                     fallbackKo: "콘텐츠 ID",
                     fallbackEn: "Content ID",
                   })}
                   : {linkedContent.id}
                 </p>
-                <p className="text-[11px] text-sam-muted">
+                <p className="text-[12px] text-sam-muted">
                   {statusLabel} · {createdLabel}
                 </p>
               </div>
@@ -832,26 +834,22 @@ export function AdminNotificationCampaignCreatePage() {
                   })}
                 </Link>
               ) : null}
-              <button
-                type="button"
+              <AdminActionButton variant="secondary" size="sm"
                 onClick={() => void openPicker()}
-                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs"
               >
                 {safeT("admin_notif_btn_change_original", {
                   fallbackKo: "원본 변경",
                   fallbackEn: "Change original",
                 })}
-              </button>
-              <button
-                type="button"
+              </AdminActionButton>
+              <AdminActionButton variant="secondary" size="sm"
                 onClick={clearLinkedContent}
-                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs text-sam-muted"
               >
                 {safeT("admin_notif_btn_unlink_original", {
                   fallbackKo: "연결 해제",
                   fallbackEn: "Unlink",
                 })}
-              </button>
+              </AdminActionButton>
             </div>
             <label className="block text-sm">
               <span className="text-xs text-sam-muted">
@@ -872,7 +870,7 @@ export function AdminNotificationCampaignCreatePage() {
             </label>
           </div>
         ) : linkedId ? (
-          <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-amber-50/60 p-3">
+          <div className="space-y-2 rounded-ui-rect border border-sam-warning bg-sam-warning-soft/60 p-3">
             <p className="font-mono text-xs text-sam-fg">
               {safeT("admin_notif_content_id_label", {
                 fallbackKo: "콘텐츠 ID",
@@ -890,16 +888,14 @@ export function AdminNotificationCampaignCreatePage() {
                   fallbackEn: "View original",
                 })}
               </Link>
-              <button
-                type="button"
+              <AdminActionButton variant="secondary" size="sm"
                 onClick={() => void openPicker()}
-                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs"
               >
                 {safeT("admin_notif_btn_change_original", {
                   fallbackKo: "원본 변경",
                   fallbackEn: "Change original",
                 })}
-              </button>
+              </AdminActionButton>
             </div>
           </div>
         ) : (
@@ -932,16 +928,14 @@ export function AdminNotificationCampaignCreatePage() {
                   <option value="system">{t("admin_notif_type_system")}</option>
                 </select>
               </label>
-              <button
-                type="button"
+              <AdminActionButton variant="secondary"
                 onClick={() => void openPicker()}
-                className="rounded-ui-rect border border-signature px-3 py-2 text-sm text-signature"
               >
                 {safeT("admin_notif_btn_link_original", {
                   fallbackKo: "원본 연결",
                   fallbackEn: "Link original",
                 })}
-              </button>
+              </AdminActionButton>
             </div>
           </div>
         )}
@@ -1018,17 +1012,15 @@ export function AdminNotificationCampaignCreatePage() {
               className="block w-full text-xs"
               onChange={(e) => void onUpload("push", e.target.files?.[0] ?? null)}
             />
-            <button
-              type="button"
+            <AdminActionButton variant="secondary" size="sm"
               disabled={!linkedContent?.hero_image_url}
               onClick={() => useHeroFor("push")}
-              className="rounded-ui-rect border border-sam-border px-2 py-1 text-xs disabled:opacity-40"
             >
               {safeT("admin_notif_btn_use_hero_image", {
                 fallbackKo: "원본 대표 이미지 사용",
                 fallbackEn: "Use original hero image",
               })}
-            </button>
+            </AdminActionButton>
             {presentation.pushImageUrl ? (
               <SamarketThumbnail
                 src={presentation.pushImageUrl}
@@ -1051,17 +1043,15 @@ export function AdminNotificationCampaignCreatePage() {
               className="block w-full text-xs"
               onChange={(e) => void onUpload("in_app", e.target.files?.[0] ?? null)}
             />
-            <button
-              type="button"
+            <AdminActionButton variant="secondary" size="sm"
               disabled={!linkedContent?.hero_image_url}
               onClick={() => useHeroFor("in_app")}
-              className="rounded-ui-rect border border-sam-border px-2 py-1 text-xs disabled:opacity-40"
             >
               {safeT("admin_notif_btn_use_hero_image", {
                 fallbackKo: "원본 대표 이미지 사용",
                 fallbackEn: "Use original hero image",
               })}
-            </button>
+            </AdminActionButton>
             {presentation.inAppImageUrl ? (
               <SamarketThumbnail
                 src={presentation.inAppImageUrl}
@@ -1183,7 +1173,7 @@ export function AdminNotificationCampaignCreatePage() {
               onChange={(e) => setScheduledAt(e.target.value)}
               className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2"
             />
-            <p className="mt-1 text-xs text-amber-700">{t("admin_notif_scheduled_job_notice")}</p>
+            <p className="mt-1 text-xs text-sam-warning">{t("admin_notif_scheduled_job_notice")}</p>
           </label>
         ) : null}
 
@@ -1276,7 +1266,7 @@ export function AdminNotificationCampaignCreatePage() {
           </div>
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
             <p className="text-xs font-semibold text-sam-fg">{t("admin_notif_preview_ios_push")}</p>
-            <p className="mt-1 text-[11px] text-amber-700">{t("admin_notif_preview_ios_push_note")}</p>
+            <p className="mt-1 text-[12px] text-sam-warning">{t("admin_notif_preview_ios_push_note")}</p>
             <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
               <p className="text-sm font-medium">{presentation.pushPayload.title}</p>
               <p className="text-xs text-sam-muted">{presentation.pushPayload.body}</p>
@@ -1298,7 +1288,7 @@ export function AdminNotificationCampaignCreatePage() {
                 <p className="line-clamp-2 text-xs text-sam-muted">{presentation.inAppPresentation.body}</p>
               </div>
             </div>
-            <p className="mt-1 truncate text-[11px] text-signature">{presentation.deepLink}</p>
+            <p className="mt-1 truncate text-[12px] text-signature">{presentation.deepLink}</p>
           </div>
         </div>
       </section>
@@ -1339,23 +1329,19 @@ export function AdminNotificationCampaignCreatePage() {
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
+            <AdminActionButton variant="primary"
               disabled={busy}
               onClick={() => submitReview()}
-              className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
             >
               {reviewPrimaryLabel}
-            </button>
-            <button
-              type="button"
+            </AdminActionButton>
+            <AdminActionButton variant="secondary"
               onClick={() => {
                 setShowReview(false);
               }}
-              className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm"
             >
               {t("admin_notif_btn_cancel")}
-            </button>
+            </AdminActionButton>
           </div>
         </div>
       ) : null}
@@ -1379,58 +1365,44 @@ export function AdminNotificationCampaignCreatePage() {
             >
               {t("admin_notif_btn_cancel")}
             </Link>
-            <button
-              type="button"
+            <AdminActionButton variant={editStatus === "draft" ? "secondary" : "primary"}
               disabled={busy || !formValid || Boolean(editBlocked)}
               onClick={() => void saveEdit()}
-              className={
-                editStatus === "draft"
-                  ? "rounded-ui-rect border border-sam-border px-4 py-2 text-sm disabled:opacity-40"
-                  : "rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-              }
               data-admin-notif-save-edit="1"
             >
               {safeT("admin_campaign_cms_btn_save_changes", { fallbackKo: "변경 저장", fallbackEn: "Save changes" })}
-            </button>
+            </AdminActionButton>
             {editStatus === "draft" ? (
-              <button
-                type="button"
+              <AdminActionButton variant="primary"
                 disabled={busy || !formValid || Boolean(editBlocked)}
                 onClick={() => void openReview()}
-                className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
               >
                 {t("admin_notif_btn_review")}
-              </button>
+              </AdminActionButton>
             ) : null}
           </div>
         ) : (
           <>
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
+              <AdminActionButton variant="secondary"
                 disabled={busy || !formValid}
                 onClick={() => void saveDraft()}
-                className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm disabled:opacity-40"
               >
                 {t("admin_notif_btn_draft")}
-              </button>
-              <button
-                type="button"
+              </AdminActionButton>
+              <AdminActionButton variant="primary"
                 disabled={busy || !formValid}
                 onClick={() => void openReview()}
-                className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
               >
                 {t("admin_notif_btn_review")}
-              </button>
+              </AdminActionButton>
             </div>
-            <button
-              type="button"
+            <AdminActionButton variant="secondary"
               disabled={busy || !formValid || !testUserIds.trim()}
               onClick={() => void runTestSend()}
-              className="rounded-ui-rect border border-signature px-4 py-2 text-sm text-signature disabled:opacity-40"
             >
               {t("admin_notif_btn_test_send")}
-            </button>
+            </AdminActionButton>
           </>
         )}
       </div>
@@ -1477,15 +1449,13 @@ export function AdminNotificationCampaignCreatePage() {
                     const label = BOARD_LABEL[ct][language === "en" ? "en" : "ko"];
                     return (
                       <li key={row.id}>
-                        <button
-                          type="button"
+                        <AdminListItemButton className="border border-sam-border-soft"
                           onClick={() => selectLinkedContent(row)}
-                          className="w-full rounded-ui-rect border border-sam-border-soft px-3 py-2 text-left hover:bg-sam-muted/10"
                         >
-                          <span className="mr-2 text-[11px] text-sam-muted">{label}</span>
+                          <span className="mr-2 text-[12px] text-sam-muted">{label}</span>
                           <span className="text-sm font-medium text-sam-fg">{row.title}</span>
-                          <span className="mt-0.5 block font-mono text-[10px] text-sam-meta">{row.id}</span>
-                        </button>
+                          <span className="mt-0.5 block font-mono text-[12px] text-sam-meta">{row.id}</span>
+                        </AdminListItemButton>
                       </li>
                     );
                   })}

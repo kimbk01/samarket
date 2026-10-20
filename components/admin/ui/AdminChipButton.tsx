@@ -25,10 +25,10 @@ export function AdminChipButton({
       data-admin-chip={selected ? "on" : "off"}
       className={[
         "inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border px-3 text-[13px] leading-5 transition-colors",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-accent,#1d4ed8)] disabled:opacity-50",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-accent)] disabled:opacity-50",
         selected
-          ? "border-[var(--admin-console-accent,#1d4ed8)] bg-[var(--admin-console-active-bg,#e8eefc)] font-semibold text-[var(--admin-console-accent,#1d4ed8)]"
-          : "border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] text-[var(--admin-console-fg,#1f2937)] hover:bg-[var(--admin-console-hover,#eef1f6)]",
+          ? "border-[var(--admin-console-accent)] bg-[var(--admin-console-active-bg)] font-semibold text-[var(--admin-console-accent)]"
+          : "border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] text-[var(--admin-console-fg)] hover:bg-[var(--admin-console-hover)]",
         className,
       ]
         .filter(Boolean)

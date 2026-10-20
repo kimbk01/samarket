@@ -8,6 +8,7 @@ import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminA
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
@@ -185,7 +186,7 @@ export function AdminPhoneVerificationOpsPage() {
   const toggleEnabled = async (next: boolean) => {
     if (!ops) return;
     const confirmed = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel("runtimeSettingChange"),
       ko,
       title: next
         ? ko

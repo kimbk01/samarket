@@ -6,6 +6,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import type { ExposureCandidate } from "@/lib/types/exposure";
 import type { ExposureScoreResult } from "@/lib/types/exposure";
 import { MEMBER_TYPE_LABELS } from "@/lib/member-benefits/member-benefit-utils";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface ExposureResultDetailCardProps {
   candidate: ExposureCandidate;
@@ -25,13 +26,13 @@ export function ExposureResultDetailCard({
         <h3 className="sam-text-body font-medium text-sam-fg">
           점수 상세: {candidate.title} ({candidate.id})
         </h3>
-        <button
-          type="button"
+        <AdminActionButton
           onClick={onClose}
-          className="sam-text-body-secondary text-sam-muted hover:underline"
+          variant="quiet"
+          size="sm"
         >
           닫기
-        </button>
+        </AdminActionButton>
       </div>
       <dl className="grid grid-cols-1 gap-2 sam-text-body sm:grid-cols-2">
         <div>

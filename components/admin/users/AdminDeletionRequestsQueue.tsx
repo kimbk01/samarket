@@ -12,6 +12,7 @@ import {
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
@@ -72,7 +73,7 @@ export function AdminDeletionRequestsQueue() {
 
   const reject = async (item: QueueItem) => {
     const confirmed = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel("reject"),
       ko,
       title: ko ? "삭제 요청 반려" : "Reject deletion request",
       description: ko

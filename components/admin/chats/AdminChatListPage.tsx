@@ -545,7 +545,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
   const emptyCopy =
     loadFailed && rooms.length === 0
       ? safeT("admin_chat_domain_list_error", {
-          fallbackKo: "목록을 불러오지 못했습니다. 다시 시도해 주세요.",
+          fallbackKo: "목록을 불러오지 못했습니다. 새로고침해 주세요.",
           fallbackEn: "Could not load the list. Please try again.",
         })
       : rooms.length === 0
@@ -659,10 +659,9 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
           </AdminActionButton>
           {mode === "trade" ? (
             <AdminActionButton
-              variant="danger"
+              variant="secondary"
               disabled={selectedIds.size === 0 || actionBusy}
               onClick={() => void blockSelectedTradeRooms()}
-              className="border border-red-300 bg-red-50 text-red-900 hover:bg-red-100"
             >
               {t("admin_chat_close_selected_ops")}
             </AdminActionButton>
@@ -673,7 +672,6 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             disabled={selectedIds.size === 0 || actionBusy}
             onClick={() => (mode === "trade_legacy" ? openHardDeleteSheet() : void deleteSelectedFromDb())}
             data-admin-mgmt-hard-delete="1"
-            className="ring-2 ring-red-900/50"
           >
             {t("admin_chat_delete_from_db")}
           </AdminActionButton>

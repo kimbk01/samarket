@@ -6,10 +6,10 @@ import { ADMIN_BANNER_STATUS_KEYS } from "./admin-banner-i18n";
 
 const CLASSES: Record<BannerStatus, string> = {
   draft: "bg-sam-surface-muted text-sam-fg",
-  active: "bg-emerald-50 text-emerald-800",
-  paused: "bg-amber-100 text-amber-800",
+  active: "bg-sam-success-soft text-sam-success",
+  paused: "bg-sam-warning-soft text-sam-warning",
   expired: "bg-sam-border-soft text-sam-muted",
-  hidden: "bg-red-50 text-red-700",
+  hidden: "bg-sam-danger-soft text-sam-danger",
 };
 
 interface AdminBannerStatusBadgeProps {

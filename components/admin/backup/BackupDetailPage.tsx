@@ -18,20 +18,15 @@ import {
   BACKUP_SNAPSHOT_TYPE_LABEL_KEYS,
 } from "@/lib/backup/backup-i18n-keys";
 import { AdminTable } from "@/components/admin/AdminTable";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface BackupDetailPageProps {
   snapshotId: string;
 }
 
-function backupLocale(language: string): string {
-  if (language === "en") return "en-US";
-  return "ko-KR";
-}
-
 export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const locale = backupLocale(language);
   const { state: loadState, reload } = useAdminSyncLoad(loadBackupFromServer);
   const hydrated = loadState.status === "ready";
 
@@ -58,10 +53,8 @@ export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
     );
   }
 
-  const startedAt = new Date(snapshot.startedAt).toLocaleString(locale);
-  const completedAt = snapshot.completedAt
-    ? new Date(snapshot.completedAt).toLocaleString(locale)
-    : null;
+  const startedAt = formatAdminManilaDateTime(snapshot.startedAt);
+  const completedAt = snapshot.completedAt ? formatAdminManilaDateTime(snapshot.completedAt) : null;
 
   return (
     <div className="space-y-6">
@@ -71,9 +64,9 @@ export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
           <span
             className={`rounded px-1.5 py-0.5 ${
               snapshot.status === "completed"
-                ? "bg-emerald-50 text-emerald-700"
+                ? "bg-sam-success-soft text-sam-success"
                 : snapshot.status === "failed"
-                  ? "bg-red-100 text-red-800"
+                  ? "bg-sam-danger-soft text-sam-danger"
                   : "bg-sam-surface-muted text-sam-muted"
             }`}
           >
@@ -115,7 +108,7 @@ export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
                 </td>
                 <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">{i.size}</td>
                 <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                  {snapshot.status}
+                  {t(BACKUP_SNAPSHOT_STATUS_LABEL_KEYS[snapshot.status])}
                 </td>
               </tr>
             ))}
@@ -141,17 +134,17 @@ export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     r.restoreStatus === "completed"
-                      ? "bg-emerald-50 text-emerald-700"
+                      ? "bg-sam-success-soft text-sam-success"
                       : r.restoreStatus === "failed"
-                        ? "bg-red-100 text-red-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
                   {t(BACKUP_RESTORE_STATUS_LABEL_KEYS[r.restoreStatus])}
                 </span>
                 {t(BACKUP_RESTORE_TYPE_LABEL_KEYS[r.restoreType])} ·{" "}
-                {new Date(r.startedAt).toLocaleString(locale)}
-                {r.completedAt ? ` → ${new Date(r.completedAt).toLocaleString(locale)}` : null}
+                {formatAdminManilaDateTime(r.startedAt)}
+                {r.completedAt ? ` → ${formatAdminManilaDateTime(r.completedAt)}` : null}
                 {r.note ? ` · ${r.note}` : null}
               </li>
             ))}

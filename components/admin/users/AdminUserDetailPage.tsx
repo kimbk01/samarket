@@ -6,12 +6,14 @@ import { useSearchParams } from "next/navigation";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminMemberControlCenter } from "@/components/admin/users/AdminMemberControlCenter";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import type {
   AdminPersonMembershipRow,
   AdminPersonStoreRow,
   AdminUserDetailPayload,
 } from "@/components/admin/users/AdminTestUserDetail";
-import { ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY, ADMIN_USERS_LITE_PAGE_BG } from "@/lib/ui/admin-users-lite-styles";
+import { ADMIN_USERS_LITE_PAGE_BG } from "@/lib/ui/admin-users-lite-styles";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 interface AdminUserDetailPageProps {
@@ -43,7 +45,7 @@ function classifyHttpError(status: number): Exclude<DetailLoadState, { kind: "lo
 }
 
 export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
-  const { t, safeT } = useI18n();
+  const { t, language } = useI18n();
   const [refreshKey, setRefreshKey] = useState(0);
   const [state, setState] = useState<DetailLoadState>({ kind: "loading" });
   const [softRefreshing, setSoftRefreshing] = useState(false);
@@ -112,7 +114,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
   if (state.kind === "loading") {
     return (
       <div
-        className={`${ADMIN_USERS_LITE_PAGE_BG} py-12 text-center text-[13px] text-[#667085]`}
+        className={`${ADMIN_USERS_LITE_PAGE_BG} py-12 text-center text-[13px] text-sam-muted`}
         data-member-detail-state="loading"
       >
         {t("admin_users_detail_loading")}
@@ -123,7 +125,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
   if (state.kind === "not_found") {
     return (
       <div
-        className={`${ADMIN_USERS_LITE_PAGE_BG} py-12 text-center text-[13px] text-[#667085]`}
+        className={`${ADMIN_USERS_LITE_PAGE_BG} py-12 text-center text-[13px] text-sam-muted`}
         data-member-detail-state="not_found"
       >
         {t(state.messageKey)}
@@ -134,7 +136,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
   if (state.kind === "forbidden") {
     return (
       <div
-        className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-3 py-12 text-center text-[13px] text-[#667085]`}
+        className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-3 py-12 text-center text-[13px] text-sam-muted`}
         data-member-detail-state="forbidden"
       >
         <p>{t(state.messageKey)}</p>
@@ -145,18 +147,17 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
   if (state.kind === "error") {
     return (
       <div
-        className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-3 py-12 text-center text-[13px] text-[#667085]`}
+        className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-3 py-12 text-center text-[13px] text-sam-muted`}
         data-member-detail-state="error"
       >
         <p>{t(state.messageKey)}</p>
-        <button
-          type="button"
-          className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+        <AdminActionButton
+          variant="secondary"
           onClick={() => setRefreshKey((k) => k + 1)}
           data-member-detail-retry="1"
         >
-          {safeT("admin_users_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-        </button>
+          {adminCta("refresh", language !== "en")}
+        </AdminActionButton>
       </div>
     );
   }
@@ -165,7 +166,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
     <div data-member-detail-state="found" data-member-detail-soft-refresh={softRefreshing ? "1" : "0"}>
       {softRefreshing ? (
         <p
-          className="mb-2 rounded-md border border-[#dbeafe] bg-[#eff6ff] px-3 py-2 text-[12px] text-[#1d4ed8]"
+          className="mb-2 rounded-md border border-sam-primary-border bg-sam-primary-soft px-3 py-2 text-[12px] text-sam-primary"
           data-member-detail-refreshing="1"
         >
           회원 정보를 갱신하는 중…

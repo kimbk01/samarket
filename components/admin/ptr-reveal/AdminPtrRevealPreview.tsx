@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { DibayPtrSlot, type DibayPtrSlotStore } from "@/components/ptr/DibayPtrSlot";
 import type { DibayPtrSnapshot } from "@/lib/ui/ptr/create-dibay-ptr-store";
 import {
@@ -109,16 +110,11 @@ export function AdminPtrRevealPreview({ ad, lang }: { ad: PtrRevealAd | null; la
             </option>
           ))}
         </select>
-        <div className="flex overflow-hidden rounded border border-sam-border">
+        <div className="flex gap-1">
           {[false, true].map((ls) => (
-            <button
-              key={String(ls)}
-              type="button"
-              onClick={() => setLandscape(ls)}
-              className={`px-2 py-1 ${landscape === ls ? "bg-sam-primary text-white" : ""}`}
-            >
+            <AdminChipButton key={String(ls)} selected={landscape === ls} onClick={() => setLandscape(ls)}>
               {ls ? (lang === "en" ? "Landscape" : "가로") : lang === "en" ? "Portrait" : "세로"}
-            </button>
+            </AdminChipButton>
           ))}
         </div>
         <label className="flex items-center gap-1">
@@ -132,24 +128,21 @@ export function AdminPtrRevealPreview({ ad, lang }: { ad: PtrRevealAd | null; la
       </div>
       <div className="flex flex-wrap gap-1">
         {PTR_PREVIEW_STATES.map((s) => (
-          <button
+          <AdminChipButton
             key={s.id}
-            type="button"
+            selected={state === s.id}
             onClick={() => setState(s.id)}
             data-admin-ptr-preview-state={s.id}
-            className={`rounded-full border px-2.5 py-1 text-xs ${
-              state === s.id ? "border-sam-primary bg-sam-primary text-white" : "border-sam-border"
-            }`}
           >
             {lang === "en" ? s.en : s.ko}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
       {guides ?
         <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-sam-muted" data-admin-ptr-guide-legend="">
-          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-emerald-500 bg-emerald-400/30 align-middle" />{lang === "en" ? "Key copy (always visible)" : "핵심 문구 (항상 보임)"}</span>
-          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-rose-500 bg-rose-400/30 align-middle" />{lang === "en" ? "Spinner & status text" : "스피너·상태 문구"}</span>
-          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-sky-500 bg-sky-400/30 align-middle" />{lang === "en" ? "Ad label · logo · button" : "광고 표기·로고·버튼"}</span>
+          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-sam-success bg-sam-success/30 align-middle" />{lang === "en" ? "Key copy (always visible)" : "핵심 문구 (항상 보임)"}</span>
+          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-sam-danger bg-sam-danger/30 align-middle" />{lang === "en" ? "Spinner & status text" : "스피너·상태 문구"}</span>
+          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-sam-info bg-sam-info/30 align-middle" />{lang === "en" ? "Ad label · logo · button" : "광고 표기·로고·버튼"}</span>
           <span>{lang === "en" ? "Outside the boxes may be cropped on some devices." : "상자 밖은 기기에 따라 잘릴 수 있습니다."}</span>
         </p>
       : null}
@@ -252,7 +245,7 @@ function PreviewFrame({
         : null}
       </div>
       {missingTablet ?
-        <p className="text-xs text-amber-700">
+        <p className="text-xs text-sam-warning">
           {lang === "en"
             ? "No tablet band uploaded — this device shows normal pull-to-refresh without an ad."
             : "태블릿 띠가 없어 이 기기에서는 광고 없이 일반 새로고침만 표시됩니다."}

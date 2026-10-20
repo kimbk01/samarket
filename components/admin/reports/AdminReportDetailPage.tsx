@@ -14,18 +14,14 @@ import {
   REPORT_TARGET_TYPE_LABEL_KEYS,
   messageKeyForReportAction,
 } from "@/lib/admin-reports/report-admin-i18n-keys";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface AdminReportDetailPageProps {
   reportId: string;
 }
 
-function localeForDetail(language: string): string {
-  if (language === "en") return "en-US";
-  return "ko-KR";
-}
-
 export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLogs, setActionLogs] = useState<
@@ -100,9 +96,9 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
               <span
                 className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                   report.status === "pending" || report.status === "reviewing"
-                    ? "bg-amber-100 text-amber-800"
+                    ? "bg-sam-warning-soft text-sam-warning"
                     : report.status === "rejected" || report.status === "sanctioned"
-                      ? "bg-red-50 text-red-700"
+                      ? "bg-sam-danger-soft text-sam-danger"
                       : "bg-sam-surface-muted text-sam-fg"
                 }`}
               >
@@ -112,7 +108,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
           </div>
           <div>
             <dt className="text-sam-muted">{t("admin_report_dt_reported_at")}</dt>
-            <dd>{new Date(report.createdAt).toLocaleString(localeForDetail(language))}</dd>
+            <dd>{formatAdminManilaDateTime(report.createdAt)}</dd>
           </div>
         </dl>
       </AdminCard>
@@ -206,7 +202,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
                 >
                   <span className="font-medium text-sam-fg">{actionLabel}</span>
                   <span className="text-sam-muted">
-                    {new Date(a.createdAt).toLocaleString(localeForDetail(language))}
+                    {formatAdminManilaDateTime(a.createdAt)}
                   </span>
                   <span className="text-sam-muted">· {a.adminNickname}</span>
                   {a.actionNote ? (

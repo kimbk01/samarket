@@ -5,6 +5,7 @@
  * 주문 → `/admin/stores/orders/{id}` · 주문 채팅, 거래 → 거래 채팅 관리 · 거래 운영. 모두 returnTo 유지.
  */
 import Link from "next/link";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -99,9 +100,9 @@ export function AdminCmRoomDomainLinksCard({
             <div key={key} className="flex flex-wrap items-center gap-2 sam-text-helper">
               <span className="text-sam-muted">{label}</span>
               <code className="rounded bg-sam-surface-muted px-1.5 py-0.5">{path}</code>
-              <button type="button" onClick={() => copy(key, path)} className="font-medium text-signature underline">
+              <AdminActionButton variant="ghost" size="sm" onClick={() => copy(key, path)}>
                 {copied === key ? t("admin_chat_copied") : t("admin_chat_copy")}
-              </button>
+              </AdminActionButton>
             </div>
           ))}
         </div>

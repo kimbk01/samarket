@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  r5DeliveryStatusLabel,
+  GIFT_INSTANCE_STATUS_NAMESPACE,
+} from "@/lib/admin/status-labels/r5-delivery-status-labels";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -268,7 +272,7 @@ export function AdminGiftInstancesPanel({
                     <td className="px-2 py-2 tabular-nums">{formatAdminPhp(row.remainingBalance)}</td>
                     <td className="px-2 py-2 text-xs text-sam-muted">{dt(row.purchasedAt || row.createdAt)}</td>
                     <td className="px-2 py-2 text-xs">{formatValidity(row.validFrom, row.validUntil)}</td>
-                    <td className="px-2 py-2">{row.status}</td>
+                    <td className="px-2 py-2">{r5DeliveryStatusLabel(GIFT_INSTANCE_STATUS_NAMESPACE, row.status, language !== "en")}</td>
                     <td className="px-2 py-2">
                       <AdminActionButton
                         type="button"
@@ -297,7 +301,8 @@ export function AdminGiftInstancesPanel({
                     <p className="font-mono text-sm font-semibold">{row.publicGiftNumber || "—"}</p>
                     <p className="text-sm">{row.productTitle}</p>
                     <p className="text-xs text-sam-muted">
-                      {row.giftScope === "PLATFORM" ? "DIBAY" : row.storeName} · {row.status}
+                      {row.giftScope === "PLATFORM" ? "DIBAY" : row.storeName} ·{" "}
+                      {r5DeliveryStatusLabel(GIFT_INSTANCE_STATUS_NAMESPACE, row.status, language !== "en")}
                     </p>
                     <p className="text-xs tabular-nums">
                       {formatAdminPhp(row.remainingBalance)} / {formatAdminPhp(row.faceValue)}

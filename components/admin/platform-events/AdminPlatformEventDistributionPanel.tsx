@@ -9,6 +9,8 @@ import {
   type AdminPlatformPopupPreviewSource,
 } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
@@ -602,7 +604,7 @@ export function AdminPlatformEventDistributionPanel({
       </div>
 
       {error ? (
-        <p className="text-sm text-red-600" data-admin-dist-error="1">
+        <p className="text-sm text-sam-danger" data-admin-dist-error="1">
           {error}
         </p>
       ) : null}
@@ -645,7 +647,7 @@ export function AdminPlatformEventDistributionPanel({
         {toggles.popup ? (
           <div className="ml-6 space-y-3" data-admin-popup-config="1">
             <div
-              className="rounded border border-amber-200 bg-amber-50/70 px-3 py-2 text-sm"
+              className="rounded border border-sam-warning/30 bg-sam-warning-soft/70 px-3 py-2 text-sm"
               data-admin-popup-dist-lifecycle="1"
               data-admin-popup-dist-lifecycle-kind={popupLifecycle.kind}
             >
@@ -674,15 +676,11 @@ export function AdminPlatformEventDistributionPanel({
               {POPUP_CHOICES.map((choice) => {
                 const disabled = choice.id === "benefit" && !benefitEligible;
                 return (
-                  <button
+                  <AdminListItemButton
                     key={choice.id}
-                    type="button"
                     disabled={disabled}
-                    className={`rounded-ui-rect border px-3 py-2 text-left text-sm ${
-                      popupChoice === choice.id
-                        ? "border-sam-fg bg-sam-fg/5"
-                        : "border-sam-border"
-                    } ${disabled ? "opacity-50" : ""}`}
+                    selected={popupChoice === choice.id}
+                    className="border border-sam-border px-3 text-sm"
                     data-admin-popup-presentation={choice.id}
                     data-admin-popup-presentation-disabled={disabled ? "1" : "0"}
                     onClick={() => {
@@ -695,7 +693,7 @@ export function AdminPlatformEventDistributionPanel({
                     </div>
                     {disabled ? (
                       <div
-                        className="mt-1 text-xs text-red-600"
+                        className="mt-1 text-xs text-sam-danger"
                         data-admin-popup-benefit-disabled-reason="1"
                       >
                         {safeT("admin_platform_events_popup_benefit_disabled", {
@@ -704,7 +702,7 @@ export function AdminPlatformEventDistributionPanel({
                         })}
                       </div>
                     ) : null}
-                  </button>
+                  </AdminListItemButton>
                 );
               })}
             </div>
@@ -778,14 +776,10 @@ export function AdminPlatformEventDistributionPanel({
           <div className="ml-6 space-y-3" data-admin-event-banner-editor="1">
             <div className="grid gap-2 sm:grid-cols-2" data-admin-banner-presentation-from-registry="1">
               {listEventBannerPresentations().map((value) => (
-                <button
+                <AdminListItemButton
                   key={value}
-                  type="button"
-                  className={`rounded-ui-rect border px-3 py-2 text-left text-sm ${
-                    bannerPresentation === value
-                      ? "border-sam-fg bg-sam-fg/5"
-                      : "border-sam-border"
-                  }`}
+                  selected={bannerPresentation === value}
+                  className="border border-sam-border px-3 text-sm"
                   data-admin-banner-presentation={value}
                   onClick={() => {
                     setBannerPresentation(value);
@@ -801,7 +795,7 @@ export function AdminPlatformEventDistributionPanel({
                   <div className="mt-0.5 text-xs text-sam-muted">
                     {eventBannerImageGuidance(value, lang)}
                   </div>
-                </button>
+                </AdminListItemButton>
               ))}
             </div>
 
@@ -854,7 +848,7 @@ export function AdminPlatformEventDistributionPanel({
               />
             </label>
             {!bannerCompatOk ? (
-              <p className="text-sm text-red-600" data-admin-banner-compat-fail="1">
+              <p className="text-sm text-sam-danger" data-admin-banner-compat-fail="1">
                 {safeT("admin_platform_events_banner_compat_fail", {
                   fallbackKo: "이 배치와 배너 형태 조합은 허용되지 않습니다.",
                   fallbackEn: "This placement + presentation combination is not allowed.",
@@ -875,19 +869,14 @@ export function AdminPlatformEventDistributionPanel({
                     ["desktop", "데스크톱", "Desktop"],
                   ] as const
                 ).map(([mode, ko, en]) => (
-                  <button
+                  <AdminChipButton
                     key={mode}
-                    type="button"
-                    className={`rounded px-2 py-1 text-xs ${
-                      bannerPreviewDevice === mode
-                        ? "bg-sam-fg text-white"
-                        : "border border-sam-border"
-                    }`}
+                    selected={bannerPreviewDevice === mode}
                     data-admin-banner-preview-device={mode}
                     onClick={() => setBannerPreviewDevice(mode)}
                   >
                     {lang === "en" ? en : ko}
-                  </button>
+                  </AdminChipButton>
                 ))}
               </div>
               <p className="mb-2 text-xs font-medium text-sam-muted">
@@ -900,7 +889,7 @@ export function AdminPlatformEventDistributionPanel({
                   : ""}
               </p>
               <div
-                className="mx-auto overflow-hidden rounded-ui-rect border border-sam-border bg-slate-200/50 p-2"
+                className="mx-auto overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface-muted p-2"
                 style={{
                   width: adminBannerPreviewDeviceOuterWidthPx(bannerPreviewDevice),
                   maxWidth: "100%",
@@ -984,7 +973,7 @@ export function AdminPlatformEventDistributionPanel({
         {toggles.push ? (
           <div className="ml-6 grid gap-2" data-admin-push-config="1">
             <div
-              className="rounded border border-amber-200 bg-amber-50/70 px-3 py-2 text-sm"
+              className="rounded border border-sam-warning/30 bg-sam-warning-soft/70 px-3 py-2 text-sm"
               data-admin-push-dist-lifecycle="1"
               data-admin-push-dist-lifecycle-kind={pushLifecycle.kind}
             >
@@ -1038,10 +1027,10 @@ export function AdminPlatformEventDistributionPanel({
               className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
               data-admin-push-preview="1"
             >
-              <p className="text-[11px] font-medium text-sam-muted">dibaY · Push preview</p>
+              <p className="text-[12px] font-medium text-sam-muted">dibaY · Push preview</p>
               <p className="mt-1 text-sm font-semibold">{pushTitle || "—"}</p>
               <p className="text-xs text-sam-muted">{pushBody || "—"}</p>
-              <p className="mt-1 text-[10px] text-sam-muted">
+              <p className="mt-1 text-[12px] text-sam-muted">
                 {safeT("admin_platform_events_push_preview_note", {
                   fallbackKo: "미리보기만 · 저장해도 발송되지 않습니다.",
                   fallbackEn: "Visual only · Save does not dispatch.",
@@ -1143,10 +1132,10 @@ export function AdminPlatformEventDistributionPanel({
               className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
               data-admin-bell-preview="1"
             >
-              <p className="text-[11px] font-medium text-sam-muted">Bell · inbox row preview</p>
+              <p className="text-[12px] font-medium text-sam-muted">Bell · inbox row preview</p>
               <p className="mt-1 text-sm font-semibold">{bellTitle || "—"}</p>
               <p className="text-xs text-sam-muted">{bellBody || "—"}</p>
-              <p className="mt-1 text-[10px] text-sam-muted">
+              <p className="mt-1 text-[12px] text-sam-muted">
                 {safeT("admin_platform_events_bell_preview_note", {
                   fallbackKo: "알림함 행 미리보기 · Push와 독립 · 저장만으로 회원 알림함에 등록되지 않음.",
                   fallbackEn:

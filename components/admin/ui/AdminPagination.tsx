@@ -16,11 +16,11 @@ import {
 import { ADMIN_LIST_PAGE_SIZES, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
 const BTN =
-  "inline-flex h-9 min-w-9 items-center justify-center rounded-ui-rect border px-2 text-[13px] font-medium leading-5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-accent,#1d4ed8)] disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-9 min-w-9 items-center justify-center rounded-ui-rect border px-2 text-[13px] font-medium leading-5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-accent)] disabled:cursor-not-allowed disabled:opacity-40";
 const BTN_IDLE =
-  "border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] text-[var(--admin-console-fg,#1f2937)] hover:bg-[var(--admin-console-hover,#eef1f6)]";
+  "border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] text-[var(--admin-console-fg)] hover:bg-[var(--admin-console-hover)]";
 const BTN_CURRENT =
-  "border-[var(--admin-console-accent,#1d4ed8)] bg-[var(--admin-console-active-bg,#e8eefc)] font-semibold text-[var(--admin-console-accent,#1d4ed8)]";
+  "border-[var(--admin-console-accent)] bg-[var(--admin-console-active-bg)] font-semibold text-[var(--admin-console-accent)]";
 
 export function AdminPagination({
   ko,
@@ -61,7 +61,7 @@ export function AdminPagination({
       aria-label={ko ? "페이지 이동" : "Pagination"}
       className={`flex flex-wrap items-center justify-end gap-x-3 gap-y-2 py-3 ${className}`.trim()}
     >
-      <p className="text-[13px] text-[var(--admin-console-muted,#667085)]" data-admin-pagination-summary="1" aria-live="polite">
+      <p className="text-[13px] text-[var(--admin-console-muted)]" data-admin-pagination-summary="1" aria-live="polite">
         {adminPaginationSummary(current, size, total, ko)}
       </p>
       <div className="flex items-center gap-1">
@@ -88,7 +88,7 @@ export function AdminPagination({
               {formatAdminCount(it)}
             </button>
           ) : (
-            <span key={it} aria-hidden className="inline-flex h-9 min-w-6 items-center justify-center text-[13px] text-[var(--admin-console-muted,#667085)]">
+            <span key={it} aria-hidden className="inline-flex h-9 min-w-6 items-center justify-center text-[13px] text-[var(--admin-console-muted)]">
               …
             </span>
           )
@@ -104,13 +104,13 @@ export function AdminPagination({
         </button>
       </div>
       {onSizeChange ? (
-        <label className="flex items-center gap-1.5 text-[13px] text-[var(--admin-console-muted,#667085)]">
+        <label className="flex items-center gap-1.5 text-[13px] text-[var(--admin-console-muted)]">
           <span>{ko ? "페이지당" : "Per page"}</span>
           <select
             value={size}
             disabled={disabled}
             onChange={(e) => onSizeChange(Number(e.target.value) as AdminListPageSize)}
-            className="h-9 rounded-ui-rect border border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] px-2 text-[13px] text-[var(--admin-console-fg,#1f2937)]"
+            className="h-9 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2 text-[13px] text-[var(--admin-console-fg)]"
             data-admin-pagination-size="1"
           >
             {sizes.map((s) => (

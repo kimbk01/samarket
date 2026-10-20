@@ -13,6 +13,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminErrorState, AdminLoadingState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import type { CommunityFeedOps } from "@/lib/community-feed/community-ops-settings";
 
 type Banner = { ok: true; message: string } | { ok: false; code: string } | null;
@@ -107,7 +108,7 @@ export function AdminCommunityFeedSettingsPage() {
       )
       .join("\n");
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko: true,
       title: "운영 설정 저장",
       description: `바뀌는 항목\n${summary}`,

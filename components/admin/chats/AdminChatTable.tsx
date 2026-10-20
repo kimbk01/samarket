@@ -114,7 +114,7 @@ export function AdminChatTable({
                     {t("admin_chat_r1b_open_unified")}
                   </Link>
                 ) : r.messengerRoomId === null ? (
-                  <span className="mt-0.5 block text-amber-800">{t("admin_chat_r1b_legacy_only")}</span>
+                  <span className="mt-0.5 block text-sam-warning">{t("admin_chat_r1b_legacy_only")}</span>
                 ) : null}
               </td>
               <td className="max-w-[140px] truncate px-3 py-2.5 text-sam-fg">
@@ -154,7 +154,7 @@ export function AdminChatTable({
               </td>
               <td className="px-3 py-2.5 text-center sam-text-body-secondary">
                 {r.reportCount > 0 ? (
-                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
+                  <span className="rounded bg-sam-warning-soft px-1.5 py-0.5 text-sam-warning">
                     {t("admin_chat_table_report_count", { count: r.reportCount })}
                   </span>
                 ) : (
@@ -163,7 +163,7 @@ export function AdminChatTable({
               </td>
               <td className="px-3 py-2.5 text-center sam-text-body-secondary">
                 {r.roomStatus === "blocked" ? (
-                  <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">
+                  <span className="rounded bg-sam-danger-soft px-1.5 py-0.5 text-sam-danger">
                     {adminChatLabel("room_status", "blocked", language !== "en").label}
                   </span>
                 ) : (

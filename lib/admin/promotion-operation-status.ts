@@ -4,6 +4,8 @@
  * Does NOT invent a new persisted status column.
  */
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+
 export const PROMOTION_OPERATOR_STATUSES = [
   "DRAFT",
   "SCHEDULED",
@@ -253,7 +255,7 @@ export function ownerRequestOperatorStatusLabel(
     UNDER_REVIEW: "검토 중",
     REVISION_REQUIRED: "수정 요청",
     APPROVED: "승인",
-    REJECTED: "거절",
+    REJECTED: "반려",
     CANCELLED: "취소",
   };
   const en: Record<OwnerRequestOperatorStatus, string> = {
@@ -278,16 +280,5 @@ export function formatPromotionAdminSchedule(
   if (!iso) return lang === "en" ? "—" : "—";
   const ms = Date.parse(iso);
   if (!Number.isFinite(ms)) return String(iso);
-  try {
-    return new Intl.DateTimeFormat(lang === "en" ? "en-PH" : "ko-KR", {
-      timeZone: PROMOTION_ADMIN_DISPLAY_TIMEZONE,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(ms));
-  } catch {
-    return new Date(ms).toISOString();
-  }
+  return formatAdminManilaDateTime(new Date(ms).toISOString());
 }

@@ -45,7 +45,7 @@ export type MemberAdminCapabilityRow = {
 
 export const MEMBER_ADMIN_CAPABILITY_CATALOG = [
   { id: "CAP-LIST-VIEW", operatorActionKo: "목록 조회", screen: "S01", ctaKo: "—", targetPhase: "R2", currentStatus: "YES" },
-  { id: "CAP-LIST-SEARCH", operatorActionKo: "검색", screen: "S01", ctaKo: "search", targetPhase: "R2", currentStatus: "YES" },
+  { id: "CAP-LIST-SEARCH", operatorActionKo: "회원 조회", screen: "S01", ctaKo: "search", targetPhase: "R2", currentStatus: "YES" },
   { id: "CAP-LIST-FILTER-STATUS", operatorActionKo: "계정 상태 필터", screen: "S01", ctaKo: "filter", targetPhase: "R2", currentStatus: "YES" },
   { id: "CAP-LIST-FILTER-VERIFY", operatorActionKo: "인증 필터", screen: "S01", ctaKo: "filter", targetPhase: "R2", currentStatus: "YES" },
   { id: "CAP-LIST-FILTER-STORE", operatorActionKo: "매장 필터", screen: "S01", ctaKo: "filter", targetPhase: "R2", currentStatus: "YES" },
@@ -75,7 +75,7 @@ export const MEMBER_ADMIN_CAPABILITY_CATALOG = [
   { id: "CAP-MSG-MESSENGER", operatorActionKo: "메신저 보기", screen: "S08", ctaKo: "메신저 보기", targetPhase: "R8_PRESERVE", currentStatus: "YES" },
   { id: "CAP-MSG-SUPPORT", operatorActionKo: "쪽지/지원 보내기", screen: "S25", ctaKo: "쪽지 보내기", targetPhase: "R8", currentStatus: "PARTIAL" },
   { id: "CAP-OPS-HISTORY", operatorActionKo: "운영 이력", screen: "S11", ctaKo: "운영 이력", targetPhase: "R9", currentStatus: "YES" },
-  { id: "CAP-DEL-REQ", operatorActionKo: "삭제 요청 처리", screen: "S26", ctaKo: "승인/거절/처리", targetPhase: "R9", currentStatus: "REGRESSED" },
+  { id: "CAP-DEL-REQ", operatorActionKo: "삭제 요청 처리", screen: "S26", ctaKo: "승인/반려/처리", targetPhase: "R9", currentStatus: "REGRESSED" },
   { id: "CAP-TEST-MAINT", operatorActionKo: "테스트 회원 정리", screen: "S28", ctaKo: "maintenance", targetPhase: "R9_OD05", currentStatus: "OWNER_GATE" },
 ] as const satisfies readonly MemberAdminCapabilityRow[];
 

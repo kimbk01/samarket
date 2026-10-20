@@ -7,6 +7,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AUDIT_TARGET_TYPE_LABEL_KEYS } from "@/lib/admin-audit/admin-audit-i18n-keys";
 import { AdminAuditJsonViewer } from "./AdminAuditJsonViewer";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type AuditDetailLog = {
   id: string;
@@ -44,18 +45,12 @@ function getRelatedHref(log: AuditDetailLog): string | null {
   }
 }
 
-function auditLocale(language: string): string {
-  if (language === "en") return "en-US";
-  return "ko-KR";
-}
-
 interface AdminAuditDetailPageProps {
   logId: string;
 }
 
 export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
-  const { t, language } = useI18n();
-  const locale = auditLocale(language);
+  const { t } = useI18n();
   const [log, setLog] = useState<AuditDetailLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +103,7 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
         <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_dashboard_loading")}</div>
       ) : null}
       {!loading && error ? (
-        <div className="rounded-ui-rect border border-red-100 bg-red-50 px-4 py-5 sam-text-body text-red-700">
+        <div className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-4 py-5 sam-text-body text-sam-danger">
           {t("admin_audit_load_failed")}
         </div>
       ) : null}
@@ -145,7 +140,7 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
               </div>
               <div>
                 <dt className="text-sam-muted">{t("admin_audit_dt_datetime")}</dt>
-                <dd>{new Date(log.created_at).toLocaleString(locale)}</dd>
+                <dd>{formatAdminManilaDateTime(log.created_at)}</dd>
               </div>
               {log.user_agent ? (
                 <div>

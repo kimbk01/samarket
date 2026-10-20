@@ -246,7 +246,7 @@ export function adsWorkspaceMutationConfirmCopy(
       return {
         title: ko ? "이 작업을 진행하시겠습니까?" : "Continue with this action?",
         body: ko ? "확인 후 상태가 변경됩니다." : "Confirming will change the state.",
-        confirmLabel: ko ? "확인" : "Confirm",
+        confirmLabel: ko ? "진행" : "Continue",
         cancelLabel,
         tone: "primary",
         reasonRequired,

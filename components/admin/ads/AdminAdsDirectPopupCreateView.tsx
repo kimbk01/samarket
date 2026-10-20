@@ -11,6 +11,9 @@ import { useRouter } from "next/navigation";
 import { Image as ImageIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import {
   AdminPlatformPopupPreview,
   type AdminPlatformPopupPreviewSource,
@@ -116,9 +119,7 @@ export function AdminAdsDirectPopupCreateView() {
             ? ko
               ? "팝업이 임시 상태로 저장되었습니다. 상세에서 설정을 완료해 주세요."
               : "Popup saved as incomplete. Finish settings in detail."
-            : ko
-              ? "처리하지 못했습니다. 다시 시도해 주세요."
-              : "Could not complete. Try again."
+            : adminOperatorErrorMessage(created.error, ko)
         );
         if (created.id) {
           router.push(created.detailHref || `/admin/platform-popup/${created.id}`);
@@ -142,7 +143,7 @@ export function AdminAdsDirectPopupCreateView() {
           {" › "}
           Popup
         </p>
-        <h1 className="text-lg font-semibold text-sam-fg">Popup</h1>
+        <h1 className="text-[20px] font-semibold text-sam-fg">Popup</h1>
         <p className="text-[13px] text-sam-muted">
           {ko
             ? "결제·승인 없음 · Admin Direct 전용"
@@ -188,9 +189,8 @@ export function AdminAdsDirectPopupCreateView() {
             e.target.value = "";
           }}
         />
-        <button
-          type="button"
-          className="inline-flex min-h-11 items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-4 text-[14px] font-semibold"
+        <AdminActionButton
+          variant="secondary"
           data-admin-popup-image-picker="1"
           onClick={() => fileRef.current?.click()}
         >
@@ -202,7 +202,7 @@ export function AdminAdsDirectPopupCreateView() {
             : ko
               ? "내 PC에서 이미지 선택"
               : "Choose image from PC"}
-        </button>
+        </AdminActionButton>
         {file ? <p className="text-[12px] text-sam-muted">{file.name}</p> : null}
       </section>
 
@@ -231,12 +231,12 @@ export function AdminAdsDirectPopupCreateView() {
           <input className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm" value={altText} onChange={(e) => setAltText(e.target.value)} />
         </label>
         <div className="flex gap-2 sm:col-span-2">
-          <button type="button" className={`rounded-ui-rect border px-3 py-2 ${publishMode === "live" ? "border-sam-primary bg-sam-primary/5" : "border-sam-border"}`} onClick={() => setPublishMode("live")}>
+          <AdminChipButton selected={publishMode === "live"} onClick={() => setPublishMode("live")}>
             {ko ? "즉시 노출" : "Go live"}
-          </button>
-          <button type="button" className={`rounded-ui-rect border px-3 py-2 ${publishMode === "scheduled" ? "border-sam-primary bg-sam-primary/5" : "border-sam-border"}`} onClick={() => setPublishMode("scheduled")}>
+          </AdminChipButton>
+          <AdminChipButton selected={publishMode === "scheduled"} onClick={() => setPublishMode("scheduled")}>
             {ko ? "예약" : "Schedule"}
-          </button>
+          </AdminChipButton>
         </div>
         <label className="block text-[12px] text-sam-muted">
           {ko ? "시작" : "Start"}
@@ -251,10 +251,10 @@ export function AdminAdsDirectPopupCreateView() {
       {error ? <p className="text-sm text-sam-danger" role="alert">{error}</p> : null}
       {successMsg ? <p className="text-sm text-sam-success" role="status">{successMsg}</p> : null}
 
-      <button
-        type="button"
+      <AdminActionButton
+        variant="primary"
         disabled={!canSubmit}
-        className="min-h-12 w-full rounded-ui-rect bg-[var(--admin-console-accent,#1d4ed8)] px-4 text-[15px] font-bold text-white disabled:opacity-50"
+        className="min-h-12 w-full text-[16px]"
         data-admin-popup-register-cta="1"
         onClick={async () => {
           if (!canSubmit || busy) return;
@@ -271,7 +271,7 @@ export function AdminAdsDirectPopupCreateView() {
         }}
       >
         {ko ? "광고 등록" : "Register ad"}
-      </button>
+      </AdminActionButton>
 
     </div>
   );

@@ -1,5 +1,8 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -32,6 +35,7 @@ import {
 } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import {
   AdminBusinessCcDeliveryCard,
@@ -439,7 +443,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
     if (kind === "suspend_sales") {
       const c = ADMIN_STORE_ACTION_COPY.suspend_sales;
       const confirmed = await confirmAdminAction({
-        level: "L2",
+        level: adminActionLevel("sanction"),
         ko,
         title: ko ? c.titleKo : c.titleEn,
         description: ko ? c.descKo : c.descEn,
@@ -452,7 +456,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
     }
     const closing = kind === "temp_close";
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel(closing ? "disable" : "resume"),
       ko,
       title: closing
         ? ko
@@ -550,25 +554,13 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
         delivery={delivery}
       />
 
-      <nav className="flex flex-wrap gap-1 border-b border-sam-border pb-2">
-        {TABS.map((item) => {
-          const active = tab === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setTab(item.id)}
-              className={`rounded px-2.5 py-1.5 sam-text-helper font-medium ${
-                active
-                  ? "bg-signature text-white"
-                  : "text-sam-fg hover:bg-sam-surface-muted"
-              }`}
-            >
-              {t(item.labelKey)}
-            </button>
-          );
-        })}
-      </nav>
+      <AdminTabs
+        tabs={TABS.map((item) => ({ id: item.id, label: t(item.labelKey) }))}
+        ariaLabel={ko ? "매장 상세 탭" : "Store detail tabs"}
+        value={tab}
+        syncUrl={false}
+        onChange={(id) => setTab(id as TabId)}
+      />
 
       {tab === "overview" ? (
         <div className="space-y-4">
@@ -679,13 +671,9 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
                 placeholder={t("admin_biz_memo_ph")}
                 className="flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
               />
-              <button
-                type="button"
-                onClick={() => void handleSaveMemo()}
-                className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted"
-              >
-                {ko ? "저장" : "Save"}
-              </button>
+              <AdminActionButton variant="secondary" onClick={() => void handleSaveMemo()}>
+                {adminCta("save", ko)}
+              </AdminActionButton>
             </div>
           </AdminCard>
         </div>
@@ -749,7 +737,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             <dl className="grid gap-2 sam-text-body sm:grid-cols-3">
               <div>
                 <dt className="sam-text-helper text-sam-muted">{ko ? "처리 대기 신고" : "Open reports"}</dt>
-                <dd className={kpi.openReportCount > 0 ? "font-semibold text-red-700" : "font-semibold"}>
+                <dd className={kpi.openReportCount > 0 ? "font-semibold text-sam-danger" : "font-semibold"}>
                   {ko ? `${kpi.openReportCount}건` : kpi.openReportCount}
                 </dd>
               </div>
@@ -789,9 +777,9 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
               <Link href={businessCcReportsHref(store.id)} className={linkBtn}>
                 {ko ? "이 매장 신고 보기" : "View this store's reports"}
               </Link>
-              <button type="button" className={linkBtn} onClick={() => setTab("basic")}>
+              <AdminActionButton variant="secondary" size="sm" onClick={() => setTab("basic")}>
                 {ko ? "운영 조치로 이동" : "Go to store actions"}
-              </button>
+              </AdminActionButton>
             </div>
           </div>
         </AdminCard>

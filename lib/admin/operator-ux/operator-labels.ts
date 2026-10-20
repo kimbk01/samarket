@@ -232,7 +232,7 @@ export function adminOperatorErrorMessage(
       ko: "현재 쿠폰 상태에서는 할 수 없는 처리입니다.",
       en: "This action is not allowed for the coupon's current status.",
     },
-    reject_reason_required: { ko: "거절 사유를 입력해 주세요.", en: "Please enter a rejection reason." },
+    reject_reason_required: { ko: "반려 사유를 입력해 주세요.", en: "Please enter a rejection reason." },
     revoke_reason_required: { ko: "회수 사유를 입력해 주세요.", en: "Please enter a revoke reason." },
     store_not_approved_for_sales: {
       ko: "입점 승인된 매장만 판매 상태를 바꿀 수 있습니다.",

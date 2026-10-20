@@ -7,6 +7,7 @@
  */
 
 import Link from "next/link";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
@@ -177,10 +178,10 @@ export function AdminStoreHubSummaryCards({
       </p>
       <p>
         <span className="text-sam-muted">{t("admin_r4a_hub_coin_balance")} </span>
-        {s?.coin?.balance != null ? s.coin.balance.toLocaleString("en-PH") : ops.pointBalance != null ? ops.pointBalance.toLocaleString("en-PH") : na}
+        {s?.coin?.balance != null ? formatAdminNumber(s.coin.balance) : ops.pointBalance != null ? formatAdminNumber(ops.pointBalance) : na}
       </p>
       {s?.cash?.pendingCharges != null ? (
-        <p className={s.cash.pendingCharges > 0 ? "font-semibold text-amber-800" : "text-sam-muted"}>
+        <p className={s.cash.pendingCharges > 0 ? "font-semibold text-sam-warning" : "text-sam-muted"}>
           {t("admin_r4a_hub_cash_pending", { n: String(s.cash.pendingCharges) })}
         </p>
       ) : null}
@@ -205,13 +206,13 @@ export function AdminStoreHubSummaryCards({
             <span className="text-sam-muted">{t("admin_r4a_hub_fee_month")} </span>
             {formatDeliveryAdPhpMinor(s.commission.monthFeeDueMinor)}
           </p>
-          <p className={s.commission.outstandingCount > 0 ? "font-semibold text-red-700" : "text-sam-muted"}>
+          <p className={s.commission.outstandingCount > 0 ? "font-semibold text-sam-danger" : "text-sam-muted"}>
             {t("admin_r4a_hub_fee_outstanding", {
               n: String(s.commission.outstandingCount),
               amount: formatDeliveryAdPhpMinor(s.commission.outstandingMinor),
             })}
           </p>
-          <p className={s.commission.reviewRequired > 0 ? "font-semibold text-amber-800" : "text-sam-muted"}>
+          <p className={s.commission.reviewRequired > 0 ? "font-semibold text-sam-warning" : "text-sam-muted"}>
             {t("admin_r4a_hub_fee_review", { n: String(s.commission.reviewRequired) })}
           </p>
         </>
@@ -224,7 +225,7 @@ export function AdminStoreHubSummaryCards({
 
   const inquiryCard = (
     <Card key="inquiry" title={t("admin_r4a_hub_inquiry_title")}>
-      <p className={s?.inquiries && s.inquiries.open > 0 ? "font-semibold text-amber-800" : undefined}>
+      <p className={s?.inquiries && s.inquiries.open > 0 ? "font-semibold text-sam-warning" : undefined}>
         {s?.inquiries
           ? t("admin_r4a_hub_inquiry_counts", { open: String(s.inquiries.open), total: String(s.inquiries.total) })
           : state.status === "loading"
@@ -317,7 +318,7 @@ export function AdminStoreHubSummaryCards({
         </div>
       ) : null}
       {state.status === "error" ? (
-        <p role="alert" className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-helper text-red-900">
+        <p role="alert" className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-danger">
           {t("admin_r4a_hub_summary_load_failed")}
         </p>
       ) : null}
@@ -381,7 +382,7 @@ export function AdminStoreHubRecentReports({ storeId, refreshKey }: { storeId: s
     <div className="space-y-1.5" data-admin-hub-recent-reports="1">
       <p className="sam-text-helper font-semibold text-sam-fg">{t("admin_r4a_hub_reports_recent")}</p>
       {failed ? (
-        <p role="alert" className="sam-text-helper text-red-800">{t("admin_r4a_hub_summary_load_failed")}</p>
+        <p role="alert" className="sam-text-helper text-sam-danger">{t("admin_r4a_hub_summary_load_failed")}</p>
       ) : rows == null ? (
         <p className="sam-text-helper text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (

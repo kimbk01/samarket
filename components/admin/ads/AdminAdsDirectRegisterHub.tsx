@@ -59,7 +59,7 @@ export function AdminAdsDirectRegisterHub() {
           {" › "}
           {ko ? "광고 등록" : "Register ad"}
         </p>
-        <h1 className="text-lg font-semibold text-sam-fg">
+        <h1 className="text-[20px] font-semibold text-sam-fg">
           {ko ? "광고 등록" : "Register ad"}
         </h1>
         <p className="text-[14px] text-sam-fg">
@@ -76,7 +76,7 @@ export function AdminAdsDirectRegisterHub() {
             className="!block h-auto min-h-[96px] flex-col items-start justify-center gap-1 px-4 py-4 text-left !whitespace-normal"
             data-admin-ads-direct-product={p.id}
           >
-            <span className="text-[15px] font-bold text-sam-fg">
+            <span className="text-[16px] font-bold text-sam-fg">
               {ko ? p.titleKo : p.titleEn}
             </span>
             <span className="text-[13px] font-normal text-sam-muted">

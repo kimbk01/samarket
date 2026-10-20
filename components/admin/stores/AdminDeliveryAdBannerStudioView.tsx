@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminActionButton, AdminActionLabel } from "@/components/admin/ui/AdminActionButton";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -255,7 +256,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
           <p className="text-[13px] text-sam-muted">{safeT("admin_delivery_ads_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}</p>
         ) : null}
         {error ? (
-          <p className="text-[13px] text-red-600" role="alert">
+          <p className="text-[13px] text-sam-danger" role="alert">
             {error}
           </p>
         ) : null}
@@ -345,10 +346,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
                 </p>
               )}
               <div className="mt-3 flex flex-wrap gap-2">
-                <label
-                  className="inline-flex min-h-[40px] cursor-pointer items-center rounded-ui-rect bg-[#0A823E] px-4 text-[13px] font-semibold text-white transition hover:bg-[#087a38] focus-within:ring-2 focus-within:ring-[#0A823E]/40 active:scale-[0.99]"
-                  data-admin-banner-pc-upload="1"
-                >
+                <AdminActionLabel variant="primary" data-admin-banner-pc-upload="1">
                   {bannerCreative
                     ? safeT("admin_delivery_ads_creative_replace", {
                         fallbackKo: "이미지 변경",
@@ -369,18 +367,16 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
                       if (f) void uploadAndReplaceCreative(f);
                     }}
                   />
-                </label>
-                <button
-                  type="button"
+                </AdminActionLabel>
+                <AdminActionButton variant="secondary" size="sm"
                   disabled={busy || !bannerCreative}
-                  className="rounded-ui-rect border border-sam-danger/40 px-3 py-2 text-[12px] text-sam-danger"
                   onClick={() => void removeCreative()}
                 >
                   {safeT("admin_delivery_ads_creative_remove", {
                     fallbackKo: "이미지 삭제",
                     fallbackEn: "Remove image",
                   })}
-                </button>
+                </AdminActionButton>
               </div>
               <div className="mt-4 border-t border-sam-border pt-4">
                 <p className="text-[12px] font-semibold text-sam-fg">
@@ -414,28 +410,24 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
                     })}
                   </option>
                 </select>
-                <button
-                  type="button"
+                <AdminActionButton variant="secondary" size="sm" className="mt-3"
                   disabled={busy}
-                  className="mt-3 rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
                   onClick={() => void saveDestination()}
                 >
                   {safeT("admin_delivery_ads_destination_save", {
                     fallbackKo: "목적지 확정 저장",
                     fallbackEn: "Save destination",
                   })}
-                </button>
+                </AdminActionButton>
               </div>
-              <button
-                type="button"
-                className="mt-4 min-h-[44px] w-full rounded-ui-rect border border-[#BDBDBD] bg-white text-[14px] font-semibold text-sam-fg"
+              <AdminActionButton variant="secondary" className="mt-4 w-full"
                 onClick={() => router.push(backHref)}
               >
                 {safeT("admin_delivery_ads_creative_studio_back", {
                   fallbackKo: "workspace로 돌아가기",
                   fallbackEn: "Back to workspace",
                 })}
-              </button>
+              </AdminActionButton>
             </AdminCard>
 
             <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">

@@ -2,6 +2,7 @@
 
 import type { ExposurePolicyLog } from "@/lib/types/exposure";
 import { SURFACE_LABELS } from "@/lib/exposure/exposure-score-utils";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const ACTION_LABELS: Record<string, string> = {
   create: "생성",
@@ -67,7 +68,7 @@ export function ExposurePolicyLogList({ logs }: ExposurePolicyLogListProps) {
                 {l.note}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(l.createdAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(l.createdAt)}
               </td>
             </tr>
           ))}

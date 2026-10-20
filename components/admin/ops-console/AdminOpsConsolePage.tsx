@@ -27,6 +27,7 @@ import {
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
@@ -435,7 +436,7 @@ export function AdminOpsConsolePage() {
   const runRecovery = async (action: DeliveryOperationRecoveryAction, label: string) => {
     if (busy) return;
     const c = await confirmAdminAction({
-      level: "L3",
+      level: adminActionLevel("bulk"),
       ko,
       title: t("admin_r4d_recovery_title", { label }),
       description: t("admin_r4d_recovery_desc"),
@@ -1135,7 +1136,7 @@ export function AdminOpsConsolePage() {
                   const to = safeTrim(modal.selectedRiderId);
                   // L2 — 사유 필수. 재배정 기록은 서버 감사 기록에 메모와 분리해 남는다 (DEF-21·22).
                   const c = await confirmAdminAction({
-                    level: "L2",
+                    level: adminActionLevel("sanction"),
                     ko,
                     title: t("admin_r4d_reassign_title", { from: riderLabel(modal.currentRiderId), to: riderLabel(to) }),
                     description: t("admin_r4d_reassign_desc"),

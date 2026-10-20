@@ -162,6 +162,7 @@ export async function executeMemberPrivilegeRevoke(
       axis: "admin_privilege",
       // Explicit: privilege revoke must not soft-delete the account.
       lifecycle_unchanged: true,
+      ...(input.reason ? { reason: input.reason } : {}),
     },
   });
 

@@ -28,6 +28,10 @@ import {
   parseCustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import { NOTIFICATIONS_PUSH_DELIVERY_STATUS_NS } from "@/lib/admin/status-labels/notifications-status-labels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 function newSendIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -482,9 +486,9 @@ export function AdminNotificationCampaignDetailPage() {
               })}
             </h2>
             {linkedEvent ? (
-              <div className="space-y-2 rounded-ui-rect border border-emerald-200 bg-emerald-50/50 p-3">
+              <div className="space-y-2 rounded-ui-rect border border-sam-success bg-sam-success-soft/50 p-3">
                 <div className="min-w-0 space-y-1">
-                  <span className="inline-block rounded-ui-rect bg-sam-app px-1.5 py-0.5 text-[11px] font-medium text-sam-muted">
+                  <span className="inline-block rounded-ui-rect bg-sam-app px-1.5 py-0.5 text-[12px] font-medium text-sam-muted">
                     {language === "en" ? "Event" : "이벤트"}
                   </span>
                   <p className="break-words text-sm font-semibold text-sam-fg">{linkedEvent.title}</p>
@@ -500,7 +504,7 @@ export function AdminNotificationCampaignDetailPage() {
                 </Link>
               </div>
             ) : linkedId && linkedContent ? (
-              <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+              <div className="space-y-2 rounded-ui-rect border border-sam-warning bg-sam-warning-soft/60 p-3 dark:border-sam-warning dark:bg-sam-warning/20">
                 <div className="flex flex-wrap items-start gap-3">
                   {linkedContent.hero_image_url ? (
                     <SamarketThumbnail
@@ -511,11 +515,11 @@ export function AdminNotificationCampaignDetailPage() {
                     />
                   ) : null}
                   <div className="min-w-0 flex-1 space-y-1">
-                    <span className="inline-block rounded-ui-rect bg-sam-app px-1.5 py-0.5 text-[11px] font-medium text-sam-muted">
+                    <span className="inline-block rounded-ui-rect bg-sam-app px-1.5 py-0.5 text-[12px] font-medium text-sam-muted">
                       {boardLabel}
                     </span>
                     <p className="break-words text-sm font-semibold text-sam-fg">{linkedContent.title}</p>
-                    <p className="font-mono text-[11px] text-sam-meta">
+                    <p className="font-mono text-[12px] text-sam-meta">
                       {safeT("admin_notif_content_id_label", {
                         fallbackKo: "콘텐츠 ID",
                         fallbackEn: "Content ID",
@@ -556,7 +560,7 @@ export function AdminNotificationCampaignDetailPage() {
                     fallbackEn: "Notification title",
                   })}
                 </p>
-                <h1 className="text-lg font-semibold text-sam-fg">{String(camp.title ?? "")}</h1>
+                <h1 className="text-[16px] font-semibold text-sam-fg">{String(camp.title ?? "")}</h1>
               </div>
               <span className="rounded-ui-rect bg-sam-app px-2 py-1 text-xs text-sam-muted">
                 {campaignStatusLabel(effectiveStatus || String(camp.status ?? ""), lang)}
@@ -583,7 +587,7 @@ export function AdminNotificationCampaignDetailPage() {
                 <div className="flex flex-wrap gap-4">
                   {pushImage ? (
                     <div className="space-y-1">
-                      <p className="text-[11px] text-sam-muted">{t("admin_notif_label_push_image")}</p>
+                      <p className="text-[12px] text-sam-muted">{t("admin_notif_label_push_image")}</p>
                       <SamarketThumbnail
                         src={pushImage}
                         alt=""
@@ -594,7 +598,7 @@ export function AdminNotificationCampaignDetailPage() {
                   ) : null}
                   {inAppImage ? (
                     <div className="space-y-1">
-                      <p className="text-[11px] text-sam-muted">{t("admin_notif_label_in_app_image")}</p>
+                      <p className="text-[12px] text-sam-muted">{t("admin_notif_label_in_app_image")}</p>
                       <SamarketThumbnail
                         src={inAppImage}
                         alt=""
@@ -666,18 +670,16 @@ export function AdminNotificationCampaignDetailPage() {
             ) : null}
           </section>
 
-          {err ? <p className="text-sm text-red-600">{err}</p> : null}
+          {err ? <p className="text-sm text-sam-danger">{err}</p> : null}
 
           {canSendDraft ? (
             <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-              <button
-                type="button"
+              <AdminActionButton variant="primary"
                 disabled={busy}
                 onClick={() => void openSendConfirm()}
-                className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 {safeT("admin_notif_btn_send_draft", { fallbackKo: "발송하기", fallbackEn: "Send" })}
-              </button>
+              </AdminActionButton>
             </section>
           ) : null}
 
@@ -724,8 +726,7 @@ export function AdminNotificationCampaignDetailPage() {
               </Link>
             ) : null}
             {can("cancel") && String(camp.status ?? "") === "scheduled" ? (
-              <button
-                type="button"
+              <AdminActionButton variant="danger" size="sm"
                 disabled={busy}
                 onClick={() =>
                   openConfirm(
@@ -734,24 +735,20 @@ export function AdminNotificationCampaignDetailPage() {
                     () => runLifecycleAction("cancel")
                   )
                 }
-                className="rounded-ui-rect border border-red-300 px-3 py-1.5 text-sm text-red-700 disabled:opacity-40"
               >
                 {safeT("admin_campaign_cms_btn_cancel_reservation", { fallbackKo: "예약 취소", fallbackEn: "Cancel reservation" })}
-              </button>
+              </AdminActionButton>
             ) : null}
             {can("stop_sending") ? (
-              <button
-                type="button"
+              <AdminActionButton variant="danger" size="sm"
                 disabled={busy}
                 onClick={() => openConfirm("stop_sending", factsFor(nowLabel), () => runLifecycleAction("stop_sending"))}
-                className="rounded-ui-rect border border-red-300 px-3 py-1.5 text-sm text-red-700 disabled:opacity-40"
               >
                 {safeT("admin_campaign_cms_btn_stop_sending", { fallbackKo: "발송 중지", fallbackEn: "Stop sending" })}
-              </button>
+              </AdminActionButton>
             ) : null}
             {can("pause") ? (
-              <button
-                type="button"
+              <AdminActionButton variant="secondary" size="sm"
                 disabled={busy}
                 onClick={() =>
                   openConfirm(
@@ -760,36 +757,30 @@ export function AdminNotificationCampaignDetailPage() {
                     () => runLifecycleAction("pause")
                   )
                 }
-                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm disabled:opacity-40"
               >
                 {safeT("admin_campaign_cms_btn_pause", { fallbackKo: "일시정지", fallbackEn: "Pause" })}
-              </button>
+              </AdminActionButton>
             ) : null}
             {can("resume") ? (
-              <button
-                type="button"
+              <AdminActionButton variant="secondary" size="sm"
                 disabled={busy}
                 onClick={() => openConfirm("resume", factsFor(nowLabel), () => runLifecycleAction("resume"))}
-                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm disabled:opacity-40"
               >
                 {safeT("admin_campaign_cms_btn_resume", { fallbackKo: "재개", fallbackEn: "Resume" })}
-              </button>
+              </AdminActionButton>
             ) : null}
             {can("stop_recurring") ? (
-              <button
-                type="button"
+              <AdminActionButton variant="danger" size="sm"
                 disabled={busy}
                 onClick={() =>
                   openConfirm("stop_recurring", factsFor(nowLabel), () => runLifecycleAction("stop_recurring"))
                 }
-                className="rounded-ui-rect border border-red-300 px-3 py-1.5 text-sm text-red-700 disabled:opacity-40"
               >
                 {safeT("admin_campaign_cms_btn_stop_series", { fallbackKo: "반복 중지", fallbackEn: "Stop series" })}
-              </button>
+              </AdminActionButton>
             ) : null}
             {can("resend") && failedReal ? (
-              <button
-                type="button"
+              <AdminActionButton variant="secondary" size="sm"
                 disabled={busy}
                 onClick={() =>
                   openConfirm(
@@ -801,24 +792,20 @@ export function AdminNotificationCampaignDetailPage() {
                     (reason) => resendOccurrence(failedReal.id, reason)
                   )
                 }
-                className="rounded-ui-rect border border-red-300 px-3 py-1.5 text-sm text-red-700 disabled:opacity-40"
               >
                 {safeT("admin_campaign_cms_btn_resend", { fallbackKo: "재발송", fallbackEn: "Resend" })}
-              </button>
+              </AdminActionButton>
             ) : null}
             {can("duplicate") ? (
-              <button
-                type="button"
+              <AdminActionButton variant="secondary" size="sm"
                 disabled={busy}
                 onClick={() => openConfirm("duplicate", factsFor("—"), () => runLifecycleAction("duplicate"))}
-                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm disabled:opacity-40"
               >
                 {safeT("admin_campaign_cms_btn_duplicate", { fallbackKo: "복제", fallbackEn: "Duplicate" })}
-              </button>
+              </AdminActionButton>
             ) : null}
             {can("archive") ? (
-              <button
-                type="button"
+              <AdminActionButton variant="secondary" size="sm"
                 disabled={busy}
                 onClick={() =>
                   openConfirm(
@@ -827,35 +814,30 @@ export function AdminNotificationCampaignDetailPage() {
                     () => runLifecycleAction("archive")
                   )
                 }
-                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm disabled:opacity-40"
               >
                 {safeT("admin_campaign_cms_btn_archive", { fallbackKo: "보관", fallbackEn: "Archive" })}
-              </button>
+              </AdminActionButton>
             ) : null}
             {can("unarchive") ? (
-              <button
-                type="button"
+              <AdminActionButton variant="secondary" size="sm"
                 disabled={busy}
                 onClick={() => openConfirm("unarchive", factsFor("—"), () => runLifecycleAction("unarchive"))}
-                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm disabled:opacity-40"
               >
                 {safeT("admin_campaign_cms_btn_unarchive", { fallbackKo: "보관 해제", fallbackEn: "Unarchive" })}
-              </button>
+              </AdminActionButton>
             ) : null}
           </section>
 
           {isSending ? (
-            <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+            <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 text-sm dark:border-sam-warning dark:bg-sam-warning/30">
               <p className="font-medium text-sam-fg">{t("admin_notif_status_sending")}</p>
               <p className="mt-1 text-sam-muted">{t("admin_notif_sending_progress")}</p>
-              <button
-                type="button"
+              <AdminActionButton variant="secondary" size="sm" className="mt-2"
                 disabled={busy}
                 onClick={() => void refresh()}
-                className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs"
               >
-                {t("admin_notif_btn_search")}
-              </button>
+                {adminCta("refresh", lang === "ko")}
+              </AdminActionButton>
             </div>
           ) : null}
 
@@ -940,8 +922,7 @@ export function AdminNotificationCampaignDetailPage() {
                         <td className="py-1 pr-3 break-all text-sam-muted">{row.last_error ?? "—"}</td>
                         <td className="py-1">
                           {row.status === "queued" && row.trigger_type !== "test" ? (
-                            <button
-                              type="button"
+                            <AdminActionButton variant="ghost" size="sm"
                               disabled={busy}
                               onClick={() =>
                                 openConfirm(
@@ -953,10 +934,9 @@ export function AdminNotificationCampaignDetailPage() {
                                   () => cancelOccurrence(row.id)
                                 )
                               }
-                              className="rounded-ui-rect border border-red-300 px-2 py-0.5 text-[11px] text-red-700 disabled:opacity-40"
                             >
                               {t("admin_notif_btn_cancel_occurrence")}
-                            </button>
+                            </AdminActionButton>
                           ) : (
                             "—"
                           )}
@@ -1033,7 +1013,9 @@ export function AdminNotificationCampaignDetailPage() {
                       <tr key={`${row.userId}-${row.channel}-${idx}`} className="border-t border-sam-border-soft">
                         <td className="py-1 pr-3 font-mono"><AdminTechId id={row.userId} /></td>
                         <td className="py-1 pr-3">{row.channel}</td>
-                        <td className="py-1 pr-3">{row.status}</td>
+                        <td className="py-1 pr-3">
+                          <AdminStatusLabel namespace={NOTIFICATIONS_PUSH_DELIVERY_STATUS_NS} code={row.status} ko={lang === "ko"} />
+                        </td>
                         <td className="py-1">{row.sentAt ?? row.updatedAt ?? row.skipReason ?? "—"}</td>
                       </tr>
                     ))}

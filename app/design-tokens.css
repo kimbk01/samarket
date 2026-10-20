@@ -368,6 +368,22 @@
   --cm-room-bubble-outgoing-fg: #ffffff;
 }
 
+:root {
+  /* 관리자 공용 부품(components/admin/ui) 토큰 기본값 — 관리자 밖(사장님 광고 성과 등)에서 쓰일 때도 같은 값. [data-admin] 에서 같은 값으로 다시 정의된다. */
+  --admin-console-surface: #ffffff;
+  --admin-console-border: #d0d7e2;
+  --admin-console-fg: #1f2937;
+  --admin-console-muted: #667085;
+  --admin-console-accent: #1d4ed8;
+  --admin-console-active-bg: color-mix(in srgb, #1d4ed8 12%, #ffffff);
+  --admin-console-hover: #eef1f6;
+  --admin-action-primary-bg: #111827;
+  --admin-action-primary-fg: #ffffff;
+  --admin-action-primary-hover: #0b1220;
+  --admin-action-primary-disabled-bg: #9ca3af;
+  --admin-action-primary-disabled-fg: #f9fafb;
+}
+
 /**
  * 관리자 콘솔 — 소비자/피드 `var(--app-*)` 와 분리해 배경·본문 대비를 고정.
  * `AdminShell` 루트 `data-admin` (및 이전 호환: 자식 `data-admin`).

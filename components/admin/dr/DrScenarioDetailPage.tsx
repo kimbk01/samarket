@@ -12,6 +12,7 @@ import {
 } from "@/lib/dr/dr-state";
 import { loadDrOpsFromServer } from "@/lib/dr/dr-sync-client";
 import { getScenarioTypeLabel, getDrSeverityLabel, getExecutionStatusLabel } from "@/lib/dr/dr-utils";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface DrScenarioDetailPageProps {
   scenarioId: string;
@@ -54,8 +55,8 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
           <span
             className={`rounded px-1.5 py-0.5 ${
               scenario.severity === "critical"
-                ? "bg-red-100 text-red-800"
-                : "bg-amber-100 text-amber-800"
+                ? "bg-sam-danger-soft text-sam-danger"
+                : "bg-sam-warning-soft text-sam-warning"
             }`}
           >
             {getDrSeverityLabel(scenario.severity)}
@@ -97,17 +98,17 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
                 <span
                   className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     e.executionStatus === "completed"
-                      ? "bg-emerald-50 text-emerald-700"
+                      ? "bg-sam-success-soft text-sam-success"
                       : e.executionStatus === "failed"
-                        ? "bg-red-100 text-red-800"
+                        ? "bg-sam-danger-soft text-sam-danger"
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
                   {getExecutionStatusLabel(e.executionStatus)}
                 </span>
-                시작 {new Date(e.startedAt).toLocaleString()}
+                시작 {formatAdminManilaDateTime(e.startedAt)}
                 {e.completedAt &&
-                  ` · 완료 ${new Date(e.completedAt).toLocaleString()}`}
+                  ` · 완료 ${formatAdminManilaDateTime(e.completedAt)}`}
                 {e.executedByAdminId && ` · 실행자 ${e.executedByAdminId}`}
               </li>
             ))}

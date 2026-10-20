@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 import {
   appendSettingChangeLogs,
@@ -60,12 +61,13 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
 
-  let body: { settings?: Partial<AppSettings>; bundle?: unknown };
+  let body: { settings?: Partial<AppSettings>; bundle?: unknown; reason?: unknown };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
+  const reason = parseAdminReason(body.reason);
 
   try {
     const sb = getSupabaseServer();
@@ -106,7 +108,11 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
       targetId: "global",
       action: "app_settings.update",
       before: before as unknown as Record<string, unknown>,
-      after: { ...nextBundle.settings } as unknown as Record<string, unknown>,
+      after: {
+        ...(nextBundle.settings as unknown as Record<string, unknown>),
+        // 초기화(dataReset L3) 확인창 사유 — 선택 (저장은 L1 이라 사유 없음)
+        ...(reason ? { reason } : {}),
+      },
     });
     return NextResponse.json({ ok: true, bundle: nextBundle });
   } catch (e) {

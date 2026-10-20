@@ -1,5 +1,11 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import {
+  DELIVERY_FEE_POLICY_DELIVERY_MODE_NAMESPACE,
+  r5DeliveryStatusLabel,
+} from "@/lib/admin/status-labels/r5-delivery-status-labels";
 import Link from "next/link";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -51,15 +57,15 @@ function CopyId({ value, labelKey }: { value: string; labelKey: MessageKey }) {
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
       <code className="break-all font-mono text-[12px] text-sam-fg">{value}</code>
-      <button
-        type="button"
-        className="rounded border border-sam-border px-1.5 py-0.5 sam-text-helper font-medium text-signature"
+      <AdminActionButton
+        variant="ghost"
+        size="sm"
         onClick={() => {
           void navigator.clipboard.writeText(value).catch(() => {});
         }}
       >
         {t(labelKey)}
-      </button>
+      </AdminActionButton>
     </span>
   );
 }
@@ -333,7 +339,7 @@ export function AdminBusinessCcDeliveryCard({
           <dt className="text-sam-muted">{t("admin_delivery_distance_th_updated")}</dt>
           <dd className="sam-text-helper">
             {delivery.updatedAt
-              ? new Date(delivery.updatedAt).toLocaleString()
+              ? formatAdminManilaDateTime(delivery.updatedAt)
               : "—"}
           </dd>
         </div>
@@ -390,11 +396,12 @@ export function AdminBusinessCcDeliveryCard({
 }
 
 export function AdminBusinessCcFeeCard({ fee }: { fee: BusinessCcFeeSnapshot }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   if (fee.missing) {
     return (
       <div className="space-y-2">
-        <p className="sam-text-body text-amber-800">{t("admin_biz_fee_missing")}</p>
+        <p className="sam-text-body text-sam-warning">{t("admin_biz_fee_missing")}</p>
         <Link href={businessCcFeePoliciesHref()} className="text-signature hover:underline">
           {t("admin_biz_cta_fee")}
         </Link>
@@ -441,7 +448,7 @@ export function AdminBusinessCcFeeCard({ fee }: { fee: BusinessCcFeeSnapshot }) 
         <div>
           <dt className="text-sam-muted">{t("admin_biz_label_fee_delivery")}</dt>
           <dd>
-            {fee.deliveryFeeMode}
+            {r5DeliveryStatusLabel(DELIVERY_FEE_POLICY_DELIVERY_MODE_NAMESPACE, fee.deliveryFeeMode, ko)}
             {fee.deliveryFeeMode === "percent" ? ` (${fee.deliveryFeePercent}%)` : ""}
             <span className="ml-1 sam-text-helper text-sam-muted">
               ({t("admin_biz_label_platform_delivery_take")})
@@ -702,7 +709,7 @@ export function AdminBusinessCcLinks({
           <Link key={`${l.href}:${l.label}`} href={l.href} className={linkBtnClass}>
             {l.label}
             {l.note ? (
-              <span className="ml-1 text-[11px] font-normal text-sam-muted">{l.note}</span>
+              <span className="ml-1 text-[12px] font-normal text-sam-muted">{l.note}</span>
             ) : null}
           </Link>
         ))}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { call, type ImportRule, type ManagedSource, importErrorText } from "./api";
 
 const EMPTY = { scope: "global" as ImportRule["scope"], sourceSite: "", sourceBoard: "", findText: "", replaceText: "", isRegex: false, note: "" };
@@ -52,7 +53,7 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
 
   const toggle = async (r: ImportRule) => {
     const ok = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel(r.enabled ? "disable" : "resume"),
       ko: true,
       title: r.enabled ? "규칙 끄기" : "규칙 켜기",
       description: r.enabled ? "이후 게시·업데이트에 이 규칙을 적용하지 않습니다." : "이후 게시·업데이트에 이 규칙을 적용합니다.",

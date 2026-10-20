@@ -1,7 +1,9 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import {
   OPS_TOOLS_RUNBOOK_EXEC_STATUS_KEYS,
   OPS_TOOLS_RUNBOOK_LINK_KEYS,
@@ -20,12 +22,15 @@ import { OpsKnowledgeRecommendationPanel } from "@/components/admin/ops-knowledg
 import { OpsRelatedDocumentPanel } from "@/components/admin/ops-knowledge-graph/OpsRelatedDocumentPanel";
 import type { OpsKnowledgeRecommendSourceType } from "@/lib/types/ops-knowledge";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type TabId = "detail" | "steps" | "result" | "logs";
 
 const ADMIN_ID = "admin1";
 export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: string }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const adminNickname = t("admin_ops_tools_admin_nickname");
   const [activeTab, setActiveTab] = useState<TabId>("detail");
   const [refresh, setRefresh] = useState(0);
@@ -50,10 +55,22 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
   };
 
   const handleAbort = async () => {
-    if (!(await dibayConfirm({ title: t("admin_ops_tools_runbook_confirm_abort"), confirmTone: "destructive" }))) {
-      return;
-    }
-    abortRunbookExecution(executionId, ADMIN_ID, adminNickname, t("admin_ops_tools_runbook_abort_reason"));
+    // 실행 중단 = forceCancel(L3) — 사유는 실행 기록(중단 로그 note)에 남긴다.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("forceCancel"),
+      ko,
+      title: t("admin_ops_tools_runbook_confirm_abort"),
+      confirmLabel: t("admin_ops_tools_rb_exec_aborted"),
+      destructive: true,
+      reasonPlaceholder: t("admin_ops_tools_runbook_abort_reason"),
+    });
+    if (!confirmed.ok) return;
+    abortRunbookExecution(
+      executionId,
+      ADMIN_ID,
+      adminNickname,
+      confirmed.reason || t("admin_ops_tools_runbook_abort_reason")
+    );
     setRefresh((r) => r + 1);
   };
 
@@ -74,35 +91,25 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
         >{t("admin_ops_tools_runbook_view_doc")}</Link>
         {exec.executionStatus === "in_progress" && (
           <>
-            <button
-              type="button"
+            <AdminActionButton
               onClick={handleComplete}
-              className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
-            >{t("admin_ops_tools_rb_log_complete")}</button>
-            <button
-              type="button"
+              variant="primary"
+            >{t("admin_ops_tools_rb_log_complete")}</AdminActionButton>
+            <AdminActionButton
               onClick={handleAbort}
-              className="rounded border border-red-200 bg-red-50 px-3 py-2 sam-text-body text-red-800"
-            >{t("admin_ops_tools_rb_exec_aborted")}</button>
+              variant="danger"
+            >{t("admin_ops_tools_rb_exec_aborted")}</AdminActionButton>
           </>
         )}
       </div>
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        ariaLabel="화면 탭"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as TabId)}
+        syncUrl={false}
+        className="mb-4"
+      />
       {activeTab === "detail" && (
         <div className="grid gap-4 lg:grid-cols-[1fr,280px]">
           <AdminCard>
@@ -118,9 +125,9 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
               <span
                 className={`rounded px-2 py-0.5 ${
                   exec.executionStatus === "completed"
-                    ? "bg-emerald-50 text-emerald-800"
+                    ? "bg-sam-success-soft text-sam-success"
                     : exec.executionStatus === "in_progress"
-                      ? "bg-amber-50 text-amber-800"
+                      ? "bg-sam-warning-soft text-sam-warning"
                       : "bg-sam-surface-muted text-sam-muted"
                 }`}
               >
@@ -134,9 +141,9 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
               </div>
             )}
             <div className="border-t border-sam-border-soft pt-3 sam-text-body-secondary text-sam-muted">
-              시작 {new Date(exec.startedAt).toLocaleString("ko-KR")} ·{" "}
+              시작 {formatAdminManilaDateTime(exec.startedAt)} ·{" "}
               {exec.completedAt
-                ? `완료 ${new Date(exec.completedAt).toLocaleString("ko-KR")}`
+                ? `완료 ${formatAdminManilaDateTime(exec.completedAt)}`
                 : "진행 중"}
               {" · "}
               담당 {exec.startedByAdminNickname}

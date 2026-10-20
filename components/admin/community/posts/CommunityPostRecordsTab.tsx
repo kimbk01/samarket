@@ -3,6 +3,7 @@
 /**
  * 게시글 신고·조치 기록 (설계 §C-0-1 ② 관련 기록). 운영 기록 API 가 아직 없으면(404) 신고 처리함 링크만 보여 준다.
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CommunityTimeline } from "@/components/admin/community/kit/CommunityAdminKit";
@@ -75,11 +76,11 @@ export function CommunityPostRecordsTab({
     <div className="space-y-3" data-community-post-records="1">
       <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px]">
         <span className="text-sam-fg">
-          받은 신고 <strong>{reportCount.toLocaleString()}</strong>건
+          받은 신고 <strong>{formatAdminNumber(reportCount)}</strong>건
         </span>
         <Link
           href={`/admin/community/reports?targetId=${encodeURIComponent(postId)}`}
-          className="font-medium text-sky-800 hover:underline"
+          className="font-medium text-sam-info hover:underline"
         >
           신고 처리함에서 보기
         </Link>

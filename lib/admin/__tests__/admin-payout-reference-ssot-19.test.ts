@@ -142,7 +142,7 @@ describe("admin UIs require payout reference before submit (static)", () => {
 
   it("AdminCoinWithdrawalsPanel collects reference in confirm step", () => {
     const src = read("components/admin/finance/AdminCoinWithdrawalsPanel.tsx");
-    expect(src).toContain('reasonRequired={pending?.action === "mark_paid"}');
+    expect(src).toContain('data-finance-payout-reference-input="mark_paid"');
     expect(src).toContain("payoutReference: payout.reference.trim()");
   });
 

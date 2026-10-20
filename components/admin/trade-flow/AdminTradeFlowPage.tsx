@@ -1,6 +1,7 @@
 "use client";
 
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -199,7 +200,7 @@ export function AdminTradeFlowPage() {
   const revertTrade = useCallback(
     async (roomId: string) => {
       const confirmed = await confirmAdminAction({
-        level: "L2",
+        level: adminActionLevel("reject"),
         ko: language !== "en",
         title: t("admin_trade_flow_revert_confirm"),
         confirmLabel: t("admin_trade_flow_revert_trade"),

@@ -4,6 +4,7 @@
  * 외부 수집 글 본문 블록 편집 (C-08) — 블록 단위로 글자만 고친다. 블록 순서·형식은 유지하고,
  * 이미지 블록은 설명만 고치거나 블록째 뺄 수 있다. 서버가 저장 전에 다시 정리(sanitize)한다.
  */
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { ImportedContentBlock } from "@/lib/community/imported-content-blocks";
 
 const BLOCK_LABEL: Record<ImportedContentBlock["t"], string> = {
@@ -75,14 +76,9 @@ export function CommunityPostBlocksEditor({
             <span>
               {i + 1}. {BLOCK_LABEL[b.t] ?? "블록"}
             </span>
-            <button
-              type="button"
-              disabled={disabled}
-              className="text-red-700 underline disabled:opacity-50"
-              onClick={() => update(i, null)}
-            >
+            <AdminActionButton variant="ghost" size="sm" disabled={disabled} onClick={() => update(i, null)}>
               블록 빼기
-            </button>
+            </AdminActionButton>
           </div>
           {b.t === "p" || b.t === "quote" ? (
             <textarea

@@ -9,6 +9,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { NOTIFICATIONS_PUSH_DELIVERY_STATUS_NS } from "@/lib/admin/status-labels/notifications-status-labels";
 
 type DeviceRow = {
@@ -83,7 +84,7 @@ export function AdminPushDevicesPage() {
     const uid = userId.trim();
     if (!uid) return;
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: t("admin_push_test_send"),
       description: ko

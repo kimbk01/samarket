@@ -22,7 +22,7 @@ const ACTION_LABEL: Record<AdminDeliveryAdAction, { ko: string; en: string }> = 
   start_review: { ko: "검토 시작", en: "Start review" },
   request_changes: { ko: "수정 요청", en: "Request changes" },
   approve: { ko: "승인", en: "Approve" },
-  reject: { ko: "거절", en: "Reject" },
+  reject: { ko: "반려", en: "Reject" },
   pause: { ko: "일시중지", en: "Pause" },
   resume: { ko: "재개", en: "Resume" },
   end: { ko: "종료", en: "End" },
@@ -84,7 +84,7 @@ export function adsWhyActionable(
   }
   if (input.lifecycle === "SUBMITTED" || input.lifecycle === "UNDER_REVIEW") {
     return ko
-      ? "관리자 심사(승인·수정 요청·거절)가 필요합니다."
+      ? "관리자 심사(승인·수정 요청·반려)가 필요합니다."
       : "Admin review required (approve / request changes / reject).";
   }
   if (input.hadChangesRequested) {

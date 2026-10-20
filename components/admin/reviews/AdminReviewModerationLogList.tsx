@@ -4,6 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { ReviewModerationLog } from "@/lib/types/admin-review";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { REVIEW_MODERATION_ACTION_KEYS } from "@/components/admin/i18n/admin-review-label-keys";
 
 interface AdminReviewModerationLogListProps {
@@ -31,7 +32,7 @@ export function AdminReviewModerationLogList({ logs }: AdminReviewModerationLogL
             {t(REVIEW_MODERATION_ACTION_KEYS[log.actionType] ?? ("admin_review_action_review_only" as MessageKey))}
           </span>
           <span className="text-sam-muted">
-            {new Date(log.createdAt).toLocaleString("ko-KR")}
+            {formatAdminManilaDateTime(log.createdAt)}
           </span>
           <span className="text-sam-muted">· {log.adminNickname}</span>
           {log.note && (

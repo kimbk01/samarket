@@ -6,6 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
 import { FinanceFilterBar } from "@/components/finance/FinanceFilterBar";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { FinanceUnifiedTx } from "@/lib/finance/unified-transaction/types";
 import {
   formatFinanceAmount,
@@ -85,7 +88,7 @@ export function AdminFinanceConversionsView() {
   return (
     <div className="space-y-4" data-admin-finance-conversions="1">
       <FinanceAdminNav ko={ko} />
-      <h2 className="text-lg font-semibold">{ko ? "전환 · Coin → Cash" : "Conversion · Coin → Cash"}</h2>
+      <h2 className="text-[16px] font-semibold">{ko ? "전환 · Coin → Cash" : "Conversion · Coin → Cash"}</h2>
       <p className="sam-text-helper text-sam-muted">
         {ko
           ? "전환 ≠ 출금. 적용 Rate는 원장 meta snapshot입니다. Outstanding Applied / Cash Net은 현재 ledger meta에 없으면 — 입니다."
@@ -94,11 +97,11 @@ export function AdminFinanceConversionsView() {
       <FinanceFilterBar ko={ko} basePath="/admin/finance/conversions" />
       {loading ? <p className="text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p> : null}
       {error ? (
-        <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2">
+        <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2">
           <p>{ko ? "전환 내역을 불러오지 못했습니다." : "Could not load conversions."}</p>
-          <button type="button" className="mt-2 font-semibold text-signature" onClick={() => void load()}>
-            {ko ? "다시 시도" : "Retry"}
-          </button>
+          <AdminActionButton variant="secondary" size="sm" className="mt-2" onClick={() => void load()}>
+            {adminCta("refresh", ko)}
+          </AdminActionButton>
         </div>
       ) : null}
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -134,7 +137,7 @@ export function AdminFinanceConversionsView() {
                   data-finance-conversion-row={r.txKey}
                 >
                   <td className="px-3 py-2 sam-text-xxs whitespace-nowrap">
-                    {r.occurredAt ? new Date(r.occurredAt).toLocaleString() : "—"}
+                    {formatAdminManilaDateTime(r.occurredAt)}
                   </td>
                   <td className="px-3 py-2">
                     {r.storeId ? (

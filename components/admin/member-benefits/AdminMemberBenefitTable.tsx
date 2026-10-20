@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MemberBenefitPolicy } from "@/lib/types/member-benefit";
 import { MEMBER_TYPE_LABELS } from "@/lib/member-benefits/member-benefit-utils";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface AdminMemberBenefitTableProps {
   policies: MemberBenefitPolicy[];
@@ -71,7 +72,7 @@ export function AdminMemberBenefitTable({
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                     p.isActive
-                      ? "bg-emerald-50 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
@@ -79,7 +80,7 @@ export function AdminMemberBenefitTable({
                 </span>
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(p.updatedAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(p.updatedAt)}
               </td>
             </tr>
           ))}

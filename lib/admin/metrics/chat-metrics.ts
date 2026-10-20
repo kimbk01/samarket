@@ -21,6 +21,7 @@ import type {
 } from "@/lib/admin/admin-action-queue-registry";
 import { CHAT_DOMAINS, type ChatDomain } from "@/lib/chat-domain/chat-domain";
 import { manilaTodayRangeUtc } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { adminChatLabel, type AdminChatLabelDomain } from "@/lib/admin/status-labels/chat-status-labels";
 
 /** 라벨은 채팅 상태 레지스트리 단일 기준 (대시보드·목록·상세 같은 문구). */
@@ -483,5 +484,5 @@ export function resolveChatActionCenterCard(
 /** 지표 값 표시 — null 은 「확인 불가」 (0 표시 금지). */
 export function formatChatMetricValue(value: number | null | undefined, ko: boolean): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return ko ? "확인 불가" : "Unavailable";
-  return Math.round(value).toLocaleString();
+  return formatAdminNumber(Math.round(value));
 }

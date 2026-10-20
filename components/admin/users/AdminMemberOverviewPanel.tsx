@@ -1,5 +1,7 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { useEffect, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -69,7 +71,7 @@ function Panel({
       className={`${ADMIN_USERS_LITE_CARD} p-3`}
       data-member-overview-section={sectionId}
     >
-      <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[#667085]">{title}</h3>
+      <h3 className="mb-2 text-[12px] font-bold uppercase tracking-wide text-sam-muted">{title}</h3>
       {children}
     </section>
   );
@@ -77,9 +79,9 @@ function Panel({
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[96px_1fr] gap-2 border-b border-[#f2f4f7] py-1.5 text-[13px] last:border-b-0">
-      <dt className="text-[#667085]">{label}</dt>
-      <dd className="font-medium text-[#101828]">{value}</dd>
+    <div className="grid grid-cols-[96px_1fr] gap-2 border-b border-sam-border-soft py-1.5 text-[13px] last:border-b-0">
+      <dt className="text-sam-muted">{label}</dt>
+      <dd className="font-medium text-sam-fg">{value}</dd>
     </div>
   );
 }
@@ -96,14 +98,14 @@ function ActivityLine({
   viewLabel: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-[#f2f4f7] py-1.5 text-[13px] last:border-b-0">
+    <div className="flex items-center justify-between gap-2 border-b border-sam-border-soft py-1.5 text-[13px] last:border-b-0">
       <div className="min-w-0">
-        <span className="font-semibold text-[#344054]">{label}</span>
-        <span className="ml-2 text-[#475467]">{summary}</span>
+        <span className="font-semibold text-sam-fg">{label}</span>
+        <span className="ml-2 text-sam-muted">{summary}</span>
       </div>
-      <button type="button" className="shrink-0 text-[12px] font-semibold text-[#2563eb]" onClick={onView}>
+      <AdminActionButton variant="ghost" size="sm" className="shrink-0" onClick={onView}>
         {viewLabel}
-      </button>
+      </AdminActionButton>
     </div>
   );
 }
@@ -235,7 +237,7 @@ export function AdminMemberOverviewPanel({
           <div className="py-1.5 text-[13px]">
             <Link
               href={memberDetailStoreHref(canonical.id)}
-              className="font-semibold text-[#2563eb]"
+              className="font-semibold text-sam-primary"
               data-overview-store-cta="1"
               data-member-cta-cap="CAP-STORE-VIEW"
             >
@@ -262,7 +264,7 @@ export function AdminMemberOverviewPanel({
               ? "unavailable" in state.overview.points && state.overview.points.unavailable
                 ? t("admin_users_cc_metric_unavailable")
                 : state.overview.points.ok
-                  ? `${Number(state.overview.points.value).toLocaleString(locale)} P`
+                  ? `${formatAdminNumber(state.overview.points.value)} P`
                   : t("admin_users_cc_metric_error")
               : empty
           }
@@ -280,10 +282,10 @@ export function AdminMemberOverviewPanel({
     recent_activity: (
       <>
         {state.kind === "loading" ? (
-          <p className="py-6 text-center text-[13px] text-[#667085]">{t("admin_users_detail_loading")}</p>
+          <p className="py-6 text-center text-[13px] text-sam-muted">{t("admin_users_detail_loading")}</p>
         ) : null}
         {state.kind === "error" ? (
-          <p className="py-6 text-center text-[13px] font-semibold text-[#b42318]">
+          <p className="py-6 text-center text-[13px] font-semibold text-sam-danger">
             {safeT("admin_users_cc_metric_error", { fallbackKo: "불러오지 못함", fallbackEn: "Load error" })}
           </p>
         ) : null}
@@ -333,11 +335,11 @@ export function AdminMemberOverviewPanel({
     recent_ops: (
       <>
         {ops.length === 0 ? (
-          <p className="text-[13px] text-[#667085]">{safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}</p>
+          <p className="text-[13px] text-sam-muted">{safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}</p>
         ) : (
           <ul className="space-y-1">
             {ops.slice(0, 4).map((item) => (
-              <li key={item.id} className="text-[12px] text-[#344054]">
+              <li key={item.id} className="text-[12px] text-sam-fg">
                 {formatAdminLiteDateTime(item.createdAt, locale, empty)}{" "}
                 {item.actionLabel || item.action}
                 {" · "}

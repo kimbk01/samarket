@@ -1,5 +1,7 @@
 "use client";
 
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -44,8 +46,6 @@ function salesBlockedLabel(sales: BusinessCcSalesPermission, ko: boolean): strin
 const cardClass = "rounded-ui-rect border border-sam-border bg-white p-4 shadow-sm";
 const linkClass =
   "inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 text-[12px] font-semibold text-sam-fg hover:bg-sam-surface-muted";
-const actionClass =
-  "inline-flex flex-col items-center justify-center gap-1 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-3 text-center text-[11px] font-medium text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50 min-w-[88px]";
 
 function Badge({
   children,
@@ -56,14 +56,14 @@ function Badge({
 }) {
   const cls =
     tone === "ok"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      ? "border-sam-success bg-sam-success-soft text-sam-success"
       : tone === "warn"
-        ? "border-amber-200 bg-amber-50 text-amber-900"
+        ? "border-sam-warning bg-sam-warning-soft text-sam-warning"
         : tone === "bad"
-          ? "border-red-200 bg-red-50 text-red-800"
+          ? "border-sam-danger bg-sam-danger-soft text-sam-danger"
           : "border-sam-border bg-sam-app text-sam-muted";
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${cls}`}>
+    <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[12px] font-semibold ${cls}`}>
       {children}
     </span>
   );
@@ -97,18 +97,18 @@ function TrendChart({
   return (
     <div className={cardClass}>
       <h3 className="text-[13px] font-semibold text-sam-fg">{t("admin_biz_ops_trend_title")}</h3>
-      <p className="mt-0.5 text-[11px] text-sam-muted">{t("admin_biz_ops_trend_hint")}</p>
+      <p className="mt-0.5 text-[12px] text-sam-muted">{t("admin_biz_ops_trend_hint")}</p>
       <svg viewBox={`0 0 ${w} ${h}`} className="mt-3 h-32 w-full" role="img">
-        <polyline fill="none" stroke="#6366f1" strokeWidth="2" points={orderPts} />
-        <polyline fill="none" stroke="#10b981" strokeWidth="2" points={salesPts} />
+        <polyline fill="none" stroke="var(--sam-primary)" strokeWidth="2" points={orderPts} />
+        <polyline fill="none" stroke="var(--sam-success)" strokeWidth="2" points={salesPts} />
       </svg>
-      <div className="mt-1 flex gap-3 text-[11px] text-sam-muted">
+      <div className="mt-1 flex gap-3 text-[12px] text-sam-muted">
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-indigo-500" />
+          <span className="inline-block h-2 w-2 rounded-full bg-sam-primary" />
           {t("admin_biz_ops_trend_orders")}
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="inline-block h-2 w-2 rounded-full bg-sam-success" />
           {t("admin_biz_ops_trend_sales")}
         </span>
       </div>
@@ -151,7 +151,7 @@ export function AdminBusinessOpsIdentityHeader({
             <div className="h-16 w-16 rounded-ui-rect border border-sam-border bg-sam-surface-muted" />
           )}
           <div className="min-w-0 space-y-2">
-            <h2 className="text-xl font-bold tracking-tight text-sam-fg">
+            <h2 className="text-[20px] font-bold tracking-tight text-sam-fg">
               {(store.store_name ?? "").trim() || t("admin_stores_no_store_name")}
             </h2>
             {meta ? (
@@ -166,7 +166,7 @@ export function AdminBusinessOpsIdentityHeader({
                   {owner.displayLabel}
                 </Link>
               ) : (
-                <span className="text-amber-800">{t("admin_biz_ops_owner_missing")}</span>
+                <span className="text-sam-warning">{t("admin_biz_ops_owner_missing")}</span>
               )}
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -259,14 +259,14 @@ export function AdminBusinessOpsRiskPanel({
   }
 
   return (
-    <div className={`${cardClass} ${risks.length ? "border-amber-300 bg-amber-50/50" : "bg-emerald-50/40 border-emerald-200"}`}>
+    <div className={`${cardClass} ${risks.length ? "border-sam-warning bg-sam-warning-soft/50" : "bg-sam-success-soft/40 border-sam-success"}`}>
       <h3 className="text-[13px] font-semibold text-sam-fg">{t("admin_biz_ops_risk_title")}</h3>
       {risks.length === 0 ? (
-        <p className="mt-2 sam-text-body text-emerald-900">{t("admin_biz_ops_risk_none")}</p>
+        <p className="mt-2 sam-text-body text-sam-success">{t("admin_biz_ops_risk_none")}</p>
       ) : (
         <ul className="mt-2 space-y-1">
           {risks.map((r) => (
-            <li key={r.key} className="sam-text-body text-amber-950">
+            <li key={r.key} className="sam-text-body text-sam-warning">
               · {t(r.labelKey, r.vars)}
             </li>
           ))}
@@ -386,13 +386,13 @@ export function AdminBusinessOpsOverviewGrid({
           </Link>
         }
       >
-        <div className="text-lg font-bold tabular-nums">
+        <div className="text-[20px] font-bold tabular-nums">
           {ops.pointBalance == null
             ? "—"
-            : t("admin_biz_ops_credit_balance", { n: ops.pointBalance.toLocaleString() })}
+            : t("admin_biz_ops_credit_balance", { n: formatAdminNumber(ops.pointBalance) })}
         </div>
         {ops.recentPointCredit != null ? (
-          <div className="text-emerald-700">
+          <div className="text-sam-success">
             {t("admin_biz_ops_credit_recent_plus", { n: String(ops.recentPointCredit) })}
           </div>
         ) : null}
@@ -425,7 +425,7 @@ export function AdminBusinessOpsOverviewGrid({
           </Link>
         }
       >
-        <div className="text-lg font-bold">
+        <div className="text-[20px] font-bold">
           {ops.ratingAvg == null
             ? "—"
             : t("admin_biz_ops_rating_avg", { rating: ops.ratingAvg.toFixed(1) })}
@@ -441,13 +441,13 @@ export function AdminBusinessOpsOverviewGrid({
             <Link href={businessCcReportsHref(storeId)} className={linkClass}>
               {t("admin_biz_cta_reports")}
             </Link>
-            <button type="button" className={linkClass} onClick={() => onGoTab("reports")}>
+            <AdminActionButton variant="secondary" size="sm" onClick={() => onGoTab("reports")}>
               {t("admin_biz_ops_nav_reports")}
-            </button>
+            </AdminActionButton>
           </div>
         }
       >
-        <div className={kpi.openReportCount > 0 ? "font-semibold text-red-700" : ""}>
+        <div className={kpi.openReportCount > 0 ? "font-semibold text-sam-danger" : ""}>
           {t("admin_biz_ops_reports_open", { n: String(kpi.openReportCount) })}
         </div>
         <div>{t("admin_biz_ops_reports_total", { n: String(ops.reportTotalCount) })}</div>
@@ -513,9 +513,9 @@ export function AdminBusinessOpsOverviewGrid({
       <StatCard
         title={t("admin_biz_ops_card_delivery")}
         footer={
-          <button type="button" className={linkClass} onClick={() => onGoTab("delivery")}>
+          <AdminActionButton variant="secondary" size="sm" onClick={() => onGoTab("delivery")}>
             {t("admin_biz_ops_nav_delivery")}
-          </button>
+          </AdminActionButton>
         }
       >
         <div>
@@ -569,24 +569,24 @@ export function AdminBusinessOpsQuickActions({
       <div className={cardClass}>
         <h3 className="text-[13px] font-semibold text-sam-fg">{t("admin_biz_ops_card_actions")}</h3>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button type="button" className={actionClass} disabled={busy} onClick={onGoHours}>
+          <AdminActionButton variant="secondary" className="w-full" disabled={busy} onClick={onGoHours}>
             {t("admin_biz_ops_action_hours")}
-          </button>
+          </AdminActionButton>
           {isOpen === false ? (
-            <button type="button" className={actionClass} disabled={busy} onClick={onResumeOpen}>
+            <AdminActionButton variant="secondary" className="w-full" disabled={busy} onClick={onResumeOpen}>
               {t("admin_biz_ops_action_resume_open")}
-            </button>
+            </AdminActionButton>
           ) : (
-            <button type="button" className={actionClass} disabled={busy} onClick={onTempClose}>
+            <AdminActionButton variant="secondary" className="w-full" disabled={busy} onClick={onTempClose}>
               {t("admin_biz_ops_action_temp_close")}
-            </button>
+            </AdminActionButton>
           )}
-          <button type="button" className={actionClass} disabled={busy} onClick={onSalesLimit}>
+          <AdminActionButton variant="secondary" className="w-full" disabled={busy} onClick={onSalesLimit}>
             {ko ? "판매 중지" : "Suspend sales"}
-          </button>
-          <Link href={pointsHref} className={actionClass}>
+          </AdminActionButton>
+          <AdminActionLink href={pointsHref} variant="secondary" className="w-full">
             {t("admin_biz_ops_action_points")}
-          </Link>
+          </AdminActionLink>
         </div>
       </div>
     </div>

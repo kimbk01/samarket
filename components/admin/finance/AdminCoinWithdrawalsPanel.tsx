@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { financeStoreHref } from "@/lib/finance/routes";
@@ -383,48 +383,83 @@ export function AdminCoinWithdrawalsPanel() {
           : "Admin actor = paid_by / rejected_by / approved_by (canonical request columns)."}
       </p>
 
-      <AdminActionConfirmDialog
-        open={!!pending}
-        title={
-          pending?.action === "reject"
-            ? ko
-              ? "출금을 반려하시겠습니까?"
-              : "Reject this withdrawal?"
-            : ko
-              ? "출금 지급을 완료 처리하시겠습니까?"
-              : "Mark this withdrawal as paid?"
-        }
-        description={
-          pending
-            ? ko
-              ? `${formatAdminNumber(pending.amount)} Coin 출금 요청을 ${pending.action === "reject" ? "반려" : "지급 완료"}합니다.`
-              : `${formatAdminNumber(pending.amount)} Coin withdrawal will be ${pending.action === "reject" ? "rejected" : "marked paid"}.`
-            : ""
-        }
-        confirmLabel={
-          pending?.action === "reject"
-            ? ko
-              ? "출금 반려"
-              : "Reject withdrawal"
-            : ko
-              ? "출금 지급 완료"
-              : "Mark paid"
-        }
-        cancelLabel={adminCta("cancel", ko)}
-        reasonRequired={pending?.action === "mark_paid"}
-        reasonLabel={
-          ko
-            ? `지급 참조번호 (${pending?.payoutMethod === "gcash" ? "GCash" : "Bank"} 거래번호 등)`
-            : `Payout reference (${pending?.payoutMethod === "gcash" ? "GCash" : "Bank"} transaction id, etc.)`
-        }
-        reasonPlaceholder={ko ? "거래번호·송금표시 등" : "Transaction id, transfer note, etc."}
-        pending={busyId === pending?.requestId}
-        onCancel={() => setPending(null)}
-        onConfirm={(reference) => {
-          if (!pending || pending.action !== "mark_paid") return;
-          void askMarkPaid(pending, reference);
-        }}
-      />
+      {pending ? (
+        <PayoutReferenceSheet
+          ko={ko}
+          amount={pending.amount}
+          payoutMethod={pending.payoutMethod}
+          busy={busyId === pending.requestId}
+          onCancel={() => setPending(null)}
+          onContinue={(reference) => void askMarkPaid(pending, reference)}
+        />
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * 지급 완료 입력 폼 — 지급 참조번호(필수)만 받는다. 실행 확인 + 사유는 이어서 `confirmAdminAction`(payout L2).
+ */
+function PayoutReferenceSheet({
+  ko,
+  amount,
+  payoutMethod,
+  busy,
+  onCancel,
+  onContinue,
+}: {
+  ko: boolean;
+  amount: number;
+  payoutMethod?: string;
+  busy: boolean;
+  onCancel: () => void;
+  onContinue: (reference: string) => void;
+}) {
+  const [reference, setReference] = useState("");
+  const ready = reference.trim().length > 0;
+  const methodLabel = payoutMethod === "gcash" ? "GCash" : "Bank";
+  return (
+    <AdminFormSheet
+      title={ko ? "출금 지급 완료" : "Mark withdrawal paid"}
+      subtitle={
+        ko
+          ? `${formatAdminNumber(amount)} Coin 출금 요청을 지급 완료합니다.`
+          : `${formatAdminNumber(amount)} Coin withdrawal will be marked paid.`
+      }
+      onClose={busy ? () => undefined : onCancel}
+      dismissible={!busy}
+      maxWidthClass="max-w-md"
+      footer={
+        <div className="flex justify-end gap-2">
+          <AdminActionButton variant="secondary" disabled={busy} onClick={onCancel}>
+            {adminCta("cancel", ko)}
+          </AdminActionButton>
+          <AdminActionButton
+            variant="primary"
+            disabled={busy || !ready}
+            onClick={() => onContinue(reference.trim())}
+            data-finance-payout-reference-continue="1"
+          >
+            {ko ? "출금 지급 완료" : "Mark paid"}
+          </AdminActionButton>
+        </div>
+      }
+    >
+      <label className="block space-y-1 text-[13px] text-sam-fg">
+        <span className="font-medium">
+          {ko
+            ? `지급 참조번호 (${methodLabel} 거래번호 등)`
+            : `Payout reference (${methodLabel} transaction id, etc.)`}
+        </span>
+        <input
+          required
+          value={reference}
+          onChange={(e) => setReference(e.target.value)}
+          placeholder={ko ? "거래번호·송금표시 등" : "Transaction id, transfer note, etc."}
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+          data-finance-payout-reference-input="mark_paid"
+        />
+      </label>
+    </AdminFormSheet>
   );
 }

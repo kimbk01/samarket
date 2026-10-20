@@ -11,6 +11,7 @@ import { addOpsDocumentLog } from "@/lib/ops-docs/ops-docs-state";
 import { slugFromTitle } from "@/lib/ops-docs/ops-docs-utils";
 import { commitOpsDocsChange } from "@/lib/ops-docs/ops-docs-sync-client";
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface OpsDocumentFormProps {
   documentId?: string | null;
@@ -291,20 +292,19 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
         />
       </div>
       <div className="flex gap-2">
-        <button
+        <AdminActionButton
           type="submit"
           disabled={busy}
-          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
+          variant="primary"
         >
           {isEdit ? t("common_save") : t("admin_ops_doc_submit_create")}
-        </button>
-        <button
-          type="button"
+        </AdminActionButton>
+        <AdminActionButton
           onClick={() => router.back()}
-          className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
+          variant="secondary"
         >
           {t("common_cancel")}
-        </button>
+        </AdminActionButton>
       </div>
     </form>
   );

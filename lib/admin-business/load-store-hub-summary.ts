@@ -5,6 +5,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import { manilaDateKey } from "@/lib/admin/metrics/manila-period";
 import {
   BUSINESS_CASH_ACCOUNTS_TABLE,
   BUSINESS_CASH_CHARGE_REQUESTS_TABLE,
@@ -20,14 +21,8 @@ const PENDING_AD_STATUSES = ["SUBMITTED", "UNDER_REVIEW"] as const;
 
 /** Asia/Manila 기준 이번 달 1일 00:00 (UTC ISO). */
 export function manilaMonthStartIso(now: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Manila",
-    year: "numeric",
-    month: "2-digit",
-  }).formatToParts(now);
-  const y = parts.find((p) => p.type === "year")?.value ?? String(now.getUTCFullYear());
-  const m = parts.find((p) => p.type === "month")?.value ?? "01";
-  return new Date(`${y}-${m}-01T00:00:00+08:00`).toISOString();
+  const ym = (manilaDateKey(now.toISOString()) ?? now.toISOString()).slice(0, 7);
+  return new Date(`${ym}-01T00:00:00+08:00`).toISOString();
 }
 
 function n(v: unknown): number {

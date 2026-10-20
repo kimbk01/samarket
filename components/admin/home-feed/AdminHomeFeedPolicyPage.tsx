@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { HomeFeedGenerationLog, HomeFeedPolicy } from "@/lib/types/home-feed";
 import { HomeFeedPolicyTable } from "./HomeFeedPolicyTable";
@@ -71,22 +72,13 @@ export function AdminHomeFeedPolicyPage() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_home_feed_home_2" />
 
-      <div className="flex flex-wrap gap-2 border-b border-sam-border">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        tabs={TABS.map((tab) => ({ id: tab.id, label: tab.label }))}
+        ariaLabel="화면 탭"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        syncUrl={false}
+      />
 
       {loading ? <p className="sam-text-body text-sam-muted">{t("common_loading")}</p> : null}
 

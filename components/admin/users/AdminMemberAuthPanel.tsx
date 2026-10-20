@@ -15,6 +15,7 @@ import {
   memberDetailSignupOriginLabelKo,
   memberDetailVerificationLabelKo,
 } from "@/lib/admin-users/member-detail-presentation";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type AuthPayload = {
   auth: {
@@ -38,7 +39,7 @@ type AuthPayload = {
 function Fieldset({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className={`${ADMIN_USERS_LITE_CARD} p-3`}>
-      <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-[#667085]">{title}</h3>
+      <h3 className="mb-1 text-[12px] font-bold uppercase tracking-wide text-sam-muted">{title}</h3>
       {children}
     </section>
   );
@@ -46,15 +47,15 @@ function Fieldset({ title, children }: { title: string; children: React.ReactNod
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[120px_1fr] gap-2 border-b border-[#f2f4f7] py-1.5 text-[13px] last:border-b-0">
-      <p className="text-[#667085]">{label}</p>
-      <p className="break-all font-medium text-[#101828]">{value}</p>
+    <div className="grid grid-cols-[120px_1fr] gap-2 border-b border-sam-border-soft py-1.5 text-[13px] last:border-b-0">
+      <p className="text-sam-muted">{label}</p>
+      <p className="break-all font-medium text-sam-fg">{value}</p>
     </div>
   );
 }
 
 export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload }) {
-  const { t, safeT, language } = useI18n();
+  const { t, safeT } = useI18n();
   const [state, setState] = useState<{ kind: "loading" } | { kind: "error" } | { kind: "ok"; data: AuthPayload }>({
     kind: "loading",
   });
@@ -63,7 +64,7 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
     if (!value) return empty;
     const time = new Date(value).getTime();
     if (!Number.isFinite(time)) return value;
-    return new Date(time).toLocaleString(language === "en" ? "en-US" : "ko-KR");
+    return formatAdminManilaDateTime(value);
   };
 
   useEffect(() => {
@@ -92,11 +93,11 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
   }, [user.id]);
 
   if (state.kind === "loading") {
-    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-[#667085]`}>{t("admin_users_detail_loading")}</div>;
+    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-sam-muted`}>{t("admin_users_detail_loading")}</div>;
   }
   if (state.kind === "error") {
     return (
-      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-[#b42318]`}>
+      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
         {safeT("admin_users_cc_metric_error", { fallbackKo: "불러오지 못함", fallbackEn: "Load error" })}
       </div>
     );
@@ -137,7 +138,7 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
         />
         <Field label={safeT("admin_users_cc_auth_email_confirmed", { fallbackKo: "이메일 확인", fallbackEn: "Email confirmed" })} value={fmt(auth?.emailConfirmedAt)} />
         <Field label={safeT("admin_users_cc_auth_providers", { fallbackKo: "연결 provider", fallbackEn: "Linked providers" })} value={providers} />
-        {authLoadError ? <p className="mt-2 text-[12px] text-[#b42318]">{authLoadError}</p> : null}
+        {authLoadError ? <p className="mt-2 text-[12px] text-sam-danger">{authLoadError}</p> : null}
       </Fieldset>
       <Fieldset title={safeT("admin_users_auth_login", { fallbackKo: "로그인", fallbackEn: "Login" })}>
         <Field label={safeT("admin_users_label_app_last_login", { fallbackKo: "앱 최근 로그인", fallbackEn: "App last login" })} value={fmt(profile?.lastLoginAt || user.last_login_at)} />
@@ -145,12 +146,12 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
         <Field label={safeT("admin_users_cc_auth_profile_provider", { fallbackKo: "프로필 provider", fallbackEn: "Profile provider" })} value={profile?.authProvider || profile?.provider || empty} />
       </Fieldset>
             <section className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-3 lg:col-span-2`} data-member-auth-password-note="1">
-        <h3 className="text-[11px] font-bold uppercase tracking-wide text-[#667085]">{t("admin_users_auth_password_section")}</h3>
-        <p className="text-[13px] text-[#344054]">
+        <h3 className="text-[12px] font-bold uppercase tracking-wide text-sam-muted">{t("admin_users_auth_password_section")}</h3>
+        <p className="text-[13px] text-sam-fg">
           현재 비밀번호는 확인할 수 없습니다. 새 임시 비밀번호 설정은 상단 「비밀번호 관리」에서 처리합니다.
         </p>
         {!canChangePassword ? (
-          <p className="text-[13px] font-medium text-[#b42318]">{t("admin_users_auth_password_no_auth")}</p>
+          <p className="text-[13px] font-medium text-sam-danger">{t("admin_users_auth_password_no_auth")}</p>
         ) : null}
       </section>
     </div>

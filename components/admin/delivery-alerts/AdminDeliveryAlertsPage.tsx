@@ -15,6 +15,7 @@ import {
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -968,7 +969,7 @@ function AdminDeliveryAlertsPageInner() {
                         disabled={busyId === ev.id || (ev.event_status !== "open" && ev.event_status !== "acknowledged")}
                         onClick={async () => {
                           const c = await confirmAdminAction({
-                            level: "L1",
+                            level: adminActionLevel("disable"),
                             ko,
                             title: t("admin_r4d_alert_mute_title"),
                             description: t("admin_r4d_alert_mute_desc"),
@@ -990,7 +991,7 @@ function AdminDeliveryAlertsPageInner() {
                         disabled={busyId === ev.id || ev.event_status === "resolved"}
                         onClick={async () => {
                           const c = await confirmAdminAction({
-                            level: "L1",
+                            level: adminActionLevel("save"),
                             ko,
                             title: t("admin_r4d_alert_resolve_title"),
                             description: ev.rule?.rule_name || undefined,

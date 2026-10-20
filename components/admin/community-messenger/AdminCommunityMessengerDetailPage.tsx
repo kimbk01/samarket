@@ -346,11 +346,11 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
 
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
 
-      <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3">
-        <p className="sam-text-body font-semibold text-amber-900">{t("admin_chat_r1_ghost_banner_title")}</p>
-        <p className="mt-1 sam-text-helper text-amber-800">{t("admin_chat_r1_ghost_banner_body")}</p>
+      <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3">
+        <p className="sam-text-body font-semibold text-sam-fg">{t("admin_chat_r1_ghost_banner_title")}</p>
+        <p className="mt-1 sam-text-helper text-sam-warning">{t("admin_chat_r1_ghost_banner_body")}</p>
         {contentAccess?.granted ? (
-          <p className="mt-1 sam-text-helper font-medium text-amber-900">{t(CONTENT_BASIS_KEYS[contentAccess.basis])}</p>
+          <p className="mt-1 sam-text-helper font-medium text-sam-fg">{t(CONTENT_BASIS_KEYS[contentAccess.basis])}</p>
         ) : null}
       </div>
 
@@ -603,18 +603,18 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                   <div>
                     <p className="sam-text-body font-medium text-sam-fg">
                       {t("admin_cm_common_admin_actor", { name: log.actorLabel })}
-                      <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">{t("admin_cm_force_end_badge")}</span>
+                      <span className="ml-2 rounded bg-sam-danger-soft px-1.5 py-0.5 sam-text-xxs text-sam-danger">{t("admin_cm_force_end_badge")}</span>
                     </p>
                     <p className="mt-1 font-mono sam-text-helper text-sam-muted">{log.sessionId}</p>
                     {log.reasonCode ? (
-                      <p className="mt-1 sam-text-helper text-sky-700">
+                      <p className="mt-1 sam-text-helper text-sam-info">
                         {t("admin_cm_common_reason_code", { label: log.reasonLabel, code: log.reasonCode ?? "" })}
                       </p>
                     ) : null}
                     <p className="mt-1 sam-text-helper text-sam-fg">
                       {t("admin_cm_common_status", { status: `${log.beforeStatus} -> ${log.afterStatus}` })}
                     </p>
-                    {log.note ? <p className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_note", { text: log.note })}</p> : null}
+                    {log.note ? <p className="mt-1 sam-text-helper text-sam-warning">{t("admin_cm_common_note", { text: log.note })}</p> : null}
                   </div>
                   <div className="sam-text-helper text-sam-meta">{formatDateTime(log.createdAt)}</div>
                 </div>
@@ -629,7 +629,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
           {contentAccess && !contentAccess.granted ? (
             <div
               data-admin-chat-content-locked={contentAccess.denial}
-              className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-4 sam-text-body text-amber-950"
+              className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-4 sam-text-body text-sam-fg"
             >
               <p className="font-medium">{t("admin_chat_r1_content_locked_title")}</p>
               <p className="mt-1 sam-text-helper">
@@ -649,7 +649,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
               <AdminActionButton disabled={olderMsgs.loading} onClick={() => void olderMsgs.loadOlder()}>
                 {olderMsgs.loading ? t("admin_chat_r1b_loading_older") : t("admin_chat_r1b_load_older")}
               </AdminActionButton>
-              {olderMsgs.error ? <p className="sam-text-xxs text-red-700">{t("admin_chat_r1b_load_older_failed")}</p> : null}
+              {olderMsgs.error ? <p className="sam-text-xxs text-sam-danger">{t("admin_chat_r1b_load_older_failed")}</p> : null}
             </div>
           ) : null}
           {olderMsgs.messages.map((message) => (
@@ -662,10 +662,10 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       <AdminCmMessageKindBadge kind={message.display?.kind ?? "text"} />
                     </span>
                     {message.isHiddenByAdmin ? (
-                      <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">{t("admin_cm_badge_hidden")}</span>
+                      <span className="ml-2 rounded bg-sam-danger-soft px-1.5 py-0.5 sam-text-xxs text-sam-danger">{t("admin_cm_badge_hidden")}</span>
                     ) : null}
                     {message.reportCount > 0 ? (
-                      <span className="ml-2 rounded bg-amber-50 px-1.5 py-0.5 sam-text-xxs text-amber-700">
+                      <span className="ml-2 rounded bg-sam-warning-soft px-1.5 py-0.5 sam-text-xxs text-sam-warning">
                         {t("admin_cm_badge_reports", { count: message.reportCount })}
                       </span>
                     ) : null}
@@ -717,7 +717,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       {report.reasonDetail ? ` · ${report.reasonDetail}` : ""}
                     </p>
                     {report.adminNote ? (
-                      <p className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_admin_note", { text: report.adminNote })}</p>
+                      <p className="mt-1 sam-text-helper text-sam-warning">{t("admin_cm_common_admin_note", { text: report.adminNote })}</p>
                     ) : null}
                   </div>
                   {CM_REPORT_OPEN.has(report.status) ? (

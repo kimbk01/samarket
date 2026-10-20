@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatUserAddressFull } from "@/lib/addresses/user-address-display-ssot";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type AddressPayload = {
   profileAddress: {
@@ -16,7 +17,7 @@ type AddressPayload = {
 };
 
 export function AdminMemberAddressPanel({ userId }: { userId: string }) {
-  const { t, safeT, language } = useI18n();
+  const { t, safeT } = useI18n();
   const [state, setState] = useState<{ kind: "loading" } | { kind: "error" } | { kind: "ok"; data: AddressPayload }>({
     kind: "loading",
   });
@@ -54,11 +55,11 @@ export function AdminMemberAddressPanel({ userId }: { userId: string }) {
   }, [userId]);
 
   if (state.kind === "loading") {
-    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-[#667085]`}>{t("admin_users_detail_loading")}</div>;
+    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-sam-muted`}>{t("admin_users_detail_loading")}</div>;
   }
   if (state.kind === "error") {
     return (
-      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-[#b42318]`}>
+      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
         {safeT("admin_users_cc_metric_error", { fallbackKo: "불러오지 못함", fallbackEn: "Load error" })}
       </div>
     );
@@ -69,45 +70,45 @@ export function AdminMemberAddressPanel({ userId }: { userId: string }) {
     if (!value) return empty;
     const time = new Date(value).getTime();
     if (!Number.isFinite(time)) return value;
-    return new Date(time).toLocaleString(language === "en" ? "en-US" : "ko-KR");
+    return formatAdminManilaDateTime(value);
   };
 
   return (
     <div className="space-y-3">
       <div className={`${ADMIN_USERS_LITE_CARD} p-3`}>
-        <h3 className="text-[11px] font-bold uppercase tracking-wide text-[#667085]">
+        <h3 className="text-[12px] font-bold uppercase tracking-wide text-sam-muted">
           {t("admin_users_col_region")}
         </h3>
-        <p className="mt-1 text-[13px] font-medium text-[#101828]">{profileAddress.regionName || profileAddress.regionCode || empty}</p>
+        <p className="mt-1 text-[13px] font-medium text-sam-fg">{profileAddress.regionName || profileAddress.regionCode || empty}</p>
       </div>
       <div className={`${ADMIN_USERS_LITE_CARD} p-3`}>
-        <h3 className="text-[11px] font-bold uppercase tracking-wide text-[#667085]">
+        <h3 className="text-[12px] font-bold uppercase tracking-wide text-sam-muted">
           {safeT("admin_users_cc_address_default", { fallbackKo: "기본 주소", fallbackEn: "Default address" })}
         </h3>
-        <p className="mt-1 text-[13px] font-medium text-[#101828]">
+        <p className="mt-1 text-[13px] font-medium text-sam-fg">
           {profileAddress.lines.length > 0 ? profileAddress.lines.join(" · ") : empty}
         </p>
       </div>
       {addresses.length === 0 ? (
-        <div className={`${ADMIN_USERS_LITE_CARD} py-6 text-center text-sm text-[#667085]`}>
+        <div className={`${ADMIN_USERS_LITE_CARD} py-6 text-center text-sm text-sam-muted`}>
           {safeT("admin_users_cc_address_empty", { fallbackKo: "저장된 주소가 없습니다.", fallbackEn: "No saved addresses." })}
         </div>
       ) : (
         addresses.map((addr) => (
           <div key={addr.id} className={`${ADMIN_USERS_LITE_CARD} p-4`}>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-bold text-[#101828]">{addr.nickname || addr.labelType}</p>
+              <p className="text-sm font-bold text-sam-fg">{addr.nickname || addr.labelType}</p>
               {addr.isDefaultMaster ? (
-                <span className="rounded-full border border-[#abefc6] bg-[#ecfdf3] px-2 py-0.5 text-[11px] font-semibold text-[#067647]">
+                <span className="rounded-full border border-sam-success bg-sam-success-soft px-2 py-0.5 text-[12px] font-semibold text-sam-success">
                   {safeT("admin_users_cc_address_default", { fallbackKo: "기본", fallbackEn: "Default" })}
                 </span>
               ) : null}
             </div>
-            <p className="mt-1 text-sm text-[#344054]">{formatUserAddressFull(addr) || empty}</p>
-            <p className="mt-1 text-xs text-[#667085]">
+            <p className="mt-1 text-sm text-sam-fg">{formatUserAddressFull(addr) || empty}</p>
+            <p className="mt-1 text-xs text-sam-muted">
               {addr.recipientName || empty} · {addr.phoneNumber || empty}
             </p>
-            <p className="mt-1 text-xs text-[#98a2b3]">
+            <p className="mt-1 text-xs text-sam-muted">
               {safeT("admin_users_lite_label_updated_at", { fallbackKo: "수정", fallbackEn: "Updated" })}: {fmt(addr.updatedAt)}
             </p>
           </div>

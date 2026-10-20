@@ -6,6 +6,7 @@ import {
   SORT_MODE_LABELS,
   REGION_SCOPE_LABELS,
 } from "@/lib/home-feed/home-feed-labels";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface HomeFeedPolicyTableProps {
   policies: HomeFeedPolicy[];
@@ -74,7 +75,7 @@ export function HomeFeedPolicyTable({
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                     p.isActive
-                      ? "bg-emerald-50 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
@@ -84,13 +85,13 @@ export function HomeFeedPolicyTable({
               <td className="px-3 py-2.5 text-sam-fg">{p.priorityOrder}</td>
               {onEdit && (
                 <td className="px-3 py-2.5">
-                  <button
-                    type="button"
+                  <AdminActionButton
                     onClick={() => onEdit(p)}
-                    className="sam-text-body-secondary text-signature hover:underline"
+                    variant="ghost"
+                    size="sm"
                   >
                     편집
-                  </button>
+                  </AdminActionButton>
                 </td>
               )}
             </tr>

@@ -32,7 +32,7 @@ export function AdminSwitch({
       }}
       className={[
         "relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-accent,#1d4ed8)]",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-accent)]",
         checked ? "bg-sam-success" : "bg-sam-border",
         className,
       ]

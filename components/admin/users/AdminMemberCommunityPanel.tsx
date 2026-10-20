@@ -14,21 +14,26 @@ import {
 } from "@/lib/admin-users/member-deep-links";
 import type { MemberCommunitySection, MemberCommunityTabPayload } from "@/lib/admin-users/member-community-tab";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
+import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-labels";
 
 const SECTIONS: MemberCommunitySection[] = ["posts", "comments", "reports", "ads"];
 
 export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
   const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const [section, setSection] = useState<MemberCommunitySection>("posts");
   const [page, setPage] = useState(1);
   const [state, setState] = useState<{ kind: "loading" } | { kind: "error" } | { kind: "ok"; data: MemberCommunityTabPayload }>({
     kind: "loading",
   });
-  const locale = language === "en" ? "en-US" : "ko-KR";
   const fmt = (value: string | null) => {
     if (!value) return t("admin_users_empty_placeholder");
     const time = new Date(value).getTime();
-    return Number.isFinite(time) ? new Date(time).toLocaleString(locale) : value;
+    return Number.isFinite(time) ? formatAdminManilaDateTime(value) : value;
   };
 
   useEffect(() => {
@@ -58,11 +63,11 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
   }, [userId, section, page]);
 
   if (state.kind === "loading") {
-    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-[#667085]`}>{t("admin_users_detail_loading")}</div>;
+    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-sam-muted`}>{t("admin_users_detail_loading")}</div>;
   }
   if (state.kind === "error") {
     return (
-      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-[#b42318]`}>
+      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
         {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
       </div>
     );
@@ -91,31 +96,29 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
         ]}
       />
 
-      <div className="flex flex-wrap gap-2">
-        {SECTIONS.map((id) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => {
-              setSection(id);
-              setPage(1);
-            }}
-            className={
-              section === id
-                ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
-                : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
-            }
-          >
-            {id === "posts"
-              ? t("admin_users_cc_overview_posts")
-              : id === "comments"
-                ? t("admin_users_cc_overview_comments")
-                : id === "reports"
-                  ? t("admin_users_cc_overview_reports")
-                  : safeT("admin_users_cc_summary_ads", { fallbackKo: "광고 요청", fallbackEn: "Ad requests" })}
-          </button>
-        ))}
-        <Link href={memberCommunityPostsAdminHref(userId)} className="ml-auto text-xs font-semibold text-[#2563eb]">
+      <div className="flex flex-wrap items-end gap-2">
+        <AdminTabs
+          ariaLabel={ko ? "커뮤니티 활동" : "Community activity"}
+          syncUrl={false}
+          value={section}
+          onChange={(id) => {
+            setSection(id as MemberCommunitySection);
+            setPage(1);
+          }}
+          tabs={SECTIONS.map((id) => ({
+            id,
+            label:
+              id === "posts"
+                ? t("admin_users_cc_overview_posts")
+                : id === "comments"
+                  ? t("admin_users_cc_overview_comments")
+                  : id === "reports"
+                    ? t("admin_users_cc_overview_reports")
+                    : safeT("admin_users_cc_summary_ads", { fallbackKo: "광고 요청", fallbackEn: "Ad requests" }),
+          }))}
+          className="min-w-0 flex-1"
+        />
+        <Link href={memberCommunityPostsAdminHref(userId)} className="ml-auto text-xs font-semibold text-[var(--admin-console-accent)]">
           {safeT("admin_users_cc_cta_open_community_admin", { fallbackKo: "커뮤니티 관리에서 열기", fallbackEn: "Open in Community admin" })}
         </Link>
       </div>
@@ -124,7 +127,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
         {section === "posts" ? (
           <table className="min-w-full border-collapse text-[13px]">
             <thead>
-              <tr className="border-b border-[#eaecf0] bg-[#f8fafc] text-left text-[11px] font-semibold uppercase text-[#475467]">
+              <tr className="border-b border-sam-border bg-sam-surface-muted text-left text-[12px] font-semibold uppercase text-sam-muted">
                 <th className="px-3 py-2">{t("admin_users_lite_col_status")}</th>
                 <th className="px-3 py-2">{safeT("admin_users_cc_col_title", { fallbackKo: "제목", fallbackEn: "Title" })}</th>
                 <th className="px-3 py-2">{t("admin_users_col_region")}</th>
@@ -135,14 +138,18 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
             </thead>
             <tbody>
               {state.data.posts.map((row) => (
-                <tr key={row.id} className="border-b border-[#eaecf0]">
-                  <td className="px-3 py-2">{row.status}</td>
-                  <td className="px-3 py-2 font-medium text-[#101828]">{row.title || row.preview || row.id}</td>
-                  <td className="px-3 py-2 text-[#475467]">{row.topicSlug || row.category || "—"}</td>
-                  <td className="px-3 py-2 tabular-nums text-[#475467]">{fmt(row.createdAt)}</td>
+                <tr key={row.id} className="border-b border-sam-border">
+                  <td className="px-3 py-2">
+                    <AdminToneBadge tone={adminCommunityLabel("content_status", row.status, ko).tone}>
+                      {adminCommunityLabel("content_status", row.status, ko).label}
+                    </AdminToneBadge>
+                  </td>
+                  <td className="px-3 py-2 font-medium text-sam-fg">{row.title || row.preview || row.id}</td>
+                  <td className="px-3 py-2 text-sam-muted">{row.topicSlug || row.category || "—"}</td>
+                  <td className="px-3 py-2 tabular-nums text-sam-muted">{fmt(row.createdAt)}</td>
                   <td className="px-3 py-2">{row.isReported ? t("admin_users_cc_overview_reports") : "—"}</td>
                   <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
+                    <div className="flex flex-wrap gap-3 text-xs font-semibold text-[var(--admin-console-accent)]">
                       <Link href={memberCommunityPostHref(row.id)}>
                         {safeT("admin_users_cc_cta_view_post", { fallbackKo: "원문", fallbackEn: "Open" })}
                       </Link>
@@ -159,11 +166,11 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
         {section === "comments"
           ? state.data.comments.map((row) => (
               <div key={row.id} className="space-y-1 px-4 py-3">
-                <p className="text-sm text-[#101828]">{row.preview || "—"}</p>
-                <p className="text-xs text-[#667085]">
-                  {row.postTitle || row.postId} · {row.status} · {fmt(row.createdAt)}
+                <p className="text-sm text-sam-fg">{row.preview || "—"}</p>
+                <p className="text-xs text-sam-muted">
+                  {row.postTitle || row.postId} · {adminCommunityLabel("content_status", row.status, ko).label} · {fmt(row.createdAt)}
                 </p>
-                <Link href={memberCommunityCommentsAdminHref(userId)} className="text-xs font-semibold text-[#2563eb]">
+                <Link href={memberCommunityCommentsAdminHref(userId)} className="text-xs font-semibold text-[var(--admin-console-accent)]">
                   {safeT("admin_users_cc_cta_open_community_admin", { fallbackKo: "커뮤니티 관리에서 열기", fallbackEn: "Open in Community admin" })}
                 </Link>
               </div>
@@ -172,11 +179,12 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
         {section === "reports"
           ? state.data.reports.map((row) => (
               <div key={row.id} className="space-y-1 px-4 py-3">
-                <p className="text-sm font-semibold text-[#101828]">{row.reasonType || row.id}</p>
-                <p className="text-xs text-[#667085]">
-                  {row.targetType} {row.targetId} · {row.status} · {fmt(row.createdAt)}
+                <p className="text-sm font-semibold text-sam-fg">{row.reasonType || row.id}</p>
+                <p className="text-xs text-sam-muted">
+                  {adminCommunityLabel("report_target", row.targetType, ko).label} <AdminTechId id={row.targetId} /> ·{" "}
+                  {adminCommunityLabel("report_status", row.status, ko).label} · {fmt(row.createdAt)}
                 </p>
-                <Link href={memberCommunityReportsAdminHref(userId)} className="text-xs font-semibold text-[#2563eb]">
+                <Link href={memberCommunityReportsAdminHref(userId)} className="text-xs font-semibold text-[var(--admin-console-accent)]">
                   {safeT("admin_users_cc_cta_view_reports", { fallbackKo: "신고 내역 보기", fallbackEn: "View reports" })}
                 </Link>
               </div>
@@ -185,11 +193,11 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
         {section === "ads"
           ? state.data.ads.map((row) => (
               <div key={row.id} className="space-y-1 px-4 py-3">
-                <p className="text-sm font-semibold text-[#101828]">{row.placement || row.id}</p>
-                <p className="text-xs text-[#667085]">
+                <p className="text-sm font-semibold text-sam-fg">{row.placement || row.id}</p>
+                <p className="text-xs text-sam-muted">
                   {row.status} · {row.domain} · {fmt(row.createdAt)}
                 </p>
-                <Link href={memberFeedAdsAdminHref()} className="text-xs font-semibold text-[#2563eb]">
+                <Link href={memberFeedAdsAdminHref()} className="text-xs font-semibold text-[var(--admin-console-accent)]">
                   {safeT("admin_users_cc_cta_view_ads", { fallbackKo: "광고 요청 보기", fallbackEn: "View ad requests" })}
                 </Link>
               </div>
@@ -199,7 +207,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
         (section === "comments" && state.data.comments.length === 0) ||
         (section === "reports" && state.data.reports.length === 0) ||
         (section === "ads" && state.data.ads.length === 0) ? (
-          <p className="px-4 py-6 text-center text-sm text-[#667085]">
+          <p className="px-4 py-6 text-center text-sm text-sam-muted">
             {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}
           </p>
         ) : null}

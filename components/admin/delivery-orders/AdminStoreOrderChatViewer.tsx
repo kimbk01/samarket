@@ -187,7 +187,7 @@ export function AdminStoreOrderChatViewer({ orderId }: { orderId: string }) {
               ) : null}
             </dl>
             {chat.roomId && chat.roomSource && chat.roomSource !== "linked" ? (
-              <p className="mt-2 sam-text-helper text-amber-800" data-admin-room-source={chat.roomSource}>
+              <p className="mt-2 sam-text-helper text-sam-warning" data-admin-room-source={chat.roomSource}>
                 {t("admin_chat_r1b_room_fallback")}
               </p>
             ) : null}
@@ -258,7 +258,7 @@ export function AdminStoreOrderChatViewer({ orderId }: { orderId: string }) {
                     <AdminActionButton disabled={older.loading} onClick={() => void older.loadOlder()}>
                       {older.loading ? t("admin_chat_r1b_loading_older") : t("admin_chat_r1b_load_older")}
                     </AdminActionButton>
-                    {older.error ? <p className="sam-text-xxs text-red-700">{t("admin_chat_r1b_load_older_failed")}</p> : null}
+                    {older.error ? <p className="sam-text-xxs text-sam-danger">{t("admin_chat_r1b_load_older_failed")}</p> : null}
                   </div>
                 ) : null}
                 <ol className="flex flex-col gap-2">
@@ -282,14 +282,12 @@ export function AdminStoreOrderChatViewer({ orderId }: { orderId: string }) {
                         <AdminCmMessageBody display={m.display} fallbackText={m.content} />
                       )}
                       {m.senderRole !== "system" ? (
-                        <button
-                          type="button"
+                        <AdminActionButton variant="quiet" size="sm" className="mt-1"
                           disabled={sheet !== null}
                           onClick={() => setSheet({ kind: "message", message: m })}
-                          className="mt-1 sam-text-xxs font-medium text-sam-muted underline disabled:opacity-50"
                         >
                           {m.hiddenByAdmin ? t("admin_cm_action_unhide_message") : t("admin_cm_action_hide_message")}
-                        </button>
+                        </AdminActionButton>
                       ) : null}
                     </li>
                   ))}

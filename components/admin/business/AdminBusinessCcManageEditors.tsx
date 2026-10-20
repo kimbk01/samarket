@@ -1,7 +1,9 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import {
   adminConflictReloadedMessage,
   adminOperatorErrorMessage,
@@ -34,10 +36,6 @@ type TaxonomyTopic = {
 
 const inputClass =
   "w-full rounded border border-sam-border bg-sam-app px-2.5 py-1.5 sam-text-body text-sam-fg";
-const btnClass =
-  "rounded border border-sam-border bg-sam-app px-3 py-1.5 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50";
-const btnPrimaryClass =
-  "rounded border border-signature bg-signature px-3 py-1.5 sam-text-helper font-medium text-white hover:opacity-90 disabled:opacity-50";
 
 export function AdminBusinessCcTaxonomyEditor({
   store,
@@ -83,7 +81,7 @@ export function AdminBusinessCcTaxonomyEditor({
 
   const save = async () => {
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: ko ? "업종을 저장할까요?" : "Save category?",
       confirmLabel: ko ? "저장" : "Save",
@@ -155,14 +153,12 @@ export function AdminBusinessCcTaxonomyEditor({
           </select>
         </label>
       </div>
-      <button
-        type="button"
-        className={btnPrimaryClass}
+      <AdminActionButton variant="secondary"
         disabled={busy || saving}
         onClick={() => void save()}
       >
         {t("admin_biz_save_taxonomy")}
-      </button>
+      </AdminActionButton>
     </div>
   );
 }
@@ -191,7 +187,7 @@ export function AdminBusinessCcContactEditor({
 
   const save = async () => {
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: ko ? "연락처를 저장할까요?" : "Save contact info?",
       confirmLabel: ko ? "저장" : "Save",
@@ -246,9 +242,9 @@ export function AdminBusinessCcContactEditor({
           onChange={(e) => setDescription(e.target.value)}
         />
       </label>
-      <button type="button" className={btnPrimaryClass} disabled={busy || saving} onClick={() => void save()}>
+      <AdminActionButton variant="secondary" disabled={busy || saving} onClick={() => void save()}>
         {t("admin_biz_save_contact")}
-      </button>
+      </AdminActionButton>
     </div>
   );
 }
@@ -301,7 +297,7 @@ export function AdminBusinessCcLocationEditor({
 
   const save = async () => {
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: ko ? "매장 위치를 저장할까요?" : "Save store location?",
       confirmLabel: ko ? "저장" : "Save",
@@ -414,9 +410,9 @@ export function AdminBusinessCcLocationEditor({
           <input className={inputClass} value={lng} disabled={busy || saving} onChange={(e) => setLng(e.target.value)} />
         </label>
       </div>
-      <button type="button" className={btnPrimaryClass} disabled={busy || saving} onClick={() => void save()}>
+      <AdminActionButton variant="secondary" disabled={busy || saving} onClick={() => void save()}>
         {t("admin_biz_save_location")}
-      </button>
+      </AdminActionButton>
     </div>
   );
 }
@@ -454,7 +450,7 @@ export function AdminBusinessCcFeeOverrideEditor({
 
   const saveOverride = async () => {
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: ko ? "매장 개별 수수료를 저장할까요?" : "Save store fee override?",
       confirmLabel: ko ? "저장" : "Save",
@@ -522,7 +518,7 @@ export function AdminBusinessCcFeeOverrideEditor({
   const clearOverride = async () => {
     if (!fee.storeOverridePolicyId) return;
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("disable"),
       ko,
       title: ko ? "매장 개별 수수료를 해제할까요?" : "Remove store fee override?",
       confirmLabel: ko ? "해제" : "Remove",
@@ -567,15 +563,15 @@ export function AdminBusinessCcFeeOverrideEditor({
             onChange={(e) => setPercent(e.target.value)}
           />
         </label>
-        <button type="button" className={btnPrimaryClass} disabled={busy} onClick={() => void saveOverride()}>
+        <AdminActionButton variant="secondary" disabled={busy} onClick={() => void saveOverride()}>
           {fee.storeOverridePolicyId
             ? t("admin_biz_fee_update_override")
             : t("admin_biz_fee_create_override")}
-        </button>
+        </AdminActionButton>
         {fee.storeOverridePolicyId ? (
-          <button type="button" className={btnClass} disabled={busy} onClick={() => void clearOverride()}>
+          <AdminActionButton variant="secondary" disabled={busy} onClick={() => void clearOverride()}>
             {t("admin_biz_fee_clear_override")}
-          </button>
+          </AdminActionButton>
         ) : null}
       </div>
     </div>
@@ -614,7 +610,7 @@ export function AdminBusinessCcDeliveryOverrideEditor({
 
   const save = async () => {
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: ko ? "배달 반경·거리 정책을 저장할까요?" : "Save delivery radius and distance policy?",
       confirmLabel: ko ? "저장" : "Save",
@@ -685,12 +681,12 @@ export function AdminBusinessCcDeliveryOverrideEditor({
             inputMode="decimal"
           />
         </label>
-        <button type="button" className={btnPrimaryClass} disabled={busy} onClick={() => void save()}>
+        <AdminActionButton variant="secondary" disabled={busy} onClick={() => void save()}>
           {t("admin_biz_save_delivery_override")}
-        </button>
+        </AdminActionButton>
       </div>
       {result ? (
-        <p role="status" className="rounded-ui-rect border border-emerald-300 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-950">
+        <p role="status" className="rounded-ui-rect border border-sam-success bg-sam-success-soft px-3 py-2 text-[13px] text-sam-success">
           {result}
         </p>
       ) : null}
@@ -739,7 +735,7 @@ export function AdminBusinessCcOpsFlagsEditor({
 
   const save = async () => {
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: ko ? "영업·배달·포장 설정을 저장할까요?" : "Save open, delivery and pickup settings?",
       confirmLabel: ko ? "저장" : "Save",
@@ -803,14 +799,12 @@ export function AdminBusinessCcOpsFlagsEditor({
         />
         {t("admin_biz_label_pickup_flag")}
       </label>
-      <button
-        type="button"
-        className={btnPrimaryClass}
+      <AdminActionButton variant="secondary"
         disabled={busy || saving}
         onClick={() => void save()}
       >
         {t("admin_biz_save_ops_flags")}
-      </button>
+      </AdminActionButton>
     </div>
   );
 }
@@ -886,7 +880,7 @@ export function AdminBusinessCcBusinessHoursEditor({
       return;
     }
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: ko ? "영업시간을 저장할까요?" : "Save business hours?",
       description: ko
@@ -982,15 +976,15 @@ export function AdminBusinessCcBusinessHoursEditor({
         <p
           role={result.ok ? "status" : "alert"}
           className={`rounded-ui-rect border px-3 py-2 text-[13px] ${
-            result.ok ? "border-emerald-300 bg-emerald-50 text-emerald-950" : "border-red-300 bg-red-50 text-red-900"
+            result.ok ? "border-sam-success bg-sam-success-soft text-sam-success" : "border-sam-danger bg-sam-danger-soft text-sam-danger"
           }`}
         >
           {result.text}
         </p>
       ) : null}
-      <button type="button" className={btnPrimaryClass} disabled={disabled} onClick={() => void save()}>
+      <AdminActionButton variant="secondary" disabled={disabled} onClick={() => void save()}>
         {saving ? (ko ? "저장 중…" : "Saving…") : ko ? "저장" : "Save"}
-      </button>
+      </AdminActionButton>
     </div>
   );
 }

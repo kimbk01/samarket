@@ -46,6 +46,7 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 
 const SUPPORT_LIST_PAGE_SIZE = 50;
 
@@ -449,14 +450,18 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     setScope({ referenceType: null, referenceId: null, storeId: null });
   };
 
-  /** 상태 변경 CTA — L1 확인 후 기존 PATCH 그대로. */
+  /**
+   * 상담 CTA — 동작 종류의 확인 단계(admin-action-levels) 후 기존 PATCH 그대로.
+   * 상태 변경(종료·보관·재오픈·보관 해제) = save(L1) · 메시지 삭제 = delete(L3, 사유 → 본문 `reason` → 감사 `after.reason`).
+   */
   const confirmThenPatch = async (
     payload: Record<string, unknown>,
-    copy: { title: string; description: string; confirmLabel: string; destructive?: boolean }
+    copy: { title: string; description: string; confirmLabel: string; destructive?: boolean; retypeValue?: string },
+    kind: AdminActionKind = "save"
   ) => {
-    const confirmed = await confirmAdminAction({ level: "L1", ko, ...copy });
+    const confirmed = await confirmAdminAction({ level: adminActionLevel(kind), ko, ...copy });
     if (!confirmed.ok) return false;
-    return patchCase(payload);
+    return patchCase(confirmed.reason ? { ...payload, reason: confirmed.reason } : payload);
   };
 
   const groupOptions = [
@@ -993,7 +998,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                                     : "Deletes your message. The customer sees “Deleted message”; the action is audited.",
                                   confirmLabel: adminCta("delete", ko),
                                   destructive: true,
-                                }
+                                  retypeValue: ko ? "삭제" : "delete",
+                                },
+                                "delete"
                               )
                             }
                           >

@@ -5,6 +5,7 @@
  * 승인 = 입금 확인 근거 필수 (L2) · 반려 = 사유 필수 (L2, 회원에게 전달) · 보류 = 확인 (L1).
  */
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
 export type PointChargeAction = "approve" | "reject" | "hold";
 
@@ -29,7 +30,7 @@ export async function runPointChargeAction(input: {
 
   if (action === "approve") {
     const c = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel("moneyApprove"),
       ko,
       title: ko ? "입금 확인 후 승인" : "Approve after verifying payment",
       description: ko
@@ -42,7 +43,7 @@ export async function runPointChargeAction(input: {
     verificationNote = c.reason ?? undefined;
   } else if (action === "reject") {
     const c = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel("reject"),
       ko,
       title: ko ? "충전 신청 반려" : "Reject top-up",
       description: ko
@@ -56,7 +57,7 @@ export async function runPointChargeAction(input: {
     rejectReason = c.reason ?? undefined;
   } else {
     const c = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("hold"),
       ko,
       title: ko ? "충전 신청 보류" : "Put top-up on hold",
       description: input.summary,

@@ -96,7 +96,7 @@ export function AdminTechId({
   return (
     <span
       data-admin-tech-id=""
-      className={`inline-flex max-w-full items-center gap-1 align-baseline font-mono text-[11px] leading-4 text-sam-muted ${className}`}
+      className={`inline-flex max-w-full items-center gap-1 align-baseline font-mono text-[12px] leading-4 text-sam-muted ${className}`}
     >
       <span title={full} aria-label={full} className="truncate">
         {prefix ?? ""}
@@ -108,7 +108,7 @@ export function AdminTechId({
           onClick={onCopy}
           title={full}
           aria-label={t("admin_tech_id_copy_aria", { id: full })}
-          className="shrink-0 rounded-ui-rect border border-sam-border px-1 font-sans text-[10px] leading-4 text-sam-muted hover:bg-sam-surface-muted hover:text-sam-fg"
+          className="shrink-0 rounded-ui-rect border border-sam-border px-1 font-sans text-[12px] leading-4 text-sam-muted hover:bg-sam-surface-muted hover:text-sam-fg"
         >
           {state === "copied"
             ? t("admin_tech_id_copied")
@@ -161,7 +161,7 @@ export function AdminTechInfo({
                 {r.id != null && String(r.id) !== "" ? (
                   <AdminTechId id={r.id} />
                 ) : (
-                  <span className="break-all font-mono text-[11px] text-sam-fg">{r.value}</span>
+                  <span className="break-all font-mono text-[12px] text-sam-fg">{r.value}</span>
                 )}
               </dd>
             </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
+import { AdminActionButton, AdminActionLabel } from "@/components/admin/ui/AdminActionButton";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
@@ -175,7 +177,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
         <AdminDeliveryAdsSectionNav />
 
         {error ? (
-          <p className="text-[13px] text-red-600" role="alert">
+          <p className="text-[13px] text-sam-danger" role="alert">
             {error}
           </p>
         ) : null}
@@ -194,14 +196,8 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                   const selected = inventoryKey === k;
                   const g = DELIVERY_AD_BANNER_PIXEL_GUIDE[k];
                   return (
-                    <button
+                    <AdminListItemButton selected={selected} className="flex flex-col items-start border border-sam-border px-3 py-2.5"
                       key={k}
-                      type="button"
-                      className={`flex w-full flex-col items-start rounded-ui-rect border px-3 py-2.5 text-left transition ${
-                        selected
-                          ? "border-[#0A823E] bg-[#0A823E]/5"
-                          : "border-sam-border hover:border-[#0A823E]/40"
-                      }`}
                       aria-pressed={selected}
                       onClick={() => {
                         setInventoryKey(k);
@@ -226,7 +222,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                             })}{" "}
                         · {formatBannerPixelGuideLine(g, lang)}
                       </span>
-                    </button>
+                    </AdminListItemButton>
                   );
                 })}
               </div>
@@ -264,7 +260,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                 />
               </label>
               {startAt && endAt && !scheduleOk ? (
-                <p className="text-[12px] text-red-600" data-admin-fp-schedule-invalid="1">
+                <p className="text-[12px] text-sam-danger" data-admin-fp-schedule-invalid="1">
                   {safeT("admin_delivery_ads_fp_schedule_invalid", {
                     fallbackKo: "종료 일시는 시작 일시보다 이후여야 합니다.",
                     fallbackEn: "End must be after start.",
@@ -285,7 +281,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                 <br />
                 {lang === "en" ? guide.safeAreaNoteEn : guide.safeAreaNoteKo}
               </p>
-              <label className="inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-ui-rect bg-[#0A823E] px-4 text-[14px] font-semibold text-white transition hover:bg-[#087a38] focus-within:ring-2 focus-within:ring-[#0A823E]/40">
+              <AdminActionLabel variant="secondary">
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -300,7 +296,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                   fallbackKo: "내 PC에서 이미지 불러오기",
                   fallbackEn: "Upload from PC",
                 })}
-              </label>
+              </AdminActionLabel>
               {assetPath ? (
                 <div className="space-y-2">
                   <div className="overflow-hidden rounded-ui-rect border border-sam-border">
@@ -311,12 +307,10 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                       className="w-full object-cover aspect-[39/16]"
                     />
                   </div>
-                  <p className="text-[11px] tabular-nums text-sam-muted">
+                  <p className="text-[12px] tabular-nums text-sam-muted">
                     {sourceWidth}×{sourceHeight}px
                   </p>
-                  <button
-                    type="button"
-                    className="text-[13px] font-semibold text-red-600"
+                  <AdminActionButton variant="secondary" size="sm"
                     onClick={() => {
                       setAssetPath("");
                       setSourceWidth(0);
@@ -327,7 +321,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                       fallbackKo: "이미지 삭제",
                       fallbackEn: "Remove image",
                     })}
-                  </button>
+                  </AdminActionButton>
                 </div>
               ) : null}
             </section>
@@ -405,17 +399,13 @@ export function AdminDeliveryAdFirstPartyCreateView() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="min-h-[44px] rounded-ui-rect border border-sam-border px-4 text-[14px] font-semibold text-sam-fg transition hover:bg-sam-app"
+          <AdminActionButton variant="secondary"
             onClick={() => router.push(DELIVERY_AD_ADMIN_ROUTES.hub)}
           >
             {safeT("admin_delivery_ads_fp_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
-          </button>
-          <button
-            type="button"
+          </AdminActionButton>
+          <AdminActionButton variant="primary" className="flex-1"
             disabled={!canSubmit}
-            className="min-h-[44px] flex-1 rounded-ui-rect bg-[#0A823E] px-4 text-[14px] font-semibold text-white transition hover:bg-[#087a38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
             data-first-party-submit="1"
             onClick={() => void submit()}
           >
@@ -430,7 +420,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                     fallbackKo: "예약 등록",
                     fallbackEn: "Schedule registration",
                   })}
-          </button>
+          </AdminActionButton>
         </div>
       </div>
     </AdminDeliveryCmsChrome>

@@ -2,6 +2,7 @@
 
 import type { HomeFeedGenerationLog } from "@/lib/types/home-feed";
 import { SECTION_LABELS } from "@/lib/home-feed/home-feed-labels";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface HomeFeedGenerationLogListProps {
   logs: HomeFeedGenerationLog[];
@@ -48,7 +49,7 @@ export function HomeFeedGenerationLogList({ logs }: HomeFeedGenerationLogListPro
               className="border-b border-sam-border-soft hover:bg-sam-app"
             >
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(log.generatedAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(log.generatedAt)}
               </td>
               <td className="max-w-[180px] truncate px-3 py-2.5 text-sam-fg">
                 {log.userRegion}

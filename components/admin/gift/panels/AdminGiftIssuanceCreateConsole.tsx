@@ -7,6 +7,7 @@ import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import { GiftSalesDateTimeField } from "@/components/gift-certificate/GiftSalesDateTimeField";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import {
   validateGiftProductFunding,
@@ -193,7 +194,7 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
   const startSale = async () => {
     if (busy || !canReview) return;
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko: language !== "en",
       title: safeT("gift_admin_register_confirm_title", {
         fallbackKo: "상품권을 등록할까요?",

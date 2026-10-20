@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type {
   AdApplication,
@@ -15,6 +14,9 @@ import type {
 } from "@/lib/types/ad-application";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import { AdminAdActionPanel } from "./AdminAdActionPanel";
 import { AdminAdLogList } from "./AdminAdLogList";
 
@@ -55,10 +57,6 @@ const PAYMENT_METHOD_KEYS = {
   manual_confirm: "admin_ads_payment_method_manual_confirm",
 } as const satisfies Record<AdPaymentMethod, MessageKey>;
 
-function dateLocaleTag(language: AppLanguageCode): string {
-  return language === "en" ? "en-US" : "ko-KR";
-}
-
 interface AdminAdApplicationDetailPageProps {
   applicationId: string;
 }
@@ -66,8 +64,7 @@ interface AdminAdApplicationDetailPageProps {
 export function AdminAdApplicationDetailPage({
   applicationId,
 }: AdminAdApplicationDetailPageProps) {
-  const { t, language } = useI18n();
-  const dateLocale = dateLocaleTag(language);
+  const { t } = useI18n();
   const [application, setApplication] = useState<AdApplication | null>(null);
   const [logs, setLogs] = useState<AdApplicationLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,8 +149,8 @@ export function AdminAdApplicationDetailPage({
           <div>
             <dt className="text-sam-muted">{t("admin_ads_label_plan_duration_amount")}</dt>
             <dd>
-              {application.planName} · {t("admin_ads_duration_days", { days: application.durationDays })} · ₱
-              {application.totalPrice.toLocaleString()}
+              {application.planName} · {t("admin_ads_duration_days", { days: application.durationDays })} ·{" "}
+              {formatAdminPhp(application.totalPrice)}
             </dd>
           </div>
           <div>
@@ -172,7 +169,7 @@ export function AdminAdApplicationDetailPage({
                   application.applicationStatus === "active"
                     ? "bg-signature/10 text-signature"
                     : application.applicationStatus === "rejected"
-                      ? "bg-red-50 text-red-700"
+                      ? "bg-sam-danger-soft text-sam-danger"
                       : "bg-sam-surface-muted text-sam-fg"
                 }`}
               >
@@ -190,17 +187,16 @@ export function AdminAdApplicationDetailPage({
             <div>
               <dt className="text-sam-muted">{t("admin_ads_label_exposure_period")}</dt>
               <dd className="sam-text-body-secondary text-sam-muted">
-                {application.startAt &&
-                  new Date(application.startAt).toLocaleString(dateLocale)}
+                {application.startAt && formatAdminManilaDateTime(application.startAt)}
                 {" ~ "}
-                {application.endAt && new Date(application.endAt).toLocaleString(dateLocale)}
+                {application.endAt && formatAdminManilaDateTime(application.endAt)}
               </dd>
             </div>
           )}
           <div>
             <dt className="text-sam-muted">{t("admin_ads_label_applied_at")}</dt>
             <dd className="sam-text-body-secondary text-sam-muted">
-              {new Date(application.createdAt).toLocaleString(dateLocale)}
+              {formatAdminManilaDateTime(application.createdAt)}
             </dd>
           </div>
           {application.applicantMemo && (
@@ -220,14 +216,13 @@ export function AdminAdApplicationDetailPage({
             placeholder={t("admin_ads_memo_placeholder")}
             className="flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
           />
-          <button
-            type="button"
+          <AdminActionButton
+            variant="secondary"
             disabled={memoBusy}
             onClick={() => void handleSaveMemo()}
-            className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50"
           >
             {t("common_save")}
-          </button>
+          </AdminActionButton>
         </div>
         {application.adminMemo && (
           <p className="mt-2 sam-text-body-secondary text-sam-muted">{application.adminMemo}</p>

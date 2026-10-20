@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin/ads-collision/detect-placement-collisions";
 import { bannerPlacementDefaultCapacity, BANNER_CAPACITY_FULL_COPY } from "@/lib/ads/banner-placement-capacity-ssot";
 import { HERO_OCCUPYING_LIFECYCLES } from "@/lib/admin/ads-exposure/capacity-gate";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export type PlacementOccupancyInput = AdsCollisionCampaignInput & {
   capacity?: number;
@@ -118,13 +119,13 @@ export function computePlacementOccupancy(
         vacant > 0
           ? "지금 가능"
           : nextVacancyAt
-            ? new Date(nextVacancyAt).toLocaleString("ko-KR")
+            ? formatAdminManilaDateTime(nextVacancyAt)
             : "빈 자리 없음",
       vacancyLabelEn:
         vacant > 0
           ? "Available now"
           : nextVacancyAt
-            ? new Date(nextVacancyAt).toLocaleString("en-US")
+            ? formatAdminManilaDateTime(nextVacancyAt)
             : "No vacancy",
     });
   }

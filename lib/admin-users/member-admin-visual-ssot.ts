@@ -40,13 +40,13 @@ export type MemberAdminCtaVariant = "primary" | "secondary" | "tertiary" | "dang
  */
 export const MEMBER_ADMIN_CTA_CLASS: Record<MemberAdminCtaVariant, string> = {
   primary:
-    "member-admin-cta member-admin-cta--primary inline-flex h-10 items-center justify-center gap-1.5 rounded-ui-rect bg-[color:var(--sam-brand,#2563eb)] px-4 text-sm font-medium text-white shadow-sm transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sam-brand,#2563eb)] disabled:cursor-not-allowed disabled:opacity-40",
+    "member-admin-cta member-admin-cta--primary inline-flex h-10 items-center justify-center gap-1.5 rounded-ui-rect bg-sam-primary px-4 text-sm font-medium text-white shadow-sm transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-primary disabled:cursor-not-allowed disabled:opacity-40",
   secondary:
     "member-admin-cta member-admin-cta--secondary inline-flex h-10 items-center justify-center gap-1.5 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-sm font-medium text-sam-fg shadow-sm transition hover:bg-sam-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-border disabled:cursor-not-allowed disabled:opacity-40",
   tertiary:
     "member-admin-cta member-admin-cta--tertiary inline-flex h-10 items-center justify-center gap-1.5 rounded-ui-rect px-3 text-sm font-medium text-sam-muted transition hover:bg-sam-surface-muted hover:text-sam-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-border disabled:cursor-not-allowed disabled:opacity-40",
   danger:
-    "member-admin-cta member-admin-cta--danger inline-flex h-10 items-center justify-center gap-1.5 rounded-ui-rect border border-[color:var(--sam-danger,#f04438)] bg-white px-4 text-sm font-medium text-[color:var(--sam-danger,#b42318)] shadow-sm transition hover:bg-[#fef3f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sam-danger,#f04438)] disabled:cursor-not-allowed disabled:opacity-40",
+    "member-admin-cta member-admin-cta--danger inline-flex h-10 items-center justify-center gap-1.5 rounded-ui-rect border border-sam-danger bg-white px-4 text-sm font-medium text-sam-danger shadow-sm transition hover:bg-sam-danger-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-danger disabled:cursor-not-allowed disabled:opacity-40",
 };
 
 export const MEMBER_ADMIN_CTA_VARIANTS = Object.keys(MEMBER_ADMIN_CTA_CLASS) as MemberAdminCtaVariant[];
@@ -83,13 +83,13 @@ export const MEMBER_ADMIN_TYPOGRAPHY_CLASS: Record<MemberAdminTypographyRole, st
   PAGE_DESCRIPTION: "text-sm text-sam-muted",
   SECTION_TITLE: "text-base font-semibold text-sam-fg",
   SECTION_DESCRIPTION: "text-sm text-sam-muted",
-  MEMBER_PRIMARY_NAME: "text-lg font-semibold text-sam-fg",
+  MEMBER_PRIMARY_NAME: "text-[20px] font-semibold text-sam-fg",
   MEMBER_SECONDARY_NAME: "text-sm text-sam-muted",
   MEMBER_IDENTIFIER: "font-mono text-xs text-sam-muted",
   FIELD_LABEL: "mb-1 block text-sm font-medium text-sam-fg",
   FIELD_VALUE: "text-sm text-sam-fg",
   HELP_TEXT: "mt-1 text-xs text-sam-muted",
-  ERROR_TEXT: "mt-1 text-xs font-medium text-[color:var(--sam-danger,#b42318)]",
+  ERROR_TEXT: "mt-1 text-xs font-medium text-sam-danger",
   TABLE_HEADER: "text-xs font-medium text-sam-muted",
   TABLE_PRIMARY: "text-sm font-medium text-sam-fg",
   TABLE_SECONDARY: "text-sm text-sam-muted",
@@ -122,11 +122,11 @@ export const MEMBER_ADMIN_SPACING = {
 
 export const MEMBER_ADMIN_FORM_FIELD_CLASS = {
   input:
-    "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--sam-brand,#2563eb)] disabled:opacity-50",
+    "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg outline-none focus-visible:ring-2 focus-visible:ring-sam-primary disabled:opacity-50",
   select:
-    "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--sam-brand,#2563eb)] disabled:opacity-50",
+    "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg outline-none focus-visible:ring-2 focus-visible:ring-sam-primary disabled:opacity-50",
   readonly: "text-sm text-sam-fg",
-  requiredMark: "ml-0.5 text-[color:var(--sam-danger,#b42318)]",
+  requiredMark: "ml-0.5 text-sam-danger",
 } as const;
 
 /** Close (X) discoverability contract beyond hit-target size. */

@@ -1,6 +1,8 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -68,10 +70,10 @@ export function OpsRunbookStepWorkflow({
   return (
     <div className="space-y-4">
       {hasBlocked && (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 p-3 sam-text-body font-medium text-red-800">{t("admin_ops_tools_runbook_blocked_warn")}</div>
+        <div className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft p-3 sam-text-body font-medium text-sam-danger">{t("admin_ops_tools_runbook_blocked_warn")}</div>
       )}
       {pendingOrBlocked.length > 0 && executionStatus === "in_progress" && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-3 sam-text-body text-amber-800">
+        <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-3 sam-text-body text-sam-warning">
           {t("admin_ops_tools_runbook_pending_steps", { count: pendingOrBlocked.length })}
         </div>
       )}
@@ -81,7 +83,7 @@ export function OpsRunbookStepWorkflow({
             key={s.id}
             className={`rounded-ui-rect border p-4 ${
               s.status === "blocked"
-                ? "border-red-200 bg-red-50/50"
+                ? "border-sam-danger/30 bg-sam-danger-soft/50"
                 : "border-sam-border bg-sam-surface"
             }`}
           >
@@ -95,11 +97,11 @@ export function OpsRunbookStepWorkflow({
                   <span
                     className={`rounded px-2 py-0.5 sam-text-helper ${
                       s.status === "done"
-                        ? "bg-emerald-50 text-emerald-800"
+                        ? "bg-sam-success-soft text-sam-success"
                         : s.status === "in_progress"
-                          ? "bg-amber-50 text-amber-800"
+                          ? "bg-sam-warning-soft text-sam-warning"
                           : s.status === "blocked"
-                            ? "bg-red-100 text-red-800"
+                            ? "bg-sam-danger-soft text-sam-danger"
                             : "bg-sam-surface-muted text-sam-muted"
                     }`}
                   >
@@ -110,8 +112,8 @@ export function OpsRunbookStepWorkflow({
                 {(s.assignedAdminNickname || s.startedAt || s.completedAt) && (
                   <p className="mt-2 sam-text-helper text-sam-muted">
                     {s.assignedAdminNickname && `담당 ${s.assignedAdminNickname}`}
-                    {s.startedAt && ` · 시작 ${new Date(s.startedAt).toLocaleString("ko-KR")}`}
-                    {s.completedAt && ` · 완료 ${new Date(s.completedAt).toLocaleString("ko-KR")}`}
+                    {s.startedAt && ` · 시작 ${formatAdminManilaDateTime(s.startedAt)}`}
+                    {s.completedAt && ` · 완료 ${formatAdminManilaDateTime(s.completedAt)}`}
                   </p>
                 )}
                 {s.note && (
@@ -135,39 +137,34 @@ export function OpsRunbookStepWorkflow({
               (s.status === "pending" || s.status === "in_progress" || s.status === "blocked") && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {s.status === "pending" && (
-                    <button
-                      type="button"
+                    <AdminActionButton
+                      size="sm"
                       onClick={() => handleStatus(s.id, "in_progress")}
-                      className="rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-helper text-amber-800"
-                    >{t("admin_ops_tools_runbook_th_started")}</button>
+                    >{t("admin_ops_tools_runbook_th_started")}</AdminActionButton>
                   )}
                   {s.status === "in_progress" && (
-                    <button
-                      type="button"
+                    <AdminActionButton
+                      size="sm"
                       onClick={() => handleStatus(s.id, "done")}
-                      className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 sam-text-helper text-emerald-800"
-                    >{t("admin_ops_tools_checklist_done")}</button>
+                    >{t("admin_ops_tools_checklist_done")}</AdminActionButton>
                   )}
                   {(s.status === "pending" || s.status === "in_progress") && (
                     <>
-                      <button
-                        type="button"
+                      <AdminActionButton
+                        size="sm"
                         onClick={() => handleStatus(s.id, "skipped")}
-                        className="rounded border border-sam-border bg-sam-surface-muted px-2 py-1 sam-text-helper text-sam-muted"
-                      >{t("admin_ops_tools_checklist_skipped")}</button>
-                      <button
-                        type="button"
+                      >{t("admin_ops_tools_checklist_skipped")}</AdminActionButton>
+                      <AdminActionButton
+                        size="sm"
                         onClick={() => handleStatus(s.id, "blocked")}
-                        className="rounded border border-red-200 bg-red-50 px-2 py-1 sam-text-helper text-red-800"
-                      >{t("admin_ops_tools_checklist_blocked")}</button>
+                      >{t("admin_ops_tools_checklist_blocked")}</AdminActionButton>
                     </>
                   )}
                   {s.status === "blocked" && (
-                    <button
-                      type="button"
+                    <AdminActionButton
+                      size="sm"
                       onClick={() => handleStatus(s.id, "in_progress")}
-                      className="rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-helper text-amber-800"
-                    >{t("admin_ops_tools_runbook_btn_resume")}</button>
+                    >{t("admin_ops_tools_runbook_btn_resume")}</AdminActionButton>
                   )}
                 </div>
               )}

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import type { ExposureScorePolicy } from "@/lib/types/exposure";
 import { SURFACE_LABELS } from "@/lib/exposure/exposure-score-utils";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface ExposurePolicyTableProps {
   policies: ExposureScorePolicy[];
@@ -67,7 +69,7 @@ export function ExposurePolicyTable({
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                     p.isActive
-                      ? "bg-emerald-50 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
@@ -75,17 +77,17 @@ export function ExposurePolicyTable({
                 </span>
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(p.updatedAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(p.updatedAt)}
               </td>
               {onEdit && (
                 <td className="px-3 py-2.5">
-                  <button
-                    type="button"
+                  <AdminActionButton
                     onClick={() => onEdit(p)}
-                    className="sam-text-body-secondary text-signature hover:underline"
+                    variant="ghost"
+                    size="sm"
                   >
                     편집
-                  </button>
+                  </AdminActionButton>
                 </td>
               )}
             </tr>

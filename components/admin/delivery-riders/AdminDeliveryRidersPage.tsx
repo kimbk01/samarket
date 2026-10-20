@@ -13,6 +13,7 @@ import {
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
@@ -267,7 +268,7 @@ export function AdminDeliveryRidersPage() {
     async (orderId: string) => {
       if (busyOrder) return;
       const c = await confirmAdminAction({
-        level: "L1",
+        level: adminActionLevel("hold"),
         ko,
         title: t("admin_r4d_attention_title"),
         confirmLabel: t("admin_del_btn_mark_attention"),
@@ -421,7 +422,7 @@ export function AdminDeliveryRidersPage() {
                         onClick={async () => {
                           if (busyRider) return;
                           const c = await confirmAdminAction({
-                            level: "L1",
+                            level: adminActionLevel(r.is_online ? "disable" : "resume"),
                             ko,
                             title: r.is_online
                               ? ko
@@ -567,7 +568,7 @@ export function AdminDeliveryRidersPage() {
                       onClick={async () => {
                         if (busyOrder) return;
                         const c = await confirmAdminAction({
-                          level: "L1",
+                          level: adminActionLevel("save"),
                           ko,
                           title: t("admin_r4d_assign_title"),
                           description: `${u.order_no ?? ""} → ${riderName(assignMap[u.order_id])}`.trim(),
@@ -756,7 +757,7 @@ export function AdminDeliveryRidersPage() {
                 {detail.rider_id || detail.delivery_status ? (
                   <AdminTechDetails ko={ko}>
                     {detail.rider_id ? <div>{detail.rider_id}</div> : null}
-                    {detail.delivery_status ? <div>{detail.delivery_status}</div> : null}
+                    {detail.delivery_status ? <div>{`delivery_status: ${detail.delivery_status}`}</div> : null}
                   </AdminTechDetails>
                 ) : null}
               </dl>
@@ -785,7 +786,7 @@ export function AdminDeliveryRidersPage() {
                 onClick={async () => {
                   if (busyOrder) return;
                   const c = await confirmAdminAction({
-                    level: "L2",
+                    level: adminActionLevel("sanction"),
                     ko,
                     title: t("admin_r4d_reassign_title", {
                       from: riderName(detail?.rider_id),
@@ -816,7 +817,7 @@ export function AdminDeliveryRidersPage() {
                 onClick={async () => {
                   if (busyOrder) return;
                   const c = await confirmAdminAction({
-                    level: "L1",
+                    level: adminActionLevel("disable"),
                     ko,
                     title: t("admin_r4d_release_title"),
                     description: t("admin_r4d_release_desc"),
@@ -837,7 +838,7 @@ export function AdminDeliveryRidersPage() {
                   if (busyOrder) return;
                   // L2 — 사유 필수, 사유가 실패 사유로 기록된다
                   const c = await confirmAdminAction({
-                    level: "L2",
+                    level: adminActionLevel("reject"),
                     ko,
                     title: t("admin_r4d_mark_failed_title"),
                     description: t("admin_r4d_mark_failed_desc"),

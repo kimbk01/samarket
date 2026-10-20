@@ -18,6 +18,7 @@ import { businessCcBackToStoreHref } from "@/lib/admin-business/business-control
 import { parseAdminStoreReportFocusRequestId } from "@/lib/admin/admin-ops-deeplink";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 
@@ -117,7 +118,7 @@ export function AdminStoreReportsPage() {
   async function patchStatus(r: Row, status: "dismissed" | "actioned") {
     const actioned = status === "actioned";
     const confirmed = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel(actioned ? "approve" : "reject"),
       ko,
       title: actioned
         ? ko

@@ -1,6 +1,7 @@
 "use client";
 
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveAdminHttpErrorMessage } from "@/lib/admin/resolve-admin-http-error";
@@ -77,7 +78,7 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
 
   const confirmBuyer = async (roomId: string) => {
     const confirmed = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel("approve"),
       ko: language !== "en",
       title: t("admin_trade_completion_admin_confirm_question"),
       confirmLabel: t("admin_trade_completion_admin_confirm"),

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -64,7 +65,7 @@ export function OpsRunbookStartForm() {
           ))}
         </select>
         {activeDocs.length === 0 && (
-          <p className="mt-1 sam-text-helper text-amber-600">{t("admin_ops_tools_runbook_no_active_doc")}</p>
+          <p className="mt-1 sam-text-helper text-sam-warning">{t("admin_ops_tools_runbook_no_active_doc")}</p>
         )}
       </div>
       <div>
@@ -91,11 +92,13 @@ export function OpsRunbookStartForm() {
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
-      <button
+      <AdminActionButton
         type="submit"
+        variant="primary"
         disabled={!documentId.trim() || activeDocs.length === 0}
-        className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
-      >{t("admin_ops_tools_rb_log_start")}</button>
+      >
+        {t("admin_ops_tools_rb_log_start")}
+      </AdminActionButton>
     </form>
   );
 }

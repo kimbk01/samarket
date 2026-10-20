@@ -7,6 +7,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { PlatformPopupOwnerRequestAdminPresentation } from "@/lib/platform-popup/enrich-admin-request-presentation";
 import type { PlatformPopupOwnerRequestAdminAction } from "@/lib/platform-popup/owner-request-types";
 import { PLATFORM_POPUP_ADMIN_REQUEST_ROUTES } from "@/lib/platform-popup/platform-popup-owner-routes";
@@ -169,7 +170,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
   if (!item) {
     return (
       <div className="space-y-2">
-        <p className="text-sm text-red-600">{error || "not_found"}</p>
+        <p className="text-sm text-sam-danger">{error || "not_found"}</p>
         <Link href={PLATFORM_POPUP_ADMIN_REQUEST_ROUTES.queue} className="text-sm underline">
           Back
         </Link>
@@ -194,7 +195,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
       />
 
       {error ? (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="text-sm text-sam-danger" role="alert">
           {error}
         </p>
       ) : null}
@@ -335,9 +336,9 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
           </label>
           <div className="flex flex-wrap gap-2" data-admin-popup-request-actions="1">
             {status === "submitted" ? (
-              <button
-                type="button"
-                className="rounded border border-sam-border px-3 py-1.5 text-sm"
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
                 disabled={busy}
                 onClick={() => void act("start_review")}
               >
@@ -345,11 +346,11 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
                   fallbackKo: "검토 시작",
                   fallbackEn: "Start review",
                 })}
-              </button>
+              </AdminActionButton>
             ) : null}
-            <button
-              type="button"
-              className="rounded border border-amber-500 px-3 py-1.5 text-sm text-amber-800"
+            <AdminActionButton
+              variant="secondary"
+              size="sm"
               disabled={busy}
               onClick={() => void act("revision_required")}
             >
@@ -357,10 +358,10 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
                 fallbackKo: "수정 요청",
                 fallbackEn: "Request revision",
               })}
-            </button>
-            <button
-              type="button"
-              className="rounded bg-sam-primary px-3 py-1.5 text-sm font-semibold text-sam-on-primary"
+            </AdminActionButton>
+            <AdminActionButton
+              variant="primary"
+              size="sm"
               disabled={busy}
               onClick={() => void act("approve")}
             >
@@ -368,10 +369,10 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
                 fallbackKo: "승인",
                 fallbackEn: "Approve",
               })}
-            </button>
-            <button
-              type="button"
-              className="rounded bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white"
+            </AdminActionButton>
+            <AdminActionButton
+              variant="secondary"
+              size="sm"
               disabled={busy}
               onClick={() => void act("approve", { activate: true })}
             >
@@ -379,10 +380,10 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
                 fallbackKo: "승인 후 즉시 노출",
                 fallbackEn: "Approve & go live",
               })}
-            </button>
-            <button
-              type="button"
-              className="rounded bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white"
+            </AdminActionButton>
+            <AdminActionButton
+              variant="secondary"
+              size="sm"
               disabled={busy}
               onClick={() => void act("approve", { schedule: true })}
             >
@@ -390,10 +391,10 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
                 fallbackKo: "승인 후 예약",
                 fallbackEn: "Approve & schedule",
               })}
-            </button>
-            <button
-              type="button"
-              className="rounded border border-red-500 px-3 py-1.5 text-sm text-red-700"
+            </AdminActionButton>
+            <AdminActionButton
+              variant="secondary"
+              size="sm"
               disabled={busy}
               onClick={() => void act("reject")}
             >
@@ -401,7 +402,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
                 fallbackKo: "반려",
                 fallbackEn: "Reject",
               })}
-            </button>
+            </AdminActionButton>
           </div>
         </AdminCard>
       ) : null}

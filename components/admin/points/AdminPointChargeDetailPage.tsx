@@ -8,6 +8,9 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPointActionPanel } from "./AdminPointActionPanel";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 
 interface AdminPointChargeDetailPageProps {
   requestId: string;
@@ -16,8 +19,7 @@ interface AdminPointChargeDetailPageProps {
 export function AdminPointChargeDetailPage({
   requestId,
 }: AdminPointChargeDetailPageProps) {
-  const { t, language } = useI18n();
-  const dateLocale = language === "en" ? "en-US" : "ko-KR";
+  const { t } = useI18n();
 
   const [request, setRequest] = useState<PointChargeRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,7 +114,7 @@ export function AdminPointChargeDetailPage({
           <div>
             <dt className="text-sam-muted">{t("admin_points_charge_label_payment_points")}</dt>
             <dd>
-              ₱{request.paymentAmount.toLocaleString()} → {request.pointAmount.toLocaleString()}P
+              {formatAdminPhp(request.paymentAmount)} → {formatAdminNumber(request.pointAmount)}P
             </dd>
           </div>
           <div>
@@ -125,9 +127,9 @@ export function AdminPointChargeDetailPage({
               <span
                 className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                   request.requestStatus === "approved"
-                    ? "bg-emerald-50 text-emerald-800"
+                    ? "bg-sam-success-soft text-sam-success"
                     : request.requestStatus === "rejected"
-                      ? "bg-red-50 text-red-700"
+                      ? "bg-sam-danger-soft text-sam-danger"
                       : "bg-sam-surface-muted text-sam-fg"
                 }`}
               >
@@ -142,15 +144,15 @@ export function AdminPointChargeDetailPage({
           <div>
             <dt className="text-sam-muted">{t("admin_points_charge_label_dates")}</dt>
             <dd className="sam-text-body-secondary text-sam-muted">
-              {new Date(request.requestedAt).toLocaleString(dateLocale)} /{" "}
-              {new Date(request.updatedAt).toLocaleString(dateLocale)}
+              {formatAdminManilaDateTime(request.requestedAt)} /{" "}
+              {formatAdminManilaDateTime(request.updatedAt)}
             </dd>
           </div>
           {request.approvedAt ? (
             <div>
               <dt className="text-sam-muted">{t("admin_points_charge_label_approved_at")}</dt>
               <dd className="text-sam-fg">
-                {new Date(request.approvedAt).toLocaleString(dateLocale)}
+                {formatAdminManilaDateTime(request.approvedAt)}
                 {request.approvedBy ? ` · ${request.approvedBy}` : ""}
               </dd>
             </div>
@@ -159,7 +161,7 @@ export function AdminPointChargeDetailPage({
             <div>
               <dt className="text-sam-muted">{t("admin_points_charge_label_processed_at")}</dt>
               <dd className="text-sam-fg">
-                {new Date(request.processedAt).toLocaleString(dateLocale)}
+                {formatAdminManilaDateTime(request.processedAt)}
                 {request.processedBy ? ` · ${request.processedBy}` : ""}
               </dd>
             </div>
@@ -173,7 +175,7 @@ export function AdminPointChargeDetailPage({
         </dl>
       </AdminCard>
       <AdminCard titleKey="admin_points_admin_memo_card">
-        {memoErr ? <p className="mb-2 sam-text-helper text-red-600">{memoErr}</p> : null}
+        {memoErr ? <p className="mb-2 sam-text-helper text-sam-danger">{memoErr}</p> : null}
         <div className="flex gap-2">
           <input
             type="text"
@@ -182,14 +184,9 @@ export function AdminPointChargeDetailPage({
             placeholder={t("admin_points_admin_memo_ph")}
             className="flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
           />
-          <button
-            type="button"
-            disabled={memoBusy}
-            onClick={() => void handleSaveMemo()}
-            className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50"
-          >
+          <AdminActionButton variant="secondary" disabled={memoBusy} onClick={() => void handleSaveMemo()}>
             {memoBusy ? "…" : t("common_save")}
-          </button>
+          </AdminActionButton>
         </div>
         {request.adminMemo && (
           <p className="mt-2 sam-text-body-secondary text-sam-muted">{request.adminMemo}</p>

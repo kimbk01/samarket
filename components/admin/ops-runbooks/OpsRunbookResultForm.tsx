@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import type {
@@ -141,10 +142,9 @@ export function OpsRunbookResultForm({
               onChange={(e) => setFollowupNeeded(e.target.checked)}
             />{t("admin_ops_tools_runbook_followup_check")}</label>
         </div>
-        <button
-          type="submit"
-          className="mt-4 rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
-        >{t("admin_ops_tools_rb_log_result")}</button>
+        <AdminActionButton type="submit" variant="primary" className="mt-4">
+          {t("admin_ops_tools_rb_log_result")}
+        </AdminActionButton>
       </form>
     </div>
   );

@@ -27,6 +27,7 @@ import {
 import { getBoardName } from "@/lib/point-policies/point-policy-utils";
 import { USER_TYPE_LABELS } from "@/lib/point-policies/point-policy-utils";
 import { PointRewardLogList } from "./PointRewardLogList";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface AdminPointExecutionDetailPageProps {
   executionId: string;
@@ -87,9 +88,9 @@ export function AdminPointExecutionDetailPage({
 
   const statusClass =
     execution.status === "success"
-      ? "bg-emerald-50 text-emerald-800"
+      ? "bg-sam-success-soft text-sam-success"
       : execution.status === "blocked"
-        ? "bg-amber-100 text-amber-800"
+        ? "bg-sam-warning-soft text-sam-warning"
         : "bg-sam-border-soft text-sam-fg";
 
   return (
@@ -166,12 +167,12 @@ export function AdminPointExecutionDetailPage({
           )}
           <div>
             <dt className="text-sam-muted">{t("admin_points_exec_label_run_at")}</dt>
-            <dd>{new Date(execution.createdAt).toLocaleString("ko-KR")}</dd>
+            <dd>{formatAdminManilaDateTime(execution.createdAt)}</dd>
           </div>
           {execution.reversedAt && (
             <div>
               <dt className="text-sam-muted">{t("admin_points_exec_label_reversed_at")}</dt>
-              <dd>{new Date(execution.reversedAt).toLocaleString("ko-KR")}</dd>
+              <dd>{formatAdminManilaDateTime(execution.reversedAt)}</dd>
             </div>
           )}
         </dl>

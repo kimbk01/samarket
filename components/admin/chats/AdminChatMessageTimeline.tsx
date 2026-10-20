@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import type { AdminChatMessage } from "@/lib/types/admin-chat";
 import { AdminCmMessageBody, AdminCmMessageKindBadge } from "./AdminCmMessageBody";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface AdminChatMessageTimelineProps {
   messages: AdminChatMessage[];
@@ -38,7 +39,7 @@ export function AdminChatMessageTimeline({ messages, onToggleHidden, busyMessage
             <span>{formatAdminDateTime(m.createdAt, language)}</span>
             {m.display ? <AdminCmMessageKindBadge kind={m.display.kind} /> : null}
             {m.isReported && (
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
+              <span className="rounded bg-sam-warning-soft px-1.5 py-0.5 text-sam-warning">
                 {t("admin_chat_status_reported")}
               </span>
             )}
@@ -57,14 +58,13 @@ export function AdminChatMessageTimeline({ messages, onToggleHidden, busyMessage
           </div>
           {onToggleHidden && m.messageType !== "system" ? (
             <div className="mt-2">
-              <button
-                type="button"
+              <AdminActionButton
+                size="sm"
                 disabled={busyMessageId === m.id}
                 onClick={() => onToggleHidden(m, !m.isHidden)}
-                className="rounded border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper text-sam-fg hover:bg-sam-app disabled:opacity-50"
               >
                 {m.isHidden ? t("admin_chat_r1b_unhide_message") : t("admin_chat_r1b_hide_message")}
-              </button>
+              </AdminActionButton>
             </div>
           ) : null}
         </li>

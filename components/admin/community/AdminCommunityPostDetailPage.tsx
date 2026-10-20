@@ -6,6 +6,7 @@
  * 모든 변경은 GET 의 updated_at 을 expectedUpdatedAt 으로 보낸다 (409 → 최신 내용 다시 불러오기).
  * 숨기기·삭제·수정 저장은 L2(사유 필수), 다시 공개·고정 해제는 L1, 상단 고정은 범위·기간·사유 시트.
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
@@ -295,7 +296,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
           {
             label: "원문",
             value: (
-              <a href={post.public_attribution_url} target="_blank" rel="noreferrer" className="text-sky-800 hover:underline">
+              <a href={post.public_attribution_url} target="_blank" rel="noreferrer" className="text-sam-info hover:underline">
                 {post.public_attribution_name || "원문 보기"}
               </a>
             ),
@@ -305,7 +306,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
     {
       label: "카테고리",
       value: slug ? (
-        <Link href={`${COMMUNITY_POSTS_LIST_PATH}?topicSlug=${encodeURIComponent(slug)}`} className="text-sky-800 hover:underline">
+        <Link href={`${COMMUNITY_POSTS_LIST_PATH}?topicSlug=${encodeURIComponent(slug)}`} className="text-sam-info hover:underline">
           {topicNameOf(slug)}
         </Link>
       ) : (
@@ -319,8 +320,8 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
     {
       label: "신고",
       value: (
-        <Link href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`} className="text-sky-800 hover:underline">
-          {reportCount.toLocaleString()}건
+        <Link href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`} className="text-sam-info hover:underline">
+          {formatAdminNumber(reportCount)}건
         </Link>
       ),
     },
@@ -328,11 +329,11 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
       label: "반응",
       value: (
         <span>
-          좋아요 {Number(post.like_count ?? 0).toLocaleString()} ·{" "}
-          <Link href={`/admin/community/comments?postId=${encodeURIComponent(id)}`} className="text-sky-800 hover:underline">
-            댓글 {Number(post.comment_count ?? 0).toLocaleString()}
+          좋아요 {formatAdminNumber(post.like_count ?? 0)} ·{" "}
+          <Link href={`/admin/community/comments?postId=${encodeURIComponent(id)}`} className="text-sam-info hover:underline">
+            댓글 {formatAdminNumber(post.comment_count ?? 0)}
           </Link>{" "}
-          · 조회 {Number(post.view_count ?? 0).toLocaleString()}
+          · 조회 {formatAdminNumber(post.view_count ?? 0)}
         </span>
       ),
     },
@@ -379,7 +380,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
         <span>
           공지 · {post.notice_starts_at ? pht(post.notice_starts_at) : "바로"} ~{" "}
           {post.notice_ends_at ? pht(post.notice_ends_at) : "종료 시각 없음"}{" "}
-          <Link href="/admin/community/notices" className="text-sky-800 hover:underline">
+          <Link href="/admin/community/notices" className="text-sam-info hover:underline">
             공지·고정 화면
           </Link>
         </span>
@@ -400,14 +401,14 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
                 {p.endAt ? `~ ${pht(p.endAt)}` : ""}
               </span>
             ))}
-            <Link href="/admin/community/promotions" className="text-sky-800 hover:underline">
+            <Link href="/admin/community/promotions" className="text-sam-info hover:underline">
               홍보 화면에서 보기
             </Link>
           </span>
         ) : (
           <span>
             노출 중인 홍보 없음 ·{" "}
-            <Link href="/admin/community/promotions" className="text-sky-800 hover:underline">
+            <Link href="/admin/community/promotions" className="text-sam-info hover:underline">
               홍보 화면
             </Link>
           </span>
@@ -441,7 +442,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
       {status === "active" ? (
         <AdminActionButton
           variant="secondary"
-          className="border-amber-400 text-amber-900"
+          className="border-sam-warning text-sam-fg"
           disabled={!canContent || !!sheet}
           title={noPermTitle}
           onClick={() => openSheet("hide")}
@@ -473,7 +474,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
         href={`/philife/${encodeURIComponent(id)}`}
         target="_blank"
         rel="noreferrer"
-        className="ml-auto text-[13px] font-medium text-sky-800 hover:underline"
+        className="ml-auto text-[13px] font-medium text-sam-info hover:underline"
       >
         {tr("admin_community_view_on_site")}
       </a>
@@ -495,7 +496,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
   const editTab = (
     <div className="space-y-3" data-community-post-edit="1">
       {isImported ? (
-        <p className="rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 text-[13px] text-sky-950">
+        <p className="rounded-ui-rect border border-sam-info bg-sam-info-soft px-3 py-2 text-[13px] text-sam-fg">
           외부 수집 글은 블록 단위로 수정합니다. 원문 출처 표시는 그대로 유지됩니다.
         </p>
       ) : null}

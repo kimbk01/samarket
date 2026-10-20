@@ -10,6 +10,7 @@ import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
 export function ActiveFeedVersionTable() {
   const [refresh, setRefresh] = useState(0);
@@ -79,7 +80,7 @@ export function ActiveFeedVersionTable() {
                       type="button"
                       onClick={async () => {
                         const confirmed = await confirmAdminAction({
-                          level: "L1",
+                          level: adminActionLevel("save"),
                           ko: true,
                           title: "이전 버전으로 롤백",
                           description: `${SURFACE_LABELS[a.surface as RecommendationSurface] ?? a.surface} 피드를 이전 버전으로 되돌립니다.`,

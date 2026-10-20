@@ -15,6 +15,7 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/component
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
 /** Settlement alerts: work state colour + text (light/dark tokens). Read state is shown separately. */
 const WORK_STATE_ROW: Record<AdminNotificationWorkState, string> = {
@@ -135,7 +136,7 @@ export function AdminInboxPageClient() {
 
   const markAllRead = async () => {
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: t("admin_inbox_mark_all_read"),
       description: ko

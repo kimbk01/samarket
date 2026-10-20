@@ -3,6 +3,8 @@
  * Operator surfaces must use human Korean. Internal codes stay in logs/system detail only.
  */
 
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+
 export const MEMBER_ADMIN_COPY = {
   member_management: "회원 관리",
   member_register: "회원 등록",
@@ -31,7 +33,7 @@ export const MEMBER_ADMIN_COPY = {
   moderation: "신고·제재",
   warn: "경고 등록",
   cancel: "취소",
-  confirm: "확인",
+  confirm: "닫기",
   save_changes: "변경사항 저장",
   continue_editing: "계속 수정",
   discard_changes: "변경사항 버리기",
@@ -46,7 +48,7 @@ export const MEMBER_ADMIN_COPY = {
   origin_kakao: "카카오 가입",
   store_operator: "매장 운영자",
   system_member_key: "시스템 회원키",
-  mutation_failed: "요청을 처리하지 못했습니다. 다시 시도해 주세요.",
+  mutation_failed: adminOperatorErrorMessage("action_failed", true),
   loading: "처리 중…",
   dibay_id_change: "@회원 ID 변경",
   dibay_id_change_title: "@회원 ID 변경",

@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import type { BannerPlacement, BannerStatus } from "@/lib/types/admin-banner";
 import { ADMIN_BANNER_STATUS_KEYS } from "./admin-banner-i18n";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 /** MyPage CMS only — 회원 내정보 홈 프로필 아래(MypageHomeCmsBanner → MyTopBanner)에 활성 1건 표시 (placement not selected in UI). */
 const MYPAGE_BANNER_PLACEMENT: BannerPlacement = "mypage_top";
@@ -210,12 +211,12 @@ export function AdminBannerForm({
         </div>
       )}
       <div className="flex gap-2">
-        <button
+        <AdminActionButton
           type="submit"
-          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90"
+          variant="primary"
         >
           {resolvedSubmitLabel}
-        </button>
+        </AdminActionButton>
       </div>
     </form>
   );

@@ -7,6 +7,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 import { setOpsDocumentStatusWithLog, duplicateOpsDocument } from "@/lib/ops-docs/ops-docs-utils";
 import {
@@ -14,9 +15,10 @@ import {
   OPS_DOC_STATUS_KEYS,
   OPS_DOC_CATEGORY_KEYS,
 } from "@/components/admin/i18n/admin-ops-doc-label-keys";
-import { adminDateLocaleTag } from "@/components/admin/i18n/admin-date-locale";
 import { OpsDocumentStepList } from "./OpsDocumentStepList";
 import { OpsDocumentLogList } from "./OpsDocumentLogList";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type TabId = "detail" | "steps" | "logs";
 
@@ -27,8 +29,7 @@ const TAB_KEYS: { id: TabId; labelKey: MessageKey }[] = [
 ];
 
 export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
-  const { t, language } = useI18n();
-  const dateLocale = adminDateLocaleTag(language);
+  const { t } = useI18n();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("detail");
   const [refresh, setRefresh] = useState(0);
@@ -72,48 +73,37 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
         >
           {t("admin_ops_doc_edit")}
         </Link>
-        <button
-          type="button"
+        <AdminActionButton
           onClick={handleDuplicate}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
+          variant="secondary"
         >
           {t("admin_ops_doc_duplicate")}
-        </button>
+        </AdminActionButton>
         {doc.status === "active" && (
-          <button
-            type="button"
+          <AdminActionButton
             onClick={() => handleStatusChange("archived")}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
+            variant="secondary"
           >
             {t("admin_ops_doc_archive")}
-          </button>
+          </AdminActionButton>
         )}
         {(doc.status === "draft" || doc.status === "archived") && (
-          <button
-            type="button"
+          <AdminActionButton
             onClick={() => handleStatusChange("active")}
-            className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
+            variant="primary"
           >
             {t("admin_ops_doc_activate")}
-          </button>
+          </AdminActionButton>
         )}
       </div>
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {TAB_KEYS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        tabs={TAB_KEYS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        ariaLabel="화면 탭"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as TabId)}
+        syncUrl={false}
+        className="mb-4"
+      />
       {activeTab === "detail" && (
         <AdminCard>
           <div className="space-y-4">
@@ -127,9 +117,9 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
               <span
                 className={`rounded px-2 py-0.5 ${
                   doc.status === "active"
-                    ? "bg-emerald-50 text-emerald-800"
+                    ? "bg-sam-success-soft text-sam-success"
                     : doc.status === "draft"
-                      ? "bg-amber-50 text-amber-800"
+                      ? "bg-sam-warning-soft text-sam-warning"
                       : "bg-sam-surface-muted text-sam-muted"
                 }`}
               >
@@ -151,7 +141,7 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
             <div className="border-t border-sam-border-soft pt-3 sam-text-body-secondary text-sam-muted">
               {t("admin_ops_doc_meta", {
                 created: doc.createdByAdminNickname,
-                updated: new Date(doc.updatedAt).toLocaleString(dateLocale),
+                updated: formatAdminManilaDateTime(doc.updatedAt),
               })}
               {doc.approvedByAdminNickname &&
                 t("admin_ops_doc_approved", { by: doc.approvedByAdminNickname })}

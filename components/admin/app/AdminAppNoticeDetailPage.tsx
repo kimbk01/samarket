@@ -14,6 +14,8 @@ import {
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { notifStatusLabel } from "@/components/admin/points/admin-points-notifications-i18n";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 type NoticeRow = {
   id: string;
@@ -149,14 +151,10 @@ export function AdminAppNoticeDetailPage() {
         <Link href="/admin/app/notices" className="text-sm text-signature hover:underline">
           ← {safeT("admin_cc_back_list", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
         </Link>
-        <p className="text-sm text-red-600">{err ?? "—"}</p>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm"
-        >
-          {safeT("admin_cc_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-        </button>
+        <p className="text-sm text-sam-danger">{err ?? "—"}</p>
+        <AdminActionButton variant="secondary" size="sm" onClick={() => void load()}>
+          {adminCta("refresh", language !== "en")}
+        </AdminActionButton>
       </div>
     );
   }

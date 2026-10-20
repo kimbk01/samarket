@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
@@ -150,7 +151,7 @@ export function AdminRuntimeHealthPage() {
     if (busy) return;
     const label = ko ? SETTING_LABELS[key].ko : SETTING_LABELS[key].en;
     const c = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel("runtimeSettingChange"),
       ko,
       title: ko ? `${label}을(를) ${next ? "켤까요" : "끌까요"}?` : `Turn ${next ? "on" : "off"} ${label}?`,
       description: ko

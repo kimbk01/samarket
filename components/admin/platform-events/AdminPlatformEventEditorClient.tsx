@@ -612,7 +612,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
   return (
     <div className="space-y-4 p-4" data-admin-platform-event-editor="1">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-[20px] font-semibold">
           {isNew
             ? safeT("admin_platform_events_create", {
                 fallbackKo: "새 이벤트",
@@ -626,11 +626,11 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         <div className="flex flex-wrap gap-2">{actionButtons}</div>
       </div>
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
 
       {showOwnerHandoff ? (
         <div
-          className="rounded-ui-rect border border-amber-600/40 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+          className="rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg"
           data-admin-event-owner-handoff="1"
         >
           {safeT("admin_platform_events_owner_handoff_banner", {
@@ -777,7 +777,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
       <section className={sectionClass} data-admin-event-section="board">
         <h2 className={sectionTitleClass}>{safeT("admin_event_editor_board_section", { fallbackKo: "이벤트 게시판 노출", fallbackEn: "Event board" })}</h2>
         {!boardColumnsApplied ? (
-          <p className="text-xs text-amber-700" data-admin-event-board-migration-pending="1">
+          <p className="text-xs text-sam-warning" data-admin-event-board-migration-pending="1">
             {safeT("admin_event_editor_board_migration_pending", {
               fallbackKo: "게시판 컬럼 마이그레이션 전입니다 — 썸네일·정렬·고정·카테고리·보관은 저장되지 않습니다.",
               fallbackEn: "Board columns are not migrated yet — thumbnail / order / pin / category / archive are not saved.",
@@ -1264,7 +1264,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             </AdminActionButton>
           ))}
         </div>
-        <div className="rounded-ui-rect border border-sam-border bg-[#0f172a]/5">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted">
           {previewTab === "event" ? (
             <div className="max-h-[80vh] overflow-auto bg-sam-app">
               {previewEvent.title ? (

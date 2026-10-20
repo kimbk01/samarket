@@ -11,10 +11,10 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-reason";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
@@ -1559,46 +1559,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         </Link>
       </p>
 
-      {/* 폼 대화상자 — 커뮤니티 홍보 종료(귀책 선택·환급 미리보기 입력). 그 밖의 확인은 confirmAdminAction. */}
-      <AdminActionConfirmDialog
+      {/* 폼 대화상자 — 커뮤니티 홍보 종료(귀책 선택·환급 미리보기 입력). 실행 확인(사유·대상 재입력)은 confirmAdminAction. */}
+      <DibayDialog
         open={Boolean(communityEndPending)}
+        onClose={busyAction != null ? undefined : () => setPendingMutation(null)}
+        dismissible={busyAction == null}
         title={pendingMutation?.copy.title ?? ""}
         description={pendingMutation?.copy.body ?? ""}
-        confirmLabel={pendingMutation?.copy.confirmLabel ?? ""}
-        cancelLabel={pendingMutation?.copy.cancelLabel ?? (ko ? "취소" : "Cancel")}
-        tone={pendingMutation?.copy.tone ?? "primary"}
-        reasonRequired
-        reasonMinLength={ADMIN_REASON_MIN_LENGTH}
-        confirmMatchText={communityEndRetype}
-        confirmMatchLabel={
-          communityEndRetype
-            ? ko
-              ? `계속하려면 「${communityEndRetype}」을(를) 그대로 입력하세요`
-              : `Type "${communityEndRetype}" to continue`
-            : undefined
-        }
-        reasonLabel={pendingMutation?.copy.reasonLabel}
-        reasonPlaceholder={
-          ko ? "사유를 입력해 주세요." : "Enter a reason."
-        }
-        pending={busyAction != null}
-        onCancel={() => {
-          if (busyAction != null) return;
-          setPendingMutation(null);
-        }}
-        onConfirm={(reason) => {
-          if (!pendingMutation || busyAction != null) return;
-          if (communityEndPending && (!endFault || !endPreview || "error" in endPreview || endPreview.fault !== endFault)) {
-            setActionMsg(ko ? "귀책을 선택하고 환급 예정 포인트를 확인해 주세요." : "Choose fault and check the refund preview.");
-            return;
-          }
-          void executeDrawerAction(
-            pendingMutation.action,
-            pendingMutation.item,
-            reason,
-            communityEndPending ? endFault : null
-          );
-        }}
+        ariaLabel={pendingMutation?.copy.title ?? ""}
       >
         {communityEndPending ? (
           <div className="mt-3 space-y-2 text-[13px]" data-admin-boost-community-end-fault="1">
@@ -1638,7 +1606,51 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             ) : null}
           </div>
         ) : null}
-      </AdminActionConfirmDialog>
+        <div className={`${OverlayUi.actionsRow} mt-4`}>
+          <DibayOverlayButton
+            roleTone="secondary"
+            disabled={busyAction != null}
+            onClick={() => {
+              if (busyAction != null) return;
+              setPendingMutation(null);
+            }}
+          >
+            {pendingMutation?.copy.cancelLabel ?? (ko ? "취소" : "Cancel")}
+          </DibayOverlayButton>
+          <DibayOverlayButton
+            roleTone={pendingMutation?.copy.tone === "danger" ? "destructive" : "primary"}
+            disabled={busyAction != null}
+            onClick={() => {
+              if (!pendingMutation || busyAction != null) return;
+              if (communityEndPending && (!endFault || !endPreview || "error" in endPreview || endPreview.fault !== endFault)) {
+                setActionMsg(ko ? "귀책을 선택하고 환급 예정 포인트를 확인해 주세요." : "Choose fault and check the refund preview.");
+                return;
+              }
+              const { action, item, copy } = pendingMutation;
+              const fault = communityEndPending ? endFault : null;
+              const retypeValue = communityEndRetype;
+              // 폼을 닫은 뒤 실행 확인 — 단계는 동작 표(copy.level = forceCancel L3), 사유는 API 본문 reason.
+              setPendingMutation(null);
+              void (async () => {
+                const confirmed = await confirmAdminAction({
+                  level: copy.level,
+                  ko,
+                  title: copy.title,
+                  description: copy.body,
+                  confirmLabel: copy.confirmLabel,
+                  destructive: copy.tone === "danger",
+                  reasonPlaceholder: copy.reasonLabel,
+                  retypeValue: retypeValue || undefined,
+                });
+                if (!confirmed.ok) return;
+                await executeDrawerAction(action, item, confirmed.reason ?? undefined, fault);
+              })();
+            }}
+          >
+            {pendingMutation?.copy.confirmLabel ?? ""}
+          </DibayOverlayButton>
+        </div>
+      </DibayDialog>
     </div>
   );
 }

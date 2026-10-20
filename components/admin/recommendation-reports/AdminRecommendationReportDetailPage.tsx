@@ -14,6 +14,8 @@ import { RecommendationReasonAnalyticsTable } from "./RecommendationReasonAnalyt
 import { RecommendationCategoryAnalyticsTable } from "./RecommendationCategoryAnalyticsTable";
 import { RecommendationRegionAnalyticsTable } from "./RecommendationRegionAnalyticsTable";
 import { RecommendationBriefingBoardCard } from "./RecommendationBriefingBoardCard";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 
 type TabId = "kpi" | "sections" | "versions" | "analytics" | "briefing";
 
@@ -62,29 +64,19 @@ export function AdminRecommendationReportDetailPage({
         description={`${report.dateFrom} ~ ${report.dateTo} · ${report.surface}`}
       />
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="rounded border border-sam-border bg-sam-surface-muted px-3 py-2 sam-text-body text-sam-muted"
-        >
+        {/* 다운로드는 아직 준비 중 (예전에도 누르면 아무 동작이 없던 자리표시) — 비활성으로 표시 */}
+        <AdminActionButton variant="secondary" disabled>
           {t("admin_rec_report_download_placeholder")}
-        </button>
+        </AdminActionButton>
       </div>
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {REPORT_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        className="mb-4"
+        ariaLabel={report.title}
+        syncUrl={false}
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as TabId)}
+        tabs={REPORT_TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+      />
       {activeTab === "kpi" && (
         <div className="mb-4">
           <RecommendationReportKpiCards reportId={reportId} />

@@ -13,6 +13,7 @@
 
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import { manilaDateKey } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import {
   getAdminActionQueueCategoryDef,
   type AdminActionQueueCategory,
@@ -437,5 +438,5 @@ export function resolveDeliveryActionCenterCard(
 /** 지표 값 표시 — null 은 「확인 불가」 (0 표시 금지). */
 export function formatDeliveryMetricValue(value: number | null | undefined, ko: boolean): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return ko ? "확인 불가" : "Unavailable";
-  return Math.round(value).toLocaleString();
+  return formatAdminNumber(Math.round(value));
 }

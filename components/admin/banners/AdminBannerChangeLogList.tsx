@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { BannerChangeLog } from "@/lib/types/admin-banner";
 import { ADMIN_BANNER_CHANGELOG_ACTION_KEYS } from "./admin-banner-i18n";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface AdminBannerChangeLogListProps {
   logs: BannerChangeLog[];
@@ -29,7 +30,7 @@ export function AdminBannerChangeLogList({ logs }: AdminBannerChangeLogListProps
           <span className="text-sam-muted">{log.adminNickname}</span>
           <span className="text-sam-muted">{log.note}</span>
           <span className="ml-auto text-sam-meta">
-            {new Date(log.createdAt).toLocaleString()}
+            {formatAdminManilaDateTime(log.createdAt)}
           </span>
         </li>
       ))}

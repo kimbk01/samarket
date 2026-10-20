@@ -8,6 +8,7 @@ import { MEMBER_TYPE_LABELS } from "@/lib/member-benefits/member-benefit-utils";
 import type { MemberBenefitLog, MemberBenefitPolicy } from "@/lib/types/member-benefit";
 import { AdminMemberBenefitForm } from "./AdminMemberBenefitForm";
 import { AdminMemberBenefitLogList } from "./AdminMemberBenefitLogList";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface AdminMemberBenefitDetailPageProps {
   policyId: string;
@@ -92,7 +93,7 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_member_benefit_k5c666c65" backHref="/admin/member-benefits" />
-      {err ? <p className="sam-text-body text-red-600">{err}</p> : null}
+      {err ? <p className="sam-text-body text-sam-danger">{err}</p> : null}
 
       <AdminCard titleKey="admin_member_benefit_k5c666c65">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -103,20 +104,20 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
             </p>
           </div>
           <div className="flex gap-2">
-            <button
-              type="button"
+            <AdminActionButton
               onClick={() => setEditing((e) => !e)}
-              className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary"
+              variant="secondary"
+              size="sm"
             >
               {editing ? "취소" : "수정"}
-            </button>
-            <button
-              type="button"
+            </AdminActionButton>
+            <AdminActionButton
               onClick={() => void handleToggleActive()}
-              className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary"
+              variant="secondary"
+              size="sm"
             >
               {policy.isActive ? "비활성화" : "활성화"}
-            </button>
+            </AdminActionButton>
           </div>
         </div>
         {editing ? (

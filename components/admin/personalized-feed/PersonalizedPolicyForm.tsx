@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { PersonalizedFeedPolicy } from "@/lib/types/personalized-feed";
 import { PERSONALIZED_SECTION_LABELS } from "@/lib/personalized-feed/personalized-section-labels";
 
@@ -151,20 +152,13 @@ export function PersonalizedPolicyForm({
         />
       </div>
       <div className="flex gap-2">
-        <button
-          type="submit"
-          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
-        >
+        <AdminActionButton type="submit" variant="primary">
           저장
-        </button>
+        </AdminActionButton>
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
-          >
+          <AdminActionButton variant="secondary" onClick={onCancel}>
             취소
-          </button>
+          </AdminActionButton>
         )}
       </div>
     </form>

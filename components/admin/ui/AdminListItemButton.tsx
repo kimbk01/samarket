@@ -22,10 +22,10 @@ export function AdminListItemButton({
       data-admin-list-item={selected ? "on" : "off"}
       className={[
         "block w-full rounded-ui-rect px-2 py-2 text-left transition-colors",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-accent,#1d4ed8)] disabled:opacity-50",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-accent)] disabled:opacity-50",
         selected
-          ? "bg-[var(--admin-console-active-bg,#e8eefc)] ring-1 ring-[var(--admin-console-accent,#1d4ed8)]"
-          : "hover:bg-[var(--admin-console-hover,#eef1f6)]",
+          ? "bg-[var(--admin-console-active-bg)] ring-1 ring-[var(--admin-console-accent)]"
+          : "hover:bg-[var(--admin-console-hover)]",
         className,
       ]
         .filter(Boolean)

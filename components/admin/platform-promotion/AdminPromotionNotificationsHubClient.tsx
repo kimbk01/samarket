@@ -21,7 +21,7 @@ export function AdminPromotionNotificationsHubClient() {
   return (
     <div className="space-y-4 p-4" data-admin-promotion-notifications-hub="1">
       <div>
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-[20px] font-semibold">
           {safeT("admin_menu_promotion_notifications", {
             fallbackKo: "알림",
             fallbackEn: "Notifications",
@@ -41,7 +41,7 @@ export function AdminPromotionNotificationsHubClient() {
       </div>
 
       <div
-        className="rounded-ui-rect border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-sam-muted"
+        className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft/70 px-3 py-2 text-xs text-sam-muted"
         data-admin-promotion-save-not-send="1"
       >
         {safeT("admin_promotion_notifications_save_not_send", {

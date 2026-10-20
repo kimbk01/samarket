@@ -37,11 +37,11 @@ export function RecommendationBriefingBoardCard({
           ))}
         </ul>
       </div>
-      <div className="rounded-ui-rect border border-amber-200 bg-amber-50/50 p-4">
-        <h3 className="mb-2 sam-text-body font-medium text-amber-900">
+      <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft/50 p-4">
+        <h3 className="mb-2 sam-text-body font-medium text-sam-warning">
           {t("admin_rec_report_briefing_risks")}
         </h3>
-        <ul className="list-inside list-disc space-y-1 sam-text-body-secondary text-amber-800">
+        <ul className="list-inside list-disc space-y-1 sam-text-body-secondary text-sam-warning">
           {board.topRisks.map((r, i) => (
             <li key={i}>{r}</li>
           ))}

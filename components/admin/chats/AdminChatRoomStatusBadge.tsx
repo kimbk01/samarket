@@ -12,9 +12,9 @@ const LABEL_KEYS: Record<RoomStatus, MessageKey> = {
 };
 
 const CLASSES: Record<RoomStatus, string> = {
-  active: "bg-emerald-50 text-emerald-800",
-  blocked: "bg-red-50 text-red-700",
-  reported: "bg-amber-100 text-amber-800",
+  active: "bg-sam-success-soft text-sam-success",
+  blocked: "bg-sam-danger-soft text-sam-danger",
+  reported: "bg-sam-warning-soft text-sam-warning",
   archived: "bg-sam-surface-muted text-sam-fg",
 };
 

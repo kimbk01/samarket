@@ -14,6 +14,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const CONTENT_OPTIONS: { type: ReportActionType; labelKey: MessageKey }[] = [
   { type: "reject", labelKey: "admin_report_action_reject" },
@@ -136,7 +137,7 @@ export function AdminSanctionPanel({
   return (
     <div data-testid="admin-trade-report-sanction-panel" data-admin-domain="trade">
       <div
-        className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+        className="mb-3 rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-warning"
         data-testid="admin-report-authority-banner"
       >
         {safeT("admin_report_authority_banner", {
@@ -146,7 +147,7 @@ export function AdminSanctionPanel({
             "Content (reject/hide)=Trade reports writer · Account suspend/ban=MCC only · Warn/chat_ban=sanctions ledger (non-enforcing).",
         })}
       </div>
-      {error && <p className="mb-2 sam-text-body-secondary text-red-600">{error}</p>}
+      {error && <p className="mb-2 sam-text-body-secondary text-sam-danger">{error}</p>}
       {targetLabel && (
         <p className="mb-3 sam-text-body text-sam-muted">
           {t("admin_report_sanction_target_label")}: <strong>{targetLabel}</strong> (
@@ -161,15 +162,14 @@ export function AdminSanctionPanel({
       </p>
       <div className="mb-4 flex flex-wrap gap-2">
         {CONTENT_OPTIONS.map(({ type, labelKey }) => (
-          <button
+          <AdminActionButton
             key={type}
-            type="button"
+            variant="secondary"
             disabled={loading !== null}
             onClick={() => void handleAction(type)}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === type ? t("admin_report_sanction_processing") : t(labelKey)}
-          </button>
+          </AdminActionButton>
         ))}
       </div>
 
@@ -181,9 +181,9 @@ export function AdminSanctionPanel({
       </p>
       <div className="mb-4 flex flex-wrap gap-2">
         {LEDGER_OPTIONS.map(({ type, labelKey }) => (
-          <button
+          <AdminActionButton
             key={type}
-            type="button"
+            variant="secondary"
             disabled={loading !== null || isChatTarget}
             onClick={() => void handleAction(type)}
             title={
@@ -194,10 +194,9 @@ export function AdminSanctionPanel({
                   })
                 : undefined
             }
-            className="rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
           >
             {loading === type ? t("admin_report_sanction_processing") : t(labelKey)}
-          </button>
+          </AdminActionButton>
         ))}
       </div>
 
@@ -211,7 +210,7 @@ export function AdminSanctionPanel({
         {mccUserId ? (
           <Link
             href={`/admin/users/${encodeURIComponent(mccUserId)}`}
-            className="rounded border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary font-medium text-red-700 hover:bg-red-100"
+            className="rounded border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-body-secondary font-medium text-sam-danger hover:bg-sam-danger-soft"
             data-testid="admin-report-mcc-sanction-link"
             prefetch={false}
           >

@@ -21,7 +21,9 @@ import {
   memberDetailNicknameIfDistinct,
   resolveMemberDetailHeaderBadges,
 } from "@/lib/admin-users/member-detail-control-center-ia";
-import { memberAdminCtaClass, MEMBER_ADMIN_TYPOGRAPHY_CLASS } from "@/lib/admin-users/member-admin-visual-ssot";
+import { MEMBER_ADMIN_TYPOGRAPHY_CLASS } from "@/lib/admin-users/member-admin-visual-ssot";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges";
 import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import type { AdminUser } from "@/lib/types/admin-user";
@@ -236,7 +238,7 @@ export function AdminMemberMasterHeader({
     <div className="rounded-lg border border-sam-border bg-sam-surface px-4 py-3" data-member-detail-header="1">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[color:var(--sam-brand-soft,#eff6ff)] text-lg font-bold text-[color:var(--sam-brand,#2563eb)]">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sam-primary-soft text-[16px] font-bold text-sam-primary">
             {display.slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0 space-y-1">
@@ -294,25 +296,21 @@ export function AdminMemberMasterHeader({
               {t("admin_users_col_last_login")} {formatAdminLiteDateTime(user.last_login_at, locale, empty)}
             </p>
             <p className="flex flex-wrap items-center gap-2 text-xs text-sam-muted">
-              <button
-                type="button"
-                className="rounded-ui-rect border border-sam-border px-1.5 py-0.5 text-xs font-medium text-sam-fg"
-                onClick={() => setShowSystemKey((v) => !v)}
-              >
+              <AdminChipButton selected={showSystemKey} onClick={() => setShowSystemKey((v) => !v)}>
                 {MEMBER_DETAIL_SYSTEM_KEY_KO}
-              </button>
+              </AdminChipButton>
               {showSystemKey ? (
                 <>
                   <span className="font-mono">{user.id}</span>
-                  <button
-                    type="button"
-                    className="rounded-ui-rect border border-sam-border px-1.5 py-0.5 text-xs font-medium text-[color:var(--sam-brand,#2563eb)]"
+                  <AdminActionButton
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       void navigator.clipboard.writeText(user.id).catch(() => {});
                     }}
                   >
                     {t("admin_users_action_copy_uuid")}
-                  </button>
+                  </AdminActionButton>
                 </>
               ) : null}
             </p>
@@ -320,116 +318,107 @@ export function AdminMemberMasterHeader({
         </div>
         <div className="flex flex-wrap items-center gap-2" data-member-primary-actions="1">
           {canEdit ? (
-            <button
-              type="button"
-              className={memberAdminCtaClass("primary")}
+            <AdminActionButton
+              variant="primary"
               onClick={() => setShowEdit(true)}
               data-member-cta="edit"
               data-member-cta-variant="primary"
               data-member-cta-cap="CAP-PROFILE-EDIT"
             >
               {MEMBER_DETAIL_EDIT_CTA_KO}
-            </button>
+            </AdminActionButton>
           ) : null}
-          <button
-            type="button"
-            className={memberAdminCtaClass("secondary")}
+          <AdminActionButton
+            variant="secondary"
             onClick={() => router.push(adminMemberMessengerHref(user.id))}
             data-member-cta="messenger"
             data-member-cta-variant="secondary"
             data-member-cta-cap="CAP-MSG-MESSENGER"
           >
             {t("admin_users_cc_cta_messenger_view")}
-          </button>
+          </AdminActionButton>
           {canPassword ? (
-            <button
-              type="button"
-              className={memberAdminCtaClass("secondary")}
+            <AdminActionButton
+              variant="secondary"
               onClick={() => setShowPassword(true)}
               data-member-cta="password"
               data-member-cta-variant="secondary"
               data-member-cta-cap="CAP-PASSWORD"
             >
               {MEMBER_DETAIL_PASSWORD_CTA_KO}
-            </button>
+            </AdminActionButton>
           ) : null}
           {canEditStaff ? (
-            <button
-              type="button"
-              className={memberAdminCtaClass("secondary")}
+            <AdminActionButton
+              variant="secondary"
               onClick={() => setShowStaffEdit(true)}
               data-member-cta="staff_edit"
               data-member-cta-variant="secondary"
               data-member-cta-cap="CAP-PRIV-VIEW"
             >
               {t("admin_users_form_edit_admin_title")}
-            </button>
+            </AdminActionButton>
           ) : null}
           {canEdit ? (
-            <button
-              type="button"
-              className={memberAdminCtaClass("tertiary")}
+            <AdminActionButton
+              variant="quiet"
               onClick={() => setShowDibayId(true)}
               data-member-cta="dibay_id"
               data-member-cta-variant="tertiary"
               data-member-cta-cap="CAP-DIBAY-ID"
             >
               {MEMBER_ADMIN_COPY.dibay_id_change}
-            </button>
+            </AdminActionButton>
           ) : null}
-          <button
-            type="button"
-            className={memberAdminCtaClass("tertiary")}
+          <AdminActionButton
+            variant="quiet"
             onClick={() => setShowVerify(true)}
             data-member-cta="account_tab"
             data-member-cta-variant="tertiary"
             data-member-cta-cap="CAP-VERIFY-VIEW"
           >
             {MEMBER_ADMIN_COPY.verify_manage}
-          </button>
+          </AdminActionButton>
           {primaryStore ? (
-            <a
+            <AdminActionLink
               href={memberDetailStoreHref(primaryStore.id)}
-              className={memberAdminCtaClass("tertiary")}
+              variant="quiet"
               data-member-cta="store_detail"
               data-member-cta-variant="tertiary"
               data-member-cta-cap="CAP-STORE-VIEW"
             >
               매장 상세
-            </a>
+            </AdminActionLink>
           ) : null}
-          <button
-            type="button"
-            className={memberAdminCtaClass("tertiary")}
+          <AdminActionButton
+            variant="quiet"
             onClick={() => setShowStoreRel(true)}
             data-member-cta="store_rel"
             data-member-cta-variant="tertiary"
             data-member-cta-cap="CAP-STORE-REL"
           >
             {MEMBER_STORE_RELATION_COPY.manage_cta}
-          </button>
+          </AdminActionButton>
           {canPrivilegeMutate && privilegeOp && privilegeDecision ? (
-            <button
-              type="button"
-              className={memberAdminCtaClass(privilegeOp === "revoke" ? "secondary" : "tertiary")}
+            <AdminActionButton
+              variant={privilegeOp === "revoke" ? "secondary" : "quiet"}
               onClick={() => setShowPrivilege(true)}
               data-member-cta={privilegeOp === "revoke" ? "privilege_revoke" : "privilege_promote"}
               data-member-cta-variant={privilegeOp === "revoke" ? "secondary" : "tertiary"}
               data-member-cta-cap={privilegeOp === "revoke" ? "CAP-PRIV-REVOKE" : "CAP-PRIV-PROMOTE"}
             >
               {privilegeDecision.labelKo}
-            </button>
+            </AdminActionButton>
           ) : null}
-          <button
-            type="button"
-            className={memberAdminCtaClass("tertiary")}
+          <AdminActionButton
+            variant="quiet"
             onClick={() => setShowPrivilegeView(true)}
             data-member-cta="privilege_view"
             data-member-cta-variant="tertiary"
             data-member-cta-cap="CAP-PRIV-VIEW"
           >
             관리 권한
-          </button>
+          </AdminActionButton>
         </div>
       </div>
       {showEdit ? (

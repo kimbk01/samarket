@@ -110,7 +110,7 @@ const MESSAGE_TYPE: Registry = {
 /** 통화 기록 상태 — `community_messenger_call_logs.status` · 세션 상태. */
 const CALL_STATUS: Registry = {
   missed: { ko: "부재중", en: "Missed", tone: "warning" },
-  rejected: { ko: "거절", en: "Declined", tone: "neutral" },
+  rejected: { ko: "수신 거부", en: "Declined", tone: "neutral" },
   cancelled: { ko: "취소", en: "Cancelled", tone: "neutral" },
   ended: { ko: "정상 종료", en: "Ended", tone: "success" },
   incoming: { ko: "수신 중", en: "Incoming", tone: "progress" },

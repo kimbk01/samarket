@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -66,6 +67,7 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { adsRemainingPeriodLabel } from "@/lib/admin/domain-control/ads-operator-cta";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 
 const REVIEW_CONFIRM_ACTIONS = new Set<AdminDeliveryAdAction>([
@@ -87,6 +89,61 @@ function deliveryReviewToWorkspaceAction(
 function deliveryReviewConfirmKind(action: AdminDeliveryAdAction): AdminActionKind {
   return action === "approve" ? "approve" : "reject";
 }
+
+/**
+ * 운영 조치 → 확인 단계 동작 표 (R2). 예전 「두 번 눌러 확인」·행 안 사유 입력을 confirmAdminAction 하나로 바꾼다.
+ * - 일시 중지: 서버 계약이 사유 필수(`adminActionRequiresReason` → reason_required) → 사유를 받는 sanction(L2)
+ * - 종료: exposeStop(L1) · 보관: disable(L1)
+ * - 강제 종료: forceCancel(L3, 사유 필수 계약 유지 + 광고 이름 재입력) · 초안 삭제: delete(L3, 사유 → 삭제 감사 reason)
+ * 사유는 기존 API 본문 `reason`(+ ownerVisibleNotes) 으로 보낸다 — 서버 계약 변경 없음.
+ */
+const DELIVERY_AD_OPS_CONFIRM: Partial<
+  Record<
+    AdminDeliveryAdAction,
+    { kind: AdminActionKind; titleKo: string; titleEn: string; descKo: string; descEn: string; destructive: boolean }
+  >
+> = {
+  pause: {
+    kind: "sanction",
+    titleKo: "이 광고를 일시 중지할까요?",
+    titleEn: "Pause this ad?",
+    descKo: "고객 화면 노출이 멈춥니다. 「재개」로 다시 노출할 수 있습니다.",
+    descEn: "The ad stops showing to customers. You can resume it later.",
+    destructive: true,
+  },
+  end: {
+    kind: "exposeStop",
+    titleKo: "이 광고를 종료할까요?",
+    titleEn: "End this ad?",
+    descKo: "광고 노출을 마칩니다.",
+    descEn: "The ad stops showing.",
+    destructive: true,
+  },
+  terminate: {
+    kind: "forceCancel",
+    titleKo: "이 광고를 강제 종료할까요?",
+    titleEn: "Force-end this ad?",
+    descKo: "되돌릴 수 없습니다. 노출이 즉시 끝납니다.",
+    descEn: "This cannot be undone. The ad stops showing immediately.",
+    destructive: true,
+  },
+  archive: {
+    kind: "disable",
+    titleKo: "이 광고를 보관할까요?",
+    titleEn: "Archive this ad?",
+    descKo: "보관 상태로 옮깁니다.",
+    descEn: "The ad moves to the archive.",
+    destructive: false,
+  },
+  delete_safe_draft: {
+    kind: "delete",
+    titleKo: "이 초안을 삭제할까요?",
+    titleEn: "Delete this draft?",
+    descKo: "되돌릴 수 없습니다. 작성 중인 광고 초안이 삭제됩니다.",
+    descEn: "This cannot be undone. The draft ad is deleted.",
+    destructive: true,
+  },
+};
 
 const ACTIONS: AdminDeliveryAdAction[] = [
   "start_review",
@@ -135,8 +192,6 @@ export function AdminDeliveryAdDetailWorkspace({
     reviewStatus?: string | null;
     createdAt?: string | null;
   } | null>(null);
-  const [reason, setReason] = useState("");
-  const [confirmAction, setConfirmAction] = useState<AdminDeliveryAdAction | null>(null);
   const [reviewSuccessKind, setReviewSuccessKind] = useState<
     "approve" | "reject" | "request_changes" | null
   >(null);
@@ -354,7 +409,6 @@ export function AdminDeliveryAdDetailWorkspace({
     if (!campaign || busy) return;
 
     if (REVIEW_CONFIRM_ACTIONS.has(action) && !opts?.confirmed) {
-      setConfirmAction(null);
       setError(null);
       const ws = deliveryReviewToWorkspaceAction(action);
       if (!ws) return;
@@ -374,39 +428,32 @@ export function AdminDeliveryAdDetailWorkspace({
       return;
     }
 
-    const reasonValue = (opts?.reason ?? reason).trim();
-    const needsReason = adminActionRequiresReason(action);
-    if (needsReason && !reasonValue) {
-      if (REVIEW_CONFIRM_ACTIONS.has(action)) {
-        await runAction(action);
-        return;
-      }
-      setConfirmAction(action);
-      setError(
-        action === "reject"
-          ? lang === "en"
-            ? "Enter a rejection reason."
-            : "반려 사유를 입력해 주세요."
-          : action === "request_changes"
-            ? lang === "en"
-              ? "Enter what needs to be changed."
-              : "수정 요청 사유를 입력해 주세요."
-            : lang === "en"
-              ? "Please enter a reason."
-              : "사유를 입력해 주세요."
-      );
+    const opsConfirm = DELIVERY_AD_OPS_CONFIRM[action];
+    if (opsConfirm && !opts?.confirmed) {
+      setError(null);
+      const ko = lang !== "en";
+      const target = campaign.title?.trim() || campaign.id;
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel(opsConfirm.kind),
+        ko,
+        title: ko ? opsConfirm.titleKo : opsConfirm.titleEn,
+        description: [target, ko ? opsConfirm.descKo : opsConfirm.descEn].join("\n"),
+        confirmLabel: safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
+          fallbackKo: action,
+          fallbackEn: action,
+        }),
+        destructive: opsConfirm.destructive,
+        retypeValue: target,
+      });
+      if (!confirmed.ok) return;
+      await runAction(action, { reason: confirmed.reason ?? "", confirmed: true });
       return;
     }
-    const needsConfirm =
-      action === "reject" ||
-      action === "pause" ||
-      action === "end" ||
-      action === "terminate" ||
-      action === "archive" ||
-      action === "delete_safe_draft";
-    if (needsConfirm && !REVIEW_CONFIRM_ACTIONS.has(action) && confirmAction !== action) {
-      setConfirmAction(action);
-      setError(null);
+
+    const reasonValue = (opts?.reason ?? "").trim();
+    if (adminActionRequiresReason(action) && !reasonValue) {
+      // 사유 필수 동작은 위 확인창에서 사유를 받는다 — 여기 도달 = 사유 없이 호출된 경우.
+      setError(adminOperatorErrorMessage("reason_required", lang !== "en"));
       return;
     }
     setBusy(true);
@@ -439,11 +486,8 @@ export function AdminDeliveryAdDetailWorkspace({
             ? t("admin_delivery_ad_funding_required")
             : adminOperatorErrorMessage(json.error || "action_failed", lang !== "en")
         );
-        setConfirmAction(null);
         return;
       }
-      setConfirmAction(null);
-      setReason("");
       emitAdminQueueChanged("delivery_ad_ops");
       const refundWarning = json.result?.refundWarning ?? null;
       const refundQueued = json.result?.refundQueued === true;
@@ -485,7 +529,7 @@ export function AdminDeliveryAdDetailWorkspace({
           expectedUpdatedAt: campaign.updatedAt,
           startAt: new Date(startAt).toISOString(),
           endAt: new Date(endAt).toISOString(),
-          reason: reason.trim() || null,
+          reason: null,
         }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string; detail?: string };
@@ -600,7 +644,7 @@ export function AdminDeliveryAdDetailWorkspace({
           op: "inventory",
           expectedUpdatedAt: campaign.updatedAt,
           inventoryKey: editInventoryKey,
-          reason: reason.trim() || null,
+          reason: null,
         }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
@@ -651,7 +695,7 @@ export function AdminDeliveryAdDetailWorkspace({
           assetPath: upJson.url,
           sourceWidth: Number(upJson.width ?? 0),
           sourceHeight: Number(upJson.height ?? 0),
-          reason: reason.trim() || null,
+          reason: null,
         }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string; detail?: string };
@@ -681,7 +725,7 @@ export function AdminDeliveryAdDetailWorkspace({
           productKind: "banner",
           op: "remove_creative",
           expectedUpdatedAt: campaign.updatedAt,
-          reason: reason.trim() || null,
+          reason: null,
         }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
@@ -711,7 +755,7 @@ export function AdminDeliveryAdDetailWorkspace({
           op: "destination",
           expectedUpdatedAt: campaign.updatedAt,
           ctaType: editCtaType,
-          reason: reason.trim() || null,
+          reason: null,
         }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string; detail?: string };
@@ -895,16 +939,18 @@ export function AdminDeliveryAdDetailWorkspace({
                 </p>
               ) : null}
               {requiredDecision.needsCreativeProduction ? (
-                <Link
+                <AdminActionLink
                   href={`${DELIVERY_AD_ADMIN_ROUTES.creative(campaignId)}?product=banner`}
-                  className="mt-3 inline-flex rounded-ui-rect bg-[#0A823E] px-3 py-2 text-[12px] font-semibold text-white"
+                  variant="secondary"
+                  size="sm"
+                  className="mt-3"
                   data-admin-delivery-ads-action="produce_banner"
                 >
                   {safeT("admin_delivery_ads_creative_produce_cta", {
                     fallbackKo: "배너 제작하기",
                     fallbackEn: "Produce banner",
                   })}
-                </Link>
+                </AdminActionLink>
               ) : null}
               {requiredDecision.decisionRequired &&
               requiredDecision.primaryReviewActions.length > 0 ? (
@@ -915,9 +961,8 @@ export function AdminDeliveryAdDetailWorkspace({
                       campaign.productKind === "banner" &&
                       bannerPublishReady?.ok === false;
                     return (
-                    <button
+                    <AdminActionButton variant={action === "approve" ? "primary" : "secondary"}
                       key={`rd-${action}`}
-                      type="button"
                       disabled={busy || approveBlocked}
                       title={
                         approveBlocked
@@ -927,20 +972,13 @@ export function AdminDeliveryAdDetailWorkspace({
                           : undefined
                       }
                       data-admin-delivery-ads-action={action}
-                      className={`rounded-ui-rect px-4 py-2.5 text-[13px] font-semibold shadow-sm ${
-                        action === "reject"
-                          ? "bg-sam-danger text-white hover:opacity-90"
-                          : action === "approve"
-                            ? "bg-sam-primary text-sam-on-primary hover:opacity-90 disabled:opacity-40"
-                            : "border border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app"
-                      }`}
                       onClick={() => void runAction(action)}
                     >
                       {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
                         fallbackKo: action,
                         fallbackEn: action,
                       })}
-                    </button>
+                    </AdminActionButton>
                     );
                   })}
                 </div>
@@ -948,69 +986,11 @@ export function AdminDeliveryAdDetailWorkspace({
               {campaign.productKind === "banner" &&
               bannerPublishReady?.ok === false &&
               requiredDecision.primaryReviewActions.includes("approve") ? (
-                <p className="mt-2 text-[12px] text-amber-900">
+                <p className="mt-2 text-[12px] text-sam-warning">
                   {lang === "en"
                     ? "Approve is disabled because banner creative is not ready."
                     : "승인이 비활성인 이유: 배너 소재가 아직 준비되지 않았습니다."}
                 </p>
-              ) : null}
-              {confirmAction &&
-              adminActionRequiresReason(confirmAction) &&
-              !REVIEW_CONFIRM_ACTIONS.has(confirmAction) ? (
-                <div
-                  className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3"
-                  data-admin-delivery-ads-reason-panel="1"
-                >
-                  <label className="flex flex-col gap-1 text-[12px]">
-                    {confirmAction === "reject"
-                      ? lang === "en"
-                        ? "Rejection reason *"
-                        : "반려 사유 *"
-                      : confirmAction === "request_changes"
-                        ? lang === "en"
-                          ? "What needs to change *"
-                          : "수정이 필요한 이유 *"
-                        : lang === "en"
-                          ? "Reason *"
-                          : "사유 *"}
-                    <textarea
-                      className="min-h-[72px] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 text-[13px] text-sam-fg"
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      data-admin-delivery-ads-reason="1"
-                    />
-                  </label>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px]"
-                      onClick={() => {
-                        setConfirmAction(null);
-                        setError(null);
-                      }}
-                    >
-                      {lang === "en" ? "Cancel" : "취소"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy || !reason.trim()}
-                      className="rounded-ui-rect bg-sam-danger px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-40"
-                      onClick={() => void runAction(confirmAction)}
-                    >
-                      {confirmAction === "reject"
-                        ? lang === "en"
-                          ? "Confirm reject"
-                          : "반려 확정"
-                        : confirmAction === "request_changes"
-                          ? lang === "en"
-                            ? "Send edit request"
-                            : "수정 요청 보내기"
-                          : lang === "en"
-                            ? "Confirm"
-                            : "확정"}
-                    </button>
-                  </div>
-                </div>
               ) : null}
             </section>
 
@@ -1081,9 +1061,9 @@ export function AdminDeliveryAdDetailWorkspace({
                       {lang === "en" ? "Period" : "기간"}
                     </dt>
                     <dd className="text-sam-fg">
-                      {new Date(campaign.startAt).toLocaleString(lang === "en" ? "en" : "ko")}
+                      {formatAdminManilaDateTime(campaign.startAt)}
                       {" ~ "}
-                      {new Date(campaign.endAt).toLocaleString(lang === "en" ? "en" : "ko")}
+                      {formatAdminManilaDateTime(campaign.endAt)}
                     </dd>
                   </div>
                   <div>
@@ -1100,7 +1080,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   <summary className="cursor-pointer text-[12px] text-sam-muted">
                     {lang === "en" ? "Technical info" : "기술 정보"}
                   </summary>
-                  <p className="mt-1 break-all font-mono text-[11px] text-sam-muted">
+                  <p className="mt-1 break-all font-mono text-[12px] text-sam-muted">
                     ID {campaign.id}
                   </p>
                 </details>
@@ -1109,9 +1089,7 @@ export function AdminDeliveryAdDetailWorkspace({
 
             {/* C — 결제 (collapsed by default) */}
             <div data-admin-delivery-ads-detail-section="funding">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+              <AdminActionButton variant="secondary" className="w-full !justify-between" aria-expanded={fundingExpanded}
                 onClick={() => setFundingExpanded((v) => !v)}
               >
                 {safeT("admin_delivery_ads_section_funding_title", {
@@ -1119,7 +1097,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   fallbackEn: "Funding",
                 })}
                 <span>{fundingExpanded ? "−" : "+"}</span>
-              </button>
+              </AdminActionButton>
               {fundingExpanded ? (
               <AdminCard titleKey="admin_delivery_ads_section_funding_title">
                 <div data-admin-delivery-ads-funding="1" className="space-y-2 text-[13px] text-sam-fg">
@@ -1142,7 +1120,7 @@ export function AdminDeliveryAdDetailWorkspace({
                       : formatAdminDeliveryAdPriceOrUnset(ownerCashBalanceMinor, lang)}
                   </p>
                   {fundingStatus !== "FUNDED" ? (
-                    <p className="text-[12px] text-amber-800">
+                    <p className="text-[12px] text-sam-warning">
                       {t("admin_delivery_ad_funding_required")}
                     </p>
                   ) : null}
@@ -1157,7 +1135,7 @@ export function AdminDeliveryAdDetailWorkspace({
                         fallbackEn: "Ads payment = Cash",
                       })}
                     </p>
-                    <p className="mt-1 text-[11px] text-sam-muted">
+                    <p className="mt-1 text-[12px] text-sam-muted">
                       {safeT("admin_delivery_ads_cash_credit_note", {
                         fallbackKo:
                           "광고비는 신청 시 Cash에서 확보됩니다. Admin은 금액을 수정할 수 없습니다. 결제만으로 ACTIVE 되지 않습니다.",
@@ -1261,25 +1239,24 @@ export function AdminDeliveryAdDetailWorkspace({
                           fallbackEn: "Needs production",
                         })}
                   </p>
-                  <Link
+                  <AdminActionLink
                     href={`${DELIVERY_AD_ADMIN_ROUTES.creative(campaignId)}?product=banner`}
-                    className="mt-3 inline-flex min-h-[44px] items-center rounded-ui-rect bg-[#0A823E] px-4 text-[14px] font-semibold text-white"
+                    variant="secondary"
+                    className="mt-3"
                     data-admin-delivery-ads-creative-studio-link="1"
                   >
                     {safeT("admin_delivery_ads_creative_produce_cta", {
                       fallbackKo: "배너 제작 스튜디오 열기",
                       fallbackEn: "Open banner studio",
                     })}
-                  </Link>
+                  </AdminActionLink>
                 </AdminCard>
               </div>
             ) : null}
 
             {/* F — decision actions (collapsed by default) */}
             <div data-admin-delivery-ads-detail-section="decision-actions">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+              <AdminActionButton variant="secondary" className="w-full !justify-between" aria-expanded={decisionActionsExpanded}
                 onClick={() => setDecisionActionsExpanded((v) => !v)}
               >
                 {safeT("admin_delivery_ads_section_decision_actions", {
@@ -1287,7 +1264,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   fallbackEn: "Additional review actions",
                 })}
                 <span>{decisionActionsExpanded ? "−" : "+"}</span>
-              </button>
+              </AdminActionButton>
               {decisionActionsExpanded ? (
               <AdminCard titleKey="admin_delivery_ads_section_decision_actions">
                 <div className="flex flex-wrap gap-2">
@@ -1295,9 +1272,8 @@ export function AdminDeliveryAdDetailWorkspace({
                     ? requiredDecision.primaryReviewActions
                     : allowedActions
                   ).map((action) => (
-                    <button
+                    <AdminActionButton variant={action === "terminate" || action === "delete_safe_draft" ? "danger" : "secondary"} size="sm"
                       key={action}
-                      type="button"
                       disabled={
                         busy ||
                         (action === "approve" &&
@@ -1305,52 +1281,29 @@ export function AdminDeliveryAdDetailWorkspace({
                           bannerPublishReady?.ok === false)
                       }
                       data-admin-delivery-ads-action={action}
-                      className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${
-                        action === "terminate" ||
-                        action === "reject" ||
-                        action === "delete_safe_draft"
-                          ? "bg-sam-danger text-white"
-                          : action === "approve"
-                            ? "bg-sam-primary text-sam-on-primary disabled:opacity-40"
-                            : "border border-sam-border bg-sam-surface text-sam-fg"
-                      }`}
                       onClick={() => void runAction(action)}
                     >
                       {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
                         fallbackKo: action,
                         fallbackEn: action,
                       })}
-                      {confirmAction === action
-                        ? ` · ${safeT("admin_delivery_ads_confirm_again", {
-                            fallbackKo: "다시 눌러 확인",
-                            fallbackEn: "Tap again to confirm",
-                          })}`
-                        : ""}
-                    </button>
+                    </AdminActionButton>
                   ))}
                 </div>
                 {requiredDecision.decisionRequired && secondaryActions.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-2 border-t border-sam-border pt-3">
                     {secondaryActions.map((action) => (
-                      <button
+                      <AdminActionButton variant="secondary" size="sm"
                         key={action}
-                        type="button"
                         disabled={busy}
                         data-admin-delivery-ads-action={action}
-                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-medium text-sam-fg"
                         onClick={() => void runAction(action)}
                       >
                         {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
                           fallbackKo: action,
                           fallbackEn: action,
                         })}
-                        {confirmAction === action
-                          ? ` · ${safeT("admin_delivery_ads_confirm_again", {
-                              fallbackKo: "다시 눌러 확인",
-                              fallbackEn: "Tap again to confirm",
-                            })}`
-                          : ""}
-                      </button>
+                      </AdminActionButton>
                     ))}
                   </div>
                 ) : null}
@@ -1370,7 +1323,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   fallbackEn: "Related Support cases",
                 })}
               </p>
-              <p className="mt-1 text-[11px] text-sam-muted">
+              <p className="mt-1 text-[12px] text-sam-muted">
                 {safeT("admin_delivery_ads_related_support_note", {
                   fallbackKo:
                     "고객지원 문의입니다. 광고 승인/중지는 아래 운영 대화가 아니라 Ads lifecycle에서 처리합니다.",
@@ -1406,9 +1359,7 @@ export function AdminDeliveryAdDetailWorkspace({
 
             {/* G2 — ops conversation (collapsed by default) — PRODUCT OPS THREAD ≠ Support case */}
             <div data-admin-delivery-ads-detail-section="operations">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+              <AdminActionButton variant="secondary" className="w-full !justify-between" aria-expanded={opsExpanded}
                 onClick={() => setOpsExpanded((v) => !v)}
               >
                 {safeT("admin_delivery_ads_section_operations", {
@@ -1416,7 +1367,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   fallbackEn: "Ops conversation",
                 })}
                 <span>{opsExpanded ? "−" : "+"}</span>
-              </button>
+              </AdminActionButton>
               {opsExpanded ? (
               <div
                 className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:p-5"
@@ -1456,17 +1407,15 @@ export function AdminDeliveryAdDetailWorkspace({
                         ))}
                       </select>
                     </label>
-                    <button
-                      type="button"
+                    <AdminActionButton variant="secondary" size="sm"
                       disabled={busy}
-                      className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
                       onClick={() => void saveInventory()}
                     >
                       {safeT("admin_delivery_ads_save_inventory", {
                         fallbackKo: "지면 저장",
                         fallbackEn: "Save placement",
                       })}
-                    </button>
+                    </AdminActionButton>
                   </div>
                 ) : null}
                 <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3">
@@ -1535,18 +1484,16 @@ export function AdminDeliveryAdDetailWorkspace({
                     />
                   </label>
                 </div>
-                <button
-                  type="button"
+                <AdminActionButton variant="secondary" size="sm" className="mt-2"
                   disabled={busy}
-                  className="mt-2 rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
                   onClick={() => void saveSchedule()}
                 >
                   {safeT("admin_delivery_ads_save_schedule", {
                     fallbackKo: "일정 저장",
                     fallbackEn: "Save schedule",
                   })}
-                </button>
-                <p className="mt-2 text-[11px] text-sam-muted">
+                </AdminActionButton>
+                <p className="mt-2 text-[12px] text-sam-muted">
                   {safeT("admin_delivery_ads_schedule_no_silent_extend", {
                     fallbackKo:
                       "종료일을 늘리려면 「일정 저장」이 아니라 아래 기간 연장(유료/보상)을 사용하세요. 숨김 CTA는 없습니다 — 일시중지·강제중단·종료만 지원합니다.",
@@ -1608,11 +1555,11 @@ export function AdminDeliveryAdDetailWorkspace({
                     <ul className="space-y-1 text-[12px] text-sam-fg" data-admin-delivery-ads-extension-quote="1">
                       <li>
                         {lang === "en" ? "Current end" : "현재 종료"}:{" "}
-                        {new Date(extendQuote.previousEndAt).toLocaleString(lang === "en" ? "en" : "ko")}
+                        {formatAdminManilaDateTime(extendQuote.previousEndAt)}
                       </li>
                       <li>
                         {lang === "en" ? "New end" : "변경 후 종료"}:{" "}
-                        {new Date(extendQuote.newEndAt).toLocaleString(lang === "en" ? "en" : "ko")}
+                        {formatAdminManilaDateTime(extendQuote.newEndAt)}
                       </li>
                       <li>
                         {lang === "en" ? "Days" : "일수"}: {extendQuote.daysAdded}
@@ -1628,22 +1575,18 @@ export function AdminDeliveryAdDetailWorkspace({
                     </ul>
                   ) : null}
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
+                    <AdminActionButton variant="secondary" size="sm"
                       disabled={extendBusy}
-                      className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
                       onClick={() => void previewExtendQuote()}
                     >
                       {lang === "en" ? "Preview cost" : "비용 미리보기"}
-                    </button>
-                    <button
-                      type="button"
+                    </AdminActionButton>
+                    <AdminActionButton variant="secondary" size="sm"
                       disabled={extendBusy || !extendQuote}
-                      className="rounded-ui-rect bg-signature px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
                       onClick={() => void submitExtend()}
                     >
                       {lang === "en" ? "Apply extension" : "연장 실행"}
-                    </button>
+                    </AdminActionButton>
                   </div>
                 </div>
               </AdminCard>
@@ -1652,9 +1595,7 @@ export function AdminDeliveryAdDetailWorkspace({
             {/* I — performance ONLY ACTIVE/ENDED */}
             {isAdminDeliveryAdPerformanceLifecycle(campaign.lifecycleStatus) ? (
               <div data-admin-delivery-ads-detail-section="performance">
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+                <AdminActionButton variant="secondary" className="w-full !justify-between" aria-expanded={perfExpanded}
                   onClick={() => setPerfExpanded((v) => !v)}
                 >
                   {safeT("admin_delivery_ads_section_performance", {
@@ -1662,7 +1603,7 @@ export function AdminDeliveryAdDetailWorkspace({
                     fallbackEn: "Performance",
                   })}
                   <span>{perfExpanded ? "−" : "+"}</span>
-                </button>
+                </AdminActionButton>
                 {perfExpanded ? (
                 <AdminCard titleKey="admin_delivery_ads_section_performance">
                   <DeliveryAdPerformancePanel
@@ -1679,9 +1620,7 @@ export function AdminDeliveryAdDetailWorkspace({
             {/* J — audit collapsed */}
             <div data-admin-delivery-ads-detail-section="history">
               <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-                <button
-                  type="button"
-                  className="text-[13px] font-semibold text-sam-fg underline-offset-2 hover:underline"
+                <AdminActionButton variant="quiet" size="sm"
                   data-admin-delivery-ads-audit-toggle="1"
                   aria-expanded={auditExpanded}
                   onClick={() => setAuditExpanded((v) => !v)}
@@ -1695,7 +1634,7 @@ export function AdminDeliveryAdDetailWorkspace({
                         fallbackKo: "변경 기록 보기",
                         fallbackEn: "Show change history",
                       })}
-                </button>
+                </AdminActionButton>
                 {auditExpanded ? (
                   <div className="mt-3">
                     {audits.length === 0 ? (

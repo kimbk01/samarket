@@ -8,11 +8,11 @@ export type AdminTone = "neutral" | "waiting" | "progress" | "success" | "warnin
 
 const TONE_CLASS: Record<AdminTone, string> = {
   neutral: "border-sam-border bg-sam-surface-muted text-sam-fg",
-  waiting: "border-amber-600/40 bg-amber-50 text-amber-950",
-  progress: "border-sky-600/40 bg-sky-50 text-sky-950",
-  success: "border-emerald-600/40 bg-emerald-50 text-emerald-950",
-  warning: "border-orange-600/40 bg-orange-50 text-orange-950",
-  danger: "border-red-700/40 bg-red-50 text-red-900",
+  waiting: "border-sam-warning/40 bg-sam-warning-soft text-sam-warning",
+  progress: "border-sam-info/40 bg-sam-info-soft text-sam-info",
+  success: "border-sam-success/40 bg-sam-success-soft text-sam-success",
+  warning: "border-sam-warning/60 bg-sam-warning-soft text-sam-warning",
+  danger: "border-sam-danger/40 bg-sam-danger-soft text-sam-danger",
 };
 
 export function AdminToneBadge({

@@ -7,6 +7,9 @@ import { useAdminMe } from "@/hooks/useAdminMe";
 import { memberInquiryAdminHref, memberMessengerAdminHref, memberNoteComposeHref } from "@/lib/admin-users/member-deep-links";
 import type { MemberOpsHistoryItem, MemberOpsHistoryPayload } from "@/lib/admin-users/member-ops-history";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { MEMBER_DETAIL_DANGER_ZONE_TITLE_KO, memberDetailAccountStateLabelKo } from "@/lib/admin-users/member-detail-presentation";
 
 type DeletionRequestItem = {
@@ -20,12 +23,12 @@ type DeletionRequestItem = {
   adminNote: string | null;
 };
 
-function formatExactTime(iso: string, locale: string): { local: string; utc: string } {
+function formatExactTime(iso: string): { local: string; utc: string } {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return { local: iso, utc: iso };
   const d = new Date(t);
   return {
-    local: d.toLocaleString(locale, { hour12: false }),
+    local: `${formatAdminManilaDateTime(iso)} PHT`,
     utc: d.toISOString(),
   };
 }
@@ -41,10 +44,9 @@ export function AdminMemberOpsPanel({
   moderationStatus: string | null | undefined;
   onUpdated?: () => void;
 }) {
-  const { t, safeT, language } = useI18n();
+  const { t, safeT } = useI18n();
   const { snapshot } = useAdminMe();
   const actorId = snapshot?.userId ?? "";
-  const locale = language === "en" ? "en-US" : "ko-KR";
   const [cursor, setCursor] = useState<string | null>(null);
   const [stack, setStack] = useState<string[]>([]);
   const [sourceFilter, setSourceFilter] = useState<"all" | MemberOpsHistoryItem["source"]>("all");
@@ -118,11 +120,11 @@ export function AdminMemberOpsPanel({
   return (
     <div className="space-y-4">
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`} data-member-ops-contact="1">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-[#667085]">
+        <h3 className="text-xs font-bold uppercase tracking-wide text-sam-muted">
           {safeT("admin_users_cc_contact_title", { fallbackKo: "연락", fallbackEn: "Contact" })}
         </h3>
-        <p className="text-xs text-[#667085]">{nickname}</p>
-        <p className="text-xs text-[#667085]">
+        <p className="text-xs text-sam-muted">{nickname}</p>
+        <p className="text-xs text-sam-muted">
           {safeT("admin_users_cc_note_support_ssot", {
             fallbackKo: "회원 쪽지·문의는 Support Center가 단일 경로입니다. 레거시 쪽지 API는 비활성(410)입니다.",
             fallbackEn: "Member messaging uses Support Center only. Legacy note writer returns 410.",
@@ -131,7 +133,7 @@ export function AdminMemberOpsPanel({
         <div className="flex flex-wrap gap-2">
           <Link
             href={supportHref}
-            className="rounded-md bg-[#2563eb] px-3 py-2 text-xs font-semibold text-white"
+            className="rounded-md bg-sam-primary px-3 py-2 text-xs font-semibold text-white"
             data-member-cta="send-note"
             data-member-cta-cap="CAP-MSG-SUPPORT"
             data-member-note-support-href="1"
@@ -140,20 +142,20 @@ export function AdminMemberOpsPanel({
           </Link>
           <Link
             href={memberInquiryAdminHref(userId)}
-            className="rounded-md border border-[#e4e7ec] px-3 py-2 text-xs font-semibold text-[#344054]"
+            className="rounded-md border border-sam-border px-3 py-2 text-xs font-semibold text-sam-fg"
           >
             {safeT("admin_users_cc_cta_inquiry", { fallbackKo: "문의", fallbackEn: "Inquiry" })}
           </Link>
           <Link
             href={memberMessengerAdminHref(userId)}
-            className="rounded-md border border-[#e4e7ec] px-3 py-2 text-xs font-semibold text-[#344054]"
+            className="rounded-md border border-sam-border px-3 py-2 text-xs font-semibold text-sam-fg"
             data-member-cta="messenger"
             data-member-cta-cap="CAP-MSG-MESSENGER"
           >
             {safeT("admin_users_cc_cta_messenger_view", { fallbackKo: "메신저 보기", fallbackEn: "View messenger" })}
           </Link>
         </div>
-        <p className="text-xs text-[#98a2b3]">
+        <p className="text-xs text-sam-meta">
           {safeT("admin_users_cc_cta_notify_unsupported", {
             fallbackKo: "알림 보내기 — 지원되지 않음",
             fallbackEn: "Send notification — not supported",
@@ -162,18 +164,18 @@ export function AdminMemberOpsPanel({
       </div>
 
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`} data-ops-deletion-readonly="1">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-[#667085]">
+        <h3 className="text-xs font-bold uppercase tracking-wide text-sam-muted">
           {safeT("admin_users_deletion_section_title", {
             fallbackKo: "삭제·탈퇴",
             fallbackEn: "Deletion",
           })}
         </h3>
         {deletion.kind === "loading" ? (
-          <p className="text-sm text-[#667085]">{t("admin_users_detail_loading")}</p>
+          <p className="text-sm text-sam-muted">{t("admin_users_detail_loading")}</p>
         ) : deletion.kind === "error" ? (
-          <p className="text-sm font-semibold text-[#b42318]">{deletion.message}</p>
+          <p className="text-sm font-semibold text-sam-danger">{deletion.message}</p>
         ) : deletion.open ? (
-          <div className="rounded-md border border-[#fecdca] bg-[#fef3f2] px-3 py-2 text-[13px] text-[#912018]">
+          <div className="rounded-md border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-[13px] text-sam-danger">
             <p className="font-semibold">
               {safeT("admin_users_deletion_open_banner", {
                 fallbackKo: "회원 삭제 요청이 대기 중입니다.",
@@ -189,38 +191,38 @@ export function AdminMemberOpsPanel({
             </p>
           </div>
         ) : (
-          <p className="text-sm text-[#667085]">
+          <p className="text-sm text-sam-muted">
             대기 중인 회원 삭제 요청이 없습니다. 탈퇴·영구 삭제는 하단 「{MEMBER_DETAIL_DANGER_ZONE_TITLE_KO}」에서 확인하세요.
           </p>
         )}
       </div>
 
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`}>
-        <h3 className="text-xs font-bold uppercase tracking-wide text-[#667085]">
+        <h3 className="text-xs font-bold uppercase tracking-wide text-sam-muted">
           {safeT("admin_users_cc_moderation_title", { fallbackKo: "제재", fallbackEn: "Moderation" })}
         </h3>
-        <p className="text-sm font-semibold text-[#101828]" data-ops-account-state="1">
+        <p className="text-sm font-semibold text-sam-fg" data-ops-account-state="1">
           {memberDetailAccountStateLabelKo(moderationStatus)}
         </p>
-        <p className="text-[12px] text-[#667085]">
+        <p className="text-[12px] text-sam-muted">
           제재 실행은 하단 「{MEMBER_DETAIL_DANGER_ZONE_TITLE_KO}」 표시와 이후 워크플로에서 처리합니다. 이 탭은 이력 확인용입니다.
         </p>
       </div>
 
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`}>
-        <h3 className="text-xs font-bold uppercase tracking-wide text-[#667085]">
+        <h3 className="text-xs font-bold uppercase tracking-wide text-sam-muted">
           {safeT("admin_users_cc_ops_title", { fallbackKo: "운영 기록", fallbackEn: "Operations history" })}
         </h3>
-        <p className="text-[12px] text-[#667085]">
+        <p className="text-[12px] text-sam-muted">
           {safeT("admin_users_cc_ops_legend", {
             fallbackKo: "각 행: 정확한 시각(로컬·UTC) · 행동 · 관리자 로그인 아이디(UUID)",
             fallbackEn: "Each row: exact time (local + UTC) · action · admin login ID (UUID)",
           })}
         </p>
         {history.kind === "loading" ? (
-          <p className="text-sm text-[#667085]">{t("admin_users_detail_loading")}</p>
+          <p className="text-sm text-sam-muted">{t("admin_users_detail_loading")}</p>
         ) : history.kind === "error" ? (
-          <p className="text-sm font-semibold text-[#b42318]">
+          <p className="text-sm font-semibold text-sam-danger">
             {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
           </p>
         ) : (
@@ -229,7 +231,7 @@ export function AdminMemberOpsPanel({
             history.data.sources.audit.ok === false ||
             history.data.sources.trust.ok === false ||
             history.data.sources.deletionRequests.ok === false ? (
-              <p className="text-xs text-[#b42318]">
+              <p className="text-xs text-sam-danger">
                 {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
               </p>
             ) : null}
@@ -243,16 +245,7 @@ export function AdminMemberOpsPanel({
                   "trust_events",
                 ] as const
               ).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setSourceFilter(id)}
-                  className={
-                    sourceFilter === id
-                      ? "rounded-md bg-[#eff6ff] px-2 py-1 text-[11px] font-semibold text-[#2563eb]"
-                      : "rounded-md px-2 py-1 text-[11px] font-semibold text-[#667085]"
-                  }
-                >
+                <AdminChipButton key={id} selected={sourceFilter === id} onClick={() => setSourceFilter(id)}>
                   {id === "all"
                     ? t("admin_users_tab_all")
                     : id === "user_moderation_events"
@@ -265,27 +258,27 @@ export function AdminMemberOpsPanel({
                               fallbackEn: "Deletion",
                             })
                           : t("admin_users_cc_overview_account")}
-                </button>
+                </AdminChipButton>
               ))}
             </div>
-            <ul className="divide-y divide-[#eaecf0]">
+            <ul className="divide-y divide-sam-border">
               {history.data.items
                 .filter((item) => sourceFilter === "all" || item.source === sourceFilter)
                 .map((item: MemberOpsHistoryItem) => {
-                  const time = formatExactTime(item.createdAt, locale);
+                  const time = formatExactTime(item.createdAt);
                   const actorLogin = item.actorLoginId || "—";
                   const actorUuid = item.actorId || "—";
                   return (
                     <li key={item.id} className="space-y-1 py-2.5 text-[13px]">
-                      <p className="font-semibold tabular-nums text-[#101828]">
+                      <p className="font-semibold tabular-nums text-sam-fg">
                         {time.local}
-                        <span className="ml-2 font-normal text-[11px] text-[#98a2b3]">UTC {time.utc}</span>
+                        <span className="ml-2 font-normal text-[12px] text-sam-meta">UTC {time.utc}</span>
                       </p>
-                      <p className="font-semibold text-[#101828]">
+                      <p className="font-semibold text-sam-fg">
                         {item.actionLabel}
-                        <span className="ml-2 font-mono text-[11px] font-normal text-[#667085]">{item.action}</span>
+                        <span className="ml-2 font-mono text-[12px] font-normal text-sam-muted">{item.action}</span>
                       </p>
-                      <p className="text-[12px] text-[#344054]">
+                      <p className="text-[12px] text-sam-fg">
                         {safeT("admin_users_cc_ops_actor", {
                           fallbackKo: "관리자",
                           fallbackEn: "Admin",
@@ -293,45 +286,45 @@ export function AdminMemberOpsPanel({
                         :{" "}
                         <span className="font-semibold">{actorLogin}</span>
                         {item.actorDisplayName && item.actorDisplayName !== actorLogin ? (
-                          <span className="text-[#667085]"> ({item.actorDisplayName})</span>
+                          <span className="text-sam-muted"> ({item.actorDisplayName})</span>
                         ) : null}
-                        <span className="ml-2 font-mono text-[11px] text-[#98a2b3]">{actorUuid}</span>
+                        <span className="ml-2 font-mono text-[12px] text-sam-meta">{actorUuid}</span>
                       </p>
-                      <p className="text-[11px] text-[#98a2b3]">{item.source}</p>
-                      {item.reason ? <p className="text-[12px] text-[#667085]">reason: {item.reason}</p> : null}
+                      <p className="text-[12px] text-sam-meta">{item.source}</p>
+                      {item.reason ? <p className="text-[12px] text-sam-muted">reason: {item.reason}</p> : null}
                     </li>
                   );
                 })}
             </ul>
             {history.data.items.length === 0 ? (
-              <p className="text-sm text-[#667085]">
+              <p className="text-sm text-sam-muted">
                 {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}
               </p>
             ) : null}
             <div className="flex gap-2">
-              <button
-                type="button"
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
                 disabled={stack.length === 0}
                 onClick={() => {
                   const prev = stack[stack.length - 1] ?? null;
                   setStack((cur) => cur.slice(0, -1));
                   setCursor(prev);
                 }}
-                className="rounded-md border border-[#e4e7ec] px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
               >
                 {safeT("admin_users_cc_page_prev", { fallbackKo: "이전", fallbackEn: "Prev" })}
-              </button>
-              <button
-                type="button"
+              </AdminActionButton>
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
                 disabled={!history.data.nextCursor}
                 onClick={() => {
                   setStack((cur) => [...cur, cursor ?? ""]);
                   setCursor(history.data.nextCursor);
                 }}
-                className="rounded-md border border-[#e4e7ec] px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
               >
                 {safeT("admin_users_cc_page_next", { fallbackKo: "다음", fallbackEn: "Next" })}
-              </button>
+              </AdminActionButton>
             </div>
           </>
         )}

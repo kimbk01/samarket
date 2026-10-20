@@ -13,6 +13,7 @@ import {
 } from "@/components/admin/ui/AdminStateViews";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminDecimal, formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { FINANCE_ACTIVE_STATE_NS } from "@/lib/admin/status-labels/finance-status-labels";
@@ -113,7 +114,7 @@ export function AdminPointPlansPage() {
   const save = async () => {
     if (busy || !action.allowed) return;
     const c = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: creating ? (ko ? "포인트 플랜 등록" : "Create point plan") : ko ? "포인트 플랜 저장" : "Save point plan",
       description: ko
@@ -168,7 +169,7 @@ export function AdminPointPlansPage() {
   const deactivate = async (plan: PointPlan) => {
     if (busy || !plan.isActive || !action.allowed) return;
     const c = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("disable"),
       ko,
       title: ko ? "포인트 플랜 비활성" : "Deactivate point plan",
       description: ko

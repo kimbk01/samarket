@@ -1,5 +1,7 @@
 "use client";
 
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -29,9 +31,6 @@ type MembershipRow = {
   advertisingDiscountPercentSnapshot: number;
   cancelRequestedAt: string | null;
 };
-
-const FILTER_BTN =
-  "inline-flex min-h-[40px] items-center rounded-ui-rect border px-3 text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99]";
 
 /**
  * Partner 관리 — operational page with clear header nav + filter hierarchy.
@@ -171,7 +170,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
         <AdminDeliveryAdsSectionNav />
 
         <p
-          className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900"
+          className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[12px] text-sam-warning"
           data-partner-payment="NOT_IMPLEMENTED"
         >
           {safeT("admin_delivery_ads_partner_payment_note", {
@@ -209,19 +208,19 @@ export function AdminDeliveryAdPartnerMembershipsView() {
             </p>
           )}
           {partnerCatalog.error ? (
-            <p className="mt-2 text-[12px] text-red-600">{partnerCatalog.error}</p>
+            <p className="mt-2 text-[12px] text-sam-danger">{partnerCatalog.error}</p>
           ) : null}
         </AdminCard>
 
         {error ? (
-          <p className="text-[13px] text-red-600" role="alert">
+          <p className="text-[13px] text-sam-danger" role="alert">
             {error}
           </p>
         ) : null}
 
         <div
           className="flex flex-wrap gap-2"
-          role="tablist"
+          role="group"
           aria-label={
             lang === "en" ? "Membership status filters" : "멤버십 상태 필터"
           }
@@ -230,16 +229,8 @@ export function AdminDeliveryAdPartnerMembershipsView() {
           {filters.map(([value, key, ko, en]) => {
             const selected = filter === value;
             return (
-              <button
+              <AdminChipButton selected={selected}
                 key={value}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                className={`${FILTER_BTN} ${
-                  selected
-                    ? "border-[#0A823E] bg-[#0A823E] text-white"
-                    : "border-sam-border bg-sam-surface text-sam-fg hover:border-[#0A823E]/50 hover:bg-[#0A823E]/5"
-                }`}
                 onClick={() => setFilter(value)}
                 data-partner-filter={key}
                 data-selected={selected ? "1" : "0"}
@@ -248,7 +239,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                   fallbackKo: ko,
                   fallbackEn: en,
                 })}
-              </button>
+              </AdminChipButton>
             );
           })}
         </div>
@@ -270,32 +261,32 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                 data-admin-partner-memberships-table="design-board"
               >
                 <thead>
-                  <tr className="bg-[#F5F5F5] text-left text-[#757575]">
-                    <th className="border border-[#BDBDBD] p-2 font-semibold">
+                  <tr className="bg-sam-app text-left text-sam-muted">
+                    <th className="border border-sam-border p-2 font-semibold">
                       {safeT("admin_delivery_ads_partner_col_store", {
                         fallbackKo: "매장",
                         fallbackEn: "Store",
                       })}
                     </th>
-                    <th className="border border-[#BDBDBD] p-2 font-semibold">
+                    <th className="border border-sam-border p-2 font-semibold">
                       {safeT("admin_delivery_ads_partner_col_status", {
                         fallbackKo: "상태",
                         fallbackEn: "Status",
                       })}
                     </th>
-                    <th className="border border-[#BDBDBD] p-2 font-semibold">
+                    <th className="border border-sam-border p-2 font-semibold">
                       {safeT("admin_delivery_ads_partner_col_period", {
                         fallbackKo: "기간",
                         fallbackEn: "Period",
                       })}
                     </th>
-                    <th className="border border-[#BDBDBD] p-2 font-semibold">
+                    <th className="border border-sam-border p-2 font-semibold">
                       {safeT("admin_delivery_ads_partner_col_context", {
                         fallbackKo: "연결",
                         fallbackEn: "Links",
                       })}
                     </th>
-                    <th className="border border-[#BDBDBD] p-2 font-semibold">
+                    <th className="border border-sam-border p-2 font-semibold">
                       {safeT("admin_delivery_ads_queue_col_action", {
                         fallbackKo: "처리",
                         fallbackEn: "Action",
@@ -311,7 +302,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                       data-partner-membership-row={m.status}
                       data-admin-partner-membership-row={m.id}
                     >
-                      <td className="border border-[#BDBDBD] p-2 font-medium text-sam-fg">
+                      <td className="border border-sam-border p-2 font-medium text-sam-fg">
                         <Link
                           href={`/admin/business/${encodeURIComponent(m.storeId)}`}
                           className="text-sam-primary underline underline-offset-2"
@@ -320,10 +311,10 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                           {m.storeName ?? m.storeId}
                         </Link>
                       </td>
-                      <td className="border border-[#BDBDBD] p-2 text-sam-fg">
+                      <td className="border border-sam-border p-2 text-sam-fg">
                         {lang === "en" ? m.statusLabelEn : m.statusLabelKo}
                         {m.advertisingDiscountPercentSnapshot > 0 ? (
-                          <p className="mt-1 text-[11px] text-sam-muted">
+                          <p className="mt-1 text-[12px] text-sam-muted">
                             {safeT("admin_delivery_ads_partner_benefit_hint", {
                               vars: { percent: m.advertisingDiscountPercentSnapshot },
                               fallbackKo: `파트너 혜택 적용 · 광고 할인 ${m.advertisingDiscountPercentSnapshot}%`,
@@ -332,12 +323,12 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                           </p>
                         ) : null}
                       </td>
-                      <td className="border border-[#BDBDBD] p-2 text-[#757575]">
+                      <td className="border border-sam-border p-2 text-sam-muted">
                         {m.periodEnd
                           ? `${(m.periodStart ?? "").slice(0, 10)} ~ ${m.periodEnd.slice(0, 10)}`
                           : "—"}
                         {m.feeSnapshotLabel ? (
-                          <p className="mt-1 text-[11px]">
+                          <p className="mt-1 text-[12px]">
                             {safeT("admin_delivery_ads_partner_fee_cash", {
                               vars: { label: m.feeSnapshotLabel },
                               fallbackKo: `Cash 수수료 ${m.feeSnapshotLabel}`,
@@ -346,11 +337,11 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                           </p>
                         ) : null}
                       </td>
-                      <td className="border border-[#BDBDBD] p-2">
+                      <td className="border border-sam-border p-2">
                         <div className="flex flex-wrap gap-2">
                           <Link
                             href={`/admin/finance?storeId=${encodeURIComponent(m.storeId)}`}
-                            className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[11px] font-semibold text-sam-fg"
+                            className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[12px] font-semibold text-sam-fg"
                             data-partner-finance-link="1"
                           >
                             {safeT("admin_delivery_ads_partner_open_finance", {
@@ -360,7 +351,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                           </Link>
                           <Link
                             href={`${DELIVERY_AD_ADMIN_ROUTES.hub}?storeId=${encodeURIComponent(m.storeId)}`}
-                            className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[11px] font-semibold text-sam-fg"
+                            className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[12px] font-semibold text-sam-fg"
                             data-partner-ads-link="1"
                           >
                             {safeT("admin_delivery_ads_partner_open_ads", {
@@ -370,7 +361,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                           </Link>
                           <Link
                             href={supportInboxHrefForStore(m.storeId)}
-                            className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[11px] font-semibold text-sam-fg"
+                            className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[12px] font-semibold text-sam-fg"
                             data-partner-support-link="1"
                           >
                             {safeT("admin_delivery_ads_partner_open_support", {
@@ -380,14 +371,12 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                           </Link>
                         </div>
                       </td>
-                      <td className="border border-[#BDBDBD] p-2">
+                      <td className="border border-sam-border p-2">
                         <div className="flex flex-wrap gap-2">
                           {m.status === "PENDING_REVIEW" ? (
                             <>
-                              <button
-                                type="button"
+                              <AdminActionButton variant="ghost" size="sm"
                                 disabled={busy}
-                                className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-[#0A823E] bg-[#0A823E] px-3 text-[12px] font-semibold text-white transition hover:bg-[#087a38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:opacity-50"
                                 onClick={() => void act("approve", m.id)}
                                 data-partner-approve="1"
                               >
@@ -395,11 +384,9 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                                   fallbackKo: "승인",
                                   fallbackEn: "Approve",
                                 })}
-                              </button>
-                              <button
-                                type="button"
+                              </AdminActionButton>
+                              <AdminActionButton variant="ghost" size="sm"
                                 disabled={busy}
-                                className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-red-600 bg-white px-3 text-[12px] font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 active:scale-[0.99] disabled:opacity-50"
                                 onClick={() => void act("reject", m.id)}
                                 data-partner-reject="1"
                               >
@@ -407,14 +394,12 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                                   fallbackKo: "반려",
                                   fallbackEn: "Reject",
                                 })}
-                              </button>
+                              </AdminActionButton>
                             </>
                           ) : null}
                           {m.status === "ACTIVE" || m.status === "CANCEL_PENDING" ? (
-                            <button
-                              type="button"
+                            <AdminActionButton variant="ghost" size="sm"
                               disabled={busy}
-                              className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-3 text-[12px] font-semibold text-sam-fg transition hover:bg-sam-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:opacity-50"
                               onClick={() => void act("end", m.id)}
                               data-partner-end="1"
                             >
@@ -422,7 +407,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                                 fallbackKo: "종료",
                                 fallbackEn: "End",
                               })}
-                            </button>
+                            </AdminActionButton>
                           ) : null}
                         </div>
                       </td>

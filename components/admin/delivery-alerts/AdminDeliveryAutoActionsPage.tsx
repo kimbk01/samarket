@@ -15,6 +15,7 @@ import {
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { DeliveryOperationRecoveryAction } from "@/lib/admin/delivery-operation-recovery-actions";
@@ -224,7 +225,7 @@ function AdminDeliveryAutoActionsPageInner() {
     async (nextEnabled: boolean) => {
       if (killBusy || !settingsLoaded) return;
       const c = await confirmAdminAction({
-        level: "L1",
+        level: adminActionLevel(nextEnabled ? "resume" : "disable"),
         ko,
         title: nextEnabled
           ? ko
@@ -285,7 +286,7 @@ function AdminDeliveryAutoActionsPageInner() {
     async (action: DeliveryOperationRecoveryAction, label: string) => {
       if (bulkBusy) return;
       const c = await confirmAdminAction({
-        level: "L3",
+        level: adminActionLevel("bulk"),
         ko,
         title: t("admin_r4d_recovery_title", { label }),
         description: t("admin_r4d_recovery_desc"),
@@ -327,7 +328,7 @@ function AdminDeliveryAutoActionsPageInner() {
       const c = await confirmAdminAction(
         path === "approve"
           ? {
-              level: "L2",
+              level: adminActionLevel("approve"),
               ko,
               title: ko ? `자동 조치 승인: ${target}` : `Approve auto action: ${target}`,
               description: ko
@@ -338,14 +339,14 @@ function AdminDeliveryAutoActionsPageInner() {
             }
           : path === "reject"
             ? {
-                level: "L2",
+                level: adminActionLevel("reject"),
                 ko,
                 title: ko ? `자동 조치 반려: ${target}` : `Reject auto action: ${target}`,
                 description: ko ? "반려하면 이 조치는 실행되지 않습니다." : "This action will not run.",
                 confirmLabel: ko ? "반려" : "Reject",
               }
             : {
-                level: "L1",
+                level: adminActionLevel("resume"),
                 ko,
                 title: ko ? `자동 조치 재실행: ${target}` : `Re-run auto action: ${target}`,
                 description: ko ? `「${typeLabel}」 조치를 다시 실행합니다.` : `Runs "${typeLabel}" again.`,

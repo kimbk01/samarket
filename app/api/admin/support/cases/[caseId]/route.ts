@@ -3,6 +3,7 @@ import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   adminAssignSupportCase,
   adminDeleteSupportMessage,
@@ -77,6 +78,7 @@ export async function PATCH(
     internalNote?: boolean;
     closeAfter?: boolean;
     messageId?: string;
+    reason?: unknown;
   };
 
   // F3: 성공한 변경만 관리자 감사 로그에 남긴다 (메시지 본문은 기록하지 않음).
@@ -179,6 +181,11 @@ export async function PATCH(
     if (!messageId) {
       return NextResponse.json({ ok: false, error: "invalid_message" }, { status: 400 });
     }
+    // 메시지 삭제 = delete(L3) — 화면 확인창 사유 필수 (유일한 호출자 AdminSupportPage 가 보낸다).
+    const deleteReason = body.action === "delete_message" ? parseAdminReason(body.reason) : null;
+    if (body.action === "delete_message" && !deleteReason) {
+      return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+    }
     const res =
       body.action === "edit_message"
         ? await adminEditSupportMessage(sb, {
@@ -192,7 +199,7 @@ export async function PATCH(
       const status = res.error === "not_own_message" ? 403 : res.error === "not_found" ? 404 : 400;
       return NextResponse.json({ ok: false, error: res.error }, { status });
     }
-    await audit(body.action, { messageId });
+    await audit(body.action, deleteReason ? { messageId, reason: deleteReason } : { messageId });
     return NextResponse.json({ ok: true });
   }
 

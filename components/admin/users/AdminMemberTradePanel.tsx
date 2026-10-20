@@ -1,5 +1,8 @@
 "use client";
 
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -13,17 +16,16 @@ import type { MemberTradeSection, MemberTradeTabPayload } from "@/lib/admin-user
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 
 export function AdminMemberTradePanel({ userId }: { userId: string }) {
-  const { t, safeT, language } = useI18n();
+  const { t, safeT } = useI18n();
   const [section, setSection] = useState<MemberTradeSection>("listings");
   const [page, setPage] = useState(1);
   const [state, setState] = useState<{ kind: "loading" } | { kind: "error" } | { kind: "ok"; data: MemberTradeTabPayload }>({
     kind: "loading",
   });
-  const locale = language === "en" ? "en-US" : "ko-KR";
   const fmt = (value: string | null) => {
     if (!value) return t("admin_users_empty_placeholder");
     const time = new Date(value).getTime();
-    return Number.isFinite(time) ? new Date(time).toLocaleString(locale) : value;
+    return Number.isFinite(time) ? formatAdminManilaDateTime(value) : value;
   };
 
   useEffect(() => {
@@ -53,11 +55,11 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
   }, [userId, section, page]);
 
   if (state.kind === "loading") {
-    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-[#667085]`}>{t("admin_users_detail_loading")}</div>;
+    return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-sam-muted`}>{t("admin_users_detail_loading")}</div>;
   }
   if (state.kind === "error") {
     return (
-      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-[#b42318]`}>
+      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
         {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
       </div>
     );
@@ -90,35 +92,25 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
         ]}
       />
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
+        <AdminChipButton
+          selected={section === "listings"}
           onClick={() => {
             setSection("listings");
             setPage(1);
           }}
-          className={
-            section === "listings"
-              ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
-              : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085]"
-          }
         >
           {t("admin_users_cc_overview_listings")}
-        </button>
-        <button
-          type="button"
+        </AdminChipButton>
+        <AdminChipButton
+          selected={section === "buyer"}
           onClick={() => {
             setSection("buyer");
             setPage(1);
           }}
-          className={
-            section === "buyer"
-              ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
-              : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085]"
-          }
         >
           {safeT("admin_users_cc_summary_buyer", { fallbackKo: "구매 참여", fallbackEn: "Buyer chats" })}
-        </button>
-        <Link href={memberTradeAdminHref()} className="ml-auto text-xs font-semibold text-[#2563eb]">
+        </AdminChipButton>
+        <Link href={memberTradeAdminHref()} className="ml-auto text-xs font-semibold text-sam-primary">
           {safeT("admin_users_cc_cta_open_trade_admin", { fallbackKo: "Trade Admin에서 열기", fallbackEn: "Open in Trade admin" })}
         </Link>
       </div>
@@ -126,7 +118,7 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
         {section === "listings" ? (
           <table className="min-w-full border-collapse text-[13px]">
             <thead>
-              <tr className="border-b border-[#eaecf0] bg-[#f8fafc] text-left text-[11px] font-semibold uppercase text-[#475467]">
+              <tr className="border-b border-sam-border bg-sam-surface-muted text-left text-[12px] font-semibold uppercase text-sam-muted">
                 <th className="px-3 py-2">{safeT("admin_users_cc_col_title", { fallbackKo: "상품", fallbackEn: "Listing" })}</th>
                 <th className="px-3 py-2">{safeT("admin_users_cc_col_amount", { fallbackKo: "가격", fallbackEn: "Price" })}</th>
                 <th className="px-3 py-2">{t("admin_users_lite_col_status")}</th>
@@ -136,13 +128,13 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
             </thead>
             <tbody>
               {state.data.listings.map((row) => (
-                <tr key={row.id} className="border-b border-[#eaecf0]">
-                  <td className="px-3 py-2 font-medium text-[#101828]">{row.title || row.id}</td>
-                  <td className="px-3 py-2 tabular-nums">{row.price == null ? "—" : row.price.toLocaleString()}</td>
+                <tr key={row.id} className="border-b border-sam-border">
+                  <td className="px-3 py-2 font-medium text-sam-fg">{row.title || row.id}</td>
+                  <td className="px-3 py-2 tabular-nums">{row.price == null ? "—" : formatAdminPhp(row.price)}</td>
                   <td className="px-3 py-2">{row.listingState || row.status}</td>
-                  <td className="px-3 py-2 tabular-nums text-[#475467]">{fmt(row.createdAt)}</td>
+                  <td className="px-3 py-2 tabular-nums text-sam-muted">{fmt(row.createdAt)}</td>
                   <td className="px-3 py-2">
-                    <Link href={memberTradePostHref(row.id)} className="text-xs font-semibold text-[#2563eb]">
+                    <Link href={memberTradePostHref(row.id)} className="text-xs font-semibold text-sam-primary">
                       {safeT("admin_users_cc_cta_view_trade_post", { fallbackKo: "원본", fallbackEn: "Open listing" })}
                     </Link>
                   </td>
@@ -153,9 +145,9 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
         ) : (
           state.data.buyer.map((row) => (
             <div key={row.id} className="space-y-1 px-4 py-3">
-              <p className="text-sm font-semibold text-[#101828]">{row.postTitle || row.postId}</p>
-              <p className="text-xs text-[#667085]">{row.tradeFlowStatus || "—"}</p>
-              <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
+              <p className="text-sm font-semibold text-sam-fg">{row.postTitle || row.postId}</p>
+              <p className="text-xs text-sam-muted">{row.tradeFlowStatus || "—"}</p>
+              <div className="flex flex-wrap gap-3 text-xs font-semibold text-sam-primary">
                 {row.postId ? (
                   <Link href={memberTradePostHref(row.postId)}>
                     {safeT("admin_users_cc_cta_view_trade_post", { fallbackKo: "거래 게시물 보기", fallbackEn: "View listing" })}
@@ -169,7 +161,7 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
           ))
         )}
         {(section === "listings" && state.data.listings.length === 0) || (section === "buyer" && state.data.buyer.length === 0) ? (
-          <p className="px-4 py-6 text-center text-sm text-[#667085]">
+          <p className="px-4 py-6 text-center text-sm text-sam-muted">
             {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}
           </p>
         ) : null}

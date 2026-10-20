@@ -19,11 +19,11 @@ export type NotificationSendOperatorTone =
   | "other";
 
 const ROW_ACCENT: Record<AdminTone, string> = {
-  success: "border-l-emerald-600 bg-emerald-50/40",
-  waiting: "border-l-amber-500 bg-amber-50/30",
-  warning: "border-l-orange-500 bg-orange-50/25",
+  success: "border-l-sam-success bg-sam-success-soft/40",
+  waiting: "border-l-sam-warning/60 bg-sam-warning-soft/30",
+  warning: "border-l-sam-warning bg-sam-warning-soft/50",
   danger: "border-l-sam-border bg-sam-app/70",
-  progress: "border-l-sky-500 bg-sky-50/30",
+  progress: "border-l-sam-info bg-sam-info-soft/30",
   neutral: "border-l-transparent bg-sam-surface",
 };
 

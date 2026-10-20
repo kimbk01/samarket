@@ -2050,7 +2050,7 @@ export const adminMessages = {
       "배달 주문 채팅 — Messenger UI만 참조. Authority = Delivery store_orders 조회(방 생성 없음).",
     admin_chat_domain_list_loading: "불러오는 중…",
     admin_chat_domain_list_empty: "채팅 없음",
-    admin_chat_domain_list_error: "목록을 불러오지 못했습니다. 다시 시도해 주세요.",
+    admin_chat_domain_list_error: "목록을 불러오지 못했습니다. 새로고침해 주세요.",
     admin_chat_domain_col_title: "방",
     admin_chat_domain_col_members: "참여자",
     admin_chat_domain_col_last: "최근 메시지",

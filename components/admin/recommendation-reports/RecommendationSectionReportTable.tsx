@@ -9,6 +9,7 @@ import {
   recHealthLabel,
   recSurfaceLabel,
 } from "@/components/admin/recommendation-admin-i18n";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 interface RecommendationSectionReportTableProps {
   reportId: string;
@@ -69,10 +70,10 @@ export function RecommendationSectionReportTable({
               </td>
               <td className="px-3 py-2.5 text-sam-fg">{s.sectionKey}</td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {s.impressionCount.toLocaleString()}
+                {formatAdminNumber(s.impressionCount)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {s.clickCount.toLocaleString()}
+                {formatAdminNumber(s.clickCount)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {(s.ctr * 100).toFixed(2)}%
@@ -84,10 +85,10 @@ export function RecommendationSectionReportTable({
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                     s.status === "healthy"
-                      ? "bg-emerald-50 text-emerald-800"
+                      ? "bg-sam-success-soft text-sam-success"
                       : s.status === "warning"
-                        ? "bg-amber-50 text-amber-800"
-                        : "bg-red-50 text-red-800"
+                        ? "bg-sam-warning-soft text-sam-warning"
+                        : "bg-sam-danger-soft text-sam-danger"
                   }`}
                 >
                   {recHealthLabel(t, s.status as SectionHealthStatus)}

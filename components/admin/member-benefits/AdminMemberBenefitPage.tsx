@@ -8,6 +8,7 @@ import { MEMBER_TYPE_LABELS } from "@/lib/member-benefits/member-benefit-utils";
 import type { MemberBenefitPolicy, MemberBenefitSummary } from "@/lib/types/member-benefit";
 import { AdminMemberBenefitTable } from "./AdminMemberBenefitTable";
 import { AdminMemberBenefitForm } from "./AdminMemberBenefitForm";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 export function AdminMemberBenefitPage() {
   const { t } = useI18n();
@@ -60,7 +61,7 @@ export function AdminMemberBenefitPage() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_member_benefit_k98edcb0c" />
 
-      {err ? <p className="sam-text-body text-red-600">{err}</p> : null}
+      {err ? <p className="sam-text-body text-sam-danger">{err}</p> : null}
 
       <AdminCard titleKey="admin_member_benefit_summary_2">
         <div className="flex flex-wrap gap-4 sam-text-body">
@@ -77,13 +78,13 @@ export function AdminMemberBenefitPage() {
 
       <AdminCard titleKey="admin_member_benefit_kdff18da4">
         <div className="mb-3 flex justify-end">
-          <button
-            type="button"
+          <AdminActionButton
             onClick={() => setShowForm(true)}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+            variant="secondary"
+            size="sm"
           >
             정책 추가
-          </button>
+          </AdminActionButton>
         </div>
         {showForm && (
           <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">

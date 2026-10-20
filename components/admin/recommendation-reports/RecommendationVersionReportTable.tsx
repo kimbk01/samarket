@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationReportVersions } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 interface RecommendationVersionReportTableProps {
   reportId: string;
@@ -64,7 +65,7 @@ export function RecommendationVersionReportTable({
                   {version?.versionName ?? v.versionId}
                 </td>
                 <td className="px-3 py-2.5 text-sam-fg">
-                  {v.impressionCount.toLocaleString()} / {v.clickCount.toLocaleString()}
+                  {formatAdminNumber(v.impressionCount)} / {formatAdminNumber(v.clickCount)}
                 </td>
                 <td className="px-3 py-2.5 text-sam-fg">
                   {(v.ctr * 100).toFixed(2)}% / {(v.conversionRate * 100).toFixed(2)}%

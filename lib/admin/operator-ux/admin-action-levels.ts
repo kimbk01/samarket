@@ -28,6 +28,8 @@ export const ADMIN_ACTION_LEVELS = {
   payout: "L2",
   moneyApprove: "L2",
   pointPolicySave: "L2",
+  /** 서비스 운영 설정 켜기·끄기 (런타임 설정 · 휴대폰 인증 서비스 등) — 회원 전체에 영향 */
+  runtimeSettingChange: "L2",
   // L3 — 되돌릴 수 없음·대량
   delete: "L3",
   purge: "L3",

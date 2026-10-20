@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { adminActOnOwnerEventPromoRequest } from "@/lib/platform-event-owner-requests/admin-review";
 import { isPlatformEventOwnerAdminAction } from "@/lib/platform-event-owner-requests/types";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -29,11 +30,17 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "action_invalid" }, { status: 400 });
   }
 
+  // R2: 승인·반려·수정 요청 = L2 — 사유 필수(감사 after_json.reason). 심사 시작은 L1.
+  const reason = parseAdminReason(body.reason);
+  if (action !== "start_review" && !reason) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
+
   const result = await adminActOnOwnerEventPromoRequest(sb, {
     adminUserId: admin.userId,
     requestId: String(requestId ?? "").trim(),
     action,
-    reason: body.reason,
+    reason: reason ?? undefined,
   });
 
   if (!result.ok) {

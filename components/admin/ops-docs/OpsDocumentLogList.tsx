@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getOpsDocumentLogs } from "@/lib/ops-docs/ops-docs-state";
 import { OPS_DOC_LOG_ACTION_KEYS } from "@/components/admin/i18n/admin-ops-doc-label-keys";
-import { adminDateLocaleTag } from "@/components/admin/i18n/admin-date-locale";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface OpsDocumentLogListProps {
   documentId: string;
@@ -14,7 +14,6 @@ interface OpsDocumentLogListProps {
 export function OpsDocumentLogList({ documentId }: OpsDocumentLogListProps) {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const dateLocale = adminDateLocaleTag(language);
   const logs = useMemo(
     () => getOpsDocumentLogs(documentId),
     [documentId]
@@ -43,7 +42,7 @@ export function OpsDocumentLogList({ documentId }: OpsDocumentLogListProps) {
             <span className="text-sam-muted">· {log.note}</span>
           )}
           <span className="ml-auto text-sam-meta">
-            {new Date(log.createdAt).toLocaleString(dateLocale)}
+            {formatAdminManilaDateTime(log.createdAt)}
           </span>
         </li>
       ))}

@@ -107,7 +107,7 @@ describe("AdminDashboardView markup (설계 v4 §3)", () => {
     expect(html).toContain("17:27 PHT");
     expect(html).toMatch(/data-admin-dashboard-refresh="1"[^>]*>Refresh</);
     expect(html.match(/data-admin-dashboard-period-option=/g)).toHaveLength(4);
-    expect(html).toMatch(/aria-pressed="true" data-admin-dashboard-period-option="today"/);
+    expect(html).toMatch(/aria-pressed="true"[^>]*data-admin-dashboard-period-option="today"/);
     expect(html.match(/data-admin-dashboard-shortcut=/g)).toHaveLength(2);
   });
 
@@ -115,7 +115,7 @@ describe("AdminDashboardView markup (설계 v4 §3)", () => {
     search = "tab=finance&period=7d";
     const html = renderToStaticMarkup(<AdminDashboardView initial={initial()} />);
     expect(html).toContain('data-admin-dashboard-period="7d"');
-    expect(html).toMatch(/aria-pressed="true" data-admin-dashboard-period-option="7d"/);
+    expect(html).toMatch(/aria-pressed="true"[^>]*data-admin-dashboard-period-option="7d"/);
     expect(html).toMatch(/data-admin-metric-tile="finance.commission_net"[\s\S]*?data-admin-metric-period-chip="1">7 days</);
     expect(html).toMatch(/data-admin-metric-tile="finance.cash_in_today"[\s\S]*?data-admin-metric-period-chip="1">Today</);
     expect(html).toMatch(/data-admin-metric-tile="points.waiting_confirm"[\s\S]*?data-admin-metric-period-chip="1">Now</);

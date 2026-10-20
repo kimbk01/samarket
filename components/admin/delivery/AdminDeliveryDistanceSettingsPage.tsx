@@ -15,6 +15,7 @@ import {
   resolveEffectiveStoreDeliveryRadiusKm,
 } from "@/lib/delivery/store-delivery-radius";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -276,7 +277,7 @@ export function AdminDeliveryDistanceSettingsPage() {
       if (parsed && parsed.ok) changes.push(ko ? `배달 반경 ${parsed.value}km` : `Radius ${parsed.value} km`);
       if (modeDirty) changes.push(ko ? `거리 제한: ${distanceModeLabel(ko, nextMode)}` : `Distance limit: ${distanceModeLabel(ko, nextMode)}`);
       const c = await confirmAdminAction({
-        level: "L1",
+        level: adminActionLevel("save"),
         ko,
         title: ko ? `「${name}」 배달 설정을 저장할까요?` : `Save delivery settings for "${name}"?`,
         description: changes.join(" · "),

@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
-import { ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-reason";
 import {
   feedAdOpsStatusLabel,
   projectFeedAdOpsProductStatus,
@@ -121,6 +122,9 @@ export function AdminFeedAdRequestDetail({
   const [previewBroken, setPreviewBroken] = useState(false);
   const [pendingReview, setPendingReview] = useState<"approve" | "reject" | null>(null);
   const [successKind, setSuccessKind] = useState<"approve" | "reject" | null>(null);
+  /** 보상 연장 입력 폼 (일수) — 입력 후 실행 확인은 confirmAdminAction(payout L2). */
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [extendDays, setExtendDays] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -258,35 +262,34 @@ export function AdminFeedAdRequestDetail({
       if (!confirmed.ok) return;
       reason = "admin_resumed";
     }
-    let requestedDays: number | undefined;
     if (action === "extend_compensation") {
-      const daysRaw =
-        (
-          await dibayPrompt({
-            title: safeT("admin_feed_req_extend_days_prompt", {
-              fallbackKo: "보상 연장 일수 (1–90)",
-              fallbackEn: "Compensation days (1–90)",
-            }),
-            required: true,
-          })
-        )?.trim() ?? "";
-      const days = Number(daysRaw);
-      if (!Number.isInteger(days) || days < 1 || days > 90) return;
-      requestedDays = days;
-      reason =
-        (
-          await dibayPrompt({
-            title: safeT("admin_feed_req_extend_reason_prompt", {
-              fallbackKo: "보상 연장 사유 (필수)",
-              fallbackEn: "Compensation reason (required)",
-            }),
-            required: true,
-            minLength: ADMIN_REASON_MIN_LENGTH,
-          })
-        )?.trim() ?? "";
-      if (!reason) return;
+      // 보상 연장 = payout(L2) — 일수는 아래 입력 폼에서 받고, 실행 확인·사유는 submitExtendCompensation.
+      setExtendDays("");
+      setExtendOpen(true);
+      return;
     }
-    await runMutation(action, reason, requestedDays);
+    await runMutation(action, reason);
+  };
+
+  const extendDaysValue = Number(extendDays.trim());
+  const extendDaysValid = Number.isInteger(extendDaysValue) && extendDaysValue >= 1 && extendDaysValue <= 90;
+
+  const submitExtendCompensation = async () => {
+    if (!extendDaysValid) return;
+    const days = extendDaysValue;
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("payout"),
+      ko,
+      title: ko ? `보상 연장 ${days}일을 적용할까요?` : `Apply a ${days}-day compensation extension?`,
+      confirmLabel: ko ? "연장" : "Extend",
+      reasonPlaceholder: safeT("admin_feed_req_extend_reason_prompt", {
+        fallbackKo: "보상 연장 사유 (필수)",
+        fallbackEn: "Compensation reason (required)",
+      }),
+    });
+    if (!confirmed.ok) return;
+    setExtendOpen(false);
+    await runMutation("extend_compensation", confirmed.reason ?? "", days);
   };
 
   const replaceImage = async (file: File, sortOrder: number) => {
@@ -397,17 +400,16 @@ export function AdminFeedAdRequestDetail({
     <div className="flex flex-wrap gap-2" data-admin-feed-review-actions="1">
       {pending ? (
         <>
-          <button
-            type="button"
+          <AdminActionButton
+            variant="secondary"
             data-testid="admin-feed-req-detail-reject"
             disabled={busy || pendingReview != null}
-            className="rounded-ui-rect border border-sam-danger px-4 py-2 text-sam-danger disabled:opacity-50"
             onClick={() => void requestReview("reject")}
           >
             {safeT("admin_feed_req_reject", { fallbackKo: "반려", fallbackEn: "Reject" })}
-          </button>
-          <button
-            type="button"
+          </AdminActionButton>
+          <AdminActionButton
+            variant="primary"
             data-testid="admin-feed-req-detail-approve"
             disabled={busy || pendingReview != null || approveBlocked}
             title={
@@ -417,67 +419,91 @@ export function AdminFeedAdRequestDetail({
                   : "Cannot approve without a viewable creative"
                 : undefined
             }
-            className="rounded-ui-rect bg-signature px-4 py-2 font-medium text-white disabled:opacity-50"
             onClick={() => void requestReview("approve")}
           >
             {safeT("admin_feed_req_approve", { fallbackKo: "승인", fallbackEn: "Approve" })}
-          </button>
+          </AdminActionButton>
         </>
       ) : null}
       {canPause ? (
-        <button
-          type="button"
+        <AdminActionButton
+          variant="secondary"
           data-testid="admin-feed-req-detail-pause"
-          disabled={busy}
-          className="rounded-ui-rect border border-sam-border px-4 py-2 disabled:opacity-50"
+          disabled={busy || extendOpen}
           onClick={() => void actOps("pause")}
         >
           {safeT("admin_feed_req_pause", { fallbackKo: "일시중지", fallbackEn: "Pause" })}
-        </button>
+        </AdminActionButton>
       ) : null}
       {canResume ? (
-        <button
-          type="button"
+        <AdminActionButton
+          variant="secondary"
           data-testid="admin-feed-req-detail-resume"
-          disabled={busy}
-          className="rounded-ui-rect border border-sam-border px-4 py-2 disabled:opacity-50"
+          disabled={busy || extendOpen}
           onClick={() => void actOps("resume")}
         >
           {safeT("admin_feed_req_resume", { fallbackKo: "재개", fallbackEn: "Resume" })}
-        </button>
+        </AdminActionButton>
       ) : null}
       {canEnd && !pending ? (
-        <button
-          type="button"
+        <AdminActionButton
+          variant="secondary"
           data-testid="admin-feed-req-detail-extend-compensation"
-          disabled={busy}
-          className="rounded-ui-rect border border-sam-border px-4 py-2 disabled:opacity-50"
+          disabled={busy || extendOpen}
           onClick={() => void actOps("extend_compensation")}
         >
           {safeT("admin_feed_req_extend_compensation", {
             fallbackKo: "보상 연장",
             fallbackEn: "Compensation extend",
           })}
-        </button>
+        </AdminActionButton>
       ) : null}
       {canEnd && !pending ? (
-        <button
-          type="button"
+        <AdminActionButton
+          variant="danger"
           data-testid="admin-feed-req-detail-end"
-          disabled={busy}
-          className="rounded-ui-rect border border-sam-danger px-4 py-2 text-sam-danger disabled:opacity-50"
+          disabled={busy || extendOpen}
           onClick={() => void actOps("end")}
         >
           {safeT("admin_feed_req_end", { fallbackKo: "광고 종료", fallbackEn: "End ad" })}
-        </button>
+        </AdminActionButton>
       ) : null}
-      <button
-        type="button"
-        className="rounded-ui-rect border border-sam-border px-4 py-2"
-        onClick={close}
-      >
+      {extendOpen ? (
+        <div
+          className="flex w-full flex-wrap items-end gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3"
+          data-admin-feed-extend-form="1"
+        >
+          <label className="block text-[13px] text-sam-muted">
+            {safeT("admin_feed_req_extend_days_prompt", {
+              fallbackKo: "보상 연장 일수 (1–90)",
+              fallbackEn: "Compensation days (1–90)",
+            })}
+            <input
+              type="number"
+              min={1}
+              max={90}
+              step={1}
+              inputMode="numeric"
+              value={extendDays}
+              onChange={(e) => setExtendDays(e.target.value)}
+              className="mt-1 block w-28 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+            />
+          </label>
+          <AdminActionButton
+            variant="secondary"
+            disabled={busy || !extendDaysValid}
+            onClick={() => void submitExtendCompensation()}
+          >
+            {ko ? "연장" : "Extend"}
+          </AdminActionButton>
+          <AdminActionButton variant="quiet" disabled={busy} onClick={() => setExtendOpen(false)}>
+            {ko ? "취소" : "Cancel"}
+          </AdminActionButton>
+        </div>
+      ) : null}
+      <AdminActionButton variant="secondary" onClick={close}>
         {en ? "Close" : "닫기"}
-      </button>
+      </AdminActionButton>
     </div>
   );
 
@@ -632,7 +658,7 @@ export function AdminFeedAdRequestDetail({
           <div>
             <dt className="text-sam-muted">{ko ? "결제" : "Payment"}</dt>
             <dd>
-              {r.pointCost.toLocaleString()}P · {r.durationDays}
+              {formatAdminNumber(r.pointCost)}P · {r.durationDays}
               {ko ? "일" : "d"}
             </dd>
           </div>
@@ -650,7 +676,7 @@ export function AdminFeedAdRequestDetail({
           </div>
           <div>
             <dt className="text-sam-muted">{ko ? "신청일" : "Requested at"}</dt>
-            <dd>{r.createdAt ? new Date(r.createdAt).toLocaleString(en ? "en" : "ko") : "—"}</dd>
+            <dd>{formatAdminManilaDateTime(r.createdAt)}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">{ko ? "연결" : "Destination"}</dt>

@@ -38,7 +38,7 @@ export function AdminMemberStoreRelationDialog({
     >
       <div className="space-y-4" data-member-store-relation-dialog="1" data-member-screen="S27">
         {anomaly ? (
-          <p className="rounded-ui-rect border border-[#fda29b] bg-[#fffbfa] px-3 py-2 text-[13px] text-[#b42318]">
+          <p className="rounded-ui-rect border border-sam-danger/40 bg-sam-danger-soft px-3 py-2 text-[13px] text-sam-danger">
             {MEMBER_STORE_RELATION_COPY.anomaly_multi}
           </p>
         ) : null}
@@ -50,7 +50,7 @@ export function AdminMemberStoreRelationDialog({
           </div>
         ) : (
           <div data-member-store-relation="owned" className="space-y-2">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-sam-muted">
+            <p className="text-[12px] font-bold uppercase tracking-wide text-sam-muted">
               {MEMBER_STORE_RELATION_COPY.current_store}
             </p>
             <dl className="grid gap-2 text-[13px]">
@@ -63,7 +63,7 @@ export function AdminMemberStoreRelationDialog({
                 <dd className="font-mono text-[12px] text-sam-fg">#{canonical.id}</dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-sam-muted">{MEMBER_STORE_RELATION_COPY.store_status}</dt>
+                <dt className="text-sam-muted">{MEMBER_STORE_RELATION_COPY.store_status_label}</dt>
                 <dd className="font-medium text-sam-fg">
                   {memberStoreApprovalStatusLabelKo(canonical.approvalStatus)}
                 </dd>
@@ -77,7 +77,7 @@ export function AdminMemberStoreRelationDialog({
             </dl>
             <Link
               href={memberDetailStoreHref(canonical.id)}
-              className="inline-flex text-[13px] font-semibold text-[#2563eb]"
+              className="inline-flex text-[13px] font-semibold text-sam-primary"
               data-member-store-detail-cta="1"
               data-member-cta-cap="CAP-STORE-VIEW"
             >
@@ -87,7 +87,7 @@ export function AdminMemberStoreRelationDialog({
         )}
 
         <div className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app/40 px-3 py-3">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-sam-muted">허용되지 않는 작업</p>
+          <p className="text-[12px] font-bold uppercase tracking-wide text-sam-muted">허용되지 않는 작업</p>
           <div data-member-store-rel-blocked="attach">
             <p className="text-[13px] font-semibold text-sam-fg">{MEMBER_STORE_RELATION_COPY.cannot_attach}</p>
             <p className="text-[12px] text-sam-muted">{MEMBER_STORE_RELATION_COPY.cannot_attach_body}</p>

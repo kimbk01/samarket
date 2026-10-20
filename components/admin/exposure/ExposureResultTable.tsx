@@ -5,6 +5,7 @@ import type { ExposureCandidate } from "@/lib/types/exposure";
 import type { ExposureScoreResult } from "@/lib/types/exposure";
 import { MEMBER_TYPE_LABELS } from "@/lib/member-benefits/member-benefit-utils";
 import { ExposureResultDetailCard } from "./ExposureResultDetailCard";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface ExposureResultTableProps {
   results: { candidate: ExposureCandidate; result: ExposureScoreResult }[];
@@ -80,15 +81,15 @@ export function ExposureResultTable({
                   {result.appliedReasons.join(", ") || "-"}
                 </td>
                 <td className="px-3 py-2.5">
-                  <button
-                    type="button"
+                  <AdminActionButton
                     onClick={() =>
                       setSelectedId(selectedId === candidate.id ? null : candidate.id)
                     }
-                    className="sam-text-body-secondary text-signature hover:underline"
+                    variant="ghost"
+                    size="sm"
                   >
                     {selectedId === candidate.id ? "접기" : "상세"}
-                  </button>
+                  </AdminActionButton>
                 </td>
               </tr>
             ))}

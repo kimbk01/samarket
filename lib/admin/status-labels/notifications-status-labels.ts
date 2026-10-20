@@ -44,4 +44,6 @@ registerAdminStatusLabels(NOTIFICATIONS_PUSH_DELIVERY_STATUS_NS, {
   sent: { ko: "발송 완료", en: "Sent", tone: "success" },
   skipped: { ko: "건너뜀", en: "Skipped", tone: "warning" },
   failed: { ko: "실패", en: "Failed", tone: "danger" },
+  opened: { ko: "열어봄", en: "Opened", tone: "success" },
+  dismissed: { ko: "닫음", en: "Dismissed", tone: "neutral" },
 });

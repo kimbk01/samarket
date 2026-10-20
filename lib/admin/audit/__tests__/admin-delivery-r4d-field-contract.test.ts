@@ -35,7 +35,7 @@ describe("R4-D 배달 현장 — DUP-2 화면 역할 분리", () => {
   it("자동 조치 일괄 작업은 자동 조치 승인 화면에서 L3", () => {
     const src = read(AUTO);
     expect(src).toContain('"bulk_retry_failed_auto_actions"');
-    expect(src).toMatch(/level: "L3"/);
+    expect(src).toMatch(/level: adminActionLevel\("bulk"\)/);
   });
 });
 
@@ -66,13 +66,13 @@ describe("DEF-21 메모 누적 · 재배정 기록 분리", () => {
 
 describe("DEF-22 확인 등급", () => {
   it("일괄 복구 = L3 (UI) + 서버 사유 필수", () => {
-    expect(read(CONSOLE)).toMatch(/level: "L3",[\s\S]*retypeValue: label/);
+    expect(read(CONSOLE)).toMatch(/level: adminActionLevel\("bulk"\),[\s\S]*retypeValue: label/);
     expect(read("app/api/admin/delivery-operations/recovery/route.ts")).toContain('error: "reason_required"');
   });
 
   it("자동 조치 on/off = L1 + CAS(expected_enabled)", () => {
     const src = read(AUTO);
-    expect(src).toMatch(/const toggleKill[\s\S]*?level: "L1"/);
+    expect(src).toMatch(/const toggleKill[\s\S]*?level: adminActionLevel\(nextEnabled \? "resume" : "disable"\)/);
     expect(src).toContain("expected_enabled: killOn");
     expect(read("app/api/admin/delivery-auto-actions/settings/route.ts")).toContain(
       '.eq("delivery_auto_actions_enabled", body.expected_enabled)'

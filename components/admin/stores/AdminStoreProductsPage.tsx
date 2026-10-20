@@ -7,7 +7,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -63,7 +62,8 @@ const FILTERS: { value: string; labelKey: MessageKey }[] = [
 export function AdminStoreProductsPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const { prompt: adminPrompt, dialog: promptDialog } = useAdminConfirmDialog();
+  /** 상품명·가격 수정 — 행 안 입력 폼 (값 입력 후 「저장」 → 실행 확인은 confirmAdminAction). */
+  const [edit, setEdit] = useState<{ id: string; field: "name" | "price"; value: string } | null>(null);
   const searchParams = useSearchParams();
   const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
   const [filter, setFilter] = useState("all");
@@ -113,9 +113,9 @@ export function AdminStoreProductsPage() {
     action: string,
     extra?: { name?: string; price?: number },
     detail?: string
-  ) => {
+  ): Promise<boolean> => {
     const c = PRODUCT_ACTIONS[action];
-    if (!c) return;
+    if (!c) return false;
     const confirmed = await confirmAdminAction({
       level: c.level,
       ko,
@@ -124,7 +124,7 @@ export function AdminStoreProductsPage() {
       confirmLabel: ko ? c.ko : c.en,
       destructive: c.destructive,
     });
-    if (!confirmed.ok) return;
+    if (!confirmed.ok) return false;
     setBusyId(id);
     setResult(null);
     try {
@@ -149,55 +149,37 @@ export function AdminStoreProductsPage() {
         });
         // 상태가 바뀐 경우(409) 최신 목록으로 다시 불러온다.
         if (res.status === 409) await load();
-        return;
+        return false;
       }
       setResult({ ok: true, message: ko ? c.okKo : c.okEn });
       await load();
+      return true;
     } catch {
       setResult({ ok: false, code: "network_error" });
+      return false;
     } finally {
       setBusyId(null);
     }
   };
 
-  const runCorrectName = async (id: string, currentTitle: string) => {
-    const name = (
-      await adminPrompt({
-        title: t("admin_stores_product_correct_name_prompt"),
-        description: ko ? `현재: ${currentTitle}` : `Current: ${currentTitle}`,
-        confirmLabel: adminCta("edit", ko),
-        cancelLabel: adminCta("cancel", ko),
-        inputLabel: t("admin_stores_product_correct_name"),
-        inputPlaceholder: currentTitle,
-      })
-    )?.trim();
-    if (!name) return;
-    await run(id, currentTitle, "correct_name", { name }, `→ ${name}`);
-  };
-
-  const runCorrectPrice = async (id: string, productTitle: string, currentPrice: number) => {
-    const raw = (
-      await adminPrompt({
-        title: t("admin_stores_product_correct_price_prompt"),
-        description: ko ? `현재: ${formatMoneyPhp(currentPrice)}` : `Current: ${formatMoneyPhp(currentPrice)}`,
-        confirmLabel: adminCta("edit", ko),
-        cancelLabel: adminCta("cancel", ko),
-        inputLabel: t("admin_stores_product_correct_price"),
-        inputPlaceholder: String(Math.round(currentPrice)),
-      })
-    )?.trim();
-    if (raw == null || raw === "") return;
+  const saveEdit = async (r: Row) => {
+    if (!edit || edit.id !== r.id) return;
+    const raw = edit.value.trim();
+    if (!raw) return;
+    if (edit.field === "name") {
+      if (await run(r.id, r.title, "correct_name", { name: raw }, `→ ${raw}`)) setEdit(null);
+      return;
+    }
     const price = Number(raw);
     if (!Number.isFinite(price) || price < 0) {
       setResult({ ok: false, code: "invalid_price" });
       return;
     }
-    await run(id, productTitle, "correct_price", { price }, `→ ${formatMoneyPhp(price)}`);
+    if (await run(r.id, r.title, "correct_price", { price }, `→ ${formatMoneyPhp(price)}`)) setEdit(null);
   };
 
   return (
     <div className="space-y-4">
-      {promptDialog}
       <AdminPageHeader title={ko ? "메뉴·상품 검수" : "Menu & product review"} />
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_products_desc")}</p>
       {storeIdFilter ? (
@@ -321,12 +303,56 @@ export function AdminStoreProductsPage() {
                             {ko ? "검수 반려" : "Reject"}
                           </AdminActionButton>
                         )}
-                        <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void runCorrectName(r.id, r.title)}>
+                        <AdminActionButton
+                          variant="secondary"
+                          size="sm"
+                          disabled={dis}
+                          onClick={() => setEdit({ id: r.id, field: "name", value: r.title })}
+                        >
                           {t("admin_stores_product_correct_name")}
                         </AdminActionButton>
-                        <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void runCorrectPrice(r.id, r.title, r.price)}>
+                        <AdminActionButton
+                          variant="secondary"
+                          size="sm"
+                          disabled={dis}
+                          onClick={() => setEdit({ id: r.id, field: "price", value: String(Math.round(r.price)) })}
+                        >
                           {t("admin_stores_product_correct_price")}
                         </AdminActionButton>
+                        {edit?.id === r.id ? (
+                          <form
+                            className="mt-1 flex flex-col gap-1"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              void saveEdit(r);
+                            }}
+                          >
+                            <label className="sam-text-helper text-sam-muted">
+                              {edit.field === "name"
+                                ? t("admin_stores_product_correct_name")
+                                : t("admin_stores_product_correct_price")}
+                              <input
+                                className="mt-1 block w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[13px] text-sam-fg"
+                                inputMode={edit.field === "price" ? "decimal" : undefined}
+                                value={edit.value}
+                                autoFocus
+                                onChange={(e) => setEdit({ ...edit, value: e.target.value })}
+                              />
+                            </label>
+                            <span className="sam-text-helper text-sam-muted">
+                              {ko ? "현재: " : "Current: "}
+                              {edit.field === "name" ? r.title : formatMoneyPhp(r.price)}
+                            </span>
+                            <div className="flex gap-1">
+                              <AdminActionButton type="submit" variant="secondary" size="sm" disabled={dis || !edit.value.trim()}>
+                                {adminCta("save", ko)}
+                              </AdminActionButton>
+                              <AdminActionButton variant="quiet" size="sm" onClick={() => setEdit(null)}>
+                                {adminCta("cancel", ko)}
+                              </AdminActionButton>
+                            </div>
+                          </form>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

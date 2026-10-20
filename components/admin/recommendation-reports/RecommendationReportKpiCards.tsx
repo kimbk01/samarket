@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationReportKpis } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 interface RecommendationReportKpiCardsProps {
   reportId: string;
@@ -25,10 +26,10 @@ export function RecommendationReportKpiCards({ reportId }: RecommendationReportK
   }
 
   const items: { labelKey: MessageKey; value: string | number }[] = [
-    { labelKey: "admin_rec_report_kpi_impressions", value: kpis.impressionCount.toLocaleString() },
-    { labelKey: "admin_rec_report_kpi_clicks", value: kpis.clickCount.toLocaleString() },
+    { labelKey: "admin_rec_report_kpi_impressions", value: formatAdminNumber(kpis.impressionCount) },
+    { labelKey: "admin_rec_report_kpi_clicks", value: formatAdminNumber(kpis.clickCount) },
     { labelKey: "admin_rec_th_ctr", value: `${(kpis.ctr * 100).toFixed(2)}%` },
-    { labelKey: "admin_rec_report_kpi_conversions", value: kpis.conversionCount.toLocaleString() },
+    { labelKey: "admin_rec_report_kpi_conversions", value: formatAdminNumber(kpis.conversionCount) },
     {
       labelKey: "admin_rec_report_kpi_conversion_rate",
       value: `${(kpis.conversionRate * 100).toFixed(2)}%`,
