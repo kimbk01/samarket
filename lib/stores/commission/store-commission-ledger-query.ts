@@ -101,8 +101,12 @@ export function formatManilaDateTime(iso: string | null | undefined): string {
 }
 
 /** Same query contract for every Admin and Owner ledger route. */
-export function parseStoreCommissionLedgerQuery(sp: URLSearchParams, now: Date = new Date()): StoreCommissionLedgerQuery {
-  const stateRaw = String(sp.get("state") ?? "").trim();
+/** 주소 `period`·`from`·`to` → 기간 (API 와 관리자 화면 첫 상태가 같은 규칙). */
+export function parseStoreCommissionPeriodParams(sp: Pick<URLSearchParams, "get">): {
+  period: StoreCommissionPeriod;
+  fromDay: string | null;
+  toDay: string | null;
+} {
   const periodRaw = String(sp.get("period") ?? "").trim();
   const fromDay = day(sp.get("from"));
   const toDay = day(sp.get("to"));
@@ -111,6 +115,12 @@ export function parseStoreCommissionLedgerQuery(sp: URLSearchParams, now: Date =
     : fromDay || toDay
       ? "custom"
       : "all";
+  return { period, fromDay, toDay };
+}
+
+export function parseStoreCommissionLedgerQuery(sp: URLSearchParams, now: Date = new Date()): StoreCommissionLedgerQuery {
+  const stateRaw = String(sp.get("state") ?? "").trim();
+  const { period, fromDay, toDay } = parseStoreCommissionPeriodParams(sp);
   const { fromIso, toIso } = resolveStoreCommissionPeriod(period, fromDay, toDay, now);
   const limit = Number(sp.get("limit") ?? "100");
   const offset = Number(sp.get("offset") ?? "0");

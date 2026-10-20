@@ -343,7 +343,8 @@ export function AdminFinanceControlPlane() {
           ko={ko}
           empty={ko ? "최근 전환 없음" : "No recent conversions"}
         />
-        <h3 className="mt-3 sam-text-helper font-semibold text-sam-muted">
+        {/* `#coin-withdrawals` — 처리 대기·대시보드·재무 큐 링크가 여는 위치 */}
+        <h3 id="coin-withdrawals" className="mt-3 scroll-mt-16 sam-text-helper font-semibold text-sam-muted">
           {ko ? "Coin 출금/환전 요청 (승인 대상)" : "Coin withdrawal (requires Admin)"}
         </h3>
         <RowTable

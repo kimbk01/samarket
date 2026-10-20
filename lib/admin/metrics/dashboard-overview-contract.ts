@@ -3,13 +3,15 @@
  * 오류 시 0 대신 이전 값 + 「불러오기 실패」(설계 v4 §3-3). 클라이언트 안전.
  */
 import type { AdminActionQueueCategory, AdminActionQueuePriority } from "@/lib/admin/admin-action-queue-registry";
+import type { AdminDashboardPeriod } from "@/lib/admin/metrics/dashboard-period";
 import type {
   AdminDashboardTabId,
   AdminDashboardTrendId,
+  AdminMetricPeriod,
   AdminMetricUnit,
 } from "@/lib/admin/metrics/registry";
 
-export const ADMIN_DASHBOARD_PARTS = ["band", "metrics", "trend", "pending"] as const;
+export const ADMIN_DASHBOARD_PARTS = ["band", "metrics", "trend", "pending", "recent"] as const;
 export type AdminDashboardPart = (typeof ADMIN_DASHBOARD_PARTS)[number];
 
 /** `parts=band,pending` → 집합. 비었거나 모르는 값만 있으면 전부. */
@@ -21,11 +23,6 @@ export function parseAdminDashboardParts(raw: string | null | undefined): Readon
   return new Set(wanted.length ? wanted : ADMIN_DASHBOARD_PARTS);
 }
 
-/** 추세 기간 — 7 또는 30 (그 밖 = 7). */
-export function parseAdminDashboardRange(raw: string | null | undefined): 7 | 30 {
-  return String(raw ?? "").trim() === "30" ? 30 : 7;
-}
-
 export type AdminDashboardMetricValue = {
   id: string;
   labelKo: string;
@@ -33,6 +30,8 @@ export type AdminDashboardMetricValue = {
   shortKo?: string;
   shortEn?: string;
   unit: AdminMetricUnit;
+  /** 화면 칩: now = 「현재」 · selected = 선택 기간 · today_fixed = 「오늘」 */
+  period: AdminMetricPeriod;
   /** null = 확인 불가 (0 아님) */
   value: number | null;
   /** 값이 null 인 이유 (출처 실패 등) */
@@ -54,28 +53,14 @@ export type AdminDashboardBandTile = {
   secondary: AdminDashboardMetricValue | null;
 };
 
-export type AdminDashboardDomainCard = {
-  domain: "community" | "trade" | "delivery" | "chat";
-  labelKo: string;
-  labelEn: string;
-  href: string;
-  kpis: AdminDashboardMetricValue[];
-  /** 처리 대기 합 (action 구역) — null = 일부 확인 불가 */
-  pending: number | null;
-  /** 운영 위험 신호 수 (risk 구역) */
-  risk: number | null;
-  error?: string;
-};
-
 export type AdminDashboardTrendPoint = { key: string; values: Record<string, number> };
 
 export type AdminDashboardTrendPayload = {
   id: AdminDashboardTrendId;
   labelKo: string;
   labelEn: string;
-  bucket: "daily" | "hourly";
-  range: 7 | 30;
-  ranges: readonly (7 | 30)[];
+  /** PHT 일별 버킷 수 (오늘 포함) */
+  days: 7 | 30;
   unit: AdminMetricUnit;
   series: { key: string; labelKo: string; labelEn: string }[];
   points: AdminDashboardTrendPoint[];
@@ -99,8 +84,36 @@ export type AdminDashboardPendingItem = {
 
 export type AdminDashboardPendingPayload = {
   items: AdminDashboardPendingItem[];
+  /** 보이는 항목 합계 (확인 불가 항목이 있으면 null) */
+  total: number | null;
   /** false = 보이는 카테고리 중 확인 불가가 있음 */
   complete: boolean;
+  error?: string;
+};
+
+/** 최근 활동 (설계 이전 대시보드 「최근 활동」 복구) — 종류별 최신 5건. */
+export type AdminDashboardRecentKind = "products" | "users" | "reports" | "chats" | "reviews";
+
+export type AdminDashboardRecentItem = {
+  id: string;
+  title: string;
+  sub: string;
+  /** UTC ISO (표시는 PHT) */
+  at: string | null;
+  href: string;
+};
+
+export type AdminDashboardRecentGroup = {
+  kind: AdminDashboardRecentKind;
+  labelKo: string;
+  labelEn: string;
+  /** 전체 목록 */
+  href: string;
+  items: AdminDashboardRecentItem[];
+};
+
+export type AdminDashboardRecentPayload = {
+  groups: AdminDashboardRecentGroup[];
   error?: string;
 };
 
@@ -109,11 +122,12 @@ export type AdminDashboardOverviewPayload = {
   tab: AdminDashboardTabId;
   generatedAt: string;
   todayPht: string;
+  period: { id: AdminDashboardPeriod; fromDay: string; toDay: string };
   band?: AdminDashboardBandTile[];
   metrics?: AdminDashboardMetricValue[];
-  domainCards?: AdminDashboardDomainCard[];
   trend?: AdminDashboardTrendPayload;
   pending?: AdminDashboardPendingPayload;
+  recent?: AdminDashboardRecentPayload;
   shortcuts?: { id: string; labelKo: string; labelEn: string; href: string }[];
 };
 
@@ -148,6 +162,17 @@ export function mergeAdminDashboardBand(
       secondary: t.secondary ? mergeAdminDashboardMetric(p?.secondary ?? null, t.secondary) : null,
     };
   });
+}
+
+/** 응답 안 어느 부분이든 실패가 있으면 true — 「갱신 시각」은 모두 성공했을 때만 바꾼다. */
+export function adminDashboardPayloadHasErrors(p: AdminDashboardOverviewPayload): boolean {
+  const metricFailed = (m: AdminDashboardMetricValue | null | undefined) => Boolean(m?.error);
+  if (p.band?.some((t) => metricFailed(t.primary) || metricFailed(t.secondary))) return true;
+  if (p.metrics?.some(metricFailed)) return true;
+  if (p.trend?.error) return true;
+  if (p.pending && (p.pending.error || !p.pending.complete)) return true;
+  if (p.recent?.error) return true;
+  return false;
 }
 
 /** 처리 대기 — 확인 불가 항목은 이전 숫자 유지. */
