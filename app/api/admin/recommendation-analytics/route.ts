@@ -16,7 +16,8 @@ export const dynamic = "force-dynamic";
 function isBundle(x: unknown): x is RecommendationAnalyticsBundleV1 {
   if (x == null || typeof x !== "object") return false;
   const o = x as Record<string, unknown>;
-  return o.version === 1 && Array.isArray(o.impressions);
+  // 노출 기록은 묶음에 없다 (테이블 recommendation_impressions — R7 후속). 리포트 목록이 있으면 분석 번들.
+  return o.version === 1 && Array.isArray(o.reports);
 }
 
 export async function GET() {

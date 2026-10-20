@@ -1,27 +1,13 @@
 import type { RecommendationAutomationSummary } from "@/lib/types/recommendation-automation";
 import { getRecommendationAutomationPolicies } from "@/lib/recommendation-ops/recommendation-ops-state";
-import { getRecommendationAutomationExecutions } from "@/lib/recommendation-ops/recommendation-runtime-state";
+import { getRecommendationRecordsSummary } from "@/lib/recommendation-ops/recommendation-records-summary-state";
 import { getRecommendationHealthStatuses } from "@/lib/recommendation-analytics/recommendation-health-status";
-
-const START_OF_TODAY = new Date();
-START_OF_TODAY.setHours(0, 0, 0, 0);
 
 export function getRecommendationAutomationSummary(): RecommendationAutomationSummary {
   const policies = getRecommendationAutomationPolicies();
-  const executions = getRecommendationAutomationExecutions({ limit: null });
+  /** 오늘(마닐라 0시부터) 실행 수·결과별 수·최근 실행 시각 = DB 요약 RPC (전체 기록 기준 — R7 후속). */
+  const executions = getRecommendationRecordsSummary().executions;
   const healthStatuses = getRecommendationHealthStatuses();
-
-  const todayExecutions = executions.filter(
-    (e) => new Date(e.createdAt) >= START_OF_TODAY
-  );
-  let successCount = 0;
-  let failedCount = 0;
-  let skippedCount = 0;
-  for (const e of todayExecutions) {
-    if (e.status === "success") successCount++;
-    else if (e.status === "failed") failedCount++;
-    else skippedCount++;
-  }
 
   let activeFallbackCount = 0;
   let activeKillSwitchCount = 0;
@@ -30,18 +16,16 @@ export function getRecommendationAutomationSummary(): RecommendationAutomationSu
     if (h.killSwitchActive) activeKillSwitchCount++;
   }
 
-  const latest = executions[0];
-
   return {
     totalPolicies: policies.length,
     activePolicies: policies.filter((p) => p.isActive).length,
     dryRunPolicies: policies.filter((p) => p.dryRunEnabled).length,
-    executionsToday: todayExecutions.length,
-    successCount,
-    failedCount,
-    skippedCount,
+    executionsToday: executions.since.total,
+    successCount: executions.since.success,
+    failedCount: executions.since.failed,
+    skippedCount: executions.since.skipped,
     activeFallbackCount,
     activeKillSwitchCount,
-    latestExecutionAt: latest?.createdAt ?? null,
+    latestExecutionAt: executions.latestCreatedAt,
   };
 }

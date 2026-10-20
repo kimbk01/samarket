@@ -7,11 +7,11 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { ReportPeriodSelector } from "./ReportPeriodSelector";
 import { RecommendationReportTable } from "./RecommendationReportTable";
-import { loadRecommendationAnalyticsFromServer } from "@/lib/recommendation-analytics/recommendation-analytics-sync-client";
+import { loadRecommendationAnalyticsWithRecordsSummary } from "@/lib/recommendation-ops/recommendation-records-client";
 
 export function AdminRecommendationReportsPage() {
   const [refresh, setRefresh] = useState(0);
-  const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationAnalyticsFromServer);
+  const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationAnalyticsWithRecordsSummary);
   const hydrated = loadState.status === "ready";
 
   const handleGenerated = () => {

@@ -1,12 +1,15 @@
 "use client";
 
-import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
-import { useMemo } from "react";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getRecommendationIncidents } from "@/lib/recommendation-ops/recommendation-runtime-state";
 import { getRecommendationDeployments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
-import { getRecommendationAlertEvents } from "@/lib/recommendation-ops/recommendation-runtime-state";
+import {
+  fetchRecommendationAlertEventsPage,
+  fetchRecommendationIncidentsPage,
+} from "@/lib/recommendation-ops/recommendation-records-client";
+import type { RecommendationAlertEvent, RecommendationIncident } from "@/lib/types/recommendation-monitoring";
 import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
@@ -36,14 +39,43 @@ type TimelineItem =
       severity: string;
     };
 
+/** 타임라인 = 종류별 최신 5건 (요약 미리보기 — 전체 목록은 이슈·알림 이벤트 탭의 서버 페이지). */
+const TIMELINE_PER_KIND = 5;
+
+type Recent =
+  | { status: "loading" }
+  | { status: "error"; code: string; httpStatus?: number }
+  | { status: "ready"; incidents: RecommendationIncident[]; alerts: RecommendationAlertEvent[] };
+
 export function MonitoringTimeline() {
   const { t, language } = useI18n();
   const ko = language !== "en";
+  const [recent, setRecent] = useState<Recent>({ status: "loading" });
+  const seqRef = useRef(0);
+
+  /** 이슈·알림 최신 5건 = DB 서버 페이지 1장씩 (예전: 메모리 묶음에서 잘라 씀). */
+  const load = useCallback(() => {
+    const seq = ++seqRef.current;
+    void Promise.all([
+      fetchRecommendationIncidentsPage({ limit: TIMELINE_PER_KIND, offset: 0 }),
+      fetchRecommendationAlertEventsPage({ limit: TIMELINE_PER_KIND, offset: 0 }),
+    ]).then(([inc, ae]) => {
+      if (seq !== seqRef.current) return;
+      if (!inc.ok) return setRecent({ status: "error", code: inc.error, httpStatus: inc.httpStatus });
+      if (!ae.ok) return setRecent({ status: "error", code: ae.error, httpStatus: ae.httpStatus });
+      setRecent({ status: "ready", incidents: inc.value.rows, alerts: ae.value.rows });
+    });
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const items = useMemo(() => {
+    if (recent.status !== "ready") return [];
     const list: TimelineItem[] = [];
-    getRecommendationIncidents()
-      .slice(0, 5)
+    recent.incidents
+      .slice(0, TIMELINE_PER_KIND)
       .forEach((i) => {
         list.push({
           type: "incident",
@@ -55,7 +87,7 @@ export function MonitoringTimeline() {
         });
       });
     getRecommendationDeployments()
-      .slice(0, 5)
+      .slice(0, TIMELINE_PER_KIND)
       .forEach((d) => {
         list.push({
           type: "deployment",
@@ -66,7 +98,7 @@ export function MonitoringTimeline() {
           status: d.deploymentStatus,
         });
       });
-    getRecommendationAlertEvents({ limit: 5 }).forEach((e) => {
+    recent.alerts.slice(0, TIMELINE_PER_KIND).forEach((e) => {
       list.push({
         type: "alert",
         id: e.id,
@@ -78,7 +110,12 @@ export function MonitoringTimeline() {
     });
     list.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
     return list.slice(0, 15);
-  }, []);
+  }, [recent]);
+
+  if (recent.status === "loading") return <AdminLoadingState ko={ko} />;
+  if (recent.status === "error") {
+    return <AdminErrorState ko={ko} code={recent.code} httpStatus={recent.httpStatus} onRetry={load} />;
+  }
 
   if (items.length === 0) {
     return (

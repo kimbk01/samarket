@@ -1,16 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  getRecommendationAlertEvents,
-  acknowledgeAlertEvent,
-} from "@/lib/recommendation-ops/recommendation-runtime-state";
-import { commitRecommendationRuntimeChange } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
-import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+  acknowledgeRecommendationAlertEvent,
+  fetchRecommendationAlertEventsPage,
+  loadRecommendationRecordsSummaryFromServer,
+} from "@/lib/recommendation-ops/recommendation-records-client";
+import { useRecommendationRecordsPage } from "@/lib/recommendation-ops/use-recommendation-records-page";
+import type { RecommendationAlertEvent } from "@/lib/types/recommendation-monitoring";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
-import { adminPaginationPageCount, clampAdminPage } from "@/lib/admin/pagination/admin-pagination-window";
+import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-page";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import {
   recAlertSeverityLabel,
@@ -19,38 +26,39 @@ import {
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
-const ADMIN_ID = "admin1";
-
 export function AlertEventTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   /** 확인 여부 필터 — 주소 `?status=ack|unack` 보존 (R7) */
   const lq = useAdminListQuery({ statuses: ["ack", "unack"] });
   const ackFilter: boolean | "" = lq.query.status === "" ? "" : lq.query.status === "ack";
 
-  /** 보관된 알림 전체(번들) 중 필터 결과 → 화면 쪽 나눔 20/50/100 (R7 — 예전: 최신 50건만). */
-  const allEvents = useMemo(
+  /** DB 서버 페이지 20/50/100 + 전체 건수 (R7 후속 — 예전: 메모리 보관 최대 200건 안에서 화면 쪽 나눔). */
+  const page = lq.query.page;
+  const size = lq.query.size;
+  const statusParam = ackFilter === "" ? "" : ackFilter ? "ack" : "unack";
+  const { state, reload } = useRecommendationRecordsPage<RecommendationAlertEvent>(
+    `${statusParam}|${page}|${size}`,
     () =>
-      getRecommendationAlertEvents({
-        isAcknowledged: ackFilter === "" ? undefined : ackFilter,
-        limit: null,
-      }),
-    [refresh, ackFilter]
+      fetchRecommendationAlertEventsPage({
+        status: statusParam,
+        limit: size,
+        offset: adminListOffsetForPage(page, size),
+      })
   );
-  const total = allEvents.length;
-  const page = clampAdminPage(lq.query.page, adminPaginationPageCount(total, lq.query.size));
-  const events = allEvents.slice((page - 1) * lq.query.size, page * lq.query.size);
+  const events = state.page?.rows ?? [];
+  const total = state.page?.total ?? 0;
 
-  /** 저장 실패 → 확인 처리 되돌림 + 실패 문구 (예전: console.warn 만). */
+  /** 건별 확인(서버 UPDATE 1건) → 목록·요약 다시 읽기. 실패 → 실패 문구. */
   const handleAck = async (id: string) => {
     setBusy(true);
-    const r = await commitRecommendationRuntimeChange(() => acknowledgeAlertEvent(id, ADMIN_ID));
+    const r = await acknowledgeRecommendationAlertEvent(id);
     setBusy(false);
     setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" });
-    setRefresh((n) => n + 1);
+    reload();
+    if (r.ok) void loadRecommendationRecordsSummaryFromServer();
   };
 
   return (
@@ -74,7 +82,11 @@ export function AlertEventTable() {
           ],
         }}
       />
-      {events.length === 0 ? (
+      {state.status === "error" && !state.page ? (
+        <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
+      ) : state.status === "loading" && !state.page ? (
+        <AdminLoadingState ko={ko} />
+      ) : events.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={ackFilter === "" ? t("admin_rec_mon_empty_alert_events") : undefined}
@@ -157,11 +169,11 @@ export function AlertEventTable() {
         <AdminPagination
           ko={ko}
           page={page}
-          size={lq.query.size}
+          size={size}
           total={total}
           onPageChange={lq.setPage}
           onSizeChange={lq.setSize}
-          disabled={busy}
+          disabled={busy || state.status === "loading"}
         />
       ) : null}
     </div>

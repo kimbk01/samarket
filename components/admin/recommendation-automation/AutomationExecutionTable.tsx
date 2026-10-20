@@ -1,15 +1,16 @@
 "use client";
 
-import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
-import { adminPaginationPageCount, clampAdminPage } from "@/lib/admin/pagination/admin-pagination-window";
+import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-page";
 import { RecommendationFilterSelect } from "@/components/admin/recommendation-admin-filter-select";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
-import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getRecommendationAutomationExecutions } from "@/lib/recommendation-ops/recommendation-runtime-state";
+import type { RecommendationAutomationExecution } from "@/lib/types/recommendation-automation";
+import { fetchRecommendationAutomationExecutionsPage } from "@/lib/recommendation-ops/recommendation-records-client";
+import { useRecommendationRecordsPage } from "@/lib/recommendation-ops/use-recommendation-records-page";
 import {
   recAutoActionLabel,
   recSurfaceLabel,
@@ -21,7 +22,6 @@ import { PLATFORM_REC_EXECUTION_NS } from "@/lib/admin/status-labels/platform-st
 export function AutomationExecutionTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [refresh, setRefresh] = useState(0);
   /** surface 필터 — 주소 `?surface=` 보존 (R7) */
   const lq = useAdminListQuery<"surface">({ extras: ["surface"] });
   const surfaceFilter: RecommendationSurface | "" = (["home", "search", "shop"] as const).includes(
@@ -30,18 +30,20 @@ export function AutomationExecutionTable() {
     ? (lq.query.extras.surface as RecommendationSurface)
     : "";
 
-  /** 보관된 실행 이력 전체(번들) 중 필터 결과 → 화면 쪽 나눔 20/50/100 (R7 — 예전: 최신 50건만). */
-  const allExecutions = useMemo(
+  /** DB 서버 페이지 20/50/100 + 전체 건수 (R7 후속 — 예전: 메모리 보관 최대 300건 안에서 화면 쪽 나눔). */
+  const page = lq.query.page;
+  const size = lq.query.size;
+  const { state, reload } = useRecommendationRecordsPage<RecommendationAutomationExecution>(
+    `${surfaceFilter}|${page}|${size}`,
     () =>
-      getRecommendationAutomationExecutions({
-        surface: surfaceFilter || undefined,
-        limit: null,
-      }),
-    [refresh, surfaceFilter]
+      fetchRecommendationAutomationExecutionsPage({
+        surface: surfaceFilter,
+        limit: size,
+        offset: adminListOffsetForPage(page, size),
+      })
   );
-  const total = allExecutions.length;
-  const page = clampAdminPage(lq.query.page, adminPaginationPageCount(total, lq.query.size));
-  const executions = allExecutions.slice((page - 1) * lq.query.size, page * lq.query.size);
+  const executions = state.page?.rows ?? [];
+  const total = state.page?.total ?? 0;
 
   return (
     <div className="space-y-4">
@@ -67,7 +69,11 @@ export function AutomationExecutionTable() {
           name="surface"
         />
       </AdminFilterBar>
-      {executions.length === 0 ? (
+      {state.status === "error" && !state.page ? (
+        <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
+      ) : state.status === "loading" && !state.page ? (
+        <AdminLoadingState ko={ko} />
+      ) : executions.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={surfaceFilter ? undefined : t("admin_rec_auto_empty_executions")}
@@ -140,10 +146,11 @@ export function AutomationExecutionTable() {
         <AdminPagination
           ko={ko}
           page={page}
-          size={lq.query.size}
+          size={size}
           total={total}
           onPageChange={lq.setPage}
           onSizeChange={lq.setSize}
+          disabled={state.status === "loading"}
         />
       ) : null}
     </div>

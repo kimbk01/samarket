@@ -7,7 +7,10 @@ import {
   evaluateAutomation,
   runAutomationForSurface,
 } from "@/lib/recommendation-automation/recommendation-automation-utils";
-import { commitRecommendationRuntimeChange } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
+import {
+  loadRecommendationRecordsSummaryFromServer,
+  recordRecommendationAutomationExecution,
+} from "@/lib/recommendation-ops/recommendation-records-client";
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -28,21 +31,26 @@ export function AutomationSimulator() {
     setResult(evaluateAutomation(surface));
   };
 
-  /** 실행 기록 저장 실패 → 실행 기록 되돌림 + 실패 문구 (예전: console.warn 만). */
+  /**
+   * 실행 → 실행 기록 1건을 서버에 INSERT (예전: 런타임 묶음 전체 PUT). 저장 실패 → 결과 숨김 + 실패 문구.
+   * 저장 성공 → 요약(오늘 실행 수 등)을 DB 에서 다시 읽는다.
+   */
   const handleRun = async () => {
-    const out: { run: ReturnType<typeof runAutomationForSurface> | null } = { run: null };
     setBusy(true);
-    const p = await commitRecommendationRuntimeChange(() => {
-      out.run = runAutomationForSurface(surface, mode);
-    });
-    setBusy(false);
-    if (!p.ok) {
-      setSaveResult({ ok: false, code: p.error ?? "save_failed" });
-      setResult(null);
-      return;
+    const run = runAutomationForSurface(surface, mode);
+    if (run.execution) {
+      const p = await recordRecommendationAutomationExecution(run.execution);
+      if (!p.ok) {
+        setBusy(false);
+        setSaveResult({ ok: false, code: p.error ?? "save_failed" });
+        setResult(null);
+        return;
+      }
+      await loadRecommendationRecordsSummaryFromServer();
     }
+    setBusy(false);
     setSaveResult(null);
-    if (out.run) setResult(out.run);
+    setResult(run);
   };
 
   return (

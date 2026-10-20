@@ -8,11 +8,17 @@ function isMissingAdminSettings(err: { message?: string; code?: string }): boole
   return err.code === "42P01" || (m.includes("relation") && m.includes("admin_settings"));
 }
 
-function parseBundle(raw: unknown): RecommendationAnalyticsBundleV1 | null {
+/**
+ * 저장 묶음 → 분석 번들. 노출 기록(impressions)은 묶음에 두지 않는다 — 테이블 recommendation_impressions (R7 후속).
+ * 예전 형식(impressions 포함) 행이 있어도 impressions 는 버리고 나머지만 쓴다 (운영 recommendation% 키 0행).
+ */
+export function parseRecommendationAnalyticsBundle(raw: unknown): RecommendationAnalyticsBundleV1 | null {
   if (raw == null || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
-  if (o.version !== 1 || !Array.isArray(o.impressions)) return null;
-  return o as RecommendationAnalyticsBundleV1;
+  if (o.version !== 1) return null;
+  const rest = { ...o };
+  delete rest.impressions;
+  return rest as RecommendationAnalyticsBundleV1;
 }
 
 export async function loadRecommendationAnalyticsBundleFromDb(
@@ -39,7 +45,7 @@ export async function loadRecommendationAnalyticsBundleFromDb(
     v && typeof v === "object" && "payload" in (v as object)
       ? (v as { payload?: unknown }).payload
       : v;
-  const parsed = parseBundle(inner);
+  const parsed = parseRecommendationAnalyticsBundle(inner);
   if (!parsed) {
     return { ok: true, bundle: createDefaultRecommendationAnalyticsBundle(), source: "default" };
   }
@@ -50,7 +56,7 @@ export async function saveRecommendationAnalyticsBundleToDb(
   sb: SupabaseClient,
   bundle: RecommendationAnalyticsBundleV1
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const value_json = { payload: bundle, updated_at: new Date().toISOString() };
+  const value_json = { payload: parseRecommendationAnalyticsBundle(bundle) ?? bundle, updated_at: new Date().toISOString() };
   const { error } = await sb.from("admin_settings").upsert(
     {
       key: RECOMMENDATION_ANALYTICS_SETTINGS_KEY,

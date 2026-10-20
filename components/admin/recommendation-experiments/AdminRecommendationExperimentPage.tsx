@@ -27,10 +27,8 @@ import { UserAssignmentTable } from "./UserAssignmentTable";
 import { ExperimentMetricsCards } from "./ExperimentMetricsCards";
 import { ExperimentComparisonTable } from "./ExperimentComparisonTable";
 import { ExperimentLogList } from "./ExperimentLogList";
-import {
-  commitRecommendationExperimentsChange,
-  loadRecommendationExperimentsFromServer,
-} from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
+import { commitRecommendationExperimentsChange } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
+import { loadRecommendationExperimentsWithRecordsSummary } from "@/lib/recommendation-ops/recommendation-records-client";
 
 type TabId = "experiments" | "versions" | "assignments" | "metrics" | "logs";
 
@@ -55,7 +53,7 @@ export function AdminRecommendationExperimentPage() {
     null
   );
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
-  const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationExperimentsFromServer);
+  const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationExperimentsWithRecordsSummary);
   const hydrated = loadState.status === "ready";
 
   const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);

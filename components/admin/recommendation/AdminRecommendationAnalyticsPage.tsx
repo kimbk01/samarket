@@ -16,7 +16,7 @@ import { RecommendationPerformanceTable } from "./RecommendationPerformanceTable
 import { BehaviorEventTable } from "./BehaviorEventTable";
 import { UserBehaviorInsightTable } from "./UserBehaviorInsightTable";
 import { RecentViewedAdminTable } from "./RecentViewedAdminTable";
-import { loadRecommendationAnalyticsFromServer } from "@/lib/recommendation-analytics/recommendation-analytics-sync-client";
+import { loadRecommendationAnalyticsWithRecordsSummary } from "@/lib/recommendation-ops/recommendation-records-client";
 
 type TabId = "events" | "recent" | "performance" | "insight";
 
@@ -32,7 +32,7 @@ export function AdminRecommendationAnalyticsPage() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as TabId | null;
   const [activeTab, setActiveTab] = useState<TabId>("performance");
-  const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationAnalyticsFromServer);
+  const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationAnalyticsWithRecordsSummary);
   const hydrated = loadState.status === "ready";
 
   useEffect(() => {
