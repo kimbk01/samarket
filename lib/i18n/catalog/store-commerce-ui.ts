@@ -1134,6 +1134,11 @@ export const storeCommerceUiMessages = {
       "이 매장은 배달 위치가 아직 등록되지 않아 배달 주문을 받을 수 없습니다.",
     store_err_delivery_customer_coords_required:
       "배달 주소에 위치 좌표가 없습니다. 주소를 다시 저장해 주세요.",
+    store_err_delivery_customer_lgu_unresolved:
+      "주소 지역을 확인할 수 없어 배달 주문이 불가합니다. 주소를 다시 저장해 주세요.",
+    store_err_delivery_user_address_not_master:
+      "선택한 배달 주소가 대표 주소와 다릅니다. 주소를 다시 선택해 주세요.",
+    store_err_delivery_user_address_invalid: "배달 주소를 확인할 수 없습니다. 다시 선택해 주세요.",
     store_delivery_routable_repair_title: "배송 주소를 확인해 주세요",
     store_view_menu_link: "{storeName} 메뉴 보기",
     store_checkout_request_owner_hint:
@@ -2928,6 +2933,12 @@ export const storeCommerceUiMessages = {
       "This store has not registered a delivery location yet, so delivery orders are unavailable.",
     store_err_delivery_customer_coords_required:
       "Your delivery address is missing map coordinates. Please save the address again.",
+    store_err_delivery_customer_lgu_unresolved:
+      "We couldn't determine the area of your address, so delivery orders are unavailable. Please save the address again.",
+    store_err_delivery_user_address_not_master:
+      "The selected delivery address differs from your primary address. Please select the address again.",
+    store_err_delivery_user_address_invalid:
+      "We couldn't verify the delivery address. Please select it again.",
     store_delivery_routable_repair_title: "Please check your delivery address",
     store_view_menu_link: "View {storeName} menu",
     store_checkout_request_owner_hint:

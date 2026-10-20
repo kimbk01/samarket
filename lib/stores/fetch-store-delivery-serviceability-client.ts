@@ -2,15 +2,13 @@
  * Client fetch for store detail / cart — same SSOT as GET …/delivery-serviceability.
  * No Google; server evaluates haversine + effective policy.
  *
- * Request identity = store slug only (server resolves master address + policy).
- * Identical slug → single-flight + short TTL reuse; address updates invalidate.
+ * Request identity = store slug (server resolves master address + policy from the session).
+ * Cache key = slug + viewer user id (guest ≠ member) — server result depends on the viewer.
+ * Identical key → single-flight + short TTL reuse; address updates · auth changes invalidate.
  */
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
-import {
-  forgetSingleFlight,
-  forgetSingleFlightsWhere,
-  runSingleFlight,
-} from "@/lib/http/run-single-flight";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { forgetSingleFlightsWhere, runSingleFlight } from "@/lib/http/run-single-flight";
 
 export type StoreDeliveryServiceabilityClientPayload = {
   ok: boolean;
@@ -20,7 +18,14 @@ export type StoreDeliveryServiceabilityClientPayload = {
   distanceKm?: number | null;
   maxKm?: number | null;
   policyEnabled?: boolean;
+  /** Server-resolved master address the result was evaluated for (null = guest / no master). */
+  addressId?: string | null;
   error?: string;
+};
+
+export type StoreDeliveryServiceabilityViewerOpts = {
+  /** Current auth user id; null/empty = guest. Part of the cache key. */
+  viewerUserId?: string | null;
 };
 
 /** Navigation-burst reuse only — not a permanent eligibility cache. */
@@ -32,47 +37,65 @@ type CachedOk = {
   value: StoreDeliveryServiceabilityClientPayload;
 };
 
-const resultBySlug = new Map<string, CachedOk>();
+const resultByKey = new Map<string, CachedOk>();
 
 function normalizeSlug(slug: string): string {
   return String(slug || "").trim();
 }
 
-function flightKey(slug: string): string {
-  return `${FLIGHT_PREFIX}${slug}`;
+/** `slug|viewer` — viewer `_` = guest. */
+export function storeDeliveryServiceabilityClientCacheKey(
+  slug: string,
+  viewerUserId?: string | null
+): string {
+  const viewer = String(viewerUserId ?? "").trim() || "_";
+  return `${normalizeSlug(slug)}|${viewer}`;
 }
 
-/** Drop memoized OK payloads and in-flight work (one slug or all). */
+function slugOfKey(key: string): string {
+  const i = key.lastIndexOf("|");
+  return i >= 0 ? key.slice(0, i) : key;
+}
+
+function flightKey(key: string): string {
+  return `${FLIGHT_PREFIX}${key}`;
+}
+
+/** Drop memoized OK payloads and in-flight work (one slug — every viewer — or all). */
 export function invalidateStoreDeliveryServiceabilityClientCache(slug?: string): void {
   const s = slug != null ? normalizeSlug(slug) : "";
   if (s) {
-    resultBySlug.delete(s);
-    forgetSingleFlight(flightKey(s));
+    for (const k of [...resultByKey.keys()]) {
+      if (slugOfKey(k) === s) resultByKey.delete(k);
+    }
+    forgetSingleFlightsWhere(
+      (k) => k.startsWith(FLIGHT_PREFIX) && slugOfKey(k.slice(FLIGHT_PREFIX.length)) === s
+    );
     return;
   }
-  resultBySlug.clear();
+  resultByKey.clear();
   forgetSingleFlightsWhere((k) => k.startsWith(FLIGHT_PREFIX));
 }
 
 /** @internal vitest */
 export function __resetStoreDeliveryServiceabilityClientForTests(): void {
-  resultBySlug.clear();
+  resultByKey.clear();
   forgetSingleFlightsWhere((k) => k.startsWith(FLIGHT_PREFIX));
 }
 
-function rememberOk(slug: string, value: StoreDeliveryServiceabilityClientPayload): void {
+function rememberOk(key: string, value: StoreDeliveryServiceabilityClientPayload): void {
   if (value.ok !== true) return;
-  resultBySlug.set(slug, {
+  resultByKey.set(key, {
     value,
     expiresAt: Date.now() + STORE_DELIVERY_SERVICEABILITY_CLIENT_TTL_MS,
   });
 }
 
-function peekOk(slug: string): StoreDeliveryServiceabilityClientPayload | null {
-  const hit = resultBySlug.get(slug);
+function peekOk(key: string): StoreDeliveryServiceabilityClientPayload | null {
+  const hit = resultByKey.get(key);
   if (!hit) return null;
   if (hit.expiresAt <= Date.now()) {
-    resultBySlug.delete(slug);
+    resultByKey.delete(key);
     return null;
   }
   return hit.value;
@@ -93,7 +116,8 @@ async function networkFetch(slug: string): Promise<StoreDeliveryServiceabilityCl
 
 export async function fetchStoreDeliveryServiceabilityClient(
   slug: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  opts?: StoreDeliveryServiceabilityViewerOpts
 ): Promise<StoreDeliveryServiceabilityClientPayload> {
   const s = normalizeSlug(slug);
   if (!s) return { ok: false, error: "missing_slug" };
@@ -102,14 +126,15 @@ export async function fetchStoreDeliveryServiceabilityClient(
     return { ok: false, error: "aborted" };
   }
 
-  const cached = peekOk(s);
+  const key = storeDeliveryServiceabilityClientCacheKey(s, opts?.viewerUserId);
+  const cached = peekOk(key);
   if (cached) return cached;
 
-  const payload = await runSingleFlight(flightKey(s), async () => {
-    const again = peekOk(s);
+  const payload = await runSingleFlight(flightKey(key), async () => {
+    const again = peekOk(key);
     if (again) return again;
     const value = await networkFetch(s);
-    rememberOk(s, value);
+    rememberOk(key, value);
     return value;
   });
 
@@ -121,7 +146,8 @@ export async function fetchStoreDeliveryServiceabilityClient(
 
 /** True when distance policy applies and this store is outside the member delivery area. */
 export function isDeliveryDistanceOrderBlocked(
-  svc: StoreDeliveryServiceabilityClientPayload | null
+  svc: StoreDeliveryServiceabilityClientPayload | null,
+  opts?: { viewerIsGuest?: boolean }
 ): boolean {
   if (!svc || svc.ok !== true) return false;
   if (svc.applies !== true || svc.eligible === true) return false;
@@ -130,10 +156,19 @@ export function isDeliveryDistanceOrderBlocked(
    * Ordering still requires login + address at checkout.
    */
   if (svc.reason === "missing_customer_coords") return false;
+  /**
+   * V2 guest has no member LGU — same as list policy (guest never OOR in UI).
+   * Members keep fail-closed; server still blocks at checkout either way.
+   */
+  if (svc.reason === "missing_lgu_identity" && opts?.viewerIsGuest === true) return false;
   return true;
 }
 
 function onAddressesUpdated(): void {
+  invalidateStoreDeliveryServiceabilityClientCache();
+}
+
+function onAuthChanged(): void {
   invalidateStoreDeliveryServiceabilityClientCache();
 }
 
@@ -142,6 +177,7 @@ function bindAddressInvalidationListener(): void {
   if (addressListenerBound || typeof window === "undefined") return;
   addressListenerBound = true;
   window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+  window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
 }
 
 bindAddressInvalidationListener();

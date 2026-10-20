@@ -172,6 +172,7 @@ import {
 import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-order-delivery-address-display";
 import { fetchApprovedStoresByIdMap } from "@/lib/addresses/fetch-approved-stores-map";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
+import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
 
 type Fulfillment = "pickup" | "local_delivery" | "shipping";
 
@@ -259,6 +260,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const pathname = usePathname();
   const router = useRouter();
   const requireAction = useRequireAuthAction();
+  /** Auth viewer (`"guest"` = 비로그인) — in-place 로그인 후 checkout identity·serviceability 재조회 키 */
+  const viewerUserId = useRegionViewerUserId();
   const cartFlowMountT0Ref = useRef(
     typeof performance !== "undefined" ? performance.now() : 0
   );
@@ -285,6 +288,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   );
   const [fulfillment, setFulfillment] = useState<Fulfillment>("local_delivery");
   const [distanceOutOfRange, setDistanceOutOfRange] = useState(false);
+  /** Master address id the serviceability result was evaluated for (`undefined` = pending/unknown). */
+  const [serviceabilityAddressId, setServiceabilityAddressId] = useState<string | null | undefined>(
+    undefined
+  );
   /** CUT 7 — soft notice after addresses-updated revalidation (retain cart). */
   const [deliveryAddressRevalidatedNotice, setDeliveryAddressRevalidatedNotice] = useState(false);
   const [deliveryUnavailableDialogOpen, setDeliveryUnavailableDialogOpen] = useState(false);
@@ -1140,6 +1147,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [bootstrapCheckoutIdentity, lines.length]);
 
+  /** In-place 로그인·로그아웃 — 이전 viewer 기준 연락처·주소 상태를 새 viewer 로 재부트스트랩 */
+  const bootstrappedViewerRef = useRef(viewerUserId);
+  useEffect(() => {
+    if (bootstrappedViewerRef.current === viewerUserId) return;
+    bootstrappedViewerRef.current = viewerUserId;
+    if (lines.length === 0) return;
+    userPickedDeliveryAddressRef.current = false;
+    void bootstrapCheckoutIdentity();
+  }, [viewerUserId, bootstrapCheckoutIdentity, lines.length]);
+
   /**
    * API identity is store slug (+ server master address). Local cart selection ids are not
    * request params — address changes invalidate via SAMARKET_ADDRESSES_UPDATED_EVENT.
@@ -1151,17 +1168,23 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     const slug = serviceabilitySlug;
     if (!slug || !cartNeedsServiceability) {
       setDistanceOutOfRange(false);
+      setServiceabilityAddressId(undefined);
       return;
     }
+    const viewerId = viewerUserId === "guest" ? null : viewerUserId;
     let cancelled = false;
     let ac: AbortController | null = null;
     const run = () => {
       ac?.abort();
       ac = new AbortController();
-      void fetchStoreDeliveryServiceabilityClient(slug, ac.signal).then((svc) => {
-        if (cancelled) return;
-        setDistanceOutOfRange(isDeliveryDistanceOrderBlocked(svc));
-      });
+      setServiceabilityAddressId(undefined);
+      void fetchStoreDeliveryServiceabilityClient(slug, ac.signal, { viewerUserId: viewerId }).then(
+        (svc) => {
+          if (cancelled) return;
+          setDistanceOutOfRange(isDeliveryDistanceOrderBlocked(svc, { viewerIsGuest: viewerId == null }));
+          setServiceabilityAddressId(svc.ok === true ? (svc.addressId ?? null) : undefined);
+        }
+      );
     };
     run();
     const onAddressesUpdated = () => run();
@@ -1171,7 +1194,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       ac?.abort();
       window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     };
-  }, [serviceabilitySlug, cartNeedsServiceability]);
+  }, [serviceabilitySlug, cartNeedsServiceability, viewerUserId]);
 
   useEffect(() => {
     if (!addressBookHydrated) return;
@@ -1381,11 +1404,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     distanceOrderBlocked ||
     (frontCommerce != null && !frontCommerce.isOpenForCommerce);
 
+  /** 직전 주소의 결과로 새 주소에 「배달 불가」 팝업을 띄우지 않도록 — 현재 선택 주소 결과일 때만 평가 */
+  const serviceabilityMatchesSelection =
+    serviceabilityAddressId !== undefined &&
+    serviceabilityAddressId === parseUserAddressIdFromDeliverySelection(selectedAddressId);
+
   useEffect(() => {
-    if (deliveryAddressRevalidatedNotice && distanceOrderBlocked) {
+    if (deliveryAddressRevalidatedNotice && distanceOrderBlocked && serviceabilityMatchesSelection) {
       setDeliveryUnavailableDialogOpen(true);
     }
-  }, [deliveryAddressRevalidatedNotice, distanceOrderBlocked]);
+  }, [deliveryAddressRevalidatedNotice, distanceOrderBlocked, serviceabilityMatchesSelection]);
 
   const navigateToStoreMenu = useCallback(() => {
     // FLOW: explicit store menu (메뉴 추가) — not HISTORY back.
@@ -1451,9 +1479,24 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   );
 
   async function submitOrder() {
-    await requireAction("delivery_order", submitOrderAfterAuth, {
-      requireAddress: fulfillment === "local_delivery",
-    });
+    /**
+     * In-place 로그인·프로필 완료 후 pending action 은 이 호출이 끝난 뒤 재실행되며,
+     * 클로저는 로그인 전(guest) 주소·serviceability 상태를 들고 있다 → 제출하지 않고
+     * 재부트스트랩만 한다. 사용자는 새 상태로 다시 주문한다.
+     */
+    let settled = false;
+    await requireAction(
+      "delivery_order",
+      async () => {
+        if (settled) {
+          void bootstrapCheckoutIdentity();
+          return;
+        }
+        await submitOrderAfterAuth();
+      },
+      { requireAddress: fulfillment === "local_delivery" }
+    );
+    settled = true;
   }
 
   async function submitOrderAfterAuth() {
@@ -2240,7 +2283,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     {t("store_cart_legacy_address_notice", { count: legacyLsNoticeCount })}{" "}
                     <button
                       type="button"
-                      onClick={() => router.push("/mypage/addresses")}
+                      onClick={() =>
+                        router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
+                      }
                       className="font-semibold text-signature underline"
                     >
                       {t("store_address_manage_link")}
@@ -2257,7 +2302,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     {t("store_cart_pick_or_register_delivery")}{" "}
                     <button
                       type="button"
-                      onClick={() => router.push("/mypage/addresses")}
+                      onClick={() =>
+                        router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
+                      }
                       className="font-semibold text-signature underline"
                     >
                       {t("store_address_manage_link")}
@@ -2361,7 +2408,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => router.push("/mypage/addresses")}
+                onClick={() =>
+                  router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
+                }
                 className="inline-flex items-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-bg-card)] px-3 py-2 sam-text-body-secondary font-bold text-[color:var(--delivery-primary)] shadow-sm"
               >
                 {t("store_cart_save_from_address_manage")}
@@ -2379,7 +2428,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 {t("store_cart_address_too_short")}{" "}
                 <button
                   type="button"
-                  onClick={() => router.push("/mypage/addresses")}
+                  onClick={() =>
+                    router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
+                  }
                   className="font-semibold underline"
                 >
                   {t("store_cart_profile_address_manage")}

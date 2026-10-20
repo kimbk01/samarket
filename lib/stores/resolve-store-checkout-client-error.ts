@@ -28,6 +28,10 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   delivery_out_of_range: "store_err_delivery_out_of_range",
   delivery_store_coords_required: "store_err_delivery_store_coords_required",
   delivery_customer_coords_required: "store_err_delivery_customer_coords_required",
+  /** V2 `missing_lgu_identity` — 회원 주소 LGU 미해결 (fail-closed) */
+  delivery_customer_lgu_unresolved: "store_err_delivery_customer_lgu_unresolved",
+  delivery_user_address_not_master: "store_err_delivery_user_address_not_master",
+  delivery_user_address_invalid: "store_err_delivery_user_address_invalid",
   payment_method_required: "store_err_payment_method",
   payment_method_invalid: "store_err_payment_method",
   coupon_not_found: "store_err_coupon_not_found",

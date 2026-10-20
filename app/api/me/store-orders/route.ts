@@ -649,7 +649,7 @@ export async function POST(req: NextRequest) {
           : svc.reason === "missing_store_coords"
             ? "delivery_store_coords_required"
             : svc.reason === "missing_lgu_identity"
-              ? "delivery_customer_coords_required"
+              ? "delivery_customer_lgu_unresolved"
               : "delivery_out_of_range";
       return NextResponse.json(
         {
