@@ -10,6 +10,7 @@ import { ADMIN_USERS_LITE_CARD, ADMIN_USERS_LITE_PAGE_BG } from "@/lib/ui/admin-
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
@@ -489,8 +490,9 @@ export function AdminUserListPage() {
   const handleCleanup = useCallback(async () => {
     if (!adminUserId) return;
     const retype = ko ? "테스트 회원 정리" : "cleanup test members";
+    // R2 — 테스트 회원 일괄 정리 = bulk(L3). 사유는 API 로 보내 감사 기록에 남긴다.
     const confirmed = await confirmAdminAction({
-      level: "L3",
+      level: adminActionLevel("bulk"),
       ko,
       title: t("admin_users_cleanup_button"),
       description: t("admin_users_cleanup_confirm"),
@@ -499,6 +501,8 @@ export function AdminUserListPage() {
       retypeValue: retype,
     });
     if (!confirmed.ok) return;
+    const reason = confirmed.reason?.trim() ?? "";
+    if (!reason) return;
     setCleanupLoading(true);
     setCleanupResult(null);
     try {
@@ -506,7 +510,7 @@ export function AdminUserListPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({}),
+        body: JSON.stringify({ reason }),
       });
       const data = await res.json();
       if (data.ok) {

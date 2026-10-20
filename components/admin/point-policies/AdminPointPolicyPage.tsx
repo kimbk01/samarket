@@ -18,6 +18,7 @@ import type { BoardPointPolicy } from "@/lib/types/point-policy";
 import type { PointEventPolicy } from "@/lib/types/point-policy";
 import { ARO_IA_001_COMMUNITY_POINT_POLICIES_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import {
   AdminErrorState,
   AdminLoadingState,
@@ -83,7 +84,7 @@ export function AdminPointPolicyPage() {
   }): Promise<boolean> => {
     if (busy || !action.allowed) return false;
     const c = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel("pointPolicySave"),
       ko,
       title: input.title,
       description: input.description,

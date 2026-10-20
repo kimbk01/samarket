@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { randomUUID } from "crypto";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { validateCampaignImageFile } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 import {
   removePlatformPopupPtrBandVariant,
@@ -255,10 +256,17 @@ export async function DELETE(
 
   const { campaignId } = await ctx.params;
   const variant = new URL(req.url).searchParams.get("variant") ?? "";
+  // R2 — 소재 삭제(delete, L3)는 처리 사유 필수 (본문 { reason }). 삭제 감사 after_json.reason 에 남긴다.
+  const delBody = (await req.json().catch(() => ({}))) as { reason?: unknown };
+  const reason = parseAdminReason(delBody.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
   const result = await removePlatformPopupPtrBandVariant(sb, {
     campaignId,
     adminUserId: admin.userId,
     variant,
+    reason,
   });
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: result.httpStatus ?? 400 });

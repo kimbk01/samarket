@@ -6,7 +6,8 @@ import {
   getRecommendationAlertRules,
   setAlertRuleActive,
 } from "@/lib/recommendation-ops/recommendation-ops-state";
-import { persistRecommendationOpsToServer } from "@/lib/recommendation-ops/recommendation-ops-sync-client";
+import { commitRecommendationOpsChange } from "@/lib/recommendation-ops/recommendation-ops-sync-client";
+import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import {
   recAlertChannelLabel,
   recAlertMetricLabel,
@@ -22,26 +23,29 @@ const COMPARATOR_LABELS: Record<string, string> = {
 };
 
 export function AlertRuleTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [refresh, setRefresh] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   const rules = useMemo(() => getRecommendationAlertRules(), [refresh]);
 
+  /** 저장 실패 → 규칙 ON/OFF 되돌림 + 실패 문구 (예전: console.warn 만). */
   const handleToggleActive = async (id: string, isActive: boolean) => {
-    setAlertRuleActive(id, !isActive);
-    const r = await persistRecommendationOpsToServer();
-    if (!r.ok) console.warn("[recommendation-ops] persist failed:", r.error);
+    setBusy(true);
+    const r = await commitRecommendationOpsChange(() => setAlertRuleActive(id, !isActive));
+    setBusy(false);
+    setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" });
     setRefresh((x) => x + 1);
   };
 
   if (rules.length === 0) {
-    return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_rec_mon_empty_alert_rules")}
-      </div>
-    );
+    return <AdminEmptyState ko={ko} message={t("admin_rec_mon_empty_alert_rules")} />;
   }
 
   return (
+    <div className="space-y-4">
+    <AdminResultBanner ko={ko} result={saveResult} onClose={() => setSaveResult(null)} />
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
@@ -99,6 +103,7 @@ export function AlertRuleTable() {
                 <AdminChipButton
                   selected={r.isActive}
                   type="button"
+                  disabled={busy}
                   onClick={() => void handleToggleActive(r.id, r.isActive)}
                 >
                   {r.isActive ? "ON" : "OFF"}
@@ -108,6 +113,7 @@ export function AlertRuleTable() {
           ))}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

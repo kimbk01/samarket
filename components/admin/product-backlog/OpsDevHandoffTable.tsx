@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -14,7 +15,8 @@ import {
 import type { OpsDevHandoffStatus } from "@/lib/types/product-backlog";
 
 export function OpsDevHandoffTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [statusFilter, setStatusFilter] = useState<OpsDevHandoffStatus | "">("");
   const items = useMemo(
     () =>
@@ -61,9 +63,7 @@ export function OpsDevHandoffTable() {
       </p>
 
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_product_backlog_empty_handoff")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_product_backlog_empty_handoff")} />
       ) : (
         <AdminTable headers={headers}>
           {items.map((h) => {

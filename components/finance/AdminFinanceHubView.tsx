@@ -9,6 +9,8 @@ import { FinanceTransactionList } from "@/components/finance/FinanceTransactionL
 import { AdminFinanceControlPlane } from "@/components/admin/finance/AdminFinanceControlPlane";
 import type { FinanceUnifiedTx } from "@/lib/finance/unified-transaction/types";
 import { financeTransactionListHref } from "@/lib/finance/routes";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 /**
  * Finance Control Plane root — summary strip + operational list first.
@@ -21,15 +23,18 @@ export function AdminFinanceHubView() {
   const [rows, setRows] = useState<FinanceUnifiedTx[]>([]);
   const [txLoading, setTxLoading] = useState(true);
   const [txError, setTxError] = useState<string | null>(null);
+  const [summaryErr, setSummaryErr] = useState<AdminLoadFailure | null>(null);
 
+  /** 요약 조회 실패를 「미납 0 · 대기 0」으로 숨기지 않는다 — 오류 상태 + [새로고침] (R6). */
   const loadSummary = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/finance-control-plane", {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
+        error?: string;
         plane?: {
           actionRequired?: unknown[];
           obligations?: { outstandingMinor?: number } | null;
@@ -42,15 +47,11 @@ export function AdminFinanceHubView() {
         };
       };
       if (!res.ok || !json.ok) {
-        setSummary({
-          todayCashInMinor: null,
-          todayCashOutMinor: null,
-          todayCoinEarned: null,
-          outstandingMinor: 0,
-          pendingActions: 0,
-        });
+        setSummary(null);
+        setSummaryErr({ code: adminSafeErrorCode(json.error, "load_failed"), httpStatus: res.status });
         return;
       }
+      setSummaryErr(null);
       const plane = json.plane;
       const today = plane?.todaySummary;
       if (today?.unavailable) {
@@ -75,8 +76,14 @@ export function AdminFinanceHubView() {
       });
     } catch {
       setSummary(null);
+      setSummaryErr({ code: "network_error" });
     }
   }, []);
+
+  const retrySummary = useCallback(() => {
+    setSummaryErr(null);
+    void loadSummary();
+  }, [loadSummary]);
 
   const loadRecent = useCallback(async () => {
     setTxLoading(true);
@@ -86,19 +93,19 @@ export function AdminFinanceHubView() {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         transactions?: FinanceUnifiedTx[];
         error?: string;
       };
       if (!res.ok || !json.ok) {
-        setTxError(json.error || "load_failed");
+        setTxError(res.status === 403 ? "forbidden" : adminSafeErrorCode(json.error, "load_failed"));
         setRows([]);
         return;
       }
       setRows(json.transactions ?? []);
     } catch {
-      setTxError("network");
+      setTxError("network_error");
       setRows([]);
     } finally {
       setTxLoading(false);
@@ -113,7 +120,16 @@ export function AdminFinanceHubView() {
   return (
     <div className="space-y-4" data-admin-finance-hub="1">
       <FinanceAdminNav ko={ko} />
-      <FinanceSummaryStrip ko={ko} model={summary} />
+      {summaryErr ? (
+        <AdminErrorState
+          ko={ko}
+          code={summaryErr.code}
+          httpStatus={summaryErr.httpStatus}
+          onRetry={retrySummary}
+        />
+      ) : (
+        <FinanceSummaryStrip ko={ko} model={summary} />
+      )}
 
       <section className="space-y-2" data-admin-finance-hub-ops-list="1">
         <div className="flex flex-wrap items-baseline justify-between gap-2">

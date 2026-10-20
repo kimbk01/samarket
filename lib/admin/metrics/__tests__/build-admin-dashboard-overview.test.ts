@@ -17,7 +17,7 @@ import {
   parseAdminDashboardParts,
   type AdminDashboardMetricValue,
 } from "@/lib/admin/metrics/dashboard-overview-contract";
-import { resolveAdminDashboardPeriod } from "@/lib/admin/metrics/dashboard-period";
+import { resolveAdminDashboardPeriod, type AdminDashboardTrendWindow } from "@/lib/admin/metrics/dashboard-period";
 import type { AdminMetricSourceKey } from "@/lib/admin/metrics/registry";
 import { bucketDailyPht, manilaDailyKeys } from "@/lib/admin/metrics/load-admin-dashboard-sources";
 
@@ -74,6 +74,11 @@ const VALUES: Record<string, Record<string, { value: number | null; forbidden?: 
     "ads.incomplete": { value: 3 },
     "ads.hero_used": { value: 4 },
   },
+  notifications: {
+    "notifications.campaigns_failed": { value: 1 },
+    "notifications.campaigns_partially_failed": { value: 0 },
+    "notifications.campaigns_in_progress": { value: 2 },
+  },
 };
 
 const RANGE_TODAY = resolveAdminDashboardPeriod("today", NOW);
@@ -88,14 +93,24 @@ function fakeSources(opts: { fail?: AdminMetricSourceKey[]; queue?: AdminActionQ
     if (opts.queueFails) throw new Error("queue_down");
     return opts.queue ?? queueRows();
   });
-  const trend = vi.fn(async (_id: string, days: 7 | 30) =>
-    Array.from({ length: days }, (_, i) => ({ key: `2026-10-${String(i + 1).padStart(2, "0")}`, values: { signups: i } }))
+  const trend = vi.fn(async (_id: string, w: AdminDashboardTrendWindow) =>
+    Array.from({ length: w.days }, (_, i) => ({ key: `2026-10-${String(i + 1).padStart(2, "0")}`, values: { signups: i } }))
   );
   const recent = vi.fn(async () => [
     { kind: "users" as const, labelKo: "최근 가입 회원", labelEn: "Recent members", href: "/admin/users", items: [] },
     { kind: "reports" as const, labelKo: "최근 신고", labelEn: "Recent reports", href: "/admin/reports", items: [] },
   ]);
-  return { sources: { metrics, queue, trend, recent } as AdminDashboardSources, metrics, queue, trend, recent };
+  const notices = vi.fn(async () => [
+    { id: "n1", title: "점검 안내", contentType: "notice", state: "published" as const, at: "2026-10-19T01:00:00Z", href: "/admin/app/notices/n1" },
+  ]);
+  return {
+    sources: { metrics, queue, trend, recent, notices } as AdminDashboardSources,
+    metrics,
+    queue,
+    trend,
+    recent,
+    notices,
+  };
 }
 
 describe("buildAdminDashboardOverview — 응답 모양", () => {
@@ -165,8 +180,8 @@ describe("buildAdminDashboardOverview — 응답 모양", () => {
     expect(p.metrics?.find((m) => m.id === "orders.in_progress")?.href).toBe(
       "/admin/stores/orders?tab=in_progress&period=custom&from=2026-09-21&to=2026-10-20"
     );
-    expect(trend).toHaveBeenCalledWith("orders_daily", 30);
-    expect(p.trend?.days).toBe(30);
+    expect(trend).toHaveBeenCalledWith("orders_daily", expect.objectContaining({ days: 30, fromDay: "2026-09-21", toDay: "2026-10-20" }));
+    expect(p.trend).toMatchObject({ days: 30, fromDay: "2026-09-21", toDay: "2026-10-20" });
   });
 
   it("탭별 처리 대기 = 그 탭 카테고리만, 우선순위 → 건수 순, 0건은 뺀다", async () => {
@@ -186,6 +201,64 @@ describe("buildAdminDashboardOverview — 응답 모양", () => {
     expect(keys).toContain("store_reports");
     expect(keys).not.toContain("store_applications");
     expect(keys).not.toContain("user_charges");
+  });
+});
+
+describe("추세 기간 · 7일 활성 · 공지", () => {
+  it("「어제」 추세 = 어제에서 끝나는 7일 (오늘까지 7일이 아니다)", async () => {
+    const { sources, trend } = fakeSources();
+    const p = await buildAdminDashboardOverview({
+      tab: "overview",
+      parts: new Set(["trend"]),
+      range: resolveAdminDashboardPeriod("yesterday", NOW),
+      actor: SUPER,
+      sources,
+      now: NOW,
+    });
+    expect(trend).toHaveBeenCalledWith(
+      "signups_orders_daily",
+      expect.objectContaining({ days: 7, fromDay: "2026-10-13", toDay: "2026-10-19", toIso: "2026-10-19T16:00:00.000Z" })
+    );
+    expect(p.trend).toMatchObject({ fromDay: "2026-10-13", toDay: "2026-10-19" });
+  });
+
+  it("회원 탭 추세 = 가입·마지막 로그인, 7일 활성 정의 포함", async () => {
+    const { sources } = fakeSources();
+    const p = await buildAdminDashboardOverview({
+      tab: "members",
+      parts: new Set(["trend"]),
+      range: RANGE_TODAY,
+      actor: SUPER,
+      sources,
+      now: NOW,
+    });
+    expect(p.trend?.id).toBe("members_activity_daily");
+    expect(p.trend?.series.map((x) => x.key)).toEqual(["signups", "active"]);
+    expect(p.trend?.definitionKo).toContain("7일 활성");
+  });
+
+  it("공지 = 고객센터 콘텐츠 최신 항목 + 전체 목록 링크, 실패 = error (빈 목록으로 숨기지 않음)", async () => {
+    const { sources, notices } = fakeSources();
+    const ok = await buildAdminDashboardOverview({
+      tab: "overview",
+      parts: new Set(["notices"]),
+      range: RANGE_TODAY,
+      actor: SUPER,
+      sources,
+      now: NOW,
+    });
+    expect(ok.notices).toMatchObject({ href: "/admin/app/notices", items: [{ id: "n1", href: "/admin/app/notices/n1" }] });
+    notices.mockRejectedValueOnce(new Error("app_notices:down"));
+    const bad = await buildAdminDashboardOverview({
+      tab: "overview",
+      parts: new Set(["notices"]),
+      range: RANGE_TODAY,
+      actor: SUPER,
+      sources,
+      now: NOW,
+    });
+    expect(bad.notices).toMatchObject({ items: [], error: "app_notices:down" });
+    expect(adminDashboardPayloadHasErrors(bad)).toBe(true);
   });
 });
 
@@ -249,7 +322,7 @@ describe("실패 → null + error (0 금지)", () => {
       sources,
       now: NOW,
     });
-    expect(p.trend).toMatchObject({ id: "signups_daily", days: 30, points: [], error: "too_many_rows" });
+    expect(p.trend).toMatchObject({ id: "members_activity_daily", days: 30, points: [], error: "too_many_rows" });
     expect(p.recent).toMatchObject({ groups: [], error: "profiles:down" });
     expect(adminDashboardPayloadHasErrors(p)).toBe(true);
   });

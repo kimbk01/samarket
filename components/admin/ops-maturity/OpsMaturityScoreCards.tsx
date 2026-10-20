@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getLatestOpsMaturityScore } from "@/lib/ops-maturity/ops-maturity-state";
@@ -19,7 +20,8 @@ const domainKeys = [
 ] as const;
 
 export function OpsMaturityScoreCards() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [scope, setScope] = useState<"weekly" | "monthly">("weekly");
   const [targetScore, setTargetScore] = useState(75);
 
@@ -34,7 +36,7 @@ export function OpsMaturityScoreCards() {
 
   if (!latest) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_maturity_scores_empty")}</div>
+      <AdminEmptyState ko={ko} message={t("admin_ops_tools_maturity_scores_empty")} />
     );
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import {
   getBlockedChecklistItems,
@@ -16,9 +17,7 @@ export function LaunchWeekBlockerBoard() {
 
   if (!hasAny) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-        차단(blocked) 체크리스트 및 Critical 미해결 이슈가 없습니다.
-      </div>
+      <AdminEmptyState ko message={"차단(blocked) 체크리스트 및 Critical 미해결 이슈가 없습니다."} />
     );
   }
 

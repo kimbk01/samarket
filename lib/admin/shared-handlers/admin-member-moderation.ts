@@ -6,6 +6,7 @@ import "server-only";
 import type { SharedAdminHandlerGate } from "@/lib/admin/shared-handlers/shared-admin-handler-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   listOwnerStoresSalesSuspendedBySanction,
   suspendOwnerStoreSalesOnMemberSanction,
@@ -67,12 +68,13 @@ export async function handleAdminMemberModerationPost(
   }
 
   const action = String(body.action ?? "").trim().toLowerCase();
-  const reason = String(body.reason ?? "").trim();
+  /** R2 — 제재·해제(L2) 사유: 화면 확인창과 같은 최소 길이로 검증하고 감사 기록에 남긴다. */
+  const reason = parseAdminReason(body.reason);
   if (!ACTIONS.includes(action as (typeof ACTIONS)[number])) {
     return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
   }
   if (!reason) {
-    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   }
 
   const { sb, actor } = gate;
@@ -257,7 +259,7 @@ export async function handleAdminMemberModerationPost(
       target_id: userId,
       action: "moderation_ban",
       before_json: { status: fromStatus },
-      after_json: { status: toStatus, logId, result: "SUCCESS", auth: "banned", sessions: "revoked" },
+      after_json: { status: toStatus, logId, result: "SUCCESS", auth: "banned", sessions: "revoked", reason },
     });
 
     const ownerStoreSales = await suspendOwnerStoreSalesOnMemberSanction(sb, {
@@ -359,7 +361,7 @@ export async function handleAdminMemberModerationPost(
       target_id: userId,
       action: "moderation_restore",
       before_json: { status: fromStatus },
-      after_json: { status: toStatus, logId, result: "SUCCESS", auth: "unbanned" },
+      after_json: { status: toStatus, logId, result: "SUCCESS", auth: "unbanned", reason },
     });
 
     const stillSuspended = await listOwnerStoresSalesSuspendedBySanction(sb, userId);
@@ -412,7 +414,7 @@ export async function handleAdminMemberModerationPost(
     target_id: userId,
     action: `moderation_${action}`,
     before_json: { status: fromStatus },
-    after_json: { status: toStatus, logId, result: "SUCCESS" },
+    after_json: { status: toStatus, logId, result: "SUCCESS", reason },
   });
 
   let ownerStoreSales: Record<string, unknown> | undefined;

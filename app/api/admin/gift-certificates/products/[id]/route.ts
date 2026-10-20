@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { loadAdminGiftProductDetail } from "@/lib/gift-certificate/admin-gift-product-detail";
 import {
   validateGiftProductExpiryPolicy,
@@ -255,6 +256,12 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
 
   const id = s((await ctx.params).id);
   if (!id) return NextResponse.json({ ok: false, error: "id_required" }, { status: 400 });
+  // R2 — 상품 삭제(delete L3)는 확인창 사유 필수 → 감사 after.reason · 상품권 운영 이벤트 reason.
+  const delBody = (await req.json().catch(() => null)) as { reason?: unknown } | null;
+  const reason = parseAdminReason(delBody?.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
 
   const { count, error: countErr } = await gate.sb
     .from(GIFT_TABLES.instances)
@@ -282,6 +289,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     entityId: id,
     eventType: "PRODUCT_DELETED",
     operatorId: gate.actor.userId,
+    reason,
     before: existing,
   });
 
@@ -297,6 +305,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
           status: (existing as Record<string, unknown>).status ?? null,
         }
       : null,
+    after: { reason },
   });
 
   return NextResponse.json({ ok: true, deleted: id });

@@ -6,7 +6,8 @@ import {
   getRecommendationAlertEvents,
   acknowledgeAlertEvent,
 } from "@/lib/recommendation-ops/recommendation-runtime-state";
-import { persistRecommendationRuntimeToServer } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
+import { commitRecommendationRuntimeChange } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
+import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import {
   recAlertSeverityLabel,
   recSurfaceLabel,
@@ -17,8 +18,11 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 const ADMIN_ID = "admin1";
 
 export function AlertEventTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [refresh, setRefresh] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   const [ackFilter, setAckFilter] = useState<boolean | "">("");
 
   const events = useMemo(
@@ -30,15 +34,18 @@ export function AlertEventTable() {
     [refresh, ackFilter]
   );
 
+  /** 저장 실패 → 확인 처리 되돌림 + 실패 문구 (예전: console.warn 만). */
   const handleAck = async (id: string) => {
-    acknowledgeAlertEvent(id, ADMIN_ID);
-    setRefresh((r) => r + 1);
-    const r = await persistRecommendationRuntimeToServer();
-    if (!r.ok) console.warn("[alert-event] persist failed", r.error);
+    setBusy(true);
+    const r = await commitRecommendationRuntimeChange(() => acknowledgeAlertEvent(id, ADMIN_ID));
+    setBusy(false);
+    setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" });
+    setRefresh((n) => n + 1);
   };
 
   return (
     <div className="space-y-4">
+      <AdminResultBanner ko={ko} result={saveResult} onClose={() => setSaveResult(null)} />
       <div className="flex flex-wrap gap-2">
         <select
           value={ackFilter === "" ? "" : ackFilter ? "ack" : "unack"}
@@ -54,9 +61,11 @@ export function AlertEventTable() {
         </select>
       </div>
       {events.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rec_mon_empty_alert_events")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={ackFilter === "" ? t("admin_rec_mon_empty_alert_events") : undefined}
+          onReset={ackFilter === "" ? undefined : () => setAckFilter("")}
+        />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[560px] border-collapse sam-text-body">
@@ -117,7 +126,8 @@ export function AlertEventTable() {
                         variant="ghost"
                         size="sm"
                         type="button"
-                        onClick={() => handleAck(e.id)}
+                        disabled={busy}
+                        onClick={() => void handleAck(e.id)}
                       >
                         {t("common_confirm")}
                       </AdminActionButton>

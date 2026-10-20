@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Image as ImageIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import {
   AdminPlatformPopupPreview,
   type AdminPlatformPopupPreviewSource,
@@ -36,7 +36,6 @@ export function AdminAdsDirectPopupCreateView() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [busy, setBusy] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
@@ -126,7 +125,6 @@ export function AdminAdsDirectPopupCreateView() {
         }
         return;
       }
-      setConfirmOpen(false);
       setSuccessMsg(ko ? "광고가 등록되었습니다." : "Ad registered.");
       router.push(created.detailHref || `/admin/platform-popup/${created.id}`);
     } finally {
@@ -258,31 +256,23 @@ export function AdminAdsDirectPopupCreateView() {
         disabled={!canSubmit}
         className="min-h-12 w-full rounded-ui-rect bg-[var(--admin-console-accent,#1d4ed8)] px-4 text-[15px] font-bold text-white disabled:opacity-50"
         data-admin-popup-register-cta="1"
-        onClick={() => {
-          if (!canSubmit) return;
-          setConfirmOpen(true);
+        onClick={async () => {
+          if (!canSubmit || busy) return;
+          // 등록 확인 — 단계는 동작 표(createCopy.level = save)
+          const confirmed = await confirmAdminAction({
+            level: createCopy.level,
+            ko,
+            title: createCopy.title,
+            description: createCopy.body,
+            confirmLabel: createCopy.confirmLabel,
+            destructive: createCopy.tone === "danger",
+          });
+          if (confirmed.ok) void submit();
         }}
       >
         {ko ? "광고 등록" : "Register ad"}
       </button>
 
-      <AdminActionConfirmDialog
-        open={confirmOpen}
-        title={createCopy.title}
-        description={createCopy.body}
-        confirmLabel={createCopy.confirmLabel}
-        cancelLabel={createCopy.cancelLabel}
-        tone={createCopy.tone}
-        pending={busy}
-        onCancel={() => {
-          if (busy) return;
-          setConfirmOpen(false);
-        }}
-        onConfirm={() => {
-          if (busy) return;
-          void submit();
-        }}
-      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadAdminActionQueueCounts } from "@/lib/admin/admin-action-queue";
 import { COMMUNITY_REPORT_ADMIN_ACTIONABLE } from "@/lib/admin/admin-ops-actionable-status";
 import { adminDomainCountExact } from "@/lib/admin/domain-dashboard/count-exact";
+import { applyCommunityPostStatusOriginFilter } from "@/lib/admin/metrics/admin-metric-filters";
 import { manilaLastNDaysRangeUtc } from "@/lib/admin/metrics/manila-period";
 import {
   COMMUNITY_METRIC_DEFINITIONS,
@@ -162,7 +163,10 @@ export async function loadCommunityMetrics(
           .lt("created_at", staleIso)
       ),
       count("posts_active_member", () =>
-        sbAny.from("community_posts").select("id", head).eq("status", "active").eq("origin_kind", "member")
+        applyCommunityPostStatusOriginFilter(sbAny.from("community_posts").select("id", head), {
+          status: "active",
+          origin: "member",
+        })
       ),
       count("posts_active_imported", () =>
         sbAny.from("community_posts").select("id", head).eq("status", "active").eq("origin_kind", "imported")

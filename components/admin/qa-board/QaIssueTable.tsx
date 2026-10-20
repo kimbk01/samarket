@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -15,7 +16,8 @@ import type { QaIssueStatus, QaIssueSeverity } from "@/lib/types/qa-board";
 import Link from "next/link";
 
 export function QaIssueTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const headers = useMemo(
     () =>
       [
@@ -79,9 +81,11 @@ export function QaIssueTable() {
       </p>
 
       {logs.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_qa_empty_issues")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={status || severity ? undefined : t("admin_qa_empty_issues")}
+          onReset={status || severity ? () => { setStatus(""); setSeverity(""); } : undefined}
+        />
       ) : (
         <AdminTable headers={headers}>
           {logs.map((l) => (

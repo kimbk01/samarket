@@ -453,12 +453,20 @@ export async function loadStoreCommissionIntegrity(
  * 관리자 전체 매장 캐시 현황 대상 — 승인 매장 + 캐시 계정이 있는 매장.
  * `/api/admin/store-commission-ledger`(「미납 관리」)와 통합 대시보드가 같은 집합을 쓴다.
  */
+/** 매장 캐시 현황 대상 상한 — 넘으면 잘린 합계 대신 오류. */
+export const ADMIN_STORE_CASH_OVERVIEW_ID_LIMIT = 5000;
+
 export async function loadAdminStoreCashOverviewIds(sb: SupabaseClient): Promise<string[]> {
   const [approved, accounts] = await Promise.all([
-    sb.from("stores").select("id").eq("approval_status", "approved").limit(5000),
-    sb.from("business_cash_accounts").select("store_id").limit(5000),
+    sb.from("stores").select("id", { count: "exact" }).eq("approval_status", "approved").limit(ADMIN_STORE_CASH_OVERVIEW_ID_LIMIT),
+    sb.from("business_cash_accounts").select("store_id", { count: "exact" }).limit(ADMIN_STORE_CASH_OVERVIEW_ID_LIMIT),
   ]);
   if (approved.error) throw new Error(approved.error.message);
+  // 계정 조회 실패·상한 초과를 무시하면 「미납 관리」 합계가 일부 매장만 더한 값이 된다 → 오류로 올린다.
+  if (accounts.error) throw new Error(accounts.error.message);
+  if ((approved.count ?? 0) > ADMIN_STORE_CASH_OVERVIEW_ID_LIMIT || (accounts.count ?? 0) > ADMIN_STORE_CASH_OVERVIEW_ID_LIMIT) {
+    throw new Error("store_cash_overview:too_many_stores");
+  }
   return [
     ...new Set([
       ...(approved.data ?? []).map((s) => String((s as { id: string }).id)),

@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 type ConfirmState = {
@@ -14,7 +14,6 @@ type ConfirmState = {
   userId: string;
   memberLabel: string;
   amount: number;
-  reason: string;
   memo: string;
   balanceBefore: number;
   idempotencyKey: string;
@@ -38,12 +37,10 @@ export function AdminPointAdjustPanel({
   const [userId, setUserId] = useState("");
   const [memberLabel, setMemberLabel] = useState("");
   const [amount, setAmount] = useState("");
-  const [reason, setReason] = useState("");
   const [memo, setMemo] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
 
   const openConfirm = async (op: "credit" | "debit") => {
     if (!actionAllowed) return;
@@ -51,16 +48,12 @@ export function AdminPointAdjustPanel({
     setNotice(null);
     const uid = userId.trim();
     const amt = Math.trunc(Number(amount) || 0);
-    const why = reason.trim();
-    if (!uid || amt < 1 || !why) {
-      setError(
-        ko
-          ? "회원, 금액, 사유를 입력해 주세요."
-          : "Enter member, amount, and reason."
-      );
+    if (!uid || amt < 1) {
+      setError(ko ? "회원과 금액을 입력해 주세요." : "Enter member and amount.");
       return;
     }
 
+    let target: ConfirmState | null = null;
     setBusy(true);
     try {
       const res = await fetch(
@@ -85,24 +78,55 @@ export function AdminPointAdjustPanel({
         );
         return;
       }
-      setConfirm({
+      target = {
         op,
         userId: uid,
         memberLabel: memberLabel.trim() || formatAdminShortId(uid),
         amount: amt,
-        reason: why,
         memo: memo.trim(),
         balanceBefore,
-        // 확인 화면을 열 때 1회 생성 — 같은 확인에서 여러 번 눌러도 1건만 반영된다.
+        // 확인 1회당 1개 생성 — 같은 확인에서 여러 번 눌러도 1건만 반영된다.
         idempotencyKey: `admin_point:${crypto.randomUUID()}`,
-      });
+      };
     } finally {
       setBusy(false);
     }
+    if (!target) return;
+
+    // R2 — Point 지급·회수 = payout(L2): 확인 + 사유. 사유는 API(`reason`)로 보내 원장 설명·감사 기록에 남긴다.
+    const after = target.op === "credit" ? target.balanceBefore + target.amount : target.balanceBefore - target.amount;
+    const c = await confirmAdminAction({
+      level: adminActionLevel("payout"),
+      ko,
+      title:
+        target.op === "credit"
+          ? ko
+            ? `${target.memberLabel} 회원에게 ${formatAdminNumber(target.amount)} Point를 지급하시겠습니까?`
+            : `Credit ${formatAdminNumber(target.amount)} Point to ${target.memberLabel}?`
+          : ko
+            ? `${target.memberLabel} 회원의 Point ${formatAdminNumber(target.amount)}를 회수하시겠습니까?`
+            : `Reclaim ${formatAdminNumber(target.amount)} Point from ${target.memberLabel}?`,
+      description: [
+        ko ? "현재 Point" : "Current Point",
+        formatFinanceAmount({ wallet: "POINT", amount: target.balanceBefore }),
+        target.op === "credit" ? (ko ? "지급" : "Credit") : ko ? "회수" : "Reclaim",
+        `${target.op === "credit" ? "+" : "-"}${formatFinanceAmount({
+          wallet: "POINT",
+          amount: target.amount,
+        })}`,
+        ko ? (target.op === "credit" ? "지급 후" : "회수 후") : "After",
+        formatFinanceAmount({ wallet: "POINT", amount: after }),
+      ].join("\n"),
+      confirmLabel:
+        target.op === "credit" ? (ko ? "Point 지급" : "Credit Point") : ko ? "Point 회수" : "Reclaim Point",
+      destructive: target.op === "debit",
+    });
+    if (!c.ok || !c.reason) return;
+    await mutate(target, c.reason);
   };
 
-  const mutate = async () => {
-    if (!confirm || busy || !actionAllowed) return;
+  const mutate = async (confirm: ConfirmState, reason: string) => {
+    if (busy || !actionAllowed) return;
     setBusy(true);
     setError(null);
     try {
@@ -114,7 +138,7 @@ export function AdminPointAdjustPanel({
           op: confirm.op,
           userId: confirm.userId,
           amount: confirm.amount,
-          reason: confirm.reason,
+          reason,
           memo: confirm.memo,
           idempotencyKey: confirm.idempotencyKey,
         }),
@@ -148,20 +172,12 @@ export function AdminPointAdjustPanel({
             ? `${amt} Point가 회수되었습니다.`
             : `${amt} Point reclaimed.`
       );
-      setConfirm(null);
       setAmount("");
       onChanged?.();
     } finally {
       setBusy(false);
     }
   };
-
-  const after =
-    confirm == null
-      ? 0
-      : confirm.op === "credit"
-        ? confirm.balanceBefore + confirm.amount
-        : confirm.balanceBefore - confirm.amount;
 
   return (
     <div
@@ -209,15 +225,6 @@ export function AdminPointAdjustPanel({
             data-point-adjust-amount="1"
           />
         </label>
-        <label className="block text-sm">
-          <span className="text-sam-muted">{ko ? "사유" : "Reason"}</span>
-          <input
-            className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            data-point-adjust-reason="1"
-          />
-        </label>
         <label className="block text-sm sm:col-span-2">
           <span className="text-sam-muted">{ko ? "메모" : "Memo"}</span>
           <input
@@ -245,49 +252,6 @@ export function AdminPointAdjustPanel({
           {ko ? "Point 회수" : "Reclaim Point"}
         </AdminActionButton>
       </div>
-
-      <AdminActionConfirmDialog
-        open={!!confirm}
-        title={
-          confirm?.op === "credit"
-            ? ko
-              ? `${confirm.memberLabel} 회원에게 ${formatAdminNumber(confirm.amount)} Point를 지급하시겠습니까?`
-              : `Credit ${formatAdminNumber(confirm?.amount)} Point to ${confirm?.memberLabel}?`
-            : ko
-              ? `${confirm?.memberLabel} 회원의 Point ${formatAdminNumber(confirm?.amount)}를 회수하시겠습니까?`
-              : `Reclaim ${formatAdminNumber(confirm?.amount)} Point from ${confirm?.memberLabel}?`
-        }
-        description={
-          confirm
-            ? [
-                ko ? "현재 Point" : "Current Point",
-                formatFinanceAmount({ wallet: "POINT", amount: confirm.balanceBefore }),
-                confirm.op === "credit" ? (ko ? "지급" : "Credit") : ko ? "회수" : "Reclaim",
-                `${confirm.op === "credit" ? "+" : "-"}${formatFinanceAmount({
-                  wallet: "POINT",
-                  amount: confirm.amount,
-                })}`,
-                ko ? (confirm.op === "credit" ? "지급 후" : "회수 후") : "After",
-                formatFinanceAmount({ wallet: "POINT", amount: after }),
-                ko ? "사유" : "Reason",
-                confirm.reason,
-              ].join("\n")
-            : ""
-        }
-        confirmLabel={
-          confirm?.op === "credit"
-            ? ko
-              ? "Point 지급"
-              : "Credit Point"
-            : ko
-              ? "Point 회수"
-              : "Reclaim Point"
-        }
-        cancelLabel={adminCta("cancel", ko)}
-        pending={busy}
-        onCancel={() => setConfirm(null)}
-        onConfirm={() => void mutate()}
-      />
     </div>
   );
 }

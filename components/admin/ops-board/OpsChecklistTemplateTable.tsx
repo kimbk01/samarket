@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getOpsChecklistTemplates } from "@/lib/ops-board/ops-board-state";
@@ -11,14 +12,13 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 
 export function OpsChecklistTemplateTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const templates = useMemo(() => getOpsChecklistTemplates(), []);
 
   if (templates.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_ops_tools_board_tpl_empty")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_ops_tools_board_tpl_empty")} />
     );
   }
 

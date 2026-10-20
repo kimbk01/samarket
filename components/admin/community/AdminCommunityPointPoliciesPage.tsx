@@ -16,6 +16,7 @@ import {
 import type { BoardPointPolicy } from "@/lib/types/point-policy";
 import { ARO_IA_001_FINANCE_POINT_POLICIES_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
@@ -73,7 +74,7 @@ export function AdminCommunityPointPoliciesPage() {
   }, [refresh]);
 
   /**
-   * 정책 저장 (설계 C-0-2 「정책 저장」 L3 · C-19) — 확인(사유 + 대상 이름 재입력) → 저장 → 응답 확인 → 결과 배너.
+   * 정책 저장 (C-19 · R2 동작 표 pointPolicySave = L2) — 확인(사유) → 저장(사유 전송·감사) → 응답 확인 → 결과 배너.
    * 실패하면 입력 화면을 그대로 두고 실패 배너를 보인다. 처리 중에는 다시 저장할 수 없다.
    */
   const savePolicy = async (
@@ -83,14 +84,13 @@ export function AdminCommunityPointPoliciesPage() {
   ): Promise<boolean> => {
     if (saving) return false;
     const c = await confirmAdminAction({
-      level: "L3",
+      level: adminActionLevel("pointPolicySave"),
       ko,
       title: ko ? "정책 저장" : "Save policy",
       description: ko
         ? `「${label}」 포인트 정책을 저장합니다. 저장하면 이후 글·댓글 보상에 바로 적용됩니다.`
         : `Save the "${label}" point policy. It applies to new rewards immediately.`,
       confirmLabel: ko ? "정책 저장" : "Save policy",
-      retypeValue: label,
     });
     if (!c.ok) return false;
     const boardKey = String(values.boardKey ?? fallback?.boardKey ?? "general").toLowerCase();

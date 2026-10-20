@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
@@ -9,16 +10,15 @@ import { AdminTable } from "@/components/admin/AdminTable";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function SlowQueryTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const queries = useMemo(() => getSlowQueries(), []);
 
   return (
     <div className="space-y-4">
       <p className="sam-text-helper text-sam-muted">{t("admin_performance_k7f4664cc")}</p>
       {queries.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          느린 쿼리가 없습니다.
-        </div>
+        <AdminEmptyState ko={ko} message={"느린 쿼리가 없습니다."} />
       ) : (
         <AdminTable headers={["쿼리명", "소요(ms)", "라우트", "감지 시각"]}>
           {queries.map((q) => (

@@ -2,7 +2,7 @@
 
 /**
  * 게시글 홍보 (설계 §C-12 · §F-1) — 커뮤니티 홍보 주문만 (`point_promotion_orders` domain=community).
- * 조치: 「노출 중지」 L2(사유) · 「노출 재개」 L1(종료일을 중지 시간만큼 연장) ·
+ * 조치: 「노출 중지」 L2(사유) · 「노출 재개」 L2(exposeStart · 사유 · 종료일을 중지 시간만큼 연장) ·
  *       「홍보 종료」 L3(귀책 선택 → 환급 미리보기 → 대상 재입력 → 실행).
  * URL: tab=active|paused|ended|rejected|all · page
  */
@@ -33,6 +33,7 @@ import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminA
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-labels";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import {
   COMMUNITY_GONE_MESSAGE,
   COMMUNITY_STALE_MESSAGE,
@@ -107,7 +108,7 @@ export function AdminCommunityPromotionsPage() {
   const resume = async (o: Order) => {
     if (busyId) return;
     const c = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("exposeStart"),
       ko: true,
       title: "노출 재개",
       description: `「${o.post?.title || o.targetTitle || "게시글"}」 홍보를 다시 노출합니다. 종료일은 중지했던 시간만큼 늘어납니다.`,
@@ -119,7 +120,7 @@ export function AdminCommunityPromotionsPage() {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "resume" }),
+      body: JSON.stringify({ action: "resume", reason: c.reason }),
     });
     setBusyId(null);
     reload();

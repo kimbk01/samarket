@@ -12,6 +12,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } f
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
@@ -97,13 +98,14 @@ const APPROVAL: Record<string, { label: string; tone: AdminTone }> = {
   rejected: { label: "반려", tone: "danger" },
 };
 
-const ACTION_META: Record<MeetingAction, { label: string; level: "L1" | "L2"; destructive?: boolean; notice: string }> = {
-  approve: { label: "승인", level: "L1", notice: "모임을 승인하고 모임 글을 공개합니다." },
-  reject: { label: "반려", level: "L2", destructive: true, notice: "모임을 반려하고 모임 글을 숨깁니다. 개설자에게 사유와 함께 알림이 갑니다." },
-  hide: { label: "숨김", level: "L2", notice: "모임 글을 숨깁니다. 모임 자체 상태는 바뀌지 않습니다." },
-  show: { label: "다시 공개", level: "L1", notice: "숨긴 모임 글을 다시 보이게 합니다." },
-  close: { label: "모임 종료", level: "L2", destructive: true, notice: "모임을 종료합니다. 개설자에게 사유와 함께 알림이 갑니다." },
-  reopen: { label: "재개", level: "L1", notice: "종료된 모임을 다시 진행 중으로 바꿉니다." },
+/** 모임 조치 → 동작 종류(단계 SSOT). L2 이상은 시트에서 사유를 받아 API 본문 `reason` → 감사 기록. */
+const ACTION_META: Record<MeetingAction, { label: string; kind: AdminActionKind; destructive?: boolean; notice: string }> = {
+  approve: { label: "승인", kind: "approve", notice: "모임을 승인하고 모임 글을 공개합니다." },
+  reject: { label: "반려", kind: "reject", destructive: true, notice: "모임을 반려하고 모임 글을 숨깁니다. 개설자에게 사유와 함께 알림이 갑니다." },
+  hide: { label: "숨김", kind: "sanction", notice: "모임 글을 숨깁니다. 모임 자체 상태는 바뀌지 않습니다." },
+  show: { label: "다시 공개", kind: "resume", notice: "숨긴 모임 글을 다시 보이게 합니다." },
+  close: { label: "모임 종료", kind: "sanction", destructive: true, notice: "모임을 종료합니다. 개설자에게 사유와 함께 알림이 갑니다." },
+  reopen: { label: "재개", kind: "resume", notice: "종료된 모임을 다시 진행 중으로 바꿉니다." },
 };
 
 const CLOSED = new Set(["closed", "ended", "cancelled"]);
@@ -124,6 +126,7 @@ function bodyFor(action: MeetingAction, r: Row, reason: string): Record<string, 
     case "approve":
       return {
         ...expected,
+        ...withReason,
         platformApprovalStatus: "approved",
         ...(hasPost ? { postStatus: "active", postHidden: false } : {}),
       };
@@ -253,8 +256,10 @@ export function AdminCommunityEngineMeetingsClient() {
 
   const postRoomAction = async (meetingId: string, roomId: string, action: string) => {
     // 채팅방 조치는 사유(2자 이상) 필수 — 서버 상태 조건 갱신·감사 기록.
+    // 제한 걸기(읽기 전용·잠금·차단) = sanction · 해제 = liftSanction (둘 다 L2).
+    const lifting = action === "readonly_off" || action === "unarchive_room" || action === "unblock_room";
     const confirmed = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel(lifting ? "liftSanction" : "sanction"),
       ko,
       title: t("admin_chat_r1_action_confirm_title"),
       confirmLabel: t("admin_chat_r1_action_confirm_cta"),
@@ -266,13 +271,15 @@ export function AdminCommunityEngineMeetingsClient() {
     });
   };
 
-  const bulkRoomMessages = async (meetingId: string, roomId: string, hide: boolean) => {
+  const bulkRoomMessages = async (meetingId: string, roomId: string, hide: boolean, roomLabel: string) => {
+    // 방 전체 메시지 일괄 숨김·해제 = bulk (L3: 사유 + 대상 방 이름 재입력).
     const confirmed = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel("bulk"),
       ko,
       title: hide ? t("admin_meeting_engine_confirm_bulk_hide") : t("admin_meeting_engine_confirm_bulk_unhide"),
       confirmLabel: hide ? t("admin_meeting_engine_bulk_hide_msgs") : t("admin_meeting_engine_bulk_unhide_msgs"),
       destructive: hide,
+      retypeValue: roomLabel,
     });
     if (!confirmed.ok) return;
     await roomRequest(
@@ -285,7 +292,7 @@ export function AdminCommunityEngineMeetingsClient() {
 
   const deleteExtraMeetingChat = async (meetingId: string, mcrId: string) => {
     const confirmed = await confirmAdminAction({
-      level: "L3",
+      level: adminActionLevel("delete"),
       ko,
       title: t("admin_meeting_engine_confirm_delete_extra"),
       confirmLabel: t("admin_meeting_engine_delete_extra_room"),
@@ -525,7 +532,11 @@ export function AdminCommunityEngineMeetingsClient() {
             },
           ]}
           notice={meta.notice}
-          reason={meta.level === "L2" ? { minLength: 2, placeholder: "개설자에게 전달될 사유" } : null}
+          reason={
+            adminActionLevel(meta.kind) !== "L1"
+              ? { minLength: 2, placeholder: pending.action === "reject" || pending.action === "close" ? "개설자에게 전달될 사유" : "처리 사유" }
+              : null
+          }
           destructive={meta.destructive}
           confirmLabel={meta.label}
           onSubmit={async (reason) =>
@@ -565,7 +576,7 @@ function MeetingInsight({
   busy: boolean;
   error: string;
   onRoomAction: (meetingId: string, roomId: string, action: string) => Promise<void>;
-  onBulk: (meetingId: string, roomId: string, hide: boolean) => Promise<void>;
+  onBulk: (meetingId: string, roomId: string, hide: boolean, roomLabel: string) => Promise<void>;
   onDeleteExtra: (meetingId: string, mcrId: string) => Promise<void>;
 }) {
   const { t, language } = useI18n();
@@ -589,6 +600,7 @@ function MeetingInsight({
           const blk = room.is_blocked === true;
           const mcr = room.meeting_chat_room_id ?? null;
           const isExtra = room.role !== "main" && !!mcr;
+          const roomLabel = room.title?.trim() || room.room_id;
           return (
             <li
               key={room.room_id}
@@ -617,10 +629,10 @@ function MeetingInsight({
                 <AdminActionLink href={`/admin/chats/${encodeURIComponent(room.room_id)}`} variant="neutral">
                   {t("admin_meeting_engine_open_admin_chat")}
                 </AdminActionLink>
-                <AdminActionButton variant="neutral" disabled={busy} onClick={() => void onBulk(meetingId, room.room_id, true)}>
+                <AdminActionButton variant="neutral" disabled={busy} onClick={() => void onBulk(meetingId, room.room_id, true, roomLabel)}>
                   {t("admin_meeting_engine_bulk_hide_msgs")}
                 </AdminActionButton>
-                <AdminActionButton variant="neutral" disabled={busy} onClick={() => void onBulk(meetingId, room.room_id, false)}>
+                <AdminActionButton variant="neutral" disabled={busy} onClick={() => void onBulk(meetingId, room.room_id, false, roomLabel)}>
                   {t("admin_meeting_engine_bulk_unhide_msgs")}
                 </AdminActionButton>
                 <AdminActionButton

@@ -1,7 +1,9 @@
 "use client";
 
 /**
- * 통합 대시보드 (설계 v4 §3) — 요약 띠 8칸 → 탭 7 → 본문(좌: 지표 6칸·추세·바로가기 / 우: 처리 대기 · 최근 활동) → 상태 줄.
+ * 통합 대시보드 (설계 v4 §3) — 요약 띠 8칸 → 탭 7 → 본문(좌: 지표 6칸·추세·공지·바로가기 / 우: 처리 대기 · 최근 활동) → 상태 줄.
+ * - 지표 칸: 라벨 · 기간 칩(현재/선택 기간) · 값 + 단위(건·명·곳·₱) · 이동 화살표(→ 필터 적용 화면).
+ * - 추세: 선택 기간이 끝나는 날(PHT)에서 끝나는 7일/30일 — 「어제」면 어제에서 끝난다. 정의가 있는 추세(7일 활성)는 정의를 표시.
  * - 페이지는 스크롤하지 않는다. 오른쪽 목록만 안에서 스크롤, 높이가 모자라면(≈690 미만) 본문만 스크롤.
  * - 수치는 `/api/admin/dashboard/overview` (지표 레지스트리) 에서만 받는다. 지표 값 = 링크로 이동한 화면 값.
  *   실패 = 이전 값 + 「불러오기 실패」(0 금지). 기간을 바꾸면 이전 기간 값은 버린다(다른 기간 값을 남기지 않는다).
@@ -28,6 +30,7 @@ import {
   type AdminDashboardPeriod,
 } from "@/lib/admin/metrics/dashboard-period";
 import {
+  ADMIN_DASHBOARD_UNIT_SUFFIX,
   adminDashboardPayloadHasErrors,
   formatAdminDashboardValue,
   mergeAdminDashboardBand,
@@ -35,6 +38,7 @@ import {
   mergeAdminDashboardPending,
   type AdminDashboardBandTile,
   type AdminDashboardMetricValue,
+  type AdminDashboardNoticesPayload,
   type AdminDashboardOverviewPayload,
   type AdminDashboardPendingPayload,
   type AdminDashboardRecentPayload,
@@ -44,7 +48,7 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export const ADMIN_DASHBOARD_REFRESH_MS = 60_000;
 const TABS_ID = "admin-dashboard";
-const ALL_PARTS = "band,metrics,trend,pending,recent";
+const ALL_PARTS = "band,metrics,trend,pending,recent,notices";
 
 export type AdminDashboardTabData = {
   metrics: AdminDashboardMetricValue[];
@@ -59,6 +63,7 @@ export type AdminDashboardInitialState = {
   band?: AdminDashboardBandTile[];
   tabData?: Partial<Record<AdminDashboardTabId, AdminDashboardTabData>>;
   recent?: AdminDashboardRecentPayload | null;
+  notices?: AdminDashboardNoticesPayload | null;
   generatedAt?: string | null;
 };
 
@@ -92,6 +97,11 @@ function periodChipLabel(m: AdminDashboardMetricValue, period: AdminDashboardPer
   return ADMIN_DASHBOARD_PERIOD_LABEL[period][ko ? "ko" : "en"];
 }
 
+/** 값 뒤 단위 (건·명·곳 — ₱ 는 값 앞) */
+function unitSuffix(unit: AdminDashboardMetricValue["unit"], ko: boolean): string {
+  return ADMIN_DASHBOARD_UNIT_SUFFIX[unit][ko ? "ko" : "en"];
+}
+
 function PeriodChip({ label }: { label: string }) {
   return (
     <span
@@ -108,17 +118,25 @@ function MetricValueText({
   m,
   className,
   failedLabel,
+  ko,
 }: {
   m: AdminDashboardMetricValue;
   className: string;
   failedLabel: string;
+  ko: boolean;
 }) {
   const failed = Boolean(m.error);
+  const suffix = m.value === null ? "" : unitSuffix(m.unit, ko);
   return (
     <span className="flex min-w-0 items-baseline gap-1">
       <span className={`${className} tabular-nums`} data-admin-metric-value={m.id}>
         {formatAdminDashboardValue(m.value, m.unit)}
       </span>
+      {suffix ? (
+        <span className={`shrink-0 text-[13px] ${muted}`} data-admin-metric-unit={m.unit}>
+          {suffix}
+        </span>
+      ) : null}
       {failed ? (
         <span className="truncate text-[11px] font-medium text-sam-warning" data-admin-metric-failed="1">
           {failedLabel}
@@ -145,9 +163,10 @@ function BandTileView({
   const short = ko ? tile.shortKo : tile.shortEn;
   const secondary = tile.secondary;
   const metricTip = (m: AdminDashboardMetricValue) =>
-    `${ko ? m.labelKo : m.labelEn} (${periodChipLabel(m, period, ko)}): ${formatAdminDashboardValue(m.value, m.unit)}`;
+    `${ko ? m.labelKo : m.labelEn} (${periodChipLabel(m, period, ko)}): ${formatAdminDashboardValue(m.value, m.unit)}${m.value === null ? "" : unitSuffix(m.unit, ko)}`;
   const tip = [metricTip(tile.primary), secondary ? metricTip(secondary) : ""].filter(Boolean).join(" · ");
-  const primaryChip = tile.primary.period === "now" ? null : periodChipLabel(tile.primary, period, ko);
+  // 수정 계획 1-3: 현재 상태 지표에도 「현재」 칩 (기간 적용 대상이 아님을 표시)
+  const primaryChip = periodChipLabel(tile.primary, period, ko);
   const body = (
     <>
       <span className={`flex min-w-0 items-center gap-1 text-[12px] font-medium leading-4 ${muted}`}>
@@ -157,7 +176,7 @@ function BandTileView({
         </span>
         {primaryChip ? <PeriodChip label={primaryChip} /> : null}
       </span>
-      <MetricValueText m={tile.primary} className={`text-[20px] font-bold leading-7 ${fg}`} failedLabel={failedLabel} />
+      <MetricValueText m={tile.primary} className={`text-[20px] font-bold leading-7 ${fg}`} failedLabel={failedLabel} ko={ko} />
       {secondary ? (
         <span
           className={`block truncate text-[12px] leading-4 tabular-nums ${muted}`}
@@ -167,6 +186,7 @@ function BandTileView({
             (secondary.period === "now" ? "" : `(${periodChipLabel(secondary, period, ko)})`) +
             " "}
           {formatAdminDashboardValue(secondary.value, secondary.unit)}
+          {secondary.value === null ? "" : unitSuffix(secondary.unit, ko)}
           {secondary.error ? ` · ${failedLabel}` : ""}
         </span>
       ) : null}
@@ -191,11 +211,13 @@ function BandTileView({
 function MetricTile({
   m,
   ko,
+  t,
   period,
   failedLabel,
 }: {
   m: AdminDashboardMetricValue;
   ko: boolean;
+  t: ReturnType<typeof useI18n>["t"];
   period: AdminDashboardPeriod;
   failedLabel: string;
 }) {
@@ -205,14 +227,19 @@ function MetricTile({
       href={m.href}
       prefetch={false}
       title={label}
+      aria-label={`${t("admin_dash_v4_metric_go", { label })}: ${formatAdminDashboardValue(m.value, m.unit)}${m.value === null ? "" : unitSuffix(m.unit, ko)}`}
       data-admin-metric-tile={m.id}
-      className={`${card} flex h-[76px] min-w-0 flex-col justify-center px-3 hover:border-[var(--admin-console-accent,#1d4ed8)]`}
+      className={`${card} group flex h-[76px] min-w-0 flex-col justify-center px-3 hover:border-[var(--admin-console-accent,#1d4ed8)]`}
     >
       <span className="flex min-w-0 items-center gap-1.5">
         <span className={`min-w-0 truncate text-[13px] leading-5 ${muted}`}>{label}</span>
         <PeriodChip label={periodChipLabel(m, period, ko)} />
+        {/* 이동 표시 — 누르면 같은 필터가 걸린 처리 화면으로 간다 */}
+        <span aria-hidden className={`ml-auto shrink-0 text-[14px] leading-5 ${muted} group-hover:translate-x-0.5`} data-admin-metric-arrow="1">
+          →
+        </span>
       </span>
-      <MetricValueText m={m} className={`text-[20px] font-bold leading-7 ${fg}`} failedLabel={failedLabel} />
+      <MetricValueText m={m} className={`text-[20px] font-bold leading-7 ${fg}`} failedLabel={failedLabel} ko={ko} />
     </Link>
   );
 }
@@ -231,7 +258,11 @@ function TrendView({
 }) {
   const max = Math.max(1, ...(trend?.points ?? []).flatMap((p) => Object.values(p.values)));
   const seriesColors = ["bg-[var(--admin-console-accent,#1d4ed8)]", "bg-[var(--admin-console-muted,#667085)]"];
-  const axis = (v: number) => (trend ? formatAdminDashboardValue(v, trend.unit) : "");
+  const suffix = trend ? unitSuffix(trend.unit, ko) : "";
+  const axis = (v: number) => (trend ? `${formatAdminDashboardValue(v, trend.unit)}${suffix}` : "");
+  /** 계열별 창 합계 (예: 7일 활성 = 「마지막 로그인」 합계) */
+  const seriesTotal = (key: string) => (trend?.points ?? []).reduce((n, p) => n + (p.values[key] ?? 0), 0);
+  const definition = trend ? (ko ? trend.definitionKo : trend.definitionEn) : undefined;
   return (
     <section
       data-admin-dashboard-trend={trend?.id ?? ""}
@@ -240,22 +271,32 @@ function TrendView({
       <header className="flex h-7 shrink-0 items-center gap-2">
         <h2 className={`truncate text-[14px] font-semibold ${fg}`}>{trend ? (ko ? trend.labelKo : trend.labelEn) : "—"}</h2>
         {trend ? (
-          <span className={`shrink-0 text-[12px] ${muted}`} data-admin-trend-days={trend.days}>
-            {t("admin_dash_v4_trend_days", { n: trend.days })}
+          <span
+            className={`shrink-0 text-[12px] tabular-nums ${muted}`}
+            data-admin-trend-days={trend.days}
+            data-admin-trend-window={`${trend.fromDay}~${trend.toDay}`}
+          >
+            {t("admin_dash_v4_trend_window", { from: trend.fromDay.slice(5), to: trend.toDay.slice(5), n: trend.days })}
           </span>
         ) : null}
         {trend?.series.length ? (
-          <span className={`flex items-center gap-2 text-[12px] ${muted}`}>
+          <span className={`flex min-w-0 items-center gap-2 text-[12px] ${muted}`}>
             {trend.series.map((s, i) => (
-              <span key={s.key} className="inline-flex items-center gap-1">
+              <span key={s.key} className="inline-flex items-center gap-1 tabular-nums" data-admin-trend-series-total={s.key}>
                 <span className={`inline-block h-2 w-2 rounded-full ${seriesColors[i % 2]}`} aria-hidden />
                 {ko ? s.labelKo : s.labelEn}
+                {trend.points.length ? ` ${t("admin_dash_v4_trend_total")} ${axis(seriesTotal(s.key))}` : ""}
               </span>
             ))}
           </span>
         ) : null}
         {trend?.error ? <span className="text-[12px] text-sam-warning">{failedLabel}</span> : null}
       </header>
+      {definition ? (
+        <p className={`shrink-0 text-[12px] leading-4 ${muted}`} data-admin-trend-definition="1">
+          {definition}
+        </p>
+      ) : null}
       {trend && trend.points.length ? (
         <div className="flex min-h-0 flex-1 gap-1 pt-1" role="img" aria-label={ko ? trend.labelKo : trend.labelEn}>
           <div
@@ -333,6 +374,7 @@ function PendingList({
                 <span className={`block truncate text-[13px] font-medium leading-5 ${fg}`}>{ko ? i.titleKo : i.titleEn}</span>
                 <span className={`block truncate text-[12px] leading-4 ${muted}`}>
                   {ko ? i.domainKo : i.domainEn}
+                  {i.unitNoteKo ? ` · ${ko ? i.unitNoteKo : i.unitNoteEn ?? i.unitNoteKo}` : ""}
                   {i.href ? "" : ` · ${t("admin_dash_v4_pending_no_list")}`}
                 </span>
               </span>
@@ -415,6 +457,59 @@ function RecentList({
   );
 }
 
+/** 공지 (고객센터 콘텐츠 최신 5건) — 한 줄 블록, 항목을 누르면 공지 상세로 간다. */
+function NoticesStrip({
+  notices,
+  t,
+  failedLabel,
+}: {
+  notices: AdminDashboardNoticesPayload | null;
+  t: ReturnType<typeof useI18n>["t"];
+  failedLabel: string;
+}) {
+  if (!notices) return null;
+  const stateLabel = (s: string) =>
+    s === "scheduled"
+      ? t("admin_dash_v4_notice_state_scheduled")
+      : s === "ended"
+        ? t("admin_dash_v4_notice_state_ended")
+        : s === "hidden"
+          ? t("admin_dash_v4_notice_state_hidden")
+          : t("admin_dash_v4_notice_state_published");
+  return (
+    <section
+      aria-label={t("admin_dash_v4_notices_title")}
+      data-admin-dashboard-notices="1"
+      className={`${card} flex h-9 shrink-0 items-center gap-2 overflow-hidden px-3`}
+    >
+      <h2 className={`shrink-0 text-[13px] font-semibold ${fg}`}>{t("admin_dash_v4_notices_title")}</h2>
+      {notices.error ? <span className="shrink-0 text-[12px] text-sam-warning">{failedLabel}</span> : null}
+      <ul className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden whitespace-nowrap">
+        {notices.items.length === 0 && !notices.error ? (
+          <li className={`text-[12px] ${muted}`}>{t("admin_dash_v4_notices_empty")}</li>
+        ) : (
+          notices.items.map((n) => (
+            <li key={n.id} className="min-w-0 shrink" data-admin-notice-item={n.id}>
+              <Link href={n.href} prefetch={false} className={`flex min-w-0 items-center gap-1 text-[13px] hover:underline ${fg}`}>
+                {n.state !== "published" ? (
+                  <span className={`shrink-0 text-[12px] ${muted}`}>[{stateLabel(n.state)}]</span>
+                ) : null}
+                <span className="min-w-0 max-w-[220px] truncate">{n.title || "—"}</span>
+                <span className={`shrink-0 text-[12px] tabular-nums ${muted}`}>
+                  {n.at ? formatAdminManilaDateTime(n.at).slice(5, 10) : ""}
+                </span>
+              </Link>
+            </li>
+          ))
+        )}
+      </ul>
+      <Link href={notices.href} prefetch={false} className={`shrink-0 text-[12px] underline ${muted}`}>
+        {t("admin_dash_v4_view_all")}
+      </Link>
+    </section>
+  );
+}
+
 function SidePanelView({
   side,
   onSide,
@@ -478,6 +573,7 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
     initial?.tabData ?? {}
   );
   const [recent, setRecent] = useState<AdminDashboardRecentPayload | null>(initial?.recent ?? null);
+  const [notices, setNotices] = useState<AdminDashboardNoticesPayload | null>(initial?.notices ?? null);
   const [side, setSide] = useState<SidePanel>("pending");
   const [generatedAt, setGeneratedAt] = useState<string | null>(initial?.generatedAt ?? null);
   const [status, setStatus] = useState<"idle" | "loading" | "partial" | "failed">("idle");
@@ -498,6 +594,11 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
       if (forPeriod !== periodRef.current) return;
       if (json.band) setBand((prev) => mergeAdminDashboardBand(prev, json.band ?? []));
       if (json.recent) setRecent(json.recent);
+      if (json.notices) {
+        const nextNotices = json.notices;
+        // 실패면 이전 목록 유지 + 오류 표시 (빈 목록으로 바꾸지 않는다)
+        setNotices((prev) => (nextNotices.error && prev ? { ...prev, error: nextNotices.error } : nextNotices));
+      }
       setTabData((prev) => {
         const cur = prev[target] ?? EMPTY_TAB;
         const next: AdminDashboardTabData = { ...cur };
@@ -521,6 +622,7 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
         );
       }
       if (parts.includes("recent")) setRecent((prev) => (prev ? { ...prev, error: "fetch_failed" } : prev));
+      if (parts.includes("notices")) setNotices((prev) => (prev ? { ...prev, error: "fetch_failed" } : prev));
       setTabData((prev) => {
         const cur = prev[target];
         if (!cur) return prev;
@@ -544,6 +646,7 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
     setBand([]);
     setTabData({});
     setRecent(null);
+    setNotices(null);
     setGeneratedAt(null);
   }, [period]);
 
@@ -644,10 +747,11 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
           <div className="flex min-h-0 min-w-0 flex-col gap-3">
             <div className="grid shrink-0 grid-cols-3 gap-2" data-admin-dashboard-metrics="1">
               {data.metrics.map((m) => (
-                <MetricTile key={m.id} m={m} ko={ko} period={period} failedLabel={failedLabel} />
+                <MetricTile key={m.id} m={m} ko={ko} t={t} period={period} failedLabel={failedLabel} />
               ))}
             </div>
             <TrendView trend={data.trend} ko={ko} t={t} failedLabel={failedLabel} />
+            <NoticesStrip notices={notices} t={t} failedLabel={failedLabel} />
             {data.shortcuts.length ? (
               <nav
                 aria-label={t("admin_dash_v4_shortcuts")}

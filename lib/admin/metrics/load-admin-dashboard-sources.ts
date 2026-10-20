@@ -1,32 +1,68 @@
 /**
  * 통합 대시보드 출처 (서버 전용) — 레지스트리 `AdminMetricSourceKey` 마다 **이동 화면이 쓰는 로더·필터**를
  * 1번 호출해 지표 id → 값 맵으로 옮긴다 (대시보드 값 = 이동 화면 값). 새 DB 객체 없음.
- * 선택 기간(`range`, PHT)은 기간 지표·추세에 같은 경계로 쓴다.
+ * - 필터 인자는 지표 링크(`resolveAdminMetricHref`)를 **이동 화면의 파서**로 읽어 만든다 (링크 = 화면 = 대시보드).
+ * - 처리 대기 항목 중 이동 화면이 다른 함수로 세는 카테고리(커뮤니티 신고·수수료 검토·주문 운영 예외)는
+ *   이동 화면 함수로 다시 센 값으로 바꾼다(`alignQueueWithDestinations`) — 지표·처리 대기 목록·이동 화면이 같은 값.
+ * 선택 기간(`range`, PHT)은 기간 지표·추세에 같은 경계로 쓴다. 추세는 선택 기간이 끝나는 날에서 끝난다.
+ * 계약 테스트: `__tests__/dashboard-destination-contract.test.ts`.
  */
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadAdminActionQueueCounts, type AdminActionQueuePermissionScope } from "@/lib/admin/admin-action-queue";
+import {
+  ADMIN_ACTION_QUEUE_REGISTRY_BY_KEY,
+  type AdminActionQueueCategory,
+  type AdminActionQueueCategoryResult,
+} from "@/lib/admin/admin-action-queue-registry";
 import { loadAdminRecentActivityLists } from "@/lib/admin-dashboard/load-admin-recent-activity";
-import { loadAdminBusinessListOps } from "@/lib/admin-business/load-admin-business-list";
+import {
+  loadAdminBusinessListOps,
+  parseAdminBusinessListOpsFilters,
+} from "@/lib/admin-business/load-admin-business-list";
 import {
   computeAdsWorkspaceHeroOccupancy,
   computeAdsWorkspaceSummaryCounts,
 } from "@/lib/admin/advertising-workspace/workspace-summary";
 import { loadAdsControlPlane } from "@/lib/admin/ads-control-plane/load-ads-control-plane";
 import { adminDomainCountFromClient } from "@/lib/admin/domain-dashboard/count-exact";
-import { loadCommunityDomainDashboard } from "@/lib/admin/domain-dashboard/load-community-domain-dashboard";
-import { loadTradeDomainDashboard } from "@/lib/admin/domain-dashboard/load-trade-domain-dashboard";
 import type { AdminDomainDashboardModel } from "@/lib/admin/domain-dashboard/types";
-import type { AdminDashboardPeriodRange } from "@/lib/admin/metrics/dashboard-period";
-import { manilaDateKey, manilaLastNDaysRangeUtc } from "@/lib/admin/metrics/manila-period";
-import type { AdminDashboardTrendId, AdminMetricSourceKey } from "@/lib/admin/metrics/registry";
+import {
+  applyAccountDeletionRequestStatusFilter,
+  applyCommunityPostStatusOriginFilter,
+  applyTradeReportTabFilter,
+  isTradeReportTab,
+  type TradeReportTab,
+} from "@/lib/admin/metrics/admin-metric-filters";
+import {
+  adminDashboardTrendDayKeys,
+  type AdminDashboardPeriodRange,
+  type AdminDashboardTrendWindow,
+} from "@/lib/admin/metrics/dashboard-period";
+import { formatAdminManilaDate, manilaDateKey, manilaLastNDaysRangeUtc } from "@/lib/admin/metrics/manila-period";
+import {
+  getAdminMetricDefinition,
+  resolveAdminMetricHref,
+  type AdminDashboardTrendId,
+  type AdminMetricSourceKey,
+} from "@/lib/admin/metrics/registry";
+import { listAdminNotificationCampaigns } from "@/lib/admin/notification-campaigns/campaign-list-service";
+import { parseCampaignListQuery } from "@/lib/admin/notification-campaigns/campaign-status-machine";
+import { parseTradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
+import {
+  countTradePosts,
+  loadTradePostsContext,
+  parseTradePostsFilter,
+} from "@/lib/admin/trade-admin/trade-posts-query";
 import type {
   AdminDashboardMetricEntry,
   AdminDashboardMetricMap,
   AdminDashboardSources,
 } from "@/lib/admin/metrics/build-admin-dashboard-overview";
 import type {
+  AdminDashboardNoticeItem,
+  AdminDashboardNoticeState,
   AdminDashboardRecentGroup,
   AdminDashboardTrendPoint,
 } from "@/lib/admin/metrics/dashboard-overview-contract";
@@ -39,8 +75,16 @@ import {
   type ProfileFilterOp,
 } from "@/lib/admin-users/admin-member-list-query";
 import { countPointChargesByStatus } from "@/lib/admin/shared-handlers/admin-point-charges-list";
-import { listCommunityReportGroupsForAdmin } from "@/lib/community-feed/admin-community-reports";
+import {
+  listCommunityReportGroupsForAdmin,
+  resolveCommunityReportInboxTab,
+  type CommunityReportTargetFilter,
+} from "@/lib/community-feed/admin-community-reports";
+import { parseCommunityAdminPeriod } from "@/lib/admin/community-admin/community-admin-period";
 import { loadFinanceTodaySummary } from "@/lib/finance/today-summary/load-finance-today-summary";
+import { APP_NOTICES_CONTENT_SELECT, isCustomerCenterContentPublishedNow } from "@/lib/notices/customer-center-content";
+import { sumStoreCashOutstandingMinor } from "@/lib/stores/commission/store-commission-contract";
+import { parseStoreCommissionLedgerQuery } from "@/lib/stores/commission/store-commission-ledger-query";
 import { BUSINESS_CASH_LEDGER_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import {
   loadAdminStoreCashOverviewIds,
@@ -153,10 +197,61 @@ export function recentGroupsFromLists(
   ];
 }
 
+/** 대시보드 공지 블록 — 최신 5건 */
+export const ADMIN_DASHBOARD_NOTICE_LIMIT = 5;
+
+/** 공지 상태 (고객센터 게시 판정과 같은 규칙) */
+export function adminDashboardNoticeState(
+  row: {
+    is_active?: boolean | null;
+    starts_at?: string | null;
+    ends_at?: string | null;
+    archived_at?: string | null;
+    deleted_at?: string | null;
+  },
+  now: Date
+): AdminDashboardNoticeState {
+  if (isCustomerCenterContentPublishedNow(row)) return "published";
+  if (row.deleted_at || row.archived_at || !row.is_active) return "hidden";
+  const starts = Date.parse(String(row.starts_at ?? ""));
+  if (Number.isFinite(starts) && starts > now.getTime()) return "scheduled";
+  return "ended";
+}
+
+/**
+ * 처리 대기 카테고리 → 이동 화면이 세는 함수 (대시보드에서만 바꾼다; 관리자 벨 등 다른 화면은 레지스트리 값 그대로).
+ * 실패 = 그 카테고리 「확인 불가」(레지스트리 값으로 대신하지 않는다 — 다른 숫자를 보이지 않기 위해).
+ */
+export async function alignQueueWithDestinations(
+  categories: readonly AdminActionQueueCategoryResult[],
+  destinations: Partial<Record<AdminActionQueueCategory, () => Promise<number | null>>>
+): Promise<AdminActionQueueCategoryResult[]> {
+  return Promise.all(
+    categories.map(async (c) => {
+      const count = destinations[c.key];
+      if (!count || c.status === "forbidden") return { ...c };
+      const n = await count().catch(() => null);
+      return n === null ? { ...c, count: null, status: "unavailable" as const } : { ...c, count: n, status: "ok" as const };
+    })
+  );
+}
+
 export function createAdminDashboardSources(input: AdminDashboardSourcesInput): AdminDashboardSources {
   const { sb, storesSb, notesSb, scope, range } = input;
   const now = input.now ?? new Date();
   const s = sb as any;
+  const todayPht = formatAdminManilaDate(now);
+
+  /** 지표 링크의 쿼리 — 이동 화면 파서에 그대로 넣는다. */
+  function hrefParams(metricId: string): URLSearchParams {
+    const href = resolveAdminMetricHref(getAdminMetricDefinition(metricId), { todayPht, range });
+    return new URL(href, "http://admin.local").searchParams;
+  }
+  /** 처리 대기 카테고리의 목록 링크 쿼리 */
+  function queueListParams(key: AdminActionQueueCategory): URLSearchParams {
+    const href = ADMIN_ACTION_QUEUE_REGISTRY_BY_KEY.get(key)?.listHref ?? "/admin";
+    return new URL(href, "http://admin.local").searchParams;
+  }
 
   /** 회원 목록 API 와 같은 필터 연산으로 profiles 개수 (`/api/admin/users` summary.totalRows). */
   async function memberCount(ops: readonly ProfileFilterOp[]): Promise<number | null> {
@@ -183,15 +278,67 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
     return ((data ?? []) as Record<string, unknown>[]).map((row) => ({ at: String(row[column] ?? ""), row }));
   }
 
+  /** 커뮤니티 신고 처리함 묶음 — 지표와 처리 대기 항목이 같은 1회 결과를 쓴다. */
+  let reportGroupsMemo: Promise<number> | null = null;
+  const communityReportTargetsPending = () =>
+    (reportGroupsMemo ??= (async () => {
+      // 신고 처리함 화면(app/admin/community/reports)과 같은 해석: 탭 · 대상 종류 · 접수 기간
+      const sp = hrefParams("community.report_targets_pending");
+      const tab = resolveCommunityReportInboxTab({ status: sp.get("status"), pending: sp.get("pending") });
+      const typeRaw = sp.get("type") ?? "";
+      const targetType: CommunityReportTargetFilter =
+        typeRaw === "post" || typeRaw === "comment" || typeRaw === "user" ? typeRaw : "";
+      const period = parseCommunityAdminPeriod({ period: sp.get("period"), from: sp.get("from"), to: sp.get("to") });
+      const r = await listCommunityReportGroupsForAdmin({
+        tab,
+        targetType,
+        createdFromIso: period.ok ? period.fromIso : null,
+        createdToIso: period.ok ? period.toIso : null,
+        limit: 1,
+        offset: 0,
+      });
+      if (!r.ok) throw new Error("community_report_groups:failed");
+      // 조회 상한에 걸리면 묶음 수가 바닥값 → 확인 불가
+      if (r.truncated) throw new Error("community_report_groups:truncated");
+      return r.counts[tab];
+    })());
+
+  /** 수수료 원장 「검토 필요」 = 처리 대기 「수수료 검토」 링크(/admin/store-settlements?state=review_required) */
+  async function settlementsReviewTotal(): Promise<number> {
+    const q = parseStoreCommissionLedgerQuery(queueListParams("settlements_actionable"), now);
+    const page = await loadStoreCommissionLedgerPage(sb, {
+      storeIds: q.storeId ? [q.storeId] : null,
+      fromIso: q.fromIso,
+      toIso: q.toIso,
+      state: q.state,
+      orderNo: q.orderNo,
+      limit: 1,
+      offset: 0,
+    });
+    return page.totalRows;
+  }
+
+  /** 처리 필요 주문 화면(exceptions) total = 처리 대기 「주문 운영 예외」 링크 */
+  async function ordersAttentionTotal(): Promise<number> {
+    const sp = queueListParams("orders_attention");
+    sp.set("page_size", "1");
+    const out = await loadAdminOrderOpsPage(storesSb ?? sb, parseAdminOrderOpsQuery("exceptions", sp));
+    if (!out.ok) throw new Error(`admin_store_order_ops_page:${out.error}`);
+    return out.result.total;
+  }
+
   const loaders: Record<Exclude<AdminMetricSourceKey, "queue">, () => Promise<AdminDashboardMetricMap>> = {
     async members() {
+      const deletionStatus = hrefParams("members.deletion_requests").get("status") ?? "open";
       const [total, active, created, suspended, blocked, deletion] = await Promise.all([
         memberCount([]),
         memberCount(adminMemberStatusFilterOps("active")),
         memberCount(adminMemberJoinedRangeOps(range.fromDay, range.toDay)),
         memberCount(adminMemberStatusFilterOps("suspended")),
         memberCount(adminMemberStatusFilterOps("blocked")),
-        adminDomainCountFromClient(sb, "account_deletion_requests", (q) => q.in("status", ["requested", "processing"])),
+        adminDomainCountFromClient(sb, "account_deletion_requests", (q) =>
+          applyAccountDeletionRequestStatusFilter(q, deletionStatus)
+        ),
       ]);
       return mapFrom([
         ["members.total", { value: total }],
@@ -203,16 +350,42 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
       ]);
     },
     async community() {
-      return metricMapFromDomainModel(await loadCommunityDomainDashboard({ scope, now }));
+      // 커뮤니티 글 화면: 탭(tab) = 상태(status) 로 API 에 넘긴다 · origin 그대로
+      const sp = hrefParams("community.posts_active.member");
+      const value = await adminDomainCountFromClient(notesSb ?? sb, "community_posts", (q) =>
+        applyCommunityPostStatusOriginFilter(q, { status: sp.get("tab"), origin: sp.get("origin") })
+      );
+      return mapFrom([["community.posts_active.member", { value }]]);
     },
     async trade() {
-      return metricMapFromDomainModel(await loadTradeDomainDashboard(sb, { now }));
+      const ctxRes = await loadTradePostsContext(sb);
+      if (!ctxRes.ok) throw new Error(`trade_posts_context:${ctxRes.error}`);
+      const ctx = ctxRes.ctx;
+      const postCount = async (id: string) => {
+        const sp = hrefParams(id);
+        const parsed = parseTradePostsFilter(sp);
+        if (!parsed.ok) throw new Error(`trade_posts_filter:${parsed.error}`);
+        return countTradePosts(sb, parseTradePostTab(sp.get("tab")), parsed.filter, ctx);
+      };
+      const reportTabRaw = (hrefParams("trade.reports_open").get("tab") ?? "open").trim();
+      if (!isTradeReportTab(reportTabRaw)) throw new Error("trade_reports:invalid_tab");
+      const reportTab: TradeReportTab = reportTabRaw;
+      const [selling, sold, hidden, reportsOpen] = await Promise.all([
+        postCount("trade.posts.selling"),
+        postCount("trade.posts.sold"),
+        postCount("trade.posts.admin_hidden"),
+        adminDomainCountFromClient(sb, "reports", (q) => applyTradeReportTabFilter(q, reportTab)),
+      ]);
+      return mapFrom([
+        ["trade.posts.selling", { value: selling }],
+        ["trade.posts.sold", { value: sold }],
+        ["trade.posts.admin_hidden", { value: hidden }],
+        ["trade.reports_open", { value: reportsOpen }],
+      ]);
     },
     async community_reports() {
       // 신고 처리함과 같은 함수 — 같은 대상(target_type+target_id) 묶음 수, 「대기」 탭.
-      const r = await listCommunityReportGroupsForAdmin({ tab: "pending", limit: 1 });
-      if (!r.ok) throw new Error("community_report_groups:failed");
-      return mapFrom([["community.report_targets_pending", { value: r.counts.pending }]]);
+      return mapFrom([["community.report_targets_pending", { value: await communityReportTargetsPending() }]]);
     },
     async points() {
       const c = await countPointChargesByStatus(sb);
@@ -239,18 +412,23 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
       ]);
     },
     async stores() {
-      const res = await loadAdminBusinessListOps(sb, { page: 1, pageSize: 1 });
+      const res = await loadAdminBusinessListOps(sb, {
+        ...parseAdminBusinessListOpsFilters(hrefParams("stores.open_now")),
+        page: 1,
+        pageSize: 1,
+      });
       if (!("ok" in res) || !res.ok) throw new Error(`business_ops_kpi:${"error" in res ? res.error : "unavailable"}`);
       return mapFrom([["stores.open_now", { value: res.kpi.openNow }]]);
     },
     async commission() {
+      const net = parseStoreCommissionLedgerQuery(hrefParams("finance.commission_net"), now);
       const [ids, period] = await Promise.all([
         loadAdminStoreCashOverviewIds(sb),
         loadStoreCommissionLedgerPage(sb, {
           storeIds: null,
-          fromIso: range.fromIso,
-          toIso: range.toIso,
-          state: "all",
+          fromIso: net.fromIso,
+          toIso: net.toIso,
+          state: net.state,
           orderNo: null,
           limit: 1,
           offset: 0,
@@ -258,7 +436,7 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
       ]);
       const overview = await loadStoreCashOverview(sb, ids);
       return mapFrom([
-        ["finance.commission_outstanding", { value: overview.positions.reduce((n, p) => n + p.outstandingMinor, 0) }],
+        ["finance.commission_outstanding", { value: sumStoreCashOutstandingMinor(overview.positions) }],
         ["finance.commission_net", { value: period.summary.netCommissionMinor }],
       ]);
     },
@@ -278,13 +456,30 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
         ["ads.incomplete", { value: c.incomplete }],
       ]);
     },
+    async notifications() {
+      // 알림 발송 화면과 같은 질의(parseCampaignListQuery) — total 만 쓰므로 1행만 읽는다.
+      const svc = notesSb ?? sb;
+      const ids = [
+        "notifications.campaigns_failed",
+        "notifications.campaigns_partially_failed",
+        "notifications.campaigns_in_progress",
+      ];
+      const values = await Promise.all(
+        ids.map(async (id) => {
+          const sp = hrefParams(id);
+          sp.set("page_size", "1");
+          const r = await listAdminNotificationCampaigns(svc, parseCampaignListQuery(sp));
+          return r.ok ? r.total : null;
+        })
+      );
+      return mapFrom(ids.map((id, i) => [id, { value: values[i] }] as [string, AdminDashboardMetricEntry]));
+    },
   };
 
-  async function trend(id: AdminDashboardTrendId, days: 7 | 30): Promise<AdminDashboardTrendPoint[]> {
-    const win = manilaLastNDaysRangeUtc(days, now);
-    const keys = manilaDailyKeys(days, now);
-    const from = win.rangeStartIso;
-    const to = win.todayEndExIso;
+  async function trend(id: AdminDashboardTrendId, window: AdminDashboardTrendWindow): Promise<AdminDashboardTrendPoint[]> {
+    const keys = adminDashboardTrendDayKeys(window);
+    const from = window.fromIso;
+    const to = window.toIso;
     switch (id) {
       case "signups_orders_daily": {
         const [signups, orders] = await Promise.all([
@@ -295,12 +490,20 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
       }
       case "signups_daily":
         return bucketDailyPht(keys, { signups: await timestamps("profiles", "created_at", from, to) });
+      case "members_activity_daily": {
+        // 마지막 로그인 날짜별 회원 수 — 회원당 하루 (정의: registry ADMIN_DASHBOARD_ACTIVE_7D_DEFINITION_KO)
+        const [signups, active] = await Promise.all([
+          timestamps("profiles", "created_at", from, to),
+          timestamps("profiles", "last_login_at", from, to),
+        ]);
+        return bucketDailyPht(keys, { signups, active });
+      }
       case "reports_daily": {
-        const [trade, community] = await Promise.all([
+        const [tradeRows, community] = await Promise.all([
           timestamps("reports", "created_at", from, to),
           timestamps("community_reports", "created_at", from, to),
         ]);
-        return bucketDailyPht(keys, { trade, community });
+        return bucketDailyPht(keys, { trade: tradeRows, community });
       }
       case "orders_daily":
         return bucketDailyPht(keys, { orders: await timestamps("store_orders", "created_at", from, to) });
@@ -335,13 +538,47 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
         notesSb: notesSb ?? sb,
         permissionScope: scope,
       });
-      return counts.categories;
+      return alignQueueWithDestinations(counts.categories, {
+        community_reports: communityReportTargetsPending,
+        settlements_actionable: settlementsReviewTotal,
+        orders_attention: ordersAttentionTotal,
+      });
     },
     trend,
     recent: async () => {
       const lists = await loadAdminRecentActivityLists(s, now.toISOString());
       if (lists.errors.length) throw new Error(lists.errors.join(";").slice(0, 120));
       return recentGroupsFromLists(lists);
+    },
+    notices: async (): Promise<AdminDashboardNoticeItem[]> => {
+      // 관리자 「공지·고객센터」 목록(/api/admin/app-notices)과 같은 원장·같은 정렬 — 최신 5건
+      const { data, error } = await (notesSb ?? sb)
+        .from("app_notices")
+        .select(APP_NOTICES_CONTENT_SELECT)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(ADMIN_DASHBOARD_NOTICE_LIMIT);
+      if (error) throw new Error(`app_notices:${error.message ?? "query_failed"}`);
+      return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => {
+        const id = String(r.id ?? "");
+        return {
+          id,
+          title: String(r.title ?? ""),
+          contentType: String(r.content_type ?? "notice"),
+          state: adminDashboardNoticeState(
+            {
+              is_active: r.is_active === true,
+              starts_at: (r.starts_at as string | null) ?? null,
+              ends_at: (r.ends_at as string | null) ?? null,
+              archived_at: (r.archived_at as string | null) ?? null,
+              deleted_at: (r.deleted_at as string | null) ?? null,
+            },
+            now
+          ),
+          at: String(r.published_at ?? r.created_at ?? "") || null,
+          href: `/admin/app/notices/${encodeURIComponent(id)}`,
+        };
+      });
     },
   };
 }

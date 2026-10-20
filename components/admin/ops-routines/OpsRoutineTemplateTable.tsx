@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getOpsRoutineTemplates } from "@/lib/ops-routines/ops-routines-state";
@@ -16,7 +17,8 @@ import type {
 import type { MessageKey } from "@/lib/i18n/messages";
 
 export function OpsRoutineTemplateTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [category, setCategory] = useState<OpsRoutineCategory | "">("");
   const [cadence, setCadence] = useState<OpsRoutineCadence | "">("");
   const templates = useMemo(
@@ -75,7 +77,7 @@ export function OpsRoutineTemplateTable() {
       </div>
 
       {templates.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_routines_tpl_empty")}</div>
+        <AdminEmptyState ko={ko} message={t("admin_ops_tools_routines_tpl_empty")} />
       ) : (
         <AdminTable
           headers={[

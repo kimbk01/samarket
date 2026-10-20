@@ -61,6 +61,14 @@ export async function loadFinanceControlPlane(
   sb: SupabaseClient
 ): Promise<FinanceControlPlaneModel> {
   const sectionErrors: string[] = [];
+  /**
+   * 소스 조회 실패 — 화면에는 소스 키(point·cash …)만 보낸다. DB 오류 원문은 서버 로그로만 남긴다
+   * (R6 — 「일부 소스 확인 불가: point:<DB 오류 원문>」 노출 결함).
+   */
+  const pushSectionError = (section: string, error: { message?: string } | null) => {
+    console.error("[finance-control-plane] section unavailable", section, error?.message ?? "");
+    sectionErrors.push(section);
+  };
 
   const [
     pointRes,
@@ -121,40 +129,40 @@ export async function loadFinanceControlPlane(
   ]);
 
   if (pointRes.error && !isMissing(pointRes.error, /point_charge_requests|schema cache|does not exist/i)) {
-    sectionErrors.push(`point:${pointRes.error.message}`);
+    pushSectionError("point", pointRes.error);
   }
   if (
     cashPendingRes.error &&
     !isMissing(cashPendingRes.error, /business_cash_charge_requests|schema cache|does not exist/i)
   ) {
-    sectionErrors.push(`cash:${cashPendingRes.error.message}`);
+    pushSectionError("cash", cashPendingRes.error);
   }
   if (
     coinWithdrawRes.error &&
     !isMissing(coinWithdrawRes.error, /coin_withdrawal_requests|schema cache|does not exist/i)
   ) {
-    sectionErrors.push(`coin_withdraw:${coinWithdrawRes.error.message}`);
+    pushSectionError("coin_withdraw", coinWithdrawRes.error);
   }
   if (settlementRes.error) {
-    sectionErrors.push(`payable:${settlementRes.error.message}`);
+    pushSectionError("payable", settlementRes.error);
   }
   if (
     obligationRes.error &&
     !isMissing(obligationRes.error, /store_sale_fee_obligations|schema cache|does not exist/i)
   ) {
-    sectionErrors.push(`obligation:${obligationRes.error.message}`);
+    pushSectionError("obligation", obligationRes.error);
   }
   if (
     coinLedgerRes.error &&
     !isMissing(coinLedgerRes.error, /store_economic_point_ledger|schema cache|does not exist/i)
   ) {
-    sectionErrors.push(`coin_ledger:${coinLedgerRes.error.message}`);
+    pushSectionError("coin_ledger", coinLedgerRes.error);
   }
   if (
     cashLedgerRes.error &&
     !isMissing(cashLedgerRes.error, /business_cash_ledger|schema cache|does not exist/i)
   ) {
-    sectionErrors.push(`cash_ledger:${cashLedgerRes.error.message}`);
+    pushSectionError("cash_ledger", cashLedgerRes.error);
   }
 
   const pointUnavailable = !!pointRes.error && !isMissing(pointRes.error, /point_charge_requests|schema cache|does not exist/i);

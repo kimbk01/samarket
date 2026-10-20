@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getUserFeedAssignments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
@@ -9,7 +10,8 @@ import { recAssignedGroupLabel } from "@/components/admin/recommendation-admin-i
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function UserAssignmentTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [experimentId, setExperimentId] = useState<string>("");
 
   const experiments = useMemo(() => getRecommendationExperiments(), []);
@@ -41,9 +43,11 @@ export function UserAssignmentTable() {
         </select>
       </div>
       {assignments.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rec_exp_empty_assignments")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={experimentId ? undefined : t("admin_rec_exp_empty_assignments")}
+          onReset={experimentId ? () => { setExperimentId(""); } : undefined}
+        />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[560px] border-collapse sam-text-body">

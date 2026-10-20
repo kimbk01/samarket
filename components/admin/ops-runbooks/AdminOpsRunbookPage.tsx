@@ -1,9 +1,10 @@
 "use client";
 
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsRunbookSummaryCards } from "./OpsRunbookSummaryCards";
 import { OpsRunbookExecutionTable } from "./OpsRunbookExecutionTable";
@@ -12,21 +13,18 @@ import { loadOpsRunbookWorkspaceFromServer } from "@/lib/ops-runbooks/ops-runboo
 
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 export function AdminOpsRunbookPage() {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<"list" | "summary">("list");
   const [statusFilter, setStatusFilter] = useState<OpsRunbookExecutionStatus | "">("");
   const [refresh, setRefresh] = useState(0);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadOpsRunbookWorkspaceFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadOpsRunbookWorkspaceFromServer);
+  const hydrated = loadState.status === "ready";
 
   if (!hydrated) {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_manage_runbooks" />
-        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

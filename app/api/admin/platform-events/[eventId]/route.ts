@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { mapPlatformEventDbRow, type PlatformEventDbRow } from "@/lib/platform-events/map-row";
 import { serializePlatformEventSections } from "@/lib/platform-events/sections";
@@ -163,6 +164,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     }
     Object.assign(patch, platformEventLifecyclePatch(body.action, new Date().toISOString()));
   }
+  // R2 — 게시(노출 시작, L2)는 처리 사유 필수. 게시 중지·보관(L1)은 선택. 감사 after.reason 에 남긴다.
+  const adminReason = parseAdminReason(body.reason);
+  if (body.action === "publish" && !adminReason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
 
   const board = parsePlatformEventBoardFields(body);
   if (!board.ok) {
@@ -206,6 +212,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       fields: Object.keys(patch).filter((k) => k !== "updated_by" && k !== "updated_at"),
       status: patch.status ?? null,
       lifecycleAction: typeof body.action === "string" ? body.action : null,
+      reason: adminReason,
     },
   });
   return NextResponse.json({

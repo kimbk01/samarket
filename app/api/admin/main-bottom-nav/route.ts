@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
@@ -127,6 +128,13 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
+  // R2 — 기본값 초기화(dataReset, L3)는 처리 사유 필수 (본문 { reason }). 감사 after_json.reason 에 남긴다.
+  const delBody = (await req.json().catch(() => ({}))) as { reason?: unknown };
+  const reason = parseAdminReason(delBody.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
+
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -157,7 +165,7 @@ export async function DELETE(req: NextRequest) {
     target_id: "global",
     action: "main_bottom_nav.reset",
     before_json: beforeRow?.value_json != null ? { value_json: beforeRow.value_json } : null,
-    after_json: { reset: true },
+    after_json: { reset: true, reason },
     ip: rm.ip,
     user_agent: rm.userAgent,
   });

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getProductBacklogItems } from "@/lib/product-backlog/product-backlog-state";
@@ -23,7 +24,8 @@ const STATUS_COLUMNS: ProductBacklogStatus[] = [
 ];
 
 export function ProductBacklogBoard() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [categoryFilter, setCategoryFilter] = useState<ProductFeedbackCategory | "">("");
   const [statusFilter, setStatusFilter] = useState<ProductBacklogStatus | "">("");
 
@@ -91,9 +93,7 @@ export function ProductBacklogBoard() {
       </div>
 
       {allItems.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_product_backlog_empty_backlog")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_product_backlog_empty_backlog")} />
       ) : (
         <div className="grid gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-5">
           {columnsToShow.map((status) => (

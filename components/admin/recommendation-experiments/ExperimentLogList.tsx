@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getExperimentLogs } from "@/lib/recommendation-experiments/recommendation-experiments-state";
@@ -15,7 +16,8 @@ interface ExperimentLogListProps {
 }
 
 export function ExperimentLogList({ experimentId }: ExperimentLogListProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [filterExp, setFilterExp] = useState(experimentId ?? "");
 
   const experiments = useMemo(() => getRecommendationExperiments(), []);
@@ -44,9 +46,7 @@ export function ExperimentLogList({ experimentId }: ExperimentLogListProps) {
         </select>
       </div>
       {logs.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rec_exp_empty_logs")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_rec_exp_empty_logs")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[560px] border-collapse sam-text-body">

@@ -23,7 +23,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { projectFeedAdOpsProductStatus } from "@/lib/ads/feed-ad-ops-presentation";
 import {
-  ADMIN_ACTIONABLE_STORE_APPROVAL,
+  applyMeetingReportTabFilter,
+  applyStoreApprovalStatusFilter,
+  applySupportCaseTabFilter,
+} from "@/lib/admin/metrics/admin-metric-filters";
+import {
   COMMUNITY_REPORT_ADMIN_ACTIONABLE,
   STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES,
   TRADE_REPORT_ADMIN_ACTIONABLE,
@@ -276,7 +280,7 @@ export async function loadAdminActionQueueCounts(input: {
       : NOT_CONFIGURED,
     storesSb ? storesSb.from("store_inquiries").select("id", head).eq("status", "open") : NOT_CONFIGURED,
     notesSb
-      ? notesSb.from("support_cases").select("id", head).in("status", ["OPEN", "WAITING_ADMIN"])
+      ? applySupportCaseTabFilter(notesSb.from("support_cases").select("id", head), "ACTIONABLE")
       : NOT_CONFIGURED,
     notesSb
       ? notesSb
@@ -285,16 +289,13 @@ export async function loadAdminActionQueueCounts(input: {
           .in("status", [...COMMUNITY_REPORT_ADMIN_ACTIONABLE])
       : NOT_CONFIGURED,
     storesSb
-      ? storesSb
-          .from("stores")
-          .select("id", head)
-          .in("approval_status", [...ADMIN_ACTIONABLE_STORE_APPROVAL])
+      ? applyStoreApprovalStatusFilter(storesSb.from("stores").select("id", head), "actionable")
       : NOT_CONFIGURED,
     storesSb
       ? storesSb.from("delivery_ad_operations_cases").select("id", head).eq("status", "WAITING_ADMIN")
       : NOT_CONFIGURED,
     notesSb
-      ? notesSb.from("meeting_reports").select("id", head).in("status", ["pending", "reviewing"])
+      ? applyMeetingReportTabFilter(notesSb.from("meeting_reports").select("id", head), "pending")
       : NOT_CONFIGURED,
     storesSb
       ? storesSb

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -9,7 +10,8 @@ import { RELEASE_NOTE_STATUS_KEYS } from "@/components/admin/i18n/admin-release-
 import type { ReleaseNoteStatus } from "@/lib/types/dev-sprints";
 
 export function ReleaseNoteTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [statusFilter, setStatusFilter] = useState<ReleaseNoteStatus | "">("");
   const notes = useMemo(
     () => getReleaseNotes(statusFilter ? { status: statusFilter } : undefined),
@@ -33,9 +35,7 @@ export function ReleaseNoteTable() {
       </div>
 
       {notes.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rel_notes_empty")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_rel_notes_empty")} />
       ) : (
         <AdminTable
           headers={[

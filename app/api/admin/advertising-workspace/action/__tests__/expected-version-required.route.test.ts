@@ -51,7 +51,8 @@ describe("advertising-workspace action — DEF-6 expected version required", () 
     [{ expectedLifecycle: "live" }],
     [{ expectedUpdatedAt: "  ", expectedLifecycle: "live" }],
   ])("rejects delivery state changes without both versions (%j)", async (versions) => {
-    const res = await call({ family: "delivery_banner", entityId: "camp-1", action: "pause", ...versions });
+    // R2: 배달 일시중지는 사유 필수(writer 와 동일) — 사유를 넣고 버전 검사만 본다.
+    const res = await call({ family: "delivery_banner", entityId: "camp-1", action: "pause", reason: "점검", ...versions });
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe("expected_version_required");
     expect(maybeSingle).not.toHaveBeenCalled();
@@ -65,6 +66,7 @@ describe("advertising-workspace action — DEF-6 expected version required", () 
       action: "pause",
       expectedUpdatedAt: "2026-10-01T00:00:00Z",
       expectedLifecycle: "live",
+      reason: "점검",
     });
     expect(res.status).toBe(200);
     expect(adminTransitionDeliveryAdCampaign).toHaveBeenCalledWith(
@@ -79,8 +81,67 @@ describe("advertising-workspace action — DEF-6 expected version required", () 
   });
 
   it("requires the versions for delete_safe_draft too", async () => {
-    const res = await call({ family: "delivery_banner", entityId: "camp-1", action: "delete_safe_draft" });
+    const res = await call({
+      family: "delivery_banner",
+      entityId: "camp-1",
+      action: "delete_safe_draft",
+      reason: "중복 초안 정리",
+    });
     expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("expected_version_required");
     expect(adminDeleteSafeDraftDeliveryAdCampaign).not.toHaveBeenCalled();
+  });
+});
+
+describe("advertising-workspace action — R2 처리 사유", () => {
+  it.each(["approve", "reject", "end", "terminate", "delete_safe_draft"])(
+    "rejects %s without a reason (reason_required) before any write",
+    async (action) => {
+      const res = await call({
+        family: "delivery_banner",
+        entityId: "camp-1",
+        action,
+        expectedUpdatedAt: "2026-10-01T00:00:00Z",
+        expectedLifecycle: "draft",
+        reason: " ",
+      });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe("reason_required");
+      expect(adminTransitionDeliveryAdCampaign).not.toHaveBeenCalled();
+      expect(adminDeleteSafeDraftDeliveryAdCampaign).not.toHaveBeenCalled();
+    }
+  );
+
+  it("passes the reason to the delivery writer (audit reason)", async () => {
+    const res = await call({
+      family: "delivery_banner",
+      entityId: "camp-1",
+      action: "approve",
+      expectedUpdatedAt: "2026-10-01T00:00:00Z",
+      expectedLifecycle: "pending_review",
+      reason: "소재 확인 완료",
+    });
+    expect(res.status).toBe(200);
+    expect(adminTransitionDeliveryAdCampaign).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ action: "approve", reason: "소재 확인 완료" })
+    );
+  });
+
+  it("delete_safe_draft passes the reason to the delete writer", async () => {
+    adminDeleteSafeDraftDeliveryAdCampaign.mockResolvedValue({ ok: true });
+    const res = await call({
+      family: "delivery_banner",
+      entityId: "camp-1",
+      action: "delete_safe_draft",
+      expectedUpdatedAt: "2026-10-01T00:00:00Z",
+      expectedLifecycle: "draft",
+      reason: "중복 초안 정리",
+    });
+    expect(res.status).toBe(200);
+    expect(adminDeleteSafeDraftDeliveryAdCampaign).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ reason: "중복 초안 정리" })
+    );
   });
 });

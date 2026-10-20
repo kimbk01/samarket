@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { approveFeedAdRequest } from "@/lib/ads/approve-feed-ad-request";
 import {
@@ -281,6 +282,14 @@ export async function PATCH(
   }
 
   const action = String(body.action ?? "").trim();
+  // R2 — 승인·반려·보상 연장(L2)·종료(L3)는 처리 사유 필수 (2자 이상). 각 감사 after.reason 에 남긴다.
+  const adminReason = parseAdminReason(body.reason);
+  if (
+    (action === "approve" || action === "reject" || action === "end" || action === "extend_compensation") &&
+    !adminReason
+  ) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -351,7 +360,7 @@ export async function PATCH(
       targetId: requestId,
       action: "feed_ad_request.approve",
       before: { status: "pending_review" },
-      after: { status: result.status, campaign_id: result.campaignId ?? null },
+      after: { status: result.status, campaign_id: result.campaignId ?? null, reason: adminReason },
     });
     return NextResponse.json({
       ok: true,

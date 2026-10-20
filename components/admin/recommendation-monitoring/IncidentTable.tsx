@@ -9,7 +9,8 @@ import {
   acknowledgeIncident,
   resolveIncident,
 } from "@/lib/recommendation-ops/recommendation-runtime-state";
-import { persistRecommendationRuntimeToServer } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
+import { commitRecommendationRuntimeChange } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
+import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import {
   recIncidentStatusLabel,
   recIncidentTypeLabel,
@@ -22,8 +23,11 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 const ADMIN_ID = "admin1";
 
 export function IncidentTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [refresh, setRefresh] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState<IncidentStatus | "">("");
   const [surfaceFilter, setSurfaceFilter] = useState<RecommendationSurface | "">("");
 
@@ -36,22 +40,23 @@ export function IncidentTable() {
     [refresh, statusFilter, surfaceFilter]
   );
 
-  const handleAck = async (id: string) => {
-    acknowledgeIncident(id, ADMIN_ID, t("admin_rec_admin_nickname"));
-    setRefresh((r) => r + 1);
-    const r = await persistRecommendationRuntimeToServer();
-    if (!r.ok) console.warn("[incident] persist failed", r.error);
+  /** 저장 실패 → 장애 상태 되돌림 + 실패 문구 (예전: console.warn 만). */
+  const commit = async (mutate: () => void) => {
+    setBusy(true);
+    const r = await commitRecommendationRuntimeChange(mutate);
+    setBusy(false);
+    setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" });
+    setRefresh((n) => n + 1);
   };
 
-  const handleResolve = async (id: string) => {
-    resolveIncident(id);
-    setRefresh((r) => r + 1);
-    const r = await persistRecommendationRuntimeToServer();
-    if (!r.ok) console.warn("[incident] persist failed", r.error);
-  };
+  const handleAck = (id: string) =>
+    commit(() => acknowledgeIncident(id, ADMIN_ID, t("admin_rec_admin_nickname")));
+
+  const handleResolve = (id: string) => commit(() => resolveIncident(id));
 
   return (
     <div className="space-y-4">
+      <AdminResultBanner ko={ko} result={saveResult} onClose={() => setSaveResult(null)} />
       <div className="flex flex-wrap gap-2">
         <select
           value={statusFilter}
@@ -83,9 +88,18 @@ export function IncidentTable() {
         </select>
       </div>
       {incidents.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rec_mon_empty_incidents")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={statusFilter || surfaceFilter ? undefined : t("admin_rec_mon_empty_incidents")}
+          onReset={
+            statusFilter || surfaceFilter
+              ? () => {
+                  setStatusFilter("");
+                  setSurfaceFilter("");
+                }
+              : undefined
+          }
+        />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[640px] border-collapse sam-text-body">
@@ -149,7 +163,8 @@ export function IncidentTable() {
                         variant="ghost"
                         size="sm"
                         type="button"
-                        onClick={() => handleAck(i.id)}
+                        disabled={busy}
+                        onClick={() => void handleAck(i.id)}
                       >
                         {t("common_confirm")}
                       </AdminActionButton>
@@ -159,7 +174,8 @@ export function IncidentTable() {
                         variant="ghost"
                         size="sm"
                         type="button"
-                        onClick={() => handleResolve(i.id)}
+                        disabled={busy}
+                        onClick={() => void handleResolve(i.id)}
                       >
                         {t("admin_rec_incident_btn_resolve")}
                       </AdminActionButton>

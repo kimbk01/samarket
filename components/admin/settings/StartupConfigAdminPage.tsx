@@ -15,27 +15,43 @@ import {
   type StartupConfig,
 } from "@/lib/startup/startup-config";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import {
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 export function StartupConfigAdminPage() {
-  const { safeT, t } = useI18n();
+  const { safeT, language } = useI18n();
+  const ko = language !== "en";
   const [draft, setDraft] = useState<StartupConfig>(() => ({
     ...BUNDLED_STARTUP_CONFIG,
   }));
   const [loading, setLoading] = useState(true);
   const [savingTab, setSavingTab] = useState(false);
-  const [tabMessage, setTabMessage] = useState<string | null>(null);
+  const [tabResult, setTabResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(
+    null
+  );
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
+  /** 조회 실패를 번들 기본값으로 숨기지 않는다 — 오류 상태 + [새로고침] (R6). */
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const res = await fetch("/api/admin/startup-config", { credentials: "same-origin" });
-        const json = (await res.json()) as { ok?: boolean; config?: unknown };
-        if (!cancelled && json?.ok) {
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; config?: unknown; error?: string };
+        if (cancelled) return;
+        if (res.ok && json?.ok) {
+          setLoadErr(null);
           setDraft(normalizeStartupConfig(json.config));
+        } else {
+          setLoadErr({ code: adminSafeErrorCode(json?.error, "load_failed"), httpStatus: res.status });
         }
       } catch {
-        /* keep bundled */
+        if (!cancelled) setLoadErr({ code: "network_error" });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -43,11 +59,17 @@ export function StartupConfigAdminPage() {
     return () => {
       cancelled = true;
     };
+  }, [reloadKey]);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    setLoadErr(null);
+    setReloadKey((k) => k + 1);
   }, []);
 
   const saveInitialTab = useCallback(async () => {
     setSavingTab(true);
-    setTabMessage(null);
+    setTabResult(null);
     try {
       const res = await fetch("/api/admin/startup-config", {
         method: "PUT",
@@ -57,18 +79,19 @@ export function StartupConfigAdminPage() {
       });
       const json = (await res.json()) as { ok?: boolean; config?: unknown; error?: string };
       if (!res.ok || !json.ok) {
-        setTabMessage(json.error ?? "save_failed");
+        setTabResult({ ok: false, code: res.status === 403 ? "forbidden" : adminSafeErrorCode(json.error, "save_failed") });
         return;
       }
       setDraft(normalizeStartupConfig(json.config));
-      setTabMessage(
-        safeT("admin_startup_config_save_ok", {
+      setTabResult({
+        ok: true,
+        message: safeT("admin_startup_config_save_ok", {
           fallbackKo: "저장되었습니다.",
           fallbackEn: "Saved.",
-        })
-      );
+        }),
+      });
     } catch {
-      setTabMessage("save_failed");
+      setTabResult({ ok: false, code: "network_error" });
     } finally {
       setSavingTab(false);
     }
@@ -98,7 +121,9 @@ export function StartupConfigAdminPage() {
           })}
         </p>
         {loading ? (
-          <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+          <AdminLoadingState ko={ko} />
+        ) : loadErr ? (
+          <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={reload} />
         ) : (
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-[200px] flex-1">
@@ -165,11 +190,13 @@ export function StartupConfigAdminPage() {
                     fallbackEn: "Save launch tab",
                   })}
             </AdminActionButton>
-            {tabMessage ? (
-              <span className="sam-text-caption text-sam-muted">{tabMessage}</span>
-            ) : null}
           </div>
         )}
+        {!loading && !loadErr && tabResult ? (
+          <div className="mt-3">
+            <AdminResultBanner ko={ko} result={tabResult} onClose={() => setTabResult(null)} />
+          </div>
+        ) : null}
       </AdminCard>
     </div>
   );

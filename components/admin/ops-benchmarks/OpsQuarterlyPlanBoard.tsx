@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -40,7 +41,8 @@ const DOMAIN_OPTIONS: { value: OpsBenchmarkDomain | ""; label: string }[] = [
 ];
 
 export function OpsQuarterlyPlanBoard() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [year] = useState(() => new Date().getFullYear());
   const [domainFilter, setDomainFilter] = useState<OpsBenchmarkDomain | "">("");
 
@@ -83,9 +85,11 @@ export function OpsQuarterlyPlanBoard() {
       </div>
 
       {plans.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          분기별 개선 계획이 없습니다.
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={domainFilter ? undefined : "분기별 개선 계획이 없습니다."}
+          onReset={domainFilter ? () => { setDomainFilter(""); } : undefined}
+        />
       ) : (
         <div className="overflow-x-auto">
           <div className="flex min-w-[900px] gap-4">

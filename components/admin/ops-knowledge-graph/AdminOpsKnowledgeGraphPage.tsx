@@ -1,7 +1,9 @@
 "use client";
 
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsKnowledgeGraphSummaryCards } from "./OpsKnowledgeGraphSummaryCards";
@@ -26,11 +28,8 @@ export function AdminOpsKnowledgeGraphPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [nodeTypeFilter, setNodeTypeFilter] = useState<OpsKnowledgeGraphNodeType | "">("");
   const [edgeTypeFilter, setEdgeTypeFilter] = useState<OpsKnowledgeGraphEdgeType | "">("");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadOpsKnowledgeGraphWorkspaceFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadOpsKnowledgeGraphWorkspaceFromServer);
+  const hydrated = loadState.status === "ready";
 
   const tabs: { id: TabId; labelKey: MessageKey }[] = [
     { id: "overview", labelKey: "admin_ops_tools_kg_tab_overview" },
@@ -44,9 +43,7 @@ export function AdminOpsKnowledgeGraphPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_manage_kg" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

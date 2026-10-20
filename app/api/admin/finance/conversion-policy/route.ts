@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   loadCoinCashConversionPolicy,
   updateCoinCashConversionPolicy,
@@ -18,12 +19,17 @@ export async function GET() {
   return NextResponse.json({ ok: true, policy });
 }
 
-/** PATCH /api/admin/finance/conversion-policy — requires confirm on client */
+/** PATCH /api/admin/finance/conversion-policy — requires confirm on client + `reason` (L2) */
 export async function PATCH(req: NextRequest) {
   const gate = await requireAdminPermission("business");
   if (!gate.ok) return gate.response;
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  /** R2 — 전환 정책 저장(pointPolicySave · L2) 사유 필수 → 감사 `after.reason`. */
+  const reason = parseAdminReason(body.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
   const before = await loadCoinCashConversionPolicy(gate.sb).catch(() => null);
   const result = await updateCoinCashConversionPolicy(gate.sb, {
     adminUserId: gate.actor.userId,
@@ -80,7 +86,7 @@ export async function PATCH(req: NextRequest) {
     targetId: "global",
     action: "conversion_policy.update",
     before: (before as Record<string, unknown> | null) ?? null,
-    after: (result.policy as Record<string, unknown> | null) ?? null,
+    after: { ...((result.policy as Record<string, unknown> | null) ?? {}), reason },
   });
   return NextResponse.json({ ok: true, policy: result.policy });
 }

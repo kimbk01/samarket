@@ -10,12 +10,13 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { adminOperatorErrorMessage, adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
 import { AdminErrorState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
 type ChargeRequest = {
   id: string;
@@ -64,7 +65,6 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   /** Ledger id of the last credit — technical detail only (not in the banner). */
   const [successLedgerId, setSuccessLedgerId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<{ id: string; op: "approve" | "reject" } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -135,7 +135,8 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         body: JSON.stringify({
           op,
           requestId: id,
-          reason: op === "reject" ? reason.trim() : undefined,
+          // R2 — 적립(moneyApprove L2)·반려(reject L2) 모두 확인창 사유를 보내 감사에 남긴다.
+          reason: reason.trim(),
         }),
       });
       const json = (await res.json().catch(() => ({ ok: false }))) as ActionResult;
@@ -182,6 +183,46 @@ export function AdminDeliveryAdCashChargeQueuePage() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  /** Confirm-first (R2): 적립 = moneyApprove(L2) · 반려 = reject(L2) — 사유는 API `reason` 으로 전송. */
+  const requestConfirm = async (target: { id: string; op: "approve" | "reject" }) => {
+    if (busyId != null) return;
+    const { id, op } = target;
+    const row = rows.find((r) => r.id === id);
+    const when = row?.created_at ? new Date(String(row.created_at)).toLocaleString() : "";
+    const amountLine = row ? `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when}` : "";
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel(op === "approve" ? "moneyApprove" : "reject"),
+      ko,
+      title:
+        op === "approve"
+          ? ko
+            ? "이 충전 건을 Cash로 적립하시겠습니까?"
+            : "Credit Cash for this top-up?"
+          : ko
+            ? "이 Cash 충전 신청을 반려하시겠습니까?"
+            : "Reject this Cash top-up?",
+      description:
+        op === "reject"
+          ? ko
+            ? `${amountLine} — 반려 사유는 매장 사장님에게 전달되고 작업 기록에 남습니다. 캐시 잔액은 바뀌지 않습니다.`
+            : `${amountLine} — The reason is sent to the store owner and kept in the activity log. Cash balance does not change.`
+          : amountLine || undefined,
+      confirmLabel: op === "approve" ? (ko ? "적립" : "Credit") : ko ? "반려" : "Reject",
+      destructive: op === "reject",
+      reasonPlaceholder:
+        op === "reject"
+          ? ko
+            ? "예: 입금 내역이 확인되지 않음"
+            : "e.g. Payment not found"
+          : ko
+            ? "예: 입금 내역 확인 완료"
+            : "e.g. Payment confirmed",
+    });
+    if (!confirmed.ok) return;
+    const reason = confirmed.reason ?? "";
+    void act(id, op, reason);
   };
 
   return (
@@ -328,7 +369,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     type="button"
                     className="min-h-[40px] rounded-ui-rect border border-[#0A823E] px-3 text-[12px] font-semibold text-[#0A823E]"
                     disabled={busyId != null}
-                    onClick={() => setConfirm({ id: r.id, op: "approve" })}
+                    onClick={() => void requestConfirm({ id: r.id, op: "approve" })}
                     data-admin-cash-charge-complete={r.id}
                   >
                     {safeT("admin_delivery_ads_cash_charges_complete", {
@@ -340,7 +381,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     type="button"
                     className="min-h-[40px] rounded-ui-rect border border-red-300 px-3 text-[12px] font-semibold text-red-700"
                     disabled={busyId != null}
-                    onClick={() => setConfirm({ id: r.id, op: "reject" })}
+                    onClick={() => void requestConfirm({ id: r.id, op: "reject" })}
                     data-admin-cash-charge-reject={r.id}
                   >
                     {safeT("admin_delivery_ads_cash_charges_reject", {
@@ -354,52 +395,6 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           </ul>
         )}
       </AdminCard>
-
-      <AdminActionConfirmDialog
-        open={Boolean(confirm)}
-        title={
-          confirm?.op === "approve"
-            ? language === "en"
-              ? "Credit Cash for this top-up?"
-              : "이 충전 건을 Cash로 적립하시겠습니까?"
-            : language === "en"
-              ? "Reject this Cash top-up?"
-              : "이 Cash 충전 신청을 반려하시겠습니까?"
-        }
-        description={
-          confirm
-            ? (() => {
-                const row = rows.find((r) => r.id === confirm.id);
-                if (!row) return "";
-                const when = row.created_at ? new Date(String(row.created_at)).toLocaleString() : "";
-                if (confirm.op === "reject") {
-                  return ko
-                    ? `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when} — 반려 사유는 매장 사장님에게 전달되고 작업 기록에 남습니다. 캐시 잔액은 바뀌지 않습니다.`
-                    : `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when} — The reason is sent to the store owner and kept in the activity log. Cash balance does not change.`;
-                }
-                return `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when}`;
-              })()
-            : ""
-        }
-        confirmLabel={confirm?.op === "approve" ? (language === "en" ? "Credit" : "적립") : language === "en" ? "Reject" : "반려"}
-        cancelLabel={language === "en" ? "Cancel" : "취소"}
-        tone={confirm?.op === "reject" ? "danger" : "primary"}
-        reasonRequired={confirm?.op === "reject"}
-        reasonLabel={ko ? "반려 사유 (2자 이상)" : "Rejection reason (2+ characters)"}
-        reasonPlaceholder={ko ? "예: 입금 내역이 확인되지 않음" : "e.g. Payment not found"}
-        pending={busyId != null}
-        onCancel={() => setConfirm(null)}
-        onConfirm={(reason) => {
-          if (!confirm) return;
-          const { id, op } = confirm;
-          if (op === "reject" && reason.trim().length < 2) {
-            setActionError(adminOperatorErrorMessage("reason_required", ko));
-            return;
-          }
-          setConfirm(null);
-          void act(id, op, reason);
-        }}
-      />
     </div>
   );
 }

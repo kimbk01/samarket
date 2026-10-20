@@ -703,7 +703,7 @@ export async function copyPlatformPopupAdminCampaign(
  */
 export async function removePlatformPopupPtrBandVariant(
   sb: SupabaseClient,
-  input: { campaignId: string; adminUserId: string; variant: string }
+  input: { campaignId: string; adminUserId: string; variant: string; reason?: string | null }
 ): Promise<{ ok: true; revertedToReview: boolean; removed: number } | { ok: false; error: string; httpStatus?: number }> {
   const campaignId = input.campaignId.trim();
   if (!campaignId) return { ok: false, error: "missing_id", httpStatus: 400 };
@@ -764,7 +764,7 @@ export async function removePlatformPopupPtrBandVariant(
     target_id: campaignId,
     action: "platform_popup.creative_removed",
     before_json: null,
-    after_json: { variant, removed, revertedToReview },
+    after_json: { variant, removed, revertedToReview, ...(input.reason ? { reason: input.reason } : {}) },
   });
 
   return { ok: true, revertedToReview, removed };

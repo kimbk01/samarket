@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -17,6 +18,7 @@ import {
 import { topicBelongsToPhilifeNeighborhoodSection } from "@/lib/neighborhood/meetup-feed-topics";
 import type { CommunityTopicContentStats } from "@/lib/community-topics/admin-topic-content-stats";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
@@ -31,7 +33,7 @@ function topicErrorText(code: unknown, known: { duplicate: string; hasPosts: str
   if (c === "invalid_slug") return "카테고리 이름으로 주소용 이름을 만들 수 없습니다. 영문 이름을 함께 입력해 주세요.";
   if (c === "not_found") return "카테고리를 찾을 수 없습니다. 새로고침 후 다시 확인하세요.";
   if (c === "forbidden" || c === "forbidden_permission") return "이 작업을 할 권한이 없습니다.";
-  return "저장하지 못했습니다. 잠시 후 다시 저장해 주세요.";
+  return adminOperatorErrorMessage(c, true);
 }
 
 const ADMIN_TOPIC_SKIN_I18N: Record<CommunityFeedListSkin, `admin_topics_skin_${CommunityFeedListSkin}`> = {
@@ -205,21 +207,24 @@ export function AdminCommunityTopicsPage({
     }
   }
 
-  async function removeRow(id: string) {
+  async function removeRow(topic: CommunityTopicAdminRow) {
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("delete"),
       ko: true,
       title: tr("admin_topics_confirm_delete"),
-      description: "글이 있는 카테고리는 삭제할 수 없습니다. 대신 「사용 중지」를 쓰세요.",
+      description: `「${topic.name}」 카테고리를 삭제합니다. 되돌릴 수 없습니다. 글이 있는 카테고리는 삭제할 수 없습니다. 대신 「사용 중지」를 쓰세요.`,
       confirmLabel: "삭제",
       destructive: true,
+      retypeValue: topic.name,
     });
     if (!confirmed.ok) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/admin/community/topics/${id}`, {
+      const res = await fetch(`/api/admin/community/topics/${topic.id}`, {
         method: "DELETE",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: confirmed.reason }),
       });
       const j = await res.json();
       if (!j.ok) {
@@ -252,12 +257,12 @@ export function AdminCommunityTopicsPage({
     };
   }
 
-  /** 사용 중지(L1 확인) / 다시 사용 */
+  /** 사용 중지(disable · L1 확인) / 다시 사용 */
   async function toggleActive(topic: CommunityTopicAdminRow) {
     const next = !topic.is_active;
     if (!next) {
       const confirmed = await confirmAdminAction({
-        level: "L1",
+        level: adminActionLevel("disable"),
         ko: true,
         title: `「${topic.name}」 사용 중지`,
         description: "이 카테고리에 새 글을 쓸 수 없게 됩니다. 이미 있는 글은 그대로 남습니다.",
@@ -602,7 +607,7 @@ export function AdminCommunityTopicsPage({
                           >
                             {topic.is_active ? "사용 중지" : "다시 사용"}
                           </AdminActionButton>
-                          <AdminActionButton variant="danger" disabled={busy} onClick={() => void removeRow(topic.id)}>
+                          <AdminActionButton variant="danger" disabled={busy} onClick={() => void removeRow(topic)}>
                             {tr("admin_topics_btn_delete")}
                           </AdminActionButton>
                         </span>

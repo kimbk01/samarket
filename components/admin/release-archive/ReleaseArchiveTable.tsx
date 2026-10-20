@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -8,7 +9,8 @@ import { AdminTable } from "@/components/admin/AdminTable";
 import { RELEASE_ARCHIVE_STATUS_KEYS } from "@/components/admin/i18n/admin-release-label-keys";
 import type { ReleaseArchiveStatus } from "@/lib/types/release-archive";
 export function ReleaseArchiveTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [statusFilter, setStatusFilter] = useState<ReleaseArchiveStatus | "">("");
   const archives = useMemo(
     () =>
@@ -39,9 +41,7 @@ export function ReleaseArchiveTable() {
       </div>
 
       {archives.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rel_archive_empty")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_rel_archive_empty")} />
       ) : (
         <AdminTable
           headers={[

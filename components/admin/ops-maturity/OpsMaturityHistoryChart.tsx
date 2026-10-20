@@ -1,17 +1,19 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import { getOpsMaturityHistory } from "@/lib/ops-maturity/ops-maturity-history";
 
 /** 성숙도 히스토리 추이 placeholder (표로 대체) */
 export function OpsMaturityHistoryChart() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const history = useMemo(() => getOpsMaturityHistory(10), []);
 
   if (history.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_maturity_history_empty")}</div>
+      <AdminEmptyState ko={ko} message={t("admin_ops_tools_maturity_history_empty")} />
     );
   }
 

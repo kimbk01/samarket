@@ -9,6 +9,7 @@ import {
   type DataResetDomain,
   type DataResetScope,
 } from "@/lib/admin/data-reset/types";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,11 +42,18 @@ export async function POST(req: Request) {
     planCreatedAt?: string;
     typedConfirmation?: string;
     oneTimeToken?: string;
+    reason?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  // 초기화 실행 = dataReset (L3) — 확인창 처리 사유 필수, 실행 감사 기록(after_json.reason)에 남긴다.
+  const reason = parseAdminReason(body.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   }
 
   const domain = String(body.domain ?? "").trim() as DataResetDomain;
@@ -80,6 +88,7 @@ export async function POST(req: Request) {
     createdAt: planCreatedAt,
     typedConfirmation: String(body.typedConfirmation ?? ""),
     oneTimeToken: body.oneTimeToken,
+    reason,
   });
 
   const status =

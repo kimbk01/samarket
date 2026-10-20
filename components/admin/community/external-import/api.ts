@@ -107,10 +107,10 @@ export function importErrorText(e: unknown): string {
   if (/[가-힣]/.test(msg)) {
     return msg.replace(/\b(FULL|VERIFIED|PARTIAL|NOT_PROVEN|BLOCKED|FAILED|REJECT)\b/g, (m) => VERDICT_LABEL[m] ?? m);
   }
-  if (!msg || /^HTTP \d+/.test(msg)) return "서버에서 처리하지 못했습니다. 잠시 후 다시 처리해 주세요.";
+  if (!msg || /^HTTP \d+/.test(msg)) return adminOperatorErrorMessage("server_error", true);
   const code = err.code && /^[a-z][a-z0-9_]*$/.test(err.code) ? err.code : msg;
   const out = adminOperatorErrorMessage(code, true);
-  return out === code ? "처리를 완료하지 못했습니다. 잠시 후 다시 처리해 주세요." : out;
+  return out;
 }
 
 export function fmtDate(iso: string | null | undefined): string {

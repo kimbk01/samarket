@@ -9,6 +9,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
 interface AdminPointExpirePolicyCardProps {
   policy: PointExpirePolicy;
@@ -36,8 +37,9 @@ export function AdminPointExpirePolicyCard({
 
   const save = async () => {
     if (busy || !actionAllowed) return;
+    // R2 — 포인트 정책 저장 = pointPolicySave(L2): 확인 + 사유 → API `reason` → 감사 기록.
     const c = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("pointPolicySave"),
       ko,
       title: ko ? "소멸 정책 저장" : "Save expiry policy",
       description: ko
@@ -45,7 +47,7 @@ export function AdminPointExpirePolicyCard({
         : `Save the "${policy.policyName}" expiry policy. It applies to later expiry runs.`,
       confirmLabel: adminCta("save", ko),
     });
-    if (!c.ok) return;
+    if (!c.ok || !c.reason) return;
     setBusy(true);
     setResult(null);
     try {
@@ -57,6 +59,7 @@ export function AdminPointExpirePolicyCard({
           autoExpireEnabled: form.autoExpireEnabled,
           runCycle: form.runCycle,
           adminMemo: form.adminMemo,
+          reason: c.reason,
         }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };

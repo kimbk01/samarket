@@ -10,6 +10,8 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { popupSurfaceOperatorLabel } from "@/lib/admin/promotion-ownership-visibility";
 import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PlatformPopupAdminListItem } from "@/lib/platform-popup/admin-campaign-loader";
 import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
@@ -24,7 +26,8 @@ export function AdminPtrRevealListPage() {
   const lang = language === "en" ? "en" : "ko";
   const L = useCallback((ko: string, en: string) => (lang === "en" ? en : ko), [lang]);
   const router = useRouter();
-  const { confirm: askConfirm, prompt: askInput, dialog: confirmDialog } = useAdminConfirmDialog();
+  // 폼 대화상자 — 새 광고 이름 입력(prompt)만. 확인은 confirmAdminAction (R2).
+  const { prompt: askInput, dialog: confirmDialog } = useAdminConfirmDialog();
   const [items, setItems] = useState<PlatformPopupAdminListItem[]>([]);
   const [status, setStatus] = useState("");
   const [query, setQuery] = useState("");
@@ -83,13 +86,14 @@ export function AdminPtrRevealListPage() {
   };
 
   const copy = async (item: PlatformPopupAdminListItem) => {
-    const ok = await askConfirm({
+    const copyOk = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko: lang !== "en",
       title: L("광고 복사", "Copy ad"),
       description: L(`「${item.name}」을 복사할까요? (승인·기간 제외)`, `Copy “${item.name}”? (approval and schedule excluded)`),
       confirmLabel: L("복사", "Copy"),
-      cancelLabel: L("취소", "Cancel"),
     });
-    if (!ok) return;
+    if (!copyOk.ok) return;
     setBusy(true);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${item.id}/copy`, {
       method: "POST",

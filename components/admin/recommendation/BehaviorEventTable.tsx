@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState, useMemo } from "react";
 import type { UserBehaviorEvent, BehaviorEventType } from "@/lib/types/recommendation";
@@ -19,7 +20,8 @@ const EVENT_LABELS: Record<BehaviorEventType, string> = {
 };
 
 export function BehaviorEventTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [eventType, setEventType] = useState<BehaviorEventType | "">("");
   const [userIdFilter, setUserIdFilter] = useState("");
   const [sectionKeyFilter, setSectionKeyFilter] = useState("");
@@ -65,9 +67,11 @@ export function BehaviorEventTable() {
         />
       </div>
       {events.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          이벤트가 없습니다.
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={eventType || userIdFilter || sectionKeyFilter ? undefined : "이벤트가 없습니다."}
+          onReset={eventType || userIdFilter || sectionKeyFilter ? () => { setEventType(""); setUserIdFilter(""); setSectionKeyFilter(""); } : undefined}
+        />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[640px] border-collapse sam-text-body">

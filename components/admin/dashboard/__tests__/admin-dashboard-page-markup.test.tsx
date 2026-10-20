@@ -54,6 +54,8 @@ function initial(): AdminDashboardInitialState {
           labelKo: "일별 플랫폼 수수료",
           labelEn: "Daily commission",
           days: 7,
+          fromDay: "2026-10-14",
+          toDay: "2026-10-20",
           unit: "php_minor",
           series: [{ key: "commission", labelKo: "수수료", labelEn: "Commission" }],
           points: [
@@ -145,10 +147,37 @@ describe("AdminDashboardView markup (설계 v4 §3)", () => {
     expect(html).toContain("grid shrink-0 grid-cols-3");
     expect(html).toContain("min-h-[160px]");
     expect(html).toContain('data-admin-trend-y-axis="1"');
-    expect(html).toContain("Last 7 days");
+    // 추세 창 = 선택 기간이 끝나는 날까지 (PHT 날짜 표시)
+    expect(html).toContain('data-admin-trend-window="2026-10-14~2026-10-20"');
+    expect(html).toContain("10-14 – 10-20 · 7 days");
     // 1024 짧은 라벨 / 1280 긴 라벨 둘 다 있음 (Provider 없는 렌더 = 기본 언어 en)
     expect(html).toContain(">Pay<");
     expect(html).toContain(">Payments<");
+  });
+
+  it("지표 칸: 단위(건·명·곳 / ₱) · 이동 화살표 · 요약 띠 「현재」 칩 · 공지 블록", () => {
+    search = "tab=finance";
+    const init = initial();
+    init.notices = {
+      href: "/admin/app/notices",
+      items: [
+        { id: "n1", title: "점검 안내", contentType: "notice", state: "published", at: "2026-10-19T01:00:00Z", href: "/admin/app/notices/n1" },
+        { id: "n2", title: "예약 공지", contentType: "notice", state: "scheduled", at: null, href: "/admin/app/notices/n2" },
+      ],
+    };
+    const html = renderToStaticMarkup(<AdminDashboardView initial={init} />);
+    // 이동 가능한 지표 칸마다 화살표
+    expect(html.match(/data-admin-metric-arrow="1"/g)).toHaveLength(4);
+    // 건수 단위 (기본 언어 en = 단위 문자 없음 → 단위 칸 없음), ₱ 는 값 앞
+    expect(html).toMatch(/data-admin-metric-value="finance.cash_in_today"[^>]*>₱5</);
+    // 요약 띠 primary 칩 — 현재 상태 지표에도 「Now」
+    expect(html).toMatch(/data-admin-band-tile="members"[\s\S]*?data-admin-metric-period-chip="1">Now</);
+    // 공지 블록 — 실제 공지 항목·상세 링크·전체 보기
+    expect(html).toContain('data-admin-dashboard-notices="1"');
+    expect(html).toContain('data-admin-notice-item="n1"');
+    expect(html).toContain('href="/admin/app/notices/n1"');
+    expect(html).toContain("Scheduled");
+    expect(html).toContain('href="/admin/app/notices"');
   });
 
   it("실패: 이전 값 + 「불러오기 실패」, 이전 값 없으면 「—」 (0 아님)", () => {

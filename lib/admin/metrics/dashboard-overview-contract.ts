@@ -11,7 +11,7 @@ import type {
   AdminMetricUnit,
 } from "@/lib/admin/metrics/registry";
 
-export const ADMIN_DASHBOARD_PARTS = ["band", "metrics", "trend", "pending", "recent"] as const;
+export const ADMIN_DASHBOARD_PARTS = ["band", "metrics", "trend", "pending", "recent", "notices"] as const;
 export type AdminDashboardPart = (typeof ADMIN_DASHBOARD_PARTS)[number];
 
 /** `parts=band,pending` → 집합. 비었거나 모르는 값만 있으면 전부. */
@@ -59,8 +59,14 @@ export type AdminDashboardTrendPayload = {
   id: AdminDashboardTrendId;
   labelKo: string;
   labelEn: string;
-  /** PHT 일별 버킷 수 (오늘 포함) */
+  /** PHT 일별 버킷 수 — 선택 기간이 끝나는 날(toDay)까지 */
   days: 7 | 30;
+  /** 추세 창 PHT 날짜 (양끝 포함) — 「어제」 선택 시 어제에서 끝난다 */
+  fromDay: string;
+  toDay: string;
+  /** 집계 정의 (예: 7일 활성) */
+  definitionKo?: string;
+  definitionEn?: string;
   unit: AdminMetricUnit;
   series: { key: string; labelKo: string; labelEn: string }[];
   points: AdminDashboardTrendPoint[];
@@ -80,6 +86,9 @@ export type AdminDashboardPendingItem = {
   status: "ok" | "unavailable";
   /** null = 같은 조건을 읽는 목록 없음 (레거시 보관) — 링크 없음 */
   href: string | null;
+  /** 세는 단위가 행 수가 아닐 때 (예: 커뮤니티 신고 = 신고 대상 묶음) */
+  unitNoteKo?: string;
+  unitNoteEn?: string;
 };
 
 export type AdminDashboardPendingPayload = {
@@ -117,6 +126,27 @@ export type AdminDashboardRecentPayload = {
   error?: string;
 };
 
+/** 공지 (고객센터 콘텐츠 `app_notices` — 관리자 「공지·고객센터」 화면과 같은 원장) 최신 5건 */
+export type AdminDashboardNoticeState = "published" | "scheduled" | "ended" | "hidden";
+
+export type AdminDashboardNoticeItem = {
+  id: string;
+  title: string;
+  /** notice · system · marketing */
+  contentType: string;
+  state: AdminDashboardNoticeState;
+  /** UTC ISO (표시는 PHT) — 게시 시각, 없으면 작성 시각 */
+  at: string | null;
+  href: string;
+};
+
+export type AdminDashboardNoticesPayload = {
+  items: AdminDashboardNoticeItem[];
+  /** 전체 목록 */
+  href: string;
+  error?: string;
+};
+
 export type AdminDashboardOverviewPayload = {
   ok: true;
   tab: AdminDashboardTabId;
@@ -128,6 +158,7 @@ export type AdminDashboardOverviewPayload = {
   trend?: AdminDashboardTrendPayload;
   pending?: AdminDashboardPendingPayload;
   recent?: AdminDashboardRecentPayload;
+  notices?: AdminDashboardNoticesPayload;
   shortcuts?: { id: string; labelKo: string; labelEn: string; href: string }[];
 };
 
@@ -172,6 +203,7 @@ export function adminDashboardPayloadHasErrors(p: AdminDashboardOverviewPayload)
   if (p.trend?.error) return true;
   if (p.pending && (p.pending.error || !p.pending.complete)) return true;
   if (p.recent?.error) return true;
+  if (p.notices?.error) return true;
   return false;
 }
 
@@ -202,3 +234,11 @@ export function formatAdminDashboardValue(value: number | null, unit: AdminMetri
   if (value === null) return "—";
   return unit === "php_minor" ? formatAdminPhpMinor(value) : Math.trunc(value).toLocaleString("en-PH");
 }
+
+/** 숫자 뒤 단위 — 건 · 명 · 곳 (₱ 는 값 앞에 이미 붙는다). */
+export const ADMIN_DASHBOARD_UNIT_SUFFIX: Readonly<Record<AdminMetricUnit, { ko: string; en: string }>> = {
+  count: { ko: "건", en: "" },
+  people: { ko: "명", en: "" },
+  stores: { ko: "곳", en: "" },
+  php_minor: { ko: "", en: "" },
+};

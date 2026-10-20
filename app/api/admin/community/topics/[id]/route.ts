@@ -7,6 +7,7 @@ import {
   assertAdminTopicSlugNotSortSlot,
 } from "@/lib/community-feed/admin-topic-sort-metadata-contract";
 import { normalizeFeedSlug } from "@/lib/community-feed/constants";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { isCommunityFeedListSkin, normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import { clearPhilifeDefaultSectionTopicsCache } from "@/lib/neighborhood/philife-neighborhood-topics";
@@ -195,6 +196,10 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   const { id } = await ctx.params;
   const tid = id?.trim();
   if (!tid) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
+  // 삭제 = L3(delete) — 확인창 사유를 본문 `reason` 으로 받아 감사 기록에 남긴다.
+  const delBody = (await req.json().catch(() => ({}))) as { reason?: unknown };
+  const reason = parseAdminReason(delBody.reason);
+  if (!reason) return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
 
   try {
     const sb = getSupabaseServer();
@@ -213,6 +218,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
       targetType: "community_topic",
       targetId: tid,
       action: "community_topic.delete",
+      reason,
       before: (beforeDel ?? null) as Record<string, unknown> | null,
       after: null,
     });

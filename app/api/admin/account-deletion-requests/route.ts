@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { isMissingRelation } from "@/lib/admin-users/member-tab-query";
+import { applyAccountDeletionRequestStatusFilter } from "@/lib/admin/metrics/admin-metric-filters";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,18 +30,15 @@ export async function GET(req: NextRequest) {
   const statusRaw = String(req.nextUrl.searchParams.get("status") ?? "open").trim().toLowerCase();
   const limit = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("limit") ?? 50) || 50));
 
-  let q = sb
-    .from("account_deletion_requests")
-    // count exact = 같은 조건의 전체 건수 (화면 「총 N건」 · 통합 대시보드 「탈퇴 요청」과 같은 값)
-    .select("id, user_id, status, reason, requested_at, processed_at, processed_by, admin_note", { count: "exact" })
-    .order("requested_at", { ascending: false })
-    .limit(limit);
-
-  if (statusRaw === "open") {
-    q = q.in("status", ["requested", "processing"]);
-  } else if (statusRaw !== "all") {
-    q = q.eq("status", statusRaw);
-  }
+  // count exact = 같은 조건의 전체 건수 (화면 「총 N건」 · 통합 대시보드 「탈퇴 요청」과 같은 필터 함수)
+  const q = applyAccountDeletionRequestStatusFilter(
+    sb
+      .from("account_deletion_requests")
+      .select("id, user_id, status, reason, requested_at, processed_at, processed_by, admin_note", { count: "exact" })
+      .order("requested_at", { ascending: false })
+      .limit(limit),
+    statusRaw
+  );
 
   const { data, error, count } = await q;
   if (error) {

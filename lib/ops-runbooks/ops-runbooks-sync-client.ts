@@ -1,5 +1,7 @@
 "use client";
 
+import { adminFirstLoadFailure, adminSafeErrorCode } from "@/lib/admin/admin-load-failure";
+
 import type { OpsRunbooksBundleV1 } from "@/lib/ops-runbooks/ops-runbooks-state";
 import {
   exportOpsRunbooksBundle,
@@ -10,26 +12,27 @@ export async function loadOpsRunbooksFromServer(): Promise<{
   ok: boolean;
   source?: "db" | "default";
   error?: string;
+  httpStatus?: number;
 }> {
   try {
     const res = await fetch("/api/admin/ops-runbooks", { cache: "no-store" });
-    const j = (await res.json()) as {
+    const j = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       bundle?: OpsRunbooksBundleV1;
       source?: "db" | "default";
       error?: string;
     };
     if (!res.ok || !j.ok || !j.bundle) {
-      return { ok: false, error: j.error ?? "load_failed" };
+      return { ok: false, error: adminSafeErrorCode(j.error, "load_failed"), httpStatus: res.status };
     }
     importOpsRunbooksBundle(j.bundle);
     return { ok: true, source: j.source };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "network" };
+  } catch {
+    return { ok: false, error: "network_error" };
   }
 }
 
-export async function persistOpsRunbooksToServer(): Promise<{ ok: boolean; error?: string }> {
+export async function persistOpsRunbooksToServer(): Promise<{ ok: boolean; error?: string; httpStatus?: number }> {
   try {
     const bundle = exportOpsRunbooksBundle();
     const res = await fetch("/api/admin/ops-runbooks", {
@@ -37,13 +40,13 @@ export async function persistOpsRunbooksToServer(): Promise<{ ok: boolean; error
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bundle }),
     });
-    const j = (await res.json()) as { ok?: boolean; error?: string };
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !j.ok) {
-      return { ok: false, error: j.error ?? "save_failed" };
+      return { ok: false, error: adminSafeErrorCode(j.error, "save_failed"), httpStatus: res.status };
     }
     return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "network" };
+  } catch {
+    return { ok: false, error: "network_error" };
   }
 }
 
@@ -51,6 +54,8 @@ export async function persistOpsRunbooksToServer(): Promise<{ ok: boolean; error
 export async function loadOpsRunbookWorkspaceFromServer(): Promise<{
   ok: boolean;
   errors?: string[];
+  error?: string;
+  httpStatus?: number;
 }> {
   const { loadOpsDocsFromServer } = await import("@/lib/ops-docs/ops-docs-sync-client");
   const [docs, runbooks] = await Promise.all([
@@ -60,5 +65,11 @@ export async function loadOpsRunbookWorkspaceFromServer(): Promise<{
   const errors: string[] = [];
   if (!docs.ok) errors.push(docs.error ?? "docs_load_failed");
   if (!runbooks.ok) errors.push(runbooks.error ?? "runbooks_load_failed");
-  return { ok: docs.ok && runbooks.ok, errors: errors.length ? errors : undefined };
+  const first = adminFirstLoadFailure([docs, runbooks]);
+  return {
+    ok: docs.ok && runbooks.ok,
+    errors: errors.length ? errors : undefined,
+    error: first?.code,
+    httpStatus: first?.httpStatus,
+  };
 }

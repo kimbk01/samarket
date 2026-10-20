@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationReportVersions } from "@/lib/recommendation-analytics/recommendation-analytics-state";
@@ -13,7 +14,8 @@ interface RecommendationVersionReportTableProps {
 export function RecommendationVersionReportTable({
   reportId,
 }: RecommendationVersionReportTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const versions = useMemo(
     () => getRecommendationReportVersions(reportId),
     [reportId]
@@ -21,9 +23,7 @@ export function RecommendationVersionReportTable({
 
   if (versions.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        {t("admin_rec_report_empty_version")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_rec_report_empty_version")} />
     );
   }
 

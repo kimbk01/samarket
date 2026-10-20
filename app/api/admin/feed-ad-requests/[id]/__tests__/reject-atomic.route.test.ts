@@ -77,7 +77,7 @@ describe("V3-02 admin feed-ad reject — single RPC transaction", () => {
     ["forbidden", 500],
   ])("maps RPC error %s → %i without audit", async (error, status) => {
     rpc.mockResolvedValue({ data: { ok: false, error }, error: null });
-    const res = await call({ action: "reject", reason: "x" });
+    const res = await call({ action: "reject", reason: "사유 있음" });
     expect(res.status).toBe(status);
     expect(((await res.json()) as { error: string }).error).toBe(error);
     expect(appendAdminRouteAudit).not.toHaveBeenCalled();
@@ -85,19 +85,33 @@ describe("V3-02 admin feed-ad reject — single RPC transaction", () => {
 
   it("500 on transport error", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
-    const res = await call({ action: "reject", reason: "x" });
+    const res = await call({ action: "reject", reason: "사유 있음" });
     expect(res.status).toBe(500);
     expect(appendAdminRouteAudit).not.toHaveBeenCalled();
   });
 
   it("approve success appends feed_ad_request.approve audit", async () => {
     approveFeedAdRequest.mockResolvedValue({ ok: true, status: "approved", campaignId: "c-1" });
-    const res = await call({ action: "approve" });
+    const res = await call({ action: "approve", reason: "소재 확인 완료" });
     expect(res.status).toBe(200);
     expect(appendAdminRouteAudit).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.objectContaining({ action: "feed_ad_request.approve", targetId: "req-1" })
+      expect.objectContaining({
+        action: "feed_ad_request.approve",
+        targetId: "req-1",
+        after: expect.objectContaining({ reason: "소재 확인 완료" }),
+      })
     );
+  });
+
+  it("R2 — approve / end without a reason → 400 reason_required, no write", async () => {
+    for (const action of ["approve", "end"]) {
+      const res = await call({ action, reason: "x" });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe("reason_required");
+    }
+    expect(approveFeedAdRequest).not.toHaveBeenCalled();
+    expect(appendAdminRouteAudit).not.toHaveBeenCalled();
   });
 });

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { QA_TAB_KEYS } from "@/components/admin/i18n/admin-qa-label-keys";
@@ -19,13 +20,10 @@ import { QaBlockerBoard } from "./QaBlockerBoard";
 type TabId = keyof typeof QA_TAB_KEYS;
 
 export function AdminQaBoardPage() {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadQaBoardFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadQaBoardFromServer);
+  const hydrated = loadState.status === "ready";
 
   const tabs = useMemo(
     () =>
@@ -40,7 +38,7 @@ export function AdminQaBoardPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_dev_qa" />
-        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

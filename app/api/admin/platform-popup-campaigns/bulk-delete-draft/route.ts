@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { adminBulkDeletePlatformPopupDraftCampaigns } from "@/lib/platform-popup/admin-campaign-delete-draft";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -19,12 +20,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "service_unavailable" }, { status: 503 });
   }
 
-  const body = (await req.json().catch(() => ({}))) as { ids?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { ids?: unknown; reason?: unknown };
   const ids = Array.isArray(body.ids) ? body.ids.map((x) => String(x ?? "")) : [];
+  // R2 — 삭제(L3)는 처리 사유 필수. 삭제 감사 기록(after_json.reason)에 남긴다.
+  const reason = parseAdminReason(body.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
 
   const result = await adminBulkDeletePlatformPopupDraftCampaigns(sb, {
     campaignIds: ids,
     adminUserId: admin.userId,
+    reason,
   });
 
   if (!result.ok) {

@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OpsActionItem } from "@/lib/types/ops-board";
 import { updateOpsActionItem } from "@/lib/ops-board/ops-board-state";
-import { persistOpsBoardToServer } from "@/lib/ops-board/ops-board-sync-client";
+import { commitOpsBoardChange } from "@/lib/ops-board/ops-board-sync-client";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import {
   OPS_TOOLS_ACTION_SOURCE_KEYS,
   OPS_TOOLS_ACTION_STATUS_KEYS,
@@ -19,16 +21,21 @@ interface OpsActionCardProps {
 }
 
 export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   const isOverdue =
     item.dueDate &&
     item.dueDate < formatAdminManilaDate(new Date()) &&
     item.status !== "done" &&
     item.status !== "archived";
 
-  const handleStatusChange = (status: OpsActionItem["status"]) => {
-    updateOpsActionItem(item.id, { status });
-    void persistOpsBoardToServer();
+  /** 저장 실패 → 화면 상태 되돌림 + 실패 문구 (예전: 실패해도 바뀐 상태가 남음). */
+  const handleStatusChange = async (status: OpsActionItem["status"]) => {
+    setBusy(true);
+    const r = await commitOpsBoardChange(() => updateOpsActionItem(item.id, { status }));
+    setBusy(false);
+    setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" });
     onUpdate?.();
   };
 
@@ -68,19 +75,26 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
           {t(opsToolsLabel(OPS_TOOLS_ACTION_STATUS_KEYS, item.status))}
         </span>
       </div>
+      {saveResult ? (
+        <div className="mt-3">
+          <AdminResultBanner ko={language !== "en"} result={saveResult} onClose={() => setSaveResult(null)} />
+        </div>
+      ) : null}
       {item.status !== "done" && item.status !== "archived" && (
         <div className="mt-3 flex gap-2">
           <AdminActionButton
             variant="secondary"
             size="sm"
-            onClick={() => handleStatusChange("in_progress")}
+            disabled={busy}
+            onClick={() => void handleStatusChange("in_progress")}
           >
             {t("admin_ops_tools_board_btn_progress")}
           </AdminActionButton>
           <AdminActionButton
             variant="secondary"
             size="sm"
-            onClick={() => handleStatusChange("done")}
+            disabled={busy}
+            onClick={() => void handleStatusChange("done")}
           >
             {t("admin_ops_tools_board_btn_complete")}
           </AdminActionButton>

@@ -324,6 +324,8 @@ export async function adminDeleteSafeDraftDeliveryAdCampaign(
     expectedLifecycle: DeliveryAdLifecycleStatus;
     expectedUpdatedAt: string;
     history: DeliveryAdHistoryFlags;
+    /** 관리자 처리 사유 (R2) — 삭제 감사 행 reason 에 남긴다. */
+    reason?: string | null;
   }
 ): Promise<AdminTransitionResult> {
   if (!canPhysicallyDeleteDeliveryAdCampaign({
@@ -378,7 +380,7 @@ export async function adminDeleteSafeDraftDeliveryAdCampaign(
     action: adminActionAuditLabel("delete_safe_draft"),
     before_json: { lifecycle: input.expectedLifecycle },
     after_json: { deleted: true },
-    reason: null,
+    reason: input.reason?.trim() || null,
   });
 
   return {

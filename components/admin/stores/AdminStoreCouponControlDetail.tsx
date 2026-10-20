@@ -9,6 +9,7 @@ import type { CouponCampaignOpsView } from "@/lib/stores/load-coupon-campaign-op
 import { couponControlActionsForLifecycle, type CouponControlCampaignView } from "@/lib/stores/admin-coupon-control-realized";
 import { buildAdminPromotionCreateHref } from "@/lib/stores/coupon-offer-promotion-deeplink";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import {
   adminCouponAuditActionMessageKey,
@@ -90,7 +91,7 @@ export function AdminStoreCouponControlDetail({
     const c =
       action === "reject"
         ? await confirmAdminAction({
-            level: "L2",
+            level: adminActionLevel("reject"),
             ko,
             title: ko ? `쿠폰 반려 · ${title}` : `Reject coupon · ${title}`,
             description: ko ? "반려 사유는 매장에 전달되고 작업 기록에 남습니다." : "The reason is sent to the store and recorded.",
@@ -100,7 +101,7 @@ export function AdminStoreCouponControlDetail({
           })
         : action === "revoke"
           ? await confirmAdminAction({
-              level: "L3",
+              level: adminActionLevel("forceCancel"),
               ko,
               title: ko ? `쿠폰 강제 회수 · ${title}` : `Force revoke coupon · ${title}`,
               description: ko
@@ -113,13 +114,15 @@ export function AdminStoreCouponControlDetail({
             })
           : action === "approve"
             ? await confirmAdminAction({
-                level: "L1",
+                level: adminActionLevel("approve"),
                 ko,
                 title: ko ? `쿠폰 승인 · ${title}` : `Approve coupon · ${title}`,
+                description: ko ? "승인 사유는 작업 기록에 남습니다." : "The reason is recorded.",
                 confirmLabel: ko ? "승인" : "Approve",
+                reasonPlaceholder: ko ? "승인 사유" : "Approval reason",
               })
             : await confirmAdminAction({
-                level: "L1",
+                level: adminActionLevel(action === "pause" ? "hold" : "resume"),
                 ko,
                 title:
                   action === "pause"

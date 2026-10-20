@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -14,7 +15,8 @@ interface ReleaseLearningCardProps {
 }
 
 export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [versionFilter, setVersionFilter] = useState<string>(releaseArchiveId ?? "");
 
   const archives = useMemo(() => getReleaseArchives(), []);
@@ -45,9 +47,7 @@ export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardPro
       </div>
 
       {notes.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rel_learning_empty_filter")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_rel_learning_empty_filter")} />
       ) : (
         <div className="space-y-4">
           {notes.map((n) => {

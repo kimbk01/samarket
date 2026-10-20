@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { adminActOnPlatformPopupOwnerRequest } from "@/lib/platform-popup/owner-request-approve";
 import { isPlatformPopupOwnerRequestAdminAction } from "@/lib/platform-popup/owner-request-types";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -26,7 +27,7 @@ export async function POST(
   const { requestId } = await ctx.params;
   const body = (await req.json().catch(() => ({}))) as {
     action?: string;
-    reason?: string;
+    reason?: unknown;
     activate?: boolean;
     schedule?: boolean;
   };
@@ -36,11 +37,17 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
   }
 
+  // R2 — 승인·노출 시작(L2)·반려(L2)는 처리 사유 필수. 검토 시작·수정 요청은 선택(기존 그대로).
+  const reason = parseAdminReason(body.reason);
+  if ((action === "approve" || action === "reject") && !reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
+
   const result = await adminActOnPlatformPopupOwnerRequest(sb, {
     requestId,
     adminUserId: admin.userId,
     action,
-    reason: body.reason,
+    reason: reason ?? (typeof body.reason === "string" ? body.reason : null),
     activate: body.activate === true,
     schedule: body.schedule === true,
   });

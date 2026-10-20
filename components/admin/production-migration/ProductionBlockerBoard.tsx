@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import {
   getBlockedMigrationTables,
@@ -28,9 +29,7 @@ export function ProductionBlockerBoard() {
 
   if (!hasAny) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-        차단(blocker) 항목이 없습니다.
-      </div>
+      <AdminEmptyState ko message={"차단(blocker) 항목이 없습니다."} />
     );
   }
 

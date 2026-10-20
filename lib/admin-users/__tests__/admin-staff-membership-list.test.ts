@@ -70,8 +70,10 @@ describe("admin staff membership list", () => {
       "<PromoteMemberToAdminSheet",
       "updateAdminStaffApi(",
       'op: "revoke"',
-      "confirmMatchText=",
-      "reasonRequired",
+      // R2: 권한 해제 = confirmAdminAction L3 (사유 + 대상 재입력)
+      "confirmAdminAction(",
+      'adminActionLevel("delete")',
+      "retypeValue: adminStaffRevokeMatchText(openRow)",
       "AdminDetailDrawer",
       "AdminPagination",
     ]) {

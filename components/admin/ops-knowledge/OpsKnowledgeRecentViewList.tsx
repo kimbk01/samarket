@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   OPS_TOOLS_KB_SOURCE_KEYS,
@@ -12,7 +13,8 @@ import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OpsKnowledgeRecentViewList() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const views = useMemo(
     () => getOpsKnowledgeRecentViews({ adminId: "admin1", limit: 15 }),
     []
@@ -20,7 +22,7 @@ export function OpsKnowledgeRecentViewList() {
 
   if (views.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kb_recent_empty")}</div>
+      <AdminEmptyState ko={ko} message={t("admin_ops_tools_kb_recent_empty")} />
     );
   }
 

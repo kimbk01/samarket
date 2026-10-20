@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -11,7 +12,8 @@ import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 
 export function SectionHealthTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [surfaceFilter, setSurfaceFilter] = useState<RecommendationSurface | "">("");
   const sections = useMemo(
     () =>
@@ -45,9 +47,7 @@ export function SectionHealthTable() {
         </select>
       </div>
       {sections.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rec_mon_empty_section_health")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_rec_mon_empty_section_health")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[560px] border-collapse sam-text-body">

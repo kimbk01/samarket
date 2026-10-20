@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { PerformanceSummaryCards } from "./PerformanceSummaryCards";
 import { SlowApiTable } from "./SlowApiTable";
@@ -11,18 +10,14 @@ import { SlowQueryTable } from "./SlowQueryTable";
 import { loadPerformanceOpsFromServer } from "@/lib/performance/performance-ops-sync-client";
 
 export function AdminPerformancePage() {
-  const { t, language } = useI18n();
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadPerformanceOpsFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadPerformanceOpsFromServer);
+  const hydrated = loadState.status === "ready";
 
   if (!hydrated) {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_dev_performance" />
-        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

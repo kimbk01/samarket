@@ -11,6 +11,7 @@ import {
   type AdminStoreApprovalAction,
 } from "@/lib/admin-business/admin-store-decision";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
+import { ADMIN_REASON_REQUIRED_CODE } from "@/lib/admin/operator-ux/admin-reason";
 import { isAdminStorePatchAction } from "@/lib/admin-business/admin-store-patch-commands";
 import { buildStoreTaxonomyPatch } from "@/lib/stores/build-store-taxonomy-patch";
 import { loadBusinessControlCenterDetail } from "@/lib/admin-business/load-business-control-center-detail";
@@ -160,11 +161,14 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "unknown_action" }, { status: 400 });
   }
   const reason = String(body.reason ?? body.note ?? "").trim() || null;
-  if (
-    ADMIN_STORE_ACTIONS_REQUIRING_REASON.has(action) &&
-    (reason ?? "").length < ADMIN_STORE_REASON_MIN_LENGTH
-  ) {
-    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  // R2 — 입점·판매 승인(approve L2)·노출 켜기(exposeStart L2)도 확인창 사유를 받아 감사(after.reason)에 남긴다.
+  const reasonRequired =
+    ADMIN_STORE_ACTIONS_REQUIRING_REASON.has(action) ||
+    action === "approve_store" ||
+    action === "approve_sales" ||
+    (action === "set_store_visible" && body.enabled === true);
+  if (reasonRequired && (reason ?? "").length < ADMIN_STORE_REASON_MIN_LENGTH) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   }
 
   const sb = tryGetSupabaseForStores();

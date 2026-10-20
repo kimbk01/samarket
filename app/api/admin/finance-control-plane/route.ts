@@ -19,7 +19,7 @@ export async function GET() {
   } catch (e) {
     console.error("[finance-control-plane]", e);
     return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "load_failed" },
+      { ok: false, error: "load_failed" },
       { status: 500 }
     );
   }

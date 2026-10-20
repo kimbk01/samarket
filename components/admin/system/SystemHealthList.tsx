@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSystemHealth } from "@/lib/system/system-state";
@@ -15,16 +16,15 @@ function statusLabel(t: (key: MessageKey) => string, status: SystemHealthStatus)
 }
 
 export function SystemHealthList() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const health = useMemo(() => getSystemHealth(), []);
 
   return (
     <div className="space-y-4">
       <p className="sam-text-helper text-sam-muted">{t("admin_system_health_check_title")}</p>
       {health.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_system_health_empty")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_system_health_empty")} />
       ) : (
         <ul className="space-y-2">
           {health.map((h) => (

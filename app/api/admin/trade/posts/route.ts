@@ -4,20 +4,16 @@ import {
   countTradePosts,
   listTradePosts,
   loadTradePostsContext,
+  parseTradePostsFilter,
   resolveTradePostLguIds,
   TRADE_ADMIN_OPEN_REPORT_STATUSES,
-  type TradePostsFilter,
 } from "@/lib/admin/trade-admin/trade-posts-query";
 import {
   parseTradePostSort,
   parseTradePostTab,
   TRADE_POST_TABS,
 } from "@/lib/admin/trade-admin/trade-post-tabs";
-import {
-  communityAdminUuidOrNull,
-  parseCommunityAdminPage,
-  parseCommunityAdminPeriodFromSearch,
-} from "@/lib/admin/community-admin/community-admin-period";
+import { parseCommunityAdminPage } from "@/lib/admin/community-admin/community-admin-period";
 import {
   formatAdminMemberLabel,
   loadAdminMemberIdentityMap,
@@ -25,12 +21,6 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function numOrNull(v: string | null): number | null {
-  if (v == null || v.trim() === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
 
 /**
  * GET /api/admin/trade/posts — 거래 게시물 목록 + 탭 건수 (설계 v2 §C-2)
@@ -43,21 +33,10 @@ export async function GET(req: NextRequest) {
   const sb = admin.sb;
   const sp = req.nextUrl.searchParams;
 
-  const period = parseCommunityAdminPeriodFromSearch(sp, { defaultPeriod: "all" });
-  if (!period.ok) return NextResponse.json({ ok: false, error: period.error }, { status: 400 });
-  const tradeTypeRaw = (sp.get("tradeType") ?? "").trim();
-  const lguRaw = (sp.get("lguId") ?? "").trim();
-  const filter: TradePostsFilter = {
-    q: sp.get("q") ?? "",
-    sellerId: communityAdminUuidOrNull(sp.get("sellerId")),
-    categoryId: communityAdminUuidOrNull(sp.get("categoryId")),
-    tradeType: tradeTypeRaw === "product" || tradeTypeRaw === "job" ? tradeTypeRaw : null,
-    lguId: /^[0-9A-Za-z_-]{1,40}$/.test(lguRaw) ? lguRaw : null,
-    fromIso: period.fromIso,
-    toIso: period.toIso,
-    priceMin: numOrNull(sp.get("priceMin")),
-    priceMax: numOrNull(sp.get("priceMax")),
-  };
+  // 필터 해석 = 통합 대시보드 「판매중·거래완료·관리자 숨김」과 같은 함수 (parseTradePostsFilter → countTradePosts)
+  const parsed = parseTradePostsFilter(sp);
+  if (!parsed.ok) return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+  const filter = parsed.filter;
   const tab = parseTradePostTab(sp.get("tab"));
   const sort = parseTradePostSort(sp.get("sort"));
   const { limit, offset } = parseCommunityAdminPage(sp);

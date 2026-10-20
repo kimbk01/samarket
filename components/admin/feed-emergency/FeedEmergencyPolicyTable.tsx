@@ -19,11 +19,13 @@ import {
 } from "@/lib/feed-emergency/feed-emergency-utils";
 import { commitFeedEmergencyChange } from "@/lib/feed-emergency/feed-emergency-sync-client";
 import { feedEmergencySwitchConfirmCopy } from "@/lib/feed-emergency/feed-emergency-switch-confirm";
-import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
-import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 
 const FALLBACK_MODE_LABELS: Record<FeedFallbackMode, string> = {
   previous_live_version: "이전 live 버전",
@@ -35,7 +37,6 @@ const FALLBACK_MODE_LABELS: Record<FeedFallbackMode, string> = {
 export function FeedEmergencyPolicyTable() {
   const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
-  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
 
   const policies = useMemo(
     () => getFeedEmergencyPolicies(),
@@ -47,32 +48,42 @@ export function FeedEmergencyPolicyTable() {
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
 
   /** 변경 → 저장. 실패면 화면 상태를 되돌리고 실패를 알린다 (앱 반영 안 됨). */
-  const commit = async (mutate: () => void) => {
-    const r = await commitFeedEmergencyChange(mutate);
+  const commit = async (mutate: () => void, reason?: string | null) => {
+    const r = await commitFeedEmergencyChange(mutate, { reason });
     setResult(r.ok ? { ok: true, message: "저장했습니다. 앱 피드에 반영됩니다." } : { ok: false, code: r.error ?? "save_failed" });
     setRefresh((x) => x + 1);
   };
 
-  const handleKillSwitch = async (surface: RecommendationSurface, enabled: boolean) => {
-    const ok = await askConfirm(
-      feedEmergencySwitchConfirmCopy({ kind: "kill_switch", enable: enabled, targetLabel: SURFACE_LABELS[surface] })
-    );
-    if (!ok) return;
-    await commit(() => {
-      if (enabled) enableKillSwitch(surface);
-      else disableKillSwitch(surface);
+  /** 긴급 스위치(킬스위치·Fallback) 켜기·해제 = emergencyBlock (L3: 사유 + 목표 상태 단어 재입력). 사유는 저장 API → 감사 기록. */
+  const confirmEmergencySwitch = async (kind: "kill_switch" | "fallback", surface: RecommendationSurface, enable: boolean) => {
+    const copy = feedEmergencySwitchConfirmCopy({ kind, enable, targetLabel: SURFACE_LABELS[surface] });
+    return confirmAdminAction({
+      level: adminActionLevel("emergencyBlock"),
+      ko: true,
+      title: copy.title,
+      description: copy.description,
+      confirmLabel: copy.confirmLabel,
+      destructive: true,
+      retypeValue: copy.confirmMatchText,
     });
   };
 
+  const handleKillSwitch = async (surface: RecommendationSurface, enabled: boolean) => {
+    const c = await confirmEmergencySwitch("kill_switch", surface, enabled);
+    if (!c.ok) return;
+    await commit(() => {
+      if (enabled) enableKillSwitch(surface);
+      else disableKillSwitch(surface);
+    }, c.reason);
+  };
+
   const handleFallback = async (surface: RecommendationSurface, enabled: boolean) => {
-    const ok = await askConfirm(
-      feedEmergencySwitchConfirmCopy({ kind: "fallback", enable: enabled, targetLabel: SURFACE_LABELS[surface] })
-    );
-    if (!ok) return;
+    const c = await confirmEmergencySwitch("fallback", surface, enabled);
+    if (!c.ok) return;
     await commit(() => {
       if (enabled) enableFallback(surface, "관리자 수동 fallback 활성화");
       else disableFallback(surface);
-    });
+    }, c.reason);
   };
 
   const handlePolicyChange = async (
@@ -103,7 +114,6 @@ export function FeedEmergencyPolicyTable() {
         </p>
       ) : null}
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      {confirmDialog}
       <table className="w-full min-w-[720px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
@@ -140,13 +150,17 @@ export function FeedEmergencyPolicyTable() {
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <AdminChipButton
-                      selected={p.killSwitchEnabled}
+                    <AdminToneBadge tone={p.killSwitchEnabled ? "danger" : "neutral"}>
+                      {p.killSwitchEnabled ? "차단 중" : "정상"}
+                    </AdminToneBadge>
+                    <AdminActionButton
+                      size="sm"
+                      variant={p.killSwitchEnabled ? "secondary" : "danger"}
                       disabled={!writeAction.allowed}
                       onClick={() => void handleKillSwitch(p.surface, !p.killSwitchEnabled)}
-                      >
-                      {p.killSwitchEnabled ? "ON (해제)" : "OFF (활성화)"}
-                    </AdminChipButton>
+                    >
+                      {p.killSwitchEnabled ? "차단 해제" : "긴급 차단"}
+                    </AdminActionButton>
                     {mode === "kill_switch" && (
                       <span className="sam-text-helper text-sam-warning">{t("admin_feed_emergency_active_2")}</span>
                     )}
@@ -154,13 +168,17 @@ export function FeedEmergencyPolicyTable() {
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <AdminChipButton
-                      selected={mode === "fallback"}
+                    <AdminToneBadge tone={mode === "fallback" ? "warning" : "neutral"}>
+                      {mode === "fallback" ? "폴백 중" : "정상"}
+                    </AdminToneBadge>
+                    <AdminActionButton
+                      size="sm"
+                      variant={mode === "fallback" ? "secondary" : "danger"}
                       disabled={!writeAction.allowed}
                       onClick={() => void handleFallback(p.surface, mode !== "fallback")}
-                      >
-                      {mode === "fallback" ? "Fallback 중 (해제)" : "Fallback 활성화"}
-                    </AdminChipButton>
+                    >
+                      {mode === "fallback" ? "폴백 해제" : "폴백 전환"}
+                    </AdminActionButton>
                   </div>
                 </td>
                 <td className="px-3 py-2.5 text-sam-fg">

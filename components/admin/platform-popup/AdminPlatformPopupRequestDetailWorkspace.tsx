@@ -22,6 +22,9 @@ import {
   previewSurfaceFromAdminSelection,
 } from "@/lib/platform-popup/admin-surface-target-mode";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 export function AdminPlatformPopupRequestDetailWorkspace() {
   const { safeT, language } = useI18n();
@@ -78,6 +81,44 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
     opts?: { activate?: boolean; schedule?: boolean }
   ) => {
     if (!item) return;
+    // R2 — 승인 = approve(L2) · 승인 후 즉시 노출 = exposeStart(L2) · 반려 = reject(L2). 사유는 API 로 보내 감사에 남긴다.
+    let confirmedReason: string | null = null;
+    if (action === "approve" || action === "reject") {
+      const ko = lang !== "en";
+      const target = item.storeName?.trim() || item.id;
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel(action === "reject" ? "reject" : opts?.activate ? "exposeStart" : "approve"),
+        ko,
+        title:
+          action === "reject"
+            ? ko
+              ? "팝업 신청 반려"
+              : "Reject popup request"
+            : opts?.activate
+              ? ko
+                ? "승인 후 즉시 노출"
+                : "Approve & go live"
+              : opts?.schedule
+                ? ko
+                  ? "승인 후 예약"
+                  : "Approve & schedule"
+                : ko
+                  ? "팝업 신청 승인"
+                  : "Approve popup request",
+        description:
+          action === "reject"
+            ? ko
+              ? `「${target}」 신청을 반려합니다. 결제된 금액은 환불되고, 입력한 사유가 신청자에게 반려 사유로 전달됩니다.`
+              : `Reject the request from "${target}". Funding is refunded and the reason is sent to the requester.`
+            : ko
+              ? `「${target}」 신청을 승인합니다.`
+              : `Approve the request from "${target}".`,
+        confirmLabel: adminCta(action === "reject" ? "reject" : opts?.activate ? "exposeStart" : "approve", ko),
+        destructive: action === "reject",
+      });
+      if (!confirmed.ok) return;
+      confirmedReason = confirmed.reason;
+    }
     setBusy(true);
     setError(null);
     const res = await fetch(
@@ -88,7 +129,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action,
-          reason: reason || undefined,
+          reason: confirmedReason ?? (reason || undefined),
           activate: opts?.activate,
           schedule: opts?.schedule,
         }),

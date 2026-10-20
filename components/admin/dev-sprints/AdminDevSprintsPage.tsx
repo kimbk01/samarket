@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -16,11 +18,8 @@ type TabId = "summary" | "board" | "items";
 export function AdminDevSprintsPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadDevSprintsFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadDevSprintsFromServer);
+  const hydrated = loadState.status === "ready";
 
   const tabs = useMemo(
     () =>
@@ -36,9 +35,7 @@ export function AdminDevSprintsPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_dev_sprints" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

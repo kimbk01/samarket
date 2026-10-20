@@ -9,7 +9,8 @@ import type { AuthLoginSetting } from "@/lib/auth/login-settings";
 import type { AuthDuplicateLoginPolicy } from "@/lib/auth/session-policy";
 import type { AuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
 import Link from "next/link";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
@@ -51,10 +52,6 @@ export function AuthLoginSettingsForm() {
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [phoneSuccess, setPhoneSuccess] = useState<string | null>(null);
-  /** V3-09: 로그인 수단 저장은 확인 다이얼로그를 거친다 (전체 회원 로그인 영향). */
-  const [pendingSave, setPendingSave] = useState<
-    { kind: "provider"; provider: OAuthProvider } | { kind: "policy" } | null
-  >(null);
 
   const loadProviders = async () => {
     const providersRes = await fetch("/api/admin/auth-providers", {
@@ -296,6 +293,25 @@ export function AuthLoginSettingsForm() {
     }
   };
 
+
+  /** V3-09: 로그인 수단 저장은 확인(save · L1)을 거친다 (전체 회원 로그인 영향). */
+  const requestSave = async (target: { kind: "provider"; provider: OAuthProvider } | { kind: "policy" }) => {
+    const c = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title:
+        target.kind === "provider"
+          ? `${getProviderTitle(target.provider)} 로그인 설정을 저장할까요?`
+          : "로그인 정책을 저장할까요?",
+      description:
+        "로그인 수단 변경은 전체 회원 로그인에 영향을 줍니다. 잘못 저장하면 회원이 로그인하지 못할 수 있으니 값을 다시 확인한 뒤 저장하세요.",
+      confirmLabel: t("common_save"),
+      destructive: true,
+    });
+    if (!c.ok) return;
+    if (target.kind === "provider") void saveProvider(target.provider);
+    else void savePolicy();
+  };
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_menu_settings_auth" />
@@ -458,7 +474,7 @@ export function AuthLoginSettingsForm() {
                 <div className="flex justify-end">
                   <AdminActionButton
                     variant="primary"
-                    onClick={() => setPendingSave({ kind: "provider", provider: row.provider })}
+                    onClick={() => void requestSave({ kind: "provider", provider: row.provider })}
                     disabled={providerSaving[row.provider] === true}
                   >
                     {providerSaving[row.provider] ? t("common_saving") : `${getProviderTitle(row.provider)} ${t("common_save")}`}
@@ -520,7 +536,7 @@ export function AuthLoginSettingsForm() {
             <div className="flex justify-end">
               <AdminActionButton
                 variant="primary"
-                onClick={() => setPendingSave({ kind: "policy" })}
+                onClick={() => void requestSave({ kind: "policy" })}
                 disabled={policySaving || legacySettings.length === 0}
               >
                 {policySaving ? t("common_saving") : t("common_save")}
@@ -650,26 +666,6 @@ export function AuthLoginSettingsForm() {
         )}
       </AdminCard>
       )}
-      <AdminActionConfirmDialog
-        open={pendingSave !== null}
-        tone="danger"
-        title={
-          pendingSave?.kind === "provider"
-            ? `${getProviderTitle(pendingSave.provider)} 로그인 설정을 저장할까요?`
-            : "로그인 정책을 저장할까요?"
-        }
-        description="로그인 수단 변경은 전체 회원 로그인에 영향을 줍니다. 잘못 저장하면 회원이 로그인하지 못할 수 있으니 값을 다시 확인한 뒤 저장하세요."
-        confirmLabel={t("common_save")}
-        cancelLabel={t("common_cancel")}
-        onCancel={() => setPendingSave(null)}
-        onConfirm={() => {
-          const target = pendingSave;
-          setPendingSave(null);
-          if (!target) return;
-          if (target.kind === "provider") void saveProvider(target.provider);
-          else void savePolicy();
-        }}
-      />
     </div>
   );
 }

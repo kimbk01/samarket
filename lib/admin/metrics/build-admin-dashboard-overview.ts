@@ -10,7 +10,7 @@ import {
   type AdminActionQueueCategoryResult,
 } from "@/lib/admin/admin-action-queue-registry";
 import { canAccessAdminRoute, type AdminRouteAccessActor } from "@/lib/admin/access/admin-route-access";
-import type { AdminDashboardPeriodRange } from "@/lib/admin/metrics/dashboard-period";
+import type { AdminDashboardPeriodRange, AdminDashboardTrendWindow } from "@/lib/admin/metrics/dashboard-period";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import {
   ADMIN_DASHBOARD_ADMIN_QUEUE_CATEGORIES,
@@ -30,6 +30,8 @@ import {
 import type {
   AdminDashboardBandTile,
   AdminDashboardMetricValue,
+  AdminDashboardNoticeItem,
+  AdminDashboardNoticesPayload,
   AdminDashboardOverviewPayload,
   AdminDashboardPart,
   AdminDashboardPendingItem,
@@ -53,10 +55,20 @@ export type AdminDashboardSources = {
   metrics: (key: Exclude<AdminMetricSourceKey, "queue">) => Promise<AdminDashboardMetricMap>;
   /** 처리 대기 레지스트리 결과 (호출 관리자 권한 범위). 실패는 throw. */
   queue: () => Promise<readonly AdminActionQueueCategoryResult[]>;
-  /** 추세 점 (PHT 일별, 오늘 포함 최근 days 일). 실패는 throw. */
-  trend: (id: AdminDashboardTrendId, days: 7 | 30) => Promise<AdminDashboardTrendPoint[]>;
+  /** 추세 점 (PHT 일별, 선택 기간이 끝나는 날까지 window.days 일). 실패는 throw. */
+  trend: (id: AdminDashboardTrendId, window: AdminDashboardTrendWindow) => Promise<AdminDashboardTrendPoint[]>;
   /** 최근 활동 (종류별 최신 5건). 실패는 throw. */
   recent: () => Promise<readonly AdminDashboardRecentGroup[]>;
+  /** 공지 최신 5건 (고객센터 콘텐츠). 실패는 throw. 없으면 공지 블록 생략. */
+  notices?: () => Promise<readonly AdminDashboardNoticeItem[]>;
+};
+
+/** 공지 전체 목록 (관리자 「공지·고객센터」 화면) */
+export const ADMIN_DASHBOARD_NOTICES_HREF = "/admin/app/notices";
+
+/** 처리 대기 항목의 세는 단위가 행 수가 아닐 때 (지표와 같은 단위 — 레지스트리 sourceDetail 참고) */
+const PENDING_UNIT_NOTE: Partial<Record<AdminActionQueueCategory, { ko: string; en: string }>> = {
+  community_reports: { ko: "신고 대상 기준 (같은 대상 = 1건)", en: "Per reported target" },
 };
 
 export type BuildAdminDashboardOverviewInput = {
@@ -123,7 +135,12 @@ export function createAdminDashboardResolver(input: {
       const q = await queue();
       if (!q.ok) return { ...base(def, href), value: null, error: `queue:${q.error}` };
       const wanted = new Set<AdminActionQueueCategory>(def.queueCategories);
-      const rows = q.data.filter((c) => wanted.has(c.key) && c.status !== "forbidden");
+      // 처리 대기 목록과 같은 규칙 — 권한 밖 카테고리와 목록 화면을 열 수 없는 카테고리는 뺀다 (합계 = 목록 합계).
+      const rows = q.data.filter((c) => {
+        if (!wanted.has(c.key) || c.status === "forbidden") return false;
+        const listHref = ADMIN_ACTION_QUEUE_REGISTRY_BY_KEY.get(c.key)?.listHref;
+        return !listHref || canAccessAdminRoute(listHref, actor);
+      });
       if (rows.length === 0) return null;
       if (rows.some((c) => c.status !== "ok" || c.count === null)) {
         return { ...base(def, href), value: null, error: "queue_unavailable" };
@@ -167,6 +184,9 @@ export function createAdminDashboardResolver(input: {
         count: unavailable ? null : row.count,
         status: unavailable ? "unavailable" : "ok",
         href: def.listHref,
+        ...(PENDING_UNIT_NOTE[key]
+          ? { unitNoteKo: PENDING_UNIT_NOTE[key]!.ko, unitNoteEn: PENDING_UNIT_NOTE[key]!.en }
+          : {}),
       });
     }
     items.sort(
@@ -202,15 +222,22 @@ export function createAdminDashboardResolver(input: {
     return tiles.filter((t): t is AdminDashboardBandTile => t !== null);
   }
 
-  async function resolveTrend(tab: AdminDashboardTabDef, days: 7 | 30): Promise<AdminDashboardTrendPayload | null> {
+  async function resolveTrend(
+    tab: AdminDashboardTabDef,
+    window: AdminDashboardTrendWindow
+  ): Promise<AdminDashboardTrendPayload | null> {
     const def = ADMIN_DASHBOARD_TRENDS[tab.trend];
     if (!canAccessAdminRoute(def.href, actor)) return null;
-    const res = await settle(Promise.resolve().then(() => sources.trend(def.id, days)));
+    const res = await settle(Promise.resolve().then(() => sources.trend(def.id, window)));
     return {
       id: def.id,
       labelKo: def.labelKo,
       labelEn: def.labelEn,
-      days,
+      days: window.days,
+      fromDay: window.fromDay,
+      toDay: window.toDay,
+      ...(def.definitionKo ? { definitionKo: def.definitionKo } : {}),
+      ...(def.definitionEn ? { definitionEn: def.definitionEn } : {}),
       unit: def.unit,
       series: def.series.map((s) => ({ key: s.key, labelKo: s.labelKo, labelEn: s.labelEn })),
       points: res.ok ? res.data : [],
@@ -226,7 +253,16 @@ export function createAdminDashboardResolver(input: {
     return { groups: res.data.filter((g) => canAccessAdminRoute(g.href, actor)).map((g) => ({ ...g })) };
   }
 
-  return { resolveMetric, resolvePending, resolveBand, resolveTrend, resolveRecent };
+  /** 공지 — 공지 화면을 열 수 있을 때만. */
+  async function resolveNotices(): Promise<AdminDashboardNoticesPayload | null> {
+    if (!sources.notices || !canAccessAdminRoute(ADMIN_DASHBOARD_NOTICES_HREF, actor)) return null;
+    const load = sources.notices;
+    const res = await settle(Promise.resolve().then(() => load()));
+    if (!res.ok) return { items: [], href: ADMIN_DASHBOARD_NOTICES_HREF, error: res.error };
+    return { items: res.data.map((n) => ({ ...n })), href: ADMIN_DASHBOARD_NOTICES_HREF };
+  }
+
+  return { resolveMetric, resolvePending, resolveBand, resolveTrend, resolveRecent, resolveNotices };
 }
 
 export async function buildAdminDashboardOverview(
@@ -242,12 +278,13 @@ export async function buildAdminDashboardOverview(
   });
   const want = (p: AdminDashboardPart) => input.parts.has(p);
 
-  const [band, metrics, trend, pending, recent] = await Promise.all([
+  const [band, metrics, trend, pending, recent, notices] = await Promise.all([
     want("band") ? r.resolveBand() : Promise.resolve(undefined),
     want("metrics") ? Promise.all(tab.metricIds.map(r.resolveMetric)) : Promise.resolve(undefined),
-    want("trend") ? r.resolveTrend(tab, input.range.trendDays) : Promise.resolve(undefined),
+    want("trend") ? r.resolveTrend(tab, input.range.trend) : Promise.resolve(undefined),
     want("pending") ? r.resolvePending(tab) : Promise.resolve(undefined),
     want("recent") ? r.resolveRecent() : Promise.resolve(undefined),
+    want("notices") ? r.resolveNotices() : Promise.resolve(undefined),
   ]);
 
   const payload: AdminDashboardOverviewPayload = {
@@ -265,5 +302,6 @@ export async function buildAdminDashboardOverview(
   if (trend) payload.trend = trend;
   if (pending) payload.pending = pending;
   if (recent) payload.recent = recent;
+  if (notices) payload.notices = notices;
   return payload;
 }

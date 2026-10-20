@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -18,12 +21,10 @@ interface ReleaseNoteDetailCardProps {
 }
 
 export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardProps) {
-  const { t } = useI18n();
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadDevSprintsFromServer().then(() => setHydrated(true));
-  }, []);
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const { state: loadState, reload } = useAdminSyncLoad(loadDevSprintsFromServer);
+  const hydrated = loadState.status === "ready";
 
   const note = useMemo(
     () => (hydrated ? getReleaseNoteById(releaseNoteId) : undefined),
@@ -35,18 +36,12 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
   );
 
   if (!hydrated) {
-    return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_rec_mon_loading_settings")}
-      </div>
-    );
+    return <AdminSyncLoadGate state={loadState} onRetry={reload} />;
   }
 
   if (!note) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_rel_note_not_found")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_rel_note_not_found")} />
     );
   }
 

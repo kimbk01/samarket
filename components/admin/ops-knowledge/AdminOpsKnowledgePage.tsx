@@ -1,7 +1,11 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { adminFirstLoadFailure } from "@/lib/admin/admin-load-failure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsKnowledgeSearchBar } from "./OpsKnowledgeSearchBar";
@@ -18,17 +22,25 @@ import type { OpsKnowledgeBaseIndexItem } from "@/lib/types/ops-knowledge";
 import { getOpsKnowledgeBaseIndexItemByDocumentId } from "@/lib/ops-knowledge/ops-knowledge-base-index";
 import { loadOpsDocsFromServer } from "@/lib/ops-docs/ops-docs-sync-client";
 import {
+  commitOpsKnowledgeChange,
   loadOpsKnowledgeFromServer,
-  persistOpsKnowledgeToServer,
 } from "@/lib/ops-knowledge/ops-knowledge-sync-client";
 import { invalidateOpsKnowledgeIndexCache } from "@/lib/ops-knowledge/ops-knowledge-base-index";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 
+/** 문서 + 지식 번들 동시 로드 — 하나라도 실패하면 화면은 실패 상태 (기본값을 정상처럼 표시하지 않음). */
+async function loadOpsKnowledgeWorkspace() {
+  const [docs, kb] = await Promise.all([loadOpsDocsFromServer(), loadOpsKnowledgeFromServer()]);
+  invalidateOpsKnowledgeIndexCache();
+  const failure = adminFirstLoadFailure([docs, kb]);
+  return failure ? { ok: false, error: failure.code, httpStatus: failure.httpStatus } : { ok: true };
+}
+
 type TabId = "search" | "recommend" | "recent" | "searchLogs" | "recLogs";
 
 export function AdminOpsKnowledgePage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("search");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<OpsKnowledgeSearchFilters>({});
@@ -36,21 +48,16 @@ export function AdminOpsKnowledgePage() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [recommendSourceType, setRecommendSourceType] = useState<"incident" | "deployment" | "rollback" | "fallback" | "kill_switch">("incident");
   const [recommendSourceId, setRecommendSourceId] = useState("");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void Promise.all([loadOpsDocsFromServer(), loadOpsKnowledgeFromServer()]).then(() => {
-      invalidateOpsKnowledgeIndexCache();
-      setHydrated(true);
-    });
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadOpsKnowledgeWorkspace);
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
 
   const handleSearch = useCallback(() => {
     const results = searchOpsKnowledge(query, { ...filters, status: "active" });
     setSearchResults(results);
-    logOpsKnowledgeSearch(query, filters as Record<string, string>, results.length);
-    void persistOpsKnowledgeToServer();
     setSelectedDocumentId(results[0]?.documentId ?? null);
+    void commitOpsKnowledgeChange(() =>
+      logOpsKnowledgeSearch(query, filters as Record<string, string>, results.length)
+    ).then((r) => setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" }));
   }, [query, filters]);
 
   const selectedItem =
@@ -59,17 +66,16 @@ export function AdminOpsKnowledgePage() {
       : null;
 
   const handleViewDocument = useCallback((documentId: string) => {
-    addRecentView(documentId, "search");
-    void persistOpsKnowledgeToServer();
+    void commitOpsKnowledgeChange(() => addRecentView(documentId, "search")).then((r) =>
+      setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" })
+    );
   }, []);
 
-  if (!hydrated) {
+  if (loadState.status !== "ready") {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_manage_kb" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }
@@ -85,6 +91,11 @@ export function AdminOpsKnowledgePage() {
   return (
     <>
       <AdminPageHeader titleKey="admin_menu_manage_kb" />
+      {saveResult ? (
+        <div className="mb-4">
+          <AdminResultBanner ko={language !== "en"} result={saveResult} onClose={() => setSaveResult(null)} />
+        </div>
+      ) : null}
       <AdminTabs
         className="mb-4"
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}

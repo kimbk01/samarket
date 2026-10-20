@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { getActiveFeedVersions } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { rollbackSurface } from "@/lib/recommendation-deployments/recommendation-deployment-utils";
@@ -16,9 +17,7 @@ export function ActiveFeedVersionTable() {
 
   if (active.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        운영 버전이 없습니다.
-      </div>
+      <AdminEmptyState ko message={"운영 버전이 없습니다."} />
     );
   }
 

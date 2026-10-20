@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
@@ -36,7 +37,8 @@ type TimelineItem =
     };
 
 export function MonitoringTimeline() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
 
   const items = useMemo(() => {
     const list: TimelineItem[] = [];
@@ -80,9 +82,7 @@ export function MonitoringTimeline() {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_rec_mon_empty_timeline")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_rec_mon_empty_timeline")} />
     );
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { getPerformanceMetrics } from "@/lib/performance/performance-state";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -22,9 +23,7 @@ export function SlowApiTable() {
         API {SLOW_THRESHOLD_MS}ms 이상 또는 로딩 시간이 느린 페이지 (최근 기준)
       </p>
       {slowItems.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          느린 API가 없습니다.
-        </div>
+        <AdminEmptyState ko message={"느린 API가 없습니다."} />
       ) : (
         <AdminTable headers={["라우트", "로딩(ms)", "API(ms)", "DB(ms)", "측정 시각"]}>
           {slowItems.map((m) => (

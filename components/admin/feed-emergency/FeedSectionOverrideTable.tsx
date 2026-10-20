@@ -11,18 +11,18 @@ import {
 import { setSectionForcedDisabled } from "@/lib/feed-emergency/feed-emergency-utils";
 import { commitFeedEmergencyChange } from "@/lib/feed-emergency/feed-emergency-sync-client";
 import { feedEmergencySwitchConfirmCopy } from "@/lib/feed-emergency/feed-emergency-switch-confirm";
-import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
-import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 
 export function FeedSectionOverrideTable() {
   const [refresh, setRefresh] = useState(0);
   const [surface, setSurface] = useState<RecommendationSurface>("home");
-  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
   // 쓰기 = 접근표 action(최고관리자). 서버 가드는 그대로 — 화면에서 미리 막고 사유를 보여 준다.
   const writeAction = useAdminRouteAction("/admin/feed-emergency");
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
@@ -36,14 +36,22 @@ export function FeedSectionOverrideTable() {
     sectionKey: FeedSectionOverrideKey,
     isForcedDisabled: boolean
   ) => {
-    const ok = await askConfirm(
-      feedEmergencySwitchConfirmCopy({
-        kind: "section",
-        enable: isForcedDisabled,
-        targetLabel: `${SURFACE_LABELS[surface]} · ${SECTION_OVERRIDE_LABELS[sectionKey]}`,
-      })
-    );
-    if (!ok) return;
+    // 섹션 강제 비활성·해제 = emergencyBlock (L3: 사유 + 목표 상태 단어 재입력). 사유는 저장 API → 감사 기록.
+    const copy = feedEmergencySwitchConfirmCopy({
+      kind: "section",
+      enable: isForcedDisabled,
+      targetLabel: `${SURFACE_LABELS[surface]} · ${SECTION_OVERRIDE_LABELS[sectionKey]}`,
+    });
+    const c = await confirmAdminAction({
+      level: adminActionLevel("emergencyBlock"),
+      ko: true,
+      title: copy.title,
+      description: copy.description,
+      confirmLabel: copy.confirmLabel,
+      destructive: true,
+      retypeValue: copy.confirmMatchText,
+    });
+    if (!c.ok) return;
     // 저장 실패면 화면 상태를 되돌리고 실패를 알린다 (앱 반영 안 됨).
     const r = await commitFeedEmergencyChange(() =>
       setSectionForcedDisabled(
@@ -51,7 +59,8 @@ export function FeedSectionOverrideTable() {
         sectionKey,
         isForcedDisabled,
         isForcedDisabled ? "긴급 비활성화" : "긴급 해제"
-      )
+      ),
+      { reason: c.reason }
     );
     setResult(r.ok ? { ok: true, message: "저장했습니다. 앱 피드에 반영됩니다." } : { ok: false, code: r.error ?? "save_failed" });
     setRefresh((x) => x + 1);
@@ -63,7 +72,6 @@ export function FeedSectionOverrideTable() {
 
   return (
     <div className="space-y-4">
-      {confirmDialog}
       <AdminResultBanner ko result={result} onClose={() => setResult(null)} />
       {writeAction.reason ? (
         <p className="sam-text-body-secondary text-sam-muted" data-admin-action-denied="1">
@@ -131,13 +139,14 @@ export function FeedSectionOverrideTable() {
                     {ov?.reason ?? "-"}
                   </td>
                   <td className="px-3 py-2.5">
-                    <AdminChipButton
-                      selected={disabled}
+                    <AdminActionButton
+                      size="sm"
+                      variant={disabled ? "secondary" : "danger"}
                       disabled={!writeAction.allowed}
                       onClick={() => void handleToggle(sectionKey, !disabled)}
-                      >
-                      {disabled ? "해제" : "비활성화"}
-                    </AdminChipButton>
+                    >
+                      {disabled ? "차단 해제" : "긴급 차단"}
+                    </AdminActionButton>
                   </td>
                 </tr>
               );

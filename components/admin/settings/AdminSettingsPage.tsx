@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import type { AppSettings } from "@/lib/types/admin-settings";
 import {
   getAppSettings,
@@ -49,11 +51,13 @@ export function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
 
-  useEffect(() => {
-    void loadAppSettingsFromServer().then(() => {
-      setSettings(getAppSettings());
-    });
+  /** 서버 설정 조회 — 실패를 기본값 표시로 숨기지 않고 오류 상태 + [새로고침] (R6). */
+  const loadSettings = useCallback(async () => {
+    const r = await loadAppSettingsFromServer();
+    if (r.ok) setSettings(getAppSettings());
+    return r;
   }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadSettings);
 
   const display = useMemo(
     () => getDisplaySettings(settings, draft),
@@ -126,6 +130,15 @@ export function AdminSettingsPage() {
       setLogRefreshKey((k) => k + 1);
     }
   }, [sectionKeys, ko]);
+
+  if (loadState.status !== "ready") {
+    return (
+      <div className="space-y-4">
+        <AdminPageHeader titleKey="admin_menu_settings_general" />
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

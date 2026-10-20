@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getDrScenarios } from "@/lib/dr/dr-state";
@@ -10,7 +11,8 @@ import type { DrScenarioType, DrSeverity } from "@/lib/types/dr";
 import Link from "next/link";
 
 export function DrScenarioTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [typeFilter, setTypeFilter] = useState<DrScenarioType | "">("");
   const [severityFilter, setSeverityFilter] = useState<DrSeverity | "">("");
 
@@ -59,9 +61,11 @@ export function DrScenarioTable() {
       </div>
 
       {scenarios.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 조건의 시나리오가 없습니다.
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={typeFilter || severityFilter ? undefined : "해당 조건의 시나리오가 없습니다."}
+          onReset={typeFilter || severityFilter ? () => { setTypeFilter(""); setSeverityFilter(""); } : undefined}
+        />
       ) : (
         <AdminTable headers={["제목", "유형", "심각도", "설명", ""]}>
           {scenarios.map((s) => (

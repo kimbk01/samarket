@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { DeliveryAdCampaignPlacementPreviews } from "@/components/stores/advertising/DeliveryAdCampaignPlacementPreviews";
@@ -66,6 +65,8 @@ import {
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { adsRemainingPeriodLabel } from "@/lib/admin/domain-control/ads-operator-cta";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 
 const REVIEW_CONFIRM_ACTIONS = new Set<AdminDeliveryAdAction>([
   "approve",
@@ -80,6 +81,11 @@ function deliveryReviewToWorkspaceAction(
   if (action === "reject") return "reject";
   if (action === "request_changes") return "request_changes";
   return null;
+}
+
+/** 심사 결정 → 확인 단계 동작 표 (R2): 승인 = approve(L2) · 반려·수정 요청 = reject(L2) — 사유는 API `reason` 으로 전송. */
+function deliveryReviewConfirmKind(action: AdminDeliveryAdAction): AdminActionKind {
+  return action === "approve" ? "approve" : "reject";
 }
 
 const ACTIONS: AdminDeliveryAdAction[] = [
@@ -131,9 +137,6 @@ export function AdminDeliveryAdDetailWorkspace({
   } | null>(null);
   const [reason, setReason] = useState("");
   const [confirmAction, setConfirmAction] = useState<AdminDeliveryAdAction | null>(null);
-  const [pendingReviewConfirm, setPendingReviewConfirm] = useState<AdminDeliveryAdAction | null>(
-    null
-  );
   const [reviewSuccessKind, setReviewSuccessKind] = useState<
     "approve" | "reject" | "request_changes" | null
   >(null);
@@ -352,8 +355,22 @@ export function AdminDeliveryAdDetailWorkspace({
 
     if (REVIEW_CONFIRM_ACTIONS.has(action) && !opts?.confirmed) {
       setConfirmAction(null);
-      setPendingReviewConfirm(action);
       setError(null);
+      const ws = deliveryReviewToWorkspaceAction(action);
+      if (!ws) return;
+      const family = campaign.productKind === "store_sponsored" ? "delivery_sponsored" : "delivery_banner";
+      const copy = adsWorkspaceMutationConfirmCopy(ws, lang !== "en", { family });
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel(deliveryReviewConfirmKind(action)),
+        ko: lang !== "en",
+        title: copy.title,
+        description: copy.body,
+        confirmLabel: copy.confirmLabel,
+        destructive: copy.tone === "danger",
+        reasonPlaceholder: copy.reasonLabel,
+      });
+      if (!confirmed.ok) return;
+      await runAction(action, { reason: confirmed.reason ?? "", confirmed: true });
       return;
     }
 
@@ -361,7 +378,7 @@ export function AdminDeliveryAdDetailWorkspace({
     const needsReason = adminActionRequiresReason(action);
     if (needsReason && !reasonValue) {
       if (REVIEW_CONFIRM_ACTIONS.has(action)) {
-        setPendingReviewConfirm(action);
+        await runAction(action);
         return;
       }
       setConfirmAction(action);
@@ -423,11 +440,9 @@ export function AdminDeliveryAdDetailWorkspace({
             : adminOperatorErrorMessage(json.error || "action_failed", lang !== "en")
         );
         setConfirmAction(null);
-        setPendingReviewConfirm(null);
         return;
       }
       setConfirmAction(null);
-      setPendingReviewConfirm(null);
       setReason("");
       emitAdminQueueChanged("delivery_ad_ops");
       const refundWarning = json.result?.refundWarning ?? null;
@@ -1710,35 +1725,6 @@ export function AdminDeliveryAdDetailWorkspace({
           </>
         ) : null}
       </div>
-      {pendingReviewConfirm && campaign
-        ? (() => {
-            const ws = deliveryReviewToWorkspaceAction(pendingReviewConfirm);
-            if (!ws) return null;
-            const family =
-              campaign.productKind === "store_sponsored"
-                ? "delivery_sponsored"
-                : "delivery_banner";
-            const copy = adsWorkspaceMutationConfirmCopy(ws, lang !== "en", { family });
-            return (
-              <AdminActionConfirmDialog
-                open
-                title={copy.title}
-                description={copy.body}
-                confirmLabel={copy.confirmLabel}
-                cancelLabel={copy.cancelLabel}
-                tone={copy.tone}
-                reasonRequired={copy.reasonRequired}
-                reasonLabel={copy.reasonLabel}
-                pending={busy}
-                onCancel={() => setPendingReviewConfirm(null)}
-                onConfirm={(enteredReason) => {
-                  const action = pendingReviewConfirm;
-                  void runAction(action, { reason: enteredReason, confirmed: true });
-                }}
-              />
-            );
-          })()
-        : null}
     </AdminDeliveryCmsChrome>
   );
 }

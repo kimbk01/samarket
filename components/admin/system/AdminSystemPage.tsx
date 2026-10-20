@@ -1,10 +1,11 @@
 "use client";
 
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
@@ -54,11 +55,8 @@ export function AdminSystemPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadSystemOpsFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadSystemOpsFromServer);
+  const hydrated = loadState.status === "ready";
 
   const tabs = useMemo(
     (): { id: TabId; labelKey: MessageKey }[] => [
@@ -72,7 +70,7 @@ export function AdminSystemPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_dev_system_status" />
-        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

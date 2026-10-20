@@ -23,6 +23,8 @@ import { AdminWorkspaceSidebar } from "@/components/admin/shell/AdminWorkspaceSi
 import { AdminShellBreadcrumb } from "@/components/admin/shell/AdminShellBreadcrumb";
 import { AdminDeliveryCmsRightMenu } from "@/components/admin/shell/AdminDeliveryCmsRightMenu";
 import { AdminHeaderClock } from "@/components/admin/shell/AdminHeaderClock";
+import { AdminHeaderAccountMenu } from "@/components/admin/shell/AdminHeaderAccountMenu";
+import { AdminHeaderQuickSearch } from "@/components/admin/shell/AdminHeaderQuickSearch";
 import { AdminConfirmHost } from "@/components/admin/ui/AdminConfirmHost";
 import {
   listAdminWorkspaces,
@@ -32,6 +34,7 @@ import {
 import { isDeliveryCmsSurface } from "@/lib/admin/delivery-cms-nav";
 import { adminMenu, filterMenuByRole } from "@/components/admin/admin-menu";
 import { filterAdminMenuByAccess } from "@/lib/admin/access/admin-access-ui";
+import { canAccessAdminRoute } from "@/lib/admin/access/admin-route-access";
 import { AdminRoutePageGate } from "@/components/admin/access/AdminRoutePageGate";
 import { useAdminAccessActor } from "@/components/admin/access/use-admin-route-access";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
@@ -174,6 +177,11 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
       )
     : undefined;
 
+  /** 상단 공통 조회·계정 메뉴 — 접근표로 열 수 있는 화면만 (actor 로딩 중이면 숨김). */
+  const canSearchMembers = accessActor ? canAccessAdminRoute("/admin/users", accessActor) : false;
+  const canSearchOrders = accessActor ? canAccessAdminRoute("/admin/stores/orders", accessActor) : false;
+  const canManageStaff = accessActor ? canAccessAdminRoute("/admin/staff", accessActor) : false;
+
   if (!menuRole) {
     return <div className="min-h-screen bg-sam-app" aria-busy="true" />;
   }
@@ -221,6 +229,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
             />
 
             <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 border-l border-[var(--admin-console-border)] pl-3 sm:gap-2 sm:pl-4">
+              <AdminHeaderQuickSearch canSearchMembers={canSearchMembers} canSearchOrders={canSearchOrders} />
               <AdminHeaderClock />
               <AdminShellToolbar
                 sidebarExpanded={sidebarExpanded}
@@ -228,16 +237,18 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
               />
               <AdminLanguageToggleLazy />
               <AdminTestSwitcher />
-              {roleLabel ? (
-                <span className="hidden rounded-sm border border-[var(--admin-console-border)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--admin-console-muted)] lg:inline">
-                  {roleLabel}
-                </span>
-              ) : null}
               <Link href="/philife" className="sam-btn sam-btn--outline sam-btn--sm">
                 {t("common_homepage")}
               </Link>
               <AdminInboxLink />
               <AdminNotificationBell />
+              {/* 관리자 계정 — 1024 폭에서도 보인다 (이름 · 역할 · 계정 메뉴) */}
+              <AdminHeaderAccountMenu
+                displayName={adminMe?.displayName ?? null}
+                loginId={adminMe?.loginId ?? null}
+                roleLabel={roleLabel ?? null}
+                canManageStaff={canManageStaff}
+              />
             </div>
           </div>
         </header>

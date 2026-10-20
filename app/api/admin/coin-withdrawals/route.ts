@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   COIN_WITHDRAWAL_REQUESTS_TABLE,
   markCoinWithdrawalPaid,
@@ -46,11 +47,15 @@ export async function POST(req: NextRequest) {
   const requestId = String(body.requestId ?? body.request_id ?? "").trim();
   if (!requestId) return NextResponse.json({ ok: false, error: "missing_request_id" }, { status: 400 });
 
+  /** R2 — 반려(reject)·지급 완료(payout) 모두 L2: 확인창 사유 필수 → 감사 `after.reason`. */
+  const reason = parseAdminReason(body.reason);
+
   if (action === "reject") {
+    if (!reason) return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
     const result = await rejectCoinWithdrawal(gate.sb, {
       adminUserId: gate.actor.userId,
       requestId,
-      reason: String(body.reason ?? ""),
+      reason,
     });
     if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     await appendAdminRouteAudit(gate.sb, req, {
@@ -58,7 +63,7 @@ export async function POST(req: NextRequest) {
       targetType: "coin_withdrawal_request",
       targetId: requestId,
       action: "coin_withdrawal.reject",
-      after: { reason: String(body.reason ?? "").slice(0, 500) },
+      after: { reason },
     });
     return NextResponse.json({ ok: true });
   }
@@ -69,6 +74,7 @@ export async function POST(req: NextRequest) {
     if (!payoutReference || !payoutMethod) {
       return NextResponse.json({ ok: false, error: "payout_reference_required" }, { status: 400 });
     }
+    if (!reason) return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
     const result = await markCoinWithdrawalPaid(gate.sb, {
       adminUserId: gate.actor.userId,
       requestId,
@@ -89,6 +95,7 @@ export async function POST(req: NextRequest) {
         payoutMethod,
         payoutReference,
         payoutNote: String(body.payoutNote ?? body.payout_note ?? "").slice(0, 500),
+        reason,
       },
     });
     return NextResponse.json({ ok: true });

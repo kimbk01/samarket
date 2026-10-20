@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -23,19 +25,14 @@ export function AdminOpsDocsPage() {
   const [filterState, setFilterState] = useState<OpsDocumentFilterState>(INIT_FILTER);
   const [activeTab, setActiveTab] = useState<"list" | "summary">("list");
   const [refresh, setRefresh] = useState(0);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadOpsDocsFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadOpsDocsFromServer);
+  const hydrated = loadState.status === "ready";
 
   if (!hydrated) {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_manage_docs" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

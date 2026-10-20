@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationRecoveryStates } from "@/lib/recommendation-automation/recommendation-recovery-state";
@@ -10,7 +11,8 @@ import {
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function RecoveryStateTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [refresh, setRefresh] = useState(0);
   const states = useMemo(
     () => getRecommendationRecoveryStates(),
@@ -19,9 +21,7 @@ export function RecoveryStateTable() {
 
   if (states.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_rec_auto_empty_recovery")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_rec_auto_empty_recovery")} />
     );
   }
 

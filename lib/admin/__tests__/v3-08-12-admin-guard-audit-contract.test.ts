@@ -193,7 +193,7 @@ describe("V3-09 auth settings — settings permission + masked audit", () => {
 
   it("settings UI confirms before saving login methods", () => {
     const src = read("components/admin/settings/AuthLoginSettingsForm.tsx");
-    expect(src).toContain("<AdminActionConfirmDialog");
+    expect(src).toContain("confirmAdminAction(");
     expect(src).toContain("전체 회원 로그인에 영향");
     expect(src).not.toMatch(/onClick=\{\(\) => void saveProvider\(/);
     expect(src).not.toMatch(/onClick=\{\(\) => void savePolicy\(/);

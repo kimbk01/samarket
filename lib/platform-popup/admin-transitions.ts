@@ -26,6 +26,8 @@ export type PlatformPopupAdminTransitionInput = {
   actorRole: PlatformPopupActorRole;
   nextStatus?: PlatformPopupCampaignStatus;
   nextApproval?: PlatformPopupApprovalStatus;
+  /** 관리자 처리 사유 (R2) — 있으면 감사 `after_json.reason` 에 남긴다. */
+  reason?: string | null;
 };
 
 export type PlatformPopupAdminTransitionResult =
@@ -155,6 +157,7 @@ export async function transitionPlatformPopupCampaign(
       status: updated.status,
       approval_status: updated.approval_status,
       actor_role: input.actorRole,
+      ...(input.reason ? { reason: input.reason } : {}),
     },
   });
 
@@ -175,6 +178,8 @@ export async function adminApprovePlatformPopupCampaign(
     adminUserId: string;
     activate?: boolean;
     schedule?: boolean;
+    /** 관리자 처리 사유 (R2) — 단계별 전이 감사마다 남긴다. */
+    reason?: string | null;
   }
 ): Promise<PlatformPopupAdminTransitionResult> {
   const { data: row, error } = await sb
@@ -195,6 +200,7 @@ export async function adminApprovePlatformPopupCampaign(
       actorRole: "admin",
       nextStatus: "pending_review",
       nextApproval: "pending_review",
+      reason: input.reason ?? null,
     });
     if (!toReview.ok) return toReview;
     status = toReview.status;
@@ -208,6 +214,7 @@ export async function adminApprovePlatformPopupCampaign(
       actorRole: "admin",
       nextStatus: status === "pending_review" ? "approved" : undefined,
       nextApproval: "approved",
+      reason: input.reason ?? null,
     });
     if (!toApproved.ok) return toApproved;
     status = toApproved.status;
@@ -229,5 +236,6 @@ export async function adminApprovePlatformPopupCampaign(
     actorRole: "admin",
     nextStatus,
     nextApproval: "approved",
+    reason: input.reason ?? null,
   });
 }

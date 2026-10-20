@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -18,7 +19,8 @@ import {
 import type { DevSprintItemStatus } from "@/lib/types/dev-sprints";
 
 export function DevSprintItemTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [sprintId, setSprintId] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<DevSprintItemStatus | "">("");
 
@@ -93,9 +95,11 @@ export function DevSprintItemTable() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_dev_sprint_empty_items")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={sprintId || statusFilter ? undefined : t("admin_dev_sprint_empty_items")}
+          onReset={sprintId || statusFilter ? () => { setSprintId(""); setStatusFilter(""); } : undefined}
+        />
       ) : (
         <AdminTable headers={headers.map((k) => t(k))}>
           {items.map((i) => {

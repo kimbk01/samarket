@@ -1,9 +1,10 @@
 "use client";
 
 
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
@@ -33,21 +34,15 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export function AdminRecommendationDeploymentPage() {
-  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("active");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadRecommendationExperimentsFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationExperimentsFromServer);
+  const hydrated = loadState.status === "ready";
 
   if (!hydrated) {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_rec_deployments" description="운영 버전·배포·롤백·실험 승자 관리" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

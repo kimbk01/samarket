@@ -152,7 +152,7 @@ export function adminOperatorErrorMessage(
       en: "Please enter a reason.",
     },
     network_error: {
-      ko: "네트워크 오류가 발생했습니다. 다시 시도해 주세요.",
+      ko: "네트워크 오류가 발생했습니다. 연결을 확인한 뒤 새로고침해 주세요.",
       en: "Network error. Please try again.",
     },
     load_failed: {
@@ -190,7 +190,7 @@ export function adminOperatorErrorMessage(
       en: "Another admin changed the status first. Refresh and check again.",
     },
     expected_status_required: {
-      ko: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
+      ko: "화면 정보가 오래되었습니다. 새로고침한 뒤 다시 처리하세요.",
       en: "This screen is out of date. Refresh and try again.",
     },
     stale_lifecycle: {
@@ -202,11 +202,11 @@ export function adminOperatorErrorMessage(
       en: "Another admin edited this first. Refresh and check again.",
     },
     expected_updated_at_required: {
-      ko: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
+      ko: "화면 정보가 오래되었습니다. 새로고침한 뒤 다시 처리하세요.",
       en: "This screen is out of date. Refresh and try again.",
     },
     expected_version_required: {
-      ko: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
+      ko: "화면 정보가 오래되었습니다. 새로고침한 뒤 다시 처리하세요.",
       en: "This screen is out of date. Refresh and try again.",
     },
     stale_policy: {
@@ -247,7 +247,7 @@ export function adminOperatorErrorMessage(
       en: "No other default fee policy is active, so this cannot be ended.",
     },
     reject_refund_failed: {
-      ko: "매장 캐시 환불에 실패해 반려하지 않았습니다. 잠시 후 다시 시도하세요.",
+      ko: "매장 캐시 환불에 실패해 반려하지 않았습니다. 잠시 후 새로고침해 상태를 확인한 뒤 다시 반려하세요.",
       en: "The store Cash refund failed, so the campaign was not rejected. Try again shortly.",
     },
     business_cash_refund_failed: {
@@ -261,7 +261,7 @@ export function adminOperatorErrorMessage(
     invalid_store_id: { ko: "매장 주소가 올바르지 않습니다.", en: "Invalid store link." },
     order_not_found: { ko: "주문을 찾을 수 없습니다.", en: "Order not found." },
     supabase_unconfigured: { ko: "서버 설정 오류입니다. 시스템 관리자에게 문의하세요.", en: "Server configuration error. Contact a system admin." },
-    db_error: { ko: "저장 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.", en: "A database error occurred. Try again later." },
+    db_error: { ko: "저장 중 오류가 발생했습니다. 잠시 후 새로고침해 저장 여부를 확인하세요.", en: "A database error occurred. Try again later." },
     // 배달 현장 (R4-D) — 자동 조치·경고·라이더
     kill_switch_off: {
       ko: "자동 조치가 전체 중지된 상태라 실행할 수 없습니다. 자동 조치 승인 화면에서 먼저 허용하세요.",
@@ -280,7 +280,7 @@ export function adminOperatorErrorMessage(
     schema_missing: { ko: "이 기능이 아직 서버에 준비되지 않았습니다. 시스템 관리자에게 문의하세요.", en: "This feature is not ready on the server. Contact a system admin." },
     bad_action: { ko: "지원하지 않는 복구 작업입니다.", en: "Unsupported recovery action." },
     concurrent_recovery: {
-      ko: "같은 복구 작업이 이미 실행 중입니다. 잠시 후 다시 시도하세요.",
+      ko: "같은 복구 작업이 이미 실행 중입니다. 끝난 뒤 새로고침해 결과를 확인하세요.",
       en: "The same recovery is already running. Try again shortly.",
     },
     retype_required: { ko: "확인 문구가 일치하지 않아 실행하지 않았습니다.", en: "The confirmation text did not match." },
@@ -313,7 +313,7 @@ export function adminOperatorErrorMessage(
     invalid_delivery_transition: { ko: "현재 배달 상태에서는 할 수 없는 변경입니다.", en: "Not allowed for the current delivery status." },
     release_not_applicable_for_status: { ko: "현재 배달 상태에서는 배정을 해제할 수 없습니다.", en: "Cannot release for the current delivery status." },
     rider_not_found: { ko: "라이더를 찾을 수 없습니다.", en: "Rider not found." },
-    rider_offline: { ko: "오프라인 라이더입니다. 오프라인 배정 허용을 켜고 다시 시도하세요.", en: "The rider is offline. Allow offline assignment and retry." },
+    rider_offline: { ko: "오프라인 라이더입니다. 오프라인 배정 허용을 켜고 다시 배정하세요.", en: "The rider is offline. Allow offline assignment and retry." },
     rider_suspended: { ko: "정지된 라이더에게는 배정할 수 없습니다.", en: "Suspended riders cannot be assigned." },
     rider_paused: { ko: "배정이 일시 중지된 라이더입니다.", en: "This rider's assignments are paused." },
     invalid_rule_number: { ko: "분·단계 값은 1 이상의 숫자로 입력하세요.", en: "Minutes/levels must be numbers of 1 or more." },
@@ -324,10 +324,73 @@ export function adminOperatorErrorMessage(
   };
   if (known[key]) return ko ? known[key].ko : known[key].en;
   if (OPERATOR_LABELS[key]) return adminOperatorLabel(key, ko);
-  if (/^[a-z][a-z0-9_]*$/i.test(key) && key.includes("_")) {
-    return ko ? "처리를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요." : "Could not complete. Please try again.";
-  }
-  return key;
+  const status = ADMIN_HTTP_STATUS_CODE[key];
+  if (status) return adminHttpStatusErrorMessage(status, ko);
+  if (isAdminNetworkErrorText(key)) return ko ? known.network_error.ko : known.network_error.en;
+  if (isAdminOperatorSentence(key)) return key;
+  // 그 외(모르는 코드·DB/런타임 원문)는 화면에 그대로 보이지 않는다 — 원문은 AdminTechDetails 로만 (재설계 R3).
+  // 성공·부분 성공 결과문은 이 함수에 넣지 않는다 (오류 전용).
+  return ko ? ADMIN_GENERIC_FAILURE_KO : ADMIN_GENERIC_FAILURE_EN;
+}
+
+const ADMIN_GENERIC_FAILURE_KO = "처리를 완료하지 못했습니다. 새로고침해 현재 상태를 확인해 주세요.";
+const ADMIN_GENERIC_FAILURE_EN = "Could not complete. Refresh to check the current state.";
+
+/** 오류 맵 (수정 계획 2-5) — HTTP 상태별 고정 문구. 코드가 없거나 모르는 코드일 때 상태로 문구를 정한다. */
+const ADMIN_HTTP_STATUS_MESSAGES: Record<number, { ko: string; en: string }> = {
+  401: { ko: "로그인이 필요합니다. 다시 로그인한 뒤 새로고침하세요.", en: "Sign-in required. Sign in again and refresh." },
+  403: { ko: "이 작업을 할 권한이 없습니다.", en: "You do not have permission for this action." },
+  404: { ko: "대상을 찾을 수 없습니다. 새로고침 후 확인하세요.", en: "Not found. Refresh and check again." },
+  409: {
+    ko: "다른 관리자가 먼저 처리해 상태가 바뀌었습니다. 새로고침 후 다시 확인하세요.",
+    en: "Another admin changed this first. Refresh and check again.",
+  },
+  422: { ko: "입력값이 올바르지 않습니다. 내용을 확인해 주세요.", en: "Invalid input. Check the values." },
+  429: { ko: "요청이 너무 많습니다. 잠시 후 새로고침해 주세요.", en: "Too many requests. Refresh shortly." },
+  500: { ko: "서버 오류로 처리하지 못했습니다. 잠시 후 새로고침해 상태를 확인하세요.", en: "Server error. Refresh shortly to check the state." },
+};
+
+/** API 가 상태 대신 보내는 코드 → HTTP 상태 (오류 맵 공용). */
+const ADMIN_HTTP_STATUS_CODE: Record<string, number> = {
+  unauthorized: 401,
+  login_required: 401,
+  conflict: 409,
+  invalid_input: 422,
+  validation_failed: 422,
+  rate_limited: 429,
+  too_many_requests: 429,
+  server_error: 500,
+  internal_error: 500,
+};
+
+/** HTTP 상태 → 오류 맵 문구. 5xx 는 500 문구, 그 외 모르는 상태는 일반 실패 문구. */
+export function adminHttpStatusErrorMessage(status: number | null | undefined, ko: boolean): string {
+  const n = Number(status);
+  const row = ADMIN_HTTP_STATUS_MESSAGES[n] ?? (n >= 500 && n < 600 ? ADMIN_HTTP_STATUS_MESSAGES[500] : null);
+  if (row) return ko ? row.ko : row.en;
+  return ko ? ADMIN_GENERIC_FAILURE_KO : ADMIN_GENERIC_FAILURE_EN;
+}
+
+/** 브라우저 네트워크 실패 원문 (fetch TypeError 등). */
+export function isAdminNetworkErrorText(raw: string | null | undefined): boolean {
+  return /failed to fetch|networkerror|network request failed|err_network|timed? ?out/i.test(String(raw ?? ""));
+}
+
+/**
+ * 운영자용 문장(한글)으로 이미 작성된 메시지만 그대로 보인다.
+ * DB·런타임 원문(영문 오류, SQL·제약 이름, 스택)은 문장으로 보지 않는다.
+ */
+export function isAdminOperatorSentence(raw: string | null | undefined): boolean {
+  const s = String(raw ?? "").trim();
+  if (!/[가-힣]/.test(s)) return false;
+  return !/\b(?:violates|constraint|relation|column|syntax error|duplicate key|permission denied|PGRST\d+|JWT|TypeError|ReferenceError|undefined|null value)\b|"[a-z_]+_(?:pkey|key|fkey|check)"|\bat \S+:\d+/i.test(s);
+}
+
+/** 오류 맵에 없는 값(모르는 코드·DB/런타임 원문)인지 — 이때 화면 문구는 일반 실패 문구 또는 HTTP 상태 문구. */
+export function isAdminUnmappedError(raw: string | null | undefined): boolean {
+  const key = String(raw ?? "").trim();
+  if (!key) return true;
+  return adminOperatorErrorMessage(key, true) === ADMIN_GENERIC_FAILURE_KO;
 }
 
 /** 충돌 코드(stale_updated_at / stale_policy) → "stale_reloaded", 그 외는 그대로. 결과 배너처럼 코드만 받는 UI 용. */

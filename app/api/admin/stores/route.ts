@@ -10,6 +10,7 @@ import {
   type AddressBookCardPresentation,
 } from "@/lib/addresses/address-book-card-presentation";
 import { ADMIN_ACTIONABLE_STORE_APPROVAL } from "@/lib/admin/admin-ops-actionable-status";
+import { applyStoreApprovalStatusFilter } from "@/lib/admin/metrics/admin-metric-filters";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ADMIN_STORES_COUNT_STATUSES,
@@ -346,13 +347,8 @@ async function respondPaged(
     }
     return res;
   };
-  const applyStatus = (q: Q): Q => {
-    if (!status || status === "all") return q;
-    if (status === "actionable") {
-      return q.in("approval_status", [...ADMIN_ACTIONABLE_STORE_APPROVAL]) as Q;
-    }
-    return q.eq("approval_status", status) as Q;
-  };
+  // 상태 필터 = 처리 대기 레지스트리 「입점 심사 대기」와 같은 함수 (applyStoreApprovalStatusFilter)
+  const applyStatus = (q: Q): Q => applyStoreApprovalStatusFilter(q, status) as Q;
 
   let pageRows: AdminStoreListRow[] = [];
   let total = 0;

@@ -28,12 +28,15 @@ describe("U-9 피드 긴급 스위치 확인", () => {
       "components/admin/feed-emergency/FeedSectionOverrideTable.tsx",
     ]) {
       const src = readFileSync(file, "utf8");
-      expect(src).toContain("useAdminConfirmDialog");
+      // R2: 긴급 스위치 = confirmAdminAction L3 (사유 + 상태 단어 재입력)
+      expect(src).toContain("confirmAdminAction(");
+      expect(src).toContain('adminActionLevel("emergencyBlock")');
       expect(src).toContain("feedEmergencySwitchConfirmCopy");
-      expect(src).toContain("{confirmDialog}");
+      expect(src).toContain("retypeValue: copy.confirmMatchText");
     }
     const policy = readFileSync("components/admin/feed-emergency/FeedEmergencyPolicyTable.tsx", "utf8");
     const kill = policy.slice(policy.indexOf("const handleKillSwitch"));
-    expect(kill.indexOf("askConfirm(")).toBeLessThan(kill.indexOf("enableKillSwitch(surface)"));
+    expect(kill.indexOf("confirmEmergencySwitch(")).toBeGreaterThanOrEqual(0);
+    expect(kill.indexOf("if (!c.ok) return;")).toBeLessThan(kill.indexOf("enableKillSwitch(surface)"));
   });
 });

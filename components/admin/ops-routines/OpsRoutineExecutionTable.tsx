@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import {
@@ -20,7 +21,8 @@ import type {
 import Link from "next/link";
 
 export function OpsRoutineExecutionTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [periodType, setPeriodType] = useState<OpsRoutinePeriodType | "">("");
   const [status, setStatus] = useState<OpsRoutineExecutionStatus | "">("");
   const executions = useMemo(
@@ -68,7 +70,11 @@ export function OpsRoutineExecutionTable() {
       <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_routines_sla_hint")}</p>
 
       {executions.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_routines_exec_empty")}</div>
+        <AdminEmptyState
+          ko={ko}
+          message={periodType || status ? undefined : t("admin_ops_tools_routines_exec_empty")}
+          onReset={periodType || status ? () => { setPeriodType(""); setStatus(""); } : undefined}
+        />
       ) : (
         <AdminTable
           headers={[

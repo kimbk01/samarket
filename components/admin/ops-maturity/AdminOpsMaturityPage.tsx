@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { OpsMaturityScoreCards } from "./OpsMaturityScoreCards";
@@ -17,13 +18,10 @@ import { loadOpsMaturityFromServer } from "@/lib/ops-maturity/ops-maturity-sync-
 type TabId = "scores" | "kpi" | "roadmap" | "history" | "summary";
 
 export function AdminOpsMaturityPage() {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("scores");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadOpsMaturityFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadOpsMaturityFromServer);
+  const hydrated = loadState.status === "ready";
 
   const tabs: { id: TabId; labelKey: MessageKey }[] = [
     { id: "scores", labelKey: "admin_ops_tools_maturity_tab_scores" },
@@ -37,7 +35,7 @@ export function AdminOpsMaturityPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_manage_maturity" />
-        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

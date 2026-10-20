@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -15,7 +16,8 @@ import Link from "next/link";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function SecurityCheckTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [typeFilter, setTypeFilter] = useState<SecurityCheckType | "">("");
   const [statusFilter, setStatusFilter] = useState<SecurityStatus | "">("");
 
@@ -62,9 +64,11 @@ export function SecurityCheckTable() {
       </div>
 
       {checks.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 조건의 점검 항목이 없습니다.
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={typeFilter || statusFilter ? undefined : "해당 조건의 점검 항목이 없습니다."}
+          onReset={typeFilter || statusFilter ? () => { setTypeFilter(""); setStatusFilter(""); } : undefined}
+        />
       ) : (
         <AdminTable headers={["유형", "대상", "상태", "설명", "점검일", ""]}>
           {checks.map((c) => (

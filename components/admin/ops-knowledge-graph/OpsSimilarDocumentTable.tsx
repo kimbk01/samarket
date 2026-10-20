@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -11,7 +12,8 @@ interface OpsSimilarDocumentTableProps {
 }
 
 export function OpsSimilarDocumentTable({ sourceDocumentId }: OpsSimilarDocumentTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [selectedSource, setSelectedSource] = useState(sourceDocumentId ?? "");
 
   const recs = useMemo(
@@ -63,7 +65,7 @@ export function OpsSimilarDocumentTable({ sourceDocumentId }: OpsSimilarDocument
         />
       </div>
       {recs.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kg_no_similar")}</div>
+        <AdminEmptyState ko={ko} message={t("admin_ops_tools_kg_no_similar")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[480px] border-collapse sam-text-body">

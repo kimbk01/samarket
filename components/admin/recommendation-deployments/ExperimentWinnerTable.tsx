@@ -10,7 +10,8 @@ import { getExperimentWinnerSummaries } from "@/lib/recommendation-experiments/r
 import { chooseWinner } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { ASSIGNED_GROUP_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
-import { persistRecommendationExperimentsToServer } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
+import { commitRecommendationExperimentsChange } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
+import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const WINNING_METRIC_LABELS: Record<WinningMetric, string> = {
@@ -20,7 +21,9 @@ const WINNING_METRIC_LABELS: Record<WinningMetric, string> = {
 };
 
 export function ExperimentWinnerTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   const [metric, setMetric] = useState<WinningMetric>("ctr");
   const [choosingId, setChoosingId] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
@@ -34,24 +37,24 @@ export function ExperimentWinnerTable() {
     [refresh]
   );
 
-  const handleChooseWinner = (experimentId: string) => {
+  /** 저장 실패 → 승자 선택 되돌림 + 실패 문구 (예전: 실패 무시). */
+  const handleChooseWinner = async (experimentId: string) => {
     setChoosingId(experimentId);
-    chooseWinner(experimentId, metric);
-    void persistRecommendationExperimentsToServer();
+    const r = await commitRecommendationExperimentsChange(() => {
+      chooseWinner(experimentId, metric);
+    });
+    setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" });
     setChoosingId(null);
-    setRefresh((r) => r + 1);
+    setRefresh((n) => n + 1);
   };
 
   if (experiments.length === 0 && summaries.length === 0) {
-    return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        종료된 실험이나 승자 요약이 없습니다.
-      </div>
-    );
+    return <AdminEmptyState ko={ko} message="종료된 실험이나 승자 요약이 없습니다." />;
   }
 
   return (
     <div className="space-y-4">
+      <AdminResultBanner ko={ko} result={saveResult} onClose={() => setSaveResult(null)} />
       <div className="flex flex-wrap items-center gap-2">
         <label className="sam-text-body font-medium text-sam-fg">
           승자 선택 기준
@@ -143,7 +146,7 @@ export function ExperimentWinnerTable() {
                       variant="ghost"
                       size="sm"
                       type="button"
-                      onClick={() => handleChooseWinner(e.id)}
+                      onClick={() => void handleChooseWinner(e.id)}
                       disabled={!!choosingId}
                     >
                       승자 선택

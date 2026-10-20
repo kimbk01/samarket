@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -20,7 +21,8 @@ import Link from "next/link";
 
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 export function ProductionLaunchCheckTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [phase, setPhase] = useState<ProductionLaunchPhase | "">("");
   const checks = useMemo(
     () =>
@@ -46,9 +48,7 @@ export function ProductionLaunchCheckTable() {
       </p>
 
       {checks.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 단계 체크 항목이 없습니다.
-        </div>
+        <AdminEmptyState ko={ko} message={"해당 단계 체크 항목이 없습니다."} />
       ) : (
         <AdminTable
           headers={[

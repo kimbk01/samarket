@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OPS_DOC_TYPE_KEYS } from "@/components/admin/i18n/admin-ops-doc-label-keys";
 import Link from "next/link";
@@ -19,10 +20,11 @@ export function OpsKnowledgeResultList({
   onSelectDocument,
   onViewDocument,
 }: OpsKnowledgeResultListProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   if (items.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kb_results_empty")}</div>
+      <AdminEmptyState ko={ko} message={t("admin_ops_tools_kb_results_empty")} />
     );
   }
 

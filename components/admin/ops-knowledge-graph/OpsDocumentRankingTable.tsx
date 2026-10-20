@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
@@ -7,12 +8,13 @@ import { getOpsKnowledgeDocumentRankings } from "@/lib/ops-knowledge-graph/ops-k
 import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 
 export function OpsDocumentRankingTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const rankings = useMemo(() => getOpsKnowledgeDocumentRankings(), []);
 
   if (rankings.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kg_ranking_empty")}</div>
+      <AdminEmptyState ko={ko} message={t("admin_ops_tools_kg_ranking_empty")} />
     );
   }
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { ReportPeriodSelector } from "./ReportPeriodSelector";
@@ -9,13 +10,9 @@ import { RecommendationReportTable } from "./RecommendationReportTable";
 import { loadRecommendationAnalyticsFromServer } from "@/lib/recommendation-analytics/recommendation-analytics-sync-client";
 
 export function AdminRecommendationReportsPage() {
-  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadRecommendationAnalyticsFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationAnalyticsFromServer);
+  const hydrated = loadState.status === "ready";
 
   const handleGenerated = () => {
     setRefresh((r) => r + 1);
@@ -25,9 +22,7 @@ export function AdminRecommendationReportsPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_manage_reports" descriptionKey="admin_rec_report_page_desc" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

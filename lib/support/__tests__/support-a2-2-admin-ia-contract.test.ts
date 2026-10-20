@@ -66,9 +66,12 @@ describe("A2-2 admin support IA / badge SSOT", () => {
   });
 
   it("action queue counts support_actionable not legacy Care/platform", () => {
+    // R8: 고객지원 화면과 같은 탭 필터(applySupportCaseTabFilter "ACTIONABLE" = OPEN·WAITING_ADMIN)
     const q = read("lib/admin/admin-action-queue.ts");
+    const types = read("lib/support/support-case-types.ts");
     expect(q).toContain("support_actionable");
-    expect(q).toContain('in("status", ["OPEN", "WAITING_ADMIN"])');
+    expect(q).toMatch(/applySupportCaseTabFilter\([^;]*"ACTIONABLE"\)/);
+    expect(types).toContain('ACTIONABLE: ["OPEN", "WAITING_ADMIN"]');
     expect(q).toMatch(/member_inquiry_open: LEGACY_ZERO/);
     expect(q).toMatch(/platform_inquiry_open: LEGACY_ZERO/);
   });

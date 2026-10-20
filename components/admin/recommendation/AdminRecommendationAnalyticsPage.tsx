@@ -1,6 +1,8 @@
 "use client";
 
 
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState, useEffect } from "react";
@@ -30,11 +32,8 @@ export function AdminRecommendationAnalyticsPage() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as TabId | null;
   const [activeTab, setActiveTab] = useState<TabId>("performance");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadRecommendationAnalyticsFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationAnalyticsFromServer);
+  const hydrated = loadState.status === "ready";
 
   useEffect(() => {
     if (tabParam && TABS.some((t) => t.id === tabParam)) setActiveTab(tabParam);
@@ -46,9 +45,7 @@ export function AdminRecommendationAnalyticsPage() {
     return (
       <div className="space-y-4">
         <AdminPageHeader titleKey="admin_menu_rec_analytics" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </div>
     );
   }

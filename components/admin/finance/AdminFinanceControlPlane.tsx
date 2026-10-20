@@ -15,7 +15,8 @@ import {
   AdminControlPlaneSection,
 } from "@/components/admin/ui/AdminControlPlaneChrome";
 import { AdminUnavailableChip } from "@/components/admin/ui/AdminToneBadge";
-import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber, formatAdminPhp, formatAdminPhpMinor } from "@/lib/admin/ui-standard/admin-format";
 import type {
@@ -43,6 +44,24 @@ function Section({
       {children}
     </AdminControlPlaneSection>
   );
+}
+
+/** 조회 실패 소스 키 → 화면 이름 (서버는 키만 보낸다 · 원문 오류 노출 금지). */
+const FINANCE_SECTION_LABELS: Record<string, { ko: string; en: string }> = {
+  point: { ko: "포인트 충전 요청", en: "Point charge requests" },
+  cash: { ko: "캐시 충전 요청", en: "Cash charge requests" },
+  coin_withdraw: { ko: "코인 출금 요청", en: "Coin withdrawals" },
+  payable: { ko: "정산 지급", en: "Settlement payables" },
+  obligation: { ko: "수수료 미납", en: "Fee obligations" },
+  coin_ledger: { ko: "코인 원장", en: "Coin ledger" },
+  cash_ledger: { ko: "캐시 원장", en: "Cash ledger" },
+};
+
+function financeSectionLabel(key: string, ko: boolean): string {
+  const section = key.split(":")[0] ?? "";
+  const label = FINANCE_SECTION_LABELS[section];
+  if (label) return ko ? label.ko : label.en;
+  return ko ? "기타 소스" : "Other source";
 }
 
 function Unavail({ ko }: { ko: boolean }) {
@@ -183,30 +202,30 @@ export function AdminFinanceControlPlane() {
   const ko = language !== "en";
   const [model, setModel] = useState<FinanceControlPlaneModel | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<AdminLoadFailure | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError("");
+    setError(null);
     try {
       const res = await fetch("/api/admin/finance-control-plane", {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         plane?: FinanceControlPlaneModel;
         error?: string;
       };
       if (!res.ok || !json.ok || !json.plane) {
         setModel(null);
-        setError(json.error || "load_failed");
+        setError({ code: adminSafeErrorCode(json.error, "load_failed"), httpStatus: res.status });
         return;
       }
       setModel(json.plane);
     } catch {
       setModel(null);
-      setError("network");
+      setError({ code: "network_error" });
     } finally {
       setLoading(false);
     }
@@ -218,16 +237,16 @@ export function AdminFinanceControlPlane() {
 
   if (loading && !model) {
     return (
-      <p className="sam-text-body text-sam-muted" data-admin-finance-control-plane="loading">
-        {ko ? "재무 관제 화면을 불러오는 중…" : "Loading finance control plane…"}
-      </p>
+      <div data-admin-finance-control-plane="loading">
+        <AdminLoadingState ko={ko} />
+      </div>
     );
   }
 
   if (error && !model) {
     return (
       <div data-admin-finance-control-plane="error">
-        <AdminErrorState ko={ko} code={error} onRetry={() => void load()} />
+        <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={() => void load()} />
       </div>
     );
   }
@@ -255,7 +274,8 @@ export function AdminFinanceControlPlane() {
         </div>
         {model.sectionErrors.length > 0 ? (
           <p className="sam-text-helper text-sam-warning">
-            {ko ? "일부 소스 확인 불가" : "Some sources unavailable"}: {model.sectionErrors.join(" · ")}
+            {ko ? "일부 소스 확인 불가" : "Some sources unavailable"}:{" "}
+            {model.sectionErrors.map((key) => financeSectionLabel(key, ko)).join(" · ")}
           </p>
         ) : null}
       </header>

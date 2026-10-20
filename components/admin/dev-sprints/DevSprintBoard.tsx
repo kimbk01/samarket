@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -21,7 +22,8 @@ const ITEM_STATUS_COLUMNS: DevSprintItemStatus[] = [
 ];
 
 export function DevSprintBoard() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [sprintId, setSprintId] = useState<string>("");
 
   const sprints = useMemo(() => getDevSprints(), []);
@@ -77,9 +79,7 @@ export function DevSprintBoard() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_dev_sprint_empty_board")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_dev_sprint_empty_board")} />
       ) : (
         <div className="grid gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {ITEM_STATUS_COLUMNS.map((status) => (

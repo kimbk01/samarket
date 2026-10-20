@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationEscalationRules } from "@/lib/recommendation-ops/recommendation-ops-state";
@@ -10,14 +11,13 @@ import {
 } from "@/components/admin/recommendation-admin-i18n";
 
 export function EscalationRuleTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const rules = useMemo(() => getRecommendationEscalationRules(), []);
 
   if (rules.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_rec_auto_empty_escalation")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_rec_auto_empty_escalation")} />
     );
   }
 

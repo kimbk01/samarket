@@ -121,6 +121,11 @@ export type StoreCashPosition = {
 };
 
 /** TS mirror of `public.store_cash_position` (same rule as the DB gate). */
+/** 미납 수수료 합계 = 매장별 미납(outstandingMinor) 합 — 수수료 원장 「미납 관리」와 통합 대시보드 「미납 수수료」가 같은 함수. */
+export function sumStoreCashOutstandingMinor(positions: readonly Pick<StoreCashPosition, "outstandingMinor">[]): number {
+  return positions.reduce((n, p) => n + p.outstandingMinor, 0);
+}
+
 export function computeStoreCashPosition(input: {
   storeId: string;
   balanceMinor: number;

@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -27,28 +29,16 @@ const AUTO_TABS: { id: TabId; labelKey: MessageKey }[] = [
 export function AdminRecommendationAutomationPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("policy");
-  const [hydrated, setHydrated] = useState(false);
-  const [hydrateError, setHydrateError] = useState<string | null>(null);
+  const { state: loadState, reload } = useAdminSyncLoad(loadFullRecommendationAdminState);
 
-  useEffect(() => {
-    void loadFullRecommendationAdminState().then((r) => {
-      if (!r.ok) setHydrateError(r.errors?.join(" · ") ?? t("admin_rec_load_failed"));
-      setHydrated(true);
-    });
-  }, [t]);
-
-  if (!hydrated) {
+  if (loadState.status !== "ready") {
     return (
       <>
         <AdminPageHeader
           titleKey="admin_menu_rec_automation"
           descriptionKey="admin_rec_auto_page_desc"
         />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">
-            {t("admin_rec_auto_loading_settings")}
-          </p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }
@@ -59,14 +49,6 @@ export function AdminRecommendationAutomationPage() {
         titleKey="admin_menu_rec_automation"
         descriptionKey="admin_rec_auto_page_desc_db"
       />
-      {hydrateError ? (
-        <div
-          className="mb-4 rounded-ui-rect border border-sam-warning/40 bg-sam-warning/10 px-4 py-3 sam-text-body-secondary text-sam-fg"
-          role="alert"
-        >
-          {t("admin_rec_auto_hydrate_fail")} ({hydrateError})
-        </div>
-      ) : null}
       <div className="mb-4">
         <AutomationSummaryCards />
       </div>

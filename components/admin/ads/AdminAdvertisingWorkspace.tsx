@@ -10,6 +10,8 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-reason";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
@@ -533,6 +535,12 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       ? pendingMutation
       : null;
   const communityEndEntityId = communityEndPending ? parseWorkspaceEntityId(communityEndPending.item.id) : null;
+  /** 종료 = forceCancel(L3) — 폼 대화상자에서도 대상 재입력을 받는다. */
+  const communityEndRetype = communityEndPending
+    ? communityEndPending.item.creativeHint?.trim() ||
+      communityEndPending.item.applicantLabel?.trim() ||
+      parseWorkspaceEntityId(communityEndPending.item.id)
+    : undefined;
 
   useEffect(() => {
     setEndFault(null);
@@ -592,7 +600,28 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         boostSanction: mode === "boosts" && action === "pause",
         family: fam,
       });
-      setPendingMutation({ action, item: rowItem, copy });
+      // 커뮤니티 홍보 종료는 귀책 선택·환급 미리보기가 있는 입력 폼 대화상자 — 아래 폼에서 처리한다.
+      if (action === "end" && fam === "boost_community") {
+        setPendingMutation({ action, item: rowItem, copy });
+        return;
+      }
+      // 확인 단계는 동작 표(copy.level = adminActionLevel)로 정하고, L2·L3 사유는 API 본문 reason 으로 보낸다.
+      void (async () => {
+        const retypeValue =
+          rowItem.creativeHint?.trim() || rowItem.applicantLabel?.trim() || parseWorkspaceEntityId(rowItem.id);
+        const confirmed = await confirmAdminAction({
+          level: copy.level,
+          ko,
+          title: copy.title,
+          description: copy.body,
+          confirmLabel: copy.confirmLabel,
+          destructive: copy.tone === "danger",
+          reasonPlaceholder: copy.reasonLabel,
+          retypeValue,
+        });
+        if (!confirmed.ok) return;
+        await executeDrawerAction(action, rowItem, confirmed.reason ?? undefined);
+      })();
     },
     [ko, mode, executeDrawerAction]
   );
@@ -1530,18 +1559,23 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         </Link>
       </p>
 
+      {/* 폼 대화상자 — 커뮤니티 홍보 종료(귀책 선택·환급 미리보기 입력). 그 밖의 확인은 confirmAdminAction. */}
       <AdminActionConfirmDialog
-        open={Boolean(pendingMutation)}
+        open={Boolean(communityEndPending)}
         title={pendingMutation?.copy.title ?? ""}
         description={pendingMutation?.copy.body ?? ""}
         confirmLabel={pendingMutation?.copy.confirmLabel ?? ""}
         cancelLabel={pendingMutation?.copy.cancelLabel ?? (ko ? "취소" : "Cancel")}
         tone={pendingMutation?.copy.tone ?? "primary"}
-        reasonRequired={
-          Boolean(pendingMutation?.copy.reasonRequired) ||
-          (Boolean(pendingMutation) &&
-            resolveFamily(pendingMutation!.item) === "boost_community" &&
-            (pendingMutation!.action === "end" || pendingMutation!.action === "pause"))
+        reasonRequired
+        reasonMinLength={ADMIN_REASON_MIN_LENGTH}
+        confirmMatchText={communityEndRetype}
+        confirmMatchLabel={
+          communityEndRetype
+            ? ko
+              ? `계속하려면 「${communityEndRetype}」을(를) 그대로 입력하세요`
+              : `Type "${communityEndRetype}" to continue`
+            : undefined
         }
         reasonLabel={pendingMutation?.copy.reasonLabel}
         reasonPlaceholder={

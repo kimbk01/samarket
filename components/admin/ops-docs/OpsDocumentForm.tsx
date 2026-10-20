@@ -9,15 +9,18 @@ import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 import { addOpsDocument, updateOpsDocument } from "@/lib/ops-docs/ops-docs-state";
 import { addOpsDocumentLog } from "@/lib/ops-docs/ops-docs-state";
 import { slugFromTitle } from "@/lib/ops-docs/ops-docs-utils";
-import { persistOpsDocsToServer } from "@/lib/ops-docs/ops-docs-sync-client";
+import { commitOpsDocsChange } from "@/lib/ops-docs/ops-docs-sync-client";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 
 interface OpsDocumentFormProps {
   documentId?: string | null;
 }
 
 export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   const isEdit = !!documentId;
 
   const docTypeOptions = useMemo(
@@ -80,8 +83,10 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
     if (!isEdit && !slug) setSlug(slugFromTitle(title));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  /** 저장 실패 → 문서 변경 되돌림 + 실패 문구, 이동하지 않음 (예전: 실패해도 저장된 것처럼 이동). */
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     const tags = tagsStr
       .split(",")
       .map((t) => t.trim())
@@ -90,63 +95,80 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
     const adminNickname = t("admin_ops_doc_admin_nickname");
 
     if (isEdit && documentId) {
-      updateOpsDocument(documentId, {
-        title,
-        slug,
-        category,
-        status,
-        summary,
-        content,
-        tags,
-        versionLabel,
-        isPinned,
-        adminMemo,
+      setBusy(true);
+      const r = await commitOpsDocsChange(() => {
+        updateOpsDocument(documentId, {
+          title,
+          slug,
+          category,
+          status,
+          summary,
+          content,
+          tags,
+          versionLabel,
+          isPinned,
+          adminMemo,
+        });
+        addOpsDocumentLog({
+          documentId,
+          actionType: "update",
+          actorType: "admin",
+          actorId: adminId,
+          actorNickname: adminNickname,
+          note: t("admin_ops_doc_save_note"),
+          createdAt: new Date().toISOString(),
+        });
       });
-      addOpsDocumentLog({
-        documentId,
-        actionType: "update",
-        actorType: "admin",
-        actorId: adminId,
-        actorNickname: adminNickname,
-        note: t("admin_ops_doc_save_note"),
-        createdAt: new Date().toISOString(),
-      });
-      void persistOpsDocsToServer();
+      setBusy(false);
+      if (!r.ok) {
+        setSaveResult({ ok: false, code: r.error ?? "save_failed" });
+        return;
+      }
       router.push(`/admin/ops-docs/${documentId}`);
     } else {
-      const doc = addOpsDocument({
-        docType,
-        title,
-        slug: slug || slugFromTitle(title),
-        category,
-        status,
-        summary,
-        content,
-        tags,
-        versionLabel,
-        isPinned,
-        createdByAdminId: adminId,
-        createdByAdminNickname: adminNickname,
-        approvedByAdminId: null,
-        approvedByAdminNickname: null,
-        adminMemo,
+      const created: { id: string | null } = { id: null };
+      setBusy(true);
+      const r = await commitOpsDocsChange(() => {
+        const doc = addOpsDocument({
+          docType,
+          title,
+          slug: slug || slugFromTitle(title),
+          category,
+          status,
+          summary,
+          content,
+          tags,
+          versionLabel,
+          isPinned,
+          createdByAdminId: adminId,
+          createdByAdminNickname: adminNickname,
+          approvedByAdminId: null,
+          approvedByAdminNickname: null,
+          adminMemo,
+        });
+        addOpsDocumentLog({
+          documentId: doc.id,
+          actionType: "create",
+          actorType: "admin",
+          actorId: adminId,
+          actorNickname: adminNickname,
+          note: "",
+          createdAt: doc.createdAt,
+        });
+        created.id = doc.id;
       });
-      addOpsDocumentLog({
-        documentId: doc.id,
-        actionType: "create",
-        actorType: "admin",
-        actorId: adminId,
-        actorNickname: adminNickname,
-        note: "",
-        createdAt: doc.createdAt,
-      });
-      void persistOpsDocsToServer();
-      router.push(`/admin/ops-docs/${doc.id}`);
+      setBusy(false);
+      if (!r.ok || !created.id) {
+        setSaveResult({ ok: false, code: r.error ?? "save_failed" });
+        return;
+      }
+      router.push(`/admin/ops-docs/${created.id}`);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+      <AdminResultBanner ko={language !== "en"} result={saveResult} onClose={() => setSaveResult(null)} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("admin_ops_doc_label_title")}</label>
@@ -271,6 +293,7 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
       <div className="flex gap-2">
         <button
           type="submit"
+          disabled={busy}
           className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
           {isEdit ? t("common_save") : t("admin_ops_doc_submit_create")}

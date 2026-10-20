@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getExperimentMetrics } from "@/lib/recommendation-experiments/recommendation-experiment-metrics";
@@ -7,7 +8,8 @@ import { getRecommendationExperiments } from "@/lib/recommendation-experiments/r
 import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 
 export function ExperimentComparisonTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [experimentId, setExperimentId] = useState<string>("");
 
   const experiments = useMemo(() => getRecommendationExperiments(), []);
@@ -20,9 +22,7 @@ export function ExperimentComparisonTable() {
 
   if (experiments.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_rec_exp_empty_experiment_list")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_rec_exp_empty_experiment_list")} />
     );
   }
 
@@ -45,9 +45,7 @@ export function ExperimentComparisonTable() {
         </select>
       </div>
       {effectiveMetrics.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rec_exp_empty_metrics")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_rec_exp_empty_metrics")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[560px] border-collapse sam-text-body">

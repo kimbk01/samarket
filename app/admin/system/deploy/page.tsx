@@ -8,7 +8,13 @@ import {
 } from "@/components/admin/deploy/AdminDeployOpsPanels";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import {
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { adminStatusLabelText } from "@/lib/admin/status-labels/admin-status-label-registry";
 import "@/lib/admin/status-labels/pr3-system-a-status-labels";
@@ -123,10 +129,13 @@ function formatAt(iso: string | null | undefined): string {
   return formatAdminManilaDateTime(iso);
 }
 
-/** 오류 코드(첫 구간)는 오류 맵 문구로, 서버 안내 문장(나머지)은 그대로. */
-function deployErrorText(error: string, ko: boolean): string {
+/**
+ * 오류 = 첫 구간(코드)만 화면 문구로 쓴다. 서버 안내 문장(나머지)은 원문이라 화면 본문에 쓰지 않고
+ * 접힌 「기술 정보」로만 보여 준다 (R6 — 원문 노출 금지).
+ */
+function deployErrorParts(error: string): { code: string; detail: string | null } {
   const [code, ...rest] = error.split(" — ");
-  return [adminOperatorErrorMessage(code, ko), ...rest].join(" — ");
+  return { code: adminSafeErrorCode(code, "save_failed"), detail: rest.length ? error : null };
 }
 
 export default function AdminSystemDeployPage() {
@@ -139,17 +148,31 @@ export default function AdminSystemDeployPage() {
   const [reauthConfirm, setReauthConfirm] = useState("");
   const [confirmOpen, setConfirmOpen] = useState<ConfirmKind | null>(null);
 
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
+
+  /** 상태 조회 — 실패(HTTP·네트워크)는 오류 상태 + [새로고침], 403 은 접근 거부 (R6). */
   const load = useCallback(async () => {
     setError(null);
-    const res = await fetch("/api/admin/deploy/status", { credentials: "include" });
-    const json = (await res.json()) as StatusPayload & { error?: string };
-    if (!res.ok || !json.ok) {
-      setError(json.error ?? `status_${res.status}`);
-      return;
+    try {
+      const res = await fetch("/api/admin/deploy/status", { credentials: "include" });
+      const json = (await res.json().catch(() => ({}))) as StatusPayload & { error?: string };
+      if (!res.ok || !json.ok) {
+        setLoadErr({ code: adminSafeErrorCode(json.error, "load_failed"), httpStatus: res.status });
+        return;
+      }
+      setLoadErr(null);
+      setStatus(json);
+      if (json.runtimeSha) setConfirmSha(json.runtimeSha);
+    } catch {
+      setLoadErr({ code: "network_error" });
     }
-    setStatus(json);
-    if (json.runtimeSha) setConfirmSha(json.runtimeSha);
   }, []);
+
+  const reloadStatus = useCallback(() => {
+    setLoadErr(null);
+    setStatus(null);
+    void load();
+  }, [load]);
 
   useEffect(() => {
     void load();
@@ -822,6 +845,24 @@ export default function AdminSystemDeployPage() {
     }
   };
 
+  if (!status) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
+        <h1 className="text-[16px] font-semibold text-sam-fg">{t("admin_menu_system_deploy")}</h1>
+        {loadErr ? (
+          <AdminErrorState
+            ko={language !== "en"}
+            code={loadErr.code}
+            httpStatus={loadErr.httpStatus}
+            onRetry={reloadStatus}
+          />
+        ) : (
+          <AdminLoadingState ko={language !== "en"} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
       <header className="space-y-2">
@@ -887,9 +928,24 @@ export default function AdminSystemDeployPage() {
       </section>
 
       {error ? (
-        <div className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-sm text-sam-fg" role="alert">
-          {deployErrorText(error, language !== "en")}
+        <div>
+          <AdminResultBanner
+            ko={language !== "en"}
+            result={{ ok: false, code: deployErrorParts(error).code }}
+            onClose={() => setError(null)}
+          />
+          {deployErrorParts(error).detail ? (
+            <AdminTechDetails ko={language !== "en"}>{deployErrorParts(error).detail}</AdminTechDetails>
+          ) : null}
         </div>
+      ) : null}
+      {loadErr && status ? (
+        <AdminErrorState
+          ko={language !== "en"}
+          code={loadErr.code}
+          httpStatus={loadErr.httpStatus}
+          onRetry={reloadStatus}
+        />
       ) : null}
       {successHint ? (
         <div className="rounded-ui-rect border border-sam-success bg-sam-success-soft px-3 py-2 text-sm text-sam-fg">

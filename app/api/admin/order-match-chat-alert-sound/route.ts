@@ -4,6 +4,7 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   ORDER_MATCH_CHAT_ALERT_SOUND_KEY,
   parseOrderMatchAlertSoundUrl,
@@ -227,6 +228,13 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
+  // R2 — DB 알림음 삭제(delete L3)는 확인창 사유 필수 → 감사 after_json.reason.
+  const delBody = (await req.json().catch(() => null)) as { reason?: unknown } | null;
+  const reason = parseAdminReason(delBody?.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
+
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -259,7 +267,7 @@ export async function DELETE(req: NextRequest) {
     target_type: "order_match_chat_alert_sound",
     target_id: "global",
     action: "order_match_chat_alert_sound.delete",
-    after_json: payload as unknown as Record<string, unknown>,
+    after_json: { ...payload, reason },
     ip: rm.ip,
     user_agent: rm.userAgent,
   });

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationReportSections } from "@/lib/recommendation-analytics/recommendation-analytics-state";
@@ -16,7 +17,8 @@ interface RecommendationSectionReportTableProps {
 export function RecommendationSectionReportTable({
   reportId,
 }: RecommendationSectionReportTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const sections = useMemo(
     () => getRecommendationReportSections(reportId),
     [reportId]
@@ -24,9 +26,7 @@ export function RecommendationSectionReportTable({
 
   if (sections.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        {t("admin_rec_report_empty_section")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_rec_report_empty_section")} />
     );
   }
 

@@ -69,7 +69,8 @@ export type AdminMetricDomain =
  * community_reports = 커뮤니티 신고 처리함 묶음 수(`listCommunityReportGroupsForAdmin`) ·
  * points = 포인트 충전 상태별 건수(`countPointChargesByStatus`) ·
  * commission = 수수료 원장(「미납 관리」·기간 요약) · finance_today = 재무 오늘 요약 ·
- * ads = 광고 워크스페이스 요약(`computeAdsWorkspaceSummaryCounts`).
+ * ads = 광고 워크스페이스 요약(`computeAdsWorkspaceSummaryCounts`) ·
+ * notifications = 알림 발송 캠페인 목록 건수(`listAdminNotificationCampaigns`, 알림 발송 화면과 같은 질의).
  */
 export type AdminMetricSourceKey =
   | "members"
@@ -82,9 +83,14 @@ export type AdminMetricSourceKey =
   | "points"
   | "commission"
   | "finance_today"
-  | "ads";
+  | "ads"
+  | "notifications";
 
-export type AdminMetricUnit = "count" | "php_minor";
+/**
+ * 단위 — 화면 숫자 뒤에 붙인다: count = 건 · people = 명 · stores = 곳 · php_minor = ₱(값 앞).
+ * 추세·처리 대기도 같은 단위 표를 쓴다.
+ */
+export type AdminMetricUnit = "count" | "people" | "stores" | "php_minor";
 
 /**
  * now = 현재 상태 (기간 무관) · selected = 대시보드 선택 기간(오늘·어제·7일·30일) ·
@@ -176,7 +182,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     sourceDetail: "profiles COUNT, 필터 없음 = /api/admin/users summary.totalRows",
     periodBasis: "pht",
     period: "now",
-    unit: "count",
+    unit: "people",
     href: "/admin/users",
   },
   {
@@ -190,7 +196,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     sourceDetail: "profiles + adminMemberStatusFilterOps(\"active\") = 회원 목록 status=active",
     periodBasis: "pht",
     period: "now",
-    unit: "count",
+    unit: "people",
     href: "/admin/users?status=active",
   },
   {
@@ -204,7 +210,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     sourceDetail: "profiles.created_at ∈ 선택 기간 (adminMemberJoinedRangeOps, PHT) = 회원 목록 joinedFrom·joinedTo",
     periodBasis: "pht",
     period: "selected",
-    unit: "count",
+    unit: "people",
     href: (p) => `/admin/users?joinedFrom=${p.range.fromDay}&joinedTo=${p.range.toDay}`,
   },
   {
@@ -216,7 +222,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     sourceDetail: "profiles + adminMemberStatusFilterOps(\"suspended\") = 회원 목록 status=suspended",
     periodBasis: "pht",
     period: "now",
-    unit: "count",
+    unit: "people",
     href: "/admin/users?status=suspended",
   },
   {
@@ -228,7 +234,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     sourceDetail: "profiles + adminMemberStatusFilterOps(\"blocked\") = 회원 목록 status=blocked",
     periodBasis: "pht",
     period: "now",
-    unit: "count",
+    unit: "people",
     href: "/admin/users?status=blocked",
   },
   {
@@ -237,7 +243,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Deletion requests",
     domain: "members",
     source: "members",
-    sourceDetail: "account_deletion_requests.status ∈ requested|processing = /api/admin/account-deletion-requests total",
+    sourceDetail: "applyAccountDeletionRequestStatusFilter(open) = /api/admin/account-deletion-requests total",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -276,11 +282,27 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     href: "/admin#action-center",
   },
   // 이동 화면 개수와 같은 것만 (감사 2026-10-20: 입점·수수료 검토·고객지원·모임 신고·주문 운영 예외)
-  queueMetric("store_applications", "입점 심사 대기", "Store applications"),
-  queueMetric("settlements_actionable", "수수료 검토 대기", "Commission reviews"),
-  queueMetric("support_actionable", "고객지원 미처리", "Open support cases"),
-  queueMetric("meeting_reports", "모임 신고 대기", "Meeting reports"),
-  queueMetric("orders_attention", "주문 운영 예외", "Order exceptions"),
+  // 대시보드는 이동 화면 함수로 센 값을 처리 대기 항목에도 쓴다 (load-admin-dashboard-sources `alignQueueWithDestinations`).
+  {
+    ...queueMetric("store_applications", "입점 심사 대기", "Store applications"),
+    sourceDetail: "applyStoreApprovalStatusFilter(actionable) = /api/admin/stores?status=actionable total",
+  },
+  {
+    ...queueMetric("settlements_actionable", "수수료 검토 대기", "Commission reviews"),
+    sourceDetail: "loadStoreCommissionLedgerPage(state=review_required, 기간 전체).total = 수수료 원장 「검토 필요」",
+  },
+  {
+    ...queueMetric("support_actionable", "고객지원 미처리", "Open support cases"),
+    sourceDetail: "applySupportCaseTabFilter(ACTIONABLE) = /api/admin/support/cases?tab=ACTIONABLE total",
+  },
+  {
+    ...queueMetric("meeting_reports", "모임 신고 대기", "Meeting reports"),
+    sourceDetail: "applyMeetingReportTabFilter(pending) = 모임 신고 화면 「처리 대기」 total",
+  },
+  {
+    ...queueMetric("orders_attention", "주문 운영 예외", "Order exceptions"),
+    sourceDetail: "loadAdminOrderOpsPage(exceptions, 링크 기간).total = 처리 필요 주문 화면 total",
+  },
 
   // ── 커뮤니티 (community-metrics.ts 같은 id) ──
   {
@@ -289,7 +311,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Community posts (public)",
     domain: "community",
     source: "community",
-    sourceDetail: "community-metrics community.posts_active.member",
+    sourceDetail: "applyCommunityPostStatusOriginFilter(active, member) = /api/admin/community/engine/posts total",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -297,11 +319,14 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
   },
   {
     id: "community.report_targets_pending",
-    labelKo: "커뮤니티 신고 대기",
-    labelEn: "Community reports open",
+    labelKo: "커뮤니티 신고 대기 (대상)",
+    labelEn: "Community reports open (targets)",
+    shortKo: "커뮤니티 신고",
+    shortEn: "Comm. reports",
     domain: "community",
     source: "community_reports",
-    sourceDetail: "listCommunityReportGroupsForAdmin(tab=pending).counts.pending = 신고 처리함 「대기」 (같은 대상 = 1건)",
+    sourceDetail:
+      "listCommunityReportGroupsForAdmin(tab=pending).counts.pending = 신고 처리함 「대기」 — 단위: 신고 대상 묶음(같은 대상 = 1건). 처리 대기 목록 「커뮤니티 신고」도 같은 값",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -317,7 +342,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Selling",
     domain: "trade",
     source: "trade",
-    sourceDetail: "trade-domain-metrics trade.posts.selling (countTradePosts)",
+    sourceDetail: "countTradePosts(selling, parseTradePostsFilter(링크)) = /api/admin/trade/posts tabCounts.selling",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -331,7 +356,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Sold",
     domain: "trade",
     source: "trade",
-    sourceDetail: "trade-domain-metrics trade.posts.sold (countTradePosts)",
+    sourceDetail: "countTradePosts(sold, parseTradePostsFilter(링크)) = /api/admin/trade/posts tabCounts.sold",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -343,7 +368,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Trade posts hidden by admin",
     domain: "trade",
     source: "trade",
-    sourceDetail: "trade-domain-metrics trade.posts.admin_hidden (countTradePosts)",
+    sourceDetail: "countTradePosts(admin_hidden, parseTradePostsFilter(링크)) = /api/admin/trade/posts tabCounts.admin_hidden",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -355,7 +380,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Trade reports open",
     domain: "trade",
     source: "trade",
-    sourceDetail: "trade-domain-metrics trade.reports_open (reports open statuses)",
+    sourceDetail: "applyTradeReportTabFilter(open) = /api/admin/trade/reports?tab=open total",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -421,10 +446,10 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Stores open now",
     domain: "delivery",
     source: "stores",
-    sourceDetail: "loadAdminBusinessListOps.kpi.openNow = 매장 운영 목록 KPI",
+    sourceDetail: "loadAdminBusinessListOps(parseAdminBusinessListOpsFilters(링크)).kpi.openNow = 매장 운영 목록 KPI",
     periodBasis: "pht",
     period: "now",
-    unit: "count",
+    unit: "stores",
     href: "/admin/business?open=open",
   },
 
@@ -435,11 +460,11 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Point top-ups · awaiting deposit",
     domain: "finance",
     source: "points",
-    sourceDetail: "countPointChargesByStatus.waiting_confirm = 포인트 충전 화면 「입금확인대기」 카드",
+    sourceDetail: "countPointChargesByStatus.waiting_confirm = 포인트 충전 화면 「입금확인대기」 카드 · status 필터 total",
     periodBasis: "pht",
     period: "now",
     unit: "count",
-    href: "/admin/point-charges",
+    href: "/admin/point-charges?status=waiting_confirm",
   },
   {
     id: "points.pending",
@@ -447,11 +472,11 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Point top-ups · pending",
     domain: "finance",
     source: "points",
-    sourceDetail: "countPointChargesByStatus.pending = 포인트 충전 화면 「대기중」 카드",
+    sourceDetail: "countPointChargesByStatus.pending = 포인트 충전 화면 「대기중」 카드 · status 필터 total",
     periodBasis: "pht",
     period: "now",
     unit: "count",
-    href: "/admin/point-charges",
+    href: "/admin/point-charges?status=pending",
   },
   {
     id: "finance.cash_in_today",
@@ -473,7 +498,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Unpaid",
     domain: "finance",
     source: "commission",
-    sourceDetail: "loadStoreCashOverview(loadAdminStoreCashOverviewIds) Σ outstandingMinor = 수수료 원장 「미납 관리」",
+    sourceDetail: "sumStoreCashOutstandingMinor(loadStoreCashOverview(loadAdminStoreCashOverviewIds)) = 수수료 원장 「미납 관리」",
     periodBasis: "pht",
     period: "now",
     unit: "php_minor",
@@ -571,6 +596,49 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     unit: "count",
     href: "/admin/advertising",
   },
+
+  // ── 알림 발송 (알림 발송 화면 = 캠페인 목록, 같은 질의의 total) ──
+  {
+    id: "notifications.campaigns_failed",
+    labelKo: "알림 발송 실패",
+    labelEn: "Notification sends failed",
+    shortKo: "발송 실패",
+    shortEn: "Failed",
+    domain: "support",
+    source: "notifications",
+    sourceDetail:
+      "listAdminNotificationCampaigns(parseCampaignListQuery(tab=completed&status=failed)).total = 알림 발송 「완료 · 실패」 (QA·보관 제외)",
+    periodBasis: "pht",
+    period: "now",
+    unit: "count",
+    href: "/admin/notifications?tab=completed&status=failed",
+  },
+  {
+    id: "notifications.campaigns_partially_failed",
+    labelKo: "알림 일부 실패",
+    labelEn: "Notification sends partly failed",
+    domain: "support",
+    source: "notifications",
+    sourceDetail:
+      "listAdminNotificationCampaigns(parseCampaignListQuery(tab=completed&status=partially_failed)).total = 알림 발송 「완료 · 일부 실패」",
+    periodBasis: "pht",
+    period: "now",
+    unit: "count",
+    href: "/admin/notifications?tab=completed&status=partially_failed",
+  },
+  {
+    id: "notifications.campaigns_in_progress",
+    labelKo: "알림 예약·발송 중",
+    labelEn: "Notifications scheduled · sending",
+    domain: "support",
+    source: "notifications",
+    sourceDetail:
+      "listAdminNotificationCampaigns(parseCampaignListQuery(tab=in_progress)).total = 알림 발송 「진행 중」 (예약·발송 중·반복·일시정지)",
+    periodBasis: "pht",
+    period: "now",
+    unit: "count",
+    href: "/admin/notifications?tab=in_progress",
+  },
 ];
 
 export const ADMIN_METRIC_BY_ID: ReadonlyMap<string, AdminMetricDefinition> = new Map(
@@ -587,10 +655,18 @@ export function getAdminMetricDefinition(id: string): AdminMetricDefinition {
 export const ADMIN_DASHBOARD_OMITTED_METRICS: readonly { tab: AdminDashboardTabId; labelKo: string; reason: string }[] = [
   { tab: "ads_ops", labelKo: "광고 환불 실패", reason: "환불 실패가 저장되는 상태·테이블이 없음 (요청 응답 오류로만 존재)" },
   { tab: "ads_ops", labelKo: "진행 중 이벤트", reason: "운영 중 이벤트 집계 출처 없음" },
-  { tab: "ads_ops", labelKo: "집행 중 팝업", reason: "팝업 목록 화면에 노출 중 개수가 없음 — 팝업은 광고 운영 「노출 중」에 포함" },
+  {
+    tab: "ads_ops",
+    labelKo: "집행 중 팝업",
+    reason: "팝업 목록 화면에 노출 중 개수·URL 필터가 없음 (팝업 목록 수정 후 같은 함수로 복원) — 팝업은 광고 운영 「노출 중」에 포함",
+  },
   { tab: "ads_ops", labelKo: "광고 충돌 (차단)", reason: "이동할 충돌 목록 화면 없음 (배달 광고 화면에 충돌 구역 없음) · 원본이 40건에서 잘림" },
   { tab: "support", labelKo: "SLA 초과", reason: "support_cases 에 SLA 기한 열이 없음" },
-  { tab: "support", labelKo: "알림 발송·실패", reason: "notification_deliveries 목록 화면 없음 (알림 화면은 캠페인 목록)" },
+  {
+    tab: "support",
+    labelKo: "알림 기기별 발송 실패",
+    reason: "notification_deliveries 목록 화면 없음 — 캠페인 단위 실패·일부 실패는 「알림 발송 실패」 지표로 표시",
+  },
   { tab: "support", labelKo: "통화 연결 실패", reason: "통화 기록 화면에 개수 표시 없음 · 24시간 상한 없는 이동 창" },
   { tab: "support", labelKo: "채팅 신고 (메신저·거래 채팅방)", reason: "채팅 신고 목록이 커서 목록이라 총 건수 표시 없음" },
   { tab: "support", labelKo: "매장 신고 · 매장 문의", reason: "목록이 모든 상태를 섞어 보여 주고 건수 표시 없음" },
@@ -677,20 +753,22 @@ export const ADMIN_DASHBOARD_BAND: readonly AdminDashboardBandTileDef[] = [
   },
   {
     id: "support",
-    labelKo: "고객지원",
-    labelEn: "Support",
+    labelKo: "고객지원·알림",
+    labelEn: "Support · Notifications",
     shortKo: "지원",
     shortEn: "Support",
     primaryMetricId: "queue.support_actionable",
+    secondaryMetricId: "notifications.campaigns_failed",
     tab: "support",
   },
 ];
 
-// ── 추세 (PHT 일별 · 일수 = 선택 기간: 30일 = 30, 그 밖 = 7) ──────────────────
+// ── 추세 (PHT 일별 · 선택 기간이 끝나는 날까지 N일: 30일 = 30, 그 밖 = 7) ──────────────────
 
 export type AdminDashboardTrendId =
   | "signups_orders_daily"
   | "signups_daily"
+  | "members_activity_daily"
   | "reports_daily"
   | "orders_daily"
   | "commission_daily"
@@ -704,7 +782,20 @@ export type AdminDashboardTrendDef = {
   unit: AdminMetricUnit;
   series: readonly { key: string; labelKo: string; labelEn: string; sourceDetail: string }[];
   href: string;
+  /** 집계 정의 (화면 추세 아래에 그대로 표시) */
+  definitionKo?: string;
+  definitionEn?: string;
 };
+
+/**
+ * 7일 활성 회원 정의 (수정 계획 1-1: 「활성 회원」 지표는 회원 목록 status=active 로 옮기고, 7일 활성은 추세로 옮겨 정의를 적는다).
+ * profiles.last_login_at 의 PHT 날짜별 회원 수 — 회원마다 마지막 로그인 날 하루에만 센다.
+ * 오늘에서 끝나는 7일 막대 합계 = 7일 활성 회원 (last_login_at ≥ PHT 오늘−6일 00:00, 이전 「활성 회원(7일)」과 같은 조건).
+ */
+export const ADMIN_DASHBOARD_ACTIVE_7D_DEFINITION_KO =
+  "7일 활성 = 최근 7일(PHT) 안에 마지막으로 로그인한 회원 수. 막대 = 그날이 마지막 로그인인 회원 수(회원당 하루), 오늘에서 끝나는 7일 막대 합계가 7일 활성 회원입니다.";
+export const ADMIN_DASHBOARD_ACTIVE_7D_DEFINITION_EN =
+  "7-day active = members whose last sign-in (PHT) is within the last 7 days. Each bar = members whose last sign-in was that day (one day per member); the 7 bars ending today sum to 7-day active members.";
 
 export const ADMIN_DASHBOARD_TRENDS: Readonly<Record<AdminDashboardTrendId, AdminDashboardTrendDef>> = {
   signups_orders_daily: {
@@ -722,9 +813,22 @@ export const ADMIN_DASHBOARD_TRENDS: Readonly<Record<AdminDashboardTrendId, Admi
     id: "signups_daily",
     labelKo: "가입 추이",
     labelEn: "Signups",
-    unit: "count",
+    unit: "people",
     series: [{ key: "signups", labelKo: "가입", labelEn: "Signups", sourceDetail: "profiles.created_at" }],
     href: "/admin/users",
+  },
+  members_activity_daily: {
+    id: "members_activity_daily",
+    labelKo: "가입·활성(마지막 로그인) 추이",
+    labelEn: "Signups · active (last sign-in)",
+    unit: "people",
+    series: [
+      { key: "signups", labelKo: "가입", labelEn: "Signups", sourceDetail: "profiles.created_at" },
+      { key: "active", labelKo: "마지막 로그인", labelEn: "Last sign-in", sourceDetail: "profiles.last_login_at" },
+    ],
+    href: "/admin/users?status=active",
+    definitionKo: ADMIN_DASHBOARD_ACTIVE_7D_DEFINITION_KO,
+    definitionEn: ADMIN_DASHBOARD_ACTIVE_7D_DEFINITION_EN,
   },
   reports_daily: {
     id: "reports_daily",
@@ -840,7 +944,7 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
       "members.blocked",
       "members.deletion_requests",
     ],
-    trend: "signups_daily",
+    trend: "members_activity_daily",
     shortcuts: [
       { id: "users", labelKo: "회원 목록", labelEn: "Members", href: "/admin/users" },
       { id: "deletion", labelKo: "탈퇴 요청", labelEn: "Deletion requests", href: "/admin/users/deletion-requests" },
@@ -955,24 +1059,25 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
   },
   {
     id: "support",
-    labelKo: "고객지원·신고",
-    labelEn: "Support · Reports",
-    shortKo: "지원·신고",
+    labelKo: "고객지원·알림",
+    labelEn: "Support · Notifications",
+    shortKo: "지원·알림",
     shortEn: "Support",
+    // 신고(거래·커뮤니티)는 「커뮤니티·거래」 탭, 탈퇴 요청은 「회원·고객」 탭 지표에 있다.
     metricIds: [
       "queue.support_actionable",
-      "trade.reports_open",
-      "community.report_targets_pending",
+      "notifications.campaigns_failed",
+      "notifications.campaigns_partially_failed",
+      "notifications.campaigns_in_progress",
       "queue.meeting_reports",
       "queue.orders_attention",
-      "members.deletion_requests",
     ],
     trend: "support_cases_daily",
     shortcuts: [
       { id: "support", labelKo: "고객지원", labelEn: "Support", href: "/admin/support?filter=ACTIONABLE#action-required" },
       { id: "chat_reports", labelKo: "채팅 신고", labelEn: "Chat reports", href: "/admin/chats/reported?status=open" },
       { id: "store_reports", labelKo: "매장 신고", labelEn: "Store reports", href: "/admin/store-reports" },
-      { id: "notifications", labelKo: "알림 발송", labelEn: "Notifications", href: "/admin/notifications" },
+      { id: "notifications", labelKo: "알림 발송", labelEn: "Notifications", href: "/admin/notifications?tab=completed" },
       { id: "calls", labelKo: "통화 기록", labelEn: "Calls", href: "/admin/chats/calls" },
     ],
     pending: {

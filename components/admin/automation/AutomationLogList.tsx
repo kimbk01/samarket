@@ -1,21 +1,21 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAutomationLogs, getAutomationRuleById } from "@/lib/automation/automation-state";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function AutomationLogList() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const logs = useMemo(() => getAutomationLogs(), []);
 
   return (
     <div className="space-y-4">
       <p className="sam-text-helper text-sam-muted">{t("admin_automation_logs_helper")}</p>
       {logs.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_automation_logs_empty")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_automation_logs_empty")} />
       ) : (
         <ul className="space-y-2">
           {logs.map((l) => {

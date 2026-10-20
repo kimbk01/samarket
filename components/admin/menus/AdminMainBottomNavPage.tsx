@@ -1,6 +1,7 @@
 "use client";
 
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -307,12 +308,15 @@ export function AdminMainBottomNavPage() {
   };
 
   const reset = async () => {
+    // 기본값 초기화 = dataReset(L3, 「초기화」 재입력). 사유는 DELETE 본문으로 보내 감사에 남긴다.
+    const ko = language !== "en";
     const confirmed = await confirmAdminAction({
-      level: "L2",
-      ko: language !== "en",
+      level: adminActionLevel("dataReset"),
+      ko,
       title: t("admin_menu_bottom_reset_confirm"),
       confirmLabel: t("admin_menu_bottom_reset_db"),
       destructive: true,
+      retypeValue: ko ? "초기화" : "reset",
     });
     if (!confirmed.ok) return;
     setSavingAll(true);
@@ -321,6 +325,8 @@ export function AdminMainBottomNavPage() {
       const res = await fetch("/api/admin/main-bottom-nav", {
         ...ADMIN_MAIN_BOTTOM_NAV_FETCH_INIT,
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: confirmed.reason }),
       });
       const data = (await res.json()) as MainBottomNavMutateResponse;
       if (!res.ok || !data?.ok) {

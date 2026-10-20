@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -13,7 +14,8 @@ import {
 import type { SecurityIssueStatus } from "@/lib/types/security";
 
 export function SecurityIssueList() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [statusFilter, setStatusFilter] = useState<SecurityIssueStatus | "">("");
   const issues = useMemo(
     () =>
@@ -41,9 +43,11 @@ export function SecurityIssueList() {
       </div>
 
       {issues.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 조건의 보안 이슈가 없습니다.
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={statusFilter ? undefined : "해당 조건의 보안 이슈가 없습니다."}
+          onReset={statusFilter ? () => { setStatusFilter(""); } : undefined}
+        />
       ) : (
         <ul className="space-y-2">
           {issues.map((i) => {

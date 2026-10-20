@@ -96,11 +96,19 @@ describe("POST /api/admin/coin-withdrawals mark_paid", () => {
     expect(markCoinWithdrawalPaid).not.toHaveBeenCalled();
   });
 
+  it("R2 — missing reason (L2 payout) → 400 reason_required, writer not called", async () => {
+    const { POST } = await import("@/app/api/admin/coin-withdrawals/route");
+    const res = await POST(postReq({ action: "mark_paid", requestId: "w1", payoutMethod: "gcash", payoutReference: "R1" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "reason_required" });
+    expect(markCoinWithdrawalPaid).not.toHaveBeenCalled();
+  });
+
   it("passes trimmed method/reference to RPC writer", async () => {
     markCoinWithdrawalPaid.mockResolvedValue({ ok: true });
     const { POST } = await import("@/app/api/admin/coin-withdrawals/route");
     const res = await POST(
-      postReq({ action: "mark_paid", requestId: "w1", payoutMethod: " gcash ", payoutReference: " R1 " })
+      postReq({ action: "mark_paid", requestId: "w1", payoutMethod: " gcash ", payoutReference: " R1 ", reason: "지급 확인" })
     );
     expect(res.status).toBe(200);
     expect(markCoinWithdrawalPaid).toHaveBeenCalledWith(
@@ -113,7 +121,7 @@ describe("POST /api/admin/coin-withdrawals mark_paid", () => {
     markCoinWithdrawalPaid.mockResolvedValue({ ok: false, error: "payout_reference_required" });
     const { POST } = await import("@/app/api/admin/coin-withdrawals/route");
     const res = await POST(
-      postReq({ action: "mark_paid", requestId: "w1", payoutMethod: "bank", payoutReference: "R1" })
+      postReq({ action: "mark_paid", requestId: "w1", payoutMethod: "bank", payoutReference: "R1", reason: "지급 확인" })
     );
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ ok: false, error: "payout_reference_required" });

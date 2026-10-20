@@ -33,7 +33,7 @@ describe("Trade report server writer (R6)", () => {
     const route = read("app/api/admin/reports/[reportId]/action/route.ts");
     expect(route).toContain("requireTradeAdmin()");
     expect(route).toContain("decideTradeReport");
-    expect(route).toContain("reason_required");
+    expect(route).toMatch(/ADMIN_REASON_REQUIRED_CODE|"reason_required"/);
     const writer = read("lib/admin/trade-admin/trade-report-decision.ts");
     expect(writer).not.toContain('"use client"');
     expect(writer).not.toContain("getSupabaseClient");

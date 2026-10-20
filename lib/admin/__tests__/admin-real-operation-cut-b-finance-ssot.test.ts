@@ -27,12 +27,12 @@ describe("CUT B Finance SSOT + operation UX", () => {
     const page = read("components/admin/stores/AdminDeliveryAdCashChargeQueuePage.tsx");
     expect(page).toContain("/api/admin/business-cash-charges");
     expect(page).toContain('op: "approve" | "reject"');
-    // Confirm-first: CTA opens dialog; mutation runs only on confirm.
-    expect(page).toContain('setConfirm({ id: r.id, op: "approve" })');
-    expect(page).toContain('setConfirm({ id: r.id, op: "reject" })');
-    // DEF-30: reject sends the typed reason from the confirm dialog.
+    // Confirm-first: CTA opens the single confirm engine; mutation runs only on confirm.
+    expect(page).toContain('requestConfirm({ id: r.id, op: "approve" })');
+    expect(page).toContain('requestConfirm({ id: r.id, op: "reject" })');
+    // DEF-30 / R2: approve (moneyApprove L2) and reject (L2) send the typed reason from the confirm dialog.
     expect(page).toContain("void act(id, op, reason)");
-    expect(page).toContain("AdminActionConfirmDialog");
+    expect(page).toContain("confirmAdminAction");
     expect(page).not.toMatch(
       /delivery-ads\/business-cash\/charge-requests\/\$\{encodeURIComponent\(id\)\}/
     );

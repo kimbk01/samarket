@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   OPS_TOOLS_KB_SOURCE_KEYS,
@@ -11,12 +12,13 @@ import { getOpsKnowledgeRecommendationLogs } from "@/lib/ops-knowledge/ops-knowl
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OpsKnowledgeRecommendationLogTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const logs = useMemo(() => getOpsKnowledgeRecommendationLogs({ limit: 30 }), []);
 
   if (logs.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kb_rec_logs_empty")}</div>
+      <AdminEmptyState ko={ko} message={t("admin_ops_tools_kb_rec_logs_empty")} />
     );
   }
 

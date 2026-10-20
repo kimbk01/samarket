@@ -17,6 +17,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LaunchIntroPlayer } from "@/components/launch-intro/LaunchIntroPlayer";
 import { dibayAlert } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { LAUNCH_INTRO_DEFAULT_TEXT_COLOR } from "@/lib/admin/platform/platform-launch-default-colors";
 import {
@@ -482,7 +483,7 @@ export function LaunchIntroAdminPage() {
   const removeScene = async () => {
     if (!doc || sceneCount <= 1) return;
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: t("admin_launch_intro_scene_remove_confirm", { n: String(sel + 1) }),
       description: t("admin_launch_intro_edit_needs_save"),
@@ -495,7 +496,7 @@ export function LaunchIntroAdminPage() {
   /** Removing a picture asks first (the change still needs Save). */
   const confirmRemoveImage = async (apply: () => void) => {
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: t("admin_launch_intro_remove_image_confirm"),
       description: t("admin_launch_intro_edit_needs_save"),
@@ -509,9 +510,9 @@ export function LaunchIntroAdminPage() {
   const save = async (document: LaunchIntroDocument | null, creating = false) => {
     const go = await confirmAdminAction(
       creating
-        ? { level: "L1", ko, title: t("admin_launch_intro_create_confirm"), confirmLabel: t("admin_launch_intro_create") }
+        ? { level: adminActionLevel("save"), ko, title: t("admin_launch_intro_create_confirm"), confirmLabel: t("admin_launch_intro_create") }
         : {
-            level: "L1",
+            level: adminActionLevel("save"),
             ko,
             title: t("admin_launch_intro_save_confirm"),
             description: t("admin_launch_intro_save_confirm_desc"),
@@ -529,8 +530,9 @@ export function LaunchIntroAdminPage() {
       ""
     );
     if (!saved?.draft) return;
+    // 「지금 게시할까요?」 안내 — 실제 게시는 publish() 의 노출 시작(L2) 확인을 다시 거친다.
     const publishNow = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko,
       title: t("admin_launch_intro_saved"),
       description: t("admin_launch_intro_saved_not_live"),
@@ -620,7 +622,7 @@ export function LaunchIntroAdminPage() {
     }
     const e = checked.eligibility;
     const confirmed = await confirmAdminAction({
-      level: "L2",
+      level: adminActionLevel("exposeStart"),
       ko,
       title: t("admin_launch_intro_publish_confirm"),
       description: [
@@ -642,7 +644,7 @@ export function LaunchIntroAdminPage() {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draftId: draft.id, version: draft.version, eligibility: e }),
+        body: JSON.stringify({ draftId: draft.id, version: draft.version, eligibility: e, reason: confirmed.reason }),
       },
       t("admin_launch_intro_publish_done"),
       t("admin_launch_intro_device_timing")
@@ -660,19 +662,27 @@ export function LaunchIntroAdminPage() {
         : action === "reactivate" && snap?.live.state === "unpublished"
           ? "admin_launch_intro_reactivate_confirm_desc_none"
           : copy.desc;
-    // 확인 단계: 일시정지(노출 중지) = L1 · 재개·재게시(노출 시작)·게시 중단 = L2 (사유는 확인창에서만, 요청 본문 불변)
+    // 확인 단계(adminActionLevel): 일시정지 = exposeStop(L1) · 재개·재게시 = exposeStart(L2) ·
+    // 게시 중단 = forceCancel(L3, 게시 번호 재입력 — 기존 L2 에서 낮추지 않음). L2·L3 사유는 상태 API 로 보내 감사에 남긴다.
+    const unpublishTarget =
+      pub ?? (snap?.live?.publication_id ? (snap.publications.find((p) => p.id === snap.live.publication_id) ?? null) : null);
     const confirmed = await confirmAdminAction({
-      level: action === "pause" ? "L1" : "L2",
+      level: adminActionLevel(action === "pause" ? "exposeStop" : action === "unpublish" ? "forceCancel" : "exposeStart"),
       ko,
       title: t(copy.title),
       description: t(desc, { id: pub ? formatAdminShortId(pub.id) : "", date: pub ? fmtDate(pub.created_at) : "" }),
       confirmLabel: t(copy.label),
       destructive: action === "unpublish",
+      retypeValue: action === "unpublish" && unpublishTarget ? formatAdminShortId(unpublishTarget.id) : undefined,
     });
     if (!confirmed.ok) return;
     await call(
       "/api/admin/launch-intro/state",
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, publicationId }) },
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, publicationId, reason: confirmed.reason }),
+      },
       t(copy.done),
       t("admin_launch_intro_device_timing")
     );
@@ -1308,7 +1318,7 @@ export function LaunchIntroAdminPage() {
                   disabled={busy || !dirty}
                   onClick={async () => {
                     const confirmed = await confirmAdminAction({
-                      level: "L1",
+                      level: adminActionLevel("save"),
                       ko,
                       title: t("admin_launch_intro_cancel_confirm"),
                       confirmLabel: t("admin_launch_intro_cancel_confirm_label"),
@@ -1330,7 +1340,7 @@ export function LaunchIntroAdminPage() {
                   disabled={busy || !snap.draft}
                   onClick={async () => {
                     const confirmed = await confirmAdminAction({
-                      level: "L3",
+                      level: adminActionLevel("delete"),
                       ko,
                       title: t("admin_launch_intro_delete_confirm"),
                       confirmLabel: t("admin_launch_intro_delete"),
@@ -1338,7 +1348,15 @@ export function LaunchIntroAdminPage() {
                       retypeValue: formatAdminShortId(snap.draft!.id),
                     });
                     if (!confirmed.ok) return;
-                    void call(`/api/admin/launch-intro?id=${snap.draft!.id}`, { method: "DELETE" }, t("admin_launch_intro_delete_done"));
+                    void call(
+                      `/api/admin/launch-intro?id=${snap.draft!.id}`,
+                      {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ reason: confirmed.reason }),
+                      },
+                      t("admin_launch_intro_delete_done")
+                    );
                   }}
                 >
                   {t("admin_launch_intro_delete")}

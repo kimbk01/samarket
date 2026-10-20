@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getLaunchWeekDailyNotes } from "@/lib/launch-week/launch-week-state";
@@ -8,7 +9,8 @@ import type { LaunchWeekDayNumber } from "@/lib/types/launch-week";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function LaunchWeekDailyNoteList() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [dayNumber, setDayNumber] = useState<LaunchWeekDayNumber | "">("");
   const notes = useMemo(
     () =>
@@ -43,9 +45,7 @@ export function LaunchWeekDailyNoteList() {
       </p>
 
       {notes.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 Day 메모가 없습니다.
-        </div>
+        <AdminEmptyState ko={ko} message={"해당 Day 메모가 없습니다."} />
       ) : (
         <div className="space-y-4">
           {notes.map((n) => (

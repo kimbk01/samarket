@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   createStoreCouponCampaignAdmin,
   updateStoreCouponCampaignAdmin,
@@ -127,6 +128,10 @@ export async function PATCH(req: NextRequest) {
       const reason = String(rec?.reason ?? "").trim();
       if (adminAction === "reject" && reason.length < 2) {
         return NextResponse.json({ ok: false, error: "reject_reason_required" }, { status: 400 });
+      }
+      // R2 — 쿠폰 승인(approve L2)도 확인창 사유 필수 → coupon_audit_events.payload.reason.
+      if (adminAction === "approve" && !parseAdminReason(reason)) {
+        return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
       }
       const { data: updated, error: upErr } = await sb
         .from("store_coupon_campaigns")

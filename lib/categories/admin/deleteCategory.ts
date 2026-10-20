@@ -8,7 +8,8 @@ import { postCategoryAdminOp } from "@/lib/categories/admin/category-admin-api";
 
 export type DeleteCategoryResult = { ok: true } | { ok: false; error: string };
 
-export async function deleteCategory(id: string): Promise<DeleteCategoryResult> {
-  const res = await postCategoryAdminOp({ op: "delete", id });
+/** `reason` — 확인창(L3) 처리 사유. 서버가 검증하고 감사 기록에 남긴다 (R2). */
+export async function deleteCategory(id: string, reason: string | null): Promise<DeleteCategoryResult> {
+  const res = await postCategoryAdminOp({ op: "delete", id, reason });
   return res.ok ? { ok: true } : res;
 }

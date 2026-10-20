@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { VerdictBadge } from "./ImportSourcesPanel";
 import {
   call,
@@ -73,7 +74,6 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
   const [intervalMin, setIntervalMin] = useState(60);
   const [job, setJob] = useState<JobSummary | null>(null);
   const [jobBusy, setJobBusy] = useState(false);
-  const [pendingJob, setPendingJob] = useState<null | "publish" | "update" | "hide" | "unhide" | "reprocess">(null);
 
   const boards = useMemo(() => sources.find((s) => s.id === filter.site)?.boards ?? [], [sources, filter.site]);
 
@@ -131,7 +131,12 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
     published: selList.filter((r) => r.publishedPostId).length,
   };
 
-  const runJob = async (kind: string) => {
+  /**
+   * 선택 글 일괄 작업. 게시·업데이트·숨김·다시 공개 = bulk (L3: 사유 + 대상 건수 재입력 → 작업 API `reason` → 감사 기록).
+   * 재수집은 게시물을 바꾸지 않는 원문 재수집이라 save (L1 확인).
+   */
+  const runJob = async (kind: "publish" | "update" | "hide" | "unhide" | "reprocess") => {
+    if (jobBusy) return;
     const items = selList
       .filter((r) => (kind === "publish" ? !r.publishedPostId : kind === "reprocess" ? true : Boolean(r.publishedPostId)))
       .map((r) => ({ sourceSite: r.sourceSite, sourceBoard: r.sourceBoard, sourceArticleKey: r.sourceArticleKey }));
@@ -139,13 +144,40 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
     const topic = topics.find((t) => t.id === bulkTopic);
     const publishing = kind === "publish" || kind === "update";
     const spread = kind === "publish" && scheduleMode === "spread";
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel(kind === "reprocess" ? "save" : "bulk"),
+      ko: true,
+      title:
+        kind === "publish"
+          ? `${items.length}건을 DIBAY에 게시할까요?`
+          : kind === "update"
+            ? `게시된 ${items.length}건을 업데이트할까요?`
+            : kind === "hide"
+              ? `게시된 ${items.length}건을 숨길까요?`
+              : kind === "unhide"
+                ? `숨긴 게시물 ${items.length}건을 다시 공개할까요?`
+                : `${items.length}건의 본문을 다시 수집할까요?`,
+      description: publishing
+        ? `주제: ${topic?.name ?? "각 게시판의 기본 주제"} · 정책: ${bulkPolicy ? POLICY_LABEL[bulkPolicy] : "출처 기본값"} · 출처 ${bulkAttribution === "hide" ? "숨김" : bulkAttribution === "show" ? "표시" : "글별 설정"} · ${AUTHOR_MODE_LABEL[authorMode]} · ${DATE_MODE_LABEL[dateMode]} · 품질 「일부 수집」 ${acceptPartial ? "포함" : "제외"} (「수집 실패」는 항상 제외). ${
+            spread
+              ? `${startAt.replace("T", " ")}부터 ${intervalMin}분마다 1건씩${shuffle ? " 랜덤 순서로" : ""} 게시합니다.`
+              : `공개 커뮤니티에 바로 반영됩니다${kind === "publish" && shuffle ? " (랜덤 순서)" : ""}.`
+          }`
+        : kind === "reprocess"
+          ? "원문을 다시 가져와 품질을 다시 판정합니다. 게시물은 바뀌지 않습니다."
+          : "커뮤니티 피드·상세의 노출 상태만 바뀝니다.",
+      confirmLabel: kind === "publish" ? "게시" : kind === "update" ? "업데이트" : kind === "hide" ? "숨김" : kind === "unhide" ? "공개" : "재수집",
+      destructive: kind === "hide",
+      retypeValue: `${items.length}건`,
+    });
+    if (!confirmed.ok) return;
     setJobBusy(true);
-    setPendingJob(null);
     try {
       const r = await call<{ job: JobSummary }>("/jobs", {
         body: {
           action: "create",
           kind,
+          ...(confirmed.reason ? { reason: confirmed.reason } : {}),
           items,
           params: {
             topicId: topic?.id ?? null,
@@ -386,19 +418,19 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
                 품질 「일부 수집」도 게시 허용 (「수집 실패」는 항상 제외)
               </label>
               <div className="flex flex-wrap gap-1">
-                <AdminActionButton variant="primary" disabled={jobBusy || !counts.unpublished} onClick={() => setPendingJob("publish")}>
+                <AdminActionButton variant="primary" disabled={jobBusy || !counts.unpublished} onClick={() => void runJob("publish")}>
                   일괄 게시 ({counts.unpublished})
                 </AdminActionButton>
-                <AdminActionButton variant="secondary" disabled={jobBusy || !counts.published} onClick={() => setPendingJob("update")}>
+                <AdminActionButton variant="secondary" disabled={jobBusy || !counts.published} onClick={() => void runJob("update")}>
                   일괄 업데이트 ({counts.published})
                 </AdminActionButton>
-                <AdminActionButton variant="neutral" disabled={jobBusy || !counts.published} onClick={() => setPendingJob("hide")}>
+                <AdminActionButton variant="neutral" disabled={jobBusy || !counts.published} onClick={() => void runJob("hide")}>
                   게시물 숨김
                 </AdminActionButton>
-                <AdminActionButton variant="neutral" disabled={jobBusy || !counts.published} onClick={() => setPendingJob("unhide")}>
+                <AdminActionButton variant="neutral" disabled={jobBusy || !counts.published} onClick={() => void runJob("unhide")}>
                   숨김 해제
                 </AdminActionButton>
-                <AdminActionButton variant="neutral" disabled={jobBusy} onClick={() => setPendingJob("reprocess")}>
+                <AdminActionButton variant="neutral" disabled={jobBusy} onClick={() => void runJob("reprocess")}>
                   본문 재수집
                 </AdminActionButton>
                 <AdminActionButton variant="neutral" disabled={jobBusy || !counts.unpublished} onClick={() => void setStatus("skipped")}>
@@ -433,37 +465,6 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
           ) : null}
         </div>
       ) : null}
-
-      <AdminActionConfirmDialog
-        open={pendingJob !== null}
-        title={
-          pendingJob === "publish"
-            ? `${counts.unpublished}건을 DIBAY에 게시할까요?`
-            : pendingJob === "update"
-              ? `게시된 ${counts.published}건을 업데이트할까요?`
-              : pendingJob === "hide"
-                ? `게시된 ${counts.published}건을 숨길까요?`
-                : pendingJob === "unhide"
-                  ? `숨긴 게시물 ${counts.published}건을 다시 공개할까요?`
-                  : `${selected.size}건의 본문을 다시 수집할까요?`
-        }
-        description={
-          pendingJob === "publish" || pendingJob === "update"
-            ? `주제: ${topics.find((t) => t.id === bulkTopic)?.name ?? "각 게시판의 기본 주제"} · 정책: ${bulkPolicy ? POLICY_LABEL[bulkPolicy] : "출처 기본값"} · 출처 ${bulkAttribution === "hide" ? "숨김" : bulkAttribution === "show" ? "표시" : "글별 설정"} · ${AUTHOR_MODE_LABEL[authorMode]} · ${DATE_MODE_LABEL[dateMode]} · 품질 「일부 수집」 ${acceptPartial ? "포함" : "제외"} (「수집 실패」는 항상 제외). ${
-                pendingJob === "publish" && scheduleMode === "spread"
-                  ? `${startAt.replace("T", " ")}부터 ${intervalMin}분마다 1건씩${shuffle ? " 랜덤 순서로" : ""} 게시합니다.`
-                  : `공개 커뮤니티에 바로 반영됩니다${pendingJob === "publish" && shuffle ? " (랜덤 순서)" : ""}.`
-              }`
-            : pendingJob === "reprocess"
-              ? "원문을 다시 가져와 품질을 다시 판정합니다. 게시물은 바뀌지 않습니다."
-              : "커뮤니티 피드·상세의 노출 상태만 바뀝니다."
-        }
-        confirmLabel={pendingJob === "publish" ? "게시" : pendingJob === "update" ? "업데이트" : pendingJob === "hide" ? "숨김" : pendingJob === "unhide" ? "공개" : "재수집"}
-        cancelLabel="취소"
-        pending={jobBusy}
-        onCancel={() => setPendingJob(null)}
-        onConfirm={() => pendingJob && void runJob(pendingJob)}
-      />
     </div>
   );
 }

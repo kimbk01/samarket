@@ -6,8 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionQueueCardGrid } from "@/components/admin/action-queue/AdminActionQueueCardGrid";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 /** Overview supplies Monitoring only; Action Queue reads the same Bell payload (provider). */
 type OverviewPayload = {
@@ -26,6 +26,7 @@ export function CustomerPlatformDashboardPage() {
   const { safeT, language } = useI18n();
   const [payload, setPayload] = useState<OverviewPayload | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
 
   const load = useCallback(async () => {
     setLoadState("loading");
@@ -34,16 +35,19 @@ export function CustomerPlatformDashboardPage() {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json().catch(() => ({}))) as OverviewPayload;
+      const json = (await res.json().catch(() => ({}))) as OverviewPayload & { error?: string };
       if (!res.ok || !json.ok) {
         setPayload(null);
+        setLoadErr({ code: adminSafeErrorCode(json.error, "load_failed"), httpStatus: res.status });
         setLoadState("error");
         return;
       }
       setPayload(json);
+      setLoadErr(null);
       setLoadState("ready");
     } catch {
       setPayload(null);
+      setLoadErr({ code: "network_error" });
       setLoadState("error");
     }
   }, []);
@@ -80,20 +84,12 @@ export function CustomerPlatformDashboardPage() {
       </p>
 
       {loadState === "error" ? (
-        <div
-          className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-warning"
-          role="alert"
-        >
-          <p className="font-medium">
-            {safeT("admin_cp_dashboard_load_error", {
-              fallbackKo: "운영 현황을 불러오지 못했습니다.",
-              fallbackEn: "Could not load Customer Platform overview.",
-            })}
-          </p>
-          <AdminActionButton variant="secondary" size="sm" className="mt-3" onClick={() => void load()}>
-            {adminCta("refresh", language !== "en")}
-          </AdminActionButton>
-        </div>
+        <AdminErrorState
+          ko={language !== "en"}
+          code={loadErr?.code ?? "load_failed"}
+          httpStatus={loadErr?.httpStatus}
+          onRetry={() => void load()}
+        />
       ) : null}
 
       <section id="action-queue" className="space-y-3 scroll-mt-20">

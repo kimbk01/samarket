@@ -7,14 +7,17 @@ import {
   evaluateAutomation,
   runAutomationForSurface,
 } from "@/lib/recommendation-automation/recommendation-automation-utils";
-import { persistRecommendationRuntimeToServer } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
+import { commitRecommendationRuntimeChange } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 
 export function AutomationSimulator() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   const [surface, setSurface] = useState<RecommendationSurface>("home");
   const [mode, setMode] = useState<"dry_run" | "live">("dry_run");
   const [result, setResult] = useState<
@@ -25,19 +28,26 @@ export function AutomationSimulator() {
     setResult(evaluateAutomation(surface));
   };
 
-  const handleRun = () => {
-    const r = runAutomationForSurface(surface, mode);
-    setResult({
-      ...r,
-      actionTaken: r.actionTaken,
+  /** 실행 기록 저장 실패 → 실행 기록 되돌림 + 실패 문구 (예전: console.warn 만). */
+  const handleRun = async () => {
+    const out: { run: ReturnType<typeof runAutomationForSurface> | null } = { run: null };
+    setBusy(true);
+    const p = await commitRecommendationRuntimeChange(() => {
+      out.run = runAutomationForSurface(surface, mode);
     });
-    void persistRecommendationRuntimeToServer().then((p) => {
-      if (!p.ok) console.warn("[automation] runtime persist failed", p.error);
-    });
+    setBusy(false);
+    if (!p.ok) {
+      setSaveResult({ ok: false, code: p.error ?? "save_failed" });
+      setResult(null);
+      return;
+    }
+    setSaveResult(null);
+    if (out.run) setResult(out.run);
   };
 
   return (
     <div className="space-y-4">
+      <AdminResultBanner ko={language !== "en"} result={saveResult} onClose={() => setSaveResult(null)} />
       <p className="sam-text-body-secondary text-sam-muted">
         {t("admin_rec_auto_sim_intro")}
       </p>
@@ -80,7 +90,8 @@ export function AutomationSimulator() {
         <AdminActionButton
           variant="primary"
           type="button"
-          onClick={handleRun}
+          disabled={busy}
+          onClick={() => void handleRun()}
         >
           {t("admin_rec_auto_sim_run")}
         </AdminActionButton>

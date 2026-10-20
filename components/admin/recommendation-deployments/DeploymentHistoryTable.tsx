@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -13,6 +14,7 @@ import { PLATFORM_REC_DEPLOYMENT_NS } from "@/lib/admin/status-labels/platform-s
 
 export function DeploymentHistoryTable() {
   const { t, language } = useI18n();
+  const ko = language !== "en";
   const [surfaceFilter, setSurfaceFilter] = useState<string>("");
 
   const deployments = useMemo(
@@ -40,9 +42,11 @@ export function DeploymentHistoryTable() {
             <option value="shop">{t("admin_rec_deploy_shop")}</option>
           </select>
         </div>
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          배포 이력이 없습니다.
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={surfaceFilter ? undefined : "배포 이력이 없습니다."}
+          onReset={surfaceFilter ? () => { setSurfaceFilter(""); } : undefined}
+        />
       </div>
     );
   }

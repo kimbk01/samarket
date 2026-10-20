@@ -7,6 +7,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
@@ -370,17 +371,20 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   };
 
   /**
-   * 상태 전이 확인 (확인 단계 표준): 노출 시작·승인 = L2(사유 필수) · 노출 중지 = L1 · 종료 = L3(캠페인 이름 재입력).
-   * 전이 API 는 사유 필드를 받지 않으므로 요청 본문은 그대로 둔다(사유는 확인창에서만 받는다).
+   * 상태 전이 확인 (확인 단계 표 `adminActionLevel`): 승인 = approve(L2) · 노출 시작 = exposeStart(L2) ·
+   * 노출 중지 = exposeStop(L1) · 종료 = forceCancel(L3, 캠페인 이름 재입력).
+   * L2·L3 사유는 전이 API 본문 `reason` 으로 보내고 서버가 감사 기록에 남긴다.
    */
-  const confirmTransition = async (body: Record<string, unknown>): Promise<boolean> => {
+  const confirmTransition = async (
+    body: Record<string, unknown>
+  ): Promise<{ ok: false } | { ok: true; reason: string | null }> => {
     const ko = language !== "en";
     const name = campaign?.name?.trim() || campaignId;
     const next = body.nextStatus;
     if (body.action === "approve" || body.activate || body.schedule) {
       const activate = Boolean(body.activate);
-      const r = await confirmAdminAction({
-        level: "L2",
+      return confirmAdminAction({
+        level: adminActionLevel(activate ? "exposeStart" : "approve"),
         ko,
         title: activate
           ? ko
@@ -392,21 +396,19 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         description: ko ? `「${name}」` : `"${name}"`,
         confirmLabel: activate ? adminCta("exposeStart", ko) : adminCta("approve", ko),
       });
-      return r.ok;
     }
     if (next === "active") {
-      const r = await confirmAdminAction({
-        level: "L2",
+      return confirmAdminAction({
+        level: adminActionLevel("exposeStart"),
         ko,
         title: ko ? "팝업 노출 시작" : "Start popup exposure",
         description: ko ? `「${name}」` : `"${name}"`,
         confirmLabel: adminCta("exposeStart", ko),
       });
-      return r.ok;
     }
     if (next === "paused") {
-      const r = await confirmAdminAction({
-        level: "L1",
+      return confirmAdminAction({
+        level: adminActionLevel("exposeStop"),
         ko,
         title: ko ? "팝업 노출 중지" : "Stop popup exposure",
         description: ko
@@ -414,11 +416,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           : `Stop showing "${name}". You can resume it later.`,
         confirmLabel: adminCta("exposeStop", ko),
       });
-      return r.ok;
     }
     if (next === "ended") {
-      const r = await confirmAdminAction({
-        level: "L3",
+      return confirmAdminAction({
+        level: adminActionLevel("forceCancel"),
         ko,
         title: ko ? "팝업 종료" : "End popup",
         description: ko
@@ -428,20 +429,20 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         destructive: true,
         retypeValue: name,
       });
-      return r.ok;
     }
-    return true;
+    return { ok: true, reason: null };
   };
 
   const transition = async (body: Record<string, unknown>) => {
-    if (!(await confirmTransition(body))) return;
+    const confirmed = await confirmTransition(body);
+    if (!confirmed.ok) return;
     setBusy(true);
     setError(null);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}/transition`, {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(confirmed.reason ? { ...body, reason: confirmed.reason } : body),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     setBusy(false);
@@ -457,7 +458,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const deleteDraft = async () => {
     const ko = language !== "en";
     const confirmed = await confirmAdminAction({
-      level: "L3",
+      level: adminActionLevel("delete"),
       ko,
       title: ko ? "임시저장 팝업 삭제" : "Delete draft popup",
       description: ko
@@ -478,6 +479,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         family: "platform_popup_campaign",
         entityId: campaignId,
         action: "delete_safe_draft",
+        reason: confirmed.reason,
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };

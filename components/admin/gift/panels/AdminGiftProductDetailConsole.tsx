@@ -12,6 +12,7 @@ import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { formatGiftProductExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import {
   isGiftDiscountFundingParty,
@@ -563,7 +564,7 @@ export function AdminGiftProductDetailConsole({
   const saveEdit = async () => {
     if (!product || busy || !isDirty) return;
     const confirmed = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("save"),
       ko: language !== "en",
       title: safeT("gift_admin_save_confirm_title", {
         fallbackKo: "변경 내용을 저장할까요?",
@@ -636,7 +637,7 @@ export function AdminGiftProductDetailConsole({
   const confirmDelete = async () => {
     if (!product || busy || product.issued_count > 0) return;
     const ok = await confirmAdminAction({
-      level: "L3",
+      level: adminActionLevel("delete"),
       ko: language !== "en",
       retypeValue: product.title,
       title: safeT("gift_ops_delete_confirm_title", { fallbackKo: "상품 삭제", fallbackEn: "Delete product" }),
@@ -654,6 +655,8 @@ export function AdminGiftProductDetailConsole({
       const res = await fetch(`/api/admin/gift-certificates/products/${encodeURIComponent(product.id)}`, {
         method: "DELETE",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: ok.reason }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
@@ -679,7 +682,7 @@ export function AdminGiftProductDetailConsole({
 
   const handlePause = async () => {
     const ok = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("exposeStop"),
       ko: language !== "en",
       title: safeT("gift_ops_cta_pause", { fallbackKo: "판매 중지", fallbackEn: "Pause sales" }),
       description: safeT("gift_ops_pause_confirm", {
@@ -693,7 +696,7 @@ export function AdminGiftProductDetailConsole({
 
   const handleArchive = async () => {
     const ok = await confirmAdminAction({
-      level: "L1",
+      level: adminActionLevel("disable"),
       ko: language !== "en",
       title: safeT("gift_ops_cta_archive", { fallbackKo: "보관", fallbackEn: "Archive" }),
       description: safeT("gift_ops_archive_confirm", {

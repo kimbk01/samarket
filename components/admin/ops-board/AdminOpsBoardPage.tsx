@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -33,11 +35,8 @@ export function AdminOpsBoardPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
   const [retroRefresh, setRetroRefresh] = useState(0);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadOpsBoardFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadOpsBoardFromServer);
+  const hydrated = loadState.status === "ready";
 
   if (!hydrated) {
     return (
@@ -46,9 +45,7 @@ export function AdminOpsBoardPage() {
           titleKey="admin_menu_manage_ops_board"
           descriptionKey="admin_ops_tools_board_page_desc"
         />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

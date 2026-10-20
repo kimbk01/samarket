@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsBenchmarkCards } from "./OpsBenchmarkCards";
@@ -15,13 +16,9 @@ import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 type TabId = "benchmark" | "quarterly" | "performance" | "gap" | "summary";
 
 export function AdminOpsBenchmarksPage() {
-  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("benchmark");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadOpsBenchmarksFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadOpsBenchmarksFromServer);
+  const hydrated = loadState.status === "ready";
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "benchmark", label: "벤치마크" },
@@ -35,11 +32,7 @@ export function AdminOpsBenchmarksPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_manage_benchmarks" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">
-            {t("admin_rec_mon_loading_settings")}
-          </p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

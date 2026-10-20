@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -19,7 +20,8 @@ import Link from "next/link";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function QaTestCaseTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [status, setStatus] = useState<QaTestCaseStatus | "">("");
   const [environment, setEnvironment] = useState<QaTestEnvironment | "">("");
   const cases = useMemo(
@@ -67,9 +69,7 @@ export function QaTestCaseTable() {
       </div>
 
       {cases.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          테스트 케이스가 없습니다.
-        </div>
+        <AdminEmptyState ko={ko} message={"테스트 케이스가 없습니다."} />
       ) : (
         <AdminTable
           headers={[

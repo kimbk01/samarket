@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getBackupSnapshotById,
@@ -27,12 +30,10 @@ function backupLocale(language: string): string {
 
 export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
   const { t, language } = useI18n();
+  const ko = language !== "en";
   const locale = backupLocale(language);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadBackupFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadBackupFromServer);
+  const hydrated = loadState.status === "ready";
 
   const snapshot = useMemo(
     () => (hydrated ? getBackupSnapshotById(snapshotId) : undefined),
@@ -48,18 +49,12 @@ export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
   );
 
   if (!hydrated) {
-    return (
-      <div className="py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_loading_ops_settings")}
-      </div>
-    );
+    return <AdminSyncLoadGate state={loadState} onRetry={reload} />;
   }
 
   if (!snapshot) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_backup_snapshot_not_found")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_backup_snapshot_not_found")} />
     );
   }
 

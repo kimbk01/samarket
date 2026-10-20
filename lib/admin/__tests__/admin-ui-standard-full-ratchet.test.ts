@@ -109,6 +109,8 @@ export const ADMIN_UI_FULL_RULES: Record<string, (src: string, file: string) => 
   /** 2-4 — 상태값(enum)을 라벨 없이 그대로 출력 (`>{row.status}<`). */
   rawStatus: (s) =>
     s.match(/>\s*\{\s*[\w.?!]+\.(?:status|state|kind|[a-z]+_status|[a-z]+Status)\s*\}\s*</g) ?? [],
+  /** 2-3 — 확인 단계는 동작 표(`adminActionLevel`)로 정한다. 화면에 단계 문자열을 직접 쓰지 않는다. */
+  literalConfirmLevel: (s, file) => (CONFIRM_ENGINE.test(file) ? [] : (s.match(/\blevel:\s*["']L[123]["']/g) ?? [])),
   /** 2-3 — 확인 엔진 단일화: `confirmAdminAction` 밖의 확인 경로를 화면에서 직접 쓰지 않는다. */
   confirmPath: (s, file) =>
     CONFIRM_ENGINE.test(file) ? [] : (s.match(/\buseAdminConfirmDialog\s*\(|<AdminActionConfirmDialog\b/g) ?? []),

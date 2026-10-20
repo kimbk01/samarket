@@ -11,7 +11,8 @@ import { AdminPlatformEventDistributionPanel } from "@/components/admin/platform
 import { PlatformEventDetailContent } from "@/components/platform-events/PlatformEventDetailContent";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 import { promotionAdminActionLabel } from "@/lib/admin/promotion-operation-actions";
 import {
   formatPromotionAdminSchedule,
@@ -193,7 +194,6 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
 
   const [sections, setSections] = useState<PlatformEventSection[]>([]);
   const [newSectionKind, setNewSectionKind] = useState<SectionKind>("text");
-  const [confirmAction, setConfirmAction] = useState<PlatformEventLifecycleAction | null>(null);
   const [boardColumnsApplied, setBoardColumnsApplied] = useState(true);
   const [mediaBusy, setMediaBusy] = useState(false);
   const heroFileRef = useRef<HTMLInputElement>(null);
@@ -403,7 +403,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
   ]);
 
   const save = useCallback(
-    async (nextStatus?: PlatformEventStatus, action?: "archive") => {
+    async (nextStatus?: PlatformEventStatus, action?: PlatformEventLifecycleAction, reason?: string | null) => {
       if (!validateBeforeSave()) return;
       setSaving(true);
       setError(null);
@@ -428,6 +428,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         isPinned: draft.isPinned === true,
         category: draft.category ?? null,
         ...(action ? { action } : {}),
+        ...(reason ? { reason } : {}),
       };
       try {
         const res = await fetch(
@@ -467,15 +468,33 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
     [draft, buildSections, isNew, eventId, router, validateBeforeSave, lang]
   );
 
-  /** Publish / unpublish / archive always pass through a confirm dialog. */
-  const runConfirmedAction = useCallback(
+  /**
+   * Publish / unpublish / archive always pass through confirmAdminAction (동작 표):
+   * 게시 = exposeStart(L2, 사유 → API 감사) · 게시 중지 = exposeStop(L1) · 보관 = disable(L1).
+   */
+  const requestLifecycle = useCallback(
     async (action: PlatformEventLifecycleAction) => {
-      if (action === "publish") await save("published");
+      const copy = LIFECYCLE_CONFIRM[action];
+      const kind: AdminActionKind = action === "publish" ? "exposeStart" : action === "unpublish" ? "exposeStop" : "disable";
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel(kind),
+        ko: lang !== "en",
+        title: safeT(copy.titleKey, { fallbackKo: copy.titleKo, fallbackEn: copy.titleEn }),
+        description: safeT(copy.descKey, { fallbackKo: copy.descKo, fallbackEn: copy.descEn }),
+        confirmLabel:
+          action === "publish"
+            ? promotionAdminActionLabel("PUBLISH", lang)
+            : action === "unpublish"
+              ? promotionAdminActionLabel("PAUSE_STOP", lang)
+              : safeT("admin_event_editor_btn_archive", { fallbackKo: "보관", fallbackEn: "Archive" }),
+        destructive: copy.tone === "danger",
+      });
+      if (!confirmed.ok) return;
+      if (action === "publish") await save("published", "publish", confirmed.reason);
       else if (action === "unpublish") await save("unpublished");
       else await save("unpublished", "archive");
-      setConfirmAction(null);
     },
-    [save]
+    [save, lang, safeT]
   );
 
   const onHeroUpload = useCallback(
@@ -566,7 +585,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
       <AdminActionButton
         variant="primary"
         disabled={busy}
-        onClick={() => setConfirmAction("publish")}
+        onClick={() => void requestLifecycle("publish")}
         data-admin-event-action="publish"
       >
         {promotionAdminActionLabel("PUBLISH", lang)}
@@ -574,7 +593,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
       <AdminActionButton
         variant="danger"
         disabled={busy || isNew}
-        onClick={() => setConfirmAction("unpublish")}
+        onClick={() => void requestLifecycle("unpublish")}
         data-admin-event-action="unpublish"
       >
         {promotionAdminActionLabel("PAUSE_STOP", lang)}
@@ -582,7 +601,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
       <AdminActionButton
         variant="quiet"
         disabled={busy || isNew || Boolean(draft.archivedAt)}
-        onClick={() => setConfirmAction("archive")}
+        onClick={() => void requestLifecycle("archive")}
         data-admin-event-action="archive"
       >
         {safeT("admin_event_editor_btn_archive", { fallbackKo: "보관", fallbackEn: "Archive" })}
@@ -1281,33 +1300,6 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
 
       <div className="flex flex-wrap gap-2 pb-6">{actionButtons}</div>
 
-      {confirmAction ? (
-        <AdminActionConfirmDialog
-          open
-          title={safeT(LIFECYCLE_CONFIRM[confirmAction].titleKey, {
-            fallbackKo: LIFECYCLE_CONFIRM[confirmAction].titleKo,
-            fallbackEn: LIFECYCLE_CONFIRM[confirmAction].titleEn,
-          })}
-          description={
-            safeT(LIFECYCLE_CONFIRM[confirmAction].descKey, {
-              fallbackKo: LIFECYCLE_CONFIRM[confirmAction].descKo,
-              fallbackEn: LIFECYCLE_CONFIRM[confirmAction].descEn,
-            })
-          }
-          confirmLabel={
-            confirmAction === "publish"
-              ? promotionAdminActionLabel("PUBLISH", lang)
-              : confirmAction === "unpublish"
-                ? promotionAdminActionLabel("PAUSE_STOP", lang)
-                : safeT("admin_event_editor_btn_archive", { fallbackKo: "보관", fallbackEn: "Archive" })
-          }
-          cancelLabel={safeT("admin_event_editor_btn_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
-          tone={LIFECYCLE_CONFIRM[confirmAction].tone}
-          pending={saving}
-          onCancel={() => setConfirmAction(null)}
-          onConfirm={() => void runConfirmedAction(confirmAction)}
-        />
-      ) : null}
     </div>
   );
 }

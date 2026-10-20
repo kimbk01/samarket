@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -11,14 +12,13 @@ import Link from "next/link";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function QaBlockerBoard() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const blockedOrFailed = useMemo(() => getBlockedOrFailedTestCases(), []);
 
   if (blockedOrFailed.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_qa_empty_failed_blocked")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_qa_empty_failed_blocked")} />
     );
   }
 

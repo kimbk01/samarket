@@ -19,6 +19,12 @@ import {
   OS_LAUNCH_DEFAULT_BACKGROUND,
 } from "@/lib/admin/platform/platform-launch-default-colors";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import {
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 type Snapshot = {
   ok: true;
@@ -58,12 +64,15 @@ function StartPreview({ color, logoUrl }: { color: string; logoUrl: string | nul
 }
 
 export function OsLaunchAdminPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [color, setColor] = useState(OS_LAUNCH_DEFAULT_BACKGROUND);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"save" | "upload" | "reset" | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const apply = useCallback((json: Snapshot) => {
@@ -71,22 +80,31 @@ export function OsLaunchAdminPage() {
     setColor(json.pending?.backgroundColor ?? json.build.backgroundColor);
   }, []);
 
+  /** 변경 실패 — 오류 코드만 오류 맵 문구로 표시 (예전: 「처리하지 못했습니다: {원문 코드}」). */
   const fail = useCallback(
-    (error: string | undefined) => setMessage(t("admin_os_launch_error", { error: error ?? "error" })),
-    [t]
+    (error: string | undefined) => setResult({ ok: false, code: adminSafeErrorCode(error, "save_failed") }),
+    []
   );
 
+  /** 조회 실패는 오류 상태 + [새로고침] (403 은 접근 거부) — R6. */
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const res = await fetch("/api/admin/os-launch", { credentials: "same-origin" });
-        const json = (await res.json()) as Snapshot | ApiError;
+        const json = (await res.json().catch(() => ({ ok: false }))) as Snapshot | ApiError;
         if (cancelled) return;
-        if (json.ok) apply(json);
-        else fail(json.error);
+        if (res.ok && json.ok) {
+          setLoadErr(null);
+          apply(json);
+        } else {
+          setLoadErr({
+            code: adminSafeErrorCode(json.ok ? undefined : json.error, "load_failed"),
+            httpStatus: res.status,
+          });
+        }
       } catch {
-        if (!cancelled) fail("network");
+        if (!cancelled) setLoadErr({ code: "network_error" });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -94,7 +112,13 @@ export function OsLaunchAdminPage() {
     return () => {
       cancelled = true;
     };
-  }, [apply, fail]);
+  }, [apply, reloadKey]);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    setLoadErr(null);
+    setReloadKey((k) => k + 1);
+  }, []);
 
   const put = useCallback(
     async (kind: "save" | "reset") => {
@@ -104,7 +128,7 @@ export function OsLaunchAdminPage() {
         return;
       }
       setBusy(kind);
-      setMessage(null);
+      setResult(null);
       try {
         const res = await fetch("/api/admin/os-launch", {
           method: "PUT",
@@ -115,10 +139,10 @@ export function OsLaunchAdminPage() {
         const json = (await res.json()) as Snapshot | ApiError;
         if (json.ok) {
           apply(json);
-          setMessage(t("admin_os_launch_saved"));
+          setResult({ ok: true, message: t("admin_os_launch_saved") });
         } else fail(json.error);
       } catch {
-        fail("network");
+        fail("network_error");
       } finally {
         setBusy(null);
       }
@@ -129,7 +153,7 @@ export function OsLaunchAdminPage() {
   const upload = useCallback(
     async (file: File) => {
       setBusy("upload");
-      setMessage(null);
+      setResult(null);
       try {
         const form = new FormData();
         form.append("file", file);
@@ -141,10 +165,10 @@ export function OsLaunchAdminPage() {
         const json = (await res.json()) as Snapshot | ApiError;
         if (json.ok) {
           apply(json);
-          setMessage(t("admin_os_launch_saved"));
+          setResult({ ok: true, message: t("admin_os_launch_saved") });
         } else fail(json.error);
       } catch {
-        fail("network");
+        fail("network_error");
       } finally {
         setBusy(null);
         if (fileRef.current) fileRef.current.value = "";
@@ -168,8 +192,15 @@ export function OsLaunchAdminPage() {
         </div>
       </AdminCard>
 
-      {loading || !snap ? (
-        <p className="sam-text-body text-sam-muted">{loading ? t("common_loading") : message}</p>
+      {loading ? (
+        <AdminLoadingState ko={ko} />
+      ) : loadErr || !snap ? (
+        <AdminErrorState
+          ko={ko}
+          code={loadErr?.code ?? "load_failed"}
+          httpStatus={loadErr?.httpStatus}
+          onRetry={reload}
+        />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           <AdminCard title={t("admin_os_launch_current_title")}>
@@ -296,10 +327,8 @@ export function OsLaunchAdminPage() {
         </div>
       )}
 
-      {message && snap ? (
-        <p className="sam-text-body text-sam-fg" role="status">
-          {message}
-        </p>
+      {result && snap ? (
+        <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
       ) : null}
 
       <AdminCard title={t("admin_os_launch_dev_title")}>

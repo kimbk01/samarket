@@ -21,21 +21,22 @@ import {
 } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { confirmAdminAction, type AdminConfirmLevel } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 
-/** 상품 조치 확인 등급·문구 — 차단/숨김/검수 반려 = L2(사유 → memo), 나머지 L1. */
+/** 상품 조치 확인 등급(동작 표)·문구 — 차단/숨김(sanction)·검수 승인(approve)·검수 반려(reject) = L2(사유 → reason·memo), 나머지 L1. */
 const PRODUCT_ACTIONS: Record<
   string,
   { level: AdminConfirmLevel; ko: string; en: string; titleKo: string; titleEn: string; destructive?: boolean; okKo: string; okEn: string }
 > = {
-  block: { level: "L2", ko: "차단", en: "Block", titleKo: "이 상품을 판매 차단할까요?", titleEn: "Block this product?", destructive: true, okKo: "상품을 차단했습니다.", okEn: "Product blocked." },
-  hide: { level: "L2", ko: "숨김", en: "Hide", titleKo: "이 상품을 숨길까요?", titleEn: "Hide this product?", destructive: true, okKo: "상품을 숨겼습니다.", okEn: "Product hidden." },
-  sold_out: { level: "L1", ko: "품절", en: "Sold out", titleKo: "이 상품을 품절로 바꿀까요?", titleEn: "Mark this product sold out?", okKo: "품절로 바꿨습니다.", okEn: "Marked sold out." },
-  activate: { level: "L1", ko: "판매 활성", en: "Activate", titleKo: "이 상품을 판매 중으로 바꿀까요?", titleEn: "Put this product on sale?", okKo: "판매 중으로 바꿨습니다.", okEn: "Product activated." },
-  approve_review: { level: "L1", ko: "검수 승인", en: "Approve", titleKo: "이 상품 검수를 승인할까요?", titleEn: "Approve this product?", okKo: "검수를 승인했습니다.", okEn: "Review approved." },
-  reject_review: { level: "L2", ko: "검수 반려", en: "Reject", titleKo: "이 상품 검수를 반려할까요?", titleEn: "Reject this product?", destructive: true, okKo: "검수를 반려했습니다.", okEn: "Review rejected." },
-  correct_name: { level: "L1", ko: "저장", en: "Save", titleKo: "상품명을 이렇게 바꿀까요?", titleEn: "Change the product name?", okKo: "상품명을 바꿨습니다.", okEn: "Name updated." },
-  correct_price: { level: "L1", ko: "저장", en: "Save", titleKo: "가격을 이렇게 바꿀까요?", titleEn: "Change the price?", okKo: "가격을 바꿨습니다.", okEn: "Price updated." },
+  block: { level: adminActionLevel("sanction"), ko: "차단", en: "Block", titleKo: "이 상품을 판매 차단할까요?", titleEn: "Block this product?", destructive: true, okKo: "상품을 차단했습니다.", okEn: "Product blocked." },
+  hide: { level: adminActionLevel("sanction"), ko: "숨김", en: "Hide", titleKo: "이 상품을 숨길까요?", titleEn: "Hide this product?", destructive: true, okKo: "상품을 숨겼습니다.", okEn: "Product hidden." },
+  sold_out: { level: adminActionLevel("save"), ko: "품절", en: "Sold out", titleKo: "이 상품을 품절로 바꿀까요?", titleEn: "Mark this product sold out?", okKo: "품절로 바꿨습니다.", okEn: "Marked sold out." },
+  activate: { level: adminActionLevel("resume"), ko: "판매 활성", en: "Activate", titleKo: "이 상품을 판매 중으로 바꿀까요?", titleEn: "Put this product on sale?", okKo: "판매 중으로 바꿨습니다.", okEn: "Product activated." },
+  approve_review: { level: adminActionLevel("approve"), ko: "검수 승인", en: "Approve", titleKo: "이 상품 검수를 승인할까요?", titleEn: "Approve this product?", okKo: "검수를 승인했습니다.", okEn: "Review approved." },
+  reject_review: { level: adminActionLevel("reject"), ko: "검수 반려", en: "Reject", titleKo: "이 상품 검수를 반려할까요?", titleEn: "Reject this product?", destructive: true, okKo: "검수를 반려했습니다.", okEn: "Review rejected." },
+  correct_name: { level: adminActionLevel("save"), ko: "저장", en: "Save", titleKo: "상품명을 이렇게 바꿀까요?", titleEn: "Change the product name?", okKo: "상품명을 바꿨습니다.", okEn: "Name updated." },
+  correct_price: { level: adminActionLevel("save"), ko: "저장", en: "Save", titleKo: "가격을 이렇게 바꿀까요?", titleEn: "Change the price?", okKo: "가격을 바꿨습니다.", okEn: "Price updated." },
 };
 
 type Row = {
@@ -105,7 +106,7 @@ export function AdminStoreProductsPage() {
     void load();
   }, [load]);
 
-  /** 확인 팝업을 취소하면 아무 것도 실행하지 않는다 (DEF-37). L2 사유는 memo 로 전송. */
+  /** 확인 팝업을 취소하면 아무 것도 실행하지 않는다 (DEF-37). L2 사유는 reason(감사)·memo(검수 메모)로 전송. */
   const run = async (
     id: string,
     productTitle: string,
@@ -131,7 +132,13 @@ export function AdminStoreProductsPage() {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, memo: confirmed.reason, ...extra }),
+        // 검수 승인 사유는 감사 기록 전용 — 검수 메모(admin_review_memo)는 예전처럼 건드리지 않는다.
+        body: JSON.stringify({
+          action,
+          reason: confirmed.reason,
+          memo: action === "approve_review" ? null : confirmed.reason,
+          ...extra,
+        }),
       });
       const json = await res.json().catch(() => null);
       if (!json?.ok) {

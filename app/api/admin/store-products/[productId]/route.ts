@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
 import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
@@ -16,6 +17,7 @@ export const dynamic = "force-dynamic";
 
 type PatchBody = {
   action?: string;
+  reason?: string;
   memo?: string;
   name?: string;
   price?: number;
@@ -53,6 +55,11 @@ export async function PATCH(
   const memo = String(body.memo ?? "").trim() || null;
   if (adminStoreProductMemoMissing(actionRaw, memo)) {
     return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
+  // R2 — 확인창 사유(L2)는 감사 after.reason 에 남긴다. 검수 승인(approve L2)도 사유 필수.
+  const reason = parseAdminReason(body.reason ?? body.memo);
+  if (actionRaw === "approve_review" && !reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   }
 
   const sb = tryGetSupabaseForStores();
@@ -118,7 +125,7 @@ export async function PATCH(
     targetId: id,
     action: `store_product.${actionRaw}`,
     before,
-    after: { ...patch, memo, store_id: (row as { store_id?: string }).store_id },
+    after: { ...patch, memo, reason, store_id: (row as { store_id?: string }).store_id },
   });
 
   return NextResponse.json({ ok: true });

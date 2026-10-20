@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   isAdminDeliveryAdAction,
   isAdminDeliveryAdProduct,
@@ -87,6 +88,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   const reason = body.reason == null ? null : String(body.reason);
+  // R2 — 광고 승인(approve L2)도 확인창 사유 필수 → 감사 함수 p_reason 으로 기록.
+  if (body.action === "approve" && !parseAdminReason(reason)) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
   const ownerVisibleNotes =
     body.ownerVisibleNotes == null ? null : String(body.ownerVisibleNotes);
 

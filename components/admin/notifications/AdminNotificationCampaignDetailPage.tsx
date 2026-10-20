@@ -68,7 +68,8 @@ type AuditLogRow = {
 type PendingConfirm = {
   action: CampaignConfirmAction;
   facts: CampaignConfirmFacts;
-  run: () => Promise<void>;
+  /** 재발송(L3) 확인창 사유 — 발송 API 로 보내 감사에 남긴다. L1 동작은 null. */
+  run: (reason: string | null) => Promise<void>;
 };
 
 type OccurrenceRow = {
@@ -318,13 +319,13 @@ export function AdminNotificationCampaignDetailPage() {
   };
 
   /** Resend a failed real occurrence through the same send route (claim + batch). */
-  const resendOccurrence = async (occurrenceId: string) => {
+  const resendOccurrence = async (occurrenceId: string, reason: string | null) => {
     const key = newSendIdempotencyKey();
     const res = await fetch(`/api/admin/notification-campaigns/${id}/send`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-      body: JSON.stringify({ idempotency_key: key, occurrence_id: occurrenceId }),
+      body: JSON.stringify({ idempotency_key: key, occurrence_id: occurrenceId, reason }),
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !j?.ok) {
@@ -333,12 +334,12 @@ export function AdminNotificationCampaignDetailPage() {
     await refresh();
   };
 
-  const runConfirmed = async () => {
+  const runConfirmed = async (reason: string | null) => {
     if (!pendingConfirm || busy) return;
     setBusy(true);
     setErr(null);
     try {
-      await pendingConfirm.run();
+      await pendingConfirm.run(reason);
       setPendingConfirm(null);
     } finally {
       setBusy(false);
@@ -400,7 +401,11 @@ export function AdminNotificationCampaignDetailPage() {
     channelLabel: channelText,
     timeLabel,
   });
-  const openConfirm = (action: CampaignConfirmAction, facts: CampaignConfirmFacts, run: () => Promise<void>) => {
+  const openConfirm = (
+    action: CampaignConfirmAction,
+    facts: CampaignConfirmFacts,
+    run: (reason: string | null) => Promise<void>
+  ) => {
     setErr(null);
     setPendingConfirm({ action, facts, run });
   };
@@ -413,7 +418,7 @@ export function AdminNotificationCampaignDetailPage() {
       ? safeT("admin_campaign_cms_push_in_app_counts", { fallbackKo: `푸시 ${o.push}${o.capped ? "+" : ""} · 인앱 ${o.in_app}${o.capped ? "+" : ""}`, fallbackEn: `Push ${o.push}${o.capped ? "+" : ""} · In-app ${o.in_app}${o.capped ? "+" : ""}`, vars: { push: `${o.push}${o.capped ? "+" : ""}`, in_app: `${o.in_app}${o.capped ? "+" : ""}` } })
       : "—";
 
-  const confirmSend = async () => {
+  const confirmSend = async (reason: string | null) => {
     if (busy || !sendConfirm) return;
     setBusy(true);
     setErr(null);
@@ -425,7 +430,7 @@ export function AdminNotificationCampaignDetailPage() {
           "Content-Type": "application/json",
           "Idempotency-Key": sendConfirm.idempotencyKey,
         },
-        body: JSON.stringify({ idempotency_key: sendConfirm.idempotencyKey }),
+        body: JSON.stringify({ idempotency_key: sendConfirm.idempotencyKey, reason }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j?.ok) {
@@ -693,7 +698,7 @@ export function AdminNotificationCampaignDetailPage() {
             pending={busy}
             cancelLabel={t("common_cancel")}
             onCancel={() => setSendConfirm(null)}
-            onConfirm={() => void confirmSend()}
+            onConfirm={(reason) => void confirmSend(reason)}
           />
           <CampaignActionConfirmDialog
             action={pendingConfirm?.action ?? null}
@@ -702,7 +707,7 @@ export function AdminNotificationCampaignDetailPage() {
             pending={busy}
             cancelLabel={t("common_cancel")}
             onCancel={() => setPendingConfirm(null)}
-            onConfirm={() => void runConfirmed()}
+            onConfirm={(reason) => void runConfirmed(reason)}
           />
 
           {/* ADM-03/04: lifecycle actions — each through a confirm dialog (대상 · 채널 · 시각) */}
@@ -793,7 +798,7 @@ export function AdminNotificationCampaignDetailPage() {
                       safeT("admin_campaign_cms_time_immediately_resend", { fallbackKo: "즉시 재발송", fallbackEn: "Immediately" }),
                       failedReal.target_member_count ?? latestTargetCount
                     ),
-                    () => resendOccurrence(failedReal.id)
+                    (reason) => resendOccurrence(failedReal.id, reason)
                   )
                 }
                 className="rounded-ui-rect border border-red-300 px-3 py-1.5 text-sm text-red-700 disabled:opacity-40"

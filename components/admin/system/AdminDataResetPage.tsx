@@ -10,7 +10,7 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminLoadingState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -26,6 +26,7 @@ import {
   resolveDataResetUiCapability,
 } from "@/lib/admin/data-reset/ui-capability";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
+import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 
 type View = "list" | "detail" | "preview";
 
@@ -121,6 +122,26 @@ const DOMAIN_SCOPES: Record<
   ],
 };
 
+/**
+ * 실행 결과 표시 — 실행 결과(SUCCESS/PARTIAL/FAILED)는 오류 코드가 아니므로 오류 문구 변환기를 거치지 않고
+ * 「성공·부분 성공·실패」 결과 라벨로 보인다. 오류(차단·사유 누락·네트워크)만 오류 배너로 보인다.
+ */
+type ExecuteOverall = "SUCCESS" | "PARTIAL" | "FAILED";
+type ExecuteOutcome =
+  | { kind: "result"; overall: ExecuteOverall; detail: string }
+  | { kind: "error"; code: string }
+  | { kind: "notice"; text: string };
+
+const EXECUTE_OVERALL_LABEL: Record<ExecuteOverall, { ko: string; en: string; tone: AdminTone }> = {
+  SUCCESS: { ko: "성공", en: "Success", tone: "success" },
+  PARTIAL: { ko: "부분 성공", en: "Partial success", tone: "warning" },
+  FAILED: { ko: "실패", en: "Failed", tone: "danger" },
+};
+
+function asExecuteOverall(v: unknown): ExecuteOverall | null {
+  return v === "SUCCESS" || v === "PARTIAL" || v === "FAILED" ? v : null;
+}
+
 function executeUnavailableMessage(
   plan: DataResetPlan,
   ko: boolean,
@@ -164,7 +185,7 @@ export function AdminDataResetPage() {
   const [oneTimeToken, setOneTimeToken] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
-  const [resultMsg, setResultMsg] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<ExecuteOutcome | null>(null);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -227,7 +248,7 @@ export function AdminDataResetPage() {
   async function runPreview() {
     if (!domain || !selectedScope) return;
     setBusy(true);
-    setResultMsg(null);
+    setOutcome(null);
     setError(null);
     try {
       const res = await fetch("/api/admin/system/data-reset/preview", {
@@ -265,28 +286,25 @@ export function AdminDataResetPage() {
   async function runExecute() {
     if (!plan || !domain || !selectedScope) return;
     if (scopeExecuteBlocked) {
-      setResultMsg(
-        ko
-          ? selectedCapability?.reasonKo ?? "execute_blocked"
-          : selectedCapability?.reasonEn ?? "execute_blocked"
-      );
+      const text = ko ? selectedCapability?.reasonKo : selectedCapability?.reasonEn;
+      setOutcome(text ? { kind: "notice", text } : { kind: "error", code: "execute_blocked" });
       return;
     }
-    if (
-      !(
-        await confirmAdminAction({
-          level: "L1",
-          ko,
-          title: ko ? "초기화를 실행할까요? (복구 불가)" : "Execute reset? (irreversible)",
-          confirmLabel: ko ? "초기화 진행" : "Execute",
-          destructive: true,
-        })
-      ).ok
-    ) {
-      return;
-    }
+    // 초기화 실행 = dataReset (L3) — 대상 재입력은 이 화면의 「확인 문구 입력」(서버 typedConfirmation 검증)이 맡고,
+    // 확인창은 처리 사유를 받는다. 사유는 실행 API 본문 `reason` → 실행 감사 기록.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("dataReset"),
+      ko,
+      title: ko ? "초기화를 실행할까요? (복구 불가)" : "Execute reset? (irreversible)",
+      description: ko
+        ? `대상: ${domain} · ${selectedScope.scope}${selectedScope.subtype ? ` (${selectedScope.subtype})` : ""}`
+        : `Target: ${domain} · ${selectedScope.scope}${selectedScope.subtype ? ` (${selectedScope.subtype})` : ""}`,
+      confirmLabel: ko ? "초기화 진행" : "Execute",
+      destructive: true,
+    });
+    if (!confirmed.ok) return;
     setBusy(true);
-    setResultMsg(null);
+    setOutcome(null);
     try {
       const res = await fetch("/api/admin/system/data-reset/execute", {
         method: "POST",
@@ -302,6 +320,7 @@ export function AdminDataResetPage() {
           planCreatedAt: plan.createdAt,
           typedConfirmation: typed,
           oneTimeToken: oneTimeToken ?? undefined,
+          reason: confirmed.reason,
         }),
       });
       const data = (await res.json()) as {
@@ -312,8 +331,14 @@ export function AdminDataResetPage() {
         clientInvalidation?: string[];
         executedCounts?: Record<string, number>;
       };
+      const overall = asExecuteOverall(data.overall);
       if (!res.ok) {
-        setResultMsg(data.error ?? data.overall ?? "execute_blocked");
+        if (overall === "FAILED") {
+          setOutcome({ kind: "result", overall, detail: "" });
+          await loadSummary();
+        } else {
+          setOutcome({ kind: "error", code: data.error ?? data.overall ?? "execute_blocked" });
+        }
         return;
       }
       let clientApplied = 0;
@@ -325,22 +350,19 @@ export function AdminDataResetPage() {
         const applied = applyDataResetClientInvalidation(namespaces);
         clientApplied = applied.applied.length;
       }
-      setResultMsg(
-        `${data.overall ?? "DONE"}${
-          namespaces.length
-            ? ko
-              ? ` · 클라이언트 무효화 ${clientApplied}/${namespaces.length}`
-              : ` · client invalidation ${clientApplied}/${namespaces.length}`
-            : data.clientSessionInvalidationRequired
-              ? ko
-                ? " · 클라이언트 세션 무효화 필요"
-                : " · CLIENT SESSION INVALIDATION REQUIRED"
-              : ""
-        }`
-      );
+      const detail = namespaces.length
+        ? ko
+          ? `클라이언트 무효화 ${clientApplied}/${namespaces.length}`
+          : `client invalidation ${clientApplied}/${namespaces.length}`
+        : data.clientSessionInvalidationRequired
+          ? ko
+            ? "클라이언트 세션 무효화 필요"
+            : "CLIENT SESSION INVALIDATION REQUIRED"
+          : "";
+      setOutcome({ kind: "result", overall: overall ?? (data.ok ? "SUCCESS" : "PARTIAL"), detail });
       await loadSummary();
     } catch {
-      setResultMsg("network_error");
+      setOutcome({ kind: "error", code: "network_error" });
     } finally {
       setBusy(false);
     }
@@ -360,9 +382,22 @@ export function AdminDataResetPage() {
       {error ? (
         <AdminResultBanner ko={ko} result={{ ok: false, code: error }} onClose={() => setError(null)} />
       ) : null}
-      {resultMsg ? (
-        <p className="rounded border border-sam-border bg-sam-app px-3 py-2 text-sm text-sam-fg">
-          {adminOperatorErrorMessage(resultMsg, ko)}
+      {outcome?.kind === "error" ? (
+        <AdminResultBanner ko={ko} result={{ ok: false, code: outcome.code }} onClose={() => setOutcome(null)} />
+      ) : null}
+      {outcome?.kind === "notice" ? (
+        <p className="rounded border border-sam-border bg-sam-app px-3 py-2 text-sm text-sam-fg">{outcome.text}</p>
+      ) : null}
+      {outcome?.kind === "result" ? (
+        <p
+          className="flex flex-wrap items-center gap-2 rounded border border-sam-border bg-sam-app px-3 py-2 text-sm text-sam-fg"
+          data-data-reset-result={outcome.overall}
+        >
+          <span>{ko ? "실행 결과" : "Result"}</span>
+          <AdminToneBadge tone={EXECUTE_OVERALL_LABEL[outcome.overall].tone}>
+            {ko ? EXECUTE_OVERALL_LABEL[outcome.overall].ko : EXECUTE_OVERALL_LABEL[outcome.overall].en}
+          </AdminToneBadge>
+          {outcome.detail ? <span className="text-sam-muted">{outcome.detail}</span> : null}
         </p>
       ) : null}
 

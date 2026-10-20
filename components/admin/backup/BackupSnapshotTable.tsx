@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -25,7 +26,8 @@ function ClientDate({ value }: { value: string }) {
 }
 
 export function BackupSnapshotTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [statusFilter, setStatusFilter] = useState<BackupSnapshotStatus | "">("");
   const [typeFilter, setTypeFilter] = useState<BackupSnapshotType | "">("");
 
@@ -92,9 +94,11 @@ export function BackupSnapshotTable() {
       </div>
 
       {snapshots.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_backup_empty_filtered")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={statusFilter || typeFilter ? undefined : t("admin_backup_empty_filtered")}
+          onReset={statusFilter || typeFilter ? () => { setStatusFilter(""); setTypeFilter(""); } : undefined}
+        />
       ) : (
         <AdminTable
           headers={[

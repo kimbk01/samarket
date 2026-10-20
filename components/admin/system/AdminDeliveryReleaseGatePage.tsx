@@ -8,6 +8,7 @@ import {
   AdminLoadingState,
   AdminResultBanner,
   AdminTechDetails,
+  AdminEmptyState,
 } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -222,7 +223,7 @@ export function AdminDeliveryReleaseGatePage() {
         <div className="font-medium text-sam-fg">{t("admin_delivery_gate_auto_checks")}</div>
         <div className="mt-3 space-y-3">
           {sortedItems.length === 0 ? (
-            <div className="text-sam-muted text-sm">{t("admin_delivery_gate_no_items")}</div>
+            <AdminEmptyState ko={ko} message={t("admin_delivery_gate_no_items")} />
           ) : (
             sortedItems.map((it) => (
               <div key={it.key} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
@@ -262,9 +263,7 @@ export function AdminDeliveryReleaseGatePage() {
         <div className="font-medium text-sam-fg">{t("admin_delivery_gate_manual_checks")}</div>
         <div className="mt-3 space-y-3">
           {manual.length === 0 ? (
-            <div className="text-sam-muted text-sm">
-              {t("admin_delivery_gate_manual_empty")}
-            </div>
+            <AdminEmptyState ko={ko} message={t("admin_delivery_gate_manual_empty")} />
           ) : (
             manual.map((m) => (
               <div key={m.key} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">

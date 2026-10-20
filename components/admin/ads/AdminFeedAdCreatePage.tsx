@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Image as ImageIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import { feedAdPoolCapacity } from "@/lib/ads/feed-ad-pool-capacity";
 import {
@@ -101,7 +101,6 @@ export function AdminFeedAdCreatePage({
   const [err, setErr] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [uploading, setUploading] = useState<number | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [usedByPlacement, setUsedByPlacement] = useState<Partial<Record<FeedAdPlacement, number>>>(
     {}
   );
@@ -231,7 +230,7 @@ export function AdminFeedAdCreatePage({
 
   const filledSlides = slides.filter((s) => s.imageUrl.trim()).length;
 
-  const requestSave = () => {
+  const requestSave = async () => {
     setErr("");
     setSuccessMsg("");
     if (!name.trim()) {
@@ -262,7 +261,16 @@ export function AdminFeedAdCreatePage({
       );
       return;
     }
-    setConfirmOpen(true);
+    // 등록 확인 — 단계는 동작 표(createCopy.level = save)
+    const confirmed = await confirmAdminAction({
+      level: createCopy.level,
+      ko,
+      title: createCopy.title,
+      description: createCopy.body,
+      confirmLabel: createCopy.confirmLabel,
+      destructive: createCopy.tone === "danger",
+    });
+    if (confirmed.ok) void save();
   };
 
   const save = async () => {
@@ -309,7 +317,6 @@ export function AdminFeedAdCreatePage({
         );
         return;
       }
-      setConfirmOpen(false);
       setSuccessMsg(ko ? "광고가 등록되었습니다." : "Ad registered.");
       await loadCapacity();
       router.push("/admin/advertising/operations");
@@ -779,7 +786,7 @@ export function AdminFeedAdCreatePage({
       <button
         type="button"
         disabled={busy || uploading != null}
-        onClick={() => requestSave()}
+        onClick={() => void requestSave()}
         className="w-full rounded-ui-rect bg-signature px-4 py-3 font-medium text-white disabled:opacity-50"
         data-admin-feed-register-cta="1"
       >
@@ -790,23 +797,6 @@ export function AdminFeedAdCreatePage({
             : "Register ad"}
       </button>
 
-      <AdminActionConfirmDialog
-        open={confirmOpen}
-        title={createCopy.title}
-        description={createCopy.body}
-        confirmLabel={createCopy.confirmLabel}
-        cancelLabel={createCopy.cancelLabel}
-        tone={createCopy.tone}
-        pending={busy}
-        onCancel={() => {
-          if (busy) return;
-          setConfirmOpen(false);
-        }}
-        onConfirm={() => {
-          if (busy) return;
-          void save();
-        }}
-      />
     </div>
   );
 }

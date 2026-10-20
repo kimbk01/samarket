@@ -1,6 +1,6 @@
 "use client";
 
-import { dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -24,6 +24,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminLegacyTradeChatDetailHref } from "@/lib/admin/chat-admin/admin-chat-links";
 import { currentAdminListHref } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
 import { AdminChatFilterBar } from "./AdminChatFilterBar";
@@ -421,35 +422,20 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       return;
     }
 
-    const typed = await dibayPrompt({
+    // 선택 방 DB 영구 삭제 = purge (L3: 사유 + 확인 문구 재입력). R1-A C-3: 사유 10자 이상 — super_admin 전용,
+    // 신고 연결 방은 서버가 증거 보존으로 제외.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("purge"),
+      ko: language !== "en",
       title: t("admin_chat_delete_from_db"),
-      description: t("admin_chat_delete_confirm", { count: items.length }),
-      placeholder: "DELETE",
-      required: true,
-      confirmTone: "destructive",
+      description: `${t("admin_chat_delete_confirm", { count: items.length })}\n${t("admin_chat_r1_hard_delete_reason_desc")}`,
       confirmLabel: t("admin_chat_delete_from_db"),
+      destructive: true,
+      retypeValue: CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT,
+      reasonPlaceholder: t("admin_chat_r1_hard_delete_reason_title"),
     });
-    if (typed == null) return;
-    if (typed.trim() !== CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT) {
-      await dibayAlert({
-        title:
-          language === "en"
-            ? "Confirmation text mismatch — cancelled"
-            : "확인 문구 불일치 — 취소됨",
-      });
-      return;
-    }
-
-    // R1-A C-3: 영구 삭제 사유(10자 이상) — super_admin 전용, 신고 연결 방은 서버가 증거 보존으로 제외.
-    const reasonRaw = await dibayPrompt({
-      title: t("admin_chat_r1_hard_delete_reason_title"),
-      description: t("admin_chat_r1_hard_delete_reason_desc"),
-      required: true,
-      confirmTone: "destructive",
-      confirmLabel: t("admin_chat_delete_from_db"),
-    });
-    if (reasonRaw == null) return;
-    const reason = reasonRaw.trim();
+    if (!confirmed.ok) return;
+    const reason = (confirmed.reason ?? "").trim();
     if (reason.length < CHAT_ROOM_HARD_DELETE_REASON_MIN_LENGTH) {
       await dibayAlert({ title: t("admin_chat_r1_content_reason_too_short") });
       return;
@@ -508,17 +494,19 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
     } finally {
       setActionBusy(false);
     }
-  }, [selectedIds, rooms, t]);
+  }, [language, selectedIds, rooms, t]);
 
   const blockSelectedTradeRooms = useCallback(async () => {
     if (selectedIds.size === 0 || mode !== "trade") return;
-    // C-5: 상태 조치는 확인 + 사유(L2) — 서버도 같은 사유 규칙을 검증한다.
+    // 선택 방 일괄 운영 종료 = bulk (L3: 사유 + 대상 건수 재입력) — 서버도 같은 사유 규칙을 검증·감사한다.
+    const ko = language !== "en";
     const confirmed = await confirmAdminAction({
-      level: "L2",
-      ko: language !== "en",
+      level: adminActionLevel("bulk"),
+      ko,
       title: t("admin_chat_block_confirm", { count: selectedIds.size }),
       confirmLabel: t("admin_chat_close_selected_ops"),
       destructive: true,
+      retypeValue: ko ? `${selectedIds.size}건` : `${selectedIds.size} rooms`,
     });
     if (!confirmed.ok) return;
     const bulkReason = confirmed.reason ?? t("admin_chat_bulk_list_note");

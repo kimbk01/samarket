@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { BUSINESS_CASH_CHARGE_REQUESTS_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import {
@@ -111,6 +112,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (op === "approve") {
+    // R2 — Cash 적립(moneyApprove L2)도 확인창 사유 필수 → 감사 after.reason.
+    const approveReason = parseAdminReason(body.reason);
+    if (!approveReason) {
+      return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+    }
     const result = await approveBusinessCashTopUpRequest(gate.sb, {
       adminUserId: gate.actor.userId,
       requestId,
@@ -126,6 +132,7 @@ export async function POST(req: NextRequest) {
       action: "business_cash_charge.approve",
       after: {
         idempotent: result.idempotent,
+        reason: approveReason,
         ledgerId: result.ledgerId,
         balanceAfterMinor: result.balanceAfterMinor,
         ownerUserId: notify?.ownerUserId ?? null,
@@ -149,8 +156,9 @@ export async function POST(req: NextRequest) {
 
   if (op === "reject") {
     // L2 — 거절 사유는 사장님에게 전달된다. 화면 검증(2자)과 같은 기준을 서버에서도 강제.
-    if (String(body.reason ?? "").trim().length < 2) {
-      return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+    const rejectReason = parseAdminReason(body.reason);
+    if (!rejectReason) {
+      return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
     }
     const result = await rejectBusinessCashTopUpRequest(gate.sb, {
       adminUserId: gate.actor.userId,
@@ -168,7 +176,7 @@ export async function POST(req: NextRequest) {
       action: "business_cash_charge.reject",
       after: {
         idempotent: result.idempotent,
-        reason: typeof body.reason === "string" ? body.reason.slice(0, 500) : null,
+        reason: rejectReason,
         ownerUserId: notify?.ownerUserId ?? null,
         amountMinor: notify?.amountMinor ?? null,
       },

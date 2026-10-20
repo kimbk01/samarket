@@ -1,7 +1,10 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   getDrScenarioById,
   getDrScenarioSteps,
@@ -15,12 +18,10 @@ interface DrScenarioDetailPageProps {
 }
 
 export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) {
-  const { t } = useI18n();
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadDrOpsFromServer().then(() => setHydrated(true));
-  }, []);
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const { state: loadState, reload } = useAdminSyncLoad(loadDrOpsFromServer);
+  const hydrated = loadState.status === "ready";
 
   const scenario = useMemo(
     () => (hydrated ? getDrScenarioById(scenarioId) : undefined),
@@ -36,18 +37,12 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
   );
 
   if (!hydrated) {
-    return (
-      <div className="py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_loading_ops_settings")}
-      </div>
-    );
+    return <AdminSyncLoadGate state={loadState} onRetry={reload} />;
   }
 
   if (!scenario) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-        시나리오를 찾을 수 없습니다.
-      </div>
+      <AdminEmptyState ko={ko} message={"시나리오를 찾을 수 없습니다."} />
     );
   }
 

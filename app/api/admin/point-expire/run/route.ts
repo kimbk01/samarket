@@ -3,6 +3,7 @@ import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { manilaDateKey } from "@/lib/admin/metrics/manila-period";
 import { runPointExpireDb } from "@/lib/points/point-expire-db";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ function manilaTodayYmd(now: Date = new Date()): string {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const gate = await requireSuperAdmin();
   if (!gate.ok) return gate.response;
-  const body = (await req.json().catch(() => ({}))) as { asOfDate?: string };
+  const body = (await req.json().catch(() => ({}))) as { asOfDate?: string; reason?: unknown };
   const asOfDate = body.asOfDate?.trim() || manilaTodayYmd();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) {
     return NextResponse.json({ ok: false, error: "invalid_as_of_date" }, { status: 400 });
@@ -26,6 +27,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // 미래 기준일 소멸 실행 금지 (Asia/Manila 오늘까지만)
   if (asOfDate > manilaTodayYmd()) {
     return NextResponse.json({ ok: false, error: "as_of_date_in_future" }, { status: 400 });
+  }
+  /** R2 — 만료 실행(expireRun · L3) 사유 필수 → 감사 `after.reason`. */
+  const reason = parseAdminReason(body.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   }
   try {
     const outcome = await runPointExpireDb(gate.sb, asOfDate, {
@@ -43,7 +49,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       targetType: "point_expire",
       targetId: asOfDate,
       action: "point_expire.run",
-      after: { asOfDate, outcome: result },
+      after: { asOfDate, outcome: result, reason },
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {

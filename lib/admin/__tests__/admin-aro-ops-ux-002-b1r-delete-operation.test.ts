@@ -84,8 +84,8 @@ describe("ARO-OPS-UX-002-B1R delete operation UX", () => {
     expect(catalog).toMatch(/admin_chat_delete_from_db:\s*"DB 영구 삭제"/);
     const chats = read("components/admin/chats/AdminChatListPage.tsx");
     expect(chats).toContain('data-admin-mgmt-hard-delete="1"');
-    // R1-A: 확인 문구는 정책 상수(CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT = "DELETE") — 레거시 기록은 시트 S6 (L3 재입력).
-    expect(chats).toMatch(/typed\.trim\(\) !== (?:"DELETE"|CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT)/);
+    // R1-A: 확인 문구는 정책 상수(CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT = "DELETE") — confirmAdminAction L3 재입력값. 레거시 기록은 시트 S6 (L3 재입력).
+    expect(chats).toMatch(/retypeValue: CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT/);
     expect(chats).toContain("AdminChatHardDeleteSheet");
   });
 

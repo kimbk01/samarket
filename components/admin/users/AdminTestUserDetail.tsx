@@ -1,6 +1,8 @@
 "use client";
 
-import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
@@ -312,18 +314,29 @@ export function AdminMemberDetail({
     router.push(adminMemberMessengerHref(user.id));
   }, [onSendMessage, router, user.id]);
 
+  /** L3 재입력 대상 — 닉네임(없으면 표시 이름·아이디·회원 ID). */
+  const purgeRetypeValue =
+    String(user.nickname ?? "").trim() ||
+    String(user.display_name ?? "").trim() ||
+    String(user.username ?? "").trim() ||
+    user.id;
+
   const handleDelete = useCallback(async () => {
-    if (
-      !(await dibayConfirm({
-        title: safeT("admin_users_lite_delete_confirm", {
-          fallbackKo: "이 회원을 탈퇴 처리(개인정보 익명화)하시겠습니까?",
-          fallbackEn: "Withdraw this member and anonymize their personal data?",
-        }),
-        confirmTone: "destructive",
-      }))
-    ) {
-      return;
-    }
+    // R2 — 탈퇴·영구 삭제 = purge(L3: 사유 + 대상 재입력). 사유는 API 로 보내 감사 기록에 남긴다.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("purge"),
+      ko: language !== "en",
+      title: safeT("admin_users_lite_delete_confirm", {
+        fallbackKo: "이 회원을 탈퇴 처리(개인정보 익명화)하시겠습니까?",
+        fallbackEn: "Withdraw this member and anonymize their personal data?",
+      }),
+      confirmLabel: language === "en" ? "Withdraw" : "탈퇴 처리",
+      destructive: true,
+      retypeValue: purgeRetypeValue,
+    });
+    if (!confirmed.ok) return;
+    const reason = confirmed.reason?.trim() ?? "";
+    if (!reason) return;
 
     setDeleting(true);
     try {
@@ -331,7 +344,7 @@ export function AdminMemberDetail({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "withdraw", reason: "admin_withdraw" }),
+        body: JSON.stringify({ mode: "withdraw", reason }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !data.ok) {
@@ -348,20 +361,24 @@ export function AdminMemberDetail({
     } finally {
       setDeleting(false);
     }
-  }, [onDeleted, presentation, safeT, t, user.id]);
+  }, [onDeleted, presentation, safeT, t, user.id, language, purgeRetypeValue]);
 
   const handlePurge = useCallback(async () => {
-    if (
-      !(await dibayConfirm({
-        title: safeT("admin_users_purge_confirm", {
-          fallbackKo: "이 회원을 영구 삭제하시겠습니까? 되돌릴 수 없습니다.",
-          fallbackEn: "Permanently delete this member? This cannot be undone.",
-        }),
-        confirmTone: "destructive",
-      }))
-    ) {
-      return;
-    }
+    // R2 — 탈퇴·영구 삭제 = purge(L3: 사유 + 대상 재입력). 사유는 API 로 보내 감사 기록에 남긴다.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("purge"),
+      ko: language !== "en",
+      title: safeT("admin_users_purge_confirm", {
+        fallbackKo: "이 회원을 영구 삭제하시겠습니까? 되돌릴 수 없습니다.",
+        fallbackEn: "Permanently delete this member? This cannot be undone.",
+      }),
+      confirmLabel: language === "en" ? "Delete permanently" : "영구 삭제",
+      destructive: true,
+      retypeValue: purgeRetypeValue,
+    });
+    if (!confirmed.ok) return;
+    const reason = confirmed.reason?.trim() ?? "";
+    if (!reason) return;
 
     setDeleting(true);
     try {
@@ -369,7 +386,7 @@ export function AdminMemberDetail({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "purge", reason: "admin_permanent_delete" }),
+        body: JSON.stringify({ mode: "purge", reason }),
       });
       const data = (await res.json()) as {
         ok?: boolean;
@@ -395,7 +412,7 @@ export function AdminMemberDetail({
     } finally {
       setDeleting(false);
     }
-  }, [onDeleted, presentation, safeT, t, user.id]);
+  }, [onDeleted, presentation, safeT, t, user.id, language, purgeRetypeValue]);
 
   const editFieldBtn = (
     <button

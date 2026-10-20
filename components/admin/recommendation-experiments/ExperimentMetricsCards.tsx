@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getExperimentMetrics } from "@/lib/recommendation-experiments/recommendation-experiment-metrics";
@@ -7,7 +8,8 @@ import { getRecommendationExperiments } from "@/lib/recommendation-experiments/r
 import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 
 export function ExperimentMetricsCards() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [experimentId, setExperimentId] = useState<string>("");
 
   const experiments = useMemo(() => getRecommendationExperiments(), []);
@@ -19,9 +21,7 @@ export function ExperimentMetricsCards() {
 
   if (experiments.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_rec_exp_empty_experiment_list")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_rec_exp_empty_experiment_list")} />
     );
   }
 
@@ -44,9 +44,7 @@ export function ExperimentMetricsCards() {
         </select>
       </div>
       {effectiveMetrics.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rec_exp_empty_metrics")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_rec_exp_empty_metrics")} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {effectiveMetrics.map((m) => {

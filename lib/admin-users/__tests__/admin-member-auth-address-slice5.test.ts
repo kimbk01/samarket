@@ -48,10 +48,10 @@ describe("admin member auth + address Slice 5", () => {
     expect(src).not.toMatch(/showCreateMember && adminUserId/);
   });
 
-  it("delete API does not require nickname retype for purge", () => {
+  it("delete API does not require nickname retype for purge (reason required — R2)", () => {
     const src = readFileSync(join(process.cwd(), "app/api/admin/users/[id]/delete/route.ts"), "utf8");
     expect(src).not.toMatch(/confirm_nickname_required/);
-    expect(src).toMatch(/admin_permanent_delete/);
+    expect(src).toMatch(/parseAdminReason/);
   });
 
   it("staff API promotes existing members via userId", () => {

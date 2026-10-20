@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -24,7 +25,8 @@ const DECISION_LABELS: Record<string, string> = {
 };
 
 export function LaunchApprovalTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [phase, setPhase] = useState<LaunchReadinessPhase | "">("");
   const approvals = useMemo(
     () => getLaunchApprovals(phase ? { phase } : undefined),
@@ -55,9 +57,11 @@ export function LaunchApprovalTable() {
       </p>
 
       {approvals.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 단계 승인 내역이 없습니다.
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={phase ? undefined : "해당 단계 승인 내역이 없습니다."}
+          onReset={phase ? () => { setPhase(""); } : undefined}
+        />
       ) : (
         <AdminTable
           headers={["단계", "역할", "승인자", "결정", "메모", "일시"]}

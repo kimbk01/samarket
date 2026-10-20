@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { getAllRecentViewedProducts } from "@/lib/recommendation/recommendation-recent-viewed-state";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
@@ -17,9 +18,7 @@ export function RecentViewedAdminTable() {
 
   if (allRecords.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        최근 본 상품 기록이 없습니다.
-      </div>
+      <AdminEmptyState ko message={"최근 본 상품 기록이 없습니다."} />
     );
   }
 

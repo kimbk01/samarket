@@ -4,14 +4,19 @@ import { useMemo, useState } from "react";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { getRollbackPolicies } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { saveRollbackPolicy } from "@/lib/recommendation-experiments/recommendation-experiments-state";
-import { persistRecommendationExperimentsToServer } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
+import { commitRecommendationExperimentsChange } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 export function RollbackPolicyForm() {
   const policies = useMemo(() => getRollbackPolicies(), []);
   const [surface, setSurface] = useState<RecommendationSurface>("home");
+  const { language } = useI18n();
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
 
   const policy = useMemo(
     () => policies.find((p) => p.surface === surface),
@@ -32,9 +37,11 @@ export function RollbackPolicyForm() {
   );
   const [adminMemo, setAdminMemo] = useState(policy?.adminMemo ?? "");
 
-  const handleSave = () => {
-    if (!policy) return;
-    saveRollbackPolicy({
+  /** 저장 실패 → 정책 되돌림 + 실패 문구 (예전: 실패해도 「저장됨」). */
+  const handleSave = async () => {
+    if (!policy || busy) return;
+    setBusy(true);
+    const r = await commitRecommendationExperimentsChange(() => saveRollbackPolicy({
       id: policy.id,
       surface: policy.surface,
       autoRollbackEnabled,
@@ -43,14 +50,20 @@ export function RollbackPolicyForm() {
       maxErrorRateThreshold: policy.maxErrorRateThreshold,
       compareWindowHours,
       adminMemo,
-    });
-    void persistRecommendationExperimentsToServer();
+    }));
+    setBusy(false);
+    if (!r.ok) {
+      setSaveResult({ ok: false, code: r.error ?? "save_failed" });
+      return;
+    }
+    setSaveResult(null);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
   return (
     <div className="space-y-4">
+      <AdminResultBanner ko={language !== "en"} result={saveResult} onClose={() => setSaveResult(null)} />
       <p className="sam-text-body-secondary text-sam-muted">
         자동 롤백 조건은 placeholder입니다. 수동 롤백은 운영 버전 탭에서 이전 버전으로 복원할 수 있습니다.
       </p>
@@ -151,7 +164,8 @@ export function RollbackPolicyForm() {
       <AdminActionButton
         variant="primary"
         type="button"
-        onClick={handleSave}
+        disabled={busy}
+        onClick={() => void handleSave()}
       >
         {saved ? "저장됨" : "저장"}
       </AdminActionButton>

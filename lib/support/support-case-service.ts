@@ -27,9 +27,9 @@ import {
   type SupportCasePriority,
   type AdminSupportListFilter,
   ADMIN_SUPPORT_TABS,
-  ADMIN_SUPPORT_TAB_STATUSES,
   type AdminSupportTab,
 } from "@/lib/support/support-case-types";
+import { applySupportCaseTabFilter } from "@/lib/admin/metrics/admin-metric-filters";
 import { getSupportCategoryGroup } from "@/lib/support/support-category-groups";
 
 export type { AdminSupportListFilter } from "@/lib/support/support-case-types";
@@ -796,8 +796,8 @@ export async function listSupportCasesForAdmin(
     .range(offset, offset + limit - 1);
 
   if (tab) {
-    const statuses = ADMIN_SUPPORT_TAB_STATUSES[tab];
-    if (statuses) query = query.in("status", [...statuses]);
+    // 탭 상태 = 처리 대기 레지스트리·통합 대시보드 「고객지원 미처리」와 같은 필터 함수
+    query = applySupportCaseTabFilter(query, tab);
   } else {
     switch (input.filter) {
       case "MEMBER":
@@ -813,7 +813,7 @@ export async function listSupportCasesForAdmin(
         query = query.eq("status", "WAITING_ADMIN");
         break;
       case "ACTIONABLE":
-        query = query.in("status", ["OPEN", "WAITING_ADMIN"]);
+        query = applySupportCaseTabFilter(query, "ACTIONABLE");
         break;
       case "WAITING_USER":
         query = query.eq("status", "WAITING_USER");
@@ -908,10 +908,10 @@ export async function countSupportCasesByTab(
 ): Promise<Record<AdminSupportTab, number> | null> {
   const results = await Promise.all(
     ADMIN_SUPPORT_TABS.map(async (tab) => {
-      const statuses = ADMIN_SUPPORT_TAB_STATUSES[tab];
-      let q = sb.from("support_cases").select("id", { count: "exact", head: true });
-      if (statuses) q = q.in("status", [...statuses]);
-      const { count, error } = await q;
+      const { count, error } = await applySupportCaseTabFilter(
+        sb.from("support_cases").select("id", { count: "exact", head: true }),
+        tab
+      );
       return [tab, error ? null : (count ?? 0)] as const;
     })
   );

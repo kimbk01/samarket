@@ -1,6 +1,8 @@
 "use client";
 
-import { dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 /**
  * Slice 7 — Admin Trust Projection (score + history + adjust) in one section.
  * Writer: POST /api/admin/trust-score → recordTrustEvent(manual_adjustment) only.
@@ -48,6 +50,8 @@ export function AdminUserTrustSection({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [trustBusy, setTrustBusy] = useState(false);
+  /** 조정값(delta) 입력란 — 폼 필드. 사유는 실행 확인창(L2)에서 받는다. */
+  const [deltaInput, setDeltaInput] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,41 +104,36 @@ export function AdminUserTrustSection({
     }
   }, [initialTrustScore, userId]);
 
+  const deltaPlaceholder = language === "en" ? "Delta (e.g. 2, -1)" : "조정값 (예: 2, -1)";
+
   const handleAdjustTrust = useCallback(async () => {
     const current = trustScore ?? 50;
-    const raw = await dibayPrompt({
-      title: safeT("admin_users_trust_adjust_prompt", {
-        fallbackKo: `조정 delta (예: +2 / -1). 현재 점수 ${current} — absolute overwrite 금지`,
-        fallbackEn: `Adjustment delta (e.g. +2 / -1). Current ${current} — absolute overwrite forbidden`,
-      }),
-      defaultValue: "0",
-      required: true,
-    });
-    if (raw == null) return;
-    const delta = Number(raw);
-    if (!Number.isFinite(delta) || delta === 0) {
+    const delta = Number(deltaInput.trim());
+    if (!deltaInput.trim() || !Number.isFinite(delta) || delta === 0) {
       await dibayAlert({ title: safeT("admin_users_trust_adjust_invalid", {
           fallbackKo: "0이 아닌 유효한 delta를 입력해 주세요.",
           fallbackEn: "Enter a non-zero valid delta.",
         }), });
       return;
     }
-    const reason = await dibayPrompt({
-      title: safeT("admin_users_trust_adjust_reason", {
+    // R2 — 신뢰 점수 조정 = 제재(L2): 확인 + 사유, 사유는 API 로 보내 감사 기록에 남긴다.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("sanction"),
+      ko: language !== "en",
+      title: safeT("admin_users_trust_adjust", { fallbackKo: "점수 조정", fallbackEn: "Adjust" }),
+      description:
+        language === "en"
+          ? `Current ${current} → delta ${formatDelta(delta)} (absolute overwrite forbidden)`
+          : `현재 점수 ${current} → 조정 ${formatDelta(delta)} (절대값 덮어쓰기 금지)`,
+      confirmLabel: safeT("admin_users_trust_adjust", { fallbackKo: "점수 조정", fallbackEn: "Adjust" }),
+      reasonPlaceholder: safeT("admin_users_trust_adjust_reason", {
         fallbackKo: "조정 사유 (필수)",
         fallbackEn: "Reason (required)",
       }),
-      defaultValue: "",
-      required: true,
     });
-    if (reason == null) return;
-    if (!reason.trim()) {
-      await dibayAlert({ title: safeT("admin_users_trust_adjust_invalid", {
-          fallbackKo: "사유가 필요합니다.",
-          fallbackEn: "Reason is required.",
-        }), });
-      return;
-    }
+    if (!confirmed.ok) return;
+    const reason = confirmed.reason?.trim() ?? "";
+    if (!reason) return;
     setTrustBusy(true);
     try {
       const res = await fetch("/api/admin/trust-score", {
@@ -157,6 +156,7 @@ export function AdminUserTrustSection({
         await dibayAlert({ title: data.message ?? data.error ?? t("admin_users_action_failed") });
         return;
       }
+      setDeltaInput("");
       await load();
       onUpdated?.();
     } catch {
@@ -164,7 +164,7 @@ export function AdminUserTrustSection({
     } finally {
       setTrustBusy(false);
     }
-  }, [trustScore, userId, safeT, t, load, onUpdated]);
+  }, [trustScore, deltaInput, language, userId, safeT, t, load, onUpdated]);
 
   return (
     <div className={`${ADMIN_USERS_LITE_CARD} flex h-full flex-col`}>
@@ -197,17 +197,29 @@ export function AdminUserTrustSection({
               </p>
             </div>
             {!readOnly ? (
-              <button
-                type="button"
-                disabled={trustBusy || loading}
-                onClick={() => void handleAdjustTrust()}
-                className="shrink-0 rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-xs font-semibold text-[#2563eb] disabled:opacity-60"
-              >
-                {safeT("admin_users_trust_adjust", {
-                  fallbackKo: "점수 조정",
-                  fallbackEn: "Adjust",
-                })}
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={deltaInput}
+                  onChange={(e) => setDeltaInput(e.target.value)}
+                  disabled={trustBusy || loading}
+                  placeholder={deltaPlaceholder}
+                  aria-label={deltaPlaceholder}
+                  className="w-32 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 text-xs tabular-nums text-sam-fg"
+                />
+                <button
+                  type="button"
+                  disabled={trustBusy || loading}
+                  onClick={() => void handleAdjustTrust()}
+                  className="shrink-0 rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-xs font-semibold text-[#2563eb] disabled:opacity-60"
+                >
+                  {safeT("admin_users_trust_adjust", {
+                    fallbackKo: "점수 조정",
+                    fallbackEn: "Adjust",
+                  })}
+                </button>
+              </div>
             ) : null}
           </div>
         </div>

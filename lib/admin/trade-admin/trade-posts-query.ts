@@ -17,8 +17,14 @@ import {
   quotePostgrestOrValue,
 } from "@/lib/admin/pagination/parse-admin-list-page";
 import type { TradePostSort, TradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
+import { TRADE_REPORT_OPEN_STATUSES } from "@/lib/admin/metrics/admin-metric-filters";
+import {
+  communityAdminUuidOrNull,
+  parseCommunityAdminPeriodFromSearch,
+} from "@/lib/admin/community-admin/community-admin-period";
 
-export const TRADE_ADMIN_OPEN_REPORT_STATUSES = ["pending", "reviewing"] as const;
+/** 대기 신고 상태 = 거래 신고 목록 「대기」 탭 (`admin-metric-filters` 단일 정의) */
+export const TRADE_ADMIN_OPEN_REPORT_STATUSES = TRADE_REPORT_OPEN_STATUSES;
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- PostgREST builder chain */
 type Q = any;
@@ -34,6 +40,39 @@ export type TradePostsFilter = {
   priceMin?: number | null;
   priceMax?: number | null;
 };
+
+function numOrNull(v: string | null): number | null {
+  if (v == null || v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * 주소 → 목록 필터 (`/api/admin/trade/posts` 와 통합 대시보드 「판매중·거래완료·관리자 숨김」이 같은 해석을 쓴다).
+ * 기간 기본값 = 전체.
+ */
+export function parseTradePostsFilter(
+  sp: URLSearchParams
+): { ok: true; filter: TradePostsFilter } | { ok: false; error: string } {
+  const period = parseCommunityAdminPeriodFromSearch(sp, { defaultPeriod: "all" });
+  if (!period.ok) return { ok: false, error: period.error };
+  const tradeTypeRaw = (sp.get("tradeType") ?? "").trim();
+  const lguRaw = (sp.get("lguId") ?? "").trim();
+  return {
+    ok: true,
+    filter: {
+      q: sp.get("q") ?? "",
+      sellerId: communityAdminUuidOrNull(sp.get("sellerId")),
+      categoryId: communityAdminUuidOrNull(sp.get("categoryId")),
+      tradeType: tradeTypeRaw === "product" || tradeTypeRaw === "job" ? tradeTypeRaw : null,
+      lguId: /^[0-9A-Za-z_-]{1,40}$/.test(lguRaw) ? lguRaw : null,
+      fromIso: period.fromIso,
+      toIso: period.toIso,
+      priceMin: numOrNull(sp.get("priceMin")),
+      priceMax: numOrNull(sp.get("priceMax")),
+    },
+  };
+}
 
 /** 탭 조건에 필요한 사전 조회 결과 (요청마다 1회) */
 export type TradePostsContext = {

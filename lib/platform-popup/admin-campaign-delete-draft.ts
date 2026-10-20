@@ -21,7 +21,7 @@ export function isPlatformPopupDeleteSafeDraftRow(row: {
 
 export async function adminDeletePlatformPopupDraftCampaign(
   sb: SupabaseClient,
-  input: { campaignId: string; adminUserId: string }
+  input: { campaignId: string; adminUserId: string; reason?: string | null }
 ): Promise<{ ok: true; id: string } | { ok: false; error: string; httpStatus?: number }> {
   const campaignId = String(input.campaignId || "").trim();
   if (!campaignId) return { ok: false, error: "campaign_id_required", httpStatus: 400 };
@@ -58,7 +58,7 @@ export async function adminDeletePlatformPopupDraftCampaign(
       approval_status: row.approval_status,
       admin_direct: true,
     },
-    after_json: null,
+    after_json: input.reason ? { reason: input.reason } : null,
   });
 
   return { ok: true, id: campaignId };
@@ -69,7 +69,7 @@ export async function adminDeletePlatformPopupDraftCampaign(
  */
 export async function adminBulkDeletePlatformPopupDraftCampaigns(
   sb: SupabaseClient,
-  input: { campaignIds: string[]; adminUserId: string }
+  input: { campaignIds: string[]; adminUserId: string; reason?: string | null }
 ): Promise<
   | { ok: true; deletedIds: string[] }
   | { ok: false; error: string; httpStatus?: number; rejectedId?: string }
@@ -110,6 +110,7 @@ export async function adminBulkDeletePlatformPopupDraftCampaigns(
     const del = await adminDeletePlatformPopupDraftCampaign(sb, {
       campaignId: id,
       adminUserId: input.adminUserId,
+      reason: input.reason ?? null,
     });
     if (!del.ok) {
       return {

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -18,7 +19,8 @@ interface OpsDocumentTableProps {
 }
 
 export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const documents = useMemo(
     () =>
       getOpsDocuments({
@@ -33,9 +35,7 @@ export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableP
 
   if (documents.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_ops_doc_empty")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_ops_doc_empty")} />
     );
   }
 

@@ -131,6 +131,8 @@ export async function adminApprovePlatformPopupOwnerRequest(
     adminUserId: string;
     activate?: boolean;
     schedule?: boolean;
+    /** 관리자 처리 사유 (R2) — 승인 감사 `after_json.reason` 에 남긴다. */
+    reason?: string | null;
   }
 ): Promise<AdminPlatformPopupRequestActionResult> {
   const request = await loadPlatformPopupOwnerRequest(sb, input.requestId);
@@ -155,6 +157,7 @@ export async function adminApprovePlatformPopupOwnerRequest(
         adminUserId: input.adminUserId,
         activate: input.activate,
         schedule: input.schedule,
+        reason: input.reason ?? null,
       });
     }
     const refreshed = await loadPlatformPopupOwnerRequest(sb, request.id);
@@ -202,6 +205,7 @@ export async function adminApprovePlatformPopupOwnerRequest(
     adminUserId: input.adminUserId,
     activate: input.activate === true,
     schedule: input.schedule === true && input.activate !== true,
+    reason: input.reason ?? null,
   });
   if (!transitioned.ok) {
     return {
@@ -251,6 +255,7 @@ export async function adminApprovePlatformPopupOwnerRequest(
       request_status: "approved",
       campaign_id: created.campaignId,
       campaign_status: transitioned.status,
+      reason: input.reason ?? null,
     },
   });
 
@@ -279,6 +284,7 @@ export async function adminActOnPlatformPopupOwnerRequest(
       adminUserId: input.adminUserId,
       activate: input.activate,
       schedule: input.schedule,
+      reason: input.reason ?? null,
     });
   }
 

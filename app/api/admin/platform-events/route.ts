@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { mapPlatformEventDbRow, type PlatformEventDbRow } from "@/lib/platform-events/map-row";
 import { serializePlatformEventSections } from "@/lib/platform-events/sections";
@@ -88,6 +89,11 @@ export async function POST(req: NextRequest) {
 
   const statusRaw = String(body.status ?? "draft").trim().toLowerCase();
   const status = isPlatformEventStatus(statusRaw) ? statusRaw : "draft";
+  // R2 — 새 이벤트를 바로 게시(노출 시작, L2)할 때는 처리 사유 필수. 감사 after.reason 에 남긴다.
+  const adminReason = parseAdminReason(body.reason);
+  if (body.action === "publish" && !adminReason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
   const sections = serializePlatformEventSections(body.sections as never);
   const ctaType = String(body.ctaType ?? body.cta_type ?? "").trim() || null;
   const ctaTarget = String(body.ctaTarget ?? body.cta_target ?? "").trim();
@@ -154,7 +160,7 @@ export async function POST(req: NextRequest) {
     targetType: "platform_event",
     targetId: created.id,
     action: "platform_event.create",
-    after: { title, status, startsAt, endsAt },
+    after: { title, status, startsAt, endsAt, reason: adminReason },
   });
   return NextResponse.json({
     ok: true,

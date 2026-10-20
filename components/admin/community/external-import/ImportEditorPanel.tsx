@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { allowsFullContent, allowsHiddenAttribution, RIGHTS_LABEL } from "@/lib/community-operator-import/rights";
 import type { OperatorContentBlock, OperatorDraftEdit } from "@/lib/community-operator-import/types";
 import { VerdictBadge } from "./ImportSourcesPanel";
@@ -81,7 +82,6 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
   const [acceptPartial, setAcceptPartial] = useState(false);
   const [view, setView] = useState<"compare" | "source" | "result">("compare");
   const [reloadToken, setReloadToken] = useState(0);
-  const [confirm, setConfirm] = useState<null | { kind: "publish" } | { kind: "status"; status: "active" | "hidden" | "deleted" }>(null);
 
   useEffect(() => {
     let alive = true;
@@ -151,7 +151,20 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
     }
   };
 
+  // 게시·업데이트 = save (L1 확인) — 운영자 작성 글 저장. 확인 경로는 confirmAdminAction 하나.
   const publish = async () => {
+    if (busy) return;
+    const policyNow = edit.contentPolicy ?? data.source.contentPolicy;
+    const c = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko: true,
+      title: published ? "게시물을 업데이트할까요?" : "DIBAY에 게시할까요?",
+      description: `주제: ${topic?.name ?? "-"} · 정책: ${POLICY_LABEL[preview?.policy ?? policyNow]} · 제목: ${preview?.title || edit.displayTitle}${
+        post && post.status !== "active" ? ` · 현재 상태 ${POST_STATUS[post.status] ?? post.status}(업데이트해도 상태는 바뀌지 않습니다)` : ""
+      }`,
+      confirmLabel: published ? "업데이트" : "게시",
+    });
+    if (!c.ok) return;
     setBusy("publish");
     setMsg(null);
     try {
@@ -169,13 +182,27 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       setMsg({ tone: "err", text: importErrorText(e) });
     } finally {
       setBusy(null);
-      setConfirm(null);
     }
   };
 
   // Post management goes through the admin community post API (audit-logged, same as 게시글 관리).
+  // 숨김 = sanction (L2 · 게시글 API 가 숨김 사유 필수) · 다시 공개 = resume (L1) · 삭제 = delete (L3 · 사유 + 제목 재입력).
+  // 사유는 게시글 API 본문 `reason` 으로 보내고, 그 API 가 감사 기록에 남긴다.
   const setPostStatus = async (status: "active" | "hidden" | "deleted") => {
-    if (!post) return;
+    if (!post || busy) return;
+    const postLabel = post.title?.trim() || post.id;
+    const c = await confirmAdminAction({
+      level: adminActionLevel(status === "deleted" ? "delete" : status === "hidden" ? "sanction" : "resume"),
+      ko: true,
+      title: status === "deleted" ? "게시물을 삭제할까요?" : status === "hidden" ? "게시물을 숨길까요?" : "게시물을 다시 공개할까요?",
+      description: `${post.title ?? ""} — 커뮤니티 피드·상세에 ${
+        status === "active" ? "다시 보입니다." : "더 이상 보이지 않습니다. 수집함 기록과 출처 연결은 남습니다."
+      }`,
+      confirmLabel: status === "deleted" ? "삭제" : status === "hidden" ? "숨김" : "공개",
+      destructive: status === "deleted",
+      retypeValue: status === "deleted" ? postLabel : undefined,
+    });
+    if (!c.ok) return;
     setBusy("status");
     setMsg(null);
     try {
@@ -183,7 +210,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(c.reason ? { status, reason: c.reason } : { status }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) throw new Error(j.error || `HTTP ${res.status}`);
@@ -194,7 +221,6 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       setMsg({ tone: "err", text: `상태 변경 실패: ${importErrorText(e)}` });
     } finally {
       setBusy(null);
-      setConfirm(null);
     }
   };
 
@@ -242,16 +268,16 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
               게시글 관리 화면
             </AdminActionLink>
             {post.status === "active" ? (
-              <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => setConfirm({ kind: "status", status: "hidden" })}>
+              <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void setPostStatus("hidden")}>
                 숨김
               </AdminActionButton>
             ) : (
-              <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => setConfirm({ kind: "status", status: "active" })}>
+              <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void setPostStatus("active")}>
                 다시 공개
               </AdminActionButton>
             )}
             {post.status !== "deleted" ? (
-              <AdminActionButton variant="danger" disabled={!!busy} onClick={() => setConfirm({ kind: "status", status: "deleted" })}>
+              <AdminActionButton variant="danger" disabled={!!busy} onClick={() => void setPostStatus("deleted")}>
                 삭제
               </AdminActionButton>
             ) : null}
@@ -433,7 +459,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
           <AdminActionButton
             variant="primary"
             disabled={!!busy || !topic || q?.verdict === "FAILED" || (q?.verdict === "PARTIAL" && !acceptPartial)}
-            onClick={() => setConfirm({ kind: "publish" })}
+            onClick={() => void publish()}
           >
             {busy === "publish" ? "처리 중…" : published ? "게시물 업데이트" : "DIBAY에 게시"}
           </AdminActionButton>
@@ -446,40 +472,6 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
           </p>
         ) : null}
       </div>
-
-      <AdminActionConfirmDialog
-        open={confirm?.kind === "publish"}
-        title={published ? "게시물을 업데이트할까요?" : "DIBAY에 게시할까요?"}
-        description={`주제: ${topic?.name ?? "-"} · 정책: ${POLICY_LABEL[preview?.policy ?? policy]} · 제목: ${preview?.title || edit.displayTitle}${
-          post && post.status !== "active" ? ` · 현재 상태 ${POST_STATUS[post.status] ?? post.status}(업데이트해도 상태는 바뀌지 않습니다)` : ""
-        }`}
-        confirmLabel={published ? "업데이트" : "게시"}
-        cancelLabel="취소"
-        pending={busy === "publish"}
-        onCancel={() => setConfirm(null)}
-        onConfirm={() => void publish()}
-      />
-      <AdminActionConfirmDialog
-        open={confirm?.kind === "status"}
-        title={
-          confirm?.kind === "status"
-            ? confirm.status === "deleted"
-              ? "게시물을 삭제할까요?"
-              : confirm.status === "hidden"
-                ? "게시물을 숨길까요?"
-                : "게시물을 다시 공개할까요?"
-            : ""
-        }
-        description={`${post?.title ?? ""} — 커뮤니티 피드·상세에 ${
-          confirm?.kind === "status" && confirm.status === "active" ? "다시 보입니다." : "더 이상 보이지 않습니다. 수집함 기록과 출처 연결은 남습니다."
-        }`}
-        confirmLabel={confirm?.kind === "status" ? (confirm.status === "deleted" ? "삭제" : confirm.status === "hidden" ? "숨김" : "공개") : "처리"}
-        cancelLabel="취소"
-        tone={confirm?.kind === "status" && confirm.status === "deleted" ? "danger" : "primary"}
-        pending={busy === "status"}
-        onCancel={() => setConfirm(null)}
-        onConfirm={() => confirm?.kind === "status" && void setPostStatus(confirm.status)}
-      />
     </div>
   );
 }

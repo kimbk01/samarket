@@ -9,6 +9,7 @@ import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminA
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -166,7 +167,7 @@ export function AdminPlatformPopupListPage() {
           : `선택한 ${ids.length}개 팝업 캠페인을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`;
     const ko = lang !== "en";
     const confirmed = await confirmAdminAction({
-      level: "L3",
+      level: adminActionLevel(ids.length > 1 ? "bulk" : "delete"),
       ko,
       title: ko ? "팝업 캠페인 삭제" : "Delete popup campaigns",
       description: msg,
@@ -187,7 +188,7 @@ export function AdminPlatformPopupListPage() {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
+        body: JSON.stringify({ ids, reason: confirmed.reason }),
       });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;

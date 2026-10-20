@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import type { CoinCashConversionPolicy } from "@/lib/finance/conversion-policy";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
@@ -24,7 +25,6 @@ export function AdminFinanceSettingsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, setPending] = useState(false);
 
   const load = useCallback(async () => {
@@ -70,7 +70,22 @@ export function AdminFinanceSettingsView() {
       draft.dailyLimitCoin !== policy.dailyLimitCoin ||
       draft.monthlyLimitCoin !== policy.monthlyLimitCoin);
 
-  const save = async () => {
+  /** 전환 정책 저장 = pointPolicySave(L2): 확인 + 사유, 사유는 API 로 보내 감사 기록에 남긴다. */
+  const requestSave = async () => {
+    const c = await confirmAdminAction({
+      level: adminActionLevel("pointPolicySave"),
+      ko,
+      title: ko ? "Coin→Cash 전환 정책을 변경하시겠습니까?" : "Change Coin→Cash conversion policy?",
+      description: ko
+        ? `현재 v${policy?.version ?? "—"} → 새 설정이 이후 전환부터 적용됩니다. 과거 원장에는 소급되지 않습니다.`
+        : `Current v${policy?.version ?? "—"} → new settings apply to future conversions only.`,
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!c.ok || !c.reason) return;
+    await save(c.reason);
+  };
+
+  const save = async (reason: string) => {
     setPending(true);
     setResult(null);
     try {
@@ -78,7 +93,7 @@ export function AdminFinanceSettingsView() {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
+        body: JSON.stringify({ ...draft, reason }),
       });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -87,16 +102,13 @@ export function AdminFinanceSettingsView() {
       };
       if (!res.ok || !json.ok || !json.policy) {
         setResult({ ok: false, code: json.error || "save_failed" });
-        setConfirmOpen(false);
         return;
       }
       setPolicy(json.policy);
       setDraft(json.policy);
-      setConfirmOpen(false);
       setResult({ ok: true, message: ko ? "전환 정책을 저장했습니다." : "Conversion policy saved." });
     } catch {
       setResult({ ok: false, code: "network_error" });
-      setConfirmOpen(false);
     } finally {
       setPending(false);
     }
@@ -213,7 +225,7 @@ export function AdminFinanceSettingsView() {
             <AdminActionButton
               variant="primary"
               disabled={!dirty || pending}
-              onClick={() => setConfirmOpen(true)}
+              onClick={() => void requestSave()}
               data-finance-cta="save-conversion-policy"
             >
               {ko ? "전환 정책 저장" : "Save conversion policy"}
@@ -222,21 +234,6 @@ export function AdminFinanceSettingsView() {
           </div>
         </div>
       ) : null}
-
-      <AdminActionConfirmDialog
-        open={confirmOpen}
-        title={ko ? "Coin→Cash 전환 정책을 변경하시겠습니까?" : "Change Coin→Cash conversion policy?"}
-        description={
-          ko
-            ? `현재 v${policy?.version ?? "—"} → 새 설정이 이후 전환부터 적용됩니다. 과거 원장에는 소급되지 않습니다.`
-            : `Current v${policy?.version ?? "—"} → new settings apply to future conversions only.`
-        }
-        confirmLabel={adminCta("save", ko)}
-        cancelLabel={adminCta("cancel", ko)}
-        pending={pending}
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={() => void save()}
-      />
     </div>
   );
 }

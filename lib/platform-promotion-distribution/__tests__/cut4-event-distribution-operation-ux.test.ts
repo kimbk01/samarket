@@ -182,8 +182,9 @@ describe("CUT 4 — Admin Event editor / Dist UI ownership", () => {
   });
 
   it("Save / Publish / Stop are distinct actions", () => {
-    expect(editor).toMatch(/save\("published"\)|save\(\s*"published"\s*\)/);
-    expect(editor).toMatch(/save\("unpublished"\)|save\(\s*"unpublished"\s*\)/);
+    // R2: 게시는 사유(L2)를 함께 저장한다 — save("published", "publish", reason)
+    expect(editor).toMatch(/save\(\s*"published"\s*[,)]/);
+    expect(editor).toMatch(/save\(\s*"unpublished"\s*[,)]/);
     expect(editor).toContain("promotionAdminActionLabel");
   });
 

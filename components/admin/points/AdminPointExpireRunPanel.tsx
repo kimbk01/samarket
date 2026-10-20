@@ -5,9 +5,9 @@ import { useState } from "react";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type { ExpireSimulationResult } from "@/lib/points/point-expire-db";
 
@@ -44,7 +44,6 @@ export function AdminPointExpireRunPanel({
     executionCount: number;
   } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // 미리보기는 지금 선택한 기준일의 것일 때만 실행 근거가 된다.
@@ -73,7 +72,25 @@ export function AdminPointExpireRunPanel({
     setRunSummary(null);
   };
 
-  const handleRun = async () => {
+  /** 만료 실행 = expireRun(L3): 확인 + 사유 + 미리보기 총 포인트 재입력. 사유는 API 로 보내 감사 기록에 남긴다. */
+  const requestRun = async () => {
+    if (!previewForDate || !actionAllowed) return;
+    const c = await confirmAdminAction({
+      level: adminActionLevel("expireRun"),
+      ko,
+      title: ko ? "포인트 만료 실행" : "Run point expiry",
+      description: ko
+        ? `기준일 ${asOfDate} (PHT) · 회원 ${Object.keys(previewForDate.totalByUser).length}명의 포인트가 실제로 소멸됩니다. 되돌릴 수 없습니다.`
+        : `As of ${asOfDate} (PHT) · points of ${Object.keys(previewForDate.totalByUser).length} members will actually expire. This cannot be undone.`,
+      confirmLabel: t("admin_points_expire_btn_run"),
+      destructive: true,
+      retypeValue: String(previewTotal),
+    });
+    if (!c.ok || !c.reason) return;
+    await handleRun(c.reason);
+  };
+
+  const handleRun = async (reason: string) => {
     if (!previewForDate || !actionAllowed) return;
     setLoading(true);
     setError(null);
@@ -82,7 +99,7 @@ export function AdminPointExpireRunPanel({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ asOfDate: previewForDate.asOfDate }),
+        body: JSON.stringify({ asOfDate: previewForDate.asOfDate, reason }),
       });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -99,7 +116,6 @@ export function AdminPointExpireRunPanel({
         executionCount: (json.executionIds ?? []).length,
       });
       setSimResult(null);
-      setConfirmOpen(false);
       onRunComplete?.();
     } finally {
       setLoading(false);
@@ -127,7 +143,7 @@ export function AdminPointExpireRunPanel({
         </AdminActionButton>
         <AdminActionButton
           variant="danger"
-          onClick={() => setConfirmOpen(true)}
+          onClick={() => void requestRun()}
           disabled={!canRun}
           title={
             canRun
@@ -192,27 +208,6 @@ export function AdminPointExpireRunPanel({
           </p>
         </div>
       )}
-      <AdminActionConfirmDialog
-        open={confirmOpen && Boolean(previewForDate)}
-        title={ko ? "포인트 만료 실행" : "Run point expiry"}
-        description={
-          ko
-            ? `기준일 ${asOfDate} (PHT) · 회원 ${Object.keys(previewForDate?.totalByUser ?? {}).length}명의 포인트가 실제로 소멸됩니다. 되돌릴 수 없습니다.`
-            : `As of ${asOfDate} (PHT) · points of ${Object.keys(previewForDate?.totalByUser ?? {}).length} members will actually expire. This cannot be undone.`
-        }
-        confirmLabel={t("admin_points_expire_btn_run")}
-        cancelLabel={adminCta("cancel", ko)}
-        tone="danger"
-        confirmMatchText={String(previewTotal)}
-        confirmMatchLabel={
-          ko
-            ? `확인을 위해 미리보기 총 포인트 「${previewTotal}」 를 입력하세요`
-            : `Type the preview total 「${previewTotal}」 to confirm`
-        }
-        pending={loading}
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={() => void handleRun()}
-      />
     </div>
   );
 }

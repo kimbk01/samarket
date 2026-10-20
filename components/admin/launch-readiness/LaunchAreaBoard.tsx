@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -11,7 +12,8 @@ import { getPhaseLabel } from "@/lib/launch-readiness/launch-readiness-utils";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 export function LaunchAreaBoard() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [phase, setPhase] = useState<LaunchReadinessPhase>("pre_launch");
   const areas = useMemo(
     () => getLaunchReadinessAreasList(phase),
@@ -34,9 +36,7 @@ export function LaunchAreaBoard() {
       </div>
 
       {areas.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          영역별 데이터가 없습니다.
-        </div>
+        <AdminEmptyState ko={ko} message={"영역별 데이터가 없습니다."} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {areas.map((entry) => (

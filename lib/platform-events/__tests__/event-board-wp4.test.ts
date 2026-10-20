@@ -299,10 +299,11 @@ describe("WP4 admin validation", () => {
       join(process.cwd(), "components/admin/platform-events/AdminPlatformEventEditorClient.tsx"),
       "utf8"
     );
-    expect(editor).toContain("AdminActionConfirmDialog");
-    expect(editor).toContain('setConfirmAction("publish")');
-    expect(editor).toContain('setConfirmAction("unpublish")');
-    expect(editor).toContain('setConfirmAction("archive")');
+    // R2 — 확인 경로 단일화 (confirmAdminAction)
+    expect(editor).toContain("confirmAdminAction");
+    expect(editor).toContain('requestLifecycle("publish")');
+    expect(editor).toContain('requestLifecycle("unpublish")');
+    expect(editor).toContain('requestLifecycle("archive")');
     expect(editor).toContain("validatePlatformEventCtaDestination");
   });
 });

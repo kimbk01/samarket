@@ -28,6 +28,7 @@ import {
   STORE_CASH_ORDER_GATE_LABEL,
   STORE_CASH_ORDER_GATE_MODES,
   STORE_COMMISSION_FILTER_STATES,
+  sumStoreCashOutstandingMinor,
   type BusinessCashLedgerKind,
   type StoreCashOrderGateMode,
   type StoreCashPosition,
@@ -373,7 +374,7 @@ export function AdminStoreCommissionLedgerPage() {
     return ids;
   }, [headline.integrity]);
   const integrityViolations = Object.entries(headline.integrity?.checks ?? {}).reduce((n, [, c]) => n + (c.violations ?? 0), 0);
-  const headOutstanding = headline.positions.reduce((n, p) => n + p.outstandingMinor, 0);
+  const headOutstanding = sumStoreCashOutstandingMinor(headline.positions);
   const headNegative = headline.positions.filter((p) => p.netMinor < 0).length;
 
   const runOnce = async (fn: () => Promise<void>) => {

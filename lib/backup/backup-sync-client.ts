@@ -1,5 +1,7 @@
 "use client";
 
+import { adminSafeErrorCode } from "@/lib/admin/admin-load-failure";
+
 import type { BackupBundleV1 } from "@/lib/backup/backup-state";
 import { exportBackupBundle, importBackupBundle } from "@/lib/backup/backup-state";
 
@@ -8,26 +10,27 @@ export async function loadBackupFromServer(): Promise<{
   ok: boolean;
   source?: "db" | "default";
   error?: string;
+  httpStatus?: number;
 }> {
   try {
     const res = await fetch("/api/admin/backup", { cache: "no-store" });
-    const j = (await res.json()) as {
+    const j = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       bundle?: BackupBundleV1;
       source?: "db" | "default";
       error?: string;
     };
     if (!res.ok || !j.ok || !j.bundle) {
-      return { ok: false, error: j.error ?? "load_failed" };
+      return { ok: false, error: adminSafeErrorCode(j.error, "load_failed"), httpStatus: res.status };
     }
     importBackupBundle(j.bundle);
     return { ok: true, source: j.source };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "network" };
+  } catch {
+    return { ok: false, error: "network_error" };
   }
 }
 
-export async function persistBackupToServer(): Promise<{ ok: boolean; error?: string }> {
+export async function persistBackupToServer(): Promise<{ ok: boolean; error?: string; httpStatus?: number }> {
   try {
     const bundle = exportBackupBundle();
     const res = await fetch("/api/admin/backup", {
@@ -35,12 +38,12 @@ export async function persistBackupToServer(): Promise<{ ok: boolean; error?: st
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bundle }),
     });
-    const j = (await res.json()) as { ok?: boolean; error?: string };
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !j.ok) {
-      return { ok: false, error: j.error ?? "save_failed" };
+      return { ok: false, error: adminSafeErrorCode(j.error, "save_failed"), httpStatus: res.status };
     }
     return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "network" };
+  } catch {
+    return { ok: false, error: "network_error" };
   }
 }

@@ -16,7 +16,8 @@ import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -172,8 +173,6 @@ export function AdminStaffAccountsPage() {
   // 권한 편집 (드로어)
   const [editRole, setEditRole] = useState<AdminRole>("operator");
   const [editPerms, setEditPerms] = useState<AdminPermissionKey[]>([]);
-  const [confirmSave, setConfirmSave] = useState(false);
-  const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [pending, setPending] = useState(false);
 
   const load = useCallback(async () => {
@@ -235,7 +234,6 @@ export function AdminStaffAccountsPage() {
       permissions: editPerms,
     });
     setPending(false);
-    setConfirmSave(false);
     if (!result.ok) {
       setBanner({ ok: false, code: result.error });
       return;
@@ -250,7 +248,6 @@ export function AdminStaffAccountsPage() {
     setPending(true);
     const result = await mutateMemberPrivilegeApi({ userId: openRow.userId, op: "revoke", reason });
     setPending(false);
-    setConfirmRevoke(false);
     if (!result.ok) {
       setBanner({ ok: false, code: result.error });
       return;
@@ -258,6 +255,40 @@ export function AdminStaffAccountsPage() {
     setBanner({ ok: true, message: ko ? `「${personLabel(openRow)}」 관리자 권한을 해제했습니다.` : `Revoked admin access for 「${personLabel(openRow)}」.` });
     setOpenId(null);
     void load();
+  };
+
+  /** 권한 변경 저장 = save(L1). */
+  const askSave = async () => {
+    if (!openRow) return;
+    const c = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "권한 변경을 저장할까요?" : "Save permission changes?",
+      description: ko
+        ? `「${personLabel(openRow)}」 · ${roleLabel(editRole)} · 권한 ${editPerms.length}개`
+        : `「${personLabel(openRow)}」 · ${roleLabel(editRole)} · ${editPerms.length} permissions`,
+      confirmLabel: ko ? "저장" : "Save",
+    });
+    if (c.ok) await saveChanges();
+  };
+
+  /** 관리자 권한 해제 — 기존 확인(사유 + 대상 재입력)을 낮추지 않도록 L3(delete). 사유는 해제 API 로 보낸다. */
+  const askRevoke = async () => {
+    if (!openRow) return;
+    const c = await confirmAdminAction({
+      level: adminActionLevel("delete"),
+      ko,
+      title: ko ? "관리자 권한을 해제할까요?" : "Revoke admin access?",
+      description: ko
+        ? "관리자 화면에 더 이상 들어올 수 없습니다. 회원 계정과 데이터는 그대로 남습니다."
+        : "They will lose Admin access. The member account and data stay.",
+      confirmLabel: ko ? "권한 해제" : "Revoke",
+      destructive: true,
+      retypeValue: adminStaffRevokeMatchText(openRow),
+      reasonPlaceholder: ko ? "해제 사유" : "Reason",
+    });
+    if (!c.ok || !c.reason) return;
+    await revoke(c.reason);
   };
 
   const onCreated = () => {
@@ -389,14 +420,14 @@ export function AdminStaffAccountsPage() {
         subtitle={openRow ? roleLabel(openRow.uiRole) : undefined}
         dangerActions={
           editable ? (
-            <AdminActionButton type="button" variant="danger" disabled={pending} onClick={() => setConfirmRevoke(true)}>
+            <AdminActionButton type="button" variant="danger" disabled={pending} onClick={() => void askRevoke()}>
               {ko ? "관리자 권한 해제" : "Revoke admin access"}
             </AdminActionButton>
           ) : null
         }
         primaryActions={
           editable ? (
-            <AdminActionButton type="button" variant="primary" disabled={pending || !dirty} onClick={() => setConfirmSave(true)}>
+            <AdminActionButton type="button" variant="primary" disabled={pending || !dirty} onClick={() => void askSave()}>
               {ko ? "저장" : "Save"}
             </AdminActionButton>
           ) : null
@@ -478,49 +509,6 @@ export function AdminStaffAccountsPage() {
           </div>
         ) : null}
       </AdminDetailDrawer>
-
-      <AdminActionConfirmDialog
-        open={confirmSave}
-        title={ko ? "권한 변경을 저장할까요?" : "Save permission changes?"}
-        description={
-          openRow
-            ? ko
-              ? `「${personLabel(openRow)}」 · ${roleLabel(editRole)} · 권한 ${editPerms.length}개`
-              : `「${personLabel(openRow)}」 · ${roleLabel(editRole)} · ${editPerms.length} permissions`
-            : ""
-        }
-        confirmLabel={ko ? "저장" : "Save"}
-        cancelLabel={ko ? "취소" : "Cancel"}
-        pending={pending}
-        onCancel={() => setConfirmSave(false)}
-        onConfirm={() => void saveChanges()}
-      />
-
-      <AdminActionConfirmDialog
-        open={confirmRevoke}
-        tone="danger"
-        title={ko ? "관리자 권한을 해제할까요?" : "Revoke admin access?"}
-        description={
-          ko
-            ? "관리자 화면에 더 이상 들어올 수 없습니다. 회원 계정과 데이터는 그대로 남습니다."
-            : "They will lose Admin access. The member account and data stay."
-        }
-        confirmLabel={ko ? "권한 해제" : "Revoke"}
-        cancelLabel={ko ? "취소" : "Cancel"}
-        reasonRequired
-        reasonLabel={ko ? "해제 사유" : "Reason"}
-        confirmMatchText={openRow ? adminStaffRevokeMatchText(openRow) : undefined}
-        confirmMatchLabel={
-          openRow
-            ? ko
-              ? `확인을 위해 「${adminStaffRevokeMatchText(openRow)}」 를 입력하세요`
-              : `Type 「${adminStaffRevokeMatchText(openRow)}」 to confirm`
-            : undefined
-        }
-        pending={pending}
-        onCancel={() => setConfirmRevoke(false)}
-        onConfirm={(reason) => void revoke(reason)}
-      />
 
       {creating ? <CreateAdminForm onClose={() => setCreating(false)} onSuccess={onCreated} /> : null}
       {picking ? (

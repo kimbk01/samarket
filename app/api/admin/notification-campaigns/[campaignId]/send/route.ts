@@ -24,6 +24,7 @@ import {
 import { CAMPAIGN_CLAIM_BLOCKED_STATUSES } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -139,8 +140,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     );
   }
 
-  let body: { idempotency_key?: unknown; single_batch?: unknown; occurrence_id?: unknown; enqueue_only?: unknown } =
-    {};
+  let body: {
+    idempotency_key?: unknown;
+    single_batch?: unknown;
+    occurrence_id?: unknown;
+    enqueue_only?: unknown;
+    /** 관리자 화면 발송 확인(L3) 사유 — 감사 기록에 남긴다. 서버 간 호출(이벤트 배포 등)은 사유 없이 온다. */
+    reason?: unknown;
+  } = {};
   try {
     body = await req.json();
   } catch {
@@ -173,6 +180,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
   const idempotencyKey = readIdempotencyKey(req, body.idempotency_key) ?? `manual:${occurrenceId}:${admin.userId}`;
   const singleBatch = body.single_batch === true;
   const enqueueOnly = body.enqueue_only === true;
+  const sendReason = parseAdminReason(body.reason);
   const claimToken = newCampaignSendClaimToken();
 
   const claim = await claimAdminCampaignManualSend(svc, occurrenceId, {
@@ -229,6 +237,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
         occurrence_id: occurrenceId,
         sequence_number: occurrence.sequence_number,
         trigger_type: occurrence.trigger_type,
+        ...(sendReason ? { reason: sendReason } : {}),
       },
       targetCount: occurrence.target_member_count ?? null,
       ip: readAuditRequestIp(req.headers),
@@ -245,6 +254,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
         occurrence_id: occurrenceId,
         idempotency_key: idempotencyKey,
         claimed: claim.claimed,
+        ...(sendReason ? { reason: sendReason } : {}),
         ...extra,
       },
     });

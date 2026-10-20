@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import type { UserBehaviorInsight } from "@/lib/types/recommendation";
 import { getUserBehaviorInsights } from "@/lib/recommendation/recommendation-behavior-insight";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
@@ -9,9 +10,7 @@ export function UserBehaviorInsightTable() {
 
   if (insights.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        사용자 행동 인사이트가 없습니다.
-      </div>
+      <AdminEmptyState ko message={"사용자 행동 인사이트가 없습니다."} />
     );
   }
 

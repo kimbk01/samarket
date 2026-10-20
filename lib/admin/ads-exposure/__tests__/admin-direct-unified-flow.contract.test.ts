@@ -25,7 +25,8 @@ describe("admin direct unified flow contract", () => {
     expect(feed).toContain("FeedAdFramePreview");
     expect(feed).toContain("data-admin-feed-creative-spec");
     expect(feed).toContain("data-admin-feed-image-picker");
-    expect(feed).toContain("AdminActionConfirmDialog");
+    // R2 — 확인 경로 단일화: confirmAdminAction (등록 확인 유지)
+    expect(feed).toContain("confirmAdminAction");
     expect(feed).toContain("adsCreateConfirmCopy");
     expect(feed).toContain("/admin/advertising/operations");
     expect(feed).not.toContain('router.push("/admin/feed-ads")');
@@ -37,7 +38,7 @@ describe("admin direct unified flow contract", () => {
     expect(delivery).toContain("/api/admin/delivery-ads/first-party");
     expect(delivery).toContain("DeliveryAdBanner");
     expect(delivery).toContain("data-admin-delivery-creative-spec");
-    expect(delivery).toContain("AdminActionConfirmDialog");
+    expect(delivery).toContain("confirmAdminAction");
 
     const popup = read("components/admin/ads/AdminAdsDirectPopupCreateView.tsx");
     expect(popup).toContain("/api/admin/advertising/direct-popup");

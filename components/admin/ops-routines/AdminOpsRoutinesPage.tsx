@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { OpsRoutineSummaryCards } from "./OpsRoutineSummaryCards";
@@ -31,19 +32,16 @@ const TABS: { id: TabId; labelKey: MessageKey }[] = [
 ];
 
 export function AdminOpsRoutinesPage() {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadOpsRoutinesFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadOpsRoutinesFromServer);
+  const hydrated = loadState.status === "ready";
 
   if (!hydrated) {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_dev_longterm" />
-        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

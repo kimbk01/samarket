@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import type { RecommendationAnalyticsSummary } from "@/lib/types/recommendation";
 
 const SURFACE_LABELS: Record<string, string> = {
@@ -17,9 +18,7 @@ export function RecommendationPerformanceTable({
 }: RecommendationPerformanceTableProps) {
   if (summaries.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        추천 성과 데이터가 없습니다.
-      </div>
+      <AdminEmptyState ko message={"추천 성과 데이터가 없습니다."} />
     );
   }
 

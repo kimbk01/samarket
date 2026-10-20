@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -18,7 +19,8 @@ interface RecommendationReportTableProps {
 }
 
 export function RecommendationReportTable({ refresh = 0 }: RecommendationReportTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [typeFilter, setTypeFilter] = useState<ReportType | "">("");
   const reports = useMemo(
     () =>
@@ -48,9 +50,11 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
         </select>
       </div>
       {reports.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rec_report_empty_list")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={typeFilter ? undefined : t("admin_rec_report_empty_list")}
+          onReset={typeFilter ? () => { setTypeFilter(""); } : undefined}
+        />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[560px] border-collapse sam-text-body">

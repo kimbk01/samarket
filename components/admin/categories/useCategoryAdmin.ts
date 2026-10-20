@@ -1,6 +1,7 @@
 "use client";
 
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { useCallback, useEffect, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -107,7 +108,7 @@ export function useCategoryAdmin() {
     async (id: string): Promise<boolean> => {
       const target = list.find((c) => c.id === id);
       const confirmed = await confirmAdminAction({
-        level: "L3",
+        level: adminActionLevel("delete"),
         ko,
         title: t("admin_cat_confirm_delete"),
         confirmLabel: ko ? "삭제" : "Delete",
@@ -115,7 +116,7 @@ export function useCategoryAdmin() {
         retypeValue: target?.name?.trim() || undefined,
       });
       if (!confirmed.ok) return false;
-      const res = await deleteCategory(id);
+      const res = await deleteCategory(id, confirmed.reason);
       if (!res.ok) {
         showError(res.error);
         return false;

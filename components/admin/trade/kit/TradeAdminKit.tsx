@@ -135,7 +135,6 @@ const TRADE_ERROR_KO: Record<string, string> = {
   fault_required: "종료 사유의 책임 구분을 선택해 주세요.",
   insufficient_balance: "회원 포인트가 부족합니다.",
   category_in_use: "글이나 하위 카테고리가 있어 삭제할 수 없습니다.",
-  server_error: "처리 중 오류가 발생했습니다. 잠시 후 새로고침해 주세요.",
 };
 export function tradeErrorText(code: string | null | undefined): string {
   const c = String(code ?? "");

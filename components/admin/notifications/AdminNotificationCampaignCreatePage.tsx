@@ -116,7 +116,8 @@ export function AdminNotificationCampaignCreatePage() {
   const [confirm, setConfirm] = useState<{
     action: CampaignConfirmAction;
     facts: CampaignConfirmFacts;
-    run: () => Promise<void>;
+    /** L3(발송) 확인창 사유 — 발송 API 로 보내 감사에 남긴다. L1 동작은 null. */
+    run: (reason: string | null) => Promise<void>;
   } | null>(null);
   const lang = language === "en" ? "en" : "ko";
   const [sendMode, setSendMode] = useState<CampaignSendMode>("immediate");
@@ -395,7 +396,7 @@ export function AdminNotificationCampaignCreatePage() {
     return j.audience;
   };
 
-  const runCampaignSend = async (campaignId: string, occurrenceId: string) => {
+  const runCampaignSend = async (campaignId: string, occurrenceId: string, reason: string | null) => {
     const sendKey = newClientIdempotencyKey();
     const sr = await fetch(`/api/admin/notification-campaigns/${campaignId}/send`, {
       method: "POST",
@@ -407,6 +408,7 @@ export function AdminNotificationCampaignCreatePage() {
       body: JSON.stringify({
         occurrence_id: occurrenceId,
         idempotency_key: sendKey,
+        reason,
       }),
     });
     const sj = (await sr.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -519,12 +521,12 @@ export function AdminNotificationCampaignCreatePage() {
     timeLabel: confirmTimeLabel(),
   });
 
-  const runConfirmed = async () => {
+  const runConfirmed = async (reason: string | null) => {
     if (!confirm || busy) return;
     setErr(null);
     setBusy(true);
     try {
-      await confirm.run();
+      await confirm.run(reason);
     } finally {
       setBusy(false);
       setConfirm(null);
@@ -532,7 +534,7 @@ export function AdminNotificationCampaignCreatePage() {
   };
 
   /** Edit mode: draft → save then send / schedule (each step server-gated by the status machine). */
-  const runEditDispatch = async () => {
+  const runEditDispatch = async (reason: string | null) => {
     if (!(await patchCampaign())) return;
     if (sendMode === "immediate") {
       const sendKey = newClientIdempotencyKey();
@@ -540,7 +542,7 @@ export function AdminNotificationCampaignCreatePage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", "Idempotency-Key": sendKey },
-        body: JSON.stringify({ idempotency_key: sendKey }),
+        body: JSON.stringify({ idempotency_key: sendKey, reason }),
       });
       const sj = (await sr.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!sr.ok || !sj?.ok) {
@@ -573,13 +575,13 @@ export function AdminNotificationCampaignCreatePage() {
     setConfirm({
       action,
       facts: confirmFacts(audience),
-      run: async () => {
+      run: async (reason) => {
         if (editId) {
-          await runEditDispatch();
+          await runEditDispatch(reason);
           return;
         }
         if (sendMode === "immediate") {
-          await confirmImmediateSend();
+          await confirmImmediateSend(reason);
           return;
         }
         const result = await createCampaign({
@@ -626,7 +628,7 @@ export function AdminNotificationCampaignCreatePage() {
     });
   };
 
-  const confirmImmediateSend = async () => {
+  const confirmImmediateSend = async (reason: string | null) => {
     const createRequestId = newClientIdempotencyKey();
     const result = await createCampaign({
       save_as_draft: false,
@@ -635,7 +637,7 @@ export function AdminNotificationCampaignCreatePage() {
     });
     if (!result) return;
     if (result.occurrenceId) {
-      await runCampaignSend(result.id, result.occurrenceId);
+      await runCampaignSend(result.id, result.occurrenceId, reason);
     }
     setShowReview(false);
     router.push(`/admin/notifications/${result.id}`);
@@ -1365,7 +1367,7 @@ export function AdminNotificationCampaignCreatePage() {
         pending={busy}
         cancelLabel={t("admin_notif_btn_cancel")}
         onCancel={() => setConfirm(null)}
-        onConfirm={() => void runConfirmed()}
+        onConfirm={(reason) => void runConfirmed(reason)}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-sam-border pt-4">

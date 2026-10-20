@@ -10,7 +10,11 @@
 import type { ReactNode } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import {
+  adminHttpStatusErrorMessage,
+  adminOperatorErrorMessage,
+  isAdminUnmappedError,
+} from "@/lib/admin/operator-ux/operator-labels";
 
 const BOX = "rounded-ui-rect border px-4 py-6 text-center sam-text-body";
 
@@ -67,6 +71,14 @@ export function isAdminForbiddenCode(code: string | null | undefined, httpStatus
   return c === "forbidden" || c === "forbidden_permission" || c === "super_admin_only";
 }
 
+/** 오류 맵 (수정 계획 2-5) — 아는 코드는 코드 문구, 모르는 코드·원문은 HTTP 상태 문구, 둘 다 없으면 불러오기 실패. */
+export function adminErrorStateMessage(code: string | null | undefined, httpStatus: number | undefined, ko: boolean): string {
+  const raw = String(code ?? "").trim();
+  if (raw && !isAdminUnmappedError(raw)) return adminOperatorErrorMessage(raw, ko);
+  if (httpStatus && httpStatus >= 400) return adminHttpStatusErrorMessage(httpStatus, ko);
+  return adminOperatorErrorMessage(raw || "load_failed", ko);
+}
+
 export function AdminErrorState({
   ko,
   code,
@@ -84,7 +96,13 @@ export function AdminErrorState({
   return (
     <div data-admin-state="error" role="alert" className={`${BOX} border-sam-danger bg-sam-danger-soft text-sam-fg`}>
       <p className="font-medium text-sam-danger">{ko ? "불러오지 못했습니다." : "Could not load."}</p>
-      <p className="mt-1 text-[13px]">{adminOperatorErrorMessage(code ?? "load_failed", ko)}</p>
+      <p className="mt-1 text-[13px]">{adminErrorStateMessage(code, httpStatus, ko)}</p>
+      {code || httpStatus ? (
+        <AdminTechDetails ko={ko}>
+          {httpStatus ? <div>HTTP {httpStatus}</div> : null}
+          {code ? <div>{code}</div> : null}
+        </AdminTechDetails>
+      ) : null}
       {onRetry ? (
         <AdminActionButton variant="secondary" size="sm" className="mt-3" onClick={onRetry}>
           {adminCta("refresh", ko)}

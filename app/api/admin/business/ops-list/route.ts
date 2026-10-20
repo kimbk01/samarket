@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
-import { loadAdminBusinessListOps } from "@/lib/admin-business/load-admin-business-list";
+import {
+  loadAdminBusinessListOps,
+  parseAdminBusinessListOpsFilters,
+} from "@/lib/admin-business/load-admin-business-list";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -17,26 +20,8 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const result = await loadAdminBusinessListOps(sb, {
-    q: searchParams.get("q") ?? "",
-    approval: searchParams.get("approval") ?? searchParams.get("status") ?? "all",
-    openKind: searchParams.get("open") ?? "",
-    orderable: (searchParams.get("orderable") as "yes" | "no" | "") || "",
-    delivery: (searchParams.get("delivery") as "yes" | "no" | "") || "",
-    settlement: (searchParams.get("settlement") as
-    | "ok"
-    | "needs_check"
-    | "held"
-    | "attention"
-    | "") || "",
-    report: (searchParams.get("report") as "open" | "none" | "") || "",
-    restriction: (searchParams.get("restriction") as "yes" | "no" | "") || "",
-    categoryId: searchParams.get("category_id") ?? "",
-    region: searchParams.get("region") ?? "",
-    page: Number(searchParams.get("page") || 1),
-    pageSize: Number(searchParams.get("pageSize") || 20),
-    sort: searchParams.get("sort") ?? "last_order",
-  });
+  // 필터 해석 = 통합 대시보드 「영업 중 매장」과 같은 함수 (parseAdminBusinessListOpsFilters)
+  const result = await loadAdminBusinessListOps(sb, parseAdminBusinessListOpsFilters(searchParams));
 
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 500 });

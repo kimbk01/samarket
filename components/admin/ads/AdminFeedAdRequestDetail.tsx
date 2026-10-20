@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-reason";
 import {
   feedAdOpsStatusLabel,
   projectFeedAdOpsProductStatus,
@@ -189,40 +191,71 @@ export function AdminFeedAdRequestDetail({
     }
   };
 
+  /** 승인(L2)·반려(L2) — 확인 단계는 동작 표(copy.level), 사유는 API 로 보내 감사에 남긴다. */
+  const requestReview = async (action: "approve" | "reject") => {
+    if (pendingReview) return;
+    setPendingReview(action);
+    try {
+      const copy = adsWorkspaceMutationConfirmCopy(action, ko, { family: "feed_banner" });
+      const confirmed = await confirmAdminAction({
+        level: copy.level,
+        ko,
+        title: copy.title,
+        description: copy.body,
+        confirmLabel: copy.confirmLabel,
+        destructive: copy.tone === "danger",
+        reasonPlaceholder: copy.reasonLabel,
+      });
+      if (!confirmed.ok) return;
+      await runMutation(action, confirmed.reason ?? "");
+    } finally {
+      setPendingReview(null);
+    }
+  };
+
   const actOps = async (action: "end" | "pause" | "resume" | "extend_compensation") => {
     let reason = "";
     if (action === "end") {
-      const ok = await dibayConfirm({
+      // 종료 = forceCancel(L3) — 사유 + 신청 번호 재입력. 사유는 API 로 보내 감사에 남긴다.
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel("forceCancel"),
+        ko,
         title: safeT("admin_feed_req_end_confirm", {
           fallbackKo:
             "광고를 종료할까요? 피드에서 즉시 제외됩니다. 이미 확정된 Point는 자동 환불되지 않습니다.",
           fallbackEn:
             "End this ad? It leaves the feed immediately. Captured Points are not auto-refunded.",
         }),
-        confirmTone: "destructive",
+        confirmLabel: ko ? "종료" : "End",
+        destructive: true,
+        retypeValue: formatAdminShortId(requestId),
       });
-      if (!ok) return;
-      reason = "admin_ended";
+      if (!confirmed.ok) return;
+      reason = confirmed.reason ?? "";
     }
     if (action === "pause") {
-      reason =
-        (
-          await dibayPrompt({
-            title: safeT("admin_feed_req_pause_prompt", {
-              fallbackKo: "일시중지 사유 (권장)",
-              fallbackEn: "Pause reason (recommended)",
-            }),
-          })
-        )?.trim() ?? "admin_paused";
+      // 일시중지 = exposeStop(L1)
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel("exposeStop"),
+        ko,
+        title: ko ? "광고 노출을 일시중지할까요? 피드에서 곧바로 빠집니다." : "Pause this ad? It leaves the feed shortly.",
+        confirmLabel: ko ? "일시중지" : "Pause",
+      });
+      if (!confirmed.ok) return;
+      reason = "admin_paused";
     }
     if (action === "resume") {
-      const ok = await dibayConfirm({
+      // 재개 = resume(L1)
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel("resume"),
+        ko,
         title: safeT("admin_feed_req_resume_confirm", {
           fallbackKo: "광고를 다시 노출할까요?",
           fallbackEn: "Resume this ad in the feed?",
         }),
+        confirmLabel: ko ? "재개" : "Resume",
       });
-      if (!ok) return;
+      if (!confirmed.ok) return;
       reason = "admin_resumed";
     }
     let requestedDays: number | undefined;
@@ -248,6 +281,7 @@ export function AdminFeedAdRequestDetail({
               fallbackEn: "Compensation reason (required)",
             }),
             required: true,
+            minLength: ADMIN_REASON_MIN_LENGTH,
           })
         )?.trim() ?? "";
       if (!reason) return;
@@ -333,9 +367,6 @@ export function AdminFeedAdRequestDetail({
     Boolean(data.deliveryDiagnose) && data.deliveryDiagnose?.creativeUrlReachable === false;
   const creativeBlocked = creativeMissing || previewBroken || creativeUnreachable;
   const approveBlocked = pending && creativeBlocked;
-  const reviewCopy = pendingReview
-    ? adsWorkspaceMutationConfirmCopy(pendingReview, ko, { family: "feed_banner" })
-    : null;
 
   const openHref = (() => {
     const dt = String(r.destinationType || "").toLowerCase();
@@ -371,7 +402,7 @@ export function AdminFeedAdRequestDetail({
             data-testid="admin-feed-req-detail-reject"
             disabled={busy || pendingReview != null}
             className="rounded-ui-rect border border-sam-danger px-4 py-2 text-sam-danger disabled:opacity-50"
-            onClick={() => setPendingReview("reject")}
+            onClick={() => void requestReview("reject")}
           >
             {safeT("admin_feed_req_reject", { fallbackKo: "반려", fallbackEn: "Reject" })}
           </button>
@@ -387,7 +418,7 @@ export function AdminFeedAdRequestDetail({
                 : undefined
             }
             className="rounded-ui-rect bg-signature px-4 py-2 font-medium text-white disabled:opacity-50"
-            onClick={() => setPendingReview("approve")}
+            onClick={() => void requestReview("approve")}
           >
             {safeT("admin_feed_req_approve", { fallbackKo: "승인", fallbackEn: "Approve" })}
           </button>
@@ -652,25 +683,6 @@ export function AdminFeedAdRequestDetail({
         />
       </section>
 
-      {reviewCopy && pendingReview ? (
-        <AdminActionConfirmDialog
-          open
-          title={reviewCopy.title}
-          description={reviewCopy.body}
-          confirmLabel={reviewCopy.confirmLabel}
-          cancelLabel={reviewCopy.cancelLabel}
-          tone={reviewCopy.tone}
-          reasonRequired={reviewCopy.reasonRequired}
-          reasonLabel={reviewCopy.reasonLabel}
-          pending={busy}
-          onCancel={() => setPendingReview(null)}
-          onConfirm={(reason) => {
-            const action = pendingReview;
-            setPendingReview(null);
-            void runMutation(action, reason);
-          }}
-        />
-      ) : null}
     </AdminFormSheet>
   );
 }

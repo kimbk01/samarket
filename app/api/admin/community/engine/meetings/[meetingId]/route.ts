@@ -25,7 +25,7 @@ const CLOSE_STATUSES = new Set(["closed", "ended", "cancelled"]);
  * PATCH — 모임 상태/승인/노출 (관리자)
  * body: { status?, platformApprovalStatus?, maxMembers?, isClosed?, postStatus?, postHidden?,
  *         reason?, expectedStatus?, expectedPlatformApprovalStatus?, expectedPostStatus? }
- * - 반려(platformApprovalStatus=rejected)·종료(status closed|ended|cancelled 또는 isClosed=true)·숨김(postStatus=hidden|postHidden=true)
+ * - 승인(platformApprovalStatus=approved)·반려(rejected)·종료(status closed|ended|cancelled 또는 isClosed=true)·숨김(postStatus=hidden|postHidden=true)
  *   은 reason(2자 이상) 필수 → 400 reason_required
  * - expected* 가 오면 현재 값과 비교, 다르면 409 conflict { current }. 갱신 자체도 읽은 값 기준 CAS.
  * - 반려·종료 시 개설자 알림, 모든 변경 감사 기록.
@@ -89,8 +89,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ meetingId
   const isReject = patch.platform_approval_status === "rejected";
   const isClose = (typeof patch.status === "string" && CLOSE_STATUSES.has(patch.status)) || patch.is_closed === true;
   const isHide = postPatch.status === "hidden" || postPatch.is_hidden === true;
+  // 승인 = approve (L2) — 화면 시트 사유를 받아 감사 기록에 남긴다.
+  const isApprove = patch.platform_approval_status === "approved";
   const reason = normalizeCommunityAdminReason(body.reason);
-  if ((isReject || isClose || isHide) && !reason) {
+  if ((isReject || isClose || isHide || isApprove) && !reason) {
     return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
   }
 

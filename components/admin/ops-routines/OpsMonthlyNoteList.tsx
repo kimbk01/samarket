@@ -1,12 +1,14 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getOpsMonthlyNotes } from "@/lib/ops-routines/ops-routines-state";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function OpsMonthlyNoteList() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [monthKey, setMonthKey] = useState<string>("");
   const notes = useMemo(
     () =>
@@ -40,7 +42,7 @@ export function OpsMonthlyNoteList() {
       <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_routines_month_hint")}</p>
 
       {notes.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_routines_month_empty")}</div>
+        <AdminEmptyState ko={ko} message={t("admin_ops_tools_routines_month_empty")} />
       ) : (
         <div className="space-y-4">
           {notes.map((n) => (

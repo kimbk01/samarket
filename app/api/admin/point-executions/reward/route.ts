@@ -54,6 +54,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       targetId: input.userId,
       action: "point_execution.reward",
       after: {
+        reason: input.reason,
         input: { ...input },
         execution: (execution ?? null) as unknown as Record<string, unknown> | null,
       },

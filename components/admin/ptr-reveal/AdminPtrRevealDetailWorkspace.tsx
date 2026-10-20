@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
-import { useAdminConfirmDialog, type AdminConfirmRequest } from "@/components/admin/ui/useAdminConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminPtrRevealPreview } from "@/components/admin/ptr-reveal/AdminPtrRevealPreview";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PlatformPopupAdminDetail } from "@/lib/platform-popup/admin-campaign-loader";
@@ -114,7 +116,6 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   const lang: Lang = language === "en" ? "en" : "ko";
   const L = useCallback((ko: string, en: string) => (lang === "en" ? en : ko), [lang]);
   const router = useRouter();
-  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
 
   const [detail, setDetail] = useState<PlatformPopupAdminDetail | null>(null);
   const [form, setForm] = useState<Form | null>(null);
@@ -156,7 +157,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
     const msg = willReview
       ? L("저장할까요? 노출 중인 광고의 노출 조건·문구가 바뀌어 다시 검토(노출 중단) 상태가 됩니다.", "Save? This changes a live ad's conditions or text, so it returns to review (exposure stops).")
       : L("변경 내용을 저장할까요?", "Save changes?");
-    if (!(await askConfirm({ title: L("변경 내용 저장", "Save changes"), description: msg, confirmLabel: L("저장", "Save"), cancelLabel: L("취소", "Cancel") }))) return;
+    const saveOk = await confirmAdminAction({ level: adminActionLevel("save"), ko: lang !== "en", title: L("변경 내용 저장", "Save changes"), description: msg, confirmLabel: L("저장", "Save") });
+    if (!saveOk.ok) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -178,7 +180,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
 
   const cancel = async () => {
     if (!dirty) return;
-    if (!(await askConfirm({ title: L("변경 취소", "Discard changes"), description: L("저장하지 않은 변경 내용을 버릴까요?", "Discard unsaved changes?"), confirmLabel: L("버리기", "Discard"), cancelLabel: L("계속 편집", "Keep editing"), tone: "danger" }))) return;
+    const discardOk = await confirmAdminAction({ level: adminActionLevel("save"), ko: lang !== "en", title: L("변경 취소", "Discard changes"), description: L("저장하지 않은 변경 내용을 버릴까요?", "Discard unsaved changes?"), confirmLabel: L("버리기", "Discard"), destructive: true });
+    if (!discardOk.ok) return;
     setForm(saved);
   };
 
@@ -188,8 +191,44 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
       return;
     }
     const nextStatus = typeof body.nextStatus === "string" ? body.nextStatus : "";
-    const tone: AdminConfirmRequest["tone"] = nextStatus === "rejected" || nextStatus === "paused" || nextStatus === "ended" ? "danger" : "primary";
-    if (!(await askConfirm({ title: L("상태 변경", "Change status"), description: L(confirmKo, confirmEn), confirmLabel: L("확인", "Confirm"), cancelLabel: L("취소", "Cancel"), tone }))) return;
+    // 동작 표(adminActionLevel): 검토 요청 = save(L1) · 승인(예약) = approve(L2) · 승인 후 노출·다시 노출 = exposeStart(L2) ·
+    // 반려 = reject(L2) · 노출 중지 = exposeStop(L1) · 종료 = forceCancel(L3, 광고 이름 재입력). L2·L3 사유는 전이 API 로 보내 감사에 남긴다.
+    const kind: AdminActionKind =
+      body.action === "approve"
+        ? body.activate
+          ? "exposeStart"
+          : "approve"
+        : nextStatus === "active"
+          ? "exposeStart"
+          : nextStatus === "rejected"
+            ? "reject"
+            : nextStatus === "paused"
+              ? "exposeStop"
+              : nextStatus === "ended"
+                ? "forceCancel"
+                : "save";
+    const ko = lang !== "en";
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel(kind),
+      ko,
+      title: L("상태 변경", "Change status"),
+      description: L(confirmKo, confirmEn),
+      confirmLabel:
+        kind === "approve"
+          ? adminCta("approve", ko)
+          : kind === "exposeStart"
+            ? adminCta("exposeStart", ko)
+            : kind === "reject"
+              ? adminCta("reject", ko)
+              : kind === "exposeStop"
+                ? adminCta("exposeStop", ko)
+                : kind === "forceCancel"
+                  ? L("종료", "End")
+                  : L("검토 요청", "Submit for review"),
+      destructive: kind === "reject" || kind === "exposeStop" || kind === "forceCancel",
+      retypeValue: kind === "forceCancel" ? detail?.name?.trim() || campaignId : undefined,
+    });
+    if (!confirmed.ok) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -197,7 +236,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(confirmed.reason ? { ...body, reason: confirmed.reason } : body),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     setBusy(false);
@@ -209,7 +248,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   };
 
   const copy = async () => {
-    if (!(await askConfirm({ title: L("광고 복사", "Copy ad"), description: L("이 광고를 복사해 새 임시저장을 만들까요? (승인·기간은 복사되지 않습니다)", "Copy into a new draft? (Approval and schedule are not copied.)"), confirmLabel: L("복사", "Copy"), cancelLabel: L("취소", "Cancel") }))) return;
+    const copyOk = await confirmAdminAction({ level: adminActionLevel("save"), ko: lang !== "en", title: L("광고 복사", "Copy ad"), description: L("이 광고를 복사해 새 임시저장을 만들까요? (승인·기간은 복사되지 않습니다)", "Copy into a new draft? (Approval and schedule are not copied.)"), confirmLabel: L("복사", "Copy") });
+    if (!copyOk.ok) return;
     setBusy(true);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}/copy`, {
       method: "POST",
@@ -264,7 +304,6 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
 
   return (
     <div className="space-y-4 p-4 pb-28" data-admin-ptr-detail={campaignId}>
-      {confirmDialog}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href="/admin/ptr-reveal-ads" className="text-xs text-sam-muted underline">
@@ -567,7 +606,6 @@ function PtrBandUploadSlot({
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "warn" | "err"; text: string } | null>(null);
-  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
 
   const required = variant === "default";
   const role =
@@ -577,21 +615,26 @@ function PtrBandUploadSlot({
 
   const remove = async () => {
     if (!current) return;
-    const ok = await askConfirm({
+    // 이미지 삭제 = delete(L3, 이미지 이름 재입력). 사유는 DELETE 본문으로 보내 감사에 남긴다.
+    const removeOk = await confirmAdminAction({
+      level: adminActionLevel("delete"),
+      ko: lang !== "en",
       title: L("이미지 삭제", "Delete image"),
       description: L(
         `${spec.labelKo} 이미지를 삭제할까요? 노출 중이면 다시 검토 상태가 됩니다.${variant === "tablet" ? " 태블릿에는 광고 없이 일반 새로고침만 보입니다." : ""}`,
         `Delete the ${spec.labelEn}? A live campaign returns to review.${variant === "tablet" ? " Tablets will then show normal refresh without an ad." : ""}`
       ),
       confirmLabel: L("삭제", "Delete"),
-      cancelLabel: L("취소", "Cancel"),
-      tone: "danger",
+      destructive: true,
+      retypeValue: L(spec.labelKo, spec.labelEn),
     });
-    if (!ok) return;
+    if (!removeOk.ok) return;
     setBusy(true);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}/creative?variant=${variant}`, {
       method: "DELETE",
       credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: removeOk.reason }),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; revertedToReview?: boolean };
     setBusy(false);
@@ -640,34 +683,35 @@ function PtrBandUploadSlot({
       return;
     }
     if (!check.ratioOk) {
-      const ok = await askConfirm({
+      const cropOk = await confirmAdminAction({
+        level: adminActionLevel("save"),
+        ko: lang !== "en",
         title: L("가운데 자르기", "Center-crop"),
         description: L(
           `비율이 ${spec.aspectW}:${spec.aspectH} 이 아닙니다 (${size.width}×${size.height}). 가운데를 잘라 사용할까요?`,
           `Not ${spec.aspectW}:${spec.aspectH} (${size.width}×${size.height}). Center-crop and use it?`
         ),
         confirmLabel: L("잘라서 사용", "Crop and use"),
-        cancelLabel: L("취소", "Cancel"),
       });
-      if (!ok) return;
+      if (!cropOk.ok) return;
       await upload(file, true);
       return;
     }
-    const ok = await askConfirm({
+    const uploadOk = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko: lang !== "en",
       title: current ? L("이미지 교체", "Replace image") : L("이미지 올리기", "Upload image"),
       description: current
         ? L(`${spec.labelKo} 이미지를 교체할까요? 노출 중이면 다시 검토 상태가 됩니다.`, `Replace the ${spec.labelEn}? A live campaign returns to review.`)
         : L(`${spec.labelKo} 이미지로 올릴까요?`, `Upload as the ${spec.labelEn}?`),
       confirmLabel: current ? L("교체", "Replace") : L("올리기", "Upload"),
-      cancelLabel: L("취소", "Cancel"),
     });
-    if (!ok) return;
+    if (!uploadOk.ok) return;
     await upload(file, false);
   };
 
   return (
     <div className="rounded-ui-rect border border-sam-border p-3" data-admin-ptr-upload={variant}>
-      {confirmDialog}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-semibold">
           {lang === "en" ? spec.labelEn : spec.labelKo}

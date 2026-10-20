@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { launchIntroAdminSnapshot } from "@/lib/launch-intro/admin-snapshot";
 import { deleteLaunchIntroDraft, saveLaunchIntroDraft, type Sb } from "@/lib/launch-intro/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -66,6 +67,10 @@ export async function DELETE(req: NextRequest) {
   if ("error" in s) return s.error;
   const id = req.nextUrl.searchParams.get("id") ?? "";
   if (!/^[0-9a-f-]{36}$/.test(id)) return NextResponse.json({ ok: false, error: "id_required" }, { status: 400 });
+  // R2 — 초안 삭제(L3)는 처리 사유 필수 (본문 { reason }). 감사 after.reason 에 남긴다.
+  const delBody = (await req.json().catch(() => ({}))) as { reason?: unknown };
+  const reason = parseAdminReason(delBody.reason);
+  if (!reason) return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   const res = await deleteLaunchIntroDraft(s.sb, id);
   if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: res.status ?? 500 });
   await appendAdminRouteAudit(s.sb, req, {
@@ -73,6 +78,7 @@ export async function DELETE(req: NextRequest) {
     targetType: "launch_intro_draft",
     targetId: id,
     action: "launch_intro_draft.delete",
+    after: { reason },
   });
   return respondSnapshot(s.sb);
 }

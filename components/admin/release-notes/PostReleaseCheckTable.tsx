@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getPostReleaseChecks } from "@/lib/dev-sprints/dev-sprints-state";
@@ -17,7 +18,8 @@ import Link from "next/link";
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 export function PostReleaseCheckTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [versionFilter, setVersionFilter] = useState<string>("");
   const [phaseFilter, setPhaseFilter] = useState<PostReleaseCheckPhase | "">("");
   const [statusFilter, setStatusFilter] = useState<PostReleaseCheckStatus | "">("");
@@ -96,9 +98,11 @@ export function PostReleaseCheckTable() {
       )}
 
       {checks.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rel_post_empty")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={versionFilter || phaseFilter || statusFilter ? undefined : t("admin_rel_post_empty")}
+          onReset={versionFilter || phaseFilter || statusFilter ? () => { setVersionFilter(""); setPhaseFilter(""); setStatusFilter(""); } : undefined}
+        />
       ) : (
         <AdminTable
           headers={[

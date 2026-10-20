@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   OPS_TOOLS_NODE_TYPE_KEYS,
@@ -21,7 +22,8 @@ export function OpsKnowledgeNodeTable({
   categoryFilter = "",
   onSelectNode,
 }: OpsKnowledgeNodeTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const nodes = useMemo(
     () =>
       getOpsKnowledgeGraphNodes({
@@ -33,7 +35,7 @@ export function OpsKnowledgeNodeTable({
 
   if (nodes.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kg_nodes_empty")}</div>
+      <AdminEmptyState ko={ko} message={t("admin_ops_tools_kg_nodes_empty")} />
     );
   }
 

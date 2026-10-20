@@ -13,7 +13,19 @@ describe("admin mutation confirm copy (CUT R1)", () => {
     expect(adsWorkspaceActionNeedsReason("terminate", "delivery_banner")).toBe(true);
     expect(adsWorkspaceActionNeedsReason("pause", "delivery_banner")).toBe(true);
     expect(adsWorkspaceActionNeedsReason("pause", "community_promote")).toBe(false);
-    expect(adsWorkspaceActionNeedsReason("approve", "feed_banner")).toBe(false);
+    // R2 — 승인(L2)·삭제·종료(L3)도 사유 필수 (동작 표 admin-action-levels).
+    expect(adsWorkspaceActionNeedsReason("approve", "feed_banner")).toBe(true);
+    expect(adsWorkspaceActionNeedsReason("delete_safe_draft", "delivery_banner")).toBe(true);
+    expect(adsWorkspaceActionNeedsReason("resume", "feed_banner")).toBe(false);
+  });
+
+  it("confirm level comes from the action table (R2)", () => {
+    expect(adsWorkspaceMutationConfirmCopy("approve", true).level).toBe("L2");
+    expect(adsWorkspaceMutationConfirmCopy("reject", true).level).toBe("L2");
+    expect(adsWorkspaceMutationConfirmCopy("delete_safe_draft", true).level).toBe("L3");
+    expect(adsWorkspaceMutationConfirmCopy("end", true).level).toBe("L3");
+    expect(adsWorkspaceMutationConfirmCopy("resume", true).level).toBe("L1");
+    expect(adsWorkspaceMutationConfirmCopy("pause", true, { boostSanction: true }).level).toBe("L2");
   });
 
   it("uses action-specific Korean copy (not generic)", () => {

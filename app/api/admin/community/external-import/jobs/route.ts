@@ -17,6 +17,7 @@ import {
   runJobChunk,
 } from "@/lib/community-operator-import/jobs";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,13 +39,21 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * {action:"create", kind, items, params} → creates the job and runs the first chunk
+ * {action:"create", kind, items, params, reason} → creates the job and runs the first chunk
+ *   — 게시·업데이트·숨김·다시 공개는 일괄 변경(bulk · L3)이라 사유 필수 → 감사 `after.reason`. 재수집(reprocess)은 사유 선택.
  * {action:"run", jobId}                    → continues pending items (time-boxed)
  */
 export async function POST(req: NextRequest) {
   const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
-  const parsed = await parseJsonBody<{ action?: string; kind?: JobKind; items?: InboxKey[]; params?: JobParams; jobId?: string }>(
+  const parsed = await parseJsonBody<{
+    action?: string;
+    kind?: JobKind;
+    items?: InboxKey[];
+    params?: JobParams;
+    jobId?: string;
+    reason?: unknown;
+  }>(
     req,
     "JSON 본문이 필요합니다.",
   );
@@ -54,6 +63,10 @@ export async function POST(req: NextRequest) {
     const sb = getSupabaseServer();
     if (b.action === "create") {
       if (!b.kind || !JOB_KINDS.includes(b.kind)) return jsonError("kind 오류", 400, { code: "invalid_job_kind" });
+      const reason = parseAdminReason(b.reason);
+      if (b.kind !== "reprocess" && !reason) {
+        return jsonError(ADMIN_REASON_REQUIRED_CODE, 400, { code: ADMIN_REASON_REQUIRED_CODE });
+      }
       const p = b.params ?? {};
       const params: JobParams = {
         topicId: p.topicId || null,
@@ -74,6 +87,7 @@ export async function POST(req: NextRequest) {
         targetType: "community_import_job",
         targetId: String(job.id),
         action: "community_import.job_create",
+        reason,
         before: null,
         after: {
           kind: b.kind,

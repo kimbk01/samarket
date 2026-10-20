@@ -14,6 +14,7 @@ import { deactivateAllUserPushTokensForAccountRemoval } from "@/lib/push/dispatc
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { insertModerationEvent, invalidateAllUserSessions, isSuperAdminRole } from "@/lib/admin/admin-user-server";
 import { loadActiveAdminMembership } from "@/lib/admin/admin-membership";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,9 +40,11 @@ export async function POST(
   if (!mode) {
     return NextResponse.json({ ok: false, error: "invalid_mode" }, { status: 400 });
   }
-  const reason =
-    String(body.reason ?? "").trim() ||
-    (mode === "purge" ? "admin_permanent_delete" : "admin_withdraw");
+  /** R2 — 탈퇴·영구 삭제(L3) 사유 필수: 화면 확인창의 사유를 받아 감사·처리 기록에 남긴다. */
+  const reason = parseAdminReason(body.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
 
   /** withdraw · purge 모두 users 권한. */
   const gate = await requireAdminPermission("users");
@@ -73,7 +76,7 @@ export async function POST(
   }
 
   const nickname = String((targetProfile as { nickname?: string }).nickname ?? "").trim();
-  /** 영구 삭제·탈퇴: 닉네임 재입력 확인 제거. UI는 dibayConfirm 만 사용. */
+  /** 영구 삭제·탈퇴: 대상 재입력은 화면 확인창(confirmAdminAction L3)이 맡는다. */
 
   const fromStatus = String((targetProfile as { status?: string }).status ?? "");
   const now = new Date().toISOString();

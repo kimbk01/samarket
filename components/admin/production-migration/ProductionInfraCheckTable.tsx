@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -16,7 +17,8 @@ import type {
 } from "@/lib/types/production-migration";
 
 export function ProductionInfraCheckTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [category, setCategory] = useState<ProductionInfraCategory | "">("");
   const checks = useMemo(
     () =>
@@ -59,9 +61,7 @@ export function ProductionInfraCheckTable() {
       </div>
 
       {checks.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          인프라 점검 항목이 없습니다.
-        </div>
+        <AdminEmptyState ko={ko} message={"인프라 점검 항목이 없습니다."} />
       ) : (
         <AdminTable
           headers={["분류", "대상", "상태", "차단 사유", "비고"]}

@@ -27,11 +27,13 @@ describe("P0-D store application NEXT-ACTION matrix", () => {
   });
 
   it("store_applications Q counts admin-actionable approval only", () => {
+    // R8: 입점 심사 화면과 같은 필터 함수(applyStoreApprovalStatusFilter "actionable" = ADMIN_ACTIONABLE_STORE_APPROVAL)
     const queue = read("lib/admin/admin-action-queue.ts");
+    const filters = read("lib/admin/metrics/admin-metric-filters.ts");
     expect(queue).toContain('from("stores")');
-    expect(queue).toContain("ADMIN_ACTIONABLE_STORE_APPROVAL");
+    expect(queue).toMatch(/applyStoreApprovalStatusFilter\([^)]*from\("stores"\)[^)]*\)[^)]*,\s*"actionable"\)/);
+    expect(filters).toContain('if (s === "actionable") return q.in("approval_status", [...ADMIN_ACTIONABLE_STORE_APPROVAL]);');
     expect(queue).not.toContain("BUSINESS_OPS_PENDING_APPROVAL");
-    expect(queue).toContain("ADMIN_ACTIONABLE_STORE_APPROVAL");
   });
 });
 

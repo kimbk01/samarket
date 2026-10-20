@@ -9,7 +9,9 @@
 import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
 import { openAdminConfirmHost } from "@/lib/admin/operator-ux/admin-confirm-host";
 
-export const ADMIN_REASON_MIN_LENGTH = 2;
+import { ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-reason";
+
+export { ADMIN_REASON_MIN_LENGTH };
 
 export type AdminConfirmLevel = "L1" | "L2" | "L3";
 

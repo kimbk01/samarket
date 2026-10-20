@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -16,7 +17,8 @@ import type {
 } from "@/lib/types/production-migration";
 
 export function ProductionMigrationTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [domain, setDomain] = useState<ProductionMigrationDomain | "">("");
   const tables = useMemo(
     () =>
@@ -59,9 +61,11 @@ export function ProductionMigrationTable() {
       </div>
 
       {tables.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 도메인 테이블이 없습니다.
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={domain ? undefined : "해당 도메인 테이블이 없습니다."}
+          onReset={domain ? () => { setDomain(""); } : undefined}
+        />
       ) : (
         <AdminTable
           headers={[

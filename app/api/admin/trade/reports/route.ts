@@ -9,16 +9,16 @@ import {
   formatAdminMemberLabel,
   loadAdminMemberIdentityMap,
 } from "@/lib/admin-community/member-identity";
+import {
+  applyTradeReportTabFilter,
+  isTradeReportTab,
+  TRADE_REPORT_TABS,
+  type TradeReportTab,
+} from "@/lib/admin/metrics/admin-metric-filters";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const TAB_STATUSES: Record<string, string[] | null> = {
-  open: ["pending", "reviewing"],
-  sanctioned: ["sanctioned", "resolved", "reviewed"],
-  rejected: ["rejected"],
-  all: null,
-};
 const TARGET_TYPES = new Set(["product", "post", "user", "chat_room", "chat", "chat_message", "comment"]);
 
 /**
@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
 
   const tab = (sp.get("tab") ?? "open").trim();
-  if (!(tab in TAB_STATUSES)) return NextResponse.json({ ok: false, error: "invalid_tab" }, { status: 400 });
+  // 탭 상태 = 통합 대시보드 「거래 신고 대기」·거래 대시보드와 같은 필터 함수 (applyTradeReportTabFilter)
+  if (!isTradeReportTab(tab)) return NextResponse.json({ ok: false, error: "invalid_tab" }, { status: 400 });
   const targetType = (sp.get("targetType") ?? "").trim();
   if (targetType && !TARGET_TYPES.has(targetType)) {
     return NextResponse.json({ ok: false, error: "invalid_target_type" }, { status: 400 });
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
   const { limit, offset } = parseCommunityAdminPage(sp);
 
   /* eslint-disable @typescript-eslint/no-explicit-any -- PostgREST builder chain */
-  const base = (statuses: string[] | null, head: boolean): any => {
+  const base = (tabKey: TradeReportTab, head: boolean): any => {
     let q: any = sb
       .from("reports")
       .select(
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
           : "id, reporter_id, target_type, target_id, room_id, product_id, reason_code, reason_text, status, admin_note, created_at, resolved_at, resolved_by",
         { count: "exact", head }
       );
-    if (statuses) q = q.in("status", statuses);
+    q = applyTradeReportTabFilter(q, tabKey);
     if (targetType) q = targetType === "product" ? q.in("target_type", ["product", "post"]) : q.eq("target_type", targetType);
     if (targetId) q = q.or(`target_id.eq.${targetId},product_id.eq.${targetId}`);
     if (reporterId) q = q.eq("reporter_id", reporterId);
@@ -79,10 +80,10 @@ export async function GET(req: NextRequest) {
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
   const [list, ...counts] = await Promise.all([
-    base(TAB_STATUSES[tab], false)
+    base(tab, false)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1),
-    ...Object.keys(TAB_STATUSES).map((t) => base(TAB_STATUSES[t], true)),
+    ...TRADE_REPORT_TABS.map((t) => base(t, true)),
   ]);
   if (list.error) return NextResponse.json({ ok: false, error: list.error.message }, { status: 500 });
   const rows = (list.data ?? []) as Record<string, unknown>[];
@@ -116,7 +117,7 @@ export async function GET(req: NextRequest) {
     limit,
     offset,
     tabCounts: Object.fromEntries(
-      Object.keys(TAB_STATUSES).map((t, i) => [t, counts[i]?.error ? null : (counts[i]?.count ?? null)])
+      TRADE_REPORT_TABS.map((t, i) => [t, counts[i]?.error ? null : (counts[i]?.count ?? null)])
     ),
     rows: rows.map((r) => {
       const post = postMap.get(String(r.product_id ?? r.target_id ?? "")) ?? null;

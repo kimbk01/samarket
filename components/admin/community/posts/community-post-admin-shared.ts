@@ -5,6 +5,7 @@
  * 클라이언트 전용 — 서버 모듈 import 금지.
  */
 import { useCallback, useEffect, useState } from "react";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import type { CommunitySheetResult } from "@/components/admin/community/kit/CommunityAdminKit";
 
 export const COMMUNITY_POSTS_LIST_PATH = "/admin/community/posts";
@@ -47,14 +48,14 @@ const POST_ERROR_KO: Record<string, string> = {
   invalid_date: "날짜 형식이 올바르지 않습니다.",
   range_reversed: "시작 날짜가 끝 날짜보다 늦습니다.",
   range_too_long: "기간은 최대 400일까지 조회할 수 있습니다.",
-  network_error: "네트워크 오류가 발생했습니다. 잠시 후 새로고침해 주세요.",
   forbidden: "이 작업을 할 권한이 없습니다.",
   super_admin_only: "최고 관리자만 할 수 있는 작업입니다.",
 };
 
 export function communityPostErrorText(code: string | null | undefined): string {
   const k = String(code ?? "").trim();
-  return POST_ERROR_KO[k] ?? "처리를 완료하지 못했습니다. 잠시 후 다시 처리해 주세요.";
+  // 화면 전용 문구가 없는 코드는 공용 오류 맵 (네트워크·HTTP·모르는 코드 원문 차단).
+  return POST_ERROR_KO[k] ?? adminOperatorErrorMessage(k, true);
 }
 
 /** 결과 배너용 실패 — AdminResultBanner 는 한글 문장을 그대로 보여 준다 */

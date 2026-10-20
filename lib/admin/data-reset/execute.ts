@@ -40,6 +40,8 @@ export type ExecuteDomainResetInput = {
   oneTimeToken?: string;
   /** L2 only — reserved; never logged. Absent/invalid while L2 reauth unimplemented → BLOCK. */
   reauthProof?: string | null;
+  /** 운영자 처리 사유 (dataReset · L3) — 실행 감사 기록 `after_json.reason` 에 남긴다. */
+  reason?: string | null;
 };
 
 /** Delete only hash-bound owned Storage paths. No bucket list / prefix purge. */
@@ -562,6 +564,7 @@ export async function executeDomainReset(
       completedAt: new Date().toISOString(),
       clientSessionInvalidationRequired: true,
       clientInvalidation: plan.clientInvalidation,
+      ...(input.reason ? { reason: input.reason } : {}),
     },
   });
   phases.push({ phase: "AUDIT", status: "PASS", detail: "audit_logs_appended" });

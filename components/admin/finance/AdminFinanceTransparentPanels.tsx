@@ -9,7 +9,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import type { AdFundingTrace } from "@/lib/finance/ad-funding-trace/types";
 import type { OrderMoneyChain } from "@/lib/finance/order-money-chain/types";
 import type { StoreStatement } from "@/lib/finance/store-statement/types";
@@ -42,7 +43,6 @@ export function AdminFinanceTransparentPanels() {
   const [orderId, setOrderId] = useState(orderIdParam);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [draft, setDraft] = useState<Partial<CoinCashConversionPolicy>>({});
 
@@ -154,7 +154,23 @@ export function AdminFinanceTransparentPanels() {
     if (tab === "settings") void loadPolicy();
   }, [tab, loadAds, loadChain, loadStatement, loadPolicy, orderId]);
 
-  const savePolicy = async () => {
+  /** 전환 정책 저장 = pointPolicySave(L2): 확인 + 사유, 사유는 API 로 보내 감사 기록에 남긴다. */
+  const requestSavePolicy = async () => {
+    if (!policy || !draft) return;
+    const c = await confirmAdminAction({
+      level: adminActionLevel("pointPolicySave"),
+      ko,
+      title: ko ? "Coin → Cash 전환 정책을 변경하시겠습니까?" : "Change Coin→Cash policy?",
+      description: ko
+        ? `현재 v${policy.version} → 새 설정이 이후 전환부터 적용됩니다. 과거 원장에는 소급되지 않습니다.`
+        : `Current v${policy.version} → new settings apply to future conversions only.`,
+      confirmLabel: ko ? "변경" : "Change",
+    });
+    if (!c.ok || !c.reason) return;
+    await savePolicy(c.reason);
+  };
+
+  const savePolicy = async (reason: string) => {
     if (!policy || !draft) return;
     setPending(true);
     try {
@@ -173,6 +189,7 @@ export function AdminFinanceTransparentPanels() {
           minimumIntervalHours: draft.minimumIntervalHours,
           dailyLimitCoin: draft.dailyLimitCoin,
           monthlyLimitCoin: draft.monthlyLimitCoin,
+          reason,
         }),
       });
       const json = (await res.json()) as {
@@ -186,7 +203,6 @@ export function AdminFinanceTransparentPanels() {
       }
       setPolicy(json.policy);
       setDraft(json.policy);
-      setConfirmOpen(false);
     } finally {
       setPending(false);
     }
@@ -499,24 +515,11 @@ export function AdminFinanceTransparentPanels() {
           <button
             type="button"
             className="rounded-ui-rect bg-signature px-4 py-2 text-white"
-            onClick={() => setConfirmOpen(true)}
+            disabled={pending}
+            onClick={() => void requestSavePolicy()}
           >
             {ko ? "저장" : "Save"}
           </button>
-          <AdminActionConfirmDialog
-            open={confirmOpen}
-            title={ko ? "Coin → Cash 전환 정책을 변경하시겠습니까?" : "Change Coin→Cash policy?"}
-            description={
-              ko
-                ? `현재 v${policy.version} → 새 설정이 이후 전환부터 적용됩니다. 과거 원장에는 소급되지 않습니다.`
-                : `Current v${policy.version} → new settings apply to future conversions only.`
-            }
-            confirmLabel={ko ? "변경" : "Change"}
-            cancelLabel={ko ? "취소" : "Cancel"}
-            pending={pending}
-            onCancel={() => setConfirmOpen(false)}
-            onConfirm={() => void savePolicy()}
-          />
         </div>
       ) : null}
     </section>

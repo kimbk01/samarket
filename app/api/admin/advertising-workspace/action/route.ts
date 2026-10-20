@@ -17,6 +17,7 @@ import {
 } from "@/lib/admin/trade-admin/trade-promotion-admin";
 import { notifyCommunityPromotionEnded } from "@/lib/notifications/notify-community-moderation";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   adminTransitionDeliveryAdCampaign,
   adminDeleteSafeDraftDeliveryAdCampaign,
@@ -100,6 +101,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
     return NextResponse.json({ ok: true, memo: "internal" });
+  }
+
+  // R2 — 승인·반려·보류(수정 요청)·보상 연장(L2)·종료·삭제(L3)는 처리 사유 필수 (미리보기 제외).
+  // 사유는 각 도메인 writer·감사 기록(reason)으로 그대로 전달된다.
+  const reasonRequiredActions: readonly string[] = [
+    "approve",
+    "reject",
+    "request_changes",
+    "extend_compensation",
+    "end",
+    "terminate",
+    "delete_safe_draft",
+  ];
+  // 일시중지는 배달 광고(writer 사유 필수)·상위노출 제재(커뮤니티·거래, L2 sanction)일 때만 사유 필수.
+  const pauseNeedsReason =
+    action === "pause" &&
+    (family === "delivery_banner" ||
+      family === "delivery_sponsored" ||
+      family === "boost_community" ||
+      family === "boost_trade");
+  const adminReason = parseAdminReason(body.reason);
+  if (body.preview !== true && (reasonRequiredActions.includes(action) || pauseNeedsReason) && !adminReason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   }
 
   if (family === "boost_trade") {
@@ -305,6 +329,17 @@ export async function POST(req: NextRequest) {
       if (!res.ok) {
         return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
       }
+      void appendAuditLog(sb, {
+        actor_type: "admin",
+        actor_id: admin.userId,
+        target_type: "feed_ad_request",
+        target_id: entityId,
+        action: "feed_ad.approve",
+        before_json: null,
+        after_json: { reason: adminReason },
+        ip: meta.ip,
+        user_agent: meta.userAgent,
+      });
       return NextResponse.json(res);
     }
     if (feedAction === "reject") {
@@ -482,6 +517,7 @@ export async function POST(req: NextRequest) {
           hasFinancialHistory: false,
           hasAuditHistory: (count ?? 0) > 0,
         },
+        reason: adminReason,
       });
       if (!result.ok) {
         return NextResponse.json(
@@ -548,6 +584,7 @@ export async function POST(req: NextRequest) {
       const del = await adminDeletePlatformPopupDraftCampaign(sb, {
         campaignId: entityId,
         adminUserId: admin.userId,
+        reason: adminReason,
       });
       if (!del.ok) {
         return NextResponse.json(
@@ -598,6 +635,7 @@ export async function POST(req: NextRequest) {
       actorUserId: admin.userId,
       actorRole: "admin",
       nextStatus,
+      reason: adminReason ?? (publicMsg || null),
     });
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: res.error }, { status: res.httpStatus ?? 400 });

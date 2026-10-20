@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { ADS_FEEDBACK } from "@/lib/admin/ads-exposure/action-feedback";
 import { adsPlacementReorderConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import {
@@ -332,7 +332,6 @@ export function AdminAdsPlacementManagementView() {
     { ok: true; message: string } | { ok: false; code: string } | null
   >(null);
   const [busy, setBusy] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
   const reorderCopy = adsPlacementReorderConfirmCopy(ko);
 
@@ -400,16 +399,13 @@ export function AdminAdsPlacementManagementView() {
         error?: string;
       };
       if (!res.ok || !json.ok) {
-        setConfirmOpen(false);
         setResult({ ok: false, code: json.error || "save_failed" });
         restoreOrder();
         return;
       }
-      setConfirmOpen(false);
       setResult({ ok: true, message: ko ? ADS_FEEDBACK.orderSaved.ko : ADS_FEEDBACK.orderSaved.en });
       await load();
     } catch {
-      setConfirmOpen(false);
       setResult({ ok: false, code: "save_failed" });
       restoreOrder();
     } finally {
@@ -605,7 +601,18 @@ export function AdminAdsPlacementManagementView() {
               className="mt-3"
               disabled={busy || orderedIds.length === 0}
               data-hero-reorder-save="1"
-              onClick={() => setConfirmOpen(true)}
+              onClick={async () => {
+                // 순서 저장 확인 — 단계는 동작 표(reorderCopy.level = save)
+                const confirmed = await confirmAdminAction({
+                  level: reorderCopy.level,
+                  ko,
+                  title: reorderCopy.title,
+                  description: reorderCopy.body,
+                  confirmLabel: reorderCopy.confirmLabel,
+                  destructive: reorderCopy.tone === "danger",
+                });
+                if (confirmed.ok) void saveOrder();
+              }}
             >
               {ko ? "배너 순서 저장" : "Save banner order"}
             </AdminActionButton>
@@ -625,17 +632,6 @@ export function AdminAdsPlacementManagementView() {
         </div>
       </section>
 
-      <AdminActionConfirmDialog
-        open={confirmOpen}
-        title={reorderCopy.title}
-        description={reorderCopy.body}
-        confirmLabel={reorderCopy.confirmLabel}
-        cancelLabel={reorderCopy.cancelLabel}
-        tone={reorderCopy.tone}
-        pending={busy}
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={() => void saveOrder()}
-      />
     </div>
   );
 }

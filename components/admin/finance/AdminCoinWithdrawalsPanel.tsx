@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { financeStoreHref } from "@/lib/finance/routes";
 import { financeStatusLabel, formatFinanceAmount } from "@/lib/finance/presentation";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
@@ -110,6 +112,7 @@ export function AdminCoinWithdrawalsPanel() {
   const act = async (
     requestId: string,
     action: "reject" | "mark_paid",
+    reason: string,
     payout?: { method: string; reference: string }
   ) => {
     if (action === "mark_paid" && (!payout?.reference.trim() || !payout?.method.trim())) {
@@ -134,8 +137,9 @@ export function AdminCoinWithdrawalsPanel() {
                 requestId,
                 payoutMethod: payout.method.trim(),
                 payoutReference: payout.reference.trim(),
+                reason,
               }
-            : { action, requestId }
+            : { action, requestId, reason }
         ),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -170,6 +174,44 @@ export function AdminCoinWithdrawalsPanel() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  /** 출금 반려 = reject(L2): 확인 + 사유 → API `reason` → 감사 기록. */
+  const askReject = async (requestId: string, amount: number) => {
+    const c = await confirmAdminAction({
+      level: adminActionLevel("reject"),
+      ko,
+      title: ko ? "출금을 반려하시겠습니까?" : "Reject this withdrawal?",
+      description: ko
+        ? `${formatAdminNumber(amount)} Coin 출금 요청을 반려합니다.`
+        : `${formatAdminNumber(amount)} Coin withdrawal will be rejected.`,
+      confirmLabel: ko ? "출금 반려" : "Reject withdrawal",
+      destructive: true,
+    });
+    if (!c.ok || !c.reason) return;
+    await act(requestId, "reject", c.reason);
+  };
+
+  /**
+   * 출금 지급 완료 = payout(L2). 지급 참조번호는 폼 대화상자(아래)에서 받고,
+   * 이어서 확인 + 사유를 받아 함께 API 로 보낸다 (감사 기록에 사유 저장).
+   */
+  const askMarkPaid = async (target: PendingAct, reference: string) => {
+    setPending(null);
+    const c = await confirmAdminAction({
+      level: adminActionLevel("payout"),
+      ko,
+      title: ko ? "출금 지급을 완료 처리하시겠습니까?" : "Mark this withdrawal as paid?",
+      description: ko
+        ? `${formatAdminNumber(target.amount)} Coin 출금 요청을 지급 완료합니다. 참조번호: ${reference.trim()}`
+        : `${formatAdminNumber(target.amount)} Coin withdrawal will be marked paid. Reference: ${reference.trim()}`,
+      confirmLabel: ko ? "출금 지급 완료" : "Mark paid",
+    });
+    if (!c.ok || !c.reason) return;
+    await act(target.requestId, "mark_paid", c.reason, {
+      method: target.payoutMethod ?? "",
+      reference,
+    });
   };
 
   return (
@@ -301,9 +343,7 @@ export function AdminCoinWithdrawalsPanel() {
                             variant="ghost"
                             size="sm"
                             disabled={busyId === r.id}
-                            onClick={() =>
-                              setPending({ requestId: r.id, action: "reject", amount: r.amount })
-                            }
+                            onClick={() => void askReject(r.id, r.amount)}
                             data-finance-cta="reject-withdrawal"
                           >
                             {adminCta("reject", ko)}
@@ -381,15 +421,8 @@ export function AdminCoinWithdrawalsPanel() {
         pending={busyId === pending?.requestId}
         onCancel={() => setPending(null)}
         onConfirm={(reference) => {
-          if (!pending) return;
-          if (pending.action === "mark_paid") {
-            void act(pending.requestId, pending.action, {
-              method: pending.payoutMethod ?? "",
-              reference,
-            });
-            return;
-          }
-          void act(pending.requestId, pending.action);
+          if (!pending || pending.action !== "mark_paid") return;
+          void askMarkPaid(pending, reference);
         }}
       />
     </section>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { updatePointExpirePolicyDb, type PointExpirePolicyPatch } from "@/lib/points/point-expire-db";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,11 +15,17 @@ export async function PATCH(
   if (!gate.ok) return gate.response;
 
   const { id } = await params;
-  let body: PointExpirePolicyPatch;
+  let raw: PointExpirePolicyPatch & { reason?: unknown };
   try {
-    body = (await req.json()) as PointExpirePolicyPatch;
+    raw = (await req.json()) as PointExpirePolicyPatch & { reason?: unknown };
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+  /** R2 — 소멸 정책 저장(pointPolicySave · L2) 사유 필수 → 감사 `after.reason`. 사유는 정책 행에 쓰지 않는다. */
+  const { reason: rawReason, ...body } = raw;
+  const reason = parseAdminReason(rawReason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   }
 
   try {
@@ -31,7 +38,11 @@ export async function PATCH(
       targetId: id,
       action: "point_expire_policy.update",
       before: (beforeRow ?? null) as Record<string, unknown> | null,
-      after: { patch: body as unknown as Record<string, unknown>, policy: policy as unknown as Record<string, unknown> },
+      after: {
+        patch: body as unknown as Record<string, unknown>,
+        policy: policy as unknown as Record<string, unknown>,
+        reason,
+      },
     });
     return NextResponse.json({ ok: true, policy });
   } catch (e) {

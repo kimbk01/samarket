@@ -4,6 +4,12 @@
  */
 
 import type { WorkspaceDrawerAction } from "@/lib/admin/advertising-workspace/resolve-drawer-actions";
+import {
+  adminActionLevel,
+  adminActionRequiresReason,
+  type AdminActionKind,
+} from "@/lib/admin/operator-ux/admin-action-levels";
+import type { AdminConfirmLevel } from "@/lib/admin/operator-ux/admin-confirm-action";
 
 export type AdminMutationConfirmTone = "primary" | "danger";
 
@@ -15,24 +21,54 @@ export type AdminMutationConfirmCopy = {
   tone: AdminMutationConfirmTone;
   reasonRequired: boolean;
   reasonLabel: string;
+  /** 확인 단계 (재설계 R2) — 동작 표 `adminActionLevel` 에서만 정한다. */
+  level: AdminConfirmLevel;
 };
+
+/**
+ * 광고 작업 화면 동작 → 동작 표 종류 (R2 · `admin-action-levels.ts`).
+ * 승인 = approve(L2) · 반려 = reject(L2) · 수정 요청(보류, 업주에게 반려 사유 전달) = reject(L2) ·
+ * 제재 일시중지 = sanction(L2) · 배달·커뮤니티 일시중지(writer 가 사유 필수) = sanction(L2) · 그 밖의 일시중지 = exposeStop(L1) ·
+ * 재개 = resume(L1) · 종료 = forceCancel(L3) · 초안 삭제 = delete(L3) · 보상 연장 = payout(L2) · 기간 변경 = save(L1).
+ */
+export function adsWorkspaceActionKind(
+  action: WorkspaceDrawerAction,
+  family: string | null,
+  opts?: { boostSanction?: boolean }
+): AdminActionKind {
+  switch (action) {
+    case "approve":
+      return "approve";
+    case "reject":
+    case "request_changes":
+      return "reject";
+    case "pause":
+      if (opts?.boostSanction) return "sanction";
+      // Delivery writer / community route require a reason on pause.
+      if (family === "delivery_banner" || family === "delivery_sponsored" || family === "boost_community") {
+        return "sanction";
+      }
+      return "exposeStop";
+    case "resume":
+      return "resume";
+    case "end":
+    case "terminate":
+      return "forceCancel";
+    case "delete_safe_draft":
+      return "delete";
+    case "extend_compensation":
+      return "payout";
+    default:
+      return "save";
+  }
+}
 
 export function adsWorkspaceActionNeedsReason(
   action: WorkspaceDrawerAction,
-  family: string | null
+  family: string | null,
+  opts?: { boostSanction?: boolean }
 ): boolean {
-  if (
-    action === "reject" ||
-    action === "request_changes" ||
-    action === "extend_compensation" ||
-    action === "terminate"
-  ) {
-    return true;
-  }
-  // Delivery writer requires reason on pause.
-  if (action === "pause" && family === "delivery_banner") return true;
-  if (action === "pause" && family === "delivery_sponsored") return true;
-  return false;
+  return adminActionRequiresReason(adsWorkspaceActionKind(action, family, opts));
 }
 
 export function adsWorkspaceMutationConfirmCopy(
@@ -41,8 +77,10 @@ export function adsWorkspaceMutationConfirmCopy(
   opts?: { boostSanction?: boolean; family?: string | null }
 ): AdminMutationConfirmCopy {
   const cancelLabel = ko ? "취소" : "Cancel";
-  const reasonRequired = adsWorkspaceActionNeedsReason(action, opts?.family ?? null);
   const boostSanction = Boolean(opts?.boostSanction) && action === "pause";
+  const kind = adsWorkspaceActionKind(action, opts?.family ?? null, { boostSanction });
+  const level = adminActionLevel(kind);
+  const reasonRequired = adminActionRequiresReason(kind);
   const reasonLabel =
     action === "request_changes"
       ? ko
@@ -65,8 +103,9 @@ export function adsWorkspaceMutationConfirmCopy(
       confirmLabel: ko ? "제재" : "Sanction",
       cancelLabel,
       tone: "danger",
-      reasonRequired: false,
+      reasonRequired,
       reasonLabel,
+      level,
     };
   }
 
@@ -80,8 +119,9 @@ export function adsWorkspaceMutationConfirmCopy(
         confirmLabel: ko ? "승인" : "Approve",
         cancelLabel,
         tone: "primary",
-        reasonRequired: false,
+        reasonRequired,
         reasonLabel,
+        level,
       };
     case "request_changes":
       return {
@@ -94,6 +134,7 @@ export function adsWorkspaceMutationConfirmCopy(
         tone: "primary",
         reasonRequired,
         reasonLabel,
+        level,
       };
     case "reject":
       return {
@@ -106,6 +147,7 @@ export function adsWorkspaceMutationConfirmCopy(
         tone: "danger",
         reasonRequired,
         reasonLabel,
+        level,
       };
     case "pause":
       return {
@@ -118,6 +160,7 @@ export function adsWorkspaceMutationConfirmCopy(
         tone: "primary",
         reasonRequired,
         reasonLabel,
+        level,
       };
     case "resume":
       return {
@@ -128,8 +171,9 @@ export function adsWorkspaceMutationConfirmCopy(
         confirmLabel: ko ? "재개" : "Resume",
         cancelLabel,
         tone: "primary",
-        reasonRequired: false,
+        reasonRequired,
         reasonLabel,
+        level,
       };
     case "end":
     case "terminate":
@@ -143,6 +187,7 @@ export function adsWorkspaceMutationConfirmCopy(
         tone: "danger",
         reasonRequired,
         reasonLabel,
+        level,
       };
     case "delete_safe_draft":
       return {
@@ -153,8 +198,9 @@ export function adsWorkspaceMutationConfirmCopy(
         confirmLabel: ko ? "삭제" : "Delete",
         cancelLabel,
         tone: "danger",
-        reasonRequired: false,
+        reasonRequired,
         reasonLabel,
+        level,
       };
     case "extend_compensation":
       return {
@@ -167,6 +213,7 @@ export function adsWorkspaceMutationConfirmCopy(
         tone: "primary",
         reasonRequired,
         reasonLabel,
+        level,
       };
     case "change_period":
       return {
@@ -177,8 +224,9 @@ export function adsWorkspaceMutationConfirmCopy(
         confirmLabel: ko ? "저장" : "Save",
         cancelLabel,
         tone: "primary",
-        reasonRequired: false,
+        reasonRequired,
         reasonLabel,
+        level,
       };
     case "add_internal_memo":
       // Ordinary note save — UI must call writer without confirmation dialog.
@@ -190,8 +238,9 @@ export function adsWorkspaceMutationConfirmCopy(
         confirmLabel: ko ? "저장" : "Save",
         cancelLabel,
         tone: "primary",
-        reasonRequired: false,
+        reasonRequired,
         reasonLabel,
+        level,
       };
     default:
       return {
@@ -200,8 +249,9 @@ export function adsWorkspaceMutationConfirmCopy(
         confirmLabel: ko ? "확인" : "Confirm",
         cancelLabel,
         tone: "primary",
-        reasonRequired: false,
+        reasonRequired,
         reasonLabel,
+        level,
       };
   }
 }
@@ -217,6 +267,7 @@ export function adsPlacementReorderConfirmCopy(ko: boolean): AdminMutationConfir
     tone: "primary",
     reasonRequired: false,
     reasonLabel: ko ? "사유" : "Reason",
+    level: adminActionLevel("save"),
   };
 }
 
@@ -232,5 +283,6 @@ export function adsCreateConfirmCopy(ko: boolean): AdminMutationConfirmCopy {
     tone: "primary",
     reasonRequired: false,
     reasonLabel: ko ? "사유" : "Reason",
+    level: adminActionLevel("save"),
   };
 }

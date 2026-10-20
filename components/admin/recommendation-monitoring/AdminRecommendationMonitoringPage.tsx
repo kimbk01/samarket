@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -29,28 +31,16 @@ const MONITORING_TABS: { id: TabId; labelKey: MessageKey }[] = [
 export function AdminRecommendationMonitoringPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
-  const [hydrated, setHydrated] = useState(false);
-  const [hydrateError, setHydrateError] = useState<string | null>(null);
+  const { state: loadState, reload } = useAdminSyncLoad(loadFullRecommendationAdminState);
 
-  useEffect(() => {
-    void loadFullRecommendationAdminState().then((r) => {
-      if (!r.ok) setHydrateError(r.errors?.join(" · ") ?? t("admin_rec_load_failed"));
-      setHydrated(true);
-    });
-  }, [t]);
-
-  if (!hydrated) {
+  if (loadState.status !== "ready") {
     return (
       <>
         <AdminPageHeader
           titleKey="admin_menu_rec_monitoring"
           descriptionKey="admin_rec_mon_page_desc"
         />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">
-            {t("admin_rec_mon_loading_settings")}
-          </p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }
@@ -61,11 +51,6 @@ export function AdminRecommendationMonitoringPage() {
         titleKey="admin_menu_rec_monitoring"
         descriptionKey="admin_rec_mon_page_desc_db"
       />
-      {hydrateError ? (
-        <div className="mb-4 rounded-ui-rect border border-sam-warning/40 bg-sam-warning/10 px-4 py-3 sam-text-body-secondary text-sam-fg" role="alert">
-          {t("admin_rec_mon_hydrate_fail")} ({hydrateError})
-        </div>
-      ) : null}
       <AdminTabs
         tabs={MONITORING_TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
         ariaLabel="추천 모니터링 탭"

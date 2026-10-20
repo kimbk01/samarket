@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   adminApprovePlatformPopupCampaign,
   transitionPlatformPopupCampaign,
@@ -36,14 +37,29 @@ export async function POST(
     nextApproval?: PlatformPopupApprovalStatus;
     activate?: boolean;
     schedule?: boolean;
+    reason?: unknown;
   };
 
-  if (body.action === "approve" || body.activate || body.schedule) {
+  // R2 — 승인·노출 시작·반려(L2)·종료(L3)는 처리 사유 필수, 노출 중지·검토 요청(L1)은 선택. 감사 after_json.reason 에 남긴다.
+  const isApprove = body.action === "approve" || Boolean(body.activate) || Boolean(body.schedule);
+  const reasonRequired =
+    isApprove ||
+    body.nextStatus === "active" ||
+    body.nextStatus === "ended" ||
+    body.nextStatus === "rejected" ||
+    body.nextApproval === "rejected";
+  const reason = parseAdminReason(body.reason);
+  if (reasonRequired && !reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
+
+  if (isApprove) {
     const result = await adminApprovePlatformPopupCampaign(sb, {
       campaignId,
       adminUserId: admin.userId,
       activate: Boolean(body.activate),
       schedule: Boolean(body.schedule) && !body.activate,
+      reason,
     });
     if (!result.ok) {
       return NextResponse.json(
@@ -64,6 +80,7 @@ export async function POST(
     actorRole: "admin",
     nextStatus: body.nextStatus,
     nextApproval: body.nextApproval,
+    reason,
   });
 
   if (!result.ok) {

@@ -11,6 +11,8 @@ import {
 } from "@/lib/admin-reports/trade-report-action-policy";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 const CONTENT_OPTIONS: { type: ReportActionType; labelKey: MessageKey }[] = [
@@ -45,9 +47,8 @@ export function AdminSanctionPanel({
   targetType,
   onActionSuccess,
 }: AdminSanctionPanelProps) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [loading, setLoading] = useState<string | null>(null);
-  const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const tt = (targetType ?? "").toLowerCase();
@@ -81,6 +82,24 @@ export function AdminSanctionPanel({
     ) {
       // Still allow writer to resolve author from product/comment when targetUserId empty.
     }
+    // R2 — 신고 기각 = reject(L2) · 게시물 숨김·경고·채팅 제한 = sanction(L2). 확인창의 처리 사유를 API 로 보낸다
+    // (거래 신고 처리 함수가 같은 사유로 감사 기록을 남긴다).
+    const actionLabel = t(
+      [...CONTENT_OPTIONS, ...LEDGER_OPTIONS].find((o) => o.type === actionType)?.labelKey ??
+        "admin_report_action_reject"
+    );
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel(actionType === "reject" ? "reject" : "sanction"),
+      ko: language !== "en",
+      title: actionLabel,
+      description: targetLabel ? `${t("admin_report_sanction_target_label")}: ${targetLabel}` : undefined,
+      confirmLabel: actionLabel,
+      destructive: actionType !== "reject",
+      reasonPlaceholder: t("admin_report_sanction_note_placeholder"),
+    });
+    if (!confirmed.ok) return;
+    const reason = confirmed.reason?.trim() ?? "";
+    if (!reason) return;
     setLoading(actionType);
     try {
       const res = await fetch(`/api/admin/reports/${encodeURIComponent(reportId)}/action`, {
@@ -90,7 +109,7 @@ export function AdminSanctionPanel({
         body: JSON.stringify({
           action_type: actionType,
           target_user_id: targetUserId,
-          action_note: note.trim() || null,
+          reason,
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -134,19 +153,6 @@ export function AdminSanctionPanel({
           {mccUserId || targetUserId || "—"})
         </p>
       )}
-      <div className="mb-3">
-        <label className="block sam-text-helper font-medium text-sam-muted">
-          {t("admin_report_sanction_note_label")}
-        </label>
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder={t("admin_report_sanction_note_placeholder")}
-          className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body-secondary"
-          rows={2}
-        />
-      </div>
-
       <p className="mb-1 sam-text-helper font-medium text-sam-fg">
         {safeT("admin_report_content_actions_label", {
           fallbackKo: "콘텐츠 조치",

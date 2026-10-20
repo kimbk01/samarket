@@ -5,6 +5,7 @@
 import type { AppSettings, SettingChangeLog } from "@/lib/types/admin-settings";
 import { isLegacyAppDisplayName, resolveAppDisplayName } from "@/lib/brand/app-display-name";
 import { DEFAULT_APP_SETTINGS } from "@/lib/admin-settings/admin-settings-utils";
+import { adminSafeErrorCode } from "@/lib/admin/admin-load-failure";
 
 const STORAGE_KEY = "samarket_app_settings_v1";
 
@@ -168,29 +169,32 @@ export async function loadAppSettingsFromServer(): Promise<{
   ok: boolean;
   source?: "db" | "default";
   error?: string;
+  httpStatus?: number;
 }> {
   try {
     const res = await fetch("/api/admin/app-settings", { cache: "no-store" });
-    const j = (await res.json()) as {
+    const j = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       bundle?: { settings: AppSettings; changeLogs?: SettingChangeLog[] };
       source?: "db" | "default";
       error?: string;
     };
     if (!res.ok || !j.ok || !j.bundle?.settings) {
-      return { ok: false, error: j.error ?? "load_failed" };
+      return { ok: false, error: adminSafeErrorCode(j.error, "load_failed"), httpStatus: res.status };
     }
     importAppSettingsBundle(j.bundle.settings, j.bundle.changeLogs);
     return { ok: true, source: j.source };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "network" };
+  } catch {
+    return { ok: false, error: "network_error" };
   }
 }
 
 /** 관리자 — 설정 저장 + 변경 이력 서버 반영 */
 export async function persistAppSettingsToServer(
   partial: Partial<AppSettings>
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; httpStatus?: number }> {
+  // 저장 실패 시 되돌릴 스냅샷 (R6 — 실패해도 바뀐 값이 화면·캐시에 남던 결함).
+  const before = getAppSettings();
   updateSettings(partial);
   try {
     const res = await fetch("/api/admin/app-settings", {
@@ -198,27 +202,29 @@ export async function persistAppSettingsToServer(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ settings: getAppSettings() }),
     });
-    const j = (await res.json()) as {
+    const j = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       bundle?: { settings: AppSettings; changeLogs?: SettingChangeLog[] };
       error?: string;
     };
     if (!res.ok || !j.ok) {
-      return { ok: false, error: j.error ?? "save_failed" };
+      applySettings(before);
+      return { ok: false, error: adminSafeErrorCode(j.error, "save_failed"), httpStatus: res.status };
     }
     if (j.bundle?.settings) {
       importAppSettingsBundle(j.bundle.settings, j.bundle.changeLogs);
     }
     return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "network" };
+  } catch {
+    applySettings(before);
+    return { ok: false, error: "network_error" };
   }
 }
 
 /** 관리자 — 섹션 기본값 복원 */
 export async function resetAppSettingsSectionOnServer(
   keys: (keyof AppSettings)[]
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; httpStatus?: number }> {
   const partial: Partial<AppSettings> = {};
   for (const key of keys) {
     const defaultVal = DEFAULT_APP_SETTINGS[key];

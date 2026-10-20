@@ -7,7 +7,8 @@ import {
   getRecommendationAutomationPolicies,
   saveRecommendationAutomationPolicy,
 } from "@/lib/recommendation-ops/recommendation-ops-state";
-import { persistRecommendationOpsToServer } from "@/lib/recommendation-ops/recommendation-ops-sync-client";
+import { commitRecommendationOpsChange } from "@/lib/recommendation-ops/recommendation-ops-sync-client";
+import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import {
   recFallbackModeLabel,
   recSurfaceLabel,
@@ -15,16 +16,22 @@ import {
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 export function AutomationPolicyTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [refresh, setRefresh] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   const policies = useMemo(
     () => getRecommendationAutomationPolicies(),
     [refresh]
   );
 
-  const flush = async () => {
-    const r = await persistRecommendationOpsToServer();
-    if (!r.ok) console.warn("[recommendation-ops] persist failed:", r.error);
+  /** 변경 → 저장. 실패면 정책을 되돌리고 실패 문구 표시 (예전: console.warn 만). */
+  const flush = async (mutate: () => void) => {
+    setBusy(true);
+    const r = await commitRecommendationOpsChange(mutate);
+    setBusy(false);
+    setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" });
     setRefresh((x) => x + 1);
   };
 
@@ -36,19 +43,16 @@ export function AutomationPolicyTable() {
   ) => {
     const p = policies.find((x) => x.id === id);
     if (!p) return;
-    saveRecommendationAutomationPolicy({ ...p, [field]: value });
-    await flush();
+    await flush(() => saveRecommendationAutomationPolicy({ ...p, [field]: value }));
   };
 
   if (policies.length === 0) {
-    return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        {t("admin_rec_auto_empty_policy")}
-      </div>
-    );
+    return <AdminEmptyState ko={ko} message={t("admin_rec_auto_empty_policy")} />;
   }
 
   return (
+    <>
+    <AdminResultBanner ko={ko} result={saveResult} onClose={() => setSaveResult(null)} />
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[800px] border-collapse sam-text-body">
         <thead>
@@ -92,6 +96,7 @@ export function AutomationPolicyTable() {
                 <AdminChipButton
                   selected={p.isActive}
                   type="button"
+                  disabled={busy}
                   onClick={() => void handleToggle(p.id, p.surface, "isActive", !p.isActive)}
                 >
                   {p.isActive ? "ON" : "OFF"}
@@ -101,13 +106,15 @@ export function AutomationPolicyTable() {
                 <label className="flex items-center gap-1">
                   <input
                     type="checkbox"
+                    disabled={busy}
                     checked={p.autoFallbackEnabled}
                     onChange={(e) => {
-                      saveRecommendationAutomationPolicy({
-                        ...p,
-                        autoFallbackEnabled: e.target.checked,
-                      });
-                      void flush();
+                      void flush(() =>
+                        saveRecommendationAutomationPolicy({
+                          ...p,
+                          autoFallbackEnabled: e.target.checked,
+                        })
+                      );
                     }}
                     className="rounded border-sam-border"
                   />
@@ -117,13 +124,15 @@ export function AutomationPolicyTable() {
                 <label className="flex items-center gap-1">
                   <input
                     type="checkbox"
+                    disabled={busy}
                     checked={p.autoKillSwitchEnabled}
                     onChange={(e) => {
-                      saveRecommendationAutomationPolicy({
-                        ...p,
-                        autoKillSwitchEnabled: e.target.checked,
-                      });
-                      void flush();
+                      void flush(() =>
+                        saveRecommendationAutomationPolicy({
+                          ...p,
+                          autoKillSwitchEnabled: e.target.checked,
+                        })
+                      );
                     }}
                     className="rounded border-sam-border"
                   />
@@ -133,13 +142,15 @@ export function AutomationPolicyTable() {
                 <label className="flex items-center gap-1">
                   <input
                     type="checkbox"
+                    disabled={busy}
                     checked={p.autoRollbackEnabled}
                     onChange={(e) => {
-                      saveRecommendationAutomationPolicy({
-                        ...p,
-                        autoRollbackEnabled: e.target.checked,
-                      });
-                      void flush();
+                      void flush(() =>
+                        saveRecommendationAutomationPolicy({
+                          ...p,
+                          autoRollbackEnabled: e.target.checked,
+                        })
+                      );
                     }}
                     className="rounded border-sam-border"
                   />
@@ -149,13 +160,15 @@ export function AutomationPolicyTable() {
                 <label className="flex items-center gap-1">
                   <input
                     type="checkbox"
+                    disabled={busy}
                     checked={p.autoRecoveryEnabled}
                     onChange={(e) => {
-                      saveRecommendationAutomationPolicy({
-                        ...p,
-                        autoRecoveryEnabled: e.target.checked,
-                      });
-                      void flush();
+                      void flush(() =>
+                        saveRecommendationAutomationPolicy({
+                          ...p,
+                          autoRecoveryEnabled: e.target.checked,
+                        })
+                      );
                     }}
                     className="rounded border-sam-border"
                   />
@@ -165,13 +178,15 @@ export function AutomationPolicyTable() {
                 <label className="flex items-center gap-1">
                   <input
                     type="checkbox"
+                    disabled={busy}
                     checked={p.dryRunEnabled}
                     onChange={(e) => {
-                      saveRecommendationAutomationPolicy({
-                        ...p,
-                        dryRunEnabled: e.target.checked,
-                      });
-                      void flush();
+                      void flush(() =>
+                        saveRecommendationAutomationPolicy({
+                          ...p,
+                          dryRunEnabled: e.target.checked,
+                        })
+                      );
                     }}
                     className="rounded border-sam-border"
                   />
@@ -185,5 +200,6 @@ export function AutomationPolicyTable() {
         </tbody>
       </table>
     </div>
+    </>
   );
 }

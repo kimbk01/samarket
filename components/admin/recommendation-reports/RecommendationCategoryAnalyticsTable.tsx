@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationCategoryAnalytics } from "@/lib/recommendation-analytics/recommendation-analytics-state";
@@ -11,7 +12,8 @@ interface RecommendationCategoryAnalyticsTableProps {
 export function RecommendationCategoryAnalyticsTable({
   reportId,
 }: RecommendationCategoryAnalyticsTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const rows = useMemo(
     () => getRecommendationCategoryAnalytics(reportId),
     [reportId]
@@ -19,9 +21,7 @@ export function RecommendationCategoryAnalyticsTable({
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        {t("admin_rec_report_empty_category")}
-      </div>
+      <AdminEmptyState ko={ko} message={t("admin_rec_report_empty_category")} />
     );
   }
 

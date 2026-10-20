@@ -4,6 +4,7 @@
  * 커뮤니티 피드 섹션 (설계 §C-18). 표준 버튼 · 결과 배너(alert 없음) · 사용 중지·삭제 L1 확인 · 개발 문구 제거.
  */
 import Link from "next/link";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -11,6 +12,7 @@ import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import type { CommunitySectionAdminRow } from "@/lib/community-feed/types";
 import { normalizeFeedSlug, normalizeSectionSlug } from "@/lib/community-feed/constants";
 
@@ -37,7 +39,7 @@ function sectionErrorText(code: unknown): string {
     case "forbidden_permission":
       return "이 작업을 할 권한이 없습니다.";
     default:
-      return "저장하지 못했습니다. 잠시 후 다시 저장해 주세요.";
+      return adminOperatorErrorMessage(typeof code === "string" ? code : "", true);
   }
 }
 
@@ -83,7 +85,7 @@ export function AdminCommunitySectionsPage({
     try {
       if (await fn()) await refresh();
     } catch {
-      setBanner({ ok: false, code: "네트워크 오류가 발생했습니다. 잠시 후 새로고침해 주세요." });
+      setBanner({ ok: false, code: "network_error" });
     } finally {
       setBusy(false);
     }
@@ -93,7 +95,7 @@ export function AdminCommunitySectionsPage({
     e.preventDefault();
     void run(async () => {
       const confirmed = await confirmAdminAction({
-        level: "L1",
+        level: adminActionLevel("save"),
         ko: true,
         title: "동네 피드 섹션 변경",
         description: `앱 동네 피드·글쓰기 카테고리가 「${philifeSectionSlug}」 섹션 기준으로 바뀝니다.`,
@@ -168,7 +170,7 @@ export function AdminCommunitySectionsPage({
     void run(async () => {
       if (s.is_active) {
         const confirmed = await confirmAdminAction({
-          level: "L1",
+          level: adminActionLevel("disable"),
           ko: true,
           title: `「${s.name}」 사용 중지`,
           description: "이 섹션의 카테고리·글이 피드에서 빠질 수 있습니다. 글은 지워지지 않습니다.",
@@ -186,15 +188,21 @@ export function AdminCommunitySectionsPage({
   const removeRow = (s: CommunitySectionAdminRow) =>
     void run(async () => {
       const confirmed = await confirmAdminAction({
-        level: "L1",
+        level: adminActionLevel("delete"),
         ko: true,
         title: `「${s.name}」 섹션 삭제`,
-        description: "글이 있는 섹션은 삭제되지 않습니다.",
+        description: "글이 있는 섹션은 삭제되지 않습니다. 삭제하면 되돌릴 수 없습니다.",
         confirmLabel: "삭제",
         destructive: true,
+        retypeValue: s.name,
       });
       if (!confirmed.ok) return false;
-      const res = await fetch(`/api/admin/community/sections/${s.id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/api/admin/community/sections/${s.id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: confirmed.reason }),
+      });
       const j = await jsonOf(res);
       if (!j.ok) {
         fail(j.error);

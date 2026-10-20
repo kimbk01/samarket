@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +14,12 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
+  /** R2 — 일괄 정리(L3) 사유 필수: 화면 확인창의 사유를 감사 `after.reason` 에 남긴다. */
+  const body = (await req.json().catch(() => ({}))) as { reason?: unknown };
+  const reason = parseAdminReason(body.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
   const supabaseEnv = requireSupabaseEnv({ requireServiceKey: true });
   if (!supabaseEnv.ok) {
     return NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 });
@@ -36,7 +43,7 @@ export async function POST(req: NextRequest) {
     targetType: "test_users",
     targetId: "bulk",
     action: "test_users.cleanup",
-    after: { kept: "role=admin" },
+    after: { kept: "role=admin", reason },
   });
 
   return NextResponse.json({ ok: true, message: "관리자(role=admin) 계정만 남겼습니다." });

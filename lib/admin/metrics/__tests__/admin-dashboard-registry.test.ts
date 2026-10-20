@@ -15,7 +15,11 @@ import {
   resolveAdminMetricHref,
 } from "@/lib/admin/metrics/registry";
 import { parseAdminDashboardParts } from "@/lib/admin/metrics/dashboard-overview-contract";
-import { parseAdminDashboardPeriod, resolveAdminDashboardPeriod } from "@/lib/admin/metrics/dashboard-period";
+import {
+  adminDashboardTrendDayKeys,
+  parseAdminDashboardPeriod,
+  resolveAdminDashboardPeriod,
+} from "@/lib/admin/metrics/dashboard-period";
 import { resolveAdminRouteAccess } from "@/lib/admin/access/admin-route-access";
 
 const NOW = new Date("2026-10-20T09:27:00Z"); // 17:27 PHT
@@ -97,6 +101,44 @@ describe("Admin Metric Registry (설계 v4 §3 · 통합 §2.5)", () => {
     }
   });
 
+  it("7번째 탭 = 고객지원·알림 (알림 발송 지표 포함)", () => {
+    const support = ADMIN_DASHBOARD_TABS[6];
+    expect(support).toMatchObject({ id: "support", labelKo: "고객지원·알림" });
+    expect(support.metricIds).toEqual(
+      expect.arrayContaining([
+        "notifications.campaigns_failed",
+        "notifications.campaigns_partially_failed",
+        "notifications.campaigns_in_progress",
+      ])
+    );
+    expect(resolveAdminMetricHref(ADMIN_METRIC_BY_ID.get("notifications.campaigns_failed")!, HREF)).toBe(
+      "/admin/notifications?tab=completed&status=failed"
+    );
+  });
+
+  it("7일 활성 = 회원 탭 추세 (정의 표기)", () => {
+    const members = ADMIN_DASHBOARD_TABS.find((t) => t.id === "members")!;
+    const trend = ADMIN_DASHBOARD_TRENDS[members.trend];
+    expect(trend.id).toBe("members_activity_daily");
+    expect(trend.series.map((x) => x.sourceDetail)).toContain("profiles.last_login_at");
+    expect(trend.definitionKo).toContain("7일 활성");
+    expect(trend.definitionEn).toContain("7-day active");
+  });
+
+  it("단위 = 회원 명 · 매장 곳 · 금액 ₱ · 그 밖 건", () => {
+    expect(ADMIN_METRIC_BY_ID.get("members.total")!.unit).toBe("people");
+    expect(ADMIN_METRIC_BY_ID.get("members.deletion_requests")!.unit).toBe("count");
+    expect(ADMIN_METRIC_BY_ID.get("stores.open_now")!.unit).toBe("stores");
+    expect(ADMIN_METRIC_BY_ID.get("finance.commission_net")!.unit).toBe("php_minor");
+  });
+
+  it("포인트 충전 지표 링크 = 상태 필터", () => {
+    expect(resolveAdminMetricHref(ADMIN_METRIC_BY_ID.get("points.waiting_confirm")!, HREF)).toBe(
+      "/admin/point-charges?status=waiting_confirm"
+    );
+    expect(resolveAdminMetricHref(ADMIN_METRIC_BY_ID.get("points.pending")!, HREF)).toBe("/admin/point-charges?status=pending");
+  });
+
   it("요약 띠 = 8칸, 지표는 정의됨, 탭 전환 대상은 실제 탭", () => {
     expect(ADMIN_DASHBOARD_BAND).toHaveLength(8);
     expect(ADMIN_DASHBOARD_BAND.map((b) => b.labelKo)).toEqual([
@@ -107,7 +149,7 @@ describe("Admin Metric Registry (설계 v4 §3 · 통합 §2.5)", () => {
       "배달 주문",
       "결제·정산",
       "광고",
-      "고객지원",
+      "고객지원·알림",
     ]);
     for (const b of ADMIN_DASHBOARD_BAND) {
       expect(ADMIN_METRIC_BY_ID.has(b.primaryMetricId)).toBe(true);
@@ -118,7 +160,7 @@ describe("Admin Metric Registry (설계 v4 §3 · 통합 §2.5)", () => {
 
   it("출처 없는 지표는 생략 목록에 사유와 함께 남긴다", () => {
     expect(ADMIN_DASHBOARD_OMITTED_METRICS.map((o) => o.labelKo)).toEqual(
-      expect.arrayContaining(["SLA 초과", "광고 환불 실패", "알림 발송·실패", "배달 경고"])
+      expect.arrayContaining(["SLA 초과", "광고 환불 실패", "알림 기기별 발송 실패", "배달 경고", "집행 중 팝업"])
     );
     for (const o of ADMIN_DASHBOARD_OMITTED_METRICS) expect(o.reason.length).toBeGreaterThan(5);
   });
@@ -134,8 +176,8 @@ describe("탭·응답 파라미터 파싱", () => {
 
   it("parts / period", () => {
     expect([...parseAdminDashboardParts("band,pending")]).toEqual(["band", "pending"]);
-    expect([...parseAdminDashboardParts("x")]).toEqual(["band", "metrics", "trend", "pending", "recent"]);
-    expect([...parseAdminDashboardParts(null)].length).toBe(5);
+    expect([...parseAdminDashboardParts("x")]).toEqual(["band", "metrics", "trend", "pending", "recent", "notices"]);
+    expect([...parseAdminDashboardParts(null)].length).toBe(6);
     expect(parseAdminDashboardPeriod("30d")).toBe("30d");
     expect(parseAdminDashboardPeriod("yesterday")).toBe("yesterday");
     expect(parseAdminDashboardPeriod("14d")).toBe("today");
@@ -160,5 +202,32 @@ describe("탭·응답 파라미터 파싱", () => {
     expect(resolveAdminDashboardPeriod("30d", NOW)).toMatchObject({ fromDay: "2026-09-21", toDay: "2026-10-20", trendDays: 30 });
     // PHT 자정 직후(UTC 전날 16:xx)도 PHT 날짜 기준
     expect(resolveAdminDashboardPeriod("today", new Date("2026-10-19T16:05:00Z")).fromDay).toBe("2026-10-20");
+  });
+
+  it("추세 창 = 선택 기간이 끝나는 날까지 N일 (「어제」 = 어제에서 끝남, 오늘까지 7일 아님)", () => {
+    expect(resolveAdminDashboardPeriod("today", NOW).trend).toEqual({
+      days: 7,
+      fromDay: "2026-10-14",
+      toDay: "2026-10-20",
+      fromIso: "2026-10-13T16:00:00.000Z",
+      toIso: "2026-10-20T16:00:00.000Z",
+    });
+    expect(resolveAdminDashboardPeriod("yesterday", NOW).trend).toMatchObject({
+      days: 7,
+      fromDay: "2026-10-13",
+      toDay: "2026-10-19",
+      toIso: "2026-10-19T16:00:00.000Z",
+    });
+    expect(resolveAdminDashboardPeriod("7d", NOW).trend).toMatchObject({ fromDay: "2026-10-14", toDay: "2026-10-20" });
+    expect(resolveAdminDashboardPeriod("30d", NOW).trend).toMatchObject({ days: 30, fromDay: "2026-09-21", toDay: "2026-10-20" });
+    expect(adminDashboardTrendDayKeys(resolveAdminDashboardPeriod("yesterday", NOW).trend)).toEqual([
+      "2026-10-13",
+      "2026-10-14",
+      "2026-10-15",
+      "2026-10-16",
+      "2026-10-17",
+      "2026-10-18",
+      "2026-10-19",
+    ]);
   });
 });

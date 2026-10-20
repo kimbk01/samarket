@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -19,7 +20,8 @@ import Link from "next/link";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 export function LaunchWeekIssueBoard() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [dayNumber, setDayNumber] = useState<LaunchWeekDayNumber | "">("");
   const [status, setStatus] = useState<LaunchWeekIssueStatus | "">("");
   const issues = useMemo(
@@ -66,9 +68,11 @@ export function LaunchWeekIssueBoard() {
       </div>
 
       {issues.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          긴급 이슈가 없습니다.
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={dayNumber || status ? undefined : "긴급 이슈가 없습니다."}
+          onReset={dayNumber || status ? () => { setDayNumber(""); setStatus(""); } : undefined}
+        />
       ) : (
         <AdminTable
           headers={[

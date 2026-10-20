@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -29,7 +30,8 @@ const TREND_LABELS: Record<string, string> = {
 };
 
 export function OpsBenchmarkCards() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [scope, setScope] = useState<OpsBenchmarkScope>("quarterly");
   const benchmarks = useMemo(
     () => getLatestOpsBenchmarks(scope),
@@ -38,9 +40,7 @@ export function OpsBenchmarkCards() {
 
   if (benchmarks.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-        해당 기간 벤치마크 데이터가 없습니다.
-      </div>
+      <AdminEmptyState ko={ko} message={"해당 기간 벤치마크 데이터가 없습니다."} />
     );
   }
 

@@ -9,9 +9,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   countTradePosts,
   loadTradePostsContext,
+  parseTradePostsFilter,
   resolveTradePostLguIds,
-  TRADE_ADMIN_OPEN_REPORT_STATUSES,
 } from "@/lib/admin/trade-admin/trade-posts-query";
+import { applyTradeReportTabFilter } from "@/lib/admin/metrics/admin-metric-filters";
 import { TRADE_POST_TABS, type TradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { supportTradeScopeOrFilter } from "@/lib/support/support-community-filter";
 import { loadPromotionLedgerRelatedIds, postgrestInList } from "@/lib/points/promotion-ledger-related-ids";
@@ -108,8 +109,12 @@ export async function loadTradeOverview(
     ? tradePromo.relatedIds.filter((x) => !x.includes(":"))
     : [];
 
-  const postCounts = ctxRes.ok
-    ? await Promise.all(TRADE_POST_TABS.map(async (t) => [t, await countTradePosts(sb, t, {}, ctxRes.ctx)] as const))
+  // 현재 상태 = 목록 기본 필터(주소 필터 없음)와 같은 해석 — 거래글 목록 탭 건수와 같은 값
+  const listDefault = parseTradePostsFilter(new URLSearchParams());
+  const postCounts = ctxRes.ok && listDefault.ok
+    ? await Promise.all(
+        TRADE_POST_TABS.map(async (t) => [t, await countTradePosts(sb, t, listDefault.filter, ctxRes.ctx)] as const)
+      )
     : TRADE_POST_TABS.map((t) => [t, null] as const);
 
   const [
@@ -130,7 +135,7 @@ export async function loadTradeOverview(
     supportReceived,
     adminActions,
   ] = await Promise.all([
-    headCount(head("reports").in("status", [...TRADE_ADMIN_OPEN_REPORT_STATUSES]), errors, "open_reports"),
+    headCount(applyTradeReportTabFilter(head("reports"), "open"), errors, "open_reports"),
     headCount(head("point_promotion_orders").eq("domain", "trade").eq("order_status", "pending_review"), errors, "promo_review"),
     headCount(
       head("support_cases").in("status", ["OPEN", "WAITING_ADMIN"]).or(supportTradeScopeOrFilter(tradeOrderIds)),

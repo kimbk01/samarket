@@ -7,6 +7,7 @@ import {
   loadAdminMemberIdentityMap,
 } from "@/lib/admin-community/member-identity";
 import { parseCommunityAdminPeriod } from "@/lib/admin/community-admin/community-admin-period";
+import { applyCommunityPostStatusOriginFilter } from "@/lib/admin/metrics/admin-metric-filters";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,8 +17,6 @@ const LIST_SELECT =
   "origin_kind, display_author_name, public_attribution_name, is_notice, pinned_at, pinned_until, pin_scope";
 const LIST_SELECT_LEGACY =
   "id, user_id, location_id, category, topic_id, topic_slug, title, status, is_reported, report_count, like_count, comment_count, view_count, created_at, updated_at, region_label, is_sample_data";
-
-const ORIGINS = new Set(["member", "imported", "admin"]);
 
 /** PostgREST or() 문법을 깨는 문자 제거 (검색어 주입 방지) */
 function sanitizeSearch(raw: string): string {
@@ -82,8 +81,8 @@ export async function GET(req: NextRequest) {
     if (locationId) q = q.eq("location_id", locationId);
     if (userId) q = q.eq("user_id", userId);
     if (reportedOnly) q = q.eq("is_reported", true);
-    if (status && ["active", "hidden", "deleted"].includes(status)) q = q.eq("status", status);
-    if (!legacy && origin && ORIGINS.has(origin)) q = q.eq("origin_kind", origin);
+    // 상태·출처 = 통합 대시보드 「커뮤니티 공개 게시글」·커뮤니티 대시보드와 같은 필터 함수
+    q = applyCommunityPostStatusOriginFilter(q, { status, origin: legacy ? null : origin });
     if (search) q = q.or(`title.ilike.%${search}%,content.ilike.%${search}%`);
     if (createdFromIso) q = q.gte("created_at", createdFromIso);
     if (createdToExclusive) q = q.lt("created_at", createdToExclusive);

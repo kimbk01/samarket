@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { ProductionMigrationSummaryCards } from "./ProductionMigrationSummaryCards";
@@ -23,13 +23,9 @@ type TabId =
   | "blocker";
 
 export function AdminProductionMigrationPage() {
-  const { t, language } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadProductionMigrationFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadProductionMigrationFromServer);
+  const hydrated = loadState.status === "ready";
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "overview", label: "Migration 개요" },
@@ -44,7 +40,7 @@ export function AdminProductionMigrationPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_dev_production" />
-        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

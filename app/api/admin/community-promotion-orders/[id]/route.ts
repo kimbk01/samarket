@@ -17,7 +17,7 @@ const ORDER_AUDIT_SELECT =
  * PATCH /api/admin/community-promotion-orders/[id]
  * body:
  *   { action: 'pause', reason }                         — 노출 중지 (L2, 사유 필수)
- *   { action: 'resume', reason? }                       — 노출 재개 (L1) · 종료일을 중지 시간만큼 연장
+ *   { action: 'resume', reason }                        — 노출 재개 (L2 exposeStart, 사유 필수) · 종료일을 중지 시간만큼 연장
  *   { action: 'end', fault: 'operator'|'member', reason, reasonCode?, preview?: boolean }
  *       — 홍보 종료 (L3). 운영 귀책이면 남은 노출 비례 포인트 환급 (원장 refund). preview=true 는 계산만.
  * → pause/resume: { ok, orderStatus, endAt, extendedSeconds? }
@@ -58,7 +58,7 @@ export async function PATCH(
   const preview = action === "end" && body.preview === true;
   // 환급 미리보기는 아무것도 바꾸지 않으므로 사유 없이 계산만 한다 (RPC 사유 검사용 고정 문구).
   const reason = normalizeCommunityAdminReason(body.reason) ?? (preview ? "환급 미리보기" : null);
-  if ((action === "pause" || action === "end") && !reason) {
+  if (!reason) {
     return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
   }
   const fault = parseCommunityPromotionFault(body.fault);

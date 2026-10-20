@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { getTradeServiceClient } from "@/lib/trade/service-supabase";
 import { recordTrustEvent, recomputeMemberTrustSnapshot } from "@/lib/trust/trust-event-ledger";
 import { buildManualAdjustmentIdempotencyKey } from "@/lib/trust/manner-battery-policy-v1";
@@ -55,12 +56,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, message: "변경 없음", appliedDelta: 0 });
   }
 
-  const reason =
-    typeof body.reason === "string" && body.reason.trim()
-      ? body.reason.trim().slice(0, 500)
-      : "";
+  /** R2 — 신뢰 점수 조정 = 제재(L2): 화면 확인창과 같은 최소 길이 사유를 받아 감사 `after.reason` 에 남긴다. */
+  const reason = parseAdminReason(body.reason);
   if (!reason) {
-    return NextResponse.json({ ok: false, error: "reason 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   }
 
   const sb = getTradeServiceClient();

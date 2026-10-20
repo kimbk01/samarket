@@ -72,7 +72,7 @@ describe("POST /api/admin/point-expire/run (V3-06)", () => {
       data: { ok: true, executionIds: ["e1", "e2"], totalExpired: 300, skippedUsers: 1 },
       error: null,
     });
-    const res = await runPOST(req("https://x.test/run", {}));
+    const res = await runPOST(req("https://x.test/run", { reason: "월말 소멸" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, executionIds: ["e1", "e2"], totalExpired: 300, skippedUsers: 1 });
     expect(rpc).toHaveBeenCalledTimes(1);
@@ -84,8 +84,19 @@ describe("POST /api/admin/point-expire/run (V3-06)", () => {
     expect(appendAdminRouteAudit).toHaveBeenCalledWith(
       sb,
       expect.anything(),
-      expect.objectContaining({ action: "point_expire.run", targetId: manilaToday() })
+      expect.objectContaining({
+        action: "point_expire.run",
+        targetId: manilaToday(),
+        after: expect.objectContaining({ reason: "월말 소멸" }),
+      })
     );
+  });
+
+  it("R2 — rejects a run without reason (L3) and does not call the RPC", async () => {
+    const res = await runPOST(req("https://x.test/run", { asOfDate: "2026-01-01" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "reason_required" });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("rejects a future as-of date without calling the RPC", async () => {
@@ -96,7 +107,7 @@ describe("POST /api/admin/point-expire/run (V3-06)", () => {
 
   it("surfaces RPC failure without auditing", async () => {
     rpc.mockResolvedValue({ data: { ok: false, error: "forbidden" }, error: null });
-    const res = await runPOST(req("https://x.test/run", { asOfDate: "2026-01-01" }));
+    const res = await runPOST(req("https://x.test/run", { asOfDate: "2026-01-01", reason: "월말 소멸" }));
     expect(res.status).toBe(500);
     expect(((await res.json()) as { error: string }).error).toBe("forbidden");
     expect(appendAdminRouteAudit).not.toHaveBeenCalled();
@@ -115,10 +126,11 @@ describe("PATCH /api/admin/point-expire/policy/[id]", () => {
   it("audits before/after", async () => {
     beforeRow.mockResolvedValue({ data: { id: "p1", expire_after_days: 30 }, error: null });
     updatePointExpirePolicyDb.mockResolvedValue({ id: "p1", expireAfterDays: 60 });
-    const res = await policyPATCH(req("https://x.test/policy/p1", { expireAfterDays: 60 }, "PATCH"), {
+    const res = await policyPATCH(req("https://x.test/policy/p1", { expireAfterDays: 60, reason: "기간 조정" }, "PATCH"), {
       params: Promise.resolve({ id: "p1" }),
     });
     expect(res.status).toBe(200);
+    expect(updatePointExpirePolicyDb).toHaveBeenCalledWith(sb, "p1", { expireAfterDays: 60 });
     expect(appendAdminRouteAudit).toHaveBeenCalledWith(
       sb,
       expect.anything(),
@@ -126,8 +138,17 @@ describe("PATCH /api/admin/point-expire/policy/[id]", () => {
         action: "point_expire_policy.update",
         targetId: "p1",
         before: { id: "p1", expire_after_days: 30 },
-        after: { patch: { expireAfterDays: 60 }, policy: { id: "p1", expireAfterDays: 60 } },
+        after: { patch: { expireAfterDays: 60 }, policy: { id: "p1", expireAfterDays: 60 }, reason: "기간 조정" },
       })
     );
+  });
+
+  it("R2 — rejects a save without reason (L2) and does not write", async () => {
+    const res = await policyPATCH(req("https://x.test/policy/p1", { expireAfterDays: 60 }, "PATCH"), {
+      params: Promise.resolve({ id: "p1" }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "reason_required" });
+    expect(updatePointExpirePolicyDb).not.toHaveBeenCalled();
   });
 });

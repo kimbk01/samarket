@@ -43,6 +43,27 @@ export type AdminBusinessListOpsFilters = {
   sort?: string;
 };
 
+/**
+ * 주소 → 매장 운영 목록 필터 (`/api/admin/business/ops-list` 와 통합 대시보드 「영업 중 매장」이 같은 해석을 쓴다).
+ */
+export function parseAdminBusinessListOpsFilters(searchParams: URLSearchParams): AdminBusinessListOpsFilters {
+  return {
+    q: searchParams.get("q") ?? "",
+    approval: searchParams.get("approval") ?? searchParams.get("status") ?? "all",
+    openKind: searchParams.get("open") ?? "",
+    orderable: (searchParams.get("orderable") as "yes" | "no" | "") || "",
+    delivery: (searchParams.get("delivery") as "yes" | "no" | "") || "",
+    settlement: (searchParams.get("settlement") as "ok" | "needs_check" | "held" | "attention" | "") || "",
+    report: (searchParams.get("report") as "open" | "none" | "") || "",
+    restriction: (searchParams.get("restriction") as "yes" | "no" | "") || "",
+    categoryId: searchParams.get("category_id") ?? "",
+    region: searchParams.get("region") ?? "",
+    page: Number(searchParams.get("page") || 1),
+    pageSize: Number(searchParams.get("pageSize") || 20),
+    sort: searchParams.get("sort") ?? "last_order",
+  };
+}
+
 export type AdminBusinessListOpsRow = {
   id: string;
   storeName: string;

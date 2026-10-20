@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { addOpsRetrospective } from "@/lib/ops-board/ops-board-state";
-import { persistOpsBoardToServer } from "@/lib/ops-board/ops-board-sync-client";
+import { commitOpsBoardChange } from "@/lib/ops-board/ops-board-sync-client";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import type { OpsSurface } from "@/lib/types/ops-board";
 import { OPS_TOOLS_SURFACE_KEYS } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
@@ -22,7 +23,9 @@ export function OpsRetrospectiveForm({
 }: {
   onSaved?: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [wins, setWins] = useState("");
@@ -32,10 +35,12 @@ export function OpsRetrospectiveForm({
   const [relatedSurface, setRelatedSurface] = useState<OpsSurface>("all");
   const [relatedReportId, setRelatedReportId] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     const date = formatAdminManilaDate(new Date());
-    addOpsRetrospective({
+    setBusy(true);
+    const r = await commitOpsBoardChange(() => addOpsRetrospective({
       retrospectiveDate: date,
       title: title || t("admin_ops_tools_board_retro_default_title"),
       summary,
@@ -48,7 +53,14 @@ export function OpsRetrospectiveForm({
       createdAt: new Date().toISOString(),
       createdByAdminId: "admin1",
       createdByAdminNickname: t("admin_ops_tools_admin_nickname"),
-    });
+    }));
+    setBusy(false);
+    if (!r.ok) {
+      // 저장 실패 — 회고는 되돌려졌고 입력값은 그대로 둔다.
+      setSaveResult({ ok: false, code: r.error ?? "save_failed" });
+      return;
+    }
+    setSaveResult(null);
     setTitle("");
     setSummary("");
     setWins("");
@@ -56,12 +68,12 @@ export function OpsRetrospectiveForm({
     setLearnings("");
     setNextActions("");
     setRelatedReportId("");
-    void persistOpsBoardToServer();
     onSaved?.();
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <AdminResultBanner ko={language !== "en"} result={saveResult} onClose={() => setSaveResult(null)} />
       <h3 className="sam-text-body font-medium text-sam-fg">{t("admin_ops_tools_board_retro_new")}</h3>
       <div>
         <label className="mb-1 block sam-text-helper text-sam-muted">{t("admin_ops_tools_board_label_title")}</label>
@@ -135,7 +147,7 @@ export function OpsRetrospectiveForm({
           />
         </div>
       </div>
-      <AdminActionButton type="submit" variant="primary">
+      <AdminActionButton type="submit" variant="primary" disabled={busy}>
         {t("admin_ops_tools_board_save_retro")}
       </AdminActionButton>
     </form>

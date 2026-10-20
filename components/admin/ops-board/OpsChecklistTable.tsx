@@ -6,7 +6,8 @@ import type { OpsChecklistItemStatus } from "@/lib/types/ops-board";
 import { getOpsDailyChecklistItems } from "@/lib/ops-board/ops-board-state";
 import { updateOpsDailyChecklistItem } from "@/lib/ops-board/ops-board-state";
 import { createTodayChecklist } from "@/lib/ops-board/ops-board-utils";
-import { persistOpsBoardToServer } from "@/lib/ops-board/ops-board-sync-client";
+import { commitOpsBoardChange } from "@/lib/ops-board/ops-board-sync-client";
+import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import {
   OPS_TOOLS_CHECKLIST_CATEGORY_KEYS,
   OPS_TOOLS_CHECKLIST_STATUS_KEYS,
@@ -18,7 +19,10 @@ import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 export function OpsChecklistTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const [busy, setBusy] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   const [checklistDate, setChecklistDate] = useState(() =>
     formatAdminManilaDate(new Date())
   );
@@ -29,23 +33,33 @@ export function OpsChecklistTable() {
     [checklistDate, refresh]
   );
 
+  /** 저장 실패면 commitOpsBoardChange 가 화면 상태를 되돌리고, 실패 문구를 표시한다. */
+  const commit = async (mutate: () => void) => {
+    setBusy(true);
+    const r = await commitOpsBoardChange(mutate);
+    setBusy(false);
+    setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" });
+    setRefresh((n) => n + 1);
+  };
+
   const handleStatusChange = (id: string, status: OpsChecklistItemStatus) => {
-    updateOpsDailyChecklistItem(id, {
-      status,
-      checkedAt: status === "done" ? new Date().toISOString() : null,
-    });
-    void persistOpsBoardToServer();
-    setRefresh((r) => r + 1);
+    void commit(() =>
+      updateOpsDailyChecklistItem(id, {
+        status,
+        checkedAt: status === "done" ? new Date().toISOString() : null,
+      })
+    );
   };
 
   const handleCreateFromTemplates = () => {
-    createTodayChecklist(checklistDate);
-    void persistOpsBoardToServer();
-    setRefresh((r) => r + 1);
+    void commit(() => {
+      createTodayChecklist(checklistDate);
+    });
   };
 
   return (
     <div className="space-y-4">
+      <AdminResultBanner ko={ko} result={saveResult} onClose={() => setSaveResult(null)} />
       <div className="flex flex-wrap items-center gap-3">
         <label className="sam-text-body font-medium text-sam-fg">{t("admin_ops_tools_board_check_date")}</label>
         <input
@@ -54,14 +68,12 @@ export function OpsChecklistTable() {
           onChange={(e) => setChecklistDate(e.target.value)}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         />
-        <AdminActionButton variant="primary" onClick={handleCreateFromTemplates}>
+        <AdminActionButton variant="primary" disabled={busy} onClick={handleCreateFromTemplates}>
           {t("admin_ops_tools_board_gen_checklist")}
         </AdminActionButton>
       </div>
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_ops_tools_board_no_checklist")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_ops_tools_board_no_checklist")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[640px] border-collapse sam-text-body">
@@ -125,6 +137,7 @@ export function OpsChecklistTable() {
                         <AdminActionButton
                           variant="ghost"
                           size="sm"
+                          disabled={busy}
                           onClick={() => handleStatusChange(i.id, "in_progress")}
                         >
                           {t("admin_ops_tools_board_btn_progress")}
@@ -132,6 +145,7 @@ export function OpsChecklistTable() {
                         <AdminActionButton
                           variant="ghost"
                           size="sm"
+                          disabled={busy}
                           onClick={() => handleStatusChange(i.id, "done")}
                         >
                           {t("admin_ops_tools_board_btn_complete")}
@@ -139,6 +153,7 @@ export function OpsChecklistTable() {
                         <AdminActionButton
                           variant="quiet"
                           size="sm"
+                          disabled={busy}
                           onClick={() => handleStatusChange(i.id, "skipped")}
                         >
                           {t("admin_ops_tools_board_btn_skip")}

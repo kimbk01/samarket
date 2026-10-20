@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OpsActionStatus } from "@/lib/types/ops-board";
@@ -9,7 +10,8 @@ import { OPS_TOOLS_ACTION_STATUS_KEYS, opsToolsLabel } from "@/components/admin/
 import { OpsActionCard } from "./OpsActionCard";
 
 export function OpsActionBoard() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [refresh, setRefresh] = useState(0);
   const [statusFilter, setStatusFilter] = useState<OpsActionStatus | "">("");
 
@@ -58,9 +60,11 @@ export function OpsActionBoard() {
         )}
       </div>
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_ops_tools_board_no_actions")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={statusFilter ? undefined : t("admin_ops_tools_board_no_actions")}
+          onReset={statusFilter ? () => { setStatusFilter(""); } : undefined}
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (

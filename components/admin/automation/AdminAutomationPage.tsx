@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -14,11 +16,8 @@ type TabId = "rules" | "logs";
 export function AdminAutomationPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("rules");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadAutomationFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadAutomationFromServer);
+  const hydrated = loadState.status === "ready";
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "rules", label: t("admin_automation_tab_rules") },
@@ -29,9 +28,7 @@ export function AdminAutomationPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_dev_automation" />
-        <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
-        </AdminCard>
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

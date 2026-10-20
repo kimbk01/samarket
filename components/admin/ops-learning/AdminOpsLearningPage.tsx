@@ -1,10 +1,11 @@
 "use client";
 
+import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
+import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { loadOpsLearningFromServer } from "@/lib/ops-learning/ops-learning-sync-client";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { OpsLearningSummaryCards } from "./OpsLearningSummaryCards";
@@ -20,16 +21,13 @@ import type { MessageKey } from "@/lib/i18n/messages";
 type TabId = "history" | "patterns" | "quality" | "suggestions" | "patternLogs";
 
 export function AdminOpsLearningPage() {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("history");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<OpsLearningStatus | "">("");
   const [patternStatusFilter, setPatternStatusFilter] = useState<OpsLearningStatus | "">("");
   const [selectedPatternId, setSelectedPatternId] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    void loadOpsLearningFromServer().then(() => setHydrated(true));
-  }, []);
+  const { state: loadState, reload } = useAdminSyncLoad(loadOpsLearningFromServer);
+  const hydrated = loadState.status === "ready";
 
   const tabs: { id: TabId; labelKey: MessageKey }[] = [
     { id: "history", labelKey: "admin_ops_tools_learning_tab_history" },
@@ -43,7 +41,7 @@ export function AdminOpsLearningPage() {
     return (
       <>
         <AdminPageHeader titleKey="admin_menu_manage_learning" />
-        <AdminLoadingState ko={language === "ko"} label={t("admin_rec_mon_loading_settings")} />
+        <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
   }

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -14,7 +15,8 @@ import type {
   ReleaseArchiveChangeType,
 } from "@/lib/types/release-archive";
 export function ReleaseChangeHistoryTable() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [versionFilter, setVersionFilter] = useState<string>("");
   const [changeTypeFilter, setChangeTypeFilter] = useState<ReleaseArchiveChangeType | "">("");
 
@@ -63,9 +65,7 @@ export function ReleaseChangeHistoryTable() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rel_history_empty")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_rel_history_empty")} />
       ) : (
         <AdminTable
           headers={[

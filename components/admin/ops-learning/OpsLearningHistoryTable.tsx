@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   OPS_TOOLS_KB_SOURCE_KEYS,
@@ -17,7 +18,8 @@ interface OpsLearningHistoryTableProps {
 }
 
 export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistoryTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const histories = useMemo(
     () => getOpsLearningHistories({ status: statusFilter || undefined }),
     [statusFilter]
@@ -25,7 +27,7 @@ export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistor
 
   if (histories.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_learning_history_empty")}</div>
+      <AdminEmptyState ko={ko} message={t("admin_ops_tools_learning_history_empty")} />
     );
   }
 

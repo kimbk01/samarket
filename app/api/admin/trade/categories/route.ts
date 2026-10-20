@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { readJsonBody } from "@/lib/admin/trade-admin/trade-admin-rpc";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { communityAdminUuidOrNull } from "@/lib/admin/community-admin/community-admin-period";
 import {
@@ -88,7 +89,7 @@ async function audit(sb: SupabaseClient, req: NextRequest, actorId: string, targ
  * body.op:
  *  - create { category, settings }
  *  - update { id, category?, settings? }
- *  - delete { id }        — 글·하위 카테고리가 있으면 409 (비활성 권장)
+ *  - delete { id, reason } — 사유 필수(R2 · L3). 글·하위 카테고리가 있으면 409 (비활성 권장)
  *  - reorder { orderedIds } — 0,1,2… 순서 부여
  */
 export async function POST(req: NextRequest) {
@@ -160,6 +161,9 @@ export async function POST(req: NextRequest) {
   if (op === "delete") {
     const id = communityAdminUuidOrNull(body.id as string);
     if (!id) return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
+    // R2 — 카테고리 삭제(delete L3)는 확인창 사유 필수 → 감사 after.reason.
+    const reason = parseAdminReason(body.reason);
+    if (!reason) return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
     const [{ data: before }, posts, children] = await Promise.all([
       sb.from("categories").select("*").eq("id", id).maybeSingle(),
       sb.from("posts").select("id", { count: "exact", head: true }).eq("trade_category_id", id),
@@ -174,7 +178,7 @@ export async function POST(req: NextRequest) {
       );
     }
     // 감사 먼저 (삭제는 되돌릴 수 없음). 확인 뒤 글이 생기면 FK(posts.trade_category_id) 가 삭제를 막는다.
-    const a = await audit(sb, req, admin.userId, id, "delete", before, null);
+    const a = await audit(sb, req, admin.userId, id, "delete", before, { reason });
     if (!a.ok) return NextResponse.json({ ok: false, error: "audit_failed" }, { status: 500 });
     const { data, error } = await sb.from("categories").delete().eq("id", id).select("id");
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 409 });

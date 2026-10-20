@@ -3,6 +3,7 @@
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -103,18 +104,16 @@ export function AdminGlobalAlertSoundSection({
   );
 
   const deleteGlobalSound = useCallback(async () => {
-    if (
-      !(
-        await confirmAdminAction({
-          level: "L1",
-          ko,
-          title: t("admin_stores_alert_delete_confirm"),
-          confirmLabel: t("admin_stores_alert_remove_db"),
-          destructive: true,
-        })
-      ).ok
-    )
-      return;
+    // R2 — DB 알림음 삭제 = delete(L3): 사유 + 대상(섹션 이름) 재입력, 사유는 API `reason` 으로 전송.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("delete"),
+      ko,
+      title: t("admin_stores_alert_delete_confirm"),
+      confirmLabel: t("admin_stores_alert_remove_db"),
+      destructive: true,
+      retypeValue: t(titleKey),
+    });
+    if (!confirmed.ok) return;
     setSoundSaving(true);
     setSoundError(null);
     setSoundMsg(null);
@@ -122,6 +121,8 @@ export function AdminGlobalAlertSoundSection({
       const res = await fetch(apiPath, {
         method: "DELETE",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: confirmed.reason }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!json?.ok) {
@@ -139,7 +140,7 @@ export function AdminGlobalAlertSoundSection({
     } finally {
       setSoundSaving(false);
     }
-  }, [apiPath, ko, onAfterMutation, t]);
+  }, [apiPath, ko, onAfterMutation, t, titleKey]);
 
   const persistSoundChoice = useCallback(
     async (id: StoreDeliveryAlertSoundSelectId) => {

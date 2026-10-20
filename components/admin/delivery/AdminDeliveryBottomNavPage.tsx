@@ -19,6 +19,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { DESIGN_SYSTEM_BRAND } from "@/lib/ui/design-system-hard-lock";
 
@@ -108,11 +109,13 @@ async function apiSwapOrder(a: Row, b: Row) {
   }
 }
 
-async function apiDelete(id: string) {
+async function apiDelete(id: string, reason: string | null) {
   try {
     const res = await fetch(`/api/admin/stores/bottom-nav?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
       credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
     });
     return await readResult<{ ok: boolean; error?: string }>(res);
   } catch {
@@ -561,7 +564,7 @@ export function AdminDeliveryBottomNavPage() {
                               size="sm"
                               onClick={async () => {
                                 const ok = await confirmAdminAction({
-                                  level: "L3",
+                                  level: adminActionLevel("delete"),
                                   ko,
                                   title: t("admin_del_confirm_delete"),
                                   confirmLabel: adminCta("delete", ko),
@@ -569,7 +572,7 @@ export function AdminDeliveryBottomNavPage() {
                                   retypeValue: r.label,
                                 });
                                 if (!ok.ok) return;
-                                const res = await apiDelete(r.id);
+                                const res = await apiDelete(r.id, ok.reason);
                                 if (!res.ok) {
                                   setError(errText(res.error));
                                   return;

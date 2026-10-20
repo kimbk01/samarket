@@ -27,7 +27,9 @@ import {
   executeMemberManagementAction,
   type MemberManagementActionId,
 } from "@/lib/admin-users/member-management-actions-client";
-import { dibayAlert, dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminUserPointsSection } from "@/components/admin/users/AdminUserPointsSection";
 import { AdminUserTrustSection } from "@/components/admin/users/AdminUserTrustSection";
 import {
@@ -219,24 +221,26 @@ export function AdminMemberControlCenter({
             "영향 미리보기에 실패했습니다. 그래도 영구 삭제를 시도할까요? (서버가 다시 검증합니다)";
         }
       }
-      const confirmed = await dibayConfirm({
+      // R2 — 영구 삭제·탈퇴 = purge(L3: 사유 + 대상 재입력) · 정지·차단·경고 = sanction(L2) · 해제 = liftSanction(L2).
+      // 확인창의 사유를 그대로 API 로 보낸다 (고정 문자열 사유 금지).
+      const isPurgeLike = actionId === "purge" || actionId === "withdraw";
+      const isLift = actionId === "unsuspend" || actionId === "unblock";
+      const retypeValue =
+        String(user.nickname ?? "").trim() ||
+        String(user.display_name ?? "").trim() ||
+        String(user.username ?? "").trim() ||
+        user.id;
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel(isPurgeLike ? "purge" : isLift ? "liftSanction" : "sanction"),
+        ko: true,
         title: confirmTitle,
-        confirmTone: actionId === "purge" || actionId === "withdraw" || actionId === "block" ? "destructive" : "primary",
+        confirmLabel: label,
+        destructive: isPurgeLike || actionId === "block",
+        retypeValue: isPurgeLike ? retypeValue : undefined,
       });
-      if (!confirmed) return;
-      let reason = `${actionId}_by_admin`;
-      if (actionId !== "purge" && actionId !== "withdraw") {
-        const prompted = await dibayPrompt({
-          title: "처리 사유를 입력해 주세요.",
-          required: true,
-        });
-        if (!prompted?.trim()) return;
-        reason = prompted.trim();
-      } else if (actionId === "purge") {
-        reason = "admin_permanent_delete";
-      } else {
-        reason = "admin_withdraw";
-      }
+      if (!confirmed.ok) return;
+      const reason = confirmed.reason?.trim() ?? "";
+      if (!reason) return;
       setDangerBusy(true);
       try {
         const result = await executeMemberManagementAction({
@@ -265,7 +269,7 @@ export function AdminMemberControlCenter({
         setDangerBusy(false);
       }
     },
-    [dangerBusy, onUpdated, user.id],
+    [dangerBusy, onUpdated, user.id, user.nickname, user.display_name, user.username],
   );
 
   return (

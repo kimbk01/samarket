@@ -7,6 +7,7 @@ import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/Admin
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction, type AdminConfirmLevel } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import {
   allowedStoreApprovalActions,
@@ -48,7 +49,7 @@ function dash(v: string | null | undefined): string {
 }
 
 
-/** 표준 CTA 이름 · 확인 등급 (R1) — 입점 심사 화면과 매장 상세가 같은 표를 쓴다. */
+/** 표준 CTA 이름 · 확인 등급 (R2 동작 표 `adminActionLevel`) — 입점 심사 화면과 매장 상세가 같은 표를 쓴다. */
 type StoreActionCopy = {
   level: AdminConfirmLevel;
   ko: string;
@@ -64,7 +65,7 @@ type StoreActionCopy = {
 
 export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
   start_review: {
-    level: "L1",
+    level: adminActionLevel("save"),
     ko: "심사 시작",
     en: "Start review",
     titleKo: "이 매장 심사를 시작할까요?",
@@ -73,7 +74,7 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
     successEn: "Review started.",
   },
   approve_store: {
-    level: "L1",
+    level: adminActionLevel("approve"),
     ko: "입점 승인",
     en: "Approve store",
     titleKo: "입점을 승인할까요?",
@@ -84,7 +85,7 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
     successEn: "Store approved. The owner was notified.",
   },
   reject_store: {
-    level: "L2",
+    level: adminActionLevel("reject"),
     ko: "입점 반려",
     en: "Reject store",
     titleKo: "입점을 반려할까요?",
@@ -96,7 +97,7 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
     successEn: "Store rejected. The owner was notified.",
   },
   request_revision: {
-    level: "L2",
+    level: adminActionLevel("reject"),
     ko: "보완 요청",
     en: "Request changes",
     titleKo: "신청서 보완을 요청할까요?",
@@ -107,7 +108,7 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
     successEn: "Changes requested. The owner was notified.",
   },
   suspend_store: {
-    level: "L2",
+    level: adminActionLevel("sanction"),
     ko: "운영 중지",
     en: "Suspend store",
     titleKo: "매장 운영을 중지할까요?",
@@ -119,7 +120,7 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
     successEn: "Store suspended. The owner was notified.",
   },
   resume_store: {
-    level: "L1",
+    level: adminActionLevel("resume"),
     ko: "운영 재개",
     en: "Resume store",
     titleKo: "매장 운영을 재개할까요?",
@@ -130,7 +131,7 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
     successEn: "Store resumed. The owner was notified.",
   },
   approve_sales: {
-    level: "L1",
+    level: adminActionLevel("approve"),
     ko: "판매 승인",
     en: "Approve sales",
     titleKo: "판매를 승인할까요?",
@@ -139,7 +140,7 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
     successEn: "Sales approved.",
   },
   reject_sales: {
-    level: "L2",
+    level: adminActionLevel("reject"),
     ko: "판매 반려",
     en: "Reject sales",
     titleKo: "판매를 반려할까요?",
@@ -149,7 +150,7 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
     successEn: "Sales rejected.",
   },
   suspend_sales: {
-    level: "L2",
+    level: adminActionLevel("sanction"),
     ko: "판매 중지",
     en: "Suspend sales",
     titleKo: "판매를 중지할까요?",
@@ -303,7 +304,7 @@ export function AdminStoreReviewPanel({
     }
   };
 
-  /** 모든 결정은 확인 팝업(L1/L2)을 거친다. L2 사유는 API `reason` 으로 전송. */
+  /** 모든 결정은 확인 팝업(동작 표 단계)을 거친다. L2·L3 사유는 API `reason` 으로 전송. */
   const runConfirmedAction = async (action: string): Promise<void> => {
     const c = ADMIN_STORE_ACTION_COPY[action];
     if (!c || !onRunAction) return;
@@ -314,7 +315,7 @@ export function AdminStoreReviewPanel({
       description: ko ? c.descKo : c.descEn,
       confirmLabel: ko ? c.ko : c.en,
       destructive: c.destructive,
-      reasonPlaceholder: c.level === "L2" ? (ko ? "사장님에게 전달될 사유" : "Reason sent to the owner") : undefined,
+      reasonPlaceholder: c.level !== "L1" ? (ko ? "사장님에게 전달될 사유" : "Reason sent to the owner") : undefined,
     });
     if (!confirmed.ok) return;
     await onRunAction(action, confirmed.reason ? { reason: confirmed.reason } : undefined);
@@ -333,8 +334,9 @@ export function AdminStoreReviewPanel({
           checked={store.is_visible}
           disabled={busy}
           onCheckedChange={async (next) => {
+            // 노출 켜기 = 노출 시작(L2 · 사유 전송), 노출 끄기 = 노출 중지(L1).
             const confirmed = await confirmAdminAction({
-              level: "L1",
+              level: adminActionLevel(next ? "exposeStart" : "exposeStop"),
               ko,
               title: next
                 ? ko
@@ -349,7 +351,12 @@ export function AdminStoreReviewPanel({
             if (!confirmed.ok) return false;
             setVisibleBusy(true);
             try {
-              const result = await Promise.resolve(onRunAction("set_store_visible", { enabled: next }));
+              const result = await Promise.resolve(
+                onRunAction("set_store_visible", {
+                  enabled: next,
+                  ...(confirmed.reason ? { reason: confirmed.reason } : {}),
+                })
+              );
               return result !== false;
             } finally {
               setVisibleBusy(false);
@@ -453,7 +460,7 @@ export function AdminStoreReviewPanel({
                     disabled={busy || adminStoreName.trim().length < 2}
                     onClick={async () => {
                       const confirmed = await confirmAdminAction({
-                        level: "L1",
+                        level: adminActionLevel("save"),
                         ko,
                         title: ko ? "매장명을 변경할까요?" : "Change the store name?",
                         description: adminStoreName.trim(),
@@ -480,7 +487,7 @@ export function AdminStoreReviewPanel({
                     onClick={async () => {
                       const next = !store.owner_can_edit_store_identity;
                       const confirmed = await confirmAdminAction({
-                        level: "L1",
+                        level: adminActionLevel("save"),
                         ko,
                         title: next
                           ? ko
@@ -514,8 +521,8 @@ export function AdminStoreReviewPanel({
           <div className="border-t border-sam-border-soft/80 py-3">
             <p className="text-[12px] text-sam-muted">
               {ko
-                ? "입점·운영 결정을 하면 사장님에게 자동으로 알림이 갑니다. 반려·보완·중지는 사유를 입력해야 합니다."
-                : "The owner is notified automatically of store decisions. Reject, changes, and suspend require a reason."}
+                ? "입점·운영 결정을 하면 사장님에게 자동으로 알림이 갑니다. 승인·반려·보완·중지는 사유를 입력해야 합니다."
+                : "The owner is notified automatically of store decisions. Approve, reject, changes, and suspend require a reason."}
             </p>
             {approvalActions.length > 0 ? (
               <div className="mt-3 flex flex-wrap gap-2" data-admin-store-approval-actions="1">

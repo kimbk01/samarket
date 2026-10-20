@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
@@ -14,6 +15,7 @@ import { PLATFORM_REC_EXECUTION_NS } from "@/lib/admin/status-labels/platform-st
 
 export function AutomationExecutionTable() {
   const { t, language } = useI18n();
+  const ko = language !== "en";
   const [refresh, setRefresh] = useState(0);
   const [surfaceFilter, setSurfaceFilter] = useState<RecommendationSurface | "">("");
 
@@ -45,9 +47,11 @@ export function AutomationExecutionTable() {
         </select>
       </div>
       {executions.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_rec_auto_empty_executions")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={surfaceFilter ? undefined : t("admin_rec_auto_empty_executions")}
+          onReset={surfaceFilter ? () => { setSurfaceFilter(""); } : undefined}
+        />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[640px] border-collapse sam-text-body">

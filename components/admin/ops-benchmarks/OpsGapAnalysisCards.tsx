@@ -1,6 +1,7 @@
 "use client";
 
 
+import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
@@ -23,7 +24,8 @@ const DOMAIN_LABELS: Record<OpsBenchmarkDomain, string> = {
 };
 
 export function OpsGapAnalysisCards() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [scope, setScope] = useState<OpsBenchmarkScope>("quarterly");
   const highGap = useMemo(() => getHighGapDomains(scope, 6), [scope]);
   return (
@@ -42,9 +44,7 @@ export function OpsGapAnalysisCards() {
       </div>
 
       {highGap.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          목표 대비 갭이 큰 영역이 없습니다.
-        </div>
+        <AdminEmptyState ko={ko} message={"목표 대비 갭이 큰 영역이 없습니다."} />
       ) : (
         <>
           <div>
