@@ -123,9 +123,17 @@ describe("profile-patch-concurrency helpers", () => {
   });
 });
 
+const ORIGIN = "https://proj.supabase.co";
+const own = (file: string) => `${ORIGIN}/storage/v1/object/public/post-images/u1/profile/${file}`;
+const OWN_NEW = own("aaaaaaaa-bbbb-4ccc-8ddd-000000000001.webp");
+const OWN_OLD = own("aaaaaaaa-bbbb-4ccc-8ddd-000000000002.webp");
+const OWN_NEWEST = own("aaaaaaaa-bbbb-4ccc-8ddd-000000000003.jpg");
+const OTHER_MEMBER_POST = `${ORIGIN}/storage/v1/object/public/post-images/u2/posts/aaaaaaaa-bbbb-4ccc-8ddd-000000000009.jpg`;
+
 describe("PATCH /api/me/profile", () => {
   beforeEach(() => {
-    dbRow = { id: "u1", nickname: "홍길동", display_name: "홍길동", bio: "최신 인사", avatar_url: "https://x/new.webp" };
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", ORIGIN);
+    dbRow = { id: "u1", nickname: "홍길동", display_name: "홍길동", bio: "최신 인사", avatar_url: OWN_NEW };
     removedUrls.length = 0;
   });
 
@@ -144,16 +152,62 @@ describe("PATCH /api/me/profile", () => {
   });
 
   it("stale avatar revert is blocked and no storage file is deleted", async () => {
-    const r = await patch({ avatar_url: "https://x/old.webp", expected: { avatar_url: "https://x/older.webp" } });
+    const r = await patch({ avatar_url: OWN_OLD, expected: { avatar_url: own("aaaaaaaa-bbbb-4ccc-8ddd-000000000004.webp") } });
     expect(r.status).toBe(409);
-    expect(dbRow.avatar_url).toBe("https://x/new.webp");
+    expect(dbRow.avatar_url).toBe(OWN_NEW);
     expect(removedUrls).toEqual([]);
   });
 
   it("avatar replace cleans up exactly the previous DB value after the update succeeds", async () => {
-    const r = await patch({ avatar_url: "https://x/newest.webp", expected: { avatar_url: "https://x/new.webp" } });
+    const r = await patch({ avatar_url: OWN_NEWEST, expected: { avatar_url: OWN_NEW } });
     expect(r.status).toBe(200);
-    expect(dbRow.avatar_url).toBe("https://x/newest.webp");
-    expect(removedUrls).toEqual([["https://x/new.webp"]]);
+    expect(dbRow.avatar_url).toBe(OWN_NEWEST);
+    expect(removedUrls).toEqual([[OWN_NEW]]);
+  });
+
+  describe("D1 — 본인 사진만 지정·삭제", () => {
+    it.each([
+      ["다른 회원 게시글 사진", OTHER_MEMBER_POST],
+      ["다른 회원 프로필 사진", OTHER_MEMBER_POST.replace("/u2/posts/", "/u2/profile/")],
+      ["외부 주소", "https://evil.example.com/a.jpg"],
+      ["다른 호스트 같은 경로", OWN_NEWEST.replace(ORIGIN, "https://attacker.supabase.co")],
+      ["쿼리 붙은 본인 경로", `${OWN_NEWEST}?download=1`],
+      ["본인 경로 + ..", OWN_NEWEST.replace("/profile/", "/profile/../posts/")],
+      ["파생본", OWN_NEWEST.replace(".jpg", ".thumb.webp")],
+    ])("거부: %s → 400, DB·저장소 변화 없음", async (_label, url) => {
+      const r = await patch({ avatar_url: url, expected: { avatar_url: OWN_NEW } });
+      expect(r.status).toBe(400);
+      expect(r.json.code).toBe("avatar_url_not_allowed");
+      expect(dbRow.avatar_url).toBe(OWN_NEW);
+      expect(removedUrls).toEqual([]);
+    });
+
+    it("허용: 기본 그림으로 바꾸면 이전 본인 사진만 정리", async () => {
+      const r = await patch({ avatar_url: "/samarket-default-avatar.svg", expected: { avatar_url: OWN_NEW } });
+      expect(r.status).toBe(200);
+      expect(removedUrls).toEqual([[OWN_NEW]]);
+    });
+
+    it("허용: 소셜 로그인 사진을 그대로 다시 저장(값 불변)해도 400 아님, 파일 삭제 없음", async () => {
+      dbRow.avatar_url = "https://lh3.googleusercontent.com/a/abc=s96-c";
+      const r = await patch({ avatar_url: "https://lh3.googleusercontent.com/a/abc=s96-c", bio: "x" });
+      expect(r.status).toBe(200);
+      expect(removedUrls).toEqual([]);
+    });
+
+    it("소셜 사진 → 본인 사진 교체: 외부 주소인 이전 값은 삭제 대상 아님", async () => {
+      dbRow.avatar_url = "https://lh3.googleusercontent.com/a/abc=s96-c";
+      const r = await patch({ avatar_url: OWN_NEWEST, expected: { avatar_url: "https://lh3.googleusercontent.com/a/abc=s96-c" } });
+      expect(r.status).toBe(200);
+      expect(removedUrls).toEqual([]);
+    });
+
+    it("이전 값이 (과거에 저장된) 다른 회원 사진이어도 그 파일은 지우지 않는다", async () => {
+      dbRow.avatar_url = OTHER_MEMBER_POST;
+      const r = await patch({ avatar_url: OWN_NEWEST, expected: { avatar_url: OTHER_MEMBER_POST } });
+      expect(r.status).toBe(200);
+      expect(dbRow.avatar_url).toBe(OWN_NEWEST);
+      expect(removedUrls).toEqual([]);
+    });
   });
 });

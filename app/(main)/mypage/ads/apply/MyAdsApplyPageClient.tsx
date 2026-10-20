@@ -14,7 +14,7 @@ import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 export function MyAdsApplyPageClient() {
   const { t } = useI18n();
   const router = useRouter();
-  const { balance, loading: balanceLoading } = useUserPointBalance();
+  const { balance, loading: balanceLoading, error: balanceError } = useUserPointBalance();
   const { productOptions, loading: targetsLoading, unauthorized } =
     usePromotionOrderTargets();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -71,7 +71,7 @@ export function MyAdsApplyPageClient() {
           <p className="py-10 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>
         ) : (
           <PointPromotionOrderForm
-            balance={balance}
+            balance={balanceError ? null : balance}
             balanceLoading={balanceLoading}
             productOptions={productOptions}
             onSubmit={(v) => void handleSubmit(v)}

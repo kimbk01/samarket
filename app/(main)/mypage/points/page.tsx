@@ -48,7 +48,8 @@ function MypagePointsPageInner() {
   const initialTab = (searchParams.get("tab") as Tab | null) ?? "all";
   const showCharges = searchParams.get("view") === "charges";
 
-  const [balance, setBalance] = useState(0);
+  /** null = 로딩 중·조회 실패 → "—". 음수는 실제 잔액(D4). */
+  const [balance, setBalance] = useState<number | null>(null);
   const [summary, setSummary] = useState<PointFinancialSummary | null>(null);
   const [items, setItems] = useState<PointFinancialHistoryItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -95,14 +96,15 @@ function MypagePointsPageInner() {
         if (!res.ok || !json?.ok) {
           setLoadError(json?.error ?? "points_load_failed");
           if (!append) {
-            setBalance(0);
+            setBalance(null);
             setItems([]);
             setRequests([]);
           }
           return;
         }
         setLoadError(null);
-        setBalance(Math.max(0, Number(json.balance ?? 0)));
+        const nextBalance = Number(json.balance);
+        setBalance(Number.isFinite(nextBalance) ? Math.trunc(nextBalance) : null);
         setSummary(json.summary ?? null);
         const pageItems = Array.isArray(json.history?.items) ? json.history!.items! : [];
         setItems((prev) => (append ? [...prev, ...pageItems] : pageItems));
@@ -114,7 +116,7 @@ function MypagePointsPageInner() {
       } catch {
         setLoadError("points_load_failed");
         if (!append) {
-          setBalance(0);
+          setBalance(null);
           setItems([]);
           setRequests([]);
         }

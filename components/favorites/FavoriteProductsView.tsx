@@ -54,6 +54,16 @@ export function FavoriteProductsView({
 
   const counts = useMemo(() => countFavoriteManageTabs(posts), [posts]);
   const filtered = useMemo(() => filterFavoritesByTab(posts, tab), [posts, tab]);
+  /** 훅은 아래 조건부 return 보다 먼저 — 로딩→목록 전환 시 훅 개수가 바뀌면 React 오류(#310) */
+  const emptyTabMsg = useMemo(
+    (): Record<FavoriteManageTabId, string> => ({
+      all: t("ui_fav_tab_empty_all"),
+      active: t("ui_fav_tab_empty_active"),
+      sold: t("ui_fav_tab_empty_sold"),
+      gone: t("ui_fav_tab_empty_gone"),
+    }),
+    [t]
+  );
 
   useEffect(() => {
     if (!mounted) return;
@@ -127,15 +137,6 @@ export function FavoriteProductsView({
     );
   }
 
-  const emptyTabMsg = useMemo(
-    (): Record<FavoriteManageTabId, string> => ({
-      all: t("ui_fav_tab_empty_all"),
-      active: t("ui_fav_tab_empty_active"),
-      sold: t("ui_fav_tab_empty_sold"),
-      gone: t("ui_fav_tab_empty_gone"),
-    }),
-    [t]
-  );
 
   return (
     <div

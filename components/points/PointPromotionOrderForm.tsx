@@ -17,7 +17,8 @@ export interface PointPromotionOrderFormValues {
 }
 
 interface PointPromotionOrderFormProps {
-  balance: number;
+  /** null = 잔액 확인 불가 → 신청 비활성, "—" 표시 */
+  balance: number | null;
   balanceLoading?: boolean;
   productOptions: { id: string; title: string }[];
   /** Deep-link from My Trade — preselect listing */
@@ -50,7 +51,7 @@ export function PointPromotionOrderForm({
 
   const selected = catalog.find((p) => p.id === productId) ?? catalog[0];
   const cost = selected?.pointCost ?? 0;
-  const insufficient = balance < cost;
+  const insufficient = balance !== null && balance < cost;
   const submitText = submitLabel ?? t("promo_sheet_cta");
 
   const resolvedTargetId = targetId.trim() || productOptions[0]?.id || "";
@@ -59,6 +60,7 @@ export function PointPromotionOrderForm({
 
   const canSubmit =
     !balanceLoading &&
+    balance !== null &&
     Boolean(resolvedTargetId) &&
     productOptions.length > 0 &&
     Boolean(selected) &&
@@ -146,7 +148,7 @@ export function PointPromotionOrderForm({
           className="mt-1 sam-text-page-title font-semibold"
         />
         <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-          {t("points_ui_owned", { balance: balance.toLocaleString() })}
+          {t("points_ui_owned", { balance: balance === null ? "—" : balance.toLocaleString() })}
         </p>
         {insufficient ? (
           <p className="mt-2 sam-text-body-secondary font-medium text-red-600">

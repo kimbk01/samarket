@@ -34,7 +34,8 @@ function MyPointsPromotionsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTargetId = searchParams.get("postId")?.trim() || searchParams.get("targetId")?.trim() || null;
-  const { balance, loading: balanceLoading, refresh: refreshBalance } = useUserPointBalance();
+  const { balance, loading: balanceLoading, error: balanceError, refresh: refreshBalance } = useUserPointBalance();
+  const shownBalance = balanceLoading || balanceError ? null : balance;
   const {
     productOptions,
     loading: targetsLoading,
@@ -114,7 +115,7 @@ function MyPointsPromotionsPageInner() {
             {t("auth_resource_access_denied")}
           </p>
         ) : null}
-        <PointBalanceCard balance={balance} />
+        <PointBalanceCard balance={shownBalance} />
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="mb-3 sam-text-body font-semibold text-sam-fg">
             {t("points_ui_new_promotion_order")}
@@ -128,7 +129,7 @@ function MyPointsPromotionsPageInner() {
             <p className="py-6 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>
           ) : (
             <PointPromotionOrderForm
-              balance={balance}
+              balance={shownBalance}
               balanceLoading={balanceLoading}
               productOptions={productOptions}
               initialTargetId={initialTargetId}

@@ -39,6 +39,13 @@ import {
 import { jsonError } from "@/lib/http/api-route";
 import { shouldBypassRouteMemoryCache } from "@/lib/http/route-cache-bypass";
 import { isMemberNicknameTaken } from "@/lib/profile/member-nickname-policy";
+import {
+  isAllowedMemberAvatarUrl,
+  isOwnProfileAvatarStoragePath,
+  resolveMemberAvatarStorageOrigin,
+} from "@/lib/profile/member-avatar-url-policy";
+import { parseSupabasePublicObjectUrl } from "@/lib/media/canonical-image-path";
+import { POST_IMAGES_BUCKET } from "@/lib/media/canonical-image-contract";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
 import { computeProfileCompleted } from "@/lib/profile/profile-completed";
 import {
@@ -1080,6 +1087,30 @@ export async function PATCH(req: NextRequest) {
   }
 
   const existingCompletionRow = await fetchProfileCompletionRow(auth.userId);
+  const expectedForPatch = parseProfilePatchExpected(raw);
+
+  if ("avatar_url" in parsed.patch) {
+    const nextAvatar = (parsed.patch.avatar_url as string | null) ?? null;
+    /**
+     * D1 — 본인 사진·기본 그림·빈 값·현재 값 그대로만 허용 (DB 트리거와 같은 규칙).
+     * 현재 값을 못 읽었으면 expected 를 현재 값으로 본다 — UPDATE 가 DB=expected 조건이라 위조해도 저장되지 않는다.
+     */
+    const currentAvatar = existingCompletionRow?.avatar_url ?? expectedForPatch.avatar_url ?? null;
+    if (
+      !isAllowedMemberAvatarUrl({
+        ownerUserId: auth.userId,
+        url: nextAvatar,
+        currentUrl: currentAvatar,
+        storageOrigin: resolveMemberAvatarStorageOrigin(),
+      })
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "프로필 사진은 앱에서 올린 본인 사진만 사용할 수 있습니다.", code: "avatar_url_not_allowed" },
+        { status: 400 }
+      );
+    }
+  }
+
   applyProfileCompletedFromMergedRow(parsed.patch, existingCompletionRow);
 
   const serviceSb = tryCreateSupabaseServiceClient();
@@ -1097,7 +1128,7 @@ export async function PATCH(req: NextRequest) {
     ...parsed.patch,
     updated_at: new Date().toISOString(),
   };
-  const conditions = expectedConditionsForPatch(parsed.patch, parseProfilePatchExpected(raw));
+  const conditions = expectedConditionsForPatch(parsed.patch, expectedForPatch);
 
   let writeSb: ProfileWriteClient | null = serviceSb;
   if (!writeSb) {
@@ -1168,7 +1199,16 @@ export async function PATCH(req: NextRequest) {
      */
     const avatarCondition = conditions.find((c) => c.column === "avatar_url");
     const previousAvatar = avatarCondition ? avatarCondition.value : existingCompletionRow?.avatar_url ?? null;
-    const removed = diffRemovedImageUrls([previousAvatar], [parsed.patch.avatar_url as string | null]);
+    // 이전 값이 본인 프로필 폴더 원본일 때만 삭제 — 다른 회원·게시글 사진은 절대 지우지 않는다(D1).
+    const removed = diffRemovedImageUrls([previousAvatar], [parsed.patch.avatar_url as string | null]).filter(
+      (url) => {
+        const parsedUrl = parseSupabasePublicObjectUrl(url);
+        return (
+          parsedUrl?.bucket === POST_IMAGES_BUCKET &&
+          isOwnProfileAvatarStoragePath(auth.userId, parsedUrl.path)
+        );
+      }
+    );
     if (removed.length > 0) {
       const removal = await removeCanonicalImagesFromPublicUrls({
         sb: writeSb,

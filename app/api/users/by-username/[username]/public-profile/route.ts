@@ -7,7 +7,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { mapProfileRowToPublicSeller, mapTestUserRowToPublicSeller } from "@/lib/users/map-profile-to-public-seller";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
-import { resolveUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
+import {
+  isPublicProfileHidden,
+  PUBLIC_PROFILE_SELECT,
+  PUBLIC_PROFILE_SELECT_FALLBACK,
+  resolvePublicTradeLocationLine,
+} from "@/lib/users/public-profile-exposure";
 import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
 
 export const runtime = "nodejs";
@@ -33,7 +38,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ use
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  const profileSelect = "id, display_name, nickname, username, avatar_url, trust_score, manner_score, manner_temperature";
+  const profileSelect = PUBLIC_PROFILE_SELECT;
   let { data: prof, error: profErr } = await sbAny
     .from("profiles")
     .select(profileSelect)
@@ -46,11 +51,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ use
   ) {
     const r2 = await sbAny
       .from("profiles")
-      .select("id, display_name, nickname, username, avatar_url")
+      .select(PUBLIC_PROFILE_SELECT_FALLBACK)
       .ilike("username", escapeIlikePatternFragment(username))
       .maybeSingle();
     prof = r2.data as typeof prof;
     profErr = r2.error;
+  }
+
+  if (!profErr && prof && isPublicProfileHidden(prof as { status?: string | null; deleted_at?: string | null })) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
   if (!profErr && prof && typeof (prof as { id?: string }).id === "string") {
@@ -73,7 +82,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ use
       let tradeLocationLine: string | null = null;
       try {
         const defaults = await getUserAddressDefaults(sbAny, profile.id);
-        tradeLocationLine = resolveUserAddressTitle(defaults.master);
+        tradeLocationLine = resolvePublicTradeLocationLine(defaults.master);
       } catch {
         /* ignore */
       }

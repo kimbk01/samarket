@@ -14,6 +14,7 @@ type PointsBalanceJson = { balance?: number };
  * while a later `/api/me/points` probe still shows the real balance.
  *
  * MYPAGE-03: fetch failure must not be presented as balance 0 — use `error`.
+ * D4: 음수(시스템 회수 후 미정산)는 실제 잔액 — 0 으로 자르지 않는다(financial hard-lock §8).
  */
 export function useUserPointBalance(_userId?: string | null): {
   balance: number;
@@ -35,7 +36,9 @@ export function useUserPointBalance(_userId?: string | null): {
         }
         return (await res.json()) as PointsBalanceJson;
       });
-      setBalance(Math.max(0, Number(j.balance ?? 0)));
+      const next = Number(j.balance);
+      if (!Number.isFinite(next)) throw new Error("points_balance_missing");
+      setBalance(Math.trunc(next));
       setError(false);
     } catch {
       setError(true);

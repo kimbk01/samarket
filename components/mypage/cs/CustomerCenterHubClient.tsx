@@ -110,9 +110,13 @@ const MEMBER_CC_CONTEXT = DISABLED_SUPPORT_CONTEXT;
  */
 export function CustomerCenterHubClient() {
   const { safeT, language } = useI18n();
-  const { balance, loading } = useUserPointBalance();
+  const { balance, loading, error: balanceError } = useUserPointBalance();
   const supportUnread = useSupportRequesterUnread({ audience: "MEMBER" });
-  const pointsAccessory = loading ? "…" : balance.toLocaleString(language === "ko" ? "ko-KR" : "en-US");
+  const pointsAccessory = loading
+    ? "…"
+    : balanceError
+      ? "—"
+      : balance.toLocaleString(language === "ko" ? "ko-KR" : "en-US");
 
   const greeting = safeT("mypage_cs_hub_greeting", {
     fallbackKo: "무엇이 궁금하신가요?",

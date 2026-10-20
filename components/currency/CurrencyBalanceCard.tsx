@@ -24,8 +24,8 @@ export function CurrencyBalanceCard({
   className = "",
 }: {
   currency: CurrencyVisualVariant;
-  /** Display-only balance from canonical finance API */
-  amount: number;
+  /** Display-only balance from canonical finance API. null = 아직 모름·조회 실패 → "—" (0 으로 표시 금지) */
+  amount: number | null;
   isMinor?: boolean;
   compactPoint?: boolean;
   actions?: CurrencyActionSpec[];
@@ -45,13 +45,19 @@ export function CurrencyBalanceCard({
         <CurrencyBadge currency={currency} />
       </div>
       <div className="mt-3">
-        <CurrencyAmount
-          currency={currency}
-          amount={amount}
-          isMinor={isMinor}
-          compactPoint={compactPoint}
-          className="text-2xl sm:text-[1.75rem]"
-        />
+        {amount === null ? (
+          <span className="text-2xl font-bold tabular-nums text-sam-muted sm:text-[1.75rem]" data-currency-amount-unavailable>
+            —
+          </span>
+        ) : (
+          <CurrencyAmount
+            currency={currency}
+            amount={amount}
+            isMinor={isMinor}
+            compactPoint={compactPoint}
+            className="text-2xl sm:text-[1.75rem]"
+          />
+        )}
       </div>
       <p className="mt-2 text-sm text-sam-muted">{description}</p>
       {actions.length > 0 ? (
