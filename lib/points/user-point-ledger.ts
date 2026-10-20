@@ -71,17 +71,32 @@ export type ReconcileUserPointBalanceResult =
   | { ok: false; error: string; code?: "table_missing" };
 
 /**
- * Fast-path cache read. Authority for mutations = sumUserPointLedger.
+ * 잔액 캐시(profiles.points) 읽기 — 실패를 0 과 구분한다.
+ * 화면 표시 경로(회원·관리자)는 이 결과를 쓴다: 실패 = "확인 불가", 0 으로 대체 금지
+ * (dibay-community-dpoint-financial-hard-lock §8 · 관리자 Gate B "error ≠ zero").
+ * 음수(시스템 회수 후 미정산)는 그대로 돌려준다(F-13).
+ */
+export async function readUserPointBalanceResult(
+  sb: SupabaseClient,
+  userId: string
+): Promise<{ ok: true; balance: number } | { ok: false; error: string }> {
+  const uid = userId.trim();
+  if (!uid) return { ok: true, balance: 0 };
+  const { data, error } = await sb.from("profiles").select("points").eq("id", uid).maybeSingle();
+  if (error) return { ok: false, error: error.message ?? "points_read_failed" };
+  return { ok: true, balance: Math.trunc(Number((data as { points?: number } | null)?.points ?? 0)) };
+}
+
+/**
+ * Fast-path cache read for ledger writers. Authority for mutations = sumUserPointLedger.
+ * 읽기 실패 시 0 — 표시용으로 쓰지 말 것(readUserPointBalanceResult 사용).
  */
 export async function readUserPointBalance(
   sb: SupabaseClient,
   userId: string
 ): Promise<number> {
-  const uid = userId.trim();
-  if (!uid) return 0;
-  const { data, error } = await sb.from("profiles").select("points").eq("id", uid).maybeSingle();
-  if (error) return 0;
-  return Math.trunc(Number((data as { points?: number } | null)?.points ?? 0));
+  const r = await readUserPointBalanceResult(sb, userId);
+  return r.ok ? r.balance : 0;
 }
 
 /** SSOT: SUM(point_ledger.amount) for user. */

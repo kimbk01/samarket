@@ -59,22 +59,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    return NextResponse.json({
-      ok: true,
-      balance: 0,
-      summary: {
-        balance: 0,
-        ledgerSum: 0,
-        cacheMatchesLedger: true,
-        totalCredit: 0,
-        totalDebit: 0,
-        lastOccurredAt: null,
-      },
-      history: { items: [], hasMore: false, nextCursor: null },
-      ledger: [],
-      chargeRequests: [],
-      source: "defaults",
-    });
+    // 서버 설정 없음 — 잔액 0 성공 응답 금지(D4). 화면은 "확인 불가"로 표시한다.
+    return NextResponse.json({ ok: false, error: "points_service_unavailable" }, { status: 503 });
   }
 
   const { searchParams } = req.nextUrl;
@@ -89,7 +75,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .maybeSingle();
   const userNickname = String(profile?.nickname ?? "");
 
-  const summary = await loadPointFinancialSummary(sb, userId);
+  const summaryRes = await loadPointFinancialSummary(sb, userId);
+  if (!summaryRes.ok) {
+    // 잔액을 못 읽었으면 0 이 아니라 오류 — 화면은 "확인 불가"로 표시한다(D4).
+    return NextResponse.json({ ok: false, error: "points_balance_unavailable" }, { status: 503 });
+  }
+  const summary = summaryRes.summary;
   const historyRes = await loadPointFinancialHistory(sb, {
     userId,
     filter,

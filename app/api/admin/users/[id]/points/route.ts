@@ -56,7 +56,12 @@ export async function GET(
   const dateFrom = req.nextUrl.searchParams.get("dateFrom");
   const dateTo = req.nextUrl.searchParams.get("dateTo");
 
-  const summary = await loadPointFinancialSummary(sb, userId);
+  const summaryRes = await loadPointFinancialSummary(sb, userId);
+  if (!summaryRes.ok) {
+    // 잔액을 못 읽었으면 0 이 아니라 오류 — 화면은 "확인 불가"로 표시한다(D4).
+    return NextResponse.json({ ok: false, error: "points_balance_unavailable" }, { status: 503 });
+  }
+  const summary = summaryRes.summary;
   const historyRes = await loadPointFinancialHistory(sb, {
     userId,
     filter,

@@ -21,7 +21,7 @@ import {
   type PointFinancialSummary,
 } from "@/lib/points/point-financial-history";
 import { mapPointPromotionOrderRow } from "@/lib/points/point-promotion-orders-db";
-import { readUserPointBalance, sumUserPointLedger } from "@/lib/points/user-point-ledger";
+import { readUserPointBalanceResult, sumUserPointLedger } from "@/lib/points/user-point-ledger";
 import type { PointPromotionOrder } from "@/lib/types/point";
 
 const DELETED_POST_KO = "삭제된 게시물";
@@ -524,12 +524,15 @@ export function serializePointFinancialPage(page: PointFinancialHistoryPage) {
   };
 }
 
+/** 잔액을 읽지 못하면 ok:false — 호출 라우트는 0 대신 오류로 응답한다(D4). */
 export async function loadPointFinancialSummary(
   sb: SupabaseClient,
   userId: string
-): Promise<PointFinancialSummary> {
+): Promise<{ ok: true; summary: PointFinancialSummary } | { ok: false; error: string }> {
   const uid = userId.trim();
-  const balance = await readUserPointBalance(sb, uid);
+  const balanceRes = await readUserPointBalanceResult(sb, uid);
+  if (!balanceRes.ok) return { ok: false, error: balanceRes.error };
+  const balance = balanceRes.balance;
   const summed = await sumUserPointLedger(sb, uid);
   const ledgerSum = summed.ok ? summed.sum : null;
 
@@ -555,11 +558,14 @@ export async function loadPointFinancialSummary(
   }
 
   return {
-    balance,
-    ledgerSum,
-    cacheMatchesLedger: ledgerSum === null ? null : balance === ledgerSum,
-    totalCredit,
-    totalDebit,
-    lastOccurredAt,
+    ok: true,
+    summary: {
+      balance,
+      ledgerSum,
+      cacheMatchesLedger: ledgerSum === null ? null : balance === ledgerSum,
+      totalCredit,
+      totalDebit,
+      lastOccurredAt,
+    },
   };
 }

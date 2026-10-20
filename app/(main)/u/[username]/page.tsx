@@ -4,7 +4,12 @@ import { listCommunityPostsForUser } from "@/lib/community-feed/list-community-p
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { mapProfileRowToPublicSeller, mapTestUserRowToPublicSeller } from "@/lib/users/map-profile-to-public-seller";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
-import { resolveUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
+import {
+  isPublicProfileHidden,
+  PUBLIC_PROFILE_SELECT,
+  PUBLIC_PROFILE_SELECT_FALLBACK,
+  resolvePublicTradeLocationLine,
+} from "@/lib/users/public-profile-exposure";
 import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +31,7 @@ export default async function PublicUserProfilePage({ params }: { params: Promis
   }
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
-  const profileSelect = "id, display_name, nickname, username, avatar_url, trust_score, manner_score, manner_temperature";
+  const profileSelect = PUBLIC_PROFILE_SELECT;
   const profileResult = await sbAny
     .from("profiles")
     .select(profileSelect)
@@ -41,11 +46,13 @@ export default async function PublicUserProfilePage({ params }: { params: Promis
   ) {
     const r2 = await sbAny
       .from("profiles")
-      .select("id, display_name, nickname, username, avatar_url")
+      .select(PUBLIC_PROFILE_SELECT_FALLBACK)
       .ilike("username", escapeIlikePatternFragment(u))
       .maybeSingle();
     prof = r2.data as typeof prof;
   }
+
+  if (prof && isPublicProfileHidden(prof as { status?: string | null; deleted_at?: string | null })) notFound();
 
   let profile = prof && typeof (prof as { id?: string }).id === "string"
     ? mapProfileRowToPublicSeller(prof as Record<string, unknown>)
@@ -67,7 +74,7 @@ export default async function PublicUserProfilePage({ params }: { params: Promis
   let tradeLocationLine: string | null = null;
   try {
     const defaults = await getUserAddressDefaults(sbAny, profile.id);
-    tradeLocationLine = resolveUserAddressTitle(defaults.master);
+    tradeLocationLine = resolvePublicTradeLocationLine(defaults.master);
   } catch {
     /* ignore */
   }
