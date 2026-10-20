@@ -251,7 +251,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
               </AdminActionButton>
             )}
             {post.status !== "deleted" ? (
-              <AdminActionButton variant="secondary" disabled={!!busy} onClick={() => setConfirm({ kind: "status", status: "deleted" })}>
+              <AdminActionButton variant="danger" disabled={!!busy} onClick={() => setConfirm({ kind: "status", status: "deleted" })}>
                 삭제
               </AdminActionButton>
             ) : null}

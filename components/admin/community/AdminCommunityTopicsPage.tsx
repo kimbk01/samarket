@@ -17,7 +17,7 @@ import {
 import { topicBelongsToPhilifeNeighborhoodSection } from "@/lib/neighborhood/meetup-feed-topics";
 import type { CommunityTopicContentStats } from "@/lib/community-topics/admin-topic-content-stats";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { AdminEmptyState, AdminErrorState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type Banner = { ok: true; message: string } | { ok: false; code: string } | null;
@@ -54,25 +54,15 @@ export function AdminCommunityTopicsPage({
   topics: initial,
   philifeNeighborhoodSectionSlug,
   topicStatsBySlug = {},
-  loadError = null,
 }: {
   sections: CommunitySectionAdminRow[];
   topics: CommunityTopicAdminRow[];
   philifeNeighborhoodSectionSlug: string;
   topicStatsBySlug?: Record<string, CommunityTopicContentStats>;
-  /** 서버 조회 실패 코드 — 빈 목록과 구분해 오류 상태로 보인다 */
-  loadError?: string | null;
 }) {
   const router = useRouter();
   const { t: tr } = useI18n();
   const [topics, setTopics] = useState(initial);
-  const [listErr, setListErr] = useState<{ code: string; status?: number } | null>(
-    loadError ? { code: loadError, status: 500 } : null
-  );
-  useEffect(() => {
-    setTopics(initial);
-    setListErr(loadError ? { code: loadError, status: 500 } : null);
-  }, [initial, loadError]);
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
   const fail = (code: unknown) =>
@@ -122,17 +112,10 @@ export function AdminCommunityTopicsPage({
   }, [contentTopics, edit]);
 
   async function refresh() {
-    try {
-      const res = await fetch("/api/admin/community/topics", { credentials: "include", cache: "no-store" });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; topics?: unknown };
-      if (j.ok && Array.isArray(j.topics)) {
-        setTopics(j.topics as CommunityTopicAdminRow[]);
-        setListErr(null);
-      } else {
-        setListErr({ code: typeof j.error === "string" ? j.error : `http_${res.status}`, status: res.status });
-      }
-    } catch {
-      setListErr({ code: "network_error", status: 0 });
+    const res = await fetch("/api/admin/community/topics", { credentials: "include", cache: "no-store" });
+    const j = await res.json();
+    if (j.ok && Array.isArray(j.topics)) {
+      setTopics(j.topics as CommunityTopicAdminRow[]);
     }
     router.refresh();
   }
@@ -441,10 +424,8 @@ export function AdminCommunityTopicsPage({
         titleClassName="sam-text-section-title text-sam-fg"
         title={tr("admin_topics_list_content")}
       >
-        {listErr ? (
-          <AdminErrorState ko code={listErr.code} httpStatus={listErr.status} onRetry={() => void refresh()} />
-        ) : contentTopics.length === 0 ? (
-          <AdminEmptyState ko message={tr("admin_topics_empty_content")} />
+        {contentTopics.length === 0 ? (
+          <p className="sam-text-body-secondary text-sam-muted">{tr("admin_topics_empty_content")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[960px] border-collapse text-left text-sam-fg sam-text-body-secondary">
@@ -538,16 +519,6 @@ export function AdminCommunityTopicsPage({
                         <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => setEdit(null)}>
                           {tr("admin_topics_btn_cancel")}
                         </AdminActionButton>
-                        {/* 행 버튼은 2개까지 — 「삭제」는 수정 중일 때만 */}
-                        <AdminActionButton
-                          variant="danger"
-                          size="sm"
-                          className="ml-2"
-                          disabled={busy}
-                          onClick={() => void removeRow(edit.id)}
-                        >
-                          {tr("admin_topics_btn_delete")}
-                        </AdminActionButton>
                       </td>
                     </tr>
                   ) : (
@@ -620,11 +591,19 @@ export function AdminCommunityTopicsPage({
                       </td>
                       <td className="py-2.5">
                         <span className="flex flex-wrap gap-1">
-                          <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => setEdit({ ...topic })}>
+                          <AdminActionButton variant="neutral" disabled={busy} onClick={() => setEdit({ ...topic })}>
                             {tr("admin_topics_btn_edit")}
                           </AdminActionButton>
-                          <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => void toggleActive(topic)}>
+                          <AdminActionButton
+                            variant="secondary"
+                            className={topic.is_active ? "border-sam-warning text-sam-warning" : undefined}
+                            disabled={busy}
+                            onClick={() => void toggleActive(topic)}
+                          >
                             {topic.is_active ? "사용 중지" : "다시 사용"}
+                          </AdminActionButton>
+                          <AdminActionButton variant="danger" disabled={busy} onClick={() => void removeRow(topic.id)}>
+                            {tr("admin_topics_btn_delete")}
                           </AdminActionButton>
                         </span>
                       </td>

@@ -10,7 +10,7 @@ import { useCallback, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DibayOverlayRoot } from "@/components/ui/dibay-overlay/DibayOverlayRoot";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminOrderDetailView } from "@/components/admin/store-orders/AdminOrderDetailView";
 import {
@@ -97,25 +97,6 @@ export function AdminOrderDetailModal({
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <AdminOrderDetailView key={orderId} orderId={orderId} initialSection={section} onChanged={onChanged} />
-          </div>
-          {/* 표준 하단 배치 (수정 계획 2-2): 왼쪽 [닫기] · 오른쪽 [주 동작] 1개. 처리 동작은 본문 각 섹션에 있고, 처리 중에는 그 버튼이 비활성화된다. */}
-          <div
-            className="flex flex-wrap items-center justify-between gap-2 border-t border-sam-border px-4 py-2"
-            data-admin-modal-footer="1"
-          >
-            <AdminActionButton variant="secondary" size="sm" onClick={onClose} data-cta="close">
-              {adminCta("close", ko)}
-            </AdminActionButton>
-            <div className="flex flex-wrap items-center gap-2">
-              <AdminActionLink
-                variant="primary"
-                size="sm"
-                href={`/admin/stores/orders/${encodeURIComponent(orderId)}`}
-                data-cta="open-full"
-              >
-                {ko ? "전체 화면으로 열기" : "Open full page"}
-              </AdminActionLink>
-            </div>
           </div>
         </div>
       ) : null}

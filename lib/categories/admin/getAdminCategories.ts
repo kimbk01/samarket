@@ -53,41 +53,20 @@ function mapRow(row: CategoryDbRow): CategoryWithSettings {
   };
 }
 
-/** 관리자 카테고리 조회 결과 — 실패를 빈 목록으로 숨기지 않는다 (오류·권한 없음 화면 상태용). */
-export type AdminCategoriesLoad =
-  | { ok: true; rows: CategoryWithSettings[] }
-  | { ok: false; code: string; httpStatus: number };
-
-/**
- * 관리자 화면용 — 조회 오류를 코드로 돌려준다. 원문은 돌려주지 않는다 (화면은 오류 맵 `AdminErrorState` 로 표시).
- * 브라우저 Supabase 가 설정되지 않은 환경은 기존과 같이 빈 목록 (화면이 별도 안내를 띄운다).
- */
-export async function loadAdminCategories(): Promise<AdminCategoriesLoad> {
+export async function getAdminCategories(): Promise<CategoryWithSettings[]> {
   const supabase = getSupabaseClient();
-  if (!supabase) return { ok: true, rows: [] };
+  if (!supabase) return [];
 
   try {
-    const { data, error, status } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("categories")
       .select(CATEGORY_WITH_SETTINGS_SELECT)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
 
-    if (error) {
-      const http = typeof status === "number" && status > 0 ? status : 500;
-      const pgCode = String((error as { code?: unknown }).code ?? "");
-      const forbidden = http === 401 || http === 403 || pgCode === "42501";
-      return { ok: false, code: forbidden ? "forbidden_permission" : "server_error", httpStatus: forbidden ? 403 : http };
-    }
-    if (!Array.isArray(data)) return { ok: false, code: "server_error", httpStatus: 500 };
-    return { ok: true, rows: (data as CategoryDbRow[]).map(mapRow) };
+    if (error || !Array.isArray(data)) return [];
+    return (data as CategoryDbRow[]).map(mapRow);
   } catch {
-    return { ok: false, code: "network_error", httpStatus: 0 };
+    return [];
   }
-}
-
-/** 실패 시 빈 목록 — 필터 선택지처럼 없어도 화면이 동작하는 곳 전용. 관리 화면 본문은 `loadAdminCategories` 를 쓴다. */
-export async function getAdminCategories(): Promise<CategoryWithSettings[]> {
-  const r = await loadAdminCategories();
-  return r.ok ? r.rows : [];
 }

@@ -2,7 +2,7 @@
 
 /**
  * 신고 처리함 `/admin/community/reports` (설계 §C-2 · 목록 화면 틀 §C-0-1).
- * ① 제목·설명 ② 상태 탭(묶음 수) ③ 필터 바(기간 PHT·유형·상세 필터·검색어·[조회][초기화]) ⑤ 대상별 묶음 표 ⑥ 서버 페이지네이션(20/50/100, URL size).
+ * ① 제목·설명 ② 상태 탭(묶음 수) ③ 검색·유형·기간(PHT)·상세 필터·초기화 ⑤ 대상별 묶음 표 ⑥ 서버 페이지네이션(50).
  * 같은 대상(target_type+target_id)의 신고는 1행 「신고 n건」 — 행을 누르면 오른쪽 처리 시트(공용 처리 패널).
  * 탭·필터·페이지는 URL 에 있다 → 상세 페이지 다녀와도 그대로.
  * 이 원장은 community_reports 만 — 모임 신고는 링크 탭으로 이동, 회원·사장님 문의는 고객지원.
@@ -25,10 +25,12 @@ import { AdminManagementSurfaceRoot } from "@/components/admin/management";
 import {
   COMMUNITY_TD,
   CommunityAuthorCell,
-  CommunityFilterBar,
   CommunityFilterField,
   CommunityListShell,
   CommunityPagination,
+  CommunityPeriodFilter,
+  CommunityResetFilters,
+  CommunitySearchInput,
   CommunitySelect,
   CommunityStatusBadge,
   CommunityTable,
@@ -104,7 +106,6 @@ export function AdminCommunityReportsPage({
   const [banner, setBanner] = useState<CommunityBanner>(null);
 
   const hasDetailFilter = Boolean(filters.targetId || filters.authorId || filters.reporterId || filters.topicSlug);
-  const isFiltered = hasDetailFilter || qs.hasAny(["q", "type", "period", "from", "to"]);
 
   const targetLabel = (g: CommunityReportGroupRow) => {
     if (g.target.target_type === "user") return "회원";
@@ -178,14 +179,15 @@ export function AdminCommunityReportsPage({
             }))}
           />
         }
-        filterBar={
-          <CommunityFilterBar
-            ko={ko}
-            showPeriod
-            searchPlaceholder="대상 제목·내용·닉네임"
-            resetKeep={["status"]}
-            onRefresh={() => router.refresh()}
-          >
+        filters={
+          <>
+            <CommunityFilterField label="검색어">
+              <CommunitySearchInput
+                value={filters.q}
+                onCommit={(v) => qs.set({ q: v })}
+                placeholder="대상 제목·내용·닉네임"
+              />
+            </CommunityFilterField>
             <CommunityFilterField label="신고 대상">
               <CommunitySelect
                 value={filters.type}
@@ -198,8 +200,14 @@ export function AdminCommunityReportsPage({
                 ]}
               />
             </CommunityFilterField>
+            <CommunityPeriodFilter
+              period={qs.get("period")}
+              from={qs.get("from")}
+              to={qs.get("to")}
+              onChange={(v) => qs.set({ period: v.period, from: v.from, to: v.to })}
+            />
             {hasDetailFilter ? (
-              <div className="flex h-10 flex-wrap items-center gap-1.5 text-[12px]">
+              <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
                 {filters.targetId ? (
                   <FilterChip label="특정 대상의 신고" onClear={() => qs.set({ targetId: null })} />
                 ) : null}
@@ -214,7 +222,8 @@ export function AdminCommunityReportsPage({
                 ) : null}
               </div>
             ) : null}
-          </CommunityFilterBar>
+            <CommunityResetFilters onReset={() => qs.reset(["status"])} />
+          </>
         }
         footer={
           result.ok && result.total > 0 ? (
@@ -223,8 +232,7 @@ export function AdminCommunityReportsPage({
                 page={page}
                 pageSize={pageSize}
                 total={result.total}
-                onPage={qs.setPage}
-                onSizeChange={qs.setSize}
+                onPage={(p) => qs.set({ page: p > 1 ? p : null })}
               />
               {result.truncated ? (
                 <p className="px-1 text-[12px] text-sam-muted">최근 신고 5,000건 기준으로 묶었습니다. 기간을 좁혀 확인하세요.</p>
@@ -234,13 +242,9 @@ export function AdminCommunityReportsPage({
         }
       >
         {!result.ok ? (
-          <AdminErrorState ko={ko} code={result.error ?? "load_failed"} httpStatus={500} onRetry={() => router.refresh()} />
+          <AdminErrorState ko={ko} code="load_failed" onRetry={() => router.refresh()} />
         ) : groups.length === 0 ? (
-          <AdminEmptyState
-            ko={ko}
-            message={isFiltered ? undefined : EMPTY_TEXT[filters.tab]}
-            onReset={isFiltered ? () => qs.reset(["status"]) : undefined}
-          />
+          <AdminEmptyState ko={ko} message={EMPTY_TEXT[filters.tab]} />
         ) : (
           <CommunityTable head={["대상", "작성자", "신고", "최근 사유", "최근 신고", "상태", "처리"]}>
             {groups.map((g) => {
@@ -318,15 +322,15 @@ export function AdminCommunityReportsPage({
                     <div className="flex flex-wrap gap-1" data-admin-report-cta-state={g.primary_status}>
                       {canReview ? (
                         <AdminActionButton
-                          variant="ghost"
-                          size="sm"
+                          variant="secondary"
+                          className="min-h-8 px-2 py-1 text-[12px]"
                           disabled={busyKey === g.key}
                           onClick={() => void startReview(g)}
                         >
                           {busyKey === g.key ? "처리 중" : "검토 시작"}
                         </AdminActionButton>
                       ) : null}
-                      <AdminActionButton variant="ghost" size="sm" onClick={open}>
+                      <AdminActionButton variant="primary" className="min-h-8 px-2 py-1 text-[12px]" onClick={open}>
                         {g.primary_status === "open" || g.primary_status === "reviewing" ? "처리하기" : "보기"}
                       </AdminActionButton>
                     </div>

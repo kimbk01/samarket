@@ -3,19 +3,19 @@
 /**
  * 거래 게시물 목록 `/admin/posts-management` (설계 v2 §C-2).
  * 탭·검색·필터·정렬·페이지는 모두 URL 에 둔다 → 상세에서 돌아오면 그대로 복원된다. 자동 새로고침 없음.
- * URL: tab · sort · q · sellerId · categoryId · tradeType · lguId · period/from/to · priceMin/priceMax · page · size(20/50/100)
- * 가격은 입력 후 Enter 또는 칸을 벗어날 때 적용한다 (검색어·기간은 필터 바 「조회」).
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   COMMUNITY_TD,
-  CommunityFilterBar,
   CommunityFilterField,
-  CommunityListPagination,
   CommunityListShell,
+  CommunityPagination,
+  CommunityPeriodFilter,
+  CommunityResetFilters,
+  CommunitySearchInput,
   CommunitySelect,
   CommunityTable,
   CommunityTabs,
@@ -27,7 +27,8 @@ import {
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import {
@@ -51,9 +52,9 @@ import {
 } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { getAdminCategories } from "@/lib/categories/admin/getAdminCategories";
 
-/** 필터 바 입력과 같은 높이 40 · 글자 16px */
+const PAGE_SIZE = 50;
 const FIELD =
-  "h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 text-[16px] text-sam-fg outline-none focus:border-sam-primary";
+  "rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[13px] text-sam-fg outline-none focus:border-sam-primary";
 
 export type TradePostListRow = {
   id: string;
@@ -176,10 +177,9 @@ export function TradePostsPage() {
   const priceMin = qs.get("priceMin");
   const priceMax = qs.get("priceMax");
   const page = qs.page;
-  const size = qs.size;
 
   const apiUrl = useMemo(() => {
-    const p = new URLSearchParams({ tab, sort, limit: String(size), offset: String((page - 1) * size) });
+    const p = new URLSearchParams({ tab, sort, limit: String(PAGE_SIZE), offset: String((page - 1) * PAGE_SIZE) });
     const put = (k: string, v: string) => {
       if (v) p.set(k, v);
     };
@@ -196,7 +196,7 @@ export function TradePostsPage() {
     put("priceMin", priceMin);
     put("priceMax", priceMax);
     return `/api/admin/trade/posts?${p.toString()}`;
-  }, [tab, sort, page, size, q, sellerId, categoryId, tradeType, lguId, period, from, to, priceMin, priceMax]);
+  }, [tab, sort, page, q, sellerId, categoryId, tradeType, lguId, period, from, to, priceMin, priceMax]);
 
   const { state, reload } = useCommunityAdminJson<ListResponse>(apiUrl);
   const data = state.data;
@@ -264,28 +264,11 @@ export function TradePostsPage() {
 
   const detailHref = (id: string) => communityDetailHref(`/admin/products/${encodeURIComponent(id)}`, qs.selfHref);
 
-  const commitPrice = () => {
-    const a = minDraft.trim();
-    const b = maxDraft.trim();
-    if (a !== priceMin || b !== priceMax) qs.set({ priceMin: a, priceMax: b });
-  };
-  const onPriceKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      // 필터 바 「조회」(검색어·기간) 와 따로 적용 — 같은 순간 두 번 주소를 바꾸지 않도록 폼 제출을 막는다
-      e.preventDefault();
-      commitPrice();
-    }
-  };
-
   const filters = (
-    <CommunityFilterBar
-      ko={ko}
-      showPeriod
-      searchPlaceholder="제목·본문·글 번호"
-      resetKeep={["tab"]}
-      onRefresh={reload}
-      pending={state.status === "loading"}
-    >
+    <>
+      <CommunityFilterField label="검색어">
+        <CommunitySearchInput value={q} onCommit={(v) => qs.set({ q: v })} placeholder="제목·본문·글 번호" />
+      </CommunityFilterField>
       <CommunityFilterField label="유형">
         <CommunitySelect value={tradeType} onChange={(v) => qs.set({ tradeType: v })} options={TRADE_TYPE_OPTIONS} />
       </CommunityFilterField>
@@ -310,30 +293,39 @@ export function TradePostsPage() {
           ]}
         />
       </CommunityFilterField>
+      <CommunityPeriodFilter
+        period={period}
+        from={from}
+        to={to}
+        onChange={(v) => qs.set({ period: v.period, from: v.from, to: v.to })}
+      />
       <CommunityFilterField label="가격 (₱)">
-        <span className="flex items-center gap-1">
+        <form
+          className="flex items-center gap-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            qs.set({ priceMin: minDraft.trim(), priceMax: maxDraft.trim() });
+          }}
+        >
           <input
             inputMode="numeric"
-            aria-label="최소 가격"
             value={minDraft}
             onChange={(e) => setMinDraft(e.target.value.replace(/[^0-9]/g, ""))}
-            onKeyDown={onPriceKey}
-            onBlur={commitPrice}
             placeholder="최소"
             className={`${FIELD} w-24`}
           />
           <span className="text-sam-muted">~</span>
           <input
             inputMode="numeric"
-            aria-label="최대 가격"
             value={maxDraft}
             onChange={(e) => setMaxDraft(e.target.value.replace(/[^0-9]/g, ""))}
-            onKeyDown={onPriceKey}
-            onBlur={commitPrice}
             placeholder="최대"
             className={`${FIELD} w-24`}
           />
-        </span>
+          <AdminActionButton type="submit" variant="secondary" size="sm">
+            {adminCta("search", true)}
+          </AdminActionButton>
+        </form>
       </CommunityFilterField>
       <CommunityFilterField label="정렬">
         <CommunitySelect
@@ -370,9 +362,9 @@ export function TradePostsPage() {
           </AdminActionButton>
         </span>
       ) : null}
-    </CommunityFilterBar>
+      <CommunityResetFilters onReset={() => qs.reset(["tab"])} />
+    </>
   );
-  const filterKeys = ["q", "sellerId", "categoryId", "tradeType", "lguId", "period", "from", "to", "priceMin", "priceMax", "sort"];
 
   let body;
   if (state.status === "error") {
@@ -390,11 +382,7 @@ export function TradePostsPage() {
   } else if (rows.length === 0) {
     body = (
       <div className="p-3">
-        <AdminEmptyState
-          ko={ko}
-          message={EMPTY_TEXT[tab] ?? "해당 상태의 게시물이 없습니다."}
-          onReset={qs.hasAny(filterKeys) ? () => qs.reset(["tab"]) : undefined}
-        />
+        <AdminEmptyState ko={ko} message={EMPTY_TEXT[tab] ?? "해당 상태의 게시물이 없습니다."} />
       </div>
     );
   } else {
@@ -466,13 +454,14 @@ export function TradePostsPage() {
               <CommunityTimeCell iso={r.updated_at} />
             </td>
             <td className={COMMUNITY_TD} onClick={(e) => e.stopPropagation()}>
-              {/* 상세는 행·제목을 눌러 연다 — 행 버튼은 조치 최대 2개 (되돌릴 수 있는 조치 ghost · 삭제만 danger) */}
               <span className="flex flex-wrap gap-1">
+                <AdminActionLink href={detailHref(r.id)} variant="secondary">
+                  상세
+                </AdminActionLink>
                 {allowedTradePostModerationActions(String(r.moderation_state ?? "")).map((a) => (
                   <AdminActionButton
                     key={a}
-                    variant={a === "delete" ? "danger" : "ghost"}
-                    size="sm"
+                    variant={a === "hide" || a === "delete" ? "danger" : "secondary"}
                     onClick={() => setSheet({ action: a, targets: [r] })}
                   >
                     {TRADE_POST_MODERATION_ACTION_LABELS[a]}
@@ -504,8 +493,7 @@ export function TradePostsPage() {
           return (
             <AdminActionButton
               key={b.action}
-              variant="secondary"
-              size="sm"
+              variant={b.action === "hide" ? "danger" : "secondary"}
               disabled={targets.length === 0}
               onClick={() => setSheet({ action: b.action, targets })}
             >
@@ -527,14 +515,11 @@ export function TradePostsPage() {
         </AdminActionButton>
       }
       tabs={<CommunityTabs tabs={tabs} value={tab} onChange={(v) => qs.set({ tab: v === "all" ? "" : v })} />}
-      filterBar={filters}
+      filters={filters}
       footer={
-        <CommunityListPagination
-          q={qs}
-          total={total}
-          hasMore={total === null ? rows.length >= size : undefined}
-          disabled={state.status === "loading"}
-        />
+        rows.length > 0 || page > 1 ? (
+          <CommunityPagination page={page} pageSize={PAGE_SIZE} total={total} onPage={(p) => qs.set({ page: p })} />
+        ) : null
       }
     >
       {bulkBar}

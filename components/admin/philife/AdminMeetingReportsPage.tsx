@@ -22,10 +22,12 @@ import {
   COMMUNITY_TD,
   CommunityActionSheet,
   CommunityAuthorCell,
-  CommunityFilterBar,
   CommunityFilterField,
   CommunityListShell,
   CommunityPagination,
+  CommunityPeriodFilter,
+  CommunityResetFilters,
+  CommunitySearchInput,
   CommunitySelect,
   CommunityStatusBadge,
   CommunitySummaryCard,
@@ -140,7 +142,6 @@ export function AdminMeetingReportsPage({
   const lastJson = useRef<Record<string, unknown>>({});
 
   const open = result.rows.find((r) => r.id === openId) ?? null;
-  const isFiltered = qs.hasAny(["q", "type", "period", "from", "to"]);
 
   const afterChange = (b: CommunityBanner) => {
     emitAdminQueueChanged("meeting_reports");
@@ -186,49 +187,31 @@ export function AdminMeetingReportsPage({
     afterChange({ tone: warn.length ? "warning" : "success", text: okText, extra: warn });
   };
 
-  /** 상세 Drawer 의 처리 버튼 — [보조…][주 동작(신고 인정)] 순서, primary 1개 */
-  const actionsFor = (r: MeetingReportAdminRow) => {
+  const actionsFor = (r: MeetingReportAdminRow, compact: boolean) => {
     const allowed = canModerate ? meetingReportActions(r.status, isSuperAdmin) : [];
+    const cls = compact ? "min-h-8 px-2 py-1 text-[12px]" : "";
     return (
       <div className="flex flex-wrap justify-end gap-1.5" data-admin-report-cta-state={r.status}>
         {allowed.includes("reopen") ? (
-          <AdminActionButton variant="secondary" onClick={() => setSheet({ kind: "reopen", row: r })}>
+          <AdminActionButton variant="secondary" className={cls} onClick={() => setSheet({ kind: "reopen", row: r })}>
             다시 열기
           </AdminActionButton>
         ) : null}
         {allowed.includes("review") ? (
-          <AdminActionButton variant="secondary" disabled={busyId === r.id} onClick={() => void startReview(r)}>
+          <AdminActionButton variant="secondary" className={cls} disabled={busyId === r.id} onClick={() => void startReview(r)}>
             {busyId === r.id ? "처리 중" : "검토 시작"}
           </AdminActionButton>
         ) : null}
         {allowed.includes("reject") ? (
-          <AdminActionButton variant="secondary" disabled={busyId === r.id} onClick={() => setSheet({ kind: "reject", row: r })}>
+          <AdminActionButton variant="secondary" className={cls} disabled={busyId === r.id} onClick={() => setSheet({ kind: "reject", row: r })}>
             신고 기각
           </AdminActionButton>
         ) : null}
         {allowed.includes("resolve") ? (
-          <AdminActionButton variant="primary" disabled={busyId === r.id} onClick={() => setSheet({ kind: "resolve", row: r })}>
+          <AdminActionButton variant="primary" className={cls} disabled={busyId === r.id} onClick={() => setSheet({ kind: "resolve", row: r })}>
             신고 인정
           </AdminActionButton>
         ) : null}
-      </div>
-    );
-  };
-
-  /** 표 행 버튼 — ghost/sm 최대 2개 (「검토 시작」 + 「처리」). 인정·기각·다시 열기는 상세 Drawer 에서. */
-  const rowActions = (r: MeetingReportAdminRow) => {
-    const allowed = canModerate ? meetingReportActions(r.status, isSuperAdmin) : [];
-    const pending = r.status === "pending" || r.status === "reviewing";
-    return (
-      <div className="flex flex-wrap justify-end gap-1" data-admin-report-cta-state={r.status}>
-        {allowed.includes("review") ? (
-          <AdminActionButton variant="ghost" size="sm" disabled={busyId === r.id} onClick={() => void startReview(r)}>
-            {busyId === r.id ? "처리 중" : "검토 시작"}
-          </AdminActionButton>
-        ) : null}
-        <AdminActionButton variant="ghost" size="sm" onClick={() => setOpenId(r.id)}>
-          {pending && allowed.length > 0 ? "처리" : "상세"}
-        </AdminActionButton>
       </div>
     );
   };
@@ -266,14 +249,11 @@ export function AdminMeetingReportsPage({
             tabs={MEETING_REPORT_TABS.map((k) => ({ value: k, label: TAB_LABEL[k], count: result.counts?.[k] ?? null }))}
           />
         }
-        filterBar={
-          <CommunityFilterBar
-            ko={ko}
-            showPeriod
-            searchPlaceholder="모임 이름·신고자 닉네임"
-            resetKeep={["status"]}
-            onRefresh={() => router.refresh()}
-          >
+        filters={
+          <>
+            <CommunityFilterField label="검색어">
+              <CommunitySearchInput value={filters.q} onCommit={(v) => qs.set({ q: v })} placeholder="모임 이름·신고자 닉네임" />
+            </CommunityFilterField>
             <CommunityFilterField label="신고 대상">
               <CommunitySelect
                 value={filters.type}
@@ -284,7 +264,14 @@ export function AdminMeetingReportsPage({
                 ]}
               />
             </CommunityFilterField>
-          </CommunityFilterBar>
+            <CommunityPeriodFilter
+              period={qs.get("period")}
+              from={qs.get("from")}
+              to={qs.get("to")}
+              onChange={(v) => qs.set({ period: v.period, from: v.from, to: v.to })}
+            />
+            <CommunityResetFilters onReset={() => qs.reset(["status"])} />
+          </>
         }
         footer={
           result.ok && result.total > 0 ? (
@@ -292,20 +279,15 @@ export function AdminMeetingReportsPage({
               page={qs.page}
               pageSize={pageSize}
               total={result.total}
-              onPage={qs.setPage}
-              onSizeChange={qs.setSize}
+              onPage={(p) => qs.set({ page: p > 1 ? p : null })}
             />
           ) : null
         }
       >
         {!result.ok ? (
-          <AdminErrorState ko={ko} code={result.error ?? "load_failed"} httpStatus={500} onRetry={() => router.refresh()} />
+          <AdminErrorState ko={ko} code="load_failed" onRetry={() => router.refresh()} />
         ) : result.rows.length === 0 ? (
-          <AdminEmptyState
-            ko={ko}
-            message={isFiltered ? undefined : EMPTY_TEXT[filters.tab]}
-            onReset={isFiltered ? () => qs.reset(["status"]) : undefined}
-          />
+          <AdminEmptyState ko={ko} message={EMPTY_TEXT[filters.tab]} />
         ) : (
           <CommunityTable head={["대상", "사유", "신고자", "접수", "상태", "처리"]}>
             {result.rows.map((r) => (
@@ -331,7 +313,7 @@ export function AdminMeetingReportsPage({
                   <CommunityStatusBadge domain="meeting_report_status" value={r.status} ko={ko} />
                 </td>
                 <td className={COMMUNITY_TD} onClick={(e) => e.stopPropagation()}>
-                  {rowActions(r)}
+                  {actionsFor(r, true)}
                 </td>
               </tr>
             ))}
@@ -395,7 +377,7 @@ export function AdminMeetingReportsPage({
               {canModerate && (open.status === "resolved" || open.status === "rejected") && !isSuperAdmin ? (
                 <p className="text-[13px] text-sam-muted">처리가 끝난 신고입니다. 다시 열기는 최고 관리자만 할 수 있습니다.</p>
               ) : null}
-              {actionsFor(open)}
+              {actionsFor(open, false)}
             </CommunitySection>
             <AdminTechDetails ko={ko}>
               <div>신고 ID: {open.id}</div>

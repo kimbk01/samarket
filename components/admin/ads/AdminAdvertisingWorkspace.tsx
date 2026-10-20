@@ -6,7 +6,7 @@
  * Menu leaf reduction is NOT in scope.
  */
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
@@ -14,24 +14,11 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
-import {
-  AdminEmptyState,
-  AdminErrorState,
-  AdminLoadingState,
-  AdminTechDetails,
-} from "@/components/admin/ui/AdminStateViews";
-import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
-import { AdminPagination } from "@/components/admin/ui/AdminPagination";
-import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
-import { lookupAdminStatusLabel } from "@/lib/admin/status-labels/admin-status-label-registry";
-import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type { AdsActionItem, AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
 import type { MessageKey } from "@/lib/i18n/messages";
-import {
-  fetchAdsControlPlane,
-  type AdsControlPlaneListPage,
-} from "@/lib/admin/ads-control-plane/fetch-ads-control-plane";
+import { fetchAdsControlPlane } from "@/lib/admin/ads-control-plane/fetch-ads-control-plane";
 import {
   familyFromControlDomain,
   filterWorkspaceActionsByMode,
@@ -46,6 +33,8 @@ import {
 } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import { PROMOTION_WORKSPACE_HREF } from "@/lib/admin/promotion-ownership-visibility";
 import {
+  filterShellRowsByProductFamily,
+  filterShellRowsByTab,
   toAdsShellListRow,
   type AdsShellListRow,
   type AdsShellProductFamily,
@@ -57,9 +46,11 @@ import {
 } from "@/lib/admin/ads-exposure/operations-primary-cta";
 import { adsLiveLinkLabel } from "@/lib/admin/ads-exposure/live-route";
 import {
+  ADS_WORKSPACE_STATUS_URL_PARAM,
   collectAdsWorkspacePool as collectPool,
   computeAdsWorkspaceHeroOccupancy,
   computeAdsWorkspaceSummaryCounts,
+  filterAdsWorkspaceRowsByMode as filterRowsByMode,
   type AdvertisingWorkspaceMode,
 } from "@/lib/admin/advertising-workspace/workspace-summary";
 import {
@@ -267,28 +258,15 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
   const boostOrderIdRaw =
     mode === "boosts" ? (searchParams.get(ADS_BOOST_ORDER_URL_PARAM) ?? "").trim() : "";
   const [model, setModel] = useState<AdsControlPlaneModel | null>(null);
-  const [listPage, setListPage] = useState<AdsControlPlaneListPage | null>(null);
   const [err, setErr] = useState("");
-  const [errStatus, setErrStatus] = useState<number | undefined>(undefined);
-  const [listLoading, setListLoading] = useState(false);
-  // 상태 탭·종류·검색어·쪽·크기는 주소에 보존한다 (새로고침·링크 공유 유지).
-  // 대시보드 링크 `?status=` (ADS_WORKSPACE_STATUS_URL_PARAM) 는 이 화면의 상태 탭을 그대로 연다 (요약 카드 숫자 = 탭 개수).
-  const defaultStatusTab = defaultStatusTabForMode(mode);
-  const lq = useAdminListQuery<"family">({
-    defaults: { status: defaultStatusTab === "all" ? "" : defaultStatusTab },
-    statuses: statusTabsForMode(mode)
-      .map((t) => t.id)
-      .filter((id) => id !== "all"),
-    extras: ["family"],
+  // 대시보드 링크 `?status=` 는 이 화면의 상태 탭을 그대로 연다 (요약 카드 숫자 = 탭 개수).
+  const [statusTab, setStatusTab] = useState<AdsShellStatusTab>(() => {
+    const fromUrl = (searchParams.get(ADS_WORKSPACE_STATUS_URL_PARAM) ?? "").trim();
+    return statusTabsForMode(mode).some((t) => t.id === fromUrl)
+      ? (fromUrl as AdsShellStatusTab)
+      : defaultStatusTabForMode(mode);
   });
-  const statusTab: AdsShellStatusTab =
-    (lq.query.status as AdsShellStatusTab) || "all";
-  const familyRaw = lq.query.extras.family as AdsShellProductFamily;
-  const family: AdsShellProductFamily = familyTabsForMode(mode).some((t) => t.id === familyRaw)
-    ? familyRaw
-    : "all";
-  const setStatusTab = (tab: AdsShellStatusTab) => lq.setStatus(tab === "all" ? "" : tab);
-  const setFamily = (next: AdsShellProductFamily) => lq.setExtra("family", next === "all" ? "" : next);
+  const [family, setFamily] = useState<AdsShellProductFamily>("all");
   const [selected, setSelected] = useState<AdsActionItem | null>(null);
   const [manageOpenId, setManageOpenId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -309,42 +287,22 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     { fault: string; refundPoints: number } | { fault: string; error: string } | null
   >(null);
 
-  const listQuery = useMemo(() => {
-    const p = new URLSearchParams(lq.apiQueryString);
-    p.set("mode", mode);
-    return p.toString();
-  }, [lq.apiQueryString, mode]);
-
-  /** 늦게 도착한 이전 조건 응답이 최신 목록을 덮지 않도록 요청 순번을 둔다. */
-  const loadSeqRef = useRef(0);
   const load = useCallback(async () => {
-    const seq = ++loadSeqRef.current;
     setErr("");
-    setErrStatus(undefined);
-    setListLoading(true);
-    try {
-      const result = await fetchAdsControlPlane({
-        orderId: boostOrderIdRaw || undefined,
-        storeId: storeFilter || undefined,
-        listQuery,
-      });
-      if (seq !== loadSeqRef.current) return;
-      if (!result.ok) {
-        setErr(result.error === "network" ? "network_error" : result.error || "load_failed");
-        setErrStatus(result.status);
-        return;
-      }
-      setModel(result.plane);
-      setListPage(result.page ?? { items: [], total: 0, limit: lq.query.size, offset: 0 });
-    } finally {
-      if (seq === loadSeqRef.current) setListLoading(false);
+    const result = await fetchAdsControlPlane({
+      orderId: boostOrderIdRaw || undefined,
+      storeId: storeFilter || undefined,
+    });
+    if (!result.ok) {
+      setErr(result.error === "network" ? "network_error" : result.error || "load_failed");
+      return;
     }
-  }, [boostOrderIdRaw, storeFilter, listQuery, lq.query.size]);
+    setModel(result.plane);
+  }, [boostOrderIdRaw, storeFilter]);
 
   useEffect(() => {
     void load();
-    // refreshKey — 같은 조건 다시 불러오기(새로고침) 포함
-  }, [load, lq.refreshKey]);
+  }, [load]);
 
   const storeFilterLabel = useMemo(() => {
     if (!storeFilter || !model) return storeFilter;
@@ -352,26 +310,23 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     return hit?.applicantLabel.trim() || storeFilter;
   }, [model, storeFilter]);
 
-  // 목록은 서버 페이지 — store 범위·화면 mode·종류·상태 탭·검색어·쪽을 서버(`/api/admin/ads-control-plane`)가 적용한다.
   const shellRows = useMemo(() => {
-    if (!listPage) return [] as AdsShellListRow[];
-    return listPage.items.map((i) => toAdsShellListRow(i, ko, mode));
-  }, [listPage, ko, mode]);
+    if (!model) return [] as AdsShellListRow[];
+    // Store scope is applied server-side (`store_id` → ads-control-plane); the plane is already scoped.
+    const items = collectPool(model);
+    let rows = items.map((i) => toAdsShellListRow(i, ko, mode));
+    rows = filterRowsByMode(rows, mode);
+    rows = filterShellRowsByProductFamily(rows, family);
+    rows = filterShellRowsByTab(rows, statusTab);
+    return rows;
+  }, [model, ko, mode, family, statusTab]);
 
   const itemById = useMemo(() => {
     const map = new Map<string, AdsActionItem>();
-    for (const i of listPage?.items ?? []) map.set(i.id, i);
+    if (!model) return map;
+    for (const i of collectPool(model)) map.set(i.id, i);
     return map;
-  }, [listPage]);
-
-  // 쪽 번호가 전체 쪽 수를 넘으면 마지막 유효 쪽 대신 1쪽으로 (필터 변경 후 남은 쪽 번호 등).
-  const listTotal = listPage?.total ?? 0;
-  const listPageNo = lq.query.page;
-  const setListPageNo = lq.setPage;
-  useEffect(() => {
-    if (!listPage || listLoading) return;
-    if (listPageNo > 1 && listPage.items.length === 0 && listTotal > 0) setListPageNo(1);
-  }, [listPage, listLoading, listPageNo, listTotal, setListPageNo]);
+  }, [model]);
 
   const boostFocusMatch = useMemo(() => {
     if (mode !== "boosts" || !model || !boostOrderIdRaw) return null;
@@ -388,9 +343,6 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     [mode, boostOrderIdRaw, boostFocusMatch, model]
   );
 
-  /** 주문 포커스로 탭을 「전체」로 바꾸는 것은 주문 ID 당 1회 (주소 변경 → 재조회 반복 방지). */
-  const boostFocusAppliedRef = useRef<string>("");
-  const { patch: patchListQuery } = lq;
   useEffect(() => {
     if (mode !== "boosts") return;
     if (boostFocusState === "none") return;
@@ -399,13 +351,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       return;
     }
     if (boostFocusState === "matched" && boostFocusMatch) {
+      setStatusTab("all");
+      setFamily("all");
       setSelected(boostFocusMatch);
-      if (boostFocusAppliedRef.current !== boostOrderIdRaw) {
-        boostFocusAppliedRef.current = boostOrderIdRaw;
-        patchListQuery({ status: "", extras: { family: "" } });
-      }
     }
-  }, [mode, boostFocusState, boostFocusMatch, boostOrderIdRaw, patchListQuery]);
+  }, [mode, boostFocusState, boostFocusMatch]);
 
   useEffect(() => {
     if (mode !== "boosts" || boostFocusState !== "matched" || !boostFocusMatch) return;
@@ -815,43 +765,31 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         ))}
       </div>
 
-      <AdminFilterBar
-        ko={ko}
-        draft={lq.draft}
-        onDraftChange={lq.setDraft}
-        onSubmit={lq.submit}
-        onReset={lq.reset}
-        showPeriod={false}
-        searchPlaceholder={ko ? "광고명·신청자·매장 검색" : "Ad, applicant, or store"}
-        pending={listLoading}
-      >
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap gap-2" data-shell-status-tabs="1">
-            {statusTabsForMode(mode).map((t) => (
-              <AdminChipButton
-                key={t.id}
-                selected={statusTab === t.id}
-                data-status-tab={t.id}
-                onClick={() => setStatusTab(t.id)}
-              >
-                {ko ? t.ko : t.en}
-              </AdminChipButton>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2" data-shell-family-tabs="1">
-            {familyTabsForMode(mode).map((t) => (
-              <AdminChipButton
-                key={t.id}
-                selected={family === t.id}
-                data-family-tab={t.id}
-                onClick={() => setFamily(t.id)}
-              >
-                {ko ? t.ko : t.en}
-              </AdminChipButton>
-            ))}
-          </div>
-        </div>
-      </AdminFilterBar>
+      <div className="flex flex-wrap gap-2" data-shell-status-tabs="1">
+        {statusTabsForMode(mode).map((t) => (
+          <AdminChipButton
+            key={t.id}
+            selected={statusTab === t.id}
+            data-status-tab={t.id}
+            onClick={() => setStatusTab(t.id)}
+          >
+            {ko ? t.ko : t.en}
+          </AdminChipButton>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2" data-shell-family-tabs="1">
+        {familyTabsForMode(mode).map((t) => (
+          <AdminChipButton
+            key={t.id}
+            selected={family === t.id}
+            data-family-tab={t.id}
+            onClick={() => setFamily(t.id)}
+          >
+            {ko ? t.ko : t.en}
+          </AdminChipButton>
+        ))}
+      </div>
 
       {family === "popup" && popupQueue.length > 0 ? (
         <section
@@ -903,9 +841,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         </section>
       ) : null}
 
-      {err ? (
-        <AdminErrorState ko={ko} code={err} httpStatus={errStatus} onRetry={lq.refresh} />
-      ) : null}
+      {err ? <AdminErrorState ko={ko} code={err} onRetry={() => void load()} /> : null}
       {actionMsg ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm" role="status">
           {actionMsg}
@@ -913,42 +849,6 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       ) : null}
 
       <div className="grid gap-4">
-        {!listPage && !err ? <AdminLoadingState ko={ko} /> : null}
-        {listPage && shellRows.length === 0 && !listLoading ? (
-          lq.isFiltered ? (
-            <AdminEmptyState ko={ko} onReset={lq.reset} />
-          ) : (
-            <AdminEmptyState
-              ko={ko}
-              message={
-                mode === "applications"
-                  ? ko
-                    ? "승인 대기 중인 광고가 없습니다."
-                    : "No applications awaiting approval."
-                  : mode === "operations"
-                    ? ko
-                      ? "현재 운영 중인 광고가 없습니다."
-                      : "No ads currently in operations."
-                    : ko
-                      ? "표시할 광고가 없습니다."
-                      : "No ads to show."
-              }
-              action={
-                mode === "operations" ? (
-                  <AdminActionLink
-                    href="/admin/advertising/direct"
-                    variant="secondary"
-                    size="sm"
-                    data-admin-ads-ops-empty-register="1"
-                  >
-                    {ko ? "+ 광고 등록" : "+ Register ad"}
-                  </AdminActionLink>
-                ) : undefined
-              }
-            />
-          )
-        ) : null}
-        {listPage && (shellRows.length > 0 || listLoading) ? (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
           <table className="min-w-full text-left text-[12px]" data-shell-table="1">
             <thead className="bg-sam-app text-sam-muted">
@@ -1003,7 +903,41 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               </tr>
             </thead>
             <tbody>
-              {shellRows.map((r) => {
+              {shellRows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={opsControlMode ? 7 : 11}
+                    className="px-3 py-8 text-center text-sam-muted"
+                  >
+                    {!model && !err ? (
+                      <AdminLoadingState ko={ko} />
+                    ) : mode === "applications"
+                      ? ko
+                        ? "승인 대기 중인 광고가 없습니다."
+                        : "No applications awaiting approval."
+                      : mode === "operations"
+                        ? ko
+                          ? "현재 운영 중인 광고가 없습니다."
+                          : "No ads currently in operations."
+                        : ko
+                          ? "표시할 광고가 없습니다."
+                          : "No ads in this filter."}
+                    {mode === "operations" ? (
+                      <div className="mt-3">
+                        <AdminActionLink
+                          href="/admin/advertising/direct"
+                          variant="primary"
+                          size="sm"
+                          data-admin-ads-ops-empty-register="1"
+                        >
+                          {ko ? "+ 광고 등록" : "+ Register ad"}
+                        </AdminActionLink>
+                      </div>
+                    ) : null}
+                  </td>
+                </tr>
+              ) : (
+                shellRows.map((r) => {
                   const item = itemById.get(r.id);
                   const fam = item ? resolveFamily(item) : null;
                   const actions =
@@ -1129,7 +1063,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                           <div className="flex flex-col items-start gap-1">
                             <AdminActionLink
                               href={r.href}
-                              variant="ghost"
+                              variant="primary"
                               size="sm"
                               data-admin-ads-review-cta="1"
                               data-shell-review="1"
@@ -1173,7 +1107,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                           <div className="flex flex-col items-start gap-1">
                             {primary.mutation && item ? (
                               <AdminActionButton
-                                variant="ghost"
+                                variant="primary"
                                 size="sm"
                                 data-admin-ads-ops-primary={primary.kind}
                                 disabled={busyAction != null || pendingMutation != null}
@@ -1185,20 +1119,19 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                 {ko ? primary.labelKo : primary.labelEn}
                               </AdminActionButton>
                             ) : primary.href ? (
-                              <AdminActionLink
+                              <a
                                 href={primary.href}
                                 target="_blank"
                                 rel="noreferrer"
-                                variant="ghost"
-                                size="sm"
+                                className="inline-flex rounded-ui-rect bg-sam-primary px-3 py-1.5 text-[12px] font-semibold text-sam-on-primary"
                                 data-admin-ads-ops-primary={primary.kind}
                               >
                                 {ko ? primary.labelKo : primary.labelEn}
-                              </AdminActionLink>
+                              </a>
                             ) : primary.adminHref && !primary.selectDetail ? (
                               <AdminActionLink
                                 href={primary.adminHref}
-                                variant="ghost"
+                                variant="primary"
                                 size="sm"
                                 data-admin-ads-ops-primary={primary.kind}
                               >
@@ -1206,7 +1139,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                               </AdminActionLink>
                             ) : (
                               <AdminActionButton
-                                variant="ghost"
+                                variant="primary"
                                 size="sm"
                                 data-admin-ads-ops-primary={primary.kind}
                                 onClick={() => {
@@ -1356,22 +1289,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                       </td>
                     </tr>
                   );
-                })}
+                })
+              )}
             </tbody>
           </table>
         </div>
-        ) : null}
-        {listPage && listPage.total > 0 ? (
-          <AdminPagination
-            ko={ko}
-            page={lq.query.page}
-            size={lq.query.size}
-            total={listPage.total}
-            onPageChange={lq.setPage}
-            onSizeChange={lq.setSize}
-            disabled={listLoading}
-          />
-        ) : null}
 
         {opsControlMode && selected && selectedShell ? (
         <aside
@@ -1390,20 +1312,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 <h2 className="mt-0.5 font-semibold text-sam-fg">{selectedShell.title}</h2>
                 <p className="mt-1 text-[12px] text-sam-fg">
                   <span className="text-sam-muted">{ko ? "운영" : "Ops"}: </span>
-                  {selectedShell.operatingStatusLabel?.trim() ? (
-                    selectedShell.operatingStatusLabel
-                  ) : (
-                    <AdminStatusLabel code={selected.status} ko={ko} />
-                  )}
+                  {selectedShell.operatingStatusLabel || selected.status}
                   {" · "}
                   <span className="text-sam-muted">{ko ? "실제 노출" : "Runtime"}: </span>
                   {selectedShell.runtimeExposureStatusLabel}
                 </p>
-                {!selectedShell.operatingStatusLabel?.trim() &&
-                selected.status &&
-                !lookupAdminStatusLabel("common", selected.status).known ? (
-                  <AdminTechDetails ko={ko}>{selected.status}</AdminTechDetails>
-                ) : null}
               </div>
 
               <section className="rounded-ui-rect border border-sam-border bg-sam-app p-3">

@@ -14,7 +14,6 @@ import { useAdminMe } from "@/hooks/useAdminMe";
 import {
   COMMUNITY_TD,
   CommunityActionSheet,
-  CommunityListPagination,
   CommunityListShell,
   CommunityStatusBadge,
   CommunityTable,
@@ -75,7 +74,6 @@ type NoticeRow = {
 };
 
 type Payload = {
-  total?: number;
   notices?: NoticeRow[];
   pinned?: NoticeRow[];
   pinLimits?: { feed?: { limit: number; count: number }; topic?: { limit: number; counts: Record<string, number> } };
@@ -128,8 +126,7 @@ function phtOrDash(iso: string | null | undefined, empty: string): string {
 export function AdminCommunityNoticesPage() {
   const { language } = useI18n();
   const ko = language !== "en";
-  const qs = useCommunityQueryState();
-  const { get, set, selfHref } = qs;
+  const { get, set, selfHref } = useCommunityQueryState();
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
   const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
   const noPermTitle = canContent ? undefined : "권한 필요: 게시판 관리";
@@ -144,8 +141,6 @@ export function AdminCommunityNoticesPage() {
   const tabRaw = get("tab");
   const tab = TABS.some((t) => t.value === tabRaw) ? tabRaw : "live";
 
-  const page = qs.page;
-  const pageSize = qs.size;
   const [data, setData] = useState<Payload | null>(null);
   const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -163,9 +158,7 @@ export function AdminCommunityNoticesPage() {
     let cancel = false;
     setLoading(true);
     void (async () => {
-      const r = await communityJsonFetch<Payload>(
-        `/api/admin/community/notices?tab=${tab}&limit=${pageSize}&offset=${(page - 1) * pageSize}`
-      );
+      const r = await communityJsonFetch<Payload>(`/api/admin/community/notices?tab=${tab}`);
       if (cancel) return;
       if (r.ok) {
         setData(r.json);
@@ -179,7 +172,7 @@ export function AdminCommunityNoticesPage() {
     return () => {
       cancel = true;
     };
-  }, [tab, page, pageSize, reloadKey]);
+  }, [tab, reloadKey]);
 
   const settle = (kind: CommunitySheetSettle, okMessage: string) => {
     if (kind === "done") setBanner({ ok: true, message: okMessage });
@@ -262,7 +255,6 @@ export function AdminCommunityNoticesPage() {
   };
 
   const notices = data?.notices ?? [];
-  const noticeTotal = data ? Number(data.total ?? notices.length) : null;
   const pinned = data?.pinned ?? [];
   const feedLimit = data?.pinLimits?.feed ?? { limit: 3, count: 0 };
   const topicLimit = data?.pinLimits?.topic ?? { limit: 2, counts: {} };
@@ -317,8 +309,7 @@ export function AdminCommunityNoticesPage() {
               <td className={COMMUNITY_TD}>
                 <span className="flex flex-wrap gap-1">
                   <AdminActionButton
-                    variant="ghost"
-                    size="sm"
+                    variant="neutral"
                     disabled={!canContent || editorLoading}
                     title={noPermTitle}
                     onClick={() => void openEdit(n)}
@@ -327,8 +318,8 @@ export function AdminCommunityNoticesPage() {
                   </AdminActionButton>
                   {tab !== "ended" ? (
                     <AdminActionButton
-                      variant="ghost"
-                      size="sm"
+                      variant="secondary"
+                      className="border-sam-warning text-sam-warning"
                       disabled={!canContent}
                       title={noPermTitle}
                       onClick={() => {
@@ -339,9 +330,8 @@ export function AdminCommunityNoticesPage() {
                       공지 종료
                     </AdminActionButton>
                   ) : null}
-                  {/* 행 버튼 최대 2개 — 게시 중·예약 공지의 「고정 해제」는 아래 「고정된 글」 표에서 한다. */}
-                  {pinnedNow && tab === "ended" ? (
-                    <AdminActionButton variant="ghost" size="sm" disabled={!canContent} title={noPermTitle} onClick={() => setUnpinning(n)}>
+                  {pinnedNow ? (
+                    <AdminActionButton variant="neutral" disabled={!canContent} title={noPermTitle} onClick={() => setUnpinning(n)}>
                       고정 해제
                     </AdminActionButton>
                   ) : null}
@@ -401,7 +391,7 @@ export function AdminCommunityNoticesPage() {
                   {p.pin_reason ? <span className="block text-sam-muted">{p.pin_reason}</span> : null}
                 </td>
                 <td className={COMMUNITY_TD}>
-                  <AdminActionButton variant="ghost" size="sm" disabled={!canContent} title={noPermTitle} onClick={() => setUnpinning(p)}>
+                  <AdminActionButton variant="neutral" disabled={!canContent} title={noPermTitle} onClick={() => setUnpinning(p)}>
                     고정 해제
                   </AdminActionButton>
                 </td>
@@ -447,12 +437,11 @@ export function AdminCommunityNoticesPage() {
         banner={<AdminResultBanner ko={ko} result={banner} onClose={() => setBanner(null)} />}
         tabs={
           <CommunityTabs
-            tabs={TABS.map((t) => ({ ...t, count: t.value === tab && !loading && !loadErr ? noticeTotal : null }))}
+            tabs={TABS.map((t) => ({ ...t, count: t.value === tab && !loading && !loadErr ? notices.length : null }))}
             value={tab}
             onChange={(v) => set({ tab: v === "live" ? null : v })}
           />
         }
-        footer={!loadErr ? <CommunityListPagination q={qs} total={noticeTotal} disabled={loading} /> : null}
       >
         {body}
       </CommunityListShell>

@@ -4,7 +4,7 @@
  * 게시글 홍보 (설계 §C-12 · §F-1) — 커뮤니티 홍보 주문만 (`point_promotion_orders` domain=community).
  * 조치: 「노출 중지」 L2(사유) · 「노출 재개」 L1(종료일을 중지 시간만큼 연장) ·
  *       「홍보 종료」 L3(귀책 선택 → 환급 미리보기 → 대상 재입력 → 실행).
- * URL: tab=active|paused|ended|rejected|all · page · size(20/50/100)
+ * URL: tab=active|paused|ended|rejected|all · page
  */
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
@@ -12,8 +12,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   COMMUNITY_TD,
   CommunityActionSheet,
-  CommunityListPagination,
   CommunityListShell,
+  CommunityPagination,
   CommunityStatusBadge,
   CommunityTable,
   CommunityTabs,
@@ -42,6 +42,7 @@ import {
   type CommunityBannerState,
 } from "@/components/admin/community/members/use-community-admin-data";
 
+const PAGE_SIZE = 50;
 const TABS = ["active", "paused", "ended", "rejected", "all"] as const;
 
 type Order = {
@@ -92,7 +93,7 @@ export function AdminCommunityPromotionsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const { state, reload } = useCommunityAdminJson<ListResponse>(
-    `/api/admin/community-promotion-orders?status=${tab}&page=${q.page}&pageSize=${q.size}`
+    `/api/admin/community-promotion-orders?status=${tab}&page=${q.page}&pageSize=${PAGE_SIZE}`
   );
   const rows = state.status === "ok" ? state.data.orders ?? [] : [];
   const total = state.status === "ok" ? Number(state.data.total ?? 0) : null;
@@ -150,7 +151,11 @@ export function AdminCommunityPromotionsPage() {
           ]}
         />
       }
-      footer={<CommunityListPagination q={q} total={total} disabled={state.status === "loading"} />}
+      footer={
+        total !== null && total > 0 ? (
+          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
+        ) : null
+      }
     >
       {state.status === "loading" && !state.data ? (
         <AdminLoadingState ko />
@@ -217,8 +222,7 @@ export function AdminCommunityPromotionsPage() {
                     <div className="flex flex-wrap gap-1">
                       {o.orderStatus === "active" ? (
                         <AdminActionButton
-                          variant="ghost"
-                          size="sm"
+                          variant="secondary"
                           disabled={!canAct || busyId === o.id}
                           title={access.deniedTitle("promotion")}
                           onClick={() => setSheet({ kind: "pause", order: o })}
@@ -227,8 +231,7 @@ export function AdminCommunityPromotionsPage() {
                         </AdminActionButton>
                       ) : (
                         <AdminActionButton
-                          variant="ghost"
-                          size="sm"
+                          variant="secondary"
                           disabled={!canAct || busyId === o.id}
                           title={access.deniedTitle("promotion")}
                           onClick={() => void resume(o)}
@@ -238,7 +241,6 @@ export function AdminCommunityPromotionsPage() {
                       )}
                       <AdminActionButton
                         variant="danger"
-                        size="sm"
                         disabled={!canAct || busyId === o.id}
                         title={access.deniedTitle("promotion")}
                         onClick={() => setSheet({ kind: "end", order: o })}

@@ -3,10 +3,9 @@
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { useCallback, useEffect, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import type { BoardProbe } from "@/lib/community-operator-import/detect";
 import type { AdapterConfig, SourceEngine } from "@/lib/community-operator-import/types";
-import { call, fmtDate, VERDICT_TONE, importErrorState, verdictLabel } from "./api";
+import { call, fmtDate, VERDICT_TONE, importErrorText, verdictLabel } from "./api";
 import { Blocks } from "./ImportEditorPanel";
 
 function VerdictBadge({ v }: { v: string }) {
@@ -29,7 +28,7 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
   const [probe, setProbe] = useState<BoardProbe | null>(null);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<{ code: string; status?: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (articleIndex: number) => {
     setLoading(true);
@@ -39,7 +38,7 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
       const r = await call<{ probe: BoardProbe }>("/sources", { body: { action: "probe", ...target, articleIndex } });
       setProbe(r.probe);
     } catch (e) {
-      setError(importErrorState(e));
+      setError(importErrorText(e));
     } finally {
       setLoading(false);
     }
@@ -65,11 +64,7 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
           닫기
         </AdminActionButton>
       </div>
-      {error ? (
-        <div className="p-3">
-          <AdminErrorState ko code={error.code} httpStatus={error.status} onRetry={() => void load(index)} />
-        </div>
-      ) : null}
+      {error ? <p className="p-3 text-xs text-sam-danger break-words">{error}</p> : null}
       {probe?.listError ? <p className="p-3 text-xs text-sam-danger break-words">목록 수집 실패: {probe.listError}</p> : null}
       <div className="grid gap-3 p-3 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
         <ul className="max-h-[520px] overflow-auto border border-sam-border rounded-ui-rect">
@@ -94,19 +89,10 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
               </AdminActionButton>
             </li>
           ))}
-          {loading && !probe ? (
-            <li className="p-2">
-              <AdminLoadingState ko />
-            </li>
-          ) : null}
-          {!loading && probe && (probe.rows ?? []).length === 0 && !probe.listError ? (
-            <li className="p-2">
-              <AdminEmptyState ko message="이 게시판에서 읽은 글이 없습니다." />
-            </li>
-          ) : null}
+          {loading && !probe ? <li className="p-2 text-[12px] text-sam-muted">불러오는 중…</li> : null}
         </ul>
         <div className="min-w-0 space-y-2">
-          {loading && probe ? <AdminLoadingState ko label="원문 추출 중…" /> : null}
+          {loading ? <p className="text-xs text-sam-muted">원문 추출 중…</p> : null}
           {probe?.detailError ? <p className="text-xs text-sam-danger break-words">본문 수집 실패: {probe.detailError}</p> : null}
           {a ? (
             <>

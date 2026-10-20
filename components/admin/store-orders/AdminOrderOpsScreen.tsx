@@ -15,10 +15,6 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
-import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
-import { AdminPagination } from "@/components/admin/ui/AdminPagination";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
-import { normalizeAdminListPageSize, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -37,13 +33,13 @@ import {
   elapsedSince,
   OPS_INPUT,
   OPS_SECONDARY_BTN,
+  OpsPager,
   OpsPeriodFilter,
   OpsSummaryPanel,
   type OpsSummaryCard,
 } from "@/components/admin/store-orders/AdminOrderOpsParts";
 import {
   ADMIN_ORDER_OPS_BASIS_LABEL,
-  ADMIN_ORDER_OPS_PAGE_SIZE,
   ADMIN_ORDER_OPS_PATH,
   ADMIN_ORDER_OPS_PAYMENT_METHODS,
   ADMIN_ORDER_OPS_PERIOD_LABEL,
@@ -165,8 +161,6 @@ export function AdminOrderOpsScreen({
       ...q,
       storeId: fixed?.storeId ?? q.storeId,
       buyerUserId: fixed?.buyerUserId ?? q.buyerUserId,
-      // 목록 표준 (수정 계획 2-6): 페이지 크기는 20/50/100 만 — 그 외 값은 화면 기본(50).
-      pageSize: normalizeAdminListPageSize(q.pageSize, ADMIN_ORDER_OPS_PAGE_SIZE as AdminListPageSize),
     }),
     [fixed?.buyerUserId, fixed?.storeId]
   );
@@ -175,7 +169,6 @@ export function AdminOrderOpsScreen({
   const [form, setForm] = useState<Form>(() => formFromQuery(applied));
   const [result, setResult] = useState<AdminOrderOpsPageResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
   const [busy, setBusy] = useState<LoadMode | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const lastUrlRef = useRef<string>(listKey);
@@ -274,12 +267,10 @@ export function AdminOrderOpsScreen({
       abortRef.current = ac;
       setBusy(mode);
       setError(null);
-      setErrorStatus(undefined);
 
       // The URL carries the list state (fixed filters stay implicit on by-store / by-buyer pages).
       const urlParams = adminOrderOpsQueryToParams({ ...q, storeId: fixed?.storeId ? null : q.storeId, buyerUserId: fixed?.buyerUserId ? null : q.buyerUserId });
       if (q.page > 1) urlParams.set("page", String(q.page));
-      if (q.pageSize !== ADMIN_ORDER_OPS_PAGE_SIZE) urlParams.set("page_size", String(q.pageSize));
       const urlQs = urlParams.toString();
       if (urlQs !== lastUrlRef.current) {
         lastUrlRef.current = urlQs;
@@ -300,7 +291,6 @@ export function AdminOrderOpsScreen({
         const res = await fetch(`/api/admin/store-orders/ops?${qs.toString()}`, { credentials: "include", cache: "no-store", signal: ac.signal });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } & Partial<AdminOrderOpsPageResult>;
         if (ac.signal.aborted) return;
-        if (!res.ok) setErrorStatus(res.status);
         if (res.status === 401 || res.status === 403) throw new Error("forbidden");
         if (!res.ok || json.ok !== true) throw new Error(typeof json.error === "string" ? json.error : "load_failed");
         const next = json as AdminOrderOpsPageResult;
@@ -388,8 +378,6 @@ export function AdminOrderOpsScreen({
     void load({ ...applied, tab, page: 1, asOf: null, ...extra }, "query");
   };
   const onPage = (page: number) => void load({ ...applied, page }, "page");
-  // 같은 스냅샷(asOf)에서 크기만 바꾸고 1쪽으로.
-  const onPageSize = (pageSize: AdminListPageSize) => void load({ ...applied, pageSize, page: 1 }, "page");
   const onReset = () => {
     const cleared = withFixed(parseAdminOrderOpsQuery(screen, new URLSearchParams()));
     setForm(formFromQuery(cleared));
@@ -402,16 +390,6 @@ export function AdminOrderOpsScreen({
   const onModalChanged = useCallback(() => void load({ ...applied, asOf: null }, "refresh"), [applied, load]);
 
   const rows = result?.rows ?? [];
-  /** 화면 기본값과 다른 조건이 있는지 (고정 필터·쪽·크기 제외) — 빈 목록의 [초기화] 표시 기준. */
-  const isFiltered = useMemo(() => {
-    const strip = (q: AdminOrderOpsQuery) =>
-      adminOrderOpsQueryToParams({
-        ...q,
-        storeId: fixed?.storeId ? null : q.storeId,
-        buyerUserId: fixed?.buyerUserId ? null : q.buyerUserId,
-      }).toString();
-    return strip(applied) !== strip(parseAdminOrderOpsQuery(screen, new URLSearchParams()));
-  }, [applied, fixed?.buyerUserId, fixed?.storeId, screen]);
   const loadingAny = busy !== null;
   const tab = adminOrderOpsTab(applied);
   const periodLabel = ko ? ADMIN_ORDER_OPS_PERIOD_LABEL[applied.period].ko : ADMIN_ORDER_OPS_PERIOD_LABEL[applied.period].en;
@@ -861,89 +839,92 @@ export function AdminOrderOpsScreen({
         />
       ) : null}
 
-      <AdminFilterBar
-        ko={ko}
-        draft={{ q: form.q, from: form.fromDay, to: form.toDay }}
-        onDraftChange={(patch) =>
-          setForm((f) => ({
-            ...f,
-            ...(patch.q !== undefined ? { q: patch.q } : {}),
-            ...(patch.from !== undefined ? { fromDay: patch.from } : {}),
-            ...(patch.to !== undefined ? { toDay: patch.to } : {}),
-          }))
-        }
-        onSubmit={() => onSearch()}
-        onReset={onReset}
-        pending={loadingAny}
-        showPeriod={false}
-        searchPlaceholder={ko ? "주문번호 · 매장 · 구매자 (예: SO179…)" : "Order no. · store · buyer (e.g. SO179…)"}
-        status={
-          screen === "list"
-            ? {
-                label: ko ? "주문 상태" : "Order status",
-                value: form.orderStatus,
-                onChange: (v) => setForm((f) => ({ ...f, orderStatus: v as Form["orderStatus"] })),
-                options: STORE_ORDER_STATUS_LIST.map((st) => ({ value: st, label: statusLabel(st) })),
-              }
-            : undefined
-        }
-      >
-        <label className="flex flex-col gap-1">
-          <span className="sam-text-xxs text-sam-muted">{ko ? "결제수단" : "Payment method"}</span>
-          <select className={OPS_INPUT} value={form.paymentMethod} onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value as Form["paymentMethod"] }))}>
-            <option value="">{ko ? "전체" : "All"}</option>
-            {ADMIN_ORDER_OPS_PAYMENT_METHODS.map((m) => (
-              <option key={m} value={m}>
-                {ko ? PAYMENT_METHOD_LABEL[m].ko : PAYMENT_METHOD_LABEL[m].en}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="sam-text-xxs text-sam-muted">{ko ? "결제 상태" : "Payment status"}</span>
-          <select className={OPS_INPUT} value={form.paymentStatus} onChange={(e) => setForm((f) => ({ ...f, paymentStatus: e.target.value as Form["paymentStatus"] }))}>
-            <option value="">{ko ? "전체" : "All"}</option>
-            {ADMIN_STORE_ORDERS_PAYMENT_STATUSES.map((v) => (
-              <option key={v} value={v}>
-                {ADMIN_STORE_ORDERS_PAYMENT_LABEL[v][lang]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="sam-text-xxs text-sam-muted">{ko ? "수령 방식" : "Fulfillment"}</span>
-          <select className={OPS_INPUT} value={form.fulfillment} onChange={(e) => setForm((f) => ({ ...f, fulfillment: e.target.value as Form["fulfillment"] }))}>
-            <option value="">{ko ? "전체" : "All"}</option>
-            {ADMIN_STORE_ORDERS_FULFILLMENT_TYPES.map((v) => (
-              <option key={v} value={v}>
-                {ADMIN_STORE_ORDERS_FULFILLMENT_LABEL[v][lang]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex flex-col gap-1">
-          <span className="sam-text-xxs text-sam-muted">
-            {ko ? "기간 · 기준: " : "Period · basis: "}
-            {ko ? ADMIN_ORDER_OPS_BASIS_LABEL[tab.basis].ko : ADMIN_ORDER_OPS_BASIS_LABEL[tab.basis].en}
-          </span>
-          <OpsPeriodFilter period={form.period} fromDay={form.fromDay} toDay={form.toDay} ko={ko} onChange={(next) => setForm((f) => ({ ...f, ...next }))} />
-        </div>
-        {screen === "list" ? (
-          <label className="flex min-h-10 items-center gap-1.5 sam-text-helper text-sam-fg">
-            <input type="checkbox" checked={form.mismatchOnly} onChange={(e) => setForm((f) => ({ ...f, mismatchOnly: e.target.checked }))} />
-            {ko ? "금액 불일치만" : "Mismatch only"}
+      <form onSubmit={onSearch} className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4" aria-label={ko ? "주문 검색" : "Search orders"}>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <label className="flex flex-col gap-1 xl:col-span-2">
+            <span className="sam-text-xxs text-sam-muted">{ko ? "검색 (주문번호 · 매장 · 구매자)" : "Search (order no. · store · buyer)"}</span>
+            <input className={OPS_INPUT} value={form.q} onChange={(e) => setForm((f) => ({ ...f, q: e.target.value }))} placeholder={ko ? "예: SO179…, 매장명, 닉네임" : "e.g. SO179…, store, nickname"} />
           </label>
-        ) : null}
-      </AdminFilterBar>
-      {deepLinks.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {deepLinks.map((d) => (
-            <AdminChipButton key={d.key} selected onClick={() => clearDeepLink(d.key)} disabled={loadingAny} aria-label={ko ? `${d.label} 해제` : `Clear ${d.label}`}>
-              {d.label} ✕
-            </AdminChipButton>
-          ))}
+          {screen === "list" ? (
+            <label className="flex flex-col gap-1">
+              <span className="sam-text-xxs text-sam-muted">{ko ? "주문 상태" : "Order status"}</span>
+              <select className={OPS_INPUT} value={form.orderStatus} onChange={(e) => setForm((f) => ({ ...f, orderStatus: e.target.value as Form["orderStatus"] }))}>
+                <option value="">{ko ? "전체" : "All"}</option>
+                {STORE_ORDER_STATUS_LIST.map((s) => (
+                  <option key={s} value={s}>
+                    {statusLabel(s)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <label className="flex flex-col gap-1">
+            <span className="sam-text-xxs text-sam-muted">{ko ? "결제수단" : "Payment method"}</span>
+            <select className={OPS_INPUT} value={form.paymentMethod} onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value as Form["paymentMethod"] }))}>
+              <option value="">{ko ? "전체" : "All"}</option>
+              {ADMIN_ORDER_OPS_PAYMENT_METHODS.map((m) => (
+                <option key={m} value={m}>
+                  {ko ? PAYMENT_METHOD_LABEL[m].ko : PAYMENT_METHOD_LABEL[m].en}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="sam-text-xxs text-sam-muted">{ko ? "결제 상태" : "Payment status"}</span>
+            <select className={OPS_INPUT} value={form.paymentStatus} onChange={(e) => setForm((f) => ({ ...f, paymentStatus: e.target.value as Form["paymentStatus"] }))}>
+              <option value="">{ko ? "전체" : "All"}</option>
+              {ADMIN_STORE_ORDERS_PAYMENT_STATUSES.map((v) => (
+                <option key={v} value={v}>
+                  {ADMIN_STORE_ORDERS_PAYMENT_LABEL[v][lang]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="sam-text-xxs text-sam-muted">{ko ? "수령 방식" : "Fulfillment"}</span>
+            <select className={OPS_INPUT} value={form.fulfillment} onChange={(e) => setForm((f) => ({ ...f, fulfillment: e.target.value as Form["fulfillment"] }))}>
+              <option value="">{ko ? "전체" : "All"}</option>
+              {ADMIN_STORE_ORDERS_FULFILLMENT_TYPES.map((v) => (
+                <option key={v} value={v}>
+                  {ADMIN_STORE_ORDERS_FULFILLMENT_LABEL[v][lang]}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-      ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <OpsPeriodFilter period={form.period} fromDay={form.fromDay} toDay={form.toDay} ko={ko} onChange={(next) => setForm((f) => ({ ...f, ...next }))} />
+            <span className="sam-text-xxs text-sam-muted">
+              {ko ? "기간 기준: " : "Period basis: "}
+              {ko ? ADMIN_ORDER_OPS_BASIS_LABEL[tab.basis].ko : ADMIN_ORDER_OPS_BASIS_LABEL[tab.basis].en}
+            </span>
+            {screen === "list" ? (
+              <label className="flex items-center gap-1.5 sam-text-helper text-sam-fg">
+                <input type="checkbox" checked={form.mismatchOnly} onChange={(e) => setForm((f) => ({ ...f, mismatchOnly: e.target.checked }))} />
+                {ko ? "금액 불일치만" : "Mismatch only"}
+              </label>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <AdminActionButton variant="secondary" onClick={onReset} disabled={loadingAny} data-cta="reset">
+              {adminCta("reset", ko)}
+            </AdminActionButton>
+            <AdminActionButton type="submit" variant="primary" disabled={loadingAny} data-cta="search">
+              {adminCta("search", ko)}
+            </AdminActionButton>
+          </div>
+        </div>
+        {deepLinks.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {deepLinks.map((d) => (
+              <AdminChipButton key={d.key} selected onClick={() => clearDeepLink(d.key)} disabled={loadingAny} aria-label={ko ? `${d.label} 해제` : `Clear ${d.label}`}>
+                {d.label} ✕
+              </AdminChipButton>
+            ))}
+          </div>
+        ) : null}
+      </form>
 
       <div className="flex flex-wrap items-center justify-between gap-2 sam-text-xxs text-sam-muted">
         <span data-fetched-at={result?.fetchedAt ?? ""}>
@@ -953,35 +934,43 @@ export function AdminOrderOpsScreen({
       </div>
 
       {error ? (
-        <div className="space-y-1" data-state="error">
-          <AdminErrorState ko={ko} code={error} httpStatus={errorStatus} onRetry={loadingAny ? undefined : onRefresh} />
-          {result ? (
-            <p className="sam-text-xxs text-sam-muted">{ko ? "직전 조회 결과를 표시하고 있습니다." : "Showing the previous result."}</p>
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-danger" data-state="error">
+          <span>
+            {errorText(error)}
+            {result ? (ko ? " · 직전 조회 결과를 표시하고 있습니다." : " · Showing the previous result.") : ""}
+          </span>
+          {error !== "forbidden" ? (
+            <AdminActionButton variant="secondary" size="sm" onClick={onRefresh} disabled={loadingAny}>
+              {adminCta("refresh", ko)}
+            </AdminActionButton>
           ) : null}
         </div>
       ) : null}
 
+      {result ? <OpsPager page={applied.page} pageSize={result.pageSize} total={result.total} busy={loadingAny} ko={ko} onGo={onPage} /> : null}
+
       {!result && busy ? (
-        <AdminLoadingState ko={ko} />
+        <div className="space-y-2" data-state="loading">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-10 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
+          ))}
+        </div>
       ) : result && rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={emptyText} onReset={isFiltered && !loadingAny ? onReset : undefined} />
+        <div className="space-y-2 py-8 text-center" data-state="empty">
+          <p className="sam-text-body text-sam-muted">{emptyText}</p>
+          {screen !== "exceptions" ? (
+            <AdminActionButton variant="secondary" size="sm" onClick={onReset} disabled={loadingAny}>
+              {adminCta("reset", ko)}
+            </AdminActionButton>
+          ) : null}
+        </div>
       ) : result ? (
         <div className={`overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface ${busy ? "opacity-70" : ""}`} aria-busy={busy !== null}>
           {renderTable()}
         </div>
       ) : null}
 
-      {result && rows.length > 0 ? (
-        <AdminPagination
-          ko={ko}
-          page={applied.page}
-          size={normalizeAdminListPageSize(result.pageSize, ADMIN_ORDER_OPS_PAGE_SIZE as AdminListPageSize)}
-          total={result.total}
-          onPageChange={onPage}
-          onSizeChange={onPageSize}
-          disabled={loadingAny}
-        />
-      ) : null}
+      {result && rows.length > 0 ? <OpsPager page={applied.page} pageSize={result.pageSize} total={result.total} busy={loadingAny} ko={ko} onGo={onPage} /> : null}
 
       <AdminOrderDetailModal orderId={modal.orderId} section={modal.section} onClose={modal.closeOrder} onChanged={onModalChanged} />
     </div>

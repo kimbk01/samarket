@@ -19,10 +19,10 @@ import { philifeAppPaths } from "@domain/philife/paths";
 import {
   COMMUNITY_TD,
   CommunityAuthorCell,
-  CommunityFilterBar,
   CommunityFilterField,
   CommunityListShell,
   CommunityPagination,
+  CommunityResetFilters,
   CommunitySelect,
   CommunityTable,
   CommunityTimeCell,
@@ -32,16 +32,17 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/component
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { communityJsonFetch } from "@/components/admin/community/posts/community-post-admin-shared";
 
+const PAGE = 50;
+
 export function AdminPhilifeMeetingEventsClient() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const { get, set, reset, page, size: pageSize, setPage, setSize } = useCommunityQueryState();
+  const { get, set, reset, page } = useCommunityQueryState();
   const meetingId = get("meetingId").trim();
   const typeFilter = get("type");
 
   const [events, setEvents] = useState<AdminMeetingEventRow[]>([]);
   const [hasMore, setHasMore] = useState(false);
-  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -61,19 +62,17 @@ export function AdminPhilifeMeetingEventsClient() {
     let cancel = false;
     setLoading(true);
     void (async () => {
-      const r = await communityJsonFetch<{ events?: AdminMeetingEventRow[]; hasMore?: boolean; total?: number | null }>(
-        `/api/admin/meeting-events?${buildQuery({ limit: String(pageSize), offset: String((page - 1) * pageSize) })}`
+      const r = await communityJsonFetch<{ events?: AdminMeetingEventRow[]; hasMore?: boolean }>(
+        `/api/admin/meeting-events?${buildQuery({ limit: String(PAGE), offset: String((page - 1) * PAGE) })}`
       );
       if (cancel) return;
       if (r.ok) {
         setEvents(r.json.events ?? []);
         setHasMore(r.json.hasMore === true);
-        setTotal(typeof r.json.total === "number" ? r.json.total : null);
         setLoadErr(null);
       } else {
         setEvents([]);
         setHasMore(false);
-        setTotal(null);
         setLoadErr({ code: r.code, status: r.status });
       }
       setLoading(false);
@@ -81,21 +80,14 @@ export function AdminPhilifeMeetingEventsClient() {
     return () => {
       cancel = true;
     };
-  }, [buildQuery, page, pageSize, reloadKey]);
+  }, [buildQuery, page, reloadKey]);
 
   const meetingTitle = meetingId ? events.find((e) => e.meeting_id === meetingId)?.meeting_title?.trim() || "선택한 모임" : "";
 
   let body: ReactNode;
   if (loading) body = <AdminLoadingState ko={ko} />;
   else if (loadErr) body = <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={reload} />;
-  else if (events.length === 0)
-    body = (
-      <AdminEmptyState
-        ko={ko}
-        message={meetingId || typeFilter ? undefined : t("admin_meeting_events_empty")}
-        onReset={meetingId || typeFilter ? () => reset() : undefined}
-      />
-    );
+  else if (events.length === 0) body = <AdminEmptyState ko={ko} message={t("admin_meeting_events_empty")} />;
   else
     body = (
       <CommunityTable head={["시각", "모임", "행위자", "대상 회원", "유형", "내용"]}>
@@ -170,8 +162,8 @@ export function AdminPhilifeMeetingEventsClient() {
           </AdminActionButton>
         </>
       }
-      filterBar={
-        <CommunityFilterBar ko={ko} showSearch={false} pending={loading} onRefresh={reload}>
+      filters={
+        <>
           <CommunityFilterField label={t("admin_meeting_events_type_label")}>
             <CommunitySelect
               value={typeFilter}
@@ -183,26 +175,25 @@ export function AdminPhilifeMeetingEventsClient() {
             />
           </CommunityFilterField>
           {meetingId ? (
-            <span className="flex h-10 items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 text-[12px] text-sam-fg">
+            <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
               모임: {meetingTitle}
               <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => set({ meetingId: null })}>
                 해제
               </AdminActionButton>
             </span>
           ) : (
-            <span className="pb-2.5 text-[12px] text-sam-muted">모임 이름을 누르면 그 모임 기록만 봅니다.</span>
+            <span className="pb-1.5 text-[12px] text-sam-muted">모임 이름을 누르면 그 모임 기록만 봅니다.</span>
           )}
-        </CommunityFilterBar>
+          {meetingId || typeFilter ? <CommunityResetFilters onReset={() => reset()} /> : null}
+        </>
       }
       footer={
         !loading && !loadErr && (events.length > 0 || page > 1) ? (
           <CommunityPagination
             page={page}
-            pageSize={pageSize}
-            total={total ?? (hasMore ? null : (page - 1) * pageSize + events.length)}
-            hasMore={hasMore}
-            onPage={setPage}
-            onSizeChange={setSize}
+            pageSize={PAGE}
+            total={hasMore ? null : (page - 1) * PAGE + events.length}
+            onPage={(p) => set({ page: p > 1 ? p : null }, { keepPage: true })}
           />
         ) : null
       }

@@ -1,5 +1,4 @@
 import type { MessageKey } from "@/lib/i18n/messages";
-import { isAdminOperatorSentence } from "@/lib/admin/operator-ux/operator-labels";
 
 const KNOWN_CODES: Record<string, MessageKey> = {
   rpc_missing: "admin_store_points_rpc_missing",
@@ -33,7 +32,6 @@ export function resolveAdminApiErrorMessage(
   if (!raw) return t(fallbackKey);
   const key = KNOWN_CODES[raw];
   if (key) return t(key);
-  // 운영자용 한글 문장만 그대로 — 코드·DB/런타임 원문은 화면에 보이지 않는다 (오류 맵 · 수정 계획 2-5).
-  if (isAdminOperatorSentence(raw)) return raw;
-  return t(fallbackKey);
+  if (/^[a-z][a-z0-9_]*$/.test(raw)) return t(fallbackKey);
+  return raw;
 }

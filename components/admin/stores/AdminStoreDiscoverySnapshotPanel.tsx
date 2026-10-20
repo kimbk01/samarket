@@ -4,11 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ReviewBlock, ReviewRow } from "@/components/admin/stores/admin-store-review-ui";
-import { adminStatusLabelText } from "@/lib/admin/status-labels/admin-status-label-registry";
-import {
-  STORE_DELIVERY_FEE_MODE_NAMESPACE,
-  STORE_DISCOVERY_CAMPAIGN_TYPE_NAMESPACE,
-} from "@/lib/admin/status-labels/pr5-delivery-shared-status-labels";
 
 type Snapshot = {
   store_id: string;
@@ -40,8 +35,7 @@ export function AdminStoreDiscoverySnapshotPanel({
   storeId: string;
   compact?: boolean;
 }) {
-  const { t, language } = useI18n();
-  const ko = language === "ko";
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -109,7 +103,7 @@ export function AdminStoreDiscoverySnapshotPanel({
           />
           <ReviewRow
             label={t("admin_r4c_discovery_field_delivery_fee_mode")}
-            value={adminStatusLabelText(STORE_DELIVERY_FEE_MODE_NAMESPACE, snapshot.delivery_fee_mode, ko)}
+            value={dash(snapshot.delivery_fee_mode)}
           />
           <ReviewRow
             label={t("admin_r4c_discovery_field_strike_ref")}
@@ -123,7 +117,7 @@ export function AdminStoreDiscoverySnapshotPanel({
             label={t("admin_r4c_discovery_field_active_campaign")}
             value={
               campaign
-                ? `${adminStatusLabelText(STORE_DISCOVERY_CAMPAIGN_TYPE_NAMESPACE, campaign.campaign_type, ko)} · ${campaign.title}`
+                ? `${campaign.campaign_type} · ${campaign.title}`
                 : t("admin_store_discovery_none")
             }
           />

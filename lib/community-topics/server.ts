@@ -30,18 +30,7 @@ const ADMIN_TOPICS_SELECT_WITH_SKIN =
 const ADMIN_TOPICS_SELECT_NO_SKIN =
   "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, community_sections ( slug, name )";
 
-/** 관리자: 전체 주제 (실패 시 [] — 기존 호출부 호환). 관리자 화면은 `loadAllCommunityTopicsForAdmin` 을 쓴다. */
 export async function listAllCommunityTopicsForAdmin(): Promise<CommunityTopicAdminRow[]> {
-  return (await loadAllCommunityTopicsForAdmin()).rows;
-}
-
-/**
- * 관리자: 전체 주제 — 조회 실패를 빈 목록과 구분한다 (관리자 화면 오류 상태용).
- * error = DB 오류 코드(`db_…`) 또는 load_failed.
- */
-export async function loadAllCommunityTopicsForAdmin(): Promise<
-  { ok: true; rows: CommunityTopicAdminRow[] } | { ok: false; rows: CommunityTopicAdminRow[]; error: string }
-> {
   try {
     const sb = getSupabaseServer();
     const a1 = await sb
@@ -74,9 +63,8 @@ export async function loadAllCommunityTopicsForAdmin(): Promise<
       adminRows = a2.data;
       error = a2.error;
     }
-    if (error) return { ok: false, rows: [], error: error.code ? `db_${error.code}` : "load_failed" };
-    if (!Array.isArray(adminRows)) return { ok: false, rows: [], error: "load_failed" };
-    const rows: CommunityTopicAdminRow[] = (adminRows as Record<string, unknown>[]).map((r) => {
+    if (error || !Array.isArray(adminRows)) return [];
+    return (adminRows as Record<string, unknown>[]).map((r) => {
       const sec = r.community_sections as { slug?: string; name?: string } | null;
       return {
         id: String(r.id),
@@ -98,8 +86,7 @@ export async function loadAllCommunityTopicsForAdmin(): Promise<
         feed_list_skin: normalizeCommunityFeedListSkin(r.feed_list_skin),
       };
     });
-    return { ok: true, rows };
   } catch {
-    return { ok: false, rows: [], error: "load_failed" };
+    return [];
   }
 }

@@ -19,10 +19,11 @@ import {
   COMMUNITY_TD,
   CommunityActionSheet,
   CommunityAuthorCell,
-  CommunityFilterBar,
   CommunityFilterField,
-  CommunityListPagination,
   CommunityListShell,
+  CommunityPagination,
+  CommunityResetFilters,
+  CommunitySearchInput,
   CommunityStatusBadge,
   CommunityTable,
   CommunityTabs,
@@ -42,6 +43,8 @@ import {
   communityWarningsOf,
   type CommunityBanner,
 } from "@/components/admin/community/reports/community-report-admin-shared";
+
+const PAGE_SIZE = 50;
 
 type TabKey = "active" | "expired" | "revoked" | "warnings" | "all";
 
@@ -110,13 +113,11 @@ export function AdminCommunityRestrictionsPage() {
   const userId = qs.get("userId");
   const sanctionId = qs.get("sanctionId");
   const page = qs.page;
-  const pageSize = qs.size;
 
   const [rows, setRows] = useState<RestrictionRow[] | null>(null);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<Partial<Record<TabKey, number>>>({});
   const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(null);
-  const [loading, setLoading] = useState(false);
   const [banner, setBanner] = useState<CommunityBanner>(null);
   const [revokeRow, setRevokeRow] = useState<RestrictionRow | null>(null);
   const [adding, setAdding] = useState(false);
@@ -135,9 +136,8 @@ export function AdminCommunityRestrictionsPage() {
 
   const load = useCallback(async () => {
     setLoadErr(null);
-    setLoading(true);
     try {
-      const res = await fetch(buildQuery(tabDef, pageSize, (page - 1) * pageSize), {
+      const res = await fetch(buildQuery(tabDef, PAGE_SIZE, (page - 1) * PAGE_SIZE), {
         credentials: "include",
         cache: "no-store",
       });
@@ -152,8 +152,6 @@ export function AdminCommunityRestrictionsPage() {
     } catch {
       setLoadErr({ code: "network_error", status: 0 });
       setRows(null);
-    } finally {
-      setLoading(false);
     }
     // 탭 건수 (총 건수만 — 1행 조회)
     const entries = await Promise.all(
@@ -168,7 +166,7 @@ export function AdminCommunityRestrictionsPage() {
       })
     );
     setCounts(Object.fromEntries(entries.filter(([, v]) => typeof v === "number")));
-  }, [buildQuery, page, pageSize, tabDef]);
+  }, [buildQuery, page, tabDef]);
 
   useEffect(() => {
     setRows(null);
@@ -190,11 +188,11 @@ export function AdminCommunityRestrictionsPage() {
       description="커뮤니티 경고·활동 제한을 확인하고 해제하거나 새로 적용합니다. 계정 정지는 회원 관리에서 합니다."
       actions={
         <>
-          <AdminActionButton variant="secondary" disabled={loading} onClick={() => void load()}>
+          <AdminActionButton variant="secondary" onClick={() => void load()}>
             새로고침
           </AdminActionButton>
           <AdminActionButton
-            variant="secondary"
+            variant="primary"
             disabled={!canModerate}
             title={canModerate ? undefined : "권한 필요: 신고 처리"}
             onClick={() => setAdding(true)}
@@ -211,38 +209,34 @@ export function AdminCommunityRestrictionsPage() {
           tabs={TABS.map((t) => ({ value: t.key, label: t.label, count: counts[t.key] ?? null }))}
         />
       }
-      filterBar={
-        <CommunityFilterBar
-          ko={ko}
-          searchPlaceholder="닉네임"
-          resetKeep={["tab"]}
-          pending={loading}
-          onRefresh={() => void load()}
-        >
+      filters={
+        <>
+          <CommunityFilterField label="회원 검색">
+            <CommunitySearchInput value={q} onCommit={(v) => qs.set({ q: v })} placeholder="닉네임" />
+          </CommunityFilterField>
           {userId ? (
-            <CommunityFilterField label="회원">
-              <span className="inline-flex h-10 items-center gap-1 text-[13px] text-sam-fg">
-                특정 회원만 보기
-                <AdminActionButton variant="quiet" size="sm" aria-label="특정 회원 해제" onClick={() => qs.set({ userId: null })} className="h-auto! px-1!">
-                  ×
-                </AdminActionButton>
-              </span>
-            </CommunityFilterField>
+            <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
+              특정 회원만 보기
+              <AdminActionButton variant="quiet" size="sm" aria-label="특정 회원 해제" onClick={() => qs.set({ userId: null })} className="h-auto! px-1!">
+                ×
+              </AdminActionButton>
+            </span>
           ) : null}
-        </CommunityFilterBar>
+          <CommunityResetFilters onReset={() => qs.reset(["tab"])} />
+        </>
       }
-      footer={rows ? <CommunityListPagination q={qs} total={total} disabled={loading} /> : null}
+      footer={
+        rows && total > 0 ? (
+          <CommunityPagination page={page} pageSize={PAGE_SIZE} total={total} onPage={(p) => qs.set({ page: p > 1 ? p : null })} />
+        ) : null
+      }
     >
       {loadErr ? (
         <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={() => void load()} />
       ) : !rows ? (
         <AdminLoadingState ko={ko} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState
-          ko={ko}
-          message={q || userId ? undefined : EMPTY_TEXT[tab]}
-          onReset={q || userId ? () => qs.reset(["tab"]) : undefined}
-        />
+        <AdminEmptyState ko={ko} message={EMPTY_TEXT[tab]} />
       ) : (
         <CommunityTable head={["회원", "종류·범위", "기간", "사유", "처리자", "원인 신고", "상태", "처리"]}>
           {rows.map((r) => (
@@ -300,8 +294,8 @@ export function AdminCommunityRestrictionsPage() {
               <td className={COMMUNITY_TD}>
                 {r.kind === "community_restriction" && r.status === "active" ? (
                   <AdminActionButton
-                    variant="ghost"
-                    size="sm"
+                    variant="secondary"
+                    className="min-h-8 px-2 py-1 text-[12px]"
                     disabled={!canModerate}
                     title={canModerate ? undefined : "권한 필요: 신고 처리"}
                     onClick={() => setRevokeRow(r)}

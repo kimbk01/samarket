@@ -3,7 +3,7 @@
 /**
  * 커뮤니티 문의 · 이의신청 (설계 §C-16 · §F-4) — 공통 고객지원 케이스(`support_cases`)의 커뮤니티 범위 화면.
  * 답변·담당자 배정·종결·재오픈은 기존 상담 화면(/admin/support/{id})에서 한다 (재구현하지 않는다).
- * URL: type=appeal · status=waiting|waiting_user|resolved|all · q · reference_type/reference_id · page · size(20/50/100)
+ * URL: type=appeal · status=waiting|waiting_user|resolved|all · q · reference_type/reference_id · page
  */
 import Link from "next/link";
 import { useMemo } from "react";
@@ -11,10 +11,11 @@ import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   COMMUNITY_TD,
-  CommunityFilterBar,
   CommunityFilterField,
-  CommunityListPagination,
   CommunityListShell,
+  CommunityPagination,
+  CommunityResetFilters,
+  CommunitySearchInput,
   CommunityTable,
   CommunityTabs,
   CommunityTimeCell,
@@ -28,6 +29,8 @@ import { supportCategoryLabel } from "@/lib/support/support-display-labels";
 import { supportAdminStatusLabel } from "@/lib/support/support-status-label";
 import { resolveSupportReferenceAdminHref } from "@/lib/support/support-reference-admin-href";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
+
+const PAGE_SIZE = 50;
 
 const STATUS_TAB: Record<string, string> = {
   waiting: "ACTIONABLE",
@@ -106,8 +109,8 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
     params.set("reference_id", q.get("reference_id"));
   }
   // Server-side pagination — `total` 은 현재 필터 기준 정확한 건수.
-  params.set("limit", String(q.size));
-  params.set("offset", String(adminListOffsetForPage(q.page, q.size)));
+  params.set("limit", String(PAGE_SIZE));
+  params.set("offset", String(adminListOffsetForPage(q.page, PAGE_SIZE)));
   const { state, reload } = useCommunityAdminJson<ListResponse>(`/api/admin/support/cases?${params.toString()}`);
   const rows = useMemo(() => (state.status === "ok" ? state.data.cases ?? [] : []), [state]);
   const total = state.status === "ok" ? state.data.total ?? rows.length : 0;
@@ -144,11 +147,14 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
           />
         </div>
       }
-      filterBar={
-        <CommunityFilterBar searchPlaceholder="접수 번호 · 제목" resetKeep={["type"]} onRefresh={reload}>
+      filters={
+        <>
+          <CommunityFilterField label="검색어">
+            <CommunitySearchInput value={q.get("q")} onCommit={(v) => q.set({ q: v })} placeholder="접수 번호 · 제목" />
+          </CommunityFilterField>
           {q.get("reference_type") && q.get("reference_id") ? (
             <CommunityFilterField label="참조 대상">
-              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
+              <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {REFERENCE_LABEL[q.get("reference_type")] ?? "선택한 대상"} 관련 문의만
                 <AdminActionButton
                   variant="quiet"
@@ -160,10 +166,13 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
               </span>
             </CommunityFilterField>
           ) : null}
-        </CommunityFilterBar>
+          <CommunityResetFilters onReset={() => q.reset(["type"])} />
+        </>
       }
       footer={
-        state.status === "ok" ? <CommunityListPagination q={q} total={total} /> : null
+        state.status === "ok" && (total > 0 || q.page > 1) ? (
+          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
+        ) : null
       }
     >
       {state.status === "loading" && !state.data ? (
@@ -171,11 +180,7 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
       ) : state.status === "error" ? (
         <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState
-          ko
-          message={appeal ? "이 상태의 이의신청이 없습니다." : "이 상태의 커뮤니티 문의가 없습니다."}
-          onReset={q.hasAny(["q", "status", "reference_type", "reference_id"]) ? () => q.reset(["type"]) : undefined}
-        />
+        <AdminEmptyState ko message={appeal ? "이 상태의 이의신청이 없습니다." : "이 상태의 커뮤니티 문의가 없습니다."} />
       ) : (
         <CommunityTable head={["문의", "회원", "분류", "참조 대상", "담당자", "상태", "마지막 메시지"]}>
           {rows.map((c) => {

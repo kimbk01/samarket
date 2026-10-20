@@ -3,17 +3,18 @@
 /**
  * 포인트 내역·지급 (설계 §C-13) — 커뮤니티 관련 원장(보상·회수·홍보 차감/환급·관리자 지급/회수).
  * 「포인트 지급/회수」 = 공통 지급 패널(L3, 확인 화면을 열 때 멱등 키 1회 생성)을 시트로 연다.
- * URL: type · userId · period/from/to · page · size(20/50/100)
+ * URL: type · userId · period/from/to · page
  */
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useState } from "react";
 import {
   COMMUNITY_TD,
-  CommunityFilterBar,
   CommunityFilterField,
-  CommunityListPagination,
   CommunityListShell,
+  CommunityPagination,
+  CommunityPeriodFilter,
+  CommunityResetFilters,
   CommunitySelect,
   CommunityTable,
   CommunityTimeCell,
@@ -33,6 +34,8 @@ import {
   COMMUNITY_POINT_TYPE_OPTIONS,
   communityPointTypeLabel,
 } from "@/components/admin/community/points/community-point-labels";
+
+const PAGE_SIZE = 50;
 
 type LedgerRow = {
   id: string;
@@ -82,8 +85,8 @@ export function AdminCommunityPointsPage() {
     if (q.get("from")) params.set("from", q.get("from"));
     if (q.get("to")) params.set("to", q.get("to"));
   }
-  params.set("limit", String(q.limitOffset.limit));
-  params.set("offset", String(q.limitOffset.offset));
+  params.set("limit", String(PAGE_SIZE));
+  params.set("offset", String((q.page - 1) * PAGE_SIZE));
   const customIncomplete = period === "custom" && (!q.get("from") || !q.get("to"));
   const { state, reload } = useCommunityAdminJson<PointsResponse>(
     customIncomplete ? null : `/api/admin/community/points?${params.toString()}`
@@ -99,7 +102,7 @@ export function AdminCommunityPointsPage() {
       description="커뮤니티 보상·회수·홍보 차감과 환급, 관리자 지급·회수 내역을 확인합니다. 포인트는 전체 서비스 공통입니다."
       actions={
         <AdminActionButton
-          variant="secondary"
+          variant="primary"
           disabled={!access.allowed("points")}
           title={access.deniedTitle("points")}
           onClick={() => setAdjustOpen(true)}
@@ -121,14 +124,20 @@ export function AdminCommunityPointsPage() {
           </div>
         ) : null
       }
-      filterBar={
-        <CommunityFilterBar showSearch={false} showPeriod onRefresh={reload}>
+      filters={
+        <>
           <CommunityFilterField label="유형">
             <CommunitySelect value={type} onChange={(v) => q.set({ type: v })} options={COMMUNITY_POINT_TYPE_OPTIONS} />
           </CommunityFilterField>
+          <CommunityPeriodFilter
+            period={period}
+            from={q.get("from")}
+            to={q.get("to")}
+            onChange={(v) => q.set({ period: v.period, from: v.from, to: v.to })}
+          />
           {userId ? (
             <CommunityFilterField label="회원">
-              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
+              <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {memberName || "선택한 회원"}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.set({ userId: null })}>
                   회원 필터 해제
@@ -136,9 +145,14 @@ export function AdminCommunityPointsPage() {
               </span>
             </CommunityFilterField>
           ) : null}
-        </CommunityFilterBar>
+          <CommunityResetFilters onReset={() => q.reset()} />
+        </>
       }
-      footer={<CommunityListPagination q={q} total={total} disabled={state.status === "loading"} />}
+      footer={
+        total !== null && total > 0 ? (
+          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
+        ) : null
+      }
     >
       {customIncomplete ? (
         <AdminEmptyState ko message="직접 지정 기간의 시작일과 종료일을 모두 선택하세요." />
@@ -147,11 +161,7 @@ export function AdminCommunityPointsPage() {
       ) : state.status === "error" ? (
         <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState
-          ko
-          message="조건에 맞는 포인트 내역이 없습니다."
-          onReset={q.hasAny(["type", "userId", "period", "from", "to"]) ? () => q.reset() : undefined}
-        />
+        <AdminEmptyState ko message="조건에 맞는 포인트 내역이 없습니다." />
       ) : (
         <CommunityTable head={["시각", "회원", "유형", "포인트", "잔액", "내용", "처리자"]}>
           {rows.map((r) => {

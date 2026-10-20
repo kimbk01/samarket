@@ -2,16 +2,18 @@
 
 /**
  * 작성자 조회 (설계 §C-10) — 커뮤니티 활동 기준 회원 목록. 행 → 작성자 상세(조치 포함).
- * URL: q · restricted=1 · account=suspended|active · sort · period/from/to · page · size(20/50/100)
+ * URL: q · restricted=1 · account=suspended|active · sort · period/from/to · page
  */
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import {
   COMMUNITY_TD,
-  CommunityFilterBar,
   CommunityFilterField,
-  CommunityListPagination,
   CommunityListShell,
+  CommunityPagination,
+  CommunityPeriodFilter,
+  CommunityResetFilters,
+  CommunitySearchInput,
   CommunitySelect,
   CommunityStatusBadge,
   CommunityTable,
@@ -24,6 +26,8 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/component
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatCommunityPoints, useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
+
+const PAGE_SIZE = 50;
 
 type MemberRow = {
   user_id: string;
@@ -86,8 +90,8 @@ export function AdminCommunityMembersPage() {
     if (q.get("from")) params.set("from", q.get("from"));
     if (q.get("to")) params.set("to", q.get("to"));
   }
-  params.set("limit", String(q.limitOffset.limit));
-  params.set("offset", String(q.limitOffset.offset));
+  params.set("limit", String(PAGE_SIZE));
+  params.set("offset", String((q.page - 1) * PAGE_SIZE));
   const customIncomplete = period === "custom" && (!q.get("from") || !q.get("to"));
   const { state, reload } = useCommunityAdminJson<MembersResponse>(
     customIncomplete ? null : `/api/admin/community/members?${params.toString()}`
@@ -116,17 +120,35 @@ export function AdminCommunityMembersPage() {
           ]}
         />
       }
-      filterBar={
+      filters={
         <>
-          <CommunityFilterBar showPeriod searchPlaceholder="닉네임 · 아이디 · DIBAY ID" onRefresh={reload}>
-            <CommunityFilterField label="정렬">
-              <CommunitySelect value={sort} onChange={(v) => q.set({ sort: v === "recent" ? null : v })} options={SORT_OPTIONS} />
-            </CommunityFilterField>
-          </CommunityFilterBar>
-          {period ? <p className="text-[12px] text-sam-muted">선택한 기간에 글이나 댓글을 쓴 회원만 표시합니다.</p> : null}
+          <CommunityFilterField label="검색어">
+            <CommunitySearchInput
+              value={q.get("q")}
+              onCommit={(v) => q.set({ q: v })}
+              placeholder="닉네임 · 아이디 · DIBAY ID"
+            />
+          </CommunityFilterField>
+          <CommunityPeriodFilter
+            period={period}
+            from={q.get("from")}
+            to={q.get("to")}
+            onChange={(v) => q.set({ period: v.period, from: v.from, to: v.to })}
+          />
+          <CommunityFilterField label="정렬">
+            <CommunitySelect value={sort} onChange={(v) => q.set({ sort: v === "recent" ? null : v })} options={SORT_OPTIONS} />
+          </CommunityFilterField>
+          <CommunityResetFilters onReset={() => q.reset()} />
+          {period ? (
+            <p className="w-full text-[12px] text-sam-muted">선택한 기간에 글이나 댓글을 쓴 회원만 표시합니다.</p>
+          ) : null}
         </>
       }
-      footer={<CommunityListPagination q={q} total={total} disabled={state.status === "loading"} />}
+      footer={
+        total !== null && total > 0 ? (
+          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
+        ) : null
+      }
     >
       {customIncomplete ? (
         <AdminEmptyState ko message="직접 지정 기간의 시작일과 종료일을 모두 선택하세요." />
@@ -135,11 +157,7 @@ export function AdminCommunityMembersPage() {
       ) : state.status === "error" ? (
         <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState
-          ko
-          message="조건에 맞는 작성자가 없습니다."
-          onReset={q.hasAny(["q", "restricted", "account", "sort", "period", "from", "to"]) ? () => q.reset() : undefined}
-        />
+        <AdminEmptyState ko message="조건에 맞는 작성자가 없습니다." />
       ) : (
         <CommunityTable head={["회원", "가입일", "게시글", "댓글", "받은 신고", "조치 이력", "계정 상태", "포인트", "최근 활동"]}>
           {rows.map((r) => {

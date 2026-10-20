@@ -3,14 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
-import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
-import {
-  CommunityFilterField,
-  CommunityPagination,
-  CommunitySelect,
-  useCommunityQueryState,
-} from "@/components/admin/community/kit/CommunityAdminKit";
 import { VerdictBadge } from "./ImportSourcesPanel";
 import {
   call,
@@ -22,13 +14,7 @@ import {
   type ManagedSource,
   POLICY_LABEL,
   STATUS_LABEL,
-  type TopicOption,
-  importErrorState,
-  importErrorText,
-  inboxStatusLabel,
-  jobKindLabel,
-  jobStatusLabel,
-} from "./api";
+  type TopicOption, importErrorText } from "./api";
 
 export type InboxFilter = { site: string; board: string; status: string; quality: string; lang: string; q: string };
 
@@ -59,46 +45,20 @@ type Props = {
   topics: TopicOption[];
   filter: InboxFilter;
   setFilter: (f: InboxFilter) => void;
-  /** 「초기화」 — 기본 필터(처리 대기 · 한글 글)로 */
-  onResetFilter: () => void;
-  /** 기본값과 다른 필터가 있는지 — 빈 목록의 [초기화] */
-  isFiltered: boolean;
   activeKey: string | null;
   onOpen: (row: InboxRow) => void;
   refreshToken: number;
   onJobDone: () => void;
 };
 
-const DEFAULT_STATUS = "new,draft,source_updated,failed";
+const PAGE = 50;
 
-export function ImportInboxPanel({
-  sources,
-  topics,
-  filter,
-  setFilter,
-  onResetFilter,
-  isFiltered,
-  activeKey,
-  onOpen,
-  refreshToken,
-  onJobDone,
-}: Props) {
-  // 페이지·페이지 크기(20/50/100) 는 URL (`page`·`size`) — 필터를 바꾸면 1쪽으로 (setFilter 가 page 를 지운다)
-  const qs = useCommunityQueryState();
-  const pageSize = qs.size;
-  const offset = (qs.page - 1) * pageSize;
+export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey, onOpen, refreshToken, onJobDone }: Props) {
   const [rows, setRows] = useState<InboxRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [loadErr, setLoadErr] = useState<{ code: string; status?: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // 제목 검색어 — 입력 중에는 draft, 「조회」/Enter 때 URL(q) 에 반영
-  const [qDraft, setQDraft] = useState<{ applied: string; value: string }>({ applied: filter.q, value: filter.q });
-  let qValue = qDraft.value;
-  if (qDraft.applied !== filter.q) {
-    qValue = filter.q;
-    setQDraft({ applied: filter.q, value: filter.q });
-  }
   const [selected, setSelected] = useState<Map<string, InboxRow>>(new Map());
   const [bulkTopic, setBulkTopic] = useState("");
   const [bulkPolicy, setBulkPolicy] = useState<"" | ContentPolicy>("");
@@ -119,7 +79,7 @@ export function ImportInboxPanel({
 
   const load = useCallback(async () => {
     setLoading(true);
-    setLoadErr(null);
+    setError(null);
     const p = new URLSearchParams();
     if (filter.site) p.set("site", filter.site);
     if (filter.board) p.set("board", filter.board);
@@ -127,20 +87,18 @@ export function ImportInboxPanel({
     if (filter.quality) p.set("quality", filter.quality);
     if (filter.lang) p.set("lang", filter.lang);
     if (filter.q) p.set("q", filter.q);
-    p.set("limit", String(pageSize));
+    p.set("limit", String(PAGE));
     p.set("offset", String(offset));
     try {
       const r = await call<{ rows: InboxRow[]; total: number }>(`/inbox?${p.toString()}`);
       setRows(r.rows);
       setTotal(r.total);
     } catch (e) {
-      setRows([]);
-      setTotal(0);
-      setLoadErr(importErrorState(e));
+      setError(importErrorText(e));
     } finally {
       setLoading(false);
     }
-  }, [filter, offset, pageSize]);
+  }, [filter, offset]);
 
   useEffect(() => {
     void load();
@@ -149,6 +107,7 @@ export function ImportInboxPanel({
   // Selection is tied to the filter: changing it clears selection (no hidden cross-filter selection).
   useEffect(() => {
     setSelected(new Map());
+    setOffset(0);
   }, [filter.site, filter.board, filter.status, filter.quality, filter.lang, filter.q]);
 
   const toggle = (r: InboxRow) => {
@@ -253,111 +212,72 @@ export function ImportInboxPanel({
 
   return (
     <div className="flex flex-col min-h-0 h-full">
-      <div className="shrink-0 border-b border-sam-border p-2">
-        <AdminFilterBar
-          ko
-          className="border-0! p-0!"
-          draft={{ q: qValue, from: "", to: "" }}
-          onDraftChange={(p) => setQDraft((prev) => ({ applied: prev.applied, value: p.q ?? prev.value }))}
-          onSubmit={() => {
-            const next = qValue.trim();
-            if (next === filter.q) void load();
-            else setFilter({ ...filter, q: next });
-          }}
-          onReset={onResetFilter}
-          showPeriod={false}
-          searchPlaceholder="제목"
-          pending={loading}
-          status={{
-            value: filter.status,
-            label: "처리 상태",
-            options: [
-              { value: DEFAULT_STATUS, label: "처리 대기" },
-              { value: "", label: "전체 상태" },
-              ...Object.entries(STATUS_LABEL).map(([k, v]) => ({ value: k, label: v })),
-            ],
-            onChange: (v) => setFilter({ ...filter, status: v }),
-          }}
-        >
-          <CommunityFilterField label="출처">
-            <CommunitySelect
-              value={filter.site}
-              onChange={(v) => setFilter({ ...filter, site: v, board: "" })}
-              options={[{ value: "", label: "모든 출처" }, ...sources.map((s) => ({ value: s.id, label: s.displayName }))]}
-            />
-          </CommunityFilterField>
-          <CommunityFilterField label="게시판">
-            <CommunitySelect
-              value={filter.board}
-              disabled={!filter.site}
-              onChange={(v) => setFilter({ ...filter, board: v })}
-              options={[{ value: "", label: "모든 게시판" }, ...boards.map((b) => ({ value: b.boardId, label: b.displayName }))]}
-            />
-          </CommunityFilterField>
-          <CommunityFilterField label="품질">
-            <CommunitySelect
-              value={filter.quality}
-              onChange={(v) => setFilter({ ...filter, quality: v })}
-              options={[
-                { value: "", label: "모든 품질" },
-                { value: "FULL", label: "전체 수집" },
-                { value: "PARTIAL", label: "일부 수집" },
-                { value: "FAILED", label: "수집 실패" },
-                { value: "none", label: "미확인" },
-              ]}
-            />
-          </CommunityFilterField>
-          <CommunityFilterField label="언어">
-            <CommunitySelect
-              value={filter.lang}
-              onChange={(v) => setFilter({ ...filter, lang: v })}
-              options={[
-                { value: "ko", label: "한글 글만" },
-                { value: "", label: "모든 언어" },
-                { value: "other", label: "한글 없는 글" },
-              ]}
-            />
-          </CommunityFilterField>
-        </AdminFilterBar>
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5 p-2 border-b border-sam-border shrink-0">
+        <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={filter.site} onChange={(e) => setFilter({ ...filter, site: e.target.value, board: "" })}>
+          <option value="">모든 출처</option>
+          {sources.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.displayName}
+            </option>
+          ))}
+        </select>
+        <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={filter.board} disabled={!filter.site} onChange={(e) => setFilter({ ...filter, board: e.target.value })}>
+          <option value="">모든 게시판</option>
+          {boards.map((b) => (
+            <option key={b.boardId} value={b.boardId}>
+              {b.displayName}
+            </option>
+          ))}
+        </select>
+        <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label="처리 상태" value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value })}>
+          <option value="new,draft,source_updated,failed">처리 대기</option>
+          <option value="">전체 상태</option>
+          {Object.entries(STATUS_LABEL).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
+        <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={filter.quality} onChange={(e) => setFilter({ ...filter, quality: e.target.value })}>
+          <option value="">모든 품질</option>
+          <option value="FULL">전체 수집</option>
+          <option value="PARTIAL">일부 수집</option>
+          <option value="FAILED">수집 실패</option>
+          <option value="none">미확인</option>
+        </select>
+        <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label="언어" value={filter.lang} onChange={(e) => setFilter({ ...filter, lang: e.target.value })}>
+          <option value="ko">한글 글만</option>
+          <option value="">모든 언어</option>
+          <option value="other">한글 없는 글</option>
+        </select>
+        <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs col-span-2 sm:col-span-1" placeholder="제목 검색" value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} />
       </div>
 
       <div className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-sam-muted border-b border-sam-border shrink-0">
         <label className="flex items-center gap-1">
           <input type="checkbox" checked={allOnPage} onChange={togglePage} /> 이 페이지 선택
         </label>
+        <span>
+          {total}건 중 {total ? offset + 1 : 0}–{Math.min(offset + PAGE, total)}
+        </span>
         <span className="ml-auto flex gap-1">
-          <AdminActionButton variant="neutral" size="sm" disabled={loading} onClick={() => void load()}>
+          <AdminActionButton variant="neutral" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>
+            이전
+          </AdminActionButton>
+          <AdminActionButton variant="neutral" disabled={offset + PAGE >= total} onClick={() => setOffset(offset + PAGE)}>
+            다음
+          </AdminActionButton>
+          <AdminActionButton variant="neutral" onClick={() => void load()}>
             새로고침
           </AdminActionButton>
         </span>
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
-        {error ? (
-          <p role="alert" className="p-3 text-xs text-sam-danger break-words">
-            {error}
-          </p>
-        ) : null}
-        {loadErr ? (
-          <div className="p-2">
-            <AdminErrorState ko code={loadErr.code} httpStatus={loadErr.status} onRetry={() => void load()} />
-          </div>
-        ) : loading && !rows.length ? (
-          <div className="p-2">
-            <AdminLoadingState ko />
-          </div>
-        ) : !loading && !rows.length ? (
-          <div className="p-2">
-            <AdminEmptyState
-              ko
-              message={
-                isFiltered
-                  ? undefined
-                  : "수집된 글이 없습니다. 「출처·게시판」에서 게시판의 「지금 수집」을 누르거나 자동수집을 켜세요."
-              }
-              onReset={isFiltered ? onResetFilter : undefined}
-            />
-          </div>
+        {error ? <p className="p-3 text-xs text-sam-danger break-words">{error}</p> : null}
+        {loading && !rows.length ? <p className="p-3 text-xs text-sam-muted">불러오는 중…</p> : null}
+        {!loading && !rows.length && !error ? (
+          <p className="p-4 text-xs text-sam-muted">수집된 글이 없습니다. 「출처·게시판」에서 게시판의 「지금 수집」을 누르거나 자동수집을 켜세요.</p>
         ) : null}
         <ul data-testid="import-inbox-list">
           {rows.map((r) => {
@@ -377,7 +297,7 @@ export function ImportInboxPanel({
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-medium text-sam-fg line-clamp-2 break-words">{r.title || "(제목 없음)"}</div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[12px] text-sam-muted">
-                      <span className="rounded-full border border-sam-border px-1.5">{inboxStatusLabel(r.status)}</span>
+                      <span className="rounded-full border border-sam-border px-1.5">{STATUS_LABEL[r.status] ?? r.status}</span>
                       {r.quality ? <VerdictBadge v={r.quality} /> : null}
                       <span className="truncate">
                         {sourceName} · {r.sourceBoard}
@@ -390,18 +310,6 @@ export function ImportInboxPanel({
             );
           })}
         </ul>
-        {!loadErr && total > 0 ? (
-          <div className="px-2">
-            <CommunityPagination
-              page={qs.page}
-              pageSize={pageSize}
-              total={total}
-              onPage={qs.setPage}
-              onSizeChange={qs.setSize}
-              disabled={loading}
-            />
-          </div>
-        ) : null}
       </div>
 
       {selected.size > 0 || job ? (
@@ -478,8 +386,7 @@ export function ImportInboxPanel({
                 품질 「일부 수집」도 게시 허용 (「수집 실패」는 항상 제외)
               </label>
               <div className="flex flex-wrap gap-1">
-                {/* 화면 primary 는 필터 「조회」·편집 패널 「게시」 — 일괄 작업은 보조 */}
-                <AdminActionButton variant="secondary" disabled={jobBusy || !counts.unpublished} onClick={() => setPendingJob("publish")}>
+                <AdminActionButton variant="primary" disabled={jobBusy || !counts.unpublished} onClick={() => setPendingJob("publish")}>
                   일괄 게시 ({counts.unpublished})
                 </AdminActionButton>
                 <AdminActionButton variant="secondary" disabled={jobBusy || !counts.published} onClick={() => setPendingJob("update")}>
@@ -506,7 +413,7 @@ export function ImportInboxPanel({
           {job ? (
             <div className="text-[12px] text-sam-muted space-y-1">
               <div>
-                작업 {jobKindLabel(job.kind)}: {jobStatusLabel(job.status)} · 성공 {job.done} · 실패 {job.failed} · 건너뜀(중복·이미 게시) {job.skipped} / {job.total}
+                작업 {job.kind}: {job.status} · 성공 {job.done} · 실패 {job.failed} · 건너뜀(중복·이미 게시) {job.skipped} / {job.total}
                 {job.nextDueAt ? <span className="block">예약됨 — 다음 게시 {fmtDate(job.nextDueAt)} (서버가 자동으로 이어서 게시)</span> : null}
               </div>
               {job.lastError ? <span className="block text-sam-danger break-words">마지막 오류: {job.lastError}</span> : null}

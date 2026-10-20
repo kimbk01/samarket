@@ -3,14 +3,16 @@
 /**
  * 판매자·구매자 `/admin/trade/members` (설계 v2 §C-6) — 거래글을 올렸거나 거래 채팅을 한 회원.
  * 탭: 전체 / 거래 제한 중 / 계정 정지 (건수) · 닉네임 검색 · 행 → 판매자·구매자 상세.
- * URL: tab · q · page · size(20/50/100)
+ * URL: tab · q · page
  */
 import Link from "next/link";
 import {
   COMMUNITY_TD,
-  CommunityFilterBar,
-  CommunityListPagination,
+  CommunityFilterField,
   CommunityListShell,
+  CommunityPagination,
+  CommunityResetFilters,
+  CommunitySearchInput,
   CommunityStatusBadge,
   CommunityTable,
   CommunityTabs,
@@ -23,6 +25,8 @@ import { useCommunityAdminJson } from "@/components/admin/community/members/use-
 import { tradeDetailHref } from "@/components/admin/trade/kit/TradeAdminKit";
 import { TRADE_RESTRICTION_SCOPE_LABEL } from "@/components/admin/trade/restrictions/TradeRestrictionsPage";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+
+const PAGE_SIZE = 50;
 
 type TabKey = "all" | "restricted" | "suspended";
 const TABS: { value: TabKey; label: string }[] = [
@@ -70,7 +74,7 @@ export function TradeMembersPage() {
   const tab: TabKey = (TABS.find((t) => t.value === tabRaw)?.value ?? "all") as TabKey;
   const q = qs.get("q");
 
-  const params = new URLSearchParams({ tab, limit: String(qs.limitOffset.limit), offset: String(qs.limitOffset.offset) });
+  const params = new URLSearchParams({ tab, limit: String(PAGE_SIZE), offset: String((qs.page - 1) * PAGE_SIZE) });
   if (q) params.set("q", q);
   const { state, reload } = useCommunityAdminJson<ListResponse>(`/api/admin/trade/members?${params.toString()}`);
   const rows = state.data?.rows ?? [];
@@ -88,28 +92,31 @@ export function TradeMembersPage() {
           tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] ?? null }))}
         />
       }
-      filterBar={
-        <CommunityFilterBar searchPlaceholder="닉네임" resetKeep={["tab"]} onRefresh={reload} pending={state.status === "loading"} />
+      filters={
+        <>
+          <CommunityFilterField label="회원 검색">
+            <CommunitySearchInput value={q} onCommit={(v) => qs.set({ q: v })} placeholder="닉네임" />
+          </CommunityFilterField>
+          <CommunityResetFilters onReset={() => qs.reset()} />
+          {state.data?.capped ? (
+            <p className="w-full text-[12px] text-sam-muted">
+              거래 회원이 많아 최근 활동 일부만 집계했습니다. 특정 회원은 닉네임으로 검색하세요.
+            </p>
+          ) : null}
+        </>
       }
-      banner={
-        state.data?.capped ? (
-          <p className="text-[12px] text-sam-muted">
-            거래 회원이 많아 최근 활동 일부만 집계했습니다. 특정 회원은 닉네임으로 검색하세요.
-          </p>
+      footer={
+        total !== null && total > 0 ? (
+          <CommunityPagination page={qs.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => qs.set({ page: p > 1 ? p : null })} />
         ) : null
       }
-      footer={<CommunityListPagination q={qs} total={total} disabled={state.status === "loading"} />}
     >
       {state.status === "loading" && !state.data ? (
         <AdminLoadingState ko />
       ) : state.status === "error" ? (
         <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState
-          ko
-          message={EMPTY_TEXT[tab]}
-          onReset={qs.hasAny(["q"]) ? () => qs.reset(["tab"]) : undefined}
-        />
+        <AdminEmptyState ko message={EMPTY_TEXT[tab]} />
       ) : (
         <CommunityTable head={["회원", "계정 상태", "판매글 수", "구매 채팅 수", "거래 제한", "회원 신고(대기)", "상세"]}>
           {rows.map((r) => {
@@ -147,7 +154,7 @@ export function TradeMembersPage() {
                   )}
                 </td>
                 <td className={COMMUNITY_TD}>
-                  <AdminActionLink href={href} variant="ghost" size="sm">
+                  <AdminActionLink href={href} variant="secondary" className="min-h-8 px-2 py-1 text-[12px]">
                     상세
                   </AdminActionLink>
                 </td>

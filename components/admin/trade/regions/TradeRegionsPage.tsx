@@ -2,15 +2,14 @@
 
 /**
  * 지역 현황 (설계 v2 §C-11) — 시·군별 거래글 현황 (읽기 전용). 거래글 많은 순.
- * URL: period/from/to (게시물 등록일, 기본 전체) · page · size(20/50/100)
- * 집계는 서버가 시·군 단위로 한 번에 계산한다(행 = 글이 있는 시·군 수). 쪽 나누기는 그 집계 결과에 적용한다.
+ * URL: period/from/to (게시물 등록일, 기본 전체)
  */
 import Link from "next/link";
 import {
   COMMUNITY_TD,
-  CommunityFilterBar,
-  CommunityListPagination,
   CommunityListShell,
+  CommunityPeriodFilter,
+  CommunityResetFilters,
   CommunityTable,
   useCommunityQueryState,
 } from "@/components/admin/community/kit/CommunityAdminKit";
@@ -50,20 +49,25 @@ export function TradeRegionsPage() {
   );
   const rows = state.status === "ok" ? [...(state.data.rows ?? [])].sort((a, b) => b.posts - a.posts) : [];
   const hasUnknown = rows.some((r) => !r.lgu_id);
-  const pageRows = rows.slice(q.limitOffset.offset, q.limitOffset.offset + q.limitOffset.limit);
-  const total = state.status === "ok" ? rows.length : null;
   const tooMany = state.status === "error" && state.code === "too_many_rows";
 
   return (
     <CommunityListShell
       title="지역 현황"
       description="시·군별 거래글 현황입니다. 지역을 누르면 그 지역 거래글 목록으로 이동합니다."
-      filterBar={<CommunityFilterBar showSearch={false} showPeriod onRefresh={reload} pending={state.status === "loading"} />}
-      footer={
+      filters={
         <>
-          {hasUnknown ? <p className="px-1 text-[12px] text-sam-muted">「지역 확인 불가」는 주소 정보가 없는 글입니다.</p> : null}
-          <CommunityListPagination q={q} total={total} disabled={state.status === "loading"} />
+          <CommunityPeriodFilter
+            period={period}
+            from={q.get("from")}
+            to={q.get("to")}
+            onChange={(v) => q.set({ period: v.period, from: v.from, to: v.to })}
+          />
+          <CommunityResetFilters onReset={() => q.reset()} />
         </>
+      }
+      footer={
+        hasUnknown ? <p className="px-1 text-[12px] text-sam-muted">「지역 확인 불가」는 주소 정보가 없는 글입니다.</p> : null
       }
     >
       {customIncomplete ? (
@@ -75,14 +79,10 @@ export function TradeRegionsPage() {
       ) : state.status === "error" ? (
         <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState
-          ko
-          message="조건에 맞는 거래글이 없습니다."
-          onReset={q.hasAny(["period", "from", "to"]) ? () => q.reset() : undefined}
-        />
+        <AdminEmptyState ko message="조건에 맞는 거래글이 없습니다." />
       ) : (
         <CommunityTable head={["지역", "거래글", "판매중", "예약중", "거래완료", "숨김·삭제", "판매자", "처리할 신고", "노출 중 홍보"]}>
-          {pageRows.map((r) => (
+          {rows.map((r) => (
             <tr key={r.lgu_id ?? "unknown"} className="border-b border-sam-border-soft">
               <td className={COMMUNITY_TD}>
                 {r.lgu_id ? (

@@ -17,12 +17,6 @@ import {
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
-import {
-  COMMUNITY_PERIOD_OPTIONS,
-  CommunityFilterField,
-  CommunitySelect,
-  type useCommunityQueryState,
-} from "@/components/admin/community/kit/CommunityAdminKit";
 
 /**
  * 거래글 썸네일 — 사용자 앱 목록 카드(`components/post/PostCard.tsx`)와 같은 규칙:
@@ -150,61 +144,4 @@ export function tradeErrorText(code: string | null | undefined): string {
 
 export function tradeDetailHref(href: string, returnTo: string): string {
   return withAdminReturnTo(href, returnTo);
-}
-
-/** 필터 바 입력과 같은 높이 40 · 글자 16px */
-const TRADE_DATE_FIELD =
-  "h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 text-[16px] text-sam-fg outline-none focus:border-sam-primary";
-
-/**
- * 기본 기간이 「전체」가 아닌 거래 목록(운영 기록·포인트 내역 — 기본 최근 30일)의 기간 필터.
- * `CommunityFilterBar showPeriod` 는 주소에 기간이 없으면 「전체 기간」으로 보이므로, 이 화면들은
- * `CommunityFilterBar` 의 도메인 필터(children)로 이것을 넣는다. URL: period 없음 = 기본 기간 · `all` = 전체 기간.
- * 날짜를 고르면 바로 적용한다 (이전 동작과 같음). 「초기화」는 기간을 기본으로 되돌린다.
- */
-export function TradeDefaultPeriodField({
-  q,
-  defaultPeriod,
-}: {
-  q: Pick<ReturnType<typeof useCommunityQueryState>, "get" | "set">;
-  defaultPeriod: "today" | "7d" | "30d";
-}) {
-  const raw = q.get("period");
-  const value = raw || defaultPeriod;
-  const options = COMMUNITY_PERIOD_OPTIONS.map((o) => ({
-    value: o.value === "" ? "all" : o.value,
-    label: o.value === defaultPeriod ? `${o.label} (기본)` : o.label,
-  }));
-  return (
-    <CommunityFilterField label="기간 (필리핀 시간)">
-      <div className="flex flex-wrap items-center gap-1">
-        <CommunitySelect
-          name="period"
-          ariaLabel="기간"
-          value={value}
-          onChange={(v) => q.set({ period: v === defaultPeriod ? null : v, from: null, to: null })}
-          options={options}
-        />
-        {value === "custom" ? (
-          <>
-            <input
-              type="date"
-              aria-label="시작일"
-              value={q.get("from")}
-              onChange={(e) => q.set({ from: e.target.value || null })}
-              className={TRADE_DATE_FIELD}
-            />
-            <span className="text-sam-muted">~</span>
-            <input
-              type="date"
-              aria-label="종료일"
-              value={q.get("to")}
-              onChange={(e) => q.set({ to: e.target.value || null })}
-              className={TRADE_DATE_FIELD}
-            />
-          </>
-        ) : null}
-      </div>
-    </CommunityFilterField>
-  );
 }

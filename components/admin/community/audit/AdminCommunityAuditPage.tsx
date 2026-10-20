@@ -2,17 +2,18 @@
 
 /**
  * 운영 기록 (설계 §C-20 · §E-7) — 커뮤니티 대상 관리자 조치: 누가 · 언제 · 무엇 · 대상 · 사유 · 전후 비교.
- * URL: targetType · targetId · actor · action · period/from/to · page · size(20/50/100)
+ * URL: targetType · targetId · actor · action · period/from/to · page
  */
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import {
   COMMUNITY_TD,
-  CommunityFilterBar,
   CommunityFilterField,
-  CommunityListPagination,
   CommunityListShell,
+  CommunityPagination,
+  CommunityPeriodFilter,
+  CommunityResetFilters,
   CommunitySelect,
   CommunityTable,
   CommunityTimeCell,
@@ -30,6 +31,8 @@ import {
   communityAuditTargetHref,
   communityAuditTargetLabel,
 } from "@/components/admin/community/audit/community-audit-labels";
+
+const PAGE_SIZE = 50;
 
 type AuditRow = {
   id: string;
@@ -110,8 +113,8 @@ export function AdminCommunityAuditPage() {
     if (q.get("from")) params.set("from", q.get("from"));
     if (q.get("to")) params.set("to", q.get("to"));
   }
-  params.set("limit", String(q.limitOffset.limit));
-  params.set("offset", String(q.limitOffset.offset));
+  params.set("limit", String(PAGE_SIZE));
+  params.set("offset", String((q.page - 1) * PAGE_SIZE));
   const customIncomplete = period === "custom" && (!q.get("from") || !q.get("to"));
   const { state, reload } = useCommunityAdminJson<AuditResponse>(
     customIncomplete ? null : `/api/admin/community/audit?${params.toString()}`
@@ -124,8 +127,8 @@ export function AdminCommunityAuditPage() {
     <CommunityListShell
       title="운영 기록"
       description="커뮤니티에서 관리자가 한 조치를 누가·언제·무엇을·왜 했는지 확인합니다."
-      filterBar={
-        <CommunityFilterBar showSearch={false} showPeriod onRefresh={reload}>
+      filters={
+        <>
           <CommunityFilterField label="대상 유형">
             <CommunitySelect
               value={q.get("targetType")}
@@ -133,9 +136,15 @@ export function AdminCommunityAuditPage() {
               options={[{ value: "", label: "전체" }, ...COMMUNITY_AUDIT_TARGET_LABELS]}
             />
           </CommunityFilterField>
+          <CommunityPeriodFilter
+            period={period}
+            from={q.get("from")}
+            to={q.get("to")}
+            onChange={(v) => q.set({ period: v.period, from: v.from, to: v.to })}
+          />
           {actor ? (
             <CommunityFilterField label="처리자">
-              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
+              <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {actorName || "선택한 관리자"}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.set({ actor: null })}>
                   해제
@@ -145,7 +154,7 @@ export function AdminCommunityAuditPage() {
           ) : null}
           {targetId ? (
             <CommunityFilterField label="대상">
-              <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
+              <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 한 대상의 기록만
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.set({ targetId: null })}>
                   해제
@@ -153,9 +162,14 @@ export function AdminCommunityAuditPage() {
               </span>
             </CommunityFilterField>
           ) : null}
-        </CommunityFilterBar>
+          <CommunityResetFilters onReset={() => q.reset()} />
+        </>
       }
-      footer={<CommunityListPagination q={q} total={total} disabled={state.status === "loading"} />}
+      footer={
+        total !== null && total > 0 ? (
+          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
+        ) : null
+      }
     >
       {customIncomplete ? (
         <AdminEmptyState ko message="직접 지정 기간의 시작일과 종료일을 모두 선택하세요." />
@@ -164,11 +178,7 @@ export function AdminCommunityAuditPage() {
       ) : state.status === "error" ? (
         <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState
-          ko
-          message="조건에 맞는 운영 기록이 없습니다."
-          onReset={q.hasAny(["targetType", "targetId", "actor", "action", "period", "from", "to"]) ? () => q.reset() : undefined}
-        />
+        <AdminEmptyState ko message="조건에 맞는 운영 기록이 없습니다." />
       ) : (
         <CommunityTable head={["시각 (PHT)", "처리자", "대상", "조치", "사유", ""]}>
           {rows.map((r) => {
@@ -207,7 +217,7 @@ export function AdminCommunityAuditPage() {
                   <td className={COMMUNITY_TD}>{communityAuditActionLabel(r.action)}</td>
                   <td className={`${COMMUNITY_TD} max-w-[24rem] whitespace-pre-wrap`}>{r.reason || "—"}</td>
                   <td className={COMMUNITY_TD}>
-                    <AdminActionButton variant="ghost" size="sm" onClick={() => setOpenId(open ? null : r.id)} aria-expanded={open}>
+                    <AdminActionButton variant="ghost" onClick={() => setOpenId(open ? null : r.id)} aria-expanded={open}>
                       {open ? "접기" : "전후 비교"}
                     </AdminActionButton>
                   </td>

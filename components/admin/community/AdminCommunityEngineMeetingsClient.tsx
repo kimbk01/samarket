@@ -20,10 +20,11 @@ import {
   COMMUNITY_TD,
   CommunityActionSheet,
   CommunityAuthorCell,
-  CommunityFilterBar,
   CommunityFilterField,
   CommunityListShell,
   CommunityPagination,
+  CommunityResetFilters,
+  CommunitySearchInput,
   CommunityTable,
   CommunityTabs,
   CommunityTimeCell,
@@ -40,6 +41,7 @@ import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminA
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import {
   COMMUNITY_GONE_MESSAGE,
+  COMMUNITY_PAGE_SIZE,
   COMMUNITY_STALE_MESSAGE,
   communityJsonFetch,
   toCommunitySheetResult,
@@ -146,7 +148,7 @@ function bodyFor(action: MeetingAction, r: Row, reason: string): Record<string, 
 export function AdminCommunityEngineMeetingsClient() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const { get, set, reset, page, size: pageSize, setPage, setSize } = useCommunityQueryState();
+  const { get, set, reset, page } = useCommunityQueryState();
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
   const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
   const noPermTitle = canContent ? undefined : "권한 필요: 게시판 관리";
@@ -176,8 +178,8 @@ export function AdminCommunityEngineMeetingsClient() {
   // 탭·검색·페이지 모두 서버에서 거른다 (총 건수 = count exact).
   const apiQuery = useMemo(() => {
     const sp = new URLSearchParams({
-      limit: String(pageSize),
-      offset: String((page - 1) * pageSize),
+      limit: String(COMMUNITY_PAGE_SIZE),
+      offset: String((page - 1) * COMMUNITY_PAGE_SIZE),
     });
     if (focusId) sp.set("meetingId", focusId);
     else {
@@ -185,7 +187,7 @@ export function AdminCommunityEngineMeetingsClient() {
       if (q) sp.set("q", q);
     }
     return sp.toString();
-  }, [focusId, tab, q, page, pageSize]);
+  }, [focusId, tab, q, page]);
 
   useEffect(() => {
     let cancel = false;
@@ -327,7 +329,6 @@ export function AdminCommunityEngineMeetingsClient() {
               ? t("admin_community_meetings_empty_search")
               : "해당하는 모임이 없습니다."
         }
-        onReset={q || focusId ? () => reset(["tab"]) : undefined}
       />
     );
   else
@@ -393,57 +394,33 @@ export function AdminCommunityEngineMeetingsClient() {
                   <CommunityTimeCell iso={str(r.created_at) || null} />
                 </td>
                 <td className={COMMUNITY_TD}>
-                  {/* 행 버튼 = ghost/sm 최대 2개 (대표 조치 + 상세). 나머지 조치·채팅 요약·운영 로그는 상세 펼침에서. */}
                   <span className="flex flex-wrap gap-1">
-                    {(() => {
-                      const first = actionsFor(r)[0];
-                      return first ? (
+                    {actionsFor(r).map((a) => {
+                      const meta = ACTION_META[a];
+                      return (
                         <AdminActionButton
-                          variant="ghost"
-                          size="sm"
+                          key={a}
+                          variant={meta.destructive ? "danger" : a === "approve" ? "primary" : "secondary"}
                           disabled={!canContent || !!pending}
                           title={noPermTitle}
-                          onClick={() => setPending({ action: first, row: r })}
+                          onClick={() => setPending({ action: a, row: r })}
                         >
-                          {ACTION_META[first].label}
+                          {meta.label}
                         </AdminActionButton>
-                      ) : null;
-                    })()}
-                    <AdminActionButton
-                      variant="ghost"
-                      size="sm"
-                      disabled={insightLoading && !isOpen}
-                      aria-expanded={isOpen}
-                      onClick={() => toggleInsight(id)}
-                    >
-                      {isOpen ? "닫기" : "상세"}
+                      );
+                    })}
+                    <AdminActionButton variant="neutral" disabled={insightLoading && !isOpen} onClick={() => toggleInsight(id)}>
+                      {isOpen ? t("admin_meeting_engine_insight_close") : t("admin_meeting_engine_insight_open")}
                     </AdminActionButton>
+                    <AdminActionLink href={`/admin/philife/meeting-events?meetingId=${encodeURIComponent(id)}`} variant="quiet">
+                      운영 로그
+                    </AdminActionLink>
                   </span>
                 </td>
               </tr>
               {isOpen ? (
                 <tr className="border-b border-sam-border bg-sam-app">
-                  <td colSpan={8} className="space-y-3 px-3 py-3 text-[13px] text-sam-fg">
-                    <div className="flex flex-wrap items-center gap-2" data-meeting-detail-actions={id}>
-                      {actionsFor(r).map((a) => {
-                        const m = ACTION_META[a];
-                        return (
-                          <AdminActionButton
-                            key={a}
-                            variant={m.destructive ? "danger" : "secondary"}
-                            disabled={!canContent || !!pending}
-                            title={noPermTitle}
-                            onClick={() => setPending({ action: a, row: r })}
-                          >
-                            {m.label}
-                          </AdminActionButton>
-                        );
-                      })}
-                      <AdminActionLink href={`/admin/philife/meeting-events?meetingId=${encodeURIComponent(id)}`} variant="quiet">
-                        운영 로그
-                      </AdminActionLink>
-                    </div>
-                    <p className="text-[12px] font-semibold text-sam-muted">{t("admin_meeting_engine_insight_open")}</p>
+                  <td colSpan={8} className="px-3 py-3 text-[13px] text-sam-fg">
                     {insightLoading && !insight ? (
                       <AdminLoadingState ko={ko} />
                     ) : insightErr && !insight ? (
@@ -496,40 +473,38 @@ export function AdminCommunityEngineMeetingsClient() {
             onChange={(v) => set({ tab: v === "all" ? null : v })}
           />
         }
-        filterBar={
-          <CommunityFilterBar
-            ko={ko}
-            searchPlaceholder={t("admin_community_meetings_search_placeholder")}
-            resetKeep={["tab"]}
-            pending={loading}
-            onRefresh={reload}
-          >
+        filters={
+          <>
+            <CommunityFilterField label={t("admin_community_meetings_search_label")}>
+              <CommunitySearchInput
+                value={get("q")}
+                placeholder={t("admin_community_meetings_search_placeholder")}
+                onCommit={(v) => set({ q: v })}
+              />
+            </CommunityFilterField>
             {focusId ? (
-              <CommunityFilterField label="모임">
-                <span className="flex h-10 items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 text-[12px] text-sam-fg">
-                  특정 모임 1건만 보기
-                  <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => set({ meetingId: null })}>
-                    해제
-                  </AdminActionButton>
-                </span>
-              </CommunityFilterField>
+              <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
+                특정 모임 1건만 보기
+                <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => set({ meetingId: null })}>
+                  해제
+                </AdminActionButton>
+              </span>
             ) : null}
+            {get("q") || focusId ? <CommunityResetFilters onReset={() => reset(["tab"])} /> : null}
             {!loading && !loadErr && typeof total === "number" ? (
-              <span className="pb-2.5 text-[12px] font-semibold text-sam-fg" data-community-list-total={total}>
+              <span className="pb-1.5 text-[12px] font-semibold text-sam-fg" data-community-list-total={total}>
                 {t("admin_community_list_total", { count: formatAdminNumber(total) })}
               </span>
             ) : null}
-          </CommunityFilterBar>
+          </>
         }
         footer={
           !loading && !loadErr && (rows.length > 0 || page > 1) ? (
             <CommunityPagination
               page={page}
-              pageSize={pageSize}
+              pageSize={COMMUNITY_PAGE_SIZE}
               total={total}
-              hasMore={total === null ? rows.length >= pageSize : undefined}
-              onPage={setPage}
-              onSizeChange={setSize}
+              onPage={(p) => set({ page: p > 1 ? p : null }, { keepPage: true })}
             />
           ) : null
         }

@@ -4,7 +4,7 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { useCallback, useEffect, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { loadAdminCategories } from "@/lib/categories/admin/getAdminCategories";
+import { getAdminCategories } from "@/lib/categories/admin/getAdminCategories";
 import { createCategory } from "@/lib/categories/admin/createCategory";
 import { updateCategoryAdmin } from "@/lib/categories/admin/updateCategory";
 import { deleteCategory } from "@/lib/categories/admin/deleteCategory";
@@ -22,18 +22,11 @@ export function useCategoryAdmin() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<CategoryAdminMessage>(null);
   const [supabaseAvailable, setSupabaseAvailable] = useState<boolean | null>(null);
-  /** 조회 실패 — 빈 목록으로 숨기지 않고 화면이 오류 상태(AdminErrorState)를 보인다. */
-  const [loadError, setLoadError] = useState<{ code: string; httpStatus: number } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const r = await loadAdminCategories();
-    if (r.ok) {
-      setList(r.rows);
-      setLoadError(null);
-    } else {
-      setLoadError({ code: r.code, httpStatus: r.httpStatus });
-    }
+    const data = await getAdminCategories();
+    setList(data);
     setSupabaseAvailable(getSupabaseClient() !== null);
     setLoading(false);
   }, []);
@@ -186,7 +179,6 @@ export function useCategoryAdmin() {
   return {
     list,
     loading,
-    loadError,
     message,
     supabaseAvailable,
     load,
