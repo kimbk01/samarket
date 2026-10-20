@@ -884,7 +884,9 @@ export async function listSupportCasesForAdmin(
   if (input.audience === "MEMBER" || input.audience === "OWNER") {
     query = query.eq("audience", input.audience);
   }
-  const group = getSupportCategoryGroup(input.group);
+  // `?group=trade|community` 는 도메인 범위(scope)다 — 같은 값을 카테고리 그룹(category = TRADE 만)으로 겹쳐 걸면
+  // 범위에 속한 다른 카테고리 문의(예: AD 카테고리의 거래 홍보 주문 문의)가 빠진다. 범위가 있으면 범위만 쓴다.
+  const group = input.scope ? null : getSupportCategoryGroup(input.group);
   if (group) query = query.in("category", [...group.categories]);
   if (input.assignee === "UNASSIGNED") {
     query = query.is("assigned_admin_id", null);
