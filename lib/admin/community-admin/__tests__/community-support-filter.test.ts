@@ -39,10 +39,12 @@ describe("support community filter (C-23 · F-4)", () => {
     expect(getSupportCategoryGroup("community")).toBeNull();
   });
 
-  it("community scope = COMMUNITY_* + charge/promotion refs + REPORT category", () => {
+  it("community scope = COMMUNITY_* + charge refs + community promotion orders (DB computed domain) + REPORT category", () => {
     expect(supportCommunityScopeOrFilter()).toBe(
-      "reference_type.in.(COMMUNITY_POST,COMMUNITY_COMMENT,COMMUNITY_REPORT,COMMUNITY_SANCTION,POINT_CHARGE_REQUEST,POINT_PROMOTION_ORDER),category.in.(REPORT)"
+      "reference_type.in.(COMMUNITY_POST,COMMUNITY_COMMENT,COMMUNITY_REPORT,COMMUNITY_SANCTION,POINT_CHARGE_REQUEST),support_case_promotion_domain.eq.community,category.in.(REPORT)"
     );
+    expect(isSupportCaseInCommunityScope({ category: "OTHER", reference_type: "POINT_PROMOTION_ORDER", promotion_domain: "community" })).toBe(true);
+    expect(isSupportCaseInCommunityScope({ category: "OTHER", reference_type: "POINT_PROMOTION_ORDER", promotion_domain: "trade" })).toBe(false);
     expect(isSupportCaseInCommunityScope({ category: "REPORT", reference_type: null })).toBe(true);
     expect(isSupportCaseInCommunityScope({ category: "OTHER", reference_type: "COMMUNITY_POST" })).toBe(true);
     expect(isSupportCaseInCommunityScope({ category: "PAYMENT_RECHARGE", reference_type: "POINT_CHARGE_REQUEST" })).toBe(true);

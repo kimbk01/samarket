@@ -899,18 +899,8 @@ export async function listSupportCasesForAdmin(
   if (input.referenceId && isUuid(input.referenceId)) query = query.eq("reference_id", input.referenceId);
   if (input.ownerStoreId && isUuid(input.ownerStoreId)) query = query.eq("owner_store_id", input.ownerStoreId);
   if (input.scope === "community" || input.scope === "trade") {
-    // 홍보 주문 참조는 주문 도메인으로 나눈다 (거래 Admin 설계 v2 §G-4)
-    const { data: promoRows } = await sb
-      .from("point_promotion_orders")
-      .select("id")
-      .eq("domain", input.scope)
-      .order("created_at", { ascending: false })
-      .limit(500);
-    const promoIds = ((promoRows ?? []) as { id: string }[]).map((r) => String(r.id));
-    query =
-      input.scope === "community"
-        ? query.or(supportCommunityScopeOrFilter(promoIds))
-        : query.or(supportTradeScopeOrFilter(promoIds));
+    // 홍보 주문 참조는 주문 도메인으로 나눈다 (거래 Admin 설계 v2 §G-4) — DB 계산 열로 판정 (주문 수 상한 없음)
+    query = input.scope === "community" ? query.or(supportCommunityScopeOrFilter()) : query.or(supportTradeScopeOrFilter());
   }
   if (input.kind === "appeal") {
     query = query.or(input.scope === "trade" ? supportTradeAppealOrFilter() : supportAppealOrFilter());

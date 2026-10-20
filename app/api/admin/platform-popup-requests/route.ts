@@ -37,6 +37,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (result.error) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
   }
-  const items = await enrichPlatformPopupOwnerRequestsForAdmin(sb, result.items);
-  return NextResponse.json({ ok: true, items });
+  try {
+    const items = await enrichPlatformPopupOwnerRequestsForAdmin(sb, result.items);
+    return NextResponse.json({ ok: true, items });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "enrich_failed" }, { status: 500 });
+  }
 }

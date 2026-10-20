@@ -23,6 +23,10 @@ export async function GET(
   const { requestId } = await ctx.params;
   const item = await loadPlatformPopupOwnerRequest(sb, requestId);
   if (!item) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-  const [enriched] = await enrichPlatformPopupOwnerRequestsForAdmin(sb, [item]);
-  return NextResponse.json({ ok: true, item: enriched ?? item });
+  try {
+    const [enriched] = await enrichPlatformPopupOwnerRequestsForAdmin(sb, [item]);
+    return NextResponse.json({ ok: true, item: enriched ?? item });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "enrich_failed" }, { status: 500 });
+  }
 }
