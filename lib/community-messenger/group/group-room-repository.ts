@@ -13,6 +13,7 @@ import type {
 } from "@/lib/community-messenger/group/group-room.types";
 import { generateGroupInviteToken } from "@/lib/community-messenger/group/group-room-invite-token";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { MEMBER_IDENTITY_PROFILE_SELECT } from "@/lib/users/public-member-identity";
 
 export type GroupRoomSupabase = SupabaseClient<any>;
 
@@ -474,25 +475,16 @@ export async function fetchProfileLabels(
   const ids = dedupeGroupMemberIds(userIds);
   const out = new Map<string, string>();
   if (!ids.length) return out;
+  // D13 — 운영 profiles 에 full_name 컬럼 없음(조회 실패로 이름이 비던 원인). 회원 표시 이름 = nickname (public-member-identity SSOT)
   const { data, error } = await (sb as any)
     .from("profiles")
-    .select("id, nickname, full_name, display_name")
+    .select(MEMBER_IDENTITY_PROFILE_SELECT)
     .in("id", ids);
   if (error && !isMissingTableError(error)) return out;
-  for (const row of (data ?? []) as Array<{
-    id?: string;
-    nickname?: string | null;
-    full_name?: string | null;
-    display_name?: string | null;
-  }>) {
+  for (const row of (data ?? []) as Array<{ id?: string; nickname?: string | null }>) {
     const id = trimText(row.id);
     if (!id) continue;
-    const label =
-      trimText(row.display_name) ||
-      trimText(row.nickname) ||
-      trimText(row.full_name) ||
-      id.slice(0, 6);
-    out.set(id, label);
+    out.set(id, trimText(row.nickname) || id.slice(0, 6));
   }
   return out;
 }
