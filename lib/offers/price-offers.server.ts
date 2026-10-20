@@ -998,3 +998,37 @@ export async function rejectPriceOffer(
   const [item] = await enrichPriceOffersToListItems(sb, [updatedOffer]);
   return { ok: true, value: item };
 }
+
+/** M4 — 구매자 본인 대기 제안 철회. DB 함수 withdraw_price_offer 가 행 잠금 후 검사·변경 */
+export async function withdrawPriceOffer(
+  sb: SupabaseClient,
+  input: TransitionPriceOfferInput
+): Promise<Ok<PriceOfferListItem> | Err> {
+  const actorUserId = trimString(input.actorUserId);
+  const offerId = trimString(input.offerId);
+  if (!actorUserId || !offerId) {
+    return serviceError(400, offerServerT("offer_err_reject_invalid"), "offer_withdraw_invalid");
+  }
+
+  const { data, error } = await sb.rpc("withdraw_price_offer", { p_offer_id: offerId, p_buyer_id: actorUserId });
+  if (error) {
+    return serviceError(500, offerServerT("offer_err_withdraw_failed"), "offer_withdraw_failed");
+  }
+  const outcome = String(data ?? "");
+  if (outcome === "not_found") {
+    return serviceError(404, offerServerT("offer_err_not_found"), "offer_not_found");
+  }
+  if (outcome === "forbidden") {
+    return serviceError(403, offerServerT("offer_err_withdraw_forbidden"), "offer_withdraw_forbidden");
+  }
+  if (outcome !== "withdrawn") {
+    return serviceError(409, offerServerT("offer_err_withdraw_invalid_state"), "offer_withdraw_invalid_state");
+  }
+
+  const offer = await loadOfferRowById(sb, offerId);
+  if (!offer) {
+    return serviceError(404, offerServerT("offer_err_not_found"), "offer_not_found");
+  }
+  const [item] = await enrichPriceOffersToListItems(sb, [offer]);
+  return { ok: true, value: item };
+}

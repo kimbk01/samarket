@@ -1,6 +1,6 @@
 import type { ChatRoomSource } from "@/lib/types/chat";
 
-export const PRICE_OFFER_STATUSES = ["pending", "accepted", "rejected", "expired"] as const;
+export const PRICE_OFFER_STATUSES = ["pending", "accepted", "rejected", "withdrawn"] as const;
 
 export type PriceOfferStatus = (typeof PRICE_OFFER_STATUSES)[number];
 
