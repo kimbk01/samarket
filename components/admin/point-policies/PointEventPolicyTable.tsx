@@ -1,6 +1,9 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import type { PointEventPolicy } from "@/lib/types/point-policy";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
@@ -8,14 +11,18 @@ interface PointEventPolicyTableProps {
   policies: PointEventPolicy[];
   onEdit?: (policy: PointEventPolicy) => void;
   onToggleActive?: (id: string, isActive: boolean) => void;
+  /** 쓰기 권한 없음·처리 중 — 행 버튼 비활성 */
+  actionsDisabled?: boolean;
 }
 
 export function PointEventPolicyTable({
   policies,
   onEdit,
   onToggleActive,
+  actionsDisabled = false,
 }: PointEventPolicyTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
 
   if (policies.length === 0) {
     return (
@@ -65,35 +72,26 @@ export function PointEventPolicyTable({
                 {p.targetBoards.join(", ") || "-"}
               </td>
               <td className="px-3 py-2.5">
-                <span
-                  className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
-                    p.isActive
-                      ? "bg-emerald-50 text-emerald-800"
-                      : "bg-sam-border-soft text-sam-muted"
-                  }`}
-                >
+                <AdminToneBadge tone={p.isActive ? "success" : "neutral"}>
                   {p.isActive ? t("admin_points_status_active") : t("admin_points_status_inactive")}
-                </span>
+                </AdminToneBadge>
               </td>
               {(onEdit || onToggleActive) && (
                 <td className="whitespace-nowrap px-3 py-2.5 text-right">
                   {onEdit && (
-                    <button
-                      type="button"
-                      onClick={() => onEdit(p)}
-                      className="mr-1 sam-text-body-secondary text-signature hover:underline"
-                    >
-                      {t("common_edit")}
-                    </button>
+                    <AdminActionButton variant="ghost" size="sm" disabled={actionsDisabled} onClick={() => onEdit(p)}>
+                      {adminCta("edit", ko)}
+                    </AdminActionButton>
                   )}
                   {onToggleActive && (
-                    <button
-                      type="button"
+                    <AdminActionButton
+                      variant="ghost"
+                      size="sm"
+                      disabled={actionsDisabled}
                       onClick={() => onToggleActive(p.id, !p.isActive)}
-                      className="sam-text-body-secondary text-sam-muted hover:underline"
                     >
                       {p.isActive ? t("admin_points_status_inactive") : t("admin_points_status_active")}
-                    </button>
+                    </AdminActionButton>
                   )}
                 </td>
               )}

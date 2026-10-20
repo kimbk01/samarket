@@ -13,6 +13,7 @@ import {
   recReportTypeLabel,
   recSurfaceOptionLabel,
 } from "@/components/admin/recommendation-admin-i18n";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const PERIODS: ReportPeriod[] = ["today", "yesterday", "last_7_days", "last_30_days"];
 const REPORT_TYPES: ReportType[] = ["daily", "weekly", "custom"];
@@ -100,14 +101,14 @@ export function ReportPeriodSelector({
         <div className="sam-text-body-secondary text-sam-muted">
           {range.dateFrom} ~ {range.dateTo}
         </div>
-        <button
+        <AdminActionButton
+          variant="primary"
           type="button"
           onClick={handleGenerate}
           disabled={generating}
-          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
         >
           {generating ? t("admin_rec_report_generating") : t("admin_rec_report_generate")}
-        </button>
+        </AdminActionButton>
       </div>
       <p className="mt-2 sam-text-helper text-sam-muted">
         {t("admin_rec_report_custom_hint")}

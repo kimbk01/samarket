@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { GIFT_RPCS } from "@/lib/gift-certificate/gift-certificate-schema";
 
 export const runtime = "nodejs";
@@ -43,6 +44,14 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "gift_promo_obligation",
+    targetId: obligationId,
+    action: "gift_promo_obligation.settle",
+    after: { amount, idempotencyKey },
+  });
 
   return NextResponse.json({ ok: true, result });
 }

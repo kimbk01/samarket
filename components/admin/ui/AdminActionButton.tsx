@@ -2,6 +2,12 @@
  * ARO-OPS-UX-002-B8 — presentation-only Admin CTA primitive.
  * Semantic hierarchy only; no new mutation owner.
  *
+ * 수정 계획 2-2 (CTA 표준): 화면의 모든 버튼은 이 컴포넌트(또는 AdminChipButton·AdminTabs 등 ui 부품)로 그린다.
+ * - 변형: primary(화면·Drawer 당 1개) · secondary · ghost(표 행 안, 행당 2개 이하) · danger(되돌릴 수 없는 동작만)
+ *   (neutral·quiet 은 기존 호환 — neutral = 외곽선 보조, quiet = 아이콘·닫기 등 약한 동작)
+ * - 크기: md = 높이 40 (기본) · sm = 높이 32 (표 행 안·칩 옆)
+ * - 문구: `adminCta()` 어휘만 (lib/admin/ui-standard/admin-cta.ts)
+ *
  * CUT 3: lock PRIMARY contrast under `[data-admin]` — never bare sam-primary washout
  * (global descendant rules can wash out foreground).
  */
@@ -30,16 +36,24 @@ const VARIANT_CLASS: Record<AdminActionVariant, string> = {
   neutral:
     "border border-[var(--admin-console-border,#d0d7e2)] bg-transparent text-[var(--admin-console-fg,#1f2937)] hover:bg-[var(--admin-console-hover,#eef1f6)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-accent,#1d4ed8)] disabled:opacity-50",
   danger:
-    "border border-red-800 bg-red-700 text-white hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800 disabled:border-red-300 disabled:bg-red-300 disabled:text-white disabled:opacity-100",
+    "border border-sam-danger bg-sam-danger text-white hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-danger disabled:opacity-50",
   ghost:
     "bg-transparent text-[var(--admin-console-accent,#1d4ed8)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-accent,#1d4ed8)] disabled:opacity-50",
   quiet:
     "bg-transparent text-[var(--admin-console-muted,#667085)] hover:text-[var(--admin-console-fg,#1f2937)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-border,#d0d7e2)] disabled:opacity-50",
 };
 
-function actionClassName(variant: AdminActionVariant, className = "") {
+export type AdminActionSize = "md" | "sm";
+
+const SIZE_CLASS: Record<AdminActionSize, string> = {
+  md: "h-10 px-3 text-[14px]",
+  sm: "h-8 px-2.5 text-[13px]",
+};
+
+function actionClassName(variant: AdminActionVariant, className = "", size: AdminActionSize = "md") {
   return [
-    "inline-flex min-h-9 items-center justify-center whitespace-nowrap rounded-ui-rect px-3 py-1.5 text-[13px] font-semibold leading-5 transition-colors",
+    "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-ui-rect font-semibold leading-5 transition-colors",
+    SIZE_CLASS[size],
     VARIANT_CLASS[variant],
     className,
   ]
@@ -49,19 +63,21 @@ function actionClassName(variant: AdminActionVariant, className = "") {
 
 export function AdminActionButton({
   variant = "secondary",
+  size = "md",
   className = "",
   children,
   type = "button",
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: AdminActionVariant;
+  size?: AdminActionSize;
   children: ReactNode;
 }) {
   return (
     <button
       type={type}
       data-admin-action={variant === "quiet" ? "quiet" : variant}
-      className={actionClassName(variant, className)}
+      className={actionClassName(variant, className, size)}
       {...rest}
     >
       {children}
@@ -72,6 +88,7 @@ export function AdminActionButton({
 export function AdminActionLink({
   href,
   variant = "secondary",
+  size = "md",
   className = "",
   children,
   prefetch = false,
@@ -79,6 +96,7 @@ export function AdminActionLink({
 }: {
   href: string;
   variant?: AdminActionVariant;
+  size?: AdminActionSize;
   className?: string;
   children: ReactNode;
   prefetch?: boolean;
@@ -88,7 +106,7 @@ export function AdminActionLink({
       href={href}
       prefetch={prefetch}
       data-admin-action={variant === "quiet" ? "quiet" : variant}
-      className={actionClassName(variant, className)}
+      className={actionClassName(variant, className, size)}
       {...rest}
     >
       {children}
@@ -99,17 +117,19 @@ export function AdminActionLink({
 /** File-picker / labeled control that must share Admin CTA contrast SSOT (never Sam.btn). */
 export function AdminActionLabel({
   variant = "secondary",
+  size = "md",
   className = "",
   children,
   ...rest
 }: LabelHTMLAttributes<HTMLLabelElement> & {
   variant?: AdminActionVariant;
+  size?: AdminActionSize;
   children: ReactNode;
 }) {
   return (
     <label
       data-admin-action={variant === "quiet" ? "quiet" : variant}
-      className={actionClassName(variant, `cursor-pointer ${className}`.trim())}
+      className={actionClassName(variant, `cursor-pointer ${className}`.trim(), size)}
       {...rest}
     >
       {children}

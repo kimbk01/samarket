@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import type { StoresCompositionSurface } from "@/lib/stores/composition/stores-composition-contract";
 import { STORES_COMPOSITION_SURFACES } from "@/lib/stores/composition/stores-composition-contract";
 import {
@@ -174,6 +175,15 @@ export async function PUT(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: cas.error }, { status: 400 });
     }
+
+    await appendAdminRouteAudit(sb, req, {
+      actorId: userId,
+      targetType: "stores_composition_policy",
+      targetId: surface,
+      action: "stores_composition_policy.update",
+      before: { revision: expectedRevision },
+      after: { revision: cas.revision, rowCount: rows.length },
+    });
 
     return NextResponse.json({
       ok: true,

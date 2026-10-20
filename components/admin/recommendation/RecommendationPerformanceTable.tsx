@@ -4,7 +4,7 @@ import type { RecommendationAnalyticsSummary } from "@/lib/types/recommendation"
 
 const SURFACE_LABELS: Record<string, string> = {
   home: "홈",
-  search: "검색",
+  search: "검색 화면",
   shop: "상점",
 };
 

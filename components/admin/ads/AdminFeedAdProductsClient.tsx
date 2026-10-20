@@ -4,6 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import "@/lib/admin/status-labels/ads-status-labels";
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
 
 type Row = FeedAdProduct & {
@@ -23,9 +34,14 @@ export function AdminFeedAdProductsClient() {
   const [rows, setRows] = useState<Row[]>([]);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(
+    null
+  );
 
   const load = useCallback(async () => {
     setErr("");
+    setLoading(true);
     const res = await adminFetch("/api/admin/feed-ad-products", {
       credentials: "include",
       cache: "no-store",
@@ -35,6 +51,7 @@ export function AdminFeedAdProductsClient() {
       products?: FeedAdProduct[];
       error?: string;
     };
+    setLoading(false);
     if (!res.ok || !j.ok) {
       setErr(j.error ?? "load_failed");
       setRows([]);
@@ -56,8 +73,19 @@ export function AdminFeedAdProductsClient() {
   }, [load]);
 
   const save = async (row: Row) => {
+    const ko = !en;
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "배너 광고 상품을 저장할까요?" : "Save this banner ad product?",
+      description: ko
+        ? "기간·Point 가격은 새 신청·연장에만 적용됩니다."
+        : "Duration and Point apply to new requests and renewals only.",
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
     setBusyId(row.id);
-    setErr("");
+    setResult(null);
     try {
       const res = await adminFetch("/api/admin/feed-ad-products", {
         method: "PATCH",
@@ -78,11 +106,14 @@ export function AdminFeedAdProductsClient() {
         error?: string;
       };
       if (!res.ok || !j.ok || !j.product) {
-        setErr(j.error ?? "save_failed");
+        setResult({ ok: false, code: j.error ?? "save_failed" });
+        // 실패 시 화면 값을 서버 값으로 되돌린다.
+        await load();
         return;
       }
       // Refetch authority — do not trust local draft alone.
       await load();
+      setResult({ ok: true, message: en ? "Saved." : "저장했습니다." });
     } finally {
       setBusyId(null);
     }
@@ -108,7 +139,19 @@ export function AdminFeedAdProductsClient() {
             "Duration and Point apply to new requests and renewals only. Existing request snapshots stay unchanged.",
         })}
       </p>
-      {err ? <p className="sam-text-helper text-sam-warning">{err}</p> : null}
+      <div className="flex justify-end">
+        <AdminActionButton variant="secondary" size="sm" disabled={loading} onClick={() => void load()}>
+          {adminCta("refresh", !en)}
+        </AdminActionButton>
+      </div>
+      <AdminResultBanner ko={!en} result={result} onClose={() => setResult(null)} />
+      {loading ? (
+        <AdminLoadingState ko={!en} />
+      ) : err ? (
+        <AdminErrorState ko={!en} code={err} onRetry={() => void load()} />
+      ) : rows.length === 0 ? (
+        <AdminEmptyState ko={!en} />
+      ) : (
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
         <table className="w-full min-w-[640px] text-left sam-text-helper">
           <thead className="bg-sam-app text-sam-muted">
@@ -129,7 +172,9 @@ export function AdminFeedAdProductsClient() {
                   <div className="font-medium text-sam-fg">{en ? row.titleEn : row.titleKo}</div>
                   <div className="text-sam-muted">{row.id}</div>
                 </td>
-                <td className="px-3 py-2">{row.domain}</td>
+                <td className="px-3 py-2">
+                  <AdminStatusLabel namespace="ads.feedDomain" code={row.domain} ko={!en} />
+                </td>
                 <td className="px-3 py-2">
                   <input
                     type="number"
@@ -189,26 +234,22 @@ export function AdminFeedAdProductsClient() {
                   />
                 </td>
                 <td className="px-3 py-2">
-                  <button
-                    type="button"
+                  <AdminActionButton
+                    variant="ghost"
+                    size="sm"
                     disabled={busyId === row.id}
-                    className="rounded-ui-rect bg-signature px-3 py-1.5 font-medium text-white disabled:opacity-50"
                     onClick={() => void save(row)}
                     data-testid={`admin-feed-ad-product-save-${row.id}`}
                   >
-                    {busyId === row.id
-                      ? "…"
-                      : safeT("common_save", { fallbackKo: "저장", fallbackEn: "Save" })}
-                  </button>
+                    {adminCta("save", !en)}
+                  </AdminActionButton>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <button type="button" className="sam-text-helper text-sam-primary underline" onClick={() => void load()}>
-        {en ? "Refresh from server" : "서버에서 다시 불러오기"}
-      </button>
+      )}
     </div>
   );
 }

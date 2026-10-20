@@ -94,16 +94,13 @@ describe("owner delivery-ad submit — atomic debit + transition", () => {
     expect(debitBusinessCashForDeliveryAd).not.toHaveBeenCalled();
   });
 
-  it("falls back to debit → plain transition when the atomic RPC is missing", async () => {
-    transitionOwnerSponsoredCampaign
-      .mockResolvedValueOnce({ ok: false, error: "atomic_submit_rpc_missing" })
-      .mockResolvedValueOnce({ ok: true, row: { id: "camp-1" } });
-    debitBusinessCashForDeliveryAd.mockResolvedValue({ ok: true, idempotent: false });
+  it("atomic RPC missing → 503 without a separate debit or second transition (V3-04, no 2-step fallback)", async () => {
+    transitionOwnerSponsoredCampaign.mockResolvedValueOnce({ ok: false, error: "atomic_submit_rpc_missing" });
     const res = await call({ action: "submit" });
-    expect(res.status).toBe(200);
-    expect(debitBusinessCashForDeliveryAd).toHaveBeenCalledTimes(1);
-    expect(transitionOwnerSponsoredCampaign).toHaveBeenCalledTimes(2);
-    expect(transitionOwnerSponsoredCampaign.mock.calls[1][1]).not.toHaveProperty("secureBusinessCash");
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ ok: false, error: "atomic_submit_rpc_missing" });
+    expect(debitBusinessCashForDeliveryAd).not.toHaveBeenCalled();
+    expect(transitionOwnerSponsoredCampaign).toHaveBeenCalledTimes(1);
   });
 
   it("pause does not request cash securing", async () => {

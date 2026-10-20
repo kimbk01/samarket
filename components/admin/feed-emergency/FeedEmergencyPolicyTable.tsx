@@ -17,9 +17,11 @@ import {
   disableFallback,
   getFeedMode,
 } from "@/lib/feed-emergency/feed-emergency-utils";
-import { persistFeedEmergencyToServer } from "@/lib/feed-emergency/feed-emergency-sync-client";
+import { commitFeedEmergencyChange } from "@/lib/feed-emergency/feed-emergency-sync-client";
 import { feedEmergencySwitchConfirmCopy } from "@/lib/feed-emergency/feed-emergency-switch-confirm";
 import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const FALLBACK_MODE_LABELS: Record<FeedFallbackMode, string> = {
@@ -39,11 +41,14 @@ export function FeedEmergencyPolicyTable() {
     [refresh]
   );
 
-  const flush = async () => {
-    const r = await persistFeedEmergencyToServer();
-    if (!r.ok) {
-      console.warn("[feed-emergency] 저장 실패:", r.error);
-    }
+  // 쓰기 = 접근표 action(최고관리자). 서버 가드는 그대로 — 화면에서 미리 막고 사유를 보여 준다.
+  const writeAction = useAdminRouteAction("/admin/feed-emergency");
+  const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
+
+  /** 변경 → 저장. 실패면 화면 상태를 되돌리고 실패를 알린다 (앱 반영 안 됨). */
+  const commit = async (mutate: () => void) => {
+    const r = await commitFeedEmergencyChange(mutate);
+    setResult(r.ok ? { ok: true, message: "저장했습니다. 앱 피드에 반영됩니다." } : { ok: false, code: r.error ?? "save_failed" });
     setRefresh((x) => x + 1);
   };
 
@@ -52,9 +57,10 @@ export function FeedEmergencyPolicyTable() {
       feedEmergencySwitchConfirmCopy({ kind: "kill_switch", enable: enabled, targetLabel: SURFACE_LABELS[surface] })
     );
     if (!ok) return;
-    if (enabled) enableKillSwitch(surface);
-    else disableKillSwitch(surface);
-    await flush();
+    await commit(() => {
+      if (enabled) enableKillSwitch(surface);
+      else disableKillSwitch(surface);
+    });
   };
 
   const handleFallback = async (surface: RecommendationSurface, enabled: boolean) => {
@@ -62,9 +68,10 @@ export function FeedEmergencyPolicyTable() {
       feedEmergencySwitchConfirmCopy({ kind: "fallback", enable: enabled, targetLabel: SURFACE_LABELS[surface] })
     );
     if (!ok) return;
-    if (enabled) enableFallback(surface, "관리자 수동 fallback 활성화");
-    else disableFallback(surface);
-    await flush();
+    await commit(() => {
+      if (enabled) enableFallback(surface, "관리자 수동 fallback 활성화");
+      else disableFallback(surface);
+    });
   };
 
   const handlePolicyChange = async (
@@ -75,8 +82,7 @@ export function FeedEmergencyPolicyTable() {
   ) => {
     const p = policies.find((x) => x.id === id);
     if (!p) return;
-    saveFeedEmergencyPolicy({ ...p, [field]: value });
-    await flush();
+    await commit(() => saveFeedEmergencyPolicy({ ...p, [field]: value }));
   };
 
   if (policies.length === 0) {
@@ -88,6 +94,13 @@ export function FeedEmergencyPolicyTable() {
   }
 
   return (
+    <div className="space-y-3">
+      <AdminResultBanner ko result={result} onClose={() => setResult(null)} />
+      {writeAction.reason ? (
+        <p className="sam-text-body-secondary text-sam-muted" data-admin-action-denied="1">
+          변경 불가: {writeAction.reason}
+        </p>
+      ) : null}
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       {confirmDialog}
       <table className="w-full min-w-[720px] border-collapse sam-text-body">
@@ -128,6 +141,7 @@ export function FeedEmergencyPolicyTable() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
+                      disabled={!writeAction.allowed}
                       onClick={() => void handleKillSwitch(p.surface, !p.killSwitchEnabled)}
                       className={`rounded border px-2 py-1 sam-text-body-secondary ${
                         p.killSwitchEnabled
@@ -146,6 +160,7 @@ export function FeedEmergencyPolicyTable() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
+                      disabled={!writeAction.allowed}
                       onClick={() =>
                         void handleFallback(p.surface, mode !== "fallback")
                       }
@@ -162,6 +177,7 @@ export function FeedEmergencyPolicyTable() {
                 <td className="px-3 py-2.5 text-sam-fg">
                   <select
                     value={p.fallbackMode}
+                    disabled={!writeAction.allowed}
                     onChange={(e) =>
                       void handlePolicyChange(p.id, p.surface, "fallbackMode", e.target.value)
                     }
@@ -181,6 +197,7 @@ export function FeedEmergencyPolicyTable() {
                     <input
                       type="checkbox"
                       checked={p.emergencyNoticeEnabled}
+                      disabled={!writeAction.allowed}
                       onChange={(e) =>
                         void handlePolicyChange(
                           p.id,
@@ -197,6 +214,7 @@ export function FeedEmergencyPolicyTable() {
                     <input
                       type="text"
                       value={p.emergencyNoticeText}
+                      disabled={!writeAction.allowed}
                       onChange={(e) =>
                         void handlePolicyChange(
                           p.id,
@@ -215,6 +233,7 @@ export function FeedEmergencyPolicyTable() {
                     <input
                       type="checkbox"
                       checked={p.autoDisableEnabled}
+                      disabled={!writeAction.allowed}
                       onChange={(e) =>
                         void handlePolicyChange(
                           p.id,
@@ -233,6 +252,7 @@ export function FeedEmergencyPolicyTable() {
           })}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

@@ -85,7 +85,7 @@ describe("R2 member list — columns and identity", () => {
     expect(table).toContain("memberListVerificationLabelKo");
     expect(table).toContain("memberListStoreCellLabel");
     expect(table).toContain("memberListPrivilegeLabelKo");
-    expect(table).toContain("memberAdminCtaClass");
+    expect(table).toContain("AdminActionButton");
     expect(table).not.toContain("관계");
     expect(table).not.toContain("회원 구분");
     expect(table).not.toContain("표시만");

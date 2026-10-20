@@ -7,6 +7,10 @@ import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCm
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
 import type { AdminDeliveryAdListItem } from "@/lib/stores/advertising/admin-delivery-ad-loader";
@@ -323,7 +327,7 @@ export function AdminDeliveryAdsControlPlane() {
         <DeliveryAdAdminTodaySummary counts={todaySummaryCounts} />
 
         {/* 2 — Action Queue ahead of passive browsing */}
-        <div data-admin-delivery-ads-section="action-queue">
+        <div id="action-required" className="scroll-mt-16" data-admin-delivery-ads-section="action-queue">
           <AdminDeliveryAdActionQueuePanel />
         </div>
 
@@ -338,84 +342,70 @@ export function AdminDeliveryAdsControlPlane() {
 
           <div
             className="flex flex-wrap gap-2"
-            role="tablist"
+            role="group"
             aria-label={t("admin_delivery_ads_title")}
             data-admin-delivery-ads-hub-views="1"
           >
             {HUB_VIEWS.map((view) => {
               const isHistory = view === "history" || view === "all";
               return (
-                <button
+                <AdminChipButton
                   key={view}
-                  type="button"
-                  role="tab"
-                  aria-selected={hubView === view}
+                  selected={hubView === view}
                   data-hub-view={view}
-                  className={`inline-flex min-h-[40px] items-center rounded-ui-rect border px-3 text-[12px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] ${
-                    hubView === view
-                      ? "border-[#0A823E] bg-[#0A823E] text-white"
-                      : isHistory
-                        ? "border-sam-border/60 bg-sam-app text-sam-muted hover:border-[#0A823E]/40"
-                        : "border-sam-border bg-sam-surface text-sam-fg hover:border-[#0A823E]/50 hover:bg-[#0A823E]/5"
-                  }`}
+                  className={isHistory && hubView !== view ? "opacity-80" : ""}
                   onClick={() => selectHubView(view)}
                 >
                   {safeT(hubViewLabelKey(view), {
                     fallbackKo: view,
                     fallbackEn: view,
                   })}
-                </button>
+                </AdminChipButton>
               );
             })}
           </div>
 
           <div className="mt-2 flex flex-wrap gap-2">
             {(["all", "store_sponsored", "banner"] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                className={`rounded-ui-rect border px-3 py-1.5 text-[12px] ${
-                  product === p
-                    ? "border-sam-brand bg-sam-brand/10 text-sam-fg"
-                    : "border-sam-border bg-sam-surface text-sam-muted"
-                }`}
-                onClick={() => setProduct(p)}
-              >
+              <AdminChipButton key={p} selected={product === p} onClick={() => setProduct(p)}>
                 {safeT(
                   p === "all"
                     ? "admin_delivery_ads_product_all"
                     : adminDeliveryAdProductLabelKey(p),
                   { fallbackKo: p, fallbackEn: p }
                 )}
-              </button>
+              </AdminChipButton>
             ))}
           </div>
 
           {loading ? (
-            <p className="mt-3 text-[13px] text-sam-muted" role="status">
-              {safeT("admin_delivery_ads_loading", {
-                fallbackKo: "불러오는 중…",
-                fallbackEn: "Loading…",
-              })}
-            </p>
+            <div className="mt-3">
+              <AdminLoadingState
+                ko={lang !== "en"}
+                label={safeT("admin_delivery_ads_loading", {
+                  fallbackKo: "불러오는 중…",
+                  fallbackEn: "Loading…",
+                })}
+              />
+            </div>
           ) : null}
 
           {error ? (
-            <p className="mt-3 text-[13px] text-sam-danger" role="alert">
-              {safeT("admin_delivery_ads_load_error", {
-                fallbackKo: "목록을 불러오지 못했습니다.",
-                fallbackEn: "Failed to load campaigns.",
-              })}
-            </p>
+            <div className="mt-3">
+              <AdminErrorState ko={lang !== "en"} code={error} onRetry={() => void load()} />
+            </div>
           ) : null}
 
           {!loading && !error && visibleCampaigns.length === 0 ? (
-            <p className="mt-3 text-[13px] text-sam-muted">
-              {safeT("admin_delivery_ads_empty", {
-                fallbackKo: "해당 조건의 광고가 없습니다.",
-                fallbackEn: "No campaigns for this filter.",
-              })}
-            </p>
+            <div className="mt-3">
+              <AdminEmptyState
+                ko={lang !== "en"}
+                message={safeT("admin_delivery_ads_empty", {
+                  fallbackKo: "해당 조건의 광고가 없습니다.",
+                  fallbackEn: "No campaigns for this filter.",
+                })}
+              />
+            </div>
           ) : null}
 
           <ul className="mt-3 space-y-2" data-admin-delivery-ads-campaign-rows="1">
@@ -461,21 +451,21 @@ export function AdminDeliveryAdsControlPlane() {
                           roundedClassName="rounded-ui-rect"
                         />
                       ) : (
-                        <span className="flex h-full items-center justify-center text-[10px] text-sam-muted">
+                        <span className="flex h-full items-center justify-center text-[12px] text-sam-muted">
                           —
                         </span>
                       )}
                     </Link>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
+                        <span className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[12px] font-medium text-sam-fg">
                           {safeT(adminDeliveryAdProductLabelKey(c.productKind), {
                             fallbackKo: c.productKind,
                             fallbackEn: c.productKind,
                           })}
                         </span>
                         <span
-                          className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[10px] font-medium text-sam-muted"
+                          className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[12px] font-medium text-sam-muted"
                           data-campaign-source={c.campaignSource}
                         >
                           {safeT(adminDeliveryAdCampaignSourceLabelKey(c.campaignSource), {
@@ -496,14 +486,14 @@ export function AdminDeliveryAdsControlPlane() {
                           })}
                         </span>
                         {bannerCreativeState === "needed" ? (
-                          <span className="text-[11px] font-medium text-sam-warning">
+                          <span className="text-[12px] font-medium text-sam-warning">
                             {safeT("admin_delivery_ads_banner_creative_state_needed", {
                               fallbackKo: "제작 필요",
                               fallbackEn: "Needs production",
                             })}
                           </span>
                         ) : bannerCreativeState === "ready" ? (
-                          <span className="text-[11px] text-sam-muted">
+                          <span className="text-[12px] text-sam-muted">
                             {safeT("admin_delivery_ads_banner_creative_state_ready", {
                               fallbackKo: "제작 완료",
                               fallbackEn: "Ready",
@@ -511,7 +501,7 @@ export function AdminDeliveryAdsControlPlane() {
                           </span>
                         ) : null}
                         {c.scheduleHint === "ended" && c.lifecycleStatus === "ACTIVE" ? (
-                          <span className="text-[11px] text-sam-warning">
+                          <span className="text-[12px] text-sam-warning">
                             {safeT("admin_delivery_ads_schedule_ended_hint", {
                               fallbackKo: "일정 종료(표시)",
                               fallbackEn: "Schedule ended (display)",
@@ -524,7 +514,7 @@ export function AdminDeliveryAdsControlPlane() {
                           adminDisplayApplicantLabel(c.title || "", lang !== "en") ||
                           "—"}
                       </p>
-                      <p className="truncate text-[11px] text-sam-muted">
+                      <p className="truncate text-[12px] text-sam-muted">
                         {placement}
                         {c.pricingModel
                           ? ` · ${c.pricingModel}`
@@ -532,12 +522,13 @@ export function AdminDeliveryAdsControlPlane() {
                               fallbackKo: "가격 미설정",
                               fallbackEn: "Price not set",
                             })}`}
-                        {` · ${new Date(c.updatedAt).toLocaleString(lang === "en" ? "en" : "ko")}`}
+                        {` · ${formatAdminManilaDateTime(c.updatedAt)}`}
                       </p>
                       <div className="mt-2">
-                        <Link
+                        <AdminActionLink
                           href={cta.href}
-                          className="inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
+                          variant="secondary"
+                          size="sm"
                           data-admin-delivery-ads-row-cta="1"
                           data-cta-focus={cta.focus ?? ""}
                         >
@@ -545,7 +536,7 @@ export function AdminDeliveryAdsControlPlane() {
                             fallbackKo: "상세",
                             fallbackEn: "Detail",
                           })}
-                        </Link>
+                        </AdminActionLink>
                       </div>
                     </div>
                   </div>

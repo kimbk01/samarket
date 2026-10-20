@@ -2,6 +2,9 @@
 
 import { useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { AdminPermissionToggles } from "@/components/admin/users/AdminPermissionToggles";
 import { DEFAULT_PERMISSIONS_BY_ROLE } from "@/lib/admin-users/admin-permissions";
@@ -26,7 +29,7 @@ export function PromoteMemberToAdminSheet({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [role, setRole] = useState<AdminRole>("operator");
   const [permissions, setPermissions] = useState<AdminPermissionKey[]>(
     () => DEFAULT_PERMISSIONS_BY_ROLE.operator
@@ -51,7 +54,7 @@ export function PromoteMemberToAdminSheet({
     });
     setSubmitting(false);
     if (!result.ok) {
-      setError(result.error);
+      setError(adminOperatorErrorMessage(result.error, language !== "en"));
       return;
     }
     onSuccess();
@@ -68,29 +71,22 @@ export function PromoteMemberToAdminSheet({
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-ui-rect border border-[#00704A]/25 px-4 py-2 text-[13px] font-semibold text-[#1E3932]"
-          >
+          <AdminActionButton variant="quiet" onClick={onClose}>
             {t("common_cancel")}
-          </button>
-          <button
-            type="submit"
-            form="promote-member-admin-form"
-            disabled={submitting}
-            className="rounded-ui-rect bg-[#00704A] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
-          >
-            {submitting ? t("admin_users_saving") : t("admin_users_action_promote_admin")}
-          </button>
+          </AdminActionButton>
+          <AdminActionButton type="submit" form="promote-member-admin-form" variant="primary" disabled={submitting}>
+            {t("admin_users_action_promote_admin")}
+          </AdminActionButton>
         </div>
       }
     >
       <form id="promote-member-admin-form" onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-        <p className="rounded-md border border-[#e4e7ec] bg-[#f9fafb] px-3 py-2 text-[13px] text-[#344054]">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-[13px] text-sam-fg">
           <span className="font-semibold">{displayName}</span>
-          <span className="mt-1 block font-mono text-[11px] text-[#667085]">{userId}</span>
-        </p>
+          <span className="mt-1 block">
+            <AdminTechId id={userId} />
+          </span>
+        </div>
         <div>
           <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
             {t("admin_users_label_role")}

@@ -1,18 +1,9 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  pointActionTypeLabel,
-  pointBoardLabel,
-  pointChargeStatusLabel,
-  pointExecStatusLabel,
-  pointExpireCycleLabel,
-  pointExpireExecStatusLabel,
-  pointLedgerTypeLabel,
-  pointPaymentMethodLabel,
-  pointRewardTypeLabel,
-  pointUserTypeLabel,
-} from "@/components/admin/points/admin-points-notifications-i18n";
+import { pointActionTypeLabel } from "@/components/admin/points/admin-points-notifications-i18n";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 import { useState } from "react";
 import type {
@@ -29,6 +20,8 @@ interface PointProbabilityRuleTableProps {
     rule: Omit<PointProbabilityRule, "id"> & { id?: string }
   ) => void;
   onDeleteRule?: (id: string) => void;
+  /** 쓰기 권한 없음·처리 중 — 추가·삭제 비활성 */
+  actionsDisabled?: boolean;
 }
 
 export function PointProbabilityRuleTable({
@@ -37,8 +30,10 @@ export function PointProbabilityRuleTable({
   policyBoardName,
   onSaveRule,
   onDeleteRule,
+  actionsDisabled = false,
 }: PointProbabilityRuleTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [targetType, setTargetType] = useState<PointProbabilityTargetType>("write");
@@ -82,12 +77,9 @@ export function PointProbabilityRuleTable({
           {totalPercent !== 100 ? ` ${t("admin_points_policy_prob_total_hint")}` : null}
         </span>
         {onSaveRule && (
-          <button
-            type="button"
-            onClick={() => setShowAddForm(true)}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
-          > {t("admin_points_policy_prob_btn_add_band")}
-          </button>
+          <AdminActionButton variant="secondary" size="sm" disabled={actionsDisabled} onClick={() => setShowAddForm(true)}>
+            {t("admin_points_policy_prob_btn_add_band")}
+          </AdminActionButton>
         )}
       </div>
       {showAddForm && onSaveRule && (
@@ -156,18 +148,13 @@ export function PointProbabilityRuleTable({
               />
             </div>
           </div>
-          <div className="mt-2 flex gap-2">
-            <button
-              type="submit"
-              className="rounded border border-signature bg-signature px-3 py-1.5 sam-text-body-secondary text-white"
-            > {t("admin_points_btn_add")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAddForm(false)}
-              className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-            > {t("admin_points_charge_status_cancelled")}
-            </button>
+          <div className="mt-2 flex justify-end gap-2">
+            <AdminActionButton variant="secondary" size="sm" onClick={() => setShowAddForm(false)}>
+              {adminCta("cancel", ko)}
+            </AdminActionButton>
+            <AdminActionButton type="submit" variant="primary" size="sm" disabled={actionsDisabled}>
+              {adminCta("create", ko)}
+            </AdminActionButton>
           </div>
         </form>
       )}
@@ -181,9 +168,9 @@ export function PointProbabilityRuleTable({
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_target")}
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_policy_prob_th_range")}
+                <th className="px-3 py-2.5 text-right font-medium text-sam-fg"> {t("admin_points_policy_prob_th_range")}
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_policy_prob_label_percent")}
+                <th className="px-3 py-2.5 text-right font-medium text-sam-fg"> {t("admin_points_policy_prob_label_percent")}
                 </th>
                 {onDeleteRule && (
                   <th className="px-3 py-2.5 text-right font-medium text-sam-fg"> {t("admin_points_th_work")}
@@ -200,20 +187,22 @@ export function PointProbabilityRuleTable({
                   <td className="px-3 py-2.5 text-sam-fg">
                     {pointActionTypeLabel(t, r.targetType)}
                   </td>
-                  <td className="px-3 py-2.5 text-sam-fg">
+                  <td className="px-3 py-2.5 text-right tabular-nums text-sam-fg">
                     {r.minPoint} ~ {r.maxPoint}
                   </td>
-                  <td className="px-3 py-2.5 text-sam-fg">
+                  <td className="px-3 py-2.5 text-right tabular-nums text-sam-fg">
                     {r.probabilityPercent}%
                   </td>
                   {onDeleteRule && (
                     <td className="px-3 py-2.5 text-right">
-                      <button
-                        type="button"
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
+                        disabled={actionsDisabled}
                         onClick={() => onDeleteRule(r.id)}
-                        className="sam-text-body-secondary text-red-600 hover:underline"
-                      > {t("admin_points_reclaim_trigger_delete")}
-                      </button>
+                      >
+                        {adminCta("delete", ko)}
+                      </AdminActionButton>
                     </td>
                   )}
                 </tr>

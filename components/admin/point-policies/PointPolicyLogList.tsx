@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointPolicyLog } from "@/lib/types/point-policy";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface PointPolicyLogListProps {
   logs: PointPolicyLog[];
@@ -45,8 +46,8 @@ export function PointPolicyLogList({ logs }: PointPolicyLogListProps) {
           </span>
           <span className="text-sam-muted">{log.note}</span>
           <span className="text-sam-muted">{log.adminNickname}</span>
-          <span className="ml-auto text-sam-meta">
-            {new Date(log.createdAt).toLocaleString("ko-KR")}
+          <span className="ml-auto tabular-nums text-sam-meta">
+            {formatAdminManilaDateTime(log.createdAt)}
           </span>
         </li>
       ))}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   isOsLaunchPendingChanged,
   normalizeOsLaunchHex,
@@ -74,5 +75,12 @@ export async function PUT(req: NextRequest) {
   // Reset → the old pending logo object is no longer referenced; remove it from private storage.
   const oldPath = before?.ok ? before.pending?.logo?.source : undefined;
   if (oldPath) await removeOsLaunchLogo(sb, oldPath);
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "os_launch_pending",
+    targetId: "global",
+    action: "os_launch_pending.update",
+    after: { backgroundColor: color, resetLogo },
+  });
   return NextResponse.json(await snapshot(sb, saved.pending));
 }

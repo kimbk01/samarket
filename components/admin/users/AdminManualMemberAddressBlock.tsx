@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AddressEditorLocationSearch } from "@/components/addresses/AddressEditorLocationSearch";
+import { AdminMemberAddressLocationSearch } from "@/components/admin/users/AdminMemberAddressLocationSearch";
 import { AddressSummaryMapPreview } from "@/components/addresses/AddressSummaryMapPreview";
 import { fetchPlacePredictionsPh, type PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
 import { PLACE_FIELDS_POI_FULL } from "@/lib/map/places-new-api";
@@ -173,7 +173,7 @@ export function AdminManualMemberAddressBlock(props: {
         <p className="sam-text-helper leading-relaxed text-sam-muted">{t("admin_users_addr_section_hint")}</p>
       </div>
 
-      <AddressEditorLocationSearch
+      <AdminMemberAddressLocationSearch
         search={search}
         searching={searching}
         predictions={predictions}

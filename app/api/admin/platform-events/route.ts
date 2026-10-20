@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { mapPlatformEventDbRow, type PlatformEventDbRow } from "@/lib/platform-events/map-row";
 import { serializePlatformEventSections } from "@/lib/platform-events/sections";
@@ -147,9 +148,17 @@ export async function POST(req: NextRequest) {
   if (error || !data) {
     return NextResponse.json({ ok: false, error: error?.message ?? "insert_failed" }, { status: 500 });
   }
+  const created = mapPlatformEventDbRow(data as PlatformEventDbRow);
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "platform_event",
+    targetId: created.id,
+    action: "platform_event.create",
+    after: { title, status, startsAt, endsAt },
+  });
   return NextResponse.json({
     ok: true,
-    event: mapPlatformEventDbRow(data as PlatformEventDbRow),
+    event: created,
     boardColumnsApplied: boardColumns,
   });
 }

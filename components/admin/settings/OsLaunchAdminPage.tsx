@@ -13,6 +13,12 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { normalizeOsLaunchHex } from "@/lib/os-launch/contract";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import {
+  OS_LAUNCH_COLOR_PICKER_FALLBACK,
+  OS_LAUNCH_DEFAULT_BACKGROUND,
+} from "@/lib/admin/platform/platform-launch-default-colors";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type Snapshot = {
   ok: true;
@@ -54,7 +60,7 @@ function StartPreview({ color, logoUrl }: { color: string; logoUrl: string | nul
 export function OsLaunchAdminPage() {
   const { t } = useI18n();
   const [snap, setSnap] = useState<Snapshot | null>(null);
-  const [color, setColor] = useState("#075740");
+  const [color, setColor] = useState(OS_LAUNCH_DEFAULT_BACKGROUND);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"save" | "upload" | "reset" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -182,7 +188,7 @@ export function OsLaunchAdminPage() {
                   <dt className="text-sam-muted">{t("admin_os_launch_snapshot_source")}</dt>
                   <dd>
                     {snap.build.appliedFromAdmin
-                      ? new Date(snap.build.appliedFromAdmin.updatedAt).toLocaleString()
+                      ? formatAdminManilaDateTime(snap.build.appliedFromAdmin.updatedAt)
                       : t("admin_os_launch_snapshot_source_repo")}
                   </dd>
                 </div>
@@ -217,7 +223,7 @@ export function OsLaunchAdminPage() {
                     type="color"
                     aria-label={t("admin_os_launch_background")}
                     className="h-10 w-12 shrink-0 cursor-pointer rounded-ui-rect border border-sam-border bg-sam-surface"
-                    value={normalizedColor ?? "#000000"}
+                    value={normalizedColor ?? OS_LAUNCH_COLOR_PICKER_FALLBACK}
                     onChange={(e) => setColor(e.target.value.toUpperCase())}
                   />
                   <input
@@ -228,14 +234,15 @@ export function OsLaunchAdminPage() {
                     onFocus={(e) => e.currentTarget.select()}
                     onChange={(e) => setColor(e.target.value)}
                   />
-                  <button
+                  <AdminActionButton
+                    variant="primary"
+                    className="shrink-0"
                     type="button"
-                    className="sam-btn sam-btn--primary shrink-0"
                     disabled={busy !== null || !normalizedColor}
                     onClick={() => void put("save")}
                   >
                     {busy === "save" ? t("admin_os_launch_saving") : t("admin_os_launch_save")}
-                  </button>
+                  </AdminActionButton>
                 </div>
               </div>
 
@@ -257,30 +264,30 @@ export function OsLaunchAdminPage() {
                       if (f) void upload(f);
                     }}
                   />
-                  <button
+                  <AdminActionButton
+                    variant="secondary"
                     type="button"
-                    className="sam-btn sam-btn--secondary"
                     disabled={busy !== null}
                     onClick={() => fileRef.current?.click()}
                   >
                     {busy === "upload" ? t("admin_os_launch_uploading") : t("admin_os_launch_upload")}
-                  </button>
+                  </AdminActionButton>
                   {!usingBuildLogo ? (
-                    <button
+                    <AdminActionButton
+                      variant="secondary"
                       type="button"
-                      className="sam-btn sam-btn--secondary"
                       disabled={busy !== null || !normalizedColor}
                       onClick={() => void put("reset")}
                     >
                       {t("admin_os_launch_reset_logo")}
-                    </button>
+                    </AdminActionButton>
                   ) : null}
                 </div>
               </div>
 
               {snap.pending?.updatedAt ? (
                 <p className="sam-text-body-secondary text-sam-muted">
-                  {t("admin_os_launch_last_saved")}: {new Date(snap.pending.updatedAt).toLocaleString()}
+                  {t("admin_os_launch_last_saved")}: {formatAdminManilaDateTime(snap.pending.updatedAt)}
                 </p>
               ) : null}
               <p className="sam-text-body-secondary text-sam-muted">{t("admin_os_launch_preview_note")}</p>

@@ -1,5 +1,12 @@
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { BottomNavIconKey } from "@/lib/main-menu/bottom-nav-config";
+import {
+  MAIN_BOTTOM_NAV_ICON_ACTIVE_STYLE_PRESETS,
+  MAIN_BOTTOM_NAV_ICON_INACTIVE_STYLE_PRESETS,
+  MAIN_BOTTOM_NAV_LABEL_ACTIVE_STYLE_PRESETS,
+  MAIN_BOTTOM_NAV_LABEL_INACTIVE_STYLE_PRESETS,
+  type MainBottomNavPresetOption,
+} from "@/lib/main-menu/main-bottom-nav-presets";
 
 export const BOTTOM_NAV_ICON_LABEL_KEYS: Record<BottomNavIconKey, MessageKey> = {
   trade: "admin_menu_icon_trade",
@@ -56,43 +63,71 @@ export const BOTTOM_NAV_LABEL_SIZE_PRESET_KEYS: Record<string, MessageKey> = {
   "text-sm": "admin_menu_preset_size_sm",
 };
 
+/**
+ * 프리셋 값(저장되는 class 문자열)은 `lib/main-menu/main-bottom-nav-presets.ts` 단일 정의 — 여기서는 같은 순서로 라벨 키만 붙인다.
+ * (값을 이 파일에 다시 적지 않는다: 프리셋 표와 라벨 표가 어긋나지 않게)
+ */
+function zipPresetKeys(
+  presets: readonly MainBottomNavPresetOption[],
+  keys: readonly MessageKey[]
+): Record<string, MessageKey> {
+  const out: Record<string, MessageKey> = {};
+  presets.forEach((p, i) => {
+    const key = keys[i];
+    if (key) out[p.value] = key;
+  });
+  return out;
+}
+
 /** MAIN_BOTTOM_NAV_LABEL_ACTIVE_STYLE_PRESETS */
-export const BOTTOM_NAV_LABEL_ACTIVE_PRESET_KEYS: Record<string, MessageKey> = {
-  "": "admin_menu_preset_label_active_default",
-  "font-medium text-signature": "admin_menu_preset_label_active_signature_medium",
-  "font-semibold text-signature": "admin_menu_preset_label_active_signature_bold",
-  "font-medium text-gray-900": "admin_menu_preset_label_active_gray_medium",
-  "font-semibold text-gray-900": "admin_menu_preset_label_active_gray_bold",
-  "font-medium text-emerald-600": "admin_menu_preset_label_active_emerald",
-  "font-medium text-sam-primary": "admin_menu_preset_label_active_primary",
-  "font-medium text-rose-600": "admin_menu_preset_label_active_rose",
-};
+export const BOTTOM_NAV_LABEL_ACTIVE_PRESET_KEYS: Record<string, MessageKey> = zipPresetKeys(
+  MAIN_BOTTOM_NAV_LABEL_ACTIVE_STYLE_PRESETS,
+  [
+    "admin_menu_preset_label_active_default",
+    "admin_menu_preset_label_active_signature_medium",
+    "admin_menu_preset_label_active_signature_bold",
+    "admin_menu_preset_label_active_gray_medium",
+    "admin_menu_preset_label_active_gray_bold",
+    "admin_menu_preset_label_active_emerald",
+    "admin_menu_preset_label_active_primary",
+    "admin_menu_preset_label_active_rose",
+  ]
+);
 
 /** MAIN_BOTTOM_NAV_LABEL_INACTIVE_STYLE_PRESETS */
-export const BOTTOM_NAV_LABEL_INACTIVE_PRESET_KEYS: Record<string, MessageKey> = {
-  "": "admin_menu_preset_label_inactive_default",
-  "text-[#999999]": "admin_menu_preset_label_inactive_carrot",
-  "text-gray-400": "admin_menu_preset_label_inactive_400",
-  "text-gray-500": "admin_menu_preset_label_inactive_500",
-  "text-gray-600": "admin_menu_preset_label_inactive_600",
-};
+export const BOTTOM_NAV_LABEL_INACTIVE_PRESET_KEYS: Record<string, MessageKey> = zipPresetKeys(
+  MAIN_BOTTOM_NAV_LABEL_INACTIVE_STYLE_PRESETS,
+  [
+    "admin_menu_preset_label_inactive_default",
+    "admin_menu_preset_label_inactive_carrot",
+    "admin_menu_preset_label_inactive_400",
+    "admin_menu_preset_label_inactive_500",
+    "admin_menu_preset_label_inactive_600",
+  ]
+);
 
 /** MAIN_BOTTOM_NAV_ICON_ACTIVE_STYLE_PRESETS */
-export const BOTTOM_NAV_ICON_ACTIVE_PRESET_KEYS: Record<string, MessageKey> = {
-  "": "admin_menu_preset_icon_active_default",
-  "text-signature": "admin_menu_preset_icon_active_signature",
-  "text-gray-900": "admin_menu_preset_icon_active_gray",
-  "text-emerald-600": "admin_menu_preset_icon_active_emerald",
-  "text-sam-primary": "admin_menu_preset_icon_active_primary",
-};
+export const BOTTOM_NAV_ICON_ACTIVE_PRESET_KEYS: Record<string, MessageKey> = zipPresetKeys(
+  MAIN_BOTTOM_NAV_ICON_ACTIVE_STYLE_PRESETS,
+  [
+    "admin_menu_preset_icon_active_default",
+    "admin_menu_preset_icon_active_signature",
+    "admin_menu_preset_icon_active_gray",
+    "admin_menu_preset_icon_active_emerald",
+    "admin_menu_preset_icon_active_primary",
+  ]
+);
 
 /** MAIN_BOTTOM_NAV_ICON_INACTIVE_STYLE_PRESETS */
-export const BOTTOM_NAV_ICON_INACTIVE_PRESET_KEYS: Record<string, MessageKey> = {
-  "": "admin_menu_preset_icon_inactive_default",
-  "text-gray-300": "admin_menu_preset_icon_inactive_300",
-  "text-gray-400": "admin_menu_preset_icon_inactive_400",
-  "text-gray-500": "admin_menu_preset_icon_inactive_500",
-};
+export const BOTTOM_NAV_ICON_INACTIVE_PRESET_KEYS: Record<string, MessageKey> = zipPresetKeys(
+  MAIN_BOTTOM_NAV_ICON_INACTIVE_STYLE_PRESETS,
+  [
+    "admin_menu_preset_icon_inactive_default",
+    "admin_menu_preset_icon_inactive_300",
+    "admin_menu_preset_icon_inactive_400",
+    "admin_menu_preset_icon_inactive_500",
+  ]
+);
 
 export function bottomNavPresetLabelKey(
   value: string,

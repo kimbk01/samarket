@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeFeedAdDestination } from "@/lib/ads/feed-ad-destination";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { listFeedAdCampaignsForAdmin } from "@/lib/ads/feed-ad-campaigns-db";
 import type { FeedAdDomain, FeedAdPlacement, FeedAdDestinationType } from "@/lib/ads/feed-ad-placement";
@@ -134,6 +135,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ ok: false, error: cErr.message, campaignId }, { status: 500 });
     }
   }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "feed_ad_campaign",
+    targetId: campaignId,
+    action: "feed_ad_campaign.create",
+    after: {
+      domain,
+      placement,
+      status: body.status === "active" ? "active" : "draft",
+      priority: Number(body.priority ?? 100),
+      slideCount: slides.length,
+    },
+  });
 
   return NextResponse.json({ ok: true, campaignId });
 }

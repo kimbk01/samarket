@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
 import { financeOrderHref, financeStoreHref } from "@/lib/finance/routes";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 export function AdminFinanceOrdersIndexView() {
   const { language } = useI18n();
@@ -16,7 +18,7 @@ export function AdminFinanceOrdersIndexView() {
   return (
     <div className="space-y-4" data-admin-finance-orders-index="1">
       <FinanceAdminNav ko={ko} />
-      <h2 className="text-lg font-semibold">{ko ? "주문별 금액 추적" : "Per-order money trace"}</h2>
+      <h2 className="text-[16px] font-semibold text-sam-fg">{ko ? "주문별 금액 추적" : "Per-order money trace"}</h2>
       <form
         className="flex flex-wrap gap-2"
         onSubmit={(e: FormEvent) => {
@@ -40,9 +42,9 @@ export function AdminFinanceOrdersIndexView() {
           value={storeId}
           onChange={(e) => setStoreId(e.target.value)}
         />
-        <button type="submit" className="rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white">
-          {ko ? "금액 추적 열기" : "Open money trace"}
-        </button>
+        <AdminActionButton type="submit" variant="primary">
+          {adminCta("search", ko)}
+        </AdminActionButton>
       </form>
       <p className="sam-text-helper text-sam-muted">
         {ko

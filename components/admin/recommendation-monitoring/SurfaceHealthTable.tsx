@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationHealthStatuses } from "@/lib/recommendation-analytics/recommendation-health-status";
 import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { recHealthLabel, recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function SurfaceHealthTable() {
   const { t } = useI18n();
@@ -46,10 +47,10 @@ export function SurfaceHealthTable() {
                   <span
                     className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                       s.status === "healthy"
-                        ? "bg-emerald-50 text-emerald-800"
+                        ? "bg-sam-success-soft text-sam-success"
                         : s.status === "warning"
-                          ? "bg-amber-50 text-amber-800"
-                          : "bg-red-50 text-red-800"
+                          ? "bg-sam-warning-soft text-sam-warning"
+                          : "bg-sam-danger-soft text-sam-danger"
                     }`}
                   >
                     {recHealthLabel(t, s.status)}
@@ -59,14 +60,14 @@ export function SurfaceHealthTable() {
                 <td className="px-3 py-2.5 text-sam-fg">{(s.emptyFeedRate * 100).toFixed(2)}%</td>
                 <td className="px-3 py-2.5">
                   {s.fallbackActive ? (
-                    <span className="sam-text-body-secondary text-amber-600">ON</span>
+                    <span className="sam-text-body-secondary text-sam-warning">ON</span>
                   ) : (
                     <span className="sam-text-body-secondary text-sam-muted">OFF</span>
                   )}
                 </td>
                 <td className="px-3 py-2.5">
                   {s.killSwitchActive ? (
-                    <span className="sam-text-body-secondary text-red-600">ON</span>
+                    <span className="sam-text-body-secondary text-sam-danger">ON</span>
                   ) : (
                     <span className="sam-text-body-secondary text-sam-muted">OFF</span>
                   )}
@@ -75,7 +76,7 @@ export function SurfaceHealthTable() {
                 <td className="px-3 py-2.5 text-sam-fg">{version?.versionName ?? s.liveVersionId ?? "-"}</td>
                 <td className="px-3 py-2.5 text-sam-muted">{s.latestDeploymentStatus ?? "-"}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                  {new Date(s.lastCheckedAt).toLocaleString()}
+                  {formatAdminManilaDateTime(s.lastCheckedAt)}
                 </td>
               </tr>
             );

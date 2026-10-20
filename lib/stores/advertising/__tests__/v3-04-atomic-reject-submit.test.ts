@@ -88,22 +88,21 @@ describe("V3-04 DEF-5 admin reject — single RPC", () => {
     expect(res).toMatchObject({ ok: false, error: "stale_lifecycle" });
   });
 
-  it("falls back to transition + separate refund (refundWarning path) only when RPC is missing", async () => {
+  it("RPC missing → reject is refused (no 2-step transition + separate refund fallback)", async () => {
     const { sb, rpc } = makeSb({
       [ADMIN_DELIVERY_AD_REJECT_WITH_REFUND_RPC]: MISSING,
       admin_delivery_ad_transition: {
         data: { ok: true, campaign_id: "camp-1", from: "UNDER_REVIEW", to: "REJECTED", audit_id: "au-1" },
         error: null,
       },
-      business_cash_delivery_ad_refund: { data: { ok: false, error: "boom" }, error: null },
     });
     const res = await adminTransitionDeliveryAdCampaign(sb, rejectInput);
-    expect(rpc.mock.calls.map((c) => c[0])).toEqual([
-      ADMIN_DELIVERY_AD_REJECT_WITH_REFUND_RPC,
-      "admin_delivery_ad_transition",
-      "business_cash_delivery_ad_refund",
-    ]);
-    expect(res).toMatchObject({ ok: true, refundWarning: "business_cash_refund_failed" });
+    expect(rpc.mock.calls.map((c) => c[0])).toEqual([ADMIN_DELIVERY_AD_REJECT_WITH_REFUND_RPC]);
+    expect(res).toEqual({
+      ok: false,
+      error: "rpc_failed",
+      detail: `${ADMIN_DELIVERY_AD_REJECT_WITH_REFUND_RPC}_missing`,
+    });
   });
 
   it("non-reject actions keep using admin_delivery_ad_transition directly", async () => {

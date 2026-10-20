@@ -75,10 +75,10 @@ export function AdminDeliveryAdsSectionNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`inline-flex min-h-[40px] items-center rounded-ui-rect border px-3 text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] ${
+              className={`inline-flex min-h-[40px] items-center rounded-ui-rect border px-3 text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/40 active:scale-[0.99] ${
                 active
-                  ? "border-[#0A823E] bg-[#0A823E] text-white"
-                  : "border-sam-border bg-sam-surface text-sam-fg hover:border-[#0A823E]/50 hover:bg-[#0A823E]/5"
+                  ? "border-sam-primary bg-sam-primary text-white"
+                  : "border-sam-border bg-sam-surface text-sam-fg hover:border-sam-primary/50 hover:bg-sam-primary/5"
               }`}
               data-admin-ads-nav-active={active ? "1" : "0"}
               aria-current={active ? "page" : undefined}
@@ -91,8 +91,8 @@ export function AdminDeliveryAdsSectionNav() {
       </div>
       <Link
         href={DELIVERY_AD_ADMIN_ROUTES.firstPartyNew}
-        className={`inline-flex min-h-[40px] items-center rounded-ui-rect px-3 text-[13px] font-semibold text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] ${
-          createActive ? "bg-[#087a38]" : "bg-[#0A823E] hover:bg-[#087a38]"
+        className={`inline-flex min-h-[40px] items-center rounded-ui-rect px-3 text-[13px] font-semibold text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/40 active:scale-[0.99] ${
+          createActive ? "bg-sam-primary-hover" : "bg-sam-primary hover:bg-sam-primary-hover"
         }`}
         data-admin-ads-nav-primary-create="1"
         data-admin-delivery-ads-first-party-cta="1"

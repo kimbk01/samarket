@@ -154,10 +154,22 @@ export function MyPageAdminMenuEntry({
 
   if (!show) return null;
 
+  // 설계 v4 §2-2 A층: 폰(세로 또는 폭 < 1024)에서는 관리자 진입점에 관리자 화면 가드와 같은 안내를 함께 보인다.
+  // 표시는 CSS 미디어 쿼리만 사용(관리자 가드 `ADMIN_LANDSCAPE_GUARD_MEDIA_QUERY` 와 같은 조건) — 하이드레이션 깜빡임 없음.
+  const phoneNotice = (
+    <p
+      className="hidden px-4 pb-2 pt-1 text-[12px] leading-4 text-sam-muted portrait:block max-[1023px]:block"
+      data-mypage-admin-phone-notice="1"
+    >
+      {t("admin_landscape_guard_title")}
+    </p>
+  );
+
   if (starbucks) {
     const card = (
       <section className={MYPAGE_HOME_CARD_CLASS}>
         <MyInfoMenuLinkRow first href="/admin" title={t("mypage_comp_admin_entry_title")} />
+        {phoneNotice}
       </section>
     );
     if (asListItem) return <li className="list-none">{card}</li>;
@@ -165,11 +177,14 @@ export function MyPageAdminMenuEntry({
   }
 
   const row = (
-    <MyPageMobileMenuRow
-      href="/admin"
-      title={t("mypage_comp_admin_entry_title")}
-      surface={asListItem || wrapInStandaloneCard ? "card" : "grouped"}
-    />
+    <>
+      <MyPageMobileMenuRow
+        href="/admin"
+        title={t("mypage_comp_admin_entry_title")}
+        surface={asListItem || wrapInStandaloneCard ? "card" : "grouped"}
+      />
+      {phoneNotice}
+    </>
   );
   if (asListItem) {
     return <li className="list-none">{row}</li>;

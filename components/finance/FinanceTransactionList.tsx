@@ -1,6 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+} from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { FinanceUnifiedTx } from "@/lib/finance/unified-transaction/types";
 import {
   formatFinanceAmount,
@@ -41,56 +48,34 @@ export function FinanceTransactionList({
 
   if (loading) {
     return (
-      <p className="sam-text-body text-sam-muted" data-finance-tx-list="loading">
-        {ko ? "불러오는 중…" : "Loading…"}
-      </p>
+      <div data-finance-tx-list="loading">
+        <AdminLoadingState ko={ko} />
+      </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-3" data-finance-tx-list="error">
-        <p className="text-amber-950">
-          {ko ? "재무 내역을 불러오지 못했습니다." : "Could not load finance transactions."}
-        </p>
-        {onRetry ? (
-          <button
-            type="button"
-            className="mt-2 rounded-ui-rect border border-amber-600 px-3 py-1.5 text-sm font-semibold text-amber-900"
-            onClick={onRetry}
-          >
-            {ko ? "다시 시도" : "Retry"}
-          </button>
-        ) : null}
+      <div data-finance-tx-list="error">
+        <AdminErrorState ko={ko} code={error} onRetry={onRetry} />
       </div>
     );
   }
 
   if (rows.length === 0) {
     return (
-      <div
-        className="rounded-ui-rect border border-dashed border-sam-border px-3 py-8 text-center text-sam-muted"
-        data-finance-tx-list="empty"
-      >
-        <p>
-          {emptyFiltered
-            ? ko
-              ? "선택한 조건의 거래가 없습니다."
-              : "No transactions match these filters."
-            : ko
-              ? "거래가 없습니다."
-              : "No transactions."}
-        </p>
-        {emptyFiltered ? (
-          <button
-            type="button"
-            className="mt-3 rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm font-semibold text-signature"
-            onClick={() => router.push("/admin/finance/transactions")}
-            data-finance-filter-reset="1"
-          >
-            {ko ? "필터 초기화" : "Reset filters"}
-          </button>
-        ) : null}
+      <div data-finance-tx-list="empty">
+        <AdminEmptyState
+          ko={ko}
+          message={
+            emptyFiltered
+              ? undefined
+              : ko
+                ? "거래가 없습니다."
+                : "No transactions."
+          }
+          onReset={emptyFiltered ? () => router.push("/admin/finance/transactions") : undefined}
+        />
       </div>
     );
   }
@@ -108,10 +93,10 @@ export function FinanceTransactionList({
               <th className="px-3 py-2">{ko ? "구분" : "Type"}</th>
               <th className="px-3 py-2">{ko ? "매장/회원" : "Store/Member"}</th>
               <th className="px-3 py-2">{ko ? "연결 대상" : "Linked to"}</th>
-              <th className="px-3 py-2">{ko ? "유입" : "In"}</th>
-              <th className="px-3 py-2">{ko ? "유출" : "Out"}</th>
+              <th className="px-3 py-2 text-right">{ko ? "유입" : "In"}</th>
+              <th className="px-3 py-2 text-right">{ko ? "유출" : "Out"}</th>
               <th className="px-3 py-2">{ko ? "자산" : "Wallet"}</th>
-              <th className="px-3 py-2">{ko ? "잔액" : "Balance"}</th>
+              <th className="px-3 py-2 text-right">{ko ? "잔액" : "Balance"}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-sam-border-soft">
@@ -134,11 +119,12 @@ export function FinanceTransactionList({
                   data-finance-tx-row={r.txKey}
                 >
                   <td className="whitespace-nowrap px-3 py-2 sam-text-xxs">
-                    {r.occurredAt ? new Date(r.occurredAt).toLocaleString() : "—"}
+                    {r.occurredAt ? formatAdminManilaDateTime(r.occurredAt) : "—"}
                   </td>
                   <td className="px-3 py-2">
-                    <span className="font-medium text-sam-fg">{financeTypeLabel(r.entryKind, ko)}</span>
-                    <span className="mt-0.5 block font-mono sam-text-xxs text-sam-muted">{r.entryKind}</span>
+                    <span className="font-medium text-sam-fg" data-finance-entry-kind={r.entryKind}>
+                      {financeTypeLabel(r.entryKind, ko)}
+                    </span>
                   </td>
                   <td className="max-w-[10rem] truncate px-3 py-2">
                     {r.storeName || r.memberLabel || r.memberId?.slice(0, 8) || "—"}
@@ -176,7 +162,7 @@ export function FinanceTransactionList({
                       financeRelatedTargetLabel(r, ko)
                     )}
                   </td>
-                  <td className="px-3 py-2 tabular-nums text-emerald-700">
+                  <td className="px-3 py-2 text-right tabular-nums text-sam-success">
                     {credit
                       ? formatFinanceAmount({
                           wallet: r.wallet,
@@ -185,7 +171,7 @@ export function FinanceTransactionList({
                         })
                       : "—"}
                   </td>
-                  <td className="px-3 py-2 tabular-nums text-red-700">
+                  <td className="px-3 py-2 text-right tabular-nums text-sam-danger">
                     {!credit
                       ? formatFinanceAmount({
                           wallet: r.wallet,
@@ -195,7 +181,7 @@ export function FinanceTransactionList({
                       : "—"}
                   </td>
                   <td className="px-3 py-2">{financeWalletLabel(r.wallet, ko)}</td>
-                  <td className="px-3 py-2 tabular-nums">
+                  <td className="px-3 py-2 text-right tabular-nums">
                     {r.wallet === "CASH"
                       ? formatFinanceAmount({
                           wallet: "CASH",
@@ -219,10 +205,10 @@ export function FinanceTransactionList({
           const credit = r.direction === "credit";
           return (
             <li key={r.txKey}>
-              <button
-                type="button"
-                className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
-                onClick={() => router.push(href)}
+              <Link
+                href={href}
+                prefetch={false}
+                className="block w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                 data-finance-tx-row={r.txKey}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -234,10 +220,10 @@ export function FinanceTransactionList({
                     </p>
                     <p className="sam-text-xxs text-sam-muted">{financeRelatedTargetLabel(r, ko)}</p>
                     <p className="sam-text-xxs text-sam-muted">
-                      {r.occurredAt ? new Date(r.occurredAt).toLocaleString() : "—"}
+                      {r.occurredAt ? formatAdminManilaDateTime(r.occurredAt) : "—"}
                     </p>
                   </div>
-                  <p className={`font-semibold tabular-nums ${credit ? "text-emerald-700" : "text-red-700"}`}>
+                  <p className={`font-semibold tabular-nums ${credit ? "text-sam-success" : "text-sam-danger"}`}>
                     {credit ? "+" : "−"}
                     {formatFinanceAmount({
                       wallet: r.wallet,
@@ -246,7 +232,7 @@ export function FinanceTransactionList({
                     })}
                   </p>
                 </div>
-              </button>
+              </Link>
             </li>
           );
         })}

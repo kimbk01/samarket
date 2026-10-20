@@ -161,9 +161,8 @@ describe("V3-03b owner request reject — single RPC transaction", () => {
     expect(appendAuditLog).not.toHaveBeenCalled();
   });
 
-  it("falls back to legacy refund + update only when RPC is missing (PGRST202)", async () => {
+  it("RPC missing (PGRST202) → 503 without refund or status update (no 2-step fallback)", async () => {
     loadPlatformPopupOwnerRequest.mockResolvedValue(baseRequest);
-    refundBusinessCashForRejectedDeliveryAd.mockResolvedValue({ ok: true });
     const { sb, calls } = makeSb(
       { "platform_popup_owner_requests:update": { data: null, error: null } },
       { data: null, error: { code: "PGRST202", message: "Could not find the function" } }
@@ -173,9 +172,10 @@ describe("V3-03b owner request reject — single RPC transaction", () => {
       adminUserId: "a1",
       action: "reject",
     });
-    expect(res.ok).toBe(true);
-    expect(refundBusinessCashForRejectedDeliveryAd).toHaveBeenCalledTimes(1);
-    expect(calls.some((c) => c.op === "update" && c.table === "platform_popup_owner_requests")).toBe(true);
+    expect(res).toMatchObject({ ok: false, httpStatus: 503 });
+    expect(refundBusinessCashForRejectedDeliveryAd).not.toHaveBeenCalled();
+    expect(calls.some((c) => c.op === "update" && c.table === "platform_popup_owner_requests")).toBe(false);
+    expect(appendAuditLog).not.toHaveBeenCalled();
   });
 
   it("other RPC transport errors → 500 without fallback", async () => {

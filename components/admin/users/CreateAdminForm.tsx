@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey, CreateAdminInput } from "@/lib/types/admin-staff";
 import { DEFAULT_PERMISSIONS_BY_ROLE } from "@/lib/admin-users/admin-permissions";
@@ -22,7 +24,7 @@ interface CreateAdminFormProps {
 }
 
 export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { isSuperAdmin } = useAdminMe();
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
@@ -83,7 +85,7 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
       onSuccess();
       onClose();
     } else {
-      setError(result.error);
+      setError(adminOperatorErrorMessage(result.error, language !== "en"));
     }
   };
 
@@ -94,21 +96,12 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-ui-rect border border-[#00704A]/25 px-4 py-2 text-[13px] font-semibold text-[#1E3932]"
-          >
+          <AdminActionButton variant="quiet" onClick={onClose}>
             {t("common_cancel")}
-          </button>
-          <button
-            type="submit"
-            form="create-admin-form"
-            disabled={submitting}
-            className="rounded-ui-rect bg-[#00704A] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
-          >
-            {submitting ? t("admin_users_creating") : t("admin_users_create")}
-          </button>
+          </AdminActionButton>
+          <AdminActionButton type="submit" form="create-admin-form" variant="primary" disabled={submitting}>
+            {t("admin_users_create")}
+          </AdminActionButton>
         </div>
       }
     >
@@ -177,7 +170,11 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
             />
           </div>
 
-          {error && <p className="text-[13px] text-red-600">{error}</p>}
+          {error && (
+            <p className="text-[13px] text-sam-danger" role="alert">
+              {error}
+            </p>
+          )}
         </form>
     </AdminFormSheet>
   );

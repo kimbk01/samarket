@@ -12,6 +12,7 @@ import {
   recFallbackModeLabel,
   recSurfaceLabel,
 } from "@/components/admin/recommendation-admin-i18n";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 export function AutomationPolicyTable() {
   const { t } = useI18n();
@@ -88,17 +89,13 @@ export function AutomationPolicyTable() {
                 {recSurfaceLabel(t, p.surface)}
               </td>
               <td className="px-3 py-2.5">
-                <button
+                <AdminChipButton
+                  selected={p.isActive}
                   type="button"
                   onClick={() => void handleToggle(p.id, p.surface, "isActive", !p.isActive)}
-                  className={`rounded border px-2 py-1 sam-text-body-secondary ${
-                    p.isActive
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-sam-border bg-sam-surface-muted text-sam-muted"
-                  }`}
                 >
                   {p.isActive ? "ON" : "OFF"}
-                </button>
+                </AdminChipButton>
               </td>
               <td className="px-3 py-2.5">
                 <label className="flex items-center gap-1">

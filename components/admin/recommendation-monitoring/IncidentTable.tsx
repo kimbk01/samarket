@@ -16,6 +16,8 @@ import {
   recSeverityLabel,
   recSurfaceLabel,
 } from "@/components/admin/recommendation-admin-i18n";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const ADMIN_ID = "admin1";
 
@@ -129,9 +131,9 @@ export function IncidentTable() {
                     <span
                       className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                         i.status === "resolved"
-                          ? "bg-emerald-50 text-emerald-800"
+                          ? "bg-sam-success-soft text-sam-success"
                           : i.status === "acknowledged"
-                            ? "bg-amber-50 text-amber-800"
+                            ? "bg-sam-warning-soft text-sam-warning"
                             : "bg-sam-surface-muted text-sam-fg"
                       }`}
                     >
@@ -139,26 +141,28 @@ export function IncidentTable() {
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(i.startedAt).toLocaleString()}
+                    {formatAdminManilaDateTime(i.startedAt)}
                   </td>
                   <td className="px-3 py-2.5">
                     {i.status === "open" && (
-                      <button
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         onClick={() => handleAck(i.id)}
-                        className="mr-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-body-secondary text-amber-800"
                       >
                         {t("common_confirm")}
-                      </button>
+                      </AdminActionButton>
                     )}
                     {(i.status === "open" || i.status === "acknowledged") && (
-                      <button
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         onClick={() => handleResolve(i.id)}
-                        className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 sam-text-body-secondary text-emerald-800"
                       >
                         {t("admin_rec_incident_btn_resolve")}
-                      </button>
+                      </AdminActionButton>
                     )}
                   </td>
                 </tr>

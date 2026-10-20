@@ -10,6 +10,7 @@ import { getActiveFeedVersionBySurface } from "@/lib/recommendation-experiments/
 import { getExperimentWinnerSummaries } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { deployVersion } from "@/lib/recommendation-deployments/recommendation-deployment-utils";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 
@@ -60,11 +61,11 @@ export function DeploymentPreparationPanel() {
         </p>
       </div>
       {winnerSummaries.length > 0 && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4">
-          <p className="sam-text-body font-medium text-amber-900">
+        <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft p-4">
+          <p className="sam-text-body font-medium text-sam-warning">
             실험 승자 추천 (자동 배포 추천)
           </p>
-          <ul className="mt-2 space-y-1 sam-text-body-secondary text-amber-800">
+          <ul className="mt-2 space-y-1 sam-text-body-secondary text-sam-warning">
             {winnerSummaries.slice(0, 3).map((s) => (
               <li key={s.experimentId}>
                 실험 {s.experimentId} → 버전 {s.winningVersionId} (
@@ -103,14 +104,14 @@ export function DeploymentPreparationPanel() {
             </option>
           ))}
         </select>
-        <button
+        <AdminActionButton
+          variant="primary"
           type="button"
           onClick={handleDeploy}
           disabled={!versionId || deploying}
-          className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white disabled:opacity-50"
         >
           배포 실행
-        </button>
+        </AdminActionButton>
       </div>
       <p className="sam-text-helper text-sam-muted">
         배포 예약은 placeholder입니다. 실행 시 즉시 live 반영됩니다.

@@ -7,7 +7,9 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { DeliveryAdPlacementMiniature } from "@/components/stores/advertising/DeliveryAdPlacementMiniature";
@@ -28,11 +30,6 @@ import type { DeliveryAdInventoryKey } from "@/lib/stores/advertising/delivery-a
 import type { PlacementMiniatureKind } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
 import type { DeliveryAdFundingStatus } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
 
-const BTN =
-  "inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-sam-app px-3 text-[12px] font-semibold text-sam-fg hover:bg-sam-surface-muted";
-const BTN_ON =
-  "inline-flex min-h-[36px] items-center rounded-ui-rect border border-[#0A823E] bg-[#0A823E] px-3 text-[12px] font-semibold text-white";
-
 const DOMAINS: { id: PlacementMapDomain | "ALL"; ko: string; en: string }[] = [
   { id: "ALL", ko: "전체", en: "All" },
   { id: "DELIVERY", ko: "배달", en: "Delivery" },
@@ -44,7 +41,7 @@ const SCREENS: { id: PlacementMapScreen | "ALL"; ko: string; en: string }[] = [
   { id: "ALL", ko: "전체 화면", en: "All screens" },
   { id: "DELIVERY_HOME", ko: "배달 홈", en: "Delivery Home" },
   { id: "DELIVERY_CATEGORY", ko: "업종 목록", en: "Category" },
-  { id: "DELIVERY_SEARCH", ko: "검색", en: "Search" },
+  { id: "DELIVERY_SEARCH", ko: "검색 결과", en: "Search results" },
   { id: "STORE_DETAIL", ko: "매장 상세", en: "Store detail" },
   { id: "TRADE_FEED", ko: "거래 피드", en: "Trade feed" },
   { id: "COMMUNITY_FEED", ko: "커뮤니티 피드", en: "Community feed" },
@@ -82,8 +79,8 @@ function Flag({
 }) {
   return (
     <span
-      className={`inline-flex rounded-ui-rect px-2 py-0.5 text-[10px] font-semibold ${
-        on ? "bg-emerald-100 text-emerald-900" : "bg-sam-app text-sam-muted"
+      className={`inline-flex rounded-ui-rect px-2 py-0.5 text-[12px] font-semibold ${
+        on ? "bg-sam-success-soft text-sam-success" : "bg-sam-app text-sam-muted"
       }`}
     >
       {ko ? labelKo : labelEn}
@@ -102,14 +99,14 @@ function Factor({
 }) {
   const tone =
     ok === true
-      ? "text-emerald-800"
+      ? "text-sam-success"
       : ok === false
-        ? "text-red-800"
+        ? "text-sam-danger"
         : "text-sam-fg";
   return (
     <li className={`flex flex-wrap justify-between gap-2 ${tone}`}>
       <span className="text-sam-muted">{label}</span>
-      <span className="font-mono text-[11px] font-semibold">{value}</span>
+      <span className="font-mono text-[12px] font-semibold">{value}</span>
     </li>
   );
 }
@@ -337,7 +334,7 @@ export function AdminPlacementMapPanel() {
           })}
         </p>
         {occupancyState === "unavailable" ? (
-          <p className="mt-2 text-[12px] font-semibold text-amber-900">
+          <p className="mt-2 text-[12px] font-semibold text-sam-warning">
             {ko
               ? "점유 정보를 불러올 수 없습니다. 빈 자리 0으로 간주하지 마세요."
               : "Occupancy unavailable — do not treat as vacancy 0."}
@@ -347,17 +344,16 @@ export function AdminPlacementMapPanel() {
 
       <div className="flex flex-wrap gap-2" data-admin-placement-map-domain="1">
         {DOMAINS.map((d) => (
-          <button
+          <AdminChipButton
             key={d.id}
-            type="button"
-            className={domain === d.id ? BTN_ON : BTN}
+            selected={domain === d.id}
             onClick={() => {
               setDomain(d.id);
               setScreen("ALL");
             }}
           >
             {ko ? d.ko : d.en}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
 
@@ -371,14 +367,13 @@ export function AdminPlacementMapPanel() {
             (domain === "FEED" && (s.id === "TRADE_FEED" || s.id === "COMMUNITY_FEED")) ||
             (domain === "POPUP" && s.id === "GLOBAL_POPUP")
         ).map((s) => (
-          <button
+          <AdminChipButton
             key={s.id}
-            type="button"
-            className={screen === s.id ? BTN_ON : BTN}
+            selected={screen === s.id}
             onClick={() => setScreen(s.id)}
           >
             {ko ? s.ko : s.en}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
 
@@ -390,13 +385,11 @@ export function AdminPlacementMapPanel() {
           })}
         >
           <div data-admin-placement-map-active="1" className="space-y-2 text-[12px]">
-            {executionLoading ? (
-              <p className="text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p>
-            ) : null}
+            {executionLoading ? <AdminLoadingState ko={ko} /> : null}
             {executionError ? (
-              <p className="text-red-800" data-admin-placement-map-active-error="1">
-                {executionError}
-              </p>
+              <div data-admin-placement-map-active-error="1">
+                <AdminErrorState ko={ko} code={executionError} />
+              </div>
             ) : null}
             {executionSnap ? (
               <ul className="space-y-1.5" data-admin-placement-map-eligibility="1">
@@ -457,13 +450,13 @@ export function AdminPlacementMapPanel() {
                 />
                 <Factor label="appRoute" value={selected?.runtimeRouteHint ?? "—"} />
                 {executionSnap.notes.map((n) => (
-                  <li key={n} className="text-[11px] text-sam-muted">
+                  <li key={n} className="text-[12px] text-sam-muted">
                     {n}
                   </li>
                 ))}
                 {executionSnap.creativeAssetPath ? (
                   <div data-admin-placement-map-creative="1">
-                    <p className="mb-1 text-[11px] font-medium text-sam-muted">
+                    <p className="mb-1 text-[12px] font-medium text-sam-muted">
                       {safeT("admin_placement_map_thumbnail_only", {
                         fallbackKo: "맵 썸네일 미리보기 (배치 렌더러 전체 미리보기 아님)",
                         fallbackEn: "Map thumbnail only (not full placement renderer preview)",
@@ -508,24 +501,23 @@ export function AdminPlacementMapPanel() {
               const active = selectedId === row.placementId;
               const occ = occupancyByKey[row.placementId];
               return (
-                <button
+                <AdminActionButton
                   key={`${row.domain}:${row.placementId}`}
-                  type="button"
+                  variant="secondary"
+                  aria-pressed={active}
                   data-admin-placement-marker={row.placementId}
                   data-placement-domain={row.domain}
                   data-sellable={row.flags.sellable ? "1" : "0"}
                   data-runtime={row.flags.runtimeSupported ? "1" : "0"}
                   data-preview={row.flags.previewSupported ? "1" : "0"}
-                  className={`w-full rounded-ui-rect border px-3 py-3 text-left transition ${
-                    active
-                      ? "border-[#0A823E] bg-[#0A823E]/5"
-                      : "border-sam-border bg-sam-surface hover:border-[#0A823E]/40"
+                  className={`!h-auto w-full !items-stretch !justify-start !whitespace-normal !px-3 !py-3 text-left !font-normal ${
+                    active ? "!border-sam-primary !bg-sam-primary/5" : ""
                   }`}
                   onClick={() => setSelectedId(row.placementId)}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex w-full flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p className="text-[11px] font-semibold text-sam-muted">
+                      <p className="text-[12px] font-semibold text-sam-muted">
                         {row.domain === "DELIVERY"
                           ? ko
                             ? "배달"
@@ -560,7 +552,7 @@ export function AdminPlacementMapPanel() {
                           {ko ? "점유 불러오는 중…" : "Loading occupancy…"}
                         </p>
                       ) : occupancyState === "unavailable" ? (
-                        <p className="mt-1 text-[12px] text-amber-900">
+                        <p className="mt-1 text-[12px] text-sam-warning">
                           {ko ? "점유 확인 불가" : "Occupancy unavailable"}
                         </p>
                       ) : (
@@ -584,7 +576,7 @@ export function AdminPlacementMapPanel() {
                       />
                     </div>
                   </div>
-                </button>
+                </AdminActionButton>
               );
             })
           )}
@@ -642,10 +634,10 @@ export function AdminPlacementMapPanel() {
                   <li className="text-sam-muted">{selected.notes}</li>
                 </ul>
                 <details className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5">
-                  <summary className="cursor-pointer text-[11px] font-semibold text-sam-muted">
+                  <summary className="cursor-pointer text-[12px] font-semibold text-sam-muted">
                     {ko ? "기술 정보 보기" : "Technical info"}
                   </summary>
-                  <ul className="mt-2 space-y-1 font-mono text-[11px] text-sam-muted">
+                  <ul className="mt-2 space-y-1 font-mono text-[12px] text-sam-muted">
                     <li>{selected.placementId}</li>
                     <li>
                       {ko ? "비율 권한" : "Ratio owner"}: {selected.ratioOwner}
@@ -659,7 +651,7 @@ export function AdminPlacementMapPanel() {
                   </ul>
                 </details>
                 {!selected.flags.sellable && selected.flags.runtimeSupported ? (
-                  <p className="rounded-ui-rect border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] font-semibold text-amber-950">
+                  <p className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-2 py-1.5 text-[12px] font-semibold text-sam-fg">
                     {safeT("admin_placement_map_defined_not_sellable", {
                       fallbackKo:
                         "이 지면은 정의·앱 연결은 있으나 현재 판매 대상이 아닙니다.",
@@ -669,7 +661,7 @@ export function AdminPlacementMapPanel() {
                   </p>
                 ) : null}
                 {!selected.flags.runtimeSupported ? (
-                  <p className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[11px] text-sam-muted">
+                  <p className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[12px] text-sam-muted">
                     {safeT("admin_placement_map_no_runtime", {
                       fallbackKo: "앱 연결 없음 또는 미래/차단 지면입니다.",
                       fallbackEn: "No app consumer, or future/blocked placement.",
@@ -677,34 +669,34 @@ export function AdminPlacementMapPanel() {
                   </p>
                 ) : null}
                 <div className="flex flex-wrap gap-2 pt-1">
-                  <Link href={selected.opsHref} className={BTN} data-placement-cta="ops">
+                  <AdminActionLink href={selected.opsHref} size="sm" data-placement-cta="ops">
                     {safeT("admin_placement_map_cta_ops", {
                       fallbackKo: "광고 운영 보기",
                       fallbackEn: "Open ads ops",
                     })}
-                  </Link>
+                  </AdminActionLink>
                   {selected.configHref ? (
-                    <Link
+                    <AdminActionLink
                       href={selected.configHref}
-                      className={BTN}
+                      size="sm"
                       data-placement-cta="config"
                     >
                       {safeT("admin_placement_map_cta_config", {
                         fallbackKo: "유기 설정 보기",
                         fallbackEn: "Open organic config",
                       })}
-                    </Link>
+                    </AdminActionLink>
                   ) : null}
-                  <Link
+                  <AdminActionLink
                     href={selected.adminController}
-                    className={BTN}
+                    size="sm"
                     data-placement-cta="admin"
                   >
                     {safeT("admin_placement_map_cta_admin", {
                       fallbackKo: "Admin 허브",
                       fallbackEn: "Admin hub",
                     })}
-                  </Link>
+                  </AdminActionLink>
                 </div>
               </div>
             )}

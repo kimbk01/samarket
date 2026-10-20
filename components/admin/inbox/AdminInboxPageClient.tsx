@@ -10,6 +10,11 @@ import {
   type AdminNotificationDto,
   type AdminNotificationWorkState,
 } from "@/lib/admin/notifications/admin-notification-kinds";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 
 /** Settlement alerts: work state colour + text (light/dark tokens). Read state is shown separately. */
 const WORK_STATE_ROW: Record<AdminNotificationWorkState, string> = {
@@ -119,12 +124,28 @@ export function AdminInboxPageClient() {
       }
       emitInboxChanged();
       await reload();
+    } catch {
+      setError(true);
     } finally {
       setBusy(false);
     }
   };
 
-  const locale = language === "en" ? "en-US" : "ko-KR";
+  const ko = language !== "en";
+
+  const markAllRead = async () => {
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: t("admin_inbox_mark_all_read"),
+      description: ko
+        ? `안 읽은 알림 ${formatAdminNumber(unread)}건을 읽음으로 표시합니다. 연결된 업무 상태는 바뀌지 않습니다.`
+        : `Marks ${formatAdminNumber(unread)} unread notifications as read. Linked work items do not change.`,
+      confirmLabel: t("admin_inbox_mark_all_read"),
+    });
+    if (!confirmed.ok) return;
+    await markRead({ all: true });
+  };
 
   return (
     <div className="space-y-4 p-4 md:p-6" data-testid="admin-inbox-page">
@@ -139,38 +160,42 @@ export function AdminInboxPageClient() {
           />
           {t("admin_inbox_unread_only")}
         </label>
-        <button
-          type="button"
-          className="sam-btn sam-btn--outline sam-btn--sm"
+        <AdminActionButton
+          variant="secondary"
+          size="sm"
           disabled={busy || unread === 0}
-          onClick={() => void markRead({ all: true })}
+          onClick={() => void markAllRead()}
         >
-          {t("admin_inbox_mark_all_read")} ({unread})
-        </button>
+          {t("admin_inbox_mark_all_read")} ({formatAdminNumber(unread)})
+        </AdminActionButton>
       </div>
-      {error ? (
-        <p className="text-sm text-red-600" role="alert">
+      {error && !(items.length === 0 && !loading) ? (
+        <p className="text-sm text-sam-danger" role="alert">
           {t("admin_inbox_load_error")}
         </p>
       ) : null}
       {delivery &&
       (delivery.unavailable || (delivery.outboxDead ?? 0) > 0 || (delivery.pushDead ?? 0) > 0) ? (
         <div
-          className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+          className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger"
           role="alert"
           data-testid="admin-inbox-delivery-failure"
         >
           {delivery.unavailable
             ? t("admin_inbox_delivery_health_unavailable")
-            : `${t("admin_inbox_delivery_failed")} · outbox ${delivery.outboxDead ?? 0} · push ${delivery.pushDead ?? 0}`}
+            : `${t("admin_inbox_delivery_failed")} · outbox ${formatAdminNumber(delivery.outboxDead ?? 0)} · push ${formatAdminNumber(delivery.pushDead ?? 0)}`}
         </div>
       ) : null}
       {loading ? (
-        <p className="text-sm text-sam-muted">…</p>
-      ) : items.length === 0 && !error ? (
-        <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-6 text-center text-sm text-sam-muted">
-          {t("admin_inbox_empty")}
-        </p>
+        <AdminLoadingState ko={ko} />
+      ) : items.length === 0 && error ? (
+        <AdminErrorState ko={ko} code="load_failed" onRetry={() => void reload()} />
+      ) : items.length === 0 ? (
+        <AdminEmptyState
+          ko={ko}
+          message={unreadOnly ? undefined : t("admin_inbox_empty")}
+          onReset={unreadOnly ? () => setUnreadOnly(false) : undefined}
+        />
       ) : (
         <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
           {items.map((n) => (
@@ -187,11 +212,11 @@ export function AdminInboxPageClient() {
               {isSettlementAdminNotificationKind(n.kind) ? (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {n.workStatus ? (
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${WORK_STATE_BADGE[n.workStatus.state]}`} data-work-label="1">
+                    <span className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${WORK_STATE_BADGE[n.workStatus.state]}`} data-work-label="1">
                       {language === "en" ? n.workStatus.labelEn : n.workStatus.labelKo}
                     </span>
                   ) : null}
-                  <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[11px] text-sam-muted" data-read-label="1">
+                  <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[12px] text-sam-muted" data-read-label="1">
                     {n.readAt ? (language === "en" ? "Read" : "읽음") : language === "en" ? "Unread" : "안 읽음"}
                   </span>
                 </div>
@@ -199,7 +224,7 @@ export function AdminInboxPageClient() {
               <div className="flex items-start justify-between gap-3">
                 <p className={`break-words text-sm text-sam-fg ${n.readAt ? "" : "font-semibold"}`}>{n.title}</p>
                 <time className="shrink-0 text-xs tabular-nums text-sam-muted" dateTime={n.createdAt}>
-                  {new Date(n.createdAt).toLocaleString(locale)}
+                  {formatAdminManilaDateTime(n.createdAt)}
                 </time>
               </div>
               {n.body ? (
@@ -223,9 +248,9 @@ export function AdminInboxPageClient() {
         </ul>
       )}
       {hasMore ? (
-        <button type="button" className="sam-btn sam-btn--outline sam-btn--sm" disabled={busy} onClick={() => void loadMore()}>
+        <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void loadMore()}>
           {t("admin_inbox_load_more")}
-        </button>
+        </AdminActionButton>
       ) : null}
     </div>
   );

@@ -16,7 +16,7 @@ export function AdminUserProviderIcon({ provider }: { provider: AdminAuthProvide
   if (provider === "kakao") {
     return wrap(
       "kakao",
-      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#FEE500] text-[10px] font-black text-[#3c1e1e]">
+      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sam-warning-soft text-[12px] font-black text-sam-fg">
         K
       </span>,
     );
@@ -24,7 +24,7 @@ export function AdminUserProviderIcon({ provider }: { provider: AdminAuthProvide
   if (provider === "google") {
     return wrap(
       "google",
-      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#d0d5dd] bg-white text-[10px] font-black text-[#4285F4]">
+      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-[12px] font-black text-sam-info">
         G
       </span>,
     );
@@ -32,7 +32,7 @@ export function AdminUserProviderIcon({ provider }: { provider: AdminAuthProvide
   if (provider === "apple") {
     return wrap(
       "apple",
-      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#101828] text-[10px] font-bold text-white">
+      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sam-fg text-[12px] font-bold text-white">
         A
       </span>,
     );
@@ -40,7 +40,7 @@ export function AdminUserProviderIcon({ provider }: { provider: AdminAuthProvide
   if (provider === "email") {
     return wrap(
       "email",
-      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-[#2563eb]">
+      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sam-info-soft text-sam-info">
         <Mail className="h-3 w-3" aria-hidden />
       </span>,
     );
@@ -48,14 +48,14 @@ export function AdminUserProviderIcon({ provider }: { provider: AdminAuthProvide
   if (provider === "manual") {
     return wrap(
       "manual",
-      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#f2f4f7] text-[#475467]">
+      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-sam-muted">
         <FileText className="h-3 w-3" aria-hidden />
       </span>,
     );
   }
   return wrap(
     "unknown",
-    <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#f2f4f7] text-[10px] font-bold text-[#667085]">
+    <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-[12px] font-bold text-sam-muted">
       ?
     </span>,
   );

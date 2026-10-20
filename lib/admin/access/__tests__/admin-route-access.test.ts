@@ -119,6 +119,7 @@ const VIEW_CONTRACT: { page: string; route: string; method?: string }[] = [
   // F3 공통 화면
   { page: "/admin/staff", route: "staff/memberships/route.ts" },
   { page: "/admin/reports/log", route: "reports/sanction-ledger/route.ts" },
+  { page: "/admin/users/phone-verification", route: "users/phone-verification/ops/route.ts" },
   { page: "/admin/audit-logs", route: "audit-logs/route.ts" },
 ];
 
@@ -172,14 +173,18 @@ describe("canAccessAdminRoute / canActOnAdminRoute", () => {
   const bare: AdminRouteAccessActor = { role: "admin", permissions: [] };
   const member: AdminRouteAccessActor = { role: "member", permissions: ["users", "point"] };
 
-  it("F3 관리자 계정·권한 = 최고관리자 전용, 제재 기록 = reports 키", () => {
+  it("F3 관리자 계정·권한 = 최고관리자 전용, 제재 기록 = 회원 키(users) · 휴대폰 인증 = settings 키", () => {
     expect(resolveAdminRouteAccess("/admin/staff").requirement).toEqual({ kind: "super_admin" });
     expect(canAccessAdminRoute("/admin/staff", superAdmin)).toBe(true);
     expect(canAccessAdminRoute("/admin/staff", operator)).toBe(false);
     expect(canAccessAdminRoute("/admin/staff", bare)).toBe(false);
-    expect(resolveAdminRouteAccess("/admin/reports/log").requirement).toEqual({ kind: "permission", key: "reports" });
+    expect(resolveAdminRouteAccess("/admin/reports/log").requirement).toEqual({ kind: "permission", key: "users" });
     expect(canAccessAdminRoute("/admin/reports/log", operator)).toBe(true);
+    expect(canAccessAdminRoute("/admin/reports/log", { role: "admin", permissions: ["reports"] })).toBe(false);
     expect(canAccessAdminRoute("/admin/reports/log", bare)).toBe(false);
+    expect(resolveAdminRouteAccess("/admin/users/phone-verification").requirement).toEqual({ kind: "permission", key: "settings" });
+    expect(canAccessAdminRoute("/admin/users/phone-verification", { role: "admin", permissions: ["users"] })).toBe(false);
+    expect(canAccessAdminRoute("/admin/users/phone-verification", { role: "admin", permissions: ["settings"] })).toBe(true);
   });
 
   it("관리자가 아니면 전부 거부", () => {

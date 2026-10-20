@@ -10,6 +10,7 @@ export function useAdminPointPolicyData(refreshKey: number) {
   const [logs, setLogs] = useState<PointPolicyLog[]>([]);
   const [probabilityRules, setProbabilityRules] = useState<PointProbabilityRule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<{ code: string; httpStatus?: number } | null>(null);
 
   const loadProbabilityRules = useCallback(async (policyId: string) => {
     if (!policyId) {
@@ -28,6 +29,7 @@ export function useAdminPointPolicyData(refreshKey: number) {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setError(null);
       try {
         const [boardRes, eventRes, logsRes] = await Promise.all([
           adminFetch("/api/admin/point-policies/board", { credentials: "include", cache: "no-store" }),
@@ -38,10 +40,21 @@ export function useAdminPointPolicyData(refreshKey: number) {
         const eventJson = (await eventRes.json().catch(() => ({}))) as { ok?: boolean; policies?: PointEventPolicy[] };
         const logsJson = (await logsRes.json().catch(() => ({}))) as { ok?: boolean; logs?: PointPolicyLog[] };
         if (!cancelled) {
+          const failed = [
+            { res: boardRes, json: boardJson },
+            { res: eventRes, json: eventJson },
+            { res: logsRes, json: logsJson },
+          ].find((x) => !x.res.ok || !x.json.ok);
+          if (failed) {
+            const code = (failed.json as { error?: string }).error;
+            setError({ code: typeof code === "string" && code ? code : "load_failed", httpStatus: failed.res.status });
+          }
           setPolicies(boardJson.ok ? (boardJson.policies ?? []) : []);
           setEventPolicies(eventJson.ok ? (eventJson.policies ?? []) : []);
           setLogs(logsJson.ok ? (logsJson.logs ?? []) : []);
         }
+      } catch {
+        if (!cancelled) setError({ code: "network_error" });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -57,6 +70,7 @@ export function useAdminPointPolicyData(refreshKey: number) {
     logs,
     probabilityRules,
     loading,
+    error,
     loadProbabilityRules,
   };
 }

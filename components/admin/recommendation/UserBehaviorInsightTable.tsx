@@ -2,6 +2,7 @@
 
 import type { UserBehaviorInsight } from "@/lib/types/recommendation";
 import { getUserBehaviorInsights } from "@/lib/recommendation/recommendation-behavior-insight";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function UserBehaviorInsightTable() {
   const insights = getUserBehaviorInsights();
@@ -53,7 +54,7 @@ export function UserBehaviorInsightTable() {
                 조회 {i.totalViews} / 찜 {i.totalFavorites} / 채팅 {i.totalChatsStarted}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(i.lastActiveAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(i.lastActiveAt)}
               </td>
             </tr>
           ))}

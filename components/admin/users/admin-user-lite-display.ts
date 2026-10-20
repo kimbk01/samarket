@@ -134,28 +134,28 @@ export function resolveDetailAuthProvider(email: string | null | undefined): Adm
 
 /** No exclusive-type row tint. Status/relation badges carry meaning. */
 export function roleRowClass(_role?: AdminAccountCategory): string {
-  return "bg-white hover:bg-[#f8fafc]";
+  return "bg-sam-surface hover:bg-sam-surface-muted";
 }
 
 export function roleBadgeClass(role: AdminAccountCategory): string {
-  if (role === "admin") return "border-[#e9d7fe] bg-[#f9f5ff] text-[#6941c6]";
-  if (role === "store_manager") return "border-[#fdead7] bg-[#fff6ed] text-[#c4320a]";
-  return "border-[#abefc6] bg-[#ecfdf3] text-[#067647]";
+  if (role === "admin") return "border-sam-primary-border bg-sam-primary-soft text-sam-primary";
+  if (role === "store_manager") return "border-sam-warning bg-sam-warning-soft text-sam-warning";
+  return "border-sam-success bg-sam-success-soft text-sam-success";
 }
 
 export function memberRoleBadgeClass(badge: AdminMemberRoleBadge): string {
-  if (badge === "super_admin") return "border-[#7f56d9] bg-[#f4ebff] text-[#42307d]";
-  if (badge === "admin") return "border-[#e9d7fe] bg-[#f9f5ff] text-[#6941c6]";
-  if (badge === "store_owner") return "border-[#fdead7] bg-[#fff6ed] text-[#c4320a]";
-  return "border-[#abefc6] bg-[#ecfdf3] text-[#067647]";
+  if (badge === "super_admin") return "border-sam-primary bg-sam-primary-soft text-sam-primary font-semibold";
+  if (badge === "admin") return "border-sam-primary-border bg-sam-primary-soft text-sam-primary";
+  if (badge === "store_owner") return "border-sam-warning bg-sam-warning-soft text-sam-warning";
+  return "border-sam-success bg-sam-success-soft text-sam-success";
 }
 
 export function statusBadgeClass(status: AdminUserStatusCategory): string {
-  if (status === "active") return "border-[#abefc6] bg-[#ecfdf3] text-[#067647]";
-  if (status === "needs_review") return "border-[#fdead7] bg-[#fff6ed] text-[#c4320a]";
-  if (status === "suspended") return "border-[#fecdca] bg-[#fef3f2] text-[#b42318]";
-  if (status === "blocked") return "border-[#f04438] bg-[#fef3f2] text-[#912018]";
-  return "border-[#e4e7ec] bg-[#f9fafb] text-[#475467]";
+  if (status === "active") return "border-sam-success bg-sam-success-soft text-sam-success";
+  if (status === "needs_review") return "border-sam-warning bg-sam-warning-soft text-sam-warning";
+  if (status === "suspended") return "border-sam-danger bg-sam-danger-soft text-sam-danger";
+  if (status === "blocked") return "border-sam-danger bg-sam-danger-soft text-sam-danger font-semibold";
+  return "border-sam-border bg-sam-surface-muted text-sam-muted";
 }
 
 export function formatAdminLiteDate(

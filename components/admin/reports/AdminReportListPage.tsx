@@ -13,6 +13,9 @@ import type { AdminReportFilters } from "./AdminReportFilterBar";
 import { AdminReportFilterBar } from "./AdminReportFilterBar";
 import { AdminReportTable } from "./AdminReportTable";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import Link from "next/link";
 
 function buildDefaultFilters(
@@ -36,7 +39,8 @@ function resolveTargetTypeFromQuery(raw: string | null): AdminReportFilters["tar
 }
 
 export function AdminReportListPage() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const searchParams = useSearchParams();
   const targetFromQuery = (searchParams.get("target") ?? "").trim();
   const domainFromQuery = resolveAdminReportDomainFromQuery({
@@ -104,7 +108,7 @@ export function AdminReportListPage() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_menu_reports_observation" descriptionKey="admin_report_list_description" />
       <div
-        className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+        className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-fg"
         data-testid="admin-report-domain-ssot-banner"
       >
         {safeT("admin_report_domain_ssot_banner", {
@@ -124,14 +128,19 @@ export function AdminReportListPage() {
       ) : null}
       {loadFailed ? (
         <div
-          className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-helper text-red-800"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-fg"
           role="alert"
           data-testid="admin-report-load-failed"
         >
-          {safeT("admin_report_list_load_failed", {
-            fallbackKo: "일부 신고 목록을 불러오지 못했습니다. 새로고침 후 다시 확인하세요.",
-            fallbackEn: "Some reports could not be loaded. Refresh and check again.",
-          })}
+          <span>
+            {safeT("admin_report_list_load_failed", {
+              fallbackKo: "일부 신고 목록을 불러오지 못했습니다. 새로고침 후 다시 확인하세요.",
+              fallbackEn: "Some reports could not be loaded. Refresh and check again.",
+            })}
+          </span>
+          <AdminActionButton variant="secondary" size="sm" disabled={loading} onClick={() => void load()}>
+            {adminCta("refresh", ko)}
+          </AdminActionButton>
         </div>
       ) : null}
       {targetFromQuery ? (
@@ -204,13 +213,20 @@ export function AdminReportListPage() {
       </div>
       <AdminReportFilterBar filters={filters} onChange={setFilters} />
       {loading ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_dashboard_loading")}
-        </div>
+        <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} />
       ) : filtered.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_report_list_empty_filtered")}
-        </div>
+        <AdminEmptyState
+          ko={ko}
+          message={t("admin_report_list_empty_filtered")}
+          onReset={
+            filters.status ||
+            filters.reasonCode ||
+            filters.targetType !== targetTypeFromQuery ||
+            filters.reportSource !== domainFromQuery
+              ? () => setFilters(buildDefaultFilters(domainFromQuery, targetTypeFromQuery))
+              : undefined
+          }
+        />
       ) : (
         <AdminReportTable reports={filtered} />
       )}

@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
@@ -194,6 +195,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
     }
   }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "admin_messenger_call_sound_settings",
+    targetId: "default",
+    action: "admin_messenger_call_sound_settings.upload_sound",
+    before: { [urlKey]: prevUrl ?? null },
+    after: { [urlKey]: publicUrl, path, size: buf.length, contentType: mime },
+  });
 
   return NextResponse.json({ ok: true, sound_url: publicUrl, urlKey });
 }

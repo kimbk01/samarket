@@ -13,7 +13,7 @@ import {
   memberListStoreCellLabel,
   memberListVerificationLabelKo,
 } from "@/lib/admin-users/member-list-presentation";
-import { memberAdminCtaClass } from "@/lib/admin-users/member-admin-visual-ssot";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminUserListPagination } from "./AdminUserListPagination";
 import { AdminUserProviderIcon } from "./AdminUserProviderIcon";
 import { AdminMemberListBulkBar } from "./AdminMemberListBulkBar";
@@ -90,7 +90,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
 
   return (
     <tr
-      className="cursor-pointer border-b border-[#eaecf0] bg-white text-[13px] hover:bg-[#f8fafc]"
+      className="cursor-pointer border-b border-sam-border-soft bg-sam-surface text-[13px] hover:bg-sam-surface-muted"
       onClick={handleViewDetail}
       data-member-list-row="1"
       data-member-status={status}
@@ -107,19 +107,20 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       </td>
       <td className="min-w-[180px] px-3 py-2" style={managementColumnStyle("TITLE")}>
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-xs font-bold text-[#2563eb]">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-info-soft text-xs font-bold text-sam-info">
             {initial}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-semibold text-[#101828]">{display}</p>
-            {nick ? <p className="truncate text-[11px] text-[#667085]">{nick}</p> : null}
+            <p className="truncate text-[13px] font-semibold text-sam-fg">{display}</p>
+            {nick ? <p className="truncate text-[12px] text-sam-muted">{nick}</p> : null}
           </div>
         </div>
       </td>
-      <td className="whitespace-nowrap px-3 py-2 font-medium text-[#344054]" onClick={stopRowNav}>
-        <button
-          type="button"
-          className="rounded px-1 text-left hover:bg-[#f2f4f7]"
+      <td className="whitespace-nowrap px-3 py-2 font-medium text-sam-fg" onClick={stopRowNav}>
+        <AdminActionButton
+          variant="ghost"
+          size="sm"
+          className="!px-1 text-left"
           title="@회원 ID 복사"
           data-member-list-at-id="1"
           onClick={() => {
@@ -128,54 +129,54 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
           }}
         >
           {publicId || emptyCell}
-        </button>
+        </AdminActionButton>
       </td>
-      <td className="px-3 py-2 text-[#475467]">
+      <td className="px-3 py-2 text-sam-muted">
         <p>{phone || emptyCell}</p>
-        <p className="text-[11px] text-[#667085]">{contactEmail || emptyCell}</p>
+        <p className="text-[12px] text-sam-muted">{contactEmail || emptyCell}</p>
       </td>
       <td className="whitespace-nowrap px-3 py-2">
-        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusBadgeClass(status)}`}>
+        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[12px] font-semibold ${statusBadgeClass(status)}`}>
           {statusLabel}
         </span>
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-[#344054]" data-member-list-verify="1">
+      <td className="whitespace-nowrap px-3 py-2 text-sam-fg" data-member-list-verify="1">
         {verifyLabel}
       </td>
       <td className="min-w-[140px] px-3 py-2" onClick={stopRowNav} data-member-list-store="1">
         {storeCell.kind === "none" ? (
-          <span className="text-[#98a2b3]">{MEMBER_LIST_STORE_NONE_KO}</span>
+          <span className="text-sam-meta">{MEMBER_LIST_STORE_NONE_KO}</span>
         ) : (
           <Link href={storeCell.href!} className="block hover:underline" onClick={stopRowNav}>
-            <p className="font-medium text-[#101828]">{storeCell.name}</p>
-            <p className="text-[11px] text-[#667085]">#{storeCell.storeId}</p>
+            <p className="font-medium text-sam-fg">{storeCell.name}</p>
+            <p className="text-[12px] text-sam-muted">#{storeCell.storeId}</p>
           </Link>
         )}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-[#344054]" data-member-list-privilege="1">
+      <td className="whitespace-nowrap px-3 py-2 text-sam-fg" data-member-list-privilege="1">
         {privilege}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-[#344054]" data-member-list-origin="1">
+      <td className="whitespace-nowrap px-3 py-2 text-sam-fg" data-member-list-origin="1">
         <span className="inline-flex items-center gap-1.5">
           <AdminUserProviderIcon provider={provider} />
           <span>{origin}</span>
         </span>
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-[13px] tabular-nums text-[#475467]">
+      <td className="whitespace-nowrap px-3 py-2 text-[13px] tabular-nums text-sam-muted">
         {formatAdminLiteDateTime(user.lastSignInAt, "ko-KR", emptyCell)}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-[13px] tabular-nums text-[#475467]">
+      <td className="whitespace-nowrap px-3 py-2 text-[13px] tabular-nums text-sam-muted">
         {formatAdminLiteDate(user.joinedAt, "ko-KR", emptyCell)}
       </td>
       <td className="whitespace-nowrap px-3 py-2" onClick={stopRowNav}>
-        <button
-          type="button"
-          className={memberAdminCtaClass("tertiary")}
+        <AdminActionButton
+          variant="ghost"
+          size="sm"
           onClick={handleViewDetail}
           data-member-cta-variant="tertiary"
         >
           {MEMBER_LIST_DETAIL_ACTION_KO}
-        </button>
+        </AdminActionButton>
       </td>
     </tr>
   );
@@ -219,7 +220,7 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
     <AdminManagementTableViewport
       viewportRef={ref}
       onHorizontalScroll={onHorizontalScroll}
-      className="rounded-lg border-[#e4e7ec]"
+      className="rounded-ui-rect border-sam-border"
     >
       <AdminMemberListBulkBar
         selectedIds={[...selection.selected]}
@@ -235,7 +236,7 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
         data-member-list-selection="1"
       >
         <thead className="sticky top-0 z-10">
-          <tr className="border-b border-[#eaecf0] bg-[#f8fafc] text-left text-[11px] font-semibold uppercase tracking-wide text-[#475467]">
+          <tr className="border-b border-sam-border-soft bg-sam-surface-muted text-left text-[12px] font-semibold uppercase tracking-wide text-sam-muted">
             <th className="px-3 py-2" style={managementColumnStyle("SELECTION")}>
               <AdminManagementSelectionCheckbox
                 role="header"
@@ -254,8 +255,8 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
             <th className="px-3 py-2">매장</th>
             <th className="px-3 py-2">관리 권한</th>
             <th className="px-3 py-2">가입 방식</th>
-            <th className="px-3 py-2">최근 로그인</th>
-            <th className="px-3 py-2">가입일</th>
+            <th className="px-3 py-2">최근 로그인 (PHT)</th>
+            <th className="px-3 py-2">가입일 (PHT)</th>
             <th className="px-3 py-2">작업</th>
           </tr>
         </thead>

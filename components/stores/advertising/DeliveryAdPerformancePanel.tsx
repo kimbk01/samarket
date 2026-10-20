@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type {
   DeliveryAdAnalyticsDateRange,
@@ -141,14 +142,9 @@ export function DeliveryAdPerformancePanel(props: {
         {props.onRangeChange ? (
           <div className="flex flex-wrap gap-1">
             {RANGES.map((r) => (
-              <button
+              <AdminChipButton
                 key={r}
-                type="button"
-                className={`rounded-ui-rect border px-2 py-1 text-[11px] ${
-                  props.range === r
-                    ? "border-sam-brand bg-sam-brand/10 text-sam-fg"
-                    : "border-sam-border text-sam-muted"
-                }`}
+                selected={props.range === r}
                 onClick={() => props.onRangeChange?.(r)}
               >
                 {safeT(RANGE_KEYS[r], {
@@ -157,7 +153,7 @@ export function DeliveryAdPerformancePanel(props: {
                   fallbackEn:
                     r === "last_7d" ? "7d" : r === "last_30d" ? "30d" : "All",
                 })}
-              </button>
+              </AdminChipButton>
             ))}
           </div>
         ) : null}
@@ -204,13 +200,13 @@ export function DeliveryAdPerformancePanel(props: {
               key={row.key}
               className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-2"
             >
-              <p className="text-[11px] text-sam-muted">
+              <p className="text-[12px] text-sam-muted">
                 {safeT(METRIC_KEYS[row.key], {
                   fallbackKo: row.labelKo,
                   fallbackEn: row.labelEn,
                 })}
               </p>
-              <p className="mt-1 text-[15px] font-semibold tabular-nums text-sam-fg">
+              <p className="mt-1 text-[14px] font-semibold tabular-nums text-sam-fg">
                 {row.metric ? formatMetric(row.metric, row.kind, labels) : labels.na}
               </p>
             </div>

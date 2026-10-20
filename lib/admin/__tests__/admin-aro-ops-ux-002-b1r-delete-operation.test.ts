@@ -73,7 +73,7 @@ describe("ARO-OPS-UX-002-B1R delete operation UX", () => {
     expect(COMMUNITY_POST_ENTITY_ACTION_POLICY.hardDeleteAvailable).toBe(true);
     const bar = read("components/admin/management/AdminManagementBulkBar.tsx");
     expect(bar).toContain("CRITICAL_DANGER");
-    expect(bar).toContain("ring-2 ring-red-800");
+    expect(bar).toContain("ring-2 ring-sam-danger");
     expect(terminologyDisplay("HARD_DELETE", "ko")).toBe("DB 영구 삭제");
     expect(terminologyDisplay("SOFT_DELETE", "ko")).toBe("삭제(상태)");
   });

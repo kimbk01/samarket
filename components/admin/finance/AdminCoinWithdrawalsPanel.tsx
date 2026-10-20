@@ -10,6 +10,11 @@ import { financeStoreHref } from "@/lib/finance/routes";
 import { financeStatusLabel, formatFinanceAmount } from "@/lib/finance/presentation";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 type WithdrawalRow = {
   id: string;
@@ -61,7 +66,7 @@ export function AdminCoinWithdrawalsPanel() {
       const statusQ = focusRequestId ? "all" : statusFilter;
       const qs = new URLSearchParams({ status: statusQ });
       const res = await fetch(`/api/admin/coin-withdrawals?${qs}`, { cache: "no-store" });
-      const json = (await res.json()) as { ok?: boolean; requests?: WithdrawalRow[] };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; requests?: WithdrawalRow[] };
       if (res.ok && json.ok) {
         let next = json.requests ?? [];
         if (focusRequestId) {
@@ -172,7 +177,7 @@ export function AdminCoinWithdrawalsPanel() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <CurrencyBadge currency="coin" />
-          <h2 className="text-base font-semibold text-sam-fg">
+          <h2 className="text-[16px] font-semibold text-sam-fg">
             {safeT("admin_store_finance_withdrawals", {
               fallbackKo: "Coin 출금 요청",
               fallbackEn: "Coin withdrawal requests",
@@ -199,16 +204,27 @@ export function AdminCoinWithdrawalsPanel() {
           ? "CTA: 출금 반려 · 지급 완료만. 승인(approve) writer는 없습니다. Cash 출금은 없습니다."
           : "CTAs: reject · mark paid only. No approve writer. Cash withdrawal does not exist."}
       </p>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-[14px] text-sam-fg"
+        >
+          <span>{error}</span>
+          <AdminActionButton variant="secondary" size="sm" onClick={() => void load()}>
+            {adminCta("refresh", ko)}
+          </AdminActionButton>
+        </div>
+      ) : null}
       {loading ? (
-        <p className="text-sm text-sam-muted">…</p>
+        <AdminLoadingState ko={ko} />
       ) : rows.length === 0 ? (
-        <p className="text-sm text-sam-muted">
-          {safeT("admin_store_finance_withdrawals_empty", {
+        <AdminEmptyState
+          ko={ko}
+          message={safeT("admin_store_finance_withdrawals_empty", {
             fallbackKo: "해당 상태의 출금 요청이 없습니다.",
             fallbackEn: "No withdrawal requests for this status.",
           })}
-        </p>
+        />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[56rem] text-left sam-text-body-secondary">
@@ -217,7 +233,7 @@ export function AdminCoinWithdrawalsPanel() {
                 <th className="px-3 py-2">{ko ? "요청일" : "Requested"}</th>
                 <th className="px-3 py-2">{ko ? "매장" : "Store"}</th>
                 <th className="px-3 py-2">Owner</th>
-                <th className="px-3 py-2">{ko ? "Requested Coin" : "Requested Coin"}</th>
+                <th className="px-3 py-2 text-right">{ko ? "Requested Coin" : "Requested Coin"}</th>
                 <th className="px-3 py-2">{ko ? "Payout" : "Payout"}</th>
                 <th className="px-3 py-2">{ko ? "Currency" : "Currency"}</th>
                 <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
@@ -248,20 +264,20 @@ export function AdminCoinWithdrawalsPanel() {
                     }
                   >
                     <td className="px-3 py-2 sam-text-xxs whitespace-nowrap">
-                      {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
+                      {r.created_at ? formatAdminManilaDateTime(r.created_at) : "—"}
                     </td>
                     <td className="px-3 py-2">
                       <Link
                         href={financeStoreHref(r.store_id)}
-                        className="font-mono text-xs font-semibold text-signature hover:underline"
+                        className="font-mono text-[12px] font-semibold text-signature hover:underline"
                       >
                         {formatAdminShortIdEllipsis(r.store_id)}
                       </Link>
                     </td>
-                    <td className="px-3 py-2 font-mono text-xs">
+                    <td className="px-3 py-2 font-mono text-[12px]">
                       <AdminTechId id={r.owner_user_id} />
                     </td>
-                    <td className="px-3 py-2 tabular-nums font-semibold">
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold">
                       {formatFinanceAmount({ wallet: "COIN", amount: r.amount })}
                     </td>
                     <td className="px-3 py-2 sam-text-xxs">{payoutLabel}</td>
@@ -269,36 +285,33 @@ export function AdminCoinWithdrawalsPanel() {
                     <td className="px-3 py-2">{financeStatusLabel(r.status, ko)}</td>
                     <td className="px-3 py-2 sam-text-xxs">
                       {r.paid_at
-                        ? new Date(r.paid_at).toLocaleString()
+                        ? formatAdminManilaDateTime(r.paid_at)
                         : r.rejected_at
-                          ? new Date(r.rejected_at).toLocaleString()
+                          ? formatAdminManilaDateTime(r.rejected_at)
                           : "—"}
                     </td>
-                    <td className="px-3 py-2 font-mono text-xs" data-finance-withdrawal-admin-actor="1">
+                    <td className="px-3 py-2 font-mono text-[12px]" data-finance-withdrawal-admin-actor="1">
                       <AdminTechId id={adminActor} />
                     </td>
-                    <td className="px-3 py-2 font-mono text-xs"><AdminTechId id={r.id} /></td>
+                    <td className="px-3 py-2 font-mono text-[12px]"><AdminTechId id={r.id} /></td>
                     <td className="px-3 py-2">
                       {String(r.status).toUpperCase() === "REQUESTED" ? (
                         <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
+                          <AdminActionButton
+                            variant="ghost"
+                            size="sm"
                             disabled={busyId === r.id}
-                            className="rounded-ui-rect border border-sam-border px-2 py-1 text-xs font-semibold"
                             onClick={() =>
                               setPending({ requestId: r.id, action: "reject", amount: r.amount })
                             }
                             data-finance-cta="reject-withdrawal"
                           >
-                            {safeT("admin_store_finance_withdrawals_reject", {
-                              fallbackKo: "출금 반려",
-                              fallbackEn: "Reject withdrawal",
-                            })}
-                          </button>
-                          <button
-                            type="button"
+                            {adminCta("reject", ko)}
+                          </AdminActionButton>
+                          <AdminActionButton
+                            variant="ghost"
+                            size="sm"
                             disabled={busyId === r.id}
-                            className="rounded-ui-rect bg-[var(--currency-coin-accent)] px-2 py-1 text-xs font-semibold text-white"
                             onClick={() =>
                               setPending({
                                 requestId: r.id,
@@ -309,11 +322,8 @@ export function AdminCoinWithdrawalsPanel() {
                             }
                             data-finance-cta="mark-withdrawal-paid"
                           >
-                            {safeT("admin_store_finance_withdrawals_paid", {
-                              fallbackKo: "출금 지급 완료",
-                              fallbackEn: "Mark withdrawal paid",
-                            })}
-                          </button>
+                            {ko ? "지급 완료" : "Mark paid"}
+                          </AdminActionButton>
                         </div>
                       ) : (
                         <span className="sam-text-xxs text-sam-muted">—</span>
@@ -347,8 +357,8 @@ export function AdminCoinWithdrawalsPanel() {
         description={
           pending
             ? ko
-              ? `${pending.amount.toLocaleString()} Coin 출금 요청을 ${pending.action === "reject" ? "반려" : "지급 완료"}합니다.`
-              : `${pending.amount.toLocaleString()} Coin withdrawal will be ${pending.action === "reject" ? "rejected" : "marked paid"}.`
+              ? `${formatAdminNumber(pending.amount)} Coin 출금 요청을 ${pending.action === "reject" ? "반려" : "지급 완료"}합니다.`
+              : `${formatAdminNumber(pending.amount)} Coin withdrawal will be ${pending.action === "reject" ? "rejected" : "marked paid"}.`
             : ""
         }
         confirmLabel={
@@ -360,7 +370,7 @@ export function AdminCoinWithdrawalsPanel() {
               ? "출금 지급 완료"
               : "Mark paid"
         }
-        cancelLabel={ko ? "취소" : "Cancel"}
+        cancelLabel={adminCta("cancel", ko)}
         reasonRequired={pending?.action === "mark_paid"}
         reasonLabel={
           ko

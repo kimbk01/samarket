@@ -44,3 +44,15 @@ export async function persistFeedEmergencyToServer(): Promise<{ ok: boolean; err
     return { ok: false, error: e instanceof Error ? e.message : "network" };
   }
 }
+
+/**
+ * 변경 1건 = 스냅샷 → 변경 → 서버 저장. 저장 실패면 화면 상태를 스냅샷으로 되돌린다
+ * (예전: 실패해도 화면에는 바뀐 값이 남아 실제 앱과 달라 보이던 결함).
+ */
+export async function commitFeedEmergencyChange(mutate: () => void): Promise<{ ok: boolean; error?: string }> {
+  const before = exportFeedEmergencyBundle();
+  mutate();
+  const r = await persistFeedEmergencyToServer();
+  if (!r.ok) importFeedEmergencyBundle(before);
+  return r;
+}

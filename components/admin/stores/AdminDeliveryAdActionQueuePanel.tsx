@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
@@ -24,6 +26,7 @@ import {
 
 export function AdminDeliveryAdActionQueuePanel() {
   const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const [items, setItems] = useState<DeliveryAdAdminActionQueueItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -65,7 +68,7 @@ export function AdminDeliveryAdActionQueuePanel() {
   return (
     <div data-admin-delivery-ads-action-queue="design-board">
       <AdminCard titleKey="admin_delivery_ads_action_queue_title">
-        <p className="mb-2 text-[12px] text-[#757575]">
+        <p className="mb-2 text-[12px] text-sam-muted">
           {safeT("admin_delivery_ads_action_queue_subtitle", {
             fallbackKo: "관리자 조치가 필요한 운영 Case입니다. 읽지 않은 메시지와는 별개입니다.",
             fallbackEn: "Ops cases that need an admin decision. Separate from unread messages.",
@@ -78,23 +81,17 @@ export function AdminDeliveryAdActionQueuePanel() {
         </p>
 
         {loading ? (
-          <p className="text-[13px] text-sam-muted" role="status">
-            {t("admin_delivery_ads_loading")}
-          </p>
+          <AdminLoadingState ko={ko} label={t("admin_delivery_ads_loading")} />
         ) : error ? (
-          <p className="text-[13px] text-sam-danger" role="alert">
-            {safeT("admin_delivery_ads_action_queue_error", {
-              fallbackKo: "처리 필요 목록을 불러오지 못했습니다.",
-              fallbackEn: "Could not load the action queue.",
-            })}
-          </p>
+          <AdminErrorState ko={ko} code="load_failed" onRetry={() => void load()} />
         ) : items.length === 0 ? (
-          <p className="text-[13px] text-sam-muted" role="status">
-            {safeT("admin_delivery_ads_action_queue_empty", {
+          <AdminEmptyState
+            ko={ko}
+            message={safeT("admin_delivery_ads_action_queue_empty", {
               fallbackKo: "지금 처리할 운영 Case가 없습니다.",
               fallbackEn: "No ops cases need action right now.",
             })}
-          </p>
+          />
         ) : (
           <div className="overflow-x-auto">
             <table
@@ -102,13 +99,13 @@ export function AdminDeliveryAdActionQueuePanel() {
               data-admin-delivery-ads-action-queue-table="design-board"
             >
               <thead>
-                <tr className="bg-[#F5F5F5] text-left text-[#757575]">
+                <tr className="bg-sam-surface-muted text-left text-sam-muted">
                   {DELIVERY_AD_ADMIN_ACTION_QUEUE_COLUMNS.map((col) => (
-                    <th key={col.id} className="border border-[#BDBDBD] p-2 font-semibold">
+                    <th key={col.id} className="border border-sam-border p-2 font-semibold">
                       {t(col.labelKey)}
                     </th>
                   ))}
-                  <th className="border border-[#BDBDBD] p-2 font-semibold">
+                  <th className="border border-sam-border p-2 font-semibold">
                     {t("admin_delivery_ads_queue_col_action")}
                   </th>
                 </tr>
@@ -138,35 +135,35 @@ export function AdminDeliveryAdActionQueuePanel() {
                   return (
                     <tr
                       key={item.caseId}
-                      className="bg-white"
+                      className="bg-sam-surface"
                       data-admin-delivery-ads-queue-row="1"
                       data-case-id={item.caseId}
                     >
-                      <td className="border border-[#BDBDBD] p-2 font-medium text-sam-fg">
+                      <td className="border border-sam-border p-2 font-medium text-sam-fg">
                         {item.storeName ||
                           adminDisplayApplicantLabel(
                             item.campaignTitle || "",
                             language !== "en"
                           )}
                       </td>
-                      <td className="border border-[#BDBDBD] p-2 text-sam-fg">{productLabel}</td>
-                      <td className="border border-[#BDBDBD] p-2 text-[#757575]">
+                      <td className="border border-sam-border p-2 text-sam-fg">{productLabel}</td>
+                      <td className="border border-sam-border p-2 text-sam-muted">
                         {adsLifecycleOperatorLabel(
                           item.campaignLifecycle,
                           language !== "en"
                         )}
                       </td>
                       <td
-                        className="border border-[#BDBDBD] p-2"
+                        className="border border-sam-border p-2"
                         data-queue-commercial-summary="1"
                       >
-                        <span className="font-medium text-[#0A823E]">
+                        <span className="font-medium text-sam-primary">
                           {safeT(presentation.bucketLabelKey, {
                             fallbackKo: "처리 필요",
                             fallbackEn: "Needs action",
                           })}
                         </span>
-                        <span className="ml-1 text-[11px] text-[#757575]">
+                        <span className="ml-1 text-[12px] text-sam-muted">
                           ·{" "}
                           {adsPaymentLabel(
                             item.fundingStatus,
@@ -175,7 +172,7 @@ export function AdminDeliveryAdActionQueuePanel() {
                           )}
                         </span>
                         {item.startAt || item.endAt ? (
-                          <span className="ml-1 text-[11px] text-[#757575]">
+                          <span className="ml-1 text-[12px] text-sam-muted">
                             ·{" "}
                             {adsRemainingPeriodLabel(
                               item.startAt,
@@ -185,7 +182,7 @@ export function AdminDeliveryAdActionQueuePanel() {
                           </span>
                         ) : null}
                         {item.productKind === "banner" ? (
-                          <span className="ml-1 text-[11px] text-[#757575]">
+                          <span className="ml-1 text-[12px] text-sam-muted">
                             ·{" "}
                             {creativeReady
                               ? safeT("admin_delivery_ads_creative_status_ready", {
@@ -211,15 +208,14 @@ export function AdminDeliveryAdActionQueuePanel() {
                           </span>
                         ) : null}
                       </td>
-                      <td className="border border-[#BDBDBD] p-2 tabular-nums text-[#757575]">
-                        {item.updatedAt
-                          ? item.updatedAt.slice(0, 10)
-                          : "—"}
+                      <td className="border border-sam-border p-2 tabular-nums text-sam-muted">
+                        {item.updatedAt ? formatAdminManilaDate(item.updatedAt) : "—"}
                       </td>
-                      <td className="border border-[#BDBDBD] p-2">
-                        <Link
+                      <td className="border border-sam-border p-2">
+                        <AdminActionLink
                           href={href}
-                          className="inline-flex rounded-ui-rect border border-[#BDBDBD] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#0A823E]"
+                          variant="ghost"
+                          size="sm"
                           data-admin-delivery-ads-queue-open="1"
                           data-admin-delivery-ads-queue-cta={presentation.cta}
                         >
@@ -227,7 +223,7 @@ export function AdminDeliveryAdActionQueuePanel() {
                             fallbackKo: "검토하기",
                             fallbackEn: "Review",
                           })}
-                        </Link>
+                        </AdminActionLink>
                       </td>
                     </tr>
                   );

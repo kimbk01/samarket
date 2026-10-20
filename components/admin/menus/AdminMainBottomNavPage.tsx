@@ -1,6 +1,6 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -31,6 +31,7 @@ import {
   isBuiltinBottomNavTabId,
 } from "@/lib/main-menu/resolve-main-bottom-nav";
 import { notifyMainBottomNavConfigChanged } from "@/lib/app/fetch-main-bottom-nav-deduped";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const MAX_TABS = 10;
 
@@ -56,7 +57,7 @@ async function fetchMainBottomNavList(): Promise<{ res: Response; data: MainBott
 }
 
 export function AdminMainBottomNavPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const defaultLabel = t("admin_menu_bottom_default_label");
   const [rows, setRows] = useState<MainBottomNavAdminRow[] | null>(null);
   const [baselineRows, setBaselineRows] = useState<MainBottomNavAdminRow[] | null>(null);
@@ -306,7 +307,14 @@ export function AdminMainBottomNavPage() {
   };
 
   const reset = async () => {
-    if (!(await dibayConfirm({ title: t("admin_menu_bottom_reset_confirm"), confirmTone: "destructive" }))) return;
+    const confirmed = await confirmAdminAction({
+      level: "L2",
+      ko: language !== "en",
+      title: t("admin_menu_bottom_reset_confirm"),
+      confirmLabel: t("admin_menu_bottom_reset_db"),
+      destructive: true,
+    });
+    if (!confirmed.ok) return;
     setSavingAll(true);
     setMessage(null);
     try {
@@ -375,7 +383,7 @@ export function AdminMainBottomNavPage() {
         <AdminPageHeader titleKey="admin_menu_main_bottom_nav" />
         <div className="flex flex-wrap items-center gap-2">
           {fromDb ? (
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 sam-text-helper text-emerald-800">
+            <span className="rounded-full bg-sam-success-soft px-2.5 py-1 sam-text-helper text-sam-success">
               {t("admin_menu_bottom_from_db")}
             </span>
           ) : (
@@ -389,7 +397,7 @@ export function AdminMainBottomNavPage() {
             </span>
           ) : null}
           {hasUnsavedChanges ? (
-            <span className="rounded-full bg-amber-50 px-2.5 py-1 sam-text-helper text-amber-900">
+            <span className="rounded-full bg-sam-warning-soft px-2.5 py-1 sam-text-helper text-sam-warning">
               {t("admin_menu_bottom_unsaved")}
             </span>
           ) : null}
@@ -399,7 +407,7 @@ export function AdminMainBottomNavPage() {
       {message ? (
         <div
           className={`rounded-ui-rect px-4 py-2 sam-text-body ${
-            message.type === "ok" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+            message.type === "ok" ? "bg-sam-success-soft text-sam-success" : "bg-sam-danger-soft text-sam-danger"
           }`}
         >
           {message.text}
@@ -409,51 +417,51 @@ export function AdminMainBottomNavPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="sam-text-body text-sam-muted">{t("admin_menu_bottom_items_heading")}</span>
         <div className="flex flex-wrap gap-2">
-          <button
+          <AdminActionButton
+            variant="primary"
             type="button"
             disabled={saving || loading || !rows || !hasUnsavedChanges}
             onClick={() => void saveAll()}
-            className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
           >
             {savingAll ? t("admin_menu_saving") : t("admin_menu_bottom_save_all")}
-          </button>
+          </AdminActionButton>
           {hasUnsavedChanges ? (
-            <button
+            <AdminActionButton
+              variant="secondary"
               type="button"
               disabled={saving || loading}
               onClick={cancelAll}
-              className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-2 sam-text-body text-amber-900 hover:bg-amber-100 disabled:opacity-50"
             >
               {t("admin_menu_bottom_cancel_all")}
-            </button>
+            </AdminActionButton>
           ) : null}
           {orderDirty ? (
-            <button
+            <AdminActionButton
+              variant="secondary"
               type="button"
               disabled={saving || loading}
               onClick={cancelOrder}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
             >
               {t("admin_menu_bottom_cancel_order")}
-            </button>
+            </AdminActionButton>
           ) : null}
-          <button
+          <AdminActionButton
+            variant="secondary"
             type="button"
             disabled={saving || loading || !rows || rows.length >= MAX_TABS}
             onClick={addRow}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {t("admin_menu_bottom_add_tab")}
-          </button>
+          </AdminActionButton>
           {fromDb ? (
-            <button
+            <AdminActionButton
+              variant="danger"
               type="button"
               disabled={saving || loading}
               onClick={() => void reset()}
-              className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-2 sam-text-body text-amber-900 hover:bg-amber-100 disabled:opacity-50"
             >
               {t("admin_menu_bottom_reset_db")}
-            </button>
+            </AdminActionButton>
           ) : null}
         </div>
       </div>
@@ -463,7 +471,7 @@ export function AdminMainBottomNavPage() {
           {t("common_loading")}
         </div>
       ) : !rows ? (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body text-amber-900">
+        <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 sam-text-body text-sam-warning">
           {t("admin_menu_bottom_load_fail")}
         </div>
       ) : rows.length === 0 ? (
@@ -497,29 +505,31 @@ export function AdminMainBottomNavPage() {
                   <Fragment key={row.id}>
                   <tr
                     className={`border-b border-sam-border-soft align-middle hover:bg-sam-app/50 ${
-                      rowDirty ? "bg-amber-50/40" : ""
+                      rowDirty ? "bg-sam-warning-soft" : ""
                     }`}
                   >
                     <td className="px-2 py-1 align-middle">
                       <div className="flex items-center gap-0.5">
-                        <button
+                        <AdminActionButton
+                          variant="quiet"
+                          size="sm"
                           type="button"
                           disabled={i === 0 || saving}
                           onClick={() => move(i, -1)}
                           aria-label={t("admin_menu_bottom_move_up")}
-                          className="rounded border border-sam-border px-1 py-0.5 sam-text-xxs text-sam-fg hover:bg-sam-app disabled:opacity-30"
                         >
                           ↑
-                        </button>
-                        <button
+                        </AdminActionButton>
+                        <AdminActionButton
+                          variant="quiet"
+                          size="sm"
                           type="button"
                           disabled={i === rows.length - 1 || saving}
                           onClick={() => move(i, 1)}
                           aria-label={t("admin_menu_bottom_move_down")}
-                          className="rounded border border-sam-border px-1 py-0.5 sam-text-xxs text-sam-fg hover:bg-sam-app disabled:opacity-30"
                         >
                           ↓
-                        </button>
+                        </AdminActionButton>
                       </div>
                     </td>
                     <td className="px-2 py-1 align-middle">
@@ -558,7 +568,10 @@ export function AdminMainBottomNavPage() {
                           className="min-w-0 flex-1 rounded border border-sam-border px-1.5 py-1 font-mono sam-text-xxs"
                           maxLength={160}
                         />
-                        <button
+                        <AdminActionButton
+                          variant="ghost"
+                          size="sm"
+                          className="shrink-0"
                           type="button"
                           disabled={saving || row.href.trim().length === 0}
                           onClick={() => previewHref(row)}
@@ -567,10 +580,9 @@ export function AdminMainBottomNavPage() {
                               ? t("admin_menu_bottom_preview_link_new_tab")
                               : t("admin_menu_bottom_preview_link_same_tab")
                           }
-                          className="shrink-0 rounded border border-sam-border bg-sam-app px-1.5 py-1 sam-text-xxs text-signature hover:bg-sam-surface"
                         >
                           {t("admin_menu_bottom_preview_link")}
-                        </button>
+                        </AdminActionButton>
                       </div>
                     </td>
                     <td className="px-2 py-1 text-center align-middle">
@@ -585,46 +597,42 @@ export function AdminMainBottomNavPage() {
                     </td>
                     <td className="px-2 py-1 align-middle">
                       <div className="flex flex-wrap items-center justify-end gap-1">
-                        <button
+                        <AdminActionButton
+                          variant="ghost"
+                          size="sm"
                           type="button"
                           disabled={saving}
                           onClick={() => toggleFabSection(row.id)}
-                          className={`rounded border px-2 py-0.5 sam-text-xxs ${
-                            row.fab?.enabled
-                              ? "border-violet-300 bg-violet-50 text-violet-900 hover:bg-violet-100"
-                              : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
-                          }`}
                           title={t("admin_menu_bottom_fab_title")}
                         >
                           {fabExpanded ? "▾" : "▸"} {t("admin_menu_bottom_fab_manage")}
-                        </button>
-                        <button
+                        </AdminActionButton>
+                        <AdminActionButton
+                          variant="ghost"
+                          size="sm"
                           type="button"
                           disabled={saving || !rowDirty}
                           onClick={() => void saveRow(row.id)}
-                          className="rounded border border-signature bg-signature/5 px-2 py-0.5 sam-text-xxs font-medium text-signature hover:bg-signature/10 disabled:opacity-30"
                         >
                           {rowSaving ? t("admin_menu_saving") : t("admin_menu_bottom_row_save")}
-                        </button>
-                        <button
+                        </AdminActionButton>
+                        <AdminActionButton
+                          variant="ghost"
+                          size="sm"
                           type="button"
                           disabled={saving || !canCancelRow}
                           onClick={() => cancelRow(i)}
                           title={t("admin_menu_bottom_row_cancel_title")}
-                          className={`rounded border px-2 py-0.5 sam-text-xxs disabled:opacity-30 ${
-                            canCancelRow
-                              ? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
-                              : "border-sam-border bg-sam-surface text-sam-muted"
-                          }`}
                         >
                           {t("admin_menu_bottom_row_cancel")}
-                        </button>
+                        </AdminActionButton>
                         {!builtin ? (
-                          <button
+                          <AdminActionButton
+                            variant="ghost"
+                            size="sm"
                             type="button"
                             disabled={saving || rows.length <= 1}
                             onClick={() => removeRow(i)}
-                            className="rounded border border-red-200 bg-red-50 px-2 py-0.5 sam-text-xxs text-red-800 hover:bg-red-100 disabled:opacity-30"
                             title={
                               rows.length <= 1
                                 ? t("admin_menu_bottom_delete_min_title")
@@ -632,7 +640,7 @@ export function AdminMainBottomNavPage() {
                             }
                           >
                             {t("common_delete")}
-                          </button>
+                          </AdminActionButton>
                         ) : null}
                       </div>
                     </td>

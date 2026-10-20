@@ -36,14 +36,18 @@ describe("CUT C Ads operation close", () => {
     expect(ownerActionTargetLifecycle("submit")).toBe("SUBMITTED");
     expect(ownerActionTargetLifecycle("submit")).not.toBe("ACTIVE");
     const actions = read("app/api/me/stores/[storeId]/delivery-ads/[campaignId]/actions/route.ts");
-    expect(actions).toContain("secureBusinessCashBeforeSubmit");
-    expect(actions).toContain("debitBusinessCashForDeliveryAd");
+    // V3-04: 제출 = 캐시 차감 + 전이 원자 함수 1번 (route → writer secureBusinessCash → owner_submit_delivery_ad_with_business_cash).
+    expect(actions).toContain("secureBusinessCash");
+    expect(actions).toContain("atomic_submit_rpc_missing");
+    expect(read("lib/stores/advertising/owner-store-sponsored-writer.ts")).toContain("ownerSubmitDeliveryAdWithBusinessCash");
+    expect(read("lib/stores/advertising/owner-banner-writer.ts")).toContain("ownerSubmitDeliveryAdWithBusinessCash");
   });
 
   it("A2/A10 — Delivery billing is Cash-only (no Point/Coin spend path)", () => {
     const actions = read("app/api/me/stores/[storeId]/delivery-ads/[campaignId]/actions/route.ts");
     expect(actions).not.toMatch(/spendUserPoints|debitCoin|store_economic_point.*spend/);
-    expect(actions).toContain("debitBusinessCashForDeliveryAd");
+    // 차감은 원자 함수 안의 canonical Business Cash 지출(business_cash_delivery_ad_spend)만.
+    expect(read("lib/stores/advertising/canonical-business-cash-writer.ts")).toContain("OWNER_SUBMIT_DELIVERY_AD_WITH_BC_RPC");
   });
 
   it("A3/A15 — Admin CTA consumes canonical presentation", () => {

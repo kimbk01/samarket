@@ -37,8 +37,8 @@ type ListState =
 const EXTRAS = ["action_type"] as const;
 
 const FIELD =
-  "h-10 rounded-ui-rect border border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] px-2.5 text-[16px] text-[var(--admin-console-fg,#1f2937)]";
-const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted,#667085)]";
+  "h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 text-[16px] text-sam-fg";
+const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-sam-muted";
 
 export function AdminSanctionLedgerPage() {
   const { t, language } = useI18n();
@@ -129,7 +129,11 @@ export function AdminSanctionLedgerPage() {
       ) : state.status === "error" ? (
         <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={lq.refresh} />
       ) : state.rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={t("admin_sanction_ledger_empty")} />
+        <AdminEmptyState
+          ko={ko}
+          message={lq.isFiltered ? undefined : t("admin_sanction_ledger_empty")}
+          onReset={lq.isFiltered ? lq.reset : undefined}
+        />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[760px] border-collapse sam-text-body" data-admin-sanction-ledger-table="1">

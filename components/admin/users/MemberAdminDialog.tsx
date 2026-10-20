@@ -15,6 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OVERLAY_Z_CLASS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
@@ -199,10 +200,9 @@ export function MemberAdminDialog({
       data-dirty={dirty ? "1" : "0"}
     >
       {backdropOk ? (
-        <button
-          type="button"
+        <div
           className={OverlayUi.backdrop}
-          aria-label="닫기"
+          aria-hidden
           data-member-admin-dialog-backdrop="1"
           onClick={() => requestClose("backdrop")}
         />
@@ -232,8 +232,8 @@ export function MemberAdminDialog({
                 </p>
               ) : null}
             </div>
-            <button
-              type="button"
+            <AdminActionButton
+              variant="secondary"
               data-member-admin-dialog-close="1"
               aria-label="닫기"
               title="닫기"
@@ -245,7 +245,7 @@ export function MemberAdminDialog({
               <span aria-hidden data-member-admin-dialog-close-glyph="1">
                 ×
               </span>
-            </button>
+            </AdminActionButton>
           </div>
 
           <div

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   DELIVERY_AD_PARTNER_MEMBERSHIP_STATUSES,
@@ -119,6 +120,13 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "delivery_ad_partner_membership",
+      targetId: membershipId,
+      action: "delivery_ad_partner_membership.approve",
+      after: { storeId: result.membership.storeId, status: result.membership.status, reason: body.reason ?? null, periodDays: body.periodDays ?? null },
+    });
     return NextResponse.json({
       ok: true,
       membership: result.membership,
@@ -135,6 +143,13 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "delivery_ad_partner_membership",
+      targetId: membershipId,
+      action: "delivery_ad_partner_membership.reject",
+      after: { storeId: result.membership.storeId, status: result.membership.status, reason: body.reason ?? null, refundIdempotent: result.refundIdempotent },
+    });
     return NextResponse.json({
       ok: true,
       membership: result.membership,
@@ -151,6 +166,13 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "delivery_ad_partner_membership",
+      targetId: membershipId,
+      action: `delivery_ad_partner_membership.${op}`,
+      after: { storeId: result.membership.storeId, status: result.membership.status, reason: body.reason ?? null },
+    });
     return NextResponse.json({ ok: true, membership: result.membership });
   }
 

@@ -21,7 +21,15 @@ import {
   parseFinanceFilters,
 } from "@/lib/finance/routes";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
-import { formatMoneyPhp } from "@/lib/utils/format";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+} from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 
 type StoreListRow = {
   storeId: string;
@@ -54,7 +62,7 @@ export function AdminFinanceStoresIndexView() {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         periodKey?: string;
         rows?: StoreListRow[];
@@ -68,7 +76,7 @@ export function AdminFinanceStoresIndexView() {
       setPeriodKey(json.periodKey || "30d");
       setRows(json.rows ?? []);
     } catch {
-      setError("network");
+      setError("network_error");
       setRows([]);
     } finally {
       setLoading(false);
@@ -82,24 +90,24 @@ export function AdminFinanceStoresIndexView() {
   return (
     <div className="space-y-4" data-admin-finance-stores-index="1">
       <FinanceAdminNav ko={ko} />
-      <h2 className="text-lg font-semibold">{ko ? "매장별 재무" : "Store finance"}</h2>
+      <h2 className="text-[16px] font-semibold text-sam-fg">{ko ? "매장별 재무" : "Store finance"}</h2>
       <p className="sam-text-helper text-sam-muted">
         {ko
           ? `최근 재무 활동 매장 · 기간 ${periodKey} 집계는 Store Statement와 동일 canonical 소스입니다.`
           : `Stores with recent finance activity. Period ${periodKey} aggregates use the same StoreStatement source.`}
       </p>
 
-      {loading ? <p className="text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p> : null}
-      {error ? (
-        <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2">
-          <p>{ko ? "최근 매장 목록을 불러오지 못했습니다." : "Could not load recent stores."}</p>
-          <button type="button" className="mt-2 font-semibold text-signature" onClick={() => void load()}>
-            {ko ? "다시 시도" : "Retry"}
-          </button>
-        </div>
+      {loading ? <AdminLoadingState ko={ko} /> : null}
+      {error ? <AdminErrorState ko={ko} code={error} onRetry={() => void load()} /> : null}
+
+      {!loading && !error && rows.length === 0 ? (
+        <AdminEmptyState
+          ko={ko}
+          message={ko ? "최근 거래가 있는 매장이 없습니다." : "No stores with recent finance activity."}
+        />
       ) : null}
 
-      {!loading && !error ? (
+      {!loading && !error && rows.length > 0 ? (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[52rem] text-left sam-text-body-secondary" data-finance-stores-ops-list="1">
             <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
@@ -107,21 +115,14 @@ export function AdminFinanceStoresIndexView() {
                 <th className="px-3 py-2">{ko ? "매장" : "Store"}</th>
                 <th className="px-3 py-2">{ko ? "최근 거래" : "Last activity"}</th>
                 <th className="px-3 py-2">{ko ? "최근 유형" : "Recent kinds"}</th>
-                <th className="px-3 py-2">Gross</th>
-                <th className="px-3 py-2">{ko ? "수수료" : "Fee"}</th>
-                <th className="px-3 py-2">Coin</th>
-                <th className="px-3 py-2">Cash</th>
+                <th className="px-3 py-2 text-right">Gross</th>
+                <th className="px-3 py-2 text-right">{ko ? "수수료" : "Fee"}</th>
+                <th className="px-3 py-2 text-right">Coin</th>
+                <th className="px-3 py-2 text-right">Cash</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sam-border-soft">
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-sam-muted">
-                    {ko ? "최근 거래가 있는 매장이 없습니다." : "No stores with recent finance activity."}
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r) => (
+              {rows.map((r) => (
                   <tr
                     key={r.storeId}
                     className="cursor-pointer hover:bg-sam-app"
@@ -133,21 +134,21 @@ export function AdminFinanceStoresIndexView() {
                       <div className="font-mono sam-text-xxs text-sam-muted">{r.storeId}</div>
                     </td>
                     <td className="px-3 py-2 sam-text-xxs">
-                      {r.lastAt ? new Date(r.lastAt).toLocaleString() : "—"}
+                      {r.lastAt ? formatAdminManilaDateTime(r.lastAt) : "—"}
                     </td>
                     <td className="px-3 py-2 sam-text-xxs text-sam-muted">{r.sampleKinds.join(" · ")}</td>
-                    <td className="px-3 py-2 tabular-nums" data-finance-store-agg="gross">
-                      {r.gross == null ? "—" : formatMoneyPhp(r.gross)}
+                    <td className="px-3 py-2 text-right tabular-nums" data-finance-store-agg="gross">
+                      {r.gross == null ? "—" : formatAdminPhp(r.gross)}
                     </td>
-                    <td className="px-3 py-2 tabular-nums" data-finance-store-agg="fee">
-                      {r.feeDue == null ? "—" : formatMoneyPhp(r.feeDue)}
+                    <td className="px-3 py-2 text-right tabular-nums" data-finance-store-agg="fee">
+                      {r.feeDue == null ? "—" : formatAdminPhp(r.feeDue)}
                     </td>
-                    <td className="px-3 py-2 tabular-nums" data-finance-store-agg="coin">
+                    <td className="px-3 py-2 text-right tabular-nums" data-finance-store-agg="coin">
                       {r.coinEarned == null
                         ? "—"
                         : formatFinanceAmount({ wallet: "COIN", amount: r.coinEarned })}
                     </td>
-                    <td className="px-3 py-2 tabular-nums" data-finance-store-agg="cash">
+                    <td className="px-3 py-2 text-right tabular-nums" data-finance-store-agg="cash">
                       {r.cashClosingMinor == null
                         ? "—"
                         : formatFinanceAmount({
@@ -157,8 +158,7 @@ export function AdminFinanceStoresIndexView() {
                           })}
                     </td>
                   </tr>
-                ))
-              )}
+                ))}
             </tbody>
           </table>
         </div>
@@ -184,9 +184,9 @@ export function AdminFinanceStoresIndexView() {
             onChange={(e) => setStoreId(e.target.value)}
             aria-label="Store ID lookup"
           />
-          <button type="submit" className="rounded-ui-rect border border-sam-border px-4 py-2 font-semibold">
-            {ko ? "열기" : "Open"}
-          </button>
+          <AdminActionButton type="submit" variant="secondary">
+            {adminCta("search", ko)}
+          </AdminActionButton>
         </form>
       </details>
     </div>
@@ -243,7 +243,7 @@ export function AdminFinanceStoreDetailView() {
         setDaily([]);
       }
     } catch {
-      setError("network");
+      setError("network_error");
     } finally {
       setLoading(false);
     }
@@ -266,7 +266,7 @@ export function AdminFinanceStoreDetailView() {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         transactions?: FinanceUnifiedTx[];
         error?: string;
@@ -278,7 +278,7 @@ export function AdminFinanceStoreDetailView() {
       }
       setTxRows(json.transactions ?? []);
     } catch {
-      setTxError("network");
+      setTxError("network_error");
       setTxRows([]);
     } finally {
       setTxLoading(false);
@@ -299,27 +299,20 @@ export function AdminFinanceStoreDetailView() {
   return (
     <div className="space-y-4" data-admin-finance-store-detail="1">
       <FinanceAdminNav ko={ko} />
-      {loading ? <p className="text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p> : null}
-      {error ? (
-        <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2">
-          <p>{ko ? "매장 재무를 불러오지 못했습니다." : "Could not load store finance."}</p>
-          <button type="button" className="mt-2 font-semibold text-signature" onClick={() => void load()}>
-            {ko ? "다시 시도" : "Retry"}
-          </button>
-        </div>
-      ) : null}
+      {loading ? <AdminLoadingState ko={ko} /> : null}
+      {error ? <AdminErrorState ko={ko} code={error} onRetry={() => void load()} /> : null}
       {statement ? (
         <>
           <header>
-            <h2 className="text-lg font-semibold">{statement.storeName}</h2>
+            <h2 className="text-[16px] font-semibold text-sam-fg">{statement.storeName}</h2>
             <p className="sam-text-helper text-sam-muted font-mono">{statement.storeId}</p>
             <p className="sam-text-helper text-sam-muted">
               {ko ? "기간" : "Period"}: {period}
             </p>
           </header>
           {statement.discrepancies.length > 0 ? (
-            <p className="rounded border border-amber-400 bg-amber-50 px-2 py-1 text-amber-950">
-              discrepancy: {statement.discrepancies.join(", ")}
+            <p role="alert" className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-2 py-1 text-sam-fg">
+              {ko ? "불일치 확인 필요" : "Discrepancy"}: {statement.discrepancies.join(", ")}
             </p>
           ) : null}
           <dl
@@ -328,15 +321,15 @@ export function AdminFinanceStoreDetailView() {
           >
             <div>
               <dt className="text-sam-muted">{ko ? "주문" : "Orders"}</dt>
-              <dd>{statement.sales.orders}</dd>
+              <dd className="tabular-nums">{formatAdminNumber(statement.sales.orders)}</dd>
             </div>
             <div>
               <dt className="text-sam-muted">Gross</dt>
-              <dd>{formatMoneyPhp(statement.sales.gross)}</dd>
+              <dd>{formatAdminPhp(statement.sales.gross)}</dd>
             </div>
             <div>
               <dt className="text-sam-muted">{ko ? "수수료 Due" : "Fee due"}</dt>
-              <dd>{formatMoneyPhp(statement.sales.settlementFee)}</dd>
+              <dd>{formatAdminPhp(statement.sales.settlementFee)}</dd>
             </div>
             <div>
               <dt className="text-sam-muted">{ko ? "수수료 Paid (Cash)" : "Fee paid (Cash)"}</dt>
@@ -350,7 +343,7 @@ export function AdminFinanceStoreDetailView() {
             </div>
             <div>
               <dt className="text-sam-muted">{ko ? "미납" : "Outstanding"}</dt>
-              <dd>{formatMoneyPhp(statement.sales.outstanding)}</dd>
+              <dd>{formatAdminPhp(statement.sales.outstanding)}</dd>
             </div>
             <div>
               <dt className="text-sam-muted">{ko ? "미납 회수" : "Outstanding collected"}</dt>
@@ -462,8 +455,8 @@ export function AdminFinanceStoreDetailView() {
                         </Link>
                       </td>
                       <td className="px-3 py-2">{d.orders}</td>
-                      <td className="px-3 py-2 tabular-nums">{formatMoneyPhp(d.gross)}</td>
-                      <td className="px-3 py-2 tabular-nums">{formatMoneyPhp(d.feeDue)}</td>
+                      <td className="px-3 py-2 tabular-nums">{formatAdminPhp(d.gross)}</td>
+                      <td className="px-3 py-2 tabular-nums">{formatAdminPhp(d.feeDue)}</td>
                       <td className="px-3 py-2 tabular-nums">
                         {formatFinanceAmount({ wallet: "COIN", amount: d.coinEarned })}
                       </td>

@@ -1,20 +1,19 @@
 "use client";
 
-import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useMemo, useState, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { AdminTableBottomHorizontalScroll } from "@/components/admin/AdminTableBottomHorizontalScroll";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
-import {
-  ADMIN_USERS_LITE_BTN_PRIMARY,
-  ADMIN_USERS_LITE_BTN_SECONDARY,
-  ADMIN_USERS_LITE_BTN_TERTIARY,
-  ADMIN_USERS_LITE_CARD,
-  ADMIN_USERS_LITE_PAGE_BG,
-} from "@/lib/ui/admin-users-lite-styles";
+import { ADMIN_USERS_LITE_CARD, ADMIN_USERS_LITE_PAGE_BG } from "@/lib/ui/admin-users-lite-styles";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { membersOperatorErrorCode } from "@/lib/admin/status-labels/members-status-labels";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { adminFetch, invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
@@ -62,7 +61,8 @@ type AdminUsersListResult = {
 };
 
 export function AdminUserListPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -84,6 +84,9 @@ export function AdminUserListPage() {
   const [showCreateMember, setShowCreateMember] = useState(false);
   const [membersKey, setMembersKey] = useState(0);
   const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<
+    { ok: true; message: string } | { ok: false; code: string } | null
+  >(null);
   const [membersPage, setMembersPage] = useState(urlState.page);
   const [membersPageSize, setMembersPageSize] = useState(urlState.pageSize);
   const [deletionOpenCount, setDeletionOpenCount] = useState<number | null>(null);
@@ -256,6 +259,21 @@ export function AdminUserListPage() {
     setMembersPage(1);
   }, []);
 
+  /** 필터 초기화 — 검색어·5개 축·가입 기간·정렬을 기본값으로 (URL 동기화는 기존 effect 가 처리). */
+  const resetFilters = useCallback(() => {
+    setSearchDraft("");
+    setAppliedSearch("");
+    setStatusFilter("");
+    setVerifyFilter("");
+    setStoreFilter("");
+    setPrivilegeFilter("");
+    setOriginFilter("");
+    setJoinedFrom("");
+    setJoinedTo("");
+    setSort("created_at_desc");
+    setMembersPage(1);
+  }, []);
+
   const membersQueryKey = `admin:users:list:${membersKey}:${membersQueryParams}`;
 
   const {
@@ -334,9 +352,9 @@ export function AdminUserListPage() {
       if (code.startsWith("admin_") || code.startsWith("common_")) {
         return t(code as MessageKey);
       }
-      return code;
+      return adminOperatorErrorMessage(membersOperatorErrorCode(code, "load_failed"), ko);
     },
-    [t],
+    [t, ko],
   );
 
   const membersError = useMemo(
@@ -469,8 +487,20 @@ export function AdminUserListPage() {
   }, []);
 
   const handleCleanup = useCallback(async () => {
-    if (!adminUserId || !(await dibayConfirm({ title: t("admin_users_cleanup_confirm"), confirmTone: "destructive" }))) return;
+    if (!adminUserId) return;
+    const retype = ko ? "테스트 회원 정리" : "cleanup test members";
+    const confirmed = await confirmAdminAction({
+      level: "L3",
+      ko,
+      title: t("admin_users_cleanup_button"),
+      description: t("admin_users_cleanup_confirm"),
+      confirmLabel: adminCta("delete", ko),
+      destructive: true,
+      retypeValue: retype,
+    });
+    if (!confirmed.ok) return;
     setCleanupLoading(true);
+    setCleanupResult(null);
     try {
       const res = await fetch("/api/admin/users/cleanup", {
         method: "POST",
@@ -480,16 +510,29 @@ export function AdminUserListPage() {
       });
       const data = await res.json();
       if (data.ok) {
+        setCleanupResult({ ok: true, message: ko ? "테스트 회원을 정리했습니다." : "Test members cleaned up." });
         refreshMembers();
       } else {
-        await dibayAlert({ title: data.error || t("admin_users_cleanup_failed") });
+        setCleanupResult({ ok: false, code: membersOperatorErrorCode(data.error) });
       }
     } catch {
-      await dibayAlert({ title: t("admin_users_request_failed") });
+      setCleanupResult({ ok: false, code: "network_error" });
     } finally {
       setCleanupLoading(false);
     }
-  }, [adminUserId, refreshMembers, t]);
+  }, [adminUserId, refreshMembers, t, ko]);
+
+  const hasActiveFilters = Boolean(
+    appliedSearch ||
+      statusFilter ||
+      verifyFilter ||
+      storeFilter ||
+      privilegeFilter ||
+      originFilter ||
+      joinedFrom ||
+      joinedTo ||
+      sort !== "created_at_desc",
+  );
 
   const queryScopeKey = [membersQueryParams, String(membersKey)].join("|");
   const emptyMessage = appliedSearch ? MEMBER_LIST_SEARCH_EMPTY_KO : MEMBER_LIST_EMPTY_KO;
@@ -500,69 +543,70 @@ export function AdminUserListPage() {
       wave="w2"
       className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}
     >
-      <nav className="text-xs font-medium text-[#667085]" aria-label="Breadcrumb">
+      <nav className="text-xs font-medium text-sam-muted" aria-label="Breadcrumb">
         <span>{MEMBER_ADMIN_COPY.member_management}</span>
       </nav>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-[#101828]">{t("admin_menu_users")}</h1>
-          <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-[#667085]">
+          <h1 className="text-xl font-bold text-sam-fg">{t("admin_menu_users")}</h1>
+          <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-sam-muted">
             {MEMBER_LIST_PAGE_DESCRIPTION_KO}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link
+          <AdminActionLink
             href="/admin/users/phone-verification"
-            className={ADMIN_USERS_LITE_BTN_TERTIARY}
+            variant="quiet"
             data-member-list-phone-otp-ops="1"
             data-member-cta-variant="tertiary"
           >
-            전화번호 인증 관리
-          </Link>
-          <Link
+            {ko ? "전화번호 인증 관리" : "Phone verification"}
+          </AdminActionLink>
+          <AdminActionLink
             href="/admin/users/deletion-requests"
-            className={ADMIN_USERS_LITE_BTN_TERTIARY}
+            variant="quiet"
             data-member-list-deletion-entry="1"
             data-member-cta-variant="tertiary"
           >
             {MEMBER_LIST_DELETION_REQUESTS_KO}
-            {deletionOpenCount != null && deletionOpenCount > 0 ? ` ${deletionOpenCount}` : ""}
-          </Link>
-          <Link
+            {deletionOpenCount != null && deletionOpenCount > 0 ? ` ${formatAdminNumber(deletionOpenCount)}` : ""}
+          </AdminActionLink>
+          <AdminActionLink
             href="/admin/users/ops-history"
-            className={ADMIN_USERS_LITE_BTN_SECONDARY}
+            variant="secondary"
             data-member-list-ops-entry="1"
             data-member-cta-variant="secondary"
           >
             {MEMBER_LIST_OPS_HISTORY_KO}
-          </Link>
+          </AdminActionLink>
           {canManageUsers ? (
-            <button
-              type="button"
+            <AdminActionButton
+              variant="primary"
               onClick={() => setShowCreateMember(true)}
-              className={ADMIN_USERS_LITE_BTN_PRIMARY}
               data-member-list-register-cta="1"
               data-member-cta-variant="primary"
             >
-              + {MEMBER_ADMIN_COPY.member_register}
-            </button>
+              {MEMBER_ADMIN_COPY.member_register}
+            </AdminActionButton>
           ) : null}
           {isMaster ? (
-            <button
-              type="button"
+            <AdminActionButton
+              variant="quiet"
               onClick={handleCleanup}
               disabled={cleanupLoading}
-              className={`${ADMIN_USERS_LITE_BTN_TERTIARY} order-last opacity-80 disabled:opacity-50`}
+              className="order-last"
               data-member-list-maintenance="1"
               data-member-cta-variant="tertiary"
-              title="테스트 회원 정리 (R9 / OD-05)"
+              title={ko ? "테스트 회원 정리 (R9 / OD-05)" : "Clean up test members (R9 / OD-05)"}
             >
-              {cleanupLoading ? t("admin_users_saving") : t("admin_users_cleanup_button")}
-            </button>
+              {t("admin_users_cleanup_button")}
+            </AdminActionButton>
           ) : null}
         </div>
       </div>
+
+      <AdminResultBanner ko={ko} result={cleanupResult} onClose={() => setCleanupResult(null)} />
 
       <AdminUserListSummaryCards
         summary={memberSummary}
@@ -576,6 +620,7 @@ export function AdminUserListPage() {
         onSearchDraftChange={setSearchDraft}
         onSearchSubmit={applySearch}
         onSearchClear={clearSearch}
+        onReset={hasActiveFilters ? resetFilters : undefined}
         statusFilter={statusFilter}
         onStatusFilterChange={(value) => {
           setStatusFilter(value);
@@ -620,18 +665,16 @@ export function AdminUserListPage() {
       />
       {membersError ? (
         <div
-          className="rounded-lg border border-[#fad2cf] bg-white px-4 py-6 text-center text-sm text-[#b42318]"
+          className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-4 py-6 text-center text-sm text-sam-fg"
           data-member-list-state="error"
+          data-admin-state="error"
+          role="alert"
         >
-          <p className="font-bold">{MEMBER_LIST_ERROR_KO}</p>
+          <p className="font-bold text-sam-danger">{MEMBER_LIST_ERROR_KO}</p>
           <p className="mt-1">{membersError}</p>
-          <button
-            type="button"
-            onClick={refreshMembers}
-            className="mt-4 rounded-full border border-[#fad2cf] bg-[#fff3f2] px-4 py-2 text-sm font-bold text-[#b42318] hover:bg-[#ffe7e5]"
-          >
-            다시 시도
-          </button>
+          <AdminActionButton variant="secondary" size="sm" className="mt-3" onClick={refreshMembers}>
+            {adminCta("refresh", ko)}
+          </AdminActionButton>
         </div>
       ) : membersListPending ? (
         <div
@@ -639,18 +682,21 @@ export function AdminUserListPage() {
           data-member-list-state="loading"
           aria-busy="true"
         >
-          <div className="h-4 w-1/3 animate-pulse rounded bg-[#eaecf0]" />
-          <div className="h-10 animate-pulse rounded bg-[#f2f4f7]" />
-          <div className="h-10 animate-pulse rounded bg-[#f2f4f7]" />
-          <div className="h-10 animate-pulse rounded bg-[#f2f4f7]" />
-          <p className="text-center text-sm font-semibold text-[#667085]">목록을 불러오는 중…</p>
+          <div className="h-4 w-1/3 animate-pulse rounded bg-sam-border-soft" />
+          <div className="h-10 animate-pulse rounded bg-sam-surface-muted" />
+          <div className="h-10 animate-pulse rounded bg-sam-surface-muted" />
+          <div className="h-10 animate-pulse rounded bg-sam-surface-muted" />
+          <p className="text-center text-sm font-semibold text-sam-muted">
+            {ko ? "목록을 불러오는 중…" : "Loading list…"}
+          </p>
         </div>
       ) : users.length === 0 ? (
-        <div
-          className={`${ADMIN_USERS_LITE_CARD} py-12 text-center text-sm font-semibold text-[#667085]`}
-          data-member-list-state={appliedSearch ? "search_empty" : "empty"}
-        >
-          {emptyMessage}
+        <div data-member-list-state={appliedSearch ? "search_empty" : "empty"}>
+          <AdminEmptyState
+            ko={ko}
+            message={emptyMessage}
+            onReset={hasActiveFilters ? resetFilters : undefined}
+          />
         </div>
       ) : (
         <AdminUserTable

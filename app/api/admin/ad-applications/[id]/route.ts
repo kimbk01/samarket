@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   adminPatchPostAdInDb,
   fetchAdLogsForPostAdFromDb,
@@ -88,6 +89,13 @@ export async function PATCH(
         { status: res.notFound ? 404 : 400 }
       );
     }
+    await appendAdminRouteAudit(svc, req, {
+      actorId: admin.userId,
+      targetType: "post_ad",
+      targetId: id,
+      action: "post_ad.save_memo",
+      after: { adminMemo: memo },
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -105,5 +113,12 @@ export async function PATCH(
     );
   }
 
+  await appendAdminRouteAudit(svc, req, {
+    actorId: admin.userId,
+    targetType: "post_ad",
+    targetId: id,
+    action: `post_ad.${action}`,
+    after: { action, adminNote: body.adminNote ?? null },
+  });
   return NextResponse.json({ ok: true });
 }

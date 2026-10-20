@@ -1,18 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  pointActionTypeLabel,
-  pointBoardLabel,
-  pointChargeStatusLabel,
-  pointExecStatusLabel,
-  pointExpireCycleLabel,
-  pointExpireExecStatusLabel,
-  pointLedgerTypeLabel,
-  pointPaymentMethodLabel,
-  pointRewardTypeLabel,
-  pointUserTypeLabel,
-} from "@/components/admin/points/admin-points-notifications-i18n";
+import { pointPaymentMethodLabel } from "@/components/admin/points/admin-points-notifications-i18n";
 
 import { useState } from "react";
 import type { PointChargeRequest } from "@/lib/types/point";
@@ -21,15 +10,22 @@ import Link from "next/link";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 import { runPointChargeAction, type PointChargeAction } from "@/components/admin/points/point-charge-action-client";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 
 interface AdminPointChargeInlineActionsProps {
   requests: PointChargeRequest[];
   onActionSuccess?: () => void | Promise<void>;
+  /** 접근표 쓰기 권한 — false 면 처리 버튼 비활성 (서버 가드는 그대로). */
+  actionAllowed?: boolean;
 }
 
 export function AdminPointChargeInlineActions({
   requests,
   onActionSuccess,
+  actionAllowed = true,
 }: AdminPointChargeInlineActionsProps) {
   const { t, language } = useI18n();
   const ko = language !== "en";
@@ -46,7 +42,7 @@ export function AdminPointChargeInlineActions({
         requestId: r.id,
         action,
         ko,
-        summary: `${r.userNickname} · ${r.pointAmount.toLocaleString()}P · ₱${r.paymentAmount.toLocaleString()} · ${r.depositorName || "-"}`,
+        summary: `${r.userNickname} · ${formatAdminNumber(r.pointAmount)}P · ${formatAdminPhp(r.paymentAmount)} · ${r.depositorName || "-"}`,
         adminMemo: memo,
       });
       if (!out.ok) {
@@ -68,7 +64,9 @@ export function AdminPointChargeInlineActions({
   return (
     <div className="overflow-x-auto">
       {err ? (
-        <p className="mb-2 rounded bg-red-50 px-3 py-2 sam-text-helper text-red-700">{err}</p>
+        <p role="alert" className="mb-2 rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-fg">
+          {err}
+        </p>
       ) : null}
       <table className="w-full min-w-[820px] border-collapse sam-text-body-secondary">
         <thead>
@@ -101,22 +99,22 @@ export function AdminPointChargeInlineActions({
               <tr
                 key={r.id}
                 className={`border-b border-sam-border-soft hover:bg-sam-app ${
-                  r.requestStatus === "waiting_confirm" ? "bg-amber-50/30" : ""
+                  r.requestStatus === "waiting_confirm" ? "bg-sam-warning-soft" : ""
                 }`}
               >
                 <td className="px-3 py-2.5">
                   <Link
                     href={`/admin/users/${r.userId}?tab=points`}
-                    className="font-semibold text-sky-700 hover:underline"
+                    className="font-semibold text-sam-primary hover:underline"
                   >
                     {r.userNickname}
                   </Link>
-                  <p className="sam-text-xxs text-sam-meta font-mono">{r.userId}</p>
+                  <AdminTechId id={r.userId} className="sam-text-xxs text-sam-meta" />
                 </td>
                 <td className="px-3 py-2.5">
                   <p className="font-medium text-sam-fg">{r.planName}</p>
-                  <p className="sam-text-helper text-sky-700 font-bold">+{r.pointAmount.toLocaleString()}P</p>
-                  <p className="sam-text-xxs text-sam-muted">₱{r.paymentAmount.toLocaleString()}</p>
+                  <p className="sam-text-helper font-bold tabular-nums text-sam-info">+{formatAdminNumber(r.pointAmount)}P</p>
+                  <p className="sam-text-xxs tabular-nums text-sam-muted">{formatAdminPhp(r.paymentAmount)}</p>
                 </td>
                 <td className="px-3 py-2.5 text-sam-muted">
                   {pointPaymentMethodLabel(t, r.paymentMethod)}
@@ -138,35 +136,37 @@ export function AdminPointChargeInlineActions({
                       setMemoInputs((prev) => ({ ...prev, [r.id]: e.target.value }))
                     }
                     placeholder={t("admin_points_admin_memo_inline_ph")}
-                    className="w-28 rounded border border-sam-border px-2 py-1 sam-text-xxs outline-none focus:border-sky-300"
+                    className="w-28 rounded border border-sam-border px-2 py-1 sam-text-xxs outline-none focus:border-sam-primary"
                   />
                 </td>
                 <td className="px-3 py-2.5">
                   {canAct ? (
                     <div className="flex flex-wrap gap-1">
-                      <button
-                        type="button"
-                        disabled={busy}
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy || !actionAllowed}
                         onClick={() => void doAction(r, "approve", memo)}
-                        className="rounded bg-emerald-600 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
                       >
-                        {busy ? "…" : t("admin_points_action_approve")}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy}
+                        {adminCta("approve", ko)}
+                      </AdminActionButton>
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy || !actionAllowed}
                         onClick={() => void doAction(r, "reject", memo)}
-                        className="rounded bg-red-500 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
-                      > {t("admin_points_action_reject")}
-                      </button>
+                      >
+                        {adminCta("reject", ko)}
+                      </AdminActionButton>
                       {r.requestStatus !== "on_hold" && (
-                        <button
-                          type="button"
-                          disabled={busy}
+                        <AdminActionButton
+                          variant="quiet"
+                          size="sm"
+                          disabled={busy || !actionAllowed}
                           onClick={() => void doAction(r, "hold", memo)}
-                          className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted disabled:opacity-50"
-                        > {t("admin_points_action_hold")}
-                        </button>
+                        >
+                          {adminCta("hold", ko)}
+                        </AdminActionButton>
                       )}
                     </div>
                   ) : (

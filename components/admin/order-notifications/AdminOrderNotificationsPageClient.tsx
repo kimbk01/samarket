@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionQueueCardGrid } from "@/components/admin/action-queue/AdminActionQueueCardGrid";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 /**
  * /admin/order-notifications — Admin ops Action Queue surface (URL kept for compatibility).
@@ -26,7 +27,7 @@ export function AdminOrderNotificationsPageClient() {
       />
       <p className="text-sm text-sam-muted tabular-nums" data-testid="admin-order-notifications-total">
         {safeT("admin_cp_action_queue_total", { fallbackKo: "대기 항목", fallbackEn: "Pending items" })}{" "}
-        {loading ? "…" : queueTotalComplete ? adminBellCount : `${adminBellCount}+`}
+        {loading ? "…" : queueTotalComplete ? formatAdminNumber(adminBellCount) : `${formatAdminNumber(adminBellCount)}+`}
       </p>
       <p className="text-xs text-sam-muted">
         {safeT("admin_cp_action_queue_meaning", {
@@ -43,7 +44,7 @@ export function AdminOrderNotificationsPageClient() {
         </p>
       ) : null}
       {queueLoadState === "error" ? (
-        <p className="text-sm text-red-600" role="status">
+        <p className="text-sm text-sam-danger" role="status">
           {safeT("admin_cp_action_queue_stale", {
             fallbackKo: "최근 갱신에 실패했습니다. 마지막으로 불러온 값입니다.",
             fallbackEn: "The latest refresh failed. Showing the last loaded values.",

@@ -1,11 +1,15 @@
 "use client";
 
 /**
- * Admin 화면 상태 4종 (R1 공통 기준) — 로딩 / 빈 데이터 / 불러오기 실패 / 접근 거부.
+ * Admin 화면 상태 4종 (R1 공통 기준 · 수정 계획 2-5) — 로딩 / 빈 데이터 / 불러오기 실패 / 접근 거부.
  * "데이터 없음"과 "불러오기 실패"를 같은 문구로 표시하지 않는다.
+ * - 빈 데이터: 필터가 걸려 있으면 「조건에 맞는 항목이 없습니다」 + [초기화]
+ * - 실패: 오류 맵 문구 + [새로고침] · 접근 거부: 필요 권한 안내
  */
 
 import type { ReactNode } from "react";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 const BOX = "rounded-ui-rect border px-4 py-6 text-center sam-text-body";
@@ -22,15 +26,36 @@ export function AdminEmptyState({
   ko,
   message,
   action,
+  onReset,
 }: {
   ko: boolean;
   message?: string;
   action?: ReactNode;
+  /** 필터가 걸린 목록 — 「조건에 맞는 항목이 없습니다」 + [초기화] */
+  onReset?: () => void;
 }) {
+  const text =
+    message ??
+    (onReset
+      ? ko
+        ? "조건에 맞는 항목이 없습니다."
+        : "No items match the filters."
+      : ko
+        ? "표시할 항목이 없습니다."
+        : "Nothing to show.");
   return (
     <div data-admin-state="empty" className={`${BOX} border-sam-border bg-sam-surface text-sam-muted`}>
-      <p>{message ?? (ko ? "표시할 항목이 없습니다." : "Nothing to show.")}</p>
-      {action ? <div className="mt-3">{action}</div> : null}
+      <p>{text}</p>
+      {onReset || action ? (
+        <div className="mt-3 flex justify-center gap-2">
+          {onReset ? (
+            <AdminActionButton variant="secondary" size="sm" onClick={onReset}>
+              {adminCta("reset", ko)}
+            </AdminActionButton>
+          ) : null}
+          {action}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -57,17 +82,13 @@ export function AdminErrorState({
     return <AdminForbiddenState ko={ko} code={code} />;
   }
   return (
-    <div data-admin-state="error" role="alert" className={`${BOX} border-red-200 bg-red-50 text-red-900`}>
-      <p className="font-medium">{ko ? "불러오지 못했습니다." : "Could not load."}</p>
+    <div data-admin-state="error" role="alert" className={`${BOX} border-sam-danger bg-sam-danger-soft text-sam-fg`}>
+      <p className="font-medium text-sam-danger">{ko ? "불러오지 못했습니다." : "Could not load."}</p>
       <p className="mt-1 text-[13px]">{adminOperatorErrorMessage(code ?? "load_failed", ko)}</p>
       {onRetry ? (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-3 rounded-ui-rect border border-red-300 bg-white px-3 py-1.5 text-[13px] font-medium text-red-900"
-        >
-          {ko ? "다시 불러오기" : "Reload"}
-        </button>
+        <AdminActionButton variant="secondary" size="sm" className="mt-3" onClick={onRetry}>
+          {adminCta("refresh", ko)}
+        </AdminActionButton>
       ) : null}
     </div>
   );
@@ -75,7 +96,7 @@ export function AdminErrorState({
 
 export function AdminForbiddenState({ ko, code }: { ko: boolean; code?: string | null }) {
   return (
-    <div data-admin-state="forbidden" role="alert" className={`${BOX} border-amber-300 bg-amber-50 text-amber-950`}>
+    <div data-admin-state="forbidden" role="alert" className={`${BOX} border-sam-warning bg-sam-warning-soft text-sam-fg`}>
       <p className="font-medium">{ko ? "접근 권한이 없습니다." : "Access denied."}</p>
       <p className="mt-1 text-[13px]">{adminOperatorErrorMessage(code ?? "forbidden", ko)}</p>
     </div>
@@ -100,14 +121,14 @@ export function AdminResultBanner({
       role={ok ? "status" : "alert"}
       className={[
         "flex items-start justify-between gap-3 rounded-ui-rect border px-3 py-2 text-[13px]",
-        ok ? "border-emerald-300 bg-emerald-50 text-emerald-950" : "border-red-300 bg-red-50 text-red-900",
+        ok ? "border-sam-success bg-sam-success-soft text-sam-fg" : "border-sam-danger bg-sam-danger-soft text-sam-fg",
       ].join(" ")}
     >
       <span>{ok ? result.message : adminOperatorErrorMessage(result.code, ko)}</span>
       {onClose ? (
-        <button type="button" onClick={onClose} className="shrink-0 font-medium underline">
-          {ko ? "닫기" : "Close"}
-        </button>
+        <AdminActionButton variant="quiet" size="sm" className="shrink-0" onClick={onClose}>
+          {adminCta("close", ko)}
+        </AdminActionButton>
       ) : null}
     </div>
   );

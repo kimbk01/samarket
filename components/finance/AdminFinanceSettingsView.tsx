@@ -5,6 +5,16 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import type { CoinCashConversionPolicy } from "@/lib/finance/conversion-policy";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import {
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { FINANCE_ACTIVE_STATE_NS } from "@/lib/admin/status-labels/finance-status-labels";
 
 export function AdminFinanceSettingsView() {
   const { language } = useI18n();
@@ -13,6 +23,7 @@ export function AdminFinanceSettingsView() {
   const [draft, setDraft] = useState<Partial<CoinCashConversionPolicy>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, setPending] = useState(false);
 
@@ -24,7 +35,7 @@ export function AdminFinanceSettingsView() {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         policy?: CoinCashConversionPolicy;
         error?: string;
@@ -36,7 +47,7 @@ export function AdminFinanceSettingsView() {
       setPolicy(json.policy);
       setDraft(json.policy);
     } catch {
-      setError("network");
+      setError("network_error");
     } finally {
       setLoading(false);
     }
@@ -61,6 +72,7 @@ export function AdminFinanceSettingsView() {
 
   const save = async () => {
     setPending(true);
+    setResult(null);
     try {
       const res = await fetch("/api/admin/finance/conversion-policy", {
         method: "PATCH",
@@ -68,17 +80,22 @@ export function AdminFinanceSettingsView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         policy?: CoinCashConversionPolicy;
         error?: string;
       };
       if (!res.ok || !json.ok || !json.policy) {
-        setError(json.error || "save_failed");
+        setResult({ ok: false, code: json.error || "save_failed" });
+        setConfirmOpen(false);
         return;
       }
       setPolicy(json.policy);
       setDraft(json.policy);
+      setConfirmOpen(false);
+      setResult({ ok: true, message: ko ? "전환 정책을 저장했습니다." : "Conversion policy saved." });
+    } catch {
+      setResult({ ok: false, code: "network_error" });
       setConfirmOpen(false);
     } finally {
       setPending(false);
@@ -88,14 +105,15 @@ export function AdminFinanceSettingsView() {
   return (
     <div className="space-y-4" data-admin-finance-settings="1">
       <FinanceAdminNav ko={ko} />
-      <h2 className="text-lg font-semibold">{ko ? "재무 설정 · Coin→Cash 전환 정책" : "Finance settings · Coin→Cash"}</h2>
+      <h2 className="text-[16px] font-semibold text-sam-fg">{ko ? "재무 설정 · Coin→Cash 전환 정책" : "Finance settings · Coin→Cash"}</h2>
       <p className="sam-text-helper text-sam-muted">
         {ko
           ? "전환 ≠ 출금. Cash 출금은 없습니다. 변경은 이후 전환부터 적용됩니다."
           : "Conversion ≠ withdrawal. Cash withdrawal does not exist. Changes apply to future conversions only."}
       </p>
-      {loading ? <p className="text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p> : null}
-      {error ? <p className="text-amber-900">{error}</p> : null}
+      {loading ? <AdminLoadingState ko={ko} /> : null}
+      {error ? <AdminErrorState ko={ko} code={error} onRetry={() => void load()} /> : null}
+      {result ? <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} /> : null}
       {policy ? (
         <div className="grid max-w-4xl gap-4 lg:grid-cols-2">
           <div
@@ -106,7 +124,13 @@ export function AdminFinanceSettingsView() {
             <dl className="space-y-1 sam-text-body-secondary">
               <div className="flex justify-between gap-2">
                 <dt className="text-sam-muted">enabled</dt>
-                <dd>{policy.enabled ? "true" : "false"}</dd>
+                <dd>
+                  <AdminStatusLabel
+                    namespace={FINANCE_ACTIVE_STATE_NS}
+                    code={policy.enabled ? "active" : "inactive"}
+                    ko={ko}
+                  />
+                </dd>
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-sam-muted">rate</dt>
@@ -142,7 +166,7 @@ export function AdminFinanceSettingsView() {
                 <dd>
                   v{policy.version}
                   {policy.effectiveFrom
-                    ? ` · ${new Date(policy.effectiveFrom).toLocaleString()}`
+                    ? ` · ${formatAdminManilaDateTime(policy.effectiveFrom)}`
                     : ""}
                 </dd>
               </div>
@@ -185,15 +209,16 @@ export function AdminFinanceSettingsView() {
               />
             </label>
           ))}
-          <button
-            type="button"
-            disabled={!dirty || pending}
-            className="rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white disabled:opacity-40"
-            onClick={() => setConfirmOpen(true)}
-            data-finance-cta="save-conversion-policy"
-          >
-            {ko ? "전환 정책 저장" : "Save conversion policy"}
-          </button>
+          <div className="flex justify-end">
+            <AdminActionButton
+              variant="primary"
+              disabled={!dirty || pending}
+              onClick={() => setConfirmOpen(true)}
+              data-finance-cta="save-conversion-policy"
+            >
+              {ko ? "전환 정책 저장" : "Save conversion policy"}
+            </AdminActionButton>
+          </div>
           </div>
         </div>
       ) : null}
@@ -206,8 +231,8 @@ export function AdminFinanceSettingsView() {
             ? `현재 v${policy?.version ?? "—"} → 새 설정이 이후 전환부터 적용됩니다. 과거 원장에는 소급되지 않습니다.`
             : `Current v${policy?.version ?? "—"} → new settings apply to future conversions only.`
         }
-        confirmLabel={ko ? "정책 변경" : "Change policy"}
-        cancelLabel={ko ? "취소" : "Cancel"}
+        confirmLabel={adminCta("save", ko)}
+        cancelLabel={adminCta("cancel", ko)}
         pending={pending}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => void save()}

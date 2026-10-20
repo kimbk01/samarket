@@ -5,6 +5,8 @@ import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationSectionHealth } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 import { recHealthLabel, recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 
@@ -75,20 +77,20 @@ export function SectionHealthTable() {
                     <span
                       className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                         s.status === "healthy"
-                          ? "bg-emerald-50 text-emerald-800"
+                          ? "bg-sam-success-soft text-sam-success"
                           : s.status === "warning"
-                            ? "bg-amber-50 text-amber-800"
-                            : "bg-red-50 text-red-800"
+                            ? "bg-sam-warning-soft text-sam-warning"
+                            : "bg-sam-danger-soft text-sam-danger"
                       }`}
                     >
                       {recHealthLabel(t, s.status)}
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {s.impressionCount.toLocaleString()}
+                    {formatAdminNumber(s.impressionCount)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {s.clickCount.toLocaleString()}
+                    {formatAdminNumber(s.clickCount)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
                     {(s.ctr * 100).toFixed(2)}%
@@ -97,7 +99,7 @@ export function SectionHealthTable() {
                     {(s.emptyRate * 100).toFixed(2)}%
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(s.updatedAt).toLocaleString()}
+                    {formatAdminManilaDateTime(s.updatedAt)}
                   </td>
                 </tr>
               ))}

@@ -4,6 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import {
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   eventBannerPlacementLabel,
@@ -111,10 +118,15 @@ export function AdminPromotionBannerListClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pausingId, setPausingId] = useState<string | null>(null);
+  const [httpStatus, setHttpStatus] = useState<number | undefined>(undefined);
+  const [actionResult, setActionResult] = useState<
+    { ok: true; message: string } | { ok: false; code: string } | null
+  >(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setHttpStatus(undefined);
     try {
       const res = await fetch("/api/admin/platform-promotion/banners", {
         credentials: "same-origin",
@@ -125,19 +137,18 @@ export function AdminPromotionBannerListClient() {
         error?: string;
       };
       if (!res.ok || !json.ok) {
-        setError(
-          lang === "en" ? "Could not load banners." : "배너를 불러오지 못했습니다."
-        );
+        setError(json.error || "load_failed");
+        setHttpStatus(res.status);
         setRows([]);
         return;
       }
       setRows(json.items ?? []);
     } catch {
-      setError(lang === "en" ? "Could not load banners." : "배너를 불러오지 못했습니다.");
+      setError("network_error");
     } finally {
       setLoading(false);
     }
-  }, [lang]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -147,7 +158,7 @@ export function AdminPromotionBannerListClient() {
     <div className="space-y-4 p-4" data-admin-promotion-banner-list="1">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">
+          <h1 className="text-[16px] font-semibold">
             {t("admin_menu_promotion_banners")}
           </h1>
           <p
@@ -187,12 +198,12 @@ export function AdminPromotionBannerListClient() {
         </AdminActionLink>
       </div>
 
+      <AdminResultBanner ko={lang !== "en"} result={actionResult} onClose={() => setActionResult(null)} />
+
       {loading ? (
-        <p className="text-sm text-sam-muted">…</p>
+        <AdminLoadingState ko={lang !== "en"} />
       ) : error ? (
-        <p className="text-sm text-red-600" role="alert">
-          {error}
-        </p>
+        <AdminErrorState ko={lang !== "en"} code={error} httpStatus={httpStatus} onRetry={() => void load()} />
       ) : rows.length === 0 ? (
         <div
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4"
@@ -244,7 +255,7 @@ export function AdminPromotionBannerListClient() {
                     )}
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold">{row.eventTitle}</div>
-                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-sam-muted">
+                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[12px] text-sam-muted">
                         <span>{eventBannerPresentationLabel(row.presentation, lang)}</span>
                         <span>{eventBannerPlacementLabel(row.placement, lang)}</span>
                         <span>
@@ -293,23 +304,34 @@ export function AdminPromotionBannerListClient() {
                     </AdminActionLink>
                     {canDirectPause ? (
                       <AdminActionButton
-                        variant="quiet"
+                        variant="secondary"
                         disabled={pausingId === row.distributionId}
                         data-admin-banner-direct-pause="1"
                         onClick={() => {
                           void (async () => {
+                            const ko = lang !== "en";
+                            const confirmed = await confirmAdminAction({
+                              level: "L1",
+                              ko,
+                              title: ko ? "배너 노출 중지" : "Stop banner exposure",
+                              description: ko
+                                ? `「${row.eventTitle}」 배너 노출을 중지합니다. 이벤트 노출 설정에서 다시 켤 수 있습니다.`
+                                : `Stop showing the "${row.eventTitle}" banner. You can turn it back on in Event exposure settings.`,
+                              confirmLabel: adminCta("exposeStop", ko),
+                            });
+                            if (!confirmed.ok) return;
                             setPausingId(row.distributionId);
-                            setError(null);
+                            setActionResult(null);
                             const r = await pauseBannerViaExistingDistributionWriter(row);
                             setPausingId(null);
                             if (!r.ok) {
-                              setError(
-                                lang === "en"
-                                  ? `Could not pause banner (${r.error}).`
-                                  : `배너 중지에 실패했습니다 (${r.error}).`
-                              );
+                              setActionResult({ ok: false, code: r.error ?? "save_failed" });
                               return;
                             }
+                            setActionResult({
+                              ok: true,
+                              message: ko ? "배너 노출을 중지했습니다." : "Banner exposure stopped.",
+                            });
                             await load();
                           })();
                         }}

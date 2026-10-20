@@ -5,6 +5,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 type ConfirmState = {
   op: "credit" | "debit";
@@ -21,7 +24,14 @@ type ConfirmState = {
  * Minimal Point 지급/회수 panel — wraps existing adjustUserPoints writer.
  * Mutation only after confirmation.
  */
-export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void }) {
+export function AdminPointAdjustPanel({
+  onChanged,
+  actionAllowed = true,
+}: {
+  onChanged?: () => void;
+  /** 접근표 쓰기 권한 — false 면 지급·회수 비활성 (서버 가드는 그대로). */
+  actionAllowed?: boolean;
+}) {
   const { language } = useI18n();
   const ko = language !== "en";
 
@@ -36,6 +46,7 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
 
   const openConfirm = async (op: "credit" | "debit") => {
+    if (!actionAllowed) return;
     setError(null);
     setNotice(null);
     const uid = userId.trim();
@@ -56,7 +67,7 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
         `/api/admin/points/adjust?userId=${encodeURIComponent(uid)}`,
         { credentials: "include", cache: "no-store" }
       );
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         balance?: number;
         error?: string;
@@ -91,7 +102,7 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
   };
 
   const mutate = async () => {
-    if (!confirm || busy) return;
+    if (!confirm || busy || !actionAllowed) return;
     setBusy(true);
     setError(null);
     try {
@@ -108,7 +119,7 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
           idempotencyKey: confirm.idempotencyKey,
         }),
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         messageKo?: string;
@@ -127,7 +138,7 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
         );
         return;
       }
-      const amt = confirm.amount.toLocaleString();
+      const amt = formatAdminNumber(confirm.amount);
       setNotice(
         confirm.op === "credit"
           ? ko
@@ -157,11 +168,19 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
       className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
       data-admin-point-adjust="1"
     >
-      <h2 className="text-base font-semibold text-sam-fg">
+      <h2 className="text-[16px] font-semibold text-sam-fg">
         {ko ? "Point 지급 / 회수" : "Point credit / reclaim"}
       </h2>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {notice ? <p className="text-sm text-emerald-800">{notice}</p> : null}
+      {error ? (
+        <p role="alert" className="text-[14px] text-sam-danger">
+          {error}
+        </p>
+      ) : null}
+      {notice ? (
+        <p role="status" className="text-[14px] text-sam-success">
+          {notice}
+        </p>
+      ) : null}
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="block text-sm">
           <span className="text-sam-muted">{ko ? "회원 ID" : "Member ID"}</span>
@@ -209,24 +228,22 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
         </label>
       </div>
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={busy}
-          className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+        <AdminActionButton
+          variant="primary"
+          disabled={busy || !actionAllowed}
           onClick={() => void openConfirm("credit")}
           data-finance-cta="point-credit"
         >
           {ko ? "Point 지급" : "Credit Point"}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-semibold disabled:opacity-40"
+        </AdminActionButton>
+        <AdminActionButton
+          variant="secondary"
+          disabled={busy || !actionAllowed}
           onClick={() => void openConfirm("debit")}
           data-finance-cta="point-reclaim"
         >
           {ko ? "Point 회수" : "Reclaim Point"}
-        </button>
+        </AdminActionButton>
       </div>
 
       <AdminActionConfirmDialog
@@ -234,11 +251,11 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
         title={
           confirm?.op === "credit"
             ? ko
-              ? `${confirm.memberLabel} 회원에게 ${confirm.amount.toLocaleString()} Point를 지급하시겠습니까?`
-              : `Credit ${confirm?.amount.toLocaleString()} Point to ${confirm?.memberLabel}?`
+              ? `${confirm.memberLabel} 회원에게 ${formatAdminNumber(confirm.amount)} Point를 지급하시겠습니까?`
+              : `Credit ${formatAdminNumber(confirm?.amount)} Point to ${confirm?.memberLabel}?`
             : ko
-              ? `${confirm?.memberLabel} 회원의 Point ${confirm?.amount.toLocaleString()}를 회수하시겠습니까?`
-              : `Reclaim ${confirm?.amount.toLocaleString()} Point from ${confirm?.memberLabel}?`
+              ? `${confirm?.memberLabel} 회원의 Point ${formatAdminNumber(confirm?.amount)}를 회수하시겠습니까?`
+              : `Reclaim ${formatAdminNumber(confirm?.amount)} Point from ${confirm?.memberLabel}?`
         }
         description={
           confirm
@@ -266,7 +283,7 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
               ? "Point 회수"
               : "Reclaim Point"
         }
-        cancelLabel={ko ? "취소" : "Cancel"}
+        cancelLabel={adminCta("cancel", ko)}
         pending={busy}
         onCancel={() => setConfirm(null)}
         onConfirm={() => void mutate()}

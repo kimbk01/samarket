@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationAutomationSummary } from "@/lib/recommendation-automation/recommendation-automation-summary";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function AutomationSummaryCards() {
   const { t } = useI18n();
@@ -25,7 +26,7 @@ export function AutomationSummaryCards() {
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <p className="sam-text-helper text-sam-muted">{t("admin_rec_th_dry_run")}</p>
-        <p className="sam-text-page-title font-semibold text-amber-600">
+        <p className="sam-text-page-title font-semibold text-sam-warning">
           {summary.dryRunPolicies}
         </p>
         <p className="sam-text-body-secondary text-sam-muted">
@@ -56,7 +57,7 @@ export function AutomationSummaryCards() {
         <p className="sam-text-helper text-sam-muted">{t("admin_rec_auto_summary_last_run")}</p>
         <p className="sam-text-body font-medium text-sam-fg">
           {summary.latestExecutionAt
-            ? new Date(summary.latestExecutionAt).toLocaleString(undefined, { hour12: false })
+            ? formatAdminManilaDateTime(summary.latestExecutionAt)
             : "-"}
         </p>
       </div>

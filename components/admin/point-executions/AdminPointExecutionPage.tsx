@@ -1,32 +1,36 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  pointActionTypeLabel,
-  pointBoardLabel,
-  pointChargeStatusLabel,
-  pointExecStatusLabel,
-  pointExpireCycleLabel,
-  pointExpireExecStatusLabel,
-  pointLedgerTypeLabel,
-  pointPaymentMethodLabel,
-  pointRewardTypeLabel,
-  pointUserTypeLabel,
-} from "@/components/admin/points/admin-points-notifications-i18n";
+import { pointBoardLabel, pointUserTypeLabel } from "@/components/admin/points/admin-points-notifications-i18n";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useAdminPointExecutionData } from "@/hooks/useAdminPointExecutionData";
-import {
-  filterPointRewardExecutions,
-  type AdminPointExecutionFilters,
-} from "@/lib/point-executions/point-execution-utils";
 import { BOARD_OPTIONS } from "@/lib/point-policies/point-policy-utils";
-import { AdminPointExecutionFilterBar } from "./AdminPointExecutionFilterBar";
+import type { PointReclaimPolicy } from "@/lib/types/point-execution";
+import {
+  AdminPointExecutionFilterBar,
+  POINT_EXECUTION_FILTER_EXTRAS,
+  POINT_EXECUTION_STATUSES,
+} from "./AdminPointExecutionFilterBar";
 import { AdminPointExecutionTable } from "./AdminPointExecutionTable";
 import { PointReclaimPolicyTable } from "./PointReclaimPolicyTable";
 import { PointRewardLogList } from "./PointRewardLogList";
@@ -46,13 +50,6 @@ type PendingRewardGrant = {
   previewPoint: number;
 };
 
-const DEFAULT_FILTERS: AdminPointExecutionFilters = {
-  status: "",
-  boardKey: "",
-  actionType: "",
-  userId: "",
-};
-
 export function AdminPointExecutionPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
@@ -62,17 +59,54 @@ export function AdminPointExecutionPage() {
     { id: "logs", label: t("admin_points_exec_tab_logs") },
   ];
   const [activeTab, setActiveTab] = useState<TabId>("executions");
-  const [filters, setFilters] = useState<AdminPointExecutionFilters>(DEFAULT_FILTERS);
+  const lq = useAdminListQuery({ statuses: POINT_EXECUTION_STATUSES, extras: POINT_EXECUTION_FILTER_EXTRAS });
+  const action = useAdminRouteAction("/admin/point-executions");
   const [refresh, setRefresh] = useState(0);
   const [pendingGrant, setPendingGrant] = useState<PendingRewardGrant | null>(null);
   const [grantBusy, setGrantBusy] = useState(false);
   const [grantMsg, setGrantMsg] = useState<string | null>(null);
-
-  const { executions, reclaimPolicies, rewardLogs } = useAdminPointExecutionData(refresh);
-  const filteredExecutions = useMemo(
-    () => filterPointRewardExecutions(executions, filters),
-    [executions, filters]
+  const [reclaimBusy, setReclaimBusy] = useState(false);
+  const [reclaimResult, setReclaimResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(
+    null
   );
+
+  const { executions, total, reclaimPolicies, rewardLogs, loading, error } = useAdminPointExecutionData(
+    `${lq.refreshKey}:${refresh}`,
+    lq.apiQueryString
+  );
+
+  const toggleReclaim = async (p: PointReclaimPolicy) => {
+    if (reclaimBusy || !action.allowed) return;
+    const nextLabel = p.isActive ? t("admin_points_status_inactive") : t("admin_points_status_active");
+    const c = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "회수 정책 상태 변경" : "Change reclaim policy status",
+      description: ko ? `이 회수 정책을 「${nextLabel}」 상태로 바꿉니다.` : `Set this reclaim policy to "${nextLabel}".`,
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!c.ok) return;
+    setReclaimBusy(true);
+    setReclaimResult(null);
+    try {
+      const res = await adminFetch(`/api/admin/point-executions/reclaim/${p.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !p.isActive }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || json.ok === false) {
+        setReclaimResult({ ok: false, code: json.error ?? "update_failed" });
+        return;
+      }
+      setReclaimResult({ ok: true, message: ko ? "저장했습니다." : "Saved." });
+      setRefresh((r) => r + 1);
+    } catch {
+      setReclaimResult({ ok: false, code: "network_error" });
+    } finally {
+      setReclaimBusy(false);
+    }
+  };
 
   /**
    * V3-07: 실제 포인트가 지급된다 — 사유(2자 이상) 입력 → 정책 미리보기로 지급액 확인 →
@@ -173,22 +207,19 @@ export function AdminPointExecutionPage() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_menu_points_execute" />
 
-      <div className="flex flex-wrap gap-2 border-b border-sam-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        tabs={tabs}
+        ariaLabel={ko ? "포인트 실행 탭" : "Point execution tabs"}
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as TabId)}
+        syncUrl={false}
+      />
+
+      {!action.allowed && action.reason ? (
+        <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
+          {ko ? `실행 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+        </p>
+      ) : null}
 
       {activeTab === "executions" && (
         <>
@@ -257,9 +288,9 @@ export function AdminPointExecutionPage() {
                   className="w-48 rounded border border-sam-border px-2 py-1.5"
                 />
               </div>
-              <button type="submit" className="rounded border border-signature bg-signature px-3 py-1.5 sam-text-body-secondary font-medium text-white">
-                {ko ? "실지급 실행" : "Grant (real points)"}
-              </button>
+              <AdminActionButton type="submit" variant="primary" disabled={grantBusy || !action.allowed}>
+                {ko ? "포인트 지급" : "Grant points"}
+              </AdminActionButton>
             </form>
             <p className="mt-2 sam-text-helper text-sam-muted">
               {ko
@@ -277,14 +308,14 @@ export function AdminPointExecutionPage() {
                     : `Up to ${pendingGrant.previewPoint}P will actually be credited to ${pendingGrant.userNickname} (${pendingGrant.userId}). Reason: ${pendingGrant.reason}`
                   : ""
               }
-              confirmLabel={ko ? "실지급" : "Grant"}
+              confirmLabel={adminCta("payout", ko)}
               cancelLabel={ko ? "취소" : "Cancel"}
               tone="danger"
               confirmMatchText={pendingGrant ? `${pendingGrant.userNickname} ${pendingGrant.previewPoint}` : ""}
               confirmMatchLabel={
                 pendingGrant
                   ? ko
-                    ? `확인을 위해 대상 닉네임과 지급액 「${pendingGrant.userNickname} ${pendingGrant.previewPoint}」 를 입력하세요`
+                    ? `계속하려면 대상 닉네임과 지급액 「${pendingGrant.userNickname} ${pendingGrant.previewPoint}」 를 입력하세요`
                     : `Type the nickname and amount 「${pendingGrant.userNickname} ${pendingGrant.previewPoint}」 to confirm`
                   : undefined
               }
@@ -295,35 +326,71 @@ export function AdminPointExecutionPage() {
           </AdminCard>
           <AdminCard titleKey="admin_points_exec_card_history">
             <div className="mb-3">
-              <AdminPointExecutionFilterBar
-              filters={filters}
-              onFiltersChange={setFilters}
-            />
-          </div>
-          <AdminPointExecutionTable executions={filteredExecutions} />
+              <AdminPointExecutionFilterBar lq={lq} pending={loading} />
+            </div>
+            <p className="mb-2 sam-text-body-secondary tabular-nums text-sam-muted" data-admin-list-total="1">
+              {ko ? `총 ${formatAdminNumber(total)}건` : `${formatAdminNumber(total)} total`}
+            </p>
+            {loading ? (
+              <AdminLoadingState ko={ko} />
+            ) : error ? (
+              <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={lq.refresh} />
+            ) : executions.length === 0 ? (
+              <AdminEmptyState
+                ko={ko}
+                message={lq.isFiltered ? undefined : t("admin_points_exec_history_empty")}
+                onReset={lq.isFiltered ? lq.reset : undefined}
+              />
+            ) : (
+              <AdminPointExecutionTable executions={executions} />
+            )}
+            {!error && total > 0 ? (
+              <AdminPagination
+                ko={ko}
+                page={lq.query.page}
+                size={lq.query.size}
+                total={total}
+                onPageChange={lq.setPage}
+                onSizeChange={lq.setSize}
+                disabled={loading}
+              />
+            ) : null}
           </AdminCard>
         </>
       )}
 
       {activeTab === "reclaim" && (
         <AdminCard titleKey="admin_points_exec_card_reclaim">
-          <PointReclaimPolicyTable
-            policies={reclaimPolicies}
-            onToggleActive={async (p) => {
-              await adminFetch(`/api/admin/point-executions/reclaim/${p.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ isActive: !p.isActive }),
-              });
-              setRefresh((r) => r + 1);
-            }}
-          />
+          {reclaimResult ? (
+            <div className="mb-3">
+              <AdminResultBanner ko={ko} result={reclaimResult} onClose={() => setReclaimResult(null)} />
+            </div>
+          ) : null}
+          {loading ? (
+            <AdminLoadingState ko={ko} />
+          ) : error ? (
+            <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={lq.refresh} />
+          ) : reclaimPolicies.length === 0 ? (
+            <AdminEmptyState ko={ko} message={t("admin_points_exec_reclaim_empty")} />
+          ) : (
+            <PointReclaimPolicyTable
+              policies={reclaimPolicies}
+              toggleDisabled={reclaimBusy || !action.allowed}
+              onToggleActive={(p) => void toggleReclaim(p)}
+            />
+          )}
         </AdminCard>
       )}
 
       {activeTab === "logs" && (
         <AdminCard titleKey="admin_points_exec_card_logs">
-          <PointRewardLogList logs={rewardLogs} />
+          {loading ? (
+            <AdminLoadingState ko={ko} />
+          ) : error ? (
+            <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={lq.refresh} />
+          ) : (
+            <PointRewardLogList logs={rewardLogs} />
+          )}
         </AdminCard>
       )}
     </div>

@@ -5,6 +5,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import {
   getRecommendationExperiments,
   saveRecommendationExperiment,
@@ -137,22 +138,13 @@ export function AdminRecommendationExperimentPage() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_menu_manage_ab" />
 
-      <div className="flex flex-wrap gap-2 border-b border-sam-border">
-        {EXP_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        tabs={EXP_TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        ariaLabel="추천 실험 탭"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as TabId)}
+        syncUrl={false}
+      />
 
       {activeTab === "experiments" && (
         <AdminCard titleKey="admin_rec_exp_card_ab">

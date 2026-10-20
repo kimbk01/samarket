@@ -23,7 +23,7 @@ export function CurrencyBadge({
 
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-ui-rect px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${BADGE_CLASS[currency]} ${className}`}
+      className={`inline-flex shrink-0 items-center rounded-ui-rect px-2 py-0.5 text-[12px] font-bold uppercase tracking-wide ${BADGE_CLASS[currency]} ${className}`}
       data-currency-badge={currency}
     >
       {label}

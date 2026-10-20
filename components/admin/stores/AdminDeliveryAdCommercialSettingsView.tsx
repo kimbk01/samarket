@@ -7,6 +7,14 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import {
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import type { DeliveryAdCommercialCatalogReadModel } from "@/lib/stores/advertising/delivery-ad-commercial-catalog";
 import type { DeliveryAdPackageRow } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
@@ -70,6 +78,34 @@ export function AdminDeliveryAdCommercialSettingsView() {
   }, [load]);
 
   const patch = async (body: Record<string, unknown>) => {
+    const ko = lang !== "en";
+    const op = String(body.op ?? "");
+    const title =
+      op === "create_package"
+        ? ko
+          ? "맞춤 패키지를 등록할까요?"
+          : "Create this custom package?"
+        : op === "update_extension"
+          ? ko
+            ? "연장 정책을 저장할까요?"
+            : "Save the extension policy?"
+          : op === "update_product" || op === "update_placement"
+            ? ko
+              ? "판매 설정을 저장할까요?"
+              : "Save the sales setting?"
+            : ko
+              ? "광고 가격을 저장할까요?"
+              : "Save the ad price?";
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title,
+      description: ko
+        ? "신규 신청부터 적용됩니다. 이미 승인된 광고에는 소급되지 않습니다."
+        : "Applies to new applications only. Approved campaigns are not changed.",
+      confirmLabel: adminCta(op === "create_package" ? "create" : "save", ko),
+    });
+    if (!confirmed.ok) return;
     setBusy(true);
     setError(null);
     setMsg(null);
@@ -90,7 +126,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
         return;
       }
       setCatalog(j.catalog);
-      setMsg(lang === "en" ? "Saved" : "저장됨");
+      setMsg(lang === "en" ? "Saved." : "저장했습니다.");
     } finally {
       setBusy(false);
     }
@@ -153,7 +189,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
         <p className="mb-1 text-[12px]">
           <Link
             href="/admin/stores-home-shelves"
-            className="font-medium text-sam-muted hover:text-[#0A823E]"
+            className="font-medium text-sam-muted hover:text-sam-primary"
           >
             {safeT("admin_delivery_ads_exposure_policy_link", {
               fallbackKo: "노출(max/interval) 정책 — 별도 SSOT",
@@ -162,24 +198,41 @@ export function AdminDeliveryAdCommercialSettingsView() {
           </Link>
         </p>
 
-        {error ? (
-          <p className="mb-3 text-[13px] text-red-600" role="alert">
-            {error}
-          </p>
+        {error && catalog ? (
+          <div className="mb-3">
+            <AdminResultBanner
+              ko={lang !== "en"}
+              result={{ ok: false, code: error }}
+              onClose={() => setError(null)}
+            />
+          </div>
         ) : null}
-        {msg ? <p className="mb-3 text-[13px] text-sam-muted">{msg}</p> : null}
+        {msg ? (
+          <div className="mb-3">
+            <AdminResultBanner
+              ko={lang !== "en"}
+              result={{ ok: true, message: msg }}
+              onClose={() => setMsg(null)}
+            />
+          </div>
+        ) : null}
 
         {!catalog ? (
-          <p className="text-[13px] text-sam-muted">
-            {safeT("admin_delivery_ads_loading", {
-              fallbackKo: "불러오는 중…",
-              fallbackEn: "Loading…",
-            })}
-          </p>
+          error ? (
+            <AdminErrorState ko={lang !== "en"} code={error} onRetry={() => void load()} />
+          ) : (
+            <AdminLoadingState
+              ko={lang !== "en"}
+              label={safeT("admin_delivery_ads_loading", {
+                fallbackKo: "불러오는 중…",
+                fallbackEn: "Loading…",
+              })}
+            />
+          )
         ) : (
           <div className="space-y-4">
             <div
-              className="rounded-ui-rect border border-[#0A823E]/35 bg-[#0A823E]/5 px-3 py-3"
+              className="rounded-ui-rect border border-sam-primary/35 bg-sam-primary/5 px-3 py-3"
               data-commercial-open-event-notice="1"
             >
               <p className="text-[14px] font-bold text-sam-fg">
@@ -201,7 +254,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
 
             {unsetMatrixSlotCount > 0 ? (
               <p
-                className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] font-semibold text-amber-900"
+                className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] font-semibold text-sam-fg"
                 role="status"
                 data-commercial-unset-warning-count={unsetMatrixSlotCount}
               >
@@ -216,7 +269,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
             {/* UI-2 — price matrix primary */}
             <AdminCard titleKey="admin_delivery_ads_commercial_matrix_title">
               <div data-commercial-matrix="1">
-              <p className="mb-3 text-[12px] text-amber-800">
+              <p className="mb-3 text-[12px] text-sam-warning">
                 {safeT("admin_delivery_ads_commercial_price_warn", {
                   fallbackKo:
                     "가격 변경은 이미 승인된 광고의 commercial snapshot에 소급 적용되지 않습니다. 신규 신청부터 새 가격이 적용됩니다.",
@@ -238,14 +291,14 @@ export function AdminDeliveryAdCommercialSettingsView() {
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[480px] border-collapse text-[12px]" data-commercial-matrix-table="design-board">
                         <thead>
-                          <tr className="bg-[#F5F5F5] text-left text-[#757575]">
-                            <th className="border border-[#BDBDBD] p-2 font-semibold">
+                          <tr className="bg-sam-surface-muted text-left text-sam-muted">
+                            <th className="border border-sam-border p-2 font-semibold">
                               {lang === "en" ? "Placement" : "지면"}
                             </th>
                             {R3_COMMERCIAL_MATRIX_DURATIONS.map((d) => (
                               <th
                                 key={d}
-                                className="border border-[#BDBDBD] p-2 font-semibold tabular-nums"
+                                className="border border-sam-border p-2 font-semibold tabular-nums"
                               >
                                 {d}
                                 {lang === "en" ? "d" : "일"}
@@ -255,8 +308,8 @@ export function AdminDeliveryAdCommercialSettingsView() {
                         </thead>
                         <tbody>
                           {placements.map((inv) => (
-                            <tr key={inv} className="bg-white">
-                              <td className="border border-[#BDBDBD] p-2 font-medium text-sam-fg">
+                            <tr key={inv} className="bg-sam-surface">
+                              <td className="border border-sam-border p-2 font-medium text-sam-fg">
                                 {deliveryAdCommercialPlacementLabel(inv, lang)}
                               </td>
                               {R3_COMMERCIAL_MATRIX_DURATIONS.map((days, i) => {
@@ -266,7 +319,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                                   packageIndex.get(`${product}:${inv}:${code}`) ??
                                   null;
                                 return (
-                                  <td key={days} className="border border-[#BDBDBD] p-2">
+                                  <td key={days} className="border border-sam-border p-2">
                                     <MatrixCell
                                       pkg={pkg}
                                       busy={busy}
@@ -295,9 +348,10 @@ export function AdminDeliveryAdCommercialSettingsView() {
               </div>
             </AdminCard>
 
-            <button
-              type="button"
-              className="flex w-full items-center justify-between rounded-ui-rect border border-[#BDBDBD] bg-white px-4 py-3 text-[14px] font-semibold text-sam-fg"
+            <AdminActionButton
+              variant="secondary"
+              className="!h-auto min-h-10 w-full !justify-between !whitespace-normal py-2 text-left"
+              aria-expanded={advancedOpen}
               onClick={() => setAdvancedOpen((v) => !v)}
               data-commercial-advanced-toggle="1"
             >
@@ -305,8 +359,8 @@ export function AdminDeliveryAdCommercialSettingsView() {
                 fallbackKo: "고급 설정 (상품·지면·Partner·연장)",
                 fallbackEn: "Advanced (products · placements · Partner · extension)",
               })}
-              <span>{advancedOpen ? "−" : "+"}</span>
-            </button>
+              <span aria-hidden>{advancedOpen ? "−" : "+"}</span>
+            </AdminActionButton>
 
             {advancedOpen ? (
             <>
@@ -394,16 +448,17 @@ export function AdminDeliveryAdCommercialSettingsView() {
             </AdminCard>
 
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-commercial-custom-package="1">
-              <button
-                type="button"
-                className="text-[13px] font-semibold text-sam-fg"
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
+                aria-expanded={customOpen}
                 onClick={() => setCustomOpen((v) => !v)}
               >
                 {safeT("admin_delivery_ads_commercial_custom_package", {
                   fallbackKo: "맞춤 패키지 추가",
                   fallbackEn: "Add custom package",
                 })}
-              </button>
+              </AdminActionButton>
               {customOpen ? (
                 <div className="mt-3 space-y-2">
                   <div className="flex flex-wrap gap-2">
@@ -462,16 +517,17 @@ export function AdminDeliveryAdCommercialSettingsView() {
               className="rounded-ui-rect border border-sam-border bg-sam-surface p-3"
               data-commercial-extension-collapsed="1"
             >
-              <button
-                type="button"
-                className="text-[13px] font-semibold text-sam-fg"
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
+                aria-expanded={extensionOpen}
                 onClick={() => setExtensionOpen((v) => !v)}
               >
                 {safeT("admin_delivery_ads_commercial_extension_collapsed", {
                   fallbackKo: "연장 정책 (고급)",
                   fallbackEn: "Extension policy (advanced)",
                 })}
-              </button>
+              </AdminActionButton>
               {extensionOpen ? (
                 <div className="mt-3">
                   <ExtensionForm
@@ -555,16 +611,16 @@ function MatrixCell(props: {
   if (!pkg) {
     return (
       <div
-        className="space-y-1 rounded-ui-rect border border-amber-300 bg-amber-50 px-1.5 py-1.5"
+        className="space-y-1 rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-1.5 py-1.5"
         data-commercial-matrix-cell="missing"
       >
-        <p className="text-[11px] font-bold text-amber-900">
+        <p className="text-[12px] font-bold text-sam-warning">
           {lang === "en" ? "Price unset" : "가격 미설정"}
         </p>
-        <p className="text-[11px] text-amber-900">
+        <p className="text-[12px] text-sam-warning">
           {lang === "en" ? "Not for sale" : "판매 불가"}
         </p>
-        <p className="text-[10px] leading-snug text-amber-800">
+        <p className="text-[12px] leading-snug text-sam-fg">
           {lang === "en"
             ? "Set this price so Owners can apply."
             : "이 가격을 설정해야 Owner가 신청할 수 있습니다"}
@@ -577,19 +633,19 @@ function MatrixCell(props: {
   return (
     <div
       className={`space-y-1 ${
-        unset ? "rounded-ui-rect border border-amber-300 bg-amber-50 px-1.5 py-1.5" : ""
+        unset ? "rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-1.5 py-1.5" : ""
       }`}
       data-commercial-matrix-cell={unset ? "unset" : "set"}
     >
       {unset ? (
         <div className="mb-1 space-y-0.5" data-commercial-price-unset-guide="1">
-          <p className="text-[11px] font-bold text-amber-900">
+          <p className="text-[12px] font-bold text-sam-warning">
             {lang === "en" ? "Price unset" : "가격 미설정"}
           </p>
-          <p className="text-[11px] text-amber-900">
+          <p className="text-[12px] text-sam-warning">
             {lang === "en" ? "Not for sale" : "판매 불가"}
           </p>
-          <p className="text-[10px] leading-snug text-amber-800">
+          <p className="text-[12px] leading-snug text-sam-fg">
             {lang === "en"
               ? "Set this price so Owners can apply."
               : "이 가격을 설정해야 Owner가 신청할 수 있습니다"}
@@ -604,7 +660,7 @@ function MatrixCell(props: {
         onChange={(e) => setPrice(e.target.value)}
         data-price-null-safe="1"
       />
-      <label className="flex items-center gap-1 text-[11px]">
+      <label className="flex items-center gap-1 text-[12px]">
         <input
           type="checkbox"
           checked={enabled}
@@ -613,10 +669,10 @@ function MatrixCell(props: {
         />
         {lang === "en" ? "Active" : "활성"}
       </label>
-      <button
-        type="button"
+      <AdminActionButton
+        variant="secondary"
+        size="sm"
         disabled={busy}
-        className="rounded-ui-rect border border-sam-border px-2 py-0.5 text-[11px]"
         onClick={() => {
           const priceAmountMinor = price.trim() === "" ? null : parseDeliveryAdPhpMajorToMinor(price);
           if (price.trim() !== "" && priceAmountMinor == null) return;
@@ -628,8 +684,8 @@ function MatrixCell(props: {
           });
         }}
       >
-        {lang === "en" ? "Save" : "저장"}
-      </button>
+        {adminCta("save", lang !== "en")}
+      </AdminActionButton>
     </div>
   );
 }
@@ -675,10 +731,10 @@ function CreatePackageRow(props: {
         disabled={props.busy}
         onChange={(e) => setPrice(e.target.value)}
       />
-      <button
-        type="button"
+      <AdminActionButton
+        variant="secondary"
+        size="sm"
         disabled={props.busy}
-        className="rounded-ui-rect border border-sam-border px-2 py-1 text-[12px]"
         onClick={() => {
           const priceAmountMinor =
             price.trim() === "" ? null : parseDeliveryAdPhpMajorToMinor(price);
@@ -697,8 +753,8 @@ function CreatePackageRow(props: {
           setPrice("");
         }}
       >
-        {props.lang === "en" ? "Add" : "추가"}
-      </button>
+        {adminCta("create", props.lang !== "en")}
+      </AdminActionButton>
     </div>
   );
 }
@@ -764,10 +820,10 @@ function ExtensionForm(props: {
           onChange={(e) => setMaxD(e.target.value)}
         />
       </label>
-      <button
-        type="button"
+      <AdminActionButton
+        variant="primary"
         disabled={props.busy}
-        className="rounded-ui-rect border border-sam-border px-3 py-1 text-[12px] sm:col-span-4"
+        className="sm:col-span-4"
         onClick={() => {
           const additionalDayPriceMinor =
             price.trim() === "" ? null : parseDeliveryAdPhpMajorToMinor(price);
@@ -781,7 +837,7 @@ function ExtensionForm(props: {
         }}
       >
         {props.lang === "en" ? "Save extension policy" : "연장 정책 저장"}
-      </button>
+      </AdminActionButton>
     </div>
   );
 }

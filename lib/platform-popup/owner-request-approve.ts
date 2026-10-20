@@ -16,7 +16,6 @@ import {
 } from "@/lib/platform-popup/admin-campaign-writer";
 import {
   canAdminTransitionPlatformPopupRequest,
-  nextPaymentAfterReject,
   nextStatusForAdminAction,
 } from "@/lib/platform-popup/owner-request-lifecycle";
 import {
@@ -28,7 +27,6 @@ import type {
   PlatformPopupOwnerRequestRow,
 } from "@/lib/platform-popup/owner-request-types";
 import { PLATFORM_POPUP_DEFAULT_TIMEZONE } from "@/lib/platform-popup/types";
-import { refundBusinessCashForRejectedDeliveryAd } from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 /** V3-03 — 거절 = 비즈캐시 환불 + 상태 rejected 단일 트랜잭션. */
 export const ADMIN_REJECT_POPUP_OWNER_REQUEST_RPC =
@@ -299,65 +297,35 @@ export async function adminActOnPlatformPopupOwnerRequest(
       p_reason: input.reason?.trim() || null,
       p_actor: input.adminUserId,
     });
-    let paymentStatus = request.paymentStatus;
-    if (atomic.error && !isMissingRpcError(atomic.error)) {
-      return { ok: false, error: atomic.error.message, httpStatus: 500 };
-    }
-    if (!atomic.error) {
-      const out = (atomic.data ?? {}) as {
-        ok?: boolean;
-        error?: string;
-        detail?: string | null;
-        payment_status?: string;
+    // 2단계 폴백 없음 — 함수가 없는 DB 에서는 반려하지 않는다 (환불·상태가 갈라지는 것 방지).
+    if (atomic.error) {
+      return {
+        ok: false,
+        error: isMissingRpcError(atomic.error) ? `${ADMIN_REJECT_POPUP_OWNER_REQUEST_RPC}_missing` : atomic.error.message,
+        httpStatus: isMissingRpcError(atomic.error) ? 503 : 500,
       };
-      if (!out.ok) {
-        const error = String(out.error ?? "reject_failed");
-        return {
-          ok: false,
-          error,
-          detail: out.detail ?? undefined,
-          httpStatus:
-            error === "not_found"
-              ? 404
-              : error === "illegal_transition"
-                ? 409
-                : error.startsWith("refund_failed:")
-                  ? 400
-                  : 500,
-        };
-      }
-      paymentStatus = (out.payment_status ?? paymentStatus) as typeof paymentStatus;
-    } else {
-      // 배포 순서 안전: RPC 미적용 DB 에서만 기존 2단계 경로.
-      if (request.paymentStatus === "funded") {
-        const refund = await refundBusinessCashForRejectedDeliveryAd(sb, {
-          adminUserId: input.adminUserId,
-          applicationId: request.id,
-          productKind: "platform_popup",
-        });
-        if (!refund.ok) {
-          return {
-            ok: false,
-            error: `refund_failed:${refund.error}`,
-            detail: refund.detail,
-            httpStatus: 400,
-          };
-        }
-        paymentStatus = nextPaymentAfterReject(request.paymentStatus);
-      }
-
-      const now = new Date().toISOString();
-      const { error } = await sb
-        .from(PLATFORM_POPUP_OWNER_REQUEST_TABLE)
-        .update({
-          request_status: "rejected",
-          payment_status: paymentStatus,
-          rejection_reason: input.reason?.trim() || null,
-          reviewed_at: now,
-          updated_at: now,
-        })
-        .eq("id", request.id);
-      if (error) return { ok: false, error: error.message, httpStatus: 500 };
+    }
+    const out = (atomic.data ?? {}) as {
+      ok?: boolean;
+      error?: string;
+      detail?: string | null;
+      payment_status?: string;
+    };
+    if (!out.ok) {
+      const error = String(out.error ?? "reject_failed");
+      return {
+        ok: false,
+        error,
+        detail: out.detail ?? undefined,
+        httpStatus:
+          error === "not_found"
+            ? 404
+            : error === "illegal_transition"
+              ? 409
+              : error.startsWith("refund_failed:")
+                ? 400
+                : 500,
+      };
     }
 
     // If a campaign was somehow linked, reject it too (should be rare pre-approve).
@@ -381,7 +349,7 @@ export async function adminActOnPlatformPopupOwnerRequest(
       before_json: { request_status: request.requestStatus, payment_status: request.paymentStatus },
       after_json: {
         request_status: "rejected",
-        payment_status: paymentStatus,
+        payment_status: out.payment_status ?? request.paymentStatus,
         reason: input.reason ?? null,
       },
     });

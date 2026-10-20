@@ -1,6 +1,8 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { useState } from "react";
 import type { PointEventPolicy } from "@/lib/types/point-policy";
 import { BOARD_OPTIONS } from "@/lib/point-policies/point-policy-utils";
@@ -9,14 +11,18 @@ interface PointEventPolicyFormProps {
   initial?: Partial<PointEventPolicy> | null;
   onSubmit: (values: Partial<PointEventPolicy>) => void;
   onCancel?: () => void;
+  /** 쓰기 권한 없음·처리 중 — 저장 비활성 */
+  disabled?: boolean;
 }
 
 export function PointEventPolicyForm({
   initial,
   onSubmit,
   onCancel,
+  disabled = false,
 }: PointEventPolicyFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
 
   const [title, setTitle] = useState(initial?.title ?? "");
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
@@ -162,21 +168,15 @@ export function PointEventPolicyForm({
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
-        >
-          {t("common_save")}
-        </button>
+      <div className="flex justify-end gap-2">
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
-          > {t("admin_points_charge_status_cancelled")}
-          </button>
+          <AdminActionButton variant="secondary" onClick={onCancel}>
+            {adminCta("cancel", ko)}
+          </AdminActionButton>
         )}
+        <AdminActionButton type="submit" variant="primary" disabled={disabled}>
+          {adminCta("save", ko)}
+        </AdminActionButton>
       </div>
     </form>
   );

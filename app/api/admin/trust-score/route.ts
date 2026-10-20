@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getTradeServiceClient } from "@/lib/trade/service-supabase";
 import { recordTrustEvent, recomputeMemberTrustSnapshot } from "@/lib/trust/trust-event-ledger";
 import { buildManualAdjustmentIdempotencyKey } from "@/lib/trust/manner-battery-policy-v1";
@@ -92,6 +93,19 @@ export async function POST(req: NextRequest) {
   }
 
   const calc = await recomputeMemberTrustSnapshot(sbAny, targetUserId);
+  await appendAdminRouteAudit(sbAny, req, {
+    actorId: adminUserId,
+    targetType: "member_trust",
+    targetId: targetUserId,
+    action: "member_trust.manual_adjustment",
+    after: {
+      adjustment,
+      reason,
+      adjustmentId,
+      trustScore: calc.manner_battery_percent,
+      policyVersion: calc.policy_version,
+    },
+  });
   return NextResponse.json({
     ok: true,
     appliedDelta: adjustment,

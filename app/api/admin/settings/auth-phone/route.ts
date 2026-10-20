@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   loadAuthPhoneSettings,
   sanitizeAuthPhoneSettingsInput,
@@ -66,6 +67,24 @@ export async function PATCH(req: NextRequest) {
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
+  await appendAdminRouteAudit(sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "auth_phone_settings",
+    targetId: "PH:semaphore_local",
+    action: "auth_phone_settings.update",
+    before: {
+      otp_ttl_seconds: current.otp_ttl_seconds,
+      resend_cooldown_seconds: current.resend_cooldown_seconds,
+      max_attempts: current.max_attempts,
+      sms_from_name: current.sms_from_name,
+    },
+    after: {
+      otp_ttl_seconds: normalized.otp_ttl_seconds,
+      resend_cooldown_seconds: normalized.resend_cooldown_seconds,
+      max_attempts: normalized.max_attempts,
+      sms_from_name: normalized.sms_from_name,
+    },
+  });
   const settings = await loadAuthPhoneSettings();
   return NextResponse.json({ ok: true, settings });
 }

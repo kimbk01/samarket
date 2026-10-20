@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   getMemberBenefitSummariesFromDb,
@@ -83,6 +84,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       actorType: "admin",
       actorId: admin.userId,
       actorNickname: nick || "admin",
+    });
+
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "member_benefit_policy",
+      targetId: policy.id,
+      action: "member_benefit_policy.create",
+      after: { memberType: policy.memberType, title: policy.title, isActive: policy.isActive },
     });
 
     return NextResponse.json({ ok: true, policy });

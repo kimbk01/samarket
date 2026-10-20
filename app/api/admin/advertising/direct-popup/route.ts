@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { createAdminDirectPopupComplete } from "@/lib/platform-popup/admin-direct-complete-create";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -70,6 +71,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: result.httpStatus ?? 400 }
     );
   }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "platform_popup",
+    targetId: result.id,
+    action: "platform_popup.create_direct",
+    after: { name, surfaces: surfaces.length ? surfaces : ["GLOBAL"], startAt, endAt, publishMode, status: result.status },
+  });
 
   return NextResponse.json({
     ok: true,

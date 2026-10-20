@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 /** Product Trade Admin console chrome — shared visual primitives (not a second nav authority). */
 
@@ -17,11 +18,11 @@ const STATUS_LABEL: Record<ListingStatusTone, string> = {
 };
 
 const STATUS_CLASS: Record<ListingStatusTone, string> = {
-  active: "bg-emerald-50 text-emerald-800 border-emerald-200",
-  sold: "bg-sky-50 text-sky-800 border-sky-200",
+  active: "bg-sam-success-soft text-sam-success border-sam-success",
+  sold: "bg-sam-info-soft text-sam-info border-sam-info",
   hidden: "bg-sam-surface-muted text-sam-muted border-sam-border",
-  deleted: "bg-red-50 text-red-700 border-red-200",
-  reserved: "bg-amber-50 text-amber-900 border-amber-200",
+  deleted: "bg-sam-danger-soft text-sam-danger border-sam-danger",
+  reserved: "bg-sam-warning-soft text-sam-warning border-sam-warning",
   blinded: "bg-sam-surface-muted text-sam-muted border-sam-border",
 };
 
@@ -39,7 +40,7 @@ export function TradeStatusBadge({ status }: { status: string }) {
 export function TradePromoBadge({ active }: { active: boolean }) {
   if (!active) return <span className="sam-text-xxs text-sam-muted">—</span>;
   return (
-    <span className="inline-flex items-center rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 sam-text-xxs font-medium text-violet-800">
+    <span className="inline-flex items-center rounded border border-sam-primary-border bg-sam-primary-soft px-1.5 py-0.5 sam-text-xxs font-medium text-sam-primary">
       홍보중
     </span>
   );
@@ -150,19 +151,10 @@ export function ConsoleButton({
   variant?: "primary" | "secondary" | "ghost" | "danger";
   size?: "sm" | "md";
 }) {
-  const base =
-    variant === "primary"
-      ? Sam.btn.primaryCombo
-      : variant === "danger"
-        ? Sam.btn.dangerCombo
-        : variant === "ghost"
-          ? Sam.btn.ghostCombo
-          : Sam.btn.secondaryCombo;
-  const sz = size === "sm" ? Sam.btn.sm : "";
   return (
-    <button type="button" className={`${base} ${sz} ${className}`} {...rest}>
+    <AdminActionButton variant={variant} size={size} className={className} {...rest}>
       {children}
-    </button>
+    </AdminActionButton>
   );
 }
 
@@ -180,22 +172,14 @@ export function TabStrip({
       {tabs.map((tab) => {
         const on = tab.id === active;
         return (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => onChange(tab.id)}
-            className={[
-              "rounded-ui-rect px-3 py-1.5 sam-text-body-secondary transition",
-              on ? "bg-signature/15 font-medium text-signature" : "text-sam-muted hover:bg-sam-surface-muted",
-            ].join(" ")}
-          >
+          <AdminChipButton key={tab.id} selected={on} onClick={() => onChange(tab.id)}>
             {tab.label}
             {tab.disconnected || tab.count == null ? (
               <span className="ml-1 tabular-nums text-sam-muted">—</span>
             ) : (
               <span className="ml-1 tabular-nums">{tab.count}</span>
             )}
-          </button>
+          </AdminChipButton>
         );
       })}
     </div>

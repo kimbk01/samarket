@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { mapPlatformEventDbRow, type PlatformEventDbRow } from "@/lib/platform-events/map-row";
 import { serializePlatformEventSections } from "@/lib/platform-events/sections";
@@ -196,6 +197,17 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (!data) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "platform_event",
+    targetId: eventId,
+    action: "platform_event.update",
+    after: {
+      fields: Object.keys(patch).filter((k) => k !== "updated_by" && k !== "updated_at"),
+      status: patch.status ?? null,
+      lifecycleAction: typeof body.action === "string" ? body.action : null,
+    },
+  });
   return NextResponse.json({
     ok: true,
     event: mapPlatformEventDbRow(data as PlatformEventDbRow),

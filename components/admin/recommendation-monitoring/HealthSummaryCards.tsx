@@ -12,21 +12,21 @@ export function HealthSummaryCards() {
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <p className="sam-text-helper text-sam-muted">{t("admin_rec_mon_summary_healthy")}</p>
-        <p className="sam-text-page-title font-semibold text-emerald-600">
+        <p className="sam-text-page-title font-semibold text-sam-success">
           {summary.totalHealthy}
         </p>
         <p className="sam-text-body-secondary text-sam-muted">{t("admin_rec_th_surface")}</p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <p className="sam-text-helper text-sam-muted">{t("admin_rec_mon_summary_warning")}</p>
-        <p className="sam-text-page-title font-semibold text-amber-600">
+        <p className="sam-text-page-title font-semibold text-sam-warning">
           {summary.totalWarning}
         </p>
         <p className="sam-text-body-secondary text-sam-muted">{t("admin_rec_th_surface")}</p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <p className="sam-text-helper text-sam-muted">{t("admin_rec_mon_summary_critical")}</p>
-        <p className="sam-text-page-title font-semibold text-red-600">
+        <p className="sam-text-page-title font-semibold text-sam-danger">
           {summary.totalCritical}
         </p>
         <p className="sam-text-body-secondary text-sam-muted">{t("admin_rec_th_surface")}</p>

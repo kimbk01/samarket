@@ -5,6 +5,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+} from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { AdFundingTrace } from "@/lib/finance/ad-funding-trace/types";
 import {
   formatFinanceAmount,
@@ -41,7 +47,7 @@ export function AdminFinanceAdsView() {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         traces?: AdFundingTrace[];
         error?: string;
@@ -53,7 +59,8 @@ export function AdminFinanceAdsView() {
       }
       setRows(json.traces ?? []);
     } catch {
-      setError("network");
+      setError("network_error");
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -66,21 +73,18 @@ export function AdminFinanceAdsView() {
   return (
     <div className="space-y-4" data-admin-finance-ads="1">
       <FinanceAdminNav ko={ko} />
-      <h2 className="text-lg font-semibold">{ko ? "광고 지출" : "Ad spend"}</h2>
+      <h2 className="text-[16px] font-semibold text-sam-fg">{ko ? "광고 지출" : "Ad spend"}</h2>
       <p className="sam-text-helper text-sam-muted">
         {ko
           ? "Finance 관점 자금 추적입니다. Ads 운영 화면 복제품이 아닙니다. ADMIN_DIRECT는 재무 거래가 없습니다."
           : "Funding trace for Finance — not Ads ops. ADMIN_DIRECT has no financial transaction."}
       </p>
-      {loading ? <p className="text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p> : null}
-      {error ? (
-        <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2">
-          <p>{ko ? "광고 자금 내역을 불러오지 못했습니다." : "Could not load ad funding."}</p>
-          <button type="button" className="mt-2 font-semibold text-signature" onClick={() => void load()}>
-            {ko ? "다시 시도" : "Retry"}
-          </button>
-        </div>
+      {loading ? <AdminLoadingState ko={ko} /> : null}
+      {error ? <AdminErrorState ko={ko} code={error} onRetry={() => void load()} /> : null}
+      {!loading && rows.length === 0 && !error ? (
+        <AdminEmptyState ko={ko} message={ko ? "광고 자금 내역이 없습니다." : "No ad funding rows."} />
       ) : null}
+      {rows.length > 0 ? (
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[64rem] text-left sam-text-body-secondary">
           <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
@@ -89,7 +93,7 @@ export function AdminFinanceAdsView() {
               <th className="px-3 py-2">{ko ? "신청자/매장" : "Applicant / store"}</th>
               <th className="px-3 py-2">{ko ? "광고 유형" : "Ad product"}</th>
               <th className="px-3 py-2">{ko ? "Funding Rail" : "Funding rail"}</th>
-              <th className="px-3 py-2">{ko ? "금액" : "Amount"}</th>
+              <th className="px-3 py-2 text-right">{ko ? "금액" : "Amount"}</th>
               <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
               <th className="px-3 py-2">{ko ? "광고" : "Ad ref"}</th>
               <th className="px-3 py-2">{ko ? "Finance TX" : "Finance TX"}</th>
@@ -118,7 +122,7 @@ export function AdminFinanceAdsView() {
               return (
                 <tr key={`${r.family}:${r.adId}`} data-finance-ad-funding-row={r.adId}>
                   <td className="px-3 py-2 sam-text-xxs whitespace-nowrap">
-                    {when ? new Date(when).toLocaleString() : "—"}
+                    {when ? formatAdminManilaDateTime(when) : "—"}
                   </td>
                   <td className="px-3 py-2">
                     {r.storeId ? (
@@ -134,7 +138,7 @@ export function AdminFinanceAdsView() {
                   </td>
                   <td className="px-3 py-2">{r.adProduct}</td>
                   <td className="px-3 py-2">{financeFundingRailLabel(r.fundingRail, ko)}</td>
-                  <td className="px-3 py-2 tabular-nums">
+                  <td className="px-3 py-2 text-right tabular-nums">
                     {r.walletType === "N_A" || r.fundingRail === "ADMIN_DIRECT"
                       ? "—"
                       : formatFinanceAmount({
@@ -150,10 +154,10 @@ export function AdminFinanceAdsView() {
                         {ko ? "광고 상세" : "Ad detail"}
                       </Link>
                     ) : (
-                      <span className="font-mono text-xs">{r.adId.slice(0, 8)}…</span>
+                      <span className="font-mono text-[12px]">{r.adId.slice(0, 8)}…</span>
                     )}
                     {r.legacyLabel ? (
-                      <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-bold text-amber-900">
+                      <span className="ml-1 rounded bg-sam-warning-soft px-1 text-[12px] font-bold text-sam-warning">
                         {r.legacyLabel}
                       </span>
                     ) : null}
@@ -186,8 +190,6 @@ export function AdminFinanceAdsView() {
           </tbody>
         </table>
       </div>
-      {!loading && rows.length === 0 && !error ? (
-        <p className="text-sam-muted">{ko ? "광고 자금 내역이 없습니다." : "No ad funding rows."}</p>
       ) : null}
     </div>
   );

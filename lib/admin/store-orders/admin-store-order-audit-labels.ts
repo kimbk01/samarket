@@ -31,6 +31,7 @@ export const STORE_ORDER_AUDIT_ACTION_LABEL: Record<string, Entry> = {
   owner_refund_reject: { ko: "매장 환불 반려", en: "Store rejected refund", category: "owner" },
   "delivery.owner_patch": { ko: "매장 배달 상태 변경", en: "Store delivery update", category: "owner" },
   "delivery.admin_patch": { ko: "관리자 배달 상태 변경", en: "Admin delivery update", category: "admin" },
+  mark_paid: { ko: "관리자 결제 확인 처리", en: "Admin marked as paid", category: "admin" },
   "delivery.admin_release": { ko: "관리자 배정 해제", en: "Admin released rider", category: "admin" },
   "delivery.admin_reassign": { ko: "관리자 라이더 재배정", en: "Admin reassigned rider", category: "admin" },
   "delivery.admin_mark_failed": { ko: "관리자 배달 실패 처리", en: "Admin marked delivery failed", category: "admin" },

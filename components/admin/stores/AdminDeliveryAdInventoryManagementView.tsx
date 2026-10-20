@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
@@ -27,8 +28,7 @@ function seedFor(key: string) {
   return DELIVERY_AD_INVENTORY_SEEDS.find((s) => s.key === key) ?? null;
 }
 
-const MANAGE_BTN =
-  "mt-3 inline-flex min-h-[40px] items-center rounded-ui-rect bg-[#0A823E] px-4 text-[13px] font-semibold text-white transition hover:bg-[#087a38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99]";
+const MANAGE_BTN = "mt-3";
 
 /**
  * Admin 광고 지면 관리 — human language launch inventory cards.
@@ -111,18 +111,19 @@ export function AdminDeliveryAdInventoryManagementView() {
                 <p className="mt-2 text-[12px] text-sam-muted">
                   {formatBannerPixelGuideLine(DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_HOME_HERO, lang)}
                 </p>
-                <p className="mt-1 text-[11px] text-sam-muted">
+                <p className="mt-1 text-[12px] text-sam-muted">
                   {DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_HOME_HERO[
                     lang === "en" ? "safeAreaNoteEn" : "safeAreaNoteKo"
                   ]}
                 </p>
-                <p className="mt-1 text-[11px] text-sam-muted">key: {homeHero.inventoryKey}</p>
-                <Link
+                <p className="mt-1 text-[12px] text-sam-muted">key: {homeHero.inventoryKey}</p>
+                <AdminActionLink
                   href={deliveryAdsAdminHubHref({ inventory: homeHero.inventoryKey })}
+                  variant="secondary"
                   className={MANAGE_BTN}
                 >
                   {safeT("admin_ads_manage", { fallbackKo: "관리", fallbackEn: "Manage" })}
-                </Link>
+                </AdminActionLink>
               </div>
             </AdminCard>
 
@@ -135,13 +136,14 @@ export function AdminDeliveryAdInventoryManagementView() {
                   })}
                 </p>
                 <DeliveryAdPlacementMiniature kind={homeFeed.miniature} adLabel={adTag} />
-                <p className="mt-1 text-[11px] text-sam-muted">key: {homeFeed.inventoryKey}</p>
-                <Link
+                <p className="mt-1 text-[12px] text-sam-muted">key: {homeFeed.inventoryKey}</p>
+                <AdminActionLink
                   href={deliveryAdsAdminHubHref({ inventory: homeFeed.inventoryKey })}
+                  variant="secondary"
                   className={MANAGE_BTN}
                 >
                   {safeT("admin_ads_manage", { fallbackKo: "관리", fallbackEn: "Manage" })}
-                </Link>
+                </AdminActionLink>
               </div>
             </AdminCard>
           </div>
@@ -163,25 +165,26 @@ export function AdminDeliveryAdInventoryManagementView() {
                 })}
               </p>
               <DeliveryAdPlacementMiniature kind={categoryFeed.miniature} adLabel={adTag} />
-              <Link
+              <AdminActionLink
                 href={deliveryAdsAdminHubHref({ inventory: categoryFeed.inventoryKey })}
+                variant="secondary"
                 className={MANAGE_BTN}
               >
                 {safeT("admin_ads_manage", { fallbackKo: "관리", fallbackEn: "Manage" })}
-              </Link>
+              </AdminActionLink>
             </div>
           </AdminCard>
         </section>
 
         <section className="space-y-3">
           <h2 className="text-[16px] font-bold text-sam-fg">
-            {safeT("admin_ads_surface_search", { fallbackKo: "검색", fallbackEn: "Search" })}
+            {safeT("admin_ads_surface_search", { fallbackKo: "검색 결과", fallbackEn: "Search results" })}
           </h2>
           <AdminCard
             title={lang === "en" ? "Search results top banner" : "검색 결과 상단 배너"}
           >
             <div data-admin-inventory-card={searchTop.inventoryKey} data-admin-inventory-sellable="0">
-              <p className="mb-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-950">
+              <p className="mb-2 rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[12px] font-semibold text-sam-fg">
                 {safeT("admin_ads_search_not_sellable", {
                   fallbackKo: `런치 판매 중지 (${STORES_SEARCH_TOP_LAUNCH.launchStatus}). 스키마·런타임 호환은 유지합니다.`,
                   fallbackEn: `Not sellable at launch (${STORES_SEARCH_TOP_LAUNCH.launchStatus}). Schema/runtime kept for compat.`,
@@ -207,7 +210,7 @@ export function AdminDeliveryAdInventoryManagementView() {
               <p className="mt-2 text-[12px] text-sam-muted">
                 {formatBannerPixelGuideLine(DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_SEARCH_TOP, lang)}
               </p>
-              <p className="mt-1 text-[11px] text-sam-muted">
+              <p className="mt-1 text-[12px] text-sam-muted">
                 {searchSeed
                   ? `ratio seed ${searchSeed.aspectRatioWidth}:${searchSeed.aspectRatioHeight}`
                   : "3:1"}
@@ -219,7 +222,7 @@ export function AdminDeliveryAdInventoryManagementView() {
         <AdminPlacementMapPanel />
 
         <p className="text-[12px] text-sam-muted">
-          <Link href={DELIVERY_AD_ADMIN_ROUTES.hub} className="font-semibold text-[#0A823E]">
+          <Link href={DELIVERY_AD_ADMIN_ROUTES.hub} className="font-semibold text-sam-primary">
             ← {safeT("admin_delivery_ads_back", { fallbackKo: "광고 목록", fallbackEn: "Ad list" })}
           </Link>
         </p>

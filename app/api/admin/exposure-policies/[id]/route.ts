@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   insertExposurePolicyLog,
@@ -46,6 +47,14 @@ export async function PATCH(
       adminId: admin.userId,
       adminNickname: nick || "admin",
       note: "정책 수정",
+    });
+
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "exposure_score_policy",
+      targetId: policy.id,
+      action: "exposure_score_policy.update",
+      after: { surface: policy.surface, changedKeys: Object.keys(body) },
     });
 
     return NextResponse.json({ ok: true, policy });

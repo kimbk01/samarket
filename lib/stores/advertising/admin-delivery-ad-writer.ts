@@ -94,13 +94,6 @@ export type AdminTransitionResult =
       action: AdminDeliveryAdAction;
       /** Present for lifecycle RPC transitions (CUT 3-B fan-out). Absent for delete_safe_draft. */
       auditId?: string;
-      /**
-       * 반려는 커밋됐지만 매장 캐시 환불이 실패한 경우 — 관리자 화면에 경고로 노출 (DEF-5).
-       * V3-04 원자 함수(admin_delivery_ad_reject_with_refund) 미배포 DB 폴백에서만 발생.
-       */
-      refundWarning?: string;
-      /** 환불 실패 건을 광고 운영 처리 대기(case WAITING_ADMIN)로 올렸는지 (DEF-5 · D-2 전 임시 노출). */
-      refundQueued?: boolean;
     }
   | { ok: false; error: AdminDeliveryAdWriterError; detail?: string };
 
@@ -255,40 +248,37 @@ export async function adminTransitionDeliveryAdCampaign(
   const reason = input.reason?.trim() || null;
   const ownerVisibleNotes = input.ownerVisibleNotes?.trim() || input.reason?.trim() || null;
 
-  // V3-04 DEF-5 (O-9): 반려 = 상태 전이 + 캐시 환불 한 트랜잭션. 함수 미배포 DB 에서만 아래 2단계 폴백.
-  let atomicReject = false;
-  let rpc: { data: unknown; error: { code?: string; message: string } | null } | null = null;
-  if (input.action === "reject") {
-    const atomic = await sb.rpc(ADMIN_DELIVERY_AD_REJECT_WITH_REFUND_RPC, {
-      p_admin_user_id: input.adminUserId,
-      p_product_kind: input.productKind,
-      p_campaign_id: input.campaignId,
-      p_expected_lifecycle: input.expectedLifecycle,
-      p_expected_updated_at: input.expectedUpdatedAt,
-      p_reason: reason,
-      p_owner_visible_notes: ownerVisibleNotes,
-    });
-    if (!atomic.error || !isMissingRpcError(atomic.error)) {
-      atomicReject = true;
-      rpc = atomic;
-    }
-  }
-  if (!rpc) {
-    rpc = await sb.rpc("admin_delivery_ad_transition", {
-      p_admin_user_id: input.adminUserId,
-      p_product_kind: input.productKind,
-      p_campaign_id: input.campaignId,
-      p_action: input.action,
-      p_expected_lifecycle: input.expectedLifecycle,
-      p_expected_updated_at: input.expectedUpdatedAt,
-      p_reason: reason,
-      p_owner_visible_notes: ownerVisibleNotes,
-    });
-  }
+  // V3-04 DEF-5 (O-9): 반려 = 상태 전이 + 캐시 환불 한 트랜잭션 (원자 함수만 — 2단계 폴백 없음).
+  // 함수가 없는 DB 에서는 반려하지 않고 오류를 돌려준다 (환불 누락·이중 상태 방지).
+  const atomicReject = input.action === "reject";
+  const rpc: { data: unknown; error: { code?: string; message: string } | null } = atomicReject
+    ? await sb.rpc(ADMIN_DELIVERY_AD_REJECT_WITH_REFUND_RPC, {
+        p_admin_user_id: input.adminUserId,
+        p_product_kind: input.productKind,
+        p_campaign_id: input.campaignId,
+        p_expected_lifecycle: input.expectedLifecycle,
+        p_expected_updated_at: input.expectedUpdatedAt,
+        p_reason: reason,
+        p_owner_visible_notes: ownerVisibleNotes,
+      })
+    : await sb.rpc("admin_delivery_ad_transition", {
+        p_admin_user_id: input.adminUserId,
+        p_product_kind: input.productKind,
+        p_campaign_id: input.campaignId,
+        p_action: input.action,
+        p_expected_lifecycle: input.expectedLifecycle,
+        p_expected_updated_at: input.expectedUpdatedAt,
+        p_reason: reason,
+        p_owner_visible_notes: ownerVisibleNotes,
+      });
   const { data, error } = rpc;
 
   if (error) {
-    return { ok: false, error: "rpc_failed", detail: error.message };
+    return {
+      ok: false,
+      error: "rpc_failed",
+      detail: atomicReject && isMissingRpcError(error) ? `${ADMIN_DELIVERY_AD_REJECT_WITH_REFUND_RPC}_missing` : error.message,
+    };
   }
   const payload = data as Record<string, unknown> | null;
   if (!payload || payload.ok !== true) {
@@ -315,34 +305,6 @@ export async function adminTransitionDeliveryAdCampaign(
   // CUT 3-B — after durable audit; fan-out failure must not imply campaign rollback
   await safeFanOutDeliveryAdLifecycleAudit(sb, auditId);
 
-  let refundWarning: string | undefined;
-  let refundQueued: boolean | undefined;
-  // Terminal REJECT refunds canonical Cash exactly once (not on request_changes).
-  // 원자 함수 경로에서는 이미 같은 트랜잭션에서 환불됨 — 아래는 함수 미배포 폴백 전용.
-  if (input.action === "reject" && !atomicReject) {
-    const productKind = input.productKind === "banner" ? "banner" : "store_sponsored";
-    const { refundBusinessCashForRejectedDeliveryAd } = await import(
-      "@/lib/stores/advertising/canonical-business-cash-writer"
-    );
-    const bcRefund = await refundBusinessCashForRejectedDeliveryAd(sb, {
-      adminUserId: input.adminUserId,
-      applicationId: input.campaignId,
-      productKind,
-    });
-    if (!bcRefund.ok && bcRefund.error !== "funding_not_found") {
-      console.error(
-        "[adminTransitionDeliveryAdCampaign] business_cash_refund",
-        bcRefund.error,
-        bcRefund.detail ?? ""
-      );
-      refundWarning = "business_cash_refund_failed";
-      refundQueued = await queueDeliveryAdRefundFailureCase(sb, {
-        productKind,
-        campaignId: input.campaignId,
-      });
-    }
-  }
-
   return {
     ok: true,
     campaignId: String(payload.campaign_id),
@@ -350,34 +312,7 @@ export async function adminTransitionDeliveryAdCampaign(
     to: String(payload.to) as DeliveryAdLifecycleStatus,
     action: input.action,
     auditId,
-    ...(refundWarning ? { refundWarning, refundQueued: refundQueued === true } : {}),
   };
-}
-
-/**
- * 반려 환불 실패 → 해당 캠페인 운영 case 를 WAITING_ADMIN 으로 올려 처리 대기(`delivery_ad_ops`)에 노출.
- * 원자 RPC(D-2) 배포 전까지의 실패 노출 경로. best-effort — 실패해도 반려 결과는 유지하고 false 반환.
- */
-async function queueDeliveryAdRefundFailureCase(
-  sb: SupabaseClient,
-  input: { productKind: "banner" | "store_sponsored"; campaignId: string }
-): Promise<boolean> {
-  try {
-    const col = input.productKind === "banner" ? "banner_campaign_id" : "store_sponsored_campaign_id";
-    const { data, error } = await sb
-      .from("delivery_ad_operations_cases")
-      .update({ status: "WAITING_ADMIN", resolved_at: null, updated_at: new Date().toISOString() })
-      .eq(col, input.campaignId)
-      .select("id");
-    if (error) {
-      console.error("[queueDeliveryAdRefundFailureCase]", error.message);
-      return false;
-    }
-    return Array.isArray(data) && data.length > 0;
-  } catch (e) {
-    console.error("[queueDeliveryAdRefundFailureCase]", e instanceof Error ? e.message : e);
-    return false;
-  }
 }
 
 export async function adminDeleteSafeDraftDeliveryAdCampaign(

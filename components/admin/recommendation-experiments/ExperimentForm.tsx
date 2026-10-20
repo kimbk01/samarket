@@ -13,6 +13,7 @@ import {
   recSurfaceLabel,
   recTrafficAllocLabel,
 } from "@/components/admin/recommendation-admin-i18n";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 interface ExperimentFormProps {
   initial: RecommendationExperiment;
@@ -217,20 +218,20 @@ export function ExperimentForm({
         />
       </div>
       <div className="flex gap-2">
-        <button
+        <AdminActionButton
+          variant="primary"
           type="submit"
-          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
           {t("common_save")}
-        </button>
+        </AdminActionButton>
         {onCancel && (
-          <button
+          <AdminActionButton
+            variant="secondary"
             type="button"
             onClick={onCancel}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
           >
             {t("common_cancel")}
-          </button>
+          </AdminActionButton>
         )}
       </div>
     </form>

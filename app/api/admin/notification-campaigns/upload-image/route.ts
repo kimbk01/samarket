@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   extForCampaignImageMime,
   validateCampaignImageFile,
@@ -62,6 +63,14 @@ export async function POST(req: NextRequest) {
   const {
     data: { publicUrl },
   } = svc.storage.from(BUCKET).getPublicUrl(path);
+
+  await appendAdminRouteAudit(svc, req, {
+    actorId: admin.userId,
+    targetType: "notification_campaign_image",
+    targetId: path,
+    action: "notification_campaign_image.upload",
+    after: { kind, path, url: publicUrl, size: buf.length, contentType: validated.mime },
+  });
 
   return NextResponse.json({ ok: true, kind, url: publicUrl });
 }

@@ -9,6 +9,7 @@ import {
 } from "@/lib/recommendation-automation/recommendation-automation-utils";
 import { persistRecommendationRuntimeToServer } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
 import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 
@@ -69,20 +70,20 @@ export function AutomationSimulator() {
           <option value="dry_run">{t("admin_rec_auto_sim_mode_dry_run")}</option>
           <option value="live">{t("admin_rec_auto_sim_mode_live")}</option>
         </select>
-        <button
+        <AdminActionButton
+          variant="secondary"
           type="button"
           onClick={handleEval}
-          className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body font-medium text-sam-fg"
         >
           {t("admin_rec_auto_sim_eval_only")}
-        </button>
-        <button
+        </AdminActionButton>
+        <AdminActionButton
+          variant="primary"
           type="button"
           onClick={handleRun}
-          className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
         >
           {t("admin_rec_auto_sim_run")}
-        </button>
+        </AdminActionButton>
       </div>
       {result && (
         <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">

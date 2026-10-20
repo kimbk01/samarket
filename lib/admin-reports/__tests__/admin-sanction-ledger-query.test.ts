@@ -44,7 +44,8 @@ describe("제재 기록 화면 — 브라우저 직접 조회 제거", () => {
     expect(page).not.toContain("getSupabaseClient");
     expect(existsSync(path.join(ROOT, "lib/admin-reports/getAdminSanctionLedgerFromDb.ts"))).toBe(false);
     const route = readFileSync(path.join(ROOT, "app/api/admin/reports/sanction-ledger/route.ts"), "utf8");
-    expect(route).toContain('requireAdminPermission("reports")');
+    // 회원·권한 워크스페이스 화면 = 회원 키 (설계 v4 권한 표) — 접근표 `/admin/reports/log` 와 같은 키
+    expect(route).toContain('requireAdminPermission("users")');
     expect(route).toContain('count: "exact"');
   });
 });

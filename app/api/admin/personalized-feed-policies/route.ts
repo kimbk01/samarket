@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   createDefaultPersonalizedFeedBundle,
@@ -64,6 +65,12 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
 
     const saved = await savePersonalizedFeedBundleToDb(sb, nextBundle);
     if (!saved.ok) return NextResponse.json({ ok: false, error: saved.error }, { status: 503 });
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "personalized_feed_policy",
+      targetId: body.policy?.id || "global",
+      action: body.policy ? "personalized_feed_policy.upsert" : "personalized_feed_policy.bundle_replace",
+    });
     return NextResponse.json({ ok: true, bundle: nextBundle });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });

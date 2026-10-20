@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { isAdminDeliveryAdProduct } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import {
   listDeliveryAdOperationsMessages,
@@ -129,6 +130,18 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       { status: statusFor(result.error) }
     );
   }
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "delivery_ad_operations_message",
+    targetId: result.message.id,
+    action: "delivery_ad_operations_message.send",
+    after: {
+      campaignId: cid,
+      productKind: body.productKind,
+      caseId: result.caseId,
+      threadId: result.threadId,
+    },
+  });
   return NextResponse.json({
     ok: true,
     message: result.message,

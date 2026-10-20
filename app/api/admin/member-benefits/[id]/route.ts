@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   getMemberBenefitPolicyByIdFromDb,
@@ -78,6 +79,14 @@ export async function PATCH(
       actorType: "admin",
       actorId: admin.userId,
       actorNickname: nick || "admin",
+    });
+
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "member_benefit_policy",
+      targetId: policy.id,
+      action: body.isActive === false ? "member_benefit_policy.deactivate" : "member_benefit_policy.update",
+      after: { memberType: policy.memberType, changedKeys: Object.keys(body) },
     });
 
     return NextResponse.json({ ok: true, policy });

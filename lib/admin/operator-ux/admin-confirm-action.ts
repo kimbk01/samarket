@@ -1,10 +1,13 @@
 /**
- * Admin CTA 확인 등급 (R1 공통 기준)
- * L1 확인 · L2 확인 + 사유 필수 · L3 확인 + 사유 + 대상 재입력.
+ * Admin CTA 확인 등급 (R1 공통 기준 · 수정 계획 2-3)
+ * L0 확인 없음(조회·필터·새로고침·상세) · L1 확인 · L2 확인 + 사유 필수 · L3 확인 + 사유 + 대상 재입력.
  * 화면은 이 함수 결과(`ok` / `reason`)만 사용하고, 서버도 같은 사유 규칙을 검증한다.
+ * 관리자 셸 안에서는 셸의 `AdminConfirmHost`(AdminActionConfirmDialog 하나)에 사유·재입력을 한 화면으로 띄운다.
+ * 셸 밖(호스트 없음)에서만 앱 공용 대화상자로 순서대로 묻는다.
  */
 
 import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
+import { openAdminConfirmHost } from "@/lib/admin/operator-ux/admin-confirm-host";
 
 export const ADMIN_REASON_MIN_LENGTH = 2;
 
@@ -22,6 +25,39 @@ export async function confirmAdminAction(input: {
   reasonPlaceholder?: string;
 }): Promise<{ ok: false } | { ok: true; reason: string | null }> {
   const cancelLabel = input.ko ? "취소" : "Cancel";
+  const hosted = openAdminConfirmHost({
+    title: input.title,
+    description: [
+      input.description,
+      input.level === "L1"
+        ? null
+        : input.ko
+          ? `처리 사유를 입력하세요 (${ADMIN_REASON_MIN_LENGTH}자 이상). 작업 기록에 남습니다.`
+          : `Enter a reason (${ADMIN_REASON_MIN_LENGTH}+ characters). It is recorded in the activity log.`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    confirmLabel: input.confirmLabel,
+    cancelLabel,
+    tone: input.destructive ? "danger" : "primary",
+    reasonRequired: input.level !== "L1",
+    reasonMinLength: ADMIN_REASON_MIN_LENGTH,
+    reasonLabel: input.ko ? "처리 사유" : "Reason",
+    reasonPlaceholder: input.reasonPlaceholder ?? (input.ko ? "처리 사유" : "Reason"),
+    confirmMatchText: input.level === "L3" && input.retypeValue ? input.retypeValue : undefined,
+    confirmMatchLabel:
+      input.level === "L3" && input.retypeValue
+        ? input.ko
+          ? `계속하려면 「${input.retypeValue}」을(를) 그대로 입력하세요`
+          : `Type "${input.retypeValue}" to continue`
+        : undefined,
+  });
+  if (hosted) {
+    const r = await hosted;
+    if (!r.ok) return { ok: false };
+    return { ok: true, reason: input.level === "L1" ? null : r.reason.trim() };
+  }
+
   const confirmTone = input.destructive ? ("destructive" as const) : ("primary" as const);
   if (input.level === "L1") {
     const ok = await dibayConfirm({

@@ -5,6 +5,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { HealthSummaryCards } from "./HealthSummaryCards";
 import { SurfaceHealthTable } from "./SurfaceHealthTable";
 import { SectionHealthTable } from "./SectionHealthTable";
@@ -61,26 +62,18 @@ export function AdminRecommendationMonitoringPage() {
         descriptionKey="admin_rec_mon_page_desc_db"
       />
       {hydrateError ? (
-        <div className="mb-4 rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-4 py-3 sam-text-body-secondary text-sam-fg" role="alert">
+        <div className="mb-4 rounded-ui-rect border border-sam-warning/40 bg-sam-warning/10 px-4 py-3 sam-text-body-secondary text-sam-fg" role="alert">
           {t("admin_rec_mon_hydrate_fail")} ({hydrateError})
         </div>
       ) : null}
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {MONITORING_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        tabs={MONITORING_TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        ariaLabel="추천 모니터링 탭"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as TabId)}
+        syncUrl={false}
+        className="mb-4"
+      />
       {activeTab === "dashboard" && (
         <>
           <div className="mb-4">

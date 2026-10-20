@@ -22,11 +22,11 @@ export function DeliveryAdAdminTodaySummary({ counts }: Props) {
         {DELIVERY_AD_ADMIN_HUB_CONTRACT.todaySummaryBuckets.map(({ id, labelKey }) => (
           <div
             key={id}
-            className="rounded-ui-rect border border-[#BDBDBD] bg-white p-3 shadow-sm"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm"
             data-admin-today-bucket={id}
           >
-            <p className="text-[22px] font-bold tabular-nums text-[#0A823E]">{counts[id]}</p>
-            <p className="mt-0.5 text-[12px] font-medium text-[#757575]">{t(labelKey)}</p>
+            <p className="text-[20px] font-bold tabular-nums text-sam-primary">{counts[id]}</p>
+            <p className="mt-0.5 text-[12px] font-medium text-sam-muted">{t(labelKey)}</p>
           </div>
         ))}
       </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
@@ -9,6 +8,7 @@ import { FinanceFilterBar } from "@/components/finance/FinanceFilterBar";
 import { FinanceTransactionList } from "@/components/finance/FinanceTransactionList";
 import type { FinanceUnifiedTx } from "@/lib/finance/unified-transaction/types";
 import { parseFinanceFilters } from "@/lib/finance/routes";
+import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 
 export function AdminFinanceTransactionsView({ basePath = "/admin/finance/transactions" }: { basePath?: string }) {
   const { language } = useI18n();
@@ -39,7 +39,7 @@ export function AdminFinanceTransactionsView({ basePath = "/admin/finance/transa
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         transactions?: FinanceUnifiedTx[];
         error?: string;
@@ -51,7 +51,7 @@ export function AdminFinanceTransactionsView({ basePath = "/admin/finance/transa
       }
       setRows(json.transactions ?? []);
     } catch {
-      setError("network");
+      setError("network_error");
       setRows([]);
     } finally {
       setLoading(false);
@@ -74,13 +74,13 @@ export function AdminFinanceTransactionsView({ basePath = "/admin/finance/transa
           className="flex flex-wrap gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
           data-finance-point-actions="1"
         >
-          <Link
+          <AdminActionLink
             href="/admin/points/ledger"
-            className="rounded-ui-rect bg-signature px-3 py-2 text-sm font-semibold text-white"
+            variant="primary"
             data-finance-cta="point-credit-panel"
           >
             {ko ? "Point 지급 / 회수" : "Credit / reclaim Point"}
-          </Link>
+          </AdminActionLink>
           <p className="sam-text-helper self-center text-sam-muted">
             {ko
               ? "조정은 기존 Point ledger confirm 계약을 사용합니다."

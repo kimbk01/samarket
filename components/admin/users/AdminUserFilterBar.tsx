@@ -16,10 +16,10 @@ import type {
   AdminMemberVerifyFilter,
 } from "@/lib/admin-users/admin-member-list-query";
 import type { MemberListSortId } from "@/lib/admin-users/member-list-presentation";
-import {
-  ADMIN_USERS_LITE_BTN_PRIMARY,
-  ADMIN_USERS_LITE_CARD,
-} from "@/lib/ui/admin-users-lite-styles";
+import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import type { AdminUserStatusCategory } from "@/lib/types/admin-user";
 
 interface AdminUserFilterBarProps {
@@ -27,6 +27,8 @@ interface AdminUserFilterBarProps {
   onSearchDraftChange: (q: string) => void;
   onSearchSubmit: () => void;
   onSearchClear: () => void;
+  /** 필터가 걸려 있을 때만 — 검색어·필터·정렬을 기본값으로 */
+  onReset?: () => void;
   statusFilter: AdminUserStatusCategory | "";
   onStatusFilterChange: (value: AdminUserStatusCategory | "") => void;
   verifyFilter: AdminMemberVerifyFilter | "";
@@ -47,16 +49,17 @@ interface AdminUserFilterBarProps {
 }
 
 const selectClass =
-  "h-10 w-[132px] shrink-0 rounded-lg border border-[#d0d5dd] bg-white px-2.5 text-sm font-medium text-[#344054] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20";
+  "h-10 w-[132px] shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 text-sm font-medium text-sam-fg outline-none focus:border-sam-primary focus:ring-2 focus:ring-sam-primary/20";
 
 const dateClass =
-  "h-10 w-[138px] shrink-0 rounded-lg border border-[#d0d5dd] bg-white px-2.5 text-sm font-medium text-[#344054] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20";
+  "h-10 w-[138px] shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 text-sm font-medium text-sam-fg outline-none focus:border-sam-primary focus:ring-2 focus:ring-sam-primary/20";
 
 export function AdminUserFilterBar({
   searchDraft,
   onSearchDraftChange,
   onSearchSubmit,
   onSearchClear,
+  onReset,
   statusFilter,
   onStatusFilterChange,
   verifyFilter,
@@ -75,6 +78,8 @@ export function AdminUserFilterBar({
   onSortChange,
   loading = false,
 }: AdminUserFilterBarProps) {
+  const { language } = useI18n();
+  const ko = language !== "en";
   return (
     <form
       className={`${ADMIN_USERS_LITE_CARD} flex w-full min-w-0 items-center gap-2 overflow-x-auto p-2.5`}
@@ -92,30 +97,23 @@ export function AdminUserFilterBar({
           placeholder={MEMBER_LIST_SEARCH_PLACEHOLDER_KO}
           value={searchDraft}
           onChange={(e) => onSearchDraftChange(e.target.value)}
-          className="h-10 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 pr-10 text-sm text-[#101828] outline-none placeholder:text-[#98a2b3] focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+          className="h-10 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 pr-10 text-sm text-sam-fg outline-none placeholder:text-sam-meta focus:border-sam-primary focus:ring-2 focus:ring-sam-primary/20"
           aria-label={MEMBER_LIST_SEARCH_PLACEHOLDER_KO}
           data-member-list-search="1"
         />
         {searchDraft ? (
-          <button
-            type="button"
+          <AdminActionButton
+            variant="quiet"
+            size="sm"
             onClick={onSearchClear}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1.5 text-[12px] font-semibold text-[#667085] hover:bg-[#f2f4f7]"
-            aria-label="검색 초기화"
+            className="absolute right-1 top-1/2 !h-8 -translate-y-1/2 !px-1.5 !no-underline"
+            aria-label={ko ? "검색어 지우기" : "Clear search text"}
             data-member-list-search-clear="1"
           >
             ✕
-          </button>
+          </AdminActionButton>
         ) : null}
       </div>
-      <button
-        type="submit"
-        className={`${ADMIN_USERS_LITE_BTN_PRIMARY} h-10 shrink-0 px-3`}
-        disabled={loading}
-        data-member-list-search-submit="1"
-      >
-        {loading ? "검색 중…" : "검색"}
-      </button>
       <select
         value={statusFilter}
         onChange={(e) => onStatusFilterChange(e.target.value as AdminUserStatusCategory | "")}
@@ -203,6 +201,22 @@ export function AdminUserFilterBar({
         <option value="last_login_desc">최근 로그인 ↓</option>
         <option value="last_login_asc">최근 로그인 ↑</option>
       </select>
+      <div className="ml-auto flex shrink-0 items-center gap-2" data-admin-filter-actions="1">
+        {onReset ? (
+          <AdminActionButton variant="secondary" onClick={onReset} disabled={loading} data-member-list-filter-reset="1">
+            {adminCta("reset", ko)}
+          </AdminActionButton>
+        ) : null}
+        <AdminActionButton
+          type="submit"
+          variant="primary"
+          className="shrink-0"
+          disabled={loading}
+          data-member-list-search-submit="1"
+        >
+          {adminCta("search", ko)}
+        </AdminActionButton>
+      </div>
     </form>
   );
 }

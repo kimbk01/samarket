@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import {
+  readAuditRequestIp,
+  writeCampaignAuditLog,
+} from "@/lib/admin/notification-campaigns/campaign-audit-log";
 import { buildCampaignContentSnapshot } from "@/lib/admin/notification-campaigns/campaign-content-snapshot";
 import {
   ensureCampaignOccurrence,
@@ -152,6 +156,21 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error ?? "test_send_failed" }, { status: 500 });
   }
+
+  await writeCampaignAuditLog(svc, {
+    actorId: admin.userId,
+    campaignId: id,
+    action: "test_send",
+    after: {
+      occurrence_id: ensured.occurrence.id,
+      user_ids: userIds,
+      sent: result.sent,
+      skipped: result.skipped,
+      failed: result.failed,
+    },
+    targetCount: userIds.length,
+    ip: readAuditRequestIp(req.headers),
+  });
 
   return NextResponse.json({
     ok: true,
