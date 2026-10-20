@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   loadCoinCashConversionPolicy,
   updateCoinCashConversionPolicy,
@@ -23,6 +24,7 @@ export async function PATCH(req: NextRequest) {
   if (!gate.ok) return gate.response;
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const before = await loadCoinCashConversionPolicy(gate.sb).catch(() => null);
   const result = await updateCoinCashConversionPolicy(gate.sb, {
     adminUserId: gate.actor.userId,
     enabled: typeof body.enabled === "boolean" ? body.enabled : undefined,
@@ -72,5 +74,13 @@ export async function PATCH(req: NextRequest) {
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "coin_cash_conversion_policy",
+    targetId: "global",
+    action: "conversion_policy.update",
+    before: (before as Record<string, unknown> | null) ?? null,
+    after: (result.policy as Record<string, unknown> | null) ?? null,
+  });
   return NextResponse.json({ ok: true, policy: result.policy });
 }

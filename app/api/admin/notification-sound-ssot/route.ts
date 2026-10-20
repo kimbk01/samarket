@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { loadNotificationSoundSsotFromDb } from "@/lib/notifications/load-notification-sound-ssot-server";
 import {
   mirrorNotificationSoundToLegacy,
@@ -116,6 +117,14 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  const eventKeys = mappings.map((p) => p.event_key);
+  const { data: beforeRows } = await sb
+    .from("notification_sound_mappings")
+    .select(
+      "event_key, asset_id, use_device_default, volume, repeat_count, cooldown_seconds, vibration_enabled, priority, enabled"
+    )
+    .in("event_key", eventKeys);
+
   for (const p of mappings) {
     const { error } = await sb
       .from("notification_sound_mappings")
@@ -124,6 +133,20 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
   }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "notification_sound_mappings",
+    targetId: eventKeys.length === 1 ? eventKeys[0] : "bulk",
+    action: "notification_sound.update",
+    before: { mappings: beforeRows ?? [] },
+    after: {
+      mappings: mappings.map((p) => {
+        const { updated_by: _u, updated_at: _t, ...row } = mappingUpsertRow(p, admin.userId);
+        return row;
+      }),
+    },
+  });
 
   try {
     await mirrorNotificationSoundToLegacy(

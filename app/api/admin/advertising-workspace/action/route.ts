@@ -380,22 +380,25 @@ export async function POST(req: NextRequest) {
     if (!isAdminDeliveryAdProduct(productKind)) {
       return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
     }
+    // DEF-6: 화면에서 본 버전(updated_at·lifecycle)을 반드시 받는다 — DB 현재값으로 대신 채우면 동시성 검사가 꺼진다.
+    const expectedLifecycle = (
+      typeof body.expectedLifecycle === "string" ? body.expectedLifecycle.trim() : ""
+    ) as DeliveryAdLifecycleStatus;
+    const expectedUpdatedAt =
+      typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt.trim() : "";
+    if (!expectedLifecycle || !expectedUpdatedAt) {
+      return NextResponse.json({ ok: false, error: "expected_version_required" }, { status: 400 });
+    }
     const table =
       productKind === "banner" ? STORE_BANNER_AD_CAMPAIGN_TABLE : STORE_PAID_AD_CAMPAIGN_TABLE;
     const { data: camp, error: campErr } = await sb
       .from(table)
-      .select("id, lifecycle_status, updated_at")
+      .select("id")
       .eq("id", entityId)
       .maybeSingle();
     if (campErr || !camp?.id) {
       return NextResponse.json({ ok: false, error: "campaign_not_found" }, { status: 404 });
     }
-    const expectedLifecycle = String(
-      body.expectedLifecycle ?? (camp as { lifecycle_status?: string }).lifecycle_status ?? ""
-    ) as DeliveryAdLifecycleStatus;
-    const expectedUpdatedAt = String(
-      body.expectedUpdatedAt ?? (camp as { updated_at?: string }).updated_at ?? ""
-    );
 
     if (action === "extend_compensation") {
       if (!publicMsg) {

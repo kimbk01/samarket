@@ -127,15 +127,19 @@ export async function transitionPlatformPopupCampaign(
     patch.approved_at = null;
   }
 
+  // V3-03 (O-9): compare-and-set — 위에서 읽은 status/approval_status 가 그대로일 때만 쓴다.
+  // 다른 관리자·소유자 요청이 먼저 바꿨으면 0행 → stale_state (409), 덮어쓰지 않는다.
   const { data: updated, error: updErr } = await sb
     .from("platform_popup_campaigns")
     .update(patch)
     .eq("id", campaignId)
+    .eq("status", current.status)
+    .eq("approval_status", current.approval_status)
     .select("id, status, approval_status")
     .maybeSingle();
 
   if (updErr) return { ok: false, error: updErr.message, httpStatus: 500 };
-  if (!updated) return { ok: false, error: "update_failed", httpStatus: 500 };
+  if (!updated) return { ok: false, error: "stale_state", httpStatus: 409 };
 
   await appendAuditLog(sb, {
     actor_type: input.actorRole === "admin" ? "admin" : "user",

@@ -34,6 +34,11 @@ export function formatPlatformPopupAdminError(
   if (lower === "surface_required") {
     return lang === "en" ? "Select at least one placement." : "노출 위치를 하나 이상 선택해 주세요.";
   }
+  if (lower === "stale_state") {
+    return lang === "en"
+      ? "This popup was changed by someone else. Refresh and try again."
+      : "다른 작업으로 상태가 이미 바뀌었습니다. 새로고침 후 다시 시도해 주세요.";
+  }
   if (lower === "not_draft") {
     return lang === "en"
       ? "Only draft popups can be deleted. Pause or end a live campaign instead."

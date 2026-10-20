@@ -18,7 +18,11 @@ import {
   type DeliveryAdReviewStatus,
 } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import { safeFanOutDeliveryAdLifecycleAudit } from "@/lib/stores/advertising/delivery-ad-operations-lifecycle-fanout";
-import { hasCanonicalBcFundingSecured } from "@/lib/stores/advertising/canonical-business-cash-writer";
+import {
+  hasCanonicalBcFundingSecured,
+  ownerSubmitDeliveryAdWithBusinessCash,
+  type OwnerDeliveryAdSubmitCashOutcome,
+} from "@/lib/stores/advertising/canonical-business-cash-writer";
 import {
   DELIVERY_AD_OWNER_PRICING_PRODUCT,
   inventoryKeysToPrimaryPlacement,
@@ -682,8 +686,10 @@ export async function transitionOwnerSponsoredCampaign(
     to: DeliveryAdLifecycleStatus;
     actionLabel: string;
     nowMs?: number;
+    /** V3-04 DEF-7: submit/resubmit 시 비즈캐시 차감을 같은 DB 트랜잭션에서 수행. */
+    secureBusinessCash?: { storeId: string };
   }
-): Promise<OwnerSponsoredWriterResult<OwnerSponsoredCampaignRow>> {
+): Promise<OwnerSponsoredWriterResult<OwnerSponsoredCampaignRow> | OwnerDeliveryAdSubmitCashOutcome> {
   const loaded = await loadOwnerSponsoredCampaign(sb, input.campaignId, input.ownerUserId);
   if (!loaded.ok) return loaded;
   const row = loaded.row;
@@ -702,28 +708,53 @@ export async function transitionOwnerSponsoredCampaign(
   const action = ownerSponsoredActionFromLabel(input.actionLabel);
   if (!action) return { ok: false, error: "illegal_transition" };
 
-  const { data, error } = await sb.rpc("owner_delivery_ad_transition", {
-    p_owner_user_id: input.ownerUserId,
-    p_product_kind: "store_sponsored",
-    p_campaign_id: input.campaignId,
-    p_action: action,
-    p_expected_lifecycle: row.lifecycleStatus,
-    p_audit_action: input.actionLabel,
-  });
-  if (error) {
-    console.error("[transitionOwnerSponsoredCampaign]", error.message);
-    return { ok: false, error: "db_error" };
+  let auditId: string | null;
+  if (input.secureBusinessCash && (action === "submit" || action === "resubmit")) {
+    const atomic = await ownerSubmitDeliveryAdWithBusinessCash(sb, {
+      ownerUserId: input.ownerUserId,
+      storeId: input.secureBusinessCash.storeId,
+      productKind: "store_sponsored",
+      campaignId: input.campaignId,
+      action,
+      expectedLifecycle: row.lifecycleStatus,
+      auditAction: input.actionLabel,
+    });
+    if (atomic.status === "rpc_missing") return { ok: false, error: "atomic_submit_rpc_missing" };
+    if (atomic.status === "cash_failed") {
+      return { ok: false, error: "business_cash_failed", cash: atomic.cash };
+    }
+    if (atomic.status === "rpc_error") {
+      console.error("[transitionOwnerSponsoredCampaign]", atomic.message);
+      return { ok: false, error: "db_error" };
+    }
+    if (atomic.status === "transition_failed") {
+      return { ok: false, error: mapOwnerTransitionRpcError(atomic.error) };
+    }
+    auditId = atomic.auditId;
+  } else {
+    const { data, error } = await sb.rpc("owner_delivery_ad_transition", {
+      p_owner_user_id: input.ownerUserId,
+      p_product_kind: "store_sponsored",
+      p_campaign_id: input.campaignId,
+      p_action: action,
+      p_expected_lifecycle: row.lifecycleStatus,
+      p_audit_action: input.actionLabel,
+    });
+    if (error) {
+      console.error("[transitionOwnerSponsoredCampaign]", error.message);
+      return { ok: false, error: "db_error" };
+    }
+    const payload = data as {
+      ok?: boolean;
+      error?: string;
+      audit_id?: string;
+      campaign_id?: string;
+    } | null;
+    if (!payload?.ok) {
+      return { ok: false, error: mapOwnerTransitionRpcError(payload?.error) };
+    }
+    auditId = typeof payload.audit_id === "string" ? payload.audit_id : null;
   }
-  const payload = data as {
-    ok?: boolean;
-    error?: string;
-    audit_id?: string;
-    campaign_id?: string;
-  } | null;
-  if (!payload?.ok) {
-    return { ok: false, error: mapOwnerTransitionRpcError(payload?.error) };
-  }
-  const auditId = typeof payload.audit_id === "string" ? payload.audit_id : null;
   if (!auditId) return { ok: false, error: "db_error" };
 
   const reloaded = await loadOwnerSponsoredCampaign(sb, input.campaignId, input.ownerUserId);

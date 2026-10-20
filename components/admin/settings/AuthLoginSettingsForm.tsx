@@ -9,6 +9,7 @@ import type { AuthLoginSetting } from "@/lib/auth/login-settings";
 import type { AuthDuplicateLoginPolicy } from "@/lib/auth/session-policy";
 import type { AuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
 import Link from "next/link";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 
 type EditableProvider = AuthProviderPublicMeta & { client_secret: string };
 
@@ -45,6 +46,10 @@ export function AuthLoginSettingsForm() {
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [phoneSuccess, setPhoneSuccess] = useState<string | null>(null);
+  /** V3-09: 로그인 수단 저장은 확인 다이얼로그를 거친다 (전체 회원 로그인 영향). */
+  const [pendingSave, setPendingSave] = useState<
+    { kind: "provider"; provider: OAuthProvider } | { kind: "policy" } | null
+  >(null);
 
   const loadProviders = async () => {
     const providersRes = await fetch("/api/admin/auth-providers", {
@@ -472,7 +477,7 @@ export function AuthLoginSettingsForm() {
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    onClick={() => void saveProvider(row.provider)}
+                    onClick={() => setPendingSave({ kind: "provider", provider: row.provider })}
                     disabled={providerSaving[row.provider] === true}
                     className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
                   >
@@ -535,7 +540,7 @@ export function AuthLoginSettingsForm() {
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => void savePolicy()}
+                onClick={() => setPendingSave({ kind: "policy" })}
                 disabled={policySaving || legacySettings.length === 0}
                 className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
               >
@@ -667,6 +672,26 @@ export function AuthLoginSettingsForm() {
         )}
       </AdminCard>
       )}
+      <AdminActionConfirmDialog
+        open={pendingSave !== null}
+        tone="danger"
+        title={
+          pendingSave?.kind === "provider"
+            ? `${getProviderTitle(pendingSave.provider)} 로그인 설정을 저장할까요?`
+            : "로그인 정책을 저장할까요?"
+        }
+        description="로그인 수단 변경은 전체 회원 로그인에 영향을 줍니다. 잘못 저장하면 회원이 로그인하지 못할 수 있으니 값을 다시 확인한 뒤 저장하세요."
+        confirmLabel={t("common_save")}
+        cancelLabel={t("common_cancel")}
+        onCancel={() => setPendingSave(null)}
+        onConfirm={() => {
+          const target = pendingSave;
+          setPendingSave(null);
+          if (!target) return;
+          if (target.kind === "provider") void saveProvider(target.provider);
+          else void savePolicy();
+        }}
+      />
     </div>
   );
 }

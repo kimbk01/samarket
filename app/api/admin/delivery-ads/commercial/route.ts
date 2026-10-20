@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { loadDeliveryAdCommercialCatalog } from "@/lib/stores/advertising/delivery-ad-commercial-catalog";
 import {
   adminCreateDeliveryAdPackage,
@@ -187,6 +188,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
+  const { op: _op, reason: _reason, ...input } = body as PatchBody & Record<string, unknown>;
+  await appendAdminRouteAudit(sb, req, {
+    actorId: actorUserId,
+    targetType: "delivery_ad_commercial",
+    targetId: String(body.packageId ?? body.productKey ?? op),
+    action: `delivery_ad_commercial.${op}`,
+    before: null,
+    after: { input, reason },
+  });
   const catalog = await loadDeliveryAdCommercialCatalog(sb);
   return NextResponse.json({ ok: true, catalog });
 }

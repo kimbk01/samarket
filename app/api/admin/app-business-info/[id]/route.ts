@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   APP_BUSINESS_INFO_SELECT,
   isAppBusinessLocale,
@@ -98,6 +99,12 @@ export async function PATCH(
     if (status === "published") patch.published_at = new Date().toISOString();
   }
 
+  const { data: beforeRow } = await sb
+    .from("app_platform_business_info")
+    .select(APP_BUSINESS_INFO_SELECT)
+    .eq("id", docId)
+    .maybeSingle();
+
   const { data, error } = await sb
     .from("app_platform_business_info")
     .update(patch)
@@ -113,6 +120,14 @@ export async function PATCH(
   }
   if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "app_platform_business_info",
+    targetId: docId,
+    action: "app_business_info.update",
+    before: (beforeRow as Record<string, unknown> | null) ?? null,
+    after: data as Record<string, unknown>,
+  });
   return NextResponse.json({
     ok: true,
     document: normalizeAppPlatformBusinessInfoRow(data as Record<string, unknown>),

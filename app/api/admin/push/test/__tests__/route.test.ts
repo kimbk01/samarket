@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const requireAdminPermission = vi.fn();
+const requireAdminApiUser = vi.fn();
+const appendAdminRouteAudit = vi.fn();
 const createNotificationEvent = vi.fn();
 const dispatchPushForUser = vi.fn();
 const tryCreateSupabaseServiceClient = vi.fn();
 
-vi.mock("@/lib/admin/require-admin-permission", () => ({
-  requireAdminPermission: (...args: unknown[]) =>
-    requireAdminPermission(...args),
+vi.mock("@/lib/admin/require-admin-api", () => ({
+  requireAdminApiUser: (...args: unknown[]) => requireAdminApiUser(...args),
+}));
+vi.mock("@/lib/admin/audit/append-admin-route-audit", () => ({
+  appendAdminRouteAudit: (...args: unknown[]) => appendAdminRouteAudit(...args),
 }));
 vi.mock(
   "@/lib/notifications/core/notification-event-repository",
@@ -35,12 +38,13 @@ vi.mock("@/lib/push/dispatch/read-fcm-service-account", () => ({
 describe("Admin push test SSOT route", () => {
   beforeEach(() => {
     vi.resetModules();
-    requireAdminPermission.mockReset();
+    requireAdminApiUser.mockReset();
+    appendAdminRouteAudit.mockReset();
     createNotificationEvent.mockReset();
     dispatchPushForUser.mockReset();
     tryCreateSupabaseServiceClient.mockReset();
 
-    requireAdminPermission.mockResolvedValue({
+    requireAdminApiUser.mockResolvedValue({
       ok: true,
       userId: "admin-1",
     });
@@ -119,6 +123,38 @@ describe("Admin push test SSOT route", () => {
         badge_count: 0,
       })
     );
+    // V3-10: 단건 테스트 푸시는 관리자 누구나 — 권한 키 없이 requireAdminApiUser, 감사 1건.
+    expect(requireAdminApiUser).toHaveBeenCalledTimes(1);
+    expect(appendAdminRouteAudit).toHaveBeenCalledTimes(1);
+    expect(appendAdminRouteAudit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        actorId: "admin-1",
+        targetType: "user",
+        targetId: "user-1",
+        action: "push.test_send",
+        after: expect.objectContaining({ targets_found: 1, deliveries: 1 }),
+      })
+    );
+  });
+
+  it("rejects non-admin callers before any dispatch", async () => {
+    requireAdminApiUser.mockResolvedValue({
+      ok: false,
+      response: new Response(JSON.stringify({ ok: false }), { status: 403 }),
+    });
+    const { POST } = await import("@/app/api/admin/push/test/route");
+    const response = await POST(
+      new Request("https://samarket.vercel.app/api/admin/push/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: "user-1" }),
+      }) as never
+    );
+    expect(response.status).toBe(403);
+    expect(dispatchPushForUser).not.toHaveBeenCalled();
+    expect(appendAdminRouteAudit).not.toHaveBeenCalled();
   });
 
   it("does not redispatch a duplicate idempotency key", async () => {

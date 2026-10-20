@@ -13,6 +13,7 @@ import {
   tryPersistLedgerRow,
 } from "@/lib/admin/deploy-promotion/deploy-promotion-store";
 import { requireDeployOwner } from "@/lib/admin/deploy-promotion/deploy-owner";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { isTestRuntimeSurface } from "@/lib/config/test-access-control";
 
 export const runtime = "nodejs";
@@ -76,5 +77,12 @@ export async function POST(req: Request) {
   await hydratePromotionRecordFromLedger(gate.sb, sha);
   const record = setPipelineMock(sha, pipeline);
   await tryPersistLedgerRow(gate.sb, record, listEvidenceForSha(sha));
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "deploy_promotion",
+    targetId: sha,
+    action: "deploy.mock_pipeline",
+    after: { all_pass: body.allPass !== false && !body.failAt, fail_at: body.failAt ?? null },
+  });
   return NextResponse.json({ ok: true, record, pipeline: record.pipeline });
 }

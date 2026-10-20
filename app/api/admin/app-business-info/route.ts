@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   APP_BUSINESS_INFO_SELECT,
   isAppBusinessLocale,
@@ -89,8 +90,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  const document = normalizeAppPlatformBusinessInfoRow(data as Record<string, unknown>);
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "app_platform_business_info",
+    targetId: String((data as { id?: unknown }).id ?? ""),
+    action: "app_business_info.create",
+    after: data as Record<string, unknown>,
+  });
   return NextResponse.json({
     ok: true,
-    document: normalizeAppPlatformBusinessInfoRow(data as Record<string, unknown>),
+    document,
   });
 }

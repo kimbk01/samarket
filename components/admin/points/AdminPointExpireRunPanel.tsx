@@ -3,29 +3,52 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
+import { manilaDateKey } from "@/lib/admin/metrics/manila-period";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import type { ExpireSimulationResult } from "@/lib/points/point-expire-db";
 
 interface AdminPointExpireRunPanelProps {
   onRunComplete?: () => void;
 }
 
+/** 마닐라(PHT) 오늘 "YYYY-MM-DD" — 기준일 기본값·상한. */
+function manilaTodayYmd(): string {
+  return manilaDateKey(new Date().toISOString()) ?? new Date().toISOString().slice(0, 10);
+}
+
+/** 미리보기 합계 (적립분 합 — 실제 차감은 회원별 잔액을 넘지 않는다). */
+export function expireSimulationTotal(sim: ExpireSimulationResult): number {
+  return Object.values(sim.totalByUser).reduce((s, v) => s + (Number(v.total) || 0), 0);
+}
+
+/**
+ * V3-06: 소멸 실행은 같은 기준일 미리보기를 먼저 본 뒤, 미리보기 총 포인트를 다시 입력해야 실행된다.
+ */
 export function AdminPointExpireRunPanel({
   onRunComplete,
 }: AdminPointExpireRunPanelProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
 
-  const [asOfDate, setAsOfDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
-  );
+  const [asOfDate, setAsOfDate] = useState(manilaTodayYmd);
   const [simResult, setSimResult] = useState<ExpireSimulationResult | null>(null);
   const [runSummary, setRunSummary] = useState<{
     totalExpired: number;
     executionCount: number;
   } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 미리보기는 지금 선택한 기준일의 것일 때만 실행 근거가 된다.
+  const previewForDate = simResult && simResult.asOfDate === asOfDate ? simResult : null;
+  const previewTotal = previewForDate ? expireSimulationTotal(previewForDate) : 0;
+  const canRun = Boolean(previewForDate) && previewTotal > 0 && !loading;
 
   const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     const res = await adminFetch("/api/admin/point-expire/simulate", {
       method: "POST",
       credentials: "include",
@@ -34,35 +57,47 @@ export function AdminPointExpireRunPanel({
     });
     const json = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
+      error?: string;
       result?: ExpireSimulationResult | null;
     };
+    if (!res.ok || !json.ok) {
+      setError(adminOperatorErrorMessage(json.error || "db_error", ko));
+    }
     setSimResult(json.ok ? (json.result ?? null) : null);
     setRunSummary(null);
   };
 
-  const handleRun = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRun = async () => {
+    if (!previewForDate) return;
     setLoading(true);
-    const res = await adminFetch("/api/admin/point-expire/run", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ asOfDate }),
-    });
-    const json = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      executionIds?: string[];
-      totalExpired?: number;
-    };
-    if (json.ok) {
+    setError(null);
+    try {
+      const res = await adminFetch("/api/admin/point-expire/run", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asOfDate: previewForDate.asOfDate }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        executionIds?: string[];
+        totalExpired?: number;
+      };
+      if (!res.ok || !json.ok) {
+        setError(adminOperatorErrorMessage(json.error || "db_error", ko));
+        return;
+      }
       setRunSummary({
         totalExpired: json.totalExpired ?? 0,
         executionCount: (json.executionIds ?? []).length,
       });
+      setSimResult(null);
+      setConfirmOpen(false);
+      onRunComplete?.();
+    } finally {
+      setLoading(false);
     }
-    setSimResult(null);
-    setLoading(false);
-    onRunComplete?.();
   };
 
   return (
@@ -71,11 +106,12 @@ export function AdminPointExpireRunPanel({
       </h3>
       <form onSubmit={handleSimulate} className="flex flex-wrap items-end gap-2">
         <div>
-          <label className="mb-0.5 block sam-text-helper text-sam-muted"> {t("admin_points_expire_label_as_of")}
+          <label className="mb-0.5 block sam-text-helper text-sam-muted"> {t("admin_points_expire_label_as_of")} (PHT)
           </label>
           <input
             type="date"
             value={asOfDate}
+            max={manilaTodayYmd()}
             onChange={(e) => setAsOfDate(e.target.value)}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           />
@@ -87,13 +123,28 @@ export function AdminPointExpireRunPanel({
         </button>
         <button
           type="button"
-          onClick={handleRun}
-          disabled={loading}
+          onClick={() => setConfirmOpen(true)}
+          disabled={!canRun}
+          title={
+            canRun
+              ? undefined
+              : ko
+                ? "같은 기준일 미리보기(시뮬레이션)를 먼저 실행하세요."
+                : "Run the simulation for this date first."
+          }
           className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white disabled:opacity-50"
         >
           {loading ? t("admin_points_processing") : t("admin_points_expire_btn_run")}
         </button>
       </form>
+      {!previewForDate ? (
+        <p className="sam-text-helper text-sam-muted">
+          {ko
+            ? "만료 실행 전 같은 기준일로 미리보기(시뮬레이션)를 먼저 확인해야 합니다."
+            : "Preview (simulate) the same as-of date before running expiry."}
+        </p>
+      ) : null}
+      {error ? <p className="sam-text-body text-red-600">{error}</p> : null}
       {simResult && (
         <div className="rounded border border-amber-200 bg-amber-50/50 p-3 sam-text-body">
           <p className="font-medium text-amber-900">
@@ -105,6 +156,11 @@ export function AdminPointExpireRunPanel({
               items: simResult.items.length,
               users: Object.keys(simResult.totalByUser).length,
             })}
+          </p>
+          <p className="mt-1 font-medium text-amber-900">
+            {ko
+              ? `미리보기 총 ${expireSimulationTotal(simResult).toLocaleString()}P (회원별 잔액을 넘는 만큼은 차감되지 않음)`
+              : `Preview total ${expireSimulationTotal(simResult).toLocaleString()}P (capped by each member's balance)`}
           </p>
           <ul className="mt-2 list-inside list-disc sam-text-body-secondary text-amber-800">
             {Object.entries(simResult.totalByUser).map(([uid, v]) => (
@@ -129,6 +185,27 @@ export function AdminPointExpireRunPanel({
           </p>
         </div>
       )}
+      <AdminActionConfirmDialog
+        open={confirmOpen && Boolean(previewForDate)}
+        title={ko ? "포인트 만료 실행" : "Run point expiry"}
+        description={
+          ko
+            ? `기준일 ${asOfDate} (PHT) · 회원 ${Object.keys(previewForDate?.totalByUser ?? {}).length}명의 포인트가 실제로 소멸됩니다. 되돌릴 수 없습니다.`
+            : `As of ${asOfDate} (PHT) · points of ${Object.keys(previewForDate?.totalByUser ?? {}).length} members will actually expire. This cannot be undone.`
+        }
+        confirmLabel={t("admin_points_expire_btn_run")}
+        cancelLabel={ko ? "취소" : "Cancel"}
+        tone="danger"
+        confirmMatchText={String(previewTotal)}
+        confirmMatchLabel={
+          ko
+            ? `확인을 위해 미리보기 총 포인트 「${previewTotal}」 를 입력하세요`
+            : `Type the preview total 「${previewTotal}」 to confirm`
+        }
+        pending={loading}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => void handleRun()}
+      />
     </div>
   );
 }
