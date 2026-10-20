@@ -28,9 +28,8 @@ import {
   type MypageCursorListState,
   type MypageCursorPage,
 } from "@/lib/mypage/use-mypage-cursor-list";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
-import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { MYPAGE_BODY_COLUMN_CLASS, MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 type RecentViewPost = PostWithMeta & { viewed_at: string };
 type RecentViewDeleted = { postId: string; viewedAt: string; deleted: true };
@@ -153,8 +152,8 @@ export function RecentViewedScreen({ embedded = false }: { embedded?: boolean } 
         hideCtaStrip
         rightSlot={clearButton}
       />
-      <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-        <div className={`mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} pb-4 pt-2`}>
+      <div className={MYPAGE_SCROLL_BODY_CLASS}>
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} pb-4 pt-2`}>
           <RecentViewedBody list={list} onRemove={(id) => void remove(id)} />
         </div>
       </div>

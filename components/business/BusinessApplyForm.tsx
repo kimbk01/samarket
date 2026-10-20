@@ -23,7 +23,12 @@ import {
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_PRIMARY_DISABLED_TOKEN_CLASS,
 } from "@/lib/business/owner-admin-footer-actions";
+import {
+  BUSINESS_APPLY_SUBMIT_BLOCKED_MESSAGE_KEY,
+  resolveBusinessApplySubmitBlockedReason,
+} from "@/lib/business/business-apply-submit-gate";
 import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
@@ -362,11 +367,13 @@ export function BusinessApplyForm({
     onSubmit(values);
   };
 
-  const submitDisabled =
-    disabled ||
-    !computedStoreSlug.trim() ||
-    !addressDefault?.id ||
-    !values.applicantNickname.trim();
+  /** 제출 불가 사유 1줄 — 첫 번째 누락 필수 항목 (제출 중 `disabled` 는 사유 없음) */
+  const submitBlockedReason = resolveBusinessApplySubmitBlockedReason({
+    storeSlug: computedStoreSlug,
+    addressId: addressDefault?.id ?? null,
+    applicantName: values.applicantNickname,
+  });
+  const submitDisabled = disabled || submitBlockedReason != null;
 
   return (
     <>
@@ -563,6 +570,15 @@ export function BusinessApplyForm({
           style={footerPadStyle}
         >
           <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
+            {!disabled && submitBlockedReason ? (
+              <p
+                className="truncate border-b border-sam-border px-2 py-1.5 text-center text-[12px] leading-4 text-sam-muted"
+                role="status"
+                data-testid="business-apply-submit-blocked-reason"
+              >
+                {t(BUSINESS_APPLY_SUBMIT_BLOCKED_MESSAGE_KEY[submitBlockedReason])}
+              </p>
+            ) : null}
             <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
               <button
                 type="button"
@@ -585,7 +601,7 @@ export function BusinessApplyForm({
                 onPointerDown={(e) => {
                   if (!submitDisabled) triggerInteractionFeedback("light", e);
                 }}
-                className={`${OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS}`}
+                className={`${OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS} ${OWNER_STORE_ADMIN_FOOTER_PRIMARY_DISABLED_TOKEN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS}`}
               >
                 {resolvedSubmitLabel}
               </button>

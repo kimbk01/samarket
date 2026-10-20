@@ -7,16 +7,17 @@
 import {
   APP_MAIN_COLUMN_CLASS,
   APP_MAIN_FEED_STACK_CLASS,
-  APP_MAIN_GUTTER_X_COMFY_CLASS,
-  APP_MAIN_TAB_SCROLL_BODY_CLASS,
 } from "@/lib/ui/app-content-layout";
+import { MYPAGE_BODY_COLUMN_CLASS, MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
-/** Hub / list / shortcut rows — full main column (phone → tablet → desktop). */
-export const CUSTOMER_CENTER_LIST_COLUMN_CLASS =
-  "mx-auto w-full min-w-0 max-w-full flex flex-col gap-3 py-3 sm:max-w-2xl md:max-w-3xl lg:max-w-4xl";
+/**
+ * 회원 문의함·문의 목록 — 내정보 본문 1열 (폰 16px · 768+ 20px · 최대 640px, 설계서 v3 §2).
+ * 거터는 이 클래스 한 번만 (`CUSTOMER_CENTER_SCROLL_BODY_CLASS` 는 가로 여백 없음).
+ */
+export const CUSTOMER_CENTER_LIST_COLUMN_CLASS = `${MYPAGE_BODY_COLUMN_CLASS} flex flex-col gap-3 py-3`;
 
-/** Inquiry / charge forms — readable form width inside main column. */
-export const CUSTOMER_CENTER_FORM_COLUMN_CLASS = `mx-auto w-full min-w-0 max-w-[36rem] md:max-w-[40rem] ${APP_MAIN_GUTTER_X_COMFY_CLASS}`;
+/** 문의 상세·포인트 충전 폼 — 같은 내정보 본문 1열 */
+export const CUSTOMER_CENTER_FORM_COLUMN_CLASS = MYPAGE_BODY_COLUMN_CLASS;
 
 /** Notice / terms reading — fluid on tablet, capped on large desktop. */
 export const CUSTOMER_CENTER_READING_COLUMN_CLASS = `mx-auto w-full min-w-0 max-w-full px-3 sm:max-w-2xl sm:px-4 md:max-w-3xl lg:max-w-4xl`;
@@ -25,8 +26,8 @@ export const CUSTOMER_CENTER_READING_COLUMN_CLASS = `mx-auto w-full min-w-0 max-
 export const CUSTOMER_CENTER_PAGE_SHELL_CLASS =
   "flex min-h-screen min-w-0 flex-col overflow-x-clip";
 
-/** Scroll body under MySubpageHeader — same token as mypage stack. */
-export const CUSTOMER_CENTER_SCROLL_BODY_CLASS = APP_MAIN_TAB_SCROLL_BODY_CLASS;
+/** Scroll body under MySubpageHeader — 가로 여백 없음 (거터는 안쪽 내정보 열이 단독 소유). */
+export const CUSTOMER_CENTER_SCROLL_BODY_CLASS = MYPAGE_SCROLL_BODY_CLASS;
 
 /** Alias: keep list pages aligned with main feed gutters. */
 export const CUSTOMER_CENTER_DESKTOP_SHELL_CLASS = `${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_FEED_STACK_CLASS}`;

@@ -6,7 +6,19 @@ import { MoreHorizontal } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyListPager } from "@/components/mypage/ds/MyListPager";
 import { useMyScreenBackGuard } from "@/components/mypage/ds/MyScreen";
-import { MY_STICKY_CTA_BODY_CLEARANCE_CLASS, MYPAGE_TOAST_BOTTOM_VAR } from "@/components/mypage/ds/MyStickyCta";
+import { MYPAGE_TOAST_BOTTOM_VAR } from "@/components/mypage/ds/MyStickyCta";
+import {
+  useBottomNavOccupiesClearance,
+  useBottomNavScrollChromeHidden,
+} from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import {
+  FIXED_BOTTOM_BAR_MARKER_CLASS,
+  readFixedBarTopFromViewportBottomPx,
+} from "@/lib/layout/fixed-bottom-bar-occupancy";
+import {
+  resolveMyStickyCtaBodyClearanceClass,
+  resolveMyStickyCtaPlacement,
+} from "@/lib/mypage/my-sticky-cta-placement";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { CC_COMMENTS_PAGE_DEFAULT } from "@/lib/mypage/customer-center-board-query";
@@ -74,6 +86,7 @@ export function CustomerCenterCommentsPanel({
   backHref: string;
 }) {
   const { t, safeT } = useI18n();
+  const bottomNavOccupies = useBottomNavOccupiesClearance();
   const router = useRouter();
   const id = contentId.trim();
   const [draft, setDraft] = useState("");
@@ -239,7 +252,10 @@ export function CustomerCenterCommentsPanel({
   }
 
   return (
-    <section className={`border-t border-sam-border-soft pt-4 ${MY_STICKY_CTA_BODY_CLEARANCE_CLASS}`} data-testid="cc-comments">
+    <section
+      className={`border-t border-sam-border-soft pt-4 ${resolveMyStickyCtaBodyClearanceClass(bottomNavOccupies)}`}
+      data-testid="cc-comments"
+    >
       <h2 className="text-[14px] font-semibold text-sam-fg">
         {safeT("cc_comments_title", { fallbackKo: "댓글", fallbackEn: "Comments" })}
         {` ${count}`}
@@ -306,6 +322,15 @@ function CustomerCenterCommentInputBar({
   submitLabel: string;
 }) {
   const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport();
+  const bottomNavOccupies = useBottomNavOccupiesClearance();
+  const bottomNavHidden = useBottomNavScrollChromeHidden();
+  /** `MyStickyCta` 와 같은 배치 — 하단탭 바로 위 · 키보드 위 · 기기 전체 폭 (v3 §12) */
+  const placement = resolveMyStickyCtaPlacement({
+    bottomNavOccupies,
+    bottomNavHidden,
+    keyboardOpen,
+    effectiveBottomInset,
+  });
   const barRef = useRef<HTMLDivElement | null>(null);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const canSubmit = canSubmitCustomerCenterComment(value, pending);
@@ -322,7 +347,8 @@ function CustomerCenterCommentInputBar({
     const el = barRef.current;
     if (!el || typeof document === "undefined") return;
     const root = document.documentElement;
-    const apply = () => root.style.setProperty(MYPAGE_TOAST_BOTTOM_VAR, `${el.offsetHeight + 8}px`);
+    /** 화면 아래 끝 → 바 위 끝 (하단탭 위에 붙은 경우 탭 높이 포함) + 8px */
+    const apply = () => root.style.setProperty(MYPAGE_TOAST_BOTTOM_VAR, `${readFixedBarTopFromViewportBottomPx(el) + 8}px`);
     apply();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(apply) : null;
     ro?.observe(el);
@@ -330,7 +356,7 @@ function CustomerCenterCommentInputBar({
       ro?.disconnect();
       root.style.removeProperty(MYPAGE_TOAST_BOTTOM_VAR);
     };
-  }, []);
+  }, [placement.bottom, placement.paddingBottom]);
 
   return (
     <div
@@ -338,8 +364,9 @@ function CustomerCenterCommentInputBar({
       data-testid="cc-comment-input-bar"
       data-form-keyboard-footer="1"
       data-form-keyboard-open={keyboardOpen ? "true" : "false"}
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 border-t border-sam-border-soft bg-sam-app/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-app/88"
-      style={{ paddingBottom: `${effectiveBottomInset}px` }}
+      data-above-bottom-nav={placement.aboveBottomNav ? "1" : "0"}
+      className={`${FIXED_BOTTOM_BAR_MARKER_CLASS} pointer-events-none fixed inset-x-0 z-30 border-t border-sam-border-soft bg-sam-app/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-app/88`}
+      style={{ bottom: placement.bottom, paddingBottom: placement.paddingBottom }}
     >
       <div className={`pointer-events-auto mx-auto flex w-full ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} items-end gap-2 ${MYPAGE_GUTTER_X_CLASS} py-2.5`}>
         <textarea
@@ -358,7 +385,9 @@ function CustomerCenterCommentInputBar({
           aria-busy={pending}
           onClick={canSubmit ? onSubmit : undefined}
           data-testid="cc-comment-submit"
-          className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} ${Sam.focusRing} min-h-[44px] shrink-0 disabled:opacity-45`}
+          className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} ${Sam.focusRing} ${
+            pending ? "disabled:cursor-progress disabled:opacity-100" : Sam.btn.disabledToken
+          } min-h-[44px] shrink-0`}
         >
           {submitLabel}
         </button>

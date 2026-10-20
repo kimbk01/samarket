@@ -21,8 +21,19 @@ describe("main-bottom-nav-hub-clearance", () => {
     expect(isMainBottomNavHubBodyClearancePath("/stores/browse/food")).toBe(true);
     expect(isMainBottomNavHubBodyClearancePath("/stores/search")).toBe(true);
     expect(isMainBottomNavHubBodyClearancePath("/stores/cart")).toBe(true);
-    expect(isMainBottomNavHubBodyClearancePath("/mypage/store-orders")).toBe(true);
     expect(isMainBottomNavHubBodyClearancePath("/orders")).toBe(true);
+  });
+
+  it("/mypage/store-orders(/*) is NOT body-owned — shell owns tab clearance (v3 §4 ④)", () => {
+    for (const path of ["/mypage/store-orders", "/mypage/store-orders/o1", "/my/store-orders"]) {
+      expect(isMainBottomNavHubBodyClearancePath(path)).toBe(false);
+    }
+    const f = resolveConditionalAppShellFlags("/mypage/store-orders", false);
+    expect(f.showBottomNav).toBe(true);
+    expect(f.mainBottomClass).not.toBe("pb-0");
+    expect(f.mainBottomClass).toContain("--safe-bottom");
+    const detail = resolveConditionalAppShellFlags("/mypage/store-orders/o1", false);
+    expect(detail.mainBottomClass).not.toBe("pb-0");
   });
 
   it("excludes non-hub surfaces", () => {
@@ -54,7 +65,8 @@ describe("main-bottom-nav-hub-clearance", () => {
     for (const path of samples) {
       const deliveryConsumer = isDeliveryConsumerBottomNavSurface(path);
       const clearance = isMainBottomNavHubBodyClearancePath(path);
-      if (deliveryConsumer) {
+      /** 내정보 매장 주문은 배달 탭을 쓰지만 본문이 MyScreen — 셸이 여백 소유 */
+      if (deliveryConsumer && !path.startsWith("/mypage/store-orders")) {
         expect(clearance).toBe(true);
       }
       if (path.startsWith("/stores/owner")) {
@@ -114,7 +126,6 @@ describe("hub shell bottom padding", () => {
       "/stores/browse/food",
       "/stores/search",
       "/stores/cart",
-      "/mypage/store-orders",
     ]) {
       const f = resolveConditionalAppShellFlags(path, false);
       expect(f.showBottomNav).toBe(true);

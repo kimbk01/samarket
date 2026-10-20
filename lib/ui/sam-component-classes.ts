@@ -49,6 +49,12 @@ export const Sam = {
     /** 흰 배경 + 프라이머리 테두리·텍스트 — 듀얼 확인 팝업 상단 버튼 등 */
     outlinePrimaryCombo: "sam-btn sam-btn--outline-primary",
     pill: "sam-btn--pill",
+    /**
+     * 비활성 = 회색 토큰 배경 + 회색 글자 (불투명도 처리 금지 · 설계서 v3 §3).
+     * `.sam-btn:disabled` 의 opacity 를 유틸 레이어에서 덮는다 — 버튼 조합 뒤에 붙여 쓴다.
+     */
+    disabledToken:
+      "disabled:cursor-not-allowed disabled:opacity-100 disabled:border-transparent disabled:bg-[color:var(--sam-primary-disabled)] disabled:text-sam-muted",
     sm: "sam-btn--sm",
     block: "sam-btn--block",
   },

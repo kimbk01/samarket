@@ -3,8 +3,8 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfNavClick } from "@/lib/runtime/dibay-myinfo-perf";
+import { MYPAGE_BODY_COLUMN_CLASS, MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 export function MyPageStackShell({
   title,
@@ -50,7 +50,9 @@ export function MyPageStackShell({
         hideCtaStrip
         showHubQuickActions
       />
-      <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>{children}</div>
+      <div className={MYPAGE_SCROLL_BODY_CLASS}>
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} pt-3 pb-4`}>{children}</div>
+      </div>
     </div>
   );
 }

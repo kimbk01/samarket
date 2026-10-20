@@ -24,7 +24,7 @@ import {
 import {
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
   MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
-  MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS,
+  resolveAddressManageScrollInnerClass,
 } from "@/lib/addresses/mypage-address-manage-layout";
 import {
   describeMeAddressesListFailure,
@@ -430,7 +430,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           className={
             storesGreenHeader
               ? "flex min-w-0 flex-col gap-4 py-4"
-              : MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS
+              : resolveAddressManageScrollInnerClass(pathname, embedded)
           }
         >
           {addressListBody}

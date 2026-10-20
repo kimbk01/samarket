@@ -13,11 +13,11 @@ import {
   CUSTOMER_CENTER_PAGE_SHELL_CLASS,
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
 } from "@/lib/mypage/customer-center-layout";
-import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { mypageDateGroupKey } from "@/lib/mypage/format-mypage-date";
 import { groupExpiringEntriesByMonth } from "@/lib/points/point-expire-utils";
 import { fetchMePoints, peekLatestMePoints, type MePointsExpiring } from "@/lib/points/me-points-client";
 import { formatExpiringMonthLabel } from "@/lib/points/points-screen-tabs";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 /** S40 에서 넘어온 직후면 같은 응답을 재사용(추가 요청 0) */
 const REUSE_S40_RESPONSE_MS = 60_000;
@@ -112,7 +112,7 @@ function MyPointsExpiringPageInner() {
         hideCtaStrip
       />
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={`mx-auto flex w-full min-w-0 flex-col gap-4 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} pt-2 pb-6`}>
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-col gap-4 pt-2 pb-6`}>
           {state.kind === "loading" ? (
             <ExpiringSkeleton />
           ) : state.kind === "error" ? (

@@ -15,7 +15,7 @@ import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
-import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 const FORM_ID = "mypage-ads-apply-form";
 
@@ -82,7 +82,7 @@ export function MyAdsApplyPageClient() {
         hideCtaStrip
       />
       <div
-        className={`mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} py-4 ${MY_STICKY_CTA_BODY_CLEARANCE_CLASS}`}
+        className={`${MYPAGE_BODY_COLUMN_CLASS} py-4 ${MY_STICKY_CTA_BODY_CLEARANCE_CLASS}`}
       >
         {unauthorized ? (
           <p className="mb-4 rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-fg">

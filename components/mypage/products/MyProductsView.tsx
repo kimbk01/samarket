@@ -1,6 +1,5 @@
 "use client";
 
-import { Plus } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -37,9 +36,10 @@ import { fetchTradeHistorySalesBySession } from "@/lib/mypage/trade-history-clie
 import { groupSalesRowsByPostId } from "@/lib/mypage/seller-listings-with-trades";
 import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 import { MyProductCard } from "./MyProductCard";
-import { Sam } from "@/lib/ui/sam-component-classes";
-import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
-import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 type MyProductsViewProps = {
   filter: MyProductFilterKey;
@@ -363,9 +363,10 @@ export function MyProductsView({
   };
 
   const loading = Boolean(currentUserId) && list.status === "loading";
+  const bottomNavOccupies = useBottomNavOccupiesClearance();
 
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-[40rem] flex-col pb-28">
+    <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-col ${resolveMyStickyCtaBodyClearanceClass(bottomNavOccupies)}`}>
       {loading ? (
         <MyProductsSkeleton />
       ) : currentUserId && list.status === "error" ? (
@@ -398,18 +399,8 @@ export function MyProductsView({
         </>
       )}
 
-      <div
-        className={`fixed inset-x-0 bottom-0 z-20 border-t border-sam-border bg-sam-app/95 backdrop-blur-sm ${APP_MAIN_GUTTER_X_CLASS} pt-3 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
-      >
-        <button
-          type="button"
-          className={`${Sam.btn.primaryCombo} ${Sam.btn.block} flex items-center justify-center gap-2 py-3.5`}
-          onClick={openWrite}
-        >
-          <Plus className="h-5 w-5 shrink-0" aria-hidden />
-          <span>{createLabel}</span>
-        </button>
-      </div>
+      {/** 하단 고정 CTA — 내정보 공통 `MyStickyCta` (하단탭 바로 위 · 기기 전체 폭 · v3 §12) */}
+      <MyStickyCta dirty primary={{ label: createLabel, onPress: openWrite, testId: "my-products-create-cta" }} />
     </div>
   );
 }

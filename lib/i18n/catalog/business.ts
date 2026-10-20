@@ -773,6 +773,9 @@ export const businessMessages = {
     business_phase7_707: "회원 인증하러 가기",
     business_phase7_708: "대표 주소 설정하기",
     business_phase7_709: "인증된 회원 전화번호입니다. 변경은 내정보에서 하세요.",
+    business_apply_submit_blocked_store_id: "매장 ID가 아직 준비되지 않아 신청할 수 없습니다.",
+    business_apply_submit_blocked_name: "실명을 입력하면 신청할 수 있습니다.",
+    business_apply_submit_blocked_address: "대표 주소를 설정하면 신청할 수 있습니다.",
   },
   en: {
     business_phase7_001: ") is saved only.",
@@ -1559,5 +1562,8 @@ export const businessMessages = {
     business_phase7_707: "Go to member verification",
     business_phase7_708: "Set default address",
     business_phase7_709: "This is your verified member phone. Change it in My account.",
+    business_apply_submit_blocked_store_id: "Your store ID is not ready yet, so you can't apply.",
+    business_apply_submit_blocked_name: "Enter your legal name to apply.",
+    business_apply_submit_blocked_address: "Set a default address to apply.",
   },
 } as const;

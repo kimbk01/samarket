@@ -28,6 +28,8 @@ import {
 import { OWNER_FAB_BOTTOM_OFFSET_CLASS } from "@/lib/business/owner-shell-geometry";
 import { OWNER_OVERLAY_Z_CLASS } from "@/lib/business/owner-overlay-layers";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
+import { useFixedBottomBarOccupiedPx } from "@/lib/layout/use-fixed-bottom-bar-occupied-px";
+import { resolveSupportFabBottomPlacement } from "@/lib/support/support-fab-bottom-placement";
 import { useSyncExternalStore } from "react";
 
 /**
@@ -61,24 +63,30 @@ export function SupportFabHost() {
   );
 
   const useOwnerFabLayout = ownerShellActive;
-  const bottomClass = useOwnerFabLayout
-    ? OWNER_FAB_BOTTOM_OFFSET_CLASS
-    : bottomNavClearance
-      ? BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass
-      : "bottom-[calc(var(--safe-bottom)+16px)]";
+  const showFab = visible && !modalOpen && !ownerDrawerOpen;
+  /** 화면 하단 고정 바(내정보 CTA·댓글 입력바·오너 폼 하단 바) 실측 점유 높이 — 그 위로 비킨다 */
+  const fixedBarOccupiedPx = useFixedBottomBarOccupiedPx(showFab);
+  const placement = resolveSupportFabBottomPlacement({
+    ownerShell: useOwnerFabLayout,
+    bottomNavClearance,
+    fixedBarOccupiedPx,
+    ownerClass: OWNER_FAB_BOTTOM_OFFSET_CLASS,
+    bottomNavClass: BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass,
+  });
 
   const zClass = useOwnerFabLayout
     ? OWNER_OVERLAY_Z_CLASS.fab
     : MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS;
 
-  const showFab = visible && !modalOpen && !ownerDrawerOpen;
   if (!showFab) return null;
 
   return (
     <BodyPortal>
       <div
-        className={`pointer-events-none fixed inset-x-0 ${bottomClass} ${zClass}`}
+        className={`pointer-events-none fixed inset-x-0 ${placement.className} ${zClass}`}
+        style={placement.style}
         data-support-fab-host="1"
+        data-fixed-bar-clearance={fixedBarOccupiedPx > 0 ? "1" : "0"}
         data-owner-nav-clearance={ownerBottomNavClearance ? "1" : "0"}
         data-owner-shell-fab={useOwnerFabLayout ? "1" : "0"}
       >
