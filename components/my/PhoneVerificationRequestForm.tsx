@@ -187,7 +187,7 @@ export function PhoneVerificationRequestForm() {
           <p className="mt-1 sam-text-body-secondary text-sam-muted">{status.help_text}</p>
         ) : null}
         {status?.consent_required ? (
-          <p className="mt-1 sam-text-body-secondary text-amber-700">{t("my_phone_consent_required")}</p>
+          <p className="mt-1 sam-text-body-secondary text-sam-warning">{t("my_phone_consent_required")}</p>
         ) : null}
       </div>
 
@@ -228,7 +228,7 @@ export function PhoneVerificationRequestForm() {
             className="sam-input mt-1"
           />
         </div>
-        {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
+        {error ? <p className="sam-text-body-secondary text-sam-danger">{error}</p> : null}
         {message ? <p className="sam-text-body-secondary text-green-700">{message}</p> : null}
         <button
           type="submit"

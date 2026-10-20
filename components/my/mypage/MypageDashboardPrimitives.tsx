@@ -64,7 +64,7 @@ export function ActionSection({
             <div className="flex items-center gap-2">
               <h2 className="sam-text-body-lg font-semibold text-foreground md:sam-text-section-title">{title}</h2>
               {itemCount != null ? (
-                <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 sam-text-xxs font-medium text-[#4B5563]">
+                <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-medium text-sam-muted">
                   {itemCount}
                 </span>
               ) : null}
@@ -120,12 +120,12 @@ function ActionTile({
     action.tone === "accent"
       ? "border-signature/20 bg-signature/5"
       : action.tone === "dark"
-        ? "border-[#111827] bg-[#111827] text-white"
+        ? "border-sam-fg bg-sam-fg text-white"
         : "border-sam-border bg-sam-surface";
   const titleClass = action.tone === "dark" ? "text-white" : "text-foreground";
   const descClass = action.tone === "dark" ? "text-white/70" : "text-muted";
   const badgeClass =
-    action.tone === "dark" ? "bg-sam-surface/15 text-white" : "bg-[#F3F4F6] text-foreground";
+    action.tone === "dark" ? "bg-sam-surface/15 text-white" : "bg-sam-surface-muted text-foreground";
   const paddingClass = featured ? "min-h-[88px] py-4 md:min-h-0 md:py-5" : "py-3.5 md:py-4";
 
   return (

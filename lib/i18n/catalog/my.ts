@@ -32,8 +32,9 @@ export const myMessages = {
     settings_version_status_unavailable: "이 환경에서는 앱 업데이트를 사용할 수 없습니다.",
     settings_version_status_unknown: "업데이트 가능 여부를 아직 확인하지 못했습니다.",
     settings_version_native_read_failed: "설치된 앱 버전을 읽지 못했습니다",
-    settings_version_ios_note: "iOS에서는 App Store 업데이트를 사용합니다",
+    settings_version_ios_note: "iOS 앱은 설치한 곳에서 업데이트해 주세요",
     settings_version_web_note: "웹에서는 설치 앱 버전(Play)을 표시하지 않습니다",
+    settings_version_web_deploy_label: "웹 배포",
     settings_version_check_failed_detail:
       "Google Play에서 업데이트 정보를 확인하지 못했습니다. 네트워크와 Play 스토어 설치 여부를 확인해 주세요.",
     settings_version_check_button: "업데이트 확인",
@@ -527,8 +528,9 @@ export const myMessages = {
     settings_version_status_unavailable: "App updates are not available in this environment.",
     settings_version_status_unknown: "Update availability has not been confirmed yet.",
     settings_version_native_read_failed: "Could not read the installed app version",
-    settings_version_ios_note: "On iOS, updates are delivered through the App Store",
+    settings_version_ios_note: "Update the iOS app from where you installed it",
     settings_version_web_note: "Installed Play app version is not shown on web",
+    settings_version_web_deploy_label: "Web build",
     settings_version_check_failed_detail:
       "Could not get update info from Google Play. Check your network and that the app was installed from Play Store.",
     settings_version_check_button: "Check for updates",

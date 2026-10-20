@@ -58,7 +58,7 @@ export function MyServicesCategoryGrid() {
 
   if (error) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface py-6 text-center sam-text-body text-red-500 shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface py-6 text-center sam-text-body text-sam-danger shadow-sm">
         {error}
       </div>
     );

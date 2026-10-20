@@ -11,8 +11,8 @@ import {
 import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
 import type { ProfileRow } from "@/lib/profile/types";
 
-const VERIFIED_VALUE_CLASS = "text-[#00704A]";
-const UNVERIFIED_VALUE_CLASS = "text-red-700";
+const VERIFIED_VALUE_CLASS = "text-sam-primary";
+const UNVERIFIED_VALUE_CLASS = "text-sam-danger";
 
 function resolveProfileAuthProvider(profile: ProfileRow): OAuthProvider | "email" {
   const raw = (profile.auth_provider ?? profile.provider ?? "").trim().toLowerCase();
@@ -25,9 +25,9 @@ function profileAuthProviderBadgeClass(provider: OAuthProvider | "email"): strin
   if (provider === "kakao") return "bg-[#FEE500]";
   if (provider === "naver") return "bg-[#03C75A]";
   if (provider === "apple") return "bg-black";
-  if (provider === "google") return "border border-[#dadce0] bg-white";
+  if (provider === "google") return "border border-[#dadce0] bg-sam-surface";
   if (provider === "facebook") return "bg-[#1877F2]";
-  return "bg-[#00704A]";
+  return "bg-sam-primary";
 }
 
 function ProfileAuthProviderBadge({ provider }: { provider: OAuthProvider | "email" }) {
@@ -54,11 +54,11 @@ function ReadonlyRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
-      <span className="shrink-0 text-[13px] text-[#6F4E37]">{label}</span>
+      <span className="shrink-0 text-[13px] text-sam-muted">{label}</span>
       <div className="flex min-w-0 items-center justify-end gap-2">
         {leading}
         <span
-          className={`min-w-0 truncate text-right text-[14px] font-medium ${valueClassName ?? "text-[#1E3932]"}`}
+          className={`min-w-0 truncate text-right text-[14px] font-medium ${valueClassName ?? "text-sam-fg"}`}
         >
           {value}
         </span>
@@ -98,7 +98,7 @@ export function ProfileReadonlyFields({ profile }: { profile: ProfileRow }) {
   const verifiedPhoneDisplay = formatProfilePhoneForDisplay(profile);
 
   return (
-    <div className="divide-y divide-[#D4E9E2]/80">
+    <div className="divide-y divide-sam-icon-surface/80">
       <ReadonlyRow
         label={t("account_email")}
         value={loginEmail}
@@ -113,7 +113,7 @@ export function ProfileReadonlyFields({ profile }: { profile: ProfileRow }) {
         label={phoneVerificationLabel}
         value={phoneStatus}
         valueClassName={
-          contactVerified ? VERIFIED_VALUE_CLASS : phonePending ? "text-[#6F4E37]" : UNVERIFIED_VALUE_CLASS
+          contactVerified ? VERIFIED_VALUE_CLASS : phonePending ? "text-sam-muted" : UNVERIFIED_VALUE_CLASS
         }
       />
       {contactVerified && verifiedPhoneDisplay ? (

@@ -73,6 +73,8 @@ const nextConfig = {
   /** Vercel 빌드 시 클라이언트에서도 Preview/Production 구분 (deploy-surface.ts) */
   env: {
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV ?? "",
+    /** 내정보 버전 화면 — 웹 배포 커밋 7자리 (네이티브 버전과 구분 표시) */
+    NEXT_PUBLIC_WEB_DEPLOY_SHA: (process.env.VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7),
     /** Dev Stability Pack — 클라 번들 인라인용. `DEV_SAFE_MODE` 또는 `NEXT_PUBLIC_DEV_SAFE_MODE` 어느 쪽이든 1이면 1 */
     NEXT_PUBLIC_DEV_SAFE_MODE:
       process.env.NODE_ENV === "development" &&

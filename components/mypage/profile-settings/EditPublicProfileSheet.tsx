@@ -153,7 +153,7 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
           <button
             type="button"
             onClick={() => void load()}
-            className="mt-3 text-[13px] font-semibold text-[#00704A] underline underline-offset-2"
+            className="mt-3 text-[13px] font-semibold text-sam-primary underline underline-offset-2"
           >
             {safeT("common_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
           </button>
@@ -188,11 +188,11 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
             />
           </div>
           {error ? (
-            <p className="text-[13px] font-medium text-red-600" role="alert">
+            <p className="text-[13px] font-medium text-sam-danger" role="alert">
               {error}
             </p>
           ) : null}
-          {message ? <p className="text-[13px] font-medium text-[#00704A]">{message}</p> : null}
+          {message ? <p className="text-[13px] font-medium text-sam-primary">{message}</p> : null}
           <button
             type="button"
             disabled={saving}

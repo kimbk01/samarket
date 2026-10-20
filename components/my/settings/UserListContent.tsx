@@ -109,7 +109,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
   }
 
   if (error) {
-    return <div className="py-12 text-center sam-text-body text-red-600">{error}</div>;
+    return <div className="py-12 text-center sam-text-body text-sam-danger">{error}</div>;
   }
 
   if (items.length === 0) {
@@ -163,7 +163,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
             <button
               type="button"
               disabled={busyId === item.id}
-              className="shrink-0 sam-text-body-secondary text-red-600"
+              className="shrink-0 sam-text-body-secondary text-sam-danger"
               onClick={() => void handleDelete(item.id)}
             >
               {busyId === item.id

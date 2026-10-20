@@ -54,7 +54,7 @@ export function BulkRegionChangeContent() {
         <div className="rounded-ui-rect bg-emerald-50 px-4 py-3 sam-text-body-secondary text-emerald-700">{success}</div>
       ) : null}
       {error ? (
-        <div className="rounded-ui-rect bg-red-50 px-4 py-3 sam-text-body-secondary text-red-600">{error}</div>
+        <div className="rounded-ui-rect bg-sam-danger-soft px-4 py-3 sam-text-body-secondary text-sam-danger">{error}</div>
       ) : null}
       {!confirming ? (
         <button

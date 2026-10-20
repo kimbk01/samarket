@@ -82,6 +82,8 @@
   --color-sam-info-soft: var(--sam-info-soft);
   --color-sam-icon: var(--sam-icon-default);
   --color-sam-icon-soft: var(--sam-icon-soft);
+  --color-sam-icon-surface: var(--sam-icon-surface);
+  --color-sam-pressed-surface: var(--sam-pressed-surface);
 
   --radius-ui-rect: var(--ui-radius-rect);
   --radius-ui-sm: var(--ui-radius-sm);

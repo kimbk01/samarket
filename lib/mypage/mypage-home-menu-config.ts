@@ -4,6 +4,8 @@ import type {
 } from "@/lib/mypage/mypage-home-menu-types";
 import {
   MYPAGE_HOME_ACCOUNT_HREF,
+  MYPAGE_HOME_COMMUNITY_ACTIVITY_HREF,
+  MYPAGE_HOME_COMMUNITY_POSTS_HREF,
   MYPAGE_HOME_ACCOUNT_LEAVE_HREF,
   MYPAGE_HOME_RECENT_VIEWED_HREF,
   MYPAGE_HOME_STORE_ORDERS_HREF,
@@ -39,7 +41,7 @@ export const MYPAGE_HOME_TRADE_ITEMS: MypageHomeLinkMenuItem[] = [
   {
     href: TRADE_CHAT_MESSENGER_LIST_HREF,
     titleKey: "nav_trade_hub_chat",
-    icon: "shopping-bag",
+    icon: "messages-square",
   },
   {
     href: MYPAGE_HOME_TRADE_FAVORITES_HREF,
@@ -54,12 +56,29 @@ export const MYPAGE_HOME_TRADE_ITEMS: MypageHomeLinkMenuItem[] = [
   {
     href: MYPAGE_HOME_RECENT_VIEWED_HREF,
     titleKey: "mypage_hub_recent_viewed",
-    icon: "eye-off",
+    icon: "history",
   },
   {
     href: MYPAGE_HOME_TRADE_REVIEWS_HREF,
     titleKey: "mypage_comp_nav_sec_trade_reviews_label",
-    icon: "message-square",
+    icon: "star",
+  },
+];
+
+/**
+ * v2.1 IA — activity 그룹 안 커뮤니티 (로그인 회원 진입 경로 · D6).
+ * 계약 순서(identity → activity → store_order …) 불변: 거래 바로 아래.
+ */
+export const MYPAGE_HOME_COMMUNITY_ITEMS: MypageHomeLinkMenuItem[] = [
+  {
+    href: MYPAGE_HOME_COMMUNITY_POSTS_HREF,
+    titleKey: "mypage_comp_menu_community_posts_title",
+    icon: "book-open",
+  },
+  {
+    href: MYPAGE_HOME_COMMUNITY_ACTIVITY_HREF,
+    titleKey: "mypage_comp_menu_community_activity_title",
+    icon: "message-circle",
   },
 ];
 
@@ -204,7 +223,7 @@ export const MYPAGE_HOME_SERVICE_ITEMS: MypageHomeLinkMenuItem[] = [
   {
     href: "/mypage/section/settings/personalization",
     titleKey: "settings_personalization",
-    icon: "ellipsis-vertical",
+    icon: "sliders",
   },
   {
     href: "/mypage/section/settings/cache",
@@ -237,17 +256,17 @@ export const MYPAGE_HOME_POLICY_ITEMS: MypageHomeLinkMenuItem[] = [
   {
     href: "/mypage/section/settings/terms",
     titleKey: "mypage_comp_menu_support_terms_title",
-    icon: "shield",
+    icon: "file-text",
   },
   {
     href: "/privacy",
     titleKey: "mypage_comp_settings_privacy_link",
-    icon: "shield",
+    icon: "lock",
   },
   {
     href: "/business-info",
     titleKey: "mypage_comp_menu_support_business_title",
-    icon: "store",
+    icon: "building",
   },
 ];
 

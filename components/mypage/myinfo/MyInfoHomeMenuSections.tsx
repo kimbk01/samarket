@@ -8,6 +8,7 @@ import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection"
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
 import {
   MYPAGE_HOME_ACCOUNT_ITEMS,
+  MYPAGE_HOME_COMMUNITY_ITEMS,
   MYPAGE_HOME_DANGER_ITEMS,
   MYPAGE_HOME_POLICY_ITEMS,
   MYPAGE_HOME_SERVICE_ITEMS,
@@ -76,6 +77,25 @@ export function MyInfoTradeMenuSection({ onItemPress }: { onItemPress?: (href: s
   return (
     <MyInfoMenuSection title={safeT("mypage_comp_section_trade")}>
       {MYPAGE_HOME_TRADE_ITEMS.map((item, index) => (
+        <MyInfoMenuItem
+          key={item.href}
+          first={index === 0}
+          href={item.href}
+          title={safeT(item.titleKey)}
+          icon={renderMypageHomeMenuIcon(item.icon)}
+          onPress={onItemPress ? () => onItemPress(item.href) : undefined}
+        />
+      ))}
+    </MyInfoMenuSection>
+  );
+}
+
+/** Flow: activity (커뮤니티) — 로그인 회원 홈의 내 글·댓글/활동 진입 (D6) */
+export function MyInfoCommunityMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
+  const { safeT } = useI18n();
+  return (
+    <MyInfoMenuSection title={safeT("mypage_comp_section_community")}>
+      {MYPAGE_HOME_COMMUNITY_ITEMS.map((item, index) => (
         <MyInfoMenuItem
           key={item.href}
           first={index === 0}

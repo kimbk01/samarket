@@ -206,7 +206,7 @@ export function PhoneVerificationBox({
   }
 
   const showSetupShellError = setupError && !verified && !error;
-  const setupShellClass = showSetupShellError ? "rounded-ui-rect border border-red-300 bg-red-50/40 p-3" : "";
+  const setupShellClass = showSetupShellError ? "rounded-ui-rect border border-sam-danger bg-sam-danger-soft/40 p-3" : "";
   const shellClass = compact
     ? `space-y-3${setupShellClass ? ` ${setupShellClass}` : ""}`
     : `space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4${setupShellClass ? ` ${setupShellClass}` : ""}`;
@@ -218,7 +218,7 @@ export function PhoneVerificationBox({
     ? PROFILE_EDIT_PRIMARY_BTN_CLASS + " px-3 py-2 text-[13px]"
     : "rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white disabled:opacity-50";
   const otpBtnClass = compact
-    ? "rounded-ui-rect border border-[#00704A]/25 px-3 py-2 text-[13px] font-semibold text-[#00704A] disabled:opacity-50"
+    ? "rounded-ui-rect border border-sam-primary/25 px-3 py-2 text-[13px] font-semibold text-sam-primary disabled:opacity-50"
     : "rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body font-medium text-sam-fg disabled:opacity-50";
 
   const verifiedDisplayPhone =
@@ -230,7 +230,7 @@ export function PhoneVerificationBox({
   return (
     <div className={shellClass}>
       {compact ? (
-        <p className="text-[13px] text-[#6F4E37]">
+        <p className="text-[13px] text-sam-muted">
           {verified
             ? t("my_phone_verified_success")
             : settings.guide_text || t("profile_edit_section_phone_desc")}
@@ -248,15 +248,15 @@ export function PhoneVerificationBox({
         <div
           className={
             compact
-              ? "flex flex-wrap items-center justify-between gap-2 rounded-ui-rect bg-[#E8F3EE] px-3 py-2.5"
+              ? "flex flex-wrap items-center justify-between gap-2 rounded-ui-rect bg-sam-pressed-surface px-3 py-2.5"
               : "rounded-ui-rect border border-emerald-200 bg-emerald-50 px-3 py-2"
           }
         >
           <div className="min-w-0">
-            <p className={compact ? "text-[13px] font-bold text-[#00704A]" : "sam-text-body font-semibold text-emerald-800"}>
+            <p className={compact ? "text-[13px] font-bold text-sam-primary" : "sam-text-body font-semibold text-emerald-800"}>
               {t("my_phone_status_verified")}
             </p>
-            <p className={compact ? "text-[14px] text-[#1E3932]" : "sam-text-body-secondary text-emerald-700"}>
+            <p className={compact ? "text-[14px] text-sam-fg" : "sam-text-body-secondary text-emerald-700"}>
               {verifiedDisplayPhone}
             </p>
           </div>
@@ -264,8 +264,8 @@ export function PhoneVerificationBox({
             type="button"
             className={
               compact
-                ? "shrink-0 text-[13px] font-semibold text-[#00704A] underline"
-                : "mt-2 rounded-ui-rect border border-emerald-300 bg-white px-3 py-1.5 sam-text-helper text-emerald-800"
+                ? "shrink-0 text-[13px] font-semibold text-sam-primary underline"
+                : "mt-2 rounded-ui-rect border border-emerald-300 bg-sam-surface px-3 py-1.5 sam-text-helper text-emerald-800"
             }
             onClick={() => setAllowEdit(true)}
           >
@@ -324,13 +324,13 @@ export function PhoneVerificationBox({
         </>
       )}
 
-      {error ? <p className="text-[13px] text-red-600" role="alert">{error}</p> : null}
+      {error ? <p className="text-[13px] text-sam-danger" role="alert">{error}</p> : null}
       {showSetupShellError ? (
-        <p className="text-[12px] text-red-600" role="alert">
+        <p className="text-[12px] text-sam-danger" role="alert">
           {t("profile_setup_err_phone_required")}
         </p>
       ) : null}
-      {message ? <p className="text-[13px] text-[#00704A]">{message}</p> : null}
+      {message ? <p className="text-[13px] text-sam-primary">{message}</p> : null}
     </div>
   );
 }

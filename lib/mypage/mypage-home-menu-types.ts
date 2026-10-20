@@ -29,7 +29,15 @@ export type MypageHomeMenuIconId =
   | "trash-2"
   | "info"
   | "hand"
-  | "phone";
+  | "phone"
+  | "languages"
+  | "history"
+  | "star"
+  | "messages-square"
+  | "file-text"
+  | "lock"
+  | "building"
+  | "sliders";
 
 export type MypageHomeLinkMenuItem = {
   kind?: "link";

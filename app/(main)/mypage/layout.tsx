@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { MypageToastHost } from "@/components/mypage/MypageToastHost";
 
 export const dynamic = "force-dynamic";
 
@@ -7,5 +8,10 @@ type MypageLayoutProps = {
 };
 
 export default function MypageLayout({ children }: MypageLayoutProps) {
-  return <div className="sam-domain-shell">{children}</div>;
+  return (
+    <div className="sam-domain-shell">
+      {children}
+      <MypageToastHost />
+    </div>
+  );
 }

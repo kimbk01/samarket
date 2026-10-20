@@ -59,7 +59,7 @@ export function NoticeDetailContent({ noticeId }: { noticeId: string }) {
   if (error) {
     return (
       <div className="space-y-3">
-        <p className="sam-text-body text-red-600">{error}</p>
+        <p className="sam-text-body text-sam-danger">{error}</p>
         <Link href="/mypage/section/settings/notices" className="text-signature underline">
           {t("settings_notices")}
         </Link>

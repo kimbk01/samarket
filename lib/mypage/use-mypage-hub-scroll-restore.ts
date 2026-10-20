@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect } from "react";
 import {
+  clearMypageHubScrollPopstatePending,
   ensureMypageHubManualScrollRestoration,
   isMypageHubPath,
   noteMypageHubScrollPopstatePending,
@@ -21,12 +22,12 @@ function ensureMypageHubScrollPopstateListener(): void {
   popstateListenerInstalled = true;
   ensureMypageHubManualScrollRestoration();
   window.addEventListener("popstate", () => {
-    // After soft back, pathname may already be /mypage when this fires
+    // popstate 시점의 pathname = 이동 목적지. 내정보 홈으로 돌아올 때만 복원 대기 —
+    // 다른 화면 간 뒤로가기마다 표시하면 나중에 홈을 새로 열 때 엉뚱한 위치로 복원된다(D21).
     if (isMypageHubPath(window.location.pathname)) {
       noteMypageHubScrollPopstatePending();
     } else {
-      // Leaving hub via browser back from child — still mark hub pending for next paint
-      noteMypageHubScrollPopstatePending();
+      clearMypageHubScrollPopstatePending();
     }
   });
 }

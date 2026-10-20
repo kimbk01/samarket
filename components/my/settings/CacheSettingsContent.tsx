@@ -1,80 +1,51 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { DIBAY_PERMISSION_SESSION_STORAGE_KEY_PREFIX } from "@/lib/permissions/device-permission-session-prefix";
+import { useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayConfirm } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
+import { clearAppClientCaches } from "@/lib/mypage/clear-app-client-caches";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
 
-/** localStorage/sessionStorage 기반 임시 캐시 삭제, 삭제 완료 토스트 */
+/** 캐시 삭제 — 확인 → 실제 삭제(Cache Storage·세션 임시·목록 캐시) → 토스트. 로그인·기기 설정은 보존 (D16) */
 export function CacheSettingsContent() {
-  const [toast, setToast] = useState(false);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
 
-  const clear = () => {
+  const clear = async () => {
+    if (inFlight.current) return;
+    const ok = await dibayConfirm({
+      title: t("mypage_cache_clear_confirm_title"),
+      description: t("mypage_cache_clear_confirm_desc"),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("settings_cache_clear"),
+    });
+    if (!ok) return;
+    inFlight.current = true;
+    setBusy(true);
     try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith("cache_") || key.startsWith("temp_"))) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach((k) => localStorage.removeItem(k));
-      const preservedSession: Array<[string, string]> = [];
-      try {
-        for (let i = 0; i < sessionStorage.length; i++) {
-          const key = sessionStorage.key(i);
-          if (key?.startsWith(DIBAY_PERMISSION_SESSION_STORAGE_KEY_PREFIX)) {
-            preservedSession.push([key, sessionStorage.getItem(key) ?? ""]);
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-      sessionStorage.clear();
-      for (const [k, v] of preservedSession) {
-        try {
-          sessionStorage.setItem(k, v);
-        } catch {
-          /* quota / private mode */
-        }
-      }
+      await clearAppClientCaches();
+      showMypageToast(t("mypage_cache_clear_done"), "success");
     } catch {
-      // ignore
+      showMypageToast(t("mypage_cache_clear_failed"), "error");
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
     }
-    setToast((prev) => (prev ? prev : true));
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-    }
-    toastTimerRef.current = setTimeout(() => {
-      setToast((prev) => (prev ? false : prev));
-      toastTimerRef.current = null;
-    }, 2000);
   };
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) {
-        clearTimeout(toastTimerRef.current);
-      }
-    };
-  }, []);
 
   return (
     <div className="space-y-4">
-      <p className="sam-text-body text-sam-muted">
-        임시 캐시를 삭제하여 저장 공간을 확보합니다.
-      </p>
+      <p className="sam-text-body text-sam-muted">{t("mypage_cache_clear_desc")}</p>
       <button
         type="button"
-        onClick={clear}
-        className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
+        onClick={() => void clear()}
+        disabled={busy}
+        aria-busy={busy}
+        className="sam-btn sam-btn--secondary sam-btn--block"
       >
-        캐시 삭제
+        {busy ? t("common_loading") : t("settings_cache_clear")}
       </button>
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded-ui-rect bg-sam-ink px-4 py-2 sam-text-body text-white shadow-sam-elevated">
-          삭제되었습니다.
-        </div>
-      )}
     </div>
   );
 }

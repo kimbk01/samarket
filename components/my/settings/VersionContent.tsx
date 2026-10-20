@@ -205,6 +205,8 @@ export function VersionContent() {
     isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "android";
 
   const [versionName, setVersionName] = useState<string>("");
+  /** Android versionCode / iOS build — 설치 확인 기준(user_devices.app_version 과 같은 「버전 (빌드)」) */
+  const [buildNumber, setBuildNumber] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -225,11 +227,13 @@ export function VersionContent() {
         const native = await getAndroidInstalledVersion();
         if (native) {
           setVersionName(native.versionName || "");
+          setBuildNumber(native.versionCode);
           return;
         }
         const cap = await getCapacitorAppInstalledVersion();
         if (cap) {
           setVersionName(cap.versionName || "");
+          setBuildNumber(cap.versionCode);
           return;
         }
         setErrorDetail(
@@ -245,6 +249,7 @@ export function VersionContent() {
         const cap = await getCapacitorAppInstalledVersion();
         if (cap) {
           setVersionName(cap.versionName || "");
+          setBuildNumber(cap.versionCode);
           setWebFallbackNote(
             safeT("settings_version_ios_note", {
               fallbackKo: "iOS에서는 App Store 업데이트를 사용합니다",
@@ -481,12 +486,16 @@ export function VersionContent() {
   const statusLine = statusLineFromCta(cta, installProgress, safeT);
   const primaryLabel = primaryLabelFromCta(cta, safeT);
   const ctaVisual = resolveVersionScreenCtaVisual(cta);
-  const displayName =
-    versionName ||
-    safeT("settings_version_unknown_name", {
-      fallbackKo: "알 수 없음",
-      fallbackEn: "Unknown",
-    });
+  const displayName = versionName
+    ? buildNumber != null
+      ? `${versionName} (${buildNumber})`
+      : versionName
+    : safeT("settings_version_unknown_name", {
+        fallbackKo: "알 수 없음",
+        fallbackEn: "Unknown",
+      });
+  /** 웹 화면 코드 배포 버전 — 네이티브 앱 버전과 별개 (웹 변경은 앱 재시작으로 반영) */
+  const webDeploySha = (process.env.NEXT_PUBLIC_WEB_DEPLOY_SHA ?? "").trim();
   const showCurrentVersionLabel =
     cta.statusKind === "update_available" ||
     cta.statusKind === "downloading" ||
@@ -560,6 +569,16 @@ export function VersionContent() {
             {displayName}
           </p>
         )}
+
+        {webDeploySha ? (
+          <p className={`mt-1 ${Sam.text.helper} tabular-nums text-sam-muted`} data-testid="version-web-deploy-sha">
+            {safeT("settings_version_web_deploy_label", {
+              fallbackKo: "웹 배포",
+              fallbackEn: "Web build",
+            })}{" "}
+            {webDeploySha}
+          </p>
+        ) : null}
 
         <p className={`mt-3 min-h-[1.5rem] ${Sam.text.body} ${statusToneClass}`} aria-live="polite">
           {webFallbackNote && cta.statusKind === "unavailable" ? webFallbackNote : statusLine}

@@ -197,7 +197,7 @@ export function RequiredInfoFlowClient() {
       <div className="flex items-center justify-between gap-3">
         <p className="sam-text-body font-semibold text-sam-fg">{stepTitle(activeStep)}</p>
         <span
-          className="inline-flex shrink-0 rounded-full bg-[#F2F0EB] px-2.5 py-1 text-[12px] font-bold text-[#6F4E37]"
+          className="inline-flex shrink-0 rounded-full bg-sam-app px-2.5 py-1 text-[12px] font-bold text-sam-muted"
           data-testid="required-info-flow-progress"
         >
           {progressLabel}

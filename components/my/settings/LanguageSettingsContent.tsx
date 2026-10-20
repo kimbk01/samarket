@@ -76,13 +76,13 @@ export function LanguageSettingsContent() {
               aria-pressed={active}
               className={`flex h-11 w-full items-center justify-between rounded-ui-rect border px-4 transition-colors disabled:opacity-60 ${
                 active
-                  ? "border-[#1877F2] bg-[#1877F2]/10 text-sam-fg"
+                  ? "border-sam-primary bg-sam-pressed-surface text-sam-fg"
                   : "border-sam-border bg-sam-surface text-sam-muted hover:border-sam-border-strong hover:text-sam-fg"
               }`}
               onClick={() => void select(choice)}
             >
               <span className="sam-text-body font-semibold">{choiceLabel(choice, t)}</span>
-              {active ? <span className="text-[#1877F2]">✓</span> : null}
+              {active ? <span className="text-sam-primary">✓</span> : null}
             </button>
           );
         })}
@@ -92,7 +92,7 @@ export function LanguageSettingsContent() {
       ) : (
         <p className="sam-text-helper text-sam-meta">{t("common_selected")}</p>
       )}
-      {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
+      {error ? <p className="sam-text-body-secondary text-sam-danger">{error}</p> : null}
     </div>
   );
 }

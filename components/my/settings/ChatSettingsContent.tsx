@@ -149,7 +149,7 @@ export function ChatSettingsContent() {
       <div className="border-b border-sam-border-soft py-3">
         <p className="sam-text-body font-semibold text-sam-fg">{t("settings_trade_presence_title")}</p>
         <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">{t("settings_trade_presence_desc")}</p>
-        {tradePresenceErr ? <p className="mt-2 sam-text-helper text-red-600">{tradePresenceErr}</p> : null}
+        {tradePresenceErr ? <p className="mt-2 sam-text-helper text-sam-danger">{tradePresenceErr}</p> : null}
         {tradePresence ? (
           <div className="mt-3 space-y-3">
             <div className="flex items-center justify-between gap-2">

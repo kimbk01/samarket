@@ -58,6 +58,31 @@ export function StoreTab({
       : hasOwnerStore
         ? OwnerRoutes.finance()
         : "/stores/owner/apply";
+    // 주문자에게는 정산·수수료·캐시·Coin 문구를 보여주지 않는다 (store-commission-cash-settlement-ssot §4).
+    // 매장 사장님에게만 매장 재무(Coin·캐시) 안내.
+    if (!hasOwnerStore) {
+      return (
+        <TabShell
+          title={t("mypage_mnav_store_payment")}
+          description={t("mypage_comp_payment_member_desc")}
+        >
+          <MyPageQuickActions
+            items={[
+              {
+                label: t("mypage_comp_nav_sec_store_orders_label"),
+                href: "/mypage/store-orders",
+                caption: t("mypage_comp_payment_member_orders_caption"),
+              },
+              {
+                label: t("mypage_comp_store_owner_cta_apply"),
+                href: financeHref,
+                caption: t("mypage_comp_store_owner_intro"),
+              },
+            ]}
+          />
+        </TabShell>
+      );
+    }
     return (
       <TabShell
         title={safeT("mypage_comp_nav_sec_store_payment_label")}
@@ -66,20 +91,14 @@ export function StoreTab({
         <MyPageQuickActions
           items={[
             {
-              label: hasOwnerStore
-                ? t("biz_nav_finance")
-                : t("mypage_comp_store_owner_cta_apply"),
+              label: t("biz_nav_finance"),
               href: financeHref,
-              caption: hasOwnerStore
-                ? t("biz_nav_finance_desc")
-                : t("mypage_comp_store_owner_intro"),
+              caption: t("biz_nav_finance_desc"),
             },
             {
-              label: hasOwnerStore ? t("mypage_comp_store_owner_hub") : t("mypage_comp_nav_sec_store_orders_label"),
-              href: hasOwnerStore ? businessHref : "/mypage/section/store/orders",
-              caption: hasOwnerStore
-                ? storeAttentionSummary ?? t("mypage_comp_nav_sec_store_manage_desc")
-                : t("mypage_comp_nav_sec_store_orders_desc"),
+              label: t("mypage_comp_store_owner_hub"),
+              href: businessHref,
+              caption: storeAttentionSummary ?? t("mypage_comp_nav_sec_store_manage_desc"),
             },
           ]}
         />

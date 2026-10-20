@@ -73,7 +73,7 @@ export function NoticesContent() {
   }
 
   if (error) {
-    return <div className="py-12 text-center sam-text-body text-red-600">{error}</div>;
+    return <div className="py-12 text-center sam-text-body text-sam-danger">{error}</div>;
   }
 
   if (notices.length === 0) {

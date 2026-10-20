@@ -146,6 +146,9 @@
   /* ----- Icon ----- */
   --sam-icon-default: var(--dibay-muted);
   --sam-icon-soft: var(--app-text-3);
+  /* 내정보 v2.1 — 시그니처 그린(#0B421A) 보조 민트: 행 아이콘 원형 배경 · 행 눌림·선택 배경 (추가 전용) */
+  --sam-icon-surface: #D4E9E2;
+  --sam-pressed-surface: #E8F3EE;
   --sam-icon-on-primary: var(--dibay-cream);
 
   /* ----- Radius (8~16만 사용; pill 만 full) ----- */
