@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { runAdminCommunityMessengerFriendRequestAction } from "@/lib/admin-community-messenger/service";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import type { CommunityMessengerFriendRequestStatus } from "@/lib/community-messenger/types";
 
 export const runtime = "nodejs";
@@ -38,5 +39,14 @@ export async function PATCH(
     status,
     adminNote: body.adminNote,
   });
+  if (result.ok) {
+    await appendAdminRouteAudit(admin.sb, req, {
+      actorId: admin.actor.userId,
+      targetType: "community_messenger_friend_request",
+      targetId: id,
+      action: "community_messenger_friend_request.status_update",
+      after: { status, has_admin_note: Boolean(body.adminNote?.trim()) },
+    });
+  }
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

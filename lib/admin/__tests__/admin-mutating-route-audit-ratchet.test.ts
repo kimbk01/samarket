@@ -1,7 +1,9 @@
 /**
  * V3-12 (X-9) ratchet — 관리자 변경 API(POST/PATCH/PUT/DELETE)는 감사 로그를 남겨야 한다.
  *
- * 판정: route.ts 소스 또는 그 파일이 직접 import 하는 모듈(1 hop) 안에서 기존 감사 헬퍼를 호출하면 통과.
+ * 판정: route.ts 소스가 감사 헬퍼를 직접 호출하거나, route 가 **실제로 호출하는** import 함수의 본문(또는 그 함수가 같은 모듈에서
+ * 부르는 함수 본문, 1단계)이 감사 헬퍼를 호출하면 통과. 「import 한 파일 어딘가에 감사 호출이 있다」만으로는 통과하지 않는다
+ * (재감사 2026-10-20: 열람 감사만 있는 모듈을 import 한 변경 route 2개가 거짓 통과했다).
  * 제외: 다른 route 를 그대로 re-export 하는 shim, 변경 핸들러가 모두 410(Gone)만 반환하는 route.
  *
  * `UNAUDITED_ADMIN_MUTATING_ROUTES_ALLOWLIST` 는 도입 시점 스냅샷이다 — **줄어들기만 해야 한다.**
@@ -106,6 +108,82 @@ function importedSources(file: string, src: string): string[] {
   return out;
 }
 
+/** 모듈 소스에서 이름이 name 인 함수(선언·const 화살표)의 본문 — 다음 최상위 선언 전까지. */
+function topLevelFunctionBody(src: string, name: string): string | null {
+  const re = new RegExp(
+    `^(?:export\\s+)?(?:async\\s+)?function\\s*\\*?\\s*${name}\\b|^(?:export\\s+)?const\\s+${name}\\s*(?::[^=]+)?=`,
+    "m"
+  );
+  const m = re.exec(src);
+  if (!m) return null;
+  const rest = src.slice(m.index + m[0].length);
+  const next = rest.search(/\n(?:export\s|async\s+function\s|function\s|const\s|let\s|type\s|interface\s)/);
+  return next >= 0 ? rest.slice(0, next) : rest;
+}
+
+type ImportBinding = { local: string; imported: string; file: string };
+
+function importBindings(fromFile: string, src: string): ImportBinding[] {
+  const out: ImportBinding[] = [];
+  const re = /import\s+(?:type\s+)?([^;]*?)\s+from\s*["']([^"']+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    const resolved = resolveImport(fromFile, m[2]);
+    if (!resolved) continue;
+    const clause = m[1];
+    const named = clause.match(/\{([^}]*)\}/);
+    if (named) {
+      for (const part of named[1].split(",")) {
+        const t = part.replace(/^\s*type\s+/, "").trim();
+        if (!t) continue;
+        const [imported, local] = t.split(/\s+as\s+/).map((x) => x.trim());
+        out.push({ imported, local: local ?? imported, file: resolved });
+      }
+    }
+    const def = clause.replace(/\{[^}]*\}/, "").replace(/,/g, " ").trim();
+    if (def && !def.startsWith("*")) out.push({ imported: "default", local: def.split(/\s+/)[0], file: resolved });
+  }
+  return out;
+}
+
+/** 함수 본문이 감사를 부르는지 — 본문 직접, 또는 같은 모듈의 함수를 1단계 더 따라가서. */
+function bodyReachesAudit(moduleSrc: string, body: string): boolean {
+  if (hasAuditCall(body)) return true;
+  for (const call of body.matchAll(/\b([A-Za-z_$][\w$]*)\s*\(/g)) {
+    const inner = topLevelFunctionBody(moduleSrc, call[1]);
+    if (inner && hasAuditCall(inner)) return true;
+  }
+  return false;
+}
+
+/** route 가 실제로 호출하는 import 함수 중 하나라도 감사에 도달하는지. */
+function calledImportReachesAudit(file: string, src: string): boolean {
+  const code = src.replace(/^import[^;]*;/gm, "");
+  for (const b of importBindings(file, src)) {
+    if (!new RegExp(`\\b${b.local.replace(/[$]/g, "\\$")}\\s*\\(`).test(code)) continue;
+    const modSrc = readFileSync(b.file, "utf8");
+    if (b.imported === "default") {
+      if (hasAuditCall(modSrc)) return true;
+      continue;
+    }
+    let body = topLevelFunctionBody(modSrc, b.imported);
+    if (!body) {
+      // `export { x } from "./y"` 재수출 1단계
+      const re = new RegExp(`export\\s*\\{[^}]*\\b${b.imported}\\b[^}]*\\}\\s*from\\s*["']([^"']+)["']`);
+      const rx = re.exec(modSrc);
+      const next = rx ? resolveImport(b.file, rx[1]) : null;
+      if (next) {
+        const nextSrc = readFileSync(next, "utf8");
+        body = topLevelFunctionBody(nextSrc, b.imported);
+        if (body && bodyReachesAudit(nextSrc, body)) return true;
+      }
+      continue;
+    }
+    if (bodyReachesAudit(modSrc, body)) return true;
+  }
+  return false;
+}
+
 function computeUnauditedMutatingRoutes(): string[] {
   const missing: string[] = [];
   for (const file of listRouteFiles(ADMIN_API_DIR)) {
@@ -113,7 +191,7 @@ function computeUnauditedMutatingRoutes(): string[] {
     if (!exportsMutatingHandler(src)) continue;
     if (isReExportShim(src) || isGoneOnlyRoute(src)) continue;
     if (hasAuditCall(src)) continue;
-    if (importedSources(file, src).some(hasAuditCall)) continue;
+    if (calledImportReachesAudit(file, src)) continue;
     const rel = path.relative(ROOT, file).split(path.sep).join("/");
     if (rel in NON_MUTATING_ADMIN_ROUTES || rel in DB_AUDITED_ADMIN_ROUTES) continue;
     missing.push(path.relative(ROOT, file).split(path.sep).join("/"));
@@ -141,6 +219,8 @@ const NON_MUTATING_ADMIN_ROUTES: Readonly<Record<string, string>> = {
   "app/api/admin/trade-completion/route.ts": "POST = product_chats·posts 조회만",
   "app/api/admin/trade-flow/route.ts": "POST = 조회만",
   "app/api/admin/transaction-reviews/route.ts": "POST = 조회만",
+  "app/api/admin/chats/route.ts": "POST = product_chats 목록 조회만 (insert/update/delete/rpc 없음)",
+  "app/api/admin/users/phone-verification/ops/refresh/route.ts": "POST = loadPhoneOtpOpsSnapshot 조회 + 프로바이더 잔액 probe 만 (lib/auth/phone-otp-ops.ts:123-168 쓰기 없음)",
 };
 
 /** DB 함수가 같은 트랜잭션에서 audit_logs 에 기록하는 route — TS 에서 또 남기면 이력이 두 줄이 된다. */

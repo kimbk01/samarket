@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTradeChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveChatRoomId } from "@/lib/admin-chats/resolve-chat-room-id";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,14 @@ export async function PATCH(
     }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
+
+  await appendAdminRouteAudit(db, req, {
+    actorId: admin.actor.userId,
+    targetType: "chat_room",
+    targetId: roomId,
+    action: "chat_room.admin_memo_update",
+    after: { memo_length: memo.length },
+  });
 
   return NextResponse.json({ ok: true, adminMemo: memo });
 }
