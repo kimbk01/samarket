@@ -30,7 +30,7 @@ export function AdminReleaseNotesPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_rel_page_notes" />
+        <AdminPageHeader titleKey="admin_menu_dev_release_notes" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -40,7 +40,7 @@ export function AdminReleaseNotesPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_rel_page_notes" />
+      <AdminPageHeader titleKey="admin_menu_dev_release_notes" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {TAB_KEYS.map((tab) => (
           <button

@@ -64,7 +64,7 @@ export function CustomerPlatformDashboardPage() {
   return (
     <div className="sam-page-stack">
       <AdminPageHeader
-        titleKey="admin_menu_customer_platform"
+        titleKey="admin_menu_cp_dashboard"
         descriptionKey="admin_cp_dashboard_intro"
       />
 

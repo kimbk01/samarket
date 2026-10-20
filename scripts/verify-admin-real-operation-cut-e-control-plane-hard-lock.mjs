@@ -51,8 +51,16 @@ const center = read("components/admin/dashboard/AdminActionCenter.tsx");
 if (!center.includes("data-admin-action-center")) fail("Action Center missing");
 if (!center.includes("data-admin-control-plane")) fail("Control Plane marker missing");
 
+// F4 (설계 v4 §3): 운영 홈 = 통합 대시보드. 처리 대기(Action Center 앵커 #action-center)는
+// 같은 처리 대기 레지스트리를 탭 범위로 거른 오른쪽 목록이 맡는다.
 const dash = read("components/admin/dashboard/AdminDashboardPage.tsx");
-if (!dash.includes("AdminActionCenter")) fail("Dashboard must mount Action Center");
+if (!dash.includes('id="action-center"') || !dash.includes("data-admin-dashboard-pending")) {
+  fail("Dashboard must mount the pending-work list (#action-center)");
+}
+const dashBuild = read("lib/admin/metrics/build-admin-dashboard-overview.ts");
+if (!dashBuild.includes("ADMIN_ACTION_QUEUE_REGISTRY")) {
+  fail("Dashboard pending list must derive from the action-queue registry");
+}
 
 const overview = read("app/api/admin/customer-platform/overview/route.ts");
 if (!overview.includes("cash_charge_pending: counts.cash_charges")) {

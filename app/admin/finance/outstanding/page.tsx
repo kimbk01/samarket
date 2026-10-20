@@ -5,7 +5,7 @@ import { AdminFinanceOutstandingView } from "@/components/finance/AdminFinanceOu
 export default function AdminFinanceOutstandingPage() {
   return (
     <div className="space-y-4 p-4">
-      <AdminPageHeader titleKey="admin_page_store_finance" />
+      <AdminPageHeader titleKey="admin_menu_finance_outstanding" />
       <Suspense fallback={null}>
         <AdminFinanceOutstandingView />
       </Suspense>

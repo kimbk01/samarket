@@ -18,6 +18,8 @@ import {
   getFeedMode,
 } from "@/lib/feed-emergency/feed-emergency-utils";
 import { persistFeedEmergencyToServer } from "@/lib/feed-emergency/feed-emergency-sync-client";
+import { feedEmergencySwitchConfirmCopy } from "@/lib/feed-emergency/feed-emergency-switch-confirm";
+import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const FALLBACK_MODE_LABELS: Record<FeedFallbackMode, string> = {
@@ -30,6 +32,7 @@ const FALLBACK_MODE_LABELS: Record<FeedFallbackMode, string> = {
 export function FeedEmergencyPolicyTable() {
   const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
+  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
 
   const policies = useMemo(
     () => getFeedEmergencyPolicies(),
@@ -45,12 +48,20 @@ export function FeedEmergencyPolicyTable() {
   };
 
   const handleKillSwitch = async (surface: RecommendationSurface, enabled: boolean) => {
+    const ok = await askConfirm(
+      feedEmergencySwitchConfirmCopy({ kind: "kill_switch", enable: enabled, targetLabel: SURFACE_LABELS[surface] })
+    );
+    if (!ok) return;
     if (enabled) enableKillSwitch(surface);
     else disableKillSwitch(surface);
     await flush();
   };
 
   const handleFallback = async (surface: RecommendationSurface, enabled: boolean) => {
+    const ok = await askConfirm(
+      feedEmergencySwitchConfirmCopy({ kind: "fallback", enable: enabled, targetLabel: SURFACE_LABELS[surface] })
+    );
+    if (!ok) return;
     if (enabled) enableFallback(surface, "관리자 수동 fallback 활성화");
     else disableFallback(surface);
     await flush();
@@ -78,6 +89,7 @@ export function FeedEmergencyPolicyTable() {
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
+      {confirmDialog}
       <table className="w-full min-w-[720px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">

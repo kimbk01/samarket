@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminDeletionRequestsQueue } from "@/components/admin/users/AdminDeletionRequestsQueue";
 import { AdminManagementSurfaceRoot } from "@/components/admin/management";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
@@ -15,10 +16,12 @@ export default function AdminMemberDeletionRequestsPage() {
         <span className="mx-1.5 text-[#98a2b3]">›</span>
         <span className="text-[#344054]">{MEMBER_LIST_DELETION_REQUESTS_KO}</span>
       </nav>
-      <h1 className="text-xl font-bold text-[#101828]">{MEMBER_LIST_DELETION_REQUESTS_KO}</h1>
-      <p className="text-[13px] text-[#667085]">
-        대기 중인 삭제 요청을 확인합니다. 파괴적 처리는 회원 상세에서 진행합니다.
-      </p>
+      <AdminPageHeader
+        titleKey="admin_menu_users_deletion_requests"
+        description="대기 중인 삭제 요청을 확인합니다. 파괴적 처리는 회원 상세에서 진행합니다."
+        titleClassName="text-xl font-bold text-[#101828]"
+        descriptionClassName="text-[13px] text-[#667085]"
+      />
       <div data-admin-member-deletion-request-queue="1">
         <AdminDeletionRequestsQueue />
       </div>

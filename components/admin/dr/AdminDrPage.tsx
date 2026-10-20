@@ -22,7 +22,7 @@ export function AdminDrPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_dr_kfa6d586a" />
+        <AdminPageHeader titleKey="admin_menu_dev_dr" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">
             {t("admin_loading_ops_settings")}
@@ -34,7 +34,7 @@ export function AdminDrPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_dr_kfa6d586a" />
+      <AdminPageHeader titleKey="admin_menu_dev_dr" />
       {hydrateError ? (
         <div
           className="mb-4 rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-4 py-3 sam-text-body-secondary text-sam-fg"

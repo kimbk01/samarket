@@ -105,7 +105,7 @@ async function pauseBannerViaExistingDistributionWriter(row: BannerRow): Promise
 }
 
 export function AdminPromotionBannerListClient() {
-  const { language, safeT } = useI18n();
+  const { language, safeT, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const [rows, setRows] = useState<BannerRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,10 +148,7 @@ export function AdminPromotionBannerListClient() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">
-            {safeT("admin_menu_promotion_banners", {
-              fallbackKo: "배너",
-              fallbackEn: "Banners",
-            })}
+            {t("admin_menu_promotion_banners")}
           </h1>
           <p
             className="mt-1 max-w-2xl text-sm text-sam-muted"

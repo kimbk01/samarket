@@ -10,6 +10,7 @@ import {
 } from "@/lib/admin-users/member-management-actions-client";
 import type { AdminUser } from "@/lib/types/admin-user";
 import { displayNameForAdminUser, publicIdForAdminUser } from "./admin-user-lite-display";
+import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 const ACTIONS: { id: MemberManagementActionId; label: string; destructive?: boolean }[] = [
   { id: "suspend", label: "정지", destructive: true },
@@ -63,7 +64,7 @@ export function AdminMemberListBulkBar({
   const actionable = selectedUsers.filter((u) => !isProtectedMember(u));
   const preview = selectedUsers
     .slice(0, 8)
-    .map((u) => `${displayNameForAdminUser(u)} (${publicIdForAdminUser(u) || u.id.slice(0, 8)})`)
+    .map((u) => `${displayNameForAdminUser(u)} (${publicIdForAdminUser(u) || formatAdminShortId(u.id)})`)
     .join(", ");
   const more = selectedUsers.length > 8 ? ` 외 ${selectedUsers.length - 8}명` : "";
 
@@ -221,7 +222,7 @@ export function AdminMemberListBulkBar({
           <ul className="mt-1 max-h-32 space-y-0.5 overflow-auto text-[11px] text-[#475467]">
             {lastResults.map((r) => (
               <li key={`${r.userId}-${r.action}`} data-member-bulk-result={r.ok ? "ok" : "fail"}>
-                {r.userId.slice(0, 8)}… · {r.action} · {r.ok ? "성공" : r.message ?? r.error ?? "실패"}
+                <AdminTechId id={r.userId} /> · {r.action} · {r.ok ? "성공" : r.message ?? r.error ?? "실패"}
               </li>
             ))}
           </ul>

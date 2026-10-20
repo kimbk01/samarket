@@ -37,7 +37,7 @@ export function AdminQaBoardPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_qa_page_title" />
+        <AdminPageHeader titleKey="admin_menu_dev_qa" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">
             {t("admin_rec_mon_loading_settings")}
@@ -49,7 +49,7 @@ export function AdminQaBoardPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_qa_page_title" />
+      <AdminPageHeader titleKey="admin_menu_dev_qa" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button

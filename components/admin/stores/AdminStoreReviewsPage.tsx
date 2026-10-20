@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { businessCcBackToStoreHref } from "@/lib/admin-business/business-control-center-links";
 import {
@@ -17,6 +16,7 @@ import {
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 type Row = {
   id: string;
@@ -45,8 +45,6 @@ export function AdminStoreReviewsPage() {
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(
     null
   );
-
-  const locale = catalogDateLocale(language);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -180,7 +178,7 @@ export function AdminStoreReviewsPage() {
                 <AdminToneBadge tone={st.tone}>{st.label}</AdminToneBadge>
               </div>
               <p className="mt-1 text-xs text-sam-muted">
-                {new Date(r.created_at).toLocaleDateString(locale)}
+                {formatAdminManilaDate(r.created_at)}
                 {" · "}
                 {ko ? "작성자" : "Buyer"}: {r.buyer_label || (ko ? "이름 확인 불가" : "Name unavailable")}
               </p>
@@ -196,7 +194,7 @@ export function AdminStoreReviewsPage() {
                   </p>
                   {r.owner_reply_created_at ? (
                     <p className="mt-1 text-right sam-text-xxs text-sam-muted">
-                      {new Date(r.owner_reply_created_at).toLocaleDateString(locale)}
+                      {formatAdminManilaDate(r.owner_reply_created_at)}
                     </p>
                   ) : null}
                 </div>

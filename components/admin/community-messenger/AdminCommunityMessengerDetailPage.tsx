@@ -42,6 +42,7 @@ import { AdminCmMessageBody, AdminCmMessageKindBadge } from "@/components/admin/
 import { useAdminOlderMessages } from "@/components/admin/chats/use-admin-older-messages";
 import { useAdminLocationReturnTo } from "@/components/admin/chats/use-admin-location-return-to";
 import { AdminCmRoomDomainLinksCard } from "./AdminCmRoomDomainLinksCard";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 
 type CmMessageItem = AdminCommunityMessengerRoomDetail["messages"][number];
 
@@ -402,7 +403,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                 </span>
                 {" · "}
                 {formatDateTime(row.createdAt)}
-                {row.actorId ? ` · ${row.actorId.slice(0, 8)}` : ""}
+                {row.actorId ? <> · <AdminTechId id={row.actorId} /></> : ""}
                 {row.reason ? ` · ${row.reason}` : ""}
               </li>
             ))}

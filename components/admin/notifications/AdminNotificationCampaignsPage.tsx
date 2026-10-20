@@ -27,6 +27,7 @@ import {
   type CampaignListTab,
 } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import { formatCampaignTime } from "@/lib/admin/notification-campaigns/campaign-action-confirm-copy";
+import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 type LatestOccurrence = {
   id?: string;
@@ -272,7 +273,7 @@ export function AdminNotificationCampaignsPage() {
       const notice = noticeMap[contentId];
       const ct = parseCustomerCenterContentType(notice?.content_type ?? row.type, "notice");
       const typeLabel = BOARD_LABEL[ct][lang];
-      const title = notice?.title?.trim() || contentId.slice(0, 8) + "…";
+      const title = notice?.title?.trim() || formatAdminShortIdEllipsis(contentId);
       return {
         kind: "app_notice" as const,
         contentId,
@@ -291,7 +292,7 @@ export function AdminNotificationCampaignsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-sam-fg">{t("admin_notif_page_list")}</h1>
+        <h1 className="text-lg font-semibold text-sam-fg">{t("admin_menu_dibay_notification_campaigns")}</h1>
         <Link
           href="/admin/notifications/create"
           className="rounded-ui-rect bg-signature px-3 py-2 text-sm font-medium text-white"
@@ -468,7 +469,7 @@ export function AdminNotificationCampaignsPage() {
                     </td>
                     <td className="px-3 py-2 text-[12px] text-sam-muted">{formatRunTimes(t, r)}</td>
                     <td className="px-3 py-2 text-[12px] text-sam-muted">
-                      {r.author_name ?? (r.created_by ? `${r.created_by.slice(0, 8)}…` : "—")}
+                      {r.author_name ?? (r.created_by ? <AdminTechId id={r.created_by} /> : "—")}
                     </td>
                     <td className="px-3 py-2">
                       <Link

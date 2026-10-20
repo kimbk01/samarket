@@ -43,7 +43,7 @@ export function AdminRecommendationDeploymentPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_rec_deploy_deploy_13" description="운영 버전·배포·롤백·실험 승자 관리" />
+        <AdminPageHeader titleKey="admin_menu_rec_deployments" description="운영 버전·배포·롤백·실험 승자 관리" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -53,7 +53,7 @@ export function AdminRecommendationDeploymentPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_rec_deploy_deploy_13"
+      <AdminPageHeader titleKey="admin_menu_rec_deployments"
         description="운영 버전·배포·롤백·실험 승자 관리"
       />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">

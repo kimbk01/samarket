@@ -68,7 +68,7 @@ export function AdminSystemPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_page_system_stability" />
+        <AdminPageHeader titleKey="admin_menu_dev_system_status" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -78,7 +78,7 @@ export function AdminSystemPage() {
 
   return (
     <div className="space-y-4" data-admin-system-control="1">
-      <AdminPageHeader titleKey="admin_page_system_stability" />
+      <AdminPageHeader titleKey="admin_menu_dev_system_status" />
       <p className="sam-text-body-secondary text-sam-muted">
         {ko
           ? "시스템 통제는 권한·설정·데이터·감사·Danger Zone으로 분리됩니다. 콘텐츠 대시보드가 아닙니다."

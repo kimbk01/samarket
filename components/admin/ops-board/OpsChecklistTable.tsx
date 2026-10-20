@@ -14,11 +14,12 @@ import {
   OPS_TOOLS_SURFACE_KEYS,
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 export function OpsChecklistTable() {
   const { t } = useI18n();
   const [checklistDate, setChecklistDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
+    formatAdminManilaDate(new Date())
   );
   const [refresh, setRefresh] = useState(0);
 

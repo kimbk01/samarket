@@ -5,17 +5,13 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminStaff } from "@/lib/types/admin-staff";
 import { getPermissionLabel } from "@/lib/admin-users/admin-permissions";
 import type { MessageKey } from "@/lib/i18n/messages";
-import type { AppLanguageCode } from "@/lib/i18n/config";
+import { formatAdminManilaDate, formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const ROLE_LABEL_KEYS: Record<AdminStaff["role"], MessageKey> = {
   operator: "admin_users_role_operator",
   manager: "admin_users_role_manager",
   master: "admin_users_role_master",
 };
-
-function dateLocaleTag(language: AppLanguageCode): string {
-  return language === "en" ? "en-US" : "ko-KR";
-}
 
 interface AdminStaffTableProps {
   staffList: AdminStaff[];
@@ -30,8 +26,7 @@ export const AdminStaffTable = forwardRef<HTMLDivElement, AdminStaffTableProps>(
   { staffList, isMaster, onEdit, onHorizontalScroll },
   ref
 ) {
-  const { t, language } = useI18n();
-  const dateLocale = dateLocaleTag(language);
+  const { t } = useI18n();
 
   return (
     <div
@@ -78,11 +73,11 @@ export const AdminStaffTable = forwardRef<HTMLDivElement, AdminStaffTableProps>(
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">{s.status || "active"}</td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(s.createdAt).toLocaleDateString(dateLocale)}
+                {formatAdminManilaDate(s.createdAt)}
               </td>
               <td className="px-3 py-2.5 font-mono sam-text-body-secondary text-sam-muted">{s.createdBy || "-"}</td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {s.lastLoginAt ? new Date(s.lastLoginAt).toLocaleString(dateLocale) : "-"}
+                {s.lastLoginAt ? formatAdminManilaDateTime(s.lastLoginAt) : "-"}
               </td>
               {isMaster && onEdit && (
                 <td className="px-3 py-2.5 text-right">

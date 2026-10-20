@@ -56,7 +56,7 @@ export default function AdminMemoPage() {
   return (
     <div className="space-y-8 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-sam-fg">{tr("admin_memo_page_title")}</h1>
+        <h1 className="text-xl font-semibold text-sam-fg">{tr("admin_menu_memo")}</h1>
         <p className="mt-1 sam-text-body-secondary text-sam-muted">{tr("admin_memo_page_intro")}</p>
       </div>
 

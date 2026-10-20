@@ -43,7 +43,7 @@ export function AdminMyBannersPage() {
   }, []);
 
   return (
-    <AdminMyBannersView title={t("admin_my_k4ab546c0")} loadingLabel={t("common_loading")} loading={loading} error={error} items={items} />
+    <AdminMyBannersView title={t("admin_menu_my_banners")} loadingLabel={t("common_loading")} loading={loading} error={error} items={items} />
   );
 }
 

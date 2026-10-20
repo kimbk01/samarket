@@ -49,6 +49,7 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { COMMUNITY_ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/community-admin/community-admin-reason";
 import { ADMIN_DASHBOARD_REPORT_REASON_LABELS } from "@/lib/admin-dashboard/report-reason-labels";
 import { imageSanitizeViewerMediaUrl } from "@/lib/image/image-url";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 const LIST_PATH = "/admin/posts-management";
 const FIELD =
@@ -234,7 +235,7 @@ function stageGroup(stage: string | null | undefined): "active" | "reserved" | "
 }
 
 function shortMember(id: string): string {
-  return `회원 ${id.slice(0, 8)}`;
+  return `회원 ${formatAdminShortId(id)}`;
 }
 
 /* ───────── 사진 ───────── */

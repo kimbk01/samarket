@@ -5,7 +5,7 @@ import { AdminFinanceStoresIndexView } from "@/components/finance/AdminFinanceSt
 export default function AdminFinanceStoresPage() {
   return (
     <div className="space-y-4 p-4">
-      <AdminPageHeader titleKey="admin_page_store_finance" />
+      <AdminPageHeader titleKey="admin_menu_finance_stores" />
       <Suspense fallback={null}>
         <AdminFinanceStoresIndexView />
       </Suspense>

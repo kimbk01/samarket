@@ -23,7 +23,7 @@ import { adminOperatorRowClassFromPromotionStatus } from "@/lib/admin/admin-oper
 type ListEventRow = PlatformEventRow & { channelSummary?: string };
 
 export function AdminPlatformEventsListClient() {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const [events, setEvents] = useState<ListEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -71,10 +71,7 @@ export function AdminPlatformEventsListClient() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">
-            {safeT("admin_platform_events_title", {
-              fallbackKo: "이벤트",
-              fallbackEn: "Events",
-            })}
+            {t("admin_menu_promotion_events")}
           </h1>
           <p
             className="mt-1 max-w-2xl text-sm text-sam-muted"

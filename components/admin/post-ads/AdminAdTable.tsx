@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminPostAdRow, AdType } from "@/lib/ads/types";
 import { AdStatusBadge } from "@/components/ads/AdStatusBadge";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 const POST_AD_TYPE_KEYS: Record<AdType, MessageKey> = {
   top_fixed: "admin_ads_post_type_top_fixed",
@@ -109,11 +110,11 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
                 </td>
                 <td className="px-3 py-2 text-sam-muted">
                   {row.startAt
-                    ? `${new Date(row.startAt).toLocaleDateString("ko-KR")}~${new Date(row.endAt ?? "").toLocaleDateString("ko-KR")}`
+                    ? `${formatAdminManilaDate(row.startAt)}~${formatAdminManilaDate(row.endAt)}`
                     : "-"}
                 </td>
                 <td className="px-3 py-2 text-sam-muted">
-                  {new Date(row.createdAt).toLocaleDateString("ko-KR")}
+                  {formatAdminManilaDate(row.createdAt)}
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex flex-col gap-1.5">

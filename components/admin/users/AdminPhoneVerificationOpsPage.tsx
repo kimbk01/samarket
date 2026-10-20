@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { dibayConfirm, dibayPrompt, dibayAlert } from "@/components/ui/dibay-overlay";
 import { AdminManagementSurfaceRoot } from "@/components/admin/management";
@@ -128,6 +129,7 @@ function remediation(ops: OpsPayload): { title: string; steps: string[] } {
 }
 
 export function AdminPhoneVerificationOpsPage() {
+  const { t } = useI18n();
   const [ops, setOps] = useState<OpsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -249,7 +251,7 @@ export function AdminPhoneVerificationOpsPage() {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-[#101828]">전화번호 인증 관리</h1>
+          <h1 className="text-xl font-bold text-[#101828]">{t("admin_menu_users_phone_verification")}</h1>
           <p className="mt-1 max-w-2xl text-[13px] text-[#667085]">
             서비스 ON/OFF·공급자 건강도·잔액·발송 결과를 관리합니다. 회원별 승인·초기화는 회원 상세에서 진행합니다.
           </p>

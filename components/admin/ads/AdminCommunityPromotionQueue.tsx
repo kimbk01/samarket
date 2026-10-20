@@ -9,6 +9,7 @@ import {
   projectAdsEffectiveLifecycle,
 } from "@/lib/admin/ads-exposure/ops-status";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 type OrderRow = {
   id: string;
@@ -200,7 +201,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                     {row.targetTitle || row.targetId}
                   </p>
                   <p className="sam-text-helper text-sam-muted">
-                    {row.userNickname || row.userId.slice(0, 8)} · {row.pointCost.toLocaleString()}P ·{" "}
+                    {row.userNickname || formatAdminShortId(row.userId)} · {row.pointCost.toLocaleString()}P ·{" "}
                     {row.durationDays}d · {row.productId ?? "—"} · {effectiveLabel}
                     {effective.storedStatus.toLowerCase() !== effective.effectiveStatus ? (
                       <>

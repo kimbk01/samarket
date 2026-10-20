@@ -18,7 +18,7 @@ export function AdminUsagePage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_page_usage_optimization" />
+        <AdminPageHeader titleKey="admin_menu_dev_usage" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -28,7 +28,7 @@ export function AdminUsagePage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_page_usage_optimization" />
+      <AdminPageHeader titleKey="admin_menu_dev_usage" />
       <AdminCard titleKey="admin_usage_card_title">
         <UsageCostCards />
       </AdminCard>

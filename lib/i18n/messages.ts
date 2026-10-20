@@ -70,8 +70,10 @@ import { adminDeliveryR4AMessages } from "./catalog/admin-delivery-r4-stores";
 import { adminCommunityR4Messages } from "./catalog/admin-community-r4";
 import { adminTradeAdminMessages } from "./catalog/admin-trade-admin";
 import { adminShellFrameMessages } from "./catalog/admin-shell-frame";
+import { adminDashboardV4Messages } from "./catalog/admin-dashboard-v4";
 import { adminF3MypageToolsMessages } from "./catalog/admin-f3-mypage-tools";
 import { adminMenuJAmd5Messages } from "./catalog/admin-menu-j-amd-5";
+import { adminTechInfoMessages } from "./catalog/admin-tech-info";
 import { chatsMessages } from "./catalog/chats";
 import { ptrMessages } from "./catalog/ptr";
 import { storeCommerceUiMessages } from "./catalog/store-commerce-ui";
@@ -203,8 +205,10 @@ const KO_MESSAGES = {
   ...adminCommunityR4Messages.ko,
   ...adminTradeAdminMessages.ko,
   ...adminShellFrameMessages.ko,
+  ...adminDashboardV4Messages.ko,
   ...adminF3MypageToolsMessages.ko,
   ...adminMenuJAmd5Messages.ko,
+  ...adminTechInfoMessages.ko,
 } as LocaleMessageBag;
 
 const EN_MESSAGES = {
@@ -301,8 +305,10 @@ const EN_MESSAGES = {
   ...adminCommunityR4Messages.en,
   ...adminTradeAdminMessages.en,
   ...adminShellFrameMessages.en,
+  ...adminDashboardV4Messages.en,
   ...adminF3MypageToolsMessages.en,
   ...adminMenuJAmd5Messages.en,
+  ...adminTechInfoMessages.en,
 } as LocaleMessageBag;
 
 export const MESSAGES: MessagesTable = {

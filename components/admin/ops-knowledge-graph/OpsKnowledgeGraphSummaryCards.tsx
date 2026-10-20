@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
 import { getOpsKnowledgeGraphSummary } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-summary";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 export function OpsKnowledgeGraphSummaryCards() {
   const { t } = useI18n();
@@ -35,7 +36,7 @@ export function OpsKnowledgeGraphSummaryCards() {
           )}
           {" · "}
           {summary.latestUpdatedAt
-            ? new Date(summary.latestUpdatedAt).toLocaleDateString("ko-KR")
+            ? formatAdminManilaDate(summary.latestUpdatedAt)
             : "-"}
         </p>
       </div>

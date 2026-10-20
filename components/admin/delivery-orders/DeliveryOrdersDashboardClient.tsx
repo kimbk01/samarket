@@ -21,6 +21,7 @@ import { fetchAdminStoreOrdersListDeduped } from "@/lib/admin/fetch-admin-store-
 import { useAdminQuery } from "@/hooks/useAdminQuery";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { canHardDelete, ORDER_ENTITY_ACTION_POLICY } from "@/lib/admin/management";
+import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 export function DeliveryOrdersDashboardClient() {
   const { t } = useI18n();
@@ -177,7 +178,7 @@ export function DeliveryOrdersDashboardClient() {
         return next;
       });
       if (data.errors?.length) {
-        const errText = data.errors.map((e) => `${e.id.slice(0, 8)}… ${e.message}`).join(" / ");
+        const errText = data.errors.map((e) => `${formatAdminShortIdEllipsis(e.id)} ${e.message}`).join(" / ");
         setActionMessage(
           deleted.length > 0
             ? t("admin_do_msg_delete_partial", {

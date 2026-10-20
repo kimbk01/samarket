@@ -10,6 +10,7 @@ import {
   OPS_TOOLS_PRIORITY_KEYS,
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 interface OpsActionCardProps {
   item: OpsActionItem;
@@ -20,7 +21,7 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
   const { t } = useI18n();
   const isOverdue =
     item.dueDate &&
-    item.dueDate < new Date().toISOString().slice(0, 10) &&
+    item.dueDate < formatAdminManilaDate(new Date()) &&
     item.status !== "done" &&
     item.status !== "archived";
 

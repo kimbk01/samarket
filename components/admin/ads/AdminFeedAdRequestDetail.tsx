@@ -17,6 +17,7 @@ import { feedAdPlacementHumanLabel, type FeedAdPlacement } from "@/lib/ads/feed-
 import { feedAdStandardPixelLabel } from "@/lib/ads/feed-ad-geometry";
 import { adsWorkspaceMutationConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import { adsShellKindLabel } from "@/lib/admin/ads-exposure/shell-row";
+import { AdminTechInfo, formatAdminShortId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 type DetailCreative = {
   id: string;
@@ -591,11 +592,11 @@ export function AdminFeedAdRequestDetail({
         <dl className="grid gap-2 text-[13px]">
           <div>
             <dt className="text-sam-muted">{ko ? "신청자" : "Applicant"}</dt>
-            <dd>{r.memberLabel || `${r.userId.slice(0, 8)}…`}</dd>
+            <dd>{r.memberLabel || formatAdminShortIdEllipsis(r.userId)}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">{ko ? "회원/매장" : "Member"}</dt>
-            <dd>{ko ? `회원 ${r.userId.slice(0, 8)}` : `Member ${r.userId.slice(0, 8)}`}</dd>
+            <dd>{ko ? `회원 ${formatAdminShortId(r.userId)}` : `Member ${formatAdminShortId(r.userId)}`}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">{ko ? "결제" : "Payment"}</dt>
@@ -643,9 +644,12 @@ export function AdminFeedAdRequestDetail({
             {en ? "Reason" : "사유"}: {r.reviewReason}
           </p>
         ) : null}
-        <p className="sam-text-helper text-sam-muted">
-          ID · {r.id.slice(0, 8)}… · {data.creativeAuthority}
-        </p>
+        <AdminTechInfo
+          rows={[
+            { label: "ID", id: r.id },
+            { label: "creativeAuthority", value: data.creativeAuthority },
+          ]}
+        />
       </section>
 
       {reviewCopy && pendingReview ? (

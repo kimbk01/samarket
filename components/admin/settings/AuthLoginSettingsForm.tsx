@@ -293,7 +293,7 @@ export function AuthLoginSettingsForm() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_auth_settings_title" />
+      <AdminPageHeader titleKey="admin_menu_settings_auth" />
       <AdminCard title={t("admin_auth_settings_section_title")}>
         <div className="grid grid-cols-3 gap-2">
           <button

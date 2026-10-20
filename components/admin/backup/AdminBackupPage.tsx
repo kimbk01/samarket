@@ -26,7 +26,7 @@ export function AdminBackupPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_page_backup_restore" />
+        <AdminPageHeader titleKey="admin_menu_dev_backup" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">
             {t("admin_loading_ops_settings")}
@@ -43,7 +43,7 @@ export function AdminBackupPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_page_backup_restore" />
+      <AdminPageHeader titleKey="admin_menu_dev_backup" />
       {hydrateError ? (
         <div
           className="mb-4 rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-4 py-3 sam-text-body-secondary text-sam-fg"

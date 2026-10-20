@@ -34,7 +34,7 @@ export function AdminDevSprintsPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_dev_sprint_page_title" />
+        <AdminPageHeader titleKey="admin_menu_dev_sprints" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -44,7 +44,7 @@ export function AdminDevSprintsPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_dev_sprint_page_title" />
+      <AdminPageHeader titleKey="admin_menu_dev_sprints" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button

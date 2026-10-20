@@ -76,10 +76,20 @@ async function headCount(q: Q, errors: string[], label: string): Promise<number 
   }
 }
 
+export type LoadTradeOverviewOptions = {
+  /**
+   * true = 처리 대기·현재 상태·기간 건수만 (통합 대시보드 · 거래 도메인 공통 모델용).
+   * 홍보 포인트 합계·카테고리/지역 분포·최근 조치는 건너뛰고 null 로 둔다. 기본 false (거래 대시보드 전체).
+   */
+  summaryOnly?: boolean;
+};
+
 export async function loadTradeOverview(
   sb: SupabaseClient,
-  period: { fromIso: string | null; toIso: string | null; fromDate: string | null; toDate: string | null }
+  period: { fromIso: string | null; toIso: string | null; fromDate: string | null; toDate: string | null },
+  options: LoadTradeOverviewOptions = {}
 ): Promise<TradeOverview> {
+  const summaryOnly = options.summaryOnly === true;
   const errors: string[] = [];
   const s = sb as Q;
   const nowIso = new Date().toISOString();
@@ -169,7 +179,9 @@ export async function loadTradeOverview(
   // 홍보 포인트 사용·환급 (공용 원장, 거래 홍보 주문 연결 행)
   let promotionPointsUsed: number | null = null;
   let promotionPointsRefunded: number | null = null;
-  if (tradePromo.ok) {
+  if (summaryOnly) {
+    // 요약 모드 — 원장 합계 생략 (null = 이 모드에서 집계하지 않음)
+  } else if (tradePromo.ok) {
     if (tradePromo.relatedIds.length === 0) {
       promotionPointsUsed = 0;
       promotionPointsRefunded = 0;
@@ -201,7 +213,7 @@ export async function loadTradeOverview(
   // 기간 내 신규 글 — 카테고리·지역 분포 (최대 5,000행, 넘으면 null)
   let byCategory: TradeOverview["byCategory"] = null;
   let byRegion: TradeOverview["byRegion"] = null;
-  {
+  if (!summaryOnly) {
     const { data, error, count } = await range(
       s.from("posts").select("id, trade_category_id, trade_lgu_id, region, city", { count: "exact" }),
       "created_at"
@@ -241,7 +253,7 @@ export async function loadTradeOverview(
   }
 
   let recentActions: TradeOverview["recentActions"] = null;
-  {
+  if (!summaryOnly) {
     const { data, error } = await s
       .from("audit_logs")
       .select("id, created_at, action, target_type, target_id, actor_id")

@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 type Row = {
   id: string;
@@ -187,7 +188,7 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
                     <td className="px-2 py-2">{r.storeName || "—"}</td>
                     <td className="px-2 py-2 font-mono text-xs">{r.publicGiftNumber || "—"}</td>
                     <td className="px-2 py-2">{r.productTitle || "—"}</td>
-                    <td className="px-2 py-2">{r.orderNo || r.orderId.slice(0, 8)}</td>
+                    <td className="px-2 py-2">{r.orderNo || formatAdminShortId(r.orderId)}</td>
                     <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(r.gross)}</td>
                     <td className="px-2 py-2 tabular-nums">
                       {r.feeRate}% / {formatMoneyPhp(r.platformFee)}

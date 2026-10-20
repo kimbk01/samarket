@@ -30,7 +30,7 @@ export function AdminSecurityPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_security_k1c4bd70f" />
+        <AdminPageHeader titleKey="admin_menu_dev_security" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -40,7 +40,7 @@ export function AdminSecurityPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_security_k1c4bd70f" />
+      <AdminPageHeader titleKey="admin_menu_dev_security" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {TABS.map((tab) => (
           <button

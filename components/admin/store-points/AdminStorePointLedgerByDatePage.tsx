@@ -10,7 +10,7 @@ import {
 } from "@/lib/stores/group-store-point-ledger-by-date";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
-import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
+import { formatAdminManilaDate, formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const TYPE_KEYS: Record<string, MessageKey> = {
   store_order_fee: "admin_store_point_ledger_type_store_order_fee",
@@ -20,14 +20,13 @@ const TYPE_KEYS: Record<string, MessageKey> = {
   bonus: "admin_store_point_ledger_type_bonus",
 };
 
+/** 기본 조회 기간 — PHT 달력 날짜 (설계 v4 §6). */
 function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return formatAdminManilaDate(new Date());
 }
 
 function daysAgoIso(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+  return formatAdminManilaDate(new Date(Date.now() - days * 86_400_000));
 }
 
 function formatHistoricalUnits(value: number): string {
@@ -36,8 +35,7 @@ function formatHistoricalUnits(value: number): string {
 }
 
 export function AdminStorePointLedgerByDatePage() {
-  const { t, language } = useI18n();
-  const locale = catalogDateLocale(language);
+  const { t } = useI18n();
 
   const [dateFrom, setDateFrom] = useState(() => daysAgoIso(7));
   const [dateTo, setDateTo] = useState(() => todayIsoDate());
@@ -183,7 +181,7 @@ export function AdminStorePointLedgerByDatePage() {
                         <span className="ml-1 text-xs text-sam-muted">({e.description})</span>
                       ) : null}
                       <span className="ml-2 text-xs text-sam-muted">
-                        {new Date(e.createdAt).toLocaleString(locale)}
+                        {formatAdminManilaDateTime(e.createdAt)}
                       </span>
                     </span>
                     <span className="tabular-nums text-sam-muted">

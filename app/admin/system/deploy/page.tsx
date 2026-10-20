@@ -9,6 +9,7 @@ import {
 import type { MessageKey } from "@/lib/i18n/messages";
 import { Sam } from "@/lib/ui/css-vars";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 type GateRow = {
   gateId: string;
@@ -119,7 +120,7 @@ function formatAt(iso: string | null | undefined): string {
 }
 
 export default function AdminSystemDeployPage() {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successHint, setSuccessHint] = useState<string | null>(null);
@@ -391,7 +392,7 @@ export default function AdminSystemDeployPage() {
         next: nextGates,
         version: sha,
         evidence: requiredPass
-          .map((g) => g.evidenceId?.slice(0, 8))
+          .map((g) => formatAdminShortId(g.evidenceId))
           .filter(Boolean)
           .join(", ") || "—",
       },
@@ -833,10 +834,7 @@ export default function AdminSystemDeployPage() {
           ) : null}
         </div>
         <h1 className="text-lg font-semibold text-sam-fg">
-          {safeT("admin_deploy_title", {
-            fallbackKo: "배포 · 운영 적용",
-            fallbackEn: "Deploy · Promote to production",
-          })}
+          {t("admin_menu_system_deploy")}
         </h1>
         <p className="text-sm text-sam-muted">
           {safeT("admin_deploy_subtitle", {

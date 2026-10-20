@@ -7,6 +7,7 @@ import { addOpsRetrospective } from "@/lib/ops-board/ops-board-state";
 import { persistOpsBoardToServer } from "@/lib/ops-board/ops-board-sync-client";
 import type { OpsSurface } from "@/lib/types/ops-board";
 import { OPS_TOOLS_SURFACE_KEYS } from "@/components/admin/i18n/admin-ops-tools-label-keys";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 const SURFACE_OPTIONS: { value: OpsSurface; labelKey: MessageKey }[] = [
   { value: "all", labelKey: OPS_TOOLS_SURFACE_KEYS.all },
@@ -32,7 +33,7 @@ export function OpsRetrospectiveForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const date = new Date().toISOString().slice(0, 10);
+    const date = formatAdminManilaDate(new Date());
     addOpsRetrospective({
       retrospectiveDate: date,
       title: title || t("admin_ops_tools_board_retro_default_title"),

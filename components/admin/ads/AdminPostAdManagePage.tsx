@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdStatusBadge } from "@/components/ads/AdStatusBadge";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { AdminPostAdRow, AdType } from "@/lib/ads/types";
+import { formatAdminManilaDate, formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const STATUS_FILTER_VALUES = [
   "",
@@ -33,13 +33,8 @@ const AD_TYPE_KEYS = {
   highlight: "admin_ads_post_type_highlight",
 } as const satisfies Record<AdType, MessageKey>;
 
-function dateLocaleTag(language: AppLanguageCode): string {
-  return language === "en" ? "en-US" : "ko-KR";
-}
-
 export function AdminPostAdManagePage() {
-  const { t, language } = useI18n();
-  const dateLocale = dateLocaleTag(language);
+  const { t } = useI18n();
   const [rows, setRows] = useState<AdminPostAdRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -219,13 +214,13 @@ export function AdminPostAdManagePage() {
                         </span>
                         {row.startAt && row.endAt ? (
                           <span>
-                            {new Date(row.startAt).toLocaleDateString(dateLocale)} ~{" "}
-                            {new Date(row.endAt).toLocaleDateString(dateLocale)}
+                            {formatAdminManilaDate(row.startAt)} ~{" "}
+                            {formatAdminManilaDate(row.endAt)}
                           </span>
                         ) : null}
                         <span className="text-sam-meta">
                           {t("admin_ads_applied_line", {
-                            date: new Date(row.createdAt).toLocaleString(dateLocale),
+                            date: formatAdminManilaDateTime(row.createdAt),
                           })}
                         </span>
                       </div>

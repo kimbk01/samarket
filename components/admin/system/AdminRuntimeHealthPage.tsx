@@ -178,7 +178,6 @@ export function AdminRuntimeHealthPage() {
     }
   };
 
-  const titleLine = ko ? "런타임 상태" : "Runtime health";
   const pgLine = caps?.pg_version
     ? `${caps.pg_version}${caps.pg_version_num ? ` (${caps.pg_version_num})` : ""}`
     : ko
@@ -191,7 +190,7 @@ export function AdminRuntimeHealthPage() {
     <div className={`${Sam.page} bg-sam-app min-h-[70vh] px-4 py-8`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-sam-fg">{titleLine}</h1>
+          <h1 className="text-xl font-semibold text-sam-fg">{t("admin_menu_runtime_health")}</h1>
           <p className="mt-1 text-sm text-sam-muted">{t("admin_runtime_health_subtitle")}</p>
         </div>
         <button

@@ -43,6 +43,7 @@ import {
 } from "@/lib/admin-users/admin-staff-membership-list";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 type LoadState =
   | { status: "loading" }
@@ -140,7 +141,7 @@ function PromoteMemberPicker({
                 {h.nickname || "—"}
                 {h.email ? <span className="ml-2 text-[12px] text-sam-muted">{h.email}</span> : null}
               </span>
-              <AdminActionButton type="button" onClick={() => onPick({ id: h.id, name: h.nickname || h.email || h.id.slice(0, 8) })}>
+              <AdminActionButton type="button" onClick={() => onPick({ id: h.id, name: h.nickname || h.email || formatAdminShortId(h.id) })}>
                 {ko ? "선택" : "Select"}
               </AdminActionButton>
             </li>
@@ -223,7 +224,7 @@ export function AdminStaffAccountsPage() {
   }, []);
 
   const roleLabel = (r: AdminRole) => (ko ? ROLE_LABEL[r].ko : ROLE_LABEL[r].en);
-  const personLabel = (r: AdminStaffMembershipRow) => r.nickname || r.loginId || r.userId.slice(0, 8);
+  const personLabel = (r: AdminStaffMembershipRow) => r.nickname || r.loginId || formatAdminShortId(r.userId);
 
   const saveChanges = async () => {
     if (!openRow) return;
@@ -267,7 +268,7 @@ export function AdminStaffAccountsPage() {
   return (
     <div className="space-y-4" data-admin-staff-page="1">
       <AdminPageHeader
-        title={ko ? "관리자 계정·권한" : "Admin accounts & permissions"}
+        titleKey="admin_menu_admin_staff"
         description={
           ko
             ? "관리자 권한을 가진 계정과 해제 이력입니다. 권한 해제는 회원 계정을 지우지 않습니다."

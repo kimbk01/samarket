@@ -506,7 +506,7 @@ export function AdminUserListPage() {
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-[#101828]">{MEMBER_ADMIN_COPY.member_management}</h1>
+          <h1 className="text-xl font-bold text-[#101828]">{t("admin_menu_users")}</h1>
           <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-[#667085]">
             {MEMBER_LIST_PAGE_DESCRIPTION_KO}
           </p>

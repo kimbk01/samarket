@@ -190,7 +190,7 @@ export function AdminPointPolicyPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_points_policy_page" />
+      <AdminPageHeader titleKey="admin_menu_points_policy" />
       <Suspense fallback={null}>
         <AdminOpsCrossLinkBar
           links={[

@@ -102,7 +102,7 @@ export function AdminReportListPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_report_list_title" descriptionKey="admin_report_list_description" />
+      <AdminPageHeader titleKey="admin_menu_reports_observation" descriptionKey="admin_report_list_description" />
       <div
         className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
         data-testid="admin-report-domain-ssot-banner"

@@ -7,7 +7,7 @@ import { AdminFinanceWithdrawalsShell } from "@/components/finance/AdminFinanceW
 export default function AdminFinanceWithdrawalsPage() {
   return (
     <div className="space-y-4 p-4">
-      <AdminPageHeader titleKey="admin_page_store_finance" />
+      <AdminPageHeader titleKey="admin_menu_finance_withdrawals" />
       <Suspense fallback={null}>
         <AdminFinanceWithdrawalsShell>
           <AdminCoinWithdrawalsPanel />

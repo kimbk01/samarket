@@ -1,17 +1,9 @@
 import { AdminDashboardPage } from "@/components/admin/dashboard/AdminDashboardPage";
-import { getCachedAdminDashboardPayloadForDevSafe } from "@/lib/admin-dashboard/build-admin-dashboard-payload-dev-cache";
-import { getOptionalAdminUserIdCached } from "@/lib/admin/get-optional-admin-user-id-cached";
 
-export default async function AdminPage() {
-  let initialDashboardPayload = null;
-  const adminId = await getOptionalAdminUserIdCached();
-  if (adminId) {
-    try {
-      initialDashboardPayload = await getCachedAdminDashboardPayloadForDevSafe(adminId);
-    } catch {
-      initialDashboardPayload = null;
-    }
-  }
-
-  return <AdminDashboardPage initialDashboardPayload={initialDashboardPayload} />;
+/**
+ * 운영 홈 = 통합 대시보드 (설계 v4 §3 · F4). 수치는 클라이언트가 `/api/admin/dashboard/overview` 에서
+ * 탭별로 받는다 (관리자 권한 범위 적용 — 서버 첫 렌더 선조회 없음).
+ */
+export default function AdminPage() {
+  return <AdminDashboardPage />;
 }

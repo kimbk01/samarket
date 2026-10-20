@@ -8,6 +8,7 @@ import {
   type FeedAdOpsProductStatus,
 } from "@/lib/ads/feed-ad-ops-presentation";
 import { feedAdPlacementHumanLabel, type FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
+import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 type RequestRow = {
   id: string;
@@ -135,7 +136,7 @@ export function AdminFeedAdRequestQueue() {
             const thumb = r.creatives[0]?.imageUrl;
             const target =
               r.targetTopicSlug ||
-              (r.targetCategoryId ? `${r.targetCategoryId.slice(0, 8)}…` : "");
+              (r.targetCategoryId ? formatAdminShortIdEllipsis(r.targetCategoryId) : "");
             return (
               <li
                 key={r.id}
@@ -157,7 +158,7 @@ export function AdminFeedAdRequestQueue() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="sam-text-body font-medium text-sam-fg">
-                      {r.memberLabel || `${r.userId.slice(0, 8)}…`}
+                      {r.memberLabel || formatAdminShortIdEllipsis(r.userId)}
                       {" · "}
                       <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-helper">
                         {statusText}

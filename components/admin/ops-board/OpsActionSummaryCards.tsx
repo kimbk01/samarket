@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getOpsActionSummary } from "@/lib/ops-board/ops-board-action-summary";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 export function OpsActionSummaryCards() {
   const { t } = useI18n();
   const [checklistDate, setChecklistDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
+    formatAdminManilaDate(new Date())
   );
   const summary = useMemo(
     () => getOpsActionSummary(checklistDate),
@@ -52,7 +53,7 @@ export function OpsActionSummaryCards() {
           <p className="sam-text-body-secondary text-sam-muted">
             {t("admin_ops_tools_board_latest_retro")}{" "}
             {summary.latestRetrospectiveAt
-              ? new Date(summary.latestRetrospectiveAt).toLocaleDateString()
+              ? formatAdminManilaDate(summary.latestRetrospectiveAt)
               : "-"}
           </p>
         </div>

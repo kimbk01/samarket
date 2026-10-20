@@ -171,7 +171,7 @@ export function AdminPointExecutionPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_points_exec_page" />
+      <AdminPageHeader titleKey="admin_menu_points_execute" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
         {tabs.map((tab) => (

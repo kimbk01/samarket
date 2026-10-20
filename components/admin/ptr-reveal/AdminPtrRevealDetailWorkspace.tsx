@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { useAdminConfirmDialog, type AdminConfirmRequest } from "@/components/admin/ui/useAdminConfirmDialog";
 import { AdminPtrRevealPreview } from "@/components/admin/ptr-reveal/AdminPtrRevealPreview";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PlatformPopupAdminDetail } from "@/lib/platform-popup/admin-campaign-loader";
@@ -113,6 +114,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   const lang: Lang = language === "en" ? "en" : "ko";
   const L = useCallback((ko: string, en: string) => (lang === "en" ? en : ko), [lang]);
   const router = useRouter();
+  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
 
   const [detail, setDetail] = useState<PlatformPopupAdminDetail | null>(null);
   const [form, setForm] = useState<Form | null>(null);
@@ -154,7 +156,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
     const msg = willReview
       ? L("저장할까요? 노출 중인 광고의 노출 조건·문구가 바뀌어 다시 검토(노출 중단) 상태가 됩니다.", "Save? This changes a live ad's conditions or text, so it returns to review (exposure stops).")
       : L("변경 내용을 저장할까요?", "Save changes?");
-    if (!window.confirm(msg)) return;
+    if (!(await askConfirm({ title: L("변경 내용 저장", "Save changes"), description: msg, confirmLabel: L("저장", "Save"), cancelLabel: L("취소", "Cancel") }))) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -174,9 +176,9 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
     setNotice(json.revertedToReview ? L("저장했습니다. 다시 검토 상태입니다.", "Saved. Back in review.") : L("저장했습니다.", "Saved."));
   };
 
-  const cancel = () => {
+  const cancel = async () => {
     if (!dirty) return;
-    if (!window.confirm(L("저장하지 않은 변경 내용을 버릴까요?", "Discard unsaved changes?"))) return;
+    if (!(await askConfirm({ title: L("변경 취소", "Discard changes"), description: L("저장하지 않은 변경 내용을 버릴까요?", "Discard unsaved changes?"), confirmLabel: L("버리기", "Discard"), cancelLabel: L("계속 편집", "Keep editing"), tone: "danger" }))) return;
     setForm(saved);
   };
 
@@ -185,7 +187,9 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
       setError(L("먼저 변경 내용을 저장하거나 취소해 주세요.", "Save or cancel your changes first."));
       return;
     }
-    if (!window.confirm(L(confirmKo, confirmEn))) return;
+    const nextStatus = typeof body.nextStatus === "string" ? body.nextStatus : "";
+    const tone: AdminConfirmRequest["tone"] = nextStatus === "rejected" || nextStatus === "paused" || nextStatus === "ended" ? "danger" : "primary";
+    if (!(await askConfirm({ title: L("상태 변경", "Change status"), description: L(confirmKo, confirmEn), confirmLabel: L("확인", "Confirm"), cancelLabel: L("취소", "Cancel"), tone }))) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -205,7 +209,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   };
 
   const copy = async () => {
-    if (!window.confirm(L("이 광고를 복사해 새 임시저장을 만들까요? (승인·기간은 복사되지 않습니다)", "Copy into a new draft? (Approval and schedule are not copied.)"))) return;
+    if (!(await askConfirm({ title: L("광고 복사", "Copy ad"), description: L("이 광고를 복사해 새 임시저장을 만들까요? (승인·기간은 복사되지 않습니다)", "Copy into a new draft? (Approval and schedule are not copied.)"), confirmLabel: L("복사", "Copy"), cancelLabel: L("취소", "Cancel") }))) return;
     setBusy(true);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}/copy`, {
       method: "POST",
@@ -260,6 +264,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
 
   return (
     <div className="space-y-4 p-4 pb-28" data-admin-ptr-detail={campaignId}>
+      {confirmDialog}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href="/admin/ptr-reveal-ads" className="text-xs text-sam-muted underline">
@@ -518,7 +523,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-sam-border bg-sam-surface px-4 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-end gap-2">
           {dirty ? <span className="mr-auto text-xs text-amber-700">{L("저장하지 않은 변경이 있습니다", "Unsaved changes")}</span> : null}
-          <button type="button" className="rounded border border-sam-border px-4 py-2 text-sm" disabled={busy || !dirty} onClick={cancel}>
+          <button type="button" className="rounded border border-sam-border px-4 py-2 text-sm" disabled={busy || !dirty} onClick={() => void cancel()}>
             {L("취소", "Cancel")}
           </button>
           <button type="button" className="rounded bg-sam-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={busy || !dirty} onClick={() => void save()} data-admin-ptr-save="">
@@ -562,6 +567,7 @@ function PtrBandUploadSlot({
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "warn" | "err"; text: string } | null>(null);
+  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
 
   const required = variant === "default";
   const role =
@@ -571,12 +577,16 @@ function PtrBandUploadSlot({
 
   const remove = async () => {
     if (!current) return;
-    const ok = window.confirm(
-      L(
+    const ok = await askConfirm({
+      title: L("이미지 삭제", "Delete image"),
+      description: L(
         `${spec.labelKo} 이미지를 삭제할까요? 노출 중이면 다시 검토 상태가 됩니다.${variant === "tablet" ? " 태블릿에는 광고 없이 일반 새로고침만 보입니다." : ""}`,
         `Delete the ${spec.labelEn}? A live campaign returns to review.${variant === "tablet" ? " Tablets will then show normal refresh without an ad." : ""}`
-      )
-    );
+      ),
+      confirmLabel: L("삭제", "Delete"),
+      cancelLabel: L("취소", "Cancel"),
+      tone: "danger",
+    });
     if (!ok) return;
     setBusy(true);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}/creative?variant=${variant}`, {
@@ -630,27 +640,34 @@ function PtrBandUploadSlot({
       return;
     }
     if (!check.ratioOk) {
-      const ok = window.confirm(
-        L(
+      const ok = await askConfirm({
+        title: L("가운데 자르기", "Center-crop"),
+        description: L(
           `비율이 ${spec.aspectW}:${spec.aspectH} 이 아닙니다 (${size.width}×${size.height}). 가운데를 잘라 사용할까요?`,
           `Not ${spec.aspectW}:${spec.aspectH} (${size.width}×${size.height}). Center-crop and use it?`
-        )
-      );
+        ),
+        confirmLabel: L("잘라서 사용", "Crop and use"),
+        cancelLabel: L("취소", "Cancel"),
+      });
       if (!ok) return;
       await upload(file, true);
       return;
     }
-    const ok = window.confirm(
-      current
+    const ok = await askConfirm({
+      title: current ? L("이미지 교체", "Replace image") : L("이미지 올리기", "Upload image"),
+      description: current
         ? L(`${spec.labelKo} 이미지를 교체할까요? 노출 중이면 다시 검토 상태가 됩니다.`, `Replace the ${spec.labelEn}? A live campaign returns to review.`)
-        : L(`${spec.labelKo} 이미지로 올릴까요?`, `Upload as the ${spec.labelEn}?`)
-    );
+        : L(`${spec.labelKo} 이미지로 올릴까요?`, `Upload as the ${spec.labelEn}?`),
+      confirmLabel: current ? L("교체", "Replace") : L("올리기", "Upload"),
+      cancelLabel: L("취소", "Cancel"),
+    });
     if (!ok) return;
     await upload(file, false);
   };
 
   return (
     <div className="rounded-ui-rect border border-sam-border p-3" data-admin-ptr-upload={variant}>
+      {confirmDialog}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-semibold">
           {lang === "en" ? spec.labelEn : spec.labelKo}

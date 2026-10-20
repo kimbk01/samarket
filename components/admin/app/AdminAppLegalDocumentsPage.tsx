@@ -56,10 +56,7 @@ export function AdminAppLegalDocumentsPage() {
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h1 className="sam-text-page-title font-semibold text-sam-fg">
-          {safeT("admin_app_legal_title", {
-            fallbackKo: "약관·개인정보",
-            fallbackEn: "Terms & privacy",
-          })}
+          {t("admin_menu_legal")}
         </h1>
         <Link
           href="/admin/app/legal/create"

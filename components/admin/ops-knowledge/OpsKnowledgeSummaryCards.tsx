@@ -7,6 +7,7 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import { getOpsKnowledgeSummary } from "@/lib/ops-knowledge/ops-knowledge-summary";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 export function OpsKnowledgeSummaryCards() {
   const { t } = useI18n();
@@ -30,7 +31,7 @@ export function OpsKnowledgeSummaryCards() {
         <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_kb_summary_recent")}</p>
         <p className="sam-text-body font-medium text-sam-fg">
           {summary.latestUpdatedAt
-            ? new Date(summary.latestUpdatedAt).toLocaleDateString("ko-KR")
+            ? formatAdminManilaDate(summary.latestUpdatedAt)
             : "-"}
           {" · "}
           {summary.topCategory ? t(opsToolsLabel(OPS_TOOLS_CHECKLIST_CATEGORY_KEYS, summary.topCategory)) ?? summary.topCategory : "-"}

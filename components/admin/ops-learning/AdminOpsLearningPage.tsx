@@ -40,7 +40,7 @@ export function AdminOpsLearningPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_ops_tools_learning_page_title" />
+        <AdminPageHeader titleKey="admin_menu_manage_learning" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -50,7 +50,7 @@ export function AdminOpsLearningPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_ops_tools_learning_page_title" />
+      <AdminPageHeader titleKey="admin_menu_manage_learning" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button

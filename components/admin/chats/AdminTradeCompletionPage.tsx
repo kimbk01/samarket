@@ -9,6 +9,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
+import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 interface Row {
   roomId: string;
@@ -153,7 +154,7 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
                   </td>
                   <td className="px-3 py-2 font-mono sam-text-helper">
                     <Link href={withAdminReturnTo(`/admin/chats/${encodeURIComponent(r.roomId)}`, "/admin/trade-flow?panel=complete")} className="text-signature hover:underline">
-                      {r.roomId.slice(0, 8)}…
+                      {formatAdminShortIdEllipsis(r.roomId)}
                     </Link>
                   </td>
                   <td className="max-w-[200px] truncate px-3 py-2" title={r.postTitle}>

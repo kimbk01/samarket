@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PlatformPopupAdminListItem } from "@/lib/platform-popup/admin-campaign-loader";
 import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
@@ -18,6 +19,7 @@ export function AdminPtrRevealListPage() {
   const lang = language === "en" ? "en" : "ko";
   const L = useCallback((ko: string, en: string) => (lang === "en" ? en : ko), [lang]);
   const router = useRouter();
+  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
   const [items, setItems] = useState<PlatformPopupAdminListItem[]>([]);
   const [status, setStatus] = useState("");
   const [query, setQuery] = useState("");
@@ -70,7 +72,13 @@ export function AdminPtrRevealListPage() {
   };
 
   const copy = async (item: PlatformPopupAdminListItem) => {
-    if (!window.confirm(L(`「${item.name}」을 복사할까요? (승인·기간 제외)`, `Copy “${item.name}”? (approval and schedule excluded)`))) return;
+    const ok = await askConfirm({
+      title: L("광고 복사", "Copy ad"),
+      description: L(`「${item.name}」을 복사할까요? (승인·기간 제외)`, `Copy “${item.name}”? (approval and schedule excluded)`),
+      confirmLabel: L("복사", "Copy"),
+      cancelLabel: L("취소", "Cancel"),
+    });
+    if (!ok) return;
     setBusy(true);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${item.id}/copy`, {
       method: "POST",
@@ -89,6 +97,7 @@ export function AdminPtrRevealListPage() {
 
   return (
     <div className="space-y-4 p-4" data-admin-ptr-list="">
+      {confirmDialog}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-sam-fg">{L("당겨서 새로고침 광고", "Pull-to-refresh ads")}</h1>

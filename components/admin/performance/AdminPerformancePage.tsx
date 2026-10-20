@@ -20,7 +20,7 @@ export function AdminPerformancePage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_performance_kd0b3c807" />
+        <AdminPageHeader titleKey="admin_menu_dev_performance" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -30,7 +30,7 @@ export function AdminPerformancePage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_performance_kd0b3c807" />
+      <AdminPageHeader titleKey="admin_menu_dev_performance" />
       <div className="space-y-4">
         <AdminCard titleKey="admin_performance_status_3">
           <PerformanceSummaryCards />

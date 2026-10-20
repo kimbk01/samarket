@@ -8,6 +8,7 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import Link from "next/link";
 import type { OpsKnowledgeBaseIndexItem } from "@/lib/types/ops-knowledge";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 interface OpsKnowledgePreviewCardProps {
   item: OpsKnowledgeBaseIndexItem;
@@ -39,7 +40,7 @@ export function OpsKnowledgePreviewCard({ item, onView }: OpsKnowledgePreviewCar
         </p>
       )}
       <p className="mt-2 sam-text-helper text-sam-meta">
-        수정 {new Date(item.updatedAt).toLocaleDateString("ko-KR")}
+        수정 {formatAdminManilaDate(item.updatedAt)}
       </p>
     </div>
   );

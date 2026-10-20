@@ -12,7 +12,7 @@ import {
 } from "@/lib/admin/promotion-operation-status";
 
 export function AdminPlatformEventOwnerRequestQueueClient() {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const [items, setItems] = useState<PlatformEventOwnerRequestRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -46,10 +46,7 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
     <div className="space-y-4 p-4" data-admin-event-owner-request-queue="1">
       <div>
         <h1 className="text-lg font-semibold">
-          {safeT("admin_menu_promotion_owner_requests", {
-            fallbackKo: "오너 요청",
-            fallbackEn: "Owner requests",
-          })}
+          {t("admin_menu_promotion_owner_requests")}
         </h1>
         <p className="mt-1 text-sm text-sam-muted" data-admin-owner-request-boundary="1">
           {safeT("admin_promotion_owner_request_boundary", {

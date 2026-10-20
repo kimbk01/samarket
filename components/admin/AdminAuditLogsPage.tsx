@@ -25,6 +25,7 @@ import {
   AUDIT_LOG_DEFAULT_ACTOR_FILTER,
   type AuditLogActorFilter,
 } from "@/lib/admin/audit/admin-audit-log-list-query";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 type Row = {
   id: string;
@@ -73,7 +74,7 @@ function actorLabel(r: Row, ko: boolean): string {
   const type = ACTOR_TYPE_LABEL[r.actor_type];
   const typeLabel = type ? (ko ? type.ko : type.en) : r.actor_type;
   if (r.actor_nickname) return `${typeLabel} · ${r.actor_nickname}`;
-  if (r.actor_id) return `${typeLabel} · ${r.actor_id.slice(0, 8)}`;
+  if (r.actor_id) return `${typeLabel} · ${formatAdminShortId(r.actor_id)}`;
   return typeLabel;
 }
 
@@ -156,7 +157,7 @@ export function AdminAuditLogsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_page_log_audit" />
+      <AdminPageHeader titleKey="admin_menu_dev_audit" />
       <div
         className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
         data-testid="admin-audit-ownership-banner"

@@ -26,7 +26,7 @@ export function AdminPointExpirePage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_points_expire_page" />
+      <AdminPageHeader titleKey="admin_menu_points_expire" />
 
       {activePolicy ? (
         <AdminCard titleKey="admin_points_expire_card_policy">

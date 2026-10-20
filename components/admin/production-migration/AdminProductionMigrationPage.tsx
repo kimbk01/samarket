@@ -41,7 +41,7 @@ export function AdminProductionMigrationPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_qa_kdcc4b43a" />
+        <AdminPageHeader titleKey="admin_menu_dev_production" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">
             {t("admin_rec_mon_loading_settings")}
@@ -53,7 +53,7 @@ export function AdminProductionMigrationPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_qa_kdcc4b43a" />
+      <AdminPageHeader titleKey="admin_menu_dev_production" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button

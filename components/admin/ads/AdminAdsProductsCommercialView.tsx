@@ -202,7 +202,7 @@ function ProductCard({ card, ko }: { card: AdsCommercialProductCard; ko: boolean
 }
 
 export function AdminAdsProductsCommercialView() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
   const [model, setModel] = useState<AdsCommercialControlModel | null>(null);
   const [err, setErr] = useState("");
@@ -244,7 +244,7 @@ export function AdminAdsProductsCommercialView() {
           {ko ? "광고 상품 / 가격" : "Products / Pricing"}
         </p>
         <h1 className="text-lg font-semibold text-sam-fg">
-          {ko ? "광고 상품 / 가격" : "Ad products / Pricing"}
+          {t("admin_menu_ads_authority_products")}
         </h1>
         <p className="text-[13px] text-sam-muted">
           {ko

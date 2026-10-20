@@ -41,6 +41,7 @@ import {
   type PromoteOrderRow,
 } from "@/lib/admin/ads-control-plane/project-family-rows";
 import { pinEnsuredBoostOrderInApplications } from "@/lib/admin/ads-exposure/boost-order-deep-link";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 function isMissing(err: { message?: string } | null | undefined, re: RegExp): boolean {
   return !!err && re.test(String(err.message ?? ""));
@@ -48,8 +49,8 @@ function isMissing(err: { message?: string } | null | undefined, re: RegExp): bo
 
 function formatPeriod(startAt: string | null | undefined, endAt: string | null | undefined): string | null {
   if (!startAt && !endAt) return null;
-  const a = startAt ? new Date(startAt).toLocaleDateString("ko") : "?";
-  const b = endAt ? new Date(endAt).toLocaleDateString("ko") : "?";
+  const a = startAt ? formatAdminManilaDate(startAt) : "?";
+  const b = endAt ? formatAdminManilaDate(endAt) : "?";
   return `${a} → ${b}`;
 }
 

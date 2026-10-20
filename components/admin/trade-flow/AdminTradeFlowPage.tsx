@@ -22,6 +22,7 @@ import {
   TabStrip,
 } from "@/components/admin/trade-console/trade-console-ui";
 import { useRouter } from "next/navigation";
+import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 interface SessionRow {
   id: string;
@@ -296,8 +297,8 @@ export function AdminTradeFlowPage() {
             status: labelOf(POST_STATUS_KEYS, focusedSession.postStatus),
             listing: labelOf(LISTING_STATE_KEYS, focusedSession.sellerListingState),
             flow: tradeFlowStatusLabel(focusedSession.trade_flow_status),
-            seller: focusedSession.seller_id.slice(0, 8) + "…",
-            buyer: focusedSession.buyer_id.slice(0, 8) + "…",
+            seller: formatAdminShortIdEllipsis(focusedSession.seller_id),
+            buyer: formatAdminShortIdEllipsis(focusedSession.buyer_id),
           })}
         </div>
       ) : null}
@@ -356,7 +357,7 @@ export function AdminTradeFlowPage() {
                             href={withAdminReturnTo(`/admin/chats/${encodeURIComponent(s.id)}`, "/admin/trade-flow")}
                             className="text-signature hover:underline"
                           >
-                            {s.id.slice(0, 8)}…
+                            {formatAdminShortIdEllipsis(s.id)}
                           </Link>
                         </div>
                       </td>
@@ -442,8 +443,8 @@ export function AdminTradeFlowPage() {
                           rv.public_review_type}
                       </td>
                       <td className="max-w-[160px] truncate px-3 py-2 text-sam-fg" title={`${rv.reviewer_nickname ?? ""} → ${rv.reviewee_nickname ?? ""}`}>
-                        {rv.reviewer_nickname ?? rv.reviewer_id.slice(0, 8) + "…"} →{" "}
-                        {rv.reviewee_nickname ?? rv.reviewee_id.slice(0, 8) + "…"}
+                        {rv.reviewer_nickname ?? formatAdminShortIdEllipsis(rv.reviewer_id)} →{" "}
+                        {rv.reviewee_nickname ?? formatAdminShortIdEllipsis(rv.reviewee_id)}
                       </td>
                       <td className="max-w-[160px] truncate px-3 py-2 text-sam-fg" title={rv.positive_tag_labels ?? ""}>
                         {rv.positive_tag_labels ?? ((rv.positive_tag_keys ?? []).join(", ") || "—")}
@@ -456,7 +457,7 @@ export function AdminTradeFlowPage() {
                       </td>
                       <td className="px-3 py-2 sam-text-helper text-sam-fg">
                         <span className="block max-w-[140px] truncate font-medium text-sam-fg" title={rv.product_title ?? rv.product_id}>
-                          {rv.product_title ?? rv.product_id.slice(0, 8) + "…"}
+                          {rv.product_title ?? formatAdminShortIdEllipsis(rv.product_id)}
                         </span>
                         <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
                           {rv.room_id ? (
@@ -503,7 +504,7 @@ export function AdminTradeFlowPage() {
                       <td className="whitespace-nowrap px-3 py-2 text-sam-muted">
                         {formatAdminDateTime(l.created_at, language)}
                       </td>
-                      <td className="px-3 py-2 font-mono sam-text-xxs">{l.user_id.slice(0, 8)}…</td>
+                      <td className="px-3 py-2 font-mono sam-text-xxs"><AdminTechId id={l.user_id} /></td>
                       <td className="px-3 py-2">{labelOf(REP_SOURCE_KEYS, l.source_type)}</td>
                       <td className="px-3 py-2">{l.delta}</td>
                       <td className="px-3 py-2">{labelOf(REP_STATUS_KEYS, l.status)}</td>

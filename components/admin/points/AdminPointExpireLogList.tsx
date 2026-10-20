@@ -16,6 +16,7 @@ import {
 
 import type { PointExpireLog } from "@/lib/types/point-expire";
 import type { PointExpireLogActionType } from "@/lib/types/point-expire";
+import { formatAdminManilaDate, formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface AdminPointExpireLogListProps {
   logs: PointExpireLog[];
@@ -73,10 +74,10 @@ export function AdminPointExpireLogList({ logs }: AdminPointExpireLogListProps) 
                 -{l.expiredPoint}P
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(l.expiresAt).toLocaleDateString("ko-KR")}
+                {formatAdminManilaDate(l.expiresAt)}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(l.createdAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(l.createdAt)}
               </td>
             </tr>
           ))}

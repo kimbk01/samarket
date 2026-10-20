@@ -36,6 +36,7 @@ import {
 import { adminChatRoomDetailHref, adminUserDetailHref } from "@/lib/admin/chat-admin/admin-chat-links";
 import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminTechId, formatAdminShortId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 /** 화면 모드 — `all` 은 전체채팅(유형 필터), 나머지는 유형 고정 화면. */
 export type AdminMessengerDomainListMode = "all" | "general" | "group" | "trade" | "store_order";
@@ -302,7 +303,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
             <span className="flex items-center gap-1">
               <span className="text-sam-muted">{t("admin_chat_rooms_chip_member")}</span>
               <Link href={adminUserDetailHref(query.userId, returnTo)} className="font-mono text-signature hover:underline">
-                {query.userId.slice(0, 8)}…
+                {formatAdminShortIdEllipsis(query.userId)}
               </Link>
               <button type="button" className="sam-text-helper text-sam-muted underline" onClick={() => navigate({ userId: "" })}>
                 {t("admin_chat_list_chip_clear")}
@@ -312,7 +313,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
           {query.postId ? (
             <span className="flex items-center gap-1">
               <span className="text-sam-muted">{t("admin_chat_rooms_chip_post")}</span>
-              <span className="font-mono">{query.postId.slice(0, 8)}…</span>
+              <AdminTechId id={query.postId} />
               <button
                 type="button"
                 className="sam-text-helper text-sam-muted underline"
@@ -325,7 +326,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
           {query.orderId ? (
             <span className="flex items-center gap-1">
               <span className="text-sam-muted">{t("admin_chat_rooms_chip_order")}</span>
-              <span className="font-mono">{query.orderId.slice(0, 8)}…</span>
+              <AdminTechId id={query.orderId} />
               <button type="button" className="sam-text-helper text-sam-muted underline" onClick={() => navigate({ orderId: "" })}>
                 {t("admin_chat_list_chip_clear")}
               </button>
@@ -402,7 +403,7 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
                         <span className="text-sam-fg">{room.linked.title || t("admin_chat_rooms_linked_post_untitled")}</span>
                       ) : room.linked?.kind === "store_order" ? (
                         <span className="text-sam-fg">
-                          {room.linked.orderNo || room.linked.orderId.slice(0, 8)}
+                          {room.linked.orderNo || formatAdminShortId(room.linked.orderId)}
                           {room.linked.storeName ? <span className="text-sam-muted"> · {room.linked.storeName}</span> : null}
                         </span>
                       ) : (

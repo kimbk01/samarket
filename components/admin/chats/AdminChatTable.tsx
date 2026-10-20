@@ -10,6 +10,7 @@ import { AdminChatRoomStatusBadge } from "./AdminChatRoomStatusBadge";
 import { adminCmRoomDetailHref } from "@/lib/admin-community-messenger/room-domain-links";
 import { useAdminLocationReturnTo } from "./use-admin-location-return-to";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
+import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 interface AdminChatTableProps {
   rooms: AdminChatRoom[];
@@ -95,11 +96,11 @@ export function AdminChatTable({
                   checked={selectedIds.has(r.id)}
                   onChange={(e) => onToggleRow(r.id, e.target.checked)}
                   className="rounded border-sam-border"
-                  aria-label={t("admin_chat_select_row", { id: r.id.slice(0, 8) })}
+                  aria-label={t("admin_chat_select_row", { id: formatAdminShortId(r.id) })}
                 />
               </td>
               <td className="max-w-[100px] truncate px-3 py-2.5 font-mono sam-text-helper text-sam-muted">
-                {r.id.slice(0, 8)}…
+                <AdminTechId id={r.id} />
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-xxs text-sam-muted">
                 {/* C-10: 저장소 원시 이름(product_chats·chat_rooms)은 운영 화면에 노출하지 않는다. */}
