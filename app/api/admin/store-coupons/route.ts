@@ -10,7 +10,6 @@ import {
 } from "@/lib/stores/store-coupon-campaign-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
-import { loadAdminCouponControlCenter } from "@/lib/stores/load-admin-coupon-control-center";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +47,38 @@ export async function GET(req: NextRequest) {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  const couponNumber = new URL(req.url).searchParams.get("couponNumber")?.trim() ?? "";
+  const sp = new URL(req.url).searchParams;
+  const couponNumber = sp.get("couponNumber")?.trim() ?? "";
+  const campaignId = sp.get("campaignId")?.trim() ?? "";
+  /**
+   * R7 서버 페이지 — `limit`(또는 `campaignId`) 이 있을 때만. 상태·재원·매장 필터·정렬·total·KPI 는 DB 함수가 정한다.
+   * 쿠폰번호 검색(`couponNumber`)과 파라미터 없는 호출은 기존 응답 그대로.
+   */
+  if (!couponNumber && (sp.has("limit") || campaignId)) {
+    const { loadAdminCouponCampaignPage } = await import("@/lib/stores/load-admin-coupon-campaign-page");
+    const page = await loadAdminCouponCampaignPage(sb, {
+      status: sp.get("status"),
+      funding: sp.get("funding"),
+      storeId: sp.get("store_id"),
+      campaignId: campaignId || null,
+      limit: campaignId ? 1 : Number(sp.get("limit")),
+      offset: campaignId ? 0 : Number(sp.get("offset")),
+    });
+    if (!page.ok) {
+      return NextResponse.json({ ok: false, error: page.error, campaigns: [] }, { status: 500 });
+    }
+    return NextResponse.json({
+      ok: true,
+      campaigns: page.campaigns,
+      total: page.total,
+      limit: page.limit,
+      offset: page.offset,
+      kpi: page.kpi,
+      stores: page.stores,
+      recent: page.recent,
+      writer: "admin_http",
+    });
+  }
   const { loadCouponCampaignOpsBundle } = await import("@/lib/stores/load-coupon-campaign-ops-bundle");
   const loaded = await loadCouponCampaignOpsBundle(sb, couponNumber ? { couponNumber } : undefined);
   if (!loaded.ok) {

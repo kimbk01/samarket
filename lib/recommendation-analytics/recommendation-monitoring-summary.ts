@@ -12,7 +12,7 @@ export function getRecommendationMonitoringSummary(): RecommendationMonitoringSu
   const now = new Date().toISOString();
   const statuses = getRecommendationHealthStatuses();
   const openIncidents = getRecommendationIncidents({ status: "open" });
-  const unackAlerts = getRecommendationAlertEvents({ isAcknowledged: false });
+  const unackAlerts = getRecommendationAlertEvents({ isAcknowledged: false, limit: null });
 
   let totalHealthy = 0;
   let totalWarning = 0;

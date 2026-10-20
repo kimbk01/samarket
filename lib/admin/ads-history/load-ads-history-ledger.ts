@@ -1,14 +1,18 @@
 /**
  * CUT R7 — Load Ads history ledger (read-only composition).
  * No writers. Historical amounts from snapshots only.
+ *
+ * R7 서버 페이지 — 원천 합치기·영역/상태/검색 필터·정렬·페이지·전체 건수는 DB RPC 한 번
+ * (`admin_ads_history_page`). 화면에는 페이지 행만 원천별 id 로 읽어 기존 projector 로 그린다
+ * (원천별 고정 상한·audit 800·노출 5000 상한 없음). 상태 필터 규칙 원천 = `filterAdsHistoryRows`.
+ * 레거시 팝업 오너 신청(`platform_popup_owner_requests`)도 포함 — 운영 실제 열만 읽고 제목 = 신청 매장 이름.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { listFeedAdCampaignsForAdmin } from "@/lib/ads/feed-ad-campaigns-db";
-import { listPlatformPopupAdminCampaigns } from "@/lib/platform-popup/admin-campaign-loader";
 import { DELIVERY_AD_AUDIT_LOG_TABLE } from "@/lib/stores/advertising/delivery-ad-audit";
 import { DELIVERY_AD_CAMPAIGN_COMMERCIAL_SNAPSHOT_TABLE } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
-import { loadAdminDeliveryAdCampaignList } from "@/lib/stores/advertising/admin-delivery-ad-loader";
+import { loadAdminDeliveryAdCampaignsByIds } from "@/lib/stores/advertising/admin-delivery-ad-loader";
+import { ADS_CANONICAL_PRODUCTS } from "@/lib/ads/ads-canonical-product-ssot";
 import {
   projectBoostHistoryRow,
   projectDeliveryHistoryRow,
@@ -24,7 +28,7 @@ import type {
 } from "@/lib/admin/ads-history/types";
 import { ADS_HISTORY_EXPORT_AVAILABLE } from "@/lib/admin/ads-history/event-authority-matrix";
 
-const FAMILY_LIMIT = 120;
+export const ADS_HISTORY_PAGE_RPC = "admin_ads_history_page";
 
 function isMissing(err: { message?: string } | null | undefined, re: RegExp): boolean {
   return !!err && re.test(String(err.message ?? ""));
@@ -71,250 +75,275 @@ export function filterAdsHistoryRows(
   });
 }
 
-export async function loadAdsHistoryLedger(sb: SupabaseClient): Promise<AdsHistoryLedgerModel> {
-  const sectionErrors: string[] = [];
-  const rows: AdsHistoryLedgerRow[] = [];
+/** RPC 에 넘기는 상품 표시 이름 (검색 대상) — `ADS_CANONICAL_PRODUCTS` 그대로. */
+export function adsHistoryProductLabelsForRpc(): Record<string, { ko: string; en: string }> {
+  const out: Record<string, { ko: string; en: string }> = {};
+  for (const [key, row] of Object.entries(ADS_CANONICAL_PRODUCTS)) {
+    out[key] = { ko: row.publicNameKo, en: row.publicNameEn };
+  }
+  return out;
+}
 
-  const [
-    boostRes,
-    feedReqRes,
-    feedCampaignsSettled,
-    deliveryList,
-    popupCampaignsRes,
-    popupOwnerRes,
-  ] = await Promise.all([
-    sb
-      .from("point_promotion_orders")
-      .select(
-        "id, user_id, domain, order_status, created_at, target_id, target_title, product_id, point_cost, start_at, end_at"
-      )
-      .in("domain", ["trade", "community"])
-      .order("created_at", { ascending: false })
-      .limit(FAMILY_LIMIT),
-    sb
-      .from("feed_ad_requests")
-      .select(
-        "id, user_id, status, start_at, end_at, created_at, placement, domain, product_id, point_cost, reviewed_by, reviewed_at, review_reason, destination_id"
-      )
-      .order("created_at", { ascending: false })
-      .limit(FAMILY_LIMIT),
-    listFeedAdCampaignsForAdmin(sb)
-      .then((items) => ({ ok: true as const, items }))
-      .catch((e: unknown) => ({
-        ok: false as const,
-        error: e instanceof Error ? e.message : String(e),
-      })),
-    loadAdminDeliveryAdCampaignList(sb, { product: "all", limit: FAMILY_LIMIT }),
-    listPlatformPopupAdminCampaigns(sb, { limit: FAMILY_LIMIT }),
-    sb
-      .from("platform_popup_owner_requests")
-      .select(
-        "id, store_id, owner_user_id, request_status, created_at, title, price_minor, currency, payment_status"
-      )
-      .order("created_at", { ascending: false })
-      .limit(FAMILY_LIMIT),
+type HistoryRef = { family: string; sourceId: string; impressionCount: number | null };
+
+export type AdsHistoryLedgerPage = AdsHistoryLedgerModel & {
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+/**
+ * 광고 이력 한 페이지 — `admin_ads_history_page` RPC(필터·정렬·페이지·total) → 페이지 행만 원천별로 읽어 projector.
+ * 레거시 팝업 오너 신청 포함 (제목 열이 없어 신청 매장 이름 = RPC 와 같은 원천).
+ */
+export async function loadAdsHistoryLedgerPage(
+  sb: SupabaseClient,
+  input: {
+    domain?: AdsHistoryDomainFilter;
+    status?: AdsHistoryStatusFilter;
+    q?: string;
+    limit: number;
+    offset: number;
+  }
+): Promise<AdsHistoryLedgerPage> {
+  const sectionErrors: string[] = [];
+  const base = {
+    exportAvailable: ADS_HISTORY_EXPORT_AVAILABLE,
+    exportGapKo: "내보내기 API 없음 — R7에서 export 백엔드 신설 금지",
+    exportGapEn: "No export API — R7 must not invent export backend",
+    loadedAt: new Date().toISOString(),
+    limit: input.limit,
+    offset: input.offset,
+  } as const;
+
+  const { data, error } = await sb.rpc(ADS_HISTORY_PAGE_RPC, {
+    p_domain: input.domain && input.domain !== "all" ? input.domain : null,
+    p_status: input.status && input.status !== "all" ? input.status : null,
+    p_q: (input.q ?? "").trim() || null,
+    p_product_labels: adsHistoryProductLabelsForRpc(),
+    p_limit: input.limit,
+    p_offset: input.offset,
+  });
+  if (error) throw new Error(error.message);
+  const payload = (data ?? {}) as { total?: unknown; rows?: unknown };
+  const refs: HistoryRef[] = (Array.isArray(payload.rows) ? (payload.rows as Record<string, unknown>[]) : []).map(
+    (r) => ({
+      family: String(r.family ?? ""),
+      sourceId: String(r.source_id ?? ""),
+      impressionCount: r.impression_count == null ? null : Number(r.impression_count),
+    })
+  );
+  const idsOf = (family: string) => refs.filter((r) => r.family === family).map((r) => r.sourceId);
+  const totalRaw = Number(payload.total);
+  const total = Number.isFinite(totalRaw) && totalRaw >= 0 ? totalRaw : refs.length;
+
+  const byKey = new Map<string, AdsHistoryLedgerRow>();
+  const key = (family: string, id: string) => `${family}:${id}`;
+
+  const boostIds = idsOf("boost");
+  const feedReqIds = idsOf("feed_request");
+  const feedCampIds = idsOf("feed_campaign");
+  const deliveryIds = idsOf("delivery");
+  const popupIds = idsOf("popup_campaign");
+  const popupRequestIds = idsOf("popup_request");
+
+  const [boostRes, feedReqRes, feedCampRes, popupRes, popupReqRes] = await Promise.all([
+    boostIds.length
+      ? sb
+          .from("point_promotion_orders")
+          .select("id, user_id, domain, order_status, created_at, target_id, target_title, product_id, point_cost, start_at, end_at")
+          .in("id", boostIds)
+      : Promise.resolve({ data: [], error: null }),
+    feedReqIds.length
+      ? sb
+          .from("feed_ad_requests")
+          .select(
+            "id, user_id, status, start_at, end_at, created_at, placement, domain, product_id, point_cost, reviewed_by, reviewed_at, review_reason, destination_id"
+          )
+          .in("id", feedReqIds)
+      : Promise.resolve({ data: [], error: null }),
+    feedCampIds.length
+      ? sb
+          .from("feed_ad_campaigns")
+          .select("id, name, domain, placement, status, start_at, end_at, source")
+          .in("id", feedCampIds)
+      : Promise.resolve({ data: [], error: null }),
+    popupIds.length
+      ? sb
+          .from("platform_popup_campaigns")
+          .select("id, name, status, approval_status, start_at, end_at, owner_request_id, created_at, created_by, approved_by, approved_at, updated_at")
+          .in("id", popupIds)
+      : Promise.resolve({ data: [], error: null }),
+    popupRequestIds.length
+      ? sb
+          .from("platform_popup_owner_requests")
+          .select("id, store_id, owner_user_id, request_status, payment_status, price_minor, currency, created_at")
+          .in("id", popupRequestIds)
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
-  if (boostRes.error && !isMissing(boostRes.error, /point_promotion_orders|schema cache|does not exist/i)) {
-    sectionErrors.push(`boost:${boostRes.error.message}`);
-  } else {
-    for (const raw of boostRes.data ?? []) {
-      const r = raw as Record<string, unknown>;
-      const domainRaw = String(r.domain ?? "").toLowerCase();
-      if (domainRaw !== "community" && domainRaw !== "trade") continue;
-      rows.push(
-        projectBoostHistoryRow({
-          id: String(r.id ?? ""),
-          domain: domainRaw,
-          orderStatus: String(r.order_status ?? ""),
-          createdAt: r.created_at == null ? null : String(r.created_at),
-          endAt: r.end_at == null ? null : String(r.end_at),
-          startAt: r.start_at == null ? null : String(r.start_at),
-          targetTitle: r.target_title == null ? null : String(r.target_title),
-          userId: r.user_id == null ? null : String(r.user_id),
-          pointCost: r.point_cost,
-        })
-      );
-    }
+  if (boostRes.error) sectionErrors.push(`boost:${boostRes.error.message}`);
+  for (const raw of (boostRes.data ?? []) as Record<string, unknown>[]) {
+    const domainRaw = String(raw.domain ?? "").toLowerCase();
+    if (domainRaw !== "community" && domainRaw !== "trade") continue;
+    const id = String(raw.id ?? "");
+    byKey.set(
+      key("boost", id),
+      projectBoostHistoryRow({
+        id,
+        domain: domainRaw,
+        orderStatus: String(raw.order_status ?? ""),
+        createdAt: raw.created_at == null ? null : String(raw.created_at),
+        endAt: raw.end_at == null ? null : String(raw.end_at),
+        startAt: raw.start_at == null ? null : String(raw.start_at),
+        targetTitle: raw.target_title == null ? null : String(raw.target_title),
+        userId: raw.user_id == null ? null : String(raw.user_id),
+        pointCost: raw.point_cost,
+      })
+    );
   }
 
-  if (feedReqRes.error && !isMissing(feedReqRes.error, /feed_ad_requests|schema cache|does not exist/i)) {
-    sectionErrors.push(`feed_requests:${feedReqRes.error.message}`);
-  } else {
-    for (const raw of feedReqRes.data ?? []) {
-      const r = raw as Record<string, unknown>;
-      const domainRaw = String(r.domain ?? "trade").toLowerCase();
-      const domain = domainRaw === "community" ? "community" : "trade";
-      rows.push(
-        projectFeedBannerHistoryRow({
-          id: String(r.id ?? ""),
-          domain,
-          kind: "request",
-          status: String(r.status ?? ""),
-          createdAt: r.created_at == null ? null : String(r.created_at),
-          startAt: r.start_at == null ? null : String(r.start_at),
-          endAt: r.end_at == null ? null : String(r.end_at),
-          title: r.destination_id == null ? null : String(r.destination_id),
-          placement: r.placement == null ? null : String(r.placement),
-          source: "request",
-          userId: r.user_id == null ? null : String(r.user_id),
-          createdBy: null,
-          pointCost: r.point_cost,
-          reviewedBy: r.reviewed_by == null ? null : String(r.reviewed_by),
-          reviewedAt: r.reviewed_at == null ? null : String(r.reviewed_at),
-          reviewReason: r.review_reason == null ? null : String(r.review_reason),
-        })
-      );
-    }
+  if (feedReqRes.error) sectionErrors.push(`feed_requests:${feedReqRes.error.message}`);
+  for (const raw of (feedReqRes.data ?? []) as Record<string, unknown>[]) {
+    const id = String(raw.id ?? "");
+    const domain = String(raw.domain ?? "trade").toLowerCase() === "community" ? "community" : "trade";
+    byKey.set(
+      key("feed_request", id),
+      projectFeedBannerHistoryRow({
+        id,
+        domain,
+        kind: "request",
+        status: String(raw.status ?? ""),
+        createdAt: raw.created_at == null ? null : String(raw.created_at),
+        startAt: raw.start_at == null ? null : String(raw.start_at),
+        endAt: raw.end_at == null ? null : String(raw.end_at),
+        title: raw.destination_id == null ? null : String(raw.destination_id),
+        placement: raw.placement == null ? null : String(raw.placement),
+        source: "request",
+        userId: raw.user_id == null ? null : String(raw.user_id),
+        createdBy: null,
+        pointCost: raw.point_cost,
+        reviewedBy: raw.reviewed_by == null ? null : String(raw.reviewed_by),
+        reviewedAt: raw.reviewed_at == null ? null : String(raw.reviewed_at),
+        reviewReason: raw.review_reason == null ? null : String(raw.review_reason),
+      })
+    );
   }
 
-  if (!feedCampaignsSettled.ok) {
-    if (!/feed_ad_campaigns|schema cache|does not exist/i.test(feedCampaignsSettled.error)) {
-      sectionErrors.push(`feed_campaigns:${feedCampaignsSettled.error}`);
-    }
-  } else {
-    for (const c of feedCampaignsSettled.items) {
-      if (c.source !== "ADMIN_DIRECT") continue;
-      const domain = c.domain === "community" ? "community" : "trade";
-      rows.push(
-        projectFeedBannerHistoryRow({
-          id: c.id,
-          domain,
-          kind: "campaign",
-          status: c.status,
-          createdAt: c.startAt,
-          startAt: c.startAt,
-          endAt: c.endAt,
-          title: c.name,
-          placement: c.placement,
-          source: "ADMIN_DIRECT",
-          userId: null,
-          createdBy: null,
-          pointCost: null,
-          reviewedBy: null,
-          reviewedAt: null,
-          reviewReason: null,
-        })
-      );
-    }
+  if (feedCampRes.error) sectionErrors.push(`feed_campaigns:${feedCampRes.error.message}`);
+  for (const raw of (feedCampRes.data ?? []) as Record<string, unknown>[]) {
+    const id = String(raw.id ?? "");
+    const startAt = raw.start_at != null ? String(raw.start_at) : null;
+    byKey.set(
+      key("feed_campaign", id),
+      projectFeedBannerHistoryRow({
+        id,
+        domain: String(raw.domain ?? "trade") === "community" ? "community" : "trade",
+        kind: "campaign",
+        status: String(raw.status ?? "draft"),
+        createdAt: startAt,
+        startAt,
+        endAt: raw.end_at != null ? String(raw.end_at) : null,
+        title: String(raw.name ?? ""),
+        placement: String(raw.placement ?? "TRADE_HOME"),
+        source: "ADMIN_DIRECT",
+        userId: null,
+        createdBy: null,
+        pointCost: null,
+        reviewedBy: null,
+        reviewedAt: null,
+        reviewReason: null,
+      })
+    );
   }
 
-  if (deliveryList.error) {
-    sectionErrors.push(`delivery:${deliveryList.error}`);
-  } else {
-    const deliveryIds = deliveryList.items.map((i) => i.id);
-    const snapshotByCampaign = new Map<
-      string,
-      { finalPayableMinor: number | null; currency: string | null }
-    >();
+  if (deliveryIds.length > 0) {
+    const kindById = new Map<string, "store_sponsored" | "banner">();
+    // 배달 행은 매장 홍보·배너 두 표에서 id 로 찾는다 (RPC 가 상품을 정했다 — 두 표를 같은 id 목록으로 조회).
+    const deliveryRefs = deliveryIds.flatMap((id) => [
+      { productKind: "store_sponsored" as const, id },
+      { productKind: "banner" as const, id },
+    ]);
+    const [list, snapRes, auditRes, fundingRes] = await Promise.all([
+      loadAdminDeliveryAdCampaignsByIds(sb, deliveryRefs),
+      sb
+        .from(DELIVERY_AD_CAMPAIGN_COMMERCIAL_SNAPSHOT_TABLE)
+        .select("campaign_id, final_payable_minor, currency, created_at")
+        .in("campaign_id", deliveryIds)
+        .order("created_at", { ascending: true }),
+      sb
+        .from(DELIVERY_AD_AUDIT_LOG_TABLE)
+        .select("campaign_id, action, actor_type, actor_user_id, reason, created_at")
+        .in("campaign_id", deliveryIds)
+        .order("created_at", { ascending: true }),
+      sb
+        .from("delivery_ad_canonical_bc_fundings")
+        .select("application_id, refund_ledger_id, amount_minor")
+        .in("application_id", deliveryIds),
+    ]);
+    if (list.error) sectionErrors.push(`delivery:${list.error}`);
+    const snapshotByCampaign = new Map<string, { finalPayableMinor: number | null; currency: string | null }>();
+    if (snapRes.error && !isMissing(snapRes.error, /commercial_snapshots|schema cache|does not exist/i)) {
+      sectionErrors.push(`delivery_snapshot:${snapRes.error.message}`);
+    } else {
+      // created_at 오름차순 — 마지막(최신) 스냅샷이 남는다 (RPC 결제 상태와 같은 기준).
+      for (const r of (snapRes.data ?? []) as Record<string, unknown>[]) {
+        const cid = String(r.campaign_id ?? "");
+        if (!cid) continue;
+        snapshotByCampaign.set(cid, {
+          finalPayableMinor: r.final_payable_minor == null ? null : Number(r.final_payable_minor),
+          currency: r.currency == null ? null : String(r.currency),
+        });
+      }
+    }
     const auditsByCampaign = new Map<
       string,
-      Array<{
-        action: string;
-        actorType: string;
-        actorUserId: string | null;
-        reason: string | null;
-        createdAt: string;
-      }>
+      Array<{ action: string; actorType: string; actorUserId: string | null; reason: string | null; createdAt: string }>
     >();
-    const impressionCountByCampaign = new Map<string, number>();
-    const refundByCampaign = new Map<string, { proven: boolean; label: string | null }>();
-
-    if (deliveryIds.length > 0) {
-      const [snapRes, auditRes, impressionRes, fundingRes] = await Promise.all([
-        sb
-          .from(DELIVERY_AD_CAMPAIGN_COMMERCIAL_SNAPSHOT_TABLE)
-          .select("campaign_id, final_payable_minor, currency")
-          .in("campaign_id", deliveryIds),
-        sb
-          .from(DELIVERY_AD_AUDIT_LOG_TABLE)
-          .select("campaign_id, action, actor_type, actor_user_id, reason, created_at")
-          .in("campaign_id", deliveryIds)
-          .order("created_at", { ascending: true })
-          .limit(800),
-        sb
-          .from("delivery_ad_impression_events")
-          .select("campaign_id")
-          .in("campaign_id", deliveryIds)
-          .limit(5000),
-        sb
-          .from("delivery_ad_canonical_bc_fundings")
-          .select("application_id, refund_ledger_id, amount_minor")
-          .in("application_id", deliveryIds),
-      ]);
-
-      if (snapRes.error && !isMissing(snapRes.error, /commercial_snapshots|schema cache|does not exist/i)) {
-        sectionErrors.push(`delivery_snapshot:${snapRes.error.message}`);
-      } else {
-        for (const raw of snapRes.data ?? []) {
-          const r = raw as Record<string, unknown>;
-          const cid = String(r.campaign_id ?? "");
-          if (!cid) continue;
-          snapshotByCampaign.set(cid, {
-            finalPayableMinor:
-              r.final_payable_minor == null ? null : Number(r.final_payable_minor),
-            currency: r.currency == null ? null : String(r.currency),
-          });
-        }
-      }
-
-      if (auditRes.error && !isMissing(auditRes.error, /delivery_ad_audit_logs|schema cache|does not exist/i)) {
-        sectionErrors.push(`delivery_audit:${auditRes.error.message}`);
-      } else {
-        for (const raw of auditRes.data ?? []) {
-          const r = raw as Record<string, unknown>;
-          const cid = String(r.campaign_id ?? "");
-          if (!cid) continue;
-          const list = auditsByCampaign.get(cid) ?? [];
-          list.push({
-            action: String(r.action ?? ""),
-            actorType: String(r.actor_type ?? ""),
-            actorUserId: r.actor_user_id == null ? null : String(r.actor_user_id),
-            reason: r.reason == null ? null : String(r.reason),
-            createdAt: String(r.created_at ?? ""),
-          });
-          auditsByCampaign.set(cid, list);
-        }
-      }
-
-      if (
-        impressionRes.error &&
-        !isMissing(impressionRes.error, /delivery_ad_impression_events|schema cache|does not exist/i)
-      ) {
-        sectionErrors.push(`delivery_impressions:${impressionRes.error.message}`);
-      } else {
-        for (const raw of impressionRes.data ?? []) {
-          const cid = String((raw as { campaign_id?: unknown }).campaign_id ?? "");
-          if (!cid) continue;
-          impressionCountByCampaign.set(cid, (impressionCountByCampaign.get(cid) ?? 0) + 1);
-        }
-      }
-
-      if (
-        fundingRes.error &&
-        !isMissing(fundingRes.error, /delivery_ad_canonical_bc_fundings|schema cache|does not exist/i)
-      ) {
-        sectionErrors.push(`delivery_funding:${fundingRes.error.message}`);
-      } else {
-        for (const raw of fundingRes.data ?? []) {
-          const r = raw as Record<string, unknown>;
-          const cid = String(r.application_id ?? "");
-          if (!cid) continue;
-          const refundId = r.refund_ledger_id == null ? null : String(r.refund_ledger_id);
-          if (refundId) {
-            refundByCampaign.set(cid, {
-              proven: true,
-              label: r.amount_minor != null ? `refund ledger ${refundId.slice(0, 8)}` : null,
-            });
-          }
-        }
+    if (auditRes.error && !isMissing(auditRes.error, /delivery_ad_audit_logs|schema cache|does not exist/i)) {
+      sectionErrors.push(`delivery_audit:${auditRes.error.message}`);
+    } else {
+      for (const r of (auditRes.data ?? []) as Record<string, unknown>[]) {
+        const cid = String(r.campaign_id ?? "");
+        if (!cid) continue;
+        const listFor = auditsByCampaign.get(cid) ?? [];
+        listFor.push({
+          action: String(r.action ?? ""),
+          actorType: String(r.actor_type ?? ""),
+          actorUserId: r.actor_user_id == null ? null : String(r.actor_user_id),
+          reason: r.reason == null ? null : String(r.reason),
+          createdAt: String(r.created_at ?? ""),
+        });
+        auditsByCampaign.set(cid, listFor);
       }
     }
-
-    for (const item of deliveryList.items) {
+    const refundByCampaign = new Map<string, { proven: boolean; label: string | null }>();
+    if (
+      fundingRes.error &&
+      !isMissing(fundingRes.error, /delivery_ad_canonical_bc_fundings|schema cache|does not exist/i)
+    ) {
+      sectionErrors.push(`delivery_funding:${fundingRes.error.message}`);
+    } else {
+      for (const r of (fundingRes.data ?? []) as Record<string, unknown>[]) {
+        const cid = String(r.application_id ?? "");
+        const refundId = r.refund_ledger_id == null ? null : String(r.refund_ledger_id);
+        if (!cid || !refundId) continue;
+        refundByCampaign.set(cid, {
+          proven: true,
+          label: r.amount_minor != null ? `refund ledger ${refundId.slice(0, 8)}` : null,
+        });
+      }
+    }
+    const impressionsById = new Map(
+      refs.filter((r) => r.family === "delivery").map((r) => [r.sourceId, r.impressionCount] as const)
+    );
+    for (const item of list.items) {
+      if (kindById.has(item.id)) continue;
+      kindById.set(item.id, item.productKind);
       const snap = snapshotByCampaign.get(item.id);
       const refund = refundByCampaign.get(item.id);
-      rows.push(
+      byKey.set(
+        key("delivery", item.id),
         projectDeliveryHistoryRow({
           id: item.id,
           product: item.productKind === "banner" ? "banner" : "store_sponsored",
@@ -334,99 +363,71 @@ export async function loadAdsHistoryLedger(sb: SupabaseClient): Promise<AdsHisto
           audits: auditsByCampaign.get(item.id) ?? [],
           refundProven: Boolean(refund?.proven),
           refundAmountLabel: refund?.label ?? null,
-          impressionCount: impressionCountByCampaign.get(item.id) ?? null,
+          impressionCount: impressionsById.get(item.id) ?? null,
         })
       );
     }
   }
 
-  if (!popupCampaignsRes.ok) {
-    if (!/platform_popup_campaigns|schema cache|does not exist/i.test(popupCampaignsRes.error)) {
-      sectionErrors.push(`popup_campaigns:${popupCampaignsRes.error}`);
-    }
-  } else {
-    const popupIds = popupCampaignsRes.items.map((c) => c.id);
-    const popupActors = new Map<
-      string,
-      { createdAt: string | null; createdBy: string | null; approvedBy: string | null; approvedAt: string | null }
-    >();
-    if (popupIds.length > 0) {
-      const actorRes = await sb
-        .from("platform_popup_campaigns")
-        .select("id, created_at, created_by, approved_by, approved_at")
-        .in("id", popupIds);
-      if (actorRes.error && !isMissing(actorRes.error, /platform_popup_campaigns|schema cache|does not exist/i)) {
-        sectionErrors.push(`popup_actors:${actorRes.error.message}`);
-      } else {
-        for (const raw of actorRes.data ?? []) {
-          const r = raw as Record<string, unknown>;
-          const id = String(r.id ?? "");
-          if (!id) continue;
-          popupActors.set(id, {
-            createdAt: r.created_at == null ? null : String(r.created_at),
-            createdBy: r.created_by == null ? null : String(r.created_by),
-            approvedBy: r.approved_by == null ? null : String(r.approved_by),
-            approvedAt: r.approved_at == null ? null : String(r.approved_at),
-          });
-        }
-      }
-    }
-    for (const c of popupCampaignsRes.items) {
-      const actors = popupActors.get(c.id);
-      rows.push(
-        projectPopupAdminHistoryRow({
-          id: c.id,
-          name: c.name,
-          status: c.status,
-          approvalStatus: c.approvalStatus,
-          createdAt: actors?.createdAt ?? c.updatedAt ?? null,
-          createdBy: actors?.createdBy ?? null,
-          approvedBy: actors?.approvedBy ?? null,
-          approvedAt: actors?.approvedAt ?? null,
-          startAt: c.startAt,
-          endAt: c.endAt,
-          ownerRequestId: c.ownerRequestId,
-        })
-      );
-    }
+  if (popupRes.error) sectionErrors.push(`popup_campaigns:${popupRes.error.message}`);
+  for (const raw of (popupRes.data ?? []) as Record<string, unknown>[]) {
+    const id = String(raw.id ?? "");
+    const str = (v: unknown) => (v == null ? null : String(v));
+    byKey.set(
+      key("popup_campaign", id),
+      projectPopupAdminHistoryRow({
+        id,
+        name: str(raw.name),
+        status: String(raw.status ?? ""),
+        approvalStatus: str(raw.approval_status),
+        createdAt: str(raw.created_at) ?? str(raw.updated_at),
+        createdBy: str(raw.created_by),
+        approvedBy: str(raw.approved_by),
+        approvedAt: str(raw.approved_at),
+        startAt: str(raw.start_at),
+        endAt: str(raw.end_at),
+        ownerRequestId: str(raw.owner_request_id),
+      })
+    );
   }
 
-  if (
-    popupOwnerRes.error &&
-    !isMissing(popupOwnerRes.error, /platform_popup_owner_requests|schema cache|does not exist/i)
-  ) {
-    sectionErrors.push(`popup_owner:${popupOwnerRes.error.message}`);
-  } else {
-    for (const raw of popupOwnerRes.data ?? []) {
-      const r = raw as Record<string, unknown>;
-      rows.push(
+  if (popupReqRes.error) sectionErrors.push(`popup_owner:${popupReqRes.error.message}`);
+  const popupReqRows = (popupReqRes.error ? [] : (popupReqRes.data ?? [])) as Record<string, unknown>[];
+  if (popupReqRows.length > 0) {
+    const storeIds = [...new Set(popupReqRows.map((r) => String(r.store_id ?? "").trim()).filter(Boolean))];
+    const storeRes = storeIds.length
+      ? await sb.from("stores").select("id, store_name").in("id", storeIds)
+      : { data: [], error: null };
+    if (storeRes.error) sectionErrors.push(`popup_owner_stores:${storeRes.error.message}`);
+    const storeNameById = new Map<string, string>();
+    for (const r of (storeRes.error ? [] : (storeRes.data ?? [])) as Record<string, unknown>[]) {
+      storeNameById.set(String(r.id ?? ""), String(r.store_name ?? ""));
+    }
+    const str = (v: unknown) => (v == null ? null : String(v));
+    for (const raw of popupReqRows) {
+      const id = String(raw.id ?? "");
+      const storeId = str(raw.store_id);
+      byKey.set(
+        key("popup_request", id),
         projectPopupOwnerLegacyHistoryRow({
-          id: String(r.id ?? ""),
-          title: r.title == null ? null : String(r.title),
-          requestStatus: String(r.request_status ?? ""),
-          createdAt: r.created_at == null ? null : String(r.created_at),
-          ownerUserId: r.owner_user_id == null ? null : String(r.owner_user_id),
-          storeId: r.store_id == null ? null : String(r.store_id),
-          priceMinor: r.price_minor,
-          currency: r.currency == null ? null : String(r.currency),
-          paymentStatus: r.payment_status == null ? null : String(r.payment_status),
+          id,
+          title: storeId ? (storeNameById.get(storeId) ?? null) : null,
+          requestStatus: String(raw.request_status ?? ""),
+          createdAt: str(raw.created_at),
+          ownerUserId: str(raw.owner_user_id),
+          storeId,
+          priceMinor: raw.price_minor,
+          currency: str(raw.currency),
+          paymentStatus: str(raw.payment_status),
         })
       );
     }
   }
 
-  rows.sort((a, b) => {
-    const at = a.lastEventAt ?? "";
-    const bt = b.lastEventAt ?? "";
-    return bt.localeCompare(at);
-  });
+  // RPC 순서 유지 (정렬 = DB). 읽는 사이 지워진 행은 건너뛴다.
+  const rows = refs
+    .map((r) => byKey.get(key(r.family, r.sourceId)))
+    .filter((r): r is AdsHistoryLedgerRow => r != null);
 
-  return {
-    rows,
-    exportAvailable: ADS_HISTORY_EXPORT_AVAILABLE,
-    exportGapKo: "내보내기 API 없음 — R7에서 export 백엔드 신설 금지",
-    exportGapEn: "No export API — R7 must not invent export backend",
-    loadedAt: new Date().toISOString(),
-    sectionErrors,
-  };
+  return { ...base, rows, total, sectionErrors };
 }

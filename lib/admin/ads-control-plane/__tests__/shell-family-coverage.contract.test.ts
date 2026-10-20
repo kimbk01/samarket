@@ -58,17 +58,24 @@ describe("shell-family-coverage.contract", () => {
       /\.eq\(\s*["']order_status["']\s*,\s*["']pending_review["']\s*\)/
     );
     expect(src).toContain('from("feed_ad_requests")');
-    expect(src).toContain("listFeedAdCampaignsForAdmin");
+    // R7 — 페이지 행만 원천별 id 로 읽는다 (원천별 고정 상한 목록 대신)
+    expect(src).toContain("listFeedAdCampaignsByIdsForAdmin");
     expect(src).toContain("feed_ad_campaigns");
     expect(src).toContain('from("platform_popup_owner_requests")');
     expect(src).toContain("listPlatformPopupAdminCampaigns");
     expect(src).toContain("platform_popup_campaigns");
-    expect(src).toContain("loadAdminDeliveryAdCampaignList");
+    expect(src).toContain("loadAdminDeliveryAdCampaignsByIds");
+    expect(src).toContain("admin_ads_workspace_page");
     expect(src).toContain("projectDeliveryCampaignToActionItem");
     expect(src).toContain("projectPromoteOrderToActionItem");
     expect(src).toContain("projectFeedRequestToActionItem");
     expect(src).toContain("projectFeedCampaignToActionItem");
+    // 팝업 오너 신청 행: 운영 실제 열로 읽어 목록 원천에 포함 (R7 후속 — workspace RPC popup_request 원천)
     expect(src).toContain("projectPopupRequestToActionItem");
+    expect(src).toContain("POPUP_REQUEST_SELECT");
+    expect(
+      read("supabase/migrations/20270601180000_r7_ads_popup_owner_requests_scheduled_tab.sql")
+    ).toContain("FROM public.platform_popup_owner_requests r, now_ n");
     expect(src).toContain("projectPopupCampaignToActionItem");
   });
 

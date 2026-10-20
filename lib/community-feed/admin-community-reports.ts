@@ -363,6 +363,16 @@ async function enrichCommunityReportRows(
   });
 }
 
+/**
+ * 이미 읽은 원본 행(community_reports 열 이름) → 관리자 행 — 통합 신고 서버 페이지(`admin_reports_unified_page`)가
+ * DB 에서 정렬·페이지를 끝낸 행을 같은 규칙(mapBaseRow + 대상·신고자 정보)으로 변환한다. 순서 유지.
+ */
+export async function enrichCommunityReportRowsForAdmin(
+  raw: Record<string, unknown>[]
+): Promise<CommunityReportAdminRow[]> {
+  return enrichCommunityReportRows(raw.map(mapBaseRow));
+}
+
 export async function listCommunityReportsForAdmin(
   limitOrOpts: number | ListCommunityReportsForAdminOpts = 200
 ): Promise<CommunityReportAdminRow[]> {
@@ -490,7 +500,7 @@ export type CommunityReportGroupList = {
   counts: Record<CommunityReportInboxTab, number>;
   limit: number;
   offset: number;
-  /** 조회 상한(5,000건)에 걸려 일부만 묶었는지 */
+  /** 예전 조회 상한(5,000건) 표시 — DB 묶음 페이지(R7) 이후 항상 false. 응답 모양 호환용. */
   truncated: boolean;
 };
 
@@ -509,8 +519,10 @@ export type ListCommunityReportGroupsOpts = {
   offset?: number;
 };
 
-const GROUP_SCAN_CAP = 5000;
 const LEGACY_REPORT_SELECT = "id, target_type, target_id, user_id, reason, status, admin_memo, processed_at, created_at";
+
+/** 신고 대상 묶음 DB 페이지 (마이그레이션 20270601160000) — 묶음·탭 건수·정렬·페이지를 DB 가 한 번에 */
+export const COMMUNITY_REPORT_GROUPS_RPC = "admin_community_report_groups_page";
 
 function emptyCounts(): Record<CommunityReportInboxTab, number> {
   return { pending: 0, reviewing: 0, resolved: 0, dismissed: 0, all: 0 };
@@ -520,42 +532,35 @@ function ilikeSafe(q: string): string {
   return q.replace(/[%_,()\\]/g, " ").trim().slice(0, 60);
 }
 
-type KeyRow = { id: string; target_type: string; target_id: string; user_id: string; reason: string | null; status: string; created_at: string };
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** 검색어(대상 제목·내용·닉네임) → 일치하는 대상 id · 회원 id */
-async function resolveReportSearch(
-  sb: ReturnType<typeof getSupabaseServer>,
-  q: string
-): Promise<{ targetIds: Set<string>; userIds: Set<string> }> {
-  const safe = ilikeSafe(q);
-  const targetIds = new Set<string>();
-  const userIds = new Set<string>();
-  if (!safe) return { targetIds, userIds };
-  const like = `%${safe}%`;
-  const [{ data: profs }, { data: posts }, { data: comments }] = await Promise.all([
-    sb.from("profiles").select("id").ilike("nickname", like).limit(200),
-    sb.from("community_posts").select("id").ilike("title", like).limit(500),
-    sb.from("community_comments").select("id").ilike("content", like).limit(500),
-  ]);
-  for (const p of (profs ?? []) as Array<{ id?: string }>) if (p.id) userIds.add(String(p.id));
-  for (const p of (posts ?? []) as Array<{ id?: string }>) if (p.id) targetIds.add(String(p.id));
-  for (const c of (comments ?? []) as Array<{ id?: string }>) if (c.id) targetIds.add(String(c.id));
-  if (userIds.size) {
-    const ids = [...userIds];
-    const [{ data: up }, { data: uc }] = await Promise.all([
-      sb.from("community_posts").select("id").in("user_id", ids).limit(2000),
-      sb.from("community_comments").select("id").in("user_id", ids).limit(2000),
-    ]);
-    for (const p of (up ?? []) as Array<{ id?: string }>) if (p.id) targetIds.add(String(p.id));
-    for (const c of (uc ?? []) as Array<{ id?: string }>) if (c.id) targetIds.add(String(c.id));
-    for (const id of ids) targetIds.add(id); // 회원 신고 대상
+/** 탭 → 상태 묶음 (all = 상태 조건 없음 → RPC 에 넘기지 않는다) */
+function reportTabGroups(): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const tab of COMMUNITY_REPORT_INBOX_TABS) {
+    const statuses = TAB_STATUSES[tab];
+    if (statuses) out[tab] = [...statuses];
   }
-  return { targetIds, userIds };
+  return out;
 }
+
+type GroupRpcRow = {
+  target_type?: string;
+  target_id?: string;
+  primary_report_id?: string;
+  group_status?: string;
+  report_count?: number;
+  reporter_count?: number;
+  open_count?: number;
+  latest_reason?: string | null;
+  latest_at?: string | null;
+  first_at?: string | null;
+};
 
 /**
  * 신고 처리함 목록 — 같은 대상(target_type+target_id)의 신고를 1행으로 묶는다.
- * 키 컬럼만 한 번 조회(상한 5,000) → 탭별 묶음 수 · 현재 탭 묶음 정렬(최근 신고순) · 페이지 자르기 →
+ * DB RPC `admin_community_report_groups_page` 가 필터(탭·대상 종류·대상·카테고리·신고자·대상 작성자·검색·기간) →
+ * 묶음 → 정렬(최근 신고순, 동률 대상 키) → 페이지 · 묶음 수 total · 탭별 묶음 수를 한 번에 돌려준다(조회 상한 없음).
  * 현재 페이지 대표 신고만 대상·작성자 정보를 붙인다.
  */
 export async function listCommunityReportGroupsForAdmin(
@@ -574,92 +579,36 @@ export async function listCommunityReportGroupsForAdmin(
   };
   try {
     const sb = getSupabaseServer();
+    const reporterId = opts.reporterId?.trim() || "";
+    const authorId = opts.authorId?.trim() || "";
+    // 회원 id 가 UUID 가 아니면 일치하는 신고가 없다
+    if ((reporterId && !UUID_RE.test(reporterId)) || (authorId && !UUID_RE.test(authorId))) return empty;
+    const qSafe = opts.q?.trim() ? ilikeSafe(opts.q.trim()) : "";
+    if (opts.q?.trim() && !qSafe) return empty;
 
-    let targetIdsFilter: Set<string> | null = null;
-    const narrow = (ids: Iterable<string>) => {
-      const next = new Set(ids);
-      targetIdsFilter = targetIdsFilter ? new Set([...targetIdsFilter].filter((x) => next.has(x))) : next;
-    };
-    if (opts.topicSlug?.trim()) {
-      const { ids } = await collectCommunityPostIdsForTopicSlug(sb, opts.topicSlug.trim());
-      narrow(ids);
-    }
-    if (opts.authorId?.trim()) {
-      // 대상 작성자 기준: 게시글 작성자 OR 댓글 작성자 OR 회원 신고 대상 본인
-      const author = opts.authorId.trim();
-      const [{ data: authoredPosts }, { data: authoredComments }] = await Promise.all([
-        sb.from("community_posts").select("id").eq("user_id", author),
-        sb.from("community_comments").select("id").eq("user_id", author),
-      ]);
-      narrow([
-        author,
-        ...(authoredPosts ?? []).map((p) => String((p as { id?: string }).id ?? "")),
-        ...(authoredComments ?? []).map((c) => String((c as { id?: string }).id ?? "")),
-      ].filter(Boolean));
-    }
-    let search: { targetIds: Set<string>; userIds: Set<string> } | null = null;
-    if (opts.q?.trim()) {
-      search = await resolveReportSearch(sb, opts.q.trim());
-      if (!search.targetIds.size && !search.userIds.size) return empty;
-    }
-    if (targetIdsFilter && (targetIdsFilter as Set<string>).size === 0) return empty;
-
-    let kq = sb
-      .from("community_reports")
-      .select("id, target_type, target_id, user_id, reason, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(GROUP_SCAN_CAP);
-    kq = opts.targetType ? kq.eq("target_type", opts.targetType) : kq.in("target_type", ["post", "comment", "user"]);
-    if (opts.targetId?.trim()) kq = kq.eq("target_id", opts.targetId.trim());
-    if (opts.reporterId?.trim()) kq = kq.eq("user_id", opts.reporterId.trim());
-    if (opts.createdFromIso) kq = kq.gte("created_at", opts.createdFromIso);
-    if (opts.createdToIso) kq = kq.lt("created_at", opts.createdToIso);
-    const filterSet = targetIdsFilter as Set<string> | null;
-    if (filterSet && filterSet.size <= 200) kq = kq.in("target_id", [...filterSet]);
-
-    const { data, error } = await kq;
-    if (error) return { ...empty, ok: false };
-    let keys = ((data ?? []) as Record<string, unknown>[]).map(
-      (r): KeyRow => ({
-        id: String(r.id),
-        target_type: String(r.target_type ?? ""),
-        target_id: String(r.target_id ?? ""),
-        user_id: String(r.user_id ?? ""),
-        reason: r.reason != null ? String(r.reason) : null,
-        status: String(r.status ?? ""),
-        created_at: String(r.created_at ?? ""),
-      })
-    );
-    const truncated = keys.length >= GROUP_SCAN_CAP;
-    if (filterSet) keys = keys.filter((k) => filterSet.has(k.target_id));
-    if (search) {
-      const s = search;
-      keys = keys.filter((k) => s.targetIds.has(k.target_id) || s.userIds.has(k.user_id));
-    }
-
-    // 탭별 묶음
-    const byTab = (tab: CommunityReportInboxTab) => {
-      const allow = TAB_STATUSES[tab];
-      const m = new Map<string, KeyRow[]>();
-      for (const k of keys) {
-        if (allow && !allow.includes(k.status)) continue;
-        const key = `${k.target_type}:${k.target_id}`;
-        const list = m.get(key);
-        if (list) list.push(k);
-        else m.set(key, [k]);
-      }
-      return m;
-    };
+    const { data, error } = await sb.rpc(COMMUNITY_REPORT_GROUPS_RPC, {
+      p_tab_groups: reportTabGroups(),
+      p_tab: opts.tab,
+      p_target_type: opts.targetType || null,
+      p_q_pattern: qSafe ? `%${qSafe}%` : null,
+      p_target_id: opts.targetId?.trim() || null,
+      p_topic_slug: opts.topicSlug?.trim() || null,
+      p_reporter_id: reporterId || null,
+      p_author_id: authorId || null,
+      p_from: opts.createdFromIso || null,
+      p_to: opts.createdToIso || null,
+      p_limit: limit,
+      p_offset: offset,
+    });
+    if (error || !data) return { ...empty, ok: false };
+    const res = data as { total?: number; tab_counts?: Record<string, number>; rows?: GroupRpcRow[] };
     const counts = emptyCounts();
-    for (const tab of COMMUNITY_REPORT_INBOX_TABS) counts[tab] = byTab(tab).size;
+    for (const tab of COMMUNITY_REPORT_INBOX_TABS) counts[tab] = Number(res.tab_counts?.[tab] ?? 0);
+    const total = Number(res.total ?? 0);
+    const page = Array.isArray(res.rows) ? res.rows : [];
+    if (!page.length) return { ...empty, counts, total };
 
-    const grouped = [...byTab(opts.tab).entries()]; // 각 묶음 안은 최신순 (조회 정렬 유지)
-    grouped.sort((a, b) => (a[1][0].created_at < b[1][0].created_at ? 1 : -1));
-    const page = grouped.slice(offset, offset + limit);
-    if (!page.length) return { ...empty, counts, total: grouped.length, truncated };
-
-    const primaries = page.map(([, list]) => list.find((k) => k.status === "open" || k.status === "reviewing") ?? list[0]);
-    const primaryIds = primaries.map((p) => p.id);
+    const primaryIds = page.map((g) => String(g.primary_report_id ?? "")).filter(Boolean);
     const fullQuery = (cols: string) => sb.from("community_reports").select(cols).in("id", primaryIds);
     let full = await fullQuery(REPORT_SELECT);
     // 처리자·결정 컬럼(M4) 미적용 환경
@@ -671,25 +620,24 @@ export async function listCommunityReportGroupsForAdmin(
     const byId = new Map(enriched.map((r) => [r.id, r]));
 
     const groups: CommunityReportGroupRow[] = [];
-    page.forEach(([key, list], i) => {
-      const primary = byId.get(primaries[i].id);
-      if (!primary) return;
-      const statuses = new Set(list.map((k) => k.status));
+    for (const g of page) {
+      const primary = byId.get(String(g.primary_report_id ?? ""));
+      if (!primary) continue;
       groups.push({
-        key,
+        key: `${String(g.target_type ?? "")}:${String(g.target_id ?? "")}`,
         primary_report_id: primary.id,
         primary_status: primary.status,
-        group_status: statuses.has("reviewing") ? "reviewing" : statuses.has("open") ? "open" : list[0].status,
-        report_count: list.length,
-        reporter_count: new Set(list.map((k) => k.user_id).filter(Boolean)).size,
-        open_count: list.filter((k) => k.status === "open" || k.status === "reviewing").length,
-        latest_reason: list[0].reason,
-        latest_at: list[0].created_at,
-        first_at: list[list.length - 1].created_at,
+        group_status: String(g.group_status ?? primary.status),
+        report_count: Number(g.report_count ?? 0),
+        reporter_count: Number(g.reporter_count ?? 0),
+        open_count: Number(g.open_count ?? 0),
+        latest_reason: g.latest_reason != null ? String(g.latest_reason) : null,
+        latest_at: String(g.latest_at ?? ""),
+        first_at: String(g.first_at ?? ""),
         target: primary,
       });
-    });
-    return { ok: true, groups, total: grouped.length, counts, limit, offset, truncated };
+    }
+    return { ok: true, groups, total, counts, limit, offset, truncated: false };
   } catch {
     return { ...empty, ok: false };
   }

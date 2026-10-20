@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/admin/delivery-ads/action-queue
  * CUT 3-D — Admin Action Queue read model (WAITING_ADMIN cases). No UI.
+ * R7 — `limit`(최대 100)·`offset` 서버 페이지, `total` = 결제 확인된 WAITING_ADMIN 전체 건수 (DB RPC).
  */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -25,8 +26,10 @@ export async function GET(req: NextRequest) {
   const productKind = isAdminDeliveryAdProduct(productKindRaw) ? productKindRaw : undefined;
   const limitRaw = url.searchParams.get("limit");
   const limit = limitRaw ? Number(limitRaw) : undefined;
+  const offsetRaw = Number(url.searchParams.get("offset") ?? "");
+  const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? Math.floor(offsetRaw) : 0;
 
-  const result = await listDeliveryAdAdminActionQueue(sb, { productKind, limit });
+  const result = await listDeliveryAdAdminActionQueue(sb, { productKind, limit, offset });
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
   }
@@ -34,5 +37,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     items: result.items,
     total: result.total,
+    limit: limit ?? null,
+    offset,
   });
 }

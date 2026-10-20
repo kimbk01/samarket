@@ -116,7 +116,8 @@ describe("Delivery Ads design board UI contract", () => {
     const hub = read("components/admin/stores/AdminDeliveryAdsControlPlane.tsx");
     expect(hub).toContain("DeliveryAdAdminTodaySummary");
     expect(hub).toContain('data-admin-delivery-ads-hub="design-board"');
-    expect(hub).toContain("aggregateAdminHubTodayCounts");
+    // R7 — 오늘 요약 = 서버 today_counts (aggregateAdminHubTodayCounts 규칙, 전체 기준)
+    expect(hub).toContain("json.todayCounts");
     const today = read("components/stores/advertising/DeliveryAdAdminTodaySummary.tsx");
     expect(today).toContain("DELIVERY_AD_ADMIN_HUB_CONTRACT.todaySummaryKey");
     expect(today).toContain('data-admin-delivery-ads-today-summary="design-board"');

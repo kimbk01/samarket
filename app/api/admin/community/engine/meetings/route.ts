@@ -3,10 +3,8 @@ import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-adm
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
-  COMMUNITY_LIST_PROFILE_MATCH_LIMIT,
   MEETING_ADMIN_TABS,
   MEETING_STATUSES,
-  buildCommunitySearchOr,
   isCommunityListUuid,
   parseCommunityListPage,
   parseCommunityListSearch,
@@ -21,7 +19,12 @@ export const dynamic = "force-dynamic";
  * query: q(모임 이름·개설자 닉네임 · UUID 면 모임/글/개설자 id 정확 일치) · status(open|closed|ended|cancelled)
  *   · tab(pending|open|ended|rejected) · meetingId · limit(기본 50, 최대 200) · offset
  * → { ok, meetings, total, limit, offset }
+ * R7: 목록 필터(상태·탭·검색 — 개설자 닉네임 포함)·정렬(created_at DESC, id DESC)·페이지·total 은 DB RPC
+ *     `admin_community_meetings_page` 한 번 — 예전 닉네임 후보 200명 상한 없음. meetingId 는 단건 조회 그대로.
  */
+const MEETINGS_PAGE_RPC = "admin_community_meetings_page";
+const MEETING_ROW_SELECT =
+  "id, post_id, title, host_user_id, status, max_members, meeting_date, chat_room_id, community_messenger_room_id, join_policy, entry_policy, password_hash, created_at, is_sample_data, platform_approval_required, platform_approval_status, region_text, category_text";
 export async function GET(req: NextRequest) {
   const admin = await requireCommunityAdmin("content");
   if (!admin.ok) return admin.response;
@@ -45,45 +48,45 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, meetings: [], total: 0, limit, offset });
   }
 
-  // 개설자 닉네임 검색 → profiles id 후보
-  let matchedHostIds: string[] = [];
-  if (search.pattern && !search.uuid) {
-    const { data: profs, error: pErr } = await sb
-      .from("profiles")
-      .select("id")
-      .ilike("nickname", search.pattern)
-      .limit(COMMUNITY_LIST_PROFILE_MATCH_LIMIT);
-    if (pErr) return NextResponse.json({ ok: false, error: pErr.message }, { status: 500 });
-    matchedHostIds = ((profs ?? []) as Array<{ id?: string }>).map((p) => String(p.id ?? "")).filter(Boolean);
-  }
-
-  let q = sb
-    .from("meetings")
-    .select(
-      "id, post_id, title, host_user_id, status, max_members, meeting_date, chat_room_id, community_messenger_room_id, join_policy, entry_policy, password_hash, created_at, is_sample_data, platform_approval_required, platform_approval_status, region_text, category_text",
-      { count: "exact" }
-    )
-    .order("created_at", { ascending: false });
+  let data: unknown;
+  let count: number | null;
   if (meetingId) {
-    q = q.eq("id", meetingId);
+    const one = await sb
+      .from("meetings")
+      .select(MEETING_ROW_SELECT, { count: "exact" })
+      .eq("id", meetingId)
+      .range(offset, offset + limit - 1);
+    if (one.error) {
+      return NextResponse.json({ ok: false, error: one.error.message }, { status: 500 });
+    }
+    data = one.data;
+    count = one.count;
   } else {
-    if (status) q = q.eq("status", status);
-    if (tab === "pending") q = q.eq("platform_approval_status", "pending_approval").eq("platform_approval_required", true);
-    else if (tab === "rejected") q = q.eq("platform_approval_status", "rejected");
-    else if (tab === "open") q = q.eq("status", "open").neq("platform_approval_status", "rejected");
-    else if (tab === "ended") q = q.in("status", ["closed", "ended", "cancelled"]);
-    const searchOr = buildCommunitySearchOr({
-      search,
-      textColumns: ["title", "region_text"],
-      userColumn: "host_user_id",
-      matchedUserIds: matchedHostIds,
-      uuidColumns: ["id", "post_id", "host_user_id"],
+    // 상태·탭·검색(모임 이름·지역·개설자 닉네임 · UUID 면 모임/글/개설자 id) — DB 한 번
+    const { data: page, error: pageErr } = await sb.rpc(MEETINGS_PAGE_RPC, {
+      p_status: status || null,
+      p_tab: tab || null,
+      p_q_pattern: search.pattern,
+      p_q_uuid: search.uuid,
+      p_limit: limit,
+      p_offset: offset,
     });
-    if (searchOr) q = q.or(searchOr);
-  }
-  const { data, error, count } = await q.range(offset, offset + limit - 1);
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (pageErr) {
+      return NextResponse.json({ ok: false, error: pageErr.message }, { status: 500 });
+    }
+    const res = (page ?? {}) as { total?: number; ids?: string[] };
+    const ids = Array.isArray(res.ids) ? res.ids.map(String) : [];
+    count = Number(res.total ?? 0);
+    if (ids.length) {
+      const full = await sb.from("meetings").select(MEETING_ROW_SELECT).in("id", ids);
+      if (full.error) {
+        return NextResponse.json({ ok: false, error: full.error.message }, { status: 500 });
+      }
+      const byId = new Map(((full.data ?? []) as Record<string, unknown>[]).map((r) => [String(r.id ?? ""), r]));
+      data = ids.map((id) => byId.get(id)).filter(Boolean);
+    } else {
+      data = [];
+    }
   }
 
   const baseRows = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];

@@ -26,9 +26,11 @@ describe("admin community operator console contract", () => {
     expect(patch).not.toMatch(/createSanction/i);
   });
 
-  it("comments route uses collectCommunityPostIdsForTopicSlug and has no report CTA writer", () => {
+  it("comments route filters topic in the DB page RPC and has no report CTA writer", () => {
     const list = read("app/api/admin/community/engine/comments/route.ts");
-    expect(list).toMatch(/collectCommunityPostIdsForTopicSlug/);
+    // R7: 주제 필터 = RPC 안의 community_posts.topic_slug 조건 (예전 글 id 수집 후 in(≤500) 제거)
+    expect(list).toMatch(/p_topic_slug: topicSlug/);
+    expect(list).not.toMatch(/collectCommunityPostIdsForTopicSlug/);
     expect(list).toMatch(/author_label/);
     expect(list).toMatch(/topicFilterTruncated/);
     expect(list).not.toMatch(/createReport/i);

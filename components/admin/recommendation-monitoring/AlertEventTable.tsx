@@ -9,6 +9,8 @@ import {
 import { commitRecommendationRuntimeChange } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
 import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { adminPaginationPageCount, clampAdminPage } from "@/lib/admin/pagination/admin-pagination-window";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import {
   recAlertSeverityLabel,
@@ -29,14 +31,18 @@ export function AlertEventTable() {
   const lq = useAdminListQuery({ statuses: ["ack", "unack"] });
   const ackFilter: boolean | "" = lq.query.status === "" ? "" : lq.query.status === "ack";
 
-  const events = useMemo(
+  /** 보관된 알림 전체(번들) 중 필터 결과 → 화면 쪽 나눔 20/50/100 (R7 — 예전: 최신 50건만). */
+  const allEvents = useMemo(
     () =>
       getRecommendationAlertEvents({
         isAcknowledged: ackFilter === "" ? undefined : ackFilter,
-        limit: 50,
+        limit: null,
       }),
     [refresh, ackFilter]
   );
+  const total = allEvents.length;
+  const page = clampAdminPage(lq.query.page, adminPaginationPageCount(total, lq.query.size));
+  const events = allEvents.slice((page - 1) * lq.query.size, page * lq.query.size);
 
   /** 저장 실패 → 확인 처리 되돌림 + 실패 문구 (예전: console.warn 만). */
   const handleAck = async (id: string) => {
@@ -147,6 +153,17 @@ export function AlertEventTable() {
           </table>
         </div>
       )}
+      {total > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={busy}
+        />
+      ) : null}
     </div>
   );
 }

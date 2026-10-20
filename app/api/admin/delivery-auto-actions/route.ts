@@ -6,6 +6,10 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 import { manilaTodayRangeUtc } from "@/lib/admin/metrics/manila-period";
 
+import { isAdminListUuid } from "@/lib/admin/pagination/parse-admin-list-page";
+
+import { parseDeliveryListPage } from "@/lib/admin/delivery-list/delivery-list-page";
+
 
 
 export const runtime = "nodejs";
@@ -14,19 +18,9 @@ export const dynamic = "force-dynamic";
 
 
 
-function dedupeStrings(ids: Iterable<unknown>): string[] {
+function isMissingFunction(msg: string): boolean {
 
-  const s = new Set<string>();
-
-  for (const x of ids) {
-
-    const v = String(x ?? "").trim();
-
-    if (v) s.add(v);
-
-  }
-
-  return [...s];
+  return /does not exist|function .* not found|Could not find the function|schema cache/i.test(msg);
 
 }
 
@@ -62,225 +56,17 @@ function enrichRpcActions(rows: unknown[]): Record<string, unknown>[] {
 
 
 
-async function legacyList(
+/**
 
-  sb: ReturnType<typeof getSupabaseServer>,
+ * GET — 자동 조치 목록 (R7 서버 페이지네이션).
 
-  limit: number,
+ * - 목록: `admin_delivery_auto_actions_page` — 필터·정렬(executed_at desc, id desc)·limit/offset·정확한 total 을 DB 에서.
 
-  viewer: string
+ * - KPI·배너·규칙 집계: 기존 `admin_delivery_auto_actions_dashboard` (없으면 dashboard=null, 목록은 그대로).
 
-): Promise<NextResponse> {
+ * - 「오늘만」: 필리핀(Asia/Manila) 오늘 경계를 DB 필터로 넘긴다 (메모리 필터 없음).
 
-  const sbAny = sb as any;
-
-
-
-  const { data: rows, error } = await sbAny
-
-    .from("delivery_operation_alert_actions")
-
-    .select(
-
-      [
-
-        "id",
-
-        "event_id",
-
-        "action_type",
-
-        "action_status",
-
-        "executed_at",
-
-        "executed_by_system",
-
-        "result_message",
-
-        "metadata",
-
-        "retry_count",
-
-        "max_retries",
-
-        "approval_actor_id",
-
-        "approval_note",
-
-        "decided_at",
-
-      ].join(", ")
-
-    )
-
-    .order("executed_at", { ascending: false })
-
-    .limit(limit);
-
-
-
-  if (error) {
-
-    const msg = String(error.message ?? "");
-
-    if (/does not exist|column|schema cache/i.test(msg)) {
-
-      return NextResponse.json({ error: "schema_missing", hint: "Apply migration delivery_auto_actions_safety" }, { status: 503 });
-
-    }
-
-    return NextResponse.json({ error: msg.slice(0, 200) }, { status: 500 });
-
-  }
-
-
-
-  const actions = (rows ?? []) as Record<string, unknown>[];
-
-  const eventIds = dedupeStrings(actions.map((a) => a.event_id));
-
-
-
-  const eventsRes =
-
-    eventIds.length > 0
-
-      ? await sbAny
-
-          .from("delivery_operation_alert_events")
-
-          .select("id, order_id, rule_id, event_status")
-
-          .in("id", eventIds)
-
-      : { data: [] as Record<string, unknown>[] };
-
-
-
-  if (eventsRes.error) {
-
-    return NextResponse.json({ error: String(eventsRes.error.message ?? "").slice(0, 200) }, { status: 500 });
-
-  }
-
-
-
-  const evRows = (eventsRes.data ?? []) as Record<string, unknown>[];
-
-  const evById = new Map<string, Record<string, unknown>>();
-
-  for (const e of evRows) {
-
-    const id = String(e.id ?? "");
-
-    if (id) evById.set(id, e);
-
-  }
-
-
-
-  const ruleIds = dedupeStrings(evRows.map((e) => e.rule_id));
-
-  const rulesRes =
-
-    ruleIds.length > 0
-
-      ? await sbAny.from("delivery_operation_alert_rules").select("id, rule_key, rule_name").in("id", ruleIds)
-
-      : { data: [] as Record<string, unknown>[] };
-
-
-
-  const ruleById = new Map<string, { rule_key?: string; rule_name?: string }>();
-
-  for (const r of (rulesRes.data ?? []) as Record<string, unknown>[]) {
-
-    const id = String(r.id ?? "");
-
-    if (id) ruleById.set(id, { rule_key: String(r.rule_key ?? ""), rule_name: String(r.rule_name ?? "") });
-
-  }
-
-
-
-  const orderIds = dedupeStrings(evRows.map((e) => e.order_id));
-
-  const ordersRes =
-
-    orderIds.length > 0
-
-      ? await sbAny.from("store_orders").select("id, order_no").in("id", orderIds)
-
-      : { data: [] as Record<string, unknown>[] };
-
-
-
-  const orderNoById = new Map<string, string>();
-
-  for (const o of (ordersRes.data ?? []) as Record<string, unknown>[]) {
-
-    const id = String(o.id ?? "");
-
-    if (id) orderNoById.set(id, String(o.order_no ?? ""));
-
-  }
-
-
-
-  const enriched = actions.map((a) => {
-
-    const eid = String(a.event_id ?? "");
-
-    const ev = eid ? evById.get(eid) : undefined;
-
-    const rid = ev ? String(ev.rule_id ?? "") : "";
-
-    const oid = ev ? String(ev.order_id ?? "") : "";
-
-    const ru = rid ? ruleById.get(rid) : undefined;
-
-    return {
-
-      ...a,
-
-      order_id: oid || null,
-
-      order_no: oid ? orderNoById.get(oid) ?? "" : "",
-
-      event_status: ev ? String(ev.event_status ?? "") : "",
-
-      rule_key: ru?.rule_key ?? "",
-
-      rule_name: ru?.rule_name ?? "",
-
-      admin_order_url: oid ? `/admin/stores/orders/${encodeURIComponent(oid)}` : "",
-
-      admin_alerts_query: eid ? `/admin/delivery-alerts` : "",
-
-    };
-
-  });
-
-
-
-  return NextResponse.json({
-
-    actions: enriched,
-
-    dashboard: null,
-
-    query: { limit, legacy: true },
-
-    viewer,
-
-    hint: "rpc_missing_apply_migration_20260515120000_delivery_auto_actions_report_rpc",
-
-  });
-
-}
-
-
+ */
 
 export async function GET(req: Request) {
 
@@ -306,9 +92,7 @@ export async function GET(req: Request) {
 
   const sp = new URL(req.url).searchParams;
 
-  const limRaw = Number(sp.get("limit") ?? "100");
-
-  const limit = Number.isFinite(limRaw) ? Math.min(200, Math.max(10, Math.floor(limRaw))) : 100;
+  const page = parseDeliveryListPage(sp);
 
 
 
@@ -320,17 +104,19 @@ export async function GET(req: Request) {
 
   const ruleRaw = sp.get("rule_id")?.trim() ?? "";
 
-  const p_rule_id = ruleRaw || null;
+  const p_rule_id = ruleRaw && isAdminListUuid(ruleRaw) ? ruleRaw : null;
 
 
 
-  const p_dangerous_only =
+  const flag = (k: string) => sp.get(k) === "1" || sp.get(k)?.toLowerCase() === "true";
 
-    sp.get("dangerous_only") === "1" || sp.get("dangerous_only")?.toLowerCase() === "true";
+  const p_dangerous_only = flag("dangerous_only");
 
-  const p_retry_only = sp.get("retry_only") === "1" || sp.get("retry_only")?.toLowerCase() === "true";
+  const p_retry_only = flag("retry_only");
 
-  const p_today_only = sp.get("today_only") === "1" || sp.get("today_only")?.toLowerCase() === "true";
+  const p_today_only = flag("today_only");
+
+  const today = p_today_only ? manilaTodayRangeUtc() : null;
 
 
 
@@ -338,33 +124,63 @@ export async function GET(req: Request) {
 
 
 
-  // 「오늘만」은 마닐라 달력 기준 — RPC KPI 「오늘」도 마닐라 자정(20270519120000). 목록 필터는 서버에서 동일 경계로 거른다.
+  const [listRes, dashRes] = await Promise.all([
 
-  const { data: dashRaw, error: rpcErr } = await sbAny.rpc("admin_delivery_auto_actions_dashboard", {
+    sbAny.rpc("admin_delivery_auto_actions_page", {
 
-    p_status,
+      p_status,
 
-    p_rule_id,
+      p_rule_id,
 
-    p_dangerous_only,
+      p_dangerous_only,
 
-    p_retry_only,
+      p_retry_only,
 
-    p_today_only: false,
+      p_from: today?.fromIso ?? null,
 
-    p_limit: limit,
+      p_to: today?.toIso ?? null,
 
-  });
+      p_limit: page.limit,
+
+      p_offset: page.offset,
+
+    }),
+
+    // KPI·배너·규칙 집계만 쓴다 — 이 RPC 의 actions 는 목록에 쓰지 않는다 (최소 limit).
+
+    sbAny.rpc("admin_delivery_auto_actions_dashboard", {
+
+      p_status: null,
+
+      p_rule_id: null,
+
+      p_dangerous_only: false,
+
+      p_retry_only: false,
+
+      p_today_only: false,
+
+      p_limit: 10,
+
+    }),
+
+  ]);
 
 
 
-  if (rpcErr) {
+  if (listRes.error) {
 
-    const msg = String(rpcErr.message ?? "");
+    const msg = String(listRes.error.message ?? "");
 
-    if (/does not exist|function .* not found|schema cache/i.test(msg)) {
+    if (isMissingFunction(msg)) {
 
-      return legacyList(sb, limit, admin.userId);
+      return NextResponse.json(
+
+        { error: "rpc_missing", hint: "Apply migration 20270601130000_r7_delivery_auto_actions_page" },
+
+        { status: 503 }
+
+      );
 
     }
 
@@ -376,35 +192,29 @@ export async function GET(req: Request) {
 
 
 
-  const dashboard = dashRaw && typeof dashRaw === "object" ? (dashRaw as Record<string, unknown>) : null;
+  if (dashRes.error && !isMissingFunction(String(dashRes.error.message ?? ""))) {
 
-  const actionsRaw = dashboard?.actions;
+    console.error("[admin delivery-auto-actions GET dashboard]", String(dashRes.error.message ?? "").slice(0, 240));
 
-  const manilaToday = manilaTodayRangeUtc();
-
-  const actions = enrichRpcActions(actionsRaw as unknown[]).filter((a) => {
-
-    if (!p_today_only) return true;
-
-    const at = Date.parse(String(a.executed_at ?? ""));
-
-    return Number.isFinite(at) && at >= Date.parse(manilaToday.fromIso) && at < Date.parse(manilaToday.toIso);
-
-  });
+  }
 
 
 
-  const mergedDash =
+  const list = listRes.data && typeof listRes.data === "object" ? (listRes.data as Record<string, unknown>) : {};
 
-    dashboard != null
+  const actions = enrichRpcActions(Array.isArray(list.rows) ? (list.rows as unknown[]) : []);
 
-      ? {
+  const totalNum = Number(list.total);
 
-          ...dashboard,
+  const total = Number.isFinite(totalNum) && totalNum >= 0 ? totalNum : actions.length;
 
-          actions,
 
-        }
+
+  const dashboard =
+
+    !dashRes.error && dashRes.data && typeof dashRes.data === "object"
+
+      ? { ...(dashRes.data as Record<string, unknown>), actions }
 
       : null;
 
@@ -414,11 +224,19 @@ export async function GET(req: Request) {
 
     actions,
 
-    dashboard: mergedDash,
+    total,
+
+    limit: page.limit,
+
+    offset: page.offset,
+
+    dashboard,
 
     query: {
 
-      limit,
+      limit: page.limit,
+
+      offset: page.offset,
 
       status: p_status ?? "all",
 
@@ -437,5 +255,3 @@ export async function GET(req: Request) {
   });
 
 }
-
-

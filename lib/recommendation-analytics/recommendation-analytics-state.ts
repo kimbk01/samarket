@@ -436,13 +436,15 @@ export function getRecommendationSectionHealth(
 export function getRecommendationReports(filters?: {
   reportType?: ReportType;
   surface?: ReportSurface;
-  limit?: number;
+  /** `null` = 보관된 전체 (관리자 표가 화면에서 쪽 나눔 — R7). 생략 시 50. */
+  limit?: number | null;
 }): RecommendationReport[] {
   let list = [...REPORTS].sort(
     (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
   );
   if (filters?.reportType) list = list.filter((r) => r.reportType === filters.reportType);
   if (filters?.surface) list = list.filter((r) => r.surface === filters.surface);
+  if (filters?.limit === null) return list;
   const limit = filters?.limit ?? 50;
   return list.slice(0, limit);
 }

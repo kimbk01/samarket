@@ -18,6 +18,7 @@ import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type { AdsActionItem, AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
@@ -37,8 +38,6 @@ import {
 } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import { PROMOTION_WORKSPACE_HREF } from "@/lib/admin/promotion-ownership-visibility";
 import {
-  filterShellRowsByProductFamily,
-  filterShellRowsByTab,
   toAdsShellListRow,
   type AdsShellListRow,
   type AdsShellProductFamily,
@@ -53,7 +52,6 @@ import {
   collectAdsWorkspacePool as collectPool,
   computeAdsWorkspaceHeroOccupancy,
   computeAdsWorkspaceSummaryCounts,
-  filterAdsWorkspaceRowsByMode as filterRowsByMode,
   type AdvertisingWorkspaceMode,
 } from "@/lib/admin/advertising-workspace/workspace-summary";
 import {
@@ -280,6 +278,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     ? (lq.query.extras.family as AdsShellProductFamily)
     : "all";
   const { setStatus: setStatusTab, setExtra: setListExtra, patch: patchListQuery } = lq;
+  /** R7 서버 페이지 — 모드·종류·상태 탭 필터·정렬·페이지·전체 건수는 서버(DB). */
+  const { page: listPage, size: listSize } = lq.query;
   const setFamily = useCallback((f: AdsShellProductFamily) => setListExtra("family", f), [setListExtra]);
   const [selected, setSelected] = useState<AdsActionItem | null>(null);
   const [manageOpenId, setManageOpenId] = useState<string | null>(null);
@@ -307,6 +307,13 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     const result = await fetchAdsControlPlane({
       orderId: boostOrderIdRaw || undefined,
       storeId: storeFilter || undefined,
+      page: {
+        mode,
+        status: statusTab,
+        family,
+        limit: listSize,
+        offset: (listPage - 1) * listSize,
+      },
     });
     if (!result.ok) {
       // 실패해도 이전 정상 목록(model)은 지우지 않는다 (지시서 §8-5).
@@ -315,7 +322,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       return;
     }
     setModel(result.plane);
-  }, [boostOrderIdRaw, storeFilter]);
+  }, [boostOrderIdRaw, storeFilter, mode, statusTab, family, listPage, listSize]);
 
   useEffect(() => {
     void load();
@@ -329,14 +336,10 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
 
   const shellRows = useMemo(() => {
     if (!model) return [] as AdsShellListRow[];
-    // Store scope is applied server-side (`store_id` → ads-control-plane); the plane is already scoped.
-    const items = collectPool(model);
-    let rows = items.map((i) => toAdsShellListRow(i, ko, mode));
-    rows = filterRowsByMode(rows, mode);
-    rows = filterShellRowsByProductFamily(rows, family);
-    rows = filterShellRowsByTab(rows, statusTab);
-    return rows;
-  }, [model, ko, mode, family, statusTab]);
+    // R7 — 매장 범위·모드·종류·상태 탭·페이지는 서버가 적용했다 (`applications` = 이 조건의 한 페이지).
+    return model.applications.map((i) => toAdsShellListRow(i, ko, mode));
+  }, [model, ko, mode]);
+  const listTotal = model?.page?.total ?? shellRows.length;
 
   const itemById = useMemo(() => {
     const map = new Map<string, AdsActionItem>();
@@ -419,13 +422,58 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
   }, [model, mode]);
 
   const popupQueue = useMemo(() => {
-    if (!model) return [] as Array<{
+    type PopupSurfaceQueue = {
       surface: string;
       live: AdsShellListRow[];
       waiting: AdsShellListRow[];
-      incomplete: AdsShellListRow[];
-      scheduled: AdsShellListRow[];
-    }>;
+      incompleteCount: number;
+      scheduledCount: number;
+    };
+    if (!model) return [] as PopupSurfaceQueue[];
+    if (model.popupSurfaces) {
+      // R7 — 팝업 캠페인 전체 기준 위치별 점유 (서버 집계). 같은 위치 이름은 합친다.
+      const byLabel = new Map<string, PopupSurfaceQueue>();
+      for (const g of model.popupSurfaces) {
+        const label =
+          toAdsShellListRow(
+            {
+              id: `popup_campaign:surface:${g.surfaces}`,
+              domain: "popup",
+              product: "platform_popup",
+              entity: "execution",
+              applicantLabel: "",
+              storeId: null,
+              memberId: null,
+              creativeHint: null,
+              placementHint: g.surfaces,
+              amountLabel: null,
+              currency: "N_A",
+              status: "",
+              whyActionable: null,
+              paymentLabel: null,
+              periodLabel: null,
+              remainingLabel: null,
+              exposureLabel: null,
+              eligibility: null,
+              ageHours: null,
+              at: model.generatedAt,
+              source: "platform_popup_campaigns",
+              href: "",
+              statementHref: null,
+              financeHref: null,
+              memberHref: null,
+            },
+            ko
+          ).placementLabel || "팝업";
+        const cur = byLabel.get(label) ?? { surface: label, live: [], waiting: [], incompleteCount: 0, scheduledCount: 0 };
+        cur.live.push(...g.live.map((i) => toAdsShellListRow(i, ko)));
+        cur.waiting.push(...g.waiting.map((i) => toAdsShellListRow(i, ko)));
+        cur.incompleteCount += g.incomplete;
+        cur.scheduledCount += g.scheduled;
+        byLabel.set(label, cur);
+      }
+      return [...byLabel.values()];
+    }
     const popupRows = collectPool(model)
       .filter((i) => i.domain === "popup" && String(i.id).startsWith("popup_campaign:"))
       .map((i) => toAdsShellListRow(i, ko));
@@ -436,13 +484,15 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       list.push(row);
       bySurface.set(key, list);
     }
-    return [...bySurface.entries()].map(([surface, rows]) => ({
-      surface,
-      live: rows.filter((r) => r.statusTab === "live"),
-      waiting: rows.filter((r) => r.statusTab === "waiting"),
-      incomplete: rows.filter((r) => r.statusTab === "incomplete"),
-      scheduled: rows.filter((r) => r.statusTab === "scheduled"),
-    }));
+    return [...bySurface.entries()].map(
+      ([surface, rows]): PopupSurfaceQueue => ({
+        surface,
+        live: rows.filter((r) => r.statusTab === "live"),
+        waiting: rows.filter((r) => r.statusTab === "waiting"),
+        incompleteCount: rows.filter((r) => r.statusTab === "incomplete").length,
+        scheduledCount: rows.filter((r) => r.statusTab === "scheduled").length,
+      })
+    );
   }, [model, ko]);
 
   const executeDrawerAction = useCallback(
@@ -882,12 +932,12 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 </div>
                 <div>
                   <div className="text-sam-muted">
-                    {ko ? `불완전 ${q.incomplete.length}건` : `Incomplete ${q.incomplete.length}`}
+                    {ko ? `불완전 ${q.incompleteCount}건` : `Incomplete ${q.incompleteCount}`}
                   </div>
                 </div>
                 <div>
                   <div className="text-sam-muted">
-                    {ko ? `예약 ${q.scheduled.length}건` : `Scheduled ${q.scheduled.length}`}
+                    {ko ? `예약 ${q.scheduledCount}건` : `Scheduled ${q.scheduledCount}`}
                   </div>
                 </div>
               </div>
@@ -906,7 +956,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       <div className="grid gap-4">
         {!model ? (
           err ? null : <AdminLoadingState ko={ko} />
-        ) : shellRows.length === 0 ? (
+        ) : shellRows.length === 0 && listPage <= 1 ? (
           <AdminEmptyState
             ko={ko}
             message={
@@ -1349,6 +1399,16 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           </table>
         </div>
         )}
+        {model && (listTotal > 0 || listPage > 1) ? (
+          <AdminPagination
+            ko={ko}
+            page={listPage}
+            size={listSize}
+            total={listTotal}
+            onPageChange={lq.setPage}
+            onSizeChange={lq.setSize}
+          />
+        ) : null}
 
         {opsControlMode && selected && selectedShell ? (
         <aside

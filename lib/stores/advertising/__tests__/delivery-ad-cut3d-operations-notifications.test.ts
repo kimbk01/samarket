@@ -51,6 +51,41 @@ function createActionQueueSb(input: {
   const legacy = input.legacySpendByCampaignId ?? {};
 
   return {
+    /**
+     * R7 — `admin_delivery_ad_action_queue_page` RPC 가짜: WAITING_ADMIN + 결제 확인
+     * (디바이 직접 또는 canonical SECURED → FUNDED) 행만, 정확한 total. 실제 SQL 은 로컬 PG 로 검증.
+     */
+    async rpc(name: string, args: { p_limit?: number; p_offset?: number }) {
+      expect(name).toBe("admin_delivery_ad_action_queue_page");
+      const rows = input.cases
+        .filter((c) => c.status === "WAITING_ADMIN")
+        .map((c) => {
+          const campaignId = String(
+            c.product_kind === "store_sponsored" ? c.store_sponsored_campaign_id : c.banner_campaign_id
+          );
+          const funding = canonical[campaignId] === "SECURED" ? "FUNDED" : "UNFUNDED";
+          return {
+            case_id: c.id,
+            product_kind: c.product_kind,
+            campaign_id: campaignId,
+            owner_user_id: c.owner_user_id,
+            updated_at: c.updated_at,
+            funding_status: funding,
+            campaign_source: input.campaigns[campaignId]?.campaign_source,
+          };
+        })
+        .filter((r) =>
+          deliveryAdAdminQueueFundingAllowsIntake({
+            campaignSource: r.campaign_source as string | undefined,
+            fundingStatus: r.funding_status as "FUNDED" | "UNFUNDED",
+          })
+        );
+      const off = args.p_offset ?? 0;
+      return {
+        data: { total: rows.length, rows: rows.slice(off, off + (args.p_limit ?? 50)) },
+        error: null,
+      };
+    },
     from(table: string) {
       const state: {
         filters: Record<string, unknown>;

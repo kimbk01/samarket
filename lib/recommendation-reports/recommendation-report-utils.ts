@@ -86,7 +86,7 @@ export function generateRecommendationReport(
     scoreSum += s.avgScore * s.impressionCount;
     scoreCount += s.impressionCount;
   }
-  const executions = getRecommendationAutomationExecutions({ limit: 500 });
+  const executions = getRecommendationAutomationExecutions({ limit: null });
   const fallbackCount = executions.filter((e) => e.actionType === "auto_fallback").length;
   const killSwitchCount = executions.filter((e) => e.actionType === "auto_kill_switch").length;
   const rollbackCount = executions.filter((e) => e.actionType === "auto_rollback").length;

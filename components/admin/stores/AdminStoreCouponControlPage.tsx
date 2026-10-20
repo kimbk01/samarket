@@ -15,14 +15,13 @@ import {
   ADMIN_COUPON_CONTROL_CAMPAIGN_PARAM,
   ADMIN_COUPON_CONTROL_ROLES,
   ADMIN_COUPON_CONTROL_VIEW_PARAM,
-  collectAdminCouponRecentActivity,
   parseAdminCouponControlCampaignId,
   parseAdminCouponControlRole,
-  summarizeAdminCouponDashboardKpi,
   type AdminCouponControlRole,
+  type AdminCouponDashboardKpi,
+  type AdminCouponRecentActivity,
 } from "@/lib/stores/admin-coupon-control-shell";
 import { AdminStoreCouponControlList } from "@/components/admin/stores/AdminStoreCouponControlList";
-import type { AdminCouponListFundingFilter, AdminCouponListStatusFilter } from "@/lib/stores/admin-coupon-control-list";
 import { AdminStoreCouponControlDetail } from "@/components/admin/stores/AdminStoreCouponControlDetail";
 import { AdminStoreCouponAdminCreatePanel } from "@/components/admin/stores/AdminStoreCouponAdminCreatePanel";
 import type { CouponControlCampaignView } from "@/lib/stores/admin-coupon-control-realized";
@@ -72,6 +71,12 @@ function AdminStoreCouponControlPageInner() {
   const role = parseAdminCouponControlRole(sp.get(ADMIN_COUPON_CONTROL_VIEW_PARAM));
   const campaignId = parseAdminCouponControlCampaignId(sp.get(ADMIN_COUPON_CONTROL_CAMPAIGN_PARAM));
   const [campaigns, setCampaigns] = useState<CouponControlCampaignView[]>([]);
+  /** 서버 페이지 결과 (R7) — 전체 건수·현황 KPI·최근 처리·매장 필터 옵션은 DB 가 전체 기준으로 계산한다. */
+  const [total, setTotal] = useState(0);
+  const [kpi, setKpi] = useState<AdminCouponDashboardKpi>({ total: 0, active: 0, waiting: 0, ended: 0 });
+  const [recent, setRecent] = useState<AdminCouponRecentActivity[]>([]);
+  const [listStoreOptions, setListStoreOptions] = useState<{ id: string; name: string }[]>([]);
+  const [selected, setSelected] = useState<CouponControlCampaignView | null>(null);
   const [storeOptions, setStoreOptions] = useState<{ id: string; name: string }[]>([]);
   const [actError, setActError] = useState<string | null>(null);
   /** 처리 성공 결과 배너 (DEF-47) — 실패는 detail 의 actError(오류 코드 맵) 로 표시. */
@@ -81,20 +86,44 @@ function AdminStoreCouponControlPageInner() {
   const lq = useAdminListQuery(COUPON_LIST_CONFIG);
   /** 쿠폰번호 검색은 「쿠폰 목록」 화면에서만 서버 조회 조건 — 현황(dashboard) 집계는 항상 전체. */
   const couponNumberQuery = role === "list" ? lq.query.q : "";
+  /** 목록 서버 조회 조건 (limit/offset/status/store_id/funding) — 쿠폰번호 검색 중이면 쓰지 않는다. */
+  const listApiQuery = useMemo(() => {
+    const params = new URLSearchParams(lq.apiQueryString);
+    params.delete("q");
+    return params.toString();
+  }, [lq.apiQueryString]);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (couponNumber?: string) => {
-    const q = couponNumber?.trim() ?? "";
+  const load = useCallback(async () => {
+    const q = couponNumberQuery.trim();
     setLoading(true);
-    const url = q
-      ? `/api/admin/store-coupons?couponNumber=${encodeURIComponent(q)}`
-      : "/api/admin/store-coupons";
+    let url: string;
+    if (role === "detail") {
+      if (!campaignId) {
+        setSelected(null);
+        setLoadError(null);
+        setLoading(false);
+        return;
+      }
+      url = `/api/admin/store-coupons?campaignId=${encodeURIComponent(campaignId)}`;
+    } else if (role === "list" && q) {
+      url = `/api/admin/store-coupons?couponNumber=${encodeURIComponent(q)}`;
+    } else if (role === "list") {
+      url = `/api/admin/store-coupons?${listApiQuery}`;
+    } else {
+      // 현황·발급: KPI·최근 처리만 필요 — 1행 페이지로 전체 기준 집계를 받는다.
+      url = "/api/admin/store-coupons?limit=1&offset=0";
+    }
     let next: CouponControlCampaignView[] = [];
     try {
       const res = await fetch(url, { credentials: "include", cache: "no-store" });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         campaigns?: CouponControlCampaignView[];
+        total?: number;
+        kpi?: AdminCouponDashboardKpi;
+        recent?: AdminCouponRecentActivity[];
+        stores?: { id?: string; name?: string }[];
         error?: string;
       };
       if (!res.ok || !json.ok) {
@@ -102,26 +131,57 @@ function AdminStoreCouponControlPageInner() {
       } else {
         setLoadError(null);
         next = json.campaigns ?? [];
-        setCampaigns(next);
+        if (role === "detail") {
+          setSelected(next.find((c) => c.id === campaignId) ?? null);
+        } else {
+          setCampaigns(next);
+          setTotal(typeof json.total === "number" ? json.total : next.length);
+        }
+        if (json.kpi) setKpi(json.kpi);
+        if (json.recent) setRecent(json.recent);
+        if (json.stores) {
+          const seen = new Set<string>();
+          const out: { id: string; name: string }[] = [];
+          for (const s of json.stores) {
+            const id = String(s.id ?? "").trim();
+            if (!id || seen.has(id)) continue;
+            const name = humanAdminStoreName(s.name);
+            if (!name) continue;
+            seen.add(id);
+            out.push({ id, name });
+          }
+          setListStoreOptions(out);
+        }
       }
     } catch {
       setLoadError({ code: "network_error" });
     }
     setLoading(false);
     // coupon_number search → open matching campaign detail (master trace entry)
-    if (q && next.length === 1 && next[0]?.id) {
+    if (role === "list" && q && next.length === 1 && next[0]?.id) {
       const params = new URLSearchParams(sp.toString());
       params.set(ADMIN_COUPON_CONTROL_VIEW_PARAM, "detail");
       params.set(ADMIN_COUPON_CONTROL_CAMPAIGN_PARAM, String(next[0].id));
       router.replace(`${pathname}?${params.toString()}`);
     }
-    try {
-      const storesRes = await fetch("/api/admin/stores?status=approved", { credentials: "include", cache: "no-store" });
-      const storesJson = (await storesRes.json()) as {
-        ok?: boolean;
-        stores?: { id?: string; store_name?: string; slug?: string }[];
-      };
-      if (storesJson.ok) {
+  }, [campaignId, couponNumberQuery, listApiQuery, pathname, role, router, sp]);
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 화면·조건(주소)·「새로고침」 때만 다시 불러온다
+  }, [role, campaignId, couponNumberQuery, listApiQuery, lq.refreshKey]);
+
+  useEffect(() => {
+    // 발급 화면 매장 선택지 (승인 매장) — 화면 진입 시 1회
+    let cancelled = false;
+    void (async () => {
+      try {
+        const storesRes = await fetch("/api/admin/stores?status=approved", { credentials: "include", cache: "no-store" });
+        const storesJson = (await storesRes.json()) as {
+          ok?: boolean;
+          stores?: { id?: string; store_name?: string; slug?: string }[];
+        };
+        if (cancelled || !storesJson.ok) return;
         const seen = new Set<string>();
         const out: { id: string; name: string }[] = [];
         for (const s of storesJson.stores ?? []) {
@@ -133,16 +193,14 @@ function AdminStoreCouponControlPageInner() {
           out.push({ id, name });
         }
         setStoreOptions(out);
+      } catch {
+        /* keep campaign list */
       }
-    } catch {
-      /* keep campaign list */
-    }
-  }, [pathname, router, sp]);
-
-  useEffect(() => {
-    void load(couponNumberQuery);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 조건(쿠폰번호)·「새로고침」 때만 다시 불러온다
-  }, [couponNumberQuery, lq.refreshKey]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const goRole = (next: AdminCouponControlRole) => {
     const params = new URLSearchParams(sp.toString());
@@ -158,11 +216,6 @@ function AdminStoreCouponControlPageInner() {
     params.set(ADMIN_COUPON_CONTROL_CAMPAIGN_PARAM, id);
     router.replace(`${pathname}?${params.toString()}`);
   };
-
-  const selected = useMemo(
-    () => campaigns.find((c) => c.id === campaignId) ?? null,
-    [campaigns, campaignId]
-  );
 
   /** Confirmation (L1/L2/L3) is collected by the detail pane; this only sends + maps errors. */
   const act = async (id: string, action: string, reason?: string | null) => {
@@ -205,22 +258,6 @@ function AdminStoreCouponControlPageInner() {
     setActDone({ ok: true, message: t("admin_r4c_coupon_act_done") });
     await load();
   };
-
-  const kpi = useMemo(() => summarizeAdminCouponDashboardKpi(campaigns), [campaigns]);
-  const listStoreOptions = useMemo(() => {
-    const seen = new Set<string>();
-    const out: { id: string; name: string }[] = [];
-    for (const row of campaigns) {
-      const id = String(row.store_id ?? "").trim();
-      if (!id || seen.has(id)) continue;
-      const name = humanAdminStoreName(row.store_name);
-      if (!name) continue;
-      seen.add(id);
-      out.push({ id, name });
-    }
-    return out;
-  }, [campaigns]);
-  const recent = useMemo(() => collectAdminCouponRecentActivity(campaigns), [campaigns]);
 
   return (
     <AdminDeliveryCmsChrome>
@@ -357,9 +394,12 @@ function AdminStoreCouponControlPageInner() {
               <AdminStoreCouponControlList
                 campaigns={campaigns}
                 onOpenDetail={goDetail}
-                status={(lq.query.status || "all") as AdminCouponListStatusFilter}
-                funding={(lq.query.extras.funding || "all") as AdminCouponListFundingFilter}
-                storeId={lq.query.extras.store_id}
+                total={total}
+                page={couponNumberQuery ? 1 : lq.query.page}
+                size={lq.query.size}
+                onPageChange={lq.setPage}
+                onSizeChange={lq.setSize}
+                pending={loading}
                 onReset={lq.isFiltered ? lq.reset : undefined}
               />
             )}

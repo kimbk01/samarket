@@ -80,37 +80,24 @@ export type TradePostsContext = {
   activeTradeCategoryIds: string[];
   /** 전체 거래 카테고리 (비활성 포함) */
   allTradeCategoryIds: string[];
-  /** 대기 신고가 걸린 게시물 */
-  reportedPostIds: string[];
   /** lguId 필터 → 레거시 region/city 매핑 */
   legacyLguPairs: { regionId: string; cityIds: string[] }[];
 };
 
+/**
+ * 「신고 접수」 탭 조건 = DB 계산 열 (PostgREST computed field, 마이그레이션 20270601150000).
+ * 대기 신고(`TRADE_ADMIN_OPEN_REPORT_STATUSES` = 'pending','reviewing')가 걸린 거래글 — 게시물 키 product_id, 없으면 target_id.
+ * 예전 「대기 신고 2000건만 먼저 읽어 id in(...)」 방식을 대체한다 (전체 신고 기준).
+ */
+export const TRADE_POST_HAS_OPEN_REPORT_COLUMN = "admin_trade_post_has_open_report";
+
 export async function loadTradePostsContext(
   sb: SupabaseClient,
-  opts: { lguId?: string | null; needReported?: boolean } = {}
+  opts: { lguId?: string | null } = {}
 ): Promise<{ ok: true; ctx: TradePostsContext } | { ok: false; error: string }> {
   const { data: cats, error: cErr } = await sb.from("categories").select("id, is_active").eq("type", "trade");
   if (cErr) return { ok: false, error: cErr.message };
   const rows = (cats ?? []) as { id: string; is_active: boolean | null }[];
-
-  let reportedPostIds: string[] = [];
-  if (opts.needReported !== false) {
-    const { data: reps, error: rErr } = await sb
-      .from("reports")
-      .select("product_id, target_id, target_type")
-      .in("status", [...TRADE_ADMIN_OPEN_REPORT_STATUSES])
-      .in("target_type", ["product", "post"])
-      .limit(2000);
-    if (rErr) return { ok: false, error: rErr.message };
-    reportedPostIds = [
-      ...new Set(
-        ((reps ?? []) as { product_id: string | null; target_id: string | null }[])
-          .map((r) => r.product_id ?? r.target_id ?? "")
-          .filter(Boolean)
-      ),
-    ];
-  }
 
   const legacyLguPairs: { regionId: string; cityIds: string[] }[] = [];
   if (opts.lguId) {
@@ -133,7 +120,6 @@ export async function loadTradePostsContext(
     ctx: {
       activeTradeCategoryIds: rows.filter((r) => r.is_active !== false).map((r) => r.id),
       allTradeCategoryIds: rows.map((r) => r.id),
-      reportedPostIds,
       legacyLguPairs,
     },
   };
@@ -183,7 +169,7 @@ export function applyTradePostsWhere(q: Q, tab: TradePostTab, f: TradePostsFilte
       b = b.eq("owner_state", tab);
       break;
     case "reported":
-      b = b.in("id", ctx.reportedPostIds.length ? ctx.reportedPostIds : [NONE_ID]);
+      b = b.eq(TRADE_POST_HAS_OPEN_REPORT_COLUMN, true);
       break;
     case "unclassified":
       groups.push(`or(trade_category_id.is.null,trade_category_id.not.in.(${csv(ctx.activeTradeCategoryIds)}))`);

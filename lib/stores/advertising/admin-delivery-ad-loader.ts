@@ -9,7 +9,11 @@ import {
   type AdminDeliveryAdListBucket,
   type AdminDeliveryAdProduct,
 } from "@/lib/stores/advertising/admin-delivery-ad-contract";
-import { isAdminBannerNeedsCreativeProduction } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
+import {
+  DELIVERY_BANNER_CREATIVE_READINESS,
+  isAdminBannerNeedsCreativeProduction,
+} from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
+import type { AdminHubTodayCounts } from "@/lib/stores/advertising/delivery-ad-admin-hub-today-counts";
 import {
   BANNER_AD_CAMPAIGN_TABLE,
   STORE_SPONSORED_CAMPAIGN_TABLE,
@@ -212,6 +216,55 @@ export async function loadAdminDeliveryAdCampaignList(
 
   const sponsoredRows = (sponsoredRes.data ?? []) as Record<string, unknown>[];
   const bannerRows = (bannerRes.data ?? []) as Record<string, unknown>[];
+  const hydrated = await hydrateAdminDeliveryAdRows(sb, sponsoredRows, bannerRows);
+  let items = [...hydrated.sponsored, ...hydrated.banner].sort(
+    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+  );
+
+  const inventoryKey = filters.inventoryKey?.trim() || null;
+  const primarySlug = filters.primarySlug?.trim() || null;
+  const subSlug = filters.subSlug?.trim() || null;
+
+  const policyCounts = inventoryKey
+    ? bucketPolicyCampaignCounts(
+        items.map((i) => ({
+          inventoryKeys: i.inventoryKeys,
+          lifecycleStatus: i.lifecycleStatus,
+          storePrimarySlug: i.storePrimarySlug,
+          storeSubSlug: i.storeSubSlug,
+        })),
+        { inventoryKey, primarySlug, subSlug }
+      )
+    : null;
+
+  if (inventoryKey) {
+    items = items.filter((i) => {
+      if (!i.inventoryKeys.includes(inventoryKey)) return false;
+      if (inventoryKey === "STORES_CATEGORY_FEED" && primarySlug) {
+        if ((i.storePrimarySlug ?? "").toLowerCase() !== primarySlug.toLowerCase()) return false;
+        if (subSlug && (i.storeSubSlug ?? "").toLowerCase() !== subSlug.toLowerCase()) return false;
+      }
+      return true;
+    });
+  }
+
+  const summary = summarize(items);
+  if (filters.bucket && filters.bucket !== "all") {
+    items = items.filter((i) => i.listBucket === filters.bucket);
+  }
+
+  return { items: items.slice(0, limit), summary, policyCounts };
+}
+
+/**
+ * 캠페인 원본 행 → 목록 항목 (매장·광고주·노출 위치 보강, N+1 없음).
+ * 목록(`loadAdminDeliveryAdCampaignList`)·R7 서버 페이지(`loadAdminDeliveryAdCampaignPage`) 공용.
+ */
+export async function hydrateAdminDeliveryAdRows(
+  sb: SupabaseClient,
+  sponsoredRows: Record<string, unknown>[],
+  bannerRows: Record<string, unknown>[]
+): Promise<{ sponsored: AdminDeliveryAdListItem[]; banner: AdminDeliveryAdListItem[] }> {
   const campaignIdsSponsored = sponsoredRows.map((r) => String(r.id));
   const campaignIdsBanner = bannerRows.map((r) => String(r.id));
   const storeIds = [
@@ -374,44 +427,151 @@ export async function loadAdminDeliveryAdCampaignList(
     };
   };
 
-  let items = [
-    ...sponsoredRows.map((r) => mapRow(r, "store_sponsored")),
-    ...bannerRows.map((r) => mapRow(r, "banner")),
-  ].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+  return {
+    sponsored: sponsoredRows.map((r) => mapRow(r, "store_sponsored")),
+    banner: bannerRows.map((r) => mapRow(r, "banner")),
+  };
+}
 
-  const inventoryKey = filters.inventoryKey?.trim() || null;
-  const primarySlug = filters.primarySlug?.trim() || null;
-  const subSlug = filters.subSlug?.trim() || null;
+/** 캠페인 id 로 목록 항목 읽기 (페이지 id 만 — 상한 없는 후보 목록이 아니다). 입력 순서 유지. */
+export async function loadAdminDeliveryAdCampaignsByIds(
+  sb: SupabaseClient,
+  refs: ReadonlyArray<{ productKind: AdminDeliveryAdProduct; id: string }>
+): Promise<{ items: AdminDeliveryAdListItem[]; error?: string }> {
+  const sponsoredIds = [...new Set(refs.filter((r) => r.productKind === "store_sponsored").map((r) => r.id))];
+  const bannerIds = [...new Set(refs.filter((r) => r.productKind === "banner").map((r) => r.id))];
+  const [sponsoredRes, bannerRes] = await Promise.all([
+    sponsoredIds.length
+      ? sb.from(STORE_SPONSORED_CAMPAIGN_TABLE).select(SPONSORED_SELECT).in("id", sponsoredIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
+    bannerIds.length
+      ? sb.from(BANNER_AD_CAMPAIGN_TABLE).select(BANNER_SELECT).in("id", bannerIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
+  ]);
+  const err = sponsoredRes.error ?? bannerRes.error;
+  if (err) return { items: [], error: err.message };
+  const hydrated = await hydrateAdminDeliveryAdRows(
+    sb,
+    (sponsoredRes.data ?? []) as unknown as Record<string, unknown>[],
+    (bannerRes.data ?? []) as unknown as Record<string, unknown>[]
+  );
+  const byKey = new Map<string, AdminDeliveryAdListItem>();
+  for (const it of [...hydrated.sponsored, ...hydrated.banner]) byKey.set(`${it.productKind}:${it.id}`, it);
+  const items = refs
+    .map((r) => byKey.get(`${r.productKind}:${r.id}`))
+    .filter((x): x is AdminDeliveryAdListItem => x != null);
+  return { items };
+}
 
-  const policyCounts = inventoryKey
-    ? bucketPolicyCampaignCounts(
-        items.map((i) => ({
-          inventoryKeys: i.inventoryKeys,
-          lifecycleStatus: i.lifecycleStatus,
-          storePrimarySlug: i.storePrimarySlug,
-          storeSubSlug: i.storeSubSlug,
-        })),
-        { inventoryKey, primarySlug, subSlug }
-      )
-    : null;
-
-  if (inventoryKey) {
-    items = items.filter((i) => {
-      if (!i.inventoryKeys.includes(inventoryKey)) return false;
-      if (inventoryKey === "STORES_CATEGORY_FEED" && primarySlug) {
-        if ((i.storePrimarySlug ?? "").toLowerCase() !== primarySlug.toLowerCase()) return false;
-        if (subSlug && (i.storeSubSlug ?? "").toLowerCase() !== subSlug.toLowerCase()) return false;
-      }
-      return true;
-    });
+/**
+ * 노출 일정 계산용 캠페인 (점유·충돌·종료 임박) — 지정 lifecycle 전체, 고정 상한 없음.
+ * 「최근 수정 N건」으로 자르면 정원·충돌 계산이 빠지므로 lifecycle 조건으로만 읽는다.
+ */
+export async function loadAdminDeliveryAdCampaignsByLifecycles(
+  sb: SupabaseClient,
+  lifecycles: readonly string[],
+  opts: { storeId?: string | null } = {}
+): Promise<{ items: AdminDeliveryAdListItem[]; error?: string }> {
+  const list = [...new Set(lifecycles.map((l) => String(l).trim()).filter(Boolean))];
+  if (!list.length) return { items: [] };
+  let sponsoredQ = sb.from(STORE_SPONSORED_CAMPAIGN_TABLE).select(SPONSORED_SELECT).in("lifecycle_status", list);
+  let bannerQ = sb.from(BANNER_AD_CAMPAIGN_TABLE).select(BANNER_SELECT).in("lifecycle_status", list);
+  const storeId = opts.storeId?.trim();
+  if (storeId) {
+    sponsoredQ = sponsoredQ.eq("store_id", storeId);
+    bannerQ = bannerQ.eq("store_id", storeId);
   }
+  const [sponsoredRes, bannerRes] = await Promise.all([sponsoredQ, bannerQ]);
+  const err = sponsoredRes.error ?? bannerRes.error;
+  if (err) return { items: [], error: err.message };
+  const hydrated = await hydrateAdminDeliveryAdRows(
+    sb,
+    (sponsoredRes.data ?? []) as unknown as Record<string, unknown>[],
+    (bannerRes.data ?? []) as unknown as Record<string, unknown>[]
+  );
+  return {
+    items: [...hydrated.sponsored, ...hydrated.banner].sort(
+      (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0)
+    ),
+  };
+}
 
-  const summary = summarize(items);
-  if (filters.bucket && filters.bucket !== "all") {
-    items = items.filter((i) => i.listBucket === filters.bucket);
+/** R7 서버 페이지 보기 — 허브 보기(처리 필요·이력 포함) 또는 목록 버킷. */
+export type AdminDeliveryAdPageView = "all" | "actionable" | "history" | Exclude<AdminDeliveryAdListBucket, "all">;
+
+export const ADMIN_DELIVERY_AD_CAMPAIGNS_PAGE_RPC = "admin_delivery_ad_campaigns_page";
+
+/**
+ * R7 — 배달 광고 목록 서버 페이지 (`admin_delivery_ad_campaigns_page` RPC 한 번: 보기·필터·정렬·페이지·total·요약).
+ * 상한 없는 전체 기준 total / summary / policyCounts / todayCounts.
+ */
+export async function loadAdminDeliveryAdCampaignPage(
+  sb: SupabaseClient,
+  input: {
+    product?: AdminDeliveryAdProduct | "all";
+    view?: AdminDeliveryAdPageView;
+    storeId?: string | null;
+    ownerUserId?: string | null;
+    inventoryKey?: string | null;
+    primarySlug?: string | null;
+    subSlug?: string | null;
+    limit: number;
+    offset: number;
   }
-
-  return { items: items.slice(0, limit), summary, policyCounts };
+): Promise<{
+  items: AdminDeliveryAdListItem[];
+  total: number;
+  summary: AdminDeliveryAdSummary;
+  policyCounts: PolicyCampaignCounts | null;
+  todayCounts: AdminHubTodayCounts | null;
+  error?: string;
+}> {
+  const { data, error } = await sb.rpc(ADMIN_DELIVERY_AD_CAMPAIGNS_PAGE_RPC, {
+    p_product: input.product && input.product !== "all" ? input.product : null,
+    p_view: input.view ?? "all",
+    p_store_id: input.storeId?.trim() || null,
+    p_owner_user_id: input.ownerUserId?.trim() || null,
+    p_inventory_key: input.inventoryKey?.trim() || null,
+    p_primary_slug: input.primarySlug?.trim() || null,
+    p_sub_slug: input.subSlug?.trim() || null,
+    p_pending_asset: DELIVERY_BANNER_CREATIVE_READINESS.pendingAssetPath,
+    p_limit: input.limit,
+    p_offset: input.offset,
+  });
+  if (error) {
+    return { items: [], total: 0, summary: emptySummary(), policyCounts: null, todayCounts: null, error: error.message };
+  }
+  const payload = (data ?? {}) as {
+    total?: unknown;
+    summary?: Partial<AdminDeliveryAdSummary> | null;
+    policy_counts?: PolicyCampaignCounts | null;
+    today_counts?: AdminHubTodayCounts | null;
+    rows?: Array<{ product_kind?: unknown; id?: unknown }>;
+  };
+  const refs = (Array.isArray(payload.rows) ? payload.rows : []).flatMap((r) => {
+    const kind = String(r.product_kind ?? "");
+    const id = String(r.id ?? "");
+    return (kind === "store_sponsored" || kind === "banner") && id
+      ? [{ productKind: kind as AdminDeliveryAdProduct, id }]
+      : [];
+  });
+  const loaded = await loadAdminDeliveryAdCampaignsByIds(sb, refs);
+  const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const summary: AdminDeliveryAdSummary = {
+    total: num(payload.summary?.total),
+    review: num(payload.summary?.review),
+    active: num(payload.summary?.active),
+    held: num(payload.summary?.held),
+    ended: num(payload.summary?.ended),
+  };
+  return {
+    items: loaded.items,
+    total: num(payload.total),
+    summary,
+    policyCounts: payload.policy_counts ?? null,
+    todayCounts: payload.today_counts ?? null,
+    ...(loaded.error ? { error: loaded.error } : {}),
+  };
 }
 
 export async function loadAdminDeliveryAdCampaignDetail(

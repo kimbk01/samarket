@@ -20,6 +20,9 @@ import { notifyTradeSanction } from "@/lib/notifications/notify-trade-moderation
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** 거래 경고·제한 + 대상 회원 닉네임 (service_role 전용 조회 뷰) */
+const TRADE_SANCTIONS_SEARCH_VIEW = "admin_trade_sanctions_v";
+
 const SELECT =
   "id, user_id, sanction_type, restriction, start_at, end_at, reason, created_by, created_at, revoked_at, revoked_by, revoke_reason, source_report_id";
 
@@ -45,27 +48,25 @@ export async function GET(req: NextRequest) {
   const userId = communityAdminUuidOrNull(sp.get("userId"));
   const q = sanitizeAdminListSearch(sp.get("q"));
 
-  let userFilter: string[] | null = userId ? [userId] : null;
-  if (q) {
-    const { data: profs, error: pErr } = await sb
-      .from("profiles")
-      .select("id")
-      .ilike("nickname", `%${escapeAdminIlike(q)}%`)
-      .limit(200);
-    if (pErr) return NextResponse.json({ ok: false, error: pErr.message }, { status: 500 });
-    const ids = ((profs ?? []) as Array<{ id: string }>).map((p) => p.id);
-    userFilter = userFilter ? userFilter.filter((x) => ids.includes(x)) : ids;
-    if (userFilter.length === 0) return NextResponse.json({ ok: true, rows: [], total: 0, limit, offset });
-  }
-
   const nowIso = new Date().toISOString();
-  let query = sb.from("sanctions").select(SELECT, { count: "exact" }).eq("scope", "trade");
+  /**
+   * 닉네임 검색 = 조회 전용 뷰 `admin_trade_sanctions_v`(sanctions scope='trade' + 대상 회원 닉네임 열, 마이그레이션 20270601150100)
+   * 의 열 조건 — 예전 「닉네임 일치 회원 200명만 먼저 찾아 in(...)」 제거. 검색어가 없으면 기존대로 `sanctions` 를 읽는다.
+   */
+  let query = sb
+    .from(q ? TRADE_SANCTIONS_SEARCH_VIEW : "sanctions")
+    .select(SELECT, { count: "exact" })
+    .eq("scope", "trade");
   if (kind) query = query.eq("sanction_type", kind);
-  if (userFilter) query = query.in("user_id", userFilter);
+  if (userId) query = query.eq("user_id", userId);
+  if (q) query = query.ilike("user_nickname", `%${escapeAdminIlike(q)}%`);
   if (status === "active") query = query.is("revoked_at", null).or(`end_at.is.null,end_at.gt.${nowIso}`);
   else if (status === "expired") query = query.is("revoked_at", null).lte("end_at", nowIso);
   else if (status === "revoked") query = query.not("revoked_at", "is", null);
-  const { data, error, count } = await query.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+  const { data, error, count } = await query
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
   const rows = (data ?? []) as Record<string, unknown>[];

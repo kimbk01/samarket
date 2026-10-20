@@ -10,7 +10,6 @@
  *      actorNickname }] }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { loadPromotionLedgerRelatedIds, postgrestInList } from "@/lib/points/promotion-ledger-related-ids";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
 import {
@@ -26,9 +25,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 거래 홍보 주문 id 상한 — 넘으면 오래된 주문 행이 빠질 수 있어 응답에 표시 */
 const TRADE_POINT_RELATED_TYPES = ["promotion_order", "trade_post_ad", "admin_manual"] as const;
-const PROMO_ORDER_ID_CAP = 500;
 
 type LedgerRow = {
   id: string;
@@ -63,32 +60,6 @@ export async function GET(req: NextRequest) {
   const entryType = String(sp.get("entryType") ?? "").trim().replace(/[^a-z_]/g, "").slice(0, 40) || null;
 
   const sb = gate.sb;
-  let promoRelatedIds: string[] = [];
-  let promoCapped = false;
-  if (types.includes("promotion_order")) {
-    // D-30: 보류(hold:)·확정(capture:)·해제(release:) 원장 행까지 포함
-    const res = await loadPromotionLedgerRelatedIds(sb, "trade", PROMO_ORDER_ID_CAP);
-    if (!res.ok) return communityReadError(res.error, 500);
-    promoRelatedIds = res.relatedIds;
-    promoCapped = res.capped;
-  }
-  const plain = types.filter((t) => t !== "promotion_order");
-  const ors = [
-    ...(plain.length ? [`related_type.in.(${plain.join(",")})`] : []),
-    ...(promoRelatedIds.length
-      ? [`and(related_type.eq.promotion_order,related_id.in.(${postgrestInList(promoRelatedIds)}))`]
-      : []),
-  ];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- PostgREST 빌더 체인 공용 필터
-  const apply = (q: any): any => {
-    let x = q.or(ors.join(","));
-    if (userId) x = x.eq("user_id", userId);
-    if (entryType) x = x.eq("entry_type", entryType);
-    if (period.fromIso) x = x.gte("created_at", period.fromIso);
-    if (period.toIso) x = x.lt("created_at", period.toIso);
-    return x;
-  };
-
   const emptyPeriod = {
     period: period.period,
     from: period.fromDate,
@@ -96,31 +67,35 @@ export async function GET(req: NextRequest) {
     fromIso: period.fromIso,
     toIso: period.toIso,
   };
-  if (!ors.length) {
-    return NextResponse.json({ ok: true, total: 0, limit, offset, period: emptyPeriod, sums: { count: 0, amountIn: 0, amountOut: 0 }, rows: [], promoOrderIdCapped: false });
-  }
 
-  const { data, error, count } = await apply(
-    sb.from("point_ledger").select("*", { count: "exact" }).order("created_at", { ascending: false })
-  ).range(offset, offset + limit - 1);
+  // R7: 유형(홍보 주문 = 거래 홍보 주문에 연결된 원장 행 · D-30 보류·확정·해제 포함)·회원·원장 종류·기간 →
+  // 정렬·페이지·합계를 DB 한 번에 (커뮤니티 원장과 같은 RPC · p_domain='trade').
+  // 예전: 홍보 주문 id 최근 500건만 in(...) 으로 거르고 합계는 최대 5,000행만 읽었다.
+  const { data, error } = await sb.rpc("admin_point_ledger_domain_page", {
+    p_domain: "trade",
+    p_related_types: types,
+    p_user_id: userId,
+    p_entry_type: entryType,
+    p_from: period.fromIso ?? null,
+    p_to: period.toIso ?? null,
+    p_limit: limit,
+    p_offset: offset,
+  });
   if (error) return communityReadError(error.message, 500);
-  const rows = (data ?? []) as LedgerRow[];
-
-  // 합계 — 같은 조건 최대 5,000행 (넘으면 null = 「확인 불가」)
-  let sums: { count: number; amountIn: number; amountOut: number } | null = null;
-  if ((count ?? 0) <= 5000) {
-    const { data: all, error: sumErr } = await apply(sb.from("point_ledger").select("amount")).limit(5000);
-    if (!sumErr) {
-      let amountIn = 0;
-      let amountOut = 0;
-      for (const r of (all ?? []) as { amount: number | null }[]) {
-        const n = Number(r.amount ?? 0);
-        if (n >= 0) amountIn += n;
-        else amountOut += n;
+  const res = (data ?? {}) as {
+    total?: number;
+    sums?: { count?: number; amount_in?: number; amount_out?: number } | null;
+    rows?: LedgerRow[];
+  };
+  const rows = Array.isArray(res.rows) ? res.rows : [];
+  const count = Number(res.total ?? 0);
+  const sums = res.sums
+    ? {
+        count: Number(res.sums.count ?? 0),
+        amountIn: Number(res.sums.amount_in ?? 0),
+        amountOut: Number(res.sums.amount_out ?? 0),
       }
-      sums = { count: (all ?? []).length, amountIn, amountOut };
-    }
-  }
+    : null;
 
   const people = await loadCommunityProfileBriefs(sb, [...rows.map((r) => r.user_id), ...rows.map((r) => r.actor_id)]);
   const nick = (id: string | null | undefined) => {
@@ -130,12 +105,12 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    total: count ?? null,
+    total: count,
     limit,
     offset,
     period: emptyPeriod,
     sums,
-    promoOrderIdCapped: promoCapped,
+    promoOrderIdCapped: false,
     rows: rows.map((r) => ({
       id: r.id,
       createdAt: r.created_at,

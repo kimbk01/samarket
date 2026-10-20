@@ -16,6 +16,7 @@ import {
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
@@ -28,7 +29,6 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
 
 const STATUS_FILTERS = ["all", "pending_approval", "success", "failed", "rejected"] as const;
-type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 /**
  * 목록 조건 = 주소 (R7) — `status`(대시보드·상황판 지표 딥링크 `?status=failed` 호환) · `rule_id` ·
@@ -128,11 +128,12 @@ function AdminDeliveryAutoActionsPageInner() {
   const [settingsErr, setSettingsErr] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [actions, setActions] = useState<ActionRow[]>([]);
+  /** 조건에 맞는 전체 건수 (서버 count) — 페이지 이동 기준. */
+  const [total, setTotal] = useState(0);
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [rulePicklist, setRulePicklist] = useState<RulePick[]>([]);
   // URL `status` 필터 — 대시보드·상황판 지표 링크가 필터된 상태로 연다 (DEF-53 계열)
   const lq = useAdminListQuery(LIST_CONFIG);
-  const filterStatus = (lq.query.status || "all") as StatusFilter;
   const ruleId = lq.query.extras.rule_id;
   const dangerousOnly = lq.query.extras.dangerous_only === "1";
   const retryOnly = lq.query.extras.retry_only === "1";
@@ -162,20 +163,12 @@ function AdminDeliveryAutoActionsPageInner() {
       });
   }, []);
 
-  const buildQuery = useCallback(() => {
-    const qs = new URLSearchParams();
-    qs.set("limit", "100");
-    if (filterStatus !== "all") qs.set("status", filterStatus);
-    if (ruleId.trim()) qs.set("rule_id", ruleId.trim());
-    if (dangerousOnly) qs.set("dangerous_only", "1");
-    if (retryOnly) qs.set("retry_only", "1");
-    if (todayOnly) qs.set("today_only", "1");
-    return qs.toString();
-  }, [filterStatus, ruleId, dangerousOnly, retryOnly, todayOnly]);
+  /** 서버 페이지네이션 (R7) — `limit`/`offset` + 필터 키를 주소 상태에서 그대로 만든다. */
+  const apiQuery = lq.apiQueryString;
 
   const loadData = useCallback(() => {
     setLoading(true);
-    void fetch(`/api/admin/delivery-auto-actions?${buildQuery()}`, { cache: "no-store" })
+    void fetch(`/api/admin/delivery-auto-actions?${apiQuery}`, { cache: "no-store" })
       .then(async (r) => {
         const j = await r.json().catch(() => null);
         if (!r.ok) {
@@ -186,6 +179,7 @@ function AdminDeliveryAutoActionsPageInner() {
         }
         const list = Array.isArray(j?.actions) ? j.actions : [];
         setActions(list.filter((x: unknown): x is ActionRow => x != null && typeof x === "object"));
+        setTotal(typeof j?.total === "number" && Number.isFinite(j.total) ? j.total : list.length);
         const dash = j?.dashboard && typeof j.dashboard === "object" ? (j.dashboard as DashboardPayload) : null;
         setDashboard(dash);
         const pick = Array.isArray(dash?.rule_picklist) ? (dash!.rule_picklist as RulePick[]) : [];
@@ -197,7 +191,7 @@ function AdminDeliveryAutoActionsPageInner() {
         setLoadErr({ code: "network_error" });
         setLoading(false);
       });
-  }, [buildQuery]);
+  }, [apiQuery]);
 
   useEffect(() => {
     loadSettings();
@@ -784,6 +778,17 @@ function AdminDeliveryAutoActionsPageInner() {
           </tbody>
         </table>
       </div>
+      {total > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+      ) : null}
       {loading && actions.length === 0 ? (
         <AdminLoadingState ko={ko} />
       ) : actions.length === 0 && !loadErr ? (

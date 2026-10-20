@@ -5,8 +5,10 @@
  *   · 상태: 운영 DB 에 `is_hidden_by_admin` 컬럼이 없어 모든 후기가 「노출」 → `hidden`·`reported` 는 0건.
  *   · 별점: good=5 · bad=1 · 그 외(normal·알 수 없는 값)=3 → 2·4 는 0건.
  *   · 역할: seller_to_buyer 외의 값은 buyer_to_seller 로 본다.
- *   · 검색어: 후기 내용 · 거래글 제목 · 작성자/대상 닉네임(표시명·아이디) · 거래 채팅 번호(전체 일치).
- *     제목·닉네임은 일치하는 글·회원 id 를 먼저 찾아(각 최대 SEARCH_ID_CAP) `in` 조건으로 건다.
+ *   · 검색어: 후기 내용 · 거래글 제목 · 작성자/대상 닉네임(표시명·아이디) · 거래 채팅 번호(부분 일치).
+ *     제목·닉네임은 조회 전용 뷰 `admin_transaction_reviews_search_v`(후기 + 거래글 제목·작성자/대상 프로필 열,
+ *     마이그레이션 20270601150100)의 열 조건으로 건다 — 예전 「일치 글·회원 id 각 200건만 먼저 찾아 in(...)」 제거.
+ *     검색어가 없으면 기존대로 `transaction_reviews` 를 읽는다.
  */
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
@@ -23,8 +25,8 @@ export const ADMIN_TRANSACTION_REVIEW_SELECT_FIELDS =
   "id, product_id, room_id, reviewer_id, reviewee_id, role_type, public_review_type, private_manner_score, private_tags, is_anonymous_negative, created_at, positive_tag_keys, negative_tag_keys, review_comment";
 // Production has no transaction_reviews.is_hidden_by_admin — omit from SELECT.
 
-/** 검색어 → 거래글·회원 id 미리 찾기 상한 (검색 조건 해석용 — 목록 상한 아님) */
-export const ADMIN_REVIEW_SEARCH_ID_CAP = 200;
+/** 검색어가 있을 때 읽는 조회 전용 뷰 (service_role 전용) */
+export const ADMIN_TRANSACTION_REVIEW_SEARCH_VIEW = "admin_transaction_reviews_search_v";
 
 export type AdminTransactionReviewsListParams = {
   limit: number;
@@ -35,7 +37,6 @@ export type AdminTransactionReviewsListParams = {
   role: "" | "buyer_to_seller" | "seller_to_buyer";
 };
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function parseAdminTransactionReviewsListParams(sp: URLSearchParams): AdminTransactionReviewsListParams {
   const { limit, offset } = parseTradeAdminListPage(sp);
@@ -57,7 +58,9 @@ export async function listAdminTransactionReviewRows(
   if (p.status === "hidden" || p.status === "reported") return { ok: true, rows: [], total: 0 };
   if (p.rating === 2 || p.rating === 4) return { ok: true, rows: [], total: 0 };
 
-  let query = sbAny.from("transaction_reviews").select(ADMIN_TRANSACTION_REVIEW_SELECT_FIELDS, { count: "exact" });
+  let query = sbAny
+    .from(p.q ? ADMIN_TRANSACTION_REVIEW_SEARCH_VIEW : "transaction_reviews")
+    .select(ADMIN_TRANSACTION_REVIEW_SELECT_FIELDS, { count: "exact" });
   if (p.rating === 5) query = query.eq("public_review_type", "good");
   else if (p.rating === 1) query = query.eq("public_review_type", "bad");
   else if (p.rating === 3) query = query.or("public_review_type.is.null,public_review_type.not.in.(good,bad)");
@@ -66,42 +69,22 @@ export async function listAdminTransactionReviewRows(
 
   if (p.q) {
     const like = `%${escapeAdminIlike(p.q)}%`;
-    const [posts, people] = await Promise.all([
-      sbAny.from(POSTS_TABLE_READ).select("id").ilike("title", like).limit(ADMIN_REVIEW_SEARCH_ID_CAP),
-      sbAny
-        .from("profiles")
-        .select("id")
-        .or(`nickname.ilike.${like},display_name.ilike.${like},username.ilike.${like}`)
-        .limit(ADMIN_REVIEW_SEARCH_ID_CAP),
-    ]);
-    if (posts.error) return { ok: false, error: String(posts.error.message ?? "posts_search_failed") };
-    if (people.error) return { ok: false, error: String(people.error.message ?? "profiles_search_failed") };
-    const postIds = ((posts.data ?? []) as { id: unknown }[]).map((x) => String(x.id)).filter(Boolean);
-    const userIds = ((people.data ?? []) as { id: unknown }[]).map((x) => String(x.id)).filter(Boolean);
-    const ors = [`review_comment.ilike.${like}`];
-    if (postIds.length) ors.push(`product_id.in.(${postIds.join(",")})`);
-    if (userIds.length) ors.push(`reviewer_id.in.(${userIds.join(",")})`, `reviewee_id.in.(${userIds.join(",")})`);
-    // 채팅(거래) 번호: 예전 화면처럼 일부만 입력해도 찾는다 — uuid 열은 ilike 불가라
-    // 후기 테이블의 room_id 만 읽어(열 하나) 부분 일치를 고른다. 전체 uuid 면 바로 같음 조건.
-    if (UUID_RE.test(p.q)) ors.push(`room_id.eq.${p.q}`);
-    else if (/^[0-9a-f-]{4,}$/i.test(p.q)) {
-      const rooms = await sbAny.from("transaction_reviews").select("room_id");
-      if (rooms.error) return { ok: false, error: String(rooms.error.message ?? "rooms_search_failed") };
-      const needle = p.q.toLowerCase();
-      const roomIds = [
-        ...new Set(
-          ((rooms.data ?? []) as { room_id: unknown }[])
-            .map((x) => String(x.room_id ?? ""))
-            .filter((id) => id && id.toLowerCase().includes(needle))
-        ),
-      ];
-      if (roomIds.length) ors.push(`room_id.in.(${roomIds.join(",")})`);
-    }
+    const ors = [
+      `review_comment.ilike.${like}`,
+      `post_title.ilike.${like}`,
+      ...["reviewer", "reviewee"].flatMap((who) =>
+        ["nickname", "display_name", "username"].map((col) => `${who}_${col}.ilike.${like}`)
+      ),
+    ];
+    // 채팅(거래) 번호: 예전 화면처럼 일부만 입력해도 찾는다 — 검색 뷰의 room_id_text(문자열) 부분 일치.
+    // (uuid 열은 ilike 불가 · room_id 전체를 읽어 고르면 PostgREST 최대 행 수에서 잘린다)
+    if (/^[0-9a-f-]{4,}$/i.test(p.q)) ors.push(`room_id_text.ilike.${like}`);
     query = query.or(ors.join(","));
   }
 
   const { data, error, count } = await query
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .range(p.offset, p.offset + p.limit - 1);
   if (error) return { ok: false, error: String(error.message ?? "list_failed") };
   const rows = (data ?? []) as TransactionReviewDbRow[];

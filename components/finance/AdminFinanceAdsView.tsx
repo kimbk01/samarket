@@ -24,13 +24,18 @@ import {
   financeStoreHref,
   financeTransactionDetailHref,
 } from "@/lib/finance/routes";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 
+/** R7 — 서버 페이지 (주소 `page`·`size` → API `limit`/`offset`, 전체 건수 = 서버 total). */
 export function AdminFinanceAdsView() {
   const { language } = useI18n();
   const ko = language !== "en";
   const sp = useSearchParams();
   const filters = useMemo(() => parseFinanceFilters(new URLSearchParams(sp.toString())), [sp]);
+  const lq = useAdminListQuery();
   const [rows, setRows] = useState<AdFundingTrace[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +43,10 @@ export function AdminFinanceAdsView() {
     setLoading(true);
     setError(null);
     try {
-      const qs = new URLSearchParams({ limit: "80" });
+      const qs = new URLSearchParams({
+        limit: String(lq.query.size),
+        offset: String((lq.query.page - 1) * lq.query.size),
+      });
       if (filters.storeId) qs.set("storeId", filters.storeId);
       if (filters.memberId) qs.set("memberId", filters.memberId);
       if (filters.wallet === "POINT") qs.set("fundingRail", "MEMBER_POINT");
@@ -50,21 +58,26 @@ export function AdminFinanceAdsView() {
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         traces?: AdFundingTrace[];
+        total?: number;
         error?: string;
       };
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
         setRows([]);
+        setTotal(0);
         return;
       }
-      setRows(json.traces ?? []);
+      const list = json.traces ?? [];
+      setRows(list);
+      setTotal(typeof json.total === "number" ? json.total : list.length);
     } catch {
       setError("network_error");
       setRows([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [filters.storeId, filters.memberId, filters.wallet]);
+  }, [filters.storeId, filters.memberId, filters.wallet, lq.query.page, lq.query.size]);
 
   useEffect(() => {
     void load();
@@ -190,6 +203,17 @@ export function AdminFinanceAdsView() {
           </tbody>
         </table>
       </div>
+      ) : null}
+      {!loading && !error && total > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
       ) : null}
     </div>
   );

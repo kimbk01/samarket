@@ -4,10 +4,9 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import type { AdminListQueryPatch } from "@/lib/admin/list-query/admin-list-query";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getReportsForAdminFromDb } from "@/lib/admin-reports/getReportsFromDb";
+import { getReportsPageForAdminFromDb } from "@/lib/admin-reports/getReportsFromDb";
 import type { Report } from "@/lib/types/report";
 import {
-  filterReports,
   REPORT_STATUS_OPTIONS,
   resolveAdminReportDomainFromQuery,
   type AdminReportDomainFilter,
@@ -19,6 +18,7 @@ import { AdminReportFilterBar } from "./AdminReportFilterBar";
 import { AdminReportTable } from "./AdminReportTable";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import Link from "next/link";
 
 function resolveTargetTypeFromQuery(raw: string | null): AdminReportFilters["targetType"] {
@@ -74,64 +74,52 @@ export function AdminReportListPage() {
     lq.patch(patch);
   };
   const [reports, setReports] = useState<Report[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
-  /** A source failed to load — the list is partial and must not read as "nothing pending". */
+  /** 목록을 불러오지 못함 — 직전 정상 목록은 지우지 않는다 (§8-5) · 「신고 없음」으로 보이지 않게. */
   const [loadFailure, setLoadFailure] = useState<{ code: string; httpStatus?: number } | null>(null);
+
+  /**
+   * R7 — 거래(reports)·커뮤니티(community_reports) 신고를 서버(DB)에서 합쳐 필터·정렬·페이지한다.
+   * 예전처럼 출처별 고정 상한(2000·300건)으로 읽어 브라우저에서 합치지 않는다. `?target=` 도 서버 필터.
+   */
+  const apiParams = useMemo(() => {
+    const qs = new URLSearchParams();
+    qs.set("limit", String(lq.query.size));
+    qs.set("offset", String((lq.query.page - 1) * lq.query.size));
+    const domain = domainParamOf(filters.reportSource);
+    if (domain) qs.set("domain", domain);
+    if (filters.status) qs.set("status", filters.status);
+    if (filters.targetType) qs.set("target_type", filters.targetType);
+    if (filters.reasonCode) qs.set("reason", filters.reasonCode);
+    if (targetFromQuery) qs.set("target", targetFromQuery);
+    return qs.toString();
+  }, [lq.query.page, lq.query.size, filters, targetFromQuery]);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [tradeRes, feedRes] = await Promise.all([
-      getReportsForAdminFromDb().then(
-        (list) => ({ ok: true as const, list }),
-        () => ({ ok: false as const, list: [] as Report[] })
-      ),
-      fetch("/api/admin/community-reports", { credentials: "include", cache: "no-store" })
-        .then(async (r) => ({ status: r.status, json: (await r.json().catch(() => null)) as {
-          ok?: boolean;
-          error?: string;
-          reports?: Report[];
-        } | null }))
-        .catch(() => ({ status: 0, json: null })),
-    ]);
-    const feedOk = Boolean(feedRes.json?.ok && Array.isArray(feedRes.json.reports));
-    if (!tradeRes.ok && !feedOk) {
-      // 두 출처 모두 실패 — 직전 정상 목록은 지우지 않는다 (§8-5).
+    try {
+      const page = await getReportsPageForAdminFromDb(new URLSearchParams(apiParams));
+      setReports(page.reports);
+      setTotal(page.total);
+      setLoaded(true);
+      setLoadFailure(null);
+    } catch (e) {
+      const httpStatus = (e as { httpStatus?: number }).httpStatus;
+      const message = e instanceof Error ? e.message : "";
       setLoadFailure({
-        code: feedRes.json?.error || (feedRes.status ? "load_failed" : "network_error"),
-        httpStatus: feedRes.status || undefined,
+        code: !httpStatus ? "network_error" : message && !/^reports_load_failed_/.test(message) ? message : "load_failed",
+        httpStatus: httpStatus || undefined,
       });
+    } finally {
       setLoading(false);
-      return;
     }
-    const feedList: Report[] = feedOk ? (feedRes.json!.reports as Report[]) : [];
-    const merged = [...tradeRes.list, ...feedList].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    setReports(merged);
-    setLoaded(true);
-    setLoadFailure(
-      feedOk
-        ? tradeRes.ok
-          ? null
-          : { code: "load_failed" }
-        : { code: feedRes.json?.error || (feedRes.status ? "load_failed" : "network_error"), httpStatus: feedRes.status || undefined }
-    );
-    setLoading(false);
-  }, []);
+  }, [apiParams]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load, lq.refreshKey]);
-
-  const filtered = useMemo(
-    () =>
-      filterReports(reports, {
-        ...filters,
-        targetId: targetFromQuery || undefined,
-      }),
-    [reports, filters, targetFromQuery]
-  );
 
   const showingBothDomains = filters.reportSource === "";
 
@@ -252,14 +240,25 @@ export function AdminReportListPage() {
       />
       {!loaded ? (
         loadFailure ? null : <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} />
-      ) : filtered.length === 0 ? (
+      ) : reports.length === 0 && total === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={t("admin_report_list_empty_filtered")}
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
-        <AdminReportTable reports={filtered} />
+        <>
+          <AdminReportTable reports={reports} />
+          <AdminPagination
+            ko={ko}
+            page={lq.query.page}
+            size={lq.query.size}
+            total={total}
+            onPageChange={lq.setPage}
+            onSizeChange={lq.setSize}
+            disabled={loading}
+          />
+        </>
       )}
     </div>
   );

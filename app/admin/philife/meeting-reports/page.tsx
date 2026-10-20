@@ -4,18 +4,13 @@ import {
   parseCommunityAdminPeriod,
 } from "@/lib/admin/community-admin/community-admin-period";
 import { normalizeAdminListPage, normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
-import {
-  loadAdminMeetingReports,
-  resolveAdminMeetingReportSearch,
-} from "@/lib/admin/community-admin/load-admin-meeting-reports";
+import { loadAdminMeetingReports } from "@/lib/admin/community-admin/load-admin-meeting-reports";
 import { resolveMeetingReportTab } from "@/lib/admin/metrics/admin-metric-filters";
 import { AdminMeetingReportsPage } from "@/components/admin/philife/AdminMeetingReportsPage";
 import {
-  MEETING_REPORT_TABS,
   MEETING_REPORT_TARGET_OPTIONS,
   type MeetingReportFilters,
   type MeetingReportListResult,
-  type MeetingReportTab,
 } from "@/components/admin/community/reports/meeting-report-contract";
 import { AdminPhilifeMeetingReportsHeader } from "@/components/admin/philife/AdminPhilifeMeetingReportsHeader";
 
@@ -43,23 +38,21 @@ export default async function AdminPhilifeMeetingReportsRoute({ searchParams }: 
   );
 
   const filters: MeetingReportFilters = { tab, type, q, periodError: period.ok ? null : period.error };
-  const search = q ? await resolveAdminMeetingReportSearch(q) : null;
-  const result: MeetingReportListResult =
-    search && !search.meetingIds.length && !search.reporterIds.length
-      ? { ok: true, rows: [], total: 0, counts: Object.fromEntries(MEETING_REPORT_TABS.map((t) => [t, 0])) as Record<MeetingReportTab, number> }
-      : await loadAdminMeetingReports(
-          tab,
-          {
-            type,
-            fromIso: period.ok ? period.fromIso : null,
-            toIso: period.ok ? period.toIso : null,
-            meetingIds: search?.meetingIds ?? null,
-            reporterIds: search?.reporterIds ?? null,
-          },
-          page,
-          undefined,
-          { pageSize }
-        );
+  // 검색(모임 이름 · 신고자 닉네임)은 로더가 DB 에서 한 번에 거른다 (R7: 후보 100건 상한 없음)
+  const result: MeetingReportListResult = await loadAdminMeetingReports(
+    tab,
+    {
+      type,
+      fromIso: period.ok ? period.fromIso : null,
+      toIso: period.ok ? period.toIso : null,
+      meetingIds: null,
+      reporterIds: null,
+      q: q || null,
+    },
+    page,
+    undefined,
+    { pageSize }
+  );
 
   return (
     <div className="space-y-3 p-4">

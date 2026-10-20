@@ -10,6 +10,8 @@ import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tab
 import { Sam } from "@/lib/ui/css-vars";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { ADMIN_LIST_QUERY_DEFAULT_SIZE, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
 type RevenueSummary = {
   pendingGross: number;
@@ -73,12 +75,17 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [detail, setDetail] = useState<StoreDetail | null>(null);
   const [state, setState] = useState<"loading" | "error" | "empty" | "data">("loading");
+  /** 수익 상세 서버 페이지 (R7) — 전체 건수는 서버 total. */
+  const [detailPage, setDetailPage] = useState(1);
+  const [detailSize, setDetailSize] = useState<AdminListPageSize>(ADMIN_LIST_QUERY_DEFAULT_SIZE);
+  const [detailTotal, setDetailTotal] = useState(0);
 
   const load = useCallback(async () => {
     setState("loading");
     try {
+      const offset = (detailPage - 1) * detailSize;
       const [revRes, storesRes, detailRes] = await Promise.all([
-        fetch("/api/admin/gift-certificates/revenue?detail=1", {
+        fetch(`/api/admin/gift-certificates/revenue?detail=1&limit=${detailSize}&offset=${offset}`, {
           credentials: "include",
           cache: "no-store",
         }),
@@ -93,7 +100,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
             })
           : Promise.resolve(null),
       ]);
-      const revJson = (await revRes.json()) as { ok?: boolean } & Partial<RevenueSummary>;
+      const revJson = (await revRes.json()) as { ok?: boolean; total?: number } & Partial<RevenueSummary>;
       const storesJson = (await storesRes.json()) as { ok?: boolean; stores?: StoreRow[] };
       if (!revRes.ok || !revJson.ok || !storesRes.ok || !storesJson.ok) {
         setState("error");
@@ -109,6 +116,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
         outstandingGiftValue: Math.trunc(Number(revJson.outstandingGiftValue) || 0),
         details: revJson.details ?? [],
       });
+      setDetailTotal(Math.max(0, Math.trunc(Number(revJson.total) || 0)));
       setStores(storesJson.stores ?? []);
       if (detailRes) {
         const dJson = (await detailRes.json()) as { ok?: boolean; store?: StoreDetail };
@@ -120,7 +128,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
     } catch {
       setState("error");
     }
-  }, [storeId]);
+  }, [storeId, detailPage, detailSize]);
 
   useEffect(() => {
     void load();
@@ -194,7 +202,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {(summary.details ?? []).slice(0, 200).map((r, i) => (
+                    {(summary.details ?? []).map((r, i) => (
                       <tr key={`${r.orderId}-${i}`} className="border-b border-sam-border/60">
                         <td className="px-2 py-2 text-xs">
                           {r.giftScope === "PLATFORM" ? "DIBAY" : "STORE"}
@@ -215,6 +223,18 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
                 </table>
               </div>
             )}
+            <AdminPagination
+              ko={language !== "en"}
+              page={detailPage}
+              size={detailSize}
+              total={detailTotal}
+              onPageChange={setDetailPage}
+              onSizeChange={(size) => {
+                setDetailSize(size);
+                setDetailPage(1);
+              }}
+              disabled={state === "loading"}
+            />
           </section>
         </>
       ) : null}

@@ -48,7 +48,8 @@ describe("Priority 5 Admin Action Queue + decision-first detail", () => {
     expect(aq).not.toContain('WAITING_OWNER"');
     expect(aq).not.toMatch(/\.eq\("status", "RESOLVED"\)/);
     expect(aq).toContain("DELIVERY_AD_OPERATIONS_CASE_TABLE");
-    expect(aq).toContain(".order(\"updated_at\", { ascending: false })");
+    // R7 — 정렬(updated_at DESC, id DESC)·결제 필터·페이지는 DB RPC 안
+    expect(aq).toContain("admin_delivery_ad_action_queue_page");
     // one case → one queue item (push once per caseId)
     expect(aq).toContain("caseId");
     expect(aq).toContain("items.push");

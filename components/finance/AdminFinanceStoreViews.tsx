@@ -30,6 +30,8 @@ import {
 } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 
 type StoreListRow = {
   storeId: string;
@@ -43,13 +45,18 @@ type StoreListRow = {
   cashClosingMinor: number | null;
 };
 
-/** Operational store index — period aggregates from StoreStatement (canonical). */
+/**
+ * Operational store index — period aggregates from StoreStatement (canonical).
+ * R7 — 활동 매장 전체를 서버 페이지로 (주소 `page`·`size` → API `limit`/`offset`, 「전체 N곳」 = 서버 total).
+ */
 export function AdminFinanceStoresIndexView() {
   const { language } = useI18n();
   const ko = language !== "en";
   const router = useRouter();
+  const lq = useAdminListQuery();
   const [storeId, setStoreId] = useState("");
   const [rows, setRows] = useState<StoreListRow[]>([]);
+  const [total, setTotal] = useState(0);
   const [periodKey, setPeriodKey] = useState("30d");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +65,12 @@ export function AdminFinanceStoresIndexView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/finance/stores-index?period=30d&limit=24", {
+      const qs = new URLSearchParams({
+        period: "30d",
+        limit: String(lq.query.size),
+        offset: String((lq.query.page - 1) * lq.query.size),
+      });
+      const res = await fetch(`/api/admin/finance/stores-index?${qs}`, {
         credentials: "include",
         cache: "no-store",
       });
@@ -66,22 +78,27 @@ export function AdminFinanceStoresIndexView() {
         ok?: boolean;
         periodKey?: string;
         rows?: StoreListRow[];
+        total?: number;
         error?: string;
       };
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
         setRows([]);
+        setTotal(0);
         return;
       }
+      const list = json.rows ?? [];
       setPeriodKey(json.periodKey || "30d");
-      setRows(json.rows ?? []);
+      setRows(list);
+      setTotal(typeof json.total === "number" ? json.total : list.length);
     } catch {
       setError("network_error");
       setRows([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [lq.query.page, lq.query.size]);
 
   useEffect(() => {
     void load();
@@ -162,6 +179,18 @@ export function AdminFinanceStoresIndexView() {
             </tbody>
           </table>
         </div>
+      ) : null}
+
+      {!loading && !error && total > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
       ) : null}
 
       <details className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">

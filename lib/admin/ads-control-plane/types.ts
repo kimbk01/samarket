@@ -3,6 +3,8 @@
  * Composition only — no unified ads SSOT / mutation.
  */
 
+import type { AdsOpsStatus } from "@/lib/admin/ads-exposure/ops-status";
+
 export type AdsControlDomain = "delivery" | "feed" | "popup" | "trade_promote" | "community_promote";
 
 export type AdsBillingCurrency = "CASH" | "POINT" | "UNKNOWN" | "N_A";
@@ -26,6 +28,11 @@ export type AdsActionItem = {
   amountLabel: string | null;
   currency: AdsBillingCurrency;
   status: string;
+  /**
+   * 원천 projector 가 계산한 운영 상태 (schedule 반영). 상태 탭 = 이 값 (`resolveShellStatusTab`) —
+   * 표시 문구(status·exposureLabel)를 다시 읽지 않는다. SQL `admin_ads_workspace_rows` 의 ops 와 같은 정의.
+   */
+  opsStatus?: AdsOpsStatus | null;
   /** Operator-facing why this row needs Admin now (never raw enum dump). */
   whyActionable: string | null;
   paymentLabel: string | null;
@@ -84,6 +91,8 @@ export type AdsExecutionRow = {
   label: string;
   placement: string | null;
   status: string;
+  /** 원천 projector 가 계산한 운영 상태 — 상태 탭 원천 (AdsActionItem.opsStatus 와 같음). */
+  opsStatus?: AdsOpsStatus | null;
   /** Separate from status — operator exposure meaning */
   eligibility: string;
   period: string | null;
@@ -114,8 +123,39 @@ export type AdsCollisionCard = {
   href: string;
 };
 
+/** R7 — 광고 작업 화면 서버 페이지 조건·전체 건수 (`admin_ads_workspace_page`). */
+export type AdsWorkspacePageMeta = {
+  mode: "all" | "applications" | "operations" | "history" | "boosts";
+  /** "all" = 상태 탭 전체 */
+  status: string;
+  /** "all" = 종류 전체 */
+  family: string;
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+/** R7 — 팝업 위치별 점유 (팝업 캠페인 전체 기준 · 위치 문자열 = 연결된 surface 목록). */
+export type AdsWorkspacePopupSurfaceGroup = {
+  /** `COMMUNITY,TRADE` · 연결 없음 = `GLOBAL` (행 placementHint 와 같은 값) */
+  surfaces: string;
+  live: AdsActionItem[];
+  waiting: AdsActionItem[];
+  incomplete: number;
+  scheduled: number;
+};
+
 export type AdsControlPlaneModel = {
   generatedAt: string;
+  /** R7 서버 페이지 — `applications` 가 이 조건의 한 페이지다. */
+  page?: AdsWorkspacePageMeta;
+  /**
+   * R7 — 화면 모드별 상태 탭 개수 (DB 전체 기준, 매장 범위 반영). 요약 카드·대시보드 광고 지표가 이 값을 쓴다
+   * (`computeAdsWorkspaceSummaryCounts`).
+   */
+  summaryCounts?: Partial<Record<string, Partial<Record<string, number>>>>;
+  /** R7 — 팝업 위치별 점유 패널 원본. */
+  popupSurfaces?: AdsWorkspacePopupSurfaceGroup[];
   actionRequired: AdsActionItem[];
   queues: {
     delivery: { count: number | null; unavailable: boolean; href: string; source: string };

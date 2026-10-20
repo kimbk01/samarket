@@ -11,6 +11,7 @@ import { FinanceTransactionList } from "@/components/finance/FinanceTransactionL
 import type { FinanceUnifiedTx } from "@/lib/finance/unified-transaction/types";
 import { parseFinanceFilters } from "@/lib/finance/routes";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 
 /**
  * 필터 키 — 예전 `FinanceFilterBar` 주소 키 그대로 (대시보드·다른 화면 딥링크 `?wallet=`·`?date=today`·`?direction=` 호환).
@@ -25,8 +26,8 @@ const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-con
 
 /**
  * 통합 거래 내역 (R7) — 조건은 `AdminFilterBar` + `useAdminListQuery` 로 주소에 남는다.
- * 목록 페이지(9)는 현금·코인·포인트 세 원장을 메모리에서 합치는 구조라 DB 한 번에 페이지를 걸 수 없다 —
- * 통합 뷰/RPC 신설(운영 DB 승인 사항) 전까지 기존 100건 조회를 그대로 둔다.
+ * 목록 = 서버 페이지 (R7): 현금·코인·포인트 세 원장을 DB 에서 합쳐 정렬·페이지(`admin_finance_unified_tx_page`) —
+ * 주소의 `page`·`size`(20/50/100) → API `limit`/`offset`, 「전체 N건」 은 서버 total.
  */
 export function AdminFinanceTransactionsView() {
   const { language } = useI18n();
@@ -44,6 +45,7 @@ export function AdminFinanceTransactionsView() {
     setIdDraft(ids);
   }
   const [rows, setRows] = useState<FinanceUnifiedTx[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,7 +64,8 @@ export function AdminFinanceTransactionsView() {
       if (filters.memberId) qs.set("memberId", filters.memberId);
       if (filters.from) qs.set("from", filters.from);
       if (filters.to) qs.set("to", filters.to);
-      qs.set("limit", "100");
+      qs.set("limit", String(lq.query.size));
+      qs.set("offset", String((lq.query.page - 1) * lq.query.size));
       const res = await fetch(`/api/admin/finance/transactions?${qs}`, {
         credentials: "include",
         cache: "no-store",
@@ -70,21 +73,26 @@ export function AdminFinanceTransactionsView() {
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         transactions?: FinanceUnifiedTx[];
+        total?: number;
         error?: string;
       };
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
         setRows([]);
+        setTotal(0);
         return;
       }
-      setRows(json.transactions ?? []);
+      const list = json.transactions ?? [];
+      setRows(list);
+      setTotal(typeof json.total === "number" ? json.total : list.length);
     } catch {
       setError("network_error");
       setRows([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, lq.query.page, lq.query.size]);
 
   useEffect(() => {
     void load();
@@ -188,6 +196,17 @@ export function AdminFinanceTransactionsView() {
         onRetry={() => void load()}
         emptyFiltered={emptyFiltered}
       />
+      {!loading && !error && total > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+      ) : null}
     </div>
   );
 }

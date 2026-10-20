@@ -1,6 +1,6 @@
 /**
  * PRODUCT CUT 3-D — Admin Action Queue read model for Delivery Ads ops Cases.
- * Derived from delivery_ad_operations_cases.status = WAITING_ADMIN.
+ * Derived from delivery_ad_operations_cases.status = WAITING_ADMIN (R7: DB RPC 페이지 + 정확한 total).
  * Owner-paid intake also requires canonical funding readiness (Stage 1 AST-005),
  * using the same FUNDED / first-party authority as customer go-live.
  * No queue table · no lifecycle mutation · no UI.
@@ -19,7 +19,7 @@ import {
   type DeliveryAdProductKind,
 } from "@/lib/stores/advertising/delivery-ad-domain";
 import { isDeliveryAdFundingReadyForGoLive } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
-import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
+import { DELIVERY_BANNER_CREATIVE_READINESS } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import type { DeliveryAdFundingStatus } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
 
 export const DELIVERY_AD_ADMIN_ACTION_QUEUE_DEFAULT_LIMIT = 50 as const;
@@ -80,9 +80,16 @@ export async function countDeliveryAdAdminActionQueue(
   return Math.max(0, Math.floor(Number(count) || 0));
 }
 
+export const DELIVERY_AD_ADMIN_ACTION_QUEUE_RPC = "admin_delivery_ad_action_queue_page";
+
+/**
+ * R7 — 처리 Case 목록 서버 페이지. 결제 확인(FUNDED·디바이 직접) 필터·정렬·페이지·전체 건수는
+ * DB RPC(`admin_delivery_ad_action_queue_page`) 한 번 — 페이지를 자른 뒤 결제 필터로 줄이지 않는다.
+ * `total` = 결제 확인된 WAITING_ADMIN Case 전체 건수.
+ */
 export async function listDeliveryAdAdminActionQueue(
   sb: SupabaseClient,
-  input?: { limit?: number; productKind?: unknown }
+  input?: { limit?: number; offset?: number; productKind?: unknown }
 ): Promise<ListDeliveryAdAdminActionQueueResult> {
   let limit: number = DELIVERY_AD_ADMIN_ACTION_QUEUE_DEFAULT_LIMIT;
   if (typeof input?.limit === "number" && Number.isFinite(input.limit)) {
@@ -91,75 +98,47 @@ export async function listDeliveryAdAdminActionQueue(
       Math.min(DELIVERY_AD_ADMIN_ACTION_QUEUE_MAX_LIMIT, Math.floor(input.limit))
     );
   }
+  const offset =
+    typeof input?.offset === "number" && Number.isFinite(input.offset) && input.offset > 0
+      ? Math.min(100_000, Math.floor(input.offset))
+      : 0;
 
-  let q = sb
-    .from(DELIVERY_AD_OPERATIONS_CASE_TABLE)
-    .select(
-      "id, product_kind, store_sponsored_campaign_id, banner_campaign_id, owner_user_id, status, updated_at"
-    )
-    .eq("status", "WAITING_ADMIN")
-    .order("updated_at", { ascending: false })
-    .limit(limit);
-
-  if (isDeliveryAdProductKind(input?.productKind)) {
-    q = q.eq("product_kind", input.productKind);
-  }
-
-  const { data, error } = await q;
+  const { data, error } = await sb.rpc(DELIVERY_AD_ADMIN_ACTION_QUEUE_RPC, {
+    p_product_kind: isDeliveryAdProductKind(input?.productKind) ? input.productKind : null,
+    p_pending_asset: DELIVERY_BANNER_CREATIVE_READINESS.pendingAssetPath,
+    p_limit: limit,
+    p_offset: offset,
+  });
   if (error) return { ok: false, error: "db_error" };
+  const payload = (data ?? {}) as { total?: unknown; rows?: unknown };
+  const rows = (Array.isArray(payload.rows) ? payload.rows : []) as Record<string, unknown>[];
+  const totalRaw = Number(payload.total);
 
-  const rows = (data ?? []) as Record<string, unknown>[];
   type Pending = {
     caseId: string;
     productKind: DeliveryAdProductKind;
     campaignId: string;
     ownerUserId: string;
     updatedAt: string;
+    fundingStatus: DeliveryAdFundingStatus;
   };
   const pending: Pending[] = [];
-
   for (const row of rows) {
     const productKind = row.product_kind;
     if (!isDeliveryAdProductKind(productKind)) continue;
-    const campaignId =
-      productKind === "store_sponsored"
-        ? row.store_sponsored_campaign_id == null
-          ? ""
-          : String(row.store_sponsored_campaign_id)
-        : row.banner_campaign_id == null
-          ? ""
-          : String(row.banner_campaign_id);
-    if (!campaignId) continue;
-    const caseId = String(row.id ?? "");
-    if (!caseId) continue;
+    const campaignId = String(row.campaign_id ?? "");
+    const caseId = String(row.case_id ?? "");
+    if (!campaignId || !caseId) continue;
+    const funding = String(row.funding_status ?? "");
     pending.push({
       caseId,
       productKind,
       campaignId,
       ownerUserId: String(row.owner_user_id ?? ""),
       updatedAt: String(row.updated_at ?? ""),
+      fundingStatus: funding === "FUNDED" || funding === "REFUNDED" ? funding : "UNFUNDED",
     });
   }
-
-  const sponsoredIds = [
-    ...new Set(
-      pending.filter((p) => p.productKind === "store_sponsored").map((p) => p.campaignId)
-    ),
-  ];
-  const bannerIds = [
-    ...new Set(pending.filter((p) => p.productKind === "banner").map((p) => p.campaignId)),
-  ];
-
-  const [sponsoredFunding, bannerFunding] = await Promise.all([
-    loadDeliveryAdFundingStatusByCampaignIds(sb, {
-      productKind: "store_sponsored",
-      campaignIds: sponsoredIds,
-    }),
-    loadDeliveryAdFundingStatusByCampaignIds(sb, {
-      productKind: "banner",
-      campaignIds: bannerIds,
-    }),
-  ]);
 
   const items: DeliveryAdAdminActionQueueItem[] = [];
 
@@ -187,17 +166,8 @@ export async function listDeliveryAdAdminActionQueue(
       end_at?: string | null;
     } | null;
 
-    const fundingMap =
-      row.productKind === "store_sponsored" ? sponsoredFunding : bannerFunding;
-    const fundingStatus = fundingMap.get(row.campaignId) ?? "UNFUNDED";
-    if (
-      !deliveryAdAdminQueueFundingAllowsIntake({
-        campaignSource: campRow?.campaign_source,
-        fundingStatus,
-      })
-    ) {
-      continue;
-    }
+    // 결제 확인 필터는 RPC 가 이미 적용했다 (`deliveryAdAdminQueueFundingAllowsIntake` 와 같은 규칙).
+    const fundingStatus = row.fundingStatus;
 
     const storeId =
       campRow?.store_id == null || !String(campRow.store_id).trim()
@@ -254,5 +224,9 @@ export async function listDeliveryAdAdminActionQueue(
     });
   }
 
-  return { ok: true, items, total: items.length };
+  return {
+    ok: true,
+    items,
+    total: Number.isFinite(totalRaw) && totalRaw >= 0 ? totalRaw : items.length,
+  };
 }

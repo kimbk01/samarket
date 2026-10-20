@@ -15,6 +15,7 @@ import type {
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import {
   AdminEmptyState,
@@ -227,7 +228,8 @@ export function AdminAdsHistoryLedgerView() {
 function AdminAdsHistoryLedgerViewInner() {
   const { language, t } = useI18n();
   const ko = language !== "en";
-  const [ledger, setLedger] = useState<AdsHistoryLedgerModel | null>(null);
+  /** R7 서버 페이지 — 원천 합치기·필터·정렬·페이지·전체 건수(total)는 서버(DB). */
+  const [ledger, setLedger] = useState<(AdsHistoryLedgerModel & { total?: number }) | null>(null);
   const [err, setErr] = useState("");
   const [errStatus, setErrStatus] = useState<number | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -243,6 +245,7 @@ function AdminAdsHistoryLedgerViewInner() {
   const q = lq.query.q;
   const [openId, setOpenId] = useState<string | null>(null);
   const { refreshKey } = lq;
+  const { page, size } = lq.query;
 
   const load = useCallback(async () => {
     setErr("");
@@ -252,6 +255,8 @@ function AdminAdsHistoryLedgerViewInner() {
     if (domain !== "all") params.set("domain", domain);
     if (status !== "all") params.set("status", status);
     if (q.trim()) params.set("q", q.trim());
+    params.set("limit", String(size));
+    params.set("offset", String((page - 1) * size));
     try {
       const res = await fetch(`/api/admin/advertising/history?${params.toString()}`, {
         credentials: "include",
@@ -260,7 +265,7 @@ function AdminAdsHistoryLedgerViewInner() {
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
-        ledger?: AdsHistoryLedgerModel;
+        ledger?: AdsHistoryLedgerModel & { total?: number };
       };
       if (!res.ok || !json.ok || !json.ledger) {
         // 실패해도 이전 정상 목록은 지우지 않는다 (지시서 §8-5).
@@ -276,13 +281,14 @@ function AdminAdsHistoryLedgerViewInner() {
     }
     // refreshKey — 같은 조건 「조회」도 다시 불러온다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [domain, q, status, refreshKey]);
+  }, [domain, q, status, page, size, refreshKey]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const rows = ledger?.rows ?? [];
+  const total = typeof ledger?.total === "number" ? ledger.total : rows.length;
   const productCoverage = useMemo(() => {
     const keys = new Set(rows.map((r) => r.productKey));
     return keys;
@@ -382,7 +388,7 @@ function AdminAdsHistoryLedgerViewInner() {
       ) : null}
       {!ledger ? (
         err ? null : <AdminLoadingState ko={ko} />
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && page <= 1 ? (
         <div data-ads-history-empty="1">
           <AdminEmptyState
             ko={ko}
@@ -403,6 +409,17 @@ function AdminAdsHistoryLedgerViewInner() {
           ))}
         </div>
       )}
+      {ledger && (total > 0 || page > 1) ? (
+        <AdminPagination
+          ko={ko}
+          page={page}
+          size={size}
+          total={total}
+          disabled={busy}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+        />
+      ) : null}
     </div>
   );
 }

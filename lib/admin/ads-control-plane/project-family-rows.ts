@@ -174,6 +174,7 @@ export function projectDeliveryCampaignToActionItem(c: AdminDeliveryAdListItem):
     amountLabel: null,
     currency: adminDirect ? ("N_A" satisfies AdsBillingCurrency) : ("CASH" satisfies AdsBillingCurrency),
     status: opsLabel(ops),
+    opsStatus: ops,
     whyActionable: actionable,
     paymentLabel: adsPaymentLabel(adminDirect ? "ADMIN_DIRECT" : null, adminDirect ? "N_A" : "CASH", true),
     periodLabel: formatPeriod(c.startAt, c.endAt),
@@ -219,6 +220,7 @@ export function projectDeliveryCampaignToExecutionRow(
       id.slice(0, 8),
     placement: deliveryPlacementHint(c) ?? (c.inventoryKeys?.[0] ?? null),
     status: opsLabel(ops),
+    opsStatus: ops,
     eligibility: exposureFromOps(ops),
     period: formatPeriod(c.startAt, c.endAt),
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
@@ -292,6 +294,7 @@ export function projectPromoteOrderToActionItem(r: PromoteOrderRow): AdsActionIt
     amountLabel: r.point_cost != null ? `${r.point_cost}P` : null,
     currency: "POINT",
     status: opsLabel(ops),
+    opsStatus: ops,
     whyActionable:
       ops === "pending"
         ? isCommunity
@@ -370,6 +373,7 @@ export function projectFeedRequestToActionItem(r: FeedRequestRow): AdsActionItem
     amountLabel: null,
     currency: "POINT",
     status: opsLabel(ops),
+    opsStatus: ops,
     whyActionable: ops === "pending" ? "피드 광고 신청 심사가 필요합니다." : null,
     paymentLabel: adsPaymentLabel(null, "POINT", true),
     periodLabel: formatPeriod(
@@ -426,6 +430,7 @@ export function projectFeedCampaignToActionItem(c: FeedAdCampaignView): AdsActio
     amountLabel: null,
     currency: "POINT",
     status: opsLabel(ops),
+    opsStatus: ops,
     whyActionable: ops === "pending" || ops === "draft" ? "피드 배너 캠페인 확인이 필요합니다." : null,
     paymentLabel: adsPaymentLabel(null, "POINT", true),
     periodLabel: formatPeriod(c.startAt, c.endAt),
@@ -455,6 +460,7 @@ export function projectFeedCampaignToExecutionRow(
     label: String(c.name ?? "").trim() || id.slice(0, 8),
     placement: String(c.placement ?? ""),
     status: opsLabel(ops),
+    opsStatus: ops,
     eligibility: exposureFromOps(ops),
     period: formatPeriod(c.startAt, c.endAt),
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
@@ -468,17 +474,37 @@ export function projectFeedCampaignToExecutionRow(
   };
 }
 
+/**
+ * `platform_popup_owner_requests` 운영 열 (제목 열 없음 — 표시 제목은 신청 매장 이름 `store_name`, 로더가 stores 에서 붙인다).
+ */
 export type PopupRequestRow = {
   id?: unknown;
   store_id?: unknown;
   owner_user_id?: unknown;
   request_status?: unknown;
+  payment_status?: unknown;
+  requested_start_at?: unknown;
+  requested_end_at?: unknown;
   created_at?: unknown;
-  title?: unknown;
+  /** stores.store_name (로더 조인) */
+  store_name?: unknown;
 };
 
+/** 운영 열 select — `admin_ads_workspace_rows` 의 popup_request 원천과 같은 열. */
+export const POPUP_REQUEST_SELECT =
+  "id, store_id, owner_user_id, request_status, payment_status, requested_start_at, requested_end_at, created_at";
+
+/**
+ * 팝업 오너 신청 운영 상태 = 신청 상태 + 신청 기간 (exclusive 종료 경계).
+ * SQL `admin_ads_workspace_rows` popup_req = admin_ads_project_ops(request_status, requested_start_at, requested_end_at, false).
+ */
 export function popupRequestOpsStatus(r: PopupRequestRow): AdsOpsStatus {
-  return mapRawToAdsOpsStatus(String(r.request_status ?? ""));
+  const iso = (v: unknown) => (v == null || String(v).trim() === "" ? null : String(v));
+  return projectAdsOpsStatus({
+    rawStatus: String(r.request_status ?? ""),
+    startAt: iso(r.requested_start_at),
+    endAt: iso(r.requested_end_at),
+  });
 }
 
 export function projectPopupRequestToActionItem(r: PopupRequestRow): AdsActionItem {
@@ -505,6 +531,7 @@ export function projectPopupRequestToActionItem(r: PopupRequestRow): AdsActionIt
     amountLabel: null,
     currency: "CASH",
     status: opsLabel(ops),
+    opsStatus: ops,
     whyActionable: ops === "pending" ? "팝업 광고 신청 심사가 필요합니다." : null,
     paymentLabel: adsPaymentLabel(null, "CASH", true),
     periodLabel: null,
@@ -518,7 +545,7 @@ export function projectPopupRequestToActionItem(r: PopupRequestRow): AdsActionIt
     statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
     financeHref: "/admin/finance#action-required",
     memberHref: ownerId ? memberHref(ownerId) : null,
-    title: String(r.title ?? "").trim() || id.slice(0, 8),
+    title: String(r.store_name ?? "").trim() || id.slice(0, 8),
     sourceKind: "owner",
   };
 }
@@ -646,6 +673,7 @@ export function projectPopupCampaignToActionItem(
     amountLabel: null,
     currency: adminDirect ? ("N_A" satisfies AdsBillingCurrency) : ("CASH" satisfies AdsBillingCurrency),
     status: completeness.operatingLabelKo,
+    opsStatus: ops,
     whyActionable:
       !adminDirect && completeness.completeness === "pending_review"
         ? "팝업 광고 신청 심사가 필요합니다."
@@ -703,6 +731,7 @@ export function projectPopupCampaignToExecutionRow(
     label: String(c.name ?? "").trim() || id.slice(0, 8),
     placement: c.surfaces?.length ? c.surfaces.join(",") : "앱 팝업",
     status: opsLabel(ops),
+    opsStatus: ops,
     eligibility: exposureFromOps(ops),
     period: formatPeriod(c.startAt, c.endAt),
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,

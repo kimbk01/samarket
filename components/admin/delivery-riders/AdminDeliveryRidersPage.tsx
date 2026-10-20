@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOverlayRoot } from "@/components/ui/dibay-overlay";
 import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
@@ -22,6 +22,8 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 
 type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
 
@@ -91,7 +93,32 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+type AssignableRider = {
+  id: string;
+  display_name?: string;
+  is_online?: boolean;
+  admin_status?: string;
+  suspended_at?: string | null;
+};
+
+/** 탭·페이지 = 주소 (R7) — `tab`(기본 riders) · `page` · `size`. 목록은 서버 페이지네이션. */
+const LIST_CONFIG = {
+  extras: ["tab"] as const,
+  extraDefaults: { tab: "riders" },
+};
+
+/** 배정 선택 목록 한 번에 받는 최대 수 (서버 페이지 상한). 더 많으면 이름으로 좁힌다 (서버 검색). */
+const ASSIGNABLE_PICK_LIMIT = 100;
+
 export function AdminDeliveryRidersPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminDeliveryRidersPageInner />
+    </Suspense>
+  );
+}
+
+function AdminDeliveryRidersPageInner() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const dash = t("admin_del_common_dash");
@@ -106,13 +133,21 @@ export function AdminDeliveryRidersPage() {
     [dash]
   );
 
-  const [tab, setTab] = useState<"riders" | "queue">("riders");
+  const lq = useAdminListQuery(LIST_CONFIG);
+  const tab: "riders" | "queue" = lq.query.extras.tab === "queue" ? "queue" : "riders";
+  const setTab = (k: "riders" | "queue") => lq.setExtra("tab", k);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<{ code: string; status?: number } | null>(null);
   const [result, setResult] = useState<ResultState>(null);
   const [memoDraft, setMemoDraft] = useState<Record<string, string>>({});
   const [riders, setRiders] = useState<RiderSnap[]>([]);
   const [unassigned, setUnassigned] = useState<UnassignedRow[]>([]);
+  /** 서버 count — 현재 탭 total · 탭 칩 건수 · 정지/주의 수 (페이지와 무관한 전체 기준). */
+  const [pageTotal, setPageTotal] = useState(0);
+  const [counts, setCounts] = useState({ riders: 0, unassigned: 0, suspended: 0, flagged: 0 });
+  const [assignable, setAssignable] = useState<AssignableRider[]>([]);
+  const [assignableTotal, setAssignableTotal] = useState(0);
+  const [assignQ, setAssignQ] = useState("");
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
 
   const [allowOffline, setAllowOffline] = useState(false);
@@ -155,47 +190,77 @@ export function AdminDeliveryRidersPage() {
     []
   );
 
+  const apiQuery = lq.apiQueryString;
   const load = useCallback(() => {
     setLoading(true);
-    void fetch("/api/admin/delivery-riders", { cache: "no-store" })
+    const qs = new URLSearchParams(apiQuery);
+    qs.delete("tab");
+    qs.set("view", tab);
+    void fetch(`/api/admin/delivery-riders?${qs.toString()}`, { cache: "no-store" })
       .then(async (r) => {
         const j = await r.json().catch(() => null);
         if (!r.ok) {
           setLoadErr({ code: errCode(r.status, j, "load_failed"), status: r.status });
           setRiders([]);
           setUnassigned([]);
+          setPageTotal(0);
           return;
         }
         setLoadErr(null);
-        const rs = Array.isArray(j?.riders) ? j.riders : [];
-        const uq = Array.isArray(j?.unassigned_deliveries) ? j.unassigned_deliveries : [];
-        setRiders(rs.filter((x: unknown): x is RiderSnap => x != null && typeof x === "object" && "id" in (x as object)));
-        setUnassigned(
-          uq.filter((x: unknown): x is UnassignedRow => x != null && typeof x === "object" && "order_id" in (x as object))
-        );
+        const rows = Array.isArray(j?.rows) ? j.rows : [];
+        if (tab === "queue") {
+          setUnassigned(
+            rows.filter((x: unknown): x is UnassignedRow => x != null && typeof x === "object" && "order_id" in (x as object))
+          );
+          setRiders([]);
+        } else {
+          setRiders(rows.filter((x: unknown): x is RiderSnap => x != null && typeof x === "object" && "id" in (x as object)));
+          setUnassigned([]);
+        }
+        setPageTotal(num(j?.total));
+        setCounts({
+          riders: num(j?.riders_total),
+          unassigned: num(j?.unassigned_total),
+          suspended: num(j?.suspended_count),
+          flagged: num(j?.flagged_count),
+        });
         setGeneratedAt(typeof j?.generated_at === "string" ? j.generated_at : null);
       })
       .catch(() => {
         setLoadErr({ code: "network_error" });
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [apiQuery, tab]);
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, lq.refreshKey]);
+
+  /** 배정 가능 라이더 (정지·일시정지 제외) — 서버 검색 `q` · 최대 100명. 전체 수는 assignableTotal. */
+  const loadAssignable = useCallback((q: string) => {
+    const qs = new URLSearchParams({ view: "assignable", limit: String(ASSIGNABLE_PICK_LIMIT), offset: "0" });
+    if (q.trim()) qs.set("q", q.trim());
+    void fetch(`/api/admin/delivery-riders?${qs.toString()}`, { cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json().catch(() => null);
+        if (!r.ok) return;
+        const rows = Array.isArray(j?.rows) ? j.rows : [];
+        setAssignable(
+          rows.filter((x: unknown): x is AssignableRider => x != null && typeof x === "object" && "id" in (x as object))
+        );
+        setAssignableTotal(num(j?.total));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const h = window.setTimeout(() => loadAssignable(assignQ), assignQ ? 300 : 0);
+    return () => window.clearTimeout(h);
+  }, [assignQ, loadAssignable]);
 
   const openRider = openRiderId ? riders.find((x) => x.id === openRiderId) ?? null : null;
 
-  const assignableRiders = useMemo(
-    () =>
-      riders.filter((r) => {
-        if (r.suspended_at) return false;
-        if (r.admin_status === "paused") return false;
-        return true;
-      }),
-    [riders]
-  );
+  const assignableRiders = assignable;
 
   const openDetail = useCallback((orderId: string) => {
     setDetailOrderId(orderId);
@@ -260,6 +325,8 @@ export function AdminDeliveryRidersPage() {
         }
         setResult({ ok: true, message: successMsg ?? t("admin_r4d_rider_status_saved") });
         load();
+        // 정지·일시정지 변경은 배정 가능 목록에도 반영
+        loadAssignable(assignQ);
         return true;
       } catch {
         setResult({ ok: false, code: "network_error" });
@@ -268,7 +335,7 @@ export function AdminDeliveryRidersPage() {
         setBusyRider(null);
       }
     },
-    [load, t]
+    [load, loadAssignable, assignQ, t]
   );
 
   const markAttention = useCallback(
@@ -306,22 +373,17 @@ export function AdminDeliveryRidersPage() {
     [busyOrder, ko, t, load, detailOrderId, openDetail]
   );
 
-  /** 실제 집계만 표시 (DEF-43 — 휴리스틱 % 제거). */
-  const riderCounts = useMemo(
-    () => ({
-      suspended: riders.filter((r) => r.suspended_at).length,
-      flagged: riders.filter((r) => r.admin_status === "flagged").length,
-    }),
-    [riders]
-  );
+  /** 실제 집계만 표시 (DEF-43 — 휴리스틱 % 제거) — 서버 count (전체 라이더 기준). */
+  const riderCounts = { suspended: counts.suspended, flagged: counts.flagged };
 
   const riderName = useCallback(
     (riderId: string | null | undefined) => {
       if (!riderId) return dash;
-      const hit = riders.find((r) => r.id === riderId);
-      return hit?.display_name?.trim() || (ko ? "이름 없는 라이더" : "Unnamed rider");
+      const hit = riders.find((r) => r.id === riderId) ?? assignable.find((r) => r.id === riderId);
+      if (hit) return hit.display_name?.trim() || (ko ? "이름 없는 라이더" : "Unnamed rider");
+      return `${ko ? "라이더" : "Rider"} ${formatAdminShortId(riderId)}`;
     },
-    [riders, dash, ko]
+    [riders, assignable, dash, ko]
   );
 
   const offlineSuffix = t("admin_del_offline_suffix");
@@ -364,14 +426,14 @@ export function AdminDeliveryRidersPage() {
           selected={tab === "riders"}
           onClick={() => setTab("riders")}
         >
-          {t("admin_del_tab_riders", { count: riders.length })}
+          {t("admin_del_tab_riders", { count: counts.riders })}
         </AdminChipButton>
         <AdminChipButton
           type="button"
           selected={tab === "queue"}
           onClick={() => setTab("queue")}
         >
-          {t("admin_del_tab_unassigned", { count: unassigned.length })}
+          {t("admin_del_tab_unassigned", { count: counts.unassigned })}
         </AdminChipButton>
       </div>
 
@@ -438,6 +500,26 @@ export function AdminDeliveryRidersPage() {
           {!loading && riders.length === 0 && !loadErr ? <AdminEmptyState ko={ko} message={t("admin_del_empty_riders")} /> : null}
         </div>
       ) : (
+        <div className="space-y-2">
+        <label className="flex flex-wrap items-center gap-2 sam-text-xxs text-sam-muted" data-admin-rider-assign-filter="1">
+          <span>{ko ? "배정할 라이더 이름으로 좁히기" : "Narrow riders to assign by name"}</span>
+          <input
+            className="sam-input h-8 min-w-[200px] text-[12px]"
+            value={assignQ}
+            maxLength={100}
+            onChange={(e) => setAssignQ(e.target.value)}
+            placeholder={ko ? "닉네임 · 아이디" : "Nickname · username"}
+          />
+          <span>
+            {assignableTotal > assignable.length
+              ? ko
+                ? `배정 가능 ${assignableTotal}명 중 ${assignable.length}명 표시 — 이름으로 좁혀 주세요`
+                : `Showing ${assignable.length} of ${assignableTotal} assignable riders — narrow by name`
+              : ko
+                ? `배정 가능 ${assignableTotal}명`
+                : `${assignableTotal} assignable riders`}
+          </span>
+        </label>
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="min-w-[920px] w-full border-collapse sam-text-xxs">
             <thead>
@@ -503,7 +585,20 @@ export function AdminDeliveryRidersPage() {
           </table>
           {!loading && unassigned.length === 0 && !loadErr ? <AdminEmptyState ko={ko} message={t("admin_del_empty_unassigned")} /> : null}
         </div>
+        </div>
       )}
+
+      {pageTotal > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={lq.query.page}
+          size={lq.query.size}
+          total={pageTotal}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={loading}
+        />
+      ) : null}
 
       {detailOrderId ? (
         <DibayOverlayRoot

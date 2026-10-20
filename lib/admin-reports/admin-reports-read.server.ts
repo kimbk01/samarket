@@ -56,7 +56,8 @@ function resolvePostIdForReport(r: ReportRow): string | null {
 }
 
 /**
- * 어드민 신고 목록 — reports 테이블 기준
+ * 어드민 신고 목록 — reports 테이블 기준 (예전 호환 모드: `GET /api/admin/reports` 에 limit/offset 이 없을 때).
+ * 통합 신고 화면은 서버 페이지(`admin-reports-unified-page.server.ts`)를 쓴다.
  */
 export async function loadAdminReportsList(supabase: SupabaseClient): Promise<Report[]> {
   try {
@@ -90,80 +91,87 @@ export async function loadAdminReportsList(supabase: SupabaseClient): Promise<Re
     const list = [...(actionableRes.data as ReportRow[]), ...(history as ReportRow[])].sort((a, b) =>
       String(b.created_at).localeCompare(String(a.created_at))
     );
-
-    const reporterIds = [...new Set(list.map((r) => r.reporter_id))];
-    const resolvedByIds = [...new Set(list.map((r) => r.resolved_by).filter(Boolean))] as string[];
-    const productIds = [...new Set(list.map(resolvePostIdForReport).filter(Boolean))] as string[];
-    const userIds = [...new Set([...reporterIds, ...resolvedByIds])];
-
-    const userTargetIds = list.filter((r) => toTargetType(r.target_type) === "user").map((r) => r.target_id);
-    const identities = await loadAdminMemberIdentityMap(supabase, [...userIds, ...userTargetIds]);
-    const nicknameById: Record<string, string> = {};
-    for (const [id, identity] of identities) nicknameById[id] = formatAdminMemberLabel(identity, id);
-
-    const productTitleById: Record<string, string> = {};
-    const postAuthorById: Record<string, string> = {};
-    if (productIds.length > 0) {
-      const { data: posts } = await (supabase as any)
-        .from(POSTS_TABLE_READ)
-        .select("id, title, user_id")
-        .in("id", productIds);
-      if (Array.isArray(posts)) {
-        posts.forEach((p: { id: string; title: string; user_id?: string }) => {
-          productTitleById[p.id] = p.title ?? p.id;
-          const author = (p.user_id ?? "").trim();
-          if (author) postAuthorById[p.id] = author;
-        });
-      }
-    }
-
-    const reports: Report[] = list.map((r) => {
-      const targetType = toTargetType(r.target_type);
-      const postId = resolvePostIdForReport(r) ?? "";
-      const productId = postId || (r.product_id ?? r.target_id);
-      const targetTitle =
-        targetType === "product"
-          ? (productTitleById[productId] ?? r.target_id)
-          : targetType === "chat"
-            ? `채팅 ${r.target_id}`
-            : (nicknameById[r.target_id] ?? r.target_id);
-      const targetUserIdForProduct = postAuthorById[productId] ?? "";
-      const ttRaw = (r.target_type ?? "").toLowerCase();
-      const targetIdOut =
-        ttRaw === "product" || ttRaw === "post" || ttRaw === "comment" ? productId : r.target_id;
-      const targetUserIdOut =
-        targetType === "product"
-          ? targetUserIdForProduct || ""
-          : targetType === "user"
-            ? r.target_id
-            : targetType === "chat"
-              ? ""
-              : "";
-      return {
-        id: r.id,
-        reporterId: r.reporter_id,
-        reporterNickname: nicknameById[r.reporter_id],
-        targetType,
-        targetId: targetIdOut,
-        targetUserId: targetUserIdOut,
-        targetTitle,
-        productTitle: targetType === "product" ? productTitleById[productId] : undefined,
-        reasonCode: r.reason_code,
-        reasonLabel: REASON_LABELS[r.reason_code] ?? r.reason_text?.slice(0, 40) ?? r.reason_code,
-        detail: r.reason_text ?? "",
-        createdAt: r.created_at,
-        status: toReportStatus(r.status),
-        resolvedBy: r.resolved_by ? nicknameById[r.resolved_by] : undefined,
-        resolvedAt: r.resolved_at ?? undefined,
-        reportSource: "reports",
-      };
-    });
-
-    return reports;
+    return await mapTradeReportRowsForAdmin(supabase, list);
   } catch (e) {
     // Surface the failure to the page — an empty list would read as "no pending reports".
     throw e instanceof Error ? e : new Error("reports_load_failed");
   }
+}
+
+/**
+ * 거래 신고 원본 행 → 화면 행 (신고자·처리자 이름, 대상 글 제목·작성자). 순서 유지.
+ * 목록(`loadAdminReportsList`)·통합 서버 페이지(`admin-reports-unified-page.server.ts`) 공용.
+ */
+export async function mapTradeReportRowsForAdmin(supabase: SupabaseClient, list: ReportRow[]): Promise<Report[]> {
+  const reporterIds = [...new Set(list.map((r) => r.reporter_id))];
+  const resolvedByIds = [...new Set(list.map((r) => r.resolved_by).filter(Boolean))] as string[];
+  const productIds = [...new Set(list.map(resolvePostIdForReport).filter(Boolean))] as string[];
+  const userIds = [...new Set([...reporterIds, ...resolvedByIds])];
+
+  const userTargetIds = list.filter((r) => toTargetType(r.target_type) === "user").map((r) => r.target_id);
+  const identities = await loadAdminMemberIdentityMap(supabase, [...userIds, ...userTargetIds]);
+  const nicknameById: Record<string, string> = {};
+  for (const [id, identity] of identities) nicknameById[id] = formatAdminMemberLabel(identity, id);
+
+  const productTitleById: Record<string, string> = {};
+  const postAuthorById: Record<string, string> = {};
+  if (productIds.length > 0) {
+    const { data: posts } = await (supabase as any)
+      .from(POSTS_TABLE_READ)
+      .select("id, title, user_id")
+      .in("id", productIds);
+    if (Array.isArray(posts)) {
+      posts.forEach((p: { id: string; title: string; user_id?: string }) => {
+        productTitleById[p.id] = p.title ?? p.id;
+        const author = (p.user_id ?? "").trim();
+        if (author) postAuthorById[p.id] = author;
+      });
+    }
+  }
+
+  const reports: Report[] = list.map((r) => {
+    const targetType = toTargetType(r.target_type);
+    const postId = resolvePostIdForReport(r) ?? "";
+    const productId = postId || (r.product_id ?? r.target_id);
+    const targetTitle =
+      targetType === "product"
+        ? (productTitleById[productId] ?? r.target_id)
+        : targetType === "chat"
+          ? `채팅 ${r.target_id}`
+          : (nicknameById[r.target_id] ?? r.target_id);
+    const targetUserIdForProduct = postAuthorById[productId] ?? "";
+    const ttRaw = (r.target_type ?? "").toLowerCase();
+    const targetIdOut =
+      ttRaw === "product" || ttRaw === "post" || ttRaw === "comment" ? productId : r.target_id;
+    const targetUserIdOut =
+      targetType === "product"
+        ? targetUserIdForProduct || ""
+        : targetType === "user"
+          ? r.target_id
+          : targetType === "chat"
+            ? ""
+            : "";
+    return {
+      id: r.id,
+      reporterId: r.reporter_id,
+      reporterNickname: nicknameById[r.reporter_id],
+      targetType,
+      targetId: targetIdOut,
+      targetUserId: targetUserIdOut,
+      targetTitle,
+      productTitle: targetType === "product" ? productTitleById[productId] : undefined,
+      reasonCode: r.reason_code,
+      reasonLabel: REASON_LABELS[r.reason_code] ?? r.reason_text?.slice(0, 40) ?? r.reason_code,
+      detail: r.reason_text ?? "",
+      createdAt: r.created_at,
+      status: toReportStatus(r.status),
+      resolvedBy: r.resolved_by ? nicknameById[r.resolved_by] : undefined,
+      resolvedAt: r.resolved_at ?? undefined,
+      reportSource: "reports",
+    };
+  });
+
+  return reports;
 }
 
 /**

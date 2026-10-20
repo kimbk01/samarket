@@ -71,17 +71,43 @@ async function loadActorLabels(
   return out;
 }
 
+/**
+ * 캠페인별 DB 집계 (R7 — `admin_store_coupon_campaign_page` 행). 있으면 보유 상태 수·실현 재원·주문 매출을
+ * 메모리 계산 대신 이 값으로 쓴다 (PostgREST 행 상한과 무관한 정확한 값).
+ */
+export type CouponCampaignDbAggregate = {
+  claimed: number;
+  redeemed: number;
+  active_held: number;
+  expired: number;
+  revoked: number;
+  customer_discount: number;
+  store_funded: number;
+  platform_funded: number;
+  order_sales_php: number;
+};
+
 export async function loadCouponCampaignOpsBundle(
   sb: SupabaseClient,
-  opts?: { campaignId?: string; couponNumber?: string; storeId?: string }
+  opts?: {
+    campaignId?: string;
+    couponNumber?: string;
+    storeId?: string;
+    /** R7: 서버 페이지가 정한 캠페인 id (순서 유지) — 상한 없이 그 행만 읽는다. */
+    campaignIds?: string[];
+    aggregates?: Map<string, CouponCampaignDbAggregate>;
+  }
 ): Promise<
   | { ok: true; campaigns: CouponCampaignOpsView[] }
   | { ok: false; error: string }
 > {
+  if (opts?.campaignIds && opts.campaignIds.length === 0) return { ok: true, campaigns: [] };
   let campaignQuery = sb.from("store_coupon_campaigns").select(CAMPAIGN_SELECT).order("created_at", {
     ascending: false,
   });
-  if (opts?.campaignId) {
+  if (opts?.campaignIds) {
+    campaignQuery = campaignQuery.in("id", opts.campaignIds);
+  } else if (opts?.campaignId) {
     campaignQuery = campaignQuery.eq("id", opts.campaignId);
   } else if (opts?.storeId) {
     campaignQuery = campaignQuery.eq("store_id", opts.storeId).limit(100);
@@ -101,7 +127,15 @@ export async function loadCouponCampaignOpsBundle(
   const { data: campaigns, error } = await campaignQuery;
   if (error) return { ok: false, error: "db_error" };
 
-  const campaignRows = campaigns ?? [];
+  let campaignRows = campaigns ?? [];
+  if (opts?.campaignIds) {
+    const pos = new Map(opts.campaignIds.map((id, i) => [id, i]));
+    campaignRows = [...campaignRows].sort(
+      (a, b) =>
+        (pos.get(String((a as { id?: string }).id ?? "")) ?? 0) -
+        (pos.get(String((b as { id?: string }).id ?? "")) ?? 0)
+    );
+  }
 
   const ids = campaignRows.map((r) => String((r as { id?: string }).id ?? "")).filter(Boolean);
   const storeIds = [
@@ -302,15 +336,18 @@ export async function loadCouponCampaignOpsBundle(
   for (const row of campaignRows) {
     const id = String((row as { id?: string }).id ?? "");
     const storeId = String((row as { store_id?: string }).store_id ?? "");
-    const counts = statusCounts.get(id) ?? { all: 0, redeemed: 0, active: 0, expired: 0, revoked: 0 };
+    const agg = opts?.aggregates?.get(id);
+    const counts = agg
+      ? { all: agg.claimed, redeemed: agg.redeemed, active: agg.active_held, expired: agg.expired, revoked: agg.revoked }
+      : (statusCounts.get(id) ?? { all: 0, redeemed: 0, active: 0, expired: 0, revoked: 0 });
     const issuedCount = Number((row as { issued_count?: number }).issued_count ?? 0);
     const issueLimit =
       (row as { issue_limit?: number | null }).issue_limit == null
         ? null
         : Number((row as { issue_limit?: number }).issue_limit);
     const orders = ordersByCampaign.get(id) ?? [];
-    let orderSalesPhp = 0;
-    if (orders.length) {
+    let orderSalesPhp = agg ? Math.round(Number(agg.order_sales_php) || 0) : 0;
+    if (!agg && orders.length) {
       const orderIds = orders.map((o) => o.order_id);
       const { data: payRows } = await sb
         .from("store_orders")
@@ -321,7 +358,7 @@ export async function loadCouponCampaignOpsBundle(
       }
     }
 
-    const base = assembleCouponControlCampaignView({
+    const assembled = assembleCouponControlCampaignView({
       campaign: row as Record<string, unknown>,
       storeName: nameByStore[storeId] ?? "",
       claimedCount: counts.all,
@@ -329,6 +366,16 @@ export async function loadCouponCampaignOpsBundle(
       orders,
       audits: auditsByCampaign.get(id) ?? [],
     });
+    const base = agg
+      ? {
+          ...assembled,
+          realized: {
+            customer_discount: Math.round(Number(agg.customer_discount) || 0),
+            store_funded: Math.round(Number(agg.store_funded) || 0),
+            platform_funded: Math.round(Number(agg.platform_funded) || 0),
+          },
+        }
+      : assembled;
 
     views.push({
       ...base,

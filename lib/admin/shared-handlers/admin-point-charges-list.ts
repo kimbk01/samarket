@@ -16,7 +16,6 @@ import {
   escapeAdminIlike,
   isAdminListUuid,
   parseAdminListPage,
-  quotePostgrestOrValue,
   sanitizeAdminListSearch,
 } from "@/lib/admin/pagination/parse-admin-list-page";
 import {
@@ -25,11 +24,15 @@ import {
 } from "@/lib/points/admin-point-charge-list-query";
 import type { PointChargeRequestStatus } from "@/lib/types/point";
 
+/** 포인트 충전 신청 텍스트 검색 DB 페이지 (마이그레이션 20270601165000) */
+const POINT_CHARGE_SEARCH_RPC = "admin_point_charge_requests_search_page";
+
 
 /**
  * GET /api/admin/point-charges — server-side paginated.
  *
- * Query: `status` (all | open | pending,waiting_confirm,… whitelist) · `q` (닉네임 · 입금자명 · 신청/회원 UUID)
+ * Query: `status` (all | open | pending,waiting_confirm,… whitelist) · `q` (닉네임 · 입금자명 · 신청/회원 UUID —
+ *        텍스트 검색은 DB RPC `admin_point_charge_requests_search_page`, 그 외는 아래 PostgREST 조회)
  *        · `limit` (기본 50, 최대 200) · `offset` (기본 0) · `counts=1` (상태별 전체 건수 동봉)
  * Response: `{ ok, requests, total, limit, offset, statusCounts? }` — `total` 은 현재 필터 기준 exact count.
  */
@@ -54,37 +57,55 @@ export async function handleAdminPointChargesListGet(
       ...(statusCounts ? { statusCounts } : {}),
     });
 
-  // 닉네임 검색 — profiles 에서 먼저 id 해석 후 user_id IN.
-  let nicknameUserIds: string[] = [];
-  if (search && !isAdminListUuid(search)) {
-    const { data: hits } = await sb
-      .from("profiles")
-      .select("id")
-      .ilike("nickname", `%${escapeAdminIlike(search)}%`)
-      .limit(200);
-    nicknameUserIds = ((hits ?? []) as { id?: string }[]).map((p) => String(p.id ?? "")).filter(Boolean);
-  }
-
-  const [from, to] = adminListRange(page);
-  let query = sb
-    .from("point_charge_requests")
-    .select(POINT_CHARGE_REQUEST_ROW_SELECT, { count: "exact" })
-    .order("requested_at", { ascending: false })
-    .order("id", { ascending: false })
-    .range(from, to);
-  if (statuses) query = query.in("request_status", statuses);
-  if (search) {
-    if (isAdminListUuid(search)) {
-      query = query.or(`id.eq.${search},user_id.eq.${search}`);
-    } else {
-      const ors = [`depositor_name.ilike.${quotePostgrestOrValue(`%${escapeAdminIlike(search)}%`)}`];
-      if (nicknameUserIds.length) ors.push(`user_id.in.(${nicknameUserIds.join(",")})`);
-      query = query.or(ors.join(","));
-    }
-  }
-
   const countsPromise = withCounts ? countPointChargesByStatus(sb) : Promise.resolve(undefined);
-  const [{ data: rows, error, count }, statusCounts] = await Promise.all([query, countsPromise]);
+  const textSearch = Boolean(search) && !isAdminListUuid(search);
+
+  let rows: unknown[] | null;
+  let error: { message?: string } | null;
+  let count: number | null;
+  let statusCounts: Record<PointChargeRequestStatus, number> | undefined;
+  if (textSearch) {
+    // 입금자명 · 신청 회원 닉네임 검색 — DB 한 번(필터·정렬 requested_at DESC, id DESC·페이지·total).
+    // R7: 예전 「닉네임 일치 회원 200명만 먼저 찾아 user_id IN」 제거 (마이그레이션 20270601165000).
+    const [searchPage, counts] = await Promise.all([
+      sb.rpc(POINT_CHARGE_SEARCH_RPC, {
+        p_statuses: statuses ?? null,
+        p_q_pattern: `%${escapeAdminIlike(search)}%`,
+        p_limit: page.limit,
+        p_offset: page.offset,
+      }),
+      countsPromise,
+    ]);
+    statusCounts = counts;
+    error = searchPage.error;
+    const res = (searchPage.data ?? {}) as { total?: number; ids?: string[] };
+    const ids = Array.isArray(res.ids) ? res.ids.map(String) : [];
+    count = Number(res.total ?? 0);
+    rows = [];
+    if (!error && ids.length) {
+      const full = await sb.from("point_charge_requests").select(POINT_CHARGE_REQUEST_ROW_SELECT).in("id", ids);
+      error = full.error;
+      const byId = new Map(
+        ((full.data ?? []) as unknown as Record<string, unknown>[]).map((r) => [String(r.id ?? ""), r])
+      );
+      rows = ids.map((id) => byId.get(id)).filter(Boolean) as unknown[];
+    }
+  } else {
+    const [from, to] = adminListRange(page);
+    let query = sb
+      .from("point_charge_requests")
+      .select(POINT_CHARGE_REQUEST_ROW_SELECT, { count: "exact" })
+      .order("requested_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+    if (statuses) query = query.in("request_status", statuses);
+    if (search) query = query.or(`id.eq.${search},user_id.eq.${search}`);
+    const [res, counts] = await Promise.all([query, countsPromise]);
+    rows = res.data;
+    error = res.error;
+    count = res.count;
+    statusCounts = counts;
+  }
 
   if (error) {
     if (isMissingPointsTable(error.message ?? "", "point_charge_requests")) {

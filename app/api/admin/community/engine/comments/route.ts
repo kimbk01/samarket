@@ -1,7 +1,6 @@
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { collectCommunityPostIdsForTopicSlug } from "@/lib/admin-community/collect-post-ids-for-topic";
 import {
   formatAdminMemberLabel,
   loadAdminMemberIdentityMap,
@@ -10,8 +9,7 @@ import { communityAdminStartOfTodayIso } from "@/lib/admin-community/home-summar
 import { resolveCommunityCommentRowKind } from "@/lib/community-feed/community-report-display-target";
 import {
   COMMENT_STATUSES,
-  COMMUNITY_LIST_PROFILE_MATCH_LIMIT,
-  buildCommunitySearchOr,
+  isCommunityListUuid,
   parseCommunityListPage,
   parseCommunityListSearch,
   pickAllowed,
@@ -24,11 +22,17 @@ export const dynamic = "force-dynamic";
  * GET /api/admin/community/engine/comments
  * Authority: community_comments only (not trade `comments`).
  * Supports commentId locator, type (comment|reply), reported filter.
- * Known: topic filter IN≤500 — preserved P2/PERF, not fixed here.
- * q: 댓글 내용 ilike · 작성자 닉네임(→ user id) · UUID 면 댓글 id/post_id/user_id 정확 일치.
+ * q: 댓글 내용 ilike · 작성자 닉네임 · UUID 면 댓글 id/post_id/user_id 정확 일치.
  * status=active|hidden|deleted · limit(기본 50, 최대 200) · offset
  * → { ok, comments, total, limit, offset, topicFilterTruncated }
+ * R7: 목록 필터(글·주제·작성자·상태·기간·종류·신고 대기·검색)·정렬(created_at DESC, id DESC)·페이지·total 은
+ *     DB RPC `admin_community_comments_page` 한 번 — 예전 주제 글 id 500·신고 댓글 id 500·닉네임 후보 200 상한 없음.
+ *     `topicFilterTruncated` 는 응답 모양 호환용(항상 false).
  */
+const COMMENTS_PAGE_RPC = "admin_community_comments_page";
+const COMMENT_ROW_SELECT =
+  "id, post_id, parent_id, user_id, content, status, like_count, is_hidden, is_deleted, created_at, updated_at";
+
 export async function GET(req: NextRequest) {
   const admin = await requireCommunityAdmin("content");
   if (!admin.ok) return admin.response;
@@ -59,105 +63,56 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
-  let postIdsForTopic: string[] | null = null;
-  let topicFilterTruncated = false;
-  if (topicSlug && !commentId) {
-    try {
-      const collected = await collectCommunityPostIdsForTopicSlug(sb, topicSlug);
-      postIdsForTopic = collected.ids;
-      topicFilterTruncated = collected.truncated;
-    } catch (e) {
-      return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
-    }
-    if (!postIdsForTopic.length) {
-      return empty();
-    }
-  }
-
-  let reportedCommentIds: string[] | null = null;
-  if (reportedFilter === "1" || reportedFilter === "true" || reportedFilter === "only") {
-    const { data: reportRows, error: reportErr } = await sb
-      .from("community_reports")
-      .select("target_id")
-      .eq("target_type", "comment")
-      .in("status", ["open", "reviewing"]);
-    if (reportErr) {
-      return NextResponse.json({ ok: false, error: reportErr.message }, { status: 500 });
-    }
-    reportedCommentIds = [
-      ...new Set(
-        (reportRows ?? [])
-          .map((r) => String((r as { target_id?: string }).target_id ?? "").trim())
-          .filter(Boolean)
-      ),
-    ];
-    if (!reportedCommentIds.length) {
-      return empty();
-    }
-  }
-
-  // 작성자 닉네임 검색 → profiles id 후보
-  let matchedAuthorIds: string[] = [];
-  if (!commentId && search.pattern && !search.uuid) {
-    const { data: profs, error: pErr } = await sb
-      .from("profiles")
-      .select("id")
-      .ilike("nickname", search.pattern)
-      .limit(COMMUNITY_LIST_PROFILE_MATCH_LIMIT);
-    if (pErr) return NextResponse.json({ ok: false, error: pErr.message }, { status: 500 });
-    matchedAuthorIds = ((profs ?? []) as Array<{ id?: string }>).map((p) => String(p.id ?? "")).filter(Boolean);
-  }
-
-  let q = sb
-    .from("community_comments")
-    .select(
-      "id, post_id, parent_id, user_id, content, status, like_count, is_hidden, is_deleted, created_at, updated_at",
-      { count: "exact" }
-    )
-    .order("created_at", { ascending: false });
-
+  let rows: Array<Record<string, unknown>>;
+  let total: number | null;
   if (commentId) {
-    q = q.eq("id", commentId).limit(1);
+    const { data, error, count } = await sb
+      .from("community_comments")
+      .select(COMMENT_ROW_SELECT, { count: "exact" })
+      .eq("id", commentId)
+      .limit(1);
+    if (error) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+    rows = (data ?? []) as Array<Record<string, unknown>>;
+    total = typeof count === "number" ? count : null;
   } else {
-    q = q.range(offset, offset + limit - 1);
-    if (postId) q = q.eq("post_id", postId);
-    if (postIdsForTopic) {
-      if (postIdsForTopic.length <= 200) {
-        q = q.in("post_id", postIdsForTopic);
-      } else {
-        q = q.in("post_id", postIdsForTopic.slice(0, 500));
-        if (postIdsForTopic.length > 500) topicFilterTruncated = true;
-      }
-    }
-    if (userId) q = q.eq("user_id", userId);
-    if (status) q = q.eq("status", status);
-    if (createdFrom) q = q.gte("created_at", createdFrom);
-    if (createdTo) q = q.lte("created_at", createdTo);
-    if (typeFilter === "comment") q = q.is("parent_id", null);
-    if (typeFilter === "reply") q = q.not("parent_id", "is", null);
-    if (reportedCommentIds) {
-      if (reportedCommentIds.length <= 200) {
-        q = q.in("id", reportedCommentIds);
-      } else {
-        q = q.in("id", reportedCommentIds.slice(0, 500));
-      }
-    }
-    const searchOr = buildCommunitySearchOr({
-      search,
-      textColumns: ["content"],
-      userColumn: "user_id",
-      matchedUserIds: matchedAuthorIds,
-      uuidColumns: ["id", "post_id", "user_id"],
+    // 글·회원 id 가 UUID 가 아니면 일치하는 댓글이 없다
+    if ((postId && !isCommunityListUuid(postId)) || (userId && !isCommunityListUuid(userId))) return empty();
+    const reportedOnly = reportedFilter === "1" || reportedFilter === "true" || reportedFilter === "only";
+    // 신고 대기 판정 = community_reports(eq("target_type", "comment") · open/reviewing) — RPC 안에서 EXISTS
+    const { data: page, error: pageErr } = await sb.rpc(COMMENTS_PAGE_RPC, {
+      p_post_id: postId || null,
+      p_topic_slug: topicSlug || null,
+      p_user_id: userId || null,
+      p_status: status || null,
+      p_from: createdFrom || null,
+      p_to: createdTo || null,
+      p_kind: typeFilter === "comment" || typeFilter === "reply" ? typeFilter : null,
+      p_reported_only: reportedOnly,
+      p_q_pattern: search.pattern,
+      p_q_uuid: search.uuid,
+      p_limit: limit,
+      p_offset: offset,
     });
-    if (searchOr) q = q.or(searchOr);
+    if (pageErr) {
+      return NextResponse.json({ ok: false, error: pageErr.message }, { status: 500 });
+    }
+    const res = (page ?? {}) as { total?: number; ids?: string[] };
+    const ids = Array.isArray(res.ids) ? res.ids.map(String) : [];
+    total = Number(res.total ?? 0);
+    if (ids.length) {
+      const { data, error } = await sb.from("community_comments").select(COMMENT_ROW_SELECT).in("id", ids);
+      if (error) {
+        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      }
+      const byId = new Map(((data ?? []) as Array<Record<string, unknown>>).map((r) => [String(r.id ?? ""), r]));
+      rows = ids.map((id) => byId.get(id)).filter((r): r is Record<string, unknown> => Boolean(r));
+    } else {
+      rows = [];
+    }
   }
 
-  const { data, error, count } = await q;
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  }
-
-  const rows = (data ?? []) as Array<Record<string, unknown>>;
   const uniquePostIds = [...new Set(rows.map((r) => String(r.post_id ?? "")).filter(Boolean))];
   const parentIds = [
     ...new Set(
@@ -249,9 +204,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     comments,
-    total: typeof count === "number" ? count : null,
+    total,
     limit,
     offset,
-    topicFilterTruncated: topicFilterTruncated || false,
+    topicFilterTruncated: false,
   });
 }

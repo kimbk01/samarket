@@ -248,9 +248,9 @@ export function toAdsShellListRow(
 
   const runtimeStatus = item.runtimeDisplayStatus ?? null;
   const statusTab = resolveShellStatusTab(item);
-  const ops = mapRawToAdsOpsStatus(
-    [item.status, item.exposureLabel, item.periodLabel].filter(Boolean).join(" ")
-  );
+  const ops =
+    item.opsStatus ??
+    mapRawToAdsOpsStatus([item.status, item.exposureLabel, item.periodLabel].filter(Boolean).join(" "));
 
   const memberOrStore = resolveMemberOrStoreLabel(item, ko);
 
@@ -413,6 +413,7 @@ export function resolveMemberOrStoreLabel(item: AdsActionItem, ko: boolean): str
  * - pending = real review only (not draft/incomplete)
  * - live = customer-visible winner / delivery live only (not eligible_waiting)
  * - waiting = eligible non-winner popups
+ * - 그 외 원천(피드 신청·피드 캠페인·상위노출·팝업 오너 신청) = `opsStatus` 그대로 (scheduled → 「예약」)
  */
 export function resolveShellStatusTab(
   item: AdsActionItem
@@ -435,6 +436,10 @@ export function resolveShellStatusTab(
   ) {
     return "incomplete";
   }
+
+  // 원천 projector 가 계산한 운영 상태가 있으면 그대로 탭으로 쓴다 (SQL `admin_ads_workspace_rows` status_tab 과 같은 규칙).
+  // 표시 문구를 다시 읽으면 「예약 … 아직 노출 안 됨(예약)」의 「노출」 때문에 예약이 노출 중으로 셈해진다.
+  if (item.opsStatus) return opsToShellTab(item.opsStatus);
 
   const tab = normalizeAdsShellStatus(item.status, item.exposureLabel, item.periodLabel);
   if (tab === "pending") {

@@ -172,7 +172,8 @@ describe("Stage1 Ads product path uses canonical Cash", () => {
   });
 
   it("Admin funded queue requires canonical funding authority", () => {
-    expect(queue).toContain("loadDeliveryAdFundingStatusByCampaignIds");
+    // R7 — 결제 확인 필터는 DB RPC(admin_delivery_ad_action_queue_page) 안 (페이지·total 정확)
+    expect(queue).toContain("admin_delivery_ad_action_queue_page");
     expect(queue).toContain("deliveryAdAdminQueueFundingAllowsIntake");
     expect(queue).toContain("isDeliveryAdFundingReadyForGoLive");
   });
