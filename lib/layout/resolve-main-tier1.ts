@@ -721,16 +721,6 @@ export function resolveMainTier1Subpage(
     return { ...DEFAULT, backHref: "/orders", preferHistoryBack: true, titleText: "tier1_order_chat", showHubQuickActions: false };
   }
 
-  if (/^\/community-messenger\/calls-v[34]\/[^/]+$/.test(p)) {
-    return {
-      ...DEFAULT,
-      backHref: "/community-messenger",
-      preferHistoryBack: true,
-      titleText: "tier1_call",
-      showHubQuickActions: false,
-    };
-  }
-
   if (/^\/group-chat\/[^/]+$/.test(p)) {
     return { ...DEFAULT, backHref: "/group-chat", preferHistoryBack: true, titleText: "tier1_group_chat_room", showHubQuickActions: false };
   }
