@@ -17,6 +17,7 @@ import {
   orderLineOptionsSummary,
 } from "@/lib/stores/product-line-options";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { StoreOrderReceiptSheet } from "@/components/mypage/StoreOrderReceiptSheet";
 import {
   formatPhMobileDisplay,
   parsePhMobileInput,
@@ -193,6 +194,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const [refundBusy, setRefundBusy] = useState(false);
   const [refundErr, setRefundErr] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState("");
+  const [receiptOpen, setReceiptOpen] = useState(false);
   const detailPerfOnceRef = useRef<string | null>(null);
   const seedUsedOnceRef = useRef<string | null>(null);
   const orderNotificationReadOnceRef = useRef<string | null>(null);
@@ -996,11 +998,43 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         </dl>
       </div>
 
-      {order.order_status === "completed" && reorderPayload ? (
-        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-          <StoreOrderReorderAgainButton
-            payload={reorderPayload}
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-ui-rect border border-signature/40 bg-sam-surface px-3 py-3 text-sm font-semibold text-signature shadow-sm"
+      {order.order_status === "completed" ? (
+        <div className="space-y-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+          {reorderPayload ? (
+            <StoreOrderReorderAgainButton
+              payload={reorderPayload}
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-ui-rect border border-signature/40 bg-sam-surface px-3 py-3 text-sm font-semibold text-signature shadow-sm"
+            />
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setReceiptOpen(true)}
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-sm font-semibold text-sam-fg"
+            data-store-order-receipt-open="1"
+          >
+            {t("mypage_receipt_open")}
+          </button>
+          <StoreOrderReceiptSheet
+            open={receiptOpen}
+            onClose={() => setReceiptOpen(false)}
+            data={{
+              storeName: order.store_name || t("mypage_comp_store_fallback_name"),
+              storeAddressLines: order.store_pickup_address_lines ?? [],
+              orderNo: order.order_no,
+              orderedAt: new Date(order.created_at).toLocaleString(dateLocale),
+              lines: items.map((it) => ({
+                id: it.id,
+                title: it.product_title_snapshot,
+                qty: Number(it.qty) || 0,
+                subtotal: Number(it.subtotal) || 0,
+              })),
+              itemsSubtotal: itemsSumPhp,
+              discount: Math.round(Number(order.discount_amount) || 0),
+              giftUsed: Math.round(Number(order.gift_redemption_amount) || 0),
+              deliveryFee: deliveryFeePhp,
+              paymentMethod: payDisplay,
+              paymentAmount: order.payment_amount,
+            }}
           />
         </div>
       ) : null}
