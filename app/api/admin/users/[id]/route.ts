@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { resolvePhoneVerificationDisplayStatus } from "@/lib/profile/admin-phone-verification-sync";
-import { isMemberNicknameTaken } from "@/lib/profile/member-nickname-policy";
+import { isMemberNicknameTaken, validateMemberNicknameInput } from "@/lib/profile/member-nickname-policy";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { assertMemberPasswordChangeAllowed } from "@/lib/admin-users/member-auth-target";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -516,7 +516,7 @@ export async function GET(
       nickname: prof.nickname ?? null,
       contact_phone: prof.phone ?? null,
       contact_address: defaultMasterAddress,
-      phone_verified: prof.phone_verified === true,
+      phone_verified: resolvePhoneVerificationDisplayStatus(prof) === "verified",
       phone_verified_at: prof.phone_verified_at ?? null,
       /** 앱 게이트(hasVerifiedPhone)와 같은 판정 — 원시 status 컬럼만 보지 않는다 (감사 #8) */
       phone_verification_status: resolvePhoneVerificationDisplayStatus(prof),
@@ -718,12 +718,10 @@ export async function PATCH(
 
   let nextNickname: string | null = null;
   if (hasNickname) {
-    const n = String(nicknameRaw).trim();
-    if (!n) return NextResponse.json({ ok: false, error: "닉네임을 입력해 주세요." }, { status: 400 });
-    if (n.length > 20) {
-      return NextResponse.json({ ok: false, error: "닉네임은 20자 이내로 입력해 주세요." }, { status: 400 });
-    }
-    nextNickname = n;
+    /** 회원 공개 이름 SSOT 와 같은 검증(2~20자) — lib/profile/member-nickname-policy */
+    const checked = validateMemberNicknameInput(nicknameRaw);
+    if (!checked.ok) return NextResponse.json({ ok: false, error: checked.message }, { status: checked.status });
+    nextNickname = checked.nickname;
   }
 
   let nextDibayId: string | null | undefined = undefined;
@@ -825,6 +823,11 @@ export async function PATCH(
    * 공개 아이디 — admin_set_dibay_id 한 트랜잭션: dibay_id·username 동시 갱신 + 사유·실행자·전후 값 감사 기록.
    * 회원 본인 1회 변경권 컬럼은 건드리지 않는다(정책 C). 다른 필드 저장보다 먼저 실행해 실패 시 아무것도 쓰지 않는다.
    */
+  /** 닉네임 중복도 RPC(아이디 변경) 전에 확인 — 일부만 저장되고 409 를 돌려주는 상태 방지 */
+  if (nextNickname !== null && (await isMemberNicknameTaken(sb, userId, nextNickname))) {
+    return NextResponse.json({ ok: false, error: "이미 사용 중인 닉네임입니다" }, { status: 409 });
+  }
+
   if (nextDibayId) {
     const { data: rpcData, error: rpcError } = await sb.rpc("admin_set_dibay_id", {
       p_target_user_id: userId,
@@ -857,9 +860,6 @@ export async function PATCH(
     }
   }
   if (nextNickname !== null) {
-    if (await isMemberNicknameTaken(sb, userId, nextNickname)) {
-      return NextResponse.json({ ok: false, error: "이미 사용 중인 닉네임입니다" }, { status: 409 });
-    }
     patch.nickname = nextNickname;
     patch.display_name = nextNickname;
   }

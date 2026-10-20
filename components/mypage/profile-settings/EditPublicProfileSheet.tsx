@@ -85,14 +85,11 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
       setError(err.displayName);
       return;
     }
+    /** 공개 이름 SSOT(nickname) 컬럼 기준 비교 — nickname 이 비어 있는 레거시 회원은 저장 시 채워진다 */
     const { payload, expected } = diffProfileEdit(
-      { nickname: baseline.nickname ?? baseline.display_name ?? null, bio: baseline.bio ?? null },
+      { nickname: baseline.nickname ?? null, bio: baseline.bio ?? null },
       { nickname: displayName, bio }
     );
-    if (payload.nickname !== undefined) {
-      /** 원본 nickname 컬럼 기준 비교 — display_name 폴백 값을 기대값으로 보내지 않는다 */
-      expected.nickname = baseline.nickname ?? null;
-    }
     if (Object.keys(payload).length === 0) {
       onClose();
       return;

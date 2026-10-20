@@ -3,6 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /** 관리자 아이디 변경 사유 필수 — 서버(API) 단계. DB(admin_set_dibay_id) 단계는 격리 DB 시나리오로 검증. */
 
 const rpc = vi.fn();
+let nicknameTaken = false;
+vi.mock("@/lib/profile/member-nickname-policy", async (orig) => {
+  const actual = (await orig()) as Record<string, unknown>;
+  return { ...actual, isMemberNicknameTaken: async () => nicknameTaken };
+});
 const updates: Array<Record<string, unknown>> = [];
 
 const fakeSb = {
@@ -79,6 +84,21 @@ describe("PATCH /api/admin/users/:id — dibayId reason", () => {
         expect(u).not.toHaveProperty(k);
       }
     }
+  });
+
+  it("admin nickname uses the member SSOT rule (2–20 chars)", async () => {
+    const r = await patch({ nickname: "a" });
+    expect(r.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("taken nickname is rejected before the ID-change RPC (no partial write)", async () => {
+    nicknameTaken = true;
+    const r = await patch({ dibayId: "new_id1", dibayIdReason: "정정", nickname: "중복이름" });
+    nicknameTaken = false;
+    expect(r.status).toBe(409);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(updates).toEqual([]);
   });
 
   it("maps DB reason_required (defense in depth) to 400", async () => {
