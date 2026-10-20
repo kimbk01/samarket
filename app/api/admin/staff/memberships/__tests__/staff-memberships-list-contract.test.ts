@@ -82,4 +82,22 @@ describe("GET /api/admin/staff/memberships", () => {
     expect(json.limit).toBe(20);
     expect(json.memberships).toHaveLength(20);
   });
+
+  it("검색 = 닉네임·아이디·이메일 + 회원 ID 일부 (예전 화면 검색 범위 복구)", async () => {
+    const UID = "3f2a9c10-1111-4222-8333-444455556666";
+    fake = createFakePagedSb((call) => {
+      if (call.table === "profiles") return { data: [] };
+      if (call.table !== "admin_memberships") return { data: [] };
+      const sel = fakeOps(call, "select")[0]?.[0];
+      if (sel === "user_id") return { data: [{ user_id: UID }, { user_id: "aaaaaaaa-0000-4000-8000-000000000000" }] };
+      const ids = (fakeOps(call, "in")[0]?.[1] ?? []) as string[];
+      const rows = [{ id: "m1", user_id: UID, role: "admin", status: "active" }].filter((r) => ids.includes(r.user_id));
+      const head = fakeOps(call, "select").some((a) => (a[1] as { head?: boolean } | undefined)?.head);
+      return head ? { data: null, count: rows.length } : { data: rows, count: rows.length };
+    });
+    requireSuperAdmin.mockResolvedValue({ ok: true, sb: fake.sb });
+    const json = await get("q=9C10-11");
+    expect(json.total).toBe(1);
+    expect(json.memberships.map((m) => m.membershipId)).toEqual(["m1"]);
+  });
 });

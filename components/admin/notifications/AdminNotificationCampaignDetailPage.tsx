@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useAdminAutoRefresh } from "@/lib/admin/use-admin-auto-refresh";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -281,13 +282,8 @@ export function AdminNotificationCampaignDetailPage() {
 
   const isSending = summary?.status === "sending" || occurrences.some((o) => o.status === "sending");
 
-  useEffect(() => {
-    if (!isSending) return;
-    const timer = window.setInterval(() => {
-      void refresh();
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [isSending, refresh]);
+  // 발송 중일 때만 5초 진행률 갱신 — 탭이 숨겨지면 멈춤 · 이전 조회 진행 중이면 건너뜀
+  useAdminAutoRefresh(refresh, { intervalMs: 5000, enabled: isSending });
 
   const cancelOccurrence = async (occurrenceId: string) => {
     const res = await fetch(`/api/admin/notification-campaigns/occurrences/${occurrenceId}/cancel`, {

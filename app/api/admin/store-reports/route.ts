@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
  * 관리자: 매장·상품 신고 목록
  * - `limit`/`offset` 이 있으면 서버 페이지(R7): 20/50/100 · `total`(count exact) — 고정 상한 없음.
  * - 없으면 예전 응답(최근 400건) 그대로 — 매장 허브 요약·포인트 대기·배달 신고 화면 호환.
+ * - `focus_position=<신고 id>` → `{ position }` (같은 정렬·매장 필터에서 앞선 건수, 없으면 null) — 딥링크 강조용.
  */
 export async function GET(req: NextRequest) {
   if (!(await isRouteAdmin())) {
@@ -23,6 +24,34 @@ export async function GET(req: NextRequest) {
   }
 
   const storeIdFilter = req.nextUrl.searchParams.get("store_id")?.trim() || "";
+
+  // 딥링크 강조 신고의 목록 위치 — 같은 정렬(최신순 · id 내림)·같은 매장 필터에서 앞에 있는 건수.
+  // 화면이 이 위치로 쪽을 옮겨 첫 쪽 밖 신고도 강조한다 (예전 400건 목록과 같은 동작).
+  const focusId = req.nextUrl.searchParams.get("focus_position")?.trim() || "";
+  if (focusId) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(focusId)) {
+      return NextResponse.json({ ok: true, position: null });
+    }
+    const { data: target, error: tErr } = await sb
+      .from("store_reports")
+      .select("id, created_at, store_id")
+      .eq("id", focusId)
+      .maybeSingle();
+    if (tErr) return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
+    if (!target || (storeIdFilter && target.store_id !== storeIdFilter)) {
+      return NextResponse.json({ ok: true, position: null });
+    }
+    const at = String(target.created_at);
+    let pq = sb
+      .from("store_reports")
+      .select("id", { count: "exact", head: true })
+      .or(`created_at.gt.${at},and(created_at.eq.${at},id.gt.${focusId})`);
+    if (storeIdFilter) pq = pq.eq("store_id", storeIdFilter);
+    const { count, error: pErr } = await pq;
+    if (pErr) return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
+    return NextResponse.json({ ok: true, position: count ?? 0 });
+  }
+
   const page = parseDeliveryListPageIfRequested(req.nextUrl.searchParams);
 
   let q = sb

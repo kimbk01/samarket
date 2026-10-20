@@ -28,24 +28,7 @@ export function maskProfilePhoneForDisplay(formatted: string | null | undefined)
   return `${prefix}${out}`;
 }
 
-export type AccountPhoneDisplay =
-  /** 인증됨 + 번호 있음 → 마스킹 번호 + 인증 뱃지 */
-  | { kind: "verified_with_number"; masked: string }
-  /** 인증됨 + 번호 없음(관리자·소셜 인증) → "인증 완료"만 ("번호 없음" 동시 표시 금지) */
-  | { kind: "verified_no_number" }
-  /** 미인증 + 번호 있음 → 마스킹 번호 + 미인증 */
-  | { kind: "unverified_with_number"; masked: string }
-  /** 미인증 + 번호 없음 → "번호 없음" */
-  | { kind: "missing" };
-
-/** 인증 여부와 번호 표시를 같은 값에서 계산 (S03 — 두 상태가 서로 모순되게 보이지 않게) */
-export function resolveAccountPhoneDisplay(input: {
-  formattedPhone: string | null | undefined;
-  verified: boolean;
-}): AccountPhoneDisplay {
-  const masked = maskProfilePhoneForDisplay(input.formattedPhone);
-  if (input.verified) {
-    return masked ? { kind: "verified_with_number", masked } : { kind: "verified_no_number" };
-  }
-  return masked ? { kind: "unverified_with_number", masked } : { kind: "missing" };
-}
+/**
+ * 인증 여부와 번호 표시 조합은 `resolveMemberPhoneState`(`lib/profile/member-account-status.ts`) 하나로 판정한다
+ * (홈 필수정보·계정 S03·전화 인증 S05 공통 — real-screen-redesign §11-2).
+ */

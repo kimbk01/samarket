@@ -55,7 +55,6 @@ export type MypageHomeRowValueSource =
   | { kind: "summary-count"; field: MypageSummaryCountKey; format: "selling" | "pending" | "active" | "count" | "sheets" }
   | { kind: "summary-points" }
   | { kind: "trade-chat-unread" }
-  | { kind: "address-public-label" }
   | { kind: "installed-version" };
 
 export type MypageHomeLinkMenuItem = {

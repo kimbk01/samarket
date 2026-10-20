@@ -4,6 +4,7 @@
 export const ADDRESS_DEFAULTS_FETCH_CALLERS = [
   "mypage_home_model",
   "mypage_hub_model",
+  "mypage_account_required_info",
   "representative_address_presentation",
   "representative_address_line",
   "representative_full_address_line",

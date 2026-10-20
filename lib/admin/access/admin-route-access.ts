@@ -7,7 +7,8 @@
  * - 내부 운영 도구(ops-*·qa-board 등) = super_admin (F0 — API `requireSuperAdmin` + 페이지 `SuperAdminOnlyPageGate`).
  * - 거래 = 활성 관리자 전원(O-2, `requireTradeAdmin`) · 커뮤니티 = 영역별 키(`requireCommunityAdmin(area)`) ·
  *   채팅 = `chats` 키, 단 거래 채팅은 전원(`requireTradeChatAdmin`)·배달 주문 채팅은 `chats|business`.
- * - 정지된 관리자 계정 차단(거래·홍보)은 서버만 판단한다 — 이 표는 역할·권한 키만 본다.
+ * - 정지된 관리자 계정 차단(거래·거래 채팅·커뮤니티 홍보)은 서버 가드와 같은 규칙으로 표에도 반영한다
+ *   (`accountSuspended` = `/api/admin/me` · 최고관리자 제외). 최종 판정은 서버 가드.
  *
  * 규칙은 위에서부터 첫 일치가 이긴다(구체적인 경로를 먼저). 접두사 일치는 경로 조각 경계 기준
  * (`/admin/ops-knowledge` 는 `/admin/ops-knowledge-graph` 와 일치하지 않음). `query` 가 있으면 쿼리 값도 같아야 한다.
@@ -59,6 +60,8 @@ export type AdminRouteAccessActor = {
   permissions: readonly string[];
   /** `DIBAY_DEPLOY_OWNER_IDS` 판정 결과 (서버가 넘김) */
   isDeployOwner?: boolean;
+  /** 정지된 운영자 (서버 `/api/admin/me.accountSuspended`) — 거래·거래 채팅·커뮤니티 홍보 불가 (`requireTradeAdmin`·`requireTradeChatAdmin`·`requireCommunityAdmin("promotion")` 과 같은 규칙) */
+  accountSuspended?: boolean;
 };
 
 const ANY: AdminRouteRequirement = { kind: "any_admin" };
@@ -302,11 +305,14 @@ export function actorMeetsAdminRouteRequirement(
       return isSuper || hasPermission(perms, requirement.key);
     case "domain":
       if (isSuper) return true;
-      if (requirement.guard === "trade") return true;
+      // 정지된 운영자: 거래 Admin·거래 채팅 불가 — 서버 `requireTradeAdmin`·`requireTradeChatAdmin` 과 같은 규칙
+      if (requirement.guard === "trade") return actor.accountSuspended !== true;
       if (requirement.guard === "community") {
+        // 정지된 운영자는 홍보 조치 불가 — 서버 `requireCommunityAdmin("promotion")` 과 같은 규칙 (최고관리자 제외)
+        if (requirement.area === "promotion" && actor.accountSuspended === true) return false;
         return communityAreaAllowed(perms as readonly AdminPermissionKey[], requirement.area, false);
       }
-      if (requirement.scope === "trade") return true;
+      if (requirement.scope === "trade") return actor.accountSuspended !== true;
       if (requirement.scope === "store_order") return hasPermission(perms, "chats") || hasPermission(perms, "business");
       return hasPermission(perms, "chats");
   }

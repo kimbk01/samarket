@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check } from "lucide-react";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { hasCustomUserAvatar, resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
@@ -16,7 +16,18 @@ type Props = {
   badge?: "none" | "verified";
 };
 
-/** 사용자 프로필 아바타 — 마이페이지·편집 등 고정 px 원형 */
+/**
+ * 로드 실패한 사진 src — 같은 화면 세션에서 재시도하지 않는다(홈 카드 실패 → 수정 시트도 바로 기본 아바타).
+ * 새 사진(다른 src)은 다시 시도.
+ */
+const failedAvatarSrcs = new Set<string>();
+
+/**
+ * 사용자 프로필 아바타 — 마이페이지 홈 카드·프로필 수정 시트·메신저 등 고정 px 원형 (단일 표시 경로).
+ * src 판정 = `resolveUserAvatarImageSrc` → `resolveProfileImageSrc` (문자열만, 네트워크 0 · real-screen-redesign §14).
+ * `unoptimized` — 크기와 무관하게 **같은 URL 1개**를 그려 홈·시트가 브라우저 캐시를 공유한다.
+ * 로드 실패(onError) → DIBAY 기본 아바타, 재시도 없음.
+ */
 export function SamarketUserAvatar({
   avatarUrl,
   alt = "",
@@ -26,13 +37,9 @@ export function SamarketUserAvatar({
   badge = "none",
 }: Props) {
   const customSrc = resolveUserAvatarImageSrc(avatarUrl);
-  const [imageFailed, setImageFailed] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
-  useEffect(() => {
-    setImageFailed(false);
-  }, [customSrc]);
-
-  const showCustomImage = Boolean(customSrc) && !imageFailed;
+  const showCustomImage = Boolean(customSrc) && failedSrc !== customSrc && !failedAvatarSrcs.has(customSrc!);
   const showVerified = badge === "verified" && hasCustomUserAvatar(avatarUrl) && showCustomImage;
 
   return (
@@ -48,7 +55,11 @@ export function SamarketUserAvatar({
             fill
             className="object-cover"
             sizes={`${sizePx}px`}
-            onError={() => setImageFailed(true)}
+            unoptimized
+            onError={() => {
+              failedAvatarSrcs.add(customSrc!);
+              setFailedSrc(customSrc);
+            }}
           />
         ) : (
           <SamarketDefaultAvatarFace className="h-full w-full" />

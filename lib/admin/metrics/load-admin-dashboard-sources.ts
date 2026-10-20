@@ -25,8 +25,6 @@ import {
   computeAdsWorkspaceHeroOccupancy,
   computeAdsWorkspaceSummaryCounts,
 } from "@/lib/admin/advertising-workspace/workspace-summary";
-import { countPlatformPopupAdminCampaigns } from "@/lib/platform-popup/admin-campaign-loader";
-import { PLATFORM_POPUP_LIVE_STATUS_FILTER } from "@/lib/platform-popup/admin-list-filter";
 import { loadAdsControlPlane } from "@/lib/admin/ads-control-plane/load-ads-control-plane";
 import { adminDomainCountFromClient } from "@/lib/admin/domain-dashboard/count-exact";
 import type { AdminDomainDashboardModel } from "@/lib/admin/domain-dashboard/types";
@@ -447,12 +445,7 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
       return mapFrom([["finance.cash_in_today", { value: t.cashInMinor }]]);
     },
     async ads() {
-      // 집행 중 팝업 = 팝업 목록 「지금 노출 중」 필터와 같은 함수·같은 클라이언트(service)
-      const [model, popupLive] = await Promise.all([
-        loadAdsControlPlane(sb),
-        countPlatformPopupAdminCampaigns(notesSb ?? sb, { scope: "popup", status: PLATFORM_POPUP_LIVE_STATUS_FILTER }),
-      ]);
-      if (!popupLive.ok) throw new Error(`platform_popup_live:${popupLive.error}`);
+      const model = await loadAdsControlPlane(sb);
       const c = computeAdsWorkspaceSummaryCounts(model, "all");
       return mapFrom([
         ["ads.hero_used", { value: computeAdsWorkspaceHeroOccupancy(model).used }],
@@ -460,7 +453,7 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
         ["ads.pending", { value: c.pending }],
         ["ads.scheduled", { value: c.scheduled }],
         ["ads.waiting", { value: c.waiting }],
-        ["ads.popup_live", { value: popupLive.total }],
+        ["ads.incomplete", { value: c.incomplete }],
       ]);
     },
     async notifications() {

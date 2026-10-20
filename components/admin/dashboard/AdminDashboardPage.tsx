@@ -48,11 +48,14 @@ import {
   type AdminDashboardTrendPayload,
 } from "@/lib/admin/metrics/dashboard-overview-contract";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { useAdminAutoRefresh } from "@/lib/admin/use-admin-auto-refresh";
 
 export const ADMIN_DASHBOARD_REFRESH_MS = 60_000;
 const TABS_ID = "admin-dashboard";
 const SIDE_TABS_ID = "admin-dashboard-side";
 const ALL_PARTS = "band,metrics,trend,pending,recent,notices";
+/** 60초 자동 갱신 = 핵심 지표만 (띠·현재 탭 지표·처리 대기). 추세·최근 활동·공지는 진입·기간 변경·수동 새로고침 때만. */
+const AUTO_REFRESH_PARTS = "band,metrics,pending";
 
 export type AdminDashboardTabData = {
   metrics: AdminDashboardMetricValue[];
@@ -600,12 +603,25 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
   const periodRef = useRef<AdminDashboardPeriod>(period);
   const requestSeq = useRef(0);
 
-  const load = useCallback(async (target: AdminDashboardTabId, forPeriod: AdminDashboardPeriod, parts: string) => {
+  /** 진행 중인 조회 수 — 자동 갱신은 다른 조회가 진행 중이면 건너뛴다 (겹침 방지). */
+  const inFlightLoads = useRef(0);
+
+  const load = useCallback(
+    async (
+      target: AdminDashboardTabId,
+      forPeriod: AdminDashboardPeriod,
+      parts: string,
+      opts: { fresh?: boolean; silent?: boolean } = {}
+    ) => {
     const seq = ++requestSeq.current;
-    setStatus("loading");
+    inFlightLoads.current += 1;
+    // 자동 갱신은 「불러오는 중」 표시를 바꾸지 않는다 (깜빡임 방지) — 값만 조용히 바꾼다.
+    if (!opts.silent) setStatus("loading");
     try {
       const res = await fetch(
-        `/api/admin/dashboard/overview?tab=${encodeURIComponent(target)}&parts=${parts}&period=${forPeriod}`,
+        `/api/admin/dashboard/overview?tab=${encodeURIComponent(target)}&parts=${parts}&period=${forPeriod}${
+          opts.fresh ? "&fresh=1" : ""
+        }`,
         { cache: "no-store", credentials: "same-origin" }
       );
       const json = (await res.json().catch(() => null)) as AdminDashboardOverviewPayload | null;
@@ -655,8 +671,12 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
           },
         };
       });
+    } finally {
+      inFlightLoads.current -= 1;
     }
-  }, []);
+    },
+    []
+  );
 
   // 기간이 바뀌면 이전 기간 값을 버리고 처음부터 읽는다 (아래 진입 효과보다 먼저 실행).
   useEffect(() => {
@@ -669,8 +689,9 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
     setGeneratedAt(null);
   }, [period]);
 
+  /** 수동 새로고침 — 전부 · 서버 캐시를 건너뛰고 새로 읽는다. */
   const refreshAll = useCallback(() => {
-    void load(tab, periodRef.current, ALL_PARTS);
+    void load(tab, periodRef.current, ALL_PARTS, { fresh: true });
   }, [load, tab]);
 
   // 탭·기간 진입: 전부 읽는다.
@@ -678,18 +699,12 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
     void load(tab, period, ALL_PARTS);
   }, [load, tab, period]);
 
-  // 60초 자동 갱신 (전부) — 창이 숨겨지면 멈추고, 다시 보이면 즉시 갱신
-  useEffect(() => {
-    const tick = () => {
-      if (document.visibilityState === "visible") refreshAll();
-    };
-    const id = window.setInterval(tick, ADMIN_DASHBOARD_REFRESH_MS);
-    document.addEventListener("visibilitychange", tick);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", tick);
-    };
-  }, [refreshAll]);
+  // 60초 자동 갱신 — 핵심 지표만 · 탭이 숨겨지면 멈춤(다시 보이면 60초 지났을 때만) · 다른 조회 진행 중이면 건너뜀
+  const autoRefresh = useCallback(async () => {
+    if (inFlightLoads.current > 0) return;
+    await load(tab, periodRef.current, AUTO_REFRESH_PARTS, { silent: true });
+  }, [load, tab]);
+  useAdminAutoRefresh(autoRefresh, { intervalMs: ADMIN_DASHBOARD_REFRESH_MS });
 
   const replaceParam = useCallback(
     (key: string, value: string | null) => {
@@ -803,9 +818,10 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
         </div>
       </div>
 
+      {/* 줄바꿈 허용 — 좁은 폭(1024)에서 기간 선택·(PHT)가 본문 밖으로 잘리지 않게 (R10) */}
       <footer
         data-admin-dashboard-status="1"
-        className={`mt-2 flex h-8 shrink-0 items-center gap-3 text-[12px] ${muted}`}
+        className={`mt-2 flex min-h-8 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12px] ${muted}`}
       >
         <span className="tabular-nums" data-admin-dashboard-updated="1">
           {t("admin_dash_v4_updated", { time: updated })}
@@ -822,7 +838,11 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
         </AdminActionButton>
         {status === "failed" ? <span className="text-sam-warning">{failedLabel}</span> : null}
         {status === "partial" ? <span className="text-sam-warning">{t("admin_dash_v4_partial_failed")}</span> : null}
-        <span className="ml-auto flex items-center gap-1" role="group" aria-label={t("admin_dash_v4_period_label")}>
+        <span
+          className="ml-auto flex flex-wrap items-center gap-1"
+          role="group"
+          aria-label={t("admin_dash_v4_period_label")}
+        >
           <span>{t("admin_dash_v4_period_label")}:</span>
           {ADMIN_DASHBOARD_PERIODS.map((p) => (
             <AdminChipButton
@@ -834,7 +854,7 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
               {ADMIN_DASHBOARD_PERIOD_LABEL[p][ko ? "ko" : "en"]}
             </AdminChipButton>
           ))}
-          <span>(PHT)</span>
+          <span className="whitespace-nowrap">(PHT)</span>
         </span>
       </footer>
     </div>

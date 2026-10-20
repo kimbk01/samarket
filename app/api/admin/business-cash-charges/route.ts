@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { memberOpsListRange, parseMemberOpsListPageIfRequested } from "@/lib/admin/member-ops-list/member-ops-list-page";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
@@ -54,7 +55,8 @@ type ChargeRequestRowWithStore = {
 
 /**
  * GET — Admin canonical Cash top-up queue.
- * Query: `status` (default PENDING, `all` = no filter), optional `store_id` (UUID → 400 invalid_store_id).
+ * Query: `status` (default PENDING, `all` = no filter), optional `store_id` (UUID → 400 invalid_store_id),
+ * optional `limit`/`offset` (R7 server page + `total`), optional `request_id` (single deep-link row).
  * Each row carries `store_name` via the `store_id → stores.id` FK embed (display only; id stays canonical).
  */
 export async function GET(req: NextRequest) {
@@ -66,16 +68,25 @@ export async function GET(req: NextRequest) {
   if (storeId && !isUuidLikeString(storeId)) {
     return NextResponse.json({ ok: false, error: "invalid_store_id" }, { status: 400 });
   }
+  // R7: `limit`/`offset` 이 있으면 서버 페이지(20/50/100) + total(count exact) — 고정 100건 상한 없음.
+  //     없으면 예전 응답(최근 100건) 그대로. `request_id` = 딥링크 한 건만 (상태 무관하게 찾을 때).
+  const page = parseMemberOpsListPageIfRequested(req.nextUrl.searchParams);
+  const requestId = String(req.nextUrl.searchParams.get("request_id") ?? "").trim();
+  if (requestId && !isUuidLikeString(requestId)) {
+    return NextResponse.json({ ok: false, error: "invalid_request_id" }, { status: 400 });
+  }
   let q = gate.sb
     .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
     .select(
-      "id, store_id, owner_user_id, amount_minor, status, created_at, decided_at, reject_reason, stores(store_name)"
+      "id, store_id, owner_user_id, amount_minor, status, created_at, decided_at, reject_reason, stores(store_name)",
+      page ? { count: "exact" } : undefined
     )
-    .order("created_at", { ascending: false })
-    .limit(100);
+    .order("created_at", { ascending: false });
   if (status && status !== "all") q = q.eq("status", status);
   if (storeId) q = q.eq("store_id", storeId);
-  const { data, error } = await q;
+  if (requestId) q = q.eq("id", requestId);
+  q = page ? q.order("id", { ascending: false }).range(...memberOpsListRange(page)) : q.limit(100);
+  const { data, error, count } = await q;
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
@@ -84,6 +95,9 @@ export async function GET(req: NextRequest) {
     const storeName = String(embed?.store_name ?? "").trim();
     return { ...row, store_name: storeName || null };
   });
+  if (page) {
+    return NextResponse.json({ ok: true, requests, total: count ?? requests.length, limit: page.limit, offset: page.offset });
+  }
   return NextResponse.json({ ok: true, requests });
 }
 

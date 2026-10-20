@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { confirmDibayIdForUser } from "@/lib/auth/dibay-id-api-handlers";
+import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
+import { clearMeProfileResponseCachesForUser } from "@/lib/profile/me-profile-get-response-cache";
+import { clearProfileResponseCacheForUser } from "@/lib/profile/profile-response-cache";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -27,6 +30,10 @@ export async function POST(req: NextRequest) {
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
   }
+  // `/api/me/dibay-id/confirm` 과 동일 — 확정 직후 GET /api/me/profile 이 이전 아이디를 돌려주지 않게
+  clearMeProfileGetRouteCache(auth.userId);
+  clearMeProfileResponseCachesForUser(auth.userId);
+  clearProfileResponseCacheForUser(auth.userId);
   return NextResponse.json({
     ok: true,
     username: result.dibay_id,

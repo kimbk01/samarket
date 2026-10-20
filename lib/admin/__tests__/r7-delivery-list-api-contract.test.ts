@@ -34,6 +34,10 @@ function fakeSb(tables: Record<string, TableData>) {
     for (const op of ["select", "order", "range", "limit", "eq", "in", "is", "not", "or", "ilike", "gt", "gte", "lt", "neq"]) {
       builder[op] = chain(op);
     }
+    builder.maybeSingle = () => {
+      calls.push({ table, op: "maybeSingle", args: [] });
+      return Promise.resolve({ data: (tables[table] ?? { rows: [] }).rows[0] ?? null, error: null });
+    };
     builder.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => {
       const t = tables[table] ?? { rows: [] };
       let data = t.rows;
@@ -73,6 +77,7 @@ import {
 } from "@/lib/admin/delivery-list/delivery-list-page";
 import { GET as productsGET } from "@/app/api/admin/store-products/route";
 import { GET as reportsGET } from "@/app/api/admin/store-reports/route";
+import { GET as cashChargesGET } from "@/app/api/admin/business-cash-charges/route";
 import { GET as reviewsGET } from "@/app/api/admin/store-reviews/route";
 import { GET as inquiriesGET } from "@/app/api/admin/store-inquiries/route";
 import { GET as paymentEventsGET } from "@/app/api/admin/store-payment-events/route";
@@ -147,6 +152,57 @@ describe("store-reports · store-reviews · store-inquiries", () => {
     const legacy = (await (await call(path)).json()) as Record<string, unknown>;
     expect(legacy.total).toBeUndefined();
     expect(opsOf(db.calls, table, "limit")[0].args).toEqual([legacyCap]);
+  });
+});
+
+describe("store-reports 딥링크 강조 위치 (focus_position)", () => {
+  const FOCUS = "5d0f6c1e-2222-4333-8444-555566667777";
+  it("강조 신고 앞의 건수 = 같은 정렬(최신순·id)·같은 매장 필터 count — 화면이 그 쪽으로 이동", async () => {
+    const db = fakeSb({ store_reports: { rows: [{ id: FOCUS, created_at: "2026-10-01T00:00:00Z", store_id: "s1" }], count: 57 } });
+    h.sb = db.sb;
+    const json = (await (await reportsGET(req(`/api/admin/store-reports?focus_position=${FOCUS}&store_id=s1`) as never)).json()) as {
+      ok: boolean;
+      position: number | null;
+    };
+    expect(json).toEqual({ ok: true, position: 57 });
+    const or = opsOf(db.calls, "store_reports", "or")[0]?.args[0] as string;
+    expect(or).toBe(`created_at.gt.2026-10-01T00:00:00Z,and(created_at.eq.2026-10-01T00:00:00Z,id.gt.${FOCUS})`);
+    expect(opsOf(db.calls, "store_reports", "eq").map((c) => c.args)).toContainEqual(["store_id", "s1"]);
+  });
+
+  it("다른 매장 신고·uuid 아님 → position null (쪽 이동 없음)", async () => {
+    const db = fakeSb({ store_reports: { rows: [{ id: FOCUS, created_at: "2026-10-01T00:00:00Z", store_id: "s2" }] } });
+    h.sb = db.sb;
+    const other = (await (await reportsGET(req(`/api/admin/store-reports?focus_position=${FOCUS}&store_id=s1`) as never)).json()) as {
+      position: number | null;
+    };
+    expect(other.position).toBeNull();
+    const bad = (await (await reportsGET(req("/api/admin/store-reports?focus_position=sr-3") as never)).json()) as {
+      position: number | null;
+    };
+    expect(bad.position).toBeNull();
+  });
+});
+
+describe("business-cash-charges (Cash 충전 대기) — 100건 상한 제거", () => {
+  it("limit/offset → range + total(count) · 없으면 예전 100건 · request_id = 한 건", async () => {
+    const db = fakeSb({ business_cash_charge_requests: { rows: rows(150, (i) => ({ id: `c${i}`, status: "PENDING" })), count: 150 } });
+    h.sb = db.sb;
+    const paged = (await (await cashChargesGET(req("/api/admin/business-cash-charges?status=PENDING&limit=50&offset=100") as never)).json()) as Record<string, unknown>;
+    expect(paged).toMatchObject({ ok: true, total: 150, limit: 50, offset: 100 });
+    expect((paged.requests as unknown[]).length).toBe(50);
+    expect(opsOf(db.calls, "business_cash_charge_requests", "range")[0].args).toEqual([100, 149]);
+    expect(opsOf(db.calls, "business_cash_charge_requests", "limit")).toHaveLength(0);
+
+    db.calls.length = 0;
+    const legacy = (await (await cashChargesGET(req("/api/admin/business-cash-charges?status=PENDING") as never)).json()) as Record<string, unknown>;
+    expect(legacy.total).toBeUndefined();
+    expect(opsOf(db.calls, "business_cash_charge_requests", "limit")[0].args).toEqual([100]);
+
+    db.calls.length = 0;
+    const id = "7a1b2c3d-1111-4222-8333-444455556666";
+    await cashChargesGET(req(`/api/admin/business-cash-charges?status=all&request_id=${id}`) as never);
+    expect(opsOf(db.calls, "business_cash_charge_requests", "eq").map((c) => c.args)).toContainEqual(["id", id]);
   });
 });
 

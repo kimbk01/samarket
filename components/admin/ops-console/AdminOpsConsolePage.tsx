@@ -7,6 +7,7 @@
  */
 
 import Link from "next/link";
+import { useAdminAutoRefresh } from "@/lib/admin/use-admin-auto-refresh";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
@@ -356,16 +357,14 @@ function AdminOpsConsolePageInner() {
       await load();
       if (alive) setLoading(false);
     })();
-    const id = window.setInterval(() => {
-      // 모달/액션 중에는 자동 새로고침으로 화면이 흔들리지 않게 정지
-      if (busy || actionBusyKey || modal) return;
-      void load();
-    }, 15_000);
     return () => {
       alive = false;
-      window.clearInterval(id);
     };
-  }, [load, busy, actionBusyKey, modal]);
+  }, [load]);
+
+  // 실시간 운영 큐 15초 갱신 — 탭이 숨겨지면 멈춤 · 이전 조회 진행 중이면 건너뜀 ·
+  // 모달/액션 중에는 화면이 흔들리지 않게 정지
+  useAdminAutoRefresh(load, { intervalMs: 15_000, paused: Boolean(busy || actionBusyKey || modal) });
 
   const loadRiderOptions = useCallback(async () => {
     setRiderOptionsErr(null);

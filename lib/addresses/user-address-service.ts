@@ -235,6 +235,7 @@ export async function getUserAddressDefaults(
     life: list.find((x) => x.isDefaultLife) ?? null,
     trade: list.find((x) => x.isDefaultTrade) ?? null,
     delivery: list.find((x) => x.isDefaultDelivery) ?? null,
+    activeCount: list.length,
   };
 }
 

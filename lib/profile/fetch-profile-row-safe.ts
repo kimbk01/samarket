@@ -68,6 +68,7 @@ const SELECT_FULL = [
   "phone_verification_status",
   "phone_verified_at",
   "phone_verification_method",
+  "phone_verification_requested_at",
   "auth_login_email",
   "realname",
   "realname_verified",
@@ -138,6 +139,7 @@ const SELECT_MID = [
   "phone_verification_status",
   "phone_verified_at",
   "phone_verification_method",
+  "phone_verification_requested_at",
   "auth_login_email",
   "realname",
   "realname_verified",
@@ -171,7 +173,7 @@ const SELECT_MID = [
 ].join(", ");
 
 const SELECT_MEMBER =
-  "id, email, display_name, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, username_confirmed, onboarding_status, onboarding_completed_at, nickname, avatar_url, profile_completed, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verification_status, phone_verified_at, phone_verification_method, auth_login_email, provider, provider_user_id, auth_provider, active_session_id, last_login_at, last_device_info, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, deleted_at, deletion_requested_at, manual_account_type";
+  "id, email, display_name, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, username_confirmed, onboarding_status, onboarding_completed_at, nickname, avatar_url, profile_completed, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verification_status, phone_verified_at, phone_verification_method, phone_verification_requested_at, auth_login_email, provider, provider_user_id, auth_provider, active_session_id, last_login_at, last_device_info, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, deleted_at, deletion_requested_at, manual_account_type";
 
 /** username·auth_provider 가 아주 옛 스키마에 없을 때 */
 const SELECT_LEGACY =
@@ -215,6 +217,7 @@ const SELECT_ME_PROFILE_LITE = [
   "phone_verified",
   "phone_verified_at",
   "phone_verification_method",
+  "phone_verification_requested_at",
   "phone_verification_status",
   "realname_verified",
   "status",

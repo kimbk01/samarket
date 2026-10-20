@@ -108,6 +108,28 @@ export function AdminStoreReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey 는 같은 조건 다시 불러오기 포함
   }, [lq.refreshKey]);
 
+  // 딥링크 강조 신고가 지금 쪽에 없으면 그 신고가 있는 쪽으로 한 번 옮긴다 (첫 쪽 밖 신고도 강조).
+  const focusPagedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = focusRequestId.trim();
+    if (!id || loading || loadError || focusPagedRef.current === id) return;
+    if (rows.some((r) => r.id === id)) {
+      focusPagedRef.current = id;
+      return;
+    }
+    focusPagedRef.current = id;
+    const qs = new URLSearchParams({ focus_position: id });
+    if (storeIdFilter) qs.set("store_id", storeIdFilter);
+    void fetch(`/api/admin/store-reports?${qs.toString()}`, { credentials: "include" })
+      .then((res) => res.json().catch(() => null))
+      .then((json: { ok?: boolean; position?: number | null } | null) => {
+        if (!json?.ok || typeof json.position !== "number") return;
+        const page = Math.floor(json.position / lq.query.size) + 1;
+        if (page !== lq.query.page) lq.setPage(page);
+      })
+      .catch(() => undefined);
+  }, [focusRequestId, rows, loading, loadError, storeIdFilter, lq]);
+
   useEffect(() => {
     const id = focusRequestId.trim();
     if (!id) return;

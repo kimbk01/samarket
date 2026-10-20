@@ -7,6 +7,7 @@ import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { extractOAuthProfileSeed, type OAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
 import { pickContactEmailForProfile } from "@/lib/auth/synthetic-auth-email";
 import { mergeOAuthAvatarIntoPatch } from "@/lib/auth/refresh-oauth-avatar-if-legacy";
+import { withVerifiedOAuthAvatar } from "@/lib/profile/verify-remote-profile-image.server";
 import { isForbiddenSocialProviderUserId } from "@/lib/auth/provider-identity/profile-identity-metadata-contract";
 import { buildOAuthNicknamePatch } from "@/lib/auth/refresh-oauth-nickname-if-legacy";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
@@ -240,16 +241,15 @@ export async function ensurePendingAuthProfileRow(
   user: User,
   seedInput?: OAuthProfileSeed
 ): Promise<void> {
-  const seed = seedInput ?? extractOAuthProfileSeed(user);
-  const authLoginEmail = pickContactEmailForProfile(seed.emailInternal, user.email);
-  const nicknameCandidate = pickTrimmed(seed.nicknameCandidate);
+  const rawSeed = seedInput ?? extractOAuthProfileSeed(user);
+  const authLoginEmail = pickContactEmailForProfile(rawSeed.emailInternal, user.email);
+  const nicknameCandidate = pickTrimmed(rawSeed.nicknameCandidate);
   const seedDisplayName = resolveOAuthSeedDisplayName(nicknameCandidate);
-  const oauthAvatar = withDefaultAvatar(seed.avatarCandidate);
-  const dbProvider = normalizeProviderForDb(seed.authProvider) ?? "email";
+  const dbProvider = normalizeProviderForDb(rawSeed.authProvider) ?? "email";
   const providerUserId =
-    pickTrimmed(seed.providerUserIdCandidate) &&
-    !isForbiddenSocialProviderUserId(seed.providerUserIdCandidate, user.id)
-      ? pickTrimmed(seed.providerUserIdCandidate)
+    pickTrimmed(rawSeed.providerUserIdCandidate) &&
+    !isForbiddenSocialProviderUserId(rawSeed.providerUserIdCandidate, user.id)
+      ? pickTrimmed(rawSeed.providerUserIdCandidate)
       : null;
   const nowIso = new Date().toISOString();
 
@@ -260,6 +260,18 @@ export async function ensurePendingAuthProfileRow(
     )
     .eq("id", user.id)
     .maybeSingle();
+
+  /** 사진을 실제로 기록할 때만 https 200 + image/* 확인 (§14 — 실패 시 기본 아바타) */
+  const seed = await withVerifiedOAuthAvatar(
+    rawSeed,
+    existing
+      ? {
+          onboarding_completed_at: pickTrimmed((existing as Record<string, unknown>).onboarding_completed_at as string),
+          avatar_url: pickTrimmed((existing as Record<string, unknown>).avatar_url as string),
+        }
+      : null,
+  );
+  const oauthAvatar = withDefaultAvatar(seed.avatarCandidate);
 
   if (existing) {
     const patch: Record<string, unknown> = {};
@@ -400,7 +412,6 @@ export async function ensureAuthProfileRow(
   });
 
   const seed = extractOAuthProfileSeed(user);
-  const oauthAvatar = withDefaultAvatar(seed.avatarCandidate);
   const preferredLanguage = parseExplicitAppLanguage(meta.preferred_language);
   const nowIso = new Date().toISOString();
   const isAdminManual = provider === "admin_manual";
@@ -455,6 +466,8 @@ export async function ensureAuthProfileRow(
       });
     }
     const displaySeed = username ?? nickname;
+    /** 새 행에 사진을 기록하므로 https 200 + image/* 확인 (§14 — 실패 시 기본 아바타) */
+    const oauthAvatar = withDefaultAvatar((await withVerifiedOAuthAvatar(seed, null)).avatarCandidate);
     const seedRow = {
       id: user.id,
       email,
@@ -553,16 +566,14 @@ export async function ensureAuthProfileRow(
     if (!pickTrimmed((existing as { preferred_language?: string | null }).preferred_language) && preferredLanguage) {
       patch.preferred_language = preferredLanguage;
     }
-    mergeOAuthAvatarIntoPatch(
-      patch,
-      {
-        onboarding_completed_at: pickTrimmed(
-          (existing as { onboarding_completed_at?: string | null }).onboarding_completed_at
-        ),
-        avatar_url: pickTrimmed(existing.avatar_url),
-      },
-      seed
-    );
+    const avatarProfile = {
+      onboarding_completed_at: pickTrimmed(
+        (existing as { onboarding_completed_at?: string | null }).onboarding_completed_at
+      ),
+      avatar_url: pickTrimmed(existing.avatar_url),
+    };
+    // 사진을 갱신할 때만 원격 확인 (그 외 재로그인은 요청 0)
+    mergeOAuthAvatarIntoPatch(patch, avatarProfile, await withVerifiedOAuthAvatar(seed, avatarProfile));
     if (Object.keys(patch).length > 0) {
       const { error: updateError } = await sb.from("profiles").update(patch).eq("id", user.id);
       if (updateError) {

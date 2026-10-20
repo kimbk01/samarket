@@ -48,6 +48,8 @@ export interface ProfileRow {
   phone_verification_status: string;
   phone_verified_at?: string | null;
   phone_verification_method?: string | null;
+  /** OTP 발송 시각 — 내정보 필수정보 「인증 진행 중/만료」 표시 판정용 (인증 근거 아님) */
+  phone_verification_requested_at?: string | null;
   auth_login_email?: string | null;
   realname: string | null;
   realname_verified: boolean;

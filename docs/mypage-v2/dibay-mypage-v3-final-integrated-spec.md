@@ -52,7 +52,7 @@
 | 공통 | 스크롤·탭 복원 | PARTIAL | 수정·신규 | 하위 목록 복원, 홈 저장 TTL 30분 (X3 유지) |
 | 공통 | 스켈레톤 | FAIL | 신규·수정 | 화면 유형별 구조 일치, `section/loading.tsx` 범용 블록 폐기 |
 | 공통 | 성능 | PARTIAL | 수정 | 설정 화면 `loadMypageServerShell`, 재진입 캐시, 요청 예산 |
-| 홈 | H0 | PARTIAL | 수정·신규 | 9그룹 순서, `/api/me/mypage-summary`(목적지 함수 재사용·실패는 빈 값), 필수정보 미완료 항목만, 전화·주소 결함, 관리자 맨 끝, 태블릿 40rem·20px |
+| 홈 | H0 | PARTIAL | 수정·신규 | 9그룹 순서, `/api/me/mypage-summary`(목적지 함수 재사용·실패는 빈 값), 필수정보 미완료 항목만 → **필수정보 3행 상시 표시 (2026-10-20 Owner 승인, real-screen-redesign §11)**, 전화·주소 결함, 관리자 맨 끝, 태블릿 40rem·20px |
 | 프로필·계정 | S01 | FAIL | 수정 | 단일 시트(X1) + 사진 액션시트·실시간 검증·글자수·변경 시만 저장·미저장 확인 |
 | | S02·S03·S04·S05 | PARTIAL | 수정 | S03 연결 로그인·가입일·번호 마스킹·스켈레톤 / S04 1회 변경 확인 시트 / S05 무한 로딩·타이머 |
 | 주소 | S06·S07·S08 | PARTIAL | 수정 | 빈 목록 안내·재시도 / **S07 대표 주소 임의 변경 금지**·라벨 선택 / 검색 결과 없음·오류 |
@@ -401,7 +401,7 @@
   | # | 블록 | 행(표시 순서) → 목적지 | 오른쪽 값 | 판정 |
   |---|---|---|---|---|
   | 1 | 프로필 | 사진 56 · 닉네임 · @아이디 · 소개 1줄 · [프로필 수정] → **시트**(K1) / 매너 배터리 행 → `/mypage/trust` | 매너 `72%` | 유지(+K1) |
-  | 1-a | 필수정보(**미완료 항목만**, 매너 행 아래 인라인) | 아이디 없음 → 아이디 시트 · 전화 미인증 → 전화 인증 시트 · 기본 주소 없음 → `/mypage/addresses` | CTA 문구 | 수정 |
+  | 1-a | 필수정보(~~미완료 항목만~~ → **필수정보 3행 상시 표시 (2026-10-20 Owner 승인, real-screen-redesign §11)**) | 아이디 없음 → 아이디 시트 · 전화 미인증 → 전화 인증 시트 · 기본 주소 없음 → `/mypage/addresses` | CTA 문구 | 수정 |
   | 1-b | 관리자 배너(활성 1건, 닫기 가능 배너는 기기 저장) | 배너 링크 | — | 유지(위치·데이터 경로 수정) |
   | 2 | 활동 | 진행중 거래 → `/mypage/products` · 거래 채팅 → `/community-messenger/trade-chats` · 찜 → `/mypage/trade/favorites` · 가격 제안 → `/mypage/offers` · 최근 본 상품 → `/mypage/recent-viewed` · 거래 후기 → `/mypage/trade/reviews` · 내가 쓴 글 → `/mypage/community-posts` · 댓글·반응 → `/mypage/community-activity` | 판매중 n · 안읽음 배지 · n · 받은 대기 n · — · — · n · — | 수정(한 그룹으로 통합·값) |
   | 3 | 매장·주문 | [매장 신청 / 승인 진행 사항(뱃지) / 매장 진입](권한별) · 주문 내역 → `/mypage/store-orders` · 배달K 라이더 → `/mypage/section/store/rider` · 매장 문의 내역 → `/mypage/store-inquiries` | 심사 뱃지 · 진행중 n · — · — | 유지(+값) |
@@ -422,6 +422,7 @@
   - 매너 % = `buildMemberTrustSurface({trust_score, manner_score})`(`lib/trust/member-trust-surface.ts:45`) — `/mypage/trust` 와 같은 함수. **수정**: 세션 lite 로 그린 직후(`projection.profile=null`)에는 기본값으로 계산된 %가 잠깐 보였다가 바뀜(`MypageProfileSummary.tsx:60-63`, lite 에 trust 필드 없음 `mypage-home-store.ts:52-64`) → `profile` 이 없으면 % 자리 작은 스켈레톤, lite 스냅샷에 `trustScore/mannerScore` 2필드 추가.
   - 숫자 표시 규칙: 개수 `>0` 만 표시, 알려진 0 = 표시 안 함, 모름(실패·미응답) = 비움. **0 을 실패 대체값으로 쓰지 않음**. 포인트는 금액이라 0·음수 그대로 표시(`CurrencyAmount` `compactPoint`), 모름 = "—". 거래 채팅 안읽음 = 빨간 pill 숫자(99+), 나머지 = 14px 보조색 텍스트 + chevron.
 - **필수정보 (1-a) 상세 — 수정**
+  - > 개정 2026-10-20: 아래 「미완료일 때만」 규칙은 폐기. **필수정보 3행 상시 표시 (2026-10-20 Owner 승인, real-screen-redesign §11)** — 아이디·전화번호 인증·대표 주소 3행을 완료 여부와 관계없이 항상 표시하고 상태·색·CTA 는 `docs/mypage-v2/dibay-mypage-v3-real-screen-redesign.md` §11 표를 따른다. 계정(S03)도 같은 컴포넌트.
   - 표시 조건(계약 `LEGACY-IA-PHASE1-CONTRACT.md:24-27`: 미완료 → 인라인, 완료 → 숨김): 항목별로 **미완료일 때만** 1줄. ① 아이디: `handle` 값 없음(복구 필요)일 때만 — 1회 변경 가능 상태는 요구사항이 아님(`lib/profile/member-account-status.ts:8` "HANDLE custom change is never an action requirement") → 홈에서 제거, S03 계정 화면 담당 ② 전화: `!phone.verified` ③ 주소: `!address.registered`. 셋 다 완료면 블록 자체 없음(현재 항상 3줄 카드 `MypageRequiredInfoSummary.tsx:102-104,199-304` → 감사 PARTIAL 해소).
   - 행 모양: `bg-sam-warning-soft` 줄, 왼쪽 경고 아이콘, 제목(예: "전화번호 인증이 필요해요"), 오른쪽 텍스트 버튼 1개([인증하기] / [주소 등록] / [아이디 복구]). 배지·값·힌트 3중 표기 제거.
   - **전화 "등록된 번호 없음"+"인증 완료" 모순 — 원인**: 인증 여부는 `hasVerifiedPhone`(관리자 권한자 면제 `lib/auth/post-login-profile-policy.ts:53-57`, `phone_verified`/`phone_verified_at` 플래그 `:58-60`, 관리자 수동 승인 `:66`)으로, 표시 번호는 `phone/phone_country_code/phone_number` 컬럼(`member-account-status.ts:50-59`)으로 **따로** 계산(`:74-77`). 플래그는 참·번호 컬럼은 비어 있는 계정(관리자 면제·수동 승인)에서 값="등록된 번호 없음"(`MypageRequiredInfoSummary.tsx:245-251`), 배지·힌트=둘 다 "인증 완료"(`:240-244,252-254`). **수정**: 홈은 인증 완료면 전화 줄을 아예 그리지 않음(모순 표시 경로 제거). 상태 함수에 `phone.presentation: "verified" | "verified_without_number" | "unverified"` 추가 — S03 계정 화면은 `verified_without_number` 를 "인증됨 · 번호 미등록"으로 1회만 표기(문구 확정은 S03 파트). 인증 판정 로직(`hasVerifiedPhone`)은 **변경 금지**(가입·게이트 공용).
@@ -615,7 +616,7 @@ type MypageSummaryResponse = {
 
 ### S03 계정 (v2 S03) — 판정: 수정  (현재 감사 판정: PARTIAL)
 - 경로 / 진입 메뉴: `/mypage/account`. 진입 = 홈 계정 그룹 [계정]. 레거시 `section/account/account-info`·`account:profile` → 여기(`mypage-section-legacy-redirect.ts:32-33`).
-- 구조·콘텐츠 순서(v2.1 S03, T5 허브): 그룹 1 `MyGroup` "계정 정보" — 아이디(`@id` + "1회 변경 가능"/"변경 완료" 값) › S04 · 전화번호(마스킹 + 인증 뱃지) › S05 · 이메일 · 연동 로그인(제공자 아이콘 + 연결 수) › S10 연동 로그인 묶음 · 가입일 · 회원 상태. 그룹 2 "필수 정보"(미완료 항목이 있을 때만: 아이디·전화·주소 상태 행). 그룹 3 `ProfileVerificationCenter`(현행 기능 유지, 행 형태로). 상단 프로필 카드·"설정으로" 버튼은 홈과 중복이므로 제거(기능 삭제 아님: 동일 진입이 홈에 있음).
+- 구조·콘텐츠 순서(v2.1 S03, T5 허브): 그룹 1 `MyGroup` "계정 정보" — 아이디(`@id` + "1회 변경 가능"/"변경 완료" 값) › S04 · 전화번호(마스킹 + 인증 뱃지) › S05 · 이메일 · 연동 로그인(제공자 아이콘 + 연결 수) › S10 연동 로그인 묶음 · 가입일 · 회원 상태. 그룹 2 "필수 정보" — ~~미완료 항목이 있을 때만~~ → **필수정보 3행 상시 표시 (2026-10-20 Owner 승인, real-screen-redesign §11)** (홈과 같은 컴포넌트, 아이디·전화 행은 이 3행이 소유). 그룹 3 `ProfileVerificationCenter`(현행 기능 유지, 행 형태로). 상단 프로필 카드·"설정으로" 버튼은 홈과 중복이므로 제거(기능 삭제 아님: 동일 진입이 홈에 있음).
 - 표시: 전화 = `+63 9** *** 1234` 형식(앞 3·뒤 4 노출, 나머지 `*`) — 마스킹 함수 신규 `maskProfilePhoneForDisplay`(`formatProfilePhoneForDisplay` 결과에 적용). 인증 여부와 번호 표시는 **같은 값에서 계산**(인증됨+번호 없음이면 "인증 완료"만, "번호 없음" 동시 표시 금지). 가입일 = `profiles.created_at`(`lib/profile/types.ts:92`) → `formatMypageDate`. 연동 로그인 = 기존 `LinkedLoginProvidersContent` 가 쓰는 연결 목록 API(경로 **확인 필요**)의 제공자 수.
 - 컴포넌트·토큰: `MyScreen`, `MyGroup`, `MyRow`(kind link/value, 오른쪽 값·뱃지), `MyStateView`. `rounded-[20px]`·`shadow-sm`·`bg-[rgba(...)]`(`MyAccountContent.tsx:47-48,124,221,243`) 제거.
 - CTA: 행 탭 = 이동만(T5). 아이디 → `/mypage/required/dibay-id`(변경 불가 상태면 값 행·chevron 없음), 전화 → `/mypage/required/phone`, 연동 로그인 → `/mypage/section/settings/device-permissions#linked-login`. 상단 "수정" 링크 제거(프로필 편집은 홈 시트).

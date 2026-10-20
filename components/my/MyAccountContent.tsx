@@ -2,38 +2,39 @@
 
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
-import {
-  MYPAGE_ADDRESSES_HREF,
-  MYPAGE_REQUIRED_DIBAY_ID_HREF,
-} from "@/lib/mypage/mypage-profile-routes";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
 import type { ProfileRow } from "@/lib/profile/types";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
-import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
-import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
 import {
   deriveStoreMemberStatus,
   hasStoreTermsConsent,
   type StoreMemberStatus,
 } from "@/lib/auth/store-member-policy";
-import { formatAtUsername } from "@/lib/users/user-label";
 import { resolveMypageSelfDisplayName } from "@/lib/mypage/mypage-self-display-name";
 import { ProfileVerificationCenter } from "@/components/profile/ProfileVerificationCenter";
-import { buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
-import { useRepresentativeFullAddressLine } from "@/hooks/use-representative-address-line";
-import { evaluatePublicIdProfileView, resolvePublicIdAtDisplay } from "@/lib/auth/dibay-public-id-ssot";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { MyGroup } from "@/components/mypage/ds/MyGroup";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
-import { resolveAccountPhoneDisplay } from "@/lib/mypage/mask-profile-phone";
+import {
+  fetchAddressDefaultsSnapshot,
+  peekFreshAddressDefaultsSnapshot,
+} from "@/lib/addresses/fetch-address-defaults-client";
+import {
+  resolveRequiredAddressFromSnapshot,
+  type RequiredAddressResolution,
+} from "@/lib/mypage/required-address-from-snapshot";
+import { resolveMypageRequiredInfoRows } from "@/lib/mypage/mypage-home-required-items";
+import {
+  MypageRequiredInfoRowsCard,
+  useRequiredInfoActivate,
+  useRequiredInfoNowMs,
+} from "@/components/mypage/home/MypageRequiredInfoSummary";
 import {
   LINKED_LOGIN_ANCHOR_ID,
   countLinkedAuthProviders,
@@ -47,6 +48,8 @@ import {
   MYPAGE_HOME_ROW_CLASS,
   MYPAGE_HOME_ROW_DIVIDER_CLASS,
 } from "@/lib/ui/mypage-home-starbucks-styles";
+
+type AccountAddressState = RequiredAddressResolution & { failed: boolean };
 
 /** S03 → 기기 권한 화면 안 연동 로그인 그룹(X14) */
 export const MYPAGE_LINKED_LOGIN_HREF = `/mypage/section/settings/device-permissions#${LINKED_LOGIN_ANCHOR_ID}`;
@@ -74,18 +77,6 @@ function memberStatusMessageKey(status: StoreMemberStatus): MessageKey {
     default:
       return "account_member_status_guest";
   }
-}
-
-type BadgeTone = "done" | "needed" | "pending";
-
-function StatusBadge({ tone, children }: { tone: BadgeTone; children: ReactNode }) {
-  const cls =
-    tone === "done"
-      ? Sam.badge.success
-      : tone === "needed"
-        ? Sam.badge.warning
-        : Sam.badge.neutral;
-  return <span className={`${cls} shrink-0`}>{children}</span>;
 }
 
 /**
@@ -165,19 +156,26 @@ function AccountRowsSkeleton({ labels }: { labels: readonly string[] }) {
 }
 
 /**
- * 계정 (최종 설계 S03) — T5 허브. 그룹 1 계정 정보 · 그룹 2 필수 정보(미완료가 있을 때만) · 그룹 3 인증 센터.
+ * 계정 (최종 설계 S03) — T5 허브. 필수 정보 3행(홈과 같은 컴포넌트 · **상시 표시**, real-screen-redesign §11)
+ * · 그룹 1 계정 정보 · 그룹 3 인증 센터.
+ * 아이디·전화번호는 필수 정보 3행이 소유한다(계정 정보 그룹에 같은 값을 두 번 두지 않음).
+ * 주소 행 핀(AddressKindHeadPin)은 공용 `MypageRequiredInfoRowsCard` 가 그린다 — 주소 플랫폼 HARD LOCK.
  * 행 탭 = 이동만. 홈과 중복인 상단 프로필 카드·"설정으로"는 두지 않는다(프로필 수정 = 홈 시트).
  */
 export function MyAccountContent() {
   const { t } = useI18n();
-  const router = useRouter();
   const [profile, setProfile] = useState<ProfileRow | null>(() => peekCachedProfile());
   const [loading, setLoading] = useState(() => profile == null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [linkedCount, setLinkedCount] = useState<number | null | "loading">("loading");
   const profileRef = useRef(profile);
   profileRef.current = profile;
-  const addressState = useRepresentativeFullAddressLine();
+  const [address, setAddress] = useState<AccountAddressState>(() => ({
+    ...resolveRequiredAddressFromSnapshot(peekFreshAddressDefaultsSnapshot()),
+    failed: false,
+  }));
+  const onActivateRequired = useRequiredInfoActivate("/mypage/account");
+  const nowMs = useRequiredInfoNowMs(profile?.phone_verification_status === "pending");
   useMypageListRestore({ ready: profile != null });
 
   const load = useCallback(async () => {
@@ -195,9 +193,41 @@ export function MyAccountContent() {
     }
   }, []);
 
+  /** 대표 주소 — 주소 기본값 1회(캐시·진행 중 요청 공유). 실패 = 주소 행 「확인 불가」 */
+  const loadAddress = useCallback(async () => {
+    setAddress((prev) => ({ ...prev, failed: false }));
+    try {
+      const snap = await fetchAddressDefaultsSnapshot({
+        caller: "mypage_account_required_info",
+        reason: "initial_required_info_resolution",
+      });
+      const next = resolveRequiredAddressFromSnapshot(snap);
+      setAddress({ ...next, failed: next.status === "unknown" });
+    } catch {
+      setAddress((prev) => ({ ...prev, failed: prev.status === "unknown" }));
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadAddress();
+  }, [load, loadAddress]);
+
+  const requiredInfo = useMemo(
+    () =>
+      resolveMypageRequiredInfoRows({
+        profile,
+        profileFailed: loadFailed && !profile,
+        address: {
+          status: address.status,
+          label: address.publicLabel,
+          activeCount: address.activeCount,
+          failed: address.failed,
+        },
+        nowMs,
+      }),
+    [address, loadFailed, nowMs, profile],
+  );
 
   /** 연동 로그인 수 — 화면 표시 후 지연 조회 1회(실패 시 행 값만 비움) */
   const hasProfile = profile != null;
@@ -214,8 +244,6 @@ export function MyAccountContent() {
   }, [hasProfile]);
 
   const skeletonLabels = [
-    t("my_account_username"),
-    t("account_phone"),
     t("account_email"),
     t("mypage_s03_linked_login"),
     t("mypage_s03_joined_at"),
@@ -223,7 +251,13 @@ export function MyAccountContent() {
   ] as const;
 
   if (loading) {
-    return <AccountRowsSkeleton labels={skeletonLabels} />;
+    return (
+      <div className="space-y-2">
+        {/* 필수 정보 3행 — 확정 전 같은 높이 스켈레톤 (홈과 동일 컴포넌트) */}
+        <MypageRequiredInfoRowsCard result={{ settled: false }} onActivate={onActivateRequired} />
+        <AccountRowsSkeleton labels={skeletonLabels} />
+      </div>
+    );
   }
   if (!profile && loadFailed) {
     return (
@@ -263,74 +297,19 @@ export function MyAccountContent() {
   }
 
   const displayNickname = resolveMypageSelfDisplayName(profile) || t("account_nickname");
-  const atUsername = formatAtUsername(profile.username ?? null);
-  const publicIdView = evaluatePublicIdProfileView(profile);
-  const dibayIdDisplay =
-    resolvePublicIdAtDisplay(profile)?.trim() ||
-    profile.username?.trim() ||
-    "";
-  const hasDibayId = Boolean(dibayIdDisplay);
-  const dibayIdValue = atUsername || (dibayIdDisplay ? `@${dibayIdDisplay.replace(/^@/, "")}` : "");
-  /** 아이디 변경 불가(변경 완료·잠김) — 값 행만, chevron 없음 */
-  const dibayIdChangeable = !hasDibayId || publicIdView.canChangeOnce;
-  const formattedPhone =
-    formatProfilePhoneForDisplay({
-      phone: profile.phone ?? null,
-      phone_country_code: profile.phone_country_code ?? null,
-      phone_number: profile.phone_number ?? null,
-    }) || "";
-  const contactVerified = isProfileContactVerified(profile);
-  const phoneDisplay = resolveAccountPhoneDisplay({ formattedPhone, verified: contactVerified });
   const storeMemberStatus = deriveStoreMemberStatus(profile);
   const consentDone = hasStoreTermsConsent(profile, getClientRequiredConsentVersions());
-  const addressLine = addressState.status === "ready" ? addressState.line?.trim() ?? "" : "";
-  const addressDone = Boolean(addressLine);
-  const addressPending = !addressDone && addressState.status !== "ready";
   const joinedAt = formatMypageDate(profile.created_at ?? null, { style: "date" });
-
-  const phoneValue =
-    phoneDisplay.kind === "verified_with_number" || phoneDisplay.kind === "unverified_with_number"
-      ? phoneDisplay.masked
-      : phoneDisplay.kind === "missing"
-        ? t("account_missing_phone")
-        : null;
-
-  const essentialsIncomplete = !hasDibayId || !contactVerified || (!addressDone && !addressPending);
 
   return (
     <div className="space-y-2" data-testid="account-hub">
+      <MypageRequiredInfoRowsCard
+        result={requiredInfo}
+        onActivate={onActivateRequired}
+        onRetry={() => void loadAddress()}
+      />
       <MyGroup title={t("account_info_title")}>
         <AccountRow first title={t("account_nickname")} value={displayNickname} />
-        <AccountRow
-          title={t("my_account_username")}
-          value={dibayIdValue || t("account_essentials_id_needed")}
-          mono={Boolean(dibayIdValue)}
-          href={dibayIdChangeable ? MYPAGE_REQUIRED_DIBAY_ID_HREF : undefined}
-          testId="account-row-dibay-id"
-          badge={
-            hasDibayId ? (
-              <StatusBadge tone={publicIdView.canChangeOnce ? "pending" : "done"}>
-                {publicIdView.canChangeOnce ? t("mypage_s03_id_change_once") : t("mypage_s03_id_change_done")}
-              </StatusBadge>
-            ) : (
-              <StatusBadge tone="needed">{t("account_essentials_needed")}</StatusBadge>
-            )
-          }
-        />
-        <AccountRow
-          title={t("account_phone")}
-          value={phoneValue}
-          mono={phoneValue != null && phoneDisplay.kind !== "missing"}
-          href={buildPhoneVerificationHref()}
-          testId="account-row-phone"
-          badge={
-            contactVerified ? (
-              <StatusBadge tone="done">{t("profile_verification_done")}</StatusBadge>
-            ) : (
-              <StatusBadge tone="needed">{t("profile_verification_needed")}</StatusBadge>
-            )
-          }
-        />
         <AccountRow title={t("account_email")} value={profile.email ?? "—"} />
         <AccountRow
           title={t("mypage_s03_linked_login")}
@@ -352,47 +331,6 @@ export function MyAccountContent() {
           value={consentDone ? t("my_account_terms_done") : t("my_account_terms_required")}
         />
       </MyGroup>
-
-      {essentialsIncomplete ? (
-        <div data-testid="account-essentials-block">
-          <MyGroup title={t("account_essentials_title")}>
-            {!hasDibayId ? (
-              <AccountRow
-                first
-                title={t("account_essentials_id")}
-                value={t("account_essentials_id_needed")}
-                href={MYPAGE_REQUIRED_DIBAY_ID_HREF}
-                badge={<StatusBadge tone="needed">{t("account_essentials_needed")}</StatusBadge>}
-              />
-            ) : null}
-            {!contactVerified ? (
-              <AccountRow
-                first={hasDibayId}
-                title={t("profile_verification_phone")}
-                value={t("account_essentials_phone_needed")}
-                href={buildPhoneVerificationHref()}
-                badge={<StatusBadge tone="needed">{t("profile_verification_needed")}</StatusBadge>}
-              />
-            ) : null}
-            {!addressDone ? (
-              <button
-                type="button"
-                onClick={() => router.push(MYPAGE_ADDRESSES_HREF)}
-                className={`${MYPAGE_HOME_ROW_CLASS} ${hasDibayId && contactVerified ? "" : MYPAGE_HOME_ROW_DIVIDER_CLASS} text-left`}
-              >
-                <AddressKindHeadPin kind="master" className="h-5 w-5 shrink-0 [&_svg]:h-5 [&_svg]:w-[1rem]" />
-                <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>
-                  {t("profile_verification_address")}
-                </span>
-                <StatusBadge tone={addressPending ? "pending" : "needed"}>
-                  {addressPending ? t("mypage_account_address_checking") : t("profile_verification_address_needed_short")}
-                </StatusBadge>
-                <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
-              </button>
-            ) : null}
-          </MyGroup>
-        </div>
-      ) : null}
 
       <ProfileVerificationCenter profile={profile} />
     </div>

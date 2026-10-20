@@ -83,28 +83,12 @@ const nextConfig = {
         : "0",
   },
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" },
-      { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/render/image/public/**" },
-      // SNS OAuth 프로필 이미지
-      { protocol: "https", hostname: "lh3.googleusercontent.com", pathname: "/**" },
-      { protocol: "https", hostname: "lh4.googleusercontent.com", pathname: "/**" },
-      { protocol: "https", hostname: "lh5.googleusercontent.com", pathname: "/**" },
-      { protocol: "https", hostname: "lh6.googleusercontent.com", pathname: "/**" },
-      { protocol: "https", hostname: "*.googleusercontent.com", pathname: "/**" },
-      { protocol: "https", hostname: "*.ggpht.com", pathname: "/**" },
-      { protocol: "https", hostname: "k.kakaocdn.net", pathname: "/**" },
-      { protocol: "https", hostname: "*.kakaocdn.net", pathname: "/**" },
-      { protocol: "https", hostname: "*.pstatic.net", pathname: "/**" },
-      { protocol: "https", hostname: "graph.facebook.com", pathname: "/**" },
-      { protocol: "https", hostname: "*.fbcdn.net", pathname: "/**" },
-      { protocol: "https", hostname: "*.fbsbx.com", pathname: "/**" },
-      // 로컬 Supabase Storage (`supabase start`) 에서 public URL 이 http 인 경우
-      { protocol: "http", hostname: "127.0.0.1", pathname: "/storage/v1/object/public/**" },
-      { protocol: "http", hostname: "127.0.0.1", pathname: "/storage/v1/render/image/public/**" },
-      { protocol: "http", hostname: "localhost", pathname: "/storage/v1/object/public/**" },
-      { protocol: "http", hostname: "localhost", pathname: "/storage/v1/render/image/public/**" },
-    ],
+    /**
+     * 허용 출처 단일 목록 — 프로필 사진 표시 판정(`lib/profile/resolve-profile-image-src.ts`)과 공유.
+     * Supabase Storage · SNS OAuth 프로필(구글·카카오·네이버·페이스북) · 로컬 `supabase start`(http 127.0.0.1/localhost).
+     * 원격 http 는 추가하지 않는다(https 만 · 혼합 콘텐츠 금지).
+     */
+    remotePatterns: require("./config/image-remote-patterns.json"),
   },
   /**
    * App CS Slice1 — legacy support stub must be a real HTTP redirect.

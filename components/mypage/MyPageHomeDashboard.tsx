@@ -72,9 +72,8 @@ export function MyPageHomeDashboard({
     () => ({
       summary,
       tradeChatUnread: Number.isFinite(chatUnread) ? Math.max(0, Math.floor(chatUnread)) : 0,
-      addressPublicLabel: projection?.addressPublicLabel ?? null,
     }),
-    [summary, chatUnread, projection?.addressPublicLabel],
+    [summary, chatUnread],
   );
   const summaryTrust = readMypageSummaryValue(summary?.fields?.trust);
   const banner = readMypageSummaryValue(summary?.fields?.banner) ?? null;

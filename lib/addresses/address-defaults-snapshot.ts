@@ -8,6 +8,8 @@ export type AddressDefaultsSnapshot = {
     life?: unknown;
     trade?: unknown;
     delivery?: unknown;
+    /** 활성 주소 수 (`GET /api/me/address-defaults` 같은 응답) — 구버전 응답이면 없음 */
+    activeCount?: number | null;
   } | null;
   neighborhoodFromLife: LifeDefaultLocationSummary | null;
 };

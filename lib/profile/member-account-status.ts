@@ -14,8 +14,10 @@
  */
 
 import { evaluatePublicIdProfileView } from "@/lib/auth/dibay-public-id-ssot";
-import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
+import { hasVerifiedPhone, type PhoneVerificationGateInput } from "@/lib/auth/post-login-profile-policy";
+import { DEFAULT_PHONE_OTP_TTL_SECONDS } from "@/lib/auth/phone-otp-contract";
 import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
+import { maskProfilePhoneForDisplay } from "@/lib/mypage/mask-profile-phone";
 import type { ProfileRow } from "@/lib/profile/types";
 
 export type MemberHandleStatus = {
@@ -89,4 +91,79 @@ export function deriveMemberAccountStatus(
       registered: opts.hasDefaultAddress === true,
     },
   };
+}
+
+/**
+ * 전화 표시 상태 (real-screen-redesign §11-2) — 홈 필수정보·계정(S03)·전화 인증(S05) **3곳 공통 단일 판정**.
+ * 인증 여부는 `hasVerifiedPhone` 그대로(정책 불변). 이 함수는 「어떻게 보여줄지」만 정한다.
+ *
+ * - `verified_no_number_admin_manual`: 인증됨 + 번호 없음 + method `admin_manual` → 「번호 등록 필요」 + 근거 문구
+ * - `verified_no_number_unknown`: 인증됨 + 번호 없음 + 그 외(method 없음·관리자 면제 등) → 「번호 등록 필요」, **근거 문구 없음**
+ * - `pending` / `pending_expired`: 미인증 + status `pending` — `requested_at` 이 TTL 안이면 진행 중, 아니면(없음 포함) 만료
+ * - 「인증 완료」는 번호가 있을 때만(`verified`).
+ */
+export type MemberPhoneStateKind =
+  | "unverified"
+  | "unverified_with_number"
+  | "pending"
+  | "pending_expired"
+  | "verified"
+  | "verified_no_number_admin_manual"
+  | "verified_no_number_unknown";
+
+export type MemberPhoneState = {
+  kind: MemberPhoneStateKind;
+  /** 기존 인증 판정(`hasVerifiedPhone`) — 기능 게이트와 동일 */
+  verified: boolean;
+  /** 마스킹된 번호 — 번호 없으면 null */
+  masked: string | null;
+};
+
+export type MemberPhoneStateInput = PhoneVerificationGateInput & {
+  phone?: string | null;
+  phone_country_code?: string | null;
+  phone_number?: string | null;
+  phone_verification_status?: string | null;
+  phone_verification_requested_at?: string | null;
+};
+
+function parseIsoMs(v: string | null | undefined): number | null {
+  if (typeof v !== "string" || !v.trim()) return null;
+  const ms = Date.parse(v);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+export function resolveMemberPhoneState(
+  input: MemberPhoneStateInput | null | undefined,
+  opts?: { nowMs?: number; otpTtlSeconds?: number },
+): MemberPhoneState {
+  if (!input) return { kind: "unverified", verified: false, masked: null };
+  const formatted =
+    formatProfilePhoneForDisplay({
+      phone: input.phone ?? null,
+      phone_country_code: input.phone_country_code ?? null,
+      phone_number: input.phone_number ?? null,
+    }).trim() || pickTrimmed(input.phone) || "";
+  const masked = maskProfilePhoneForDisplay(formatted) || null;
+  const verified = hasVerifiedPhone(input);
+  if (verified) {
+    if (masked) return { kind: "verified", verified, masked };
+    const method = pickTrimmed(input.phone_verification_method)?.toLowerCase() ?? null;
+    return {
+      kind: method === "admin_manual" ? "verified_no_number_admin_manual" : "verified_no_number_unknown",
+      verified,
+      masked: null,
+    };
+  }
+  if (pickTrimmed(input.phone_verification_status)?.toLowerCase() === "pending") {
+    const requestedAt = parseIsoMs(input.phone_verification_requested_at);
+    const ttlMs = Math.max(1, opts?.otpTtlSeconds ?? DEFAULT_PHONE_OTP_TTL_SECONDS) * 1000;
+    const now = opts?.nowMs ?? Date.now();
+    // 기기 시계가 서버보다 늦어 requested_at 이 미래로 보이는 경우도 진행 중으로 본다
+    const live = requestedAt != null && now - requestedAt <= ttlMs;
+    return { kind: live ? "pending" : "pending_expired", verified, masked };
+  }
+  return masked
+    ? { kind: "unverified_with_number", verified, masked }
+    : { kind: "unverified", verified, masked: null };
 }

@@ -81,7 +81,22 @@ export async function listAdminTransactionReviewRows(
     const ors = [`review_comment.ilike.${like}`];
     if (postIds.length) ors.push(`product_id.in.(${postIds.join(",")})`);
     if (userIds.length) ors.push(`reviewer_id.in.(${userIds.join(",")})`, `reviewee_id.in.(${userIds.join(",")})`);
+    // 채팅(거래) 번호: 예전 화면처럼 일부만 입력해도 찾는다 — uuid 열은 ilike 불가라
+    // 후기 테이블의 room_id 만 읽어(열 하나) 부분 일치를 고른다. 전체 uuid 면 바로 같음 조건.
     if (UUID_RE.test(p.q)) ors.push(`room_id.eq.${p.q}`);
+    else if (/^[0-9a-f-]{4,}$/i.test(p.q)) {
+      const rooms = await sbAny.from("transaction_reviews").select("room_id");
+      if (rooms.error) return { ok: false, error: String(rooms.error.message ?? "rooms_search_failed") };
+      const needle = p.q.toLowerCase();
+      const roomIds = [
+        ...new Set(
+          ((rooms.data ?? []) as { room_id: unknown }[])
+            .map((x) => String(x.room_id ?? ""))
+            .filter((id) => id && id.toLowerCase().includes(needle))
+        ),
+      ];
+      if (roomIds.length) ors.push(`room_id.in.(${roomIds.join(",")})`);
+    }
     query = query.or(ors.join(","));
   }
 

@@ -178,8 +178,6 @@ type Finding = { leaf: string; api: string; issue: string };
 const NON_ENTRY_LOOKUPS: Readonly<Record<string, string>> = {
   "/admin/community/points → /api/admin/points/adjust":
     "포인트 조정 패널의 잔액 확인 — 조정(쓰기) 실행 때만 부름. 쓰기 권한(action=point)과 같다",
-  "/admin/community/point-policies → /api/admin/community/topics":
-    "주제별 정책 탭의 주제 목록 — 실패 시 그 탭만 오류 상태(전역·Q&A 정책은 표시). 서버 가드(content) 정렬은 별도 결정",
   "/admin/philife/meeting-events → /api/admin/community/topics":
     "주제 필터 선택지 — 실패 시 선택지만 비움(useCommunityTopicOptions 가 !ok 무시), 목록은 표시",
   "/admin/order-notifications → /api/admin/community-reports":

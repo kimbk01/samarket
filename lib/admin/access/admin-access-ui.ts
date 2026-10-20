@@ -20,13 +20,17 @@ import {
 
 /** `/api/admin/me` 스냅샷 → 접근표 actor. 스냅샷이 없으면 null (기존 동작 유지). */
 export function adminAccessActorFromMe(
-  me: Pick<AdminMeSnapshot, "role" | "permissions"> & { isDeployOwner?: boolean } | null | undefined
+  me:
+    | (Pick<AdminMeSnapshot, "role" | "permissions"> & { isDeployOwner?: boolean; accountSuspended?: boolean })
+    | null
+    | undefined
 ): AdminRouteAccessActor | null {
   if (!me) return null;
   return {
     role: me.role,
     permissions: me.permissions ?? [],
     isDeployOwner: me.isDeployOwner === true,
+    accountSuspended: me.accountSuspended === true,
   };
 }
 
@@ -89,6 +93,9 @@ export function describeAdminRequirementDenial(requirement: AdminRouteRequiremen
     case "permission":
       return `「${requirement.key}」 권한이 있어야 실행할 수 있습니다.`;
     case "domain":
+      if (requirement.guard === "community" && requirement.area === "promotion") {
+        return "커뮤니티 「promotion」 권한이 있고 정지되지 않은 운영자만 실행할 수 있습니다.";
+      }
       if (requirement.guard === "community") return `커뮤니티 「${requirement.area}」 권한이 있어야 실행할 수 있습니다.`;
       if (requirement.guard === "chat") return "채팅 관리 권한이 있어야 실행할 수 있습니다.";
       return "권한이 있어야 실행할 수 있습니다.";

@@ -42,6 +42,13 @@ function applyFreshProfileEverywhere(fresh: ProfileRow): void {
 
 const INPUT_CLASS = `${Sam.input.base} ${Sam.focusRing} rounded-ui-rect text-[16px]`;
 
+/**
+ * [저장] 비활성 — 불투명도 대신 회색 토큰 배경·글자 (real-screen-redesign §3·§6).
+ * 저장 중(스피너)은 그린 유지 — 저장 중에는 비활성 회색을 쓰지 않는다.
+ */
+const SAVE_DISABLED_CLASS =
+  "disabled:opacity-100 disabled:border-sam-border disabled:bg-sam-surface-muted disabled:text-sam-muted";
+
 /** 열 때 프로필 full 조회 동안 — 원 96 + 입력 2줄 + 버튼 바 (구조 일치 스켈레톤, S01) */
 function EditPublicProfileSkeleton() {
   const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
@@ -215,7 +222,7 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
           disabled={!saveState.canSave || saving}
           aria-busy={saving}
           onClick={() => void handleSave()}
-          className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.focusRing} relative disabled:opacity-45`}
+          className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.focusRing} relative ${saving ? "disabled:opacity-100" : SAVE_DISABLED_CLASS}`}
         >
           <span className={saving ? "invisible" : undefined}>{t("common_save")}</span>
           {saving ? (

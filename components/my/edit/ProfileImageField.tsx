@@ -12,7 +12,7 @@ import { SAMARKET_DEFAULT_AVATAR_URL } from "@/lib/profile/default-avatar";
 import { fetchMeProfileFresh, invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import { PROFILE_CONFLICT_ERROR_CODE } from "@/lib/profile/profile-patch-concurrency";
-import { hasCustomUserAvatar } from "@/lib/profile/user-avatar-display";
+import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 
 export interface ProfileImageFieldProps {
   avatarUrl: string | null;
@@ -37,7 +37,10 @@ export function ProfileImageField({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const isHero = variant === "hero";
   const sizePx = isHero ? 96 : 80;
-  const hasCustomPhoto = hasCustomUserAvatar(avatarUrl);
+  /** 화면에 기본 아바타가 아닌 사진이 보이는지 — 표시와 같은 판정(카카오 기본 이미지·허용 밖 출처 = 기본) */
+  const hasCustomPhoto = resolveUserAvatarImageSrc(avatarUrl) != null;
+  /** [사진 촬영] 은 앱에서만 (real-screen-redesign §6) */
+  const canTakePhoto = isCapacitorNativePlatform();
 
   const pickFile = () => inputRef.current?.click();
 
@@ -56,7 +59,7 @@ export function ProfileImageField({
     cameraInputRef.current?.click();
   };
 
-  /** 사진 탭 → 액션시트 [앨범에서 선택] · [사진 촬영] · [기본 사진으로](사용자 사진일 때만) · [취소] (S01) */
+  /** 사진 탭 → 액션시트 [앨범에서 선택] · [사진 촬영](앱만) · [기본 이미지로](사용자 사진일 때만) · [취소] (S01 · §6) */
   const openPhotoActions = () => {
     if (uploading) return;
     setActionSheetOpen(true);
@@ -199,7 +202,9 @@ export function ProfileImageField({
         cancelLabel={t("common_cancel")}
         items={[
           { key: "album", label: t("mypage_s01_photo_album"), onClick: pickFile },
-          { key: "camera", label: t("mypage_s01_photo_camera"), onClick: () => void takePhoto() },
+          ...(canTakePhoto
+            ? [{ key: "camera", label: t("mypage_s01_photo_camera"), onClick: () => void takePhoto() }]
+            : []),
           ...(hasCustomPhoto
             ? [{ key: "default", label: t("mypage_s01_photo_default"), onClick: removePhoto }]
             : []),

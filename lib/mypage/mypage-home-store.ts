@@ -32,6 +32,8 @@ export type MypageHomeProjection = {
    * 메모리 전용(세션 lite 에 주소 문자열 저장 금지).
    */
   addressPublicLabel?: string | null;
+  /** 활성 주소 수(같은 주소 기본값 응답) — 필수정보 「대표 지정 필요」 판정. 메모리 전용 */
+  addressActiveCount?: number | null;
 };
 
 type Listener = () => void;
@@ -136,6 +138,8 @@ export function patchMypageHomeProjection(
       addressStatus: addr,
       addressPublicLabel:
         patch.addressPublicLabel !== undefined ? patch.addressPublicLabel : memory.addressPublicLabel,
+      addressActiveCount:
+        patch.addressActiveCount !== undefined ? patch.addressActiveCount : memory.addressActiveCount,
     };
   } else {
     memory = next;

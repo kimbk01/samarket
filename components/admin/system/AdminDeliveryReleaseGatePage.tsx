@@ -127,6 +127,7 @@ export function AdminDeliveryReleaseGatePage() {
     }
   }, []);
 
+  // 진입 때 1회 · [새로고침] 때 다시 읽는다 (운영 점검 화면 — 주기 조회 없음, 관리자 자동 갱신 정책).
   useEffect(() => {
     let alive = true;
     void (async () => {
@@ -134,15 +135,10 @@ export function AdminDeliveryReleaseGatePage() {
       await load();
       if (alive) setLoading(false);
     })();
-    const t = window.setInterval(() => {
-      if (busyKey) return;
-      void load();
-    }, 30_000);
     return () => {
       alive = false;
-      window.clearInterval(t);
     };
-  }, [load, busyKey]);
+  }, [load]);
 
   const gate = data?.gate;
   const items = gate?.items ?? [];
