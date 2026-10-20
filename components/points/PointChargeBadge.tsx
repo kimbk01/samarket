@@ -14,11 +14,11 @@ const STATUS_KEYS: Record<PointChargeRequestStatus, MessageKey> = {
 };
 
 const STYLES: Record<PointChargeRequestStatus, string> = {
-  pending: "bg-blue-100 text-blue-800",
-  waiting_confirm: "bg-amber-100 text-amber-800",
+  pending: "bg-sam-info-soft text-sam-info",
+  waiting_confirm: "bg-sam-warning-soft text-sam-warning",
   on_hold: "bg-sam-surface-muted text-sam-muted",
-  approved: "bg-emerald-100 text-emerald-800",
-  rejected: "bg-red-100 text-red-700",
+  approved: "bg-sam-success-soft text-sam-success",
+  rejected: "bg-sam-danger-soft text-sam-danger",
   cancelled: "bg-sam-surface-muted text-sam-meta",
 };
 

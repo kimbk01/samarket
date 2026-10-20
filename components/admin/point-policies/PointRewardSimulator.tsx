@@ -1,26 +1,20 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  pointActionTypeLabel,
-  pointBoardLabel,
-  pointChargeStatusLabel,
-  pointExecStatusLabel,
-  pointExpireCycleLabel,
-  pointExpireExecStatusLabel,
-  pointLedgerTypeLabel,
-  pointPaymentMethodLabel,
-  pointRewardTypeLabel,
-  pointUserTypeLabel,
-} from "@/components/admin/points/admin-points-notifications-i18n";
 
 import { useState } from "react";
 import type { PointRewardSimulation } from "@/lib/types/point-policy";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { BOARD_OPTIONS, USER_TYPE_LABELS } from "@/lib/point-policies/point-policy-utils";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 export function PointRewardSimulator() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const [busy, setBusy] = useState(false);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [boardKey, setBoardKey] = useState("general");
   const [actionType, setActionType] = useState<"write" | "comment">("write");
   const [userType, setUserType] = useState<"free" | "premium">("free");
@@ -29,14 +23,33 @@ export function PointRewardSimulator() {
 
   const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await adminFetch("/api/admin/point-policies/simulate", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ boardKey, actionType, userType, currentPointBalance }),
-    });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; result?: PointRewardSimulation };
-    setResult(json.ok ? (json.result ?? null) : null);
+    if (busy) return;
+    setBusy(true);
+    setErrorCode(null);
+    try {
+      const res = await adminFetch("/api/admin/point-policies/simulate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ boardKey, actionType, userType, currentPointBalance }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        result?: PointRewardSimulation;
+      };
+      if (!res.ok || !json.ok) {
+        setResult(null);
+        setErrorCode(json.error ?? "action_failed");
+        return;
+      }
+      setResult(json.result ?? null);
+    } catch {
+      setResult(null);
+      setErrorCode("network_error");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -99,12 +112,14 @@ export function PointRewardSimulator() {
             className="w-32 rounded border border-sam-border px-3 py-2 sam-text-body"
           />
         </div>
-        <button
-          type="submit"
-          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
-        > {t("admin_points_policy_log_action_simulate")}
-        </button>
+        <AdminActionButton type="submit" variant="primary" disabled={busy}>
+          {t("admin_points_policy_log_action_simulate")}
+        </AdminActionButton>
       </form>
+
+      {errorCode ? (
+        <AdminResultBanner ko={ko} result={{ ok: false, code: errorCode }} onClose={() => setErrorCode(null)} />
+      ) : null}
 
       {result && (
         <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
@@ -112,8 +127,8 @@ export function PointRewardSimulator() {
           <dl className="mt-2 space-y-1 sam-text-body">
             <div className="flex justify-between">
               <dt className="text-sam-muted">{t("admin_points_policy_sim_reward_points")}</dt>
-              <dd className="font-semibold text-sam-fg">
-                +{result.rewardPoint}P
+              <dd className="font-semibold tabular-nums text-sam-fg">
+                +{formatAdminNumber(result.rewardPoint)}P
               </dd>
             </div>
             <div className="flex justify-between">
@@ -121,10 +136,10 @@ export function PointRewardSimulator() {
               <dd>{result.appliedMultiplier}x</dd>
             </div>
             {result.capped && (
-              <div className="text-amber-700">{t("admin_points_policy_sim_cap_applied")}</div>
+              <div className="text-sam-warning">{t("admin_points_policy_sim_cap_applied")}</div>
             )}
             {result.cooldownBlocked && (
-              <div className="text-amber-700">{t("admin_points_policy_sim_cooldown_blocked")}</div>
+              <div className="text-sam-warning">{t("admin_points_policy_sim_cooldown_blocked")}</div>
             )}
           </dl>
         </div>

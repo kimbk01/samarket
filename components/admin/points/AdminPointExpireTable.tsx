@@ -14,6 +14,8 @@ import {
   pointUserTypeLabel,
 } from "@/components/admin/points/admin-points-notifications-i18n";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type { PointExpireExecution } from "@/lib/types/point-expire";
 import { POINT_EXPIRE_EXECUTION_STATUS_LABELS } from "@/lib/points/point-expire-utils";
 
@@ -23,9 +25,9 @@ interface AdminPointExpireTableProps {
 
 const STATUS_CLASS: Record<string, string> = {
   simulated: "bg-sam-surface-muted text-sam-fg",
-  success: "bg-emerald-50 text-emerald-800",
-  skipped: "bg-amber-50 text-amber-800",
-  failed: "bg-red-50 text-red-700",
+  success: "bg-sam-success-soft text-sam-success",
+  skipped: "bg-sam-warning-soft text-sam-warning",
+  failed: "bg-sam-danger-soft text-sam-danger",
 };
 
 export function AdminPointExpireTable({
@@ -49,7 +51,7 @@ export function AdminPointExpireTable({
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_expire_th_target_user")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_expire_th_expired_p")}
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg"> {t("admin_points_expire_th_expired_p")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_status")}
             </th>
@@ -67,8 +69,8 @@ export function AdminPointExpireTable({
               <td className="px-3 py-2.5 text-sam-fg">
                 {e.targetUserNickname} ({e.targetUserId})
               </td>
-              <td className="px-3 py-2.5 font-medium text-sam-fg">
-                -{e.expiredPoint}P
+              <td className="px-3 py-2.5 text-right font-medium tabular-nums text-sam-fg">
+                -{formatAdminNumber(e.expiredPoint)}P
               </td>
               <td className="px-3 py-2.5">
                 <span
@@ -80,7 +82,7 @@ export function AdminPointExpireTable({
                 </span>
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(e.createdAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(e.createdAt)}
               </td>
             </tr>
           ))}

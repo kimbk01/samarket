@@ -6,15 +6,20 @@ import {
   POINT_RECLAIM_TRIGGER_LABELS,
   POINT_RECLAIM_MODE_LABELS,
 } from "@/lib/point-executions/point-execution-utils";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 
 interface PointReclaimPolicyTableProps {
   policies: PointReclaimPolicy[];
   onToggleActive?: (policy: PointReclaimPolicy) => void;
+  /** 쓰기 권한 없음·처리 중 — 토글 비활성 */
+  toggleDisabled?: boolean;
 }
 
 export function PointReclaimPolicyTable({
   policies,
   onToggleActive,
+  toggleDisabled = false,
 }: PointReclaimPolicyTableProps) {
   const { t } = useI18n();
 
@@ -60,31 +65,21 @@ export function PointReclaimPolicyTable({
                 {POINT_RECLAIM_MODE_LABELS[p.reclaimMode]}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {p.reclaimPercent}%
+                <span className="tabular-nums">{p.reclaimPercent}%</span>
               </td>
               <td className="px-3 py-2.5">
                 {onToggleActive ? (
-                  <button
-                    type="button"
+                  <AdminChipButton
+                    selected={p.isActive}
+                    disabled={toggleDisabled}
                     onClick={() => onToggleActive(p)}
-                    className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
-                      p.isActive
-                        ? "bg-emerald-50 text-emerald-800"
-                        : "bg-sam-border-soft text-sam-muted"
-                    }`}
                   >
                     {p.isActive ? t("admin_points_status_active") : t("admin_points_status_inactive")}
-                  </button>
+                  </AdminChipButton>
                 ) : (
-                  <span
-                    className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
-                      p.isActive
-                        ? "bg-emerald-50 text-emerald-800"
-                        : "bg-sam-border-soft text-sam-muted"
-                    }`}
-                  >
+                  <AdminToneBadge tone={p.isActive ? "success" : "neutral"}>
                     {p.isActive ? t("admin_points_status_active") : t("admin_points_status_inactive")}
-                  </span>
+                  </AdminToneBadge>
                 )}
               </td>
             </tr>

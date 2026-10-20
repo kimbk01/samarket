@@ -10,7 +10,7 @@ export function AdminFinanceWithdrawalsShell({ children }: { children: ReactNode
   return (
     <div className="space-y-4" data-admin-finance-withdrawals="1">
       <FinanceAdminNav ko={ko} />
-      <h2 className="text-lg font-semibold">{ko ? "Coin 출금" : "Coin withdrawals"}</h2>
+      <h2 className="text-[16px] font-semibold text-sam-fg">{ko ? "Coin 출금" : "Coin withdrawals"}</h2>
       <p className="sam-text-helper text-sam-muted">
         {ko
           ? "Coin 외부 지급 신청만 처리합니다. Cash 출금은 없습니다. 전환(Coin→Cash)과 다릅니다."

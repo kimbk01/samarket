@@ -1,6 +1,8 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import {
   pointActionTypeLabel,
   pointBoardLabel,
@@ -22,6 +24,8 @@ interface BoardPointPolicyFormProps {
   initial?: BoardPointPolicy | null;
   onSubmit: (values: Partial<BoardPointPolicy>) => void;
   onCancel?: () => void;
+  /** 쓰기 권한 없음·처리 중 — 저장 비활성 */
+  disabled?: boolean;
 }
 
 const DEFAULT: Partial<BoardPointPolicy> = {
@@ -49,8 +53,10 @@ export function BoardPointPolicyForm({
   initial,
   onSubmit,
   onCancel,
+  disabled = false,
 }: BoardPointPolicyFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
 
   const [values, setValues] = useState<Partial<BoardPointPolicy>>({
     ...DEFAULT,
@@ -385,21 +391,15 @@ export function BoardPointPolicyForm({
         />
       </div>
 
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
-        >
-          {t("common_save")}
-        </button>
+      <div className="flex justify-end gap-2">
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
-          > {t("admin_points_charge_status_cancelled")}
-          </button>
+          <AdminActionButton variant="secondary" onClick={onCancel}>
+            {adminCta("cancel", ko)}
+          </AdminActionButton>
         )}
+        <AdminActionButton type="submit" variant="primary" disabled={disabled}>
+          {adminCta("save", ko)}
+        </AdminActionButton>
       </div>
     </form>
   );

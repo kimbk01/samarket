@@ -3,7 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminDecimal, formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { FINANCE_ACTIVE_STATE_NS } from "@/lib/admin/status-labels/finance-status-labels";
 import type { PointPlan } from "@/lib/types/point";
 
 type PlanForm = {
@@ -33,10 +45,13 @@ const EMPTY_FORM: PlanForm = {
 };
 
 export function AdminPointPlansPage() {
-  const { t, safeT } = useI18n();
+  const { safeT, language } = useI18n();
+  const ko = language !== "en";
+  const action = useAdminRouteAction("/admin/point-plans");
   const [plans, setPlans] = useState<PointPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
+  const [loadError, setLoadError] = useState<{ code: string; httpStatus?: number } | null>(null);
+  const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PlanForm>(EMPTY_FORM);
@@ -44,23 +59,23 @@ export function AdminPointPlansPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setErr("");
+    setLoadError(null);
     try {
       const res = await fetch("/api/admin/point-plans", { credentials: "include" });
-      const json = (await res.json()) as { ok?: boolean; error?: string; plans?: PointPlan[] };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; plans?: PointPlan[] };
       if (!res.ok || json.ok === false) {
-        setErr(resolveAdminApiErrorMessage(json.error, t, "admin_points_err_action_failed"));
+        setLoadError({ code: json.error ?? "load_failed", httpStatus: res.status });
         setPlans([]);
         return;
       }
       setPlans(json.plans ?? []);
     } catch {
-      setErr(t("common_network_error"));
+      setLoadError({ code: "network_error" });
       setPlans([]);
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -96,9 +111,19 @@ export function AdminPointPlansPage() {
   };
 
   const save = async () => {
-    if (busy) return;
+    if (busy || !action.allowed) return;
+    const c = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: creating ? (ko ? "포인트 플랜 등록" : "Create point plan") : ko ? "포인트 플랜 저장" : "Save point plan",
+      description: ko
+        ? `「${form.nameKo || form.nameEn}」 플랜을 저장합니다. 충전 화면에 바로 반영됩니다.`
+        : `Save the "${form.nameEn || form.nameKo}" plan. It applies to the charge screen right away.`,
+      confirmLabel: creating ? adminCta("create", ko) : adminCta("save", ko),
+    });
+    if (!c.ok) return;
     setBusy(true);
-    setErr("");
+    setResult(null);
     try {
       const body = {
         nameKo: form.nameKo,
@@ -125,22 +150,35 @@ export function AdminPointPlansPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
           });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || json.ok === false) {
-        setErr(resolveAdminApiErrorMessage(json.error, t, "admin_points_err_action_failed"));
+        setResult({ ok: false, code: json.error ?? "save_failed" });
         return;
       }
       cancelForm();
+      setResult({ ok: true, message: ko ? "저장했습니다." : "Saved." });
       await load();
+    } catch {
+      setResult({ ok: false, code: "network_error" });
     } finally {
       setBusy(false);
     }
   };
 
   const deactivate = async (plan: PointPlan) => {
-    if (busy || !plan.isActive) return;
+    if (busy || !plan.isActive || !action.allowed) return;
+    const c = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "포인트 플랜 비활성" : "Deactivate point plan",
+      description: ko
+        ? `「${plan.name}」 플랜을 비활성으로 바꿉니다. 충전 화면에서 더 이상 보이지 않습니다.`
+        : `Deactivate the "${plan.name}" plan. It will no longer appear on the charge screen.`,
+      confirmLabel: ko ? "비활성" : "Deactivate",
+    });
+    if (!c.ok) return;
     setBusy(true);
-    setErr("");
+    setResult(null);
     try {
       const res = await fetch(`/api/admin/point-plans/${plan.id}`, {
         method: "PATCH",
@@ -148,12 +186,15 @@ export function AdminPointPlansPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: false }),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || json.ok === false) {
-        setErr(resolveAdminApiErrorMessage(json.error, t, "admin_points_err_action_failed"));
+        setResult({ ok: false, code: json.error ?? "update_failed" });
         return;
       }
+      setResult({ ok: true, message: ko ? "비활성으로 바꿨습니다." : "Deactivated." });
       await load();
+    } catch {
+      setResult({ ok: false, code: "network_error" });
     } finally {
       setBusy(false);
     }
@@ -163,18 +204,16 @@ export function AdminPointPlansPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <AdminPageHeader titleKey="admin_menu_points_plans" />
-        <button
-          type="button"
-          onClick={startCreate}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body text-sam-fg hover:bg-sam-app"
-        >
-          {safeT("admin_points_plans_create", {
-            fallbackKo: "플랜 추가",
-            fallbackEn: "Add plan",
-          })}
-        </button>
+        <AdminActionButton variant="primary" disabled={!action.allowed} onClick={startCreate}>
+          {ko ? "플랜 등록" : "Create plan"}
+        </AdminActionButton>
       </div>
-      {err ? <p className="sam-text-body text-red-600">{err}</p> : null}
+      {!action.allowed && action.reason ? (
+        <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
+          {ko ? `등록·수정 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+        </p>
+      ) : null}
+      {result ? <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} /> : null}
       {creating || editingId ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3">
           <h3 className="sam-text-body font-medium text-sam-fg">
@@ -311,39 +350,34 @@ export function AdminPointPlansPage() {
               })}
             </label>
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void save()}
-              className="rounded-ui-rect bg-sam-brand px-3 py-1.5 sam-text-body text-white disabled:opacity-50"
-            >
-              {safeT("admin_points_plans_save", {
-                fallbackKo: "저장",
-                fallbackEn: "Save",
-              })}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={cancelForm}
-              className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-body"
-            >
-              {t("common_cancel")}
-            </button>
+          <div className="flex justify-end gap-2">
+            <AdminActionButton variant="secondary" disabled={busy} onClick={cancelForm}>
+              {adminCta("cancel", ko)}
+            </AdminActionButton>
+            <AdminActionButton variant="primary" disabled={busy || !action.allowed} onClick={() => void save()}>
+              {creating ? adminCta("create", ko) : adminCta("save", ko)}
+            </AdminActionButton>
           </div>
         </div>
       ) : null}
 
       {loading ? (
-        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+        <AdminLoadingState ko={ko} />
+      ) : loadError ? (
+        <AdminErrorState
+          ko={ko}
+          code={loadError.code}
+          httpStatus={loadError.httpStatus}
+          onRetry={() => void load()}
+        />
       ) : plans.length === 0 ? (
-        <p className="sam-text-body text-sam-muted">
-          {safeT("admin_points_plans_empty", {
+        <AdminEmptyState
+          ko={ko}
+          message={safeT("admin_points_plans_empty", {
             fallbackKo: "플랜이 없습니다.",
             fallbackEn: "No plans.",
           })}
-        </p>
+        />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
           <table className="min-w-full sam-text-helper">
@@ -391,46 +425,42 @@ export function AdminPointPlansPage() {
               {plans.map((plan) => (
                 <tr key={plan.id} className="border-t border-sam-border">
                   <td className="px-3 py-2 text-sam-fg">{plan.name}</td>
-                  <td className="px-3 py-2 text-right">
-                    {plan.paymentAmount} {plan.currency ?? "PHP"}
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatAdminDecimal(plan.paymentAmount)} {plan.currency ?? "PHP"}
                   </td>
-                  <td className="px-3 py-2 text-right">
-                    {plan.pointAmount}
-                    {plan.bonusPointAmount > 0 ? `+${plan.bonusPointAmount}` : ""}
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatAdminNumber(plan.pointAmount)}
+                    {plan.bonusPointAmount > 0 ? `+${formatAdminNumber(plan.bonusPointAmount)}` : ""}
                   </td>
-                  <td className="px-3 py-2 text-right">{plan.rateVersion}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{plan.rateVersion}</td>
                   <td className="px-3 py-2">
-                    {plan.isActive
-                      ? safeT("admin_points_status_active", {
-                          fallbackKo: "활성",
-                          fallbackEn: "Active",
-                        })
-                      : safeT("admin_points_status_inactive", {
-                          fallbackKo: "비활성",
-                          fallbackEn: "Inactive",
-                        })}
+                    <AdminStatusLabel
+                      namespace={FINANCE_ACTIVE_STATE_NS}
+                      code={plan.isActive ? "active" : "inactive"}
+                      ko={ko}
+                    />
                   </td>
-                  <td className="px-3 py-2 text-right space-x-2">
-                    <button
-                      type="button"
-                      className="underline"
-                      onClick={() => startEdit(plan)}
-                    >
-                      {t("common_edit")}
-                    </button>
-                    {plan.isActive ? (
-                      <button
-                        type="button"
-                        className="underline text-red-600"
-                        disabled={busy}
-                        onClick={() => void deactivate(plan)}
+                  <td className="px-3 py-2 text-right">
+                    <div className="inline-flex gap-1">
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy || !action.allowed}
+                        onClick={() => startEdit(plan)}
                       >
-                        {safeT("admin_points_plans_deactivate", {
-                          fallbackKo: "비활성",
-                          fallbackEn: "Deactivate",
-                        })}
-                      </button>
-                    ) : null}
+                        {adminCta("edit", ko)}
+                      </AdminActionButton>
+                      {plan.isActive ? (
+                        <AdminActionButton
+                          variant="ghost"
+                          size="sm"
+                          disabled={busy || !action.allowed}
+                          onClick={() => void deactivate(plan)}
+                        >
+                          {ko ? "비활성" : "Deactivate"}
+                        </AdminActionButton>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

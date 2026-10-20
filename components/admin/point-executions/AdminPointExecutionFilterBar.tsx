@@ -1,87 +1,99 @@
 "use client";
 
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   pointActionTypeLabel,
   pointBoardLabel,
   pointExecStatusLabel,
 } from "@/components/admin/points/admin-points-notifications-i18n";
-import type {
-  AdminPointExecutionFilters,
-  PointRewardExecutionStatus,
-  PointRewardActionType,
-} from "@/lib/point-executions/point-execution-utils";
+import type { PointRewardExecutionStatus } from "@/lib/point-executions/point-execution-utils";
 import { BOARD_OPTIONS } from "@/lib/point-policies/point-policy-utils";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import type { UseAdminListQueryResult } from "@/lib/admin/list-query/use-admin-list-query";
 
-interface AdminPointExecutionFilterBarProps {
-  filters: AdminPointExecutionFilters;
-  onFiltersChange: (f: AdminPointExecutionFilters) => void;
-}
+export const POINT_EXECUTION_STATUSES: PointRewardExecutionStatus[] = ["success", "blocked", "reversed"];
+export const POINT_EXECUTION_FILTER_EXTRAS = ["boardKey", "actionType", "userId"] as const;
+export type PointExecutionFilterExtra = (typeof POINT_EXECUTION_FILTER_EXTRAS)[number];
 
-const EXEC_STATUSES: PointRewardExecutionStatus[] = ["success", "blocked", "reversed"];
+const FIELD =
+  "h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 text-[16px] text-sam-fg";
+const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-sam-muted";
 
+/**
+ * 실행 이력 필터 — 상태·게시판·행동은 바꾸는 즉시, 회원 ID 는 「조회」/Enter 로 적용 (주소 동기화).
+ */
 export function AdminPointExecutionFilterBar({
-  filters,
-  onFiltersChange,
-}: AdminPointExecutionFilterBarProps) {
-  const { t } = useI18n();
+  lq,
+  pending,
+}: {
+  lq: UseAdminListQueryResult<PointExecutionFilterExtra>;
+  pending?: boolean;
+}) {
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const applied = lq.query.extras.userId ?? "";
+  const [draft, setDraft] = useState<{ key: string; value: string }>({ key: applied, value: applied });
+  let userIdDraft = draft.value;
+  if (draft.key !== applied) {
+    userIdDraft = applied;
+    setDraft({ key: applied, value: applied });
+  }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <select
-        value={filters.status}
-        onChange={(e) =>
-          onFiltersChange({
-            ...filters,
-            status: e.target.value as PointRewardExecutionStatus | "",
-          })
-        }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
-      >
-        <option value="">{t("common_all")}</option>
-        {EXEC_STATUSES.map((status) => (
-          <option key={status} value={status}>
-            {pointExecStatusLabel(t, status)}
-          </option>
-        ))}
-      </select>
-      <select
-        value={filters.boardKey}
-        onChange={(e) =>
-          onFiltersChange({ ...filters, boardKey: e.target.value })
-        }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
-      >
-        <option value="">{t("admin_points_filter_all_boards")}</option>
-        {BOARD_OPTIONS.map((b) => (
-          <option key={b.key} value={b.key}>
-            {pointBoardLabel(t, b.key)}
-          </option>
-        ))}
-      </select>
-      <select
-        value={filters.actionType}
-        onChange={(e) =>
-          onFiltersChange({
-            ...filters,
-            actionType: e.target.value as PointRewardActionType | "",
-          })
-        }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
-      >
-        <option value="">{t("admin_points_filter_all_actions")}</option>
-        <option value="write">{pointActionTypeLabel(t, "write")}</option>
-        <option value="comment">{pointActionTypeLabel(t, "comment")}</option>
-      </select>
-      <input
-        type="text"
-        placeholder={t("admin_points_ph_user_id")}
-        value={filters.userId}
-        onChange={(e) =>
-          onFiltersChange({ ...filters, userId: e.target.value })
-        }
-        className="min-w-[120px) rounded border border-sam-border px-3 py-2 sam-text-body"
-      />
-    </div>
+    <AdminFilterBar
+      ko={ko}
+      draft={lq.draft}
+      onDraftChange={lq.setDraft}
+      onSubmit={() => lq.patch({ extras: { userId: userIdDraft.trim() } })}
+      onReset={lq.reset}
+      showPeriod={false}
+      showSearch={false}
+      pending={pending}
+      status={{
+        value: lq.query.status,
+        onChange: lq.setStatus,
+        options: POINT_EXECUTION_STATUSES.map((s) => ({ value: s, label: pointExecStatusLabel(t, s) })),
+      }}
+    >
+      <label className={LABEL}>
+        {t("admin_points_th_board")}
+        <select
+          value={lq.query.extras.boardKey ?? ""}
+          onChange={(e) => lq.setExtra("boardKey", e.target.value)}
+          className={FIELD}
+        >
+          <option value="">{t("admin_points_filter_all_boards")}</option>
+          {BOARD_OPTIONS.map((b) => (
+            <option key={b.key} value={b.key}>
+              {pointBoardLabel(t, b.key)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className={LABEL}>
+        {t("admin_points_th_action")}
+        <select
+          value={lq.query.extras.actionType ?? ""}
+          onChange={(e) => lq.setExtra("actionType", e.target.value)}
+          className={FIELD}
+        >
+          <option value="">{t("admin_points_filter_all_actions")}</option>
+          <option value="write">{pointActionTypeLabel(t, "write")}</option>
+          <option value="comment">{pointActionTypeLabel(t, "comment")}</option>
+        </select>
+      </label>
+      <label className={LABEL}>
+        {t("admin_points_ph_user_id")}
+        <input
+          type="text"
+          value={userIdDraft}
+          placeholder={t("admin_points_ph_user_id")}
+          onChange={(e) => setDraft({ key: applied, value: e.target.value })}
+          className={`${FIELD} min-w-[10rem]`}
+          name="userId"
+        />
+      </label>
+    </AdminFilterBar>
   );
 }

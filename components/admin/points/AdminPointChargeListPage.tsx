@@ -1,85 +1,83 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { AdminPointChargeFilters } from "@/lib/points/point-utils";
 import type { PointChargeRequest, PointChargeRequestStatus } from "@/lib/types/point";
-import { adminListPageCount } from "@/lib/admin/pagination/parse-admin-list-page";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminPointChargeFilterBar } from "./AdminPointChargeFilterBar";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { pointChargeStatusLabel } from "@/components/admin/points/admin-points-notifications-i18n";
 import { AdminPointChargeInlineActions } from "./AdminPointChargeInlineActions";
-import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 
-const DEFAULT_FILTERS: AdminPointChargeFilters = {
-  requestStatus: "",
-};
-
-const PAGE_SIZE = 50;
+const STATUS_VALUES: PointChargeRequestStatus[] = [
+  "pending",
+  "waiting_confirm",
+  "on_hold",
+  "approved",
+  "rejected",
+  "cancelled",
+];
 
 export function AdminPointChargeListPage() {
-  const { t } = useI18n();
-  const [filters, setFilters] = useState<AdminPointChargeFilters>(DEFAULT_FILTERS);
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const lq = useAdminListQuery({ statuses: STATUS_VALUES, defaults: { size: 50 } });
+  const action = useAdminRouteAction("/admin/point-charges");
   const [requests, setRequests] = useState<PointChargeRequest[]>([]);
   const [total, setTotal] = useState(0);
   const [statusCounts, setStatusCounts] = useState<Partial<Record<PointChargeRequestStatus, number>>>({});
-  const [page, setPage] = useState(1);
-  const [searchDraft, setSearchDraft] = useState("");
-  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
+  const [error, setError] = useState<{ code: string; httpStatus?: number } | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   // Server-side status filter · search · pagination (no 300-row cap).
-  const load = useCallback(async () => {
-    setLoading(true);
-    setErr("");
-    try {
-      const params = new URLSearchParams({
-        status: filters.requestStatus || "all",
-        limit: String(PAGE_SIZE),
-        offset: String((page - 1) * PAGE_SIZE),
-        counts: "1",
-      });
-      if (search) params.set("q", search);
-      const res = await fetch(`/api/admin/point-charges?${params.toString()}`, { credentials: "include" });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-        requests?: PointChargeRequest[];
-        total?: number;
-        statusCounts?: Partial<Record<PointChargeRequestStatus, number>>;
-      };
-      if (!res.ok || json.ok === false) {
-        setErr(resolveAdminApiErrorMessage(json.error, t, "admin_points_err_action_failed"));
-        setRequests([]);
-        setTotal(0);
-        return;
-      }
-      const rows = json.requests ?? [];
-      setRequests(rows);
-      setTotal(json.total ?? rows.length);
-      if (json.statusCounts) setStatusCounts(json.statusCounts);
-    } catch {
-      setErr(t("common_network_error"));
-      setRequests([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [t, filters.requestStatus, page, search]);
-
+  const apiQuery = lq.apiQueryString;
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  const onFiltersChange = (next: AdminPointChargeFilters) => {
-    setFilters(next);
-    setPage(1);
-  };
-  const commitSearch = () => {
-    setSearch(searchDraft.trim());
-    setPage(1);
-  };
-  const pages = adminListPageCount(total, PAGE_SIZE);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams(apiQuery);
+        if (!params.get("status")) params.set("status", "all");
+        params.set("counts", "1");
+        const res = await fetch(`/api/admin/point-charges?${params.toString()}`, { credentials: "include" });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          requests?: PointChargeRequest[];
+          total?: number;
+          statusCounts?: Partial<Record<PointChargeRequestStatus, number>>;
+        };
+        if (cancelled) return;
+        if (!res.ok || json.ok === false) {
+          setError({ code: json.error ?? "load_failed", httpStatus: res.status });
+          setRequests([]);
+          setTotal(0);
+          return;
+        }
+        const rows = json.requests ?? [];
+        setRequests(rows);
+        setTotal(json.total ?? rows.length);
+        if (json.statusCounts) setStatusCounts(json.statusCounts);
+      } catch {
+        if (!cancelled) {
+          setError({ code: "network_error" });
+          setRequests([]);
+          setTotal(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiQuery, lq.refreshKey, reloadNonce]);
 
   const countOf = (s: PointChargeRequestStatus) => statusCounts[s] ?? 0;
   const counts = {
@@ -98,16 +96,16 @@ export function AdminPointChargeListPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
           { label: t("admin_points_charge_summary_total"), value: counts.total, color: "text-sam-fg" },
-          { label: t("admin_points_charge_status_waiting_confirm"), value: counts.waiting, color: "text-amber-700" },
-          { label: t("admin_points_charge_summary_pending"), value: counts.pending, color: "text-blue-700" },
-          { label: t("admin_points_charge_summary_approved"), value: counts.approved, color: "text-emerald-700" },
-          { label: t("admin_points_charge_status_rejected"), value: counts.rejected, color: "text-red-600" },
+          { label: t("admin_points_charge_status_waiting_confirm"), value: counts.waiting, color: "text-sam-warning" },
+          { label: t("admin_points_charge_summary_pending"), value: counts.pending, color: "text-sam-info" },
+          { label: t("admin_points_charge_summary_approved"), value: counts.approved, color: "text-sam-success" },
+          { label: t("admin_points_charge_status_rejected"), value: counts.rejected, color: "text-sam-danger" },
         ].map(({ label, value, color }) => (
           <div
             key={label}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-center shadow-sm"
           >
-            <p className={`sam-text-hero font-bold ${color}`}>{value}</p>
+            <p className={`sam-text-hero font-bold tabular-nums ${color}`}>{formatAdminNumber(value)}</p>
             <p className="sam-text-xxs text-sam-muted">{label}</p>
           </div>
         ))}
@@ -115,77 +113,78 @@ export function AdminPointChargeListPage() {
 
       {/* deposit confirmation alert */}
       {counts.waiting > 0 && (
-        <div className="flex items-center gap-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-900">
-          <span className="sam-text-body-lg">⚠️</span>
+        <div className="flex items-center gap-2 rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-fg">
+          <span className="sam-text-body-lg" aria-hidden>
+            ⚠️
+          </span>
           <span>{t("admin_points_charge_alert_waiting", { count: counts.waiting })}</span>
         </div>
       )}
 
-      {err ? (
-        <p className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-700">
-          {err}
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        pending={loading}
+        searchPlaceholder={t("admin_points_charge_search_placeholder")}
+        status={{
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          options: STATUS_VALUES.map((s) => ({ value: s, label: pointChargeStatusLabel(t, s) })),
+        }}
+      />
+
+      {!action.allowed && action.reason ? (
+        <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
+          {ko ? `처리 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <AdminPointChargeFilterBar filters={filters} onChange={onFiltersChange} />
-        <form
-          className="flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            commitSearch();
-          }}
-        >
-          <input
-            type="search"
-            value={searchDraft}
-            onChange={(e) => setSearchDraft(e.target.value)}
-            placeholder={t("admin_points_charge_search_placeholder")}
-            className="min-w-[14rem] rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
-          />
-          <button
-            type="submit"
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
-          >
-            {t("common_search")}
-          </button>
-        </form>
-      </div>
-
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-        <div className="border-b border-sam-border-soft px-4 py-3">
-          <h2 className="sam-text-body font-semibold text-sam-fg">
-            {t("admin_points_charge_list_title", { count: total })}
-          </h2>
+        <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
+          <h2 className="sam-text-body font-semibold text-sam-fg">{ko ? "충전 신청 목록" : "Top-up requests"}</h2>
+          <span className="sam-text-body-secondary tabular-nums text-sam-muted">
+            {ko ? `총 ${formatAdminNumber(total)}건` : `${formatAdminNumber(total)} total`}
+          </span>
         </div>
         <div className="p-4">
           {loading ? (
-            <p className="py-10 text-center sam-text-body-secondary text-sam-meta">{t("common_loading")}</p>
+            <AdminLoadingState ko={ko} />
+          ) : error ? (
+            <AdminErrorState
+              ko={ko}
+              code={error.code}
+              httpStatus={error.httpStatus}
+              onRetry={() => setReloadNonce((n) => n + 1)}
+            />
+          ) : requests.length === 0 ? (
+            <AdminEmptyState
+              ko={ko}
+              message={lq.isFiltered ? undefined : t("admin_points_charge_empty_list")}
+              onReset={lq.isFiltered ? lq.reset : undefined}
+            />
           ) : (
-            <AdminPointChargeInlineActions requests={requests} onActionSuccess={load} />
+            <AdminPointChargeInlineActions
+              requests={requests}
+              onActionSuccess={() => setReloadNonce((n) => n + 1)}
+              actionAllowed={action.allowed}
+            />
           )}
         </div>
-        {total > PAGE_SIZE || page > 1 ? (
-          <div className="flex items-center justify-between gap-2 border-t border-sam-border-soft px-4 py-3 sam-text-body-secondary text-sam-muted">
-            <span>{t("admin_points_charge_page_status", { page, pages })}</span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={loading || page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-sam-fg disabled:opacity-40"
-              >
-                {t("admin_points_charge_page_prev")}
-              </button>
-              <button
-                type="button"
-                disabled={loading || page >= pages}
-                onClick={() => setPage((p) => p + 1)}
-                className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-sam-fg disabled:opacity-40"
-              >
-                {t("admin_points_charge_page_next")}
-              </button>
-            </div>
+        {total > 0 ? (
+          <div className="border-t border-sam-border-soft px-4">
+            <AdminPagination
+              ko={ko}
+              page={lq.query.page}
+              size={lq.query.size}
+              total={total}
+              onPageChange={lq.setPage}
+              onSizeChange={lq.setSize}
+              disabled={loading}
+            />
           </div>
         ) : null}
       </div>

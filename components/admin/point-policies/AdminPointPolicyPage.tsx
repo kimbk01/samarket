@@ -18,7 +18,14 @@ import type { BoardPointPolicy } from "@/lib/types/point-policy";
 import type { PointEventPolicy } from "@/lib/types/point-policy";
 import { ARO_IA_001_COMMUNITY_POINT_POLICIES_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import {
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 
 type TabId = "board" | "probability" | "event" | "simulate" | "logs";
 
@@ -41,8 +48,9 @@ export function AdminPointPolicyPage() {
   const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
-  const { policies, eventPolicies, logs, probabilityRules, loadProbabilityRules } =
+  const { policies, eventPolicies, logs, probabilityRules, loadProbabilityRules, loading, error } =
     useAdminPointPolicyData(refresh);
+  const action = useAdminRouteAction("/admin/point-policies");
   const selectedPolicy = useMemo(
     () => (selectedPolicyId ? policies.find((p) => p.id === selectedPolicyId) : null),
     [policies, selectedPolicyId]
@@ -73,7 +81,7 @@ export function AdminPointPolicyPage() {
     successMessage: string;
     destructive?: boolean;
   }): Promise<boolean> => {
-    if (busy) return false;
+    if (busy || !action.allowed) return false;
     const c = await confirmAdminAction({
       level: "L2",
       ko,
@@ -213,41 +221,43 @@ export function AdminPointPolicyPage() {
       ) : null}
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
 
-      <div className="flex flex-wrap gap-2 border-b border-sam-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === tab.id
-                ? "border-signature text-signature"
-                : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <AdminTabs
+        tabs={tabs}
+        ariaLabel={ko ? "포인트 정책 탭" : "Point policy tabs"}
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as TabId)}
+        syncUrl={false}
+      />
+
+      {!action.allowed && action.reason ? (
+        <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
+          {ko ? `저장 버튼 비활성: ${action.reason}` : `Save disabled: ${action.reason}`}
+        </p>
+      ) : null}
+
+      {loading ? <AdminLoadingState ko={ko} /> : null}
+      {!loading && error ? <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={refreshAll} /> : null}
 
       {activeTab === "board" && (
         <>
           <AdminCard titleKey="admin_points_policy_card_board">
             <div className="mb-3 flex justify-end">
-              <button
-                type="button"
+              <AdminActionButton
+                variant="secondary"
+                disabled={!action.allowed}
                 onClick={() => {
                   setSelectedPolicyId(null);
                   setShowBoardForm(true);
                 }}
-                className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
-              > {t("admin_points_policy_btn_add")}
-              </button>
+              >
+                {t("admin_points_policy_btn_add")}
+              </AdminActionButton>
             </div>
             {showBoardForm && (
               <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
                 <BoardPointPolicyForm
                   initial={selectedPolicy ?? undefined}
+                  disabled={busy || !action.allowed}
                   onSubmit={handleSaveBoardPolicy}
                   onCancel={() => {
                     setShowBoardForm(false);
@@ -258,6 +268,7 @@ export function AdminPointPolicyPage() {
             )}
             <BoardPointPolicyTable
               policies={policies}
+              actionsDisabled={busy || !action.allowed}
               onEdit={(p) => {
                 setSelectedPolicyId(p.id);
                 setShowBoardForm(true);
@@ -304,7 +315,7 @@ export function AdminPointPolicyPage() {
                 )
                 .map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.boardName} ({p.boardKey})
+                    {p.boardName}
                   </option>
                 ))}
             </select>
@@ -312,6 +323,7 @@ export function AdminPointPolicyPage() {
           <PointProbabilityRuleTable
             policyId={selectedPolicyId}
             rules={probabilityRules}
+            actionsDisabled={busy || !action.allowed}
             policyBoardName={
               selectedPolicyId
                 ? policies.find((p) => p.id === selectedPolicyId)?.boardName
@@ -350,20 +362,22 @@ export function AdminPointPolicyPage() {
         <>
           <AdminCard titleKey="admin_points_policy_card_event">
             <div className="mb-3 flex justify-end">
-              <button
-                type="button"
+              <AdminActionButton
+                variant="secondary"
+                disabled={!action.allowed}
                 onClick={() => {
                   setEditingEventId(null);
                   setShowEventForm(true);
                 }}
-                className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
-              > {t("admin_points_policy_btn_add_event")}
-              </button>
+              >
+                {t("admin_points_policy_btn_add_event")}
+              </AdminActionButton>
             </div>
             {showEventForm && (
               <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
                 <PointEventPolicyForm
                   initial={editingEvent ?? undefined}
+                  disabled={busy || !action.allowed}
                   onSubmit={handleSaveEventPolicy}
                   onCancel={() => {
                     setShowEventForm(false);
@@ -374,6 +388,7 @@ export function AdminPointPolicyPage() {
             )}
             <PointEventPolicyTable
               policies={eventPolicies}
+              actionsDisabled={busy || !action.allowed}
               onEdit={(p) => {
                 setEditingEventId(p.id);
                 setShowEventForm(true);

@@ -8,6 +8,8 @@ import {
   type FinanceFilterState,
 } from "@/lib/finance/routes";
 import { financeTypeFilterOptions } from "@/lib/finance/presentation";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 export function FinanceFilterBar({
   ko,
@@ -107,22 +109,14 @@ export function FinanceFilterBar({
           onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value || null }))}
         />
       </label>
-      <button
-        type="button"
-        className="rounded-ui-rect bg-signature px-3 py-1.5 text-sm font-semibold text-white"
-        onClick={apply}
-        data-finance-filter-apply="1"
-      >
-        {ko ? "필터 적용" : "Apply filters"}
-      </button>
-      <button
-        type="button"
-        className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm"
-        onClick={reset}
-        data-finance-filter-reset="1"
-      >
-        {ko ? "필터 초기화" : "Reset filters"}
-      </button>
+      <div className="ml-auto flex gap-2">
+        <AdminActionButton variant="secondary" onClick={reset} data-finance-filter-reset="1">
+          {adminCta("reset", ko)}
+        </AdminActionButton>
+        <AdminActionButton variant="primary" onClick={apply} data-finance-filter-apply="1">
+          {adminCta("search", ko)}
+        </AdminActionButton>
+      </div>
     </div>
   );
 }

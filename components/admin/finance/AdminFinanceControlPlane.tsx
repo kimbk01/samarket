@@ -15,6 +15,9 @@ import {
   AdminControlPlaneSection,
 } from "@/components/admin/ui/AdminControlPlaneChrome";
 import { AdminUnavailableChip } from "@/components/admin/ui/AdminToneBadge";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber, formatAdminPhp, formatAdminPhpMinor } from "@/lib/admin/ui-standard/admin-format";
 import type {
   FinanceActionItem,
   FinanceControlPlaneModel,
@@ -85,7 +88,7 @@ function RowTable({
               <td className="px-3 py-2 tabular-nums">{r.amountLabel}</td>
               <td className="px-3 py-2">{adminOperatorLabel(r.status, ko)}</td>
               <td className="whitespace-nowrap px-3 py-2 sam-text-xxs">
-                {r.at ? new Date(r.at).toLocaleString() : "—"}
+                {r.at ? formatAdminManilaDateTime(r.at) : "—"}
               </td>
               <td className="px-3 py-2">
                 <div className="flex flex-wrap gap-2">
@@ -152,7 +155,7 @@ function ActionCard({ item, ko }: { item: FinanceActionItem; ko: boolean }) {
           </span>
           {ageLabel ? <span className="sam-text-xxs text-sam-muted">{ageLabel}</span> : null}
         </div>
-        <p className="text-[15px] font-semibold text-sam-fg">{item.actorLabel}</p>
+        <p className="text-[14px] font-semibold text-sam-fg">{item.actorLabel}</p>
         <p className="tabular-nums text-sam-fg">{item.amountLabel}</p>
         <p className="sam-text-helper text-sam-muted">{adminOperatorLabel(item.status, ko)}</p>
       </div>
@@ -223,12 +226,9 @@ export function AdminFinanceControlPlane() {
 
   if (error && !model) {
     return (
-      <p
-        className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950"
-        data-admin-finance-control-plane="error"
-      >
-        {ko ? "재무 관제를 불러오지 못했습니다." : "Could not load finance control plane."} ({error})
-      </p>
+      <div data-admin-finance-control-plane="error">
+        <AdminErrorState ko={ko} code={error} onRetry={() => void load()} />
+      </div>
     );
   }
 
@@ -254,7 +254,7 @@ export function AdminFinanceControlPlane() {
           </AdminActionButton>
         </div>
         {model.sectionErrors.length > 0 ? (
-          <p className="sam-text-helper text-amber-800">
+          <p className="sam-text-helper text-sam-warning">
             {ko ? "일부 소스 확인 불가" : "Some sources unavailable"}: {model.sectionErrors.join(" · ")}
           </p>
         ) : null}
@@ -287,7 +287,7 @@ export function AdminFinanceControlPlane() {
               data-source={m.source}
             >
               <p className="sam-text-helper text-sam-muted">{ko ? m.labelKo : m.labelEn}</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-sam-fg">
+              <p className="mt-1 text-[20px] font-semibold tabular-nums text-sam-fg">
                 {m.value == null ? <Unavail ko={ko} /> : m.value}
               </p>
               <p className="mt-1 sam-text-xxs text-sam-muted">{m.currencyNote}</p>
@@ -404,20 +404,21 @@ export function AdminFinanceControlPlane() {
           <dl className="grid grid-cols-2 gap-2 sam-text-helper sm:grid-cols-4">
             <div>
               <dt className="text-sam-muted">{ko ? "지급 의무" : "Payable"}</dt>
-              <dd className="font-semibold tabular-nums">₱{(model.settlements.payablePhp ?? 0).toLocaleString()}</dd>
+              <dd className="font-semibold tabular-nums">{formatAdminPhp(model.settlements.payablePhp ?? 0)}</dd>
             </div>
             <div>
               <dt className="text-sam-muted">{ko ? "건수" : "Orders"}</dt>
-              <dd className="font-semibold tabular-nums">{model.settlements.pendingCount ?? 0}</dd>
+              <dd className="font-semibold tabular-nums">{formatAdminNumber(model.settlements.pendingCount ?? 0)}</dd>
             </div>
             <div>
               <dt className="text-sam-muted">{ko ? "매장 직접 수령 (지급 대상 아님)" : "Collected by stores (no payout)"}</dt>
-              <dd className="tabular-nums">₱{(model.settlements.directCollectedPhp ?? 0).toLocaleString()}</dd>
+              <dd className="tabular-nums">{formatAdminPhp(model.settlements.directCollectedPhp ?? 0)}</dd>
             </div>
             <div>
               <dt className="text-sam-muted">{ko ? "과거 정산 스냅샷 (참고·원본 보존)" : "Legacy snapshots (reference)"}</dt>
               <dd className="tabular-nums">
-                ₱{(model.settlements.legacyOpenSettlementPhp ?? 0).toLocaleString()} · {model.settlements.legacyOpenSettlementCount ?? 0}
+                {formatAdminPhp(model.settlements.legacyOpenSettlementPhp ?? 0)} ·{" "}
+                {formatAdminNumber(model.settlements.legacyOpenSettlementCount ?? 0)}
               </dd>
             </div>
           </dl>
@@ -474,5 +475,5 @@ export function AdminFinanceControlPlane() {
 }
 
 function cashMinorFmt(minor: number): string {
-  return `₱${(Math.trunc(minor) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return formatAdminPhpMinor(minor);
 }
