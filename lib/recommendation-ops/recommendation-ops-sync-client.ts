@@ -7,14 +7,9 @@ import {
   exportRecommendationOpsBundle,
   importRecommendationOpsBundle,
 } from "@/lib/recommendation-ops/recommendation-ops-state";
-import {
-  loadRecommendationRuntimeFromServer,
-  persistRecommendationRuntimeToServer,
-} from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
+import { loadRecommendationRecordsSummaryFromServer } from "@/lib/recommendation-ops/recommendation-records-client";
 import { loadRecommendationExperimentsFromServer } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
 import { loadRecommendationAnalyticsFromServer } from "@/lib/recommendation-analytics/recommendation-analytics-sync-client";
-
-export { loadRecommendationRuntimeFromServer, persistRecommendationRuntimeToServer };
 
 export async function loadRecommendationOpsFromServer(): Promise<{
   ok: boolean;
@@ -71,24 +66,26 @@ export async function commitRecommendationOpsChange(
   return r;
 }
 
-/** 추천 운영 정책(ops) + 런타임 이력(이슈·알림·실행)을 한 번에 로드 */
+/**
+ * 추천 운영 정책(ops) + 기록 요약(이슈·알림·실행·노출 집계 — DB 요약 RPC) + 실험 + 분석 번들을 한 번에 로드.
+ * 기록 행 목록은 각 표가 서버 페이지로 따로 읽는다 (예전 runtime 묶음 전체 하이드레이트 제거 — R7 후속).
+ */
 export async function loadFullRecommendationAdminState(): Promise<{
   ok: boolean;
   errors?: string[];
   error?: string;
   httpStatus?: number;
   opsSource?: "db" | "default";
-  runtimeSource?: "db" | "default";
 }> {
   const [ops, rt, exp, analytics] = await Promise.all([
     loadRecommendationOpsFromServer(),
-    loadRecommendationRuntimeFromServer(),
+    loadRecommendationRecordsSummaryFromServer(),
     loadRecommendationExperimentsFromServer(),
     loadRecommendationAnalyticsFromServer(),
   ]);
   const errors: string[] = [];
   if (!ops.ok) errors.push(ops.error ?? "ops_load_failed");
-  if (!rt.ok) errors.push(rt.error ?? "runtime_load_failed");
+  if (!rt.ok) errors.push(rt.error ?? "records_summary_load_failed");
   if (!exp.ok) errors.push(exp.error ?? "experiments_load_failed");
   if (!analytics.ok) errors.push(analytics.error ?? "analytics_load_failed");
   const first = adminFirstLoadFailure([ops, rt, exp, analytics]);
@@ -98,6 +95,5 @@ export async function loadFullRecommendationAdminState(): Promise<{
     error: first?.code,
     httpStatus: first?.httpStatus,
     opsSource: ops.source,
-    runtimeSource: rt.source,
   };
 }

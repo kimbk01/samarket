@@ -1,16 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import type { IncidentStatus } from "@/lib/types/recommendation-monitoring";
 import {
-  getRecommendationIncidents,
-  acknowledgeIncident,
-  resolveIncident,
-} from "@/lib/recommendation-ops/recommendation-runtime-state";
-import { commitRecommendationRuntimeChange } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
-import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+  acknowledgeRecommendationIncident,
+  fetchRecommendationIncidentsPage,
+  loadRecommendationRecordsSummaryFromServer,
+  resolveRecommendationIncident,
+} from "@/lib/recommendation-ops/recommendation-records-client";
+import { useRecommendationRecordsPage } from "@/lib/recommendation-ops/use-recommendation-records-page";
+import type { RecommendationIncident } from "@/lib/types/recommendation-monitoring";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-page";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { RecommendationFilterSelect } from "@/components/admin/recommendation-admin-filter-select";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
@@ -23,14 +32,12 @@ import {
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
-const ADMIN_ID = "admin1";
 const INCIDENT_STATUSES: readonly IncidentStatus[] = ["open", "acknowledged", "resolved"];
 const INCIDENT_SURFACES: readonly RecommendationSurface[] = ["home", "search", "shop"];
 
 export function IncidentTable() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
   /** 필터 — 주소 `?status=`·`?surface=` 보존 (R7) */
@@ -40,28 +47,35 @@ export function IncidentTable() {
     ? (lq.query.extras.surface as RecommendationSurface)
     : "";
 
-  const incidents = useMemo(
+  /** 서버 페이지 20/50/100 + 전체 건수 (R7 후속 — 예전: 메모리 보관 최대 200건을 쪽 나눔 없이 전부 표시). */
+  const pageNo = lq.query.page;
+  const size = lq.query.size;
+  const { state, reload } = useRecommendationRecordsPage<RecommendationIncident>(
+    `${statusFilter}|${surfaceFilter}|${pageNo}|${size}`,
     () =>
-      getRecommendationIncidents({
-        status: statusFilter || undefined,
-        surface: surfaceFilter || undefined,
-      }),
-    [refresh, statusFilter, surfaceFilter]
+      fetchRecommendationIncidentsPage({
+        status: statusFilter,
+        surface: surfaceFilter,
+        limit: size,
+        offset: adminListOffsetForPage(pageNo, size),
+      })
   );
+  const incidents = state.page?.rows ?? [];
+  const total = state.page?.total ?? 0;
 
-  /** 저장 실패 → 장애 상태 되돌림 + 실패 문구 (예전: console.warn 만). */
-  const commit = async (mutate: () => void) => {
+  /** 건별 저장(서버 UPDATE 1건) → 목록·요약 다시 읽기. 실패 → 실패 문구 (화면 상태는 서버 값 그대로). */
+  const commit = async (run: () => Promise<{ ok: boolean; error?: string }>) => {
     setBusy(true);
-    const r = await commitRecommendationRuntimeChange(mutate);
+    const r = await run();
     setBusy(false);
     setSaveResult(r.ok ? null : { ok: false, code: r.error ?? "save_failed" });
-    setRefresh((n) => n + 1);
+    reload();
+    if (r.ok) void loadRecommendationRecordsSummaryFromServer();
   };
 
-  const handleAck = (id: string) =>
-    commit(() => acknowledgeIncident(id, ADMIN_ID, t("admin_rec_admin_nickname")));
+  const handleAck = (id: string) => commit(() => acknowledgeRecommendationIncident(id));
 
-  const handleResolve = (id: string) => commit(() => resolveIncident(id));
+  const handleResolve = (id: string) => commit(() => resolveRecommendationIncident(id));
 
   return (
     <div className="space-y-4">
@@ -99,7 +113,11 @@ export function IncidentTable() {
           name="surface"
         />
       </AdminFilterBar>
-      {incidents.length === 0 ? (
+      {state.status === "error" && !state.page ? (
+        <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
+      ) : state.status === "loading" && !state.page ? (
+        <AdminLoadingState ko={ko} />
+      ) : incidents.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={statusFilter || surfaceFilter ? undefined : t("admin_rec_mon_empty_incidents")}
@@ -192,6 +210,17 @@ export function IncidentTable() {
           </table>
         </div>
       )}
+      {total > 0 ? (
+        <AdminPagination
+          ko={ko}
+          page={pageNo}
+          size={size}
+          total={total}
+          onPageChange={lq.setPage}
+          onSizeChange={lq.setSize}
+          disabled={busy || state.status === "loading"}
+        />
+      ) : null}
     </div>
   );
 }

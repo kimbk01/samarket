@@ -15,7 +15,7 @@ import { DeploymentHistoryTable } from "./DeploymentHistoryTable";
 import { RollbackPolicyForm } from "./RollbackPolicyForm";
 import { ExperimentWinnerTable } from "./ExperimentWinnerTable";
 import { DeploymentLogList } from "./DeploymentLogList";
-import { loadRecommendationExperimentsFromServer } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
+import { loadRecommendationExperimentsWithRecordsSummary } from "@/lib/recommendation-ops/recommendation-records-client";
 
 type TabId =
   | "active"
@@ -41,7 +41,7 @@ export function AdminRecommendationDeploymentPage() {
     const raw = searchParams?.get("tab") ?? "";
     return TABS.some((tab) => tab.id === raw) ? (raw as TabId) : "active";
   });
-  const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationExperimentsFromServer);
+  const { state: loadState, reload } = useAdminSyncLoad(loadRecommendationExperimentsWithRecordsSummary);
   const hydrated = loadState.status === "ready";
 
   if (!hydrated) {

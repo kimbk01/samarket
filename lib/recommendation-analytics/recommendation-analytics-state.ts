@@ -1,11 +1,9 @@
 /**
- * 추천 분석·보고서 — 노출/클릭/전환·섹션 헬스·운영 보고서 단일 저장소.
+ * 추천 분석·보고서 — 섹션 헬스·운영 보고서 저장소 (admin_settings recommendation_analytics_v1).
+ * 노출/클릭/전환 기록은 여기 없다 — 테이블 recommendation_impressions + 요약 RPC (R7 후속,
+ * 예전 MAX_IMPRESSIONS 500 메모리 링버퍼 제거). 요약은 recommendation-records-summary-state.
  */
-import type {
-  RecommendationImpression,
-  RecommendationSurface,
-  RecommendationCandidateType,
-} from "@/lib/types/recommendation";
+import type { RecommendationSurface } from "@/lib/types/recommendation";
 import type { RecommendationSectionHealth, HealthStatus } from "@/lib/types/recommendation-monitoring";
 import type {
   RecommendationReport,
@@ -20,8 +18,6 @@ import type {
   RecommendationCategoryAnalytics,
   RecommendationBriefingBoard,
 } from "@/lib/types/recommendation-report";
-
-const MAX_IMPRESSIONS = 500;
 
 export type SurfaceMetrics = {
   successRate: number;
@@ -50,56 +46,6 @@ function defaultSurfaceMetrics(): Record<RecommendationSurface, SurfaceMetrics> 
       avgConversionRate: 0.065,
     },
   };
-}
-
-function defaultImpressions(): RecommendationImpression[] {
-  return [
-    {
-      id: "ri-1",
-      userId: "me",
-      surface: "home",
-      sectionKey: "recommended",
-      candidateId: "1",
-      candidateType: "product",
-      impressionAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-      clicked: true,
-      clickedAt: new Date(Date.now() - 1000 * 60 * 9).toISOString(),
-      converted: true,
-      convertedAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
-      reasonLabel: "추천",
-      score: 12.5,
-    },
-    {
-      id: "ri-2",
-      userId: "me",
-      surface: "home",
-      sectionKey: "recent_view_based",
-      candidateId: "3",
-      candidateType: "product",
-      impressionAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-      clicked: true,
-      clickedAt: new Date(Date.now() - 1000 * 60 * 59).toISOString(),
-      converted: false,
-      convertedAt: null,
-      reasonLabel: "최근 본 상품과 비슷해요",
-      score: 8.2,
-    },
-    {
-      id: "ri-3",
-      userId: "me",
-      surface: "home",
-      sectionKey: "local_latest",
-      candidateId: "2",
-      candidateType: "product",
-      impressionAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-      clicked: false,
-      clickedAt: null,
-      converted: false,
-      convertedAt: null,
-      reasonLabel: "우리동네 최신",
-      score: 5,
-    },
-  ];
 }
 
 function defaultSectionHealth(): RecommendationSectionHealth[] {
@@ -191,7 +137,6 @@ function defaultReportKpis(): RecommendationReportKpis[] {
   ];
 }
 
-const IMPRESSIONS: RecommendationImpression[] = defaultImpressions();
 const SECTION_HEALTH: RecommendationSectionHealth[] = defaultSectionHealth();
 const REPORTS: RecommendationReport[] = defaultReports();
 const REPORT_KPIS: RecommendationReportKpis[] = defaultReportKpis();
@@ -205,7 +150,6 @@ const SURFACE_METRICS: Record<RecommendationSurface, SurfaceMetrics> = defaultSu
 
 export type RecommendationAnalyticsBundleV1 = {
   version: 1;
-  impressions: RecommendationImpression[];
   sectionHealth: RecommendationSectionHealth[];
   reports: RecommendationReport[];
   reportKpis: RecommendationReportKpis[];
@@ -223,14 +167,9 @@ function replaceArray<T>(target: T[], next: T[]) {
   target.push(...next);
 }
 
-function trimImpressions() {
-  if (IMPRESSIONS.length > MAX_IMPRESSIONS) IMPRESSIONS.length = MAX_IMPRESSIONS;
-}
-
 export function createDefaultRecommendationAnalyticsBundle(): RecommendationAnalyticsBundleV1 {
   return {
     version: 1,
-    impressions: defaultImpressions().map((i) => ({ ...i })),
     sectionHealth: defaultSectionHealth().map((h) => ({ ...h })),
     reports: defaultReports().map((r) => ({ ...r })),
     reportKpis: defaultReportKpis().map((k) => ({ ...k })),
@@ -248,10 +187,6 @@ export function importRecommendationAnalyticsBundle(
   bundle: RecommendationAnalyticsBundleV1
 ): void {
   if (bundle.version !== 1) return;
-  replaceArray(
-    IMPRESSIONS,
-    (bundle.impressions ?? []).map((i) => ({ ...i })).slice(0, MAX_IMPRESSIONS)
-  );
   replaceArray(
     SECTION_HEALTH,
     (bundle.sectionHealth ?? []).map((h) => ({ ...h }))
@@ -286,7 +221,6 @@ export function importRecommendationAnalyticsBundle(
   for (const surface of ["home", "search", "shop"] as RecommendationSurface[]) {
     SURFACE_METRICS[surface] = { ...metrics[surface] };
   }
-  if (!IMPRESSIONS.length) replaceArray(IMPRESSIONS, defaultImpressions());
   if (!SECTION_HEALTH.length) replaceArray(SECTION_HEALTH, defaultSectionHealth());
   if (!REPORTS.length) replaceArray(REPORTS, defaultReports());
   if (!REPORT_KPIS.length) replaceArray(REPORT_KPIS, defaultReportKpis());
@@ -295,7 +229,6 @@ export function importRecommendationAnalyticsBundle(
 export function exportRecommendationAnalyticsBundle(): RecommendationAnalyticsBundleV1 {
   return {
     version: 1,
-    impressions: IMPRESSIONS.map((i) => ({ ...i })),
     sectionHealth: SECTION_HEALTH.map((h) => ({ ...h })),
     reports: REPORTS.map((r) => ({ ...r })),
     reportKpis: REPORT_KPIS.map((k) => ({ ...k })),
@@ -334,91 +267,12 @@ export function setSurfaceMetrics(
 
 /* ─── impressions ───────────────────────────────────────────── */
 
-export interface RecordImpressionPayload {
-  userId: string;
-  surface: RecommendationSurface;
-  sectionKey: string;
-  candidateId: string;
-  candidateType: RecommendationCandidateType;
-  reasonLabel: string;
-  score: number;
-}
-
-export function recordImpression(payload: RecordImpressionPayload): RecommendationImpression {
-  const imp: RecommendationImpression = {
-    id: `ri-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    userId: payload.userId,
-    surface: payload.surface,
-    sectionKey: payload.sectionKey,
-    candidateId: payload.candidateId,
-    candidateType: payload.candidateType,
-    impressionAt: isoNow(),
-    clicked: false,
-    clickedAt: null,
-    converted: false,
-    convertedAt: null,
-    reasonLabel: payload.reasonLabel,
-    score: payload.score,
-  };
-  IMPRESSIONS.unshift(imp);
-  trimImpressions();
-  return imp;
-}
-
-export function recordRecommendationClick(
-  userId: string,
-  sectionKey: string,
-  candidateId: string
-): void {
-  const found = IMPRESSIONS.find(
-    (i) =>
-      i.userId === userId &&
-      i.sectionKey === sectionKey &&
-      i.candidateId === candidateId &&
-      !i.clicked
-  );
-  if (found) {
-    found.clicked = true;
-    found.clickedAt = isoNow();
-  }
-}
-
-export function recordRecommendationConversion(
-  userId: string,
-  sectionKey: string,
-  candidateId: string
-): void {
-  const found = IMPRESSIONS.find(
-    (i) =>
-      i.userId === userId &&
-      i.sectionKey === sectionKey &&
-      i.candidateId === candidateId &&
-      i.clicked &&
-      !i.converted
-  );
-  if (found) {
-    found.converted = true;
-    found.convertedAt = isoNow();
-  }
-}
-
-export function recordConversionByProduct(userId: string, productId: string): void {
-  const found = IMPRESSIONS.find(
-    (i) =>
-      i.userId === userId &&
-      i.candidateId === productId &&
-      i.clicked &&
-      !i.converted
-  );
-  if (found) {
-    found.converted = true;
-    found.convertedAt = isoNow();
-  }
-}
-
-export function getImpressions(userId?: string): RecommendationImpression[] {
-  if (userId) return IMPRESSIONS.filter((i) => i.userId === userId);
-  return [...IMPRESSIONS];
+/**
+ * 회원 앱(찜 → 전환) 호출 지점 호환용. 노출·전환 기록원은 아직 없다 (범위 밖 — 테이블 recommendation_impressions 에 쓰는
+ * 서버 경로가 생기면 그쪽으로 옮긴다). 예전에도 회원 브라우저 메모리의 예시 노출 3건만 바꾸고 저장하지 않아 효과가 없었다.
+ */
+export function recordConversionByProduct(_userId: string, _productId: string): void {
+  /* 기록원 미구현 — 저장하지 않음 (예전과 동일하게 영속 효과 없음). */
 }
 
 /* ─── section health ────────────────────────────────────────── */

@@ -1,8 +1,8 @@
 /**
- * 실험별 성과 집계 (impressions + 배정 기반)
+ * 실험별 성과 집계 (impressions + 배정 기반). 노출 집계 = DB 요약 RPC (서버가 DB 실험 번들의 배정 회원으로 계산 — R7 후속).
  */
 import type { ExperimentMetrics } from "@/lib/types/recommendation-experiment";
-import { getImpressions } from "@/lib/recommendation-analytics/recommendation-analytics-state";
+import { getRecommendationExperimentGroupStats } from "@/lib/recommendation-ops/recommendation-records-summary-state";
 import {
   getRecommendationExperimentById,
   getUserFeedAssignments,
@@ -21,25 +21,18 @@ export function getExperimentMetrics(experimentId: string): ExperimentMetrics[] 
   }
 
   const allVersionIds = [experiment.controlVersionId, ...experiment.variantVersionIds];
-  const impressions = getImpressions().filter(
-    (i) => i.surface === experiment.targetSurface
-  );
-
   const now = new Date().toISOString();
   const result: ExperimentMetrics[] = [];
 
   for (const versionId of allVersionIds) {
     const userIds = new Set(byVersion.get(versionId) ?? []);
-    const versionImpressions = impressions.filter((i) => userIds.has(i.userId));
-    const impressionCount = versionImpressions.length;
-    const clickCount = versionImpressions.filter((i) => i.clicked).length;
-    const conversionCount = versionImpressions.filter((i) => i.converted).length;
+    const { impressionCount, clickCount, conversionCount, scoreSum } = getRecommendationExperimentGroupStats(
+      experimentId,
+      versionId
+    );
     const ctr = impressionCount > 0 ? clickCount / impressionCount : 0;
     const conversionRate = clickCount > 0 ? conversionCount / clickCount : 0;
-    const avgScore =
-      versionImpressions.length > 0
-        ? versionImpressions.reduce((s, i) => s + i.score, 0) / versionImpressions.length
-        : 0;
+    const avgScore = impressionCount > 0 ? scoreSum / impressionCount : 0;
 
     result.push({
       id: `em-${experimentId}-${versionId}`,
