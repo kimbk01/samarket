@@ -17,7 +17,11 @@ import {
   peekOwnerStoreOrdersListServerCache,
   setOwnerStoreOrdersListServerCache,
 } from "@/lib/delivery/owner/owner-store-orders-list-server-cache";
-import { tryLoadOwnerStoreOrdersListFromSnapshot } from "@/lib/delivery/owner/owner-store-orders-list-snapshot";
+import {
+  isValidOwnerOrdersHistoryCursor,
+  loadOwnerStoreOrdersHistoryPage,
+  tryLoadOwnerStoreOrdersListFromSnapshot,
+} from "@/lib/delivery/owner/owner-store-orders-list-snapshot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -115,6 +119,19 @@ export async function GET(
       ownership_cache_hit: ownershipCachedBefore ? 1 : 0,
     });
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+  }
+
+  const historyCursor = url.searchParams.get("history_cursor")?.trim() ?? "";
+  if (historyCursor) {
+    // ORD-05 이전 주문 페이지 — 첫 페이지(최근 창 + 미종료 전부) 이후 종료 이력. 캐시를 거치지 않는다.
+    if (!isValidOwnerOrdersHistoryCursor(historyCursor)) {
+      return NextResponse.json({ ok: false, error: "invalid_history_cursor" }, { status: 400 });
+    }
+    const page = await loadOwnerStoreOrdersHistoryPage(sb as never, id, userId, historyCursor);
+    if (!page.ok) {
+      return NextResponse.json({ ok: false, error: page.error }, { status: page.status });
+    }
+    return NextResponse.json({ ok: true, orders: page.orders, next_cursor: page.nextCursor });
   }
 
   const metaOnly = url.searchParams.get("meta_only") === "1";

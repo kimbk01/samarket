@@ -6,6 +6,7 @@ import {
 } from "@/lib/community-messenger/store-order-chat-service";
 import {
   notifyBuyerStoreOrderOwnerStatus,
+  notifyStoreOwnerAcceptTimeoutCancelled,
   notifyBuyerStoreRefundApproved,
   notifyBuyerStoreRefundRejected,
   notifyStoreOwnerBuyerCancelled,
@@ -689,6 +690,7 @@ export async function applyStoreOrderStatusTransition(
           nextStatus,
           storeOrderEventId: statusEv.row.id,
           actor,
+          systemPurpose: actor === "SYSTEM" ? systemPurpose : undefined,
         });
       }
     } else {
@@ -699,7 +701,21 @@ export async function applyStoreOrderStatusTransition(
         storeId: sid,
         nextStatus,
         actor,
+        systemPurpose: actor === "SYSTEM" ? systemPurpose : undefined,
       });
+    }
+  }
+
+  if (nextStatus === "cancelled" && actor === "SYSTEM" && systemPurpose === "accept_timeout") {
+    if (statusEv.ok && statusEv.inserted) {
+      await notifyStoreOwnerAcceptTimeoutCancelled(sb, {
+        storeId: sid,
+        orderId: oid,
+        orderNo,
+        storeOrderEventId: statusEv.row.id,
+      });
+    } else if (!statusEv.ok) {
+      await notifyStoreOwnerAcceptTimeoutCancelled(sb, { storeId: sid, orderId: oid, orderNo });
     }
   }
 

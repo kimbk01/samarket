@@ -18,8 +18,12 @@ export type StoreOrderStatus = (typeof STORE_ORDER_STATUS_LIST)[number];
 /** Phase 6A — order_status writer actor (PAYMENT is outside this machine) */
 export type StoreOrderStatusActor = "CUSTOMER" | "OWNER" | "ADMIN" | "SYSTEM";
 
-/** SYSTEM: cron auto-complete · external-delivery · payment_failure recovery */
-export type StoreOrderSystemPurpose = "auto_complete" | "external_delivery" | "payment_failure";
+/** SYSTEM: cron auto-complete · external-delivery · payment_failure recovery · accept_timeout (미접수 자동 취소) */
+export type StoreOrderSystemPurpose =
+  | "auto_complete"
+  | "external_delivery"
+  | "payment_failure"
+  | "accept_timeout";
 
 const VALID = new Set<string>(STORE_ORDER_STATUS_LIST);
 
@@ -178,6 +182,10 @@ export function allowedOrderTransitionsForActor(
     case "SYSTEM": {
       if (opts?.systemPurpose === "payment_failure") {
         // Recovery Chain: unpaid pending order → cancel (+ stock restore in apply)
+        return current === "pending" ? ["cancelled"] : [];
+      }
+      if (opts?.systemPurpose === "accept_timeout") {
+        // 접수 제한시간 초과 — 매장이 접수하지 않은 pending 만 취소 (+ 재고·쿠폰·상품권 복원은 apply)
         return current === "pending" ? ["cancelled"] : [];
       }
       if (opts?.systemPurpose === "external_delivery") {

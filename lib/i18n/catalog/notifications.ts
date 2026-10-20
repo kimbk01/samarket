@@ -172,6 +172,10 @@ export const notificationMessages = {
     notify_commerce_owner_status_cancelled_title: "주문이 취소됐어요",
     notify_commerce_owner_status_cancelled_body: "「{store}」 {orderNo} 주문이 매장에 의해 취소되었습니다.",
     notify_commerce_admin_cancelled_body: "「{store}」 {orderNo} 주문이 DIBAY 운영팀에 의해 취소되었습니다.",
+    notify_commerce_accept_timeout_cancelled_body:
+      "「{store}」 {orderNo} 주문이 {minutes}분 안에 접수되지 않아 자동 취소되었습니다.",
+    notify_commerce_owner_accept_timeout_title: "미접수 주문이 자동 취소됐어요",
+    notify_commerce_owner_accept_timeout_body: "{orderNo} 주문을 {minutes}분 안에 접수하지 않아 자동 취소되었습니다.",
     notify_commerce_payment_failed_title: "결제에 실패했어요",
     notify_commerce_payment_failed_body:
       "「{store}」 {orderNo} 주문 — 결제가 완료되지 않았습니다. 다시 시도하거나 주문을 취소할 수 있어요.",
@@ -495,6 +499,11 @@ export const notificationMessages = {
     notify_commerce_owner_status_cancelled_title: "Order cancelled",
     notify_commerce_owner_status_cancelled_body: "\"{store}\" order {orderNo} was cancelled by the store.",
     notify_commerce_admin_cancelled_body: "\"{store}\" order {orderNo} was cancelled by the DIBAY operations team.",
+    notify_commerce_accept_timeout_cancelled_body:
+      "\"{store}\" order {orderNo} was cancelled automatically because the store did not accept it within {minutes} minutes.",
+    notify_commerce_owner_accept_timeout_title: "Unaccepted order cancelled",
+    notify_commerce_owner_accept_timeout_body:
+      "Order {orderNo} was cancelled automatically because it was not accepted within {minutes} minutes.",
     notify_commerce_payment_failed_title: "Payment failed",
     notify_commerce_payment_failed_body:
       "\"{store}\" order {orderNo} — The payment was not completed. Try again or cancel the order.",

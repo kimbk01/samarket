@@ -48,6 +48,7 @@ export const STORE_ORDER_AUDIT_ACTION_LABEL: Record<string, Entry> = {
   admin_patch_meta: { ko: "관리자 메모·잠금 변경", en: "Admin updated note/lock", category: "admin" },
   admin_intervention: { ko: "관리자 예외 개입", en: "Admin intervention", category: "admin" },
   cron_auto_complete: { ko: "자동 완료", en: "Auto-completed", category: "system" },
+  cron_accept_timeout_cancel: { ko: "미접수 자동 취소", en: "Auto-cancelled (not accepted)", category: "system" },
   external_delivery_webhook: { ko: "외부 배달사 상태 반영", en: "External delivery update", category: "system" },
   payment_failed_cancel: { ko: "결제 실패 자동 취소", en: "Cancelled after payment failure", category: "system" },
   stock_restore_failed: { ko: "재고 복원 실패 (시스템 경고)", en: "Stock restore failed (warning)", category: "system" },

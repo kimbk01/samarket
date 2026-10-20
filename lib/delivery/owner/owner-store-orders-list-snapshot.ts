@@ -361,3 +361,40 @@ export function invalidateOwnerStoreOrdersListSnapshotCounter(
   void storeId;
   void ownerUserId;
 }
+
+const HISTORY_CURSOR_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** `「created_at」|「id」` — 이전 주문 페이지 커서 형식 검사 (RPC 는 형식이 틀리면 첫 페이지를 돌려준다). */
+export function isValidOwnerOrdersHistoryCursor(cursor: string): boolean {
+  const [createdAt, id, extra] = cursor.trim().split("|");
+  if (extra !== undefined || !createdAt || !id) return false;
+  return Number.isFinite(Date.parse(createdAt)) && HISTORY_CURSOR_ID_RE.test(id);
+}
+
+/**
+ * ORD-05 — 「이전 주문 더 보기」 한 페이지. 스냅샷 카운터·메모리 캐시를 거치지 않는다(첫 페이지 캐시 키 오염 방지).
+ * 소유 확인은 RPC 가 다시 한다(forbidden).
+ */
+export async function loadOwnerStoreOrdersHistoryPage(
+  sbAny: SupabaseClient<any>,
+  storeId: string,
+  ownerUserId: string,
+  cursor: string
+): Promise<
+  | { ok: true; orders: OwnerStoreOrderListRow[]; nextCursor: string | null }
+  | { ok: false; error: string; status: number }
+> {
+  const { payload } = await fetchSnapshotViaRpc(
+    sbAny,
+    storeId.trim(),
+    ownerUserId.trim(),
+    "",
+    OWNER_STORE_ORDERS_LIST_DEFAULT_LIMIT,
+    cursor.trim()
+  );
+  if (!payload) return { ok: false, error: "snapshot_unavailable", status: 503 };
+  const gate = ownerStoreOrdersListSnapshotGateFromPayload(payload);
+  if (!gate.ok) return gate;
+  const next = typeof payload.next_cursor === "string" ? payload.next_cursor.trim() : "";
+  return { ok: true, orders: ownerStoreOrdersListFromPayload(payload), nextCursor: next || null };
+}

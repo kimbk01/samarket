@@ -72,6 +72,22 @@
     {
       "path": "/api/cron/trade-promotion-orders-expire",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/store-orders-auto-complete",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/store-order-accept-reminders",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/store-orders-accept-timeout",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/store-orders-sla-scan",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

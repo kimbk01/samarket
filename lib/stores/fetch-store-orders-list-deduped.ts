@@ -59,3 +59,20 @@ export function fetchStoreOrdersListDeduped(
     return { status: res.status, json };
   });
 }
+
+/** ORD-05 「이전 주문 더 보기」 — 캐시 없이 한 페이지. */
+export function fetchOwnerStoreOrdersHistoryPage(
+  storeId: string,
+  cursor: string
+): Promise<StoreOrdersListResult> {
+  const sid = storeId.trim();
+  const c = cursor.trim();
+  return runSingleFlight(`me:store:${sid}:orders:history:${c}`, async (): Promise<StoreOrdersListResult> => {
+    const res = await fetch(
+      `/api/me/stores/${encodeURIComponent(sid)}/orders?history_cursor=${encodeURIComponent(c)}`,
+      { credentials: "include", cache: "no-store" }
+    );
+    const json: unknown = await res.json().catch(() => ({}));
+    return { status: res.status, json };
+  });
+}

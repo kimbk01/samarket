@@ -4,6 +4,7 @@ import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
+import { STORE_ORDER_AUTOMATION_FROM_ISO } from "@/lib/stores/store-order-lifecycle-automation";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
  * Pickup: ready_for_pickup + auto_complete_at due
  * Delivery: arrived + auto_complete_at due
  * (legacy delivering→completed cron edge 제거 — Phase 6A)
+ * 자동화 기준 시각 이전 주문은 대상이 아니다 (store-order-lifecycle-automation, Owner D-5).
  */
 async function runStoreOrdersAutoComplete(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -38,7 +40,8 @@ async function runStoreOrdersAutoComplete(req: Request) {
     .eq("payment_status", "paid")
     .in("order_status", ["ready_for_pickup", "arrived"])
     .not("auto_complete_at", "is", null)
-    .lte("auto_complete_at", now);
+    .lte("auto_complete_at", now)
+    .gte("created_at", STORE_ORDER_AUTOMATION_FROM_ISO);
 
   if (error) {
     if (error.message?.includes("auto_complete_at") && error.message.includes("does not exist")) {
