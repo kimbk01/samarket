@@ -66,7 +66,6 @@ const POST_TABS: TradePostTab[] = [
   "admin_deleted",
   "owner_hidden",
   "owner_deleted",
-  "legacy_hidden",
   "reported",
   "unclassified",
 ];

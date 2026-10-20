@@ -12,11 +12,11 @@ import { communityAdminUuidOrNull } from "@/lib/admin/community-admin/community-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ACTIONS = new Set(["hide", "unhide", "delete", "undelete", "confirm_admin_hidden"]);
+const ACTIONS = new Set(["hide", "unhide", "delete", "undelete"]);
 
 /**
  * POST /api/admin/trade/posts/[id]/moderation — 관리자 노출 조치 (설계 v2 §F-1-1 · §F-1-4)
- * body: { action: hide|unhide|delete|undelete|confirm_admin_hidden, reason, expectedUpdatedAt? }
+ * body: { action: hide|unhide|delete|undelete, reason, expectedUpdatedAt? }
  * 판매 단계는 바꾸지 않는다. 관리자 숨김·삭제는 판매자가 해제할 수 없다 (판매자 API 는 owner_state 만 바꾼다).
  */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

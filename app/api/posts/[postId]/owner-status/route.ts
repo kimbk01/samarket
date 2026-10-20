@@ -101,7 +101,6 @@ export async function POST(
    * 판매자 숨김·다시 보이기 = 판매자 노출(owner_state)만 바꾼다 (설계 v2 §F-1-1).
    * - 판매 단계·예약 구매자는 그대로 둔다 (숨겼다 다시 보여도 예약·거래완료 유지).
    * - 관리자 숨김·삭제는 판매자가 해제할 수 없다.
-   * - O-8: 이관 전부터 숨김이던 글(legacy_hidden)은 지금처럼 판매자가 다시 보이게 할 수 있다.
    */
   const moderation = String(row.moderation_state ?? "visible");
   if (nextStatus === "active" && (moderation === "admin_hidden" || moderation === "admin_deleted")) {
@@ -121,7 +120,6 @@ export async function POST(
     postUpdate.owner_state = "owner_hidden";
   } else {
     postUpdate.owner_state = "none";
-    if (moderation === "legacy_hidden") postUpdate.moderation_state = "visible";
   }
 
   const { data: updated, error: updErr } = await sb

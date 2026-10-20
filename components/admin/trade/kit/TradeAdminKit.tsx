@@ -81,7 +81,7 @@ export function TradeVisibilityBadges({
   return (
     <span className="flex flex-wrap gap-1">
       {m !== "visible" ? (
-        <AdminToneBadge tone={m === "admin_deleted" ? "danger" : m === "legacy_hidden" ? "neutral" : "warning"}>
+        <AdminToneBadge tone={m === "admin_deleted" ? "danger" : "warning"}>
           {MODERATION_STATE_LABELS[m] ?? m}
         </AdminToneBadge>
       ) : null}

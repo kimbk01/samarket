@@ -137,7 +137,6 @@ export function applyTradePostsWhere(q: Q, tab: TradePostTab, f: TradePostsFilte
       break;
     case "admin_hidden":
     case "admin_deleted":
-    case "legacy_hidden":
       b = b.eq("moderation_state", tab);
       break;
     case "owner_hidden":
