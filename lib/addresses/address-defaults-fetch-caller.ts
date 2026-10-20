@@ -17,6 +17,7 @@ export const ADDRESS_DEFAULTS_FETCH_CALLERS = [
   "trade_meet_fallback_line",
   "trade_location_scope",
   "community_local_filter",
+  "region_context",
   "unknown",
 ] as const;
 
@@ -41,4 +42,6 @@ export type AddressDefaultsFetchReason =
   | "trade_location_seed"
   | "community_local_filter_boot"
   | "community_local_filter_force"
+  | "region_context_boot"
+  | "region_context_force"
   | "unspecified";

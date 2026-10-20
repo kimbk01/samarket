@@ -7,7 +7,8 @@
  *    affects server sort — see `app/api/stores/home-feed/route.ts`)
  *
  * Rules:
- * - Prefer boot profile region when ready; else live `primaryRegion`
+ * - Prefer member master address City (ADDR-SSOT-002) when known; else boot profile
+ *   region (City only, first-paint fallback); else live `primaryRegion`
  * - Do not start home-feed until a region source exists (or boot is anonymous)
  * - Client cache key is **region-only** (no district) so address_detail hydrate
  *   does not abort/repaint the first fold
@@ -24,6 +25,13 @@ import { peekAppBootProfileFetchCached, isAppBootProfileFetchGuestSkipCached } f
 import { isRecoverableGuestAuthEstablished } from "@/lib/auth/guest-auth-state";
 import { getRegionName } from "@/lib/regions/region-utils";
 import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
+import {
+  MASTER_ADDRESS_REGION_ID,
+  PROFILE_LOCATION_REGION_ID,
+  userRegionFromAddressDefaultsSnapshot,
+} from "@/lib/regions/master-address-to-user-region";
+import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { UserRegion } from "@/lib/regions/types";
 import type { ProfileRow } from "@/lib/profile/types";
 
@@ -47,7 +55,6 @@ function regionFromProfileRow(boot: ProfileRow | Record<string, unknown>): UserR
   return userRegionFromProfileSlice({
     region_code: typeof boot.region_code === "string" ? boot.region_code : null,
     region_name: typeof boot.region_name === "string" ? boot.region_name : null,
-    address_detail: typeof boot.address_detail === "string" ? boot.address_detail : null,
     full_address: typeof boot.full_address === "string" ? boot.full_address : null,
   });
 }
@@ -56,6 +63,20 @@ function regionFromBootProfile(): UserRegion | null {
   const boot = peekAppBootProfile();
   if (!boot) return null;
   return regionFromProfileRow(boot);
+}
+
+/**
+ * ADDR-SSOT-002 — 대표 주소가 지역 권위. RegionContext 가 이미 대표 주소로 확정한 primary,
+ * 또는 TTL 안 address-defaults 스냅샷(동기 peek)이 있으면 profiles 폴백보다 우선한다.
+ * `undefined` = 대표 주소 미확정(프로필 폴백 경로 유지), `null` = 대표 주소 없음.
+ */
+function resolveMasterRegionAuthority(primaryRegion: UserRegion | null): UserRegion | null | undefined {
+  if (primaryRegion?.id === MASTER_ADDRESS_REGION_ID) return primaryRegion;
+  const peek = userRegionFromAddressDefaultsSnapshot(
+    peekFreshAddressDefaultsSnapshot(),
+    getCurrentUser()?.id ?? "guest"
+  );
+  return peek.kind === "resolved" ? peek.region : undefined;
 }
 
 /**
@@ -90,6 +111,13 @@ export function resolveStoresHomeFeedQueryGate(primaryRegion: UserRegion | null)
     const snap = getAppBootSnapshot();
     if (snap.status === "anonymous") {
       return { ready: true, querySuffix: "" };
+    }
+    const master = resolveMasterRegionAuthority(primaryRegion);
+    if (master !== undefined) {
+      /** 대표 주소 없음 — RegionContext 와 같게 profiles 폴백은 버리고 로컬 동네만 허용 */
+      const region =
+        master ?? (primaryRegion && primaryRegion.id !== PROFILE_LOCATION_REGION_ID ? primaryRegion : null);
+      return { ready: true, querySuffix: storeHomeFeedRegionOnlySuffix(region) };
     }
     const fromBoot = regionFromBootProfile();
     if (fromBoot) {

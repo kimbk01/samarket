@@ -1,40 +1,32 @@
 /**
  * Supabase profiles.region_* → RegionContext 의 UserRegion (mock 동네 목록과 동일 형태).
- * 매장 피드·탭바 동네는 프로필을 우선하도록 RegionProvider 에서 사용합니다.
+ *
+ * ADDR-SSOT-002: 권위는 회원 대표 주소(`master-address-to-user-region`). 이 파생은 대표 주소
+ * 수신 전 첫 페인트·prewarm 폴백 전용이며 대표 주소와 같은 City 단위 형태를 쓴다 —
+ * `barangay` 는 항상 `""` (profiles.address_detail 상세주소 미사용), `label` 은 City 라벨.
  */
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   decodeProfileAppLocationPair,
   isProfileLocationComplete,
-  resolveProfileLocationDisplayLine,
 } from "@/lib/profile/profile-location";
+import {
+  PROFILE_LOCATION_REGION_ID,
+  cityUserRegionFromAppLocation,
+} from "@/lib/regions/master-address-to-user-region";
 import type { UserRegion } from "@/lib/regions/types";
-
-const PROFILE_LOCATION_ID = "profile-location";
 
 export function userRegionFromProfileSlice(p: {
   region_code?: string | null;
   region_name?: string | null;
-  address_detail?: string | null;
   full_address?: string | null;
 }): UserRegion | null {
   if (!isProfileLocationComplete(p)) return null;
   const { regionId, cityId } = decodeProfileAppLocationPair(p.region_code, p.region_name);
   if (!regionId || !cityId) return null;
-  const barangay = (p.address_detail ?? "").trim();
-  const label =
-    resolveProfileLocationDisplayLine(p).trim() ||
-    barangay ||
-    (p.full_address ?? "").trim();
-  return {
-    id: PROFILE_LOCATION_ID,
-    userId: getCurrentUser()?.id ?? "guest",
-    regionId,
-    cityId,
-    barangay,
-    label: label || barangay,
-    isPrimary: true,
-    createdAt: new Date().toISOString(),
-  };
+  return cityUserRegionFromAppLocation(
+    { regionId, cityId },
+    { id: PROFILE_LOCATION_REGION_ID, userId: getCurrentUser()?.id ?? "guest" }
+  );
 }

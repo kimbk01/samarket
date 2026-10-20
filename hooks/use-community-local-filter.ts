@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
@@ -49,18 +49,29 @@ export function useCommunityLocalFilter(): {
     [userId],
   );
 
+  /** 최신 sync 만 반영 — 늦게 끝난 이전 요청이 새 결과를 덮어쓰지 않게 (ADDR-SSOT-005) */
+  const syncSeqRef = useRef(0);
+
   const syncFromMaster = useCallback(
     async (opts?: { force?: boolean }) => {
+      const seq = ++syncSeqRef.current;
       if (!userId || userId === "guest") {
         setFilter(null);
         setReady(true);
         return;
       }
-      const existing = readCommunityLocalFilter(userId);
       const snapshot = await fetchAddressDefaultsSnapshot({
         caller: "community_local_filter",
         reason: opts?.force ? "community_local_filter_force" : "community_local_filter_boot",
       });
+      if (seq !== syncSeqRef.current) return;
+      const existing = readCommunityLocalFilter(userId);
+      /** 주소 조회 실패 — 대표 주소 없음으로 간주하지 않고 기존 필터 유지 */
+      if (!snapshot?.ok) {
+        applyResolved(existing);
+        setReady(true);
+        return;
+      }
       const master = masterFromSnapshot(snapshot);
       const resolved = resolveCommunityLocalFilterAgainstMaster(existing, master);
       applyResolved(resolved);
@@ -70,14 +81,11 @@ export function useCommunityLocalFilter(): {
   );
 
   useEffect(() => {
-    let cancelled = false;
     setReady(false);
-    void (async () => {
-      await syncFromMaster();
-      if (cancelled) return;
-    })();
+    void syncFromMaster();
     return () => {
-      cancelled = true;
+      /** 언마운트·viewer 전환 — 진행 중 sync 결과 폐기 */
+      syncSeqRef.current += 1;
     };
   }, [syncFromMaster]);
 

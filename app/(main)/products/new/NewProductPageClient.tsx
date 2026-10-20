@@ -19,7 +19,8 @@ export default function NewProductPageClient() {
         initialValues={{
           region: primaryRegion?.regionId ?? "",
           city: primaryRegion?.cityId ?? "",
-          barangay: primaryRegion?.barangay ?? "",
+          /** 대표 주소 City 단위만 — 상세주소(barangay)는 기본값으로 채우지 않는다 (ADDR-SSOT-002) */
+          barangay: "",
         }}
         saveProduct={saveProductTradeFromForm}
         onSubmitSuccess={(id) => {

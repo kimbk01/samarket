@@ -52,7 +52,19 @@ vi.mock("@/lib/regions/profile-to-user-region", () => ({
 }));
 
 vi.mock("@/lib/regions/region-utils", () => ({
-  getRegionName: () => "Manila",
+  getRegionName: (id: string) => (id === "cebu" ? "Cebu" : "Manila"),
+}));
+
+const addressDefaults = vi.hoisted(() => ({
+  peek: null as null | { ok: boolean; status: number; defaults: { master?: unknown } | null; neighborhoodFromLife: null },
+}));
+
+vi.mock("@/lib/addresses/fetch-address-defaults-client", () => ({
+  peekFreshAddressDefaultsSnapshot: () => addressDefaults.peek,
+}));
+
+vi.mock("@/lib/auth/get-current-user", () => ({
+  getCurrentUser: () => ({ id: "u1" }),
 }));
 
 const sampleRegion = {
@@ -80,6 +92,7 @@ describe("resolveStoresHomeFeedQueryGate", () => {
     profileLite.cached = null;
     profileLite.guestSkip = false;
     guestAuth.recoverable = false;
+    addressDefaults.peek = null;
   });
 
   afterEach(() => {
@@ -166,6 +179,39 @@ describe("resolveStoresHomeFeedQueryGate", () => {
       ready: true,
       querySuffix: "?region=Manila",
     });
+  });
+
+  it("ADDR-SSOT-002: master-sourced primaryRegion wins over stale boot profile", () => {
+    boot.ready = true;
+    boot.status = "ready";
+    boot.profile = { region_code: "ncr:manila", region_name: "Manila" };
+    const masterRegion = { ...sampleRegion, id: "master-address", regionId: "cebu", cityId: "c1", barangay: "" };
+    expect(resolveStoresHomeFeedQueryGate(masterRegion)).toEqual({
+      ready: true,
+      querySuffix: "?region=Cebu",
+    });
+  });
+
+  it("ADDR-SSOT-002: fresh master snapshot peek wins over boot profile", () => {
+    boot.ready = true;
+    boot.status = "ready";
+    boot.profile = { region_code: "ncr:manila", region_name: "Manila" };
+    addressDefaults.peek = {
+      ok: true,
+      status: 200,
+      defaults: { master: { appRegionId: "cebu", appCityId: "c1", fullAddress: "Lahug, Cebu" } },
+      neighborhoodFromLife: null,
+    };
+    expect(resolveStoresHomeFeedQueryGate(null)).toEqual({ ready: true, querySuffix: "?region=Cebu" });
+  });
+
+  it("ADDR-SSOT-002: resolved no-master ignores profile fallback (root)", () => {
+    boot.ready = true;
+    boot.status = "ready";
+    boot.profile = { region_code: "ncr:manila", region_name: "Manila" };
+    addressDefaults.peek = { ok: true, status: 200, defaults: { master: null }, neighborhoodFromLife: null };
+    const profileFallback = { ...sampleRegion, id: "profile-location", barangay: "" };
+    expect(resolveStoresHomeFeedQueryGate(profileFallback)).toEqual({ ready: true, querySuffix: "" });
   });
 
   it("authenticated with no location uses root once", () => {
