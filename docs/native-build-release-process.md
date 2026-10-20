@@ -28,7 +28,7 @@ DIBAY 앱은 Capacitor 셸이 `https://samarket.vercel.app` 을 불러오는 구
   - iOS → `ios/App/App.xcodeproj/project.pbxproj` 의 `CURRENT_PROJECT_VERSION` **4곳 모두** +1 (App·푸시 확장 × Debug·Release, 값 동일)
   - 공통(`capacitor.config.ts`, Capacitor 의존성) → 둘 다
 - 번호 증가는 main 커밋으로 올린 뒤 빌드한다. 사용자에게 보이는 릴리스면 `versionName` / `MARKETING_VERSION` 도 올린다(선택). **로컬에서 버전을 임의로 바꿔 빌드하지 않는다**(예: 저장소에 없는 `1.0.1`).
-- 강제: `npm run native:prepare` 가 `verify:native-version-bump --release` 로 확인 — 플랫폼별 마지막 번호 변경 커밋 이후 네이티브 변경이 있는데 번호가 그대로면 **빌드 전에 중단**(같은 번호로 다른 바이너리가 설치되는 것 방지). CI 빌드로 설치·스토어 산출물을 만들 때도 먼저 `--release` 를 통과시킨다.
+- 강제: `npm run native:prepare` 가 `verify:native-version-bump --release` 로 확인 — 플랫폼별 마지막 번호 변경 커밋 이후 네이티브 변경이 있는데 번호가 그대로면 **빌드 전에 중단**(같은 번호로 다른 바이너리가 설치되는 것 방지). GitHub `Native build` 워크플로도 같은 검사를 한다 — 수동 실행(설치·배포용 산출물)은 미증가 시 실패, main push(컴파일 검증)는 경고만 하고 서명 Release APK 를 만들지 않는다.
 - CI `native-version-bump` 잡(커밋 단위): `[배포 구분]` 출력 + 번호 역행·iOS 4곳 불일치만 실패. 네이티브 변경에 번호 증가가 없어도 실패하지 않는다.
 - 빌드 시점: APK = 실기기 설치 검증이 필요할 때 · AAB = Google Play 새 버전 등록 때 · iOS = 실기기 검증·TestFlight·App Store 때만. 웹·DB 수정마다 빌드하지 않는다. 스토어 업로드 ≠ 출시 — 출시는 Owner 승인.
 

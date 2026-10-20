@@ -7,6 +7,8 @@ name: Native build (APK · iOS)
 # 서버 URL 은 Production origin(https://samarket.vercel.app) — scripts/sync-capacitor-vercel.mjs.
 # 실행: main push 중 실제 네이티브 변경(scripts/native-build-targets.mjs 판정)이 있는 플랫폼만 · 수동 실행은 둘 다.
 # 작업 브랜치(claude/** 등) push 에서는 빌드하지 않는다 — AGENTS.md 「개발 프로세스」 6번 (Owner 2026-10-20).
+# 빌드 번호(verify:native-version-bump --release): 수동 실행(설치·배포용 산출물) = 미증가 시 실패 ·
+#   push(컴파일 검증) = 경고만 + 서명 Release APK 생략 — docs/native-build-release-process.md §2.
 on:
   workflow_dispatch:
   push:
@@ -33,6 +35,7 @@ jobs:
     outputs:
       android: ${{ steps.t.outputs.android }}
       ios: ${{ steps.t.outputs.ios }}
+      release_ready: ${{ steps.r.outputs.release_ready }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -47,6 +50,18 @@ jobs:
             printf 'android=true\nios=true\n' >> "$GITHUB_OUTPUT"
           else
             node scripts/native-build-targets.mjs --base="${{ github.event.before }}"
+          fi
+      - id: r
+        name: Build number check (verify:native-version-bump --release)
+        run: |
+          if node scripts/verify-native-version-bump.mjs --release; then
+            echo "release_ready=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "::error::빌드 번호 미증가 — 번호를 올려 main 에 커밋한 뒤 다시 실행하세요 (docs/native-build-release-process.md §2)"
+            exit 1
+          else
+            echo "::warning::빌드 번호 미증가 — 컴파일 검증만 하고 서명 Release APK 는 만들지 않습니다. 설치·배포용 빌드 전에 번호를 올리세요."
+            echo "release_ready=false" >> "$GITHUB_OUTPUT"
           fi
 
   android:
@@ -84,8 +99,8 @@ jobs:
         working-directory: android
         # gradle.properties 의 org.gradle.java.home(로컬 Mac Android Studio 경로)를 CI JDK 로 덮어쓴다.
         run: ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" assembleDebug
-      - name: Assemble Release APK (only when signing secrets exist)
-        if: ${{ env.HAS_RELEASE_KEY == 'true' }}
+      - name: Assemble Release APK (only when signing secrets exist and build number is ready)
+        if: ${{ env.HAS_RELEASE_KEY == 'true' && needs.targets.outputs.release_ready == 'true' }}
         env:
           DIBAY_PLAY_STORE_FILE_B64: ${{ secrets.DIBAY_PLAY_STORE_FILE_B64 }}
           DIBAY_PLAY_STORE_PASSWORD: ${{ secrets.DIBAY_PLAY_STORE_PASSWORD }}
