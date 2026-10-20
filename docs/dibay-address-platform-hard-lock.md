@@ -45,7 +45,7 @@ Checkout `POST /api/me/store-orders` copies `delivery_formatted_address`, `deliv
 
 ## Store
 
-Owner/Admin patch `stores` via `PATCH /api/me/stores/:id`. `deriveStoreAddressFieldsFromUserAddressMaster` is create/edit **prefill**, not runtime store display fallback.
+Owner patches `stores` via `PATCH /api/me/stores/:id`; Admin via `PATCH /api/admin/stores/:id` (`action: set_store_location`). Both use `build-store-location-patch`. `deriveStoreAddressFieldsFromUserAddressMaster` is create/edit **prefill**, not runtime store display fallback.
 
 **GEO CONSISTENCY:**
 - **Policy A (place_id / Google identity):** `assertStoreLocationPatchConsistent` — place_id write requires formatted + lat/lng in the same PATCH; street/formatted/place identity change requires lat+lng in the same PATCH. `detail_address` may change alone.
@@ -65,7 +65,7 @@ Canonical field mapper: `parsePhFromGooglePlaceResult` (+ `reverseGeocodeLatLngP
 | Item | Class |
 |---|---|
 | `profiles.full_address` / `region_name` | BRIDGE, DROP LATER |
-| `syncProfileRegionFromLifeDefault` | BRIDGE after writer |
+| `syncProfileRegionFromLifeDefault` | REMOVED (caller=0) — `profiles.region_*` 는 master 와 동기되지 않음, 공개 지역은 master CITY 파생만 사용 |
 | `promoteAsLastSavedPrimary` payload | REMOVED |
 | `AddressFineTuneSheet` / `AddressFineTuneMapClient` | DELETED (importer=0) |
 | `refreshStoreOrdersCheckoutGeoAfterUserAddressUpdated` | DELETED (caller=0) |
