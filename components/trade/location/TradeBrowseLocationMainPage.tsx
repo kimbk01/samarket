@@ -11,6 +11,7 @@ import {
   TradeBrowseLocationPageShell,
 } from "@/components/trade/location/TradeBrowseLocationPageShell";
 import { useTradeBrowseMyRegion } from "@/components/trade/location/use-trade-browse-my-region";
+import { useSingleNavigationGuard } from "@/components/trade/location/use-single-navigation-guard";
 import { getBestCurrentPosition } from "@/lib/map/geolocation";
 import { geocodeDisplayLineToLatLng } from "@/lib/map/geocode-display-line-to-lat-lng";
 import {
@@ -101,7 +102,8 @@ export function TradeBrowseLocationMainPage() {
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { myRegion, myRegionLoading } = useTradeBrowseMyRegion();
+  const { myRegion, myRegionLoading, myRegionError, reloadMyRegion } = useTradeBrowseMyRegion();
+  const navigateOnce = useSingleNavigationGuard();
 
   const bootRef = useRef<ReturnType<typeof resolveInitialDraft> | null>(null);
   if (bootRef.current == null) {
@@ -275,8 +277,8 @@ export function TradeBrowseLocationMainPage() {
     clearTradeBrowseLocationDraftSession();
     writeTradeBrowseCommittedScope({ mode: "all" });
     const href = buildTradeLocationHref("/market", searchParams.toString(), { mode: "all" });
-    router.replace(href, { scroll: false });
-  }, [router, searchParams]);
+    navigateOnce(() => router.replace(href, { scroll: false }));
+  }, [navigateOnce, router, searchParams]);
 
   const onOpenDistance = useCallback(() => {
     if (!canContinueToDistance || mapEdit) return;
@@ -289,15 +291,19 @@ export function TradeBrowseLocationMainPage() {
     setDraftRadius(nextRadius);
     persist(draft, nextRadius);
     const q = searchParams.toString();
-    router.push(q ? `${TRADE_BROWSE_LOCATION_DISTANCE_PATH}?${q}` : TRADE_BROWSE_LOCATION_DISTANCE_PATH);
-  }, [canContinueToDistance, draft, draftRadius.km, mapEdit, persist, router, searchParams]);
+    navigateOnce(() =>
+      router.push(q ? `${TRADE_BROWSE_LOCATION_DISTANCE_PATH}?${q}` : TRADE_BROWSE_LOCATION_DISTANCE_PATH)
+    );
+  }, [canContinueToDistance, draft, draftRadius.km, mapEdit, navigateOnce, persist, router, searchParams]);
 
   const onOpenSearch = useCallback(() => {
     setMapEdit(false);
     persist(draft, draftRadius);
     const q = searchParams.toString();
-    router.push(q ? `${TRADE_BROWSE_LOCATION_SEARCH_PATH}?${q}` : TRADE_BROWSE_LOCATION_SEARCH_PATH);
-  }, [draft, draftRadius, persist, router, searchParams]);
+    navigateOnce(() =>
+      router.push(q ? `${TRADE_BROWSE_LOCATION_SEARCH_PATH}?${q}` : TRADE_BROWSE_LOCATION_SEARCH_PATH)
+    );
+  }, [draft, draftRadius, navigateOnce, persist, router, searchParams]);
 
   return (
     <TradeBrowseLocationPageShell
@@ -425,6 +431,19 @@ export function TradeBrowseLocationMainPage() {
               >
                 {myRegion.displayName}
               </button>
+            ) : myRegionError ? (
+              <div className="mt-1 flex items-center gap-2" role="alert">
+                <p className="min-w-0 flex-1 text-sm text-sam-fg-muted">
+                  {t("trade_location_my_region_error")}
+                </p>
+                <button
+                  type="button"
+                  className="min-h-10 shrink-0 rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm font-semibold text-sam-primary"
+                  onClick={() => void reloadMyRegion()}
+                >
+                  {t("trade_location_retry")}
+                </button>
+              </div>
             ) : (
               <p className="mt-1 text-sm text-sam-fg-muted">{t("trade_location_my_region_missing")}</p>
             )}

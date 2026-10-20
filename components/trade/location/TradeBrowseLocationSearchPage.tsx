@@ -19,10 +19,12 @@ import {
 } from "@/lib/trade/location/trade-browse-location-draft-session";
 import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
 import { rememberTradeLguDisplayLabel } from "@/lib/trade/location/trade-location-scope";
+import { useSingleNavigationGuard } from "@/components/trade/location/use-single-navigation-guard";
 
 export function TradeBrowseLocationSearchPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const navigateOnce = useSingleNavigationGuard();
   const session = useMemo(() => readTradeBrowseLocationDraftSession(), []);
   const [draft] = useState<TradeBrowseLocation>(() =>
     cloneTradeBrowseLocation(session?.location ?? { kind: "all" })
@@ -42,18 +44,20 @@ export function TradeBrowseLocationSearchPage() {
         canonicalId: hit.canonicalId,
         displayName: hit.displayName,
       };
-      rememberTradeLguDisplayLabel(hit.canonicalId, hit.displayName);
-      writeTradeBrowseLocationDraftSession(
-        createTradeBrowseLocationDraftSession(next, radius)
-      );
-      router.push(locationBackHref);
+      navigateOnce(() => {
+        rememberTradeLguDisplayLabel(hit.canonicalId, hit.displayName);
+        writeTradeBrowseLocationDraftSession(
+          createTradeBrowseLocationDraftSession(next, radius)
+        );
+        router.push(locationBackHref);
+      });
     },
-    [locationBackHref, router]
+    [locationBackHref, navigateOnce, router]
   );
 
   const onBack = useCallback(() => {
-    router.push(locationBackHref);
-  }, [locationBackHref, router]);
+    navigateOnce(() => router.push(locationBackHref));
+  }, [locationBackHref, navigateOnce, router]);
 
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden bg-sam-app text-sam-fg">

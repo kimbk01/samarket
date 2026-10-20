@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -10,9 +10,8 @@ import {
   SAM_TIER1_HEADER_ICON_STROKE_WIDTH,
   samTier1HeaderIconMicro,
 } from "@/lib/ui/tier1-header-icon";
-import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
-import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
-import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { loadTradeBrowseMyRegion } from "@/components/trade/location/use-trade-browse-my-region";
+import { useSingleNavigationGuard } from "@/components/trade/location/use-single-navigation-guard";
 import {
   parseTradeLocationScopeFromSearchParams,
   peekTradeLguDisplayLabel,
@@ -31,45 +30,6 @@ import {
   TRADE_BROWSE_LOCATION_PATH,
   isTradeBrowseLocationPath,
 } from "@/lib/trade/location/trade-browse-location-paths";
-
-async function resolveMasterNationalLgu(addr: UserAddressDTO): Promise<{
-  canonicalId: string;
-  displayName: string;
-} | null> {
-  const cityMunicipality = (addr.cityMunicipality ?? "").trim();
-  const province = (addr.province ?? "").trim();
-  if (!cityMunicipality) return null;
-  try {
-    const sp = new URLSearchParams({ mode: "resolve", cityMunicipality });
-    if (province) sp.set("province", province);
-    const res = await fetch(`/api/trade/national-lgu?${sp.toString()}`, {
-      method: "GET",
-      credentials: "same-origin",
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const json = (await res.json()) as {
-      resolution?: {
-        status?: string;
-        canonicalId?: string;
-        lgu?: { displayName?: string; canonicalId?: string };
-      };
-    };
-    if (json.resolution?.status !== "resolved") return null;
-    const canonicalId =
-      (typeof json.resolution.canonicalId === "string" && json.resolution.canonicalId) ||
-      (typeof json.resolution.lgu?.canonicalId === "string" && json.resolution.lgu.canonicalId) ||
-      "";
-    const displayName =
-      (typeof json.resolution.lgu?.displayName === "string" &&
-        json.resolution.lgu.displayName.trim()) ||
-      "";
-    if (!canonicalId || !displayName) return null;
-    return { canonicalId, displayName };
-  } catch {
-    return null;
-  }
-}
 
 async function fetchNationalLguLabel(canonicalId: string): Promise<string | null> {
   const cached = peekTradeLguDisplayLabel(canonicalId);
@@ -118,6 +78,9 @@ export function buildTradeHeaderLocationHintParts(input: {
   const place = (input.userPlaceLabel ?? "").trim() || null;
   return { place, suffix: input.allLabel };
 }
+
+/** 나의 지역 일시 실패 시 유한 재시도 — hydrate 정책(1s·2s·4s)과 동일 간격. */
+const MY_REGION_RETRY_DELAYS_MS = [1_000, 2_000, 4_000] as const;
 
 export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title" | "below-title";
 
@@ -168,31 +131,51 @@ export function TradeHeaderLocationPinButton({
     };
   }, [committedScope]);
 
+  const myRegionRetryTimerRef = useRef<number | null>(null);
+  const myRegionGenRef = useRef(0);
+
+  /**
+   * 일시 실패(네트워크·5xx)는 「대표주소 없음」으로 지우지 않고 마지막 값을 유지한 채
+   * 유한 재시도(1s·2s·4s). 대표주소 없음·LGU 미해결만 null.
+   */
   const loadMyRegion = useCallback(async () => {
-    try {
-      const snapshot = await fetchAddressDefaultsSnapshot({
-        caller: "trade_location_scope",
-        reason: "trade_location_panel",
+    const gen = ++myRegionGenRef.current;
+    if (myRegionRetryTimerRef.current != null) {
+      window.clearTimeout(myRegionRetryTimerRef.current);
+      myRegionRetryTimerRef.current = null;
+    }
+    for (let attempt = 0; ; attempt += 1) {
+      const result = await loadTradeBrowseMyRegion();
+      if (gen !== myRegionGenRef.current) return;
+      if (result.status === "ready") {
+        setMyRegion(result.region);
+        return;
+      }
+      if (result.status === "missing") {
+        setMyRegion(null);
+        return;
+      }
+      const delay = MY_REGION_RETRY_DELAYS_MS[attempt];
+      if (delay == null) return;
+      await new Promise<void>((resolve) => {
+        myRegionRetryTimerRef.current = window.setTimeout(() => {
+          myRegionRetryTimerRef.current = null;
+          resolve();
+        }, delay);
       });
-      const master = coerceUserAddressDTO(snapshot?.defaults?.master ?? null);
-      if (!master?.id) {
-        setMyRegion(null);
-        return;
-      }
-      const national = await resolveMasterNationalLgu(master);
-      if (!national) {
-        setMyRegion(null);
-        return;
-      }
-      rememberTradeLguDisplayLabel(national.canonicalId, national.displayName);
-      setMyRegion(national);
-    } catch {
-      setMyRegion(null);
+      if (gen !== myRegionGenRef.current) return;
     }
   }, []);
 
   useEffect(() => {
     void loadMyRegion();
+    return () => {
+      myRegionGenRef.current += 1;
+      if (myRegionRetryTimerRef.current != null) {
+        window.clearTimeout(myRegionRetryTimerRef.current);
+        myRegionRetryTimerRef.current = null;
+      }
+    };
   }, [loadMyRegion]);
 
   useEffect(() => {
@@ -216,6 +199,11 @@ export function TradeHeaderLocationPinButton({
     const href = q ? `${TRADE_BROWSE_LOCATION_PATH}?${q}` : TRADE_BROWSE_LOCATION_PATH;
     router.push(href);
   }, [committedBrowse, router, searchParams]);
+
+  const navigateOnce = useSingleNavigationGuard();
+  const onPinClick = useCallback(() => {
+    navigateOnce(openLocationPage);
+  }, [navigateOnce, openLocationPage]);
 
   const hintParts = buildTradeHeaderLocationHintParts({
     mode:
@@ -262,7 +250,7 @@ export function TradeHeaderLocationPinButton({
       }
       aria-label={ariaLabel}
       aria-current={onLocationStack ? "page" : undefined}
-      onClick={openLocationPage}
+      onClick={onPinClick}
     >
       <MapPin
         className={
