@@ -69,6 +69,7 @@ import { adminDeliveryR4BMessages } from "./catalog/admin-delivery-r4-orders";
 import { adminDeliveryR4AMessages } from "./catalog/admin-delivery-r4-stores";
 import { adminCommunityR4Messages } from "./catalog/admin-community-r4";
 import { adminTradeAdminMessages } from "./catalog/admin-trade-admin";
+import { adminShellFrameMessages } from "./catalog/admin-shell-frame";
 import { chatsMessages } from "./catalog/chats";
 import { ptrMessages } from "./catalog/ptr";
 import { storeCommerceUiMessages } from "./catalog/store-commerce-ui";
@@ -199,6 +200,7 @@ const KO_MESSAGES = {
   ...adminDeliveryR4AMessages.ko,
   ...adminCommunityR4Messages.ko,
   ...adminTradeAdminMessages.ko,
+  ...adminShellFrameMessages.ko,
 } as LocaleMessageBag;
 
 const EN_MESSAGES = {
@@ -294,6 +296,7 @@ const EN_MESSAGES = {
   ...adminDeliveryR4AMessages.en,
   ...adminCommunityR4Messages.en,
   ...adminTradeAdminMessages.en,
+  ...adminShellFrameMessages.en,
 } as LocaleMessageBag;
 
 export const MESSAGES: MessagesTable = {

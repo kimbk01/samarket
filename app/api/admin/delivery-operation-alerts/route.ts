@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { manilaTodayStartUtcIso } from "@/lib/admin/metrics/manila-period";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,12 +13,6 @@ function dedupeStrings(ids: Iterable<unknown>): string[] {
     if (v) s.add(v);
   }
   return [...s];
-}
-
-function todayStartISO(now = new Date()): string {
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
 }
 
 /**
@@ -41,7 +36,8 @@ export async function GET(req: Request) {
   const assignmentFilter = sp.get("assignment")?.trim() ?? "all";
   const uid = admin.userId;
   const sbAny = sb as any;
-  const todayIso = todayStartISO();
+  /** V3-14: 「오늘」 = 마닐라 자정(PHT 00:00) — 서버 TZ 자정 아님. */
+  const todayIso = manilaTodayStartUtcIso();
 
   const rulesSelect = sbAny
     .from("delivery_operation_alert_rules")
