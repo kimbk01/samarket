@@ -22,6 +22,7 @@ import { AdminWorkspaceNav } from "@/components/admin/shell/AdminWorkspaceNav";
 import { AdminWorkspaceSidebar } from "@/components/admin/shell/AdminWorkspaceSidebar";
 import { AdminShellBreadcrumb } from "@/components/admin/shell/AdminShellBreadcrumb";
 import { AdminDeliveryCmsRightMenu } from "@/components/admin/shell/AdminDeliveryCmsRightMenu";
+import { AdminHeaderClock } from "@/components/admin/shell/AdminHeaderClock";
 import {
   listAdminWorkspaces,
   resolveActiveWorkspace,
@@ -199,6 +200,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
             />
 
             <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 border-l border-[var(--admin-console-border)] pl-3 sm:gap-2 sm:pl-4">
+              <AdminHeaderClock />
               <AdminShellToolbar
                 sidebarExpanded={sidebarExpanded}
                 onSidebarExpandedChange={handleSidebarExpandedChange}

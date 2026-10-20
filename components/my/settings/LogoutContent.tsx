@@ -25,6 +25,8 @@ type LogoutActionTriggerProps = {
   surface?: "card" | "grouped";
   label?: string;
   autoOpen?: boolean;
+  /** 확인 모달 z-index — 기본 다이얼로그 층보다 위 표면에서만 지정 (관리자 가로 가드). */
+  confirmZIndexClass?: string;
 };
 
 export function LogoutActionTrigger({
@@ -32,6 +34,7 @@ export function LogoutActionTrigger({
   surface = "grouped",
   label = "로그아웃",
   autoOpen = false,
+  confirmZIndexClass,
 }: LogoutActionTriggerProps) {
   const [open, setOpen] = useState(autoOpen);
   const [submitting, setSubmitting] = useState(false);
@@ -93,6 +96,7 @@ export function LogoutActionTrigger({
         open={open}
         submitting={submitting}
         error={error}
+        zIndexClass={confirmZIndexClass}
         onCancel={() => setOpen(false)}
         onConfirm={handleLogout}
       />

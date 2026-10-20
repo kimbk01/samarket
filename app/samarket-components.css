@@ -1354,6 +1354,74 @@
   background: var(--admin-console-bg);
 }
 
+/*
+ * 관리자 가로 전용 가드 (설계 v4 §2-2 A층) — `components/admin/shell/AdminLandscapeGuard.tsx`.
+ * 세로 또는 폭 < 1024px: 작업 화면은 마운트 유지 + visibility 로만 가리고, 안내 화면으로 덮는다.
+ * 미디어 쿼리는 ADMIN_LANDSCAPE_GUARD_MEDIA_QUERY 와 같아야 한다.
+ */
+.admin-landscape-guard {
+  display: none;
+}
+
+@media screen and (orientation: portrait), screen and (max-width: 1023px) {
+  .admin-landscape-root__content {
+    visibility: hidden;
+  }
+
+  .admin-landscape-guard {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    background: var(--admin-console-bg);
+    color: var(--admin-console-fg);
+  }
+}
+
+.admin-landscape-guard__panel {
+  display: flex;
+  width: 100%;
+  max-width: 420px;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--admin-console-border);
+  border-radius: var(--sam-radius-sm, 4px);
+  background: var(--admin-console-surface);
+  padding: 24px 20px;
+  text-align: center;
+}
+
+.admin-landscape-guard__icon {
+  width: 48px;
+  height: 48px;
+  color: var(--admin-console-accent);
+}
+
+.admin-landscape-guard__title {
+  margin: 0;
+  font-size: var(--sm-font-page-title, 17px);
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--admin-console-fg);
+}
+
+.admin-landscape-guard__desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--admin-console-muted);
+}
+
+.admin-landscape-guard__actions {
+  width: 100%;
+  margin-top: 4px;
+}
+
 /* CUT R1 — Ads primary CTAs must stay high-contrast on Admin chrome */
 [data-admin] [data-admin-ads-register-cta="1"] {
   background: var(--admin-console-accent, #1d4ed8);

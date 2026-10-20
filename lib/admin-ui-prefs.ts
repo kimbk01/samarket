@@ -3,12 +3,36 @@
 export const ADMIN_SIDEBAR_EXPANDED_KEY = "admin-sidebar-expanded";
 export const ADMIN_ALARM_MUTED_KEY = "admin-alarm-muted";
 
+/** 저장된 선택이 없을 때 사이드 메뉴를 compact(5rem/72px)로 시작하는 폭 구간 [min, maxExclusive). */
+export const ADMIN_SIDEBAR_COMPACT_DEFAULT_MIN_WIDTH = 1024;
+export const ADMIN_SIDEBAR_COMPACT_DEFAULT_MAX_WIDTH_EXCLUSIVE = 1280;
+
+/**
+ * 사이드 메뉴 펼침 여부 — 저장된 사용자 선택("1"/"0")이 항상 우선.
+ * 선택이 없으면 1024–1279px 은 compact, 그 외(≥1280 등)는 기존 기본(펼침).
+ */
+export function resolveSidebarExpanded(stored: string | null, viewportWidth: number | null): boolean {
+  if (stored === "0") return false;
+  if (stored === "1") return true;
+  if (
+    viewportWidth != null &&
+    viewportWidth >= ADMIN_SIDEBAR_COMPACT_DEFAULT_MIN_WIDTH &&
+    viewportWidth < ADMIN_SIDEBAR_COMPACT_DEFAULT_MAX_WIDTH_EXCLUSIVE
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export function readSidebarExpanded(): boolean {
   if (typeof window === "undefined") return true;
-  const v = localStorage.getItem(ADMIN_SIDEBAR_EXPANDED_KEY);
-  if (v === "0") return false;
-  if (v === "1") return true;
-  return true;
+  let stored: string | null = null;
+  try {
+    stored = localStorage.getItem(ADMIN_SIDEBAR_EXPANDED_KEY);
+  } catch {
+    stored = null;
+  }
+  return resolveSidebarExpanded(stored, window.innerWidth);
 }
 
 export function writeSidebarExpanded(expanded: boolean): void {

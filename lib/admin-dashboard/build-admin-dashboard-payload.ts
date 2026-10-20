@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin-dashboard/admin-dashboard-rpc-map";
 import { ADMIN_DASHBOARD_REPORT_REASON_LABELS } from "@/lib/admin-dashboard/report-reason-labels";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import { manilaTodayStartUtcIso } from "@/lib/admin/metrics/manila-period";
 import type {
   DashboardPayload,
   RecentChat,
@@ -19,12 +20,6 @@ import type {
   RecentReview,
   RecentUser,
 } from "@/lib/types/admin-dashboard";
-
-function todayStartISO(now = new Date()): string {
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
-}
 
 async function mapNicknamesFromProfiles(sbAny: any, ids: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>();
@@ -66,7 +61,8 @@ export async function buildAdminDashboardPayload(): Promise<DashboardPayload> {
   }
   const now = new Date();
   const nowIso = now.toISOString();
-  const todayStart = todayStartISO(now);
+  /** V3-13: 「오늘」 = 마닐라 자정(PHT 00:00) — 서버 TZ 자정 아님. */
+  const todayStart = manilaTodayStartUtcIso(now);
 
   const sbAny = sb as any;
 
