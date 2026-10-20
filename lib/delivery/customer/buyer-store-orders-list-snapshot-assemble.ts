@@ -99,9 +99,14 @@ export function buyerStoreOrdersListFromPayload(
     });
 }
 
-export function buildBuyerStoreOrdersListResponseBody(orders: BuyerStoreOrderListApiRow[]): {
+/** `next_cursor` — 다음 페이지 커서(`?cursor=`), 마지막 페이지면 null (내정보 주문 내역 더 보기) */
+export function buildBuyerStoreOrdersListResponseBody(
+  orders: BuyerStoreOrderListApiRow[],
+  nextCursor: string | null = null
+): {
   ok: true;
   orders: BuyerStoreOrderListApiRow[];
+  next_cursor: string | null;
 } {
-  return { ok: true, orders };
+  return { ok: true, orders, next_cursor: nextCursor };
 }

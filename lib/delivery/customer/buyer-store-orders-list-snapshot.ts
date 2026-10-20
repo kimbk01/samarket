@@ -202,7 +202,7 @@ function finishFromPayload(
   }
   const assemble0 = devPerfNow();
   const orders = buyerStoreOrdersListFromPayload(payload);
-  const body = buildBuyerStoreOrdersListResponseBody(orders);
+  const body = buildBuyerStoreOrdersListResponseBody(orders, payload.next_cursor ?? null);
   const payloadBuildMs = input.payloadBuildMs ?? devPerfNow() - assemble0;
   const breakdown = buildBreakdown({
     totalMs: input.totalMs,
