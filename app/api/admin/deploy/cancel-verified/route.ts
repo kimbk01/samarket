@@ -7,6 +7,7 @@ import {
   tryPersistLedgerRow,
 } from "@/lib/admin/deploy-promotion/deploy-promotion-store";
 import { requireDeployOwner } from "@/lib/admin/deploy-promotion/deploy-owner";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,5 +38,12 @@ export async function POST(req: Request) {
   }
 
   await tryPersistLedgerRow(gate.sb, record, listEvidenceForSha(sha));
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "deploy_promotion",
+    targetId: sha,
+    action: "deploy.cancel_verified",
+    after: { status: record.status },
+  });
   return NextResponse.json({ ok: true, record });
 }

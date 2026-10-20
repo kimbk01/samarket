@@ -15,9 +15,12 @@ describe("Finance legacy cleanup — money authority", () => {
   });
 
   it("Point expire + reward + community free-cap use ledger SUM for money decisions", () => {
+    // V3-06: 소멸 실행은 DB 함수 1번 — 잔액 판단은 함수 안의 sum_user_point_ledger (원장 합)
     const expire = read("lib/points/point-expire-db.ts");
-    expect(expire).toContain("sumUserPointLedger");
+    expect(expire).toContain("admin_run_point_expire");
     expect(expire).not.toContain("readUserPointBalance");
+    const expireSql = read("supabase/migrations/20270523130000_admin_run_point_expire_atomic.sql");
+    expect(expireSql).toContain("public.sum_user_point_ledger(v_user.user_id)");
 
     const reward = read("lib/point-executions/execute-point-reward-server.ts");
     expect(reward).toContain("sumUserPointLedger");

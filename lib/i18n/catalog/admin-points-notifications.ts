@@ -414,7 +414,7 @@ export const adminPointsNotificationsMessages = {
     admin_points_exec_tab_executions: "지급/실행 이력",
     admin_points_exec_tab_reclaim: "회수 정책",
     admin_points_exec_tab_logs: "지급·회수 로그",
-    admin_points_exec_card_test: "테스트 지급 실행",
+    admin_points_exec_card_test: "포인트 지급 시험 (실지급)",
     admin_points_exec_label_target_id: "대상 ID",
     admin_points_exec_label_target_type: "대상 유형",
     admin_points_exec_label_nickname: "닉네임",

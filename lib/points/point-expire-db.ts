@@ -8,7 +8,6 @@ import type { PointLedgerEntry } from "@/lib/types/point";
 import { POINT_LEDGER_ROW_SELECT } from "@/lib/points/point-query-select";
 import { isEntryExpirable } from "@/lib/points/point-expire-utils";
 import { isMissingPointsTable, normalizeLedgerRow } from "@/lib/points/admin-user-points-shared";
-import { expireUserPointEntries, sumUserPointLedger } from "@/lib/points/user-point-ledger";
 
 function rowToExpirePolicy(row: Record<string, unknown>): PointExpirePolicy {
   const exclude = row.exclude_entry_types;
@@ -231,94 +230,38 @@ export async function simulatePointExpireDb(
   };
 }
 
+export type RunPointExpireOutcome =
+  | { ok: true; executionIds: string[]; totalExpired: number; skippedUsers: number }
+  | { ok: false; error: string };
+
+/**
+ * V3-06 (P-17): 소멸 실행 = DB 함수 1번 (`admin_run_point_expire`) — 실행 기록·원장 차감·적립분 만료 표시·
+ * 소멸 로그·포인트 처리 로그를 한 트랜잭션으로. 후보·차감 의미는 simulatePointExpireDb 와 같다.
+ * 같은 기준일 재실행은 이미 표시된 적립분을 다시 차감하지 않는다.
+ */
 export async function runPointExpireDb(
   sb: SupabaseClient,
   asOfDate: string,
-  actor: { type: "admin" | "system"; id: string; nickname: string }
-): Promise<{ executionIds: string[]; totalExpired: number }> {
-  const sim = await simulatePointExpireDb(sb, asOfDate);
-  if (!sim || sim.items.length === 0) {
-    return { executionIds: [], totalExpired: 0 };
-  }
-  const policy = await getActivePointExpirePolicyDb(sb);
-  if (!policy) return { executionIds: [], totalExpired: 0 };
-
-  const userGroups = new Map<string, ExpireSimulationItem[]>();
-  for (const i of sim.items) {
-    const list = userGroups.get(i.userId) ?? [];
-    list.push(i);
-    userGroups.set(i.userId, list);
-  }
-
-  const executionIds: string[] = [];
-  let totalExpired = 0;
-
-  for (const [userId, items] of userGroups) {
-    const nickname = items[0]?.userNickname ?? userId;
-    const userTotal = items.reduce((s, i) => s + i.amount, 0);
-    const summed = await sumUserPointLedger(sb, userId);
-    if (!summed.ok) throw new Error(summed.error);
-    const balanceBefore = summed.sum;
-    const deduct = Math.min(userTotal, balanceBefore);
-    if (deduct < 1) continue;
-
-    const { data: execRow, error: execErr } = await sb
-      .from("point_expire_executions")
-      .insert({
-        execution_date: asOfDate,
-        policy_id: policy.id,
-        target_user_id: userId,
-        target_user_nickname: nickname,
-        total_candidate_point: userTotal,
-        expired_point: deduct,
-        remaining_point: Math.max(0, balanceBefore - deduct),
-        execution_status: "success",
-      })
-      .select("id")
-      .single();
-    if (execErr) throw new Error(execErr.message);
-    const executionId = String((execRow as { id?: string }).id ?? "");
-
-    const expireResult = await expireUserPointEntries(sb, {
-      userId,
-      totalAmount: deduct,
-      executionId,
-      description: `포인트 만료 (${policy.policyName})`,
-      actorType: actor.type,
-      ledgerEntryIds: items.map((i) => ({ id: i.ledgerEntryId, amount: i.amount })),
-    });
-    if (!expireResult.ok) throw new Error(expireResult.error);
-
-    for (const i of items) {
-      const { error: logErr } = await sb.from("point_expire_logs").insert({
-        execution_id: executionId,
-        ledger_entry_id: i.ledgerEntryId,
-        user_id: userId,
-        user_nickname: nickname,
-        expired_point: i.amount,
-        expires_at: i.expiresAt,
-        action_type: "expire",
-        actor_type: actor.type,
-        note: i.description,
-      });
-      if (logErr) throw new Error(logErr.message);
-    }
-
-    const { error: actionErr } = await sb.from("point_action_logs").insert({
-      action_type: "expire_points",
-      actor_type: actor.type,
-      actor_id: actor.id,
-      actor_nickname: actor.nickname,
-      target_user_id: userId,
-      target_user_nickname: nickname,
-      related_id: expireResult.ledgerId ?? executionId,
-      note: `포인트 만료 -${deduct}P`,
-    });
-    if (actionErr) throw new Error(actionErr.message);
-
-    executionIds.push(executionId);
-    totalExpired += deduct;
-  }
-
-  return { executionIds, totalExpired };
+  actor: { id: string; nickname: string }
+): Promise<RunPointExpireOutcome> {
+  const { data, error } = await sb.rpc("admin_run_point_expire", {
+    p_as_of_date: asOfDate,
+    p_actor_id: actor.id,
+    p_actor_nickname: actor.nickname,
+  });
+  if (error) return { ok: false, error: error.message || "rpc_failed" };
+  const res = (data ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    executionIds?: unknown;
+    totalExpired?: unknown;
+    skippedUsers?: unknown;
+  };
+  if (res.ok !== true) return { ok: false, error: String(res.error || "rpc_failed") };
+  return {
+    ok: true,
+    executionIds: Array.isArray(res.executionIds) ? res.executionIds.map((v) => String(v)) : [],
+    totalExpired: Math.trunc(Number(res.totalExpired) || 0),
+    skippedUsers: Math.trunc(Number(res.skippedUsers) || 0),
+  };
 }

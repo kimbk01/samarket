@@ -19,7 +19,10 @@ import {
   attachOwnerPaidCommercialSnapshotOnSubmit,
   decodeOwnerAdPackagePricingModel,
 } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
-import { debitBusinessCashForDeliveryAd } from "@/lib/stores/advertising/canonical-business-cash-writer";
+import {
+  debitBusinessCashForDeliveryAd,
+  type SecureCanonicalBcFailure,
+} from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,7 +53,34 @@ function statusForError(error: string): number {
   }
 }
 
-/** Canonical Cash is secured for commercial spend. */
+function businessCashFailureResponse(secured: SecureCanonicalBcFailure): NextResponse {
+  if (secured.error === "INSUFFICIENT_BUSINESS_CASH" && secured.insufficient) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "INSUFFICIENT_BUSINESS_CASH",
+        availablePhp: secured.insufficient.availablePhp,
+        requiredPhp: secured.insufficient.requiredPhp,
+        shortagePhp: secured.insufficient.shortagePhp,
+        availableMinor: secured.insufficient.availableMinor,
+        requiredMinor: secured.insufficient.requiredMinor,
+        shortageMinor: secured.insufficient.shortageMinor,
+        currency: secured.insufficient.currency,
+      },
+      { status: 402 }
+    );
+  }
+  return NextResponse.json(
+    { ok: false, error: secured.error, detail: secured.detail ?? null },
+    { status: statusForError(secured.error) }
+  );
+}
+
+/**
+ * Canonical Cash is secured for commercial spend.
+ * V3-04 DEF-7: 기본 경로는 writer 의 원자 함수(차감 + 전이 한 트랜잭션). 이 2단계 경로는
+ * 원자 함수 미배포 DB(atomic_submit_rpc_missing) 폴백 전용.
+ */
 async function secureBusinessCashBeforeSubmit(input: {
   sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>;
   ownerUserId: string;
@@ -68,28 +98,7 @@ async function secureBusinessCashBeforeSubmit(input: {
     applicationId: input.campaignId,
     productKind: input.productKind,
   });
-  if (!secured.ok) {
-    if (secured.error === "INSUFFICIENT_BUSINESS_CASH" && secured.insufficient) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "INSUFFICIENT_BUSINESS_CASH",
-          availablePhp: secured.insufficient.availablePhp,
-          requiredPhp: secured.insufficient.requiredPhp,
-          shortagePhp: secured.insufficient.shortagePhp,
-          availableMinor: secured.insufficient.availableMinor,
-          requiredMinor: secured.insufficient.requiredMinor,
-          shortageMinor: secured.insufficient.shortageMinor,
-          currency: secured.insufficient.currency,
-        },
-        { status: 402 }
-      );
-    }
-    return NextResponse.json(
-      { ok: false, error: secured.error, detail: secured.detail ?? null },
-      { status: statusForError(secured.error) }
-    );
-  }
+  if (!secured.ok) return businessCashFailureResponse(secured);
   return null;
 }
 
@@ -128,6 +137,9 @@ export async function POST(
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
+  /** submit/resubmit = 비즈캐시 차감 + 전이 (V3-04 DEF-7 원자 함수). */
+  const isSubmit = action === "submit" || action === "resubmit";
+
   const productKind =
     body.productKind === "banner" || body.product_kind === "banner" ? "banner" : "store_sponsored";
 
@@ -150,7 +162,7 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
 
-    if (action === "submit" || action === "resubmit") {
+    if (isSubmit) {
       const packageId =
         (typeof body.packageId === "string" && body.packageId.trim()) ||
         decodeOwnerAdPackagePricingModel(loaded.row.pricingModel);
@@ -177,7 +189,15 @@ export async function POST(
           { status: statusForError(commercial.error) }
         );
       }
+    }
 
+    let result = await transitionOwnerBannerCampaign(sb, {
+      campaignId: cid,
+      ownerUserId: userId,
+      action,
+      ...(isSubmit ? { secureBusinessCash: { storeId: sid } } : {}),
+    });
+    if (!result.ok && result.error === "atomic_submit_rpc_missing") {
       const cashBlock = await secureBusinessCashBeforeSubmit({
         sb,
         ownerUserId: userId,
@@ -187,13 +207,15 @@ export async function POST(
         campaignSource: "OWNER_PAID",
       });
       if (cashBlock) return cashBlock;
+      result = await transitionOwnerBannerCampaign(sb, {
+        campaignId: cid,
+        ownerUserId: userId,
+        action,
+      });
     }
-
-    const result = await transitionOwnerBannerCampaign(sb, {
-      campaignId: cid,
-      ownerUserId: userId,
-      action,
-    });
+    if (!result.ok && result.error === "business_cash_failed") {
+      return businessCashFailureResponse(result.cash);
+    }
     if (!result.ok) {
       return NextResponse.json(
         { ok: false, error: result.error },
@@ -211,7 +233,7 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
-  if (action === "submit" || action === "resubmit") {
+  if (isSubmit) {
     const packageId =
       (typeof body.packageId === "string" && body.packageId.trim()) ||
       decodeOwnerAdPackagePricingModel(loaded.row.pricingModel);
@@ -238,16 +260,6 @@ export async function POST(
         { status: statusForError(commercial.error) }
       );
     }
-
-    const cashBlock = await secureBusinessCashBeforeSubmit({
-      sb,
-      ownerUserId: userId,
-      storeId: sid,
-      campaignId: cid,
-      productKind: "store_sponsored",
-      campaignSource: "OWNER_PAID",
-    });
-    if (cashBlock) return cashBlock;
   }
 
   const actionLabel =
@@ -261,12 +273,33 @@ export async function POST(
             ? "resumed_owner"
             : "ended_owner";
 
-  const result = await transitionOwnerSponsoredCampaign(sb, {
+  let result = await transitionOwnerSponsoredCampaign(sb, {
     campaignId: cid,
     ownerUserId: userId,
     to,
     actionLabel,
+    ...(isSubmit ? { secureBusinessCash: { storeId: sid } } : {}),
   });
+  if (!result.ok && result.error === "atomic_submit_rpc_missing") {
+    const cashBlock = await secureBusinessCashBeforeSubmit({
+      sb,
+      ownerUserId: userId,
+      storeId: sid,
+      campaignId: cid,
+      productKind: "store_sponsored",
+      campaignSource: "OWNER_PAID",
+    });
+    if (cashBlock) return cashBlock;
+    result = await transitionOwnerSponsoredCampaign(sb, {
+      campaignId: cid,
+      ownerUserId: userId,
+      to,
+      actionLabel,
+    });
+  }
+  if (!result.ok && result.error === "business_cash_failed") {
+    return businessCashFailureResponse(result.cash);
+  }
 
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: statusForError(result.error) });

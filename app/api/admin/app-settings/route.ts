@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 import {
   appendSettingChangeLogs,
@@ -99,6 +100,14 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     const saved = await saveAppSettingsBundleToDb(sb, nextBundle);
     if (!saved.ok) return NextResponse.json({ ok: false, error: saved.error }, { status: 503 });
     invalidateAppSettingsServerCache();
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "app_settings",
+      targetId: "global",
+      action: "app_settings.update",
+      before: before as unknown as Record<string, unknown>,
+      after: { ...nextBundle.settings } as unknown as Record<string, unknown>,
+    });
     return NextResponse.json({ ok: true, bundle: nextBundle });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });

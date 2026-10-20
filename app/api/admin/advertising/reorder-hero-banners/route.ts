@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { reorderDeliveryHeroBannerSlides } from "@/lib/admin/ads-exposure/reorder-hero-banners";
 
 export const runtime = "nodejs";
@@ -38,6 +39,14 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "delivery_hero_banner_slides",
+    targetId: "delivery_hero",
+    action: "hero_banners.reorder",
+    before: { requested_order: ids },
+    after: { ordered_ids: res.orderedIds },
+  });
   return NextResponse.json({
     ok: true,
     orderedIds: res.orderedIds,

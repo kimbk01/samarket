@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { approveFeedAdRequest } from "@/lib/ads/approve-feed-ad-request";
 import {
@@ -20,7 +21,6 @@ import {
   type FeedAdDomain,
   type FeedAdPlacement,
 } from "@/lib/ads/feed-ad-placement";
-import { releaseHeldPointsForFeedAdRequest } from "@/lib/ads/feed-ad-request-point-flow";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -292,42 +292,45 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
     }
 
-    const { data: reqRow, error: fetchErr } = await sb
-      .from("feed_ad_requests")
-      .select("id, status")
-      .eq("id", requestId)
-      .maybeSingle();
-    if (fetchErr || !reqRow) {
-      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    // V3-02 (O-9): 보류 포인트 환급 + 상태 rejected 를 DB 함수 한 트랜잭션으로 (행 잠금 + pending_review 전제).
+    const { data: rpcData, error: rpcErr } = await sb.rpc("admin_reject_feed_ad_request", {
+      p_request_id: requestId,
+      p_reason: reason.slice(0, 500),
+      p_actor: admin.userId,
+    });
+    if (rpcErr) {
+      return NextResponse.json({ ok: false, error: rpcErr.message }, { status: 500 });
     }
-    if (String((reqRow as { status?: string }).status) !== "pending_review") {
-      return NextResponse.json({ ok: false, error: "not_pending" }, { status: 409 });
+    const out = (rpcData ?? {}) as {
+      ok?: boolean;
+      error?: string;
+      previous_status?: string;
+      released_points?: number;
+    };
+    if (!out.ok) {
+      const error = String(out.error ?? "reject_failed");
+      const status =
+        error === "not_found"
+          ? 404
+          : error === "not_pending"
+            ? 409
+            : error === "reason_required" || error === "invalid_args"
+              ? 400
+              : 500;
+      return NextResponse.json({ ok: false, error }, { status });
     }
-
-    const released = await releaseHeldPointsForFeedAdRequest(sb, { requestId });
-    if (!released.ok) {
-      return NextResponse.json({ ok: false, error: released.error }, { status: 500 });
-    }
-    const now = new Date().toISOString();
-    const { data: rejected, error: upd } = await sb
-      .from("feed_ad_requests")
-      .update({
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "feed_ad_request",
+      targetId: requestId,
+      action: "feed_ad_request.reject",
+      before: { status: out.previous_status ?? "pending_review" },
+      after: {
         status: "rejected",
-        review_reason: reason.slice(0, 500),
-        reviewed_by: admin.userId,
-        reviewed_at: now,
-        updated_at: now,
-      })
-      .eq("id", requestId)
-      .eq("status", "pending_review")
-      .select("id")
-      .maybeSingle();
-    if (upd) {
-      return NextResponse.json({ ok: false, error: upd.message }, { status: 500 });
-    }
-    if (!rejected?.id) {
-      return NextResponse.json({ ok: false, error: "not_pending" }, { status: 409 });
-    }
+        reason: reason.slice(0, 500),
+        released_points: Number(out.released_points ?? 0),
+      },
+    });
     return NextResponse.json({ ok: true, status: "rejected" });
   }
 
@@ -342,6 +345,14 @@ export async function PATCH(
         { status: result.httpStatus ?? 500 }
       );
     }
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "feed_ad_request",
+      targetId: requestId,
+      action: "feed_ad_request.approve",
+      before: { status: "pending_review" },
+      after: { status: result.status, campaign_id: result.campaignId ?? null },
+    });
     return NextResponse.json({
       ok: true,
       status: result.status,
@@ -363,6 +374,17 @@ export async function PATCH(
         { status: result.httpStatus }
       );
     }
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "feed_ad_request",
+      targetId: result.requestId ?? requestId,
+      action: "feed_ad_request.end",
+      after: {
+        status: result.status,
+        campaign_id: result.campaignId ?? null,
+        reason: body.reason != null ? String(body.reason) : "admin_ended",
+      },
+    });
     return NextResponse.json({
       ok: true,
       status: result.status,
@@ -386,6 +408,17 @@ export async function PATCH(
         { status: result.httpStatus }
       );
     }
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "feed_ad_request",
+      targetId: result.requestId ?? requestId,
+      action: "feed_ad_request.pause",
+      after: {
+        status: result.status,
+        campaign_id: result.campaignId ?? null,
+        reason: body.reason != null ? String(body.reason) : "admin_paused",
+      },
+    });
     return NextResponse.json({
       ok: true,
       status: result.status,
@@ -407,6 +440,17 @@ export async function PATCH(
         { status: result.httpStatus }
       );
     }
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "feed_ad_request",
+      targetId: result.requestId ?? requestId,
+      action: "feed_ad_request.resume",
+      after: {
+        status: result.status,
+        campaign_id: result.campaignId ?? null,
+        reason: body.reason != null ? String(body.reason) : "admin_resumed",
+      },
+    });
     return NextResponse.json({
       ok: true,
       status: result.status,
@@ -429,6 +473,17 @@ export async function PATCH(
         { status: result.httpStatus }
       );
     }
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "feed_ad_request",
+      targetId: requestId,
+      action: "feed_ad_request.extend_compensation",
+      after: {
+        requested_days: Number(body.requestedDays ?? 0),
+        reason: body.reason != null ? String(body.reason) : "",
+        extension: result as unknown as Record<string, unknown>,
+      },
+    });
     return NextResponse.json({
       ok: true,
       extension: result,
@@ -484,6 +539,21 @@ export async function PATCH(
       .eq("status", "pending_review");
     if (upd) {
       return NextResponse.json({ ok: false, error: upd.message }, { status: 500 });
+    }
+    {
+      const prev = reqRow as Record<string, unknown>;
+      const before: Record<string, unknown> = {};
+      for (const k of Object.keys(patch)) {
+        if (k !== "updated_at") before[k] = prev[k] ?? null;
+      }
+      await appendAdminRouteAudit(sb, req, {
+        actorId: admin.userId,
+        targetType: "feed_ad_request",
+        targetId: requestId,
+        action: "feed_ad_request.update",
+        before,
+        after: patch,
+      });
     }
     return NextResponse.json({ ok: true, status: "pending_review" });
   }
@@ -554,6 +624,13 @@ export async function PATCH(
           return NextResponse.json({ ok: false, error: ins.message }, { status: 500 });
         }
       }
+      await appendAdminRouteAudit(sb, req, {
+        actorId: admin.userId,
+        targetType: "feed_ad_request",
+        targetId: requestId,
+        action: "feed_ad_request.replace_creative",
+        after: { creative_authority: "request", sort_order: sortOrder, ...creativePatchRequest },
+      });
       return NextResponse.json({
         ok: true,
         creativeAuthority: "request",
@@ -589,6 +666,18 @@ export async function PATCH(
         return NextResponse.json({ ok: false, error: ins.message }, { status: 500 });
       }
     }
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "feed_ad_request",
+      targetId: requestId,
+      action: "feed_ad_request.replace_creative",
+      after: {
+        creative_authority: "campaign",
+        campaign_id: campaignId,
+        sort_order: sortOrder,
+        ...creativePatchRequest,
+      },
+    });
     return NextResponse.json({
       ok: true,
       creativeAuthority: "campaign",

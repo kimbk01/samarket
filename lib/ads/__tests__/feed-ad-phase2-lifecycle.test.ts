@@ -213,7 +213,7 @@ describe("PHASE 2 authority markers (M5)", () => {
     expect(text.match(/approveFeedAdRequest/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("M6 reject uses releaseHeldPointsForFeedAdRequest", async () => {
+  it("M6 reject releases held points atomically via admin_reject_feed_ad_request (V3-02)", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const file = path.join(
@@ -221,7 +221,8 @@ describe("PHASE 2 authority markers (M5)", () => {
       "app/api/admin/feed-ad-requests/[id]/route.ts"
     );
     const text = fs.readFileSync(file, "utf8");
-    expect(text).toContain("releaseHeldPointsForFeedAdRequest");
+    expect(text).toContain('sb.rpc("admin_reject_feed_ad_request"');
+    expect(text).not.toContain("releaseHeldPointsForFeedAdRequest");
     expect(text).toContain("reason_required");
   });
 

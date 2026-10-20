@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   insertAdminBanner,
   insertBannerChangeLog,
@@ -63,6 +64,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       adminId: admin.userId,
       adminNickname: nick || "admin",
       note: "배너 생성",
+    });
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "admin_banner",
+      targetId: banner.id,
+      action: "banner.create",
+      after: banner as unknown as Record<string, unknown>,
     });
     return NextResponse.json({ ok: true, banner });
   } catch (e) {

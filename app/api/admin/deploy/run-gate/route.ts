@@ -10,6 +10,7 @@ import {
 import { DEPLOY_GATE_CATALOG } from "@/lib/admin/deploy-promotion/deploy-evidence-gates";
 import { runDeployGate } from "@/lib/admin/deploy-promotion/run-deploy-gate";
 import { requireDeployOwner } from "@/lib/admin/deploy-promotion/deploy-owner";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,17 @@ export async function POST(req: Request) {
   const allEvidence = listEvidenceForSha(sha);
   const record = getOrCreatePromotionRecord(sha);
   await tryPersistLedgerRow(gate.sb, record, allEvidence);
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "deploy_promotion",
+    targetId: sha,
+    action: "deploy.run_gate",
+    after: {
+      gate_id: gateId,
+      result: evidence.result,
+      evidence_id: evidence.evidenceId,
+    },
+  });
 
   return NextResponse.json({
     ok: true,

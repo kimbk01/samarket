@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
+import { appendAdminSettingsBundleAudit } from "@/lib/admin/audit/admin-settings-bundle-audit";
+import { OPS_DOCS_SETTINGS_KEY } from "@/lib/ops-docs/ops-docs-keys";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
 import { loadOpsDocsBundleFromDb, saveOpsDocsBundleToDb } from "@/lib/ops-docs/ops-docs-db";
@@ -16,7 +18,7 @@ function isBundle(x: unknown): x is OpsDocsBundleV1 {
 }
 
 export async function GET() {
-  const admin = await requireAdminApiUser();
+  const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
 
   try {
@@ -49,7 +51,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
 
   let body: { bundle?: unknown };
@@ -69,6 +71,12 @@ export async function PUT(req: NextRequest) {
     if (!saved.ok) {
       return NextResponse.json({ ok: false, error: saved.error }, { status: 503 });
     }
+    await appendAdminSettingsBundleAudit(admin.sb, req, {
+      actorId: admin.actor.userId,
+      settingsKey: OPS_DOCS_SETTINGS_KEY,
+      tool: "ops-docs",
+      bundle: body.bundle,
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 503 });

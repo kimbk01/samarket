@@ -18,9 +18,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     userId?: string;
     userNickname?: string;
     userType?: "free" | "premium";
+    /** V3-07: 실지급 사유 (2자 이상 필수) */
+    reason?: string;
+    /** V3-07: 확인창에서 다시 입력한 지급 포인트 — 실제 계산액이 넘으면 지급하지 않음 */
+    confirmedPoint?: number;
   };
   if (!body.userId?.trim()) {
     return NextResponse.json({ ok: false, error: "userId_required" }, { status: 400 });
+  }
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+  if (reason.length < 2) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
+  const confirmedPoint =
+    body.confirmedPoint == null ? undefined : Math.trunc(Number(body.confirmedPoint));
+  if (confirmedPoint !== undefined && (!Number.isFinite(confirmedPoint) || confirmedPoint < 0)) {
+    return NextResponse.json({ ok: false, error: "invalid_confirmed_point" }, { status: 400 });
   }
   try {
     const input = {
@@ -31,6 +44,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       userId: body.userId.trim(),
       userNickname: body.userNickname?.trim() || "",
       userType: body.userType ?? "free",
+      reason: reason.slice(0, 300),
+      confirmedMaxPoint: confirmedPoint,
     } as const;
     const execution = await executePointRewardServer(gate.sb, input);
     await appendAdminRouteAudit(gate.sb, req, {

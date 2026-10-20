@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { clientSafeInternalErrorMessage, jsonError, jsonOk } from "@/lib/http/api-route";
 import { DEFAULT_AUTH_LOGIN_SETTINGS, loadAuthLoginSettings, type AuthLoginSetting, type LoginSettingProvider } from "@/lib/auth/login-settings";
 import { DEFAULT_AUTH_DUPLICATE_LOGIN_POLICY, loadAuthDuplicateLoginPolicy, type AuthDuplicateLoginPolicy } from "@/lib/auth/session-policy";
@@ -22,8 +23,27 @@ function isPolicyTableUnavailable(error: { message?: string; code?: string } | n
   );
 }
 
+function auditLoginSettings(rows: AuthLoginSetting[]) {
+  return rows.map((row) => ({
+    provider: row.provider,
+    label: row.label,
+    enabled: row.enabled,
+    sort_order: row.sort_order,
+  }));
+}
+
+function auditSessionPolicy(policy: AuthDuplicateLoginPolicy) {
+  return {
+    compare_same_login_id: policy.compare_same_login_id,
+    compare_same_device: policy.compare_same_device,
+    compare_same_browser: policy.compare_same_browser,
+    compare_same_ip: policy.compare_same_ip,
+  };
+}
+
+/** V3-09: 로그인 수단 설정 — 전체 회원 로그인에 영향 → settings 권한 (auth-phone 과 동일 키). */
 export async function GET() {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("settings");
   if (!admin.ok) return admin.response;
   try {
     const settings = await loadAuthLoginSettings();
@@ -38,7 +58,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("settings");
   if (!admin.ok) return admin.response;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
@@ -81,6 +101,7 @@ export async function PUT(req: NextRequest) {
     return jsonError("최소 1개의 로그인 방식은 활성화해야 합니다.", 400);
   }
   const currentSessionPolicy = await loadAuthDuplicateLoginPolicy().catch(() => DEFAULT_AUTH_DUPLICATE_LOGIN_POLICY);
+  const beforeSettings = await loadAuthLoginSettings().catch(() => null);
   const sessionPolicy: AuthDuplicateLoginPolicy = {
     ...currentSessionPolicy,
     ...(sessionPolicyInput ?? {}),
@@ -135,6 +156,20 @@ export async function PUT(req: NextRequest) {
   try {
     const settings = await loadAuthLoginSettings();
     const refreshedSessionPolicy = await loadAuthDuplicateLoginPolicy();
+    await appendAdminRouteAudit(admin.sb, req, {
+      actorId: admin.actor.userId,
+      targetType: "auth_login_settings",
+      targetId: "global",
+      action: "auth_settings.update",
+      before: {
+        settings: beforeSettings ? auditLoginSettings(beforeSettings) : null,
+        session_policy: auditSessionPolicy(currentSessionPolicy),
+      },
+      after: {
+        settings: auditLoginSettings(settings),
+        session_policy: auditSessionPolicy(refreshedSessionPolicy),
+      },
+    });
     return jsonOk({ settings, sessionPolicy: refreshedSessionPolicy });
   } catch (loadError) {
     return jsonError(

@@ -205,6 +205,10 @@ export function adminOperatorErrorMessage(
       ko: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
       en: "This screen is out of date. Refresh and try again.",
     },
+    expected_version_required: {
+      ko: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
+      en: "This screen is out of date. Refresh and try again.",
+    },
     stale_policy: {
       ko: "다른 관리자가 먼저 수수료 정책을 수정했습니다. 새로고침 후 다시 확인하세요.",
       en: "Another admin edited this fee policy first. Refresh and check again.",
@@ -241,6 +245,10 @@ export function adminOperatorErrorMessage(
     would_leave_no_default_policy: {
       ko: "적용 중인 다른 플랫폼 기본 수수료 정책이 없어 종료할 수 없습니다.",
       en: "No other default fee policy is active, so this cannot be ended.",
+    },
+    reject_refund_failed: {
+      ko: "매장 캐시 환불에 실패해 반려하지 않았습니다. 잠시 후 다시 시도하세요.",
+      en: "The store Cash refund failed, so the campaign was not rejected. Try again shortly.",
     },
     business_cash_refund_failed: {
       ko: "반려는 완료됐지만 매장 캐시 환불이 실패했습니다. 재무 화면에서 환불 상태를 확인하세요.",

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
 import {
   APP_NOTICES_CONTENT_SELECT,
@@ -15,6 +16,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
+
+/** 감사 로그 — 본문 전체 대신 길이만 남긴다. */
+function noticeAuditSnapshot(row: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  if (!row) return null;
+  const { body, ...rest } = row;
+  return { ...rest, body_length: typeof body === "string" ? body.length : null };
+}
 
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const admin = await requireAdminApiUser();
@@ -104,6 +112,12 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ ok: false, error: "invalid_input" }, { status: 400 });
   }
 
+  const { data: beforeRow } = await sb
+    .from("app_notices")
+    .select(APP_NOTICES_CONTENT_SELECT)
+    .eq("id", id)
+    .maybeSingle();
+
   const { data, error } = await sb
     .from("app_notices")
     .update(patch)
@@ -116,6 +130,19 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
   if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "app_notice",
+    targetId: id,
+    action:
+      body.soft_delete === true
+        ? "app_notice.delete"
+        : body.archived === true
+          ? "app_notice.archive"
+          : "app_notice.update",
+    before: noticeAuditSnapshot(beforeRow as unknown as Record<string, unknown> | null),
+    after: noticeAuditSnapshot(data as unknown as Record<string, unknown>),
+  });
   const contentType = parseCustomerCenterContentType(data.content_type, "notice");
   return NextResponse.json({
     ok: true,
