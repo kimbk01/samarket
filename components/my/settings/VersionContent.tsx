@@ -44,8 +44,8 @@ function versionCtaInlineStyle(visual: VersionScreenCtaVisual): CSSProperties {
   switch (visual) {
     case "disabled":
       return {
-        backgroundColor: "var(--sam-border-default)",
-        color: "var(--sam-text-secondary)",
+        backgroundColor: "#D1D5DB",
+        color: "#6B7280",
         opacity: 1,
         borderWidth: 0,
       };
