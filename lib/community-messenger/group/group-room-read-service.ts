@@ -1,4 +1,5 @@
 import type { GroupRoomSupabase } from "@/lib/community-messenger/group/group-room-repository";
+import { MEMBER_IDENTITY_PROFILE_SELECT } from "@/lib/users/public-member-identity";
 import {
   batchSetCachedGroupMessageReadCounts,
   getCachedGroupMessageReadCount,
@@ -52,16 +53,15 @@ export async function fetchActiveParticipantLabels(
   const ids = [...new Set(userIds.map((id) => trimText(id)).filter(Boolean))];
   const out = new Map<string, string>();
   if (!ids.length) return out;
+  // D13 — full_name 컬럼 없음 → 조회 실패로 참여자 이름이 비던 문제. 회원 표시 이름 = nickname (public-member-identity SSOT)
   const { data } = await (sb as any)
     .from("profiles")
-    .select("id, nickname, display_name, full_name")
+    .select(MEMBER_IDENTITY_PROFILE_SELECT)
     .in("id", ids);
   for (const row of (data ?? []) as Array<Record<string, unknown>>) {
     const id = trimText(row.id);
     if (!id) continue;
-    const label =
-      trimText(row.display_name) || trimText(row.nickname) || trimText(row.full_name) || id.slice(0, 6);
-    out.set(id, label);
+    out.set(id, trimText(row.nickname) || id.slice(0, 6));
   }
   return out;
 }
