@@ -39,3 +39,10 @@ export function mypageHubBreakpointAt(widthPx: number): "mobile" | "tablet" | "d
   if (widthPx < MYPAGE_DESKTOP_MIN_PX) return "tablet";
   return "desktop";
 }
+
+/**
+ * 내정보 하위 화면 본문 폭·좌우 여백 (최종 설계 §1.8) — 태블릿·데스크톱도 같은 1열,
+ * 본문 최대 40rem 가운데 정렬, 좌우 16px(모바일) / 20px(md+). 앱 공용 폭 클래스는 건드리지 않는다.
+ */
+export const MYPAGE_COLUMN_MAX_WIDTH_CLASS = "max-w-[40rem]";
+export const MYPAGE_GUTTER_X_CLASS = "px-4 md:px-5";

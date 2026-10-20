@@ -1,0 +1,83 @@
+"use client";
+
+import type { ReactNode } from "react";
+import { useEffect } from "react";
+import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { MyStateView, type MyScreenTemplate, type MyStateViewProps } from "@/components/mypage/ds/MyStateView";
+import { MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
+import { dibayMyInfoPerfMark, dibayMyInfoPerfNavClick } from "@/lib/runtime/dibay-myinfo-perf";
+import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+
+export type MyScreenProps = {
+  title: string;
+  backHref?: string;
+  preferHistoryBack?: boolean;
+  template: MyScreenTemplate;
+  /** 지정하면 본문 대신 상태(스켈레톤/빈/오류)를 그린다. `template` 생략 시 화면 template 사용 */
+  state?: MyStateViewProps;
+  /** 하단 고정 CTA (`MyStickyCta`) — 본문 아래 여백 자동 확보 */
+  stickyCta?: ReactNode;
+  children?: ReactNode;
+};
+
+type MyInfoPerfWindow = Window & { __dibayMyInfoPerf?: { marks?: Record<string, unknown> } };
+
+/**
+ * 내정보 하위 화면 골격 (최종 설계 §1.2) — 헤더(`MySubpageHeader`) + 본문 1열(40rem·16/20px, §1.8)
+ * + 상태 슬롯 + 하단 CTA 슬롯. `MyPageStackShell` 의 성능 마크(`dibayMyInfoPerfMark`)를 그대로 유지한다.
+ */
+export function MyScreen({
+  title,
+  backHref = "/mypage",
+  preferHistoryBack = true,
+  template,
+  state,
+  stickyCta,
+  children,
+}: MyScreenProps) {
+  useEffect(() => {
+    const s = (window as MyInfoPerfWindow).__dibayMyInfoPerf;
+    if (!s?.marks?.route_start_ms) {
+      dibayMyInfoPerfMark("route_start_ms", { surface: "mypage_stack", title });
+    }
+    if (!s?.marks?.first_shell_visible_ms) {
+      dibayMyInfoPerfMark("first_shell_visible_ms", { surface: "mypage_stack" });
+    }
+  }, [title]);
+
+  useEffect(() => {
+    const handler = (ev: PointerEvent) => {
+      const target = ev.target as HTMLElement | null;
+      const a = target?.closest?.("a[href]") as HTMLAnchorElement | null;
+      const href = a?.getAttribute("href") ?? "";
+      if (!href) return;
+      if (!href.startsWith("/mypage") && !href.startsWith("/my")) return;
+      dibayMyInfoPerfNavClick(href);
+    };
+    window.addEventListener("pointerdown", handler, { capture: true });
+    return () => window.removeEventListener("pointerdown", handler, { capture: true });
+  }, []);
+
+  return (
+    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app" data-my-screen-template={template}>
+      <MySubpageHeader
+        title={title}
+        backHref={backHref}
+        preferHistoryBack={preferHistoryBack}
+        hideCtaStrip
+        showHubQuickActions
+      />
+      <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
+        <div
+          className={`mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} pt-2 ${
+            stickyCta ? MY_STICKY_CTA_BODY_CLEARANCE_CLASS : "pb-4"
+          }`}
+        >
+          {state ? <MyStateView {...state} template={state.template ?? template} /> : children}
+        </div>
+      </div>
+      {stickyCta}
+    </div>
+  );
+}

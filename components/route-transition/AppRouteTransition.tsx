@@ -6,12 +6,14 @@ import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext"
 import {
   MAIN_SHELL_ROUTE_TRANSITION_MS,
   ROUTE_TRANSITION_ENTER_CLASSES,
+  isMypageMotionKind,
   routeTransitionClassForKind,
   routeTransitionPushAxisForKind,
   type MainShellRoutePushAxis,
   type RouteTransitionEnterKind,
 } from "@/components/route-transition/route-transition-config";
 import { resolveMainShellPushDurationMs } from "@/lib/navigation/resolve-main-shell-push-duration-ms";
+import { MYPAGE_MOTION_MS } from "@/lib/mypage/mypage-authority-contract";
 import { useRouteTransitionKindRef } from "@/components/route-transition/useRouteTransitionDirection";
 import {
   consumeMainShellPushEnterSession,
@@ -123,6 +125,35 @@ let lastHubFallbackDestPath = "";
 let lastHubFallbackStartedAt = 0;
 const HUB_FALLBACK_RESTART_GUARD_MS = MAIN_SHELL_ROUTE_TRANSITION_MS + 80;
 
+/**
+ * 내정보 kind(X2) 전용 push 시간 — `MYPAGE_MOTION_MS`(300ms). 다른 kind 는 기존 계산 그대로.
+ * `resolveMainShellPushDurationMs` 는 수정하지 않는다(거래 `/market` 250ms 규칙 보호).
+ */
+function mypageMotionPushDurationMs(kind: RouteTransitionEnterKind): number | null {
+  if (!isMypageMotionKind(kind)) return null;
+  return kind === "mypage-stack-back" || kind === "profile-edit-back" || kind === "address-platform-back"
+    ? MYPAGE_MOTION_MS.back
+    : MYPAGE_MOTION_MS.push;
+}
+
+/**
+ * Hub-fallback surface(`main-shell-push-surface-enter-*`, CSS 440ms 고정) 에 내정보 kind 일 때만
+ * `--main-shell-push-ms` + `data-mypage-stack-motion` 을 단다. 그 외 전환에서는 항상 제거 — 하단 탭·
+ * 다른 도메인 hub 전환 시간은 불변(440ms).
+ */
+function setMypageStackMotionOnSurface(el: HTMLDivElement | null, durationMs: number | null) {
+  if (!el) return;
+  if (durationMs != null) {
+    el.dataset.mypageStackMotion = "1";
+    el.style.setProperty("--main-shell-push-ms", `${durationMs}ms`);
+    return;
+  }
+  if (el.dataset.mypageStackMotion != null) {
+    delete el.dataset.mypageStackMotion;
+    el.style.removeProperty("--main-shell-push-ms");
+  }
+}
+
 function forceMainHubSurfaceCleanup(el: HTMLDivElement | null) {
   if (!el) return;
   const pending = (el as HTMLElement & { __hubTransitionTimer?: number }).__hubTransitionTimer;
@@ -156,6 +187,7 @@ function ensureMainHubEnterCleanup(el: HTMLDivElement, generation: number | null
     }
     el.removeEventListener("transitionend", onEnd);
     stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
+    setMypageStackMotionOnSurface(el, null);
     if (
       el.dataset.routeTransitionKind === MAIN_HUB_TRANSITION_KIND ||
       el.dataset.routeTransitionKind === "cover"
@@ -201,6 +233,7 @@ function applyMainHubPendingExit(
   }
   const fromClass = mainShellPushFromClassForAxis(session.axis);
   forceMainHubSurfaceCleanup(el);
+  setMypageStackMotionOnSurface(el, null);
   el.classList.add(fromClass);
   el.dataset.routeTransitionKind = MAIN_HUB_TRANSITION_KIND;
   el.dataset.routePushAxis = session.axis;
@@ -384,6 +417,7 @@ export function AppRouteTransition({
     const enterClass = mainShellPushEnterClassForAxis(session.axis);
 
     stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
+    setMypageStackMotionOnSurface(el, null);
     el.classList.add(fromClass);
     void el.offsetWidth;
     el.classList.remove(fromClass);
@@ -549,6 +583,7 @@ export function AppRouteTransition({
             }
           }
           /** Fallback: browser back / programmatic hub change without BottomNav intent. */
+          setMypageStackMotionOnSurface(el, null);
           return beginHubFallbackEnter(el, hubAxis, pathKey);
         }
 
@@ -578,6 +613,8 @@ export function AppRouteTransition({
         stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
         renderedRef.current = { pathname: pathKey, node: children };
         if (el) {
+          /** 내정보 하위 화면은 hubChromeHeader 가 있어 이 폴백을 탄다 — 내정보 kind 만 300ms. */
+          setMypageStackMotionOnSurface(el, mypageMotionPushDurationMs(kind));
           return beginHubFallbackEnter(el, pushAxis, pathKey);
         }
         return undefined;
@@ -594,9 +631,11 @@ export function AppRouteTransition({
         }
 
         setPushHandoff(null);
-        const durationMs = resolveMainShellPushDurationMs(pendingMenuIntent, pathKey, {
-          reducedMotion: prefersReducedMotion(),
-        });
+        const durationMs =
+          mypageMotionPushDurationMs(kind) ??
+          resolveMainShellPushDurationMs(pendingMenuIntent, pathKey, {
+            reducedMotion: prefersReducedMotion(),
+          });
         setPushSession({
           exiting: prev.node,
           entering: pendingPushNode ?? children,
@@ -674,6 +713,7 @@ export function AppRouteTransition({
       ) {
         consumeMainShellPushAxisIntent(pathKey);
         renderedRef.current = { pathname: pathKey, node: children };
+        setMypageStackMotionOnSurface(el, null);
         return beginHubFallbackEnter(el, recoverAxis, pathKey);
       }
       if (el?.dataset) {

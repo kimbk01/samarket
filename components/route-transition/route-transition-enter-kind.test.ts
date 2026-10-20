@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  isMypageMotionKind,
+  ownerStackRouteTransitionClassForKind,
   resolveCanonicalNavIndex,
   routeTransitionClassForKind,
+  routeTransitionExitClassForKind,
   routeTransitionPushAxisForKind,
+  type RouteTransitionEnterKind,
 } from "@/components/route-transition/route-transition-config";
+import { mypageStackDepth } from "@/lib/mypage/mypage-stack-slide";
 import {
   computeRouteTransitionEnterKind,
   computeStoresOwnerStackTransitionKind,
@@ -324,14 +329,14 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(k).toBe("profile-edit-back");
   });
 
-  it("profile edit to mypage subsection keeps subtle (not profile-edit-back)", () => {
+  it("profile edit to mypage subsection uses mypage-stack-back (depth 2 → 1; was subtle before R3/X2)", () => {
     const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind(
       "/mypage/section/account/profile/edit",
       "/mypage/section/trade/sales",
       { popstateBack: false, lastForwardAxisRef },
     );
-    expect(k).toBe("subtle");
+    expect(k).toBe("mypage-stack-back");
   });
 
   it("any screen to address book uses address-platform-forward", () => {
@@ -426,5 +431,156 @@ describe("computeRouteTransitionEnterKind with dynamic resolver", () => {
       resolveIndex,
     });
     expect(k).toBe("rtl-forward");
+  });
+});
+
+describe("R3 / X2 — mypage stack 300ms kinds", () => {
+  type Axis = "ltr" | "rtl" | null;
+  const run = (prev: string, next: string, popstateBack = false, axis: Axis = null) => {
+    const lastForwardAxisRef = { current: axis };
+    const kind = computeRouteTransitionEnterKind(prev, next, { popstateBack, lastForwardAxisRef });
+    return { kind, axis: lastForwardAxisRef.current };
+  };
+
+  it("mypageStackDepth: hub 0, section/<group>/<item> counts as 1", () => {
+    expect(mypageStackDepth("/mypage")).toBe(0);
+    expect(mypageStackDepth("/my")).toBe(0);
+    expect(mypageStackDepth("/mypage/")).toBe(0);
+    expect(mypageStackDepth("/mypage/offers")).toBe(1);
+    expect(mypageStackDepth("/mypage/section/settings/notifications")).toBe(1);
+    expect(mypageStackDepth("/mypage/store-orders/abc")).toBe(2);
+    expect(mypageStackDepth("/mypage/store-orders/abc/review")).toBe(3);
+    expect(mypageStackDepth("/mypage/points/charge")).toBe(2);
+    expect(mypageStackDepth("/my/settings")).toBe(1);
+    expect(mypageStackDepth("/market")).toBe(-1);
+    expect(mypageStackDepth("/mypages")).toBe(-1);
+  });
+
+  it("hub → subpage push = mypage-stack-forward (rtl axis, 300ms class)", () => {
+    const r = run("/mypage", "/mypage/offers");
+    expect(r.kind).toBe("mypage-stack-forward");
+    expect(r.axis).toBe("rtl");
+    expect(routeTransitionPushAxisForKind(r.kind)).toBe("rtl");
+    expect(routeTransitionClassForKind(r.kind)).toBe("mypage-stack-route-enter-forward");
+    expect(routeTransitionExitClassForKind(r.kind)).toBeNull();
+    expect(ownerStackRouteTransitionClassForKind(r.kind)).toBeNull();
+    expect(isMypageMotionKind(r.kind)).toBe(true);
+  });
+
+  it("subpage → hub popstate = mypage-stack-back (ltr axis)", () => {
+    const r = run("/mypage/offers", "/mypage", true, "rtl");
+    expect(r.kind).toBe("mypage-stack-back");
+    expect(r.axis).toBeNull();
+    expect(routeTransitionPushAxisForKind(r.kind)).toBe("ltr");
+    expect(routeTransitionClassForKind(r.kind)).toBe("mypage-stack-route-enter-back");
+  });
+
+  it("header back (push to shallower path) = mypage-stack-back", () => {
+    expect(run("/mypage/store-orders/abc", "/mypage/store-orders").kind).toBe("mypage-stack-back");
+  });
+
+  it("list → detail forward, same depth forward, popstate same depth back", () => {
+    expect(run("/mypage/store-orders", "/mypage/store-orders/x").kind).toBe("mypage-stack-forward");
+    expect(run("/mypage/offers", "/mypage/reviews").kind).toBe("mypage-stack-forward");
+    expect(run("/mypage/reviews", "/mypage/offers", true).kind).toBe("mypage-stack-back");
+    expect(run("/mypage/store-orders/x", "/mypage/store-orders/x/review").kind).toBe("mypage-stack-forward");
+  });
+
+  it("/my alias and /mypage/section/* subtrees use mypage stack kinds", () => {
+    expect(run("/my", "/my/settings").kind).toBe("mypage-stack-forward");
+    expect(run("/mypage", "/mypage/section/store").kind).toBe("mypage-stack-forward");
+    expect(run("/mypage/section/store", "/mypage", true).kind).toBe("mypage-stack-back");
+    expect(run("/mypage/section/settings/notifications", "/mypage/section/settings/language").kind).toBe(
+      "mypage-stack-forward"
+    );
+  });
+
+  it("query-only change (?tab=) keeps none — pathname identical", () => {
+    // usePathname 은 쿼리를 포함하지 않음 → prev === next
+    expect(run("/mypage/offers", "/mypage/offers").kind).toBe("none");
+  });
+
+  it("profile-edit / address-platform kinds unchanged, now 300ms motion kinds", () => {
+    expect(run("/mypage", "/mypage/section/account/profile/edit").kind).toBe("profile-edit-forward");
+    expect(run("/mypage/section/account/profile/edit", "/mypage", true).kind).toBe("profile-edit-back");
+    expect(run("/mypage", "/mypage/addresses").kind).toBe("address-platform-forward");
+    expect(run("/mypage/addresses", "/mypage", true).kind).toBe("address-platform-back");
+    for (const k of ["profile-edit-forward", "profile-edit-back", "address-platform-forward", "address-platform-back"] as const) {
+      expect(isMypageMotionKind(k)).toBe(true);
+    }
+  });
+
+  it("X8: /mypage/products (UI-6 seller hub) keeps its existing 440ms kinds", () => {
+    expect(run("/mypage", "/mypage/products").kind).toBe("rtl-forward");
+    expect(run("/mypage/products", "/mypage", true).kind).toBe("ltr-back");
+    expect(run("/mypage/products", "/mypage/points/promotions").kind).toBe("rtl-forward");
+    expect(run("/mypage/points/promotions", "/mypage/products", true).kind).toBe("ltr-back");
+    expect(run("/market/sell", "/mypage/products").kind).toBe("rtl-forward");
+    expect(run("/mypage/products", "/post/abc-1").kind).toBe("none");
+    expect(isMypageMotionKind("rtl-forward")).toBe(false);
+    expect(isMypageMotionKind("ltr-back")).toBe(false);
+  });
+
+  it("cross-domain pairs with mypage keep existing kinds", () => {
+    expect(run("/mypage", "/stores/owner/apply").kind).toBe("store-apply-forward");
+    expect(run("/stores/owner/apply", "/mypage", true).kind).toBe("store-apply-back");
+    expect(run("/mypage", "/stores/owner").kind).toBe("store-enter-forward");
+    expect(run("/stores/owner", "/mypage", true).kind).toBe("store-enter-back");
+    expect(run("/market", "/mypage").kind).toBe("rtl-forward");
+    expect(run("/mypage", "/philife").kind).toBe("ltr-forward");
+    expect(run("/mypage/offers", "/market").kind).toBe("ltr-forward");
+    expect(run("/community-messenger", "/mypage/offers").kind).toBe("rtl-forward");
+  });
+
+  it("other-domain route pairs — kinds unchanged (snapshot)", () => {
+    const pairs: Array<[string, string, boolean, Axis]> = [
+      ["/philife", "/market", false, null],
+      ["/market", "/philife", false, null],
+      ["/market", "/philife", true, "rtl"],
+      ["/market", "/market/foo", false, null],
+      ["/market", "/post/abc-1", false, null],
+      ["/post/a", "/post/b", false, null],
+      ["/stores", "/stores/aa11", false, null],
+      ["/stores/browse/restaurant", "/stores/aa11", false, null],
+      ["/stores", "/stores/cart", false, null],
+      ["/stores/cart", "/stores", true, null],
+      ["/orders/activity", "/stores/gift-mall", false, null],
+      ["/stores/owner", "/stores/owner/orders", false, null],
+      ["/stores/owner/orders", "/philife", false, null],
+      ["/community-messenger", "/community-messenger/trade-chats", false, null],
+      ["/community-messenger", "/community-messenger/rooms/abc", false, null],
+      ["/market", "/community-messenger", false, null],
+      ["/stores", "/mypage/addresses", false, null],
+      ["/mypage/addresses/edit", "/stores", true, "rtl"],
+      ["/mypage/gift-certificates", "/mypage/gift-certificates/abc", false, null],
+      ["/mypage/gift-certificates/abc", "/mypage/gift-certificates", true, "rtl"],
+    ];
+    const out = pairs.map(([a, b, pop, axis]) => `${a} -> ${b}${pop ? " (pop)" : ""}: ${run(a, b, pop, axis).kind}`);
+    expect(out).toEqual([
+      "/philife -> /market: rtl-forward",
+      "/market -> /philife: ltr-forward",
+      "/market -> /philife (pop): ltr-back",
+      "/market -> /market/foo: subtle",
+      "/market -> /post/abc-1: none",
+      "/post/a -> /post/b: rtl-forward",
+      "/stores -> /stores/aa11: subtle",
+      "/stores/browse/restaurant -> /stores/aa11: subtle",
+      "/stores -> /stores/cart: rtl-forward",
+      "/stores/cart -> /stores (pop): ltr-back",
+      "/orders/activity -> /stores/gift-mall: rtl-forward",
+      "/stores/owner -> /stores/owner/orders: none",
+      "/stores/owner/orders -> /philife: ltr-back",
+      "/community-messenger -> /community-messenger/trade-chats: none",
+      "/community-messenger -> /community-messenger/rooms/abc: none",
+      "/market -> /community-messenger: rtl-forward",
+      "/stores -> /mypage/addresses: address-platform-forward",
+      "/mypage/addresses/edit -> /stores (pop): address-platform-back",
+      "/mypage/gift-certificates -> /mypage/gift-certificates/abc: rtl-forward",
+      "/mypage/gift-certificates/abc -> /mypage/gift-certificates (pop): ltr-back",
+    ]);
+    for (const [a, b, pop, axis] of pairs) {
+      const k: RouteTransitionEnterKind = run(a, b, pop, axis).kind;
+      if (!k.startsWith("address-platform")) expect(isMypageMotionKind(k)).toBe(false);
+    }
   });
 });

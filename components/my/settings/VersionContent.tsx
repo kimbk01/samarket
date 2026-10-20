@@ -1,5 +1,6 @@
 "use client";
 
+import { formatInstalledVersionLabel } from "@/lib/platform/format-installed-version-label";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import Image from "next/image";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -486,14 +487,12 @@ export function VersionContent() {
   const statusLine = statusLineFromCta(cta, installProgress, safeT);
   const primaryLabel = primaryLabelFromCta(cta, safeT);
   const ctaVisual = resolveVersionScreenCtaVisual(cta);
-  const displayName = versionName
-    ? buildNumber != null
-      ? `${versionName} (${buildNumber})`
-      : versionName
-    : safeT("settings_version_unknown_name", {
-        fallbackKo: "알 수 없음",
-        fallbackEn: "Unknown",
-      });
+  const displayName =
+    formatInstalledVersionLabel(versionName, buildNumber) ??
+    safeT("settings_version_unknown_name", {
+      fallbackKo: "알 수 없음",
+      fallbackEn: "Unknown",
+    });
   /** 웹 화면 코드 배포 버전 — 네이티브 앱 버전과 별개 (웹 변경은 앱 재시작으로 반영) */
   const webDeploySha = (process.env.NEXT_PUBLIC_WEB_DEPLOY_SHA ?? "").trim();
   const showCurrentVersionLabel =

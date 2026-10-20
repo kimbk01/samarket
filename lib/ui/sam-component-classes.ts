@@ -58,6 +58,8 @@ export const Sam = {
     softLegacy: "sam-input-surface-soft",
     textarea: "sam-textarea",
     select: "sam-select",
+    /** 오류 상태 수식 — `Sam.input.base` 와 조합 (v2.1 §3.3) */
+    error: "sam-input--error",
   },
   tabs: {
     bar: "sam-tabs",
@@ -75,6 +77,8 @@ export const Sam = {
     activeCombo: "sam-chip sam-chip--active",
     inactiveCombo: "sam-chip sam-chip--inactive",
     neutral: "sam-chip sam-chip--neutral",
+    /** 비활성 수식(45%) — 칩 콤보와 조합 (v2.1 §3.3) */
+    disabled: "sam-chip--disabled",
   },
   listRow: {
     base: "sam-list-row",
@@ -121,6 +125,8 @@ export const Sam = {
     required: "sam-form-required",
   },
   divider: "sam-divider",
+  /** 키보드 포커스 바깥선 2px (v2.1 §3.3) */
+  focusRing: "sam-focus-ring",
   headerAction: "sam-header-action",
   sm: {
     pageTitle: "sm-page-title",

@@ -16,7 +16,12 @@ const KEY_POPSTATE_PENDING = "dibay:mypage-hub-scroll-popstate-pending";
 const HUB = "/mypage";
 /** `/my` 는 같은 홈(MyContent)을 그리는 별칭 */
 const HUB_ALIASES = new Set([HUB, "/my"]);
-const TTL_MS = 60_000;
+/**
+ * 저장 유효시간 30분 (Part A §1.4) — 60초면 하위 화면에 1분 넘게 머문 뒤 뒤로 와도 맨 위로 갔다.
+ * 하위 목록 복원(`mypage-list-scroll-restore.ts`)도 같은 값을 쓴다.
+ */
+export const MYPAGE_SCROLL_RESTORE_TTL_MS = 30 * 60_000;
+const TTL_MS = MYPAGE_SCROLL_RESTORE_TTL_MS;
 
 let manualScrollRestorationApplied = false;
 

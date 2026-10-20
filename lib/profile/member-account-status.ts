@@ -26,9 +26,16 @@ export type MemberHandleStatus = {
   changedOnce: boolean;
 };
 
+/**
+ * 표시 상태 — 인증 플래그와 번호 컬럼은 따로 계산되므로(관리자 면제·수동 승인 = 인증됨·번호 없음)
+ * 화면은 이 값 하나로 분기한다. 「등록된 번호 없음」+「인증 완료」 동시 표기 금지.
+ */
+export type MemberPhonePresentation = "verified" | "verified_without_number" | "unverified";
+
 export type MemberPhoneStatus = {
   value: string | null;
   verified: boolean;
+  presentation: MemberPhonePresentation;
 };
 
 export type MemberAddressStatus = {
@@ -63,6 +70,8 @@ export function deriveMemberAccountStatus(
   opts: { hasDefaultAddress: boolean },
 ): MemberAccountStatus {
   const view = evaluatePublicIdProfileView(profile ?? {});
+  const phoneValue = resolveMemberPhoneDisplay(profile);
+  const phoneVerified = hasVerifiedPhone(profile);
   return {
     handle: {
       value: pickTrimmed(profile?.dibay_id) ?? pickTrimmed(view.atDisplay),
@@ -72,8 +81,9 @@ export function deriveMemberAccountStatus(
       changedOnce: view.changeComplete,
     },
     phone: {
-      value: resolveMemberPhoneDisplay(profile),
-      verified: hasVerifiedPhone(profile),
+      value: phoneValue,
+      verified: phoneVerified,
+      presentation: !phoneVerified ? "unverified" : phoneValue ? "verified" : "verified_without_number",
     },
     address: {
       registered: opts.hasDefaultAddress === true,
