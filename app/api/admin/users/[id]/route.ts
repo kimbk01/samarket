@@ -738,6 +738,16 @@ export async function PATCH(
       nextDibayId = normalized;
     }
   }
+  /** 관리자 아이디 변경 사유 필수 (감사 기록) — DB admin_set_dibay_id 도 동일하게 거부 */
+  const dibayIdReason = typeof body.dibayIdReason === "string" ? body.dibayIdReason.trim() : "";
+  if (nextDibayId) {
+    if (!dibayIdReason) {
+      return NextResponse.json({ ok: false, error: "dibay_id_reason_required" }, { status: 400 });
+    }
+    if (dibayIdReason.length > 300) {
+      return NextResponse.json({ ok: false, error: "dibay_id_reason_too_long" }, { status: 400 });
+    }
+  }
 
   let nextPhonePatch: Record<string, unknown> | null = null;
   if (hasPhoneNumber) {
@@ -820,7 +830,7 @@ export async function PATCH(
       p_target_user_id: userId,
       p_dibay_id: nextDibayId,
       p_actor_user_id: gate.actor.userId,
-      p_reason: typeof body.dibayIdReason === "string" ? body.dibayIdReason.trim() || null : null,
+      p_reason: dibayIdReason,
     });
     if (rpcError) {
       return NextResponse.json({ ok: false, error: "dibay_id_update_failed" }, { status: 500 });

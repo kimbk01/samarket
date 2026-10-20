@@ -12,7 +12,7 @@
 --      /api/me/leave-request (service_role). RLS 는 변경하지 않는다.
 --
 -- #5 관리자 아이디 변경 — admin_set_dibay_id: dibay_id·username 을 한 트랜잭션에서 갱신하고
---    변경 사유·실행자·전후 값을 같은 트랜잭션에서 audit_logs 에 기록한다.
+--    변경 사유(필수, 1~300자)·실행자·전후 값을 같은 트랜잭션에서 audit_logs 에 기록한다.
 --    회원 본인 1회 변경권(dibay_id_auto_assigned / dibay_id_changed_once / dibay_id_changed_at / dibay_id_locked)은
 --    읽지도 바꾸지도 않는다 → 관리자 변경은 회원 변경 횟수에 영향 없음.
 
@@ -211,6 +211,13 @@ BEGIN
   END IF;
   IF p_target_user_id IS NULL OR p_actor_user_id IS NULL THEN
     RETURN jsonb_build_object('ok', false, 'error', 'user_id_required');
+  END IF;
+  -- 변경 사유 필수 — 사유 없는 관리자 변경은 감사 기록 누락이므로 DB 에서 거부한다.
+  IF v_reason IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'reason_required');
+  END IF;
+  IF char_length(v_reason) > 300 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'reason_too_long');
   END IF;
 
   v_normalized := lower(btrim(replace(COALESCE(p_dibay_id, ''), '@', '')));

@@ -69,6 +69,9 @@ describe("R4 Profile · @ID · Verification · Password", () => {
     expect(dialog).toMatch(/isValidDibayIdFormat/);
     expect(dialog).toMatch(/dibayId/);
     expect(dialog).toMatch(/dibay_id_taken|이미 사용 중인/);
+    /** 변경 사유 필수 — UI 입력 + 요청 본문 */
+    expect(dialog).toMatch(/data-member-dibay-id-reason="1"/);
+    expect(dialog).toMatch(/dibayIdReason: trimmedReason/);
     expect(MEMBER_ADMIN_COPY.dibay_id_change).toBe("@회원 ID 변경");
     expect(isValidDibayIdFormat(normalizeDibayIdInput("good_id1"))).toBe(true);
     expect(isValidDibayIdFormat("ab")).toBe(false);
