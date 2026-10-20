@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { AppMetaKey } from "@/lib/admin-app-meta/app-meta-keys";
 import { normalizeAppMetaValue } from "@/lib/admin-app-meta/app-meta-keys";
 import type { MessageKey } from "@/lib/i18n/message-key";
@@ -18,7 +21,7 @@ const KEY_HELP: Record<AppMetaKey, MessageKey> = {
 
 /** 앱 메타 관리 (v2.1 B2) — 버전 화면·Android 인앱 업데이트 정책 값. 빈 값 저장 = 기본 동작 */
 export function AdminAppMetaPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [items, setItems] = useState<Item[] | null>(null);
   const [drafts, setDrafts] = useState<Partial<Record<AppMetaKey, string>>>({});
   const [loadError, setLoadError] = useState(false);
@@ -76,9 +79,9 @@ export function AdminAppMetaPage() {
       {loadError ? (
         <div className="rounded-ui-rect bg-sam-surface p-4" role="alert">
           <p className="sam-text-body text-sam-muted">{t("admin_app_meta_load_failed")}</p>
-          <button type="button" onClick={() => void load()} className="sam-btn sam-btn--secondary sam-btn--sm mt-3">
-            {t("common_retry")}
-          </button>
+          <AdminActionButton variant="secondary" size="sm" className="mt-3" onClick={() => void load()}>
+            {adminCta("refresh", language !== "en")}
+          </AdminActionButton>
         </div>
       ) : items == null ? (
         <p className="text-sam-muted">{t("admin_dashboard_loading")}</p>
@@ -106,17 +109,17 @@ export function AdminAppMetaPage() {
                     {message?.key === it.key
                       ? message.text
                       : it.updatedAt
-                        ? new Date(it.updatedAt).toLocaleString()
+                        ? formatAdminManilaDateTime(it.updatedAt)
                         : t("admin_app_meta_default")}
                   </span>
-                  <button
-                    type="button"
+                  <AdminActionButton
+                    variant="primary"
+                    size="sm"
                     disabled={!dirty || busyKey === it.key}
                     onClick={() => void save(it.key, draft)}
-                    className="sam-btn sam-btn--primary sam-btn--sm disabled:opacity-50"
                   >
                     {t("common_save")}
-                  </button>
+                  </AdminActionButton>
                 </div>
               </li>
             );
