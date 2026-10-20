@@ -6,7 +6,7 @@ import { AdminDestinationResolvedHint } from "@/components/admin/destination/Adm
 import type { BannerPlacement, BannerStatus } from "@/lib/types/admin-banner";
 import { ADMIN_BANNER_STATUS_KEYS } from "./admin-banner-i18n";
 
-/** MyPage CMS only — runtime consumer is MyTopBanner (placement not selected in UI). */
+/** MyPage CMS only — 회원 내정보 홈 프로필 아래(MypageHomeCmsBanner → MyTopBanner)에 활성 1건 표시 (placement not selected in UI). */
 const MYPAGE_BANNER_PLACEMENT: BannerPlacement = "mypage_top";
 
 export interface AdminBannerFormValues {

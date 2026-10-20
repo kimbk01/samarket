@@ -50,7 +50,7 @@ export function AdminMySectionsPage() {
       ko={language !== "en"}
       title={t("admin_menu_my_sections")}
       loadingLabel={t("common_loading")}
-      editUnavailableNote={t("admin_my_edit_unavailable_note")}
+      editUnavailableNote={t("admin_my_ia_locked_note")}
       loading={loading}
       error={error}
       items={items}

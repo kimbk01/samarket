@@ -44,19 +44,30 @@ export function AdminMyBannersPage() {
   }, []);
 
   return (
-    <AdminMyBannersView ko={language !== "en"} title={t("admin_menu_my_banners")} loadingLabel={t("common_loading")} loading={loading} error={error} items={items} />
+    <AdminMyBannersView
+      ko={language !== "en"}
+      title={t("admin_menu_my_banners")}
+      placementNote={t("admin_my_banner_placement_note")}
+      loadingLabel={t("common_loading")}
+      loading={loading}
+      error={error}
+      items={items}
+    />
   );
 }
 
 export function AdminMyBannersView({
   ko = true,
   title,
+  placementNote,
   loadingLabel,
   loading,
   error,
   items,
 }: {
   title: string;
+  /** 회원 화면 노출 위치 안내 (v2.1 §6) */
+  placementNote?: string;
   loadingLabel: string;
   loading: boolean;
   error: string | null;
@@ -74,6 +85,7 @@ export function AdminMyBannersView({
           추가
         </Link>
       </div>
+      {placementNote ? <p className="-mt-2 mb-4 sam-text-body-secondary text-sam-muted">{placementNote}</p> : null}
       {loading ? (
         <p className="text-sam-muted">{loadingLabel}</p>
       ) : error ? (
