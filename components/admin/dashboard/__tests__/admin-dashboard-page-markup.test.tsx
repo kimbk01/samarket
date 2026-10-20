@@ -16,6 +16,7 @@ const metric = (id: string, value: number | null, extra: Partial<AdminDashboardM
   labelKo: id,
   labelEn: id,
   unit: "count",
+  period: "now",
   value,
   href: "/admin/users",
   ...extra,
@@ -38,12 +39,12 @@ function initial(): AdminDashboardInitialState {
     tabData: {
       finance: {
         metrics: [
-          metric("queue.user_charges", 3),
+          metric("points.waiting_confirm", 3),
           // 이전 값 유지 + 실패 표시 (0 금지)
           metric("finance.commission_outstanding", 12345, { unit: "php_minor", error: "commission:down", stale: true }),
-          metric("finance.commission_7d", null, { unit: "php_minor", error: "commission:down" }),
+          metric("finance.commission_net", null, { unit: "php_minor", period: "selected", error: "commission:down" }),
+          metric("finance.cash_in_today", 500, { unit: "php_minor", period: "today_fixed" }),
         ],
-        domainCards: [],
         shortcuts: [
           { id: "point", labelKo: "포인트 충전", labelEn: "Point", href: "/admin/point-charges" },
           { id: "finance", labelKo: "재무 현황", labelEn: "Finance", href: "/admin/finance" },
@@ -52,9 +53,7 @@ function initial(): AdminDashboardInitialState {
           id: "commission_daily",
           labelKo: "일별 플랫폼 수수료",
           labelEn: "Daily commission",
-          bucket: "daily",
-          range: 7,
-          ranges: [7, 30],
+          days: 7,
           unit: "php_minor",
           series: [{ key: "commission", labelKo: "수수료", labelEn: "Commission" }],
           points: [
@@ -65,6 +64,7 @@ function initial(): AdminDashboardInitialState {
         },
         pending: {
           complete: true,
+          total: 3,
           items: [
             {
               key: "user_charges",
@@ -85,40 +85,67 @@ function initial(): AdminDashboardInitialState {
 }
 
 describe("AdminDashboardView markup (설계 v4 §3)", () => {
-  it("공통 틀: 요약 띠 8 · 탭 7(?tab=) · 본문 · 처리 대기 · 상태 줄", () => {
+  it("공통 틀: 요약 띠 8 · 탭 7(?tab=) · 본문 · 처리 대기/최근 활동 · 상태 줄(갱신·새로고침·기간)", () => {
     search = "tab=finance";
     const html = renderToStaticMarkup(<AdminDashboardView initial={initial()} />);
     expect(html).toContain('data-admin-dashboard="v4"');
     expect(html).toContain('data-admin-dashboard-tab="finance"');
     expect(html.match(/data-admin-band-tile=/g)).toHaveLength(8);
-    expect(html.match(/role="tab"/g)).toHaveLength(7);
+    // 대시보드 탭 7 + 오른쪽 패널 탭 2 (처리 대기 · 최근 활동)
+    expect(html.match(/id="admin-dashboard-tab-/g)).toHaveLength(7);
+    expect(html.match(/role="tab"/g)).toHaveLength(9);
     expect(html).toMatch(/id="admin-dashboard-tab-finance"[^>]*aria-selected="true"/);
     expect(html).toContain('id="admin-dashboard-panel-finance"');
     expect(html).toContain('id="action-center"');
+    expect(html).toContain('data-admin-dashboard-side="pending"');
+    expect(html).toContain("Recent activity");
     expect(html).toContain('data-admin-pending-item="user_charges"');
+    expect(html).toMatch(/data-admin-pending-total="1"[^>]*>Total 3</);
     expect(html).toContain('data-admin-dashboard-status="1"');
     expect(html).toContain("17:27 PHT");
+    expect(html).toMatch(/data-admin-dashboard-refresh="1"[^>]*>Refresh</);
+    expect(html.match(/data-admin-dashboard-period-option=/g)).toHaveLength(4);
+    expect(html).toMatch(/aria-pressed="true" data-admin-dashboard-period-option="today"/);
     expect(html.match(/data-admin-dashboard-shortcut=/g)).toHaveLength(2);
   });
 
-  it("두 해상도 예산: 1024×768(띠 72·우 316·행 44) / 1280×800(≥1200: 띠 80·우 344·행 48)", () => {
+  it("기간 ?period= — 선택 표시 · 기간 지표 칩 = 선택 기간, 현재/오늘 고정 칩", () => {
+    search = "tab=finance&period=7d";
+    const html = renderToStaticMarkup(<AdminDashboardView initial={initial()} />);
+    expect(html).toContain('data-admin-dashboard-period="7d"');
+    expect(html).toMatch(/aria-pressed="true" data-admin-dashboard-period-option="7d"/);
+    expect(html).toMatch(/data-admin-metric-tile="finance.commission_net"[\s\S]*?data-admin-metric-period-chip="1">7 days</);
+    expect(html).toMatch(/data-admin-metric-tile="finance.cash_in_today"[\s\S]*?data-admin-metric-period-chip="1">Today</);
+    expect(html).toMatch(/data-admin-metric-tile="points.waiting_confirm"[\s\S]*?data-admin-metric-period-chip="1">Now</);
+  });
+
+  it("라벨이 보이는 숫자: 지표 칸 라벨 · 요약 띠 보조 지표 라벨(1024에서도 보임)", () => {
     search = "tab=finance";
     const html = renderToStaticMarkup(<AdminDashboardView initial={initial()} />);
-    // 요약 띠: 8칸 한 줄, 1024 = 72px, 1280 = 80px
+    expect(html).toMatch(/data-admin-metric-tile="points.waiting_confirm"[\s\S]*?>points.waiting_confirm</);
+    expect(html).toMatch(/class="block truncate text-\[12px\] leading-4 tabular-nums[^"]*" data-admin-band-secondary=/);
+    expect(html).not.toMatch(/hidden truncate[^"]*data-admin-band-secondary/);
+  });
+
+  it("두 해상도 예산: 1024×768(띠 72·우 316·행 44) / 1280×800(≥1280: 띠 80·우 344·행 48)", () => {
+    search = "tab=finance";
+    const html = renderToStaticMarkup(<AdminDashboardView initial={initial()} />);
     expect(html).toMatch(/data-admin-dashboard-band="1" class="[^"]*grid-cols-8[^"]*h-\[72px\][^"]*|data-admin-dashboard-band="1" class="[^"]*h-\[72px\][^"]*grid-cols-8/);
-    expect(html).toContain("min-[1200px]:h-20");
-    // 본문 2단: 좌 가변 · 우 316 / 344
+    expect(html).toContain("min-[1280px]:h-20");
     expect(html).toContain("grid-cols-[minmax(0,1fr)_316px]");
-    expect(html).toContain("min-[1200px]:grid-cols-[minmax(0,1fr)_344px]");
-    // 페이지 스크롤 0: 루트 h-full + 본문만 overflow-y-auto(높이 부족 시), 처리 대기 목록 내부 스크롤
+    expect(html).toContain("min-[1280px]:grid-cols-[minmax(0,1fr)_344px]");
+    expect(html).not.toContain("min-[1200px]");
+    // 페이지 스크롤 0: 루트 h-full + 본문만 overflow-y-auto(높이 부족 시), 오른쪽 목록 내부 스크롤
     expect(html).toMatch(/data-admin-dashboard="v4"[^>]*class="flex h-full min-h-0 flex-col"/);
     expect(html).toMatch(/data-admin-dashboard-body="1" class="[^"]*min-h-0 flex-1 overflow-y-auto/);
-    expect(html).toMatch(/data-admin-dashboard-pending-list="1"|class="min-h-0 flex-1 overflow-y-auto" data-admin-dashboard-pending-list/);
+    expect(html).toContain('class="min-h-0 flex-1 overflow-y-auto" data-admin-dashboard-pending-list="1"');
     expect(html).toContain("h-11");
-    expect(html).toContain("min-[1200px]:h-12");
-    // 지표 3×2 · 추세 최소 160
-    expect(html).toMatch(/data-admin-dashboard-metrics="1"|grid shrink-0 grid-cols-3/);
+    expect(html).toContain("min-[1280px]:h-12");
+    // 지표 3×2 · 추세 최소 160 · 축
+    expect(html).toContain("grid shrink-0 grid-cols-3");
     expect(html).toContain("min-h-[160px]");
+    expect(html).toContain('data-admin-trend-y-axis="1"');
+    expect(html).toContain("Last 7 days");
     // 1024 짧은 라벨 / 1280 긴 라벨 둘 다 있음 (Provider 없는 렌더 = 기본 언어 en)
     expect(html).toContain(">Pay<");
     expect(html).toContain(">Payments<");
@@ -128,16 +155,17 @@ describe("AdminDashboardView markup (설계 v4 §3)", () => {
     search = "tab=finance";
     const html = renderToStaticMarkup(<AdminDashboardView initial={initial()} />);
     expect(html).toMatch(/data-admin-metric-value="finance.commission_outstanding"[^>]*>₱123.45</);
-    expect(html).toMatch(/data-admin-metric-value="finance.commission_7d"[^>]*>—</);
+    expect(html).toMatch(/data-admin-metric-value="finance.commission_net"[^>]*>—</);
     expect(html.match(/data-admin-metric-failed="1"/g)?.length).toBeGreaterThanOrEqual(2);
     expect(html).toContain("Failed to load");
   });
 
-  it("데이터 전 탭: 처리 대기 로딩 문구, 0 을 그리지 않는다", () => {
+  it("데이터 전 탭: 처리 대기 로딩 문구, 0 을 그리지 않는다, 갱신 시각 —", () => {
     search = "tab=support";
     const html = renderToStaticMarkup(<AdminDashboardView initial={{ band: [] }} />);
     expect(html).toContain('data-admin-dashboard-tab="support"');
     expect(html).toContain("Loading");
     expect(html).not.toContain("data-admin-metric-value");
+    expect(html).toMatch(/data-admin-dashboard-updated="1">Updated —</);
   });
 });

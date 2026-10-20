@@ -32,7 +32,6 @@ import { PROMOTION_WORKSPACE_HREF } from "@/lib/admin/promotion-ownership-visibi
 import {
   filterShellRowsByProductFamily,
   filterShellRowsByTab,
-  isAdsApprovalQueueRow,
   toAdsShellListRow,
   type AdsShellListRow,
   type AdsShellProductFamily,
@@ -43,14 +42,19 @@ import {
   resolveOperationsPrimaryCta,
 } from "@/lib/admin/ads-exposure/operations-primary-cta";
 import { adsLiveLinkLabel } from "@/lib/admin/ads-exposure/live-route";
-import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
+import {
+  ADS_WORKSPACE_STATUS_URL_PARAM,
+  collectAdsWorkspacePool as collectPool,
+  computeAdsWorkspaceHeroOccupancy,
+  computeAdsWorkspaceSummaryCounts,
+  filterAdsWorkspaceRowsByMode as filterRowsByMode,
+  type AdvertisingWorkspaceMode,
+} from "@/lib/admin/advertising-workspace/workspace-summary";
 import {
   ADS_BOOST_ORDER_URL_PARAM,
   findBoostActionItemByOrderId,
   resolveAdsBoostOrderFocusState,
 } from "@/lib/admin/ads-exposure/boost-order-deep-link";
-
-type AdvertisingWorkspaceMode = "all" | "applications" | "operations" | "history" | "boosts";
 
 /**
  * PHASE 2 — header CTA by page responsibility.
@@ -176,52 +180,6 @@ function resolveFamily(item: AdsActionItem) {
   });
 }
 
-function collectPool(model: AdsControlPlaneModel): AdsActionItem[] {
-  const pool = [
-    ...model.actionRequired,
-    ...model.applications,
-    ...model.creatives,
-    ...model.recent,
-    ...model.currentExecution.map(
-      (e): AdsActionItem => ({
-        id: e.id,
-        domain: e.domain,
-        product: e.product,
-        entity: "execution",
-        applicantLabel: e.label,
-        storeId: null,
-        memberId: null,
-        creativeHint: null,
-        placementHint: e.placement,
-        amountLabel: null,
-        currency: e.currency,
-        status: e.status,
-        whyActionable: e.eligibility,
-        paymentLabel: null,
-        periodLabel: e.period,
-        remainingLabel: e.remainingLabel,
-        exposureLabel: e.eligibility,
-        eligibility: e.eligibility,
-        ageHours: null,
-        at: model.generatedAt,
-        source: e.source,
-        href: e.href,
-        statementHref: e.statementHref,
-        financeHref: null,
-        memberHref: null,
-      })
-    ),
-  ];
-  const seen = new Set<string>();
-  const uniq: AdsActionItem[] = [];
-  for (const r of pool) {
-    if (seen.has(r.id)) continue;
-    seen.add(r.id);
-    uniq.push(r);
-  }
-  return uniq;
-}
-
 function defaultStatusTabForMode(mode: AdvertisingWorkspaceMode): AdsShellStatusTab {
   if (mode === "history") return "ended";
   if (mode === "applications") return "pending";
@@ -265,35 +223,6 @@ function modeDescription(mode: AdvertisingWorkspaceMode, ko: boolean): string {
     : "Manage paid ads and ad placement inventory. Event promotions live under Promotion / Events.";
 }
 
-function isBoostDomain(domain: string): boolean {
-  return domain === "trade_promote" || domain === "community_promote";
-}
-
-function filterRowsByMode(rows: AdsShellListRow[], mode: AdvertisingWorkspaceMode): AdsShellListRow[] {
-  if (mode === "boosts") {
-    return rows.filter((r) => isBoostDomain(r.domain));
-  }
-  if (mode === "operations") {
-    return rows.filter(
-      (r) =>
-        !isBoostDomain(r.domain) &&
-        (r.applicationStatusLabel === "—" ||
-          (r.domain === "popup" && String(r.id).startsWith("popup_campaign:"))) &&
-        ["scheduled", "live", "waiting", "paused", "incomplete", "ended"].includes(r.statusTab)
-    );
-  }
-  if (mode === "applications") {
-    return rows.filter(
-      (r) =>
-        isAdsApprovalQueueRow(r) && ["pending", "incomplete", "rejected"].includes(r.statusTab)
-    );
-  }
-  if (mode === "history") {
-    return rows.filter((r) => r.statusTab === "ended" || r.statusTab === "rejected" || r.statusTab === "paused");
-  }
-  return rows;
-}
-
 export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: AdvertisingWorkspaceMode }) {
   return (
     <Suspense
@@ -327,7 +256,13 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     mode === "boosts" ? (searchParams.get(ADS_BOOST_ORDER_URL_PARAM) ?? "").trim() : "";
   const [model, setModel] = useState<AdsControlPlaneModel | null>(null);
   const [err, setErr] = useState("");
-  const [statusTab, setStatusTab] = useState<AdsShellStatusTab>(() => defaultStatusTabForMode(mode));
+  // 대시보드 링크 `?status=` 는 이 화면의 상태 탭을 그대로 연다 (요약 카드 숫자 = 탭 개수).
+  const [statusTab, setStatusTab] = useState<AdsShellStatusTab>(() => {
+    const fromUrl = (searchParams.get(ADS_WORKSPACE_STATUS_URL_PARAM) ?? "").trim();
+    return statusTabsForMode(mode).some((t) => t.id === fromUrl)
+      ? (fromUrl as AdsShellStatusTab)
+      : defaultStatusTabForMode(mode);
+  });
   const [family, setFamily] = useState<AdsShellProductFamily>("all");
   const [selected, setSelected] = useState<AdsActionItem | null>(null);
   const [manageOpenId, setManageOpenId] = useState<string | null>(null);
@@ -442,20 +377,13 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         heroCap: 5,
       };
     }
-    const all = collectPool(model).map((i) => toAdsShellListRow(i, ko));
-    const scoped = filterRowsByMode(all, mode);
-    const hero = model.occupancy?.find((o) => o.placementKey === "STORES_HOME_HERO");
+    const hero = computeAdsWorkspaceHeroOccupancy(model);
     return {
-      pending: scoped.filter((r) => r.statusTab === "pending").length,
-      live: scoped.filter((r) => r.statusTab === "live").length,
-      waiting: scoped.filter((r) => r.statusTab === "waiting").length,
-      incomplete: scoped.filter((r) => r.statusTab === "incomplete").length,
-      scheduled: scoped.filter((r) => r.statusTab === "scheduled").length,
-      vacant: hero?.vacant ?? 0,
-      heroCap:
-        hero?.capacity ?? BANNER_PLACEMENT_CAPACITY_SSOT.STORES_HOME_HERO.defaultCapacity,
+      ...computeAdsWorkspaceSummaryCounts(model, mode),
+      vacant: hero.vacant,
+      heroCap: hero.capacity,
     };
-  }, [model, ko, mode]);
+  }, [model, mode]);
 
   const popupQueue = useMemo(() => {
     if (!model) return [] as Array<{

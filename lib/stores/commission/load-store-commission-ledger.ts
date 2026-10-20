@@ -449,6 +449,24 @@ export async function loadStoreCommissionIntegrity(
 }
 
 /** Positions + names for the stores in scope (Admin overview / Owner header). */
+/**
+ * 관리자 전체 매장 캐시 현황 대상 — 승인 매장 + 캐시 계정이 있는 매장.
+ * `/api/admin/store-commission-ledger`(「미납 관리」)와 통합 대시보드가 같은 집합을 쓴다.
+ */
+export async function loadAdminStoreCashOverviewIds(sb: SupabaseClient): Promise<string[]> {
+  const [approved, accounts] = await Promise.all([
+    sb.from("stores").select("id").eq("approval_status", "approved").limit(5000),
+    sb.from("business_cash_accounts").select("store_id").limit(5000),
+  ]);
+  if (approved.error) throw new Error(approved.error.message);
+  return [
+    ...new Set([
+      ...(approved.data ?? []).map((s) => String((s as { id: string }).id)),
+      ...(accounts.data ?? []).map((a) => String((a as { store_id: string }).store_id)),
+    ]),
+  ];
+}
+
 export async function loadStoreCashOverview(
   sb: SupabaseClient,
   storeIds: readonly string[]

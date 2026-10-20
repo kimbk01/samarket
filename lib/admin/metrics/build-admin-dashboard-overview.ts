@@ -2,23 +2,24 @@
  * 통합 대시보드 응답 조립 (설계 v4 §3) — 지표 레지스트리 + 출처(sources) → 탭별 응답.
  * 출처는 주입한다(테스트는 가짜 출처, 서버는 `createAdminDashboardSources`). 출처 키마다 1회만 읽는다.
  * 실패 = value null + error (0 금지). 권한: 접근표로 열 수 없는 지표·링크·카테고리는 숨긴다.
+ * 기간: 선택 기간(오늘·어제·7일·30일, PHT)은 출처 생성 시 넘기고, 링크에도 같은 날짜를 싣는다.
  */
 import {
-  ADMIN_ACTION_QUEUE_REGISTRY,
   ADMIN_ACTION_QUEUE_REGISTRY_BY_KEY,
   type AdminActionQueueCategory,
   type AdminActionQueueCategoryResult,
 } from "@/lib/admin/admin-action-queue-registry";
 import { canAccessAdminRoute, type AdminRouteAccessActor } from "@/lib/admin/access/admin-route-access";
+import type { AdminDashboardPeriodRange } from "@/lib/admin/metrics/dashboard-period";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import {
+  ADMIN_DASHBOARD_ADMIN_QUEUE_CATEGORIES,
   ADMIN_DASHBOARD_BAND,
   ADMIN_DASHBOARD_TRENDS,
   ADMIN_QUEUE_PRIORITY_RANK,
   getAdminDashboardTab,
   getAdminMetricDefinition,
   resolveAdminMetricHref,
-  type AdminDashboardDomainCardDef,
   type AdminDashboardTabDef,
   type AdminDashboardTabId,
   type AdminDashboardTrendId,
@@ -28,12 +29,13 @@ import {
 } from "@/lib/admin/metrics/registry";
 import type {
   AdminDashboardBandTile,
-  AdminDashboardDomainCard,
   AdminDashboardMetricValue,
   AdminDashboardOverviewPayload,
   AdminDashboardPart,
   AdminDashboardPendingItem,
   AdminDashboardPendingPayload,
+  AdminDashboardRecentGroup,
+  AdminDashboardRecentPayload,
   AdminDashboardTrendPayload,
   AdminDashboardTrendPoint,
 } from "@/lib/admin/metrics/dashboard-overview-contract";
@@ -42,8 +44,6 @@ export type AdminDashboardMetricEntry = {
   value: number | null;
   /** 권한 범위 밖 — 표시하지 않는다 */
   forbidden?: boolean;
-  /** 도메인 지표 구역 (action·risk·state …) — 도메인 카드 합계용 */
-  section?: string;
 };
 
 export type AdminDashboardMetricMap = ReadonlyMap<string, AdminDashboardMetricEntry>;
@@ -53,14 +53,17 @@ export type AdminDashboardSources = {
   metrics: (key: Exclude<AdminMetricSourceKey, "queue">) => Promise<AdminDashboardMetricMap>;
   /** 처리 대기 레지스트리 결과 (호출 관리자 권한 범위). 실패는 throw. */
   queue: () => Promise<readonly AdminActionQueueCategoryResult[]>;
-  /** 추세 점 (PHT 버킷). 실패는 throw. */
-  trend: (id: AdminDashboardTrendId, range: 7 | 30) => Promise<AdminDashboardTrendPoint[]>;
+  /** 추세 점 (PHT 일별, 오늘 포함 최근 days 일). 실패는 throw. */
+  trend: (id: AdminDashboardTrendId, days: 7 | 30) => Promise<AdminDashboardTrendPoint[]>;
+  /** 최근 활동 (종류별 최신 5건). 실패는 throw. */
+  recent: () => Promise<readonly AdminDashboardRecentGroup[]>;
 };
 
 export type BuildAdminDashboardOverviewInput = {
   tab: AdminDashboardTabId;
   parts: ReadonlySet<AdminDashboardPart>;
-  range: 7 | 30;
+  /** 선택 기간 — 출처(`sources`)도 같은 기간으로 만들어져 있어야 한다 */
+  range: AdminDashboardPeriodRange;
   actor: AdminRouteAccessActor;
   sources: AdminDashboardSources;
   now?: Date;
@@ -106,6 +109,7 @@ export function createAdminDashboardResolver(input: {
     ...(def.shortKo ? { shortKo: def.shortKo } : {}),
     ...(def.shortEn ? { shortEn: def.shortEn } : {}),
     unit: def.unit,
+    period: def.period,
     href,
   });
 
@@ -136,44 +140,12 @@ export function createAdminDashboardResolver(input: {
     return { ...base(def, href), value: entry.value };
   }
 
-  async function resolveDomainCard(card: AdminDashboardDomainCardDef): Promise<AdminDashboardDomainCard | null> {
-    if (!canAccessAdminRoute(card.href, actor)) return null;
-    const [kpis, src] = await Promise.all([Promise.all(card.kpiMetricIds.map(resolveMetric)), source(card.domain)]);
-    const out: AdminDashboardDomainCard = {
-      domain: card.domain,
-      labelKo: card.labelKo,
-      labelEn: card.labelEn,
-      href: card.href,
-      kpis: kpis.filter((k): k is AdminDashboardMetricValue => k !== null),
-      pending: null,
-      risk: null,
-    };
-    if (!src.ok) return { ...out, error: `${card.domain}:${src.error}` };
-    const sum = (section: string): number | null => {
-      let n = 0;
-      for (const e of src.data.values()) {
-        if (e.section !== section || e.forbidden) continue;
-        if (e.value === null) return null;
-        n += e.value;
-      }
-      return n;
-    };
-    return { ...out, pending: sum("action"), risk: sum("risk") };
-  }
-
   async function resolvePending(tab: AdminDashboardTabDef): Promise<AdminDashboardPendingPayload> {
     const q = await queue();
-    if (!q.ok) return { items: [], complete: false, error: `queue:${q.error}` };
+    if (!q.ok) return { items: [], total: null, complete: false, error: `queue:${q.error}` };
     const byKey = new Map(q.data.map((c) => [c.key, c]));
     const keys: readonly AdminActionQueueCategory[] =
-      tab.pending.kind === "categories"
-        ? tab.pending.categories
-        : ADMIN_ACTION_QUEUE_REGISTRY.filter(
-            (d) =>
-              d.lifecycle === "active" &&
-              d.nextActor === "admin" &&
-              (d.priority === "P0_CRITICAL" || d.priority === "P1_ACTION_REQUIRED")
-          ).map((d) => d.key);
+      tab.pending.kind === "categories" ? tab.pending.categories : ADMIN_DASHBOARD_ADMIN_QUEUE_CATEGORIES;
 
     const items: AdminDashboardPendingItem[] = [];
     let complete = true;
@@ -202,8 +174,8 @@ export function createAdminDashboardResolver(input: {
         ADMIN_QUEUE_PRIORITY_RANK[a.priority] - ADMIN_QUEUE_PRIORITY_RANK[b.priority] ||
         (b.count ?? Number.MAX_SAFE_INTEGER) - (a.count ?? Number.MAX_SAFE_INTEGER)
     );
-    const limited = tab.pending.kind === "top_p0_p1" ? items.slice(0, tab.pending.limit) : items;
-    return { items: limited, complete };
+    const total = complete ? items.reduce((n, i) => n + (i.count ?? 0), 0) : null;
+    return { items, total, complete };
   }
 
   async function resolveBand(): Promise<AdminDashboardBandTile[]> {
@@ -230,18 +202,15 @@ export function createAdminDashboardResolver(input: {
     return tiles.filter((t): t is AdminDashboardBandTile => t !== null);
   }
 
-  async function resolveTrend(tab: AdminDashboardTabDef, range: 7 | 30): Promise<AdminDashboardTrendPayload | null> {
+  async function resolveTrend(tab: AdminDashboardTabDef, days: 7 | 30): Promise<AdminDashboardTrendPayload | null> {
     const def = ADMIN_DASHBOARD_TRENDS[tab.trend];
     if (!canAccessAdminRoute(def.href, actor)) return null;
-    const r: 7 | 30 = def.ranges.includes(range) ? range : def.ranges[0];
-    const res = await settle(Promise.resolve().then(() => sources.trend(def.id, r)));
+    const res = await settle(Promise.resolve().then(() => sources.trend(def.id, days)));
     return {
       id: def.id,
       labelKo: def.labelKo,
       labelEn: def.labelEn,
-      bucket: def.bucket,
-      range: r,
-      ranges: def.ranges,
+      days,
       unit: def.unit,
       series: def.series.map((s) => ({ key: s.key, labelKo: s.labelKo, labelEn: s.labelEn })),
       points: res.ok ? res.data : [],
@@ -250,7 +219,14 @@ export function createAdminDashboardResolver(input: {
     };
   }
 
-  return { resolveMetric, resolveDomainCard, resolvePending, resolveBand, resolveTrend };
+  /** 최근 활동 — 전체 목록 화면을 열 수 있는 종류만. */
+  async function resolveRecent(): Promise<AdminDashboardRecentPayload> {
+    const res = await settle(Promise.resolve().then(() => sources.recent()));
+    if (!res.ok) return { groups: [], error: res.error };
+    return { groups: res.data.filter((g) => canAccessAdminRoute(g.href, actor)).map((g) => ({ ...g })) };
+  }
+
+  return { resolveMetric, resolvePending, resolveBand, resolveTrend, resolveRecent };
 }
 
 export async function buildAdminDashboardOverview(
@@ -259,15 +235,19 @@ export async function buildAdminDashboardOverview(
   const now = input.now ?? new Date();
   const todayPht = formatAdminManilaDate(now);
   const tab = getAdminDashboardTab(input.tab);
-  const r = createAdminDashboardResolver({ actor: input.actor, sources: input.sources, hrefParams: { todayPht } });
+  const r = createAdminDashboardResolver({
+    actor: input.actor,
+    sources: input.sources,
+    hrefParams: { todayPht, range: input.range },
+  });
   const want = (p: AdminDashboardPart) => input.parts.has(p);
 
-  const [band, metrics, domainCards, trend, pending] = await Promise.all([
+  const [band, metrics, trend, pending, recent] = await Promise.all([
     want("band") ? r.resolveBand() : Promise.resolve(undefined),
     want("metrics") ? Promise.all(tab.metricIds.map(r.resolveMetric)) : Promise.resolve(undefined),
-    want("metrics") && tab.domainCards ? Promise.all(tab.domainCards.map(r.resolveDomainCard)) : Promise.resolve(undefined),
-    want("trend") ? r.resolveTrend(tab, input.range) : Promise.resolve(undefined),
+    want("trend") ? r.resolveTrend(tab, input.range.trendDays) : Promise.resolve(undefined),
     want("pending") ? r.resolvePending(tab) : Promise.resolve(undefined),
+    want("recent") ? r.resolveRecent() : Promise.resolve(undefined),
   ]);
 
   const payload: AdminDashboardOverviewPayload = {
@@ -275,14 +255,15 @@ export async function buildAdminDashboardOverview(
     tab: tab.id,
     generatedAt: now.toISOString(),
     todayPht,
+    period: { id: input.range.period, fromDay: input.range.fromDay, toDay: input.range.toDay },
   };
   if (band) payload.band = band;
   if (metrics) {
     payload.metrics = metrics.filter((m): m is AdminDashboardMetricValue => m !== null);
     payload.shortcuts = tab.shortcuts.filter((s) => canAccessAdminRoute(s.href, input.actor)).map((s) => ({ ...s }));
   }
-  if (domainCards) payload.domainCards = domainCards.filter((c): c is AdminDashboardDomainCard => c !== null);
   if (trend) payload.trend = trend;
   if (pending) payload.pending = pending;
+  if (recent) payload.recent = recent;
   return payload;
 }

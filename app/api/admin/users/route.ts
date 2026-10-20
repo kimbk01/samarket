@@ -19,6 +19,7 @@ import {
 } from "@/lib/admin-users/member-role-badges";
 import {
   ADMIN_MEMBER_STORE_NAME_MATCH_LIMIT,
+  adminMemberJoinedRangeOps,
   adminMemberOriginFilterOps,
   adminMemberPrivilegeFilterPlan,
   adminMemberSearchFilterOps,
@@ -292,6 +293,8 @@ export async function GET(req: NextRequest) {
   const joinedToRaw = String(req.nextUrl.searchParams.get("joinedTo") ?? "").trim();
   const joinedFrom = /^\d{4}-\d{2}-\d{2}$/.test(joinedFromRaw) ? joinedFromRaw : "";
   const joinedTo = /^\d{4}-\d{2}-\d{2}$/.test(joinedToRaw) ? joinedToRaw : "";
+  // 가입일 = PHT 날짜 (대시보드 「신규 가입」과 같은 경계)
+  const joinedRangeOps = adminMemberJoinedRangeOps(joinedFrom, joinedTo);
   const sortRaw = String(req.nextUrl.searchParams.get("sort") ?? "created_at_desc").trim().toLowerCase();
   const sortColumn =
     sortRaw === "last_login_asc" || sortRaw === "last_login_desc" ? "last_login_at" : "created_at";
@@ -401,15 +404,13 @@ export async function GET(req: NextRequest) {
         return { data: [] as ProfileRow[], error: null as { message?: string } | null, count: 0 };
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Postgrest filter chain
-      let query: any = applyProfileFilterOps(
+      const query: any = applyProfileFilterOps(
         supabase
           .from("profiles")
           .select(select, { count: "exact" })
           .order(sortColumn, { ascending: sortAscending, nullsFirst: false }),
-        planned.ops,
+        [...planned.ops, ...joinedRangeOps],
       );
-      if (joinedFrom) query = query.gte("created_at", `${joinedFrom}T00:00:00.000Z`);
-      if (joinedTo) query = query.lte("created_at", `${joinedTo}T23:59:59.999Z`);
       return query.range(from, to);
     };
 
@@ -426,12 +427,10 @@ export async function GET(req: NextRequest) {
       const planned = listOps(includeAuthLoginEmail, opts);
       if (planned.empty) return { count: 0 as number | null, error: null as string | null };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Postgrest filter chain
-      let countQuery: any = applyProfileFilterOps(
+      const countQuery: any = applyProfileFilterOps(
         supabase.from("profiles").select("id", { count: "exact", head: true }),
-        planned.ops,
+        [...planned.ops, ...joinedRangeOps],
       );
-      if (joinedFrom) countQuery = countQuery.gte("created_at", `${joinedFrom}T00:00:00.000Z`);
-      if (joinedTo) countQuery = countQuery.lte("created_at", `${joinedTo}T23:59:59.999Z`);
       const resolved = await countQuery;
       if (resolved.error) return { count: null, error: resolved.error.message ?? "count_failed" };
       return { count: resolved.count ?? 0, error: null };

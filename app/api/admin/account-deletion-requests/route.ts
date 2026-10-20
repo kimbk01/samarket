@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
 
   let q = sb
     .from("account_deletion_requests")
-    .select("id, user_id, status, reason, requested_at, processed_at, processed_by, admin_note")
+    // count exact = 같은 조건의 전체 건수 (화면 「총 N건」 · 통합 대시보드 「탈퇴 요청」과 같은 값)
+    .select("id, user_id, status, reason, requested_at, processed_at, processed_by, admin_note", { count: "exact" })
     .order("requested_at", { ascending: false })
     .limit(limit);
 
@@ -41,10 +42,10 @@ export async function GET(req: NextRequest) {
     q = q.eq("status", statusRaw);
   }
 
-  const { data, error } = await q;
+  const { data, error, count } = await q;
   if (error) {
     if (isMissingRelation(error.message, "account_deletion_requests")) {
-      return NextResponse.json({ ok: true, items: [], note: "table_missing" });
+      return NextResponse.json({ ok: true, items: [], total: 0, note: "table_missing" });
     }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
@@ -92,7 +93,7 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ ok: true, items });
+  return NextResponse.json({ ok: true, items, total: count ?? items.length });
 }
 
 /**

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
+  loadAdminStoreCashOverviewIds,
   loadStoreCashOverview,
   loadStoreCommissionBreakdown,
   loadStoreCommissionLedgerPage,
@@ -26,22 +27,7 @@ export async function GET(req: NextRequest) {
 
   const q = parseStoreCommissionLedgerQuery(req.nextUrl.searchParams);
   try {
-    let overviewIds: string[];
-    if (q.storeId) {
-      overviewIds = [q.storeId];
-    } else {
-      const [approved, accounts] = await Promise.all([
-        sb.from("stores").select("id").eq("approval_status", "approved").limit(5000),
-        sb.from("business_cash_accounts").select("store_id").limit(5000),
-      ]);
-      if (approved.error) throw new Error(approved.error.message);
-      overviewIds = [
-        ...new Set([
-          ...(approved.data ?? []).map((s) => String(s.id)),
-          ...(accounts.data ?? []).map((a) => String(a.store_id)),
-        ]),
-      ];
-    }
+    const overviewIds = q.storeId ? [q.storeId] : await loadAdminStoreCashOverviewIds(sb);
     const scope = q.storeId ? [q.storeId] : null;
     const [ledger, overview, gateSetting, breakdown, payable] = await Promise.all([
       loadStoreCommissionLedgerPage(sb, {

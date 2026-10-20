@@ -1,5 +1,6 @@
 /** Admin member list query helpers — R2 independent filter axes. No leading-wildcard index claim; UUID uses eq(id). */
 
+import { manilaDateRangeToUtc } from "@/lib/admin/metrics/manila-period";
 import type { AdminUserStatusCategory } from "@/lib/types/admin-user";
 
 export const ADMIN_MEMBER_UUID_RE =
@@ -77,7 +78,8 @@ export type ProfileFilterOp =
   | { type: "is"; column: string; value: null }
   | { type: "or"; value: string }
   | { type: "in"; column: string; value: string[] }
-  | { type: "not_in"; column: string; value: string };
+  | { type: "not_in"; column: string; value: string }
+  | { type: "gte" | "lt"; column: string; value: string };
 
 export type FilterableQuery<T> = {
   eq: (column: string, value: string | boolean) => T;
@@ -85,6 +87,8 @@ export type FilterableQuery<T> = {
   or: (value: string) => T;
   in: (column: string, values: readonly string[]) => T;
   not: (column: string, operator: string, value: string) => T;
+  gte: (column: string, value: string) => T;
+  lt: (column: string, value: string) => T;
 };
 
 export function applyProfileFilterOps<T>(q: T, ops: readonly ProfileFilterOp[]): T {
@@ -94,6 +98,8 @@ export function applyProfileFilterOps<T>(q: T, ops: readonly ProfileFilterOp[]):
     else if (op.type === "is") next = next.is(op.column, op.value) as typeof next;
     else if (op.type === "or") next = next.or(op.value) as typeof next;
     else if (op.type === "in") next = next.in(op.column, op.value) as typeof next;
+    else if (op.type === "gte") next = next.gte(op.column, op.value) as typeof next;
+    else if (op.type === "lt") next = next.lt(op.column, op.value) as typeof next;
     else next = next.not(op.column, "in", op.value) as typeof next;
   }
   return next;
@@ -267,4 +273,19 @@ export function adminMemberOriginFilterOps(
         "auth_provider.eq.email,provider.eq.email,and(auth_provider.is.null,provider.is.null)",
     },
   ];
+}
+
+/**
+ * 가입일 필터 — PHT 날짜 "YYYY-MM-DD"(양끝 포함) → `created_at` UTC [from, to).
+ * 회원 목록 API 와 통합 대시보드가 같은 경계를 쓴다 (UTC 날짜로 자르지 않는다).
+ */
+export function adminMemberJoinedRangeOps(
+  joinedFrom: string | null | undefined,
+  joinedTo: string | null | undefined,
+): ProfileFilterOp[] {
+  const { fromIso, toIso } = manilaDateRangeToUtc(joinedFrom, joinedTo);
+  const ops: ProfileFilterOp[] = [];
+  if (fromIso) ops.push({ type: "gte", column: "created_at", value: fromIso });
+  if (toIso) ops.push({ type: "lt", column: "created_at", value: toIso });
+  return ops;
 }
