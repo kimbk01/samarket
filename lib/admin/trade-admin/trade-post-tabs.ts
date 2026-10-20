@@ -13,7 +13,6 @@ export const TRADE_POST_TABS = [
   "admin_deleted",
   "owner_hidden",
   "owner_deleted",
-  "legacy_hidden",
   "reported",
   "unclassified",
 ] as const;
@@ -29,7 +28,6 @@ export const TRADE_POST_TAB_LABELS: Record<TradePostTab, string> = {
   admin_deleted: "관리자 삭제",
   owner_hidden: "판매자 숨김",
   owner_deleted: "판매자 삭제",
-  legacy_hidden: "원인 미확인 숨김",
   reported: "신고됨",
   unclassified: "분류 확인 필요",
 };
@@ -64,7 +62,6 @@ export const MODERATION_STATE_LABELS: Record<string, string> = {
   visible: "노출",
   admin_hidden: "관리자 숨김",
   admin_deleted: "관리자 삭제",
-  legacy_hidden: "원인 미확인 숨김",
 };
 
 export const OWNER_STATE_LABELS: Record<string, string> = {
@@ -74,7 +71,7 @@ export const OWNER_STATE_LABELS: Record<string, string> = {
 };
 
 /** 관리자 노출 조치 — 현재 상태에서 가능한 조치만 (서버 함수 admin_trade_post_moderate 와 같은 규칙) */
-export type TradePostModerationAction = "hide" | "unhide" | "delete" | "undelete" | "confirm_admin_hidden";
+export type TradePostModerationAction = "hide" | "unhide" | "delete" | "undelete";
 
 export function allowedTradePostModerationActions(moderationState: string): TradePostModerationAction[] {
   switch (moderationState) {
@@ -84,9 +81,6 @@ export function allowedTradePostModerationActions(moderationState: string): Trad
       return ["unhide", "delete"];
     case "admin_deleted":
       return ["undelete"];
-    case "legacy_hidden":
-      // O-8: 원인 미확인 숨김은 관리자 복원 없음 (판매자 복원 동작은 현행 유지)
-      return ["confirm_admin_hidden", "delete"];
     default:
       return [];
   }
@@ -97,5 +91,4 @@ export const TRADE_POST_MODERATION_ACTION_LABELS: Record<TradePostModerationActi
   unhide: "숨김 해제",
   delete: "삭제",
   undelete: "삭제 취소",
-  confirm_admin_hidden: "관리자 숨김으로 확정",
 };

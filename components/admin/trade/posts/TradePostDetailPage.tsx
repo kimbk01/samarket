@@ -821,7 +821,6 @@ const MODERATION_NOTICE: Record<TradePostModerationAction, string> = {
   unhide: "앱에 다시 보입니다. 판매 단계는 그대로입니다.",
   delete: "앱에서 삭제된 글로 처리됩니다. 판매자는 직접 되돌릴 수 없습니다.",
   undelete: "삭제를 취소하고 관리자 숨김 상태로 돌립니다.",
-  confirm_admin_hidden: "원인 미확인 숨김을 관리자 숨김으로 확정합니다.",
 };
 
 const FIELD_LABEL: Record<string, string> = {

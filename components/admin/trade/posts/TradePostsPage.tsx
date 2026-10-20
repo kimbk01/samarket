@@ -93,7 +93,6 @@ type ListResponse = {
 const EMPTY_TEXT: Partial<Record<TradePostTab, string>> = {
   all: "조건에 맞는 거래 게시물이 없습니다.",
   reported: "처리 대기 중인 신고가 있는 게시물이 없습니다.",
-  legacy_hidden: "원인 미확인 숨김 게시물이 없습니다.",
   unclassified: "분류 확인이 필요한 게시물이 없습니다.",
 };
 
