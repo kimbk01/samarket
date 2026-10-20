@@ -71,7 +71,9 @@ describe("dashboard JSX follows MYPAGE_HOME_MEMBER_GROUP_ORDER", () => {
     // 활동 = 거래+커뮤니티 한 그룹 — 홈에서 커뮤니티 섹션 별도 렌더 금지
     expect(jsx).not.toContain("<MyInfoCommunityMenuSection");
     // 배너 = 프로필 블록(필수정보 포함) 바로 아래
-    const req = jsx.indexOf("<MypageRequiredInfoSummary");
+    // 조회 실패 분기에도 필수정보 3행을 렌더 (real-screen-redesign §11) — 정상 분기 순서는 마지막 등장 기준
+    const req = jsx.lastIndexOf("<MypageRequiredInfoSummary");
+    expect(jsx.indexOf("<MypageRequiredInfoSummary")).toBeGreaterThan(jsx.indexOf('data-testid="mypage-home-load-failed"'));
     const banner = jsx.indexOf("<MypageHomeCmsBanner");
     expect(req).toBeGreaterThan(jsx.indexOf("<MypageProfileSummary"));
     expect(banner).toBeGreaterThan(req);
