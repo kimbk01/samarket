@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { NOTIFICATION_DOMAINS } from "@/lib/notifications/notification-domains";
@@ -79,6 +80,23 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
   }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "admin_notification_settings",
+    targetId: items.map((row) => row.type).join(","),
+    action: "admin_notification_settings.update",
+    after: {
+      items: items.map((row) => ({
+        type: row.type,
+        sound_url: row.sound_url,
+        volume: row.volume,
+        repeat_count: row.repeat_count,
+        cooldown_seconds: row.cooldown_seconds,
+        enabled: row.enabled,
+      })),
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }

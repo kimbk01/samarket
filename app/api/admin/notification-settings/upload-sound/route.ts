@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { NOTIFICATION_DOMAINS } from "@/lib/notifications/notification-domains";
@@ -163,6 +164,15 @@ export async function POST(req: NextRequest) {
     console.error("[notification-settings upload-sound db]", dbErr);
     return NextResponse.json({ ok: false, error: dbErr.message }, { status: 500 });
   }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "admin_notification_settings",
+    targetId: type,
+    action: "admin_notification_settings.upload_sound",
+    before: { sound_url: prevUrl ?? null },
+    after: { sound_url: publicUrl, path, size: buf.length, contentType: mime },
+  });
 
   return NextResponse.json({ ok: true, sound_url: publicUrl, type });
 }

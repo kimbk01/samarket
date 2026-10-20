@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiActor } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { markAdminNotificationsRead } from "@/lib/admin/notifications/admin-notification-service";
 
 export const runtime = "nodejs";
@@ -29,5 +30,12 @@ export async function POST(req: NextRequest) {
   if (!r.ok) {
     return NextResponse.json({ ok: false, error: r.error }, { status: r.error === "nothing_to_mark" ? 400 : 500 });
   }
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "admin_notification",
+    targetId: body.all === true ? "all" : ids.slice(0, 20).join(","),
+    action: "admin_notification.mark_read",
+    after: { all: body.all === true, idCount: ids.length, updated: r.updated },
+  });
   return NextResponse.json({ ok: true, updated: r.updated });
 }

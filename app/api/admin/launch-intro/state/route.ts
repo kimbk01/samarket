@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { launchIntroAdminSnapshot } from "@/lib/launch-intro/admin-snapshot";
 import { setLaunchIntroLiveState, type LaunchIntroStateAction } from "@/lib/launch-intro/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -29,6 +30,13 @@ export async function POST(req: NextRequest) {
     actor: admin.userId ?? null,
   });
   if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: res.status ?? 500 });
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "launch_intro_live",
+    targetId: typeof body.publicationId === "string" ? body.publicationId : "global",
+    action: `launch_intro_live.${action}`,
+    after: { action },
+  });
   const snap = await launchIntroAdminSnapshot(sb);
   if (!snap.ok) return NextResponse.json({ ok: false, error: snap.error }, { status: 500 });
   return NextResponse.json(snap);

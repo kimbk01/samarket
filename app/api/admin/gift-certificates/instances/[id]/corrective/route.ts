@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { GIFT_RPCS } from "@/lib/gift-certificate/gift-certificate-schema";
 
 export const runtime = "nodejs";
@@ -65,5 +66,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (result && result.ok === false) {
     return NextResponse.json({ ok: false, error: result.error || "rpc_failed" }, { status: 400 });
   }
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "gift_certificate_instance",
+    targetId: id,
+    action: `gift_certificate_instance.${action}`,
+    after: {
+      reason,
+      ...(action === "adjust_validity" ? { validUntil: args.p_valid_until ?? null } : {}),
+    },
+  });
   return NextResponse.json({ ok: true, result: data });
 }

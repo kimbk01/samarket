@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { launchIntroAdminSnapshot } from "@/lib/launch-intro/admin-snapshot";
 import { deleteLaunchIntroDraft, saveLaunchIntroDraft, type Sb } from "@/lib/launch-intro/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -47,6 +48,13 @@ export async function PUT(req: NextRequest) {
     actor: admin.userId ?? null,
   });
   if (!saved.ok) return NextResponse.json({ ok: false, error: saved.error }, { status: saved.status ?? 500 });
+  await appendAdminRouteAudit(s.sb, req, {
+    actorId: admin.userId,
+    targetType: "launch_intro_draft",
+    targetId: saved.draft.id,
+    action: typeof body.id === "string" ? "launch_intro_draft.update" : "launch_intro_draft.create",
+    after: { version: saved.draft.version },
+  });
   return respondSnapshot(s.sb);
 }
 
@@ -60,5 +68,11 @@ export async function DELETE(req: NextRequest) {
   if (!/^[0-9a-f-]{36}$/.test(id)) return NextResponse.json({ ok: false, error: "id_required" }, { status: 400 });
   const res = await deleteLaunchIntroDraft(s.sb, id);
   if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: res.status ?? 500 });
+  await appendAdminRouteAudit(s.sb, req, {
+    actorId: admin.userId,
+    targetType: "launch_intro_draft",
+    targetId: id,
+    action: "launch_intro_draft.delete",
+  });
   return respondSnapshot(s.sb);
 }

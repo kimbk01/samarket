@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { ADMIN_MESSENGER_CALL_SOUND_SETTINGS_SELECT } from "@/lib/admin/admin-public-settings-select";
 import { invalidateMessengerCallAdminPolicyCache } from "@/lib/community-messenger/messenger-call-admin-policy";
@@ -110,6 +111,13 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
     invalidateMessengerCallAdminPolicyCache();
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "admin_messenger_call_sound_settings",
+      targetId: "default",
+      action: "admin_messenger_call_sound_settings.update",
+      after: patch,
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -141,5 +149,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
   }
   invalidateMessengerCallAdminPolicyCache();
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "admin_messenger_call_sound_settings",
+    targetId: "default",
+    action: "admin_messenger_call_sound_settings.create",
+    after: patch,
+  });
   return NextResponse.json({ ok: true });
 }

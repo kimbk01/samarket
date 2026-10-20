@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   CM_HOME_CUTOVER_GATE_SCHEMA_VERSION,
@@ -101,6 +102,15 @@ export async function PUT(request: NextRequest) {
   if (!saved.ok) {
     return NextResponse.json({ ok: false, error: saved.error }, { status: 500 });
   }
+
+  await appendAdminRouteAudit(sb, request, {
+    actorId: admin.userId,
+    targetType: "cm_home_cutover_gate",
+    targetId: "global",
+    action: "cm_home_cutover_gate.update",
+    before: current.ok ? { gateVersion: current.config.gateVersion, state: current.config.state, kill: current.config.kill } : null,
+    after: { gateVersion: next.gateVersion, state, kill, percent, allowlistCount: allowlist.length, pillarScope },
+  });
 
   // normalized effective 미리보기 (관리자 확인용, 저장에는 영향 없음)
   const effectiveForAdmin = resolveCmHomeCutoverEffectiveGate(next, admin.userId);

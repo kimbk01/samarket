@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   createLaunchIntroDraftUpload,
   finalizeLaunchIntroDraftUpload,
@@ -35,6 +36,13 @@ export async function POST(req: NextRequest) {
   if (body.action === "finish") {
     const res = await finalizeLaunchIntroDraftUpload(sb, body.path);
     if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: res.status ?? 500 });
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "launch_intro_asset",
+      targetId: res.ref.draftPath ?? String(body.path ?? ""),
+      action: "launch_intro_asset.upload",
+      after: { path: res.ref.draftPath ?? null, kind: res.kind, size: res.ref.bytes, contentType: res.ref.mime },
+    });
     const url = res.ref.draftPath ? await signLaunchIntroDraftImage(sb, res.ref.draftPath) : null;
     return NextResponse.json({ ok: true, kind: res.kind, ref: res.ref, url });
   }

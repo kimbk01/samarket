@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import type { AdApplyStatus } from "@/lib/ads/types";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { adminPatchPostAdInDb } from "@/lib/ads/post-ads-supabase";
@@ -56,6 +57,13 @@ export async function PATCH(
         { status: db.notFound ? 404 : db.httpStatus ?? 400 }
       );
     }
+    await appendAdminRouteAudit(svc, req, {
+      actorId: adminId,
+      targetType: "post_ad",
+      targetId: adId,
+      action: `post_ad.${action}`,
+      after: { action, adminNote: adminNote ?? null },
+    });
     return NextResponse.json({ ok: true, source: "supabase" });
   }
 
@@ -86,6 +94,13 @@ export async function PATCH(
     if (error || !data) {
       return NextResponse.json({ ok: false, error: error?.message ?? "not_found" }, { status: 404 });
     }
+    await appendAdminRouteAudit(svc, req, {
+      actorId: adminId,
+      targetType: "post_ad",
+      targetId: adId,
+      action: "post_ad.update",
+      after: payload,
+    });
     return NextResponse.json({ ok: true, source: "supabase" });
   }
 

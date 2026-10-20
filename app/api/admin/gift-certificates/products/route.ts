@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   assertGiftScopeStoreId,
   isGiftScope,
@@ -336,6 +337,23 @@ export async function POST(req: NextRequest) {
     eventType: activate ? "PRODUCT_CREATED_ACTIVE" : "PRODUCT_CREATED_DRAFT",
     operatorId: gate.actor.userId,
     after: {
+      active: activate,
+      mall_visible: mallVisible,
+      application_id: applicationId || null,
+    },
+  });
+
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "gift_certificate_product",
+    targetId: String((data as { id?: string }).id ?? ""),
+    action: "gift_certificate_product.create",
+    after: {
+      title,
+      gift_scope: giftScope,
+      store_id: giftScope === "PLATFORM" ? null : storeId,
+      face_value: faceValue,
+      purchase_price: purchasePrice,
       active: activate,
       mall_visible: mallVisible,
       application_id: applicationId || null,

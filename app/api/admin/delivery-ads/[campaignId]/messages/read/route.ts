@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { isAdminDeliveryAdProduct } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import { markDeliveryAdOperationsRead } from "@/lib/stores/advertising/delivery-ad-operations-unread";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -52,6 +53,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           : 400;
     return NextResponse.json({ ok: false, error: result.error }, { status });
   }
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "delivery_ad_operations_thread",
+    targetId: cid,
+    action: "delivery_ad_operations_thread.mark_read",
+    after: {
+      productKind: body.productKind,
+      threadId: result.threadId,
+      lastReadMessageId: result.lastReadMessageId,
+    },
+  });
   return NextResponse.json({
     ok: true,
     threadId: result.threadId,

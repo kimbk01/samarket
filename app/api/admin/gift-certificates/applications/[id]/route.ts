@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   adminGiftProfileLabel,
   loadAdminGiftProfileMap,
@@ -154,6 +155,13 @@ export async function PATCH(
     operatorId: gate.actor.userId,
     reason: status === "rejected" ? rejectionReason : null,
     after: { status },
+  });
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "gift_certificate_application",
+    targetId: appId,
+    action: `gift_certificate_application.${status}`,
+    after: { status, rejectionReason: status === "rejected" ? rejectionReason : null },
   });
   return NextResponse.json({ ok: true, application: data });
 }

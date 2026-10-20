@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { loadAdminGiftProductDetail } from "@/lib/gift-certificate/admin-gift-product-detail";
 import {
   validateGiftProductExpiryPolicy,
@@ -237,10 +238,18 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     after: data,
   });
 
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "gift_certificate_product",
+    targetId: id,
+    action: "gift_certificate_product.update",
+    after: { eventType, changedKeys: Object.keys(patch).filter((k) => k !== "updated_at") },
+  });
+
   return NextResponse.json({ ok: true, product: data });
 }
 
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
+export async function DELETE(req: NextRequest, ctx: Ctx) {
   const gate = await requireAdminPermission("business");
   if (!gate.ok) return gate.response;
 
@@ -274,6 +283,20 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     eventType: "PRODUCT_DELETED",
     operatorId: gate.actor.userId,
     before: existing,
+  });
+
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "gift_certificate_product",
+    targetId: id,
+    action: "gift_certificate_product.delete",
+    before: existing
+      ? {
+          title: (existing as Record<string, unknown>).title ?? null,
+          store_id: (existing as Record<string, unknown>).store_id ?? null,
+          status: (existing as Record<string, unknown>).status ?? null,
+        }
+      : null,
   });
 
   return NextResponse.json({ ok: true, deleted: id });

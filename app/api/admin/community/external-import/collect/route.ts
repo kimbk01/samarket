@@ -1,4 +1,5 @@
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { NextRequest } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { collectBoardToInbox } from "@/lib/community-operator-import/collect";
@@ -28,6 +29,20 @@ export async function POST(req: NextRequest) {
     const { rows: _rows, ...summary } = res;
     void _rows;
     if (!res.ok) return jsonError(res.error || "collect_failed", 502, { code: `collect_${res.errorKind || "failed"}`, result: summary });
+    await appendCommunityAdminAudit(sb, req, {
+      actorId: auth.userId,
+      targetType: "community_import_board",
+      targetId: `${sourceId}:${boardId}`,
+      action: "community_import_board.collect",
+      after: {
+        sourceId,
+        boardId,
+        pages: res.pages,
+        listed: res.listed,
+        inserted: res.inbox?.inserted ?? 0,
+        changed: res.inbox?.changed ?? 0,
+      },
+    });
     return jsonOk({ result: summary });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "collect_failed";

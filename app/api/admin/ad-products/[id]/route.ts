@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { fetchAdProductByIdFromDb, updateAdProductInDb, type AdProductPatchInput } from "@/lib/ads/ad-products-supabase";
 import type { AdProduct } from "@/lib/ads/types";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -49,13 +50,22 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const updated = await updateAdProductInDb(svc, id, patchFromBody(body));
+  const patch = patchFromBody(body);
+  const updated = await updateAdProductInDb(svc, id, patch);
   if (!updated.ok) {
     return NextResponse.json(
       { ok: false, error: updated.notFound ? "not_found" : updated.error ?? "update_failed" },
       { status: updated.notFound ? 404 : 400 }
     );
   }
+
+  await appendAdminRouteAudit(svc, req, {
+    actorId: admin.userId,
+    targetType: "ad_product",
+    targetId: id,
+    action: "ad_product.update",
+    after: { ...patch },
+  });
 
   return NextResponse.json({ ok: true, product: updated.product });
 }

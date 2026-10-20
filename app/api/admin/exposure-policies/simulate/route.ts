@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import {
@@ -106,6 +107,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       adminId: admin.userId,
       adminNickname: nick || "admin",
       note: `시뮬레이션 ${results.length}건`,
+    });
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "exposure_score_policy",
+      targetId: policy.id,
+      action: "exposure_score_policy.simulate",
+      after: { surface, resultCount: results.length, candidateCount: candidates.length },
     });
   }
 
