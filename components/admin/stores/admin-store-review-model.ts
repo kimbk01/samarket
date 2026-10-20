@@ -46,6 +46,11 @@ export type AdminStoreReviewRow = {
   rejected_reason: string | null;
   revision_note: string | null;
   suspended_reason: string | null;
+  /** ND-2 — 승인 매장 핵심 위치 변경 재검증 표시 (`none` | `pending_reverification`) */
+  core_info_review_status?: string | null;
+  core_info_changed_at?: string | null;
+  core_info_changed_fields?: string[] | null;
+  core_info_verified_at?: string | null;
 };
 
 export type TaxonomyRelation = {

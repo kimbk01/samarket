@@ -28,6 +28,10 @@ import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/inval
 import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
 import { invalidateStorePublicCachesForSlugOnServer } from "@/lib/stores/store-public-cache-invalidate-server";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
+import {
+  STORE_CORE_INFO_REVIEW_NONE,
+  STORE_CORE_INFO_REVIEW_PENDING,
+} from "@/lib/stores/store-core-info-reverification";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
 import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
@@ -80,6 +84,8 @@ type PatchBody = {
   distance_mode?: string;
   /** set_store_delivery_distance — 화면이 불러온 모드 (다르면 409 status_changed → 재조회) */
   expected_distance_mode?: string | null;
+  /** confirm_core_info_reverified — 화면이 본 변경 시각 (다르면 409 status_changed → 재조회) */
+  expected_core_info_changed_at?: string | null;
 };
 
 export async function GET(
@@ -179,7 +185,7 @@ export async function PATCH(
   const { data: store, error: findErr } = await sb
     .from("stores")
     .select(
-      "id, owner_user_id, approval_status, is_visible, first_listed_at, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, delivery_radius_km, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity, region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng"
+      "id, owner_user_id, approval_status, rejected_reason, is_visible, first_listed_at, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, delivery_radius_km, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity, region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng"
     )
     .eq("id", id)
     .maybeSingle();
@@ -227,7 +233,8 @@ export async function PATCH(
     action === "reject_store" ||
     action === "request_revision" ||
     action === "suspend_store" ||
-    action === "resume_store"
+    action === "resume_store" ||
+    action === "reopen_application"
   ) {
     if (!isAdminStoreTransitionAllowed(action as AdminStoreApprovalAction, store.approval_status)) {
       return NextResponse.json(
@@ -235,7 +242,7 @@ export async function PATCH(
         { status: 409 }
       );
     }
-    const before = {
+    const before: Record<string, unknown> = {
       approval_status: store.approval_status,
       is_visible: store.is_visible,
     };
@@ -262,6 +269,14 @@ export async function PATCH(
       patch = {
         approval_status: "revision_requested",
         revision_note: reason,
+      };
+    } else if (action === "reopen_application") {
+      // ACC-04 — 같은 stores 행으로 재심사: 사장님이 보완 화면에서 고쳐 재제출(revision_requested → pending).
+      before.rejected_reason = (store as { rejected_reason?: string | null }).rejected_reason ?? null;
+      patch = {
+        approval_status: "revision_requested",
+        revision_note: reason,
+        rejected_reason: null,
       };
     } else if (action === "suspend_store") {
       patch = {
@@ -305,6 +320,48 @@ export async function PATCH(
       adminActorId: actorId,
     });
     return auditOk(before, patch);
+  }
+
+  if (action === "confirm_core_info_reverified") {
+    // ND-2 — 재검증 완료: 표시가 남아 있고(관리자가 본 변경 시각과 같을 때만) 해제. 동시 변경은 409.
+    const expected = String(body.expected_core_info_changed_at ?? "").trim();
+    let q = sb
+      .from("stores")
+      .update({
+        core_info_review_status: STORE_CORE_INFO_REVIEW_NONE,
+        core_info_verified_at: new Date().toISOString(),
+        core_info_verified_by: actorId,
+      })
+      .eq("id", id)
+      .eq("core_info_review_status", STORE_CORE_INFO_REVIEW_PENDING);
+    if (expected) q = q.eq("core_info_changed_at", expected);
+    const { data: cleared, error: clrErr } = await q.select("id, core_info_changed_at, core_info_changed_fields");
+    if (clrErr) {
+      console.error("[admin/stores PATCH core_info reverified]", clrErr);
+      if (/core_info_/i.test(clrErr.message) && /does not exist|schema cache/i.test(clrErr.message)) {
+        return NextResponse.json({ ok: false, error: "migration_required" }, { status: 503 });
+      }
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+    }
+    if (!cleared || cleared.length === 0) {
+      return NextResponse.json({ ok: false, error: "status_changed" }, { status: 409 });
+    }
+    const row = cleared[0] as { core_info_changed_at?: string | null; core_info_changed_fields?: unknown };
+    return auditOk(
+      {
+        core_info_review_status: STORE_CORE_INFO_REVIEW_PENDING,
+        core_info_changed_at: row.core_info_changed_at ?? null,
+        core_info_changed_fields: row.core_info_changed_fields ?? null,
+        region: store.region,
+        city: store.city,
+        district: store.district,
+        address_line1: store.address_line1,
+        address_line2: store.address_line2,
+        lat: store.lat,
+        lng: store.lng,
+      },
+      { core_info_review_status: STORE_CORE_INFO_REVIEW_NONE }
+    );
   }
 
   if (action === "set_owner_identity_editable") {

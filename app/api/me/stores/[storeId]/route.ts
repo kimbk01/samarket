@@ -22,6 +22,20 @@ import { ownerEditReturnsStoreToPending } from "@/lib/admin-business/admin-store
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
+import {
+  buildOwnerStoreUpdateAuditDiff,
+  OWNER_STORE_PATCH_CURRENT_SELECT,
+} from "@/lib/stores/owner-store-update-audit";
+import {
+  buildStoreCoreInfoReverificationPatch,
+  changedStoreCoreLocationFields,
+  isStoreCoreInfoFlagColumnMissingError,
+  shouldFlagStoreCoreInfoReverification,
+  STORE_CORE_INFO_FLAG_KEYS,
+  type StoreCoreLocationField,
+} from "@/lib/stores/store-core-info-reverification";
+import { createAdminNotification } from "@/lib/admin/notifications/admin-notification-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,9 +140,7 @@ export async function PATCH(
 
   const { data: currentRow, error: curErr } = await sb
     .from("stores")
-    .select(
-      "store_category_id, store_topic_id, region, city, district, address_line1, address_line2, place_id, formatted_address, lat, lng, is_visible, first_listed_at",
-    )
+    .select(OWNER_STORE_PATCH_CURRENT_SELECT)
     .eq("id", sid)
     .maybeSingle();
 
@@ -330,25 +342,53 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "no_fields" }, { status: 400 });
   }
 
-  const { data: updated, error: upErr } = await sb
-    .from("stores")
-    .update(patch)
-    .eq("id", sid)
-    .select(
-      [
-        "id, owner_user_id, store_name, slug, business_type, owner_can_edit_store_identity",
-        "store_category_id, store_topic_id",
-        "description, kakao_id, phone, email, website_url",
-        "region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng",
-        "profile_image_url, business_hours_json, gallery_images_json, is_open",
-        "delivery_available, delivery_radius_km, pickup_available, reservation_available, visit_available, menu_sold_out_bottom",
-        "messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled",
-        "approval_status, is_visible, first_listed_at, rejected_reason, revision_note",
-        "created_at, updated_at, approved_at",
-        "store_categories ( name, slug ), store_topics ( name, slug )",
-      ].join(", ")
-    )
-    .maybeSingle();
+  // ND-2 — 승인 매장의 핵심 위치(주소·좌표) 변경: 즉시 반영 + 관리자 재검증 표시 (같은 UPDATE 로 원자 기록).
+  const currentRecord = currentRow as unknown as Record<string, unknown>;
+  const coreChangedFields: StoreCoreLocationField[] = changedStoreCoreLocationFields(
+    currentRecord,
+    locationBuilt.patch
+  );
+  const flagCoreInfo = shouldFlagStoreCoreInfoReverification(
+    gate.store.approval_status,
+    coreChangedFields
+  );
+  if (flagCoreInfo) {
+    Object.assign(
+      patch,
+      buildStoreCoreInfoReverificationPatch(coreChangedFields, new Date().toISOString())
+    );
+  }
+
+  const runStoreUpdate = (rowPatch: Record<string, unknown>) =>
+    sb
+      .from("stores")
+      .update(rowPatch)
+      .eq("id", sid)
+      .select(
+        [
+          "id, owner_user_id, store_name, slug, business_type, owner_can_edit_store_identity",
+          "store_category_id, store_topic_id",
+          "description, kakao_id, phone, email, website_url",
+          "region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng",
+          "profile_image_url, business_hours_json, gallery_images_json, is_open",
+          "delivery_available, delivery_radius_km, pickup_available, reservation_available, visit_available, menu_sold_out_bottom",
+          "messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled",
+          "approval_status, is_visible, first_listed_at, rejected_reason, revision_note",
+          "created_at, updated_at, approved_at",
+          "store_categories ( name, slug ), store_topics ( name, slug )",
+        ].join(", ")
+      )
+      .maybeSingle();
+
+  let { data: updated, error: upErr } = await runStoreUpdate(patch);
+  let coreInfoFlagSaved = flagCoreInfo;
+  if (upErr && flagCoreInfo && isStoreCoreInfoFlagColumnMissingError(upErr.message)) {
+    // 배포 순서 보호: 플래그 컬럼 마이그레이션 적용 전이면 플래그 없이 저장(감사·관리자 알림은 유지).
+    console.error("[PATCH /api/me/stores/storeId] core_info flag columns missing", upErr.message);
+    for (const k of STORE_CORE_INFO_FLAG_KEYS) delete patch[k];
+    coreInfoFlagSaved = false;
+    ({ data: updated, error: upErr } = await runStoreUpdate(patch));
+  }
 
   if (upErr) {
     console.error("[PATCH /api/me/stores/storeId]", upErr);
@@ -388,6 +428,55 @@ export async function PATCH(
       }).catch((e: unknown) => console.error("[PATCH /api/me/stores/storeId] resubmit audit", e));
     }
   }
+
+  // ACC-06 — 오너 매장 정보 변경 감사 (실제로 바뀐 키만 before/after). 감사 실패는 로그만, 저장 결과는 유지.
+  const auditDiff = buildOwnerStoreUpdateAuditDiff(currentRecord, patch);
+  if (auditDiff) {
+    const rm = getAuditRequestMeta(req);
+    await appendAuditLog(sb, {
+      actor_type: "user",
+      actor_id: userId,
+      target_type: "store",
+      target_id: sid,
+      action: "store.owner_update",
+      before_json: auditDiff.before,
+      after_json: {
+        ...auditDiff.after,
+        fields: auditDiff.fields,
+        approval_status: gate.store.approval_status,
+        ...(flagCoreInfo
+          ? { core_info_reverification: { fields: coreChangedFields, flag_saved: coreInfoFlagSaved } }
+          : {}),
+      },
+      ip: rm.ip,
+      user_agent: rm.userAgent,
+    }).catch((e: unknown) => console.error("[PATCH /api/me/stores/storeId] owner_update audit", e));
+  }
+
+  // ND-2 — 관리자 재검증 알림 (매장 결정 권한 `business` 보유 관리자). 실패는 outbox 재시도·로그.
+  if (flagCoreInfo) {
+    const storeName = String((updated as unknown as { store_name?: string }).store_name ?? "").trim();
+    await createAdminNotification(sb, {
+      broadcastPermission: "business",
+      requiredPermission: "business",
+      kind: "store_core_info_changed",
+      severity: "warning",
+      title: `매장 주소·위치 변경 재검증 · ${storeName || sid}`,
+      body: `변경 항목: ${coreChangedFields.join(", ")}`,
+      linkUrl: `/admin/business/${encodeURIComponent(sid)}`,
+      workRef: { table: "stores", id: sid },
+      dedupeKey: `store_core_info_changed:${sid}:${String(patch.core_info_changed_at ?? Date.now())}`,
+      actorUserId: userId,
+      push: true,
+    })
+      .then((r) => {
+        if (!r.ok) console.error("[PATCH /api/me/stores/storeId] core_info admin notify", r.error);
+      })
+      .catch((e: unknown) => console.error("[PATCH /api/me/stores/storeId] core_info admin notify", e));
+  }
+
+  // OPS-02 — 다른 서버리스 인스턴스의 매장 공개 캐시도 무효화 (관리자 DEF-64 와 같은 세대 bump).
+  bumpStorePublicSharedCacheGeneration("owner_store.profile");
 
   const slugRaw = (updated as unknown as { slug?: string }).slug;
   afterCanonicalStoreLocationWrite({

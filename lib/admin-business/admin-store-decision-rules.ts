@@ -10,7 +10,9 @@ export type AdminStoreApprovalAction =
   | "reject_store"
   | "request_revision"
   | "suspend_store"
-  | "resume_store";
+  | "resume_store"
+  /** ACC-04 — 반려 매장 「재심사 열기」: rejected → revision_requested (같은 stores 행 재심사, 사유 필수). */
+  | "reopen_application";
 
 /** 현재 승인 상태 → 허용되는 결정. 목록에 없는 전이는 409 `invalid_store_transition`. */
 const ALLOWED_FROM: Record<AdminStoreApprovalAction, readonly string[]> = {
@@ -21,7 +23,24 @@ const ALLOWED_FROM: Record<AdminStoreApprovalAction, readonly string[]> = {
   request_revision: ["pending", "under_review"],
   suspend_store: ["approved"],
   resume_store: ["suspended"],
+  reopen_application: ["rejected"],
 };
+
+/** 결정 → 결과 승인 상태 (전이표와 같은 파일에서 고정). */
+export const ADMIN_STORE_ACTION_TARGET_STATUS: Record<AdminStoreApprovalAction, string> = {
+  start_review: "under_review",
+  mark_under_review: "under_review",
+  approve_store: "approved",
+  reject_store: "rejected",
+  request_revision: "revision_requested",
+  suspend_store: "suspended",
+  resume_store: "approved",
+  reopen_application: "revision_requested",
+};
+
+export function isAdminStoreApprovalAction(action: string): action is AdminStoreApprovalAction {
+  return Object.prototype.hasOwnProperty.call(ALLOWED_FROM, action);
+}
 
 export function isAdminStoreTransitionAllowed(
   action: AdminStoreApprovalAction,
@@ -39,10 +58,11 @@ export function allowedStoreApprovalActions(
   );
 }
 
-/** 사유가 필요한 결정 (L2): 반려·보완 요청·운영 중지·판매 반려·판매 중지 */
+/** 사유가 필요한 결정 (L2): 반려·보완 요청·재심사 열기·운영 중지·판매 반려·판매 중지 */
 export const ADMIN_STORE_ACTIONS_REQUIRING_REASON = new Set<string>([
   "reject_store",
   "request_revision",
+  "reopen_application",
   "suspend_store",
   "reject_sales",
   "suspend_sales",
