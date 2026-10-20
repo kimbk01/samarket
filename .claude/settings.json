@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__Supabase__.*|mcp__claude-code-remote__send_later|ScheduleWakeup|mcp__github__actions_list|mcp__github__pull_request_read|mcp__Vercel__get_deployment|mcp__Vercel__list_deployments",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

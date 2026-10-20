@@ -1,4 +1,12 @@
 <!-- BEGIN:nextjs-agent-rules -->
+# 절대 금지 (Owner 규정 · 최우선 · 예외 없음)
+
+1. **테스트 DB 사용 금지** — `dibay-test`·`dibay-reset-qa` 는 지시 없이 조회·변경하지 않는다. 새 Supabase 프로젝트·테스트 환경 생성 금지. (`.claude/hooks/guard.sh` 가 차단)
+2. **CI·배포 반복 확인 금지** — 기다리며 폴링·예약 확인·중간 보고 하지 않는다. 결과는 GitHub 알림으로만 받고, 실패할 때만 보고한다. (훅이 차단)
+3. **지시 범위 밖 작업 금지** — 지시받은 것만 한다. 범위 밖 결함은 보고만 한다.
+4. **중간 보고 금지** — 완료 시 1회 짧게 보고한다 (원인·수정·검증·배포 SHA·남은 위험).
+5. **선택지 떠넘기기 금지** — 규정·설계로 정할 수 있는 것은 묻지 않고 정한다.
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
