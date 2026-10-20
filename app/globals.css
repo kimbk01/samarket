@@ -1,3 +1,11 @@
+/*
+ * 캐스케이드 레이어 순서 고정 — 아래 @import 들(delivery-components.css 등)이 Tailwind 보다 먼저
+ * `@layer components`·`@layer utilities` 를 선언해 실제 순서가 components → theme → base → utilities 로
+ * 뒤집혔고, Tailwind preflight(base)가 sam-btn·sam-text-* 등 모든 components 규칙을 이겼다.
+ * Tailwind v4 기본 순서와 같게 맨 앞에서 선언한다 (Owner 승인 2026-10-21).
+ */
+@layer properties, theme, base, components, utilities;
+
 /* 토큰 → Tailwind 순서 고정 (변수는 design-tokens.css·app-shell.css 에서만 정의) */
 @import "./design-tokens.css";
 @import "./dibay-overlay.css";
