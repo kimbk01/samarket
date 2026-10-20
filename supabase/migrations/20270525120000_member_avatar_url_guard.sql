@@ -79,8 +79,7 @@ $$;
 COMMENT ON FUNCTION public.guard_profiles_member_avatar() IS
   'D1 — 회원·관리자 JWT 의 avatar_url 변경을 is_allowed_member_avatar_url 로 검사(UPDATE 위반=예외, INSERT 위반=NULL). service_role·JWT 없는 세션 제외, 값 불변 시 제외.';
 
-DROP TRIGGER IF EXISTS trg_profiles_guard_member_avatar ON public.profiles;
-CREATE TRIGGER trg_profiles_guard_member_avatar
+CREATE OR REPLACE TRIGGER trg_profiles_guard_member_avatar
   BEFORE INSERT OR UPDATE OF avatar_url ON public.profiles
   FOR EACH ROW
   EXECUTE FUNCTION public.guard_profiles_member_avatar();
