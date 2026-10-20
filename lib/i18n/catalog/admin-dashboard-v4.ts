@@ -1,0 +1,48 @@
+/**
+ * 통합 대시보드 (설계 v4 §3) 화면 문구 — admin.ts 와 별도(타입 직렬화 한계 회피).
+ * 지표·탭·바로가기 라벨은 `lib/admin/metrics/registry.ts` 의 Ko/En 을 쓴다.
+ */
+export const adminDashboardV4Messages = {
+  ko: {
+    admin_dash_v4_band_aria: "운영 요약",
+    admin_dash_v4_tabs_aria: "대시보드 영역",
+    admin_dash_v4_load_failed: "불러오기 실패",
+    admin_dash_v4_retry: "다시 불러오기",
+    admin_dash_v4_loading: "불러오는 중…",
+    admin_dash_v4_pending_title: "처리 대기",
+    admin_dash_v4_pending_empty: "지금 처리할 일이 없습니다",
+    admin_dash_v4_pending_incomplete: "일부 항목을 확인하지 못했습니다",
+    admin_dash_v4_pending_no_list: "목록 없음",
+    admin_dash_v4_shortcuts: "바로가기",
+    admin_dash_v4_domain_pending: "대기",
+    admin_dash_v4_domain_risk: "위험",
+    admin_dash_v4_trend_refresh: "추세 새로고침",
+    admin_dash_v4_trend_days: "{n}일",
+    admin_dash_v4_trend_empty: "표시할 추세가 없습니다",
+    admin_dash_v4_updated: "{time} 갱신",
+    admin_dash_v4_auto_refresh: "자동 60초",
+    admin_dash_v4_period_basis: "기준: 필리핀 시간 (PHT)",
+    admin_dash_v4_no_metrics: "볼 수 있는 지표가 없습니다",
+  },
+  en: {
+    admin_dash_v4_band_aria: "Operations summary",
+    admin_dash_v4_tabs_aria: "Dashboard sections",
+    admin_dash_v4_load_failed: "Failed to load",
+    admin_dash_v4_retry: "Reload",
+    admin_dash_v4_loading: "Loading…",
+    admin_dash_v4_pending_title: "Pending work",
+    admin_dash_v4_pending_empty: "Nothing to process right now",
+    admin_dash_v4_pending_incomplete: "Some items could not be checked",
+    admin_dash_v4_pending_no_list: "No list",
+    admin_dash_v4_shortcuts: "Shortcuts",
+    admin_dash_v4_domain_pending: "Pending",
+    admin_dash_v4_domain_risk: "Risk",
+    admin_dash_v4_trend_refresh: "Refresh trend",
+    admin_dash_v4_trend_days: "{n} days",
+    admin_dash_v4_trend_empty: "No trend data",
+    admin_dash_v4_updated: "Updated {time}",
+    admin_dash_v4_auto_refresh: "Auto 60s",
+    admin_dash_v4_period_basis: "Basis: Philippine time (PHT)",
+    admin_dash_v4_no_metrics: "No metrics available to you",
+  },
+} as const;
