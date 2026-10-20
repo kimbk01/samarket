@@ -10,6 +10,8 @@ type LogoutConfirmModalProps = {
   error: string | null;
   title?: string;
   body?: string;
+  /** 기본 다이얼로그 층 위에 떠야 하는 표면(예: 관리자 가로 가드)에서만 지정. */
+  zIndexClass?: string;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -23,6 +25,7 @@ export function LogoutConfirmModal({
   error,
   title,
   body,
+  zIndexClass,
   onCancel,
   onConfirm,
 }: LogoutConfirmModalProps) {
@@ -33,6 +36,7 @@ export function LogoutConfirmModal({
       open={open}
       onClose={submitting ? undefined : onCancel}
       dismissible={!submitting}
+      zIndexClass={zIndexClass}
       title={title ?? t("auth_logout_confirm_title")}
       description={body ?? t("auth_logout_confirm_body")}
     >
