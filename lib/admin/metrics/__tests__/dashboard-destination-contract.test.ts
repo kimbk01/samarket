@@ -116,8 +116,8 @@ describe("회원 — 회원 목록(/api/admin/users)과 같은 필터 연산", (
     const profileQueries = client.queries.filter((c) => c[0].table === "profiles").map((c) => c.slice(2).map((x) => [x.method, x.args]));
     for (const id of ["members.active", "members.suspended", "members.blocked"]) {
       const status = parseMemberListQueryState(hrefParams(id, range)).status;
-      expect(status, id).toBeTruthy();
-      expect(profileQueries, id).toContainEqual(opsAsCalls(adminMemberStatusFilterOps(status!)));
+      if (!status) throw new Error(`${id}: 링크에 회원 목록 status 가 없음`);
+      expect(profileQueries, id).toContainEqual(opsAsCalls(adminMemberStatusFilterOps(status)));
     }
     // 전체 회원 = 필터 없음 (목록 기본)
     expect(profileQueries).toContainEqual([]);
