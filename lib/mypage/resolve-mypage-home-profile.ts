@@ -17,13 +17,13 @@ export type MypageHomeProfileResolveOk = {
 };
 
 /**
- * `session_broken` — API non-OK while cookies/local user may still exist
- * (e.g. Invalid UTF-8 chunked auth cookies → 500). UI must offer re-login,
- * not endless 「확인 중」.
+ * `unauthenticated` — 401/403 만 (실제 인증 실패 → 재로그인 UX).
+ * `fetch_failed` — 5xx / 네트워크(0) / 기타 4xx. 일시 장애이므로 로그아웃 유도 금지 — 재시도 UX.
+ * `empty` — 2xx 인데 프로필 없음.
  */
 export type MypageHomeProfileResolveFail = {
   ok: false;
-  kind: "unauthenticated" | "session_broken" | "empty";
+  kind: "unauthenticated" | "fetch_failed" | "empty";
   status: number;
 };
 
@@ -71,18 +71,18 @@ export async function resolveMypageHomeProfileResult(): Promise<MypageHomeProfil
   if (status >= 200 && status < 300 && json?.ok && json.profile != null) {
     return { ok: true, profile: json.profile };
   }
-  // 5xx / 0 / malformed / missing profile — treat as session/cookie hard fail for recovery UX
+  // 5xx / 0 / malformed / missing profile — 일시 장애: 캐시 우선, 없으면 재시도 대상
   if (status === 0 || status >= 500 || (status >= 200 && status < 300 && !json?.profile)) {
     const fallback = peekMypageHomeProfileRow();
     if (fallback?.id?.trim()) return { ok: true, profile: fallback };
     return {
       ok: false,
-      kind: status === 0 || status >= 500 ? "session_broken" : "empty",
+      kind: status === 0 || status >= 500 ? "fetch_failed" : "empty",
       status,
     };
   }
   if (status >= 400) {
-    return { ok: false, kind: "session_broken", status };
+    return { ok: false, kind: "fetch_failed", status };
   }
   return okResult(peekMypageHomeProfileRow());
 }

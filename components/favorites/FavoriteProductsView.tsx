@@ -37,9 +37,13 @@ export function FavoriteProductsView({
   const [mounted, setMounted] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  /** silent — 찜 변경 이벤트 재조회: 스피너로 목록을 바꾸지 않고 스크롤 유지 */
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setLoading(true);
     const { items, authenticated, error } = await getFavoritedPosts();
+    // 조용한 재조회 실패는 기존 목록 유지
+    if (silent && error) return;
     setPosts(items);
     setLoadError(Boolean(error));
     setSessionAuthenticated(authenticated);
@@ -79,7 +83,7 @@ export function FavoriteProductsView({
   }, [load]);
 
   useEffect(() => {
-    const onPostFav = () => void load();
+    const onPostFav = () => void load({ silent: true });
     window.addEventListener(POST_FAVORITE_CHANGED_EVENT, onPostFav);
     return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onPostFav);
   }, [load]);

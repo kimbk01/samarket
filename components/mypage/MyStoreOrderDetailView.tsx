@@ -174,7 +174,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
 
   type ViewState =
     | { kind: "loading" }
-    | { kind: "seed"; seed: StoreOrderDetailSeed }
+    | { kind: "seed"; seed: StoreOrderDetailSeed; /** 상세 조회 실패 — 로딩 문구 대신 오류 표시 */ failed?: boolean }
     | { kind: "unauth" }
     | { kind: "not_found" }
     | { kind: "error"; message: string }
@@ -250,7 +250,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       if (!data?.ok) {
         if (!silent) {
           setState((prev) => {
-            if (prev.kind === "seed" && prev.seed.id === orderId) return prev;
+            if (prev.kind === "seed" && prev.seed.id === orderId) return { ...prev, failed: true };
             return {
               kind: "error",
               message: typeof data?.error === "string" ? data.error : "load_failed",
@@ -289,7 +289,11 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       dibayPerfMaybeEmitCustomerStatusAfterOwner(orderId);
     } catch {
       if (!silent) {
-        setState((prev) => (prev.kind === "seed" && prev.seed.id === orderId ? prev : { kind: "error", message: "network_error" }));
+        setState((prev) =>
+          prev.kind === "seed" && prev.seed.id === orderId
+            ? { ...prev, failed: true }
+            : { kind: "error", message: "network_error" }
+        );
       }
     }
   }, [orderId]);
@@ -366,7 +370,8 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         );
         return;
       }
-      await load();
+      // 현재 화면 유지한 채 최신 상태로 갱신
+      await load({ silent: true, force: true });
       router.refresh();
     } catch {
       setRefundErr(t("mypage_comp_network_error"));
@@ -391,7 +396,8 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         );
         return;
       }
-      await load();
+      // 현재 화면 유지한 채 최신 상태로 갱신
+      await load({ silent: true, force: true });
       router.refresh();
     } catch {
       setCancelErr(t("mypage_comp_network_error"));
@@ -429,7 +435,9 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               datetime: new Date(seed.created_at).toLocaleString(dateLocale),
             })}
           </p>
-          <p className="mt-4 sam-text-helper text-sam-muted">{t("mypage_comp_order_loading_detail")}</p>
+          <p className="mt-4 sam-text-helper text-sam-muted">
+            {state.failed ? t("mypage_order_detail_load_failed") : t("mypage_comp_order_loading_detail")}
+          </p>
           <button
             type="button"
             onClick={() => void load()}

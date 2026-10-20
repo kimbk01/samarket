@@ -208,6 +208,10 @@ export const mypageHubMessages = {
     mypage_account_terms_consent: "약관 동의",
     mypage_account_done: "완료",
     mypage_account_required: "필요",
+    mypage_home_load_failed: "내 정보를 불러오지 못했어요",
+    mypage_account_control_load_failed: "계정 정보를 불러오지 못했어요.",
+    mypage_account_address_checking: "확인 중",
+    settings_notif_domain_load_failed: "알림 설정을 불러오지 못했습니다.",
   },
   en: {
     mypage_hub_region_setup_suffix: " · setup needed",
@@ -418,5 +422,9 @@ export const mypageHubMessages = {
     mypage_account_terms_consent: "Terms consent",
     mypage_account_done: "Done",
     mypage_account_required: "Required",
+    mypage_home_load_failed: "Couldn't load your info",
+    mypage_account_control_load_failed: "Couldn't load account info.",
+    mypage_account_address_checking: "Checking",
+    settings_notif_domain_load_failed: "Could not load notification settings.",
   },
 } as const;

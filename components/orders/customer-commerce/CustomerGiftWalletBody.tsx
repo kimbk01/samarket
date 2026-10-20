@@ -61,8 +61,11 @@ async function fetchWallet(signal: AbortSignal): Promise<{ authed: boolean; wall
     markCommerceHubFetchUnauthed("commerce-hub:gifts");
     return { authed: false, wallet: null };
   }
+  // 실패는 throw — 빈 지갑으로 캐시하지 않는다
+  if (!res.ok) throw new Error(`gift_wallet_${res.status}`);
   const json = (await res.json()) as { ok?: boolean; wallet?: GiftWalletPayload };
-  return { authed: true, wallet: json.ok ? json.wallet ?? null : null };
+  if (json.ok !== true) throw new Error("gift_wallet_not_ok");
+  return { authed: true, wallet: json.wallet ?? null };
 }
 
 function transferStatusLabel(
@@ -213,10 +216,10 @@ export function CustomerGiftWalletBody({
   from?: string | null;
   refresh?: boolean;
 }) {
-  const { safeT } = useI18n();
+  const { t, safeT } = useI18n();
   const formatExpiry = useGiftExpiryLabel();
   const [sendInstanceId, setSendInstanceId] = useState<string | null>(null);
-  const { data, ready, authed, reload } = useCommerceHubTabFetch({
+  const { data, ready, authed, error, reload } = useCommerceHubTabFetch({
     cacheKey: "commerce-hub:gifts",
     enabled: true,
     refresh,
@@ -262,7 +265,7 @@ export function CustomerGiftWalletBody({
               id === "owned" ? "Owned" : id === "received" ? "Received" : id === "sent" ? "Sent" : "Used",
           })
         }
-        countFor={(id) => counts[id]}
+        countFor={(id) => (ready && data ? counts[id] : null)}
         dataAttr="data-gift-wallet-tab"
       />
 
@@ -283,6 +286,13 @@ export function CustomerGiftWalletBody({
             fallbackEn: "Sign in to see your gift certificates.",
           })}
         </p>
+      ) : error && !data ? (
+        <div className="flex flex-col items-center gap-3 py-10 text-center" data-wallet-error="1">
+          <p className="text-sm text-sam-muted">{t("common_fetch_list_failed")}</p>
+          <button type="button" className="sam-btn sam-btn--secondary sam-btn--sm" onClick={reload}>
+            {t("common_retry")}
+          </button>
+        </div>
       ) : giftTab === "owned" ? (
         ownedRows.length === 0 ? (
           <CommerceEmptyState

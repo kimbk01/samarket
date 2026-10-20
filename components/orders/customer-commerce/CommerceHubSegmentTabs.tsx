@@ -80,7 +80,8 @@ export function CommerceHubSegmentTabs<T extends string>({
   activeId: T;
   hrefFor: (id: T) => string;
   labelFor: (id: T) => string;
-  countFor?: (id: T) => number;
+  /** null/undefined → 숫자 숨김(로딩 중) */
+  countFor?: (id: T) => number | null | undefined;
   dataAttr?: string;
 }) {
   return (
@@ -91,7 +92,7 @@ export function CommerceHubSegmentTabs<T extends string>({
     >
       {tabs.map((id) => {
         const selected = activeId === id;
-        const count = countFor?.(id) ?? 0;
+        const count = countFor ? countFor(id) : 0;
         return (
           <Link
             key={id}
@@ -110,7 +111,7 @@ export function CommerceHubSegmentTabs<T extends string>({
               {labelFor(id)}
             </span>
             <span className="tabular-nums text-[10px] font-medium leading-none text-sam-muted">
-              {count}
+              {count ?? "\u00a0"}
             </span>
           </Link>
         );

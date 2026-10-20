@@ -106,6 +106,8 @@ export function useMypageHubModel(
         const d = await getMyPageData();
         if (gen !== loadGenRef.current) return;
         setData(d);
+      } catch {
+        // 네트워크 예외 — 기존 data 유지, loading 은 finally 에서 해제 (화면이 재시도 노출)
       } finally {
         if (gen === loadGenRef.current && shouldToggleLoading) setLoading(false);
       }

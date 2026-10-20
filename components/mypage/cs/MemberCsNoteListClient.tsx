@@ -217,9 +217,16 @@ function MemberCsNoteSection({
           })}
         </h2>
       ) : null}
-      {error ? <p className={`${CC_BODY_CLASS} text-red-600`}>{error}</p> : null}
       {loading ? (
         <p className={CC_NOTE_CLASS}>{t("common_loading")}</p>
+      ) : error ? (
+        // 오류와 빈 목록 문구는 동시에 보이지 않게
+        <div className="flex flex-col items-start gap-2">
+          <p className={`${CC_BODY_CLASS} text-red-600`}>{error}</p>
+          <button type="button" className="sam-btn sam-btn--secondary sam-btn--sm" onClick={() => void load()}>
+            {t("common_retry")}
+          </button>
+        </div>
       ) : threads.length === 0 ? (
         <p className={CC_NOTE_CLASS}>
           {safeT("mypage_cs_notes_empty", {

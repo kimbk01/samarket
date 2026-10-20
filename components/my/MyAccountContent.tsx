@@ -3,7 +3,7 @@
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
@@ -13,6 +13,7 @@ import {
   MYPAGE_REQUIRED_DIBAY_ID_HREF,
 } from "@/lib/mypage/mypage-profile-routes";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
+import { peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
 import type { ProfileRow } from "@/lib/profile/types";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
@@ -31,7 +32,17 @@ import { evaluatePublicIdProfileView, resolvePublicIdAtDisplay } from "@/lib/aut
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
-function statusBadgeClass(done: boolean): string {
+/** 재진입 시 로딩 깜빡임 방지 — 캐시된 full profile 우선 */
+function peekCachedProfile(): ProfileRow | null {
+  const cached = peekMeProfileCached();
+  if (!cached || cached.status !== 200) return null;
+  const json = cached.json as { ok?: boolean; profile?: ProfileRow | null } | null;
+  if (!json?.ok || !json.profile?.id?.trim()) return null;
+  return json.profile;
+}
+
+function statusBadgeClass(done: boolean, pending = false): string {
+  if (pending) return "bg-sam-pressed-surface text-sam-muted";
   return done
     ? "bg-[rgba(0,130,72,0.12)] text-sam-primary"
     : "bg-[rgba(245,158,11,0.12)] text-sam-warning";
@@ -56,23 +67,56 @@ function memberStatusMessageKey(status: StoreMemberStatus): MessageKey {
 export function MyAccountContent() {
   const { t } = useI18n();
   const router = useRouter();
-  const [profile, setProfile] = useState<ProfileRow | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<ProfileRow | null>(() => peekCachedProfile());
+  const [loading, setLoading] = useState(() => profile == null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const profileRef = useRef(profile);
+  profileRef.current = profile;
   const addressState = useRepresentativeFullAddressLine();
 
   const load = useCallback(async () => {
-    setLoading((prev) => (prev ? prev : true));
-    const p = await getMyProfile();
-    setProfile(p);
-    setLoading((prev) => (prev ? false : prev));
+    // 이미 보이는 프로필이 있으면 백그라운드 갱신 (로딩 표시 안 함)
+    if (!profileRef.current) setLoading(true);
+    setLoadFailed(false);
+    try {
+      const p = await getMyProfile();
+      setProfile(p);
+    } catch {
+      // 조회 실패 — 비로그인(null)과 구분, 기존 프로필 유지
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   if (loading) {
     return <p className="py-4 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
+  }
+  if (!profile && loadFailed) {
+    return (
+      <div className="space-y-4">
+        <div
+          className="rounded-ui-rect border border-sam-border bg-sam-surface p-5 text-center shadow-sm"
+          role="alert"
+        >
+          <p className="sam-text-body font-semibold text-sam-fg">{t("mypage_home_load_failed")}</p>
+          <button
+            type="button"
+            className="sam-btn sam-btn--secondary sam-btn--sm mt-3"
+            onClick={() => void load()}
+          >
+            {t("common_retry")}
+          </button>
+        </div>
+        <Link href="/mypage" className="block text-center sam-text-body text-sam-muted">
+          {t("common_back_to_mypage")}
+        </Link>
+      </div>
+    );
   }
   if (!profile) {
     return (
@@ -127,6 +171,7 @@ export function MyAccountContent() {
   const profileCompleted = profile.profile_completed === true;
   const addressLine = addressState.status === "ready" ? addressState.line?.trim() ?? "" : "";
   const addressDone = Boolean(addressLine?.trim());
+  const addressPending = !addressDone && addressState.status !== "ready";
 
   const essentials = [
     {
@@ -136,6 +181,7 @@ export function MyAccountContent() {
         ? atUsername || `@${dibayIdDisplay}`
         : t("account_essentials_id_needed"),
       done: hasDibayId,
+      pending: false,
       badge: hasDibayId ? t("account_essentials_done") : t("account_essentials_needed"),
       href: hasDibayId && !publicIdView.canChangeOnce ? MYPAGE_PROFILE_EDIT_HREF : MYPAGE_REQUIRED_DIBAY_ID_HREF,
     },
@@ -146,6 +192,7 @@ export function MyAccountContent() {
         ? displayPhone || t("profile_verification_phone_done")
         : t("account_essentials_phone_needed"),
       done: contactVerified,
+      pending: false,
       badge: contactVerified ? t("profile_verification_done") : t("profile_verification_needed"),
       href: buildPhoneVerificationHref(),
     },
@@ -158,9 +205,13 @@ export function MyAccountContent() {
           ? t("profile_verification_address_needed")
           : t("common_loading"),
       done: addressDone,
+      // 주소 로딩 중엔 경고 대신 중립 배지
+      pending: addressPending,
       badge: addressDone
         ? t("profile_verification_address_done")
-        : t("profile_verification_address_needed_short"),
+        : addressPending
+          ? t("mypage_account_address_checking")
+          : t("profile_verification_address_needed_short"),
       href: MYPAGE_ADDRESSES_HREF,
     },
   ] as const;
@@ -211,7 +262,7 @@ export function MyAccountContent() {
                     <span className="mt-0.5 block truncate sam-text-body-secondary text-sam-fg/65">{row.desc}</span>
                   </span>
                 </span>
-                <span className={`shrink-0 rounded-full px-2.5 py-1 sam-text-xxs font-semibold ${statusBadgeClass(row.done)}`}>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 sam-text-xxs font-semibold ${statusBadgeClass(row.done, row.pending)}`}>
                   {row.badge}
                 </span>
               </>
