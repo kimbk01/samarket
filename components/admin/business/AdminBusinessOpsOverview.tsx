@@ -35,7 +35,7 @@ import {
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 
-/** DEF-57 — 「판매 제한」 대신 실제 판매 상태 라벨 (판매 승인 대기 / 판매 거절 / 판매 중지). */
+/** DEF-57 — 「판매 제한」 대신 실제 판매 상태 라벨 (판매 승인 대기 / 판매 반려 / 판매 중지). */
 function salesBlockedLabel(sales: BusinessCcSalesPermission, ko: boolean): string {
   const raw = sales?.sales_status?.trim() || (sales?.allowed_to_sell ? "approved" : "pending");
   return adminStatusLabel("store_sales", raw, ko).label;

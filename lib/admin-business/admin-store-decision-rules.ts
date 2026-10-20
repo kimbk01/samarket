@@ -39,7 +39,7 @@ export function allowedStoreApprovalActions(
   );
 }
 
-/** 사유가 필요한 결정 (L2): 거절·보완 요청·운영 중지·판매 거절·판매 중지 */
+/** 사유가 필요한 결정 (L2): 반려·보완 요청·운영 중지·판매 반려·판매 중지 */
 export const ADMIN_STORE_ACTIONS_REQUIRING_REASON = new Set<string>([
   "reject_store",
   "request_revision",

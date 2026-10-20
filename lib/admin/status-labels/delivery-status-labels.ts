@@ -14,14 +14,14 @@ const STORE_APPROVAL: Registry = {
   under_review: { ko: "심사 중", en: "Under review", tone: "progress" },
   revision_requested: { ko: "보완 요청", en: "Changes requested", tone: "warning" },
   approved: { ko: "승인", en: "Approved", tone: "success" },
-  rejected: { ko: "거절", en: "Rejected", tone: "danger" },
+  rejected: { ko: "반려", en: "Rejected", tone: "danger" },
   suspended: { ko: "운영 중지", en: "Suspended", tone: "danger" },
 };
 
 const STORE_SALES: Registry = {
   approved: { ko: "판매 중", en: "Selling", tone: "success" },
   pending: { ko: "판매 승인 대기", en: "Sales pending", tone: "waiting" },
-  rejected: { ko: "판매 거절", en: "Sales rejected", tone: "danger" },
+  rejected: { ko: "판매 반려", en: "Sales rejected", tone: "danger" },
   suspended: { ko: "판매 중지", en: "Sales suspended", tone: "danger" },
 };
 
@@ -62,7 +62,7 @@ const COUPON: Registry = {
   draft: { ko: "작성 중", en: "Draft", tone: "neutral" },
   requested: { ko: "승인 요청", en: "Requested", tone: "waiting" },
   approved: { ko: "승인됨", en: "Approved", tone: "progress" },
-  rejected: { ko: "거절", en: "Rejected", tone: "danger" },
+  rejected: { ko: "반려", en: "Rejected", tone: "danger" },
   scheduled: { ko: "시작 예정", en: "Scheduled", tone: "progress" },
   active: { ko: "진행 중", en: "Active", tone: "success" },
   paused: { ko: "일시 중지", en: "Paused", tone: "warning" },
@@ -118,7 +118,7 @@ const AUTO_ACTION: Registry = {
   pending_approval: { ko: "승인 대기", en: "Pending approval", tone: "waiting" },
   success: { ko: "성공", en: "Succeeded", tone: "success" },
   failed: { ko: "실패", en: "Failed", tone: "danger" },
-  rejected: { ko: "거절됨", en: "Rejected", tone: "neutral" },
+  rejected: { ko: "반려됨", en: "Rejected", tone: "neutral" },
   skipped: { ko: "건너뜀", en: "Skipped", tone: "neutral" },
 };
 
