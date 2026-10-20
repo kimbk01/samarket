@@ -18,6 +18,10 @@ vi.mock("@/lib/auth/server-guards", () => ({
 vi.mock("@/lib/stores/owner-store-ownership-cache", () => ({
   getCachedStoreIfOwner: (...a: unknown[]) => getCachedStoreIfOwner(...a),
 }));
+// POST uses the uncached operational-write gate (1-B); same ownership verdict as the cached gate here.
+vi.mock("@/lib/stores/owner-product-gate", () => ({
+  getStoreIfOwnerForOperationalWrite: (...a: unknown[]) => getCachedStoreIfOwner(...a),
+}));
 vi.mock("@/lib/stores/try-supabase-stores", () => ({
   tryGetSupabaseForStores: () => tryGetSupabaseForStores(),
 }));

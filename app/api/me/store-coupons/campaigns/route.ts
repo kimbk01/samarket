@@ -5,6 +5,7 @@ import {
   resolveOwnerSelfIssuedCreateFunding,
 } from "@/lib/stores/store-coupon-ssot";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { ownerStoreOperationalWriteBlockById } from "@/lib/stores/owner-product-gate";
 import {
   parseStoreCouponCampaignCreateBody,
 } from "@/lib/stores/store-coupon-campaign-validation";
@@ -107,6 +108,10 @@ export async function POST(req: NextRequest) {
   if (!(await assertOwnedStore(sb, userId, parsed.value.storeId))) {
     return NextResponse.json({ ok: false, error: "forbidden_store" }, { status: 403 });
   }
+  const createBlock = await ownerStoreOperationalWriteBlockById(sb, parsed.value.storeId);
+  if (createBlock) {
+    return NextResponse.json({ ok: false, error: createBlock.error }, { status: createBlock.status });
+  }
   const now = new Date().toISOString();
   const { data, error } = await sb
     .from(STORE_COUPON_CAMPAIGN_TABLE)
@@ -165,6 +170,10 @@ export async function PATCH(req: NextRequest) {
     .maybeSingle();
   if (!row || !(await assertOwnedStore(sb, userId, String(row.store_id)))) {
     return NextResponse.json({ ok: false, error: "forbidden_store" }, { status: 403 });
+  }
+  const patchBlock = await ownerStoreOperationalWriteBlockById(sb, String(row.store_id));
+  if (patchBlock) {
+    return NextResponse.json({ ok: false, error: patchBlock.error }, { status: patchBlock.status });
   }
   // SSOT: Owner may mutate STORE_FUNDED offers only (platform offers = read/KPI).
   if (String((row as { funding_mode?: string }).funding_mode ?? "STORE_FUNDED") !== "STORE_FUNDED") {

@@ -7,7 +7,7 @@ import {
   extForCampaignImageMime,
   validateCampaignImageFile,
 } from "@/lib/admin/notification-campaigns/validate-campaign-image";
-import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { isOwnerBannerInventoryKey } from "@/lib/stores/advertising/owner-banner-contract";
@@ -39,7 +39,7 @@ export async function POST(
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  const gate = await getStoreIfOwner(sb, userId, sid);
+  const gate = await getStoreIfOwnerForOperationalWrite(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
   const svc = tryCreateSupabaseServiceClient();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
+import { getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -62,7 +63,7 @@ export async function POST(
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  const gate = await getCachedStoreIfOwner(sb, userId, sid);
+  const gate = await getStoreIfOwnerForOperationalWrite(sb, userId, sid);
   if (!gate.ok) {
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }

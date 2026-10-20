@@ -6,6 +6,7 @@ import { OWNER_ROUTES_BASE } from "@/lib/business/owner-routes";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { useEffect, useState } from "react";
 import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
+import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import {
   fetchMeStoresListDeduped,
   invalidateMeStoresListDedupedCache,
@@ -56,14 +57,23 @@ function resolvedPhaseFromStoresApi(status: number, raw: unknown): ResolvedPhase
     };
   }
   const stores = (json.stores ?? []) as MeStore[];
-  const gate = getOwnerStoreGateState(stores);
+  // IA-02 — 계정의 아무 승인 매장이 아니라 지금 선택된 매장(`?storeId` → 세션 선호 → 첫 매장) 상태로 판정한다.
+  const activeId = resolveOwnerActiveStoreIdFromOwnedList(stores, currentRouteStoreId());
+  const active = activeId ? stores.find((s) => s.id === activeId) : undefined;
+  const gate = getOwnerStoreGateState(active ? [active] : []);
   if (gate.kind === "approved") {
     return { kind: "ok" };
   }
-  const firstStoreId =
-    resolveOwnerActiveStoreIdFromOwnedList(stores, null) ?? undefined;
-  return { kind: "blocked", state: gate, firstStoreId };
+  return { kind: "blocked", state: gate, firstStoreId: active?.id };
 }
+
+function currentRouteStoreId(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("storeId")?.trim() || null;
+}
+
+/** 심사 중·보완 요청 매장 — 신청·프로필·기본 정보(온보딩) 화면은 열어 준다 (IA-01, store-business-hub-nav-intercept 와 동일 규칙). */
+const ONBOARDING_APPROVAL_STATUSES = new Set(["pending", "under_review", "revision_requested"]);
 
 function resolvedPhaseFromPeek(): ResolvedPhase | null {
   const peek = peekMeStoresListClientCache();
@@ -117,6 +127,13 @@ export function StoreBusinessGuard({
       cancelled = true;
     };
   }, [phase.kind, enforce]);
+
+  // 같은 셸 트리가 화면 이동 간 유지되므로(Phase 5) 경로가 바뀌면 선택 매장 기준으로 다시 판정한다.
+  useEffect(() => {
+    if (!enforce) return;
+    const fromPeek = resolvedPhaseFromPeek();
+    if (fromPeek) setPhase(fromPeek);
+  }, [pathname, enforce]);
 
   const retry = () => {
     invalidateMeStoresListDedupedCache();
@@ -211,6 +228,29 @@ export function StoreBusinessGuard({
     );
   }
 
+  if (
+    phase.kind === "blocked" &&
+    phase.state.kind === "pending" &&
+    ONBOARDING_APPROVAL_STATUSES.has(phase.state.approval_status) &&
+    !shouldInterceptBusinessHubHref(pathname)
+  ) {
+    const ko = language !== "en";
+    return (
+      <div className={OWNER_STORE_BUSINESS_GUARD_OK_SHELL_CLASS}>
+        <div
+          role="status"
+          data-owner-store-onboarding-edit="1"
+          className="mx-4 mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg"
+        >
+          {ko
+            ? "매장 심사가 진행 중입니다. 승인 전에는 매장 정보만 수정할 수 있습니다."
+            : "Your store is under review. Until approval you can only edit store information."}
+        </div>
+        {children}
+      </div>
+    );
+  }
+
   if (phase.kind === "blocked") {
     const { state, firstStoreId } = phase;
     return (
@@ -221,6 +261,7 @@ export function StoreBusinessGuard({
           state={state}
           firstStoreId={firstStoreId}
           onClose={() => router.push("/mypage")}
+          onLinkClick={() => {}}
         />
       </>
     );

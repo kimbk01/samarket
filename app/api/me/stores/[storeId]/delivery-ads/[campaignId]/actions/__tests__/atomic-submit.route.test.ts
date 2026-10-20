@@ -11,7 +11,10 @@ const debitBusinessCashForDeliveryAd = vi.fn();
 vi.mock("@/lib/auth/get-route-user-id", () => ({ getRouteUserId: async () => "owner-1" }));
 vi.mock("@/lib/auth/server-guards", () => ({ validateActiveSession: async () => ({ ok: true }) }));
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => ({}) }));
-vi.mock("@/lib/stores/owner-product-gate", () => ({ getStoreIfOwner: async () => ({ ok: true }) }));
+vi.mock("@/lib/stores/owner-product-gate", () => ({
+  getStoreIfOwner: async () => ({ ok: true }),
+  getStoreIfOwnerForOperationalWrite: async () => ({ ok: true }),
+}));
 vi.mock("@/lib/stores/advertising/owner-banner-writer", () => ({
   loadOwnerBannerCampaign: async () => ({
     ok: true,
