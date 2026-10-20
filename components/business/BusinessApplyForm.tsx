@@ -30,6 +30,11 @@ import {
   resolveBusinessApplySubmitBlockedReason,
 } from "@/lib/business/business-apply-submit-gate";
 import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
+
+/** 하단 바 위 비활성 사유 줄(py-1.5 + leading-4 + border) — 본문 여백에 더해 마지막 입력이 가리지 않게 */
+const BUSINESS_APPLY_BLOCKED_REASON_LINE_PX = 30;
+/** 이 화면은 고객센터 버튼을 켠다 — 버튼(44) + 바 위 간격(10) 만큼 더 스크롤되어 마지막 입력이 버튼에 가리지 않게 */
+const BUSINESS_APPLY_SUPPORT_FAB_CLEARANCE_PX = 56;
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
@@ -381,7 +386,11 @@ export function BusinessApplyForm({
         id="business-apply-form"
         onSubmit={handleSubmit}
         className={`${OWNER_STORE_STACK_Y_CLASS} [&_.owner-store-admin-dash-section__header_h2]:text-base [&_.owner-store-admin-dash-section__header_h2]:font-bold`}
-        style={formPadStyle}
+        style={{
+          paddingBottom: `calc(${formPadStyle.paddingBottom} + ${
+            !disabled && submitBlockedReason ? BUSINESS_APPLY_BLOCKED_REASON_LINE_PX : 0
+          }px + ${BUSINESS_APPLY_SUPPORT_FAB_CLEARANCE_PX}px)`,
+        }}
       >
         <OwnerStoreAdminDashSection title={t("business_phase7_178")}>
           <div className={OWNER_STORE_FORM_GRID_2_CLASS}>

@@ -85,6 +85,7 @@ export function MyPageHomeDashboard({
           {needsRelogin ? (
             <MypageSessionReloginCard />
           ) : loadFailed && !projection ? (
+            <>
             <div
               className={`${MYPAGE_HOME_CARD_CLASS} w-full self-start px-4 py-4`}
               data-testid="mypage-home-load-failed"
@@ -101,6 +102,13 @@ export function MyPageHomeDashboard({
                 </button>
               ) : null}
             </div>
+            {/* 필수 정보 3행은 조회 실패에도 자리를 지키고 「확인 불가」+[다시 시도]로 표시 (real-screen-redesign §11) */}
+            <MypageRequiredInfoSummary
+              projection={null}
+              onProfileRefresh={onProfileRefresh}
+              loadFailed
+            />
+            </>
           ) : (
             <>
               <MypageProfileSummary projection={projection} summaryTrust={summaryTrust} />

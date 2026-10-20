@@ -327,9 +327,11 @@ export function ConditionalAppShell({
     f.isCommunityMessengerHubListSurface;
   const mainInnerColumn = (
     <div
-      className={`${APP_MAIN_COLUMN_CLASS} ${
-        fillColumnForChildScroll ? " flex min-h-0 min-w-0 flex-1 flex-col" : ""
-      }`}
+      className={`${
+        /** 내정보 주소 흐름 — 로컬 헤더가 이 열 안에 있어 앱 열 폭에 묶이면 태블릿 가로·웹에서 헤더가 좁아진다.
+         * 헤더는 기기 폭 기준(설계서 §12), 본문은 페이지가 640px 열을 직접 소유 → 여기선 전체 폭. */
+        f.isMypageAddressFlowPage ? "w-full min-w-0" : APP_MAIN_COLUMN_CLASS
+      } ${fillColumnForChildScroll ? " flex min-h-0 min-w-0 flex-1 flex-col" : ""}`}
     >
       {children}
     </div>

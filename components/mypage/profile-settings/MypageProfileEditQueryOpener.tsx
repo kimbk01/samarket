@@ -16,20 +16,27 @@ import { useMypageProfileSheets } from "./mypage-profile-sheets-context";
 export function MypageProfileEditQueryOpener({ enabled = true }: { enabled?: boolean }) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { openSheet } = useMypageProfileSheets();
+  const { activeSheet, openSheet } = useMypageProfileSheets();
   const requested = isMypageProfileEditSheetRequest(searchParams);
   const handledRef = useRef(false);
 
+  /** 쿼리가 남아 있는 동안 시트가 열려 있지 않으면 연다 (홈 셸 재마운트로 시트 상태가 사라진 경우 포함). */
   useEffect(() => {
     if (!requested) {
       handledRef.current = false;
       return;
     }
     if (!enabled || handledRef.current) return;
+    if (activeSheet !== "profile-edit") openSheet("profile-edit");
+  }, [activeSheet, enabled, openSheet, requested]);
+
+  /** 시트가 실제로 열린 뒤에만 쿼리를 지운다 — 지운 다음에 시트가 사라지는 경합 방지. */
+  useEffect(() => {
+    if (!requested || !enabled || handledRef.current) return;
+    if (activeSheet !== "profile-edit") return;
     handledRef.current = true;
-    openSheet("profile-edit");
     router.replace(MYPAGE_PROFILE_HREF, { scroll: false });
-  }, [enabled, openSheet, requested, router]);
+  }, [activeSheet, enabled, requested, router]);
 
   return null;
 }
