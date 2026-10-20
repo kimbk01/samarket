@@ -176,6 +176,24 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   min-width: var(--sector-header-right-min);
 }
 
+/**
+ * 우측 동작 — 겉모양 유지, 터치 영역만 최소 48×48 (Production 점검 F2·F4, 설계서 §12).
+ * 허브 아이콘 타일(36·38px)·텍스트 동작(「전체 삭제」 40px 등) 모두 투명 의사요소가 중심 기준으로 사방에 넓어진다.
+ * 이미 48px 이상이면 확장 0. 허브 타일 간격 8px 이라 이웃과 겹치는 2px 는 뒤 형제가 받는다.
+ */
+.sector-header-bar__right :is(a, button):not(.absolute, .fixed, .sticky) {
+  position: relative;
+}
+
+.sector-header-bar__right :is(a, button):not(.absolute, .fixed, .sticky)::after {
+  content: "";
+  position: absolute;
+  top: min(0px, calc((100% - 48px) / 2));
+  bottom: min(0px, calc((100% - 48px) / 2));
+  left: min(0px, calc((100% - 48px) / 2));
+  right: min(0px, calc((100% - 48px) / 2));
+}
+
 .sector-header-bar__center {
   display: flex;
   min-width: 0;

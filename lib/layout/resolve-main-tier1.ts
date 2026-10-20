@@ -201,6 +201,18 @@ export function resolveMainTier1Subpage(
   pathname: string,
   search = ""
 ): ResolvedMainTier1Subpage | null {
+  const resolved = resolveMainTier1SubpageInner(pathname, search);
+  /** 내정보 하위 화면은 부제 없음 — 헤더 52px 고정 (설계서 v3 §12). 첫 프레임과 페이지 등록 헤더가 같은 높이. */
+  if (resolved?.subtitle && normalizeAppPathnameForTier1(pathname).startsWith("/mypage/")) {
+    return { ...resolved, subtitle: undefined, subtitleHref: undefined };
+  }
+  return resolved;
+}
+
+function resolveMainTier1SubpageInner(
+  pathname: string,
+  search: string
+): ResolvedMainTier1Subpage | null {
   const raw = (pathname ?? "").split("?")[0]!.trim();
   /** Never brand-fallback — empty path is unavailable, not "dibaY". */
   if (!raw) return { ...DEFAULT, titleText: "common_content_unavailable" };
