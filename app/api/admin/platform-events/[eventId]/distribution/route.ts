@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   distributionsToToggles,
   listDistributionsForEvent,
@@ -117,6 +118,21 @@ export async function PUT(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
       { status: 400 }
     );
   }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "platform_event_distribution",
+    targetId: id,
+    action: "platform_event_distribution.update",
+    after: {
+      toggles: {
+        popup: Boolean(body.toggles?.popup),
+        banner: Boolean(body.toggles?.banner),
+        push: Boolean(body.toggles?.push),
+        bell: Boolean(body.toggles?.bell),
+      },
+    },
+  });
 
   return NextResponse.json({
     ok: true,

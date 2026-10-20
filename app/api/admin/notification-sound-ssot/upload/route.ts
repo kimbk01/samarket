@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
@@ -104,6 +105,14 @@ export async function POST(req: NextRequest) {
     await removeUploadedSoundOrphan(sb, path);
     return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
   }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "notification_sound_asset",
+    targetId: assetId,
+    action: "notification_sound_asset.upload",
+    after: { path, url: fileUrl, size: file.size, contentType: mime, label, domain },
+  });
 
   return NextResponse.json({ ok: true, asset_id: assetId, file_url: fileUrl });
 }

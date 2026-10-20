@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   adminLegacyOrderWriteGoneResponse,
   isAdminLegacyOrderWriteDisabled,
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
  * Customers pay the store directly; the admin console never records a payment. Code kept behind the gate.
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ orderId: string }> }
 ) {
   const gate = await requireAdminPermission("business");
@@ -45,6 +46,14 @@ export async function POST(
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error, hint: result.hint }, { status: result.httpStatus });
   }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "store_order",
+    targetId: oid,
+    action: "store_order.mark_paid",
+    after: { payment_status: result.payment_status, already: result.already },
+  });
 
   return NextResponse.json({ ok: true, payment_status: result.payment_status, already: result.already });
 }

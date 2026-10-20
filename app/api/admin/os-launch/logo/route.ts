@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   checkOsLaunchLogo,
   isOsLaunchPendingChanged,
@@ -66,6 +67,15 @@ export async function POST(req: NextRequest) {
 
   const previousPath = loaded.pending?.logo?.source;
   if (previousPath && previousPath !== path) await removeOsLaunchLogo(sb, previousPath);
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: admin.userId,
+    targetType: "os_launch_pending",
+    targetId: "global",
+    action: "os_launch_pending.logo_upload",
+    before: { logoPath: previousPath ?? null },
+    after: { path, size: bytes.byteLength, contentType: "image/png", sha256, backgroundColor },
+  });
 
   return NextResponse.json({
     ok: true as const,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   loadResolvedCompositionPolicy,
   upsertCompositionPolicyOverridesWithCas,
@@ -130,6 +131,18 @@ export async function PUT(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: cas.error }, { status: 400 });
     }
+
+    await appendAdminRouteAudit(sb, req, {
+      actorId: userId,
+      targetType: "stores_composition_policy",
+      targetId: "home",
+      action: "stores_composition_policy.home_before_rest_banner_toggle",
+      before: {
+        enabled: homeBannerBeforeRestPolicyEnabled(current.rows),
+        revision: current.revision,
+      },
+      after: { enabled: body.enabled === true, revision: cas.revision },
+    });
 
     return NextResponse.json({
       ok: true,

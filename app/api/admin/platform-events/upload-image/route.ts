@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   extForCampaignImageMime,
   validateCampaignImageFile,
@@ -76,6 +77,14 @@ export async function POST(req: NextRequest) {
   const {
     data: { publicUrl },
   } = svc.storage.from(PLATFORM_EVENT_MEDIA_BUCKET).getPublicUrl(path);
+
+  await appendAdminRouteAudit(svc, req, {
+    actorId: admin.userId,
+    targetType: "platform_event_media",
+    targetId: path,
+    action: "platform_event_media.upload",
+    after: { path, url: publicUrl, size: file.size, contentType: validated.mime, kind },
+  });
 
   return NextResponse.json({
     ok: true as const,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
 import {
@@ -72,6 +73,12 @@ export async function PUT(req: NextRequest) {
     if (!saved.ok) {
       return NextResponse.json({ ok: false, error: saved.error }, { status: 503 });
     }
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "recommendation_analytics_bundle",
+      targetId: "global",
+      action: "recommendation_analytics_bundle.update",
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
