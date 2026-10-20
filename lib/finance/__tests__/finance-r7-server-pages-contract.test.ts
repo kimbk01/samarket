@@ -259,9 +259,14 @@ describe("화면·SQL 계약", () => {
   });
 
   it("주문 ID 필터는 포인트 원장에도 걸린다 (실측 F1 — 주문과 무관한 포인트 행 제외)", () => {
-    const sql = read("supabase/migrations/20270601170000_r7_fix_finance_tx_order_filter.sql");
+    const sql = read("supabase/migrations/20270601172000_r7_finance_tx_order_filter_partial.sql");
+    const coinBranch = sql.slice(sql.indexOf("FROM public.store_economic_point_ledger s"), sql.indexOf("FROM public.point_ledger p"));
     const pointBranch = sql.slice(sql.indexOf("FROM public.point_ledger p"));
-    expect(pointBranch).toContain("AND (coalesce(p_order_id, '') = '' OR p.related_id = p_order_id)");
+    // 주문 UUID 앞자리로도 현금·Coin·포인트 세 원장이 같은 부분 일치 (재실측 F1′ — Coin 적립 행 누락)
+    expect(sql).toContain("strpos(lower(b.related_id), lower(p_order_id)) > 0");
+    expect(coinBranch).toContain("OR strpos(lower(s.related_id), lower(p_order_id)) > 0");
+    expect(coinBranch).toContain("OR strpos(lower(s.idempotency_key), lower('sale_coin:' || p_order_id)) > 0");
+    expect(pointBranch).toContain("AND (coalesce(p_order_id, '') = '' OR strpos(lower(p.related_id), lower(p_order_id)) > 0)");
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.admin_finance_unified_tx_page\([^)]*\) TO service_role/);
   });
 });
