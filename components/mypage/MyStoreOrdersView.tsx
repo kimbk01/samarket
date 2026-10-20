@@ -598,8 +598,11 @@ function MyStoreOrderCard({
 const MYPAGE_STORE_ORDERS_CACHE_KEY = "mypage:store-orders:list";
 type OrdersOkState = { kind: "ok"; orders: OrderRow[]; nextCursor: string | null; extraPages: boolean };
 
-/** S30 스켈레톤 — 탭 + 주문 카드 3개(40 원형 매장 사진 + 매장명·메뉴 2줄 + 우측 금액 + 하단 액션 셀 3칸) */
-function StoreOrdersListSkeleton({ showTabs }: { showTabs: boolean }) {
+/**
+ * S30 스켈레톤 — 탭 + 주문 카드 3개(40 원형 매장 사진 + 매장명·메뉴 2줄 + 우측 금액 + 하단 액션 셀 3칸).
+ * `/mypage/store-orders` 페이지 Suspense 대체 화면도 같은 컴포넌트(스켈레톤 모양 1개 — 전환 시 구조 튐 없음).
+ */
+export function StoreOrdersListSkeleton({ showTabs }: { showTabs: boolean }) {
   const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
   return (
     <div aria-busy="true" data-testid="store-orders-skeleton" className="flex flex-col gap-3">

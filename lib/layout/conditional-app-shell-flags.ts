@@ -14,6 +14,7 @@ import { isMainBottomNavFabDeliverySurface } from "@/lib/main-menu/resolve-main-
 import { isStoresConsumerSlugMenuRoute } from "@/lib/stores/store-consumer-route";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { isBottomNavEligibleRoute } from "@/lib/navigation/bottom-nav-route-policy";
+import { isCommunityHomeSurfacePath, isCommunityMainSurface } from "@/lib/layout/resolve-main-surface";
 
 const PHILIFE_POST_DETAIL_EXCLUDED_SEGMENTS = new Set([
   "write",
@@ -134,7 +135,7 @@ export function resolveConditionalAppShellFlags(
 ): ConditionalAppShellResolvedFlags {
   const isStoreOrderHeroMenuSurface = isStoresConsumerSlugMenuRoute(pathname);
   const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
-  const isHome = pathname === "/" || pathname === "/philife";
+  const isHome = isCommunityHomeSurfacePath(pathname);
   const isProductEditPage = Boolean(pathname?.match(/^\/products\/[^/]+\/edit$/));
   const isPersonalProductComposerPage =
     pathname === "/products/new" || (pathname?.startsWith("/products/new/") ?? false) || isProductEditPage;
@@ -199,12 +200,7 @@ export function resolveConditionalAppShellFlags(
   const isChatRoomDetail = isAnyChatRoomDetail;
   const isSearch = pathname === "/search";
   const isServicesSection = pathname === "/services" || (pathname?.startsWith("/services/") ?? false);
-  const isCommunityApp =
-    pathname === "/" ||
-    pathname === "/community" ||
-    (pathname?.startsWith("/community/") ?? false) ||
-    pathname === "/philife" ||
-    (pathname?.startsWith("/philife/") ?? false);
+  const isCommunityApp = isCommunityMainSurface(pathname);
   const isCommunityMessengerSurface =
     pathname === "/community-messenger" || (pathname?.startsWith("/community-messenger/") ?? false);
   const isOrdersHub =

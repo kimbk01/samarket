@@ -31,11 +31,6 @@ export function BusinessInfoPageClient() {
     };
   }, [locale]);
 
-  const title = safeT("business_info_page_title", {
-    fallbackKo: "사업자 정보",
-    fallbackEn: "Business information",
-  });
-
   const row = (label: string, value: string) =>
     value ? (
       <div className="border-b border-sam-border-soft py-3">
@@ -45,21 +40,21 @@ export function BusinessInfoPageClient() {
     ) : null;
 
   return (
+    /** 제목은 1단 헤더(`resolve-main-tier1` `business_info_page_title`)가 첫 프레임부터 표시 — 본문 h1 중복 금지 */
     <div className="mx-auto min-h-screen max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-semibold text-sam-fg">{title}</h1>
       {loading ? (
-        <p className="mt-4 text-sam-muted">
+        <p className="text-sam-muted">
           {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
         </p>
       ) : !doc ? (
-        <p className="mt-4 text-sam-muted">
+        <p className="text-sam-muted">
           {safeT("business_info_empty", {
             fallbackKo: "등록된 사업자 정보가 없습니다.",
             fallbackEn: "Business information is not available yet.",
           })}
         </p>
       ) : (
-        <div className="mt-4">
+        <div>
           {row(
             safeT("admin_app_business_company", { fallbackKo: "상호", fallbackEn: "Company name" }),
             doc.companyName,

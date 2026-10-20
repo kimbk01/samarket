@@ -1,3 +1,5 @@
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+
 export type MainHubPtrDomain = "trade" | "philife" | "stores" | "messenger";
 
 /**
@@ -12,7 +14,7 @@ export function resolveMainHubPtrDomain(pathname: string | null | undefined): Ma
     if (p === "/market/location" || p.startsWith("/market/location/")) return null;
     return "trade";
   }
-  if (p === "/" || p === "/philife") return "philife";
+  if (isCommunityHomeSurfacePath(p)) return "philife";
   if (p === "/stores" || p === "/stores/") return "stores";
   if (p === "/community-messenger" || p.startsWith("/community-messenger/")) {
     if (/^\/community-messenger\/rooms\/[^/]+$/.test(p)) return null;

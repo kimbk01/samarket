@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   isMypageMotionKind,
+  isMypageStackHeaderFixedKind,
   ownerStackRouteTransitionClassForKind,
   resolveCanonicalNavIndex,
   routeTransitionClassForKind,
@@ -510,15 +511,45 @@ describe("R3 / X2 — mypage stack 300ms kinds", () => {
     }
   });
 
-  it("X8: /mypage/products (UI-6 seller hub) keeps its existing 440ms kinds", () => {
-    expect(run("/mypage", "/mypage/products").kind).toBe("rtl-forward");
-    expect(run("/mypage/products", "/mypage", true).kind).toBe("ltr-back");
-    expect(run("/mypage/products", "/mypage/points/promotions").kind).toBe("rtl-forward");
-    expect(run("/mypage/points/promotions", "/mypage/products", true).kind).toBe("ltr-back");
+  it("§4 ②: /mypage/products · points/promotions · gift-certificates/[id] use the mypage 300ms stack (mypage ↔ mypage)", () => {
+    expect(run("/mypage", "/mypage/products").kind).toBe("mypage-stack-forward");
+    expect(run("/mypage/products", "/mypage", true).kind).toBe("mypage-stack-back");
+    expect(run("/mypage/products", "/mypage").kind).toBe("mypage-stack-back");
+    expect(run("/mypage/products", "/mypage/points/promotions").kind).toBe("mypage-stack-forward");
+    expect(run("/mypage/points/promotions", "/mypage/products", true).kind).toBe("mypage-stack-back");
+    expect(run("/mypage", "/mypage/gift-certificates/abc").kind).toBe("mypage-stack-forward");
+    expect(run("/mypage/gift-certificates/abc", "/mypage", true).kind).toBe("mypage-stack-back");
+    for (const k of ["mypage-stack-forward", "mypage-stack-back"] as const) {
+      expect(isMypageMotionKind(k)).toBe(true);
+      expect(isMypageStackHeaderFixedKind(k)).toBe(true);
+    }
+  });
+
+  it("§4 ②: pairs leaving mypage keep their domain kinds (seller hub · commerce wallet · trade detail)", () => {
     expect(run("/market/sell", "/mypage/products").kind).toBe("rtl-forward");
+    expect(run("/mypage/products", "/market/sell", true).kind).toBe("ltr-back");
     expect(run("/mypage/products", "/post/abc-1").kind).toBe("none");
+    expect(run("/mypage/gift-certificates", "/mypage/gift-certificates/abc").kind).toBe("rtl-forward");
+    expect(run("/mypage/gift-certificates/abc", "/mypage/gift-certificates", true, "rtl").kind).toBe("ltr-back");
     expect(isMypageMotionKind("rtl-forward")).toBe(false);
     expect(isMypageMotionKind("ltr-back")).toBe(false);
+  });
+
+  it("§12 「전환 중」: header-fixed only for mypage stack kinds (other kinds slide header+body together)", () => {
+    for (const k of [
+      "rtl-forward",
+      "ltr-back",
+      "ltr-forward",
+      "rtl-back",
+      "subtle",
+      "none",
+      "profile-edit-forward",
+      "profile-edit-back",
+      "address-platform-forward",
+      "address-platform-back",
+    ] as const) {
+      expect(isMypageStackHeaderFixedKind(k)).toBe(false);
+    }
   });
 
   it("cross-domain pairs with mypage keep existing kinds", () => {

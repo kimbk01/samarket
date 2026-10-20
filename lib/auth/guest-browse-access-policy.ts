@@ -3,6 +3,8 @@
  * `proxy.ts` 와 private 라우트 가드에서 공유한다.
  */
 
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+
 function isAuthEntryPath(pathname: string): boolean {
   if (pathname === "/login" || pathname.startsWith("/login/")) return true;
   if (pathname === "/signup" || pathname.startsWith("/signup/")) return true;
@@ -40,7 +42,8 @@ export function isGuestPublicBrowsePath(pathname: string): boolean {
     return true;
   }
 
-  if (pathname === "/") return true;
+  /** Community home hub roots (`/` · `/home` · `/philife` · `/community`) — SSOT */
+  if (isCommunityHomeSurfacePath(pathname)) return true;
 
   if (pathname === "/community" || pathname.startsWith("/community/")) {
     if (pathname === "/community/my" || pathname.startsWith("/community/my/")) return false;

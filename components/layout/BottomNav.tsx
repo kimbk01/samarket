@@ -102,6 +102,7 @@ import {
   resolveMainBottomNavTabTapHref,
   type MainBottomNavTabEmphasisKind,
 } from "@/lib/main-menu/main-bottom-nav-tab-emphasis";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
@@ -110,7 +111,7 @@ const BOTTOM_NAV_ITEM_TOUCH_CLASS =
 function shouldPrefetchMainBottomNavHref(href: string, isActive: boolean): boolean {
   if (isActive) return false;
   const path = (href.split("?")[0] ?? "").trim().replace(/\/+$/, "") || "/";
-  if (path === "/" || path === "/philife" || path === "/community") return true;
+  if (isCommunityHomeSurfacePath(path)) return true;
   if (path === "/market" || path === "/stores" || path === "/mypage") return true;
   if (path === "/community-messenger") return true;
   return false;

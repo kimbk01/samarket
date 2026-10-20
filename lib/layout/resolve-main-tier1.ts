@@ -3,6 +3,12 @@ import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathnam
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { GLOBAL_SEARCH_NO_ORIGIN_FALLBACK } from "@/lib/search/global/global-search-navigation-ssot";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import {
+  buildMypageSectionHref,
+  findMypageMobileItem,
+  findMypageMobileSection,
+} from "@/lib/mypage/mypage-mobile-nav-registry";
 
 function starts(p: string, prefix: string): boolean {
   return p === prefix || p.startsWith(`${prefix}/`);
@@ -39,6 +45,153 @@ function backHome(overrides: Partial<ResolvedMainTier1Subpage>): ResolvedMainTie
   return { ...DEFAULT, backHref: "/philife", ...overrides };
 }
 
+type MypageTitleRow = {
+  titleText: string;
+  subtitle?: string;
+  backHref?: string;
+  showHubQuickActions?: boolean;
+};
+
+/** 고객센터 게시판 라벨 — `BOARD_LABEL`(lib/notices/customer-center-content) 한국어 원문과 동일(`tt` 번역) */
+const CS_BOARD_TITLE = { notice: "공지", system: "시스템", marketing: "마케팅" } as const;
+
+/**
+ * 내정보(`/mypage/*`) 정확 경로 → 1단 제목 (설계서 §2 제목 · §12 「제목 시점」).
+ * 페이지가 `MyScreen`·`MySubpageHeader` 로 등록하는 제목·부제와 **같은 키**를 쓴다 → 첫 프레임부터 최종 제목.
+ * `MyScreen` 화면은 부제가 없다(§12 「내정보는 부제 없음」).
+ * 계약 테스트: `lib/layout/__tests__/mypage-tier1-title-coverage.test.ts`.
+ */
+const MYPAGE_EXACT_TITLES: Readonly<Record<string, MypageTitleRow>> = {
+  "/mypage/account": { titleText: "account_title" },
+  "/mypage/addresses/search": { titleText: "addr_v2_search_title", backHref: "/mypage/addresses" },
+  "/mypage/ads": { titleText: "revenue_hub_title", subtitle: "revenue_hub_subtitle" },
+  "/mypage/ads/apply": {
+    titleText: "mypage_ads_apply_title",
+    subtitle: "mypage_ads_apply_subtitle",
+    backHref: "/mypage/ads",
+  },
+  "/mypage/ads/feed-request": {
+    titleText: "feed_ad_req_title",
+    subtitle: "feed_ad_req_subtitle",
+    backHref: "/mypage/ads",
+  },
+  "/mypage/benefits": { titleText: "route_benefits_title", subtitle: "route_benefits_subtitle" },
+  "/mypage/community-activity": {
+    titleText: "route_community_activity_title",
+    subtitle: "route_community_activity_subtitle",
+  },
+  "/mypage/community-posts": {
+    titleText: "route_community_posts_title",
+    subtitle: "route_community_posts_subtitle",
+  },
+  "/mypage/customer-center": { titleText: "mypage_comp_menu_support_cs_title" },
+  "/mypage/customer-center/notice": { titleText: CS_BOARD_TITLE.notice, backHref: "/mypage/customer-center" },
+  "/mypage/customer-center/system": { titleText: CS_BOARD_TITLE.system, backHref: "/mypage/customer-center" },
+  "/mypage/customer-center/marketing": {
+    titleText: CS_BOARD_TITLE.marketing,
+    backHref: "/mypage/customer-center",
+  },
+  "/mypage/inbox": { titleText: "support_legacy_archive_title", subtitle: "support_legacy_archive_hint" },
+  "/mypage/inquiries": { titleText: "support_legacy_archive_title", subtitle: "support_legacy_archive_hint" },
+  "/mypage/offers": { titleText: "mypage_r5_offer_title" },
+  "/mypage/order-notifications": {
+    titleText: "order_notifications_title",
+    subtitle: "order_notifications_subtitle",
+    backHref: "/mypage/notifications",
+    showHubQuickActions: false,
+  },
+  "/mypage/points": { titleText: "common_points", subtitle: "point_fin_home_subtitle" },
+  "/mypage/points/charge": {
+    titleText: "mypage_points_charge_title",
+    subtitle: "mypage_points_charge_subtitle",
+    backHref: "/mypage/points",
+  },
+  "/mypage/points/expiring": {
+    titleText: "mypage_points_expiring_title",
+    subtitle: "mypage_points_expiring_subtitle",
+    backHref: "/mypage/points",
+  },
+  "/mypage/points/promotions": {
+    titleText: "mypage_points_promotions_title",
+    subtitle: "mypage_points_promotions_subtitle",
+    backHref: "/mypage/products",
+  },
+  "/mypage/products": {
+    titleText: "marketplace_seller_products_title",
+    subtitle: "marketplace_seller_products_subtitle",
+  },
+  "/mypage/recent-viewed": {
+    titleText: "route_recent_viewed_title",
+    subtitle: "route_recent_viewed_subtitle",
+  },
+  "/mypage/required/dibay-id": { titleText: "mypage_required_dibay_id" },
+  "/mypage/required/phone": { titleText: "mypage_required_phone" },
+  "/mypage/store-inquiries": { titleText: "mypage_store_inquiries_title" },
+  "/mypage/store-orders": { titleText: "route_store_orders_list_title" },
+  "/mypage/support-history": { titleText: "support_history_title", backHref: "/mypage/customer-center" },
+  "/mypage/trust": { titleText: "mypage_trust_title" },
+};
+
+function mypageRow(row: MypageTitleRow): ResolvedMainTier1Subpage {
+  return backMypage({
+    titleText: row.titleText,
+    ...(row.subtitle ? { subtitle: row.subtitle } : {}),
+    ...(row.backHref ? { backHref: row.backHref } : {}),
+    showHubQuickActions: row.showHubQuickActions ?? true,
+  });
+}
+
+/** 내정보 경로 제목 — 매칭 없으면 null (기존 분기로 진행) */
+function resolveMypageTier1(p: string): ResolvedMainTier1Subpage | null {
+  if (!p.startsWith("/mypage/")) return null;
+  const exact = MYPAGE_EXACT_TITLES[p];
+  if (exact) return mypageRow(exact);
+
+  const csDetail = /^\/mypage\/customer-center\/(notice|system|marketing)\/[^/]+$/.exec(p);
+  if (csDetail) {
+    const type = csDetail[1] as keyof typeof CS_BOARD_TITLE;
+    return mypageRow({ titleText: CS_BOARD_TITLE[type], backHref: `/mypage/customer-center/${type}` });
+  }
+  /** 벨·푸시 공지 딥링크 — 게시판 종류는 상세 응답으로 정해지므로 기본 「공지」 */
+  if (/^\/mypage\/notices\/[^/]+$/.test(p)) {
+    return mypageRow({ titleText: CS_BOARD_TITLE.notice, backHref: "/mypage/customer-center/notice" });
+  }
+  const noteThread = /^\/mypage\/(inbox|inquiries)\/[^/]+$/.exec(p);
+  if (noteThread) {
+    /** 스레드 제목(subject)은 로드 후 페이지가 덮는다 — 로딩 중 빈 제목 대신 보관함 제목 */
+    return mypageRow({ titleText: "support_legacy_archive_title", backHref: `/mypage/${noteThread[1]}` });
+  }
+  if (/^\/mypage\/store-orders\/[^/]+$/.test(p)) {
+    return mypageRow({
+      titleText: "route_store_order_detail_title",
+      subtitle: "route_store_order_detail_subtitle",
+      backHref: "/mypage/store-orders",
+    });
+  }
+  if (/^\/mypage\/store-orders\/[^/]+\/review$/.test(p)) {
+    return mypageRow({
+      titleText: "route_store_order_review_title",
+      subtitle: "route_store_order_review_subtitle",
+      backHref: "/mypage/store-orders",
+      showHubQuickActions: false,
+    });
+  }
+
+  /** `/mypage/section/{section}` · `/mypage/section/{section}/{item}` — 레지스트리 라벨(페이지와 동일) */
+  const sectionMatch = /^\/mypage\/section\/([^/]+)(?:\/([^/]+))?$/.exec(p);
+  if (sectionMatch) {
+    const [, sectionId, itemId] = sectionMatch;
+    if (itemId) {
+      const item = findMypageMobileItem(sectionId!, itemId);
+      if (item) return mypageRow({ titleText: item.labelKey, backHref: buildMypageSectionHref(sectionId!) });
+    } else {
+      const section = findMypageMobileSection(sectionId!);
+      if (section) return mypageRow({ titleText: section.labelKey });
+    }
+  }
+  return null;
+}
+
 /**
  * `RegionBar` 기본 서브페이지 1단(뒤로·제목·허브).
  * `null`이면 호출측에서 전용 분기(거래 탐색·커뮤니티 피드·배달 루트·거래 허브 루트 등)를 쓴다.
@@ -54,8 +207,11 @@ export function resolveMainTier1Subpage(
   const p = normalizeAppPathnameForTier1(pathname);
 
   if (isTradeFloatingMenuSurface(p)) return null;
-  if (p === "/" || p === "/philife" || p === "/community") return null;
+  if (isCommunityHomeSurfacePath(p)) return null;
   if (p === "/stores") return null;
+
+  const mypage = resolveMypageTier1(p);
+  if (mypage) return mypage;
 
   if (p === "/stores/browse" || starts(p, "/stores/browse/")) {
     return {
@@ -260,7 +416,7 @@ export function resolveMainTier1Subpage(
     };
   }
 
-  if (p === "/mypage/products" || starts(p, "/mypage/products/")) {
+  if (starts(p, "/mypage/products/")) {
     return {
       ...DEFAULT,
       backHref: "/market/sell",
@@ -271,7 +427,7 @@ export function resolveMainTier1Subpage(
     };
   }
 
-  if (p === "/mypage/points/promotions" || starts(p, "/mypage/points/promotions/")) {
+  if (starts(p, "/mypage/points/promotions/")) {
     return {
       ...DEFAULT,
       backHref: "/mypage/products",
@@ -424,11 +580,11 @@ export function resolveMainTier1Subpage(
     });
   }
 
-  if (p === "/my/benefits" || p === "/mypage/benefits") {
+  if (p === "/my/benefits") {
     return backMypage({ titleText: "tier1_member_benefits", subtitle: "tier1_member_benefits_subtitle", showHubQuickActions: true });
   }
 
-  if (p === "/my/account" || p === "/mypage/account") {
+  if (p === "/my/account") {
     return backMypage({ titleText: "tier1_my_account", subtitle: "tier1_my_account_subtitle", showHubQuickActions: true });
   }
 
@@ -448,11 +604,11 @@ export function resolveMainTier1Subpage(
     return backMypage({ titleText: "tier1_store_inquiries", subtitle: "tier1_store_inquiries_subtitle", showHubQuickActions: true });
   }
 
-  if (p === "/my/store-orders" || p === "/mypage/store-orders") {
+  if (p === "/my/store-orders") {
     return backMypage({ titleText: "tier1_store_orders", showHubQuickActions: true });
   }
 
-  if (/^\/my\/store-orders\/[^/]+$/.test(p) || /^\/mypage\/store-orders\/[^/]+$/.test(p)) {
+  if (/^\/my\/store-orders\/[^/]+$/.test(p)) {
     return backMypage({
       titleText: "tier1_order_detail",
       subtitle: "tier1_store_order_subtitle",
@@ -462,11 +618,11 @@ export function resolveMainTier1Subpage(
     });
   }
 
-  if (/^\/my\/store-orders\/[^/]+\/review$/.test(p) || /^\/mypage\/store-orders\/[^/]+\/review$/.test(p)) {
+  if (/^\/my\/store-orders\/[^/]+\/review$/.test(p)) {
     return backMypage({ titleText: "tier1_review_write", subtitle: "tier1_review_write_subtitle", showHubQuickActions: false });
   }
 
-  if (p === "/my/points" || p === "/mypage/points") {
+  if (p === "/my/points") {
     return backMypage({ titleText: "tier1_points_hub", subtitle: "tier1_points_hub_sub", showHubQuickActions: true });
   }
 
@@ -490,11 +646,7 @@ export function resolveMainTier1Subpage(
     return backMypage({ titleText: "tier1_notifications", subtitle: "tier1_notifications_subtitle", showHubQuickActions: false });
   }
 
-  if (p === "/mypage/order-notifications") {
-    return backMypage({ titleText: "tier1_order_notifications", subtitle: "tier1_order_notifications_sub", showHubQuickActions: false });
-  }
-
-  if (p === "/mypage/trust" || p === "/my/trust") {
+  if (p === "/my/trust") {
     return backMypage({ titleText: "tier1_trust", subtitle: "tier1_trust_subtitle", showHubQuickActions: true });
   }
 
@@ -525,7 +677,7 @@ export function resolveMainTier1Subpage(
     return { ...DEFAULT, backHref: "/stores/owner", titleText: "tier1_business_apply", showHubQuickActions: true };
   }
 
-  if (p === "/my/recent-viewed" || p === "/mypage/recent-viewed") {
+  if (p === "/my/recent-viewed") {
     return backMypage({ titleText: "tier1_recent_viewed", subtitle: "tier1_recent_viewed_subtitle", showHubQuickActions: true });
   }
 
@@ -539,12 +691,33 @@ export function resolveMainTier1Subpage(
     };
   }
 
+  /** 정책 행(내정보 홈) — 본문 h1 대신 1단 제목 (설계서 §15) */
+  if (p === "/privacy") {
+    return {
+      ...DEFAULT,
+      backHref: "/mypage",
+      preferHistoryBack: true,
+      titleText: "ui_finish_privacy_title",
+      showHubQuickActions: false,
+    };
+  }
+
+  if (p === "/business-info") {
+    return {
+      ...DEFAULT,
+      backHref: "/mypage",
+      preferHistoryBack: true,
+      titleText: "business_info_page_title",
+      showHubQuickActions: false,
+    };
+  }
+
   if (starts(p, "/my/settings") || starts(p, "/mypage/settings")) {
     return backMypage({ titleText: "tier1_app_settings", showHubQuickActions: true });
   }
 
-  /** `/mypage/section/...` — `MainTier1Extras`로 섹션 제목 덮어쓰기 전 RegionBar 기본값 */
-  if (starts(p, "/mypage/section/")) {
+  /** `/mypage/section/...` 미등록 항목 — `MainTier1Extras`로 덮어쓰기 전 RegionBar 기본값 */
+  if (starts(p, "/mypage/section")) {
     return backMypage({ titleText: "tier1_myinfo", showHubQuickActions: true });
   }
 

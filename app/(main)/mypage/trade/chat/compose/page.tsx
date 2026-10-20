@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { TradeChatComposeClient } from "./TradeChatComposeClient";
 import { redirect } from "next/navigation";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { MyRouteSkeleton } from "@/components/mypage/ds/MyStateView";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import {
   TRADE_CHAT_SURFACE,
@@ -20,7 +20,8 @@ export default function TradeChatComposePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return (
-    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+    /** 전이 화면(채팅 준비) — 카드 1개 구조(피드 스켈레톤 금지) */
+    <Suspense fallback={<MyRouteSkeleton template="detail" />}>
       <TradeChatComposePageBody searchParams={searchParams} />
     </Suspense>
   );

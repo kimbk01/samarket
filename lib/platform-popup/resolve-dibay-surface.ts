@@ -9,6 +9,7 @@
 import type { PlatformPopupResolvedSurface } from "@/lib/platform-popup/types";
 import { PLATFORM_POPUP_CONSUMER_SURFACES } from "@/lib/platform-popup/types";
 import { resolvePlatformPopupPathCriticalSurface } from "@/lib/platform-popup/popup-critical-path-gates";
+import { isCommunityHomeSurfacePath, isCommunityMainSurface } from "@/lib/layout/resolve-main-surface";
 
 export type ResolveDibaySurfaceContext = {
   callIncoming?: boolean;
@@ -68,8 +69,8 @@ export function resolveDibaySurface(
 
   const p = normalizePath(pathname);
 
-  // App home `/` renders CommunityHomeSurface — same authority as `/philife`.
-  if (p === "/") return "COMMUNITY";
+  // App home `/` · `/home` render CommunityHomeSurface — same authority as `/philife`.
+  if (isCommunityHomeSurfacePath(p)) return "COMMUNITY";
 
   if (p === "/admin" || p.startsWith("/admin/")) return "ADMIN";
 
@@ -106,7 +107,7 @@ export function resolveDibaySurface(
     return "ORDER_CRITICAL";
   }
 
-  if (p === "/philife" || p.startsWith("/philife/") || p === "/community" || p.startsWith("/community/")) {
+  if (isCommunityMainSurface(p)) {
     return "COMMUNITY";
   }
 

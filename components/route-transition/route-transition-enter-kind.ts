@@ -12,7 +12,11 @@ import {
   storesOwnerStackDepth,
 } from "@/lib/business/owner-stack-path";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { isMypageStackPath, mypageStackDepth } from "@/lib/mypage/mypage-stack-slide";
+import {
+  isMypageStackPath,
+  mypageStackDepth,
+  shouldUseMypageStackForPromotedPair,
+} from "@/lib/mypage/mypage-stack-slide";
 import {
   isMypageAddressEditPath,
   isMypageAddressListPath,
@@ -215,6 +219,15 @@ export function computeRouteTransitionEnterKind(
       // neutral baseline / future composition engine owns presentation, not AppRouteTransition).
       kind = "none";
     }
+  } else if (shouldUseMypageStackForPromotedPair(prevPath, nextPath)) {
+    /**
+     * 설계서 §4 ② — `/mypage/products` · `/mypage/points/promotions` · `/mypage/gift-certificates/[id]` 는
+     * 판매자 허브(440ms)·커머스 스택 분기가 먼저 잡았다. 내정보 ↔ 내정보 이동이면 내정보 300ms 스택.
+     * (`/market/sell` ↔ `/mypage/products` 등 내정보 밖 쌍은 아래 기존 분기 그대로)
+     */
+    const dPrev = mypageStackDepth(prevPath);
+    const dNext = mypageStackDepth(nextPath);
+    kind = opts.popstateBack || dNext < dPrev ? "mypage-stack-back" : "mypage-stack-forward";
   } else if (isMarketplaceSellerHubPath(prevPath) || isMarketplaceSellerHubPath(nextPath)) {
     const dPrev = marketplaceSellerHubDepth(prevPath);
     const dNext = marketplaceSellerHubDepth(nextPath);

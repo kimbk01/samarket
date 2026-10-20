@@ -43,3 +43,35 @@ export function mypageStackDepth(path: string | null | undefined): number {
   }
   return segs.length;
 }
+
+/**
+ * 다른 도메인 슬라이드 규칙(판매자 허브 440ms · 커머스 스택)이 먼저 잡던 내정보 경로 (설계서 §4 ②).
+ * 내정보 ↔ 내정보 이동이면 내정보 300ms 스택 규칙을 쓴다.
+ */
+export function isMypageStackPromotedPath(path: string | null | undefined): boolean {
+  const p = normalize(path);
+  if (p === "/mypage/products" || p.startsWith("/mypage/products/")) return true;
+  if (p === "/mypage/points/promotions" || p.startsWith("/mypage/points/promotions/")) return true;
+  return /^\/mypage\/gift-certificates\/[^/]+$/.test(p);
+}
+
+/** 커머스 지갑 허브 별칭 — 상품권 허브 ↔ 상세 왕복은 커머스 지갑 스택(배달 도메인 헤더) 그대로 */
+function isCommerceWalletHubAlias(p: string): boolean {
+  return p === "/mypage/coupons" || p === "/mypage/gift-certificates";
+}
+
+/**
+ * 내정보 ↔ 내정보 쌍인데 한쪽이 `isMypageStackPromotedPath` 이면 true → 내정보 300ms 스택 kind.
+ * `/market/sell` ↔ `/mypage/products` 처럼 한쪽이 내정보 밖이면 false(판매자 허브 규칙 유지).
+ */
+export function shouldUseMypageStackForPromotedPair(
+  prevPath: string | null | undefined,
+  nextPath: string | null | undefined
+): boolean {
+  const a = normalize(prevPath);
+  const b = normalize(nextPath);
+  if (!isMypageStackPath(a) || !isMypageStackPath(b)) return false;
+  if (!isMypageStackPromotedPath(a) && !isMypageStackPromotedPath(b)) return false;
+  if (isCommerceWalletHubAlias(a) || isCommerceWalletHubAlias(b)) return false;
+  return true;
+}

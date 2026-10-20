@@ -30,6 +30,8 @@ type Props = {
  * Hub routes: single route `children` Surface only.
  * DO NOT: dual-panel Feed clone · KeepAlive multi-hub · View Transition · OLD exit translate
  * DO NOT: separate header/body animations
+ * EXCEPTION (설계서 §12 「전환 중」): 내정보 스택 kind(`mypage-stack-forward/back`)만 헤더 고정 + 본문 슬라이드
+ *   — `AppRouteTransition` `data-mypage-stack-header-fixed` (메인 허브·다른 도메인 전환은 위 계약 그대로)
  */
 export function MainShellTabContentTransition({
   children,

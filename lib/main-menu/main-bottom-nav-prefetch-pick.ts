@@ -6,6 +6,7 @@ import {
   resolveMainBottomNavPickTabActiveOptions,
   type MainBottomNavPickContext,
 } from "@/lib/main-menu/main-bottom-nav-pick-context";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 /**
  * `/community-messenger` 셸 — 교차 탭 RSC idle 프리페치 생략 판별용(미사용 preload·현재 화면과 네트워크 경쟁 완화).
@@ -41,8 +42,8 @@ export function isBottomNavTabActive(pathname: string | null, tabHref: string): 
   const h = tabHref.split("?")[0]?.trim() ?? "";
   if (!p || !h) return false;
   if (p === h || p.startsWith(`${h}/`)) return true;
-  /** Cold Boot `/` · legacy `/community` → Community tab (`/philife`) */
-  if (h === "/philife" && (p === "/" || p === "/community")) return true;
+  /** Cold Boot `/` · `/home` · legacy `/community` → Community tab (`/philife`) */
+  if (h === "/philife" && isCommunityHomeSurfacePath(p)) return true;
   return false;
 }
 

@@ -4,6 +4,7 @@
  */
 
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 export { shouldSuppressOwnerStackMainShellSlide } from "@/lib/business/owner-stack-path";
 export { shouldSuppressCommerceConsumerMainShellSlide } from "@/lib/delivery/customer/commerce-child-page-slide";
@@ -114,7 +115,7 @@ export function resolveCanonicalNavIndex(pathname: string | null): number | null
   const p = normalizePathForRouteTransition(pathname);
   if (!p || isExcludedFromMainShellTransition(pathname)) return null;
 
-  if (p === "/" || p.startsWith("/philife")) return CANONICAL_NAV_INDICES.philife;
+  if (isCommunityHomeSurfacePath(p) || p.startsWith("/philife")) return CANONICAL_NAV_INDICES.philife;
   /** `/community-messenger` 는 `/community` 접두와 충돌 — 반드시 먼저 분기 */
   if (p === "/community-messenger" || p.startsWith("/community-messenger/"))
     return CANONICAL_NAV_INDICES.messenger;
@@ -335,4 +336,12 @@ const MYPAGE_MOTION_KINDS: ReadonlySet<RouteTransitionEnterKind> = new Set<Route
 
 export function isMypageMotionKind(kind: RouteTransitionEnterKind | null | undefined): boolean {
   return kind != null && MYPAGE_MOTION_KINDS.has(kind);
+}
+
+/**
+ * 내정보 스택 전환(우→좌 300ms · 역방향) — 1단 헤더는 고정, 본문만 슬라이드 (설계서 §12 「전환 중」).
+ * 프로필 편집·주소 플랫폼은 자체 헤더 화면이라 제외. 다른 도메인 kind 는 헤더+본문 한 surface 그대로.
+ */
+export function isMypageStackHeaderFixedKind(kind: RouteTransitionEnterKind | null | undefined): boolean {
+  return kind === "mypage-stack-forward" || kind === "mypage-stack-back";
 }

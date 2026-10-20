@@ -5,7 +5,10 @@
  * MUST use this (or thin wrappers over it). DO NOT re-infer `/` as trade.
  *
  * CONTRACT:
- * - `/`, `/philife`, `/community` → community (same Community home surface)
+ * - `/`, `/philife`, `/community`, `/home` → community (same Community home surface)
+ * - Community home hub roots are decided ONLY by `isCommunityHomeSurfacePath()` /
+ *   `COMMUNITY_HOME_SURFACE_PATHS` — no literal `/`·`/philife`·`/community` sets elsewhere
+ *   (guarded by `community-hub-path-ssot.test.ts`).
  * - `/community-messenger` is chat (never match as `/community` prefix)
  */
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
@@ -25,13 +28,7 @@ export function resolveMainSurface(pathname: string | null | undefined): MainSur
   if (p === "/community-messenger" || p.startsWith("/community-messenger/")) return "chat";
   if (p === "/chats" || p.startsWith("/chats/") || p === "/chat" || p.startsWith("/chat/")) return "chat";
 
-  if (
-    p === "/" ||
-    p === "/philife" ||
-    p.startsWith("/philife/") ||
-    p === "/community" ||
-    p.startsWith("/community/")
-  ) {
+  if (isCommunityHomeSurfacePath(p) || p.startsWith("/philife/") || p.startsWith("/community/")) {
     return "community";
   }
 
@@ -60,13 +57,20 @@ export function resolveMainSurface(pathname: string | null | undefined): MainSur
 }
 
 /**
+ * Community home hub roots — single source. `/home` is the Cold Boot direct-render alias
+ * (`app/(main)/home/page.tsx`, no HTTP redirect) and MUST behave exactly like `/`.
+ */
+export const COMMUNITY_HOME_SURFACE_PATHS = ["/", "/philife", "/community", "/home"] as const;
+
+const COMMUNITY_HOME_SURFACE_PATH_SET: ReadonlySet<string> = new Set(COMMUNITY_HOME_SURFACE_PATHS);
+
+/**
  * Community home hubs that share one surface authority
  * (`CommunityHomeSurface` / `PhilifeHomeFeedPage`).
  * Detail routes under `/philife/*` · `/community/*` are community surface but not the home hub.
  */
 export function isCommunityHomeSurfacePath(pathname: string | null | undefined): boolean {
-  const p = pathOnly(pathname);
-  return p === "/" || p === "/philife" || p === "/community";
+  return COMMUNITY_HOME_SURFACE_PATH_SET.has(pathOnly(pathname));
 }
 
 /** Bottom-tab hub ids kept alive under Main App Shell (exact hubs only — not detail routes). */
@@ -80,7 +84,7 @@ export function resolveMainTabKeepAliveHub(
   pathname: string | null | undefined
 ): MainTabKeepAliveHubId | null {
   const p = pathOnly(pathname);
-  if (p === "/" || p === "/philife" || p === "/community") return "community";
+  if (isCommunityHomeSurfacePath(p)) return "community";
   if (p === "/market") return "trade";
   if (p === "/stores") return "delivery";
   if (p === "/community-messenger") return "chat";

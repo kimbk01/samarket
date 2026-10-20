@@ -106,11 +106,19 @@ export function LegalDocumentPageClient({
         ? splitLegalBodyParagraphs(staticFb.body)
         : fallbackBodyKeys.map((key) => t(key));
 
+  /**
+   * 1단 헤더가 같은 제목(`resolve-main-tier1` · `fallbackTitleKey`)을 이미 보여 주면 본문 h1 중복 금지.
+   * CMS 문서 제목이 헤더와 다를 때만 본문 제목을 그린다.
+   */
+  const headerTitle = t(fallbackTitleKey);
+  const showDocumentTitle =
+    displayTitle.trim().toLocaleLowerCase() !== headerTitle.trim().toLocaleLowerCase();
+
   return (
     <div className="mx-auto min-h-screen max-w-3xl px-4 py-8" data-legal-kind={kind}>
-      <h1 className="text-2xl font-semibold text-sam-fg">{displayTitle}</h1>
+      {showDocumentTitle ? <h1 className="text-2xl font-semibold text-sam-fg">{displayTitle}</h1> : null}
       {version ? (
-        <p className="mt-2 text-xs text-sam-meta">
+        <p className={`${showDocumentTitle ? "mt-2" : ""} text-xs text-sam-meta`}>
           {safeT("legal_document_version_label", {
             fallbackKo: `버전 ${version}`,
             fallbackEn: `Version ${version}`,

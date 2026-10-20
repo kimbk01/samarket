@@ -1,3 +1,5 @@
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+
 /**
  * `TradePresenceActivityProvider` 의 **HTTP heartbeat**(POST `/api/me/trade-presence/heartbeat`)만 게이트한다.
  *
@@ -15,7 +17,7 @@ export const TRADE_PRESENCE_HEARTBEAT_SUPPRESSED_TAIL_MS = 60_000;
  */
 export function shouldRunTradePresenceHttpHeartbeat(pathname: string | null): boolean {
   if (!pathname) return false;
-  if (pathname === "/" || pathname === "/philife") return false;
+  if (isCommunityHomeSurfacePath(pathname)) return false;
   if (pathname.startsWith("/philife/")) return false;
   if (pathname.startsWith("/community")) return false;
   if (pathname.startsWith("/chats/") && pathname !== "/chats/new" && pathname !== "/chats/order") {

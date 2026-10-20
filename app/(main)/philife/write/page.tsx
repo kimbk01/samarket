@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { PhilifeWriteSkeleton } from "@/components/community/PhilifeRouteSkeletons";
 import { WriteForm } from "@/components/community/WriteForm";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { buildLoginPath } from "@/lib/auth/safe-next-path";
@@ -17,9 +17,10 @@ interface PhilifeWritePageProps {
   }>;
 }
 
+/** 스켈레톤 소유자 = 이 Suspense 하나(세그먼트 `philife/loading.tsx` 는 중립). 글쓰기 폼 구조와 같은 골격. */
 export default function PhilifeWritePage({ searchParams }: PhilifeWritePageProps) {
   return (
-    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+    <Suspense fallback={<PhilifeWriteSkeleton />}>
       <PhilifeWritePageBody searchParams={searchParams} />
     </Suspense>
   );

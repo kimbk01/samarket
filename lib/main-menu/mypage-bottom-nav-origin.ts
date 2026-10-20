@@ -1,5 +1,6 @@
 /** 하단 「내정보」(`/mypage`) 진입 직전 셸 — 배달 5탭 vs 거래·커뮤니티 6탭 레일 */
 import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import { isCommunityMainSurface } from "@/lib/layout/resolve-main-surface";
 
 export type MypageBottomNavOrigin = "delivery" | "trade" | "community";
 
@@ -112,12 +113,7 @@ export function syncMypageBottomNavContextFromPath(pathname: string | null, sear
     writeStoredMypageBottomNavOrigin("trade");
     return;
   }
-  if (
-    pathOnly === "/philife" ||
-    pathOnly.startsWith("/philife/") ||
-    pathOnly === "/community" ||
-    pathOnly.startsWith("/community/")
-  ) {
+  if (isCommunityMainSurface(pathOnly)) {
     writeStoredMypageBottomNavOrigin("community");
   }
 }

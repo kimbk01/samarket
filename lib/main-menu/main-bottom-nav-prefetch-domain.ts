@@ -1,4 +1,5 @@
 import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import { isCommunityHomeSurfacePath, isCommunityMainSurface } from "@/lib/layout/resolve-main-surface";
 
 /**
  * 거래 셸의 `/market` 접두는 `main-bottom-nav-prefetch-pick` 의 `isBottomNavTabActive` 와 동일하게 둔다.
@@ -21,8 +22,8 @@ export type MainBottomNavPrefetchDomain =
 export function mainBottomNavPrefetchTriggerKey(pathname: string | null): MainBottomNavPrefetchDomain {
   const raw = (pathname ?? "").split("?")[0]?.trim() ?? "";
   const p = raw.replace(/\/+$/, "") || "/";
-  /** `/` Cold Boot = Community shell (not a separate "root" prefetch domain) */
-  if (p === "/" || !p) return "philife";
+  /** `/` Cold Boot · `/home` alias = Community shell (not a separate "root" prefetch domain) */
+  if (!p || isCommunityHomeSurfacePath(p)) return "philife";
   if (p === "/market" || p.startsWith("/market/")) return "trade";
   /**
    * Trade product detail `/post/[id]` — same shell domain as `/market`.
@@ -33,9 +34,8 @@ export function mainBottomNavPrefetchTriggerKey(pathname: string | null): MainBo
    * bottom-nav domain exit and overwrite Trade list scroll restore (S5).
    */
   if (p === "/post" || p.startsWith("/post/")) return "trade";
-  if (p === "/philife" || p.startsWith("/philife/")) return "philife";
-  /** 레거시 커뮤니티 경로 — 필라이프와 동일 셸(스크롤·idle 프리페치 도메인 일치) */
-  if (p === "/community" || p.startsWith("/community/")) return "philife";
+  /** `/philife/*` · 레거시 `/community/*` — 필라이프와 동일 셸(스크롤·idle 프리페치 도메인 일치) */
+  if (isCommunityMainSurface(p)) return "philife";
   if (p === "/stores/owner" || p.startsWith("/stores/owner/")) return "store_owner";
   if (isDeliveryConsumerBottomNavSurface(p)) return "stores";
   if (p === "/stores" || p.startsWith("/stores/")) return "stores";
