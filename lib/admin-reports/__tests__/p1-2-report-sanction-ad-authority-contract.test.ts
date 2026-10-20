@@ -44,7 +44,7 @@ describe("P1-2 report / sanction / ad authority contract", () => {
   });
 
   it("chat report rows do not use room id as targetUserId", () => {
-    const src = read("lib/admin-reports/getReportsFromDb.ts");
+    const src = read("lib/admin-reports/admin-reports-read.server.ts");
     expect(src).toContain('targetType === "chat"');
     expect(src).toMatch(/targetType === "chat"\s*\?[\s\S]{0,40}""/);
     expect(src).toContain("Never treat room/message id as profiles.user_id");

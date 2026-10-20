@@ -12,7 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
-import { COMMUNITY_APPEAL_HREF } from "@/lib/notifications/notify-community-moderation";
+import { buildSupportEnterHref } from "@/lib/support/support-enter-href";
 
 function clip(v: unknown, max = 200): string {
   return typeof v === "string" ? v.trim().slice(0, max) : "";
@@ -57,7 +57,10 @@ export async function notifyTradePostModerated(
     body: reason
       ? notifySafeT(lang, "notify_community_mod_reason_body", { vars: { reason } })
       : notifySafeT(lang, "notify_community_mod_default_body"),
-    link_url: args.kind === "restored" || args.kind === "edited" ? `/post/${args.postId}` : COMMUNITY_APPEAL_HREF,
+    link_url:
+      args.kind === "restored" || args.kind === "edited"
+        ? `/post/${args.postId}`
+        : buildSupportEnterHref({ category: "TRADE", referenceType: "TRADE_POST", referenceId: args.postId }),
     meta: { kind: "trade_moderation", action: args.kind, post_id: args.postId, ...(reason ? { reason } : {}) },
   });
 }
@@ -89,7 +92,10 @@ export async function notifyTradeSanction(
     dedupe_key: `trade_sanction:${uid}:${args.kind}:${args.sanctionId}`,
     title: notifySafeT(lang, SANCTION_KEYS[args.kind].title),
     body: notifySafeT(lang, SANCTION_KEYS[args.kind].body, { vars: { scope, until, reason: reason || "-" } }),
-    link_url: args.kind === "revoked" ? "/market" : COMMUNITY_APPEAL_HREF,
+    link_url:
+      args.kind === "revoked"
+        ? "/market"
+        : buildSupportEnterHref({ category: "TRADE", referenceType: "TRADE_SANCTION", referenceId: args.sanctionId }),
     meta: {
       kind: "trade_sanction",
       action: args.kind,

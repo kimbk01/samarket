@@ -7,54 +7,18 @@ import "server-only";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import {
+  loadActiveTradeRestriction,
+  type ActiveTradeRestriction,
+  type TradeActivityKind,
+} from "@/lib/trade/trade-activity-restriction-core";
 
-export type TradeActivityKind = "post" | "chat";
-
-export type ActiveTradeRestriction = {
-  id: string;
-  restriction: "post" | "chat" | "all";
-  end_at: string | null;
-};
-
-export function tradeRestrictionScopesFor(kind: TradeActivityKind): Array<"post" | "chat" | "all"> {
-  return kind === "post" ? ["post", "all"] : ["chat", "all"];
-}
-
-/**
- * 유효한 제한 1건 또는 null.
- * 조회 오류 시: 일시 장애로 전체 회원 거래가 막히지 않도록 로그만 남기고 허용 (커뮤니티 가드와 같은 선택).
- */
-export async function loadActiveTradeRestriction(
-  sb: SupabaseClient,
-  userId: string,
-  kind: TradeActivityKind
-): Promise<ActiveTradeRestriction | null> {
-  const uid = String(userId ?? "").trim();
-  if (!uid) return null;
-  try {
-    const nowIso = new Date().toISOString();
-    const { data, error } = await sb
-      .from("sanctions")
-      .select("id, restriction, end_at")
-      .eq("user_id", uid)
-      .eq("scope", "trade")
-      .eq("sanction_type", "trade_restriction")
-      .is("revoked_at", null)
-      .in("restriction", tradeRestrictionScopesFor(kind))
-      .or(`end_at.is.null,end_at.gt.${nowIso}`)
-      .order("end_at", { ascending: false, nullsFirst: true })
-      .limit(1);
-    if (error) {
-      console.error("[trade-activity-restriction] lookup failed (allowing)", error.message);
-      return null;
-    }
-    const row = Array.isArray(data) ? (data[0] as ActiveTradeRestriction | undefined) : undefined;
-    return row ?? null;
-  } catch (e) {
-    console.error("[trade-activity-restriction] lookup threw (allowing)", e instanceof Error ? e.message : e);
-    return null;
-  }
-}
+export {
+  loadActiveTradeRestriction,
+  tradeRestrictionScopesFor,
+  type ActiveTradeRestriction,
+  type TradeActivityKind,
+} from "@/lib/trade/trade-activity-restriction-core";
 
 function formatUntilKo(endAt: string | null): string {
   if (!endAt) return "별도 안내 시까지";
@@ -67,10 +31,11 @@ export function tradeRestrictedResponse(r: ActiveTradeRestriction): NextResponse
   return NextResponse.json(
     {
       ok: false,
-      error: "trade_restricted",
+      /** 거래 화면은 `error` 를 그대로 안내 문구로 보여 준다 — 기계 코드는 `code` */
+      error: `거래 활동이 제한되어 있습니다 (${formatUntilKo(r.end_at)}). 이의신청은 고객센터에서 할 수 있습니다.`,
+      code: "trade_restricted",
       restriction: r.restriction,
       end_at: r.end_at,
-      messageKo: `거래 활동이 제한되어 있습니다 (${formatUntilKo(r.end_at)}). 이의신청은 고객센터에서 할 수 있습니다.`,
     },
     { status: 403 }
   );

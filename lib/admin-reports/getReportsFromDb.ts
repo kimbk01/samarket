@@ -1,259 +1,34 @@
 "use client";
 
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
-
-import { ADMIN_DASHBOARD_REPORT_REASON_LABELS as REASON_LABELS } from "@/lib/admin-dashboard/report-reason-labels";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import type { Report, ReportStatus } from "@/lib/types/report";
-import { TRADE_REPORT_ADMIN_ACTIONABLE } from "@/lib/admin/admin-ops-actionable-status";
-
-/** Upper bound for the actionable set (Bell `reports` category); history is capped separately. */
-const REPORT_ACTIONABLE_LIMIT = 2000;
-const REPORT_HISTORY_LIMIT = 300;
-
-export interface ReportRow {
-  id: string;
-  reporter_id: string;
-  target_type: string;
-  target_id: string;
-  room_id: string | null;
-  product_id: string | null;
-  reason_code: string;
-  reason_text: string | null;
-  status: string;
-  admin_note: string | null;
-  created_at: string;
-  resolved_at: string | null;
-  resolved_by: string | null;
-}
-
-
-function toReportStatus(s: string): ReportStatus {
-  if (s === "pending" || s === "reviewing" || s === "resolved" || s === "rejected" || s === "sanctioned" || s === "reviewed") return s as ReportStatus;
-  return "pending";
-}
-
-function toTargetType(t: string): Report["targetType"] {
-  const x = (t ?? "").toLowerCase();
-  if (x === "user") return "user";
-  if (x === "chat_room" || x === "chat_message") return "chat";
-  /** DB의 post·comment는 관리자 UI에서 게시글(product) 버킷으로 묶어 제목 조회 */
-  if (x === "product" || x === "post" || x === "comment") return "product";
-  return "product";
-}
-
-function resolvePostIdForReport(r: ReportRow): string | null {
-  const tt = (r.target_type ?? "").toLowerCase();
-  if (tt === "post" || tt === "product") return (r.product_id ?? r.target_id)?.trim() || null;
-  if (tt === "comment") return r.product_id?.trim() || null;
-  return null;
-}
+/**
+ * 어드민 통합 신고 목록·상세 — 서버 API(권한 키 `reports`) 호출 (거래 Admin 설계 v2 D-42 · D-43).
+ * 조회·변환 본체: `admin-reports-read.server.ts`. 함수 이름·반환 형태는 기존 화면 호환을 위해 유지.
+ */
+import type { Report } from "@/lib/types/report";
 
 /**
- * 어드민 신고 목록 — reports 테이블 기준
+ * 어드민 신고 목록 — reports 테이블 기준. 실패는 빈 목록이 아니라 예외 (「신고 없음」 오인 방지).
  */
 export async function getReportsForAdminFromDb(): Promise<Report[]> {
-  const supabase = getSupabaseClient();
-  if (!supabase) return [];
-
-  try {
-    const cols =
-      "id, reporter_id, target_type, target_id, room_id, product_id, reason_code, reason_text, status, admin_note, created_at, resolved_at, resolved_by";
-    // Admin Action Queue rows (pending|reviewing) are loaded in full so the list always covers
-    // the Bell count; processed history is the latest REPORT_HISTORY_LIMIT rows.
-    const [actionableRes, historyRes] = await Promise.all([
-      (supabase as any)
-        .from("reports")
-        .select(cols)
-        .in("status", [...TRADE_REPORT_ADMIN_ACTIONABLE])
-        .order("created_at", { ascending: false })
-        .limit(REPORT_ACTIONABLE_LIMIT),
-      (supabase as any)
-        .from("reports")
-        .select(cols)
-        .not("status", "in", `(${TRADE_REPORT_ADMIN_ACTIONABLE.join(",")})`)
-        .order("created_at", { ascending: false })
-        .limit(REPORT_HISTORY_LIMIT),
-    ]);
-
-    if (actionableRes.error || !Array.isArray(actionableRes.data)) {
-      // Never present a failed load as "no reports".
-      throw new Error(actionableRes.error?.message ?? "reports_load_failed");
-    }
-    if (actionableRes.data.length >= REPORT_ACTIONABLE_LIMIT) {
-      console.warn("[getReportsForAdminFromDb] actionable reports reached the load cap", REPORT_ACTIONABLE_LIMIT);
-    }
-    const history = !historyRes.error && Array.isArray(historyRes.data) ? historyRes.data : [];
-    const list = [...(actionableRes.data as ReportRow[]), ...(history as ReportRow[])].sort((a, b) =>
-      String(b.created_at).localeCompare(String(a.created_at))
-    );
-
-    const reporterIds = [...new Set(list.map((r) => r.reporter_id))];
-    const resolvedByIds = [...new Set(list.map((r) => r.resolved_by).filter(Boolean))] as string[];
-    const productIds = [...new Set(list.map(resolvePostIdForReport).filter(Boolean))] as string[];
-    const userIds = [...new Set([...reporterIds, ...resolvedByIds])];
-
-    const nicknameById: Record<string, string> = {};
-    if (userIds.length > 0) {
-      const { data: users } = await (supabase as any)
-        .from("test_users")
-        .select("id, display_name, username")
-        .in("id", userIds);
-      if (Array.isArray(users)) {
-        users.forEach((u: { id: string; display_name?: string; username?: string }) => {
-          nicknameById[u.id] = (u.display_name ?? u.username ?? u.id).trim() || u.id;
-        });
-      }
-    }
-
-    const productTitleById: Record<string, string> = {};
-    const postAuthorById: Record<string, string> = {};
-    if (productIds.length > 0) {
-      const { data: posts } = await (supabase as any)
-        .from(POSTS_TABLE_READ)
-        .select("id, title, user_id")
-        .in("id", productIds);
-      if (Array.isArray(posts)) {
-        posts.forEach((p: { id: string; title: string; user_id?: string }) => {
-          productTitleById[p.id] = p.title ?? p.id;
-          const author = (p.user_id ?? "").trim();
-          if (author) postAuthorById[p.id] = author;
-        });
-      }
-    }
-
-    const reports: Report[] = list.map((r) => {
-      const targetType = toTargetType(r.target_type);
-      const postId = resolvePostIdForReport(r) ?? "";
-      const productId = postId || (r.product_id ?? r.target_id);
-      const targetTitle =
-        targetType === "product"
-          ? (productTitleById[productId] ?? r.target_id)
-          : targetType === "chat"
-            ? `채팅 ${r.target_id}`
-            : (nicknameById[r.target_id] ?? r.target_id);
-      const targetUserIdForProduct = postAuthorById[productId] ?? "";
-      const ttRaw = (r.target_type ?? "").toLowerCase();
-      const targetIdOut =
-        ttRaw === "product" || ttRaw === "post" || ttRaw === "comment" ? productId : r.target_id;
-      const targetUserIdOut =
-        targetType === "product"
-          ? targetUserIdForProduct || ""
-          : targetType === "user"
-            ? r.target_id
-            : targetType === "chat"
-              ? ""
-              : "";
-      return {
-        id: r.id,
-        reporterId: r.reporter_id,
-        reporterNickname: nicknameById[r.reporter_id],
-        targetType,
-        targetId: targetIdOut,
-        targetUserId: targetUserIdOut,
-        targetTitle,
-        productTitle: targetType === "product" ? productTitleById[productId] : undefined,
-        reasonCode: r.reason_code,
-        reasonLabel: REASON_LABELS[r.reason_code] ?? r.reason_text?.slice(0, 40) ?? r.reason_code,
-        detail: r.reason_text ?? "",
-        createdAt: r.created_at,
-        status: toReportStatus(r.status),
-        resolvedBy: r.resolved_by ? nicknameById[r.resolved_by] : undefined,
-        resolvedAt: r.resolved_at ?? undefined,
-        reportSource: "reports",
-      };
-    });
-
-    return reports;
-  } catch (e) {
-    // Surface the failure to the page — an empty list would read as "no pending reports".
-    throw e instanceof Error ? e : new Error("reports_load_failed");
+  const res = await fetch("/api/admin/reports", { credentials: "include", cache: "no-store" });
+  const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; reports?: Report[] };
+  if (!res.ok || json.ok === false || !Array.isArray(json.reports)) {
+    throw new Error(json.error || `reports_load_failed_${res.status}`);
   }
+  return json.reports;
 }
 
 /**
  * 어드민 신고 1건 조회
  */
 export async function getReportByIdFromDb(reportId: string): Promise<Report | null> {
-  const supabase = getSupabaseClient();
-  if (!supabase) return null;
-
   try {
-    const { data: row, error } = await (supabase as any)
-      .from("reports")
-      .select("id, reporter_id, target_type, target_id, room_id, product_id, reason_code, reason_text, status, admin_note, created_at, resolved_at, resolved_by")
-      .eq("id", reportId)
-      .maybeSingle();
-
-    if (error || !row) return null;
-    const r = row as ReportRow;
-
-    let reporterNickname = r.reporter_id;
-    let resolvedByNickname: string | undefined;
-    let targetTitle: string = r.target_id;
-    let productTitle: string | undefined;
-
-    const { data: u } = await (supabase as any)
-      .from("test_users")
-      .select("display_name, username")
-      .eq("id", r.reporter_id)
-      .maybeSingle();
-    if (u) reporterNickname = (u.display_name ?? u.username ?? r.reporter_id).trim() || r.reporter_id;
-
-    if (r.resolved_by) {
-      const { data: ru } = await (supabase as any)
-        .from("test_users")
-        .select("display_name, username")
-        .eq("id", r.resolved_by)
-        .maybeSingle();
-      if (ru) resolvedByNickname = (ru.display_name ?? ru.username ?? r.resolved_by).trim() || r.resolved_by;
-    }
-
-    const targetType = toTargetType(r.target_type);
-    let targetUserIdOut = r.target_id;
-    const ttRaw = (r.target_type ?? "").toLowerCase();
-    const postLookupId = resolvePostIdForReport(r);
-    if (targetType === "product" && postLookupId) {
-      const pid = postLookupId;
-      const { data: post } = await (supabase as any)
-        .from(POSTS_TABLE_READ)
-        .select("title, user_id")
-        .eq("id", pid)
-        .maybeSingle();
-      if (post) {
-        targetTitle =
-          ttRaw === "comment" ? `${post.title ?? pid} (댓글 신고)` : (post.title ?? pid);
-        productTitle = post.title;
-        const author = (post.user_id ?? "").trim();
-        if (author) targetUserIdOut = author;
-      }
-    } else if (targetType === "chat") {
-      targetTitle = `채팅 ${r.target_id}`;
-      // Never treat room/message id as profiles.user_id (P1-2 P0 guard).
-      targetUserIdOut = "";
-    }
-
-    return {
-      id: r.id,
-      reporterId: r.reporter_id,
-      reporterNickname,
-      targetType,
-      targetId:
-        ttRaw === "product" || ttRaw === "post" || ttRaw === "comment"
-          ? (postLookupId ?? r.product_id ?? r.target_id)
-          : r.target_id,
-      targetUserId: targetUserIdOut,
-      targetTitle,
-      productTitle,
-      reasonCode: r.reason_code,
-      reasonLabel: REASON_LABELS[r.reason_code] ?? r.reason_text?.slice(0, 40) ?? r.reason_code,
-      detail: r.reason_text ?? "",
-      createdAt: r.created_at,
-      status: toReportStatus(r.status),
-      resolvedBy: resolvedByNickname,
-      resolvedAt: r.resolved_at ?? undefined,
-      reportSource: "reports",
-    };
+    const res = await fetch(`/api/admin/reports/${encodeURIComponent(reportId)}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; report?: Report };
+    return res.ok && json.ok !== false && json.report ? json.report : null;
   } catch {
     return null;
   }

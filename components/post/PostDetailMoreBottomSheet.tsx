@@ -50,6 +50,7 @@ export function PostDetailMoreBottomSheet({
   onClose,
   onSelectReport,
   onSelectShare,
+  onSelectSupport,
   authorUserId,
   authorNickname,
   reportEnabled = true,
@@ -60,6 +61,8 @@ export function PostDetailMoreBottomSheet({
   /** 신고 사유 입력 단계로 */
   onSelectReport: () => void;
   onSelectShare: () => void;
+  /** 거래글 「문의하기」 (거래 문의 + 이 글 참조) — 없으면 숨김 */
+  onSelectSupport?: () => void;
   authorUserId: string;
   authorNickname?: string | null;
   /** false면 시트에서 「신고하기」만 숨김 (더보기 메뉴는 계속 사용) */
@@ -110,6 +113,18 @@ export function PostDetailMoreBottomSheet({
           <IconEyeSlash className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
           이 사용자의 글 보지 않기
         </button>
+        {onSelectSupport ? (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onSelectSupport();
+            }}
+            className={rowClass}
+          >
+            {safeT("support_enter_cta", { fallbackKo: "문의하기", fallbackEn: "Contact support" })}
+          </button>
+        ) : null}
         {reportEnabled ? (
           <button
             type="button"

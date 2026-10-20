@@ -181,6 +181,24 @@ export const SUPPORT_CATEGORY_REGISTRY: readonly SupportCategoryDefinition[] = [
     guidanceEligible: "human_only",
   },
   {
+    /** 거래(중고·알바) 문의·이의신청 — 거래 Admin 설계 v2 §G-4 (D-28 · D-29) */
+    id: "TRADE",
+    audiences: ["MEMBER"],
+    labelKey: "support_cat_trade",
+    adminLabelKey: "support_cat_trade",
+    adminGroup: "trade",
+    selectable: true,
+    issueTypes: issues([
+      ["TRADE_LISTING", "support_issue_trade_listing", "human_only"],
+      ["TRADE_CHAT", "support_issue_trade_chat", "human_only"],
+      ["TRADE_RESTRICTION_APPEAL", "support_issue_trade_restriction_appeal", "human_only"],
+      ["OTHER", "support_issue_other", "none"],
+    ]),
+    allowedReferenceTypes: ["TRADE_POST", "TRADE_CHAT_ROOM", "TRADE_SANCTION"],
+    allowedSourceSurfaces: "*",
+    guidanceEligible: "human_only",
+  },
+  {
     id: "AD",
     audiences: ["MEMBER"],
     labelKey: "support_cat_ad",
@@ -434,6 +452,7 @@ export const MEMBER_SUPPORT_CATEGORIES = [
   "COUPON",
   "REFUND",
   "REPORT",
+  "TRADE",
   "AD",
   "TECHNICAL",
   "OTHER",

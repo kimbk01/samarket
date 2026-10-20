@@ -188,6 +188,7 @@ export const navigationMessages = {
     nav_messenger_trade_not_counterpart: "참여자만 메시지를 보낼 수 있습니다.",
     nav_messenger_trade_viewer_left: "이미 나간 채팅방입니다.",
     nav_messenger_trade_seller_closed: "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다.",
+    nav_messenger_trade_restricted: "거래 활동이 제한되어 메시지를 보낼 수 없습니다. 이의신청은 고객센터에서 할 수 있습니다.",
     nav_messenger_trade_chat_locked: "이 채팅에서는 메시지를 보낼 수 없습니다.",
     nav_messenger_trade_flow_not_chatting:
       "거래 진행 단계가 바뀌어 일반 메시지를 보낼 수 없습니다. 상단 안내를 확인해 주세요.",
@@ -565,6 +566,7 @@ export const navigationMessages = {
     nav_messenger_trade_not_counterpart: "Only participants can send messages.",
     nav_messenger_trade_viewer_left: "You have already left this chat room.",
     nav_messenger_trade_seller_closed: "The seller ended the chat. You cannot send new messages.",
+    nav_messenger_trade_restricted: "Your trade activity is restricted, so you cannot send messages. You can appeal through Customer Support.",
     nav_messenger_trade_chat_locked: "You cannot send messages in this chat.",
     nav_messenger_trade_flow_not_chatting:
       "The trade stage changed, so you cannot send a normal message. Check the notice at the top.",

@@ -49,28 +49,40 @@ export function parseSupportCaseScope(raw: string | null | undefined): SupportCa
  */
 export const SUPPORT_TRADE_REFERENCE_TYPES = ["TRADE_POST", "TRADE_CHAT_ROOM", "TRADE_SANCTION"] as const;
 export const SUPPORT_TRADE_APPEAL_REFERENCE_TYPES = ["TRADE_SANCTION"] as const;
+/** 거래 문의 카테고리 (참조 없이 고객센터에서 고른 거래 문의도 포함) */
+export const SUPPORT_TRADE_CATEGORY = "TRADE";
+/** 거래 문의 카테고리의 이의신청 세부 유형 */
+export const SUPPORT_TRADE_APPEAL_ISSUE_TYPE = "TRADE_RESTRICTION_APPEAL";
 
 export function supportTradeScopeOrFilter(promotionOrderIds: string[]): string {
-  const parts = [`reference_type.in.(${SUPPORT_TRADE_REFERENCE_TYPES.join(",")})`];
+  const parts = [
+    `reference_type.in.(${SUPPORT_TRADE_REFERENCE_TYPES.join(",")})`,
+    `category.eq.${SUPPORT_TRADE_CATEGORY}`,
+  ];
   if (promotionOrderIds.length) {
     parts.push(`and(reference_type.eq.POINT_PROMOTION_ORDER,reference_id.in.(${promotionOrderIds.join(",")}))`);
   }
   return parts.join(",");
 }
 
-/** 거래 이의신청: 거래 제재 참조 + 본인 거래글 참조 중 신고 카테고리가 아닌 것 */
+/**
+ * 거래 이의신청: 거래 제재 참조 + 「거래 제한 이의신청」 세부 유형
+ * + 거래글 참조 중 신고·일반 거래 문의가 아닌 것 (계정·기타로 들어온 숨김·삭제 이의)
+ */
 export function supportTradeAppealOrFilter(): string {
   return [
     `reference_type.in.(${SUPPORT_TRADE_APPEAL_REFERENCE_TYPES.join(",")})`,
-    `and(reference_type.eq.TRADE_POST,category.neq.${SUPPORT_COMMUNITY_CATEGORIES[0]})`,
+    `issue_type.eq.${SUPPORT_TRADE_APPEAL_ISSUE_TYPE}`,
+    `and(reference_type.eq.TRADE_POST,category.not.in.(${SUPPORT_COMMUNITY_CATEGORIES[0]},${SUPPORT_TRADE_CATEGORY}))`,
   ].join(",");
 }
 
 export function isSupportCaseInTradeScope(
-  c: { reference_type?: string | null; reference_id?: string | null },
+  c: { category?: string | null; reference_type?: string | null; reference_id?: string | null },
   tradePromotionOrderIds: readonly string[]
 ): boolean {
   const ref = String(c.reference_type ?? "");
+  if (String(c.category ?? "") === SUPPORT_TRADE_CATEGORY) return true;
   if ((SUPPORT_TRADE_REFERENCE_TYPES as readonly string[]).includes(ref)) return true;
   return ref === "POINT_PROMOTION_ORDER" && tradePromotionOrderIds.includes(String(c.reference_id ?? ""));
 }

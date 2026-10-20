@@ -18,6 +18,7 @@ export const SUPPORT_CATEGORY_GROUPS = [
   },
   { id: "AD", labelKo: "광고", labelEn: "Ads", categories: ["AD", "DELIVERY_AD", "CAMPAIGN"] },
   { id: "ACCOUNT", labelKo: "계정", labelEn: "Account", categories: ["ACCOUNT"] },
+  { id: "TRADE", labelKo: "거래", labelEn: "Trade", categories: ["TRADE"] },
   {
     id: "STORE",
     labelKo: "매장 운영",
