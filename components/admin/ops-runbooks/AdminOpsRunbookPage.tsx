@@ -24,7 +24,7 @@ export function AdminOpsRunbookPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_ops_tools_runbook_page_title" />
+        <AdminPageHeader titleKey="admin_menu_manage_runbooks" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -34,7 +34,7 @@ export function AdminOpsRunbookPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_ops_tools_runbook_page_title" />
+      <AdminPageHeader titleKey="admin_menu_manage_runbooks" />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href="/admin/ops-runbooks/start"

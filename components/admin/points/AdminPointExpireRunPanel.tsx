@@ -3,7 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
-import { manilaDateKey } from "@/lib/admin/metrics/manila-period";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import type { ExpireSimulationResult } from "@/lib/points/point-expire-db";
@@ -14,7 +14,7 @@ interface AdminPointExpireRunPanelProps {
 
 /** 마닐라(PHT) 오늘 "YYYY-MM-DD" — 기준일 기본값·상한. */
 function manilaTodayYmd(): string {
-  return manilaDateKey(new Date().toISOString()) ?? new Date().toISOString().slice(0, 10);
+  return formatAdminManilaDate(new Date());
 }
 
 /** 미리보기 합계 (적립분 합 — 실제 차감은 회원별 잔액을 넘지 않는다). */

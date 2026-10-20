@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointEventPolicy } from "@/lib/types/point-policy";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 interface PointEventPolicyTableProps {
   policies: PointEventPolicy[];
@@ -54,8 +55,8 @@ export function PointEventPolicyTable({
                 {p.title}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(p.startAt).toLocaleDateString("ko-KR")} ~{" "}
-                {new Date(p.endAt).toLocaleDateString("ko-KR")}
+                {formatAdminManilaDate(p.startAt)} ~{" "}
+                {formatAdminManilaDate(p.endAt)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {p.writeMultiplier}x / {p.commentMultiplier}x

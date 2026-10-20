@@ -9,6 +9,7 @@ import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfi
 import { financeStoreHref } from "@/lib/finance/routes";
 import { financeStatusLabel, formatFinanceAmount } from "@/lib/finance/presentation";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 type WithdrawalRow = {
   id: string;
@@ -254,11 +255,11 @@ export function AdminCoinWithdrawalsPanel() {
                         href={financeStoreHref(r.store_id)}
                         className="font-mono text-xs font-semibold text-signature hover:underline"
                       >
-                        {r.store_id.slice(0, 8)}…
+                        {formatAdminShortIdEllipsis(r.store_id)}
                       </Link>
                     </td>
                     <td className="px-3 py-2 font-mono text-xs">
-                      {r.owner_user_id ? `${r.owner_user_id.slice(0, 8)}…` : "—"}
+                      <AdminTechId id={r.owner_user_id} />
                     </td>
                     <td className="px-3 py-2 tabular-nums font-semibold">
                       {formatFinanceAmount({ wallet: "COIN", amount: r.amount })}
@@ -274,9 +275,9 @@ export function AdminCoinWithdrawalsPanel() {
                           : "—"}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs" data-finance-withdrawal-admin-actor="1">
-                      {adminActor ? `${adminActor.slice(0, 8)}…` : "—"}
+                      <AdminTechId id={adminActor} />
                     </td>
-                    <td className="px-3 py-2 font-mono text-xs">{r.id.slice(0, 8)}…</td>
+                    <td className="px-3 py-2 font-mono text-xs"><AdminTechId id={r.id} /></td>
                     <td className="px-3 py-2">
                       {String(r.status).toUpperCase() === "REQUESTED" ? (
                         <div className="flex flex-wrap gap-2">

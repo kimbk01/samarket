@@ -33,6 +33,7 @@ import { adminCmRoomDetailHref } from "@/lib/admin-community-messenger/room-doma
 import { confirmAdminAction, ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useAdminOlderMessages } from "./use-admin-older-messages";
 import { useAdminLocationReturnTo } from "./use-admin-location-return-to";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 type TradeApiMessage = {
   id: string;
@@ -52,7 +53,7 @@ function mapTradeApiMessage(m: TradeApiMessage, roomId: string): AdminChatMessag
     id: m.id,
     roomId,
     senderId: m.sender_id ?? "",
-    senderNickname: m.sender_label || (m.sender_id ?? "").slice(0, 8),
+    senderNickname: m.sender_label || formatAdminShortId(m.sender_id),
     messageType: (m.message_type === "image" || m.message_type === "system" ? m.message_type : "text") as AdminChatMessageType,
     message: m.body ?? "",
     createdAt: m.created_at ?? "",
@@ -145,9 +146,9 @@ async function fetchAdminChatDetailFromApi(
     productTitle: data.productTitle ?? "",
     productThumbnail: data.productThumbnail ?? "",
     buyerId: r.buyer_id ?? r.peer_id ?? "",
-    buyerNickname: data.buyerNickname ?? (r.peer_id ?? r.buyer_id ?? "").slice(0, 8),
+    buyerNickname: data.buyerNickname ?? formatAdminShortId(r.peer_id ?? r.buyer_id),
     sellerId: r.seller_id ?? r.initiator_id ?? "",
-    sellerNickname: data.sellerNickname ?? (r.initiator_id ?? r.seller_id ?? "").slice(0, 8),
+    sellerNickname: data.sellerNickname ?? formatAdminShortId(r.initiator_id ?? r.seller_id),
     lastMessage: r.last_message_preview ?? "",
     lastMessageAt: r.last_message_at ?? r.created_at,
     messageCount: data.messageCount ?? 0,
@@ -535,7 +536,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             <dd>
               {room.sellerId ? (
                 <Link href={adminUserDetailHref(room.sellerId, returnCtx.here)} className="text-signature underline">
-                  {room.sellerNickname || room.sellerId.slice(0, 8)}
+                  {room.sellerNickname || formatAdminShortId(room.sellerId)}
                 </Link>
               ) : (
                 room.sellerNickname || "—"
@@ -549,7 +550,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             <dd>
               {room.buyerId ? (
                 <Link href={adminUserDetailHref(room.buyerId, returnCtx.here)} className="text-signature underline">
-                  {room.buyerNickname || room.buyerId.slice(0, 8)}
+                  {room.buyerNickname || formatAdminShortId(room.buyerId)}
                 </Link>
               ) : (
                 room.buyerNickname || "—"

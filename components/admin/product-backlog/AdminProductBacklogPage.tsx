@@ -36,7 +36,7 @@ export function AdminProductBacklogPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_product_backlog_page_title" />
+        <AdminPageHeader titleKey="admin_menu_dev_backlog" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">
             {t("admin_rec_mon_loading_settings")}
@@ -48,7 +48,7 @@ export function AdminProductBacklogPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_product_backlog_page_title" />
+      <AdminPageHeader titleKey="admin_menu_dev_backlog" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button

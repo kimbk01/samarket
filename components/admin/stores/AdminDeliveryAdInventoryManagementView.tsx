@@ -34,7 +34,7 @@ const MANAGE_BTN =
  * Admin 광고 지면 관리 — human language launch inventory cards.
  */
 export function AdminDeliveryAdInventoryManagementView() {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const adTag = lang === "en" ? "Ad" : "광고";
 
@@ -56,10 +56,7 @@ export function AdminDeliveryAdInventoryManagementView() {
         <div>
           <p className="text-[12px] text-sam-muted">Delivery › Ads › Placements</p>
           <h1 className="text-[20px] font-bold text-sam-fg">
-            {safeT("admin_delivery_ads_inventory_title", {
-              fallbackKo: "광고 위치 관리",
-              fallbackEn: "Ad placement management",
-            })}
+            {t("admin_menu_placement_map")}
           </h1>
           <p className="mt-1 text-[13px] text-sam-muted">
             {safeT("admin_delivery_ads_inventory_desc", {

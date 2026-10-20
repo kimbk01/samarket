@@ -10,7 +10,7 @@ import {
   OPS_DOC_STATUS_KEYS,
   OPS_DOC_CATEGORY_TABLE_KEYS,
 } from "@/components/admin/i18n/admin-ops-doc-label-keys";
-import { adminDateLocaleTag } from "@/components/admin/i18n/admin-date-locale";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 interface OpsDocumentTableProps {
   filterState: OpsDocumentFilterState;
@@ -18,8 +18,7 @@ interface OpsDocumentTableProps {
 }
 
 export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableProps) {
-  const { t, language } = useI18n();
-  const dateLocale = adminDateLocaleTag(language);
+  const { t } = useI18n();
   const documents = useMemo(
     () =>
       getOpsDocuments({
@@ -83,7 +82,7 @@ export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableP
                 </span>
               </td>
               <td className="px-3 py-2.5 text-sam-muted">
-                {new Date(d.updatedAt).toLocaleDateString(dateLocale)}
+                {formatAdminManilaDate(d.updatedAt)}
               </td>
               <td className="px-3 py-2.5 text-sam-muted">{d.createdByAdminNickname}</td>
             </tr>

@@ -6,6 +6,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
+import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
@@ -92,6 +93,7 @@ type AuditRow = {
 export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: string }) {
   const { safeT, language } = useI18n();
   const router = useRouter();
+  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
   const searchParams = useSearchParams();
   const [campaign, setCampaign] = useState<PlatformPopupAdminDetail | null>(null);
   const [audit, setAudit] = useState<AuditRow[]>([]);
@@ -388,11 +390,16 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   };
 
   const deleteDraft = async () => {
-    const ok = window.confirm(
-      language === "en"
-        ? "Delete this draft popup? This cannot be undone."
-        : "임시저장 팝업을 삭제할까요? 이 작업은 되돌릴 수 없습니다."
-    );
+    const ok = await askConfirm({
+      title: language === "en" ? "Delete draft popup" : "임시저장 팝업 삭제",
+      description:
+        language === "en"
+          ? "Delete this draft popup? This cannot be undone."
+          : "임시저장 팝업을 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+      confirmLabel: language === "en" ? "Delete" : "삭제",
+      cancelLabel: language === "en" ? "Cancel" : "취소",
+      tone: "danger",
+    });
     if (!ok) return;
     setBusy(true);
     setError(null);
@@ -537,6 +544,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
   return (
     <div className="space-y-4" data-admin-platform-popup-detail="1">
+      {confirmDialog}
       <AdminPageHeader
         backHref="/admin/platform-popup"
         title={campaign?.name || "…"}

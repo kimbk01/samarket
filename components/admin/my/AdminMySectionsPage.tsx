@@ -46,7 +46,7 @@ export function AdminMySectionsPage() {
 
   return (
     <AdminMySectionsView
-      title={t("admin_my_kf4d396da")}
+      title={t("admin_menu_my_sections")}
       loadingLabel={t("common_loading")}
       editUnavailableNote={t("admin_my_edit_unavailable_note")}
       loading={loading}

@@ -24,6 +24,7 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 import { adminConflictReloadedMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 type ProductDetail = {
   id: string;
@@ -112,7 +113,7 @@ function dt(v: string | null | undefined): string {
 }
 
 function shortId(id: string): string {
-  return id.length > 10 ? `${id.slice(0, 8)}…` : id;
+  return id.length > 10 ? formatAdminShortIdEllipsis(id) : id;
 }
 
 function productStatus(p: ProductDetail): "ARCHIVED" | "ACTIVE" | "PAUSED" {

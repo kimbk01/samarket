@@ -372,7 +372,7 @@ export function AdminMainBottomNavPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <AdminPageHeader titleKey="admin_menu_bottom_title" />
+        <AdminPageHeader titleKey="admin_menu_main_bottom_nav" />
         <div className="flex flex-wrap items-center gap-2">
           {fromDb ? (
             <span className="rounded-full bg-emerald-50 px-2.5 py-1 sam-text-helper text-emerald-800">

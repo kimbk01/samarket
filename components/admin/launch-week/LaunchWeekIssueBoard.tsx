@@ -16,6 +16,7 @@ import type {
   LaunchWeekIssueStatus,
 } from "@/lib/types/launch-week";
 import Link from "next/link";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 export function LaunchWeekIssueBoard() {
   const { t } = useI18n();
@@ -131,9 +132,9 @@ export function LaunchWeekIssueBoard() {
                 {i.ownerAdminNickname ?? "-"}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(i.openedAt).toLocaleDateString()}
+                {formatAdminManilaDate(i.openedAt)}
                 {i.resolvedAt &&
-                  ` → ${new Date(i.resolvedAt).toLocaleDateString()}`}
+                  ` → ${formatAdminManilaDate(i.resolvedAt)}`}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {i.linkedType && i.linkedId ? (

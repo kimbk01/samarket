@@ -9,7 +9,7 @@ export function AdminBoardGuideClient({ content }: { content: string }) {
   const { t: tr } = useI18n();
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_docs_board_title" />
+      <AdminPageHeader titleKey="admin_menu_docs_board" />
       <p className="sam-text-body-secondary text-sam-muted">
         {tr("admin_docs_board_cross_before")}
         <Link href="/admin/docs/chat" className="font-medium text-signature hover:underline">

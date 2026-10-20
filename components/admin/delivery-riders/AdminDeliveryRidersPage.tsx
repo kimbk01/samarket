@@ -15,6 +15,7 @@ import {
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
 
@@ -553,7 +554,7 @@ export function AdminDeliveryRidersPage() {
                       <option value="">{t("admin_del_select_rider")}</option>
                       {assignableRiders.map((rr) => (
                         <option key={rr.id} value={rr.id}>
-                          {(rr.display_name ?? rr.id.slice(0, 8)) + (rr.is_online ? "" : offlineSuffix)}
+                          {(rr.display_name ?? formatAdminShortId(rr.id)) + (rr.is_online ? "" : offlineSuffix)}
                         </option>
                       ))}
                     </select>
@@ -771,7 +772,7 @@ export function AdminDeliveryRidersPage() {
                 <option value="">{t("admin_del_select_reassign_rider")}</option>
                 {assignableRiders.map((rr) => (
                   <option key={rr.id} value={rr.id}>
-                    {rr.display_name ?? rr.id.slice(0, 8)}
+                    {rr.display_name ?? formatAdminShortId(rr.id)}
                   </option>
                 ))}
               </select>

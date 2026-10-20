@@ -24,7 +24,7 @@ export function AdminRecommendationReportsPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_rec_report_page_title" descriptionKey="admin_rec_report_page_desc" />
+        <AdminPageHeader titleKey="admin_menu_manage_reports" descriptionKey="admin_rec_report_page_desc" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -35,7 +35,7 @@ export function AdminRecommendationReportsPage() {
   return (
     <>
       <AdminPageHeader
-        titleKey="admin_rec_report_page_title"
+        titleKey="admin_menu_manage_reports"
         descriptionKey="admin_rec_report_page_desc"
       />
       <div className="mb-4">

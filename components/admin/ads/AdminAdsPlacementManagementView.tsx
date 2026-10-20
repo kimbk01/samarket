@@ -313,7 +313,7 @@ function PopupSurfaceCard({
 }
 
 export function AdminAdsPlacementManagementView() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
   const [inventory, setInventory] = useState<PlacementInventoryModel | null>(null);
   const [err, setErr] = useState("");
@@ -414,10 +414,10 @@ export function AdminAdsPlacementManagementView() {
             {ko ? "광고 / 노출" : "Ads / Exposure"}
           </Link>
           {" › "}
-          {ko ? "광고 노출 위치 현황" : "Ad placement status"}
+          {t("admin_menu_ads_authority_placements_inventory")}
         </p>
         <h1 className="text-lg font-semibold text-sam-fg" data-admin-placements-title="1">
-          {ko ? "광고 노출 위치 현황" : "Ad placement status"}
+          {t("admin_menu_ads_authority_placements_inventory")}
         </h1>
         <p className="text-[13px] text-sam-muted" data-admin-placements-purpose="1">
           {ko

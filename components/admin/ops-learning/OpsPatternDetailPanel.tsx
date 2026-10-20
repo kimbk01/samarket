@@ -11,6 +11,7 @@ import {
   OPS_TOOLS_PATTERN_STATUS_KEYS,
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 interface OpsPatternDetailPanelProps {
   patternId: string | null;
@@ -55,8 +56,8 @@ export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPa
         </p>
         <p className="mt-1 text-sam-muted">
           {t("admin_ops_tools_learning_first_last", {
-            first: new Date(pattern.firstOccurredAt).toLocaleDateString(),
-            last: new Date(pattern.lastOccurredAt).toLocaleDateString(),
+            first: formatAdminManilaDate(pattern.firstOccurredAt),
+            last: formatAdminManilaDate(pattern.lastOccurredAt),
           })}
         </p>
         <p className="mt-1">

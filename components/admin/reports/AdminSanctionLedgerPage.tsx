@@ -95,7 +95,7 @@ export function AdminSanctionLedgerPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_sanction_ledger_title" />
+      <AdminPageHeader titleKey="admin_menu_reports_logs" />
       <p className="sam-text-body text-sam-muted">{t("admin_sanction_ledger_intro")}</p>
 
       <AdminFilterBar

@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminBanner } from "@/lib/types/admin-banner";
 import { AdminBannerStatusBadge } from "./AdminBannerStatusBadge";
 import { bannerPlacementLabel } from "./admin-banner-i18n";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 interface AdminBannerTableProps {
   banners: AdminBanner[];
@@ -43,7 +44,7 @@ export function AdminBannerTable({ banners }: AdminBannerTableProps) {
             const placementLabel = bannerPlacementLabel(t, b.placement);
             const period =
               b.startAt && b.endAt
-                ? `${new Date(b.startAt).toLocaleDateString()} ~ ${new Date(b.endAt).toLocaleDateString()}`
+                ? `${formatAdminManilaDate(b.startAt)} ~ ${formatAdminManilaDate(b.endAt)}`
                 : "-";
             return (
               <tr

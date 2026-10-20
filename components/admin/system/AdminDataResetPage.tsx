@@ -20,6 +20,7 @@ import {
   dataResetUiExecuteBlocked,
   resolveDataResetUiCapability,
 } from "@/lib/admin/data-reset/ui-capability";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 
 type View = "list" | "detail" | "preview";
 
@@ -338,7 +339,7 @@ export function AdminDataResetPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader
-        title={ko ? "데이터 초기화" : "Data Reset"}
+        titleKey="admin_menu_data_reset"
         description={
           ko
             ? "도메인별 SSOT 초기화 · Preview → Execute · Production 실행은 기본 비활성(별도 옵트인)"
@@ -533,7 +534,7 @@ export function AdminDataResetPage() {
             {ko ? "초기화 미리보기" : "Reset Preview"}
           </h2>
           <p className="text-xs text-sam-muted">
-            planId={plan.planId.slice(0, 8)}… · hash={plan.planHash} · risk={plan.riskLevel} ·
+            planId=<AdminTechId id={plan.planId} copyable={false} /> · hash={plan.planHash} · risk={plan.riskLevel} ·
             confirm L{plan.confirmationLevel}
           </p>
 

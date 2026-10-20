@@ -89,38 +89,11 @@ function computeViolations(): string[] {
   return out.sort();
 }
 
-/** 도입 시점(2026-10-20) 시간대 없는 날짜 포맷 파일 스냅샷 — 줄어들기만 해야 한다(추가 금지). */
-const ADMIN_DATE_TIMEZONE_VIOLATION_ALLOWLIST: readonly string[] = [
-  "components/admin/ads/AdminAdApplicationTable.tsx",
-  "components/admin/ads/AdminPostAdManagePage.tsx",
-  "components/admin/banners/AdminBannerTable.tsx",
-  "components/admin/finance/AdminStoreFinancialStatement.tsx",
-  "components/admin/i18n/admin-date-locale.ts",
-  "components/admin/launch-week/LaunchWeekIssueBoard.tsx",
-  "components/admin/ops-board/OpsActionCard.tsx",
-  "components/admin/ops-board/OpsActionSummaryCards.tsx",
-  "components/admin/ops-board/OpsChecklistTable.tsx",
-  "components/admin/ops-board/OpsRetrospectiveForm.tsx",
-  "components/admin/ops-docs/OpsDocumentTable.tsx",
-  "components/admin/ops-knowledge-graph/OpsKnowledgeGraphSummaryCards.tsx",
-  "components/admin/ops-knowledge/OpsKnowledgePreviewCard.tsx",
-  "components/admin/ops-knowledge/OpsKnowledgeSummaryCards.tsx",
-  "components/admin/ops-learning/OpsLearningHistoryTable.tsx",
-  "components/admin/ops-learning/OpsPatternDetailPanel.tsx",
-  "components/admin/point-policies/PointEventPolicyTable.tsx",
-  "components/admin/points/AdminPointExpireLogList.tsx",
-  "components/admin/points/AdminPointExpireRunPanel.tsx",
-  "components/admin/post-ads/AdminAdTable.tsx",
-  "components/admin/store-points/AdminStorePointLedgerByDatePage.tsx",
-  "components/admin/stores/AdminStoreFeePoliciesPage.tsx",
-  "components/admin/stores/AdminStoreReviewsPage.tsx",
-  "components/admin/stores/admin-store-review-model.ts",
-  "components/admin/users/AdminStaffTable.tsx",
-  "components/admin/users/admin-user-lite-display.ts",
-  "lib/admin/ads-control-plane/load-ads-control-plane.ts",
-  "lib/admin/ads-exposure/action-feedback.ts",
-  "lib/admin/metrics/delivery-metrics.ts",
-];
+/**
+ * 도입 시점(2026-10-20) 29개 → F6-A(2026-10-20)에서 전부 PHT 포매터로 교체해 0개. 줄어들기만 해야 한다(추가 금지).
+ * 정당한 예외(저장·기술 값의 UTC 날짜 등)를 추가해야 하면 파일마다 사유 주석을 함께 단다.
+ */
+const ADMIN_DATE_TIMEZONE_VIOLATION_ALLOWLIST: readonly string[] = [];
 
 describe("V3-15 admin date timezone ratchet (Asia/Manila)", () => {
   const current = computeViolations();

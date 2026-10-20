@@ -109,7 +109,7 @@ export function AdminPushDevicesPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title={t("admin_push_devices_title")} description={t("admin_push_devices_desc")} />
+      <AdminPageHeader titleKey="admin_menu_push_devices" description={t("admin_push_devices_desc")} />
       <AdminCard>
         <p className="px-4 pt-4 text-[12px] text-sam-muted">{t("admin_push_devices_query_hint")}</p>
         <div className="flex flex-wrap items-end gap-2 p-4">

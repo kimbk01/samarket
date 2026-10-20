@@ -194,7 +194,7 @@ function RowCard({
 }
 
 export function AdminAdsHistoryLedgerView() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
   const [ledger, setLedger] = useState<AdsHistoryLedgerModel | null>(null);
   const [err, setErr] = useState("");
@@ -244,7 +244,7 @@ export function AdminAdsHistoryLedgerView() {
       data-ads-history-mutation="0"
     >
       <header className="space-y-1">
-        <h1 className="text-[20px] font-bold text-sam-fg">{ko ? "광고 이력" : "Ads history"}</h1>
+        <h1 className="text-[20px] font-bold text-sam-fg">{t("admin_menu_ads_authority_history")}</h1>
         <p className="text-[13px] text-sam-muted">
           {ko
             ? "저장된 신청·결제·승인·운영·환불 증거만 시간순으로 표시합니다. 없는 이벤트는 없음/NOT_PROVEN입니다."

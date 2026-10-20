@@ -91,10 +91,7 @@ export function AdminFeedAdProductsClient() {
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-6">
       <AdminPageHeader
-        title={safeT("admin_feed_ad_products_title", {
-          fallbackKo: "배너 광고 상품 설정",
-          fallbackEn: "Banner ad products",
-        })}
+        titleKey="admin_menu_ads_feed_products"
         backHref="/admin/ad-applications"
       />
       <h1 className="sam-text-title font-semibold text-sam-fg">

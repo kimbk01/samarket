@@ -42,7 +42,7 @@ export function AdminLaunchWeekPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_launch_week_open_3" />
+        <AdminPageHeader titleKey="admin_menu_launch_week" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">
             {t("admin_rec_mon_loading_settings")}
@@ -54,7 +54,7 @@ export function AdminLaunchWeekPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_launch_week_open_3" />
+      <AdminPageHeader titleKey="admin_menu_launch_week" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button

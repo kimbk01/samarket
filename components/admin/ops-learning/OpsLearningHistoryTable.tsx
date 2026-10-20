@@ -10,6 +10,7 @@ import {
 import { useMemo } from "react";
 import type { OpsLearningStatus } from "@/lib/types/ops-learning";
 import { getOpsLearningHistories } from "@/lib/ops-learning/ops-learning-state";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 interface OpsLearningHistoryTableProps {
   statusFilter?: OpsLearningStatus | "";
@@ -61,7 +62,7 @@ export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistor
                 </span>
               </td>
               <td className="px-3 py-2.5 text-sam-muted">
-                {new Date(h.detectedAt).toLocaleDateString("ko-KR")}
+                {formatAdminManilaDate(h.detectedAt)}
               </td>
               <td className="px-3 py-2.5 text-sam-muted">
                 {h.ownerAdminNickname ?? "-"}

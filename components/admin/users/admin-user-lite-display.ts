@@ -12,6 +12,7 @@ import type {
   AdminUserStatusCategory,
 } from "@/lib/types/admin-user";
 import { resolveAdminMemberRoleBadges } from "@/lib/admin-users/member-role-badges";
+import { formatAdminManilaDate, formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type DetailUserLike = {
   dibay_id?: string | null;
@@ -162,14 +163,11 @@ export function formatAdminLiteDate(
   localeTag: string,
   emptyDash: string,
 ): string {
+  // 설계 v4 §6 — PHT 「YYYY-MM-DD」. localeTag 는 호출부 호환용(숫자형 표기라 언어 차이 없음).
+  void localeTag;
   if (!value) return emptyDash;
-  const time = new Date(value).getTime();
-  if (!Number.isFinite(time)) return emptyDash;
-  const d = new Date(time);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return localeTag.startsWith("ko") ? `${y}.${m}.${day}` : d.toLocaleDateString(localeTag);
+  if (!Number.isFinite(new Date(value).getTime())) return emptyDash;
+  return formatAdminManilaDate(value);
 }
 
 export function formatAdminLiteDateTime(
@@ -177,14 +175,9 @@ export function formatAdminLiteDateTime(
   localeTag: string,
   emptyDash: string,
 ): string {
+  // 설계 v4 §6 — PHT 「YYYY-MM-DD HH:mm」.
+  void localeTag;
   if (!value) return emptyDash;
-  const time = new Date(value).getTime();
-  if (!Number.isFinite(time)) return emptyDash;
-  return new Date(time).toLocaleString(localeTag, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  if (!Number.isFinite(new Date(value).getTime())) return emptyDash;
+  return formatAdminManilaDateTime(value);
 }

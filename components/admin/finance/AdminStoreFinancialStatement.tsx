@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { StoreFinancialStatementModel } from "@/lib/admin/store-financial-statement/types";
 import { STORE_COMMISSION_ROW_STATE_LABEL } from "@/lib/stores/commission/store-commission-contract";
+import { formatAdminManilaDate, formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 function php(n: number | null | undefined): string {
   if (n == null) return "UNAVAILABLE";
@@ -450,7 +451,7 @@ export function AdminStoreFinancialStatement({
                     <td className="px-3 py-2 tabular-nums">{php(r.fee)}</td>
                     <td className="px-3 py-2 tabular-nums">{php(r.net)}</td>
                     <td className="px-3 py-2">{r.status}</td>
-                    <td className="px-3 py-2 sam-text-xxs">{r.paidAt ? new Date(r.paidAt).toLocaleDateString() : "—"}</td>
+                    <td className="px-3 py-2 sam-text-xxs">{r.paidAt ? formatAdminManilaDate(r.paidAt) : "—"}</td>
                   </tr>
                 ))
               )}
@@ -482,7 +483,7 @@ export function AdminStoreFinancialStatement({
                 s.timeline.slice(0, 80).map((e) => (
                   <tr key={e.id}>
                     <td className="whitespace-nowrap px-3 py-2 sam-text-xxs">
-                      {e.at ? new Date(e.at).toLocaleString() : "—"}
+                      {e.at ? formatAdminManilaDateTime(e.at) : "—"}
                     </td>
                     <td className="px-3 py-2">{e.domain}</td>
                     <td className="px-3 py-2">{e.type}</td>

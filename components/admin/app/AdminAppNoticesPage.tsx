@@ -12,6 +12,7 @@ import {
 } from "@/lib/notices/customer-center-content";
 import { excerptCustomerCenterMarkdown } from "@/lib/notices/customer-center-safe-markdown";
 import { notifStatusLabel } from "@/components/admin/points/admin-points-notifications-i18n";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 
 type AdminNotice = AppNoticeRow & {
   content_type?: string | null;
@@ -132,10 +133,7 @@ export function AdminAppNoticesPage() {
     <div className="mx-auto max-w-6xl space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="sam-text-page-title font-semibold text-sam-fg">
-          {safeT("admin_app_notices_title", {
-            fallbackKo: "고객센터 콘텐츠",
-            fallbackEn: "Customer Center content",
-          })}
+          {t("admin_menu_notices")}
         </h1>
         <Link
           href="/admin/app/notices/create"
@@ -239,7 +237,7 @@ export function AdminAppNoticesPage() {
                 return (
                   <tr key={n.id} className="border-b border-sam-border-soft hover:bg-sam-app/60">
                     <td className="px-3 py-2 font-mono text-[11px] text-sam-muted">
-                      {String(n.id).slice(0, 8)}…
+                      <AdminTechId id={String(n.id)} />
                     </td>
                     <td className="px-3 py-2">
                       {BOARD_LABEL[contentType][language === "en" ? "en" : "ko"]}

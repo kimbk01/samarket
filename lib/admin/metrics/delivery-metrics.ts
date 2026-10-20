@@ -12,6 +12,7 @@
  */
 
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
+import { manilaDateKey } from "@/lib/admin/metrics/manila-period";
 import {
   getAdminActionQueueCategoryDef,
   type AdminActionQueueCategory,
@@ -403,7 +404,7 @@ export function resolveDeliveryDirectMetric(
 export function deliveryStaleMetricHref(baseHref: string, activeWindowFromIso: string): string {
   const startMs = Date.parse(activeWindowFromIso);
   if (!Number.isFinite(startMs)) return baseHref;
-  const lastStaleManilaDay = new Date(startMs - 1 + 8 * 3_600_000).toISOString().slice(0, 10);
+  const lastStaleManilaDay = manilaDateKey(new Date(startMs - 1).toISOString());
   const sep = baseHref.includes("?") ? "&" : "?";
   return `${baseHref}${sep}period=custom&to=${lastStaleManilaDay}`;
 }

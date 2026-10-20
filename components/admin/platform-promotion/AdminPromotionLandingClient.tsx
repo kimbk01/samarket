@@ -78,7 +78,7 @@ const ENTRIES = [
 ] as const;
 
 export function AdminPromotionLandingClient() {
-  const { language, safeT } = useI18n();
+  const { language, safeT, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
 
   return (
@@ -86,10 +86,7 @@ export function AdminPromotionLandingClient() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">
-            {safeT("admin_menu_promotion", {
-              fallbackKo: "프로모션 / 이벤트",
-              fallbackEn: "Promotion / Events",
-            })}
+            {t("admin_menu_promotion_home")}
           </h1>
           <p
             className="mt-1 max-w-2xl text-sm text-sam-muted"

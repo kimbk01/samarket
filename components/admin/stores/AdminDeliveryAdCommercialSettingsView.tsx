@@ -34,7 +34,7 @@ import {
 type Catalog = DeliveryAdCommercialCatalogReadModel;
 
 export function AdminDeliveryAdCommercialSettingsView() {
-  const { language, safeT } = useI18n();
+  const { language, safeT, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -139,10 +139,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
         <div>
           <p className="text-[12px] text-sam-muted">Delivery › Ads › Settings</p>
           <h1 className="text-[20px] font-bold text-sam-fg">
-            {safeT("admin_delivery_ads_commercial_title", {
-              fallbackKo: "광고 상품 설정",
-              fallbackEn: "Ad product settings",
-            })}
+            {t("admin_menu_delivery_ads_commercial")}
           </h1>
           <p className="mt-1 text-[13px] text-sam-muted">
             {safeT("admin_delivery_ads_commercial_subtitle", {

@@ -21,6 +21,7 @@ import { AdminGiftIssuanceCreateConsole } from "@/components/admin/gift/panels/A
 import { AdminGiftProductDetailConsole } from "@/components/admin/gift/panels/AdminGiftProductDetailConsole";
 import { Sam } from "@/lib/ui/css-vars";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 type ApplicationRow = {
   id: string;
@@ -83,7 +84,7 @@ function dt(v: string | null | undefined): string {
 }
 
 function shortId(id: string): string {
-  return id.length > 10 ? `${id.slice(0, 8)}…` : id;
+  return id.length > 10 ? formatAdminShortIdEllipsis(id) : id;
 }
 
 function productOpsLabels(

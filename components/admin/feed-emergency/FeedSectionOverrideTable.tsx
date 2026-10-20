@@ -10,6 +10,8 @@ import {
 } from "@/lib/feed-emergency/feed-emergency-state";
 import { setSectionForcedDisabled } from "@/lib/feed-emergency/feed-emergency-utils";
 import { persistFeedEmergencyToServer } from "@/lib/feed-emergency/feed-emergency-sync-client";
+import { feedEmergencySwitchConfirmCopy } from "@/lib/feed-emergency/feed-emergency-switch-confirm";
+import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
@@ -17,6 +19,7 @@ const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 export function FeedSectionOverrideTable() {
   const [refresh, setRefresh] = useState(0);
   const [surface, setSurface] = useState<RecommendationSurface>("home");
+  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
 
   const overrides = useMemo(
     () => getFeedSectionOverrides(surface),
@@ -27,6 +30,14 @@ export function FeedSectionOverrideTable() {
     sectionKey: FeedSectionOverrideKey,
     isForcedDisabled: boolean
   ) => {
+    const ok = await askConfirm(
+      feedEmergencySwitchConfirmCopy({
+        kind: "section",
+        enable: isForcedDisabled,
+        targetLabel: `${SURFACE_LABELS[surface]} · ${SECTION_OVERRIDE_LABELS[sectionKey]}`,
+      })
+    );
+    if (!ok) return;
     setSectionForcedDisabled(
       surface,
       sectionKey,
@@ -44,6 +55,7 @@ export function FeedSectionOverrideTable() {
 
   return (
     <div className="space-y-4">
+      {confirmDialog}
       <div className="flex flex-wrap items-center gap-2">
         <label className="sam-text-body font-medium text-sam-fg">surface</label>
         <select

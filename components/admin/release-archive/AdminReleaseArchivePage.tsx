@@ -34,7 +34,7 @@ export function AdminReleaseArchivePage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_rel_page_archive" />
+        <AdminPageHeader titleKey="admin_menu_dev_release_archive" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">
             {t("admin_rec_mon_loading_settings")}
@@ -46,7 +46,7 @@ export function AdminReleaseArchivePage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_rel_page_archive" />
+      <AdminPageHeader titleKey="admin_menu_dev_release_archive" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {TAB_KEYS.map((tab) => (
           <button

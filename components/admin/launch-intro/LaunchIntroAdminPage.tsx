@@ -58,6 +58,7 @@ import {
   manilaLocalToIso,
   validateLaunchIntroEligibility,
 } from "@/lib/launch-intro/schedule";
+import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 type Snapshot = {
   ok: true;
@@ -659,7 +660,7 @@ export function LaunchIntroAdminPage() {
           : copy.desc;
     const ok = await dibayConfirm({
       title: t(copy.title),
-      description: t(desc, { id: pub ? pub.id.slice(0, 8) : "", date: pub ? fmtDate(pub.created_at) : "" }),
+      description: t(desc, { id: pub ? formatAdminShortId(pub.id) : "", date: pub ? fmtDate(pub.created_at) : "" }),
       confirmLabel: t(copy.label),
       confirmTone: action === "unpublish" ? "destructive" : "primary",
     });
@@ -693,20 +694,20 @@ export function LaunchIntroAdminPage() {
     ? ""
     : live.state === "active" && livePublication && liveSchedule === "scheduled"
       ? t("admin_launch_intro_status_devices_scheduled", {
-          id: livePublication.id.slice(0, 8),
+          id: formatAdminShortId(livePublication.id),
           start: formatManila(livePublication.eligibility!.startAt!, undefined),
         })
     : live.state === "active" && livePublication && liveSchedule === "ended"
       ? t("admin_launch_intro_status_devices_ended", {
-          id: livePublication.id.slice(0, 8),
+          id: formatAdminShortId(livePublication.id),
           end: formatManila(livePublication.eligibility!.endAt!, undefined),
         })
     : live.state === "active" && livePublication
-      ? `${t("admin_launch_intro_status_devices_active", { id: livePublication.id.slice(0, 8), date: fmtDate(livePublication.created_at) })}${
+      ? `${t("admin_launch_intro_status_devices_active", { id: formatAdminShortId(livePublication.id), date: fmtDate(livePublication.created_at) })}${
           scheduleText(livePublication.eligibility) ? ` · ${scheduleText(livePublication.eligibility)}` : ""
         }`
       : live.state === "paused" && livePublication
-        ? t("admin_launch_intro_status_devices_paused", { id: livePublication.id.slice(0, 8) })
+        ? t("admin_launch_intro_status_devices_paused", { id: formatAdminShortId(livePublication.id) })
         : t("admin_launch_intro_status_devices_unpublished");
   const draftLine =
     draftStatus === "none"
@@ -733,7 +734,7 @@ export function LaunchIntroAdminPage() {
           {t("admin_launch_intro_working")}
         </div>
       ) : null}
-      <AdminPageHeader title={t("admin_launch_intro_title")} description={t("admin_launch_intro_desc")} />
+      <AdminPageHeader titleKey="admin_menu_settings_intro" description={t("admin_launch_intro_desc")} />
       <AdminCard>
         <p className="px-4 py-3.5 sam-text-body text-sam-fg sm:px-5">{t("admin_launch_intro_propagation_note")}</p>
       </AdminCard>
@@ -858,7 +859,7 @@ export function LaunchIntroAdminPage() {
                         data-launch-intro-publication={p.id}
                       >
                         <span>
-                          <span className="font-mono text-sam-fg">{p.id.slice(0, 8)}</span> · {fmtDate(p.created_at)} ·{" "}
+                          <AdminTechId id={p.id} /> · {fmtDate(p.created_at)} ·{" "}
                           {t("admin_launch_intro_history_scenes", { n: p.document.scenes.length })}
                           {p.source_draft_version != null ? ` · Draft v${p.source_draft_version}` : ""}
                           {scheduleText(p.eligibility) ? ` · ${scheduleText(p.eligibility)}` : ""}

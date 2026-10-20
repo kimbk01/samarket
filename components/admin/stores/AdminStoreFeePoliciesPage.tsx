@@ -9,6 +9,7 @@ import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminC
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 type RateLite = {
   fee_percent: number | null;
@@ -177,10 +178,7 @@ function fmtMoney(n: number) {
 }
 
 function fmtDate(iso: string | null | undefined) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return "—";
-  return d.toLocaleDateString();
+  return formatAdminManilaDate(iso);
 }
 
 function previewFee(gross: number, pct: number, fixed: number) {

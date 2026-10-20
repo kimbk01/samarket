@@ -7,6 +7,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { useAdminConfirmDialog } from "@/components/admin/ui/useAdminConfirmDialog";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PLATFORM_POPUP_CAMPAIGN_STATUSES } from "@/lib/platform-popup/types";
 import type { PlatformPopupAdminListItem } from "@/lib/platform-popup/admin-campaign-loader";
@@ -51,6 +52,7 @@ export function AdminPlatformPopupListPage() {
   const { safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
+  const { confirm: askConfirm, dialog: confirmDialog } = useAdminConfirmDialog();
   const [items, setItems] = useState<PlatformPopupAdminListItem[]>([]);
   const [status, setStatus] = useState<string>("");
   const [compositionFilter, setCompositionFilter] = useState<string>("");
@@ -162,7 +164,14 @@ export function AdminPlatformPopupListPage() {
         : lang === "en"
           ? `Delete ${ids.length} selected popup campaigns? This cannot be undone.`
           : `선택한 ${ids.length}개 팝업 캠페인을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`;
-    if (!window.confirm(msg)) return;
+    const ok = await askConfirm({
+      title: lang === "en" ? "Delete popup campaigns" : "팝업 캠페인 삭제",
+      description: msg,
+      confirmLabel: lang === "en" ? "Delete" : "삭제",
+      cancelLabel: lang === "en" ? "Cancel" : "취소",
+      tone: "danger",
+    });
+    if (!ok) return;
     setDeleting(true);
     setError(null);
     try {
@@ -196,6 +205,7 @@ export function AdminPlatformPopupListPage() {
 
   return (
     <div className="space-y-4 p-4" data-admin-platform-popup-list="1">
+      {confirmDialog}
       <AdminPageHeader
         title={title}
         description={safeT("admin_platform_popup_list_desc", {

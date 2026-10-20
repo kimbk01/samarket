@@ -76,10 +76,7 @@ export function StartupConfigAdminPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader
-        title={safeT("admin_startup_config_title", {
-          fallbackKo: "앱 시작 탭",
-          fallbackEn: "App launch tab",
-        })}
+        titleKey="admin_menu_settings_startup_config"
         description={safeT("admin_startup_config_desc", {
           fallbackKo: "앱을 열었을 때 기본으로 들어갈 하단 탭을 설정합니다.",
           fallbackEn: "Choose the default bottom tab when the app opens.",

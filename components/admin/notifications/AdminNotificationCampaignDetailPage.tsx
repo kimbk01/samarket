@@ -27,6 +27,7 @@ import {
   BOARD_LABEL,
   parseCustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 
 function newSendIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -640,7 +641,7 @@ export function AdminNotificationCampaignDetailPage() {
               </p>
               <p>
                 <span className="text-sam-muted">{t("admin_notif_th_author")}</span>{" "}
-                {authorName ?? (camp.created_by ? `${String(camp.created_by).slice(0, 8)}…` : "—")}
+                {authorName ?? (camp.created_by ? <AdminTechId id={String(camp.created_by)} /> : "—")}
               </p>
               <p>
                 <span className="text-sam-muted">{t("admin_notif_detail_created_at")}</span>{" "}
@@ -996,7 +997,7 @@ export function AdminNotificationCampaignDetailPage() {
                       </span>
                     ) : null}
                     <span className="font-mono text-sam-meta">
-                      {log.actor_id ? `${log.actor_id.slice(0, 8)}…` : safeT("admin_campaign_cms_audit_actor_system", { fallbackKo: "시스템", fallbackEn: "system" })}
+                      {log.actor_id ? <AdminTechId id={log.actor_id} /> : safeT("admin_campaign_cms_audit_actor_system", { fallbackKo: "시스템", fallbackEn: "system" })}
                     </span>
                   </li>
                 ))}
@@ -1025,7 +1026,7 @@ export function AdminNotificationCampaignDetailPage() {
                   <tbody>
                     {deviceDeliveryLog.map((row, idx) => (
                       <tr key={`${row.userId}-${row.channel}-${idx}`} className="border-t border-sam-border-soft">
-                        <td className="py-1 pr-3 font-mono">{row.userId.slice(0, 8)}…</td>
+                        <td className="py-1 pr-3 font-mono"><AdminTechId id={row.userId} /></td>
                         <td className="py-1 pr-3">{row.channel}</td>
                         <td className="py-1 pr-3">{row.status}</td>
                         <td className="py-1">{row.sentAt ?? row.updatedAt ?? row.skipReason ?? "—"}</td>

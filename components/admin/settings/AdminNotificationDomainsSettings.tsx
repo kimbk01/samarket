@@ -6,7 +6,7 @@ import { AdminNotificationSoundSsotTable } from "@/components/admin/settings/Adm
 export function AdminNotificationDomainsSettings() {
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_settings_notifications_domain_title" />
+      <AdminPageHeader titleKey="admin_menu_settings_notifications" />
       <AdminNotificationSoundSsotTable />
     </div>
   );

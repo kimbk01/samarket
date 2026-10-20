@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 type ArchiveTab = "notes" | "platform";
 
@@ -242,7 +243,7 @@ export function AdminSupportArchivePage() {
                   <p className="text-sm font-medium">{r.subject}</p>
                   <p className="text-xs text-sam-muted">
                     {legacyStatusLabel(r.status, ko)}
-                    {r.store_id ? ` · ${ko ? "매장" : "Store"} ${r.store_id.slice(0, 8)}…` : ""} ·{" "}
+                    {r.store_id ? ` · ${ko ? "매장" : "Store"} ${formatAdminShortIdEllipsis(r.store_id)}` : ""} ·{" "}
                     {r.created_at ? new Date(r.created_at).toLocaleString(locale) : ""}
                   </p>
                 </button>

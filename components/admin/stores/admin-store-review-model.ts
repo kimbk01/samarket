@@ -3,6 +3,7 @@ import {
   parseStoredAddressBookPresentation,
   type AddressBookCardPresentation,
 } from "@/lib/addresses/address-book-card-presentation";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export type AdminStoreReviewRow = {
   id: string;
@@ -77,17 +78,9 @@ export const ADMIN_STORE_STATUS_FILTER: { value: string; labelKey: MessageKey }[
 export const ADMIN_STORE_APPROVAL_LABEL: Record<string, string> = {};
 
 export function formatAdminEnglishDate(v: string | null | undefined): string {
+  // 설계 v4 §6 — 관리자 일시는 PHT 「YYYY-MM-DD HH:mm」 (이름은 호출부 호환 유지).
   if (!v) return "—";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(d);
+  return formatAdminManilaDateTime(v);
 }
 
 /** `/mypage/addresses` 카드와 동일 — 신청 스냅샷 우선 */

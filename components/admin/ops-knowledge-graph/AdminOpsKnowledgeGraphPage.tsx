@@ -42,7 +42,7 @@ export function AdminOpsKnowledgeGraphPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_ops_tools_kg_page_title" />
+        <AdminPageHeader titleKey="admin_menu_manage_kg" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -52,7 +52,7 @@ export function AdminOpsKnowledgeGraphPage() {
 
   return (
     <>
-      <AdminPageHeader titleKey="admin_ops_tools_kg_page_title" />
+      <AdminPageHeader titleKey="admin_menu_manage_kg" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button

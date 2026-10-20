@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 type ConfirmState = {
   op: "credit" | "debit";
@@ -76,7 +77,7 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
       setConfirm({
         op,
         userId: uid,
-        memberLabel: memberLabel.trim() || uid.slice(0, 8),
+        memberLabel: memberLabel.trim() || formatAdminShortId(uid),
         amount: amt,
         reason: why,
         memo: memo.trim(),

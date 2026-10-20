@@ -73,6 +73,7 @@ import {
   CommissionOrderDetailPanel,
   HorizontalScrollRegion,
 } from "@/components/stores/commission/StoreCommissionLedgerTable";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 const PAGE_SIZE = 100;
 const TABS: readonly CommissionTab[] = ["ledger", "review", "cash", "exceptions", "payable"];
@@ -848,7 +849,7 @@ export function AdminStoreCommissionLedgerPage() {
                     {c.violations === 0 ? "PASS" : `FAIL ${c.violations}`} · {CHECK_LABEL[k]?.[lang] ?? k}
                     {c.violations > 0 ? (
                       <span className="ml-1 break-all sam-text-xxs font-normal">
-                        ({c.ids.slice(0, 5).map((id) => storeNames.get(id) ?? id.slice(0, 8)).join(", ")})
+                        ({c.ids.slice(0, 5).map((id) => storeNames.get(id) ?? formatAdminShortId(id)).join(", ")})
                       </span>
                     ) : null}
                   </li>

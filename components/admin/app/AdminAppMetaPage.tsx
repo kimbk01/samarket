@@ -22,7 +22,7 @@ export function AdminAppMetaPage() {
 
   return (
     <div>
-      <AdminPageHeader titleKey="admin_app_meta_title" />
+      <AdminPageHeader titleKey="admin_menu_app_meta" />
       {loading ? (
         <p className="text-sam-muted">{t("admin_dashboard_loading")}</p>
       ) : items.length === 0 ? (

@@ -10,6 +10,7 @@ import { AdminConsoleListPane } from "@/components/admin/console/AdminConsoleLis
 import { AdminConsoleDetailPane } from "@/components/admin/console/AdminConsoleDetailPane";
 import { AdminConsoleToolbar } from "@/components/admin/console/AdminConsoleToolbar";
 import { AdminConsoleState } from "@/components/admin/console/AdminConsoleState";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 type Thread = {
   id: string;
@@ -211,7 +212,7 @@ function AdminMemberNotesPageInner() {
                 {th.subject}
               </span>
               <span className="mt-0.5 block truncate text-[11px] text-sam-muted">
-                {th.member_display_name || th.member_email || th.member_user_id.slice(0, 8)}
+                {th.member_display_name || th.member_email || formatAdminShortId(th.member_user_id)}
                 {th.is_store_owner && th.store_names && th.store_names.length > 0
                   ? ` · Store: ${th.store_names.slice(0, 2).join(", ")}`
                   : th.is_store_owner

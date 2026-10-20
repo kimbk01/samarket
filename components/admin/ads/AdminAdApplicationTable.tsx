@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdApplication, AdApplicationStatus, AdPaymentStatus } from "@/lib/types/ad-application";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 const APP_STATUS_KEYS = {
   pending: "admin_ads_app_status_pending",
@@ -33,10 +33,6 @@ const STATUS_CLASS: Record<AdApplication["applicationStatus"], string> = {
   cancelled: "bg-sam-border-soft text-sam-muted",
 };
 
-function dateLocaleTag(language: AppLanguageCode): string {
-  return language === "en" ? "en-US" : "ko-KR";
-}
-
 interface AdminAdApplicationTableProps {
   applications: AdApplication[];
 }
@@ -44,8 +40,7 @@ interface AdminAdApplicationTableProps {
 export function AdminAdApplicationTable({
   applications,
 }: AdminAdApplicationTableProps) {
-  const { t, language } = useI18n();
-  const dateLocale = dateLocaleTag(language);
+  const { t } = useI18n();
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -101,7 +96,7 @@ export function AdminAdApplicationTable({
                 {t(PAYMENT_STATUS_KEYS[a.paymentStatus])}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(a.createdAt).toLocaleDateString(dateLocale)}
+                {formatAdminManilaDate(a.createdAt)}
               </td>
             </tr>
           ))}

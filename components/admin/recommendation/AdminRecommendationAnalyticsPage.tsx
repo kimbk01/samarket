@@ -44,7 +44,7 @@ export function AdminRecommendationAnalyticsPage() {
   if (!hydrated) {
     return (
       <div className="space-y-4">
-        <AdminPageHeader titleKey="admin_rec_analytics_k4f5d75ab" />
+        <AdminPageHeader titleKey="admin_menu_rec_analytics" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -54,7 +54,7 @@ export function AdminRecommendationAnalyticsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_rec_analytics_k4f5d75ab" />
+      <AdminPageHeader titleKey="admin_menu_rec_analytics" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
         {TABS.map((tab) => (

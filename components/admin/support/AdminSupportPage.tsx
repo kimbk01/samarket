@@ -36,6 +36,7 @@ import {
 } from "@/lib/support/support-reference-admin-href";
 import { fetchAdminMeSnapshot, peekAdminMeSnapshot, type AdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 import { adminListOffsetForPage, adminListPageCount } from "@/lib/admin/pagination/parse-admin-list-page";
+import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 const SUPPORT_LIST_PAGE_SIZE = 50;
 
@@ -128,7 +129,7 @@ function supportLinkAllowed(link: SupportAdminContextLink, me: AdminMeSnapshot |
 }
 
 function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const ko = language !== "en";
   const [adminMe, setAdminMe] = useState<AdminMeSnapshot | null>(() => peekAdminMeSnapshot());
   useEffect(() => {
@@ -371,14 +372,14 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
 
   const whoName = (c: SupportCaseRow) => {
     const d = displayFor(c);
-    return d?.requester_display_name || d?.requester_email || c.requester_user_id.slice(0, 8);
+    return d?.requester_display_name || d?.requester_email || formatAdminShortId(c.requester_user_id);
   };
 
   const whoLine = (c: SupportCaseRow) => {
     const role = supportAudienceLabel(c.audience, ko);
     const d = displayFor(c);
     if (c.audience === "OWNER" && c.owner_store_id) {
-      const store = d?.owner_store_name || `${ko ? "매장" : "Store"} ${c.owner_store_id.slice(0, 8)}`;
+      const store = d?.owner_store_name || `${ko ? "매장" : "Store"} ${formatAdminShortId(c.owner_store_id)}`;
       return `${whoName(c)} · ${role} · ${store}`;
     }
     return `${whoName(c)} · ${role}`;
@@ -427,7 +428,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-lg font-bold text-sam-fg">
-            {safeT("admin_support_title", { fallbackKo: "고객센터", fallbackEn: "Support Center" })}
+            {t("admin_menu_cp_support_center")}
           </h1>
           <p className="text-xs text-sam-muted">
             {safeT("admin_support_desc", {
@@ -528,8 +529,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             title={ko ? "연결 조건 해제" : "Clear linked filter"}
           >
             {scope.referenceId
-              ? `${scope.referenceType ? supportReferenceLabel(safeT, scope.referenceType) : ko ? "연결 대상" : "Reference"} · ${scope.referenceId.slice(0, 8)}`
-              : `${ko ? "매장" : "Store"} · ${String(scope.storeId).slice(0, 8)}`}
+              ? `${scope.referenceType ? supportReferenceLabel(safeT, scope.referenceType) : ko ? "연결 대상" : "Reference"} · ${formatAdminShortId(scope.referenceId)}`
+              : `${ko ? "매장" : "Store"} · ${formatAdminShortId(scope.storeId)}`}
             <span aria-hidden>✕</span>
           </button>
         ) : null}
@@ -721,7 +722,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     {activeCase.assigned_admin_id
                       ? activeCase.assigned_admin_id === selfAdminId
                         ? safeT("admin_support_assignee_self", { fallbackKo: "나", fallbackEn: "Me" })
-                        : `${activeCase.assigned_admin_id.slice(0, 8)}…`
+                        : <AdminTechId id={activeCase.assigned_admin_id} />
                       : safeT("admin_support_unassigned", { fallbackKo: "미배정", fallbackEn: "Unassigned" })}
                   </span>
                 </div>
@@ -1060,7 +1061,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
               {activeCase.reference_type ? (
                 <p className="mt-1 text-xs">
                   {supportReferenceLabel(safeT, activeCase.reference_type)}
-                  {activeCase.reference_id ? ` · ${String(activeCase.reference_id).slice(0, 12)}…` : ""}
+                  {activeCase.reference_id ? <> · <AdminTechId id={String(activeCase.reference_id)} /></> : ""}
                 </p>
               ) : (
                 <p className="mt-1 text-xs text-sam-muted">—</p>

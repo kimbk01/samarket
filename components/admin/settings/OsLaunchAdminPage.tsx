@@ -153,7 +153,7 @@ export function OsLaunchAdminPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title={t("admin_os_launch_title")} description={t("admin_os_launch_desc")} />
+      <AdminPageHeader titleKey="admin_menu_settings_os_start" description={t("admin_os_launch_desc")} />
 
       <AdminCard>
         <div className="space-y-1 px-4 py-3.5 sm:px-5">

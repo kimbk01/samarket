@@ -40,7 +40,7 @@ export function AdminRecommendationAutomationPage() {
     return (
       <>
         <AdminPageHeader
-          titleKey="admin_rec_auto_page_title"
+          titleKey="admin_menu_rec_automation"
           descriptionKey="admin_rec_auto_page_desc"
         />
         <AdminCard>
@@ -55,7 +55,7 @@ export function AdminRecommendationAutomationPage() {
   return (
     <>
       <AdminPageHeader
-        titleKey="admin_rec_auto_page_title"
+        titleKey="admin_menu_rec_automation"
         descriptionKey="admin_rec_auto_page_desc_db"
       />
       {hydrateError ? (

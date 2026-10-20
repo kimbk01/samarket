@@ -159,15 +159,10 @@ export function AdminPointPlansPage() {
     }
   };
 
-  const title = safeT("admin_points_plans_title", {
-    fallbackKo: "포인트 충전 플랜",
-    fallbackEn: "Point charge plans",
-  });
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <AdminPageHeader title={title} />
+        <AdminPageHeader titleKey="admin_menu_points_plans" />
         <button
           type="button"
           onClick={startCreate}

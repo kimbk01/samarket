@@ -34,6 +34,7 @@ import {
   matchAdminChatRoomToDeepLink,
   parseAdminTradeChatDeepLink,
 } from "@/lib/admin-products/admin-trade-deep-link";
+import { formatAdminShortId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 /** C-11 — 목록 페이지 크기 (URL `page`). 서버 원장 상한 안에서 화면 페이지를 나눈다. */
 const TRADE_LIST_PAGE_SIZE = 50;
@@ -399,7 +400,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
     const items = [...selectedIds]
       .map((id) => byId.get(id))
       .filter((r): r is AdminChatRoom => Boolean(r))
-      .map((r) => ({ id: r.id, storage: storageForBulkDelete(r), label: r.productTitle || r.id.slice(0, 8) }));
+      .map((r) => ({ id: r.id, storage: storageForBulkDelete(r), label: r.productTitle || formatAdminShortId(r.id) }));
     if (items.length) setHardDeleteItems(items);
   }, [rooms, selectedIds]);
 
@@ -492,7 +493,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             errors: data.errors
               .map(
                 (e: { id: string; message: string }) =>
-                  `${e.id.slice(0, 8)}… ${
+                  `${formatAdminShortIdEllipsis(e.id)} ${
                     e.message === "evidence_preserved" ? t("admin_chat_r1_hard_delete_evidence_skipped") : e.message
                   }`
               )
@@ -536,9 +537,9 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (res.ok && j.ok) ok += 1;
-        else errors.push(`${id.slice(0, 8)}… ${j.error ?? res.statusText}`);
+        else errors.push(`${formatAdminShortIdEllipsis(id)} ${j.error ?? res.statusText}`);
       } catch {
-        errors.push(`${id.slice(0, 8)}… ${t("common_network_error")}`);
+        errors.push(`${formatAdminShortIdEllipsis(id)} ${t("common_network_error")}`);
       }
     }
     setSelectedIds(new Set());
@@ -624,8 +625,8 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             {t("admin_trade_deep_link_chat_focus", {
               post: focusedRoom.productTitle || focusedRoom.productId || deepLink.postId || "—",
               room: focusedRoom.id,
-              seller: focusedRoom.sellerNickname || focusedRoom.sellerId.slice(0, 8),
-              buyer: focusedRoom.buyerNickname || focusedRoom.buyerId.slice(0, 8),
+              seller: focusedRoom.sellerNickname || formatAdminShortId(focusedRoom.sellerId),
+              buyer: focusedRoom.buyerNickname || formatAdminShortId(focusedRoom.buyerId),
             })}
           </p>
           <Link

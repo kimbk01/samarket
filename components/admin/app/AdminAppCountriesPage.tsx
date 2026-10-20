@@ -22,7 +22,7 @@ export function AdminAppCountriesPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="sam-text-page-title font-semibold text-sam-fg">{t("admin_app_countries_title")}</h1>
+        <h1 className="sam-text-page-title font-semibold text-sam-fg">{t("admin_menu_app_countries")}</h1>
         <Link
           href="/admin/app/countries/create"
           className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white"

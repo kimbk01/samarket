@@ -3,6 +3,14 @@
  */
 
 import { humanBannerSlideLabel, humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+
+/** 설계 v4 §6 — 노출 시작 안내도 기기 시간대가 아니라 PHT 달력·시각으로. */
+function manilaFeedbackParts(iso: string): { date: string; month: number; day: number; time: string } {
+  const [date = "", time = ""] = formatAdminManilaDateTime(iso).split(" ");
+  const [, m, d] = date.split("-");
+  return { date, month: Number(m) || 0, day: Number(d) || 0, time };
+}
 
 export type AdsActionFeedback = { ko: string; en: string };
 
@@ -64,10 +72,8 @@ export function feedbackApprovedWithStart(input: {
 }): string {
   const place = humanPlacementLabel(input.placementKey, input.ko);
   if (input.startAt) {
-    const d = new Date(input.startAt);
-    const dateLabel = input.ko
-      ? `${d.getMonth() + 1}월 ${d.getDate()}일`
-      : d.toLocaleDateString("en-US");
+    const p = manilaFeedbackParts(input.startAt);
+    const dateLabel = input.ko ? `${p.month}월 ${p.day}일` : p.date;
     return input.ko
       ? `${dateLabel}부터 ${place}에 노출됩니다.`
       : `Goes live on ${place} from ${dateLabel}.`;
@@ -76,9 +82,9 @@ export function feedbackApprovedWithStart(input: {
 }
 
 export function feedbackScheduledStart(input: { startAt: string; ko: boolean }): string {
-  const d = new Date(input.startAt);
+  const p = manilaFeedbackParts(input.startAt);
   if (input.ko) {
-    return `${d.getMonth() + 1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}부터 노출됩니다.`;
+    return `${p.month}월 ${p.day}일 ${p.time}부터 노출됩니다.`;
   }
-  return `Scheduled to go live ${d.toLocaleString("en-US")}.`;
+  return `Scheduled to go live ${p.date} ${p.time} PHT.`;
 }

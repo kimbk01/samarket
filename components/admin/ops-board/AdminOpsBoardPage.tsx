@@ -42,7 +42,7 @@ export function AdminOpsBoardPage() {
     return (
       <>
         <AdminPageHeader
-          titleKey="admin_ops_tools_board_page_title"
+          titleKey="admin_menu_manage_ops_board"
           descriptionKey="admin_ops_tools_board_page_desc"
         />
         <AdminCard>
@@ -55,7 +55,7 @@ export function AdminOpsBoardPage() {
   return (
     <>
       <AdminPageHeader
-        titleKey="admin_ops_tools_board_page_title"
+        titleKey="admin_menu_manage_ops_board"
         descriptionKey="admin_ops_tools_board_page_desc"
       />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">

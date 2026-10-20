@@ -249,10 +249,7 @@ export function AdminDeliveryAdsControlPlane() {
             {lang === "en" ? "Ads / Exposure › Delivery ads legacy view" : "광고 / 노출 › 배달 광고 기존 화면"}
           </p>
           <h1 className="text-[20px] font-bold text-sam-fg">
-            {safeT("admin_delivery_ads_title", {
-              fallbackKo: "배달 광고 목록",
-              fallbackEn: "Delivery ads list",
-            })}
+            {t("admin_menu_delivery_ads_ops")}
           </h1>
           <p className="mt-1 text-[13px] text-sam-muted">
             {safeT("admin_delivery_ads_subtitle", {

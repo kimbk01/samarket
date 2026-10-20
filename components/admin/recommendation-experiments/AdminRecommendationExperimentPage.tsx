@@ -125,7 +125,7 @@ export function AdminRecommendationExperimentPage() {
   if (!hydrated) {
     return (
       <div className="space-y-4">
-        <AdminPageHeader titleKey="admin_rec_exp_page_title" />
+        <AdminPageHeader titleKey="admin_menu_manage_ab" />
         <AdminCard>
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
         </AdminCard>
@@ -135,7 +135,7 @@ export function AdminRecommendationExperimentPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_rec_exp_page_title" />
+      <AdminPageHeader titleKey="admin_menu_manage_ab" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
         {EXP_TABS.map((tab) => (

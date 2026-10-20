@@ -5,7 +5,7 @@ import { AdminFinanceTransactionsView } from "@/components/finance/AdminFinanceT
 export default function AdminFinanceTransactionsPage() {
   return (
     <div className="space-y-4 p-4">
-      <AdminPageHeader titleKey="admin_page_store_finance" />
+      <AdminPageHeader titleKey="admin_menu_finance_transactions" />
       <Suspense fallback={null}>
         <AdminFinanceTransactionsView />
       </Suspense>

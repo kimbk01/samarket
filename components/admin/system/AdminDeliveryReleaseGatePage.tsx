@@ -167,7 +167,7 @@ export function AdminDeliveryReleaseGatePage() {
     <div className={`${Sam.page} bg-sam-app min-h-[75vh] px-4 py-8`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-sam-fg">{ko ? "릴리즈 게이트" : "Release gate"}</h1>
+          <h1 className="text-xl font-semibold text-sam-fg">{t("admin_menu_delivery_release_gate")}</h1>
           <p className="mt-1 text-sm text-sam-muted">
             {t("admin_delivery_gate_subtitle")}
           </p>

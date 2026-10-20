@@ -14,6 +14,7 @@ import type { AdFundingTrace } from "@/lib/finance/ad-funding-trace/types";
 import type { OrderMoneyChain } from "@/lib/finance/order-money-chain/types";
 import type { StoreStatement } from "@/lib/finance/store-statement/types";
 import type { CoinCashConversionPolicy } from "@/lib/finance/conversion-policy";
+import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 function php(n: number): string {
   return `₱${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
@@ -241,7 +242,7 @@ export function AdminFinanceTransparentPanels() {
             <tbody className="divide-y divide-sam-border-soft">
               {ads.map((r) => (
                 <tr key={`${r.family}:${r.adId}`}>
-                  <td className="px-3 py-2 font-mono text-xs">{r.adId.slice(0, 8)}…</td>
+                  <td className="px-3 py-2 font-mono text-xs"><AdminTechId id={r.adId} /></td>
                   <td className="px-3 py-2">
                     {r.adProduct}
                     {r.legacyLabel ? (
@@ -312,7 +313,7 @@ export function AdminFinanceTransparentPanels() {
             <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
               <header>
                 <h3 className="font-semibold text-sam-fg">
-                  {chain.storeName} · #{chain.orderNo || chain.orderId.slice(0, 8)}
+                  {chain.storeName} · #{chain.orderNo || formatAdminShortId(chain.orderId)}
                 </h3>
                 <p className="sam-text-helper text-sam-muted">{chain.date}</p>
               </header>

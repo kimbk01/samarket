@@ -16,6 +16,7 @@ import {
 } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
 type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
 
@@ -842,7 +843,7 @@ function AdminDeliveryAlertsPageInner() {
                         className="block max-w-[8rem] truncate text-signature underline sam-text-xxs"
                         title={ev.store_name}
                       >
-                        {ev.store_name || ev.store_id.slice(0, 8)}
+                        {ev.store_name || formatAdminShortId(ev.store_id)}
                       </Link>
                     ) : (
                       dash

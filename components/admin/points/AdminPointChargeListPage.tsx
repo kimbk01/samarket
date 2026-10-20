@@ -92,7 +92,7 @@ export function AdminPointChargeListPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_points_charge_page_list" />
+      <AdminPageHeader titleKey="admin_menu_points_charge" />
 
       {/* summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">

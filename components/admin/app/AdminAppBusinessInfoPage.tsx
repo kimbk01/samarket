@@ -40,10 +40,7 @@ export function AdminAppBusinessInfoPage() {
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h1 className="sam-text-page-title font-semibold text-sam-fg">
-          {safeT("admin_app_business_title", {
-            fallbackKo: "사업자 정보",
-            fallbackEn: "Business information",
-          })}
+          {t("admin_menu_business")}
         </h1>
         <Link
           href="/admin/app/business/create"

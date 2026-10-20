@@ -46,7 +46,7 @@ export function AdminMyServicesPage() {
 
   return (
     <AdminMyServicesView
-      title={t("admin_my_kd675ad0a")}
+      title={t("admin_menu_my_services")}
       loadingLabel={t("common_loading")}
       editUnavailableNote={t("admin_my_edit_unavailable_note")}
       loading={loading}

@@ -18,6 +18,7 @@ import {
   type PrelaunchResetSelectiveScope,
 } from "@/lib/admin/prelaunch-reset/selective-scopes";
 import type { PrelaunchResetPlan, PrelaunchResetPreset } from "@/lib/admin/prelaunch-reset/types";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 
 const PRESET_IDS = Object.keys(PRELAUNCH_RESET_PRESETS) as PrelaunchResetPreset[];
 
@@ -662,7 +663,7 @@ export function AdminPrelaunchResetPage() {
             >
               {plan.authTargets.map((t) => (
                 <li key={t.userId}>
-                  [{t.action}] {t.userId.slice(0, 8)}… {t.reason}
+                  [{t.action}] <AdminTechId id={t.userId} /> {t.reason}
                 </li>
               ))}
             </ul>
@@ -690,7 +691,7 @@ export function AdminPrelaunchResetPage() {
             <ul className="mt-2 list-disc pl-5 text-[12px] text-sam-muted" data-aro-rst-protected="1">
               {plan.protectedEntities.map((p) => (
                 <li key={`${p.kind}:${p.id}`}>
-                  PROTECTED: {p.kind} {p.id.slice(0, 8)}… {p.reason ?? ""}
+                  PROTECTED: {p.kind} <AdminTechId id={p.id} /> {p.reason ?? ""}
                 </li>
               ))}
             </ul>

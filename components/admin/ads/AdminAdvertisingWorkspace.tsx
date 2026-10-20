@@ -14,6 +14,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import type { AdsActionItem, AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { fetchAdsControlPlane } from "@/lib/admin/ads-control-plane/fetch-ads-control-plane";
 import {
   familyFromControlDomain,
@@ -229,12 +230,13 @@ function defaultStatusTabForMode(mode: AdvertisingWorkspaceMode): AdsShellStatus
   return "all";
 }
 
-function modeTitle(mode: AdvertisingWorkspaceMode, ko: boolean): string {
-  if (mode === "operations") return ko ? "노출 관리" : "Exposure operations";
-  if (mode === "applications") return ko ? "광고 승인" : "Ad approval";
-  if (mode === "boosts") return ko ? "상위노출 관리" : "Boost management";
-  if (mode === "history") return ko ? "광고 이력" : "Ads history";
-  return ko ? "전체 광고" : "All ads";
+/** 설계 v4 §7 페이지 골격 — 제목 = 메뉴 라벨 (admin-menu titleKey 와 같은 키). */
+function modeTitleKey(mode: AdvertisingWorkspaceMode): MessageKey {
+  if (mode === "operations") return "admin_menu_ads_authority_operations";
+  if (mode === "applications") return "admin_menu_ads_authority_applications";
+  if (mode === "boosts") return "admin_menu_ads_authority_boosts";
+  if (mode === "history") return "admin_menu_ads_authority_history";
+  return "admin_menu_ads_advertising_workspace";
 }
 
 function modeDescription(mode: AdvertisingWorkspaceMode, ko: boolean): string {
@@ -726,7 +728,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-lg font-semibold text-sam-fg" data-admin-ads-workspace-title="1">
-            {modeTitle(mode, ko)}
+            {t(modeTitleKey(mode))}
           </h1>
           <p className="text-[13px] text-sam-muted" data-admin-ads-workspace-purpose="1">
             {modeDescription(mode, ko)}

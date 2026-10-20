@@ -43,6 +43,7 @@ import {
   buildStoreStatusControl,
   type StoreStatusAxisRow,
 } from "@/lib/admin-business/build-store-status-control";
+import { AdminTechId, formatAdminShortId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 
 function CopyId({ value, labelKey }: { value: string; labelKey: MessageKey }) {
   const { t } = useI18n();
@@ -459,7 +460,7 @@ export function AdminBusinessCcFeeCard({ fee }: { fee: BusinessCcFeeSnapshot }) 
           <dt className="text-sam-muted">{t("admin_biz_label_store_override")}</dt>
           <dd>
             {fee.storeOverridePolicyId
-              ? `${fee.storeOverrideFeePercent ?? "—"}% (${fee.storeOverridePolicyId.slice(0, 8)}…)`
+              ? `${fee.storeOverrideFeePercent ?? "—"}% (${formatAdminShortIdEllipsis(fee.storeOverridePolicyId)})`
               : t("admin_biz_yn_no")}
           </dd>
         </div>
@@ -552,7 +553,7 @@ export function AdminBusinessCcKpiPanel({
             <ul className="space-y-1.5">
               {kpi.recentOrders.map((o) => (
                 <li key={o.id} className="flex flex-wrap justify-between gap-2 sam-text-helper">
-                  <span className="font-mono text-sam-fg">{o.orderNo || o.id.slice(0, 8)}</span>
+                  <span className="font-mono text-sam-fg">{o.orderNo || formatAdminShortId(o.id)}</span>
                   <span className="text-sam-muted">
                     {processStatusLabel(o.orderStatus, "delivery", "owner_badge", language)}
                   </span>
@@ -578,7 +579,7 @@ export function AdminBusinessCcKpiPanel({
             <ul className="space-y-1.5">
               {kpi.recentCommissions.map((s) => (
                 <li key={s.id} className="flex flex-wrap justify-between gap-2 sam-text-helper">
-                  <span className="font-mono text-sam-fg">{s.orderId.slice(0, 8)}</span>
+                  <AdminTechId id={s.orderId} />
                   <span className="text-sam-muted">{s.adjustmentStatus === "review_required" ? t("admin_biz_ops_settle_needs_check") : s.feeOutstandingMinor > 0 ? t("admin_biz_ops_settle_held") : t("admin_biz_ops_settle_ok")}</span>
                   <span className="text-sam-fg">{formatMoneyPhp(s.feeDueMinor / 100)}</span>
                 </li>

@@ -53,6 +53,7 @@ import {
 import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 
 type LoadState =
   | { kind: "loading" }
@@ -266,7 +267,7 @@ export function AdminChatReportQueuePage() {
       {query.target ? (
         <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
           <span className="text-sam-muted">{t("admin_chat_reports_chip_target")}</span>
-          <span className="font-mono">{query.target.slice(0, 8)}…</span>
+          <AdminTechId id={query.target} />
           <button type="button" className="sam-text-helper text-sam-muted underline" onClick={() => navigate({ target: "" })}>
             {t("admin_chat_list_chip_clear")}
           </button>

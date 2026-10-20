@@ -7,6 +7,7 @@ import {
   REPORT_STATUS_LABEL_KEYS,
   REPORT_TARGET_TYPE_LABEL_KEYS,
 } from "@/lib/admin-reports/report-admin-i18n-keys";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 
 const STATUS_CLASS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
@@ -50,7 +51,7 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
           {reports.map((r) => (
             <tr key={r.id} className="border-b border-sam-border-soft hover:bg-sam-app">
               <td className="max-w-[90px] truncate px-3 py-2.5 font-mono sam-text-helper text-sam-muted">
-                {r.id.slice(0, 8)}…
+                <AdminTechId id={r.id} />
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-helper text-sam-muted">
                 {r.reportSource === "community_feed"

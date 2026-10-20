@@ -8,6 +8,7 @@ import type {
 } from "@/lib/points/point-financial-history";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 import { AdminPointAdjustPanel } from "@/components/admin/points/AdminPointAdjustPanel";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 
 function formatSigned(signed: number): string {
   const abs = Math.abs(signed).toLocaleString();
@@ -68,7 +69,7 @@ export function AdminPointLedgerPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="sam-text-page-title font-semibold text-sam-fg">{t("admin_points_ledger_page")}</h1>
+      <h1 className="sam-text-page-title font-semibold text-sam-fg">{t("admin_menu_points_ledger")}</h1>
 
       <AdminPointAdjustPanel onChanged={() => void load()} />
 
@@ -136,7 +137,7 @@ export function AdminPointLedgerPage() {
                     </td>
                     <td className="px-3 py-2.5">
                       {e.userNickname || "—"}{" "}
-                      <span className="sam-text-helper text-sam-meta">({e.userId.slice(0, 8)}…)</span>
+                      <AdminTechId id={e.userId} />
                     </td>
                     <td className="px-3 py-2.5">{title}</td>
                     <td className="max-w-[220px] truncate px-3 py-2.5 text-sam-muted">{usage}</td>

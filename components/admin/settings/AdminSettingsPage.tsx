@@ -104,7 +104,7 @@ export function AdminSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_page_settings" />
+      <AdminPageHeader titleKey="admin_menu_settings_general" />
 
       <AdminSettingsTabs active={activeSection} onChange={setActiveSection} />
 

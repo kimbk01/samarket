@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 
 type AuditEvent = {
   id: string;
@@ -184,7 +185,7 @@ export function AdminGiftAuditPanel({ q: initialQ, event: initialEvent }: { q: s
                 </p>
                 <p className="text-xs text-sam-muted">{e.summary}</p>
                 {e.orderId ? (
-                  <p className="text-xs text-sam-muted">Order {e.orderId.slice(0, 8)}…</p>
+                  <p className="text-xs text-sam-muted">Order <AdminTechId id={e.orderId} /></p>
                 ) : null}
                 {href ? (
                   <Link

@@ -21,7 +21,7 @@ export function AdminOrderNotificationsPageClient() {
   return (
     <div className="space-y-4 p-4 md:p-6">
       <AdminPageHeader
-        titleKey="admin_action_queue_page_title"
+        titleKey="admin_menu_order_notifications"
         descriptionKey="admin_action_queue_page_desc"
       />
       <p className="text-sm text-sam-muted tabular-nums" data-testid="admin-order-notifications-total">
