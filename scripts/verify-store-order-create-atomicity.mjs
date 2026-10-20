@@ -132,6 +132,29 @@ if (/gift_certificate_instance_redeem_fee_rate\s*\(/.test(migMinCoupon)) {
   fails.push("min/coupon migration must not depend on unapplied gift fee helper");
 }
 
+/** 1-J reopen (docs/dibay-delivery-product-hard-lock.md §7) — sellability in Pass 1 + stock sold_out reason */
+{
+  const mig1j = fs.readFileSync(
+    path.join(root, "supabase/migrations/20270602130000_store_products_review_lock_stock_reason.sql"),
+    "utf8"
+  );
+  if (!mig1j.includes("CREATE OR REPLACE FUNCTION public.create_store_order_atomic")) {
+    fails.push("1-J migration must redefine create_store_order_atomic");
+  }
+  if (!/admin_review_status, 'none'\) IN \('rejected', 'pending'\)/.test(mig1j)) {
+    fails.push("1-J create Pass1 must reject rejected/pending admin review");
+  }
+  if (!/ms\.is_hidden IS TRUE/.test(mig1j)) {
+    fails.push("1-J create Pass1 must reject products in hidden menu sections");
+  }
+  if (!/sold_out_reason = CASE\s+WHEN stock_qty - v_qty <= 0 THEN 'stock'/.test(mig1j)) {
+    fails.push("1-J create Pass2 must record sold_out_reason = 'stock'");
+  }
+  for (const k of ["FOR UPDATE", "pg_advisory_xact_lock", "WHEN unique_violation THEN", "insufficient_stock"]) {
+    if (!mig1j.includes(k)) fails.push(`1-J create redefinition lost ${k}`);
+  }
+}
+
 if (fails.length) {
   console.error("FAIL: store-order-create-atomicity\n" + fails.join("\n"));
   process.exit(1);

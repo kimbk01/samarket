@@ -134,3 +134,14 @@ Reopen requires: update this doc + `.mdc` + keep gates enforcing the new contrac
 **HARD LOCK — ACTIVE.**
 
 Browser Realtime · HTTP cookie UI · Cron HTTP route remain **intentional residual / NOT_RUN**, not FAIL.
+
+---
+
+## 7. Reopen 기록
+
+| 날짜 (PHT) | 근거 (§4) | 범위 | 마이그레이션 · 게이트 |
+|---|---|---|---|
+| 2026-10-21 | §4-2 명시적 제품 계약 변경 — G-1 §4-J 1-J 묶음 (PRD-03 · PRD-05 · PRD-06, Owner ND-1) Owner 승인 | `create_store_order_atomic` Pass1: 검수 `rejected`/`pending` · 숨김 메뉴 구역 상품 → `product_not_available`. Pass2: 재고 0 자동 품절 시 `sold_out_reason='stock'`. `restore_store_order_stock_atomic`: `sold_out_reason='stock'` 이고 관리자 잠금 없음·검수 정상일 때만 `sold_out → active` (manual/admin/NULL 은 수량만 복원). `get_store_menus_snapshot`: 검수 반려·재검수 대기 제외. 세 함수 모두 운영 원문(pg_get_functiondef, 2026-10-20) 기준 최소 diff · 1개 마이그레이션. | `20270602130000_store_products_review_lock_stock_reason.sql` · 게이트: `verify:store-order-create-atomicity`(1-J Pass1/Pass2 계약) · `verify:store-order-recovery-integrity`(복원 stock 한정) · 격리 DB `supabase/tests/isolated/store-products-1j/` |
+
+Authority(§1)·Recovery Chain 순서·create TX 경계는 변경 없음 — 판매 가능 조건과 품절 사유만 추가.
+
