@@ -31,6 +31,8 @@ import {
   resolveStoreTaxonomyTopicDisplayName,
 } from "@/lib/stores/resolve-store-taxonomy-display-name";
 import { AdminStoreDiscoverySnapshotPanel } from "@/components/admin/stores/AdminStoreDiscoverySnapshotPanel";
+import { isStoreCoreInfoPendingReverification } from "@/lib/stores/store-core-info-reverification";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 function embedRelation(v: TaxonomyRelation | TaxonomyRelation[] | null | undefined): TaxonomyRelation | null {
   if (v == null) return null;
@@ -107,6 +109,28 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
     successKo: "보완을 요청했습니다. 사장님에게 알림을 보냈습니다.",
     successEn: "Changes requested. The owner was notified.",
   },
+  reopen_application: {
+    level: adminActionLevel("approve"),
+    ko: "재심사 열기",
+    en: "Reopen review",
+    titleKo: "반려된 신청의 재심사를 열까요?",
+    titleEn: "Reopen this rejected application?",
+    descKo: "보완 요청 상태로 바뀌어 사장님이 신청 내용을 고쳐 다시 제출할 수 있습니다. 사유(보완할 내용)는 사장님에게 알림으로 전달됩니다.",
+    descEn: "The application returns to 'changes requested' so the owner can fix and resubmit it. The reason is sent to the owner.",
+    successKo: "재심사를 열었습니다. 사장님에게 알림을 보냈습니다.",
+    successEn: "Review reopened. The owner was notified.",
+  },
+  confirm_core_info_reverified: {
+    level: adminActionLevel("save"),
+    ko: "재검증 완료",
+    en: "Mark re-verified",
+    titleKo: "변경된 매장 주소·위치를 확인했나요?",
+    titleEn: "Have you verified the changed store address and location?",
+    descKo: "재검증 표시가 해제됩니다. 처리 기록은 감사 이력에 남습니다.",
+    descEn: "The re-verification flag is cleared. The action is recorded in the audit log.",
+    successKo: "재검증을 완료했습니다.",
+    successEn: "Marked as re-verified.",
+  },
   suspend_store: {
     level: adminActionLevel("sanction"),
     ko: "운영 중지",
@@ -178,6 +202,7 @@ const APPROVAL_BUTTON_ORDER: AdminStoreApprovalAction[] = [
   "approve_store",
   "request_revision",
   "reject_store",
+  "reopen_application",
   "suspend_store",
   "resume_store",
 ];
@@ -209,7 +234,7 @@ export type AdminStoreReviewPanelProps = {
   onClose?: () => void;
   onRunAction?: (
     action: string,
-    payload?: { reason?: string; enabled?: boolean; store_name?: string }
+    payload?: { reason?: string; enabled?: boolean; store_name?: string } & Record<string, unknown>
   ) => void | boolean | Promise<void | boolean>;
   actionBusy?: boolean;
   onSetOwnerIdentityEditable?: (enabled: boolean) => void;
@@ -306,7 +331,7 @@ export function AdminStoreReviewPanel({
   };
 
   /** 모든 결정은 확인 팝업(동작 표 단계)을 거친다. L2·L3 사유는 API `reason` 으로 전송. */
-  const runConfirmedAction = async (action: string): Promise<void> => {
+  const runConfirmedAction = async (action: string, extra?: Record<string, unknown>): Promise<void> => {
     const c = ADMIN_STORE_ACTION_COPY[action];
     if (!c || !onRunAction) return;
     const confirmed = await confirmAdminAction({
@@ -319,8 +344,12 @@ export function AdminStoreReviewPanel({
       reasonPlaceholder: c.level !== "L1" ? (ko ? "사장님에게 전달될 사유" : "Reason sent to the owner") : undefined,
     });
     if (!confirmed.ok) return;
-    await onRunAction(action, confirmed.reason ? { reason: confirmed.reason } : undefined);
+    const payload = { ...(extra ?? {}), ...(confirmed.reason ? { reason: confirmed.reason } : {}) };
+    await onRunAction(action, Object.keys(payload).length > 0 ? payload : undefined);
   };
+
+  const coreInfoPending =
+    store.approval_status === "approved" && isStoreCoreInfoPendingReverification(store.core_info_review_status);
 
   const approvalActions = APPROVAL_BUTTON_ORDER.filter((a) =>
     allowedStoreApprovalActions(store.approval_status).includes(a)
@@ -412,6 +441,46 @@ export function AdminStoreReviewPanel({
           </div>
         ) : null}
       </ReviewBlock>
+
+      {coreInfoPending ? (
+        <ReviewBlock title={ko ? "주소·위치 재검증" : "Address re-verification"}>
+          <div className="py-2 text-[13px]" data-admin-store-core-info-reverification="1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <AdminToneBadge tone="warning">{ko ? "재검증 필요" : "Needs re-verification"}</AdminToneBadge>
+              {store.core_info_changed_at ? (
+                <span className="text-sam-muted">{formatAdminManilaDateTime(store.core_info_changed_at)}</span>
+              ) : null}
+            </div>
+            <p className="mt-1.5 text-[12px] text-sam-muted">
+              {ko
+                ? "승인 후 사장님이 매장 주소·위치를 바꿨습니다. 변경은 이미 반영되어 영업 중입니다. 아래 신청 정보의 주소와 지도 위치를 확인한 뒤 재검증을 완료하세요."
+                : "The owner changed the store address or location after approval. The change is already live. Check the address and map pin below, then mark it re-verified."}
+            </p>
+            {store.core_info_changed_fields && store.core_info_changed_fields.length > 0 ? (
+              <p className="mt-1 text-[12px] text-sam-muted">
+                {ko ? "변경 항목" : "Changed"}: {store.core_info_changed_fields.join(", ")}
+              </p>
+            ) : null}
+            {onRunAction ? (
+              <div className="mt-2">
+                <AdminActionButton
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    void runConfirmedAction("confirm_core_info_reverified", {
+                      expected_core_info_changed_at: store.core_info_changed_at ?? null,
+                    })
+                  }
+                >
+                  {ko
+                    ? ADMIN_STORE_ACTION_COPY.confirm_core_info_reverified.ko
+                    : ADMIN_STORE_ACTION_COPY.confirm_core_info_reverified.en}
+                </AdminActionButton>
+              </div>
+            ) : null}
+          </div>
+        </ReviewBlock>
+      ) : null}
 
       {store.approval_status === "approved" ? (
         <ReviewBlock title={ko ? "영업 개시 체크리스트" : "Go-live checklist"}>

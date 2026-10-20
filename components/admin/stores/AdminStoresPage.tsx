@@ -386,6 +386,9 @@ export function AdminStoresPage() {
                                   ...(payload?.reason ? { reason: payload.reason } : {}),
                                   ...(payload?.enabled !== undefined ? { enabled: payload.enabled } : {}),
                                   ...(payload?.store_name ? { store_name: payload.store_name } : {}),
+                                  ...(payload?.expected_core_info_changed_at !== undefined
+                                    ? { expected_core_info_changed_at: payload.expected_core_info_changed_at }
+                                    : {}),
                                 })
                               }
                               actionBusy={busyId === r.id}

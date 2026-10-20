@@ -32,6 +32,8 @@ const DECISION_BY_ACTION: Partial<Record<string, DecisionKey>> = {
   approve_store: "approved",
   reject_store: "rejected",
   request_revision: "revision_requested",
+  // ACC-04 — 재심사 열기도 사장님에게는 「보완 요청」(사유 = 보완할 내용)으로 안내한다.
+  reopen_application: "revision_requested",
   suspend_store: "suspended",
   resume_store: "resumed",
   approve_sales: "sales_approved",

@@ -13,6 +13,8 @@ export const ADMIN_RECIPIENT_NOTIFICATION_TYPES = [
   "support_case_assigned",
   "settlement_commission_review",
   "settlement_financial_exception",
+  /** ND-2 — 승인 매장 사장님이 주소·위치(lat/lng)를 바꿈 → 관리자 재검증 (매장 상세 「재검증 완료」). */
+  "store_core_info_changed",
 ] as const;
 
 /**
