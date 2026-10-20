@@ -407,7 +407,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
         </AdminCard>
       ) : null}
 
-      <Link href="/admin/platform-popup?tab=requests" className="text-sm text-sam-primary underline">
+      <Link href={PLATFORM_POPUP_ADMIN_REQUEST_ROUTES.queue} className="text-sm text-sam-primary underline">
         {lang === "en" ? "Back to request queue" : "신청 관리로"}
       </Link>
     </div>
