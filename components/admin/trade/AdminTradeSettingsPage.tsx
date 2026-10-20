@@ -7,6 +7,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { OpsTradePolicyPanel } from "@/components/admin/settings/OpsTradePolicyPanel";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { TradeDetailOpsSettings } from "@/services/trade/trade-settings.service";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 function regionGroupsToText(groups: Record<string, string>): string {
   return Object.entries(groups)
@@ -206,13 +207,9 @@ export function AdminTradeSettingsPage() {
             <span className="sam-text-helper text-sam-muted">{t("admin_trade_settings_region_map_example")}</span>
           </label>
 
-          <button
-            type="submit"
-            disabled={!canSave}
-            className="rounded bg-sam-ink px-4 py-2 text-white disabled:opacity-50"
-          >
-            {saving ? t("admin_stores_saving") : t("common_save")}
-          </button>
+          <AdminActionButton type="submit" variant="primary" disabled={!canSave}>
+            {t("common_save")}
+          </AdminActionButton>
         </form>
       </AdminCard>
       {/* 거래 채팅 자동 확정·후기 기한 — 같은 거래 정책 화면에서 함께 관리 (거래 Admin 설계 v2 §C-10) */}

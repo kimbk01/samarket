@@ -15,6 +15,8 @@ import {
   SELLER_STAGE_LABELS,
 } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 /**
  * 거래글 썸네일 — 사용자 앱 목록 카드(`components/post/PostCard.tsx`)와 같은 규칙:
@@ -103,7 +105,7 @@ export function TradeMemberCell({
   if (!userId) return <span className="text-sam-muted">—</span>;
   const href = `/admin/trade/members/${encodeURIComponent(userId)}`;
   return (
-    <Link href={returnTo ? withAdminReturnTo(href, returnTo) : href} className="font-medium text-sky-800 hover:underline">
+    <Link href={returnTo ? withAdminReturnTo(href, returnTo) : href} className="font-medium text-sam-primary hover:underline">
       {label?.trim() || "이름 없음"}
     </Link>
   );
@@ -113,13 +115,13 @@ export function formatTradePrice(price: unknown, freeShare?: unknown): string {
   if (freeShare === true) return "나눔";
   const n = typeof price === "number" ? price : Number(price);
   if (!Number.isFinite(n)) return "—";
-  return `₱${n.toLocaleString()}`;
+  return formatAdminPhp(n);
 }
 
 export function formatTradePoints(n: unknown): string {
   const v = typeof n === "number" ? n : Number(n);
   if (!Number.isFinite(v)) return "—";
-  return `${v.toLocaleString()} P`;
+  return `${formatAdminNumber(v)} P`;
 }
 
 /** 서버 오류 코드 → 운영자 문구 (개발 용어 노출 금지) */
@@ -133,11 +135,11 @@ const TRADE_ERROR_KO: Record<string, string> = {
   fault_required: "종료 사유의 책임 구분을 선택해 주세요.",
   insufficient_balance: "회원 포인트가 부족합니다.",
   category_in_use: "글이나 하위 카테고리가 있어 삭제할 수 없습니다.",
-  server_error: "처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+  server_error: "처리 중 오류가 발생했습니다. 잠시 후 새로고침해 주세요.",
 };
 export function tradeErrorText(code: string | null | undefined): string {
   const c = String(code ?? "");
-  return TRADE_ERROR_KO[c] ?? `처리하지 못했습니다 (${c || "오류"})`;
+  return TRADE_ERROR_KO[c] ?? adminOperatorErrorMessage(c, true);
 }
 
 export function tradeDetailHref(href: string, returnTo: string): string {

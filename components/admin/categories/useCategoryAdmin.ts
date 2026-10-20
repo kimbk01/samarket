@@ -1,6 +1,6 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useCallback, useEffect, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -16,7 +16,8 @@ import type { CategoryFormPayload, CategoryFormSettingsPayload } from "./Categor
 export type CategoryAdminMessage = { type: "success" | "error"; text: string } | null;
 
 export function useCategoryAdmin() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [list, setList] = useState<CategoryWithSettings[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<CategoryAdminMessage>(null);
@@ -104,7 +105,16 @@ export function useCategoryAdmin() {
 
   const handleDelete = useCallback(
     async (id: string): Promise<boolean> => {
-      if (!(await dibayConfirm({ title: t("admin_cat_confirm_delete"), confirmTone: "destructive" }))) return false;
+      const target = list.find((c) => c.id === id);
+      const confirmed = await confirmAdminAction({
+        level: "L3",
+        ko,
+        title: t("admin_cat_confirm_delete"),
+        confirmLabel: ko ? "삭제" : "Delete",
+        destructive: true,
+        retypeValue: target?.name?.trim() || undefined,
+      });
+      if (!confirmed.ok) return false;
       const res = await deleteCategory(id);
       if (!res.ok) {
         showError(res.error);
@@ -114,7 +124,7 @@ export function useCategoryAdmin() {
       load();
       return true;
     },
-    [load, showError, showSuccess, t]
+    [ko, list, load, showError, showSuccess, t]
   );
 
   const handleMoveUp = useCallback(

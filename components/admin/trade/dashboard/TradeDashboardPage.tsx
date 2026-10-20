@@ -18,6 +18,7 @@ import { buildAdminPrelaunchResetHref, DOMAIN_RESET_SCOPE_PRESETS } from "@/lib/
 import { TRADE_POST_TAB_LABELS, type TradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { formatTradePoints } from "@/components/admin/trade/kit/TradeAdminKit";
 import { tradeAuditActionLabel, tradeAuditTargetLabel } from "@/components/admin/trade/audit/TradeAuditPage";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 type N = number | null;
 
@@ -77,7 +78,7 @@ function n(v: N | undefined): N {
 function MetricValue({ value, points }: { value: N; points?: boolean }) {
   if (value === null) return <AdminUnavailableChip ko />;
   return (
-    <span className="text-[22px] font-bold leading-7 text-sam-fg">{points ? formatTradePoints(value) : value.toLocaleString()}</span>
+    <span className="text-[20px] font-bold leading-7 tabular-nums text-sam-fg">{points ? formatTradePoints(value) : formatAdminNumber(value)}</span>
   );
 }
 
@@ -85,7 +86,7 @@ function Section({ title, hint, children }: { title: string; hint?: ReactNode; c
   return (
     <section className="space-y-2">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <h2 className="text-[15px] font-semibold text-sam-fg">{title}</h2>
+        <h2 className="text-[16px] font-semibold text-sam-fg">{title}</h2>
         {hint ? <div className="text-[12px] text-sam-muted">{hint}</div> : null}
       </div>
       {children}
@@ -112,11 +113,11 @@ function MetricCard({
     <div
       className={[
         "flex h-full flex-col justify-between gap-2 rounded-ui-rect border bg-sam-surface p-3",
-        danger && (value ?? 0) > 0 ? "border-red-300" : "border-sam-border",
+        danger && (value ?? 0) > 0 ? "border-sam-danger" : "border-sam-border",
         href ? "hover:border-sam-primary" : "",
       ].join(" ")}
     >
-      <span className={["text-[13px] font-medium", danger && (value ?? 0) > 0 ? "text-red-800" : "text-sam-muted"].join(" ")}>
+      <span className={["text-[13px] font-medium", danger && (value ?? 0) > 0 ? "text-sam-danger" : "text-sam-muted"].join(" ")}>
         {label}
       </span>
       <MetricValue value={value} points={points} />
@@ -207,7 +208,7 @@ export function TradeDashboardPage() {
       ) : (
         <>
           {errors.length > 0 ? (
-            <div role="status" className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-950">
+            <div role="status" className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-fg">
               일부 지표를 불러오지 못했습니다. 해당 지표는 「확인 불가」로 표시됩니다.
               <AdminTechDetails ko>
                 {errors.map((e) => (
@@ -266,7 +267,7 @@ export function TradeDashboardPage() {
                   adminCompletedNoTime === null
                     ? "완료 시각 없는 관리자 완료 정정: 확인 불가"
                     : adminCompletedNoTime > 0
-                      ? `완료 시각 없는 관리자 완료 정정 ${adminCompletedNoTime.toLocaleString()}건 (별도)`
+                      ? `완료 시각 없는 관리자 완료 정정 ${formatAdminNumber(adminCompletedNoTime)}건 (별도)`
                       : undefined
                 }
               />
@@ -391,7 +392,7 @@ function TopList<T>({
         const line = (
           <span className="flex items-center justify-between gap-3 px-3 py-2 text-[13px]">
             <span className="min-w-0 truncate text-sam-fg">{r.name}</span>
-            <span className="shrink-0 font-semibold text-sam-fg">{r.count.toLocaleString()}</span>
+            <span className="shrink-0 font-semibold text-sam-fg">{formatAdminNumber(r.count)}</span>
           </span>
         );
         return (

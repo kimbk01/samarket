@@ -71,7 +71,7 @@ export function AdminReviewListPage() {
         <code className="rounded bg-sam-surface-muted px-1">POST /api/admin/transaction-reviews</code>)
       </p>
       {loadError && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body text-amber-900">
+        <div className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-4 py-3 sam-text-body text-sam-fg">
           {loadError}
         </div>
       )}

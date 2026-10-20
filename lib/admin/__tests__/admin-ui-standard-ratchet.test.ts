@@ -1,7 +1,7 @@
 /**
  * UI/UX/CTA 표준 래칫 (수정 계획 2-8) — `ADMIN_UI_STANDARD_SCREENS` 의 화면(page.tsx + 화면 전용 컴포넌트)은
  * 아래 위반이 0건이어야 한다. 공용 부품(components/admin/ui · components/ui)과 lib 는 대상 밖.
- * 회원 앱 화면 부품(components/navigation · components/launch-intro 인트로 플레이어 · components/trust 매너 배터리 — 관리자 화면이 그대로 쓴다)도 대상 밖.
+ * 회원 앱 화면 부품(components/navigation · components/launch-intro 인트로 플레이어 · components/trust 매너 배터리 · 거래 글쓰기 미리보기가 쓰는 layout·my·notifications·philife·write — 관리자 화면이 그대로 쓴다)도 대상 밖.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -10,7 +10,7 @@ import { ADMIN_CTA_FORBIDDEN, ADMIN_CTA_FORBIDDEN_EXACT } from "@/lib/admin/ui-s
 import { ADMIN_UI_STANDARD_SCREENS } from "@/lib/admin/ui-standard/admin-ui-standard-screens";
 
 const ROOT = process.cwd();
-const SHARED = [/^components\/ui\//, /^components\/admin\/ui\//, /^components\/i18n\//, /^components\/navigation\//, /^components\/launch-intro\//, /^components\/trust\//, /^lib\//];
+const SHARED = [/^components\/ui\//, /^components\/admin\/ui\//, /^components\/i18n\//, /^components\/navigation\//, /^components\/launch-intro\//, /^components\/trust\//, /^components\/(?:layout|my|notifications|philife|write)\//, /^lib\//];
 
 function resolveImport(spec: string, from: string): string | null {
   let p: string;

@@ -9,6 +9,7 @@ import type { AdminReview } from "@/lib/types/admin-review";
 import { formatAdminReviewSelectedTags } from "@/lib/admin-reviews/admin-review-utils";
 import { REVIEW_PUBLIC_TYPE_KEYS } from "@/components/admin/i18n/admin-review-label-keys";
 import { formatAtUsername } from "@/lib/users/user-label";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 interface AdminReviewTableProps {
   reviews: AdminReview[];
@@ -84,7 +85,7 @@ export function AdminReviewTable({ reviews }: AdminReviewTableProps) {
                 )}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(r.createdAt).toLocaleString("ko-KR")}
+                {formatAdminManilaDateTime(r.createdAt)}
               </td>
             </tr>
           ))}

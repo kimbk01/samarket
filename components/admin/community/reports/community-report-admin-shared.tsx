@@ -6,6 +6,8 @@
  */
 import { useEffect, type ReactNode } from "react";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import type { CommunitySheetResult } from "@/components/admin/community/kit/CommunityAdminKit";
 
 export const COMMUNITY_STALE_TEXT = "다른 관리자가 먼저 변경했습니다 — 최신 내용으로 다시 불러왔습니다";
@@ -55,10 +57,10 @@ export function CommunityBannerView({ banner, onClose }: { banner: CommunityBann
   if (!banner) return null;
   const cls =
     banner.tone === "success"
-      ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+      ? "border-sam-success bg-sam-success-soft text-sam-fg"
       : banner.tone === "warning"
-        ? "border-amber-300 bg-amber-50 text-amber-950"
-        : "border-red-300 bg-red-50 text-red-900";
+        ? "border-sam-warning bg-sam-warning-soft text-sam-fg"
+        : "border-sam-danger bg-sam-danger-soft text-sam-fg";
   return (
     <div
       data-admin-result={banner.tone === "error" ? "error" : banner.tone}
@@ -72,9 +74,9 @@ export function CommunityBannerView({ banner, onClose }: { banner: CommunityBann
         ))}
       </div>
       {onClose ? (
-        <button type="button" onClick={onClose} className="shrink-0 font-medium underline">
-          닫기
-        </button>
+        <AdminActionButton variant="quiet" size="sm" className="shrink-0" onClick={onClose}>
+          {adminCta("close", true)}
+        </AdminActionButton>
       ) : null}
     </div>
   );
@@ -134,7 +136,7 @@ export function CommunityDrawer({
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-[1200] flex justify-end" data-community-drawer="1">
-      <button type="button" aria-label="닫기" className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div aria-hidden className="absolute inset-0 bg-black/30" onClick={onClose} />
       <section
         role="dialog"
         aria-modal="true"
@@ -142,14 +144,10 @@ export function CommunityDrawer({
         className="relative flex h-full w-full max-w-2xl flex-col bg-sam-app shadow-xl"
       >
         <header className="flex items-center justify-between gap-2 border-b border-sam-border bg-sam-surface px-4 py-3">
-          <h2 className="truncate text-[15px] font-semibold text-sam-fg">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-ui-rect border border-sam-border px-3 py-1 text-[13px] font-medium text-sam-fg"
-          >
-            닫기
-          </button>
+          <h2 className="truncate text-[16px] font-semibold text-sam-fg">{title}</h2>
+          <AdminActionButton variant="secondary" size="sm" onClick={onClose}>
+            {adminCta("close", true)}
+          </AdminActionButton>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{children}</div>
         {footer ? <footer className="border-t border-sam-border bg-sam-surface px-4 py-3">{footer}</footer> : null}

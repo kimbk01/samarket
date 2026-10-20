@@ -10,6 +10,11 @@ import Link from "next/link";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { TRADE_FLOW_STATUS_NAMESPACE } from "@/lib/admin/status-labels/pr3-trade-status-labels";
 
 interface Row {
   roomId: string;
@@ -115,12 +120,12 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
         </>
       )}
       {error ? (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body text-amber-900">
+        <div role="alert" className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-4 py-3 sam-text-body text-sam-fg">
           {error}
         </div>
       ) : null}
       {loading ? (
-        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+        <AdminLoadingState ko={language !== "en"} label={t("common_loading")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
           <table className="w-full min-w-[960px] border-collapse sam-text-body-secondary">
@@ -140,14 +145,12 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
                 <tr
                   key={r.roomId}
                   className={`border-b border-sam-border-soft ${
-                    r.buyerPending ? "bg-amber-50/90 hover:bg-amber-50" : "hover:bg-sam-app/80"
+                    r.buyerPending ? "bg-sam-warning-soft" : "hover:bg-sam-app/80"
                   }`}
                 >
                   <td className="px-3 py-2">
                     {r.buyerPending ? (
-                      <span className="rounded bg-amber-200 px-1.5 py-0.5 sam-text-xxs font-semibold text-amber-950">
-                        {t("admin_trade_completion_pending_buyer")}
-                      </span>
+                      <AdminToneBadge tone="warning">{t("admin_trade_completion_pending_buyer")}</AdminToneBadge>
                     ) : (
                       <span className="text-sam-muted">{t("admin_trade_completion_done")}</span>
                     )}
@@ -160,7 +163,9 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
                   <td className="max-w-[200px] truncate px-3 py-2" title={r.postTitle}>
                     {r.postTitle}
                   </td>
-                  <td className="px-3 py-2">{r.tradeFlowStatus}</td>
+                  <td className="px-3 py-2">
+                    <AdminStatusLabel namespace={TRADE_FLOW_STATUS_NAMESPACE} code={r.tradeFlowStatus} ko={language !== "en"} />
+                  </td>
                   <td className="px-3 py-2 text-sam-muted">
                     {r.sellerCompletedAt ? formatAdminDateTime(r.sellerCompletedAt, language) : "—"}
                   </td>
@@ -171,14 +176,14 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
                   </td>
                   <td className="px-3 py-2">
                     {r.buyerPending ? (
-                      <button
-                        type="button"
+                      <AdminActionButton
+                        variant="secondary"
+                        size="sm"
                         disabled={busyId === r.roomId}
                         onClick={() => void confirmBuyer(r.roomId)}
-                        className="rounded border border-sam-border bg-signature/5 px-2 py-1 sam-text-xxs font-medium text-sam-fg hover:bg-signature/10 disabled:opacity-50"
                       >
-                        {busyId === r.roomId ? t("admin_chat_processing") : t("admin_trade_completion_admin_confirm")}
-                      </button>
+                        {t("admin_trade_completion_admin_confirm")}
+                      </AdminActionButton>
                     ) : (
                       <span className="text-sam-meta">—</span>
                     )}
@@ -188,7 +193,7 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
             </tbody>
           </table>
           {items.length === 0 && (
-            <p className="px-4 py-10 text-center sam-text-body text-sam-muted">{t("admin_trade_completion_no_items")}</p>
+            <AdminEmptyState ko={language !== "en"} message={t("admin_trade_completion_no_items")} />
           )}
         </div>
       )}

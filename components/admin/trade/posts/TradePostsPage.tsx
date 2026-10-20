@@ -28,6 +28,8 @@ import {
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import {
   TradeMemberCell,
@@ -264,7 +266,7 @@ export function TradePostsPage() {
 
   const filters = (
     <>
-      <CommunityFilterField label="검색">
+      <CommunityFilterField label="검색어">
         <CommunitySearchInput value={q} onCommit={(v) => qs.set({ q: v })} placeholder="제목·본문·글 번호" />
       </CommunityFilterField>
       <CommunityFilterField label="유형">
@@ -287,7 +289,7 @@ export function TradePostsPage() {
           options={[
             { value: "", label: "전체" },
             ...(lguId && !regions.some((r) => r.id === lguId) ? [{ value: lguId, label: regionName ?? "선택한 지역" }] : []),
-            ...regions.map((r) => ({ value: r.id, label: `${r.name} (${r.posts.toLocaleString()})` })),
+            ...regions.map((r) => ({ value: r.id, label: `${r.name} (${formatAdminNumber(r.posts)})` })),
           ]}
         />
       </CommunityFilterField>
@@ -320,9 +322,9 @@ export function TradePostsPage() {
             placeholder="최대"
             className={`${FIELD} w-24`}
           />
-          <button type="submit" className={`${FIELD} font-semibold`}>
-            조회
-          </button>
+          <AdminActionButton type="submit" variant="secondary" size="sm">
+            {adminCta("search", true)}
+          </AdminActionButton>
         </form>
       </CommunityFilterField>
       <CommunityFilterField label="정렬">
@@ -335,27 +337,29 @@ export function TradePostsPage() {
       {sellerId ? (
         <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-3 py-1 text-[12px] text-sam-fg">
           판매자: {sellerLabel ?? "선택한 회원"}
-          <button
-            type="button"
+          <AdminActionButton
+            variant="quiet"
+            size="sm"
+            className="!h-6 !px-1"
             aria-label="판매자 조건 지우기"
             onClick={() => qs.set({ sellerId: null })}
-            className="ml-1 font-semibold text-sam-muted hover:text-sam-fg"
           >
             ×
-          </button>
+          </AdminActionButton>
         </span>
       ) : null}
       {lguId ? (
         <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-3 py-1 text-[12px] text-sam-fg">
           지역: {regionName ?? "선택한 지역"}
-          <button
-            type="button"
+          <AdminActionButton
+            variant="quiet"
+            size="sm"
+            className="!h-6 !px-1"
             aria-label="지역 조건 지우기"
             onClick={() => qs.set({ lguId: null })}
-            className="ml-1 font-semibold text-sam-muted hover:text-sam-fg"
           >
             ×
-          </button>
+          </AdminActionButton>
         </span>
       ) : null}
       <CommunityResetFilters onReset={() => qs.reset(["tab"])} />
@@ -441,7 +445,7 @@ export function TradePostsPage() {
               )}
             </td>
             <td className={`${COMMUNITY_TD} whitespace-nowrap text-sam-muted`}>
-              {(r.chat_count ?? 0).toLocaleString()} · {(r.favorite_count ?? 0).toLocaleString()}
+              {formatAdminNumber(r.chat_count ?? 0)} · {formatAdminNumber(r.favorite_count ?? 0)}
             </td>
             <td className={COMMUNITY_TD}>
               <CommunityTimeCell iso={r.created_at} />

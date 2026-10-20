@@ -10,6 +10,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-page";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import {
   COMMUNITY_TD,
   CommunityFilterField,
@@ -124,7 +125,7 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
         <div className="space-y-2">
           <p
             data-community-charge-scope="all-members"
-            className="rounded-ui-rect border border-sky-300 bg-sky-50 px-3 py-2 text-[13px] font-medium text-sky-950"
+            className="rounded-ui-rect border border-sam-info bg-sam-info-soft px-3 py-2 text-[13px] font-medium text-sam-fg"
           >
             포인트는 전체 서비스 공통입니다. 이 목록은 모든 회원의 충전 신청입니다.
           </p>
@@ -146,7 +147,7 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
       }
       filters={
         <>
-          <CommunityFilterField label="검색">
+          <CommunityFilterField label="검색어">
             <CommunitySearchInput
               value={q.get("q")}
               onCommit={(v) => q.set({ q: v })}
@@ -176,7 +177,7 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
                 <Link
                   href={communityDetailHref(`${paths.member}${encodeURIComponent(r.userId)}`, q.selfHref)}
                   onClick={(e) => e.stopPropagation()}
-                  className="font-medium text-sky-800 hover:underline"
+                  className="font-medium text-sam-primary hover:underline"
                 >
                   {r.userNickname?.trim() || "이름 없음"}
                 </Link>
@@ -255,7 +256,7 @@ function ChargeSheet({
         action,
         ko: true,
         apiBase: paths.api,
-        summary: `${r.userNickname || "회원"} · ${r.pointAmount.toLocaleString()}P · ₱${r.paymentAmount.toLocaleString()} · 입금자 ${
+        summary: `${r.userNickname || "회원"} · ${formatAdminNumber(r.pointAmount)}P · ${formatAdminPhp(r.paymentAmount)} · 입금자 ${
           r.depositorName || "-"
         }`,
       });
@@ -338,7 +339,7 @@ function ChargeSheet({
           <p className="text-[13px]">
             <Link
               href={`${paths.support}?status=all&reference_type=POINT_CHARGE_REQUEST&reference_id=${encodeURIComponent(r.id)}`}
-              className="text-sky-800 underline"
+              className="text-sam-primary underline"
             >
               이 충전 건 관련 문의 보기
             </Link>

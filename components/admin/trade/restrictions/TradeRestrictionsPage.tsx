@@ -272,9 +272,9 @@ export function TradeAddRestrictionSheet({
           <div className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px]">
             <span className="font-medium text-sam-fg">{member.label}</span>
             {lockMember ? null : (
-              <button type="button" className="text-[12px] text-sam-muted underline" onClick={() => setMember(null)}>
+              <AdminActionButton variant="quiet" size="sm" onClick={() => setMember(null)}>
                 다른 회원 선택
-              </button>
+              </AdminActionButton>
             )}
           </div>
         ) : (
@@ -303,13 +303,14 @@ export function TradeAddRestrictionSheet({
                 <ul className="max-h-48 space-y-1 overflow-y-auto">
                   {results.map((m) => (
                     <li key={m.id}>
-                      <button
-                        type="button"
+                      <AdminActionButton
+                        variant="secondary"
+                        size="sm"
                         onClick={() => setMember(m)}
-                        className="w-full rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-1.5 text-left text-[13px] hover:bg-sam-app"
+                        className="w-full !justify-start text-left font-normal"
                       >
                         {m.label}
-                      </button>
+                      </AdminActionButton>
                     </li>
                   ))}
                 </ul>
@@ -317,7 +318,7 @@ export function TradeAddRestrictionSheet({
             ) : null}
           </>
         )}
-        {memberErr ? <p className="text-[12px] text-red-800">{memberErr}</p> : null}
+        {memberErr ? <p className="text-[12px] text-sam-danger">{memberErr}</p> : null}
       </div>
       <fieldset className="space-y-1">
         <legend className="text-[12px] font-semibold text-sam-fg">종류</legend>
@@ -469,14 +470,15 @@ export function TradeRestrictionsPage() {
           {userId ? (
             <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
               특정 회원만 보기
-              <button
-                type="button"
+              <AdminActionButton
+                variant="quiet"
+                size="sm"
+                className="!h-6 !px-1"
                 aria-label="특정 회원 해제"
                 onClick={() => qs.set({ userId: null })}
-                className="font-semibold text-sam-muted"
               >
                 ×
-              </button>
+              </AdminActionButton>
             </span>
           ) : null}
           <CommunityResetFilters onReset={() => qs.reset(["tab"])} />
@@ -534,7 +536,7 @@ export function TradeRestrictionsPage() {
                       `/admin/trade/reports?tab=all&reportId=${encodeURIComponent(r.source_report_id)}`,
                       qs.selfHref
                     )}
-                    className="text-sky-800 hover:underline"
+                    className="text-sam-primary hover:underline"
                   >
                     신고 보기
                   </Link>

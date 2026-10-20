@@ -241,9 +241,9 @@ function OpsTab() {
             <CommunityFilterField label="처리자">
               <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {actorName || "선택한 관리자"}
-                <button type="button" className="text-sam-muted underline" onClick={() => q.set({ actorId: null })}>
+                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ actorId: null })}>
                   해제
-                </button>
+                </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
@@ -251,9 +251,9 @@ function OpsTab() {
             <CommunityFilterField label="대상">
               <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 한 대상의 기록만
-                <button type="button" className="text-sam-muted underline" onClick={() => q.set({ targetId: null })}>
+                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ targetId: null })}>
                   해제
-                </button>
+                </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
@@ -287,34 +287,36 @@ function OpsTab() {
                 </td>
                 <td className={COMMUNITY_TD}>
                   {r.actor_id && !actorId ? (
-                    <button
-                      type="button"
-                      className="text-left font-medium text-sky-800 hover:underline"
+                    <AdminActionButton
+                      variant="ghost"
+                      size="sm"
+                      className="!h-auto !px-0 text-left"
                       title="이 처리자의 기록만 보기"
                       onClick={() => q.set({ actorId: r.actor_id })}
                     >
                       {actor}
-                    </button>
+                    </AdminActionButton>
                   ) : (
                     actor
                   )}
                 </td>
                 <td className={COMMUNITY_TD}>
                   {href ? (
-                    <Link href={tradeDetailHref(href, q.selfHref)} className="font-medium text-sky-800 hover:underline">
+                    <Link href={tradeDetailHref(href, q.selfHref)} className="font-medium text-sam-primary hover:underline">
                       {tradeAuditTargetLabel(r.target_type)}
                     </Link>
                   ) : (
                     tradeAuditTargetLabel(r.target_type)
                   )}
                   {r.target_id && !targetId ? (
-                    <button
-                      type="button"
-                      className="block text-left sam-text-xxs text-sam-muted underline"
+                    <AdminActionButton
+                      variant="quiet"
+                      size="sm"
+                      className="!h-auto !px-0 text-left text-[12px] font-normal"
                       onClick={() => q.set({ targetType: r.target_type, targetId: r.target_id })}
                     >
                       이 대상 기록만 보기
-                    </button>
+                    </AdminActionButton>
                   ) : null}
                 </td>
                 <td className={COMMUNITY_TD}>
@@ -423,9 +425,9 @@ function FavoritesTab() {
             <CommunityFilterField label="회원">
               <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {memberName || "선택한 회원"}
-                <button type="button" className="text-sam-muted underline" onClick={() => q.set({ userId: null })}>
+                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ userId: null })}>
                   해제
-                </button>
+                </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
@@ -433,9 +435,9 @@ function FavoritesTab() {
             <CommunityFilterField label="게시물">
               <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {postName || "선택한 게시물"}
-                <button type="button" className="text-sam-muted underline" onClick={() => q.set({ postId: null })}>
+                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ postId: null })}>
                   해제
-                </button>
+                </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
@@ -466,20 +468,21 @@ function FavoritesTab() {
               <td className={COMMUNITY_TD}>
                 <TradeMemberCell userId={r.user_id} label={r.user_label} returnTo={q.selfHref} />
                 {r.user_id && !userId ? (
-                  <button
-                    type="button"
-                    className="block text-left sam-text-xxs text-sam-muted underline"
+                  <AdminActionButton
+                    variant="quiet"
+                    size="sm"
+                    className="!h-auto !px-0 text-left text-[12px] font-normal"
                     onClick={() => q.set({ userId: r.user_id })}
                   >
                     이 회원만 보기
-                  </button>
+                  </AdminActionButton>
                 ) : null}
               </td>
               <td className={`${COMMUNITY_TD} max-w-[22rem]`}>
                 {r.post_id ? (
                   <Link
                     href={tradeDetailHref(`/admin/products/${encodeURIComponent(r.post_id)}`, q.selfHref)}
-                    className="font-medium text-sky-800 hover:underline [overflow-wrap:anywhere]"
+                    className="font-medium text-sam-primary hover:underline [overflow-wrap:anywhere]"
                   >
                     {r.post_title || "삭제되었거나 찾을 수 없는 글"}
                   </Link>
@@ -487,13 +490,14 @@ function FavoritesTab() {
                   "—"
                 )}
                 {r.post_id && !postId ? (
-                  <button
-                    type="button"
-                    className="block text-left sam-text-xxs text-sam-muted underline"
+                  <AdminActionButton
+                    variant="quiet"
+                    size="sm"
+                    className="!h-auto !px-0 text-left text-[12px] font-normal"
                     onClick={() => q.set({ postId: r.post_id })}
                   >
                     이 게시물만 보기
-                  </button>
+                  </AdminActionButton>
                 ) : null}
               </td>
               <td className={COMMUNITY_TD}>

@@ -359,7 +359,7 @@ export function CategoryFormModal({
               className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               required
             />
-            {slugError && <p className="mt-1 sam-text-helper text-red-600">{slugError}</p>}
+            {slugError && <p className="mt-1 sam-text-helper text-sam-danger">{slugError}</p>}
           </div>
           {!isMenuMode && (
             <div>

@@ -18,7 +18,7 @@ import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labe
 import { tradeFieldWidgetOperatorLabel } from "@/lib/trade/category-form/field-widget-operator-label";
 import { parseTradeFieldCompositionPayload } from "@/lib/trade/category-form/parse-field-composition";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 type Props = {
   iconKey: string;
@@ -94,9 +94,9 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
             fallbackEn: "Listing options",
           })}
         </p>
-        <button type="button" onClick={() => onChange(null)} className={`${Sam.btn.ghost} ${Sam.btn.sm}`}>
+        <AdminActionButton variant="ghost" size="sm" onClick={() => onChange(null)}>
           {t("admin_cat_composition_reset_seed")}
-        </button>
+        </AdminActionButton>
       </div>
       <p className="sam-text-body-secondary text-sam-muted">
         {safeT("admin_menu_trade_options_hint", {
@@ -157,18 +157,18 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
                   />
                   {t("admin_cat_composition_required")}
                 </label>
-                <button type="button" className="sam-text-body-secondary text-signature" onClick={() => move(r.id, -1)}>
+                <AdminActionButton variant="quiet" size="sm" aria-label={lang === "ko" ? "위로" : "Move up"} onClick={() => move(r.id, -1)}>
                   ↑
-                </button>
-                <button type="button" className="sam-text-body-secondary text-signature" onClick={() => move(r.id, 1)}>
+                </AdminActionButton>
+                <AdminActionButton variant="quiet" size="sm" aria-label={lang === "ko" ? "아래로" : "Move down"} onClick={() => move(r.id, 1)}>
                   ↓
-                </button>
-                <button type="button" className="sam-text-body-secondary text-red-600" onClick={() => removeField(r.id)}>
+                </AdminActionButton>
+                <AdminActionButton variant="ghost" size="sm" className="text-sam-danger" onClick={() => removeField(r.id)}>
                   {safeT("admin_menu_trade_option_remove", {
                     fallbackKo: "제거",
                     fallbackEn: "Remove",
                   })}
-                </button>
+                </AdminActionButton>
               </li>
             );
           })
@@ -178,16 +178,12 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
       {unused.length > 0 ? (
         <div className="space-y-2">
           {!addOpen ? (
-            <button
-              type="button"
-              className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm}`}
-              onClick={() => setAddOpen(true)}
-            >
+            <AdminActionButton variant="secondary" size="sm" onClick={() => setAddOpen(true)}>
               {safeT("admin_menu_trade_option_add", {
                 fallbackKo: "+ 옵션 추가",
                 fallbackEn: "+ Add option",
               })}
-            </button>
+            </AdminActionButton>
           ) : (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
               <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
@@ -201,27 +197,24 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
                   const def = TRADE_FIELD_LIBRARY[id];
                   return (
                     <li key={id}>
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-between rounded-ui-rect px-2 py-2 text-left hover:bg-sam-surface-muted"
+                      <AdminActionButton
+                        variant="quiet"
+                        size="sm"
+                        className="w-full justify-between text-left font-normal hover:no-underline hover:bg-sam-surface-muted"
                         onClick={() => addField(id)}
                       >
                         <span className="sam-text-body text-sam-fg">{tradeFieldAdminLabel(id, lang)}</span>
                         <span className="sam-text-xxs text-sam-muted">
                           {tradeFieldWidgetOperatorLabel(def?.widget, lang)}
                         </span>
-                      </button>
+                      </AdminActionButton>
                     </li>
                   );
                 })}
               </ul>
-              <button
-                type="button"
-                className={`mt-2 ${Sam.btn.ghost} ${Sam.btn.sm}`}
-                onClick={() => setAddOpen(false)}
-              >
+              <AdminActionButton variant="quiet" size="sm" className="mt-2" onClick={() => setAddOpen(false)}>
                 {t("common_cancel")}
-              </button>
+              </AdminActionButton>
             </div>
           )}
         </div>

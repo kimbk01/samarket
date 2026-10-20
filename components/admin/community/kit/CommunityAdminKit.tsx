@@ -10,6 +10,10 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, type ReactNode } from "react";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import {
   adminCommunityLabel,
   type AdminCommunityLabelDomain,
@@ -130,27 +134,13 @@ export function CommunityTabs({
   onChange: (v: string) => void;
 }) {
   return (
-    <div role="tablist" className="flex flex-wrap gap-1 border-b border-sam-border">
-      {tabs.map((t) => {
-        const on = t.value === value;
-        return (
-          <button
-            key={t.value}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => onChange(t.value)}
-            className={[
-              "-mb-px border-b-2 px-3 py-2 text-[13px] font-semibold",
-              on ? "border-sam-primary text-sam-fg" : "border-transparent text-sam-muted hover:text-sam-fg",
-            ].join(" ")}
-          >
-            {t.label}
-            {typeof t.count === "number" ? <span className="ml-1 text-sam-muted">{t.count.toLocaleString()}</span> : null}
-          </button>
-        );
-      })}
-    </div>
+    <AdminTabs
+      ariaLabel="상태"
+      tabs={tabs.map((t) => ({ id: t.value, label: t.label, count: typeof t.count === "number" ? t.count : null }))}
+      value={value}
+      syncUrl={false}
+      onChange={onChange}
+    />
   );
 }
 
@@ -186,9 +176,9 @@ export function CommunitySearchInput({
       }}
     >
       <input name="q" defaultValue={value} key={value} placeholder={placeholder} className={`${FIELD} w-56`} />
-      <button type="submit" className={`${FIELD} ml-1 font-semibold`}>
-        검색
-      </button>
+      <AdminActionButton type="submit" variant="secondary" size="sm" className="ml-1">
+        {adminCta("search", true)}
+      </AdminActionButton>
     </form>
   );
 }
@@ -255,9 +245,9 @@ export function CommunityPeriodFilter({
 
 export function CommunityResetFilters({ onReset }: { onReset: () => void }) {
   return (
-    <button type="button" onClick={onReset} className="px-2 py-1.5 text-[13px] font-medium text-sam-muted underline">
-      필터 초기화
-    </button>
+    <AdminActionButton variant="quiet" size="sm" onClick={onReset}>
+      필터 {adminCta("reset", true)}
+    </AdminActionButton>
   );
 }
 
@@ -307,7 +297,7 @@ export function CommunityAuthorCell({
     <span className="flex flex-col">
       <Link
         href={`/admin/community/members/${encodeURIComponent(userId)}`}
-        className="font-medium text-sky-800 hover:underline"
+        className="font-medium text-sam-primary hover:underline"
       >
         {nickname?.trim() || "이름 없음"}
       </Link>
@@ -360,19 +350,14 @@ export function CommunityPagination({
   const canNext = totalPages === null ? true : page < totalPages;
   return (
     <div className="flex items-center justify-between gap-2 px-1 text-[13px] text-sam-muted">
-      <span>{total === null ? `${page}페이지` : `총 ${total.toLocaleString()}건 · ${page}/${totalPages}페이지`}</span>
+      <span>{total === null ? `${page}페이지` : `총 ${formatAdminNumber(total)}건 · ${page}/${totalPages}페이지`}</span>
       <div className="flex gap-1">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={() => onPage(page - 1)}
-          className={`${FIELD} disabled:opacity-40`}
-        >
+        <AdminActionButton variant="secondary" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
           이전
-        </button>
-        <button type="button" disabled={!canNext} onClick={() => onPage(page + 1)} className={`${FIELD} disabled:opacity-40`}>
+        </AdminActionButton>
+        <AdminActionButton variant="secondary" size="sm" disabled={!canNext} onClick={() => onPage(page + 1)}>
           다음
-        </button>
+        </AdminActionButton>
       </div>
     </div>
   );

@@ -35,6 +35,7 @@ import {
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import {
   TradeMemberCell,
@@ -169,7 +170,7 @@ export function TradePromotionsPage() {
         <div className="space-y-1">
           <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
           {warning ? (
-            <p className="text-[12px] text-amber-800">처리는 완료되었지만 회원 알림을 보내지 못했습니다.</p>
+            <p className="text-[12px] text-sam-warning">처리는 완료되었지만 회원 알림을 보내지 못했습니다.</p>
           ) : null}
         </div>
       }
@@ -192,9 +193,9 @@ export function TradePromotionsPage() {
             <CommunityFilterField label="신청자">
               <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {memberName || "선택한 회원"}
-                <button type="button" className="text-sam-muted underline" onClick={() => q.set({ userId: null })}>
+                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ userId: null })}>
                   해제
-                </button>
+                </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
@@ -202,9 +203,9 @@ export function TradePromotionsPage() {
             <CommunityFilterField label="게시물">
               <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {postName ? titleOf(postName) : "선택한 게시물"}
-                <button type="button" className="text-sam-muted underline" onClick={() => q.set({ postId: null })}>
+                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ postId: null })}>
                   해제
-                </button>
+                </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
@@ -238,7 +239,7 @@ export function TradePromotionsPage() {
                       {r.target_id ? (
                         <Link
                           href={tradeDetailHref(`/admin/products/${encodeURIComponent(r.target_id)}`, q.selfHref)}
-                          className="font-medium text-sky-800 hover:underline [overflow-wrap:anywhere]"
+                          className="font-medium text-sam-primary hover:underline [overflow-wrap:anywhere]"
                         >
                           {titleOf(r)}
                         </Link>
@@ -249,13 +250,14 @@ export function TradePromotionsPage() {
                         <div className="text-[12px] text-sam-muted">게시물을 찾을 수 없습니다</div>
                       ) : null}
                       {r.target_id && !postId ? (
-                        <button
-                          type="button"
-                          className="block text-left sam-text-xxs text-sam-muted underline"
+                        <AdminActionButton
+                          variant="quiet"
+                          size="sm"
+                          className="!h-auto !px-0 text-left text-[12px] font-normal"
                           onClick={() => q.set({ postId: r.target_id })}
                         >
                           이 게시물만 보기
-                        </button>
+                        </AdminActionButton>
                       ) : null}
                     </div>
                   </div>
@@ -263,13 +265,14 @@ export function TradePromotionsPage() {
                 <td className={COMMUNITY_TD}>
                   <TradeMemberCell userId={r.user_id} label={r.user_label} returnTo={q.selfHref} />
                   {r.user_id && !userId ? (
-                    <button
-                      type="button"
-                      className="block text-left sam-text-xxs text-sam-muted underline"
+                    <AdminActionButton
+                      variant="quiet"
+                      size="sm"
+                      className="!h-auto !px-0 text-left text-[12px] font-normal"
                       onClick={() => q.set({ userId: r.user_id })}
                     >
                       이 회원만 보기
-                    </button>
+                    </AdminActionButton>
                   ) : null}
                 </td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap`}>
@@ -508,7 +511,7 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
         onSettled(
           k,
           done.current.refund > 0
-            ? `홍보를 종료했습니다. ${done.current.refund.toLocaleString()} P 를 환급했습니다.`
+            ? `홍보를 종료했습니다. ${formatAdminNumber(done.current.refund)} P 를 환급했습니다.`
             : "홍보를 종료했습니다. 환급은 없습니다.",
           done.current.warn
         )
@@ -546,7 +549,7 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
         </p>
       ) : null}
       {current && "error" in current ? (
-        <p role="alert" className="rounded-ui-rect border border-red-300 bg-red-50 px-3 py-2 text-[13px] text-red-900">
+        <p role="alert" className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-[13px] text-sam-fg">
           {tradeErrorText(current.error)}
         </p>
       ) : null}

@@ -23,6 +23,7 @@ import {
   useCommunityQueryState,
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { supportCategoryLabel } from "@/lib/support/support-display-labels";
 import { supportAdminStatusLabel } from "@/lib/support/support-status-label";
@@ -148,20 +149,20 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
       }
       filters={
         <>
-          <CommunityFilterField label="검색">
+          <CommunityFilterField label="검색어">
             <CommunitySearchInput value={q.get("q")} onCommit={(v) => q.set({ q: v })} placeholder="접수 번호 · 제목" />
           </CommunityFilterField>
           {q.get("reference_type") && q.get("reference_id") ? (
             <CommunityFilterField label="참조 대상">
               <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {REFERENCE_LABEL[q.get("reference_type")] ?? "선택한 대상"} 관련 문의만
-                <button
-                  type="button"
-                  className="text-sam-muted underline"
+                <AdminActionButton
+                  variant="quiet"
+                  size="sm"
                   onClick={() => q.set({ reference_type: null, reference_id: null })}
                 >
                   해제
-                </button>
+                </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
@@ -190,7 +191,7 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
                 <td className={`${COMMUNITY_TD} max-w-[22rem]`}>
                   <Link
                     href={communityDetailHref(`/admin/support/${encodeURIComponent(c.id)}`, q.selfHref)}
-                    className="font-medium text-sky-800 hover:underline"
+                    className="font-medium text-sam-primary hover:underline"
                   >
                     {c.subject || "제목 없음"}
                   </Link>
@@ -202,7 +203,7 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
                 <td className={COMMUNITY_TD}>
                   <Link
                     href={communityDetailHref(`${trade ? "/admin/trade/members/" : "/admin/community/members/"}${encodeURIComponent(c.requester_user_id)}`, q.selfHref)}
-                    className="text-sky-800 hover:underline"
+                    className="text-sam-primary hover:underline"
                   >
                     {c.requester_display_name?.trim() || "이름 없음"}
                   </Link>
@@ -211,7 +212,7 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
                 <td className={COMMUNITY_TD}>
                   {refLabel ? (
                     refHref ? (
-                      <Link href={communityDetailHref(refHref, q.selfHref)} className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-[12px] font-medium text-sky-800 hover:underline">
+                      <Link href={communityDetailHref(refHref, q.selfHref)} className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-[12px] font-medium text-sam-primary hover:underline">
                         {refLabel} 보기
                       </Link>
                     ) : (

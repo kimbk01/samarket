@@ -4,11 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 
 type Row = Record<string, unknown>;
 
 export function AdminTradeAdPoliciesPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -21,7 +27,7 @@ export function AdminTradeAdPoliciesPage() {
       const res = await fetch("/api/admin/trade-ad-products", { cache: "no-store" });
       const j = (await res.json()) as { ok?: boolean; rows?: Row[]; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? t("admin_trade_post_ads_list_load_failed"));
+        setErr(j.error ? adminOperatorErrorMessage(j.error, ko) : t("admin_trade_post_ads_list_load_failed"));
         setRows([]);
       } else {
         setRows(j.rows ?? []);
@@ -29,7 +35,7 @@ export function AdminTradeAdPoliciesPage() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [ko, t]);
 
   useEffect(() => {
     void load();
@@ -38,6 +44,14 @@ export function AdminTradeAdPoliciesPage() {
   const toggleActive = async (r: Row) => {
     const id = String(r.id ?? "");
     if (!id) return;
+    const actionLabel = r.is_active ? t("admin_trade_ad_policies_toggle_off") : t("admin_trade_ad_policies_toggle_on");
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: `${String(r.name ?? "")} · ${actionLabel}`,
+      confirmLabel: actionLabel,
+    });
+    if (!confirmed.ok) return;
     setBusyId(id);
     setErr("");
     try {
@@ -48,7 +62,7 @@ export function AdminTradeAdPoliciesPage() {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? t("admin_trade_ad_policies_save_failed"));
+        setErr(j.error ? adminOperatorErrorMessage(j.error, ko) : t("admin_trade_ad_policies_save_failed"));
         return;
       }
       await load();
@@ -63,22 +77,22 @@ export function AdminTradeAdPoliciesPage() {
 
       <p className="sam-text-body-secondary text-sam-muted">
         {t("admin_trade_ad_policies_apply_prefix")}{" "}
-        <Link href="/admin/trade-post-ads" className="text-blue-700 underline">
+        <Link href="/admin/trade-post-ads" className="text-sam-primary underline">
           {t("admin_trade_ad_policies_apply_link")}
         </Link>{" "}
         {t("admin_trade_ad_policies_apply_suffix")}
       </p>
 
       {err ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-800">
+        <div role="alert" className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-4 py-3 sam-text-body-secondary text-sam-fg">
           {err}
         </div>
       ) : null}
 
       {loading ? (
-        <p className="sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
+        <AdminLoadingState ko={ko} label={t("common_loading")} />
       ) : rows.length === 0 ? (
-        <p className="sam-text-body-secondary text-sam-muted">{t("admin_trade_ad_policies_empty")}</p>
+        <AdminEmptyState ko={ko} message={t("admin_trade_ad_policies_empty")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
           <table className="min-w-full text-left sam-text-body-secondary">
@@ -103,18 +117,18 @@ export function AdminTradeAdPoliciesPage() {
                     <td className="px-3 py-2">{String(r.board_key ?? "—")}</td>
                     <td className="px-3 py-2">{String(r.placement ?? "—")}</td>
                     <td className="px-3 py-2">{String(r.service_type ?? t("admin_trade_ad_policies_service_all"))}</td>
-                    <td className="px-3 py-2">{String(r.duration_days ?? "")}</td>
-                    <td className="px-3 py-2">{String(r.point_cost ?? "")}</td>
-                    <td className="px-3 py-2">{String(r.priority_default ?? "")}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{formatAdminNumber(r.duration_days as number | string | null | undefined)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{formatAdminNumber(r.point_cost as number | string | null | undefined)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{formatAdminNumber(r.priority_default as number | string | null | undefined)}</td>
                     <td className="px-3 py-2">
-                      <button
-                        type="button"
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
                         disabled={busyId === id}
                         onClick={() => void toggleActive(r)}
-                        className="rounded border border-sam-border px-2 py-0.5 sam-text-helper disabled:opacity-50"
                       >
                         {r.is_active ? t("admin_trade_ad_policies_toggle_off") : t("admin_trade_ad_policies_toggle_on")}
-                      </button>
+                      </AdminActionButton>
                     </td>
                   </tr>
                 );

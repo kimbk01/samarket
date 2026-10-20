@@ -1,6 +1,7 @@
 "use client";
 
 import { CategoryIcon } from "@/components/home/CategoryIcon";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   adminCommunitySkinLabelKey,
@@ -41,15 +42,11 @@ export function CategoryMenuIconPicker({ variant, value, onChange }: CategoryMen
           {presets.map((o) => {
             const selected = value === o.value;
             return (
-              <button
+              <AdminChipButton
                 key={o.value}
-                type="button"
+                selected={selected}
                 onClick={() => onChange(o.value)}
-                className={`flex flex-col items-center gap-1 rounded-ui-rect border px-2 py-2.5 text-center transition-colors ${
-                  selected
-                    ? "border-signature bg-signature/5 ring-1 ring-signature/30"
-                    : "border-sam-border bg-sam-surface hover:border-sam-border hover:bg-sam-app"
-                }`}
+                className="!h-auto !flex-col !whitespace-normal !rounded-ui-rect !px-2 !py-2.5 text-center"
               >
                 <span className="sam-text-page-title leading-none" aria-hidden>
                   {TRADE_TILE_EMOJI[o.value] ?? "📌"}
@@ -60,7 +57,7 @@ export function CategoryMenuIconPicker({ variant, value, onChange }: CategoryMen
                 <span className="line-clamp-2 sam-text-xxs font-medium leading-tight text-sam-fg">
                   {t(adminTradeSubtypeLabelKey(o.value))}
                 </span>
-              </button>
+              </AdminChipButton>
             );
           })}
         </div>
@@ -76,15 +73,11 @@ export function CategoryMenuIconPicker({ variant, value, onChange }: CategoryMen
         {COMMUNITY_SKIN_OPTIONS.map((o) => {
           const selected = value === o.value;
           return (
-            <button
+            <AdminChipButton
               key={o.value}
-              type="button"
+              selected={selected}
               onClick={() => onChange(o.value)}
-              className={`flex flex-col items-center gap-1 rounded-ui-rect border px-2 py-2.5 text-center transition-colors ${
-                selected
-                  ? "border-signature bg-signature/5 ring-1 ring-signature/30"
-                  : "border-sam-border bg-sam-surface hover:border-sam-border hover:bg-sam-app"
-              }`}
+              className="!h-auto !flex-col !whitespace-normal !rounded-ui-rect !px-2 !py-2.5 text-center"
             >
               <span className="sam-text-page-title leading-none" aria-hidden>
                 {COMMUNITY_TILE_EMOJI[o.value] ?? "💬"}
@@ -93,7 +86,7 @@ export function CategoryMenuIconPicker({ variant, value, onChange }: CategoryMen
                 <CategoryIcon iconKey={o.value} className="size-[18px] text-current" />
               </span>
               <span className="sam-text-xxs font-medium text-sam-fg">{t(adminCommunitySkinLabelKey(o.value))}</span>
-            </button>
+            </AdminChipButton>
           );
         })}
       </div>

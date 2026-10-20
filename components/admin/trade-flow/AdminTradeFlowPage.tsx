@@ -23,6 +23,8 @@ import {
 } from "@/components/admin/trade-console/trade-console-ui";
 import { useRouter } from "next/navigation";
 import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 
 interface SessionRow {
   id: string;
@@ -303,7 +305,7 @@ export function AdminTradeFlowPage() {
         </div>
       ) : null}
       {deepLinkActive && !loading && !focusedSession ? (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body text-amber-900">
+        <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-body text-sam-fg">
           {safeT("admin_trade_deep_link_no_match", {
             fallbackKo: "딥링크 조건에 맞는 거래가 목록에 없습니다.",
             fallbackEn: "No trade in this list matches the deep link.",
@@ -311,12 +313,12 @@ export function AdminTradeFlowPage() {
         </div>
       ) : null}
       {error && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body text-amber-900">
+        <div role="alert" className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-4 py-3 sam-text-body text-sam-fg">
           {error}
         </div>
       )}
       {loading ? (
-        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+        <AdminLoadingState ko={language !== "en"} label={t("common_loading")} />
       ) : (
         <>
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
@@ -374,7 +376,7 @@ export function AdminTradeFlowPage() {
                         {labelOf(LISTING_STATE_KEYS, s.sellerListingState)}
                       </td>
                       <td className="px-3 py-2">{tradeFlowStatusLabel(s.trade_flow_status)}</td>
-                      <td className="px-3 py-2">{s.hasBuyerReview ? "Y" : "N"}</td>
+                      <td className="px-3 py-2">{s.hasBuyerReview ? (language !== "en" ? "있음" : "Yes") : (language !== "en" ? "없음" : "No")}</td>
                       <td className="px-3 py-2">{tradeChatModeLabel(s.chat_mode)}</td>
                       <td className="px-3 py-2 text-sam-muted">
                         {s.seller_completed_at
@@ -388,14 +390,14 @@ export function AdminTradeFlowPage() {
                       </td>
                       <td className="px-3 py-2">
                         {s.trade_flow_status !== "chatting" ? (
-                          <button
-                            type="button"
+                          <AdminActionButton
+                            variant="ghost"
+                            size="sm"
                             disabled={revertingId === s.id}
                             onClick={() => void revertTrade(s.id)}
-                            className="rounded border border-amber-300 bg-amber-50 px-2 py-1 sam-text-xxs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
                           >
-                            {revertingId === s.id ? t("admin_trade_flow_processing") : t("admin_trade_flow_revert_trade")}
-                          </button>
+                            {t("admin_trade_flow_revert_trade")}
+                          </AdminActionButton>
                         ) : (
                           <span className="text-sam-meta">—</span>
                         )}
@@ -405,7 +407,7 @@ export function AdminTradeFlowPage() {
                 </tbody>
               </table>
               {visibleSessions.length === 0 && (
-                <p className="px-4 py-8 text-center sam-text-body text-sam-muted">{t("admin_trade_flow_no_data")}</p>
+                <AdminEmptyState ko={language !== "en"} message={t("admin_trade_flow_no_data")} />
               )}
             </div>
           </section>

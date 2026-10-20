@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { resolveAdminHttpErrorMessage } from "@/lib/admin/resolve-admin-http-error";
 import { logAdminMutation } from "@/lib/admin/admin-perf-logger";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
 export function OpsTradePolicyPanel() {
   const { t } = useI18n();
@@ -105,14 +106,9 @@ export function OpsTradePolicyPanel() {
         </div>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void save()}
-          className="rounded bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
-        >
-          {saving ? t("common_saving") : t("admin_settings_trade_save")}
-        </button>
+        <AdminActionButton variant="primary" disabled={saving} onClick={() => void save()}>
+          {t("admin_settings_trade_save")}
+        </AdminActionButton>
         {msg ? <span className="sam-text-body-secondary text-sam-muted">{msg}</span> : null}
       </div>
     </div>

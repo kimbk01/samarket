@@ -27,6 +27,8 @@ import {
   AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -139,14 +141,14 @@ export function TradePointsPage() {
           {state.status === "ok" ? (
             <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg">
               {sums
-                ? `조건 합계: ${sums.count.toLocaleString()}건 · 들어온 포인트 +${sums.amountIn.toLocaleString()} P · 나간 포인트 -${Math.abs(
-                    sums.amountOut
-                  ).toLocaleString()} P`
+                ? `조건 합계: ${formatAdminNumber(sums.count)}건 · 들어온 포인트 +${formatAdminNumber(sums.amountIn)} P · 나간 포인트 -${formatAdminNumber(
+                    Math.abs(sums.amountOut)
+                  )} P`
                 : "조건 합계: 확인 불가"}
             </p>
           ) : null}
           {state.status === "ok" && state.data.promoOrderIdCapped ? (
-            <p className="text-[12px] text-amber-800">오래된 홍보 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
+            <p className="text-[12px] text-sam-warning">오래된 홍보 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
           ) : null}
         </div>
       }
@@ -168,9 +170,9 @@ export function TradePointsPage() {
             <CommunityFilterField label="회원">
               <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {memberName || "선택한 회원"}
-                <button type="button" className="text-sam-muted underline" onClick={() => q.set({ userId: null })}>
+                <AdminActionButton variant="quiet" size="sm" onClick={() => q.set({ userId: null })}>
                   해제
-                </button>
+                </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
@@ -203,19 +205,20 @@ export function TradePointsPage() {
                 <td className={COMMUNITY_TD}>
                   <TradeMemberCell userId={r.userId} label={r.userNickname} returnTo={q.selfHref} />
                   {r.userId && !userId ? (
-                    <button
-                      type="button"
-                      className="block text-left sam-text-xxs text-sam-muted underline"
+                    <AdminActionButton
+                      variant="quiet"
+                      size="sm"
+                      className="!h-auto !px-0 text-left text-[12px] font-normal"
                       onClick={() => q.set({ userId: r.userId })}
                     >
                       이 회원만 보기
-                    </button>
+                    </AdminActionButton>
                   ) : null}
                 </td>
                 <td className={COMMUNITY_TD}>{pointTypeLabel(r.relatedType, r.entryType)}</td>
-                <td className={`${COMMUNITY_TD} whitespace-nowrap font-semibold ${amt < 0 ? "text-red-700" : "text-emerald-800"}`}>
+                <td className={`${COMMUNITY_TD} whitespace-nowrap font-semibold ${amt < 0 ? "text-sam-danger" : "text-sam-success"}`}>
                   {amt > 0 ? "+" : ""}
-                  {amt.toLocaleString()} P
+                  {formatAdminNumber(amt)} P
                 </td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{formatTradePoints(r.balanceAfter)}</td>
                 <td className={`${COMMUNITY_TD} max-w-[22rem]`}>
@@ -341,8 +344,8 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
       if (res.ok && j.ok) {
         const who = member.label || "회원";
         onDone(
-          `${who}님에게 ${amount.toLocaleString()} P 를 ${op === "credit" ? "지급" : "회수"}했습니다.${
-            typeof j.balanceAfter === "number" ? ` 현재 잔액 ${j.balanceAfter.toLocaleString()} P` : ""
+          `${who}님에게 ${formatAdminNumber(amount)} P 를 ${op === "credit" ? "지급" : "회수"}했습니다.${
+            typeof j.balanceAfter === "number" ? ` 현재 잔액 ${formatAdminNumber(j.balanceAfter)} P` : ""
           }`
         );
         return;
@@ -396,16 +399,16 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
               {member ? (
                 <div className="mt-1 flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px]">
                   <span className="font-medium text-sam-fg">{member.label || "이름 없음"}</span>
-                  <button
-                    type="button"
-                    className="text-sam-muted underline"
+                  <AdminActionButton
+                    variant="quiet"
+                    size="sm"
                     onClick={() => {
                       setMember(null);
                       setBalance(null);
                     }}
                   >
                     다시 선택
-                  </button>
+                  </AdminActionButton>
                 </div>
               ) : (
                 <>
@@ -423,7 +426,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
                       className={`w-full ${OverlayUi.input}`}
                     />
                     <AdminActionButton type="submit" variant="secondary" disabled={searching || !search.trim()}>
-                      {searching ? "검색 중…" : "검색"}
+                      {adminCta("search", true)}
                     </AdminActionButton>
                   </form>
                   {results ? (
@@ -433,13 +436,13 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
                       <ul className="mt-2 max-h-56 divide-y divide-sam-border-soft overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface">
                         {results.map((m) => (
                           <li key={m.user_id}>
-                            <button
-                              type="button"
-                              className="block w-full px-3 py-2 text-left text-[13px] text-sam-fg hover:bg-sam-app"
+                            <AdminActionButton
+                              variant="quiet"
+                              className="w-full !justify-start rounded-none text-left font-normal text-sam-fg hover:no-underline hover:bg-sam-app"
                               onClick={() => void pick(m)}
                             >
                               {m.label || "이름 없음"}
-                            </button>
+                            </AdminActionButton>
                           </li>
                         ))}
                       </ul>
@@ -457,7 +460,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
                 ) : "value" in balance ? (
                   <strong>{formatTradePoints(balance.value)}</strong>
                 ) : (
-                  <span className="text-red-700">확인하지 못했습니다. 다시 선택해 주세요.</span>
+                  <span className="text-sam-danger">확인하지 못했습니다. 다시 선택해 주세요.</span>
                 )}
               </p>
             ) : null}
@@ -484,7 +487,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
                 className={`mt-1 w-full ${OverlayUi.input}`}
               />
               {overDebit ? (
-                <span className="mt-1 block sam-text-xxs text-red-700">보유 포인트보다 많이 회수할 수 없습니다.</span>
+                <span className="mt-1 block sam-text-xxs text-sam-danger">보유 포인트보다 많이 회수할 수 없습니다.</span>
               ) : null}
             </label>
 
@@ -498,7 +501,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
                 placeholder="지급·회수 사유 (회원 포인트 내역에 표시됩니다)"
                 className={`mt-1 w-full ${OverlayUi.input}`}
               />
-              <span className={`mt-1 block sam-text-xxs ${reasonOk ? "text-sam-muted" : "text-red-700"}`}>
+              <span className={`mt-1 block sam-text-xxs ${reasonOk ? "text-sam-muted" : "text-sam-danger"}`}>
                 2자 이상 입력 ({reason.trim().length}자)
               </span>
             </label>
@@ -508,7 +511,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
             {[
               ["회원", member?.label || "이름 없음"],
               ["구분", op === "credit" ? "지급" : "회수"],
-              ["포인트", `${op === "credit" ? "+" : "-"}${amount.toLocaleString()} P`],
+              ["포인트", `${op === "credit" ? "+" : "-"}${formatAdminNumber(amount)} P`],
               ["현재 잔액", formatTradePoints(balanceValue)],
               ["처리 후 잔액", formatTradePoints(after)],
               ["사유", reason.trim()],
@@ -521,7 +524,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
           </dl>
         )}
         {error ? (
-          <p role="alert" className="rounded-ui-rect border border-red-300 bg-red-50 px-3 py-2 sam-text-helper text-red-900">
+          <p role="alert" className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-fg">
             {error}
           </p>
         ) : null}

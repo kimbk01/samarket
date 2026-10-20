@@ -28,6 +28,7 @@ import {
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -255,40 +256,43 @@ export function TradeReportsPage() {
           {targetId ? (
             <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
               특정 대상만 보기
-              <button
-                type="button"
+              <AdminActionButton
+                variant="quiet"
+                size="sm"
+                className="!h-6 !px-1"
                 aria-label="특정 대상 해제"
                 onClick={() => qs.set({ targetId: null })}
-                className="font-semibold text-sam-muted"
               >
                 ×
-              </button>
+              </AdminActionButton>
             </span>
           ) : null}
           {sellerId ? (
             <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
               특정 회원(본인·판매글) 신고만 보기
-              <button
-                type="button"
+              <AdminActionButton
+                variant="quiet"
+                size="sm"
+                className="!h-6 !px-1"
                 aria-label="특정 회원 해제"
                 onClick={() => qs.set({ sellerId: null })}
-                className="font-semibold text-sam-muted"
               >
                 ×
-              </button>
+              </AdminActionButton>
             </span>
           ) : null}
           {reporterId ? (
             <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
               특정 신고자만 보기
-              <button
-                type="button"
+              <AdminActionButton
+                variant="quiet"
+                size="sm"
+                className="!h-6 !px-1"
                 aria-label="특정 신고자 해제"
                 onClick={() => qs.set({ reporterId: null })}
-                className="font-semibold text-sam-muted"
               >
                 ×
-              </button>
+              </AdminActionButton>
             </span>
           ) : null}
           <CommunityResetFilters onReset={() => qs.reset(["tab"])} />
@@ -314,7 +318,7 @@ export function TradeReportsPage() {
             <tr
               key={r.id}
               onClick={() => openDetail(r.id)}
-              className={`cursor-pointer border-b border-sam-border-soft hover:bg-sam-app ${reportId === r.id ? "bg-amber-50" : ""}`}
+              className={`cursor-pointer border-b border-sam-border-soft hover:bg-sam-app ${reportId === r.id ? "bg-sam-warning-soft" : ""}`}
             >
               <td className={COMMUNITY_TD}>
                 <CommunityTimeCell iso={r.created_at} />
@@ -482,7 +486,7 @@ function TradeReportDetailSheet({
       const json = lastJson.current;
       const extra = communityWarningsOf(json);
       const closed = Number(json.closedSiblings ?? 0);
-      if (closed > 0) extra.unshift(`같은 게시물 신고 ${closed.toLocaleString()}건 함께 처리했습니다.`);
+      if (closed > 0) extra.unshift(`같은 게시물 신고 ${formatAdminNumber(closed)}건 함께 처리했습니다.`);
       if (json.postHidden === true && chosen !== "hide") extra.unshift("게시물도 숨겼습니다.");
       b = {
         tone: communityWarningsOf(json).length ? "warning" : "success",
@@ -613,7 +617,7 @@ function TradeReportDetailSheet({
         {targetUser ? (
           <Link
             href={tradeDetailHref(`/admin/trade/members/${encodeURIComponent(targetUser.id)}?tab=account`, returnTo)}
-            className="ml-auto self-center text-[13px] font-medium text-sky-800 underline"
+            className="ml-auto self-center text-[13px] font-medium text-sam-primary underline"
           >
             계정 정지는 회원 화면에서
           </Link>
@@ -685,7 +689,7 @@ function TradeReportDetailSheet({
                   <div className="min-w-0 space-y-1">
                     <Link
                       href={`/admin/products/${encodeURIComponent(s(post.id))}`}
-                      className="font-semibold text-sky-800 hover:underline"
+                      className="font-semibold text-sam-primary hover:underline"
                     >
                       {s(post.title) || "제목 없음"}
                     </Link>

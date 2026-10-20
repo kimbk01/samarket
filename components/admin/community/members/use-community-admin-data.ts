@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdminShell } from "@/components/admin/AdminShellContext";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import { isSuperAdminFromSnapshot } from "@/lib/admin-auth/admin-me-context";
 import {
   COMMUNITY_ADMIN_AREA_LABEL_KO,
@@ -72,10 +73,10 @@ export const COMMUNITY_GONE_MESSAGE = "대상이 이미 없어졌습니다 — �
 
 export function formatCommunityPoints(n: number | null | undefined): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return "—";
-  return `${n.toLocaleString()} P`;
+  return `${formatAdminNumber(n)} P`;
 }
 
 export function formatCommunityPeso(n: number | null | undefined): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return "—";
-  return `₱${n.toLocaleString()}`;
+  return formatAdminPhp(n);
 }

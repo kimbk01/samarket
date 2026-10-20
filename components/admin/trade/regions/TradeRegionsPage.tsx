@@ -15,6 +15,7 @@ import {
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 type RegionRow = {
   lgu_id: string | null;
@@ -31,7 +32,7 @@ type RegionRow = {
 
 type RegionsResponse = { ok?: boolean; error?: string; total?: number; rows?: RegionRow[] };
 
-const num = (v: number | null | undefined) => (typeof v === "number" ? v.toLocaleString() : "—");
+const num = (v: number | null | undefined) => formatAdminNumber(v);
 
 export function TradeRegionsPage() {
   const q = useCommunityQueryState();
@@ -88,7 +89,7 @@ export function TradeRegionsPage() {
                   <Link
                     href={`/admin/posts-management?lguId=${encodeURIComponent(r.lgu_id)}`}
                     prefetch={false}
-                    className="font-medium text-sky-800 hover:underline"
+                    className="font-medium text-sam-primary hover:underline"
                   >
                     {r.name}
                   </Link>
@@ -102,7 +103,7 @@ export function TradeRegionsPage() {
               <td className={COMMUNITY_TD}>{num(r.sold)}</td>
               <td className={COMMUNITY_TD}>{num(r.hidden)}</td>
               <td className={COMMUNITY_TD}>{num(r.sellers)}</td>
-              <td className={`${COMMUNITY_TD} ${r.open_reports > 0 ? "font-semibold text-red-700" : ""}`}>{num(r.open_reports)}</td>
+              <td className={`${COMMUNITY_TD} ${r.open_reports > 0 ? "font-semibold text-sam-danger" : ""}`}>{num(r.open_reports)}</td>
               <td className={COMMUNITY_TD}>{num(r.active_promotions)}</td>
             </tr>
           ))}

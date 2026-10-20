@@ -24,6 +24,7 @@ import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import { tradeDetailHref } from "@/components/admin/trade/kit/TradeAdminKit";
 import { TRADE_RESTRICTION_SCOPE_LABEL } from "@/components/admin/trade/restrictions/TradeRestrictionsPage";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 const PAGE_SIZE = 50;
 
@@ -123,15 +124,15 @@ export function TradeMembersPage() {
             return (
               <tr key={r.user_id} className="border-b border-sam-border-soft hover:bg-sam-app">
                 <td className={COMMUNITY_TD}>
-                  <Link href={href} className="font-medium text-sky-800 hover:underline">
+                  <Link href={href} className="font-medium text-sam-primary hover:underline">
                     {r.label?.trim() || "이름 없음"}
                   </Link>
                 </td>
                 <td className={COMMUNITY_TD}>
                   <CommunityStatusBadge domain="account_status" value={tradeAccountStatusKey(r.account_status)} />
                 </td>
-                <td className={COMMUNITY_TD}>{r.post_count.toLocaleString()}</td>
-                <td className={COMMUNITY_TD}>{r.buyer_chat_count.toLocaleString()}</td>
+                <td className={`${COMMUNITY_TD} text-right tabular-nums`}>{formatAdminNumber(r.post_count)}</td>
+                <td className={`${COMMUNITY_TD} text-right tabular-nums`}>{formatAdminNumber(r.buyer_chat_count)}</td>
                 <td className={COMMUNITY_TD}>
                   {r.trade_restrictions.length === 0 ? (
                     <span className="text-sam-muted">없음</span>
@@ -147,7 +148,7 @@ export function TradeMembersPage() {
                 </td>
                 <td className={COMMUNITY_TD}>
                   {r.open_user_reports > 0 ? (
-                    <AdminToneBadge tone="waiting">{r.open_user_reports.toLocaleString()}건</AdminToneBadge>
+                    <AdminToneBadge tone="waiting">{formatAdminNumber(r.open_user_reports)}건</AdminToneBadge>
                   ) : (
                     <span className="text-sam-muted">0</span>
                   )}

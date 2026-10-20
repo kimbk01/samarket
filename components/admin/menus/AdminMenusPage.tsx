@@ -5,7 +5,8 @@
  * 주제 리스트 → 주제 상세(카테고리 + 등록 옵션) → 카테고리 상세
  * SSOT KEEP: categories / field_composition / CUT A ROOT options.
  */
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCategoryAdmin } from "@/components/admin/categories/useCategoryAdmin";
@@ -69,7 +70,7 @@ function settingsFrom(cat: CategoryWithSettings) {
 }
 
 export function AdminMenusPage() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const {
     list,
     loading,
@@ -114,14 +115,19 @@ export function AdminMenusPage() {
 
   const leaveOptionsIfDirty = useCallback(async () => {
     if (!optionsDirty) return true;
-    return dibayConfirm({
+    const ko = language !== "en";
+    const r = await confirmAdminAction({
+      level: "L1",
+      ko,
       title: safeT("admin_menu_trade_unsaved_confirm", {
         fallbackKo: "저장하지 않은 옵션 변경이 있습니다. 나갈까요?",
         fallbackEn: "You have unsaved option changes. Leave?",
       }),
-      confirmTone: "destructive",
+      confirmLabel: ko ? "나가기" : "Leave",
+      destructive: true,
     });
-  }, [optionsDirty, safeT]);
+    return r.ok;
+  }, [language, optionsDirty, safeT]);
 
   const goList = useCallback(async () => {
     if (view.kind === "options" && !(await leaveOptionsIfDirty())) return;
@@ -436,14 +442,7 @@ export function AdminMenusPage() {
   };
 
   const deleteWithConfirm = async (id: string, back: View) => {
-    if (
-      !(await dibayConfirm({
-        title: t("admin_cat_confirm_delete"),
-        confirmTone: "destructive",
-      }))
-    ) {
-      return;
-    }
+    /* 삭제 확인(L3)은 handleDelete 가 한 번만 띄운다 */
     const ok = await handleDelete(id);
     if (ok) {
       void syncBottomNav();
@@ -512,22 +511,22 @@ export function AdminMenusPage() {
       </p>
 
       {supabaseAvailable === false && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">
+        <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-fg">
           <p className="font-medium">{t("admin_cat_supabase_title")}</p>
-          <p className="mt-1 text-amber-700">{t("admin_cat_supabase_body")}</p>
+          <p className="mt-1 text-sam-muted">{t("admin_cat_supabase_body")}</p>
         </div>
       )}
 
       {message && (
         <div
           className={`rounded-ui-rect px-4 py-2 sam-text-body ${
-            message.type === "success" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+            message.type === "success" ? "bg-sam-success-soft text-sam-fg" : "bg-sam-danger-soft text-sam-danger"
           }`}
         >
           {message.text}
         </div>
       )}
-      {formError ? <p className="sam-text-body text-red-700">{formError}</p> : null}
+      {formError ? <p className="sam-text-body text-sam-danger">{formError}</p> : null}
 
       {/* LIST */}
       {view.kind === "list" ? (
@@ -541,9 +540,9 @@ export function AdminMenusPage() {
             <ul className="divide-y divide-sam-border-soft">
               {roots.map((r, i) => (
                 <li key={r.id}>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-sam-surface-muted/80"
+                  <AdminActionButton
+                    variant="quiet"
+                    className="!h-auto w-full !justify-start gap-3 !whitespace-normal !px-3 !py-3 text-left font-normal text-sam-fg hover:no-underline hover:bg-sam-surface-muted/80"
                     onClick={() => {
                       beginRootEditBasics(r);
                       void openRoot(r.id);
@@ -569,21 +568,17 @@ export function AdminMenusPage() {
                       </p>
                     </div>
                     <span className="text-signature">›</span>
-                  </button>
+                  </AdminActionButton>
                   <div className="flex gap-1 px-3 pb-2">
-                    <button type="button" className={`${Sam.btn.ghost} ${Sam.btn.sm}`} onClick={() => void moveRoot(r.id, -1)}>
+                    <AdminActionButton variant="quiet" size="sm" aria-label={language === "en" ? "Move up" : "위로"} onClick={() => void moveRoot(r.id, -1)}>
                       ↑
-                    </button>
-                    <button type="button" className={`${Sam.btn.ghost} ${Sam.btn.sm}`} onClick={() => void moveRoot(r.id, 1)}>
+                    </AdminActionButton>
+                    <AdminActionButton variant="quiet" size="sm" aria-label={language === "en" ? "Move down" : "아래로"} onClick={() => void moveRoot(r.id, 1)}>
                       ↓
-                    </button>
-                    <button
-                      type="button"
-                      className={`${Sam.btn.ghost} ${Sam.btn.sm}`}
-                      onClick={() => void toggleActive(r.id, r.is_active)}
-                    >
+                    </AdminActionButton>
+                    <AdminActionButton variant="ghost" size="sm" onClick={() => void toggleActive(r.id, r.is_active)}>
                       {r.is_active ? t("admin_menu_status_inactive") : t("admin_menu_status_active")}
-                    </button>
+                    </AdminActionButton>
                   </div>
                 </li>
               ))}
@@ -658,9 +653,9 @@ export function AdminMenusPage() {
       {view.kind === "options" && activeRoot ? (
         <section className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <button
-              type="button"
-              className="sam-text-body-secondary text-signature hover:underline"
+            <AdminActionButton
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 void (async () => {
                   if (!(await leaveOptionsIfDirty())) return;
@@ -671,7 +666,7 @@ export function AdminMenusPage() {
               }}
             >
               ← {activeRoot.name}
-            </button>
+            </AdminActionButton>
           </div>
           <CategoryFieldCompositionEditor
             iconKey={activeRoot.icon_key}
@@ -886,7 +881,7 @@ function RootDetail({
   onToggleChild: (id: string, current: boolean) => void;
   onDeleteRoot: () => void;
 }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   return (
     <div className="space-y-4">
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -944,29 +939,25 @@ function RootDetail({
           <ul className="divide-y divide-sam-border-soft">
             {childRows.map((c) => (
               <li key={c.id} className="flex items-center gap-2 px-3 py-2">
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 text-left"
+                <AdminActionButton
+                  variant="quiet"
+                  className="!h-auto min-w-0 flex-1 !justify-start !px-0 text-left font-normal hover:no-underline"
                   onClick={() => onOpenChild(c)}
                 >
                   <span className="sam-text-body font-medium text-sam-fg">{c.name}</span>
                   <span className="ml-2 sam-text-xxs text-sam-muted">
                     {c.is_active ? t("admin_menu_status_active") : t("admin_menu_status_inactive")}
                   </span>
-                </button>
-                <button type="button" className={`${Sam.btn.ghost} ${Sam.btn.sm}`} onClick={() => onMoveChild(c.id, -1)}>
+                </AdminActionButton>
+                <AdminActionButton variant="quiet" size="sm" aria-label={language === "en" ? "Move up" : "위로"} onClick={() => onMoveChild(c.id, -1)}>
                   ↑
-                </button>
-                <button type="button" className={`${Sam.btn.ghost} ${Sam.btn.sm}`} onClick={() => onMoveChild(c.id, 1)}>
+                </AdminActionButton>
+                <AdminActionButton variant="quiet" size="sm" aria-label={language === "en" ? "Move down" : "아래로"} onClick={() => onMoveChild(c.id, 1)}>
                   ↓
-                </button>
-                <button
-                  type="button"
-                  className={`${Sam.btn.ghost} ${Sam.btn.sm}`}
-                  onClick={() => onToggleChild(c.id, c.is_active)}
-                >
-                  {c.is_active ? "OFF" : "ON"}
-                </button>
+                </AdminActionButton>
+                <AdminActionButton variant="ghost" size="sm" onClick={() => onToggleChild(c.id, c.is_active)}>
+                  {c.is_active ? t("admin_menu_status_inactive") : t("admin_menu_status_active")}
+                </AdminActionButton>
                 <span className="text-signature">›</span>
               </li>
             ))}
@@ -974,9 +965,9 @@ function RootDetail({
         )}
       </section>
 
-      <button
-        type="button"
-        className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 hover:bg-sam-surface-muted/80"
+      <AdminActionButton
+        variant="secondary"
+        className="!h-auto w-full !justify-between !px-3 !py-3"
         onClick={onOpenOptions}
       >
         <span className="sam-text-body font-semibold text-sam-fg">
@@ -986,7 +977,7 @@ function RootDetail({
           })}
         </span>
         <span className="text-signature">›</span>
-      </button>
+      </AdminActionButton>
     </div>
   );
 }
@@ -1021,9 +1012,9 @@ function ChildEditor({
   const { t, safeT } = useI18n();
   return (
     <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <button type="button" className="sam-text-body-secondary text-signature hover:underline" onClick={onCancel}>
+      <AdminActionButton variant="ghost" size="sm" onClick={onCancel}>
         ← {root.name}
-      </button>
+      </AdminActionButton>
       <h2 className="sam-text-body font-semibold text-sam-fg">
         {child ? t("admin_menu_subtopic_form_edit") : t("admin_menu_subtopic_form_add")}
       </h2>
