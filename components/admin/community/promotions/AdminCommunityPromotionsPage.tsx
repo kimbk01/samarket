@@ -6,6 +6,7 @@
  *       「홍보 종료」 L3(귀책 선택 → 환급 미리보기 → 대상 재입력 → 실행).
  * URL: tab=active|paused|ended|rejected|all · page
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -174,7 +175,7 @@ export function AdminCommunityPromotionsPage() {
                   {o.targetId ? (
                     <Link
                       href={communityDetailHref(`/admin/community/posts/${encodeURIComponent(o.targetId)}`, q.selfHref)}
-                      className="font-medium text-sky-800 hover:underline"
+                      className="font-medium text-sam-info hover:underline"
                     >
                       {title}
                     </Link>
@@ -192,7 +193,7 @@ export function AdminCommunityPromotionsPage() {
                   {o.userId ? (
                     <Link
                       href={communityDetailHref(`/admin/community/members/${encodeURIComponent(o.userId)}`, q.selfHref)}
-                      className="font-medium text-sky-800 hover:underline"
+                      className="font-medium text-sam-info hover:underline"
                     >
                       {o.buyerNickname || o.buyerLabel || "이름 없음"}
                     </Link>
@@ -286,7 +287,7 @@ export function AdminCommunityPromotionsPage() {
           order={sheet.order}
           onClose={() => setSheet(null)}
           onSettled={(k, refund) =>
-            settle(k, refund > 0 ? `홍보를 종료했습니다. ${refund.toLocaleString()} P 를 환급했습니다.` : "홍보를 종료했습니다. 환급은 없습니다.")
+            settle(k, refund > 0 ? `홍보를 종료했습니다. ${formatAdminNumber(refund)} P 를 환급했습니다.` : "홍보를 종료했습니다. 환급은 없습니다.")
           }
         />
       ) : null}
@@ -418,7 +419,7 @@ function EndPromotionSheet({
         <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px] font-semibold text-sam-fg">
           환급 예정 {formatCommunityPoints(preview.data.refundPoints)}
           {!preview.data.hasPaymentRecord ? (
-            <span className="block font-normal text-amber-800">결제 기록을 찾지 못해 환급할 포인트가 없습니다.</span>
+            <span className="block font-normal text-sam-warning">결제 기록을 찾지 못해 환급할 포인트가 없습니다.</span>
           ) : null}
         </p>
       ) : null}

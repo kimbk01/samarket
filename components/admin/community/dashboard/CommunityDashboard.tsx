@@ -6,6 +6,7 @@
  * - 값을 확인하지 못한 지표는 「확인 불가」 (0 으로 표시하지 않는다). 권한 밖 지표는 서버가 뺀다.
  * - 화면이 보이는 동안 60초마다 서버 값을 다시 읽는다 (Realtime 구독 없음).
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useTransition, type ReactNode } from "react";
@@ -30,14 +31,14 @@ const AUTO_REFRESH_MS = 60_000;
 
 function MetricValue({ value }: { value: number | null }) {
   if (value === null) return <AdminUnavailableChip ko />;
-  return <span className="text-[22px] font-bold leading-7 text-sam-fg">{value.toLocaleString()}</span>;
+  return <span className="text-[20px] font-bold leading-7 text-sam-fg">{formatAdminNumber(value)}</span>;
 }
 
 function Section({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
   return (
     <section className="space-y-2">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <h2 className="text-[15px] font-semibold text-sam-fg">{title}</h2>
+        <h2 className="text-[14px] font-semibold text-sam-fg">{title}</h2>
         {hint ? <div className="text-[12px] text-sam-muted">{hint}</div> : null}
       </div>
       {children}
@@ -62,11 +63,11 @@ function MetricCard({
     <div
       className={[
         "flex h-full flex-col justify-between gap-2 rounded-ui-rect border bg-sam-surface p-3",
-        danger ? "border-red-300" : "border-sam-border",
+        danger ? "border-sam-danger" : "border-sam-border",
         href ? "hover:border-sam-primary" : "",
       ].join(" ")}
     >
-      <span className={["text-[13px] font-medium", danger ? "text-red-800" : "text-sam-muted"].join(" ")}>{label}</span>
+      <span className={["text-[13px] font-medium", danger ? "text-sam-danger" : "text-sam-muted"].join(" ")}>{label}</span>
       <MetricValue value={value} />
       {sub ? <span className="text-[12px] text-sam-muted">{sub}</span> : null}
     </div>
@@ -119,7 +120,7 @@ export function CommunityDashboard({
   const otherPeriod = periodStats.filter((m) => m.id !== "community.period.posts_total" && !POST_PARTS.includes(m.id));
   const part = (id: string) => {
     const v = byId.get(id)?.value;
-    return v === null || v === undefined ? "확인 불가" : v.toLocaleString();
+    return v === null || v === undefined ? "확인 불가" : formatAdminNumber(v);
   };
 
   const entries = [...model.primaryEntries, ...model.contextEntries].filter((e) => e.id !== "reset");
@@ -141,7 +142,7 @@ export function CommunityDashboard({
       </header>
 
       {model.sectionErrors.length > 0 ? (
-        <div role="status" className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-950">
+        <div role="status" className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-warning">
           일부 지표를 확인하지 못했습니다. 해당 지표는 「확인 불가」로 표시됩니다.
           <AdminTechDetails ko>
             {model.sectionErrors.map((e) => (

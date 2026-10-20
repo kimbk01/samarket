@@ -305,31 +305,32 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
               <Link href={adminUserDetailHref(query.userId, returnTo)} className="font-mono text-signature hover:underline">
                 {formatAdminShortIdEllipsis(query.userId)}
               </Link>
-              <button type="button" className="sam-text-helper text-sam-muted underline" onClick={() => navigate({ userId: "" })}>
+              <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => navigate({ userId: "" })}>
                 {t("admin_chat_list_chip_clear")}
-              </button>
+              </AdminActionButton>
             </span>
           ) : null}
           {query.postId ? (
             <span className="flex items-center gap-1">
               <span className="text-sam-muted">{t("admin_chat_rooms_chip_post")}</span>
               <AdminTechId id={query.postId} />
-              <button
-                type="button"
-                className="sam-text-helper text-sam-muted underline"
+              <AdminActionButton
+                variant="quiet"
+                size="sm"
+                className="h-auto! px-1!"
                 onClick={() => navigate({ postId: "", buyerId: "", sellerId: "" })}
               >
                 {t("admin_chat_list_chip_clear")}
-              </button>
+              </AdminActionButton>
             </span>
           ) : null}
           {query.orderId ? (
             <span className="flex items-center gap-1">
               <span className="text-sam-muted">{t("admin_chat_rooms_chip_order")}</span>
               <AdminTechId id={query.orderId} />
-              <button type="button" className="sam-text-helper text-sam-muted underline" onClick={() => navigate({ orderId: "" })}>
+              <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => navigate({ orderId: "" })}>
                 {t("admin_chat_list_chip_clear")}
-              </button>
+              </AdminActionButton>
             </span>
           ) : null}
         </div>

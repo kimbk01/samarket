@@ -4,6 +4,7 @@
  * 작성자 조회 (설계 §C-10) — 커뮤니티 활동 기준 회원 목록. 행 → 작성자 상세(조치 포함).
  * URL: q · restricted=1 · account=suspended|active · sort · period/from/to · page
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import {
   COMMUNITY_TD,
@@ -63,7 +64,7 @@ function tabOf(restricted: string, account: string): string {
 }
 
 function num(n: number | null | undefined): string {
-  return typeof n === "number" && Number.isFinite(n) ? n.toLocaleString() : "—";
+  return typeof n === "number" && Number.isFinite(n) ? formatAdminNumber(n) : "—";
 }
 
 export function restrictionUntilLabel(endAt: string | null | undefined): string {
@@ -121,7 +122,7 @@ export function AdminCommunityMembersPage() {
       }
       filters={
         <>
-          <CommunityFilterField label="검색">
+          <CommunityFilterField label="검색어">
             <CommunitySearchInput
               value={q.get("q")}
               onCommit={(v) => q.set({ q: v })}
@@ -166,7 +167,7 @@ export function AdminCommunityMembersPage() {
             return (
               <tr key={r.user_id} className="border-b border-sam-border-soft hover:bg-sam-app">
                 <td className={COMMUNITY_TD}>
-                  <Link href={href} className="font-medium text-sky-800 hover:underline">
+                  <Link href={href} className="font-medium text-sam-info hover:underline">
                     {r.nickname?.trim() || "이름 없음"}
                   </Link>
                   {handle ? <div className="sam-text-xxs text-sam-muted">@{handle}</div> : null}

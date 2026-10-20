@@ -49,7 +49,7 @@ const ACTION_EXACT: Record<string, string> = {
   "community_notice.end": "공지 종료",
   "community_import.job_create": "외부 글 수집 시작",
   "community_import.job_cancel": "외부 글 수집 취소",
-  "community_import.job_retry_failed": "외부 글 수집 재시도",
+  "community_import.job_retry_failed": "외부 글 수집 다시 실행",
   "community_import.inbox_status": "수집 글 상태 변경",
   "community_import.draft_save": "수집 글 편집",
   "community_import.rule_toggle": "수집 규칙 켜기/끄기",

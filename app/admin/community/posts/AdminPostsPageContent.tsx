@@ -6,6 +6,7 @@
  * 행에서는 「상세」만, 상태 변경은 선택 후 일괄 처리 줄의 버튼(숨기기 L2 · 다시 공개 L1 · 삭제 L2 · 영구 삭제 L3)으로만 한다.
  * 상태 select 즉시 반영 없음 (C-18).
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -315,7 +316,7 @@ export function AdminPostsPageContent() {
         </AdminActionButton>
         <AdminActionButton
           variant="secondary"
-          className="border-amber-400 text-amber-900"
+          className="border-sam-warning text-sam-warning"
           disabled={!canContent}
           title={canContent ? undefined : "권한 필요: 게시판 관리"}
           onClick={() => setSheet("hide")}
@@ -336,7 +337,7 @@ export function AdminPostsPageContent() {
         {hardAllowed ? (
           <AdminActionButton
             variant="danger"
-            className="ring-2 ring-red-800/60"
+            className="ring-2 ring-sam-danger/60"
             disabled={!isSuperAdmin}
             title={isSuperAdmin ? "삭제 상태로 30일이 지난 글만 영구 삭제됩니다" : "최고 관리자만 할 수 있습니다"}
             onClick={() => setSheet("hard_delete")}
@@ -380,17 +381,17 @@ export function AdminPostsPageContent() {
       {userId ? (
         <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
           작성자: {authorChipLabel}
-          <button type="button" className="ml-1 text-sam-muted underline" onClick={() => set({ userId: null, authorId: null })}>
+          <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => set({ userId: null, authorId: null })}>
             해제
-          </button>
+          </AdminActionButton>
         </span>
       ) : null}
       {postId ? (
         <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
           특정 글 1건만 보기
-          <button type="button" className="ml-1 text-sam-muted underline" onClick={() => set({ postId: null })}>
+          <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => set({ postId: null })}>
             해제
-          </button>
+          </AdminActionButton>
         </span>
       ) : null}
       {hasFilters ? <CommunityResetFilters onReset={() => reset(["tab"])} /> : null}
@@ -447,9 +448,9 @@ export function AdminPostsPageContent() {
               </td>
               <td className={`${COMMUNITY_TD} whitespace-nowrap text-sam-muted`}>
                 {slug ? (
-                  <button type="button" className="hover:underline" onClick={() => set({ topicSlug: slug })}>
+                  <AdminActionButton variant="ghost" size="sm" className="h-auto! px-0!" onClick={() => set({ topicSlug: slug })}>
                     {topicNameOf(slug)}
-                  </button>
+                  </AdminActionButton>
                 ) : (
                   "—"
                 )}
@@ -470,20 +471,20 @@ export function AdminPostsPageContent() {
                 {reportCount > 0 ? (
                   <Link
                     href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`}
-                    className="font-semibold text-amber-800 hover:underline"
+                    className="font-semibold text-sam-warning hover:underline"
                   >
-                    {reportCount.toLocaleString()}
+                    {formatAdminNumber(reportCount)}
                   </Link>
                 ) : (
                   <span className="text-sam-muted">0</span>
                 )}
               </td>
               <td className={`${COMMUNITY_TD} whitespace-nowrap text-[12px] text-sam-muted`}>
-                좋아요 {Number(r.like_count ?? 0).toLocaleString()} ·{" "}
+                좋아요 {formatAdminNumber(r.like_count ?? 0)} ·{" "}
                 <Link href={`/admin/community/comments?postId=${encodeURIComponent(id)}`} className="hover:underline">
-                  댓글 {Number(r.comment_count ?? 0).toLocaleString()}
+                  댓글 {formatAdminNumber(r.comment_count ?? 0)}
                 </Link>{" "}
-                · 조회 {Number(r.view_count ?? 0).toLocaleString()}
+                · 조회 {formatAdminNumber(r.view_count ?? 0)}
               </td>
               <td className={COMMUNITY_TD}>
                 <CommunityTimeCell iso={r.published_at ?? r.created_at} />

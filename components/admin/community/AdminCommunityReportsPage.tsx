@@ -181,7 +181,7 @@ export function AdminCommunityReportsPage({
         }
         filters={
           <>
-            <CommunityFilterField label="검색">
+            <CommunityFilterField label="검색어">
               <CommunitySearchInput
                 value={filters.q}
                 onCommit={(v) => qs.set({ q: v })}
@@ -265,7 +265,7 @@ export function AdminCommunityReportsPage({
                   key={g.key}
                   onClick={open}
                   className={`cursor-pointer border-b border-sam-border-soft hover:bg-sam-app ${
-                    openId === g.primary_report_id ? "bg-amber-50" : ""
+                    openId === g.primary_report_id ? "bg-sam-warning-soft" : ""
                   }`}
                 >
                   <td className={COMMUNITY_TD}>
@@ -277,7 +277,7 @@ export function AdminCommunityReportsPage({
                           <Link
                             href={communityDetailHref(t.moderation_href, qs.selfHref)}
                             onClick={(e) => e.stopPropagation()}
-                            className="shrink-0 sam-text-xxs text-sky-800 hover:underline"
+                            className="shrink-0 sam-text-xxs text-sam-info hover:underline"
                           >
                             {t.target_type === "user" ? "회원 보기" : "원문 관리"}
                           </Link>
@@ -287,7 +287,7 @@ export function AdminCommunityReportsPage({
                         <span className="truncate sam-text-xxs text-sam-muted">글: {t.post_title}</span>
                       ) : null}
                       {t.target_found === false ? (
-                        <span className="sam-text-xxs text-red-800">영구 삭제된 대상</span>
+                        <span className="sam-text-xxs text-sam-danger">영구 삭제된 대상</span>
                       ) : t.target_status && t.target_status !== "active" ? (
                         <span>
                           <CommunityStatusBadge domain="content_status" value={t.target_status} ko={ko} />
@@ -350,7 +350,7 @@ export function AdminCommunityReportsPage({
             <div className="flex justify-end">
               <Link
                 href={communityDetailHref(`/admin/reports/${encodeURIComponent(openId)}`, qs.selfHref)}
-                className="text-[13px] font-medium text-sky-800 hover:underline"
+                className="text-[13px] font-medium text-sam-info hover:underline"
               >
                 전체 화면으로 보기
               </Link>
@@ -368,9 +368,9 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2 py-1 text-sam-fg">
       {label}
-      <button type="button" onClick={onClear} aria-label={`${label} 해제`} className="font-semibold text-sam-muted">
+      <AdminActionButton variant="quiet" size="sm" onClick={onClear} aria-label={`${label} 해제`} className="h-auto! px-1!">
         ×
-      </button>
+      </AdminActionButton>
     </span>
   );
 }

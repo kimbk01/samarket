@@ -4,6 +4,7 @@
  * 운영 기록 (설계 §C-20 · §E-7) — 커뮤니티 대상 관리자 조치: 누가 · 언제 · 무엇 · 대상 · 사유 · 전후 비교.
  * URL: targetType · targetId · actor · action · period/from/to · page
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import {
@@ -56,7 +57,7 @@ function display(v: unknown): string {
     if (/^\d{4}-\d{2}-\d{2}T/.test(v)) return `${formatAdminManilaDateTime(v)} PHT`;
     return v.length > 120 ? `${v.slice(0, 120)}…` : v;
   }
-  if (typeof v === "number") return v.toLocaleString();
+  if (typeof v === "number") return formatAdminNumber(v);
   return "(자세한 값은 기술 정보)";
 }
 
@@ -145,9 +146,9 @@ export function AdminCommunityAuditPage() {
             <CommunityFilterField label="처리자">
               <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {actorName || "선택한 관리자"}
-                <button type="button" className="text-sam-muted underline" onClick={() => q.set({ actor: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.set({ actor: null })}>
                   해제
-                </button>
+                </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
@@ -155,9 +156,9 @@ export function AdminCommunityAuditPage() {
             <CommunityFilterField label="대상">
               <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 한 대상의 기록만
-                <button type="button" className="text-sam-muted underline" onClick={() => q.set({ targetId: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.set({ targetId: null })}>
                   해제
-                </button>
+                </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
@@ -191,21 +192,22 @@ export function AdminCommunityAuditPage() {
                   </td>
                   <td className={COMMUNITY_TD}>
                     {r.actorId && !actor ? (
-                      <button
-                        type="button"
-                        className="text-left font-medium text-sky-800 hover:underline"
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto! justify-start! px-0! text-left"
                         title="이 관리자의 기록만 보기"
                         onClick={() => q.set({ actor: r.actorId })}
                       >
                         {r.actorNickname || "관리자"}
-                      </button>
+                      </AdminActionButton>
                     ) : (
                       r.actorNickname || "관리자"
                     )}
                   </td>
                   <td className={COMMUNITY_TD}>
                     {href ? (
-                      <Link href={communityDetailHref(href, q.selfHref)} className="font-medium text-sky-800 hover:underline">
+                      <Link href={communityDetailHref(href, q.selfHref)} className="font-medium text-sam-info hover:underline">
                         {communityAuditTargetLabel(r.targetType)}
                       </Link>
                     ) : (

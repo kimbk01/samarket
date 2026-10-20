@@ -4,6 +4,7 @@
  * 운영 통계 (설계 §C-21 · §D-4) — 선택 기간(필리핀 시간) 지표 + 일별 추이 + 카테고리별 활동 + CSV 내려받기.
  * URL: period=today|7d|30d|custom (+from,to) — 기본 최근 7일.
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { type ReactNode } from "react";
 import {
   COMMUNITY_TD,
@@ -30,14 +31,14 @@ type StatsResponse = {
 };
 
 function v(n: number | null | undefined): ReactNode {
-  return typeof n === "number" && Number.isFinite(n) ? n.toLocaleString() : <AdminUnavailableChip ko />;
+  return typeof n === "number" && Number.isFinite(n) ? formatAdminNumber(n) : <AdminUnavailableChip ko />;
 }
 
 function Tile({ label, value, sub }: { label: string; value: number | null | undefined; sub?: string }) {
   return (
     <div className="flex flex-col gap-1 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
       <span className="text-[13px] font-medium text-sam-muted">{label}</span>
-      <span className="text-[22px] font-bold leading-7 text-sam-fg">{v(value)}</span>
+      <span className="text-[20px] font-bold leading-7 text-sam-fg">{v(value)}</span>
       {sub ? <span className="text-[12px] text-sam-muted">{sub}</span> : null}
     </div>
   );
@@ -46,13 +47,13 @@ function Tile({ label, value, sub }: { label: string; value: number | null | und
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-2">
-      <h2 className="text-[15px] font-semibold text-sam-fg">{title}</h2>
+      <h2 className="text-[14px] font-semibold text-sam-fg">{title}</h2>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
     </section>
   );
 }
 
-const n = (x: number | null | undefined) => (typeof x === "number" ? x.toLocaleString() : "확인 불가");
+const n = (x: number | null | undefined) => (typeof x === "number" ? formatAdminNumber(x) : "확인 불가");
 
 export function AdminCommunityStatsPage() {
   const q = useCommunityQueryState();
@@ -167,7 +168,7 @@ export function AdminCommunityStatsPage() {
             </Group>
 
             <section className="space-y-2">
-              <h2 className="text-[15px] font-semibold text-sam-fg">일별 추이</h2>
+              <h2 className="text-[14px] font-semibold text-sam-fg">일별 추이</h2>
               {(s.daily ?? []).length === 0 ? (
                 <AdminEmptyState ko message="일별 기록이 없습니다." />
               ) : (
@@ -194,7 +195,7 @@ export function AdminCommunityStatsPage() {
 
             <div className="grid gap-4 lg:grid-cols-2">
               <section className="space-y-2">
-                <h2 className="text-[15px] font-semibold text-sam-fg">카테고리별 활동</h2>
+                <h2 className="text-[14px] font-semibold text-sam-fg">카테고리별 활동</h2>
                 {(s.topics ?? []).length === 0 ? (
                   <AdminEmptyState ko message="이 기간의 카테고리 활동이 없습니다." />
                 ) : (
@@ -212,7 +213,7 @@ export function AdminCommunityStatsPage() {
                 )}
               </section>
               <section className="space-y-2">
-                <h2 className="text-[15px] font-semibold text-sam-fg">포인트</h2>
+                <h2 className="text-[14px] font-semibold text-sam-fg">포인트</h2>
                 {(s.points ?? []).length === 0 ? (
                   <AdminEmptyState ko message="이 기간의 커뮤니티 포인트 내역이 없습니다." />
                 ) : (
@@ -233,7 +234,7 @@ export function AdminCommunityStatsPage() {
 
             {byAction && byAction.size > 0 ? (
               <section className="space-y-2">
-                <h2 className="text-[15px] font-semibold text-sam-fg">조치 유형별</h2>
+                <h2 className="text-[14px] font-semibold text-sam-fg">조치 유형별</h2>
                 <div className="rounded-ui-rect border border-sam-border">
                   <CommunityTable head={["조치", "건수"]}>
                     {[...byAction.entries()]
@@ -241,7 +242,7 @@ export function AdminCommunityStatsPage() {
                       .map(([label, count]) => (
                         <tr key={label} className="border-b border-sam-border-soft">
                           <td className={COMMUNITY_TD}>{label}</td>
-                          <td className={COMMUNITY_TD}>{count.toLocaleString()}</td>
+                          <td className={COMMUNITY_TD}>{formatAdminNumber(count)}</td>
                         </tr>
                       ))}
                   </CommunityTable>

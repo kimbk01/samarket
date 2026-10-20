@@ -323,7 +323,7 @@ export function CommunityReportDecisionPanel({
               ) : (
                 <span className="flex flex-col gap-1">
                   {row.moderation_href ? (
-                    <Link href={row.moderation_href} className="font-medium text-sky-800 hover:underline">
+                    <Link href={row.moderation_href} className="font-medium text-sam-info hover:underline">
                       {displayTarget === "post"
                         ? row.post_title?.trim() || tr("admin_posts_no_title")
                         : communityPlainExcerpt(row.target_content_preview, 60) || "내용 없음"}
@@ -364,7 +364,7 @@ export function CommunityReportDecisionPanel({
                     label: "대상 상태",
                     value:
                       row.target_found === false ? (
-                        <span className="text-red-800">찾을 수 없음 (영구 삭제됨)</span>
+                        <span className="text-sam-danger">찾을 수 없음 (영구 삭제됨)</span>
                       ) : (
                         <CommunityStatusBadge domain="content_status" value={row.target_status} ko={ko} />
                       ),
@@ -376,7 +376,7 @@ export function CommunityReportDecisionPanel({
         />
         <div className="flex flex-wrap gap-3 text-[13px]">
           {row.moderation_href ? (
-            <Link href={row.moderation_href} className="text-sky-800 hover:underline">
+            <Link href={row.moderation_href} className="text-sam-info hover:underline">
               {isUserTarget ? "작성자 조회" : tr("admin_community_report_moderate_target")}
             </Link>
           ) : null}
@@ -385,7 +385,7 @@ export function CommunityReportDecisionPanel({
               href={`/philife/${encodeURIComponent(postId)}`}
               target="_blank"
               rel="noreferrer"
-              className="text-sky-800 hover:underline"
+              className="text-sam-info hover:underline"
             >
               {tr("admin_community_view_on_site")}
             </Link>
@@ -393,7 +393,7 @@ export function CommunityReportDecisionPanel({
           {authorId ? (
             <Link
               href={`/admin/community/reports?status=all&authorId=${encodeURIComponent(authorId)}`}
-              className="text-sky-800 hover:underline"
+              className="text-sam-info hover:underline"
             >
               이 작성자가 받은 신고
             </Link>
@@ -663,7 +663,7 @@ export function CommunityReportDecisionPanel({
               <p className="text-[12px] text-sam-muted">
                 계정 전체 정지가 필요하면{" "}
                 {canUsers ? (
-                  <Link href={`/admin/users/${encodeURIComponent(authorId)}`} className="text-sky-800 underline">
+                  <Link href={`/admin/users/${encodeURIComponent(authorId)}`} className="text-sam-info underline">
                     계정 정지로 이동
                   </Link>
                 ) : (

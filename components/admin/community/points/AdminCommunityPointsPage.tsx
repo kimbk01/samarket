@@ -5,6 +5,7 @@
  * 「포인트 지급/회수」 = 공통 지급 패널(L3, 확인 화면을 열 때 멱등 키 1회 생성)을 시트로 연다.
  * URL: type · userId · period/from/to · page
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -114,13 +115,11 @@ export function AdminCommunityPointsPage() {
           <div className="space-y-1">
             <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg">
               {sums
-                ? `조건 합계: ${sums.count.toLocaleString()}건 · 들어온 포인트 +${sums.amountIn.toLocaleString()} P · 나간 포인트 -${Math.abs(
-                    sums.amountOut
-                  ).toLocaleString()} P`
+                ? `조건 합계: ${formatAdminNumber(sums.count)}건 · 들어온 포인트 +${formatAdminNumber(sums.amountIn)} P · 나간 포인트 -${formatAdminNumber(Math.abs(sums.amountOut))} P`
                 : "조건 합계: 확인 불가"}
             </p>
             {state.data.promoOrderIdCapped ? (
-              <p className="text-[12px] text-amber-800">오래된 홍보 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
+              <p className="text-[12px] text-sam-warning">오래된 홍보 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
             ) : null}
           </div>
         ) : null
@@ -140,9 +139,9 @@ export function AdminCommunityPointsPage() {
             <CommunityFilterField label="회원">
               <span className="flex items-center gap-2 text-[13px] text-sam-fg">
                 {memberName || "선택한 회원"}
-                <button type="button" className="text-sam-muted underline" onClick={() => q.set({ userId: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.set({ userId: null })}>
                   회원 필터 해제
-                </button>
+                </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
@@ -177,18 +176,19 @@ export function AdminCommunityPointsPage() {
                     <span className="flex flex-col">
                       <Link
                         href={communityDetailHref(`/admin/community/members/${encodeURIComponent(r.userId)}`, q.selfHref)}
-                        className="font-medium text-sky-800 hover:underline"
+                        className="font-medium text-sam-info hover:underline"
                       >
                         {r.userNickname?.trim() || "이름 없음"}
                       </Link>
                       {!userId ? (
-                        <button
-                          type="button"
-                          className="text-left sam-text-xxs text-sam-muted underline"
+                        <AdminActionButton
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto! justify-start! px-0! text-left"
                           onClick={() => q.set({ userId: r.userId })}
                         >
                           이 회원만 보기
-                        </button>
+                        </AdminActionButton>
                       ) : null}
                     </span>
                   ) : (
@@ -196,9 +196,9 @@ export function AdminCommunityPointsPage() {
                   )}
                 </td>
                 <td className={COMMUNITY_TD}>{communityPointTypeLabel(r.relatedType, r.entryType)}</td>
-                <td className={`${COMMUNITY_TD} whitespace-nowrap font-semibold ${amt < 0 ? "text-red-700" : "text-emerald-800"}`}>
+                <td className={`${COMMUNITY_TD} whitespace-nowrap font-semibold ${amt < 0 ? "text-sam-danger" : "text-sam-success"}`}>
                   {amt > 0 ? "+" : ""}
-                  {amt.toLocaleString()} P
+                  {formatAdminNumber(amt)} P
                 </td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{formatCommunityPoints(r.balanceAfter)}</td>
                 <td className={`${COMMUNITY_TD} max-w-[22rem]`}>

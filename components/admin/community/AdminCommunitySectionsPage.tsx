@@ -37,7 +37,7 @@ function sectionErrorText(code: unknown): string {
     case "forbidden_permission":
       return "이 작업을 할 권한이 없습니다.";
     default:
-      return "저장하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+      return "저장하지 못했습니다. 잠시 후 다시 저장해 주세요.";
   }
 }
 
@@ -83,7 +83,7 @@ export function AdminCommunitySectionsPage({
     try {
       if (await fn()) await refresh();
     } catch {
-      setBanner({ ok: false, code: "네트워크 오류가 발생했습니다. 다시 시도해 주세요." });
+      setBanner({ ok: false, code: "네트워크 오류가 발생했습니다. 잠시 후 새로고침해 주세요." });
     } finally {
       setBusy(false);
     }
@@ -222,7 +222,7 @@ export function AdminCommunitySectionsPage({
       <AdminCard title="앱 동네 피드에 쓸 섹션">
         <p className="mb-3 text-[13px] text-sam-muted">
           앱 동네 피드의 카테고리 칩·글쓰기 카테고리·모임 만들기는 여기서 고른 섹션의{" "}
-          <Link href="/admin/community/topics" className="font-medium text-sky-800 hover:underline">
+          <Link href="/admin/community/topics" className="font-medium text-sam-info hover:underline">
             카테고리
           </Link>
           를 씁니다.
@@ -296,7 +296,7 @@ export function AdminCommunitySectionsPage({
               <tbody>
                 {sections.map((s) =>
                   edit?.id === s.id ? (
-                    <tr key={s.id} className="border-b border-sam-border-soft bg-amber-50/40">
+                    <tr key={s.id} className="border-b border-sam-border-soft bg-sam-warning-soft/40">
                       <td className="py-2 pr-2">
                         <input className={`${INPUT} w-full`} value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
                       </td>
@@ -340,7 +340,7 @@ export function AdminCommunitySectionsPage({
                           </AdminActionButton>
                           <AdminActionButton
                             variant="secondary"
-                            className={s.is_active ? "border-amber-400 text-amber-900" : undefined}
+                            className={s.is_active ? "border-sam-warning text-sam-warning" : undefined}
                             disabled={busy}
                             onClick={() => toggleActive(s)}
                           >
@@ -359,10 +359,10 @@ export function AdminCommunitySectionsPage({
           </div>
         )}
         <p className="mt-4 flex flex-wrap gap-3 text-[13px]">
-          <Link href="/admin/community/topics" className="font-medium text-sky-800 hover:underline">
+          <Link href="/admin/community/topics" className="font-medium text-sam-info hover:underline">
             카테고리 관리 →
           </Link>
-          <Link href="/admin/community/settings" className="font-medium text-sky-800 hover:underline">
+          <Link href="/admin/community/settings" className="font-medium text-sam-info hover:underline">
             운영 설정 →
           </Link>
         </p>

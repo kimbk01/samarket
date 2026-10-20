@@ -5,6 +5,7 @@
  * Frequency taxonomy / raw owner keys / duplicate queues must not surface as primary UI.
  */
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminDomainDashboardModel } from "@/lib/admin/domain-dashboard/types";
@@ -29,9 +30,9 @@ function MetricGrid({
         const body = (
           <>
             <p className="sam-text-helper text-sam-muted">{ko ? m.labelKo : m.labelEn}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-sam-fg">
+            <p className="mt-1 text-[20px] font-semibold tabular-nums text-sam-fg">
               {m.value == null ? (
-                <span className="text-sm font-bold text-amber-800">{unavailableLabel}</span>
+                <span className="text-sm font-bold text-sam-warning">{unavailableLabel}</span>
               ) : (
                 m.value
               )}
@@ -94,7 +95,7 @@ function ActionGrid({
         const body = (
           <>
           <div>
-            <p className="mt-1 text-[15px] font-semibold text-sam-fg">{ko ? a.labelKo : a.labelEn}</p>
+            <p className="mt-1 text-[14px] font-semibold text-sam-fg">{ko ? a.labelKo : a.labelEn}</p>
           </div>
           <div className="mt-3 flex items-center justify-between gap-2">
             {a.href ? (
@@ -103,11 +104,11 @@ function ActionGrid({
               <span className="text-[13px] text-sam-muted">{ko ? "목록 준비 중" : "List coming soon"}</span>
             )}
             {a.count == null ? (
-              <span className="rounded-ui-rect border border-amber-600 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+              <span className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-2 py-0.5 text-[12px] font-bold text-sam-warning">
                 {unavailableLabel}
               </span>
             ) : (
-              <span className="rounded-full bg-sam-primary px-2 py-0.5 text-[11px] font-bold text-white tabular-nums">
+              <span className="rounded-full bg-sam-primary px-2 py-0.5 text-[12px] font-bold text-white tabular-nums">
                 {a.count}
               </span>
             )}
@@ -202,7 +203,7 @@ export function AdminDomainDashboardShell({
 
       {model.sectionErrors.length > 0 ? (
         <div
-          className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+          className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-warning"
           data-admin-domain-section-errors="1"
         >
           {ko ? "일부 정보를 불러오지 못했습니다." : "Some sources unavailable"}
@@ -316,7 +317,7 @@ export function AdminDomainDashboardShell({
                       </td>
                       <td className="truncate px-3 py-2 text-sam-muted">{meta}</td>
                       <td className="px-3 py-2 sam-text-xxs text-sam-muted">
-                        {r.at ? new Date(r.at).toLocaleString() : "—"}
+                        {r.at ? formatAdminManilaDateTime(r.at) : "—"}
                       </td>
                     </tr>
                   );

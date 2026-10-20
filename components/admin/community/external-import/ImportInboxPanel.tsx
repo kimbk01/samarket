@@ -253,7 +253,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
         <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs col-span-2 sm:col-span-1" placeholder="제목 검색" value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} />
       </div>
 
-      <div className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-sam-muted border-b border-sam-border shrink-0">
+      <div className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-sam-muted border-b border-sam-border shrink-0">
         <label className="flex items-center gap-1">
           <input type="checkbox" checked={allOnPage} onChange={togglePage} /> 이 페이지 선택
         </label>
@@ -274,7 +274,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
-        {error ? <p className="p-3 text-xs text-rose-600 break-words">{error}</p> : null}
+        {error ? <p className="p-3 text-xs text-sam-danger break-words">{error}</p> : null}
         {loading && !rows.length ? <p className="p-3 text-xs text-sam-muted">불러오는 중…</p> : null}
         {!loading && !rows.length && !error ? (
           <p className="p-4 text-xs text-sam-muted">수집된 글이 없습니다. 「출처·게시판」에서 게시판의 「지금 수집」을 누르거나 자동수집을 켜세요.</p>
@@ -287,16 +287,16 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
             return (
               <li key={k} className={`flex gap-2 px-2 py-2 border-b border-sam-border ${active ? "bg-sam-app" : ""}`}>
                 <input type="checkbox" className="mt-1 shrink-0" checked={selected.has(k)} onChange={() => toggle(r)} aria-label="선택" />
-                <button type="button" className="flex gap-2 text-left min-w-0 flex-1" onClick={() => onOpen(r)}>
+                <AdminActionButton variant="quiet" size="sm" className="h-auto! justify-start! items-start! whitespace-normal! font-normal! px-0! gap-2 text-left min-w-0 flex-1 text-sam-fg" onClick={() => onOpen(r)}>
                   {r.thumbnailUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={r.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-16 h-12 object-cover rounded-ui-rect bg-sam-app shrink-0" />
                   ) : (
-                    <div className="w-16 h-12 rounded-ui-rect bg-sam-app shrink-0 flex items-center justify-center text-[10px] text-sam-muted">썸네일 없음</div>
+                    <div className="w-16 h-12 rounded-ui-rect bg-sam-app shrink-0 flex items-center justify-center text-[12px] text-sam-muted">썸네일 없음</div>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-medium text-sam-fg line-clamp-2 break-words">{r.title || "(제목 없음)"}</div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-sam-muted">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[12px] text-sam-muted">
                       <span className="rounded-full border border-sam-border px-1.5">{STATUS_LABEL[r.status] ?? r.status}</span>
                       {r.quality ? <VerdictBadge v={r.quality} /> : null}
                       <span className="truncate">
@@ -305,7 +305,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
                       <span>{fmtDate(r.sourcePublishedAt) || fmtDate(r.firstSeenAt)}</span>
                     </div>
                   </div>
-                </button>
+                </AdminActionButton>
               </li>
             );
           })}
@@ -364,24 +364,24 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
                   <option value="now">게시: 지금 바로</option>
                   <option value="spread">게시: 예약·분산 (간격마다 1건)</option>
                 </select>
-                <label className="flex items-center gap-1 text-[11px] text-sam-muted">
+                <label className="flex items-center gap-1 text-[12px] text-sam-muted">
                   <input type="checkbox" checked={shuffle} onChange={(e) => setShuffle(e.target.checked)} />
                   랜덤 순서 (같은 출처 연속 방지)
                 </label>
                 {scheduleMode === "spread" ? (
                   <>
-                    <label className="block text-[11px] text-sam-muted">
+                    <label className="block text-[12px] text-sam-muted">
                       시작
                       <input type="datetime-local" className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
                     </label>
-                    <label className="block text-[11px] text-sam-muted">
+                    <label className="block text-[12px] text-sam-muted">
                       간격(분, 5~1440)
                       <input type="number" min={5} max={1440} step={5} className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs" value={intervalMin} onChange={(e) => setIntervalMin(Math.max(5, Math.min(1440, Number(e.target.value) || 60)))} />
                     </label>
                   </>
                 ) : null}
               </div>
-              <label className="flex items-center gap-1 text-[11px] text-sam-muted">
+              <label className="flex items-center gap-1 text-[12px] text-sam-muted">
                 <input type="checkbox" checked={acceptPartial} onChange={(e) => setAcceptPartial(e.target.checked)} />
                 품질 「일부 수집」도 게시 허용 (「수집 실패」는 항상 제외)
               </label>
@@ -411,16 +411,16 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
             </>
           ) : null}
           {job ? (
-            <div className="text-[11px] text-sam-muted space-y-1">
+            <div className="text-[12px] text-sam-muted space-y-1">
               <div>
                 작업 {job.kind}: {job.status} · 성공 {job.done} · 실패 {job.failed} · 건너뜀(중복·이미 게시) {job.skipped} / {job.total}
                 {job.nextDueAt ? <span className="block">예약됨 — 다음 게시 {fmtDate(job.nextDueAt)} (서버가 자동으로 이어서 게시)</span> : null}
               </div>
-              {job.lastError ? <span className="block text-rose-600 break-words">마지막 오류: {job.lastError}</span> : null}
+              {job.lastError ? <span className="block text-sam-danger break-words">마지막 오류: {job.lastError}</span> : null}
               <div className="flex flex-wrap gap-1">
                 {job.failed > 0 ? (
                   <AdminActionButton variant="secondary" disabled={jobBusy} onClick={() => void jobAction("retry_failed")}>
-                    실패만 재시도 ({job.failed})
+                    실패만 다시 실행 ({job.failed})
                   </AdminActionButton>
                 ) : null}
                 {job.status === "running" || job.status === "queued" ? (

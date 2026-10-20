@@ -217,9 +217,9 @@ export function AdminCommunityRestrictionsPage() {
           {userId ? (
             <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
               특정 회원만 보기
-              <button type="button" aria-label="특정 회원 해제" onClick={() => qs.set({ userId: null })} className="font-semibold text-sam-muted">
+              <AdminActionButton variant="quiet" size="sm" aria-label="특정 회원 해제" onClick={() => qs.set({ userId: null })} className="h-auto! px-1!">
                 ×
-              </button>
+              </AdminActionButton>
             </span>
           ) : null}
           <CommunityResetFilters onReset={() => qs.reset(["tab"])} />
@@ -243,7 +243,7 @@ export function AdminCommunityRestrictionsPage() {
             <tr
               key={r.id}
               data-sanction-row={r.id}
-              className={`border-b border-sam-border-soft ${sanctionId === r.id ? "bg-amber-50" : ""}`}
+              className={`border-b border-sam-border-soft ${sanctionId === r.id ? "bg-sam-warning-soft" : ""}`}
             >
               <td className={COMMUNITY_TD}>
                 <CommunityAuthorCell userId={r.user_id} nickname={r.user_nickname} handle={r.user_dibay_id} />
@@ -277,7 +277,7 @@ export function AdminCommunityRestrictionsPage() {
               </td>
               <td className={COMMUNITY_TD}>
                 {r.source_report_href ? (
-                  <Link href={communityDetailHref(r.source_report_href, qs.selfHref)} className="text-sky-800 hover:underline">
+                  <Link href={communityDetailHref(r.source_report_href, qs.selfHref)} className="text-sam-info hover:underline">
                     {r.source_report_kind === "meeting_report" ? "모임 신고 보기" : "신고 보기"}
                   </Link>
                 ) : (
@@ -487,9 +487,9 @@ function AddRestrictionSheet({
         {member ? (
           <div className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px]">
             <CommunityAuthorCell userId={member.id} nickname={member.nickname} handle={member.handle} />
-            <button type="button" className="text-[12px] text-sam-muted underline" onClick={() => setMember(null)}>
+            <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => setMember(null)}>
               다른 회원 선택
-            </button>
+            </AdminActionButton>
           </div>
         ) : (
           <>
@@ -519,14 +519,15 @@ function AddRestrictionSheet({
                 <ul className="max-h-48 space-y-1 overflow-y-auto">
                   {results.map((m) => (
                     <li key={m.id}>
-                      <button
-                        type="button"
+                      <AdminActionButton
+                        variant="secondary"
+                        size="sm"
                         onClick={() => setMember(m)}
-                        className="w-full rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-1.5 text-left text-[13px] hover:bg-sam-app"
+                        className="w-full justify-start! font-normal! text-left"
                       >
                         {m.nickname?.trim() || "이름 없음"}
                         {m.handle ? <span className="ml-2 sam-text-xxs text-sam-muted">@{m.handle}</span> : null}
-                      </button>
+                      </AdminActionButton>
                     </li>
                   ))}
                 </ul>
@@ -534,7 +535,7 @@ function AddRestrictionSheet({
             ) : null}
           </>
         )}
-        {memberErr ? <p className="text-[12px] text-red-800">{memberErr}</p> : null}
+        {memberErr ? <p className="text-[12px] text-sam-danger">{memberErr}</p> : null}
       </div>
       <fieldset className="space-y-1">
         <legend className="text-[12px] font-semibold text-sam-fg">종류</legend>

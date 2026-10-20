@@ -31,7 +31,7 @@ function topicErrorText(code: unknown, known: { duplicate: string; hasPosts: str
   if (c === "invalid_slug") return "카테고리 이름으로 주소용 이름을 만들 수 없습니다. 영문 이름을 함께 입력해 주세요.";
   if (c === "not_found") return "카테고리를 찾을 수 없습니다. 새로고침 후 다시 확인하세요.";
   if (c === "forbidden" || c === "forbidden_permission") return "이 작업을 할 권한이 없습니다.";
-  return "저장하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+  return "저장하지 못했습니다. 잠시 후 다시 저장해 주세요.";
 }
 
 const ADMIN_TOPIC_SKIN_I18N: Record<CommunityFeedListSkin, `admin_topics_skin_${CommunityFeedListSkin}`> = {
@@ -348,7 +348,7 @@ export function AdminCommunityTopicsPage({
         titleClassName="sam-text-section-title text-sam-fg"
       >
         {sections.length === 0 ? (
-          <p className="mb-3 sam-text-body-secondary text-amber-800">
+          <p className="mb-3 sam-text-body-secondary text-sam-warning">
             {tr("admin_topics_no_sections_before")}
             <a
               href="/admin/community/sections"
@@ -413,13 +413,9 @@ export function AdminCommunityTopicsPage({
               <input type="checkbox" checked={isVisible} onChange={(e) => setIsVisible(e.target.checked)} />
               {tr("admin_topics_checkbox_display")}
             </label>
-            <button
-              type="submit"
-              disabled={busy || sections.length === 0}
-              className="self-end rounded-ui-rect bg-sam-ink px-3.5 py-2 text-white transition-opacity sam-text-body-secondary font-medium enabled:hover:opacity-95 disabled:opacity-50"
-            >
+            <AdminActionButton type="submit" variant="primary" disabled={busy || sections.length === 0} className="self-end">
               {tr("admin_topics_btn_add")}
-            </button>
+            </AdminActionButton>
           </div>
         </form>
       </AdminCard>
@@ -458,7 +454,7 @@ export function AdminCommunityTopicsPage({
                   const commentsHref = `/admin/community/comments?topicSlug=${encodeURIComponent(slugKey)}`;
                   const reportsHref = `/admin/community/reports?topicSlug=${encodeURIComponent(slugKey)}`;
                   return edit?.id === topic.id ? (
-                    <tr key={topic.id} className="border-b border-sam-border-soft bg-amber-50/40 align-top">
+                    <tr key={topic.id} className="border-b border-sam-border-soft bg-sam-warning-soft/40 align-top">
                       <td className="py-2.5 pr-2">
                         <input
                           type="number"
@@ -517,17 +513,12 @@ export function AdminCommunityTopicsPage({
                         />
                       </td>
                       <td className="py-2.5">
-                        <button
-                          type="button"
-                          disabled={busy}
-                          className="mr-2 text-sam-primary hover:text-sam-primary-hover hover:underline disabled:opacity-50"
-                          onClick={saveEdit}
-                        >
+                        <AdminActionButton variant="ghost" size="sm" disabled={busy} className="mr-2" onClick={saveEdit}>
                           {tr("common_save")}
-                        </button>
-                        <button type="button" className="text-sam-muted hover:underline" onClick={() => setEdit(null)}>
+                        </AdminActionButton>
+                        <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => setEdit(null)}>
                           {tr("admin_topics_btn_cancel")}
-                        </button>
+                        </AdminActionButton>
                       </td>
                     </tr>
                   ) : (
@@ -535,24 +526,24 @@ export function AdminCommunityTopicsPage({
                       <td className="py-2.5 pr-2">
                         <div className="flex items-center gap-1">
                           <span className="tabular-nums">{topic.sort_order}</span>
-                          <button
-                            type="button"
+                          <AdminActionButton
+                            variant="quiet"
+                            size="sm"
                             disabled={busy || topicIndex === 0}
-                            className="rounded px-1 text-sam-muted hover:bg-sam-app disabled:opacity-30"
                             aria-label={tr("admin_community_sort_up")}
                             onClick={() => void moveSort(topic, -1)}
                           >
                             {tr("admin_community_sort_up")}
-                          </button>
-                          <button
-                            type="button"
+                          </AdminActionButton>
+                          <AdminActionButton
+                            variant="quiet"
+                            size="sm"
                             disabled={busy || topicIndex >= contentTopics.length - 1}
-                            className="rounded px-1 text-sam-muted hover:bg-sam-app disabled:opacity-30"
                             aria-label={tr("admin_community_sort_down")}
                             onClick={() => void moveSort(topic, 1)}
                           >
                             {tr("admin_community_sort_down")}
-                          </button>
+                          </AdminActionButton>
                         </div>
                       </td>
                       <td className="py-2.5 pr-2 text-sam-fg">
@@ -605,7 +596,7 @@ export function AdminCommunityTopicsPage({
                           </AdminActionButton>
                           <AdminActionButton
                             variant="secondary"
-                            className={topic.is_active ? "border-amber-400 text-amber-900" : undefined}
+                            className={topic.is_active ? "border-sam-warning text-sam-warning" : undefined}
                             disabled={busy}
                             onClick={() => void toggleActive(topic)}
                           >

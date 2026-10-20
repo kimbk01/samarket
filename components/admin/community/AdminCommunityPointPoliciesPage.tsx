@@ -17,7 +17,8 @@ import type { BoardPointPolicy } from "@/lib/types/point-policy";
 import { ARO_IA_001_FINANCE_POINT_POLICIES_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
-import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 type TabId = "global" | "boards";
 
@@ -182,18 +183,9 @@ export function AdminCommunityPointPoliciesPage() {
 
       <div className="flex flex-wrap gap-2">
         {tabs.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={`rounded-ui-rect border px-3 py-1.5 sam-text-body ${
-              tab === item.id
-                ? "border-sam-primary bg-sam-primary/10 text-sam-primary"
-                : "border-sam-border text-sam-muted"
-            }`}
-            onClick={() => setTab(item.id)}
-          >
+          <AdminChipButton key={item.id} selected={tab === item.id} onClick={() => setTab(item.id)}>
             {item.label}
-          </button>
+          </AdminChipButton>
         ))}
       </div>
 
@@ -304,13 +296,9 @@ export function AdminCommunityPointPoliciesPage() {
                           : "—"}
                       </td>
                       <td className="py-2">
-                        <button
-                          type="button"
-                          className="text-sam-primary hover:underline"
-                          onClick={() => setSelectedTopic(tp.slug)}
-                        >
+                        <AdminActionButton variant="ghost" size="sm" onClick={() => setSelectedTopic(tp.slug)}>
                           {t("admin_topics_btn_edit")}
-                        </button>
+                        </AdminActionButton>
                       </td>
                     </tr>
                   );
@@ -385,16 +373,12 @@ function TopicOverrideEditor(props: {
         />
       ) : (
         <div className="flex gap-2">
-          <button
-            type="button"
-            className="rounded-ui-rect border border-sam-primary px-3 py-1 text-sam-primary"
-            onClick={() => void props.onSave({ boardKey: props.slug }, true)}
-          >
+          <AdminActionButton variant="secondary" size="sm" onClick={() => void props.onSave({ boardKey: props.slug }, true)}>
             {t("admin_community_point_save_inherit")}
-          </button>
-          <button type="button" className="text-sam-muted hover:underline" onClick={props.onClose}>
+          </AdminActionButton>
+          <AdminActionButton variant="quiet" size="sm" onClick={props.onClose}>
             {t("admin_back_to_list")}
-          </button>
+          </AdminActionButton>
         </div>
       )}
     </div>

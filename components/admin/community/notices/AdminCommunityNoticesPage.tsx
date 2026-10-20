@@ -6,6 +6,7 @@
  * 「공지 작성」(L1 「공지 게시」) · 행 「수정」(L1 「수정 저장」) · 「공지 종료」(L1) · 「고정 해제」(L1).
  * 앱 전체 공지(app_notices)는 따로 — 링크로만 안내한다.
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -283,7 +284,7 @@ export function AdminCommunityNoticesPage() {
                   {String(n.title ?? "").trim() || "제목 없음"}
                 </Link>
                 <span className="text-[12px] text-sam-muted">
-                  조회 {Number(n.view_count ?? 0).toLocaleString()} · 댓글 {Number(n.comment_count ?? 0).toLocaleString()}
+                  조회 {formatAdminNumber(n.view_count ?? 0)} · 댓글 {formatAdminNumber(n.comment_count ?? 0)}
                 </span>
               </td>
               <td className={`${COMMUNITY_TD} whitespace-nowrap text-sam-muted`}>{topicNameOf(n.topic_slug)}</td>
@@ -318,7 +319,7 @@ export function AdminCommunityNoticesPage() {
                   {tab !== "ended" ? (
                     <AdminActionButton
                       variant="secondary"
-                      className="border-amber-400 text-amber-900"
+                      className="border-sam-warning text-sam-warning"
                       disabled={!canContent}
                       title={noPermTitle}
                       onClick={() => {
@@ -347,7 +348,7 @@ export function AdminCommunityNoticesPage() {
   const pinnedSection = (
     <section className="space-y-2" data-community-pinned-section="1">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-[15px] font-semibold text-sam-fg">고정된 글</h2>
+        <h2 className="text-[14px] font-semibold text-sam-fg">고정된 글</h2>
         <span className="flex flex-wrap gap-2 text-[12px]">
           <AdminToneBadge tone={feedLimit.count >= feedLimit.limit ? "warning" : "neutral"}>
             피드 전체 {feedLimit.count}/{feedLimit.limit}
@@ -528,7 +529,7 @@ export function AdminCommunityNoticesPage() {
                 <span className="sam-text-xxs text-sam-muted">비우면 「공지 종료」 전까지 계속</span>
               </label>
             </div>
-            {edWindowBad ? <p className="text-[12px] text-red-700">노출 종료는 시작보다 뒤여야 합니다.</p> : null}
+            {edWindowBad ? <p className="text-[12px] text-sam-danger">노출 종료는 시작보다 뒤여야 합니다.</p> : null}
             {ed.mode === "create" ? (
               <fieldset className="space-y-1 rounded-ui-rect border border-sam-border p-2">
                 <label className="flex items-center gap-2 font-semibold text-sam-fg">

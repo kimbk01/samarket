@@ -268,16 +268,16 @@ export function AdminChatReportQueuePage() {
         <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
           <span className="text-sam-muted">{t("admin_chat_reports_chip_target")}</span>
           <AdminTechId id={query.target} />
-          <button type="button" className="sam-text-helper text-sam-muted underline" onClick={() => navigate({ target: "" })}>
+          <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => navigate({ target: "" })}>
             {t("admin_chat_list_chip_clear")}
-          </button>
+          </AdminActionButton>
         </div>
       ) : null}
 
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
 
       {state.kind === "ready" && state.failedSources.length > 0 ? (
-        <div role="alert" className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-950">
+        <div role="alert" className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-warning">
           {t("admin_chat_reports_partial_failed", { sources: state.failedSources.map((src) => t(SOURCE_KEY[src])).join(", ") })}
         </div>
       ) : null}

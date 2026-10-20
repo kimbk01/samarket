@@ -68,7 +68,7 @@ export function AdminMessengerMonitoringPage() {
       <div
         role="note"
         data-admin-perf-scope="per-instance-sample"
-        className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950"
+        className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 text-sam-warning"
       >
         <p className="sam-text-body font-semibold">{t("admin_chat_perf_instance_notice_title")}</p>
         <p className="mt-1 sam-text-helper">{t("admin_chat_perf_instance_notice_body")}</p>
@@ -201,7 +201,7 @@ export function AdminMessengerMonitoringPage() {
         {loading ? (
           <p className="sam-text-body text-sam-muted">{t("admin_cm_common_loading")}</p>
         ) : error ? (
-          <p className="sam-text-body text-red-600">{error}</p>
+          <p className="sam-text-body text-sam-danger">{error}</p>
         ) : apiRows.length === 0 ? (
           <p className="sam-text-body text-sam-muted">{t("admin_cm_empty_api_records")}</p>
         ) : (

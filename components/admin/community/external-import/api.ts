@@ -1,5 +1,6 @@
 "use client";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { InboxKey, InboxRow, InboxStatus } from "@/lib/community-operator-import/inbox-store";
 import type { JobSummary } from "@/lib/community-operator-import/jobs";
 import type { PublishContent } from "@/lib/community-operator-import/publish-content";
@@ -72,13 +73,13 @@ export const POLICY_LABEL: Record<ContentPolicy, string> = {
 };
 
 export const VERDICT_TONE: Record<string, string> = {
-  FULL: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  VERIFIED: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  PARTIAL: "bg-amber-50 text-amber-700 border-amber-200",
+  FULL: "bg-sam-success-soft text-sam-success border-sam-success",
+  VERIFIED: "bg-sam-success-soft text-sam-success border-sam-success",
+  PARTIAL: "bg-sam-warning-soft text-sam-warning border-sam-warning",
   NOT_PROVEN: "bg-sam-app text-sam-muted border-sam-border",
-  BLOCKED: "bg-rose-50 text-rose-700 border-rose-200",
-  FAILED: "bg-rose-50 text-rose-700 border-rose-200",
-  REJECT: "bg-rose-50 text-rose-700 border-rose-200",
+  BLOCKED: "bg-sam-danger-soft text-sam-danger border-sam-danger",
+  FAILED: "bg-sam-danger-soft text-sam-danger border-sam-danger",
+  REJECT: "bg-sam-danger-soft text-sam-danger border-sam-danger",
 };
 
 /** 수집 품질 판정 → 한글 배지 */
@@ -106,15 +107,15 @@ export function importErrorText(e: unknown): string {
   if (/[가-힣]/.test(msg)) {
     return msg.replace(/\b(FULL|VERIFIED|PARTIAL|NOT_PROVEN|BLOCKED|FAILED|REJECT)\b/g, (m) => VERDICT_LABEL[m] ?? m);
   }
-  if (!msg || /^HTTP \d+/.test(msg)) return "서버에서 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+  if (!msg || /^HTTP \d+/.test(msg)) return "서버에서 처리하지 못했습니다. 잠시 후 다시 처리해 주세요.";
   const code = err.code && /^[a-z][a-z0-9_]*$/.test(err.code) ? err.code : msg;
   const out = adminOperatorErrorMessage(code, true);
-  return out === code ? "처리를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요." : out;
+  return out === code ? "처리를 완료하지 못했습니다. 잠시 후 다시 처리해 주세요." : out;
 }
 
 export function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "";
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return String(iso).slice(0, 16);
-  return new Date(t).toLocaleString("ko-KR", { timeZone: "Asia/Manila", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return formatAdminManilaDateTime(iso);
 }

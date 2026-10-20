@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useCommunityQueryState } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -97,29 +98,19 @@ function ExternalImportOperatorInner() {
           description="사이트 등록 → 실제 게시판 선택 → 수집함 → 원문 비교·편집 → 게시/업데이트. 자동 수집은 수집함까지만 하며 자동 게시하지 않습니다."
         />
       </div>
-      <div role="tablist" className="flex shrink-0 gap-1 border-b border-sam-border overflow-x-auto">
-        {(
-          [
-            ["inbox", "수집함"],
-            ["sources", "출처·게시판"],
-            ["rules", "일괄 변경 규칙"],
-          ] as const
-        ).map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={tab === k}
-            className={`shrink-0 px-4 py-2.5 text-sm -mb-px border-b-2 ${
-              tab === k ? "border-sam-primary text-sam-fg font-semibold" : "border-transparent text-sam-muted hover:text-sam-fg"
-            }`}
-            onClick={() => setTab(k)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {loadError ? <p role="alert" className="text-xs text-rose-600 break-words shrink-0">출처를 불러오지 못했습니다: {loadError}</p> : null}
+      <AdminTabs
+        className="shrink-0"
+        ariaLabel="외부 글 수집 화면"
+        tabs={[
+          { id: "inbox", label: "수집함" },
+          { id: "sources", label: "출처·게시판" },
+          { id: "rules", label: "일괄 변경 규칙" },
+        ]}
+        value={tab}
+        syncUrl={false}
+        onChange={(id) => setTab(id as Tab)}
+      />
+      {loadError ? <p role="alert" className="text-xs text-sam-danger break-words shrink-0">출처를 불러오지 못했습니다: {loadError}</p> : null}
 
       {tab === "inbox" ? (
         <div className="grid flex-1 min-h-0 gap-3 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">

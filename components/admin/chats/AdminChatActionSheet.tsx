@@ -184,7 +184,7 @@ export function AdminChatActionSheet({
         {step === 1 && !forbidden ? (
           <>
             {notice ? (
-              <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
+              <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-warning">
                 {notice}
               </div>
             ) : null}
@@ -200,7 +200,7 @@ export function AdminChatActionSheet({
                   placeholder={reason.placeholder}
                   className={`mt-1 w-full ${OverlayUi.input}`}
                 />
-                <span className={`mt-1 block sam-text-xxs ${reasonOk ? "text-sam-muted" : "text-red-700"}`}>
+                <span className={`mt-1 block sam-text-xxs ${reasonOk ? "text-sam-muted" : "text-sam-danger"}`}>
                   {t("admin_chat_sheet_reason_min", { min: reason.minLength, count: trimmed.length })}
                 </span>
               </label>
@@ -209,7 +209,7 @@ export function AdminChatActionSheet({
         ) : null}
         {step === 2 && retypeValue && !forbidden ? (
           <label className="block">
-            <span className="sam-text-helper font-medium text-red-800">
+            <span className="sam-text-helper font-medium text-sam-danger">
               {t("admin_chat_sheet_retype_label", { value: retypeValue })}
             </span>
             <input
@@ -221,7 +221,7 @@ export function AdminChatActionSheet({
           </label>
         ) : null}
         {errorText ? (
-          <p role="alert" className="rounded-ui-rect border border-red-300 bg-red-50 px-3 py-2 sam-text-helper text-red-900">
+          <p role="alert" className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-danger">
             {errorText}
           </p>
         ) : null}

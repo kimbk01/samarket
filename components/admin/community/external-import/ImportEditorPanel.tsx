@@ -17,7 +17,7 @@ export function Blocks({ blocks }: { blocks: OperatorContentBlock[] }) {
             <figure key={i}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={b.displaySrc || b.url} alt={b.alt || ""} referrerPolicy="no-referrer" loading="lazy" className="block max-h-72 w-auto max-w-full rounded-ui-rect border border-sam-border bg-sam-app" />
-              {b.caption ? <figcaption className="text-[11px] text-sam-muted">{b.caption}</figcaption> : null}
+              {b.caption ? <figcaption className="text-[12px] text-sam-muted">{b.caption}</figcaption> : null}
             </figure>
           );
         if (b.type === "table")
@@ -114,7 +114,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
   if (!data || !edit) {
     return (
       <div className="p-4 space-y-2">
-        <p className="text-xs text-rose-600 break-words">{msg?.text ?? "원문을 불러올 수 없습니다."}</p>
+        <p className="text-xs text-sam-danger break-words">{msg?.text ?? "원문을 불러올 수 없습니다."}</p>
         <a className="text-xs underline" href={row.canonicalUrl} target="_blank" rel="noreferrer noopener">
           원문 열기
         </a>
@@ -210,7 +210,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
         <span className="text-xs text-sam-muted truncate">
           {data.source.displayName} · {data.board.displayName}
         </span>
-        <span className="rounded-full border border-sam-border px-1.5 text-[10px]">{STATUS_LABEL[data.inbox?.status ?? "new"]}</span>
+        <span className="rounded-full border border-sam-border px-1.5 text-[12px]">{STATUS_LABEL[data.inbox?.status ?? "new"]}</span>
         {q ? <VerdictBadge v={q.verdict} /> : null}
         <span className="ml-auto flex gap-1">
           {(["compare", "source", "result"] as const).map((v) => (
@@ -222,7 +222,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       </div>
 
       {q && q.reasons.length ? (
-        <div className="shrink-0 px-3 py-1.5 text-[11px] bg-amber-50 text-amber-800 border-b border-amber-200">
+        <div className="shrink-0 px-3 py-1.5 text-[12px] bg-sam-warning-soft text-sam-warning border-b border-sam-warning">
           품질: {q.reasons.map((r) => data.qualityLabels[r] || r).join(" · ")}
           {ex ? ` (본문 추출: ${ex.bodySource}, 원본 이미지 ${ex.sourceImageCount})` : ""}
         </div>
@@ -262,9 +262,9 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       <div className={`flex-1 min-h-0 overflow-auto grid gap-3 p-3 ${view === "compare" ? "lg:grid-cols-2" : ""}`}>
         {view !== "result" ? (
           <section className="space-y-2 min-w-0">
-            <div className="text-[11px] font-semibold text-sam-muted">원문</div>
+            <div className="text-[12px] font-semibold text-sam-muted">원문</div>
             <h3 className="text-base font-semibold break-words">{a.title}</h3>
-            <div className="text-[11px] text-sam-muted">
+            <div className="text-[12px] text-sam-muted">
               {a.author || "작성자 없음"} · {fmtDate(a.sourcePublishedDate) || "날짜 없음"} ·{" "}
               <a className="underline" href={a.canonicalUrl} target="_blank" rel="noreferrer noopener">
                 원문 열기
@@ -276,7 +276,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
 
         {view !== "source" ? (
           <section className="space-y-3 min-w-0">
-            <div className="text-[11px] font-semibold text-sam-muted">편집 · 게시 결과</div>
+            <div className="text-[12px] font-semibold text-sam-muted">편집 · 게시 결과</div>
             <label className="block text-xs text-sam-muted">
               제목
               <input aria-label="제목" className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={edit.displayTitle} onChange={(e) => set({ displayTitle: e.target.value })} />
@@ -343,7 +343,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
                 출처(사이트 이름·원문 링크) 표시
                 {!allowsHiddenAttribution(data.source.rights) ? " — 이 출처는 표시 의무" : ""}
               </label>
-              <p className="col-span-2 text-[11px] text-sam-muted">
+              <p className="col-span-2 text-[12px] text-sam-muted">
                 재게시 권한: {RIGHTS_LABEL[data.source.rights.rightsBasis]}
                 {data.preview.cappedByRights ? " · 권한이 없어 요약+링크로 게시됩니다" : ""}
               </p>
@@ -381,9 +381,9 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
                             checked={included}
                             onChange={(e) => set({ imageIncludes: { ...edit.imageIncludes, [String(i)]: e.target.checked } })}
                           />
-                          <button type="button" aria-label="썸네일로 지정" className="text-sm px-1" disabled={!included} onClick={() => set({ thumbnailImageIndex: i })}>
+                          <AdminActionButton variant="quiet" size="sm" aria-label="썸네일로 지정" className="px-1!" disabled={!included} onClick={() => set({ thumbnailImageIndex: i })}>
                             {thumb ? "★" : "☆"}
-                          </button>
+                          </AdminActionButton>
                         </div>
                       </div>
                     );
@@ -392,7 +392,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
               </div>
             ) : null}
             <div className="rounded-ui-rect border border-sam-border p-2 space-y-2">
-              <div className="flex items-center gap-2 text-[11px] text-sam-muted">
+              <div className="flex items-center gap-2 text-[12px] text-sam-muted">
                 게시될 내용 ({POLICY_LABEL[preview?.policy ?? policy]})
                 <AdminActionButton variant="neutral" className="ml-auto" disabled={!!busy} onClick={() => void save("preview")}>
                   {busy === "preview" ? "계산 중…" : "미리보기 갱신"}
@@ -419,9 +419,9 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       </div>
 
       <div className="shrink-0 border-t border-sam-border px-3 py-2 space-y-1.5 bg-sam-surface">
-        {msg ? <p className={`text-xs break-words ${msg.tone === "err" ? "text-rose-600" : "text-emerald-700"}`}>{msg.text}</p> : null}
+        {msg ? <p className={`text-xs break-words ${msg.tone === "err" ? "text-sam-danger" : "text-sam-success"}`}>{msg.text}</p> : null}
         {q?.verdict === "PARTIAL" ? (
-          <label className="flex items-center gap-1 text-[11px] text-sam-muted">
+          <label className="flex items-center gap-1 text-[12px] text-sam-muted">
             <input type="checkbox" checked={acceptPartial} onChange={(e) => setAcceptPartial(e.target.checked)} />
             품질 「일부 수집」 확인함 — 게시 허용
           </label>
@@ -437,11 +437,11 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
           >
             {busy === "publish" ? "처리 중…" : published ? "게시물 업데이트" : "DIBAY에 게시"}
           </AdminActionButton>
-          {!topic ? <span className="text-[11px] text-sam-muted self-center">주제를 선택해야 게시할 수 있습니다.</span> : null}
-          {q?.verdict === "FAILED" ? <span className="text-[11px] text-rose-600 self-center">품질 「수집 실패」 — 게시 불가</span> : null}
+          {!topic ? <span className="text-[12px] text-sam-muted self-center">주제를 선택해야 게시할 수 있습니다.</span> : null}
+          {q?.verdict === "FAILED" ? <span className="text-[12px] text-sam-danger self-center">품질 「수집 실패」 — 게시 불가</span> : null}
         </div>
         {post ? (
-          <p className="text-[11px] text-sam-muted">
+          <p className="text-[12px] text-sam-muted">
             「게시물 업데이트」는 이 화면의 내용으로 게시글을 덮어씁니다. 게시글 관리 화면에서 직접 고친 내용도 바뀝니다.
           </p>
         ) : null}
@@ -473,7 +473,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
         description={`${post?.title ?? ""} — 커뮤니티 피드·상세에 ${
           confirm?.kind === "status" && confirm.status === "active" ? "다시 보입니다." : "더 이상 보이지 않습니다. 수집함 기록과 출처 연결은 남습니다."
         }`}
-        confirmLabel={confirm?.kind === "status" ? (confirm.status === "deleted" ? "삭제" : confirm.status === "hidden" ? "숨김" : "공개") : "확인"}
+        confirmLabel={confirm?.kind === "status" ? (confirm.status === "deleted" ? "삭제" : confirm.status === "hidden" ? "숨김" : "공개") : "처리"}
         cancelLabel="취소"
         tone={confirm?.kind === "status" && confirm.status === "deleted" ? "danger" : "primary"}
         pending={busy === "status"}

@@ -99,22 +99,23 @@ export function AdminPhilifeMeetingEventsClient() {
                 <CommunityTimeCell iso={e.created_at} />
               </td>
               <td className={`${COMMUNITY_TD} max-w-[14rem]`}>
-                <button
-                  type="button"
-                  className="line-clamp-2 text-left font-medium text-sam-fg hover:underline"
+                <AdminActionButton
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto! justify-start! whitespace-normal! px-0! text-left"
                   title="이 모임 기록만 보기"
                   onClick={() => set({ meetingId: e.meeting_id })}
                 >
                   {e.meeting_title || "이름 없음"}
-                </button>
+                </AdminActionButton>
                 <span className="flex flex-wrap gap-2 text-[12px]">
                   <Link
                     href={`/admin/community/meetings?meetingId=${encodeURIComponent(e.meeting_id)}`}
-                    className="text-sky-800 hover:underline"
+                    className="text-sam-info hover:underline"
                   >
                     Admin 모임 화면
                   </Link>
-                  <Link href={philifeAppPaths.meeting(e.meeting_id)} target="_blank" rel="noreferrer" className="text-sky-800 hover:underline">
+                  <Link href={philifeAppPaths.meeting(e.meeting_id)} target="_blank" rel="noreferrer" className="text-sam-info hover:underline">
                     {t("admin_meeting_events_meeting_detail")}
                   </Link>
                 </span>
@@ -176,9 +177,9 @@ export function AdminPhilifeMeetingEventsClient() {
           {meetingId ? (
             <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
               모임: {meetingTitle}
-              <button type="button" className="ml-1 text-sam-muted underline" onClick={() => set({ meetingId: null })}>
+              <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => set({ meetingId: null })}>
                 해제
-              </button>
+              </AdminActionButton>
             </span>
           ) : (
             <span className="pb-1.5 text-[12px] text-sam-muted">모임 이름을 누르면 그 모임 기록만 봅니다.</span>

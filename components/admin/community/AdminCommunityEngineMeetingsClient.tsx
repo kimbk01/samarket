@@ -6,6 +6,7 @@
  * 버튼: 승인 L1 · 반려 L2 · 숨김 L2 · 다시 공개 L1 · 모임 종료 L2 · 재개 L1 — 현재 상태(expected*)를 함께 보내 CAS (409 → 다시 불러오기).
  * 연결 채팅방 점검(펼치기)은 기존 기능 유지.
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -343,7 +344,7 @@ export function AdminCommunityEngineMeetingsClient() {
           return (
             <Fragment key={id}>
               <tr
-                className={`border-b border-sam-border-soft ${focusId === id ? "bg-amber-50" : ""}`}
+                className={`border-b border-sam-border-soft ${focusId === id ? "bg-sam-warning-soft" : ""}`}
                 data-meeting-id={id}
               >
                 <td className={`${COMMUNITY_TD} max-w-[16rem]`}>
@@ -371,7 +372,7 @@ export function AdminCommunityEngineMeetingsClient() {
                   {r.post_id ? (
                     <Link
                       href={`/admin/community/posts/${encodeURIComponent(str(r.post_id))}`}
-                      className="text-sky-800 hover:underline"
+                      className="text-sam-info hover:underline"
                     >
                       {hidden ? "숨김" : "공개"}
                     </Link>
@@ -382,7 +383,7 @@ export function AdminCommunityEngineMeetingsClient() {
                 <td className={`${COMMUNITY_TD} tabular-nums`}>{str(r.max_members) || "—"}</td>
                 <td className={`${COMMUNITY_TD} tabular-nums`}>
                   {reportCount > 0 ? (
-                    <Link href="/admin/philife/meeting-reports" className="font-semibold text-amber-800 hover:underline">
+                    <Link href="/admin/philife/meeting-reports" className="font-semibold text-sam-warning hover:underline">
                       {reportCount}
                     </Link>
                   ) : (
@@ -423,7 +424,7 @@ export function AdminCommunityEngineMeetingsClient() {
                     {insightLoading && !insight ? (
                       <AdminLoadingState ko={ko} />
                     ) : insightErr && !insight ? (
-                      <p role="alert" className="text-red-700">{insightErr}</p>
+                      <p role="alert" className="text-sam-danger">{insightErr}</p>
                     ) : insight ? (
                       <MeetingInsight
                         insight={insight}
@@ -484,15 +485,15 @@ export function AdminCommunityEngineMeetingsClient() {
             {focusId ? (
               <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
                 특정 모임 1건만 보기
-                <button type="button" className="ml-1 text-sam-muted underline" onClick={() => set({ meetingId: null })}>
+                <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => set({ meetingId: null })}>
                   해제
-                </button>
+                </AdminActionButton>
               </span>
             ) : null}
             {get("q") || focusId ? <CommunityResetFilters onReset={() => reset(["tab"])} /> : null}
             {!loading && !loadErr && typeof total === "number" ? (
               <span className="pb-1.5 text-[12px] font-semibold text-sam-fg" data-community-list-total={total}>
-                {t("admin_community_list_total", { count: total.toLocaleString() })}
+                {t("admin_community_list_total", { count: formatAdminNumber(total) })}
               </span>
             ) : null}
           </>
@@ -580,7 +581,7 @@ function MeetingInsight({
           priv: insight.private_room_count ?? 0,
         })}
       </p>
-      {error ? <p role="alert" className="text-red-700">{error}</p> : null}
+      {error ? <p role="alert" className="text-sam-danger">{error}</p> : null}
       <ul className="space-y-1.5 border-t border-sam-border pt-2">
         {rooms.map((room) => {
           const ro = room.is_readonly === true;

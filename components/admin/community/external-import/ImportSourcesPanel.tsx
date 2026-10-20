@@ -13,7 +13,7 @@ import { call, type ContentPolicy, fmtDate, type ManagedSource, POLICY_LABEL, ty
 export function VerdictBadge({ v }: { v: string | null | undefined }) {
   const key = String(v || "NOT_PROVEN");
   return (
-    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${VERDICT_TONE[key] || VERDICT_TONE.NOT_PROVEN}`}>
+    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[12px] font-semibold ${VERDICT_TONE[key] || VERDICT_TONE.NOT_PROVEN}`}>
       {verdictLabel(key)}
     </span>
   );
@@ -182,7 +182,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                       <th className="py-1 pr-2">목록/썸네일</th>
                       <th className="py-1 pr-2">본문 샘플</th>
                       <th className="py-1 pr-2">최신글</th>
-                      <th className="py-1">확인</th>
+                      <th className="py-1">상세</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -207,12 +207,12 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                           </td>
                           <td className="py-1.5 pr-2">
                             <div className="font-medium">{b.displayName}</div>
-                            <div className="text-[10px] text-sam-muted break-all">{b.engineKey}</div>
+                            <div className="text-[12px] text-sam-muted break-all">{b.engineKey}</div>
                           </td>
                           <td className="py-1.5 pr-2">{KIND_LABEL[b.boardKind]}</td>
                           <td className="py-1.5 pr-2">
                             <VerdictBadge v={b.robotsAllowed ? b.sample?.verdict ?? "NOT_PROVEN" : "BLOCKED"} />
-                            {b.sample?.reasons.length ? <div className="text-[10px] text-sam-muted mt-0.5">{labelReasons(b.sample.reasons.join(", "))}</div> : null}
+                            {b.sample?.reasons.length ? <div className="text-[12px] text-sam-muted mt-0.5">{labelReasons(b.sample.reasons.join(", "))}</div> : null}
                           </td>
                           <td className="py-1.5 pr-2">
                             {b.sample ? `${b.sample.listCount} / ${b.sample.withThumb}` : "—"}
@@ -223,7 +223,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                                 <a className="underline break-words" href={b.sample.sampleUrl || "#"} target="_blank" rel="noreferrer noopener">
                                   {b.sample.sampleTitle}
                                 </a>
-                                <div className="text-[10px] text-sam-muted">
+                                <div className="text-[12px] text-sam-muted">
                                   본문 {b.sample.textChars}자 · 이미지 {b.sample.imageCount}
                                 </div>
                               </>
@@ -284,7 +284,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
             ) : null}
           </div>
         ) : null}
-        {msg ? <p className={`text-xs break-words ${msg.tone === "err" ? "text-rose-600" : "text-emerald-700"}`}>{msg.text}</p> : null}
+        {msg ? <p className={`text-xs break-words ${msg.tone === "err" ? "text-sam-danger" : "text-sam-success"}`}>{msg.text}</p> : null}
       </section>
 
       <section className="space-y-2">
@@ -294,21 +294,21 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
           const collecting = s.boards.filter((b) => b.collectEnabled).length;
           return (
             <div key={s.id} data-testid="import-source-card" data-source-id={s.id} className="rounded-ui-rect border border-sam-border bg-sam-surface">
-              <button type="button" data-testid="import-source-toggle" aria-expanded={isOpen} className="w-full text-left px-3 py-2.5 flex flex-wrap items-center gap-2" onClick={() => setOpen(isOpen ? null : s.id)}>
+              <AdminActionButton variant="quiet" size="sm" data-testid="import-source-toggle" aria-expanded={isOpen} className="w-full h-auto! justify-start! whitespace-normal! font-normal! text-left px-3! py-2.5 flex-wrap gap-2 text-sam-fg" onClick={() => setOpen(isOpen ? null : s.id)}>
                 <VerdictBadge v={s.verification} />
                 <span className="font-semibold text-sm">{s.displayName}</span>
-                <span className="text-[11px] text-sam-muted">{s.engine}</span>
-                {!s.enabled ? <span className="text-[11px] text-rose-600">비활성</span> : null}
-                <span className="text-[11px] text-sam-muted ml-auto">
+                <span className="text-[12px] text-sam-muted">{s.engine}</span>
+                {!s.enabled ? <span className="text-[12px] text-sam-danger">비활성</span> : null}
+                <span className="text-[12px] text-sam-muted ml-auto">
                   게시판 {s.boards.length} · 자동수집 {collecting} · 확인 {fmtDate(s.status.lastCheckedAt) || "없음"}
                 </span>
-              </button>
+              </AdminActionButton>
               {isOpen ? (
                 <div className="border-t border-sam-border px-3 py-3 space-y-3">
-                  <div className="text-[11px] text-sam-muted break-all">
+                  <div className="text-[12px] text-sam-muted break-all">
                     {s.baseUrl} · robots {s.status.robotsStatus ?? "미확인"}
                     {s.status.aiBotsBlocked ? " · AI 봇 차단 명시" : ""}
-                    {s.status.lastError ? <span className="block text-rose-600">최근 오류: {importErrorText({ message: s.status.lastError })}</span> : null}
+                    {s.status.lastError ? <span className="block text-sam-danger">최근 오류: {importErrorText({ message: s.status.lastError })}</span> : null}
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
                     <select
@@ -375,13 +375,13 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                           <tr key={b.boardId} className="border-t border-sam-border align-top">
                             <td className="py-1.5 pr-2">
                               <div className="font-medium">{b.displayName}</div>
-                              <div className="text-[10px] text-sam-muted">
+                              <div className="text-[12px] text-sam-muted">
                                 {KIND_LABEL[b.boardKind]} · 최신 {fmtDate(b.status.latestSourceAt) || "—"}
                               </div>
                             </td>
                             <td className="py-1.5 pr-2">
                               <VerdictBadge v={b.status.lastVerdict} />
-                              {b.status.lastError ? <div className="text-[10px] text-rose-600 max-w-[220px] break-words">{labelReasons(b.status.lastError)}</div> : null}
+                              {b.status.lastError ? <div className="text-[12px] text-sam-danger max-w-[220px] break-words">{labelReasons(b.status.lastError)}</div> : null}
                             </td>
                             <td className="py-1.5 pr-2">
                               <select
@@ -482,7 +482,7 @@ function KeywordBoardForm({
   if (!feeds.length) return null;
   return (
     <div className="rounded-ui-rect border border-sam-border p-2 space-y-1.5">
-      <div className="text-[11px] font-semibold">키워드 게시판 추가 — 이 피드에서 키워드가 들어간 글만 수집</div>
+      <div className="text-[12px] font-semibold">키워드 게시판 추가 — 이 피드에서 키워드가 들어간 글만 수집</div>
       <div className="grid gap-1.5 sm:grid-cols-[1fr_1fr_1fr_auto_auto]">
         <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={feed} onChange={(e) => setFeed(e.target.value)}>
           {feeds.map((b) => (
@@ -521,7 +521,7 @@ function RightsForm({
   const dirty = basis !== source.rights.rightsBasis || attribution !== source.rights.attributionRequired || note !== (source.rights.note ?? "");
   return (
     <div data-testid="import-source-rights" className="rounded-ui-rect border border-sam-border p-2 space-y-1.5">
-      <div className="text-[11px] font-semibold">
+      <div className="text-[12px] font-semibold">
         재게시 권한 — 현재: {RIGHTS_LABEL[source.rights.rightsBasis]}
         {source.rights.confirmedAt ? ` (확인 ${fmtDate(source.rights.confirmedAt)})` : ""}
       </div>
@@ -533,7 +533,7 @@ function RightsForm({
             </option>
           ))}
         </select>
-        <label className="flex items-center gap-1 text-[11px] text-sam-muted">
+        <label className="flex items-center gap-1 text-[12px] text-sam-muted">
           <input type="checkbox" checked={ccOrNone || attribution} disabled={ccOrNone} onChange={(e) => setAttribution(e.target.checked)} />
           출처 표시 의무 있음 (해제 시 글별로 출처 숨김 가능)
         </label>
@@ -587,22 +587,22 @@ function AdapterConfigForm({
   }
   return (
     <div className="rounded-ui-rect border border-sam-border p-2 space-y-1.5">
-      <div className="text-[11px] font-semibold">수집 설정 — 비워 두면 자동 판별. 저장 후 「샘플 보기」로 결과를 확인하세요.</div>
+      <div className="text-[12px] font-semibold">수집 설정 — 비워 두면 자동 판별. 저장 후 「샘플 보기」로 결과를 확인하세요.</div>
       <div className="grid gap-1.5 sm:grid-cols-2">
-        <label className="text-[11px] text-sam-muted">
+        <label className="text-[12px] text-sam-muted">
           본문 위치 (CSS 선택자, 쉼표 구분)
           <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={body} onChange={(e) => setBody(e.target.value)} placeholder="#ct, .article-body" />
         </label>
-        <label className="text-[11px] text-sam-muted">
+        <label className="text-[12px] text-sam-muted">
           본문에서 뺄 영역
           <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={remove} onChange={(e) => setRemove(e.target.value)} placeholder=".share, .ad" />
         </label>
-        <label className="text-[11px] text-sam-muted">
+        <label className="text-[12px] text-sam-muted">
           게시일 위치
           <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={date} onChange={(e) => setDate(e.target.value)} placeholder=".date" />
         </label>
         {source.engine === "html" ? (
-          <label className="text-[11px] text-sam-muted">
+          <label className="text-[12px] text-sam-muted">
             글 주소 형식
             <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={tpl} onChange={(e) => setTpl(e.target.value)} placeholder="/news/article.html?no" />
           </label>

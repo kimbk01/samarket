@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 
 const components: Components = {
   h1: ({ children }) => (
-    <h1 className="mt-8 text-2xl font-bold tracking-tight text-sam-fg first:mt-0">
+    <h1 className="mt-8 text-[20px] font-bold tracking-tight text-sam-fg first:mt-0">
       {children}
     </h1>
   ),
@@ -16,7 +16,7 @@ const components: Components = {
     </h2>
   ),
   h3: ({ children }) => (
-    <h3 className="mt-4 text-lg font-medium text-sam-fg">{children}</h3>
+    <h3 className="mt-4 text-[16px] font-medium text-sam-fg">{children}</h3>
   ),
   p: ({ children }) => (
     <p className="mb-3 sam-text-body leading-relaxed text-sam-fg">{children}</p>
@@ -75,7 +75,7 @@ const components: Components = {
     }
     return (
       <code
-        className="rounded bg-sam-surface-muted px-1 py-0.5 font-mono sam-text-body-secondary text-rose-800"
+        className="rounded bg-sam-surface-muted px-1 py-0.5 font-mono sam-text-body-secondary text-sam-danger"
         {...props}
       >
         {children}

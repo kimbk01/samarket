@@ -6,6 +6,7 @@
  * 상태 select 즉시 반영 없음 (C-18). 버튼: 숨기기 L2 · 다시 공개 L1 · 삭제 L2 — expectedStatus(CAS)+사유 전송.
  * 답글은 부모 댓글을 함께 보여 준다. 삭제는 상태 변경만(복구 가능) — 영구 삭제 없음.
  */
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -205,8 +206,8 @@ export function AdminCommunityCommentsPage() {
     const el = rowRefs.current[commentId];
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add("bg-amber-50");
-    const timeoutId = window.setTimeout(() => el.classList.remove("bg-amber-50"), 2500);
+    el.classList.add("bg-sam-warning-soft");
+    const timeoutId = window.setTimeout(() => el.classList.remove("bg-sam-warning-soft"), 2500);
     return () => window.clearTimeout(timeoutId);
   }, [commentId, loading, rows]);
 
@@ -253,9 +254,9 @@ export function AdminCommunityCommentsPage() {
   const chip = (label: string, onClear: () => void) => (
     <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
       {label}
-      <button type="button" className="ml-1 text-sam-muted underline" onClick={onClear}>
+      <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={onClear}>
         해제
-      </button>
+      </AdminActionButton>
     </span>
   );
 
@@ -297,7 +298,7 @@ export function AdminCommunityCommentsPage() {
       {hasFilters ? <CommunityResetFilters onReset={() => reset(["tab"])} /> : null}
       {!loading && !loadErr && typeof total === "number" ? (
         <span className="pb-1.5 text-[12px] font-semibold text-sam-fg" data-community-list-total={total}>
-          {tr("admin_community_list_total", { count: total.toLocaleString() })}
+          {tr("admin_community_list_total", { count: formatAdminNumber(total) })}
         </span>
       ) : null}
     </>
@@ -310,7 +311,7 @@ export function AdminCommunityCommentsPage() {
         {status === "active" ? (
           <AdminActionButton
             variant="secondary"
-            className="border-amber-400 text-amber-900"
+            className="border-sam-warning text-sam-warning"
             disabled={!canContent}
             title={noPermTitle}
             onClick={() => setAction({ kind: "hide", ids: [r.id] })}
@@ -394,7 +395,7 @@ export function AdminCommunityCommentsPage() {
                 {pid ? (
                   <Link
                     href={communityDetailHref(`${COMMUNITY_POSTS_LIST_PATH}/${encodeURIComponent(pid)}`, selfHref)}
-                    className="line-clamp-2 font-medium text-sky-800 hover:underline"
+                    className="line-clamp-2 font-medium text-sam-info hover:underline"
                   >
                     {String(r.post_title ?? "").trim() || "제목 없음"}
                   </Link>
@@ -413,7 +414,7 @@ export function AdminCommunityCommentsPage() {
                 {reportCount > 0 ? (
                   <Link
                     href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`}
-                    className="font-semibold text-amber-800 hover:underline"
+                    className="font-semibold text-sam-warning hover:underline"
                   >
                     {reportCount}
                   </Link>
@@ -445,7 +446,7 @@ export function AdminCommunityCommentsPage() {
         </AdminActionButton>
         <AdminActionButton
           variant="secondary"
-          className="border-amber-400 text-amber-900"
+          className="border-sam-warning text-sam-warning"
           disabled={!canContent}
           title={noPermTitle}
           onClick={() => setAction({ kind: "hide", ids: [...selection.selected] })}
@@ -496,7 +497,7 @@ export function AdminCommunityCommentsPage() {
           <>
             <AdminResultBanner ko={ko} result={banner} onClose={() => setBanner(null)} />
             {topicFilterTruncated ? (
-              <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+              <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-warning">
                 {tr("admin_community_topic_filter_truncated")}
               </div>
             ) : null}

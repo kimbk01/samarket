@@ -22,8 +22,8 @@ const POST_ERROR_KO: Record<string, string> = {
   conflict: COMMUNITY_STALE_MESSAGE,
   not_found: COMMUNITY_GONE_MESSAGE,
   reason_required: "사유를 2자 이상 입력해 주세요.",
-  expected_updated_at_required: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
-  expected_status_required: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
+  expected_updated_at_required: "화면 정보가 오래되었습니다. 새로고침 후 다시 처리하세요.",
+  expected_status_required: "화면 정보가 오래되었습니다. 새로고침 후 다시 처리하세요.",
   promotion_fault_required: "노출 중인 홍보가 연결된 글입니다. 상세 화면에서 귀책을 선택해 처리하세요.",
   content_blocks_imported_only: "블록 편집은 외부 수집 글에서만 할 수 있습니다.",
   invalid_content_blocks: "본문 블록 형식이 올바르지 않습니다. 비어 있는 블록이 없는지 확인하세요.",
@@ -47,14 +47,14 @@ const POST_ERROR_KO: Record<string, string> = {
   invalid_date: "날짜 형식이 올바르지 않습니다.",
   range_reversed: "시작 날짜가 끝 날짜보다 늦습니다.",
   range_too_long: "기간은 최대 400일까지 조회할 수 있습니다.",
-  network_error: "네트워크 오류가 발생했습니다. 다시 시도해 주세요.",
+  network_error: "네트워크 오류가 발생했습니다. 잠시 후 새로고침해 주세요.",
   forbidden: "이 작업을 할 권한이 없습니다.",
   super_admin_only: "최고 관리자만 할 수 있는 작업입니다.",
 };
 
 export function communityPostErrorText(code: string | null | undefined): string {
   const k = String(code ?? "").trim();
-  return POST_ERROR_KO[k] ?? "처리를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+  return POST_ERROR_KO[k] ?? "처리를 완료하지 못했습니다. 잠시 후 다시 처리해 주세요.";
 }
 
 /** 결과 배너용 실패 — AdminResultBanner 는 한글 문장을 그대로 보여 준다 */

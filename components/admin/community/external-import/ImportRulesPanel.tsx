@@ -107,20 +107,20 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
             규칙 추가
           </AdminActionButton>
         </div>
-        {msg ? <p className={`text-xs break-words ${msg.tone === "err" ? "text-rose-600" : "text-emerald-700"}`}>{msg.text}</p> : null}
+        {msg ? <p className={`text-xs break-words ${msg.tone === "err" ? "text-sam-danger" : "text-sam-success"}`}>{msg.text}</p> : null}
       </section>
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface">
         {rules.length === 0 ? <p className="p-3 text-xs text-sam-muted">등록된 규칙이 없습니다.</p> : null}
         <ul>
           {rules.map((r) => (
             <li key={r.id} className="flex items-center gap-2 px-3 py-2 border-b border-sam-border text-xs">
-              <span className="rounded-full border border-sam-border px-1.5 text-[10px]">
+              <span className="rounded-full border border-sam-border px-1.5 text-[12px]">
                 {r.scope === "global" ? "전체" : r.scope === "source" ? r.sourceSite : `${r.sourceSite}/${r.sourceBoard}`}
               </span>
               <code className="break-all">{r.findText}</code>
               <span className="text-sam-muted">→</span>
               <code className="break-all">{r.replaceText || "(삭제)"}</code>
-              {r.isRegex ? <span className="text-[10px] text-sam-muted">regex</span> : null}
+              {r.isRegex ? <span className="text-[12px] text-sam-muted">regex</span> : null}
               <AdminActionButton variant="neutral" className="ml-auto" onClick={() => void toggle(r)}>
                 {r.enabled ? "사용 중" : "꺼짐"}
               </AdminActionButton>

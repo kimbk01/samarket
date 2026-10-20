@@ -4,6 +4,7 @@
  * 커뮤니티 운영 설정 (설계 §C-22). 불러오기 실패 = 오류 상태(무한 로딩 없음) · 바뀐 항목만 보내 현재값과 병합(C-29) ·
  * 「설정 저장」 L1 (변경 항목 요약) · expectedUpdatedAt CAS (409 → 최신값 다시 불러오기) · 결과 배너(alert 없음).
  */
+import { formatAdminDecimal } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -38,7 +39,7 @@ function settingsErrorText(code: string): string {
   if (code === "no_fields") return "바뀐 항목이 없습니다.";
   if (code === "admin_settings_table_missing") return "설정 저장소를 쓸 수 없습니다. 시스템 관리자에게 문의하세요.";
   if (code === "forbidden" || code === "forbidden_permission") return "이 작업을 할 권한이 없습니다.";
-  if (code === "network_error") return "네트워크 오류가 발생했습니다. 다시 시도해 주세요.";
+  if (code === "network_error") return "네트워크 오류가 발생했습니다. 잠시 후 새로고침해 주세요.";
   return "저장하지 못했습니다. 입력값은 그대로 두었으니 다시 저장해 주세요.";
 }
 
@@ -101,7 +102,7 @@ export function AdminCommunityFeedSettingsPage() {
       .map((k) =>
         k === "banned_words"
           ? `금지어 ${saved.banned_words.length}개 → ${words.length}개`
-          : `${FIELD_LABEL[k]}: ${saved[k as NumKey].toLocaleString()} → ${ops[k as NumKey].toLocaleString()}`
+          : `${FIELD_LABEL[k]}: ${formatAdminDecimal(saved[k as NumKey])} → ${formatAdminDecimal(ops[k as NumKey])}`
       )
       .join("\n");
     const confirmed = await confirmAdminAction({

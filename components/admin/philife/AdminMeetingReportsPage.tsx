@@ -109,7 +109,7 @@ function TargetCell({ r, ko }: { r: MeetingReportAdminRow; ko: boolean }) {
         <CommunityAuthorCell userId={r.target_id} nickname={r.target_member?.nickname} handle={r.target_member?.handle} />
       ) : null}
       {mHref ? (
-        <Link href={mHref} onClick={(e) => e.stopPropagation()} className="font-medium text-sky-800 hover:underline">
+        <Link href={mHref} onClick={(e) => e.stopPropagation()} className="font-medium text-sam-info hover:underline">
           {r.meeting_title?.trim() || "모임 보기"}
         </Link>
       ) : (
@@ -251,7 +251,7 @@ export function AdminMeetingReportsPage({
         }
         filters={
           <>
-            <CommunityFilterField label="검색">
+            <CommunityFilterField label="검색어">
               <CommunitySearchInput value={filters.q} onCommit={(v) => qs.set({ q: v })} placeholder="모임 이름·신고자 닉네임" />
             </CommunityFilterField>
             <CommunityFilterField label="신고 대상">
@@ -294,7 +294,7 @@ export function AdminMeetingReportsPage({
               <tr
                 key={r.id}
                 onClick={() => setOpenId(r.id)}
-                className={`cursor-pointer border-b border-sam-border-soft hover:bg-sam-app ${openId === r.id ? "bg-amber-50" : ""}`}
+                className={`cursor-pointer border-b border-sam-border-soft hover:bg-sam-app ${openId === r.id ? "bg-sam-warning-soft" : ""}`}
               >
                 <td className={COMMUNITY_TD}>
                   <TargetCell r={r} ko={ko} />
@@ -331,7 +331,7 @@ export function AdminMeetingReportsPage({
                   {
                     label: "모임",
                     value: meetingHref(open.meeting_id) ? (
-                      <Link href={meetingHref(open.meeting_id) as string} className="font-medium text-sky-800 hover:underline">
+                      <Link href={meetingHref(open.meeting_id) as string} className="font-medium text-sam-info hover:underline">
                         {open.meeting_title?.trim() || "모임 보기"}
                       </Link>
                     ) : (

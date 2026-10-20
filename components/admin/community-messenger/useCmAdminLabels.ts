@@ -1,5 +1,6 @@
 "use client";
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { useCallback, useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -50,9 +51,9 @@ export function useCmAdminLabels() {
       if (!value) return t("admin_cm_common_dash");
       const date = new Date(value);
       if (!Number.isFinite(date.getTime())) return value;
-      return date.toLocaleString(locale);
+      return formatAdminManilaDateTime(value);
     },
-    [locale, t]
+    [t]
   );
 
   const periodLabel = useCallback((period: "24h" | "7d" | "30d") => t(PERIOD_KEYS[period]), [t]);
