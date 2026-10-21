@@ -54,6 +54,14 @@ export async function POST(
 
   await sbAny.from("product_chats").update(updates).eq("id", roomId);
 
+  /** 상대가 보낸 미읽음 메시지 read_at — 회원 JWT 직접 쓰기는 DB 에서 차단(auth SSOT 묶음 3) */
+  await sbAny
+    .from("product_chat_messages")
+    .update({ read_at: updates.updated_at })
+    .eq("product_chat_id", roomId)
+    .neq("sender_id", userId)
+    .is("read_at", null);
+
   /** 동일 거래의 통합 chat_rooms 참가자 미읽음도 0 */
   try {
     const postId = (room as { post_id?: string }).post_id;

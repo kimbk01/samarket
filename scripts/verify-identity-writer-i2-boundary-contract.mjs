@@ -76,15 +76,9 @@ orderOk(apple, [
   ["authRow", "await ensureProviderAuthIdentityRow("],
 ]);
 
-{
-  const iCanonical = naver.indexOf("await ensureAuthProfileForLogin(");
-  const iUpdate = naver.indexOf('from("profiles")', iCanonical);
-  if (iCanonical < 0 || iUpdate < 0 || iUpdate < iCanonical) {
-    failures.push("Naver must keep Identity profiles.update after Canonical facade");
-  }
-  if (!naver.includes("provider_user_id: profile.id")) {
-    failures.push("Naver Identity update must set provider_user_id from Naver profile.id");
-  }
+// Naver 로그인 비활성 (auth SSOT 2026-10-21 P0-1) — callback 은 profiles 식별 컬럼을 쓰지 않는다.
+if (naver.includes('from("profiles")') || naver.includes("provider_user_id")) {
+  failures.push("Naver callback must not write profiles identity columns (disabled)");
 }
 
 {

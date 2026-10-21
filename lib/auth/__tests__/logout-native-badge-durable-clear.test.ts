@@ -73,6 +73,7 @@ vi.mock("@/lib/auth/guest-auth-state", () => ({
 
 vi.mock("@/lib/auth/dibay-session-manager", () => ({
   markSessionTerminalGuestFromClient: (...args: unknown[]) => markSessionTerminalGuestFromClient(...args),
+  broadcastExplicitLogoutToOtherTabs: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/auth-session-immediate.client", () => ({

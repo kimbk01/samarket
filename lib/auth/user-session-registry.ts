@@ -84,6 +84,35 @@ export async function validateUserSessionRegistry(
   return inspected.ok;
 }
 
+export const GLOBAL_SIGNOUT_INVALIDATION_REASON = "global_signout";
+
+/**
+ * P2-5 — logout-all 이후 발급 이전 JWT 차단.
+ * 이 사용자의 `global_signout` 무효화 중 가장 최근 시각이 토큰 `iat` 보다 늦으면 true(= 토큰은 logout-all 이전 발급).
+ * `iat` 미상이면 global_signout 이력이 있을 때 fail-closed(true). 조회 실패도 fail-closed.
+ */
+export async function isTokenIssuedBeforeGlobalSignout(
+  sb: SupabaseClient<any>,
+  userId: string,
+  tokenIssuedAtSec: number | null
+): Promise<boolean> {
+  const { data, error } = await sb
+    .from("user_sessions")
+    .select("invalidated_at")
+    .eq("user_id", userId)
+    .eq("invalidation_reason", GLOBAL_SIGNOUT_INVALIDATION_REASON)
+    .order("invalidated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return true;
+  const raw = (data as { invalidated_at?: string | null } | null)?.invalidated_at ?? null;
+  if (!raw) return false;
+  const invalidatedMs = Date.parse(raw);
+  if (!Number.isFinite(invalidatedMs)) return true;
+  if (tokenIssuedAtSec == null || !Number.isFinite(tokenIssuedAtSec)) return true;
+  return invalidatedMs > tokenIssuedAtSec * 1000;
+}
+
 /** Supabase 세션은 유효한데 registry row 가 없을 때 lazy 등록 (다중 기기·쿠키 복구) */
 export async function ensureUserSessionRegistryRow(
   sb: SupabaseClient<any>,
@@ -95,6 +124,11 @@ export async function ensureUserSessionRegistryRow(
     deviceKey?: string | null;
     browserKey?: string | null;
     ipAddress?: string | null;
+    /**
+     * P2-5 — 제공되면 lazy 등록 전에 logout-all(`global_signout`) 이후 발급된 토큰인지 확인한다.
+     * `tokenIssuedAtSec` = JWT `iat` (초). 미상(null)이면 global_signout 이력이 있을 때 거부.
+     */
+    globalSignoutGuard?: { tokenIssuedAtSec: number | null };
   }
 ): Promise<boolean> {
   const sid = String(sessionId ?? "").trim();
@@ -104,6 +138,15 @@ export async function ensureUserSessionRegistryRow(
   // Lazy-register only when no row exists. Never resurrect an invalidated row
   // and never treat authority/lookup failure as a new session.
   if (inspected.reason !== "missing") return false;
+  if (options?.globalSignoutGuard) {
+    // logout-all 이전 발급 토큰 + 새 active-session 쿠키 UUID 로 registry 자동 재등록 금지.
+    const issuedBefore = await isTokenIssuedBeforeGlobalSignout(
+      sb,
+      userId,
+      options.globalSignoutGuard.tokenIssuedAtSec
+    ).catch(() => true);
+    if (issuedBefore) return false;
+  }
   try {
     await syncUserSessionRegistry(sb, userId, {
       nextSessionId: sid,

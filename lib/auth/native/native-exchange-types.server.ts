@@ -55,7 +55,6 @@ export type NativeExchangeFailure = {
     email: string;
     attemptedProvider: string;
     existingProviders: string[];
-    existingUserId: string;
     stashToken: string;
   };
 };

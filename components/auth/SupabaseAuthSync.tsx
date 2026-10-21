@@ -21,9 +21,15 @@ import { getAppBootSnapshot, peekAppBootProfile } from "@/lib/app-boot/app-boot-
 import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
 import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
-import { bindAuthUserId, detectAuthUserMismatch } from "@/lib/auth/client-instance-id";
+import {
+  bindAuthUserId,
+  detectAuthUserMismatch,
+  detectTabAuthUserSwitch,
+  rememberTabAuthenticatedUserId,
+} from "@/lib/auth/client-instance-id";
 import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
 import { runAuthAccountSwitchExit } from "@/lib/auth/auth-exit-coordinator";
+import { isAuthExitNavigateStarted, markAuthExitNavigateStarted } from "@/lib/auth/auth-exit-guard";
 import { logGuestAuthBootMarker } from "@/lib/auth/guest-auth-boot-markers";
 import { isTerminalGuestAuthEstablished } from "@/lib/auth/guest-auth-state";
 import { bindDibaySessionManagerAuthListener, subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
@@ -73,13 +79,31 @@ function applySupabaseProfileCacheFromBoot(sb: SupabaseClient): void {
   });
 }
 
+/** 탭 메모리 계정 전환 — in-memory store·구독·컴포넌트 상태를 남기지 않도록 현재 URL 하드 리로드 1회 */
+function hardReloadAfterTabAccountSwitch(): void {
+  if (typeof window === "undefined") return;
+  if (isAuthExitNavigateStarted()) return;
+  markAuthExitNavigateStarted();
+  const href = window.location.href;
+  try {
+    window.location.replace(href);
+  } catch {
+    window.location.href = href;
+  }
+}
+
 function handleAuthenticatedSession(
   sb: SupabaseClient,
   event: string,
   userId: string
 ): void {
-  const accountMismatch =
-    (lastKnownAuthUserId && lastKnownAuthUserId !== userId) || detectAuthUserMismatch(userId);
+  /**
+   * P0-2 — 이 탭 메모리가 A 였는데 B 가 들어옴 (다른 탭 로그아웃→B 로그인 포함).
+   * bound id 는 다른 탭이 이미 B 로 다시 썼을 수 있으므로 탭 메모리로 판정 → wipe + 하드 리로드.
+   */
+  const tabSwitched =
+    detectTabAuthUserSwitch(userId) || (!!lastKnownAuthUserId && lastKnownAuthUserId !== userId);
+  const accountMismatch = tabSwitched || detectAuthUserMismatch(userId);
 
   if (accountMismatch) {
     void wipeClientSessionState("account_switched", { setPostLogoutGuard: true }).then(() => {
@@ -88,13 +112,19 @@ function handleAuthenticatedSession(
         void runAuthAccountSwitchExit();
         return;
       }
+      if (tabSwitched) {
+        hardReloadAfterTabAccountSwitch();
+        return;
+      }
       void ensureAppBoot().then(() => applySupabaseProfileCacheFromBoot(sb));
     });
     lastKnownAuthUserId = userId;
+    rememberTabAuthenticatedUserId(userId);
     return;
   }
 
   lastKnownAuthUserId = userId;
+  rememberTabAuthenticatedUserId(userId);
   bindAuthUserId(userId);
 
   if (event === "SIGNED_IN") {

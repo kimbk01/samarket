@@ -8,6 +8,11 @@ vi.mock("@/lib/auth/get-current-user", () => ({
   getCurrentUser: () => getCurrentUser(),
 }));
 
+// 약관 동의 완료 회원 기준 — 미동의는 전화 인증보다 동의 화면이 먼저 (auth SSOT P2-2)
+vi.mock("@/lib/auth/client-signup-gate", () => ({
+  isClientSignupComplete: () => true,
+}));
+
 vi.mock("@/lib/auth/phone-verification-required-client", () => ({
   openPhoneVerificationRequiredSheet: (...args: unknown[]) => openPhoneVerificationRequiredSheet(...args),
 }));

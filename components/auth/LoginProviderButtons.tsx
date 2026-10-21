@@ -4,17 +4,20 @@ import { useCallback, useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { sortAuthProviders } from "@/lib/auth/auth-providers";
-import { isOAuthLoginStartSupported } from "@/lib/auth/oauth/start-oauth-login";
 import {
   getOAuthLoginContinueLabelKey,
+  getOAuthLoginPrimaryButtonBase,
   getOAuthLoginPrimaryStyle,
-  OAUTH_LOGIN_PRIMARY_BUTTON_BASE,
   OAUTH_LOGIN_SECONDARY_CIRCLE_BASE,
   OAuthLoginProviderIcon,
+  type OAuthLoginButtonSurface,
 } from "@/components/auth/OAuthLoginProviderVisuals";
+import { usePlatformFilteredLoginProviders } from "@/components/auth/login-provider-platform-filter";
 
 type Props = {
   providers: AuthProviderPublic[];
+  /** page = 화면 카드(rounded-ui-rect) / overlay = 시트·다이얼로그(--overlay-radius-md). 기본 page. */
+  surface?: OAuthLoginButtonSurface;
   disabled?: boolean;
   /**
    * Auth mutex — any non-null value blocks additional OAuth starts.
@@ -66,6 +69,7 @@ function OAuthRedirectSpinner({ className = "" }: { className?: string }) {
 
 function PrimaryProviderButton({
   provider,
+  surface,
   disabled,
   showRedirecting,
   redirectingLabel,
@@ -73,6 +77,7 @@ function PrimaryProviderButton({
   onSelectProvider,
 }: {
   provider: OAuthProvider;
+  surface: OAuthLoginButtonSurface;
   disabled: boolean;
   showRedirecting: boolean;
   redirectingLabel: string;
@@ -95,7 +100,7 @@ function PrimaryProviderButton({
       disabled={disabled}
       aria-busy={showRedirecting}
       onClick={handleClick}
-      className={`${OAUTH_LOGIN_PRIMARY_BUTTON_BASE} ${buttonClassName}`}
+      className={`${getOAuthLoginPrimaryButtonBase(surface)} ${buttonClassName}`}
     >
       {showRedirecting ? (
         <OAuthRedirectSpinner className={labelClassName} />
@@ -112,6 +117,7 @@ function PrimaryProviderButton({
 
 export function LoginProviderButtons({
   providers,
+  surface = "page",
   disabled = false,
   pendingOAuthProvider = null,
   signingInOAuthProvider,
@@ -121,10 +127,11 @@ export function LoginProviderButtons({
   onSelectProvider,
 }: Props) {
   const { t } = useI18n();
-  const visibleProviders = useMemo(
-    () => providers.filter((row) => isOAuthLoginStartSupported(row.provider)),
-    [providers]
-  );
+  /**
+   * P1-14: Capacitor bridge 준비 후 플랫폼 필터 (native_blocked 숨김 · iOS Apple 보장 · Naver/Facebook 미노출).
+   * 준비 전에는 소셜 버튼을 그리지 않는다 — 나타났다 사라지는 깜빡임 방지.
+   */
+  const { ready: platformReady, providers: visibleProviders } = usePlatformFilteredLoginProviders(providers);
 
   const { primary, secondary } = useMemo(
     () => splitLoginProviders(visibleProviders),
@@ -154,6 +161,14 @@ export function LoginProviderButtons({
   const disableForPending = oauthInFlight && !softLockOnly;
   const internalEntryLabel = t("auth_login_internal_entry");
 
+  if (!platformReady) {
+    return (
+      <div className="min-h-[52px]" aria-busy="true" data-auth-customer-surface="social-primary">
+        {emptyText ? <p className="sam-text-body-secondary text-sam-muted">{emptyText}</p> : null}
+      </div>
+    );
+  }
+
   if (visibleProviders.length === 0 && !showEmailEntry) {
     return emptyText ? <p className="sam-text-body-secondary text-sam-muted">{emptyText}</p> : null;
   }
@@ -168,6 +183,7 @@ export function LoginProviderButtons({
               <PrimaryProviderButton
                 key={row.provider}
                 provider={row.provider}
+                surface={surface}
                 disabled={disabled || disableForPending}
                 showRedirecting={isSigningIn}
                 redirectingLabel={redirectingLabel}

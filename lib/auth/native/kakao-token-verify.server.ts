@@ -1,3 +1,5 @@
+import { readKakaoAppIdEnv } from "@/lib/auth/native/kakao-auth-env.server";
+
 export type KakaoVerifiedIdentity = {
   kakaoUserId: string;
   appId?: number | null;
@@ -12,7 +14,8 @@ export type KakaoVerifiedIdentity = {
 export type KakaoTokenVerifyErrorCode =
   | "kakao_token_missing"
   | "kakao_token_verify_failed"
-  | "kakao_token_invalid";
+  | "kakao_token_invalid"
+  | "kakao_token_app_mismatch";
 
 export class KakaoTokenVerifyError extends Error {
   code: KakaoTokenVerifyErrorCode;
@@ -80,6 +83,29 @@ async function fetchKakaoAccessTokenInfo(accessToken: string): Promise<KakaoAcce
   return json;
 }
 
+let kakaoAppIdEnvMissingWarned = false;
+
+/**
+ * P1-2 — 다른 Kakao 앱이 발급한 access token 거부.
+ * `KAKAO_APP_ID` 설정 시 `app_id` 일치 필수. 미설정이면 로그인 장애 방지를 위해 통과 + 1회 경고.
+ */
+function assertKakaoTokenAppId(tokenInfo: KakaoAccessTokenInfoResponse): void {
+  const expectedAppId = readKakaoAppIdEnv();
+  if (expectedAppId === null) {
+    if (!kakaoAppIdEnvMissingWarned) {
+      kakaoAppIdEnvMissingWarned = true;
+      console.warn("[auth/kakao-native]", JSON.stringify({ event: "kakao_app_id_env_missing" }));
+    }
+    return;
+  }
+  if (tokenInfo.app_id !== expectedAppId) {
+    throw new KakaoTokenVerifyError(
+      "kakao_token_app_mismatch",
+      "Kakao access token was not issued for this app",
+    );
+  }
+}
+
 async function fetchKakaoUserProfile(accessToken: string): Promise<KakaoUserMeResponse | null> {
   const res = await fetch("https://kapi.kakao.com/v2/user/me", {
     method: "GET",
@@ -114,6 +140,7 @@ export async function verifyKakaoNativeCredential(input: {
   }
 
   const tokenInfo = await fetchKakaoAccessTokenInfo(accessToken);
+  assertKakaoTokenAppId(tokenInfo);
   const kakaoUserId = String(tokenInfo.id);
 
   let nickname: string | null = null;

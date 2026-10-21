@@ -183,3 +183,14 @@ new version the destination disagreed with the server gate.
 Contract delta: **none in meaning** — Destination still = consent-only gate; it now judges with
 `OnboardingStatus.requiredConsent` (the same CMS versions). Session / Completion / Profile writer unchanged.
 SSOT: `docs/dibay-first-entry-legal-consent-ssot.md`.
+
+---
+
+## Amendment 2026-10-21 — auth 통합 SSOT (Reopen §4 trigger 3 Code First Break · trigger 4 보안)
+
+OWNER 승인 2026-10-21: `docs/dibay-auth-full-audit-ssot-design-2026-10-21.md` 7개 묶음 일괄 구현.
+Contract delta:
+- Identity: Naver 비활성 · 이메일 일치로 기존 계정 세션 발급 금지(웹 자동 연결 포함) · native 로그인은 owner 자격 증명을 덮어쓰지 않음 · owner 세션 재발급 = magiclink 주경로.
+- Completion 입력: 아이디(password) 로그인도 `consentComplete` 를 Destination 에 전달 (Destination 의미 불변 — 동의 1조건).
+- Session: 다른 탭 명시적 로그아웃 broadcast → 같은 wipe + 하드 리로드 · 탭 단위 A→B 감지 wipe · logout-all 이전 발급 토큰의 registry 자동 재등록 금지.
+- 불변: NO_MEGA_FSM · PLAN_B4 · Thin Handoff · resolveCommonAuthDestination 단일 Destination.

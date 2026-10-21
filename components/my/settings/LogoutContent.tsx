@@ -32,10 +32,12 @@ type LogoutActionTriggerProps = {
 export function LogoutActionTrigger({
   variant = "danger_button",
   surface = "grouped",
-  label = "로그아웃",
+  label: labelProp,
   autoOpen = false,
   confirmZIndexClass,
 }: LogoutActionTriggerProps) {
+  const { t } = useI18n();
+  const label = labelProp ?? t("auth_logout_submit");
   const [open, setOpen] = useState(autoOpen);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,14 +53,16 @@ export function LogoutActionTrigger({
       setSubmitting((prev) => (prev ? false : prev));
 
       if (!result.ok) {
-        setError(result.message ?? "로그아웃 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        setError(result.message ?? t("auth_logout_err_failed"));
         return;
       }
 
       setOpen((prev) => (prev ? false : prev));
     } catch (e) {
       setSubmitting((prev) => (prev ? false : prev));
-      setError(e instanceof Error ? e.message : "로그아웃 처리 중 알 수 없는 오류가 발생했습니다.");
+      // 예외 원문은 콘솔로만 (P2-15)
+      console.warn("[logout] unexpected failure", e instanceof Error ? e.name : "unknown");
+      setError(t("auth_logout_err_unknown"));
     }
   };
 
@@ -124,7 +128,8 @@ function LogoutAllDevicesTrigger() {
       navigateAfterAuthExitOnce("logout");
     } catch (e) {
       setSubmitting(false);
-      setError(e instanceof Error ? e.message : t("auth_logout_err_failed"));
+      console.warn("[logout-all] unexpected failure", e instanceof Error ? e.name : "unknown");
+      setError(t("auth_logout_err_failed"));
     }
   };
 

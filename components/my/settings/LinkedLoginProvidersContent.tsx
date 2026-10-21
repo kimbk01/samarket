@@ -129,7 +129,12 @@ export function LinkedLoginProvidersContent({ onLoaded }: { onLoaded?: () => voi
                   fallbackKo: "최소 1개의 로그인 방법은 유지해야 합니다.",
                   fallbackEn: "You must keep at least one sign-in method.",
                 })
-              : t("mypage_s10_unlink_failed"),
+              : json?.errorCode === "reauth_required"
+                ? safeT("auth_provider_unlink_reauth_required_toast", {
+                    fallbackKo: "보안을 위해 다시 로그인한 뒤 연결을 해제해 주세요.",
+                    fallbackEn: "For your security, sign in again and then unlink.",
+                  })
+                : t("mypage_s10_unlink_failed"),
             "error",
           );
           return;

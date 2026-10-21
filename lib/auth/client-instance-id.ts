@@ -75,3 +75,32 @@ export function detectAuthUserMismatch(nextUserId: string): boolean {
   if (!bound) return false;
   return bound !== next;
 }
+
+/**
+ * P0-2 — 탭별 마지막 인증 user id (메모리 전용 · localStorage 바인딩과 별개).
+ * 다른 탭의 로그아웃이 bound id 를 지우고 B 로그인이 다시 쓰면 `detectAuthUserMismatch` 는 false 가 된다.
+ * 이 탭 메모리에 A 상태가 남아 있는지는 이 값으로만 판단한다. SIGNED_OUT 에서 지우지 않는다.
+ */
+let tabAuthenticatedUserId: string | null = null;
+
+export function rememberTabAuthenticatedUserId(userId: string): void {
+  const id = String(userId ?? "").trim();
+  if (!id) return;
+  tabAuthenticatedUserId = id;
+}
+
+export function getTabAuthenticatedUserId(): string | null {
+  return tabAuthenticatedUserId;
+}
+
+/** 이 탭이 이전에 다른 user 로 인증돼 있었으면 true (탭 첫 인증은 false) */
+export function detectTabAuthUserSwitch(nextUserId: string): boolean {
+  const next = String(nextUserId ?? "").trim();
+  if (!next || !tabAuthenticatedUserId) return false;
+  return tabAuthenticatedUserId !== next;
+}
+
+/** vitest */
+export function resetTabAuthenticatedUserIdForTests(): void {
+  tabAuthenticatedUserId = null;
+}

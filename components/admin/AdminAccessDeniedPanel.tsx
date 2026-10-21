@@ -21,9 +21,18 @@ export function AdminAccessDeniedPanel({ backHref }: { backHref?: string } = {})
           {t("admin_error_home")}
         </Link>
       ) : (
-        <Link href="/philife" className="mt-4 sam-text-body font-medium text-signature underline">
-          {t("common_homepage")}
-        </Link>
+        <div className="mt-4 flex items-center gap-4">
+          {/* UX-13: 미로그인·다른 계정 — 운영 로그인으로 바로 이동 */}
+          <Link
+            href="/login?internal=1&next=%2Fadmin"
+            className="sam-text-body font-medium text-signature underline"
+          >
+            {t("common_login")}
+          </Link>
+          <Link href="/philife" className="sam-text-body font-medium text-signature underline">
+            {t("common_homepage")}
+          </Link>
+        </div>
       )}
     </div>
   );

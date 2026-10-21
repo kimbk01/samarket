@@ -111,13 +111,22 @@ if (!oauthContract.includes("releaseOAuthFlowOnUserCancel")) {
 }
 
 const loginButtons = read("components/auth/LoginProviderButtons.tsx");
-if (!loginButtons.includes("isOAuthLoginStartSupported")) {
+if (
+  !loginButtons.includes("isOAuthLoginStartSupported") &&
+  !loginButtons.includes("usePlatformFilteredLoginProviders")
+) {
   failures.push("LoginProviderButtons must filter unsupported OAuth providers (Facebook)");
 }
 
-const naverStart = read("app/api/auth/naver/start/route.ts");
-if (!naverStart.includes("NATIVE_OAUTH_CAPACITOR_RETURN_PATH")) {
-  failures.push("naver/start must use capacitor-return bridge for native redirect");
+// Naver 로그인 비활성 (auth SSOT 2026-10-21 P0-1) — start/callback 은 410 만 반환한다.
+for (const rel of ["app/api/auth/naver/start/route.ts", "app/api/auth/naver/callback/route.ts"]) {
+  const src = read(rel);
+  if (!src.includes("NAVER_LOGIN_DISABLED_ERROR_CODE") && !src.includes("naver_login_disabled") || !src.includes("410")) {
+    failures.push(`${rel} must stay disabled (410 naver_login_disabled)`);
+  }
+  if (src.includes("signInWithPassword") || src.includes("findAuthUserByEmail")) {
+    failures.push(`${rel} must not reuse accounts by email`);
+  }
 }
 
 const signup = read("lib/auth/dibay-signup-status.ts");

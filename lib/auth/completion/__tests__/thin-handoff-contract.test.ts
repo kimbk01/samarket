@@ -81,7 +81,8 @@ describe("Slice 6-4 thin handoff contract", () => {
   });
 
   it("Web/Naver HTTP callback structure unchanged (no client finish)", () => {
-    for (const rel of ["app/auth/callback/route.ts", "app/api/auth/naver/callback/route.ts"]) {
+    // P0-1 — Naver callback 은 410 고정 (completion 없음)
+    for (const rel of ["app/auth/callback/route.ts"]) {
       const src = readFileSync(join(process.cwd(), rel), "utf8");
       expect(src, rel).not.toMatch(/finishClientAuthLogin/);
       expect(src, rel).not.toMatch(/runCommonAuthClientCompletion/);

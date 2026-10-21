@@ -153,11 +153,19 @@ function buildAdminSb(options: {
   profileId?: string | null;
   createUserError?: string | null;
   recoveredAuthUserId?: string | null;
+  recoveredUserMetadata?: Record<string, unknown>;
   identities?: IdentityRow[];
+  ownerEmail?: string;
 }) {
   const updateUserById = vi.fn(async () => ({ error: null }));
   const getUserById = vi.fn(async (id: string) => ({
-    data: { user: { id, email: `google.107373086399795697553@google.native.dibay.internal` } },
+    data: {
+      user: { id, email: options.ownerEmail ?? `google.107373086399795697553@google.native.dibay.internal` },
+    },
+    error: null,
+  }));
+  const generateLink = vi.fn(async (args: { email: string }) => ({
+    data: { properties: { hashed_token: "hashed-token" }, user: { id: "owner-user-id", email: args.email } },
     error: null,
   }));
   const createUser = vi.fn(async () => ({
@@ -196,7 +204,17 @@ function buildAdminSb(options: {
   });
 
   findAuthUserByEmail.mockImplementation(async () =>
-    options.recoveredAuthUserId ? { id: options.recoveredAuthUserId, email: "google.107373086399795697553@google.native.dibay.internal" } : null,
+    options.recoveredAuthUserId
+      ? {
+          id: options.recoveredAuthUserId,
+          email: "google.107373086399795697553@google.native.dibay.internal",
+          user_metadata: options.recoveredUserMetadata ?? {
+            provider: "google",
+            google_id: "107373086399795697553",
+          },
+          identities: [{ provider: "email" }],
+        }
+      : null,
   );
 
   return {
@@ -205,17 +223,19 @@ function buildAdminSb(options: {
         createUser,
         updateUserById,
         getUserById,
+        generateLink,
         deleteUser: vi.fn(async () => ({ error: null })),
         listUsers: vi.fn(async () => ({ data: { users: [] }, error: null })),
       },
     },
     from,
-    __mocks: { createUser, updateUserById, getUserById },
+    __mocks: { createUser, updateUserById, getUserById, generateLink },
   } as unknown as SupabaseClient & {
     __mocks: {
       createUser: ReturnType<typeof vi.fn>;
       updateUserById: ReturnType<typeof vi.fn>;
       getUserById: ReturnType<typeof vi.fn>;
+      generateLink: ReturnType<typeof vi.fn>;
     };
   };
 }
@@ -325,7 +345,9 @@ describe("google-native-session.server", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errorCode).toBe("provider_email_conflict");
-      expect(result.conflict?.existingUserId).toBe(webProfileId);
+      // P1-3 — 다른 회원 userId 는 응답에 없다.
+      expect(result.conflict).not.toHaveProperty("existingUserId");
+      expect(JSON.stringify(result.conflict)).not.toContain(webProfileId);
     }
   });
 
@@ -409,5 +431,105 @@ describe("google-native-session.server", () => {
     if (!result.ok) {
       expect(result.errorCode).toBe("profile_ensure_failed");
     }
+  });
+
+  it("P1-7: existing non-synthetic owner gets a magiclink session — email/password never overwritten", async () => {
+    const googleUserId = "107373086399795697553";
+    const ownerId = "owner-user-id";
+    const adminSb = buildAdminSb({
+      ownerEmail: "owner@gmail.com",
+      identities: [
+        { id: "idn-1", user_id: ownerId, provider: "google", provider_user_id: googleUserId, email: null },
+      ],
+    });
+    const signInWithPassword = vi.fn();
+    const verifyOtp = vi.fn(async () => ({
+      data: { user: { id: ownerId, email: "owner@gmail.com" }, session: { access_token: "t" } },
+      error: null,
+    }));
+    const routeSb = { auth: { signInWithPassword, verifyOtp, signOut: vi.fn() } } as unknown as SupabaseClient;
+    ensureProfileForUserId.mockResolvedValue({ id: ownerId });
+
+    const result = await establishGoogleNativeSession(
+      {
+        adminSb,
+        routeSb,
+        request: new Request("https://samarket.vercel.app/api/auth/native/exchange") as never,
+        response: {} as never,
+      },
+      { verified: { googleUserId, audience: "aud", email: "owner@gmail.com", emailVerified: true } },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(adminSb.__mocks.updateUserById).not.toHaveBeenCalled();
+    expect(signInWithPassword).not.toHaveBeenCalled();
+    expect(adminSb.__mocks.generateLink).toHaveBeenCalledWith({ type: "magiclink", email: "owner@gmail.com" });
+    expect(verifyOtp).toHaveBeenCalledWith({ type: "magiclink", token_hash: "hashed-token" });
+  });
+
+  it("magiclink 실패 시 Google 만 검증된 Gmail 비밀번호 로그인으로 fallback (로그인 불능 방지)", async () => {
+    const googleUserId = "107373086399795697553";
+    const ownerId = "owner-user-id";
+    const adminSb = buildAdminSb({
+      ownerEmail: "owner@gmail.com",
+      identities: [
+        { id: "idn-1", user_id: ownerId, provider: "google", provider_user_id: googleUserId, email: null },
+      ],
+    });
+    const signInWithPassword = vi.fn(async () => ({
+      data: { user: { id: ownerId, email: "owner@gmail.com" } },
+      error: null,
+    }));
+    const verifyOtp = vi.fn(async () => ({ data: { user: null, session: null }, error: { message: "otp_expired" } }));
+    const routeSb = { auth: { signInWithPassword, verifyOtp, signOut: vi.fn() } } as unknown as SupabaseClient;
+    ensureProfileForUserId.mockResolvedValue({ id: ownerId });
+
+    const result = await establishGoogleNativeSession(
+      {
+        adminSb,
+        routeSb,
+        request: new Request("https://samarket.vercel.app/api/auth/native/exchange") as never,
+        response: {} as never,
+      },
+      { verified: { googleUserId, audience: "aud", email: "owner@gmail.com", emailVerified: true } },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(verifyOtp).toHaveBeenCalled();
+    expect(signInWithPassword).toHaveBeenCalledWith(expect.objectContaining({ email: "owner@gmail.com" }));
+    // fallback 은 비밀번호만 — owner 이메일은 바꾸지 않는다
+    for (const call of adminSb.__mocks.updateUserById.mock.calls) {
+      expect(call[1]).not.toHaveProperty("email");
+    }
+  });
+
+  it("OA-10: refuses to adopt a synthetic-email auth user not created by DIBAY", async () => {
+    const googleUserId = "107373086399795697553";
+    const adminSb = buildAdminSb({
+      profileId: null,
+      createUserError: "A user with this email address has already been registered",
+      recoveredAuthUserId: "squatter-id",
+      recoveredUserMetadata: { name: "attacker" },
+    });
+    const signInWithPassword = vi.fn();
+    const routeSb = { auth: { signInWithPassword } } as unknown as SupabaseClient;
+
+    const result = await establishGoogleNativeSession(
+      {
+        adminSb,
+        routeSb,
+        request: new Request("https://samarket.vercel.app/api/auth/native/exchange") as never,
+        response: {} as never,
+      },
+      { verified: { googleUserId, audience: "aud", email: null, emailVerified: false } },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errorCode).toBe("provider_account_conflict");
+    // 선점 계정에 DIBAY 파생 비밀번호를 심지 않는다 (tombstone 외 자격증명 갱신 없음).
+    for (const call of adminSb.__mocks.updateUserById.mock.calls) {
+      expect(call[1]).not.toHaveProperty("password");
+    }
+    expect(signInWithPassword).not.toHaveBeenCalled();
   });
 });

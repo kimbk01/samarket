@@ -32,7 +32,6 @@ describe("member/admin password persistence contracts", () => {
       "lib/auth/native/google-native-session.server.ts",
       "lib/auth/native/kakao-native-session.server.ts",
       "lib/auth/native/apple-native-session.server.ts",
-      "app/api/auth/naver/callback/route.ts",
       "lib/auth/provider-identity/web-oauth-owner-rebind.server.ts",
     ]) {
       const src = read(rel);

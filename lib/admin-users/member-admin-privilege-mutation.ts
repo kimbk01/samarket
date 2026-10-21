@@ -58,7 +58,13 @@ export async function executeMemberPrivilegePromote(
   const { data: profile } = await sb.from("profiles").select("id").eq("id", targetUserId).maybeSingle();
   if (!profile) return { ok: false, error: "not_found", status: 404 };
 
-  const existing = await loadActiveAdminMembership(sb, targetUserId).catch(() => null);
+  // 대상 권한 조회 실패를 "일반 회원"으로 간주하지 않는다 (AD-06 fail-closed).
+  let existing: Awaited<ReturnType<typeof loadActiveAdminMembership>>;
+  try {
+    existing = await loadActiveAdminMembership(sb, targetUserId);
+  } catch {
+    return { ok: false, error: "admin_target_check_failed", status: 503 };
+  }
   if (existing) {
     if (isSuperAdminRole(existing.role)) {
       return { ok: false, error: "cannot_modify_super_admin", status: 403 };
@@ -66,7 +72,12 @@ export async function executeMemberPrivilegePromote(
     return { ok: false, error: "already_admin", status: 409 };
   }
 
-  const alreadyAdmin = await hasActiveAdminMembershipOrLegacyRole(sb, targetUserId).catch(() => false);
+  let alreadyAdmin: boolean;
+  try {
+    alreadyAdmin = await hasActiveAdminMembershipOrLegacyRole(sb, targetUserId);
+  } catch {
+    return { ok: false, error: "admin_target_check_failed", status: 503 };
+  }
   if (alreadyAdmin) {
     return { ok: false, error: "already_admin", status: 409 };
   }
@@ -124,7 +135,12 @@ export async function executeMemberPrivilegeRevoke(
   const { data: profile } = await sb.from("profiles").select("id").eq("id", targetUserId).maybeSingle();
   if (!profile) return { ok: false, error: "not_found", status: 404 };
 
-  const existing = await loadActiveAdminMembership(sb, targetUserId).catch(() => null);
+  let existing: Awaited<ReturnType<typeof loadActiveAdminMembership>>;
+  try {
+    existing = await loadActiveAdminMembership(sb, targetUserId);
+  } catch {
+    return { ok: false, error: "admin_target_check_failed", status: 503 };
+  }
   if (!existing) {
     return { ok: false, error: "not_admin", status: 409 };
   }

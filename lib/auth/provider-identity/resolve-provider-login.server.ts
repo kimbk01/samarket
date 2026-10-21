@@ -166,6 +166,7 @@ async function resolvePasswordMemberEmailGate(
   };
 }
 
+/** 클라이언트 응답용 — `existingUserId` 는 넣지 않는다 (P1-3). */
 export function buildProviderEmailConflictPayload(
   result: Extract<ResolveProviderLoginResult, { status: "email_conflict" }>,
 ) {
@@ -174,6 +175,5 @@ export function buildProviderEmailConflictPayload(
     email: result.conflict.email,
     attemptedProvider: result.conflict.attemptedProvider,
     existingProviders: result.conflict.existingProviders,
-    existingUserId: result.conflict.existingUserId,
   };
 }

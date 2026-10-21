@@ -131,7 +131,8 @@ describe("resolve-google-native-existing-user", () => {
         auth_provider: "google",
         provider_user_id: "sub-orphan",
         status: "sns_pending",
-      } as ProfileRow & { provider_user_id: string },
+        member_status: "pending",
+      } as ProfileRow & { provider_user_id: string; member_status: string },
       { id: canonicalProfileId, provider: "email", auth_provider: "email", status: "active" },
     ]);
     findAuthUserByEmail.mockResolvedValue({ id: canonicalProfileId, email: "im2pact@gmail.com" });
@@ -176,7 +177,8 @@ describe("resolve-google-native-existing-user", () => {
         auth_provider: "google",
         provider_user_id: googleUserId,
         status: "sns_pending",
-      } as ProfileRow & { provider_user_id: string },
+        member_status: "pending",
+      } as ProfileRow & { provider_user_id: string; member_status: string },
       { id: canonicalProfileId, provider: "email", auth_provider: "email" },
     ]);
     findAuthUserByEmail.mockResolvedValue(null);
@@ -203,7 +205,7 @@ describe("resolve-google-native-existing-user", () => {
         provider: "google",
         auth_provider: "google",
         provider_user_id: "sub-exact",
-      } as ProfileRow & { provider_user_id: string },
+      } as ProfileRow & { provider_user_id: string; member_status: string },
     ]);
     findAuthUserByEmail.mockResolvedValue(null);
 

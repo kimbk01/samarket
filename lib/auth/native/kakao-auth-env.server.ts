@@ -12,3 +12,14 @@ export function buildKakaoNativeAuthEmail(kakaoUserId: string): string {
   const normalized = String(kakaoUserId ?? "").trim();
   return `kakao.${normalized}@${KAKAO_NATIVE_AUTH_EMAIL_DOMAIN}`;
 }
+
+/**
+ * P1-2 — Kakao 앱 ID (`access_token_info.app_id` 비교용). 미설정·비정상 값이면 null.
+ * Owner 가 Production env `KAKAO_APP_ID` 를 등록해야 검증이 강제된다.
+ */
+export function readKakaoAppIdEnv(): number | null {
+  const raw = String(process.env.KAKAO_APP_ID ?? "").trim();
+  if (!raw || !/^\d+$/.test(raw)) return null;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
+}

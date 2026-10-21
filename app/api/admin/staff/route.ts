@@ -6,6 +6,7 @@ import {
   defaultPermissionsForUiRole,
   loadStaffPermissionsMap,
   replaceStaffPermissions,
+  resolveEffectiveStaffPermissionsFromStored,
   uiRoleToAdminTier,
 } from "@/lib/admin/admin-user-server";
 import {
@@ -153,9 +154,7 @@ export async function GET() {
     const perms =
       normalizeAdminRole(effectiveRole) === "super_admin"
         ? defaultPermissionsForUiRole("master")
-        : permMap.get(row.id)?.length
-          ? (permMap.get(row.id) as AdminPermissionKey[])
-          : defaultPermissionsForUiRole(uiRole);
+        : resolveEffectiveStaffPermissionsFromStored(permMap.get(row.id), uiRole);
     return mapStaffRow(row, perms, effectiveRole, m as MembershipLite, lastLoginByUser.get(row.id) ?? null);
   });
 
@@ -207,7 +206,8 @@ export async function POST(req: NextRequest) {
     }
 
     const permissions =
-      Array.isArray(body.permissions) && body.permissions.length > 0
+      // AD-05: 명시 배열(빈 배열 포함)은 그대로 저장 — 빈 배열 = 권한 키 없음. 생략 시에만 역할 기본 권한.
+      Array.isArray(body.permissions)
         ? body.permissions
         : defaultPermissionsForUiRole(uiRole);
 
@@ -260,7 +260,8 @@ export async function POST(req: NextRequest) {
 
   const userId = created.user.id;
   const permissions =
-    Array.isArray(body.permissions) && body.permissions.length > 0
+    // AD-05: 명시 배열(빈 배열 포함)은 그대로 저장 — 생략 시에만 역할 기본 권한.
+    Array.isArray(body.permissions)
       ? body.permissions
       : defaultPermissionsForUiRole(uiRole);
 

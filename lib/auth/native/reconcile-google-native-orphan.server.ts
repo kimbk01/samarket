@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { findActiveProfileIdByProviderUserId } from "@/lib/auth/active-profile-lookup";
 import {
@@ -5,11 +6,13 @@ import {
   GOOGLE_NATIVE_AUTH_EMAIL_DOMAIN,
 } from "@/lib/auth/native/google-auth-env.server";
 import { findAuthUserByEmail } from "@/lib/auth/naver-oauth";
-import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
 
 type ProfileOrphanRow = {
   id?: string | null;
   status?: string | null;
+  member_status?: string | null;
+  terms_accepted_at?: string | null;
+  dibay_id_locked?: boolean | null;
   email?: string | null;
   auth_login_email?: string | null;
   provider?: string | null;
@@ -39,35 +42,63 @@ export function isGoogleNativeOrphanProfileRow(profile: ProfileOrphanRow | null,
   return isReclaimableGoogleNativeOrphanProfile(profile, profileId, "__canonical__");
 }
 
+const ORPHAN_PROFILE_SELECT =
+  "id, status, member_status, terms_accepted_at, dibay_id_locked, email, auth_login_email, provider, auth_provider, provider_user_id, deleted_at";
+
+/**
+ * P1-8 — orphan 판정 축소: profile 행 없음, 또는 **콘텐츠 없는 pending**
+ * (member_status=pending · 약관 미동의 · DIBAY ID 미잠금) 만. 활성·탈퇴·동의 회원은 절대 대상 아님.
+ */
 export function isReclaimableGoogleNativeOrphanProfile(
   profile: ProfileOrphanRow | null,
   holderId: string,
   canonicalUserId: string,
 ): boolean {
-  if (holderId === canonicalUserId) return false;
+  if (!holderId || holderId === canonicalUserId) return false;
   if (!profile?.id) return true;
-  if (isDeletedStoreMember(profile)) return true;
   if (String(profile.id) !== holderId) return false;
-  if (String(profile.status ?? "").trim() === "sns_pending") return true;
-
-  const email = String(profile.auth_login_email ?? profile.email ?? "").trim().toLowerCase();
-  if (!email || isGoogleNativeSyntheticAuthEmail(email)) return true;
-
-  const provider = String(profile.provider ?? profile.auth_provider ?? "").trim().toLowerCase();
-  return provider === "google";
+  if (String(profile.member_status ?? "").trim().toLowerCase() !== "pending") return false;
+  if (String(profile.terms_accepted_at ?? "").trim()) return false;
+  if (profile.dibay_id_locked === true) return false;
+  if (String(profile.deleted_at ?? "").trim()) return false;
+  return true;
 }
 
-async function deleteGoogleNativeOrphanAuthUser(
+function orphanTombstoneEmail(orphanUserId: string): string {
+  return `orphan.${orphanUserId.replace(/-/g, "")}.${Date.now()}@${GOOGLE_NATIVE_AUTH_EMAIL_DOMAIN}`;
+}
+
+/**
+ * P1-8 — hard delete 금지. landing pad 와 같은 tombstone:
+ * email 을 tombstone 주소로 옮겨 synthetic email 을 비우고, 로그인 차단(ban) + metadata 표식.
+ */
+async function tombstoneGoogleNativeOrphanAuthUser(
   adminSb: SupabaseClient,
   orphanUserId: string,
+  canonicalUserId: string,
 ): Promise<void> {
-  const { error } = await adminSb.auth.admin.deleteUser(orphanUserId);
-  if (!error) return;
+  let meta: Record<string, unknown> = {};
+  try {
+    const { data } = await adminSb.auth.admin.getUserById(orphanUserId);
+    const current = data?.user?.user_metadata;
+    if (current && typeof current === "object") meta = { ...(current as Record<string, unknown>) };
+  } catch {
+    /* metadata merge is best-effort */
+  }
+  meta.dibay_orphan_tombstone = true;
+  meta.dibay_orphan_tombstone_at = new Date().toISOString();
+  meta.dibay_orphan_canonical_hash = createHash("sha256").update(canonicalUserId || "none").digest("hex").slice(0, 12);
 
-  const tombstoneEmail = `orphan.${orphanUserId.replace(/-/g, "")}.${Date.now()}@google.native.dibay.internal`;
-  await adminSb.auth.admin
-    .updateUserById(orphanUserId, { email: tombstoneEmail, email_confirm: true })
-    .catch(() => undefined);
+  try {
+    await adminSb.auth.admin.updateUserById(orphanUserId, {
+      email: orphanTombstoneEmail(orphanUserId),
+      email_confirm: true,
+      ban_duration: "876000h",
+      user_metadata: meta,
+    });
+  } catch {
+    /* best-effort — 실패해도 회원 삭제로 대체하지 않는다 */
+  }
 }
 
 /**
@@ -85,7 +116,7 @@ export async function reclaimGoogleNativeSyntheticAuthOrphan(
 
   const { data: holderProfile } = await adminSb
     .from("profiles")
-    .select("id, status, email, auth_login_email, provider, auth_provider, provider_user_id, deleted_at")
+    .select(ORPHAN_PROFILE_SELECT)
     .eq("id", holderId)
     .maybeSingle();
 
@@ -93,7 +124,7 @@ export async function reclaimGoogleNativeSyntheticAuthOrphan(
     return;
   }
 
-  await deleteGoogleNativeOrphanAuthUser(adminSb, holderId);
+  await tombstoneGoogleNativeOrphanAuthUser(adminSb, holderId, canonicalUserId);
 }
 
 /**
@@ -110,21 +141,15 @@ export async function reconcileGoogleNativeProviderProfileConflict(
 
   const { data: conflictRow } = await adminSb
     .from("profiles")
-    .select("id, status, email, auth_login_email, provider, auth_provider, provider_user_id, deleted_at")
+    .select(ORPHAN_PROFILE_SELECT)
     .eq("id", conflictProfileId)
     .maybeSingle();
   if (!conflictRow) return;
 
+  // P1-8 — email 일치만으로는 정리하지 않는다 (활성 회원 보호). 콘텐츠 없는 pending orphan 만.
+  void verifiedGmail;
   const row = conflictRow as ProfileOrphanRow;
-  const conflictEmail = String(row.auth_login_email ?? row.email ?? "").trim().toLowerCase();
-  const samePersonByEmail = Boolean(
-    verifiedGmail
-    && conflictEmail
-    && conflictEmail === verifiedGmail.trim().toLowerCase(),
-  );
-  const reclaimableOrphan = isReclaimableGoogleNativeOrphanProfile(row, conflictProfileId, canonicalUserId);
-
-  if (!samePersonByEmail && !reclaimableOrphan) return;
+  if (!isReclaimableGoogleNativeOrphanProfile(row, conflictProfileId, canonicalUserId)) return;
 
   await adminSb
     .from("profiles")
@@ -137,7 +162,5 @@ export async function reconcileGoogleNativeProviderProfileConflict(
     .eq("id", conflictProfileId)
     .then(() => undefined, () => undefined);
 
-  if (conflictProfileId !== canonicalUserId) {
-    await deleteGoogleNativeOrphanAuthUser(adminSb, conflictProfileId);
-  }
+  await tombstoneGoogleNativeOrphanAuthUser(adminSb, conflictProfileId, canonicalUserId);
 }

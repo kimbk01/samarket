@@ -65,7 +65,13 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const targetMembership = await loadActiveAdminMembership(sb, userId).catch(() => null);
+  // AD-06: 대상 관리자 확인 DB 오류 = 503 (일반 회원으로 간주하지 않는다 · fail-closed).
+  let targetMembership: Awaited<ReturnType<typeof loadActiveAdminMembership>>;
+  try {
+    targetMembership = await loadActiveAdminMembership(sb, userId);
+  } catch {
+    return NextResponse.json({ ok: false, error: "admin_target_check_failed" }, { status: 503 });
+  }
   if (isSuperAdminRole(targetMembership?.role)) {
     return NextResponse.json({ ok: false, error: "forbidden_super_admin_target" }, { status: 403 });
   }

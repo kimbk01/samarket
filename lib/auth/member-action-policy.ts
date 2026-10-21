@@ -57,7 +57,8 @@ export const MEMBER_MUTATION_EXEMPT_RULES: ReadonlyArray<{
     actor: "member",
     allowedStates: ALL_LIFECYCLE,
     allowedAction: "phone_verify_otp",
-    dataMutationEffect: "verifies phone; does not clear suspend/block/withdraw",
+    dataMutationEffect:
+      "verifies phone fields; lifecycle promotion only for non-restricted rows — never clears suspend/block/withdraw (phone-otp-service isPhoneVerifyLifecyclePromotable)",
   },
   {
     match: (p) => p === "/api/auth/logout",

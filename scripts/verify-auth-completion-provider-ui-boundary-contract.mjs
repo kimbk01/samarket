@@ -51,7 +51,8 @@ const PROVIDERS = [
   "lib/auth/native/start-native-apple-login.client.ts",
 ];
 const UI = ["app/login/LoginPageClient.tsx", "components/auth/AuthModal.tsx", "lib/auth/oauth/use-oauth-login.ts"];
-const WEB_NAVER = ["app/auth/callback/route.ts", "app/api/auth/naver/callback/route.ts"];
+// Naver callback 은 비활성(410) — Web 경로 계약은 OAuth callback 만 (auth SSOT 2026-10-21 P0-1)
+const WEB_NAVER = ["app/auth/callback/route.ts"];
 
 const FORBIDDEN_CLIENT = [
   "ensure-auth-profile-for-login",

@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
+import { AuthAccountStatusNoticeBlock, AuthLoginNotice, type AuthLoginNoticeState } from "@/components/auth/AuthLoginNotice";
+import { usePasswordLogin } from "@/components/auth/usePasswordLogin";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import {
@@ -18,45 +20,12 @@ import type { OAuthAuthSuccessInput } from "@/lib/auth/oauth/use-oauth-login";
 import { dispatchOAuthPendingClear, useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
 import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
 import { openProviderEmailConflictFromRedirect } from "@/lib/auth/provider-identity/provider-email-conflict.client";
-import type { StoredAuthProvider } from "@/lib/auth/provider-identity/types";
+import { parseProviderEmailConflictRedirectParams } from "@/components/auth/provider-email-conflict-redirect";
 import { OAuthInlineLoginHint } from "@/components/auth/OAuthInlineLoginHint";
-import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
-import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  AUTH_IDENTIFIER_RESOLVE_TIMEOUT_SIGNAL,
-  AUTH_REQUEST_TIMEOUT_SIGNAL,
-  mapAuthErrorMessage,
-  mapPasswordLoginErrorMessage,
-  mapPasswordResolveErrorCodeToMessage,
-  mapSupabaseFetchFailureToMessage,
-} from "@/lib/auth/login-error-i18n";
-
-const AUTH_REQUEST_TIMEOUT_MS = 25_000;
-const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
-
-function looksLikeEmailForLogin(identifierRaw: string): boolean {
-  const s = identifierRaw.trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-}
-
-function mapHttpStatusToResolveErrorCode(status: number): string {
-  if (status === 429) return "rate_limited";
-  return "";
-}
-
-function rejectAfter(ms: number, signal: string): Promise<never> {
-  return new Promise((_, reject) => {
-    window.setTimeout(() => reject(new Error(signal)), ms);
-  });
-}
-
-function withTimeout<T>(p: Promise<T>, ms: number, signal: string): Promise<T> {
-  return Promise.race([p, rejectAfter(ms, signal)]);
-}
+import { mapAuthErrorMessage, resolveAuthAccountStatusNotice } from "@/lib/auth/login-error-i18n";
 
 function LoginPageContent() {
   const { t } = useI18n();
@@ -107,11 +76,14 @@ function LoginPageContent() {
     next: next ?? null,
     onAuthSuccess: handleAuthSuccess,
   });
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [passwordLoginStatus, setPasswordLoginStatus] = useState("");
+  const passwordLogin = usePasswordLogin({
+    next: next ?? null,
+    router,
+    keepLoadingOnSuccess: true,
+  });
+  const { error, loading } = passwordLogin;
+  /** 안내(로그아웃·세션 만료) / 오류 / 계정 상태(정지·차단·탈퇴) — 톤 분리 (P2-15) */
+  const [notice, setNotice] = useState<AuthLoginNoticeState | null>(null);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
 
   useEffect(() => {
@@ -120,29 +92,27 @@ function LoginPageContent() {
     }
   }, [openInternalLogin]);
 
-  const showLoginError = (message: string) => {
-    setError((prev) => (prev === message ? prev : message));
-  };
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!loginReason && window.location.search.length === 0) return;
+    const showNotice = (nextNotice: AuthLoginNoticeState) => {
+      setNotice((prev) =>
+        prev?.tone === nextNotice.tone && prev.text === nextNotice.text ? prev : nextNotice,
+      );
+    };
     if (loginReason === "session_expired") {
-      const message = t("auth_session_expired_notice");
-      setError((prev) => (prev === message ? prev : message));
+      showNotice({ tone: "info", text: t("auth_session_expired_notice") });
       router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
       return;
     }
     if (loginReason === "auth_required") {
-      const message = t("auth_login_required_notice");
-      setError((prev) => (prev === message ? prev : message));
+      showNotice({ tone: "info", text: t("auth_login_required_notice") });
       router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
       return;
     }
     if (loginReason === "logout") {
       blockedFromLogoutLandingRef.current = true;
-      const message = t("auth_logout_success_notice");
-      setError((prev) => (prev === message ? prev : message));
+      showNotice({ tone: "info", text: t("auth_logout_success_notice") });
       router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
       return;
     }
@@ -152,33 +122,41 @@ function LoginPageContent() {
     const errorCode = params.get("error")?.trim() ?? "";
     const code = authError || errorCode;
 
-    const stash = params.get("auth_stash")?.trim() ?? "";
-    const conflictEmail = params.get("auth_conflict_email")?.trim() ?? "";
-    const attempted = params.get("auth_conflict_attempted")?.trim() ?? "";
-    const existingRaw = params.get("auth_conflict_existing")?.trim() ?? "";
-    if (stash && conflictEmail && attempted) {
-      const existingProviders = existingRaw
-        .split(",")
-        .map((p) => p.trim())
-        .filter(Boolean) as StoredAuthProvider[];
-      openProviderEmailConflictFromRedirect({
-        email: conflictEmail,
-        attemptedProvider: attempted as "google" | "kakao" | "apple",
-        existingProviders,
-        stashToken: stash,
-      });
+    /**
+     * P1-4 hardening: 연결 stash 는 콜백이 URL 로만 넘긴다 — 읽은 즉시 history 에서 제거하고,
+     * 충돌 모달 맥락(email·attempted·existing 전부 유효)이 있을 때만 보관한다. 단독 주입은 버린다.
+     */
+    const conflictRedirect = parseProviderEmailConflictRedirectParams(params);
+    if (conflictRedirect.hadStashParam) {
+      try {
+        window.history.replaceState(window.history.state, "", withNextSearchParam("/login", next ?? null));
+      } catch {
+        /* ignore — router.replace 가 이어서 정리 */
+      }
+    }
+    if (conflictRedirect.conflict) {
+      openProviderEmailConflictFromRedirect(conflictRedirect.conflict);
       dispatchOAuthPendingClear("provider_email_conflict");
+      router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
+      return;
+    }
+    if (conflictRedirect.hadStashParam && !code) {
       router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
       return;
     }
 
     if (!code) return;
     dispatchOAuthPendingClear("exchange_failed");
-    const message =
-      code === "oauth_start_failed" || code === "missing_authorize_url"
-        ? t("auth_err_oauth_start_failed")
-        : mapAuthErrorMessage(code, authErrorDetail, t);
-    setError((prev) => (prev === message ? prev : message));
+    const accountStatus = resolveAuthAccountStatusNotice(code);
+    if (accountStatus) {
+      showNotice({ tone: "account", text: mapAuthErrorMessage(code, authErrorDetail, t), accountStatus });
+    } else {
+      const message =
+        code === "oauth_start_failed" || code === "missing_authorize_url"
+          ? t("auth_err_oauth_start_failed")
+          : mapAuthErrorMessage(code, authErrorDetail, t);
+      showNotice({ tone: "error", text: message });
+    }
     // `auth_error`/`error` 만 정리하고 `next` 는 보존해 다음 시도에도 원래 경로로 복귀하게 한다.
     const cleanHref = withNextSearchParam("/login", next ?? null);
     router.replace(cleanHref, { scroll: false });
@@ -221,7 +199,8 @@ function LoginPageContent() {
           | { ok?: boolean; providers?: AuthProviderPublic[]; error?: string }
           | null;
         if (!providersRes.ok || !providersJson?.ok || !Array.isArray(providersJson.providers)) {
-          nextProvidersError = providersJson?.error || t("auth_sns_providers_load_failed");
+          if (providersJson?.error) console.warn("[login] providers load failed", { status: providersRes.status });
+          nextProvidersError = t("auth_sns_providers_load_failed");
         } else {
           nextProviders = providersJson.providers;
         }
@@ -311,167 +290,19 @@ function LoginPageContent() {
 
   const oauthEnabled = providers.length > 0;
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    /**
-     * 이중 제출 가드: input은 disabled 상태지만 PasswordManager 자동입력·
-     * Enter 연속 입력으로 form.onSubmit이 다시 호출될 수 있다.
-     */
-    if (loading) return;
-    setError((prev) => (prev === "" ? prev : ""));
-    setLoading(true);
-    setPasswordLoginStatus(t("auth_status_checking"));
-    /** 전체 이동 직전에는 finally 에서 로딩을 풀지 않음 — 폼이 잠깐 다시 보이는 현상 방지 */
-    let leaveLoginShellIntact = false;
-
-    try {
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        showLoginError(t("auth_err_supabase_unconfigured"));
-        return;
-      }
-      if (!identifier.trim()) {
-        showLoginError(t("auth_err_identifier_required"));
-        return;
-      }
-      if (!password) {
-        showLoginError(t("auth_err_password_required"));
-        return;
-      }
-
-      let signInEmail = "";
-      if (looksLikeEmailForLogin(identifier)) {
-        signInEmail = identifier.trim().toLowerCase();
-      } else {
-        try {
-          const resolveRes = await runSingleFlight(
-            `login:password-resolve-identifier:${identifier.trim().toLowerCase()}`,
-            () =>
-              fetchWithTimeout("/api/auth/password-login/resolve-identifier", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ identifier }),
-                timeoutMs: LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS,
-              })
-          );
-          const resolveJson = (await resolveRes.json().catch(() => null)) as
-            | { identifier?: string; error?: string; code?: string }
-            | null;
-          if (!resolveRes.ok) {
-            const fallbackError = mapPasswordLoginErrorMessage(
-              resolveJson?.error ?? t("auth_err_login_identifier_lookup_failed"),
-              t
-            );
-            const codeFromBody = String(resolveJson?.code ?? "").trim();
-            const codeFromStatus = mapHttpStatusToResolveErrorCode(resolveRes.status);
-            const code = codeFromBody || codeFromStatus;
-            const nextError = mapPasswordResolveErrorCodeToMessage(code, fallbackError, t);
-            showLoginError(nextError);
-            return;
-          }
-          signInEmail = String(resolveJson?.identifier ?? "").trim().toLowerCase();
-        } catch (resolveError) {
-          const nextError =
-            resolveError instanceof DOMException && resolveError.name === "AbortError"
-              ? t("auth_err_identifier_resolve_timeout")
-              : t("auth_err_login_identifier_lookup_failed");
-          showLoginError(nextError);
-          return;
-        }
-      }
-
-      if (!signInEmail) {
-        showLoginError(t("auth_err_enter_email_or_id_short"));
-        return;
-      }
-
-      setPasswordLoginStatus(t("auth_status_navigating"));
-      let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
-      try {
-        signInResult = await withTimeout(
-          supabase.auth.signInWithPassword({ email: signInEmail, password }),
-          AUTH_REQUEST_TIMEOUT_MS,
-          AUTH_REQUEST_TIMEOUT_SIGNAL
-        );
-      } catch (signInError) {
-        if (signInError instanceof Error && signInError.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
-          showLoginError(t("auth_err_auth_timeout"));
-          return;
-        }
-        showLoginError(mapSupabaseFetchFailureToMessage(describeSupabaseFetchFailure(signInError), t));
-        return;
-      }
-
-      const err = signInResult.error;
-      if (err) {
-        const net = describeSupabaseFetchFailure(err);
-        const normalizedRaw = String(err.message ?? "").trim().toLowerCase();
-        let message =
-          net.code !== "unknown"
-            ? mapSupabaseFetchFailureToMessage(net, t)
-            : mapPasswordLoginErrorMessage(err.message || t("auth_err_login_failed"), t);
-        if (normalizedRaw.includes("invalid login credentials")) {
-          message = identifier.includes("@")
-            ? t("auth_err_wrong_password_email")
-            : t("auth_err_wrong_password");
-        }
-        showLoginError(message);
-        return;
-      }
-
-      const session = signInResult.data.session;
-      if (!session) {
-        showLoginError(t("auth_err_session_not_persisted"));
-        return;
-      }
-
-      const loginUntilNavT0 = performance.now();
-
-      void supabase.auth.getSession().catch(() => {
-        /* ignore */
-      });
-
-      /**
-       * 프록시는 Supabase JWT 쿠키만으로 통과한다. `GET /api/me/profile` 은 루트
-       * `SupabaseAuthSync` 가 진입 직후 호출해 맞춘다 — 로그인 화면에서 프로필 로드를 기다리지 않는다.
-       */
-      recordAppWidePhaseLastMs(
-        "login_until_navigation_ms",
-        Math.round(performance.now() - loginUntilNavT0)
-      );
-      leaveLoginShellIntact = true;
-      await finishClientAuthLogin({
-        next: next ?? null,
-        router,
-      });
-      return;
-    } catch (unexpected) {
-      /**
-       * 어떤 예외가 나도 cleanup이 finally에서 보장되도록 최후 안전망.
-       * 사용자에게는 명확히 알리고 콘솔로 진단 흔적을 남긴다.
-       */
-      const message =
-        unexpected instanceof Error && unexpected.message
-          ? t("auth_err_login_unexpected", { message: unexpected.message })
-          : t("auth_err_login_unknown");
-      showLoginError(message);
-      if (typeof console !== "undefined") {
-        console.error("[samarket:login] unexpected handleEmailSubmit failure", unexpected);
-      }
-    } finally {
-      if (!leaveLoginShellIntact) {
-        setLoading(false);
-        setPasswordLoginStatus((prev) => (prev === "" ? prev : ""));
-      }
-    }
-  };
-
   const handleOAuthLogin = (provider: OAuthProvider) => {
     void startOAuthProvider(provider);
   };
 
-  const displayError = error || oauthError || "";
+  const handleOpenInternalLogin = useCallback(() => {
+    setShowEmailLogin(true);
+  }, []);
+
+  /** 비밀번호 폼 오류 > OAuth 오류 > URL 안내 순 — 하나만 표시 */
+  const formError = error || oauthError || "";
+  const displayNotice: AuthLoginNoticeState | null = formError
+    ? { tone: "error", text: formError }
+    : notice;
 
   return (
     <>
@@ -481,53 +312,70 @@ function LoginPageContent() {
           <DibayAuthLogo size={56} />
         </div>
         <h1 className="mt-3 text-center text-lg font-semibold text-sam-fg">{t("auth_login_title")}</h1>
+        <p className="mt-1 text-center sam-text-body-secondary text-sam-muted" data-testid="auth-login-auto-signup-hint">
+          {t("auth_login_auto_signup_hint")}
+        </p>
         <div className="mt-5">
           <LoginProviderButtons
+            surface="page"
             providers={providers}
             disabled={loading}
             pendingOAuthProvider={pendingOAuthProvider}
             signingInOAuthProvider={visiblePendingOAuthProvider}
             emptyText={
-              providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")
+              providersError
+                ? undefined
+                : providersLoading
+                  ? t("auth_sns_providers_loading")
+                  : t("auth_sns_providers_none")
             }
             showEmailEntry={passwordEnabled && !showEmailLogin}
-            onEmailLoginClick={() => setShowEmailLogin(true)}
+            onEmailLoginClick={handleOpenInternalLogin}
             onSelectProvider={(provider) => void handleOAuthLogin(provider)}
           />
           <OAuthInlineLoginHint status={oauthInlineStatus} className="mt-3" />
         </div>
         {providersError ? (
-          <p className="mt-4 sam-text-body-secondary text-red-600">{providersError}</p>
+          <p className="mt-4 sam-text-body-secondary text-sam-danger">{providersError}</p>
         ) : null}
         {!passwordEnabled && !oauthEnabled && !providersError ? (
-          <p className="mt-4 sam-text-body-secondary text-amber-700">
+          <p className="mt-4 sam-text-body-secondary text-sam-warning">
             {t("auth_no_login_methods")}
           </p>
         ) : null}
+        {displayNotice?.tone === "account" && displayNotice.accountStatus ? (
+          <AuthAccountStatusNoticeBlock status={displayNotice.accountStatus} text={displayNotice.text} className="mt-4" />
+        ) : null}
         {passwordEnabled && showEmailLogin ? (
           <div className="mt-4" data-auth-surface="internal" data-testid="auth-internal-login-panel">
-            <p className="sam-text-body-secondary text-[#667085]">
+            <p className="sam-text-body-secondary text-sam-muted">
               {t("auth_login_internal_hint")}
             </p>
+            {displayNotice && displayNotice.tone === "info" ? (
+              <AuthLoginNotice notice={displayNotice} className="mt-2" />
+            ) : null}
             <PasswordLoginForm
-              identifier={identifier}
-              password={password}
-              error={displayError}
+              identifier={passwordLogin.identifier}
+              password={passwordLogin.password}
+              error={formError}
               loading={loading}
-              loadingText={passwordLoginStatus}
+              loadingText={passwordLogin.statusText}
               disabled={loading || pendingOAuthProvider != null}
               className="mt-2 space-y-4"
-              onIdentifierChange={setIdentifier}
-              onPasswordChange={setPassword}
-              onSubmit={handleEmailSubmit}
+              onIdentifierChange={passwordLogin.setIdentifier}
+              onPasswordChange={passwordLogin.setPassword}
+              onSubmit={passwordLogin.submit}
             />
           </div>
-        ) : displayError ? (
-          <p className="mt-4 sam-text-body-secondary text-red-600">{displayError}</p>
+        ) : displayNotice && displayNotice.tone !== "account" ? (
+          <AuthLoginNotice notice={displayNotice} className="mt-4" />
         ) : null}
       </div>
       </div>
-      <AuthProviderEmailConflictHost />
+      <AuthProviderEmailConflictHost
+        onLoginWithExistingProvider={handleOAuthLogin}
+        onOpenInternalLogin={handleOpenInternalLogin}
+      />
     </>
   );
 }

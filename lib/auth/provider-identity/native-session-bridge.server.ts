@@ -9,10 +9,7 @@ import {
   PROVIDER_ACCOUNT_LINK_REQUIRED,
   PROVIDER_ACCOUNT_LINK_REQUIRED_MESSAGE,
 } from "@/lib/auth/provider-identity/password-member-lookup.server";
-import {
-  buildProviderEmailConflictPayload,
-  resolveProviderLogin,
-} from "@/lib/auth/provider-identity/resolve-provider-login.server";
+import { resolveProviderLogin } from "@/lib/auth/provider-identity/resolve-provider-login.server";
 import {
   findIdentityByProviderUserId,
   insertUserAuthIdentity,
@@ -20,7 +17,7 @@ import {
 import type {
   LinkableAuthProvider,
   ProviderIdentityCandidate,
-  ProviderEmailConflictDetail,
+  ProviderEmailConflictClientDetail,
 } from "@/lib/auth/provider-identity/types";
 
 export type NativeSessionPreludeFailure = {
@@ -28,7 +25,7 @@ export type NativeSessionPreludeFailure = {
   errorCode: string;
   message: string;
   status: number;
-  conflict?: ProviderEmailConflictDetail & { stashToken: string };
+  conflict?: ProviderEmailConflictClientDetail & { stashToken: string };
 };
 
 export type NativeSessionPreludeSuccess = {
@@ -123,14 +120,17 @@ export async function resolveNativeProviderSessionPrelude(
   }
 
   if (resolved.status === "email_conflict") {
-    const stashToken = createConflictStashToken(candidate);
+    // P1-4 — stash 는 conflict 대상 회원에 바인딩. existingUserId 는 응답에 싣지 않는다 (P1-3).
+    const stashToken = createConflictStashToken(candidate, resolved.conflict.existingUserId);
     return {
       ok: false,
       errorCode: "provider_email_conflict",
       message: "보안을 위해 기존 로그인 확인이 필요합니다.",
       status: 409,
       conflict: {
-        ...resolved.conflict,
+        email: resolved.conflict.email,
+        attemptedProvider: resolved.conflict.attemptedProvider,
+        existingProviders: resolved.conflict.existingProviders,
         stashToken,
       },
     };
@@ -215,12 +215,11 @@ export function toExchangeConflictBody(
   failure: Extract<NativeSessionPreludeFailure, { conflict?: unknown }>,
 ) {
   if (!failure.conflict) return {};
-  const payload = buildProviderEmailConflictPayload({
-    status: "email_conflict",
-    conflict: failure.conflict,
-  });
   return {
-    ...payload,
+    errorCode: "provider_email_conflict" as const,
+    email: failure.conflict.email,
+    attemptedProvider: failure.conflict.attemptedProvider,
+    existingProviders: failure.conflict.existingProviders,
     stashToken: failure.conflict.stashToken,
   };
 }

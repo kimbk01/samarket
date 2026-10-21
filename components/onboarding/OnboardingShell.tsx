@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { SectionHeader } from "@/components/layout/sector-header";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * 온보딩 단계 공통 셸 — 로그인 직후 강제 단계에서 사용한다 (스펙 9).
@@ -14,7 +15,7 @@ export function OnboardingShell({
   title,
   description,
   onSkip,
-  skipLabel = "나중에 하기",
+  skipLabel: skipLabelProp,
   children,
   footer,
 }: {
@@ -25,6 +26,8 @@ export function OnboardingShell({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const { t } = useI18n();
+  const skipLabel = skipLabelProp ?? t("auth_onboarding_skip");
   return (
     <div className="flex min-h-screen w-full min-w-0 flex-col bg-sam-app">
       <SectionHeader

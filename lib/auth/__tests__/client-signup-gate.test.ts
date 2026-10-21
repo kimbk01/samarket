@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isClientSignupComplete, profileToDibaySignupInput } from "@/lib/auth/client-signup-gate";
+import {
+  isClientSignupComplete,
+  isClientSignupGateExemptPath,
+  profileToDibaySignupInput,
+} from "@/lib/auth/client-signup-gate";
 import type { Profile } from "@/lib/types/profile";
 import { STORE_PRIVACY_VERSION, STORE_TERMS_VERSION } from "@/lib/auth/store-member-policy";
 
@@ -73,5 +77,31 @@ describe("client-signup-gate", () => {
     expect(input.display_name).toBe("nick");
     expect(input.avatar_url).toBeNull();
     expect(isClientSignupComplete(user)).toBe(false);
+  });
+});
+
+describe("P2-1 isClientSignupGateExemptPath", () => {
+  it("public browse paths are gated for authenticated unconsented members", () => {
+    expect(isClientSignupGateExemptPath("/mypage")).toBe(false);
+    expect(isClientSignupGateExemptPath("/philife")).toBe(false);
+    expect(isClientSignupGateExemptPath("/market")).toBe(false);
+    expect(isClientSignupGateExemptPath("/")).toBe(false);
+  });
+  it("never gates auth, login, onboarding, legal or support pages", () => {
+    for (const p of [
+      "/login",
+      "/auth/onboarding/terms",
+      "/auth/consent",
+      "/auth/callback",
+      "/auth/oauth/launch",
+      "/auth/oauth/capacitor-return",
+      "/onboarding/username",
+      "/onboarding/address",
+      "/terms",
+      "/privacy",
+      "/support/enter",
+    ]) {
+      expect(isClientSignupGateExemptPath(p)).toBe(true);
+    }
   });
 });

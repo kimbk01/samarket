@@ -18,6 +18,7 @@ vi.mock("@/lib/admin/admin-user-server", () => ({
   adminTierToUiRole: () => "operator",
   defaultPermissionsForUiRole: () => [],
   loadStaffPermissionsMap: async () => new Map(),
+  resolveEffectiveStaffPermissionsFromStored: (stored: string[] | null | undefined) => stored ?? [],
 }));
 
 import { GET } from "@/app/api/admin/staff/memberships/route";

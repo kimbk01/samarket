@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,9 +13,9 @@ export const dynamic = "force-dynamic";
  * No UI consumer (grep 2026-10-20). Doc: docs/store-commission-cash-settlement-ssot.md
  */
 export async function GET() {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // AD-04: 정산 화면 권한 키(business) — 접근표 `/admin/store-settlements` · PATCH 와 같은 가드.
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
   return NextResponse.json(
     { ok: false, error: "legacy_store_settlements_retired", next: "/api/admin/store-commission-ledger" },
     { status: 410 }

@@ -192,12 +192,15 @@ describe("admin staff permissions jsonb canonical", () => {
     ).rejects.toThrow(/permissions_unknown_key/);
   });
 
-  it("tier-default semantics for VALID EMPTY ARRAY", async () => {
+  // AD-05 (2026-10-21): 명시 저장된 빈 배열 = 권한 키 없음. 티어 기본값은 행이 없을 때만.
+  it("explicit stored EMPTY ARRAY = no keys; no row = tier-default", async () => {
     const sb = createJsonbSb({
       rows: [{ user_id: "u1", permissions: [] }],
     });
     const effective = await loadEffectiveStaffPermissions(sb, "u1", "admin", "operator");
-    expect(effective).toEqual(defaultPermissionsForUiRole("operator"));
+    expect(effective).toEqual([]);
+    const noRow = await loadEffectiveStaffPermissions(sb, "u2", "admin", "operator");
+    expect(noRow).toEqual(defaultPermissionsForUiRole("operator"));
   });
 
   it("DB/schema error ≠ valid empty permissions", async () => {

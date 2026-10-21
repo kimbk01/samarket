@@ -127,8 +127,9 @@ if (!googleStart.includes("finishClientAuthLogin")) {
 if (!read("lib/auth/native/google-native-session.server.ts").includes("reconcileGoogleNativeProviderProfileConflict")) {
   failures.push("google-native-session must reconcile orphan provider profile conflicts before ensureUserProfile");
 }
-if (!read("lib/auth/native/google-native-session.server.ts").includes("resolveGoogleNativeSignInEmail")) {
-  failures.push("google-native-session must sign in with verified Gmail when auth user keeps real email");
+// P1-7: 실제 이메일을 가진 owner 는 자격 증명을 덮어쓰지 않고 magiclink 로 세션 발급
+if (!read("lib/auth/native/google-native-session.server.ts").includes("mintNativeOwnerSessionViaMagicLink")) {
+  failures.push("google-native-session must mint owner session via magiclink without overwriting credentials");
 }
 if (!read("lib/auth/oauth/oauth-native-callback-log.ts").includes("JSON.stringify")) {
   failures.push("oauth-native-callback-log must stringify oauth detail for Logcat");

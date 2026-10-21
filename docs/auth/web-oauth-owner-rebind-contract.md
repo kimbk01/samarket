@@ -34,3 +34,9 @@
 ## Forbidden
 
 Launcher, Apple, Kakao, email auto-merge, profile/username overwrite, timeout/sleep retries.
+
+## Amendment 2026-10-21 (auth 통합 SSOT P1-5)
+
+- Owner 세션 재발급 주경로 = `issueOwnerSessionOnRouteClient` (magiclink `generateLink` → `verifyOtp(token_hash)`) — **모든 provider** (Google·Kakao·Apple).
+- Google 결정적 비밀번호 경로는 magiclink 실패 시 fallback 으로만 남는다. 다른 provider 는 실패 시 `oauth_rebind_failed` (fail-closed).
+- 주경로는 owner 비밀번호·이메일을 쓰지 않는다.

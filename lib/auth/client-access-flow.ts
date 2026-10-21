@@ -80,6 +80,13 @@ export function isLoginRequiredError(error: string | null | undefined): boolean 
 
 export { isPhoneVerificationRequiredError };
 
+/** API 403 `signup_incomplete` (약관·개인정보 동의 미완) — code 또는 서버 안내 문구. */
+export function isSignupIncompleteError(error: string | null | undefined): boolean {
+  const msg = String(error ?? "").trim();
+  if (!msg) return false;
+  return msg.toLowerCase().includes("signup_incomplete") || msg.includes("처리방침 동의 후 이용");
+}
+
 export function redirectForBlockedAction(
   router: RouterLike,
   error: string | null | undefined,
@@ -90,11 +97,20 @@ export function redirectForBlockedAction(
     openLoginRequiredSheet({ actionType: "messenger_open", next: returnNext });
     return true;
   }
+  /** P2-1 (SG-09): 동의 미완 403 은 전화 인증보다 먼저 — 동의 화면으로 복구한다. */
+  if (isSignupIncompleteError(error)) {
+    const href = buildConsentHref(returnNext);
+    if (typeof router.replace === "function") {
+      router.replace(href);
+    } else {
+      router.push(href);
+    }
+    return true;
+  }
   if (isPhoneVerificationRequiredError(error)) {
     openPhoneVerificationRequiredSheet({ next: returnNext });
     return true;
   }
-  void router;
   return false;
 }
 

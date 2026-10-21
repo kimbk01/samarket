@@ -13,6 +13,7 @@ describe("kakao-token-verify.server", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
@@ -51,5 +52,31 @@ describe("kakao-token-verify.server", () => {
     await expect(verifyKakaoNativeCredential({ idToken: "jwt-only" })).rejects.toMatchObject({
       code: "kakao_token_missing",
     });
+  });
+
+  it("P1-2: rejects token issued for another Kakao app when KAKAO_APP_ID is set", async () => {
+    vi.stubEnv("KAKAO_APP_ID", "1234");
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 987654321, app_id: 9999, expires_in: 3600 }),
+    } as Response);
+
+    await expect(verifyKakaoNativeCredential({ accessToken: "foreign-app" })).rejects.toMatchObject({
+      code: "kakao_token_app_mismatch",
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("P1-2: accepts matching app_id when KAKAO_APP_ID is set", async () => {
+    vi.stubEnv("KAKAO_APP_ID", "1234");
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 987654321, app_id: 1234, expires_in: 3600 }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: false, status: 500 } as Response);
+
+    const verified = await verifyKakaoNativeCredential({ accessToken: "own-app" });
+    expect(verified.kakaoUserId).toBe("987654321");
   });
 });
