@@ -69,6 +69,7 @@ import { resetProjectionAuthorityForAuthEpoch } from "@/lib/notifications/projec
 import { resetDomainBadgeSurfaceForAuthEpoch } from "@/lib/messenger/contracts/domain-badge-surface-store";
 import { resetOwnerHubBadgeStoreForAuthEpoch } from "@/lib/chats/owner-hub-badge-store";
 import { resetAdminClientStateForAuthChange } from "@/lib/admin-auth/admin-me-context";
+import { writeOwnerActiveStoreIdToSession } from "@/lib/delivery/owner/resolve-owner-active-store";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -163,6 +164,8 @@ function resetInMemoryClientStores(): void {
   clearLoginBootstrapSnapshot();
   /** AD-08 — 이전 사용자 admin `/me` 스냅샷·admin GET 캐시(`admin-fetch:*`·`admin:*`) 잔존 금지. */
   resetAdminClientStateForAuthChange();
+  /** 이전 회원의 활성 매장 선택(sessionStorage + 쿠키) — 다음 회원에게 남기지 않는다 */
+  writeOwnerActiveStoreIdToSession(null);
 }
 
 function resetAddressClientCaches(): void {
