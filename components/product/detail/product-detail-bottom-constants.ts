@@ -49,19 +49,19 @@ export const TRADE_POST_DETAIL_BOTTOM_ACTIONS_INNER =
 
 /** 메인 액션 (채팅) — 브랜드 블루 */
 export const TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA =
-  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-[10px] bg-sam-primary px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-sam-on-primary shadow-sm transition-colors hover:bg-sam-primary-hover disabled:pointer-events-none disabled:opacity-45 md:min-h-[50px]";
+  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-sam-primary px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-sam-on-primary shadow-sm transition-colors hover:bg-sam-primary-hover disabled:pointer-events-none disabled:opacity-45 md:min-h-[50px]";
 
 /** 보조 액션 (가격 제안하기 등) — 연회색 필 */
 export const TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA =
-  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-[10px] border border-sam-border bg-sam-surface-muted px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-sam-fg transition-colors hover:bg-sam-border-soft active:bg-sam-border disabled:pointer-events-none disabled:opacity-45 md:min-h-[50px]";
+  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-sam-fg transition-colors hover:bg-sam-border-soft active:bg-sam-border disabled:pointer-events-none disabled:opacity-45 md:min-h-[50px]";
 
 /** 비활성·대기 상태 */
 export const TRADE_POST_DETAIL_BOTTOM_MUTED_CTA =
-  "flex min-h-[48px] min-w-0 flex-1 cursor-not-allowed items-center justify-center rounded-[10px] bg-sam-surface-muted px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-sam-muted md:min-h-[50px]";
+  "flex min-h-[48px] min-w-0 flex-1 cursor-not-allowed items-center justify-center rounded-ui-rect bg-sam-surface-muted px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-sam-muted md:min-h-[50px]";
 
 /** 로딩 플레이스홀더 */
 export const TRADE_POST_DETAIL_BOTTOM_LOADING_PLACEHOLDER =
-  "flex min-h-[48px] flex-1 items-center justify-center rounded-[10px] border border-dashed border-sam-border bg-sam-app/80 px-3 sam-text-body-secondary text-sam-muted md:min-h-[50px]";
+  "flex min-h-[48px] flex-1 items-center justify-center rounded-ui-rect border border-dashed border-sam-border bg-sam-app/80 px-3 sam-text-body-secondary text-sam-muted md:min-h-[50px]";
 
 /**
  * 판매자 전용 두 번째 밴드 — 최하단 safe-bottom 1회 · PRIMARY 와 border 만으로 연결.

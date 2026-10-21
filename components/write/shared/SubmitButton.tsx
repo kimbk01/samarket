@@ -48,7 +48,14 @@ export function SubmitButton({
       data-form-keyboard-footer="1"
       data-form-keyboard-open={keyboardOpen ? "true" : "false"}
       className="fixed bottom-0 left-0 right-0 z-30 border-t border-sam-border bg-sam-surface shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
-      style={{ paddingBottom: `${effectiveBottomInset}px` }}
+      /**
+       * 키보드 열림 = 가림 높이만 / 닫힘 = safe-bottom 1회. 첫 측정 전(0)에도 safe 를 확보 (KB-07, MyStickyCta 와 동일).
+       */
+      style={{
+        paddingBottom: keyboardOpen
+          ? `${effectiveBottomInset}px`
+          : `max(var(--safe-bottom), ${effectiveBottomInset}px)`,
+      }}
     >
       <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} flex min-w-0 gap-2 py-3`}>
         {onCancel ? (

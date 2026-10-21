@@ -1,8 +1,11 @@
 "use client";
 
+import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayConfirm } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
-import { MyStickyCta, MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
+import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { MyGroup } from "@/components/mypage/ds/MyGroup";
 import { clearAppClientCaches } from "@/lib/mypage/clear-app-client-caches";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
@@ -14,6 +17,8 @@ import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
  * 정적 화면 — 로딩 없음, 서버 요청 0.
  */
 export function CacheSettingsContent() {
+  /** 하단탭 실제 마운트 기준 CTA 본문 여백 — 탭 있음/없음 safe 1회 (M-04) */
+  const stickyCtaBodyClearanceClass = resolveMyStickyCtaBodyClearanceClass(useBottomNavOccupiesClearance());
   const { t } = useI18n();
   const { run, pending } = useMypageSubmitGuard();
 
@@ -37,7 +42,7 @@ export function CacheSettingsContent() {
   };
 
   return (
-    <div className={`space-y-2 ${MY_STICKY_CTA_BODY_CLEARANCE_CLASS}`} data-testid="cache-settings">
+    <div className={`space-y-2 ${stickyCtaBodyClearanceClass}`} data-testid="cache-settings">
       <p className="px-1 pb-1 sam-text-body text-sam-muted">{t("mypage_cache_clear_desc")}</p>
       <MyGroup title={t("mypage_s17_clears_title")}>
         <ul className="list-disc space-y-1 px-4 py-3 pl-8 sam-text-body-secondary text-sam-fg md:px-5 md:pl-9">

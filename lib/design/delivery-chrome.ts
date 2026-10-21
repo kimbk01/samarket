@@ -21,9 +21,13 @@ import {
 /** 페이지 본문 — #f6f6f6, 카드·헤더 바는 흰색 */
 export const DELIVERY_PAGE_SURFACE_CLASS = DeliveryTheme.page;
 
-/** 모든 소비자 배달 헤더 바 — 흰 배경·하단 1px */
+/**
+ * 모든 소비자 배달 헤더 바 — 배달 도메인 표면(`#F1F7EE`, image SSOT 087e1cca4)·하단 1px.
+ * 087e1cca4 가 바깥 AppStickyHeader 만 도메인 표면으로 옮기고 이 안쪽 바는 크림으로 남아 덮던 미완 이전 (D-01).
+ * 도메인 속성이 없는 곳은 기존 크림 토큰으로 폴백.
+ */
 export const DELIVERY_CONSUMER_HEADER_BAR_CLASS =
-  "w-full min-w-0 shrink-0 border-b border-[color:var(--delivery-header-bar-border)] bg-[color:var(--delivery-header-bar-bg)]";
+  "w-full min-w-0 shrink-0 border-b border-[color:var(--dibay-domain-divider,var(--delivery-header-bar-border))] bg-[color:var(--dibay-domain-surface,var(--delivery-header-bar-bg))]";
 
 export const DELIVERY_CONSUMER_HEADER_ROW_CLASS = APP_TIER1_HEADER_ROW_WRAP_CLASS;
 export const DELIVERY_CONSUMER_HEADER_LAYOUT_ROW_CLASS = APP_TIER1_HEADER_LAYOUT_ROW_CLASS;

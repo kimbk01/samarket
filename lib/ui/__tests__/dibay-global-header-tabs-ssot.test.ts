@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DIBAY_DOMAIN_CHROME,
   resolveDibayDomainChromeId,
+  resolveDibayDomainChromeIdForPath,
 } from "@/lib/ui/dibay-domain-chrome";
 import { resolveMainSurface } from "@/lib/layout/resolve-main-surface";
 import {
@@ -41,6 +42,42 @@ describe("dibay global header + secondary tabs SSOT", () => {
     );
     expect(resolveDibayDomainChromeId(resolveMainSurface("/market/vehicle"))).toBe("trade");
     expect(resolveDibayDomainChromeId(resolveMainSurface("/stores/browse/food"))).toBe("delivery");
+  });
+
+  it("keeps TS chrome table and CSS [data-dibay-domain] blocks identical", () => {
+    const css = readFileSync(join(root, "app/dibay-chrome-ssot.css"), "utf8");
+    const block = (id: string) => {
+      const m = css.match(new RegExp(`\\[data-dibay-domain="${id}"\\]\\s*\\{([^}]*)\\}`));
+      expect(m, id).not.toBeNull();
+      return m![1];
+    };
+    const val = (body: string, name: string) =>
+      body.match(new RegExp(`--dibay-domain-${name}:\\s*([^;]+);`))?.[1].trim().toLowerCase();
+    for (const id of ["community", "trade", "delivery", "chat", "mypage"] as const) {
+      const body = block(id);
+      const t = DIBAY_DOMAIN_CHROME[id];
+      expect(val(body, "surface"), `${id} surface`).toBe(t.surface.toLowerCase());
+      expect(val(body, "accent"), `${id} accent`).toBe(t.accent.toLowerCase());
+      expect(val(body, "tab-idle-bg"), `${id} tab idle`).toBe(t.tabIdleBg.toLowerCase());
+    }
+    expect(DIBAY_DOMAIN_CHROME.trade.accent).toBe("#0B421A");
+  });
+
+  it("colours shared account / group-chat routes by owner domain without touching nav surface", () => {
+    expect(resolveDibayDomainChromeIdForPath("/notifications")).toBe("mypage");
+    expect(resolveDibayDomainChromeIdForPath("/notifications/abc")).toBe("mypage");
+    expect(resolveDibayDomainChromeIdForPath("/settings/permissions")).toBe("mypage");
+    expect(resolveDibayDomainChromeIdForPath("/address/select")).toBe("mypage");
+    expect(resolveDibayDomainChromeIdForPath("/support/enter")).toBe("mypage");
+    expect(resolveDibayDomainChromeIdForPath("/u/someone")).toBe("mypage");
+    expect(resolveDibayDomainChromeIdForPath("/group-chat/r1")).toBe("chat");
+    expect(resolveDibayDomainChromeIdForPath("/group/token1")).toBe("chat");
+    expect(resolveDibayDomainChromeIdForPath("/users")).toBe("other");
+    expect(resolveDibayDomainChromeIdForPath("/groups")).toBe("other");
+    expect(resolveDibayDomainChromeIdForPath("/market")).toBe("trade");
+    // bottom-nav identity unchanged
+    expect(resolveMainSurface("/notifications")).toBe("other");
+    expect(resolveMainSurface("/group-chat/r1")).toBe("other");
   });
 
   it("exposes secondary pill visual class contract", () => {

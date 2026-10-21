@@ -11,6 +11,7 @@ import {
 } from "@/lib/ui/form-keyboard-platform-adapter";
 import {
   buildFormKeyboardViewportSnapshot,
+  resolveFormLayoutWidthPx,
   resolveFormVisualViewportFrame,
   type FormKeyboardViewportSnapshot,
 } from "@/lib/ui/form-keyboard-viewport-contract";
@@ -42,6 +43,8 @@ export function useFormKeyboardViewport(options?: { enabled?: boolean }): FormKe
     if (typeof window === "undefined") return;
 
     let baselineClosedHeightPx = resolveFormVisualViewportFrame().heightPx;
+    /** 기준 높이를 잰 레이아웃 폭 — 폭이 바뀌면(회전·분할) 기준을 다시 잡는다 (KB-04) */
+    let baselineLayoutWidthPx = resolveFormLayoutWidthPx();
     let raf = 0;
     let pending = false;
 
@@ -55,12 +58,14 @@ export function useFormKeyboardViewport(options?: { enabled?: boolean }): FormKe
       );
       const next = buildFormKeyboardViewportSnapshot({
         baselineClosedHeightPx,
+        baselineLayoutWidthPx,
         nativeShellInsetPx,
         safeBottomPx: runtimeContext.safeBottomPx,
         keyboardOcclusionInsetOverride,
         runtimeContext,
       });
       baselineClosedHeightPx = next.baselineClosedHeightPx;
+      baselineLayoutWidthPx = next.baselineLayoutWidthPx;
       setSnap({
         keyboardOpen: next.keyboardOpen,
         visualViewportHeight: next.visualViewportHeight,

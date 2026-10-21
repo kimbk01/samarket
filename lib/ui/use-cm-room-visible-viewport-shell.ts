@@ -5,6 +5,7 @@ import { subscribeSamarketShellKeyboardInsets } from "@/lib/platform/samarket-sh
 import { emitCmRoomKbProbe } from "@/lib/ui/cm-room-kb-viewport-probe";
 import {
   buildCmRoomVisibleViewportSnapshot,
+  resolveCmRoomLayoutWidthPx,
   CM_ROOM_CHROME_HEIGHT_SYNC_EVENT,
   CM_ROOM_TAIL_COMPOSER_GAP_DEFAULT_PX,
   resolveCmRoomComposerBottomPaddingPx,
@@ -18,6 +19,12 @@ export { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT };
 type Options = {
   enabled: boolean;
   shellRef: RefObject<HTMLElement | null>;
+  /**
+   * false = 분할(≥768) 우측 패널 — 셸 높이·iOS 밴드·문서 스크롤 잠금·chrome 변수는 건드리지 않고
+   * 키보드 판정 + composer 하단 여백(열림 0 / 닫힘 safe-bottom)만 적용 (SPL-04).
+   * 기본 true (모바일 방 — 기존 계약 그대로).
+   */
+  layoutAuthority?: boolean;
 };
 
 const IOS_PAGE_VV_BAND_ATTR = "data-cm-ios-vv-band";
@@ -109,6 +116,7 @@ function applyIosDocumentScrollLock(keyboardOpen: boolean): void {
  */
 export function useCmRoomVisibleViewportShell(opts: Options): void {
   const { enabled, shellRef } = opts;
+  const layoutAuthority = opts.layoutAuthority !== false;
 
   useEffect(() => {
     if (!enabled) return;
@@ -117,12 +125,24 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
     const messengerPage = resolveMessengerPage(shell);
 
     let baselineClosedHeightPx = resolveCmRoomShellVisualFramePx().heightPx;
+    let baselineLayoutWidthPx = resolveCmRoomLayoutWidthPx();
     let syncRaf = 0;
     let chromeSyncPending = false;
     let lastKeyboardOpen: boolean | null = null;
 
     const applyChromeHeights = (event: string) => {
       chromeSyncPending = false;
+      if (!layoutAuthority) {
+        const snapshot = buildCmRoomVisibleViewportSnapshot(baselineClosedHeightPx, baselineLayoutWidthPx);
+        baselineClosedHeightPx = snapshot.baselineClosedHeightPx;
+        baselineLayoutWidthPx = snapshot.baselineLayoutWidthPx;
+        shell.dataset.cmKeyboardOpen = snapshot.keyboardOpen ? "true" : "false";
+        const padPx = resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: snapshot.keyboardOpen });
+        if (padPx == null) shell.style.removeProperty("--cm-room-composer-bottom-padding");
+        else shell.style.setProperty("--cm-room-composer-bottom-padding", `${padPx}px`);
+        emitCmRoomKbProbe(event, shell, { keyboardOpen: snapshot.keyboardOpen });
+        return;
+      }
       const composerBlockEl = shell.querySelector<HTMLElement>(".cm-room-composer");
       const tradeDockEl = shell.querySelector<HTMLElement>("[data-cm-trade-dock]");
       const timelineTopOffsetPx = measureTimelineTopOffsetPx(shell);
@@ -138,8 +158,9 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
         `${Math.max(tailGapPx, tradeDockPx + tailGapPx)}px`
       );
 
-      const snapshot = buildCmRoomVisibleViewportSnapshot(baselineClosedHeightPx);
+      const snapshot = buildCmRoomVisibleViewportSnapshot(baselineClosedHeightPx, baselineLayoutWidthPx);
       baselineClosedHeightPx = snapshot.baselineClosedHeightPx;
+      baselineLayoutWidthPx = snapshot.baselineLayoutWidthPx;
       const frame = resolveCmRoomShellVisualFramePx();
 
       shell.dataset.cmKeyboardOpen = snapshot.keyboardOpen ? "true" : "false";
@@ -244,8 +265,8 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       clearIosMessengerPageVisualBand(messengerPage);
       applyIosDocumentScrollLock(false);
       shell.style.removeProperty("height");
-      shell.style.removeProperty("maxHeight");
-      shell.style.removeProperty("minHeight");
+      shell.style.removeProperty("max-height");
+      shell.style.removeProperty("min-height");
       shell.style.removeProperty("--cm-room-visible-height");
       shell.style.removeProperty("--cm-room-header-height");
       shell.style.removeProperty("--cm-room-composer-bottom-padding");
@@ -254,5 +275,5 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       shell.style.removeProperty("--cm-timeline-scroll-padding-bottom");
       delete shell.dataset.cmKeyboardOpen;
     };
-  }, [enabled, shellRef]);
+  }, [enabled, shellRef, layoutAuthority]);
 }

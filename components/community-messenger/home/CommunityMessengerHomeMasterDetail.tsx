@@ -12,6 +12,10 @@ type Props = {
   splitMode?: "hub" | "split";
   /** @deprecated 스크롤 권위는 list SSOT — 호출부 호환용 no-op */
   reserveBottomNavClearance?: boolean;
+  /**
+   * 좁은 화면 방 경로 — 목록 pane 요소는 남기고(트리 위치 유지) 숨김. 우측 pane 이 전체 폭 (SPL-01).
+   */
+  listHidden?: boolean;
 };
 
 const SPLIT_MIN_TW = "min-[768px]";
@@ -36,9 +40,14 @@ export function CommunityMessengerHomeMasterDetail({
   detail,
   showDetail,
   splitMode = "hub",
+  listHidden = false,
 }: Props) {
   const isSplitRoom = splitMode === "split";
-  const listPaneClass = isSplitRoom ? LIST_PANE_SPLIT_CLASS : LIST_PANE_HUB_CLASS;
+  const listPaneClass = listHidden
+    ? "hidden"
+    : isSplitRoom
+      ? LIST_PANE_SPLIT_CLASS
+      : LIST_PANE_HUB_CLASS;
 
   const rightPaneClass = isSplitRoom
     ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"

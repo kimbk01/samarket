@@ -1,12 +1,12 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { runFixedDestinationBack } from "@/lib/navigation/fixed-destination-back";
 
 import { useCallback, useLayoutEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppModal } from "@/components/app-shell/AppModal";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { DetailHeader, SectorHeaderBackButton } from "@/components/layout/sector-header";
-import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 
 /**
  * 글쓰기 화면 1단
@@ -19,19 +19,23 @@ export function WriteScreenTier1Sync({
   subtitle,
   onRequestClose,
   tier1Mode = "global",
+  hasUnsavedChanges,
 }: {
   title: string;
   backHref: string;
   subtitle?: string;
   onRequestClose?: () => void;
   tier1Mode?: "global" | "embedded";
+  /**
+   * 작성 내용 변경 여부. `false` 면 확인 없이 바로 이탈 (거래 글쓰기와 같은 dirty 판정, 지정 #12).
+   * 미지정이면 기존처럼 항상 확인.
+   */
+  hasUnsavedChanges?: boolean;
 }) {
   const { t } = useI18n();
   const setExtras = useSetMainTier1ExtrasOptional();
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
-
-  const openConfirm = useCallback(() => setConfirmOpen(true), []);
 
   const handleConfirmLeave = useCallback(() => {
     setConfirmOpen(false);
@@ -39,8 +43,17 @@ export function WriteScreenTier1Sync({
       onRequestClose();
       return;
     }
-    router.push(backHref);
+    /** 확인 후 이탈 — 직전 기록이 목적지면 back, 아니면 replace (버린 작성 화면이 기록에 남지 않음, Q7) */
+    runFixedDestinationBack(router, backHref);
   }, [router, backHref, onRequestClose]);
+
+  const openConfirm = useCallback(() => {
+    if (hasUnsavedChanges === false) {
+      handleConfirmLeave();
+      return;
+    }
+    setConfirmOpen(true);
+  }, [hasUnsavedChanges, handleConfirmLeave]);
 
   useLayoutEffect(() => {
     if (tier1Mode === "embedded") return;
@@ -56,7 +69,8 @@ export function WriteScreenTier1Sync({
             ariaLabelKey="common_close"
           />
         ),
-        showHubQuickActions: true,
+        /** 글쓰기 1단은 닫기·제목만 — 알림 종 없음 (P-03) */
+        showHubQuickActions: false,
       },
     });
     return () => setExtras(null);
@@ -71,7 +85,6 @@ export function WriteScreenTier1Sync({
       backVariant="close"
       onBack={onRequestClose ?? openConfirm}
       backAriaLabelKey="common_close"
-      rightSlot={<MyHubHeaderActions />}
     />
   );
 

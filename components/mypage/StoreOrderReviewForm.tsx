@@ -30,6 +30,7 @@ import { Star } from "lucide-react";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { useMypageUnsavedLeaveGuard } from "@/lib/mypage/use-mypage-unsaved-leave-guard";
 
 /** S33 주문 정보 로딩 — 별 5 + 메뉴 행 2 + 사진 칸 1 + 입력 박스 */
@@ -466,7 +467,7 @@ export function StoreOrderReviewForm({
           backVariant="close"
           backAriaLabel={t("mypage_comp_close")}
         />
-        <div className="mx-auto w-full max-w-lg min-h-0 flex-1 px-4 pt-4">{body}</div>
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} min-h-0 flex-1 pt-4`}>{body}</div>
       </div>
     );
   };

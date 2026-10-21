@@ -4,6 +4,8 @@ alwaysApply: false
 globs:
   - app/chat-viewport-shell.css
   - lib/ui/use-cm-room-kb-offset.ts
+  - lib/ui/cm-room-visible-viewport-contract.ts
+  - lib/ui/use-cm-room-visible-viewport-shell.ts
   - lib/ui/messenger-chat-viewport-tuning.ts
   - components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx
   - components/community-messenger/room/CommunityMessengerRoomPhase2.tsx
@@ -34,13 +36,16 @@ CommunityMessengerRoomShell
 ├ MessageTimeline
 ├ MessageScrollController
 ├ ChatComposer
-└ useCmRoomKbOffset (iOS only)
+└ useCmRoomVisibleViewportShell (셸 높이·키보드 판정 단일 훅)
 ```
 
 | 플랫폼 | 허용 |
 |--------|------|
-| **Android** | OS `adjustResize` + `safe-bottom` only |
-| **iOS** | `safe-bottom` + `--kb-offset` only |
+| **Android** | OS `adjustResize` + 셸 높이 `visualViewport.height` · composer 닫힘 `safe-bottom` / 열림 0 |
+| **iOS** | 셸 높이 `visualViewport.height` + 열림 시 `.messenger-page` vv band pin · composer 닫힘 `safe-bottom` / 열림 0 |
+
+`--kb-offset`(`useCmRoomKbOffset`)은 2026-06-20 이후 방 셸에서 쓰지 않는다 — 재도입 금지 (정정 2026-10-21, T-11).
+키보드 닫힘 baseline 은 같은 레이아웃 폭에서만 유효 — 회전·분할 시 재설정 (KB-04).
 
 ## Flex 계약
 
@@ -53,7 +58,7 @@ CommunityMessengerRoomShell
 
 ## 하단 영역 — 단일 권한
 
-하단 여백 권한은 **`safe-bottom` 한 곳** (composer: `calc(--safe-bottom + --kb-offset)`).
+하단 여백 권한은 **composer 한 곳** (`--cm-room-composer-bottom-padding`: 닫힘 `--safe-bottom`, 열림 0).
 
 **동시 사용 금지:** `safe-bottom` × nav gap × keyboard bottom × bottom inset.
 
@@ -62,7 +67,7 @@ CommunityMessengerRoomShell
 - `--chat-viewport-height`, `--chat-bottom-inset`
 - keyboard dedupe / hysteresis / slack 값
 - `translateY`, transform keyboard patch, bottom patch
-- Android `visualViewport` layout (scroll path 포함)
+- Android `visualViewport` 기반 추가 layout patch (셸 높이 = vv.height 단일 계약 외)
 - `keyboardOverlapSuppressed`
 - `useChatViewportShellInsets`, `chat-viewport-shell-platform`, `useMessengerTradeKeyboardChrome`
 - 중복 viewport Provider

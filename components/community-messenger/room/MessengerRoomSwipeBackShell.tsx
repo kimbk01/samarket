@@ -197,11 +197,9 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
       router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
       return;
     }
-    runMessengerRoomBackNavigation(
-      router,
-      splitPaneMode ? { ...backPlan, forceDirect: true } : backPlan
-    );
-  }, [router, backPlan, roomType, roomId, splitPaneMode]);
+    /** 헤더 ← 와 같은 계획 (분할 포함) — Android 시스템 뒤로와 결과 일치 (BK-06) */
+    runMessengerRoomBackNavigation(router, backPlan);
+  }, [router, backPlan, roomType, roomId]);
 
   /**
    * 방 화면 복사본을 고정한 채 즉시 목록으로 이동하고, 목록이 그려지면 복사본을 오른쪽으로 밀어낸다

@@ -11,7 +11,6 @@ import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenge
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { describeManagementEvent } from "@/lib/community-messenger/room/describe-management-event";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import {
@@ -68,6 +67,7 @@ import { messengerMediaRouteUrlFor } from "@/lib/community-messenger/media/messe
 import { openMessengerFileInNativeShellIfNeeded } from "@/lib/community-messenger/messenger-file-download";
 import { CommunityMessengerGroupMemberPicker } from "@/components/community-messenger/group/CommunityMessengerGroupMemberPicker";
 import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
 import { MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 
@@ -109,6 +109,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
     if (vm.activeSheet === "attach-confirm") vm.cancelAttachmentConfirm();
     else vm.dismissRoomSheet();
   };
+  /**
+   * Android 시스템 뒤로 = 방 시트만 닫기 (INAPP-07 오버레이 스택, 열려 있을 때만 리스너).
+   * 미등록이면 WebView 히스토리 뒤로 → 방 자체를 떠나던 결함 (SPL-05). 전역 가로채기 아님.
+   */
+  useOverlayHardwareBack(Boolean(vm.activeSheet), dismissSheet);
   return (
     <>
       {vm.activeSheet ? (
@@ -116,7 +121,12 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
           className={
             isGroupMenuDrawer
               ? `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex justify-end`
-              : `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex flex-col justify-end ${MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS}`
+              : /**
+                 * 방에는 하단 탭이 없다 — 시트는 기기 하단부터 (SPL-05).
+                 * 이전 「탭 위」 오프셋(60+safe)은 탭 없는 방에서 시트 아래로 방이 어둡게 처리되지 않고
+                 * 눌리는 띠를 남겼다. 각 패널이 자체 safe-bottom 여백을 가진다(첨부·⋮ 메뉴·확인/스티커/이모지).
+                 */
+                `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex flex-col justify-end`
           }
           data-dibay-overlay="cm-room-phase2-sheets"
         >
@@ -138,7 +148,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           vm.activeSheet === "emoji"
                         ? "max-h-[85vh] w-full rounded-t-ui-rect border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,var(--safe-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.08)]"
                         : `mx-auto max-h-[min(86dvh,40rem)] w-full ${MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS} rounded-t-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
-                            vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5"
+                            vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5 pb-[max(1.25rem,var(--safe-bottom))]"
                           }`
                   }`
             }

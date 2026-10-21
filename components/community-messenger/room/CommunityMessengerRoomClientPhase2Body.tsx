@@ -358,13 +358,16 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const ownerSlideHost = useOwnerOrderChatSlideHost();
   const buyerSlideHost = useBuyerOrderChatSlideHost();
   const isMessengerSplitViewport = useIsMessengerSplitViewport();
-  /** wide split / order slide — safe-top 은 MessengerSplitTopBar·슬라이드 셸이 담당 */
+  /** wide split / order slide — 뷰포트 셸 훅 미사용. 분할 safe-top 은 방 헤더(`messenger-presentation.css` 48+safe), 슬라이드는 슬라이드 셸이 담당 */
   const isEmbeddedShell = Boolean(ownerSlideHost || buyerSlideHost || isMessengerSplitViewport);
   const shellLayoutEnabled = narrowViewport && !isEmbeddedShell;
+  /** 분할 우측 방 — 높이 권한 없이 키보드 열림 시 composer safe-bottom 만 0 (SPL-04, Android 리사이즈 간격) */
+  const splitKeyboardPadOnly = isMessengerSplitViewport && !ownerSlideHost && !buyerSlideHost;
 
   useCmRoomVisibleViewportShell({
-    enabled: shellLayoutEnabled,
+    enabled: shellLayoutEnabled || splitKeyboardPadOnly,
     shellRef,
+    layoutAuthority: shellLayoutEnabled,
   });
 
   const storeOrderDeliveryIsOwnerApi =

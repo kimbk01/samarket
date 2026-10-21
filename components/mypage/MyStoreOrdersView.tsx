@@ -6,7 +6,7 @@ import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import Link from "next/link";
 import { ChevronDown, MoreHorizontal, Store } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   MyStoreOrderExpandPanel,
@@ -26,7 +26,8 @@ import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { resolveBodyBottomNavClearanceClass } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
 import type { BuyerStoreOrderReviewSummary } from "@/lib/stores/buyer-store-order-review-meta";
@@ -661,6 +662,10 @@ export function MyStoreOrdersView({
   const searchParams = useSearchParams();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const isDeliveryHub = variant === "deliveryHub";
+  /** `/orders` 는 탭 숨김 — 탭 여백 대신 safe 1회; 탭이 보이는 경로는 셸/허브 계약 (H-02) */
+  const pathname = usePathname();
+  const navOccupiesClearance = useBottomNavOccupiesClearance();
+  const deliveryHubBodyBottomClass = resolveBodyBottomNavClearanceClass(pathname, navOccupiesClearance);
   const ordersHubPaths = embedded || isDeliveryHub;
   /** 내정보 단독 화면(`/mypage/store-orders`) — `?tab=`·공통 상태 부품·내정보 토스트 적용 */
   const isMypageScreen = !ordersHubPaths;
@@ -1020,7 +1025,7 @@ export function MyStoreOrdersView({
       className={
         isDeliveryHub
           ? // C5: 배달 허브 고유 배경 — 토큰 `--sol-page-bg` (기존 값과 같은 값)
-            `min-h-0 min-w-0 flex-1 bg-[color:var(--sol-page-bg)] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`
+            `min-h-0 min-w-0 flex-1 bg-[color:var(--sol-page-bg)] ${deliveryHubBodyBottomClass}`
           : embedded
             ? "min-w-0 pb-1"
             : "w-full min-h-0 bg-sam-app"

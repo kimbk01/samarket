@@ -2007,7 +2007,7 @@ export function CommunityFeed({
         ) : null}
 
         {topAdsBelowOperator.length > 0 ? (
-          <div className="space-y-1 px-2 pt-1">
+          <div className="space-y-1 px-4 pt-1">
             {topAdsBelowOperator.map((ad) => (
               <AdPostCard key={ad.adId} ad={ad} />
             ))}
@@ -2016,14 +2016,14 @@ export function CommunityFeed({
 
         {/* CUT 2 — COMMUNITY_HOME × HERO host (capability registry). Collapses when empty. */}
         {feedAdSurface.placement === "COMMUNITY_HOME" ? (
-          <div className="px-3 pb-2" data-community-event-hero-host="1">
+          <div className="px-4 pb-2" data-community-event-hero-host="1">
             <EventPromotionHeroBanner placement="COMMUNITY_HOME" />
           </div>
         ) : null}
 
         {err ? (
-          <div className="px-3 py-3 sm:px-4">
-            <div className="rounded-[4px] border border-amber-200/90 bg-amber-50 px-4 py-3 text-[14px] text-amber-950">
+          <div className="px-4 py-3">
+            <div className="rounded-ui-rect border border-amber-200/90 bg-amber-50 px-4 py-3 text-[14px] text-amber-950">
               {err}
               {plan.requiresRegion && !locationKey ? (
                 <div className="mt-3">

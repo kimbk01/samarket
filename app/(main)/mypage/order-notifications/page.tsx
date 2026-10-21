@@ -8,11 +8,11 @@ import { MYPAGE_BODY_COLUMN_CLASS, MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/myp
 export default function MypageOrderNotificationsPage() {
   const { t } = useI18n();
   return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
+    <div className="flex min-w-0 flex-1 flex-col bg-sam-app">
       <MySubpageHeader
         title={t("order_notifications_title")}
         subtitle={t("order_notifications_subtitle")}
-        backHref="/mypage/notifications"
+        backHref="/notifications"
         hideCtaStrip
       />
       <div className={MYPAGE_SCROLL_BODY_CLASS}>

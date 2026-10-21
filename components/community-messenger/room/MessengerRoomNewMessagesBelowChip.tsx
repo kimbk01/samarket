@@ -45,7 +45,7 @@ export function MessengerRoomNewMessagesBelowChip({
       });
 
   return (
-    <div className="pointer-events-none absolute bottom-[calc(0.5rem+env(safe-area-inset-bottom,0px))] right-3 z-10 sm:right-4">
+    <div className="pointer-events-none absolute bottom-[calc(0.5rem+var(--safe-bottom))] right-3 z-10 sm:right-4">
       <button
         type="button"
         data-cm-jump-latest-fab="1"

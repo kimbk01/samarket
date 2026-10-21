@@ -64,6 +64,15 @@ export type CommunityMessengerRoomForwardNavArgs = {
   returnHrefOverride?: string | null;
 };
 
+function currentPathname(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.pathname || "";
+}
+
+function isCommunityMessengerRoomPathname(pathname: string): boolean {
+  return /^\/community-messenger\/rooms\/[^/]+\/?$/.test(pathname);
+}
+
 /**
  * 인박스 / 거래 채팅 / 배달 채팅 목록 → 방 (R2-M10):
  * **router.push 먼저**(동기) → overlay·priority·prime 은 microtask 로 분리.
@@ -122,10 +131,20 @@ export async function runCommunityMessengerRoomForwardNavigation(
    * 모바일: 이동 직전 현재 화면(목록) 복사본을 고정 — 라우트가 바뀌는 동안 흰 화면 대신 목록이 보이고,
    * 방이 마운트되면 방이 그 위로 밀고 들어온다(`MessengerRoomSwipeBackShell`). 분할 화면은 대상 아님.
    */
-  const entrySnapshot = !matchesMessengerSplitViewport();
+  const splitViewport = matchesMessengerSplitViewport();
+  const entrySnapshot = !splitViewport;
   if (entrySnapshot) beginMessengerRoomEntrySnapshot();
+  /**
+   * ≥768 분할에서 방 → 다른 방 = 목록이 그대로인 같은 층 이동 → replace (cm-kakao 계약 「같은 층 replace」).
+   * 기록이 [허브, 방] 으로 유지되어 헤더 ← (history back) 와 Android 시스템 뒤로가 같은 목록으로 간다 (BK-06).
+   * 허브 → 첫 방, 모바일은 기존대로 push.
+   */
+  const sameLayerRoomSwitch = splitViewport && isCommunityMessengerRoomPathname(currentPathname());
+  const navigate = sameLayerRoomSwitch
+    ? args.router.replace.bind(args.router)
+    : args.router.push.bind(args.router);
   runMessengerViewTransition(() => {
-    const allowed = guardedClientNavigate(args.router.push.bind(args.router), dest, "room_forward");
+    const allowed = guardedClientNavigate(navigate, dest, "room_forward");
     if (!allowed && entrySnapshot) dismissMessengerRoomEntrySnapshot();
   }, "room-forward");
   noteR2M10RouterPushDone(id);

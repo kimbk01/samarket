@@ -1,7 +1,9 @@
 "use client";
 
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import Link from "next/link";
-import { Suspense, useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { MoreHorizontal, Settings } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyNotificationsView } from "@/components/my/MyNotificationsView";
@@ -33,6 +35,28 @@ type SelectionApi = {
 export default function NotificationsCenterPage() {
   const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  /** ⋯ 메뉴: Android 뒤로 = 메뉴만 닫기 (INAPP-07 오버레이 스택), Esc 닫기 */
+  useOverlayHardwareBack(menuOpen, closeMenu);
+  const menuRootRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    /** 바깥 탭 닫기 — 헤더 backdrop-filter 때문에 fixed 배경막은 헤더 안에만 깔리므로 문서 리스너로 판정 */
+    const onPointerDown = (e: PointerEvent) => {
+      const root = menuRootRef.current;
+      if (root && e.target instanceof Node && root.contains(e.target)) return;
+      setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [menuOpen]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<"read_delete" | "all_delete" | "selected_delete" | null>(
@@ -125,7 +149,7 @@ export default function NotificationsCenterPage() {
         backHref="/"
         hideCtaStrip
         rightSlot={
-          <div className="flex items-center gap-0.5 pr-[max(0.25rem,env(safe-area-inset-right))]">
+          <div className="flex items-center">
             {selectionMode ? (
               <>
                 <button
@@ -141,7 +165,7 @@ export default function NotificationsCenterPage() {
                   type="button"
                   disabled={busy || selectedCount === 0}
                   onClick={() => setConfirm("selected_delete")}
-                  className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-semibold text-red-700 disabled:opacity-50"
+                  className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-semibold text-sam-danger disabled:opacity-50"
                   aria-label={t("notif_center_delete_selected")}
                 >
                   {t("notif_center_delete_selected")}
@@ -156,7 +180,7 @@ export default function NotificationsCenterPage() {
                 >
                   <Settings className="h-5 w-5" strokeWidth={2} aria-hidden />
                 </Link>
-                <div className="relative">
+                <div className="relative" ref={menuRootRef}>
                   <button
                     type="button"
                     className="sam-header-action flex min-h-11 min-w-11 items-center justify-center text-sam-fg"
@@ -213,7 +237,7 @@ export default function NotificationsCenterPage() {
         }
       />
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-        <div className="mx-auto flex w-full max-w-lg min-w-0 flex-col px-3 py-3 sm:max-w-xl md:max-w-2xl lg:max-w-3xl">
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-col py-3`}>
           <section
             id="notification-inbox"
             className="min-w-0 scroll-mt-4"

@@ -1,5 +1,8 @@
 "use client";
 
+import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -7,7 +10,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { MyGroup } from "@/components/mypage/ds/MyGroup";
-import { MyStickyCta, MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
+import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { useMyScreenBackGuard } from "@/components/mypage/ds/MyScreen";
 import {
   ACCOUNT_DELETION_CONFIRMATION_TOKEN,
@@ -17,6 +20,7 @@ import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { useUnsavedTraverseGuard } from "@/lib/navigation/use-unsaved-traverse-guard";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type Props = {
@@ -57,6 +61,8 @@ export async function postMypageLeaveRequest(reason: string): Promise<LeaveReque
  * 단어 입력 대신 확인 시트. 사유·동의 입력 후 뒤로 → 미저장 확인.
  */
 function MypageLeaveRequestForm() {
+  /** 하단탭 실제 마운트 기준 CTA 본문 여백 — 탭 있음/없음 safe 1회 (M-04) */
+  const stickyCtaBodyClearanceClass = resolveMyStickyCtaBodyClearanceClass(useBottomNavOccupiesClearance());
   const { t } = useI18n();
   const router = useRouter();
   const [reason, setReason] = useState("");
@@ -76,6 +82,8 @@ function MypageLeaveRequestForm() {
       : null,
   );
   useOverlayHardwareBack(dirty && !leaveConfirmOpen && !confirmOpen, () => setLeaveConfirmOpen(true));
+  /** 브라우저·기록 뒤로 — 기록 추가 없이 이동만 취소하고 확인 (BK-05) */
+  const traverseGuard = useUnsavedTraverseGuard(dirty, () => setLeaveConfirmOpen(true));
 
   const submit = () =>
     run(async () => {
@@ -91,7 +99,7 @@ function MypageLeaveRequestForm() {
   const goHome = () => router.push(MYPAGE_MAIN_HREF);
 
   return (
-    <div className={`space-y-2 ${MY_STICKY_CTA_BODY_CLEARANCE_CLASS}`} data-testid="mypage-leave-form">
+    <div className={`space-y-2 ${stickyCtaBodyClearanceClass}`} data-testid="mypage-leave-form">
       <MyGroup title={t("ui_account_delete_data_title")}>
         <ul className="list-disc space-y-1 px-4 py-3 pl-8 sam-text-body-secondary text-sam-muted md:px-5 md:pl-9">
           <li>{t("ui_account_delete_data_1")}</li>
@@ -187,6 +195,7 @@ function MypageLeaveRequestForm() {
           setLeaveConfirmOpen(false);
           setAgreed(false);
           setReason("");
+          traverseGuard.release();
           goHome();
         }}
       />

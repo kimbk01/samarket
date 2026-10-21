@@ -6,6 +6,7 @@ import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomShe
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { useUnsavedTraverseGuard } from "@/lib/navigation/use-unsaved-traverse-guard";
 import { peekMemberAddressCallerContext } from "@/lib/addresses/member-address-caller-context";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -118,6 +119,8 @@ function AddressEditorPageInner() {
 
   /** Android 뒤로 — 변경 있으면 미저장 확인 */
   useOverlayHardwareBack(dirty && !leaveConfirmOpen, () => setLeaveConfirmOpen(true));
+  /** 브라우저·기록 뒤로 — 기록 추가 없이 이동만 취소하고 확인 (BK-05) */
+  const traverseGuard = useUnsavedTraverseGuard(dirty, () => setLeaveConfirmOpen(true));
 
   useEffect(() => {
     let cancelled = false;
@@ -272,6 +275,7 @@ function AddressEditorPageInner() {
           setLeaveConfirmOpen(false);
           setDirty(false);
           clearAddressEditDraftV3(draftUserId, mode === "edit" ? editTarget?.id : null);
+          traverseGuard.release();
           leaveNow();
         }}
       />

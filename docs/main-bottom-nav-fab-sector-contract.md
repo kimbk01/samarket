@@ -120,7 +120,7 @@ min(62vh, 19.2rem) + var(--fab-edge-h) + var(--fab-panel-inset)
 
 1. `npm run verify:main-bottom-nav-fab-sector-contract`
 2. `npx tsc --noEmit`
-3. `/stores`에서 확인: 상단 inset, ‹ 높이 고정, X 잠금, 스크롤 멈춤 후 1.8s·하단 탭과 동시 펼침
+3. ~~`/stores`에서 확인~~ — CUT-D(2026-08-22) 이후 소비자 화면에 FAB 가 마운트되지 않아 실화면 확인 불가. FAB 를 다시 노출하는 변경일 때만: 상단 inset, ‹ 높이 고정, X 잠금, 스크롤 멈춤 후 1.8s·하단 탭과 동시 펼침 (정정 2026-10-21)
 4. 계약 변경 시 **본 문서 + `.cursor/rules/main-bottom-nav-fab-sector-contract.mdc`** 함께 갱신
 
 ---

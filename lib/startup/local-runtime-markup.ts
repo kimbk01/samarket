@@ -56,7 +56,7 @@ function tabLabel(tab: StartupNavTabCache, lang: "ko" | "en"): string {
 
 function buildShellCss(): string {
   return `
-:root{--sam-bg-app:#FFFCFC;--sam-fg:#0B421A;--sam-muted:#5C6B63;--sam-border:#E6EBE8;--sam-surface:#FFFFFF;--sam-primary:#0B421A;--safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px)}
+:root{--sam-bg-app:#FFFCFC;--sam-fg:#0B421A;--sam-muted:#5C6B63;--sam-border:#E6EBE8;--sam-surface:#FFFFFF;--sam-primary:#0B421A;--safe-bottom:max(env(safe-area-inset-bottom,0px),var(--dibay-safe-bottom,0px));--safe-top:max(env(safe-area-inset-top,0px),var(--dibay-safe-top,0px))}
 html,body{margin:0;padding:0;height:100%;background:var(--sam-bg-app);color:var(--sam-fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;-webkit-tap-highlight-color:transparent}
 *{box-sizing:border-box}
 #dibay-startup-header{flex:0 0 auto;padding:calc(12px + var(--safe-top)) 16px 12px;border-bottom:1px solid var(--sam-border);background:var(--sam-surface);display:flex;align-items:center;gap:10px;min-height:52px}

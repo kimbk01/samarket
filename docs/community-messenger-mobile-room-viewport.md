@@ -20,13 +20,15 @@ CommunityMessengerRoomShell
 ├ MessageTimeline
 ├ MessageScrollController
 ├ ChatComposer
-└ useCmRoomKbOffset (iOS only)
+└ useCmRoomVisibleViewportShell (셸 높이·키보드 판정 단일 훅)
 ```
 
 | 플랫폼 | 허용 |
 |--------|------|
-| Android | `adjustResize` + `safe-bottom` |
-| iOS | `safe-bottom` + `--kb-offset` |
+| Android | `adjustResize` + 셸 높이 = `visualViewport.height` · 닫힘 `safe-bottom` / 열림 0 |
+| iOS | 셸 높이 = `visualViewport.height` + 열림 시 `.messenger-page` vv band(top·height) pin · 닫힘 `safe-bottom` / 열림 0 |
+
+> 정정(2026-10-21, T-11): 이전 표의 `--kb-offset`(`useCmRoomKbOffset`)은 2026-06-20 「Telegram/Kakao IME viewport」·2026-07-27 「Telegram parity」 이후 방 셸에서 쓰지 않는다. `use-cm-room-kb-offset.ts` 는 iOS overlay px 계산 helper(`resolveIosKeyboardOverlayCssPx`)로만 남아 있고 Phase2Body 는 이 훅을 호출하지 않는다(`verify:cm-room-keyboard-layout-contract`).
 
 ### Flex
 
@@ -37,7 +39,7 @@ CommunityMessengerRoomShell
 
 ### 하단 단일 권한
 
-Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **한 곳만**.  
+Composer: `--cm-room-composer-bottom-padding` **한 곳만** — 닫힘 `var(--safe-bottom)`, 열림 `0` (`resolveCmRoomComposerBottomPaddingPx`).  
 `safe-bottom` × nav gap × keyboard bottom × bottom inset **동시 사용 금지**.
 
 ### 절대 재도입 금지
@@ -61,7 +63,7 @@ Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **�
 3. **스크롤:** 키보드 open/close 시 **불필요한 점프**가 없다 — 과거 메시지 열람 중에는 위치 유지, 하단 근처면 최신 유지.
 4. **키보드 닫힘:** 하단에 **빈 공간이 남지 않는다** (vv·셸 변수·composer 패딩 일관).
 5. **검증 플랫폼:** **iOS Safari·PWA**, **Android Chrome·WebView** 각각에서 회귀 확인.
-6. **구현 방식:** **flex column shell** + `safe-area` + 스크롤 앵커; Android는 `adjustResize`·`interactiveWidget: resizes-content`; iOS overlay만 `--kb-offset`.
+6. **구현 방식:** **flex column shell** + `safe-area` + 스크롤 앵커; 셸 높이는 양 플랫폼 `visualViewport.height`(`cm-room-visible-viewport-contract`); Android는 `adjustResize`·`interactiveWidget: resizes-content`; iOS 는 키보드 열림 시 `.messenger-page` vv band pin.
 
 ---
 
@@ -69,10 +71,11 @@ Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **�
 
 1. **키보드·도크·회전**으로 타임라인 스크롤 영역 높이만 바뀔 때, **과거 메시지를 읽는 중**이면 **화면에 보이던 대화 위치(하단까지의 거리)** 를 유지한다.
 2. **하단 근처(stick-to-bottom)** 면 **최신 메시지**가 입력창 바로 위에 오도록 맞춘다.
-3. **입력창**은 flex footer — `fixed`/`sticky`/JS keyboard padding **금지**. safe-bottom은 `.cm-room-composer` 한 곳만.
+3. **입력창**은 flex footer — `fixed`/`sticky` **금지**. 하단 여백은 `.cm-room-composer` 한 곳(닫힘 safe-bottom / 열림 0).
+4a. **키보드 닫힘 baseline** 은 같은 레이아웃 폭에서만 유효 — 회전·분할로 폭이 바뀌면 baseline 을 현재 vv 높이로 다시 잡는다 (KB-04, `buildCmRoomVisibleViewportSnapshot(baseline, baselineLayoutWidthPx)`).
 4. **셸 높이**는 부모 flex chain(`height:100%`, `min-h-0`) — **`--chat-viewport-height`·vv nav gap dedupe·`--chat-bottom-inset` 금지**.
-5. **Android:** `adjustResize` + flex column — JS keyboard layout 개입 **금지**.
-6. **iOS overlay WebView:** `--kb-offset` 단일 변수만 (`use-cm-room-kb-offset.ts`).
+5. **Android:** `adjustResize` + flex column — 셸 높이만 `visualViewport.height` 로 맞춘다 (추가 keyboard patch 금지).
+6. **iOS:** 키보드 열림 시 `.messenger-page` 를 vv band 로 pin + document scroll lock — `--kb-offset` 재도입 금지.
 
 ### DOM 계약
 
@@ -81,7 +84,7 @@ Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **�
 ├─ header (flex-shrink-0)
 ├─ .cm-room-timeline (flex-1 min-h-0 overflow-y-auto)
 ├─ trade/delivery attachments (flex-shrink-0)
-└─ .cm-room-composer (flex-shrink-0; padding-bottom: calc(--safe-bottom + --kb-offset))
+└─ .cm-room-composer (flex-shrink-0; padding-bottom: --cm-room-composer-bottom-padding — 닫힘 safe-bottom / 열림 0)
 ```
 
 ---
@@ -93,7 +96,8 @@ Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **�
 | 기기별 보정값 (픽셀·ms·임계) | `lib/ui/messenger-chat-viewport-tuning.ts` | stick 임계, delivery composer UI, iOS `--kb-offset` 최소 px — **keyboard slack/hysteresis 금지** |
 | 루트 viewport 메타 | `app/layout.tsx` `export const viewport` | `interactiveWidget: "resizes-content"` — Android Chrome 키보드 시 레이아웃 뷰포트 축소 |
 | 셸 CSS | `app/chat-viewport-shell.css` | `cm-room-shell` / `cm-room-timeline` / `cm-room-composer` flex-only |
-| iOS keyboard offset | `lib/ui/use-cm-room-kb-offset.ts` | overlay WebView만 `--kb-offset`; Android no-op |
+| 셸 높이·키보드 판정 | `lib/ui/cm-room-visible-viewport-contract.ts` · `lib/ui/use-cm-room-visible-viewport-shell.ts` | vv.height 셸 높이, 키보드 open 판정(폭별 baseline), iOS vv band, composer 하단 여백 |
+| iOS overlay px helper | `lib/ui/use-cm-room-kb-offset.ts` | `resolveIosKeyboardOverlayCssPx` 계산만 — 방 셸에서 훅 호출 금지 |
 | Phase2 셸 마운트 | `CommunityMessengerRoomClientPhase2Body.tsx` | flex shell; timeline 항상 mount (hydration pass로 hidden 금지) |
 | 스크롤 앵커 | `use-messenger-room-reader-scroll-bottom.ts` | scrollTop 보존/하단 고정 — layout shell과 **분리** |
 | 거래 도크 UI | `CommunityMessengerRoomPhase2AttachmentsAndTrade` | narrow + composerFocused → `keyboardCompact` — vv/layout 구독 **금지** |
@@ -104,7 +108,7 @@ Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **�
 
 ## 4. 레이어 분리
 
-- **`useCmRoomKbOffset`**: iOS `--kb-offset` only.
+- **`useCmRoomVisibleViewportShell`**: 셸 높이·키보드 판정·iOS band 단일 권한 (`--kb-offset` 미사용).
 - **`useMessengerRoomReaderScrollBottom`**: 타임라인 scrollTop 보존/하단 고정 (RO + window; iOS만 vv).
 - **거래 도크 compact**: `composerFocused` + narrow viewport — 별도 keyboard chrome hook 없음.
 - **`MessengerRoomPhase2ViewProvider`**: Timeline·Sheets용 — **`room` 전체 dep 금지**; `message` 타이핑은 Composer slice context만 갱신.
@@ -173,4 +177,7 @@ Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **�
 | 2026-07-28 | **Keyboard resize stale-flag fix** — `notifyLayoutResize`의 하단 근접 판정을 `state.stickToBottom` 단독 신뢰에서 resize 직전 `lastGeom` 실측 재확인으로 교체. Xiaomi 실기기에서 키보드 open 시 scrollTop 미보정(마지막 말풍선 최대 297px 가림, 3개 커밋 연속 재현)의 구조적 대응. `prependInFlight` 시 여전히 scroll 미변경(geometry만 갱신). 4개 도메인(CM 위임) 공통 적용, 엔진 1곳만 수정. **실기기 재검증 전까지 결과 미확정** — 확인되면 이 행에 실기기 결과 추가 | `lib/chat-thread-scroll/engine.ts` |
 | 2026-08-04 | **Unread cursor/FAB** — 진입 즉시 tail 전체 읽음 제거; visible canonical row까지만 cursor 전진. 기존 scroll engine의 explicit message index 이동으로 FAB가 next unread를 사용하고, remaining=0일 때만 latest 이동. Keyboard/layout 셸은 미변경 | `messenger-room-first-unread`, `messenger-room-scroll-anchor-controller`, `use-messenger-room-open-mark-read-effect`, Phase2 Timeline/FAB |
 
+| 2026-10-21 | **UI SSOT WP-C (Owner Q8 제한 재개방)** — KB-04 폭 변경(회전·분할) 시 닫힘 baseline 재설정; KB-03 정리 시 `max-height`·`min-height` kebab-case `removeProperty`; NAV-04 방 메뉴·새 메시지 칩 raw `env()` → `--safe-bottom`; KB-01 거래·그룹 채팅 래퍼 safe 이중 패딩 제거(ChatInputBar 단일); SPL-01~03 768 경계 방·목록 재마운트 제거·통화 기록 우측 패널·통화 화면 전체; BK-06 시트 열림 시 Android 뒤로 = 시트만 닫기; T-11 본 문서 §0·§1·§2·§3·§4 를 현행 vv.height 계약으로 정정. composer·셸 flex·스크롤 엔진 계약 미변경 | `cm-room-visible-viewport-contract`, `use-cm-room-visible-viewport-shell`, `MessengerResponsiveShell`, `CommunityMessengerRoomPhase2RoomSheets`, `MessengerSheetUi`, `ChatRoomMoreMenu`, `MessengerRoomNewMessagesBelowChip`, `ChatDetailView`, `GroupChatRoomClient` |
+
+| 2026-10-21 | **SPL-04 분할 키보드** — ≥768 분할 우측 방은 `useCmRoomVisibleViewportShell({ layoutAuthority: false })`: 셸 높이·iOS 밴드·문서 잠금·chrome 변수는 쓰지 않고 키보드 판정 + composer 하단 여백(열림 0 / 닫힘 safe-bottom)만 적용 → Android 리사이즈 시 키보드 위 safe-bottom 간격 제거. 모바일 방 계약 불변. iPad 오버레이 키보드 가림은 실기기 확인 대상(D) | `use-cm-room-visible-viewport-shell`, `CommunityMessengerRoomClientPhase2Body`, `cm-room-split-keyboard-pad-only.test` |
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.

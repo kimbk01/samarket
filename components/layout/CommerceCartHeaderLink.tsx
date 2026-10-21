@@ -7,8 +7,12 @@ import {
   StoreCommerceCartStrokeIcon,
 } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { useCommerceCartHeaderLink } from "@/components/layout/use-commerce-cart-header-link";
+import { SECTOR_HEADER_ACTION_CLASS } from "@/lib/ui/sector-header-classes";
 
-/** `RegionBar`와 동일 — 현재 세션 사용자의 매장 장바구니로 이동(비어 있으면 `/stores`) */
+/**
+ * `RegionBar`와 동일 — 현재 세션 사용자의 매장 장바구니로 이동(비어 있으면 `/stores`).
+ * 헤더 공용 액션 클래스(48 터치·금색 눌림·focus-visible) — 눌림 효과 누락 보정.
+ */
 export function CommerceCartHeaderLink() {
   const { t } = useI18n();
   const { cartHref, cartCount } = useCommerceCartHeaderLink();
@@ -16,7 +20,7 @@ export function CommerceCartHeaderLink() {
   return (
     <Link
       href={cartHref}
-      className="relative flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-sam-muted hover:bg-sam-surface-muted"
+      className={`${SECTOR_HEADER_ACTION_CLASS} relative`}
       aria-label={cartCount > 0 ? t("nav_cart_aria") : t("nav_store_list_aria")}
     >
       <StoreCommerceCartStrokeIcon className="h-5 w-5" />

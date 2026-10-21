@@ -7,7 +7,7 @@ import { TradeHubSectionShell } from "@/components/mypage/trade/TradeHubSectionS
 export default function TradeFavoritesPage() {
   const { t } = useI18n();
   return (
-    <TradeHubSectionShell title={t("nav_trade_hub_favorites")}>
+    <TradeHubSectionShell flat title={t("nav_trade_hub_favorites")}>
       <FavoritesHubView embedded />
     </TradeHubSectionShell>
   );

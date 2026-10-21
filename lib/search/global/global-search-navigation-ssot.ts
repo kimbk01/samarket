@@ -129,10 +129,23 @@ export function openGlobalSearchFromHere(
   const origin = captureExactOriginHref(options.currentHref);
   if (origin) setGlobalSearchEntryOrigin(origin);
   if (options.domain) writeGlobalSearchEntryDomain(options.domain);
+  closeInFlight = false;
   router.push(GLOBAL_SEARCH_HREF);
 }
 
+/**
+ * 닫기 1회 잠금 (I-02) — ‹·✕ 연타 시 두 번째 호출이 지워진 출처 대신 `/philife` 로 가던 결함 차단.
+ * 검색 화면이 마운트될 때(`beginGlobalSearchCloseSession`) 다시 열린다.
+ */
+let closeInFlight = false;
+
+export function beginGlobalSearchCloseSession(): void {
+  closeInFlight = false;
+}
+
 export function closeGlobalSearch(router: GlobalSearchReplaceRouter): void {
+  if (closeInFlight) return;
+  closeInFlight = true;
   const dest = resolveGlobalSearchCloseHref();
   clearGlobalSearchEntryOrigin();
   clearGlobalSearchEntryDomain();

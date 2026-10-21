@@ -31,7 +31,7 @@ describe("group chat Phase3 S1 invite/join contracts", () => {
     expect(page).toContain("invite-preview");
     expect(page).toContain("async function joinNow");
     // Auto-join removed: mount effect only loads preview.
-    const effectBlock = page.match(/useEffect\(\(\) => \{[\s\S]*?\}, \[params, safeT\]\);/)?.[0] ?? "";
+    const effectBlock = page.match(/useEffect\(\(\) => \{[\s\S]*?\}, \[params, safeT(?:, reloadKey)?\]\);/)?.[0] ?? "";
     expect(effectBlock).toContain("invite-preview");
     expect(effectBlock).not.toContain("/api/community-messenger/group-rooms/join\"");
     expect(page).toContain("그룹 참여");

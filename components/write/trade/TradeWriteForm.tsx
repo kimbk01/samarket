@@ -2283,8 +2283,8 @@ function TradeMarketplaceWriteFormInner({
     <div
       className={
         embeddedTier1 || suppressTier1Chrome
-          ? "flex w-full min-w-0 flex-col bg-sam-app pb-24"
-          : "min-h-screen bg-sam-app pb-24"
+          ? "flex w-full min-w-0 flex-col bg-sam-app pb-[calc(6rem+var(--safe-bottom))]"
+          : "min-h-screen bg-sam-app pb-[calc(6rem+var(--safe-bottom))]"
       }
     >
       <MobileDualActionBottomSheet

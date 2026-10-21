@@ -1,12 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
-import { AppBackIcon, AppCloseIcon } from "@/components/navigation/AppBackButton";
-import { SECTOR_HEADER_BACK_CLASS } from "@/lib/ui/sector-header-classes";
+import { AppBackButton } from "@/components/navigation/AppBackButton";
 
 type SectorHeaderBackButtonProps = {
   backHref?: string;
@@ -19,71 +14,10 @@ type SectorHeaderBackButtonProps = {
   variant?: "back" | "close";
 };
 
-export function SectorHeaderBackButton({
-  backHref,
-  interceptBack,
-  preferHistoryBack,
-  onBack,
-  className = "",
-  ariaLabelKey,
-  ariaLabel,
-  variant = "back",
-}: SectorHeaderBackButtonProps) {
-  const { t, tt } = useI18n();
-  const router = useRouter();
-  const mergedClass = `${SECTOR_HEADER_BACK_CLASS} ${className}`.trim();
-  const resolvedAriaLabel = ariaLabelKey
-    ? t(ariaLabelKey)
-    : ariaLabel
-      ? tt(ariaLabel)
-      : variant === "close"
-        ? t("common_close")
-        : t("nav_back");
-  const Icon = variant === "close" ? AppCloseIcon : AppBackIcon;
-
-  if (preferHistoryBack === false && backHref != null) {
-    return (
-      <Link
-        href={backHref}
-        className={mergedClass}
-        aria-label={resolvedAriaLabel}
-        scroll={false}
-        onClick={(e) => {
-          if (interceptBack?.()) e.preventDefault();
-        }}
-      >
-        <Icon />
-      </Link>
-    );
-  }
-
-  if (backHref != null) {
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          if (interceptBack?.()) return;
-          runHistoryBackWithFallback(router, backHref);
-        }}
-        className={mergedClass}
-        aria-label={resolvedAriaLabel}
-      >
-        <Icon />
-      </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        if (interceptBack?.()) return;
-        onBack ? onBack() : runHistoryBackWithFallback(router);
-      }}
-      className={mergedClass}
-      aria-label={resolvedAriaLabel}
-    >
-      <Icon />
-    </button>
-  );
+/**
+ * 섹터 헤더 뒤로 — `AppBackButton` 얇은 별칭 (S-10).
+ * 이동 규칙·연타 잠금·클래스(`sector-header-back`)는 `AppBackButton` 한 곳만 정의한다.
+ */
+export function SectorHeaderBackButton(props: SectorHeaderBackButtonProps) {
+  return <AppBackButton {...props} />;
 }

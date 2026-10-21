@@ -42,6 +42,8 @@ export function isBottomNavTabActive(pathname: string | null, tabHref: string): 
   const h = tabHref.split("?")[0]?.trim() ?? "";
   if (!p || !h) return false;
   if (p === h || p.startsWith(`${h}/`)) return true;
+  /** `/my` 는 `/mypage` 와 같은 내정보 셸 — My 탭 활성 (M-03, `resolve-main-surface` 와 동일 별칭) */
+  if (h === "/mypage" && (p === "/my" || p.startsWith("/my/"))) return true;
   /** Cold Boot `/` · `/home` · legacy `/community` → Community tab (`/philife`) */
   if (h === "/philife" && isCommunityHomeSurfacePath(p)) return true;
   return false;

@@ -6,6 +6,7 @@ import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import {
   GLOBAL_SEARCH_HREF,
   GLOBAL_SEARCH_NO_ORIGIN_FALLBACK,
+  beginGlobalSearchCloseSession,
   captureExactOriginHref,
   clearGlobalSearchEntryOrigin,
   closeGlobalSearch,
@@ -25,6 +26,7 @@ describe("global search entry / close / return SSOT", () => {
   const store = new Map<string, string>();
 
   beforeEach(() => {
+    beginGlobalSearchCloseSession();
     store.clear();
     clearGlobalSearchEntryOrigin();
     vi.stubGlobal("sessionStorage", {
@@ -194,5 +196,21 @@ describe("global search entry / close / return SSOT", () => {
     setGlobalSearchEntryOrigin("/philife");
     openGlobalSearchFromHere({ push: vi.fn() }, "/search?q=치킨");
     expect(getGlobalSearchEntryOrigin()).toBe("/philife");
+  });
+});
+
+describe("closeGlobalSearch double tap (I-02)", () => {
+  it("second close in the same search session is ignored (never falls back to /philife)", async () => {
+    const m = await import("@/lib/search/global/global-search-navigation-ssot");
+    m.beginGlobalSearchCloseSession();
+    m.setGlobalSearchEntryOrigin("/stores");
+    const calls: string[] = [];
+    const router = { replace: (h: string) => calls.push(h) };
+    m.closeGlobalSearch(router as never);
+    m.closeGlobalSearch(router as never);
+    expect(calls).toEqual(["/stores"]);
+    m.beginGlobalSearchCloseSession();
+    m.closeGlobalSearch(router as never);
+    expect(calls).toEqual(["/stores", "/philife"]);
   });
 });

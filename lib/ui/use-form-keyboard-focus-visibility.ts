@@ -48,6 +48,21 @@ function resolveFocusedBandHeightPx(focused: HTMLElement): number {
  * down listeners (and drop active focus). Settle retries cover Android resize
  * reflow that can reset scrollTop after the first correction.
  */
+/**
+ * 포커스 입력과 같은 화면(가장 가까운 조상 범위)의 하단 고정 푸터 — 시트·페이지가 겹쳐도
+ * 문서 첫 푸터가 아닌 자기 푸터 기준으로 가림을 계산 (KB-08).
+ */
+function findNearestFormKeyboardFooter(focused: Element): HTMLElement | null {
+  const selector = "[data-form-keyboard-footer='1']";
+  let scope: Element | null = focused.parentElement;
+  while (scope) {
+    const found = scope.querySelector<HTMLElement>(selector);
+    if (found) return found;
+    scope = scope.parentElement;
+  }
+  return null;
+}
+
 export function useFormKeyboardFocusVisibility(opts: Options): void {
   const enabled = opts.enabled !== false;
   const bottom = opts.effectiveViewportBottom;
@@ -226,9 +241,7 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
         if (activeFocusedRef.current !== focused || !document.contains(focused)) return;
         const live = resolveFormVisualViewportFrame().visualBottomPx;
         let bandBottom = Math.min(bottom, live > 0 ? live : bottom);
-        const footer = document.querySelector<HTMLElement>(
-          "[data-form-keyboard-footer='1']"
-        );
+        const footer = findNearestFormKeyboardFooter(focused);
         if (footer && !footer.contains(focused)) {
           const footerTop = Math.round(footer.getBoundingClientRect().top);
           if (Number.isFinite(footerTop) && footerTop > 0) {

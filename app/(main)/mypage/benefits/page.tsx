@@ -117,7 +117,7 @@ export default function MypageBenefitsPage() {
   }
 
   return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
+    <div className="flex min-w-0 flex-1 flex-col bg-sam-app">
       <MySubpageHeader
         title={t("route_benefits_title")}
         subtitle={t("route_benefits_subtitle")}

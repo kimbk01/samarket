@@ -1,5 +1,6 @@
 "use client";
 
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
@@ -256,7 +257,7 @@ export default function NotificationDetailPage() {
         }
       />
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-4">
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-1 flex-col py-4`}>
           {loading ? (
             <p className="text-sm text-sam-muted">{t("common_loading")}</p>
           ) : error === "login_required" ? (
@@ -298,12 +299,12 @@ export default function NotificationDetailPage() {
               {originUnavailable ? (
                 <NotificationContentUnavailableNotice className="mt-5" />
               ) : null}
-              <div className="mt-auto flex flex-col gap-2 pt-8 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <div className="mt-auto flex flex-col gap-2 pt-8 pb-[max(1rem,var(--safe-bottom))]">
                 {externalUrl ? (
                   <button
                     type="button"
                     onClick={onOpenExternal}
-                    className="flex min-h-12 w-full items-center justify-center rounded-full border border-sam-border bg-sam-surface px-4 text-[15px] font-semibold text-sam-fg transition active:scale-[0.99]"
+                    className="flex min-h-12 w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[15px] font-semibold text-sam-fg transition active:scale-[0.99]"
                   >
                     {t("notif_detail_open_external_link")}
                   </button>
@@ -311,7 +312,7 @@ export default function NotificationDetailPage() {
                 <button
                   type="button"
                   onClick={onConfirm}
-                  className="flex min-h-12 w-full items-center justify-center rounded-full bg-sam-primary px-4 text-[15px] font-semibold text-white transition active:scale-[0.99]"
+                  className="flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-sam-primary px-4 text-[15px] font-semibold text-sam-on-primary transition active:scale-[0.99]"
                 >
                   {t("notif_detail_confirm")}
                 </button>

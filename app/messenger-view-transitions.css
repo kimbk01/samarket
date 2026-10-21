@@ -152,7 +152,7 @@
     transform: none !important;
   }
 
-  /* SplitTopBar 가 safe-top 담당 — 우측 방 헤더 이중 inset / 뒤로가기 밀림 방지 */
+  /* 분할 우측 방: 셸 padding-top 0 — safe-top 은 방 Phase2Header 가 소유(`messenger-presentation.css`), 이중 inset 방지 */
   [data-messenger-responsive-shell="wide"] [data-cm-room].cm-room-shell {
     padding-top: 0 !important;
   }

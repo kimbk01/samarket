@@ -1,11 +1,11 @@
 import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkeleton";
+import { MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 /**
- * Bottom padding for full-height loading shells: tab bar height + safe-area
- * (aligned with main shell / bottom nav spacing).
+ * Bottom padding for full-height loading shells — 본문과 같은 SSOT (`MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS`, N-02).
+ * 이전 하드코딩 76px+safe 는 탭 돌출(`--main-scroll-nav-overhang`)을 빠뜨렸다.
  */
-export const MAIN_SHELL_BOTTOM_SAFE_PAD_CLASS =
-  "pb-[calc(76px+var(--safe-bottom))]";
+export const MAIN_SHELL_BOTTOM_SAFE_PAD_CLASS = MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS;
 
 /** Philife / trade-style feed routes: card skeleton list */
 export function MainFeedRouteLoading({ rows = 5 }: { rows?: number }) {

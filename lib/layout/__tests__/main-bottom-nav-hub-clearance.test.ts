@@ -140,3 +140,37 @@ describe("hub shell bottom padding", () => {
     expect(f.mainBottomClass).toBe("pb-4");
   });
 });
+
+describe("body bottom clearance SSOT (H-02 / N-01 / N-06)", () => {
+  it("no tab mounted → safe-bottom once (never tab clearance)", async () => {
+    const { resolveBodyBottomNavClearanceClass, NO_BOTTOM_NAV_BODY_SAFE_CLASS } = await import(
+      "@/lib/layout/main-bottom-nav-hub-clearance"
+    );
+    expect(resolveBodyBottomNavClearanceClass("/search", false)).toBe(NO_BOTTOM_NAV_BODY_SAFE_CLASS);
+    expect(resolveBodyBottomNavClearanceClass("/orders", false)).toBe(NO_BOTTOM_NAV_BODY_SAFE_CLASS);
+  });
+  it("hub body path with tab → tab + safe; shell-owned path with tab → nothing extra", async () => {
+    const { resolveBodyBottomNavClearanceClass, MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } = await import(
+      "@/lib/layout/main-bottom-nav-hub-clearance"
+    );
+    expect(resolveBodyBottomNavClearanceClass("/stores/search", true)).toBe(MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS);
+    expect(resolveBodyBottomNavClearanceClass("/mypage/coupons", true)).toBe("");
+  });
+  it("shell scroll padding uses the measured overhang var, not the global delivery overhang", async () => {
+    const { MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS, MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS } =
+      await import("@/lib/main-menu/bottom-nav-config");
+    expect(MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS).toContain("--main-scroll-nav-overhang");
+    expect(MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS).toContain("--main-scroll-nav-overhang");
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync("app/app-bottom-nav.css", "utf8");
+    expect(css).toMatch(/:root\s*\{\s*--main-scroll-nav-overhang:\s*0px;/);
+    expect(css).toContain("html:has(.app-bottom-nav-shell--delivery)");
+  });
+  it("sheet above-nav anchor drops to the screen bottom when no tab is mounted", async () => {
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync("app/dibay-overlay.css", "utf8");
+    expect(css).toContain(
+      'html:not(:has(.app-bottom-nav-shell)) .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"]'
+    );
+  });
+});

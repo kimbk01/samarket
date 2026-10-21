@@ -533,6 +533,23 @@
 }
 
 /**
+ * 탭 위로 돌출된 요소 높이 — 본문 하단 여백(`MAIN_SCROLL_PADDING_*`)이 실제로 있는 돌출만 반영 (N-01).
+ * 돌출 없음(내정보 등) 0 · 허브/메신저 orbit = orbit rise · 배달 5탭 = 배달 홈 원 overhang.
+ * 시트 anchor(`dibay-overlay.css`)와 같은 :has 판정.
+ */
+:root {
+  --main-scroll-nav-overhang: 0px;
+}
+
+html:has(.app-bottom-nav-shell :is(.app-bottom-nav-item--domain-hub, .app-bottom-nav-item--messenger-hub) .app-bottom-nav-icon-slot--domain-hub-orbit) {
+  --main-scroll-nav-overhang: var(--app-bottom-nav-orbit-rise, calc(2.625rem * 0.36));
+}
+
+html:has(.app-bottom-nav-shell--delivery) {
+  --main-scroll-nav-overhang: var(--delivery-home-overhang, 0px);
+}
+
+/**
  * 글로벌 5탭 — 허브·메신저 orbit (Starbucks green, delivery-tokens 단일 소스).
  * 셸 높이 유지, 원형만 위로 돌출. 라벨과 orbit 사이 `--app-bottom-nav-orbit-label-gap`.
  */

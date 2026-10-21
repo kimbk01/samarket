@@ -12,6 +12,7 @@ import { useChatRoomRealtime } from "@/lib/chats/use-chat-room-realtime";
 import { fetchGroupChatBootstrapDeduped } from "@/lib/group-chat/fetch-group-chat-bootstrap";
 import type { GroupChatBootstrapApiBody } from "@/lib/group-chat/group-chat-bootstrap-types";
 import { mapGroupApiRowToChatMessage } from "@/lib/group-chat/map-api-messages";
+import { GROUP_CHAT_LIST_HREF } from "@/lib/group-chat/constants";
 import type { ChatMessage } from "@/lib/types/chat";
 import {
   APP_MAIN_COLUMN_MAX_WIDTH_CLASS,
@@ -34,7 +35,7 @@ function applyBootstrapPayload(
 
 export function GroupChatRoomClient({
   roomId,
-  listHref = "/group-chat",
+  listHref = GROUP_CHAT_LIST_HREF,
   /** RSC·API와 동일 페이로드 — 있으면 첫 GET 생략 */
   initialBootstrap = null,
 }: {
@@ -221,7 +222,7 @@ export function GroupChatRoomClient({
       </div>
 
       {!loading && !err ? (
-        <div className="shrink-0 border-t border-sam-border bg-sam-surface safe-area-pb">
+        <div className="shrink-0 border-t border-sam-border bg-sam-surface">
           <ChatInputBar
             onSend={handleSend}
             draftStorageKey={`group-chat:${roomId}`}

@@ -56,6 +56,16 @@ import {
 import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 
+/**
+ * 방 헤더 아이콘 — 보이는 원 36px(기존 그대로) · 터치 44×44 (04-DESIGN-SYSTEM Touch, T-01).
+ * 눌림 배경은 안쪽 36px 원에만 (group-active) → 시각 변화 없음.
+ */
+const CM_ROOM_HEADER_TOUCH_BTN_CLASS =
+  "group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full";
+const CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS =
+  "flex h-9 w-9 items-center justify-center rounded-full transition";
+const CM_ROOM_HEADER_TOUCH_FACE_CLASS = `${CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS} group-active:bg-[color:var(--cm-room-primary-soft)]`;
+
 export const CommunityMessengerRoomPhase2Header = memo(function CommunityMessengerRoomPhase2Header() {
   const { t } = useI18n();
   const isMessengerSplit = useIsMessengerSplitViewport();
@@ -286,7 +296,11 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
         roomId: vm.snapshot.room.id,
         searchParams,
       });
-      runMessengerRoomBackNavigation(vm.router, { ...plan, forceDirect: true });
+      /**
+       * 분할에서도 모바일과 같은 계획 — history back(+폴백). 방 전환은 replace 라 기록 = [허브, 방] →
+       * 헤더 ← 와 Android 시스템 뒤로 결과가 같다 (BK-06). 계획 자체의 forceDirect(override·배달)는 유지.
+       */
+      runMessengerRoomBackNavigation(vm.router, plan);
       return;
     }
     if (requestAnimatedBack) {
@@ -370,12 +384,14 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
         <button
           type="button"
           onClick={handleBack}
-          className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
+          className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} self-center text-[color:var(--cm-room-text)]`}
           aria-label={buyerSlideHost ? vm.t("common_close") : vm.t("tier1_back")}
         >
-          {buyerSlideHost ?
-            <X className="h-[18px] w-[18px]" aria-hidden />
-          : <BackIcon />}
+          <span className={CM_ROOM_HEADER_TOUCH_FACE_CLASS}>
+            {buyerSlideHost ?
+              <X className="h-[18px] w-[18px]" aria-hidden />
+            : <BackIcon />}
+          </span>
         </button>
 
         {useDeliveryHeaderBlock ? (
@@ -517,68 +533,63 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
                 vm.setRoomSearchQuery("");
                 vm.setActiveSheet("search");
               }}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
+              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} text-[color:var(--cm-room-text-muted)]`}
               aria-label={vm.t("cm_ui_search_in_chat")}
             >
-              <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+              <span className={CM_ROOM_HEADER_TOUCH_FACE_CLASS}>
+                <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+              </span>
             </button>
           ) : null}
           {vm.isGroupRoom ? (
             <button
               type="button"
               onClick={() => vm.setActiveSheet("menu")}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#006241] transition active:bg-[#EAF4EF]"
+              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} text-[color:var(--cm-room-starbucks-green)]`}
               aria-label={vm.t("nav_messenger_open_group_settings")}
             >
-              <Settings className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+              <span className={`${CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS} group-active:bg-[color:var(--cm-room-group-settings-pressed-bg)]`}>
+                <Settings className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+              </span>
             </button>
           ) : null}
-          {isDeliveryBuyer ? (
+          {isDeliveryBuyer || showHeaderVoiceCall ? (
             <button
               type="button"
               onClick={openHeaderVoiceConfirm}
               disabled={headerVoiceDisabled}
-              className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45 ${
-                ownLiveCall ? "text-[color:var(--cm-room-primary,#006B43)]" : "text-[color:var(--cm-room-text-muted)]"
+              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} disabled:opacity-45 ${
+                ownLiveCall ? "text-[color:var(--cm-room-primary)]" : "text-[color:var(--cm-room-text-muted)]"
               }`}
               aria-label={ownLiveCall ? vm.t("cm_ui_call_in_progress_return") : vm.t("cm_ui_voice_call")}
               data-cm-own-call-live={ownLiveCall ? "1" : undefined}
             >
-              <Phone className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
-              {ownLiveCall ? (
-                <span
-                  className="absolute right-1 top-1 h-2 w-2 animate-pulse rounded-full bg-[color:var(--cm-room-primary,#006B43)]"
-                  aria-hidden
-                />
-              ) : null}
+              <span className={`${CM_ROOM_HEADER_TOUCH_FACE_CLASS} relative`}>
+                <Phone className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+                {ownLiveCall ? (
+                  <span
+                    className="absolute right-1 top-1 h-2 w-2 animate-pulse rounded-full bg-[color:var(--cm-room-primary)]"
+                    aria-hidden
+                  />
+                ) : null}
+              </span>
             </button>
-          ) : showHeaderVoiceCall ? (
-            <button
-              type="button"
-              onClick={openHeaderVoiceConfirm}
-              disabled={headerVoiceDisabled}
-              className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45 ${
-                ownLiveCall ? "text-[color:var(--cm-room-primary,#006B43)]" : "text-[color:var(--cm-room-text-muted)]"
-              }`}
-              aria-label={ownLiveCall ? vm.t("cm_ui_call_in_progress_return") : vm.t("cm_ui_voice_call")}
-              data-cm-own-call-live={ownLiveCall ? "1" : undefined}
-            >
-              <Phone className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
-              {ownLiveCall ? (
-                <span
-                  className="absolute right-1 top-1 h-2 w-2 animate-pulse rounded-full bg-[color:var(--cm-room-primary,#006B43)]"
-                  aria-hidden
-                />
-              ) : null}
-            </button>
-          ) : vm.isPrivateGroupRoom || vm.isGroupRoom ? null : (
+          ) : null}
+          {/*
+           * 1:1·거래 방 ⋮ 메뉴(검색·미디어·알림끄기·보관·나가기·영상·연락처 추가)는 전화 버튼과 **함께** 표시.
+           * 3f49bc530(통화 진입 수정)이 전화 분기를 ⋮ 앞 삼항으로 넣어 메뉴가 사라지던 회귀 복원 (T-03).
+           * 배달 구매자 방(f019baa63)·그룹 방(⚙ = 메뉴)은 기존 계약 유지.
+           */}
+          {isDeliveryBuyer || vm.isPrivateGroupRoom || vm.isGroupRoom ? null : (
             <button
               type="button"
               onClick={() => vm.setActiveSheet("menu")}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
+              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} text-[color:var(--cm-room-text-muted)]`}
               aria-label={vm.t("nav_messenger_room_menu")}
             >
-              <MoreIcon className="h-[18px] w-[18px]" />
+              <span className={CM_ROOM_HEADER_TOUCH_FACE_CLASS}>
+                <MoreIcon className="h-[18px] w-[18px]" />
+              </span>
             </button>
           )}
         </div>

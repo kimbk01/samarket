@@ -1,5 +1,8 @@
 "use client";
 
+import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -70,7 +73,6 @@ import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomShe
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import {
   MyStickyCta,
-  MY_STICKY_CTA_BODY_CLEARANCE_CLASS,
   type MyStickyCtaAction,
 } from "@/components/mypage/ds/MyStickyCta";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
@@ -236,6 +238,8 @@ function formatPrepClock(iso: string | null | undefined, lang: AppLanguageCode):
 }
 
 export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: boolean }) {
+  /** 하단탭 실제 마운트 기준 CTA 본문 여백 — 탭 있음/없음 safe 1회 (M-04) */
+  const stickyCtaBodyClearanceClass = resolveMyStickyCtaBodyClearanceClass(useBottomNavOccupiesClearance());
   const { t, safeT, language } = useI18n();
   const params = useParams();
   const router = useRouter();
@@ -664,7 +668,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
 
   return (
     <SupportContextProvider value={supportContext}>
-    <div className={`space-y-4 ${ctaPrimary ? MY_STICKY_CTA_BODY_CLEARANCE_CLASS : ""}`}>
+    <div className={`space-y-4 ${ctaPrimary ? stickyCtaBodyClearanceClass : ""}`}>
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">

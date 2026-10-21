@@ -8,7 +8,11 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
-import { peekTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
+import {
+  peekTradeListReturnHref,
+  resolveTradeDetailListReturnHref,
+} from "@/lib/trade/location/trade-list-return-href";
+import { readPreviousInAppHistoryHref } from "@/lib/navigation/fixed-destination-back";
 import {
   armTradeMarketProductCompositionBack,
   peekTradeMarketProductComposition,
@@ -82,6 +86,7 @@ import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMor
 import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSections";
 import { TradeCompositionDetailSection } from "@/components/post/TradeCompositionDetailSection";
 import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet";
+import { SectorHeaderActionButton } from "@/components/layout/sector-header/SectorHeaderActionButton";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { TradeDetailInlineChatCard } from "@/components/post/TradeDetailInlineChatCard";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
@@ -449,8 +454,13 @@ export function PostDetailView({
       const c = await getCategoryBySlugOrId(post.category_id);
       if (cancelled || !c) return;
       setCategory(c);
-      const remembered = peekTradeListReturnHref();
-      setBackHref(remembered || getCategoryHref(c));
+      setBackHref(
+        resolveTradeDetailListReturnHref({
+          previousHref: readPreviousInAppHistoryHref(),
+          remembered: peekTradeListReturnHref(),
+          categoryHref: getCategoryHref(c),
+        })
+      );
       const parentId = typeof c.parent_id === "string" ? c.parent_id.trim() : "";
       if (!parentId) {
         setCompositionRoot(c);
@@ -509,7 +519,6 @@ export function PostDetailView({
                 tradePostDetailSlideHost.closeSlide();
               }}
               ariaLabelKey="tier1_back"
-              className="text-[#111]"
             />
           ),
         },
@@ -521,7 +530,10 @@ export function PostDetailView({
     setMainTier1Extras({
       tier1: {
         titleText: tradeDetailHeaderTitle,
-        /** 항상 해당 카테고리 목록(`/market/{id}`)으로 — 히스토리 백 미사용 */
+        /**
+         * 항상 해당 카테고리 목록(`/market/{id}`)으로 (FIXED 목적지 유지).
+         * 이동은 settle — 직전 기록이 그 목록이면 back, 아니면 replace (Q7: 루프·중복 없음).
+         */
         preferHistoryBack: false,
         ariaLabel: t("trade_detail_back_to_list"),
         showHubQuickActions: false,
@@ -529,43 +541,39 @@ export function PostDetailView({
           <AppBackButton
             preferHistoryBack={false}
             backHref={backHref}
+            fixedBackHistory="settle"
             interceptBack={() => {
               armCompositionBackRef.current();
               retainTradeDetailSurfaceNode({ listingId: post.id, rootEl: rootRef.current });
               return false;
             }}
             ariaLabel={t("trade_detail_back_to_list")}
-            className="text-[#111]"
           />
         ),
         rightSlot: (
           <div className="flex shrink-0 items-center justify-end">
             {showBuyerMore ? (
-              <button
-                type="button"
+              <SectorHeaderActionButton
                 onClick={() => setDetailMoreOpen(true)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center text-[#111]"
                 aria-label={t("ui_product_more_aria")}
               >
-                <svg className="h-[22px] w-[22px] shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <circle cx="12" cy="5" r="2" />
                   <circle cx="12" cy="12" r="2" />
                   <circle cx="12" cy="19" r="2" />
                 </svg>
-              </button>
+              </SectorHeaderActionButton>
             ) : showSellerMore ? (
-              <button
-                type="button"
+              <SectorHeaderActionButton
                 onClick={() => setSellerMoreOpen(true)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center text-[#111]"
                 aria-label={t("ui_product_more_aria")}
               >
-                <svg className="h-[22px] w-[22px] shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <circle cx="12" cy="5" r="2" />
                   <circle cx="12" cy="12" r="2" />
                   <circle cx="12" cy="19" r="2" />
                 </svg>
-              </button>
+              </SectorHeaderActionButton>
             ) : null}
           </div>
         ),
