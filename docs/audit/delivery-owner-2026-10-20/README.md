@@ -32,6 +32,7 @@
 ## 2026-10-21 추가 반영 — 4단계 사이드 메뉴·UI/UX/CTA·SSOT (웹만, D-11·D-12·D-13·D-14 권장안)
 
 - 4-0 공통 primitive(`OwnerStateView`·`OwnerToastHost`·`ownerFetchJson`·`useOwnerFormIdempotencyKey`, 확인창 `busy` 필수) · 4-1 레지스트리 12그룹 파생(제목·활성·하단탭·뒤로가기·노출 = `owner-nav-registry.ts` 단일, IA-09·10·11·21) · 4-2 레거시 리다이렉트 쿼리 보존·슬러그 서버 redirect·storeId 셸 정규화(IA-07·08) · 4-3 토글 SSOT `/settings`·Finance `orders` 탭 제거·「수수료·캐시 원장」「Coin 환전」·알림 설정 「내 계정 알림 설정」(IA-12·13·14) · 4-4 리뷰·문의·설정 토글·주문 단계 실패 피드백(IA-15·16·17·23) · 4-5 고아 컴포넌트 21개 삭제·이벤트 프로모션 진입점(IA-18, URL 삭제 0) · 4-6 오너 화면 hex·팔레트·반경 0(래칫 테스트), `--biz-*` → `--sam-*` 브리지(IA-19) · 4-7 PC ≥1280px 고정 사이드바·드로어 ESC/포커스 트랩(IA-20) — 설계 **[문서 G-2 §4](G-2-stage3-5-design.md)**.
+- 5단계 회귀 검증 결과 — **[문서 J](J-stage5-regression-report.md)** (L1 로컬 PASS · L2 로컬 계약 스위트 13 PASS · L4 불변식 12 위반 0 · L3·L5 NOT_PROVEN · 발견 결함 3건 보고).
 - 미완(범위 밖 후속): IA-06 쿠폰 토스트 전환(3-C 인라인 띠 유지), `useOwnerFormIdempotencyKey` 화면 연결, 홈 대시보드 `OwnerHomeStoreStatusCard` 토글, `?section=orders` 서버 정규화(클라 정규화로 동작).
 
 ## 승인 범위 처리 현황 (2026-10-21 PHT, Owner 승인 D-0·D-1·D-5·P0-3·P0-4)
