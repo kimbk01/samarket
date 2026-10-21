@@ -94,6 +94,8 @@ export function computeCheckoutGiftApplyPreview(args: {
   giftUsed: number;
   paymentAfterGift: number;
   giftRemainingAfter: number;
+  /** One-time full consumption: unused face forfeited by this order (same split as create_store_order_atomic). */
+  giftForfeited: number;
 } {
   const split = computeGiftRedemptionSplit({
     amountDueBeforeGift: Math.max(0, Math.trunc(args.amountBeforeGift)),
@@ -103,7 +105,13 @@ export function computeCheckoutGiftApplyPreview(args: {
     giftUsed: split.redeemAmount,
     paymentAfterGift: split.remainingPayment,
     giftRemainingAfter: split.giftRemainingAfter,
+    giftForfeited: split.forfeitedAmount,
   };
+}
+
+/** GFT-04: choosing a gift that would forfeit value requires explicit consent (display only; policy unchanged). */
+export function checkoutGiftChoiceNeedsForfeitConsent(preview: { giftForfeited: number }): boolean {
+  return Math.trunc(Number(preview.giftForfeited) || 0) > 0;
 }
 
 export function checkoutGiftInstanceIdsPayload(
