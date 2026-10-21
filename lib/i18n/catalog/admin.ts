@@ -1697,9 +1697,6 @@ export const adminMessages = {
     admin_users_err_login_retry: "로그인이 필요합니다. 로그인 후 다시 시도해 주세요.",
     admin_users_err_admin_only_create: "관리자만 회원을 추가할 수 있습니다.",
     admin_users_err_create_failed: "생성에 실패했습니다.",
-    admin_users_address_seed_warning:
-      "회원은 생성됐지만 대표 주소를 저장하지 못했습니다. 회원 상세에서 주소를 다시 등록해 주세요.",
-    admin_users_go_to_member_detail: "회원 상세로 이동",
     admin_users_err_request: "요청 중 오류가 발생했습니다.",
     admin_users_label_trade_region: "거래 지역",
     admin_users_form_edit_member_title: "회원 수정",
@@ -4727,9 +4724,6 @@ export const adminMessages = {
     admin_users_err_login_retry: "Login required. Please sign in and try again.",
     admin_users_err_admin_only_create: "Only admins can add members.",
     admin_users_err_create_failed: "Creation failed.",
-    admin_users_address_seed_warning:
-      "The member was created, but the primary address could not be saved. Add the address again from the member detail.",
-    admin_users_go_to_member_detail: "Go to member detail",
     admin_users_err_request: "Request error.",
     admin_users_label_trade_region: "Trade region",
     admin_users_form_edit_member_title: "Edit member",
