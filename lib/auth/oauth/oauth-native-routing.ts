@@ -93,12 +93,25 @@ export function resolveOAuthNativeRoutingDecision(input: {
   /**
    * iOS Capacitor — Kakao Native Talk 복귀는 handled=1 이후 token callback 미도착이 실측됨.
    * Google iOS 와 동일하게 Supabase Web OAuth + Custom Tab 사용 (레거시 Capacitor 경로).
-   * Android Kakao 는 Native SDK 유지.
    */
   if (provider === "kakao" && shellPlatform === "ios") {
     return {
       action: "web_oauth_start",
       webOAuthFallbackReason: "ios_kakao_web_oauth_by_design",
+    };
+  }
+
+  /**
+   * Android Capacitor — Kakao 도 Supabase Web OAuth + Custom Tab (2026-10-22 실기기 근거).
+   * Native SDK 경로는 (1) Custom Tab 동안 앱 프로세스가 죽으면 SDK 콜백(메모리)이 사라져 동의 후 멈추고
+   * (샤오미 onProcessDied 실측), (2) SDK 키 해시 검사에서 거부될 수 있다 (삼성 실측).
+   * Web OAuth 는 PKCE verifier 를 WebView 쿠키에 두고 capacitor-return → /auth/callback 으로 이어가므로
+   * 프로세스 재시작 후에도 로그인이 완료되고, 키 해시를 쓰지 않는다. APK 재빌드 불필요.
+   */
+  if (provider === "kakao" && shellPlatform === "android") {
+    return {
+      action: "web_oauth_start",
+      webOAuthFallbackReason: "android_kakao_web_oauth_process_death_safe",
     };
   }
 

@@ -19,7 +19,7 @@ export type AndroidCookieFlushResult =
   | "bridge_unavailable"
   | "flush_failed";
 
-export type AndroidCookieFlushPhase = "login_completion" | "logout_wipe";
+export type AndroidCookieFlushPhase = "login_completion" | "logout_wipe" | "oauth_start";
 
 type DibayBootBridgeFlush = {
   flushAuthCookies?: () => boolean;
