@@ -118,4 +118,10 @@
 - 주문 RPC(`create_store_order_atomic`)는 2·3단계 여러 결함이 같은 함수를 바꾼다 → 착수 때마다 운영 원문 대조(G-1 R-DB-1).
 - ~~(1단계 잔여) `20270602140000` 의 정책 DROP 7개~~ — **2026-10-21 Owner 가 SQL 편집기에서 실행 완료.** 세 테이블에 SELECT 정책 3개만 남음(쓰기 정책 0, 운영 조회 확인).
 - (1단계 잔여) `store_order_deliveries_status_check` 는 NOT VALID(과거 행 미검증). VALIDATE 는 과거 행 위반 0 확인 + Owner 승인 후.
+- (2단계) 운영 적용 도구가 DROP 문을 실행하지 못해 아래 4줄이 남음 — Supabase SQL 편집기에서 실행. 실행 전까지 복원된 쿠폰을 같은 구매자가 다시 사용할 수 없음(옛 UNIQUE 제약). 2인자 충전 승인 함수는 실행 권한을 이미 회수함.
+  `DROP FUNCTION IF EXISTS public.approve_business_cash_charge_request(uuid, uuid);` ·
+  `ALTER TABLE public.store_coupon_redemptions DROP CONSTRAINT IF EXISTS store_coupon_redemptions_buyer_campaign_unique;` ·
+  `DROP INDEX IF EXISTS public.store_coupon_redemptions_user_coupon_uidx;` ·
+  `CREATE UNIQUE INDEX store_coupon_redemptions_user_coupon_uidx ON public.store_coupon_redemptions (user_coupon_id) WHERE user_coupon_id IS NOT NULL AND reversed_at IS NULL;`
+- (2단계) `store_commission_enqueue_exception_notifications` 운영 본문은 적용 도구가 `E'\uXXXX'` 를 글자로 바꿔 저장 — 실행 문자열 동일(파일 본문의 이스케이프를 글자로 바꾼 md5 = 운영 md5 `9a509886…`).
 - (기존) 운영 `store_order_deliveries.failure_reason` 컬럼 없음(저장소 `20260517120000` 미적용 드리프트) → 관리자 `delivery_failed` 503. 이번 범위 밖, 보고만.
