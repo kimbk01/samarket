@@ -241,6 +241,20 @@ svg {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+}
+
+/*
+ * 기본 입력 글자 14px — 단 디자인 토큰 입력(.sam-input / .sm-input = 16px, @layer components)은 제외.
+ * 이 규칙은 레이어 밖이라 레이어 안 클래스보다 항상 이겨서 Android 에서 토큰 입력이 14px 로 덮였다
+ * (iOS 는 아래 @supports 16px !important 로 가려짐). 실기기 SM-M156S 측정.
+ */
+:is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not(
+      [type="submit"]
+    ):not([type="reset"]):not([type="image"]):not([type="color"]),
+  textarea,
+  select
+):not(.sam-input):not(.sm-input) {
   font-size: var(--sam-text-body-size);
 }
 
