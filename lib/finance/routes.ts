@@ -194,11 +194,20 @@ export function ownerFinanceHubHref(storeId: string, section?: string | null): s
   return `/stores/owner/finance?${qs.toString()}`;
 }
 
+/**
+ * Owner Finance 섹션 정규화 (IA-12). `orders`(구 주문 탭)는 `transactions` 와 같은 화면이라
+ * 탭을 없애고 URL 만 호환 — 빈 값도 `transactions`.
+ */
+export function normalizeOwnerFinanceSection(raw: string | null | undefined): string {
+  const s = (raw ?? "").trim();
+  if (!s || s === "orders") return "transactions";
+  return s;
+}
+
 export function ownerFinanceSectionHref(
   storeId: string,
   section:
     | "transactions"
-    | "orders"
     | "outstanding"
     | "coin"
     | "cash"

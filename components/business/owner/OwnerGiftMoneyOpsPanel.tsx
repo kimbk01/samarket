@@ -368,7 +368,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
           <p className="text-sm text-sam-muted">
             {safeT("gift_owner_action_cash_out_desc", {
               fallbackKo:
-                "Coin에는 DIBAY 부담 쿠폰 지원금만 적립됩니다. 상품권 수익은 상품권 정산으로 별도 지급됩니다. Coin 출금과 내역은 매장 재무에서 관리합니다.",
+                "Coin에는 DIBAY 부담 쿠폰 지원금만 적립됩니다. 상품권 수익은 상품권 정산으로 별도 지급됩니다. Coin 환전과 내역은 매장 재무에서 관리합니다.",
               fallbackEn:
                 "Coin accrues only DIBAY-funded coupon support. Gift revenue is paid separately by gift settlement. Manage Coin withdrawals and history in Store Finance.",
             })}

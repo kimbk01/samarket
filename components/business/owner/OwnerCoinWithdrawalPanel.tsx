@@ -145,8 +145,8 @@ export function OwnerCoinWithdrawalPanel({
   return (
     <OwnerStoreAdminDashSection
       title={safeT("owner_finance_withdraw_title", {
-        fallbackKo: "외부 출금 · 환전 신청",
-        fallbackEn: "External payout / withdrawal",
+        fallbackKo: "Coin 환전 신청",
+        fallbackEn: "Coin withdrawal",
       })}
     >
       <p className="mb-3 text-xs text-sam-muted">

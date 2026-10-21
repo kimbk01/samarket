@@ -149,7 +149,7 @@ describe("owner admin scroll shell contract", () => {
 
   it("legacy points page redirects to canonical Owner finance", () => {
     const src = readRepo("app/(main)/stores/owner/points/page.tsx");
-    expect(src).toContain("redirect(OwnerRoutes.finance(storeId))");
+    expect(src).toContain("redirect(appendOwnerSearchParams(OwnerRoutes.finance(storeId)");
     expect(src).not.toContain("OwnerStorePointsView");
   });
 

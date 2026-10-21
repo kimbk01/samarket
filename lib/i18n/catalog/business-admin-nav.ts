@@ -91,7 +91,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_settlements: "정산",
 
-    biz_nav_settlements_desc: "주문별 매출·수수료·지급 현황",
+    biz_nav_settlements_desc: "수수료 부과·캐시 차감·미납 원장",
 
     biz_nav_store_points: "이전 매장 운영 원장",
 
@@ -288,7 +288,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_settlements: "Settlements",
 
-    biz_nav_settlements_desc: "Per-order sales, fees & payout status",
+    biz_nav_settlements_desc: "Commission charges, Cash deductions & unpaid ledger",
 
     biz_nav_store_points: "Historical store operations ledger",
 

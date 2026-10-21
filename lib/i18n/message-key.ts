@@ -87,6 +87,7 @@ import { storeOps3bMessages } from "./catalog/store-ops-3b";
 import { adminDeliveryAdsStage3Messages } from "./catalog/admin-delivery-ads-stage3";
 import { ownerStage4FeedbackMessages } from "./catalog/owner-stage4-feedback";
 import { ownerStage4NavMessages } from "./catalog/owner-stage4-nav";
+import { ownerStage4RoutesMessages } from "./catalog/owner-stage4-routes";
 import { adminDeliveryOpsUxMessages } from "./catalog/admin-delivery-ops-ux";
 import { adminChatR1EMessages } from "./catalog/admin-chat-r1-media";
 import { adminChatR1DMessages } from "./catalog/admin-chat-r1-dashboard";
@@ -208,6 +209,7 @@ export type MessageKey =
   | KeyOf<typeof adminDeliveryAdsStage3Messages.ko>
   | KeyOf<typeof ownerStage4FeedbackMessages.ko>
   | KeyOf<typeof ownerStage4NavMessages.ko>
+  | KeyOf<typeof ownerStage4RoutesMessages.ko>
   | KeyOf<typeof adminMessages.ko>
   | KeyOf<typeof adminOsLaunchMessages.ko>
   | KeyOf<typeof adminFinanceSsot19Messages.ko>
@@ -296,6 +298,7 @@ type EnMessageKey =
   | KeyOf<typeof adminDeliveryAdsStage3Messages.en>
   | KeyOf<typeof ownerStage4FeedbackMessages.en>
   | KeyOf<typeof ownerStage4NavMessages.en>
+  | KeyOf<typeof ownerStage4RoutesMessages.en>
   | KeyOf<typeof adminMessages.en>
   | KeyOf<typeof adminOsLaunchMessages.en>
   | KeyOf<typeof adminFinanceSsot19Messages.en>

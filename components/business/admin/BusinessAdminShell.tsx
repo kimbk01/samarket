@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import {
   useCallback,
@@ -35,8 +35,6 @@ import {
   writeOwnerActiveStoreIdToSession,
 } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { BusinessAdminSidebar } from "@/components/business/admin/BusinessAdminSidebar";
-import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
-import { BusinessAdminVisibleToggle } from "@/components/business/admin/BusinessAdminVisibleToggle";
 import { BusinessStatusBadge } from "@/components/business/admin/BusinessStatusBadge";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
@@ -47,6 +45,8 @@ import { OwnerMobileBottomNav } from "@/components/stores/owner/OwnerMobileBotto
 import { OwnerChromeHeader } from "@/components/business/owner/OwnerChromeHeader";
 import { OwnerStorePreviewModal } from "@/components/business/owner/OwnerStorePreviewModal";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { buildOwnerStoreIdNormalizedHref } from "@/lib/business/owner-store-id-normalize";
+import { resolveOwnerStoreCommerceStateLabel } from "@/lib/stores/store-commerce-state-label";
 import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
 import {
   useOwnerFabOrderChatBadgeCount,
@@ -130,6 +130,7 @@ export function BusinessAdminShell({
   const { t } = useI18n();
   const isHub = entry === "hub";
   const pathname = usePathname() ?? "";
+  const router = useRouter();
   const searchParams = useOwnerAdminUrlSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
 
@@ -330,6 +331,18 @@ export function BusinessAdminShell({
     const sid = selectedRow?.id?.trim();
     if (sid) writeOwnerActiveStoreIdToSession(sid);
   }, [selectedRow?.id]);
+
+  /** IA-08 — URL 에 storeId 가 없으면 셸 한 곳에서 선택 매장으로 1회 정규화(화면별 stores[0] 금지). */
+  useEffect(() => {
+    if (storeIdParam || typeof window === "undefined") return;
+    const href = buildOwnerStoreIdNormalizedHref({
+      pathname,
+      search: window.location.search,
+      hash: window.location.hash,
+      selectedStoreId: selectedRow?.id,
+    });
+    if (href) router.replace(href, { scroll: false });
+  }, [storeIdParam, selectedRow?.id, pathname, router]);
 
   const selectedStoreId = selectedRow?.id?.trim() ?? "";
 
@@ -730,6 +743,8 @@ export function BusinessAdminShell({
   );
 
   const sidebarAddressLabel = formatOwnerSidebarAddress(selectedRow, linkedStoreAddressRow);
+  /** IA-12 헤더 상태 칩 — OPS-04 실효 영업 상태(토글 원값 아님). */
+  const sidebarCommerce = resolveOwnerStoreCommerceStateLabel(selectedRow);
 
   const sidebarBody = (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col bg-[var(--biz-card-bg)]">
@@ -744,8 +759,30 @@ export function BusinessAdminShell({
         <div className="mt-3 flex flex-nowrap items-center gap-3">
           {String(selectedRow.approval_status) === "approved" ? (
             <>
-              <BusinessAdminVisibleToggle row={selectedRow} onUpdated={() => void reloadStores()} />
-              <BusinessAdminOpenToggle row={selectedRow} onUpdated={() => void reloadStores()} />
+              {/* IA-12 — 노출·영업 변경 SSOT 는 /settings. 헤더는 상태 칩 + 링크만. */}
+              {selectedRow.is_visible === true ? (
+                <BusinessStatusBadge tone="success">{t("business_phase7_029")}</BusinessStatusBadge>
+              ) : (
+                <BusinessStatusBadge tone="muted">{t("business_phase7_132")}</BusinessStatusBadge>
+              )}
+              <BusinessStatusBadge tone={sidebarCommerce.isOpenForCommerce ? "success" : "muted"}>
+                {t(sidebarCommerce.labelKey)}
+              </BusinessStatusBadge>
+              <Link
+                href={OwnerRoutes.settings(selectedRow.id)}
+                className="ml-auto shrink-0 sam-text-xxs font-semibold text-sam-primary underline"
+                data-owner-drawer-status-settings-link="1"
+                onClick={(e) => {
+                  const href = OwnerRoutes.settings(selectedRow.id);
+                  if (isOwnerStoreAdminDirtyGuardPath(pathname) && getOwnerBasicInfoDirty()) {
+                    e.preventDefault();
+                    emitOwnerBasicInfoLeave({ href, kind: "sidebar" });
+                  }
+                  setMobileMenuOpen(false);
+                }}
+              >
+                {t("owner_stage4_change_in_store_manage")}
+              </Link>
             </>
           ) : (
             <>
