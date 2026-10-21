@@ -12,21 +12,44 @@ vi.mock("@/lib/addresses/resolve-user-address-shop-write", () => ({
   shopResolvedToAddressPatch: () => ({}),
 }));
 
-import { updateUserAddress } from "@/lib/addresses/user-address-service";
+import {
+  createUserAddress,
+  setUserAddressAsDefault,
+  updateUserAddress,
+} from "@/lib/addresses/user-address-service";
 import { validatePlacesAddressPayload } from "@/lib/addresses/address-api-validation";
 
 type Row = Record<string, unknown>;
 type DbError = { message: string; code?: string; details?: string };
 
 /** Minimal in-memory PostgREST chain: select/update + eq/order/limit/single/maybeSingle. */
-function fakeSupabase(rows: Row[], opts?: { updateError?: DbError }) {
+function fakeSupabase(rows: Row[], opts?: { updateError?: DbError; rpcResult?: Row }) {
   const updates: Row[] = [];
+  const inserts: Row[] = [];
+  const rpcCalls: [string, Row][] = [];
+  /** `user_address_set_master` 시뮬레이션 — 해제·지정이 한 호출에서 일어난다 */
+  const rpc = async (name: string, args: Row) => {
+    rpcCalls.push([name, args]);
+    if (opts?.rpcResult) return { data: opts.rpcResult, error: null };
+    const target = rows.find((r) => r.id === args.p_address_id && r.user_id === args.p_user_id && r.is_active === true);
+    if (!target) return { data: { ok: false, error: "address_not_found" }, error: null };
+    for (const r of rows) {
+      if (r.user_id === args.p_user_id && r.is_active === true) r.is_default_master = r.id === target.id;
+    }
+    return { data: { ok: true }, error: null };
+  };
   const from = () => {
-    let op: "select" | "update" = "select";
+    let op: "select" | "update" | "insert" = "select";
     let patch: Row = {};
     const filters: [string, unknown][] = [];
     const match = () => rows.filter((r) => filters.every(([k, v]) => r[k] === v));
     const run = () => {
+      if (op === "insert") {
+        inserts.push(patch);
+        const created = { ...patch, id: `new-${inserts.length}` };
+        rows.push(created);
+        return { data: [created], error: null };
+      }
       if (op === "update") {
         if (opts?.updateError) return { data: null, error: opts.updateError };
         updates.push(patch);
@@ -47,6 +70,11 @@ function fakeSupabase(rows: Row[], opts?: { updateError?: DbError }) {
         patch = p;
         return q;
       },
+      insert: (p: Row) => {
+        op = "insert";
+        patch = p;
+        return q;
+      },
       eq: (k: string, v: unknown) => {
         filters.push([k, v]);
         return q;
@@ -59,7 +87,7 @@ function fakeSupabase(rows: Row[], opts?: { updateError?: DbError }) {
     };
     return q;
   };
-  return { sb: { from } as never, updates };
+  return { sb: { from, rpc } as never, updates, inserts, rpcCalls };
 }
 
 function row(partial: Row): Row {
@@ -178,3 +206,59 @@ describe("DATA-006 coordinate validation", () => {
     expect(validatePlacesAddressPayload({ ...base, latitude: 0, longitude: 121.03 })).toBeNull();
   });
 });
+
+function validPayload(): import("@/lib/addresses/user-address-types").UserAddressWritePayload {
+  return {
+    labelType: "home",
+    province: "Metro Manila",
+    cityMunicipality: "Quezon City",
+    latitude: 14.65,
+    longitude: 121.03,
+    formattedAddress: "Diliman, Quezon City",
+    detailAddress: "Unit 2",
+    useForLife: true,
+    useForTrade: true,
+    useForDelivery: true,
+  };
+}
+
+describe("ADDR-DATA-004: 대표 지정은 user_address_set_master 한 번으로", () => {
+  beforeEach(() => lguMock.resolve.mockReset());
+
+  it("updateUserAddress(isDefaultMaster) → RPC 1회, 별도 해제 UPDATE 없음, 대표 1건", async () => {
+    const rows = [row({ id: "a1", is_default_master: true }), row({ id: "a2", nickname: "Office" })];
+    const { sb, updates, rpcCalls } = fakeSupabase(rows);
+    await updateUserAddress(sb, "u1", "a2", { isDefaultMaster: true });
+    expect(rpcCalls).toEqual([["user_address_set_master", { p_user_id: "u1", p_address_id: "a2" }]]);
+    expect(updates.some((u) => u.is_default_master === false)).toBe(false);
+    expect(rows.filter((r) => r.is_default_master).map((r) => r.id)).toEqual(["a2"]);
+  });
+
+  it("setUserAddressAsDefault: RPC 가 address_not_found 면 그대로 전달", async () => {
+    const rows = [row({ id: "a1" })];
+    const { sb } = fakeSupabase(rows, { rpcResult: { ok: false, error: "address_not_found" } });
+    await expect(setUserAddressAsDefault(sb, "u1", "a1")).rejects.toThrow("address_not_found");
+  });
+});
+
+describe("ADDR-DATA-003: client_request_id 멱등 생성", () => {
+  beforeEach(() => lguMock.resolve.mockReset());
+
+  it("같은 client_request_id 의 활성 주소가 있으면 새로 만들지 않고 반환", async () => {
+    const rows = [row({ id: "a1", client_request_id: "req-1", is_default_master: true })];
+    const { sb, inserts } = fakeSupabase(rows);
+    const payload = { ...validPayload(), nickname: "Home 2" };
+    const out = await createUserAddress(sb, "u1", payload, { clientRequestId: "req-1" });
+    expect(out.id).toBe("a1");
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("새 요청은 client_request_id 를 함께 저장", async () => {
+    const rows = [row({ id: "a1", is_default_master: true })];
+    const { sb, inserts } = fakeSupabase(rows);
+    await createUserAddress(sb, "u1", { ...validPayload(), nickname: "Home 2" }, { clientRequestId: "req-2" });
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.client_request_id).toBe("req-2");
+  });
+});
+

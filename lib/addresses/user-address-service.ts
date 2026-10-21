@@ -20,6 +20,10 @@ import {
   shopResolvedToAddressPatch,
 } from "@/lib/addresses/resolve-user-address-shop-write";
 import { isPostgresUniqueViolation } from "@/lib/postgres/unique-violation";
+import {
+  normalizeAddressClientRequestId,
+  USER_ADDRESS_CLIENT_REQUEST_UNIQUE_INDEX,
+} from "@/lib/addresses/address-client-request-id";
 import { resolveCanonicalLguIdForAddressWrite } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 
 const SEL =
@@ -161,15 +165,7 @@ async function repairStoreLinkedMasterWhenGeneralAddressExists(
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   });
   const pick = ordered[0];
-  await clearDefaultColumn(sb, userId, "is_default_master");
-  const { error } = await sb
-    .from("user_addresses")
-    .update({
-      is_default_master: true,
-    })
-    .eq("id", pick.id)
-    .eq("user_id", userId);
-  if (error) throwUserAddressWriteError(error, "address_set_master_failed");
+  await setUserAddressMasterAtomic(sb, userId, pick.id);
   await touchPersistCanonicalLguIfResolvable(sb, userId, pick.id);
   return true;
 }
@@ -325,18 +321,24 @@ async function assertAddressNicknameUnique(
   return display;
 }
 
-async function clearDefaultColumn(
+/**
+ * 대표 주소 지정 — 기존 대표 해제 + 대상 지정을 DB 한 트랜잭션으로 (`user_address_set_master`, service_role 전용).
+ * 해제·지정을 별도 문장으로 실행하면 실패·동시 요청 시 활성 대표 0건이 생긴다 (ADDR-DATA-004).
+ */
+async function setUserAddressMasterAtomic(
   sb: SupabaseClient<any>,
   userId: string,
-  col: "is_default_master" | "is_default_life" | "is_default_trade" | "is_default_delivery"
+  addressId: string,
 ): Promise<void> {
-  const { error } = await sb
-    .from("user_addresses")
-    .update({ [col]: false })
-    .eq("user_id", userId)
-    .eq("is_active", true)
-    .eq(col, true);
-  if (error) throwUserAddressWriteError(error, "address_default_conflict");
+  const { data, error } = await sb.rpc("user_address_set_master", {
+    p_user_id: userId,
+    p_address_id: addressId,
+  });
+  if (error) throwUserAddressWriteError(error, "address_set_master_failed");
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.ok !== true) {
+    throw new Error(result?.error === "address_not_found" ? "address_not_found" : "address_set_master_failed");
+  }
 }
 
 async function applyDefaultFlagsOnCreate(
@@ -346,13 +348,7 @@ async function applyDefaultFlagsOnCreate(
   p: UserAddressWritePayload
 ): Promise<void> {
   if (p.isDefaultMaster) {
-    await clearDefaultColumn(sb, userId, "is_default_master");
-    const { error } = await sb
-      .from("user_addresses")
-      .update({ is_default_master: true })
-      .eq("id", addressId)
-      .eq("user_id", userId);
-    if (error) throwUserAddressWriteError(error, "address_set_master_failed");
+    await setUserAddressMasterAtomic(sb, userId, addressId);
     await touchPersistCanonicalLguIfResolvable(sb, userId, addressId);
   }
 }
@@ -386,21 +382,7 @@ async function ensureSomeoneDefaultIfFirst(
 ): Promise<void> {
   if (p.isDefaultMaster) return;
   if (await userHasActiveMasterForWrite(sb, userId, "address_create_failed")) return;
-  const { error } = await sb
-    .from("user_addresses")
-    .update({
-      is_default_master: true,
-    })
-    .eq("id", addressId)
-    .eq("user_id", userId)
-    .eq("is_active", true);
-  if (error) {
-    // 동시 생성이 먼저 대표를 잡았으면(unique `user_addresses_one_master`) 정상 — 대표 1건 불변식 충족.
-    if (isPostgresUniqueViolation(error) && (await userHasActiveMasterForWrite(sb, userId, "address_create_failed"))) {
-      return;
-    }
-    throwUserAddressWriteError(error, "address_set_master_failed");
-  }
+  await setUserAddressMasterAtomic(sb, userId, addressId);
   await touchPersistCanonicalLguIfResolvable(sb, userId, addressId);
 }
 
@@ -450,37 +432,54 @@ export async function setUserAddressAsDefault(
   if (next.master) {
     await assertStoreAddressNotForcedAsMasterWhenGeneralExists(sb, userId, targetPick);
   }
-  const patch: Record<string, boolean> = {};
   if (next.master) {
-    await clearDefaultColumn(sb, userId, "is_default_master");
-    patch.is_default_master = true;
-  }
-  const { data, error } = await sb
-    .from("user_addresses")
-    .update(patch)
-    .eq("id", id)
-    .eq("user_id", userId)
-    .select(SEL)
-    .single();
-  if (error || !data) throwUserAddressWriteError(error, "address_set_master_failed");
-  if (next.master) {
+    await setUserAddressMasterAtomic(sb, userId, id);
     await touchPersistCanonicalLguIfResolvable(sb, userId, id);
   }
   await repairStoreLinkedMasterAfterWrite(sb, userId);
-  const { data: again } = await sb.from("user_addresses").select(SEL).eq("id", id).eq("user_id", userId).maybeSingle();
-  return rowToUserAddressDTO((again ?? data) as Record<string, unknown>);
+  const { data: again, error: eAgain } = await sb
+    .from("user_addresses")
+    .select(SEL)
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (eAgain || !again) throwUserAddressWriteError(eAgain, "address_set_master_failed");
+  return rowToUserAddressDTO(again as Record<string, unknown>);
 }
 
 export type { CheckoutDeliveryPayload } from "@/lib/addresses/user-address-format";
 export { buildTradePublicLine, buildDeliveryDetailLines, toCheckoutDeliveryPayload } from "@/lib/addresses/user-address-format";
 
+/** 같은 client_request_id 로 이미 만든 주소 — 재시도·연타 시 새 행 대신 반환 (ADDR-DATA-003) */
+async function findUserAddressByClientRequestId(
+  sb: SupabaseClient<any>,
+  userId: string,
+  clientRequestId: string,
+): Promise<UserAddressDTO | null> {
+  const { data, error } = await sb
+    .from("user_addresses")
+    .select(SEL)
+    .eq("user_id", userId)
+    .eq("client_request_id", clientRequestId)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (error) throwUserAddressWriteError(error, "address_create_failed");
+  return data ? rowToUserAddressDTO(data as Record<string, unknown>) : null;
+}
+
 export async function createUserAddress(
   sb: SupabaseClient<any>,
   userId: string,
-  p: UserAddressWritePayload
+  p: UserAddressWritePayload,
+  opts?: { clientRequestId?: string | null },
 ): Promise<UserAddressDTO> {
   if (!p.useForLife && !p.useForTrade && !p.useForDelivery) {
     throw new Error("use_case_required");
+  }
+  const clientRequestId = normalizeAddressClientRequestId(opts?.clientRequestId);
+  if (clientRequestId) {
+    const replay = await findUserAddressByClientRequestId(sb, userId, clientRequestId);
+    if (replay) return replay;
   }
   const resolved = await resolveUserAddressWritePayloadForShop(sb, userId, p);
   const invalid = validatePlacesAddressPayload(resolved);
@@ -494,8 +493,19 @@ export async function createUserAddress(
     cityMunicipality: pWithNick.cityMunicipality,
     province: pWithNick.province,
   });
+  if (clientRequestId) row.client_request_id = clientRequestId;
   const { data, error } = await sb.from("user_addresses").insert(row).select(SEL).single();
-  if (error) throwUserAddressWriteError(error, "address_create_failed");
+  if (error) {
+    const raced =
+      clientRequestId &&
+      `${String(error.message ?? "")} ${String((error as { details?: string | null }).details ?? "")}`.includes(
+        USER_ADDRESS_CLIENT_REQUEST_UNIQUE_INDEX,
+      )
+        ? await findUserAddressByClientRequestId(sb, userId, clientRequestId)
+        : null;
+    if (raced) return raced;
+    throwUserAddressWriteError(error, "address_create_failed");
+  }
   const dto = rowToUserAddressDTO(data as Record<string, unknown>);
   await applyDefaultFlagsOnCreate(sb, userId, dto.id, pWithNick);
   await ensureSomeoneDefaultIfFirst(sb, userId, dto.id, pWithNick);
@@ -590,13 +600,7 @@ export async function updateUserAddress(
     if (error) throwUserAddressWriteError(error, "address_update_failed");
   }
   if (p.isDefaultMaster === true) {
-    await clearDefaultColumn(sb, userId, "is_default_master");
-    const { error: eM } = await sb
-      .from("user_addresses")
-      .update({ is_default_master: true })
-      .eq("id", id)
-      .eq("user_id", userId);
-    if (eM) throwUserAddressWriteError(eM, "address_set_master_failed");
+    await setUserAddressMasterAtomic(sb, userId, id);
     await touchPersistCanonicalLguIfResolvable(sb, userId, id);
   }
   await repairStoreLinkedMasterAfterWrite(sb, userId);
@@ -620,7 +624,18 @@ export async function deleteUserAddress(
   if (e0) throwUserAddressWriteError(e0, "address_delete_failed");
   if (!cur) throw new Error("address_not_found");
 
-  const { error } = await sb.from("user_addresses").update({ is_active: false }).eq("id", id).eq("user_id", userId);
+  // 비활성 행에 기본 플래그를 남기지 않는다 (ADDR-DATA-011 재발 방지)
+  const { error } = await sb
+    .from("user_addresses")
+    .update({
+      is_active: false,
+      is_default_master: false,
+      is_default_life: false,
+      is_default_trade: false,
+      is_default_delivery: false,
+    })
+    .eq("id", id)
+    .eq("user_id", userId);
   if (error) throwUserAddressWriteError(error, "address_delete_failed");
 
   const { data: rest, error: eRest } = await sb
@@ -641,13 +656,7 @@ export async function deleteUserAddress(
   const nid = String(next.id);
 
   if (wasMaster) {
-    await clearDefaultColumn(sb, userId, "is_default_master");
-    const { error: eM } = await sb
-      .from("user_addresses")
-      .update({ is_default_master: true })
-      .eq("id", nid)
-      .eq("user_id", userId);
-    if (eM) throwUserAddressWriteError(eM, "address_set_master_failed");
+    await setUserAddressMasterAtomic(sb, userId, nid);
     await touchPersistCanonicalLguIfResolvable(sb, userId, nid);
   }
   await repairStoreLinkedMasterAfterWrite(sb, userId);

@@ -65,7 +65,9 @@ export async function POST(req: NextRequest) {
   }
   const payload: UserAddressWritePayload = { ...p, phoneNumber: ph.value };
   try {
-    const row = await createUserAddress(sb, userId, payload);
+    const row = await createUserAddress(sb, userId, payload, {
+      clientRequestId: (body as { clientRequestId?: unknown }).clientRequestId as string | null | undefined,
+    });
     return NextResponse.json({ ok: true, address: row });
   } catch (e) {
     const msg = normalizeAddressApiErrorMessage(e, "address_create_failed");

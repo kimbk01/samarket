@@ -1,5 +1,6 @@
 "use client";
 
+import { generateAddressClientRequestId } from "@/lib/addresses/address-client-request-id";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -124,6 +125,8 @@ export function AddressPlatformDetailClient(props: {
   const [masterOn, setMasterOn] = useState<boolean>(masterInit.on);
   /** 신규 생성은 성공했지만 후속 보정이 실패한 경우 — 다시 저장하면 POST 가 아닌 PATCH(중복 생성 방지) */
   const createdIdRef = useRef<string | null>(null);
+  /** 신규 생성 멱등 키 — 화면 단위로 한 번 만들고 재시도에도 같은 값 (ADDR-DATA-003) */
+  const clientRequestIdRef = useRef<string>(generateAddressClientRequestId());
 
   const [draft, setDraft] = useState<CanonicalAddressDraft | null>(props.draft);
   const [detail, setDetail] = useState("");
@@ -391,7 +394,7 @@ export function AddressPlatformDetailClient(props: {
         method: isCreate ? "POST" : "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(isCreate ? { ...body, clientRequestId: clientRequestIdRef.current } : body),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string; address?: { id?: string } };
       if (!res.ok || !j.ok) {
