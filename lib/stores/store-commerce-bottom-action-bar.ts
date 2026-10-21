@@ -168,10 +168,14 @@ export function storeCommerceActionShellStyle(): Record<string, never> {
   return {};
 }
 
-/** variant 별 본문 하단 여백 = plane min-height authority + plane pb + safe-area */
+/**
+ * variant 별 본문 하단 여백 = plane 실제 점유 높이의 상한 (H-06).
+ * plane 은 `box-sizing: border-box` 라 min-height(core)가 이미 pt·pb 를 포함한다 →
+ * 점유 높이 = max(core, 내용+pt+pb+safe) ≤ core + safe. 이전 식(core + pb + safe)은 pb 를 한 번 더 더해 항상 과잉.
+ */
 export function storeCommerceActionContentPadClass(variant: StoreCommerceActionVariant): string {
   const core = STORE_COMMERCE_ACTION_VARIANT_MIN_HEIGHT[variant];
-  return `pb-[calc(${core}+var(--store-commerce-action-plane-pb,0.75rem)+var(--safe-bottom))]`;
+  return `pb-[calc(${core}+var(--safe-bottom))]`;
 }
 
 export const STORE_DETAIL_ROOT_BOTTOM_PADDING_WITH_CART_STRIP_CLASS =

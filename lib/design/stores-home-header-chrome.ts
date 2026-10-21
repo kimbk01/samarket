@@ -74,7 +74,7 @@ export const STORES_HOME_HEADER_BROWSE_ADDRESS_ROW_CONTENT_CLASS =
   STORES_HOME_HEADER_ADDRESS_BUTTON_CLASS;
 
 export const STORES_HOME_HEADER_BROWSE_ADDRESS_CHEVRON_BTN_CLASS =
-  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[color:var(--sector-header-title-color,#243832)] hover:bg-black/5 active:bg-black/10";
+  "relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[color:var(--sector-header-title-color,#243832)] hover:bg-black/5 active:bg-black/10 after:absolute after:-inset-1.5 after:content-['']"; // 보이는 32px 유지, 터치 44px (I-01d)
 
 /** browse tabs stack — domain pale chrome */
 export const STORES_HOME_HEADER_BROWSE_TABS_STACK_CLASS =

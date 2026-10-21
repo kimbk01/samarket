@@ -194,6 +194,23 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   right: min(0px, calc((100% - 48px) / 2));
 }
 
+/**
+ * 1단 헤더 아이콘 묶음이 sector bar 밖(배달 홈·둘러보기 헤더)에 있을 때도 같은 터치 기준 —
+ * 보이는 타일은 그대로, 터치만 세로 48(sector bar 와 동일) · 가로 간격 절반까지 → 36+8 = 44 (04-DESIGN-SYSTEM 44, I-01d).
+ */
+.sam-tier1-header-icon-cluster :is(a, button):not(.absolute, .fixed, .sticky) {
+  position: relative;
+}
+
+.sam-tier1-header-icon-cluster :is(a, button):not(.absolute, .fixed, .sticky)::after {
+  content: "";
+  position: absolute;
+  top: min(0px, calc((100% - 48px) / 2));
+  bottom: min(0px, calc((100% - 48px) / 2));
+  left: calc(var(--sector-header-hub-touch-gap, 0px) / -2);
+  right: calc(var(--sector-header-hub-touch-gap, 0px) / -2);
+}
+
 /** 헤더 우측 드롭다운 메뉴 항목은 터치 확장 대상 아님 — 확장이 겹쳐 아래 항목을 누르는 오탭 방지 (I-04) */
 .sector-header-bar__right [role="menu"] :is(a, button)::after {
   content: none;

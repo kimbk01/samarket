@@ -81,3 +81,17 @@
       var(--store-commerce-action-plane-pb) - 1.375rem
   );
 }
+
+/**
+ * 장바구니 입력(요청 메모) 중 키보드 열림 — 키보드가 시스템 내비 영역을 덮으므로 결제 바 safe-bottom 0 (KB-06).
+ * 표식: `StoreCommerceCartPageShell` `data-form-keyboard-open` (폼 키보드 SSOT).
+ */
+[data-store-commerce-cart-page][data-form-keyboard-open="true"] .store-commerce-action-plane {
+  padding-bottom: var(--store-commerce-action-plane-pb);
+}
+
+[data-store-commerce-cart-page][data-form-keyboard-open="true"]
+  .store-commerce-action-shell--inline[data-store-action-variant="cart-checkout"]
+  .store-commerce-action-plane {
+  padding-bottom: var(--store-commerce-action-cart-checkout-plane-pb);
+}

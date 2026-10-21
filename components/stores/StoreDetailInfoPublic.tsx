@@ -1,4 +1,6 @@
 "use client";
+
+import { StoreSubpageHeaderBar } from "@/components/stores/StoreSubpageHeaderBar";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
@@ -14,7 +16,6 @@ import {
 } from "@/lib/stores/store-detail-meta";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { useOwnerManagementHref } from "@/lib/stores/use-owner-management-href";
-import { STORE_DETAIL_SUBHEADER_STICKY } from "@/lib/stores/store-detail-ui";
 import {
   formatStoreAddressDetailOnly,
   formatStoreAddressStreetDisplay,
@@ -274,9 +275,7 @@ export function StoreDetailInfoPublic({
   if (loading) {
     return (
       <div className="min-h-screen bg-sam-surface">
-        <div className={`${STORE_DETAIL_SUBHEADER_STICKY} px-4 py-2.5`}>
-          <h2 className="text-center sam-text-body-lg font-bold text-sam-fg">{t("store_shop_info_title")}</h2>
-        </div>
+        <StoreSubpageHeaderBar title={t("store_shop_info_title")} storeSlug={slug} />
         <p className="py-16 text-center text-sm text-sam-muted">{t("common_loading")}</p>
       </div>
     );
@@ -285,9 +284,7 @@ export function StoreDetailInfoPublic({
   if (!store) {
     return (
       <div className="min-h-screen bg-sam-surface">
-        <div className={`${STORE_DETAIL_SUBHEADER_STICKY} px-4 py-2.5`}>
-          <h2 className="text-center sam-text-body-lg font-bold text-sam-fg">{t("store_shop_info_title")}</h2>
-        </div>
+        <StoreSubpageHeaderBar title={t("store_shop_info_title")} storeSlug={slug} />
         <div className="px-4 py-12 text-center text-sm text-sam-muted">
           {t("store_not_found_short")}
           <Link href="/stores" className="mt-4 block text-signature">
@@ -305,9 +302,7 @@ export function StoreDetailInfoPublic({
 
   const headerTitle =
     layoutVariant === "embedded" ? null : (
-      <div className={`${STORE_DETAIL_SUBHEADER_STICKY} px-4 py-2.5`}>
-        <h2 className="text-center sam-text-body-lg font-bold text-sam-fg">{t("store_shop_info_title")}</h2>
-      </div>
+      <StoreSubpageHeaderBar title={t("store_shop_info_title")} storeSlug={slug} />
     );
 
   const outerCls =
