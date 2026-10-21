@@ -1,0 +1,141 @@
+# Final ND-3 isolated-DB WRITE regression - local PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) (/var/tmp/samarket_pgiso_final:55470), run 2026-10-21 19:14 PHT
+# prod md5 source: project ckdosyydvgzqwpbwuhon pg_proc.prosrc (read-only catalog SELECT, 2026-10-21) -> prod_md5.txt
+== md5(prosrc) production vs fixture
+admin_notification_backoff                           prod=83734ce1ff0da7f673f2f08a51fce397 fixture=83734ce1ff0da7f673f2f08a51fce397 MATCH
+admin_notification_outbox_enqueue                    prod=d479355e2ed61e1c552751fd11226a54 fixture=d479355e2ed61e1c552751fd11226a54 MATCH
+auth.role                                            prod=f31486fed08a7402e89d4aa71b0ad273 fixture=f31486fed08a7402e89d4aa71b0ad273 MATCH
+auth.uid                                             prod=cdef18c69c4f4cbbced2eaf81e628b49 fixture=cdef18c69c4f4cbbced2eaf81e628b49 MATCH
+block_client_role_direct_writes                      prod=a9781f53647a2de2d1ebf28bfeccf216 fixture=a9781f53647a2de2d1ebf28bfeccf216 MATCH
+business_cash_ledger_forbid_mutate                   prod=778a44c379c3e1b654b7a0ed6a79c4d6 fixture=778a44c379c3e1b654b7a0ed6a79c4d6 MATCH
+create_store_order_atomic                            prod=bb9671829753154da38c357cd829f050 fixture=bb9671829753154da38c357cd829f050 MATCH
+ensure_business_cash_account                         prod=884c4957c4e4ae3a41571fdd612507e2 fixture=884c4957c4e4ae3a41571fdd612507e2 MATCH
+ensure_store_economic_point_account                  prod=c09eef653f1f3da98820059a5e349442 fixture=c09eef653f1f3da98820059a5e349442 MATCH
+ensure_store_sales_permission_row                    prod=926d3785fc3cc5527f740e679b69a079 fixture=926d3785fc3cc5527f740e679b69a079 MATCH
+generate_gift_public_number                          prod=5c10749e9eadca0029579f729f0499d2 fixture=5c10749e9eadca0029579f729f0499d2 MATCH
+gift_certificate_cancel_order_restore                prod=d3b8126d739a4161edeafaf57f41cc49 fixture=d3b8126d739a4161edeafaf57f41cc49 MATCH
+gift_certificate_instance_allows_checkout_store      prod=18b16196bc786e4487365bd46b25dfc0 fixture=18b16196bc786e4487365bd46b25dfc0 MATCH
+gift_certificate_instance_is_expired                 prod=dab25425e9daa032bee6b76dc5874a45 fixture=dab25425e9daa032bee6b76dc5874a45 MATCH
+gift_certificate_issue_date                          prod=8305781d62578ebc102cafeace0897a3 fixture=8305781d62578ebc102cafeace0897a3 MATCH
+gift_certificate_promo_reverse_for_redemption        prod=65914619a62adb7d9ece36213dc78ed8 fixture=65914619a62adb7d9ece36213dc78ed8 MATCH
+gift_certificate_recognize_revenue_for_completed_order prod=aa2b2dbc9fdd45ced86dfef96ef284c9 fixture=aa2b2dbc9fdd45ced86dfef96ef284c9 MATCH
+gift_certificate_redemption_is_recognized            prod=a8840c8f1eda76a7ca01490f7d9e551d fixture=a8840c8f1eda76a7ca01490f7d9e551d MATCH
+gift_certificate_redemption_recognized_net           prod=1f5fdca05177e6961d42a7888d7ce615 fixture=1f5fdca05177e6961d42a7888d7ce615 MATCH
+gift_certificate_redemption_reverse                  prod=18b97fdd28810c214929d13b55e0961f fixture=18b97fdd28810c214929d13b55e0961f MATCH
+gift_certificate_refund_order_atomic                 prod=f734f7478c2f41b652b38ebc343ca742 fixture=f734f7478c2f41b652b38ebc343ca742 MATCH
+internal.is_admin_user                               prod=7f5717a3ce1a5e8973239f8c353aa6f9 fixture=7f5717a3ce1a5e8973239f8c353aa6f9 MATCH
+internal.is_platform_admin                           prod=ce69443a4e867497ac96f5a9fa09ae88 fixture=ce69443a4e867497ac96f5a9fa09ae88 MATCH
+restore_store_coupon_entitlement                     prod=a9913e9716fe8da677c51387fabf4d0b fixture=a9913e9716fe8da677c51387fabf4d0b MATCH
+reverse_coin_credits_for_order                       prod=d4b9c896ff27db5dd4ed87bcbe56690f fixture=d4b9c896ff27db5dd4ed87bcbe56690f MATCH
+set_updated_at                                       prod=204b9b9355e61b7541bc0633bbc9294c fixture=204b9b9355e61b7541bc0633bbc9294c MATCH
+store_cash_order_gate_mode                           prod=bb9e40286a0914ffc0a8b0610be0ea28 fixture=bb9e40286a0914ffc0a8b0610be0ea28 MATCH
+store_cash_position                                  prod=cc768d38fbe58896a6b6cfff9dd56565 fixture=cc768d38fbe58896a6b6cfff9dd56565 MATCH
+store_charged_delivery_fee_php                       prod=d0a969f292deddc9f51bb7b51cd72067 fixture=d0a969f292deddc9f51bb7b51cd72067 MATCH
+store_commission_charge_order_internal               prod=725433cd1d67818de7e220dd96ca07e1 fixture=725433cd1d67818de7e220dd96ca07e1 MATCH
+store_commission_debit_internal                      prod=73085225e7af9f14f861996c444cb120 fixture=73085225e7af9f14f861996c444cb120 MATCH
+store_commission_notify_admin                        prod=5d3eb6aedc7730327fa0c10cd46344fb fixture=5d3eb6aedc7730327fa0c10cd46344fb MATCH
+store_commission_notify_review                       prod=8b5887dd9c1dbc4f0ec1be59a7ac242b fixture=8b5887dd9c1dbc4f0ec1be59a7ac242b MATCH
+store_commission_php_text                            prod=7d8f3c6a839a902675a88e0a752382d5 fixture=7d8f3c6a839a902675a88e0a752382d5 MATCH
+store_commission_resolve_policy                      prod=19719de19eccf6644fd7340d67ee4820 fixture=19719de19eccf6644fd7340d67ee4820 MATCH
+store_economic_point_ledger_forbid_mutate            prod=07b06fbc0cdd035f646371f5fe27ddb9 fixture=07b06fbc0cdd035f646371f5fe27ddb9 MATCH
+store_front_commerce_open                            prod=a085d58b5f917f5ea656b00c0e3407bb fixture=a085d58b5f917f5ea656b00c0e3407bb MATCH
+store_front_day_intervals                            prod=92d2c31e5eeb76c37321c89791262cd5 fixture=92d2c31e5eeb76c37321c89791262cd5 MATCH
+store_front_hhmm_to_minutes                          prod=ce72c511aa98ca606e134c877a836f59 fixture=ce72c511aa98ca606e134c877a836f59 MATCH
+store_order_apply_cancel_side_effects                prod=f2d1c648bf0bfcf9a75858126cf147b3 fixture=f2d1c648bf0bfcf9a75858126cf147b3 MATCH
+store_order_buyer_cancel_request_atomic              prod=6062e840a4c5036bfc45b678e45efae6 fixture=6062e840a4c5036bfc45b678e45efae6 MATCH
+store_order_cancel_direct_atomic                     prod=1c730b0879e6e66fa77e4945698b8eaf fixture=1c730b0879e6e66fa77e4945698b8eaf MATCH
+store_order_cancel_request_decide_atomic             prod=d2b1cea643ccfac411883ee65b7dc007 fixture=d2b1cea643ccfac411883ee65b7dc007 MATCH
+store_order_deliveries_pickup_requires_dispatch      prod=2d9230f1cb85316c3f44a273cb537e39 fixture=2d9230f1cb85316c3f44a273cb537e39 MATCH
+store_order_owner_cancel_atomic                      prod=fc69ca795a607be3c17bcfa9dca47ce3 fixture=fc69ca795a607be3c17bcfa9dca47ce3 MATCH
+store_orders_commission_lifecycle                    prod=12c43cca8918bbae442b047084ec3331 fixture=12c43cca8918bbae442b047084ec3331 MATCH
+store_orders_enforce_cash_order_gate                 prod=d550eb1e57472eefcc48484b9be386f3 fixture=d550eb1e57472eefcc48484b9be386f3 MATCH
+store_settlements_block_paid_when_coin_recognized    prod=b422655b7f6156b6f9fb86b0b33f34d2 fixture=b422655b7f6156b6f9fb86b0b33f34d2 MATCH
+stores_guard_delivery_requires_geo                   prod=b30d440d03ca2bce8116a0ef22cb7fd4 fixture=b30d440d03ca2bce8116a0ef22cb7fd4 MATCH
+stores_protect_first_listed_at                       prod=99f2af32233503dba639038b2264d967 fixture=99f2af32233503dba639038b2264d967 MATCH
+trg_store_orders_gift_revenue_on_completed           prod=1f74933e36e5a17c13c725be51212d71 fixture=1f74933e36e5a17c13c725be51212d71 MATCH
+PASS md5_all_functions_equal_production
+== scenario
+PASS 1.0 tampered payment refused (price_changed), no order/coupon/gift write
+PASS 1.1 create_store_order_atomic ok
+PASS 1.2 order row: pending/paid local_delivery total 1000 discount 100 gift 300 payment 600 store-funded 100
+PASS 1.3 checkout_serviceability_* + store coords snapshot NOT NULL
+PASS 1.4 coupon claimed (entitlement redeemed -> A, 1 active redemption, budget -100)
+PASS 1.5 gift redeemed (instance FULLY_REDEEMED 0, redemption 300, ledger REDEEM -300, revenue REVENUE_CREATE)
+PASS 1.6 order_created event + 1 item row
+PASS 1.7 duplicate client_order_key -> idempotent same order, still 1 row
+PASS 2.0 wrong owner -> forbidden, blank reason -> invalid_args, no writes
+PASS 2.1 owner reject ok -> order cancelled/payment cancelled
+PASS 2.2 store_order_cancel_requests: 1 row, same reason, owner/approved/not_applicable, previous pending
+PASS 2.3 coupon restored: entitlement restored, redemption kept with reversed_at (not deleted), budget back
+PASS 2.4 gift restored: instance ACTIVE 300, redemption reversed, REDEEM_REVERSE +300, order gift amount 0
+PASS 2.5 no fee obligation / no Cash debit for a pending reject
+PASS 2.6 duplicate reject -> transition_conflict; still 1 cancel row, 1 coupon reversal, 1 gift reverse
+PASS 3.0 accepted -> no obligation yet
+PASS 3.1 created_at >= 2026-10-20 20:30 UTC
+PASS 3.2 exactly 1 obligation = 7% of 1000 PHP (policy 식당 a6cd6c19) = 7000 minor, stage preparing
+PASS 3.3 Cash debit 5000 (all available) + outstanding 2000, account 0, obligation open
+PASS 3.4 B' created 20:29:59 UTC -> preparing/ready: 0 obligation rows, 0 Cash rows
+PASS 4.1 waiting_rider->rider_assigned->pickup_in_progress->delivering->delivered, order completed
+PASS 4.2 status walk ready->delivering->arrived->completed keeps exactly 1 obligation (idempotent)
+PASS 4.3 invalid status UPDATE rejected by store_order_deliveries_status_check
+PASS 4.4 invalid status INSERT rejected by store_order_deliveries_status_check
+PASS 4.5 delivery_failed + failure_reason stored
+PASS 5.1 owner cancel after pickup -> picked_up; order/delivery/ledger/obligation untouched
+PASS 6.1 buyer cancel request -> cancel_requested + 1 pending request (previous accepted)
+PASS 6.2 duplicate buyer request -> transition_conflict, still 1 request
+PASS 6.3 approve -> order cancelled, request approved/refund pending, open delivery closed (delivery_failed)
+PASS 6.4 approve re-run -> transition_conflict, no second ledger change
+PASS 6.5 reject without reason -> reason_required; reject with reason -> previous status preparing restored
+PASS 6.6 restore to preparing re-fires commission trigger idempotently: still exactly 1 obligation
+NOT_PROVEN 7.0: Coin SALE_EARN credit producer not reproduced (credit row seeded in prod ledger shape); reversal path below is prod code
+PASS 7.1 refund ok -> order refunded/payment refunded, store_payments refunded
+PASS 7.2 Coin reversal exactly once: 1 REVERSAL -70 with key coin_reversal:order:<id>, account 70 -> 0
+PASS 7.3 refunded -> fee obligation flagged review_required/refunded (amount untouched) + 1 admin outbox row
+PASS 7.4 re-run refund -> idempotent; same key -> idempotent; new key -> skipped; still 1 REVERSAL row
+PASS 8.1 authenticated buyer INSERT store_orders -> 42501 (RLS)
+PASS 8.2 anon INSERT store_orders -> 42501 (RLS)
+PASS 8.3 authenticated buyer UPDATE own store_orders -> 0 rows (no UPDATE policy)
+PASS 8.4 authenticated owner UPDATE store_orders -> 0 rows
+PASS 8.5 authenticated owner INSERT store_order_deliveries -> 42501 (admin-only policy)
+PASS 8.6 authenticated owner UPDATE store_order_deliveries -> 0 rows
+PASS 8.7 authenticated buyer UPDATE store_order_deliveries -> 0 rows
+PASS 8.8 authenticated owner INSERT business_cash_ledger -> 42501 permission denied
+PASS 8.9 authenticated owner UPDATE business_cash_accounts -> 42501 permission denied
+PASS 8.10 authenticated owner INSERT store_sale_fee_obligations -> 42501 permission denied
+PASS 8.11 authenticated owner UPDATE store_sale_fee_obligations -> 42501 permission denied
+PASS 8.12 authenticated owner INSERT store_economic_point_ledger -> 42501 permission denied
+PASS 8.13 authenticated buyer INSERT store_order_cancel_requests -> 42501 (RLS, no policy)
+PASS 8.14 authenticated buyer UPDATE own coupon_user_entitlements -> 0 rows (SELECT-only policy)
+PASS 8.15 authenticated buyer UPDATE own gift_certificate_instances -> 0 rows (SELECT-only policy)
+PASS 8.16 authenticated EXECUTE create_store_order_atomic -> 42501
+PASS 8.17 anon EXECUTE create_store_order_atomic -> 42501
+PASS 8.16 authenticated EXECUTE store_order_owner_cancel_atomic -> 42501
+PASS 8.17 anon EXECUTE store_order_owner_cancel_atomic -> 42501
+PASS 8.16 authenticated EXECUTE store_order_cancel_direct_atomic -> 42501
+PASS 8.17 anon EXECUTE store_order_cancel_direct_atomic -> 42501
+PASS 8.16 authenticated EXECUTE store_order_cancel_request_decide_atomic -> 42501
+PASS 8.17 anon EXECUTE store_order_cancel_request_decide_atomic -> 42501
+PASS 8.16 authenticated EXECUTE store_order_buyer_cancel_request_atomic -> 42501
+PASS 8.17 anon EXECUTE store_order_buyer_cancel_request_atomic -> 42501
+PASS 8.16 authenticated EXECUTE store_order_apply_cancel_side_effects -> 42501
+PASS 8.17 anon EXECUTE store_order_apply_cancel_side_effects -> 42501
+PASS 8.16 authenticated EXECUTE restore_store_coupon_entitlement -> 42501
+PASS 8.17 anon EXECUTE restore_store_coupon_entitlement -> 42501
+PASS 8.16 authenticated EXECUTE gift_certificate_cancel_order_restore -> 42501
+PASS 8.17 anon EXECUTE gift_certificate_cancel_order_restore -> 42501
+PASS 8.16 authenticated EXECUTE gift_certificate_refund_order_atomic -> 42501
+PASS 8.17 anon EXECUTE gift_certificate_refund_order_atomic -> 42501
+PASS 8.16 authenticated EXECUTE reverse_coin_credits_for_order -> 42501
+PASS 8.17 anon EXECUTE reverse_coin_credits_for_order -> 42501
+PASS 8.16 authenticated EXECUTE store_commission_charge_order_internal -> 42501
+PASS 8.17 anon EXECUTE store_commission_charge_order_internal -> 42501
+PASS 8.18 owner cancel with non-service_role JWT claim -> forbidden
+PASS 8.19 after all client attempts: C2 still preparing, no extra cancel rows, ledgers unchanged
+PASS 9.1 suspended store -> create_store_order_atomic store_unavailable, no order row
+== concurrency
+PASS C2.3 concurrent owner reject: exactly one wins, 1 ledger row, coupon/gift restored once
+PASS C6.3 concurrent approve vs owner direct cancel: approve wins, direct cancel transition_conflict
+PASS C6.4 concurrent owner direct cancel vs approve: direct cancel wins, approve transition_conflict
+INFO C6.4 cancel request ledger after direct cancel of a cancel_requested order: cancelled:pending/pending
+== done (iso_final_e2e)
+== summary: PASS=80 FAIL=0 NOT_PROVEN=1
+exit=0
