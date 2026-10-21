@@ -111,8 +111,8 @@ export async function POST(req: NextRequest) {
     scope: incomingScope,
     sort_order: incomingSortOrder,
     updated_at: now,
-    // 새 비밀값을 저장할 때만 평문 칸을 비우고 플래그를 켠다 (생략 시 기존 값 유지).
-    ...(secretChanged ? { client_secret: "", client_secret_configured: true } : {}),
+    // 비밀값 칸은 RPC 가 Vault 참조값(vault:<name>)으로 바꾼다 — 여기서는 플래그만 맞춘다 (생략 시 기존 값 유지).
+    ...(secretChanged ? { client_secret_configured: true } : {}),
   };
   if (secretChanged) {
     const { error: secretError } = await sb.rpc(AUTH_PROVIDER_SECRET_RPC, {

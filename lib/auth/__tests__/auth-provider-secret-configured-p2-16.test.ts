@@ -1,6 +1,6 @@
 /**
  * P2-16 — 앱은 client_secret 원문 대신 `client_secret_configured` 플래그로 설정 여부를 판단하고,
- * 관리자 저장 시 비밀값은 Vault RPC 로만 보낸다 (테이블 client_secret = '').
+ * 관리자 저장 시 비밀값은 Vault RPC 로만 보낸다 (테이블 client_secret 은 RPC 가 vault 참조값으로 바꾼다).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
@@ -93,13 +93,14 @@ describe("POST /api/admin/auth-providers (P2-16)", () => {
     process.env.AUTH_REDIRECT_URI_WHITELIST = "https://x.supabase.co/auth/v1/callback";
   });
 
-  it("새 비밀값 → Vault RPC 로 저장, 테이블에는 '' + configured=true", async () => {
+  it("새 비밀값 → Vault RPC 로 저장, upsert 는 configured=true 만 (원문·비밀 칸 미기록)", async () => {
     const res = await POST(req({ provider: "google", client_secret: "new-secret" }));
     expect(res.status).toBe(200);
     expect(state.rpcCalls).toEqual([
       { fn: "admin_set_auth_provider_secret", args: { p_provider: "google", p_secret: "new-secret" } },
     ]);
-    expect(state.upserts[0]).toMatchObject({ client_secret: "", client_secret_configured: true });
+    expect(state.upserts[0]).toMatchObject({ client_secret_configured: true });
+    expect(state.upserts[0]).not.toHaveProperty("client_secret");
     expect(JSON.stringify(state.upserts)).not.toContain("new-secret");
     const json = await res.json();
     expect(json.provider.client_secret_configured).toBe(true);

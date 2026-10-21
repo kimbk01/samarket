@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import {
+  hasRequiredOAuthKeys,
+  isAuthProviderSecretConfigured,
   sortAuthProviders,
   type AuthProviderPublicMeta,
 } from "@/lib/auth/auth-providers";
@@ -21,7 +23,10 @@ function toPublicRows(rows: Array<AuthProviderPublicMeta & { client_secret?: str
     sort_order: row.sort_order,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    client_secret_configured: row.client_secret_configured ?? String(row.client_secret ?? "").trim().length > 0,
+    client_secret_configured: isAuthProviderSecretConfigured({
+      client_secret: row.client_secret ?? "",
+      client_secret_configured: row.client_secret_configured,
+    }),
   }));
 }
 
@@ -32,13 +37,7 @@ export async function GET(req: NextRequest) {
   try {
     const rows = await loadAuthProviderRows(sb);
     const filtered = enabledOnly
-      ? rows.filter(
-          (row) =>
-            row.enabled &&
-            row.client_id.trim().length > 0 &&
-            row.client_secret.trim().length > 0 &&
-            row.redirect_uri.trim().length > 0
-        )
+      ? rows.filter((row) => row.enabled && hasRequiredOAuthKeys(row))
       : rows;
     return jsonOk({ providers: sortAuthProviders(toPublicRows(filtered)) });
   } catch (error) {
