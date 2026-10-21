@@ -4,7 +4,11 @@ import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import type { CheckoutEligibleGift } from "@/lib/gift-certificate/checkout-eligible-gifts";
-import { computeCheckoutGiftApplyPreview } from "@/lib/gift-certificate/checkout-eligible-gifts";
+import {
+  checkoutGiftChoiceNeedsForfeitConsent,
+  computeCheckoutGiftApplyPreview,
+} from "@/lib/gift-certificate/checkout-eligible-gifts";
+import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
 import { BAEMIN_CART_SECTION_CARD_CLASS } from "@/lib/stores/store-baemin-cart-ui";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
@@ -12,6 +16,8 @@ import { formatMoneyPhp } from "@/lib/utils/format";
  * Cart Gift apply surface — separate from Coupon.
  * Certificate identity = Modern Ticket Face SSOT; apply amount lives outside Face.
  * No auto-apply. Max 1 selection (UI). Empty owned list → parent may still show empty copy.
+ * GFT-04: one-time full consumption — forfeited amount is shown, and choosing a gift that forfeits value
+ * requires consent in a confirm dialog (overlay contract). Display only; RPC policy unchanged.
  */
 export function StoreCartGiftApplyPanel({
   gifts,
@@ -28,6 +34,11 @@ export function StoreCartGiftApplyPanel({
 }) {
   const { safeT } = useI18n();
   const [showPicker, setShowPicker] = useState(false);
+  const [pendingForfeit, setPendingForfeit] = useState<{
+    gift: CheckoutEligibleGift;
+    giftUsed: number;
+    giftForfeited: number;
+  } | null>(null);
 
   if (gifts.length === 0) {
     return (
@@ -116,6 +127,15 @@ export function StoreCartGiftApplyPanel({
           <p className="mt-2 text-center text-sm font-bold text-signature">
             -{formatMoneyPhp(appliedPreview.giftUsed)}
           </p>
+          {appliedPreview.giftForfeited > 0 ? (
+            <p className="mt-1 text-center text-xs font-medium text-sam-danger" data-cart-gift-forfeit="1">
+              {safeT("gift_u4_cart_forfeit", {
+                fallbackKo: `미사용 ${formatMoneyPhp(appliedPreview.giftForfeited)} 소멸`,
+                fallbackEn: `${formatMoneyPhp(appliedPreview.giftForfeited)} unused will expire`,
+                vars: { amount: formatMoneyPhp(appliedPreview.giftForfeited) },
+              })}
+            </p>
+          ) : null}
           {gifts.length > 1 ? (
             <button
               type="button"
@@ -161,8 +181,16 @@ export function StoreCartGiftApplyPanel({
                     ? { "data-cart-gift-public-number": g.publicGiftNumber.trim() }
                     : {})}
                   onClick={() => {
-                    onChoose(g);
                     setShowPicker(false);
+                    if (!selected && checkoutGiftChoiceNeedsForfeitConsent(preview)) {
+                      setPendingForfeit({
+                        gift: g,
+                        giftUsed: preview.giftUsed,
+                        giftForfeited: preview.giftForfeited,
+                      });
+                      return;
+                    }
+                    onChoose(g);
                   }}
                 >
                   <GiftVisualCard
@@ -188,6 +216,18 @@ export function StoreCartGiftApplyPanel({
                       vars: { amount: formatMoneyPhp(preview.giftUsed) },
                     })}
                   </p>
+                  {preview.giftForfeited > 0 ? (
+                    <p
+                      className="mt-1 text-center text-xs font-medium text-sam-danger"
+                      data-cart-gift-option-forfeit={g.instanceId}
+                    >
+                      {safeT("gift_u4_cart_forfeit", {
+                        fallbackKo: `미사용 ${formatMoneyPhp(preview.giftForfeited)} 소멸`,
+                        fallbackEn: `${formatMoneyPhp(preview.giftForfeited)} unused will expire`,
+                        vars: { amount: formatMoneyPhp(preview.giftForfeited) },
+                      })}
+                    </p>
+                  ) : null}
                   <span className="mt-1 block text-center text-sm font-semibold text-signature">
                     {safeT("gift_u4_cart_use_this", {
                       fallbackKo: "이 상품권 사용",
@@ -200,6 +240,49 @@ export function StoreCartGiftApplyPanel({
           })}
         </ul>
       ) : null}
+
+      <DibayConfirmDialog
+        open={pendingForfeit !== null}
+        ariaLabel={safeT("gift_u4_forfeit_confirm_title", {
+          fallbackKo: "상품권 잔액 소멸 안내",
+          fallbackEn: "Unused gift balance will expire",
+        })}
+        title={safeT("gift_u4_forfeit_confirm_title", {
+          fallbackKo: "상품권 잔액 소멸 안내",
+          fallbackEn: "Unused gift balance will expire",
+        })}
+        description={
+          pendingForfeit ? (
+            <span data-cart-gift-forfeit-confirm-body="1">
+              {safeT("gift_u4_forfeit_confirm_body", {
+                fallbackKo: `상품권은 한 번 사용하면 전액 소진됩니다. 이번 주문에 ${formatMoneyPhp(
+                  pendingForfeit.giftUsed
+                )} 사용되고 남은 ${formatMoneyPhp(pendingForfeit.giftForfeited)}은(는) 소멸됩니다. (주문이 취소되면 상품권은 복원됩니다)`,
+                fallbackEn: `A gift certificate is used up in one order. ${formatMoneyPhp(
+                  pendingForfeit.giftUsed
+                )} is used on this order and the remaining ${formatMoneyPhp(
+                  pendingForfeit.giftForfeited
+                )} will expire. (The gift is restored if the order is cancelled.)`,
+                vars: {
+                  used: formatMoneyPhp(pendingForfeit.giftUsed),
+                  forfeit: formatMoneyPhp(pendingForfeit.giftForfeited),
+                },
+              })}
+            </span>
+          ) : null
+        }
+        cancelLabel={safeT("gift_u4_forfeit_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+        confirmLabel={safeT("gift_u4_forfeit_confirm_ok", {
+          fallbackKo: "동의하고 사용",
+          fallbackEn: "Agree and use",
+        })}
+        onCancel={() => setPendingForfeit(null)}
+        onConfirm={() => {
+          const next = pendingForfeit;
+          setPendingForfeit(null);
+          if (next) onChoose(next.gift);
+        }}
+      />
     </section>
   );
 }
