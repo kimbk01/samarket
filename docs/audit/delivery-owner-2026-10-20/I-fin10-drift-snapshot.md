@@ -77,3 +77,26 @@
 
 - ② 메타 INSERT — Owner 승인 필요(이 블록에서 미수행).
 - 2단계 DB 블록은 함수 교체 직전에 운영 md5 를 다시 받아 `fin10-prod-function-md5.json` 갱신 → `npm run verify:prod-function-drift -- --strict` PASS 를 선행 조건으로 한다.
+
+## 4. 테이블·컬럼·함수 드리프트 (2026-10-21 PHT · 읽기 전용)
+
+함수 md5(§1)만으로는 컬럼·테이블 누락을 못 잡는다(예: `20260517120000` 기록됐는데 `delivery_riders.admin_status` 등 부재). 보강 검사.
+
+- 저장소 기대치: `node scripts/prod-schema-drift/build-manifest.mjs` → `scripts/prod-schema-drift/required-objects.json` (마이그레이션 파일명 순 재생 — CREATE TABLE·ALTER TABLE ADD/DROP/RENAME·DROP TABLE·CREATE/DROP FUNCTION, DO 본문 포함, 함수 본문·동적 `EXECUTE` 제외).
+- 운영 스냅샷: `scripts/prod-schema-drift/snapshot.sql` (SELECT 1건 · `information_schema.columns`·`pg_proc` 이름만 · 데이터 행 없음) → 결과를 [`fin10-prod-schema-snapshot.json`](./fin10-prod-schema-snapshot.json) 로 저장.
+- 비교: `npm run verify:prod-schema-drift` (오프라인 · 필수 객체 누락 시 exit 1 · `--extra` 로 운영 전용 객체·허용 목록 출력). 의도적 제거는 `scripts/prod-schema-drift/allowlist.json` 에 사유와 함께만 등록.
+
+### 오늘 결과 (스냅샷 `2026-10-21 19:25 PHT`) — **FAIL · 필수 누락 32**
+
+- 저장소 355 테이블 / 4201 컬럼 / 497 함수 · 운영 434 relation(뷰 포함) / 492 함수.
+- `store_order_deliveries.failure_reason` — **운영 존재 확인** (오늘 `20270605100000` 적용분).
+- 허용 목록 39: `20260930220000_r15_intro_system_start_absolute_zero` 가 제거한 intro/opening/system_start 테이블·함수 38 + `user_addresses.postal_code`(20260410 의도적 DROP) — 파일명 재생 순서 착시.
+- 운영 전용(info): relation 110 · 컬럼 347 · 함수 24.
+
+| 구분 | 운영 누락 객체 |
+|---|---|
+| 테이블 10 | `community_messenger_call_log_user_hides` · `delivery_ad_business_cash_charge_requests` · `delivery_operation_job_heartbeats` · `delivery_operation_recovery_logs` · `order_chat_messages` · `order_chat_participants` · `order_chat_rooms` · `post_trade_status_logs` · `sticker_items` · `sticker_packs` |
+| 컬럼 10 | `community_reports.reason_text` · `community_reports.reason_type` · `community_reports.reporter_id` · `delivery_riders.admin_note` · `delivery_riders.admin_status` · `delivery_riders.suspended_at` · `delivery_riders.suspended_by` · `meeting_chat_rooms.description` · `meetings.tenure_type` · `stores.applicant_nickname` |
+| 함수 12 | `admin_delivery_operation_recovery_execute` · `admin_delivery_operations_health` · `admin_delivery_riders_operations_snapshot` · `backfill_notification_targets` · `community_comments_sync_legacy_flags` · `expire_stale_coupon_entitlements` · `gift_certificate_instance_redeem_fee_rate` · `group_messages_set_seq_and_room_summary` · `reconcile_coupon_campaign_issued` · `revoke_campaign_active_entitlements` · `touch_delivery_operation_job_heartbeat` · `user_relationships_sync_type_legacy` |
+
+- 보고만 — 운영 적용·허용 목록 추가 여부는 객체별로 Owner 승인 후 결정(이 블록에서 DB 쓰기 없음). 일부(`community_reports`·`meetings` 등)는 마이그레이션 이전부터 있던 운영 테이블에 `CREATE TABLE IF NOT EXISTS` 가 no-op 된 경우일 수 있어 코드 사용 여부 확인 후 분류한다.
