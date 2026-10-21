@@ -14,7 +14,7 @@ import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-s
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { CurrencyBalanceCard } from "@/components/currency";
-import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { OwnerRoutes, withStoreId } from "@/lib/business/owner-routes";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 import { ownerAdsHubCardPrimaryCta } from "@/lib/stores/advertising/owner-delivery-ad-r1-presentation";
 import { DELIVERY_AD_OWNER_HUB_KPI_BUCKETS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
@@ -538,6 +538,19 @@ export function OwnerDeliveryAdsHubView() {
               {t("owner_ads_partner_card_cta")}
             </p>
           </Link>
+
+          {/* IA-18 — 이벤트 프로모션(광고 그룹 08) 진입점 */}
+          <Link
+            href={OwnerRoutes.adsEventPromotions(activeStoreId || null)}
+            className="block rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+            data-owner-ads-event-promotions-card="1"
+          >
+            <p className="text-[15px] font-bold text-sam-fg">{t("owner_stage4_ads_event_promo_card_title")}</p>
+            <p className="mt-1 text-[13px] text-sam-muted">{t("owner_stage4_ads_event_promo_card_desc")}</p>
+            <p className="mt-3 text-[13px] font-semibold text-sam-primary">
+              {t("owner_stage4_ads_event_promo_card_cta")}
+            </p>
+          </Link>
         </>
       )}
 
@@ -558,7 +571,7 @@ export function OwnerDeliveryAdsHubView() {
       >
         <div className="mt-3 space-y-3" data-owner-ads-product-select="design-board">
           <DeliveryAdOwnerProductSelectCard
-            href={DELIVERY_AD_OWNER_ROUTES.createStoreSponsored}
+            href={withStoreId(DELIVERY_AD_OWNER_ROUTES.createStoreSponsored, activeStoreId || null)}
             productKind="store_sponsored"
             title={t("owner_ads_product_store_sponsored")}
             description={t("owner_ads_product_store_sponsored_desc")}
@@ -566,7 +579,7 @@ export function OwnerDeliveryAdsHubView() {
             onNavigate={() => setProductSelectOpen(false)}
           />
           <DeliveryAdOwnerProductSelectCard
-            href={DELIVERY_AD_OWNER_ROUTES.createBanner}
+            href={withStoreId(DELIVERY_AD_OWNER_ROUTES.createBanner, activeStoreId || null)}
             productKind="banner"
             title={t("owner_ads_product_banner")}
             description={t("owner_ads_product_banner_desc")}
@@ -575,7 +588,7 @@ export function OwnerDeliveryAdsHubView() {
           />
           {OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED ? (
             <DeliveryAdOwnerProductSelectCard
-              href={PLATFORM_POPUP_OWNER_ROUTES.createPlatformPopup}
+              href={withStoreId(PLATFORM_POPUP_OWNER_ROUTES.createPlatformPopup, activeStoreId || null)}
               productKind="platform_popup"
               title={safeT("owner_platform_popup_product_title", {
                 fallbackKo: "글로벌 팝업 광고",

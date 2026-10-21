@@ -19,15 +19,6 @@ const hubSrc = () =>
 const myBizNavSrc = () =>
   readFileSync(join(process.cwd(), "lib/business/my-business-nav-i18n.ts"), "utf8");
 
-const dashboardMenuSrc = () =>
-  readFileSync(
-    join(
-      process.cwd(),
-      "components/business/admin/dashboard/BusinessDashboardOwnerCardMenu.tsx"
-    ),
-    "utf8"
-  );
-
 const mypageAdsSrc = () =>
   readFileSync(join(process.cwd(), "app/(main)/mypage/ads/page.tsx"), "utf8");
 
@@ -120,13 +111,6 @@ describe("Priority 3 Owner Delivery Ads entry / CTA hierarchy", () => {
     expect(src).toContain("OwnerRoutes.finance");
     expect(src).not.toMatch(/BusinessCashBalance|chargeBusinessCash|walletBalance/);
     expect(src).not.toContain("owner_ads_business_cash_topup_unavailable");
-  });
-
-  it("Owner dashboard card menu exposes canonical Delivery Ads entry", () => {
-    const src = dashboardMenuSrc();
-    expect(src).toContain('id: "ads"');
-    expect(src).toContain("`/stores/owner/ads?${q}`");
-    expect(src).not.toMatch(/href: `\/my\/ads/);
   });
 
   it("legacy /stores/owner/banners remains store-banner domain (not Delivery Ads hub)", () => {

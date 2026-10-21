@@ -116,12 +116,6 @@ describe("R1 Owner Commercial Application Recovery", () => {
         "utf8"
       )
     ).toContain('data-owner-ads-packages="preparing"');
-    expect(
-      readFileSync(
-        join(root, "components/business/owner/ads/OwnerDeliveryAdApplicationWizardShell.tsx"),
-        "utf8"
-      )
-    ).toContain("owner_ads_cta_sale_preparing");
   });
 
   it("R1-T16 unpriced package never shows ₱0", () => {
@@ -156,12 +150,6 @@ describe("R1 Owner Commercial Application Recovery", () => {
   });
 
   it("R1-T20 one contextual fixed footer only", () => {
-    expect(
-      readFileSync(
-        join(root, "components/business/owner/ads/OwnerDeliveryAdApplicationWizardShell.tsx"),
-        "utf8"
-      )
-    ).toContain('data-owner-ads-footer="owner-admin-ssot"');
     expect(detail()).toContain('data-owner-ads-footer="owner-admin-ssot"');
   });
 

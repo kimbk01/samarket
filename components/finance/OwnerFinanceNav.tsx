@@ -2,17 +2,16 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ownerFinanceSectionHref } from "@/lib/finance/routes";
+import { normalizeOwnerFinanceSection, ownerFinanceSectionHref } from "@/lib/finance/routes";
 
 const OWNER_FINANCE_NAV = [
   { key: "transactions", section: "transactions" as const, labelKo: "거래내역", labelEn: "Transactions" },
-  { key: "orders", section: "orders" as const, labelKo: "주문별 정산", labelEn: "Orders" },
   { key: "outstanding", section: "outstanding" as const, labelKo: "수수료/미납", labelEn: "Fees / outstanding" },
   { key: "coin", section: "coin" as const, labelKo: "Coin", labelEn: "Coin" },
   { key: "cash", section: "cash" as const, labelKo: "Cash", labelEn: "Cash" },
   { key: "ads", section: "ads" as const, labelKo: "광고 지출", labelEn: "Ad spend" },
   { key: "convert", section: "convert" as const, labelKo: "전환", labelEn: "Convert" },
-  { key: "withdraw", section: "withdraw" as const, labelKo: "출금", labelEn: "Withdraw" },
+  { key: "withdraw", section: "withdraw" as const, labelKo: "Coin 환전", labelEn: "Coin cash-out" },
 ] as const;
 
 export function OwnerFinanceNav({
@@ -23,7 +22,7 @@ export function OwnerFinanceNav({
   ko: boolean;
 }) {
   const sp = useSearchParams();
-  const active = (sp.get("section") || "transactions").trim();
+  const active = normalizeOwnerFinanceSection(sp.get("section"));
 
   return (
     <nav

@@ -12,7 +12,11 @@ import { BusinessAdminVisibleToggle } from "@/components/business/admin/Business
 
 type Props = {
   row: StoreRow;
-  onToggleVisible: () => void;
+  /**
+   * @deprecated IA-12 — 죽은 sr-only 버튼 제거. 노출·영업 변경은 이 화면의 토글(SSOT)만 사용한다.
+   * 호출부 호환을 위해 prop 만 남긴다(미사용).
+   */
+  onToggleVisible?: () => void;
   onToggleMessengerFeature: (
     key:
       | "messenger_voice_messages_enabled"
@@ -26,7 +30,6 @@ type Props = {
 
 export function OwnerStoreSettingsContent({
   row,
-  onToggleVisible,
   onToggleMessengerFeature,
   onStoreUpdated,
   orderAlertsBadge = 0,
@@ -34,7 +37,6 @@ export function OwnerStoreSettingsContent({
   const { t, language } = useI18n();
   const q = `storeId=${encodeURIComponent(row.id)}`;
   const isApproved = row.approval_status === "approved";
-  const visible = row.is_visible === true;
   const voiceMessagesEnabled = row.messenger_voice_messages_enabled !== false;
   const voiceCallsEnabled = row.messenger_voice_calls_enabled !== false;
   const videoCallsEnabled = row.messenger_video_calls_enabled !== false;
@@ -66,17 +68,6 @@ export function OwnerStoreSettingsContent({
             {t("owner_store_visibility_after_approval")}
           </p>
         ) : null}
-        {/* Keep legacy one-tap visibility for callers that still wire onToggleVisible */}
-        <button
-          type="button"
-          disabled={!isApproved}
-          onClick={onToggleVisible}
-          className="sr-only"
-          tabIndex={-1}
-          aria-hidden
-        >
-          {visible ? t("owner_store_toggle_hide") : t("owner_store_toggle_show")}
-        </button>
       </section>
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">

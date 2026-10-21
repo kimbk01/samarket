@@ -1,46 +1,19 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { OwnerEventPromotionListClient } from "@/components/business/owner/ads/OwnerEventPromotionListClient";
 import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
+import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 
+/**
+ * IA-08 — 매장 = URL `?storeId=` → 없으면 셸 `selectedRow`(셸이 URL 도 정규화). `stores[0]` 금지.
+ */
 function OwnerEventPromotionListInner() {
   const searchParams = useSearchParams();
-  const preload = searchParams.get("storeId")?.trim() ?? "";
-  const [storeId, setStoreId] = useState(preload);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (preload) {
-      setStoreId(preload);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/me/stores", { credentials: "same-origin" });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          stores?: Array<{ id?: string }>;
-        };
-        if (cancelled) return;
-        const first = json.stores?.[0]?.id;
-        if (first) setStoreId(String(first));
-        else setError("no_store");
-      } catch {
-        if (!cancelled) setError("load_failed");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [preload]);
-
-  if (error) {
-    return <p className="p-4 text-sm text-sam-muted">{error}</p>;
-  }
+  const biz = useBusinessAdminStore();
+  const storeId = searchParams.get("storeId")?.trim() || biz?.storeRow?.id?.trim() || "";
   if (!storeId) {
     return <OwnerStoreSuspenseFallback className="p-4 text-sm text-sam-muted" />;
   }
