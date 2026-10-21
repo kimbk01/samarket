@@ -593,53 +593,64 @@ async function cleanup() {
 }
 
 // ───────────────────────── 실행 ─────────────────────────
-/** A6 원인 진단 — 뒤로 버튼 신호가 앱 화면(JS)까지 오는지, 보이지 않게 열린 오버레이가 있는지 */
-async function A6probe() {
-  await selectFirstResultToEdit();
-  await page.locator("#addr-editor-detail").last().fill(`${TAG} P6`);
+/** A6 원인 진단 — 화면·포커스별로 뒤로 버튼 신호가 웹(JS)까지 오는지 */
+async function probeBackOnce(label, setup) {
+  await setup();
   await sleep(1200);
   const before = await page.evaluate(async () => {
-    const cap = window.Capacitor;
     const w = window;
     w.__probeBack = 0;
-    let listenerOk = "no-plugin";
+    let listener = "no-plugin";
     try {
-      const App = cap?.Plugins?.App;
+      const App = w.Capacitor?.Plugins?.App;
       if (App?.addListener) {
         await App.addListener("backButton", () => {
           w.__probeBack += 1;
         });
-        listenerOk = "added";
+        listener = "added";
       }
     } catch (e) {
-      listenerOk = `error:${String(e?.message ?? e)}`;
+      listener = `error:${String(e?.message ?? e)}`;
     }
-    const dialogs = [...document.querySelectorAll('[role="dialog"]')].map((d) => {
-      const r = d.getBoundingClientRect();
-      const st = getComputedStyle(d);
-      return `${(d.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 40)}|${Math.round(r.width)}x${Math.round(r.height)}|vis=${st.visibility}|op=${st.opacity}`;
-    });
-    return {
-      platform: cap?.getPlatform?.() ?? "none",
-      native: cap?.isNativePlatform?.() ?? null,
-      listenerOk,
-      dialogs,
-      saveDisabled: document.querySelector('[data-testid="address-detail-save"]')?.hasAttribute("disabled") ?? null,
-    };
+    const ae = document.activeElement;
+    return { listener, url: location.pathname, focus: ae ? `${ae.tagName}${ae.id ? "#" + ae.id : ""}` : "none" };
   });
-  await sleep(500);
   await device.shell("input keyevent 4");
   await sleep(2500);
+  const top = adb("shell", "dumpsys", "activity", "activities").match(/topResumedActivity[^\n]*|mResumedActivity[^\n]*/)?.[0] ?? "?";
   const after = await page.evaluate(() => ({
-    probeBack: window.__probeBack ?? -1,
+    got: window.__probeBack ?? -1,
     url: location.pathname,
-    confirmShown: (document.body.innerText ?? "").includes("수정한 내용을 버릴까요?"),
-    dialogs: [...document.querySelectorAll('[role="dialog"]')].length,
+    confirm: (document.body.innerText ?? "").includes("수정한 내용을 버릴까요?"),
   }));
-  return {
-    status: "PROBE",
-    detail: `platform=${before.platform} native=${before.native} 테스트리스너=${before.listenerOk} 뒤로전/열린dialog=${before.dialogs.length}[${before.dialogs.join(" ; ")}] 저장disabled=${before.saveDisabled} → 뒤로후 테스트리스너수신=${after.probeBack} url=${after.url} 확인창=${after.confirmShown ? "O" : "X"} dialog수=${after.dialogs}`,
-  };
+  const appForeground = top.includes(PKG);
+  if (!appForeground) {
+    await device.shell(`monkey -p ${PKG} -c android.intent.category.LAUNCHER 1`);
+    await sleep(3000);
+  }
+  return `${label}: 리스너=${before.listener} 포커스=${before.focus} url ${before.url}→${after.url} 웹수신=${after.got} 확인창=${after.confirm ? "O" : "X"} 앱전면=${appForeground ? "O" : "X(백그라운드로 내려감)"}`;
+}
+
+async function A6probe() {
+  const lines = [];
+  // ① 입력 없는 목록 화면
+  lines.push(await probeBackOnce("목록화면", async () => {
+    await gotoPath("/mypage/addresses");
+    await rowCount();
+  }));
+  // ② 상세 화면, 입력 후 포커스 해제
+  lines.push(await probeBackOnce("상세·포커스해제", async () => {
+    await selectFirstResultToEdit();
+    await page.locator("#addr-editor-detail").last().fill(`${TAG} P6`);
+    await page.evaluate(() => document.activeElement?.blur?.());
+  }));
+  // ③ 상세 화면, 입력칸 포커스 유지
+  lines.push(await probeBackOnce("상세·포커스유지", async () => {
+    await selectFirstResultToEdit();
+    await page.locator("#addr-editor-detail").last().fill(`${TAG} P6`);
+    await page.locator("#addr-editor-detail").last().focus();
+  }));
+  return { status: "PROBE", detail: lines.join(" || ") };
 }
 
 if (process.argv.includes("--probe-a6")) {
