@@ -7,6 +7,18 @@
 4. **중간 보고 금지** — 완료 시 1회 짧게 보고한다 (원인·수정·검증·배포 SHA·남은 위험).
 5. **선택지 떠넘기기 금지** — 규정·설계로 정할 수 있는 것은 묻지 않고 정한다.
 
+# 통화 변경 규정 (Owner 2026-10-22 · 최우선 · 예외 없음)
+
+통화는 **수정 금지 대상이 아니다.** 그러나 근거·계획 없이 바꾸면 반드시 터진다 (2026-10-22: 웹·서버 통화 변경 배포 후 Samsung→iPhone 수신 실패·종료 뒤 수신벨 — 네이티브 파일 무변경이었음에도 발생). 이 실수를 반복하지 않는다.
+
+1. **적용 범위 = 통화에 닿는 모든 코드** — 네이티브(`android/**`·`ios/**` 통화·CallKit·PushKit·FCM·Agora)뿐 아니라 **웹 통화 코드**(`lib/community-messenger/call*`·`call-v4/**`·`components/**/call*`·수신 배너·통화 화면)와 **서버 통화·푸시 코드**(통화 세션 API·`service.ts` 통화 함수·`lib/push/**` 통화 발송·VoIP/FCM dispatch). 네이티브 파일을 안 건드려도 웹·서버 변경은 네이티브 통화 동작을 바꾼다.
+2. **수정 전 — 「왜」를 증거로**: 실기기 로그·운영 DB(callId 단위 세션·이벤트·`notification_deliveries` 발송 시각)로 결함을 재현·특정한다. 증거 없이 기존 코드 탓으로 단정하거나 개선 목적으로 통화 경로를 바꾸지 않는다.
+3. **수정 전 — 영향 분석·계획을 문서로**: 바꾸는 파일·함수, 바뀌는 동작, 영향받는 경로(발신 시작·세션 생성·VoIP/FCM 발송·iOS CallKit/Android 수신 화면·취소/거절/종료/부재중·상태 폴링·CallKit 종료 신호·통화 기록·팝업), **설치된 구 바이너리 호환**(현재 설치 `user_devices.app_version`), 회귀 위험, 롤백 방법, 실기기 검증 항목을 먼저 적고 **Owner 승인 후** 구현한다.
+4. **분리 반영**: 통화 변경은 **통화만** 단독 커밋·단독 main 반영. 메신저·친구·DB·네이티브 기능 추가와 묶지 않는다. 한 번에 한 원인만 고친다.
+5. **검증 = 코드 PASS + 실기기 PASS 둘 다**: 로컬 테스트 통과만으로 완료가 아니다. Production SHA 를 **매 테스트마다** 확인하고, 다른 배포 버전 결과를 섞지 않는다. 최소 행렬: Android↔iPhone 음성·영상 발신·수신, 거절, 벨 중 취소, 취소 후 지연 푸시(재울림 없음), 통화 중(busy), 무응답 타임아웃, 정상 종료 후 즉시 재발신. 각 테스트는 발신 시점·세션 생성·VoIP/FCM 발송·수신 화면 표시·연결·종료 시각을 기록한다(서버 시각은 운영 DB 로 대조).
+6. **실기기 FAIL 시 즉시 중단**: 다른 작업(메신저 개선·DB 적용·네이티브 ④⑤)을 멈추고 통화 정상화가 최우선. 수정 후 같은 행렬로 재검증해 PASS 전에는 다음 단계로 가지 않는다.
+7. **보고 형식**: ① 정확히 무엇을 변경했는가 ② 확인된 원인 ③ 어떤 수정으로 복구했는가 ④ 실기기 PASS/FAIL (코드 PASS·Production 반영·실기기 PASS 구분, 측정 안 한 것은 NOT_PROVEN).
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
