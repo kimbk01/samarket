@@ -1,7 +1,10 @@
 "use client";
 
 import type { CommunityMessengerDiscoverableGroupSummary } from "@/lib/community-messenger/types";
+import { useRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 export type MeetingJoinPreviewFullScreenProps = {
   group: CommunityMessengerDiscoverableGroupSummary;
@@ -40,13 +43,33 @@ export function MeetingJoinPreviewFullScreen({
   onJoinAliasBioChange,
 }: MeetingJoinPreviewFullScreenProps) {
   const { t } = useI18n();
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const { keyboardOpen, effectiveViewportBottom, visualViewportHeight, visualViewportOffsetTop } =
+    useFormKeyboardViewport();
+  useFormKeyboardFocusVisibility({ scrollRootRef: bodyRef, effectiveViewportBottom });
+  /** 키보드 열림 → 화면 = visualViewport 밴드(하단 = 키보드 상단). 닫힘 = 기존 inset-0 그대로 */
+  const kbBand = keyboardOpen && visualViewportHeight > 0;
   const joinDisabled =
     busy ||
     (group.joinPolicy === "password" && !joinPassword.trim()) ||
     (joinIdentityMode === "alias" && group.identityPolicy === "alias_allowed" && !joinAliasName.trim());
 
   return (
-    <div className="fixed inset-0 z-[55] flex flex-col bg-[color:var(--messenger-bg)]" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-[55] flex flex-col bg-[color:var(--messenger-bg)]"
+      style={
+        kbBand
+          ? {
+              top: Math.max(0, Math.round(visualViewportOffsetTop)),
+              height: Math.round(visualViewportHeight),
+              bottom: "auto",
+            }
+          : undefined
+      }
+      role="dialog"
+      aria-modal="true"
+      data-keyboard-tap-dismiss="1"
+    >
       <header className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2 pt-[max(0.5rem,var(--safe-top))]">
         <button
           type="button"
@@ -59,7 +82,7 @@ export function MeetingJoinPreviewFullScreen({
         <span className="w-14" aria-hidden />
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto">
         <div
           className="relative min-h-[38vh] bg-gradient-to-br from-emerald-600 via-teal-600 to-sky-700 px-4 pb-10 pt-8"
           style={{ color: "#fff" }}
@@ -151,7 +174,7 @@ export function MeetingJoinPreviewFullScreen({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 pb-[max(1rem,var(--safe-bottom))]">
+      <div className="shrink-0 border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 pb-[max(1rem,var(--kb-safe-bottom))]">
         <button
           type="button"
           disabled={joinDisabled}

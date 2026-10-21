@@ -1,8 +1,10 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { DibayOverlayRoot, useOverlayTitleIds } from "./DibayOverlayRoot";
 import { DibayOverlayActions, type DibayOverlayAction } from "./DibayOverlayActions";
 
@@ -39,14 +41,33 @@ export function DibayFullSheet({
   showCloseButton = true,
 }: DibayFullSheetProps) {
   const { titleId } = useOverlayTitleIds("full-sheet");
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const { keyboardOpen, effectiveViewportBottom, visualViewportHeight, visualViewportOffsetTop } =
+    useFormKeyboardViewport({ enabled: open });
+  useFormKeyboardFocusVisibility({
+    enabled: open,
+    scrollRootRef: bodyRef,
+    stickyChromeRef: headerRef,
+    effectiveViewportBottom,
+  });
 
-  const stageStyle: CSSProperties = hideBottomNav
-    ? { top: topOffsetPx, bottom: 0, height: "auto" }
-    : {
-        top: topOffsetPx,
-        bottom: "calc(var(--app-bottom-nav-height, 60px) + var(--safe-bottom))",
-        height: "auto",
-      };
+  /**
+   * Keyboard open → stage = visualViewport band (bottom = keyboard top on iOS and Android;
+   * nav offset dropped — the nav is hidden while typing). Closed → geometry unchanged.
+   */
+  const kbBand = keyboardOpen && visualViewportHeight > 0;
+  const bandTop = Math.max(topOffsetPx, Math.round(visualViewportOffsetTop));
+  const bandBottom = Math.round(visualViewportOffsetTop + visualViewportHeight);
+  const stageStyle: CSSProperties = kbBand
+    ? { top: bandTop, height: Math.max(1, bandBottom - bandTop), bottom: "auto" }
+    : hideBottomNav
+      ? { top: topOffsetPx, bottom: 0, height: "auto" }
+      : {
+          top: topOffsetPx,
+          bottom: "calc(var(--app-bottom-nav-height, 60px) + var(--safe-bottom))",
+          height: "auto",
+        };
 
   return (
     <DibayOverlayRoot
@@ -60,8 +81,14 @@ export function DibayFullSheet({
       stageStyle={stageStyle}
       stageClassName="!p-0"
     >
-      <div className={OverlayUi.fullSheet} data-form-keyboard-surface="1">
+      <div
+        className={OverlayUi.fullSheet}
+        data-form-keyboard-surface="1"
+        data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+        data-keyboard-tap-dismiss="1"
+      >
         <div
+          ref={headerRef}
           data-form-keyboard-sticky-chrome="1"
           className="flex shrink-0 items-center justify-between border-b border-[color:var(--overlay-border)] px-3 py-2.5"
         >
@@ -80,9 +107,11 @@ export function DibayFullSheet({
             </button>
           ) : null}
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">{children}</div>
+        <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
+          {children}
+        </div>
         {actions && actions.length > 0 ? (
-          <div className="shrink-0 border-t border-[color:var(--overlay-border)] px-3 pb-[max(0.75rem,var(--safe-bottom))] pt-3">
+          <div className="shrink-0 border-t border-[color:var(--overlay-border)] px-3 pb-[max(0.75rem,var(--kb-safe-bottom))] pt-3">
             <DibayOverlayActions layout="row" actions={actions} />
           </div>
         ) : null}

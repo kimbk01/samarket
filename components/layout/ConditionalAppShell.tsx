@@ -69,7 +69,6 @@ import { RegionBar } from "./RegionBar";
 import { MainShellTabContentTransition } from "./MainShellTabContentTransition";
 import { BottomNav } from "./BottomNav";
 import { BottomNavKeyboardHideProbe } from "./BottomNavKeyboardHideProbe";
-import { AndroidInputBackKeyReleaseProbe } from "./AndroidInputBackKeyReleaseProbe";
 import {
   BOTTOM_NAV_KEYBOARD_RESIZED_CLASS,
   type BottomNavKeyboardHideState,
@@ -450,9 +449,6 @@ export function ConditionalAppShell({
         {mainBodyTransition}
       </main>
       <MarkInitialDestinationVisualReadyOnce pathname={pathname} />
-      <AndroidInputBackKeyReleaseProbe
-        enabled={!/^\/(community-messenger|chats?|group-chat)(\/|$)/.test(pathname ?? "")}
-      />
       {showBottomNavMounted ? (
         <BottomNavKeyboardHideProbe onStateChange={setBottomNavKeyboardState} />
       ) : null}

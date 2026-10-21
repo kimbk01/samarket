@@ -3,6 +3,8 @@
 import { useEffect, useRef, type RefObject } from "react";
 import {
   ensureFormFocusVisibleInScrollRoot,
+  ensureFormKeepVisibleCompanionInScrollRoot,
+  findFormKeyboardKeepVisibleCompanion,
   findFormScrollRoot,
   FORM_FOCUS_GAP_PX,
   resolveFormEffectiveViewportTopPx,
@@ -63,6 +65,26 @@ function findNearestFormKeyboardFooter(focused: Element): HTMLElement | null {
   return null;
 }
 
+/** K-07 — the field's own confirm button (`data-form-keyboard-keep-visible`) joins it above the keyboard. */
+function revealCompanion(
+  focused: HTMLElement,
+  root: HTMLElement | null,
+  bandBottom: number,
+  effectiveViewportTop: number,
+  gap: number
+): void {
+  const companion = findFormKeyboardKeepVisibleCompanion(focused);
+  if (!companion) return;
+  ensureFormKeepVisibleCompanionInScrollRoot({
+    focused,
+    companion,
+    scrollRoot: root,
+    effectiveViewportBottom: bandBottom,
+    effectiveViewportTop,
+    focusGapPx: gap,
+  });
+}
+
 export function useFormKeyboardFocusVisibility(opts: Options): void {
   const enabled = opts.enabled !== false;
   const bottom = opts.effectiveViewportBottom;
@@ -95,10 +117,9 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
       // stale taller band or landscape focus stays below the IME.
       const fromSnap = bottomRef.current > 0 ? bottomRef.current : live;
       let bandBottom = Math.min(fromSnap, live);
-      const footer = document.querySelector<HTMLElement>(
-        "[data-form-keyboard-footer='1']"
-      );
       const focused = activeFocusedRef.current;
+      // KB-08 — 포커스 입력과 같은 범위의 푸터 (겹친 시트·페이지에서 문서 첫 푸터 오판 금지)
+      const footer = focused ? findNearestFormKeyboardFooter(focused) : null;
       if (footer && focused && !footer.contains(focused)) {
         const footerTop = Math.round(footer.getBoundingClientRect().top);
         if (Number.isFinite(footerTop) && footerTop > 0) {
@@ -139,6 +160,7 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
         });
         if (applied === 0) break;
       }
+      revealCompanion(focused, root, bandBottom, effectiveViewportTop, gapRef.current);
     };
 
     const observeGrowth = (focused: HTMLElement) => {
@@ -276,6 +298,7 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
           });
           if (applied === 0) break;
         }
+        revealCompanion(focused, root, bandBottom, effectiveViewportTop, gap);
       }, ms)
     );
     return () => {

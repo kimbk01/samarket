@@ -434,3 +434,53 @@ export function findFormScrollRoot(from: HTMLElement | null): HTMLElement | null
   }
   return null;
 }
+
+/** Button tied to the focused field (login · confirm) — kept above the keyboard with the field (K-07). */
+export const FORM_KEYBOARD_KEEP_VISIBLE_SELECTOR = "[data-form-keyboard-keep-visible='1']";
+
+/** Companion inside the focused field's own `<form>` only — never another surface's button. */
+export function findFormKeyboardKeepVisibleCompanion(focused: HTMLElement): HTMLElement | null {
+  const form = focused.closest("form");
+  if (!form) return null;
+  const el = form.querySelector<HTMLElement>(FORM_KEYBOARD_KEEP_VISIBLE_SELECTOR);
+  return el && el !== focused && !el.contains(focused) ? el : null;
+}
+
+/**
+ * After the focused field is in band: also bring its companion button's bottom into the band —
+ * never moving the focused field's top above the band (small screens: the field wins and the
+ * button stays reachable by scrolling). Returns applied delta.
+ */
+export function ensureFormKeepVisibleCompanionInScrollRoot(args: {
+  focused: HTMLElement;
+  companion: HTMLElement;
+  scrollRoot: HTMLElement | null;
+  effectiveViewportBottom: number;
+  effectiveViewportTop?: number;
+  focusGapPx?: number;
+}): number {
+  const gap = args.focusGapPx ?? FORM_FOCUS_GAP_PX;
+  const topLimit = (args.effectiveViewportTop ?? 0) + gap;
+  const bottomLimit = args.effectiveViewportBottom - gap;
+  if (!(bottomLimit > topLimit)) return 0;
+  const companionBottom = args.companion.getBoundingClientRect().bottom;
+  const focusedTop = args.focused.getBoundingClientRect().top;
+  const need = Math.ceil(companionBottom - bottomLimit);
+  const room = Math.floor(focusedTop - topLimit);
+  const delta = Math.min(need, room);
+  if (!(delta > 0)) return 0;
+  const root = args.scrollRoot;
+  if (root && typeof root.scrollTop === "number" && root.scrollHeight > root.clientHeight + 1) {
+    const before = root.scrollTop;
+    root.scrollTop += delta;
+    const applied = root.scrollTop - before;
+    if (applied >= delta || typeof window === "undefined") return applied;
+    window.scrollBy(0, delta - applied);
+    return delta;
+  }
+  if (typeof window !== "undefined") {
+    window.scrollBy(0, delta);
+    return delta;
+  }
+  return 0;
+}

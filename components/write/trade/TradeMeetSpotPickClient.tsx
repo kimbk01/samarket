@@ -41,6 +41,8 @@ import { mapAddressLineToAppLocation } from "@/lib/addresses/map-user-address-to
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 type LatLng = { lat: number; lng: number };
 
@@ -133,6 +135,9 @@ function useReverseGeocode(
  */
 export function TradeMeetSpotPickClient() {
   const { t } = useI18n();
+  const sheetScrollRef = useRef<HTMLDivElement | null>(null);
+  const { effectiveBottomInset, effectiveViewportBottom, keyboardOpen } = useFormKeyboardViewport();
+  useFormKeyboardFocusVisibility({ scrollRootRef: sheetScrollRef, effectiveViewportBottom });
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = useMemo(
@@ -684,7 +689,10 @@ export function TradeMeetSpotPickClient() {
   }, [runNavigateBackWithoutSave]);
 
   /** 고정 하단 버튼 높이 + safe-area — 스크롤 본문이 버튼 뒤에 숨지 않게 */
-  const scrollBottomPad = "calc(5.75rem + var(--safe-bottom))";
+  /** 하단 툴바 = Form SSOT 푸터 — 키보드 열림 = 가림 높이만 / 닫힘 = safe-bottom (이중 여백 없음) */
+  const scrollBottomPad = keyboardOpen
+    ? `calc(5.75rem + ${effectiveBottomInset}px)`
+    : "calc(5.75rem + var(--safe-bottom))";
 
   const representativeRestoreDisabled = useMemo(() => {
     if (!representativeCenter) return true;
@@ -735,8 +743,10 @@ export function TradeMeetSpotPickClient() {
               />
             </div>
             <div
+              ref={sheetScrollRef}
               className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain border-t border-sam-border bg-sam-surface px-4 py-3"
               style={{ paddingBottom: scrollBottomPad }}
+              data-keyboard-tap-dismiss="1"
             >
               <div className="sam-form-field block">
                 <div className="mb-1 flex items-center justify-between gap-2">
@@ -850,6 +860,9 @@ export function TradeMeetSpotPickClient() {
                 <div
                   role="toolbar"
                   aria-label={t("trade_020")}
+                  data-form-keyboard-footer="1"
+                  data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+                  style={keyboardOpen ? { paddingBottom: `calc(0.65rem + ${effectiveBottomInset}px)` } : undefined}
                   className={`fixed inset-x-0 bottom-0 z-[140] border-t border-sam-border bg-sam-surface px-3 pt-2 shadow-[0_-12px_32px_rgba(15,23,42,0.18)] pb-[max(0.65rem,var(--safe-bottom))] transition-transform duration-500 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${
                     closing ? "-translate-y-full opacity-95" : entered ? "translate-y-0 opacity-100" : "-translate-y-full opacity-95"
                   }`}

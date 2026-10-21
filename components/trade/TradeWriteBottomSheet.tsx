@@ -148,6 +148,7 @@ export function TradeWriteBottomSheet() {
       <div
         ref={panelRef}
         data-form-keyboard-surface="1"
+        data-keyboard-tap-dismiss="1"
         className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-[color:var(--overlay-surface)] pt-[var(--safe-top)] text-[color:var(--overlay-text-primary)] transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
           panelOpen ? "translate-y-0 shadow-[var(--overlay-elevation-1)]" : "translate-y-full shadow-none"
         }`}

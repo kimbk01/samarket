@@ -133,6 +133,7 @@ export function PhilifeWriteBottomSheet() {
       <div
         ref={panelRef}
         data-form-keyboard-surface="1"
+        data-keyboard-tap-dismiss="1"
         className={`${OverlayUi.fullSheet} pointer-events-auto ${
           panelOpen ? "translate-y-0" : "translate-y-full"
         }`}
