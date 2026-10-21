@@ -22,6 +22,12 @@ const PATCH_ERR_KEYS: Record<string, MessageKey> = {
   invalid_lng: "business_phase7_512",
   store_location_inconsistent: "addr_ui_store_location_inconsistent",
   store_delivery_requires_canonical_geo: "addr_ui_store_delivery_requires_canonical_geo",
+  // 3-B (OPS-05 / OPS-07 / OPS-09)
+  update_failed: "business_phase7_517",
+  store_changed: "business_ops3b_err_store_changed",
+  invalid_expected_updated_at: "business_ops3b_err_store_changed",
+  invalid_store_gcash_number: "business_ops3b_err_invalid_gcash",
+  store_not_approved_for_visibility: "business_ops3b_err_not_approved_visibility",
 };
 
 const TZ_LABEL_KEYS: Record<string, MessageKey> = {

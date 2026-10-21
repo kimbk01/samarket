@@ -6,6 +6,10 @@ import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/store
 import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
+import {
+  isStoreNoticesTableMissingError,
+  storeNoticesUnavailableBody,
+} from "@/lib/stores/store-notices-availability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,8 +50,10 @@ export async function GET(_req: Request, context: { params: Promise<{ storeId: s
     .order("id", { ascending: true });
 
   if (error) {
-    if (/does not exist|schema cache/i.test(String(error.message))) {
-      return NextResponse.json({ ok: true, notices: [], meta: { migration_pending: true } });
+    // OPS-01 — 테이블 부재를 빈 목록 성공으로 위장하지 않는다.
+    if (isStoreNoticesTableMissingError(error)) {
+      console.error("[GET store_notices] table missing", error.message);
+      return NextResponse.json(storeNoticesUnavailableBody(), { status: 503 });
     }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
@@ -113,6 +119,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ storeI
 
   if (insErr) {
     console.error("[POST store_notices]", insErr);
+    if (isStoreNoticesTableMissingError(insErr)) {
+      return NextResponse.json(storeNoticesUnavailableBody(), { status: 503 });
+    }
     return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
   }
 

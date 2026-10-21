@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
-import { sanitizeBusinessHoursJsonForPersistence } from "@/lib/stores/serialize-store-business-hours-json";
+import {
+  normalizeStoreBusinessHoursJsonForWrite,
+  normalizeStoreGalleryImagesJsonForWrite,
+  normalizeStoreGcashNumberForWrite,
+  ownerStoreVisibilityChangeAllowed,
+  parseStoreExpectedUpdatedAt,
+  STORE_CHANGED_CONFLICT_ERROR,
+  STORE_NOT_APPROVED_FOR_VISIBILITY_ERROR,
+} from "@/lib/stores/owner-store-patch-fields";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { buildStoreTaxonomyPatch } from "@/lib/stores/build-store-taxonomy-patch";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
@@ -88,6 +96,8 @@ type PatchBody = {
   place_id?: string | null;
   formatted_address?: string | null;
   detail_address?: string | null;
+  /** OPS-09 — 폼이 읽은 `stores.updated_at`. 보내면 그 사이 다른 저장이 있었을 때 409 `store_changed` (미전송 = 현행). */
+  expected_updated_at?: string | null;
 };
 
 function trimOrNull(v: unknown): string | null {
@@ -151,6 +161,12 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "store_load_failed" }, { status: 500 });
   }
 
+  const expected = parseStoreExpectedUpdatedAt(body.expected_updated_at);
+  if (!expected.ok) {
+    return NextResponse.json({ ok: false, error: expected.error }, { status: 400 });
+  }
+  const expectedUpdatedAt = expected.value;
+
   const patch: Record<string, unknown> = {};
   const canEditIdentity = gate.store.owner_can_edit_store_identity === true;
 
@@ -202,20 +218,25 @@ export async function PATCH(
   if (body.kakao_id !== undefined) patch.kakao_id = trimOrNull(body.kakao_id);
 
   if (body.email !== undefined) {
-    const et = trimOrNull(body.email);
-    if (et === null) {
-      patch.email = null;
-    } else {
-      const norm = normalizePhMobileDb(et);
-      patch.email = norm;
+    // OPS-05 — stores.email = GCash 번호 칸. 형식 오류를 null 로 덮어쓰지 않고 400.
+    const gcash = normalizeStoreGcashNumberForWrite(body.email);
+    if (!gcash.ok) {
+      return NextResponse.json({ ok: false, error: gcash.error }, { status: 400 });
     }
+    patch.email = gcash.value;
   }
   if (body.website_url !== undefined) patch.website_url = trimOrNull(body.website_url);
   if (body.profile_image_url !== undefined) {
     patch.profile_image_url = body.profile_image_url === null ? null : trimOrNull(body.profile_image_url);
   }
   if (body.is_visible !== undefined) {
-    // 노출 토글은 승인 상태에서만 의미가 있으므로, blocked 상태는 위에서 차단됨.
+    // OPS-07 — 노출 토글은 승인 매장만 (관리자 set_store_visible 과 같은 코드). 미승인 토글이 first_listed_at 를 앞당기지 않게.
+    if (!ownerStoreVisibilityChangeAllowed(gate.store.approval_status)) {
+      return NextResponse.json(
+        { ok: false, error: STORE_NOT_APPROVED_FOR_VISIBILITY_ERROR },
+        { status: 409 }
+      );
+    }
     // P1-C1: visibility intent only — first_listed_at stamp is DB trigger authority.
     Object.assign(patch, buildStoreVisibilityWritePatch(Boolean(body.is_visible)));
   }
@@ -258,28 +279,21 @@ export async function PATCH(
     patch.visit_available = Boolean(body.visit_available);
   }
 
+  // OPS-09 — NOT NULL jsonb 컬럼: null(초기화) → {} / [] (DB 원문 500 방지).
   if (body.business_hours_json !== undefined) {
-    if (body.business_hours_json === null) {
-      patch.business_hours_json = null;
-    } else if (
-      typeof body.business_hours_json === "object" &&
-      body.business_hours_json !== null &&
-      !Array.isArray(body.business_hours_json)
-    ) {
-      patch.business_hours_json = sanitizeBusinessHoursJsonForPersistence(body.business_hours_json);
-    } else {
-      return NextResponse.json({ ok: false, error: "invalid_business_hours_json" }, { status: 400 });
+    const hours = normalizeStoreBusinessHoursJsonForWrite(body.business_hours_json);
+    if (!hours.ok) {
+      return NextResponse.json({ ok: false, error: hours.error }, { status: 400 });
     }
+    patch.business_hours_json = hours.value;
   }
 
   if (body.gallery_images_json !== undefined) {
-    if (body.gallery_images_json === null) {
-      patch.gallery_images_json = null;
-    } else if (Array.isArray(body.gallery_images_json)) {
-      patch.gallery_images_json = body.gallery_images_json;
-    } else {
-      return NextResponse.json({ ok: false, error: "invalid_gallery_images_json" }, { status: 400 });
+    const gallery = normalizeStoreGalleryImagesJsonForWrite(body.gallery_images_json);
+    if (!gallery.ok) {
+      return NextResponse.json({ ok: false, error: gallery.error }, { status: 400 });
     }
+    patch.gallery_images_json = gallery.value;
   }
 
   const locationBuilt = buildStoreLocationPatchFields(
@@ -361,11 +375,11 @@ export async function PATCH(
     );
   }
 
-  const runStoreUpdate = (rowPatch: Record<string, unknown>) =>
-    sb
-      .from("stores")
-      .update(rowPatch)
-      .eq("id", sid)
+  const runStoreUpdate = (rowPatch: Record<string, unknown>) => {
+    let q = sb.from("stores").update(rowPatch).eq("id", sid);
+    // OPS-09 — CAS: 폼이 읽은 뒤 다른 저장이 있었으면 0행 → 409 (business_hours_json 전체 덮어쓰기 lost update 방지).
+    if (expectedUpdatedAt) q = q.eq("updated_at", expectedUpdatedAt);
+    return q
       .select(
         [
           "id, owner_user_id, store_name, slug, business_type, owner_can_edit_store_identity",
@@ -381,6 +395,7 @@ export async function PATCH(
         ].join(", ")
       )
       .maybeSingle();
+  };
 
   let { data: updated, error: upErr } = await runStoreUpdate(patch);
   let coreInfoFlagSaved = flagCoreInfo;
@@ -394,7 +409,12 @@ export async function PATCH(
 
   if (upErr) {
     console.error("[PATCH /api/me/stores/storeId]", upErr);
-    return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    // OPS-09 — DB 원문을 클라이언트에 노출하지 않는다 (로그에만).
+    return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+  }
+
+  if (!updated && expectedUpdatedAt) {
+    return NextResponse.json({ ok: false, error: STORE_CHANGED_CONFLICT_ERROR }, { status: 409 });
   }
 
   if (!updated) {

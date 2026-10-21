@@ -87,6 +87,18 @@ function collectScheduleBoundaryMinutes(
   const mins = new Set<number>();
   if (openM != null) mins.add(openM);
   if (closeM != null) mins.add(closeM);
+  // OPS-03 — 요일별 구간 경계 + 날짜가 바뀌는 자정(요일·휴무일 전환). 상태가 안 바뀌는 경계는 재계산만 일어난다.
+  if (auto.weekly) {
+    for (const ivs of Object.values(auto.weekly)) {
+      for (const iv of ivs ?? []) {
+        const o = hhmmToMinutes(iv.open);
+        const c = hhmmToMinutes(iv.close);
+        if (o != null) mins.add(o);
+        if (c != null) mins.add(c);
+      }
+    }
+  }
+  if (auto.weekly || auto.closedDates.length > 0) mins.add(0);
   if (breakIv) {
     const bs = hhmmToMinutes(breakIv.start);
     const be = hhmmToMinutes(breakIv.end);

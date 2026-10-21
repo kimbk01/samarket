@@ -26,6 +26,8 @@ const KNOWN_CODES: Record<string, MessageKey> = {
   depositor_name_required: "store_owner_point_err_depositor_name_required",
   subject_and_content_required: "store_owner_point_err_subject_required",
   invalid_json: "common_error",
+  // OPS-01 — store_notices 테이블 부재(503)
+  store_notices_unavailable: "business_ops3b_err_notices_unavailable",
 };
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;
