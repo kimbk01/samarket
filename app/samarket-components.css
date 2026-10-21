@@ -171,7 +171,8 @@
   }
 
   .sam-btn:disabled {
-    @apply cursor-not-allowed opacity-45;
+    /** 비활성 = 회색 토큰 배경 + 회색 글자 (불투명도 처리 금지 · 설계서 v3 §3 → Owner Q4 전역 적용) */
+    @apply cursor-not-allowed opacity-100 border-transparent bg-[color:var(--sam-primary-disabled)] text-sam-muted;
   }
 
   /*
@@ -315,7 +316,8 @@
   /* `a`·`button` 위 글자색은 레이어 순서(globals.css 맨 앞 @layer 선언)로 보장 */
 
   .sam-btn-primary:disabled {
-    @apply cursor-not-allowed opacity-45;
+    /** 비활성 = 회색 토큰 배경 + 회색 글자 (불투명도 처리 금지 · 설계서 v3 §3 → Owner Q4 전역 적용) */
+    @apply cursor-not-allowed opacity-100 border-transparent bg-[color:var(--sam-primary-disabled)] text-sam-muted;
   }
 
   .sam-btn-primary:not(:disabled):active {
@@ -329,7 +331,8 @@
   }
 
   .sam-btn-secondary:disabled {
-    @apply cursor-not-allowed opacity-45;
+    /** 비활성 = 회색 토큰 배경 + 회색 글자 (불투명도 처리 금지 · 설계서 v3 §3 → Owner Q4 전역 적용) */
+    @apply cursor-not-allowed opacity-100 border-transparent bg-[color:var(--sam-primary-disabled)] text-sam-muted;
   }
 
   .sam-btn-secondary:not(:disabled):active {
@@ -353,7 +356,8 @@
   }
 
   .sam-btn-danger:disabled {
-    @apply cursor-not-allowed opacity-45;
+    /** 비활성 = 회색 토큰 배경 + 회색 글자 (불투명도 처리 금지 · 설계서 v3 §3 → Owner Q4 전역 적용) */
+    @apply cursor-not-allowed opacity-100 border-transparent bg-[color:var(--sam-primary-disabled)] text-sam-muted;
   }
 
   .sam-btn-danger:not(:disabled):active {
@@ -582,7 +586,8 @@
   }
 
   .sam-tab:disabled {
-    @apply opacity-40;
+    /** 비활성 탭 — 회색 글자 토큰 (불투명도 처리 금지, Owner Q4) */
+    @apply cursor-not-allowed opacity-100 text-sam-muted;
   }
 
   .sam-tab:not(:disabled):active {
@@ -737,11 +742,22 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-danger) 18%, transparent);
   }
 
-  /** 칩 비활성 — 45% · 탭 무시 */
+  /** 칩 비활성 — 회색 토큰 배경·글자 · 탭 무시 (불투명도 처리 금지, Owner Q4) */
   .sam-chip--disabled {
-    opacity: 0.45;
+    border-color: transparent;
+    background-color: var(--sam-primary-disabled);
+    color: var(--sam-text-secondary);
     pointer-events: none;
     cursor: default;
+  }
+
+  /** 버튼 기본 포커스 표시 — `sam-focus-ring` 과 동일 (04-DESIGN-SYSTEM Focus, Owner Q4) */
+  .sam-btn:focus-visible,
+  .sam-btn-primary:focus-visible,
+  .sam-btn-secondary:focus-visible,
+  .sam-btn-danger:focus-visible {
+    outline: 2px solid var(--sam-primary);
+    outline-offset: 2px;
   }
 
   /** 포커스 표시 — 2px 시그니처 그린 바깥선, 2px 띄움 (키보드 포커스만) */
@@ -1482,9 +1498,15 @@
     @apply inline-flex min-h-[length:var(--sam-header-action-min)] min-w-[length:var(--sam-header-action-min)] items-center justify-center rounded-sam-sm border border-transparent bg-transparent text-sam-fg transition-colors duration-150;
   }
 
-  .sam-header-action:not(:disabled):active,
-  .sam-header-action:hover {
+  .sam-header-action:not(:disabled):active {
     @apply bg-sam-surface-muted text-sam-primary;
+  }
+
+  /** hover 는 hover 가능한 포인터만 — 터치 후 hover 상태가 남지 않도록 (WebView sticky hover) */
+  @media (hover: hover) {
+    .sam-header-action:hover {
+      @apply bg-sam-surface-muted text-sam-primary;
+    }
   }
 
   /** 1단 헤더 우측 아이콘 클러스터 — 36×36 통일 · 간격 0 (배민·당근형) */
@@ -1666,7 +1688,10 @@
 
   .sm-btn:disabled {
     cursor: not-allowed;
-    opacity: 0.45;
+    /** 비활성 = 회색 토큰 (불투명도 처리 금지, Owner Q4) */
+    border-color: transparent;
+    background-color: var(--sam-primary-disabled);
+    color: var(--sam-text-secondary);
   }
 
   .sm-btn-primary {

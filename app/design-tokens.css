@@ -69,6 +69,8 @@
   --sam-primary: var(--sm-color-primary);
   --sam-primary-hover: var(--sm-color-primary-strong);
   --sam-primary-active: var(--sm-color-primary-active);
+  /** 눌림 = 기존 active 값 alias (신규 색 없음 · 설계서 v3 §3 「눌림 --sam-primary-pressed」 · Owner Q4) */
+  --sam-primary-pressed: var(--sam-primary-active);
   --sam-primary-soft: var(--sm-color-primary-soft);
   --sam-primary-soft-2: color-mix(in srgb, var(--sm-color-primary-soft) 74%, var(--dibay-card));
   --sam-primary-border: color-mix(in srgb, var(--sm-color-primary) 22%, var(--dibay-card));
