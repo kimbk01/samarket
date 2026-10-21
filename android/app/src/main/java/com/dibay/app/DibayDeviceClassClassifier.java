@@ -71,10 +71,10 @@ public final class DibayDeviceClassClassifier {
   /** Current configuration + physical screen size of the device behind {@code context}. */
   public static Result classify(Context context) {
     Resources resources = context != null ? context.getResources() : null;
-    return classify(resources != null ? resources.getConfiguration() : null, physicalDiagonalInches(context));
+    return classifyWithPhysicalDiagonal(resources != null ? resources.getConfiguration() : null, physicalDiagonalInches(context));
   }
 
-  public static Result classify(Configuration config, Double physicalDiagonalInches) {
+  public static Result classifyWithPhysicalDiagonal(Configuration config, Double physicalDiagonalInches) {
     Result base = classify(config);
     Result guarded = applyPhysicalDiagonalGuard(base, physicalDiagonalInches);
     guarded.physicalDiagonalInches = physicalDiagonalInches;
