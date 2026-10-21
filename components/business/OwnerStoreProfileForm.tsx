@@ -49,9 +49,15 @@ import {
   normalizeHHMM,
   readAutoBusinessHoursEnabled,
   readAutoHoursFormFields,
+  readAutoHoursScheduleExtFormFields,
   readBreakHoursFormFields,
   STORE_AUTO_TIMEZONE_OPTIONS,
 } from "@/lib/stores/store-auto-hours";
+import type { StoreWeeklyHours } from "@/lib/stores/store-weekly-hours";
+import {
+  isOwnerWeeklyHoursDraftValid,
+  OwnerStoreWeeklyHoursEditor,
+} from "@/components/business/owner/OwnerStoreWeeklyHoursEditor";
 import { applyAutoBusinessHoursToRecord } from "@/lib/stores/serialize-store-business-hours-json";
 import { invalidateStorePublicCachesForSlug } from "@/lib/stores/store-public-cache-invalidate";
 import { TumblerTimePickerDialog } from "@/components/ui/TumblerTimePickerDialog";
@@ -179,6 +185,9 @@ export type OwnerStoreProfileFormValues = {
   autoHoursTz: string;
   autoHoursOpen: string;
   autoHoursClose: string;
+  /** OPS-03 요일별 구간(null = 매일 기본 시간) · 휴무일 — auto_business_hours.weekly / closed_dates */
+  weeklyHours: StoreWeeklyHours | null;
+  closedDates: string[];
   /** ?? ??????? ??/?? JSON ?? */
   payMethodGcash: boolean;
   payMethodCashMeet: boolean;
@@ -268,6 +277,10 @@ function rowToFormValues(row: StoreRow): OwnerStoreProfileFormValues {
     pickupAvailable: row.pickup_available !== false,
     ...readAutoHoursFormFields(row.business_hours_json),
     autoBusinessHoursEnabled: readAutoBusinessHoursEnabled(row.business_hours_json),
+    ...(() => {
+      const ext = readAutoHoursScheduleExtFormFields(row.business_hours_json);
+      return { weeklyHours: ext.weekly, closedDates: ext.closedDates };
+    })(),
     breakHoursEnabled: breakOn,
     breakHoursStart: br.breakHoursStart,
     breakHoursEnd: br.breakHoursEnd,
@@ -421,6 +434,8 @@ function buildBusinessHoursJson(
     autoHoursTz: values.autoHoursTz,
     autoHoursOpen: values.autoHoursOpen,
     autoHoursClose: values.autoHoursClose,
+    weekly: values.weeklyHours,
+    closedDates: values.closedDates,
   });
 
   return prev;
@@ -607,6 +622,10 @@ export function OwnerStoreProfileForm({
           return false;
         }
       }
+      if (!isOwnerWeeklyHoursDraftValid(values.weeklyHours)) {
+        setError(t("business_ops3b_weekly_invalid"));
+        return false;
+      }
       if (values.deliveryFeeMode === "courier" && !values.deliveryCourierLabel.trim()) {
         setError(t("business_phase7_524"));
         return false;
@@ -652,6 +671,8 @@ export function OwnerStoreProfileForm({
             pickup_available: values.pickupAvailable,
             business_hours_json,
             gallery_images_json,
+            /** OPS-09 — 읽은 뒤 다른 저장이 있었으면 409 store_changed (business_hours_json 전체 덮어쓰기 lost update 방지). */
+            ...(row.updated_at ? { expected_updated_at: row.updated_at } : {}),
           }),
         });
         const j = await res.json().catch(() => ({}));
@@ -986,6 +1007,16 @@ export function OwnerStoreProfileForm({
               </div>
             : null}
           </div>
+
+          <OwnerStoreWeeklyHoursEditor
+            weekly={values.weeklyHours}
+            closedDates={values.closedDates}
+            defaultOpen={normalizeHHMM(values.autoHoursOpen) ?? "09:00"}
+            defaultClose={normalizeHHMM(values.autoHoursClose) ?? "22:00"}
+            onChange={(next) =>
+              setValues((v) => ({ ...v, weeklyHours: next.weekly, closedDates: next.closedDates }))
+            }
+          />
 
           <div className="flex items-start gap-2 rounded-[16px] border border-[var(--biz-primary)]/25 bg-[var(--biz-primary-soft)] px-4 py-3">
             <input

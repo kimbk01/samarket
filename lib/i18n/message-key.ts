@@ -82,6 +82,7 @@ import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
 import { adminActionQueueMessages } from "./catalog/admin-action-queue";
 import { adminUsersAddressMessages } from "./catalog/admin-users-address";
+import { storeOps3bMessages } from "./catalog/store-ops-3b";
 import { adminDeliveryOpsUxMessages } from "./catalog/admin-delivery-ops-ux";
 import { adminChatR1EMessages } from "./catalog/admin-chat-r1-media";
 import { adminChatR1DMessages } from "./catalog/admin-chat-r1-dashboard";
@@ -198,6 +199,7 @@ export type MessageKey =
   | KeyOf<typeof platformEventsUiMessages.ko>
   | KeyOf<typeof adminActionQueueMessages.ko>
   | KeyOf<typeof adminUsersAddressMessages.ko>
+  | KeyOf<typeof storeOps3bMessages.ko>
   | KeyOf<typeof adminMessages.ko>
   | KeyOf<typeof adminOsLaunchMessages.ko>
   | KeyOf<typeof adminFinanceSsot19Messages.ko>
@@ -281,6 +283,7 @@ type EnMessageKey =
   | KeyOf<typeof platformEventsUiMessages.en>
   | KeyOf<typeof adminActionQueueMessages.en>
   | KeyOf<typeof adminUsersAddressMessages.en>
+  | KeyOf<typeof storeOps3bMessages.en>
   | KeyOf<typeof adminMessages.en>
   | KeyOf<typeof adminOsLaunchMessages.en>
   | KeyOf<typeof adminFinanceSsot19Messages.en>

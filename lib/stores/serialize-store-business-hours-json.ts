@@ -1,5 +1,11 @@
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import { normalizeHHMM } from "@/lib/stores/store-auto-hours";
+import {
+  sanitizeStoreClosedDates,
+  sanitizeStoreWeeklyHours,
+  serializeStoreWeeklyHours,
+  type StoreWeeklyHours,
+} from "@/lib/stores/store-weekly-hours";
 
 /**
  * CONTRACT — `business_hours_json.auto_business_hours`
@@ -14,7 +20,24 @@ export type AutoBusinessHoursFormSlice = {
   autoHoursTz: string;
   autoHoursOpen: string;
   autoHoursClose: string;
+  /** OPS-03 요일별 구간 — undefined 면 기존 값 유지 안 함(키 생략), null 이면 미설정 */
+  weekly?: StoreWeeklyHours | null;
+  /** OPS-03 휴무일 YYYY-MM-DD */
+  closedDates?: string[];
 };
+
+/** OPS-03 — weekly/closed_dates 를 정규화해 auto_business_hours 객체에 붙인다 (비어 있으면 키 생략). */
+function attachScheduleExt(
+  target: Record<string, unknown>,
+  weeklyRaw: unknown,
+  closedDatesRaw: unknown
+): Record<string, unknown> {
+  const weekly = serializeStoreWeeklyHours(sanitizeStoreWeeklyHours(weeklyRaw));
+  const closed = sanitizeStoreClosedDates(closedDatesRaw);
+  if (weekly) target.weekly = weekly;
+  if (closed.length > 0) target.closed_dates = closed;
+  return target;
+}
 
 /**
  * `business_hours_json.auto_business_hours` — 단일 직렬화(오너 폼·API 계약).
@@ -37,25 +60,37 @@ export function applyAutoBusinessHoursToRecord(
     return;
   }
 
+  const weeklyIn = slice.weekly === undefined ? undefined : slice.weekly;
   if (slice.autoBusinessHoursEnabled) {
-    prev.auto_business_hours = {
-      enabled: true,
-      [STORE_AUTO_SCHEDULE_ENFORCED_KEY]: true,
-      timezone: tz,
-      open,
-      close,
-    };
-    prev.weekdays = `매일 ${open}–${close} (${tz})`;
+    prev.auto_business_hours = attachScheduleExt(
+      {
+        enabled: true,
+        [STORE_AUTO_SCHEDULE_ENFORCED_KEY]: true,
+        timezone: tz,
+        open,
+        close,
+      },
+      weeklyIn,
+      slice.closedDates
+    );
+    // 요일별 구간이 있으면 「매일 …」 요약은 틀린 정보 — 공개 화면은 weekly 표로 표시한다.
+    if (!(prev.auto_business_hours as Record<string, unknown>).weekly) {
+      prev.weekdays = `매일 ${open}–${close} (${tz})`;
+    }
     return;
   }
 
-  prev.auto_business_hours = {
-    enabled: false,
-    [STORE_AUTO_SCHEDULE_ENFORCED_KEY]: false,
-    timezone: tz,
-    open,
-    close,
-  };
+  prev.auto_business_hours = attachScheduleExt(
+    {
+      enabled: false,
+      [STORE_AUTO_SCHEDULE_ENFORCED_KEY]: false,
+      timezone: tz,
+      open,
+      close,
+    },
+    weeklyIn,
+    slice.closedDates
+  );
 }
 
 /**
@@ -84,24 +119,33 @@ export function sanitizeBusinessHoursJsonForPersistence(raw: unknown): Record<st
   }
 
   if (wantsEnforced) {
-    prev.auto_business_hours = {
-      enabled: true,
-      [STORE_AUTO_SCHEDULE_ENFORCED_KEY]: true,
-      timezone: tz,
-      open,
-      close,
-    };
+    prev.auto_business_hours = attachScheduleExt(
+      {
+        enabled: true,
+        [STORE_AUTO_SCHEDULE_ENFORCED_KEY]: true,
+        timezone: tz,
+        open,
+        close,
+      },
+      a.weekly,
+      a.closed_dates
+    );
     const wd = typeof prev.weekdays === "string" ? prev.weekdays.trim() : "";
-    if (!wd) prev.weekdays = `매일 ${open}–${close} (${tz})`;
+    const hasWeekly = Boolean((prev.auto_business_hours as Record<string, unknown>).weekly);
+    if (!wd && !hasWeekly) prev.weekdays = `매일 ${open}–${close} (${tz})`;
     return prev;
   }
 
-  prev.auto_business_hours = {
-    enabled: false,
-    [STORE_AUTO_SCHEDULE_ENFORCED_KEY]: false,
-    timezone: tz,
-    open,
-    close,
-  };
+  prev.auto_business_hours = attachScheduleExt(
+    {
+      enabled: false,
+      [STORE_AUTO_SCHEDULE_ENFORCED_KEY]: false,
+      timezone: tz,
+      open,
+      close,
+    },
+    a.weekly,
+    a.closed_dates
+  );
   return prev;
 }

@@ -7,12 +7,25 @@
  */
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import { STORE_AUTO_SCHEDULE_ENFORCED_KEY } from "@/lib/stores/serialize-store-business-hours-json";
+import {
+  evaluateStoreSchedule,
+  sanitizeStoreClosedDates,
+  sanitizeStoreWeeklyHours,
+  type StoreScheduleEvaluation,
+  type StoreWeeklyHours,
+} from "@/lib/stores/store-weekly-hours";
 
 export type AutoBusinessHoursConfig = {
   enabled: true;
   timezone: string;
+  /** 기본(요일 미지정) 영업 시작 */
   open: string;
+  /** 기본(요일 미지정) 영업 종료 — open 보다 이르면 자정 넘김 */
   close: string;
+  /** OPS-03 요일별 구간 (null = 미설정 → 매일 open/close) */
+  weekly: StoreWeeklyHours | null;
+  /** OPS-03 휴무일(임시휴무) YYYY-MM-DD, 매장 시간대 기준 */
+  closedDates: string[];
 };
 
 /** "9:00" | "09:00" → "09:00", 실패 시 null */
@@ -78,18 +91,27 @@ export function readAutoBusinessHoursConfig(json: unknown): AutoBusinessHoursCon
   const close = typeof rec.close === "string" ? normalizeHHMM(rec.close) : null;
   if (!open || !close) return null;
   if (open === close) return null;
-  return { enabled: true, timezone: tz, open, close };
+  return {
+    enabled: true,
+    timezone: tz,
+    open,
+    close,
+    weekly: sanitizeStoreWeeklyHours(rec.weekly),
+    closedDates: sanitizeStoreClosedDates(rec.closed_dates),
+  };
+}
+
+/** OPS-03 — 요일별 구간·휴무일·자정 넘김 반영 (weekly/closed_dates 없으면 기존 단일 구간 해석과 동일) */
+export function evaluateAutoSchedule(cfg: AutoBusinessHoursConfig, now: Date): StoreScheduleEvaluation {
+  return evaluateStoreSchedule(
+    { open: cfg.open, close: cfg.close, weekly: cfg.weekly ?? null, closedDates: cfg.closedDates ?? [] },
+    cfg.timezone,
+    now
+  );
 }
 
 export function isNowWithinAutoSchedule(cfg: AutoBusinessHoursConfig, now: Date): boolean {
-  const openM = hhmmToMinutes(cfg.open);
-  const closeM = hhmmToMinutes(cfg.close);
-  const nowM = getClockMinutesInTimeZone(now, cfg.timezone);
-  if (openM == null || closeM == null || nowM == null) return false;
-  if (openM < closeM) {
-    return nowM >= openM && nowM < closeM;
-  }
-  return nowM >= openM || nowM < closeM;
+  return evaluateAutoSchedule(cfg, now).within;
 }
 
 /** auto_business_hours.timezone 또는 기본값 */
@@ -132,9 +154,17 @@ function isNowWithinBreakWindow(
   return nowM >= startM || nowM < endM;
 }
 
+/**
+ * OPS-04 — 실효 영업 상태 사유 (오너·주문자·관리자 공용 라벨 근거).
+ * open 영업중 / break 휴게중 / outside_hours 영업시간 외 / closed_day 휴무일 / manual_closed 수동 마감(is_open=false)
+ */
+export type StoreFrontCommerceReason = "open" | "break" | "outside_hours" | "closed_day" | "manual_closed";
+
 export type StoreFrontCommerceState = {
   /** 메뉴 담기·주문 가능 */
   isOpenForCommerce: boolean;
+  /** OPS-04 사유 — resolveStoreFrontCommerceState 는 항상 채운다 (수동 조립 객체 호환을 위해 타입은 선택). */
+  reason?: StoreFrontCommerceReason;
   /** 휴게 시간대 안(영업 시간대 안에서만 true) */
   inBreak: boolean;
   breakConfigured: boolean;
@@ -143,14 +173,14 @@ export type StoreFrontCommerceState = {
 };
 
 /**
- * 공개 매장 — 영업 스케줄·임시휴무·휴게 시간 반영.
+ * 공개 매장 — 영업 스케줄(요일별·휴무일 포함, OPS-03)·수동 마감(is_open)·휴게 시간 반영.
  * - 휴게 중이면 isOpenForCommerce false, inBreak true
  */
 export function resolveStoreFrontCommerceState(
   businessHoursJson: unknown,
   dbIsOpen: boolean | null | undefined,
   now: Date = new Date()
-): StoreFrontCommerceState {
+): StoreFrontCommerceState & { reason: StoreFrontCommerceReason } {
   const breakIv = readNormalizedBreakInterval(businessHoursJson);
   const breakConfigured = breakIv != null;
   const breakRangeLabel = breakIv ? `${breakIv.start}–${breakIv.end}` : "";
@@ -158,7 +188,8 @@ export function resolveStoreFrontCommerceState(
   const autoCfg = readAutoBusinessHoursConfig(businessHoursJson);
   const dbOk = isStoreDbOpenForCommerce(dbIsOpen);
 
-  const withinSchedule = autoCfg ? isNowWithinAutoSchedule(autoCfg, now) : true;
+  const schedule = autoCfg ? evaluateAutoSchedule(autoCfg, now) : null;
+  const withinSchedule = schedule ? schedule.within : true;
   const inBreak =
     breakIv != null &&
     dbOk &&
@@ -166,9 +197,19 @@ export function resolveStoreFrontCommerceState(
     isNowWithinBreakWindow(breakIv.start, breakIv.end, tz, now);
 
   const isOpenForCommerce = dbOk && withinSchedule && !inBreak;
+  const reason: StoreFrontCommerceReason = !dbOk
+    ? "manual_closed"
+    : !withinSchedule
+      ? schedule?.closedDay
+        ? "closed_day"
+        : "outside_hours"
+      : inBreak
+        ? "break"
+        : "open";
 
   return {
     isOpenForCommerce,
+    reason,
     inBreak,
     breakConfigured,
     breakRangeLabel,
@@ -229,6 +270,18 @@ export function readAutoHoursFormFields(raw: unknown): {
     autoHoursOpen: open,
     autoHoursClose: close,
   };
+}
+
+/** OPS-03 오너 폼 초기값 — 자동 ON/OFF 와 무관하게 저장된 요일별·휴무일 설정 */
+export function readAutoHoursScheduleExtFormFields(raw: unknown): {
+  weekly: StoreWeeklyHours | null;
+  closedDates: string[];
+} {
+  const o = coerceBusinessHoursRecord(raw);
+  const a = o.auto_business_hours;
+  if (!a || typeof a !== "object" || Array.isArray(a)) return { weekly: null, closedDates: [] };
+  const r = a as Record<string, unknown>;
+  return { weekly: sanitizeStoreWeeklyHours(r.weekly), closedDates: sanitizeStoreClosedDates(r.closed_dates) };
 }
 
 /** business_hours_json — 휴게(쉬는 시간) 구간. 비우면 저장 시 break 필드 생략 */

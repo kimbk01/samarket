@@ -7,6 +7,7 @@ import { invalidateStorePublicCachesForSlug } from "@/lib/stores/store-public-ca
 import { StoreOpsOnOffSwitch } from "@/components/business/admin/StoreOpsOnOffSwitch";
 import { parsePostgresBool } from "@/lib/community-feed/parse-postgres-bool";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OwnerStoreCommerceStateLabel } from "@/components/business/owner/OwnerStoreCommerceStateLabel";
 
 /** `stores.is_open` — null/미설정은 영업 중(기존 `!== false` 와 동일). 문자열 "false" 등은 parse 로 처리 */
 function isStoreOpen(row: StoreRow): boolean {
@@ -67,7 +68,9 @@ export function BusinessAdminOpenToggle({
 
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <span className="sam-text-helper font-semibold text-sam-fg">{t("business_phase7_198")}</span>
+      {/* OPS-04 — 실효 상태(스케줄·휴게·휴무 반영) + 토글은 수동 플래그임을 라벨로 명시 */}
+      <OwnerStoreCommerceStateLabel row={row} />
+      <span className="sam-text-helper font-semibold text-sam-fg">{t("business_ops3b_open_toggle_manual")}</span>
       <StoreOpsOnOffSwitch
         checked={shownOpen}
         disabled={disabled}

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getApprovedStoreBySlug, STORE_SELECT_ID_SLUG_GATE } from "@/lib/stores/get-approved-store-by-slug";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { isScheduleRowActive, type StoreNoticePublicRow } from "@/lib/stores/store-banners-notices-public";
+import {
+  isStoreNoticesTableMissingError,
+  storeNoticesUnavailableBody,
+} from "@/lib/stores/store-notices-availability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,8 +38,10 @@ export async function GET(_req: Request, context: { params: Promise<{ slug: stri
     .order("id", { ascending: true });
 
   if (error) {
-    if (/does not exist|schema cache/i.test(String(error.message))) {
-      return NextResponse.json({ ok: true, notices: [], meta: { source: "migration_pending" } });
+    // OPS-01 — 테이블 부재는 「공지 없음」이 아니라 기능 불가(503). 클라이언트는 비-200 을 캐시하지 않는다.
+    if (isStoreNoticesTableMissingError(error)) {
+      console.error("[GET store notices] table missing", error.message);
+      return NextResponse.json(storeNoticesUnavailableBody(), { status: 503 });
     }
     console.error("[GET store notices]", error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

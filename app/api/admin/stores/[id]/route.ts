@@ -15,7 +15,7 @@ import { ADMIN_REASON_REQUIRED_CODE } from "@/lib/admin/operator-ux/admin-reason
 import { isAdminStorePatchAction } from "@/lib/admin-business/admin-store-patch-commands";
 import { buildStoreTaxonomyPatch } from "@/lib/stores/build-store-taxonomy-patch";
 import { loadBusinessControlCenterDetail } from "@/lib/admin-business/load-business-control-center-detail";
-import { sanitizeBusinessHoursJsonForPersistence } from "@/lib/stores/serialize-store-business-hours-json";
+import { normalizeStoreBusinessHoursJsonForWrite } from "@/lib/stores/owner-store-patch-fields";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { normalizePhMobileDb } from "@/lib/utils/ph-mobile";
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
@@ -590,18 +590,12 @@ export async function PATCH(
 
   if (action === "set_business_hours") {
     const before = { business_hours_json: store.business_hours_json };
-    let nextHours: unknown = null;
-    if (body.business_hours_json === null) {
-      nextHours = null;
-    } else if (
-      typeof body.business_hours_json === "object" &&
-      body.business_hours_json !== null &&
-      !Array.isArray(body.business_hours_json)
-    ) {
-      nextHours = sanitizeBusinessHoursJsonForPersistence(body.business_hours_json);
-    } else {
-      return NextResponse.json({ ok: false, error: "invalid_business_hours_json" }, { status: 400 });
+    // OPS-09 — NOT NULL DEFAULT '{}': null(초기화) → {} (오너 PATCH 와 같은 정규화).
+    const hours = normalizeStoreBusinessHoursJsonForWrite(body.business_hours_json);
+    if (!hours.ok) {
+      return NextResponse.json({ ok: false, error: hours.error }, { status: 400 });
     }
+    const nextHours = hours.value;
     const { error: upErr } = await sb
       .from("stores")
       .update({ business_hours_json: nextHours })

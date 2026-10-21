@@ -690,6 +690,11 @@ export function OwnerStoreBasicInfoForm({
       return false;
     }
     const gcashDb = normalizePhMobileDb(values.email);
+    // OPS-05 — stores.email = GCash 번호. 입력했는데 형식이 틀리면 null 로 지우지 않고 막는다 (서버도 400).
+    if (parsePhMobileInput(values.email) && !gcashDb) {
+      setError(t("business_ops3b_err_invalid_gcash"));
+      return false;
+    }
     if (identityEditable) {
       const name = values.shopName.trim();
       if (name.length < 2) {
@@ -808,7 +813,11 @@ export function OwnerStoreBasicInfoForm({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(basicInfoPatch),
+        body: JSON.stringify({
+          ...basicInfoPatch,
+          /** OPS-09 — 읽은 뒤 다른 저장이 있었으면 409 store_changed */
+          ...(row.updated_at ? { expected_updated_at: row.updated_at } : {}),
+        }),
       });
       const j = await res.json().catch(() => ({}));
       if (res.status === 401) {
