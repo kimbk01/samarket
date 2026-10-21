@@ -186,10 +186,10 @@
 |---|---|---|---|---|
 | N-4B | 레거시 정산·충전요청 쓰기 권한 | 해결 | `cf1a3a88`/`6f8d135c` · `20270603150100`/`20270603110400` · `iso:stage2-2ef`(20_n4b) | — |
 | N-5 | `internal.is_admin_user()` 드리프트·anon SELECT | 해결 | `661924df` · `20270602140000`(운영 원문 고정·anon SELECT 명시 회수) · `iso:store-contract` | — |
-| J-1 | 접수 전 거절 사유 유실 (`OwnerStoreOrderDeliveryActions.tsx`) | 해결(최종 수정) | 최종 수정 커밋(SHA 반영 보고에서 확정) | 메신저 오너 액션바·판매자 패널 화면 L5 |
-| J-2 | 오너 PATCH `accepted→cancelled` 원장 없음 (`orders/[orderId]/route.ts`) | 해결(최종 수정) | 최종 수정 커밋 | — |
-| J-3 | 관리자 주문 상세 「주문 당시 판정」 없음 (`load-admin-store-order-detail.ts`) | 해결(최종 수정) | 최종 수정 커밋 | 관리자 화면 표시 L5 |
-| X-1 | 운영 `store_order_deliveries.failure_reason` 없음 → 관리자 `delivery_failed` 503 | 해결(최종 수정) | 마이그레이션 `20270605100000` · 운영 컬럼 적용 2026-10-21 | 관리자 배달 실패 처리 화면 L5 |
+| J-1 | 접수 전 거절 사유 유실 (`OwnerStoreOrderDeliveryActions.tsx`) | 해결(최종 수정) | `0e9b50ff` · `owner-delivery-actions-reject-reason.test.tsx` | 메신저 오너 액션바·판매자 패널 화면 L5 |
+| J-2 | 오너 PATCH `accepted→cancelled` 원장 없음 (`orders/[orderId]/route.ts`) | 해결(최종 수정) | `0e9b50ff` · `s04-owner-direct-cancel.test.ts` (pending·accepted PATCH 400, 사유 RPC) | — |
+| J-3 | 관리자 주문 상세 「주문 당시 판정」 없음 (`load-admin-store-order-detail.ts`) | 해결(최종 수정) | `0e9b50ff` · `admin-order-checkout-judgement.test.ts` | 관리자 화면 표시 L5 |
+| X-1 | 운영 `store_order_deliveries.failure_reason` 없음 → 관리자 `delivery_failed` 503 | 해결(최종 수정) | `0e9b50ff` · 마이그레이션 `20270605100000` · 운영 컬럼 적용 확인 2026-10-21 | 관리자 배달 실패 처리 화면 L5 |
 | X-2 | 운영 `delivery_riders` 관리자 센터 드리프트(`20260517120000` 미적용: `admin_status`·`admin_note`·`suspended_at`·`suspended_by`·`admin_delivery_riders_operations_snapshot`) | 미해결 | 운영 읽기 전용 확인(2026-10-21) | 보고만 — 운영 적용은 Owner 승인 필요. 운영 라이더 0(DLV-01) |
 
 참고: N-1·N-2·N-3·N-4A 는 신규가 아니라 OPS-06·LOC-014·ACC-05(권한)·FIN-09 의 재묶음이라 해당 행에 반영했다. ND-1(관리자 잠금)·ND-2(핵심 정보 재검증)는 Owner 결정으로 PRD-03~07·ACC-06 행에 포함된다.
