@@ -2251,8 +2251,8 @@ export function ChatDetailView({
         )
       ) : (
         <div
-          className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-sam-surface safe-area-pb ${isStoreOrderChat ? "border-sam-border" : "border-sam-border"} ${!canWriteTradeMessage ? "pt-2" : "pt-3"}`}
-          style={{ paddingBottom: "max(0.5rem, var(--safe-bottom))" }}
+          className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-sam-surface ${isStoreOrderChat ? "border-sam-border" : "border-sam-border"} ${!canWriteTradeMessage ? "pt-2" : "pt-3"}`}
+          data-chat-composer-wrap=""
         >
           {!canWriteTradeMessage ? (
             <div className="rounded-t-lg border-x border-t border-sam-border-soft bg-sam-primary-soft/35 px-4 pb-2 pt-1.5 text-center">

@@ -104,4 +104,22 @@ describe("cm-room-visible-viewport-contract", () => {
   it("navigation gap constant is 48px for OneUI dedupe contract", () => {
     expect(CM_ROOM_NAVIGATION_GAP_PX).toBe(48);
   });
+  it("KB-04: portrait baseline does not mark landscape (keyboard closed) as open", () => {
+    vi.stubGlobal("window", { innerWidth: 800, innerHeight: 1280, visualViewport: { offsetTop: 0, height: 1280 } });
+    const p = buildCmRoomVisibleViewportSnapshot(0);
+    vi.stubGlobal("window", { innerWidth: 1280, innerHeight: 800, visualViewport: { offsetTop: 0, height: 800 } });
+    const l = buildCmRoomVisibleViewportSnapshot(p.baselineClosedHeightPx, p.baselineLayoutWidthPx);
+    expect(l.keyboardOpen).toBe(false);
+    expect(l.baselineClosedHeightPx).toBe(800);
+    vi.stubGlobal("window", { innerWidth: 1280, innerHeight: 480, visualViewport: { offsetTop: 0, height: 480 } });
+    const k = buildCmRoomVisibleViewportSnapshot(l.baselineClosedHeightPx, l.baselineLayoutWidthPx);
+    expect(k.keyboardOpen).toBe(true);
+  });
+
+  it("KB-04: same width keeps the baseline (keyboard shrink detected)", () => {
+    vi.stubGlobal("window", { innerWidth: 390, innerHeight: 520, visualViewport: { offsetTop: 0, height: 520 } });
+    const k = buildCmRoomVisibleViewportSnapshot(844, 390);
+    expect(k.keyboardOpen).toBe(true);
+    expect(k.baselineClosedHeightPx).toBe(844);
+  });
 });

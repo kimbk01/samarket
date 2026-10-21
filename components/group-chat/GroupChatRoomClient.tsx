@@ -221,7 +221,7 @@ export function GroupChatRoomClient({
       </div>
 
       {!loading && !err ? (
-        <div className="shrink-0 border-t border-sam-border bg-sam-surface safe-area-pb">
+        <div className="shrink-0 border-t border-sam-border bg-sam-surface">
           <ChatInputBar
             onSend={handleSend}
             draftStorageKey={`group-chat:${roomId}`}

@@ -5,6 +5,7 @@ import { subscribeSamarketShellKeyboardInsets } from "@/lib/platform/samarket-sh
 import { emitCmRoomKbProbe } from "@/lib/ui/cm-room-kb-viewport-probe";
 import {
   buildCmRoomVisibleViewportSnapshot,
+  resolveCmRoomLayoutWidthPx,
   CM_ROOM_CHROME_HEIGHT_SYNC_EVENT,
   CM_ROOM_TAIL_COMPOSER_GAP_DEFAULT_PX,
   resolveCmRoomComposerBottomPaddingPx,
@@ -117,6 +118,7 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
     const messengerPage = resolveMessengerPage(shell);
 
     let baselineClosedHeightPx = resolveCmRoomShellVisualFramePx().heightPx;
+    let baselineLayoutWidthPx = resolveCmRoomLayoutWidthPx();
     let syncRaf = 0;
     let chromeSyncPending = false;
     let lastKeyboardOpen: boolean | null = null;
@@ -138,8 +140,9 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
         `${Math.max(tailGapPx, tradeDockPx + tailGapPx)}px`
       );
 
-      const snapshot = buildCmRoomVisibleViewportSnapshot(baselineClosedHeightPx);
+      const snapshot = buildCmRoomVisibleViewportSnapshot(baselineClosedHeightPx, baselineLayoutWidthPx);
       baselineClosedHeightPx = snapshot.baselineClosedHeightPx;
+      baselineLayoutWidthPx = snapshot.baselineLayoutWidthPx;
       const frame = resolveCmRoomShellVisualFramePx();
 
       shell.dataset.cmKeyboardOpen = snapshot.keyboardOpen ? "true" : "false";
@@ -244,8 +247,8 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       clearIosMessengerPageVisualBand(messengerPage);
       applyIosDocumentScrollLock(false);
       shell.style.removeProperty("height");
-      shell.style.removeProperty("maxHeight");
-      shell.style.removeProperty("minHeight");
+      shell.style.removeProperty("max-height");
+      shell.style.removeProperty("min-height");
       shell.style.removeProperty("--cm-room-visible-height");
       shell.style.removeProperty("--cm-room-header-height");
       shell.style.removeProperty("--cm-room-composer-bottom-padding");

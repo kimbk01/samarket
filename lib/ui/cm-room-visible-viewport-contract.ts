@@ -18,6 +18,8 @@ export type CmRoomVisibleViewportSnapshot = {
   keyboardOpen: boolean;
   overlayGapPx: number;
   baselineClosedHeightPx: number;
+  /** baseline 을 잰 레이아웃 폭 — 폭이 바뀌면(회전·분할) baseline 을 새로 잡는다 (KB-04) */
+  baselineLayoutWidthPx: number;
 };
 
 export type CmRoomShellVisualFramePx = {
@@ -112,20 +114,37 @@ export function resolveCmRoomComposerBottomPaddingPx(args: {
   return 0;
 }
 
+export function resolveCmRoomLayoutWidthPx(): number {
+  if (typeof window === "undefined") return 0;
+  return Math.round(window.innerWidth);
+}
+
+/**
+ * KB-04 — 키보드 닫힘 baseline 은 같은 레이아웃 폭에서만 유효.
+ * 회전·분할로 폭이 바뀌면 이전 방향의 높이를 버리고 현재 vv 높이에서 다시 시작한다
+ * (세로 baseline 으로 가로 화면을 「키보드 열림」으로 오판하지 않는다).
+ */
 export function buildCmRoomVisibleViewportSnapshot(
-  baselineClosedHeightPx: number
+  baselineClosedHeightPx: number,
+  baselineLayoutWidthPx?: number
 ): CmRoomVisibleViewportSnapshot {
   const visibleHeightPx = resolveCmRoomVisibleViewportHeightPx();
   const overlayGapPx = resolveCmRoomVisualViewportOverlayGapPx();
-  const keyboardOpen = resolveCmRoomKeyboardOpenFromViewport(baselineClosedHeightPx);
-  const nextBaseline = keyboardOpen
-    ? baselineClosedHeightPx
-    : Math.max(baselineClosedHeightPx, visibleHeightPx);
+  const layoutWidthPx = resolveCmRoomLayoutWidthPx();
+  const widthChanged =
+    typeof baselineLayoutWidthPx === "number" &&
+    baselineLayoutWidthPx > 0 &&
+    layoutWidthPx > 0 &&
+    baselineLayoutWidthPx !== layoutWidthPx;
+  const baseline = widthChanged ? visibleHeightPx : baselineClosedHeightPx;
+  const keyboardOpen = resolveCmRoomKeyboardOpenFromViewport(baseline);
+  const nextBaseline = keyboardOpen ? baseline : Math.max(baseline, visibleHeightPx);
 
   return {
     visibleHeightPx,
     keyboardOpen,
     overlayGapPx,
     baselineClosedHeightPx: nextBaseline,
+    baselineLayoutWidthPx: layoutWidthPx,
   };
 }

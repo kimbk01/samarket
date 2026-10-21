@@ -43,7 +43,7 @@ export function MessengerSplitTopBar({ className = "" }: { className?: string })
             ) : (
               <span className="inline-block h-10 w-10 shrink-0" aria-hidden />
             )}
-            <h1 className="min-w-0 flex-1 truncate text-left text-[17px] font-bold leading-tight tracking-[-0.3px] text-[color:var(--sector-header-title-color,#243832)]">
+            <h1 className="min-w-0 flex-1 truncate text-left text-[17px] font-semibold leading-tight tracking-[-0.3px] text-[color:var(--sector-header-title-color,#243832)]">
               {title}
             </h1>
           </div>
@@ -69,7 +69,7 @@ export function MessengerSplitTopBar({ className = "" }: { className?: string })
           ) : (
             <span className="inline-block h-10 w-10 shrink-0" aria-hidden />
           )}
-          <h1 className="min-w-0 flex-1 truncate text-left text-[17px] font-bold leading-tight tracking-[-0.3px] text-[color:var(--sector-header-title-color,#243832)]">
+          <h1 className="min-w-0 flex-1 truncate text-left text-[17px] font-semibold leading-tight tracking-[-0.3px] text-[color:var(--sector-header-title-color,#243832)]">
             {title}
           </h1>
         </div>

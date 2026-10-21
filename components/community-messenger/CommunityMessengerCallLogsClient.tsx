@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { MessengerCallLogsPanel } from "@/components/community-messenger/MessengerCallLogsPanel";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DetailHeader } from "@/components/layout/sector-header";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import {
   messengerInboxHrefWithOrigin,
   parseMessengerEntryOrigin,
@@ -17,12 +19,20 @@ export function CommunityMessengerCallLogsClient() {
   const searchParams = useSearchParams();
   const fromUrl = parseMessengerEntryOrigin(searchParams.get("from"));
   const inboxHref = messengerInboxHrefWithOrigin(fromUrl ?? readStoredMessengerEntryOrigin());
+  /** ≥768 분할 우측 패널 — 패널 높이 안에서 스크롤 (SPL-03). 휴대폰은 기존 전체 페이지 */
+  const isSplit = useIsMessengerSplitViewport();
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-sam-app">
+    <div
+      className={
+        isSplit
+          ? "flex h-full min-h-0 flex-col overflow-y-auto bg-sam-app"
+          : "flex min-h-[100dvh] flex-col bg-sam-app"
+      }
+    >
       <DetailHeader
         title={t("cm_ui_call_logs_title")}
-        onBack={() => router.back()}
+        onBack={() => runHistoryBackWithFallback(router, inboxHref)}
         rightSlot={
           <Link
             href={inboxHref}

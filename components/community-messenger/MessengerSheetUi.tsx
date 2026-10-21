@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import {
   MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
   MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS,
@@ -41,6 +42,8 @@ export function MessengerHomeBottomSheetShell({
 }) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
+  /** 마운트 = 열림 — Android 시스템 뒤로는 이 시트만 닫는다 (INAPP-07 오버레이 스택, SPL-05) */
+  useOverlayHardwareBack(true, onClose);
 
   useEffect(() => {
     setMounted(true);

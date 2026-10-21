@@ -68,6 +68,7 @@ import { messengerMediaRouteUrlFor } from "@/lib/community-messenger/media/messe
 import { openMessengerFileInNativeShellIfNeeded } from "@/lib/community-messenger/messenger-file-download";
 import { CommunityMessengerGroupMemberPicker } from "@/components/community-messenger/group/CommunityMessengerGroupMemberPicker";
 import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
 import { MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 
@@ -109,6 +110,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
     if (vm.activeSheet === "attach-confirm") vm.cancelAttachmentConfirm();
     else vm.dismissRoomSheet();
   };
+  /**
+   * Android 시스템 뒤로 = 방 시트만 닫기 (INAPP-07 오버레이 스택, 열려 있을 때만 리스너).
+   * 미등록이면 WebView 히스토리 뒤로 → 방 자체를 떠나던 결함 (SPL-05). 전역 가로채기 아님.
+   */
+  useOverlayHardwareBack(Boolean(vm.activeSheet), dismissSheet);
   return (
     <>
       {vm.activeSheet ? (

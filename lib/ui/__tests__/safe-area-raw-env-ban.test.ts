@@ -17,9 +17,6 @@ const ALLOW_EXACT = new Set([
   "components/community-messenger/CommunityMessengerCallClient.tsx",
   "components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx",
   "lib/community-messenger/call-pip-metrics.ts",
-  // 아래 2개는 같은 작업 브랜치의 WP-C(메신저)에서 제거된다.
-  "components/community-messenger/room/MessengerRoomNewMessagesBelowChip.tsx",
-  "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",
 ]);
 
 const ALLOW_PREFIX = [
