@@ -135,6 +135,11 @@ function AdminDeliveryDistanceSettingsPageInner() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const [policySaved, setPolicySaved] = useState<DeliveryDistancePolicy>(DEFAULT_POLICY);
+  /** LOC-011 — stored raw policy fields that differ from the applied (normalized) values. */
+  const [policyRawDiff, setPolicyRawDiff] = useState<{ normalizedOnSave: string[]; ignored: string[] }>({
+    normalizedOnSave: [],
+    ignored: [],
+  });
   /** admin_settings 행 버전 (`settings_updated_at`) — 전역 저장 PUT expected_updated_at (CAS). */
   const [settingsVersions, setSettingsVersions] = useState<Record<string, string | null> | null>(null);
   const [policyDraft, setPolicyDraft] = useState<DeliveryDistancePolicy>(DEFAULT_POLICY);
@@ -212,6 +217,7 @@ function AdminDeliveryDistanceSettingsPageInner() {
         ok?: boolean;
         error?: string;
         distance_policy?: unknown;
+        distance_policy_raw_diff?: { normalizedOnSave?: unknown; ignored?: unknown } | null;
         store_distance_overrides?: unknown;
         settings_updated_at?: Record<string, string | null> | null;
       };
@@ -226,6 +232,13 @@ function AdminDeliveryDistanceSettingsPageInner() {
       setOverridesSaved(nextOverrides);
       setOverridesDraft(nextOverrides);
       setSettingsVersions(settingsJson.settings_updated_at ?? null);
+      const rawDiff = settingsJson.distance_policy_raw_diff;
+      setPolicyRawDiff({
+        normalizedOnSave: Array.isArray(rawDiff?.normalizedOnSave)
+          ? rawDiff.normalizedOnSave.map(String)
+          : [],
+        ignored: Array.isArray(rawDiff?.ignored) ? rawDiff.ignored.map(String) : [],
+      });
     } catch {
       setError(t("admin_delivery_distance_error_network"));
     } finally {
@@ -501,6 +514,18 @@ function AdminDeliveryDistanceSettingsPageInner() {
         <p className="mt-1 sam-text-helper text-sam-muted">
           {t("admin_delivery_distance_legacy_radius_note")}
         </p>
+        {policyRawDiff.normalizedOnSave.length > 0 ? (
+          <p className="mt-1 sam-text-helper text-sam-warning" data-testid="delivery-distance-raw-normalized">
+            {t("admin_delivery_distance_raw_normalized_note", {
+              fields: policyRawDiff.normalizedOnSave.join(", "),
+            })}
+          </p>
+        ) : null}
+        {policyRawDiff.ignored.length > 0 ? (
+          <p className="mt-1 sam-text-helper text-sam-muted">
+            {t("admin_delivery_distance_raw_ignored_note", { fields: policyRawDiff.ignored.join(", ") })}
+          </p>
+        ) : null}
       </section>
 
       <section className="mt-5 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">

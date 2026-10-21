@@ -31,9 +31,15 @@ describe("CUT 7 cart address-change policy", () => {
     expect(cartPage).toContain("fetchStoreDeliveryServiceabilityClient");
     expect(cartPage).toContain("setDeliveryAddressRevalidatedNotice(true)");
     expect(cartPage).toContain("userPickedDeliveryAddressRef.current = false");
-    expect(cartPage).toContain("store_err_delivery_out_of_range");
-    expect(cartPage).toContain("store_cart_delivery_unavailable_title");
-    expect(cartPage).toContain("store_cart_delivery_unavailable_body");
+    // LOC-010: block copy keys resolved by reason in the shared serviceability client helper.
+    expect(cartPage).toContain("resolveDeliveryDistanceBlockCopyKeys");
+    const svcClient = readFileSync(
+      join(process.cwd(), "lib/stores/fetch-store-delivery-serviceability-client.ts"),
+      "utf8",
+    );
+    expect(svcClient).toContain("store_err_delivery_out_of_range");
+    expect(svcClient).toContain("store_cart_delivery_unavailable_title");
+    expect(svcClient).toContain("store_cart_delivery_unavailable_body");
     expect(cartPage).toContain("StoreCartDeliveryUnavailableDialog");
     expect(cartPage).toContain("store_cart_out_of_range_change_address");
     expect(cartPage).toContain("store_cart_out_of_range_clear_cart");

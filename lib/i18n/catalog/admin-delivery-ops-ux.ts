@@ -55,6 +55,11 @@ export const adminDeliveryOpsUxMessages = {
       "종료하면 이후 주문부터 상위 정책(업종 → 플랫폼 기본)이 적용됩니다. 변경 사유를 입력하세요. 작업 기록에 남습니다.",
     admin_stores_fee_deactivate_confirm_cta: "정책 종료",
     admin_stores_fee_change_reason_placeholder: "변경 사유 (2자 이상)",
+    // LOC-011 — 저장된 거리정책 원값이 코드 적용값과 다를 때
+    admin_delivery_distance_raw_normalized_note:
+      "저장된 거리 정책 원값 중 일부({fields})는 현재 적용 값과 달라 화면에는 실제 적용 값으로 표시합니다. 다음 저장 시 적용 값으로 정규화되어 기록됩니다.",
+    admin_delivery_distance_raw_ignored_note:
+      "저장된 값 중 {fields} 는 현재 판정에 쓰이지 않습니다(매장별 배달 반경이 기준).",
   },
   en: {
     admin_menu_store_orders_action_queue: "Orders needing action",
@@ -105,5 +110,9 @@ export const adminDeliveryOpsUxMessages = {
       "Orders after this will use the parent policy (category → platform default). Enter a reason; it is recorded in the activity log.",
     admin_stores_fee_deactivate_confirm_cta: "End policy",
     admin_stores_fee_change_reason_placeholder: "Reason for change (2+ characters)",
+    admin_delivery_distance_raw_normalized_note:
+      "Some stored distance-policy values ({fields}) differ from what is applied, so this screen shows the applied values. They are normalized to the applied values on the next save.",
+    admin_delivery_distance_raw_ignored_note:
+      "Stored {fields} is not used for eligibility (each store's delivery radius is the authority).",
   },
 } as const;

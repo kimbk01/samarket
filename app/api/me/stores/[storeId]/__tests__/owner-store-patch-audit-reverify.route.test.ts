@@ -121,7 +121,7 @@ describe("owner store PATCH — audit · re-verification · cache bump", () => {
 
   it("ND-2: approved store coordinate change → applied + flagged in the same UPDATE + admin notified", async () => {
     gate("approved");
-    const res = await PATCH(req({ lat: 14.7, lng: 121.1 }), ctx);
+    const res = await PATCH(req({ lat: 14.7, lng: 121.1, confirmLocationMove: true }), ctx);
     expect(res.status).toBe(200);
     expect(updates).toHaveLength(1);
     expect(updates[0]).toMatchObject({
@@ -152,7 +152,7 @@ describe("owner store PATCH — audit · re-verification · cache bump", () => {
 
   it("ND-2: non-approved store (in review) address change → no flag", async () => {
     gate("pending");
-    await PATCH(req({ lat: 14.7, lng: 121.1 }), ctx);
+    await PATCH(req({ lat: 14.7, lng: 121.1, confirmLocationMove: true }), ctx);
     expect(updates[0]).not.toHaveProperty("core_info_review_status");
     expect(createAdminNotification).not.toHaveBeenCalled();
   });
@@ -160,7 +160,7 @@ describe("owner store PATCH — audit · re-verification · cache bump", () => {
   it("ND-2: before the flag migration is applied, the change still saves without the flag", async () => {
     gate("approved");
     updateErrors = [{ message: "Could not find the 'core_info_changed_at' column of 'stores' in the schema cache" }];
-    const res = await PATCH(req({ lat: 14.7, lng: 121.1 }), ctx);
+    const res = await PATCH(req({ lat: 14.7, lng: 121.1, confirmLocationMove: true }), ctx);
     expect(res.status).toBe(200);
     expect(updates).toHaveLength(2);
     expect(updates[1]).not.toHaveProperty("core_info_review_status");

@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isDeliveryOrderingBlockedByServiceability } from "@/lib/stores/delivery-ordering-eligibility";
-import { isDeliveryDistanceOrderBlocked } from "@/lib/stores/fetch-store-delivery-serviceability-client";
+import {
+  isDeliveryDistanceOrderBlocked,
+  resolveDeliveryDistanceBlockCopyKeys,
+} from "@/lib/stores/fetch-store-delivery-serviceability-client";
 import { CART_ADDRESS_CHANGE_POLICY } from "@/lib/store-commerce/cart-address-change-policy";
 
 describe("CUT 8 store detail / add-to-cart eligibility", () => {
@@ -43,14 +46,21 @@ describe("CUT 8 store detail / add-to-cart eligibility", () => {
         eligible: true,
       }),
     ).toBe(false);
-    expect(
-      isDeliveryDistanceOrderBlocked({
-        ok: true,
-        applies: true,
-        eligible: false,
-        reason: "missing_customer_coords",
-      }),
-    ).toBe(false);
+  });
+
+  it("LOC-010 missing_customer_coords: member blocked (same as checkout), guest not blocked", () => {
+    const svc = { ok: true, applies: true, eligible: false, reason: "missing_customer_coords" };
+    expect(isDeliveryDistanceOrderBlocked(svc, { viewerIsGuest: true })).toBe(false);
+    expect(isDeliveryDistanceOrderBlocked(svc, { viewerIsGuest: false })).toBe(true);
+    expect(resolveDeliveryDistanceBlockCopyKeys("missing_customer_coords").bodyKey).toBe(
+      "store_err_delivery_customer_coords_required",
+    );
+    expect(resolveDeliveryDistanceBlockCopyKeys("missing_store_coords").inlineKey).toBe(
+      "store_err_delivery_store_coords_required",
+    );
+    expect(resolveDeliveryDistanceBlockCopyKeys("out_of_range").inlineKey).toBe(
+      "store_err_delivery_out_of_range",
+    );
   });
 
   it("V2 missing_lgu_identity: guest not blocked in UI, member stays fail-closed", () => {

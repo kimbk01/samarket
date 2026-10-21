@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { maskBuyerContactForOwner } from "@/lib/stores/mask-buyer-contact-for-owner";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -139,7 +140,12 @@ export async function GET(
   if (!metaOnly && !ownerOrdersListBypass) {
     const listCached = peekOwnerStoreOrdersListServerCache(id, userId);
     if (listCached) {
-      const body = { ok: true as const, meta: listCached.meta, orders: listCached.orders };
+      // LOC-008 — mask at response time (cache keeps raw rows; masking depends on "now").
+      const body = {
+        ok: true as const,
+        meta: listCached.meta,
+        orders: listCached.orders.map((o) => maskBuyerContactForOwner(o)),
+      };
       const total_ms = Math.round(perfNowMs() - wall0);
       logOwnerDashboardPerf({
         route: ROUTE,
@@ -271,7 +277,7 @@ export async function GET(
     store_pickup_address_lines: pickupLinesFromSnapshot(snap.storePickupAddress),
   };
 
-  const body = { ok: true as const, meta, orders };
+  const body = { ok: true as const, meta, orders: orders.map((o) => maskBuyerContactForOwner(o)) };
   const total_ms = Math.round(perfNowMs() - wall0);
 
   setOwnerStoreOrdersListServerCache(id, userId, {

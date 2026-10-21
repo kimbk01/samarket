@@ -85,6 +85,13 @@ const OWNER_BASIC_INFO_SUBBLOCK_HEAD_CLASS =
 const OWNER_BASIC_INFO_CHECKBOX_ROW_CLASS =
   "flex min-h-[60px] cursor-pointer items-start gap-3 rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-3 transition-colors hover:border-[var(--biz-primary)]/45 active:bg-[var(--biz-primary-soft)]";
 
+/** LOC-013 — 7 dp coordinate equality (same rule as server `sameStoreCoord`). */
+function sameStoreCoordClient(a: number, saved: unknown): boolean {
+  const b = typeof saved === "number" ? saved : saved == null ? null : Number(saved);
+  if (b == null || !Number.isFinite(b)) return false;
+  return Math.round(a * 1e7) === Math.round(b * 1e7);
+}
+
 function OwnerBasicInfoSubBlock({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className={`${OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS} border-[var(--biz-card-border)] bg-[var(--biz-card-bg)]`}>
@@ -365,6 +372,10 @@ export function OwnerStoreBasicInfoForm({
   const [leavePrompt, setLeavePrompt] = useState<OwnerBasicInfoLeaveDetail | null>(null);
   const [leaveSaving, setLeaveSaving] = useState(false);
   const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
+  /** LOC-007 — server asked to confirm a > 1 km / other-LGU pin move (409). */
+  const [locationMoveConfirm, setLocationMoveConfirm] = useState<{ description: string } | null>(
+    null
+  );
 
   const isDirty =
     baselineSnapshot != null &&
@@ -681,7 +692,10 @@ export function OwnerStoreBasicInfoForm({
     );
   }, [row, taxonomy, identityEditable, useDbTaxonomy, storeLinkedUserAddress]);
 
-  const runSave = async (options?: { skipPrompt?: boolean }): Promise<boolean> => {
+  const runSave = async (options?: {
+    skipPrompt?: boolean;
+    confirmLocationMove?: boolean;
+  }): Promise<boolean> => {
     setError(null);
     const phoneDigits = parsePhMobileInput(values.phone);
     const phoneDb = phoneDigits ? normalizePhMobileDb(phoneDigits) : null;
@@ -769,8 +783,6 @@ export function OwnerStoreBasicInfoForm({
         }
       }
       if (resolvedLat != null && resolvedLng != null) {
-        basicInfoPatch.lat = resolvedLat;
-        basicInfoPatch.lng = resolvedLng;
         /**
          * 가로 주소·시/주를 바꾸면 이전 Google place_id·formatted_address 가 남지 않도록
          * 같은 PATCH 에서 place_id 해제 + 새 가로 주소로 formatted_address 재구성 (Policy A: lat/lng 동반).
@@ -785,6 +797,13 @@ export function OwnerStoreBasicInfoForm({
           nextStreet !== savedStreet ||
           (regionName ?? "") !== (row.region ?? "").trim() ||
           (cityName ?? "") !== (row.city ?? "").trim();
+        /** LOC-013 — 좌표는 실제로 바뀌었거나 주소 identity 가 바뀔 때(Policy A 동반)만 전송 */
+        const coordsDirty =
+          !sameStoreCoordClient(resolvedLat, row.lat) || !sameStoreCoordClient(resolvedLng, row.lng);
+        if (coordsDirty || streetIdentityChanged) {
+          basicInfoPatch.lat = resolvedLat;
+          basicInfoPatch.lng = resolvedLng;
+        }
         if (streetIdentityChanged) {
           basicInfoPatch.place_id = null;
           basicInfoPatch.formatted_address =
@@ -808,11 +827,31 @@ export function OwnerStoreBasicInfoForm({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(basicInfoPatch),
+        body: JSON.stringify(
+          options?.confirmLocationMove ? { ...basicInfoPatch, confirmLocationMove: true } : basicInfoPatch
+        ),
       });
       const j = await res.json().catch(() => ({}));
       if (res.status === 401) {
         setError(t("common_login_required"));
+        return false;
+      }
+      if (res.status === 409 && j?.error === "store_location_move_confirm_required") {
+        const parts: string[] = [];
+        const km = typeof j.move_km === "number" && Number.isFinite(j.move_km) ? j.move_km : null;
+        const reasons: unknown[] = Array.isArray(j.reasons) ? j.reasons : [];
+        if (km != null && reasons.includes("move_over_1km")) {
+          parts.push(t("business_store_location_move_confirm_body_km", { km: km.toFixed(1) }));
+        }
+        if (reasons.includes("lgu_mismatch")) {
+          parts.push(t("business_store_location_move_confirm_body_lgu"));
+        }
+        const address =
+          [values.addressStreetLine.trim(), cityName, regionName]
+            .filter((x) => !!x && String(x).trim())
+            .join(", ") || "-";
+        parts.push(t("business_store_location_move_confirm_tail", { address }));
+        setLocationMoveConfirm({ description: parts.join(" ") });
         return false;
       }
       if (!j?.ok || !j?.store) {
@@ -1214,6 +1253,24 @@ export function OwnerStoreBasicInfoForm({
         onConfirm={async () => {
           setSaveConfirmOpen(false);
           await runSave({ skipPrompt: true });
+        }}
+      />
+
+      <OwnerStoreAdminConfirmModal
+        open={locationMoveConfirm != null}
+        titleId="owner-basic-info-location-move-confirm-title"
+        title={t("business_store_location_move_confirm_title")}
+        description={locationMoveConfirm?.description ?? null}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("common_save")}
+        confirmBusyLabel={t("business_phase7_384")}
+        busy={submitting}
+        disableActions={submitting || uploading || leaveSaving}
+        confirmTone="primary"
+        onCancel={() => setLocationMoveConfirm(null)}
+        onConfirm={async () => {
+          setLocationMoveConfirm(null);
+          await runSave({ skipPrompt: true, confirmLocationMove: true });
         }}
       />
 

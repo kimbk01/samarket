@@ -108,6 +108,21 @@ export function evaluateDeliveryServiceArea(
     input.storeId,
     input.storeDeliveryRadiusKm
   );
+  // LOC-003: null-geo store is never orderable for local delivery (before policy branch).
+  if (parseFiniteLatitude(input.storeLat) == null || parseFiniteLongitude(input.storeLng) == null) {
+    return {
+      eligible: false,
+      applies: true,
+      authorityMode,
+      reason: "missing_store_coords",
+      distanceKm: null,
+      referenceDistanceKm,
+      maxKm: null,
+      memberLguId: (input.memberLguId ?? "").trim() || null,
+      matchedLguId: null,
+      policySource: gate.policySource,
+    };
+  }
   if (!gate.applies) {
     return {
       eligible: true,

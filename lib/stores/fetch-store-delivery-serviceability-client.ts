@@ -9,6 +9,7 @@
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { forgetSingleFlightsWhere, runSingleFlight } from "@/lib/http/run-single-flight";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type StoreDeliveryServiceabilityClientPayload = {
   ok: boolean;
@@ -152,16 +153,54 @@ export function isDeliveryDistanceOrderBlocked(
   if (!svc || svc.ok !== true) return false;
   if (svc.applies !== true || svc.eligible === true) return false;
   /**
-   * Guest / no master coords: not 「배달 가능 지역 아님」.
-   * Ordering still requires login + address at checkout.
+   * LOC-010: member whose master address has no routable coords (incl. 0,0) is blocked here too —
+   * checkout returns `delivery_customer_coords_required` for the same address.
+   * Guest has no master → not blocked in UI (ordering still requires login + address).
    */
-  if (svc.reason === "missing_customer_coords") return false;
+  if (svc.reason === "missing_customer_coords" && opts?.viewerIsGuest === true) return false;
   /**
    * V2 guest has no member LGU — same as list policy (guest never OOR in UI).
    * Members keep fail-closed; server still blocks at checkout either way.
    */
   if (svc.reason === "missing_lgu_identity" && opts?.viewerIsGuest === true) return false;
   return true;
+}
+
+/**
+ * LOC-010 — cart block copy by serviceability reason (same reason codes as checkout 400).
+ * `bodyKey` = the checkout error copy for the same reason, so pre-check and final check agree.
+ */
+export function resolveDeliveryDistanceBlockCopyKeys(reason: string | null | undefined): {
+  titleKey: MessageKey;
+  bodyKey: MessageKey;
+  inlineKey: MessageKey;
+} {
+  switch (reason) {
+    case "missing_customer_coords":
+      return {
+        titleKey: "store_delivery_routable_repair_title",
+        bodyKey: "store_err_delivery_customer_coords_required",
+        inlineKey: "store_err_delivery_customer_coords_required",
+      };
+    case "missing_store_coords":
+      return {
+        titleKey: "store_cart_delivery_unavailable_title",
+        bodyKey: "store_err_delivery_store_coords_required",
+        inlineKey: "store_err_delivery_store_coords_required",
+      };
+    case "missing_lgu_identity":
+      return {
+        titleKey: "store_delivery_routable_repair_title",
+        bodyKey: "store_err_delivery_customer_lgu_unresolved",
+        inlineKey: "store_err_delivery_customer_lgu_unresolved",
+      };
+    default:
+      return {
+        titleKey: "store_cart_delivery_unavailable_title",
+        bodyKey: "store_cart_delivery_unavailable_body",
+        inlineKey: "store_err_delivery_out_of_range",
+      };
+  }
 }
 
 function onAddressesUpdated(): void {

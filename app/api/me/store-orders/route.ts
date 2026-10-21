@@ -55,8 +55,13 @@ import {
   resolveStoreCouponCheckoutDiscount,
 } from "@/lib/stores/resolve-store-coupon-checkout-discount";
 import { splitCouponFunding } from "@/lib/stores/store-coupon-funding-math";
-import { loadDeliveryDistanceSettings, DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED } from "@/lib/delivery/delivery-ops-settings";
+import {
+  loadDeliveryDistanceSettingsOrThrow,
+  isDeliveryPolicyUnavailableError,
+  DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED,
+} from "@/lib/delivery/delivery-ops-settings";
 import { evaluateDeliveryServiceArea } from "@/lib/delivery/service-area/evaluate-delivery-service-area";
+import { isDeliveryRoutableCoords } from "@/lib/addresses/delivery-routable-address";
 import { loadStoreSelectedDeliveryLguIds } from "@/lib/delivery/service-area/store-delivery-service-areas";
 import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 import { STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY } from "@/lib/delivery/store-order-serviceability-snapshot-ready";
@@ -606,7 +611,16 @@ export async function POST(req: NextRequest) {
   } | null = null;
 
   if (fulfillment === "local_delivery") {
-    const distanceSettings = await loadDeliveryDistanceSettings(sb);
+    let distanceSettings: Awaited<ReturnType<typeof loadDeliveryDistanceSettingsOrThrow>>;
+    try {
+      distanceSettings = await loadDeliveryDistanceSettingsOrThrow(sb);
+    } catch (e) {
+      // LOC-003: policy read error must not fall back to policy OFF on the order path.
+      if (isDeliveryPolicyUnavailableError(e)) {
+        return NextResponse.json({ ok: false, error: "delivery_policy_unavailable" }, { status: 503 });
+      }
+      throw e;
+    }
     const policy = {
       ...distanceSettings.policy,
       enabled: DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED && distanceSettings.policy.enabled,
@@ -622,13 +636,18 @@ export async function POST(req: NextRequest) {
       cityMunicipality: deliveryAddressSnapshot?.city_municipality,
       province: deliveryAddressSnapshot?.province,
     });
+    const customerCoordsRoutable = isDeliveryRoutableCoords(
+      deliveryAddressSnapshot?.latitude,
+      deliveryAddressSnapshot?.longitude
+    );
     const svc = evaluateDeliveryServiceArea({
       policy,
       overrides: distanceSettings.overrides,
       storeId,
       storeDeliveryRadiusKm: (store as { delivery_radius_km?: unknown }).delivery_radius_km,
-      customerLat: deliveryAddressSnapshot?.latitude,
-      customerLng: deliveryAddressSnapshot?.longitude,
+      // LOC-010: same DELIVERY_ROUTABLE contract as GET …/delivery-serviceability (0,0 rejected).
+      customerLat: customerCoordsRoutable ? deliveryAddressSnapshot?.latitude : null,
+      customerLng: customerCoordsRoutable ? deliveryAddressSnapshot?.longitude : null,
       storeLat,
       storeLng,
       authorityMode,

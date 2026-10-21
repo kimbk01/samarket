@@ -44,6 +44,8 @@ export type DeliveryServiceAreaEditorPayload = {
     isStoreHome: boolean;
   }>;
   selectedCount?: number;
+  /** LOC-006 — saved-areas version (max updated_at; null = none). Sent back as `expectedAreasVersion`. */
+  areasVersion?: string | null;
   error?: string;
 };
 
@@ -76,6 +78,10 @@ function serviceAreaErrorKey(
     case "not_found":
     case "store_not_found":
       return "business_delivery_service_area_err_not_found";
+    case "unknown_lgu":
+      return "business_delivery_service_area_err_unknown_lgu";
+    case "service_areas_version_conflict":
+      return "business_delivery_service_area_err_version_conflict";
     default:
       return fallback === "load"
         ? "business_delivery_service_area_err_load"
@@ -183,6 +189,8 @@ export function DeliveryServiceAreaEditorCore({
   const [candidates, setCandidates] = useState<DeliveryServiceAreaCandidateRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activateV2, setActivateV2] = useState(false);
+  /** LOC-006 — saved-areas version this editor loaded (null = none saved); sent back on save (409 if stale). */
+  const areasVersionRef = useRef<string | null | undefined>(undefined);
   const [searchQ, setSearchQ] = useState("");
   const [searchHits, setSearchHits] = useState<
     Array<{ geoIdentity: string; displayName: string; provinceName: string | null }>
@@ -247,6 +255,8 @@ export function DeliveryServiceAreaEditorCore({
     "ml-1.5 inline-flex rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white";
 
   function applyEditorPayload(json: DeliveryServiceAreaEditorPayload) {
+    areasVersionRef.current =
+      json.areasVersion === undefined ? undefined : (json.areasVersion ?? null);
     setAuthorityMode(json.authorityMode || "legacy_radius");
     setReferenceDistanceKm(
       typeof json.referenceDistanceKm === "number" ? json.referenceDistanceKm : null
@@ -428,10 +438,19 @@ export function DeliveryServiceAreaEditorCore({
         body: JSON.stringify({
           geoIdentities: [...selected],
           activateV2: activateV2 === true,
+          ...(areasVersionRef.current !== undefined
+            ? { expectedAreasVersion: areasVersionRef.current }
+            : {}),
         }),
       });
       const json = (await res.json().catch(() => ({}))) as DeliveryServiceAreaEditorPayload;
       if (!res.ok || !json.ok) {
+        if (res.status === 409 && json.error === "service_areas_version_conflict") {
+          // 다른 저장이 먼저 반영됨 — 최신 선택을 불러오고 안내 (덮어쓰지 않음).
+          await load();
+          setError(t(serviceAreaErrorKey(json.error, "save")));
+          return;
+        }
         setError(t(serviceAreaErrorKey(json.error, "save")));
         return;
       }

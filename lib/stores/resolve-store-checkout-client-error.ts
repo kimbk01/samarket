@@ -30,6 +30,8 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   delivery_customer_coords_required: "store_err_delivery_customer_coords_required",
   /** V2 `missing_lgu_identity` — 회원 주소 LGU 미해결 (fail-closed) */
   delivery_customer_lgu_unresolved: "store_err_delivery_customer_lgu_unresolved",
+  /** LOC-003 — 거리 정책 조회 오류 (503, fail-closed) */
+  delivery_policy_unavailable: "store_err_delivery_policy_unavailable",
   delivery_user_address_not_master: "store_err_delivery_user_address_not_master",
   delivery_user_address_invalid: "store_err_delivery_user_address_invalid",
   payment_method_required: "store_err_payment_method",

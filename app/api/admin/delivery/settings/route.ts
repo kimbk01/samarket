@@ -11,6 +11,7 @@ import {
   DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES,
   invalidateDeliveryDistanceSettingsCache,
   invalidateDeliveryRideTimeSourceCache,
+  describeDeliveryDistancePolicyRawDiff,
   normalizeDeliveryDistancePolicy,
   normalizeDeliveryRideTimeSource,
   normalizeDeliveryStoreDistanceOverrides,
@@ -77,6 +78,8 @@ function buildSettingsPayload(rows: { key?: string; value_json?: unknown; update
     store_distance_overrides: normalizeDeliveryStoreDistanceOverrides(
       overridesRow?.value_json ?? DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES
     ),
+    /** LOC-011 — 저장 원값 ≠ 적용 값 필드 (화면 「저장 시 정규화됨」 표기). distance_policy 는 이미 적용 값. */
+    distance_policy_raw_diff: describeDeliveryDistancePolicyRawDiff(distanceRow?.value_json),
     /** 필드별 행 버전 — 저장 시 `expected_updated_at` 으로 그대로 돌려보낸다 (null = 행 없음·기본값). */
     settings_updated_at: buildSettingsVersions(rows),
   };

@@ -7,7 +7,9 @@
  * - store override.mode === "disabled" → distance axis skipped for that store
  * - else maxKm = resolveEffectiveStoreDeliveryRadiusKm(stores.delivery_radius_km)
  *   (NULL → 10 km; NEVER admin defaultMaxKm / override.maxKm)
- * - missing customer/store coords when distance applies → ineligible
+ * - LOC-003 fail-closed: missing store coords → ineligible BEFORE policy/override branches
+ *   (invariant 「null-geo store → not orderable」 for local_delivery)
+ * - missing customer coords when distance applies → ineligible
  * - distanceKm > maxKm → ineligible
  */
 import { haversineKm } from "@/lib/geo/haversine-km";
@@ -83,6 +85,19 @@ export function evaluateDeliveryServiceability(
     input.storeId,
     input.storeDeliveryRadiusKm
   );
+  // LOC-003: store coords are required for local delivery regardless of policy ON/OFF / override.
+  const slat = parseFiniteLatitude(input.storeLat);
+  const slng = parseFiniteLongitude(input.storeLng);
+  if (slat == null || slng == null) {
+    return {
+      eligible: false,
+      distanceKm: null,
+      maxKm: effective.maxKm,
+      applies: true,
+      policySource: effective.policySource,
+      reason: "missing_store_coords",
+    };
+  }
   if (!effective.applies) {
     return {
       eligible: true,
@@ -104,19 +119,6 @@ export function evaluateDeliveryServiceability(
       applies: true,
       policySource: effective.policySource,
       reason: "missing_customer_coords",
-    };
-  }
-
-  const slat = parseFiniteLatitude(input.storeLat);
-  const slng = parseFiniteLongitude(input.storeLng);
-  if (slat == null || slng == null) {
-    return {
-      eligible: false,
-      distanceKm: null,
-      maxKm: effective.maxKm,
-      applies: true,
-      policySource: effective.policySource,
-      reason: "missing_store_coords",
     };
   }
 
