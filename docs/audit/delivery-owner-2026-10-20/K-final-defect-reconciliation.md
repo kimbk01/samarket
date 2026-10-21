@@ -25,12 +25,12 @@
 | P2 | 33 | 7 | 1 | 0 | 41 |
 | P3 | 39 | 19 | 0 | 0 | 58 |
 | **감사 결함 소계 (문서 D)** | **90** | **29** | **1** | **0** | **120** |
-| 추가 발견 (N-4B · N-5 · J-1~3 · X-1~4) | 7 | 0 | 1 | 1 | 9 |
-| **전체** | **97** | **29** | **2** | **1** | **129** |
+| 추가 발견 (N-4B · N-5 · J-1~3 · X-1~4) | 8 | 0 | 1 | 0 | 9 |
+| **전체** | **98** | **29** | **2** | **0** | **129** |
 
 - **미증명 29건** = 개발·자동 검증은 끝났고 접근할 수 없는 층만 남음: L5 화면 실측 24 · 운영 크론 실행 기록 3(ORD-02·ORD-03·DLV-03) · L3 브라우저 1(IA-07) · 다중 인스턴스 실트래픽 1(NTF-04).
 - **제외 2건**: ACC-05(서류 심사 의무화는 사업 정책 — 기존 승인 절차 결함 아님, §9 최소 설계) · X-2(라이더 기능 운영 미사용 — 라이더 0명).
-- **미해결 1건**: X-4 운영 DB 스키마 누락(배달 운영 상태·복구, 관리자 쿠폰 강제 회수) — Owner 수동 적용 대상 파일 명시.
+- **미해결 0건** — 개발 결함은 모두 해결. X-4 는 운영 누락분만 최소 보완 적용(`1380b9159`).
 - 과거 데이터 **제외**(D-5, 해결 판정과 별개): GFT-02 Coin 11건 · ADS-01 ₱480 4건 · GFT-01 7주문 · FIN-08 −₱225 · GFT-08 1건 · LOC-005 9매장 · DLV-02 1건 · PRD-16 과거 고아 파일.
 - 화면 실측(L5)·L3 는 전 구간 미실행 — 해결 판정 행에도 화면 확인은 포함되지 않는다.
 
@@ -194,7 +194,7 @@
 | X-1 | 운영 `store_order_deliveries.failure_reason` 없음 → 관리자 `delivery_failed` 503 | 해결(최종 수정) | `0e9b50ff` · 마이그레이션 `20270605100000` · 운영 컬럼 적용 확인 2026-10-21 | 관리자 배달 실패 처리 화면 L5 |
 | X-2 | 운영 `delivery_riders` 관리자 센터 드리프트(`20260517120000`: `admin_status`·`admin_note`·`suspended_at`·`suspended_by`·`admin_delivery_riders_operations_snapshot`) | 제외 | 운영 확인 2026-10-21: 라이더 0명·배정 0건(매장 자체 배달) — 현재 배달 운영에서 미사용 → 구조 복구 안 함 | 라이더 도입 시 위 마이그레이션의 `delivery_riders` 부분 적용 필요. 관리자 라이더 화면은 그 전까지 오류 |
 | X-3 | `cancel_requested` 주문 관리자 강제 취소 시 구매자 요청 pending 잔존(ND-3 C6.4) | 해결 | `dd98ff10` — 결정 미지정 관리자·오너 취소를 `store_order_cancel_request_decide_atomic` 승인으로 처리(주문·요청·부수효과 1 TX) · `final-cancel-requested-admin-cancel.test.ts` 3건 · 운영 확인: 과거 발생 0건 | 관리자 화면 L5 |
-| X-4 | 운영 DB 스키마 누락(FIN-10 검사, 배달·관리자 관련): ① 관리자 배달 운영 상태·복구 `admin_delivery_operations_health`·`admin_delivery_operation_recovery_execute`·`delivery_operation_job_heartbeats`·`delivery_operation_recovery_logs`·`touch_delivery_operation_job_heartbeat` ② 관리자 쿠폰 강제 회수 `revoke_campaign_active_entitlements` | 미해결 | 운영 스냅샷 2026-10-21 · 코드 참조: `app/api/admin/ops-console/summary`·`app/api/admin/delivery-operations/recovery`·`app/api/admin/store-coupons`(회수 시 500) | 운영 적용 필요(Owner 수동): `20260516120000_delivery_operations_recovery_center.sql`, `20260826180000_free_coupon_v32_authority_lifecycle.sql` 의 해당 함수. 나머지 누락(메신저·커뮤니티·스티커 등)은 이 감사 범위 밖 — 문서 I §4 목록 |
+| X-4 | 운영 DB 스키마 누락(FIN-10 검사, 배달·관리자 관련): 관리자 배달 운영 상태·복구(`admin_delivery_operations_health`·`admin_delivery_operation_recovery_execute`·하트비트·복구 로그) · 관리자 쿠폰 강제 회수 `revoke_campaign_active_entitlements` | 해결 | `1380b9159` — 운영 적용 `20270605100200`~`100500`(누락분만, 함수 md5 = 파일, 실행 권한 service_role 전용, 클라이언트 쓰기 회수) · 운영 `admin_delivery_operations_health()` 실행 확인 · `iso:x4-ops-coupon` 20 PASS(복구 액션·비관리자 거부·회수 2건·멱등·권한) · SLA 크론 하트비트 `sla-scan-heartbeat.route.test.ts` 3건 | 관리자 운영 콘솔·쿠폰 회수 화면 L5. `alert_sync`·`auto_action_runner` 는 운영에 실행 크론 자체가 없어 상태 화면에 stale 로 정확히 표시됨 |
 
 참고: N-1·N-2·N-3·N-4A 는 신규가 아니라 OPS-06·LOC-014·ACC-05(권한)·FIN-09 의 재묶음이라 해당 행에 반영했다. ND-1(관리자 잠금)·ND-2(핵심 정보 재검증)는 Owner 결정으로 PRD-03~07·ACC-06 행에 포함된다.
 
@@ -215,17 +215,42 @@
 - 관리자: 기존 매장 승인 화면(`PATCH /api/admin/stores/[id]` 전이표)에 서류 확인 상태 표시 + 승인 전이 조건 `business_verification_status = 'verified'` 를 **설정 플래그로만** 추가(플래그 OFF = 현재 동작). 기존 승인 매장 17곳은 D-5 로 소급 요구하지 않음.
 - 검증: 전이표 vitest(플래그 ON/OFF), 서류 없는 신청 승인 거부 409.
 
-## 10. 기존 검증 스크립트 상태 (최종 트리, 2026-10-21 PHT 재실행)
+## 10. 기존 검증 스크립트 7종 (최종 정리 `cc93a92ea`, 2026-10-21 PHT)
 
-| 스크립트 | 결과 | 판정 |
-|---|---|---|
-| `verify:delivery-product-hard-lock` | FAIL 1/5 — `store-order-structure-optimization` | 기존 실패(이번 작업 전부터). 최종 수정 주석이 만든 `store-order-status-writer-authority` 오탐은 `23786c52` 로 해소(PASS) |
-| `verify:delivery-customer-owner-boundary` | FAIL — 고객 화면 2파일이 `use-owner-lite-store` import | 기존 실패, 이 감사 결함 목록 밖 |
-| `verify:owner-admin-scroll-shell-contract` | FAIL 5건(스크롤 호스트·하단 탭 규칙) | 기존 실패(4단계 전후 동일 5건) |
-| `verify:admin-real-operation-cut-e-control-plane-hard-lock` | FAIL — 광고 허브 view URL | 기존 실패 |
-| `verify:three-currency-product` | FAIL — 관리자 충전 큐 「Store Cash」 문구 | 기존 실패 |
-| `verify:store-auto-hours-contract` | FAIL — 옛 함수명 `invalidateStorePublicCachesForSlug` 검사 | 스크립트 노후: PATCH 는 `bumpStorePublicSharedCacheGeneration`(전 공개 캐시 퍼지)로 무효화 — 동작 결함 아님 |
-| `scripts/verify-test-production-isolation-p0.mjs` | FAIL 27건 | 기존 실패 |
-| `verify:prod-schema-drift`(신규) | FAIL — 운영 누락 32개 | X-4(배달·관리자 관련) + 범위 밖 항목, 문서 I §4 |
-| CI `npm run ci` 구성 스크립트 전부 | PASS | 위 스크립트들은 CI 구성에 없음 |
+| 스크립트 | 실패 내용 | 판정 | 조치 | 결과 |
+|---|---|---|---|---|
+| `verify:delivery-product-hard-lock` | `store-order-structure-optimization` 재고 복원 일괄 조회 | 노후 기준 | 주문당 `restore_store_order_stock_atomic` RPC(현행 승인 구조) 또는 일괄 조회 인정, 혼용은 실패 | PASS 5/5 |
+| `verify:owner-admin-scroll-shell-contract` | 5건 | 노후 기준 4 + 실제 결함 1(경로 주석 유실) | 현행 셸(`OwnerAdminPageScrollShell`·`--owner-content-top`) 기준으로 갱신, 주석 복원 | PASS |
+| `verify:admin-real-operation-cut-e-control-plane-hard-lock` | 광고 허브 URL view | 노후 기준 | R7 `useAdminListQuery` 의 `?view=` 인정 | PASS |
+| `verify:three-currency-product` | 「Store Cash」 문구 | 실제 결함 | canonical Cash 문구로 수정(관리자 충전 큐·광고 상세·원장 탭·카탈로그 3) | PASS |
+| `verify:store-auto-hours-contract` | 옛 함수명 요구 | 노후 기준 | 세대 bump(전 공개 캐시) + `afterCanonicalStoreLocationWrite` 조합 인정, 무효화 자체는 계속 필수(고의 파손 시 FAIL 확인) | PASS |
+| `verify:delivery-customer-owner-boundary` | 고객 화면 2파일(`CommerceHubStoreOwnerEntryCta`·`MyInfoHomeMenuSections`)이 오너 `use-owner-lite-store` 런타임 import | 구조 경계 위반(기능 동작 정상) | 미수정 — 고객용 매장 조회 훅 신설이 필요(마이페이지 설계 변경). 예외 목록 추가·우회는 하지 않음 | **FAIL 유지** |
+| `scripts/verify-test-production-isolation-p0.mjs` | 27건 | 기능 미병합 | TEST 환경 격리 구현이 `dibay-test` 브랜치에만 있음(`docs/dibay-test-production-execution-status.md`) — 병합·네이티브 재빌드 필요 | **FAIL 유지**(이 감사 범위 밖) |
 
+- 위 2건은 129건 대조 밖 항목이다(배달 오너 감사 결함 아님). 검사는 삭제·완화하지 않았다.
+- `verify:prod-schema-drift`(FIN-10 신규): X-4 대상 객체는 운영에 적용(스냅샷 재채취 전이라 스크립트 결과는 FAIL 그대로). 남는 누락 = `delivery_riders` 관리 컬럼·함수(X-2 제외 결정) + 메신저·커뮤니티·스티커 등 이 감사 범위 밖 객체(문서 I §4).
+- CI `npm run ci` 구성 스크립트 전부 PASS.
+
+## 11. Owner 화면 실측 목록 (미증명 29건 — 로그인 화면 접근 불가로 남은 것)
+
+앱 재시작(웹 변경만) 후, 오너 계정·관리자 계정·주문자 계정으로 아래를 한 번에 확인한다. 각 행 「확인 방법」대로 보이면 PASS.
+
+| 계정 | 화면 | 확인 방법 | 결함 ID |
+|---|---|---|---|
+| 오너 | 오너 홈·드로어·PC(≥1280px) | 메뉴 12그룹·현재 화면 강조·뒤로가기가 상위 화면으로 감·제목 일치·PC 좌측 고정 사이드바·드로어 ESC 닫힘 | IA-09·10·11·20·21 |
+| 오너 | 북마크·알림 링크(예전 주소) | 예전 `/my/business/...` 주소 진입 시 쿼리 유지하며 새 주소로 이동, storeId 없는 주소는 자동 보정 | IA-07·08 |
+| 오너 | 매장 관리 `/settings`·헤더 | 노출·영업 토글은 매장 관리에서만, 끌 때 확인창, 실패 시 원복+토스트 | IA-12·17·OPS-04 |
+| 오너 | 정산 `/settlements`·Finance | 「수수료·캐시 원장」「Coin 환전」 용어, orders 탭 없음 | IA-13 |
+| 오너 | 알림 설정 | 「내 계정 알림 설정(전체 매장 공통)」, UUID·진동 문구 없음 | IA-14 |
+| 오너 | 리뷰·문의 | 답글 삭제 확인창, 실패 시 목록 유지+오류, 문의 답변 실패 토스트 | IA-15·16 |
+| 오너 | 주문 카드·메신저 액션바 | 단계 변경 실패 시 다이얼로그 오류 띠, 접수 전 거절 시 선택 사유가 주문자 알림에 표시 | IA-23·J-1 |
+| 오너 | 쿠폰 화면 | 일시정지·종료·재발행 결과 띠 | IA-06 |
+| 오너 | 상품 허브·카테고리 | 오너 정렬 = 구매자 메뉴 정렬, 카테고리 삭제 시 이동 대상 선택 | PRD-12·13 |
+| 오너 | 기본정보 | 위치 1km 초과 이동 확인창, 심사 중 매장 수정 가드·안내 띠 | LOC-007·IA-01·IA-02 |
+| 관리자 | 매장 승인 | 반려 매장 「재심사 열기」 → 오너 재제출 | ACC-04 |
+| 관리자 | 주문 상세 | 「주문 당시 판정(저장값)」 표시, 배달 실패 처리(사유 입력) 정상 | J-3·X-1 |
+| 관리자 | 운영 콘솔 | 배달 운영 상태 표시, 복구 액션 실행, 쿠폰 강제 회수 성공 | X-4 |
+| 관리자 | 거리정책·라이더 | 저장 시 정규화 안내, 라이더 「미운영」 표기 | LOC-011·DLV-01 |
+| 주문자 | 결제 화면 | 상품권 소멸 고지·동의 | GFT-04 |
+| 운영 기록 | 크론 실행 | 미접수 자동 취소·자동 구매확정·SLA 스캔이 실제 실행됐는지 운영 기록(SLA 스캔은 이제 하트비트로 관리자 운영 상태에 표시) | ORD-02·ORD-03·DLV-03 |
+| 운영 트래픽 | 다중 인스턴스 | 상태 변경 직후 다른 인스턴스 구 스냅샷 노출 여부 | NTF-04 |
