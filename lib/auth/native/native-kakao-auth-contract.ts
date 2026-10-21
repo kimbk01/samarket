@@ -1,3 +1,4 @@
+import { extractNativePluginRejectRaw } from "@/lib/auth/native/native-google-auth-contract";
 /**
  * P2 STEP 3 — Kakao Native Login client contract.
  *
@@ -48,15 +49,7 @@ export function buildNativeKakaoExchangeRequest(
 }
 
 export function extractNativeKakaoPluginRejectRaw(error: unknown): string {
-  if (error && typeof error === "object") {
-    const record = error as Record<string, unknown>;
-    const code = String(record.code ?? "").trim();
-    if (code) return code;
-    const message = String(record.message ?? record.errorMessage ?? "").trim();
-    if (message) return message;
-  }
-  if (error instanceof Error) return error.message;
-  return String(error ?? "");
+  return extractNativePluginRejectRaw(error);
 }
 
 /** Kakao UI 전환·Activity recreate 중 오탐 unavailable — 사용자 취소와 동일하게 조용히 처리 */

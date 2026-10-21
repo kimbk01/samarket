@@ -45,6 +45,22 @@ adb -s <기기> logcat -c
 adb -s <기기> logcat -d | grep -E "DIBAY_Google|DIBAY_Kakao|\[oauth\]" | tail -60
 ```
 
+## 2-1. Google 원인 확정 (설치 직후 1회 · 필수)
+
+앱 실행 → Google 로그인 1회 시도 → 즉시:
+
+```bash
+adb -s <기기> logcat -d | grep DIBAY_Google | tail -30
+```
+
+- 아래 줄을 **원문 그대로** 보고:
+  - `google_native_app_sha1=…` (설치 APK 서명 SHA-1)
+  - `google_native_client_prefix=…` 또는 `google_native_config_missing …`
+  - `google_native_intent_parse_failed <숫자> …` (있으면)
+- 판정 기준 (Claude 가 판정):
+  - `intent_parse_failed 10` → Google Cloud Android OAuth 클라이언트에 위 SHA-1 미등록 (콘솔 등록 필요)
+  - `config_missing` → 빌드에 `google-services.json`/`GOOGLE_WEB_CLIENT_ID` 없음 (Mac 빌드 환경)
+
 ## 3. 매트릭스 — 두 폰 각각, **아래 순서 그대로** (공급자 교차 확인)
 
 각 행 전에 로그아웃 상태에서 시작. 성공 행 뒤에는 로그아웃.

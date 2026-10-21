@@ -1,3 +1,4 @@
+import { extractNativePluginRejectRaw } from "@/lib/auth/native/native-google-auth-contract";
 /**
  * P2 STEP 1 — Apple Native Login client contract.
  * Server verify / Supabase session = STEP 2 (`native-token-exchange.server.ts`).
@@ -100,15 +101,7 @@ export function isNativeAppleAuthErrorCode(code: string): code is NativeAppleAut
 }
 
 export function extractNativeApplePluginRejectRaw(error: unknown): string {
-  if (error && typeof error === "object") {
-    const record = error as Record<string, unknown>;
-    const code = String(record.code ?? "").trim();
-    if (code) return code;
-    const message = String(record.message ?? record.errorMessage ?? "").trim();
-    if (message) return message;
-  }
-  if (error instanceof Error) return error.message;
-  return String(error ?? "");
+  return extractNativePluginRejectRaw(error);
 }
 
 export function mapNativeApplePluginError(raw: string | undefined | null): NativeAppleAuthErrorCode {
