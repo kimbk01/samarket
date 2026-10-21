@@ -1,11 +1,13 @@
 "use client";
 
+import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
-import { MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { PointChargeForm } from "@/components/points/PointChargeForm";
@@ -66,6 +68,8 @@ export default function MyPointsChargePage() {
 }
 
 function MyPointsChargePageInner() {
+  /** 하단탭 실제 마운트 기준 CTA 본문 여백 — 탭 있음/없음 safe 1회 (M-04) */
+  const stickyCtaBodyClearanceClass = resolveMyStickyCtaBodyClearanceClass(useBottomNavOccupiesClearance());
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -131,7 +135,7 @@ function MyPointsChargePageInner() {
         section="account"
         hideCtaStrip
       />
-      <div className={`${CUSTOMER_CENTER_SCROLL_BODY_CLASS} ${!loading && !loadError && plans.length > 0 ? MY_STICKY_CTA_BODY_CLEARANCE_CLASS : ""}`}>
+      <div className={`${CUSTOMER_CENTER_SCROLL_BODY_CLASS} ${!loading && !loadError && plans.length > 0 ? stickyCtaBodyClearanceClass : ""}`}>
         {loading ? (
           <PointChargeSkeleton />
         ) : loadError ? (

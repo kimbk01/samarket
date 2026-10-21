@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SearchInputBar } from "@/components/search/SearchInputBar";
 import { CommunityPostCard } from "@/components/community/CommunityPostCard";
@@ -62,7 +62,8 @@ import { getViewerUserId } from "@/lib/auth/viewer-user-id";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import type { Product } from "@/lib/types/product";
 import type { DeliverySearchMenu, DeliverySearchStore } from "@/components/delivery/search/DeliverySearchResults";
-import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { resolveBodyBottomNavClearanceClass } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 
 type DomainLoad = "idle" | "loading" | "ok" | "error";
 
@@ -208,6 +209,13 @@ function ChatKindSection({
 export function GlobalSearchView() {
   const { t } = useI18n();
   const router = useRouter();
+  /** `/search` 는 탭 숨김 경로 — 탭 여백 대신 safe 1회 (H-02, 실제 탭 마운트 기준) */
+  const pathname = usePathname();
+  const navOccupiesClearance = useBottomNavOccupiesClearance();
+  const bodyBottomClearanceClass = resolveBodyBottomNavClearanceClass(
+    pathname,
+    navOccupiesClearance
+  );
   const searchParams = useSearchParams();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const queryFromUrl = trimGlobalSearchQuery(searchParams.get("q"));
@@ -819,7 +827,7 @@ export function GlobalSearchView() {
 
   return (
     <div
-      className={`mx-auto max-w-lg ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
+      className={`mx-auto max-w-lg ${bodyBottomClearanceClass}`}
       data-global-search="true"
       data-global-search-entry-domain={entryDomain ?? "canonical"}
     >

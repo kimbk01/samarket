@@ -1,5 +1,8 @@
 "use client";
 
+import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -9,7 +12,7 @@ import {
   type PointPromotionOrderFormValues,
 } from "@/components/points/PointPromotionOrderForm";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
-import { MyStickyCta, MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
+import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { usePromotionOrderTargets } from "@/hooks/usePromotionOrderTargets";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
@@ -23,6 +26,8 @@ const FORM_ID = "mypage-ads-apply-form";
  * S46 신청 화면(포인트 홍보) — T3: 기존 폼 + 하단 고정 [신청](제출 방지), 잔액 "—" 처리, 오류 토스트.
  */
 export function MyAdsApplyPageClient() {
+  /** 하단탭 실제 마운트 기준 CTA 본문 여백 — 탭 있음/없음 safe 1회 (M-04) */
+  const stickyCtaBodyClearanceClass = resolveMyStickyCtaBodyClearanceClass(useBottomNavOccupiesClearance());
   const { t } = useI18n();
   const router = useRouter();
   const { balance, loading: balanceLoading, error: balanceError } = useUserPointBalance();
@@ -82,7 +87,7 @@ export function MyAdsApplyPageClient() {
         hideCtaStrip
       />
       <div
-        className={`${MYPAGE_BODY_COLUMN_CLASS} py-4 ${MY_STICKY_CTA_BODY_CLEARANCE_CLASS}`}
+        className={`${MYPAGE_BODY_COLUMN_CLASS} py-4 ${stickyCtaBodyClearanceClass}`}
       >
         {unauthorized ? (
           <p className="mb-4 rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-fg">

@@ -111,7 +111,23 @@ html:has(.app-bottom-nav-shell--delivery)
  */
 html:has(.app-bottom-nav-shell.app-bottom-nav-shell--keyboard-resized)
   .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"] {
-  bottom: var(--safe-bottom);
+  /** 키보드가 시스템 내비 영역을 덮음 — safe-bottom 띠를 남기지 않는다 (KB-05, 메신저 방 계약과 동일 0) */
+  bottom: 0;
+}
+
+/**
+ * 탭이 마운트되지 않은 화면(거래 상세·검색 등) — 「탭 위」 시트를 화면 하단에 붙이고 safe 는 패널 안 1회 (N-06).
+ * 탭 판정은 실제 DOM(`.app-bottom-nav-shell`, 메인·오너 공통) — 메신저 홈 시트와 같은 방식.
+ * 인라인 `paddingBottom`(contentPaddingBottomPx) 소비자는 인라인이 우선.
+ */
+html:not(:has(.app-bottom-nav-shell)) .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"] {
+  bottom: 0;
+}
+
+html:not(:has(.app-bottom-nav-shell))
+  .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"]
+  .dibay-overlay-sheet {
+  padding-bottom: max(var(--overlay-space-4), var(--safe-bottom));
 }
 
 .dibay-overlay-root--full {

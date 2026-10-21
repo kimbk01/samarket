@@ -206,13 +206,13 @@ export const MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS =
  */
 export const BOTTOM_NAV_STACK_ABOVE_CLASS = BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS;
 
-/** ConditionalAppShell 등: 탭이 있을 때 본문 하단 패딩(76px + 홈 원 돌출 + safe-bottom) */
+/** ConditionalAppShell 등: 탭이 있을 때 본문 하단 패딩(76px + 실제 탭 돌출 + safe-bottom) — 돌출은 `--main-scroll-nav-overhang` */
 export const MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS =
-  "pb-[calc(76px+var(--delivery-home-overhang,0px)+var(--safe-bottom))]";
+  "pb-[calc(76px+var(--main-scroll-nav-overhang,0px)+var(--safe-bottom))]";
 
 /** 거래 플로팅 다이얼(`/market/*` 등) — 탭 위 추가 여유 */
 export const MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS =
-  "pb-[calc(82px+var(--delivery-home-overhang,0px)+var(--safe-bottom))]";
+  "pb-[calc(82px+var(--main-scroll-nav-overhang,0px)+var(--safe-bottom))]";
 
 /**
  * 고정 하단 탭(`BOTTOM_NAV_SHELL.heightClass`) 위까지 쓰는 전체 화면 높이.

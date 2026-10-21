@@ -37,11 +37,9 @@ html:not(:has(.app-bottom-nav-shell)) .messenger-home-bottom-sheet-panel {
 
 /** Keyboard-hide (Android layout_resize only) — see `dibay-overlay.css` same marker. */
 html:has(.app-bottom-nav-shell.app-bottom-nav-shell--keyboard-resized) .messenger-home-bottom-sheet-panel {
-  bottom: var(--safe-bottom);
-  max-height: min(
-    calc(100dvh - var(--safe-bottom)),
-    calc(88dvh - var(--safe-bottom))
-  );
+  /** 키보드가 시스템 내비 영역을 덮음 — safe-bottom 띠 없이 키보드 바로 위 (KB-05) */
+  bottom: 0;
+  max-height: min(100dvh, 88dvh);
 }
 
 /**

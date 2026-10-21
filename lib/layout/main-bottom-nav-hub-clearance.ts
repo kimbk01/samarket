@@ -76,3 +76,21 @@ export function isMainBottomNavHubBodyClearancePath(pathname: string | null | un
   if (isMarketTradeFeedHubPath(p)) return true;
   return isDeliveryConsumerHubBodyClearancePath(p);
 }
+
+/** 탭이 없는 화면 본문 하단 — safe-bottom 1회 (셸은 `pb-4` 또는 `pb-0`) */
+export const NO_BOTTOM_NAV_BODY_SAFE_CLASS = "pb-[var(--safe-bottom)]";
+
+/**
+ * 본문 하단 여백 SSOT (H-02) — 탭 표시 판정은 실제 마운트(`useBottomNavOccupiesClearance`)만 사용.
+ * - 허브 본문 소유 경로 + 탭 표시 → 탭(60) + safe (셸 `pb-0` 과 쌍)
+ * - 탭 없음 → safe 1회 (탭 여백을 두지 않는다)
+ * - 탭 있음 + 셸 소유 경로 → 본문 추가 여백 없음
+ */
+export function resolveBodyBottomNavClearanceClass(
+  pathname: string | null | undefined,
+  navOccupiesClearance: boolean
+): string {
+  if (!navOccupiesClearance) return NO_BOTTOM_NAV_BODY_SAFE_CLASS;
+  if (isMainBottomNavHubBodyClearancePath(pathname)) return MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS;
+  return "";
+}

@@ -110,6 +110,7 @@ vi.mock("@/components/common/SamarketThumbnail", () => ({
 }));
 vi.mock("@/lib/layout/main-bottom-nav-hub-clearance", () => ({
   MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS: "",
+  resolveBodyBottomNavClearanceClass: () => "",
 }));
 
 import {

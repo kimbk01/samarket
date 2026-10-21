@@ -271,7 +271,13 @@ export function resolveConditionalAppShellFlags(
             ? "pb-0"
             : isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage || isStoreOrderReviewPage
               ? "pb-0"
-              : showBottomNav || isPostDetail || isPhilifeNeighborhoodPostDetail
+              : /**
+                 * 거래 상세 — 탭 숨김 경로. safe-bottom 은 본문 최하단 1회(`PostDetailView` 루트)만:
+                 * `product-detail-bottom-constants` CONTRACT "DO NOT shell 에 추가 pb" (R-03).
+                 */
+                isPostDetail && !showBottomNav
+                ? "pb-0"
+                : showBottomNav || isPhilifeNeighborhoodPostDetail
                 ? showHomeTradeHubFloatingBar
                   ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
                   : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS

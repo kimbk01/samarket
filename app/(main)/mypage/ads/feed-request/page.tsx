@@ -1,5 +1,8 @@
 "use client";
 
+import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -26,7 +29,7 @@ import { checkFeedAdMemberImageFile } from "@/lib/ads/feed-ad-member-image-check
 import type { FeedAdMemberDisplayStatus } from "@/lib/ads/feed-ad-member-presentation";
 import { FEED_AD_SAMPLE_ASSET } from "@/lib/ads/feed-ad-sample-assets";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
-import { MyStickyCta, MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
+import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
@@ -77,6 +80,8 @@ function isTradeListingDestEligible(p: OwnTrade): boolean {
 }
 
 export default function MemberFeedAdRequestPage() {
+  /** 하단탭 실제 마운트 기준 CTA 본문 여백 — 탭 있음/없음 safe 1회 (M-04) */
+  const stickyCtaBodyClearanceClass = resolveMyStickyCtaBodyClearanceClass(useBottomNavOccupiesClearance());
   const { safeT, t, language } = useI18n();
   const router = useRouter();
   const en = language === "en";
@@ -573,7 +578,7 @@ export default function MemberFeedAdRequestPage() {
         backHref="/mypage/ads"
         hideCtaStrip
       />
-      <div className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-4 py-4 ${MY_STICKY_CTA_BODY_CLEARANCE_CLASS}`}>
+      <div className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-4 py-4 ${stickyCtaBodyClearanceClass}`}>
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold">
             {safeT("feed_ad_req_domain", { fallbackKo: "1. 광고 영역", fallbackEn: "1. Ad area" })}
