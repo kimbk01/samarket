@@ -103,7 +103,8 @@ if (!read("lib/auth/client-session-wipe.ts").includes("clearGuestAuthState")) {
 if (!useOAuth.includes("startNativeProviderLogin")) {
   failures.push("use-oauth-login.ts must route native Google via startNativeProviderLogin");
 }
-if (!useOAuth.includes("isNativeGoogleLoginAvailable")) {
+// Native SDK(Google·Kakao·Apple) pending 은 복귀 이벤트로 해제하지 않는다 — auth-login-phase SSOT.
+if (!useOAuth.includes('setSharedLaunchKind("native_sdk")') || !useOAuth.includes("shouldTreatForegroundReturnAsCancel")) {
   failures.push("use-oauth-login must guard Google native pending from premature foreground clear");
 }
 if (!read("lib/auth/native/start-native-provider-login.client.ts").includes("startNativeGoogleLogin")) {

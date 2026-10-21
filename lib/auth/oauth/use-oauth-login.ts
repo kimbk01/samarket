@@ -2,7 +2,9 @@
 
 /**
  * CONTRACT — OAuth login UX (배민·당근 스타일 인라인)
- * - 전체화면 OAuth 로그인 패널·패널 exit 애니메이션 금지
+ * - 상태 전환은 `auth-login-phase.ts` 단일 정의 (idle → provider → returned → confirming → navigating)
+ * - 성공 경로에서 pending 을 해제하지 않는다 — 화면 이탈(navigation)로 끝난다. 모달만 닫힌 뒤 해제.
+ * - 타이머로 pending 을 해제(=실패 판정)하지 않는다. 실패·취소는 실제 신호로만.
  * - pendingOAuthProvider = auth mutex (double-submit)
  * - visiblePendingOAuthProvider = 버튼 spinner / "로그인 중…" 만 (native Kakao는 null)
  * - oauthInlineStatus = 1줄 안내 (native Kakao pre-auth는 idle 유지)
@@ -47,6 +49,14 @@ import {
   summarizeOAuthStartFailure,
 } from "@/lib/auth/oauth/oauth-start-error.client";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import { OAUTH_COMPLETING_EVENT } from "@/lib/auth/oauth/native-oauth-return-bridge";
+import {
+  isAuthLoginBusyPhase,
+  isAuthLoginCompletingPhase,
+  shouldTreatForegroundReturnAsCancel,
+  type AuthLoginLaunchKind,
+  type AuthLoginPhase,
+} from "@/lib/auth/oauth/auth-login-phase";
 import {
   beginAuthLifecycleFlow,
   cancelAuthLifecycle,
@@ -57,7 +67,6 @@ import { openNativeOAuthTab, isNativeOAuthLauncherCancelError } from "@/lib/auth
 import {
   ensureCapacitorNativeMarkerOnBoot,
   getCapacitorNativeDiagnostics,
-  isNativeGoogleLoginAvailable,
   resolveOAuthRoutingShellPlatform,
   waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
@@ -65,13 +74,15 @@ import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export const OAUTH_PENDING_CLEAR_EVENT = "dibay:oauth-pending-clear";
-export const OAUTH_PENDING_TIMEOUT_MS = 30_000;
 
 export type OAuthInlineStatus = "idle" | "preparing" | "opening" | "awaiting_return";
 
 let sharedPendingProvider: OAuthProvider | null = null;
 /** When true, mutex is held but CTA must not paint spinner / signing-in label. */
 let sharedSuppressVisiblePending = false;
+let sharedPhase: AuthLoginPhase = "idle";
+let sharedLaunchKind: AuthLoginLaunchKind = null;
+let sharedSawHiddenSinceLaunch = false;
 const pendingSubscribers = new Set<() => void>();
 
 export type OAuthAuthSuccessInput = FinishClientAuthLoginTermsHandoff & {
@@ -120,12 +131,64 @@ function setSharedPending(
 ): void {
   const nextSuppress =
     provider == null ? false : Boolean(options?.suppressVisiblePresentation);
-  if (sharedPendingProvider === provider && sharedSuppressVisiblePending === nextSuppress) {
+  const nextPhase: AuthLoginPhase =
+    provider == null ? "idle" : sharedPhase === "idle" ? "provider" : sharedPhase;
+  if (
+    sharedPendingProvider === provider
+    && sharedSuppressVisiblePending === nextSuppress
+    && sharedPhase === nextPhase
+  ) {
     return;
   }
   sharedPendingProvider = provider;
   sharedSuppressVisiblePending = nextSuppress;
+  sharedPhase = nextPhase;
+  if (provider == null) {
+    sharedLaunchKind = null;
+    sharedSawHiddenSinceLaunch = false;
+  }
   emitPendingChange();
+}
+
+function setSharedPhase(phase: AuthLoginPhase): void {
+  if (sharedPhase === phase) return;
+  sharedPhase = phase;
+  if (phase !== "provider") {
+    sharedLaunchKind = null;
+    sharedSawHiddenSinceLaunch = false;
+  }
+  emitPendingChange();
+}
+
+function setSharedLaunchKind(kind: AuthLoginLaunchKind): void {
+  sharedLaunchKind = kind;
+  sharedSawHiddenSinceLaunch = false;
+}
+
+function getPhaseSnapshot(): AuthLoginPhase {
+  return sharedPhase;
+}
+
+/** 공급자 인가 코드 복귀(dibay://auth/callback) — 콜드 스타트 포함, 훅 마운트 전에도 단계를 기록한다. */
+function markReturnedFromProvider(): void {
+  setSharedPhase("returned");
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener(OAUTH_COMPLETING_EVENT, markReturnedFromProvider);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && sharedPhase === "provider") {
+      sharedSawHiddenSinceLaunch = true;
+    }
+  });
+}
+
+export function getAuthLoginPhaseForTests(): AuthLoginPhase {
+  return sharedPhase;
+}
+
+export function setAuthLoginPhaseForTests(phase: AuthLoginPhase): void {
+  setSharedPhase(phase);
 }
 
 function getSuppressVisiblePendingSnapshot(): boolean {
@@ -183,7 +246,7 @@ function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]
   if (code === "oauth_start_timeout") return t("auth_err_auth_timeout");
   if (code === "navigation_failed") return t("auth_err_oauth_launch_navigation_failed");
   if (code === "user_cancelled") return t("auth_err_oauth_start_failed");
-  if (code === "native_exchange_session_unavailable") {
+  if (code === "native_exchange_session_unavailable" || code === "auth_completion_failed") {
     return t("auth_err_session_not_persisted");
   }
   if (code === "apple_native_exchange_not_ready") return t("auth_err_apple_native_not_ready");
@@ -254,7 +317,7 @@ async function waitForAppBackground(timeoutMs: number): Promise<void> {
 }
 
 export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
-  const { next = null, onAuthSuccess } = options;
+  const { next = null, onAuthSuccess, onModalClose } = options;
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [oauthInlineStatus, setOauthInlineStatus] = useState<OAuthInlineStatus>("idle");
@@ -268,11 +331,14 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
     getSuppressVisiblePendingSnapshot,
     () => false,
   );
+  const authPhase = useSyncExternalStore(subscribePending, getPhaseSnapshot, () => "idle" as const);
   const visiblePendingOAuthProvider = resolveVisibleOAuthPendingProvider(
     pendingOAuthProvider,
     suppressVisiblePending,
   );
   const mountedRef = useRef(false);
+  /** 이 인스턴스가 시작한 흐름이 navigating 에 도달했는지 — 화면 이탈(언마운트) 시 공유 상태를 정리한다. */
+  const ownsNavigatingRef = useRef(false);
   const pendingProviderRef = useRef<OAuthProvider | null>(pendingOAuthProvider);
   const suppressVisiblePendingRef = useRef(suppressVisiblePending);
 
@@ -280,6 +346,12 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      // navigating 의 끝 = 이 화면을 떠남 (router.replace). 다음 로그인 화면이 잠긴 채 남지 않게 정리.
+      if (ownsNavigatingRef.current && sharedPhase === "navigating") {
+        ownsNavigatingRef.current = false;
+        endOAuthFlow();
+        setSharedPending(null);
+      }
     };
   }, []);
 
@@ -303,24 +375,37 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
     resetInlineState();
   }, [resetInlineState]);
 
+  /**
+   * 공급자 성공 → 서버 확인(confirming) → 이동(navigating).
+   * 실패는 throw 로 호출부 catch(handleOAuthStartFailure)가 failed 로 복구한다.
+   * 성공 시 pending 을 풀지 않는다 — 풀면 이동 완료 전 로그인 버튼·폼이 다시 보인다.
+   * 모달은 completion 이 모달을 닫은 뒤 호스트 화면이 남으므로 그때만 해제한다.
+   */
   const completeAuthSuccess = useCallback(
     async (input: OAuthAuthSuccessInput) => {
       clearStoredLoginRequiredDetail();
-      try {
-        if (onAuthSuccess) {
-          await onAuthSuccess(input);
-        }
-      } finally {
-        clearPending();
+      suppressVisiblePendingRef.current = false;
+      if (pendingProviderRef.current) {
+        setSharedPending(pendingProviderRef.current, { suppressVisiblePresentation: false });
       }
+      setSharedPhase("confirming");
+      setOauthInlineStatus("preparing");
+      if (onAuthSuccess) {
+        await onAuthSuccess(input);
+      }
+      if (onModalClose) {
+        clearPending();
+        return;
+      }
+      ownsNavigatingRef.current = true;
+      setSharedPhase("navigating");
     },
-    [clearPending, onAuthSuccess],
+    [clearPending, onAuthSuccess, onModalClose],
   );
 
   useEffect(() => {
-    if (!pendingOAuthProvider) return;
+    if (!pendingOAuthProvider && !isAuthLoginBusyPhase(authPhase)) return;
 
-    const timeoutId = window.setTimeout(clearPending, OAUTH_PENDING_TIMEOUT_MS);
     const handleClear = (event: Event) => {
       const reason =
         event instanceof CustomEvent ? String(event.detail?.reason ?? "manual") : "manual";
@@ -334,26 +419,43 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
     };
     window.addEventListener(OAUTH_PENDING_CLEAR_EVENT, handleClear);
 
-    const maybeReleaseOnForegroundReturn = () => {
+    /**
+     * 복귀 이벤트는 「취소」 신호로만 쓴다 (auth-login-phase.shouldTreatForegroundReturnAsCancel).
+     * returned·confirming·navigating 중에는 절대 해제하지 않는다.
+     */
+    const maybeReleaseOnForegroundReturn = (event: Event) => {
       if (document.visibilityState !== "visible") return;
-      if (isOAuthFlowInFlight()) return;
-      if (pendingProviderRef.current === "google" && isNativeGoogleLoginAvailable()) return;
-      const path = window.location.pathname;
-      if (isOAuthInFlightPath(path)) return;
-      if (path === "/login" || path === "/signup" || path.startsWith("/login/")) {
+      const pageshowPersisted =
+        event.type === "pageshow" && (event as PageTransitionEvent).persisted === true;
+      if (isOAuthInFlightPath(window.location.pathname)) return;
+      // bfcache 로 되돌아온 화면: 떠나기 전 진행 단계가 남아 있으면 새 상태로 복구.
+      if (pageshowPersisted && isAuthLoginCompletingPhase(sharedPhase)) {
+        ownsNavigatingRef.current = false;
         clearPending();
+        return;
       }
+      const treatAsCancel = shouldTreatForegroundReturnAsCancel({
+        phase: sharedPhase,
+        launchKind: sharedLaunchKind,
+        sawHiddenSinceLaunch: sharedSawHiddenSinceLaunch,
+        eventType: event.type === "pageshow" ? "pageshow" : "visibilitychange",
+        pageshowPersisted,
+      });
+      if (!treatAsCancel) return;
+      releaseOAuthFlowOnUserCancel();
+      cancelAuthLifecycle({ reason: "user_returned_without_callback" });
+      clearPending();
+      if (mountedRef.current) setError(t("auth_oauth_cancelled_notice"));
     };
     document.addEventListener("visibilitychange", maybeReleaseOnForegroundReturn);
     window.addEventListener("pageshow", maybeReleaseOnForegroundReturn);
 
     return () => {
-      window.clearTimeout(timeoutId);
       window.removeEventListener(OAUTH_PENDING_CLEAR_EVENT, handleClear);
       document.removeEventListener("visibilitychange", maybeReleaseOnForegroundReturn);
       window.removeEventListener("pageshow", maybeReleaseOnForegroundReturn);
     };
-  }, [clearPending, pendingOAuthProvider, resetInlineState]);
+  }, [authPhase, clearPending, pendingOAuthProvider, resetInlineState, t]);
 
   const handleOAuthStartFailure = useCallback(
     async (err: unknown) => {
@@ -362,13 +464,16 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         || isNativeOAuthLauncherCancelError(err)
         || isNativeProviderEmailConflictError(err)
       ) {
+        ownsNavigatingRef.current = false;
+        clearPending();
         if (isNativeProviderCancelError(err) || isNativeOAuthLauncherCancelError(err)) {
           releaseOAuthFlowOnUserCancel();
           cancelAuthLifecycle({ reason: "user_cancelled" });
+          if (mountedRef.current) setError(t("auth_oauth_cancelled_notice"));
         }
-        clearPending();
         return;
       }
+      ownsNavigatingRef.current = false;
       clearPending();
       const code = resolveNativeProviderLoginErrorCode(err);
       failAuthLifecycle(code, { summary: summarizeOAuthStartFailure(err) });
@@ -388,6 +493,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         setOauthInlineStatus("preparing");
         const authorizeUrl = await fetchNativeOAuthAuthorizeUrl(provider, handoffNext);
         setOauthInlineStatus("opening");
+        setSharedLaunchKind("custom_tab");
         const launch = await openNativeOAuthTab(authorizeUrl);
         if (launch.callbackDelivered) {
           // ASWebAuth completion already navigated to /auth/callback — do not sit on awaiting_return.
@@ -505,6 +611,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
             setOauthInlineStatus("opening");
           }
           markAuthLifecycleStage("provider_launch_requested", { via: "native_provider_login" });
+          setSharedLaunchKind("native_sdk");
           try {
             const result = await startNativeProviderLogin({ provider, next });
             await completeAuthSuccess(result);
@@ -565,6 +672,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         try {
           setOauthInlineStatus("opening");
           markAuthLifecycleStage("provider_launch_requested", { via: "web_oauth_start" });
+          setSharedLaunchKind("web_redirect");
           startOAuthLogin({ provider, next });
         } catch (err) {
           await handleOAuthStartFailure(err);
@@ -589,12 +697,18 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
 
   const resetOAuthOnClose = useCallback(() => {
     if (isOAuthFlowInFlight() || pendingProviderRef.current != null) return;
+    if (isAuthLoginBusyPhase(sharedPhase)) return;
     clearPending();
     if (mountedRef.current) setError(null);
   }, [clearPending]);
 
   return {
     pendingOAuthProvider,
+    authPhase,
+    /** 버튼·폼 잠금 기준 — 공급자 진행·복귀·서버 확인·이동 중 모두 true */
+    authBusy: pendingOAuthProvider != null || isAuthLoginBusyPhase(authPhase),
+    /** 로그인 화면 대신 「로그인 중」 화면을 보일 단계 */
+    authCompleting: isAuthLoginCompletingPhase(authPhase),
     visiblePendingOAuthProvider,
     oauthInlineStatus,
     oauthError: error,

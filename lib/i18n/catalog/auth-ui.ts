@@ -28,6 +28,10 @@ export const authUiMessages = {
     auth_provider_busy: "이동 중…",
     auth_oauth_redirecting_label: "이동 중…",
     auth_oauth_signing_in_label: "로그인 중…",
+    auth_oauth_cancelled_notice: "로그인이 취소되었습니다. 다시 시도해 주세요.",
+    auth_login_completing_delayed:
+      "로그인 처리가 지연되고 있습니다. 잠시 기다리거나 다시 시도해 주세요.",
+    auth_login_completing_retry: "다시 시도",
     auth_oauth_signing_in_hint: "로그인 준비 중…",
     auth_oauth_return_hint: "브라우저에서 로그인을 완료한 뒤 이 화면으로 돌아와 주세요.",
     auth_oauth_launch_title: "로그인 계속",
@@ -271,6 +275,10 @@ export const authUiMessages = {
     auth_provider_busy: "Redirecting…",
     auth_oauth_redirecting_label: "Redirecting…",
     auth_oauth_signing_in_label: "Signing in…",
+    auth_oauth_cancelled_notice: "Sign-in was cancelled. Please try again.",
+    auth_login_completing_delayed:
+      "Sign-in is taking longer than usual. Please wait or try again.",
+    auth_login_completing_retry: "Try again",
     auth_oauth_signing_in_hint: "Preparing sign-in…",
     auth_oauth_return_hint: "Finish sign-in in the browser, then return here.",
     auth_oauth_launch_title: "Continue sign-in",
