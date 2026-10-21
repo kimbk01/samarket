@@ -545,10 +545,10 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             <button
               type="button"
               onClick={() => vm.setActiveSheet("menu")}
-              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} text-[#006241]`}
+              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} text-[color:var(--cm-room-starbucks-green)]`}
               aria-label={vm.t("nav_messenger_open_group_settings")}
             >
-              <span className={`${CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS} group-active:bg-[#EAF4EF]`}>
+              <span className={`${CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS} group-active:bg-[color:var(--cm-room-group-settings-pressed-bg)]`}>
                 <Settings className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
               </span>
             </button>
@@ -559,7 +559,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               onClick={openHeaderVoiceConfirm}
               disabled={headerVoiceDisabled}
               className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} disabled:opacity-45 ${
-                ownLiveCall ? "text-[color:var(--cm-room-primary,#006B43)]" : "text-[color:var(--cm-room-text-muted)]"
+                ownLiveCall ? "text-[color:var(--cm-room-primary)]" : "text-[color:var(--cm-room-text-muted)]"
               }`}
               aria-label={ownLiveCall ? vm.t("cm_ui_call_in_progress_return") : vm.t("cm_ui_voice_call")}
               data-cm-own-call-live={ownLiveCall ? "1" : undefined}
@@ -568,7 +568,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
                 <Phone className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
                 {ownLiveCall ? (
                   <span
-                    className="absolute right-1 top-1 h-2 w-2 animate-pulse rounded-full bg-[color:var(--cm-room-primary,#006B43)]"
+                    className="absolute right-1 top-1 h-2 w-2 animate-pulse rounded-full bg-[color:var(--cm-room-primary)]"
                     aria-hidden
                   />
                 ) : null}

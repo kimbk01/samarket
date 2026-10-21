@@ -197,6 +197,11 @@ export function PhilifeNeighborhoodWriteForm({
     Array.isArray(initialImages) ? initialImages.filter((u) => (u ?? "").trim()) : []
   );
   const imageUrlsCountRef = useRef(0);
+  /** 닫기 확인 생략 판정 (지정 #12) — 초기값 대비 입력이 바뀌었는지 */
+  const hasUnsavedWriteChanges =
+    title !== (initialTitle ?? "") ||
+    content !== (initialContent ?? "") ||
+    imageUrls.length !== (Array.isArray(initialImages) ? initialImages.filter((u) => (u ?? "").trim()).length : 0);
   const [uploading, setUploading] = useState(false);
   const [maxMembers, setMaxMembers] = useState(30);
   /** Native select 는 Android에서 라디오 UI가 되므로 iOS/APK/Windows 공통 커스텀 드롭다운 */
@@ -1116,7 +1121,11 @@ export function PhilifeNeighborhoodWriteForm({
   return (
     <div className={rootClass}>
       {suppressWriteScreenTier1 ? null : (
-        <WriteScreenTier1Sync backHref={philifeAppPaths.home} title={tier1Title} />
+        <WriteScreenTier1Sync
+          backHref={philifeAppPaths.home}
+          title={tier1Title}
+          hasUnsavedChanges={hasUnsavedWriteChanges}
+        />
       )}
 
       {category === "meetup" ? (

@@ -54,3 +54,24 @@ export function peekTradeListReturnHref(): string | null {
     return null;
   }
 }
+
+/**
+ * 거래 상세 헤더 ← 목적지 (지정 #9) — FIXED 계약(목록으로) 유지, 「어느 목록」만 정확히.
+ * 기억된 목록은 마지막으로 본 목록일 뿐이라 채팅·찜·알림에서 상세로 들어오면 오래된 목록으로 갔다.
+ * - 직전 기록이 거래 목록·검색 → 그 목록
+ * - 직전 기록이 다른 거래 상세(관련 상품) → 기억된 목록 (목록 → 상세 → 상세)
+ * - 직전 기록이 그 밖의 화면(채팅·찜·알림 등) → 카테고리 목록
+ * - 직전 기록을 알 수 없음(Navigation API 없음·첫 기록) → 기존 동작(기억된 목록 → 카테고리)
+ */
+export function resolveTradeDetailListReturnHref(input: {
+  previousHref: string | null;
+  remembered: string | null;
+  categoryHref: string;
+}): string {
+  const { previousHref, remembered, categoryHref } = input;
+  if (previousHref == null) return remembered || categoryHref;
+  if (isPersistableTradeListReturnHref(previousHref)) return previousHref;
+  const prevPath = previousHref.split("?")[0] ?? "";
+  if (/^\/post\/[^/]+$/.test(prevPath)) return remembered || categoryHref;
+  return categoryHref;
+}

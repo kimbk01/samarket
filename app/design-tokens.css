@@ -197,6 +197,15 @@
    */
   --sam-card-padding: var(--sam-space-4);
   --sam-item-gap: var(--sam-space-3);
+  /**
+   * 터치·아이콘 치수 역할표 (S-04) — 값은 HARD LOCK·§12 그대로, 역할이 다르므로 통일하지 않는다.
+   * - 최소 터치 영역 44  : `--sam-tap-min` (04-DESIGN-SYSTEM, verify:design-system-hard-lock)
+   * - 하위 헤더 터치 48  : `--sector-header-touch` (§12, `app/sector-header.css`, 테스트 고정)
+   * - 허브 아이콘 타일 36: `--sector-header-action-size`(허브) — 터치는 `::after` 로 44~48 확장
+   * - 작은 버튼 높이 40  : 아래 `--sam-header-action-min` (`.sam-btn--sm` 시각 높이 · 헤더 안에서는 sector 치수로 덮임)
+   * - 배달 허브 타일 36  : `--delivery-header-action` (배달 UI Frozen 사본, 허브 타일과 같은 값)
+   * 새 화면은 터치 = `--sam-tap-min` 이상, 헤더 = sector 토큰만 쓴다.
+   */
   --sam-header-action-min: 40px;
   /** 헤더 한 줄 높이 — 정본 `--sector-header-h` (`app/sector-header.css`) 별칭 (S-03) */
   --sam-header-row-height: var(--sector-header-h, 52px);
@@ -331,6 +340,8 @@
   --cm-room-divider: var(--messenger-divider);
   --cm-room-header-bg: var(--messenger-surface);
   --cm-room-starbucks-green: #006241;
+  /** 그룹 방 헤더 ⚙ 눌림 배경 — 기존 값 그대로 토큰화 (T-02, 신규 색 아님) */
+  --cm-room-group-settings-pressed-bg: #eaf4ef;
   --cm-room-starbucks-cream: #f1f8f4;
   --cm-room-bubble-incoming: var(--cm-room-starbucks-cream);
   --cm-room-bubble-incoming-fg: #12372a;

@@ -1,5 +1,6 @@
 "use client";
 
+import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
@@ -148,7 +149,7 @@ export default function NotificationsCenterPage() {
         backHref="/"
         hideCtaStrip
         rightSlot={
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center">
             {selectionMode ? (
               <>
                 <button
@@ -236,7 +237,7 @@ export default function NotificationsCenterPage() {
         }
       />
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-        <div className="mx-auto flex w-full max-w-lg min-w-0 flex-col px-3 py-3 sm:max-w-xl md:max-w-2xl lg:max-w-3xl">
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-col py-3`}>
           <section
             id="notification-inbox"
             className="min-w-0 scroll-mt-4"

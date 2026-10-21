@@ -1,5 +1,6 @@
 "use client";
 
+import { DetailHeader } from "@/components/layout/sector-header";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -698,9 +699,16 @@ export function TradeMeetSpotPickClient() {
         closing ? "-translate-y-full opacity-95" : entered ? "translate-y-0 opacity-100" : "-translate-y-full opacity-95"
       }`}
     >
-      <header className="flex shrink-0 items-center justify-center border-b border-sam-border bg-sam-surface px-4 py-2.5">
-        <h1 className="truncate text-center text-[15px] font-bold text-sam-fg">{t("trade_018")}</h1>
-      </header>
+      {/**
+       * 표준 하위 헤더 (R-05) — safe-top·52px·제목 17/600, ✕ = 하단 「취소」와 같은 DISMISS(handleCancel).
+       * 이전 임시 헤더는 safe-top 이 없어 노치 아래로 들어가고 닫기 수단이 하단 버튼뿐이었다.
+       */}
+      <DetailHeader
+        title={t("trade_018")}
+        backVariant="close"
+        onBack={handleCancel}
+        backAriaLabelKey="common_close"
+      />
 
       {mapsError ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">

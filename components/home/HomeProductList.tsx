@@ -35,7 +35,7 @@ import {
   recordTradeListTotalMs,
   sampleTradeMemoryHeapUsedMb,
 } from "@/lib/trade/trade-c2c-perf-metrics";
-import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { PHILIFE_FEED_INSET_X_CLASS, TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   countPendingNewHomeListings,
   patchHomeTradePostsInPlace,
@@ -1153,7 +1153,7 @@ export function HomeProductList({
           </button>
         </div>
       ) : null}
-      <div className="px-3 pb-2" data-trade-event-hero-host="1">
+      <div className={`${PHILIFE_FEED_INSET_X_CLASS} pb-2`} data-trade-event-hero-host="1">
         <EventPromotionHeroBanner placement="TRADE_HOME" />
       </div>
       <ul

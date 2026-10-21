@@ -3,7 +3,7 @@ import { isMypageHomePath } from "@/lib/mypage/mypage-profile-routes";
 
 /** 메인 5탭 허브 본문 — 탭(60px) + safe-area. 셸 `pb-0` 과 반드시 쌍 */
 export const MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS =
-  "pb-[calc(60px+var(--safe-bottom))]";
+  "pb-[calc(var(--app-bottom-nav-height,60px)+var(--safe-bottom))]";
 
 /**
  * Messenger list scrollport inset — SAME length as hub clearance.

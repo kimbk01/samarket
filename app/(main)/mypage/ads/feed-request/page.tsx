@@ -524,7 +524,7 @@ export default function MemberFeedAdRequestPage() {
               fallbackEn: "Active",
             });
     return (
-      <div className="min-h-screen bg-sam-app">
+      <div className="flex-1 bg-sam-app">
         <MySubpageHeader
           title={safeT("feed_ad_req_title", {
             fallbackKo: "배너 광고 만들기",
@@ -563,7 +563,7 @@ export default function MemberFeedAdRequestPage() {
         sourceSurface: "mypage_feed_ad_request",
       })}
     >
-    <div className="min-h-screen bg-sam-app">
+    <div className="flex-1 bg-sam-app">
       <MySubpageHeader
         title={safeT("feed_ad_req_title", {
           fallbackKo: "배너 광고 만들기",

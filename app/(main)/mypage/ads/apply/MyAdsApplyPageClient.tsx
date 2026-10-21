@@ -78,7 +78,7 @@ export function MyAdsApplyPageClient() {
   };
 
   return (
-    <div className="min-h-screen bg-sam-app">
+    <div className="flex-1 bg-sam-app">
       <MySubpageHeader
         title={t("mypage_ads_apply_title")}
         subtitle={t("mypage_ads_apply_subtitle")}

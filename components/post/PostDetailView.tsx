@@ -8,7 +8,11 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
-import { peekTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
+import {
+  peekTradeListReturnHref,
+  resolveTradeDetailListReturnHref,
+} from "@/lib/trade/location/trade-list-return-href";
+import { readPreviousInAppHistoryHref } from "@/lib/navigation/fixed-destination-back";
 import {
   armTradeMarketProductCompositionBack,
   peekTradeMarketProductComposition,
@@ -450,8 +454,13 @@ export function PostDetailView({
       const c = await getCategoryBySlugOrId(post.category_id);
       if (cancelled || !c) return;
       setCategory(c);
-      const remembered = peekTradeListReturnHref();
-      setBackHref(remembered || getCategoryHref(c));
+      setBackHref(
+        resolveTradeDetailListReturnHref({
+          previousHref: readPreviousInAppHistoryHref(),
+          remembered: peekTradeListReturnHref(),
+          categoryHref: getCategoryHref(c),
+        })
+      );
       const parentId = typeof c.parent_id === "string" ? c.parent_id.trim() : "";
       if (!parentId) {
         setCompositionRoot(c);

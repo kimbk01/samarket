@@ -144,7 +144,7 @@ function MyPointsPromotionsPageInner() {
     });
 
   return (
-    <div className="min-h-screen bg-sam-app">
+    <div className="flex-1 bg-sam-app">
       <MySubpageHeader
         title={t("mypage_points_promotions_title")}
         subtitle={t("mypage_points_promotions_subtitle")}
@@ -209,7 +209,7 @@ function MyPointsPromotionsPageInner() {
 
 export default function MyPointsPromotionsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-sam-app" aria-busy="true" />}>
+    <Suspense fallback={<div className="flex-1 bg-sam-app" aria-busy="true" />}>
       <MyPointsPromotionsPageInner />
     </Suspense>
   );

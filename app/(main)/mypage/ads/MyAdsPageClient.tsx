@@ -391,7 +391,7 @@ export default function MyAdsPageClient() {
 
 
   return (
-    <div className="min-h-screen bg-sam-app">
+    <div className="flex-1 bg-sam-app">
       <MySubpageHeader
         title={safeT("revenue_hub_title", {
           fallbackKo: "내 홍보 / 광고",

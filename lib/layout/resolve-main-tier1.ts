@@ -97,7 +97,8 @@ const MYPAGE_EXACT_TITLES: Readonly<Record<string, MypageTitleRow>> = {
   "/mypage/order-notifications": {
     titleText: "order_notifications_title",
     subtitle: "order_notifications_subtitle",
-    backHref: "/mypage/notifications",
+    /** 리다이렉트(`/mypage/notifications`)를 거치지 않고 정본 알림함으로 */
+    backHref: "/notifications",
     showHubQuickActions: false,
   },
   "/mypage/points": { titleText: "common_points", subtitle: "point_fin_home_subtitle" },
@@ -540,12 +541,13 @@ function resolveMainTier1SubpageInner(
       backHref: "/market",
       preferHistoryBack: true,
       titleText: "tier1_write",
-      showHubQuickActions: true,
+      /** 글쓰기 1단 — 닫기·제목만, 종 없음 (P-03, `WriteScreenTier1Sync` 와 동일) */
+      showHubQuickActions: false,
     };
   }
 
   if (p === "/philife/write" || starts(p, "/philife/write")) {
-    return backHome({ titleText: "tier1_community_write", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_community_write", showHubQuickActions: false });
   }
 
   if (p === "/philife/my") {

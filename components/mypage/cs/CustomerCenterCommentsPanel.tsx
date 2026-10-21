@@ -31,6 +31,7 @@ import {
 } from "@/lib/mypage/use-mypage-cursor-list";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { useUnsavedTraverseGuard } from "@/lib/navigation/use-unsaved-traverse-guard";
 import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
@@ -125,6 +126,8 @@ export function CustomerCenterCommentsPanel({
       : null
   );
   useOverlayHardwareBack(dirty && !leaveConfirmOpen && deleteTarget == null, () => setLeaveConfirmOpen(true));
+  /** 브라우저·기록 뒤로 — 기록 추가 없이 이동만 취소하고 확인 (BK-05) */
+  const traverseGuard = useUnsavedTraverseGuard(dirty, () => setLeaveConfirmOpen(true));
 
   if (!enabled || !id) return null;
 
@@ -295,6 +298,7 @@ export function CustomerCenterCommentsPanel({
         onConfirm={() => {
           setLeaveConfirmOpen(false);
           setDraft("");
+          traverseGuard.release();
           router.push(backHref);
         }}
       />

@@ -100,7 +100,7 @@ export function MyScreen({
   }, []);
 
   return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app" data-my-screen-template={template}>
+    <div className="flex min-w-0 flex-1 flex-col bg-sam-app" data-my-screen-template={template}>
       <MySubpageHeader
         title={title}
         backHref={backHref}

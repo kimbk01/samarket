@@ -10,7 +10,7 @@ import { MYPAGE_BODY_COLUMN_CLASS, MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/myp
 export default function MypageStoreOrderDetailPage() {
   const { t } = useI18n();
   return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
+    <div className="flex min-w-0 flex-1 flex-col bg-sam-app">
       <MySubpageHeader
         title={t("route_store_order_detail_title")}
         subtitle={t("route_store_order_detail_subtitle")}

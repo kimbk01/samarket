@@ -20,6 +20,7 @@ import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { useUnsavedTraverseGuard } from "@/lib/navigation/use-unsaved-traverse-guard";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type Props = {
@@ -81,6 +82,8 @@ function MypageLeaveRequestForm() {
       : null,
   );
   useOverlayHardwareBack(dirty && !leaveConfirmOpen && !confirmOpen, () => setLeaveConfirmOpen(true));
+  /** 브라우저·기록 뒤로 — 기록 추가 없이 이동만 취소하고 확인 (BK-05) */
+  const traverseGuard = useUnsavedTraverseGuard(dirty, () => setLeaveConfirmOpen(true));
 
   const submit = () =>
     run(async () => {
@@ -192,6 +195,7 @@ function MypageLeaveRequestForm() {
           setLeaveConfirmOpen(false);
           setAgreed(false);
           setReason("");
+          traverseGuard.release();
           goHome();
         }}
       />

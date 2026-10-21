@@ -17,6 +17,8 @@ const ALLOW_EXACT = new Set([
   "components/community-messenger/CommunityMessengerCallClient.tsx",
   "components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx",
   "lib/community-messenger/call-pip-metrics.ts",
+  // 배달 UI Frozen — 승인 재개방(Q9) 범위 밖이라 보류 (구현 범위 문서 「보류」 NAV-04 중 StoreOrderReceiptSheet)
+  "components/mypage/StoreOrderReceiptSheet.tsx",
 ]);
 
 const ALLOW_PREFIX = [
