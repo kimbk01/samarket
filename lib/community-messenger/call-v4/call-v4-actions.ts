@@ -331,9 +331,18 @@ function buildOutgoingIdentity(
     direction: "outgoing",
     mediaType: session.callKind === "video" ? "video" : "audio",
     createdAt: session.startedAt,
-    peerLabel: peerLabel?.trim() || session.peerLabel,
+    /** V-3 — 서버가 매핑한 상대 프로필 표시명 우선(수신 측과 같은 이름). 힌트는 서버 값이 없을 때만 */
+    peerLabel: resolveCallV4OutgoingPeerLabel(session.peerLabel, peerLabel),
     peerAvatarUrl: session.peerAvatarUrl ?? null,
   };
+}
+
+/** V-3 — 발신 상대 이름: 세션의 프로필 표시명 → 호출부 힌트(프로필 라벨/방 제목) 순 */
+export function resolveCallV4OutgoingPeerLabel(
+  sessionPeerLabel: string | null | undefined,
+  hint: string | null | undefined,
+): string {
+  return sessionPeerLabel?.trim() || hint?.trim() || "";
 }
 
 function buildIncomingIdentity(session: CommunityMessengerCallSession): CallV4Identity {
@@ -836,7 +845,7 @@ export async function callV4CreateOutgoing(input: {
         roomId: roomResolved.roomId,
         mediaType: input.mediaType,
         peerUserId: input.peerUserId,
-        peerName: input.peerLabel,
+        peerName: identity.peerLabel || input.peerLabel,
       });
       if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
         logCallCorr("LATENCY_HANDOFF", {
@@ -872,7 +881,7 @@ export async function callV4CreateOutgoing(input: {
           roomId: roomResolved.roomId,
           mediaType: input.mediaType,
           peerUserId: input.peerUserId,
-          peerName: input.peerLabel,
+          peerName: identity.peerLabel || input.peerLabel,
         });
         if (fallback.ok && fallback.nativeOwned) {
           clearCallV4MissedTimer();
@@ -892,7 +901,7 @@ export async function callV4CreateOutgoing(input: {
         roomId: roomResolved.roomId,
         mediaType: input.mediaType,
         peerUserId: input.peerUserId,
-        peerName: input.peerLabel,
+        peerName: identity.peerLabel || input.peerLabel,
       });
       if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
         logCallV4("native_outgoing_handoff_done", {

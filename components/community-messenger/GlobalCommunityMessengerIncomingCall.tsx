@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { markCallScreenPushEntry } from "@/lib/community-messenger/call-v4/call-return-navigation";
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { messengerHomeActionErrorMessage } from "@/lib/community-messenger/home/messenger-home-action-error-message";
@@ -2213,7 +2214,10 @@ export function GlobalCommunityMessengerIncomingCall() {
       logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "incoming_banner_expand" });
       rememberCallNavigationReturnPath();
       primeCommunityMessengerCallNavigationSeed(session.id, session);
-      router.push(buildIncomingCallPreviewHref(session.id));
+      const previewHref = buildIncomingCallPreviewHref(session.id);
+      /** P-7 — push 진입 토큰: 종료 시 back 1회로 원래 화면에 돌아온다 */
+      markCallScreenPushEntry(session.id, previewHref);
+      router.push(previewHref);
     },
     [busyId, router]
   );

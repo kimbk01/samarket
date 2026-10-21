@@ -5,6 +5,7 @@ import { CallScreenShell } from "@/components/community-messenger/call-ui/CallSc
 import { INCOMING_CALL_FULLSCREEN_SURFACE_CLASS } from "@/lib/community-messenger/call-ui/incoming-call-banner-tokens";
 import { AndroidOsPipSafeCallView } from "@/components/community-messenger/call-ui/AndroidOsPipSafeCallView";
 import { CallBackground } from "./CallBackground";
+import { CallLinkPoorWarningOverlay } from "./CallLinkPoorWarningOverlay";
 import { CallHeader } from "./CallHeader";
 import { ConnectedVideoView } from "./ConnectedVideoView";
 import { EndedCallView } from "./EndedCallView";
@@ -69,6 +70,14 @@ export function CallScreen({
     !(vm.mode === "video" && vm.direction === "outgoing") &&
     !(isOutgoingVoiceRinging);
 
+  /** V-8 — 웹 영상 통화 중에만 테두리 경고(OS PiP·dock 축소 화면 제외) */
+  const showLinkPoorWarning =
+    Boolean(vm.linkPoorWarning && vm.linkPoorWarningText) &&
+    vm.mode === "video" &&
+    vm.phase === "connected" &&
+    !androidOsPipSafeMode &&
+    variant !== "dock-top";
+
   return (
     <CallScreenShell
       variant={variant === "dock-top" ? "dock-top" : variant}
@@ -103,6 +112,7 @@ export function CallScreen({
           />
         ) : null}
         {renderCallView(vm)}
+        {showLinkPoorWarning ? <CallLinkPoorWarningOverlay text={vm.linkPoorWarningText ?? ""} /> : null}
       </div>
     </CallScreenShell>
   );

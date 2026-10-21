@@ -55,6 +55,19 @@ export function resolveCallSessionHeartbeatMutation(purpose?: CallSessionHeartbe
   };
 }
 
+/** C-14 — heartbeat 의 mediaConnected 로 connected_at 을 채워도 되는지(순수 판정) */
+export function shouldFillConnectedAtFromHeartbeat(input: {
+  mediaConnected: boolean;
+  status: string | null | undefined;
+  answeredAt: string | null | undefined;
+  connectedAt: string | null | undefined;
+}): boolean {
+  if (!input.mediaConnected) return false;
+  if (trimText(input.status) !== "active") return false;
+  if (!trimText(input.answeredAt)) return false;
+  return !trimText(input.connectedAt);
+}
+
 /** PATCH action=heartbeat — live active session only */
 export async function heartbeatCommunityMessengerCallSession(input: {
   userId: string;
@@ -74,6 +87,12 @@ export async function heartbeatCommunityMessengerCallSession(input: {
    * - omitted: legacy compatibility, writes both as before
    */
   heartbeatPurpose?: CallSessionHeartbeatPurpose;
+  /**
+   * C-14 — 웹 클라이언트가 미디어 연결(Connected Gate 통과) 후 보내는 신호.
+   * `connected_at` 이 null 이고 status=active(수락 완료)일 때만 server now() 로 채운다(CAS).
+   * connected PATCH 유실 시 통화 시간 0 영구 기록 방지. 네이티브 heartbeat 는 보내지 않는다.
+   */
+  mediaConnected?: boolean;
 }): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
   const sessionId = trimText(input.sessionId);
   const userId = trimText(input.userId);
@@ -84,7 +103,7 @@ export async function heartbeatCommunityMessengerCallSession(input: {
 
   const { data: row } = await (sb as any)
     .from("community_messenger_call_sessions")
-    .select("id, initiator_user_id, recipient_user_id, status")
+    .select("id, initiator_user_id, recipient_user_id, status, answered_at, connected_at")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -130,6 +149,30 @@ export async function heartbeatCommunityMessengerCallSession(input: {
     .eq("status", "active");
 
   if (error) return { ok: false, error: "update_failed" };
+
+  if (
+    shouldFillConnectedAtFromHeartbeat({
+      mediaConnected: input.mediaConnected === true,
+      status: row.status,
+      answeredAt: row.answered_at,
+      connectedAt: row.connected_at,
+    })
+  ) {
+    const { data: stamped } = await (sb as any)
+      .from("community_messenger_call_sessions")
+      .update({ connected_at: ts, updated_at: ts })
+      .eq("id", sessionId)
+      .eq("status", "active")
+      .is("connected_at", null)
+      .select("id")
+      .maybeSingle();
+    if (stamped) {
+      console.info("[cm-call-heartbeat-connected-fill]", {
+        sessionId,
+        party: isCaller ? "caller" : "callee",
+      });
+    }
+  }
 
   const session = await getCommunityMessengerCallSessionById(userId, sessionId);
   return session ? { ok: true, session } : { ok: false, error: "map_failed" };
