@@ -218,7 +218,9 @@ export async function loadCouponCampaignOpsBundle(
     const { data: reds } = await sb
       .from("store_coupon_redemptions")
       .select("campaign_id, order_id, user_coupon_id")
-      .in("campaign_id", ids);
+      .in("campaign_id", ids)
+      // ADS-25: reversed (restored) redemptions stay as history; ops facts count active uses only.
+      .is("reversed_at", null);
     const orderIds = [
       ...new Set((reds ?? []).map((r) => String((r as { order_id?: string }).order_id ?? "")).filter(Boolean)),
     ];

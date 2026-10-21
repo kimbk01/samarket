@@ -119,8 +119,26 @@ if (/best-effort[\s\S]{0,40}gift_certificate_redemption_reverse|gift_certificate
 if (transition.includes("gift_certificate_redemption_reverse")) {
   fail("apply-store-order-status-transition must not call gift_certificate_redemption_reverse directly");
 }
-if (!transition.includes("gift_certificate_cancel_order_restore")) {
-  fail("cancel transition must use gift_certificate_cancel_order_restore for gift restore");
+// Stage 2-C (FIN-05 / GFT-05): cancel gift restore runs inside the cancel DB functions (same TX as the status
+// change) via store_order_apply_cancel_side_effects -> gift_certificate_cancel_order_restore.
+{
+  const c2Mig = read("supabase/migrations/20270603130000_stage2_2c_cancel_refund_money_atomic.sql");
+  const sideFx = c2Mig.slice(
+    c2Mig.indexOf("CREATE OR REPLACE FUNCTION public.store_order_apply_cancel_side_effects"),
+    c2Mig.indexOf("CREATE OR REPLACE FUNCTION public.store_order_cancel_direct_atomic")
+  );
+  if (!sideFx.includes("public.gift_certificate_cancel_order_restore(p_order_id)")) {
+    fail("cancel side effects must restore gift via gift_certificate_cancel_order_restore");
+  }
+  for (const fn of ["store_order_owner_cancel_atomic", "store_order_cancel_request_decide_atomic", "store_order_cancel_direct_atomic"]) {
+    const body = c2Mig.slice(c2Mig.indexOf(`CREATE OR REPLACE FUNCTION public.${fn}(`));
+    if (!body.slice(0, body.indexOf("$function$;")).includes("public.store_order_apply_cancel_side_effects(p_order_id)")) {
+      fail(`${fn} must run the cancel side effects (gift restore) in its transaction`);
+    }
+  }
+  if (!transition.includes('"store_order_cancel_direct_atomic"')) {
+    fail("plain cancels must go through store_order_cancel_direct_atomic (gift restore in the same TX)");
+  }
 }
 
 const hardLock = read("lib/gift-certificate/gift-certificate-hard-lock.ts");

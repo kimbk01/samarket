@@ -27,7 +27,10 @@ import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/
 import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-settlement";
 import { adjustStoreSettlementOnRefund } from "@/lib/stores/adjust-store-settlement-on-refund";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
-import { ensureStoreSettlementForCompletedOrder } from "@/lib/stores/ensure-store-settlement";
+import {
+  ensureStoreSettlementForCompletedOrder,
+  LEGACY_STORE_SETTLEMENT_WRITER_ENABLED,
+} from "@/lib/stores/ensure-store-settlement";
 import { STORE_ORDER_CLOSED_STATUSES } from "@/lib/admin/admin-ops-actionable-status";
 import {
   ADMIN_CANCEL_REQUEST_RESTORE_STATUSES,
@@ -41,7 +44,6 @@ import {
 } from "@/lib/stores/order-status-transitions";
 import { restoreStockForOrder } from "@/lib/stores/restore-order-stock";
 import { computeAutoCompleteAtIso } from "@/lib/stores/store-auto-complete-config";
-import { reverseCoinCreditsForOrder } from "@/lib/currency/coin-reversal-writer";
 import { STORE_COMMISSION_CHARGE_FAILED_ERROR } from "@/lib/stores/commission/store-commission-contract";
 import { recognizeOrderCurrencyOnCompleted } from "@/lib/currency/recognize-order-currency-on-completed";
 import { applyStoreOrderPopularityProjectionOnCompleted } from "@/lib/stores/discovery/store-order-popularity-projection";
@@ -147,13 +149,14 @@ const LEDGER_RPC_ERROR_MAP: Record<string, { error: string; httpStatus: number }
 export const OPEN_DELIVERY_STATUSES = ["waiting_rider", "rider_assigned", "pickup_in_progress", "delivering"] as const;
 
 /**
- * DLV-02 ③ — the order closed (cancelled / refunded): close an open delivery row so it leaves the
- * dispatch queue. Post-commit, best effort (moves into the cancel DB function in stage 2-C).
+ * DLV-02 ③ — the order was refunded: close an open delivery row so it leaves the dispatch queue.
+ * Post-commit, best effort. Cancels close it inside the cancel DB functions (stage 2-C,
+ * `store_order_apply_cancel_side_effects`, same transaction as the status change).
  */
 async function closeOpenDeliveryRowOnOrderClosed(
   sb: SupabaseClient,
   orderId: string,
-  closedStatus: "cancelled" | "refunded"
+  closedStatus: "refunded"
 ): Promise<void> {
   try {
     const { error } = await sb
@@ -374,10 +377,46 @@ export async function applyStoreOrderStatusTransition(
 
   const buyerCancelRequest = actor === "CUSTOMER" && nextStatus === "cancel_requested";
   const ledgerAtomic = ownerDirectCancel != null || cancelDecision != null;
+  /**
+   * FIN-05 / ADS-21 / GFT-05 (stage 2-C): every other cancel (buyer pre-accept, admin direct, SYSTEM
+   * accept_timeout / payment_failure) runs the CAS + coupon/gift restore + delivery close in one DB TX.
+   */
+  const directCancel = nextStatus === "cancelled" && !ledgerAtomic;
+  /** Cancel side-effect result from the DB cancel function (coupon / gift / delivery, same TX). */
+  let cancelSideEffects: Record<string, unknown> | null = null;
   let { updated, error: uErr } =
-    nextStatus === "refunded" || buyerCancelRequest || ledgerAtomic
+    nextStatus === "refunded" || buyerCancelRequest || ledgerAtomic || directCancel
       ? { updated: null as { id?: string } | null, error: null as { message?: string } | null }
       : await runCasUpdate(updatePayload);
+
+  if (directCancel) {
+    const { data: cancelRaw, error: cancelErr } = await sb.rpc("store_order_cancel_direct_atomic", {
+      p_order_id: oid,
+      p_expected_status: current,
+      p_payment_status: String(updatePayload.payment_status),
+      p_actor: actor,
+    });
+    if (cancelErr) {
+      const msg = String(cancelErr.message ?? "");
+      if (/store_commission_(charge_failed|policy_missing)/.test(msg)) {
+        uErr = cancelErr;
+      } else if (/store_order_cancel_direct_atomic|schema cache|does not exist/i.test(msg)) {
+        return { ok: false, error: "store_order_cancel_direct_atomic_missing", httpStatus: 503 };
+      } else {
+        console.error("[applyStoreOrderStatusTransition] store_order_cancel_direct_atomic", cancelErr);
+        return { ok: false, error: msg || "update_failed", httpStatus: 500 };
+      }
+    } else {
+      const cancelRow = (cancelRaw ?? {}) as Record<string, unknown>;
+      if (cancelRow.ok !== true) {
+        const code = String(cancelRow.error ?? "cancel_failed");
+        return { ok: false, ...(LEDGER_RPC_ERROR_MAP[code] ?? { error: code, httpStatus: 500 }) };
+      }
+      cancelSideEffects = (cancelRow.side_effects ?? null) as Record<string, unknown> | null;
+      updated = { id: oid };
+      uErr = null;
+    }
+  }
 
   /** ORD-06: cancel ledger row + status in one DB TX (owner direct cancel / request decision). */
   if (ledgerAtomic) {
@@ -423,6 +462,7 @@ export async function applyStoreOrderStatusTransition(
         const code = String(ledgerRow.error ?? "cancel_ledger_failed");
         return { ok: false, ...(LEDGER_RPC_ERROR_MAP[code] ?? { error: code, httpStatus: 500 }) };
       }
+      cancelSideEffects = (ledgerRow.side_effects ?? null) as Record<string, unknown> | null;
       updated = { id: oid };
       uErr = null;
     }
@@ -462,7 +502,10 @@ export async function applyStoreOrderStatusTransition(
     uErr = null;
   }
 
-  /** G10: refund terminal + gift reverse in one DB TX (never after-the-fact reverse). */
+  /**
+   * G10 + FIN-05 / ADS-21: refund terminal + gift reverse + Coin reversal (`coin_reversal:order:{id}`)
+   * + coupon restore in one DB TX (never after-the-fact reverse).
+   */
   if (nextStatus === "refunded") {
     const { data: refundRpcRaw, error: refundRpcErr } = await sb.rpc(
       "gift_certificate_refund_order_atomic",
@@ -598,66 +641,31 @@ export async function applyStoreOrderStatusTransition(
     if (payErr && !payErr.message?.includes("does not exist")) {
       console.error("[applyStoreOrderStatusTransition] store_payments", payErr);
     }
-    await cancelScheduledSettlementForOrder(sb, oid);
-    await adjustStoreSettlementOnRefund(sb, {
-      orderId: oid,
-      refundAmount: undefined,
-      note: "admin_refund_completed",
-    });
-    const coinReversal = await reverseCoinCreditsForOrder(sb, {
-      orderId: oid,
-      reason: "order_refund",
-    });
-    if (!coinReversal.ok && coinReversal.error !== "rpc_missing") {
-      console.error("[applyStoreOrderStatusTransition] coin_reversal", coinReversal.error);
+    // FIN-06: the legacy store_settlements snapshot is read-only (writer off) — no TS commission writes.
+    if (LEGACY_STORE_SETTLEMENT_WRITER_ENABLED) {
+      await cancelScheduledSettlementForOrder(sb, oid);
+      await adjustStoreSettlementOnRefund(sb, {
+        orderId: oid,
+        refundAmount: undefined,
+        note: "admin_refund_completed",
+      });
     }
     // Commission: never auto-reversed. The DB trigger already queued it for admin review
     // in the same transaction as the status change (store-commission-contract).
-    await sb.rpc("restore_store_coupon_entitlement", {
-      p_order_id: oid,
-      p_allow_after_completed: true,
-    });
-    // Gift reverse already committed inside gift_certificate_refund_order_atomic.
-  }
-
-  if (nextStatus === "cancelled" || nextStatus === "refunded") {
-    await closeOpenDeliveryRowOnOrderClosed(sb, oid, nextStatus);
+    // Gift reverse, Coin reversal and coupon restore already committed inside gift_certificate_refund_order_atomic.
+    await closeOpenDeliveryRowOnOrderClosed(sb, oid, "refunded");
   }
 
   // 조리 시작 commission charge / cancel-refund review run inside the CAS UPDATE
   // (DB trigger trg_store_orders_commission_lifecycle) — nothing to do here.
 
-  if (nextStatus === "cancelled") {
+  /**
+   * Cancel money side effects (coupon restore, gift restore via gift_certificate_cancel_order_restore,
+   * open delivery row closed) committed inside the cancel DB function (store_order_apply_cancel_side_effects).
+   * FIN-06: legacy store_settlements snapshot untouched while its writer is off.
+   */
+  if (nextStatus === "cancelled" && LEGACY_STORE_SETTLEMENT_WRITER_ENABLED) {
     await cancelScheduledSettlementForOrder(sb, oid);
-    await sb.rpc("restore_store_coupon_entitlement", {
-      p_order_id: oid,
-      p_allow_after_completed: false,
-    });
-    /** CUT 2: gift restore via cancel-safe RPC (idempotent; not refund atomic). */
-    const { data: giftCancelRaw, error: giftCancelErr } = await sb.rpc(
-      "gift_certificate_cancel_order_restore",
-      { p_order_id: oid }
-    );
-    if (giftCancelErr) {
-      if (
-        !/gift_certificate_cancel_order_restore|schema cache|does not exist/i.test(
-          giftCancelErr.message
-        )
-      ) {
-        console.error(
-          "[applyStoreOrderStatusTransition] gift_certificate_cancel_order_restore",
-          giftCancelErr
-        );
-      }
-    } else {
-      const giftCancelRow = (giftCancelRaw ?? {}) as Record<string, unknown>;
-      if (giftCancelRow.ok === false && giftCancelRow.error !== "order_not_cancelled") {
-        console.error(
-          "[applyStoreOrderStatusTransition] gift_certificate_cancel_order_restore",
-          giftCancelRow.error
-        );
-      }
-    }
   }
   if (nextStatus === "completed") {
     await ensureStoreSettlementForCompletedOrder(sb, oid);
@@ -742,6 +750,8 @@ export async function applyStoreOrderStatusTransition(
     metadata: {
       apply_actor: actor,
       ...(opts.eventMetadata ?? {}),
+      // GFT-05 / D-20: an already-expired gift certificate was restored by this cancel (admin review).
+      ...(cancelSideEffects?.restored_expired === true ? { restored_expired: true } : {}),
     },
     message: opts.eventMessage ?? null,
   });

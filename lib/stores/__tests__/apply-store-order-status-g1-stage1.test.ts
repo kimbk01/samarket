@@ -2,7 +2,8 @@
  * G-1 stage 1 (4-E / 4-F / 4-H) — applyStoreOrderStatusTransition contracts:
  * ORD-06 ledger RPCs · ORD-09 owner cancel reason · NTF-02 SYSTEM notice matrix · NTF-03 accept ETA ·
  * NTF-04 snapshot row purge before responding · NTF-05 idempotent refund · DLV-02 delivery_sync + close
- * open delivery row on cancel/refund.
+ * open delivery row on cancel/refund · stage 2-C (FIN-05 / ADS-21 / GFT-05 / FIN-06) cancel/refund money side
+ * effects inside the DB functions.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -47,9 +48,16 @@ vi.mock("@/lib/notifications/pipeline/notify-read-service", () => ({ markOrderNo
 vi.mock("@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache", () => ({
   invalidateBuyerStoreOrdersListSnapshot: vi.fn(),
 }));
-vi.mock("@/lib/stores/cancel-store-settlement", () => ({ cancelScheduledSettlementForOrder: vi.fn(async () => undefined) }));
-vi.mock("@/lib/stores/adjust-store-settlement-on-refund", () => ({ adjustStoreSettlementOnRefund: vi.fn(async () => undefined) }));
-vi.mock("@/lib/stores/ensure-store-settlement", () => ({ ensureStoreSettlementForCompletedOrder: vi.fn(async () => undefined) }));
+const legacy = vi.hoisted(() => ({
+  cancelScheduledSettlementForOrder: vi.fn(async () => undefined),
+  adjustStoreSettlementOnRefund: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/stores/cancel-store-settlement", () => ({ cancelScheduledSettlementForOrder: legacy.cancelScheduledSettlementForOrder }));
+vi.mock("@/lib/stores/adjust-store-settlement-on-refund", () => ({ adjustStoreSettlementOnRefund: legacy.adjustStoreSettlementOnRefund }));
+vi.mock("@/lib/stores/ensure-store-settlement", () => ({
+  ensureStoreSettlementForCompletedOrder: vi.fn(async () => undefined),
+  LEGACY_STORE_SETTLEMENT_WRITER_ENABLED: false,
+}));
 vi.mock("@/lib/stores/load-commerce-settings", () => ({ loadCommerceSettings: vi.fn(async () => ({ autoCompleteDays: 3 })) }));
 vi.mock("@/lib/currency/recognize-order-currency-on-completed", () => ({
   recognizeOrderCurrencyOnCompleted: vi.fn(async () => ({ ok: true })),
@@ -463,19 +471,35 @@ describe("DLV-02 delivery_sync edge + close open delivery row", () => {
     expect(allowedOrderTransitionsForActor("SYSTEM", "arrived", "local_delivery", o)).toEqual([]);
   });
 
-  it.each(["cancelled", "refunded"])("order → %s closes an open delivery row (delivery_failed)", async (to) => {
-    const rpcResults: Record<string, { data: unknown; error: { message: string } | null }> =
-      to === "refunded" ? { gift_certificate_refund_order_atomic: { data: { ok: true }, error: null } } : {};
-    const { sb, writes } = fakeSb(baseOrder(to === "refunded" ? "refund_requested" : "accepted"), rpcResults);
+  it("order → cancelled: the cancel DB function closes the delivery row (no TS delivery write)", async () => {
+    const { sb, rpc, writes } = fakeSb(baseOrder("accepted"));
     const r = await applyStoreOrderStatusTransition(sb, {
       orderId: "o1",
-      nextStatus: to,
+      nextStatus: "cancelled",
+      actor: "ADMIN",
+      audit: { actor_type: "admin", actor_id: "a1", action: "t" },
+    });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("store_order_cancel_direct_atomic", expect.objectContaining({ p_order_id: "o1" }));
+    expect(writes.some((w) => w.table === "store_order_deliveries")).toBe(false);
+    expect(read("supabase/migrations/20270603130000_stage2_2c_cancel_refund_money_atomic.sql")).toMatch(
+      /SET delivery_status = 'delivery_failed',\s+failure_note = 'order_cancelled'[\s\S]*?delivery_status IN \('waiting_rider', 'rider_assigned', 'pickup_in_progress', 'delivering'\)/
+    );
+  });
+
+  it("order → refunded closes an open delivery row (delivery_failed)", async () => {
+    const { sb, writes } = fakeSb(baseOrder("refund_requested"), {
+      gift_certificate_refund_order_atomic: { data: { ok: true }, error: null },
+    });
+    const r = await applyStoreOrderStatusTransition(sb, {
+      orderId: "o1",
+      nextStatus: "refunded",
       actor: "ADMIN",
       audit: { actor_type: "admin", actor_id: "a1", action: "t" },
     });
     expect(r.ok).toBe(true);
     const close = writes.find((w) => w.table === "store_order_deliveries" && w.op === "update");
-    expect(close?.payload).toMatchObject({ delivery_status: "delivery_failed", failure_note: `order_${to}` });
+    expect(close?.payload).toMatchObject({ delivery_status: "delivery_failed", failure_note: "order_refunded" });
     expect(close?.filters).toEqual(
       expect.arrayContaining([
         ["eq", "order_id", "o1"],
@@ -509,8 +533,8 @@ describe("NTF-05 concurrent refund approval → no repeated side effects", () =>
     expect(notify.notifyBuyerStoreRefundApproved).not.toHaveBeenCalled();
   });
 
-  it("first approval still runs the side effects", async () => {
-    const { sb } = fakeSb(baseOrder("refund_requested"), {
+  it("first approval still runs the TS side effects (stock restore); money reversals are in the RPC", async () => {
+    const { sb, rpc } = fakeSb(baseOrder("refund_requested"), {
       gift_certificate_refund_order_atomic: { data: { ok: true }, error: null },
     });
     await applyStoreOrderStatusTransition(sb, {
@@ -520,7 +544,152 @@ describe("NTF-05 concurrent refund approval → no repeated side effects", () =>
       audit: { actor_type: "admin", actor_id: "a1", action: "t" },
     });
     expect(stock.restoreStockForOrder).toHaveBeenCalled();
-    expect(coin.reverseCoinCreditsForOrder).toHaveBeenCalled();
+    expect(notify.notifyBuyerStoreRefundApproved).toHaveBeenCalled();
+    expect(coin.reverseCoinCreditsForOrder).not.toHaveBeenCalled();
+    expect(rpc.mock.calls.map((c) => c[0])).not.toContain("restore_store_coupon_entitlement");
+  });
+});
+
+describe("stage 2-C FIN-05 / ADS-21 / GFT-05 / FIN-06 — cancel/refund money side effects in the DB transaction", () => {
+  const sys = { actor_type: "system" as const, actor_id: null, action: "t" };
+  const tsMoneyRpcs = ["restore_store_coupon_entitlement", "gift_certificate_cancel_order_restore", "reverse_coin_credits_for_order"];
+
+  it.each([
+    ["CUSTOMER", "pending", undefined, "cancelled"],
+    ["ADMIN", "preparing", undefined, "cancelled"],
+    ["SYSTEM", "pending", "accept_timeout", "cancelled"],
+    ["SYSTEM", "pending", "payment_failure", "failed"],
+  ] as const)("%s cancel from %s (%s) → store_order_cancel_direct_atomic (payment %s), no TS money RPC / order write", async (actor, from, purpose, pay) => {
+    const { sb, rpc, writes } = fakeSb(baseOrder(from, { payment_status: from === "pending" ? "pending" : "paid" }));
+    const r = await applyStoreOrderStatusTransition(sb, {
+      orderId: "o1",
+      nextStatus: "cancelled",
+      actor,
+      ...(purpose ? { systemPurpose: purpose } : {}),
+      audit: actor === "SYSTEM" ? sys : { actor_type: actor === "ADMIN" ? "admin" : "user", actor_id: "u1", action: "t" },
+    });
+    expect(r).toEqual({ ok: true, order_status: "cancelled", previous: from });
+    expect(rpc).toHaveBeenCalledWith("store_order_cancel_direct_atomic", {
+      p_order_id: "o1",
+      p_expected_status: from,
+      p_payment_status: pay,
+      p_actor: actor,
+    });
+    for (const name of tsMoneyRpcs) expect(rpc.mock.calls.map((c) => c[0])).not.toContain(name);
+    expect(writes.some((w) => w.table === "store_orders" && w.op === "update")).toBe(false);
+    expect(stock.restoreStockForOrder).toHaveBeenCalled();
+    expect(legacy.cancelScheduledSettlementForOrder).not.toHaveBeenCalled();
+  });
+
+  it("owner direct cancel / request approve → side effects stay in the ledger RPC (no TS money RPC)", async () => {
+    const a = fakeSb(baseOrder("preparing"));
+    await applyStoreOrderStatusTransition(a.sb, {
+      orderId: "o1",
+      nextStatus: "cancelled",
+      actor: "OWNER",
+      ownerDirectCancel: { reason: "r" },
+      audit: ownerAudit,
+    });
+    const b = fakeSb(baseOrder("cancel_requested"));
+    await applyStoreOrderStatusTransition(b.sb, {
+      orderId: "o1",
+      nextStatus: "cancelled",
+      actor: "OWNER",
+      cancelRequestDecision: { decision: "approve", actorRole: "owner" },
+      audit: ownerAudit,
+    });
+    for (const x of [a, b]) {
+      const names = x.rpc.mock.calls.map((c) => c[0]);
+      for (const name of [...tsMoneyRpcs, "store_order_cancel_direct_atomic"]) expect(names).not.toContain(name);
+    }
+    expect(legacy.cancelScheduledSettlementForOrder).not.toHaveBeenCalled();
+  });
+
+  it("direct cancel RPC errors keep the old HTTP mapping (conflict 409 · missing 503 · no side effects)", async () => {
+    const c = fakeSb(baseOrder("pending"), {
+      store_order_cancel_direct_atomic: { data: { ok: false, error: "transition_conflict" }, error: null },
+    });
+    expect(
+      await applyStoreOrderStatusTransition(c.sb, { orderId: "o1", nextStatus: "cancelled", actor: "CUSTOMER", audit: ownerAudit })
+    ).toEqual({ ok: false, error: "transition_conflict", httpStatus: 409 });
+    const m = fakeSb(baseOrder("pending"), {
+      store_order_cancel_direct_atomic: {
+        data: null,
+        error: { message: "Could not find the function public.store_order_cancel_direct_atomic in the schema cache" },
+      },
+    });
+    expect(
+      await applyStoreOrderStatusTransition(m.sb, { orderId: "o1", nextStatus: "cancelled", actor: "CUSTOMER", audit: ownerAudit })
+    ).toEqual({ ok: false, error: "store_order_cancel_direct_atomic_missing", httpStatus: 503 });
+    expect(stock.restoreStockForOrder).not.toHaveBeenCalled();
+    expect(notify.notifyStoreOwnerBuyerCancelled).not.toHaveBeenCalled();
+  });
+
+  it("GFT-05: an expired gift restored by the cancel is flagged in the status event (restored_expired)", async () => {
+    const { sb } = fakeSb(baseOrder("pending"), {
+      store_order_cancel_direct_atomic: {
+        data: { ok: true, side_effects: { ok: true, restored_expired: true } },
+        error: null,
+      },
+    });
+    await applyStoreOrderStatusTransition(sb, { orderId: "o1", nextStatus: "cancelled", actor: "CUSTOMER", audit: ownerAudit });
+    expect(events.createStoreOrderStatusEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ metadata: expect.objectContaining({ restored_expired: true }) })
+    );
+    const plain = fakeSb(baseOrder("accepted"));
+    await applyStoreOrderStatusTransition(plain.sb, {
+      orderId: "o1",
+      nextStatus: "cancelled",
+      actor: "OWNER",
+      ownerDirectCancel: { reason: "r" },
+      audit: ownerAudit,
+    });
+    const last = events.createStoreOrderStatusEvent.mock.calls.at(-1) as unknown as [unknown, { metadata: Record<string, unknown> }];
+    expect(last[1].metadata.restored_expired).toBeUndefined();
+  });
+
+  it("FIN-06: refund / cancel never touch the legacy store_settlements snapshot", async () => {
+    const { sb, writes } = fakeSb(baseOrder("refund_requested"), {
+      gift_certificate_refund_order_atomic: { data: { ok: true }, error: null },
+    });
+    await applyStoreOrderStatusTransition(sb, {
+      orderId: "o1",
+      nextStatus: "refunded",
+      actor: "ADMIN",
+      audit: { actor_type: "admin", actor_id: "a1", action: "t" },
+    });
+    expect(legacy.adjustStoreSettlementOnRefund).not.toHaveBeenCalled();
+    expect(legacy.cancelScheduledSettlementForOrder).not.toHaveBeenCalled();
+    expect(writes.some((w) => w.table === "store_settlements")).toBe(false);
+  });
+
+  it("migration: every cancel function runs the side effects; refund RPC reverses Coin + coupon in its TX", () => {
+    const sql = read("supabase/migrations/20270603130000_stage2_2c_cancel_refund_money_atomic.sql");
+    const fnBody = (name: string) => {
+      const start = sql.indexOf(`CREATE OR REPLACE FUNCTION public.${name}(`);
+      return sql.slice(start, sql.indexOf("$function$;", start));
+    };
+    for (const fn of ["store_order_owner_cancel_atomic", "store_order_cancel_request_decide_atomic", "store_order_cancel_direct_atomic"]) {
+      expect(fnBody(fn)).toContain("v_side := public.store_order_apply_cancel_side_effects(p_order_id);");
+    }
+    const side = fnBody("store_order_apply_cancel_side_effects");
+    expect(side).toContain("public.restore_store_coupon_entitlement(p_order_id, false)");
+    expect(side).toContain("public.gift_certificate_cancel_order_restore(p_order_id)");
+    expect(side).toContain("'restored_expired'");
+    const refund = fnBody("gift_certificate_refund_order_atomic");
+    expect(refund).toContain("public.reverse_coin_credits_for_order(p_order_id, 'coin_reversal:order:' || p_order_id::text, 'order_refund')");
+    expect(refund).toContain("public.restore_store_coupon_entitlement(p_order_id, true)");
+    expect(refund.indexOf("SET order_status = 'refunded'")).toBeLessThan(refund.indexOf("reverse_coin_credits_for_order"));
+    const restore = fnBody("restore_store_coupon_entitlement");
+    expect(restore).not.toMatch(/DELETE FROM public\.store_coupon_redemptions/);
+    expect(restore).toContain("SET status = 'restored'");
+    expect(restore).toContain("IF v_campaign.lifecycle_state = 'active' THEN");
+    expect(sql).toMatch(/store_coupon_redemptions_buyer_campaign_active_uidx[\s\S]*?WHERE reversed_at IS NULL;/);
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.store_order_apply_cancel_side_effects\(uuid\) FROM PUBLIC, anon, authenticated, service_role;/);
+    for (const body of sql.split("$function$").filter((_, i) => i % 2 === 1)) {
+      expect(/^[\x00-\x7F]*$/.test(body)).toBe(true);
+    }
   });
 });
 

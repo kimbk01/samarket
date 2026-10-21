@@ -139,6 +139,8 @@ export async function resolveStoreCouponCheckoutDiscount(
     .select("id")
     .eq("buyer_user_id", buyerUserId)
     .eq("campaign_id", campaignId)
+    // ADS-25: a cancelled/refunded order's redemption is kept as history (reversed_at) — not a prior use.
+    .is("reversed_at", null)
     .maybeSingle();
 
   const eligibility = resolveStoreCouponEligibility({
