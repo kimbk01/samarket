@@ -479,7 +479,13 @@ export async function createUserAddress(
   const clientRequestId = normalizeAddressClientRequestId(opts?.clientRequestId);
   if (clientRequestId) {
     const replay = await findUserAddressByClientRequestId(sb, userId, clientRequestId);
-    if (replay) return replay;
+    if (replay) {
+      // 앞선 요청이 INSERT 후 대표 지정 단계에서 실패했을 수 있다 — 이번 입력·대표 지정을 끝까지 반영
+      await updateUserAddress(sb, userId, replay.id, p);
+      await ensureSomeoneDefaultIfFirst(sb, userId, replay.id, p);
+      const { data: done } = await sb.from("user_addresses").select(SEL).eq("id", replay.id).single();
+      return done ? rowToUserAddressDTO(done as Record<string, unknown>) : replay;
+    }
   }
   const resolved = await resolveUserAddressWritePayloadForShop(sb, userId, p);
   const invalid = validatePlacesAddressPayload(resolved);

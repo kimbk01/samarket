@@ -18,6 +18,8 @@ export type AddressPlatformV2DraftPayload = {
   draft: CanonicalAddressDraft;
   detail?: string | null;
   source: "search" | "current_location" | "pin";
+  /** 기존 주소 재검색(UX-002)이면 그 주소 id — 다른 주소 편집·새 주소에 섞이지 않게 */
+  addressId?: string | null;
 };
 
 function parseDraftPayload(raw: string | null): AddressPlatformV2DraftPayload | null {

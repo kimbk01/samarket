@@ -317,32 +317,14 @@ export async function requestLocationWithDiBaYGate(options?: {
     return { ok: false, reason: "denied", message: "브라우저·기기 설정에서 위치 권한을 허용해 주세요." };
   }
 
-  if (browserState === "granted") {
-    const pos = await getBestCurrentPosition();
-    if (pos.ok) {
-      if (options?.featureKey) markPermissionFeatureCompleted(options.featureKey);
-      return { ok: true, position: pos };
-    }
-    /** 앱 권한은 허용이어도 WebView·OS 위치가 PERMISSION_DENIED 면 권한 안내로 */
-    if (pos.code === 1) {
-      void refreshPermissionState("location");
-      return { ok: false, reason: "denied", message: pos.message, positionError: pos };
-    }
-    return {
-      ok: false,
-      reason: "position_error",
-      message: pos.message,
-      positionError: pos,
-    };
-  }
-
-  // prompt 또는 unknown — OS geolocation API 직접 호출 (DIBAY 안내 UI 없음)
+  // granted · prompt · unknown — OS geolocation API 직접 호출 (DIBAY 안내 UI 없음)
   const pos = await getBestCurrentPosition();
   if (pos.ok) {
-    void refreshPermissionState("location");
+    if (browserState !== "granted") void refreshPermissionState("location");
     if (options?.featureKey) markPermissionFeatureCompleted(options.featureKey);
     return { ok: true, position: pos };
   }
+  /** code 1 = PERMISSION_DENIED — 앱 권한이 허용 상태여도(WebView·OS 거부) 권한 안내로 */
   if (pos.code === 1) {
     void refreshPermissionState("location");
     return {
