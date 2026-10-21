@@ -32,6 +32,8 @@ describe("owner admin form keyboard SSOT", () => {
     expect(base).not.toContain("safe-bottom");
     const above = ownerStoreAdminFooterFixedClass({ aboveBottomNav: true });
     expect(above).toContain("bottom-[68px]");
+    // IA-20: ≥1280px 하단 탭 숨김 → 화면 하단에 붙음
+    expect(above).toContain("min-[1280px]:bottom-0");
     expect(above).not.toContain("safe-bottom");
   });
 });

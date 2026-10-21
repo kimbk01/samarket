@@ -108,8 +108,8 @@ export const businessAdminNavMessages = {
     biz_nav_notifications: "알림함",
 
     biz_nav_notifications_desc: "주문·결제·환불 알림 확인 · 알림음 설정",
-    biz_nav_notification_settings: "알림음·진동 설정",
-    biz_nav_notification_settings_desc: "새 주문 알림음·진동 환경 설정",
+    biz_nav_notification_settings: "내 계정 알림 설정",
+    biz_nav_notification_settings_desc: "새 주문 푸시·알림음 설정 (전체 매장 공통)",
     my_biz_group_store: "상점 관리",
     my_biz_group_orders: "주문·정산",
     my_biz_group_products: "상품 관리",
@@ -305,8 +305,8 @@ export const businessAdminNavMessages = {
     biz_nav_notifications: "Inbox",
 
     biz_nav_notifications_desc: "Order · payment · refund alerts · sound settings",
-    biz_nav_notification_settings: "Sound & vibration",
-    biz_nav_notification_settings_desc: "New-order alert sound and vibration",
+    biz_nav_notification_settings: "My notification settings",
+    biz_nav_notification_settings_desc: "New-order push and alert sound (all stores)",
     my_biz_group_store: "Store management",
     my_biz_group_orders: "Orders & settlement",
     my_biz_group_products: "Products",
