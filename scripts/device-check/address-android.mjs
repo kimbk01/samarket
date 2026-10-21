@@ -51,9 +51,34 @@ async function run(id, title, fn) {
   console.log(`${id} ${r.status} — ${title}${r.detail ? ` — ${r.detail}` : ""}`);
 }
 
+/** 앱 부팅 직후 첫 화면 복원 이동이 끝날 때까지 — URL 이 5초간 그대로면 안정 */
+async function waitForStableUrl(maxMs = 45000) {
+  const end = Date.now() + maxMs;
+  let last = page.url();
+  let since = Date.now();
+  while (Date.now() < end) {
+    await sleep(500);
+    const cur = page.url();
+    if (cur !== last) {
+      last = cur;
+      since = Date.now();
+    } else if (Date.now() - since >= 5000) {
+      return;
+    }
+  }
+}
+
+/** 이동 후 앱이 다른 화면으로 돌려보내면 안정될 때까지 기다렸다가 다시 이동 (최대 3회) */
 async function gotoPath(path) {
-  await page.goto(origin + path, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+  const want = path.split("?")[0];
+  for (let i = 0; i < 3; i++) {
+    await page.goto(origin + path, { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+    await sleep(1500);
+    if (new URL(page.url()).pathname === want) return;
+    await waitForStableUrl(20000);
+  }
+  throw new Error(`${path} 로 이동해도 다른 화면으로 돌아감 — ${await screenState()}`);
 }
 
 /** 현재 화면 상태 한 줄 — 실패 원인 보고용 (URL + 화면 글자 앞부분) */
@@ -147,6 +172,7 @@ async function preflight() {
   }
   page = await webview.page();
   page.setDefaultTimeout(20000);
+  await waitForStableUrl();
   origin = new URL(page.url()).origin;
   meta.origin = origin;
   await gotoPath("/mypage/addresses");
