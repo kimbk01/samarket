@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -67,6 +68,9 @@ export function OwnerMobileOpsMenuDrawer({
   const closeDrawer = useCallback(() => {
     onCloseRef.current();
   }, []);
+
+  /** IA-20 — Android 하드웨어 뒤로가기는 열린 드로어만 닫는다 (INAPP-07 오버레이 백 스택, 실기기 FAIL 수정). */
+  useOverlayHardwareBack(open && mounted, closeDrawer);
 
   useEffect(() => {
     if (!open || !mounted) return;
