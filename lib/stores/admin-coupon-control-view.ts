@@ -22,12 +22,15 @@ export function formatAdminCouponDay(iso?: string | null): string {
 export function adminCouponLifecycleMessageKey(
   lifecycleState: string,
   startAt?: string | null,
-  endAt?: string | null
+  endAt?: string | null,
+  isActive?: boolean | null
 ): MessageKey {
   const st = String(lifecycleState ?? "");
   if (st === "revoked") return "store_coupon_wallet_status_revoked";
   if (st === "rejected") return "store_coupon_admin_reject";
-  return ownerCouponListStatusMessageKey(ownerCouponListStatus({ lifecycle_state: st, start_at: startAt, end_at: endAt }));
+  return ownerCouponListStatusMessageKey(
+    ownerCouponListStatus({ lifecycle_state: st, is_active: isActive, start_at: startAt, end_at: endAt })
+  );
 }
 
 export function adminCouponFundingMessageKey(fundingMode: string): MessageKey {

@@ -30,6 +30,7 @@ import { cmHomeListMessages } from "./catalog/cm-home-list";
 import { personalizedFeedMessages } from "./catalog/personalized-feed";
 import { businessAdminNavMessages } from "./catalog/business-admin-nav";
 import { storeCouponSsotMessages } from "./catalog/store-coupon-ssot";
+import { storeCouponOwnerFeedbackMessages } from "./catalog/store-coupon-owner-feedback";
 import { ownerDeliveryAdsMessages } from "./catalog/owner-delivery-ads";
 import { deliveryAdsPerformanceMessages } from "./catalog/delivery-ads-performance";
 import { deliveryAdsPlacementPreviewMessages } from "./catalog/delivery-ads-placement-preview";
@@ -147,6 +148,7 @@ export type MessageKey =
   | KeyOf<typeof personalizedFeedMessages.ko>
   | KeyOf<typeof businessAdminNavMessages.ko>
   | KeyOf<typeof storeCouponSsotMessages.ko>
+  | KeyOf<typeof storeCouponOwnerFeedbackMessages.ko>
   | KeyOf<typeof ownerDeliveryAdsMessages.ko>
   | KeyOf<typeof deliveryAdsPerformanceMessages.ko>
   | KeyOf<typeof deliveryAdsPlacementPreviewMessages.ko>
@@ -231,6 +233,7 @@ type EnMessageKey =
   | KeyOf<typeof personalizedFeedMessages.en>
   | KeyOf<typeof businessAdminNavMessages.en>
   | KeyOf<typeof storeCouponSsotMessages.en>
+  | KeyOf<typeof storeCouponOwnerFeedbackMessages.en>
   | KeyOf<typeof ownerDeliveryAdsMessages.en>
   | KeyOf<typeof deliveryAdsPerformanceMessages.en>
   | KeyOf<typeof deliveryAdsPlacementPreviewMessages.en>

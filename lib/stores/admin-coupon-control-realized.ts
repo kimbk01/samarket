@@ -82,6 +82,8 @@ export type CouponControlCampaignView = {
   is_active: boolean;
   computed_state: "active" | "upcoming" | "expired" | "inactive";
   lifecycle_state: string;
+  /** 3-C IA-04 — owner|admin|null (관리자 일시정지면 오너 재개 불가) */
+  paused_by: string | null;
   funding_mode: string;
   discount_type: string;
   discount_value: number;
@@ -152,6 +154,7 @@ export function assembleCouponControlCampaignView(input: {
     is_active: isActive,
     computed_state,
     lifecycle_state: String(c.lifecycle_state ?? (isActive ? "active" : "inactive")),
+    paused_by: c.paused_by == null ? null : String(c.paused_by),
     funding_mode: String(c.funding_mode ?? "STORE_FUNDED"),
     discount_type: String(c.discount_type ?? ""),
     discount_value: money(c.discount_value),

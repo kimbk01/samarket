@@ -7,6 +7,7 @@ import {
   isStoreCouponCampaignPurpose,
   type StoreCouponCampaignPurpose,
 } from "@/lib/stores/store-coupon-ssot";
+import { readStoreCouponMaxUsesPerUser } from "@/lib/stores/store-coupon-effective-state";
 
 export type StoreCouponCampaignCreateInput = {
   storeId: string;
@@ -101,9 +102,13 @@ export function parseStoreCouponCampaignCreateBody(
         "store_funded_amount",
         "campaignPurpose",
         "campaign_purpose",
+        "maxUsesPerUser",
+        "max_uses_per_user",
       ].includes(k)
   );
   if (forbidden.length) return { ok: false, error: "forbidden_fields", forbidden };
+  // ADS-24 — 1인 1회 사용만 지원 (redemptions 부분 UNIQUE 와 같은 계약).
+  if (!readStoreCouponMaxUsesPerUser(body).ok) return { ok: false, error: "unsupported_max_uses" };
 
   const storeId = readString(body, "storeId") || readString(body, "store_id");
   const discountTypeRaw = readString(body, "discountType") || readString(body, "discount_type");
@@ -185,6 +190,8 @@ export function parseStoreCouponCampaignUpdateBody(
   const body = raw as Record<string, unknown>;
   const id = readString(body, "id");
   if (!id) return { ok: false, error: "missing_id" };
+
+  if (!readStoreCouponMaxUsesPerUser(body).ok) return { ok: false, error: "unsupported_max_uses" };
 
   const out: StoreCouponCampaignUpdateInput = { id };
   if ("title" in body) {

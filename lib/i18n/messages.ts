@@ -26,6 +26,7 @@ import { cmHomeListMessages } from "./catalog/cm-home-list";
 import { personalizedFeedMessages } from "./catalog/personalized-feed";
 import { businessAdminNavMessages } from "./catalog/business-admin-nav";
 import { storeCouponSsotMessages } from "./catalog/store-coupon-ssot";
+import { storeCouponOwnerFeedbackMessages } from "./catalog/store-coupon-owner-feedback";
 import { ownerDeliveryAdsMessages } from "./catalog/owner-delivery-ads";
 import { deliveryAdsPerformanceMessages } from "./catalog/delivery-ads-performance";
 import { deliveryAdsPlacementPreviewMessages } from "./catalog/delivery-ads-placement-preview";
@@ -134,6 +135,7 @@ const KO_MESSAGES = {
   ...personalizedFeedMessages.ko,
   ...businessAdminNavMessages.ko,
   ...storeCouponSsotMessages.ko,
+  ...storeCouponOwnerFeedbackMessages.ko,
   ...ownerDeliveryAdsMessages.ko,
   ...deliveryAdsPerformanceMessages.ko,
   ...deliveryAdsPlacementPreviewMessages.ko,
@@ -237,6 +239,7 @@ const EN_MESSAGES = {
   ...personalizedFeedMessages.en,
   ...businessAdminNavMessages.en,
   ...storeCouponSsotMessages.en,
+  ...storeCouponOwnerFeedbackMessages.en,
   ...ownerDeliveryAdsMessages.en,
   ...deliveryAdsPerformanceMessages.en,
   ...deliveryAdsPlacementPreviewMessages.en,

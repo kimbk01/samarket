@@ -19,6 +19,7 @@ import type {
 import { isSponsoredScheduleActive } from "@/lib/stores/advertising/store-sponsored-exposure-eligibility";
 import { lifecycleImpliesIsActive } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
+import { isCouponClaimableState, type CouponStateRowInput } from "@/lib/stores/store-coupon-effective-state";
 
 const JUNCTION_TABLE = "delivery_store_sponsored_campaign_inventories";
 const INVENTORY_TABLE = "delivery_ad_inventories";
@@ -278,7 +279,7 @@ export async function loadActiveStoreCouponCampaigns(
   const { data, error } = await sb
     .from(STORE_COUPON_CAMPAIGN_TABLE)
     .select(
-      "id, store_id, title, discount_type, discount_value, min_order_amount, terms_copy, start_at, end_at, is_active"
+      "id, store_id, title, discount_type, discount_value, min_order_amount, terms_copy, start_at, end_at, is_active, lifecycle_state"
     )
     .eq("is_active", true);
 
@@ -290,6 +291,8 @@ export async function loadActiveStoreCouponCampaigns(
 
   const parsed: StoreCouponCampaignRow[] = [];
   for (const row of data ?? []) {
+    // 3-C ADS-23 — claim RPC 가 받아 줄 상태만 노출 (is_active 만 보면 paused/revoked/ended 행이 섞일 수 있다).
+    if (!isCouponClaimableState(row as CouponStateRowInput, nowMs)) continue;
     const mapped = mapCoupon(row as Record<string, unknown>);
     if (mapped) parsed.push(mapped);
   }

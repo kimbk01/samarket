@@ -25,6 +25,7 @@ function writerErrorStatus(error: StoreCouponWriterError): number {
     case "invalid_start_at":
     case "invalid_end_at":
     case "invalid_window":
+    case "unsupported_max_uses":
       return 400;
     case "store_not_found":
     case "campaign_not_found":
@@ -144,14 +145,15 @@ export async function PATCH(req: NextRequest) {
   const campaignId = String(rec?.id ?? "").trim();
   if (adminAction && campaignId) {
     // 상태 조건부 전이 (DEF-9) — 회수·종료된 쿠폰은 다시 활성화하지 않는다.
+    // 3-C IA-04 — 관리자 일시정지는 paused_by='admin' 으로 남겨 오너 재개(403)를 막는다. 재개·승인은 표시를 지운다.
     const TRANSITIONS: Record<
       string,
-      { from: readonly string[]; to: string; isActive: boolean; audit: string }
+      { from: readonly string[]; to: string; isActive: boolean; audit: string; pausedBy?: "admin" | null }
     > = {
-      approve: { from: ["requested", "draft", "approved", "scheduled"], to: "active", isActive: true, audit: "admin_approve" },
+      approve: { from: ["requested", "draft", "approved", "scheduled"], to: "active", isActive: true, audit: "admin_approve", pausedBy: null },
       reject: { from: ["requested", "draft", "approved", "scheduled"], to: "rejected", isActive: false, audit: "admin_reject" },
-      pause: { from: ["active", "scheduled"], to: "paused", isActive: false, audit: "admin_pause" },
-      resume: { from: ["paused"], to: "active", isActive: true, audit: "admin_resume" },
+      pause: { from: ["active", "scheduled"], to: "paused", isActive: false, audit: "admin_pause", pausedBy: "admin" },
+      resume: { from: ["paused"], to: "active", isActive: true, audit: "admin_resume", pausedBy: null },
     };
     const tr = TRANSITIONS[adminAction];
     if (tr) {
@@ -165,7 +167,12 @@ export async function PATCH(req: NextRequest) {
       }
       const { data: updated, error: upErr } = await sb
         .from("store_coupon_campaigns")
-        .update({ lifecycle_state: tr.to, is_active: tr.isActive, updated_by_user_id: userId })
+        .update({
+          lifecycle_state: tr.to,
+          is_active: tr.isActive,
+          updated_by_user_id: userId,
+          ...(tr.pausedBy !== undefined ? { paused_by: tr.pausedBy } : {}),
+        })
         .eq("id", campaignId)
         .in("lifecycle_state", tr.from as string[])
         .select("id");

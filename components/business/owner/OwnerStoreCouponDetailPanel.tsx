@@ -77,7 +77,14 @@ export function OwnerStoreCouponDetailPanel({
   const nowMs = Date.now();
   const status = ownerCouponListStatus(source as OwnerCouponDashRow, nowMs);
   const fundingMode = String(detail?.funding_mode ?? row?.funding_mode ?? "STORE_FUNDED");
-  const actions = ownerCouponDetailActions(status, { fundingMode });
+  const actions = ownerCouponDetailActions(status, {
+    fundingMode,
+    row: {
+      lifecycle_state: String(detail?.lifecycle_state ?? row?.lifecycle_state ?? ""),
+      is_active: detail?.is_active ?? row?.is_active ?? null,
+      paused_by: detail?.paused_by ?? row?.paused_by ?? null,
+    },
+  });
   const issued = Number(detail?.issued_count ?? row?.issued_count ?? 0);
   const used = Number(detail?.redeemed_count ?? row?.redeemed_count ?? 0);
   const rate = issued > 0 ? `${Math.round((used / issued) * 100)}%` : "—";
