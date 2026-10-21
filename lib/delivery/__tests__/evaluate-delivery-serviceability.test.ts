@@ -29,7 +29,7 @@ const near = { lat: 14.55, lng: 121.0 };
 const far = { lat: 14.62, lng: 121.05 };
 
 describe("evaluateDeliveryServiceability", () => {
-  it("policy off → eligible without coords", () => {
+  it("policy off → eligible without customer coords (store has coords)", () => {
     const r = evaluateDeliveryServiceability({
       policy: offPolicy,
       overrides: emptyOverrides,
@@ -37,12 +37,60 @@ describe("evaluateDeliveryServiceability", () => {
       storeDeliveryRadiusKm: null,
       customerLat: null,
       customerLng: null,
-      storeLat: null,
-      storeLng: null,
+      storeLat: near.lat,
+      storeLng: near.lng,
     });
     expect(r.eligible).toBe(true);
     expect(r.applies).toBe(false);
     expect(r.reason).toBe("policy_off");
+  });
+
+  it("LOC-003 policy off + store coords null → ineligible missing_store_coords (fail-closed)", () => {
+    const r = evaluateDeliveryServiceability({
+      policy: offPolicy,
+      overrides: emptyOverrides,
+      storeId: "s1",
+      storeDeliveryRadiusKm: null,
+      customerLat: near.lat,
+      customerLng: near.lng,
+      storeLat: null,
+      storeLng: null,
+    });
+    expect(r.eligible).toBe(false);
+    expect(r.applies).toBe(true);
+    expect(r.reason).toBe("missing_store_coords");
+  });
+
+  it("LOC-003 store override disabled + store coords null → ineligible", () => {
+    const r = evaluateDeliveryServiceability({
+      policy: onPolicy,
+      overrides: { stores: { s1: { mode: "disabled", maxKm: null } } },
+      storeId: "s1",
+      storeDeliveryRadiusKm: 10,
+      customerLat: near.lat,
+      customerLng: near.lng,
+      storeLat: null,
+      storeLng: undefined,
+    });
+    expect(r.eligible).toBe(false);
+    expect(r.applies).toBe(true);
+    expect(r.reason).toBe("missing_store_coords");
+  });
+
+  it("LOC-003 preservation — store with coords: policy ON/OFF results unchanged", () => {
+    const base = {
+      overrides: emptyOverrides,
+      storeId: "s1",
+      storeDeliveryRadiusKm: 1,
+      customerLat: far.lat,
+      customerLng: far.lng,
+      storeLat: near.lat,
+      storeLng: near.lng,
+    };
+    const off = evaluateDeliveryServiceability({ ...base, policy: offPolicy });
+    expect(off).toMatchObject({ eligible: true, applies: false, reason: "policy_off" });
+    const on = evaluateDeliveryServiceability({ ...base, policy: onPolicy });
+    expect(on).toMatchObject({ eligible: false, applies: true, reason: "out_of_range" });
   });
 
   it("store override disabled → eligible without distance check", () => {

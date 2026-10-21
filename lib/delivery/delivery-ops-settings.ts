@@ -90,6 +90,29 @@ export function normalizeDeliveryDistancePolicy(raw: unknown): DeliveryDistanceP
   };
 }
 
+/**
+ * LOC-011 — raw `admin_settings.delivery_distance_policy` vs what the code applies.
+ * - `normalizedOnSave`: raw values the normalizer rewrites (shown as applied value; next save stores it).
+ * - `ignored`: legacy values kept in storage but never used for eligibility (CUT1 store radius SSOT).
+ */
+export function describeDeliveryDistancePolicyRawDiff(raw: unknown): {
+  normalizedOnSave: string[];
+  ignored: string[];
+} {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!o) return { normalizedOnSave: [], ignored: [] };
+  const norm = normalizeDeliveryDistancePolicy(o);
+  const normalizedOnSave: string[] = [];
+  const ignored: string[] = [];
+  if ("enabled" in o && o.enabled !== norm.enabled) normalizedOnSave.push("enabled");
+  if ("source" in o && o.source !== norm.source) normalizedOnSave.push("source");
+  if ("overDistanceBehavior" in o && o.overDistanceBehavior !== norm.overDistanceBehavior) {
+    normalizedOnSave.push("overDistanceBehavior");
+  }
+  if (norm.defaultMaxKm != null) ignored.push("defaultMaxKm");
+  return { normalizedOnSave, ignored };
+}
+
 export function normalizeDeliveryStoreDistanceOverride(raw: unknown): DeliveryStoreDistanceOverride {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   return {
@@ -199,10 +222,8 @@ async function fetchDeliveryDistanceSettingsFromDb(sb: SupabaseClient): Promise<
       };
     }
     console.error("[loadDeliveryDistanceSettings]", error);
-    return {
-      policy: DEFAULT_DELIVERY_DISTANCE_POLICY,
-      overrides: DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES,
-    };
+    // LOC-003: never silently fall back to policy OFF on a read error (fail-open).
+    throw new DeliveryPolicyUnavailableError(error.message);
   }
   const rows = (data ?? []) as { key?: string; value_json?: unknown }[];
   const policyRow = rows.find((r) => r.key === DELIVERY_OPS_SETTING_KEYS.distancePolicy);
@@ -213,7 +234,42 @@ async function fetchDeliveryDistanceSettingsFromDb(sb: SupabaseClient): Promise<
   };
 }
 
-export async function loadDeliveryDistanceSettings(sb: SupabaseClient): Promise<{
+/** LOC-003 — distance policy could not be read (DB error). Order route maps to 503. */
+export class DeliveryPolicyUnavailableError extends Error {
+  readonly code = "delivery_policy_unavailable" as const;
+  constructor(detail?: string) {
+    super(detail ? `delivery_policy_unavailable: ${detail}` : "delivery_policy_unavailable");
+    this.name = "DeliveryPolicyUnavailableError";
+  }
+}
+
+export function isDeliveryPolicyUnavailableError(e: unknown): e is DeliveryPolicyUnavailableError {
+  return e instanceof DeliveryPolicyUnavailableError;
+}
+
+/**
+ * LOC-003 fail-closed fallback when no successful read exists in this process:
+ * distance axis ON (store radius authority), no per-store overrides (no `disabled` bypass).
+ */
+export const FAIL_CLOSED_DELIVERY_DISTANCE_SETTINGS: {
+  policy: DeliveryDistancePolicy;
+  overrides: DeliveryStoreDistanceOverrides;
+} = {
+  policy: { ...DEFAULT_DELIVERY_DISTANCE_POLICY, enabled: true },
+  overrides: DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES,
+};
+
+/** Last successful read in this process (no TTL) — list/detail fallback on read error. */
+let distancePolicyLastGood: {
+  policy: DeliveryDistancePolicy;
+  overrides: DeliveryStoreDistanceOverrides;
+} | null = null;
+
+/**
+ * Strict loader — throws `DeliveryPolicyUnavailableError` on DB error.
+ * Use on the order (checkout) path and on persisted projections.
+ */
+export async function loadDeliveryDistanceSettingsOrThrow(sb: SupabaseClient): Promise<{
   policy: DeliveryDistancePolicy;
   overrides: DeliveryStoreDistanceOverrides;
 }> {
@@ -224,6 +280,7 @@ export async function loadDeliveryDistanceSettings(sb: SupabaseClient): Promise<
     try {
       const value = await fetchDeliveryDistanceSettingsFromDb(sb);
       distancePolicyMem = { value, expiresAt: Date.now() + RIDE_TIME_SOURCE_TTL_MS };
+      distancePolicyLastGood = value;
       return value;
     } finally {
       distancePolicyInflight = null;
@@ -232,9 +289,32 @@ export async function loadDeliveryDistanceSettings(sb: SupabaseClient): Promise<
   return distancePolicyInflight;
 }
 
+/**
+ * List / detail loader — on read error returns the last successful value in this process,
+ * or `FAIL_CLOSED_DELIVERY_DISTANCE_SETTINGS` when none (never policy OFF).
+ */
+export async function loadDeliveryDistanceSettings(sb: SupabaseClient): Promise<{
+  policy: DeliveryDistancePolicy;
+  overrides: DeliveryStoreDistanceOverrides;
+}> {
+  try {
+    return await loadDeliveryDistanceSettingsOrThrow(sb);
+  } catch (e) {
+    if (!isDeliveryPolicyUnavailableError(e)) throw e;
+    return distancePolicyLastGood ?? FAIL_CLOSED_DELIVERY_DISTANCE_SETTINGS;
+  }
+}
+
 export function invalidateDeliveryDistanceSettingsCache(): void {
   distancePolicyMem = null;
   distancePolicyInflight = null;
+}
+
+/** Test-only — reset process memory including last-good fallback. */
+export function __resetDeliveryDistanceSettingsForTests(): void {
+  distancePolicyMem = null;
+  distancePolicyInflight = null;
+  distancePolicyLastGood = null;
 }
 
 export async function loadDeliveryRiderLocationEnabled(sb: SupabaseClient): Promise<boolean> {

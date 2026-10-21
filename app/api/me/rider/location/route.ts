@@ -4,6 +4,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { enforceRateLimit } from "@/lib/http/api-route";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { riderSelfPostLocation } from "@/lib/stores/store-order-delivery-service";
+import { loadDeliveryRiderLocationEnabled } from "@/lib/delivery/delivery-ops-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,12 @@ export async function POST(req: NextRequest) {
 
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+
+  // LOC-012 — same admin toggle as the partner webhook: OFF → nothing is stored.
+  const enabled = await loadDeliveryRiderLocationEnabled(sb);
+  if (!enabled) {
+    return NextResponse.json({ ok: false, error: "rider_location_disabled" }, { status: 409 });
+  }
 
   const rm = getAuditRequestMeta(req);
   const result = await riderSelfPostLocation(sb, {

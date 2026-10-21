@@ -14,17 +14,21 @@ import {
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { buildStoreTaxonomyPatch } from "@/lib/stores/build-store-taxonomy-patch";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
-import {
-  buildStoreLocationPatchFields,
-  storeLocationPatchTouchesCoords,
-} from "@/lib/stores/build-store-location-patch";
+import { buildStoreLocationPatchFields } from "@/lib/stores/build-store-location-patch";
 import { afterCanonicalStoreLocationWrite } from "@/lib/stores/after-canonical-store-location-write";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
 import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
 import {
   STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR,
+  isStoreDeliveryGeoGuardViolation,
   storeHasCanonicalDeliveryOrigin,
 } from "@/lib/stores/store-canonical-delivery-origin";
+import {
+  STORE_LOCATION_MOVE_CONFIRM_REQUIRED_ERROR,
+  evaluateStoreLocationMove,
+  storeCoordsPatchChangesPin,
+  withoutUnchangedStoreCoords,
+} from "@/lib/stores/store-location-move-guard";
 
 import { ownerEditReturnsStoreToPending } from "@/lib/admin-business/admin-store-decision-rules";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -98,6 +102,8 @@ type PatchBody = {
   detail_address?: string | null;
   /** OPS-09 — 폼이 읽은 `stores.updated_at`. 보내면 그 사이 다른 저장이 있었을 때 409 `store_changed` (미전송 = 현행). */
   expected_updated_at?: string | null;
+  /** LOC-007 — owner confirmed a > 1 km / other-LGU pin move (409 store_location_move_confirm_required). */
+  confirmLocationMove?: boolean;
 };
 
 function trimOrNull(v: unknown): string | null {
@@ -327,6 +333,15 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: locationBuilt.error }, { status: 400 });
   }
   Object.assign(patch, locationBuilt.patch);
+  /**
+   * LOC-013 — coords re-sent unchanged (7 dp) are not a location change: checkout-geo refresh and geo
+   * discovery invalidation run only on a real pin move.
+   */
+  const currentCoords = {
+    lat: (currentRow as { lat?: unknown }).lat,
+    lng: (currentRow as { lng?: unknown }).lng,
+  };
+  const storeCoordsChanged = storeCoordsPatchChangesPin(patch, currentCoords);
 
   // ACTIVE STORE GEO SSOT — cannot enable Delivery without canonical stores.lat/lng.
   if (patch.delivery_available === true) {
@@ -338,6 +353,31 @@ export async function PATCH(
       return NextResponse.json(
         { ok: false, error: STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR },
         { status: 400 }
+      );
+    }
+  }
+
+  // LOC-007 — real pin move > 1 km or into another LGU than the saved City needs owner confirmation.
+  if (storeCoordsChanged && body.confirmLocationMove !== true) {
+    const move = evaluateStoreLocationMove({
+      currentLat: (currentRow as { lat?: unknown }).lat,
+      currentLng: (currentRow as { lng?: unknown }).lng,
+      nextLat: patch.lat !== undefined ? patch.lat : (currentRow as { lat?: unknown }).lat,
+      nextLng: patch.lng !== undefined ? patch.lng : (currentRow as { lng?: unknown }).lng,
+      city: (patch.city !== undefined ? patch.city : currentRow.city) as string | null,
+      region: (patch.region !== undefined ? patch.region : currentRow.region) as string | null,
+    });
+    if (move.requiresConfirm) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: STORE_LOCATION_MOVE_CONFIRM_REQUIRED_ERROR,
+          move_km: move.moveKm,
+          reasons: move.reasons,
+          city_lgu_id: move.cityLguId,
+          pin_lgu_id: move.pinLguId,
+        },
+        { status: 409 }
       );
     }
   }
@@ -409,6 +449,13 @@ export async function PATCH(
 
   if (upErr) {
     console.error("[PATCH /api/me/stores/storeId]", upErr);
+    // LOC-005 — DB guard (stores_guard_delivery_requires_geo) uses the same code as the API check.
+    if (isStoreDeliveryGeoGuardViolation(upErr)) {
+      return NextResponse.json(
+        { ok: false, error: STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR },
+        { status: 400 }
+      );
+    }
     // OPS-09 — DB 원문을 클라이언트에 노출하지 않는다 (로그에만).
     return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
   }
@@ -504,12 +551,12 @@ export async function PATCH(
   afterCanonicalStoreLocationWrite({
     sb,
     storeId: sid,
-    patch,
+    patch: withoutUnchangedStoreCoords(patch, currentCoords),
     slug: slugRaw,
     ownerUserId: userId,
   });
 
-  if (storeLocationPatchTouchesCoords(locationBuilt.patch)) {
+  if (storeCoordsChanged) {
     const store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(
       sb as never,
       sid

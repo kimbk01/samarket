@@ -42,6 +42,7 @@ import {
 import {
   fetchStoreDeliveryServiceabilityClient,
   isDeliveryDistanceOrderBlocked,
+  resolveDeliveryDistanceBlockCopyKeys,
 } from "@/lib/stores/fetch-store-delivery-serviceability-client";
 import {
   parseStoreCartHeadFromPublicJson,
@@ -288,6 +289,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   );
   const [fulfillment, setFulfillment] = useState<Fulfillment>("local_delivery");
   const [distanceOutOfRange, setDistanceOutOfRange] = useState(false);
+  /** LOC-010 — serviceability reason of the current block (copy/CTA match checkout error). */
+  const [distanceBlockReason, setDistanceBlockReason] = useState<string | null>(null);
   /** Master address id the serviceability result was evaluated for (`undefined` = pending/unknown). */
   const [serviceabilityAddressId, setServiceabilityAddressId] = useState<string | null | undefined>(
     undefined
@@ -1182,6 +1185,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         (svc) => {
           if (cancelled) return;
           setDistanceOutOfRange(isDeliveryDistanceOrderBlocked(svc, { viewerIsGuest: viewerId == null }));
+          setDistanceBlockReason(svc.ok === true ? (svc.reason ?? null) : null);
           setServiceabilityAddressId(svc.ok === true ? (svc.addressId ?? null) : undefined);
         }
       );
@@ -1399,6 +1403,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const ownerOrderBlocked = store?.can_order_store === false;
   const ownerOrderBlockedMessage = t("store_err_own_store_block");
   const distanceOrderBlocked = fulfillment === "local_delivery" && distanceOutOfRange;
+  const distanceBlockCopy = resolveDeliveryDistanceBlockCopyKeys(distanceBlockReason);
   const checkoutBlocked =
     ownerOrderBlocked ||
     distanceOrderBlocked ||
@@ -1511,7 +1516,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       return;
     }
     if (distanceOrderBlocked) {
-      setErr(t("store_err_delivery_out_of_range"));
+      setErr(t(distanceBlockCopy.inlineKey));
       return;
     }
     if (frontCommerce && !frontCommerce.isOpenForCommerce) {
@@ -1987,7 +1992,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             ownerOrderBlocked
               ? ownerOrderBlockedMessage
               : distanceOrderBlocked
-                ? t("store_err_delivery_out_of_range")
+                ? t(distanceBlockCopy.inlineKey)
                 : null
           }
           processingLabel={t("common_processing")}
@@ -2501,10 +2506,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         {distanceOrderBlocked ? (
           <div className="space-y-2 rounded border border-amber-200 bg-amber-50 px-3 py-2">
             <p className="sam-text-helper font-bold leading-snug text-amber-950">
-              {t("store_cart_delivery_unavailable_title")}
+              {t(distanceBlockCopy.titleKey)}
             </p>
             <p className="sam-text-helper font-medium leading-snug text-amber-950">
-              {t("store_cart_delivery_unavailable_body")}
+              {t(distanceBlockCopy.bodyKey)}
             </p>
             <div className="flex flex-wrap gap-2">
               <button

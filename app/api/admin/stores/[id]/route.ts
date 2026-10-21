@@ -47,6 +47,7 @@ import {
 import { invalidateDiscoveryGlobalDistancePolicy } from "@/lib/stores/discovery/invalidate-discovery-store-projections";
 import {
   STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR,
+  isStoreDeliveryGeoGuardViolation,
   storeHasCanonicalDeliveryOrigin,
 } from "@/lib/stores/store-canonical-delivery-origin";
 
@@ -551,6 +552,13 @@ export async function PATCH(
     const { error: upErr } = await sb.from("stores").update(built.patch).eq("id", id);
     if (upErr) {
       console.error("[admin/stores PATCH location]", upErr);
+      // LOC-005 — DB guard: delivery ON cannot lose stores.lat/lng (same code as API check).
+      if (isStoreDeliveryGeoGuardViolation(upErr)) {
+        return NextResponse.json(
+          { ok: false, error: STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR },
+          { status: 400 }
+        );
+      }
       return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
     let store_orders_checkout_geo_sync: unknown;
@@ -638,6 +646,12 @@ export async function PATCH(
     const { error: upErr } = await sb.from("stores").update(patch).eq("id", id);
     if (upErr) {
       console.error("[admin/stores PATCH delivery flags]", upErr);
+      if (isStoreDeliveryGeoGuardViolation(upErr)) {
+        return NextResponse.json(
+          { ok: false, error: STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR },
+          { status: 400 }
+        );
+      }
       return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
     invalidateDiscoveryAfterStoreWrite(sb, id, patch);

@@ -85,6 +85,7 @@ function enrichCandidate(
   const membership = resolveShadowCoverageMembership(c.coverage, {
     hasOrigin,
     distanceAxisEnabled: opts.distanceAxisEnabled,
+    storeHasCoords: c.lat != null && c.lng != null,
   });
   const el = resolveShadowEligibilityFromProjection({
     discoveryScheduleState: c.discovery_schedule_state,

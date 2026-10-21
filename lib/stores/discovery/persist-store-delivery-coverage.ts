@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { loadDeliveryDistanceSettings } from "@/lib/delivery/delivery-ops-settings";
+import {
+  isDeliveryPolicyUnavailableError,
+  loadDeliveryDistanceSettingsOrThrow,
+} from "@/lib/delivery/delivery-ops-settings";
 import {
   buildStoreDeliveryCoverageProjection,
   type StoreDeliveryCoverageBuildInput,
@@ -54,15 +57,23 @@ export async function rebuildStoreDeliveryCoverageForStore(
   const sid = storeId.trim();
   if (!sid) return { ok: false, error: "missing_store_id" };
 
-  const [{ data: store, error: storeErr }, distanceSettings, policyVersion] = await Promise.all([
-    sb
-      .from("stores")
-      .select("id, lat, lng, delivery_radius_km, delivery_policy_version")
-      .eq("id", sid)
-      .maybeSingle(),
-    loadDeliveryDistanceSettings(sb),
-    opts.policyVersion != null ? Promise.resolve(opts.policyVersion) : loadActiveCoveragePolicyVersion(sb),
-  ]);
+  let loaded;
+  try {
+    loaded = await Promise.all([
+      sb
+        .from("stores")
+        .select("id, lat, lng, delivery_radius_km, delivery_policy_version")
+        .eq("id", sid)
+        .maybeSingle(),
+      // LOC-003: never persist a projection built from a fallback policy.
+      loadDeliveryDistanceSettingsOrThrow(sb),
+      opts.policyVersion != null ? Promise.resolve(opts.policyVersion) : loadActiveCoveragePolicyVersion(sb),
+    ]);
+  } catch (e) {
+    if (isDeliveryPolicyUnavailableError(e)) return { ok: false, error: e.code };
+    throw e;
+  }
+  const [{ data: store, error: storeErr }, distanceSettings, policyVersion] = loaded;
 
   if (storeErr || !store?.id) {
     return { ok: false, error: storeErr?.message ?? "store_not_found" };

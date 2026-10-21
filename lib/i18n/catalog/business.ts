@@ -156,6 +156,17 @@ export const businessMessages = {
     business_delivery_service_area_search_empty: "검색 결과가 없습니다.",
     business_delivery_service_area_unsaved:
       "배달 지역 선택이 아직 저장되지 않았습니다. 「배달 지역 저장」을 눌러 저장해 주세요.",
+    business_delivery_service_area_err_unknown_lgu:
+      "등록되지 않은 지역이 포함되어 저장하지 못했습니다. 지역을 다시 선택해 주세요.",
+    business_delivery_service_area_err_version_conflict:
+      "다른 화면에서 배달 지역이 먼저 변경되었습니다. 최신 내용을 불러왔으니 확인 후 다시 저장해 주세요.",
+    business_store_location_move_confirm_title: "매장 위치 변경 확인",
+    business_store_location_move_confirm_body_km:
+      "저장된 위치에서 약 {km}km 떨어진 곳으로 매장 위치가 바뀝니다.",
+    business_store_location_move_confirm_body_lgu:
+      "새 위치가 저장된 시·군과 다른 지역으로 확인됩니다.",
+    business_store_location_move_confirm_tail:
+      "주소: {address}. 배달 가능 지역과 주문자 배달 판정이 함께 바뀝니다. 이대로 저장할까요?",
     business_phase7_107: "배달 거리·시간(참고)",
     business_phase7_108: "배달 매장 시작",
     business_phase7_109: "배달 방식",
@@ -945,6 +956,17 @@ export const businessMessages = {
     business_delivery_service_area_search_empty: "No results found.",
     business_delivery_service_area_unsaved:
       "Your delivery area selection isn’t saved yet. Tap 「Save delivery areas」 to save it.",
+    business_delivery_service_area_err_unknown_lgu:
+      "Couldn’t save: the selection includes an area that isn’t registered. Please choose the areas again.",
+    business_delivery_service_area_err_version_conflict:
+      "Delivery areas were changed elsewhere first. The latest version has been loaded — please review and save again.",
+    business_store_location_move_confirm_title: "Confirm store location change",
+    business_store_location_move_confirm_body_km:
+      "The store location will move about {km} km from the saved location.",
+    business_store_location_move_confirm_body_lgu:
+      "The new location appears to be in a different city/municipality than the saved one.",
+    business_store_location_move_confirm_tail:
+      "Address: {address}. Delivery areas and buyers’ delivery eligibility will change with it. Save anyway?",
     business_phase7_107: "Delivery distance/time (reference)",
     business_phase7_108: "Start delivery store",
     business_phase7_109: "Delivery method",

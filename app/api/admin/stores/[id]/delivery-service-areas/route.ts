@@ -8,7 +8,10 @@ import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-serv
 import { resolveStoreHomeLguId } from "@/lib/delivery/service-area/candidate-discovery";
 import { buildDeliveryServiceAreaEditorPayload } from "@/lib/delivery/service-area/build-service-area-editor-payload";
 import {
+  StoreDeliveryServiceAreasVersionConflictError,
+  findUnknownDeliveryServiceAreaLguIds,
   loadStoreDeliveryServiceAreas,
+  loadStoreDeliveryServiceAreasVersion,
   replaceStoreDeliveryServiceAreas,
 } from "@/lib/delivery/service-area/store-delivery-service-areas";
 import { searchPlatformPhLgu } from "@/lib/geo/ph-lgu/platform-ph-lgu";
@@ -43,8 +46,15 @@ export async function GET(
   try {
     const store = await loadStoreGeo(sb, storeId);
     if (!store) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    const selected = await loadStoreDeliveryServiceAreas(sb, storeId);
-    return NextResponse.json({ ok: true, ...buildDeliveryServiceAreaEditorPayload(store, selected) });
+    const [selected, areasVersion] = await Promise.all([
+      loadStoreDeliveryServiceAreas(sb, storeId),
+      loadStoreDeliveryServiceAreasVersion(sb, storeId),
+    ]);
+    return NextResponse.json({
+      ok: true,
+      ...buildDeliveryServiceAreaEditorPayload(store, selected),
+      areasVersion,
+    });
   } catch (e) {
     /** 원문(DB 메시지)은 로그로만 — 클라이언트에는 고정 코드. */
     console.error("[delivery-service-areas:admin] GET", e instanceof Error ? e.message : e);
@@ -65,7 +75,7 @@ export async function PUT(
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  let body: { geoIdentities?: unknown; activateV2?: unknown };
+  let body: { geoIdentities?: unknown; activateV2?: unknown; expectedAreasVersion?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -75,6 +85,20 @@ export async function PUT(
   if (!idsRaw) {
     return NextResponse.json({ ok: false, error: "geo_identities_required" }, { status: 400 });
   }
+  // LOC-006 — only platform-catalog LGU ids.
+  const unknownIds = findUnknownDeliveryServiceAreaLguIds(idsRaw);
+  if (unknownIds.length > 0) {
+    return NextResponse.json(
+      { ok: false, error: "unknown_lgu", unknown_ids: unknownIds.slice(0, 20) },
+      { status: 400 }
+    );
+  }
+  const expectedVersion =
+    body.expectedAreasVersion === undefined
+      ? undefined
+      : typeof body.expectedAreasVersion === "string" && body.expectedAreasVersion.trim()
+        ? body.expectedAreasVersion
+        : null;
 
   try {
     const store = await loadStoreGeo(sb, storeId);
@@ -92,6 +116,7 @@ export async function PUT(
       activateV2: body.activateV2 === true,
       storeHomeLguId,
       areas: idsRaw.map((id) => ({ geoIdentity: String(id ?? "") })),
+      expectedVersion,
     });
     invalidateDiscoveryAfterStoreWrite(sb, storeId, {
       delivery_service_area_authority: result.authority,
@@ -111,6 +136,7 @@ export async function PUT(
         authority: result.authority,
         activateV2: body.activateV2 === true,
         geoIdentities: idsRaw.map((id) => String(id ?? "")),
+        version: result.version,
       },
     });
     return NextResponse.json({
@@ -120,8 +146,15 @@ export async function PUT(
         { ...store, delivery_service_area_authority: result.authority },
         selected
       ),
+      areasVersion: result.version,
     });
   } catch (e) {
+    if (e instanceof StoreDeliveryServiceAreasVersionConflictError) {
+      return NextResponse.json(
+        { ok: false, error: e.code, current_version: e.currentVersion },
+        { status: 409 }
+      );
+    }
     /** 원문(DB 메시지)은 로그로만 — 클라이언트에는 고정 코드. */
     console.error("[delivery-service-areas:admin] PUT", e instanceof Error ? e.message : e);
     return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });
