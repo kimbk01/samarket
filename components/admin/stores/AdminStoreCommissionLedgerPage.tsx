@@ -115,7 +115,7 @@ type PayableResponse = StorePlatformPayablePage & { ok: boolean; error?: string 
 type IntegrityResponse = {
   ok: boolean;
   obligations?: number;
-  checks?: Record<string, { violations: number; ids: string[] }>;
+  checks?: Record<string, { violations: number; ids: string[]; legacyPreserved?: number; newViolations?: number }>;
   originalUnknown?: { count: number; ids: string[] };
 };
 
@@ -871,8 +871,27 @@ export function AdminStoreCommissionLedgerPage() {
             {headline.integrity?.checks ? (
               <ul className="mt-2 space-y-1 sam-text-helper">
                 {Object.entries(headline.integrity.checks).map(([k, c]) => (
-                  <li key={k} className={c.violations === 0 ? "text-sam-success" : "font-semibold text-sam-danger"} data-integrity-check={k}>
+                  <li
+                    key={k}
+                    className={
+                      c.violations === 0
+                        ? "text-sam-success"
+                        : (c.newViolations ?? c.violations) > 0
+                          ? "font-semibold text-sam-danger"
+                          : "text-sam-warning"
+                    }
+                    data-integrity-check={k}
+                  >
                     {c.violations === 0 ? "PASS" : `FAIL ${c.violations}`} · {CHECK_LABEL[k]?.[lang] ?? k}
+                    {(c.legacyPreserved ?? 0) > 0 ? (
+                      <span className="ml-1 sam-text-xxs font-normal" data-integrity-legacy-preserved={c.legacyPreserved}>
+                        {pickCommissionCopy(
+                          lang,
+                          `· 과거 기록 보존 ${c.legacyPreserved}건(정정 안 함·알림 제외)`,
+                          `· ${c.legacyPreserved} legacy preserved (not corrected, not alerted)`
+                        )}
+                      </span>
+                    ) : null}
                     {c.violations > 0 ? (
                       <span className="ml-1 break-all sam-text-xxs font-normal">
                         ({c.ids.slice(0, 5).map((id) => storeNames.get(id) ?? formatAdminShortId(id)).join(", ")})

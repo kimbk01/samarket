@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { newOwnerFormRequestKey } from "@/lib/business/owner-form-request-key";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { Sam } from "@/lib/ui/css-vars";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
@@ -36,6 +38,9 @@ export function OwnerCoinWithdrawalPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  /** IA-22 — one key per withdrawal form submission; replaced only after success. */
+  const [requestKey, setRequestKey] = useState(() => newOwnerFormRequestKey("coin_withdrawal"));
 
   const loadHistory = useCallback(async () => {
     try {
@@ -70,8 +75,10 @@ export function OwnerCoinWithdrawalPanel({
     );
   };
 
-  const submit = async () => {
-    const requestedAmount = Math.trunc(Number(amount) || 0);
+  const requestedAmount = Math.trunc(Number(amount) || 0);
+
+  /** Validate first, then ask for confirmation (amount + payout account summary) before any money request. */
+  const openConfirm = () => {
     if (
       requestedAmount <= 0 ||
       !accountNumber.trim() ||
@@ -86,7 +93,11 @@ export function OwnerCoinWithdrawalPanel({
       );
       return;
     }
+    setError(null);
+    setConfirmOpen(true);
+  };
 
+  const submit = async () => {
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -103,7 +114,7 @@ export function OwnerCoinWithdrawalPanel({
             bankName: destinationType === "bank" ? bankName.trim() : undefined,
             accountNumber: accountNumber.trim(),
             accountName: accountName.trim(),
-            idempotencyKey: `coin_withdrawal:${storeId}:${requestedAmount}:${Date.now()}`,
+            idempotencyKey: requestKey,
           }),
         }
       );
@@ -112,6 +123,7 @@ export function OwnerCoinWithdrawalPanel({
         setError(resolveOwnerApiErrorMessage(payload.error, t));
         return;
       }
+      setRequestKey(newOwnerFormRequestKey("coin_withdrawal"));
       setAmount("");
       setBankName("");
       setAccountNumber("");
@@ -203,8 +215,9 @@ export function OwnerCoinWithdrawalPanel({
           type="button"
           className={`${OwnerCta.formPrimary} ${OwnerCta.block}`}
           disabled={busy}
-          onClick={() => void submit()}
+          onClick={openConfirm}
           data-owner-cta="primary"
+          data-owner-coin-withdraw-open-confirm="1"
         >
           {safeT("owner_finance_withdraw_submit", {
             fallbackKo: COIN_WITHDRAWAL_LABEL_KO,
@@ -212,6 +225,34 @@ export function OwnerCoinWithdrawalPanel({
           })}
         </button>
       </div>
+
+      <OwnerStoreAdminConfirmModal
+        open={confirmOpen}
+        titleId="owner-coin-withdrawal-confirm"
+        title={safeT("owner_finance_withdraw_confirm_title", {
+          fallbackKo: "Coin 환전을 신청하시겠습니까?",
+          fallbackEn: "Request this Coin withdrawal?",
+        })}
+        description={ownerUiCopy(
+          language,
+          `${requestedAmount.toLocaleString()} Coin → ${
+            destinationType === "bank" ? `${bankName.trim()} ` : "GCash "
+          }${accountNumber.trim()} (${accountName.trim()})\n신청 후 Coin이 보류되고, 지급은 관리자 확인 후 진행됩니다.`,
+          `${requestedAmount.toLocaleString()} Coin → ${
+            destinationType === "bank" ? `${bankName.trim()} ` : "GCash "
+          }${accountNumber.trim()} (${accountName.trim()})\nThe Coin is held after the request; payout follows admin review.`
+        )}
+        confirmLabel={safeT("owner_finance_withdraw_submit", {
+          fallbackKo: COIN_WITHDRAWAL_LABEL_KO,
+          fallbackEn: "Request Coin withdrawal",
+        })}
+        busy={busy}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={async () => {
+          await submit();
+          setConfirmOpen(false);
+        }}
+      />
 
       <div className="mt-4 border-t border-sam-border pt-3">
         <h3 className="text-sm font-semibold text-sam-fg">

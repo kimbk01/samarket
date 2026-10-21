@@ -255,6 +255,26 @@ export function adminOperatorErrorMessage(
       en: "Rejected, but the store Cash refund failed. Check refund status in Finance.",
     },
     as_of_date_in_future: { ko: "기준일은 오늘 이후로 지정할 수 없습니다.", en: "The as-of date cannot be in the future." },
+    // FIN-04 Cash top-up approval guards · FIN-08 balance correction (DB RPC error codes)
+    self_store_approval_forbidden: {
+      ko: "본인이 운영하는 매장의 충전은 승인할 수 없습니다. 다른 관리자가 처리해야 합니다.",
+      en: "You cannot approve a top-up for a store you own. Another admin must handle it.",
+    },
+    payment_reference_missing: {
+      ko: "입금 참조번호가 없는 신청은 적립할 수 없습니다. 반려 후 참조번호와 함께 다시 신청하도록 안내하세요.",
+      en: "A request without a deposit reference cannot be credited. Reject it and ask for a new request with the reference.",
+    },
+    admin_required: { ko: "관리자 권한이 필요합니다.", en: "Admin permission required." },
+    super_admin_required: { ko: "최고 관리자만 잔액을 정정할 수 있습니다.", en: "Only a super admin can correct balances." },
+    evidence_required: { ko: "근거(증빙 번호·문서)를 입력해 주세요.", en: "Enter the evidence reference." },
+    insufficient_balance: {
+      ko: "정정 후 잔액이 0보다 작아져 처리하지 않았습니다.",
+      en: "The correction would make the balance negative, so it was not applied.",
+    },
+    idempotency_key_reused: {
+      ko: "같은 요청 번호가 다른 내용으로 이미 사용되었습니다. 화면을 새로고침한 뒤 새로 진행하세요.",
+      en: "This request key was already used with different values. Close and try again.",
+    },
     notification_failed: { ko: "알림을 보내지 못했습니다.", en: "Could not send the notification." },
     store_not_found: { ko: "매장을 찾을 수 없습니다.", en: "Store not found." },
     invalid_distance_mode: { ko: "거리 정책 값이 올바르지 않습니다.", en: "Invalid distance policy value." },

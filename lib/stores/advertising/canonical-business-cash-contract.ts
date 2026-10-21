@@ -21,6 +21,46 @@ export const CONVERT_SP_TO_BC_RPC =
 export const GET_BC_CONVERSION_RATE_RPC = "get_business_cash_conversion_rate" as const;
 export const APPROVE_BC_CHARGE_RPC = "approve_business_cash_charge_request" as const;
 export const REJECT_BC_CHARGE_RPC = "reject_business_cash_charge_request" as const;
+/** FIN-04 — owner top-up request writer (replaces the service_role TS INSERT; N-4B revokes direct writes). */
+export const OWNER_CREATE_BC_CHARGE_RPC = "owner_create_business_cash_charge_request" as const;
+/** FIN-04 / D-4 — top-up policy settings (caps · methods · receiving note). Defaults: no caps. */
+export const BC_CHARGE_POLICY_RPC = "business_cash_charge_policy" as const;
+/** FIN-08 — super_admin correction writers (ledger ADMIN_ADJUST + audit_logs, no negative balance). */
+export const ADMIN_ADJUST_BC_RPC = "admin_adjust_business_cash" as const;
+export const ADMIN_ADJUST_COIN_RPC = "admin_adjust_store_coin" as const;
+
+/**
+ * FIN-04 — deposit method keys accepted when the policy row is absent (DB default in
+ * `business_cash_charge_policy()`). The live list always comes from the policy RPC.
+ */
+export const BC_CHARGE_DEFAULT_PAYMENT_METHODS = ["bank_transfer", "gcash", "other"] as const;
+
+export type BusinessCashChargePolicy = {
+  perRequestMaxMinor: number | null;
+  monthlyMaxMinor: number | null;
+  paymentMethods: string[];
+  receivingAccountNote: string | null;
+  paymentReferenceRequired: true;
+};
+
+export function parseBusinessCashChargePolicy(raw: unknown): BusinessCashChargePolicy {
+  const p = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const cap = (v: unknown): number | null => {
+    const n = Math.trunc(Number(v));
+    return v == null || !Number.isFinite(n) || n <= 0 ? null : n;
+  };
+  const methods = Array.isArray(p.payment_methods)
+    ? p.payment_methods.map((m) => String(m ?? "").trim().toLowerCase()).filter(Boolean)
+    : [];
+  const note = typeof p.receiving_account_note === "string" ? p.receiving_account_note.trim() : "";
+  return {
+    perRequestMaxMinor: cap(p.per_request_max_minor),
+    monthlyMaxMinor: cap(p.monthly_max_minor),
+    paymentMethods: methods.length ? methods : [...BC_CHARGE_DEFAULT_PAYMENT_METHODS],
+    receivingAccountNote: note || null,
+    paymentReferenceRequired: true,
+  };
+}
 export const BC_DELIVERY_AD_SPEND_RPC = "business_cash_delivery_ad_spend" as const;
 export const BC_DELIVERY_AD_REFUND_RPC = "business_cash_delivery_ad_refund" as const;
 export const CREDIT_STORE_ECONOMIC_POINTS_INFLOW_RPC =

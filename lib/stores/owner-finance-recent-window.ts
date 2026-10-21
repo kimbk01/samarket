@@ -1,60 +1,39 @@
 /**
  * Owner Store Finance read helpers (M-19 / F-15).
  *
- * - Open sale-fee obligation totals are aggregated over ALL open rows (not the 20-row list).
+ * - Open sale-fee obligation totals come from SQL `store_cash_position` over ALL open rows (FIN-11; not the 20-row list).
  * - Coin "recent window" sums are computed server-side over EXACTLY the ledger rows returned
  *   to the client (N most recent). No calendar period is invented.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export const STORE_SALE_FEE_OBLIGATIONS_TABLE = "store_sale_fee_obligations" as const;
-
-const AGGREGATE_PAGE_SIZE = 1000;
-/** Hard stop against runaway loops (1000 × 1000 rows). */
-const AGGREGATE_MAX_PAGES = 1000;
+/** FIN-11 — single SQL source shared with the settlement / admin screens. */
+export const STORE_CASH_POSITION_RPC = "store_cash_position" as const;
 
 export type OpenSaleFeeAggregate =
-  | { ok: true; outstandingMinor: number; openCount: number }
+  | { ok: true; outstandingMinor: number; openCount: number | null }
   | { ok: false; error: string };
 
 /**
- * Unlimited aggregate over open obligations for one store:
- * outstandingMinor = SUM(fee_outstanding_minor), openCount = COUNT(*) WHERE status='open'.
- * Pages through rows (PostgREST max-rows safe) selecting only the summed column.
+ * Open sale-fee totals for one store from `public.store_cash_position(p_store_id)` (FIN-11):
+ * outstandingMinor = SUM(fee_outstanding_minor), openCount = COUNT(*) WHERE status='open' — both computed in SQL.
+ * `openCount` is null only when the DB predates the `open_count` key (20270603110300); callers fall back to the list.
  */
-export async function aggregateOpenSaleFeeObligations(
+export async function loadOpenSaleFeeTotalsFromCashPosition(
   sb: SupabaseClient,
   storeId: string
 ): Promise<OpenSaleFeeAggregate> {
   const sid = storeId.trim();
   if (!sid) return { ok: false, error: "missing_store_id" };
-
-  const { count, error: countErr } = await sb
-    .from(STORE_SALE_FEE_OBLIGATIONS_TABLE)
-    .select("id", { count: "exact", head: true })
-    .eq("store_id", sid)
-    .eq("status", "open");
-  if (countErr) return { ok: false, error: countErr.message };
-
-  let outstandingMinor = 0;
-  for (let page = 0; page < AGGREGATE_MAX_PAGES; page += 1) {
-    const from = page * AGGREGATE_PAGE_SIZE;
-    const { data, error } = await sb
-      .from(STORE_SALE_FEE_OBLIGATIONS_TABLE)
-      .select("id, fee_outstanding_minor")
-      .eq("store_id", sid)
-      .eq("status", "open")
-      .order("id", { ascending: true })
-      .range(from, from + AGGREGATE_PAGE_SIZE - 1);
-    if (error) return { ok: false, error: error.message };
-    const rows = (data ?? []) as Array<{ fee_outstanding_minor?: number | string | null }>;
-    for (const r of rows) {
-      outstandingMinor += Math.trunc(Number(r.fee_outstanding_minor) || 0);
-    }
-    if (rows.length < AGGREGATE_PAGE_SIZE) break;
-  }
-
-  return { ok: true, outstandingMinor, openCount: Math.max(0, Math.trunc(Number(count) || 0)) };
+  const { data, error } = await sb.rpc(STORE_CASH_POSITION_RPC, { p_store_id: sid });
+  if (error) return { ok: false, error: error.message };
+  const pos = (data ?? null) as Record<string, unknown> | null;
+  if (!pos || pos.outstanding_minor == null) return { ok: false, error: "store_cash_position_empty" };
+  return {
+    ok: true,
+    outstandingMinor: Math.trunc(Number(pos.outstanding_minor) || 0),
+    openCount: pos.open_count == null ? null : Math.max(0, Math.trunc(Number(pos.open_count) || 0)),
+  };
 }
 
 export type CoinRecentWindowSums = {

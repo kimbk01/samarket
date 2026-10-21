@@ -20,6 +20,7 @@ import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { ownerCashTopUpMethodLabel } from "@/lib/business/owner-form-request-key";
 import type { AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
 type ChargeRequest = {
@@ -32,6 +33,11 @@ type ChargeRequest = {
   status: string;
   created_at: string;
   reject_reason?: string | null;
+  /** FIN-04 — deposit evidence (NULL on requests created before 2027-06-03). */
+  payment_method?: string | null;
+  payment_reference?: string | null;
+  proof_file_path?: string | null;
+  decided_reason?: string | null;
 };
 
 type ActionResult = {
@@ -204,7 +210,12 @@ export function AdminDeliveryAdCashChargeQueuePage() {
     const { id, op } = target;
     const row = rows.find((r) => r.id === id);
     const when = row?.created_at ? formatAdminManilaDateTime(String(row.created_at)) : "";
-    const amountLine = row ? `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when}` : "";
+    const evidence = row?.payment_reference
+      ? ` · ${row.payment_method ? `${ownerCashTopUpMethodLabel(row.payment_method, ko)} ` : ""}${row.payment_reference}`
+      : ko
+        ? " · 입금 참조번호 없음"
+        : " · No deposit reference";
+    const amountLine = row ? `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when}${evidence}` : "";
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(op === "approve" ? "moneyApprove" : "reject"),
       ko,
@@ -358,6 +369,17 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                       : "—"}{" "}
                     · {adminOperatorLabel(r.status, language !== "en")}
                   </p>
+                  <p
+                    className={`break-all text-[12px] ${r.payment_reference ? "text-sam-fg" : "text-sam-danger"}`}
+                    data-admin-cash-charge-reference={r.payment_reference ? "1" : "missing"}
+                  >
+                    {ko ? "입금 확인" : "Deposit"}:{" "}
+                    {r.payment_reference
+                      ? `${r.payment_method ? `${ownerCashTopUpMethodLabel(r.payment_method, ko)} · ` : ""}${r.payment_reference}`
+                      : ko
+                        ? "참조번호 없음 — 적립 불가"
+                        : "No reference — cannot credit"}
+                  </p>
                   <AdminTechDetails ko={ko}>
                     store {r.store_id}
                     <br />
@@ -366,6 +388,18 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                       <>
                         <br />
                         reason {r.reject_reason}
+                      </>
+                    ) : null}
+                    {r.decided_reason ? (
+                      <>
+                        <br />
+                        approve reason {r.decided_reason}
+                      </>
+                    ) : null}
+                    {r.proof_file_path ? (
+                      <>
+                        <br />
+                        proof {r.proof_file_path}
                       </>
                     ) : null}
                   </AdminTechDetails>

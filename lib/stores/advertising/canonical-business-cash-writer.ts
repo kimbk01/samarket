@@ -4,23 +4,28 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  ADMIN_ADJUST_BC_RPC,
+  ADMIN_ADJUST_COIN_RPC,
   APPROVE_BC_CHARGE_RPC,
+  BC_CHARGE_POLICY_RPC,
   BC_DELIVERY_AD_REFUND_RPC,
   BC_DELIVERY_AD_SPEND_RPC,
   BUSINESS_CASH_ACCOUNTS_TABLE,
-  BUSINESS_CASH_CHARGE_REQUESTS_TABLE,
   BUSINESS_CASH_CONVERSION_RATE_POLICIES_TABLE,
   BUSINESS_CASH_LEDGER_TABLE,
   CONVERT_SP_TO_BC_RPC,
   DELIVERY_AD_CANONICAL_BC_FUNDINGS_TABLE,
   GET_BC_CONVERSION_RATE_RPC,
+  OWNER_CREATE_BC_CHARGE_RPC,
   REJECT_BC_CHARGE_RPC,
   STORE_ECONOMIC_POINT_ACCOUNTS_TABLE,
   STORE_ECONOMIC_POINT_LEDGER_TABLE,
   computeBusinessCashFromStorePoints,
   isDefaultConversionRate,
+  parseBusinessCashChargePolicy,
   parseInsufficientBusinessCashRpc,
   resolveFundingStatusFromCanonicalBc,
+  type BusinessCashChargePolicy,
   type BusinessCashConversionQuote,
   type InsufficientBusinessCashPayload,
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
@@ -220,12 +225,29 @@ export async function convertStorePointsToBusinessCash(
   };
 }
 
+/** FIN-04 / D-4 — top-up policy (caps · deposit methods · receiving note). Missing RPC → DB defaults. */
+export async function loadBusinessCashChargePolicy(sb: SupabaseClient): Promise<BusinessCashChargePolicy> {
+  const { data, error } = await sb.rpc(BC_CHARGE_POLICY_RPC);
+  if (error) {
+    console.error("[loadBusinessCashChargePolicy]", error.message);
+    return parseBusinessCashChargePolicy(null);
+  }
+  return parseBusinessCashChargePolicy(data);
+}
+
+/**
+ * FIN-04 — owner Cash top-up request via `owner_create_business_cash_charge_request` (DB checks ownership,
+ * one PENDING per store, deposit reference unique per store, caps, idempotency). No direct table write.
+ */
 export async function createBusinessCashTopUpRequest(
   sb: SupabaseClient,
   input: {
     storeId: string;
     ownerUserId: string;
     amountMinor: number;
+    paymentMethod: string;
+    paymentReference: string;
+    proofFilePath?: string | null;
     idempotencyKey: string;
   }
 ): Promise<
@@ -236,45 +258,37 @@ export async function createBusinessCashTopUpRequest(
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "invalid_amount" };
   const key = String(input.idempotencyKey ?? "").trim();
   if (!key) return { ok: false, error: "idempotency_required" };
+  const method = String(input.paymentMethod ?? "").trim().toLowerCase();
+  if (!method) return { ok: false, error: "payment_method_required" };
+  const reference = String(input.paymentReference ?? "").trim();
+  if (!reference) return { ok: false, error: "payment_reference_required" };
+  const proof = String(input.proofFilePath ?? "").trim();
 
-  const { data: existing } = await sb
-    .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
-    .select("id, status")
-    .eq("idempotency_key", key)
-    .maybeSingle();
-  if (existing) {
-    return {
-      ok: true,
-      requestId: String((existing as { id: string }).id),
-      status: String((existing as { status?: string }).status ?? "PENDING"),
-      idempotent: true,
-    };
-  }
-
-  const { data, error } = await sb
-    .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
-    .insert({
-      store_id: input.storeId,
-      owner_user_id: input.ownerUserId,
-      amount_minor: amount,
-      status: "PENDING",
-      idempotency_key: key,
-    })
-    .select("id, status")
-    .maybeSingle();
-  if (error || !data) {
-    return { ok: false, error: "db_error", detail: error?.message };
+  const { data, error } = await sb.rpc(OWNER_CREATE_BC_CHARGE_RPC, {
+    p_owner_user_id: input.ownerUserId,
+    p_store_id: input.storeId,
+    p_amount_minor: amount,
+    p_payment_method: method,
+    p_payment_reference: reference,
+    p_proof_file_path: proof || null,
+    p_idempotency_key: key,
+  });
+  if (error) return { ok: false, error: "rpc_failed", detail: error.message };
+  const payload = (data ?? null) as Record<string, unknown> | null;
+  if (!payload || payload.ok !== true) {
+    return { ok: false, error: typeof payload?.error === "string" ? payload.error : "topup_request_failed" };
   }
   return {
     ok: true,
-    requestId: String((data as { id: string }).id),
-    status: String((data as { status?: string }).status ?? "PENDING"),
+    requestId: String(payload.request_id ?? ""),
+    status: String(payload.status ?? "PENDING"),
+    idempotent: payload.idempotent === true,
   };
 }
 
 export async function approveBusinessCashTopUpRequest(
   sb: SupabaseClient,
-  input: { adminUserId: string; requestId: string }
+  input: { adminUserId: string; requestId: string; reason: string }
 ): Promise<
   | { ok: true; idempotent: boolean; ledgerId: string | null; balanceAfterMinor: number }
   | { ok: false; error: string }
@@ -282,6 +296,7 @@ export async function approveBusinessCashTopUpRequest(
   const { data, error } = await sb.rpc(APPROVE_BC_CHARGE_RPC, {
     p_admin_user_id: input.adminUserId,
     p_request_id: input.requestId,
+    p_reason: input.reason,
   });
   if (error) return { ok: false, error: "rpc_failed" };
   const payload = (data ?? null) as Record<string, unknown> | null;
@@ -293,6 +308,61 @@ export async function approveBusinessCashTopUpRequest(
     idempotent: payload.idempotent === true,
     ledgerId: payload.ledger_id == null ? null : String(payload.ledger_id),
     balanceAfterMinor: Math.trunc(Number(payload.balance_after_minor) || 0),
+  };
+}
+
+export type AdminBalanceCorrectionInput = {
+  adminUserId: string;
+  storeId: string;
+  asset: "cash" | "coin";
+  direction: "credit" | "debit";
+  /** Cash: PHP minor units · Coin: whole Coin. */
+  amount: number;
+  reason: string;
+  evidenceRef: string;
+  idempotencyKey: string;
+  /** Record the correction row only (balance unchanged). */
+  ledgerOnly: boolean;
+};
+
+/** FIN-08 — super_admin correction (DB re-checks super_admin, writes ledger ADMIN_ADJUST + audit_logs). */
+export async function adminAdjustStoreBalance(
+  sb: SupabaseClient,
+  input: AdminBalanceCorrectionInput
+): Promise<
+  | {
+      ok: true;
+      idempotent: boolean;
+      ledgerId: string | null;
+      balanceBefore: number | null;
+      balanceAfter: number;
+    }
+  | { ok: false; error: string }
+> {
+  const isCash = input.asset === "cash";
+  const { data, error } = await sb.rpc(isCash ? ADMIN_ADJUST_BC_RPC : ADMIN_ADJUST_COIN_RPC, {
+    p_admin_user_id: input.adminUserId,
+    p_store_id: input.storeId,
+    p_direction: input.direction,
+    ...(isCash ? { p_amount_minor: Math.trunc(input.amount) } : { p_amount: Math.trunc(input.amount) }),
+    p_reason: input.reason,
+    p_evidence_ref: input.evidenceRef,
+    p_idempotency_key: input.idempotencyKey,
+    p_ledger_only: input.ledgerOnly,
+  });
+  if (error) return { ok: false, error: "rpc_failed" };
+  const payload = (data ?? null) as Record<string, unknown> | null;
+  if (!payload || payload.ok !== true) {
+    return { ok: false, error: typeof payload?.error === "string" ? payload.error : "adjust_failed" };
+  }
+  const before = isCash ? payload.balance_before_minor : payload.balance_before;
+  const after = isCash ? payload.balance_after_minor : payload.balance_after;
+  return {
+    ok: true,
+    idempotent: payload.idempotent === true,
+    ledgerId: payload.ledger_id == null ? null : String(payload.ledger_id),
+    balanceBefore: before == null ? null : Math.trunc(Number(before) || 0),
+    balanceAfter: Math.trunc(Number(after) || 0),
   };
 }
 

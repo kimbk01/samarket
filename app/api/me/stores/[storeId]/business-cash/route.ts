@@ -13,6 +13,7 @@ import {
   convertStorePointsToBusinessCash,
   listBusinessCashLedgerForStore,
   listEconomicPointLedgerForStore,
+  loadBusinessCashChargePolicy,
   loadStoreBusinessCashBalance,
   loadStoreEconomicPointsBalance,
 } from "@/lib/stores/advertising/canonical-business-cash-writer";
@@ -41,7 +42,7 @@ export async function GET(
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
-  const [bc, sp, quote, bcLedger, spLedger, charges] = await Promise.all([
+  const [bc, sp, quote, bcLedger, spLedger, charges, chargePolicy] = await Promise.all([
     loadStoreBusinessCashBalance(sb, sid),
     loadStoreEconomicPointsBalance(sb, sid),
     buildOwnerConversionDisclosure(sb, { storeId: sid, requestedPoints: 0 }),
@@ -49,10 +50,11 @@ export async function GET(
     listEconomicPointLedgerForStore(sb, sid),
     sb
       .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
-      .select("id, amount_minor, status, created_at, decided_at")
+      .select("id, amount_minor, status, created_at, decided_at, payment_method, payment_reference, reject_reason")
       .eq("store_id", sid)
       .order("created_at", { ascending: false })
       .limit(20),
+    loadBusinessCashChargePolicy(sb),
   ]);
 
   return NextResponse.json({
@@ -77,6 +79,7 @@ export async function GET(
       : null,
     businessCashLedger: bcLedger,
     storePointsLedger: spLedger,
+    topUpPolicy: chargePolicy,
     topUpRequests: (charges.data ?? []).map((r) => ({
       id: String((r as { id: string }).id),
       amountMinor: Math.trunc(Number((r as { amount_minor?: number }).amount_minor) || 0),
@@ -86,6 +89,9 @@ export async function GET(
         (r as { decided_at?: string | null }).decided_at == null
           ? null
           : String((r as { decided_at: string }).decided_at),
+      paymentMethod: (r as { payment_method?: string | null }).payment_method ?? null,
+      paymentReference: (r as { payment_reference?: string | null }).payment_reference ?? null,
+      rejectReason: (r as { reject_reason?: string | null }).reject_reason ?? null,
     })),
   });
 }
@@ -96,6 +102,9 @@ type PostBody = {
   points?: number;
   expectedRateVersion?: number;
   idempotencyKey?: string;
+  paymentMethod?: string;
+  paymentReference?: string;
+  proofFilePath?: string | null;
   requestedPoints?: number;
   previousRateVersion?: number;
 };
@@ -142,17 +151,27 @@ export async function POST(
 
   if (op === "topup_request") {
     const amountMinor = Math.trunc(Number(body.amountMinor) || 0);
-    const idem =
-      String(body.idempotencyKey ?? "").trim() ||
-      `bc_topup:${userId}:${sid}:${amountMinor}:${Date.now()}`;
+    // FIN-04 / IA-22 — the form owns one stable key per submission; no server-made fallback (retries must replay).
+    const idem = String(body.idempotencyKey ?? "").trim();
+    if (!idem) {
+      return NextResponse.json({ ok: false, error: "idempotency_required" }, { status: 400 });
+    }
     const result = await createBusinessCashTopUpRequest(sb, {
       storeId: sid,
       ownerUserId: userId,
       amountMinor,
+      paymentMethod: String(body.paymentMethod ?? ""),
+      paymentReference: String(body.paymentReference ?? ""),
+      proofFilePath: body.proofFilePath == null ? null : String(body.proofFilePath),
       idempotencyKey: idem,
     });
     if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+      const conflict =
+        result.error === "pending_request_exists" ||
+        result.error === "payment_reference_duplicate" ||
+        result.error === "idempotency_key_reused";
+      const status = result.error === "rpc_failed" ? 500 : conflict ? 409 : 400;
+      return NextResponse.json({ ok: false, error: result.error }, { status });
     }
     return NextResponse.json({
       ok: true,
