@@ -111,8 +111,14 @@ export function DibayUsableAreaSheet({
       }
     : undefined;
 
+  /**
+   * 키보드 열림 + 밴드 확정 = 스테이지 하단이 이미 키보드 상단(visualViewport 하단) — 가림 높이를 패딩으로
+   * 다시 주면 iOS 에서 키보드 높이만큼 빈 공간 (KB-02, 이중 보정). 닫힘 = safe-bottom 1회 그대로.
+   */
+  const panelBottomInsetPx =
+    keyboardOpen && bandKnown ? 0 : Math.max(0, Math.round(effectiveBottomInset));
   const panelStyle: CSSProperties = {
-    paddingBottom: Math.max(0, Math.round(effectiveBottomInset)),
+    paddingBottom: panelBottomInsetPx,
     // Consume safe-top once inside the usable band — products must not restack.
     paddingTop: "var(--safe-top)",
     ...(sheetHeightPx != null

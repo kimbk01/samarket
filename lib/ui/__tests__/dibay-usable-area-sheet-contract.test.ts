@@ -94,3 +94,11 @@ describe("Dibay usable-area sheet — OPTION B shared authority", () => {
     expect(contract).toMatch(/safeBottom/);
   });
 });
+
+describe("DibayUsableAreaSheet keyboard double compensation (KB-02)", () => {
+  it("band-bounded stage + keyboard open → panel bottom padding 0 (no blank keyboard-height gap)", () => {
+    const src = readFileSync(join(process.cwd(), "components/ui/dibay-overlay/DibayUsableAreaSheet.tsx"), "utf8");
+    expect(src).toMatch(/keyboardOpen && bandKnown \? 0 : Math\.max\(0, Math\.round\(effectiveBottomInset\)\)/);
+    expect(src).toContain("paddingBottom: panelBottomInsetPx");
+  });
+});

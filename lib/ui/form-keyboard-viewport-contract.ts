@@ -54,6 +54,12 @@ export type FormKeyboardViewportSnapshot = {
 
 export type FormKeyboardViewportBuildArgs = {
   baselineClosedHeightPx: number;
+  /**
+   * Layout width when `baselineClosedHeightPx` was taken. A different current width
+   * (rotation · split-screen · window resize) re-baselines — portrait geometry is never reused
+   * in landscape (input parity HARD LOCK DO NOT "Reuse portrait→landscape geometry", KB-04).
+   */
+  baselineLayoutWidthPx?: number;
   /** From `window.samarketShell` when present; ignored when layout already resized. */
   nativeShellInsetPx?: number | null;
   safeBottomPx?: number;
@@ -179,10 +185,44 @@ export function resolveFormEffectiveBottomInsetPx(args: {
   return Math.max(0, Math.round(args.safeBottom));
 }
 
+/** Current layout viewport width (0 on server). */
+export function resolveFormLayoutWidthPx(): number {
+  if (typeof window === "undefined") return 0;
+  return Math.round(window.innerWidth);
+}
+
+/**
+ * Baseline for this layout width: a width change means a new geometry (rotation / split) —
+ * restart from the current visual height instead of the previous orientation's height.
+ */
+export function resolveFormKeyboardBaselineForLayout(args: {
+  baselineClosedHeightPx: number;
+  baselineLayoutWidthPx?: number;
+  layoutWidthPx: number;
+  frameHeightPx: number;
+}): number {
+  if (
+    typeof args.baselineLayoutWidthPx === "number" &&
+    args.baselineLayoutWidthPx > 0 &&
+    args.layoutWidthPx > 0 &&
+    args.baselineLayoutWidthPx !== args.layoutWidthPx
+  ) {
+    return args.frameHeightPx;
+  }
+  return args.baselineClosedHeightPx;
+}
+
 export function buildFormKeyboardViewportSnapshot(
   args: FormKeyboardViewportBuildArgs
-): FormKeyboardViewportSnapshot & { baselineClosedHeightPx: number } {
+): FormKeyboardViewportSnapshot & { baselineClosedHeightPx: number; baselineLayoutWidthPx: number } {
   const frame = resolveFormVisualViewportFrame();
+  const layoutWidthPx = resolveFormLayoutWidthPx();
+  const baselineClosedHeightPx = resolveFormKeyboardBaselineForLayout({
+    baselineClosedHeightPx: args.baselineClosedHeightPx,
+    baselineLayoutWidthPx: args.baselineLayoutWidthPx,
+    layoutWidthPx,
+    frameHeightPx: frame.heightPx,
+  });
   const keyboardOcclusionInset =
     typeof args.keyboardOcclusionInsetOverride === "number" &&
     Number.isFinite(args.keyboardOcclusionInsetOverride)
@@ -196,7 +236,7 @@ export function buildFormKeyboardViewportSnapshot(
     args.runtimeContext?.keyboardModel === "none"
       ? false
       : resolveFormKeyboardOpenFromViewport(
-          args.baselineClosedHeightPx,
+          baselineClosedHeightPx,
           args.minOcclusionPx ?? FORM_KEYBOARD_MIN_OCCLUSION_PX
         );
   const safeBottom =
@@ -207,8 +247,8 @@ export function buildFormKeyboardViewportSnapshot(
         : readCssSafeBottomPx();
 
   const nextBaseline = keyboardOpen
-    ? args.baselineClosedHeightPx
-    : Math.max(args.baselineClosedHeightPx, frame.heightPx);
+    ? baselineClosedHeightPx
+    : Math.max(baselineClosedHeightPx, frame.heightPx);
 
   return {
     keyboardOpen,
@@ -224,6 +264,7 @@ export function buildFormKeyboardViewportSnapshot(
     }),
     runtimeContext: args.runtimeContext,
     baselineClosedHeightPx: nextBaseline,
+    baselineLayoutWidthPx: layoutWidthPx,
   };
 }
 
