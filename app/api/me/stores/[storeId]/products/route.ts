@@ -3,12 +3,20 @@ import { readActiveSessionIdCookie } from "@/lib/auth/active-session";
 import { peekAuthSessionValidateCached } from "@/lib/auth/auth-session-validate-cache";
 import { validateActiveSessionLightDeduped } from "@/lib/auth/auth-session-validate-dedupe";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { canOwnerSellProducts } from "@/lib/stores/owner-product-gate";
 import {
-  canOwnerSellProducts,
-  getStoreIfOwner,
-} from "@/lib/stores/owner-product-gate";
+  guardOwnerCatalogWrite,
+  ownerCatalogDbErrorResponse,
+} from "@/lib/stores/owner-catalog-write-guard";
+import {
+  parseOwnerProductClientRequestId,
+  validateOwnerProductFields,
+} from "@/lib/stores/owner-product-field-limits";
+import {
+  OWNER_PRODUCT_AUTO_SOLD_OUT_PATCH,
+  shouldAutoSoldOutOnOwnerSave,
+} from "@/lib/stores/owner-product-auto-sold-out";
 import {
   getCachedStoreIfOwner,
   peekOwnerStoreOwnershipCacheHit,
@@ -80,8 +88,8 @@ export async function GET(
   const menuSectionId = req.nextUrl.searchParams.get("menu_section_id")?.trim() ?? "";
   const sectionFilter = menuSectionId.length >= 8 ? menuSectionId : "";
   const limit = parseOwnerProductsListLimit(req.nextUrl.searchParams.get("limit"));
-  const cursor = req.nextUrl.searchParams.get("cursor")?.trim() ?? "";
-  const skipListCache = sectionFilter.length > 0 || limit != null || cursor.length > 0;
+  // PRD-15 — `cursor` 는 서버가 적용하지 않던 미사용 파라미터라 제거 (전달돼도 무시·캐시 키 불변).
+  const skipListCache = sectionFilter.length > 0 || limit != null;
 
   await sharedGenerationSync;
   const tCacheLookup0 = perfNowMs();
@@ -101,13 +109,11 @@ export async function GET(
   const loaded = await loadOwnerProductsListSnapshot(supabase as import("@supabase/supabase-js").SupabaseClient<any>, id, {
     sectionFilter,
     limit,
-    cursor: cursor || undefined,
     skipCache: skipListCache,
   });
 
   if (!loaded.ok) {
-    console.error("[GET products]", loaded.error);
-    return NextResponse.json({ ok: false, error: loaded.error }, { status: 500 });
+    return ownerCatalogDbErrorResponse("[GET products]", loaded.error);
   }
 
   const { snapshot } = loaded;
@@ -186,7 +192,16 @@ type CreateBody = {
   /** 0 또는 생략: 할인 없음. 1–100: 할인가 자동 계산 */
   discount_percent?: number | null;
   track_inventory?: boolean;
+  /** PRD-15 — 폼 마운트 시 고정 생성한 멱등 키. 같은 키 재요청(더블탭·재시도)은 같은 상품을 돌려준다. */
+  client_request_id?: string | null;
 };
+
+const CLIENT_REQUEST_ID_UNIQUE = "store_products_store_client_request_id_key";
+
+function isMissingClientRequestIdColumn(err: { message?: unknown } | null | undefined): boolean {
+  const msg = String(err?.message ?? "");
+  return msg.includes("client_request_id") && /column|does not exist|schema cache|could not find/i.test(msg);
+}
 
 /** 매장 승인 필수. `active` 상품은 판매 승인 필수, `draft`는 판매 승인 없이 생성 가능 */
 export async function POST(
@@ -197,10 +212,6 @@ export async function POST(
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const session = await validateActiveSession(userId);
-  if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(userId);
-  if (!phone.ok) return phone.response;
   const { storeId } = await context.params;
   const sid = typeof storeId === "string" ? storeId.trim() : "";
   if (!sid) {
@@ -211,15 +222,10 @@ export async function POST(
   if (!supabase) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
+  // PRD-15 — 세션 · 전화 인증(등록 기존 규칙) · 소유 · 1-B 운영 게이트 (오너 상품·섹션·업로드 공용)
+  const guard = await guardOwnerCatalogWrite(supabase, userId, sid, { requirePhone: true });
+  if (!guard.ok) return guard.response;
   const uiLang = await loadUserAppLanguage(supabase, userId, req.headers.get("accept-language"));
-
-  const gate = await getStoreIfOwner(supabase, userId, sid);
-  if (!gate.ok) {
-    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
-  }
-  if (gate.store.approval_status !== "approved") {
-    return NextResponse.json({ ok: false, error: "store_not_approved" }, { status: 400 });
-  }
 
   let body: CreateBody;
   try {
@@ -240,6 +246,19 @@ export async function POST(
 
   const stockQty = Number(body.stock_qty ?? 0);
   const stock = Number.isFinite(stockQty) && stockQty >= 0 ? Math.floor(stockQty) : 0;
+
+  const limits = validateOwnerProductFields(
+    {
+      title,
+      summary: body.summary != null ? String(body.summary) : null,
+      price: Math.floor(price),
+      stock_qty: stock,
+    },
+    uiLang
+  );
+  if (!limits.ok) {
+    return NextResponse.json({ ok: false, error: limits.error, message: limits.message }, { status: 400 });
+  }
 
   const priceFloored = Math.floor(price);
   let discount_percent: number | null = null;
@@ -277,12 +296,19 @@ export async function POST(
 
   const statusRaw = body.product_status !== undefined ? String(body.product_status).trim() : "hidden";
   /** Align with PATCH / Owner form: create may set sold_out (no silent coerce to hidden). */
-  const product_status = ["draft", "active", "hidden", "sold_out"].includes(statusRaw)
+  const requestedStatus = ["draft", "active", "hidden", "sold_out"].includes(statusRaw)
     ? statusRaw
     : "hidden";
+  // PRD-10 — 재고 추적 + 재고 0 + 판매중 → 품절(stock). 판매 승인 게이트는 요청 상태(active) 기준 그대로.
+  const auto_sold_out = shouldAutoSoldOutOnOwnerSave(null, {
+    product_status: requestedStatus,
+    track_inventory,
+    stock_qty: stock,
+  });
+  const product_status = auto_sold_out ? OWNER_PRODUCT_AUTO_SOLD_OUT_PATCH.product_status : requestedStatus;
 
   if (
-    product_status === "active" &&
+    requestedStatus === "active" &&
     !(await canOwnerSellProducts(supabase, sid))
   ) {
     return NextResponse.json({ ok: false, error: "sales_not_approved" }, { status: 403 });
@@ -403,7 +429,9 @@ export async function POST(
     }
   }
 
-  const row = {
+  const client_request_id = parseOwnerProductClientRequestId(body.client_request_id);
+
+  const row: Record<string, unknown> = {
     store_id: sid,
     title,
     summary: String(body.summary ?? "").trim() || null,
@@ -430,16 +458,56 @@ export async function POST(
     sort_order,
     options_json,
   };
+  if (auto_sold_out) row.sold_out_reason = OWNER_PRODUCT_AUTO_SOLD_OUT_PATCH.sold_out_reason;
+  if (client_request_id) row.client_request_id = client_request_id;
 
-  const { data: created, error: insErr } = await supabase
-    .from("store_products")
-    .insert(row)
-    .select("id")
-    .maybeSingle();
+  const insertRow = (r: Record<string, unknown>) =>
+    supabase.from("store_products").insert(r).select("id").maybeSingle();
+
+  let { data: created, error: insErr } = await insertRow(row);
+  if (insErr && isMissingClientRequestIdColumn(insErr)) {
+    // 마이그레이션 2027060416 미적용 DB — 멱등 키 없이 기존 동작
+    const { client_request_id: _omit, ...legacy } = row;
+    void _omit;
+    ({ data: created, error: insErr } = await insertRow(legacy));
+  }
 
   if (insErr) {
-    console.error("[POST product]", insErr);
-    return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
+    if (client_request_id && String(insErr.message ?? "").includes(CLIENT_REQUEST_ID_UNIQUE)) {
+      // PRD-15 — 같은 폼 키 재요청(더블탭·네트워크 재시도): 이미 만든 상품을 돌려준다 (1행 보장).
+      const { data: existing } = await supabase
+        .from("store_products")
+        .select("id")
+        .eq("store_id", sid)
+        .eq("client_request_id", client_request_id)
+        .maybeSingle();
+      if (existing) {
+        return NextResponse.json({ ok: true, product: existing, idempotent: true });
+      }
+    }
+    return ownerCatalogDbErrorResponse("[POST product]", insErr);
+  }
+
+  // PRD-15 — 추천 6개 상한: 사전 count 와 INSERT 사이 경합은 INSERT 후 재카운트로 되돌린다.
+  if (ownerRec && created) {
+    const after = await countOwnerRecommendedProducts(supabase, sid);
+    if (after > OWNER_RECOMMENDED_MENU_MAX) {
+      const createdId = String((created as { id: string }).id);
+      const { error: rbErr } = await supabase
+        .from("store_products")
+        .delete()
+        .eq("id", createdId)
+        .eq("store_id", sid);
+      if (rbErr) console.error("[POST product] recommended limit rollback", rbErr);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "owner_recommended_limit",
+          message: "사장님 추천 메뉴는 최대 6개까지 지정할 수 있습니다.",
+        },
+        { status: 409 }
+      );
+    }
   }
 
   invalidateOwnerProductsListCache(sid);
@@ -447,5 +515,5 @@ export async function POST(
   // OPS-02 — 인스턴스 공통 공개 캐시 세대 (관리자 쓰기와 같은 DEF-64 계약)
   bumpStorePublicSharedCacheGeneration("owner_store.product_create");
 
-  return NextResponse.json({ ok: true, product: created });
+  return NextResponse.json({ ok: true, product: created, ...(auto_sold_out ? { auto_sold_out: true } : {}) });
 }

@@ -4,7 +4,17 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   canOwnerSellProducts,
   getStoreIfOwner,
+  type StoreGateRow,
 } from "@/lib/stores/owner-product-gate";
+import {
+  guardOwnerCatalogWrite,
+  ownerCatalogDbErrorResponse,
+} from "@/lib/stores/owner-catalog-write-guard";
+import { validateOwnerProductFields } from "@/lib/stores/owner-product-field-limits";
+import {
+  OWNER_PRODUCT_AUTO_SOLD_OUT_PATCH,
+  shouldAutoSoldOutOnOwnerSave,
+} from "@/lib/stores/owner-product-auto-sold-out";
 import { filterStoreOwnedImageUrls } from "@/lib/stores/store-owned-image-urls";
 import { parseProductOptionsJsonField } from "@/lib/stores/parse-product-options-json";
 import { loadUserAppLanguage } from "@/lib/i18n/load-user-app-language";
@@ -44,10 +54,14 @@ async function loadProductForOwner(
   sb: ReturnType<typeof tryGetSupabaseForStores>,
   userId: string,
   storeId: string,
-  productId: string
+  productId: string,
+  /** PATCH — `guardOwnerCatalogWrite` 가 이미 소유를 확인한 매장 행 (중복 조회 생략) */
+  verifiedStore?: StoreGateRow
 ) {
   if (!sb) return { error: "no_sb" as const };
-  const gate = await getStoreIfOwner(sb, userId, storeId);
+  const gate = verifiedStore
+    ? ({ ok: true as const, store: verifiedStore })
+    : await getStoreIfOwner(sb, userId, storeId);
   if (!gate.ok) return { error: "gate", gate };
 
   const baseCols = [
@@ -168,9 +182,12 @@ export async function PATCH(
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
+  // PRD-15 — 세션 · 소유 · 1-B 운영 게이트 (POST 와 같은 가드). 정지 매장은 403 store_suspended.
+  const guard = await guardOwnerCatalogWrite(sb, userId, sid);
+  if (!guard.ok) return guard.response;
   const uiLang = await loadUserAppLanguage(sb, userId, req.headers.get("accept-language"));
 
-  const loaded = await loadProductForOwner(sb, userId, sid, pid);
+  const loaded = await loadProductForOwner(sb, userId, sid, pid, guard.store);
   if (loaded.error === "no_sb") {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
@@ -188,13 +205,8 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const { store } = loaded;
   const productRow = loaded.product as unknown as Record<string, unknown>;
   const lockColumnsAvailable = loaded.lockColumnsAvailable !== false;
-
-  if (store.approval_status !== "approved") {
-    return NextResponse.json({ ok: false, error: "store_not_approved" }, { status: 400 });
-  }
 
   let body: PatchBody;
   try {
@@ -526,6 +538,29 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "empty_patch" }, { status: 400 });
   }
 
+  // PRD-15 — 입력 상한: 값이 실제로 바뀐 필드만 검사 (기존 초과 값은 수정 저장 시에만 — 보존 계약).
+  const changedOnly = <T,>(key: string, v: T): T | undefined =>
+    key in patch && patch[key] !== productRow[key] ? v : undefined;
+  const limits = validateOwnerProductFields(
+    {
+      title: changedOnly("title", patch.title as string | undefined),
+      summary: changedOnly("summary", (patch.summary as string | null | undefined) ?? undefined),
+      price: changedOnly("price", patch.price as number | undefined),
+      stock_qty: changedOnly("stock_qty", patch.stock_qty as number | undefined),
+    },
+    uiLang
+  );
+  if (!limits.ok) {
+    return NextResponse.json({ ok: false, error: limits.error, message: limits.message }, { status: 400 });
+  }
+
+  // PRD-10 — 저장 결과가 「재고 추적 · 재고 0 · 판매중」 이면 품절(stock) 로 저장하고 오너에게 안내.
+  const auto_sold_out = shouldAutoSoldOutOnOwnerSave(productRow, patch);
+  if (auto_sold_out) {
+    patch.product_status = OWNER_PRODUCT_AUTO_SOLD_OUT_PATCH.product_status;
+    patch.sold_out_reason = OWNER_PRODUCT_AUTO_SOLD_OUT_PATCH.sold_out_reason;
+  }
+
   // 반려 상품 내용을 고치면 재검수 요청 상태로 전환 (관리자가 「검수 승인」하면 판매 재개 가능).
   const REVIEW_CONTENT_FIELDS = ["title", "summary", "price", "discount_percent", "discount_price", "thumbnail_url", "images_json", "options_json", "description_html"];
   if (
@@ -553,8 +588,7 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    console.error("[PATCH product]", upErr);
-    return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    return ownerCatalogDbErrorResponse("[PATCH product]", upErr);
   }
   if (!updatedRows || updatedRows.length === 0) {
     if (expectedUpdatedAt) {
@@ -606,5 +640,9 @@ export async function PATCH(
   // OPS-02 — 인스턴스 공통 공개 캐시 세대 (관리자 쓰기와 같은 DEF-64 계약)
   bumpStorePublicSharedCacheGeneration("owner_store.product_update");
 
-  return NextResponse.json({ ok: true, updated_at: nextUpdatedAt });
+  return NextResponse.json({
+    ok: true,
+    updated_at: nextUpdatedAt,
+    ...(auto_sold_out ? { auto_sold_out: true } : {}),
+  });
 }

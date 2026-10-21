@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { guardOwnerCatalogWrite } from "@/lib/stores/owner-catalog-write-guard";
 import { enforceStoreOwnerImageUploadQuota } from "@/lib/security/rate-limit-presets";
 import { OWNER_PRODUCT_IMAGE_MAX_BYTES } from "@/lib/stores/owner-product-images";
 import { resolveOwnerProductImageMimeForUpload } from "@/lib/stores/owner-product-image-mime-sniff.server";
@@ -39,23 +39,12 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const gate = await getStoreIfOwner(sb, userId, sid);
-  if (!gate.ok) {
-    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
-  }
+  // PRD-15 — 세션 · 소유 · 1-B 게이트. 업로드는 매장 정보 편집과 같은 범위(승인·심사 중 허용, 반려·정지 차단).
+  const guard = await guardOwnerCatalogWrite(sb, userId, sid, { scope: "profile" });
+  if (!guard.ok) return guard.response;
 
   const upRl = await enforceStoreOwnerImageUploadQuota(userId, sid);
   if (!upRl.ok) return upRl.response;
-
-  const st = gate.store.approval_status;
-  const canUploadImage =
-    st === "approved" ||
-    st === "pending" ||
-    st === "under_review" ||
-    st === "revision_requested";
-  if (!canUploadImage) {
-    return NextResponse.json({ ok: false, error: "store_not_editable" }, { status: 400 });
-  }
 
   let form: FormData;
   try {
@@ -146,9 +135,7 @@ export async function POST(
         { status: 503 }
       );
     }
-    return NextResponse.json(
-      { ok: false, error: raw || "upload_failed" },
-      { status: 500 }
-    );
+    // PRD-15 — Storage 원문은 서버 로그만 (위 console.error)
+    return NextResponse.json({ ok: false, error: "upload_failed" }, { status: 500 });
   }
 }

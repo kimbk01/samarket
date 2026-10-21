@@ -18,8 +18,14 @@ let fake = createFakeStoreSupabase((c) => handler(c));
 
 vi.mock("@/lib/auth/get-route-user-id", () => ({ getRouteUserId: async () => "owner-1" }));
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => fake.sb }));
+vi.mock("@/lib/auth/server-guards", () => ({
+  validateActiveSession: async () => ({ ok: true, profile: {} }),
+  requirePhoneVerified: async () => ({ ok: true, profile: {} }),
+}));
 vi.mock("@/lib/stores/owner-product-gate", () => ({
   getStoreIfOwner: async () => ({ ok: true, store: { id: "store-1", approval_status: "approved" } }),
+  ownerStoreOperationalWriteBlock: () => null,
+  ownerStoreProfileWriteBlock: () => null,
 }));
 vi.mock("@/lib/stores/store-public-shared-cache-generation", () => ({
   bumpStorePublicSharedCacheGeneration: (...a: unknown[]) => bump(...a),

@@ -80,6 +80,8 @@ function formatBannerSaveError(
     case "storage_bucket_missing":
       return tr("business_phase7_449");
     case "store_not_editable":
+    case "store_not_approved":
+    case "store_suspended":
       return tr("business_phase7_450");
     default:
       return code;

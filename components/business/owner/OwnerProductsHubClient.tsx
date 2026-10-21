@@ -16,6 +16,7 @@ import {
   readOwnerProductsHubSessionCache,
   writeOwnerProductsHubSessionCache,
 } from "@/lib/business/owner-products-hub-session-cache";
+import { consumeOwnerProductsHubFlash } from "@/lib/business/owner-products-hub-flash";
 
 type Section = { id: string; name: string; sort_order?: number; is_hidden?: boolean };
 
@@ -34,7 +35,18 @@ type HubProduct = {
   sold_out_reason?: string | null;
   menu_section_id?: string | null;
   store_menu_sections?: Section | Section[] | null;
+  is_featured?: boolean | null;
+  is_owner_recommended?: boolean | null;
+  is_representative?: boolean | null;
 };
+
+/** PRD-12 — 「추천 우선」 대신 추천 칩 필터 (사장님 추천·대표 메뉴) */
+function isHubRecommended(p: HubProduct): boolean {
+  if (typeof p.is_owner_recommended === "boolean" || typeof p.is_representative === "boolean") {
+    return p.is_owner_recommended === true || p.is_representative === true;
+  }
+  return p.is_featured === true;
+}
 
 const INTRO_PREVIEW_LEN = 96;
 
@@ -145,8 +157,8 @@ export function OwnerProductsHubClient({
     return rscBootstrapError;
   });
   const [tab, setTab] = useState<string>("all");
-  /** 전체·판매중·품절·숨김(초안 포함) — 카테고리 탭과 AND 필터 */
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "sold_out" | "hidden">(() => {
+  /** 전체·판매중·품절·숨김(초안 포함)·추천 — 카테고리 탭과 AND 필터. 목록 기본 순서는 구매자 메뉴 순서(PRD-12) */
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "sold_out" | "hidden" | "recommended">(() => {
     if (statusFromUrl === "sold_out" || statusFromUrl === "active" || statusFromUrl === "hidden") {
       return statusFromUrl;
     }
@@ -156,6 +168,13 @@ export function OwnerProductsHubClient({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HubProduct | null>(null);
+
+  /** PRD-10 — 상품 폼 저장이 재고 0 자동 품절이었으면 1회 안내 */
+  useEffect(() => {
+    if (consumeOwnerProductsHubFlash(storeId)?.kind === "auto_sold_out") {
+      setToast(t("store_owner_prd_auto_sold_out"));
+    }
+  }, [storeId, t]);
 
   const canSell = useMemo(() => {
     const r = adminStore?.storeRow;
@@ -253,6 +272,8 @@ export function OwnerProductsHubClient({
       list = list.filter((p) => p.product_status === "sold_out");
     } else if (statusFilter === "hidden") {
       list = list.filter((p) => p.product_status === "hidden" || p.product_status === "draft");
+    } else if (statusFilter === "recommended") {
+      list = list.filter(isHubRecommended);
     }
     if (qy.length > 0) {
       list = list.filter((p) => {
@@ -316,6 +337,7 @@ export function OwnerProductsHubClient({
         }
         return;
       }
+      if (j?.auto_sold_out === true) setToast(t("store_owner_prd_auto_sold_out"));
       await loadAll({ silent: true });
     } catch {
       setError("network_error");
@@ -414,6 +436,7 @@ export function OwnerProductsHubClient({
               { id: "active" as const, label: t("business_phase7_412") },
               { id: "sold_out" as const, label: t("business_phase7_317") },
               { id: "hidden" as const, label: t("business_phase7_413") },
+              { id: "recommended" as const, label: t("store_owner_prd_filter_recommended") },
             ] as const
           ).map((s) => (
             <button
