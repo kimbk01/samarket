@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { adminActOnPlatformPopupOwnerRequest } from "@/lib/platform-popup/owner-request-approve";
 import { isPlatformPopupOwnerRequestAdminAction } from "@/lib/platform-popup/owner-request-types";
@@ -16,8 +16,10 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ requestId: string }> }
 ): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // ADS-08 — 유료 팝업 승인·반려(환불)는 business 권한키 필수 (광고 actions 와 동일).
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {

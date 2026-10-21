@@ -36,6 +36,7 @@ async function runSchedulePromoterJob(req: Request) {
       after_json: {
         activated: result.activated,
         ended: result.ended,
+        expired: result.expired,
         failed: result.failed,
         scanned: result.scanned,
       },
@@ -46,6 +47,7 @@ async function runSchedulePromoterJob(req: Request) {
       ok: true,
       activated: result.activated,
       ended: result.ended,
+      expired: result.expired,
       failed: result.failed,
       scanned: result.scanned,
       results: result.results,

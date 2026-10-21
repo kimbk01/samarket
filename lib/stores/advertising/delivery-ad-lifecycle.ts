@@ -77,6 +77,13 @@ const SYSTEM_TRANSITIONS: ReadonlyArray<readonly [DeliveryAdLifecycleStatus, Del
     ["SCHEDULED", "ENDED"],
     ["ACTIVE", "EXHAUSTED"],
     ["ACTIVE", "ENDED"],
+    /** ADS-11 — 일시중지 상태로 기간이 끝난 캠페인 종료 (apply instant 이후 종료분만, DB 가 강제). */
+    ["PAUSED_OWNER", "ENDED"],
+    ["PAUSED_ADMIN", "ENDED"],
+    /** ADS-01 (D-19) — 기간이 지난 미심사 신청 자동 반려 + 전액 환불 (같은 TX, DB 가 강제). */
+    ["SUBMITTED", "REJECTED"],
+    ["UNDER_REVIEW", "REJECTED"],
+    ["CHANGES_REQUESTED", "REJECTED"],
   ];
 
 function hasEdge(

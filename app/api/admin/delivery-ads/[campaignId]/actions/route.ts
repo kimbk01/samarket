@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
@@ -21,8 +20,10 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ campaignId: string }> };
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // ADS-08 — 승인·반려(=Cash 환불)·일시중지·종료는 금전·노출 결정이므로 business 권한키 필수 (쿠폰·상품권과 동일).
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -44,14 +45,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
    * Route-only operator action (no UI). Business permission + reason required.
    */
   if (body.action === "refund_orphan_funding") {
-    const gate = await requireAdminPermission("business");
-    if (!gate.ok) return gate.response;
     const refundReason = typeof body.reason === "string" ? body.reason.trim() : "";
     if (!refundReason) {
       return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
     }
     const refund = await adminRefundOrphanDeliveryAdFunding(sb, {
-      adminUserId: gate.actor.userId,
+      adminUserId: admin.userId,
       productKind: body.productKind,
       campaignId,
       reason: refundReason,
@@ -155,7 +154,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
             ? 404
             : result.error === "reason_required" ||
                 result.error === "illegal_transition" ||
-                result.error === "funding_required"
+                result.error === "funding_required" ||
+                result.error === "period_expired" ||
+                result.error === "period_ended"
               ? 422
               : 400;
     return NextResponse.json(
