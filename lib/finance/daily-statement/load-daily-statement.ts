@@ -1,5 +1,12 @@
 /**
- * Daily statement from existing ledgers + settlements. No FX merge.
+ * Daily statement from existing ledgers. No FX merge.
+ *
+ * FIN-07: orders / gross / fee come from the commission SSOT SQL readers used by the Admin and
+ * Owner settlement screens — never from legacy `store_settlements` snapshots (stopped 2026-09-15,
+ * store-collected money, not a payable):
+ * - orders / gross = completed orders (`store_platform_payable_page`, view `all`): direct + platform-held,
+ *   bucketed by Asia/Manila order day (same axis as the payable page).
+ * - feeDue = net commission per Asia/Manila day (`store_commission_breakdown`, group `day`).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DailyStatementRow } from "@/lib/finance/daily-statement/types";
@@ -7,7 +14,36 @@ import {
   BUSINESS_CASH_LEDGER_TABLE,
   STORE_ECONOMIC_POINT_LEDGER_TABLE,
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
-import { loadStoreSettlementFinancialFacts } from "@/lib/stores/load-store-settlement-financial-facts";
+import {
+  loadStoreCommissionBreakdown,
+  loadStorePlatformPayable,
+  type StorePlatformPayableRow,
+} from "@/lib/stores/commission/load-store-commission-ledger";
+
+/** SQL page cap of `store_platform_payable_page`. */
+const PAYABLE_PAGE = 500;
+const PAYABLE_MAX_PAGES = 20;
+
+/** All completed orders of one store in [fromIso, toIso) — paged through the payable SQL reader. */
+export async function loadCompletedOrderRowsForStore(
+  sb: SupabaseClient,
+  input: { storeId: string; fromIso: string; toIso: string }
+): Promise<StorePlatformPayableRow[]> {
+  const out: StorePlatformPayableRow[] = [];
+  for (let page = 0; page < PAYABLE_MAX_PAGES; page += 1) {
+    const res = await loadStorePlatformPayable(sb, {
+      storeIds: [input.storeId],
+      fromIso: input.fromIso,
+      toIso: input.toIso,
+      view: "all",
+      limit: PAYABLE_PAGE,
+      offset: page * PAYABLE_PAGE,
+    });
+    out.push(...res.rows);
+    if (res.rows.length < PAYABLE_PAGE || out.length >= res.totalRows) break;
+  }
+  return out;
+}
 
 function manilaDay(iso: string): string {
   const t = new Date(iso).getTime();
@@ -56,21 +92,33 @@ export async function loadDailyStatements(
     return row;
   };
 
-  const settlementRes = await loadStoreSettlementFinancialFacts(sb, {
-    storeIds: [storeId],
-    fromIso: input.fromIso,
-    toIso: input.toIso,
-  });
-  if (settlementRes && !("ok" in settlementRes && settlementRes.ok === false)) {
-    const facts = "facts" in settlementRes ? settlementRes.facts : [];
-    for (const f of facts) {
-      const day = manilaDay(f.completed_at || f.settlement_created_at);
+  const [salesRes, feeRes] = await Promise.allSettled([
+    loadCompletedOrderRowsForStore(sb, { storeId, fromIso: input.fromIso, toIso: input.toIso }),
+    loadStoreCommissionBreakdown(sb, {
+      storeIds: [storeId],
+      fromIso: input.fromIso,
+      toIso: input.toIso,
+      group: "day",
+    }),
+  ]);
+  if (salesRes.status === "fulfilled") {
+    for (const o of salesRes.value) {
+      const day = manilaDay(o.createdAt);
       if (!day) continue;
       const row = ensure(day);
       row.orders += 1;
-      row.gross += f.gross_amount;
-      row.feeDue += f.platform_commission_revenue;
+      row.gross += o.directPhp + o.heldPhp;
     }
+  } else {
+    console.error("[loadDailyStatements] completed_orders", salesRes.reason);
+  }
+  if (feeRes.status === "fulfilled") {
+    for (const b of feeRes.value) {
+      if (!b.bucket) continue;
+      ensure(b.bucket).feeDue += b.netCommissionMinor / 100;
+    }
+  } else {
+    console.error("[loadDailyStatements] commission_breakdown", feeRes.reason);
   }
 
   const [{ data: coinLedger }, { data: cashLedger }, { data: obligations }] = await Promise.all([

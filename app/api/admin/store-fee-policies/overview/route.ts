@@ -302,11 +302,12 @@ export async function GET(req: Request) {
       .order("id")
       .limit(60),
     sb.rpc("admin_store_fee_overview_summary"),
+    // FIN-07: verification sample = commissions actually charged (frozen fee_snapshot at charge time),
+    // not legacy store_settlements snapshots (stopped 2026-09-15).
     sb
-      .from("store_settlements")
-      .select(
-        "id, store_id, order_id, gross_amount, platform_fee_percent, platform_fee_amount, fixed_fee_amount, delivery_income_amount, applied_fee_policy_id, applied_fee_policy_snapshot, settlement_status, created_at"
-      )
+      .from("store_sale_fee_obligations")
+      .select("id, store_id, order_id, confirmed_revenue_php, fee_due_minor, original_fee_due_minor, fee_snapshot, status, created_at")
+      .not("fee_snapshot", "is", null)
       .order("created_at", { ascending: false })
       .limit(80),
   ]);
@@ -466,33 +467,32 @@ export async function GET(req: Request) {
     policy_name: r.policy_name,
   }));
   const verification = settlements.map((s) => {
-    const gross = Math.round(Number(s.gross_amount) || 0);
-    const rate = Number(s.platform_fee_percent) || 0;
-    const fee = Math.round(Number(s.platform_fee_amount) || 0);
-    const fixedSettled = Math.round(Number(s.fixed_fee_amount) || 0);
-    const deliveryIncome = Math.round(Number(s.delivery_income_amount) || 0);
     const snap =
-      s.applied_fee_policy_snapshot && typeof s.applied_fee_policy_snapshot === "object"
-        ? (s.applied_fee_policy_snapshot as Record<string, unknown>)
-        : null;
-    const snapRate = snap && snap.fee_percent != null ? Number(snap.fee_percent) : null;
-    const snapFixed =
-      snap && snap.fixed_fee != null ? Math.round(Number(snap.fixed_fee) || 0) : fixedSettled;
-    const snapDeliveryMode =
-      snap && typeof snap.delivery_fee_mode === "string" ? snap.delivery_fee_mode : "none";
-    const snapDeliveryPct =
-      snap && snap.delivery_fee_percent != null ? Number(snap.delivery_fee_percent) : 0;
-    // Rebuild % + fixed from snapshot; delivery income is already ledgered separately.
+      s.fee_snapshot && typeof s.fee_snapshot === "object" ? (s.fee_snapshot as Record<string, unknown>) : {};
+    const policy =
+      snap.policy && typeof snap.policy === "object" ? (snap.policy as Record<string, unknown>) : {};
+    const int = (v: unknown) => Math.round(Number(v) || 0);
+    const gross = int(snap.commission_base_php ?? s.confirmed_revenue_php);
+    // Charged at cooking start (store_commission_charge_order_internal) — frozen components.
+    const chargedPercent = Number(snap.fee_percent) || 0;
+    const chargedPercentFee = int(snap.platform_fee_php);
+    const chargedFixed = int(snap.fixed_fee_php);
+    const chargedDeliveryIncome = int(snap.delivery_income_php);
+    const chargedTotal = Math.round(
+      Number(s.original_fee_due_minor ?? s.fee_due_minor ?? Number(snap.fee_due_php) * 100) / 100
+    );
+    // Rebuild from the policy frozen in the snapshot.
+    const policyPercent = policy.fee_percent != null ? Number(policy.fee_percent) : null;
+    const policyFixed = int(policy.fixed_fee);
     const calc = calculateOrderCommission({
       commissionBaseAmount: gross,
-      deliveryFeeAmount: 0,
-      feePercent: snapRate != null && Number.isFinite(snapRate) ? snapRate : rate,
-      fixedFee: snapFixed,
-      deliveryFeeMode: snapDeliveryMode,
-      deliveryFeePercent: snapDeliveryPct,
+      deliveryFeeAmount: int(snap.delivery_fee_php),
+      feePercent: policyPercent != null && Number.isFinite(policyPercent) ? policyPercent : chargedPercent,
+      fixedFee: policyFixed,
+      deliveryFeeMode: typeof policy.delivery_fee_mode === "string" ? policy.delivery_fee_mode : "none",
+      deliveryFeePercent: Number(policy.delivery_fee_percent) || 0,
     });
-    const calculatedTotal = calc.platformFeeAmount + calc.fixedFeeAmount;
-    const settlementTotal = fee + fixedSettled;
+    const calculatedTotal = calc.totalPlatformFeeAmount + calc.deliveryIncomeAmount;
     const st = storeById.get(String(s.store_id ?? ""));
     return {
       settlement_id: String(s.id),
@@ -502,20 +502,21 @@ export async function GET(req: Request) {
       store_id: String(s.store_id ?? ""),
       store_name: st ? String(st.store_name ?? "") : String(s.store_id ?? "").slice(0, 8),
       gross_amount: gross,
-      policy_fee_percent: snapRate != null && Number.isFinite(snapRate) ? snapRate : rate,
-      policy_fixed_fee: snapFixed,
-      settlement_fee_percent: rate,
-      settlement_fixed_fee: fixedSettled,
-      settlement_delivery_income: deliveryIncome,
+      policy_fee_percent: policyPercent != null && Number.isFinite(policyPercent) ? policyPercent : chargedPercent,
+      policy_fixed_fee: policyFixed,
+      settlement_fee_percent: chargedPercent,
+      settlement_fixed_fee: chargedFixed,
+      settlement_delivery_income: chargedDeliveryIncome,
       calculated_fee_amount: calculatedTotal,
-      settlement_fee_amount: settlementTotal,
+      settlement_fee_amount: chargedTotal,
       matched:
-        settlementTotal === calculatedTotal &&
-        (snapRate == null || !Number.isFinite(snapRate) || snapRate === rate) &&
-        snapFixed === fixedSettled,
-      settlement_status: s.settlement_status,
+        chargedTotal === calculatedTotal &&
+        chargedPercentFee + chargedFixed + chargedDeliveryIncome === chargedTotal &&
+        (policyPercent == null || !Number.isFinite(policyPercent) || policyPercent === chargedPercent),
+      settlement_status: String(s.status ?? ""),
       created_at: s.created_at,
-      applied_fee_policy_id: s.applied_fee_policy_id ?? null,
+      applied_fee_policy_id: snap.policy_id != null ? String(snap.policy_id) : null,
+      source: "store_sale_fee_obligations.fee_snapshot",
     };
   });
 
@@ -567,5 +568,6 @@ export async function GET(req: Request) {
     policy_history: policyHistory,
     verification,
     settlements_error: setRes.error?.message ?? null,
+    verification_source: "store_sale_fee_obligations.fee_snapshot",
   });
 }

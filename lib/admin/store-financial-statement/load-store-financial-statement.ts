@@ -171,8 +171,19 @@ export async function loadStoreFinancialStatement(
       (value) => ({ value, error: null as string | null }),
       (e: unknown) => ({ value: null as T | null, error: e instanceof Error ? e.message : "load_failed" })
     );
-  const [settlements, coinLedgerRes, cashLedgerRes, topUpsRes, obligationsRes, cancelCountRes, ledgerRes, payableRes] =
+  const [
+    settlements,
+    coinLedgerRes,
+    cashLedgerRes,
+    topUpsRes,
+    obligationsRes,
+    cancelCountRes,
+    ledgerRes,
+    payableRes,
+    refundedRes,
+  ] =
     await Promise.all([
+      // Legacy snapshots — reference section only (never a numeric source, FIN-07).
       loadStoreSettlementFinancialFacts(sb, {
         storeIds: [storeId],
         fromIso: period.fromIso,
@@ -245,12 +256,27 @@ export async function loadStoreFinancialStatement(
           offset: 0,
         })
       ),
+      // FIN-07: refunds = refunded orders in period (full refund only — buyer payment returned).
+      sb
+        .from("store_orders")
+        .select("payment_amount")
+        .eq("store_id", storeId)
+        .eq("order_status", "refunded")
+        .gte("refunded_at", period.fromIso)
+        .lt("refunded_at", period.toIso)
+        .limit(5000),
     ]);
 
   const settlementsUnavailable = !settlements.ok;
   if (!settlements.ok) sectionErrors.push(`settlements:${settlements.error}`);
   const settlementFacts = settlements.ok ? settlements.facts : [];
-  const settlementSummary = settlements.ok ? settlements.summary : null;
+  if (refundedRes.error) sectionErrors.push(`refunds:${refundedRes.error.message}`);
+  const refundedPhp: number | null = refundedRes.error
+    ? null
+    : ((refundedRes.data ?? []) as Array<{ payment_amount?: unknown }>).reduce(
+        (n, r) => n + Math.max(0, Math.trunc(Number(r.payment_amount) || 0)),
+        0
+      );
   if (ledgerRes.error) sectionErrors.push(`commission_ledger:${ledgerRes.error}`);
   if (payableRes.error) sectionErrors.push(`payable:${payableRes.error}`);
   const ledger = ledgerRes.value;
@@ -586,8 +612,8 @@ export async function loadStoreFinancialStatement(
       completedCount: payable?.orders ?? null,
       cancelledCount,
       gross: periodSales,
-      refund: settlementSummary?.refund ?? null,
-      source: "store_platform_payable_page + store_orders.cancelled",
+      refund: refundedPhp,
+      source: "store_platform_payable_page + store_orders.cancelled/refunded",
       unavailable: payable == null,
     },
     fees: {

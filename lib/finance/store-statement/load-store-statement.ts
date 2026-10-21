@@ -1,5 +1,9 @@
 /**
  * StoreStatement loader — Admin/Owner shared. STORE_CASH ads only in adSpend.
+ *
+ * FIN-07: sales = completed orders (`store_platform_payable_page` summary: direct + platform-held),
+ * settlementFee = net commission (`store_commission_breakdown`) — the same SQL as the Admin/Owner
+ * settlement screens. Legacy `store_settlements` snapshots are never a numeric source here.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StoreStatement } from "@/lib/finance/store-statement/types";
@@ -8,9 +12,9 @@ import {
   STORE_ECONOMIC_POINT_LEDGER_TABLE,
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import {
-  loadStoreSettlementFinancialFacts,
-} from "@/lib/stores/load-store-settlement-financial-facts";
-import { summarizeStoreOrderFinancialFacts } from "@/lib/stores/store-order-financial-fact";
+  loadStoreCommissionBreakdown,
+  loadStorePlatformPayable,
+} from "@/lib/stores/commission/load-store-commission-ledger";
 
 function sumCoinBefore(
   rows: Array<{ amount: number; balance_after: number }>,
@@ -35,17 +39,33 @@ export async function loadStoreStatement(
     .maybeSingle();
   if (!store) return null;
 
-  const settlementRes = await loadStoreSettlementFinancialFacts(sb, {
-    storeIds: [storeId],
-    fromIso: input.fromIso,
-    toIso: input.toIso,
-  });
-  if (!settlementRes || ("ok" in settlementRes && settlementRes.ok === false)) {
+  let salesOrders = 0;
+  let salesGross = 0;
+  let netCommissionMinor = 0;
+  try {
+    const [payable, fee] = await Promise.all([
+      loadStorePlatformPayable(sb, {
+        storeIds: [storeId],
+        fromIso: input.fromIso,
+        toIso: input.toIso,
+        view: "all",
+        limit: 1,
+        offset: 0,
+      }),
+      loadStoreCommissionBreakdown(sb, {
+        storeIds: [storeId],
+        fromIso: input.fromIso,
+        toIso: input.toIso,
+        group: "store",
+      }),
+    ]);
+    salesOrders = payable.summary.orders;
+    salesGross = payable.summary.directCollectedPhp + payable.summary.platformHeldPhp;
+    netCommissionMinor = fee.reduce((n, b) => n + b.netCommissionMinor, 0);
+  } catch (e) {
+    console.error("[loadStoreStatement] commission_ssot", e);
     return null;
   }
-  const facts =
-    "facts" in settlementRes ? settlementRes.facts : [];
-  const summary = summarizeStoreOrderFinancialFacts(facts);
 
   const { data: obligations } = await sb
     .from("store_sale_fee_obligations")
@@ -175,9 +195,9 @@ export async function loadStoreStatement(
     fromIso: input.fromIso,
     toIso: input.toIso,
     sales: {
-      orders: summary.order_count,
-      gross: summary.gross,
-      settlementFee: summary.platform_commission_revenue,
+      orders: salesOrders,
+      gross: salesGross,
+      settlementFee: netCommissionMinor / 100,
       outstanding: outstandingMinor / 100,
     },
     coin: {

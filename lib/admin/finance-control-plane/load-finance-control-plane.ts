@@ -563,28 +563,31 @@ export async function loadFinanceControlPlane(
     }
   }
 
-  // Settlement refund amounts (distinct from Cash ad refund)
-  const { data: refundSettlements } = await sb
-    .from("store_settlements")
-    .select("id, store_id, order_id, refund_amount, settlement_status, created_at")
-    .gt("refund_amount", 0)
-    .order("created_at", { ascending: false })
+  // Order refunds (distinct from Cash ad refund) — FIN-07: refunded store_orders, not legacy
+  // store_settlements.refund_amount (snapshots stopped 2026-09-15). Full refund only.
+  const { data: refundedOrders } = await sb
+    .from("store_orders")
+    .select("id, order_no, store_id, payment_amount, order_status, refunded_at")
+    .eq("order_status", "refunded")
+    .not("refunded_at", "is", null)
+    .order("refunded_at", { ascending: false })
     .limit(15);
-  for (const r of (refundSettlements ?? []) as Record<string, unknown>[]) {
+  for (const r of (refundedOrders ?? []) as Record<string, unknown>[]) {
     const storeId = String(r.store_id ?? "");
+    const orderId = String(r.id ?? "");
     refundRows.push({
-      id: `stl-refund:${String(r.id ?? "")}`,
+      id: `order-refund:${orderId}`,
       storeId,
       memberId: null,
       label: storeNameById[storeId] || storeId.slice(0, 8) || "Store",
-      type: "SETTLEMENT_REFUND",
-      amountLabel: phpMajor(Number(r.refund_amount) || 0),
-      status: String(r.settlement_status ?? ""),
-      at: String(r.created_at ?? ""),
-      href: `/admin/store-settlements?store_id=${encodeURIComponent(storeId)}`,
+      type: "ORDER_REFUND",
+      amountLabel: phpMajor(Number(r.payment_amount) || 0),
+      status: String(r.order_status ?? ""),
+      at: String(r.refunded_at ?? ""),
+      href: `/admin/store-orders?order_id=${encodeURIComponent(orderId)}`,
       statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
       memberHref: null,
-      meta: r.order_id ? `order=${String(r.order_id).slice(0, 8)}` : "settlement refund",
+      meta: r.order_no ? `order=${String(r.order_no)}` : `order=${orderId.slice(0, 8)}`,
     });
   }
 
@@ -730,7 +733,7 @@ export async function loadFinanceControlPlane(
     refunds: {
       rows: refundRows.slice(0, 20),
       unavailable: false,
-      source: "business_cash_ledger refunds + store_settlements.refund_amount",
+      source: "business_cash_ledger refunds + store_orders (refunded)",
     },
     recent,
     primaryEntries: [

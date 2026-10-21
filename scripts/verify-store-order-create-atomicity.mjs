@@ -155,6 +155,39 @@ if (/gift_certificate_instance_redeem_fee_rate\s*\(/.test(migMinCoupon)) {
   }
 }
 
+/** 2-E ADS-22 + 2-F FIN-15 reopen (doc §7) — coupon split = server authority, single cash order gate */
+{
+  const mig2ef = fs.readFileSync(
+    path.join(root, "supabase/migrations/20270603150000_create_store_order_atomic_coupon_split_single_gate.sql"),
+    "utf8"
+  );
+  if (!mig2ef.includes("CREATE OR REPLACE FUNCTION public.create_store_order_atomic")) {
+    fails.push("2-E/2-F migration must redefine create_store_order_atomic");
+  }
+  if (/p_order->>'(store|platform)_funded_amount'/.test(mig2ef)) {
+    fails.push("ADS-22: create must not store payload store/platform_funded_amount");
+  }
+  if (!/v_campaign\.funding_mode = 'STORE_FUNDED'/.test(mig2ef) || !/v_campaign\.store_funded_amount/.test(mig2ef)) {
+    fails.push("ADS-22: create must split coupon cost from the locked campaign funding_mode/store_funded_amount");
+  }
+  if (!mig2ef.includes("store_orders_coupon_funding_split_check")) {
+    fails.push("ADS-22: coupon split CHECK missing");
+  }
+  if (/point_commerce_blocked|store_point_blocked/.test(mig2ef.replace(/^--.*$/gm, ""))) {
+    fails.push("FIN-15: create must not gate on legacy point_commerce_blocked (cash gate trigger is the single gate)");
+  }
+  for (const k of [
+    "FOR UPDATE",
+    "pg_advisory_xact_lock",
+    "WHEN unique_violation THEN",
+    "insufficient_stock",
+    "v_discount := round(v_discount_auth)",
+    "sold_out_reason = CASE",
+  ]) {
+    if (!mig2ef.includes(k)) fails.push(`2-E/2-F create redefinition lost ${k}`);
+  }
+}
+
 if (fails.length) {
   console.error("FAIL: store-order-create-atomicity\n" + fails.join("\n"));
   process.exit(1);
