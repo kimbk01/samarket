@@ -281,7 +281,8 @@ describe("F. periods (server-side, Asia/Manila business days, UTC storage)", () 
 describe("G. Coin = platform-held only (buyer pays the store directly)", () => {
   it("COD/GCash payment_amount is never minted", () => {
     expect(platformHeldSaleAmountPhp({ gift_redemption_amount: 0, platform_funded_amount: 0 })).toBe(0);
-    expect(platformHeldSaleAmountPhp({ gift_redemption_amount: 300, platform_funded_amount: 50 })).toBe(350);
+    // Stage 2-B (D-2 option A): gift money is paid on the gift rail — Coin = platform coupon only.
+    expect(platformHeldSaleAmountPhp({ gift_redemption_amount: 300, platform_funded_amount: 50 })).toBe(50);
   });
 });
 

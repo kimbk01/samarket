@@ -11,6 +11,7 @@ import { Sam } from "@/lib/ui/css-vars";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminGiftRailPayoutForm } from "@/components/admin/gift/panels/AdminGiftRailPayoutForm";
 import { ADMIN_LIST_QUERY_DEFAULT_SIZE, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 
 type RevenueSummary = {
@@ -345,6 +346,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
               </ul>
             </div>
           </div>
+          <AdminGiftRailPayoutForm storeId={detail.storeId} onPaid={() => void load()} />
           <details className="text-xs text-sam-muted">
             <summary>
               {safeT("gift_ops_technical", { fallbackKo: "기술 상세", fallbackEn: "Technical details" })}

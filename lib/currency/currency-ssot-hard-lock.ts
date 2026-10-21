@@ -58,8 +58,19 @@ export const CURRENCY_FORBIDDEN_WRITER_PATTERNS = [
 
 export const LEGACY_HISTORICAL_DATA_IS_NOT_PRODUCT = true as const;
 
-/** Gift cash-out merges into canonical Coin withdrawal rail (owner decision). */
+/**
+ * Store-initiated gift cash-out requests stay retired (historical rows read-only, owner decision).
+ * Since stage 2-B (Owner D-2 option A) gift merchant net is NOT minted as Coin: it is paid by an admin
+ * gift rail payout — see GIFT_RAIL_ADMIN_PAYOUT_NOT_COIN.
+ */
 export const GIFT_CASH_OUT_MERGED_INTO_COIN_WITHDRAWAL = true as const;
+
+/**
+ * Owner D-2 option A (separate rails): sale Coin (`sale_coin:{orderId}`) = platform-funded coupon only;
+ * gift certificate merchant net is paid on the gift rail (`gift_certificate_admin_store_payout`).
+ * Assets are never merged.
+ */
+export const GIFT_RAIL_ADMIN_PAYOUT_NOT_COIN = true as const;
 
 /**
  * Owner-locked Point fungibility (Finance CLOSE).

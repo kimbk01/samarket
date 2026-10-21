@@ -318,13 +318,25 @@ export type StorePlatformPayableSummary = {
   directCollectedPhp: number;
   platformHeldPhp: number;
   heldPaidByCoinPhp: number;
-  /** Gift redemptions owed on the gift-certificate revenue rail — excluded from payable. */
+  /** D-2 option A: Coin rail owes only the platform-funded coupon. */
+  coinDuePhp: number;
+  /** Gift redemptions (gross) owed on the gift-certificate revenue rail — never Coin. */
   giftRailPhp: number;
+  /** Gift merchant net — paid via the admin gift payout. */
   giftRailNetPhp: number;
+  giftFeePhp: number;
   giftRailOrders: number;
+  /** Platform → stores = gift rail net + Coin due. */
+  platformOwesPhp: number;
+  /** Coin rail still unpaid (platform coupon not yet minted). */
   payablePhp: number;
   payableOrders: number;
   coinOverCredit: number;
+  /** Orders whose sale Coin was minted before the stage-2 cutoff (preserved as is, D-5). */
+  legacyPreservedOrders: number;
+  /** Gift rail now (not date-filtered): available to pay out / already paid out. */
+  giftRailAvailablePhp: number;
+  giftRailPaidOutPhp: number;
   legacyOpenSettlementPhp: number;
   legacyOpenSettlementCount: number;
   legacyManualPaidPhp: number;
@@ -342,9 +354,14 @@ export type StorePlatformPayableRow = {
   heldPhp: number;
   coinMinted: number;
   heldPaidByCoinPhp: number;
+  coinDuePhp: number;
   giftRailPhp: number;
+  giftRailNetPhp: number;
+  giftFeePhp: number;
+  platformOwesPhp: number;
   payablePhp: number;
   coinOverCredit: number;
+  legacyPreserved: boolean;
   legacySettlementStatus: string | null;
   legacyNetPhp: number;
   payoutClass: StorePayoutClass;
@@ -379,6 +396,7 @@ export async function loadStorePlatformPayable(
   if (error) throw new Error(error.message);
   const b = (data ?? {}) as Record<string, unknown>;
   const s = (b.summary ?? {}) as Record<string, unknown>;
+  const gr = (b.gift_rail ?? {}) as Record<string, unknown>;
   const rows = Array.isArray(b.rows) ? (b.rows as Record<string, unknown>[]) : [];
   return {
     summary: {
@@ -386,12 +404,18 @@ export async function loadStorePlatformPayable(
       directCollectedPhp: int(s.direct_collected_php),
       platformHeldPhp: int(s.platform_held_php),
       heldPaidByCoinPhp: int(s.held_paid_by_coin_php),
+      coinDuePhp: int(s.coin_due_php),
       giftRailPhp: int(s.gift_rail_php),
       giftRailNetPhp: int(s.gift_rail_net_php),
+      giftFeePhp: int(s.gift_fee_php),
       giftRailOrders: int(s.gift_rail_orders),
+      platformOwesPhp: int(s.platform_owes_php),
       payablePhp: int(s.payable_php),
       payableOrders: int(s.payable_orders),
       coinOverCredit: int(s.coin_over_credit),
+      legacyPreservedOrders: int(s.legacy_preserved_orders),
+      giftRailAvailablePhp: int(gr.available_php),
+      giftRailPaidOutPhp: int(gr.paid_out_php),
       legacyOpenSettlementPhp: int(s.legacy_open_settlement_php),
       legacyOpenSettlementCount: int(s.legacy_open_settlement_count),
       legacyManualPaidPhp: int(s.legacy_manual_paid_php),
@@ -409,9 +433,14 @@ export async function loadStorePlatformPayable(
       heldPhp: int(r.held_php),
       coinMinted: int(r.coin_minted),
       heldPaidByCoinPhp: int(r.held_paid_by_coin_php),
+      coinDuePhp: int(r.coin_due_php),
       giftRailPhp: int(r.gift_rail_php),
+      giftRailNetPhp: int(r.gift_rail_net_php),
+      giftFeePhp: int(r.gift_fee_php),
+      platformOwesPhp: int(r.platform_owes_php),
       payablePhp: int(r.payable_php),
       coinOverCredit: int(r.coin_over_credit),
+      legacyPreserved: r.legacy_preserved === true,
       legacySettlementStatus: r.settlement_status ? String(r.settlement_status) : null,
       legacyNetPhp: int(r.legacy_net_php),
       payoutClass: String(r.class) as StorePayoutClass,

@@ -406,11 +406,11 @@ export function AdminStoreFinancialStatement({
               <dd className="tabular-nums">{php(s.settlements.platformHeldPhp)}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "상품권 정산 레일 (여기서 지급 안 함)" : "Gift rail (not paid here)"}</dt>
+              <dt className="text-sam-muted">{ko ? "상품권 사용액 (상품권 정산 레일 · 상품권 지급으로 정산)" : "Gift redeemed (gift rail · paid via gift payout)"}</dt>
               <dd className="tabular-nums">{php(s.settlements.giftRailPhp)}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "코인으로 지급됨" : "Paid via Coin"}</dt>
+              <dt className="text-sam-muted">{ko ? "쿠폰 Coin 적립됨" : "Coupon paid via Coin"}</dt>
               <dd className="tabular-nums">{php(s.settlements.heldPaidByCoinPhp)}</dd>
             </div>
           </dl>

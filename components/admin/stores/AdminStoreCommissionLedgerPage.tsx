@@ -155,6 +155,10 @@ const CHECK_LABEL: Record<string, { ko: string; en: string }> = {
   status_matches_amounts: { ko: "상태 = 금액 일치", en: "Status matches amounts" },
   closed_orders_reviewed: { ko: "취소·환불 주문 수수료 검토 누락 없음", en: "Closed orders reviewed" },
   balance_eq_ledger_sum: { ko: "캐시 잔액 = 원장 합계", en: "Balance = ledger sum" },
+  sale_coin_le_platform_coupon: {
+    ko: "주문별 판매 Coin ≤ 플랫폼 부담 쿠폰 (변경 전 적립은 보존·제외)",
+    en: "Sale Coin per order ≤ platform coupon (pre-change credits preserved)",
+  },
 };
 
 /** Admin console primary CTA — locked contrast (sam-primary is intentionally washed out under data-admin). */

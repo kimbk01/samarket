@@ -5,6 +5,10 @@ import {
   auditAdminFeePolicyWrite,
   supersedeFeePolicyAtomic,
 } from "@/lib/stores/commission/admin-fee-policy-guards";
+import {
+  DELIVERY_FEE_PERCENT_MODE_DISABLED_ERROR,
+  isDeliveryFeeModeAllowed,
+} from "@/lib/stores/commission/store-commission-contract";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -270,6 +274,10 @@ export async function POST(req: NextRequest) {
   const feePercent = Number(body.fee_percent ?? 0);
   const fixedFee = Math.max(0, Math.round(Number(body.fixed_fee ?? 0)));
   const deliveryMode = String(body.delivery_fee_mode ?? "none").trim();
+  // D-3: delivery fee is already in the commission base — percent mode would charge it twice.
+  if (!isDeliveryFeeModeAllowed(deliveryMode)) {
+    return NextResponse.json({ ok: false, error: DELIVERY_FEE_PERCENT_MODE_DISABLED_ERROR }, { status: 400 });
+  }
   const deliveryPercent = Number(body.delivery_fee_percent ?? 0);
   const priority = Math.max(0, Math.round(Number(body.priority ?? 100)));
 

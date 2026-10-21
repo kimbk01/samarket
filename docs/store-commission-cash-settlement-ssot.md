@@ -18,6 +18,55 @@
 
 ---
 
+## 2단계 2-B. 판매 수수료 계약(D-3) · 플랫폼 지급 레일(D-2 안 A) — 단일 정의 (2026-10-21)
+
+Owner 결정(고정): **D-3 = 현행 계약 유지 + 명문화 + `delivery_fee_mode='percent'` 저장 거부**, **D-2 = 안 A(레일 분리)**, **D-5 = 과거 데이터 정정·소급 없음**. 근거 문서: `docs/audit/delivery-owner-2026-10-20/H-stage2-money-policy.md`.
+
+### 판매 수수료 산식 (D-3 · 운영 `store_commission_charge_order_internal` 원문 그대로)
+
+| 항목 | 정의 |
+|---|---|
+| 기준액 `base` (PHP) | `payment_amount` **(배달비 포함)** + `gift_redemption_amount` **(상품권 사용 총액)** + `platform_funded_amount` (플랫폼 부담 쿠폰). 매장 부담 쿠폰(`store_funded_amount`)은 결제액에서 이미 빠져 기준액에 없다. |
+| 요율 수수료 | `min(base, floor(base × fee_percent / 100))` — 원 단위 절사 |
+| 판매 수수료 | `min(base, 요율 수수료 + fixed_fee)` → × 100 = 캐시 minor(센타보) |
+| 배달비 수수료 | `delivery_fee_mode='percent'` 이면 배달비 × % 를 **추가** 부과하는 분기가 함수에 남아 있으나, 배달비가 이미 기준액(`payment_amount`) 안에 있어 **이중 부과**가 된다 → 정책 저장 거부: 관리자 API(`/api/admin/store-fee-policies` POST·PATCH, 오류 `delivery_fee_percent_mode_disabled`) + DB `store_fee_policies_delivery_fee_mode_not_percent_chk` (NOT VALID — 기존 행 재검사 안 함, 운영 percent 정책 0건 확인). |
+| 상품권 사용분 | **상품권 수수료(`platform_fee_rate`, 운영 10%)와 판매 수수료(7%)를 모두 부담**한다(현행 계약 — 변경은 별도 Owner 결정). |
+| 부과 시점 | 조리 이후 상태 첫 진입 시 1회, 같은 상태 UPDATE 트랜잭션(트리거). TS 는 수수료 금액을 쓰지 않는다. 취소·환불 환급은 `admin_decide_store_commission_adjustment` 로만. |
+| TS 미러(표시·테스트 전용) | `computeStoreSaleCommissionPhp` (`lib/stores/commission/store-commission-contract.ts`) |
+
+### 플랫폼 → 매장 지급 레일 (D-2 안 A · 자산 통합 금지)
+
+| 돈 | 레일 | 기록 |
+|---|---|---|
+| 고객 직접 결제 `payment_amount` | 매장이 직접 수령 — 플랫폼 지급 없음 | `store_orders.payment_amount` |
+| 상품권 사용 순액 `merchant_net_amount` | **상품권 정산 레일**: 주문 완료 시 `gift_certificate_revenue_ledger` REVENUE_AVAILABLE → 관리자 지급 `gift_certificate_admin_store_payout`(관리자 재확인 · 지급 가능액 이하 · 참조번호 필수·중복 금지 · 멱등키 · `PAYOUT_PAID` 원장 + `audit_logs`) → `gift_certificate_store_payouts`. **Coin 에 넣지 않는다.** | 사용 `gift_certificate_redemptions`, 지급 가능 `gift_certificate_store_revenue_available`, 지급 현황 `gift_certificate_store_payout_summary` (관리자·오너 동일 SQL) |
+| 플랫폼 부담 쿠폰 `platform_funded_amount` | **Coin**: 주문 완료 시 `sale_coin:{orderId}` 로 그 금액만 적립(`credit_coin_from_confirmed_sale` 가 초과 시 `coin_mint_exceeds_platform_held`) → 기존 Coin 출금 | `store_economic_point_ledger` |
+
+분류 SQL `store_platform_payable_page`: `coin_due_php` = 플랫폼 쿠폰, `gift_rail_net_php` = 상품권 순액, `platform_owes_php` = 상품권 순액 + 쿠폰 Coin, `payable_php` = 아직 Coin 미적립 쿠폰. 항등식: **직접 수령 + 상품권 레일 순액 + Coin = 매장 판매 수령액(상품권 수수료 차감 후)**.
+
+### 계산 사례 (H §2 · 운영 판단 기준 예시)
+
+주문: 상품 ₱1,000 · 배달비 ₱50 · 매장 부담 쿠폰 ₱100 · 플랫폼 부담 쿠폰 ₱40 · 상품권 ₱300(수수료 10%) · 정책 7%, 고정 0.
+
+| 단계 | 금액 |
+|---|---|
+| 고객 → 매장 직접 결제 `payment_amount` | 1,050 − 140 − 300 = **610** (배달비 50 포함) |
+| 상품권 수수료(플랫폼 수익) / 매장 순액 | 300 × 10% = 30 / **270** (상품권 정산 레일) |
+| 플랫폼 부담 쿠폰 → Coin | **40** |
+| **플랫폼 → 매장 지급** | 상품권 270(레일) + Coin 40 = **310** |
+| 판매 수수료 기준액 | 610 + 300 + 40 = **950** (배달비 50 포함, 상품권 총액 포함) |
+| 판매 수수료 | min(950, floor(950 × 7 / 100)) + 0 = **66** (캐시 차감 6,600 minor) |
+| 매장 최종 | 610 + 310 − 66 = **854** = 1,050 − 매장 쿠폰 100 − 상품권 수수료 30 − 판매 수수료 66 |
+| 항등식 | 610 + 270 + 40 = 920 = 1,050 − 100 − 30 |
+
+### 적용 시점 · 과거 데이터 (D-5)
+
+- 새 규칙은 반영 이후 완료 주문부터. 기준 시각 **2026-10-20 20:30 UTC** 이전에 적립된 `sale_coin` 행(이전 규칙: 상품권 총액 + 쿠폰)은 **정정·회수·재적립하지 않는다** — `store_platform_payable_page` 의 `legacy_preserved` 와 무결성 보고 `store_commission_integrity_report` → `sale_coin_le_platform_coupon.legacy_preserved` 로 분류만 한다(신규 위반만 `violations`).
+- 상품권 레일의 기존 REVENUE_AVAILABLE 잔액은 정리하지 않는다 — 관리자가 실제 이체 후 지급 RPC 로 기록할 때만 줄어든다.
+- 마이그레이션: `20270603120000`(상품권 지급 레일) · `20270603120100`(Coin = 쿠폰만, 분류) · `20270603120200`(무결성 검사) · `20270603120300`(percent 거부). 격리 테스트: `supabase/tests/isolated/stage2-2b/run.sh`.
+
+---
+
 ## 4차. 관리자·오너 정산 UI/UX/CTA 통합 (2026-10-17)
 
 ### 4-1. 현재 운영 화면 문제 (첨부 `/admin/store-settlements?unpaid_only=1`)

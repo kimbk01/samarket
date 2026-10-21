@@ -5,6 +5,10 @@ import {
   assertDefaultFeePolicyRemainsAfterDeactivate,
   auditAdminFeePolicyWrite,
 } from "@/lib/stores/commission/admin-fee-policy-guards";
+import {
+  DELIVERY_FEE_PERCENT_MODE_DISABLED_ERROR,
+  isDeliveryFeeModeAllowed,
+} from "@/lib/stores/commission/store-commission-contract";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   ADMIN_EXPECTED_UPDATED_AT_REQUIRED,
@@ -196,7 +200,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   }
   if ("fee_percent" in body) patch.fee_percent = Number(body.fee_percent ?? 0) || 0;
   if ("fixed_fee" in body) patch.fixed_fee = Math.max(0, Math.round(Number(body.fixed_fee ?? 0)));
-  if ("delivery_fee_mode" in body) patch.delivery_fee_mode = String(body.delivery_fee_mode ?? "none").trim();
+  if ("delivery_fee_mode" in body) {
+    const mode = String(body.delivery_fee_mode ?? "none").trim();
+    // D-3: delivery fee is already in the commission base — percent mode would charge it twice.
+    if (!isDeliveryFeeModeAllowed(mode)) {
+      return NextResponse.json({ ok: false, error: DELIVERY_FEE_PERCENT_MODE_DISABLED_ERROR }, { status: 400 });
+    }
+    patch.delivery_fee_mode = mode;
+  }
   if ("delivery_fee_percent" in body) patch.delivery_fee_percent = Number(body.delivery_fee_percent ?? 0) || 0;
   if ("is_active" in body) patch.is_active = body.is_active === true;
   if ("starts_at" in body) {

@@ -74,9 +74,9 @@ Fee **due** lives on `store_sale_fee_obligations`, never as a second meaning of 
 |---|---|
 | Balance | `store_economic_point_accounts.balance` |
 | Ledger | `store_economic_point_ledger` |
-| Inflows | **Platform-held sale amount** (gift redemption + platform-funded coupon) via `sale_coin:{orderId}` (`credit_coin_from_confirmed_sale`). Buyer `payment_amount` is paid to the store directly and is **never** minted — see `docs/store-commission-cash-settlement-ssot.md` |
+| Inflows | **Platform-funded coupon only** (Owner D-2 option A, stage 2-B) via `sale_coin:{orderId}` (`credit_coin_from_confirmed_sale` refuses more than the order's `platform_funded_amount`: `coin_mint_exceeds_platform_held`). Gift certificate merchant net is paid on the **gift rail** (admin payout), never as Coin. Buyer `payment_amount` is paid to the store directly and is **never** minted — see `docs/store-commission-cash-settlement-ssot.md` |
 | Recharge | **NO** |
-| Withdraw | YES — `coin_withdrawal_requests` (+ merged gift cash-out rail) |
+| Withdraw | YES — `coin_withdrawal_requests` (store-initiated gift cash-out stays retired; gift money is paid by the admin gift rail payout) |
 | Cash conversion | YES — `convert_store_economic_points_to_business_cash` |
 | Conversion policy SSOT | `business_cash_conversion_rate_policies` — **rate + minimum + unit + period limits** (F-03) |
 | Sale fee | **NO** — fees on Cash ledger only (CUT D) |
@@ -129,8 +129,8 @@ Historical data may remain for accounting evidence, but no historical currency m
 
 ### Gift cash-out merge (owner decision)
 
-Gift external cash-out **merges into canonical Coin withdrawal rail**.  
-Gift revenue recognition writes `gift_certificate_revenue_ledger` only — **Coin mint is `sale_coin:{orderId}`** (not `gift_coin:{redemptionId}`).
+Store-initiated gift cash-out requests stay retired (historical rows read-only).  
+Gift revenue recognition writes `gift_certificate_revenue_ledger` only. **Stage 2-B (Owner D-2 option A, separate rails):** gift merchant net (REVENUE_AVAILABLE) is paid to the store by the admin gift rail payout `gift_certificate_admin_store_payout` (ledger `PAYOUT_PAID`, record `gift_certificate_store_payouts`, reference + idempotency unique); `sale_coin:{orderId}` mints only the platform-funded coupon. Coin minted under the earlier rule (gift gross + coupon) is preserved as recorded (D-5, `legacy_preserved`).
 
 ---
 
