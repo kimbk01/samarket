@@ -260,7 +260,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           <div className="flex flex-wrap items-center gap-2">
             <CurrencyBadge currency="cash" />
             <h1 className="text-[20px] font-bold text-sam-fg">
-              {ko ? "매장 캐시 충전 승인" : "Store Cash top-up approval"}
+              {ko ? "매장 캐시 충전 승인" : "Cash top-up approval"}
             </h1>
           </div>
           <p className="mt-1 text-[13px] text-sam-muted">

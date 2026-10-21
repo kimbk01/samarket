@@ -72,7 +72,13 @@ if (!hub.includes("data-admin-store-ops-hub-links")) fail("Store ops hub links m
 if (!hub.includes("data-store-hub-financial-statement")) fail("Store finance link missing");
 
 const adsHub = read("components/admin/stores/AdminDeliveryAdsControlPlane.tsx");
-if (!adsHub.includes('searchParams.get("view")')) {
+// R7 list standard (124ca5dfb): `?view=` may be read directly or via useAdminListQuery URL extras.
+const adsHubReadsViewDirect = adsHub.includes('searchParams.get("view")');
+const adsHubReadsViewViaListQuery =
+  adsHub.includes("useAdminListQuery") &&
+  /extras:\s*\[[^\]]*["']view["']/.test(adsHub) &&
+  adsHub.includes("lq.query.extras.view");
+if (!adsHubReadsViewDirect && !adsHubReadsViewViaListQuery) {
   fail("Ads hub must read view from URL");
 }
 

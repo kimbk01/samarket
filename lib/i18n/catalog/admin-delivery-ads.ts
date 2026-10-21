@@ -60,7 +60,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_section_review: "승인 대기",
     admin_delivery_ads_section_history: "이력",
     admin_delivery_ads_pricing_not_configured:
-      "과금: FIXED_DURATION_PACKAGE (Business Cash) / ORDER_PERCENT 미설정",
+      "과금: FIXED_DURATION_PACKAGE (Cash) / ORDER_PERCENT 미설정",
     admin_delivery_ad_funding_required: "Cash 결제가 필요합니다.",
     admin_delivery_ads_funding_section: "결제·펀딩",
     admin_delivery_ads_funding_source: "소스",
@@ -234,7 +234,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_publish_blocked: "승인 차단: 제작 또는 목적지가 미완입니다",
     admin_delivery_ads_campaign_list_title: "광고 노출 목록",
     admin_delivery_ads_execution_list_title: "광고 노출 목록",
-    admin_delivery_ads_open_store_finance: "매장 Cash/Coin 보기",
+    admin_delivery_ads_open_store_finance: "매장의 Cash/Coin 보기",
     admin_delivery_ads_open_cash_queue: "Cash 충전 대기열",
     admin_delivery_ads_related_support_title: "관련 문의 (Support)",
     admin_delivery_ads_related_support_note:
@@ -339,7 +339,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_cash_charges_approve_ok: "적립 완료",
     admin_delivery_ads_cash_charges_reject_ok: "반려 완료. Cash 잔액은 변경되지 않았습니다.",
     admin_delivery_ads_cash_charges_finance_hub: "Finance 허브",
-    admin_delivery_ads_cash_charges_open_store: "매장 Cash/Coin 보기",
+    admin_delivery_ads_cash_charges_open_store: "매장의 Cash/Coin 보기",
     admin_delivery_ads_cash_charges_open_statement: "매장 재무 명세서",
     admin_delivery_ads_cash_charges_store: "매장",
     admin_delivery_ads_open_category_policy: "업종(BROWSE) 광고 정책",
@@ -430,7 +430,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_section_review: "Review",
     admin_delivery_ads_section_history: "History",
     admin_delivery_ads_pricing_not_configured:
-      "Pricing: FIXED_DURATION_PACKAGE (Business Cash) / ORDER_PERCENT not configured",
+      "Pricing: FIXED_DURATION_PACKAGE (Cash) / ORDER_PERCENT not configured",
     admin_delivery_ad_funding_required: "Cash payment is required.",
     admin_delivery_ads_funding_section: "Funding",
     admin_delivery_ads_funding_source: "Source",
@@ -606,7 +606,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_publish_blocked: "Approve blocked: creative or destination incomplete",
     admin_delivery_ads_campaign_list_title: "Ad executions",
     admin_delivery_ads_execution_list_title: "Ad executions",
-    admin_delivery_ads_open_store_finance: "Open store Cash/Coin",
+    admin_delivery_ads_open_store_finance: "Open the store's Cash/Coin",
     admin_delivery_ads_open_cash_queue: "Cash top-up queue",
     admin_delivery_ads_related_support_title: "Related Support cases",
     admin_delivery_ads_related_support_note:
@@ -714,7 +714,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_cash_charges_approve_ok: "Credited",
     admin_delivery_ads_cash_charges_reject_ok: "Rejected. Cash balance was not changed.",
     admin_delivery_ads_cash_charges_finance_hub: "Finance hub",
-    admin_delivery_ads_cash_charges_open_store: "Open store Cash/Coin",
+    admin_delivery_ads_cash_charges_open_store: "Open the store's Cash/Coin",
     admin_delivery_ads_cash_charges_open_statement: "Store financial statement",
     admin_delivery_ads_cash_charges_store: "Store",
     admin_delivery_ads_open_category_policy: "BROWSE category ad policy",

@@ -1111,8 +1111,8 @@ export function AdminDeliveryAdDetailWorkspace({
                   </p>
                   <p data-admin-business-cash-balance="1">
                     {safeT("admin_delivery_ads_owner_cash_balance", {
-                      fallbackKo: "매장 Cash 잔액",
-                      fallbackEn: "Store Cash balance",
+                      fallbackKo: "매장의 Cash 잔액",
+                      fallbackEn: "Store's Cash balance",
                     })}
                     :{" "}
                     {ownerCashBalanceMinor == null
@@ -1151,8 +1151,8 @@ export function AdminDeliveryAdDetailWorkspace({
                           data-admin-delivery-ads-finance-link="1"
                         >
                           {safeT("admin_delivery_ads_open_store_finance", {
-                            fallbackKo: "매장 Cash/Coin 보기",
-                            fallbackEn: "Open store Cash/Coin",
+                            fallbackKo: "매장의 Cash/Coin 보기",
+                            fallbackEn: "Open the store's Cash/Coin",
                           })}
                         </Link>
                       ) : null}

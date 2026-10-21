@@ -343,7 +343,7 @@ export const supportUiMessages = {
     support_ref_feed_ad_request: "Feed ad request",
     support_ref_platform_popup_owner_request: "Popup ad request",
     support_ref_point_charge_request: "Point top-up request",
-    support_ref_business_cash_charge_request: "Business cash top-up request",
+    support_ref_business_cash_charge_request: "Cash top-up request",
     support_ref_partner_membership: "Partner membership",
     support_ref_coin_withdrawal_request: "Coin withdrawal request",
     support_ref_point_promotion_order: "Point promotion order",

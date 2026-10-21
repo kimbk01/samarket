@@ -78,7 +78,7 @@ export const adminDeliveryOpsUxMessages = {
     admin_menu_store_settings_alerts: "Store alert settings",
     admin_menu_store_coupon_control_center: "Coupons",
     admin_menu_store_point_ledger: "Store Coin history",
-    admin_menu_finance_cash: "Store Cash history",
+    admin_menu_finance_cash: "Cash history",
     admin_menu_finance_orders: "Per-order money trace",
     admin_menu_delivery_section_stores: "Stores",
     admin_menu_delivery_ops: "Orders",

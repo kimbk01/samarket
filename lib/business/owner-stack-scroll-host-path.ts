@@ -13,6 +13,7 @@ export function isOwnerStoreProductComposerPath(pathname: string): boolean {
 
 /**
  * compact 오너 스택 — body 스크롤 잠금 + `.owner-compact-shell__scroll` 단일 스크롤.
+ * basic-info·profile·orders 등 guarded 서브라우트 포함 (하단 5탭 숨김은 `isOwnerBottomNavHiddenPath` 로 분리).
  * Product composer 포함: nested 100dvh/flex-1 scroll owner 는 WebKit에서 height 0 붕괴.
  */
 export function resolveOwnerStackScrollHostPath(ownerPathNorm: string): boolean {

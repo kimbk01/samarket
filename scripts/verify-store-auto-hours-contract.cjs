@@ -51,7 +51,22 @@ assertExcludes(
 const patchFields = read("lib/stores/owner-store-patch-fields.ts");
 assertIncludes(patchRoute, "normalizeStoreBusinessHoursJsonForWrite", "PATCH must sanitize hours json");
 assertIncludes(patchFields, "sanitizeBusinessHoursJsonForPersistence", "shared PATCH normalizer must sanitize hours json");
-assertIncludes(patchRoute, "invalidateStorePublicCachesForSlug", "PATCH must invalidate public cache");
+// CUT 1 (4e8c1d474) + OPS-02/DEF-64: PATCH invalidates via the shared generation bump (all instances)
+// and afterCanonicalStoreLocationWrite → invalidateStorePublicCachesForSlugOnServer (slug-scoped).
+{
+  const afterWrite = read("lib/stores/after-canonical-store-location-write.ts");
+  const direct = patchRoute.includes("invalidateStorePublicCachesForSlug");
+  const viaGenerationAndSlug =
+    /bumpStorePublicSharedCacheGeneration\(/.test(patchRoute) &&
+    /afterCanonicalStoreLocationWrite\(/.test(patchRoute) &&
+    afterWrite.includes("invalidateStorePublicCachesForSlugOnServer(");
+  if (!direct && !viaGenerationAndSlug) {
+    fail(
+      'PATCH must invalidate public cache: missing "invalidateStorePublicCachesForSlug" or ' +
+        "bumpStorePublicSharedCacheGeneration + afterCanonicalStoreLocationWrite slug purge"
+    );
+  }
+}
 
 assertIncludes(invalidate, "purgeStoreSlugPublicClientCaches", "must purge 15s client maps");
 assertIncludes(invalidate, "invalidateStoreSummaryPublicServerCache", "must purge 45s server cache");

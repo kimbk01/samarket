@@ -430,7 +430,7 @@ export type CommissionTab = "ledger" | "review" | "cash" | "exceptions" | "payab
 export const COMMISSION_TAB_LABEL: Record<CommissionTab, { ko: string; en: string }> = {
   ledger: { ko: "전체 거래", en: "All transactions" },
   review: { ko: "취소·환불 검토", en: "Cancel/refund review" },
-  cash: { ko: "매장 캐시", en: "Store Cash" },
+  cash: { ko: "매장 캐시", en: "Cash" },
   exceptions: { ko: "금융 예외", en: "Financial exceptions" },
   payable: { ko: "플랫폼 지급 의무", en: "Platform payable" },
 };
