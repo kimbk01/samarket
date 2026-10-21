@@ -58,6 +58,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
 
   const {
     pendingOAuthProvider,
+    authBusy,
     visiblePendingOAuthProvider,
     oauthInlineStatus,
     oauthError,
@@ -199,7 +200,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
                   identifier={passwordLogin.identifier}
                   password={passwordLogin.password}
                   error={displayError}
-                  disabled={loading || pendingOAuthProvider != null}
+                  disabled={loading || authBusy}
                   loading={loading}
                   loadingText={passwordLogin.statusText}
                   className="mt-2 space-y-4"

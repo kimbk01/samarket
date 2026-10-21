@@ -29,7 +29,8 @@ if (!useOAuth.includes("oauthInlineStatus")) {
 if (!useOAuth.includes("isNativeProviderEmailConflictError")) {
   failures.push("use-oauth-login must silence duplicate errors on provider email conflict");
 }
-if (!useOAuth.includes("isNativeGoogleLoginAvailable")) {
+// Native SDK(Google·Kakao·Apple) pending 은 복귀 이벤트로 해제하지 않는다 — auth-login-phase SSOT.
+if (!useOAuth.includes('setSharedLaunchKind("native_sdk")') || !useOAuth.includes("shouldTreatForegroundReturnAsCancel")) {
   failures.push("use-oauth-login must guard Google native pending from premature foreground clear");
 }
 if (loginPage.includes("OAuthProviderLoginPanel")) {
