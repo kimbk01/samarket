@@ -22,6 +22,7 @@ import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEma
 import { openProviderEmailConflictFromRedirect } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { parseProviderEmailConflictRedirectParams } from "@/components/auth/provider-email-conflict-redirect";
 import { OAuthInlineLoginHint } from "@/components/auth/OAuthInlineLoginHint";
+import { OAUTH_COMPLETING_EVENT } from "@/lib/auth/oauth/native-oauth-return-bridge";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -304,11 +305,43 @@ function LoginPageContent() {
     setShowEmailLogin(true);
   }, []);
 
+  /** 소셜 로그인 복귀 후 서버 완료 대기 — 폼 대신 "로그인 중" 전체 화면 (깜빡임 방지) */
+  const [oauthCompleting, setOauthCompleting] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let resetTimer: ReturnType<typeof setTimeout> | null = null;
+    const onCompleting = () => {
+      setOauthCompleting(true);
+      // 이동이 끝내 일어나지 않으면 폼으로 복귀 (무한 로딩 방지)
+      if (resetTimer) clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => setOauthCompleting(false), 20_000);
+    };
+    window.addEventListener(OAUTH_COMPLETING_EVENT, onCompleting);
+    return () => {
+      window.removeEventListener(OAUTH_COMPLETING_EVENT, onCompleting);
+      if (resetTimer) clearTimeout(resetTimer);
+    };
+  }, []);
+
   /** 비밀번호 폼 오류 > OAuth 오류 > URL 안내 순 — 하나만 표시 */
   const formError = error || oauthError || "";
   const displayNotice: AuthLoginNoticeState | null = formError
     ? { tone: "error", text: formError }
     : notice;
+
+  if (oauthCompleting) {
+    return (
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4"
+        data-testid="auth-oauth-completing"
+        role="status"
+        aria-live="polite"
+      >
+        <DibayAuthLogo size={56} />
+        <p className="sam-text-body text-sam-muted">{t("auth_oauth_signing_in_label")}</p>
+      </div>
+    );
+  }
 
   return (
     <>
