@@ -60,7 +60,13 @@ export function extractNativeGooglePluginRejectRaw(error: unknown): string {
 
 export function mapNativeGooglePluginError(raw: string | undefined | null): NativeGoogleAuthErrorCode {
   const code = String(raw ?? "").trim().toLowerCase();
-  if (code === "user_cancelled" || code === "canceled" || code === "cancelled") {
+  if (
+    code === "user_cancelled"
+    || code === "canceled"
+    || code === "cancelled"
+    // 새 로그인 요청이 이전 고아 호출을 대체 — 이전 대기자는 조용히 종료 (실패 문구 금지)
+    || code === "google_native_superseded"
+  ) {
     return "user_cancelled";
   }
   if (

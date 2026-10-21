@@ -227,8 +227,13 @@ public class NativeGoogleAuthPlugin extends Plugin {
   @PluginMethod
   public void signIn(PluginCall call) {
     if (pendingCall != null) {
-      call.reject("google_native_in_flight", "Another Google sign-in is already in progress");
-      return;
+      // JS 는 tryBeginOAuthFlow 로 Google 로그인을 한 번에 하나만 시작한다. 그런데도 남아 있는 pendingCall 은
+      // 결과가 끝내 오지 않은 고아 호출(이전 WebView·화면 전환으로 대기자 소멸)이다. 이를 거절하고 새 요청을 진행한다
+      // — 남겨 두면 앱을 재시작할 때까지 모든 Google 로그인이 in_flight 로 막힌다.
+      PluginCall stale = pendingCall;
+      pendingCall = null;
+      logEvent("google_native_stale_call_superseded");
+      stale.reject("google_native_superseded", "Superseded by a new Google sign-in");
     }
     if (googleSignInClient == null) {
       call.reject("google_native_config_error", "GOOGLE_WEB_CLIENT_ID is not configured");

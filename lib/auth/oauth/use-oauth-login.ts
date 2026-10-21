@@ -497,7 +497,9 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         setOauthInlineStatus("preparing");
         const authorizeUrl = await fetchNativeOAuthAuthorizeUrl(provider, handoffNext);
         setOauthInlineStatus("opening");
-        setSharedLaunchKind("custom_tab");
+        setSharedLaunchKind(
+          resolveOAuthRoutingShellPlatform() === "android" ? "custom_tab" : "as_web_auth",
+        );
         const launch = await openNativeOAuthTab(authorizeUrl);
         if (launch.callbackDelivered) {
           // ASWebAuth completion already navigated to /auth/callback — do not sit on awaiting_return.
@@ -617,12 +619,16 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
           markAuthLifecycleStage("provider_launch_requested", { via: "native_provider_login" });
           setSharedLaunchKind("native_sdk");
           try {
-            markNativeLoginInFlight(provider);
+            // Kakao SDK 결과는 JS 메모리 콜백뿐이라 프로세스 종료 시 사라진다 → 재시작 안내 표식.
+            // Google 은 플러그인이 결과를 저장해 재시작 후 자체 복구(google-native-recover-bootstrap)하므로 표식 금지
+            // (표식이 있으면 재시작 시 /login 재이동이 Google 복구를 끊는다).
+            const tracksProcessDeath = provider === "kakao";
+            if (tracksProcessDeath) markNativeLoginInFlight(provider);
             let result: Awaited<ReturnType<typeof startNativeProviderLogin>>;
             try {
               result = await startNativeProviderLogin({ provider, next });
             } finally {
-              clearNativeLoginInFlight();
+              if (tracksProcessDeath) clearNativeLoginInFlight();
             }
             await completeAuthSuccess(result);
           } catch (err) {
