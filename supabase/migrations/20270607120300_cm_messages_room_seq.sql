@@ -8,9 +8,11 @@
 --   · BEFORE INSERT 트리거가 rooms 행 FOR UPDATE → 카운터 +1 을 같은 TX 에서 할당 → seq 순서 = 커밋 순서.
 --     모든 INSERT 경로(RPC 3종·TS 직접 INSERT 6곳)가 수정 없이 seq 를 받는다.
 --     잠금 순서 rooms → 카운터 → participants 로 통일(append RPC 는 이미 rooms FOR UPDATE 선행).
---   · after RPC 이중 읽기: 앵커에 seq 가 있으면 seq 기준 + (seq NULL 이면서 keyset 이후) 행, 없으면 기존 keyset.
+--   · after RPC 이중 읽기: 앵커에 seq 가 있으면 seq 기준 + (seq NULL 이면서 keyset 이후) 행, 없으면 **기존 keyset 그대로**.
 --     API(after=<messageId>) 불변 → 구 클라이언트도 혜택.
--- 롤백: DROP TRIGGER cm_messages_zz_assign_room_seq — 새 행은 NULL, after RPC 의 OR 조건이 계속 받는다.
+-- 롤백: **트리거만 제거하는 것은 불충분** — 이후 신규 행(seq NULL)이 전체 순서에서 seq 행보다 앞에 놓여
+--   seq 앵커의 따라잡기에서 누락된다(로컬 검증 2026-10-22). 반드시 supabase/rollback/20270607120300_cm_messages_room_seq_rollback.sql
+--   (트리거 제거 + after RPC 원본 복원을 한 TX 로) 을 실행한다.
 -- 운영 적용: Owner 별도 명시 승인 후(D6). 적용 직후 검증 SQL 은 문서 4부 참조.
 BEGIN;
 
@@ -89,11 +91,12 @@ AS $function$
       where p.room_id = p_room_id
         and p.user_id = p_user_id
     )
+    -- 전체 순서(total order) = [seq 없는 기존 행: (created_at, id) 순] → [seq 행: room_seq 순].
+    -- 「앵커 이후」= 이 순서에서 앵커보다 뒤인 행 — 페이지를 넘겨도 중복·누락이 없다(로컬 검증 4부 W2절 V4).
     and (
       case
         when a.room_seq is not null then
           m.room_seq > a.room_seq
-          or (m.room_seq is null and (m.created_at, m.id) > (a.created_at, a.id))
         else
           m.room_seq is not null
           or (m.created_at, m.id) > (a.created_at, a.id)

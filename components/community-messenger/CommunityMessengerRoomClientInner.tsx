@@ -15,6 +15,7 @@ import {
 import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
 import { MessengerRoomGroupCallShell } from "@/lib/community-messenger/room/MessengerRoomGroupCallShell";
 import { MessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
+import { MessengerRoomComposerPhase1Provider } from "@/lib/community-messenger/room/messenger-room-composer-phase1-context";
 import { useMessengerRoomClientPhase1 } from "@/lib/community-messenger/room/use-messenger-room-client-phase1";
 import { recordRouteEntryElapsedMetricOnce } from "@/lib/runtime/samarket-runtime-debug";
 import type { CommunityMessengerCallSession, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
@@ -193,10 +194,13 @@ export function CommunityMessengerRoomClientInner(props: {
           onReady={phase1.onTimelineHeavyReady}
         />
       ) : null}
-      <MessengerRoomGroupCallShell isGroupRoom={isGroupRoomForShell} bridgeDeps={groupCallBridgeDeps}>
-        {/* SwipeBackShell owns PAGE MOTION at BootstrapGate — do not wrap again (second enter). */}
-        <CommunityMessengerRoomClientPhase2 />
-      </MessengerRoomGroupCallShell>
+      {/* P-4: 입력창은 memo 된 전용 값만 구독 — 전체 phase1 객체 변경(메시지·스크롤)에 반응하지 않음 */}
+      <MessengerRoomComposerPhase1Provider phase1={phase1}>
+        <MessengerRoomGroupCallShell isGroupRoom={isGroupRoomForShell} bridgeDeps={groupCallBridgeDeps}>
+          {/* SwipeBackShell owns PAGE MOTION at BootstrapGate — do not wrap again (second enter). */}
+          <CommunityMessengerRoomClientPhase2 />
+        </MessengerRoomGroupCallShell>
+      </MessengerRoomComposerPhase1Provider>
     </MessengerRoomClientPhase1Context.Provider>
   );
 }
