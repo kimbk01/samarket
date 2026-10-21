@@ -290,7 +290,13 @@ function LoginPageContent() {
 
   const oauthEnabled = providers.length > 0;
 
+  /** 새 로그인 시작 시 이전 안내(로그아웃됨·세션 만료)를 지운다 — 로그인 진행 중 "로그아웃되었습니다" 잔존 방지 */
+  const clearEntryNotice = useCallback(() => {
+    setNotice((prev) => (prev && prev.tone === "info" ? null : prev));
+  }, []);
+
   const handleOAuthLogin = (provider: OAuthProvider) => {
+    clearEntryNotice();
     void startOAuthProvider(provider);
   };
 
@@ -364,7 +370,10 @@ function LoginPageContent() {
               className="mt-2 space-y-4"
               onIdentifierChange={passwordLogin.setIdentifier}
               onPasswordChange={passwordLogin.setPassword}
-              onSubmit={passwordLogin.submit}
+              onSubmit={(event) => {
+                clearEntryNotice();
+                return passwordLogin.submit(event);
+              }}
             />
           </div>
         ) : displayNotice && displayNotice.tone !== "account" ? (
