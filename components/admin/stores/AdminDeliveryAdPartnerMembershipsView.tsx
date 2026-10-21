@@ -30,6 +30,17 @@ type MembershipRow = {
   feeSnapshotLabel: string | null;
   advertisingDiscountPercentSnapshot: number;
   cancelRequestedAt: string | null;
+  periodExpired?: boolean;
+};
+
+/** ADS-04 — partner Cash funding with no membership row (expected 0). */
+type OrphanFundingRow = {
+  fundingId: string;
+  applicationId: string;
+  storeId: string;
+  status: string;
+  amountLabel: string;
+  securedAt: string | null;
 };
 
 /**
@@ -42,6 +53,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
   const focusMembershipId = (searchParams.get("membershipId") ?? "").trim();
   const partnerCatalog = useAdminPartnerCatalogConfig();
   const [items, setItems] = useState<MembershipRow[]>([]);
+  const [orphanFundings, setOrphanFundings] = useState<OrphanFundingRow[]>([]);
   const [filter, setFilter] = useState<
     | "open"
     | "PENDING_REVIEW"
@@ -81,14 +93,17 @@ export function AdminDeliveryAdPartnerMembershipsView() {
     const j = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       memberships?: MembershipRow[];
+      orphanFundings?: OrphanFundingRow[];
       error?: string;
     };
     if (!res.ok || !j.ok) {
       setError(j.error ?? "load_failed");
       setItems([]);
+      setOrphanFundings([]);
       return;
     }
     setItems(j.memberships ?? []);
+    setOrphanFundings(j.orphanFundings ?? []);
   }, [filter]);
 
   useEffect(() => {
@@ -243,6 +258,30 @@ export function AdminDeliveryAdPartnerMembershipsView() {
             );
           })}
         </div>
+
+        {orphanFundings.length > 0 ? (
+          <AdminCard
+            title={
+              lang === "en"
+                ? "Partner fee without membership (manual check)"
+                : "가입 행 없는 Partner 회비 (수동 확인)"
+            }
+          >
+            <ul className="space-y-1 text-[12px] text-sam-fg" data-admin-partner-orphan-fundings="1">
+              {orphanFundings.map((f) => (
+                <li key={f.fundingId} data-admin-partner-orphan-funding={f.fundingId}>
+                  <Link
+                    href={`/admin/finance?storeId=${encodeURIComponent(f.storeId)}`}
+                    className="text-sam-primary underline underline-offset-2"
+                  >
+                    {f.storeId}
+                  </Link>{" "}
+                  · {f.amountLabel} · {f.status} · {(f.securedAt ?? "").slice(0, 10)}
+                </li>
+              ))}
+            </ul>
+          </AdminCard>
+        ) : null}
 
         <AdminCard
           title={lang === "en" ? "Partner memberships" : "Partner 가입 매장"}

@@ -37,6 +37,9 @@ const migPending = () =>
   read("supabase/migrations/20261201250000_delivery_ads_r4_partner_membership_pending.sql");
 const partnerWriter = () =>
   read("lib/stores/advertising/delivery-ad-partner-membership-writer.ts");
+/** ADS-03/04 — apply/approve/reject money steps live in this migration (single transactions). */
+const partnerAtomicSql = () =>
+  read("supabase/migrations/20270604150000_ads_partner_membership_atomic.sql");
 const fpWriter = () =>
   read("lib/stores/advertising/delivery-ad-admin-first-party-writer.ts");
 const ownerHub = () => read("components/business/owner/ads/OwnerDeliveryAdsHubView.tsx");
@@ -86,17 +89,18 @@ describe("R4 Partner membership", () => {
 
   it("R4-P3 — Owner apply writer creates PENDING_REVIEW after BC secure", () => {
     expect(partnerWriter()).toContain("ownerApplyPartnerMembership");
-    expect(partnerWriter()).toContain('status: "PENDING_REVIEW"');
+    expect(partnerWriter()).toContain("OWNER_APPLY_PARTNER_MEMBERSHIP_RPC");
     expect(partnerWriter()).toContain("BUSINESS_CASH_SECURED");
-    expect(partnerWriter()).toContain("debitBusinessCashForDeliveryAd");
+    expect(partnerAtomicSql()).toContain("'PENDING_REVIEW'");
+    expect(partnerAtomicSql()).toContain("public.business_cash_delivery_ad_spend(");
   });
 
   it("R4-P4 — Admin approve snapshots fee/discount/benefits/config_version", () => {
     expect(partnerWriter()).toContain("adminApprovePartnerMembership");
-    expect(partnerWriter()).toContain("fee_snapshot_minor");
-    expect(partnerWriter()).toContain("advertising_discount_percent_snapshot");
-    expect(partnerWriter()).toContain("benefit_snapshot");
-    expect(partnerWriter()).toContain("config_version_snapshot");
+    expect(partnerAtomicSql()).toContain("fee_snapshot_minor");
+    expect(partnerAtomicSql()).toContain("advertising_discount_percent_snapshot");
+    expect(partnerAtomicSql()).toContain("benefit_snapshot");
+    expect(partnerAtomicSql()).toContain("config_version_snapshot");
   });
 
   it("R4-P5 — Owner cancel request ACTIVE → CANCEL_PENDING", () => {

@@ -4,6 +4,7 @@ import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { runDeliveryAdSchedulePromoterBatch } from "@/lib/stores/advertising/delivery-ad-schedule-promoter";
+import { runPartnerMembershipExpiryBatch } from "@/lib/stores/advertising/delivery-ad-partner-membership-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -26,6 +27,12 @@ async function runSchedulePromoterJob(req: Request) {
 
   try {
     const result = await runDeliveryAdSchedulePromoterBatch(sb, { batchSize: 50 });
+    // ADS-05 — partner membership period end -> ENDED (only periods ending after the apply instant, D-5).
+    const partnerExpiry = await runPartnerMembershipExpiryBatch(sb, { limit: 200 });
+    if (!partnerExpiry.ok) {
+      console.error("[cron delivery-ads-schedule-transitions] partner expiry", partnerExpiry.error);
+    }
+    const partnerEnded = partnerExpiry.ok ? partnerExpiry.ended : null;
     const rm = getAuditRequestMeta(req);
     void appendAuditLog(sb, {
       actor_type: "system",
@@ -38,6 +45,7 @@ async function runSchedulePromoterJob(req: Request) {
         ended: result.ended,
         failed: result.failed,
         scanned: result.scanned,
+        partner_memberships_ended: partnerEnded,
       },
       ip: rm.ip,
       user_agent: rm.userAgent,
@@ -48,6 +56,7 @@ async function runSchedulePromoterJob(req: Request) {
       ended: result.ended,
       failed: result.failed,
       scanned: result.scanned,
+      partnerMembershipsEnded: partnerEnded,
       results: result.results,
     });
   } catch (err) {

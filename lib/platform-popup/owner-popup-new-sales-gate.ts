@@ -4,7 +4,15 @@
  * Admin Direct Popup is unaffected.
  */
 
-/** When false, Owner cannot create/submit new platform popup applications. */
+/**
+ * When false, Owner cannot create/submit new platform popup applications.
+ *
+ * RE-ENABLE PRECONDITION (ADS-13, required — do not flip to true without it):
+ * the DB function `owner_submit_platform_popup_request` (migration
+ * 20270604150100_platform_popup_owner_submit_atomic.sql) must be applied to production, and the submit
+ * writer (`submitPlatformPopupOwnerRequest`) must call only that RPC (single transaction: key bind + Cash
+ * debit + submitted/funded). Locked by lib/platform-popup/__tests__/ads13-owner-submit-atomic.test.ts.
+ */
 export const OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED = false;
 
 export const OWNER_PLATFORM_POPUP_NEW_SALES_DISABLED_ERROR =
