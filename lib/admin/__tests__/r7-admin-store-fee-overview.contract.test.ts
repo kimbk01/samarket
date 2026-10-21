@@ -28,7 +28,51 @@ function fixture() {
       store_categories: [{ id: CAT, name: "Food", slug: "food", is_active: true }],
       store_topics: [{ id: TOPIC, name: "Chicken", slug: "chicken", store_category_id: CAT, is_active: true }],
       stores: [],
-      store_settlements: [],
+      store_settlements: [{ id: "legacy-1", store_id: STORE_A, gross_amount: 999, platform_fee_amount: 1 }],
+      store_sale_fee_obligations: [
+        {
+          id: "ob-ok",
+          store_id: STORE_A,
+          order_id: "o-ok",
+          confirmed_revenue_php: 950,
+          fee_due_minor: 6600,
+          original_fee_due_minor: 6600,
+          status: "settled",
+          created_at: "2026-10-20T00:00:00Z",
+          fee_snapshot: {
+            policy_id: "p-cat",
+            policy: { fee_percent: 7, fixed_fee: 0, delivery_fee_mode: "none", delivery_fee_percent: 0 },
+            commission_base_php: 950,
+            delivery_fee_php: 50,
+            fee_percent: 7,
+            platform_fee_php: 66,
+            fixed_fee_php: 0,
+            delivery_income_php: 0,
+            fee_due_php: 66,
+          },
+        },
+        {
+          id: "ob-bad",
+          store_id: STORE_A,
+          order_id: "o-bad",
+          confirmed_revenue_php: 1000,
+          fee_due_minor: 9000,
+          original_fee_due_minor: 9000,
+          status: "open",
+          created_at: "2026-10-19T00:00:00Z",
+          fee_snapshot: {
+            policy_id: "p-cat",
+            policy: { fee_percent: 8, fixed_fee: 0, delivery_fee_mode: "none", delivery_fee_percent: 0 },
+            commission_base_php: 1000,
+            delivery_fee_php: 0,
+            fee_percent: 8,
+            platform_fee_php: 90,
+            fixed_fee_php: 0,
+            delivery_income_php: 0,
+            fee_due_php: 90,
+          },
+        },
+      ],
     },
     (name, args) => {
       if (name === "admin_store_fee_overview_summary") {
@@ -139,11 +183,35 @@ describe("R7 /api/admin/store-fee-policies/overview", () => {
     expect(limits).toEqual(
       expect.arrayContaining([
         { table: "store_fee_policies", n: 60 },
-        { table: "store_settlements", n: 80 },
+        { table: "store_sale_fee_obligations", n: 80 },
       ])
     );
     expect(limits.some((l) => l.n === 2000 || l.n === 500 || l.n === 300 || (l.table === "store_categories" && l.n === 100))).toBe(false);
     expect(f.calls.some((c) => c.table === "stores" && c.ops.every(([op]) => op !== "in"))).toBe(false);
+  });
+
+  it("FIN-07: verification sample = charged obligations (fee_snapshot), never legacy store_settlements", async () => {
+    const f = fixture();
+    tryGetSupabaseForStores.mockReturnValue(f.sb);
+    const { status, json } = await get("/api/admin/store-fee-policies/overview");
+    expect(status).toBe(200);
+    expect(f.calls.some((c) => c.table === "store_settlements")).toBe(false);
+    const obl = f.calls.find((c) => c.table === "store_sale_fee_obligations");
+    expect(obl?.ops).toEqual(expect.arrayContaining([["not", ["fee_snapshot", "is", null]]]));
+    expect(json.verification_source).toBe("store_sale_fee_obligations.fee_snapshot");
+    expect(json.verification).toHaveLength(2);
+    expect(json.verification[0]).toMatchObject({
+      settlement_id: "ob-ok",
+      gross_amount: 950,
+      policy_fee_percent: 7,
+      settlement_fee_percent: 7,
+      calculated_fee_amount: 66,
+      settlement_fee_amount: 66,
+      matched: true,
+    });
+    // floor(1000 * 8%) = 80 but 90 was charged -> mismatch is surfaced
+    expect(json.verification[1]).toMatchObject({ settlement_id: "ob-bad", calculated_fee_amount: 80, settlement_fee_amount: 90, matched: false });
+    expect(json.summary.verification_mismatch).toBe(1);
   });
 
   it("?section=stores → RPC args (q, category, limit ≤ 100, offset), exact total, ladder + missing policy", async () => {
