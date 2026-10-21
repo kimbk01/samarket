@@ -72,6 +72,19 @@ export type FormKeyboardViewportBuildArgs = {
   keyboardOcclusionInsetOverride?: number;
   /** Matrix labels — optional; never invent gesture vs 3-button. */
   runtimeContext?: FormKeyboardRuntimeContext;
+  /**
+   * Is a control that can raise an OS input surface focused (`isFormKeyboardInputSurfaceElement`)?
+   * Necessary — never sufficient — for "open": no such focus → closed and the closed baseline is
+   * re-measured from the current viewport (non-keyboard resize: split / multi-window, defect B).
+   * Omitted = legacy (no gate).
+   */
+  inputSurfaceFocused?: boolean;
+  /**
+   * Baseline carried across a rotation with the keyboard open (`resolveFormKeyboardBaselineOnWidthChange`).
+   * Open needs a larger shrink (`FORM_KEYBOARD_ESTIMATED_BASELINE_SHRINK_RATIO`); the first closed
+   * measurement replaces it with the measured height (defect A — never left pending).
+   */
+  baselineEstimated?: boolean;
 };
 
 /** Probe `--safe-bottom` resolved px (env + native bridge). */
@@ -155,7 +168,8 @@ export function resolveFormKeyboardOcclusionInsetPx(args?: {
 
 export function resolveFormKeyboardOpenFromViewport(
   baselineClosedHeightPx: number,
-  minOcclusionPx = FORM_KEYBOARD_MIN_OCCLUSION_PX
+  minOcclusionPx = FORM_KEYBOARD_MIN_OCCLUSION_PX,
+  shrinkThresholdPx = FORM_KEYBOARD_NAVIGATION_GAP_PX
 ): boolean {
   const overlayGapPx = resolveFormVisualViewportOverlayGapPx();
   if (overlayGapPx >= minOcclusionPx) return true;
@@ -163,7 +177,7 @@ export function resolveFormKeyboardOpenFromViewport(
   const frame = resolveFormVisualViewportFrame();
   if (
     baselineClosedHeightPx > 0 &&
-    frame.heightPx <= baselineClosedHeightPx - FORM_KEYBOARD_NAVIGATION_GAP_PX
+    frame.heightPx <= baselineClosedHeightPx - shrinkThresholdPx
   ) {
     return true;
   }
@@ -212,6 +226,100 @@ export function resolveFormKeyboardBaselineForLayout(args: {
   return args.baselineClosedHeightPx;
 }
 
+/** Shrink (fraction of the estimated closed height) that counts as "open" right after a rotation. */
+export const FORM_KEYBOARD_ESTIMATED_BASELINE_SHRINK_RATIO = 0.2;
+
+/**
+ * Closed baseline for a new layout width (rotation · split resize).
+ * - width seen before → its measured closed height;
+ * - keyboard open across the change (Android resize) → estimate from the previous orientation's
+ *   measured geometry: the chrome that was subtracted from the long side is subtracted from the
+ *   short side (`prevBaseline + prevWidth − width`). Never a device constant.
+ * - otherwise → the current viewport height (keyboard closed: exact).
+ */
+export function resolveFormKeyboardBaselineOnWidthChange(args: {
+  layoutWidthPx: number;
+  frameHeightPx: number;
+  knownClosedHeightPx?: number | null;
+  prevBaselineClosedHeightPx: number;
+  prevBaselineLayoutWidthPx: number;
+  prevBaselineEstimated: boolean;
+  wasKeyboardOpen: boolean;
+  inputSurfaceFocused: boolean;
+}): { baselineClosedHeightPx: number; baselineEstimated: boolean } {
+  if (typeof args.knownClosedHeightPx === "number" && args.knownClosedHeightPx > 0) {
+    return { baselineClosedHeightPx: args.knownClosedHeightPx, baselineEstimated: false };
+  }
+  if (
+    args.wasKeyboardOpen &&
+    args.inputSurfaceFocused &&
+    !args.prevBaselineEstimated &&
+    args.prevBaselineClosedHeightPx > 0 &&
+    args.prevBaselineLayoutWidthPx > 0
+  ) {
+    const estimate = Math.round(
+      args.prevBaselineClosedHeightPx + args.prevBaselineLayoutWidthPx - args.layoutWidthPx
+    );
+    if (estimate > args.frameHeightPx) {
+      return { baselineClosedHeightPx: estimate, baselineEstimated: true };
+    }
+  }
+  return { baselineClosedHeightPx: args.frameHeightPx, baselineEstimated: false };
+}
+
+type InputSurfaceCandidate = {
+  tagName?: string;
+  type?: string;
+  readOnly?: boolean;
+  disabled?: boolean;
+  isContentEditable?: boolean;
+  isConnected?: boolean;
+  getAttribute?: (name: string) => string | null;
+};
+
+const NON_INPUT_SURFACE_INPUT_TYPES: ReadonlySet<string> = new Set([
+  "button",
+  "checkbox",
+  "color",
+  "file",
+  "hidden",
+  "image",
+  "radio",
+  "range",
+  "reset",
+  "submit",
+]);
+
+/**
+ * Focused control that can raise an OS input surface (soft keyboard, iOS picker for select/date,
+ * or an unknown one inside an iframe). Broader than "text keyboard" on purpose: footers must still
+ * clear an iOS picker. Gate only — focus never proves the keyboard is shown.
+ */
+export function isFormKeyboardInputSurfaceElement(
+  el: InputSurfaceCandidate | null | undefined
+): boolean {
+  if (!el || typeof el !== "object") return false;
+  if (el.disabled === true || el.isConnected === false) return false;
+  const tag = typeof el.tagName === "string" ? el.tagName.toUpperCase() : "";
+  if (tag === "IFRAME" || tag === "SELECT") return true;
+  if (typeof el.getAttribute === "function") {
+    const mode = el.getAttribute("inputmode");
+    if (mode != null && mode.trim().toLowerCase() === "none") return false;
+  }
+  if (tag === "TEXTAREA") return el.readOnly !== true;
+  if (tag === "INPUT") {
+    if (el.readOnly === true) return false;
+    const raw =
+      typeof el.type === "string"
+        ? el.type
+        : typeof el.getAttribute === "function"
+          ? el.getAttribute("type") ?? ""
+          : "";
+    return !NON_INPUT_SURFACE_INPUT_TYPES.has(raw.trim().toLowerCase());
+  }
+  return el.isContentEditable === true;
+}
+
 export function buildFormKeyboardViewportSnapshot(
   args: FormKeyboardViewportBuildArgs
 ): FormKeyboardViewportSnapshot & { baselineClosedHeightPx: number; baselineLayoutWidthPx: number } {
@@ -232,12 +340,19 @@ export function buildFormKeyboardViewportSnapshot(
           layoutAlignedSlackPx: args.layoutAlignedSlackPx,
           minOcclusionPx: args.minOcclusionPx,
         });
+  const shrinkThresholdPx = args.baselineEstimated
+    ? Math.max(
+        FORM_KEYBOARD_NAVIGATION_GAP_PX,
+        Math.round(baselineClosedHeightPx * FORM_KEYBOARD_ESTIMATED_BASELINE_SHRINK_RATIO)
+      )
+    : FORM_KEYBOARD_NAVIGATION_GAP_PX;
   const keyboardOpen =
-    args.runtimeContext?.keyboardModel === "none"
+    args.runtimeContext?.keyboardModel === "none" || args.inputSurfaceFocused === false
       ? false
       : resolveFormKeyboardOpenFromViewport(
           baselineClosedHeightPx,
-          args.minOcclusionPx ?? FORM_KEYBOARD_MIN_OCCLUSION_PX
+          args.minOcclusionPx ?? FORM_KEYBOARD_MIN_OCCLUSION_PX,
+          shrinkThresholdPx
         );
   const safeBottom =
     typeof args.safeBottomPx === "number" && Number.isFinite(args.safeBottomPx)
@@ -246,9 +361,13 @@ export function buildFormKeyboardViewportSnapshot(
         ? Math.max(0, Math.round(args.runtimeContext.safeBottomPx))
         : readCssSafeBottomPx();
 
+  // Closed: grow-only while an input is focused (keyboard may still be animating);
+  // re-measured exactly when nothing can hold a keyboard or the baseline was only estimated.
   const nextBaseline = keyboardOpen
     ? baselineClosedHeightPx
-    : Math.max(baselineClosedHeightPx, frame.heightPx);
+    : args.inputSurfaceFocused === false || args.baselineEstimated
+      ? frame.heightPx
+      : Math.max(baselineClosedHeightPx, frame.heightPx);
 
   return {
     keyboardOpen,

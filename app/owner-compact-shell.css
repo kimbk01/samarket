@@ -333,3 +333,19 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
 .owner-mobile-bottom-nav.app-bottom-nav-shell--delivery {
   display: flex;
 }
+
+/**
+ * 키보드 열림 (`html[data-kb-open]` — `KeyboardViewportRootProbe`) — 사장님 하단 탭은 숨기고,
+ * 탭 위 고정 푸터는 탭 간격(68px)을 빼고 화면 하단에 붙는다. 키보드 높이는 푸터 자체 여백
+ * (`effectiveBottomInset`, iOS = 가림 높이 / Android = 0)이 단독으로 맡는다 — 중복 보정 없음.
+ * 키보드 닫힘 = 기존 배치 그대로.
+ */
+html[data-kb-open="true"] .owner-mobile-bottom-nav {
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate3d(0, 100%, 0);
+}
+
+html[data-kb-open="true"] .owner-admin-footer--above-nav {
+  bottom: 0;
+}

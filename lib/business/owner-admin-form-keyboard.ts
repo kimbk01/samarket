@@ -25,7 +25,12 @@ export const OWNER_ADMIN_FORM_FOOTER_NAV_GAP_PX = 8;
  * 60 nav + 8 gap = 68. Full string for Tailwind JIT.
  * ≥1280px: 하단 5탭이 숨겨지므로(IA-20 PC 사이드바, `app/owner-compact-shell.css`) 화면 하단에 붙인다.
  */
-export const OWNER_ADMIN_FORM_FOOTER_ABOVE_NAV_BOTTOM_CLASS = "bottom-[68px] min-[1280px]:bottom-0" as const;
+/**
+ * `owner-admin-footer--above-nav` — marker: keyboard open (`html[data-kb-open]`) drops the 68px nav
+ * offset to `bottom: 0` (`app/owner-compact-shell.css`); the nav itself is hidden then.
+ */
+export const OWNER_ADMIN_FORM_FOOTER_ABOVE_NAV_BOTTOM_CLASS =
+  "owner-admin-footer--above-nav bottom-[68px] min-[1280px]:bottom-0" as const;
 
 /** Form / edit-scroll body — reserve footer bar + nav gap + keyboard/safe inset. */
 export function ownerAdminFormBodyPadStyle(effectiveBottomInsetPx: number): CSSProperties {

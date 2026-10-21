@@ -22,7 +22,7 @@ async function render(node: React.ReactNode) {
   const root = createRoot(host);
   await act(async () => {
     root.render(node);
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 80));
   });
   return root;
 }
@@ -64,9 +64,13 @@ describe("DibayBottomSheet keyboard band (Owner 조건 3)", () => {
     setVv(480, 800, 0);
     const root = await render(
       <DibayBottomSheet open onClose={() => {}} contentPaddingBottomPx={320}>
-        <input />
+        <input data-testid="kb-input" />
       </DibayBottomSheet>
     );
+    await act(async () => {
+      document.querySelector<HTMLInputElement>("[data-testid='kb-input']")!.focus();
+      await new Promise((r) => setTimeout(r, 80));
+    });
     expect(stage().style.top).toBe("0px");
     expect(stage().style.height).toBe("480px");
     expect(stage().style.bottom).toBe("auto");

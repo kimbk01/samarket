@@ -11,6 +11,8 @@ import {
 } from "@/lib/ui/form-keyboard-platform-adapter";
 import {
   buildFormKeyboardViewportSnapshot,
+  isFormKeyboardInputSurfaceElement,
+  resolveFormKeyboardBaselineOnWidthChange,
   resolveFormLayoutWidthPx,
   resolveFormVisualViewportFrame,
   type FormKeyboardViewportSnapshot,
@@ -38,7 +40,28 @@ const listeners = new Set<Listener>();
 let snapshot: FormKeyboardViewportSnapshot = CLOSED_SNAPSHOT;
 let baselineClosedHeightPx = 0;
 let baselineLayoutWidthPx = 0;
+/** Baseline carried across a rotation with the keyboard open — replaced by the first closed measure. */
+let baselineEstimated = false;
+/** Measured closed height per layout width (rotation back and forth reuses the exact value). */
+const closedHeightByWidth = new Map<number, number>();
+const CLOSED_HEIGHT_MEMORY = 4;
 let detach: (() => void) | null = null;
+
+function rememberClosedHeight(widthPx: number, heightPx: number): void {
+  if (!(widthPx > 0 && heightPx > 0)) return;
+  closedHeightByWidth.delete(widthPx);
+  closedHeightByWidth.set(widthPx, heightPx);
+  while (closedHeightByWidth.size > CLOSED_HEIGHT_MEMORY) {
+    const oldest = closedHeightByWidth.keys().next().value;
+    if (oldest === undefined) break;
+    closedHeightByWidth.delete(oldest);
+  }
+}
+
+function readInputSurfaceFocused(): boolean {
+  if (typeof document === "undefined") return false;
+  return isFormKeyboardInputSurfaceElement(document.activeElement as HTMLInputElement | null);
+}
 
 function sameSnapshot(a: FormKeyboardViewportSnapshot, b: FormKeyboardViewportSnapshot): boolean {
   return (
@@ -55,6 +78,24 @@ function sameSnapshot(a: FormKeyboardViewportSnapshot, b: FormKeyboardViewportSn
 }
 
 function measure(): void {
+  const inputSurfaceFocused = readInputSurfaceFocused();
+  const layoutWidthPx = resolveFormLayoutWidthPx();
+  if (layoutWidthPx > 0 && baselineLayoutWidthPx > 0 && layoutWidthPx !== baselineLayoutWidthPx) {
+    // KB-04 · defect A — resolve the new width's baseline here (build then sees the same width).
+    const next = resolveFormKeyboardBaselineOnWidthChange({
+      layoutWidthPx,
+      frameHeightPx: resolveFormVisualViewportFrame().heightPx,
+      knownClosedHeightPx: closedHeightByWidth.get(layoutWidthPx) ?? null,
+      prevBaselineClosedHeightPx: baselineClosedHeightPx,
+      prevBaselineLayoutWidthPx: baselineLayoutWidthPx,
+      prevBaselineEstimated: baselineEstimated,
+      wasKeyboardOpen: snapshot.keyboardOpen,
+      inputSurfaceFocused,
+    });
+    baselineClosedHeightPx = next.baselineClosedHeightPx;
+    baselineEstimated = next.baselineEstimated;
+    baselineLayoutWidthPx = layoutWidthPx;
+  }
   const runtimeContext = detectFormKeyboardRuntimeContext();
   const nativeShellInsetPx = readSamarketShellKeyboardBottomInsetCssPx();
   const keyboardOcclusionInsetOverride = resolveFormAdapterKeyboardOcclusionInsetPx(
@@ -68,9 +109,15 @@ function measure(): void {
     safeBottomPx: runtimeContext.safeBottomPx,
     keyboardOcclusionInsetOverride,
     runtimeContext,
+    inputSurfaceFocused,
+    baselineEstimated,
   });
   baselineClosedHeightPx = next.baselineClosedHeightPx;
   baselineLayoutWidthPx = next.baselineLayoutWidthPx;
+  if (!next.keyboardOpen) {
+    baselineEstimated = false;
+    rememberClosedHeight(baselineLayoutWidthPx, baselineClosedHeightPx);
+  }
   const published: FormKeyboardViewportSnapshot = {
     keyboardOpen: next.keyboardOpen,
     visualViewportHeight: next.visualViewportHeight,
@@ -110,9 +157,14 @@ function attach(): () => void {
   vv?.addEventListener("scroll", schedule);
   window.addEventListener("resize", schedule);
   window.addEventListener("orientationchange", schedule);
+  // Focus is a gate for "open" — re-evaluate when it moves (no polling, no timers).
+  document.addEventListener("focusin", schedule, true);
+  document.addEventListener("focusout", schedule, true);
   const unsub = subscribeSamarketShellKeyboardInsets(schedule);
 
   return () => {
+    document.removeEventListener("focusin", schedule, true);
+    document.removeEventListener("focusout", schedule, true);
     cancelAnimationFrame(raf);
     vv?.removeEventListener("resize", schedule);
     vv?.removeEventListener("scroll", schedule);
@@ -164,4 +216,6 @@ export function __resetFormKeyboardViewportStoreForTests(): void {
   snapshot = CLOSED_SNAPSHOT;
   baselineClosedHeightPx = 0;
   baselineLayoutWidthPx = 0;
+  baselineEstimated = false;
+  closedHeightByWidth.clear();
 }

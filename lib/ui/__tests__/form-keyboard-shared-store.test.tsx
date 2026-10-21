@@ -9,6 +9,9 @@ import {
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Touch device (otherwise the adapter classifies a resize-only viewport as desktop "none").
+Object.defineProperty(navigator, "maxTouchPoints", { configurable: true, value: 5 });
+
 let vvListeners = 0;
 function setVv(width: number, height: number, innerHeight = height) {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
@@ -39,6 +42,8 @@ function Probe({ id, enabled = true }: { id: string; enabled?: boolean }) {
 afterEach(() => {
   __resetFormKeyboardViewportStoreForTests();
   vvListeners = 0;
+  (document.activeElement as HTMLElement | null)?.blur?.();
+  document.body.innerHTML = "";
 });
 
 describe("Form keyboard shared store (Owner 조건 1 — 중복 측정·리스너 없음)", () => {
@@ -69,6 +74,9 @@ describe("Form keyboard shared store (Owner 조건 1 — 중복 측정·리스�
     document.body.appendChild(host);
     const root = createRoot(host);
     await act(async () => root.render(<Probe id="root" />));
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.focus();
     // keyboard opens — vv shrinks under unchanged layout height (overlay)
     setVv(400, 480, 800);
     await act(async () => {
@@ -88,3 +96,107 @@ describe("Form keyboard shared store (Owner 조건 1 — 중복 측정·리스�
     root.unmount();
   });
 });
+
+async function settle() {
+  await act(async () => {
+    window.dispatchEvent(new Event("resize"));
+    await new Promise((r) => setTimeout(r, 60));
+  });
+}
+
+async function mountProbe() {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  await act(async () => root.render(<Probe id="p" />));
+  await settle();
+  return root;
+}
+
+function focusInput(): HTMLInputElement {
+  const input = document.createElement("input");
+  document.body.appendChild(input);
+  input.focus();
+  return input;
+}
+
+describe("Android resize keyboard — rotation (A) / non-keyboard resize (B)", () => {
+  it("focus alone never reports open (focus ≠ keyboard shown)", async () => {
+    setVv(400, 800);
+    const root = await mountProbe();
+    focusInput();
+    await settle();
+    expect(seen.p).toBe(false);
+    root.unmount();
+  });
+
+  it("A: keyboard open across portrait → landscape stays open, then closes and re-measures", async () => {
+    setVv(400, 800);
+    const root = await mountProbe();
+    const input = focusInput();
+    setVv(400, 500); // IME up (Android resize)
+    await settle();
+    expect(seen.p).toBe(true);
+    setVv(800, 150); // rotate with the IME still up
+    await settle();
+    expect(seen.p).toBe(true);
+    setVv(800, 400); // IME closes in landscape
+    await settle();
+    expect(seen.p).toBe(false);
+    setVv(800, 180); // re-open in landscape — measured baseline, detected
+    await settle();
+    expect(seen.p).toBe(true);
+    input.blur();
+    setVv(800, 400);
+    await settle();
+    expect(seen.p).toBe(false);
+    root.unmount();
+  });
+
+  it("A: rotation that closed the IME is not left pending", async () => {
+    setVv(400, 800);
+    const root = await mountProbe();
+    focusInput();
+    setVv(400, 500);
+    await settle();
+    expect(seen.p).toBe(true);
+    setVv(800, 400); // rotated; IME dismissed by the rotation, focus kept
+    await settle();
+    expect(seen.p).toBe(false);
+    root.unmount();
+  });
+
+  it("A: rotating back to a seen width reuses its measured closed height", async () => {
+    setVv(400, 800); // portrait closed 800 measured
+    const root = await mountProbe();
+    setVv(800, 400); // landscape closed 400 measured
+    await settle();
+    focusInput();
+    setVv(800, 180); // IME up in landscape
+    await settle();
+    expect(seen.p).toBe(true);
+    setVv(400, 500); // rotate back with the IME up → exact portrait baseline 800, still open
+    await settle();
+    expect(seen.p).toBe(true);
+    setVv(400, 800); // IME closes
+    await settle();
+    expect(seen.p).toBe(false);
+    root.unmount();
+  });
+
+  it("B: height-only shrink without an input focused is not 'open' and does not stick", async () => {
+    setVv(400, 800);
+    const root = await mountProbe();
+    setVv(400, 600); // split-screen / multi-window resize — no keyboard
+    await settle();
+    expect(seen.p).toBe(false);
+    focusInput();
+    await settle();
+    expect(seen.p).toBe(false); // baseline re-measured to 600 — not stale 800
+    setVv(400, 350); // real IME in the smaller window
+    await settle();
+    expect(seen.p).toBe(true);
+    root.unmount();
+  });
+});
+
