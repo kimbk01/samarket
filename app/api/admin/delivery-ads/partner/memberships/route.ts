@@ -12,9 +12,11 @@ import {
   adminApprovePartnerMembership,
   adminEndPartnerMembership,
   adminRejectPartnerMembership,
+  isPartnerMembershipPeriodExpired,
+  listOrphanPartnerFundingsForAdmin,
   listPartnerMembershipsForAdmin,
   loadDeliveryAdPartnerConfig,
-  partnerMembershipAdminFilterLabel,
+  partnerMembershipEffectiveStatusLabel,
 } from "@/lib/stores/advertising/delivery-ad-partner-membership-writer";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 
@@ -39,12 +41,16 @@ export async function GET(req: NextRequest) {
         ? (statusRaw as DeliveryAdPartnerMembershipStatus)
         : "open";
 
-  const [list, config] = await Promise.all([
+  const [list, config, orphans] = await Promise.all([
     listPartnerMembershipsForAdmin(sb, { status, storeId }),
     loadDeliveryAdPartnerConfig(sb),
+    listOrphanPartnerFundingsForAdmin(sb),
   ]);
   if (list.error) {
     return NextResponse.json({ ok: false, error: list.error }, { status: 500 });
+  }
+  if (orphans.error) {
+    return NextResponse.json({ ok: false, error: `orphan_fundings:${orphans.error}` }, { status: 500 });
   }
 
   const storeIds = [...new Set(list.items.map((m) => m.storeId))];
@@ -76,11 +82,18 @@ export async function GET(req: NextRequest) {
           advertisingDiscountPercent: config.advertisingDiscountPercent,
         }
       : null,
+    // ADS-04 — partner Cash fundings without a membership row (manual recovery via refund).
+    orphanFundings: orphans.items.map((f) => ({
+      ...f,
+      amountLabel: formatDeliveryAdPhpMinor(f.amountMinor),
+    })),
     memberships: list.items.map((m) => ({
       ...m,
       storeName: nameById.get(m.storeId) ?? null,
-      statusLabelKo: partnerMembershipAdminFilterLabel(m.status, "ko"),
-      statusLabelEn: partnerMembershipAdminFilterLabel(m.status, "en"),
+      // ADS-05 — read-time derivation: ACTIVE past period end is labelled expired (row itself unchanged, D-5).
+      periodExpired: isPartnerMembershipPeriodExpired(m),
+      statusLabelKo: partnerMembershipEffectiveStatusLabel(m, "ko"),
+      statusLabelEn: partnerMembershipEffectiveStatusLabel(m, "en"),
       feeSnapshotLabel:
         m.feeSnapshotMinor == null ? null : formatDeliveryAdPhpMinor(m.feeSnapshotMinor),
     })),

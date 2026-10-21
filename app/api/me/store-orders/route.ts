@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-order-delivery-address-display";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadBuyerStoreOrderTabCounts } from "@/lib/delivery/customer/load-buyer-store-order-tab-counts";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -954,14 +954,18 @@ export async function POST(req: NextRequest) {
   invalidateBuyerStoreOrdersListSnapshot(buyerId, "order_created");
 
   // CUT G — attribution after committed boundary; never fails the order.
-  void reconcileDeliveryAdAttributionForOrder(sb, {
-    orderId,
-    storeId,
-    buyerUserId: buyerId,
-  }).then((r) => {
-    if (!r.ok) {
-      console.error("[POST /api/me/store-orders] delivery-ad attribution", r.error);
-      return;
+  // ADS-09 — after(): runs once the response is sent and the platform keeps the function alive until it finishes
+  // (a bare `void promise` could be dropped when the serverless instance freezes). No added response latency.
+  after(async () => {
+    try {
+      const r = await reconcileDeliveryAdAttributionForOrder(sb, {
+        orderId,
+        storeId,
+        buyerUserId: buyerId,
+      });
+      if (!r.ok) console.error("[POST /api/me/store-orders] delivery-ad attribution", r.error);
+    } catch (e) {
+      console.error("[POST /api/me/store-orders] delivery-ad attribution", e);
     }
   });
 

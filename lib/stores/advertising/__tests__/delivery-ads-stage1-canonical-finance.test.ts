@@ -182,9 +182,15 @@ describe("Stage1 Ads product path uses canonical Cash", () => {
 describe("Stage1 Partner", () => {
   it("T18–T24 partner BC secure + reject model", () => {
     expect(DELIVERY_AD_PARTNER_PAYMENT.businessCashCharge).toBe(true);
-    expect(partnerWriter).toContain("debitBusinessCashForDeliveryAd");
+    // ADS-03/04 — debit / funding re-check / refund run inside single-transaction SQL functions.
+    const partnerSql = readFileSync(
+      join(root, "supabase/migrations/20270604150000_ads_partner_membership_atomic.sql"),
+      "utf8"
+    );
+    expect(partnerSql).toContain("public.business_cash_delivery_ad_spend(");
     expect(partnerWriter).toContain("INSUFFICIENT_BUSINESS_CASH");
-    expect(partnerWriter).toContain("hasCanonicalBcFundingSecured");
+    expect(partnerSql).toContain("'funding_required'");
+    expect(partnerSql).toContain("public.business_cash_delivery_ad_refund(");
     expect(partnerWriter).toContain("adminRejectPartnerMembership");
     expect(partnerWriter).toContain("REJECTED");
     expect(DELIVERY_AD_PARTNER_MEMBERSHIP_STATUSES).toContain("REJECTED");

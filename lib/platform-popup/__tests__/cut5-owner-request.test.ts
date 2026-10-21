@@ -83,7 +83,11 @@ describe("CUT5 payment != active + Owner cannot approve", () => {
 
   it("submit writer sets funded but never campaign active (file contract)", () => {
     const writer = readRepo("lib/platform-popup/owner-request-writer.ts");
-    expect(writer).toContain('productKind: "platform_popup"');
+    // ADS-13 — debit + submitted/funded happen inside one DB function (no TS multi-step writes).
+    expect(writer).toContain("OWNER_SUBMIT_PLATFORM_POPUP_REQUEST_RPC");
+    const submitSql = readRepo("supabase/migrations/20270604150100_platform_popup_owner_submit_atomic.sql");
+    expect(submitSql).toContain("'platform_popup'");
+    expect(submitSql).toContain("payment_status = 'funded'");
     expect(writer).toContain('payment_status: "funded"');
     expect(writer).toContain("campaign_activated: false");
     expect(writer).not.toContain('approval_status: "approved"');
