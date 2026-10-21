@@ -23,6 +23,7 @@ import { openProviderEmailConflictFromRedirect } from "@/lib/auth/provider-ident
 import { parseProviderEmailConflictRedirectParams } from "@/components/auth/provider-email-conflict-redirect";
 import { OAuthInlineLoginHint } from "@/components/auth/OAuthInlineLoginHint";
 import { AUTH_LOGIN_DELAY_NOTICE_MS } from "@/lib/auth/oauth/auth-login-phase";
+import { NATIVE_LOGIN_INTERRUPTED_REASON } from "@/lib/auth/native/native-login-interrupt-marker.client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -111,6 +112,11 @@ function LoginPageContent() {
     }
     if (loginReason === "auth_required") {
       showNotice({ tone: "info", text: t("auth_login_required_notice") });
+      router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
+      return;
+    }
+    if (loginReason === NATIVE_LOGIN_INTERRUPTED_REASON) {
+      showNotice({ tone: "info", text: t("auth_login_interrupted_notice") });
       router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
       return;
     }

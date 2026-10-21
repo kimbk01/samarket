@@ -29,6 +29,8 @@ export const authUiMessages = {
     auth_oauth_redirecting_label: "이동 중…",
     auth_oauth_signing_in_label: "로그인 중…",
     auth_oauth_cancelled_notice: "로그인이 취소되었습니다. 다시 시도해 주세요.",
+    auth_login_interrupted_notice:
+      "로그인 중 앱이 다시 시작되어 로그인이 완료되지 않았습니다. 다시 시도해 주세요.",
     auth_login_completing_delayed:
       "로그인 처리가 지연되고 있습니다. 잠시 기다리거나 다시 시도해 주세요.",
     auth_login_completing_retry: "다시 시도",
@@ -276,6 +278,8 @@ export const authUiMessages = {
     auth_oauth_redirecting_label: "Redirecting…",
     auth_oauth_signing_in_label: "Signing in…",
     auth_oauth_cancelled_notice: "Sign-in was cancelled. Please try again.",
+    auth_login_interrupted_notice:
+      "The app restarted during sign-in, so sign-in did not finish. Please try again.",
     auth_login_completing_delayed:
       "Sign-in is taking longer than usual. Please wait or try again.",
     auth_login_completing_retry: "Try again",
