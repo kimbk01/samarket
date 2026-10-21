@@ -593,6 +593,70 @@ async function cleanup() {
 }
 
 // ───────────────────────── 실행 ─────────────────────────
+/** A6 원인 진단 — 뒤로 버튼 신호가 앱 화면(JS)까지 오는지, 보이지 않게 열린 오버레이가 있는지 */
+async function A6probe() {
+  await selectFirstResultToEdit();
+  await page.locator("#addr-editor-detail").last().fill(`${TAG} P6`);
+  await sleep(1200);
+  const before = await page.evaluate(async () => {
+    const cap = window.Capacitor;
+    const w = window;
+    w.__probeBack = 0;
+    let listenerOk = "no-plugin";
+    try {
+      const App = cap?.Plugins?.App;
+      if (App?.addListener) {
+        await App.addListener("backButton", () => {
+          w.__probeBack += 1;
+        });
+        listenerOk = "added";
+      }
+    } catch (e) {
+      listenerOk = `error:${String(e?.message ?? e)}`;
+    }
+    const dialogs = [...document.querySelectorAll('[role="dialog"]')].map((d) => {
+      const r = d.getBoundingClientRect();
+      const st = getComputedStyle(d);
+      return `${(d.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 40)}|${Math.round(r.width)}x${Math.round(r.height)}|vis=${st.visibility}|op=${st.opacity}`;
+    });
+    return {
+      platform: cap?.getPlatform?.() ?? "none",
+      native: cap?.isNativePlatform?.() ?? null,
+      listenerOk,
+      dialogs,
+      saveDisabled: document.querySelector('[data-testid="address-detail-save"]')?.hasAttribute("disabled") ?? null,
+    };
+  });
+  await sleep(500);
+  await device.shell("input keyevent 4");
+  await sleep(2500);
+  const after = await page.evaluate(() => ({
+    probeBack: window.__probeBack ?? -1,
+    url: location.pathname,
+    confirmShown: (document.body.innerText ?? "").includes("수정한 내용을 버릴까요?"),
+    dialogs: [...document.querySelectorAll('[role="dialog"]')].length,
+  }));
+  return {
+    status: "PROBE",
+    detail: `platform=${before.platform} native=${before.native} 테스트리스너=${before.listenerOk} 뒤로전/열린dialog=${before.dialogs.length}[${before.dialogs.join(" ; ")}] 저장disabled=${before.saveDisabled} → 뒤로후 테스트리스너수신=${after.probeBack} url=${after.url} 확인창=${after.confirmShown ? "O" : "X"} dialog수=${after.dialogs}`,
+  };
+}
+
+if (process.argv.includes("--probe-a6")) {
+  let f = "";
+  try {
+    await preflight();
+    await run("A6probe", "A6 뒤로 버튼 진단", A6probe);
+    await cleanup();
+  } catch (e) {
+    f = String(e?.message ?? e).split("\n")[0];
+  }
+  const out = `[A6 진단] ${meta.model ?? "?"} 앱 ${meta.versionName ?? "?"}(${meta.versionCode ?? "?"})\n${f ? `중단: ${f}` : results.map((r) => `${r.id} ${r.status}: ${r.detail}`).join("\n")}`;
+  writeFileSync(`${OUT}/probe-a6.md`, out);
+  console.log(out);
+  process.exit(0);
+}
+
 const ITEMS = [
   ["A1", "주소 추가 → 검색 → 결과 선택 → 상세 입력 → 저장", A1],
   ["A2", "검색창 포커스 표시·높이 유지·16px·지우기 버튼", A2],
