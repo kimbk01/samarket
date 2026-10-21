@@ -18,9 +18,9 @@ import type { ProviderEmailConflictClientDetail } from "@/lib/auth/provider-iden
 import {
   buildDibayNativeAppMetadata,
   canAdoptRecoveredNativeAuthUser,
+  isProfileIdentitySet,
   mintNativeOwnerSessionViaMagicLink,
   nativeProviderOwnsAuthCredentials,
-  isProfileIdentitySet,
   resolveNativePasswordSeed,
 } from "@/lib/auth/native/native-owner-session.server";
 import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";

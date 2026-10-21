@@ -173,6 +173,12 @@ describe("Slice 8-4 Completion / Provider / UI Boundary Guard", () => {
   it("12. Web/Naver keep HTTP 30x; no client runCommon", () => {
     for (const rel of AUTH_WEB_NAVER_HTTP_REDIRECT_MODULES) {
       const src = readSrc(rel);
+      if (rel === "app/api/auth/naver/callback/route.ts") {
+        // P0-1 — Naver 비활성: 410 고정, completion·redirect 없음.
+        expect(src).toMatch(/NAVER_LOGIN_DISABLED_ERROR_CODE/);
+        expect(src).not.toMatch(/runCommonAuthClientCompletion|finishClientAuthLogin/);
+        continue;
+      }
       expect(src).toMatch(/NextResponse\.redirect/);
       expect(src).toMatch(/resolveCommonAuthDestination/);
       expect(src).not.toMatch(/runCommonAuthClientCompletion/);

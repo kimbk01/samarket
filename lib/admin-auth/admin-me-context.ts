@@ -1,6 +1,7 @@
 "use client";
 
 import { adminFetch, clearAllAdminFetchCache, invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
+import { clearAllAdminQueryCache } from "@/lib/admin/admin-query-cache";
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
@@ -57,6 +58,7 @@ export function clearAdminMeSnapshot(): void {
 export function resetAdminClientStateForAuthChange(): void {
   clearAdminMeSnapshot();
   clearAllAdminFetchCache();
+  clearAllAdminQueryCache();
 }
 
 export async function fetchAdminMeSnapshot(options?: {
