@@ -6,6 +6,11 @@ import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OwnerMobileOpsMenuDrawer } from "@/components/business/owner/OwnerMobileOpsMenuDrawer";
+import {
+  __setOverlayBackListenerDriverForTests,
+  handleOverlayHardwareBack,
+  overlayBackStackDepth,
+} from "@/lib/ui/overlay-back-stack";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -119,5 +124,24 @@ describe("OwnerMobileOpsMenuDrawer keyboard a11y (IA-20)", () => {
     q("opener").focus();
     key("Escape");
     expect(onCloseSpy).not.toHaveBeenCalled();
+  });
+
+  it("Android hardware back closes the open drawer (overlay back stack), and releases the entry when closed", () => {
+    __setOverlayBackListenerDriverForTests({ install: () => () => {} });
+    try {
+      expect(overlayBackStackDepth()).toBe(0);
+      openFromOpener();
+      expect(overlayBackStackDepth()).toBe(1);
+      let handled = false;
+      act(() => {
+        handled = handleOverlayHardwareBack();
+      });
+      expect(handled).toBe(true);
+      expect(onCloseSpy).toHaveBeenCalledTimes(1);
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      expect(overlayBackStackDepth()).toBe(0);
+    } finally {
+      __setOverlayBackListenerDriverForTests(null);
+    }
   });
 });
