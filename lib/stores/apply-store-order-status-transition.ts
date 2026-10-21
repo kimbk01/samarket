@@ -290,7 +290,19 @@ export async function applyStoreOrderStatusTransition(
   }
 
   const ownerDirectCancel = opts.ownerDirectCancel ?? null;
-  const cancelDecision = opts.cancelRequestDecision ?? null;
+  /**
+   * `cancel_requested` 주문의 관리자·오너 취소(강제 취소 포함)는 대기 중 취소 요청을 승인으로 함께 확정한다
+   * (`store_order_cancel_request_decide_atomic` — 주문·요청·부수효과 1 TX). 직접 취소 RPC 로 보내면
+   * 주문만 cancelled 되고 요청이 pending 으로 남는다(ND-3 C6.4 관찰).
+   */
+  const cancelDecision =
+    opts.cancelRequestDecision ??
+    (current === "cancel_requested" &&
+    nextStatus === "cancelled" &&
+    !opts.ownerDirectCancel &&
+    (actor === "ADMIN" || actor === "OWNER")
+      ? { decision: "approve" as const, actorRole: actor === "ADMIN" ? ("admin" as const) : ("owner" as const) }
+      : null);
   if (ownerDirectCancel && (actor !== "OWNER" || nextStatus !== "cancelled")) {
     return { ok: false, error: "invalid_transition", httpStatus: 400 };
   }
