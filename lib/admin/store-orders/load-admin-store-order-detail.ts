@@ -41,6 +41,12 @@ const ORDER_COLUMNS = [
   "delivery_formatted_address",
   "delivery_detail_address",
   "delivery_note",
+  "checkout_serviceability_eligible",
+  "checkout_serviceability_reason",
+  "checkout_serviceability_max_km",
+  "checkout_store_latitude",
+  "checkout_store_longitude",
+  "checkout_straight_distance_meters",
   "accepted_at",
   "estimated_ready_at",
   "refund_approved_at",
@@ -106,8 +112,44 @@ export type AdminOrderDetail = {
   gift: AdminOrderGiftLedger | null;
   cancelRequests: AdminOrderCancelRequest[];
   riderFailureReportedAt: string | null;
+  /**
+   * LOC-004 — 주문 생성 시 저장된 배달 판정 스냅샷(`store_orders.checkout_*`) 원값만.
+   * 현재 기준 재계산 없음. 저장값이 하나도 없으면(스냅샷 이전 주문·픽업) null.
+   */
+  checkoutJudgement: AdminOrderCheckoutJudgement | null;
   audit: AdminOrderAuditEntry[];
 };
+
+export type AdminOrderCheckoutJudgement = {
+  eligible: boolean | null;
+  reason: string | null;
+  maxKm: number | null;
+  storeLatitude: number | null;
+  storeLongitude: number | null;
+  straightDistanceMeters: number | null;
+};
+
+function numOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** 저장된 판정 스냅샷 → 표시용 (null 은 null 그대로 — 값을 만들지 않는다). */
+export function readAdminOrderCheckoutJudgement(order: Record<string, unknown>): AdminOrderCheckoutJudgement | null {
+  const j: AdminOrderCheckoutJudgement = {
+    eligible: typeof order.checkout_serviceability_eligible === "boolean" ? order.checkout_serviceability_eligible : null,
+    reason:
+      typeof order.checkout_serviceability_reason === "string" && order.checkout_serviceability_reason.trim()
+        ? order.checkout_serviceability_reason.trim()
+        : null,
+    maxKm: numOrNull(order.checkout_serviceability_max_km),
+    storeLatitude: numOrNull(order.checkout_store_latitude),
+    storeLongitude: numOrNull(order.checkout_store_longitude),
+    straightDistanceMeters: numOrNull(order.checkout_straight_distance_meters),
+  };
+  return Object.values(j).every((v) => v === null) ? null : j;
+}
 
 export type LoadAdminOrderDetailOutcome =
   | { ok: true; detail: AdminOrderDetail }
@@ -256,6 +298,7 @@ export async function loadAdminStoreOrderDetail(sb: SupabaseClient, orderId: str
       gift,
       cancelRequests,
       riderFailureReportedAt: sOrNull((deliveryRes.data as Record<string, unknown> | null)?.rider_failure_reported_at),
+      checkoutJudgement: readAdminOrderCheckoutJudgement(order),
       audit: auditRows.map((r) => ({
         id: s(r.id),
         created_at: s(r.created_at),

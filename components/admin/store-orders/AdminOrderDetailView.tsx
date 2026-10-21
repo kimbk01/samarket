@@ -472,6 +472,34 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
           {detail.riderFailureReportedAt ? (
             <Row label={ko ? "라이더 실패 신고" : "Rider failure report"}>{formatManilaDateTime(detail.riderFailureReportedAt)}</Row>
           ) : null}
+          {detail.checkoutJudgement ? (
+            <div className="mt-2 border-t border-sam-border pt-2" data-admin-checkout-judgement>
+              <p className="mb-1 sam-text-xxs font-semibold text-sam-fg">
+                {ko ? "주문 당시 판정 (주문 생성 시 저장값)" : "Judgement at order time (stored)"}
+              </p>
+              {detail.checkoutJudgement.eligible !== null ? (
+                <Row label={ko ? "배달 가능" : "Deliverable"}>
+                  {detail.checkoutJudgement.eligible ? (ko ? "예" : "Yes") : ko ? "아니오" : "No"}
+                </Row>
+              ) : null}
+              {detail.checkoutJudgement.reason ? (
+                <Row label={ko ? "판정 코드" : "Reason code"}>{detail.checkoutJudgement.reason}</Row>
+              ) : null}
+              {detail.checkoutJudgement.maxKm !== null ? (
+                <Row label={ko ? "배달 반경" : "Max radius"}>{`${detail.checkoutJudgement.maxKm} km`}</Row>
+              ) : null}
+              {detail.checkoutJudgement.straightDistanceMeters !== null ? (
+                <Row label={ko ? "직선거리" : "Straight distance"}>
+                  {`${(detail.checkoutJudgement.straightDistanceMeters / 1000).toFixed(2)} km`}
+                </Row>
+              ) : null}
+              {detail.checkoutJudgement.storeLatitude !== null && detail.checkoutJudgement.storeLongitude !== null ? (
+                <Row label={ko ? "매장 좌표(당시)" : "Store coords (then)"}>
+                  {`${detail.checkoutJudgement.storeLatitude}, ${detail.checkoutJudgement.storeLongitude}`}
+                </Row>
+              ) : null}
+            </div>
+          ) : null}
           <p className="mt-1 sam-text-xxs text-sam-muted">
             {ko ? "배달 진행 시각은 아래 「처리 이력」의 배달 진행에 있습니다." : "Delivery milestones are in History below."}
           </p>

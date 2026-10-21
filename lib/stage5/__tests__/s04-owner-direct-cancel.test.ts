@@ -207,4 +207,37 @@ describe("S04-2 조리 후 (preparing)", () => {
     expect(w.order.order_status).toBe("preparing");
     expect(w.rpcCalls).toEqual([]);
   });
+
+  // 결함 2 (문서 J): pending·accepted 도 PATCH 로는 원장 없는 취소 불가 — 직접 호출해도 우회 없음.
+  it.each(["pending", "accepted"])(
+    "%s → plain PATCH cancelled is refused (400 owner_cancel_route_required, no RPC, no write)",
+    async (from) => {
+      const w = newOrder(from);
+      const res = await ownerPatch(
+        new Request("https://x.test/api/me/stores/s1/orders/o1", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ order_status: "cancelled" }),
+        }) as never,
+        { params: Promise.resolve({ storeId: "s1", orderId: "o1" }) }
+      );
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe("owner_cancel_route_required");
+      expect(w.order.order_status).toBe(from);
+      expect(w.rpcCalls).toEqual([]);
+    }
+  );
+
+  it.each(["pending", "accepted"])("%s → reasoned cancel goes through the owner atomic RPC with the reason", async (from) => {
+    const w = newOrder(from);
+    const r = await cancel({ reason: "재료 소진" });
+    expect(r.status).toBe(200);
+    expect(w.rpcCalls.map((c: { name: string }) => c.name)).toContain("store_order_owner_cancel_atomic");
+    const call = w.rpcCalls.find((c: { name: string }) => c.name === "store_order_owner_cancel_atomic") as {
+      args: Record<string, unknown>;
+    };
+    expect(call.args.p_reason).toBe("재료 소진");
+    expect(call.args.p_expected_status).toBe(from);
+    expect(w.rpcCalls.map((c: { name: string }) => c.name)).not.toContain("store_order_cancel_direct_atomic");
+  });
 });

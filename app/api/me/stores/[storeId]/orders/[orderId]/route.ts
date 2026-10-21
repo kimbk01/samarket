@@ -7,7 +7,7 @@ import { ownerAcceptRequiresRecordedPayment } from "@/lib/stores/owner-order-pay
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { fetchOwnerStoreOrderDetailSnapshot } from "@/lib/stores/fetch-store-order-detail-snapshot-rpc";
-import { isValidOrderStatus, OWNER_CANCEL_REQUEST_FROM } from "@/lib/stores/order-status-transitions";
+import { isValidOrderStatus } from "@/lib/stores/order-status-transitions";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { loadOwnerStoreOrderReviewForOrder } from "@/lib/stores/owner-store-order-review-meta";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -379,7 +379,11 @@ export async function PATCH(
   if (currentStatus === "cancel_requested" || currentStatus === "refund_requested") {
     return NextResponse.json({ ok: false, error: "owner_decision_route_required" }, { status: 409 });
   }
-  if (nextStatus === "cancelled" && OWNER_CANCEL_REQUEST_FROM.has(currentStatus)) {
+  /**
+   * 오너 취소는 상태와 무관하게 `/cancel-request` 전용 — 사유 필수 + 취소 원장·상태 1 TX
+   * (`store_order_owner_cancel_atomic`). PATCH 로는 원장 없는 취소(`accepted → cancelled` 등)를 만들 수 없다.
+   */
+  if (nextStatus === "cancelled") {
     return NextResponse.json({ ok: false, error: "owner_cancel_route_required" }, { status: 400 });
   }
 

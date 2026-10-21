@@ -5,9 +5,11 @@ import { allowedOrderTransitions } from "@/lib/stores/order-status-transitions";
 import { resolveOwnerNextOrderAction } from "@/lib/business/owner-order-stepper-transition";
 import { formatOwnerOrderPatchErr } from "@/lib/business/owner-order-patch-errors";
 import {
+  runOwnerStoreOrderCancelRequest,
   runOwnerStoreOrderPatch,
   type OwnerStoreOrderMutationCallbacks,
 } from "@/lib/business/owner-store-order-mutation";
+import { postOwnerStoreOrderCancelRequest } from "@/lib/business/patch-owner-store-order-status";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
@@ -135,7 +137,8 @@ function usePatchOrder(
         setPrepModalOpen(true);
         return;
       }
-      if (order.order_status === "pending" && s === "cancelled") {
+      if (s === "cancelled") {
+        // 모든 오너 취소 = 사유 선택 → `/cancel-request` (PATCH 취소 없음)
         setRejectModalOpen(true);
         return;
       }
@@ -153,13 +156,49 @@ function usePatchOrder(
     [patch]
   );
 
+  /**
+   * 접수 전 거절 — 선택 사유를 `/cancel-request` 로 전달 (취소 원장·상태 1 TX, 주문자 알림 사유).
+   * 오너 PATCH `cancelled` 는 서버가 거부한다 (원장 없는 취소 경로 없음).
+   */
   const confirmReject = useCallback(
-    (_reasonLabel: string) => {
-      void patch("cancelled").then((ok) => {
-        if (ok) setRejectModalOpen(false);
-      });
+    (reasonLabel: string) => {
+      const reason = reasonLabel.trim();
+      if (!reason) return;
+      setErr(null);
+      setBusy("cancelled");
+      void (async () => {
+        try {
+          if (mutation?.onPatchOrderRow) {
+            const res = await runOwnerStoreOrderCancelRequest(storeId, order.id, { reason }, language, {
+              onPatchOrderRow: mutation.onPatchOrderRow,
+              onReconcileOrder: mutation.onReconcileOrder,
+            });
+            if (!res.ok) {
+              setErr(res.displayMessage);
+              return;
+            }
+            await mutation.onReconcileOrder?.(order.id);
+          } else {
+            const res = await postOwnerStoreOrderCancelRequest(storeId, order.id, { reason });
+            if (!res.ok) {
+              setErr(formatOwnerOrderPatchErr(res.error, language));
+              return;
+            }
+          }
+          dispatchOwnerHubBadgeRefresh({
+            source: "owner-store-order-delivery-actions",
+            key: `${storeId}:${order.id}:cancelled`,
+          });
+          onUpdated();
+          setRejectModalOpen(false);
+        } catch {
+          setErr(t("store_owner_network_patch_failed"));
+        } finally {
+          setBusy(null);
+        }
+      })();
     },
-    [patch]
+    [language, mutation, onUpdated, order.id, storeId, t]
   );
 
   return {
