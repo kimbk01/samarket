@@ -2,7 +2,6 @@ package com.dibay.app;
 
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
-import android.content.res.Resources;
 
 /**
  * FD3 application-shell orientation.
@@ -88,9 +87,6 @@ public final class DibayAppOrientationPolicy {
   }
 
   private static String classifyDeviceClass(Activity activity) {
-    Resources resources = activity.getResources();
-    DibayDeviceClassClassifier.Result classified =
-      DibayDeviceClassClassifier.classify(resources != null ? resources.getConfiguration() : null);
-    return classified.deviceClass;
+    return DibayDeviceClassClassifier.classify(activity).deviceClass;
   }
 }

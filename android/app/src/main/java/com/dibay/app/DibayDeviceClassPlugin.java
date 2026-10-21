@@ -1,6 +1,5 @@
 package com.dibay.app;
 
-import android.content.res.Resources;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -23,9 +22,7 @@ public class DibayDeviceClassPlugin extends Plugin {
 
   JSObject classifyCurrentConfiguration() {
     try {
-      Resources resources = getContext() != null ? getContext().getResources() : null;
-      return DibayDeviceClassClassifier.classify(resources != null ? resources.getConfiguration() : null)
-        .toJsObject();
+      return DibayDeviceClassClassifier.classify(getActivity() != null ? getActivity() : getContext()).toJsObject();
     } catch (RuntimeException ignored) {
       return DibayDeviceClassClassifier.classify(null, null).toJsObject();
     }
