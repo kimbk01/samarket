@@ -4,8 +4,9 @@
 
 카카오 로그인 버튼 → **Kakao Account 인증 UI** (`accounts.kakao.com`, Custom Tab) → DIBAY 복귀 → `POST /api/auth/native/exchange` → `sessionEstablished=true`
 
-> **Android canonical (2026-10):** ONE CTA → `loginWithKakaoAccount(prompts = [Prompt.LOGIN])`.  
-> Talk-first / Talk→Account fallback 은 Owner FAIL(무선택 Talk 계정 강제)로 제거.  
+> **Android canonical (2026-10-22, Owner 위임 결정 — 카카오 공식 권장):** 카카오톡 설치 → `loginWithKakaoTalk` (톡 동의만, 아이디·비번 입력 없음) →
+> 톡 실패(사용자 취소 제외)·미설치 → `loginWithKakaoAccount` (기존 카카오 계정 세션 재사용, 강제 재인증 없음). 톡에서 취소 → 취소로 종료.
+> 이전(2026-10-02) Account+LOGIN 프롬프트 단일 경로는 매번 아이디·비번을 요구해 폐기.
 > SDK `com.kakao.sdk:v2-user:2.20.1` 에 `loginWithKakao()` **없음** — 사용·문서 가정 금지.
 
 ## 환경변수 주입 경로
@@ -27,7 +28,7 @@ Native app key는 **서버 env에 넣지 않음** — Android Gradle / iOS Info.
 3. `android/local.properties.example` → `local.properties` 복사 후 key 설정
 4. Gradle `resValue`: `kakao_login_scheme` = **`kakao{NATIVE_APP_KEY}`** (key 없으면 빈 scheme → plugin `kakao_native_config_error`)
 5. `DibayApplication` — `KakaoSdk.init`
-6. `NativeKakaoAuthPlugin` — **`loginWithKakaoAccount(prompts=[Prompt.LOGIN])` only** (no Talk-first)
+6. `NativeKakaoAuthPlugin` — `loginWithKakaoTalk` → (톡 실패·취소 제외) `loginWithKakaoAccount` 자동 전환
 7. `AuthCodeHandlerActivity` — `android:launchMode="singleTask"`
 
 Key hash 생성 (debug):
@@ -40,7 +41,7 @@ keytool -exportcert -alias androiddebugkey -keystore ~/.android/debug.keystore -
 1. Kakao Developers — iOS bundle **`com.dibay.app`**
 2. **제품 경로 (2026-08-04):** iOS Capacitor 카카오는 **Supabase Web OAuth + Custom Tab** (`web_oauth_start`).  
    Native `loginWithKakaoTalk` 복귀는 실측상 `open_url handled=1` 이후 token callback 미도착 → 사용 중단. Google iOS 와 동일 계열.
-3. Android Native Kakao 는 Account+LOGIN (위). iOS Native Talk 경로는 미사용.
+3. Android Native Kakao 는 Talk → Account 전환 (위). iOS Native Talk 경로는 미사용.
 4. `Kakao.local.xcconfig` / Info.plist scheme 은 Android·향후 Native 재개용으로 유지 가능.
 
 ## 서버 exchange

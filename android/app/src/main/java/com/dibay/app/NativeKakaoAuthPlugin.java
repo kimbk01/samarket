@@ -8,22 +8,21 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.kakao.sdk.auth.model.OAuthToken;
-import com.kakao.sdk.auth.model.Prompt;
 import com.kakao.sdk.common.model.ClientError;
 import com.kakao.sdk.common.model.ClientErrorCause;
 import com.kakao.sdk.user.UserApiClient;
-import java.util.Collections;
-import java.util.List;
 import kotlin.Unit;
 import kotlin.jvm.functions.Function2;
 
 /**
- * Kakao Native Login — ONE CTA → Kakao Account authentication with Prompt.LOGIN.
+ * Kakao Native Login — 카카오 공식 권장 순서 (2026-10-22 Owner 위임 결정).
  *
- * Talk-first was removed: automatic loginWithKakaoTalk selected the Talk-bound account
- * with no meaningful user choice (Owner FAIL). SDK 2.20.1 has no loginWithKakao().
+ * 1) 카카오톡 설치 → loginWithKakaoTalk: 카카오톡 앱 동의 화면만 거쳐 바로 복귀 (아이디·비번 입력 없음).
+ * 2) 카카오톡 미설치 / 톡 로그인 실패(사용자 취소 제외) → loginWithKakaoAccount:
+ *    카카오 계정 웹 로그인. 이미 카카오 계정 세션이 있으면 재입력 없이 진행 (매번 강제 재인증하는 LOGIN 프롬프트 제거).
+ * 3) 사용자가 톡에서 취소 → 계정 로그인으로 넘기지 않고 취소로 끝낸다.
  *
- * Canonical: loginWithKakaoAccount(prompts = [Prompt.LOGIN]).
+ * SDK 2.20.1 has no loginWithKakao().
  */
 @CapacitorPlugin(name = "NativeKakaoAuth")
 public class NativeKakaoAuthPlugin extends Plugin {
@@ -159,17 +158,42 @@ public class NativeKakaoAuthPlugin extends Plugin {
     }
 
     pendingCall = call;
-    startKakaoAccountLoginWithPromptLogin(activity);
+
+    if (UserApiClient.getInstance().isKakaoTalkLoginAvailable(activity)) {
+      startKakaoTalkLogin(activity);
+    } else {
+      startKakaoAccountLogin(activity);
+    }
   }
 
-  /**
-   * Canonical ONE-CTA dispatch (SDK 2.20.1): Kakao Account + Prompt.LOGIN.
-   * Does not call loginWithKakaoTalk — avoids silent Talk-bound account selection.
-   */
-  private void startKakaoAccountLoginWithPromptLogin(Activity activity) {
-    logEvent("kakao_native_account_login_prompt_login");
-    List<Prompt> prompts = Collections.singletonList(Prompt.LOGIN);
-    UserApiClient.getInstance().loginWithKakaoAccount(activity, prompts, loginCallback);
+  /** 카카오 공식 샘플: 톡 실패(사용자 취소 제외) 시 계정 로그인으로 전환 */
+  private void startKakaoTalkLogin(Activity activity) {
+    logEvent("kakao_native_talk_login");
+    UserApiClient.getInstance().loginWithKakaoTalk(activity, (token, error) -> {
+      if (pendingCall == null) {
+        return Unit.INSTANCE;
+      }
+      if (error != null && !isUserCancelled(error)) {
+        logFailure(error);
+        logEvent("kakao_native_talk_fallback_account");
+        startKakaoAccountLogin(activity);
+        return Unit.INSTANCE;
+      }
+      return loginCallback.invoke(token, error);
+    });
+  }
+
+  private void startKakaoAccountLogin(Activity activity) {
+    if (pendingCall == null) {
+      return;
+    }
+    Activity active = activity != null ? activity : getActivity();
+    if (active == null) {
+      rejectPendingCall("kakao_native_unavailable", "Activity not found");
+      return;
+    }
+    logEvent("kakao_native_account_login");
+    UserApiClient.getInstance().loginWithKakaoAccount(active, loginCallback);
   }
 
   @PluginMethod
