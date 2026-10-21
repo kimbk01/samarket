@@ -17,6 +17,7 @@ import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { applyOwnerPathRequestHeader } from "@/lib/business/owner-path-request-header";
 import { enforceApiMemberMutationPolicy } from "@/lib/auth/enforce-api-member-mutation-policy";
+import { enforceApiMemberReadPolicy } from "@/lib/auth/enforce-api-member-read-policy";
 
 /**
  * 앱 UI(HTML·RSC) — 비회원은 공개 브라우징 allowlist 만 통과, private URL 은 404.
@@ -118,7 +119,9 @@ export async function proxy(request: NextRequest) {
   // P0-R3: API mutations — central member action-class enforcement (not HTML auth gate).
   // Matcher includes /api/*; early return here so HTML auth path never runs for APIs.
   if (pathname.startsWith("/api/")) {
-    const denied = await enforceApiMemberMutationPolicy(request);
+    // P2-6: GET/HEAD — 차단·탈퇴 회원 읽기 거부 (lifecycle 캐시 경로, 조회 실패 시 fail-open).
+    const denied =
+      (await enforceApiMemberMutationPolicy(request)) ?? (await enforceApiMemberReadPolicy(request));
     if (denied) return denied;
     return NextResponse.next();
   }

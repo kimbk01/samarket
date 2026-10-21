@@ -30,7 +30,7 @@ export function DibayOnboardingOverlayShell({
   children,
 }: DibayOnboardingOverlayShellProps) {
   return (
-    <AuthGateOverlay open labelledBy={titleId} describedBy={descriptionId} role="dialog">
+    <AuthGateOverlay open labelledBy={titleId} describedBy={descriptionId} role="dialog" holdHardwareBack>
       <div className="mx-auto flex justify-center" aria-hidden>
         <DibayAuthLogo size={52} />
       </div>

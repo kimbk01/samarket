@@ -108,7 +108,7 @@ describe("common-auth-completion-contract", () => {
   it("Slice 6-1: production completion edges own destination via resolveCommonAuthDestination", () => {
     const edges = [
       "app/auth/callback/route.ts",
-      "app/api/auth/naver/callback/route.ts",
+      // app/api/auth/naver/callback — P0-1 Naver 비활성(410), completion edge 아님
       "lib/auth/native/google-native-session.server.ts",
       "lib/auth/native/kakao-native-session.server.ts",
       "lib/auth/native/apple-native-session.server.ts",
@@ -125,7 +125,7 @@ describe("common-auth-completion-contract", () => {
   it("Slice 6-2: production completion edges use ensureAuthProfileForLogin (no direct pending/ensureUserProfile)", () => {
     const edges = [
       "app/auth/callback/route.ts",
-      "app/api/auth/naver/callback/route.ts",
+      // app/api/auth/naver/callback — P0-1 Naver 비활성(410), completion edge 아님
       "lib/auth/native/google-native-session.server.ts",
       "lib/auth/native/kakao-native-session.server.ts",
       "lib/auth/native/apple-native-session.server.ts",
@@ -151,7 +151,7 @@ describe("common-auth-completion-contract", () => {
   it("Slice 6-2: Client Sync / finish / runCommonAuth owners untouched in completion edges", () => {
     const edges = [
       "app/auth/callback/route.ts",
-      "app/api/auth/naver/callback/route.ts",
+      // app/api/auth/naver/callback — P0-1 Naver 비활성(410), completion edge 아님
       "lib/auth/native/google-native-session.server.ts",
       "lib/auth/native/kakao-native-session.server.ts",
       "lib/auth/native/apple-native-session.server.ts",

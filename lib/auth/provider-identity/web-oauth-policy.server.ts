@@ -6,6 +6,7 @@ import {
   readProviderEmailVerifiedSignal,
 } from "@/lib/auth/provider-identity/email-policy";
 import { createConflictStashToken } from "@/lib/auth/provider-identity/link-token.server";
+import { findIdentitiesByUserId } from "@/lib/auth/provider-identity/repository.server";
 import { ensureProviderAuthIdentityRow } from "@/lib/auth/provider-identity/native-session-bridge.server";
 import {
   authUserHasProductProfile,
@@ -42,13 +43,51 @@ function pickStr(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-/** Supabase OAuth User → provider identity candidate (google/kakao/apple). */
-export function buildOAuthUserProviderCandidate(user: User): ProviderIdentityCandidate | null {
+function identityProvider(row: unknown): string {
+  return String((row as { provider?: string }).provider ?? "").trim().toLowerCase();
+}
+
+function identityLastSignInMs(row: unknown): number {
+  const raw = (row as { last_sign_in_at?: string | null }).last_sign_in_at;
+  const ms = typeof raw === "string" && raw.trim() ? Date.parse(raw) : Number.NaN;
+  return Number.isFinite(ms) ? ms : Number.NEGATIVE_INFINITY;
+}
+
+/**
+ * P1-6 — 이번 로그인에 쓰인 identity 선택.
+ * 1) start route 가 callback `?provider=` 로 넘긴 provider 와 일치하는 identity
+ * 2) 없으면 `last_sign_in_at` 최신 linkable identity (동률·누락 시 기존 순서 = 첫 번째)
+ */
+function pickThisLoginOAuthIdentity(
+  identities: unknown[],
+  loginProvider: string | null | undefined,
+): unknown | null {
+  const linkable = identities.filter((row) => isLinkableAuthProvider(identityProvider(row)));
+  if (linkable.length === 0) return null;
+  const wanted = String(loginProvider ?? "").trim().toLowerCase();
+  if (wanted && isLinkableAuthProvider(wanted)) {
+    const match = linkable.find((row) => identityProvider(row) === wanted);
+    if (match) return match;
+  }
+  let best = linkable[0];
+  let bestMs = identityLastSignInMs(best);
+  for (const row of linkable.slice(1)) {
+    const ms = identityLastSignInMs(row);
+    if (ms > bestMs) {
+      best = row;
+      bestMs = ms;
+    }
+  }
+  return best;
+}
+
+/** Supabase OAuth User → provider identity candidate (google/kakao/apple) — 이번 로그인 identity 기준. */
+export function buildOAuthUserProviderCandidate(
+  user: User,
+  options?: { loginProvider?: string | null },
+): ProviderIdentityCandidate | null {
   const identities = Array.isArray(user.identities) ? user.identities : [];
-  const oauthIdentity = identities.find((row) => {
-    const p = String((row as { provider?: string }).provider ?? "").toLowerCase();
-    return isLinkableAuthProvider(p);
-  });
+  const oauthIdentity = pickThisLoginOAuthIdentity(identities, options?.loginProvider);
   if (!oauthIdentity) return null;
 
   const provider = String((oauthIdentity as { provider?: string }).provider ?? "")
@@ -152,16 +191,60 @@ function baseDiag(input: {
 }
 
 /**
+ * P1-6 — 이번 로그인 identity(candidate) 에 SSOT row 가 없는데(resolve = new),
+ * 세션 auth user 가 다른 identity 를 이미 가진 기존 회원(profile 또는 SSOT row 보유)이면
+ * Supabase 가 이메일로 자동 연결한 것으로 본다. 조회 실패는 fail-closed(연결로 간주).
+ */
+async function detectSupabaseAutoLinkedIdentity(
+  sb: SupabaseClient,
+  user: User,
+  candidate: ProviderIdentityCandidate,
+  sessionHasProfile: boolean,
+): Promise<{ existingProviders: string[]; ssotProviders: string[] } | null> {
+  const identities = Array.isArray(user.identities) ? user.identities : [];
+  const otherIdentityProviders = identities
+    .filter((row) => {
+      const p = identityProvider(row);
+      if (!p || p === candidate.provider) return false;
+      return true;
+    })
+    .map((row) => identityProvider(row));
+  if (otherIdentityProviders.length === 0) return null;
+
+  let ssotProviders: string[] = [];
+  let lookupFailed = false;
+  try {
+    const rows = await findIdentitiesByUserId(sb, user.id);
+    ssotProviders = Array.from(
+      new Set(
+        rows
+          .map((row) => String(row.provider ?? "").trim().toLowerCase())
+          .filter((p) => p && p !== candidate.provider),
+      ),
+    );
+  } catch {
+    lookupFailed = true;
+  }
+
+  const isExistingMember = sessionHasProfile || ssotProviders.length > 0 || lookupFailed;
+  if (!isExistingMember) return null;
+
+  const existingProviders =
+    ssotProviders.length > 0 ? ssotProviders : Array.from(new Set(otherIdentityProviders));
+  return { existingProviders, ssotProviders };
+}
+
+/**
  * Web OAuth callback identity policy.
  * Does not auto-merge providers. Logs structured diagnostics without PII.
  */
 export async function enforceWebOAuthProviderPolicy(
   sb: SupabaseClient,
   user: User,
-  options?: { callbackAttemptId?: string },
+  options?: { callbackAttemptId?: string; loginProvider?: string | null },
 ): Promise<WebOAuthProviderPolicyResult> {
   const callbackAttemptId = options?.callbackAttemptId ?? newWebOAuthCallbackAttemptId();
-  const candidate = buildOAuthUserProviderCandidate(user);
+  const candidate = buildOAuthUserProviderCandidate(user, { loginProvider: options?.loginProvider });
   const diag = baseDiag({
     callbackAttemptId,
     provider: candidate?.provider ?? null,
@@ -182,12 +265,46 @@ export async function enforceWebOAuthProviderPolicy(
   diag.resolveStatus = resolved.status;
 
   if (resolved.status === "new") {
+    // P1-6 — Supabase 이메일 자동 identity 연결: 이번 identity 는 SSOT row 가 없는데
+    // 세션 user 는 이미 다른 identity 를 가진 기존 DIBAY 회원 → 기존 계정 진입 금지(conflict UX).
+    const autoLinked = await detectSupabaseAutoLinkedIdentity(sb, user, candidate, sessionHasProfile);
+    if (autoLinked) {
+      const conflictEmail =
+        normalizeProviderEmail(candidate.email) ?? normalizeProviderEmail(user.email) ?? "";
+      // 자동 연결된 세션 user 가 곧 기존 회원 — stash 는 그 회원에게만 쓸 수 있다 (P1-4)
+      const stashToken = createConflictStashToken(candidate, user.id);
+      diag.policyResult = "reject";
+      diag.conflictReason = "SAME_EMAIL_DIFFERENT_PROVIDER";
+      diag.rejectionBranch = "new.supabase_auto_linked_identity";
+      diag.existingAuthUserFound = true;
+      diag.existingProfileFound = sessionHasProfile;
+      diag.existingProviderIdentityFound = autoLinked.ssotProviders.length > 0;
+      diag.sameNormalizedEmailMatch = true;
+      diag.sameProviderSubjectMatch = false;
+      diag.conflictingProviderTypes = autoLinked.existingProviders;
+      diag.matchedUserIdHashPrefix = hashPrefixForAuthDiag(user.id);
+      diag.pendingConflictRecordFound = Boolean(stashToken);
+      diag.autoLinkAllowed = false;
+      logWebOAuthProviderPolicyDiag(diag);
+      return {
+        ok: false,
+        errorCode: "provider_email_conflict",
+        message: "보안을 위해 기존 로그인 확인이 필요합니다.",
+        diag,
+        conflict: {
+          email: conflictEmail,
+          attemptedProvider: candidate.provider,
+          existingProviders: autoLinked.existingProviders,
+          stashToken,
+        },
+      };
+    }
     logWebOAuthProviderPolicyDiag(diag);
     return { ok: true, candidate, diag };
   }
 
   if (resolved.status === "email_conflict") {
-    const stashToken = createConflictStashToken(candidate);
+    const stashToken = createConflictStashToken(candidate, resolved.conflict.existingUserId);
     diag.policyResult = "reject";
     diag.conflictReason = "SAME_EMAIL_DIFFERENT_PROVIDER";
     diag.rejectionBranch = "resolve.email_conflict";
@@ -320,12 +437,43 @@ export async function enforceWebOAuthProviderPolicy(
   return { ok: true, candidate, diag };
 }
 
-/** Slice 7-4 PLAN_I2 Auth Identity Row writer — delegates to ensureProviderAuthIdentityRow. */
+/**
+ * Slice 7-4 PLAN_I2 Auth Identity Row writer — delegates to ensureProviderAuthIdentityRow.
+ * OA-17: 실패 시 1회 재시도, 그래도 실패하면 구조화 로그 `oauth_identity_persist_failed` 후 false.
+ * 로그인 자체는 실패시키지 않는다 (장애 확산 방지).
+ */
 export async function persistOAuthProviderIdentity(
   sb: SupabaseClient,
   userId: string,
   candidate: ProviderIdentityCandidate,
-): Promise<void> {
-  if (!candidate.providerUserId.trim()) return;
-  await ensureProviderAuthIdentityRow(sb, userId, candidate);
+  options?: { callbackAttemptId?: string },
+): Promise<boolean> {
+  if (!candidate.providerUserId.trim()) return true;
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      await ensureProviderAuthIdentityRow(sb, userId, candidate);
+      return true;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  const message =
+    lastError instanceof Error
+      ? lastError.message
+      : String((lastError as { message?: unknown } | null)?.message ?? "unknown");
+  console.error(
+    "[auth/web-oauth-identity]",
+    JSON.stringify({
+      event: "oauth_identity_persist_failed",
+      callbackAttemptId: options?.callbackAttemptId ?? null,
+      provider: candidate.provider,
+      subjectHashPrefix: hashPrefixForAuthDiag(candidate.providerUserId),
+      userIdHashPrefix: hashPrefixForAuthDiag(userId),
+      attempts: 2,
+      errorCode: String((lastError as { code?: unknown } | null)?.code ?? "") || null,
+      error: message.slice(0, 160),
+    }),
+  );
+  return false;
 }

@@ -14,10 +14,21 @@ import {
   ensureProviderAuthIdentityRow,
   resolveNativeProviderSessionPrelude,
 } from "@/lib/auth/provider-identity/native-session-bridge.server";
-import type { ProviderEmailConflictDetail } from "@/lib/auth/provider-identity/types";
+import type { ProviderEmailConflictClientDetail } from "@/lib/auth/provider-identity/types";
+import {
+  buildDibayNativeAppMetadata,
+  canAdoptRecoveredNativeAuthUser,
+  isProfileIdentitySet,
+  mintNativeOwnerSessionViaMagicLink,
+  nativeProviderOwnsAuthCredentials,
+  resolveNativePasswordSeed,
+} from "@/lib/auth/native/native-owner-session.server";
 import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";
 import { findAuthUserByEmail } from "@/lib/auth/naver-oauth";
-import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
+import {
+  resolveMemberWithdrawalGuard,
+  revokeSessionForWithdrawnMember,
+} from "@/lib/auth/withdrawn-account-guard";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
@@ -28,10 +39,8 @@ import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 
 export function buildAppleSupabasePassword(sub: string): string {
-  const seed =
-    process.env.APPLE_NATIVE_PASSWORD_SEED?.trim()
-    || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
-    || "dibay-apple-native";
+  // OA-13 — 하드코딩 seed fallback 제거 (env 없으면 throw).
+  const seed = resolveNativePasswordSeed(process.env.APPLE_NATIVE_PASSWORD_SEED);
   const digest = createHash("sha256").update(`${seed}:apple:${sub}`).digest("base64url");
   return `Ap#${digest.slice(0, 48)}!`;
 }
@@ -59,7 +68,7 @@ export type AppleNativeSessionResult =
       errorCode: string;
       message: string;
       status: number;
-      conflict?: ProviderEmailConflictDetail & { stashToken: string };
+      conflict?: ProviderEmailConflictClientDetail & { stashToken: string };
     };
 
 function buildAppleUserMetadata(
@@ -88,6 +97,77 @@ function resolveProfileEmailHint(verified: AppleVerifiedIdentityToken): string |
   return verified.email;
 }
 
+/** 세션 발급 방식 — synthetic(같은 provider) = 파생 비밀번호, 그 외 owner = magiclink (자격증명 무변경). */
+type AppleSessionPlan =
+  | { mode: "password"; email: string; password: string }
+  | { mode: "magiclink"; email: string };
+
+type AppleAuthUserPrepared = { userId: string; isNewUser: boolean; plan: AppleSessionPlan };
+
+const APPLE_WITHDRAWN_RESULT: AppleNativeSessionResult = {
+  ok: false,
+  errorCode: "account_withdrawn",
+  message: "탈퇴한 계정입니다. 동일 계정으로 다시 이용하려면 관리자에게 문의해 주세요.",
+  status: 403,
+};
+
+/**
+ * P1-7 — 기존 auth user: 탈퇴 확인을 모든 변경 전에 수행.
+ * email/password/metadata 갱신은 Apple synthetic(또는 email 없음) 계정일 때만.
+ */
+async function prepareExistingAppleAuthUser(
+  adminSb: SupabaseClient,
+  userId: string,
+  args: { verified: AppleVerifiedIdentityToken; userIdentifier?: string | null },
+): Promise<AppleAuthUserPrepared | AppleNativeSessionResult> {
+  const { data: existingUserData, error: getUserError } = await adminSb.auth.admin.getUserById(userId);
+  if (getUserError || !existingUserData.user) {
+    return {
+      ok: false,
+      errorCode: "provider_account_conflict",
+      message: "Apple account profile exists but auth user is missing",
+      status: 409,
+    };
+  }
+
+  if ((await resolveMemberWithdrawalGuard(adminSb, userId)) === "withdrawn") {
+    return APPLE_WITHDRAWN_RESULT;
+  }
+
+  const currentEmail = String(existingUserData.user.email ?? "").trim();
+  const preservePassword = await shouldPreserveAdminManagedPassword(adminSb, userId);
+  if (!nativeProviderOwnsAuthCredentials("apple", currentEmail) || preservePassword) {
+    if (!currentEmail) {
+      return {
+        ok: false,
+        errorCode: "native_exchange_not_implemented",
+        message: "Apple owner account has no sign-in email",
+        status: 501,
+      };
+    }
+    return { userId, isNewUser: false, plan: { mode: "magiclink", email: currentEmail } };
+  }
+
+  const authEmail = resolveAuthEmailForAppleUser(args.verified);
+  const password = buildAppleSupabasePassword(args.verified.sub);
+  const { error: updateError } = await adminSb.auth.admin.updateUserById(userId, {
+    password,
+    email: authEmail,
+    email_confirm: true,
+    user_metadata: buildAppleUserMetadata(args.verified, args.userIdentifier),
+    app_metadata: buildDibayNativeAppMetadata("apple"),
+  });
+  if (updateError) {
+    return {
+      ok: false,
+      errorCode: "provider_account_conflict",
+      message: updateError.message || "Failed to update Apple auth user",
+      status: 409,
+    };
+  }
+  return { userId, isNewUser: false, plan: { mode: "password", email: authEmail, password } };
+}
+
 async function upsertAppleAuthUser(
   adminSb: SupabaseClient,
   args: {
@@ -95,59 +175,34 @@ async function upsertAppleAuthUser(
     verified: AppleVerifiedIdentityToken;
     userIdentifier?: string | null;
   },
-): Promise<{ userId: string; isNewUser: boolean } | AppleNativeSessionResult> {
-  const authEmail = resolveAuthEmailForAppleUser(args.verified);
-  const password = buildAppleSupabasePassword(args.verified.sub);
-  const metadata = buildAppleUserMetadata(args.verified, args.userIdentifier);
-
+): Promise<AppleAuthUserPrepared | AppleNativeSessionResult> {
   if (args.existingUserId) {
-    const { data: existingUserData, error: getUserError } = await adminSb.auth.admin.getUserById(
-      args.existingUserId,
-    );
-    if (getUserError || !existingUserData.user) {
-      return {
-        ok: false,
-        errorCode: "provider_account_conflict",
-        message: "Apple account profile exists but auth user is missing",
-        status: 409,
-      };
-    }
-    const preservePassword = await shouldPreserveAdminManagedPassword(adminSb, args.existingUserId);
-    const { error: updateError } = await adminSb.auth.admin.updateUserById(args.existingUserId, {
-      ...(preservePassword
-        ? {}
-        : {
-            password,
-            email: authEmail,
-          }),
-      email_confirm: true,
-      user_metadata: metadata,
-    });
-    if (updateError) {
-      return {
-        ok: false,
-        errorCode: "provider_account_conflict",
-        message: updateError.message || "Failed to update Apple auth user",
-        status: 409,
-      };
-    }
-    return { userId: args.existingUserId, isNewUser: false };
+    return prepareExistingAppleAuthUser(adminSb, args.existingUserId, args);
   }
 
+  const authEmail = resolveAuthEmailForAppleUser(args.verified);
+  const password = buildAppleSupabasePassword(args.verified.sub);
   const { data: created, error: createError } = await adminSb.auth.admin.createUser({
     email: authEmail,
     password,
     email_confirm: true,
-    user_metadata: metadata,
+    user_metadata: buildAppleUserMetadata(args.verified, args.userIdentifier),
+    app_metadata: buildDibayNativeAppMetadata("apple"),
   });
   if (createError || !created.user) {
     const recovered = await findAuthUserByEmail(adminSb, authEmail);
     if (recovered?.id) {
-      return upsertAppleAuthUser(adminSb, {
-        existingUserId: recovered.id,
-        verified: args.verified,
-        userIdentifier: args.userIdentifier,
-      });
+      // OA-10 — DIBAY 가 만든 Apple synthetic 계정만 채택 (외부 선점 계정 거부).
+      if (!canAdoptRecoveredNativeAuthUser("apple", recovered, args.verified.sub)) {
+        console.warn("[auth/apple-native]", JSON.stringify({ event: "native_synthetic_adopt_refused" }));
+        return {
+          ok: false,
+          errorCode: "provider_account_conflict",
+          message: "Apple sign-in account is reserved by another registration",
+          status: 409,
+        };
+      }
+      return prepareExistingAppleAuthUser(adminSb, recovered.id, args);
     }
     return {
       ok: false,
@@ -156,15 +211,19 @@ async function upsertAppleAuthUser(
       status: 409,
     };
   }
-  return { userId: created.user.id, isNewUser: true };
+  return { userId: created.user.id, isNewUser: true, plan: { mode: "password", email: authEmail, password } };
 }
 
-/** Slice 7-4 PLAN_I2 Identity column writer — verified Apple token → provider* (soft). */
+/**
+ * Slice 7-4 PLAN_I2 Identity column writer — verified Apple token → provider* (soft).
+ * P1-7 — 최초 기록만: provider_user_id 가 이미 있으면 건드리지 않는다.
+ */
 async function persistAppleProfileIdentity(
   adminSb: SupabaseClient,
   userId: string,
   verified: AppleVerifiedIdentityToken,
 ): Promise<void> {
+  if (await isProfileIdentitySet(adminSb, userId, true)) return;
   const patch: Record<string, unknown> = {
     provider: "apple",
     auth_provider: "apple",
@@ -255,24 +314,31 @@ export async function establishAppleNativeSession(
   });
   if ("ok" in upsert) return upsert;
 
-  const { userId, isNewUser } = upsert as { userId: string; isNewUser: boolean };
+  const { userId, isNewUser, plan } = upsert as AppleAuthUserPrepared;
   const authEmail = resolveAuthEmailForAppleUser(input.verified);
-  const password = buildAppleSupabasePassword(sub);
 
-  const { data: signInData, error: signInError } = await ctx.routeSb.auth.signInWithPassword({
-    email: authEmail,
-    password,
-  });
-  if (signInError || !signInData.user) {
+  let signedUser: User;
+  try {
+    if (plan.mode === "password") {
+      const { data: signInData, error: signInError } = await ctx.routeSb.auth.signInWithPassword({
+        email: plan.email,
+        password: plan.password,
+      });
+      if (signInError || !signInData.user) {
+        throw new Error(signInError?.message || "Apple native Supabase session creation failed");
+      }
+      signedUser = signInData.user;
+    } else {
+      signedUser = await mintNativeOwnerSessionViaMagicLink(ctx.adminSb, ctx.routeSb, userId, plan.email);
+    }
+  } catch (err) {
     return {
       ok: false,
       errorCode: "native_exchange_not_implemented",
-      message: signInError?.message || "Apple native Supabase session creation failed",
+      message: err instanceof Error ? err.message : "Apple native Supabase session creation failed",
       status: 501,
     };
   }
-
-  const signedUser = signInData.user;
 
   const withdrawalState = await revokeSessionForWithdrawnMember(
     ctx.routeSb,
@@ -281,12 +347,7 @@ export async function establishAppleNativeSession(
     ctx.adminSb,
   );
   if (withdrawalState === "withdrawn") {
-    return {
-      ok: false,
-      errorCode: "account_withdrawn",
-      message: "탈퇴한 계정입니다. 동일 계정으로 다시 이용하려면 관리자에게 문의해 주세요.",
-      status: 403,
-    };
+    return APPLE_WITHDRAWN_RESULT;
   }
 
   const syntheticUser = syntheticUserForEnsure(signedUser.id, input.verified);

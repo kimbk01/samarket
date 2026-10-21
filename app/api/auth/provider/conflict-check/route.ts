@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   buildProviderEmailConflictPayload,
@@ -14,7 +15,14 @@ import { isLinkableAuthProvider } from "@/lib/auth/provider-identity/provider-di
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * P1-3 — 앱 호출처 없음. 로그인 세션 필수 · 다른 회원 userId 는 절대 반환하지 않는다
+ * (`existing` 은 본인 계정 여부만, `email_conflict` 는 existingUserId 제외 payload).
+ */
 export async function POST(req: NextRequest) {
+  const auth = await requireAuthenticatedUserId();
+  if (!auth.ok) return auth.response;
+
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -58,7 +66,10 @@ export async function POST(req: NextRequest) {
   const resolved = await resolveProviderLogin(sb, candidate);
 
   if (resolved.status === "existing") {
-    return noStoreJson({ ok: true, status: "existing", userId: resolved.userId }, 200);
+    return noStoreJson(
+      { ok: true, status: "existing", linkedToCurrentUser: resolved.userId === auth.userId },
+      200,
+    );
   }
   if (resolved.status === "email_conflict") {
     return noStoreJson(

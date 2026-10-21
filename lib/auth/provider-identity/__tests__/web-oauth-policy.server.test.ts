@@ -106,7 +106,14 @@ function mockSb(rows: {
     return builder;
   });
 
-  return { from } as unknown as import("@supabase/supabase-js").SupabaseClient;
+  // Package D lookup (password member by verified email) — OAuth-only users never match.
+  const auth = {
+    admin: {
+      listUsers: vi.fn(async () => ({ data: { users: [] }, error: null })),
+    },
+  };
+
+  return { from, auth } as unknown as import("@supabase/supabase-js").SupabaseClient;
 }
 
 function googleOAuthUser(overrides?: Partial<User> & { sub?: string; sessionUserId?: string }): User {
@@ -283,5 +290,246 @@ describe("enforceWebOAuthProviderPolicy", () => {
     expect(result.ok).toBe(true);
     expect(result.diag.policyResult).toBe("allow");
     expect(result.diag.conflictReason).toBeNull();
+  });
+});
+
+function googleUserWithAutoLinkedApple(opts?: { appleEmail?: string }): User {
+  const appleEmail = opts?.appleEmail ?? "same@gmail.com";
+  return {
+    id: "user-google",
+    email: "same@gmail.com",
+    identities: [
+      {
+        id: "auth-identity-google",
+        user_id: "user-google",
+        identity_data: { sub: "google-sub-1", email: "same@gmail.com", email_verified: true },
+        provider: "google",
+        created_at: "",
+        last_sign_in_at: "2026-10-01T00:00:00Z",
+        updated_at: "",
+      },
+      {
+        id: "auth-identity-apple",
+        user_id: "user-google",
+        identity_data: { sub: "apple-sub-1", email: appleEmail, email_verified: true },
+        provider: "apple",
+        created_at: "",
+        last_sign_in_at: "2026-10-21T00:00:00Z",
+        updated_at: "",
+      },
+    ],
+    app_metadata: {},
+    user_metadata: {},
+    aud: "authenticated",
+    created_at: "",
+  } as unknown as User;
+}
+
+describe("P1-6 this-login identity candidate", () => {
+  it("prefers identity matching callback ?provider=", () => {
+    const user = googleUserWithAutoLinkedApple();
+    expect(buildOAuthUserProviderCandidate(user, { loginProvider: "google" })?.provider).toBe(
+      "google",
+    );
+    expect(buildOAuthUserProviderCandidate(user, { loginProvider: "apple" })?.providerUserId).toBe(
+      "apple-sub-1",
+    );
+  });
+
+  it("falls back to newest last_sign_in_at when provider param is absent", () => {
+    const candidate = buildOAuthUserProviderCandidate(googleUserWithAutoLinkedApple());
+    expect(candidate?.provider).toBe("apple");
+  });
+});
+
+describe("P1-6 Supabase email auto-link bypass", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+  });
+
+  it("auto-linked Apple on Google member (email match) → provider_email_conflict", async () => {
+    const sb = mockSb({
+      identities: [
+        {
+          id: "id-g",
+          user_id: "user-google",
+          provider: "google",
+          provider_user_id: "google-sub-1",
+          email: "same@gmail.com",
+          email_is_private_relay: false,
+        },
+      ],
+      profiles: [{ id: "user-google" }],
+    });
+    const result = await enforceWebOAuthProviderPolicy(sb, googleUserWithAutoLinkedApple(), {
+      callbackAttemptId: "woc-p16-email",
+      loginProvider: "apple",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errorCode).toBe("provider_email_conflict");
+    expect(result.conflict?.attemptedProvider).toBe("apple");
+    expect(result.conflict?.existingProviders).toEqual(["google"]);
+    expect(result.conflict?.stashToken).toBeTruthy();
+  });
+
+  it("auto-linked Apple without SSOT email match (resolve=new) → provider_email_conflict, not existing-account login", async () => {
+    const sb = mockSb({
+      identities: [
+        {
+          id: "id-g",
+          user_id: "user-google",
+          provider: "google",
+          provider_user_id: "google-sub-1",
+          email: null,
+          email_is_private_relay: false,
+        },
+      ],
+      profiles: [{ id: "user-google" }],
+    });
+    const result = await enforceWebOAuthProviderPolicy(sb, googleUserWithAutoLinkedApple(), {
+      callbackAttemptId: "woc-p16-new",
+      loginProvider: "apple",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errorCode).toBe("provider_email_conflict");
+    expect(result.diag.rejectionBranch).toBe("new.supabase_auto_linked_identity");
+    expect(result.diag.autoLinkAllowed).toBe(false);
+    expect(result.conflict).toMatchObject({
+      email: "same@gmail.com",
+      attemptedProvider: "apple",
+      existingProviders: ["google"],
+    });
+  });
+
+  it("same-provider Google relogin on the same user stays allowed (no rebind, no conflict)", async () => {
+    const sb = mockSb({
+      identities: [
+        {
+          id: "id-g",
+          user_id: "user-google",
+          provider: "google",
+          provider_user_id: "google-sub-1",
+          email: "same@gmail.com",
+          email_is_private_relay: false,
+        },
+      ],
+      profiles: [{ id: "user-google" }],
+    });
+    const result = await enforceWebOAuthProviderPolicy(sb, googleUserWithAutoLinkedApple(), {
+      callbackAttemptId: "woc-p16-relogin",
+      loginProvider: "google",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.candidate?.provider).toBe("google");
+    expect(result.rebindToUserId).toBeUndefined();
+  });
+
+  it("DIBAY-linked Apple (SSOT row on same user) relogin stays allowed", async () => {
+    const sb = mockSb({
+      identities: [
+        {
+          id: "id-g",
+          user_id: "user-google",
+          provider: "google",
+          provider_user_id: "google-sub-1",
+          email: "same@gmail.com",
+          email_is_private_relay: false,
+        },
+        {
+          id: "id-a",
+          user_id: "user-google",
+          provider: "apple",
+          provider_user_id: "apple-sub-1",
+          email: "same@gmail.com",
+          email_is_private_relay: false,
+        },
+      ],
+      profiles: [{ id: "user-google" }],
+    });
+    const result = await enforceWebOAuthProviderPolicy(sb, googleUserWithAutoLinkedApple(), {
+      callbackAttemptId: "woc-p16-linked",
+      loginProvider: "apple",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.candidate?.provider).toBe("apple");
+  });
+
+  it("brand-new single-identity Apple user stays allowed", async () => {
+    const sb = mockSb({ identities: [], profiles: [] });
+    const user = googleUserWithAutoLinkedApple();
+    const fresh = {
+      ...user,
+      id: "fresh-apple",
+      email: "fresh@icloud.com",
+      identities: [
+        {
+          ...(user.identities?.[1] ?? {}),
+          user_id: "fresh-apple",
+          identity_data: { sub: "apple-fresh", email: "fresh@icloud.com", email_verified: true },
+        },
+      ],
+    } as User;
+    const result = await enforceWebOAuthProviderPolicy(sb, fresh, {
+      callbackAttemptId: "woc-p16-fresh",
+      loginProvider: "apple",
+    });
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("OA-17 persistOAuthProviderIdentity retry", () => {
+  it("retries once then logs oauth_identity_persist_failed without throwing", async () => {
+    vi.resetModules();
+    const ensure = vi.fn(async () => {
+      throw Object.assign(new Error("db down"), { code: "57P01" });
+    });
+    vi.doMock("@/lib/auth/provider-identity/native-session-bridge.server", () => ({
+      ensureProviderAuthIdentityRow: ensure,
+    }));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const mod = await import("@/lib/auth/provider-identity/web-oauth-policy.server");
+    const ok = await mod.persistOAuthProviderIdentity(
+      {} as import("@supabase/supabase-js").SupabaseClient,
+      "user-1",
+      { provider: "kakao", providerUserId: "kakao-1" },
+      { callbackAttemptId: "woc-oa17" },
+    );
+    expect(ok).toBe(false);
+    expect(ensure).toHaveBeenCalledTimes(2);
+    const logged = String(errSpy.mock.calls[0]?.[1] ?? "");
+    expect(logged).toContain("oauth_identity_persist_failed");
+    expect(logged).toContain("woc-oa17");
+    expect(logged).not.toContain("kakao-1");
+    expect(logged).not.toContain("user-1");
+    vi.doUnmock("@/lib/auth/provider-identity/native-session-bridge.server");
+  });
+
+  it("second attempt success returns true without error log", async () => {
+    vi.resetModules();
+    let calls = 0;
+    const ensure = vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("transient");
+    });
+    vi.doMock("@/lib/auth/provider-identity/native-session-bridge.server", () => ({
+      ensureProviderAuthIdentityRow: ensure,
+    }));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    errSpy.mockClear();
+    const mod = await import("@/lib/auth/provider-identity/web-oauth-policy.server");
+    const ok = await mod.persistOAuthProviderIdentity(
+      {} as import("@supabase/supabase-js").SupabaseClient,
+      "user-1",
+      { provider: "google", providerUserId: "g-1" },
+    );
+    expect(ok).toBe(true);
+    expect(ensure).toHaveBeenCalledTimes(2);
+    expect(errSpy).not.toHaveBeenCalled();
+    vi.doUnmock("@/lib/auth/provider-identity/native-session-bridge.server");
   });
 });

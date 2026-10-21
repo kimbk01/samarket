@@ -112,10 +112,14 @@ export function parseAdminPermissionsPayload(raw: unknown): AdminPermissionKey[]
   return normalizeAdminPermissionKeys(raw);
 }
 
-export async function loadStaffPermissionKeys(
+/**
+ * 저장된 권한 행 — 행이 없으면 null (= 명시 권한 없음 → 티어 기본값), 행이 있으면 저장값 그대로(`[]` = 권한 없음).
+ * 테이블 자체가 없으면 null (행 없음과 같음).
+ */
+export async function loadStoredStaffPermissionKeys(
   sb: SupabaseClient,
   userId: string
-): Promise<AdminPermissionKey[]> {
+): Promise<AdminPermissionKey[] | null> {
   const { data, error } = await sb
     .from("admin_staff_permissions")
     .select("permissions")
@@ -123,16 +127,36 @@ export async function loadStaffPermissionKeys(
     .maybeSingle();
   if (error) {
     if (isMissingAdminStaffPermissionsTable(error.message)) {
-      return [];
+      return null;
     }
     throw new Error(error.message);
   }
-  if (!data) return [];
+  if (!data) return null;
   return parseAdminPermissionsPayload((data as { permissions?: unknown }).permissions);
 }
 
+export async function loadStaffPermissionKeys(
+  sb: SupabaseClient,
+  userId: string
+): Promise<AdminPermissionKey[]> {
+  return (await loadStoredStaffPermissionKeys(sb, userId)) ?? [];
+}
+
 /**
- * DB에 명시 권한이 없거나 VALID EMPTY ARRAY([])이면 admin_tier 기반 역할 기본 권한을 사용한다.
+ * 저장된 권한 행 → 유효 권한 (AD-05).
+ * - 행 없음(null/undefined) → admin_tier 기반 역할 기본 권한
+ * - 행 있음 → 저장값 그대로. 명시 저장된 빈 배열([])은 "권한 키 없음" 이다 (티어 기본값으로 바꾸지 않는다).
+ */
+export function resolveEffectiveStaffPermissionsFromStored(
+  stored: AdminPermissionKey[] | null | undefined,
+  uiRole: AdminRole
+): AdminPermissionKey[] {
+  if (stored == null) return defaultPermissionsForUiRole(uiRole);
+  return [...stored];
+}
+
+/**
+ * DB에 권한 행이 없으면 admin_tier 기반 역할 기본 권한을 사용한다. 행이 있으면 저장값(빈 배열 = 권한 없음).
  * SCHEMA ERROR 는 여기로 내려오지 않는다 (throw).
  */
 export async function loadEffectiveStaffPermissions(
@@ -145,9 +169,11 @@ export async function loadEffectiveStaffPermissions(
     return defaultPermissionsForUiRole("master");
   }
   if (!isAdminStaffRole(profileRole)) return [];
-  const explicit = await loadStaffPermissionKeys(sb, userId);
-  if (explicit.length > 0) return explicit;
-  return defaultPermissionsForUiRole(adminTierToUiRole(adminTier ?? null, profileRole ?? null));
+  const stored = await loadStoredStaffPermissionKeys(sb, userId);
+  return resolveEffectiveStaffPermissionsFromStored(
+    stored,
+    adminTierToUiRole(adminTier ?? null, profileRole ?? null)
+  );
 }
 
 /** 스태프 목록용 — 권한을 user_id별로 한 번에 로드 */
@@ -348,7 +374,7 @@ export async function userHasRecentWarn(
 
 /**
  * Live canonical WRITE: one user_id → one permissions jsonb string array.
- * Empty [] is a valid persisted payload (read path still applies tier-default).
+ * Empty [] is a valid persisted payload = "no permission keys" (AD-05). Tier-default applies only when no row exists.
  */
 export async function replaceStaffPermissions(
   sb: SupabaseClient,

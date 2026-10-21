@@ -68,7 +68,6 @@ function mapNativeSessionFailure(
       email: string;
       attemptedProvider: string;
       existingProviders: string[];
-      existingUserId: string;
       stashToken: string;
     };
   },
@@ -83,7 +82,6 @@ function mapNativeSessionFailure(
         email: session.conflict.email,
         attemptedProvider: session.conflict.attemptedProvider,
         existingProviders: session.conflict.existingProviders,
-        existingUserId: session.conflict.existingUserId,
         stashToken: session.conflict.stashToken,
       },
     };

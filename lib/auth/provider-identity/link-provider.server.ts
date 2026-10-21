@@ -127,5 +127,49 @@ export async function unlinkProvider(
     };
   }
 
+  await clearProfileFallbackForUnlinkedProvider(sb, userId, provider, target.provider_user_id);
+
   return { ok: true };
+}
+
+/**
+ * OA-16 — identity row 삭제 후에도 `profiles_fallback`(provider + provider_user_id)이
+ * 같은 공급자 로그인을 이 회원으로 되살리지 않도록, profiles.provider 가 해제 공급자일 때만
+ * provider_user_id 를 비운다 (다른 공급자 식별값은 건드리지 않는다).
+ */
+async function clearProfileFallbackForUnlinkedProvider(
+  sb: SupabaseClient,
+  userId: string,
+  provider: LinkableAuthProvider,
+  unlinkedProviderUserId: string | null | undefined,
+): Promise<void> {
+  const { data: profile, error } = await sb
+    .from("profiles")
+    .select("provider, provider_user_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error || !profile) return;
+  const row = profile as { provider?: string | null; provider_user_id?: string | null };
+  if (String(row.provider ?? "").trim().toLowerCase() !== provider) return;
+  const current = String(row.provider_user_id ?? "").trim();
+  if (!current) return;
+  const unlinkedSubject = String(unlinkedProviderUserId ?? "").trim();
+  if (unlinkedSubject && current !== unlinkedSubject) return;
+  await sb
+    .from("profiles")
+    .update({ provider_user_id: null, updated_at: new Date().toISOString() })
+    .eq("id", userId)
+    .eq("provider", provider);
+}
+
+/** OA-16 — 연결 해제는 최근 10분 내 로그인(재인증)한 세션만 허용. */
+export const PROVIDER_UNLINK_REAUTH_WINDOW_MS = 10 * 60 * 1000;
+
+export function isRecentSignInForSensitiveAction(
+  lastSignInAt: string | null | undefined,
+  nowMs: number = Date.now(),
+): boolean {
+  const ts = Date.parse(String(lastSignInAt ?? ""));
+  if (!Number.isFinite(ts)) return false;
+  return nowMs - ts <= PROVIDER_UNLINK_REAUTH_WINDOW_MS && ts <= nowMs + 60_000;
 }

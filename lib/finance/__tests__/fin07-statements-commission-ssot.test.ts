@@ -165,14 +165,20 @@ describe("FIN-07 legacy settlement list APIs retired (410)", () => {
 
   it("GET /api/admin/store-settlements → 403 non-admin, 410 admin", async () => {
     vi.resetModules();
+    // AD-04: 정산 목록은 business 권한 키 가드 (isRouteAdmin 아님)
     const admin = vi.fn(async () => false);
-    vi.doMock("@/lib/auth/is-route-admin", () => ({ isRouteAdmin: () => admin() }));
+    vi.doMock("@/lib/admin/require-admin-permission", () => ({
+      requireAdminPermission: async () =>
+        (await admin())
+          ? { ok: true }
+          : { ok: false, response: new Response(JSON.stringify({ ok: false }), { status: 403 }) },
+    }));
     const { GET } = await import("@/app/api/admin/store-settlements/route");
     expect((await GET()).status).toBe(403);
     admin.mockResolvedValue(true);
     const res = await GET();
     expect(res.status).toBe(410);
     expect(await res.json()).toMatchObject({ ok: false, error: "legacy_store_settlements_retired" });
-    vi.doUnmock("@/lib/auth/is-route-admin");
+    vi.doUnmock("@/lib/admin/require-admin-permission");
   });
 });

@@ -18,7 +18,6 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-entry-intent";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
-import { markRoomAsRead } from "@/lib/chat/markRoomAsRead";
 import { getAppSettings } from "@/lib/app-settings";
 import { ChatProductSummary } from "./ChatProductSummary";
 import { ChatMessageList } from "./ChatMessageList";
@@ -1353,22 +1352,22 @@ export function ChatDetailView({
         });
       return;
     }
-    markRoomAsRead(room.id).then(async (res) => {
-      /** 클라이언트 읽음 성공만으로는 통합 chat_rooms 미읽음이 남을 수 있어, 서비스 롤 API로 동기화 */
-      const data = await fetch(`/api/chat/room/${room.id}/read`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      })
-        .then((r) => r.ok && r.json())
-        .catch(() => null);
-      if (data?.ok || res.ok) {
-        dispatchTradeChatUnreadUpdated({
-          source: "chat-detail-read",
-          key: `legacy-room:${room.id}`,
-        });
-      }
-    });
+    /** 읽음 처리는 서비스 롤 API 단일 경로 — product_chats 회원 JWT 직접 쓰기는 DB 에서 차단 */
+    void fetch(`/api/chat/room/${room.id}/read`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    })
+      .then((r) => r.ok && r.json())
+      .catch(() => null)
+      .then((data) => {
+        if (data?.ok) {
+          dispatchTradeChatUnreadUpdated({
+            source: "chat-detail-read",
+            key: `legacy-room:${room.id}`,
+          });
+        }
+      });
   }, [room.id, currentUserId, isChatRoom]);
 
   useEffect(() => {

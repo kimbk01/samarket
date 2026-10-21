@@ -19,6 +19,7 @@
 import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
 import { isUsedCarTradeWriteSkin } from "@/lib/trade/resolve-trade-write-skin-key";
 import { isPersistableStorageMediaRef } from "@/lib/media/persistable-storage-media-ref";
+import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 
 const STORAGE_VERSION = 1 as const;
 const KEY_PREFIX = "samarket:trade-write-form";
@@ -116,7 +117,27 @@ export type TradeWriteFormSessionDraftV1 = {
   usedCarMileagePresetKey?: string;
   /** 중고차 삽니다 — meta.car_body_type 키 복원 */
   usedCarBodyTypeKey?: string;
+  /**
+   * P0-2 — 초안 작성자(user id). 쓰기 시점 기기 bound user 로 기록.
+   * 읽기 시 현재 bound user 와 다르거나(다른 계정) 없으면(소유자 미상·비로그인) 무시한다.
+   */
+  ownerUserId?: string | null;
 };
+
+/** 현재 bound user 소유 초안만 허용 — 다른/미상 소유자 초안은 null */
+function acceptDraftForCurrentOwner(
+  d: TradeWriteFormSessionDraftV1
+): TradeWriteFormSessionDraftV1 | null {
+  const owner = getBoundAuthUserId();
+  if (!owner) return null;
+  const draftOwner = typeof d.ownerUserId === "string" ? d.ownerUserId.trim() : "";
+  if (!draftOwner || draftOwner !== owner) return null;
+  return d;
+}
+
+function stampDraftOwner(d: TradeWriteFormSessionDraftV1): TradeWriteFormSessionDraftV1 {
+  return { ...d, ownerUserId: getBoundAuthUserId() };
+}
 
 function storageKey(categoryId: string): string {
   return `${KEY_PREFIX}:v${STORAGE_VERSION}:${categoryId}`;
@@ -133,7 +154,7 @@ function readTradeWriteFormLocalDraft(categoryId: string): TradeWriteFormSession
     if (!raw) return null;
     const j = JSON.parse(raw) as Partial<TradeWriteFormSessionDraftV1>;
     if (j.v !== STORAGE_VERSION || j.categoryId !== categoryId.trim()) return null;
-    return j as TradeWriteFormSessionDraftV1;
+    return acceptDraftForCurrentOwner(j as TradeWriteFormSessionDraftV1);
   } catch {
     return null;
   }
@@ -272,14 +293,15 @@ export function readTradeWriteFormSessionDraft(categoryId: string): TradeWriteFo
     if (!raw) return null;
     const j = JSON.parse(raw) as Partial<TradeWriteFormSessionDraftV1>;
     if (j.v !== STORAGE_VERSION || j.categoryId !== categoryId.trim()) return null;
-    return j as TradeWriteFormSessionDraftV1;
+    return acceptDraftForCurrentOwner(j as TradeWriteFormSessionDraftV1);
   } catch {
     return null;
   }
 }
 
-export function writeTradeWriteFormSessionDraft(d: TradeWriteFormSessionDraftV1): void {
-  if (typeof window === "undefined" || !d.categoryId.trim()) return;
+export function writeTradeWriteFormSessionDraft(draft: TradeWriteFormSessionDraftV1): void {
+  if (typeof window === "undefined" || !draft.categoryId.trim()) return;
+  const d = stampDraftOwner(draft);
   try {
     sessionStorage.setItem(storageKey(d.categoryId.trim()), JSON.stringify(d));
   } catch {

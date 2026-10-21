@@ -14,6 +14,11 @@ export type AuthProviderRow = {
   enabled: boolean;
   client_id: string;
   client_secret: string;
+  /**
+   * P2-16: 비밀값 설정 여부 (DB 컬럼 `client_secret_configured`). 비밀값 원문은 Vault 로 옮기고
+   * 테이블 `client_secret` 은 빈 문자열로 둔다 — 앱은 원문 대신 이 플래그로 설정 여부를 판단한다.
+   */
+  client_secret_configured?: boolean;
   redirect_uri: string;
   scope: string;
   sort_order: number;
@@ -55,10 +60,23 @@ export function isNonEmptyText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-export function hasRequiredOAuthKeys(row: Pick<AuthProviderRow, "client_id" | "client_secret" | "redirect_uri">): boolean {
+/** P2-16: 비밀값 설정 여부 — 플래그(`client_secret_configured === true`) 또는 (이전 단계) 비어 있지 않은 원문. */
+export function isAuthProviderSecretConfigured(row: {
+  client_secret?: string | null;
+  client_secret_configured?: boolean | null;
+}): boolean {
+  return row.client_secret_configured === true || isNonEmptyText(row.client_secret);
+}
+
+export function hasRequiredOAuthKeys(
+  row: Pick<AuthProviderRow, "client_id" | "redirect_uri"> & {
+    client_secret?: string | null;
+    client_secret_configured?: boolean | null;
+  }
+): boolean {
   return (
     isNonEmptyText(row.client_id) &&
-    isNonEmptyText(row.client_secret) &&
+    isAuthProviderSecretConfigured(row) &&
     isNonEmptyText(row.redirect_uri)
   );
 }

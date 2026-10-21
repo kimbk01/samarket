@@ -2,6 +2,7 @@ import type { Profile } from "@/lib/types/profile";
 import { normalizeProfilePublicIdFields } from "@/lib/auth/dibay-public-id-ssot";
 import {
   deriveDibaySignupStatus,
+  isDibaySignupGateExcludedPath,
   type DibaySignupProfileInput,
 } from "@/lib/auth/dibay-signup-status";
 import { getClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
@@ -35,4 +36,16 @@ export function isClientSignupComplete(user: Profile | null | undefined): boolea
     hasSession: true,
     requiredConsent: getClientRequiredConsentVersions(),
   }).consentComplete;
+}
+
+/**
+ * P2-1 (SG-05): 클라이언트 동의 게이트 제외 경로 — 로그인·인증·온보딩·법적 고지·고객센터.
+ * 그 외 경로(public browse 포함)는 로그인 + 미동의 회원이면 동의 화면으로 보낸다. 게스트는 대상 아님.
+ */
+export function isClientSignupGateExemptPath(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]?.trim() || "";
+  if (!p) return true;
+  if (isDibaySignupGateExcludedPath(p)) return true;
+  const prefixes = ["/auth", "/login", "/signup", "/onboarding", "/terms", "/privacy", "/legal", "/support"];
+  return prefixes.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
 }

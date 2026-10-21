@@ -3,6 +3,7 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   buildSupabaseCallbackUrl,
+  isAuthProviderSecretConfigured,
   normalizeOAuthProvider,
   sortAuthProviders,
   validateRedirectUriWithWhitelist,
@@ -38,9 +39,12 @@ function toPublicRow(row: AuthProviderRow): AuthProviderPublicMeta {
     sort_order: row.sort_order,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    client_secret_configured: row.client_secret.trim().length > 0,
+    client_secret_configured: isAuthProviderSecretConfigured(row),
   };
 }
+
+/** P2-16: 비밀값 원문은 Vault 에만 저장 (service_role 전용 RPC). 테이블에는 설정 여부 플래그만 남긴다. */
+const AUTH_PROVIDER_SECRET_RPC = "admin_set_auth_provider_secret";
 
 /** V3-09: OAuth 로그인 수단 — 전체 회원 로그인에 영향 → settings 권한 (auth-phone 과 동일 키). */
 export async function GET() {
@@ -82,13 +86,10 @@ export async function POST(req: NextRequest) {
   const incomingClientId = hasField("client_id")
     ? String(payload.client_id ?? "").trim()
     : existing?.client_id ?? "";
-  const incomingSecret = hasField("client_secret")
-    ? (() => {
-        const candidate = String(payload.client_secret ?? "").trim();
-        if (candidate.length > 0) return candidate;
-        return existing?.client_secret ?? "";
-      })()
-    : existing?.client_secret ?? "";
+  // 빈 값·생략 = 기존 비밀값 유지. 새 값만 Vault 로 저장한다 (원문을 테이블에 쓰지 않음).
+  const newSecret = hasField("client_secret") ? String(payload.client_secret ?? "").trim() : "";
+  const secretChanged = newSecret.length > 0;
+  const secretConfigured = secretChanged || (existing ? isAuthProviderSecretConfigured(existing) : false);
   const defaultSupabaseCallback = buildSupabaseCallbackUrl(process.env.NEXT_PUBLIC_SUPABASE_URL) ?? "";
   const incomingRedirectUri = hasField("redirect_uri")
     ? String(payload.redirect_uri ?? "").trim()
@@ -106,19 +107,29 @@ export async function POST(req: NextRequest) {
     provider,
     enabled: incomingEnabled,
     client_id: incomingClientId,
-    client_secret: incomingSecret,
     redirect_uri: incomingRedirectUri,
     scope: incomingScope,
     sort_order: incomingSortOrder,
     updated_at: now,
+    // 비밀값 칸은 RPC 가 Vault 참조값(vault:<name>)으로 바꾼다 — 여기서는 플래그만 맞춘다 (생략 시 기존 값 유지).
+    ...(secretChanged ? { client_secret_configured: true } : {}),
   };
+  if (secretChanged) {
+    const { error: secretError } = await sb.rpc(AUTH_PROVIDER_SECRET_RPC, {
+      p_provider: provider,
+      p_secret: newSecret,
+    });
+    if (secretError) {
+      return jsonError(clientSafeInternalErrorMessage("auth_provider_secret_store_failed"), 500);
+    }
+  }
   const { error } = await sb.from("auth_providers").upsert(row, { onConflict: "provider" });
   if (error) {
     return jsonError(clientSafeInternalErrorMessage(error.message || "auth_provider_upsert_failed"), 500);
   }
   const { data: refreshed, error: loadError } = await sb
     .from("auth_providers")
-    .select("id, provider, enabled, client_id, client_secret, redirect_uri, scope, sort_order, created_at, updated_at")
+    .select("id, provider, enabled, client_id, client_secret_configured, redirect_uri, scope, sort_order, created_at, updated_at")
     .eq("provider", provider)
     .maybeSingle();
   if (loadError || !refreshed) {
@@ -132,11 +143,19 @@ export async function POST(req: NextRequest) {
     targetType: "auth_provider",
     targetId: provider,
     action: existing ? "auth_provider.update" : "auth_provider.create",
-    before: existing ? maskAuthProviderForAudit(existing) : null,
+    before: existing
+      ? {
+          ...maskAuthProviderForAudit(existing),
+          client_secret: isAuthProviderSecretConfigured(existing) ? "***" : "",
+        }
+      : null,
     after: {
-      ...maskAuthProviderForAudit(row),
-      client_secret_changed: (existing?.client_secret ?? "") !== row.client_secret,
+      ...maskAuthProviderForAudit({ ...row, client_secret: "" }),
+      client_secret: secretConfigured ? "***" : "",
+      client_secret_changed: secretChanged,
     },
   });
-  return jsonOk({ provider: toPublicRow(refreshed as AuthProviderRow) });
+  return jsonOk({
+    provider: toPublicRow({ ...(refreshed as Omit<AuthProviderRow, "client_secret">), client_secret: "" }),
+  });
 }

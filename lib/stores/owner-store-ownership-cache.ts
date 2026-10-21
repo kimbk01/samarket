@@ -5,8 +5,12 @@ type GateResult =
   | { ok: true; store: StoreGateRow }
   | { ok: false; status: number; error: string };
 
-/** 허브·주문 탭 폴링(25~30s) 동안 동일 user+store ownership 재조회 방지 */
-export const OWNER_STORE_OWNERSHIP_TTL_MS = 30_000;
+/**
+ * 같은 화면 로드 버스트(허브·주문·카운트 동시 요청)의 user+store ownership 재조회 방지.
+ * P2-7 (SV-07): 소유자 변경·매장 상태 변경 무효화는 처리 인스턴스에만 닿으므로
+ * 다른 인스턴스의 stale 창을 5s 이하로 고정 (적중 재검증은 미스와 같은 PK 1회 비용이라 TTL 로 제한).
+ */
+export const OWNER_STORE_OWNERSHIP_TTL_MS = 5_000;
 
 type OwnerOwnershipCacheGlobal = {
   __samarketOwnerStoreOwnershipCache?: Map<string, { expiresAt: number; gate: GateResult }>;

@@ -1,143 +1,83 @@
-import { createHash, randomUUID } from "node:crypto";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
-export const NAVER_OAUTH_STATE_COOKIE = "samarket_naver_oauth_state";
+/**
+ * Naver 로그인은 Owner 결정(2026-10-21 P0-1)으로 비활성 — start/callback 라우트는 410 만 반환한다.
+ * 이메일 기반 계정 재사용(비밀번호 재설정·식별 컬럼 덮어쓰기) 헬퍼는 제거했다.
+ * 아래 `findAuthUserByEmail` 은 native synthetic email 복구 경로가 계속 사용한다.
+ */
+export const NAVER_LOGIN_DISABLED_ERROR_CODE = "naver_login_disabled";
 
-type NaverProfileResponse = {
-  id: string;
-  email: string;
-  name: string;
-  nickname: string;
-  profileImage: string | null;
-};
+/** OA-08 — 페이지 스캔 안전 상한 (perPage × pages = 100,000명). 기존 4,000명 상한 대체. */
+const LIST_USERS_PER_PAGE = 1000;
+const LIST_USERS_MAX_PAGES = 100;
+const INDEXED_CANDIDATE_LIMIT = 5;
 
-function b64url(input: string): string {
-  return Buffer.from(input, "utf8").toString("base64url");
+function normalizeEmail(email: string | null | undefined): string {
+  return String(email ?? "").trim().toLowerCase();
 }
 
-function fromB64url(input: string): string {
-  return Buffer.from(input, "base64url").toString("utf8");
-}
-
-export function buildNaverState(next: string | null): string {
-  const payload = {
-    csrf: randomUUID().replace(/-/g, ""),
-    next: next ?? "",
-    ts: Date.now(),
+async function collectIndexedCandidateIds(adminSb: SupabaseClient, normalized: string): Promise<string[]> {
+  const ids = new Set<string>();
+  const add = (rows: unknown, key: "id" | "user_id") => {
+    if (!Array.isArray(rows)) return;
+    for (const row of rows) {
+      const id = String((row as Record<string, unknown>)[key] ?? "").trim();
+      if (id) ids.add(id);
+    }
   };
-  return b64url(JSON.stringify(payload));
-}
-
-export function parseNaverState(state: string | null): { csrf: string; next: string | null } | null {
-  if (!state) return null;
   try {
-    const parsed = JSON.parse(fromB64url(state)) as { csrf?: unknown; next?: unknown; ts?: unknown };
-    const csrf = typeof parsed.csrf === "string" ? parsed.csrf.trim() : "";
-    const next = typeof parsed.next === "string" ? parsed.next.trim() : "";
-    if (!csrf) return null;
-    return { csrf, next: next || null };
+    const { data } = await adminSb
+      .from("profiles")
+      .select("id")
+      .eq("auth_login_email", normalized)
+      .limit(INDEXED_CANDIDATE_LIMIT);
+    add(data, "id");
   } catch {
-    return null;
+    /* indexed lookup is best-effort — paged scan follows */
   }
-}
-
-export function buildNaverAuthorizeUrl(args: {
-  clientId: string;
-  redirectUri: string;
-  state: string;
-}): string {
-  const url = new URL("https://nid.naver.com/oauth2.0/authorize");
-  url.searchParams.set("client_id", args.clientId);
-  url.searchParams.set("redirect_uri", args.redirectUri);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("state", args.state);
-  return url.toString();
-}
-
-export async function requestNaverToken(args: {
-  clientId: string;
-  clientSecret: string;
-  code: string;
-  state: string;
-}): Promise<{ accessToken: string }> {
-  const tokenUrl = new URL("https://nid.naver.com/oauth2.0/token");
-  tokenUrl.searchParams.set("grant_type", "authorization_code");
-  tokenUrl.searchParams.set("client_id", args.clientId);
-  tokenUrl.searchParams.set("client_secret", args.clientSecret);
-  tokenUrl.searchParams.set("code", args.code);
-  tokenUrl.searchParams.set("state", args.state);
-
-  const res = await fetch(tokenUrl, { method: "POST", cache: "no-store" });
-  const json = (await res.json().catch(() => null)) as
-    | { access_token?: string; error?: string; error_description?: string }
-    | null;
-  if (!res.ok || !json?.access_token) {
-    const detail = json?.error_description || json?.error || `token_http_${res.status}`;
-    throw new Error(`naver_token_failed:${detail}`);
+  try {
+    const { data } = await adminSb
+      .from("user_auth_identities")
+      .select("user_id")
+      .eq("email", normalized)
+      .limit(INDEXED_CANDIDATE_LIMIT);
+    add(data, "user_id");
+  } catch {
+    /* indexed lookup is best-effort — paged scan follows */
   }
-  return { accessToken: json.access_token };
+  return Array.from(ids);
 }
 
-export async function fetchNaverProfile(accessToken: string): Promise<NaverProfileResponse> {
-  const res = await fetch("https://openapi.naver.com/v1/nid/me", {
-    method: "GET",
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const json = (await res.json().catch(() => null)) as
-    | {
-        resultcode?: string;
-        message?: string;
-        response?: {
-          id?: string;
-          email?: string;
-          name?: string;
-          nickname?: string;
-          profile_image?: string;
-        };
-      }
-    | null;
-  const body = json?.response;
-  const id = String(body?.id ?? "").trim();
-  const email = String(body?.email ?? "").trim().toLowerCase();
-  if (!res.ok || !id || !email) {
-    const detail = json?.message || `profile_http_${res.status}`;
-    throw new Error(`naver_profile_failed:${detail}`);
-  }
-  return {
-    id,
-    email,
-    name: String(body?.name ?? "").trim(),
-    nickname: String(body?.nickname ?? "").trim(),
-    profileImage: String(body?.profile_image ?? "").trim() || null,
-  };
-}
-
-export function buildNaverSupabasePassword(email: string): string {
-  const seed = process.env.NAVER_OAUTH_PASSWORD_SEED?.trim();
-  if (!seed) {
-    throw new Error("naver_password_seed_missing");
-  }
-  const digest = createHash("sha256").update(`${seed}:${email.toLowerCase()}`).digest("base64url");
-  return `Nv#${digest.slice(0, 48)}!`;
-}
-
+/**
+ * auth.users 를 email 로 찾는다 (정확 일치, 대소문자 무시).
+ * 1) profiles.auth_login_email / user_auth_identities.email 인덱스 후보 → getUserById 로 email 재확인
+ * 2) 없으면 listUsers 페이지 스캔 (상한 100,000명)
+ */
 export async function findAuthUserByEmail(
   adminSb: SupabaseClient,
   email: string
 ): Promise<User | null> {
-  const normalized = email.trim().toLowerCase();
+  const normalized = normalizeEmail(email);
   if (!normalized) return null;
-  const perPage = 200;
-  for (let page = 1; page <= 20; page += 1) {
-    const { data, error } = await adminSb.auth.admin.listUsers({ page, perPage });
+
+  const candidateIds = await collectIndexedCandidateIds(adminSb, normalized);
+  for (const id of candidateIds) {
+    try {
+      const { data } = await adminSb.auth.admin.getUserById(id);
+      const user = data?.user ?? null;
+      if (user && normalizeEmail(user.email) === normalized) return user;
+    } catch {
+      /* fall through to paged scan */
+    }
+  }
+
+  for (let page = 1; page <= LIST_USERS_MAX_PAGES; page += 1) {
+    const { data, error } = await adminSb.auth.admin.listUsers({ page, perPage: LIST_USERS_PER_PAGE });
     if (error) throw new Error(error.message || "list_users_failed");
     const users = Array.isArray(data?.users) ? data.users : [];
-    const hit = users.find((user) => String(user.email ?? "").trim().toLowerCase() === normalized);
+    const hit = users.find((user) => normalizeEmail(user.email) === normalized);
     if (hit) return hit;
-    if (users.length < perPage) break;
+    if (users.length < LIST_USERS_PER_PAGE) break;
   }
   return null;
 }

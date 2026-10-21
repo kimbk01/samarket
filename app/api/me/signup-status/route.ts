@@ -42,7 +42,12 @@ export async function GET(req: NextRequest) {
         role: onboarding.isPrivilegedAdmin ? "admin" : "user",
       },
       // B11: same CMS versions as getOnboardingStatus — never STORE_* alone.
-      { hasSession: true, requiredConsent: onboarding.requiredConsent ?? null }
+      // P2-3: admin 판정은 membership verdict (getOnboardingStatus.isPrivilegedAdmin).
+      {
+        hasSession: true,
+        privilegedAdmin: onboarding.isPrivilegedAdmin === true,
+        requiredConsent: onboarding.requiredConsent ?? null,
+      }
     );
     return jsonOk({
       signup,

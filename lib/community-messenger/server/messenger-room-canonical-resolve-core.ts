@@ -42,6 +42,36 @@ function emptyBreakdown(
 }
 
 /**
+ * P2-7 — membership 캐시 적중 시 1회 재확인 (인덱스 단건 조회).
+ * kick·ban·leave 는 모두 `left_at` 을 기록하므로, 다른 인스턴스에서 회수된 권한도 다음 요청에서 바로 거부된다.
+ * null = 확인 불가(서버 클라이언트 없음 = dev state) → 호출부는 기존 캐시 판정 유지.
+ */
+export async function recheckActiveMessengerParticipant(
+  userId: string,
+  canonicalRoomId: string
+): Promise<boolean | null> {
+  const uid = trimText(userId);
+  const rid = trimText(canonicalRoomId);
+  if (!uid || !rid) return false;
+  let sb: ReturnType<typeof getSupabaseServer> | null = null;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    sb = null;
+  }
+  if (!sb) return null;
+  const { data, error } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("room_id")
+    .eq("room_id", rid)
+    .eq("user_id", uid)
+    .is("left_at", null)
+    .maybeSingle();
+  if (error) return false;
+  return Boolean(trimText((data as { room_id?: unknown } | null)?.room_id as string));
+}
+
+/**
  * API·Realtime bump 가 항상 `community_messenger_rooms.id`(원장 UUID)를 쓰도록 URL `roomId` 를 단일화한다.
  * `service.ts` 전체를 로드하지 않도록 분리(permission cold path).
  */

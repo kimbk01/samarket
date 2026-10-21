@@ -18,7 +18,11 @@ import {
 import { ensureClientInstanceId, getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import { logExplicitLogoutAudit } from "@/lib/auth/explicit-logout-audit-log";
 import { establishGuestAuthState } from "@/lib/auth/guest-auth-state";
-import { markSessionTerminalGuestFromClient } from "@/lib/auth/dibay-session-manager";
+import {
+  broadcastExplicitLogoutToOtherTabs,
+  markSessionTerminalGuestFromClient,
+} from "@/lib/auth/dibay-session-manager";
+import { bumpMessengerBootstrapCacheAuthEpoch } from "@/lib/community-messenger/bootstrap-cache";
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
@@ -252,6 +256,8 @@ export async function runExplicitLogoutFlow(scope: ExplicitLogoutScope): Promise
     "@/lib/auth/explicit-logout-intent"
   );
   beginExplicitLogoutIntent(`explicit_logout:${scope}`);
+  // P2-9 — 로그아웃 시작 이전에 출발한 메신저 bootstrap 응답은 캐시에 다시 쓰지 않는다.
+  bumpMessengerBootstrapCacheAuthEpoch();
 
   let deviceUnbindOk = false;
   let deviceUnbindError: string | null = null;
@@ -319,6 +325,8 @@ export async function runExplicitLogoutFlow(scope: ExplicitLogoutScope): Promise
     establishGuestAuthState(`explicit_logout:${scope}`);
     markSessionTerminalGuestFromClient(`explicit_logout:${scope}`);
     applyImmediateLogoutClientState();
+    // P0-2 — 다른 탭도 같은 wipe + post-logout 하드 이동 (wipe 완료 후 1회).
+    broadcastExplicitLogoutToOtherTabs(previousViewerId ?? null);
     logExplicitLogoutAudit("terminal_guest_after_explicit_logout", {
       scope,
       deviceUnbindOk,

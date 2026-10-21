@@ -1,3 +1,5 @@
+import { readKakaoAppIdEnv } from "@/lib/auth/native/kakao-auth-env.server";
+
 export type KakaoVerifiedIdentity = {
   kakaoUserId: string;
   appId?: number | null;
@@ -12,7 +14,9 @@ export type KakaoVerifiedIdentity = {
 export type KakaoTokenVerifyErrorCode =
   | "kakao_token_missing"
   | "kakao_token_verify_failed"
-  | "kakao_token_invalid";
+  | "kakao_token_invalid"
+  | "kakao_token_app_mismatch"
+  | "kakao_app_id_unconfigured";
 
 export class KakaoTokenVerifyError extends Error {
   code: KakaoTokenVerifyErrorCode;
@@ -31,6 +35,9 @@ export function mapKakaoVerifyErrorToHttp(error: KakaoTokenVerifyError): {
 } {
   if (error.code === "kakao_token_missing" || error.code === "kakao_token_invalid") {
     return { errorCode: "native_exchange_bad_request", message: error.message, status: 400 };
+  }
+  if (error.code === "kakao_app_id_unconfigured") {
+    return { errorCode: "native_provider_unconfigured", message: error.message, status: 503 };
   }
   return { errorCode: "native_exchange_verify_failed", message: error.message, status: 401 };
 }
@@ -80,6 +87,31 @@ async function fetchKakaoAccessTokenInfo(accessToken: string): Promise<KakaoAcce
   return json;
 }
 
+/**
+ * P1-2 — 다른 Kakao 앱이 발급한 access token 거부 (fail-closed).
+ * `KAKAO_APP_ID` 미설정·비정상이면 앱 식별을 할 수 없으므로 인증 거부(503), 불일치면 401.
+ */
+function requireKakaoAppId(): number {
+  const expectedAppId = readKakaoAppIdEnv();
+  if (expectedAppId === null) {
+    console.error("[auth/kakao-native]", JSON.stringify({ event: "kakao_app_id_env_missing" }));
+    throw new KakaoTokenVerifyError(
+      "kakao_app_id_unconfigured",
+      "Kakao login is temporarily unavailable",
+    );
+  }
+  return expectedAppId;
+}
+
+function assertKakaoTokenAppId(tokenInfo: KakaoAccessTokenInfoResponse, expectedAppId: number): void {
+  if (tokenInfo.app_id !== expectedAppId) {
+    throw new KakaoTokenVerifyError(
+      "kakao_token_app_mismatch",
+      "Kakao access token was not issued for this app",
+    );
+  }
+}
+
 async function fetchKakaoUserProfile(accessToken: string): Promise<KakaoUserMeResponse | null> {
   const res = await fetch("https://kapi.kakao.com/v2/user/me", {
     method: "GET",
@@ -113,7 +145,9 @@ export async function verifyKakaoNativeCredential(input: {
     throw new KakaoTokenVerifyError("kakao_token_missing", "Kakao access token is required");
   }
 
+  const expectedAppId = requireKakaoAppId();
   const tokenInfo = await fetchKakaoAccessTokenInfo(accessToken);
+  assertKakaoTokenAppId(tokenInfo, expectedAppId);
   const kakaoUserId = String(tokenInfo.id);
 
   let nickname: string | null = null;

@@ -579,6 +579,7 @@ describe("Slice 7-1 Google Profile Writer Call Graph Contract", () => {
       const googleUserId = "107373086399795697553";
       const updateEq = vi.fn(async () => ({ error: null }));
       const deleteUser = vi.fn(async () => ({ error: null }));
+      const updateUserById = vi.fn(async () => ({ error: null }));
       const from = vi.fn((table: string) => {
         if (table !== "profiles") return {};
         return {
@@ -600,6 +601,8 @@ describe("Slice 7-1 Google Profile Writer Call Graph Contract", () => {
                     data: {
                       id: orphanProfileId,
                       status: "sns_pending",
+                      member_status: "pending",
+                      terms_accepted_at: null,
                       email: "im2pact@gmail.com",
                       auth_login_email: "im2pact@gmail.com",
                       provider: "google",
@@ -617,14 +620,19 @@ describe("Slice 7-1 Google Profile Writer Call Graph Contract", () => {
         };
       });
       const adminSb = {
-        auth: { admin: { deleteUser } },
+        auth: { admin: { deleteUser, updateUserById } },
         from,
       } as unknown as SupabaseClient;
 
       expect(reconcileActual.fn).toBeTypeOf("function");
       await reconcileActual.fn!(adminSb, canonicalUserId, googleUserId, "im2pact@gmail.com");
       expect(updateEq).toHaveBeenCalledWith("id", orphanProfileId);
-      expect(deleteUser).toHaveBeenCalledWith(orphanProfileId);
+      // P1-8 — hard delete 금지 → tombstone(ban) 로 대체.
+      expect(deleteUser).not.toHaveBeenCalled();
+      expect(updateUserById).toHaveBeenCalledWith(
+        orphanProfileId,
+        expect.objectContaining({ ban_duration: "876000h" }),
+      );
     });
 
     it("P5: enrich=true facade runs pending then ensureUserProfile (single call absorbs false+true local work)", async () => {

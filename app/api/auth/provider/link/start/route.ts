@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
   let candidate: ProviderIdentityCandidate | null = null;
 
   if (stashToken) {
-    candidate = verifyConflictStashToken(stashToken);
+    // P1-4 — stash 는 conflict 대상 회원 세션에서만 유효.
+    candidate = verifyConflictStashToken(stashToken, auth.userId);
     if (!candidate) {
       return noStoreJson(
         {
@@ -44,6 +45,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { linkToken, expiresAt } = createProviderLinkToken(auth.userId, candidate);
+  let issued: { linkToken: string; expiresAt: string };
+  try {
+    issued = createProviderLinkToken(auth.userId, candidate);
+  } catch {
+    return noStoreJson({ ok: false, errorCode: "provider_link_unavailable" }, 503);
+  }
+  const { linkToken, expiresAt } = issued;
   return noStoreJson({ ok: true, linkToken, expiresAt, provider: candidate.provider }, 200);
 }

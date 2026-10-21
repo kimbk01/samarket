@@ -67,10 +67,16 @@ assertIncludes(
   "redirectInFlightTargetRef",
   "DibaySignupGate must coalesce duplicate signup redirects"
 );
+// auth SSOT 2026-10-21 P2-1: 로그인 + 미동의 회원은 공개 경로에서도 동의 화면으로 — 게스트(boot profile 없음)는 대상 아님.
 assertIncludes(
   signupGate,
-  "shouldBlockUnauthenticatedHtmlRequest",
-  "DibaySignupGate must only redirect on private paths (guest browse allowed)"
+  "isClientSignupGateExemptPath",
+  "DibaySignupGate must skip auth/consent/legal exempt paths"
+);
+assertIncludes(
+  signupGate,
+  "if (!boot?.id) return;",
+  "DibaySignupGate must not gate guests (guest browse allowed)"
 );
 
 if (process.exitCode) {

@@ -8,6 +8,7 @@ import {
 import { shouldBlockUnauthenticatedHtmlRequest } from "@/lib/auth/guest-browse-access-policy";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
+import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 
 const SIGNUP_GATE_PROFILE_SELECT =
   "id, dibay_id, dibay_id_locked, username, username_confirmed, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, onboarding_completed_at, onboarding_status, role";
@@ -36,8 +37,16 @@ export async function resolveProxySignupGateRedirect(
   if (error || !data) return null;
 
   const required = await resolveRequiredConsentVersions();
-  const signup = deriveDibaySignupStatus(data, { hasSession: true, requiredConsent: required });
+  let signup = deriveDibaySignupStatus(data, { hasSession: true, requiredConsent: required });
   if (isDibaySignupComplete(signup)) return null;
+
+  // P2-3: 미완료일 때만 membership verdict 확인 (완료 회원 hot path 비용 0) —
+  // getOnboardingStatus / resolveMemberConsentAuthority 와 같은 관리자 판정.
+  const privilegedAdmin = await hasActiveAdminMembershipOrLegacyRole(sb, userId).catch(() => false);
+  if (privilegedAdmin) {
+    signup = deriveDibaySignupStatus(data, { hasSession: true, privilegedAdmin, requiredConsent: required });
+    if (isDibaySignupComplete(signup)) return null;
+  }
 
   const redirectPath = resolveDibaySignupRoute(signup, sanitizeNextPath(pathname));
   const targetPathname = normalizeGatePathname(redirectPath);

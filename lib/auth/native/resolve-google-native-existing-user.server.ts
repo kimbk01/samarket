@@ -195,10 +195,15 @@ async function loadProfileOrphanRow(
   auth_provider?: string | null;
   provider_user_id?: string | null;
   deleted_at?: string | null;
+  member_status?: string | null;
+  terms_accepted_at?: string | null;
+  dibay_id_locked?: boolean | null;
 } | null> {
   const { data } = await adminSb
     .from("profiles")
-    .select("id, status, email, auth_login_email, provider, auth_provider, provider_user_id, deleted_at")
+    .select(
+      "id, status, member_status, terms_accepted_at, dibay_id_locked, email, auth_login_email, provider, auth_provider, provider_user_id, deleted_at",
+    )
     .eq("id", profileId)
     .maybeSingle();
   if (!data || typeof (data as { id?: unknown }).id !== "string") return null;

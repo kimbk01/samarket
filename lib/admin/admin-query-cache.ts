@@ -39,6 +39,11 @@ export function invalidateAdminQueryCache(keyOrPrefix: string): void {
   }
 }
 
+/** 계정 전환·로그아웃 — 이전 관리자 계정의 조회 캐시 전부 삭제 (AD-08). */
+export function clearAllAdminQueryCache(): void {
+  store.clear();
+}
+
 /** dev 진단 */
 export function getAdminQueryCacheSize(): number {
   return store.size;

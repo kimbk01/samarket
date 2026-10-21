@@ -56,7 +56,7 @@ export function isSupabaseAuthCookieName(name: string): boolean {
 
 /**
  * Expire every auth cookie on the redirect response (request + already-set response).
- * Required before replacing exchangeCodeForSession cookies with owner password session.
+ * Required before replacing exchangeCodeForSession cookies with owner session.
  */
 export function wipeSupabaseAuthCookies(req: NextRequest, response: NextResponse): number {
   const names = new Set<string>();
@@ -76,31 +76,66 @@ export function wipeSupabaseAuthCookies(req: NextRequest, response: NextResponse
   return wiped;
 }
 
-async function establishOwnerSession(
+export type OwnerSessionIssueMethod = "magiclink" | "google_password_fallback";
+
+export type IssueOwnerSessionResult = {
+  user: User;
+  method: OwnerSessionIssueMethod;
+};
+
+/**
+ * 계약 주경로(provider 무관): admin magiclink 생성 → route cookie client 에서 verifyOtp(token_hash).
+ * Owner 비밀번호·email 은 건드리지 않는다 (P1-7). synthetic email(kakao.<id>@…) 도 확인된 기존 user 면 동작.
+ */
+async function issueOwnerSessionViaMagiclink(
   adminSb: SupabaseClient,
   routeSb: SupabaseClient,
   ownerUserId: string,
-  candidate: ProviderIdentityCandidate,
+  ownerEmail: string,
 ): Promise<User> {
-  const { data: ownerData, error: ownerError } = await adminSb.auth.admin.getUserById(ownerUserId);
-  const owner = ownerData?.user;
-  if (ownerError || !owner) {
-    throw new Error(ownerError?.message || "owner_auth_user_missing");
+  const { data: linkData, error: linkError } = await adminSb.auth.admin.generateLink({
+    type: "magiclink",
+    email: ownerEmail,
+  });
+  const tokenHash = String(linkData?.properties?.hashed_token ?? "").trim();
+  if (linkError || !tokenHash) {
+    throw new Error(linkError?.message || "owner_magiclink_generate_failed");
+  }
+  // 다른 auth user 로 생성된 링크(이메일 변경 경합 등)는 검증 전에 차단.
+  if (linkData?.user?.id && linkData.user.id !== ownerUserId) {
+    throw new Error("owner_magiclink_user_mismatch");
   }
 
-  const ownerEmail = String(owner.email ?? "").trim();
-  if (!ownerEmail) {
-    throw new Error("owner_email_missing");
+  const { data: verified, error: verifyError } = await routeSb.auth.verifyOtp({
+    type: "magiclink",
+    token_hash: tokenHash,
+  });
+  if (verifyError || !verified?.user || !verified.session) {
+    throw new Error(verifyError?.message || "owner_magiclink_verify_failed");
   }
-
-  if (candidate.provider !== "google" || !candidate.providerUserId.trim()) {
-    throw new Error("owner_session_reissue_unsupported_provider");
+  if (verified.user.id !== ownerUserId) {
+    try {
+      await routeSb.auth.signOut({ scope: "local" });
+    } catch {
+      /* ignore */
+    }
+    throw new Error("owner_magiclink_user_mismatch");
   }
+  return verified.user;
+}
 
+/** Fallback (Google subject only) — 기존 결정적 비밀번호 + signInWithPassword. */
+async function issueOwnerSessionViaGooglePassword(
+  adminSb: SupabaseClient,
+  routeSb: SupabaseClient,
+  ownerUserId: string,
+  ownerEmail: string,
+  googleSubject: string,
+): Promise<User> {
   if (await shouldPreserveAdminManagedPassword(adminSb, ownerUserId)) {
     throw new Error("admin_managed_password_preserved");
   }
-  const password = buildGoogleSupabasePassword(candidate.providerUserId);
+  const password = buildGoogleSupabasePassword(googleSubject);
   const { error: updateError } = await adminSb.auth.admin.updateUserById(ownerUserId, {
     password,
     email_confirm: true,
@@ -117,6 +152,61 @@ async function establishOwnerSession(
     throw new Error(signError?.message || "owner_password_sign_in_failed");
   }
   return signed.user;
+}
+
+/**
+ * Owner session 발급 — `routeSb` 는 응답과 같은 cookie jar 의 SSR client 여야 한다.
+ * 호출자는 임시(병렬) user 세션을 먼저 signOut + auth cookie wipe 한 뒤 호출한다.
+ * 실패 시 throw (fail-closed) — 호출자가 로그인 화면으로 돌려보낸다.
+ */
+export async function issueOwnerSessionOnRouteClient(input: {
+  adminSb: SupabaseClient;
+  routeSb: SupabaseClient;
+  ownerUserId: string;
+  candidate?: Pick<ProviderIdentityCandidate, "provider" | "providerUserId"> | null;
+}): Promise<IssueOwnerSessionResult> {
+  const ownerUserId = input.ownerUserId.trim();
+  const { data: ownerData, error: ownerError } =
+    await input.adminSb.auth.admin.getUserById(ownerUserId);
+  const owner = ownerData?.user;
+  if (ownerError || !owner) {
+    throw new Error(ownerError?.message || "owner_auth_user_missing");
+  }
+
+  const ownerEmail = String(owner.email ?? "").trim();
+  if (!ownerEmail) {
+    throw new Error("owner_email_missing");
+  }
+
+  try {
+    const user = await issueOwnerSessionViaMagiclink(
+      input.adminSb,
+      input.routeSb,
+      ownerUserId,
+      ownerEmail,
+    );
+    return { user, method: "magiclink" };
+  } catch (magiclinkError) {
+    const googleSubject =
+      input.candidate?.provider === "google" ? input.candidate.providerUserId.trim() : "";
+    if (!googleSubject) throw magiclinkError;
+    logRebind({
+      event: "owner_session_magiclink_failed_google_fallback",
+      ownerUserIdHashPrefix: hashPrefixForAuthDiag(ownerUserId),
+      error: (magiclinkError instanceof Error ? magiclinkError.message : "magiclink_failed").slice(
+        0,
+        120,
+      ),
+    });
+    const user = await issueOwnerSessionViaGooglePassword(
+      input.adminSb,
+      input.routeSb,
+      ownerUserId,
+      ownerEmail,
+      googleSubject,
+    );
+    return { user, method: "google_password_fallback" };
+  }
 }
 
 async function tombstoneLandingPadUser(
@@ -222,12 +312,12 @@ async function runWebOAuthOwnerRebind(input: {
     const wipedAfterSignOut = input.wipeAuthCookies();
 
     // 2) Write a single clean owner session.
-    const ownerUser = await establishOwnerSession(
-      input.adminSb,
-      input.routeSb,
+    const { user: ownerUser, method: sessionMethod } = await issueOwnerSessionOnRouteClient({
+      adminSb: input.adminSb,
+      routeSb: input.routeSb,
       ownerUserId,
-      input.candidate,
-    );
+      candidate: input.candidate,
+    });
 
     const disposeMode = await tombstoneLandingPadUser(
       input.adminSb,
@@ -243,6 +333,7 @@ async function runWebOAuthOwnerRebind(input: {
       temporaryUserIdHashPrefix: hashPrefixForAuthDiag(temporaryUserId),
       ownerUserIdHashPrefix: hashPrefixForAuthDiag(ownerUserId),
       disposeMode,
+      sessionMethod,
       wipedBefore,
       wipedAfterSignOut,
     });

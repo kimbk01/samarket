@@ -70,7 +70,7 @@ describe("Slice 6-6 dead completion quarantine contract", () => {
     expect(COMMON_AUTH_COMPLETION_OWNERS.profile).toBe("ensureAuthProfileForLogin");
     const edges = [
       "app/auth/callback/route.ts",
-      "app/api/auth/naver/callback/route.ts",
+      // app/api/auth/naver/callback — P0-1 Naver 비활성(410)
       "lib/auth/native/google-native-session.server.ts",
       "lib/auth/native/kakao-native-session.server.ts",
       "lib/auth/native/apple-native-session.server.ts",
@@ -86,7 +86,7 @@ describe("Slice 6-6 dead completion quarantine contract", () => {
     expect(COMMON_AUTH_COMPLETION_OWNERS.destination).toBe("resolveCommonAuthDestination");
     const edges = [
       "app/auth/callback/route.ts",
-      "app/api/auth/naver/callback/route.ts",
+      // app/api/auth/naver/callback — P0-1 Naver 비활성(410)
       "lib/auth/native/google-native-session.server.ts",
       "lib/auth/native/kakao-native-session.server.ts",
       "lib/auth/native/apple-native-session.server.ts",
@@ -126,7 +126,7 @@ describe("Slice 6-6 dead completion quarantine contract", () => {
   });
 
   it("8: Web/Naver HTTP 30x navigation is retained", () => {
-    for (const rel of ["app/auth/callback/route.ts", "app/api/auth/naver/callback/route.ts"]) {
+    for (const rel of ["app/auth/callback/route.ts"]) {
       const src = read(rel);
       expect(src, rel).toMatch(/NextResponse\.redirect|headers\.set\("Location"/);
       expect(src, rel).not.toMatch(/finishClientAuthLogin/);

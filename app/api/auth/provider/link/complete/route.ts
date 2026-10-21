@@ -34,38 +34,57 @@ export async function POST(req: NextRequest) {
 
   const linkTokenInput = typeof body.linkToken === "string" ? body.linkToken.trim() : "";
   const stashToken = typeof body.stashToken === "string" ? body.stashToken.trim() : "";
+  const credentialInput = parseProviderBody(body);
+  const credentialSupplied = Boolean(
+    credentialInput.idToken?.trim()
+      || credentialInput.accessToken?.trim()
+      || credentialInput.identityToken?.trim(),
+  );
 
   let linkToken = linkTokenInput;
-  if (!linkToken && stashToken) {
-    const candidate = verifyConflictStashToken(stashToken);
-    if (!candidate) {
-      return noStoreJson(
-        {
-          ok: false,
-          errorCode: "provider_link_token_invalid",
-          message: "계정 연결 요청이 만료되었거나 유효하지 않습니다.",
-        },
-        400,
-      );
+  try {
+    if (credentialSupplied) {
+      // P1-4 — 새 credential 이 제출되면 그 검증 결과만 사용. 실패 시 stash 로 fallback 하지 않는다.
+      const verified = await verifyProviderCredentialInput(credentialInput).catch(() => null);
+      if (!verified || "errorCode" in verified) {
+        return noStoreJson(
+          {
+            ok: false,
+            errorCode: verified && "errorCode" in verified ? verified.errorCode : "credential_verify_failed",
+            message:
+              verified && "errorCode" in verified
+                ? verified.message
+                : "로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.",
+          },
+          400,
+        );
+      }
+      linkToken = createProviderLinkToken(auth.userId, verified).linkToken;
+    } else if (!linkToken && stashToken) {
+      // P1-4 — stash 는 conflict 대상 회원(= 현재 세션) 바인딩 검증 후에만 사용.
+      const candidate = verifyConflictStashToken(stashToken, auth.userId);
+      if (!candidate) {
+        return noStoreJson(
+          {
+            ok: false,
+            errorCode: "provider_link_token_invalid",
+            message: "계정 연결 요청이 만료되었거나 유효하지 않습니다.",
+          },
+          400,
+        );
+      }
+      linkToken = createProviderLinkToken(auth.userId, candidate).linkToken;
     }
-    linkToken = createProviderLinkToken(auth.userId, candidate).linkToken;
+  } catch {
+    return noStoreJson({ ok: false, errorCode: "provider_link_unavailable" }, 503);
   }
 
-  const credentialInput = parseProviderBody(body);
-  const verified = await verifyProviderCredentialInput(credentialInput).catch(() => null);
-
-  if (verified && !("errorCode" in verified)) {
-    linkToken = createProviderLinkToken(auth.userId, verified).linkToken;
-  } else if (!linkToken) {
-    const message =
-      verified && "errorCode" in verified
-        ? verified.message
-        : "로그인 정보가 없습니다. 다시 시도해 주세요.";
+  if (!linkToken) {
     return noStoreJson(
       {
         ok: false,
-        errorCode: verified && "errorCode" in verified ? verified.errorCode : "credential_missing",
-        message,
+        errorCode: "credential_missing",
+        message: "로그인 정보가 없습니다. 다시 시도해 주세요.",
       },
       400,
     );

@@ -1,3 +1,5 @@
+import { AdminAccessDeniedPanel } from "@/components/admin/AdminAccessDeniedPanel";
+import { requireAdminPageAccess } from "@/lib/admin/access/require-admin-page-access";
 import { Suspense } from "react";
 import {
   AdminCommunityReportsPage,
@@ -23,6 +25,9 @@ function one(sp: Sp, k: string): string {
 
 /** 신고 처리함 (설계 §C-2) — 대상별 묶음 · 서버 페이지네이션 · URL 필터 (service-role 서버 조회) */
 export default async function AdminCommunityReportsRoute({ searchParams }: { searchParams?: Promise<Sp> }) {
+  // P1-11 · AD-01: 서버 렌더 데이터 조회 전 페이지 자체 권한 가드 (레이아웃 게이트에만 의존하지 않음)
+  const access = await requireAdminPageAccess("/admin/community/reports");
+  if (!access.ok) return <AdminAccessDeniedPanel backHref="/admin" />;
   const sp = searchParams ? await searchParams : {};
   const tab = resolveCommunityReportInboxTab({ status: one(sp, "status"), pending: one(sp, "pending") });
   const typeRaw = one(sp, "type");

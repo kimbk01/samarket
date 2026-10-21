@@ -5,7 +5,6 @@ import { isMemberNicknameTaken, validateMemberNicknameInput } from "@/lib/profil
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { assertMemberPasswordChangeAllowed } from "@/lib/admin-users/member-auth-target";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { userHasRecentWarn } from "@/lib/admin/admin-user-server";
 import { mapProfileStatusToModeration } from "@/lib/admin-users/moderation-status";
 import {
@@ -223,13 +222,10 @@ async function _ensureProfileRow(
       : buildManualMemberAuthEmail(userId));
 
   const tr = String(tu?.role ?? "member").trim().toLowerCase();
-  let role: string;
-  if (tr === "master") role = "super_admin";
-  else if (tr === "admin") role = "admin";
-  else role = "user";
-
-  const member_type =
-    role === "super_admin" || role === "admin" ? "admin" : tr === "special" || tr === "premium" ? "premium" : "normal";
+  // AD-10 / AD-03: 프로필 보정은 일반 회원 기본값만 만든다 — test_users.role 로 권한 미러
+  // (profiles.role·is_admin·관리자 티어·manual_account_type=admin)를 쓰지 않는다. 관리자 권한 SSOT = admin_memberships (Staff API).
+  const role = "user";
+  const member_type = tr === "special" || tr === "premium" ? "premium" : "normal";
   const is_special_member = tr === "special" || tr === "premium";
   const phoneRaw = tu?.contact_phone?.trim() || null;
   const nowIso = new Date().toISOString();
@@ -247,10 +243,10 @@ async function _ensureProfileRow(
     username: usernameRaw,
     nickname,
     role,
-    is_admin: isPrivilegedAdminRole(role),
+    is_admin: false,
     member_type,
     member_status: tu ? "active" : "pending",
-    manual_account_type: isPrivilegedAdminRole(role) ? "admin" : "operations_member",
+    manual_account_type: "operations_member",
     is_special_member,
     phone: phoneFields.phone,
     phone_country_code: phoneFields.phone_country_code,

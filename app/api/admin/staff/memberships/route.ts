@@ -8,7 +8,11 @@ import {
 } from "@/lib/admin/pagination/parse-admin-list-page";
 import { parseMemberOpsListPage } from "@/lib/admin/member-ops-list/member-ops-list-page";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
-import { adminTierToUiRole, defaultPermissionsForUiRole, loadStaffPermissionsMap } from "@/lib/admin/admin-user-server";
+import {
+  adminTierToUiRole,
+  loadStaffPermissionsMap,
+  resolveEffectiveStaffPermissionsFromStored,
+} from "@/lib/admin/admin-user-server";
 import { normalizeAdminRole } from "@/lib/auth/admin-policy";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
@@ -183,7 +187,7 @@ export async function GET(req: Request) {
     const loginId = String(p?.username ?? "").trim() || String(p?.email ?? "").split("@")[0] || null;
     const isActiveAdmin = m.status === "active" && normalizeAdminRole(m.role) !== "super_admin";
     const uiRole = adminTierToUiRole(m.admin_tier, m.role);
-    // GET /api/admin/staff 와 같은 규칙 — 저장된 권한이 없으면 역할 기본 권한.
+    // GET /api/admin/staff 와 같은 규칙 — 저장된 권한 행이 없으면 역할 기본 권한, 저장된 [] 는 권한 없음 (AD-05).
     const stored = permMap.get(m.user_id);
     return {
       membershipId: m.id,
@@ -194,7 +198,7 @@ export async function GET(req: Request) {
       uiRole,
       adminTier: m.admin_tier,
       status: m.status,
-      permissions: isActiveAdmin ? (stored?.length ? stored : defaultPermissionsForUiRole(uiRole)) : [],
+      permissions: isActiveAdmin ? resolveEffectiveStaffPermissionsFromStored(stored, uiRole) : [],
       grantedAt: m.granted_at ?? m.created_at,
       grantedBy: m.granted_by,
       grantedByNickname: nick(m.granted_by),

@@ -1,3 +1,5 @@
+import { AdminAccessDeniedPanel } from "@/components/admin/AdminAccessDeniedPanel";
+import { requireAdminPageAccess } from "@/lib/admin/access/require-admin-page-access";
 import { Suspense } from "react";
 import {
   communityAdminListPeriodParams,
@@ -24,6 +26,9 @@ function one(sp: Sp, k: string): string {
 }
 
 export default async function AdminPhilifeMeetingReportsRoute({ searchParams }: { searchParams?: Promise<Sp> }) {
+  // P1-11 · AD-01: 서버 렌더 데이터 조회 전 페이지 자체 권한 가드 (레이아웃 게이트에만 의존하지 않음)
+  const access = await requireAdminPageAccess("/admin/philife/meeting-reports");
+  if (!access.ok) return <AdminAccessDeniedPanel backHref="/admin" />;
   const sp = searchParams ? await searchParams : {};
   const tab = resolveMeetingReportTab(one(sp, "status"));
   const typeRaw = one(sp, "type");

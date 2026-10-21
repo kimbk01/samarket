@@ -39,7 +39,8 @@ type ServiceResult<T> =
 
 type VerifyOtpResult = {
   phone: string;
-  member_status: "active";
+  /** 승격 시 "active" · 제재(정지·차단·탈퇴) 회원은 기존 값 유지. */
+  member_status: string;
   phone_verified: true;
   verification_method: "semaphore_local";
 };
@@ -82,7 +83,37 @@ async function ensurePhoneUnique(
 type ProfileOtpState = {
   phone_verification_requested_at?: string | null;
   phone_verification_attempt_count?: number | null;
+  status?: string | null;
+  member_status?: string | null;
+  deleted_at?: string | null;
 };
+
+/**
+ * P1-1 — 전화 인증은 전화 필드만 바꾼다. 생애주기(status/member_status) 승격은
+ * 현재 상태가 제재가 아닐 때(가입·일반 계열)만. 정지·차단·탈퇴 회원은 상태 유지.
+ */
+const PHONE_VERIFY_PROMOTABLE_STATUSES: ReadonlySet<string> = new Set([
+  "",
+  "active",
+  "pending",
+  "sns_pending",
+  "sns_member",
+  "verified_user",
+  "normal",
+]);
+
+/** 승격 UPDATE 의 DB 가드 — 읽기 후 관리자 제재가 들어온 경쟁 상황에서도 상태를 덮지 않는다. */
+const PHONE_VERIFY_RESTRICTED_STATUS_FILTER =
+  "status.is.null,status.not.in.(suspended,blocked,withdrawn,deleted,deactivated)";
+
+export function isPhoneVerifyLifecyclePromotable(state: {
+  status?: string | null;
+  deleted_at?: string | null;
+}): boolean {
+  if (state.deleted_at) return false;
+  const status = String(state.status ?? "").trim().toLowerCase();
+  return PHONE_VERIFY_PROMOTABLE_STATUSES.has(status);
+}
 
 type PhoneOtpChallengeRow = {
   user_id: string;
@@ -96,7 +127,7 @@ type PhoneOtpChallengeRow = {
 async function loadProfileOtpState(sb: SupabaseClient, userId: string): Promise<ServiceResult<ProfileOtpState>> {
   const { data, error } = await sb
     .from("profiles")
-    .select("phone_verification_requested_at, phone_verification_attempt_count")
+    .select("phone_verification_requested_at, phone_verification_attempt_count, status, member_status, deleted_at")
     .eq("id", userId)
     .maybeSingle();
   if (error) return fail(500, "server_error", error.message);
@@ -350,28 +381,46 @@ export async function verifyPhoneOtpForUser(
   }
 
   const nowIso = new Date().toISOString();
-  const { error } = await sb
-    .from("profiles")
-    .update({
-      phone: phoneFields.phone,
-      phone_country_code: phoneFields.phone_country_code,
-      phone_number: phoneFields.phone_number,
-      phone_verified: true,
-      phone_verified_at: nowIso,
-      phone_verification_status: "verified",
-      member_status: "active",
-      verified_member_at: nowIso,
-      status: "verified_user",
-      phone_verification_method: "semaphore_local",
-      phone_verification_attempt_count: 0,
-      preferred_country: "PH",
-      updated_at: nowIso,
-    })
-    .eq("id", userId);
-  if (error) {
-    // profiles_phone_unique_idx — another member verified this number between check and write.
-    if ((error as { code?: string }).code === "23505") return phoneDuplicateResult();
-    return fail(500, "server_error", error.message);
+  const phoneUpdate = {
+    phone: phoneFields.phone,
+    phone_country_code: phoneFields.phone_country_code,
+    phone_number: phoneFields.phone_number,
+    phone_verified: true,
+    phone_verified_at: nowIso,
+    phone_verification_status: "verified",
+    phone_verification_method: "semaphore_local",
+    phone_verification_attempt_count: 0,
+    preferred_country: "PH",
+    updated_at: nowIso,
+  };
+  let promoted = false;
+  if (isPhoneVerifyLifecyclePromotable(otpState.data)) {
+    const { data: promotedRows, error: promoteError } = await sb
+      .from("profiles")
+      .update({
+        ...phoneUpdate,
+        member_status: "active",
+        verified_member_at: nowIso,
+        status: "verified_user",
+      })
+      .eq("id", userId)
+      .is("deleted_at", null)
+      .or(PHONE_VERIFY_RESTRICTED_STATUS_FILTER)
+      .select("id");
+    if (promoteError) {
+      // profiles_phone_unique_idx — another member verified this number between check and write.
+      if ((promoteError as { code?: string }).code === "23505") return phoneDuplicateResult();
+      return fail(500, "server_error", promoteError.message);
+    }
+    promoted = Array.isArray(promotedRows) && promotedRows.length > 0;
+  }
+  if (!promoted) {
+    // 제재 회원(또는 읽기 이후 제재된 회원): 전화 필드만 갱신, 생애주기 상태는 그대로.
+    const { error } = await sb.from("profiles").update(phoneUpdate).eq("id", userId);
+    if (error) {
+      if ((error as { code?: string }).code === "23505") return phoneDuplicateResult();
+      return fail(500, "server_error", error.message);
+    }
   }
   const marked = await markPhoneOtpChallengeVerified(sb, userId);
   if (!marked.ok) return marked;
@@ -380,7 +429,7 @@ export async function verifyPhoneOtpForUser(
     ok: true,
     data: {
       phone: phoneFields.phone ?? philippinesPhoneDb09(inputPhone) ?? normalizedPhone,
-      member_status: "active",
+      member_status: promoted ? "active" : String(otpState.data.member_status ?? ""),
       phone_verified: true,
       verification_method: "semaphore_local",
     },

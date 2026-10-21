@@ -43,7 +43,7 @@ export default async function AuthOnboardingTermsPage({
     }
   }
   return (
-    <div className="min-h-screen bg-[#F2F0EB]">
+    <div className="min-h-screen bg-sam-app">
       <AuthConsentForm
         requiredVersions={{ termsVersion: required.termsVersion, privacyVersion: required.privacyVersion }}
       />
