@@ -162,4 +162,69 @@ test.describe("auth session isolation", () => {
       throw error;
     }
   });
+  /**
+   * BUNDLE 4 · P0-2 — 같은 브라우저 2탭: 탭1 A 명시 로그아웃 → 탭2 는 explicit_logout broadcast 로
+   * 같은 wipe + post-logout 하드 이동 (sessionStorage 거래 초안·메신저 first-paint 캐시 공백).
+   * 이어서 탭1 B 로그인 후 탭2 에 A 상태가 없어야 한다.
+   */
+  test("2 tabs: A logout in tab1 reloads tab2 and clears its sessionStorage; B login shows no A state", async (
+    { page, request },
+    testInfo,
+  ) => {
+    test.setTimeout(180_000);
+    await assertPlaywrightOriginReachable(request);
+    const skipReason = resolveE2eAccountSwitchSkipReason();
+    if (skipReason) {
+      test.skip(true, skipReason);
+      return;
+    }
+    const origin = playwrightOriginFromEnv();
+    const tab2 = await page.context().newPage();
+    try {
+      await loginAccountA(page);
+      await gotoWithRetry(tab2, `${origin}/community-messenger`);
+      await tab2.evaluate(() => {
+        window.sessionStorage.setItem(
+          "samarket:trade-write-form:v1:e2e-cat",
+          JSON.stringify({ v: 1, categoryId: "e2e-cat", title: "A draft", ownerUserId: "a" }),
+        );
+        window.sessionStorage.setItem("samarket:e2e_tab2_marker", "A");
+      });
+      const tab2NavigatedAway = tab2.waitForURL(/\/login(\?|$)/, { timeout: 30_000 });
+
+      await logoutAccountA(page);
+
+      await tab2NavigatedAway;
+      expect(tab2.url()).toMatch(/reason=logout/);
+      const tab2Session = await tab2.evaluate(() => ({
+        draft: window.sessionStorage.getItem("samarket:trade-write-form:v1:e2e-cat"),
+        marker: window.sessionStorage.getItem("samarket:e2e_tab2_marker"),
+        messengerBoot: window.sessionStorage.getItem("samarket.messenger.bootstrap.v1"),
+        bound: window.localStorage.getItem("dibay:auth_bound_user_id"),
+      }));
+      expect(tab2Session.draft).toBeNull();
+      expect(tab2Session.marker).toBeNull();
+      expect(tab2Session.messengerBoot).toBeNull();
+      expect(tab2Session.bound).toBeNull();
+
+      await loginAccountB(page);
+      const accountBLabel = await fetchE2eProfileLabel(page, origin);
+      await gotoWithRetry(tab2, `${origin}/community-messenger`);
+      const accountBLabelInTab2 = await fetchE2eProfileLabel(tab2, origin);
+      expect(accountBLabelInTab2).toBe(accountBLabel);
+      const staleDraft = await tab2.evaluate(() =>
+        window.sessionStorage.getItem("samarket:trade-write-form:v1:e2e-cat"),
+      );
+      expect(staleDraft).toBeNull();
+    } catch (error) {
+      const dump = await dumpAuthBrowserState(tab2);
+      await testInfo.attach("tab2-auth-state-dump", {
+        body: JSON.stringify(dump, null, 2),
+        contentType: "application/json",
+      });
+      throw error;
+    } finally {
+      await tab2.close();
+    }
+  });
 });

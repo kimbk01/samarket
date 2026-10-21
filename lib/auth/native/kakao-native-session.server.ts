@@ -19,7 +19,7 @@ import {
   canAdoptRecoveredNativeAuthUser,
   mintNativeOwnerSessionViaMagicLink,
   nativeProviderOwnsAuthCredentials,
-  profileProviderIdentityAlreadySet,
+  isProfileIdentitySet,
   resolveNativePasswordSeed,
 } from "@/lib/auth/native/native-owner-session.server";
 import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";
@@ -217,7 +217,7 @@ async function persistKakaoProfileIdentity(
   userId: string,
   verified: KakaoVerifiedIdentity,
 ): Promise<void> {
-  if (await profileProviderIdentityAlreadySet(adminSb, userId)) return;
+  if (await isProfileIdentitySet(adminSb, userId)) return;
   const patch: Record<string, unknown> = {
     provider: "kakao",
     auth_provider: "kakao",

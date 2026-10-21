@@ -20,7 +20,7 @@ import {
   canAdoptRecoveredNativeAuthUser,
   mintNativeOwnerSessionViaMagicLink,
   nativeProviderOwnsAuthCredentials,
-  profileProviderIdentityAlreadySet,
+  isProfileIdentitySet,
   resolveNativePasswordSeed,
 } from "@/lib/auth/native/native-owner-session.server";
 import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";
@@ -223,7 +223,7 @@ async function persistAppleProfileIdentity(
   userId: string,
   verified: AppleVerifiedIdentityToken,
 ): Promise<void> {
-  if (await profileProviderIdentityAlreadySet(adminSb, userId).catch(() => true)) return;
+  if (await isProfileIdentitySet(adminSb, userId, true)) return;
   const patch: Record<string, unknown> = {
     provider: "apple",
     auth_provider: "apple",

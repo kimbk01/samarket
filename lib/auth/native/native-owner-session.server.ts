@@ -138,17 +138,21 @@ export async function mintNativeOwnerSessionViaMagicLink(
 
 /**
  * P1-7 — `profiles.provider*` 는 최초 기록만. provider_user_id 가 이미 있으면 true (갱신 금지).
- * 조회 오류는 throw — 호출부가 soft(건너뜀)/hard(500) 를 정한다.
+ * 조회 오류: `softOnError=true` 면 true(기록 건너뜀), 아니면 throw (호출부 500).
  */
-export async function profileProviderIdentityAlreadySet(
+export async function isProfileIdentitySet(
   adminSb: SupabaseClient,
   userId: string,
+  softOnError = false,
 ): Promise<boolean> {
   const { data, error } = await adminSb
     .from("profiles")
     .select("provider_user_id")
     .eq("id", userId)
     .maybeSingle();
-  if (error) throw new Error(error.message || "profile_identity_read_failed");
+  if (error) {
+    if (softOnError) return true;
+    throw new Error(error.message || "profile_identity_read_failed");
+  }
   return Boolean(String((data as { provider_user_id?: string | null } | null)?.provider_user_id ?? "").trim());
 }
