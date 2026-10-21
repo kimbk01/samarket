@@ -40,7 +40,7 @@ describe("C-14 — connected PATCH 최대 3회 재시도", () => {
       .mockResolvedValueOnce({ ok: false, error: "call_session_update_failed" })
       .mockRejectedValueOnce(new Error("network"))
       .mockResolvedValueOnce({ ok: true });
-    const sleep = vi.fn(noSleep);
+    const sleep = vi.fn((_ms: number) => noSleep());
     await expect(patchCallV4ConnectedWithRetry("c1", { patch, sleep })).resolves.toBe(true);
     expect(patch).toHaveBeenCalledTimes(3);
     expect(sleep.mock.calls.map((c) => c[0])).toEqual([1_000, 2_000]);
@@ -48,7 +48,7 @@ describe("C-14 — connected PATCH 최대 3회 재시도", () => {
 
   it("최초 1회 + 재시도 3회(1s·2s·4s) 후 포기", async () => {
     const patch = vi.fn().mockResolvedValue({ ok: false });
-    const sleep = vi.fn(noSleep);
+    const sleep = vi.fn((_ms: number) => noSleep());
     await expect(patchCallV4ConnectedWithRetry("c1", { patch, sleep })).resolves.toBe(false);
     expect(patch).toHaveBeenCalledTimes(4);
     expect(sleep.mock.calls.map((c) => c[0])).toEqual([1_000, 2_000, 4_000]);

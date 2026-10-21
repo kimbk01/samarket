@@ -84,16 +84,16 @@ describe("C-12 — callId 당 공유 세션 poller", () => {
   });
 
   it("요청 중이면 다음 tick 은 건너뛴다(중첩 요청 0)", async () => {
-    let resolve: ((v: unknown) => void) | null = null;
+    const pending: { resolve: ((v: unknown) => void) | null } = { resolve: null };
     apiMocks.fetchSessionForCallerPoll.mockImplementationOnce(
       () => new Promise((r) => {
-        resolve = r;
+        pending.resolve = r;
       }),
     );
     subscribeCallV4SessionStatus("c1", vi.fn());
     await vi.advanceTimersByTimeAsync(2_500);
     expect(apiMocks.fetchSessionForCallerPoll).toHaveBeenCalledTimes(1);
-    resolve?.(ringing);
+    pending.resolve?.(ringing);
     await vi.advanceTimersByTimeAsync(1_000);
     expect(apiMocks.fetchSessionForCallerPoll).toHaveBeenCalledTimes(2);
   });
