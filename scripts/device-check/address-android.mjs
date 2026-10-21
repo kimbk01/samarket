@@ -120,8 +120,18 @@ async function adbTapLocator(loc) {
   const box = await loc.boundingBox();
   if (!box) throw new Error("탭 대상 요소 위치를 찾지 못함");
   const dpr = await page.evaluate(() => window.devicePixelRatio || 1);
-  const x = Math.round((box.x + box.width / 2) * dpr);
-  const y = Math.round((box.y + box.height / 2) * dpr);
+  // WebView 가 화면 맨 위에서 시작하지 않을 수 있다 — 실제 WebView 화면 위치를 더한다
+  let ox = 0;
+  let oy = 0;
+  try {
+    const info = await device.info({ clazz: "android.webkit.WebView" });
+    ox = info.bounds.x;
+    oy = info.bounds.y;
+  } catch {
+    /* 위치를 못 읽으면 0 기준 */
+  }
+  const x = Math.round(ox + (box.x + box.width / 2) * dpr);
+  const y = Math.round(oy + (box.y + box.height / 2) * dpr);
   await device.shell(`input tap ${x} ${y}`);
 }
 
@@ -281,13 +291,25 @@ async function A4() {
   const { rows } = await searchAndWaitResults("Greenbelt 5 Makati");
   await setNetwork(false);
   try {
+    // 실제로 끊겼는지 확인 — 안 끊겼으면 판정 불가
+    const reach = await page.evaluate(async () => {
+      try {
+        await fetch(`https://maps.googleapis.com/generate_204?t=${Date.now()}`, { mode: "no-cors", cache: "no-store" });
+        return "reachable";
+      } catch {
+        return "offline";
+      }
+    });
+    if (reach !== "offline") {
+      return { status: "NOT_RUN", detail: `adb 로 Wi-Fi·데이터를 꺼도 인터넷이 연결됨(navigator 기준 ${reach}) — 네트워크 차단 불가` };
+    }
     await rows.first().click();
     const alert = page.locator('[role="alert"]', { hasText: "주소를 불러오지 못했습니다" });
     const shown = await alert.waitFor({ timeout: 20000 }).then(() => true, () => false);
     const stayed = /\/mypage\/addresses\/search/.test(page.url());
     return shown && stayed
       ? { status: "PASS", detail: "오프라인 선택 시 오류 안내 표시, 검색 화면 유지" }
-      : { status: "FAIL", detail: `오류 안내 ${shown ? "O" : "X"}, 검색 화면 유지 ${stayed ? "O" : "X"}` };
+      : { status: "FAIL", detail: `오류 안내 ${shown ? "O" : "X"}, 검색 화면 유지 ${stayed ? "O" : "X"} — ${await screenState()}` };
   } finally {
     await setNetwork(true);
   }
@@ -306,6 +328,17 @@ async function A5() {
     }
     const msg = page.getByText("설정에서 권한을 확인하거나 주소를 검색해 주세요.");
     const shown = await msg.waitFor({ timeout: 50000 }).then(() => true, () => false);
+    if (!shown) {
+      let sysTexts = "";
+      try {
+        adb("shell", "uiautomator", "dump", "/sdcard/dchk-ui.xml");
+        const xml = adb("shell", "cat", "/sdcard/dchk-ui.xml");
+        sysTexts = [...xml.matchAll(/text="([^"]+)"/g)].map((m) => m[1]).slice(0, 25).join(" / ");
+      } catch {
+        sysTexts = "UI 덤프 실패";
+      }
+      return { status: "FAIL", detail: `권한 거부 후 안내 문구 미표시(50초) — 화면 글자: ${sysTexts.slice(0, 400)} — ${await screenState()}` };
+    }
     return shown
       ? { status: "PASS", detail: "권한 거부 안내 문구 표시" }
       : { status: "FAIL", detail: "권한 거부 후 안내 문구 미표시(50초)" };
@@ -322,9 +355,26 @@ async function A6() {
   await detail.fill(`${TAG} A6`);
   await sleep(800); // 초안 디바운스(300ms) 이후
   // ① Android 뒤로 → 이탈 확인 창 → 계속 수정
+  const dirtyAttr = await page.evaluate(() => document.querySelector('[data-testid="address-detail-save"]')?.hasAttribute("disabled") ?? null);
+  try { adb("logcat", "-c"); } catch { /* ignore */ }
   await device.shell("input keyevent 4");
   const dlg = page.getByText("수정한 내용을 버릴까요?");
   const dialogShown = await dlg.waitFor({ timeout: 8000 }).then(() => true, () => false);
+  let backDiag = "";
+  if (!dialogShown) {
+    await shot("A6-after-back");
+    let log = "";
+    try {
+      log = adb("logcat", "-d", "-t", "400")
+        .split("\n")
+        .filter((l) => /backButton|onBackPressed|Capacitor\/App|OnBackPressed/i.test(l))
+        .slice(-6)
+        .join(" ¦ ");
+    } catch {
+      log = "logcat 실패";
+    }
+    backDiag = ` — 뒤로 후 ${await screenState()} | 저장버튼 disabled=${dirtyAttr} | logcat: ${log || "관련 로그 없음"}`;
+  }
   if (dialogShown) await page.getByRole("button", { name: "계속 수정" }).click();
   const kept = (await detail.inputValue().catch(() => "")) === `${TAG} A6`;
   // ② 확인 없이 이탈(iOS 스와이프와 같은 history.back) → 재진입 시 초안 복원
@@ -338,7 +388,7 @@ async function A6() {
   const ok = dialogShown && kept && restoredNotice && restoredValue && cleared;
   return {
     status: ok ? "PASS" : "FAIL",
-    detail: `뒤로→확인창 ${dialogShown ? "O" : "X"}, 계속수정 후 입력유지 ${kept ? "O" : "X"}, 재진입 복원안내 ${restoredNotice ? "O" : "X"}, 값복원 ${restoredValue ? "O" : "X"}, 처음부터→비움 ${cleared ? "O" : "X"}`,
+    detail: `뒤로→확인창 ${dialogShown ? "O" : "X"}, 계속수정 후 입력유지 ${kept ? "O" : "X"}, 재진입 복원안내 ${restoredNotice ? "O" : "X"}, 값복원 ${restoredValue ? "O" : "X"}, 처음부터→비움 ${cleared ? "O" : "X"}${backDiag}`,
   };
 }
 
