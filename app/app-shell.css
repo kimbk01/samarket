@@ -59,10 +59,10 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
 
   /**
    * 셸 높이 토큰.
-   * 헤더 한 줄 높이는 `app/design-tokens.css` 의 `--sam-header-row-height` 와 동기.
+   * 헤더 한 줄 높이 정본은 `app/sector-header.css` 의 `--sector-header-h` (S-03).
    * BottomNav 본체 높이는 `BOTTOM_NAV_SHELL.heightClass` (`h-[60px]`) 와 동기.
    */
-  --app-header-height: var(--sam-header-row-height, 52px);
+  --app-header-height: var(--sector-header-h, 52px);
   --app-bottom-nav-height: 60px;
 }
 

@@ -82,6 +82,7 @@ import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMor
 import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSections";
 import { TradeCompositionDetailSection } from "@/components/post/TradeCompositionDetailSection";
 import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet";
+import { SectorHeaderActionButton } from "@/components/layout/sector-header/SectorHeaderActionButton";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { TradeDetailInlineChatCard } from "@/components/post/TradeDetailInlineChatCard";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
@@ -509,7 +510,6 @@ export function PostDetailView({
                 tradePostDetailSlideHost.closeSlide();
               }}
               ariaLabelKey="tier1_back"
-              className="text-[#111]"
             />
           ),
         },
@@ -539,37 +539,32 @@ export function PostDetailView({
               return false;
             }}
             ariaLabel={t("trade_detail_back_to_list")}
-            className="text-[#111]"
           />
         ),
         rightSlot: (
           <div className="flex shrink-0 items-center justify-end">
             {showBuyerMore ? (
-              <button
-                type="button"
+              <SectorHeaderActionButton
                 onClick={() => setDetailMoreOpen(true)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center text-[#111]"
                 aria-label={t("ui_product_more_aria")}
               >
-                <svg className="h-[22px] w-[22px] shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <circle cx="12" cy="5" r="2" />
                   <circle cx="12" cy="12" r="2" />
                   <circle cx="12" cy="19" r="2" />
                 </svg>
-              </button>
+              </SectorHeaderActionButton>
             ) : showSellerMore ? (
-              <button
-                type="button"
+              <SectorHeaderActionButton
                 onClick={() => setSellerMoreOpen(true)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center text-[#111]"
                 aria-label={t("ui_product_more_aria")}
               >
-                <svg className="h-[22px] w-[22px] shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <circle cx="12" cy="5" r="2" />
                   <circle cx="12" cy="12" r="2" />
                   <circle cx="12" cy="19" r="2" />
                 </svg>
-              </button>
+              </SectorHeaderActionButton>
             ) : null}
           </div>
         ),

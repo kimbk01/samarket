@@ -72,6 +72,8 @@ type AppBackButtonProps = {
    */
   fixedBackHistory?: "settle";
   fixedBackOptions?: FixedDestinationBackOptions;
+  /** `close`: ✕ 아이콘·기본 라벨 「닫기」 (시트형 하위 화면) — 이동 규칙은 동일 */
+  variant?: "back" | "close";
 };
 
 const defaultToneClass = "";
@@ -87,6 +89,7 @@ export function AppBackButton({
   ariaLabel,
   fixedBackHistory,
   fixedBackOptions,
+  variant = "back",
 }: AppBackButtonProps) {
   const { t, tt } = useI18n();
   const router = useRouter();
@@ -96,7 +99,10 @@ export function AppBackButton({
     ? t(ariaLabelKey)
     : ariaLabel
       ? tt(ariaLabel)
-      : t("nav_back");
+      : variant === "close"
+        ? t("common_close")
+        : t("nav_back");
+  const Icon = variant === "close" ? AppCloseIcon : AppBackIcon;
 
   if (preferHistoryBack === false && backHref != null) {
     return (
@@ -118,7 +124,7 @@ export function AppBackButton({
           }
         }}
       >
-        <AppBackIcon className={iconClassName} />
+        <Icon className={iconClassName} />
       </Link>
     );
   }
@@ -134,7 +140,7 @@ export function AppBackButton({
         className={mergedClass}
         aria-label={resolvedAriaLabel}
       >
-        <AppBackIcon className={iconClassName} />
+        <Icon className={iconClassName} />
       </button>
     );
   }
@@ -149,7 +155,7 @@ export function AppBackButton({
       className={mergedClass}
       aria-label={resolvedAriaLabel}
     >
-      <AppBackIcon className={iconClassName} />
+      <Icon className={iconClassName} />
     </button>
   );
 }

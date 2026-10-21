@@ -492,3 +492,17 @@ body:has(.dibay-overlay-root) [data-admin-posts-mgmt-bottom-hscroll] {
     animation: none;
   }
 }
+
+/**
+ * 짧은 안내 토스트 위치 (P-08) — 하단 탭이 실제로 마운트되면 탭(+safe·궤도 돌출) 위 12px,
+ * 탭이 없으면 safe-bottom 위 16px. 고정 `max(5rem, safe)` 는 safe>20px 기기에서 탭과 겹쳤다.
+ */
+.dibay-toast-stack {
+  bottom: calc(
+    var(--app-bottom-nav-height, 60px) + var(--safe-bottom) + var(--main-scroll-nav-overhang, 0px) + 0.75rem
+  );
+}
+
+html:not(:has(.app-bottom-nav-shell)) .dibay-toast-stack {
+  bottom: calc(var(--safe-bottom) + 1rem);
+}

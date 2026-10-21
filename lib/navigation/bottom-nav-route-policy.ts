@@ -56,7 +56,8 @@ function isLegacyBusinessAdminPath(pathname: string): boolean {
     pathname.startsWith("/my/business/");
 }
 
-function isWritePath(pathname: string): boolean {
+/** 글쓰기 화면 판정 단일 정의 — `conditional-app-shell-flags` 도 이 함수만 쓴다 (N-04) */
+export function isWritePath(pathname: string): boolean {
   return pathname === "/philife/write" || pathname === "/write" || pathname.startsWith("/write/");
 }
 

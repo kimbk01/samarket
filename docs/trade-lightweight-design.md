@@ -30,7 +30,7 @@ SAMarket은 **상용 운영**을 전제로 한 빌더이므로, 거래 축의 **
 | 원칙 | 실천 |
 |------|------|
 | **RSC 우선** | 목록 껍데기·첫 화면 데이터는 Server Component에서 조회 후, **최소 단위만** `use client` 섬으로 분리한다. |
-| **클라이언트 페이지 축소** | `app/(main)/market/[slug]/page.tsx`처럼 전체가 `"use client"`인 패턴은 새 기능에서는 피하고, 레이아웃·첫 페이로드는 서버로 올린다. |
+| **클라이언트 페이지 축소** | 전체가 `"use client"`인 페이지 패턴은 새 기능에서는 피하고, 레이아웃·첫 페이로드는 서버로 올린다. (정정 2026-10-21: 예로 들던 `app/(main)/market/[slug]/page.tsx` 는 현재 서버 리다이렉트 → `/market?category=`.) |
 | **무거운 UI는 지연 로드** | 신고 모달·바텀시트 등은 `dynamic(..., { ssr: false })`로 분리(기존 `HomeProductList`의 `ReportReasonModal` 패턴 유지). |
 | **목록 행은 가볍게** | 카드 한 장에 들어가는 훅·컨텍스트를 줄인다. 인터랙션(찜 등)만 작은 클라이언트 조각으로 둔다. |
 
@@ -63,14 +63,14 @@ SAMarket은 **상용 운영**을 전제로 한 빌더이므로, 거래 축의 **
 
 ## 7. 이행 순서 (리스크 낮게)
 
-1. **읽기 전용** 경로부터: 홈 `/philife` 또는 `/market/[slug]` 중 하나만 RSC 첫 페이로드 도입.
+1. **읽기 전용** 경로부터: 홈 `/philife` 또는 `/market?category=`(구 `/market/[slug]` — 현재 서버 리다이렉트) 중 하나만 RSC 첫 페이로드 도입.
 2. **중복 클라이언트 fetch 제거**만으로도 체감이 난다.
 3. 그다음 **목록 클라이언트 컴포넌트 분할**(카드 단위 인터랙션).
 
 ## 8. 관련 기존 코드 (참고만)
 
 - 홈 피드: `components/home/HomeProductList.tsx`, `lib/posts/getPostsForHome.ts`, `app/api/philife/posts/route.ts`
-- 마켓: `app/(main)/market/[slug]/page.tsx`, `components/market/MarketCategoryFeed.tsx`
+- 마켓: `app/(main)/market/MarketContent.tsx` (`/market/[slug]` 는 `/market?category=` 서버 리다이렉트), `components/market/MarketCategoryFeed.tsx`
 - 칩/탭: `lib/trade/tabs/use-trade-tabs.ts`, `lib/categories/getHomeChipCategories.ts`
 
 ## 9. 거래 홈 전체 목록 (`/market` · `HomeProductList`) — **재발 방지 불변조건**

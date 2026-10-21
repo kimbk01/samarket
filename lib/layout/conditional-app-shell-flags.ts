@@ -13,7 +13,7 @@ import { isStoreOrderReviewPath } from "@/lib/main-menu/delivery-bottom-nav-layo
 import { isMainBottomNavFabDeliverySurface } from "@/lib/main-menu/resolve-main-bottom-nav-fab";
 import { isStoresConsumerSlugMenuRoute } from "@/lib/stores/store-consumer-route";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
-import { isBottomNavEligibleRoute } from "@/lib/navigation/bottom-nav-route-policy";
+import { isBottomNavEligibleRoute, isWritePath } from "@/lib/navigation/bottom-nav-route-policy";
 import { isCommunityHomeSurfacePath, isCommunityMainSurface } from "@/lib/layout/resolve-main-surface";
 
 const PHILIFE_POST_DETAIL_EXCLUDED_SEGMENTS = new Set([
@@ -141,7 +141,7 @@ export function resolveConditionalAppShellFlags(
   const isProductEditPage = Boolean(pathname?.match(/^\/products\/[^/]+\/edit$/));
   const isPersonalProductComposerPage =
     pathname === "/products/new" || (pathname?.startsWith("/products/new/") ?? false) || isProductEditPage;
-  const isWritePage = (pathname?.startsWith("/write") ?? false) || pathname === "/philife/write";
+  const isWritePage = pathname ? isWritePath(pathname) : false;
   const isPostDetail = Boolean(pathname?.match(/^\/post\/[^/]+$/));
   const isPhilifeNeighborhoodPostDetail = isPhilifeNeighborhoodPostDetailPathname(pathname);
   const isProductDetail = Boolean(pathname?.match(/^\/products\/[^/]+$/));
@@ -173,9 +173,6 @@ export function resolveConditionalAppShellFlags(
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));
   const suppressIncomingCallOverlay = resolveSuppressIncomingCallOverlay(pathname);
   const isAddressMapSelect = pathname === "/address/select";
-  /** 배달 탭에서 쓰는 내정보(매장/주문) 섹션 — 자체 메뉴를 가지므로 메인 하단 탭은 숨김 */
-  const isDeliveryMyInfoStoreSection =
-    pathname === "/mypage/section/store" || (pathname?.startsWith("/mypage/section/store/") ?? false);
   const isViewportLockedChatDetail =
     isMypageTradeChatRoom ||
     isCommunityMessengerRoom ||

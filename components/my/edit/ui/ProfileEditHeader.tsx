@@ -5,12 +5,13 @@ import { BodyPortal } from "@/components/layout/BodyPortal";
 import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
 import { SectorHeaderBackButton } from "@/components/layout/sector-header/SectorHeaderBackButton";
 import { SectorHeaderTitle } from "@/components/layout/sector-header/SectorHeaderTitle";
-import {
-  SECTOR_HEADER_SHELL_CLASS,
-  SECTOR_HEADER_SHELL_EMBEDDED_CLASS,
-} from "@/lib/ui/sector-header-classes";
+import { SECTOR_HEADER_SHELL_CLASS } from "@/lib/ui/sector-header-classes";
 
-/** 고정 1단 헤더 — 표준 섹터 52px·상하 중앙, 저장은 하단 바 */
+/**
+ * 고정 1단 헤더 — 표준 섹터 52px·상하 중앙, 저장은 하단 바.
+ * safe-top 띠는 셸(`.sector-header-shell` padding-top)이 배경과 함께 소유 — 노치 아래로 본문이 비치지 않는다 (M-07).
+ * 우측 빈 슬롯 = 뒤로와 같은 48px (§12 대칭).
+ */
 export function ProfileEditHeader({
   backHref,
   onBack,
@@ -23,10 +24,10 @@ export function ProfileEditHeader({
 
   return (
     <BodyPortal>
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-[55] pt-[var(--safe-top)]">
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[55]">
         <header
           data-profile-edit-header
-          className={`pointer-events-auto ${SECTOR_HEADER_SHELL_CLASS} ${SECTOR_HEADER_SHELL_EMBEDDED_CLASS}`}
+          className={`pointer-events-auto ${SECTOR_HEADER_SHELL_CLASS}`}
         >
           <SectorHeaderBar
             left={
@@ -42,7 +43,7 @@ export function ProfileEditHeader({
               />
             }
             center={<SectorHeaderTitle>{t("profile_edit_title")}</SectorHeaderTitle>}
-            right={<span className="block w-10 shrink-0" aria-hidden />}
+            right={<span className="block h-12 w-12 shrink-0" aria-hidden />}
           />
         </header>
       </div>

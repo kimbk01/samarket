@@ -9,7 +9,6 @@ export function TradeHubLayoutHeader() {
   return (
     <MySubpageHeader
       title={t("tier1_trade_hub_title")}
-      subtitle={t("tier1_trade_hub_subtitle")}
       hideCtaStrip
       registerMainTier1={false}
       stickyBelow={<TradeHubTopTabs />}

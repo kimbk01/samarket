@@ -513,7 +513,7 @@ function resolveMainTier1SubpageInner(
       backHref: "/community-messenger?section=chats",
       preferHistoryBack: false,
       ariaLabel: "tier1_messenger_back",
-      titleText: "tier1_delivery_chat",
+      titleText: "nav_chat_order_compact",
       showHubQuickActions: false,
     };
   }

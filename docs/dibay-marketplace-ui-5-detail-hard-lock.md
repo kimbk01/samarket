@@ -57,7 +57,7 @@ This cut changed **DETAIL presentation order only**. It did not change compositi
 BUYER DETAIL
 사진 → 가격 → 제목 → 지역·시간 → 품목정보 → 설명 → 판매자 → 찜 / 신고 / 공유
 DISCOVERY: 판매자 다른 상품 / 광고 / 관련
-VIEWPORT FIXED: 채팅 CTA
+채팅 CTA: 본문 인라인 (2026-08-20 `4b9034c0b` — 뷰포트 고정 아님)
 
 중고차: 상태/팝니다·삽니다는 제목 아래가 아니라 품목정보
 부동산: 지역·시간 전용 행, 품목정보 → 설명
@@ -65,9 +65,10 @@ VIEWPORT FIXED: 채팅 CTA
 
 BUYER ⋯: 신고/공유 중복 없음 (이 사용자의 글 보지 않기 유지)
 OWNER: buyer 찜/신고/채팅 강제 없음
-OWNER: 수정 / 삭제 / 더 알리기 authority 유지
-sticky CTA는 overlay — related를 sticky 아래 DOM으로 옮기지 않음
+OWNER: 수정 / 삭제 / 더 알리기 authority 유지 — 더 알리기 CTA 본문 인라인 (2026-08-20 `918f0ba8b`, 시트 가림 방지)
 ```
+
+> 정정 (2026-10-21): 이 문서 초판의 「VIEWPORT FIXED: 채팅 CTA」·「sticky CTA overlay」는 `4b9034c0b`·`918f0ba8b`(2026-08-20)로 **본문 인라인**으로 바뀌었고 현행 코드·테스트가 인라인을 고정한다. 표시 순서 계약(사진→가격→제목…)은 그대로다.
 
 Authority: `components/post/PostDetailView.tsx` · `components/jobs/JobDetailHeader.tsx`.
 

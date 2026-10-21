@@ -198,7 +198,8 @@
   --sam-card-padding: var(--sam-space-4);
   --sam-item-gap: var(--sam-space-3);
   --sam-header-action-min: 40px;
-  --sam-header-row-height: 52px;
+  /** 헤더 한 줄 높이 — 정본 `--sector-header-h` (`app/sector-header.css`) 별칭 (S-03) */
+  --sam-header-row-height: var(--sector-header-h, 52px);
   --sam-segment-tab-height: 44px;
 
   --sam-bp-mobile-max: 767px;

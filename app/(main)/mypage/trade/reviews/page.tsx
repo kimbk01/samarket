@@ -7,7 +7,7 @@ import { TradeHubSectionShell } from "@/components/mypage/trade/TradeHubSectionS
 export default function TradeReviewsPage() {
   const { t } = useI18n();
   return (
-    <TradeHubSectionShell title={t("nav_trade_reviews")}>
+    <TradeHubSectionShell flat title={t("nav_trade_reviews")}>
       <TradeReviewsManagementView syncUrl />
     </TradeHubSectionShell>
   );

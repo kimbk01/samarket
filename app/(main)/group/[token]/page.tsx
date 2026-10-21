@@ -25,6 +25,9 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
   const [status, setStatus] = useState<"loading" | "ready" | "busy" | "error">("loading");
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
+  /** T-08 — 네트워크·서버 오류는 재시도 가능, 무효 링크는 메신저로만 (막다른 화면 제거) */
+  const [retryable, setRetryable] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,12 +47,27 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
         return;
       }
       setToken(inviteToken);
-      const res = await fetch(
-        `/api/community-messenger/group-rooms/invite-preview?token=${encodeURIComponent(inviteToken)}`
-      );
+      let res: Response;
+      try {
+        res = await fetch(
+          `/api/community-messenger/group-rooms/invite-preview?token=${encodeURIComponent(inviteToken)}`
+        );
+      } catch {
+        if (cancelled) return;
+        setRetryable(true);
+        setStatus("error");
+        setMessage(
+          safeT("common_network_error_retry", {
+            fallbackKo: "네트워크 오류가 발생했어요. 다시 시도해 주세요.",
+            fallbackEn: "Network error. Please try again.",
+          })
+        );
+        return;
+      }
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; preview?: Preview };
       if (cancelled) return;
       if (!res.ok || !json.ok || !json.preview) {
+        setRetryable(res.status >= 500);
         setStatus("error");
         setMessage(
           safeT("cm_ui_group_invite_invalid", {
@@ -65,7 +83,7 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
     return () => {
       cancelled = true;
     };
-  }, [params, safeT]);
+  }, [params, safeT, reloadKey]);
 
   async function joinNow() {
     if (!token || status === "busy") return;
@@ -169,8 +187,29 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
 
   if (status === "error" || !preview) {
     return (
-      <main className="flex min-h-[50vh] items-center justify-center bg-sam-app px-4">
-        <p className="sam-text-body-lg text-sam-fg">{message}</p>
+      <main className="mx-auto flex min-h-[50vh] max-w-md flex-col items-center justify-center gap-4 bg-sam-app px-4">
+        <p className="text-center sam-text-body-lg text-sam-fg">{message}</p>
+        {retryable ? (
+          <button
+            type="button"
+            className="w-full rounded-ui-rect bg-sam-primary px-4 py-3 sam-text-body font-semibold text-sam-on-primary"
+            onClick={() => {
+              setRetryable(false);
+              setMessage("");
+              setStatus("loading");
+              setReloadKey((k) => k + 1);
+            }}
+          >
+            {safeT("common_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg"
+          onClick={() => router.replace("/community-messenger")}
+        >
+          {safeT("cm_ui_group_invite_go_messenger", { fallbackKo: "메신저로 이동", fallbackEn: "Go to Messenger" })}
+        </button>
       </main>
     );
   }

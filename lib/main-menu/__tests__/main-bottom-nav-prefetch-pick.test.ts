@@ -115,3 +115,12 @@ describe("pickMainBottomNavPrefetchHrefs", () => {
     expect(hrefs.filter((h) => h === "/market").length).toBeLessThanOrEqual(1);
   });
 });
+
+describe("M-03 /my alias", () => {
+  it("/my and /my/* activate the /mypage tab; /mypage-like prefixes do not leak", () => {
+    expect(isBottomNavTabActive("/my", "/mypage")).toBe(true);
+    expect(isBottomNavTabActive("/my/settings", "/mypage")).toBe(true);
+    expect(isBottomNavTabActive("/market", "/mypage")).toBe(false);
+    expect(isBottomNavTabActive("/my", "/market")).toBe(false);
+  });
+});

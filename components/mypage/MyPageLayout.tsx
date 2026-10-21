@@ -35,7 +35,7 @@ export function MyPageLayout({
           showSidebar ? "block" : "hidden"
         } md:block`}
       >
-        <div className="md:sticky md:top-[76px] md:max-h-[calc(100vh-76px)] md:overflow-y-auto">
+        <div className="md:sticky md:top-[calc(var(--sector-header-h,52px)+1.5rem)] md:max-h-[calc(100vh-var(--sector-header-h,52px)-1.5rem)] md:overflow-y-auto">
           <MyPageSidebar
             activeTab={activeTab}
             activeSection={activeSection}

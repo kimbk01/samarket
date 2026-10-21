@@ -9,6 +9,7 @@ import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { GroupChatRoomClient } from "@/components/group-chat/GroupChatRoomClient";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { loadGroupChatBootstrapForUser } from "@/lib/group-chat/load-group-chat-bootstrap-server";
+import { GROUP_CHAT_LIST_HREF } from "@/lib/group-chat/constants";
 
 async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise<{ roomId: string }> }) {
   const jar = await cookies();
@@ -36,7 +37,7 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
       return (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 px-4 text-center text-sm text-sam-muted">
           <p>{translate(lang, "ui_group_chat_room_not_found")}</p>
-          <Link href="/group-chat" className="font-medium text-signature underline">
+          <Link href={GROUP_CHAT_LIST_HREF} className="font-medium text-signature underline">
             {translate(lang, "common_to_list")}
           </Link>
         </div>
@@ -46,7 +47,7 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
       return (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 px-4 text-center text-sm text-sam-muted">
           <p>{boot.error}</p>
-          <Link href="/group-chat" className="font-medium text-signature underline">
+          <Link href={GROUP_CHAT_LIST_HREF} className="font-medium text-signature underline">
             {translate(lang, "common_to_list")}
           </Link>
         </div>
@@ -61,7 +62,7 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
 
   return (
     <section className="flex min-h-[70vh] min-w-0 flex-1 flex-col overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-      <GroupChatRoomClient key={id} roomId={id} listHref="/group-chat" initialBootstrap={boot.body} />
+      <GroupChatRoomClient key={id} roomId={id} listHref={GROUP_CHAT_LIST_HREF} initialBootstrap={boot.body} />
     </section>
   );
 }
