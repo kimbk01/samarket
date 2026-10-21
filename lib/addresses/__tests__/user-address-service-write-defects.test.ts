@@ -253,6 +253,21 @@ describe("ADDR-DATA-003: client_request_id 멱등 생성", () => {
     expect(inserts).toHaveLength(0);
   });
 
+  it("재요청 — 앞선 요청이 대표 지정 전에 실패했으면 대표 지정·새 입력을 반영", async () => {
+    const rows = [row({ id: "a1", client_request_id: "req-1", is_default_master: false, detail_address: "Unit 1" })];
+    const { sb, inserts } = fakeSupabase(rows);
+    const out = await createUserAddress(
+      sb,
+      "u1",
+      { ...validPayload(), detailAddress: "Unit 9", isDefaultMaster: true },
+      { clientRequestId: "req-1" },
+    );
+    expect(inserts).toHaveLength(0);
+    expect(out.id).toBe("a1");
+    expect(out.isDefaultMaster).toBe(true);
+    expect(rows[0]!.detail_address).toBe("Unit 9");
+  });
+
   it("새 요청은 client_request_id 를 함께 저장", async () => {
     const rows = [row({ id: "a1", is_default_master: true })];
     const { sb, inserts } = fakeSupabase(rows);

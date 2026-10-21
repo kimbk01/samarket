@@ -177,7 +177,7 @@ function AddressPlatformSearchInner() {
         setErr(t("addr_ui_coords_invalid"));
         return;
       }
-      writeAddressPlatformV2Draft({ draft, source: "search" });
+      writeAddressPlatformV2Draft({ draft, source: "search", addressId: editId || null });
       goDetail();
     } catch {
       if (token === resolveTokenRef.current) setErr(t("addr_ui_resolve_failed"));
@@ -206,7 +206,7 @@ function AddressPlatformSearchInner() {
         setErr(t("addr_ui_resolve_failed"));
         return;
       }
-      writeAddressPlatformV2Draft({ draft, source: "current_location" });
+      writeAddressPlatformV2Draft({ draft, source: "current_location", addressId: editId || null });
       goDetail();
     } catch {
       if (token === resolveTokenRef.current) setErr(t("addr_ui_resolve_failed"));

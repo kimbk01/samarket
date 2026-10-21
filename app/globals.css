@@ -254,7 +254,7 @@ svg {
     ):not([type="reset"]):not([type="image"]):not([type="color"]),
   textarea,
   select
-):not(.sam-input):not(.sm-input) {
+):not(.sam-input):not(.sm-input):not(.sam-textarea):not(.sam-select):not(.sam-input-surface-soft):not(.sm-textarea) {
   font-size: var(--sam-text-body-size);
 }
 

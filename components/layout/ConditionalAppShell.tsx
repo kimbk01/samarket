@@ -451,7 +451,7 @@ export function ConditionalAppShell({
       </main>
       <MarkInitialDestinationVisualReadyOnce pathname={pathname} />
       <AndroidInputBackKeyReleaseProbe
-        enabled={!isMessengerStackSurface && !/^\/(community-messenger|chats?|group-chat)(\/|$)/.test(pathname ?? "")}
+        enabled={!/^\/(community-messenger|chats?|group-chat)(\/|$)/.test(pathname ?? "")}
       />
       {showBottomNavMounted ? (
         <BottomNavKeyboardHideProbe onStateChange={setBottomNavKeyboardState} />

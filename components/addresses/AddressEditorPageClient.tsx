@@ -124,8 +124,8 @@ function AddressEditorPageInner() {
 
   useEffect(() => {
     let cancelled = false;
-    const incomingDraft =
-      !idFromUrl && !mapBootstrapUrl ? readAddressPlatformV2Draft()?.draft ?? null : null;
+    const incomingHandoff = !idFromUrl && !mapBootstrapUrl ? readAddressPlatformV2Draft() : null;
+    const incomingDraft = incomingHandoff && !incomingHandoff.addressId ? incomingHandoff.draft : null;
     if (incomingDraft) {
       setPlatformDraft(incomingDraft);
       setMode("create");
@@ -186,11 +186,17 @@ function AddressEditorPageInner() {
           setEditTarget(row ?? null);
           setMode(row ? "edit" : "create");
           /** 좌표 없는 저장 행 — 재검색(UX-002)으로 받은 handoff draft 사용 */
-          if (row) setPlatformDraft(draftFromSavedRow(row) ?? readAddressPlatformV2Draft()?.draft ?? null);
+          if (row) {
+            const handoff = readAddressPlatformV2Draft();
+            setPlatformDraft(
+              draftFromSavedRow(row) ?? (handoff?.addressId === row.id ? handoff.draft : null),
+            );
+          }
         } else {
           setMode("create");
           setEditTarget(null);
-          const draft = incomingDraft ?? readAddressPlatformV2Draft()?.draft ?? null;
+          const handoff = readAddressPlatformV2Draft();
+          const draft = incomingDraft ?? (handoff && !handoff.addressId ? handoff.draft : null);
           if (draft) {
             setPlatformDraft(draft);
           } else if (shouldRedirectCreateDetailToSearch(idFromUrl, mapBootstrapUrl, draft)) {
@@ -274,6 +280,7 @@ function AddressEditorPageInner() {
         onConfirm={() => {
           setLeaveConfirmOpen(false);
           setDirty(false);
+          clearAddressPlatformV2Draft();
           clearAddressEditDraftV3(draftUserId, mode === "edit" ? editTarget?.id : null);
           traverseGuard.release();
           leaveNow();

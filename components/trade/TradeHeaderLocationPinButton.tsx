@@ -1,5 +1,6 @@
 "use client";
 
+import { TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -79,8 +80,8 @@ export function buildTradeHeaderLocationHintParts(input: {
   return { place, suffix: input.allLabel };
 }
 
-/** 나의 지역 일시 실패 시 유한 재시도 — hydrate 정책(1s·2s·4s)과 동일 간격. */
-const MY_REGION_RETRY_DELAYS_MS = [1_000, 2_000, 4_000] as const;
+/** 나의 지역 일시 실패 시 유한 재시도 — hydrate 정책과 같은 간격(단일 정의). */
+const MY_REGION_RETRY_DELAYS_MS = TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS;
 
 export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title" | "below-title";
 
