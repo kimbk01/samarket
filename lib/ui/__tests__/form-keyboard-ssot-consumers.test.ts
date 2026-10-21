@@ -45,6 +45,8 @@ describe("form-keyboard-ssot consumer contract", () => {
     const src = read("components/write/shared/SubmitButton.tsx");
     expect(src).toContain("useFormKeyboardViewport");
     expect(src).toContain("effectiveBottomInset");
+    expect(src).toContain("useFormKeyboardFocusVisibility");
+    expect(src).toContain("effectiveViewportBottom");
     expect(src).not.toMatch(/mobile-fixed-bottom/);
     expect(src).not.toMatch(/calc\(var\(--safe-bottom\)/);
   });

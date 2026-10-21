@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
 import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 /** `TradeWriteForm` `<form id>` — footer submit may reference via `form` attr when split from form tree */
@@ -35,7 +36,9 @@ export function SubmitButton({
   disabled = false,
 }: SubmitButtonProps) {
   const { t } = useI18n();
-  const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport();
+  const { effectiveBottomInset, effectiveViewportBottom, keyboardOpen } = useFormKeyboardViewport();
+  // Footer alone lifts CTA; focus band scroll is required so title/body stay above the keyboard (K-07).
+  useFormKeyboardFocusVisibility({ effectiveViewportBottom });
   const resolvedCancelLabel = cancelLabel ?? t("trade_write_cancel");
   const resolvedLabel = label ?? t("trade_write_submit");
   const resolvedSubmittingLabel = submittingLabel ?? t("trade_write_submitting");
