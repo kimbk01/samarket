@@ -20,7 +20,11 @@ if (!shell.includes("resolveOwnerStackScrollHostPath")) {
 if (/ownerStackScrollHostPath[\s\S]{0,120}!isOwnerBasicInfoRoute/.test(shell)) {
   errors.push("BusinessAdminShell: must not exclude basic-info from scroll host path");
 }
-if (!/!isOwnerFormBottomNavHiddenRoute\s*\?/.test(shell)) {
+// Mount gate may be a ternary (`!x ? <Nav/>`) or a guard chain (`!x && … ? <OwnerMobileBottomNav`).
+if (
+  !shell.includes("isOwnerBottomNavHiddenPath") ||
+  !/!isOwnerFormBottomNavHiddenRoute\s*(?:\?|&&[^?]{0,200}\?\s*<OwnerMobileBottomNav)/.test(shell)
+) {
   errors.push(
     "BusinessAdminShell: must still hide bottom nav on basic-info/profile/inquiries via !isOwnerFormBottomNavHiddenRoute"
   );
@@ -87,14 +91,22 @@ for (const rel of [
   }
 }
 
-const orderChats = readFileSync("components/business/owner/OwnerStoreOrderChatsView.tsx", "utf8");
-if (!orderChats.includes("OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS")) {
-  errors.push("OwnerStoreOrderChatsView: must use OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS scroll host");
+// SELECTIVE_SHELL_RESTORE (e371451cb): orders/order-chats get the OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS
+// scroll host only through OwnerAdminPageScrollShell — direct class use is a bypass.
+const scrollShellSrc = readFileSync("components/business/owner/OwnerAdminPageScrollShell.tsx", "utf8");
+if (!scrollShellSrc.includes("OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS")) {
+  errors.push("OwnerAdminPageScrollShell: must own OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS scroll host");
 }
-
-const ordersBody = readFileSync("components/business/owner/OwnerStoreOrdersMobileBody.tsx", "utf8");
-if (!ordersBody.includes("OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS")) {
-  errors.push("OwnerStoreOrdersMobileBody: must use OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS scroll host");
+for (const [name, rel] of [
+  ["OwnerStoreOrderChatsView", "components/business/owner/OwnerStoreOrderChatsView.tsx"],
+  ["OwnerStoreOrdersMobileBody", "components/business/owner/OwnerStoreOrdersMobileBody.tsx"],
+]) {
+  const src = readFileSync(rel, "utf8");
+  if (!src.includes("OwnerAdminPageScrollShell") || src.includes("OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS")) {
+    errors.push(
+      `${name}: must use OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS scroll host via OwnerAdminPageScrollShell (no direct class)`
+    );
+  }
 }
 
 const orderChatSurface = readFileSync("lib/chats/surfaces/order-chat-surface.ts", "utf8");
@@ -109,7 +121,14 @@ const ownerCompactShellCss = readFileSync("app/owner-compact-shell.css", "utf8")
 if (!ownerCompactShellCss.includes("--owner-shell-header-border: 1px")) {
   errors.push("owner-compact-shell.css: --owner-shell-main-pt must include header border token");
 }
-if (!/--owner-shell-main-pt:\s*calc\([\s\S]*--owner-shell-header-border/.test(ownerCompactShellCss)) {
+// main-pt includes the header border directly, or via --owner-content-top (which must include it).
+if (
+  !/--owner-shell-main-pt:\s*calc\([\s\S]*--owner-shell-header-border/.test(ownerCompactShellCss) &&
+  !(
+    /--owner-content-top:\s*calc\([^;]*--owner-shell-header-border/.test(ownerCompactShellCss) &&
+    /--owner-shell-main-pt:\s*var\(--owner-content-top\)/.test(ownerCompactShellCss)
+  )
+) {
   errors.push("owner-compact-shell.css: --owner-shell-main-pt must add --owner-shell-header-border");
 }
 

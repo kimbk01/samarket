@@ -51,8 +51,17 @@ if (!hub.includes("community_messenger_room_id") || !hub.includes("sumBuyerStore
   fails.push("hub summary must single-pass room ids for unread");
 }
 
-if (!restore.includes(".in(\"id\", ids)") && !restore.includes(".in('id', ids)")) {
-  fails.push("restoreStockForOrderLines must batch select");
+// CUT 3 (docs/dibay-delivery-product-hard-lock.md): per-line RMW replaced by one DB atomic RPC per order.
+// Intent kept: stock restore must never read/write products line-by-line from TS.
+{
+  const usesAtomicRpc = /\.rpc\(\s*["']restore_store_order_stock_atomic["']/.test(restore);
+  const usesBatchSelect = restore.includes(".in(\"id\", ids)") || restore.includes(".in('id', ids)");
+  if (!usesAtomicRpc && !usesBatchSelect) {
+    fails.push("restoreStockForOrderLines must batch (atomic restore RPC or single .in select)");
+  }
+  if (usesAtomicRpc && /\.from\(\s*["']store_products["']\s*\)/.test(restore)) {
+    fails.push("restore-order-stock must not mix TS product RMW with atomic restore RPC");
+  }
 }
 
 {
