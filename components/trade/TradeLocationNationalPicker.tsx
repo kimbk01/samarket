@@ -39,6 +39,9 @@ export function TradeLocationNationalPicker({
   const [results, setResults] = useState<TradeNationalPickerHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  /** HTTP·네트워크 실패 — 「검색 결과 없음」과 구분해 재시도 제공. */
+  const [failed, setFailed] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const reqGen = useRef(0);
 
   useEffect(() => {
@@ -50,11 +53,13 @@ export function TradeLocationNationalPicker({
     if (q.length < 2) {
       setResults([]);
       setSearched(false);
+      setFailed(false);
       setLoading(false);
       return;
     }
     const gen = ++reqGen.current;
     setLoading(true);
+    setFailed(false);
     const tmr = window.setTimeout(() => {
       void (async () => {
         try {
@@ -67,7 +72,8 @@ export function TradeLocationNationalPicker({
           if (gen !== reqGen.current) return;
           if (!res.ok) {
             setResults([]);
-            setSearched(true);
+            setSearched(false);
+            setFailed(true);
             return;
           }
           const json = (await res.json()) as {
@@ -100,14 +106,15 @@ export function TradeLocationNationalPicker({
         } catch {
           if (gen !== reqGen.current) return;
           setResults([]);
-          setSearched(true);
+          setSearched(false);
+          setFailed(true);
         } finally {
           if (gen === reqGen.current) setLoading(false);
         }
       })();
     }, 220);
     return () => window.clearTimeout(tmr);
-  }, [query]);
+  }, [query, retryNonce]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -146,6 +153,17 @@ export function TradeLocationNationalPicker({
           <p className="px-2 py-6 text-center text-sm text-sam-fg-muted">
             {t("trade_location_picker_searching")}
           </p>
+        ) : failed ? (
+          <div className="flex flex-col items-center gap-3 px-2 py-6 text-center" role="alert">
+            <p className="text-sm text-sam-fg-muted">{t("trade_location_picker_error")}</p>
+            <button
+              type="button"
+              className="min-h-10 rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-semibold text-sam-primary"
+              onClick={() => setRetryNonce((n) => n + 1)}
+            >
+              {t("trade_location_retry")}
+            </button>
+          </div>
         ) : searched && results.length === 0 ? (
           <p className="px-2 py-6 text-center text-sm text-sam-fg-muted">
             {t("trade_location_picker_empty")}
@@ -158,7 +176,7 @@ export function TradeLocationNationalPicker({
                 <li key={hit.canonicalId} role="option" aria-selected={on}>
                   <button
                     type="button"
-                    className="flex min-h-11 w-full items-start gap-3 rounded-lg px-2 py-3 text-left hover:bg-sam-surface-muted"
+                    className="flex min-h-11 w-full items-start gap-3 rounded-ui-rect px-2 py-3 text-left hover:bg-sam-surface-muted"
                     onClick={() => onSelect(hit)}
                   >
                     <span

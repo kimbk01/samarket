@@ -1,8 +1,11 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import {
   __resetStoreDeliveryServiceabilityClientForTests,
   fetchStoreDeliveryServiceabilityClient,
   invalidateStoreDeliveryServiceabilityClientCache,
+  storeDeliveryServiceabilityClientCacheKey,
 } from "@/lib/stores/fetch-store-delivery-serviceability-client";
 
 const OK = {
@@ -67,6 +70,35 @@ describe("fetchStoreDeliveryServiceabilityClient coalesce", () => {
     // Same path as SAMARKET_ADDRESSES_UPDATED_EVENT listener
     invalidateStoreDeliveryServiceabilityClientCache();
     await fetchStoreDeliveryServiceabilityClient("aa11");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("cache key includes viewer (guest vs member)", () => {
+    expect(storeDeliveryServiceabilityClientCacheKey(" aa11 ")).toBe("aa11|_");
+    expect(storeDeliveryServiceabilityClientCacheKey("aa11", null)).toBe("aa11|_");
+    expect(storeDeliveryServiceabilityClientCacheKey("aa11", "u1")).toBe("aa11|u1");
+  });
+
+  it("guest result is not reused for a member viewer on the same slug", async () => {
+    await fetchStoreDeliveryServiceabilityClient("aa11");
+    await fetchStoreDeliveryServiceabilityClient("aa11", undefined, { viewerUserId: "u1" });
+    await fetchStoreDeliveryServiceabilityClient("aa11", undefined, { viewerUserId: "u1" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("slug invalidation drops every viewer entry for that slug", async () => {
+    await fetchStoreDeliveryServiceabilityClient("aa11");
+    await fetchStoreDeliveryServiceabilityClient("aa11", undefined, { viewerUserId: "u1" });
+    invalidateStoreDeliveryServiceabilityClientCache("aa11");
+    await fetchStoreDeliveryServiceabilityClient("aa11");
+    await fetchStoreDeliveryServiceabilityClient("aa11", undefined, { viewerUserId: "u1" });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("auth change event invalidates cached results", async () => {
+    await fetchStoreDeliveryServiceabilityClient("aa11", undefined, { viewerUserId: "u1" });
+    window.dispatchEvent(new Event(TEST_AUTH_CHANGED_EVENT));
+    await fetchStoreDeliveryServiceabilityClient("aa11", undefined, { viewerUserId: "u1" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 

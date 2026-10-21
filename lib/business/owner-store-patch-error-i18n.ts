@@ -21,6 +21,7 @@ const PATCH_ERR_KEYS: Record<string, MessageKey> = {
   invalid_lat: "business_phase7_511",
   invalid_lng: "business_phase7_512",
   store_location_inconsistent: "addr_ui_store_location_inconsistent",
+  store_delivery_requires_canonical_geo: "addr_ui_store_delivery_requires_canonical_geo",
 };
 
 const TZ_LABEL_KEYS: Record<string, MessageKey> = {

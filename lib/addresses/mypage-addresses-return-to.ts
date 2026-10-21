@@ -85,8 +85,13 @@ export function buildMypageAddressEditHref(opts: {
   return q ? `/mypage/addresses/edit?${q}` : "/mypage/addresses/edit";
 }
 
-export function buildMypageAddressSearchHref(opts?: { returnTo?: string | null }): string {
+export function buildMypageAddressSearchHref(opts?: { returnTo?: string | null; id?: string | null }): string {
   const rt = parseSafeInternalReturnTo(opts?.returnTo);
-  if (!rt) return "/mypage/addresses/search";
-  return `/mypage/addresses/search?returnTo=${encodeURIComponent(rt)}`;
+  const id = opts?.id?.trim() ?? "";
+  if (!rt && !id) return "/mypage/addresses/search";
+  const params = new URLSearchParams();
+  if (rt) params.set("returnTo", rt);
+  /** 편집 중 좌표 없는 주소 재검색 — 검색 결과를 같은 주소 편집으로 되돌린다 (UX-002) */
+  if (id) params.set("id", id);
+  return `/mypage/addresses/search?${params.toString()}`;
 }

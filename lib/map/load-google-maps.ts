@@ -27,7 +27,11 @@ export function loadGoogleMaps(): Promise<void> {
       await importLibrary("places");
       await importLibrary("geocoding");
       await importLibrary("geometry");
-    })();
+    })().catch((e: unknown) => {
+      /** 실패한 promise 를 캐시하지 않는다 — 재시도 시 다시 로드 */
+      loadPromise = null;
+      throw e;
+    });
   }
   return loadPromise;
 }

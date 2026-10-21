@@ -771,6 +771,26 @@ export function OwnerStoreBasicInfoForm({
       if (resolvedLat != null && resolvedLng != null) {
         basicInfoPatch.lat = resolvedLat;
         basicInfoPatch.lng = resolvedLng;
+        /**
+         * 가로 주소·시/주를 바꾸면 이전 Google place_id·formatted_address 가 남지 않도록
+         * 같은 PATCH 에서 place_id 해제 + 새 가로 주소로 formatted_address 재구성 (Policy A: lat/lng 동반).
+         */
+        const savedStreet = formatStoreAddressStreetDisplay({
+          district: row.district,
+          address_line1: row.address_line1,
+          address_line2: row.address_line2,
+        }).trim();
+        const nextStreet = values.addressStreetLine.trim();
+        const streetIdentityChanged =
+          nextStreet !== savedStreet ||
+          (regionName ?? "") !== (row.region ?? "").trim() ||
+          (cityName ?? "") !== (row.city ?? "").trim();
+        if (streetIdentityChanged) {
+          basicInfoPatch.place_id = null;
+          basicInfoPatch.formatted_address =
+            [nextStreet, cityName, regionName].filter((x) => !!x && String(x).trim()).join(", ") ||
+            null;
+        }
       }
       if (identityEditable) {
         basicInfoPatch.store_name = values.shopName.trim();

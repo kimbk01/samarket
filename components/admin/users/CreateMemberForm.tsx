@@ -77,6 +77,10 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
   const [formError, setFormError] = useState<string | null>(null);
   const [addressAttempted, setAddressAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /** 생성 성공 + 대표 주소 시드 실패 — 닫지 않고 경고 표시 후 상세 이동만 허용. */
+  const [createdWithAddressWarning, setCreatedWithAddressWarning] = useState<{
+    userId: string;
+  } | null>(null);
 
   const clearField = (field: AdminCreateMemberFormField) => {
     setFieldErrors((prev) => {
@@ -218,6 +222,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         errorKey?: MessageKey;
         field?: string;
         user?: { id?: string; email?: string };
+        address_warning?: string;
       };
       if (!res.ok || !data.ok) {
         const mapped = mapAdminCreateMemberApiField(data.field);
@@ -248,8 +253,14 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       setPassword("");
       setPasswordConfirm("");
       onSuccess();
-      setDialogOpen(false);
       const createdUserId = String(data.user?.id ?? "").trim();
+      if (data.address_warning) {
+        setFormError(null);
+        setFieldErrors({});
+        setCreatedWithAddressWarning({ userId: createdUserId });
+        return;
+      }
+      setDialogOpen(false);
       if (createdUserId) {
         router.push(`/admin/users/${encodeURIComponent(createdUserId)}`);
       }
@@ -273,10 +284,14 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       title={MEMBER_ADMIN_COPY.member_create_title}
       size="large"
       description={t("admin_users_form_create_member_subtitle")}
-      dirty={dirty && !submitting}
+      dirty={dirty && !submitting && !createdWithAddressWarning}
       pending={submitting}
       errorText={formError}
-      primaryLabel={MEMBER_ADMIN_COPY.member_register}
+      primaryLabel={
+        createdWithAddressWarning
+          ? t("admin_users_go_to_member_detail")
+          : MEMBER_ADMIN_COPY.member_register
+      }
       primaryDisabled={submitting}
       onCancel={() => {
         if (submitting) return;
@@ -284,11 +299,28 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         onClose();
       }}
       onPrimary={() => {
+        if (createdWithAddressWarning) {
+          setDialogOpen(false);
+          if (createdWithAddressWarning.userId) {
+            router.push(`/admin/users/${encodeURIComponent(createdWithAddressWarning.userId)}`);
+          }
+          onClose();
+          return;
+        }
         const form = document.getElementById("member-create-form") as HTMLFormElement | null;
         form?.requestSubmit();
       }}
     >
       <div className="max-h-[60vh] overflow-y-auto pr-1" data-member-create-dialog="1">
+        {createdWithAddressWarning ? (
+          <p
+            className="mb-3 rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-fg"
+            role="alert"
+            data-member-create-address-warning="1"
+          >
+            {t("admin_users_address_seed_warning")}
+          </p>
+        ) : null}
         <form id="member-create-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div>
               <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">

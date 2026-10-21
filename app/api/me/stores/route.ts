@@ -6,6 +6,8 @@ import { makeStoreSlug } from "@/lib/stores/make-store-slug";
 import { isMissingStoresApplicantNicknameColumnError } from "@/lib/stores/stores-applicant-nickname-db";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
+import { assertStoreLocationPatchConsistent } from "@/lib/stores/store-location-patch-consistency";
+import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
 import { RESERVED_STORE_SLUGS } from "@/lib/business/owner-routes";
 import { formatAddressBookCardPresentation } from "@/lib/addresses/address-book-card-presentation";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
@@ -230,10 +232,15 @@ export async function POST(req: NextRequest) {
    * (FIRST BREAK: text-only store rows → Admin "좌표 없음").
    * Physical store location is set after approval via owner basic-info / shop address sync.
    */
-  const placeLat =
-    body.lat != null && Number.isFinite(Number(body.lat)) ? Number(body.lat) : null;
-  const placeLng =
-    body.lng != null && Number.isFinite(Number(body.lng)) ? Number(body.lng) : null;
+  /** 범위 검증 포함 (-90~90 / -180~180) — 값이 왔는데 범위 밖·비숫자면 거부. */
+  const placeLat = parseFiniteLatitude(body.lat);
+  const placeLng = parseFiniteLongitude(body.lng);
+  if (body.lat != null && String(body.lat).trim() !== "" && placeLat == null) {
+    return NextResponse.json({ ok: false, error: "invalid_lat" }, { status: 400 });
+  }
+  if (body.lng != null && String(body.lng).trim() !== "" && placeLng == null) {
+    return NextResponse.json({ ok: false, error: "invalid_lng" }, { status: 400 });
+  }
   const placeId = String(body.placeId ?? "").trim() || null;
   const formattedAddress = String(body.formattedAddress ?? "").trim() || null;
 
@@ -253,6 +260,22 @@ export async function POST(req: NextRequest) {
   const hasCoords = placeLat != null && placeLng != null;
   if (hasAddressIdentity && !hasCoords) {
     return NextResponse.json({ ok: false, error: "store_location_coords_required" }, { status: 400 });
+  }
+  if (hasCoords) {
+    /** Policy A — place_id 는 formatted_address + lat/lng 동반 (Owner/Admin PATCH 와 같은 검사). */
+    const locCheck = assertStoreLocationPatchConsistent(
+      {},
+      {
+        ...(placeId ? { place_id: placeId } : {}),
+        ...(formattedAddress ? { formatted_address: formattedAddress } : {}),
+        ...(street ? { address_line1: street } : {}),
+        lat: placeLat,
+        lng: placeLng,
+      }
+    );
+    if (locCheck !== "ok") {
+      return NextResponse.json({ ok: false, error: locCheck }, { status: 400 });
+    }
   }
 
   let applicationAddressBook: ReturnType<typeof formatAddressBookCardPresentation> = null;

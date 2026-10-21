@@ -497,6 +497,9 @@ export function OwnerStoreProfileForm({
   const isDirty =
     baselineSnapshot != null &&
     serializeProfileSnapshot(valuesRef.current) !== baselineSnapshot;
+  /** 배달 지역 편집기(자체 저장) 미저장 선택 — 이탈 확인에만 합류, 하단 저장 버튼은 프로필 전용. */
+  const [serviceAreaDirty, setServiceAreaDirty] = useState(false);
+  const leaveGuardDirty = isDirty || serviceAreaDirty;
 
   const saveConfirmDescription = useMemo(
     () => `${t("business_phase7_697")} ${t("business_phase7_530")}`.trim(),
@@ -504,9 +507,9 @@ export function OwnerStoreProfileForm({
   );
 
   useEffect(() => {
-    setOwnerBasicInfoDirty(isDirty);
+    setOwnerBasicInfoDirty(leaveGuardDirty);
     return () => setOwnerBasicInfoDirty(false);
-  }, [isDirty]);
+  }, [leaveGuardDirty]);
 
   useEffect(() => {
     const onLeave = (ev: Event) => {
@@ -518,13 +521,13 @@ export function OwnerStoreProfileForm({
   }, []);
 
   useEffect(() => {
-    if (!isDirty) return;
+    if (!leaveGuardDirty) return;
     const fn = (e: BeforeUnloadEvent) => {
       e.preventDefault();
     };
     window.addEventListener("beforeunload", fn);
     return () => window.removeEventListener("beforeunload", fn);
-  }, [isDirty]);
+  }, [leaveGuardDirty]);
 
   useEffect(() => {
     onServiceDraftChange?.({
@@ -637,7 +640,13 @@ export function OwnerStoreProfileForm({
           body: JSON.stringify({
             /** Owner shell SAVE — same CTA as other profile fields. */
             is_open: values.isOpen,
-            delivery_available: values.deliveryAvailable,
+            /**
+             * 변경했을 때만 전송 — 서버는 delivery_available=true 가 오면 매장 좌표를 검사하므로,
+             * 배달 ON·좌표 없음 매장이 다른 프로필 항목을 저장하지 못하던 문제 방지 (규칙 자체는 서버 유지).
+             */
+            ...(values.deliveryAvailable !== (row.delivery_available === true)
+              ? { delivery_available: values.deliveryAvailable }
+              : {}),
             ...(!("omit" in radiusPatch) ? { delivery_radius_km: radiusPatch.value } : {}),
             menu_sold_out_bottom: values.menuSoldOutBottom,
             pickup_available: values.pickupAvailable,
@@ -685,7 +694,13 @@ export function OwnerStoreProfileForm({
     if (!leavePrompt) return;
     setLeaveSaving(true);
     try {
-      const ok = await runSave({ skipPrompt: true });
+      const ok = isDirty ? await runSave({ skipPrompt: true }) : true;
+      if (ok && serviceAreaDirty) {
+        /** 배달 지역은 편집기 자체 저장 — 여기서 대신 저장하지 않고 머물며 안내. */
+        setLeavePrompt(null);
+        setError(t("business_delivery_service_area_unsaved"));
+        return;
+      }
       if (ok) {
         const href = leavePrompt.href;
         setLeavePrompt(null);
@@ -847,6 +862,7 @@ export function OwnerStoreProfileForm({
         <OwnerDeliveryServiceAreaEditor
           storeId={storeId}
           referenceRadiusKmDisplay={values.deliveryRadiusKm}
+          onDirtyChange={setServiceAreaDirty}
         />
       </OwnerStoreAdminDashSection>
 

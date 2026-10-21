@@ -148,6 +148,8 @@ export const addressesUiMessages = {
     addr_ui_store_no_place:
       "이 매장은 지도 주소(place)가 등록되어 있지 않아요. 매장 기본 정보에서 지도를 먼저 등록해 주세요.",
     addr_ui_store_location_inconsistent: "매장 위치와 지도 좌표를 함께 저장해 주세요.",
+    addr_ui_store_delivery_requires_canonical_geo:
+      "배달을 켜려면 매장 위치(지도 핀)가 필요합니다. 기본정보에서 위치를 설정해 주세요.",
     addr_ui_store_not_master:
       "매장 연결 주소는 대표 주소로 둘 수 없어요. 우리집·회사 등 일반 주소를 대표로 지정해 주세요.",
     addr_ui_store_permission: "승인된 매장 오너만 Store Address를 등록할 수 있습니다.",
@@ -175,6 +177,11 @@ export const addressesUiMessages = {
     addr_v2_landmark_ph: "예: 초록 대문, Entrance 3",
     addr_v2_current_address: "현재 주소",
     addr_v2_book_search_placeholder: "도로명, 건물명, 상호명, 지번으로 검색",
+    addr_ui_search_clear_aria: "검색어 지우기",
+    addr_ui_list_refresh_failed: "주소 목록을 새로 불러오지 못했어요.",
+    addr_ui_research_address: "주소 다시 검색",
+    addr_ui_edit_draft_restored: "작성 중이던 내용을 불러왔어요.",
+    addr_ui_edit_draft_start_over: "처음부터",
   },
   en: {
     addr_ui_api_address_not_found: "Address not found.",
@@ -325,6 +332,8 @@ export const addressesUiMessages = {
     addr_ui_store_no_place:
       "This store has no mapped address(place). Please register map location in store basic info first.",
     addr_ui_store_location_inconsistent: "Save the store address and map pin together.",
+    addr_ui_store_delivery_requires_canonical_geo:
+      "Delivery needs the store location (map pin). Set the location in Basic info.",
     addr_ui_store_not_master:
       "A store-linked address cannot be your primary address. Please choose a general address such as home or office as primary.",
     addr_ui_store_permission: "Only approved store owners can register Store Address.",
@@ -352,5 +361,10 @@ export const addressesUiMessages = {
     addr_v2_landmark_ph: "e.g. Green gate, Entrance 3",
     addr_v2_current_address: "Current",
     addr_v2_book_search_placeholder: "Search by street, building, business, or lot",
+    addr_ui_search_clear_aria: "Clear search",
+    addr_ui_list_refresh_failed: "Couldn't refresh the address list.",
+    addr_ui_research_address: "Search address again",
+    addr_ui_edit_draft_restored: "Restored your unsaved changes.",
+    addr_ui_edit_draft_start_over: "Start over",
   },
 } as const;

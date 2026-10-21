@@ -53,6 +53,13 @@ describe("CUT 8 store detail / add-to-cart eligibility", () => {
     ).toBe(false);
   });
 
+  it("V2 missing_lgu_identity: guest not blocked in UI, member stays fail-closed", () => {
+    const svc = { ok: true, applies: true, eligible: false, reason: "missing_lgu_identity" };
+    expect(isDeliveryDistanceOrderBlocked(svc, { viewerIsGuest: true })).toBe(false);
+    expect(isDeliveryDistanceOrderBlocked(svc, { viewerIsGuest: false })).toBe(true);
+    expect(isDeliveryDistanceOrderBlocked(svc)).toBe(true);
+  });
+
   it("guest product add does not require auth before local cart insert", () => {
     const product = readFileSync(
       join(process.cwd(), "components/stores/StoreProductPublic.tsx"),

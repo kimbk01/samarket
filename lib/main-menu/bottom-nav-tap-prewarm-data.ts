@@ -65,10 +65,6 @@ export function prewarmBottomNavTapTargetClientCache(
         ? regionMod.userRegionFromProfileSlice({
             region_code: typeof profile.region_code === "string" ? profile.region_code : null,
             region_name: typeof profile.region_name === "string" ? profile.region_name : null,
-            address_detail:
-              typeof (profile as { address_detail?: unknown }).address_detail === "string"
-                ? (profile as { address_detail: string }).address_detail
-                : null,
             full_address:
               typeof (profile as { full_address?: unknown }).full_address === "string"
                 ? (profile as { full_address: string }).full_address

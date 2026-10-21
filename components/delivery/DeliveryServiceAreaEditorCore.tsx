@@ -9,8 +9,10 @@
  * Customer eligibility remains Owner-selected LGU set (backend V2 LOCKED).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 export type DeliveryServiceAreaCandidateRow = {
   geoIdentity: string;
@@ -55,7 +57,37 @@ type Props = {
   /** When R input changes, reload candidates only — selections unchanged until SAVE. */
   referenceRadiusKmDisplay?: string;
   onSaved?: () => void;
+  /** 저장 전 선택 변경 여부 — 상위 폼 이탈 확인에 합류 (선택은 이 편집기 저장으로만 반영). */
+  onDirtyChange?: (dirty: boolean) => void;
 };
+
+/** API 고정 코드 → 표시 문구 키. 원문(DB 메시지 등)은 화면에 노출하지 않는다. */
+function serviceAreaErrorKey(
+  code: string | null | undefined,
+  fallback: "load" | "save" | "search"
+): MessageKey {
+  switch (String(code ?? "").trim()) {
+    case "unauthorized":
+      return "common_login_required";
+    case "forbidden":
+    case "store_suspended":
+    case "store_not_approved":
+      return "business_delivery_service_area_err_forbidden";
+    case "not_found":
+    case "store_not_found":
+      return "business_delivery_service_area_err_not_found";
+    default:
+      return fallback === "load"
+        ? "business_delivery_service_area_err_load"
+        : fallback === "save"
+          ? "business_delivery_service_area_err_save"
+          : "business_delivery_service_area_err_search";
+  }
+}
+
+function selectionKey(selected: Set<string>, activateV2: boolean): string {
+  return `${[...selected].sort().join("|")}#${activateV2 ? 1 : 0}`;
+}
 
 function applyPayloadToSelection(json: DeliveryServiceAreaEditorPayload): {
   selected: Set<string>;
@@ -135,6 +167,7 @@ export function DeliveryServiceAreaEditorCore({
   surface,
   referenceRadiusKmDisplay,
   onSaved,
+  onDirtyChange,
 }: Props) {
   const { t } = useI18n();
   const [loading, setLoading] = useState(true);
@@ -155,6 +188,12 @@ export function DeliveryServiceAreaEditorCore({
     Array<{ geoIdentity: string; displayName: string; provinceName: string | null }>
   >([]);
   const [extraLabels, setExtraLabels] = useState<Record<string, string>>({});
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchEmpty, setSearchEmpty] = useState(false);
+  const searchingRef = useRef(false);
+  /** 마지막으로 서버에서 받은(저장된) 선택 — dirty 판정 기준. */
+  const [savedSelectionKey, setSavedSelectionKey] = useState<string | null>(null);
 
   const isAdmin = surface === "admin";
   const shellClass = isAdmin
@@ -182,28 +221,28 @@ export function DeliveryServiceAreaEditorCore({
     ? "text-[12px] font-semibold text-sky-800"
     : "text-[12px] font-semibold text-sky-700";
   const controlClass = isAdmin
-    ? "min-w-0 flex-1 rounded border border-sam-border bg-white px-2.5 py-1.5 sam-text-body text-sam-fg"
-    : "min-w-0 flex-1 rounded-xl border border-[var(--biz-card-border)] bg-white px-3 py-2 text-[14px] text-[var(--biz-text)]";
+    ? "min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-white px-2.5 py-1.5 sam-text-body text-sam-fg"
+    : `${Sam.input.base} w-auto min-w-0 flex-1 rounded-ui-rect sam-text-body`;
   const bodyTextClass = isAdmin
     ? "min-w-0 sam-text-body text-sam-fg"
-    : "min-w-0 text-[13px] text-[var(--biz-text)]";
+    : "min-w-0 sam-text-body text-[var(--biz-text)]";
   const primaryBtnClass = isAdmin
     ? "rounded border border-signature bg-signature px-3 py-1.5 sam-text-helper font-medium text-white hover:opacity-90 disabled:opacity-50"
     : "sam-btn sam-btn-primary";
   const secondaryBtnClass = isAdmin
     ? "shrink-0 rounded border border-signature bg-white px-3 py-1.5 sam-text-helper font-medium text-signature hover:bg-signature/5 disabled:opacity-50"
-    : "shrink-0 rounded-xl border border-[var(--biz-brand)] bg-white px-3 py-2 text-[13px] font-medium text-[var(--biz-brand)]";
+    : "shrink-0 rounded-ui-rect border border-[var(--biz-primary,#0B421A)] bg-white px-3 py-2 sam-text-body font-medium text-[var(--biz-primary,#0B421A)] disabled:opacity-50";
   const mapBtnClass = isAdmin
     ? "shrink-0 rounded border border-sam-border bg-white px-2.5 py-1 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted"
-    : "shrink-0 rounded-lg border border-[var(--biz-card-border)] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[var(--biz-text)]";
-  const dangerClass = isAdmin ? "sam-text-helper text-red-600" : "text-[13px] text-[var(--sam-danger)]";
+    : "shrink-0 rounded-ui-rect border border-[var(--biz-card-border)] bg-white px-2.5 py-1.5 sam-text-helper font-medium text-[var(--biz-text)]";
+  const dangerClass = isAdmin ? "sam-text-helper text-red-600" : "sam-text-helper text-sam-danger";
   const selectedRowClass = isAdmin
     ? "bg-emerald-100/90"
     : "bg-emerald-100/80";
   const idleRowClass = "bg-white";
   const chipClass = isAdmin
     ? "inline-flex items-center gap-1 rounded-full border border-sam-border bg-white px-2.5 py-1 sam-text-helper text-sam-fg"
-    : "inline-flex items-center gap-1 rounded-full border border-[var(--biz-card-border)] bg-white px-2.5 py-1 text-[12px] text-[var(--biz-text)]";
+    : "inline-flex items-center gap-1 rounded-full border border-[var(--biz-card-border)] bg-white px-2.5 py-1 sam-text-helper text-[var(--biz-text)]";
   const homeBadgeClass =
     "ml-1.5 inline-flex rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white";
 
@@ -219,9 +258,11 @@ export function DeliveryServiceAreaEditorCore({
     setStoreLng(typeof json.storeLng === "number" ? json.storeLng : null);
     setCandidates(json.candidates ?? []);
     const applied = applyPayloadToSelection(json);
+    const nextActivateV2 = json.authorityMode === "v2_lgu";
     setSelected(applied.selected);
     setExtraLabels(applied.extraLabels);
-    setActivateV2(json.authorityMode === "v2_lgu");
+    setActivateV2(nextActivateV2);
+    setSavedSelectionKey(selectionKey(applied.selected, nextActivateV2));
   }
 
   const load = useCallback(async () => {
@@ -232,24 +273,33 @@ export function DeliveryServiceAreaEditorCore({
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as DeliveryServiceAreaEditorPayload;
+      const json = (await res.json().catch(() => ({}))) as DeliveryServiceAreaEditorPayload;
       if (!res.ok || !json.ok) {
-        setError(json.error || "load_failed");
+        setError(t(serviceAreaErrorKey(json.error, "load")));
         return;
       }
       applyEditorPayload(json);
     } catch {
-      setError("load_failed");
+      setError(t("business_delivery_service_area_err_load"));
     } finally {
       setLoading(false);
     }
-  }, [apiPath]);
+  }, [apiPath, t]);
 
   useEffect(() => {
     void load();
   }, [load, storeId, referenceRadiusKmDisplay]);
 
   const selectedCount = selected.size;
+
+  const dirty =
+    savedSelectionKey != null && selectionKey(selected, activateV2) !== savedSelectionKey;
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  onDirtyChangeRef.current = onDirtyChange;
+  useEffect(() => {
+    onDirtyChangeRef.current?.(dirty);
+  }, [dirty]);
+  useEffect(() => () => onDirtyChangeRef.current?.(false), []);
 
   const locationLabel = useMemo(() => {
     const city =
@@ -328,22 +378,43 @@ export function DeliveryServiceAreaEditorCore({
   }
 
   async function onSearch() {
+    if (searchingRef.current) return;
     const q = searchQ.trim();
+    setSearchError(null);
+    setSearchEmpty(false);
     if (q.length < 2) {
       setSearchHits([]);
       return;
     }
-    const res = await fetch(apiPath, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ q }),
-    });
-    const json = (await res.json()) as {
-      ok?: boolean;
-      results?: Array<{ geoIdentity: string; displayName: string; provinceName: string | null }>;
-    };
-    setSearchHits(json.results ?? []);
+    searchingRef.current = true;
+    setSearching(true);
+    try {
+      const res = await fetch(apiPath, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        results?: Array<{ geoIdentity: string; displayName: string; provinceName: string | null }>;
+      };
+      if (!res.ok || !json.ok) {
+        setSearchHits([]);
+        setSearchError(t(serviceAreaErrorKey(json.error, "search")));
+        return;
+      }
+      const hits = json.results ?? [];
+      setSearchHits(hits);
+      setSearchEmpty(hits.length === 0);
+    } catch {
+      setSearchHits([]);
+      setSearchError(t("business_delivery_service_area_err_search"));
+    } finally {
+      searchingRef.current = false;
+      setSearching(false);
+    }
   }
 
   async function onSave() {
@@ -359,15 +430,15 @@ export function DeliveryServiceAreaEditorCore({
           activateV2: activateV2 === true,
         }),
       });
-      const json = (await res.json()) as DeliveryServiceAreaEditorPayload;
+      const json = (await res.json().catch(() => ({}))) as DeliveryServiceAreaEditorPayload;
       if (!res.ok || !json.ok) {
-        setError(json.error || "save_failed");
+        setError(t(serviceAreaErrorKey(json.error, "save")));
         return;
       }
       applyEditorPayload(json);
       onSaved?.();
     } catch {
-      setError("save_failed");
+      setError(t("business_delivery_service_area_err_save"));
     } finally {
       setSaving(false);
     }
@@ -388,7 +459,7 @@ export function DeliveryServiceAreaEditorCore({
               toggleId(row.geoIdentity);
             }
           }}
-          className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors ${
+          className={`flex w-full cursor-pointer items-center gap-2.5 rounded-ui-rect px-2 py-1.5 text-left transition-colors ${
             checked ? selectedRowClass : idleRowClass
           }`}
           data-selected={checked ? "true" : "false"}
@@ -502,7 +573,11 @@ export function DeliveryServiceAreaEditorCore({
               <input
                 type="search"
                 value={searchQ}
-                onChange={(e) => setSearchQ(e.target.value)}
+                onChange={(e) => {
+                  setSearchQ(e.target.value);
+                  setSearchEmpty(false);
+                  setSearchError(null);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -512,10 +587,23 @@ export function DeliveryServiceAreaEditorCore({
                 className={controlClass}
                 placeholder={t("business_delivery_service_area_search_placeholder")}
               />
-              <button type="button" className={secondaryBtnClass} onClick={() => void onSearch()}>
+              <button
+                type="button"
+                className={secondaryBtnClass}
+                disabled={searching}
+                aria-busy={searching}
+                onClick={() => void onSearch()}
+              >
                 + {t("business_delivery_service_area_add_other")}
               </button>
             </div>
+            {searchError ? (
+              <p className={`mt-2 ${dangerClass}`} role="alert">
+                {searchError}
+              </p>
+            ) : searchEmpty ? (
+              <p className={`mt-2 ${mutedClass}`}>{t("business_delivery_service_area_search_empty")}</p>
+            ) : null}
             {searchHits.length > 0 ? (
               <ul className="mt-2 space-y-1">
                 {searchHits.map((hit) => (
@@ -563,7 +651,7 @@ export function DeliveryServiceAreaEditorCore({
                 <button
                   type="button"
                   aria-label={`${t("business_delivery_service_area_remove_chip")}: ${chip.displayName}`}
-                  className="ml-0.5 text-[14px] leading-none opacity-60 hover:opacity-100"
+                  className="ml-0.5 sam-text-body leading-none opacity-60 hover:opacity-100"
                   onClick={() => toggleId(chip.geoIdentity)}
                 >
                   ×

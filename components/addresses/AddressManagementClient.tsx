@@ -47,7 +47,10 @@ import {
   buildMypageAddressSearchHref,
   parseSafeInternalReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
-import { writeAddressPlatformV2Draft } from "@/lib/addresses/canonical-address-draft-storage";
+import {
+  clearAddressEditDraftV3ForAddress,
+  writeAddressPlatformV2Draft,
+} from "@/lib/addresses/canonical-address-draft-storage";
 import { resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
 import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import {
@@ -84,6 +87,10 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [loadErrMigrationHint, setLoadErrMigrationHint] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** 목록 단위 잠금 (CTA-003) — 어떤 변경이든 진행 중이면 모든 행 메뉴·추가·현재 위치 비활성 */
+  const listLocked = busyId != null;
+  /** 변경은 성공했지만 목록 재조회 실패 (CTA-004) — 낙관적 목록 유지 + 재시도 안내 */
+  const [refreshFailed, setRefreshFailed] = useState(false);
   /** 승인 매장 id → 표시명 (`Store Address` 뱃지·헤더 `매장 · …` 에 사용) */
   const [approvedStoresById, setApprovedStoresById] = useState<ReadonlyMap<string, string>>(() => new Map());
   const returnTo = useMemo(() => parseSafeInternalReturnTo(sp?.get("returnTo")), [sp]);
@@ -140,6 +147,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       }
       const rows = result.rows;
       setList(rows);
+      setRefreshFailed(false);
       if (rows.length > 0) writeCachedMeAddressList(rows);
     } finally {
       if (showWait) setListBootstrapping(false);
@@ -184,8 +192,15 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         showMypageToast(translateUserAddressApiError(j.error, t, "address_delete_failed"), "error");
         return;
       }
+      clearAddressEditDraftV3ForAddress(id);
       const rows = await commitUserAddressListAfterMutation();
-      setList(rows);
+      if (rows) {
+        setList(rows);
+        setRefreshFailed(false);
+      } else {
+        setList((prev) => prev.filter((r) => r.id !== id));
+        setRefreshFailed(true);
+      }
       invalidateMypageSummary();
       showMypageToast(t("mypage_s06_deleted_toast"), "success");
     } catch {
@@ -256,7 +271,12 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     try {
       const res = await requestLocationWithDiBaYGate({ featureKey: "delivery_address_location" });
       if (!res.ok) {
-        if (res.reason !== "later") await dibayAlert({ title: t("addr_ui_geo_failed") });
+        if (res.reason !== "later") {
+          /** 권한 거부 — 검색 화면(S2)과 같은 안내 (UX-007) */
+          await dibayAlert({
+            title: res.reason === "denied" ? t("addr_ui_geo_hint_default") : t("addr_ui_geo_failed"),
+          });
+        }
         return;
       }
       const draft = await resolveCanonicalAddressFromLatLng(res.position.latitude, res.position.longitude);
@@ -299,7 +319,13 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         return;
       }
       const rows = await commitUserAddressListAfterMutation();
-      setList(rows);
+      if (rows) {
+        setList(rows);
+        setRefreshFailed(false);
+      } else {
+        setList((prev) => prev.map((r) => ({ ...r, isDefaultMaster: r.id === id })));
+        setRefreshFailed(true);
+      }
       invalidateMypageSummary();
       showMypageToast(t("mypage_s06_set_master_toast"), "success");
       closeAfterRepresentativePick();
@@ -320,8 +346,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           <button
             type="button"
             onClick={openCreate}
+            disabled={listLocked}
             data-testid="address-search-entry"
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 text-left transition-colors active:bg-sam-pressed-surface"
+            className={`flex min-h-[52px] w-full items-center gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 text-left transition-colors active:bg-sam-pressed-surface disabled:opacity-45 ${Sam.focusRing}`}
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-icon-surface text-sam-primary">
               <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
@@ -336,7 +363,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           <button
             type="button"
             onClick={() => void openCurrentLocation()}
-            disabled={busyId === "current"}
+            disabled={listLocked}
             className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} ${Sam.focusRing} mt-2 gap-2 disabled:opacity-45`}
           >
             <MapPin className="h-4 w-4" aria-hidden />
@@ -366,6 +393,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                 <button
                   type="button"
                   onClick={openCreate}
+                  disabled={listLocked}
                   data-testid="address-empty-add"
                   className={`${Sam.btn.primaryCombo} ${Sam.focusRing}`}
                 >
@@ -376,9 +404,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           />
         ) : (
           <>
-            {loadErr ? (
+            {loadErr || refreshFailed ? (
               <div className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2" role="alert">
-                <p className="min-w-0 flex-1 sam-text-helper text-sam-muted">{loadErr}</p>
+                <p className="min-w-0 flex-1 sam-text-helper text-sam-muted">
+                  {loadErr || t("addr_ui_list_refresh_failed")}
+                </p>
                 <button
                   type="button"
                   onClick={() => void load({ force: true })}
@@ -480,8 +510,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
             <button
               type="button"
               onClick={openCreate}
+              disabled={listLocked}
               data-testid="address-header-add"
-              className={`sam-header-action inline-flex min-h-[44px] items-center gap-1 px-2 text-[14px] font-semibold text-sam-primary ${Sam.focusRing}`}
+              className={`sam-header-action inline-flex min-h-[44px] items-center gap-1 px-2 sam-text-body font-semibold text-sam-primary disabled:opacity-45 ${Sam.focusRing}`}
             >
               <Plus className="h-4 w-4" aria-hidden />
               {t("mypage_s06_header_add")}

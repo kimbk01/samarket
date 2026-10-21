@@ -28,8 +28,9 @@ export function broadcastUserAddressesChanged(): void {
 /**
  * 주소 POST/PATCH/DELETE·대표 지정 직후 — stale single-flight/sessionStorage 제거 → 최신 목록 → 브로드캐스트.
  * 반환 rows 를 호출 측 `setList` 에 넣으면 목록 UI 가 즉시 맞춰진다.
+ * 재조회 실패 시 `null` — 호출 측은 기존 목록(낙관적 반영)을 유지하고 재시도를 안내한다.
  */
-export async function commitUserAddressListAfterMutation(): Promise<UserAddressDTO[]> {
+export async function commitUserAddressListAfterMutation(): Promise<UserAddressDTO[] | null> {
   const rows = await refreshMeAddressesListAfterMutation();
   broadcastUserAddressesChanged();
   return rows;

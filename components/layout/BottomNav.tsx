@@ -1139,7 +1139,6 @@ export function BottomNav({
     bumpMessengerRenderPerf("messenger_bottom_nav_render");
   }
   const pathname = usePathname();
-  const { primaryRegion } = useRegion();
   const searchParams = useSearchParams();
   const navSearch = searchParams.toString();
 

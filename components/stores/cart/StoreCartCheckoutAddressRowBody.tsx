@@ -50,7 +50,7 @@ function ProfileFallbackBody(props: {
         <div className="min-w-0 flex-1">
           {primaryLines.length > 0 ? (
             primaryLines.map((line, i) => (
-              <p key={`${i}:${line}`} className="whitespace-pre-wrap text-sam-fg">
+              <p key={`${i}:${line}`} className="min-w-0 whitespace-pre-wrap text-sam-fg [overflow-wrap:anywhere]">
                 {line}
               </p>
             ))
@@ -74,7 +74,7 @@ function ProfileDetailLabeledLine({ detail }: { detail: string }) {
         {t("addr_ui_detail_address_label")}
       </span>
       <span
-        className="min-w-0 flex-1 border-b border-sam-primary-border/55 pb-0.5 text-left text-[12px] font-bold text-sam-fg"
+        className="min-w-0 flex-1 border-b border-sam-primary-border/55 pb-0.5 text-left text-[12px] font-bold text-sam-fg [overflow-wrap:anywhere]"
         translate="no"
       >
         {detail}
