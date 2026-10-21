@@ -93,19 +93,101 @@ export const STORE_COMMISSION_RPC = {
 } as const;
 
 /**
- * Completed-order payout class (`store_platform_payable_page`):
+ * Completed-order payout class (`store_platform_payable_page`) — Owner D-2 option A (separate rails):
  * - direct_collected: buyer paid the store directly — the platform owes nothing
- * - payable: platform holds gift/platform-coupon money not yet paid as Coin
+ * - payable: platform-funded coupon not yet paid as Coin (the Coin rail)
+ * - gift_rail: gift certificate merchant net — paid on the gift rail by an admin gift payout, never as Coin
  * - legacy_manual_paid: an old per-order "paid" settlement for money the store already collected
  */
 export type StorePayoutClass = "direct_collected" | "payable" | "gift_rail" | "legacy_manual_paid";
 
 export const STORE_PAYOUT_CLASS_LABEL: Record<StorePayoutClass, { ko: string; en: string }> = {
   direct_collected: { ko: "매장 직접 수령 (지급 대상 아님)", en: "Collected by store (no payout)" },
-  payable: { ko: "플랫폼 지급 의무", en: "Platform owes store" },
-  gift_rail: { ko: "상품권 정산 레일 (여기서 지급 안 함)", en: "Gift-certificate rail (not paid here)" },
+  payable: { ko: "플랫폼 지급 의무 (쿠폰 → Coin 미적립)", en: "Platform owes store (coupon → Coin pending)" },
+  gift_rail: {
+    ko: "상품권 정산 레일 지급 대상 (순액, 상품권 지급으로 정산)",
+    en: "Gift rail payable (net, paid via gift payout)",
+  },
   legacy_manual_paid: { ko: "과거 수동 지급 (검토 필요)", en: "Legacy manual payout (review)" },
 };
+
+/** UTC cutoff for stage 2-B money rules — earlier sale Coin rows are `legacy_preserved` (D-5, never corrected). */
+export const STAGE2_MONEY_RULE_CUTOFF_UTC = "2026-10-20T20:30:00Z" as const;
+
+/** Integrity check key (`store_commission_integrity_report`): per-order sale Coin ≤ platform-funded coupon. */
+export const SALE_COIN_CAP_INTEGRITY_CHECK = "sale_coin_le_platform_coupon" as const;
+
+/** DB error raised by `credit_coin_from_confirmed_sale` when a mint exceeds the order's platform coupon. */
+export const COIN_MINT_EXCEEDS_PLATFORM_HELD_ERROR = "coin_mint_exceeds_platform_held" as const;
+
+export type StorePlatformPayableSplit = {
+  /** Buyer → store directly (incl. delivery fee). */
+  directPhp: number;
+  /** Gift certificate DIBAY fee (platform revenue). */
+  giftFeePhp: number;
+  /** Gift certificate merchant net — gift rail (admin gift payout). */
+  giftRailNetPhp: number;
+  /** Platform-funded coupon — Coin rail (`sale_coin:{orderId}`). */
+  coinDuePhp: number;
+  /** Platform → store = gift rail net + Coin. */
+  platformOwesPhp: number;
+  /** Store sale receipts before commission = direct + gift rail net + Coin. */
+  storeReceiptsPhp: number;
+};
+
+/**
+ * Pure mirror of the per-order split in `store_platform_payable_page` (display / tests only — money is DB).
+ * H §2 example: direct 610, gift 300 (fee 30 → net 270), coupon 40 → platform owes 310 = 270 + 40.
+ */
+export function computeStorePlatformPayableSplit(input: {
+  paymentAmountPhp: number;
+  giftRedeemedPhp: number;
+  giftMerchantNetPhp: number;
+  platformFundedPhp: number;
+}): StorePlatformPayableSplit {
+  const n = (v: number) => Math.max(0, Math.trunc(Number(v) || 0));
+  const directPhp = n(input.paymentAmountPhp);
+  const giftGross = n(input.giftRedeemedPhp);
+  const giftRailNetPhp = Math.min(giftGross, n(input.giftMerchantNetPhp));
+  const coinDuePhp = n(input.platformFundedPhp);
+  const platformOwesPhp = giftRailNetPhp + coinDuePhp;
+  return {
+    directPhp,
+    giftFeePhp: giftGross - giftRailNetPhp,
+    giftRailNetPhp,
+    coinDuePhp,
+    platformOwesPhp,
+    storeReceiptsPhp: directPhp + platformOwesPhp,
+  };
+}
+
+/**
+ * Sale commission — current approved contract (Owner D-3, `store_commission_charge_order_internal`):
+ * base = payment_amount (delivery fee included) + gift_redemption_amount + platform_funded_amount,
+ * fee = min(base, min(base, floor(base × fee_percent / 100)) + fixed_fee) (PHP, then × 100 → Cash minor).
+ * The gift portion is charged both the gift fee and this sale fee. `delivery_fee_mode = percent` is
+ * refused (D-3). Pure mirror for display / tests — the DB trigger is the only writer.
+ */
+export function computeStoreSaleCommissionPhp(input: {
+  paymentAmountPhp: number;
+  giftRedemptionPhp: number;
+  platformFundedPhp: number;
+  feePercent: number;
+  fixedFeePhp: number;
+}): { basePhp: number; feePhp: number } {
+  const n = (v: number) => Math.max(0, Math.trunc(Number(v) || 0));
+  const basePhp = n(input.paymentAmountPhp) + n(input.giftRedemptionPhp) + n(input.platformFundedPhp);
+  const pct = Math.max(0, Number(input.feePercent) || 0);
+  const percentFee = Math.min(basePhp, Math.floor((basePhp * pct) / 100));
+  return { basePhp, feePhp: Math.min(basePhp, percentFee + n(input.fixedFeePhp)) };
+}
+
+/** D-3: `delivery_fee_mode = percent` would charge the delivery fee twice (it is already in the base). */
+export const DELIVERY_FEE_PERCENT_MODE_DISABLED_ERROR = "delivery_fee_percent_mode_disabled" as const;
+
+export function isDeliveryFeeModeAllowed(mode: unknown): boolean {
+  return String(mode ?? "none").trim().toLowerCase() !== "percent";
+}
 
 export type StoreCashPosition = {
   storeId: string;

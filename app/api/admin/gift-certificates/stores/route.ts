@@ -10,6 +10,7 @@ import {
   isRedemptionRecognizedFromLedger,
 } from "@/lib/gift-certificate/gift-revenue-recognition";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
+import { loadGiftRailPayoutSummary } from "@/lib/gift-certificate/gift-rail-payout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -139,9 +140,13 @@ async function storeMoneySnapshot(sb: SupabaseClient, storeId: string) {
 
   const availableRevenue =
     typeof avail === "number" ? Math.trunc(avail) : Math.trunc(Number(avail) || 0);
+  // D-2 option A: gift merchant net is paid on the gift rail (admin gift payout) — same SQL reader as Owner.
+  const railPayout = await loadGiftRailPayoutSummary(sb, storeId);
 
   return {
     availableRevenue,
+    giftRailPaidOut: railPayout?.paidOutPhp ?? 0,
+    giftRailPayoutCount: railPayout?.payoutCount ?? 0,
     storeCashBalance: cash ? n((cash as { balance?: number }).balance) : 0,
     openRecoveryAmount: openRecovery,
     pendingMerchantNet: split.pendingMerchantNet,
@@ -244,6 +249,7 @@ export async function GET(req: NextRequest) {
     const adminValue = {
       recognizedMerchantNet: money.recognizedMerchantNet,
       availableRevenue: money.availableRevenue,
+      giftRailPaidOut: money.giftRailPaidOut,
       cashOutHold: money.cashOutHold,
       cashOutPaid: money.cashOutPaid,
       conversionPending: money.storeCashConversionPending,
@@ -255,6 +261,7 @@ export async function GET(req: NextRequest) {
     const ownerValue = {
       recognizedMerchantNet: money.recognizedMerchantNet,
       availableRevenue: money.availableRevenue,
+      giftRailPaidOut: money.giftRailPaidOut,
       cashOutHold: money.cashOutHold,
       cashOutPaid: money.cashOutPaid,
       conversionPending: money.storeCashConversionPending,

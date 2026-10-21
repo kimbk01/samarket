@@ -568,18 +568,41 @@ export function CommissionBreakdownTable({
 }
 
 /**
- * Who holds the money for completed orders. Only `payable` is a platform payout obligation;
- * legacy `store_settlements` "scheduled" amounts are shown for reference, never as payable.
+ * Who holds the money for completed orders (Owner D-2 option A — separate rails):
+ * platform → store = gift rail net (admin gift payout) + platform coupon (Coin). `payable` is the Coin
+ * rail not yet minted; legacy `store_settlements` "scheduled" amounts are reference only, never payable.
  */
 export function PlatformPayableSummaryGrid({ summary, lang }: { summary: StorePlatformPayableSummary; lang: CommissionLang }) {
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <Tile
-          label={pickCommissionCopy(lang, "플랫폼 지급 의무", "Platform owes stores")}
+          label={pickCommissionCopy(lang, "플랫폼 → 매장 지급 합계", "Platform owes stores (total)")}
+          value={formatMoneyPhp(summary.platformOwesPhp)}
+          hint={pickCommissionCopy(
+            lang,
+            `상품권 순액 ${formatMoneyPhp(summary.giftRailNetPhp)} + 쿠폰 Coin ${formatMoneyPhp(summary.coinDuePhp)}`,
+            `Gift net ${formatMoneyPhp(summary.giftRailNetPhp)} + coupon Coin ${formatMoneyPhp(summary.coinDuePhp)}`
+          )}
+        />
+        <Tile
+          label={pickCommissionCopy(lang, "상품권 정산 레일 (순액)", "Gift rail payable (net)")}
+          value={formatMoneyPhp(summary.giftRailNetPhp)}
+          hint={pickCommissionCopy(
+            lang,
+            `${summary.giftRailOrders}건 · 사용 ${formatMoneyPhp(summary.giftRailPhp)} − 상품권 수수료 ${formatMoneyPhp(summary.giftFeePhp)} · 상품권 지급으로 정산 (현재 지급 가능 ${formatMoneyPhp(summary.giftRailAvailablePhp)} · 지급 완료 ${formatMoneyPhp(summary.giftRailPaidOutPhp)})`,
+            `${summary.giftRailOrders} orders · redeemed ${formatMoneyPhp(summary.giftRailPhp)} − gift fee ${formatMoneyPhp(summary.giftFeePhp)} · paid via gift payout (available now ${formatMoneyPhp(summary.giftRailAvailablePhp)} · paid out ${formatMoneyPhp(summary.giftRailPaidOutPhp)})`
+          )}
+        />
+        <Tile
+          label={pickCommissionCopy(lang, "쿠폰 Coin 미적립", "Coupon Coin not yet credited")}
           value={formatMoneyPhp(summary.payablePhp)}
           tone={summary.payablePhp > 0 ? "warn" : "default"}
           hint={pickCommissionCopy(lang, `${summary.payableOrders}건`, `${summary.payableOrders} orders`)}
+        />
+        <Tile
+          label={pickCommissionCopy(lang, "쿠폰 Coin 적립됨", "Coupon paid via Coin")}
+          value={formatMoneyPhp(summary.heldPaidByCoinPhp)}
         />
         <Tile
           label={pickCommissionCopy(lang, "매장 직접 수령", "Collected by stores")}
@@ -587,21 +610,8 @@ export function PlatformPayableSummaryGrid({ summary, lang }: { summary: StorePl
           hint={pickCommissionCopy(lang, "지급 대상 아님", "Not a payout")}
         />
         <Tile
-          label={pickCommissionCopy(lang, "플랫폼 보유 (선물·쿠폰)", "Platform-held (gift/coupon)")}
+          label={pickCommissionCopy(lang, "플랫폼 보유 (상품권·쿠폰 총액)", "Platform-held (gift/coupon gross)")}
           value={formatMoneyPhp(summary.platformHeldPhp)}
-        />
-        <Tile
-          label={pickCommissionCopy(lang, "상품권 정산 레일", "Gift-certificate rail")}
-          value={formatMoneyPhp(summary.giftRailPhp)}
-          hint={pickCommissionCopy(
-            lang,
-            `${summary.giftRailOrders}건 · 매장 순액 ${formatMoneyPhp(summary.giftRailNetPhp)} · 여기서 지급 안 함`,
-            `${summary.giftRailOrders} orders · store net ${formatMoneyPhp(summary.giftRailNetPhp)} · not paid here`
-          )}
-        />
-        <Tile
-          label={pickCommissionCopy(lang, "코인으로 지급됨", "Paid via Coin")}
-          value={formatMoneyPhp(summary.heldPaidByCoinPhp)}
         />
       </div>
       <p className="sam-text-xxs text-sam-muted">
@@ -613,8 +623,15 @@ export function PlatformPayableSummaryGrid({ summary, lang }: { summary: StorePl
         {summary.coinOverCredit > 0
           ? pickCommissionCopy(
               lang,
-              ` 플랫폼 보유분을 초과해 지급된 코인 ${summary.coinOverCredit}.`,
-              ` Coin credited above platform-held amount: ${summary.coinOverCredit}.`
+              ` 지급 기준을 초과해 적립된 코인 ${summary.coinOverCredit}.`,
+              ` Coin credited above the payout rule: ${summary.coinOverCredit}.`
+            )
+          : ""}
+        {summary.legacyPreservedOrders > 0
+          ? pickCommissionCopy(
+              lang,
+              ` 변경 전 적립 ${summary.legacyPreservedOrders}건은 기록 그대로 보존합니다.`,
+              ` ${summary.legacyPreservedOrders} orders credited under the previous rule are preserved as recorded.`
             )
           : ""}
       </p>
@@ -636,9 +653,9 @@ export function PlatformPayableTable({ page, lang, showStore }: { page: StorePla
             <th className="py-1.5 pr-3">{pickCommissionCopy(lang, "분류", "Class")}</th>
             <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "직접 수령", "Direct")}</th>
             <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "플랫폼 보유", "Held")}</th>
-            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "상품권 레일", "Gift rail")}</th>
-            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "코인 지급", "Coin")}</th>
-            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "지급 의무", "Payable")}</th>
+            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "상품권 순액(레일)", "Gift net (rail)")}</th>
+            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "쿠폰 Coin", "Coupon Coin")}</th>
+            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "Coin 미적립", "Coin pending")}</th>
           </tr>
         </thead>
         <tbody>
@@ -652,7 +669,7 @@ export function PlatformPayableTable({ page, lang, showStore }: { page: StorePla
               <td className="py-1.5 pr-3 sam-text-xxs">{STORE_PAYOUT_CLASS_LABEL[r.payoutClass]?.[lang] ?? r.payoutClass}</td>
               <td className="py-1.5 pr-3 text-right">{formatMoneyPhp(r.directPhp)}</td>
               <td className="py-1.5 pr-3 text-right">{formatMoneyPhp(r.heldPhp)}</td>
-              <td className="py-1.5 pr-3 text-right">{formatMoneyPhp(r.giftRailPhp)}</td>
+              <td className="py-1.5 pr-3 text-right">{formatMoneyPhp(r.giftRailNetPhp)}</td>
               <td className="py-1.5 pr-3 text-right">{formatMoneyPhp(r.heldPaidByCoinPhp)}</td>
               <td className={`py-1.5 pr-3 text-right font-semibold ${r.payablePhp > 0 ? "text-amber-800" : ""}`}>{formatMoneyPhp(r.payablePhp)}</td>
             </tr>

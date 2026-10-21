@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRedemptionRecognizedFromLedger } from "@/lib/gift-certificate/gift-revenue-recognition";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
+import { loadGiftRailPayoutSummary } from "@/lib/gift-certificate/gift-rail-payout";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -196,5 +197,14 @@ export async function GET(
     };
   });
 
-  return NextResponse.json({ ok: true, redemptions });
+  // D-2 option A: gift revenue is settled on the gift rail (admin payout) — same SQL reader as Admin.
+  const giftRail = await loadGiftRailPayoutSummary(sb, sid);
+
+  return NextResponse.json({
+    ok: true,
+    redemptions,
+    giftRail: giftRail
+      ? { availablePhp: giftRail.availablePhp, paidOutPhp: giftRail.paidOutPhp, lastPaidAt: giftRail.lastPaidAt }
+      : null,
+  });
 }

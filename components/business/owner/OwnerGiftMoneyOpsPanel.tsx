@@ -48,6 +48,8 @@ export function OwnerGiftMoneyOpsPanel(props: {
   const [ownerPromo, setOwnerPromo] = useState<GiftPromoDisplayFields>(EMPTY_PROMO);
   const [redemptionFilter, setRedemptionFilter] = useState<RedemptionFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  /** D-2 option A: gift revenue is paid on the gift rail (admin payout), not Coin. */
+  const [giftRail, setGiftRail] = useState<{ availablePhp: number; paidOutPhp: number } | null>(null);
 
   const financeHref = OwnerRoutes.finance(storeId);
 
@@ -77,6 +79,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
         ? ((await redemptionsRes.json()) as {
             ok?: boolean;
             redemptions?: OwnerGiftRedemptionRow[];
+            giftRail?: { availablePhp?: number; paidOutPhp?: number } | null;
           })
         : null;
       const promoJson =
@@ -86,6 +89,15 @@ export function OwnerGiftMoneyOpsPanel(props: {
 
       setCoinBalance(Math.trunc(Number(finance?.assets?.storePoints?.balance) || 0));
       setRedemptions(redemptionJson?.ok ? redemptionJson.redemptions ?? [] : []);
+      const rail = redemptionJson?.ok ? redemptionJson.giftRail : null;
+      setGiftRail(
+        rail
+          ? {
+              availablePhp: Math.max(0, Math.trunc(Number(rail.availablePhp) || 0)),
+              paidOutPhp: Math.max(0, Math.trunc(Number(rail.paidOutPhp) || 0)),
+            }
+          : null
+      );
       setOwnerPromo(promoJson?.ok && promoJson.ownerPromo ? promoJson.ownerPromo : EMPTY_PROMO);
     } finally {
       setLoaded(true);
@@ -238,8 +250,8 @@ export function OwnerGiftMoneyOpsPanel(props: {
                       </span>
                       <span>
                         {safeT("gift_u5_net", {
-                          fallbackKo: pending ? "예상 Coin 수익" : "Coin 수익",
-                          fallbackEn: pending ? "Expected Coin earning" : "Coin earning",
+                          fallbackKo: "상품권 정산 수익",
+                          fallbackEn: "Gift settlement revenue",
                         })}
                         : <strong>{formatMoneyPhp(row.merchantNetAmount)}</strong>
                       </span>
@@ -303,16 +315,46 @@ export function OwnerGiftMoneyOpsPanel(props: {
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
               <p className="text-xs text-sam-muted">
                 {safeT("gift_u5_kpi_pending_merchant", {
-                  fallbackKo: "Coin 적립 대기",
-                  fallbackEn: "Coin earning pending",
+                  fallbackKo: "정산 대기 (주문 완료 전)",
+                  fallbackEn: "Pending (order not completed)",
                 })}
               </p>
               <p className="mt-1 font-semibold tabular-nums">
                 {formatMoneyPhp(kpis.pendingMerchantNet)}
               </p>
             </div>
+            {giftRail ? (
+              <>
+                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-rail="available">
+                  <p className="text-xs text-sam-muted">
+                    {safeT("gift_u5_kpi_available", {
+                      fallbackKo: "상품권 정산 지급 가능",
+                      fallbackEn: "Gift payout available",
+                    })}
+                  </p>
+                  <p className="mt-1 font-semibold tabular-nums">{formatMoneyPhp(giftRail.availablePhp)}</p>
+                </div>
+                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-rail="paid-out">
+                  <p className="text-xs text-sam-muted">
+                    {safeT("gift_u5_rail_paid_out", {
+                      fallbackKo: "상품권 정산 지급 완료",
+                      fallbackEn: "Gift payout paid",
+                    })}
+                  </p>
+                  <p className="mt-1 font-semibold tabular-nums">{formatMoneyPhp(giftRail.paidOutPhp)}</p>
+                </div>
+              </>
+            ) : null}
           </div>
         )}
+        <p className="mt-3 text-xs text-sam-muted" data-owner-gift-rail-notice="1">
+          {safeT("gift_u5_rail_notice", {
+            fallbackKo:
+              "안내: 이제 Coin에는 DIBAY가 부담한 쿠폰 할인 지원금만 적립됩니다. 상품권 사용 매출(DIBAY 수수료 차감 후)은 Coin이 아닌 상품권 정산으로 따로 지급됩니다. 변경 전에 적립된 Coin은 그대로 유지됩니다.",
+            fallbackEn:
+              "Notice: Coin now accrues only DIBAY-funded coupon support. Gift certificate sales (after the DIBAY fee) are settled separately by gift payout, not Coin. Coin credited before this change stays as is.",
+          })}
+        </p>
       </OwnerStoreAdminDashSection>
 
       <CurrencyBalanceCard
@@ -325,9 +367,10 @@ export function OwnerGiftMoneyOpsPanel(props: {
         footer={
           <p className="text-sm text-sam-muted">
             {safeT("gift_owner_action_cash_out_desc", {
-              fallbackKo: "상품권 확정 수익도 Coin에 적립되며 환전과 내역은 매장 재무에서 관리합니다.",
+              fallbackKo:
+                "Coin에는 DIBAY 부담 쿠폰 지원금만 적립됩니다. 상품권 수익은 상품권 정산으로 별도 지급됩니다. Coin 출금과 내역은 매장 재무에서 관리합니다.",
               fallbackEn:
-                "Recognized gift revenue is credited to Coin. Manage withdrawals and history in Store Finance.",
+                "Coin accrues only DIBAY-funded coupon support. Gift revenue is paid separately by gift settlement. Manage Coin withdrawals and history in Store Finance.",
             })}
           </p>
         }

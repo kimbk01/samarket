@@ -8,7 +8,8 @@ export const giftCertificateOwnerO16Messages = {
     gift_owner_tab_history: "Coin 내역",
     gift_owner_tab_redemptions: "사용 내역",
     gift_owner_history_combined_title: "환전·전환 내역",
-    gift_owner_action_cash_out_desc: "상품권 확정 수익도 Coin에 적립되며 환전과 내역은 매장 재무에서 관리합니다.",
+    gift_owner_action_cash_out_desc:
+      "Coin에는 DIBAY 부담 쿠폰 지원금만 적립됩니다. 상품권 수익은 상품권 정산으로 별도 지급됩니다. Coin 출금과 내역은 매장 재무에서 관리합니다.",
     gift_owner_action_convert_desc: "과거 전환 기록을 읽기 전용으로 확인합니다.",
     gift_owner_action_pending: "환전·전환 대기",
     gift_owner_action_pending_desc: "신청 중·대기 중인 환전·전환을 확인합니다.",
@@ -100,7 +101,7 @@ export const giftCertificateOwnerO16Messages = {
     gift_owner_tab_redemptions: "Usage history",
     gift_owner_history_combined_title: "Cash-out & conversion history",
     gift_owner_action_cash_out_desc:
-      "Recognized gift revenue is credited to Coin. Manage withdrawals and history in Store Finance.",
+      "Coin accrues only DIBAY-funded coupon support. Gift revenue is paid separately by gift settlement. Manage Coin withdrawals and history in Store Finance.",
     gift_owner_action_convert_desc: "Review historical conversion records in read-only mode.",
     gift_owner_action_pending: "Pending cash-out & conversion",
     gift_owner_action_pending_desc: "Review pending cash-out and conversion requests.",

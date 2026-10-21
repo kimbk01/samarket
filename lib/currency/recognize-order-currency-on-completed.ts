@@ -4,10 +4,12 @@
  * Commission is NOT handled here: the DB trigger `trg_store_orders_commission_lifecycle`
  * charges it inside the status UPDATE when the order first reaches a cooking-or-later status.
  *
- * Coin: mint ONLY the platform-held portion of the sale (gift certificate redemption +
- * platform-funded coupon). `payment_amount` is paid by the buyer directly to the store
- * (COD / store GCash / bank transfer) — minting Coin for it would pay the store twice.
- * Gated by DIBAY_CURRENCY_SALE_RECOGNITION_LIVE until Production cutover.
+ * Coin: mint ONLY the platform-funded coupon amount (Owner D-2 option A, stage 2-B FIN-03).
+ * - `payment_amount` is paid by the buyer directly to the store (COD / store GCash / bank transfer).
+ * - Gift certificate money is owed on the gift rail (`gift_certificate_revenue_ledger` merchant net →
+ *   admin gift payout `gift_certificate_admin_store_payout`), never as Coin — assets are not merged.
+ * The DB mint RPC refuses any amount above the order's `platform_funded_amount`
+ * (`coin_mint_exceeds_platform_held`). Gated by DIBAY_CURRENCY_SALE_RECOGNITION_LIVE.
  *
  * Contract: lib/stores/commission/store-commission-contract.ts
  */
@@ -21,7 +23,7 @@ export type RecognizeOrderCurrencyResult =
   | {
       ok: true;
       skipped?: boolean;
-      /** Platform-held sale amount minted as Coin (PHP). */
+      /** Platform-funded coupon amount minted as Coin (PHP). */
       platformHeldPhp?: number;
       coinCredited?: boolean;
       coinIdempotent?: boolean;
@@ -33,12 +35,15 @@ function money(n: unknown): number {
   return Number.isFinite(v) ? Math.max(0, v) : 0;
 }
 
-/** Sale amount the platform actually holds for the store (owed to the store as Coin). */
+/**
+ * Sale amount the platform owes the store AS COIN = platform-funded coupon only (D-2 option A).
+ * Gift certificate redemption is paid on the gift rail, so `gift_redemption_amount` is ignored here.
+ */
 export function platformHeldSaleAmountPhp(order: {
   gift_redemption_amount?: unknown;
   platform_funded_amount?: unknown;
 }): number {
-  return money(order.gift_redemption_amount) + money(order.platform_funded_amount);
+  return money(order.platform_funded_amount);
 }
 
 export async function recognizeOrderCurrencyOnCompleted(
@@ -51,7 +56,7 @@ export async function recognizeOrderCurrencyOnCompleted(
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
-    .select("id, store_id, order_status, gift_redemption_amount, platform_funded_amount")
+    .select("id, store_id, order_status, platform_funded_amount")
     .eq("id", oid)
     .maybeSingle();
 
