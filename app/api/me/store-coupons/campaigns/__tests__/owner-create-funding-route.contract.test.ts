@@ -128,6 +128,18 @@ describe("POST /api/me/store-coupons/campaigns UI-0 route contract", () => {
     expect(inserts).toHaveLength(0);
   });
 
+  it("CASE 7 ADS-24 maxUsesPerUser 2 → 400 unsupported_max_uses INSERT NONE; default insert writes 1", async () => {
+    const inserts: unknown[] = [];
+    tryGetSupabaseForStores.mockReturnValue(makeSb(inserts));
+    const bad = await post({ ...BASE, maxUsesPerUser: 2 });
+    expect(bad.status).toBe(400);
+    expect(bad.json.error).toBe("unsupported_max_uses");
+    expect(inserts).toHaveLength(0);
+    const ok = await post({ ...BASE });
+    expect(ok.status).toBe(200);
+    expect((inserts[0] as Record<string, unknown>).max_uses_per_user).toBe(1);
+  });
+
   it("CASE 5 TAMPERED → 400 INSERT NONE", async () => {
     const inserts: unknown[] = [];
     tryGetSupabaseForStores.mockReturnValue(makeSb(inserts));

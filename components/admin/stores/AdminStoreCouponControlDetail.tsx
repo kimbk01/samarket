@@ -79,7 +79,7 @@ export function AdminStoreCouponControlDetail({
   const statusText =
     sharedStatus.known && !DATE_AWARE_LIFECYCLE.has(lifecycle)
       ? sharedStatus.label
-      : t(adminCouponLifecycleMessageKey(campaign.lifecycle_state, campaign.start_at, campaign.end_at));
+      : t(adminCouponLifecycleMessageKey(campaign.lifecycle_state, campaign.start_at, campaign.end_at, campaign.is_active));
   /** L3 retype target — coupon title (operator-visible), falling back to the first coupon number. */
   const retypeTarget =
     (titleRaw && !looksLikeRawOperatorToken(titleRaw) ? titleRaw : "") ||

@@ -5,6 +5,7 @@ import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { runDeliveryAdSchedulePromoterBatch } from "@/lib/stores/advertising/delivery-ad-schedule-promoter";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { runStoreCouponAutoEndBatch } from "@/lib/stores/store-coupon-auto-end";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,12 @@ async function runSchedulePromoterJob(req: Request) {
 
   try {
     const result = await runDeliveryAdSchedulePromoterBatch(sb, { batchSize: 50 });
+    // 3-C ADS-23 — 같은 크론에서 기간 끝난 쿠폰 lifecycle 정합 (실패는 광고 배치 응답에 영향 없음).
+    const couponAutoEnd = await runStoreCouponAutoEndBatch(sb).catch((e: unknown) => ({
+      ok: false as const,
+      error: String(e),
+    }));
+    if (!couponAutoEnd.ok) console.error("[cron coupon auto end]", couponAutoEnd.error);
     const rm = getAuditRequestMeta(req);
     void appendAuditLog(sb, {
       actor_type: "system",
@@ -38,6 +45,7 @@ async function runSchedulePromoterJob(req: Request) {
         ended: result.ended,
         failed: result.failed,
         scanned: result.scanned,
+        coupon_auto_ended: couponAutoEnd.ok ? couponAutoEnd.ended : null,
       },
       ip: rm.ip,
       user_agent: rm.userAgent,
@@ -49,6 +57,7 @@ async function runSchedulePromoterJob(req: Request) {
       failed: result.failed,
       scanned: result.scanned,
       results: result.results,
+      coupon_auto_ended: couponAutoEnd.ok ? couponAutoEnd.ended : null,
     });
   } catch (err) {
     console.error("[cron delivery-ads-schedule-transitions]", err);

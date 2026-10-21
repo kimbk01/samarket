@@ -12,6 +12,7 @@ import {
   type StoreCouponCampaignCreateInput,
   type StoreCouponCampaignUpdateInput,
 } from "@/lib/stores/store-coupon-campaign-validation";
+import { STORE_COUPON_MAX_USES_PER_USER } from "@/lib/stores/store-coupon-effective-state";
 
 export type StoreCouponCampaignDbRow = {
   id: string;
@@ -45,7 +46,8 @@ export type StoreCouponWriterError =
   | "campaign_not_found"
   | "db_error"
   | "admin_funding_forbidden"
-  | "admin_shared_share_required";
+  | "admin_shared_share_required"
+  | "unsupported_max_uses";
 
 export type StoreCouponWriterResult<T> =
   | { ok: true; row: T }
@@ -198,6 +200,7 @@ function buildInsert(
     end_at: input.endAt,
     is_active: input.isActive,
     lifecycle_state: input.isActive ? "active" : "draft",
+    max_uses_per_user: STORE_COUPON_MAX_USES_PER_USER,
     funding_mode: funding.funding_mode,
     requires_admin_approval: funding.requires_admin_approval,
     max_discount: input.maxDiscount,
@@ -232,6 +235,7 @@ function buildUpdate(
   if (input.discountValue !== undefined) patch.discount_value = input.discountValue;
   if (input.minOrderAmount !== undefined) patch.min_order_amount = input.minOrderAmount;
   if (input.termsCopy !== undefined) patch.terms_copy = input.termsCopy;
-  if (input.isActive !== undefined) patch.is_active = input.isActive;
+  // 3-C ADS-23 — is_active 는 lifecycle 전이(approve/pause/resume/revoke)에서만 파생 기록한다.
+  // 일반 수정에서 is_active 만 바꾸면 lifecycle 과 어긋난 행(active+is_active=false)이 생긴다.
   return patch;
 }

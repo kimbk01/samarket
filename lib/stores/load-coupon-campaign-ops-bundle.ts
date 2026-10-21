@@ -13,7 +13,7 @@ import {
 import { projectCouponOfferCostRatio } from "@/lib/stores/coupon-offer-roi";
 
 const CAMPAIGN_SELECT =
-  "id, store_id, title, discount_type, discount_value, min_order_amount, terms_copy, start_at, end_at, usage_end_at, is_active, lifecycle_state, funding_mode, issue_limit, issued_count, spend_budget_php, reserved_spend_php, store_funded_amount, first_order_scope, created_by_user_id, issuer_role, campaign_purpose, created_at, updated_at";
+  "id, store_id, title, discount_type, discount_value, min_order_amount, terms_copy, start_at, end_at, usage_end_at, is_active, lifecycle_state, paused_by, funding_mode, issue_limit, issued_count, spend_budget_php, reserved_spend_php, store_funded_amount, first_order_scope, created_by_user_id, issuer_role, campaign_purpose, created_at, updated_at";
 
 export type CouponInstanceOpsRow = {
   entitlement_id: string;

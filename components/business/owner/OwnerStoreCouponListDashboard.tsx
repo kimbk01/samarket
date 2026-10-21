@@ -8,6 +8,7 @@ import {
   OWNER_ADMIN_PRIMARY_BTN_CLASS,
 } from "@/lib/business/owner-admin-list-ui";
 import {
+  ownerCouponDetailActions,
   ownerCouponListStatus,
   ownerCouponListStatusMessageKey,
   ownerCouponListTab,
@@ -23,6 +24,8 @@ export type OwnerCouponDashRow = {
   discount_value: number;
   min_order_amount: number | null;
   lifecycle_state: string;
+  is_active?: boolean | null;
+  paused_by?: string | null;
   funding_mode: string;
   issued_count?: number;
   issue_limit?: number | null;
@@ -147,6 +150,8 @@ export function OwnerStoreCouponListDashboard({
           <ul className="space-y-2" data-owner-coupon-list="1">
             {visible.map((row) => {
               const status = ownerCouponListStatus(row, nowMs);
+              // IA-04 — 서버 전이표와 같은 판정으로만 버튼 노출 (관리자 일시정지 재개·종료 쿠폰 부활 버튼 없음).
+              const actions = ownerCouponDetailActions(status, { fundingMode: row.funding_mode, row });
               const issued = Number(row.issued_count ?? 0);
               const used = Number(row.redeemed_count ?? 0);
               const held = Number(row.active_held_count ?? 0);
@@ -199,18 +204,16 @@ export function OwnerStoreCouponListDashboard({
                     >
                       {open ? t("store_coupon_admin_close") : t("store_coupon_admin_open")}
                     </button>
-                    {row.funding_mode === "STORE_FUNDED" && status === "paused" ? (
+                    {actions.includes("resume") ? (
                       <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => onResume(row.id)}>
                         {t("store_coupon_owner_resume")}
                       </button>
-                    ) : row.funding_mode === "STORE_FUNDED" &&
-                      status !== "ended" &&
-                      status !== "requested" ? (
+                    ) : actions.includes("pause") ? (
                       <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => onPause(row.id)}>
                         {t("store_coupon_owner_pause")}
                       </button>
                     ) : null}
-                    {row.funding_mode === "STORE_FUNDED" && status !== "ended" ? (
+                    {actions.includes("end") ? (
                       <button
                         type="button"
                         className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} text-sam-danger`}
