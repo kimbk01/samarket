@@ -26,6 +26,16 @@ Logcat: `google_native_signout_before_picker_ok` → `google_native_account_pick
 Kakao Native가 동작하면 exchange·세션 파이프라인은 이미 완료다.  
 Google **오류 10 (DEVELOPER_ERROR)** 는 **Google Cloud OAuth 설정** 문제이지 앱 코드 재작성 문제가 아니다.
 
+## 등록된 Android OAuth 클라이언트 (DIBA-maps-prod · 2026-10-22 기준)
+
+| 이름 | 서명 키 | SHA-1 |
+|---|---|---|
+| DIBAY Android Play Upload | 로컬·사이드로드 APK (「DIBAY Play Upload」 키, 1.2.4 이후) | `FA:96:68:F6:70:38:68:BA:D2:16:2E:23:01:D3:01:C3:DE:DE:28:1B` |
+| DIBAY Android Play | Play 앱 서명 키 (스토어 설치본) | 출시 전 `2D:C4:22:60:98:04:26:6F:A3:DB:03:E1:3C:2F:5C:90:98:A6:74:F2` 포함 확인 |
+| DIBAY Android Play Legacy Signing · Android 클라이언트 1 | 이전 빌드 키 | 유지 (구 설치본) |
+
+서명 키가 바뀌면 Kakao 키 해시와 **같은 날** Google Cloud SHA-1 도 추가한다 (2026-10-22 Google 오류 10 원인).
+
 ## 필수 설정 (3종)
 
 | # | 항목 | 값 |
