@@ -225,6 +225,7 @@ const NON_MUTATING_ADMIN_ROUTES: Readonly<Record<string, string>> = {
 
 /** DB 함수가 같은 트랜잭션에서 audit_logs 에 기록하는 route — TS 에서 또 남기면 이력이 두 줄이 된다. */
 const DB_AUDITED_ADMIN_ROUTES: Readonly<Record<string, string>> = {
+  "app/api/admin/gift-certificates/payouts/route.ts": "gift_certificate_admin_store_payout (20270603120000)",
   "app/api/admin/reports/[reportId]/action/route.ts": "admin_decide_trade_report (20270522120300)",
   "app/api/admin/trade/reports/[id]/route.ts": "admin_decide_trade_report (20270522120300)",
   "app/api/admin/trade/posts/[id]/moderation/route.ts": "admin_trade_post_moderate (20270522120600)",

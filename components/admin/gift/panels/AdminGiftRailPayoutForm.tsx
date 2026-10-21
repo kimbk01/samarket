@@ -138,7 +138,7 @@ export function AdminGiftRailPayoutForm({ storeId, onPaid }: { storeId: string; 
       await load();
       onPaid?.();
     } catch {
-      setMessage({ tone: "error", text: ko ? "네트워크 오류 — 같은 내용으로 다시 시도하세요." : "Network error — retry with the same values." });
+      setMessage({ tone: "error", text: ko ? "네트워크 오류 — 같은 내용으로 다시 지급을 요청하세요." : "Network error — retry with the same values." });
     } finally {
       setBusy(false);
     }
