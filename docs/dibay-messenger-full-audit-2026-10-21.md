@@ -3,6 +3,14 @@
 > **상태:** 감사·설계만 했고 코드·DB·네이티브는 바꾸지 않았습니다. **Owner 승인 대기**입니다.
 > **기준:** HEAD `1a32cb1b`, 운영 DB `ckdosyydvgzqwpbwuhon` 읽기 전용 조회(테스트 DB는 조회하지 않음), Android 소스 1.2.4(9) / iOS 소스 1.2(7). 두 버전 모두 운영 `user_devices` 에 설치 기록이 있습니다.
 > **판정 기호:** **C** = CONFIRMED(코드·DB 근거로 확정) · **S** = SUSPECTED(실행·실기기 증거 필요) · **N** = NORMAL(근거로 정상 확인) · **NP** = NOT_PROVEN(측정·확인 불가)
+> **보완(2부, 문서 하단 「H~N」):** 1부와 2부가 충돌하면 **2부가 우선**합니다. 2부에서 정정한 1부 내용은 다음과 같습니다.
+> - N-7 의 「일반 APNs 전환」 완화책은 철회합니다(잘못된 안).
+> - C-UI 의 「재연결 중 시간 표시 멈춤」은 철회합니다(시간은 계속 흐름).
+> - P-7 의 원인을 정정합니다.
+> - C-3 은 CHECK 마이그레이션이 필요 없습니다.
+> - 판정 변경: N-1·V-6·N-7 은 S→C 로 바꿉니다.
+> - 신규 결함 10건을 추가합니다.
+>
 > 기존 감사 문서·PASS 보고는 증거로 쓰지 않았습니다. 모든 판정은 현재 코드 `file:line` 또는 운영 DB 조회 결과에 근거합니다. 실기기 재현은 아직 한 건도 하지 않았으므로 **실기기 PASS 는 0건**입니다.
 
 ---
@@ -371,3 +379,462 @@
 - NOT_PROVEN 8건: 현재 HEAD 성능 실측(P-8), realtime-js 동작(M-5), 토큰 TTL env(N-4), iOS VoIP 제한 로그(N-7), 알림 데이터(D-2), 레거시 known-issues(N), Preview, Production.
 
 **운영 주소(samarket.vercel.app)는 이 보고서로 바뀌지 않습니다.** 이번 커밋은 문서 1건이고, 작업 브랜치에만 푸시했습니다(「감사만」 지시이므로 main 반영은 Owner 승인 후).
+
+---
+---
+
+# 2부 — 통합 개선 설계 최종 보완 (2026-10-21 v2)
+
+> 159개 감사 항목을 다시 감사하지 않았습니다. 1부의 결과를 그대로 쓰고, 지적된 영역만 깊이 확인했습니다(Android·iOS 네이티브 통화, W4·W5·W6, W2 정책).
+> **코드·DB·네이티브 변경 0건**입니다. 운영 DB 는 읽기 전용으로만 조회했습니다.
+> 추가 실측(운영 DB):
+> - 메시지 18,800건, 방 하나 최대 4,108건
+> - 메시지를 INSERT 하는 DB 함수 3개(send_text, append_atomic, gift_certificate_offer), 메시지 트리거 1개(cm_messages_block_deleted)
+> - Realtime publication 에 messages·rooms·participants·call_logs·call_sessions·user_relationships·user_social_relations 7개 테이블이 모두 포함
+> - `call_logs`·`call_sessions` status CHECK 에 busy 없음
+> - 친구 관련 3개 테이블의 쓰기는 모두 서버 service-role 경로에서만 일어남(클라이언트 직접 쓰기 0건) → 쓰기 권한 회수(F-12)는 기능 영향 없음
+
+## H. 기존 결함 대응표 (1부 88건 + 2부 신규 10건 = 98건)
+
+**판정 변경 (2부):**
+- N-1 S→**C**: Android 에서 늦은 정리가 새 통화의 Agora 채널·영상 surface·FGS·오디오 포커스·세션 관리자를 해제하는 코드 경로가 확정됐습니다.
+- V-6 S→**C**: `singleTask` 에서 이전 인스턴스의 onDestroy 가 새 인스턴스의 onCreate 보다 늦게 올 수 있음이 확정됐습니다.
+- N-7 S→**C**: VoIP 푸시를 CallKit 에 보고하지 않고 끝내는 분기 4개가 확정됐습니다.
+- 결과: **확정 81 · 의심 17 · 합계 98** (1부 68/20 + 판정 변경 3 + 신규 10).
+
+**단계 기호:** ①웹A(독립·저위험) ②웹B(정책·흐름) ③DB ④네이티브 R1(lifecycle) ⑤네이티브 R2(UI) — 순서와 근거는 N절.
+**검증 기호:** U=vitest/JVM/소스 계약 · A=Android 실기기(Cursor) · I=iPhone(Owner) · W=데스크톱 브라우저 · D=운영 DB 읽기 확인
+
+### H-1. 친구 (F)
+| ID | 판정 | 처리 설계 | 층 | 단계 | 검증 |
+|---|---|---|---|---|---|
+| F-1 | C | 방 복원을 `unblockUserSocial` 내부로 옮겨, 모든 해제 경로가 같은 처리를 함 | 웹 | ① | U, A(T-F1) |
+| F-2 | C | 차단 검사를 일반 1:1 도메인에만 적용(거래·주문 송신·통화 게이트에서 제외), 상거래 방에는 차단 메뉴 숨김 — **결정 D1** | 웹 | ② | U(송신 가드 3종), A(T-F2) |
+| F-3 | C | 정리 대상을 owner=나 방향 행으로 한정 | 웹 | ① | U(LOCK 계약 테스트) |
+| F-4 | C | 차단한 쪽의 1:1 방만 숨김 — **결정 D2** | 웹 | ② | U, I(P-5) |
+| F-5 | C | upsert 사용, 23505 는 ok 로 처리, 방 메뉴에 중복 방지 장치 | 웹 | ① | U |
+| F-6 | C | `/relations/friend` 에도 프로필 게이트 적용 | 웹 | ① | U |
+| F-7 | C | 차단·해제 확인창을 `MessengerBlockPeerConfirmModal` 하나로 통일(누락된 3곳에 추가) | 웹 | ① | U, A, I |
+| F-8 | C | 성공·실패 스낵바 통일, 서버 코드 원문 비노출 | 웹 | ① | U |
+| F-9 | C | 방 동기화를 `user_social_relations`(owner=나) + 차단 API 의 서버 bump 로 교체 | 웹 | ① | U, A |
+| F-10 | S | 재구독 시 친구 그래프도 다시 받음 | 웹 | ① | A(재연결) |
+| F-11 | C | 조회 오류는 5xx 로 응답, 클라이언트는 기존 목록 유지 | 웹 | ① | U |
+| F-12 | C | `user_social_relations`·`user_relationships`·`community_friend_favorites` 의 anon·authenticated **INSERT/UPDATE/DELETE 회수**(SELECT 는 Realtime 용으로 유지) | DB | ③ | D(grant 재조회) |
+| F-13 | C | 주석 정정, 죽은 코드 제거 | 웹 | ① | U |
+| F-14 | C | 숨김 변경 시 서버가 사용자 단위 bump 발행(RLS 정책은 추가하지 않음, 클라이언트 bump 금지 계약 유지) | 웹 | ① | A(2기기 숨김) |
+
+### H-2. 대화 목록·스와이프 (L)
+| ID | 판정 | 처리 설계 | 층 | 단계 | 검증 |
+|---|---|---|---|---|---|
+| L-1~L-5 | C | W1: 열림 상태를 상위 state 하나로 관리, cancel 시 닫힘으로 스냅, 첫 탭은 닫기로 소비, document 외부 탭·스크롤·백그라운드·backButton·5초 무조작 시 닫힘, `/trade-chats` 에도 같은 규칙 | 웹 | ① | U, A(T-L1~L4), I(P-8) |
+| L-6 | C | 정책 함수 `resolveMessengerRoomActionPolicy` 가 방 종류·역할을 반영(M절 표) | 웹 | ② | U(정책 매트릭스) |
+| L-7 | C(일부 S) | 진행 중 주문은 나가기 X, 사장님은 항상 X, 서버 `leaveMessengerRoomUnified` 에서 같은 함수로 거부, 확인 문구 분리 | 웹 | ② | U, A(T-L5) |
+| L-8 | C | **보고만**(나가기를 left_at 로 통일하려면 조회 계약 변경이 필요. 이번 범위에서 제외) | — | — | — |
+| L-9 | C | 「복원」은 `isArchivedByViewer` 일 때만 표시 | 웹 | ② | U |
+| L-10 | C | busy 상태를 방별 Set 으로, 보관은 낙관적 반영, 오류 배너 자동 소멸 | 웹 | ① | U |
+| L-11 | C | 닫힌 상태에서 액션 버튼 `tabIndex=-1`·`inert` | 웹 | ① | U |
+
+### H-3. 메시지 (M) — 신규 M-10~M-15 포함
+| ID | 판정 | 처리 설계 | 층 | 단계 | 검증 |
+|---|---|---|---|---|---|
+| M-1·M-9 | C | **bounded bump**: ACK 전 await, 700ms+600ms·최대 2회·전체 1.5초, canonical 토픽만. 실패해도 200 응답, after() 에서 1회 더. 푸시는 allSettled 병렬 | 웹 | ① | U(T5~T7), 지연 측정 |
+| M-2 | C | merge 가 pending·failed 행을 보존(불변식 I1~I4, I절) | 웹 | ① | U(T1~T4) |
+| M-3 | C | 프레임 단위 bump 큐(rAF 취소 금지), hint 를 누적 | 웹 | ① | U(T13) |
+| M-4 | C | W5 `room_seq`(트리거 방식). after 따라잡기는 seq 기준 | DB+웹 | ③ | U, D, 연속 송신 E2E |
+| M-5 | S | 같은 토픽 재구독은 remove 완료 후에만, deps 는 원시값으로. SUBSCRIBED 재합류 시 따라잡기 | 웹 | ① | U(T14), A |
+| M-6 | C | raw 토픽 발행·구독 제거 | 웹 | ① | U |
+| M-7 | C | 900ms 안의 복귀는 지연 예약, `appStateChange` 연결 | 웹 | ① | U(T15), A·I(백그라운드 복귀) |
+| M-8 | C | 텍스트도 실패 행 + 같은 cid 로 재전송 | 웹 | ① | U |
+| **M-10** | C(신규) | 그룹 dedupe 키가 cid 가 없으면 `content.slice(0,24)` 사용(`group…/messages/route.ts:145`) → cid 필수, 없으면 서버가 발급 | 웹 | ① | U |
+| **M-11** | C(신규) | 라우트 메모리 dedupe 가 **실패 결과도 캐시**(`route.ts:287`) → ok 결과만 캐시 | 웹 | ① | U(T10) |
+| **M-12** | C(신규) | 모든 실패를 400 으로 응답 → 클라이언트가 cid 를 버림 → 재전송 시 중복 가능 → 커밋 여부를 모르면 **5xx `commit_unknown`**, 클라이언트는 cid 를 유지하고 재조회 | 웹 | ① | U(T8·T11·T12) |
+| **M-13** | C(신규) | 스티커·공유는 bump 가 throw 하면 저장은 성공했는데 500 → bounded bump 로 흡수 | 웹 | ① | U(T6·T7) |
+| **M-14** | C(신규) | 공유 라우트가 cid 를 넘기지 않음 → 넘기도록 수정 | 웹 | ① | U |
+| **M-15** | C(신규) | 위로 스크롤 페이지 `.lt("created_at")` 에서 같은 시각의 행 누락 → `(created_at,id)` 기준 keyset | 웹 | ① | U |
+
+### H-4. 통화 기록·연결 (C) — 신규 C-15~C-18 포함
+| ID | 판정 | 처리 설계 | 층 | 단계 | 검증 |
+|---|---|---|---|---|---|
+| C-1·C-2 | C | 빈 배열 기본값을 모듈 상수로, enrich 는 useMemo, seed 는 첫 마운트와 hydrate 종료 시에만 적용, 자기가 내보낸 값이 돌아오면 무시, 2페이지 이상이면 병합 | 웹 | ① | U(렌더 3회 이하·커서 유지), A, I(P-6) |
+| **C-18** | C(신규) | 단독 기록 페이지가 viewer id 를 넘기지 않음 → 무한 렌더만 고치면 목록이 영영 로드되지 않음(지금은 무한 렌더가 이 문제를 가리고 있음) → viewer id 를 넘기고, null→값으로 바뀔 때 다시 fetch | 웹 | ① (C-1 과 같은 커밋) | U |
+| C-3 | C | **영구 기록(안 B)**: busy 판정 시 `call_logs`(status `cancelled`, `ended_reason='peer_busy'`, session 없음) + call_stub(`sessionId='busy:<uuid>'`). CHECK 변경 불필요(공통 판정이 ended_reason 을 우선 사용). 로컬 표시만으로는 완료하지 않음 | 웹 | ② | U, A·I(재접속 후 기록 유지) |
+| **C-17** | C(신규) | 발신자 **자신의** live 세션 때문에 막힌 경우도 `peer_busy` 로 표시 → `self_busy` 로 분리하고 기록하지 않음 | 웹 | ② | U |
+| C-4 | C | 서버가 `ringDeadlineAt`·`serverNow` 를 응답, 거절되면 남은 시간+300ms 로 다시 예약(최대 2회) | 웹 | ② | U(시계 어긋남), I |
+| C-5 | C | 웹 V4 join watchdog 15초 → failed 처리 + end PATCH | 웹 | ② | W |
+| C-6 | C | busy 판정 시에만 상대 세션도 reconcile(presence 90초 기준) | 웹 | ② (**④보다 먼저**) | U, A |
+| C-7 | C | `void` → `keepAliveAfterResponse`, missed 시 수신자에게 종료 push(전송 값은 `cancelled` 로 매핑) | 웹 | ② | A·I(T-C4) |
+| C-8 | C | append RPC 를 forward-only 로(`GREATEST`, preview 조건부 교체), stub 의 추가 UPDATE 2회 삭제, `cm_room_tip_forward` RPC, rooms 안전망 트리거 | DB+웹 | ③ | U, D |
+| **C-15** | C(신규) | `updateExistingStub` 가 더 새로운 텍스트 미리보기를 덮어씀 → `cm_room_tip_forward` 로 교체 | DB+웹 | ③ | U |
+| C-9 | S | 표시 정렬에서 stub 을 종료 시각 위치로(seq 와 함께) | 웹 | ③ 이후 | A·I |
+| C-10 | C | 웹: 중복 `callV4ReconcileBeforeCreate` 제거(②). iOS: PREPARING 화면을 먼저 띄움 + JS 는 capability 게이트(옛 바이너리는 기존 경로)(⑤) | 웹+iOS | ②·⑤ | J절 측정, I |
+| C-11 | S | `cleanupCallV4`: 범위 정리 → await → 소유를 확인한 뒤에만 전역 reset. iOS `deliverNativeLocalTerminal` 순서도 맞춤 | 웹 | ② (**④보다 먼저**) | U, I(재발신) |
+| C-12 | S | callId 당 poller 1개, 1초 주기, Retry-After 준수, 제한 키를 사용자+세션으로 | 웹 | ② | U |
+| C-14 | S | heartbeat 에 `mediaConnected`, `connected_at` 이 null 일 때만 채움, media_connected 3회 재시도 | 웹 | ② | U |
+| **C-16** | C(신규) | iOS 네이티브 발신이 원격 거절·부재중으로 끝나면 웹이 `replace(returnPath ?? call_logs)` → 통화 탭으로 튐 → 규칙 R1(네이티브 통화는 웹 이동 0회) | 웹 | ② | U(T14), I |
+
+### H-5. 영상 UI (V)·네이티브 (N) — 상세는 K절
+| ID | 판정 | 처리 설계 | 층 | 단계 | 검증 |
+|---|---|---|---|---|---|
+| N-1 | **C** | callId 범위 leave·stop·clearSession, 영상 TerminalOnce, iOS compare-and-clear 오디오 처리 | 네이티브 | ④ | U(Robolectric), A, I |
+| N-2 | C (iOS 영상+**음성**) | CXEndCallAction perform 안에서 즉시 leave → fulfill → PATCH 비동기. Android 는 정상 | iOS | ④ (N-1 과 같은 커밋) | I(P-1·P-2) |
+| N-3 | C | 양 플랫폼 같은 연결 계약(K-3) | 네이티브 | ④ | U, A, I |
+| N-4 | C | `onTokenPrivilegeWillExpire` → 기존 token API → `renewToken`. **env TTL 상향만으로 완료 처리하지 않음** | 네이티브 | ④ | I(65분 통화), U |
+| N-5 | S | 치명 오류 allowlist 에 있는 것만 종료, 나머지는 로그만 | 네이티브 | ④ | U |
+| N-6 | C | 영상 앱 내 종료도 CXEnd 로, 이중 보고 제거, 오디오 해제는 CallKit 에 맡김 | iOS | ④ | I |
+| N-7 | **C** | 모든 VoIP 분기에서 CallKit 보고(추적 중인 통화는 같은 UUID 로 ack, 끝난 통화는 report-then-end) + 서버가 VoIP 대상 기기를 좁힘. **일반 APNs 전환안은 철회** | iOS+웹 | 서버 ② / 네이티브 ④ | I(P-9) |
+| V-1 | C | 5초 자동 숨김, 탭하면 보이기/숨기기 전환, 이름·상태는 항상 표시 | 네이티브 | ⑤ | U(정책 클래스), A, I |
+| V-2 | C | `onConnectionStateChanged` → 「재연결 중」(N-3 과 같은 데이터) | 네이티브 | ④ | A, I |
+| V-3 | S | 발신 측 상대 이름을 프로필 표시명으로(방 제목 사용 안 함) | 웹 | ② | A·I |
+| V-4·V-5 | C | local+remote 품질, rtcStats·remoteVideoStats 사용, 0 은 세지 않음 | 네이티브 | ⑤ | U(평가기), A, I |
+| V-6 | **C** | observer compare-and-clear | 네이티브 | ⑤ | U |
+| V-7 | C | 라벨을 「누르면 할 동작」으로 통일(Android 카메라 라벨, iOS 초기 라벨 `:1040` 오류 포함) | 네이티브 | ⑤ | A(TalkBack), I(VoiceOver) |
+| V-8 | C | 데스크톱 웹: 같은 평가기 + 테두리 | 웹 | ② | W |
+
+### H-6. 입력창 (K)·성능 (P)·그룹·첨부·삭제·보안·기타
+| ID | 판정 | 처리 설계 | 층 | 단계 | 검증 |
+|---|---|---|---|---|---|
+| K-1 | C | 모바일 Enter = 줄바꿈 — **결정 D3** | 웹 | ② | A·I(T-K1) |
+| K-2 | C | 1~5줄 자동 확장(`--chat-composer-height` 계약 + §7 이력 + `verify:cm-room-keyboard-layout-contract`) | 웹 | ② | A·I |
+| K-3·K-4 | C | 수정 실패 시 입력 복원, 이모지 전송은 수정 경로와 분리 | 웹 | ① | U |
+| K-5 | C | 방별 임시 저장 | 웹 | ② | A·I(T-K3) |
+| K-6 | S | 조합 상태 ref, 조합 중 전송은 compositionend 이후 처리 | 웹 | ② | A·I(T-K2) |
+| K-7 | C/S | 멘션 화살표·Enter 선택, keyCode 229 처리, focus-within 표시 | 웹 | ① | U, W |
+| P-1·P-2·P-3·P-5 | C | typing store 동일 state 반환, friendship-sync deps 원시값, `/friends` 조건부 호출, footer memo | 웹 | ① | 렌더 횟수·채널 등록 로그 |
+| P-4·P-6 | S | 입력창 전용 컨텍스트, 친구 행 memo·가상화 | 웹 | ② | 렌더 횟수 |
+| P-7 | C(원인 정정) | 「뒤로 두 번」은 **push 로 진입한 경로**(방 안 수락·배너 확장·기록 행·웹 푸시)에서만 생김 → 규칙 R1~R6(L절) | 웹 | ② (마지막) | U(T1~T17), A, W |
+| G-1 | C | RPC 에 `p_actor_user_id` 버전 추가 + TS 에서 방장 재확인, notice·permissions 는 settings 경로로 일원화 | DB+웹 | ③ | U(비방장 403), D |
+| G-2 | C | 정원 계산에 `left_at IS NULL` 조건, 판정을 `>=` 로 | 웹 | ① | U |
+| G-3 | C | **결함 개선과 분리한 Owner 선택 기능**(결정 D5). 선택하지 않으면 보고만 | — | 선택 | — |
+| G-4 | S | 그룹 읽기 라우트는 DB `left_at` 을 확인 | 웹 | ① | U |
+| A-1 | C | 앨범 조회에 숨김·전체 삭제·사용자 숨김 필터 | 웹 | ① | U |
+| A-2 | S | staging 정리 크론(24시간) | 웹 | ② | D(Storage 목록) |
+| D-1 | C | 전체 삭제 시 답장 인용 스냅샷을 placeholder 로 교체 | 웹 | ① | U, A |
+| D-2 | S | 전체 삭제 시 `notification_events` 본문을 placeholder 로 | 웹 | ② | D |
+| S-1·S-2 | C/S | 멤버십 검사 추가, 커서 형식 검증 | 웹 | ① | U |
+| X-1 | S | 홈 섹션별 scrollTop 저장·복원 | 웹 | ② | A·I |
+| X-2 | C | 오픈그룹 입장에 세션·전화 인증 게이트 | 웹 | ① | U |
+
+**층별 집계(98건):**
+- 웹 79
+- DB(웹 동반 포함) 6: M-4, C-8, C-15, G-1, F-12, (C-9 는 seq 이후 웹)
+- 네이티브 13: N-1~N-7, V-1, V-2, V-4~V-7. 여기에 C-10 iOS 부분은 웹과 함께 처리
+- 보고만 1(L-8), 선택 1(G-3)
+
+## I. 메시지·통화 실시간성 보완 (W4·W5·W6)
+
+### I-1. 저장 / 실시간 발행 / 푸시를 분리하는 ACK 계약 (W4)
+| 단계 | 성공 기준 | 실패 시 클라이언트 | 실패 시 수신측 |
+|---|---|---|---|
+| (a) 저장 | RPC 커밋 `ok:true`(deduped 포함) | **이것만 성공·실패를 정함** | — |
+| (b) bump 발행 | Realtime REST 2xx(bounded 2회) | 영향 없음(200) | postgres_changes → 다음 bump 의 after= → SUBSCRIBED 재합류 → 화면 복귀·appStateChange 따라잡기 순으로 회복 |
+| (c) 푸시 | FCM/APNs | 영향 없음 | 알림만 누락 |
+
+- 커밋 여부를 모르는 오류는 5xx `commit_unknown` 으로 응답합니다. 클라이언트는 cid 를 유지한 채 `unknown` 상태로 두고, cid 재조회나 따라잡기에서 발견되면 sent 로, 없으면 failed 로 바꿉니다.
+- **중복 방지 근거:** DB UNIQUE `(room_id, sender_id, client_message_id)` 가 운영에 있음을 확인했습니다. RPC 의 SELECT + unique_violation 처리도 있습니다. 같은 cid 재시도는 같은 id 를 돌려주고, **푸시는 0회, bump 는 다시 발행**합니다(수신측이 id 로 중복 제거).
+- **클라이언트 상태 기계:** pending → (200) sent / (4xx) failed / (5xx·타임아웃) unknown → sent|failed. 불변식은 네 가지입니다.
+  - I1: 서버 행이 와야만 pending 이 풀림
+  - I2: 병합해도 pending·failed 는 지워지지 않음
+  - I3: 같은 cid 는 1행
+  - I4: sent 는 되돌아가지 않음
+- 테스트 T1~T15 를 정의했습니다(같은 프레임 bump 2건, ACK 유실 후 재시도, 동시 POST 2건, 실패 캐시, 4xx·5xx 분기, 재합류 따라잡기, 900ms 복귀).
+
+**전송 경로별 현재 상태:** 아래 경로는 모두 공용 `publishMessengerRoomBumpBounded` 로 바꿉니다.
+
+| 경로 | cid | bump 위치 | 조치 |
+|---|---|---|---|
+| 1:1·거래·주문 텍스트 | O | ACK 뒤, 푸시 뒤 | ACK 전 bounded |
+| 그룹 텍스트 | 없으면 내용 키 | ACK 뒤 | cid 필수 + ACK 전 |
+| 이미지·파일·음성 | O | ACK 전(5초×2 가능) | bounded 로 교체 |
+| 스티커 | O | ACK 전, try 없음 | bounded |
+| 게시글 공유 | **X** | ACK 전, try 없음 | cid 전달 + bounded |
+| call_stub | 세션 키 | 서비스+라우트 2회 | 1회로 |
+| 시스템·주문·선물 | 서버 생성 | 각자 | 유지(C-8 tip 만 교체) |
+| 가격제안·매물변경 시스템 | X | **없음** | 서버 bump 추가 |
+
+### I-2. 재연결 누락 복구
+- 진입점은 `onRoomRealtimeResumed(reason)` 하나입니다. 트리거:
+  - SUBSCRIBED 재합류(첫 bind 제외)
+  - visibilitychange
+  - Capacitor appStateChange
+  - online
+  - bus 이벤트
+- 방 단위 single-flight 로 실행하고, 실행 중에 새 트리거가 오면 끝난 뒤 1회 더 돌립니다.
+- 앵커는 확정 행 중 max(roomSeq)이고, 없으면 기존 방식을 씁니다.
+- `nextAfterMessageId` 로 페이지를 넘기고, 5페이지를 넘으면 latest 로 정합합니다.
+
+### I-3. DB 순번(W5) 도입 영향 분석
+- **INSERT 경로 15곳 이상**(RPC 2 + 선물 RPC + TS 직접 INSERT 6곳 + append 경유 6곳)입니다. 경로마다 고치지 않고 **BEFORE INSERT 트리거**로 일괄 처리합니다. 선례: `cm_messages_block_deleted`, 그룹 seq 트리거.
+- **설계:**
+  - `messages.room_seq bigint NULL` 추가
+  - 방별 카운터 테이블 `community_messenger_room_message_seq` 추가(publication 미포함 → rooms UPDATE 이벤트가 늘지 않음)
+  - 트리거 동작: `rooms FOR UPDATE` → 카운터 +1. 락 순서를 rooms → 카운터 → participants 로 통일해 데드락을 막습니다.
+  - 부분 UNIQUE `(room_id, room_seq)`
+- **정합성:** 카운터 락이 커밋까지 유지되므로 seq 순서 = 커밋 순서입니다. 따라서 `seq > anchor` 는 늦게 커밋된 행도 놓치지 않습니다. 과거 시각으로 기록된 call_stub 도 따라잡기에 잡힙니다.
+- **기존 데이터:** **백필하지 않습니다.** messages 가 publication 에 포함돼 있어 기존 행을 UPDATE 하면 클라이언트에 UPDATE 이벤트가 나갑니다(18,800건). 기존 행은 NULL 로 두고, 읽기 쪽 이중 조건으로 처리합니다:
+  - `room_seq > a.seq OR (room_seq IS NULL AND (created_at,id) > (a.created_at,a.id))`
+- **커서 페이지네이션:**
+
+| 대상 | 처리 |
+|---|---|
+| after RPC | 전환. md5 가드를 갱신하거나 전체를 재정의 |
+| before(위로 스크롤) | `(created_at,id)` 로 수정(M-15) |
+| latest·bootstrap | 유지하고 roomSeq 만 포함 |
+| unread·mark_read | 이번 범위 아님 |
+| 표시 정렬 | created_at 유지 |
+| 앵커 | roomSeq 우선 |
+
+  - API 는 `after=<messageId>` 그대로입니다. 서버가 앵커의 seq 를 찾으므로 구 클라이언트도 혜택을 받습니다.
+- **롤백 호환:** `DROP TRIGGER` 만 하면 새 행은 NULL 이 되고, OR 조건이 그대로 받아 줍니다. 구 코드는 컬럼을 무시하고, 카운터 테이블은 남아도 무해합니다.
+- **대안(DB 가 created_at 을 정함)은 기각합니다.** 과거 시각 행(stub·선물·주문)의 의미가 깨지고, 한번 바뀐 시각은 롤백할 수 없습니다.
+- **NP:** send_text 의 rooms 락 보유 구간이 늘어나는 비용(수 ms 추정) → 그룹 연속 송신 E2E 로 측정합니다.
+
+### I-4. 통화 종료 후 기록의 즉시 표시
+- DB 기록은 100%입니다(1부). 화면 반영 경로는 다음과 같습니다.
+  - 방: 서버 bump 의 stub 스냅샷
+  - 목록: rooms 패치. C-8 forward-only 로 UPDATE 가 1회로 줄어듦
+  - 통화 탭·단독 페이지: Panel 구독 → 병합. C-1·C-2·C-18 수정 후
+- 구독 경로(`use-community-call-history-realtime-sync.ts:150-197`)는 call_logs·call_sessions publication 과 RLS 를 통과하는 것을 확인했습니다.
+
+## J. 통화 화면 진입·복귀 지연 측정 (C-10 · 구현 전후 비교)
+
+| 단계 | 기록 지점 | 보강 |
+|---|---|---|
+| T0 탭 | `call_outgoing_tap`, A0 | — |
+| T1 권한 확인 | `media_prime_resolved` | — |
+| T2 reconcile·방 확인 | `LATENCY_RECONCILE`/`LATENCY_ROOM` | ②에서 reconcile 제거 후 0 |
+| T3 POST | A1 | — |
+| T4 서버 INSERT | **운영 로그 없음** | 서버 CORR `S1 insert_done` 추가 |
+| T5 VoIP 발송 | A3 (2초 예산) | Vercel 로그 |
+| T6 응답 | A2 | 응답에 `serverNow` 추가 → 시계 차이 기록 |
+| T7 네이티브 handoff | Android A4 / iOS `native_outgoing_handoff_done` | iOS CORR 시각 추가 |
+| T8 네이티브 첫 화면 | Android `dialing_surface_shown` / iOS `outgoing_activity_shown` | — |
+| T9 수신 푸시 도착 | iOS I0 / Android `incoming_call_received` | Android CORR 추가 |
+| T10 수신 UI | iOS I2 / Android `incoming_activity_shown` | — |
+| T11 수락 | iOS I4·I6 / Android `fsi_accept_tap` | — |
+| T12 미디어 연결 | iOS I10 / Android RB6 | — |
+| R1 종료 탭 → 상대 미디어 중단 | (신규) 종료 탭 CORR + 상대 `remote_offline` | N-2 증명용 |
+| R2 종료 → 방 화면 복귀·뒤로가기 횟수 | (신규) exit CORR | P-7 증명용 |
+
+- **수집:**
+  - Android: `adb logcat -v epoch | grep -E "DIBAY_CALL_CORR|DIBAY_CALL_V4|call-push|Capacitor/Console"`
+  - iOS: Xcode 콘솔 + Safari Web Inspector
+  - 서버: Vercel 로그에서 callId 로 검색
+- **조합:** iOS→Android, Android→iOS × 웜·콜드 × 각 10회 → 구간별 p50/p95 CSV.
+- **기준선:** **⓪ 단계(구현 전)에 현재 HEAD 에서 먼저 잽니다.** 같은 방식으로 메신저 성능 `measure:messenger-parity-audit`·`measure:messenger-ack-warm` 도 3회 잽니다.
+
+## K. 네이티브 통화 수정 사유·영향 분석
+
+### K-1. 항목별 분석표
+| ID | 현재 정상 / 결함 | 수정 이유 | Android | iOS | 음성·영상·재통화·수신·백그라운드 | CallKit·PushKit·Agora·Capacitor | 새로 생길 수 있는 결함 | 테스트 | 롤백 |
+|---|---|---|---|---|---|---|---|---|---|
+| **N-1** | 정상: 종료 시 미디어 leave 1차는 안전함. 결함: 늦은 PATCH 콜백(connect 8s+read 8s = 최대 16초)·이중 cleanup·BUSY 실패가 **callId 확인 없이** `E.leave()`·`S.stop`·`SM.clearSession()` 실행 → 새 통화의 채널·영상 surface(검은 화면)·FGS·오디오 포커스·세션 id 해제. `fail()`·`onError` 도 현재 listener 에 전달 | 종료 직후 재발신은 흔한 시나리오. 결과가 무음·검은 화면·「연결 중」 고착·백그라운드 마이크 차단 | `E.leave(callId,reason)`(음성 VE:172-189 와 같은 foreign skip, occupant null 이면 leaveChannel 도 skip), `E.fail/onError` callId 확인, 새 `NativeVideoCallTerminalOnce`(VR 과 같은 방식), `R.cleanup/terminalPatch` 첫 줄에서 claim 확인, `S`/`VS` 에 `boundCallId` 를 두고 STOP 시 foreign skip, `SM.clearSession(callId)` 신설, VR:789 교체 | **같은 lane 재발신은 지금 `conflictingActiveCall` 로 조용히 실패**(끊김은 아님). 범위 없는 `leave(reason:)`·전역 `deactivate`·전역 `resetOutgoingJoinGate`·PiP `stopIfActive()` 는 존재 → `leave(callId:)`, `resetOutgoingJoinGate(sessionId:)`, `deactivateIfNoCallOwnsAudio()`(두 lane 이 모두 비고 CallKit 추적 통화가 0일 때만), PiP 는 `isBound(to:)` 확인. **N-2 를 고치면 즉시 재발신이 가능해지므로 N-1 은 N-2 의 선행 조건(같은 커밋)** | 영상·음성 모두, 영상↔음성 교차, 종료 직후 수신, 잠금 화면 FGS 유지 | Agora 엔진이 lane 사이에 공유되는지(S) → foreign skip 으로 보호. Capacitor `endCall` 디스패처·FCM 종료는 1회 보장으로 중복 제거. JS(`lib/call/native/*`) 변경 없음 | 1회 보장 이후 정리가 일부만 실행 → 기존 try/finally 로 대응. `boundCallId` 불일치로 좀비 FGS → SESSIONS 가 비면 무조건 stop. 세션 id 잔존 → 양 Runtime 에 live 가 없으면 무조건 clear. (iOS) leave 범위 제한 없이 N-2 만 반영하면 재발신이 무음 | Robolectric: 늦은 cleanup no-op, occupant 유지, STOP(old) 후에도 foreground, clearSession(old) 후 id 유지. 소스 계약: leave 시그니처에 callId. A·I: 느린 망에서 종료 → 즉시 재발신 ×5, 영상↔음성, 재발신 후 잠금 30초 | 커밋 revert → `native:prepare`(빌드 +1) → 재빌드. 서버·DB 영향 없음 |
+| **N-2** | Android 정상(PATCH 전에 leave). iOS 결함: 영상·**음성 모두** `endAsync`(최대 8초) 이후에 leave → 종료 후에도 송출. CallKit 화면 종료도 같음. `fulfill` 지연 | 프라이버시(종료 후에도 카메라·마이크 송출) | 변경 없음(FGS 알림은 PATCH 동안 유지, 현행 유지 권장) | 앱 종료 탭 → `requestEnd`(CXEndCallAction) → perform: `markTerminalSuppressed` + `callKitEndCompletedSessionIds` 기록 → `handleLocalEndFromCallKit`: beginEnd → ringback 중지 → PiP teardown → **`leave(callId)` 즉시** → markEnded → `fulfill()`(수 ms) → CallKit 이 오디오 해제(`didDeactivate`) → `beginBackgroundTask` + PATCH 비동기 → `finishServerTerminal`(서버·로그만). CXEnd 요청이 실패하면 같은 단계를 직접 실행 | 잠금·PiP 종료도 같은 경로. ringing reject 도 perform 안에서 즉시 fulfill | **CallKit 과 충돌하지 않음**: 종료는 CXEnd 트랜잭션 하나로만 하고, 이 경로에서 `reportCall(endedAt:)` 은 호출하지 않음(이중 보고 제거) | perform 이 main 에서 실행되므로 `destroy()` 동기 호출 시 jank → leaveChannel 만 하고 destroy 는 serial 큐. PATCH 실패 → 백그라운드 task 안에서 1회 재시도, 이후 서버 heartbeat 만료에 맡김. 서버에 이전 세션이 active 로 남아 재발신이 busy 로 거절될 수 있음 → **C-6(②) 선행** | I: 종료 탭·잠금화면 종료 → 상대 미디어가 1초 안에 중단(J R1), 최근 통화 1건 | 같음 |
+| **N-3·V-2** | 결함: iOS 는 DROPPED 에도 종료(수신 connected), 발신 영상은 **모든 offline 에 로컬 end PATCH**, 음성 발신은 QUIT 만 처리 → 3가지 동작. Android 는 QUIT 외 무시 + 서버는 양쪽 heartbeat 가 모두 끊겨야 종료 → **상대가 사라져도 사용자가 끊을 때까지 「통화 중」**. 연결 상태 콜백 0건 | 일시적 끊김에 통화가 종료되거나, 실제 종료 후에도 통화가 무한히 유지됨 | **공통 계약(양 플랫폼·음성·영상·발신·수신 동일)**: QUIT → 즉시 원격 종료(PATCH 없음). DROPPED → 「상대 연결 끊김」 + **유예 15초**, 같은 uid 가 다시 join 하면 취소, 만료 시 end PATCH(`peer_dropped`). 내 쪽 RECONNECTING → 「재연결 중」 + **유예 30초**, CONNECTED 면 복귀. FAILED 또는 치명 reason(BANNED·INVALID_APP_ID·INVALID_CHANNEL·INVALID_TOKEN·TOKEN_EXPIRED(갱신 실패 후)·REJECTED) → 실패 처리. LEAVE_CHANNEL 은 무시. SAME_UID_LOGIN → answered_elsewhere. **통화 시간 표시는 계속 흐름**(서버 answered_at 과 일치). 유예 중 서버 종료 신호가 오면 그쪽이 우선 | Android: 타이머는 Runtime(`LINK_GRACE`, 공용 `NativeCallLinkGrace`)이 소유 → Activity 가 없어도 동작, cleanup 에서 취소. 표시는 `A.renderLinkPhase(callId)` | iOS: `connectionChangedTo` delegate, `didOfflineOfUid` 사유 분기, 공용 판정 함수 `AgoraOfflineDecision`(발신 `Outgoing.onDisconnected` 도 사용), callId·generation 확인 workItem | 백그라운드·잠금·PiP 에서도 Runtime 타이머가 동작. heartbeat 는 계속 보냄 | Agora 콜백만 사용. CallKit 은 실제로 종료될 때만 `reportCall(ended)` | 실제 이탈 시 종료가 최대 15초(+Agora 감지 약 20초) 늦어짐. 양쪽 동시 end PATCH → 서버 멱등으로 처리 | Robolectric·XCTest(순수 함수): DROPPED → 15초 → end, rejoin 이 오면 취소, cleanup 이 타이머 취소. A·I: Wi-Fi 10초 off → 회복, 상대 강제 종료 → 약 35초 안에 종료, 비행기 모드 40초 → 종료 | 커밋 revert |
+| **N-4** | 결함: 토큰 갱신 0건. TTL 기본 3600초(env, 최소 300). 서버 갱신 엔드포인트 `GET /calls/sessions/[id]/token` 은 **이미 있음** | 1시간 넘는 통화가 끊김 | `onTokenPrivilegeWillExpire`/`onRequestToken` → `fetchTokenAsync(sid)` → `renewToken`(occupant 확인). 실패 시 5초 뒤 1회, 그래도 실패면 종료 | `tokenPrivilegeWillExpire` → 같은 API → `renewToken`, 실패 시 30초 뒤 1회 | 음성·영상 모두 | 서버 변경 없음 | 이전 통화의 토큰이 새 통화에 적용 → occupant 확인으로 방지 | U: occupant 불일치 시 skip. I·A: 65분 통화(또는 Preview 에서 TTL=300 으로 6분 — 설정 변경이라 Owner 승인) | 커밋 revert |
+| **N-5** | 결함(코드 C·영향 S): 모든 Agora `onError` 를 통화 실패로 처리 | 비치명 오류(카메라 등)에도 종료 | `isFatalAgoraError`: 101·102·109·110·17·7 만 종료, 나머지는 경고 로그 | `didOccurError` 는 로그만 남김. 종료는 N-3 의 연결 상태 경로와 join 반환값으로만 | — | — | 실제로 깨진 통화가 이어질 수 있음 → N-3 의 FAILED·유예가 보완 | U(순수 함수) | revert |
+| **N-6** | 결함: 영상 앱 내 종료가 CXEnd 를 안 거침, CallKit 화면 종료 시 `reportCall(ended)` 이중 보고, fulfill 이 PATCH 를 기다림, CallKit 보다 먼저 `setActive(false)`. (1부의 「통화 기록에 상대 종료로 남음」 표현은 과장 → 정정) | CallKit 계약 위반, 오디오 세션 경합 | — | N-2 경로에 통합 | — | 음성은 이미 CXEnd 사용(정상) | — | I: 잠금화면 종료·PiP 종료 | N-1 과 같은 커밋 |
+| **N-7** | 결함(C): VoIP 분기 `:96-98`(winner tracked), `:114-116`(winner suppressed), `:145-151`(stale post-accept), `:219-225`(already suppressed)가 CallKit 보고 없이 completion. 서버(`push-payload-types.ts:166-180` `resolveCallPushProviderPolicy`)는 모든 terminal 을 모든 기기에 VoIP 로 보냄 | iOS 13+ 정책: VoIP 푸시마다 `reportNewIncomingCall` 필수. 반복해서 어기면 앱 종료·VoIP 제한 → 수신 불능 | — | 네이티브: 새 `ackPushKitForTrackedCall(sessionId:completion:)`(추적 중인 통화는 같은 UUID 로 재보고, `callUUIDAlreadyExists` 는 정상 처리). suppressed·끝난 통화는 **report-then-end**(`.answeredElsewhere`/`.remoteEnded`). 기존 `reportIncomingCall` 재사용 금지(다른 통화를 정리하는 부작용). 서버: VoIP terminal 은 해당 세션의 incoming VoIP 를 받은 기기와 발신 기기에만, 승자 기기 제외. `call_ended` 는 VoIP 유지(백그라운드 대체 채널이 없음) | 수신 answer 경로는 변경 없음 | **우회하지 않고 정책을 지킴.** 1부의 「일반 APNs 전환」은 잠금화면 CallKit 을 끌 수 없어 철회 | suppressed 기기에서 무음 CallKit 이 잠깐 깜빡일 수 있음 → 서버가 대상을 좁혀 빈도 최소화. 같은 UUID 재보고를 정책 준수로 인정하는지는 NP | 소스 계약: 모든 terminal 분기에 report 존재(기존 `ios-post-terminal-winner-suppressed-contract.test.ts` 갱신). I: 앱이 종료된 상태에서 수신 → 상대 취소 ×5, 늦은 terminal 시나리오 10회 → 앱이 죽지 않고 다음 수신 정상 | 서버는 웹 revert 로 즉시 복구(옛 바이너리 호환). 네이티브는 revert 후 재빌드 |
+| **C-10 iOS** | 결함: iOS 는 POST 응답 전까지 화면이 그대로(직렬 대기 4~6단계). Android 만 PREPARING 을 먼저 띄움 | 체감 지연 | 변경 없음 | 신규 plugin `startNativeOutgoingPreparing(attemptId, peerName, mediaType)` → 준비 화면 즉시 표시 → POST 후 `bindNativeOutgoingEstablishment(attemptId, callId)` → 기존 `handleOutgoing` → `CXStartCallAction`. CallKit·카메라·오디오는 bind 이후(UUID 는 서버 sessionId 여야 함). 취소 → 기존 abandon | 음성 iOS 도 같은 패턴 | JS 게이트를 「Android 전용」에서 「capability 확인」으로. **옛 바이너리는 UNIMPLEMENTED → 기존 경로 유지**(현재 코드는 `!preparing.ok` 이면 통화 실패 → 그대로 적용 금지) | 준비 화면에서 취소와 POST 응답이 겹치는 경합 → attemptId 로 정합 | I: 탭 → 300ms 안에 준비 화면, 취소 시 서버 세션이 cancel 상태 | JS 게이트는 웹 revert, 네이티브는 재빌드 |
+
+### K-2. 영상통화 UI 최종 요구 대응 (V-1·V-4~V-7·테두리) — **lifecycle 과 분리한 UI 전용 커밋**
+| 요구 | 설계 | 근거·보장 |
+|---|---|---|
+| 상대 이름·통신 상태 항상 표시 | info 패널(`connected_info`/`connectedChromeContainer`)은 항상 VISIBLE. 상태 문구는 N-3 의 linkPhase(재연결 중·상대 연결 끊김)를 반영 | `syncPersistentCallStatusVisibility` 를 info 와 FAB 로 나눔 |
+| FAB 5초 자동 숨김 | 연결 후 마지막 조작 + 5초 → 250ms fade. Android `chromeHideRunnable`, iOS `chromeHideWorkItem` 재사용 | 순수 정책 클래스 `ChromePolicy.canAutoHide()`: PiP·dock·ENDING·TalkBack/VoiceOver·품질 경고·linkPhase≠OK 일 때는 숨기지 않음 |
+| 터치하면 다시 표시 | 배경 탭은 보이기/숨기기 전환, 버튼 탭은 타이머 재시작 | 연타해도 `chromeVisible` 하나만 바뀌므로 상태가 꼬이지 않음 |
+| 빨간 그라데이션 경고 | 영상 위·컨트롤 아래 층, 4면 그라데이션(GradientDrawable / CAGradientLayer), `clickable=false`·`isUserInteractionEnabled=false`·접근성 무시, 표시 시 1회 알림 | 버튼 조작을 막지 않음 |
+| 실제 Agora 데이터 기준 | `worst(local tx/rx, remote tx/rx)` + `onRtcStats` 손실·RTT + `remoteVideoStats.frozenRate`, 약 2초 콜백 그대로(별도 타이머 없음) | 순수 `QualityEvaluator`/`NetworkQualityHysteresis` |
+| 자동 해제·흔들림 방지 | 0 은 세지 않음. 4·5·손실 15% 초과·RTT 600ms 초과 **2회 연속(약 4초)이면 표시**. 6·RECONNECTING 은 즉시 표시. 3 이하 **3회 연속(약 6초)이면 해제** | 샘플 시퀀스 단위 테스트 |
+| 종료 버튼 접근성·안전 | 종료 버튼 위치 고정, 숨김 상태에서도 Android FGS 알림의 끊기·iOS CallKit 종료는 언제나 사용 가능. 라벨은 「누르면 할 동작」으로 통일(V-7) | — |
+| 표시가 연결·종료를 지연시키지 않음 | `onEndTapped` 첫 줄에서 `R.end`/CXEnd 요청, UI 정리는 그다음. `finishIfActive` 는 애니메이션을 기다리지 않음. 모든 타이머는 종료·onDestroy·PiP 진입 때 `removeCallbacks`/`cancel` + alpha 1 복원. **이 커밋은 Runtime·Engine lifecycle·Service 코드 0줄** | UI 커밋 diff 검사(소스 계약: R·E·S 파일 미변경) |
+
+### K-3. 테스트 기반
+- Android 는 Robolectric 4.14.1 이 있습니다(`build.gradle:139`). 기존 `NativeVideoCallTerminalCleanupTest` 를 확장합니다.
+- iOS 는 **XCTest 타깃이 없습니다.** 순수 로직(`NetworkQualityHysteresis`, `AgoraOfflineDecision`, `VoipTerminalDecision`, `ChromePolicy`)을 분리하고, Agora 의존성 없는 `DibayCallTests` 타깃을 추가합니다(pbxproj 변경이라 같은 네이티브 릴리스에 포함). 기존 vitest 소스 계약 방식도 함께 씁니다.
+- 갱신해야 하는 기존 계약 테스트(수정과 같은 커밋):
+  - `ios-post-terminal-winner-suppressed-contract.test.ts`
+  - `lib/call/__tests__/persistent-call-status-contract.test.ts`(「Option A」)
+  - `lib/push/dispatch/__tests__/call-push-provider-policy.test.ts`
+  - `scripts/verify-native-video-runtime-contract.cjs`
+- HARD LOCK A(`docs/dibay-chat-call-current-normal-hard-lock.md`)의 Native Change Gate 보고는 K-1 표로 갈음합니다.
+
+## L. 친구·채팅 정책 보완 (W2) — 단방향 친구 유지
+
+### L-1. 동작의 의미 정의
+| 동작 | 데이터 | 상대방이 아는지 | 메시지·통화 영향 | 되돌리기 |
+|---|---|---|---|---|
+| 친구 숨김 | `user_relationships` hidden, 내 쪽만 | 모름 | 없음(친구 유지) | 숨김 해제 |
+| 친구 삭제 | 내→상대 friend 행만 삭제 | 모름 | 내가 「친구만 통화」 설정이면 상대의 통화가 막힘. 방·메시지는 유지 | 다시 추가 |
+| 차단 | `user_social_relations` blocked(한 방향), 차단한 쪽 1:1 방만 숨김(D2), 내 friend 행만 삭제 | 노출 최소화(거부 문구는 일반 문구) | 1:1 메시지·통화 차단. 그룹·상거래 방은 해당 없음(D1) | 해제하면 방 복원, 친구는 자동 복원 안 함 |
+| 대화 보관 | `participants.is_archived`, 내 쪽만 | 모름 | 송수신 정상, 새 메시지가 와도 보관 유지 | 복원 |
+| 나가기 | 참여 행 삭제(비공개 그룹은 left_at), 메시지 보존 | 그룹·거래는 시스템 표시, 1:1 은 모름 | 나는 접근 불가. 1:1 은 다시 열면 재참여(현행, 보고만) | 다시 대화 |
+| 대화 삭제 | **기능 없음**(새 기능이라 범위 밖) | — | — | — |
+
+### L-2. 채팅 종류 × 동작 (서버·UI 가 같은 정책 함수 `resolveMessengerRoomActionPolicy` 사용)
+| 동작 | 1:1 | 비공개 그룹 | 오픈그룹 | 거래 | 주문·고객 | 주문·사장님 | 운영 보관 방 |
+|---|---|---|---|---|---|---|---|
+| 보관·복원 | O | O | — | O | O | O | 복원 숨김 |
+| 읽음 | O | O | O | O | O | O | O |
+| 나가기 | O | O(방장 자동 위임) | 회원 O / 방장 「위임 후 나가기」 | O(거래 원장 보존) | **진행 중 X**, 완료·취소 후 「목록에서 숨김」 | **항상 X** | 숨김만 |
+| 방 메뉴 차단 | O | — | — | 숨김 | 숨김 | 숨김 | — |
+
+- 주문 종료 판정은 `store-order-process-model.ts` 단일 정의만 씁니다(completed/cancelled, 범위를 넓히지 않음).
+- 서버 가드는 `leaveMessengerRoomUnified` 에 둡니다. 오류 코드는 `store_owner_cannot_leave`, `store_order_in_progress`, `owner_cannot_leave` 입니다.
+- **증빙 보호:** 거래·주문 메시지와 `product_chats` 는 어떤 동작으로도 삭제되지 않습니다(현행 N, 회귀 검증표 R-12).
+
+### L-3. 통화 종료 후 복귀 규칙 (W6·P-7·C-16) — 뒤로가기 기록 보호
+- 신규 단일 모듈 `call-return-navigation.ts` 를 둡니다. 기존 복귀 주소 저장 함수 2개를 대체합니다.
+  - **R1** 네이티브 소유 통화는 웹 이동 0회입니다(iOS 거절 시 통화 탭으로 튀는 문제 해결).
+  - **R2** 웹 진입은 항상 push 1회입니다. tmp→real 교체와 재발신은 통화 엔트리만 replace 합니다.
+  - **R3** 통화 화면 마운트 시 `history.state` 에 엔트리 표시를 남깁니다.
+  - **R4** 종료 시 표시가 일치하면 `router.back()` 1회만 합니다(관찰 후 push 하는 폴백은 금지 — `history-back-fallback.ts` 에 이중 이동 기록 있음). 아니면 replace(방 또는 채팅 목록)입니다.
+  - **R5** 통화 중 뒤로가기는 최소화입니다(통화를 끝내지 않음).
+  - **R6** 앞으로 가기로 끝난 통화 화면에 다시 오면 back 또는 replace 입니다.
+- **선행 확인(NP):** Next 16 의 `history.state` 병합 동작을 `node_modules/next/dist/docs` 로 확인합니다. 확인되지 않으면 R3 대신 sessionStorage token 만 씁니다.
+- **검증:** vitest T1~T17(router 호출·history.state 기록) + Android 하드웨어 back 1회로 목록 복귀 + iOS 원격 거절 후 방 유지(재마운트·스크롤 초기화 없음) + 콜드 수신 후 `/` 유지 + Chrome back 1회.
+
+### L-4. 공통 UI/UX 기준 — 1부 D절을 유지하고 아래를 추가
+- 터치 반응: 모든 행·버튼에 `active:` 피드백, 100ms 이내 시각 반응. 진행 중이면 대상만 비활성화합니다.
+- 실시간 목록 갱신: 서버 bump·postgres_changes 만 사용합니다(폴링 증가 금지). 재정렬해도 열린 스와이프·스크롤이 유지됩니다(key = roomId).
+- 입력창 줄바꿈: 모바일 Enter = 줄바꿈(D3), 1~5줄 자동 확장, 전송 후 1줄로 복귀하고 키보드는 유지합니다.
+
+## M. 웹·DB·네이티브 변경 의존 관계
+
+```
+⓪ 기준선 측정(현재 HEAD) ─────────────────────────────────────────────┐
+① 웹A ── C-1/C-18, W1, W4(bounded bump·ACK 계약·M-2/3/10~15), F 묶음, P 렌더, A-1, D-1, 보안
+   │      (독립. W4 는 seq 없이도 동작: 앵커는 기존 방식으로 대체)
+② 웹B ── W2 정책(D1·D2·D5 반영), K-1/2/5/6(D3), C-3/C-17, C-4, C-6★, C-7, C-11★, C-12, C-14,
+   │      P-7/C-16 복귀 규칙(마지막), N-7 서버 대상 축소, C-10 웹(reconcile 제거), V-3, V-8
+   │      ★ C-6·C-11 은 ④보다 먼저 배포해야 함(네이티브 즉시 재발신 시 서버 busy·웹 idle 경합 방지)
+③ DB ─── (승인 후 운영 적용, 각각 하위 호환)
+   │      W5: 컬럼·카운터·트리거·after RPC 이중 읽기 → 그다음 웹 앵커 roomSeq 우선(C-9 정렬)
+   │      C-8/C-15: append RPC 신규 인자(DEFAULT NULL) → 그다음 웹 stub 서비스가 인자 사용
+   │      G-1: actor RPC 버전 추가 → 그다음 웹 호출 교체(구 RPC 는 유지)
+   │      F-12: 쓰기 권한 회수(클라이언트 직접 쓰기 0건 확인 완료) — 웹 변경 불필요
+④ 네이티브 R1 lifecycle ── N-1+N-2+N-6(같은 커밋) → N-3·V-2·N-5 → N-4 → N-7 네이티브
+   │      의존: ② C-6·C-11·N-7 서버. JS 브리지 계약 변경 없음(구 웹·신 바이너리, 신 웹·구 바이너리 모두 호환)
+⑤ 네이티브 R2 UI ── V-1, V-4~V-7, 테두리, C-10 iOS 준비 화면
+          의존: ④ 의 linkPhase(재연결 중에는 FAB 를 숨기지 않음), ② 의 C-10 capability 게이트가 먼저 배포
+```
+
+**호환 원칙:**
+- 웹이 앱보다 먼저 배포됩니다. 그래서 모든 웹 변경은 **구 바이너리(Android 1.2.4(9), iOS 1.2(7))** 에서도 동작해야 합니다. 새 네이티브 기능은 capability 확인 뒤에만 씁니다.
+- DB 변경은 구 웹 코드에서도 동작해야 합니다(컬럼 nullable, 인자 DEFAULT, 구 RPC 유지).
+
+## N. 기존 정상 기능 회귀 검증표
+
+| # | 보호 대상(1부에서 N 판정) | 위협이 되는 변경 | 검증 |
+|---|---|---|---|
+| R-1 | 중복 전송 방지(cid UNIQUE·RPC dedupe) | W4 상태 코드 변경, M-12 | U T8·T9, D(중복 cid 0건 조회) |
+| R-2 | 서버 전용 bump 발행 계약 | W4, F-9, F-14 | 소스 계약(클라이언트 발행 0) |
+| R-3 | 차단 서버 강제 6경로 + 통화 deny_blocked | F-2(상거래 예외) | U(일반 1:1 은 여전히 거부) |
+| R-4 | 푸시 억제(음소거·차단·보고 있는 방) | W4 allSettled 병렬화 | U, A(음소거 방 푸시 0) |
+| R-5 | 통화 로그·stub 100% 기록, session 유니크 | C-3·C-8·C-15 | D(14일 누락 0 재조회), U |
+| R-6 | 정리 크론(ringing·active 잔존 0) | C-6, C-14 | D(잔존 0 재조회) |
+| R-7 | 키보드 뷰포트·하단 고정(§7, `1a32cb1b`) | K-2 높이 확장 | `verify:cm-room-keyboard-layout-contract`, A·I |
+| R-8 | 타임라인 가상화·목록 가상화(16 이상) | M-2 merge, P-1 | U, 렌더 계측 |
+| R-9 | 스와이프 축 잠금(16px·가로 우세)·롱프레스 | W1 | U, A·I |
+| R-10 | 그룹 초대·강퇴·퇴장·방장 승계 | G-1, W2 | U |
+| R-11 | 이미지·파일 업로드 한도·사진 저장 | W4 bounded bump | A·I(이미지 10장·파일 15MB 전송) |
+| R-12 | 거래·주문 증빙 보존(메시지·product_chats) | W2 나가기 | U, D(나가기 후 메시지 수 불변) |
+| R-13 | 주문 상태·채팅 단계 단일 정의(`store-order-process-model.ts`), 수수료 DB 트리거 | W2 주문 종료 판정 | 소스 계약(판정 함수 재사용), 수수료 코드 미변경 diff |
+| R-14 | `/market` 목록 불변조건 | (영향 없어야 함) | diff 범위 확인 |
+| R-15 | 수신 통화: Android FSI·IncomingCallActivity, iOS CallKit 수락 경로 | N-7, N-1 | A·I(잠금·백그라운드·앱 종료 상태 수신 각 3회) |
+| R-16 | 벨소리·링백 소유권(callId 확인 정상) | N-1 | A·I |
+| R-17 | heartbeat 양쪽 기록·한쪽 stale 시 유지 | N-3, C-14 | A·I(한쪽 Wi-Fi 끊김 30초 → 통화 유지) |
+| R-18 | PiP·dock·작업 뒤로(Android) | V-1, N-2 | A·I(PiP 진입·종료) |
+| R-19 | 음소거·카메라 전환·스피커 | V-1 숨김 | A·I |
+| R-20 | 읽음 양방향(read-ack + participants) | M-5 재구독 변경 | A·I(읽음 표시 1초 이내) |
+| R-21 | 메신저 진입·방 열기 성능 | 전 단계 | ⓪ 기준선 대비 p50/p95 악화 없음 |
+
+## O. Android / iPhone 실기기 검증 프롬프트 (단계별)
+
+**공통:**
+- 시작 전에 운영 `public.user_devices.app_version` 으로 설치 빌드를 확인합니다(구 바이너리면 결과 무효).
+- 기록 형식: 기기·버전·계정 A/B·단계·기대·실제·PASS/FAIL/NP·증거(logcat CORR·화면·DB).
+
+**Android(Cursor 실행: Samsung 폰 = A, Xiaomi 태블릿 = B)**
+- **①②단계(웹):** 1부 F절 T-L1~L5, T-M1~M4, T-K1~K3, T-F1~F2, T-C1·C2·C4 에 아래를 추가합니다.
+  - T-M5: B 앱을 백그라운드로 보내고 2초 뒤 복귀 → A 가 그사이 보낸 메시지가 새로고침 없이 보이는지
+  - T-M6: A 비행기 모드에서 전송 → 「전송 실패」 + 재전송 → 1건만 도착
+  - T-C5: A 가 이미 통화 중일 때 B 가 A 에게 발신 → B 타임라인에 「상대방 통화 중」, A 타임라인에 「부재중」. 앱 재시작 뒤에도 유지
+  - T-N1: 방 → 발신 → 종료 → 하드웨어 back 1회로 목록
+- **④단계(R1):**
+  - T-C3: 느린 망에서 영상 종료 → 즉시 재발신 ×5
+  - 영상↔음성 연속 통화
+  - 재발신 후 잠금 30초
+  - Wi-Fi 10초 off → 회복 / 상대 강제 종료 → 약 35초 안에 종료
+  - logcat 에서 `idempotent_skip|skip_foreign` 확인
+- **⑤단계(R2):**
+  - T-V1: FAB 5초 숨김·탭 표시·TalkBack 이면 숨기지 않음
+  - T-V2: 대역폭 제한 → 약 4초 뒤 테두리, 복구 → 약 6초 뒤 해제, 테두리 위 버튼 동작
+
+**iPhone 14 Pro Max(Owner 조작, 짧은 프롬프트)** — ④ 이후 P-1~P-6, P-9·P-10, ⑤ 이후 P-7·P-8·P-11
+- P-1 「삼성에서 영상통화 → iPhone 에서 수락 → 10초 뒤 iPhone 앱의 종료 버튼. 삼성 화면에서 내 영상·소리가 1초 안에 멈췄나요?」
+- P-2 「잠금 상태에서 통화 → 잠금화면에서 종료. 1초 안에 상대 화면이 끝났나요?」
+- P-3 「종료 직후 2초 안에 같은 사람에게 다시 영상통화 ×5. 매번 영상·소리가 정상인가요?」
+- P-4 「음성 종료 → 바로 영상 발신, 영상 종료 → 바로 음성 발신. 둘 다 정상인가요?」
+- P-5 「통화 중 삼성 Wi-Fi 를 10초 껐다 켜기. iPhone 이 '재연결 중' 후 통화를 유지하나요? 20초 이상 끄면 종료되나요?」
+- P-6 「통화가 끝난 뒤 iPhone 채팅방·대화 목록·통화 탭에 기록이 새로고침 없이 보이나요? 거절당한 경우 iPhone 이 채팅방에 그대로 있나요?」
+- P-7 「영상 연결 후 5초 손대지 않기 → 오른쪽 버튼이 사라지나요? 이름·상태는 보이나요? 한 번 탭하면 다시 보이나요?」
+- P-8 「설정에서 네트워크 링크 컨디셔너를 3G·고손실로 → 4초 안에 빨간 테두리가 뜨고, 해제하면 6초 안에 사라지나요? 테두리가 있어도 버튼이 눌리나요?」
+- P-9 「iPhone 앱을 완전히 종료한 상태에서 삼성이 전화 → 삼성이 바로 취소 ×5. CallKit 이 1초 안에 사라지고, 다음 전화가 정상으로 울리나요?」
+- P-10 「65분 통화 1회(충전 중). 끊기지 않나요?」
+- P-11 「영상 발신 버튼 → 바로 '연결 준비 중' 화면이 뜨나요? 취소하면 삼성 쪽 벨이 멈추나요?」
+- (웹 단계 공통) 1부 F절 iPhone 프롬프트 5·7·8(차단·입력창·스와이프)
+
+> 코드 테스트 PASS 를 실기기 PASS 로 대신하지 않습니다. FAIL 이 나오면 해당 결함 ID 의 설계로 돌아가 원인을 다시 분석하고, 같은 단계 안에서 수정합니다.
+
+## P. Owner 정책 결정 필요 사항 (나머지는 규정·설계로 정함)
+
+| # | 결정 | 권장 | 선택하지 않을 경우 |
+|---|---|---|---|
+| D1 | 차단을 거래·주문 채팅에도 적용하는지 | **일반 1:1 에만 적용**(상거래 소통·증빙 보호) | 현행: 상거래 방도 송신 불가 |
+| D2 | 차단할 때 상대 1:1 방도 숨기는지 | **차단한 쪽만 숨김**(차단 사실 비노출) | 현행: 양쪽 숨김 |
+| D3 | 모바일 Enter = 줄바꿈 | **적용**(데스크톱은 Enter 전송) | 현행: 모바일도 Enter 전송 |
+| D4 | 상대 통화 중(busy) 기록을 수신자에게도 「부재중」으로 보일지 | **보임**(카카오톡과 같음, 푸시·벨은 없음, unread +1) | 발신자에게만 기록 |
+| D5 | 오픈그룹 강퇴·영구차단(G-3, 새 기능) | Owner 선택. 결함 개선과 분리해 별도 작업 | 보고만 |
+| D6 | DB 마이그레이션 4건 운영 적용(W5 seq, C-8/C-15 RPC, G-1 RPC, F-12 권한 회수) | ③ 단계에서 하나씩 승인 | ③ 단계 보류 |
+| D7 | 네이티브 2회 빌드(R1 lifecycle, R2 UI) 실기기 설치. 스토어 업로드·출시는 별도 승인 | 2회로 분리(회귀 원인 구분) | 1회로 묶음(회귀 원인 구분이 어려움) |
+
+이미 정해진 사항(다시 묻지 않음):
+- 단방향 친구 유지, FAB 5초, 스와이프 5초 자동 닫힘
+- 진행 중 주문·사장님 나가기 불가, 거래 증빙 보존
+- 품질 경고 기준값, 유예 15초·30초
+- 토큰은 갱신 구현으로 해결(env 상향은 완료 조건이 아님)
+- N-7 정책 준수 방식, C-3 영구 기록 방식(안 B)
+
+## Q. 수정 우선순위와 안전한 통합 구현 순서
+
+| 단계 | 내용 | 반영 | 통과 조건(다음 단계 진입) |
+|---|---|---|---|
+| ⓪ | 기준선 측정: J절 통화 T0~T12·R1·R2, 메신저 성능 3회. 코드 변경 없음 | — | 측정 CSV |
+| ① 웹A | 데이터 유실·무한 렌더·체감 결함 먼저: C-1/C-18 → W4(M-1·M-2·M-3·M-8~M-15) → W1(L-1~L-5·L-10·L-11) → F 묶음 → K-3·K-4·K-7 → P-1·P-2·P-3·P-5 → A-1·D-1·S-1·S-2·X-2·G-2·G-4 | 로컬 검증 → main 1회 | U 전체 PASS + Android ①항목 + iPhone 웹 프롬프트 + R-1~R-4·R-7~R-9·R-11·R-20 |
+| ② 웹B | D1~D4 반영: W2 → K-1·K-2·K-5·K-6 → C-7 → C-11 → C-4 → C-6 → C-3·C-17 → C-12 → C-14 → N-7 서버 → C-10 웹 → V-3·V-8·X-1·P-4·P-6·A-2·D-2 → **P-7/C-16 복귀 규칙(마지막)** | main 1회 | ① 과 같음 + T-C5·T-N1·R-5·R-6·R-12·R-13 |
+| ③ DB | W5 → C-8/C-15 → G-1 → F-12 (D6 승인 후 하나씩 적용 → 결과 조회) + 웹 후속(roomSeq 앵커·C-9·stub 인자·G-1 호출) | 마이그레이션 파일 커밋 + 운영 적용 결과 D 조회 | D 조회 + 연속·동시 송신 E2E + R-1·R-5 |
+| ④ 네이티브 R1 | N-1+N-2+N-6 → N-3·V-2·N-5 → N-4 → N-7 네이티브. `native:prepare` → APK·iOS 빌드 → 설치 확인 | 빌드 번호 +1(Android 10 / iOS 8 예정) | Robolectric + 소스 계약 + Android ④항목 + iPhone P-1~P-6·P-9·P-10 + R-15~R-18 |
+| ⑤ 네이티브 R2 | V-1·V-4~V-7·테두리 → C-10 iOS 준비 화면 | 빌드 +1 | Android ⑤항목 + iPhone P-7·P-8·P-11 + R-18·R-19 |
+| ⑥ 최종 판정 | 전 단계 실기기 매트릭스 재실행, ⓪ 대비 성능 비교(R-21), 잔여 결함 목록 | — | 아래 완료 기준 |
+
+**최종 완료 기준(결함 수가 아니라 동작 증명):**
+1. 1부 F절과 2부 O절의 Android·iPhone 실기기 항목이 모두 PASS(NP 0, 또는 사유와 Owner 확인 기록).
+2. 회귀 검증표 R-1~R-21 이 모두 PASS.
+3. 메시지·통화 기록이 새로고침 없이 반영됨을 실기기 로그·화면으로 증명.
+4. 통화 진입·종료·복귀 지연이 ⓪ 기준선보다 개선됐고, 그 수치가 있음.
+5. 단계마다 로컬 검증 PASS / Production 반영 SHA / 실기기 PASS 를 구분해 보고.
+
+**위험이 높은 순서:** ④ 네이티브 lifecycle(높음) > ③ W5 seq(높음, 롤백은 트리거 DROP) > ② 복귀 규칙·W2(중간) > ① W4 ACK 계약(중간) > 나머지(낮음).
+
+## R. 2부 요약 수치
+
+| 항목 | 값 |
+|---|---|
+| 결함(대응표 대상) | **98** = 1부 88 + 신규 10 (M-10~M-15, C-15~C-18) / 확정 81 · 의심 17 |
+| 판정 변경 | 3건(N-1·V-6·N-7, S→C) / 1부 내용 정정 6건(N-2 음성 포함·N-6 표현·N-7 완화책 철회·P-7 원인·C-3 CHECK 불필요·RECONNECTING 시간 표시) |
+| 웹 / DB / 네이티브 | 79 / 6 / 13 (+C-10 웹·iOS 공동) · 보고만 1 · 선택 1 |
+| 실기기 검증 항목 | Android ①② 26 + ④ 6 + ⑤ 2 / iPhone 11 + 웹 공통 3 |
+| 회귀 보호 항목 | 21 (R-1~R-21) |
+| Owner 결정 | 7 (D1~D7) |
+| 예상 회귀 위험 | 웹 중간 · DB 높음(트리거 DROP 으로 즉시 롤백) · 네이티브 높음(lifecycle·UI 빌드 분리, 단일 커밋 revert) |
+| NOT_PROVEN 잔여 | Next 16 history.state 병합 동작, 같은 UUID 재보고의 PushKit 준수 인정 여부, Agora 엔진의 lane 간 공유, 운영 토큰 TTL env, send_text 락 비용, 운영 V4 lane 플래그 |
