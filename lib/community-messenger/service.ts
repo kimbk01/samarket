@@ -21163,23 +21163,10 @@ export async function updateCommunityMessengerCallSession(input: {
             Promise.resolve(publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus)).catch(() => {})
           );
           /**
-           * C-7: 링잉 마감(missed)을 **발신자**가 확정하면 수신자 기기의 벨·수신 화면을 끈다 —
-           * 네이티브 호환을 위해 전송 상태는 `cancelled`(벨 종료 의미). 통화 기록은 missed 그대로.
+           * C-7 의 「missed 확정 시 수신 기기 벨 종료 푸시」는 이 웹 배포에서 **보류** —
+           * 이 경로는 VoIP terminal 로도 나가므로, 이미 끝난 통화에 대해 구 iOS 바이너리가 CallKit 보고 없이
+           * completion 하는 분기(N-7)를 늘린다. N-7 네이티브 정책 준수(④)와 같은 릴리스에서 켠다.
            */
-          if (
-            next.nextStatus === "missed" &&
-            peerUserId &&
-            messengerUserIdsEqual(updated.initiator_user_id, input.userId) &&
-            (updated.session_mode ?? "direct") === "direct"
-          ) {
-            keepAliveAfterResponse(
-              sendWebPushForCommunityMessengerCallTerminal({
-                recipientUserId: peerUserId,
-                sessionId: updated.id,
-                status: "cancelled",
-              }).catch(() => {})
-            );
-          }
           if (next.nextStatus !== "missed" && peerUserId) {
             keepAliveAfterResponse(
               sendWebPushForCommunityMessengerCallTerminal({

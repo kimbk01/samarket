@@ -50,8 +50,10 @@ describe("② 통화 상태 머신 서버 계약", () => {
     expect(actions).toContain("missed_patch_deadline_retry_scheduled");
     expect(actions).toContain("MISSED_DEADLINE_RETRY_MAX = 2");
   });
-  it("C-7 종료 신호·부재중 알림 keepAlive, 발신자 missed 확정 시 수신 기기 벨 종료", () => {
+  it("C-7 종료 신호·부재중 알림 keepAlive — missed 벨 종료 VoIP 푸시는 N-7(④)까지 보류", () => {
     expect(svc).toContain("keepAliveAfterResponse(notifyRoomBoundMissedCallBestEffort(session, mapped)");
-    expect(svc).toMatch(/next\.nextStatus === "missed" &&\s+peerUserId &&\s+messengerUserIdsEqual\(updated\.initiator_user_id, input\.userId\)/);
+    /** N-7 서버 경로 비활성 계약: missed 시 추가 terminal 푸시가 다시 생기지 않게 */
+    expect(svc).not.toMatch(/next\.nextStatus === "missed" &&\s+peerUserId &&\s+messengerUserIdsEqual\(updated\.initiator_user_id, input\.userId\)/);
+    expect(svc).toContain("N-7 네이티브 정책 준수(④)와 같은 릴리스에서 켠다");
   });
 });
