@@ -12,7 +12,10 @@ import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext
 import { AppBackIcon, AppCloseIcon } from "@/components/navigation/AppBackButton";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { SECTOR_HEADER_BACK_CLASS } from "@/lib/ui/sector-header-classes";
-import { closeGlobalSearch } from "@/lib/search/global/global-search-navigation-ssot";
+import {
+  beginGlobalSearchCloseSession,
+  closeGlobalSearch,
+} from "@/lib/search/global/global-search-navigation-ssot";
 import { createGlobalSearchCoordinator, trimGlobalSearchQuery } from "@/lib/search/global/coordinate-search";
 import { isSearchableGlobalQuery } from "@/lib/search/global/semantics/is-searchable-query";
 import {
@@ -374,6 +377,10 @@ export function GlobalSearchView() {
     },
     [commitUrl, runSearch]
   );
+
+  useEffect(() => {
+    beginGlobalSearchCloseSession();
+  }, []);
 
   const closeSearch = useCallback(() => {
     closeGlobalSearch(router);

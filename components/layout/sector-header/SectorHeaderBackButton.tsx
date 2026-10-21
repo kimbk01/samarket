@@ -7,6 +7,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import { AppBackIcon, AppCloseIcon } from "@/components/navigation/AppBackButton";
 import { SECTOR_HEADER_BACK_CLASS } from "@/lib/ui/sector-header-classes";
+import { useBackPressLock } from "@/lib/navigation/use-back-press-lock";
 
 type SectorHeaderBackButtonProps = {
   backHref?: string;
@@ -31,6 +32,7 @@ export function SectorHeaderBackButton({
 }: SectorHeaderBackButtonProps) {
   const { t, tt } = useI18n();
   const router = useRouter();
+  const runOnce = useBackPressLock();
   const mergedClass = `${SECTOR_HEADER_BACK_CLASS} ${className}`.trim();
   const resolvedAriaLabel = ariaLabelKey
     ? t(ariaLabelKey)
@@ -63,7 +65,7 @@ export function SectorHeaderBackButton({
         type="button"
         onClick={() => {
           if (interceptBack?.()) return;
-          runHistoryBackWithFallback(router, backHref);
+          runOnce(() => runHistoryBackWithFallback(router, backHref));
         }}
         className={mergedClass}
         aria-label={resolvedAriaLabel}
@@ -78,7 +80,7 @@ export function SectorHeaderBackButton({
       type="button"
       onClick={() => {
         if (interceptBack?.()) return;
-        onBack ? onBack() : runHistoryBackWithFallback(router);
+        runOnce(() => (onBack ? onBack() : runHistoryBackWithFallback(router)));
       }}
       className={mergedClass}
       aria-label={resolvedAriaLabel}

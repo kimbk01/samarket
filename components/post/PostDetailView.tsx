@@ -521,7 +521,10 @@ export function PostDetailView({
     setMainTier1Extras({
       tier1: {
         titleText: tradeDetailHeaderTitle,
-        /** 항상 해당 카테고리 목록(`/market/{id}`)으로 — 히스토리 백 미사용 */
+        /**
+         * 항상 해당 카테고리 목록(`/market/{id}`)으로 (FIXED 목적지 유지).
+         * 이동은 settle — 직전 기록이 그 목록이면 back, 아니면 replace (Q7: 루프·중복 없음).
+         */
         preferHistoryBack: false,
         ariaLabel: t("trade_detail_back_to_list"),
         showHubQuickActions: false,
@@ -529,6 +532,7 @@ export function PostDetailView({
           <AppBackButton
             preferHistoryBack={false}
             backHref={backHref}
+            fixedBackHistory="settle"
             interceptBack={() => {
               armCompositionBackRef.current();
               retainTradeDetailSurfaceNode({ listingId: post.id, rootEl: rootRef.current });

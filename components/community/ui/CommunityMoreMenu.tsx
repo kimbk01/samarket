@@ -4,6 +4,8 @@ import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { runFixedDestinationBack } from "@/lib/navigation/fixed-destination-back";
+import { resolveCommunityDetailBackHref } from "@/lib/community/community-post-entry-nav";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import {
@@ -155,7 +157,8 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
           });
           router.refresh();
         });
-        router.back();
+        /** 숨긴 글에서 이탈 — 상세 뒤로 계약(피드 출처) 그대로, 직전 기록이면 back 아니면 replace */
+        runFixedDestinationBack(router, resolveCommunityDetailBackHref({ postId }));
         return;
       }
       showToast(

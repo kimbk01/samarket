@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { runFixedDestinationBack } from "@/lib/navigation/fixed-destination-back";
 
 import { useCallback, useLayoutEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -39,7 +40,8 @@ export function WriteScreenTier1Sync({
       onRequestClose();
       return;
     }
-    router.push(backHref);
+    /** 확인 후 이탈 — 직전 기록이 목적지면 back, 아니면 replace (버린 작성 화면이 기록에 남지 않음, Q7) */
+    runFixedDestinationBack(router, backHref);
   }, [router, backHref, onRequestClose]);
 
   useLayoutEffect(() => {

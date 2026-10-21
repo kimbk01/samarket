@@ -705,6 +705,15 @@ export function TradeMeetSpotPickClient() {
       {mapsError ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
           <p className="sam-text-body-secondary text-sam-danger">{mapsError}</p>
+          {/* 지도 오류여도 막다른 화면 금지 — 정상 상태와 같은 취소(DISMISS) 계약 */}
+          <button
+            type="button"
+            disabled={closing}
+            onClick={handleCancel}
+            className="mt-4 w-full rounded-ui-rect border border-sam-border py-3.5 sam-text-body font-medium text-sam-fg active:bg-sam-surface-muted disabled:opacity-60"
+          >
+            {t("common_cancel")}
+          </button>
         </div>
       ) : (
         <>

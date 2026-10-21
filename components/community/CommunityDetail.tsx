@@ -21,7 +21,10 @@ import {
   philifePostViewUrl,
 } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
-import { resolveCommunityDetailBackHref } from "@/lib/community/community-post-entry-nav";
+import {
+  peekCommunityPostEntryOrigin,
+  resolveCommunityDetailBackHref,
+} from "@/lib/community/community-post-entry-nav";
 import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet";
 import { usePhilifePostComments } from "@/hooks/use-philife-post-comments";
 import {
@@ -164,12 +167,16 @@ export function CommunityDetail({
     ? t("community_meeting_label")
     : postCategoryLabel.trim() || t("community_community_label");
   const [backToFeedHref, setBackToFeedHref] = useState<string>(philifeAppPaths.home);
+  /** 이 글로 들어온 앱 내 진입 기록(같은 postId 출처)이 있는지 — Navigation API 없는 환경의 settle 판단용 */
+  const [hasEntryOriginForPost, setHasEntryOriginForPost] = useState(false);
   useLayoutEffect(() => {
     if (meeting || post.is_meetup) {
       setBackToFeedHref(philifeAppPaths.home);
+      setHasEntryOriginForPost(false);
       return;
     }
     setBackToFeedHref(resolveCommunityDetailBackHref({ postId: post.id }));
+    setHasEntryOriginForPost(peekCommunityPostEntryOrigin()?.postId === post.id);
   }, [meeting, post.is_meetup, post.id]);
   const hashtags = useMemo(
     () => extractPostDetailHashtagsForDisplay(post.title, post.content, Boolean(meeting) || post.is_meetup),
@@ -456,7 +463,11 @@ export function CommunityDetail({
 
   return (
     <div className="community-post-detail-fade-in pb-[max(1rem,var(--safe-bottom))]">
-      <CommunityPostDetailHeader titleText={tier1Title} backHref={backToFeedHref} />
+      <CommunityPostDetailHeader
+        titleText={tier1Title}
+        backHref={backToFeedHref}
+        hasEntryOriginForPost={hasEntryOriginForPost}
+      />
 
       <article ref={articleRef} className="w-full min-w-0 px-4 pb-6">
         <div className="mx-auto max-w-3xl">

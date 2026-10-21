@@ -1,20 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { DetailHeader } from "@/components/layout/sector-header";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import { ProductForm } from "@/components/product/form/ProductForm";
 import { useRegion } from "@/contexts/RegionContext";
 import { saveProductTradeFromForm } from "@/lib/products/save-product-from-form";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export default function NewProductPageClient() {
-  const { t } = useI18n();
   const router = useRouter();
   const { primaryRegion } = useRegion();
 
   return (
     <div className="min-h-screen bg-sam-app">
-      <DetailHeader title={t("trade_072")} onBack={() => router.back()} />
+      {/* 헤더 = 전역 1단(`resolve-main-tier1` /products/new) 단독 — 페이지 헤더 중복 제거 */}
       <ProductForm
         initialValues={{
           region: primaryRegion?.regionId ?? "",
@@ -28,7 +26,7 @@ export default function NewProductPageClient() {
           void router.prefetch(href);
           router.push(href);
         }}
-        onCancel={() => router.back()}
+        onCancel={() => runHistoryBackWithFallback(router, "/market")}
       />
     </div>
   );

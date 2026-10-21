@@ -764,8 +764,9 @@ function resolveMainTier1SubpageInner(
     return backMypage({ titleText: "tier1_myinfo", showHubQuickActions: true });
   }
 
+  /** 거래 상품 등록 — 전역 1단 단독 소유 (페이지 자체 헤더 중복 제거), 직접 진입 폴백 = 거래 목록 */
   if (p === "/products/new" || starts(p, "/products/new/")) {
-    return backHome({ titleText: "tier1_product_create", showHubQuickActions: true });
+    return backHome({ backHref: "/market", titleText: "tier1_product_create", showHubQuickActions: true });
   }
 
   if (/^\/products\/[^/]+\/edit$/.test(p)) {

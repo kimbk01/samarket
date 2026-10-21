@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import {
+  runFixedDestinationBack,
+  type FixedDestinationBackOptions,
+} from "@/lib/navigation/fixed-destination-back";
+import { useBackPressLock } from "@/lib/navigation/use-back-press-lock";
 import { APP_BACK_GLYPH_CHAR, APP_BACK_GLYPH_CLASS } from "@/lib/ui/app-back-glyph";
 import { SECTOR_HEADER_BACK_CLASS } from "@/lib/ui/sector-header-classes";
 
@@ -59,6 +64,14 @@ type AppBackButtonProps = {
   ariaLabelKey?: MessageKey;
   /** @deprecated ariaLabelKey 사용. 역검색(tt) 호환용 */
   ariaLabel?: string;
+  /**
+   * FIXED(`preferHistoryBack=false`) 목적지 이동 방식.
+   * - 미지정: 기존 Link push (변경 없음)
+   * - `"settle"`: 직전 기록이 목적지면 back, 아니면 replace — 상세→목록→상세 루프·목록 중복 없음
+   *   (`lib/navigation/fixed-destination-back.ts`, Owner Q7 — 루프 확인 화면만 opt-in)
+   */
+  fixedBackHistory?: "settle";
+  fixedBackOptions?: FixedDestinationBackOptions;
 };
 
 const defaultToneClass = "";
@@ -72,9 +85,12 @@ export function AppBackButton({
   iconClassName,
   ariaLabelKey,
   ariaLabel,
+  fixedBackHistory,
+  fixedBackOptions,
 }: AppBackButtonProps) {
   const { t, tt } = useI18n();
   const router = useRouter();
+  const runOnce = useBackPressLock();
   const mergedClass = `${SECTOR_HEADER_BACK_CLASS} ${className ?? defaultToneClass}`.trim();
   const resolvedAriaLabel = ariaLabelKey
     ? t(ariaLabelKey)
@@ -90,7 +106,16 @@ export function AppBackButton({
         aria-label={resolvedAriaLabel}
         scroll={false}
         onClick={(e) => {
-          if (interceptBack?.()) e.preventDefault();
+          if (interceptBack?.()) {
+            e.preventDefault();
+            return;
+          }
+          if (fixedBackHistory === "settle") {
+            e.preventDefault();
+            runOnce(() => {
+              runFixedDestinationBack(router, backHref, fixedBackOptions);
+            });
+          }
         }}
       >
         <AppBackIcon className={iconClassName} />
@@ -104,7 +129,7 @@ export function AppBackButton({
         type="button"
         onClick={() => {
           if (interceptBack?.()) return;
-          runHistoryBackWithFallback(router, backHref);
+          runOnce(() => runHistoryBackWithFallback(router, backHref));
         }}
         className={mergedClass}
         aria-label={resolvedAriaLabel}
@@ -119,7 +144,7 @@ export function AppBackButton({
       type="button"
       onClick={() => {
         if (interceptBack?.()) return;
-        onBack ? onBack() : runHistoryBackWithFallback(router);
+        runOnce(() => (onBack ? onBack() : runHistoryBackWithFallback(router)));
       }}
       className={mergedClass}
       aria-label={resolvedAriaLabel}

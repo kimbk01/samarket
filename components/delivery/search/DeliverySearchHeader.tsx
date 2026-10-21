@@ -3,6 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import { SearchHeader } from "@/components/layout/sector-header";
 
 export function DeliverySearchHeader({
@@ -27,7 +28,7 @@ export function DeliverySearchHeader({
       value={value}
       onChange={onChange}
       onSubmit={() => onSubmit(value)}
-      onBack={() => router.back()}
+      onBack={() => runHistoryBackWithFallback(router, "/stores")}
       placeholder={t("ui_delivery_search_input_ph")}
       inputRef={inputRef}
     />

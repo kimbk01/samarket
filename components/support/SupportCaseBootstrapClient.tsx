@@ -20,7 +20,11 @@ export function SupportCaseBootstrapClient({ caseId }: { caseId: string }) {
   useEffect(() => {
     let cancelled = false;
     const id = caseId.trim();
-    if (!id) return;
+    if (!id) {
+      /** 빈 문의 id — 무한 로딩 대신 고객센터로 (막다른 화면 금지) */
+      router.replace("/mypage/customer-center");
+      return;
+    }
 
     const finish = () => {
       if (cancelled) return;

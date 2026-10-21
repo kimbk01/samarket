@@ -17,6 +17,7 @@ import {
   readTradeBrowseLocationDraftSession,
   writeTradeBrowseLocationDraftSession,
 } from "@/lib/trade/location/trade-browse-location-draft-session";
+import { runFixedDestinationBack } from "@/lib/navigation/fixed-destination-back";
 import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
 import { rememberTradeLguDisplayLabel } from "@/lib/trade/location/trade-location-scope";
 import { useSingleNavigationGuard } from "@/components/trade/location/use-single-navigation-guard";
@@ -49,14 +50,15 @@ export function TradeBrowseLocationSearchPage() {
         writeTradeBrowseLocationDraftSession(
           createTradeBrowseLocationDraftSession(next, radius)
         );
-        router.push(locationBackHref);
+        /** 위치 화면으로 복귀 — 직전 기록이 위치 화면이면 back (초안은 세션에서 다시 읽음), 아니면 replace */
+        runFixedDestinationBack(router, locationBackHref);
       });
     },
     [locationBackHref, navigateOnce, router]
   );
 
   const onBack = useCallback(() => {
-    navigateOnce(() => router.push(locationBackHref));
+    navigateOnce(() => runFixedDestinationBack(router, locationBackHref));
   }, [locationBackHref, navigateOnce, router]);
 
   return (
