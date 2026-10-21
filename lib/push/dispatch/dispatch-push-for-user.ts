@@ -72,6 +72,20 @@ function shouldDeactivateTarget(result: SendPushResult, target: PushTarget): boo
   return false;
 }
 
+const CALL_PUSH_PROVIDER_PRIORITY: Record<string, number> = { voip_apns: 0, fcm: 1 };
+
+/** 안정 정렬 — voip_apns → fcm → 그 외(apns 알림·web_push), 같은 순위는 기존 순서 유지 */
+export function orderCallPushTargetsNativeFirst<T extends Pick<PushTarget, "push_provider">>(targets: T[]): T[] {
+  return targets
+    .map((target, index) => ({ target, index }))
+    .sort((a, b) => {
+      const pa = CALL_PUSH_PROVIDER_PRIORITY[String(a.target.push_provider)] ?? 2;
+      const pb = CALL_PUSH_PROVIDER_PRIORITY[String(b.target.push_provider)] ?? 2;
+      return pa - pb || a.index - b.index;
+    })
+    .map((entry) => entry.target);
+}
+
 function deviceIdForDelivery(target: PushTarget): string | null {
   return target.source === "user_devices" ? target.id : null;
 }
@@ -309,13 +323,19 @@ export async function dispatchPushForUser(
     environment: opts?.push_environment,
   });
   const targetDeviceId = opts?.target_device_id?.trim() ?? "";
-  const targets = targetDeviceId
+  const scopedTargets = targetDeviceId
     ? loadedTargets.filter(
         (target) =>
           target.id === targetDeviceId ||
           String(target.device_id ?? "").trim() === targetDeviceId
       )
     : loadedTargets;
+  /**
+   * 통화 푸시는 네이티브 통화 채널(voip_apns·fcm)을 먼저 보낸다. 대상은 last_seen_at 순이라 같은 iPhone 의
+   * 알림(apns) 행이 앞서면 VoIP 가 그 전송 뒤로 밀려 임계경로 예산(2s)을 넘기고, 발신 취소 뒤에야 링이
+   * 나가거나 유실됐다(2026-10-22 운영: VoIP 1.3~14.5s 지연·2건 미발송 / 10-20 VoIP 선행 0.5~0.7s).
+   */
+  const targets = callPush ? orderCallPushTargetsNativeFirst(scopedTargets) : scopedTargets;
   console.info("[dispatchPushForUser] targets loaded", {
     ...logCtx,
     targets_found: targets.length,
