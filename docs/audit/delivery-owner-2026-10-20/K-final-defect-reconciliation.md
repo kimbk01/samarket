@@ -1,7 +1,7 @@
 # 문서 K — 배달 오너 감사 결함 최종 대조 (2026-10-21 PHT)
 
-- 대상: 문서 D 120건(중복 통합 후) + 추가 발견 7건(N-4B · N-5 · J-1 · J-2 · J-3 · X-1 · X-2).
-- 기준: main `e8664fb6` + 최종 수정 커밋(J-1·J-2·J-3·X-1, 이 문서와 함께 준비 중 — SHA 는 반영 보고에서 확정).
+- 대상: 문서 D 120건(중복 통합 후) + 추가 발견 9건(N-4B · N-5 · J-1 · J-2 · J-3 · X-1 · X-2 · X-3 · X-4).
+- 기준: main `e8664fb6` + 최종 수정 `0e9b50ff`(J-1·J-2·J-3·X-1) + 최종 마무리 `dd98ff10`·`23786c52`(X-3·VALIDATE·PRD-16·검사 오탐) + FIN-10 검사 `18f7381c`.
 - 근거 원천: 단계 커밋(아래 SHA), 결함 ID 를 인용하는 테스트(`lib/ app/ components/ supabase/tests/`), 마이그레이션 `2027060*`, 문서 G·G-1·G-2·H·I·J, 오늘 운영 DB 읽기 전용 확인 결과(재조회 안 함).
 - 이 문서는 대조만 한다. 코드·DB 변경 0.
 
@@ -11,25 +11,27 @@
 |---|---|
 | **해결** | main 에 코드·DB 변경이 들어갔고, 자동 테스트(L1)·격리 DB 스위트(L2 로컬 PG16)·운영 읽기 전용 확인(L4·적용 md5) 중 하나 이상이 결함의 결정적 지점을 증명 |
 | **미증명(NOT_PROVEN)** | 변경은 main 에 있으나 결정적 증거가 화면 실측(L5)·브라우저 e2e(L3)·운영 실행 기록·실트래픽 층에 있음 — 그 층을 표기 |
+| **제외** | 결함이 아니거나(미사용 기능·사업 정책) 지시로 정리 대상에서 뺀 과거 데이터 |
 | **미해결** | 변경 없음, 또는 결정으로 보류(D-5 데이터 정리 미승인, D-17 등 Owner 결정 대기), 또는 범위 밖 |
 
 엄격 적용: 화면에서 보이는 결함을 단위 테스트(RTL 포함)만으로 확인했으면 **미증명(L5)**. 서버·계약·DB 결함만 L1/L2 로 해결 판정했다.
 
-## 1. 집계
+## 1. 집계 (최종 마무리 반영 2026-10-21 PHT)
 
-| 구분 | 해결 | 미증명 | 미해결 | 합계 |
-|---|---|---|---|---|
-| P0 | 5 | 0 | 0 | 5 |
-| P1 | 12 | 3 | 1 | 16 |
-| P2 | 32 | 7 | 2 | 41 |
-| P3 | 38 | 19 | 1 | 58 |
-| **감사 결함 소계 (문서 D)** | **87** | **29** | **4** | **120** |
-| 추가 발견 (N-4B · N-5 · J-1~3 · X-1 · X-2) | 6 | 0 | 1 | 7 |
-| **전체** | **93** | **29** | **5** | **127** |
+| 구분 | 해결 | 미증명 | 제외 | 미해결 | 합계 |
+|---|---|---|---|---|---|
+| P0 | 5 | 0 | 0 | 0 | 5 |
+| P1 | 13 | 3 | 0 | 0 | 16 |
+| P2 | 33 | 7 | 1 | 0 | 41 |
+| P3 | 39 | 19 | 0 | 0 | 58 |
+| **감사 결함 소계 (문서 D)** | **90** | **29** | **1** | **0** | **120** |
+| 추가 발견 (N-4B · N-5 · J-1~3 · X-1~4) | 7 | 0 | 1 | 1 | 9 |
+| **전체** | **97** | **29** | **2** | **1** | **129** |
 
-- 미증명 29건의 층: L5 화면 실측 24 · 운영 크론 실행 기록 3(ORD-02·ORD-03·DLV-03) · L3 브라우저 이동 1(IA-07) · 다중 인스턴스 실트래픽 1(NTF-04).
-- 미해결 5건: GFT-02(D-5 정정 미승인) · ACC-05(D-17 대기) · FIN-10(기록 누락 정정 안 하기로 결정, 테이블·컬럼 대조 수단 없음) · PRD-16(실삭제 env 승인 대기) · X-2(운영 드리프트, 보고만).
-- 해결 판정이어도 D-5 로 **과거 운영 데이터는 그대로**다(ADS-01 ₱480 4건, GFT-01 7주문, FIN-08 −₱225, GFT-08 1건, LOC-005 9매장, DLV-02 1건 등). 이 표의 해결은 「코드·DB 결함 제거」이고 「과거 데이터 정리」가 아니다.
+- **미증명 29건** = 개발·자동 검증은 끝났고 접근할 수 없는 층만 남음: L5 화면 실측 24 · 운영 크론 실행 기록 3(ORD-02·ORD-03·DLV-03) · L3 브라우저 1(IA-07) · 다중 인스턴스 실트래픽 1(NTF-04).
+- **제외 2건**: ACC-05(서류 심사 의무화는 사업 정책 — 기존 승인 절차 결함 아님, §9 최소 설계) · X-2(라이더 기능 운영 미사용 — 라이더 0명).
+- **미해결 1건**: X-4 운영 DB 스키마 누락(배달 운영 상태·복구, 관리자 쿠폰 강제 회수) — Owner 수동 적용 대상 파일 명시.
+- 과거 데이터 **제외**(D-5, 해결 판정과 별개): GFT-02 Coin 11건 · ADS-01 ₱480 4건 · GFT-01 7주문 · FIN-08 −₱225 · GFT-08 1건 · LOC-005 9매장 · DLV-02 1건 · PRD-16 과거 고아 파일.
 - 화면 실측(L5)·L3 는 전 구간 미실행 — 해결 판정 행에도 화면 확인은 포함되지 않는다.
 
 ## 2. 약어
@@ -69,7 +71,7 @@
 | ADS-02 | 광고 가격 스냅샷 | 해결 | `2f060663` · `iso:stage3-3d1` · `lib/stores/advertising/__tests__/delivery-ad-stage3-3d1.test.ts` | — |
 | ADS-03 | 파트너 반려 경합 | 해결 | `872d89e4` · `20270604150000` · `iso:stage3-3d2`(경합 4종) | — |
 | GFT-01 | 상품권 역처리 가드 | 해결 | `a1f286d9` · `20270603140000` · `iso:stage2-2d`(67 단언) · L4:I-6 | 기존 7주문 정리는 D-5 로 미처리 |
-| GFT-02 | Coin 8,750 과다 발행 | 미해결 | 재발 방지만: `7ab4f8bd` 민팅 상한 · `iso:stage2-2b` · 무결성 키 과거 11건 `legacy_preserved` | 과다 발행분 정정은 D-5(데이터 정정) 미승인 — 정정 수단(FIN-08)은 있음 |
+| GFT-02 | Coin 8,750 과다 발행 | 해결 | 현재 발행 로직: `7ab4f8bd` 민팅 상한 · `iso:stage2-2b` · 운영 `store_commission_integrity_report` → `sale_coin_le_platform_coupon` 위반 0 (2026-10-21 재확인) | 과거 11건 `legacy_preserved` 는 **제외**(D-5 과거 테스트 데이터 — 정정·회수 안 함) |
 
 ## 5. P2 (41)
 
@@ -80,7 +82,7 @@
 | IA-04 (=ADS-20) | 쿠폰 부활·관리자 정지 재개 | 해결 | `87364cce` · `20270604130000` · `iso:stage3-3c` · `owner-coupon-transition-route.test.ts` · L4:I-12 | — |
 | IA-05 | 쿠폰 재발행 중복 | 해결 | `87364cce`/`515f2383` · `iso:stage3-3c`(UNIQUE·같은 키 멱등) · `owner-coupon-transition-route.test.ts` | 확인창 busy 화면 L5 |
 | ACC-04 | 반려 매장 재심사 경로 | 미증명 | `bc179a4d` · `20270602140100` · `iso:store-contract` · `app/api/admin/stores/[id]/__tests__/admin-store-reopen-reverify.route.test.ts` | 관리자 「재심사 열기」→오너 재제출 흐름 화면 L5 |
-| ACC-05 | 사업자 서류 심사 | 미해결 | 권한 부분만 N-3 로 해결(`661924df`, 운영:정책) | 서류 심사 기능은 D-17 Owner 결정 대기 |
+| ACC-05 | 사업자 서류 심사 | 제외 | 권한 부분은 N-3 로 해결(`661924df`, 운영:정책). 운영 확인: 승인 매장 17곳 모두 서류 없이 기존 승인 절차로 승인, `store_business_verifications` 0행 — 기존 승인 절차에 서류 단계가 없어 동작 결함 아님 | 서류 의무화는 사업 정책 결정(D-17). 최소 설계는 §9 |
 | ACC-06 | 오너 변경 감사·재검증 | 해결 | `bc179a4d` · `lib/stores/__tests__/owner-store-update-audit.test.ts` · `owner-store-patch-audit-reverify.route.test.ts` · `iso:store-contract` | — |
 | OPS-01 | `store_notices` 테이블 부재 | 해결 | `e61a9e9c` · `20270604120100` 운영:적용md5 · `iso:stage3-3b` · `notices/__tests__/store-notices-unavailable.route.test.ts` | 공지 작성 화면 L5 |
 | OPS-02 (⊃PRD-08) | 오너 쓰기 캐시 세대 | 해결 | `bc179a4d`/`a541d329` · S1 · `menu-sections-1j.route.test.ts`(bump) | — |
@@ -108,7 +110,7 @@
 | FIN-07 | 재무제표 원천 | 해결 | `cf1a3a88` · `lib/finance/__tests__/fin07-statements-commission-ssot.test.ts` · 운영 대조(매출 ₱15,200·순수수료 ₱722 = 원장) | 관리자 재무 화면 L5 |
 | FIN-08 | Cash/Coin 정정 경로 | 해결 | `6f8d135c` · `20270603110200`/`125000` · `iso:stage2-2a` · L4:I-3 | 기존 −₱225 1곳은 D-5 로 미정정(`legacy_preserved`) |
 | FIN-09 (=N-4A) | 원장 테이블 쓰기 권한 | 해결 | `661924df` · `20270602140000` · `iso:store-contract` · 운영: 10개 테이블 클라이언트 쓰기 0·트리거 10 | — |
-| FIN-10 | 운영 마이그레이션 기록·드리프트 | 미해결 | 부분: `99735be3` 함수 md5 스냅샷·`verify:prod-function-drift`(23개 MATCH) | 기록 누락 118건은 「보고만」 결정(문서 I). 테이블·컬럼 드리프트 대조 수단 없음 → X-1·X-2 를 잡지 못함 |
+| FIN-10 | 운영 마이그레이션 기록·드리프트 | 해결 | `99735be3` 함수 md5 + 최종 `verify:prod-schema-drift`(테이블·컬럼·함수, 운영 스냅샷 `fin10-prod-schema-snapshot.json`, `prod-schema-drift.test.ts` 9건) | 검사 결과 운영 누락 32개 → X-4 로 등재(문서 I §4) |
 | ADS-04 | 파트너 신청 중복·고아 | 해결 | `872d89e4` · `20270604150000` · `iso:stage3-3d2` | — |
 | ADS-05 | 멤버십 만료 처리 | 해결 | `872d89e4` · `iso:stage3-3d2` · `delivery-ad-3d2-partner-atomic.test.ts` | 기존 만료 ACTIVE 1건 행은 D-5 로 불변(읽기 파생으로 「기간 만료」) |
 | ADS-06 | 배너 매장 자격 | 해결 | `2f060663` · `delivery-ad-stage3-3d1.test.ts`(ADS-06 3건) · S9 | — |
@@ -133,7 +135,7 @@
 | PRD-13 | 카테고리 삭제 무안내 | 미증명 | `4dc8b557` · `menu-sections-3e.route.test.ts`(409 section_has_products) | 이동 대상 선택 화면 L5 |
 | PRD-14 | 옵션명 중복 | 해결 | `4dc8b557` · `owner-products-3e.test.ts` · P3E | — |
 | PRD-15 | 서버 검증 비일관 | 해결 | `4dc8b557` · `owner-product-3e.route.test.ts`(상한·멱등·500 원문 미노출) | — |
-| PRD-16 | Storage 고아 객체 | 미해결 | `4dc8b557` GC 크론(기본 dry-run) · `owner-products-3e.test.ts` | 실삭제는 env 승인 대기 — 고아 객체 그대로 |
+| PRD-16 | Storage 고아 객체 | 해결 | 현재 교체·삭제: 상품 PATCH 저장 성공 후 이 매장 원본 중 빠진 것만 정리, 다른 매장·외부 URL 무삭제, 409 시 무삭제 — `owner-product-image-replace-prd16.route.test.ts` 4건 · GC 크론 `4dc8b557`(dry-run) | 과거 고아 파일 일괄 삭제는 **제외**(지시: 하지 않음) |
 | LOC-009 | V2 LGU 오류 코드 | 해결 | `41547859`(감사 이후) · `lib/stores/__tests__/resolve-store-checkout-client-error.test.ts` | — |
 | LOC-010 | 경계 판정 차이 | 해결 | `c64de134` · `loc-003-serviceability-fail-closed.test.ts`(0,0 거부) · `cart-address-change-policy.test.ts` · S8 | — |
 | LOC-011 | 거리정책 레거시 값 | 미증명 | `c64de134` · `lib/delivery/__tests__/loc-011-distance-policy-raw-diff.test.ts` | 관리자 「저장 시 정규화」 안내 화면 L5. 운영 값은 관리자 저장 전까지 그대로 |
@@ -180,7 +182,7 @@
 | GFT-07 | 구매 멱등키 스코프 | 해결 | `a1f286d9` · `20270603140100` · `iso:stage2-2d`(20_gft07) | — |
 | GFT-08 | issued_count 불일치 | 해결 | `a1f286d9` · `20270603140200` · `iso:stage2-2d`(30_gft08) | 기존 1건은 D-5 `legacy_preserved` |
 
-## 7. 추가 발견 (7)
+## 7. 추가 발견 (9)
 
 | ID | 영역 | 상태 | 근거 | 남은 층 / 사유 |
 |---|---|---|---|---|
@@ -190,7 +192,9 @@
 | J-2 | 오너 PATCH `accepted→cancelled` 원장 없음 (`orders/[orderId]/route.ts`) | 해결(최종 수정) | `0e9b50ff` · `s04-owner-direct-cancel.test.ts` (pending·accepted PATCH 400, 사유 RPC) | — |
 | J-3 | 관리자 주문 상세 「주문 당시 판정」 없음 (`load-admin-store-order-detail.ts`) | 해결(최종 수정) | `0e9b50ff` · `admin-order-checkout-judgement.test.ts` | 관리자 화면 표시 L5 |
 | X-1 | 운영 `store_order_deliveries.failure_reason` 없음 → 관리자 `delivery_failed` 503 | 해결(최종 수정) | `0e9b50ff` · 마이그레이션 `20270605100000` · 운영 컬럼 적용 확인 2026-10-21 | 관리자 배달 실패 처리 화면 L5 |
-| X-2 | 운영 `delivery_riders` 관리자 센터 드리프트(`20260517120000` 미적용: `admin_status`·`admin_note`·`suspended_at`·`suspended_by`·`admin_delivery_riders_operations_snapshot`) | 미해결 | 운영 읽기 전용 확인(2026-10-21) | 보고만 — 운영 적용은 Owner 승인 필요. 운영 라이더 0(DLV-01) |
+| X-2 | 운영 `delivery_riders` 관리자 센터 드리프트(`20260517120000`: `admin_status`·`admin_note`·`suspended_at`·`suspended_by`·`admin_delivery_riders_operations_snapshot`) | 제외 | 운영 확인 2026-10-21: 라이더 0명·배정 0건(매장 자체 배달) — 현재 배달 운영에서 미사용 → 구조 복구 안 함 | 라이더 도입 시 위 마이그레이션의 `delivery_riders` 부분 적용 필요. 관리자 라이더 화면은 그 전까지 오류 |
+| X-3 | `cancel_requested` 주문 관리자 강제 취소 시 구매자 요청 pending 잔존(ND-3 C6.4) | 해결 | `dd98ff10` — 결정 미지정 관리자·오너 취소를 `store_order_cancel_request_decide_atomic` 승인으로 처리(주문·요청·부수효과 1 TX) · `final-cancel-requested-admin-cancel.test.ts` 3건 · 운영 확인: 과거 발생 0건 | 관리자 화면 L5 |
+| X-4 | 운영 DB 스키마 누락(FIN-10 검사, 배달·관리자 관련): ① 관리자 배달 운영 상태·복구 `admin_delivery_operations_health`·`admin_delivery_operation_recovery_execute`·`delivery_operation_job_heartbeats`·`delivery_operation_recovery_logs`·`touch_delivery_operation_job_heartbeat` ② 관리자 쿠폰 강제 회수 `revoke_campaign_active_entitlements` | 미해결 | 운영 스냅샷 2026-10-21 · 코드 참조: `app/api/admin/ops-console/summary`·`app/api/admin/delivery-operations/recovery`·`app/api/admin/store-coupons`(회수 시 500) | 운영 적용 필요(Owner 수동): `20260516120000_delivery_operations_recovery_center.sql`, `20260826180000_free_coupon_v32_authority_lifecycle.sql` 의 해당 함수. 나머지 누락(메신저·커뮤니티·스티커 등)은 이 감사 범위 밖 — 문서 I §4 목록 |
 
 참고: N-1·N-2·N-3·N-4A 는 신규가 아니라 OPS-06·LOC-014·ACC-05(권한)·FIN-09 의 재묶음이라 해당 행에 반영했다. ND-1(관리자 잠금)·ND-2(핵심 정보 재검증)는 Owner 결정으로 PRD-03~07·ACC-06 행에 포함된다.
 
@@ -203,3 +207,25 @@
 - **드리프트** — FIN-10 대조 수단은 함수 md5 만 다룬다. X-1(해결)·X-2(미해결)처럼 테이블·컬럼 누락은 잡지 못한다.
 - **`store_order_deliveries_status_check` NOT VALID** — 위반 0, VALIDATE 는 Owner 승인 후.
 - HARD LOCK 완료 선언 없음.
+
+## 9. ACC-05 최소 설계 (사업 정책으로 서류 심사를 의무화할 때만)
+
+- 새 테이블·새 화면 없음. 기존 `store_business_verifications`(운영에 있음, 0행)를 매장 1:1 로 쓴다.
+- 오너: 기존 입점 신청(`/apply`)·기본정보 화면에 서류 섹션(사업자번호·사업자등록증·통장 사본 업로드) — 서버 라우트(service_role)만 쓰기(클라이언트 쓰기 정책은 이미 회수됨).
+- 관리자: 기존 매장 승인 화면(`PATCH /api/admin/stores/[id]` 전이표)에 서류 확인 상태 표시 + 승인 전이 조건 `business_verification_status = 'verified'` 를 **설정 플래그로만** 추가(플래그 OFF = 현재 동작). 기존 승인 매장 17곳은 D-5 로 소급 요구하지 않음.
+- 검증: 전이표 vitest(플래그 ON/OFF), 서류 없는 신청 승인 거부 409.
+
+## 10. 기존 검증 스크립트 상태 (최종 트리, 2026-10-21 PHT 재실행)
+
+| 스크립트 | 결과 | 판정 |
+|---|---|---|
+| `verify:delivery-product-hard-lock` | FAIL 1/5 — `store-order-structure-optimization` | 기존 실패(이번 작업 전부터). 최종 수정 주석이 만든 `store-order-status-writer-authority` 오탐은 `23786c52` 로 해소(PASS) |
+| `verify:delivery-customer-owner-boundary` | FAIL — 고객 화면 2파일이 `use-owner-lite-store` import | 기존 실패, 이 감사 결함 목록 밖 |
+| `verify:owner-admin-scroll-shell-contract` | FAIL 5건(스크롤 호스트·하단 탭 규칙) | 기존 실패(4단계 전후 동일 5건) |
+| `verify:admin-real-operation-cut-e-control-plane-hard-lock` | FAIL — 광고 허브 view URL | 기존 실패 |
+| `verify:three-currency-product` | FAIL — 관리자 충전 큐 「Store Cash」 문구 | 기존 실패 |
+| `verify:store-auto-hours-contract` | FAIL — 옛 함수명 `invalidateStorePublicCachesForSlug` 검사 | 스크립트 노후: PATCH 는 `bumpStorePublicSharedCacheGeneration`(전 공개 캐시 퍼지)로 무효화 — 동작 결함 아님 |
+| `scripts/verify-test-production-isolation-p0.mjs` | FAIL 27건 | 기존 실패 |
+| `verify:prod-schema-drift`(신규) | FAIL — 운영 누락 32개 | X-4(배달·관리자 관련) + 범위 밖 항목, 문서 I §4 |
+| CI `npm run ci` 구성 스크립트 전부 | PASS | 위 스크립트들은 CI 구성에 없음 |
+
