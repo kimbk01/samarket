@@ -1,5 +1,6 @@
 "use client";
 
+import { ADDR_INPUT_FONT_STYLE } from "@/lib/ui/address-flow-viber";
 import { generateAddressClientRequestId } from "@/lib/addresses/address-client-request-id";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -522,6 +523,7 @@ export function AddressPlatformDetailClient(props: {
               autoComplete="address-line2"
               enterKeyHint="next"
               className={inputClass}
+              style={ADDR_INPUT_FONT_STYLE}
             />
           </label>
         </section>
@@ -557,6 +559,7 @@ export function AddressPlatformDetailClient(props: {
                 placeholder={t("addr_v2_landmark_ph")}
                 enterKeyHint="next"
                 className={inputClass}
+              style={ADDR_INPUT_FONT_STYLE}
               />
             </label>
             <label className="block">
@@ -567,6 +570,7 @@ export function AddressPlatformDetailClient(props: {
                 placeholder={t("addr_ui_delivery_ph")}
                 enterKeyHint="done"
                 className={inputClass}
+              style={ADDR_INPUT_FONT_STYLE}
               />
             </label>
           </div>
