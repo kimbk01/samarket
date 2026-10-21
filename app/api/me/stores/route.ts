@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
 
     if (phoneDupErr) {
       console.error("[POST /api/me/stores] phone duplicate check", phoneDupErr);
-      return NextResponse.json({ ok: false, error: phoneDupErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "store_phone_check_failed" }, { status: 500 });
     }
     if (phoneDup && phoneDup.length > 0) {
       return NextResponse.json(

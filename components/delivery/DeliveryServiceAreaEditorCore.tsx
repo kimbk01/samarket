@@ -246,7 +246,17 @@ export function DeliveryServiceAreaEditorCore({
   const homeBadgeClass =
     "ml-1.5 inline-flex rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white";
 
-  function applyEditorPayload(json: DeliveryServiceAreaEditorPayload) {
+  /** 재조회 시 저장 전 선택 보존용 — 최신 값을 load 콜백에서 읽는다 */
+  const unsavedSelectionRef = useRef<{ dirty: boolean; selected: Set<string>; activateV2: boolean }>({
+    dirty: false,
+    selected: new Set(),
+    activateV2: false,
+  });
+
+  function applyEditorPayload(
+    json: DeliveryServiceAreaEditorPayload,
+    opts?: { keepUnsavedSelection?: boolean },
+  ) {
     setAuthorityMode(json.authorityMode || "legacy_radius");
     setReferenceDistanceKm(
       typeof json.referenceDistanceKm === "number" ? json.referenceDistanceKm : null
@@ -259,10 +269,12 @@ export function DeliveryServiceAreaEditorCore({
     setCandidates(json.candidates ?? []);
     const applied = applyPayloadToSelection(json);
     const nextActivateV2 = json.authorityMode === "v2_lgu";
-    setSelected(applied.selected);
-    setExtraLabels(applied.extraLabels);
-    setActivateV2(nextActivateV2);
+    setExtraLabels((prev) => (opts?.keepUnsavedSelection ? { ...applied.extraLabels, ...prev } : applied.extraLabels));
     setSavedSelectionKey(selectionKey(applied.selected, nextActivateV2));
+    // R 입력 변경 재조회: 후보만 갱신하고 저장 전 선택은 유지 (선택은 SAVE 로만 반영)
+    if (opts?.keepUnsavedSelection && unsavedSelectionRef.current.dirty) return;
+    setSelected(applied.selected);
+    setActivateV2(nextActivateV2);
   }
 
   const load = useCallback(async () => {
@@ -278,7 +290,7 @@ export function DeliveryServiceAreaEditorCore({
         setError(t(serviceAreaErrorKey(json.error, "load")));
         return;
       }
-      applyEditorPayload(json);
+      applyEditorPayload(json, { keepUnsavedSelection: true });
     } catch {
       setError(t("business_delivery_service_area_err_load"));
     } finally {
@@ -294,6 +306,7 @@ export function DeliveryServiceAreaEditorCore({
 
   const dirty =
     savedSelectionKey != null && selectionKey(selected, activateV2) !== savedSelectionKey;
+  unsavedSelectionRef.current = { dirty, selected, activateV2 };
   const onDirtyChangeRef = useRef(onDirtyChange);
   onDirtyChangeRef.current = onDirtyChange;
   useEffect(() => {

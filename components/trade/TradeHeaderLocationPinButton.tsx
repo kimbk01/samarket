@@ -187,6 +187,8 @@ export function TradeHeaderLocationPinButton({
   }, [loadMyRegion]);
 
   const openLocationPage = useCallback(() => {
+    // 이미 위치 화면이면 같은 화면을 history 에 또 쌓거나 작성 중 초안을 덮지 않는다
+    if (pathname === TRADE_BROWSE_LOCATION_PATH) return;
     if (typeof performance !== "undefined" && performance.mark) {
       performance.mark("trade_browse_loc_pin_tap");
     }
@@ -198,7 +200,7 @@ export function TradeHeaderLocationPinButton({
     const q = searchParams.toString();
     const href = q ? `${TRADE_BROWSE_LOCATION_PATH}?${q}` : TRADE_BROWSE_LOCATION_PATH;
     router.push(href);
-  }, [committedBrowse, router, searchParams]);
+  }, [committedBrowse, pathname, router, searchParams]);
 
   const navigateOnce = useSingleNavigationGuard();
   const onPinClick = useCallback(() => {
