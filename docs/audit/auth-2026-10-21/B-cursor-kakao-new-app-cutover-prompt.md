@@ -41,9 +41,18 @@
 제한:
 - 코드·네이티브 소스 수정 금지. 버전 번호 임의 변경 금지. 스토어 업로드·출시 금지.
 - 환경변수·키 **값 출력 금지** (존재·형식·길이만). local.properties 커밋 금지.
-- Vercel·Supabase·Kakao 콘솔 설정 변경 금지 (Owner 사전 작업 확인만). 롤백은 Owner 판단.
+- Supabase·Kakao 콘솔 설정 변경 금지 (Owner 사전 작업 확인만). 롤백은 Owner 판단.
+- 예외 (Owner 승인 2026-10-21): Owner 가 채팅으로 준 값으로 (0) 의 두 가지만 한다 — Vercel Production `KAKAO_APP_ID` 등록, `android/local.properties` 의 `KAKAO_NATIVE_APP_KEY` 교체.
 - 운영 DB 는 SELECT 만. 회원 데이터 변경·삭제 금지. 테스트 DB 접근 금지.
 - CI 는 병합 직전 1회만. 확인 못 한 것은 NOT_PROVEN.
+
+(0) Owner 제공 값 반영 (값은 출력·커밋 금지)
+- Kakao 키 해시 계산 요청을 받으면 (Owner 가 카카오 콘솔에 붙여 넣을 값 — 해시는 공개값이라 출력 가능):
+    debug:   keytool -exportcert -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android -keypass android | openssl sha1 -binary | openssl base64
+    release: android/keystore.properties(또는 signing 설정)의 storeFile·keyAlias 로 keytool -exportcert ... | openssl sha1 -binary | openssl base64  (비밀번호는 출력 금지)
+    Play 앱 서명: Owner 가 준 SHA-1(콜론 포함) → echo <SHA1> | tr -d ':' | xxd -r -p | openssl base64
+- Vercel: `printf '%s' "<앱 ID>" | vercel env add KAKAO_APP_ID production --scope kimbk01s-projects` (이미 있으면 `vercel env rm KAKAO_APP_ID production --yes` 후 재등록)
+- Android: android/local.properties 의 `KAKAO_NATIVE_APP_KEY=` 줄을 새 네이티브 앱 키로 교체 (없으면 추가). `git status` 에 local.properties 가 안 나오는지 확인.
 
 (1) 설정 확인 (값 미출력)
 - Vercel: `vercel env ls production --scope kimbk01s-projects | grep -E "^\s*KAKAO_APP_ID\b" && echo PRESENT || echo MISSING`
