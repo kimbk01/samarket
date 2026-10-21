@@ -157,7 +157,7 @@ html:has(.app-bottom-nav-shell.app-bottom-nav-shell--keyboard-resized)
   max-width: 320px;
   /* Keep panel + footer CTA within viewport; body owns internal scroll. */
   max-height: min(
-    calc(100dvh - 2 * var(--overlay-space-3) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)),
+    calc(100dvh - 2 * var(--overlay-space-3) - var(--safe-top, 0px) - var(--safe-bottom, 0px)),
     560px
   );
   min-height: 0;

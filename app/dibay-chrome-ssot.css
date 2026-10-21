@@ -36,7 +36,7 @@
 
 [data-dibay-domain="trade"] {
   --dibay-domain-surface: #eaf3ee;
-  --dibay-domain-accent: #32734e;
+  --dibay-domain-accent: #0b421a;
   --dibay-domain-tab-idle-bg: #f3f8f5;
   --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
   --sector-header-bg: var(--dibay-domain-surface);
@@ -84,6 +84,27 @@
   --sector-header-icon-color: #243832;
   --sector-header-back-color: #243832;
   --sector-header-icon-active-color: var(--dibay-domain-accent);
+}
+
+/**
+ * 헤더 chrome 구분선 SSOT — 줄 사이 1px 한 줄, chrome 맨 아래 1px 한 줄 (S-06).
+ * 겹쳐 그려지던 선: 중첩 embedded 셸 2겹, 마지막 줄 자체 선 + 래퍼 `border-b`, 테두리 있는 탭 host 안 탭 track 선.
+ * - 래퍼(`[data-app-sticky-header].border-b`)가 맨 아래 선을 소유 → 마지막 자식과 그 안 탭 track 선은 그리지 않음.
+ * - embedded 셸 안의 embedded 셸은 바깥 셸 선만.
+ * - 테두리 있는 탭 host(`[data-dibay-nav].border-b`) 안 track 은 host 선만.
+ * 배달 chrome(래퍼 border 없음)은 대상 아님.
+ */
+.sector-header-shell--embedded .sector-header-shell--embedded {
+  border-bottom-width: 0;
+}
+
+[data-app-sticky-header].border-b > :last-child,
+[data-app-sticky-header].border-b > :last-child .dibay-secondary-tabs {
+  border-bottom-width: 0;
+}
+
+[data-dibay-nav].border-b .dibay-secondary-tabs {
+  border-bottom-width: 0;
 }
 
 /* Secondary page-nav — pill language · row 44 · item 36 */

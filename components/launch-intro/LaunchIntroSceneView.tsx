@@ -71,7 +71,7 @@ function slotStyle(slot: LaunchIntroDecorationSlot, safeArea: boolean): CSSPrope
   const edge = v === "top" ? "10cqh" : "20cqh";
   return {
     position: "absolute",
-    [v]: safeArea ? `calc(${edge} + env(safe-area-inset-${v}, 0px))` : edge,
+    [v]: safeArea ? `calc(${edge} + var(--safe-${v}, 0px))` : edge,
     [h]: "5cqw",
   };
 }
@@ -186,7 +186,7 @@ export function LaunchIntroSceneView({
   safeArea = false,
 }: LaunchIntroSceneViewProps) {
   const inset = (base: string, side: "top" | "bottom") =>
-    safeArea ? `calc(${base} + env(safe-area-inset-${side}, 0px))` : base;
+    safeArea ? `calc(${base} + var(--safe-${side}, 0px))` : base;
   const src = (ref: LaunchIntroImageRef | undefined) => (ref ? resolveImage(ref.sha256) : null);
   const enter = animateEnter && scene.motion.enter !== "none" ? `lim-enter-${scene.motion.enter}` : undefined;
   const part = (delay: number, children: ReactNode, style?: CSSProperties) => (

@@ -179,7 +179,7 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
 /**
  * 우측 동작 — 겉모양 유지, 터치 영역만 최소 48×48 (Production 점검 F2·F4, 설계서 §12).
  * 허브 아이콘 타일(36·38px)·텍스트 동작(「전체 삭제」 40px 등) 모두 투명 의사요소가 중심 기준으로 사방에 넓어진다.
- * 이미 48px 이상이면 확장 0. 허브 타일 간격 8px 이라 이웃과 겹치는 2px 는 뒤 형제가 받는다.
+ * 이미 48px 이상이면 확장 0. 허브 아이콘 묶음은 아래 규칙으로 가로 확장을 간격 절반으로 제한한다.
  */
 .sector-header-bar__right :is(a, button):not(.absolute, .fixed, .sticky) {
   position: relative;
@@ -192,6 +192,39 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   bottom: min(0px, calc((100% - 48px) / 2));
   left: min(0px, calc((100% - 48px) / 2));
   right: min(0px, calc((100% - 48px) / 2));
+}
+
+/**
+ * 허브 아이콘 묶음 — 가로 확장은 간격의 절반까지만 (이웃 터치 영역끼리 맞닿고 겹치지 않음).
+ * 겹치면 뒤 형제가 앞 아이콘의 보이는 타일까지 가져가 터치 중심이 어긋난다 (≤374 커뮤니티: 2px 침범).
+ * 세로는 위 규칙대로 48px. 타일 36 + 간격 8 → 터치 폭 44.
+ */
+.sam-tier1-header-icon-cluster {
+  --sector-header-hub-touch-gap: var(--sector-header-icon-cluster-gap);
+}
+
+.community-tier1-header-actions {
+  --sector-header-hub-touch-gap: 6px;
+}
+
+.sector-header-bar__right .sam-tier1-header-icon-cluster :is(a, button):not(.absolute, .fixed, .sticky)::after,
+.sector-header-bar__right .community-tier1-header-actions :is(a, button):not(.absolute, .fixed, .sticky)::after {
+  left: calc(var(--sector-header-hub-touch-gap, 0px) / -2);
+  right: calc(var(--sector-header-hub-touch-gap, 0px) / -2);
+}
+
+/**
+ * 키보드 포커스 표시 — 04-DESIGN-SYSTEM Focus 계약(아이콘 전용 포함 :focus-visible 필수).
+ * `sam-focus-ring` 과 같은 2px primary 선. 헤더 overflow 에 잘리지 않도록 안쪽(-2px)에 그린다.
+ * 터치·마우스 누름에는 나타나지 않는다 (:focus-visible).
+ */
+.sector-header-back:focus-visible,
+.sector-header-action:focus-visible,
+.sam-tier1-header__icon-btn:focus-visible,
+.delivery-consumer-header__icon-btn:focus-visible,
+.sector-header-bar__right :is(a, button):focus-visible {
+  outline: 2px solid var(--sam-primary);
+  outline-offset: -2px;
 }
 
 .sector-header-bar__center {
@@ -582,6 +615,7 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
 
   .community-tier1-header-actions {
     gap: 5px;
+    --sector-header-hub-touch-gap: 5px;
   }
 
   .community-tier1-header-actions .community-tier1-header-compose svg {

@@ -17,10 +17,9 @@ import { getMobileTopTier1RuleSet } from "@/lib/layout/mobile-top-tier1-rules";
 import { mainTier1ExtrasForPathname, useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";
 import { isDeliveryConsumerPath } from "@/lib/design/delivery-chrome";
-import { resolveMainSurface } from "@/lib/layout/resolve-main-surface";
 import {
-  dibayDomainChromeCssVars,
-  resolveDibayDomainChromeId,
+  dibayDomainChromeCssVarsForId,
+  resolveDibayDomainChromeIdForPath,
 } from "@/lib/ui/dibay-domain-chrome";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { RegionBar } from "./RegionBar";
@@ -42,7 +41,7 @@ const CustomerCommerceHubPrimaryTabs = dynamic(
 
 /**
  * 전역 스티키 헤더 스택 — **메인 1단**(`RegionBar`) + (거래 화면일 때) TRADE 메뉴·2단 카테고리.
- * Domain pale surface via resolveMainSurface (visual only — no feature add).
+ * Domain pale surface via resolveDibayDomainChromeIdForPath (visual only — no feature add).
  */
 export function AppStickyHeader() {
   const pathname = usePathname();
@@ -61,12 +60,12 @@ export function AppStickyHeader() {
         !pathNoQueryForSurface.startsWith("/market/sell/") &&
         pathNoQueryForSurface !== "/market/location" &&
         !pathNoQueryForSurface.startsWith("/market/location/"));
-    const surface = resolveMainSurface(pathname);
+    const domainId = resolveDibayDomainChromeIdForPath(pathname);
     return {
       topTier1RuleSet,
       isTradeMenuSurface,
-      domainId: resolveDibayDomainChromeId(surface),
-      domainStyle: dibayDomainChromeCssVars(surface),
+      domainId,
+      domainStyle: dibayDomainChromeCssVarsForId(domainId),
     };
   }, [pathname]);
   const extrasOpt = useMainTier1ExtrasOptional();

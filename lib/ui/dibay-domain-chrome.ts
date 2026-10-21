@@ -1,13 +1,17 @@
 /**
  * DIBAY global chrome — domain pale surface + secondary tab visual SSOT.
  * Geometry: image lock (Header 52/56 · Tab row 44 / item 36).
- * Domain via existing `resolveMainSurface` only — no parallel resolver.
+ * Domain = `resolveMainSurface` (bottom-nav identity) + chrome-only owner map for `other`
+ * routes (`DIBAY_CHROME_OWNER_PATH_PREFIXES`, Owner 2026-10-21 Q2). The owner map colours the
+ * header only — it never changes bottom-nav identity / push axis.
  * FEATURE PRESERVATION: visual tokens only; do not add Header actions/tabs.
+ * Values mirror `app/dibay-chrome-ssot.css` `[data-dibay-domain]` (equality locked by test).
  */
 
 import type { CSSProperties } from "react";
 import type { MainSurfaceId } from "@/lib/layout/resolve-main-surface";
 import { resolveMainSurface } from "@/lib/layout/resolve-main-surface";
+import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 
 /** Image SSOT pale surfaces (Header + Secondary chrome). */
 export const DIBAY_DOMAIN_CHROME = {
@@ -68,8 +72,40 @@ export function resolveDibayDomainChromeId(surface: MainSurfaceId): DibayDomainC
   return surface;
 }
 
+/**
+ * Header-colour owner for routes whose bottom-nav surface is `other` (Owner 2026-10-21 Q2):
+ * shared account screens → mypage, group chat → chat.
+ */
+export const DIBAY_CHROME_OWNER_PATH_PREFIXES: readonly {
+  prefix: string;
+  id: Exclude<DibayDomainChromeId, "other">;
+}[] = [
+  { prefix: "/notifications", id: "mypage" },
+  { prefix: "/settings", id: "mypage" },
+  { prefix: "/address", id: "mypage" },
+  { prefix: "/support", id: "mypage" },
+  { prefix: "/u", id: "mypage" },
+  { prefix: "/group-chat", id: "chat" },
+  { prefix: "/group", id: "chat" },
+];
+
+export function resolveDibayDomainChromeIdForPath(
+  pathname: string | null | undefined
+): DibayDomainChromeId {
+  const id = resolveDibayDomainChromeId(resolveMainSurface(pathname));
+  if (id !== "other") return id;
+  const p = normalizeAppPathnameForTier1(pathname);
+  for (const row of DIBAY_CHROME_OWNER_PATH_PREFIXES) {
+    if (p === row.prefix || p.startsWith(`${row.prefix}/`)) return row.id;
+  }
+  return "other";
+}
+
 export function dibayDomainChromeCssVars(surface: MainSurfaceId): CSSProperties {
-  const id = resolveDibayDomainChromeId(surface);
+  return dibayDomainChromeCssVarsForId(resolveDibayDomainChromeId(surface));
+}
+
+export function dibayDomainChromeCssVarsForId(id: DibayDomainChromeId): CSSProperties {
   const t = DIBAY_DOMAIN_CHROME[id];
   return {
     ["--dibay-domain-surface" as string]: t.surface,
@@ -91,10 +127,9 @@ export function getDibayDomainChromeElementProps(pathname: string | null | undef
   "data-dibay-domain": DibayDomainChromeId;
   style: CSSProperties;
 } {
-  const surface = resolveMainSurface(pathname);
-  const id = resolveDibayDomainChromeId(surface);
+  const id = resolveDibayDomainChromeIdForPath(pathname);
   return {
     "data-dibay-domain": id,
-    style: dibayDomainChromeCssVars(surface),
+    style: dibayDomainChromeCssVarsForId(id),
   };
 }

@@ -298,7 +298,7 @@ export default function NotificationDetailPage() {
               {originUnavailable ? (
                 <NotificationContentUnavailableNotice className="mt-5" />
               ) : null}
-              <div className="mt-auto flex flex-col gap-2 pt-8 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <div className="mt-auto flex flex-col gap-2 pt-8 pb-[max(1rem,var(--safe-bottom))]">
                 {externalUrl ? (
                   <button
                     type="button"

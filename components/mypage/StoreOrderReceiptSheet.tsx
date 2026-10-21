@@ -96,7 +96,7 @@ export function StoreOrderReceiptSheet({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true" aria-label={t("mypage_receipt_title")}>
       <button type="button" className={Sam.sheet.backdrop} aria-label={t("common_close")} onClick={onClose} />
-      <div className={`${Sam.sheet.panel} relative flex max-h-[85vh] flex-col pb-[env(safe-area-inset-bottom)]`} data-store-order-receipt="1">
+      <div className={`${Sam.sheet.panel} relative flex max-h-[85vh] flex-col pb-[var(--safe-bottom)]`} data-store-order-receipt="1">
         <div className={Sam.sheet.handle} />
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-3">
           <h2 className="text-center sam-text-section-title text-sam-fg">{t("mypage_receipt_title")}</h2>
