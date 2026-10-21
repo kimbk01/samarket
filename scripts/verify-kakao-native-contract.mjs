@@ -31,20 +31,18 @@ const infoPlist = read("ios/App/App/Info.plist");
 const androidGradle = read("android/app/build.gradle");
 const pbx = read("ios/App/App.xcodeproj/project.pbxproj");
 
-if (androidPlugin.includes("loginWithKakaoTalk(")) {
-  failures.push("NativeKakaoAuthPlugin.java must NOT call loginWithKakaoTalk (Talk-first Owner FAIL)");
+// 2026-10-22 Owner 위임 결정: 카카오 공식 권장 순서 — Talk 우선 → (취소 제외) Account 전환, Prompt.LOGIN 강제 재인증 없음.
+if (!androidPlugin.includes("isKakaoTalkLoginAvailable(") || !androidPlugin.includes("loginWithKakaoTalk(")) {
+  failures.push("NativeKakaoAuthPlugin.java must use loginWithKakaoTalk when KakaoTalk is installed");
 }
 if (!androidPlugin.includes("loginWithKakaoAccount(")) {
   failures.push("NativeKakaoAuthPlugin.java must call loginWithKakaoAccount");
 }
-if (!androidPlugin.includes("Prompt.LOGIN")) {
-  failures.push("NativeKakaoAuthPlugin.java must use Prompt.LOGIN on Kakao Account login");
+if (!androidPlugin.includes("kakao_native_talk_fallback_account") || !androidPlugin.includes("!isUserCancelled(error)")) {
+  failures.push("NativeKakaoAuthPlugin.java must fallback to account login when talk fails (except user cancel)");
 }
-if (androidPlugin.includes("kakao_native_talk_fallback_account") || androidPlugin.includes("kakao_native_talk_login")) {
-  failures.push("NativeKakaoAuthPlugin.java must not retain Talk-first / Talk fallback branches");
-}
-if (!androidPlugin.includes("kakao_native_account_login_prompt_login")) {
-  failures.push("NativeKakaoAuthPlugin.java must log kakao_native_account_login_prompt_login");
+if (androidPlugin.includes("Prompt.LOGIN")) {
+  failures.push("NativeKakaoAuthPlugin.java must not force Prompt.LOGIN re-authentication");
 }
 if (androidPlugin.includes('rejectPendingCall("kakao_native_unavailable", "Activity destroyed')) {
   failures.push("NativeKakaoAuthPlugin.java must NOT reject signIn on handleOnDestroy (breaks Kakao return/cancel UX)");
