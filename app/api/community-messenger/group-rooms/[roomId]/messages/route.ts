@@ -140,9 +140,13 @@ export async function POST(
   const content = String(body.content ?? "");
   const clientMessageId = trimText(body.clientMessageId);
   const replyToMessageId = trimText(body.replyToMessageId);
+  /**
+   * M-10: 1:1 라우트(CHAT-04)와 같은 규칙 — 내용 앞 24자 키는 앞부분이 같은 다른 메시지를 합쳐 버린다.
+   * cid 가 없으면 요청마다 고유 키(중복은 DB UNIQUE 가 cid 있는 요청에서 근본 차단).
+   */
   const key = clientMessageId
     ? `community-messenger:group-send:${auth.userId}:${roomId}:${clientMessageId}`
-    : `community-messenger:group-send:${auth.userId}:${roomId}:${content.slice(0, 24)}`;
+    : `community-messenger:group-send:${auth.userId}:${roomId}:nocid:${Date.now()}:${Math.random().toString(36).slice(2, 11)}`;
   const now = Date.now();
   pruneByAtMaxAgeAndMaxSize(sendDedupe, now, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
   const cached = sendDedupe.get(key);
@@ -168,9 +172,12 @@ export async function POST(
       replyToMessageId: replyToMessageId || undefined,
       membershipPreflightDone: true,
     });
-    const tStore = Date.now();
-    sendDedupe.set(key, { at: tStore, res: r as { ok: boolean; message?: unknown; error?: string } });
-    pruneByAtMaxAgeAndMaxSize(sendDedupe, tStore, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
+    /** M-11: 성공 결과만 캐시 */
+    if (r.ok) {
+      const tStore = Date.now();
+      sendDedupe.set(key, { at: tStore, res: r as { ok: boolean; message?: unknown; error?: string } });
+      pruneByAtMaxAgeAndMaxSize(sendDedupe, tStore, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
+    }
     return r;
   });
 
@@ -216,7 +223,19 @@ export async function POST(
     } catch {
       /* best-effort — do not fail the send ACK */
     }
+    /** W4 ACK 계약(1:1 라우트와 동일): bump 는 ACK 전 bounded, 실패해도 200 · after() 에서 1회 더 */
+    const { publishMessengerRoomBumpBounded, publishMessengerRoomBumpAfterMutation } = await import(
+      "@/lib/community-messenger/server/publish-messenger-room-bump"
+    );
+    const bumpResult = await publishMessengerRoomBumpBounded(bumpArgs);
     after(async () => {
+      if (!bumpResult.ok) {
+        try {
+          await publishMessengerRoomBumpAfterMutation(bumpArgs);
+        } catch {
+          /* 수신측 postgres_changes·재합류 따라잡기 */
+        }
+      }
       try {
         const { resolveServiceSupabaseForApi } = await import(
           "@/lib/supabase/resolve-service-supabase-for-api"
@@ -228,10 +247,6 @@ export async function POST(
           );
           await runCommunityMessengerSendDeferredPostAckEffects(sb, deferredPostAck);
         }
-        const { publishMessengerRoomBumpAfterMutation } = await import(
-          "@/lib/community-messenger/server/publish-messenger-room-bump"
-        );
-        await publishMessengerRoomBumpAfterMutation(bumpArgs);
       } catch {
         /* best-effort */
       }
@@ -239,6 +254,16 @@ export async function POST(
   }
 
   let responsePayload = result;
+  /** M-12: 커밋 불명 → cid 재조회, 없으면 503 */
+  if (!responsePayload.ok && responsePayload.error === "commit_unknown" && clientMessageId) {
+    const cm = await sendServiceImport;
+    const reread = await cm.findCommunityMessengerMessageByClientId({
+      userId: auth.userId,
+      roomId,
+      clientMessageId,
+    });
+    if (reread) responsePayload = { ok: true, message: reread };
+  }
   if (
     responsePayload.ok &&
     (!responsePayload.message || !trimText((responsePayload.message as { id?: string })?.id)) &&
@@ -265,5 +290,7 @@ export async function POST(
           { status: 403 },
           { ...responsePayload, code: "blocked_target", error: "blocked_target" }
         )
-      : jsonError(responsePayload.error ?? "메시지 전송에 실패했습니다.", 400, { ...responsePayload });
+      : responsePayload.error === "commit_unknown"
+        ? jsonError("메시지 전송 결과를 확인하지 못했습니다.", 503, { ...responsePayload, code: "commit_unknown" })
+        : jsonError(responsePayload.error ?? "메시지 전송에 실패했습니다.", 400, { ...responsePayload });
 }

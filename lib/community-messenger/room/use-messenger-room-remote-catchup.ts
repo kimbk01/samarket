@@ -76,7 +76,11 @@ export type MessengerRoomRemoteCatchupApi = {
   reconcileLatestMessages: () => Promise<boolean>;
   catchUpAfterRemoteBump: (
     hintMessageId?: string | null,
-    opts?: { alreadyMergedSnapshot?: boolean }
+    opts?: {
+      alreadyMergedSnapshot?: boolean;
+      /** M-3: 한 정합 요청으로 합쳐진 bump 수 — 2 이상이면 단건 성공 뒤 after= 1회로 나머지를 덮는다. */
+      coalescedBumpCount?: number;
+    }
   ) => Promise<void>;
 };
 
@@ -349,7 +353,7 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
    */
   const catchUpAfterRemoteBump = async (
     hintMessageId?: string | null,
-    opts?: { alreadyMergedSnapshot?: boolean }
+    opts?: { alreadyMergedSnapshot?: boolean; coalescedBumpCount?: number }
   ): Promise<void> => {
     const hint = typeof hintMessageId === "string" ? hintMessageId.trim() : "";
     const alreadyMergedSnapshot = opts?.alreadyMergedSnapshot === true;
@@ -362,6 +366,13 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
           : null;
       if (meta?.domain === "store_order" && meta.orderStatus) {
         void refresh(true, { triggerReason: "store_order_status_bump" });
+      }
+      /**
+       * M-3: 여러 bump 가 한 요청으로 합쳐졌으면 단건은 대표 1건만 확인했다 — 나머지 INSERT 는 after= 1회로 정합.
+       * (실패해도 refresh 루프 없음: 단건 성공으로 최소 정합은 이미 됐다.)
+       */
+      if ((opts?.coalescedBumpCount ?? 1) >= 2) {
+        await catchUpNewerMessagesOutcome();
       }
       return;
     }

@@ -1,26 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
-import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { addCommunityMessengerFriendContact } from "@/lib/community-messenger/service";
+import { gateMessengerFriendAddProfile as gateFriendAddProfile } from "@/lib/community-messenger/friendship/friend-add-profile-gate.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-async function gateFriendAddProfile(userId: string) {
-  const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return {
-      ok: false as const,
-      response: NextResponse.json({ ok: false, error: "supabase_service_role_required" }, { status: 503 }),
-    };
-  }
-  const termsGate = await requireSignupCompleteForUser(sb, userId);
-  if (!termsGate.ok) return termsGate;
-  return requireProfileFieldsForAction(sb, userId, "messenger_add_friend");
-}
 
 /** Pending friend-request list retired — Telegram Contact LOCK. */
 export async function GET(req: NextRequest) {

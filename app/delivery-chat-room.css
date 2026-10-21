@@ -125,9 +125,10 @@ footer[data-delivery-composer-host] {
 [data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill]:focus-within,
 [data-delivery-composer-host] [data-delivery-composer-pill]:focus-within {
 
-  border-color: #c8c8c8 !important;
+  /* K-7: 입력 중 포커스 표시 — 브랜드 토큰 */
+  border-color: var(--sam-primary) !important;
 
-  box-shadow: none !important;
+  box-shadow: 0 0 0 1px var(--sam-primary-border) !important;
 
   outline: none !important;
 
@@ -153,11 +154,10 @@ footer[data-delivery-composer-host] {
 
   box-shadow: none !important;
 
-  height: auto !important;
-
+  /* K-2: 높이는 MessengerComposerSector 가 내용(scrollHeight)으로 계산(1~5줄) — 고정 max-height 금지 */
   min-height: 20px !important;
 
-  max-height: 36px !important;
+  max-height: 100px !important;
 
   font-size: 16px !important;
 

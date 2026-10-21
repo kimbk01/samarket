@@ -8,6 +8,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { messengerHomeActionErrorMessage } from "@/lib/community-messenger/home/messenger-home-action-error-message";
 import {
   playCommunityMessengerCallSignalSound,
   unlockCommunityMessengerCallPlaybackFromUserGesture,
@@ -197,6 +200,9 @@ import {
   INCOMING_REMOTE_HARD_CLEAR_KEEP_MS,
   type CallConsumedReason,
 } from "@/lib/community-messenger/incoming-call-state";
+
+/** F-7 — 수신 배너(`z-[1290]`) 위에 차단 확인창을 띄운다 (Auth gate `z-[1310]` 아래) */
+const INCOMING_CALL_BLOCK_CONFIRM_Z_CLASS = "z-[1300]";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
@@ -2168,22 +2174,36 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
   }, [busyId, refresh, sessions]);
 
+  /** F-7 — 수신 배너 차단도 공통 확인창(MessengerBlockPeerConfirmModal)을 거친다 */
+  const [blockConfirmSession, setBlockConfirmSession] = useState<CommunityMessengerCallSession | null>(null);
+
   const blockIncomingCall = useCallback(
     async (session: CommunityMessengerCallSession) => {
       const peerUserId = session.peerUserId?.trim();
       if (!peerUserId || busyId) return;
       await rejectCall(session.id);
-      await fetch("/api/community-messenger/relations/block", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetUserId: peerUserId,
-          roomId: session.roomId,
-          blockSource: "incoming_call",
-        }),
-      });
+      /** F-8 — 결과를 스낵바로 알린다 (서버 코드 원문 비노출) */
+      try {
+        const res = await fetch("/api/community-messenger/relations/block", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetUserId: peerUserId,
+            roomId: session.roomId,
+            blockSource: "incoming_call",
+          }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (res.ok && json.ok) {
+          showMessengerSnackbar(t("cm_social_block_success"), { variant: "success" });
+        } else {
+          showMessengerSnackbar(messengerHomeActionErrorMessage(t, json.error), { variant: "error" });
+        }
+      } catch {
+        showMessengerSnackbar(messengerHomeActionErrorMessage(t), { variant: "error" });
+      }
     },
-    [busyId, rejectCall]
+    [busyId, rejectCall, t]
   );
 
   const expandIncomingCall = useCallback(
@@ -2341,20 +2361,32 @@ export function GlobalCommunityMessengerIncomingCall() {
   }
 
   return (
-    <ForegroundIncomingCallHost
-      shouldRender={foregroundPresentation.shouldRender}
-      session={bannerSession}
-      ringTimeoutSeconds={ringTimeoutSeconds}
-      busyReject={busyId === `reject:${bannerSession.id}`}
-      busyAccept={busyId === `accept:${bannerSession.id}`}
-      busyBlock={false}
-      onExpand={
-        isCmCallPhase0BasicsOnly() ? () => {} : () => expandIncomingCall(bannerSession)
-      }
-      onReject={() => void rejectCall(bannerSession.id)}
-      onAccept={() => acceptCall(bannerSession)}
-      onBlock={() => void blockIncomingCall(bannerSession)}
-    />
+    <>
+      <ForegroundIncomingCallHost
+        shouldRender={foregroundPresentation.shouldRender}
+        session={bannerSession}
+        ringTimeoutSeconds={ringTimeoutSeconds}
+        busyReject={busyId === `reject:${bannerSession.id}`}
+        busyAccept={busyId === `accept:${bannerSession.id}`}
+        busyBlock={false}
+        onExpand={
+          isCmCallPhase0BasicsOnly() ? () => {} : () => expandIncomingCall(bannerSession)
+        }
+        onReject={() => void rejectCall(bannerSession.id)}
+        onAccept={() => acceptCall(bannerSession)}
+        onBlock={() => setBlockConfirmSession(bannerSession)}
+      />
+      <MessengerBlockPeerConfirmModal
+        open={blockConfirmSession != null}
+        zIndexClass={INCOMING_CALL_BLOCK_CONFIRM_Z_CLASS}
+        onCancel={() => setBlockConfirmSession(null)}
+        onConfirm={() => {
+          const target = blockConfirmSession;
+          setBlockConfirmSession(null);
+          if (target) void blockIncomingCall(target);
+        }}
+      />
+    </>
   );
 }
 

@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   CM_HOME_LIST_ROOM_INSERT_EVENT,
+  CM_HOME_LIST_SOCIAL_GRAPH_CHANGED_EVENT,
   communityMessengerHomeListChannelName,
   isCanonicalHomeListRoomSummaryPayload,
 } from "@/lib/community-messenger/realtime/home-list-room-insert-contract";
@@ -50,6 +51,10 @@ export function subscribeHomeListRoomInsertBroadcast(args: {
       at: Date.now(),
     });
     requestMessengerHubBadgeResync("home_list_merge_summary");
+  });
+  /** F-14 — 서버가 발행한 내 social graph 변경(숨김/해제) → 로컬 버스로만 전달 (클라이언트 bump 발행 없음) */
+  ch.on("broadcast", { event: CM_HOME_LIST_SOCIAL_GRAPH_CHANGED_EVENT }, () => {
+    postCommunityMessengerBusEvent({ type: "cm.home.social_sync", at: Date.now() });
   });
   ch.subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "home_list_insert" }));
   return () => {

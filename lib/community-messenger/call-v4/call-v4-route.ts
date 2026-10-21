@@ -82,7 +82,22 @@ export function routeToCallV4Screen(router: { push: (href: string) => void; repl
   go(href);
 }
 
+/** 웹 통화 화면 라우트(`/community-messenger/calls-v4/<id>`) 위에 있는지 — 통화 기록(`/calls/logs`)은 아님 */
+export function isOnCallV4ScreenRoute(pathname: string | null | undefined): boolean {
+  return /^\/community-messenger\/calls-v4\/[^/]+/.test(String(pathname ?? ""));
+}
+
 export function exitCallV4ScreenAfterCleanup(router?: CallV4Router): void {
+  /**
+   * C-16 / L-3 R1 — 네이티브 소유 통화(iOS VC·Android Activity)는 웹 이동 0회.
+   * 통화 화면 라우트가 아닌 곳(채팅방 등)에서 종료되면 복귀 주소만 소비하고 이동하지 않는다
+   * (이전: 원격 거절·부재중에 같은 방으로 replace 하거나, 복귀 주소가 없으면 통화 탭으로 튐).
+   */
+  if (typeof window !== "undefined" && !isOnCallV4ScreenRoute(window.location.pathname)) {
+    const consumed = takeCallV4ReturnPath();
+    logCallV4("exit_screen_skipped_not_on_call_route", { path: window.location.pathname, consumed: Boolean(consumed) });
+    return;
+  }
   const exit = takeCallV4ReturnPath() ?? COMMUNITY_MESSENGER_CALL_LOGS_HREF;
   logCallV4("exit_screen", { exit, establishmentRemoved: isLegacyWebCallEstablishmentRemoved() });
   const go = router?.replace ?? router?.push ?? registeredExitRouter?.replace ?? registeredExitRouter?.push;

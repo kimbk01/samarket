@@ -30,6 +30,8 @@ export function subscribeCommunityMessengerRoomBumpBroadcast(args: {
   sb: SupabaseClient;
   roomId: string;
   onBump: (payload: Record<string, unknown>) => void;
+  /** 채널 상태(SUBSCRIBED 재합류 감지 등) — realtime-js 는 rejoin 때도 같은 콜백을 부른다. */
+  onStatus?: (status: string) => void;
 }): ReturnType<SupabaseClient["channel"]> {
   const roomId = args.roomId.trim();
   const name = communityMessengerRoomBumpChannelName(roomId);
@@ -44,5 +46,11 @@ export function subscribeCommunityMessengerRoomBumpBroadcast(args: {
       }
       args.onBump(typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {});
     })
-    .subscribe(createMessengerPrivateChannelStatusHandler({ sb: args.sb, scope: "room_bump" }));
+    .subscribe(
+      createMessengerPrivateChannelStatusHandler({
+        sb: args.sb,
+        scope: "room_bump",
+        onStatus: args.onStatus ? (status) => args.onStatus?.(String(status)) : undefined,
+      })
+    );
 }

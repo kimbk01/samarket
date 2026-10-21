@@ -35,12 +35,12 @@ describe("call in-app notice contract", () => {
     expect(mapTerminalReasonToCallInAppNoticeEvent("failed_permission")).toBe("permission_required");
   });
 
-  it("CALL-04/CALL-02: caller no_answer classifies to NONE → silent, distinct from callee 'missed'", () => {
-    // Caller-side no-answer / unconfirmed-missed finalizes with "no_answer": existing classifier
-    // routes it to NONE (silent) so the caller never sees the callee-oriented "missed" notice.
-    expect(classifyCallTerminalReason("no_answer")).toBe("NONE");
+  it("CALL-04/CALL-02 → Owner 2026-10-21: caller no_answer gets its own popup, distinct from callee 'missed'", () => {
+    // Caller-side no-answer finalizes with "no_answer". Owner 2026-10-21 (3부 T절 #5): 발신자에게
+    // 「상대방이 응답하지 않습니다」 팝업 — callee-oriented "missed"(부재중) 알림과는 여전히 다른 이벤트.
+    expect(classifyCallTerminalReason("no_answer")).toBe("NO_ANSWER");
     expect(noticeEventForCallTerminalClass("NONE")).toBeNull();
-    expect(mapTerminalReasonToCallInAppNoticeEvent("no_answer")).toBeNull();
+    expect(mapTerminalReasonToCallInAppNoticeEvent("no_answer")).toBe("peer_no_answer");
     // The callee-side "missed" semantics stay unchanged and separate.
     expect(classifyCallTerminalReason("missed")).toBe("MISSED");
     expect(mapTerminalReasonToCallInAppNoticeEvent("missed")).toBe("missed");

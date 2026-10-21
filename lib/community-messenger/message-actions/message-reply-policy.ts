@@ -72,6 +72,12 @@ export function resolveAdminHiddenMessagePlaceholder(): string {
   return "운영 정책에 따라 가려진 메시지입니다";
 }
 
+/**
+ * D-1: 원문이 「모두에게서 삭제」되면 답장 행의 `reply_preview_type` 을 이 값으로, `reply_preview_text` 를 빈 값으로 바꾼다.
+ * 렌더는 항상 `resolveDeletedMessagePlaceholder()`.
+ */
+export const COMMUNITY_MESSENGER_REPLY_PREVIEW_TYPE_DELETED = "deleted" as const;
+
 /** 답장 말풍선 상단 인용 블록 — `reply_to_message_id` 가 있을 때만 */
 export function formatReplyQuoteForMessage(
   item: Pick<
@@ -82,10 +88,13 @@ export function formatReplyQuoteForMessage(
   const targetMessageId = String(item.replyToMessageId ?? "").trim();
   if (!targetMessageId) return null;
   const senderLabel = String(item.replySenderLabelSnapshot ?? "").trim() || "메시지";
-  let previewText = String(item.replyPreviewText ?? "").trim();
+  const previewType = String(item.replyPreviewType ?? "").trim();
+  let previewText =
+    previewType === COMMUNITY_MESSENGER_REPLY_PREVIEW_TYPE_DELETED
+      ? resolveDeletedMessagePlaceholder()
+      : String(item.replyPreviewText ?? "").trim();
   if (!previewText) {
-    const t = String(item.replyPreviewType ?? "").trim();
-    previewText = t ? `(${t})` : resolveDeletedMessagePlaceholder();
+    previewText = previewType ? `(${previewType})` : resolveDeletedMessagePlaceholder();
   }
   return { targetMessageId, senderLabel, previewText: previewText.slice(0, 280) };
 }

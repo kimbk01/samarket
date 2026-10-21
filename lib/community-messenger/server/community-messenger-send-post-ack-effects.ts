@@ -206,35 +206,41 @@ export async function runCommunityMessengerSendDeferredPostAckEffects(
   t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace
 ): Promise<void> {
   const effects = deferred.effects;
-  if (effects.itemTradeLedgerId) {
-    const mirrorT0 = performance.now();
-    await mirrorCommunityMessengerTextToItemTradeLedger(sb, {
-      itemTradeChatRoomId: effects.itemTradeLedgerId,
-      senderUserId: effects.senderUserId.trim(),
-      textContent: effects.content,
-      createdAt: effects.createdAt,
-    }).catch(() => {});
-    if (t5) {
-      const { markT5, spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
-      spanT5(t5, "S15_mirror_ms", mirrorT0);
+  /** M-1: 원장 미러와 수신자별 푸시는 서로 독립 — 순차 await 대신 병렬(allSettled) */
+  const mirrorTask = (async () => {
+    if (effects.itemTradeLedgerId) {
+      const mirrorT0 = performance.now();
+      await mirrorCommunityMessengerTextToItemTradeLedger(sb, {
+        itemTradeChatRoomId: effects.itemTradeLedgerId,
+        senderUserId: effects.senderUserId.trim(),
+        textContent: effects.content,
+        createdAt: effects.createdAt,
+      }).catch(() => {});
+      if (t5) {
+        const { markT5, spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+        spanT5(t5, "S15_mirror_ms", mirrorT0);
+        markT5(t5, "S15");
+      }
+    } else if (t5) {
+      const { markT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
       markT5(t5, "S15");
     }
-  } else if (t5) {
-    const { markT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
-    markT5(t5, "S15");
-  }
+  })();
 
   const pushT0 = performance.now();
-  for (const item of deferred.deferredPushes) {
-    // NEW-24/NOTI-08: fast-path 전송. 성공(sent/noop)이면 handoff 를 닫아 cron 재전송 대상에서 제외.
-    // 실패(retryable/permanent)면 pending 유지 → grace 후 1분 cron 이 복구한다.
-    const outcome = await dispatchNotificationEvent(sb, item.row, { appState: item.appState }).catch(
-      () => "retryable" as const
-    );
-    if (outcome === "sent" || outcome === "noop") {
-      await markChatPushHandoffFastPathSent(sb as unknown as SupabaseClient, item.row.id).catch(() => {});
-    }
-  }
+  await Promise.allSettled([
+    mirrorTask,
+    ...deferred.deferredPushes.map(async (item) => {
+      // NEW-24/NOTI-08: fast-path 전송. 성공(sent/noop)이면 handoff 를 닫아 cron 재전송 대상에서 제외.
+      // 실패(retryable/permanent)면 pending 유지 → grace 후 1분 cron 이 복구한다.
+      const outcome = await dispatchNotificationEvent(sb, item.row, { appState: item.appState }).catch(
+        () => "retryable" as const
+      );
+      if (outcome === "sent" || outcome === "noop") {
+        await markChatPushHandoffFastPathSent(sb as unknown as SupabaseClient, item.row.id).catch(() => {});
+      }
+    }),
+  ]);
   if (t5) {
     const { spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
     spanT5(t5, "S16_push_dispatch_ms", pushT0);

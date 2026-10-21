@@ -838,3 +838,81 @@
 | Owner 결정 | 7 (D1~D7) |
 | 예상 회귀 위험 | 웹 중간 · DB 높음(트리거 DROP 으로 즉시 롤백) · 네이티브 높음(lifecycle·UI 빌드 분리, 단일 커밋 revert) |
 | NOT_PROVEN 잔여 | Next 16 history.state 병합 동작, 같은 UUID 재보고의 PushKit 준수 인정 여부, Agora 엔진의 lane 간 공유, 운영 토큰 TTL env, send_text 락 비용, 운영 V4 lane 플래그 |
+
+---
+---
+
+# 3부 — Owner 확정 정책·통화 상태 머신·경고 팝업 (2026-10-21 v3, 구현 기준)
+
+## S. Owner 확정 (다시 묻지 않음)
+| # | 확정 |
+|---|---|
+| D1 | 차단은 일반 1:1 에만. 주문·거래 업무 채팅은 유지(기존 권한·보안 정책은 우회하지 않음) |
+| D2 | 차단 시 **차단한 사용자 쪽** 채팅방만 숨김 |
+| D3 | 모바일 Enter = 줄바꿈, 전송은 버튼. 데스크톱은 기존 동작 |
+| D4 | 상대 통화 중(busy)은 **영구 기록**. 표시는 「통화 중」(부재중 아님). 수신자 벨·푸시 없음 |
+| D5 | 오픈그룹 강퇴·차단 신규 기능은 이번 범위 제외 |
+| D6 | DB 마이그레이션 4건: 단계별 영향 검증 후, **운영 적용마다 Owner 별도 명시 승인** |
+| D7 | 네이티브 lifecycle / UI 분리, 단계별 검증 통과 후 다음 단계 |
+| 반영 | **Owner 승인 없이 main 병합·Production 배포·운영 DB 적용·네이티브 릴리스 금지** → 구현 커밋은 작업 브랜치에만 푸시 |
+
+## T. 통화 상태 머신 (12상태 · 기존 DB 상태값 재사용, 신규 DB status 없음)
+
+**기존 계층(CUT3, `call-terminal-reason-authority.ts`):**
+- DB `status`: 6값(ringing·active·ended·rejected·missed·cancelled). CHECK 제약이 있어 늘리지 않습니다.
+- DB `ended_reason`: 자유 텍스트 wire 값.
+- canonical reason: 11종.
+- 표시: `call-event-presentation.ts` 가 담당합니다.
+
+이번에 canonical 에 **`unreachable` 1종만 추가**합니다. 이는 표시 계층용 분류일 뿐이고, DB status 는 `missed` 그대로 씁니다.
+
+| # | 상태 | DB status / ended_reason(wire) | canonical | 발신자 표시(팝업) | 수신자 처리 | CallKit / Android 수신 | Agora | 통화 기록·채팅 stub | 알림·푸시 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 발신자 연결 전 취소 | cancelled / `canceled` | caller_cancelled | 「통화 취소」(팝업 없음 — 본인 조작) | 벨·수신 화면 즉시 종료 | iOS `reportCall(ended,.remoteEnded)` / FSI·벨 해제(`call_ended` VoIP·FCM) | join 전이면 없음 | 양쪽 「취소」(제품 결정 2026-10-16, 양쪽 동일) | 수신자 부재중 푸시 없음 |
+| 2 | 수신자 거절 | rejected / `declined` | callee_rejected | **팝업** 「상대방이 통화를 거절했습니다」 [닫기][다시 걸기] | 수신 화면 종료 | CXEnd(로컬) / FSI 해제 | 없음 | 양쪽 「거절」 | 없음 |
+| 3 | 상대방이 이미 통화 중 | **세션 행 없음** → `call_logs` status `cancelled` + `ended_reason='peer_busy'` + stub `busy:<uuid>` (C-3·C-17) | busy | **팝업** 「상대방이 통화 중입니다」 [닫기][다시 걸기] | **기존 통화 유지**, 벨·푸시·CallKit 없음 | 없음(VoIP 미발송) | 없음 | 양쪽 「통화 중」(D4, 부재중 아님), 수신자 unread +1 | 없음 |
+| 4 | 상대방 미접속·연결 불가 | missed / `unreachable` | **unreachable(신규)** | **팝업** 「상대방에게 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.」 [닫기][다시 걸기] | 전달된 기기가 있으면 #5 와 같음 | — | 없음 | 양쪽 「연결할 수 없음」 | 없음 |
+| 5 | 수신자 무응답 | missed / `missed` | missed_timeout | **팝업** 「상대방이 응답하지 않습니다」 [닫기][다시 걸기] | 벨 종료 + 부재중 기록 | iOS `reportCall(ended,.unanswered)` / FSI 해제 | 없음 | 양쪽 「부재중」 | 수신자 부재중 알림 1회(C-7 keepAlive) |
+| 6 | 연결 중 실패 | ended / `failed_*` (setup·network·ice·signaling·permission) | failed_setup·failed_network | **팝업** 「통화 연결에 실패했습니다」 [닫기][다시 걸기]. 권한은 「마이크·카메라 권한이 필요합니다」 [설정][닫기] | 실제 세션 상태로 정리(서버 terminal 수신 → 화면 종료) | CallKit `.failed` / FSI 해제 | leave(callId 범위) | 「연결 실패」 | 없음 |
+| 7 | 연결 완료 | active | — | 통화 화면 「통화 중」 + 시간 | 동일 | CallKit connected | joined | — | — |
+| 8 | 통화 중 일시적 네트워크 악화 | active 유지 | — | **팝업 없음** — 상태 문구 「연결 상태가 좋지 않습니다」 + 빨간 테두리 | 상대도 자기 품질 기준으로 표시 | 변경 없음 | 연결 유지 | — | — |
+| 9 | 재연결 중 | active 유지 | — | **팝업 없음** — 「재연결 중…」(내 쪽 RECONNECTING, 유예 30초) / 「상대방 연결이 불안정합니다」(상대 DROPPED, 유예 15초). 통화 시간은 계속 흐름 | 동일 규칙 | 변경 없음 | RECONNECTING | — | — |
+| 10 | 재연결 실패 | ended / `peer_dropped`·`link_lost`·`heartbeat_timeout` | disconnected | **팝업** 「통화 연결이 끊어졌습니다」 [닫기][다시 걸기] | 같은 팝업 + 기록 반영 | `reportCall(ended,.failed)` / FGS 종료 | leave | 「연결 끊김」(통화 시간 포함) | 없음 |
+| 11 | 정상 종료 | ended / `ended_by_caller`·`ended_by_callee` | ended_by_* | 팝업 없음(화면 닫힘) | 화면 닫힘 | CXEnd(로컬) 또는 `.remoteEnded` | leave 즉시(N-2) | 「통화 시간 mm:ss」 | 없음 |
+| 12 | 비정상 종료(앱 강제 종료·기기 꺼짐·서버 정리) | ended / `heartbeat_timeout`·`reconcile_stale_active` | disconnected | 다음 실행 때 팝업 없음, 기록만 | 상대: #10 과 같음 | 정리 | — | 「연결 끊김」 | 없음 |
+
+**구분 규칙**
+- **취소 vs 거절:** 종료 주체(caller cancel / callee reject)는 서버 PATCH 의 actor 로 정하고, 클라이언트 문구로 추정하지 않습니다.
+- **busy vs 부재중:** busy 는 세션을 만들기 전 서버 게이트에서 판정합니다(`peer_busy`). 부재중은 링잉 세션이 마감 시각에 도달한 경우입니다. 수신자에게 벨·푸시가 간 적이 없으므로 busy 를 부재중으로 표시하지 않습니다.
+- **미접속(unreachable) vs 무응답(missed) — 증거가 있을 때만 미접속으로 판정:**
+  - (a) 서버 incoming dispatch 결과 **전달 가능한 기기가 0대**: 등록 토큰 없음, 또는 모든 기기에서 영구 실패(`notification_deliveries`·VoIP dispatch 결과)
+  - (b) 그리고 링잉 기간 동안 **수신 기기가 수신을 확인한 신호(ring ack·presence)가 없음**
+  - 둘 다 성립하면 `unreachable`, 하나라도 불확실하면 **`missed`(무응답)**. 증거는 서버만 판정하고, 클라이언트는 결과만 표시합니다.
+- **늦은 이벤트:** 모든 terminal 처리·팝업은 **callId 가 현재 통화와 같을 때만** 실행합니다. 이미 끝난 callId 의 이벤트는 기록만 갱신하고 화면·팝업은 띄우지 않습니다.
+
+## U. 통화 경고 팝업 통일 기준
+
+**현재 상태:**
+- 웹: `call-in-app-notice-store` + `CallInAppNoticeBanner`(상단 배너, 자동 소멸)
+- 네이티브: `NativeCallInAppNoticeOverlay.java` / `NativeCallInAppNotice.swift`(같은 계약의 네이티브 배너)
+- 일부 경로는 `alertOutgoingCallFailure`·스낵바
+
+**변경:** 중요한 통화 실패(T절 팝업 표시 행: #2·#3·#4·#5·#6·#10)는 **중앙 공통 경고 팝업**으로 통일합니다. 진행·경고(#8·#9)와 정상 종료(#11)는 팝업을 띄우지 않습니다.
+
+| 요소 | 규칙 |
+|---|---|
+| 구성 | 상태별 아이콘(거절·통화 중 = 전화 끊김, 무응답·연결 불가 = 사람+시계, 실패·끊김 = 경고 삼각형, 권한 = 방패) · 제목 · 설명 · [닫기] · 재시도 가능하면 [다시 걸기](primary) |
+| 문구(제목 / 설명) | 거절 「통화 거절」/「상대방이 통화를 거절했습니다.」 · 통화 중 「상대방 통화 중」/「상대방이 통화 중입니다. 잠시 후 다시 걸어 주세요.」 · 무응답 「응답 없음」/「상대방이 응답하지 않습니다.」 · 연결 불가 「통화 연결 실패」/「상대방에게 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.」 · 실패 「통화 연결 실패」/「통화 연결에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.」 · 끊김 「통화 종료」/「통화 연결이 끊어졌습니다.」 · 권한 「권한 필요」/「마이크·카메라 권한이 필요합니다.」[설정 열기] |
+| 다시 걸기 | 무응답·통화 중·연결 불가·실패·끊김·거절에서 노출(거절은 [다시 걸기] 를 보조 버튼으로) |
+| 중복 금지 | 같은 callId + 같은 종류는 1회만 표시. 다른 종류는 우선순위(실패 > 거절·통화 중 > 무응답)가 높을 때만 교체 |
+| callId 검증 | 팝업 입력에 callId 필수. 「이미 닫힌 callId」 집합과 「현재 통화 callId」를 확인해 늦은 이벤트는 무시 |
+| 닫기 | 닫아도 세션·화면을 다시 활성화하지 않음(팝업은 표시 전용 상태, 통화 store 는 이미 idle) |
+| 재시도 | [다시 걸기]는 이전 세션 정리 완료(엔진 idle·`canStartNewCall`·cleanup 프라미스 완료)를 기다린 뒤 발신. 최대 대기 3초, 넘으면 실패 팝업 대신 버튼만 다시 활성화 |
+| 뒤로가기·화면 전환 | Android 하드웨어 뒤로가기는 팝업만 닫음(overlay back stack). 라우트가 바뀌면 자동으로 닫음. 팝업이 열려 있어도 아래 화면 이동을 막지 않음(모달은 포커스만 가짐) |
+| 스타일 | 공통 Dibay 다이얼로그 토큰(오버레이 반경 계약 `--overlay-radius-*`, `Sam.btn.primary/secondary`). Android·iOS 네이티브 오버레이는 ⑤ 단계에서 같은 문구·버튼·색으로 맞춤 |
+| 비대체 | OS 권한 팝업, CallKit 시스템 UI, Android FSI 시스템 UI 는 대체하지 않음 |
+| 비반복 | 네트워크 저하·재연결은 모달을 쓰지 않음(테두리 + 상태 문구) |
+
+**구현 위치:**
+- ② 웹: `call-in-app-notice-contract.ts` 에 `presentation:"DIALOG"`·제목 키·재시도 여부를 추가하고, `call-in-app-notice-store` 에 callId 바인딩·「닫힌 callId」 집합을 넣습니다. `CallAlertDialog` 렌더러를 추가해 기존 배너를 대체합니다(진행·경고는 배너 유지).
+- ⑤ 네이티브: Android `NativeCallInAppNoticeOverlay`, iOS `NativeCallInAppNotice` 를 같은 계약의 중앙 팝업으로 바꿉니다.

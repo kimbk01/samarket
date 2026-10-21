@@ -18,6 +18,14 @@ export const CALL_IN_APP_NOTICE_EVENTS = [
   "permission_required",
   "network_warning",
   "peer_declined",
+  /** Owner 2026-10-21 — 발신자 관점 무응답(수신자 `missed` 알림과 구분) */
+  "peer_no_answer",
+  /** 서버가 전달 가능한 기기 0대 + 수신 확인 없음을 증명한 경우에만 (3부 T절 #4) */
+  "peer_unreachable",
+  /** 연결 후 재연결 실패·비정상 끊김 */
+  "call_disconnected",
+  /** 발신자 자신의 다른 통화가 진행 중 (C-17 — 상대 busy 와 구분) */
+  "self_busy",
 ] as const;
 
 export type CallInAppNoticeEvent = (typeof CALL_IN_APP_NOTICE_EVENTS)[number];
@@ -30,6 +38,10 @@ export const CALL_TERMINAL_CLASSES = [
   "ACTIONABLE_FAILURE",
   "PERMISSION_REQUIRED",
   "MISSED",
+  "NO_ANSWER",
+  "UNREACHABLE",
+  "DISCONNECTED",
+  "SELF_BUSY",
   "NONE",
 ] as const;
 
@@ -43,7 +55,11 @@ export type CallInAppNoticeSeverity =
   | "TERMINAL"
   | "ACTION_REQUIRED";
 
-export type CallInAppNoticePresentation = "BANNER" | "PERSISTENT_BANNER";
+/**
+ * DIALOG — 중요한 통화 실패는 중앙 공통 경고 팝업(제목·설명·[닫기]·재시도 가능 시 [다시 걸기]).
+ * BANNER — 진행·경고·정보(재연결 중·네트워크 경고·수신자 부재중 알림). 일시 저하는 모달을 쓰지 않는다.
+ */
+export type CallInAppNoticePresentation = "BANNER" | "PERSISTENT_BANNER" | "DIALOG";
 
 export type CallInAppNoticeSpec = {
   event: CallInAppNoticeEvent;
@@ -54,6 +70,10 @@ export type CallInAppNoticeSpec = {
   durationMs: number | null;
   dismissible: boolean;
   priority: number;
+  /** DIALOG 제목 — 없으면 본문만 */
+  titleKey?: MessageKey;
+  /** [다시 걸기] 노출 (이전 세션 정리 완료 후 실행) */
+  retryable?: boolean;
 };
 
 /** Higher number wins. TERMINAL > ERROR > ACTION_REQUIRED > WARNING > PROGRESS > INFORMATION */
@@ -74,28 +94,79 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
   peer_busy: {
     event: "peer_busy",
     severity: "TERMINAL",
-    messageKey: "cm_ui_call_peer_busy",
-    presentation: "BANNER",
-    durationMs: 4200,
+    messageKey: "cm_ui_call_alert_peer_busy_body",
+    titleKey: "cm_ui_call_alert_peer_busy_title",
+    presentation: "DIALOG",
+    durationMs: null,
     dismissible: true,
+    retryable: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
   },
   peer_declined: {
     event: "peer_declined",
     severity: "TERMINAL",
-    messageKey: "cm_ui_peer_declined_call",
-    presentation: "BANNER",
-    durationMs: 4200,
+    messageKey: "cm_ui_call_alert_declined_body",
+    titleKey: "cm_ui_call_alert_declined_title",
+    presentation: "DIALOG",
+    durationMs: null,
     dismissible: true,
+    retryable: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
   },
   call_failed: {
     event: "call_failed",
     severity: "ERROR",
-    messageKey: "cm_ui_call_start_failed",
-    presentation: "BANNER",
-    durationMs: 4800,
+    messageKey: "cm_ui_call_alert_failed_body",
+    titleKey: "cm_ui_call_alert_failed_title",
+    presentation: "DIALOG",
+    durationMs: null,
     dismissible: true,
+    retryable: true,
+    priority: CALL_IN_APP_NOTICE_PRIORITY.ERROR,
+  },
+  peer_no_answer: {
+    event: "peer_no_answer",
+    severity: "TERMINAL",
+    messageKey: "cm_ui_call_alert_no_answer_body",
+    titleKey: "cm_ui_call_alert_no_answer_title",
+    presentation: "DIALOG",
+    durationMs: null,
+    dismissible: true,
+    retryable: true,
+    /** 실패·거절보다 낮게 — 같은 통화에서 더 구체적인 사유가 오면 교체 */
+    priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL - 50,
+  },
+  peer_unreachable: {
+    event: "peer_unreachable",
+    severity: "ERROR",
+    messageKey: "cm_ui_call_alert_unreachable_body",
+    titleKey: "cm_ui_call_alert_failed_title",
+    presentation: "DIALOG",
+    durationMs: null,
+    dismissible: true,
+    retryable: true,
+    priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL - 40,
+  },
+  call_disconnected: {
+    event: "call_disconnected",
+    severity: "ERROR",
+    messageKey: "cm_ui_call_alert_disconnected_body",
+    titleKey: "cm_ui_call_alert_disconnected_title",
+    presentation: "DIALOG",
+    durationMs: null,
+    dismissible: true,
+    retryable: true,
+    priority: CALL_IN_APP_NOTICE_PRIORITY.ERROR,
+  },
+  self_busy: {
+    event: "self_busy",
+    severity: "ERROR",
+    messageKey: "cm_ui_call_alert_self_busy_body",
+    titleKey: "cm_ui_call_alert_self_busy_title",
+    presentation: "DIALOG",
+    durationMs: null,
+    dismissible: true,
+    retryable: false,
     priority: CALL_IN_APP_NOTICE_PRIORITY.ERROR,
   },
   remote_ended: {
@@ -178,6 +249,20 @@ export function classifyCallTerminalReason(
   ) {
     return "NORMAL_ENDED";
   }
+  if (kind === "self_busy") return "SELF_BUSY";
+  if (kind === "unreachable" || kind === "peer_unreachable") return "UNREACHABLE";
+  /** 발신자 관점 무응답 — 수신자 `missed` 와 구분 (Owner 2026-10-21: 「상대방이 응답하지 않습니다」) */
+  if (kind === "no_answer" || kind === "peer_no_answer" || kind === "unanswered") return "NO_ANSWER";
+  if (
+    kind === "disconnected" ||
+    kind === "heartbeat_timeout" ||
+    kind === "peer_dropped" ||
+    kind === "link_lost" ||
+    kind === "reconcile_stale_active" ||
+    kind === "call_disconnected"
+  ) {
+    return "DISCONNECTED";
+  }
   if (kind === "missed" || kind === "missed_call" || kind === "call_missed" || kind === "timeout") {
     return "MISSED";
   }
@@ -188,6 +273,8 @@ export function classifyCallTerminalReason(
     kind === "failed" ||
     kind === "failed_setup" ||
     kind === "failed_network" ||
+    /** 3부 T절 #6 — ice·signaling·insecure_context 등 연결 중 실패 전부 */
+    kind.startsWith("failed_") ||
     kind.startsWith("agora") ||
     kind.includes("token") ||
     kind.includes("join") ||
@@ -218,6 +305,14 @@ export function noticeEventForCallTerminalClass(
       return "permission_required";
     case "MISSED":
       return "missed";
+    case "NO_ANSWER":
+      return "peer_no_answer";
+    case "UNREACHABLE":
+      return "peer_unreachable";
+    case "DISCONNECTED":
+      return "call_disconnected";
+    case "SELF_BUSY":
+      return "self_busy";
     default: {
       const _exhaustive: never = terminalClass;
       return _exhaustive;
@@ -227,9 +322,18 @@ export function noticeEventForCallTerminalClass(
 
 /** Map native/server terminal reason tokens → notice event (or null = silent dismiss). */
 export function mapTerminalReasonToCallInAppNoticeEvent(
-  reason: string | null | undefined
+  reason: string | null | undefined,
+  opts?: { direction?: "outgoing" | "incoming" | null }
 ): CallInAppNoticeEvent | null {
-  return noticeEventForCallTerminalClass(classifyCallTerminalReason(reason));
+  const cls = classifyCallTerminalReason(reason);
+  /** 링잉 마감(missed)을 **발신자**가 받으면 「응답하지 않습니다」, 수신자는 기존 부재중 알림 */
+  if (cls === "MISSED" && opts?.direction === "outgoing") return "peer_no_answer";
+  return noticeEventForCallTerminalClass(cls);
+}
+
+/** 팝업 행 여부 (T절 #2·#3·#4·#5·#6·#10) */
+export function isCallAlertDialogEvent(event: CallInAppNoticeEvent): boolean {
+  return CALL_IN_APP_NOTICE_SPECS[event].presentation === "DIALOG";
 }
 
 export function shouldReplaceCallInAppNotice(

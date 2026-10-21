@@ -151,8 +151,11 @@ describe("group chat P1 contracts", () => {
         "all"
       );
       expect(rows).toHaveLength(1);
-      const cursor = encodeGroupMediaCursor("2026-06-19T00:00:00.000Z", "m1");
-      expect(parseGroupMediaCursor(cursor)?.messageId).toBe("m1");
+      const mid = "0b6c7c55-1d1e-4f43-9b7a-2f3c4d5e6f70";
+      const cursor = encodeGroupMediaCursor("2026-06-19T00:00:00.000Z", mid);
+      expect(parseGroupMediaCursor(cursor)?.messageId).toBe(mid);
+      /** S-2: uuid 가 아닌 messageId 는 커서로 받지 않는다 */
+      expect(parseGroupMediaCursor(encodeGroupMediaCursor("2026-06-19T00:00:00.000Z", "m1"))).toBeNull();
     });
   });
 

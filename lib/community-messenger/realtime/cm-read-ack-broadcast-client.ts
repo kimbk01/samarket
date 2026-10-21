@@ -20,7 +20,10 @@ import {
   messengerPrivateBroadcastChannelOptions,
 } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { subscribeSamarketRealtimeTokenRefreshed } from "@/lib/supabase/realtime-auth-events";
+import {
+  removeCmRtChannelTracked,
+  runAfterCmRtTopicRemoval,
+} from "@/lib/community-messenger/realtime/cm-rt-channel-registry";
 
 export { CM_READ_ACK_BROADCAST_EVENT, communityMessengerReadAckChannelName };
 
@@ -70,21 +73,22 @@ function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: stri
     });
   };
 
+  const channelName = communityMessengerReadAckChannelName(subscribeRoomId);
+  /**
+   * M-5: 채널은 auth 준비 후 **1회만** 만든다. 토큰 갱신마다 remove→create 하던 재구독은 제거 —
+   * `lib/supabase/client.ts` 의 `realtime.setAuth` 가 joined 채널에 access_token 을 push 하고 rejoin payload 도 갱신한다.
+   * 같은 토픽 이전 인스턴스 제거가 진행 중이면 완료 후 만든다(죽은 채널 재사용 방지).
+   */
   const subscribeReadAckChannel = () => {
-    if (cancelled) return;
+    if (cancelled || ch) return;
     const bindGen = ++readAckGeneration;
-    if (ch) {
-      try {
-        void sb.removeChannel(ch);
-      } catch {
-        /* ignore */
-      }
-      ch = null;
-    }
-    ch = sb
-      .channel(communityMessengerReadAckChannelName(subscribeRoomId), messengerPrivateBroadcastChannelOptions())
-      .on("broadcast", { event: CM_READ_ACK_BROADCAST_EVENT }, (msg) => onBroadcast(msg, bindGen))
-      .subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "read_ack" }));
+    runAfterCmRtTopicRemoval(channelName, () => {
+      if (cancelled || ch || bindGen !== readAckGeneration) return;
+      ch = sb
+        .channel(channelName, messengerPrivateBroadcastChannelOptions())
+        .on("broadcast", { event: CM_READ_ACK_BROADCAST_EVENT }, (msg) => onBroadcast(msg, bindGen))
+        .subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "read_ack" }));
+    });
   };
 
   const bridgeCleanup = createRealtimeAuthBridge({
@@ -93,21 +97,11 @@ function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: stri
     onReady: subscribeReadAckChannel,
   });
 
-  const unsubscribeTokenRefresh = subscribeSamarketRealtimeTokenRefreshed(() => {
-    if (cancelled) return;
-    subscribeReadAckChannel();
-  });
-
   return () => {
     cancelled = true;
-    unsubscribeTokenRefresh();
     bridgeCleanup();
     if (ch) {
-      try {
-        void sb.removeChannel(ch);
-      } catch {
-        /* ignore */
-      }
+      void removeCmRtChannelTracked(sb, ch, channelName);
       ch = null;
     }
   };

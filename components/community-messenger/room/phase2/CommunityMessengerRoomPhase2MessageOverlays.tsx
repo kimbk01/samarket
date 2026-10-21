@@ -7,6 +7,7 @@ import { useMessengerRoomPhase2View } from "@/components/community-messenger/roo
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSwipeLeaveConfirmI18nKey } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
+import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 
 export function CommunityMessengerRoomPhase2MessageOverlays() {
   const { t } = useI18n();
@@ -18,7 +19,12 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
         toMessengerPolicyRoomType({
           roomType: vm.snapshot.room.roomType,
           contextMeta: vm.snapshot.room.contextMeta ?? null,
-        })
+        }),
+        {
+          isStoreOrder:
+            Boolean(resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room)) ||
+            vm.snapshot.room.chatDomain === "store_order",
+        }
       )
     : "cm_ui_leave_confirm_direct";
 

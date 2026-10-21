@@ -3,7 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { sendCommunityMessengerStickerMessage } from "@/lib/community-messenger/service";
 import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
-import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
+import { publishMessengerRoomBumpBounded } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
@@ -49,8 +49,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     onNotifyScheduled: keepMessengerNotifyAliveAfterAck,
   });
 
+  /** M-13: 저장 성공 뒤 bump 오류가 500 으로 새지 않게 bounded(throw 없음, 2회 예산 ≤1.5s) */
   if (result.ok) {
-    await publishMessengerRoomBumpAfterMutation({
+    await publishMessengerRoomBumpBounded({
       rawRouteRoomId: canon.rawRouteRoomId,
       canonicalRoomId,
       fromUserId: auth.userId,

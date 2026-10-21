@@ -30,11 +30,24 @@ describe("CM message send Domain target bump before ACK", () => {
     expect(src.indexOf("await runCommunityMessengerSendPostAckEffects")).toBe(-1);
   });
 
-  it("keeps realtime publishMessengerRoomBumpAfterMutation in after() with skipBadgeTargetBump", () => {
+  it("W4/M-1: awaits bounded realtime bump BEFORE ACK; after() only retries on failure (skipBadgeTargetBump)", () => {
     const afterCall = src.indexOf("after(async () => {");
-    const publish = src.indexOf("publishMessengerRoomBumpAfterMutation", afterCall);
-    expect(publish).toBeGreaterThan(afterCall);
+    const bounded = src.indexOf("await publishMessengerRoomBumpBounded(bumpArgs)");
+    expect(bounded).toBeGreaterThan(-1);
+    expect(bounded).toBeLessThan(afterCall);
+    const afterBlock = src.slice(afterCall);
+    expect(afterBlock).toMatch(/if \(!bumpResult\.ok\) \{[\s\S]*publishMessengerRoomBumpAfterMutation\(bumpArgs\)/);
+    /** 푸시(FCM) 가 bump 보다 먼저 끝나야 하는 순서가 다시 생기지 않게 */
+    expect(afterBlock.indexOf("publishMessengerRoomBumpAfterMutation")).toBeLessThan(
+      afterBlock.indexOf("runCommunityMessengerSendDeferredPostAckEffects")
+    );
     expect(src).toContain("skipBadgeTargetBump: true");
+  });
+
+  it("M-11/M-12: caches only successful results; commit-unknown rereads by cid then 503", () => {
+    expect(src).toMatch(/if \(r\.ok\) \{\n\s+const tStore = Date\.now\(\);\n\s+sendDedupe\.set/);
+    expect(src).toContain('"commit_unknown"');
+    expect(src).toMatch(/commit_unknown" \? 503/);
   });
 });
 
@@ -54,6 +67,11 @@ describe("CM group-rooms message send notify before ACK", () => {
     expect(Math.max(durable, syncBump)).toBeLessThan(afterCall);
     expect(groupSrc.slice(afterCall)).toContain("runCommunityMessengerSendDeferredPostAckEffects");
     expect(groupSrc).toContain("skipBadgeTargetBump: true");
+    expect(groupSrc.indexOf("await publishMessengerRoomBumpBounded(bumpArgs)")).toBeLessThan(afterCall);
+  });
+
+  it("M-10: no content-prefix dedupe key", () => {
+    expect(groupSrc).not.toContain("content.slice(0, 24)");
   });
 });
 
@@ -65,7 +83,7 @@ const publishSrc = readFileSync(
 describe("publishMessengerRoomBumpAfterMutation skipBadgeTargetBump", () => {
   it("returns before target bump when skipBadgeTargetBump is true", () => {
     expect(publishSrc).toContain("skipBadgeTargetBump?: boolean");
-    expect(publishSrc).toContain("if (args.skipBadgeTargetBump === true) return;");
+    expect(publishSrc).toContain("if (args.skipBadgeTargetBump === true) return publishResult;");
   });
 });
 

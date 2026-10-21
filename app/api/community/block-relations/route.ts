@@ -11,10 +11,7 @@ import {
   isBlockedByMe,
   unblockUserSocial,
 } from "@/lib/community-messenger/social-relations";
-import {
-  hideDirectRoomsOnBlockForViewer,
-  restoreDirectRoomsOnUnblockForViewer,
-} from "@/lib/community-messenger/participant-block-hide";
+import { hideDirectRoomsOnBlockForViewer } from "@/lib/community-messenger/participant-block-hide";
 import { terminateDirectCallsOnBlockBestEffort } from "@/lib/community-messenger/block-call-termination";
 
 export const runtime = "nodejs";
@@ -108,7 +105,7 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error ?? "unblock_failed" }, { status: 500 });
     }
-    await restoreDirectRoomsOnUnblockForViewer(auth.userId, target);
+    /** F-1 — 방 복원은 `unblockUserSocial` 내부에서 수행 */
     return NextResponse.json({ ok: true, blocked: false });
   }
 

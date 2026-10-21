@@ -5,6 +5,10 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
+import {
+  isMessengerComposerMobileInputEnvironment,
+  resolveMessengerComposerKeyAction,
+} from "@/lib/community-messenger/room/messenger-composer-keyboard-policy";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { useMessengerRoomComposerSurface } from "@/lib/community-messenger/room/use-messenger-room-composer-surface";
 import { getMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
@@ -149,11 +153,8 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
     if (!text || vm.roomUnavailable) return;
     setDraft("");
     setPhase1Message?.("");
-    const ok = await vm.sendMessage(text);
-    if (!ok) {
-      setDraft(text);
-      setPhase1Message?.(text);
-    }
+    // M-8: 실패 복원(빈 입력창일 때만)·실패 행은 controller 단일 권한 — Phase1 message 동기로 draft 반영
+    await vm.sendMessage(text);
   }, [draft, setPhase1Message, vm]);
 
   if (!vm) return null;
@@ -204,7 +205,17 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
         }}
         onSend={commitTextSend}
         onTextareaKeyDown={(e) => {
-          if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+          // K-1(D3): 모바일 Enter = 줄바꿈 — Phase2 composer 와 같은 정책
+          const action = resolveMessengerComposerKeyAction(
+            {
+              key: e.key,
+              shiftKey: e.shiftKey,
+              isComposing: e.nativeEvent.isComposing,
+              keyCode: e.nativeEvent.keyCode,
+            },
+            { mobile: isMessengerComposerMobileInputEnvironment(), mentionOpen: false }
+          );
+          if (action.kind !== "send") return;
           e.preventDefault();
           commitTextSend();
         }}

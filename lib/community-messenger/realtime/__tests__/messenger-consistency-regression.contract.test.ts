@@ -56,11 +56,13 @@ describe("T13 logout/account switch channel isolation", () => {
 });
 
 describe("T14 read-ack after token refresh", () => {
-  it("read-ack resubscribe bumps generation and ignores old callbacks", () => {
+  it("read-ack binds once (no token-refresh resubscribe) and ignores stale-generation callbacks", () => {
     const src = read("lib/community-messenger/realtime/cm-read-ack-broadcast-client.ts");
     expect(src).toContain("readAckGeneration");
     expect(src).toContain("callbackGeneration !== readAckGeneration");
-    expect(src).toContain("subscribeSamarketRealtimeTokenRefreshed");
+    /** M-5: realtime.setAuth 가 토큰을 갱신 — 같은 토픽 remove 직후 재생성 경합 제거 */
+    expect(src).not.toContain("subscribeSamarketRealtimeTokenRefreshed");
+    expect(src).toContain("removeCmRtChannelTracked");
   });
 });
 

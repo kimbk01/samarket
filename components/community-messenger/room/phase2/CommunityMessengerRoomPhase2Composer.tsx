@@ -88,9 +88,22 @@ import {
 import {
   buildGroupMentionCandidates,
   extractActiveMentionQuery,
+  filterGroupMentionCandidates,
   GroupMentionAutocomplete,
   type GroupMentionCandidate,
 } from "@/components/community-messenger/group/GroupMentionAutocomplete";
+import {
+  isMessengerComposerMobileInputEnvironment,
+  nextMentionActiveIndex,
+  resolveMessengerComposerKeyAction,
+} from "@/lib/community-messenger/room/messenger-composer-keyboard-policy";
+import {
+  clearMessengerComposerDraft,
+  MESSENGER_COMPOSER_DRAFT_SAVE_DEBOUNCE_MS,
+  messengerComposerDraftKey,
+  readMessengerComposerDraft,
+  writeMessengerComposerDraft,
+} from "@/lib/community-messenger/room/messenger-composer-draft-store";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { emitCmRoomKbProbe } from "@/lib/ui/cm-room-kb-viewport-probe";
@@ -174,7 +187,16 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     focusTimelineMessage,
   } = useMessengerRoomClientPhase1Context();
   const roomKey = vm.snapshot.room.id;
-  const [draft, setDraft] = useState("");
+  /** K-5: 방별 보내지 않은 입력 — 마운트 시 복원 */
+  const draftStoreKey = messengerComposerDraftKey(vm.snapshot.viewerUserId, roomKey);
+  const [draft, setDraft] = useState(() => readMessengerComposerDraft(draftStoreKey));
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const localTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  /** K-6: IME 조합 중 여부 + 조합 중 눌린 전송(조합 확정 뒤 실제 textarea 값으로 처리) */
+  const composingRef = useRef(false);
+  const deferredSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deferredSendPendingRef = useRef(false);
   const isPrivateGroupRoom = vm.snapshot.room.roomType === "private_group";
   const mentionCandidates = useMemo(
     () => buildGroupMentionCandidates(vm.snapshot.members, vm.snapshot.viewerUserId),
@@ -199,13 +221,55 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     };
   }, [roomKey]);
 
-  /** 방 전환·답장 주입·전송 실패 복원 등 — Phase1 `message` 가 바뀌면 draft 에 반영(타이핑은 draft 만 갱신). */
+  /**
+   * 방 전환·답장 주입·전송 실패 복원 등 — Phase1 `message` 가 **바뀌면** draft 에 반영(타이핑은 draft 만 갱신).
+   * K-5: heavy 활성화만으로는 덮어쓰지 않는다(복원한 임시 저장 입력 보존).
+   */
+  const lastSyncedPhase1MessageRef = useRef("");
+  const draftStoreKeyRef = useRef(draftStoreKey);
+  useLayoutEffect(() => {
+    if (draftStoreKeyRef.current === draftStoreKey) return;
+    draftStoreKeyRef.current = draftStoreKey;
+    lastSyncedPhase1MessageRef.current = "";
+    setDraft(readMessengerComposerDraft(draftStoreKey));
+  }, [draftStoreKey]);
   useLayoutEffect(() => {
     if (!composerHeavyEnabled) return;
+    if (vm.message === lastSyncedPhase1MessageRef.current) return;
+    lastSyncedPhase1MessageRef.current = vm.message;
     composerEffectCountRef.current += 1;
     recordRouteEntryMetric("messenger_room_entry", "composer_use_layout_effect_count", composerEffectCountRef.current);
     setDraft(vm.message);
   }, [roomKey, vm.message, composerHeavyEnabled]);
+
+  /** K-5: 입력 debounce 저장(수정 모드 글은 저장하지 않음). 언마운트 시 대기 중 저장만 즉시 반영. */
+  const pendingDraftSaveRef = useRef<{ key: string | null; value: string; timer: ReturnType<typeof setTimeout> } | null>(
+    null
+  );
+  const editingActive = Boolean(editingMessage);
+  useEffect(() => {
+    if (editingActive || !draftStoreKey) return;
+    const prev = pendingDraftSaveRef.current;
+    if (prev) clearTimeout(prev.timer);
+    const key = draftStoreKey;
+    const value = draft;
+    const timer = setTimeout(() => {
+      pendingDraftSaveRef.current = null;
+      writeMessengerComposerDraft(key, value);
+    }, MESSENGER_COMPOSER_DRAFT_SAVE_DEBOUNCE_MS);
+    pendingDraftSaveRef.current = { key, value, timer };
+  }, [draft, draftStoreKey, editingActive]);
+  useEffect(() => {
+    return () => {
+      const pending = pendingDraftSaveRef.current;
+      pendingDraftSaveRef.current = null;
+      if (pending) {
+        clearTimeout(pending.timer);
+        writeMessengerComposerDraft(pending.key, pending.value);
+      }
+      if (deferredSendTimerRef.current) clearTimeout(deferredSendTimerRef.current);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     seededSilentHoldReleasedRef.current = false;
@@ -397,6 +461,14 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           ? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" })
           : safeT("cm_ui_message", { fallbackKo: "메시지", fallbackEn: "Message" });
 
+  const filteredMentionCandidates = useMemo(
+    () => filterGroupMentionCandidates(mentionCandidates, mentionQuery),
+    [mentionCandidates, mentionQuery]
+  );
+  const mentionListVisible = isPrivateGroupRoom && mentionOpen && filteredMentionCandidates.length > 0;
+  const mentionActiveIndexClamped =
+    filteredMentionCandidates.length > 0 ? Math.min(mentionActiveIndex, filteredMentionCandidates.length - 1) : 0;
+
   const pickMention = useCallback(
     (candidate: GroupMentionCandidate) => {
       const ta = vm.composerTextareaRef.current;
@@ -428,23 +500,59 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     [isPrivateGroupRoom, vm.composerTextareaRef]
   );
 
-  const commitTextSend = useCallback(async () => {
-    if (
-      isComposerTextSendBlocked({
-        busy: vm.busy,
-        roomUnavailable: Boolean(vm.roomUnavailable),
-        draft,
-      })
-    ) {
+  /** 실제 전송 — 입력을 비우고 보낸다. 실패 복원(빈 입력창일 때만)·실패 행(M-8)은 controller 단일 권한. */
+  const commitTextSendValue = useCallback(
+    async (value: string) => {
+      if (
+        isComposerTextSendBlocked({
+          busy: vm.busy,
+          roomUnavailable: Boolean(vm.roomUnavailable),
+          draft: value,
+        })
+      ) {
+        return;
+      }
+      const text = value.trim();
+      recordCmPolishSendClick();
+      setDraft("");
+      setMentionOpen(false);
+      const ok = await vm.sendMessage(text);
+      // K-5: 성공 시 임시 저장 삭제(그 사이 새로 입력한 글이 있으면 debounce 저장이 이어받는다)
+      if (ok && !draftRef.current.trim()) {
+        const pending = pendingDraftSaveRef.current;
+        if (pending) clearTimeout(pending.timer);
+        pendingDraftSaveRef.current = null;
+        clearMessengerComposerDraft(draftStoreKey);
+      }
+      scheduleMessengerComposerFocusRetain(vm.composerTextareaRef);
+    },
+    [draftStoreKey, vm]
+  );
+
+  /** K-6: 조합 확정 뒤 실제 textarea 값으로 전송(조합 중 비우면 마지막 글자가 다시 들어온다). blur 하지 않는다. */
+  const flushDeferredSend = useCallback(() => {
+    if (deferredSendTimerRef.current) {
+      clearTimeout(deferredSendTimerRef.current);
+      deferredSendTimerRef.current = null;
+    }
+    if (!deferredSendPendingRef.current) return;
+    deferredSendPendingRef.current = false;
+    const value = localTextareaRef.current?.value ?? draftRef.current;
+    if (value !== draftRef.current) setDraft(value);
+    void commitTextSendValue(value);
+  }, [commitTextSendValue]);
+
+  const commitTextSend = useCallback(() => {
+    if (composingRef.current) {
+      deferredSendPendingRef.current = true;
+      if (!deferredSendTimerRef.current) {
+        // compositionend 가 오지 않는 IME 대비 상한
+        deferredSendTimerRef.current = setTimeout(flushDeferredSend, 250);
+      }
       return;
     }
-    const text = draft.trim();
-    recordCmPolishSendClick();
-    setDraft("");
-    const ok = await vm.sendMessage(text);
-    if (!ok) setDraft(text);
-    scheduleMessengerComposerFocusRetain(vm.composerTextareaRef);
-  }, [draft, vm]);
+    void commitTextSendValue(localTextareaRef.current?.value ?? draft);
+  }, [commitTextSendValue, draft, flushDeferredSend]);
 
   const composerFooterInner = (
     <>
@@ -538,7 +646,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
               open={mentionOpen}
               query={mentionQuery}
               candidates={mentionCandidates}
-              activeIndex={mentionActiveIndex}
+              activeIndex={mentionActiveIndexClamped}
               onPick={pickMention}
             />
           ) : null}
@@ -546,6 +654,9 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           draft={draft}
           placeholder={composerPlaceholder}
           textareaRef={vm.composerTextareaRef}
+          onTextareaRef={(node) => {
+            localTextareaRef.current = node;
+          }}
           onDraftChange={handleDraftChange}
           onAttach={() => {
             vm.composerTextareaRef.current?.blur();
@@ -560,11 +671,54 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           onSend={commitTextSend}
           onTextareaKeyDown={(e) => {
             notifyChatInputKeydownForPerf();
-            if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
-            if (e.shiftKey) return;
-            if (e.nativeEvent.isComposing) return;
-            e.preventDefault();
-            commitTextSend();
+            const action = resolveMessengerComposerKeyAction(
+              {
+                key: e.key,
+                shiftKey: e.shiftKey,
+                isComposing: e.nativeEvent.isComposing,
+                keyCode: e.nativeEvent.keyCode,
+              },
+              {
+                mobile: isMessengerComposerMobileInputEnvironment(),
+                mentionOpen: mentionListVisible,
+                compositionActive: composingRef.current,
+              }
+            );
+            switch (action.kind) {
+              case "mention_move":
+                e.preventDefault();
+                setMentionActiveIndex((i) =>
+                  nextMentionActiveIndex(i, action.delta, filteredMentionCandidates.length)
+                );
+                return;
+              case "mention_pick": {
+                const candidate = filteredMentionCandidates[mentionActiveIndexClamped];
+                if (!candidate) return;
+                e.preventDefault();
+                pickMention(candidate);
+                return;
+              }
+              case "mention_close":
+                e.preventDefault();
+                setMentionOpen(false);
+                return;
+              case "send":
+                e.preventDefault();
+                commitTextSend();
+                return;
+              default:
+                // D3: 모바일 Enter·Shift+Enter·IME 조합 Enter → 기본 동작(줄바꿈/조합 확정)
+                return;
+            }
+          }}
+          onTextareaCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onTextareaCompositionEnd={() => {
+            composingRef.current = false;
+            if (!deferredSendPendingRef.current) return;
+            // 조합 확정 값이 textarea·draft 에 반영된 다음 프레임에 전송
+            window.requestAnimationFrame(() => flushDeferredSend());
           }}
           onTextareaFocus={(e) => {
             useMessengerRoomUiStore.getState().setComposerFocused(true);

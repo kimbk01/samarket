@@ -18,9 +18,13 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { isStoreOrderChatLeaveAllowedStatus } from "@/lib/stores/store-order-process-model";
+import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
+import { useMessengerSwipeDismissTriggers } from "@/lib/community-messenger/home/use-messenger-swipe-dismiss-triggers";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
 import { CommunityMessengerHomeListPane } from "@/components/community-messenger/CommunityMessengerHomeListPane";
+import { shouldHydrateMessengerFriendsOnTabEntry } from "@/lib/community-messenger/home/messenger-friends-tab-hydrate-gate";
 import { CommunityMessengerPrivateGroupCreatePanel } from "@/components/community-messenger/CommunityMessengerPrivateGroupCreatePanel";
 import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home/DiscoverableOpenGroupCard";
 import { MeetingJoinPreviewFullScreen } from "@/components/community-messenger/meetings/MeetingJoinPreviewFullScreen";
@@ -109,6 +113,7 @@ import {
   resolveMessengerFriendAddCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
 import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import {
   readPreferredCommunityMessengerDeviceIds,
@@ -141,7 +146,7 @@ import {
 } from "@/lib/community-messenger/room/community-messenger-mark-read-fetch";
 import { CommunityMessengerHomeReturnConsume } from "@/components/community-messenger/CommunityMessengerHomeReturnConsume";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import { getSwipeLeaveConfirmI18nKey } from "@/lib/messenger-policy/chat-room-swipe-actions";
+import { getSwipeLeaveConfirmI18nKey, resolveMessengerRoomLeaveAllowed } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import {
@@ -157,6 +162,7 @@ import {
 import { MESSENGER_SCROLL_OVERLAY_IDLE_MS } from "@/lib/community-messenger/messenger-transient-ui-policy";
 import {
   buildGeneralDirectRoomByPeerMap,
+  communityMessengerRoomAllowsPeerBlockMenu,
   communityMessengerRoomIsDelivery,
   communityMessengerRoomIsTrade,
   isGeneralFriendDirectRoom,
@@ -638,6 +644,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     homeRealtimeGateOpen,
     hydrateDeferredCallLogs,
     hydrateMessengerFriends,
+    getMessengerFriendsLastHydratedAt,
     hydrateMessengerPrivacyLists,
     privacyListsStatus,
     shadowDispatch,
@@ -731,6 +738,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [leaveConfirmRoom, setLeaveConfirmRoom] = useState<CommunityMessengerRoomSummary | null>(null);
   const [openedSwipeItemId, setOpenedSwipeItemId] = useState<string | null>(null);
   const [openedMenuItemId, setOpenedMenuItemId] = useState<string | null>(null);
+  const dismissOpenedSwipeItem = useCallback(() => setOpenedSwipeItemId((prev) => (prev === null ? prev : null)), []);
+  useMessengerSwipeDismissTriggers(openedSwipeItemId != null, dismissOpenedSwipeItem);
   const [messengerOverlayGeneration, setMessengerOverlayGeneration] = useState(0);
   /** Tab swipe between friends/chats/archive; avoid parent re-render when friends quick menu toggles. */
   const friendQuickMenuBlocksTabSwipeRef = useRef(false);
@@ -886,11 +895,41 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     if (!data?.deferredCallLog) return;
     void hydrateDeferredCallLogs();
   }, [mainSection, data?.deferredCallLog, hydrateDeferredCallLogs]);
-  /** 친구 탭 — lite/critical 에 friends 가 비었을 때 DB fallback hydrate */
+  /**
+   * 친구 탭 — P-3: 진입 1회당 최대 1회. 비었거나·lite/critical 이거나·마지막 성공이 오래됐을 때만 GET /friends.
+   * 명시적 무효화는 `cm.home.social_sync` 버스·social Realtime(`onSocialGraphChanged`)이 직접 호출한다.
+   */
+  const friendsTabEntryRequestedRef = useRef(false);
+  const friendsTabHasData = data != null;
+  const friendsTabFriendsCount = data?.friends?.length ?? 0;
+  const friendsTabHydrationTier = data?.clientHydrationTier;
   useEffect(() => {
-    if (mainSection !== "friends") return;
+    if (mainSection !== "friends") {
+      friendsTabEntryRequestedRef.current = false;
+      return;
+    }
+    if (
+      !shouldHydrateMessengerFriendsOnTabEntry({
+        alreadyRequestedThisEntry: friendsTabEntryRequestedRef.current,
+        hasData: friendsTabHasData,
+        friendsCount: friendsTabFriendsCount,
+        clientHydrationTier: friendsTabHydrationTier,
+        lastSuccessAt: getMessengerFriendsLastHydratedAt(),
+        now: Date.now(),
+      })
+    ) {
+      return;
+    }
+    friendsTabEntryRequestedRef.current = true;
     void hydrateMessengerFriends();
-  }, [mainSection, hydrateMessengerFriends, data?.clientHydrationTier, data?.friends?.length]);
+  }, [
+    mainSection,
+    hydrateMessengerFriends,
+    getMessengerFriendsLastHydratedAt,
+    friendsTabHasData,
+    friendsTabFriendsCount,
+    friendsTabHydrationTier,
+  ]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [roomSearchKeyword, setRoomSearchKeyword] = useState("");
@@ -1513,9 +1552,18 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ hidden: !currentlyHidden }),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; isHidden?: boolean };
-        if (res.ok && json.ok) {
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; isHidden?: boolean; error?: string };
+        if (!res.ok || !json.ok) {
+          /** F-8 — 숨김 토글 실패를 알린다 (서버 코드 원문 비노출 · 공통 매퍼) */
+          showMessengerSnackbar(getMessengerActionErrorMessage(json.error), { variant: "error" });
+          return;
+        }
+        {
           const nextHidden = json.isHidden === true;
+          showMessengerSnackbar(
+            t(nextHidden ? "cm_social_hide_friend_success" : "cm_social_unhide_friend_success"),
+            { variant: "success" }
+          );
           setData((prev) => {
             if (!prev) return prev;
             const patchList = (list: CommunityMessengerProfileLite[]) =>
@@ -1552,11 +1600,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               : prev
           );
         }
+      } catch {
+        showMessengerSnackbar(getMessengerActionErrorMessage(), { variant: "error" });
       } finally {
         setBusyId(null);
       }
     },
-    [hydrateMessengerPrivacyLists, setData]
+    [getMessengerActionErrorMessage, hydrateMessengerPrivacyLists, setData, t]
   );
 
   const toggleBlock = useCallback(
@@ -1580,9 +1630,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           hiddenRoomIds?: unknown;
         };
         if (res.ok && json.ok) {
-          if (isBlocked) {
-            showMessengerSnackbar(t("cm_social_unblock_success"), { variant: "success" });
-          }
+          /** F-8 — 차단·해제 성공 스낵바 통일 */
+          showMessengerSnackbar(t(isBlocked ? "cm_social_unblock_success" : "cm_social_block_success"), {
+            variant: "success",
+          });
           const nowBlocked = !isBlocked;
           const searchHit = searchResults.find((p) => p.id === targetUserId);
           const fallbackProfile: CommunityMessengerProfileLite | null =
@@ -1662,6 +1713,25 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       setPageError,
       t,
     ]
+  );
+
+  /**
+   * F-7 — 프로필 시트·방 액션시트 차단은 공통 확인창(MessengerBlockPeerConfirmModal)을 거친다.
+   * 해제는 즉시 실행 (확인창 문구가 차단 전용).
+   */
+  const [blockConfirmTarget, setBlockConfirmTarget] = useState<{
+    userId: string;
+    blockSource?: "friend_list" | "chat_room" | "profile" | "incoming_call" | "call_log";
+  } | null>(null);
+  const requestToggleBlockWithConfirm = useCallback(
+    (targetUserId: string, options?: { blockSource?: "friend_list" | "chat_room" | "profile" | "incoming_call" | "call_log" }) => {
+      if (resolvePeerBlockedByMe(targetUserId)) {
+        void toggleBlock(targetUserId, options);
+        return;
+      }
+      setBlockConfirmTarget({ userId: targetUserId, blockSource: options?.blockSource });
+    },
+    [resolvePeerBlockedByMe, toggleBlock]
   );
 
   const createPrivateGroup = useCallback(async () => {
@@ -2888,7 +2958,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       roomType: leaveConfirmRoom.roomType,
       contextMeta: leaveConfirmRoom.contextMeta ?? null,
     });
-    return getSwipeLeaveConfirmI18nKey(policy);
+    return getSwipeLeaveConfirmI18nKey(policy, {
+      isStoreOrder:
+        Boolean(resolveCommunityMessengerDeliveryContextMeta(leaveConfirmRoom)) ||
+        leaveConfirmRoom.chatDomain === "store_order",
+    });
   }, [leaveConfirmRoom]);
 
   const cancelLeaveMessengerRoom = useCallback(() => {
@@ -3168,7 +3242,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               : undefined
           }
           onRemoveFriend={friendProfileForSheet.isFriend ? () => void removeFriend(friendProfileForSheet.id) : undefined}
-          onBlock={friendProfileForSheet.id !== data?.me?.id ? () => void toggleBlock(friendProfileForSheet.id) : undefined}
+          onBlock={
+            friendProfileForSheet.id !== data?.me?.id
+              ? () => requestToggleBlockWithConfirm(friendProfileForSheet.id)
+              : undefined
+          }
           onReport={friendProfileForSheet.id !== data?.me?.id ? () => void reportCommunityUser(friendProfileForSheet.id) : undefined}
           friendAddCta={data?.me?.id ? friendAddCtaForSheet : undefined}
           onFriendAdd={
@@ -3268,25 +3346,52 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             };
           })()}
           onBlock={
-            roomActionSheet.item.room.roomType === "direct" &&
+            /** D1 — 거래·주문 방에는 차단 메뉴를 노출하지 않는다 · F-7 공통 확인창 */
+            communityMessengerRoomAllowsPeerBlockMenu(roomActionSheet.item.room) &&
             roomActionSheet.item.room.peerUserId &&
             roomActionSheet.item.room.peerUserId !== data.me?.id
               ? () => {
                   const pid = roomActionSheet.item.room.peerUserId!;
                   setRoomActionSheet(null);
-                  void toggleBlock(pid);
+                  requestToggleBlockWithConfirm(pid, { blockSource: "chat_room" });
                 }
               : undefined
           }
-          onLeave={() => {
-            setRoomActionSheet(null);
-            setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
-            void leaveMessengerRoom(roomActionSheet.item.room);
-          }}
+          onLeave={
+            /** W2 — 스와이프와 같은 나가기 정책(진행 중 주문·오픈그룹 방장은 숨김) */
+            resolveMessengerRoomLeaveAllowed({
+              roomType: roomActionSheet.item.room.roomType,
+              isStoreOrder:
+                Boolean(resolveCommunityMessengerDeliveryContextMeta(roomActionSheet.item.room)) ||
+                roomActionSheet.item.room.chatDomain === "store_order",
+              storeOrderClosed: isStoreOrderChatLeaveAllowedStatus(
+                String(resolveCommunityMessengerDeliveryContextMeta(roomActionSheet.item.room)?.orderStatus ?? "")
+              ),
+              ownerUserId: roomActionSheet.item.room.ownerUserId,
+              viewerUserId: messengerViewerUserId,
+            })
+              ? () => {
+                  setRoomActionSheet(null);
+                  setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
+                  void leaveMessengerRoom(roomActionSheet.item.room);
+                }
+              : undefined
+          }
           onClearLocalPreview={() => clearLocalRoomPreview(roomActionSheet.item.room.id)}
           onReportRoom={() => void reportCommunityRoom(roomActionSheet.item.room.id)}
         />
       ) : null}
+
+      <MessengerBlockPeerConfirmModal
+        open={blockConfirmTarget != null}
+        busy={blockConfirmTarget != null && busyId === `block:${blockConfirmTarget.userId}`}
+        onCancel={() => setBlockConfirmTarget(null)}
+        onConfirm={() => {
+          const target = blockConfirmTarget;
+          setBlockConfirmTarget(null);
+          if (target) void toggleBlock(target.userId, { blockSource: target.blockSource });
+        }}
+      />
 
       {friendsPrivacySheetOpen && data ? (
         <MessengerFriendsPrivacySheet

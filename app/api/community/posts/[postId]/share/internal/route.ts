@@ -8,7 +8,7 @@ import {
   startCommunityMessengerDirectChat,
 } from "@/lib/community-messenger/service";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
-import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
+import { publishMessengerRoomBumpBounded } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 import { isUuidString } from "@/lib/shared/uuid-string";
 import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
   const postId = String(rawPostId ?? "").trim();
   if (!isUuidString(postId)) return jsonError("invalid_post_id", 400);
 
-  const parsed = await parseJsonBody<{ roomId?: string; targetUserId?: string }>(req, "invalid_json");
+  const parsed = await parseJsonBody<{ roomId?: string; targetUserId?: string; clientMessageId?: string }>(req, "invalid_json");
   if (!parsed.ok) return parsed.response;
 
   const roomIdInput = String(parsed.value.roomId ?? "").trim();
@@ -75,11 +75,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
   const metadata = buildCommunityPostShareMessageMetadata(card);
   const previewContent = card.title.trim() || card.excerpt.trim() || card.categoryName.trim() || "DIBAY";
 
+  /** M-14: 재시도 중복 방지 — 서비스는 cid 를 지원(DB UNIQUE), 라우트가 넘기지 않던 문제 */
+  const shareClientMessageId = String(parsed.value.clientMessageId ?? "").trim().slice(0, 128);
   const result = await sendCommunityPostShareMessage({
     userId: auth.userId,
     roomId,
     content: previewContent,
     metadata,
+    clientMessageId: shareClientMessageId || undefined,
     onNotifyScheduled: keepMessengerNotifyAliveAfterAck,
   });
 
@@ -88,8 +91,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
     return jsonError(result.error ?? "share_failed", status);
   }
 
+  /** M-13: 저장 성공 뒤 bump 오류가 500 으로 새지 않게 bounded(throw 없음) */
   if (result.message) {
-    await publishMessengerRoomBumpAfterMutation({
+    await publishMessengerRoomBumpBounded({
       rawRouteRoomId: roomId,
       canonicalRoomId: roomId,
       fromUserId: auth.userId,

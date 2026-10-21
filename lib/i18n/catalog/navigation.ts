@@ -98,6 +98,8 @@ export const navigationMessages = {
     nav_messenger_open_group_only: "공개 그룹방만 비밀번호 입장이 가능합니다.",
     nav_messenger_owner_cannot_leave:
       "방장은 방을 나갈 수 없습니다. 필요하면 다른 방장을 지정하는 기능을 후속으로 연결해야 합니다.",
+    nav_messenger_store_owner_cannot_leave: "매장 주문 채팅은 매장에서 나갈 수 없습니다. 주문 기록은 보존됩니다.",
+    nav_messenger_store_order_leave_in_progress: "진행 중인 주문 채팅은 나갈 수 없습니다. 주문이 완료되거나 취소된 뒤 정리할 수 있습니다.",
     nav_messenger_room_lookup_failed: "기존 채팅방 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.",
     nav_messenger_direct_create_failed: "1:1 채팅방 생성에 실패했습니다.",
     nav_messenger_group_create_failed: "그룹방 생성에 실패했습니다.",
@@ -481,6 +483,8 @@ export const navigationMessages = {
     nav_messenger_open_group_only: "Password entry is available only for public group rooms.",
     nav_messenger_owner_cannot_leave:
       "The owner cannot leave the room. If needed, add a follow-up feature to assign another owner first.",
+    nav_messenger_store_owner_cannot_leave: "Stores can't leave order chats. The order record is kept.",
+    nav_messenger_store_order_leave_in_progress: "You can't leave an order chat while the order is in progress. You can clear it after it's completed or cancelled.",
     nav_messenger_room_lookup_failed: "Failed to check the existing chat room. Please try again later.",
     nav_messenger_direct_create_failed: "Failed to create the 1:1 chat room.",
     nav_messenger_group_create_failed: "Failed to create the group room.",

@@ -32,8 +32,9 @@ import {
   isOutgoingCallPhoneVerificationRequired,
   navigateBlockedOutgoingCall,
 } from "@/lib/call/outgoing-call-start-guard";
+import { callLogsIdentityKey, mergeCallLogsFirstPage } from "@/lib/community-messenger/call-history/call-logs-panel-merge";
 import { resolveCallHistoryRedialRoomClient } from "@/lib/community-messenger/call-history/call-history-redial-room-client";
-import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
+import { getCurrentUserIdForDb, getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import type { CommunityMessengerCallLog, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
 function sanitizeCallPeerUserId(peerUserId: string | null | undefined): string | null {
@@ -65,6 +66,10 @@ type Props = {
   onBootstrapCallsChange?: (calls: CommunityMessengerCallLog[]) => void;
 };
 
+/** 기본값 배열은 렌더마다 새로 만들면 seed effect 가 무한 반복된다 (C-1) */
+const EMPTY_CALLS: CommunityMessengerCallLog[] = [];
+const EMPTY_PROFILES: CommunityMessengerProfileLite[] = [];
+
 type OutgoingConfirmState = {
   call: CommunityMessengerCallLog;
   kind: "voice" | "video";
@@ -73,11 +78,11 @@ type OutgoingConfirmState = {
 
 /** 통화 목록 본문 — 독립 페이지·메신저 홈 탭 공용 */
 export function MessengerCallLogsPanel({
-  seedCalls = [],
+  seedCalls = EMPTY_CALLS,
   callsHydrating = false,
   entryOrigin = null,
   viewerUserId = null,
-  peerProfiles = [],
+  peerProfiles = EMPTY_PROFILES,
   openedSwipeItemId: controlledOpenedSwipeItemId,
   onOpenSwipeItem: controlledOnOpenSwipeItem,
   messengerOverlayGeneration,
@@ -86,7 +91,19 @@ export function MessengerCallLogsPanel({
 }: Props) {
   const { t, safeT } = useI18n();
   const router = useRouter();
-  const resolvedViewerUserId = viewerUserId?.trim() || getSyncViewerUserIdForClient() || null;
+  const [asyncViewerUserId, setAsyncViewerUserId] = useState<string | null>(null);
+  const resolvedViewerUserId = viewerUserId?.trim() || getSyncViewerUserIdForClient() || asyncViewerUserId || null;
+  /** C-18: 단독 페이지는 viewerUserId 를 받지 않는다 — 프로필 캐시가 늦으면 비동기로 채워 첫 조회를 보장 */
+  useEffect(() => {
+    if (resolvedViewerUserId) return;
+    let cancelled = false;
+    void getCurrentUserIdForDb().then((id) => {
+      if (!cancelled && id?.trim()) setAsyncViewerUserId(id.trim());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedViewerUserId]);
   const [calls, setCalls] = useState<CommunityMessengerCallLog[]>(seedCalls);
   const [loading, setLoading] = useState(callsHydrating);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +131,19 @@ export function MessengerCallLogsPanel({
   const skipMountRefetchOnceRef = useRef(false);
   const nextCursorRef = useRef<string | null>(null);
   nextCursorRef.current = nextCursor;
+  /** 2페이지 이상 불러왔는지 — 첫 페이지 재조회 시 병합 여부 */
+  const loadedBeyondFirstPageRef = useRef(false);
+  /** 부모(`data.calls`)로 내보낸 배열 — 되돌아온 seed 는 다시 적용하지 않는다 (C-2) */
+  const lastEmittedCallsRef = useRef<CommunityMessengerCallLog[] | null>(null);
+  const callsCountRef = useRef(0);
+  callsCountRef.current = calls.length;
+  const emitBootstrapCalls = useCallback(
+    (next: CommunityMessengerCallLog[]) => {
+      lastEmittedCallsRef.current = next;
+      onBootstrapCallsChange?.(next);
+    },
+    [onBootstrapCallsChange]
+  );
 
   const enrichCalls = useCallback(
     (entries: CommunityMessengerCallLog[]) =>
@@ -125,15 +155,23 @@ export function MessengerCallLogsPanel({
   const applyFirstPageFromServer = useCallback(
     (page: { calls: CommunityMessengerCallLog[]; nextCursor: string | null; hasMore: boolean }) => {
       const enriched = enrichCalls(page.calls);
-      setCalls(enriched);
-      setNextCursor(page.nextCursor);
-      setHasMore(page.hasMore);
+      if (loadedBeyondFirstPageRef.current) {
+        setCalls((prev) => {
+          const merged = mergeCallLogsFirstPage(prev, enriched);
+          emitBootstrapCalls(merged);
+          return merged;
+        });
+      } else {
+        setCalls(enriched);
+        setNextCursor(page.nextCursor);
+        setHasMore(page.hasMore);
+        emitBootstrapCalls(enriched);
+      }
       setLoadMoreError(null);
       setLoading(false);
       setError(null);
-      onBootstrapCallsChange?.(enriched);
     },
-    [enrichCalls, onBootstrapCallsChange]
+    [emitBootstrapCalls, enrichCalls]
   );
 
   const refetchCallLogsFromServer = useCallback(async () => {
@@ -142,11 +180,11 @@ export function MessengerCallLogsPanel({
       applyFirstPageFromServer(fetched);
       return;
     }
-    if (calls.length === 0) {
+    if (callsCountRef.current === 0) {
       setError(t("cm_ui_call_logs_load_failed"));
       setLoading(false);
     }
-  }, [applyFirstPageFromServer, calls.length, t]);
+  }, [applyFirstPageFromServer, t]);
 
   const onLoadMore = useCallback(async () => {
     const cursor = nextCursorRef.current?.trim();
@@ -159,14 +197,15 @@ export function MessengerCallLogsPanel({
       setLoadMoreError(t("cm_ui_call_logs_load_failed"));
       return;
     }
+    loadedBeyondFirstPageRef.current = true;
     setCalls((prev) => {
       const merged = appendCommunityMessengerCallLogsById(prev, enrichCalls(page.calls));
-      onBootstrapCallsChange?.(merged);
+      emitBootstrapCalls(merged);
       return merged;
     });
     setNextCursor(page.nextCursor);
     setHasMore(page.hasMore);
-  }, [enrichCalls, loadingMore, onBootstrapCallsChange, t]);
+  }, [emitBootstrapCalls, enrichCalls, loadingMore, t]);
 
   useCommunityCallHistoryRealtimeSync({
     enabled: Boolean(resolvedViewerUserId),
@@ -217,15 +256,28 @@ export function MessengerCallLogsPanel({
     setOpenedSwipeItemId(null);
   }, [messengerOverlayGeneration, setOpenedSwipeItemId]);
 
+  /** 외부 seed(부트스트랩) 반영 — 우리가 내보낸 배열이 되돌아온 경우는 커서·페이지를 유지 (C-1·C-2) */
+  const seedKey = callLogsIdentityKey(seedCalls);
+  const lastAppliedSeedKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    if (seedCalls === lastEmittedCallsRef.current) {
+      lastAppliedSeedKeyRef.current = seedKey;
+      return;
+    }
+    /** 상위 `?? []` 등으로 배열 참조만 새로 만들어진 경우 — 같은 내용이면 다시 적용하지 않는다 */
+    if (lastAppliedSeedKeyRef.current === seedKey) return;
+    if (seedCalls.length === 0 && callsCountRef.current > 0) return;
+    lastAppliedSeedKeyRef.current = seedKey;
     setCalls(enrichCalls(seedCalls));
     setNextCursor(null);
     setHasMore(false);
     setLoadMoreError(null);
+    loadedBeyondFirstPageRef.current = false;
     if (!callsHydrating) {
       setLoading(false);
     }
-  }, [seedCalls, callsHydrating, enrichCalls]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seedKey 로 내용 변경만 반영 (C-1)
+  }, [seedKey, callsHydrating, enrichCalls]);
 
   useEffect(() => {
     if (!callsHydrating) return;
@@ -302,7 +354,7 @@ export function MessengerCallLogsPanel({
         }
         setCalls((prev) => {
           const next = prev.filter((row) => row.id !== targetId);
-          onBootstrapCallsChange?.(enrichCalls(next));
+          emitBootstrapCalls(next);
           return next;
         });
         showMessengerSnackbar(
@@ -318,7 +370,7 @@ export function MessengerCallLogsPanel({
         setDeletingCallId(null);
       }
     },
-    [closeCallLogSwipe, deletingCallId, enrichCalls, onBootstrapCallsChange, safeT, t]
+    [closeCallLogSwipe, deletingCallId, emitBootstrapCalls, safeT, t]
   );
 
   const onDeleteRequest = useCallback(

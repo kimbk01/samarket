@@ -285,9 +285,12 @@ export async function POST(
       membershipPreflightDone: true,
       _t5: t5 ?? undefined,
     });
-    const tStore = Date.now();
-    sendDedupe.set(key, { at: tStore, res: r as any });
-    pruneByAtMaxAgeAndMaxSize(sendDedupe, tStore, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
+    /** M-11: 성공 결과만 캐시 — 실패를 캐시하면 같은 cid 즉시 재시도가 캐시된 실패를 받는다 */
+    if (r.ok) {
+      const tStore = Date.now();
+      sendDedupe.set(key, { at: tStore, res: r as any });
+      pruneByAtMaxAgeAndMaxSize(sendDedupe, tStore, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
+    }
     return r;
   });
   const postAckEffects = result.ok ? result.postAckEffects : undefined;
@@ -358,10 +361,31 @@ export async function POST(
     } catch {
       /* best-effort — do not fail the send ACK */
     }
+    /**
+     * W4 ACK 계약: 저장(커밋) 성공 = ACK 성공. 실시간 bump 는 ACK **전**에 bounded(700+600ms) 로 await —
+     * 이전에는 after() 안에서 FCM 순차 발송이 끝난 뒤에야 나가 수신자 화면이 푸시보다 늦었다(M-1).
+     * bump 실패는 응답 상태를 바꾸지 않는다(클라 실패 표시·재전송·중복 금지). after() 에서 1회 더 시도.
+     */
+    const { publishMessengerRoomBumpBounded, publishMessengerRoomBumpAfterMutation } = await import(
+      "@/lib/community-messenger/server/publish-messenger-room-bump"
+    );
+    const bumpPubT0 = performance.now();
+    const bumpResult = await publishMessengerRoomBumpBounded(bumpArgs);
+    if (t5) {
+      spanT5(t5, "S17_room_bump_ms", bumpPubT0);
+      markT5(t5, "S17");
+    }
     if (t5) markT5(t5, "S13");
     after(async () => {
+      if (t5) markT5(t5, "S14");
+      if (!bumpResult.ok) {
+        try {
+          await publishMessengerRoomBumpAfterMutation(bumpArgs);
+        } catch {
+          /* 수신측은 postgres_changes·재합류 따라잡기로 정합 */
+        }
+      }
       try {
-        if (t5) markT5(t5, "S14");
         const { resolveServiceSupabaseForApi } = await import(
           "@/lib/supabase/resolve-service-supabase-for-api"
         );
@@ -372,21 +396,26 @@ export async function POST(
           );
           await runCommunityMessengerSendDeferredPostAckEffects(sb, deferredPostAck, t5 ?? undefined);
         }
-        const { publishMessengerRoomBumpAfterMutation } = await import(
-          "@/lib/community-messenger/server/publish-messenger-room-bump"
-        );
-        const bumpPubT0 = performance.now();
-        await publishMessengerRoomBumpAfterMutation(bumpArgs);
-        if (t5) {
-          spanT5(t5, "S17_room_bump_ms", bumpPubT0);
-          markT5(t5, "S17");
-        }
       } catch {
-        /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
+        /* best-effort: 푸시는 notification cron 이 복구 */
       }
     });
   }
   let responsePayload: Record<string, unknown> = result as unknown as Record<string, unknown>;
+  /**
+   * M-12: 커밋 여부를 모르는 실패(RPC transport·타임아웃)는 cid 로 다시 조회 — 있으면 성공, 없으면 503
+   * (400 이면 클라가 cid 를 버리고 새 cid 로 재전송 → 중복 위험).
+   */
+  const commitUnknown = !result.ok && (result as { error?: string }).error === "commit_unknown";
+  if (commitUnknown && clientMessageId) {
+    const cm = await sendServiceImport;
+    const reread = await cm.findCommunityMessengerMessageByClientId({
+      userId,
+      roomId: canonicalRoomId,
+      clientMessageId,
+    });
+    if (reread) responsePayload = { ok: true, message: reread, deduped: true };
+  }
   if (result.ok && (!result.message || !trimText((result.message as { id?: string })?.id)) && clientMessageId) {
     const cm = await sendServiceImport;
     const reread = await cm.findCommunityMessengerMessageByClientId({
@@ -405,10 +434,12 @@ export async function POST(
   }
   const handlerMs = Math.round(performance.now() - t0);
   const routeMs = Math.round(performance.now() - wall0);
+  const failureStatus =
+    responsePayload.error === "blocked_target" ? 403 : responsePayload.error === "commit_unknown" ? 503 : 400;
   recordMessengerApiTiming(
     "POST /api/community-messenger/rooms/[roomId]/messages",
     handlerMs,
-    responsePayload.ok ? 200 : responsePayload.error === "blocked_target" ? 403 : 400
+    responsePayload.ok ? 200 : failureStatus
   );
   const ackHeaders: Record<string, string> = {
     "x-samarket-send-route-ms": String(routeMs),
@@ -432,8 +463,8 @@ export async function POST(
           typeof responsePayload.error === "string" && responsePayload.error
             ? responsePayload.error
             : "메시지 전송에 실패했습니다.",
-          { status: 400, headers: ackHeaders },
-          { ...responsePayload }
+          { status: failureStatus, headers: ackHeaders },
+          { ...responsePayload, ...(failureStatus === 503 ? { code: "commit_unknown" } : {}) }
         );
 }
 

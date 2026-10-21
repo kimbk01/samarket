@@ -39,6 +39,7 @@ import {
   isMessengerQuickReactionKey,
 } from "@/lib/community-messenger/message-actions/message-reaction-policy";
 import {
+  COMMUNITY_MESSENGER_REPLY_PREVIEW_TYPE_DELETED,
   resolveAdminHiddenMessagePlaceholder,
   resolveDeletedMessagePlaceholder,
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
@@ -307,6 +308,7 @@ import {
 import {
   evaluateAcceptRingDeadlineGate,
   evaluateMissedTransitionGate,
+  resolveRingDeadlineMs,
   resolveCanonicalRingTimeoutSeconds,
 } from "@/lib/community-messenger/call-authority/call-missed-deadline-authority";
 import { resolveHeartbeatTimeoutEndedAtIso } from "@/lib/community-messenger/call-authority/call-heartbeat-timeout-ended-at-authority";
@@ -1184,6 +1186,49 @@ async function appendCommunityMessengerCallSessionEvent(
   }
 }
 
+/**
+ * 수신자에게 링잉이 **전달될 수 없었다**는 증거 — 둘 다 성립할 때만 true:
+ *  (a) 활성 푸시 기기 0대(`user_devices.is_active` + `push_token`)
+ *  (b) 링잉 동안 살아 있는 메신저 presence 없음(`community_messenger_presence_snapshots`)
+ * 조회 오류·불확실 → false(무응답으로 기록). 미접속으로 단정하지 않는다.
+ */
+async function resolveCalleeUnreachableEvidence(
+  sb: SupabaseLike,
+  recipientUserId: string,
+  ringStartedAtIso: string | null | undefined
+): Promise<boolean> {
+  const uid = trimText(recipientUserId);
+  if (!uid) return false;
+  try {
+    const ringStartMs = new Date(trimText(ringStartedAtIso ?? "") || nowIso()).getTime();
+    const [{ data: devices, error: devErr }, { data: presence, error: presErr }] = await Promise.all([
+      (sb as any)
+        .from("user_devices")
+        .select("id")
+        .eq("user_id", uid)
+        .eq("is_active", true)
+        .not("push_token", "is", null)
+        .limit(1),
+      (sb as any)
+        .from("community_messenger_presence_snapshots")
+        .select("last_ping_at, expires_at")
+        .eq("user_id", uid)
+        .maybeSingle(),
+    ]);
+    if (devErr || presErr) return false;
+    if (Array.isArray(devices) && devices.length > 0) return false;
+    if (presence) {
+      const expiresMs = new Date(String((presence as { expires_at?: string }).expires_at ?? "")).getTime();
+      const pingMs = new Date(String((presence as { last_ping_at?: string }).last_ping_at ?? "")).getTime();
+      if (Number.isFinite(expiresMs) && expiresMs >= ringStartMs) return false;
+      if (Number.isFinite(pingMs) && pingMs >= ringStartMs - 60_000) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function endedReasonForSessionDelta(
   action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed" | "connected",
   nextStatus: CommunityMessengerCallSessionStatus,
@@ -1526,8 +1571,12 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
       : contentRaw;
   const callMeta = hiddenByAdmin ? ({} as Record<string, unknown>) : metadata;
   const replyToMessageId = trimText(message.reply_to_message_id) || null;
-  const replyPreviewText = trimText(message.reply_preview_text) || null;
   const replyPreviewTypeRaw = trimText(message.reply_preview_type);
+  /** D-1: 인용 원문이 모두에게서 삭제됨 — 스냅샷 대신 삭제 placeholder */
+  const replyPreviewText =
+    replyPreviewTypeRaw === COMMUNITY_MESSENGER_REPLY_PREVIEW_TYPE_DELETED
+      ? resolveDeletedMessagePlaceholder()
+      : trimText(message.reply_preview_text) || null;
   const replyPreviewType = replyPreviewTypeRaw.length > 0 ? replyPreviewTypeRaw : null;
   const replySenderLabelSnapshot = trimText(message.reply_sender_label_snapshot) || null;
   const clientRaw = metadata.client_message_id;
@@ -10148,12 +10197,12 @@ export async function removeCommunityMessengerFriend(
 
   const sb = getSupabaseOrNull();
   if (sb) {
+    /** F-3 — 내(owner) 즐겨찾기 행만 정리. 상대가 소유한 행은 건드리지 않는다 (삭제 사실 노출 방지) */
     const { error: favoriteDeleteError } = await (sb as any)
       .from("community_friend_favorites")
       .delete()
-      .or(
-        `and(user_id.eq.${userId},target_user_id.eq.${target}),and(user_id.eq.${target},target_user_id.eq.${userId})`
-      );
+      .eq("user_id", userId)
+      .eq("target_user_id", target);
     if (favoriteDeleteError && !isMissingTableError(favoriteDeleteError)) {
       return { ok: false, error: String(favoriteDeleteError.message ?? "friend_favorite_cleanup_failed") };
     }
@@ -10173,13 +10222,12 @@ export async function removeCommunityMessengerFriend(
 
   const dev = getDevState();
   dev.favoriteFriends.get(userId)?.delete(target);
-  dev.favoriteFriends.get(target)?.delete(userId);
   dev.hiddenFriends.get(userId)?.delete(target);
   return { ok: true };
 }
 
 /**
- * 커뮤니티 차단(`user_relationships.blocked`) 시 친구·요청·즐겨찾기·숨김 관계를 정리합니다.
+ * 차단 시 **차단한 사람 소유**의 친구·즐겨찾기·숨김 행만 정리합니다 (F-3 · 상대 소유 행 불변).
  * 차단 행 자체는 호출 측에서 이미 반영된 뒤 호출하는 것을 전제로 합니다.
  */
 export async function cleanupCommunityMessengerFriendGraphOnBlock(
@@ -10200,27 +10248,27 @@ export async function cleanupCommunityMessengerFriendGraphOnBlock(
       .eq("target_user_id", b)
       .eq("relation_type", "friend");
 
+    /**
+     * F-3 — 차단한 사람(owner=a) 소유 행만 정리한다. 상대(b)가 소유한 즐겨찾기·숨김 행을 지우면
+     * 상대가 차단 사실을 짐작할 수 있다 (LOCK「내 쪽만 정리」).
+     */
     const { error: favoriteDeleteError } = await (sb as any)
       .from("community_friend_favorites")
       .delete()
-      .or(`and(user_id.eq.${a},target_user_id.eq.${b}),and(user_id.eq.${b},target_user_id.eq.${a})`);
+      .eq("user_id", a)
+      .eq("target_user_id", b);
     if (favoriteDeleteError && !isMissingTableError(favoriteDeleteError)) {
       return { ok: false, error: String(favoriteDeleteError.message ?? "friend_favorite_cleanup_failed") };
     }
 
-    for (const [uid, tid] of [
-      [a, b],
-      [b, a],
-    ] as const) {
-      const { error: hiddenDeleteError } = await (sb as any)
-        .from("user_relationships")
-        .delete()
-        .eq("user_id", uid)
-        .eq("target_user_id", tid)
-        .or("relation_type.eq.hidden,type.eq.hidden");
-      if (hiddenDeleteError && !isMissingTableError(hiddenDeleteError)) {
-        return { ok: false, error: String(hiddenDeleteError.message ?? "friend_hidden_cleanup_failed") };
-      }
+    const { error: hiddenDeleteError } = await (sb as any)
+      .from("user_relationships")
+      .delete()
+      .eq("user_id", a)
+      .eq("target_user_id", b)
+      .or("relation_type.eq.hidden,type.eq.hidden");
+    if (hiddenDeleteError && !isMissingTableError(hiddenDeleteError)) {
+      return { ok: false, error: String(hiddenDeleteError.message ?? "friend_hidden_cleanup_failed") };
     }
 
     invalidateBootstrapLiteSocialDeferredForPair(a, b);
@@ -10229,9 +10277,7 @@ export async function cleanupCommunityMessengerFriendGraphOnBlock(
 
   const dev = getDevState();
   dev.favoriteFriends.get(a)?.delete(b);
-  dev.favoriteFriends.get(b)?.delete(a);
   dev.hiddenFriends.get(a)?.delete(b);
-  dev.hiddenFriends.get(b)?.delete(a);
   return { ok: true };
 }
 
@@ -11753,20 +11799,6 @@ export async function joinOpenGroupRoomWithPassword(input: {
         if (!verifyMeetingPassword(password, room.password_hash)) return { ok: false, error: "invalid_password" };
       }
       if (identityPolicy !== "alias_allowed" && identityMode === "alias") return { ok: false, error: "forbidden" };
-      /**
-       * `count: "exact"` can be expensive for large rooms (it may scan/index-walk).
-       * We only need to know "is it full?" — use limit+1 as a cheap existence check.
-       */
-      const { data: participantHead, error: participantHeadError } = await (sb as any)
-        .from("community_messenger_participants")
-        .select("id")
-        .eq("room_id", roomId)
-        .limit(Number(room.member_limit ?? 0) > 0 ? Math.max(1, Number(room.member_limit ?? 0)) + 1 : 1);
-      if (participantHeadError && !isMissingTableError(participantHeadError)) {
-        return { ok: false, error: String(participantHeadError.message ?? "participant_count_failed") };
-      }
-      const memberLimit = Number(room.member_limit ?? 0);
-      if (memberLimit > 0 && (participantHead?.length ?? 0) > memberLimit) return { ok: false, error: "room_full" };
       const existingJoin = await (sb as any)
         .from("community_messenger_participants")
         .select("user_id, left_at, role")
@@ -11780,6 +11812,7 @@ export async function joinOpenGroupRoomWithPassword(input: {
         | { user_id?: string; left_at?: string | null; role?: string | null }
         | null
         | undefined;
+      /** 이미 활성 멤버 — 정원 판정 대상이 아니다(자기 자신을 세지 않음). */
       if (existingRow && existingRow.left_at == null) {
         const roomProfileActive = await upsertRoomIdentityProfile({
           userId: input.userId,
@@ -11789,6 +11822,23 @@ export async function joinOpenGroupRoomWithPassword(input: {
         });
         if (roomProfileActive.ok) return { ok: true, roomId };
         return roomProfileActive;
+      }
+      /**
+       * G-2: 정원 = 활성 참가자(left_at IS NULL)만. 새로 들어오는 사람이 생기면 activeCount+1 이므로
+       * activeCount >= memberLimit 이면 거절. `count: "exact"` 대신 limit=memberLimit 존재 확인(저비용).
+       */
+      const memberLimit = Number(room.member_limit ?? 0);
+      if (memberLimit > 0) {
+        const { data: participantHead, error: participantHeadError } = await (sb as any)
+          .from("community_messenger_participants")
+          .select("id")
+          .eq("room_id", roomId)
+          .is("left_at", null)
+          .limit(Math.max(1, Math.floor(memberLimit)));
+        if (participantHeadError && !isMissingTableError(participantHeadError)) {
+          return { ok: false, error: String(participantHeadError.message ?? "participant_count_failed") };
+        }
+        if ((participantHead?.length ?? 0) >= memberLimit) return { ok: false, error: "room_full" };
       }
       // Rejoin: member unless still the room owner_user_id (never restore stale admin).
       const joinRole = input.userId === room.owner_user_id ? "owner" : "member";
@@ -16075,15 +16125,17 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
   if (anchorErr || !anchorRow) return { ok: false, error: "not_found" };
 
   const anchorCreatedAt = trimText((anchorRow as { created_at?: string | null }).created_at);
+  const anchorId = trimText((anchorRow as { id?: string | null }).id) || beforeMessageId;
   if (!anchorCreatedAt) return { ok: false, error: "not_found" };
 
+  /** M-15: (created_at, id) keyset — 같은 created_at 행이 페이지 경계에서 누락되지 않게 한다. */
   const { data: rows, error: msgErr } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
     (sb as any)
       .from("community_messenger_messages")
       .select(cols)
       .eq("room_id", roomId)
       .is("deleted_at", null)
-      .lt("created_at", anchorCreatedAt)
+      .or(`created_at.lt.${anchorCreatedAt},and(created_at.eq.${anchorCreatedAt},id.lt.${anchorId})`)
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(pageLimit + 1)
@@ -16619,6 +16671,16 @@ async function resolveCommunityMessengerReplyFieldsForFallbackInsert(
   };
 }
 
+/**
+ * 커밋 여부를 알 수 없는 오류인지 — Postgres SQLSTATE(5자)·PostgREST(PGRST…) 코드가 있으면 서버가
+ * 문장을 실행/거절한 확정 결과다. 코드가 없으면 fetch 실패·연결 끊김·응답 타임아웃(요청은 커밋됐을 수 있음).
+ */
+export function isCommitUnknownSupabaseError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = String((err as { code?: unknown }).code ?? "").trim();
+  return code.length === 0;
+}
+
 async function trySendCommunityMessengerTextAtomic(
   sb: any,
   input: { userId: string },
@@ -16664,6 +16726,8 @@ async function trySendCommunityMessengerTextAtomic(
   }
   if (rpcErr) {
     if (isCommunityMessengerSendTextRpcMissing(rpcErr)) return null;
+    /** M-12: PG/PostgREST 코드가 없는 오류 = 전송·타임아웃 — 커밋됐을 수 있다(라우트가 cid 재조회 후 503) */
+    if (isCommitUnknownSupabaseError(rpcErr)) return { ok: false, error: "commit_unknown" };
     return { ok: false, error: String(rpcErr.message ?? "message_send_failed") };
   }
   if (rpcRaw == null || typeof rpcRaw !== "object") {
@@ -18309,6 +18373,23 @@ export async function softDeleteCommunityMessengerMessageForEveryone(input: {
     .eq("room_id", roomId);
   if (upErr) return { ok: false, error: "delete_failed" };
 
+  // D-1: 이 메시지를 인용한 답장의 스냅샷(reply_preview_text)에 원문이 남지 않게 placeholder 계약으로 교체.
+  // `reply_preview_type = "deleted"` + 빈 텍스트 → 매퍼·formatReplyQuoteForMessage 가 「삭제된 메시지입니다」로 그린다.
+  {
+    const { error: replyScrubErr } = await (sb as any)
+      .from("community_messenger_messages")
+      .update({ reply_preview_text: "", reply_preview_type: COMMUNITY_MESSENGER_REPLY_PREVIEW_TYPE_DELETED })
+      .eq("room_id", roomId)
+      .eq("reply_to_message_id", messageId);
+    if (replyScrubErr && !isMissingTableError(replyScrubErr)) {
+      console.error("[messenger-delete] reply_snapshot_scrub_failed", {
+        messageId,
+        roomId,
+        error: String(replyScrubErr.message ?? replyScrubErr),
+      });
+    }
+  }
+
   // DB 갱신 성공 후 스토리지 purge(실패는 로그만 — 삭제 자체는 DB 상 완료).
   await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, {
     messageId,
@@ -18412,6 +18493,23 @@ export async function editCommunityMessengerTextMessage(input: {
     .eq("id", messageId)
     .eq("room_id", roomId);
   if (upErr) return { ok: false, error: "edit_failed" };
+
+  // D-1(수정 경로): 이 메시지를 인용한 답장의 스냅샷을 수정본으로 맞춘다(resolve 시와 같은 280자 규칙).
+  {
+    const { error: replyRefreshErr } = await (sb as any)
+      .from("community_messenger_messages")
+      .update({ reply_preview_text: content.slice(0, 280) })
+      .eq("room_id", roomId)
+      .eq("reply_to_message_id", messageId)
+      .neq("reply_preview_type", COMMUNITY_MESSENGER_REPLY_PREVIEW_TYPE_DELETED);
+    if (replyRefreshErr && !isMissingTableError(replyRefreshErr)) {
+      console.error("[messenger-edit] reply_snapshot_refresh_failed", {
+        messageId,
+        roomId,
+        error: String(replyRefreshErr.message ?? replyRefreshErr),
+      });
+    }
+  }
 
   const { data: updated, error: reloadErr } = await (sb as any)
     .from("community_messenger_messages")
@@ -18889,6 +18987,63 @@ export async function sendCommunityMessengerVoiceMessage(input: {
       voiceMimeType: mimeType,
     },
   };
+}
+
+/**
+ * C-3 / D4: 상대가 이미 통화 중이라 세션을 만들지 못한 발신 시도의 **영구 기록**.
+ * - 세션 행이 없으므로 `call_logs.session_id` 는 null, status `cancelled` + `ended_reason='peer_busy'`
+ *   (DB CHECK 변경 없음 — canonical `busy` → 「통화 중」 표시, 부재중 아님).
+ * - 채팅 stub 은 `metadata.sessionId = busy:<uuid>` 로 1건(유니크 인덱스는 text 비교).
+ * - 수신자 벨·푸시·CallKit 없음(VoIP 미발송 경로). 실패해도 busy 응답은 그대로 보낸다.
+ */
+export async function recordCommunityMessengerPeerBusyCallAttempt(input: {
+  callerUserId: string;
+  peerUserId: string;
+  roomId: string;
+  callKind: CommunityMessengerCallKind;
+}): Promise<{ ok: boolean; error?: string }> {
+  const sb = getSupabaseOrNull();
+  const roomId = trimText(input.roomId);
+  const caller = trimText(input.callerUserId);
+  const peer = trimText(input.peerUserId);
+  if (!sb || !roomId || !caller || !peer) return { ok: false, error: "invalid_input" };
+  const at = nowIso();
+  try {
+    const { error } = await (sb as any).from("community_messenger_call_logs").insert({
+      session_id: null,
+      room_id: roomId,
+      caller_user_id: caller,
+      peer_user_id: peer,
+      call_kind: input.callKind,
+      status: "cancelled",
+      duration_seconds: 0,
+      started_at: at,
+      ended_at: at,
+      answered_at: null,
+      ended_reason: "peer_busy",
+    });
+    if (error && !isMissingTableError(error)) return { ok: false, error: String(error.message ?? "call_log_failed") };
+    const stub = await appendCommunityMessengerCallStubMessage({
+      userId: caller,
+      roomId,
+      sessionId: `busy:${randomUUID()}`,
+      callKind: input.callKind,
+      status: "cancelled",
+      createdAt: at,
+      listActivityAt: at,
+      incrementUnread: true,
+      bumpRoomLastMessageAt: true,
+      durationSeconds: 0,
+      endedReason: "peer_busy",
+      initiatorUserId: caller,
+      recipientUserId: peer,
+      answeredAt: null,
+      terminalActorUserId: caller,
+    });
+    return stub.ok ? { ok: true } : { ok: false, error: `call_stub_projection_failed:${stub.error}` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "busy_record_failed" };
+  }
 }
 
 export async function createCommunityMessengerCallLog(input: {
@@ -19438,20 +19593,33 @@ export async function startCommunityMessengerCallSession(input: {
         if (await getLiveDirectCallSessionIdInRoom(sb, roomId)) {
           return { ok: false, error: "call_session_start_failed" };
         }
+        /** C-17: 발신자 **자신**의 다른 통화 때문에 막힌 것은 상대 busy 가 아니다 — 기록하지 않는다 */
         if (await userHasLiveDirectCallSessionOutsideRoom(sb, input.userId, roomId)) {
-          return { ok: false, error: "peer_busy" };
+          return { ok: false, error: "self_busy" };
         }
         if (peerUserId && (await userHasLiveDirectCallSessionOutsideRoom(sb, peerUserId, roomId))) {
+          await recordCommunityMessengerPeerBusyCallAttempt({
+            callerUserId: input.userId,
+            peerUserId,
+            roomId,
+            callKind: input.callKind,
+          });
           return { ok: false, error: "peer_busy" };
         }
       } else {
         const callerBusy = await userHasLiveDirectCallSession(sb, input.userId);
         if (callerBusy) {
-          return { ok: false, error: "peer_busy" };
+          return { ok: false, error: "self_busy" };
         }
         if (peerUserId) {
           const peerBusy = await userHasLiveDirectCallSession(sb, peerUserId);
           if (peerBusy) {
+            await recordCommunityMessengerPeerBusyCallAttempt({
+              callerUserId: input.userId,
+              peerUserId,
+              roomId,
+              callKind: input.callKind,
+            });
             return { ok: false, error: "peer_busy" };
           }
         }
@@ -19840,7 +20008,14 @@ export async function updateCommunityMessengerCallSession(input: {
   clientEndedReason?: string;
   /** First-answer-wins claim — callee deviceId (`user_devices.device_id` or native stable id) */
   answeredDeviceId?: string | null;
-}): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string; idempotent?: boolean }> {
+}): Promise<{
+  ok: boolean;
+  session?: CommunityMessengerCallSession;
+  error?: string;
+  idempotent?: boolean;
+  /** C-4: ring_deadline_not_reached 일 때 서버 기준 남은 ms */
+  retryAfterMs?: number;
+}> {
   const sessionId = trimText(input.sessionId);
   if (!sessionId) return { ok: false, error: "session_required" };
   const clientDurationSeconds = Math.max(0, Number(input.durationSeconds ?? 0));
@@ -20684,6 +20859,15 @@ export async function updateCommunityMessengerCallSession(input: {
             await ensureTerminalCallStub(session, mapped);
             return { ok: true, session: mapped };
           }
+          /** C-4: 클라 시계가 빨라 마감 전에 온 missed — 서버 기준 남은 시간을 돌려줘 정확히 재예약하게 한다 */
+          if (missedGate.error === "ring_deadline_not_reached") {
+            const deadlineMs = resolveRingDeadlineMs(
+              session.started_at,
+              resolveCanonicalRingTimeoutSeconds(callPolicy)
+            );
+            const retryAfterMs = deadlineMs == null ? null : Math.max(0, deadlineMs - Date.now());
+            return { ok: false, error: missedGate.error, ...(retryAfterMs != null ? { retryAfterMs } : {}) };
+          }
           return { ok: false, error: missedGate.error };
         }
       }
@@ -20743,12 +20927,20 @@ export async function updateCommunityMessengerCallSession(input: {
         };
         if (next.answeredAt) updatePayload.answered_at = next.answeredAt;
         if (next.endedAt) updatePayload.ended_at = next.endedAt;
-        const er = endedReasonForSessionDelta(input.action, next.nextStatus, input.clientEndedReason, {
+        let er = endedReasonForSessionDelta(input.action, next.nextStatus, input.clientEndedReason, {
           actorUserId: input.userId,
           initiatorUserId: session.initiator_user_id,
           recipientUserId: session.recipient_user_id,
           answeredAt: next.answeredAt ?? session.answered_at,
         });
+        /**
+         * 3부 T절 #4 — 무응답(missed) vs 미접속(unreachable): **증거가 있을 때만** unreachable.
+         * DB status 는 missed 그대로(CHECK 불변), wire ended_reason 만 구분 → 발신자 팝업 「연결할 수 없습니다」.
+         */
+        if (er === "missed" && next.nextStatus === "missed" && session.recipient_user_id) {
+          const unreachable = await resolveCalleeUnreachableEvidence(sb, session.recipient_user_id, session.started_at);
+          if (unreachable) er = "unreachable";
+        }
         if (er) updatePayload.ended_reason = er;
         else if (next.nextStatus === "active") updatePayload.ended_reason = null;
         if (next.nextStatus === "active") {
@@ -20954,7 +21146,28 @@ export async function updateCommunityMessengerCallSession(input: {
           const peerUserId = messengerUserIdsEqual(updated.initiator_user_id, input.userId)
             ? updated.recipient_user_id
             : updated.initiator_user_id;
-          void publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus);
+          /** C-7: 서버리스 응답 후 동결로 유실되지 않게 keepAlive (이전 void) */
+          keepAliveAfterResponse(
+            Promise.resolve(publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus)).catch(() => {})
+          );
+          /**
+           * C-7: 링잉 마감(missed)을 **발신자**가 확정하면 수신자 기기의 벨·수신 화면을 끈다 —
+           * 네이티브 호환을 위해 전송 상태는 `cancelled`(벨 종료 의미). 통화 기록은 missed 그대로.
+           */
+          if (
+            next.nextStatus === "missed" &&
+            peerUserId &&
+            messengerUserIdsEqual(updated.initiator_user_id, input.userId) &&
+            (updated.session_mode ?? "direct") === "direct"
+          ) {
+            keepAliveAfterResponse(
+              sendWebPushForCommunityMessengerCallTerminal({
+                recipientUserId: peerUserId,
+                sessionId: updated.id,
+                status: "cancelled",
+              }).catch(() => {})
+            );
+          }
           if (next.nextStatus !== "missed" && peerUserId) {
             keepAliveAfterResponse(
               sendWebPushForCommunityMessengerCallTerminal({
@@ -21013,7 +21226,7 @@ export async function updateCommunityMessengerCallSession(input: {
           else await ensureTerminalCallStub(session, mapped);
         }
         if (mapped.status === "missed") {
-          void notifyRoomBoundMissedCallBestEffort(session, mapped);
+          keepAliveAfterResponse(notifyRoomBoundMissedCallBestEffort(session, mapped).catch(() => {}));
         }
         return { ok: true, session: mapped };
       }

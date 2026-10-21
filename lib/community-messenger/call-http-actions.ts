@@ -64,7 +64,7 @@ export async function patchCommunityMessengerCallSession(
   action: PatchCommunityCallSessionAction,
   init?: { durationSeconds?: number; clientEndedReason?: string; deviceId?: string },
   debugContext?: CommunityMessengerCallSessionPatchDebugContext
-): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string; retryAfterMs?: number }> {
   if (process.env.NODE_ENV === "development" && typeof performance !== "undefined") {
     console.debug("[cm-call-audio-cleanup]", {
       step: "patch_fetch_start",
@@ -100,6 +100,7 @@ export async function patchCommunityMessengerCallSession(
     ok?: boolean;
     session?: CommunityMessengerCallSession;
     error?: string;
+    retryAfterMs?: number;
   };
   logCommunityMessengerCallSessionPatchDev({
     sessionId,

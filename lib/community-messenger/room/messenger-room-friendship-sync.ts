@@ -83,3 +83,20 @@ export function parseFriendshipRowForRoomSync(
     optimisticAccepted: shouldRefresh && status === "accepted",
   };
 }
+
+/**
+ * F-9: `user_social_relations`(owner_user_id=viewer 필터) Realtime 행 → 방 refresh 여부.
+ * 내가 상대를 친구 저장·차단·해제한 행(target=peer)만 반응한다. 단방향 저장이므로 낙관적 accepted 패치는 하지 않는다.
+ */
+export function parseSocialRelationRowForRoomSync(
+  row: Record<string, unknown>,
+  viewerUserId: string,
+  peerUserId: string
+): { shouldRefresh: boolean; optimisticAccepted: false } {
+  const viewer = viewerUserId.trim();
+  const peer = peerUserId.trim();
+  const owner = typeof row.owner_user_id === "string" ? row.owner_user_id.trim() : "";
+  const target = typeof row.target_user_id === "string" ? row.target_user_id.trim() : "";
+  const shouldRefresh = Boolean(viewer && peer && target === peer && (!owner || owner === viewer));
+  return { shouldRefresh, optimisticAccepted: false };
+}

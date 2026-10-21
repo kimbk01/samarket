@@ -280,7 +280,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   onPick={(emoji) => {
                     if (vm.roomUnavailable || composerOutboundBusy) return;
                     vm.dismissRoomSheet();
-                    void vm.sendMessage(emoji);
+                    // K-4: 수정 중이어도 원본을 이모지로 바꾸지 않도록 수정 경로를 타지 않는 raw 전송
+                    void vm.sendEmojiText(emoji);
                   }}
                 />
               </div>

@@ -1,6 +1,7 @@
 /**
- * CM social graph — 승인 기반 mutual friend + block.
- * friend = 양쪽 모두 friend 저장(수락 후). @id 검색·방 상단에서 즉시 추가 금지.
+ * CM social graph — **단방향 연락처 친구** + 한 방향 차단 (요청·수락 없음).
+ * friend = 내(owner)→상대(target) `user_social_relations.relation_type=friend` 1행. 상대 쪽 행은 만들거나 지우지 않는다.
+ * LOCK: docs/community-messenger/friend-contact-ssot-lock.md
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -29,6 +30,8 @@ import {
 } from "@/lib/auth/dibay-public-id-ssot";
 import { getFriendshipPairState, isAcceptedFriendPair } from "@/lib/community-messenger/friendship-resolver";
 import { invalidateBootstrapLiteSocialDeferredForPair } from "@/lib/community-messenger/bootstrap-lite-social-deferred-cache";
+import { restoreDirectRoomsOnUnblockForViewer } from "@/lib/community-messenger/participant-block-hide";
+import { MessengerSocialGraphReadError } from "@/lib/community-messenger/friendship/social-graph-read-error";
 
 export type { BlockSource } from "@/lib/social/block-ssot-types";
 
@@ -57,6 +60,14 @@ function trimText(value: unknown): string {
 function isMissingTableError(error: unknown): boolean {
   const msg = String((error as { message?: unknown })?.message ?? "");
   return /does not exist|relation .* does not exist/i.test(msg);
+}
+
+/** Postgres unique_violation (23505) — 동시 insert 경합 */
+export function isUniqueViolationError(error: unknown): boolean {
+  const code = String((error as { code?: unknown })?.code ?? "");
+  if (code === "23505") return true;
+  const msg = String((error as { message?: unknown })?.message ?? "");
+  return /duplicate key value violates unique constraint/i.test(msg);
 }
 
 function getSupabaseOrNull() {
@@ -140,7 +151,11 @@ export async function listFriendSavedIds(ownerUserId: string): Promise<string[]>
     .select("target_user_id")
     .eq("owner_user_id", owner)
     .eq("relation_type", "friend");
-  if (error && !isMissingTableError(error)) return [];
+  if (error) {
+    /** F-11 — DB 오류를 빈 목록으로 삼키지 않는다 (테이블 미적용만 빈 목록) */
+    if (isMissingTableError(error)) return [];
+    throw new MessengerSocialGraphReadError("friend_saved_ids", error);
+  }
   const out = new Set<string>();
   for (const row of (data ?? []) as Array<{ target_user_id?: string }>) {
     const id = trimText(row.target_user_id);
@@ -235,8 +250,9 @@ export async function listHiddenUserRelationshipRows(
     .order("created_at", { ascending: false });
 
   if (error) {
+    /** F-11 — 오류를 빈 목록으로 처리하면 숨긴 친구가 다시 보인다 → throw, 라우트 5xx */
     if (isMissingTableError(error)) return [];
-    return [];
+    throw new MessengerSocialGraphReadError("hidden_relations", error);
   }
 
   return ((data ?? []) as Array<{ id?: string; target_user_id?: string; created_at?: string }>)
@@ -574,7 +590,11 @@ export async function addFriendSaved(
       .eq("relation_type", "blocked")
       .eq("is_active", false)
       .select("id");
-    if (convertError) return { ok: false, error: String(convertError.message ?? "friend_add_failed") };
+    if (convertError) {
+      /** F-5 — DB 원문 비노출 (서버 로그만) */
+      console.warn("[social-relations] friend convert failed", { code: (convertError as { code?: string }).code });
+      return { ok: false, error: "friend_add_failed" };
+    }
     if (!Array.isArray(converted) || converted.length === 0) {
       /** 동시에 재차단되었거나 row 상태가 바뀜 — 안전하게 차단으로 간주 */
       return { ok: false, error: "blocked_target" };
@@ -589,7 +609,25 @@ export async function addFriendSaved(
     target_user_id: target,
     relation_type: "friend",
   });
-  if (error) return { ok: false, error: String(error.message ?? "friend_add_failed") };
+  if (error) {
+    if (isUniqueViolationError(error)) {
+      /**
+       * F-5 — 연타·두 기기 동시 추가: 다른 요청이 같은 (owner,target) 행을 먼저 만들었다.
+       * 그 행이 friend 면 성공(멱등), 동시에 차단으로 바뀐 경우는 차단으로 응답한다.
+       */
+      const { data: raced } = await (sb as any)
+        .from("user_social_relations")
+        .select("id, relation_type, is_active")
+        .eq("owner_user_id", owner)
+        .eq("target_user_id", target)
+        .maybeSingle();
+      if (raced?.relation_type === "friend") return { ok: true };
+      if (raced?.relation_type === "blocked") return { ok: false, error: "blocked_target" };
+    }
+    /** DB 원문(error.message)은 사용자에게 내보내지 않는다 */
+    console.warn("[social-relations] friend insert failed", { code: (error as { code?: string }).code });
+    return { ok: false, error: "friend_add_failed" };
+  }
 
   logSocialRelationEvent("social_relation_friend_added", { ownerUserId: owner, targetUserId: target });
   invalidateBootstrapLiteSocialDeferredForPair(owner, target);
@@ -662,10 +700,12 @@ export async function blockUserSocial(
 
   await syncLegacyBlockRow(sb, owner, target, true);
 
+  /** F-3 — 차단한 사람(owner) 소유 즐겨찾기만 정리. 상대 소유 행을 지우면 차단 사실이 드러난다 */
   const { error: favErr } = await (sb as any)
     .from("community_friend_favorites")
     .delete()
-    .or(`and(user_id.eq.${owner},target_user_id.eq.${target}),and(user_id.eq.${target},target_user_id.eq.${owner})`);
+    .eq("user_id", owner)
+    .eq("target_user_id", target);
   if (favErr && !isMissingTableError(favErr)) {
     /* non-fatal */
   }
@@ -680,10 +720,42 @@ export async function blockUserSocial(
   return { ok: true };
 }
 
+export type UnblockUserSocialResult = {
+  ok: boolean;
+  error?: string;
+  wasActive?: boolean;
+  /** F-1 — 해제 후 다시 보이게 된 일반 1:1 방 (모든 해제 경로 공통) */
+  restoredRoomIds?: string[];
+};
+
+/**
+ * F-1 — 차단 해제 단일 진입점. 저장 성공 시 **항상** 일반 1:1 방 숨김을 복원한다
+ * (마이페이지·거래 채팅·메신저 등 어떤 해제 경로도 라우트에서 따로 복원 호출하지 않는다).
+ */
 export async function unblockUserSocial(
   ownerUserId: string,
   targetUserId: string
-): Promise<{ ok: boolean; error?: string; wasActive?: boolean }> {
+): Promise<UnblockUserSocialResult> {
+  const result = await unblockUserSocialRelationOnly(ownerUserId, targetUserId);
+  if (!result.ok) return result;
+  const owner = trimText(ownerUserId);
+  const target = trimText(targetUserId);
+  const restore = await restoreDirectRoomsOnUnblockForViewer(owner, target);
+  if (!restore.ok) {
+    /** 해제 자체는 저장됨 — 복원 실패는 응답을 실패로 바꾸지 않고 기록만 한다 */
+    logSocialRelationEvent("social_relation_unblock_restore_failed", {
+      ownerUserId: owner,
+      targetUserId: target,
+      error: restore.error ?? "",
+    });
+  }
+  return { ...result, restoredRoomIds: restore.restoredRoomIds };
+}
+
+async function unblockUserSocialRelationOnly(
+  ownerUserId: string,
+  targetUserId: string
+): Promise<UnblockUserSocialResult> {
   const owner = trimText(ownerUserId);
   const target = trimText(targetUserId);
   if (!owner || !target) return { ok: false, error: "bad_target" };

@@ -5,7 +5,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { sendCommunityMessengerVoiceMessage } from "@/lib/community-messenger/service";
 import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
-import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
+import { publishMessengerRoomBumpBounded } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { assertMessengerRoomAllowsCommunicationFeature } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
 import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
@@ -175,7 +175,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
 
   if (result.ok) {
     try {
-      await publishMessengerRoomBumpAfterMutation({
+      /** M-1·M-13: 공용 bounded 예산(≤1.5s) — 이전 기본 5s 타임아웃이 ACK 를 막을 수 있었다 */
+    await publishMessengerRoomBumpBounded({
         rawRouteRoomId: canon.rawRouteRoomId,
         canonicalRoomId,
         fromUserId: auth.userId,

@@ -144,3 +144,24 @@ export function planMessengerMediaSendFailure(failure: "definitive" | "indetermi
     ? { keepRowAsFailed: true, keepBytesForRetry: true, releasePreview: false }
     : { keepRowAsFailed: false, keepBytesForRetry: false, releasePreview: true };
 }
+
+/**
+ * M-8 — 텍스트 전송 실패 처리 계획 (미디어 `planMessengerMediaSendFailure` 와 같은 기준).
+ * indeterminate(네트워크·5xx·본문 유실): 낙관 행을 지우지 않고 '전송 실패'로 유지 → 같은 cid 재전송.
+ *   행이 내용을 들고 있으므로 입력창에는 되돌리지 않는다(중복 방지).
+ * definitive(4xx 거절): 재전송해도 같은 거절이라 행을 지우고, 입력창이 **비어 있을 때만** 내용을 되돌린다.
+ */
+export function planMessengerTextSendFailure(failure: "definitive" | "indeterminate"): {
+  keepRowAsFailed: boolean;
+  restoreInputIfEmpty: boolean;
+} {
+  return failure === "indeterminate"
+    ? { keepRowAsFailed: true, restoreInputIfEmpty: false }
+    : { keepRowAsFailed: false, restoreInputIfEmpty: true };
+}
+
+/** M-8 / K-3 — 실패 복원은 사용자가 그 사이 새로 입력한 내용을 덮어쓰지 않는다. */
+export function shouldRestoreComposerTextOnFailure(currentInputValue: string | null | undefined, restoreText: string): boolean {
+  if (!restoreText.trim()) return false;
+  return !(currentInputValue ?? "").trim();
+}

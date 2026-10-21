@@ -275,7 +275,7 @@ export async function callV4PatchConnected(
 
 export async function callV4PatchMissed(
   callId: string
-): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string; retryAfterMs?: number }> {
   logCallV4("missed_patch_start", { callId });
   const result = await patchCommunityMessengerCallSession(callId, "missed");
   if (result.ok) {

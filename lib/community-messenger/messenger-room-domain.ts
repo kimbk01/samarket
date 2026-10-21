@@ -77,6 +77,15 @@ export function communityMessengerRoomIsConfirmedDelivery(room: CommunityMesseng
   return dk.startsWith("store_order:") || dk.startsWith("trade_order:");
 }
 
+/**
+ * D1 (2026-10-21) — 방 메뉴 「차단」 노출은 일반 1:1 만. 거래·주문(배달) 방은 숨긴다 (L-2 표: 거래/주문 = 숨김).
+ * 서버 송신 gate 의 차단 제외 범위(`isUserBlockExemptChatDomain`)와 같은 축.
+ */
+export function communityMessengerRoomAllowsPeerBlockMenu(room: CommunityMessengerRoomSummary): boolean {
+  if (room.roomType !== "direct") return false;
+  return !communityMessengerRoomIsConfirmedTrade(room) && !communityMessengerRoomIsConfirmedDelivery(room);
+}
+
 export function communityMessengerRoomInboxGroupKind(
   room: CommunityMessengerRoomSummary
 ): CommunityMessengerInboxGroupKind {

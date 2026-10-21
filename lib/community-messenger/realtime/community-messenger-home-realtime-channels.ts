@@ -143,6 +143,8 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
           return; // cold bind → no full sync
         }
         refreshScheduler.schedule(); // resubscribe → catch-up
+        /** F-10 — 끊긴 동안 놓친 친구·숨김·차단 변경도 재조회 (목록 catch-up 만으로는 친구 그래프가 갱신되지 않음) */
+        args.onSocialGraphChangedRef?.current?.();
       },
       build: (channel) =>
         channel

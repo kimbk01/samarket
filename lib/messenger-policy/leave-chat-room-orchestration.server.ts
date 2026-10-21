@@ -9,6 +9,7 @@ import { itemTradeChatRoomIdFromMessengerDirectKey } from "@/lib/trade/mirror-co
 import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
 import { markMeetingMemberLeftForMessengerRoom } from "@/lib/community-messenger/meeting-chat-sync";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
+import { isStoreOrderChatLeaveAllowedStatus } from "@/lib/stores/store-order-process-model";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
 export type LeaveMessengerRoomUnifiedSuccess = {
@@ -44,7 +45,7 @@ export async function leaveMessengerRoomUnified(
 
   const { data: membership } = await sb
     .from("community_messenger_participants")
-    .select("id")
+    .select("id, store_order_role")
     .eq("room_id", roomId)
     .eq("user_id", uid)
     .maybeSingle();
@@ -54,11 +55,32 @@ export async function leaveMessengerRoomUnified(
 
   const { data: roomRow, error: roomErr } = await sb
     .from("community_messenger_rooms")
-    .select("id, room_type, summary, direct_key, owner_user_id")
+    .select("id, room_type, summary, direct_key, owner_user_id, chat_domain")
     .eq("id", roomId)
     .maybeSingle();
   if (roomErr || !roomRow) {
     return { ok: false, error: "room_not_found" };
+  }
+
+  /**
+   * W2/L-7 — 주문 채팅(store_order) 증빙 보호: 매장 사장님은 항상, 고객은 진행 중 주문이면 나갈 수 없다.
+   * 주문 종료 판정은 `store-order-process-model` 단일 정의만 사용.
+   */
+  if (trimId((roomRow as { chat_domain?: unknown }).chat_domain) === "store_order") {
+    if (trimId((membership as { store_order_role?: unknown }).store_order_role) === "owner") {
+      return { ok: false, error: "store_owner_cannot_leave" };
+    }
+    const { data: orderRow } = await sb
+      .from("store_orders")
+      .select("order_status")
+      .eq("community_messenger_room_id", roomId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const orderStatus = trimId((orderRow as { order_status?: unknown } | null)?.order_status);
+    if (!orderStatus || !isStoreOrderChatLeaveAllowedStatus(orderStatus)) {
+      return { ok: false, error: "store_order_in_progress" };
+    }
   }
 
   const summaryRaw = (roomRow as { summary?: unknown }).summary;

@@ -17,7 +17,7 @@ describe("T4 TOKEN_REFRESHED realtime recovery", () => {
     expect(src).toContain("realtime.setAuth");
   });
 
-  it("home, room bundle, and read-ack resubscribe on the token refresh event", () => {
+  it("home and room bundle resubscribe on the token refresh event; read-ack relies on realtime.setAuth (M-5)", () => {
     const home = read("lib/community-messenger/use-community-messenger-realtime.ts");
     const bundle = read("lib/community-messenger/realtime/global-messenger-room-bundle-channel.ts");
     const readAck = read("lib/community-messenger/realtime/cm-read-ack-broadcast-client.ts");
@@ -25,8 +25,10 @@ describe("T4 TOKEN_REFRESHED realtime recovery", () => {
     expect(home).toContain("token_refresh_rebind");
     expect(bundle).toContain("subscribeSamarketRealtimeTokenRefreshed");
     expect(bundle).toContain('lastBoundRoomIdsKey = ""');
-    expect(readAck).toContain("subscribeSamarketRealtimeTokenRefreshed");
+    /** M-5: 토큰 갱신마다 remove→create 하던 read-ack 재구독 제거 — setAuth 가 joined 채널 토큰을 갱신한다. */
+    expect(readAck).not.toContain("subscribeSamarketRealtimeTokenRefreshed");
     expect(readAck).toContain("subscribeReadAckChannel");
+    expect(readAck).toContain("runAfterCmRtTopicRemoval");
   });
 
   it("token refresh event helpers exist and never log access_token", () => {
