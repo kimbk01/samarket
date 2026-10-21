@@ -63,6 +63,12 @@ describe("공통 AUTH 상태 SSOT (auth-login-phase)", () => {
     ).toBe(false);
   });
 
+  it("iOS ASWebAuth 는 복귀 이벤트로 취소 판정하지 않는다 (런처 reject 로만)", () => {
+    expect(
+      shouldTreatForegroundReturnAsCancel({ ...base, phase: "provider", launchKind: "as_web_auth" }),
+    ).toBe(false);
+  });
+
   it("웹 리다이렉트는 bfcache 복원(pageshow persisted)만 취소", () => {
     const input = { ...base, phase: "provider" as const, launchKind: "web_redirect" as const };
     expect(shouldTreatForegroundReturnAsCancel(input)).toBe(false);

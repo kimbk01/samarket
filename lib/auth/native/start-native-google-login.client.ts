@@ -23,10 +23,22 @@ import { buildNativeAuthCompletionHandoff, type NativeAuthCompletionHandoff } fr
 import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeGoogleLoginAvailable } from "@/lib/platform/capacitor-native";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 export type NativeGoogleExchangeResponse = NativeExchangeResponse;
 
 let googleNativeRecoverInFlight = false;
+
+async function hasActiveClientSession(): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return Boolean(data.session?.user);
+  } catch {
+    return false;
+  }
+}
 
 function throwNativeGoogleExchangeError(exchange: Extract<NativeGoogleExchangeResponse, { ok: false }>): never {
   if (openProviderEmailConflictFromExchange(exchange)) {
@@ -115,6 +127,13 @@ export async function recoverNativeGoogleLoginIfPending(): Promise<boolean> {
   try {
     const recovered = await invokeNativeGoogleRecoverSignInIfPending();
     if (!recovered) return false;
+
+    // 복구는 「로그인 시도 중 앱이 종료·이탈된 경우」만 대상이다. 이미 세션이 있으면(다른 방법으로 로그인 완료)
+    // 남은 Google 대기 상태가 앱 복귀 때마다 계정을 바꿔치기하지 않도록 폐기한다.
+    if (await hasActiveClientSession()) {
+      await abortGoogleNativeRecoverPending("session_already_active");
+      return false;
+    }
 
     const flow = tryBeginOAuthFlow("google");
     const releaseFlow = flow.ok ? flow.release : null;

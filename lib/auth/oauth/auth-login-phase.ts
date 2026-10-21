@@ -15,7 +15,14 @@
 export type AuthLoginPhase = "idle" | "provider" | "returned" | "confirming" | "navigating";
 
 /** 공급자 화면을 어떻게 띄웠는지 — 복귀 이벤트를 취소 신호로 볼 수 있는지 결정한다. */
-export type AuthLoginLaunchKind = "native_sdk" | "custom_tab" | "web_redirect" | null;
+export type AuthLoginLaunchKind =
+  | "native_sdk"
+  /** Android Custom Tab — 콜백 없이 앱으로 돌아오면 취소 (취소 이벤트를 주지 않음) */
+  | "custom_tab"
+  /** iOS ASWebAuthenticationSession — 취소는 런처 reject 로만 온다. 복귀 이벤트로 판정 금지 */
+  | "as_web_auth"
+  | "web_redirect"
+  | null;
 
 /** 지연 안내만 표시 (성공·실패 판정 아님). 사용자가 직접 다시 시도할 수 있다. */
 export const AUTH_LOGIN_DELAY_NOTICE_MS = 12_000;
