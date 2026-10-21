@@ -77,6 +77,16 @@ html[data-kb-open="true"] {
   --kb-safe-bottom: 0px;
 }
 
+/**
+ * 하단 탭 위에 떠 있는 FAB·플로팅 바 (`data-kb-hide="1"`) — 키보드 입력 중에는 숨긴다.
+ * Android 는 WebView 가 키보드만큼 줄어 이 요소들이 키보드 위로 올라와 입력 공간을 가렸다.
+ * 하단 탭 자체는 `BottomNavKeyboardHideProbe` / 사장님 탭은 `owner-compact-shell.css` 가 같은 판정으로 숨긴다.
+ */
+html[data-kb-open="true"] [data-kb-hide="1"] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 @layer components {
   /** 앱 최상위 wrapper — `min-h-dvh + bg + flex column` 한 번에 */
   .app-shell {

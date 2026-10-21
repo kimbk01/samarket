@@ -104,3 +104,20 @@ describe("owner keyboard (사장님 하단 탭·탭 위 푸터)", () => {
   });
 });
 
+describe("floating chrome above the bottom nav hides while typing", () => {
+  it("FAB · floating bars carry data-kb-hide and one CSS rule hides them under html[data-kb-open]", () => {
+    expect(read("app/app-shell.css")).toMatch(
+      /html\[data-kb-open="true"\] \[data-kb-hide="1"\] \{\s*visibility: hidden;/
+    );
+    for (const f of [
+      "components/write-launcher/WriteLauncher.tsx",
+      "components/layout/MainBottomNavFabSector.tsx",
+      "components/community-messenger/MessengerHomeFabSector.tsx",
+      "components/home/HomeTradeHubFloatingBar.tsx",
+      "components/support/SupportFabHost.tsx",
+    ]) {
+      expect(read(f)).toContain('data-kb-hide="1"');
+    }
+  });
+});
+

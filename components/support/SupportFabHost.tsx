@@ -84,6 +84,7 @@ export function SupportFabHost() {
     <BodyPortal>
       <div
         className={`pointer-events-none fixed inset-x-0 ${placement.className} ${zClass}`}
+        data-kb-hide="1"
         style={placement.style}
         data-support-fab-host="1"
         data-fixed-bar-clearance={fixedBarOccupiedPx > 0 ? "1" : "0"}

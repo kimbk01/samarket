@@ -209,7 +209,7 @@ describe("Android native IME evidence (Capacitor SystemBars --safe-area-inset-bo
     (window as unknown as { Capacitor: unknown }).Capacitor = { getPlatform: () => "android" };
   }
 
-  it("focused + non-keyboard shrink: inset > 0 proves IME hidden → closed, baseline re-measured", async () => {
+  it("focused + non-keyboard shrink: inset > 0 proves IME hidden → closed; a later real IME is still detected", async () => {
     asAndroidApp();
     setVv(400, 800);
     document.documentElement.style.setProperty("--safe-area-inset-bottom", "48px");
@@ -221,7 +221,7 @@ describe("Android native IME evidence (Capacitor SystemBars --safe-area-inset-bo
     document.documentElement.style.setProperty("--safe-area-inset-bottom", "0px"); // IME shows
     setVv(400, 330);
     await settle();
-    expect(seen.p).toBe(true); // re-measured baseline 600 → real IME detected
+    expect(seen.p).toBe(true); // real IME detected
     root.unmount();
   });
 
@@ -254,5 +254,18 @@ describe("Android native IME evidence (Capacitor SystemBars --safe-area-inset-bo
     expect(seen.p).toBe(false);
     root.unmount();
   });
-});
 
+  it("race: viewport shrinks before Capacitor rewrites the inset (stale 48px) — keyboard still detected", async () => {
+    asAndroidApp();
+    setVv(400, 800);
+    document.documentElement.style.setProperty("--safe-area-inset-bottom", "48px");
+    const root = await mountProbe();
+    focusInput();
+    setVv(400, 480); // IME resize lands first; inset still the closed value
+    await settle();
+    document.documentElement.style.setProperty("--safe-area-inset-bottom", "0px"); // then the inset pass
+    await settle();
+    expect(seen.p).toBe(true); // closed baseline must not have been overwritten by the open height
+    root.unmount();
+  });
+});

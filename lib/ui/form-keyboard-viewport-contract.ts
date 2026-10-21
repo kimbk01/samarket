@@ -86,8 +86,8 @@ export type FormKeyboardViewportBuildArgs = {
    */
   baselineEstimated?: boolean;
   /**
-   * Native proof the IME is hidden (`readAndroidNativeImeHiddenEvidence`). true → closed, baseline
-   * re-measured. false/omitted = no proof either way (never treated as "open").
+   * Native proof the IME is hidden (`readAndroidNativeImeHiddenEvidence`). true → closed (baseline
+   * kept grow-only — the proof can be one inset pass stale). false/omitted = no proof (never "open").
    */
   nativeImeHidden?: boolean;
 };
@@ -387,9 +387,12 @@ export function buildFormKeyboardViewportSnapshot(
 
   // Closed: grow-only while an input is focused (keyboard may still be animating);
   // re-measured exactly when nothing can hold a keyboard or the baseline was only estimated.
+  // Native "IME hidden" proof only closes — it never shrinks the baseline: Capacitor rewrites the
+  // inset asynchronously, so the IME resize can land while the inset still reads the closed value
+  // (a shrink there would store the OPEN height as "closed" and the keyboard would never be seen).
   const nextBaseline = keyboardOpen
     ? baselineClosedHeightPx
-    : args.inputSurfaceFocused === false || args.baselineEstimated || args.nativeImeHidden === true
+    : args.inputSurfaceFocused === false || args.baselineEstimated
       ? frame.heightPx
       : Math.max(baselineClosedHeightPx, frame.heightPx);
 
