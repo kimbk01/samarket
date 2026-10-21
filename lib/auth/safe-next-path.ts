@@ -15,6 +15,29 @@ import { shouldDenyFreshLoginLanding } from "@/lib/auth/auth-route-classificatio
 
 const NEXT_PATH_MAX_LENGTH = 1024;
 
+/** OA-11 — 제어문자(탭·개행·NUL·DEL 등)는 URL 파서가 제거해 `/\t/evil.example` → `//evil.example` 이 된다. */
+const CONTROL_CHAR_RE = /[\u0000-\u001f\u007f]/;
+const SAME_ORIGIN_PROBE = "https://x.invalid";
+
+function hasControlChar(value: string): boolean {
+  if (CONTROL_CHAR_RE.test(value)) return true;
+  try {
+    return CONTROL_CHAR_RE.test(decodeURIComponent(value));
+  } catch {
+    // 잘못된 % 시퀀스는 제어문자로 디코드되지 않는다 — 원문 검사로 충분.
+    return false;
+  }
+}
+
+/** 브라우저와 같은 WHATWG URL 파서로 해석했을 때 동일 출처로 남는지 확인. */
+function resolvesToSameOrigin(value: string): boolean {
+  try {
+    return new URL(value, SAME_ORIGIN_PROBE).origin === SAME_ORIGIN_PROBE;
+  } catch {
+    return false;
+  }
+}
+
 const FORBIDDEN_PREFIXES = [
   "/login",
   "/signup",
@@ -49,6 +72,7 @@ export function sanitizeNextPath(input: string | null | undefined): string | nul
   let raw = input.trim();
   if (!raw) return null;
   if (raw.length > NEXT_PATH_MAX_LENGTH) return null;
+  if (hasControlChar(raw)) return null;
   // 흔히 한 번 더 인코딩되어 들어오는 경우 대비.
   try {
     if (raw.startsWith("%2F") || raw.startsWith("%2f")) {
@@ -64,6 +88,8 @@ export function sanitizeNextPath(input: string | null | undefined): string | nul
   if (raw.includes("\\")) return null;
   // 동일 출처 경로 내에 호스트가 섞여 들어오는 경우.
   if (/^\/+https?:/i.test(raw)) return null;
+  if (hasControlChar(raw)) return null;
+  if (!resolvesToSameOrigin(raw)) return null;
 
   let pathname = raw;
   let search = "";

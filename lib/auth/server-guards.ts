@@ -70,6 +70,35 @@ export async function getCurrentProfile(userId: string): Promise<ProfileRow | nu
   return null;
 }
 
+/**
+ * P2-5 — lazy registry 등록 직전에만 호출. 현재 요청 JWT 의 `iat`(초) — sub 가 userId 와 다르거나 읽기 실패 시 null.
+ * (registry 를 JWT `session_id` 에 직접 묶으려면 user_sessions 컬럼 추가가 필요 — DB 변경 없이 iat 비교로 차단)
+ */
+async function readRequestJwtIssuedAtSec(userId: string): Promise<number | null> {
+  try {
+    const routeSb = await createSupabaseRouteHandlerClient();
+    if (!routeSb) return null;
+    const { data, error } = await routeSb.auth.getClaims();
+    if (error || !data?.claims || typeof data.claims !== "object") return null;
+    const claims = data.claims as { sub?: unknown; iat?: unknown };
+    if (String(claims.sub ?? "").trim() !== userId) return null;
+    const iat = Number(claims.iat);
+    return Number.isFinite(iat) && iat > 0 ? iat : null;
+  } catch {
+    return null;
+  }
+}
+
+async function ensureRegistryRowWithGlobalSignoutGuard(
+  sb: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>,
+  userId: string,
+  sessionId: string
+): Promise<boolean> {
+  return ensureUserSessionRegistryRow(sb, userId, sessionId, {
+    globalSignoutGuard: { tokenIssuedAtSec: await readRequestJwtIssuedAtSec(userId) },
+  });
+}
+
 export async function validateActiveSession(
   userId: string,
   currentSessionId?: string | null
@@ -99,7 +128,7 @@ export async function validateActiveSession(
   if (sb) {
     let { ok: registryOk } = await validateUserSessionRegistryCached(sb, userId, sessionId);
     if (!registryOk) {
-      const ensured = await ensureUserSessionRegistryRow(sb, userId, sessionId);
+      const ensured = await ensureRegistryRowWithGlobalSignoutGuard(sb, userId, sessionId);
       if (ensured) {
         registryOk = true;
       }
@@ -285,7 +314,7 @@ export async function validateActiveSessionLight(
     ).trim();
 
     if (!registryResult.registryOk) {
-      const ensured = await ensureUserSessionRegistryRow(sb, userId, sessionId);
+      const ensured = await ensureRegistryRowWithGlobalSignoutGuard(sb, userId, sessionId);
       if (!ensured) {
         breakdown.auth_db_round_trips = dbTrips;
         breakdown.auth_total_ms = Math.round(devPerfNow() - total0);

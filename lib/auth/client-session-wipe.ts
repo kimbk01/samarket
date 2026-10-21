@@ -68,6 +68,8 @@ import { resetNotificationSoundRuntimeForAuthEpoch } from "@/lib/notifications/n
 import { resetProjectionAuthorityForAuthEpoch } from "@/lib/notifications/projection-authority";
 import { resetDomainBadgeSurfaceForAuthEpoch } from "@/lib/messenger/contracts/domain-badge-surface-store";
 import { resetOwnerHubBadgeStoreForAuthEpoch } from "@/lib/chats/owner-hub-badge-store";
+import { clearAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
+import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -160,6 +162,9 @@ function resetInMemoryClientStores(): void {
   invalidatePhilifeNeighborhoodTopicOptionsCache();
   clearPendingAuthActions();
   clearLoginBootstrapSnapshot();
+  /** AD-08 — 이전 사용자 admin `/me` 스냅샷·admin GET 캐시(`admin-fetch:*`·`admin:*`) 잔존 금지. */
+  clearAdminMeSnapshot();
+  invalidateAdminFetchCache("admin");
 }
 
 function resetAddressClientCaches(): void {
@@ -187,7 +192,7 @@ function resetAuthClientCaches(previousUserId?: string | null): void {
   setSupabaseProfileCache(null);
   invalidateMeProfileDedupedCache();
   clearAuthSessionClientCache();
-  clearBootstrapCache();
+  clearBootstrapCache({ authExit: true });
   resetAddressClientCaches();
   invalidateAuthExitClientCaches(previousUserId);
 }

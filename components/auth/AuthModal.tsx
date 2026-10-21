@@ -1,22 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { OAuthInlineLoginHint } from "@/components/auth/OAuthInlineLoginHint";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
+import { usePasswordLogin } from "@/components/auth/usePasswordLogin";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
-import {
-  AUTH_REQUEST_TIMEOUT_SIGNAL,
-  mapPasswordLoginErrorMessage,
-  mapPasswordResolveErrorCodeToMessage,
-  mapSupabaseFetchFailureToMessage,
-} from "@/lib/auth/login-error-i18n";
 import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
 import { useOAuthLogin, type OAuthAuthSuccessInput } from "@/lib/auth/oauth/use-oauth-login";
 import type { LoginRequiredDetail } from "@/lib/auth/require-auth-action";
@@ -24,34 +16,11 @@ import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 
-const AUTH_REQUEST_TIMEOUT_MS = 25_000;
-const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
-
 type Props = {
   open: boolean;
   detail: LoginRequiredDetail | null;
   onClose: () => void;
 };
-
-function looksLikeEmailForLogin(identifierRaw: string): boolean {
-  const s = identifierRaw.trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-}
-
-function rejectAfter(ms: number, signal: string): Promise<never> {
-  return new Promise((_, reject) => {
-    window.setTimeout(() => reject(new Error(signal)), ms);
-  });
-}
-
-function withTimeout<T>(p: Promise<T>, ms: number, signal: string): Promise<T> {
-  return Promise.race([p, rejectAfter(ms, signal)]);
-}
-
-function mapHttpStatusToResolveErrorCode(status: number): string {
-  if (status === 429) return "rate_limited";
-  return "";
-}
 
 export function AuthModal({ open, detail, onClose }: Props) {
   /** Auth flow chrome via AuthGateOverlay → DibayOverlayRoot (OAuth untouched). */
@@ -61,11 +30,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
   const [providersLoading, setProvidersLoading] = useState(true);
   const [passwordEnabled, setPasswordEnabled] = useState(true);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [passwordLoginStatus, setPasswordLoginStatus] = useState("");
+  const [providersLoadFailed, setProvidersLoadFailed] = useState(false);
 
   const next = useMemo(() => {
     if (detail?.next?.trim()) return detail.next.trim();
@@ -105,14 +70,21 @@ export function AuthModal({ open, detail, onClose }: Props) {
     onAuthSuccess: handleAuthSuccess,
   });
 
+  /** P1-9: /login 과 동일한 아이디 로그인 핸들러 (약관 게이트 포함) */
+  const passwordLogin = usePasswordLogin({
+    next,
+    router,
+    pendingToken: detail?.token,
+    onCloseModal: onClose,
+  });
+  const { error, loading, reset: resetPasswordLogin } = passwordLogin;
+
   useEffect(() => {
     if (open) return;
     setShowEmailLogin(false);
-    setError(null);
-    setIdentifier("");
-    setPassword("");
+    resetPasswordLogin();
     resetOAuthOnClose();
-  }, [open, resetOAuthOnClose]);
+  }, [open, resetOAuthOnClose, resetPasswordLogin]);
 
   useEffect(() => {
     if (!open) return;
@@ -135,11 +107,16 @@ export function AuthModal({ open, detail, onClose }: Props) {
           | { ok?: boolean; settings?: Array<{ provider?: string; enabled?: boolean }> }
           | null;
         if (cancelled) return;
-        setProviders(providersRes.ok && providersJson?.ok && Array.isArray(providersJson.providers) ? providersJson.providers : []);
+        const providersOk = providersRes.ok && providersJson?.ok && Array.isArray(providersJson.providers);
+        setProvidersLoadFailed(!providersOk);
+        setProviders(providersOk && providersJson?.providers ? providersJson.providers : []);
         const passwordSetting = settingsJson?.settings?.find((item) => item.provider === "password");
         setPasswordEnabled(passwordSetting ? passwordSetting.enabled === true : true);
       } catch {
-        if (!cancelled) setProviders([]);
+        if (!cancelled) {
+          setProviders([]);
+          setProvidersLoadFailed(true);
+        }
       } finally {
         if (!cancelled) setProvidersLoading(false);
       }
@@ -149,98 +126,6 @@ export function AuthModal({ open, detail, onClose }: Props) {
     };
   }, [open]);
 
-  const finishAuthenticated = useCallback(async () => {
-    await finishClientAuthLogin({
-      pendingToken: detail?.token,
-      next,
-      onCloseModal: onClose,
-      router,
-    });
-  }, [detail?.token, next, onClose, router]);
-
-  const handleEmailSubmit = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      if (loading) return;
-      setError(null);
-      setLoading(true);
-      setPasswordLoginStatus(t("auth_status_checking"));
-      try {
-        const supabase = getSupabaseClient();
-        if (!supabase) {
-          setError(t("auth_err_supabase_unconfigured"));
-          return;
-        }
-        if (!identifier.trim()) {
-          setError(t("auth_err_identifier_required"));
-          return;
-        }
-        if (!password) {
-          setError(t("auth_err_password_required"));
-          return;
-        }
-
-        let signInEmail = "";
-        if (looksLikeEmailForLogin(identifier)) {
-          signInEmail = identifier.trim().toLowerCase();
-        } else {
-          const resolveRes = await fetchWithTimeout("/api/auth/password-login/resolve-identifier", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ identifier }),
-            timeoutMs: LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS,
-          });
-          const resolveJson = (await resolveRes.json().catch(() => null)) as
-            | { identifier?: string; error?: string; code?: string }
-            | null;
-          if (!resolveRes.ok) {
-            const fallback = mapPasswordLoginErrorMessage(
-              resolveJson?.error ?? t("auth_err_login_identifier_lookup_failed"),
-              t,
-            );
-            const code = String(resolveJson?.code ?? "").trim() || mapHttpStatusToResolveErrorCode(resolveRes.status);
-            setError(mapPasswordResolveErrorCodeToMessage(code, fallback, t));
-            return;
-          }
-          signInEmail = String(resolveJson?.identifier ?? "").trim().toLowerCase();
-        }
-
-        if (!signInEmail) {
-          setError(t("auth_err_enter_email_or_id_short"));
-          return;
-        }
-
-        setPasswordLoginStatus(t("auth_status_navigating"));
-        const signInResult = await withTimeout(
-          supabase.auth.signInWithPassword({ email: signInEmail, password }),
-          AUTH_REQUEST_TIMEOUT_MS,
-          AUTH_REQUEST_TIMEOUT_SIGNAL,
-        );
-        if (signInResult.error) {
-          setError(mapPasswordLoginErrorMessage(signInResult.error.message || t("auth_err_login_failed"), t));
-          return;
-        }
-        if (!signInResult.data.session) {
-          setError(t("auth_err_session_not_persisted"));
-          return;
-        }
-        await supabase.auth.getSession().catch(() => null);
-        await finishAuthenticated();
-      } catch (err) {
-        if (err instanceof Error && err.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
-          setError(t("auth_err_auth_timeout"));
-        } else {
-          setError(mapSupabaseFetchFailureToMessage(describeSupabaseFetchFailure(err), t));
-        }
-      } finally {
-        setLoading(false);
-        setPasswordLoginStatus("");
-      }
-    },
-    [finishAuthenticated, identifier, loading, password, t],
-  );
-
   const handleOAuthLogin = useCallback(
     (provider: OAuthProvider) => {
       void startOAuthProvider(provider);
@@ -248,7 +133,11 @@ export function AuthModal({ open, detail, onClose }: Props) {
     [startOAuthProvider],
   );
 
-  const displayError = error ?? oauthError;
+  const handleOpenInternalLogin = useCallback(() => {
+    setShowEmailLogin(true);
+  }, []);
+
+  const displayError = error || oauthError || null;
 
   return (
     <>
@@ -257,7 +146,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-[#1e3932]/60 hover:bg-[#f6f6f6] hover:text-[#1e3932]"
+            className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-sam-muted hover:bg-sam-surface-muted hover:text-sam-fg"
             aria-label={t("common_close")}
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -267,48 +156,66 @@ export function AuthModal({ open, detail, onClose }: Props) {
           <div className="mx-auto flex justify-center" aria-hidden>
             <DibayAuthLogo size={56} />
           </div>
-          <h2 id="dibay-auth-modal-title" className="mt-3 text-center text-lg font-semibold text-[#1e3932]">
+          <h2 id="dibay-auth-modal-title" className="mt-3 text-center text-lg font-semibold text-sam-fg">
             {t("auth_login_title")}
           </h2>
+          <p className="mt-1 text-center sam-text-body-secondary text-sam-muted">
+            {t("auth_login_auto_signup_hint")}
+          </p>
 
           <div className="mt-5 space-y-4">
             <LoginProviderButtons
+              surface="overlay"
               providers={providers}
               disabled={loading}
               pendingOAuthProvider={pendingOAuthProvider}
               signingInOAuthProvider={visiblePendingOAuthProvider}
-              emptyText={providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")}
+              emptyText={
+                providersLoadFailed
+                  ? undefined
+                  : providersLoading
+                    ? t("auth_sns_providers_loading")
+                    : t("auth_sns_providers_none")
+              }
               showEmailEntry={passwordEnabled && !showEmailLogin}
-              onEmailLoginClick={() => setShowEmailLogin(true)}
+              onEmailLoginClick={handleOpenInternalLogin}
               onSelectProvider={(provider) => void handleOAuthLogin(provider)}
             />
+            {providersLoadFailed && !providersLoading ? (
+              <p className="sam-text-body-secondary text-center text-sam-danger">
+                {t("auth_sns_providers_load_failed")}
+              </p>
+            ) : null}
             <OAuthInlineLoginHint status={oauthInlineStatus} />
             {!showEmailLogin && displayError ? (
-              <p className="sam-text-body-secondary text-center text-red-600">{displayError}</p>
+              <p className="sam-text-body-secondary text-center text-sam-danger" role="alert">{displayError}</p>
             ) : null}
             {passwordEnabled && showEmailLogin ? (
               <div data-auth-surface="internal" data-testid="auth-internal-login-panel">
-                <p className="mt-1 sam-text-body-secondary text-center text-[#667085]">
+                <p className="mt-1 sam-text-body-secondary text-center text-sam-muted">
                   {t("auth_login_internal_hint")}
                 </p>
                 <PasswordLoginForm
-                  identifier={identifier}
-                  password={password}
+                  identifier={passwordLogin.identifier}
+                  password={passwordLogin.password}
                   error={displayError}
                   disabled={loading || pendingOAuthProvider != null}
                   loading={loading}
-                  loadingText={passwordLoginStatus}
+                  loadingText={passwordLogin.statusText}
                   className="mt-2 space-y-4"
-                  onIdentifierChange={setIdentifier}
-                  onPasswordChange={setPassword}
-                  onSubmit={handleEmailSubmit}
+                  onIdentifierChange={passwordLogin.setIdentifier}
+                  onPasswordChange={passwordLogin.setPassword}
+                  onSubmit={passwordLogin.submit}
                 />
               </div>
             ) : null}
           </div>
         </div>
       </AuthGateOverlay>
-      <AuthProviderEmailConflictHost />
+      <AuthProviderEmailConflictHost
+        onLoginWithExistingProvider={handleOAuthLogin}
+        onOpenInternalLogin={handleOpenInternalLogin}
+      />
     </>
   );
 }

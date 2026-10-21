@@ -6,8 +6,8 @@ import { App } from "@capacitor/app";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getOAuthLoginContinueLabelKey,
+  getOAuthLoginPrimaryButtonBase,
   getOAuthLoginPrimaryStyle,
-  OAUTH_LOGIN_PRIMARY_BUTTON_BASE,
   OAuthLoginProviderIcon,
 } from "@/components/auth/OAuthLoginProviderVisuals";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
@@ -278,7 +278,7 @@ export function NativeOAuthLaunchClient() {
   if (!provider) {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center bg-sam-app px-6">
-        <p className="text-center text-sm text-red-600">{error}</p>
+        <p className="text-center text-sm text-sam-danger" role="alert">{error}</p>
         <button type="button" className="mt-4 text-sm text-sam-muted underline" onClick={handleBack}>
           {backLabel}
         </button>
@@ -321,17 +321,22 @@ export function NativeOAuthLaunchClient() {
         <button
           type="button"
           disabled={loading || opening || !authorizeUrl || !bridgeReady}
-          className={`${OAUTH_LOGIN_PRIMARY_BUTTON_BASE} ${style?.buttonClassName ?? ""}`}
+          className={`${getOAuthLoginPrimaryButtonBase("page")} ${style?.buttonClassName ?? ""}`}
           onClick={handleOpenBrowser}
         >
           <OAuthLoginProviderIcon provider={provider} size="primary" />
-          <span className={style?.labelClassName ?? "text-sam-fg"}>
+          {/* 아이콘 폭만큼 오른쪽 spacer — 라벨을 버튼 중앙에 둔다 (LoginProviderButtons 와 동일) */}
+          <span className={`flex-1 text-center text-[15px] font-semibold ${style?.labelClassName ?? "text-sam-fg"}`}>
             {opening ? t("auth_oauth_redirecting_label") : label}
           </span>
+          <span className="h-6 w-6 shrink-0" aria-hidden />
         </button>
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        {devError ? <p className="text-xs text-sam-muted break-all">{devError}</p> : null}
+        {error ? <p className="text-sm text-sam-danger" role="alert">{error}</p> : null}
+        {/* 진단 문구는 개발 빌드에서만 — 운영 화면에 개발자 정보 노출 금지 (P2-15) */}
+        {devError && process.env.NODE_ENV !== "production" ? (
+          <p className="text-xs text-sam-muted break-all">{devError}</p>
+        ) : null}
 
         <button type="button" className="text-sm text-sam-muted underline" onClick={handleBack}>
           {backLabel}

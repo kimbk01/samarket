@@ -165,6 +165,10 @@ export function PhoneVerificationBox({
       }
       setMessage(`${t("my_phone_sent_hint")} (${json.phone ?? normalizedPhone})`);
       setCooldownUntil(Date.now() + cooldownSec * 1000);
+    } catch (e) {
+      // 네트워크 예외 — 원문은 로그로만, 화면은 i18n 키 (P2-15).
+      console.warn("[phone-otp] send threw", e instanceof Error ? e.name : "unknown");
+      setError(t("my_phone_send_failed"));
     } finally {
       setSending(false);
     }
@@ -208,6 +212,9 @@ export function PhoneVerificationBox({
       setOtp("");
       setAllowEdit(false);
       await onRefreshProfile();
+    } catch (e) {
+      console.warn("[phone-otp] verify threw", e instanceof Error ? e.name : "unknown");
+      setError(t("my_phone_verify_failed"));
     } finally {
       setVerifying(false);
     }

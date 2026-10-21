@@ -72,8 +72,11 @@ describe("customer / internal login surface separation", () => {
     expect(login).toMatch(/data-auth-surface="internal"/);
     expect(modal).toMatch(/showEmailEntry=\{passwordEnabled && !showEmailLogin\}/);
     expect(modal).toMatch(/data-auth-surface="internal"/);
-    // Backend auth paths unchanged in these surface files
-    expect(login).toMatch(/signInWithPassword/);
-    expect(login).toMatch(/password-login\/resolve-identifier/);
+    // Backend auth paths unchanged — P1-9: single password handler shared by LoginPage + AuthModal
+    const hook = readFileSync(join(process.cwd(), "components/auth/usePasswordLogin.ts"), "utf8");
+    expect(login).toMatch(/usePasswordLogin\(/);
+    expect(modal).toMatch(/usePasswordLogin\(/);
+    expect(hook).toMatch(/signInWithPassword/);
+    expect(hook).toMatch(/password-login\/resolve-identifier/);
   });
 });

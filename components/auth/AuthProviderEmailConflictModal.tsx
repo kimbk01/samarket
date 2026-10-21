@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useCallback } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { OAuthProvider } from "@/lib/auth/auth-providers";
+import {
+  resolveConflictExistingLoginAction,
+  type ConflictExistingLoginAction,
+} from "@/components/auth/provider-email-conflict-redirect";
 import {
   clearProviderEmailConflict,
   type ProviderEmailConflictState,
@@ -16,7 +19,7 @@ import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 type AuthProviderEmailConflictModalProps = {
   open: boolean;
   conflict: ProviderEmailConflictState | null;
-  onLoginWithExisting: (provider: OAuthProvider) => void;
+  onLoginWithExisting: (action: ConflictExistingLoginAction) => void;
   onDismiss: () => void;
 };
 
@@ -35,8 +38,9 @@ export function AuthProviderEmailConflictModal({
 
   if (!conflict) return null;
 
-  const existingProvider = conflict.existingProviders[0] ?? "google";
+  const existingProvider = conflict.existingProviders[0] ?? null;
   const existingLabel = resolveProviderDisplayName(existingProvider, language);
+  const existingAction = resolveConflictExistingLoginAction(existingProvider);
   const attemptedLabel = resolveProviderDisplayName(conflict.attemptedProvider, language);
 
   const body = t("auth_provider_email_conflict_body", {
@@ -52,12 +56,15 @@ export function AuthProviderEmailConflictModal({
       description={body}
     >
       <div className={OverlayUi.actionsStack}>
-        <DibayOverlayButton
-          roleTone="primary"
-          onClick={() => onLoginWithExisting(existingProvider as OAuthProvider)}
-        >
-          {t("auth_provider_email_conflict_login_existing", { provider: existingLabel })}
-        </DibayOverlayButton>
+        {existingAction.kind === "unsupported" ? (
+          <p className={OverlayUi.bodySecondary} data-testid="auth-conflict-existing-unsupported">
+            {t("auth_provider_email_conflict_existing_unavailable")}
+          </p>
+        ) : (
+          <DibayOverlayButton roleTone="primary" onClick={() => onLoginWithExisting(existingAction)}>
+            {t("auth_provider_email_conflict_login_existing", { provider: existingLabel })}
+          </DibayOverlayButton>
+        )}
         <DibayOverlayButton roleTone="secondary" onClick={handleDismiss}>
           {t("auth_provider_email_conflict_continue_other")}
         </DibayOverlayButton>

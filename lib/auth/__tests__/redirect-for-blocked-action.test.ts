@@ -50,4 +50,24 @@ describe("redirectForBlockedAction", () => {
     expect(openLoginRequiredSheet).not.toHaveBeenCalled();
     expect(openPhoneVerificationRequiredSheet).not.toHaveBeenCalled();
   });
+
+  it("P2-1: routes signup_incomplete 403 to the consent screen with next", () => {
+    const replace = vi.fn();
+    const ok = redirectForBlockedAction({ push: vi.fn(), replace }, "signup_incomplete", "/write/used");
+    expect(ok).toBe(true);
+    expect(replace).toHaveBeenCalledWith(`/auth/onboarding/terms?next=${encodeURIComponent("/write/used")}`);
+    expect(openPhoneVerificationRequiredSheet).not.toHaveBeenCalled();
+    expect(openLoginRequiredSheet).not.toHaveBeenCalled();
+  });
+
+  it("P2-1: routes the server consent message text to the consent screen", () => {
+    const push = vi.fn();
+    const ok = redirectForBlockedAction(
+      { push },
+      "약관·개인정보 처리방침 동의 후 이용할 수 있습니다.",
+      "/community-messenger",
+    );
+    expect(ok).toBe(true);
+    expect(push).toHaveBeenCalledWith(`/auth/onboarding/terms?next=${encodeURIComponent("/community-messenger")}`);
+  });
 });

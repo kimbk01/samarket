@@ -143,6 +143,8 @@ export async function GET(req: NextRequest) {
       const callbackAttemptId = newWebOAuthCallbackAttemptId();
       const providerPolicy = await enforceWebOAuthProviderPolicy(writeSb, mergedUser, {
         callbackAttemptId,
+        // P1-6: start route 가 callback `?provider=` 로 넘긴 이번 로그인 provider.
+        loginProvider: req.nextUrl.searchParams.get("provider"),
       });
       if (!providerPolicy.ok) {
         // Package B — never leave callback authenticated as wrong / conflicting principal.
@@ -258,7 +260,10 @@ export async function GET(req: NextRequest) {
             enrichMemberProfile: status.signupComplete === true,
           });
           if (providerPolicy.candidate) {
-            await persistOAuthProviderIdentity(writeSb, activeUser.id, providerPolicy.candidate);
+            // OA-17: 1회 재시도 + oauth_identity_persist_failed 로그 (로그인은 계속).
+            await persistOAuthProviderIdentity(writeSb, activeUser.id, providerPolicy.candidate, {
+              callbackAttemptId,
+            });
           }
           const outcome = ensured.ensureUserProfileOutcome;
           if (outcome?.duplicateWarning && process.env.NODE_ENV !== "production") {
@@ -284,7 +289,10 @@ export async function GET(req: NextRequest) {
             enrichMemberProfile: false,
           });
           if (providerPolicy.candidate) {
-            await persistOAuthProviderIdentity(writeSb, activeUser.id, providerPolicy.candidate);
+            // OA-17: 1회 재시도 + oauth_identity_persist_failed 로그 (로그인은 계속).
+            await persistOAuthProviderIdentity(writeSb, activeUser.id, providerPolicy.candidate, {
+              callbackAttemptId,
+            });
           }
         } catch {
           /* 클라이언트 ensure 에 맡김 */

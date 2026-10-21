@@ -43,7 +43,9 @@ const GUEST_RECOVERY_FLIGHT = "dibay:recoverable-guest-session";
 type AuthBcMessage =
   | { type: "refresh_lock" }
   | { type: "refresh_done" }
-  | { type: "signed_out" };
+  | { type: "signed_out" }
+  /** P0-2 — 명시 로그아웃 탭이 wipe 완료 후 1회 발행. 수신 탭은 같은 wipe + 하드 이동. */
+  | { type: "explicit_logout"; previousUserId: string | null };
 
 type AuthEventHandler = (event: AuthChangeEvent, session: Session | null) => void;
 
@@ -157,6 +159,9 @@ function getAuthBroadcastChannel(): BroadcastChannel | null {
         // Only explicit tabs broadcast signed_out — treat as terminal.
         applyTerminalGuestPhase("auth_bc:signed_out");
       }
+      if (msg.type === "explicit_logout") {
+        void handleExplicitLogoutBroadcast(msg.previousUserId ?? null);
+      }
     };
     return authBc;
   } catch {
@@ -170,6 +175,74 @@ function postAuthBc(message: AuthBcMessage): void {
   } catch {
     /* ignore */
   }
+}
+
+let explicitLogoutBroadcastHandled = false;
+
+/**
+ * P0-2 — 다른 탭의 **명시 로그아웃** broadcast 수신.
+ * 로그아웃 탭과 같은 `wipeClientSessionState("user_logout")` 후 같은 post-logout 경로로 hard replace.
+ * 예상치 못한 SIGNED_OUT 복구 경로(CUT-A)는 건드리지 않는다 — 이 경로는 explicit 메시지 출처로만 진입.
+ */
+async function handleExplicitLogoutBroadcast(previousUserId: string | null): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (explicitLogoutBroadcastHandled) return;
+  const { getTabAuthenticatedUserId } = await import("@/lib/auth/client-instance-id");
+  const tabUserId = getTabAuthenticatedUserId();
+  // 이 탭이 이미 다른 계정으로 인증돼 있으면(로그아웃 대상 아님) 무시.
+  if (previousUserId && tabUserId && tabUserId !== previousUserId) return;
+  explicitLogoutBroadcastHandled = true;
+  logGuestAuthBootMarker("signed_out_terminal_guest", {
+    source: "auth_bc:explicit_logout",
+    hadTabUserId: !!tabUserId,
+  });
+  const { markExplicitLogoutWipeDone, wipeClientSessionState } = await import(
+    "@/lib/auth/client-session-wipe"
+  );
+  // 이 탭의 cross-tab SIGNED_OUT 은 명시 로그아웃 결과 — unexpected 복구 경로로 보내지 않는다.
+  markExplicitLogoutWipeDone();
+  applyTerminalGuestPhase("auth_bc:explicit_logout");
+  try {
+    await wipeClientSessionState("user_logout");
+  } finally {
+    establishGuestAuthState("auth_bc:explicit_logout");
+    const { navigateAfterAuthExitOnce } = await import("@/lib/auth/auth-exit-coordinator");
+    navigateAfterAuthExitOnce("logout");
+  }
+}
+
+/** 명시 로그아웃 플로우(wipe 완료 후)에서만 호출 — 다른 탭에 같은 wipe + 이동을 요청 */
+export function broadcastExplicitLogoutToOtherTabs(previousUserId: string | null): void {
+  postAuthBc({ type: "explicit_logout", previousUserId: previousUserId ?? null });
+}
+
+/** vitest — BroadcastChannel 없이 수신 처리 검증 */
+export function handleExplicitLogoutBroadcastForTests(previousUserId: string | null): Promise<void> {
+  return handleExplicitLogoutBroadcast(previousUserId);
+}
+
+/**
+ * P2-10 — 비명시 SIGNED_OUT 이 **확정** terminal(guest/corrupt)로 수렴했고 이 기기에 bound user 가 남아 있으면
+ * 로컬 wipe 1회 (single-flight). recovering/loading 은 guest 로 보지 않는다 (HARD LOCK contract A).
+ */
+function wipeAfterConfirmedTerminalSignedOut(result: EnsureSessionHealthyResult): void {
+  if (result.ok) return;
+  const confirmedTerminal =
+    result.terminal === true || result.phase === "corrupt" || result.phase === "terminal_guest";
+  if (!confirmedTerminal) return;
+  if (!getBoundAuthUserId()) return;
+  logGuestAuthBootMarker("signed_out_terminal_guest", {
+    source: "unexpected_converged_local_wipe",
+    phase: result.phase,
+  });
+  void import("@/lib/auth/client-session-wipe")
+    .then(({ wipeClientSessionState }) => wipeClientSessionState("user_logout"))
+    .then(() => import("@/lib/app-boot/run-app-boot"))
+    .then(({ ensureAppBoot }) => {
+      // CUT-A — wipe 의 invalidateAppBootAll 이후 boot 재무장 (bound id 는 비워져 재진입 없음).
+      void ensureAppBoot();
+    })
+    .catch(() => undefined);
 }
 
 function terminalFromAuthError(error: { code?: string; message?: string; status?: number } | null): boolean {
@@ -413,10 +486,12 @@ function handleAuthStateChange(event: AuthChangeEvent, session: Session | null):
         if (outcome === "corrupt") {
           setSessionPhase("corrupt");
           projectMemberEventEligibility(false, "signed_out_converged:corrupt");
+          wipeAfterConfirmedTerminalSignedOut(result);
           return;
         }
         // terminal_guest — server/local session confirmed absent after health check
         applyTerminalGuestPhase("auth_event:SIGNED_OUT:converged_terminal");
+        wipeAfterConfirmedTerminalSignedOut(result);
       })
       .finally(() => {
         settleUnexpectedSignedOutRecovery(generation);
@@ -477,6 +552,7 @@ export function resetDibaySessionManagerForTests(): void {
   authSubscription = null;
   authEventHandlers.clear();
   remoteRefreshLock = false;
+  explicitLogoutBroadcastHandled = false;
   try {
     authBc?.close();
   } catch {

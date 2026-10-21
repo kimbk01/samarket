@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveAuthProviderLoginGate } from "@/lib/auth/auth-provider-store";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { parseNativeExchangeRequest } from "@/lib/auth/native/native-exchange-contract.server";
 import { invalidNativeExchangeProvider, nativeExchangeBadRequest } from "@/lib/auth/native/native-exchange-errors.server";
@@ -7,6 +8,7 @@ import {
   createNativeExchangeContext,
   exchangeNativeProviderToken,
 } from "@/lib/auth/native/native-token-exchange.server";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +53,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // OA-14 — 관리자 OFF 공급자는 서버에서 교환 거부 (naver/facebook 항상 거부).
+  const gate = await resolveAuthProviderLoginGate(tryCreateSupabaseServiceClient(), parsed.provider);
+  if (!gate.allowed) {
+    return noStoreJson(
+      { ok: false, errorCode: "provider_disabled", message: "This sign-in method is currently disabled." },
+      403,
+    );
+  }
+
   const safeNext = typeof body.next === "string" ? body.next : null;
   const exchangeInput = { ...parsed, next: safeNext };
 
@@ -90,7 +101,13 @@ export async function POST(req: NextRequest) {
       message: result.message,
     };
     if (result.conflict) {
-      body.conflict = result.conflict;
+      // P1-3 — 다른 회원 userId 는 응답에 싣지 않는다 (필드 화이트리스트).
+      body.conflict = {
+        email: result.conflict.email,
+        attemptedProvider: result.conflict.attemptedProvider,
+        existingProviders: result.conflict.existingProviders,
+        stashToken: result.conflict.stashToken,
+      };
     }
     return noStoreJson(body, result.status);
   }

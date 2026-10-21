@@ -7,13 +7,31 @@ export const AUTH_IDENTIFIER_RESOLVE_TIMEOUT_SIGNAL = "@@samarket_auth_identifie
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
+/** §5.6 — 원시 code·detail·서버/Supabase 원문은 화면에 표시하지 않고 콘솔에만 남긴다. */
+function logAuthErrorForDiagnostics(scope: string, detail: Record<string, unknown>): void {
+  if (typeof console === "undefined") return;
+  console.warn(`[auth-error] ${scope}`, detail);
+}
+
 export function mapPasswordLoginErrorMessage(raw: string, t: TranslateFn): string {
   const message = String(raw ?? "").trim();
   const normalized = message.toLowerCase();
   if (!message) return t("auth_err_login_failed");
   if (normalized.includes("invalid login credentials")) return t("auth_err_invalid_credentials");
   if (normalized.includes("email not confirmed")) return t("auth_err_email_not_confirmed");
-  return message;
+  logAuthErrorForDiagnostics("password_login", { raw: message.slice(0, 160) });
+  return t("auth_err_login_failed");
+}
+
+export type AuthAccountStatusNotice = "suspended" | "blocked" | "withdrawn";
+
+/** /login 계정 상태 전용 안내 블록 — 정지·차단·탈퇴 code 만 해당. */
+export function resolveAuthAccountStatusNotice(code: string | null | undefined): AuthAccountStatusNotice | null {
+  const c = String(code ?? "").trim();
+  if (c === "account_suspended") return "suspended";
+  if (c === "account_blocked") return "blocked";
+  if (c === "account_withdrawn") return "withdrawn";
+  return null;
 }
 
 export function mapPasswordResolveErrorCodeToMessage(code: string, fallback: string, t: TranslateFn): string {
@@ -34,8 +52,10 @@ export function mapAuthErrorMessage(code: string, detail: string | undefined, t:
   if (code === "redirect_uri_not_allowed") return t("auth_err_redirect_uri_not_allowed");
   if (code === "callback_failed") {
     const normalizedDetail = String(detail ?? "").trim();
-    if (!normalizedDetail) return t("auth_err_callback_failed");
-    return t("auth_err_callback_failed_detail", { detail: normalizedDetail });
+    if (normalizedDetail) {
+      logAuthErrorForDiagnostics("callback_failed", { detail: normalizedDetail.slice(0, 160) });
+    }
+    return t("auth_err_callback_failed");
   }
   if (code === "profile_ensure_failed") return t("auth_err_profile_ensure_failed");
   if (code === "session_sync_failed") return t("auth_err_session_sync_failed");
@@ -57,7 +77,8 @@ export function mapAuthErrorMessage(code: string, detail: string | undefined, t:
     return t("auth_err_provider_account_link_required");
   }
   if (code === "provider_account_conflict") return t("auth_err_provider_account_conflict");
-  return t("auth_err_login_failed_code", { code });
+  logAuthErrorForDiagnostics("unmapped_code", { code });
+  return t("auth_err_generic_retry");
 }
 
 export function mapOAuthSignInErrorMessage(

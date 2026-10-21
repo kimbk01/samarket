@@ -1,6 +1,18 @@
 export const authUiMessages = {
   ko: {
-    auth_login_title: "dibaY 로그인",
+    auth_login_title: "dibaY 시작하기",
+    auth_login_auto_signup_hint: "처음이면 자동으로 가입됩니다",
+    auth_err_generic_retry: "일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+    auth_account_status_suspended_title: "이용이 정지된 계정입니다",
+    auth_account_status_blocked_title: "이용이 차단된 계정입니다",
+    auth_account_status_withdrawn_title: "탈퇴한 계정입니다",
+    auth_account_status_support_cta: "고객센터 문의",
+    auth_provider_email_conflict_existing_unavailable:
+      "기존에 가입한 방법으로는 지금 로그인할 수 없습니다. 다른 계정으로 계속하거나 고객센터에 문의해 주세요.",
+    auth_consent_version_stale: "약관이 개정되었습니다. 변경된 내용을 확인한 뒤 다시 동의해 주세요.",
+    auth_oauth_return_to_app: "앱으로 돌아가기",
+    auth_oauth_return_to_app_hint: "앱이 자동으로 열리지 않으면 아래 버튼을 눌러 주세요.",
+    auth_logout_err_unknown: "로그아웃 처리 중 알 수 없는 오류가 발생했습니다.",
     auth_login_subtitle: "일반 회원은 소셜 계정으로 로그인하세요.",
     auth_login_divider_id_password: "또는 내부/운영 로그인",
     auth_login_internal_entry: "내부/운영 로그인",
@@ -26,13 +38,12 @@ export const authUiMessages = {
     auth_provider_continue: "{provider}로 계속하기",
     auth_login_divider_other_account: "다른 계정으로 계속하기",
     auth_login_email_dev_aria: "내부·운영 계정 로그인",
-    auth_provider_continue_kakao: "카카오로 로그인",
+    auth_provider_continue_kakao: "카카오 로그인",
     auth_provider_continue_naver: "네이버로 계속하기",
     auth_provider_continue_apple: "Apple로 계속하기",
     auth_provider_continue_google: "Google로 계속하기",
     auth_provider_continue_facebook: "Facebook으로 계속하기",
-    auth_err_auth_timeout:
-      "인증 서버(Supabase) 응답이 지연되거나 없습니다. 인터넷·VPN·방화벽을 확인하고, .env의 URL·anon 키가 대시보드와 일치하는지 확인한 뒤 다시 시도해 주세요.",
+    auth_err_auth_timeout: "로그인 서버 응답이 지연되고 있습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
     auth_err_identifier_resolve_timeout:
       "로그인 ID 확인이 지연되고 있습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
     auth_err_login_failed: "로그인에 실패했습니다. 다시 시도해 주세요.",
@@ -43,15 +54,14 @@ export const authUiMessages = {
     auth_err_login_id_conflict:
       "동일 로그인 아이디가 중복되어 확인이 필요합니다. 관리자에게 문의해 주세요.",
     auth_err_sns_only_account: "이 계정은 SNS 전용 계정입니다. 아래 SNS 로그인 버튼으로 로그인해 주세요.",
-    auth_err_login_lookup_unconfigured: "로그인 조회 설정이 준비되지 않았습니다. 관리자에게 문의해 주세요.",
+    auth_err_login_lookup_unconfigured: "로그인 정보를 확인할 수 없습니다. 잠시 후 다시 시도하거나 고객센터에 문의해 주세요.",
     auth_err_login_identifier_lookup_failed: "로그인 식별자를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     auth_err_rate_limited: "요청이 많아 잠시 차단되었습니다. 잠시 후 다시 시도해 주세요.",
     auth_err_login_process_failed: "로그인 처리 중 오류가 발생했습니다. 다시 시도해 주세요.",
     auth_err_provider_not_enabled: "선택한 로그인 제공자가 비활성화되어 있습니다.",
     auth_err_provider_key_missing: "로그인 제공자 키가 누락되어 있습니다. 관리자에게 문의해 주세요.",
-    auth_err_redirect_uri_not_allowed: "허용되지 않은 Redirect URI입니다.",
-    auth_err_callback_failed: "OAuth 콜백 처리에 실패했습니다. 다시 시도해 주세요.",
-    auth_err_callback_failed_detail: "OAuth 콜백 처리에 실패했습니다: {detail}",
+    auth_err_redirect_uri_not_allowed: "로그인 연결 설정을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    auth_err_callback_failed: "로그인 처리에 실패했습니다. 다시 시도해 주세요.",
     auth_err_profile_ensure_failed: "프로필 동기화에 실패했습니다. 다시 로그인해 주세요.",
     auth_err_session_sync_failed: "세션 동기화에 실패했습니다. 다시 로그인해 주세요.",
     auth_err_user_not_found: "로그인 사용자를 확인하지 못했습니다. 다시 시도해 주세요.",
@@ -60,29 +70,24 @@ export const authUiMessages = {
     auth_err_missing_code: "로그인 인증 코드가 누락되었습니다.",
     auth_err_provider_id_missing: "로그인 사용자 식별자를 찾지 못했습니다.",
     auth_err_user_upsert_failed: "회원 가입 처리에 실패했습니다. 다시 시도해 주세요.",
-    auth_err_supabase_service_unconfigured: "서버 인증 설정이 누락되었습니다. 관리자에게 문의해 주세요.",
+    auth_err_supabase_service_unconfigured: "로그인 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
     auth_err_session_missing: "세션이 만료되었거나 확인되지 않아 다시 로그인해 주세요.",
-    auth_err_account_withdrawn:
-      "탈퇴 처리된 계정입니다. 같은 소셜 계정으로 다시 이용하려면 관리자에게 문의하거나 새로 가입해 주세요.",
-    auth_err_account_blocked:
-      "이용이 차단된 계정입니다. 관리자 차단 해제 후 다시 로그인해 주세요.",
-    auth_err_account_suspended:
-      "이 회원은 현재 활동이 제한되어 있습니다. 다른 로그인 방법을 사용하거나 고객지원에 문의해 주세요.",
+    auth_err_account_withdrawn: "탈퇴 처리된 계정입니다. 다시 이용하려면 고객센터에 문의해 주세요.",
+    auth_err_account_blocked: "이용이 차단된 계정입니다. 자세한 내용은 고객센터에 문의해 주세요.",
+    auth_err_account_suspended: "이 계정은 현재 이용이 정지되어 있습니다. 자세한 내용은 고객센터에 문의해 주세요.",
     auth_err_provider_account_reconciliation_required:
       "이 로그인 계정은 기존 dibaY 계정과 연결 상태를 확인해야 합니다. 다른 로그인 방법을 사용하거나 고객지원에 문의해 주세요.",
     auth_err_provider_account_link_required:
       "이 로그인 방법은 기존 계정 연결 확인이 필요합니다. 다른 로그인 방법을 사용하거나 고객지원에 문의해 주세요.",
     auth_err_provider_account_conflict:
       "이 로그인 계정은 다른 dibaY 회원에 연결되어 있습니다. 다른 로그인 방법을 사용하거나 고객지원에 문의해 주세요.",
-    auth_err_login_failed_code: "로그인 처리 실패({code}). 다시 시도해 주세요.",
-    auth_err_supabase_unconfigured: "Supabase 설정이 없습니다.",
+    auth_err_supabase_unconfigured: "로그인 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
     auth_err_password_required: "비밀번호를 입력해 주세요.",
     auth_err_enter_email_or_id_short: "이메일 또는 아이디를 입력하세요.",
     auth_err_session_not_persisted:
       "세션이 저장되지 않았습니다. 쿠키·시크릿 모드를 확인한 뒤 다시 시도해 주세요.",
     auth_err_wrong_password_email: "가입되지 않은 이메일이거나 비밀번호가 올바르지 않습니다.",
     auth_err_wrong_password: "비밀번호가 올바르지 않습니다.",
-    auth_err_login_unexpected: "로그인 처리 중 오류: {message}",
     auth_err_login_unknown: "로그인 처리 중 알 수 없는 오류가 발생했습니다.",
     auth_err_kakao_start_url_failed: "카카오 로그인 시작 URL을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
     auth_err_oauth_start_failed: "소셜 로그인을 시작하지 못했습니다.",
@@ -111,12 +116,10 @@ export const authUiMessages = {
       "이 Apple 계정은 다른 가입 정보와 충돌합니다. 고객센터에 문의해 주세요.",
     auth_err_apple_native_invalid_audience:
       "Apple 로그인 앱 설정이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.",
-    auth_err_apple_native_unavailable:
-      "Apple Native 로그인을 사용할 수 없습니다. 앱 업데이트 또는 iOS 설정 확인이 필요합니다.",
+    auth_err_apple_native_unavailable: "Apple 로그인을 사용할 수 없습니다. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.",
     auth_err_kakao_native_config_error:
       "카카오 앱 로그인 설정이 완료되지 않았습니다. 앱을 최신 버전으로 다시 설치한 뒤 시도해 주세요.",
-    auth_err_kakao_native_key_hash_required:
-      "카카오톡 앱 연동 설정이 필요합니다. Kakao Developers에 Android 패키지(com.dibay.app)와 키 해시를 등록한 뒤 다시 시도해 주세요.",
+    auth_err_kakao_native_key_hash_required: "카카오 로그인을 사용할 수 없습니다. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.",
     auth_err_kakao_native_unavailable:
       "카카오 앱 로그인을 사용할 수 없습니다. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.",
     auth_err_kakao_native_not_ready:
@@ -125,8 +128,7 @@ export const authUiMessages = {
       "카카오 로그인 확인에 실패했습니다. 다시 시도해 주세요.",
     auth_err_kakao_native_account_conflict:
       "이 카카오 계정은 다른 가입 정보와 충돌합니다. 고객센터에 문의해 주세요.",
-    auth_err_google_native_config_error:
-      "Google 앱 로그인 설정이 완료되지 않았습니다. Android Studio에서 앱을 다시 빌드·설치하고 GOOGLE_WEB_CLIENT_ID를 확인한 뒤 시도해 주세요.",
+    auth_err_google_native_config_error: "Google 로그인을 사용할 수 없습니다. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.",
     auth_err_google_native_unavailable:
       "Google 앱 로그인을 사용할 수 없습니다. Android 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.",
     auth_err_google_native_not_ready:
@@ -138,7 +140,7 @@ export const authUiMessages = {
     auth_provider_email_conflict_title: "이미 가입된 이메일입니다",
     auth_provider_email_conflict_body:
       "이 이메일은 이미 {existingProvider} 계정으로 DIBAY에 가입되어 있습니다. 보안을 위해 자동으로 합치지 않습니다. 기존 방식으로 로그인한 뒤 {attemptedProvider}을(를) 연결할 수 있습니다.",
-    auth_provider_email_conflict_login_existing: "{provider}으로 로그인",
+    auth_provider_email_conflict_login_existing: "{provider}로 로그인",
     auth_provider_email_conflict_continue_other: "다른 계정으로 계속",
     auth_provider_email_conflict_support: "고객센터 문의",
     auth_provider_link_success_toast: "이제 {provider}로도 로그인할 수 있습니다.",
@@ -146,13 +148,10 @@ export const authUiMessages = {
     auth_provider_last_unlink_blocked_toast: "최소 1개의 로그인 방법은 유지해야 합니다.",
     auth_err_native_provider_not_implemented:
       "앱에서는 아직 이 로그인 방식을 지원하지 않습니다. 다른 방법으로 로그인해 주세요.",
-    auth_supabase_fail_dns:
-      "Supabase 주소를 DNS에서 찾을 수 없습니다. .env.local의 NEXT_PUBLIC_SUPABASE_URL이 Supabase 대시보드(Settings → API → Project URL)와 한 글자까지 같은지 확인하세요. 프로젝트를 새로 만들었거나 삭제했다면 URL 전체를 다시 붙여 넣어야 합니다. (잘못된 참조(ref)이면 *.supabase.co 호스트가 존재하지 않습니다.)",
-    auth_supabase_fail_timeout:
-      "Supabase 연결 시간이 초과되었습니다. 네트워크·VPN·방화벽을 확인하고 다시 시도해 주세요.",
-    auth_supabase_fail_fetch:
-      "Supabase 서버에 연결하지 못했습니다. 인터넷·VPN·방화벽을 확인하고, Project URL·anon 키가 대시보드와 일치하는지 확인해 주세요.",
-    auth_supabase_fail_unknown: "Supabase 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+    auth_supabase_fail_dns: "로그인 서버에 연결하지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
+    auth_supabase_fail_timeout: "로그인 서버 연결 시간이 초과되었습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
+    auth_supabase_fail_fetch: "로그인 서버에 연결하지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
+    auth_supabase_fail_unknown: "로그인 서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.",
     auth_logout_confirm_title: "로그아웃하시겠습니까?",
     auth_logout_confirm_body: "로그아웃하면 다시 이용하려면 로그인이 필요합니다.",
     auth_logout_submit: "로그아웃",
@@ -243,7 +242,19 @@ export const authUiMessages = {
     auth_resource_access_denied: "존재하지 않거나 접근할 수 없는 정보입니다.",
   },
   en: {
-    auth_login_title: "Sign in to dibaY",
+    auth_login_title: "Get started with dibaY",
+    auth_login_auto_signup_hint: "New here? Your account is created automatically.",
+    auth_err_generic_retry: "Something went wrong. Please try again in a moment.",
+    auth_account_status_suspended_title: "This account is suspended",
+    auth_account_status_blocked_title: "This account is blocked",
+    auth_account_status_withdrawn_title: "This account was withdrawn",
+    auth_account_status_support_cta: "Contact support",
+    auth_provider_email_conflict_existing_unavailable:
+      "Your original sign-in method is not available right now. Continue with another account or contact support.",
+    auth_consent_version_stale: "The terms were updated. Please review the changes and agree again.",
+    auth_oauth_return_to_app: "Return to the app",
+    auth_oauth_return_to_app_hint: "If the app does not open automatically, tap the button below.",
+    auth_logout_err_unknown: "An unknown error occurred while signing out.",
     auth_login_subtitle: "Members should sign in with a social account.",
     auth_login_divider_id_password: "Or internal / operations login",
     auth_login_internal_entry: "Internal / operations login",
@@ -269,13 +280,12 @@ export const authUiMessages = {
     auth_provider_continue: "Continue with {provider}",
     auth_login_divider_other_account: "Continue with another account",
     auth_login_email_dev_aria: "Internal / operations account sign-in",
-    auth_provider_continue_kakao: "Log in with Kakao",
+    auth_provider_continue_kakao: "Login with Kakao",
     auth_provider_continue_naver: "Continue with Naver",
     auth_provider_continue_apple: "Continue with Apple",
     auth_provider_continue_google: "Continue with Google",
     auth_provider_continue_facebook: "Continue with Facebook",
-    auth_err_auth_timeout:
-      "The auth server (Supabase) is slow or unreachable. Check your network, VPN, and firewall, verify URL and anon key in .env match the dashboard, then try again.",
+    auth_err_auth_timeout: "The sign-in server is taking too long to respond. Check your network and try again.",
     auth_err_identifier_resolve_timeout:
       "Sign-in ID lookup is taking too long. Check your network and try again.",
     auth_err_login_failed: "Sign-in failed. Please try again.",
@@ -285,15 +295,14 @@ export const authUiMessages = {
     auth_err_login_id_not_found: "That sign-in ID was not found. Please check it again.",
     auth_err_login_id_conflict: "This sign-in ID needs manual review. Please contact support.",
     auth_err_sns_only_account: "This account is social-only. Use a social sign-in button below.",
-    auth_err_login_lookup_unconfigured: "Sign-in lookup is not configured. Please contact support.",
+    auth_err_login_lookup_unconfigured: "Sign-in details could not be checked. Try again shortly or contact support.",
     auth_err_login_identifier_lookup_failed: "Could not verify your sign-in ID. Try again shortly.",
     auth_err_rate_limited: "Too many attempts. Please wait and try again.",
     auth_err_login_process_failed: "Something went wrong during sign-in. Please try again.",
     auth_err_provider_not_enabled: "That sign-in provider is disabled.",
     auth_err_provider_key_missing: "Sign-in provider keys are missing. Please contact support.",
-    auth_err_redirect_uri_not_allowed: "Redirect URI is not allowed.",
-    auth_err_callback_failed: "OAuth callback failed. Please try again.",
-    auth_err_callback_failed_detail: "OAuth callback failed: {detail}",
+    auth_err_redirect_uri_not_allowed: "Could not verify the sign-in connection. Please try again shortly.",
+    auth_err_callback_failed: "Sign-in could not be completed. Please try again.",
     auth_err_profile_ensure_failed: "Profile sync failed. Please sign in again.",
     auth_err_session_sync_failed: "Session sync failed. Please sign in again.",
     auth_err_user_not_found: "Could not verify the signed-in user. Please try again.",
@@ -302,29 +311,24 @@ export const authUiMessages = {
     auth_err_missing_code: "Sign-in authorization code is missing.",
     auth_err_provider_id_missing: "Could not find the sign-in user identifier.",
     auth_err_user_upsert_failed: "Account setup failed. Please try again.",
-    auth_err_supabase_service_unconfigured: "Server auth is not configured. Please contact support.",
+    auth_err_supabase_service_unconfigured: "Sign-in is temporarily unavailable. Please try again shortly.",
     auth_err_session_missing: "Your session expired or is invalid. Please sign in again.",
-    auth_err_account_withdrawn:
-      "This account was withdrawn. To use the same social account again, contact support or sign up again.",
-    auth_err_account_blocked:
-      "This account is blocked. Sign in again after an administrator unblocks it.",
-    auth_err_account_suspended:
-      "This member’s activity is currently restricted. Try another sign-in method or contact support.",
+    auth_err_account_withdrawn: "This account was withdrawn. Please contact support to use it again.",
+    auth_err_account_blocked: "This account is blocked. Please contact support for details.",
+    auth_err_account_suspended: "This account is currently suspended. Please contact support for details.",
     auth_err_provider_account_reconciliation_required:
       "This sign-in method needs verification against an existing dibaY account. Try another sign-in method or contact support.",
     auth_err_provider_account_link_required:
       "This sign-in method needs confirmation against an existing account. Try another sign-in method or contact support.",
     auth_err_provider_account_conflict:
       "This sign-in method is linked to a different dibaY member. Try another sign-in method or contact support.",
-    auth_err_login_failed_code: "Sign-in failed ({code}). Please try again.",
-    auth_err_supabase_unconfigured: "Supabase is not configured.",
+    auth_err_supabase_unconfigured: "Sign-in is temporarily unavailable. Please try again shortly.",
     auth_err_password_required: "Enter your password.",
     auth_err_enter_email_or_id_short: "Enter your email or sign-in ID.",
     auth_err_session_not_persisted:
       "Session was not saved. Check cookies and private browsing, then try again.",
     auth_err_wrong_password_email: "Unknown email or incorrect password.",
     auth_err_wrong_password: "Incorrect password.",
-    auth_err_login_unexpected: "Sign-in error: {message}",
     auth_err_login_unknown: "An unknown error occurred during sign-in.",
     auth_err_kakao_start_url_failed: "Could not start Kakao sign-in. Try again shortly.",
     auth_err_oauth_start_failed: "Could not start social sign-in.",
@@ -353,12 +357,10 @@ export const authUiMessages = {
       "This Apple account conflicts with another sign-in method. Please contact support.",
     auth_err_apple_native_invalid_audience:
       "Apple sign-in app configuration is invalid. Please try again shortly.",
-    auth_err_apple_native_unavailable:
-      "Apple native sign-in is unavailable. Update the app or check iOS settings, then try again.",
+    auth_err_apple_native_unavailable: "Apple sign-in is unavailable. Update the app to the latest version and try again.",
     auth_err_kakao_native_config_error:
       "Kakao app sign-in is not configured yet. Reinstall the latest app build and try again.",
-    auth_err_kakao_native_key_hash_required:
-      "KakaoTalk app linking is required. Register Android package com.dibay.app and your key hash in Kakao Developers, then try again.",
+    auth_err_kakao_native_key_hash_required: "Kakao sign-in is unavailable. Update the app to the latest version and try again.",
     auth_err_kakao_native_unavailable:
       "Kakao app sign-in is unavailable. Update to the latest app build and try again.",
     auth_err_kakao_native_not_ready:
@@ -367,8 +369,7 @@ export const authUiMessages = {
       "Kakao sign-in verification failed. Please try again.",
     auth_err_kakao_native_account_conflict:
       "This Kakao account conflicts with another profile. Please contact support.",
-    auth_err_google_native_config_error:
-      "Google app sign-in is not configured yet. Rebuild and reinstall the Android app, then verify GOOGLE_WEB_CLIENT_ID.",
+    auth_err_google_native_config_error: "Google sign-in is unavailable. Update the app to the latest version and try again.",
     auth_err_google_native_unavailable:
       "Google app sign-in is unavailable on this device. Update the Android app and try again.",
     auth_err_google_native_not_ready:
@@ -388,13 +389,10 @@ export const authUiMessages = {
     auth_provider_last_unlink_blocked_toast: "You must keep at least one sign-in method.",
     auth_err_native_provider_not_implemented:
       "This sign-in method is not available in the app yet. Please use another method.",
-    auth_supabase_fail_dns:
-      "Supabase host could not be resolved. Make sure NEXT_PUBLIC_SUPABASE_URL in .env.local exactly matches Project URL in the Supabase dashboard.",
-    auth_supabase_fail_timeout:
-      "Supabase connection timed out. Check network, VPN, and firewall, then try again.",
-    auth_supabase_fail_fetch:
-      "Could not reach Supabase. Check network, VPN, firewall, and that Project URL and anon key match the dashboard.",
-    auth_supabase_fail_unknown: "Supabase connection failed. Please try again.",
+    auth_supabase_fail_dns: "Could not reach the sign-in server. Check your network and try again.",
+    auth_supabase_fail_timeout: "The sign-in server timed out. Check your network and try again.",
+    auth_supabase_fail_fetch: "Could not reach the sign-in server. Check your network and try again.",
+    auth_supabase_fail_unknown: "Could not connect to the sign-in server. Please try again.",
     auth_logout_confirm_title: "Sign out?",
     auth_logout_confirm_body: "You will need to sign in again to continue using the app.",
     auth_logout_submit: "Sign out",

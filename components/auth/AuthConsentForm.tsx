@@ -18,7 +18,11 @@ import { setClientRequiredConsentVersions } from "@/lib/legal/client-required-co
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 import {
+  DIBAY_ONBOARDING_CHECKBOX_CLASS,
   DIBAY_ONBOARDING_CHECKBOX_PANEL_CLASS,
+  DIBAY_ONBOARDING_ERROR_CLASS,
+  DIBAY_ONBOARDING_LABEL_CLASS,
+  DIBAY_ONBOARDING_LINK_CLASS,
   DIBAY_ONBOARDING_NOTICE_CLASS,
   DIBAY_ONBOARDING_PRIMARY_BTN,
 } from "@/lib/ui/dibay-onboarding-starbucks-styles";
@@ -78,11 +82,13 @@ export function AuthConsentForm({
         }
         setAgreeTerms(false);
         setAgreePrivacy(false);
-        setError(data.error || t("auth_consent_save_failed"));
+        setError(t("auth_consent_version_stale"));
         return;
       }
       if (!res.ok || !data?.ok) {
-        setError(data?.error || t("auth_consent_save_failed"));
+        // 서버 원문·코드는 화면에 노출하지 않는다 — 로그로만 (§5.6).
+        console.warn("[auth-consent] save failed", { status: res.status, code: data?.code ?? null });
+        setError(t("auth_consent_save_failed"));
         return;
       }
 
@@ -140,11 +146,11 @@ export function AuthConsentForm({
             type="checkbox"
             checked={agreeTerms}
             onChange={(e) => setAgreeTerms(e.target.checked)}
-            className="mt-1 h-4 w-4 accent-[#00704A]"
+            className={DIBAY_ONBOARDING_CHECKBOX_CLASS}
           />
-          <span className="text-[14px] leading-snug text-[#1E3932]">
+          <span className={DIBAY_ONBOARDING_LABEL_CLASS}>
             {t("auth_consent_terms_label")}{" "}
-            <Link href="/terms" target="_blank" className="font-medium text-[#00704A] underline">
+            <Link href="/terms" target="_blank" className={DIBAY_ONBOARDING_LINK_CLASS}>
               {t("auth_consent_terms_link")}
             </Link>
           </span>
@@ -154,11 +160,11 @@ export function AuthConsentForm({
             type="checkbox"
             checked={agreePrivacy}
             onChange={(e) => setAgreePrivacy(e.target.checked)}
-            className="mt-1 h-4 w-4 accent-[#00704A]"
+            className={DIBAY_ONBOARDING_CHECKBOX_CLASS}
           />
-          <span className="text-[14px] leading-snug text-[#1E3932]">
+          <span className={DIBAY_ONBOARDING_LABEL_CLASS}>
             {t("auth_consent_privacy_label")}{" "}
-            <Link href="/privacy" target="_blank" className="font-medium text-[#00704A] underline">
+            <Link href="/privacy" target="_blank" className={DIBAY_ONBOARDING_LINK_CLASS}>
               {t("auth_consent_privacy_link")}
             </Link>
           </span>
@@ -167,7 +173,7 @@ export function AuthConsentForm({
 
       <div className={`mt-4 ${DIBAY_ONBOARDING_NOTICE_CLASS}`}>{t("auth_consent_safety_notice")}</div>
 
-      {error ? <p className="mt-4 text-[13px] text-[#C0392B]">{error}</p> : null}
+      {error ? <p className={`mt-4 ${DIBAY_ONBOARDING_ERROR_CLASS}`} role="alert">{error}</p> : null}
 
       <button
         type="button"

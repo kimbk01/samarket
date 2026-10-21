@@ -4,6 +4,7 @@ import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getCurrentProfile } from "@/lib/auth/server-guards";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { isSuspendedMemberAccount } from "@/lib/auth/member-account-state";
 import {
   hasActiveAdminMembershipOrLegacyRole,
   loadActiveAdminMembership,
@@ -72,6 +73,14 @@ export async function requireAdminApiActor(): Promise<
     };
   }
   const isSuperAdmin = isSuperAdminRole(effectiveRole);
+  // AD-07 (Owner 결정 §5.4): 정지(suspended) 운영자는 모든 관리자 API 차단 — 최고관리자는 잠김 방지를 위해 제외.
+  // 판정은 거래 가드(`requireTradeAdmin`)와 같은 `isSuspendedMemberAccount(profile)`.
+  if (!isSuperAdmin && isSuspendedMemberAccount(profile)) {
+    return {
+      ok: false,
+      response: NextResponse.json({ ok: false, error: "admin_actor_suspended" }, { status: 403 }),
+    };
+  }
   // R6-A2: tier authority = admin_memberships.admin_tier only (no profile-column fallback).
   // NULL tier → loadEffectiveStaffPermissions / adminTierToUiRole canonical default (operator).
   const adminTier = membership?.admin_tier ?? null;

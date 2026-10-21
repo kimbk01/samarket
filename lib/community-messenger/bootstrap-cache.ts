@@ -5,75 +5,147 @@ const SS_KEY_FULL = "samarket.messenger.bootstrap.v1";
 const SS_KEY_CRITICAL = "samarket.messenger.bootstrap.critical.v1";
 /** lite 네트워크 단축과 동일 페이로드 형태 — 별도 TTL 로 세션 복원 우선순위 조정 가능 */
 const SS_KEY_MINIMAL = "samarket.messenger.bootstrap.minimal.v1";
+/**
+ * P2-9 — `lib/auth/client-instance-id.ts` `DIBAY_AUTH_BOUND_USER_ID_KEY` 와 동일 키.
+ * (그 모듈은 "use client" 경계라 서버 그래프에서도 안전하도록 문자열만 공유)
+ */
+const BOUND_VIEWER_LS_KEY = "dibay:auth_bound_user_id";
 
-let memoryFullCache: { data: CommunityMessengerBootstrap; at: number } | null = null;
-let memoryCriticalCache: { data: CommunityMessengerBootstrapCritical; at: number } | null = null;
-let memoryMinimalCache: { data: CommunityMessengerBootstrap; at: number } | null = null;
+type CacheEntry<T> = { data: T; at: number; viewerId: string | null };
 
-function readSessionFull(): CommunityMessengerBootstrap | null {
+let memoryFullCache: CacheEntry<CommunityMessengerBootstrap> | null = null;
+let memoryCriticalCache: CacheEntry<CommunityMessengerBootstrapCritical> | null = null;
+let memoryMinimalCache: CacheEntry<CommunityMessengerBootstrap> | null = null;
+
+/**
+ * P2-9 — 로그아웃·계정 전환 epoch. 시작 시점 epoch 를 넘긴 prime 은 epoch 가 바뀌었으면 버린다
+ * (로그아웃 대기 중 늦게 도착한 이전 사용자 응답이 캐시에 다시 쓰이는 것 차단).
+ */
+let bootstrapCacheAuthEpoch = 0;
+
+export function getMessengerBootstrapCacheAuthEpoch(): number {
+  return bootstrapCacheAuthEpoch;
+}
+
+export function bumpMessengerBootstrapCacheAuthEpoch(): number {
+  bootstrapCacheAuthEpoch += 1;
+  return bootstrapCacheAuthEpoch;
+}
+
+export type MessengerBootstrapPrimeOptions = {
+  /** 요청 시작 시 `getMessengerBootstrapCacheAuthEpoch()` — 다르면 쓰기 무시 */
+  authEpoch?: number;
+};
+
+function normalizeViewerId(v: unknown): string | null {
+  const s = typeof v === "string" ? v.trim() : "";
+  return s || null;
+}
+
+function readBoundViewerId(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(SS_KEY_FULL);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { at: number; data: CommunityMessengerBootstrap };
-    if (!parsed.data) return null;
-    memoryFullCache = { data: parsed.data, at: parsed.at };
-    return parsed.data;
+    return normalizeViewerId(window.localStorage.getItem(BOUND_VIEWER_LS_KEY));
   } catch {
     return null;
   }
 }
 
-function readSessionCritical(): CommunityMessengerBootstrapCritical | null {
+/** 명시 viewerId(문자열/null) 우선, 생략 시 현재 기기 bound user */
+function resolveExpectedViewerId(viewerId: string | null | undefined): string | null {
+  if (viewerId !== undefined) return normalizeViewerId(viewerId);
+  return readBoundViewerId();
+}
+
+/** 기대 viewer 가 확정이면 entry viewer 와 정확히 같아야 한다 (unknown entry 포함 불일치 = 폐기) */
+function entryMatchesViewer(entryViewerId: string | null, expected: string | null): boolean {
+  if (!expected) return true;
+  return entryViewerId === expected;
+}
+
+function payloadViewerId(data: { me?: { id?: string | null } | null } | null | undefined): string | null {
+  return normalizeViewerId(data?.me?.id);
+}
+
+/** 쓰기 허용 여부 — 오래된 epoch 또는 현재 bound user 와 다른 viewer 페이로드는 거부 */
+function resolvePrimeViewerId(
+  data: { me?: { id?: string | null } | null },
+  options?: MessengerBootstrapPrimeOptions
+): { ok: true; viewerId: string | null } | { ok: false } {
+  if (typeof options?.authEpoch === "number" && options.authEpoch !== bootstrapCacheAuthEpoch) {
+    return { ok: false };
+  }
+  const bound = readBoundViewerId();
+  const fromPayload = payloadViewerId(data);
+  if (bound && fromPayload && bound !== fromPayload) return { ok: false };
+  return { ok: true, viewerId: fromPayload ?? bound };
+}
+
+function readSessionEntry<T>(key: string): CacheEntry<T> | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(SS_KEY_CRITICAL);
+    const raw = sessionStorage.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { at: number; data: CommunityMessengerBootstrapCritical };
-    if (!parsed?.data || parsed.data.tier !== "critical") return null;
-    memoryCriticalCache = { data: parsed.data, at: parsed.at };
-    return parsed.data;
+    const parsed = JSON.parse(raw) as { at: number; data: T; viewerId?: string | null };
+    if (!parsed?.data) return null;
+    return { data: parsed.data, at: parsed.at, viewerId: normalizeViewerId(parsed.viewerId) };
   } catch {
     return null;
   }
 }
 
-function readSessionMinimal(): CommunityMessengerBootstrap | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(SS_KEY_MINIMAL);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { at: number; data: CommunityMessengerBootstrap };
-    if (!parsed.data) return null;
-    memoryMinimalCache = { data: parsed.data, at: parsed.at };
-    return parsed.data;
-  } catch {
-    return null;
-  }
+function readSessionFull(expected: string | null): CommunityMessengerBootstrap | null {
+  const entry = readSessionEntry<CommunityMessengerBootstrap>(SS_KEY_FULL);
+  if (!entry || !entryMatchesViewer(entry.viewerId, expected)) return null;
+  memoryFullCache = entry;
+  return entry.data;
 }
 
-/** SPA 재진입·새로고침 직후 첫 페인트용 full 부트스트랩(stale 포함 — SWR 즉시 렌더). */
-export function peekMessengerBootstrapFull(): CommunityMessengerBootstrap | null {
+function readSessionCritical(expected: string | null): CommunityMessengerBootstrapCritical | null {
+  const entry = readSessionEntry<CommunityMessengerBootstrapCritical>(SS_KEY_CRITICAL);
+  if (!entry || entry.data.tier !== "critical") return null;
+  if (!entryMatchesViewer(entry.viewerId, expected)) return null;
+  memoryCriticalCache = entry;
+  return entry.data;
+}
+
+function readSessionMinimal(expected: string | null): CommunityMessengerBootstrap | null {
+  const entry = readSessionEntry<CommunityMessengerBootstrap>(SS_KEY_MINIMAL);
+  if (!entry || !entryMatchesViewer(entry.viewerId, expected)) return null;
+  memoryMinimalCache = entry;
+  return entry.data;
+}
+
+/**
+ * SPA 재진입·새로고침 직후 첫 페인트용 full 부트스트랩(stale 포함 — SWR 즉시 렌더).
+ * @param viewerId 생략 시 현재 기기 bound user — 다른 viewer 의 엔트리는 null.
+ */
+export function peekMessengerBootstrapFull(viewerId?: string | null): CommunityMessengerBootstrap | null {
+  const expected = resolveExpectedViewerId(viewerId);
   if (memoryFullCache) {
-    return memoryFullCache.data;
+    return entryMatchesViewer(memoryFullCache.viewerId, expected) ? memoryFullCache.data : null;
   }
-  return readSessionFull();
+  return readSessionFull(expected);
 }
 
 /** critical 전용 스냅샷 — full 없이도 목록 즉시 표시용 */
-export function peekMessengerBootstrapCritical(): CommunityMessengerBootstrapCritical | null {
+export function peekMessengerBootstrapCritical(
+  viewerId?: string | null
+): CommunityMessengerBootstrapCritical | null {
+  const expected = resolveExpectedViewerId(viewerId);
   if (memoryCriticalCache) {
-    return memoryCriticalCache.data;
+    return entryMatchesViewer(memoryCriticalCache.viewerId, expected) ? memoryCriticalCache.data : null;
   }
-  return readSessionCritical();
+  return readSessionCritical(expected);
 }
 
 /** deferred lite 응답 캐시(형태는 full 과 동일). */
-export function peekMessengerBootstrapMinimal(): CommunityMessengerBootstrap | null {
+export function peekMessengerBootstrapMinimal(viewerId?: string | null): CommunityMessengerBootstrap | null {
+  const expected = resolveExpectedViewerId(viewerId);
   if (memoryMinimalCache) {
-    return memoryMinimalCache.data;
+    return entryMatchesViewer(memoryMinimalCache.viewerId, expected) ? memoryMinimalCache.data : null;
   }
-  return readSessionMinimal();
+  return readSessionMinimal(expected);
 }
 
 /** @deprecated peekMessengerBootstrapFull 와 동일 — 호환 유지 */
@@ -82,45 +154,67 @@ export function peekBootstrapCache(): CommunityMessengerBootstrap | null {
 }
 
 export function isBootstrapCacheFresh(): boolean {
-  if (memoryFullCache) return Date.now() - memoryFullCache.at <= TTL_MS;
+  if (memoryFullCache && entryMatchesViewer(memoryFullCache.viewerId, readBoundViewerId())) {
+    return Date.now() - memoryFullCache.at <= TTL_MS;
+  }
   return false;
 }
 
 export function isCriticalBootstrapCacheFresh(): boolean {
-  if (memoryCriticalCache) return Date.now() - memoryCriticalCache.at <= TTL_MS;
+  if (memoryCriticalCache && entryMatchesViewer(memoryCriticalCache.viewerId, readBoundViewerId())) {
+    return Date.now() - memoryCriticalCache.at <= TTL_MS;
+  }
   return false;
 }
 
-export function primeMessengerBootstrapFull(data: CommunityMessengerBootstrap) {
+export function primeMessengerBootstrapFull(
+  data: CommunityMessengerBootstrap,
+  options?: MessengerBootstrapPrimeOptions
+) {
+  const gate = resolvePrimeViewerId(data, options);
+  if (!gate.ok) return;
   // 기본 prime 은 non-network 경로로 간주 — 동일 slot 의 stale provenance 를 먼저 제거한다.
   // 실제 Warm Network 경로는 prime 직후 recordWarmNetworkProvenance("full", …) 로 다시 기록한다.
   clearWarmNetworkProvenance("full");
   const tiered = { ...data, clientHydrationTier: "full" as const };
-  memoryFullCache = { data: tiered, at: Date.now() };
+  const at = Date.now();
+  memoryFullCache = { data: tiered, at, viewerId: gate.viewerId };
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(SS_KEY_FULL, JSON.stringify({ at: Date.now(), data: tiered }));
+    sessionStorage.setItem(SS_KEY_FULL, JSON.stringify({ at, data: tiered, viewerId: gate.viewerId }));
   } catch {
     // ignore quota / private mode
   }
 }
 
-export function primeMessengerBootstrapCritical(data: CommunityMessengerBootstrapCritical) {
+export function primeMessengerBootstrapCritical(
+  data: CommunityMessengerBootstrapCritical,
+  options?: MessengerBootstrapPrimeOptions
+) {
+  const gate = resolvePrimeViewerId(data, options);
+  if (!gate.ok) return;
   clearWarmNetworkProvenance("critical");
-  memoryCriticalCache = { data, at: Date.now() };
+  const at = Date.now();
+  memoryCriticalCache = { data, at, viewerId: gate.viewerId };
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(SS_KEY_CRITICAL, JSON.stringify({ at: Date.now(), data }));
+    sessionStorage.setItem(SS_KEY_CRITICAL, JSON.stringify({ at, data, viewerId: gate.viewerId }));
   } catch {
     // ignore
   }
 }
 
-export function primeMessengerBootstrapMinimal(data: CommunityMessengerBootstrap) {
-  memoryMinimalCache = { data, at: Date.now() };
+export function primeMessengerBootstrapMinimal(
+  data: CommunityMessengerBootstrap,
+  options?: MessengerBootstrapPrimeOptions
+) {
+  const gate = resolvePrimeViewerId(data, options);
+  if (!gate.ok) return;
+  const at = Date.now();
+  memoryMinimalCache = { data, at, viewerId: gate.viewerId };
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(SS_KEY_MINIMAL, JSON.stringify({ at: Date.now(), data }));
+    sessionStorage.setItem(SS_KEY_MINIMAL, JSON.stringify({ at, data, viewerId: gate.viewerId }));
   } catch {
     // ignore
   }
@@ -131,7 +225,11 @@ export function primeBootstrapCache(data: CommunityMessengerBootstrap) {
   primeMessengerBootstrapFull(data);
 }
 
-export function clearBootstrapCache() {
+/**
+ * @param options.authExit 로그아웃·계정 전환 wipe — auth epoch 도 올려 진행 중 요청의 늦은 쓰기를 버린다.
+ */
+export function clearBootstrapCache(options?: { authExit?: boolean }) {
+  if (options?.authExit) bumpMessengerBootstrapCacheAuthEpoch();
   memoryFullCache = null;
   memoryCriticalCache = null;
   memoryMinimalCache = null;

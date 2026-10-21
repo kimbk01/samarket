@@ -13,15 +13,23 @@ import {
   ensureProviderAuthIdentityRow,
   resolveNativeProviderSessionPrelude,
 } from "@/lib/auth/provider-identity/native-session-bridge.server";
-import type { ProviderEmailConflictDetail } from "@/lib/auth/provider-identity/types";
+import type { ProviderEmailConflictClientDetail } from "@/lib/auth/provider-identity/types";
 import {
-  isGoogleNativeSyntheticAuthEmail,
+  buildDibayNativeAppMetadata,
+  canAdoptRecoveredNativeAuthUser,
+  mintNativeOwnerSessionViaMagicLink,
+  nativeProviderOwnsAuthCredentials,
+  resolveNativePasswordSeed,
+} from "@/lib/auth/native/native-owner-session.server";
+import {
   reclaimGoogleNativeSyntheticAuthOrphan,
   reconcileGoogleNativeProviderProfileConflict,
-  resolveGoogleNativeSignInEmail,
 } from "@/lib/auth/native/reconcile-google-native-orphan.server";
 import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";
-import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
+import {
+  resolveMemberWithdrawalGuard,
+  revokeSessionForWithdrawnMember,
+} from "@/lib/auth/withdrawn-account-guard";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
@@ -34,10 +42,8 @@ import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
 
 export function buildGoogleSupabasePassword(googleUserId: string): string {
-  const seed =
-    process.env.GOOGLE_NATIVE_PASSWORD_SEED?.trim()
-    || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
-    || "dibay-google-native";
+  // OA-13 — 하드코딩 seed fallback 제거 (env 없으면 throw).
+  const seed = resolveNativePasswordSeed(process.env.GOOGLE_NATIVE_PASSWORD_SEED);
   const digest = createHash("sha256").update(`${seed}:google:${googleUserId}`).digest("base64url");
   return `Gg#${digest.slice(0, 48)}!`;
 }
@@ -65,20 +71,35 @@ export type GoogleNativeSessionResult =
       errorCode: string;
       message: string;
       status: number;
-      conflict?: ProviderEmailConflictDetail & { stashToken: string };
+      conflict?: ProviderEmailConflictClientDetail & { stashToken: string };
     };
 
-async function updateGoogleAuthUserById(
+/** 세션 발급 방식 — synthetic(같은 provider) = 파생 비밀번호, 그 외 owner = magiclink (자격증명 무변경). */
+type GoogleSessionPlan =
+  | { mode: "password"; email: string; password: string }
+  | { mode: "magiclink"; email: string };
+
+type GoogleAuthUserPrepared = { userId: string; isNewUser: boolean; plan: GoogleSessionPlan };
+
+const GOOGLE_WITHDRAWN_RESULT: GoogleNativeSessionResult = {
+  ok: false,
+  errorCode: "account_withdrawn",
+  message: "탈퇴한 계정입니다. 동일 계정으로 다시 이용하려면 관리자에게 문의해 주세요.",
+  status: 403,
+};
+
+/**
+ * P1-7 — 기존 auth user: 탈퇴 확인을 모든 변경 전에 수행.
+ * email/password/metadata 갱신은 Google synthetic(또는 email 없음) 계정일 때만.
+ * 실제 Gmail·아이디·다른 provider 회원은 magiclink 로 세션만 발급 (비밀번호 무변경).
+ */
+async function prepareExistingGoogleAuthUser(
   adminSb: SupabaseClient,
   userId: string,
   args: {
     verified: GoogleVerifiedIdentity;
   },
-): Promise<{ userId: string; isNewUser: boolean; signInEmail: string } | GoogleNativeSessionResult> {
-  const syntheticEmail = resolveAuthEmailForGoogleUser(args.verified.googleUserId);
-  const password = buildGoogleSupabasePassword(args.verified.googleUserId);
-  const metadata = buildGoogleUserMetadata(args.verified);
-
+): Promise<GoogleAuthUserPrepared | GoogleNativeSessionResult> {
   const { data: existingUserData, error: getUserError } = await adminSb.auth.admin.getUserById(userId);
   if (getUserError || !existingUserData.user) {
     return {
@@ -89,27 +110,35 @@ async function updateGoogleAuthUserById(
     };
   }
 
+  if ((await resolveMemberWithdrawalGuard(adminSb, userId)) === "withdrawn") {
+    return GOOGLE_WITHDRAWN_RESULT;
+  }
+
   const existingEmail = String(existingUserData.user.email ?? "").trim();
+  const preservePassword = await shouldPreserveAdminManagedPassword(adminSb, userId);
+  if (!nativeProviderOwnsAuthCredentials("google", existingEmail) || preservePassword) {
+    if (!existingEmail) {
+      return {
+        ok: false,
+        errorCode: "google_native_session_failed",
+        message: "Google owner account has no sign-in email",
+        status: 500,
+      };
+    }
+    return { userId, isNewUser: false, plan: { mode: "magiclink", email: existingEmail.toLowerCase() } };
+  }
+
+  const syntheticEmail = resolveAuthEmailForGoogleUser(args.verified.googleUserId);
+  const password = buildGoogleSupabasePassword(args.verified.googleUserId);
   await reclaimGoogleNativeSyntheticAuthOrphan(adminSb, userId, args.verified.googleUserId);
 
-  const preservePassword = await shouldPreserveAdminManagedPassword(adminSb, userId);
-  const updatePayload: {
-    password?: string;
-    email_confirm: boolean;
-    user_metadata: Record<string, unknown>;
-    email?: string;
-  } = {
+  const { error: updateError } = await adminSb.auth.admin.updateUserById(userId, {
+    password,
+    email: syntheticEmail,
     email_confirm: true,
-    user_metadata: metadata,
-  };
-  if (!preservePassword) {
-    updatePayload.password = password;
-  }
-  if (!existingEmail || isGoogleNativeSyntheticAuthEmail(existingEmail)) {
-    updatePayload.email = syntheticEmail;
-  }
-
-  const { error: updateError } = await adminSb.auth.admin.updateUserById(userId, updatePayload);
+    user_metadata: buildGoogleUserMetadata(args.verified),
+    app_metadata: buildDibayNativeAppMetadata("google"),
+  });
   if (updateError) {
     return {
       ok: false,
@@ -119,9 +148,7 @@ async function updateGoogleAuthUserById(
     };
   }
 
-  const { data: refreshedUserData } = await adminSb.auth.admin.getUserById(userId);
-  const signInEmail = resolveGoogleNativeSignInEmail(refreshedUserData?.user?.email, args.verified.googleUserId);
-  return { userId, isNewUser: false, signInEmail };
+  return { userId, isNewUser: false, plan: { mode: "password", email: syntheticEmail, password } };
 }
 
 function buildGoogleUserMetadata(verified: GoogleVerifiedIdentity): Record<string, unknown> {
@@ -147,14 +174,13 @@ async function upsertGoogleAuthUser(
     existingUserId: string | null;
     verified: GoogleVerifiedIdentity;
   },
-): Promise<{ userId: string; isNewUser: boolean; signInEmail: string } | GoogleNativeSessionResult> {
+): Promise<GoogleAuthUserPrepared | GoogleNativeSessionResult> {
+  if (args.existingUserId) {
+    return prepareExistingGoogleAuthUser(adminSb, args.existingUserId, { verified: args.verified });
+  }
+
   const authEmail = resolveAuthEmailForGoogleUser(args.verified.googleUserId);
   const password = buildGoogleSupabasePassword(args.verified.googleUserId);
-  const metadata = buildGoogleUserMetadata(args.verified);
-
-  if (args.existingUserId) {
-    return updateGoogleAuthUserById(adminSb, args.existingUserId, { verified: args.verified });
-  }
 
   await reclaimGoogleNativeSyntheticAuthOrphan(adminSb, "", args.verified.googleUserId);
 
@@ -162,12 +188,23 @@ async function upsertGoogleAuthUser(
     email: authEmail,
     password,
     email_confirm: true,
-    user_metadata: metadata,
+    user_metadata: buildGoogleUserMetadata(args.verified),
+    app_metadata: buildDibayNativeAppMetadata("google"),
   });
   if (createError || !created.user) {
     const recovered = await findAuthUserByEmail(adminSb, authEmail);
     if (recovered?.id) {
-      return updateGoogleAuthUserById(adminSb, recovered.id, { verified: args.verified });
+      // OA-10 — DIBAY 가 만든 Google synthetic 계정만 채택 (외부 선점 계정 거부).
+      if (!canAdoptRecoveredNativeAuthUser("google", recovered, args.verified.googleUserId)) {
+        console.warn("[auth/google-native]", JSON.stringify({ event: "native_synthetic_adopt_refused" }));
+        return {
+          ok: false,
+          errorCode: "provider_account_conflict",
+          message: "Google sign-in account is reserved by another registration",
+          status: 409,
+        };
+      }
+      return prepareExistingGoogleAuthUser(adminSb, recovered.id, { verified: args.verified });
     }
     return {
       ok: false,
@@ -176,15 +213,27 @@ async function upsertGoogleAuthUser(
       status: 409,
     };
   }
-  return { userId: created.user.id, isNewUser: true, signInEmail: authEmail };
+  return { userId: created.user.id, isNewUser: true, plan: { mode: "password", email: authEmail, password } };
 }
 
-/** Slice 7-4 PLAN_I2 Identity column writer — verified Google token → provider* (soft). */
+/**
+ * Slice 7-4 PLAN_I2 Identity column writer — verified Google token → provider* (soft).
+ * P1-7 — 최초 기록만: provider_user_id 가 이미 있으면 건드리지 않는다.
+ */
 async function persistGoogleProfileIdentity(
   adminSb: SupabaseClient,
   userId: string,
   verified: GoogleVerifiedIdentity,
 ): Promise<void> {
+  const { data: current, error: readError } = await adminSb
+    .from("profiles")
+    .select("provider_user_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (readError) return;
+  if (String((current as { provider_user_id?: string | null } | null)?.provider_user_id ?? "").trim()) {
+    return;
+  }
   const patch: Record<string, unknown> = {
     provider: "google",
     auth_provider: "google",
@@ -258,23 +307,30 @@ export async function establishGoogleNativeSession(
   });
   if ("ok" in upsert) return upsert;
 
-  const { userId, isNewUser, signInEmail } = upsert;
-  const password = buildGoogleSupabasePassword(googleUserId);
+  const { userId, isNewUser, plan } = upsert;
 
-  const { data: signInData, error: signInError } = await ctx.routeSb.auth.signInWithPassword({
-    email: signInEmail,
-    password,
-  });
-  if (signInError || !signInData.user) {
+  let signedUser: User;
+  try {
+    if (plan.mode === "password") {
+      const { data: signInData, error: signInError } = await ctx.routeSb.auth.signInWithPassword({
+        email: plan.email,
+        password: plan.password,
+      });
+      if (signInError || !signInData.user) {
+        throw new Error(signInError?.message || "Google native Supabase session creation failed");
+      }
+      signedUser = signInData.user;
+    } else {
+      signedUser = await mintNativeOwnerSessionViaMagicLink(ctx.adminSb, ctx.routeSb, userId, plan.email);
+    }
+  } catch (err) {
     return {
       ok: false,
       errorCode: "google_native_session_failed",
-      message: signInError?.message || "Google native Supabase session creation failed",
+      message: err instanceof Error ? err.message : "Google native Supabase session creation failed",
       status: 500,
     };
   }
-
-  const signedUser = signInData.user;
 
   if (userId !== signedUser.id) {
     const verifiedGmailForMismatch =
@@ -310,12 +366,7 @@ export async function establishGoogleNativeSession(
     ctx.adminSb,
   );
   if (withdrawalState === "withdrawn") {
-    return {
-      ok: false,
-      errorCode: "account_withdrawn",
-      message: "탈퇴한 계정입니다. 동일 계정으로 다시 이용하려면 관리자에게 문의해 주세요.",
-      status: 403,
-    };
+    return GOOGLE_WITHDRAWN_RESULT;
   }
 
   const syntheticUser = syntheticUserForEnsure(signedUser.id, input.verified);

@@ -22,10 +22,18 @@ function getMembershipCacheMap(): Map<string, MembershipEntry> {
   return g[GLOBAL_MEMBERSHIP_CACHE_KEY]!;
 }
 
+/**
+ * P2-7 (SV-07) — leave/kick/ban 무효화(`forgetMessengerRoomMembershipCache`)는 처리한 인스턴스에만 닿는다.
+ * 다른 인스턴스의 stale 읽기 창을 5s 이하로 고정 (env 로 늘릴 수 없음). 버스트(bootstrap→GET→PATCH) 적중은 유지.
+ */
+export const MESSENGER_ROOM_MEMBERSHIP_CACHE_MAX_TTL_MS = 5_000;
+
 export const MESSENGER_ROOM_MEMBERSHIP_CACHE_TTL_MS = (() => {
   const n = Number(process.env.SAMARKET_CM_ROOM_MEMBERSHIP_CACHE_TTL_MS);
-  if (Number.isFinite(n) && n >= 5_000 && n <= 120_000) return Math.floor(n);
-  return 45_000;
+  if (Number.isFinite(n) && n >= 1_000 && n <= MESSENGER_ROOM_MEMBERSHIP_CACHE_MAX_TTL_MS) {
+    return Math.floor(n);
+  }
+  return MESSENGER_ROOM_MEMBERSHIP_CACHE_MAX_TTL_MS;
 })();
 
 function trimText(s: string): string {

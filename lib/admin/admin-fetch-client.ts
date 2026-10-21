@@ -1,6 +1,6 @@
 "use client";
 
-import { invalidateAdminQueryCache } from "@/lib/admin/admin-query-cache";
+import { clearAllAdminQueryCache, invalidateAdminQueryCache } from "@/lib/admin/admin-query-cache";
 import { logAdminApiCall } from "@/lib/admin/admin-perf-logger";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -61,6 +61,12 @@ export async function adminFetch(url: string, init?: AdminFetchInit): Promise<Re
     return res;
   });
   return shared.then((res) => res.clone());
+}
+
+/** 계정 전환·로그아웃 — 이전 관리자 계정의 GET 응답·query 캐시 전부 삭제 (AD-08). */
+export function clearAllAdminFetchCache(): void {
+  responseCache.clear();
+  clearAllAdminQueryCache();
 }
 
 /** 저장·승인 등 mutation 직후 관련 GET·query 캐시 무효화 */

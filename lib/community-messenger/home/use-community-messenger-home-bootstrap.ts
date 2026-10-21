@@ -30,6 +30,7 @@ import {
   cmWarmNetworkPayloadFingerprint,
   cmWarmNetworkRoomIdsFingerprint,
   consumeWarmNetworkProvenance,
+  getMessengerBootstrapCacheAuthEpoch,
   isBootstrapCacheFresh,
   isCriticalBootstrapCacheFresh,
   peekBootstrapCache,
@@ -798,6 +799,10 @@ export function useCommunityMessengerHomeBootstrap({
       bootstrapNonSilentInFlightRef.current = true;
     }
     const requestId = ++refreshRequestIdRef.current;
+    /** P2-9 — 로그아웃/계정 전환으로 epoch 가 바뀐 뒤 도착한 응답은 캐시에 쓰지 않는다. */
+    const bootstrapCacheAuthEpoch = getMessengerBootstrapCacheAuthEpoch();
+    const primeFullForThisRequest = (b: CommunityMessengerBootstrap) =>
+      primeMessengerBootstrapFull(b, { authEpoch: bootstrapCacheAuthEpoch });
     // non-silent cold complete bootstrap 만 apply-gen 을 올린다. silent home_sync 는 올리지 않는다.
     const bootstrapApplyGen = silent
       ? bootstrapApplyGenRef.current
@@ -1103,7 +1108,7 @@ export function useCommunityMessengerHomeBootstrap({
                   resetCmClientMergeBreakdown(true);
                   anchorCmClientMergeBreakdownFromResponse(responseAt);
                   markCmClientFirstPaint("bootstrap_response_received");
-                  primeMessengerBootstrapMinimal(next);
+                  primeMessengerBootstrapMinimal(next, { authEpoch: bootstrapCacheAuthEpoch });
                   markCmClientFirstPaint("room_list_state_apply_start");
                   markCmClientMergeStart();
                   const tStore0 = typeof performance !== "undefined" ? performance.now() : 0;
@@ -1119,7 +1124,7 @@ export function useCommunityMessengerHomeBootstrap({
                       const stats = peekLastHomeListPatchStats();
                       if (stats) recordCmClientMergePatchStats(stats);
                       const candidate = merged ?? prev ?? next;
-                      return commitBootstrapSetData(prev, candidate, "deferred_lite_bootstrap", primeMessengerBootstrapFull);
+                      return commitBootstrapSetData(prev, candidate, "deferred_lite_bootstrap", primeFullForThisRequest);
                     });
                   });
                   recordCmClientMergeStoreEmitMs(
@@ -1218,7 +1223,7 @@ export function useCommunityMessengerHomeBootstrap({
               typeof performance !== "undefined" ? Math.round(performance.now() - tParseCrit0) : 0;
             if (resCrit.ok && jsonCrit.ok && jsonCrit.tier === "critical") {
               const tApplyCrit0 = typeof performance !== "undefined" ? performance.now() : 0;
-              primeMessengerBootstrapCritical(jsonCrit);
+              primeMessengerBootstrapCritical(jsonCrit, { authEpoch: bootstrapCacheAuthEpoch });
               // critical 은 Canonical ingest(dispatch)까지만 허용 — seedComplete 는 완료하지 않는다(§3).
               // partial(30) room set 로 read 를 canonical 로 전환하면 안 되므로 seed note 는 final full 에서만.
               shadowDispatch.dispatchCriticalPayload("critical", requestId, jsonCrit);
@@ -1352,7 +1357,7 @@ export function useCommunityMessengerHomeBootstrap({
                   const stats = peekLastHomeListPatchStats();
                   if (stats) recordCmClientMergePatchStats(stats);
                   const candidate = merged ?? prev ?? next;
-                  return commitBootstrapSetData(prev, candidate, "bootstrap_apply_full", primeMessengerBootstrapFull);
+                  return commitBootstrapSetData(prev, candidate, "bootstrap_apply_full", primeFullForThisRequest);
                 });
               });
               if (useLiteBootstrapFallback) {

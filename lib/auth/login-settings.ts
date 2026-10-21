@@ -83,6 +83,20 @@ export async function loadAuthLoginSettings(): Promise<AuthLoginSetting[]> {
   );
 }
 
+/**
+ * AD-09: 서버 측 아이디(password) 로그인 허용 여부 — `auth_login_settings.password.enabled`.
+ * 명시적으로 꺼져 있을 때만 false. 설정 조회 자체가 실패하면 true(운영 로그인 경로를 설정 저장소 장애로 막지 않음).
+ */
+export async function isPasswordLoginEnabledServer(): Promise<boolean> {
+  try {
+    const settings = await loadAuthLoginSettings();
+    const row = settings.find((s) => s.provider === "password");
+    return row ? row.enabled !== false : true;
+  } catch {
+    return true;
+  }
+}
+
 export async function fetchAuthLoginSettingsClient(): Promise<
   | { ok: true; settings: AuthLoginSetting[] }
   | { ok: false; error: string }

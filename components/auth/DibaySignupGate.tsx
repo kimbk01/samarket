@@ -10,8 +10,8 @@ import {
 } from "@/lib/app-boot/app-boot-store";
 import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
-import { deriveDibaySignupStatus, isDibaySignupGateExcludedPath } from "@/lib/auth/dibay-signup-status";
-import { shouldBlockUnauthenticatedHtmlRequest } from "@/lib/auth/guest-browse-access-policy";
+import { deriveDibaySignupStatus } from "@/lib/auth/dibay-signup-status";
+import { isClientSignupGateExemptPath } from "@/lib/auth/client-signup-gate";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import {
   getClientRequiredConsentVersions,
@@ -49,8 +49,11 @@ export function DibaySignupGate() {
     if (typeof window === "undefined") return;
     if (deferStoresHomeLcp) return;
     if (!isAppBootReady()) return;
-    if (isDibaySignupGateExcludedPath(pathnameRef.current)) return;
-    if (!shouldBlockUnauthenticatedHtmlRequest(pathnameRef.current)) return;
+    /**
+     * P2-1 (SG-05): public browse 경로도 로그인 + 미동의 회원이면 동의 화면으로 보낸다
+     * (OAuth 후 약관 화면 이탈·재실행 복구). 게스트는 boot profile 이 없어 대상이 아니다.
+     */
+    if (isClientSignupGateExemptPath(pathnameRef.current)) return;
     if (isSignupCompleteResolvedThisSession()) return;
     if (checkInFlightRef.current) return;
 
@@ -70,7 +73,11 @@ export function DibaySignupGate() {
       }
 
       try {
-        const { status, json } = await fetchSignupStatusDeduped();
+        const returnNext =
+          typeof window !== "undefined"
+            ? `${window.location.pathname}${window.location.search}`
+            : pathnameRef.current;
+        const { status, json } = await fetchSignupStatusDeduped(returnNext);
         if (status === 200 && json?.signup?.consentComplete) {
           markSignupCompleteResolvedSession();
           return;
@@ -116,8 +123,7 @@ export function DibaySignupGate() {
 
   useEffect(() => {
     if (deferStoresHomeLcp) return;
-    if (isDibaySignupGateExcludedPath(pathname)) return;
-    if (!shouldBlockUnauthenticatedHtmlRequest(pathname)) return;
+    if (isClientSignupGateExemptPath(pathname)) return;
     checkSignupGate();
   }, [deferStoresHomeLcp, pathname, checkSignupGate]);
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { adminFetch, invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
+import { adminFetch, clearAllAdminFetchCache, invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
+import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 
@@ -22,7 +23,24 @@ let cached: AdminMeSnapshot | null = null;
 let inflight: Promise<AdminMeSnapshot | null> | null = null;
 let fetchGeneration = 0;
 
+/**
+ * AD-08: 스냅샷은 `/api/admin/me.userId` 를 함께 저장한다. 현재 탭에 묶인 인증 user id 가 있고
+ * 스냅샷 userId 와 다르면(A→B 계정 전환) 이전 관리자 스냅샷·admin fetch 캐시를 버린다.
+ * 묶인 id 가 없을 때(로그인 직후 바인딩 전 등)는 판단하지 않는다 — 로그아웃은 `resetAdminClientStateForAuthChange` 가 지운다.
+ */
+function dropSnapshotIfAuthUserChanged(): void {
+  if (!cached) return;
+  let bound: string | null = null;
+  try {
+    bound = getBoundAuthUserId();
+  } catch {
+    bound = null;
+  }
+  if (bound && bound !== cached.userId) resetAdminClientStateForAuthChange();
+}
+
 export function peekAdminMeSnapshot(): AdminMeSnapshot | null {
+  dropSnapshotIfAuthUserChanged();
   return cached;
 }
 
@@ -32,10 +50,20 @@ export function clearAdminMeSnapshot(): void {
   fetchGeneration += 1;
 }
 
+/**
+ * AD-08: 로그아웃·계정 전환 wipe 에서 호출 — admin `/me` 스냅샷 + admin fetch·query 캐시 전부 초기화.
+ * (`lib/auth/client-session-wipe.ts` 의 auth 캐시 초기화 단계에서 1회 호출)
+ */
+export function resetAdminClientStateForAuthChange(): void {
+  clearAdminMeSnapshot();
+  clearAllAdminFetchCache();
+}
+
 export async function fetchAdminMeSnapshot(options?: {
   force?: boolean;
 }): Promise<AdminMeSnapshot | null> {
   const force = options?.force === true;
+  dropSnapshotIfAuthUserChanged();
   if (!force && cached) return cached;
   if (!force && inflight) return inflight;
 

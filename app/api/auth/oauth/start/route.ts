@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { resolveAuthProviderLoginGate } from "@/lib/auth/auth-provider-store";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import {
   isNativeAppOAuthRequest,
@@ -11,6 +12,7 @@ import {
   normalizeSupabaseOAuthProvider,
   runSupabaseOAuthStart,
 } from "@/lib/auth/oauth/supabase-oauth-start.server";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,9 +30,10 @@ function jsonError(errorCode: string, message: string, status = 400): NextRespon
   return withNoStore(NextResponse.json({ ok: false, errorCode, message }, { status }));
 }
 
+/** OA-15 — PKCE verifier 등 쿠키 옵션(maxAge·path·sameSite·secure·httpOnly) 보존 복사. */
 function copyCookies(from: NextResponse, to: NextResponse): NextResponse {
   for (const cookie of from.cookies.getAll()) {
-    to.cookies.set(cookie.name, cookie.value);
+    to.cookies.set(cookie);
   }
   return to;
 }
@@ -44,6 +47,12 @@ export async function GET(req: NextRequest) {
 
   if (!provider) {
     return jsonError("invalid_provider", "OAuth provider must be google, kakao, or apple.");
+  }
+
+  // OA-14 — 관리자 OFF 공급자는 버튼 숨김만이 아니라 서버에서 시작 자체를 거부.
+  const gate = await resolveAuthProviderLoginGate(tryCreateSupabaseServiceClient(), provider);
+  if (!gate.allowed) {
+    return jsonError("provider_disabled", "This sign-in method is currently disabled.", 403);
   }
 
   const cookieCarrier = NextResponse.json({ ok: true });

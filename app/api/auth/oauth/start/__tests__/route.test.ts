@@ -3,10 +3,29 @@ import { NextRequest } from "next/server";
 
 const signInWithOAuth = vi.fn();
 
+let serviceClient: unknown = null;
+vi.mock("@/lib/supabase/try-supabase-server", () => ({
+  tryCreateSupabaseServiceClient: () => serviceClient,
+}));
+
+function providerRowClient(row: Record<string, unknown> | null, error: { message: string } | null = null) {
+  return {
+    from: () => ({
+      select: () => ({
+        eq: () => ({ maybeSingle: async () => ({ data: row, error }) }),
+      }),
+    }),
+  };
+}
+
 vi.mock("@supabase/ssr", () => ({
   createServerClient: vi.fn((_url, _anon, options) => {
     options.cookies.setAll([
-      { name: "sb-pkce", value: "verifier", options: { path: "/" } },
+      {
+        name: "sb-pkce",
+        value: "verifier",
+        options: { path: "/", maxAge: 600, sameSite: "lax", secure: true, httpOnly: true },
+      },
     ]);
     return { auth: { signInWithOAuth } };
   }),
@@ -17,6 +36,7 @@ describe("/api/auth/oauth/start", () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://proj.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon");
     signInWithOAuth.mockReset();
+    serviceClient = null;
   });
 
   it("returns JSON authorizeUrl for native launch=native fetch", async () => {
@@ -130,5 +150,47 @@ describe("/api/auth/oauth/start", () => {
         },
       },
     });
+  });
+
+  it("OA-14: rejects provider disabled in auth_providers with 403 provider_disabled", async () => {
+    serviceClient = providerRowClient({ provider: "kakao", enabled: false });
+    const { GET } = await import("@/app/api/auth/oauth/start/route");
+    const res = await GET(
+      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=kakao"),
+    );
+    expect(res.status).toBe(403);
+    expect((await res.json()).errorCode).toBe("provider_disabled");
+    expect(signInWithOAuth).not.toHaveBeenCalled();
+  });
+
+  it("OA-14: fails open for google when auth_providers read fails", async () => {
+    serviceClient = providerRowClient(null, { message: "boom" });
+    signInWithOAuth.mockResolvedValue({
+      data: { url: "https://proj.supabase.co/auth/v1/authorize?provider=google" },
+      error: null,
+    });
+    const { GET } = await import("@/app/api/auth/oauth/start/route");
+    const res = await GET(
+      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=google"),
+    );
+    expect(res.status).toBe(307);
+  });
+
+  it("OA-15: preserves PKCE cookie options on redirect", async () => {
+    signInWithOAuth.mockResolvedValue({
+      data: { url: "https://proj.supabase.co/auth/v1/authorize?provider=google" },
+      error: null,
+    });
+    const { GET } = await import("@/app/api/auth/oauth/start/route");
+    const res = await GET(
+      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=google"),
+    );
+    const cookie = res.cookies.get("sb-pkce");
+    expect(cookie?.value).toBe("verifier");
+    expect(cookie?.maxAge).toBe(600);
+    expect(cookie?.httpOnly).toBe(true);
+    expect(cookie?.secure).toBe(true);
+    expect(cookie?.sameSite).toBe("lax");
+    expect(cookie?.path).toBe("/");
   });
 });

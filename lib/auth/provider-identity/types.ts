@@ -30,8 +30,12 @@ export type ProviderEmailConflictDetail = {
   email: string;
   attemptedProvider: LinkableAuthProvider;
   existingProviders: StoredAuthProvider[];
+  /** Server-internal only (stash 바인딩·진단) — 클라이언트 응답에 넣지 않는다 (P1-3). */
   existingUserId: string;
 };
+
+/** 클라이언트에 노출되는 conflict 정보 — 다른 회원 userId 미포함 (P1-3). */
+export type ProviderEmailConflictClientDetail = Omit<ProviderEmailConflictDetail, "existingUserId">;
 
 export type ResolveProviderLoginResult =
   | { status: "existing"; userId: string; identityId: string | null; via: "user_auth_identities" | "profiles_fallback" }

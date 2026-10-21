@@ -37,7 +37,12 @@ function onboardingStatusToDibaySignup(status: OnboardingStatus) {
       role: status.isPrivilegedAdmin ? "admin" : "user",
     },
     // B11: judge against the same CMS versions getOnboardingStatus used (not STORE_* alone).
-    { hasSession: true, requiredConsent: status.requiredConsent ?? null }
+    // P2-3: admin 판정은 membership verdict — getOnboardingStatus / resolveMemberConsentAuthority 와 동일.
+    {
+      hasSession: true,
+      privilegedAdmin: status.isPrivilegedAdmin === true,
+      requiredConsent: status.requiredConsent ?? null,
+    }
   );
 }
 

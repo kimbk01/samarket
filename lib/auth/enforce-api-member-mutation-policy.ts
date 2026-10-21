@@ -4,6 +4,7 @@
  *
  * P0-R3: authenticated PRODUCT_WRITE + lifecycle not established → DENY (fail-closed).
  * Anonymous → continue to route (401 from handler). Does not consume request body.
+ * P2-4: auth 쿠키가 있는데 identity 해석이 throw/일시 오류 → 503 `auth_state_unavailable` (fail-closed).
  */
 
 import { createServerClient } from "@supabase/ssr";
@@ -26,6 +27,7 @@ import {
 import { resolveProxyAuthFromSupabase } from "@/lib/auth/resolve-proxy-auth-from-supabase";
 import { resolveMemberConsentClassForApiMutation } from "@/lib/auth/member-consent-mutation-policy";
 import { resolveMemberConsentAuthority } from "@/lib/auth/resolve-member-consent-authority";
+import { requestHasSupabaseSessionCookie } from "@/lib/auth/api-auth-cookie-presence";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 
 const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -42,6 +44,7 @@ function jsonDenied(status: number, code: string, message: string): NextResponse
         code === "signup_incomplete" ||
         code === "consent_state_unavailable" ||
         code === MEMBER_ACCOUNT_STATE_UNAVAILABLE.code ||
+        code === API_AUTH_STATE_UNAVAILABLE.code ||
         code === "account_blocked" ||
         code === "account_withdrawn",
     },
@@ -49,13 +52,30 @@ function jsonDenied(status: number, code: string, message: string): NextResponse
   );
 }
 
-async function resolveApiUserId(request: NextRequest): Promise<string | null> {
+/** P2-4 — 세션 쿠키는 있으나 identity 를 확정하지 못함(일시 오류). 익명으로 취급하지 않는다. */
+export const API_AUTH_STATE_UNAVAILABLE = {
+  status: 503,
+  code: "auth_state_unavailable",
+  messageKo: "로그인 상태를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+} as const;
+
+export type ApiIdentityResolution = {
+  userId: string | null;
+  /** 네트워크·5xx 등 일시 오류로 user 미확정 (만료·무효 토큰은 false) */
+  transientError: boolean;
+};
+
+/**
+ * proxy /api 게이트 공용 identity 해석 — warm cache(12s) 우선, miss 시 getClaims(로컬 JWT)→getUser.
+ * mutation·read 게이트가 같은 경로를 쓴다. throw 는 호출자가 처리.
+ */
+export async function resolveApiIdentity(request: NextRequest): Promise<ApiIdentityResolution> {
   const fp = proxyAuthCookieFingerprint(request);
   const warm = peekProxyAuthSessionCache(fp);
-  if (warm?.trim()) return warm.trim();
+  if (warm?.trim()) return { userId: warm.trim(), transientError: false };
 
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
-  if (!supabaseEnv.ok) return null;
+  if (!supabaseEnv.ok) return { userId: null, transientError: false };
 
   const cookieSecure = cookieSecureFromNextRequest(request);
   const supabase = createServerClient(supabaseEnv.url, supabaseEnv.anonKey, {
@@ -76,7 +96,15 @@ async function resolveApiUserId(request: NextRequest): Promise<string | null> {
   const auth = await resolveProxyAuthFromSupabase(supabase);
   const uid = auth.userId?.trim() || null;
   if (uid) setProxyAuthSessionCache(fp, uid);
-  return uid;
+  return { userId: uid, transientError: !uid && auth.transientError };
+}
+
+function authStateUnavailable(): NextResponse {
+  return jsonDenied(
+    API_AUTH_STATE_UNAVAILABLE.status,
+    API_AUTH_STATE_UNAVAILABLE.code,
+    API_AUTH_STATE_UNAVAILABLE.messageKo
+  );
 }
 
 /**
@@ -95,15 +123,21 @@ export async function enforceApiMemberMutationPolicy(
   }
 
   // PRODUCT_WRITE: enforce only when member identity resolves.
-  // Unauthenticated → route handler returns 401 (public/anonymous not lifecycle-gated).
-  let userId: string | null = null;
+  // Unauthenticated (세션 쿠키 없음 · 만료/무효 토큰) → route handler returns 401.
+  // P2-4: 세션 쿠키가 있는데 해석이 throw/일시 오류 → 익명 통과 금지, 503 fail-closed.
+  let identity: ApiIdentityResolution;
   try {
-    userId = await resolveApiUserId(request);
+    identity = await resolveApiIdentity(request);
   } catch {
-    // Auth resolution itself failed — not an established member PRODUCT_WRITE session.
+    return requestHasSupabaseSessionCookie(request) ? authStateUnavailable() : null;
+  }
+  const userId = identity.userId;
+  if (!userId) {
+    if (identity.transientError && requestHasSupabaseSessionCookie(request)) {
+      return authStateUnavailable();
+    }
     return null;
   }
-  if (!userId) return null;
 
   // Always re-read DB — process-local lifecycle cache is not cross-isolate coherent
   // after admin moderation (FIRST DIVERGENCE: stale ACTIVE allowed PATCH /api/me/profile).
