@@ -4,6 +4,13 @@
 
 코드 기준 단일 정의. 운영·리뷰·QA는 이 표를 따른다.
 
+> **2026-10-21 갱신 (auth 통합 SSOT, `docs/dibay-auth-full-audit-ssot-design-2026-10-21.md`):**
+> - **Naver 로그인 비활성** — `/api/auth/naver/start`·`/callback` 은 항상 410 `naver_login_disabled` (이메일 기반 계정 재사용 경로 제거).
+> - Google(Android)·Kakao(Android)·Apple(iOS) native exchange 는 **구현됨** (아래 표의 "501 stub" 표기는 이력).
+> - `auth_providers.enabled=false` 인 공급자는 `/api/auth/oauth/start`·`/api/auth/native/exchange` 가 서버에서 403 `provider_disabled`.
+> - Kakao native 토큰은 `KAKAO_APP_ID` env 설정 시 `app_id` 일치 필수 (미설정 시 경고 로그만).
+> - 기존 owner 세션 재발급(교차 플랫폼·native)은 magiclink(`generateLink`+`verifyOtp`) 주경로 — owner 이메일·비밀번호를 덮어쓰지 않는다.
+
 ## P0 · P1 — 완료 (재작업 금지)
 
 | 항목 | 결과 |

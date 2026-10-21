@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildSupabaseCallbackUrl,
+  isAuthProviderSecretConfigured,
   normalizeOAuthProvider,
   sortAuthProviders,
   SUPPORTED_AUTH_PROVIDERS,
@@ -26,6 +27,7 @@ function normalizeRow(row: AnyRow): AuthProviderRow | null {
     enabled: row.enabled === true,
     client_id: String(row.client_id ?? ""),
     client_secret: String(row.client_secret ?? ""),
+    client_secret_configured: row.client_secret_configured === true,
     redirect_uri: String(row.redirect_uri ?? ""),
     scope: String(row.scope ?? ""),
     sort_order: Math.max(1, Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : 1),
@@ -45,7 +47,7 @@ export function toAuthProviderPublic(row: AuthProviderRow): AuthProviderPublicMe
     sort_order: row.sort_order,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    client_secret_configured: row.client_secret.trim().length > 0,
+    client_secret_configured: isAuthProviderSecretConfigured(row),
   };
 }
 
@@ -66,7 +68,7 @@ function defaultRows(): AuthProviderRow[] {
 export async function loadAuthProviderRows(sb: SupabaseClient): Promise<AuthProviderRow[]> {
   const { data, error } = await sb
     .from("auth_providers")
-    .select("id, provider, enabled, client_id, client_secret, redirect_uri, scope, sort_order, created_at, updated_at")
+    .select("id, provider, enabled, client_id, client_secret, client_secret_configured, redirect_uri, scope, sort_order, created_at, updated_at")
     .order("sort_order", { ascending: true });
   if (error) {
     const errorCode = String((error as { code?: string } | null)?.code ?? "");
@@ -88,7 +90,7 @@ export async function loadAuthProviderByProvider(
 ): Promise<AuthProviderRow | null> {
   const { data, error } = await sb
     .from("auth_providers")
-    .select("id, provider, enabled, client_id, client_secret, redirect_uri, scope, sort_order, created_at, updated_at")
+    .select("id, provider, enabled, client_id, client_secret, client_secret_configured, redirect_uri, scope, sort_order, created_at, updated_at")
     .eq("provider", provider)
     .maybeSingle();
   if (error) {

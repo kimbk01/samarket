@@ -39,7 +39,7 @@ describe("Slice 7-4 Identity Writer I2 boundary", () => {
     expect(CANONICAL_LOGIN_PROFILE_WRITER).toBe("ensureAuthProfileForLogin");
     expect(GOOGLE_PROFILE_HARD_GATE).toBe("ensureProfileForUserId");
     expect(IDENTITY_COLUMN_WRITERS).toContain("persistGoogleProfileIdentity");
-    expect(IDENTITY_COLUMN_WRITERS).toContain("naverCallbackProfilesIdentityUpdate");
+    expect(IDENTITY_COLUMN_WRITERS).not.toContain("naverCallbackProfilesIdentityUpdate");
     expect(AUTH_IDENTITY_ROW_WRITERS).toContain("ensureProviderAuthIdentityRow");
     expect(AUTH_IDENTITY_ROW_WRITERS).toContain("persistOAuthProviderIdentity");
     expect(IDENTITY_COLUMN_KEYS).toEqual(

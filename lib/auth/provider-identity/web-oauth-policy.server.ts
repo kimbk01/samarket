@@ -271,7 +271,8 @@ export async function enforceWebOAuthProviderPolicy(
     if (autoLinked) {
       const conflictEmail =
         normalizeProviderEmail(candidate.email) ?? normalizeProviderEmail(user.email) ?? "";
-      const stashToken = createConflictStashToken(candidate);
+      // 자동 연결된 세션 user 가 곧 기존 회원 — stash 는 그 회원에게만 쓸 수 있다 (P1-4)
+      const stashToken = createConflictStashToken(candidate, user.id);
       diag.policyResult = "reject";
       diag.conflictReason = "SAME_EMAIL_DIFFERENT_PROVIDER";
       diag.rejectionBranch = "new.supabase_auto_linked_identity";
@@ -303,7 +304,7 @@ export async function enforceWebOAuthProviderPolicy(
   }
 
   if (resolved.status === "email_conflict") {
-    const stashToken = createConflictStashToken(candidate);
+    const stashToken = createConflictStashToken(candidate, resolved.conflict.existingUserId);
     diag.policyResult = "reject";
     diag.conflictReason = "SAME_EMAIL_DIFFERENT_PROVIDER";
     diag.rejectionBranch = "resolve.email_conflict";

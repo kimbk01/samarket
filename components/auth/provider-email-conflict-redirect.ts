@@ -13,7 +13,7 @@ const STASH_TOKEN_MAX_LEN = 4096;
  */
 export function parseProviderEmailConflictRedirectParams(params: URLSearchParams): {
   hadStashParam: boolean;
-  conflict: ProviderEmailConflictState | null;
+  conflict: (ProviderEmailConflictState & { attemptedProvider: "google" | "kakao" | "apple" }) | null;
 } {
   const stash = params.get("auth_stash")?.trim() ?? "";
   const hadStashParam = params.has("auth_stash");

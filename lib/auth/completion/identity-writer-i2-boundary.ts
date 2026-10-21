@@ -16,13 +16,12 @@ export const GOOGLE_PROFILE_HARD_GATE = "ensureProfileForUserId" as const;
 
 /**
  * Profiles-table Identity column writers (verified provider credential → provider*).
- * Naver uses an inline profiles.update in its callback — same responsibility class.
+ * Naver 로그인은 비활성(410) — 식별 컬럼 writer 없음 (auth SSOT 2026-10-21).
  */
 export const IDENTITY_COLUMN_WRITERS = [
   "persistGoogleProfileIdentity",
   "persistKakaoProfileIdentity",
   "persistAppleProfileIdentity",
-  "naverCallbackProfilesIdentityUpdate",
 ] as const;
 
 /** user_auth_identities row writers. */

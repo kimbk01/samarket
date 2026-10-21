@@ -146,6 +146,7 @@ export const authUiMessages = {
     auth_provider_link_success_toast: "이제 {provider}로도 로그인할 수 있습니다.",
     auth_provider_link_blocked_toast: "보안을 위해 기존 로그인 확인이 필요합니다.",
     auth_provider_last_unlink_blocked_toast: "최소 1개의 로그인 방법은 유지해야 합니다.",
+    auth_provider_unlink_reauth_required_toast: "보안을 위해 다시 로그인한 뒤 연결을 해제해 주세요.",
     auth_err_native_provider_not_implemented:
       "앱에서는 아직 이 로그인 방식을 지원하지 않습니다. 다른 방법으로 로그인해 주세요.",
     auth_supabase_fail_dns: "로그인 서버에 연결하지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
@@ -387,6 +388,7 @@ export const authUiMessages = {
     auth_provider_link_success_toast: "You can now sign in with {provider} too.",
     auth_provider_link_blocked_toast: "Please verify your existing sign-in method for security.",
     auth_provider_last_unlink_blocked_toast: "You must keep at least one sign-in method.",
+    auth_provider_unlink_reauth_required_toast: "For your security, sign in again and then unlink.",
     auth_err_native_provider_not_implemented:
       "This sign-in method is not available in the app yet. Please use another method.",
     auth_supabase_fail_dns: "Could not reach the sign-in server. Check your network and try again.",

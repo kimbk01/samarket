@@ -33,8 +33,10 @@ export async function GET(
   }
   // 조회 실패 시 보호 대상으로 표시 (AD-06 fail-closed)
   let protectedTarget: boolean;
+  let membershipRole: string | null = null;
   try {
     const membership = await loadActiveAdminMembership(sb, userId);
+    membershipRole = membership?.role ?? null;
     protectedTarget = isSuperAdminRole(membership?.role) || membership?.role === "admin";
   } catch {
     protectedTarget = true;
@@ -48,7 +50,7 @@ export async function GET(
     status: String((profile as { status?: string }).status ?? ""),
     deletedAt: (profile as { deleted_at?: string | null }).deleted_at ?? null,
     protectedTarget,
-    membershipRole: membership?.role ?? null,
+    membershipRole,
     purgeAllowed: blockers.ok && !protectedTarget,
     blockers: blockers.blockers,
   });

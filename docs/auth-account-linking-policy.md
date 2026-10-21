@@ -25,7 +25,9 @@ DB·서버 코드 기준. 자동 병합 **금지** — 운영자 수동 처리.
 
 - **email만으로 자동 병합하지 않는다**
 - `duplicateWarning=true` + `duplicateCandidates` → 운영 로그
-- **예외**: Naver callback은 현재 email 기반 `auth.users` reuse를 수행한다 (`app/api/auth/naver/callback/route.ts`). 이는 “email만으로 병합 금지” 원칙의 예외이며, 운영 정책상 계속 허용할지 별도 승인 필요
+- **예외 없음 (2026-10-21)**: Naver 로그인은 비활성(410) — 과거의 email 기반 `auth.users` 재사용 예외는 제거됨.
+- 웹에서 Supabase 가 같은 이메일로 identity 를 자동 연결해도, 이번 로그인 identity 에 SSOT row 가 없고 기존 회원이면 `provider_email_conflict` (기존 계정 진입 금지).
+- 연결 stash 토큰은 충돌 대상 회원에 묶인다 — 다른 세션에서 쓰면 거부. 연결 해제는 최근 로그인(10분) 재인증 필수 · 마지막 1개 identity 해제 금지.
 
 ## Apple Private Relay
 
