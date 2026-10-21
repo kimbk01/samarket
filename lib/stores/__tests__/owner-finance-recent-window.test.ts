@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  aggregateOpenSaleFeeObligations,
   computeCoinLedgerRecentWindowSums,
+  loadOpenSaleFeeTotalsFromCashPosition,
 } from "@/lib/stores/owner-finance-recent-window";
 
 describe("computeCoinLedgerRecentWindowSums (F-15)", () => {
@@ -49,60 +49,45 @@ describe("computeCoinLedgerRecentWindowSums (F-15)", () => {
   });
 });
 
-function makeObligationSb(rows: Array<{ id: string; fee_outstanding_minor: number }>) {
-  const calls: Array<{ head: boolean; range?: [number, number] }> = [];
+function makeRpcSb(result: { data: unknown; error: { message: string } | null }) {
+  const calls: Array<{ fn: string; args: unknown }> = [];
   return {
     calls,
-    from(table: string) {
-      expect(table).toBe("store_sale_fee_obligations");
-      const state: { head: boolean; range?: [number, number]; filters: Record<string, unknown> } = {
-        head: false,
-        filters: {},
-      };
-      const q = {
-        select(_cols: string, opts?: { head?: boolean }) {
-          state.head = opts?.head === true;
-          return this;
-        },
-        eq(col: string, val: unknown) {
-          state.filters[col] = val;
-          return this;
-        },
-        order() {
-          return this;
-        },
-        range(a: number, b: number) {
-          state.range = [a, b];
-          return this;
-        },
-        then(resolveFn: (v: unknown) => void) {
-          expect(state.filters).toEqual({ store_id: "s1", status: "open" });
-          calls.push({ head: state.head, range: state.range });
-          if (state.head) return resolveFn({ count: rows.length, error: null });
-          const [a, b] = state.range ?? [0, rows.length - 1];
-          return resolveFn({ data: rows.slice(a, b + 1), error: null });
-        },
-      };
-      return q;
+    from() {
+      throw new Error("FIN-11: owner totals must not read store_sale_fee_obligations from TS");
+    },
+    rpc(fn: string, args: unknown) {
+      calls.push({ fn, args });
+      return Promise.resolve(result);
     },
   };
 }
 
-describe("aggregateOpenSaleFeeObligations (M-19)", () => {
-  it("sums ALL open rows (beyond the 20-row list) across pages and counts them", async () => {
-    const rows = Array.from({ length: 2345 }, (_, i) => ({ id: `o${i}`, fee_outstanding_minor: 100 }));
-    const sb = makeObligationSb(rows);
-    const res = await aggregateOpenSaleFeeObligations(sb as never, "s1");
+describe("loadOpenSaleFeeTotalsFromCashPosition (M-19 / FIN-11)", () => {
+  it("maps store_cash_position (one SQL function) — no TS aggregation", async () => {
+    const sb = makeRpcSb({ data: { outstanding_minor: 234500, open_count: 2345, balance_minor: 0 }, error: null });
+    const res = await loadOpenSaleFeeTotalsFromCashPosition(sb as never, " s1 ");
     expect(res).toEqual({ ok: true, outstandingMinor: 234500, openCount: 2345 });
-    expect(sb.calls.filter((c) => !c.head).length).toBe(3);
+    expect(sb.calls).toEqual([{ fn: "store_cash_position", args: { p_store_id: "s1" } }]);
+  });
+  it("openCount null when the DB predates open_count; errors surface as ok:false", async () => {
+    const old = makeRpcSb({ data: { outstanding_minor: 100 }, error: null });
+    expect(await loadOpenSaleFeeTotalsFromCashPosition(old as never, "s1")).toEqual({
+      ok: true,
+      outstandingMinor: 100,
+      openCount: null,
+    });
+    const bad = makeRpcSb({ data: null, error: { message: "boom" } });
+    expect(await loadOpenSaleFeeTotalsFromCashPosition(bad as never, "s1")).toEqual({ ok: false, error: "boom" });
   });
 });
 
 describe("owner finance route wiring", () => {
   const src = readFileSync(resolve(process.cwd(), "app/api/me/stores/[storeId]/finance/route.ts"), "utf8");
-  it("keeps the 20-row open list but uses the unlimited aggregate for totals", () => {
+  it("keeps the 20-row open list but takes totals from SQL store_cash_position (FIN-11)", () => {
     expect(src).toContain(".limit(20)");
-    expect(src).toContain("aggregateOpenSaleFeeObligations(sb, sid)");
+    expect(src).toContain("loadOpenSaleFeeTotalsFromCashPosition(sb, sid)");
+    expect(src).not.toContain("aggregateOpenSaleFeeObligations");
     expect(src).toMatch(/openCount,/);
   });
   it("returns server sums over the same returned coin ledger rows", () => {

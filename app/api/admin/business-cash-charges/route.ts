@@ -50,6 +50,10 @@ type ChargeRequestRowWithStore = {
   created_at: string;
   decided_at: string | null;
   reject_reason: string | null;
+  payment_method?: string | null;
+  payment_reference?: string | null;
+  proof_file_path?: string | null;
+  decided_reason?: string | null;
   stores?: { store_name?: string | null } | { store_name?: string | null }[] | null;
 };
 
@@ -78,7 +82,7 @@ export async function GET(req: NextRequest) {
   let q = gate.sb
     .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
     .select(
-      "id, store_id, owner_user_id, amount_minor, status, created_at, decided_at, reject_reason, stores(store_name)",
+      "id, store_id, owner_user_id, amount_minor, status, created_at, decided_at, reject_reason, payment_method, payment_reference, proof_file_path, decided_reason, stores(store_name)",
       page ? { count: "exact" } : undefined
     )
     .order("created_at", { ascending: false });
@@ -131,9 +135,12 @@ export async function POST(req: NextRequest) {
     if (!approveReason) {
       return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
     }
+    // FIN-04 — the approval RPC re-checks platform admin, refuses self-store approval and requests without a
+    // deposit reference, and stores the reason (decided_reason).
     const result = await approveBusinessCashTopUpRequest(gate.sb, {
       adminUserId: gate.actor.userId,
       requestId,
+      reason: approveReason,
     });
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });

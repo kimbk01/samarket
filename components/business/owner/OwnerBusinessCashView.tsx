@@ -21,6 +21,25 @@ import {
   COIN_TO_CASH_LABEL_KO,
   COIN_WITHDRAWAL_LABEL_KO,
 } from "@/lib/finance/product-decision-lock";
+import { newOwnerFormRequestKey, ownerCashTopUpMethodLabel } from "@/lib/business/owner-form-request-key";
+import { BC_CHARGE_DEFAULT_PAYMENT_METHODS } from "@/lib/stores/advertising/canonical-business-cash-contract";
+
+type TopUpRow = {
+  id: string;
+  amountMinor: number;
+  status: string;
+  createdAt: string;
+  paymentMethod?: string | null;
+  paymentReference?: string | null;
+  rejectReason?: string | null;
+};
+
+type TopUpPolicy = {
+  perRequestMaxMinor: number | null;
+  monthlyMaxMinor: number | null;
+  paymentMethods: string[];
+  receivingAccountNote: string | null;
+};
 
 type Quote = {
   ratePesosPerPoint: number;
@@ -66,11 +85,15 @@ export function OwnerBusinessCashView({
     isDefaultRate: boolean;
   } | null>(null);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
-  const [topUps, setTopUps] = useState<
-    Array<{ id: string; amountMinor: number; status: string; createdAt: string }>
-  >([]);
+  const [topUps, setTopUps] = useState<TopUpRow[]>([]);
+  const [topUpPolicy, setTopUpPolicy] = useState<TopUpPolicy | null>(null);
 
   const [topUpAmountPhp, setTopUpAmountPhp] = useState("");
+  const [topUpMethod, setTopUpMethod] = useState<string>(BC_CHARGE_DEFAULT_PAYMENT_METHODS[0]);
+  const [topUpReference, setTopUpReference] = useState("");
+  /** IA-22 — one key per form submission; replaced only after success (retries replay the same request). */
+  const [topUpKey, setTopUpKey] = useState(() => newOwnerFormRequestKey("bc_topup"));
+  const [convertKey, setConvertKey] = useState(() => newOwnerFormRequestKey("sp2bc"));
   const [convertPoints, setConvertPoints] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
@@ -98,12 +121,8 @@ export function OwnerBusinessCashView({
           isDefaultRate?: boolean;
         } | null;
         businessCashLedger?: LedgerRow[];
-        topUpRequests?: Array<{
-          id: string;
-          amountMinor: number;
-          status: string;
-          createdAt: string;
-        }>;
+        topUpRequests?: TopUpRow[];
+        topUpPolicy?: TopUpPolicy | null;
       };
       if (!res.ok || json.ok === false) {
         setError(resolveOwnerApiErrorMessage(json.error, t));
@@ -120,6 +139,13 @@ export function OwnerBusinessCashView({
       }
       setLedger(json.businessCashLedger ?? []);
       setTopUps(json.topUpRequests ?? []);
+      if (json.topUpPolicy && Array.isArray(json.topUpPolicy.paymentMethods)) {
+        const policy = json.topUpPolicy;
+        setTopUpPolicy(policy);
+        setTopUpMethod((cur) =>
+          policy.paymentMethods.includes(cur) ? cur : policy.paymentMethods[0] ?? BC_CHARGE_DEFAULT_PAYMENT_METHODS[0]
+        );
+      }
     } catch {
       setError(t("common_error"));
     } finally {
@@ -160,6 +186,29 @@ export function OwnerBusinessCashView({
     return json.quote;
   };
 
+  /** FIN-04 — DB request-writer codes (owner_create_business_cash_charge_request). */
+  const topUpErrorMessage = (code: string | undefined): string => {
+    switch (code) {
+      case "payment_reference_required":
+      case "payment_reference_invalid":
+        return t("owner_bc_topup_reference_required");
+      case "payment_method_required":
+        return t("owner_bc_topup_err_method");
+      case "pending_request_exists":
+        return t("owner_bc_topup_err_pending_exists");
+      case "payment_reference_duplicate":
+        return t("owner_bc_topup_err_reference_duplicate");
+      case "amount_exceeds_request_cap":
+        return t("owner_bc_topup_err_request_cap");
+      case "amount_exceeds_monthly_cap":
+        return t("owner_bc_topup_err_monthly_cap");
+      case "invalid_amount":
+        return t("owner_bc_topup_invalid_amount");
+      default:
+        return resolveOwnerApiErrorMessage(code, t);
+    }
+  };
+
   const submitTopUp = async () => {
     setBusy(true);
     setNotice(null);
@@ -175,6 +224,16 @@ export function OwnerBusinessCashView({
         );
         return;
       }
+      const reference = topUpReference.trim();
+      if (!reference) {
+        setError(
+          safeT("owner_bc_topup_reference_required", {
+            fallbackKo: "입금 참조번호(거래번호)를 입력해 주세요. 입금 확인 후에만 충전됩니다.",
+            fallbackEn: "Enter the deposit reference (transaction no.). Cash is credited only after the deposit is confirmed.",
+          })
+        );
+        return;
+      }
       const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/business-cash`, {
         method: "POST",
         credentials: "include",
@@ -182,12 +241,14 @@ export function OwnerBusinessCashView({
         body: JSON.stringify({
           op: "topup_request",
           amountMinor: php * 100,
-          idempotencyKey: `bc_topup:${storeId}:${php}:${Date.now()}`,
+          paymentMethod: topUpMethod,
+          paymentReference: reference,
+          idempotencyKey: topUpKey,
         }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || json.ok === false) {
-        setError(resolveOwnerApiErrorMessage(json.error, t));
+        setError(topUpErrorMessage(json.error));
         return;
       }
       setNotice(
@@ -197,6 +258,8 @@ export function OwnerBusinessCashView({
         })
       );
       setTopUpAmountPhp("");
+      setTopUpReference("");
+      setTopUpKey(newOwnerFormRequestKey("bc_topup"));
       await load();
       await onChanged?.();
     } finally {
@@ -228,7 +291,7 @@ export function OwnerBusinessCashView({
           op: "convert",
           points,
           expectedRateVersion: q.version,
-          idempotencyKey: `sp2bc:${storeId}:${points}:${q.version}:${Date.now()}`,
+          idempotencyKey: convertKey,
         }),
       });
       const json = (await res.json()) as {
@@ -259,6 +322,7 @@ export function OwnerBusinessCashView({
       );
       setConvertPoints("");
       setQuote(null);
+      setConvertKey(newOwnerFormRequestKey("sp2bc"));
       await load();
       await onChanged?.();
     } finally {
@@ -297,6 +361,45 @@ export function OwnerBusinessCashView({
           fallbackEn: "Top up Cash",
         })}
       >
+        <p className="mb-2 text-xs text-sam-muted" data-owner-bc-topup-deposit-rule="1">
+          {safeT("owner_bc_topup_deposit_rule", {
+            fallbackKo: "먼저 입금한 뒤 입금 수단과 참조번호(거래번호)를 입력해 주세요. 관리자가 입금을 확인한 뒤 충전됩니다.",
+            fallbackEn: "Deposit first, then enter the method and reference (transaction no.). Cash is credited after an admin confirms the deposit.",
+          })}
+          {topUpPolicy?.receivingAccountNote ? ` ${topUpPolicy.receivingAccountNote}` : ""}
+          {topUpPolicy?.perRequestMaxMinor
+            ? ` · ${safeT("owner_bc_topup_cap_note", {
+                fallbackKo: "1회 최대",
+                fallbackEn: "Max per request",
+              })} ${formatDeliveryAdPhpMinor(topUpPolicy.perRequestMaxMinor)}`
+            : ""}
+        </p>
+        <div className="mb-2 grid gap-2 sm:grid-cols-2">
+          <select
+            className={Sam.input.base}
+            value={topUpMethod}
+            onChange={(e) => setTopUpMethod(e.target.value)}
+            aria-label={safeT("owner_bc_topup_method", { fallbackKo: "입금 수단", fallbackEn: "Deposit method" })}
+            data-owner-bc-topup-method="1"
+          >
+            {(topUpPolicy?.paymentMethods ?? [...BC_CHARGE_DEFAULT_PAYMENT_METHODS]).map((m) => (
+              <option key={m} value={m}>
+                {ownerCashTopUpMethodLabel(m, language === "ko")}
+              </option>
+            ))}
+          </select>
+          <input
+            className={Sam.input.base}
+            value={topUpReference}
+            maxLength={100}
+            onChange={(e) => setTopUpReference(e.target.value)}
+            placeholder={safeT("owner_bc_topup_reference_placeholder", {
+              fallbackKo: "입금 참조번호 (거래번호)",
+              fallbackEn: "Deposit reference (transaction no.)",
+            })}
+            data-owner-bc-topup-reference="1"
+          />
+        </div>
         <div className={OWNER_FORM_ACTION_ROW_CLASS}>
           <input
             className={`${Sam.input.base} ${OWNER_FORM_INPUT_GROW_CLASS}`}
@@ -505,14 +608,22 @@ export function OwnerBusinessCashView({
           <ul className="space-y-2 text-sm">
             {topUps.map((r) => (
               <li key={r.id} className="flex justify-between gap-2">
-                <span>{formatDeliveryAdPhpMinor(r.amountMinor)}</span>
-                <span className="text-sam-muted">
-                  {r.status === "approved"
+                <span className="min-w-0">
+                  {formatDeliveryAdPhpMinor(r.amountMinor)}
+                  {r.paymentReference ? (
+                    <span className="ml-2 break-all text-xs text-sam-muted">
+                      {r.paymentMethod ? `${ownerCashTopUpMethodLabel(r.paymentMethod, language === "ko")} · ` : ""}
+                      {r.paymentReference}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 text-sam-muted">
+                  {r.status.toLowerCase() === "approved"
                     ? safeT("owner_finance_cash_topup_status_approved", {
                         fallbackKo: "충전 완료",
                         fallbackEn: "Completed",
                       })
-                    : r.status === "rejected"
+                    : r.status.toLowerCase() === "rejected"
                       ? safeT("owner_finance_cash_topup_status_rejected", {
                           fallbackKo: "거절",
                           fallbackEn: "Rejected",

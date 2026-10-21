@@ -9,6 +9,7 @@ import { AdminFinanceTransparentPanels } from "@/components/admin/finance/AdminF
 import { AdminStoreFinancialStatement } from "@/components/admin/finance/AdminStoreFinancialStatement";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminStoreBalanceCorrectionForm } from "@/components/admin/finance/AdminStoreBalanceCorrectionForm";
 
 type LedgerRow = {
   id: string;
@@ -57,7 +58,7 @@ function php(minor: number): string {
 
 /** Admin finance — paired Coin (Gold) + Cash (Green) sections per CUT 3/5. */
 export function AdminStoreFinancePanels() {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const searchParams = useSearchParams();
   const [storeId, setStoreId] = useState("");
   const [data, setData] = useState<FinancePayload | null>(null);
@@ -77,7 +78,10 @@ export function AdminStoreFinancePanels() {
 
   const load = async (event: FormEvent) => {
     event.preventDefault();
-    const sid = storeId.trim();
+    await fetchFinance(storeId.trim());
+  };
+
+  const fetchFinance = async (sid: string) => {
     if (!sid || loading) return;
     setLoading(true);
     setError("");
@@ -267,6 +271,16 @@ export function AdminStoreFinancePanels() {
           </div>
         </div>
       </section>
+
+      {data?.store?.id ? (
+        <AdminStoreBalanceCorrectionForm
+          key={data.store.id}
+          storeId={data.store.id}
+          storeName={data.store.name || data.store.id}
+          ko={language !== "en"}
+          onDone={() => fetchFinance(data.store?.id ?? "")}
+        />
+      ) : null}
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="font-semibold text-sam-fg">

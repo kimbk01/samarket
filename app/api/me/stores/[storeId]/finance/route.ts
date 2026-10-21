@@ -16,8 +16,8 @@ import {
   loadStoreEconomicPointsBalance,
 } from "@/lib/stores/advertising/canonical-business-cash-writer";
 import {
-  aggregateOpenSaleFeeObligations,
   computeCoinLedgerRecentWindowSums,
+  loadOpenSaleFeeTotalsFromCashPosition,
 } from "@/lib/stores/owner-finance-recent-window";
 
 export const runtime = "nodejs";
@@ -64,8 +64,8 @@ export async function GET(
       .eq("status", "open")
       .order("created_at", { ascending: false })
       .limit(20),
-    // M-19 — totals over ALL open obligations (list above stays capped at 20 rows).
-    aggregateOpenSaleFeeObligations(sb, sid),
+    // M-19 / FIN-11 — totals over ALL open obligations from SQL store_cash_position (list above stays capped at 20 rows).
+    loadOpenSaleFeeTotalsFromCashPosition(sb, sid),
   ]);
 
   const openObligations = obligations.error ? [] : obligations.data ?? [];
@@ -76,7 +76,10 @@ export async function GET(
           sum + Math.trunc(Number((row as { fee_outstanding_minor?: number }).fee_outstanding_minor) || 0),
         0
       );
-  const openCount = obligationAggregate.ok ? obligationAggregate.openCount : openObligations.length;
+  const openCount =
+    obligationAggregate.ok && obligationAggregate.openCount != null
+      ? obligationAggregate.openCount
+      : openObligations.length;
   // F-15 — server-computed sums over the SAME coin ledger rows returned below (N most recent).
   const storePointsRecentWindow = computeCoinLedgerRecentWindowSums(spLedger);
 

@@ -450,7 +450,11 @@ export async function loadStorePlatformPayable(
 
 export type StoreCommissionIntegrityReport = {
   obligations: number;
-  checks: Record<string, { violations: number; ids: string[] }>;
+  /**
+   * `violations`/`ids` = everything (values never corrected, D-5). FIN-08 R-D5: `legacyPreserved` = violations on
+   * rows before the cutoff (classified only, not alerted) · `newViolations` = the rest (alerted).
+   */
+  checks: Record<string, { violations: number; ids: string[]; legacyPreserved: number; newViolations: number }>;
   originalUnknown: { count: number; ids: string[] };
 };
 
@@ -466,8 +470,16 @@ export async function loadStoreCommissionIntegrity(
   const checks: StoreCommissionIntegrityReport["checks"] = {};
   for (const [k, v] of Object.entries(b)) {
     if (k === "obligations" || k === "original_unknown" || !v || typeof v !== "object") continue;
-    const c = v as { violations?: unknown; ids?: unknown };
-    checks[k] = { violations: int(c.violations), ids: Array.isArray(c.ids) ? c.ids.map(String) : [] };
+    const c = v as { violations?: unknown; ids?: unknown; legacy_preserved?: unknown; new_violations?: unknown };
+    const violations = int(c.violations);
+    const legacyPreserved = int(c.legacy_preserved);
+    checks[k] = {
+      violations,
+      ids: Array.isArray(c.ids) ? c.ids.map(String) : [],
+      legacyPreserved,
+      // DB before 20270603110200 has no classification → every violation counts as new.
+      newViolations: c.new_violations == null ? violations : int(c.new_violations),
+    };
   }
   const ou = (b.original_unknown ?? {}) as { count?: unknown; ids?: unknown };
   return {
