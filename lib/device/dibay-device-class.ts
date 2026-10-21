@@ -12,8 +12,8 @@ export type DibayDeviceClass =
 
 export type DibayDeviceClassSource =
   | "smallestScreenWidthDp"
-  /** Android: sw >= 600 but physical diagonal < 7" → phone (native only). */
-  | "physicalDiagonal"
+  /** Android: sw >= 600 only because of display zoom (factory-density sw < 600) → phone (native only). */
+  | "stableDensity"
   | "screenLayout"
   | "userInterfaceIdiom"
   | "windows_environment"
@@ -35,7 +35,7 @@ export type DibayDeviceClassResult = {
   screenLayoutSize?: AndroidScreenLayoutSize | null;
   fallbackScreenLayout?: AndroidScreenLayoutSize | null;
   conflict?: boolean;
-  physicalDiagonalInches?: number | null;
+  stableSmallestScreenWidthDp?: number | null;
 };
 
 export const ANDROID_TABLET_SMALLEST_WIDTH_DP = 600;
@@ -174,7 +174,9 @@ export function acceptNativeDibayDeviceClassResult(
   if (native.screenLayoutSize !== undefined) accepted.screenLayoutSize = native.screenLayoutSize;
   if (native.fallbackScreenLayout !== undefined) accepted.fallbackScreenLayout = native.fallbackScreenLayout;
   if (typeof native.conflict === "boolean") accepted.conflict = native.conflict;
-  if (typeof native.physicalDiagonalInches === "number") accepted.physicalDiagonalInches = native.physicalDiagonalInches;
+  if (typeof native.stableSmallestScreenWidthDp === "number") {
+    accepted.stableSmallestScreenWidthDp = native.stableSmallestScreenWidthDp;
+  }
   return accepted;
 }
 

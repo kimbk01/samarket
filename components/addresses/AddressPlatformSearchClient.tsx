@@ -20,6 +20,7 @@ import {
   parseSafeInternalReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
 import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
+import { withTimeout } from "@/lib/async/with-timeout";
 import {
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
   MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
@@ -47,6 +48,9 @@ function writeSavedQuery(q: string): void {
     /* private mode */
   }
 }
+
+/** 네트워크가 끊겨 장소 조회가 멈춰도 이 시간 뒤엔 오류 안내 */
+const PLACE_RESOLVE_TIMEOUT_MS = 12_000;
 
 function AddressPlatformSearchInner() {
   const { t } = useI18n();
@@ -155,9 +159,19 @@ function AddressPlatformSearchInner() {
     const token = beginResolve();
     if (token == null) return;
     setErr(null);
+    /** 오프라인이면 장소 조회가 끝나지 않으므로 바로 안내 */
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setErr(t("addr_ui_resolve_failed"));
+      endResolve(token);
+      return;
+    }
     setResolvingPlaceId(row.placeId);
     try {
-      const draft = await resolveCanonicalAddressFromPlaceId(row.placeId);
+      const draft = await withTimeout(
+        resolveCanonicalAddressFromPlaceId(row.placeId),
+        PLACE_RESOLVE_TIMEOUT_MS,
+        "place_resolve_timeout",
+      );
       if (token !== resolveTokenRef.current) return;
       if (!draft) {
         setErr(t("addr_ui_coords_invalid"));

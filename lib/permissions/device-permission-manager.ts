@@ -323,6 +323,11 @@ export async function requestLocationWithDiBaYGate(options?: {
       if (options?.featureKey) markPermissionFeatureCompleted(options.featureKey);
       return { ok: true, position: pos };
     }
+    /** 앱 권한은 허용이어도 WebView·OS 위치가 PERMISSION_DENIED 면 권한 안내로 */
+    if (pos.code === 1) {
+      void refreshPermissionState("location");
+      return { ok: false, reason: "denied", message: pos.message, positionError: pos };
+    }
     return {
       ok: false,
       reason: "position_error",

@@ -359,7 +359,12 @@ async function A6() {
   try { adb("logcat", "-c"); } catch { /* ignore */ }
   await device.shell("input keyevent 4");
   const dlg = page.getByText("수정한 내용을 버릴까요?");
-  const dialogShown = await dlg.waitFor({ timeout: 8000 }).then(() => true, () => false);
+  // 입력 포커스 중 첫 뒤로는 키보드 닫기 몫 — 실제 사용자 흐름처럼 확인 창이 없으면 한 번 더 누른다
+  let dialogShown = await dlg.waitFor({ timeout: 4000 }).then(() => true, () => false);
+  if (!dialogShown) {
+    await device.shell("input keyevent 4");
+    dialogShown = await dlg.waitFor({ timeout: 8000 }).then(() => true, () => false);
+  }
   let backDiag = "";
   if (!dialogShown) {
     await shot("A6-after-back");
@@ -559,10 +564,14 @@ async function E1() {
     await sleep(3000);
     const r = await page.evaluate(() => ({ type: screen.orientation?.type ?? "", w: window.innerWidth, h: window.innerHeight, over: document.documentElement.scrollWidth > window.innerWidth + 1 }));
     const isPhone = !/tablet/i.test(adb("shell", "getprop", "ro.build.characteristics"));
+    const native = await page
+      .evaluate(() => window.Capacitor?.Plugins?.DibayDeviceClass?.getDeviceClass?.())
+      .then((d) => (d ? ` · 판정 ${d.deviceClass}/${d.source} sw${d.smallestScreenWidthDp} 기본sw${d.stableSmallestScreenWidthDp ?? "?"}` : ""), () => "");
+    const sdk = ` · Android SDK ${adb("shell", "getprop", "ro.build.version.sdk").trim()}`;
     if (isPhone) {
       return r.type.startsWith("portrait") && r.h > r.w
-        ? { status: "PASS", detail: `폰 세로 고정 유지 (${r.type})` }
-        : { status: "FAIL", detail: `폰이 가로로 회전됨 (${r.type} ${r.w}x${r.h})` };
+        ? { status: "PASS", detail: `폰 세로 고정 유지 (${r.type})${native}${sdk}` }
+        : { status: "FAIL", detail: `폰이 가로로 회전됨 (${r.type} ${r.w}x${r.h})${native}${sdk}` };
     }
     return r.w > r.h && !r.over
       ? { status: "PASS", detail: `태블릿 가로 ${r.w}x${r.h}, 가로 넘침 없음` }
