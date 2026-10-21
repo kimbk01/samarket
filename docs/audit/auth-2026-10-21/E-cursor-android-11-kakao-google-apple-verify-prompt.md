@@ -79,12 +79,19 @@ adb -s <기기> logcat -d | grep DIBAY_Google | tail -30
 
 - 각 행: 시작 시각 PHT · `PASS/FAIL/NOT_PROVEN` · 로그 grep 결과 · 실패 시 화면 사진과 문구 원문.
 
+## 3-1. iOS (아이폰 1.2(7) · 재빌드 없음)
+
+로그아웃 상태에서 각 1회: 카카오 성공 · 카카오 취소 · Apple 성공 · Apple 취소 · Google 성공 · Google 취소.
+기대: 성공은 「로그인 중」 잠깐 → 앱 진입 (로그인 폼 재등장 없음), 취소는 "로그인이 취소되었습니다" + 버튼 복구.
+각 시각(PHT)·결과만 기록.
+
 ## 4. 보고 형식 (이것만)
 
 ```
 [빌드] SHA=… · Android 1.2.4(11) 설치: 삼성 OK/FAIL · 샤오미 OK/FAIL
 [삼성] 1…9: 시각 PHT · 결과 · 로그 이벤트
 [샤오미] 1…9: 시각 PHT · 결과 · 로그 이벤트
+[iOS] 카카오 성공/취소 · Apple 성공/취소 · Google 성공/취소: 시각 PHT · 결과
 ```
 
 시각은 Claude 가 Supabase 인증 로그·DB 와 대조하는 데 쓴다.

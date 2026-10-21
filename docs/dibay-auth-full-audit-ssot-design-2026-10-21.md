@@ -414,3 +414,16 @@ NEVER          = 기존 owner 의 auth email/password 를 다른 provider 로그
 | P2-15 | DONE | 라벨·오류 문구·반경·정지/차단 안내·약관 화면 토큰·capacitor-return 복귀·키보드/safe-area·관리자 거부 화면 로그인 링크 |
 | P2-16 | DONE (DB 적용) | 비밀값 4건 Vault 이전 · 테이블엔 참조값만 · 저장은 service_role RPC |
 | P2-17 | DONE (DB 적용) | favorite_audit_log anon/authenticated 권한 제거 |
+
+## 9. 실기기 장애 처리 (2026-10-22 · 원인 확정 → 근본 조치)
+
+| # | 증상 | 확정 원인 (근거) | 조치 | 판정 |
+|---|---|---|---|---|
+| R1 | Android Google 로그인 실패 | `google_native_intent_parse_failed 10` (DEVELOPER_ERROR, 07:22 PHT 두 기기 logcat). 1.2.4 는 「DIBAY Play Upload」 키(SHA-1 `FA:96:68:F6:70:38:68:BA:D2:16:2E:23:01:D3:01:C3:DE:DE:28:1B`)로 서명 — Google Cloud 미등록. Kakao 키 해시 `+pZo9…` 와 동일 키 | Google Cloud(DIBA-maps-prod) Android OAuth 클라이언트 `DIBAY Android Play Upload` 등록 (Owner, 2026-10-22) | 근본 · 07:32:28 PHT Google 로그인 서버 확인 |
+| R2 | 모든 Google 실패가 「업데이트」 문구 | Capacitor `PluginCall.reject(msg, code)` 인데 플러그인은 `reject(code, msg)` → JS 에 코드·설명 역전, Google 매핑은 코드 정확 일치만 인식 | `extractNativePluginRejectRaw` (Google·Kakao·Apple 공용) · 업데이트 문구 제거 (#133·#134) | 근본 |
+| R3 | 카카오 웹 화면 다중 전환·로그인 화면 재등장 | #127 Android Kakao Web OAuth 강제 (임시 조치) | #127 원복 → Native SDK (#131) · 톡 우선→계정 전환 (#132, 1.2.4(10)) | 근본 · 07:30:45 PHT 카카오 확인 |
+| R4 | 로그인 완료 후 로그인 폼 재노출 | 성공 경로 `finally clearPending` · 30초 해제 타이머 · #128 20초 폼 복귀 타이머 | 공통 상태 SSOT `auth-login-phase.ts` (#129), 타이머 판정 제거 | 근본 |
+| R5 | 교차 결함 | Google 고아 `pendingCall` 영구 잠금 · Google 복구가 로그인 후 계정 바꿔치기 가능 · 재시작 표식이 Google 복구 차단 · iOS ASWebAuth 복귀 오취소 | #133 (Google 플러그인 정리는 1.2.4(11) 필요) | 근본 · 11 실기기 NOT_PROVEN |
+
+**남은 확인 (실기기 — Cursor 프롬프트 E):** Android 1.2.4(11) 설치 + 교차 9단계 · iOS 1.2(7) 카카오·Apple·Google 성공/취소 각 1회. 결과 대조 후 이 절에 PASS 기록.
+**출시 전 1회:** Google Cloud `DIBAY Android Play` 클라이언트에 Play 앱 서명 SHA-1 `2D:C4:22:60:98:04:26:6F:A3:DB:03:E1:3C:2F:5C:90:98:A6:74:F2` 포함 여부 확인.
