@@ -13,6 +13,8 @@ import { ProductLocationSelect } from "./ProductLocationSelect";
 import { ProductConditionSelect } from "./ProductConditionSelect";
 import { ProductPriceField } from "./ProductPriceField";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS, APP_TRADE_WRITE_HORIZONTAL_CLASS } from "@/lib/ui/app-content-layout";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 const defaultCondition: ProductCondition = "good";
 
@@ -38,6 +40,8 @@ export function ProductForm({
   saveProduct,
 }: ProductFormProps) {
   const { t } = useI18n();
+  const { effectiveBottomInset, effectiveViewportBottom, keyboardOpen } = useFormKeyboardViewport();
+  useFormKeyboardFocusVisibility({ effectiveViewportBottom });
   const [images, setImages] = useState<ImagePreviewItem[]>(() =>
     initialValues?.images?.length ? toPreviewItems(initialValues.images) : []
   );
@@ -112,7 +116,13 @@ export function ProductForm({
   );
 
   return (
-    <form onSubmit={handleSubmit} className={`${APP_TRADE_WRITE_HORIZONTAL_CLASS} pb-24`}>
+    <form
+      onSubmit={handleSubmit}
+      className={APP_TRADE_WRITE_HORIZONTAL_CLASS}
+      /** 하단 고정 버튼 높이 + (iOS 키보드 열림 시) 가림 높이 — 마지막 입력까지 스크롤로 닿는다 */
+      style={{ paddingBottom: `calc(6rem + ${keyboardOpen ? effectiveBottomInset : 0}px)` }}
+      data-keyboard-tap-dismiss="1"
+    >
       <ProductImagePicker value={images} onChange={setImages} />
       <section className="border-b border-sam-border-soft bg-sam-surface px-0 py-4">
         <label className="mb-2 block sam-text-body font-medium text-sam-fg">
@@ -170,7 +180,17 @@ export function ProductForm({
         error={errors.region}
       />
       <ProductConditionSelect value={condition} onChange={setCondition} />
-      <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-sam-border-soft bg-sam-surface pb-[var(--safe-bottom)]">
+      <div
+        data-form-keyboard-footer="1"
+        data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+        className="fixed bottom-0 left-0 right-0 z-10 border-t border-sam-border-soft bg-sam-surface"
+        /** Form SSOT — 키보드 열림 = 가림 높이만 / 닫힘 = safe-bottom 1회 (SubmitButton 과 동일) */
+        style={{
+          paddingBottom: keyboardOpen
+            ? `${effectiveBottomInset}px`
+            : `max(var(--safe-bottom), ${effectiveBottomInset}px)`,
+        }}
+      >
         <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} flex min-w-0 gap-2 py-3`}>
         {onCancel && (
           <button

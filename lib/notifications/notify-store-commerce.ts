@@ -741,6 +741,24 @@ export async function notifyBuyerStoreOrderOwnerStatus(
         ? { estimated_prep_minutes: Math.floor(Number(opts.estimatedPrepMinutes)) }
         : {}),
       ...(cancelReason ? { cancel_reason: cancelReason } : {}),
+      /** 알림함 재번역용 — 취소 주체·시스템 문구 (NTF-02 · ORD-09 · J-1) */
+      ...(opts.nextStatus === "cancelled"
+        ? {
+            cancel_by: cancelReason
+              ? "owner"
+              : opts.actor === "ADMIN"
+                ? "admin"
+                : opts.actor === "SYSTEM" && opts.systemPurpose === "accept_timeout"
+                  ? "accept_timeout"
+                  : "owner",
+            ...(opts.actor === "SYSTEM" && opts.systemPurpose === "accept_timeout"
+              ? { timeout_minutes: STORE_ORDER_ACCEPT_TIMEOUT_MINUTES }
+              : {}),
+          }
+        : {}),
+      ...(opts.actor === "SYSTEM" && opts.systemPurpose === "delivery_sync" && opts.nextStatus === "arrived"
+        ? { system_purpose: "delivery_sync" }
+        : {}),
       store_display_name: label,
       ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },

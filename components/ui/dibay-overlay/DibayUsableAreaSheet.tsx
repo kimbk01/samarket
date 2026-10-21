@@ -170,6 +170,7 @@ export function DibayUsableAreaSheet({
         onClick={(e) => e.stopPropagation()}
         data-dibay-usable-area-sheet="1"
         data-form-keyboard-surface="1"
+        data-keyboard-tap-dismiss="1"
         data-form-keyboard-open={keyboardOpen ? "true" : "false"}
         data-sheet-height-ratio={ratio != null ? String(ratio) : undefined}
         data-usable-area-band={bandKnown ? "1" : "0"}

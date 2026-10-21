@@ -312,7 +312,10 @@ function LoginPageContent() {
 
   return (
     <>
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10"
+        data-keyboard-tap-dismiss="1"
+      >
       <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm">
         <div className="mx-auto flex justify-center" aria-hidden>
           <DibayAuthLogo size={56} />

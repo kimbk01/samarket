@@ -13,6 +13,7 @@ import {
   DibayAppDialogProvider,
 } from "@/components/ui/dibay-overlay";
 import { AppTitle } from "@/components/layout/AppTitle";
+import { KeyboardViewportRootProbe } from "@/components/layout/KeyboardViewportRootProbe";
 import { CallIncomingChromeRoot } from "@/components/layout/providers/CallIncomingChromeRoot";
 import { DeferredMainShellMessengerParticipantBridge } from "@/components/layout/DeferredMainShellMessengerParticipantBridge";
 import { NotificationSoundLeaderBootstrap } from "@/components/notifications/NotificationSoundLeaderBootstrap";
@@ -107,6 +108,7 @@ export default async function RootLayout({
             <DibayAppDialogImperativeBridge />
             <AppBootProvider>
             <AppTitle />
+            <KeyboardViewportRootProbe />
             <SupabaseAuthSync />
             <CapacitorNativeMarkerBootstrap />
             <OAuthReturnListener />

@@ -22,7 +22,40 @@ export type CommerceNotificationMeta = {
   fee_amount?: number;
   balance_after?: number;
   point_amount?: number;
+  /** 구매자 상태 알림 — 취소 주체(owner·admin·accept_timeout), 매장 취소 사유, 시스템 목적 */
+  cancel_by?: string;
+  cancel_reason?: string;
+  timeout_minutes?: number;
+  system_purpose?: string;
 };
+
+/**
+ * 구매자 상태 알림(store_order_owner_status) 중 「매장이 처리」 기본 문구가 아닌 경우의 문구 키.
+ * - null: 기본 문구 사용 · "stored": 저장 문장 유지(취소 주체 meta 가 없는 이전 알림 — 재번역하면 주체가 바뀜)
+ */
+function buyerStatusVariant(
+  m: CommerceNotificationMeta,
+  part: "title" | "body"
+): { key: MessageKey; vars?: Record<string, string | number> } | "stored" | null {
+  const status = String(m.order_status ?? "");
+  if (status === "arrived" && m.system_purpose === "delivery_sync") {
+    return {
+      key: part === "title" ? "notify_commerce_delivery_sync_arrived_title" : "notify_commerce_delivery_sync_arrived_body",
+    };
+  }
+  if (status !== "cancelled" || part === "title") return null;
+  const reason = typeof m.cancel_reason === "string" ? m.cancel_reason.trim() : "";
+  if (reason) return { key: "notify_commerce_owner_status_cancelled_body_reason", vars: { reason } };
+  if (m.cancel_by === "admin") return { key: "notify_commerce_admin_cancelled_body" };
+  if (m.cancel_by === "accept_timeout") {
+    return {
+      key: "notify_commerce_accept_timeout_cancelled_body",
+      vars: { minutes: Math.max(1, Math.floor(Number(m.timeout_minutes ?? 0))) || 10 },
+    };
+  }
+  if (m.cancel_by === "owner") return null;
+  return "stored";
+}
 
 function metaStoreLabel(
   meta: CommerceNotificationMeta,
@@ -240,7 +273,9 @@ export function resolveCommerceNotificationInboxTitle(
 ): string {
   const m = (meta ?? {}) as CommerceNotificationMeta;
   const kind = typeof m.kind === "string" ? m.kind : "";
-  const key = commerceTitleKey(kind, String(m.order_status ?? ""));
+  const variant = kind === "store_order_owner_status" ? buyerStatusVariant(m, "title") : null;
+  const key =
+    variant && variant !== "stored" ? variant.key : commerceTitleKey(kind, String(m.order_status ?? ""));
   if (!key) return resolveInboxNotificationDisplayText(lang, storedTitle);
 
   const store = metaStoreLabel(m, lang, storedBody);
@@ -256,7 +291,10 @@ export function resolveCommerceNotificationInboxBody(
   const raw = (storedBody ?? "").trim();
   const m = (meta ?? {}) as CommerceNotificationMeta;
   const kind = typeof m.kind === "string" ? m.kind : "";
-  const key = commerceBodyKey(kind, String(m.order_status ?? ""));
+  const variant = kind === "store_order_owner_status" ? buyerStatusVariant(m, "body") : null;
+  if (variant === "stored" && raw) return resolveInboxNotificationDisplayText(lang, raw);
+  const key =
+    variant && variant !== "stored" ? variant.key : commerceBodyKey(kind, String(m.order_status ?? ""));
 
   if (!key) {
     if (!raw) return null;
@@ -266,7 +304,12 @@ export function resolveCommerceNotificationInboxBody(
   const store = metaStoreLabel(m, lang, storedBody);
   const orderNo = metaOrderNo(m, storedBody);
   const body = notifySafeT(lang, key, {
-    vars: { ...commerceBodyVars(lang, kind, m, storedBody), store, orderNo },
+    vars: {
+      ...commerceBodyVars(lang, kind, m, storedBody),
+      ...(variant && variant !== "stored" ? variant.vars ?? {} : {}),
+      store,
+      orderNo,
+    },
   });
   if (kind === "store_order_owner_status") {
     return `${body}${acceptedEtaSuffix(lang, m)}`;

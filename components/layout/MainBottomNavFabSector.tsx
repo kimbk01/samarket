@@ -285,6 +285,7 @@ export function MainBottomNavFabSector() {
         data-panel-enter-ready={panelEnterReady ? "true" : "false"}
         data-fab-surface-alpha={FAB_SURFACE_ALPHA}
         className={`main-bottom-nav-fab-sector pointer-events-none fixed inset-x-0 ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} ${MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS}`}
+        data-kb-hide="1"
         style={fabRootStyle}
       >
         <div

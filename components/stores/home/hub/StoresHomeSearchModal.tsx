@@ -1,5 +1,6 @@
 "use client";
 
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import {
   useCallback,
   useEffect,
@@ -106,6 +107,7 @@ export function StoresHomeSearchModal({
   const [visible, setVisible] = useState(false);
   const [entered, setEntered] = useState(false);
   const [layout, setLayout] = useState<PopupLayout | null>(null);
+  const { keyboardOpen, effectiveViewportBottom } = useFormKeyboardViewport({ enabled: open });
   const search = useDeliveryStoreSearch();
   const fallbackRecommended = useMemo(
     () => FALLBACK_RECOMMENDED_KEYS.map((key) => t(key)),
@@ -231,7 +233,11 @@ export function StoresHomeSearchModal({
     top: layout.top,
     left: layout.left,
     right: layout.right,
-    maxHeight: layout.maxHeight,
+    /** 키보드 열림 = 보이는 영역(visualViewport) 하단까지만 — 닫힘은 기존 높이 그대로 (K-03) */
+    maxHeight:
+      keyboardOpen && effectiveViewportBottom > 0
+        ? Math.max(160, Math.min(layout.maxHeight, effectiveViewportBottom - layout.top - 8))
+        : layout.maxHeight,
     transformOrigin: "top right",
   };
 

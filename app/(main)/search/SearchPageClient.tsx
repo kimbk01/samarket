@@ -15,7 +15,7 @@ function SearchFallback() {
 
 export default function SearchPageClient() {
   return (
-    <div className="min-h-screen bg-sam-app">
+    <div className="min-h-screen bg-sam-app" data-keyboard-tap-dismiss="1">
       <Suspense fallback={<SearchFallback />}>
         <GlobalSearchView />
       </Suspense>

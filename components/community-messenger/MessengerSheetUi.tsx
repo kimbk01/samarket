@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import {
   MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
   MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS,
@@ -19,6 +21,8 @@ export type MessengerHomeBottomSheetAnchor = "above-bottom-nav" | "device-bottom
  * - `center`: 화면 중앙 팝업(친구 추가)
  *
  * CONTRACT: 패널은 항상 `absolute inset-x-0 w-full`(또는 center fixed).
+ * 키보드(Form SSOT 공유 측정): 닫힘 = 기존 위치 그대로. 열림 = 루트를 visualViewport 밴드로 줄이고
+ * (`data-kb-band`) 패널 하단 = 키보드 상단·높이 ≤ 밴드 — 탭 오프셋·safe·키보드 px 를 다시 더하지 않는다.
  * ≥768 list-pane 폭은 `MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS` + CSS media 만.
  * DO NOT 클래스 유무로 inset-x 를 제거 (폰 APK/iOS 전폭 붕괴).
  */
@@ -42,6 +46,13 @@ export function MessengerHomeBottomSheetShell({
 }) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const { keyboardOpen, effectiveViewportBottom, visualViewportHeight, visualViewportOffsetTop } =
+    useFormKeyboardViewport();
+  useFormKeyboardFocusVisibility({ scrollRootRef: panelRef, effectiveViewportBottom });
+  const kbBand = keyboardOpen && visualViewportHeight > 0;
+  const bandTop = Math.max(0, Math.round(visualViewportOffsetTop));
+  const bandHeight = Math.round(visualViewportHeight);
   /** 마운트 = 열림 — Android 시스템 뒤로는 이 시트만 닫는다 (INAPP-07 오버레이 스택, SPL-05) */
   useOverlayHardwareBack(true, onClose);
 
@@ -82,9 +93,11 @@ export function MessengerHomeBottomSheetShell({
   return createPortal(
     <div
       className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`}
+      style={kbBand ? { top: bandTop, height: bandHeight, bottom: "auto" } : undefined}
       role="presentation"
       data-dibay-overlay="messenger-home-sheet"
       data-overlay-anchor={anchor}
+      data-kb-band={kbBand ? "true" : undefined}
     >
       <button
         type="button"
@@ -97,11 +110,18 @@ export function MessengerHomeBottomSheetShell({
         role="dialog"
         aria-modal="true"
         aria-label={dialogAriaLabel}
+        ref={panelRef}
+        data-keyboard-tap-dismiss="1"
         style={
           deviceBottom ?
             ({
               "--messenger-home-sheet-device-height": `${Math.min(1, Math.max(0.25, deviceHeightRatio)) * 100}dvh`,
             } as CSSProperties)
+          : center && kbBand ?
+            {
+              top: bandTop + Math.round(bandHeight / 2),
+              maxHeight: Math.max(1, Math.min(bandHeight - 32, 560)),
+            }
           : undefined
         }
         className={`${center ? "fixed" : "absolute inset-x-0 w-full"} flex flex-col overflow-hidden border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] shadow-[var(--overlay-elevation-3)] ${center ? "rounded-[length:var(--overlay-radius-lg)]" : "rounded-t-[length:var(--overlay-radius-xl)]"} ${panelAnchorClass} ${panelMotionClass} ${panelClassName}`}

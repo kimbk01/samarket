@@ -57,7 +57,7 @@ function AddressEditorPageChrome(props: {
   /** iOS 키보드가 화면을 밀어도 뒤로가기 헤더는 보이는 영역 상단에 고정 */
   usePinChromeToVisualViewportTop(chromeRef);
   return (
-    <div className={MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS} data-form-keyboard-surface="1">
+    <div className={MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS} data-form-keyboard-surface="1" data-keyboard-tap-dismiss="1">
       <div ref={chromeRef} className="relative z-10 shrink-0" data-form-keyboard-sticky-chrome="1">
         <MySubpageHeader
           inlineChrome

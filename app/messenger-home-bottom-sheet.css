@@ -43,6 +43,22 @@ html:has(.app-bottom-nav-shell.app-bottom-nav-shell--keyboard-resized) .messenge
 }
 
 /**
+ * 키보드 열림 — 루트가 visualViewport 밴드(`MessengerHomeBottomSheetShell` `data-kb-band`).
+ * 패널 하단 = 밴드 하단(키보드 상단), 높이 ≤ 밴드. 탭 오프셋·safe 를 다시 더하지 않는다 (K-01·K-03).
+ */
+/* 특이도: 하단 탭·배달·탭 없음·keyboard-resized 변형(`html:has(...)` 최대 0,3,1)보다 높게 */
+[data-dibay-overlay="messenger-home-sheet"][data-kb-band="true"]
+  > .messenger-home-bottom-sheet-panel.messenger-home-bottom-sheet-panel {
+  bottom: 0;
+  max-height: 100%;
+}
+
+[data-dibay-overlay="messenger-home-sheet"][data-kb-band="true"]
+  > .messenger-home-bottom-sheet-panel--device-bottom {
+  height: min(var(--messenger-home-sheet-device-height, 70dvh), 100%);
+}
+
+/**
  * 메신저 설정·그룹 생성 등 — 기기 맨 하단에서 뷰포트 비율(기본 70dvh)만큼 올라옴.
  * 기본: inset-x-0 w-full (폰·좁은 창 전폭).
  */

@@ -178,6 +178,7 @@ export function HomeTradeHubFloatingBar() {
 
       <div
         className={`pointer-events-none fixed inset-x-0 ${HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS} ${shellZ}`}
+        data-kb-hide="1"
       >
         {/*
          * 헤더 행과 동일한 읽기 폭만 맞추고 `overflow-x-hidden` 은 쓰지 않음.

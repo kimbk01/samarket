@@ -114,6 +114,7 @@ export function WriteLauncher({ onClose, anchor = "left" }: WriteLauncherProps) 
     <WriteLauncherOverlay onClose={onClose}>
       <div
         className={`fixed z-[131] flex flex-col ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${positionClass}`}
+        data-kb-hide="1"
         onClick={(e) => e.stopPropagation()}
       >
         <WriteLauncherPanel onClose={onClose} />

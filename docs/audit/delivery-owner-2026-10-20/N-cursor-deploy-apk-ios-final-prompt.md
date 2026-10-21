@@ -62,3 +62,10 @@
 3. iOS — 저장소 1.2 (7) · 설치 기록 · 빌드 여부(불필요/진행/NOT_PROVEN)
 4. 남은 것 — 스토어 업로드·출시(Owner 승인 사항)만, 그 외 없음이면 「배달 오너 작업 종료」
 ```
+
+## 결과 (2026-10-21 23:36 PHT)
+
+- 웹 Production: READY `863e09eac` · 하트비트 `sla_scan` 23:15 PHT `vercel_cron` — PASS.
+- Android: `native:prepare` READY(origin/main `38a41fb84`, 1.2.4 (9)) → `assembleRelease` BUILD SUCCESSFUL → 샤오미(`8b37179f7d94`) 기존 debug 서명 설치본(`CN=Android Debug`) 삭제 후 정식 서명(`CN=DIBAY Play Upload`) APK 설치 `versionCode=9` → 운영 `user_devices` `android 1.2.4 (9)` 23:35:58 PHT — PASS.
+- iOS: 저장소 1.2 (7) = 운영 설치 기록 1.2 (7) — 재빌드 불필요(PASS).
+- 남은 것: 스토어 업로드·출시(Owner 승인 사항)만.

@@ -72,7 +72,42 @@ export type FormKeyboardViewportBuildArgs = {
   keyboardOcclusionInsetOverride?: number;
   /** Matrix labels — optional; never invent gesture vs 3-button. */
   runtimeContext?: FormKeyboardRuntimeContext;
+  /**
+   * Is a control that can raise an OS input surface focused (`isFormKeyboardInputSurfaceElement`)?
+   * Necessary — never sufficient — for "open": no such focus → closed and the closed baseline is
+   * re-measured from the current viewport (non-keyboard resize: split / multi-window, defect B).
+   * Omitted = legacy (no gate).
+   */
+  inputSurfaceFocused?: boolean;
+  /**
+   * Baseline carried across a rotation with the keyboard open (`resolveFormKeyboardBaselineOnWidthChange`).
+   * Open needs a larger shrink (`FORM_KEYBOARD_ESTIMATED_BASELINE_SHRINK_RATIO`); the first closed
+   * measurement replaces it with the measured height (defect A — never left pending).
+   */
+  baselineEstimated?: boolean;
+  /**
+   * Native proof the IME is hidden (`readAndroidNativeImeHiddenEvidence`). true → closed (baseline
+   * kept grow-only — the proof can be one inset pass stale). false/omitted = no proof (never "open").
+   */
+  nativeImeHidden?: boolean;
 };
+
+/** Capacitor 8 core `SystemBars` (Android) writes this on <html> from WindowInsets on every insets pass. */
+export const CAPACITOR_SAFE_AREA_BOTTOM_VAR = "--safe-area-inset-bottom";
+
+/**
+ * Android only — existing native signal, read-only (no plugin / config change):
+ * Capacitor `SystemBars.calcSafeAreaInsets` sets the bottom inset to 0 while the IME is visible and to
+ * the system-bar bottom otherwise. So a value > 0 PROVES the IME is hidden. 0 proves nothing
+ * (IME up, side / hidden navigation bar, or the non-passthrough branch that always writes 0).
+ */
+export function readAndroidNativeImeHiddenEvidence(rootStyle: {
+  getPropertyValue: (name: string) => string;
+} | null): boolean {
+  if (!rootStyle) return false;
+  const px = Number.parseFloat(rootStyle.getPropertyValue(CAPACITOR_SAFE_AREA_BOTTOM_VAR));
+  return Number.isFinite(px) && px > 0;
+}
 
 /** Probe `--safe-bottom` resolved px (env + native bridge). */
 export function readCssSafeBottomPx(): number {
@@ -155,7 +190,8 @@ export function resolveFormKeyboardOcclusionInsetPx(args?: {
 
 export function resolveFormKeyboardOpenFromViewport(
   baselineClosedHeightPx: number,
-  minOcclusionPx = FORM_KEYBOARD_MIN_OCCLUSION_PX
+  minOcclusionPx = FORM_KEYBOARD_MIN_OCCLUSION_PX,
+  shrinkThresholdPx = FORM_KEYBOARD_NAVIGATION_GAP_PX
 ): boolean {
   const overlayGapPx = resolveFormVisualViewportOverlayGapPx();
   if (overlayGapPx >= minOcclusionPx) return true;
@@ -163,7 +199,7 @@ export function resolveFormKeyboardOpenFromViewport(
   const frame = resolveFormVisualViewportFrame();
   if (
     baselineClosedHeightPx > 0 &&
-    frame.heightPx <= baselineClosedHeightPx - FORM_KEYBOARD_NAVIGATION_GAP_PX
+    frame.heightPx <= baselineClosedHeightPx - shrinkThresholdPx
   ) {
     return true;
   }
@@ -212,6 +248,100 @@ export function resolveFormKeyboardBaselineForLayout(args: {
   return args.baselineClosedHeightPx;
 }
 
+/** Shrink (fraction of the estimated closed height) that counts as "open" right after a rotation. */
+export const FORM_KEYBOARD_ESTIMATED_BASELINE_SHRINK_RATIO = 0.2;
+
+/**
+ * Closed baseline for a new layout width (rotation · split resize).
+ * - width seen before → its measured closed height;
+ * - keyboard open across the change (Android resize) → estimate from the previous orientation's
+ *   measured geometry: the chrome that was subtracted from the long side is subtracted from the
+ *   short side (`prevBaseline + prevWidth − width`). Never a device constant.
+ * - otherwise → the current viewport height (keyboard closed: exact).
+ */
+export function resolveFormKeyboardBaselineOnWidthChange(args: {
+  layoutWidthPx: number;
+  frameHeightPx: number;
+  knownClosedHeightPx?: number | null;
+  prevBaselineClosedHeightPx: number;
+  prevBaselineLayoutWidthPx: number;
+  prevBaselineEstimated: boolean;
+  wasKeyboardOpen: boolean;
+  inputSurfaceFocused: boolean;
+}): { baselineClosedHeightPx: number; baselineEstimated: boolean } {
+  if (typeof args.knownClosedHeightPx === "number" && args.knownClosedHeightPx > 0) {
+    return { baselineClosedHeightPx: args.knownClosedHeightPx, baselineEstimated: false };
+  }
+  if (
+    args.wasKeyboardOpen &&
+    args.inputSurfaceFocused &&
+    !args.prevBaselineEstimated &&
+    args.prevBaselineClosedHeightPx > 0 &&
+    args.prevBaselineLayoutWidthPx > 0
+  ) {
+    const estimate = Math.round(
+      args.prevBaselineClosedHeightPx + args.prevBaselineLayoutWidthPx - args.layoutWidthPx
+    );
+    if (estimate > args.frameHeightPx) {
+      return { baselineClosedHeightPx: estimate, baselineEstimated: true };
+    }
+  }
+  return { baselineClosedHeightPx: args.frameHeightPx, baselineEstimated: false };
+}
+
+type InputSurfaceCandidate = {
+  tagName?: string;
+  type?: string;
+  readOnly?: boolean;
+  disabled?: boolean;
+  isContentEditable?: boolean;
+  isConnected?: boolean;
+  getAttribute?: (name: string) => string | null;
+};
+
+const NON_INPUT_SURFACE_INPUT_TYPES: ReadonlySet<string> = new Set([
+  "button",
+  "checkbox",
+  "color",
+  "file",
+  "hidden",
+  "image",
+  "radio",
+  "range",
+  "reset",
+  "submit",
+]);
+
+/**
+ * Focused control that can raise an OS input surface (soft keyboard, iOS picker for select/date,
+ * or an unknown one inside an iframe). Broader than "text keyboard" on purpose: footers must still
+ * clear an iOS picker. Gate only — focus never proves the keyboard is shown.
+ */
+export function isFormKeyboardInputSurfaceElement(
+  el: InputSurfaceCandidate | null | undefined
+): boolean {
+  if (!el || typeof el !== "object") return false;
+  if (el.disabled === true || el.isConnected === false) return false;
+  const tag = typeof el.tagName === "string" ? el.tagName.toUpperCase() : "";
+  if (tag === "IFRAME" || tag === "SELECT") return true;
+  if (typeof el.getAttribute === "function") {
+    const mode = el.getAttribute("inputmode");
+    if (mode != null && mode.trim().toLowerCase() === "none") return false;
+  }
+  if (tag === "TEXTAREA") return el.readOnly !== true;
+  if (tag === "INPUT") {
+    if (el.readOnly === true) return false;
+    const raw =
+      typeof el.type === "string"
+        ? el.type
+        : typeof el.getAttribute === "function"
+          ? el.getAttribute("type") ?? ""
+          : "";
+    return !NON_INPUT_SURFACE_INPUT_TYPES.has(raw.trim().toLowerCase());
+  }
+  return el.isContentEditable === true;
+}
+
 export function buildFormKeyboardViewportSnapshot(
   args: FormKeyboardViewportBuildArgs
 ): FormKeyboardViewportSnapshot & { baselineClosedHeightPx: number; baselineLayoutWidthPx: number } {
@@ -232,12 +362,21 @@ export function buildFormKeyboardViewportSnapshot(
           layoutAlignedSlackPx: args.layoutAlignedSlackPx,
           minOcclusionPx: args.minOcclusionPx,
         });
+  const shrinkThresholdPx = args.baselineEstimated
+    ? Math.max(
+        FORM_KEYBOARD_NAVIGATION_GAP_PX,
+        Math.round(baselineClosedHeightPx * FORM_KEYBOARD_ESTIMATED_BASELINE_SHRINK_RATIO)
+      )
+    : FORM_KEYBOARD_NAVIGATION_GAP_PX;
   const keyboardOpen =
-    args.runtimeContext?.keyboardModel === "none"
+    args.runtimeContext?.keyboardModel === "none" ||
+    args.inputSurfaceFocused === false ||
+    args.nativeImeHidden === true
       ? false
       : resolveFormKeyboardOpenFromViewport(
           baselineClosedHeightPx,
-          args.minOcclusionPx ?? FORM_KEYBOARD_MIN_OCCLUSION_PX
+          args.minOcclusionPx ?? FORM_KEYBOARD_MIN_OCCLUSION_PX,
+          shrinkThresholdPx
         );
   const safeBottom =
     typeof args.safeBottomPx === "number" && Number.isFinite(args.safeBottomPx)
@@ -246,9 +385,16 @@ export function buildFormKeyboardViewportSnapshot(
         ? Math.max(0, Math.round(args.runtimeContext.safeBottomPx))
         : readCssSafeBottomPx();
 
+  // Closed: grow-only while an input is focused (keyboard may still be animating);
+  // re-measured exactly when nothing can hold a keyboard or the baseline was only estimated.
+  // Native "IME hidden" proof only closes — it never shrinks the baseline: Capacitor rewrites the
+  // inset asynchronously, so the IME resize can land while the inset still reads the closed value
+  // (a shrink there would store the OPEN height as "closed" and the keyboard would never be seen).
   const nextBaseline = keyboardOpen
     ? baselineClosedHeightPx
-    : Math.max(baselineClosedHeightPx, frame.heightPx);
+    : args.inputSurfaceFocused === false || args.baselineEstimated
+      ? frame.heightPx
+      : Math.max(baselineClosedHeightPx, frame.heightPx);
 
   return {
     keyboardOpen,
@@ -433,4 +579,54 @@ export function findFormScrollRoot(from: HTMLElement | null): HTMLElement | null
     el = el.parentElement;
   }
   return null;
+}
+
+/** Button tied to the focused field (login · confirm) — kept above the keyboard with the field (K-07). */
+export const FORM_KEYBOARD_KEEP_VISIBLE_SELECTOR = "[data-form-keyboard-keep-visible='1']";
+
+/** Companion inside the focused field's own `<form>` only — never another surface's button. */
+export function findFormKeyboardKeepVisibleCompanion(focused: HTMLElement): HTMLElement | null {
+  const form = focused.closest("form");
+  if (!form) return null;
+  const el = form.querySelector<HTMLElement>(FORM_KEYBOARD_KEEP_VISIBLE_SELECTOR);
+  return el && el !== focused && !el.contains(focused) ? el : null;
+}
+
+/**
+ * After the focused field is in band: also bring its companion button's bottom into the band —
+ * never moving the focused field's top above the band (small screens: the field wins and the
+ * button stays reachable by scrolling). Returns applied delta.
+ */
+export function ensureFormKeepVisibleCompanionInScrollRoot(args: {
+  focused: HTMLElement;
+  companion: HTMLElement;
+  scrollRoot: HTMLElement | null;
+  effectiveViewportBottom: number;
+  effectiveViewportTop?: number;
+  focusGapPx?: number;
+}): number {
+  const gap = args.focusGapPx ?? FORM_FOCUS_GAP_PX;
+  const topLimit = (args.effectiveViewportTop ?? 0) + gap;
+  const bottomLimit = args.effectiveViewportBottom - gap;
+  if (!(bottomLimit > topLimit)) return 0;
+  const companionBottom = args.companion.getBoundingClientRect().bottom;
+  const focusedTop = args.focused.getBoundingClientRect().top;
+  const need = Math.ceil(companionBottom - bottomLimit);
+  const room = Math.floor(focusedTop - topLimit);
+  const delta = Math.min(need, room);
+  if (!(delta > 0)) return 0;
+  const root = args.scrollRoot;
+  if (root && typeof root.scrollTop === "number" && root.scrollHeight > root.clientHeight + 1) {
+    const before = root.scrollTop;
+    root.scrollTop += delta;
+    const applied = root.scrollTop - before;
+    if (applied >= delta || typeof window === "undefined") return applied;
+    window.scrollBy(0, delta - applied);
+    return delta;
+  }
+  if (typeof window !== "undefined") {
+    window.scrollBy(0, delta);
+    return delta;
+  }
+  return 0;
 }

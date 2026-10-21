@@ -58,12 +58,33 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   --safe-right: max(env(safe-area-inset-right, 0px), var(--dibay-safe-right, 0px));
 
   /**
+   * 키보드 연동 하단 요소 전용 — 키보드 열림 0 / 닫힘 `--safe-bottom`.
+   * 발행: `KeyboardViewportRootProbe` → `html[data-kb-open]`. 헤더·탭 등 일반 safe 소비처는 쓰지 않는다.
+   * (Android 네이티브 `--dibay-safe-bottom`·iOS `env()` 는 키보드가 열려도 0 이 되지 않는다.)
+   */
+  --kb-safe-bottom: var(--safe-bottom);
+
+  /**
    * 셸 높이 토큰.
    * 헤더 한 줄 높이 정본은 `app/sector-header.css` 의 `--sector-header-h` (S-03).
    * BottomNav 본체 높이는 `BOTTOM_NAV_SHELL.heightClass` (`h-[60px]`) 와 동기.
    */
   --app-header-height: var(--sector-header-h, 52px);
   --app-bottom-nav-height: 60px;
+}
+
+html[data-kb-open="true"] {
+  --kb-safe-bottom: 0px;
+}
+
+/**
+ * 하단 탭 위에 떠 있는 FAB·플로팅 바 (`data-kb-hide="1"`) — 키보드 입력 중에는 숨긴다.
+ * Android 는 WebView 가 키보드만큼 줄어 이 요소들이 키보드 위로 올라와 입력 공간을 가렸다.
+ * 하단 탭 자체는 `BottomNavKeyboardHideProbe` / 사장님 탭은 `owner-compact-shell.css` 가 같은 판정으로 숨긴다.
+ */
+html[data-kb-open="true"] [data-kb-hide="1"] {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 @layer components {

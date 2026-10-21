@@ -148,7 +148,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           vm.activeSheet === "emoji"
                         ? "max-h-[85vh] w-full rounded-t-ui-rect border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,var(--safe-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.08)]"
                         : `mx-auto max-h-[min(86dvh,40rem)] w-full ${MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS} rounded-t-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
-                            vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5 pb-[max(1.25rem,var(--safe-bottom))]"
+                            vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5 pb-[max(1.25rem,var(--kb-safe-bottom))]"
                           }`
                   }`
             }
