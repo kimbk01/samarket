@@ -22,22 +22,20 @@ describe("resolveOwnerBottomNavActiveTabId", () => {
     expect(resolveOwnerBottomNavActiveTabId("/stores/owner/settings", search)).toBe("manage");
   });
 
-  it("order chat and reviews activate customers tab (not a dedicated P0 tab)", () => {
-    expect(resolveOwnerBottomNavActiveTabId("/stores/owner/order-chats", search)).toBe(
-      "customers"
-    );
-    expect(resolveOwnerBottomNavActiveTabId("/stores/owner/order-chat/abc", search)).toBe(
-      "customers"
-    );
+  it("4단계 §4-2 — order chat → 주문 탭, reviews·inquiries → 고객 탭", () => {
+    expect(resolveOwnerBottomNavActiveTabId("/stores/owner/order-chats", search)).toBe("orders");
+    expect(resolveOwnerBottomNavActiveTabId("/stores/owner/order-chat/abc", search)).toBe("orders");
     expect(resolveOwnerBottomNavActiveTabId("/stores/owner/reviews", search)).toBe("customers");
     expect(resolveOwnerBottomNavActiveTabId("/stores/owner/inquiries", search)).toBe("customers");
   });
 
-  it("products domain includes products + menu-categories + commerce extras", () => {
+  it("products domain = products + product new/edit + menu-categories (광고·홍보 계열은 관리)", () => {
     expect(isOwnerBottomNavProductsDomainPath("/stores/owner/products")).toBe(true);
     expect(isOwnerBottomNavProductsDomainPath("/stores/owner/products/new")).toBe(true);
+    expect(isOwnerBottomNavProductsDomainPath("/stores/owner/products/p1/edit")).toBe(true);
     expect(isOwnerBottomNavProductsDomainPath("/stores/owner/menu-categories")).toBe(true);
-    expect(isOwnerBottomNavProductsDomainPath("/stores/owner/coupons")).toBe(true);
+    expect(isOwnerBottomNavProductsDomainPath("/stores/owner/coupons")).toBe(false);
+    expect(resolveOwnerBottomNavActiveTabId("/stores/owner/coupons", search)).toBe("manage");
     expect(resolveOwnerBottomNavActiveTabId("/stores/owner/products", search)).toBe("products");
     expect(resolveOwnerBottomNavActiveTabId("/stores/owner/menu-categories", search)).toBe(
       "products"

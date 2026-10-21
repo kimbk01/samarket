@@ -34,6 +34,13 @@ export const ADDR_SEARCH_WRAP =
   "flex w-full items-center gap-2 rounded-ui-rect border border-sam-primary-border/70 bg-sam-surface px-3 py-2 transition-[border-color,box-shadow] duration-150 focus-within:border-sam-primary focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--sam-primary)_18%,transparent)]";
 
 /** 입력 16px(`--sm-font-input`) 전 플랫폼 — iOS 포커스 확대 방지 */
+/**
+ * 주소 입력 글자 크기 — app/globals.css 의 레이어 밖 `input,textarea { font-size: 14px }` 규칙이
+ * Tailwind 유틸·.sam-input(레이어 안)보다 우선해 Android 에서 14px 로 덮인다.
+ * 인라인 style 로만 16px(--sm-font-input)을 보장한다 (ADDR-UI-009, iOS·Android 동일).
+ */
+export const ADDR_INPUT_FONT_STYLE = { fontSize: "var(--sm-font-input)" } as const;
+
 export const ADDR_SEARCH_INPUT =
   "min-w-0 flex-1 border-0 bg-transparent py-1.5 text-[length:var(--sm-font-input)] leading-snug text-sam-fg outline-none placeholder:text-sam-meta";
 

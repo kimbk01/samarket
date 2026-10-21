@@ -22,7 +22,7 @@ import {
   COIN_TO_CASH_LABEL_KO,
   COIN_WITHDRAWAL_LABEL_KO,
 } from "@/lib/finance/product-decision-lock";
-import { ownerFinanceSectionHref } from "@/lib/finance/routes";
+import { normalizeOwnerFinanceSection, ownerFinanceSectionHref } from "@/lib/finance/routes";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
 
 type LedgerRow = {
@@ -81,11 +81,11 @@ function mapCoinLedgerTitle(language: "ko" | "en", kind: string): string {
     case "CONVERT_TO_BUSINESS_CASH":
       return ownerUiCopy(language, "Cash 전환", "Cash conversion");
     case "WITHDRAWAL_REQUEST":
-      return ownerUiCopy(language, "출금 신청", "Withdrawal request");
+      return ownerUiCopy(language, "Coin 환전 신청", "Coin cash-out request");
     case "WITHDRAWAL_RELEASE":
-      return ownerUiCopy(language, "출금 해제", "Withdrawal release");
+      return ownerUiCopy(language, "Coin 환전 해제", "Coin cash-out release");
     case "WITHDRAWAL_COMPLETE":
-      return ownerUiCopy(language, "출금 지급", "Withdrawal paid");
+      return ownerUiCopy(language, "Coin 환전 완료", "Coin cash-out paid");
     default:
       return ownerUiCopy(language, "Coin 내역", "Coin entry");
   }
@@ -139,7 +139,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const ko = language !== "en";
   const router = useRouter();
   const searchParams = useSearchParams();
-  const section = (searchParams.get("section") || "transactions").trim();
+  const section = normalizeOwnerFinanceSection(searchParams.get("section"));
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -209,6 +209,15 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
     void load();
   }, [load]);
 
+  // IA-12 — 구 `?section=orders`(탭 제거) → `transactions` 로 URL 정규화 (북마크 호환).
+  const rawSection = searchParams.get("section")?.trim() ?? "";
+  useEffect(() => {
+    if (rawSection !== "orders") return;
+    const qs = new URLSearchParams(searchParams.toString());
+    qs.set("section", "transactions");
+    router.replace(`/stores/owner/finance?${qs.toString()}`, { scroll: false });
+  }, [rawSection, router, searchParams]);
+
   // Legacy deep links (#cash-manage / #cash-history) → section shell.
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -263,7 +272,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
 
       {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
 
-      {section === "transactions" || section === "orders" ? (
+      {section === "transactions" ? (
         <section className="space-y-3" data-owner-finance-section={section}>
           <p className="text-xs text-sam-muted">
             {ownerUiCopy(language, "이번 달 (필리핀 시간 기준)", "This month (Philippine time)")}
@@ -289,14 +298,17 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
                   : "—"}
               </dd>
             </div>
-            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "플랫폼 지급 의무", "Platform owes you")}</dt>
-              <dd className="font-semibold">
-                {commissionMonth?.payable
-                  ? formatFinanceAmount({ wallet: "CASH", amount: commissionMonth.payable.payablePhp * 100, isMinor: true })
-                  : "—"}
-              </dd>
-            </div>
+            {/* IA-13 — 「지급 의무」는 플랫폼 보유분(선물·플랫폼 쿠폰)만. 주문 대금 지급 개념 없음(SSOT). */}
+            {commissionMonth?.payable && commissionMonth.payable.payablePhp > 0 ? (
+              <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
+                <dt className="text-xs text-sam-muted">
+                  {ownerUiCopy(language, "플랫폼 보유분 지급 의무 (선물·쿠폰)", "Platform-held payable (gift/coupon)")}
+                </dt>
+                <dd className="font-semibold">
+                  {formatFinanceAmount({ wallet: "CASH", amount: commissionMonth.payable.payablePhp * 100, isMinor: true })}
+                </dd>
+              </div>
+            ) : null}
           </dl>
           <Link href={settlementsHref} className={`${OwnerCta.primary} ${OwnerCta.block} sm:w-auto`}>
             {ownerUiCopy(language, "수수료·캐시 원장 열기", "Open commission & Cash ledger")}
@@ -360,7 +372,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               <dd className="font-semibold">{recentValue(coinRecentWindow?.converted)}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{recentLabel("출금", "Withdrawn")}</dt>
+              <dt className="text-xs text-sam-muted">{recentLabel("Coin 환전", "Cashed out")}</dt>
               <dd className="font-semibold">{recentValue(coinRecentWindow?.withdrawn)}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">

@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BusinessOwnerOpsStrip } from "@/components/business/BusinessOwnerOpsStrip";
+import { BusinessStatusBadge } from "@/components/business/admin/BusinessStatusBadge";
+import { useOwnerMinuteNow } from "@/components/business/owner/OwnerStoreCommerceStateLabel";
+import { resolveOwnerStoreCommerceStateLabel } from "@/lib/stores/store-commerce-state-label";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
@@ -25,14 +28,13 @@ export function OwnerStoreOpsStatusBody({ row, profile, canSell }: Props) {
   const sid = row.id;
   const approved = String(row.approval_status ?? "").toLowerCase() === "approved";
   const visible = row.is_visible === true;
+  // OPS-04 와 같은 실효 영업 상태(스케줄·휴게·휴무·수동 마감).
+  const now = useOwnerMinuteNow();
+  const commerce = resolveOwnerStoreCommerceStateLabel(row, now);
+  const open = commerce.isOpenForCommerce;
 
+  /** IA-12 — 노출·영업 변경 SSOT 는 `/settings`(매장 관리). 이 화면은 상태 칩 + 링크만. */
   const resolutionLinks: { href: string; labelKo: string; labelEn: string; primary?: boolean }[] = [
-    {
-      href: OwnerRoutes.hub(sid),
-      labelKo: "대시보드 · 영업/노출 토글",
-      labelEn: "Dashboard · open / visibility toggles",
-      primary: true,
-    },
     {
       href: OwnerRoutes.basicInfo(sid),
       labelKo: "매장 기본 정보",
@@ -47,11 +49,6 @@ export function OwnerStoreOpsStatusBody({ row, profile, canSell }: Props) {
       href: OwnerRoutes.products(sid),
       labelKo: "상품 관리",
       labelEn: "Product management",
-    },
-    {
-      href: OwnerRoutes.settings(sid),
-      labelKo: "알림 · 운영 설정",
-      labelEn: "Alerts & ops settings",
     },
   ];
 
@@ -69,6 +66,25 @@ export function OwnerStoreOpsStatusBody({ row, profile, canSell }: Props) {
       </p>
 
       <BusinessOwnerOpsStrip row={row} profile={profile} canSell={canSell} />
+
+      <section
+        className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
+        data-owner-ops-status-chips="1"
+      >
+        <BusinessStatusBadge tone={visible ? "success" : "muted"}>
+          {t("owner_stage4_status_visible_label")} · {visible ? t("business_phase7_029") : t("business_phase7_132")}
+        </BusinessStatusBadge>
+        <BusinessStatusBadge tone={open ? "success" : "muted"}>
+          {t("owner_stage4_status_open_label")} · {t(commerce.labelKey)}
+        </BusinessStatusBadge>
+        <Link
+          href={OwnerRoutes.settings(sid)}
+          className="ml-auto text-xs font-semibold text-sam-primary underline"
+          data-owner-ops-status-settings-link="1"
+        >
+          {t("owner_stage4_change_in_store_manage")}
+        </Link>
+      </section>
 
       <section
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 space-y-2"
@@ -97,8 +113,8 @@ export function OwnerStoreOpsStatusBody({ row, profile, canSell }: Props) {
           <p className="text-xs font-medium text-sam-muted" data-owner-ops-block="visibility">
             {ownerUiCopy(
               language,
-              "현재 비노출입니다. 고객에게 보이려면 대시보드의 노출 스위치를 켜세요. 주문·재무·상품 관리는 비노출 중에도 가능합니다.",
-              "Store is hidden. Turn on visibility from the dashboard. Orders, finance, and products remain manageable while hidden."
+              "현재 비노출입니다. 고객에게 보이려면 매장 관리에서 노출을 켜세요. 주문·재무·상품 관리는 비노출 중에도 가능합니다.",
+              "Store is hidden. Turn on visibility in Store management. Orders, finance, and products remain manageable while hidden."
             )}
           </p>
         ) : null}

@@ -82,7 +82,7 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
           <Link
             href={financeHref}
-            className="rounded-ui-rect bg-sam-primary px-3 py-1.5 text-xs font-semibold text-white"
+            className="rounded-ui-rect bg-sam-primary px-3 py-1.5 text-xs font-semibold text-sam-on-primary"
             data-owner-home-finance-open="1"
           >
             {ownerUiCopy(language, "재무", "Finance")}

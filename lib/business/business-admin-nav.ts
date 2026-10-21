@@ -1,6 +1,11 @@
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MyBusinessNavContext } from "@/lib/business/my-business-nav";
-import { buildOwnerDrawerSectionsFromRegistry } from "@/lib/business/owner-nav-registry";
+import {
+  buildOwnerDrawerSectionsFromRegistry,
+  resolveOwnerNavActiveIds,
+  type OwnerNavGroupId,
+  type OwnerNavSearchInput,
+} from "@/lib/business/owner-nav-registry";
 import type { BusinessAdminNavItemId } from "@/lib/business/business-admin-nav-ids";
 
 export type { BusinessAdminNavItemId };
@@ -16,6 +21,7 @@ export type BusinessAdminSidebarItemDef = {
 };
 
 export type BusinessAdminSidebarSectionDef = {
+  groupId: OwnerNavGroupId;
   titleKey: MessageKey;
   items: BusinessAdminSidebarItemDef[];
 };
@@ -31,6 +37,7 @@ export type BusinessAdminSidebarItem = {
 };
 
 export type BusinessAdminSidebarSection = {
+  groupId: OwnerNavGroupId;
   title: string;
   items: BusinessAdminSidebarItem[];
 };
@@ -42,6 +49,7 @@ export function resolveBusinessAdminSidebar(
   t: TranslateFn
 ): BusinessAdminSidebarSection[] {
   return defs.map((section) => ({
+    groupId: section.groupId,
     title: t(section.titleKey),
     items: section.items.map((item) => ({
       id: item.id,
@@ -55,30 +63,15 @@ export function resolveBusinessAdminSidebar(
   }));
 }
 
-/** 허브 메뉴·사이드바 공통 — 활성 행 판별 */
-export function isBusinessAdminNavHrefActive(
-  href: string,
+/**
+ * 허브 메뉴·사이드바 공통 — 활성 행 판별 (4단계 IA-10 규칙 (1)).
+ * `owner-nav-registry` 의 가장 긴 `activePrefixes`/`activeQuery` 일치 항목 + 조상에서만 파생.
+ */
+export function resolveBusinessAdminActiveNavIds(
   pathname: string,
-  searchParams: URLSearchParams,
-): boolean {
-  const [path, rawQ = ""] = href.split("?");
-  const norm = (v: string) => v.replace(/\/+$/, "") || "/";
-  const targetPath = norm(path);
-  const currentPath = norm(pathname);
-
-  const isHubPath = (p: string) =>
-    p === "/stores/owner" || p === "/my/business" || p === "/mypage/business";
-  const pathsMatch =
-    targetPath === currentPath || (isHubPath(targetPath) && isHubPath(currentPath));
-
-  if (!pathsMatch) return false;
-
-  const tq = new URLSearchParams(rawQ);
-  const tSid = tq.get("storeId");
-  if (tSid) {
-    return searchParams.get("storeId") === tSid;
-  }
-  return true;
+  searchParams: OwnerNavSearchInput
+): Set<BusinessAdminNavItemId> {
+  return resolveOwnerNavActiveIds(pathname, searchParams);
 }
 
 /**

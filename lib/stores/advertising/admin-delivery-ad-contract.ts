@@ -35,8 +35,25 @@ export const ADMIN_DELIVERY_AD_LIST_BUCKETS = [
   "held",
   "ended",
   "rejected",
+  /** ADS-12 — 심사 단계지만 결제(펀딩) 없는 레거시 신청 · 조치 불요 (처리 필요·승인 대기에서 제외). */
+  "review_unfunded",
 ] as const;
 export type AdminDeliveryAdListBucket = (typeof ADMIN_DELIVERY_AD_LIST_BUCKETS)[number];
+
+/**
+ * ADS-12 — `admin_delivery_ad_campaign_index.list_bucket` 과 같은 규칙:
+ * 심사 단계(review) + 광고주 유료(OWNER_PAID) + 펀딩(정식 Cash·레거시 Store Cash SECURED) 없음 → review_unfunded.
+ * fundingSecured=null(조회 실패)은 분류를 바꾸지 않는다 (처리 대상이 숨지 않게).
+ */
+export function adminListBucketWithFunding(
+  bucket: Exclude<AdminDeliveryAdListBucket, "all"> | null,
+  input: { campaignSource: string | null | undefined; fundingSecured: boolean | null }
+): Exclude<AdminDeliveryAdListBucket, "all"> | null {
+  if (bucket !== "review") return bucket;
+  if (String(input.campaignSource ?? "OWNER_PAID") === "DIBAY_FIRST_PARTY") return bucket;
+  if (input.fundingSecured === false) return "review_unfunded";
+  return bucket;
+}
 
 export const ADMIN_DELIVERY_AD_PRICING = DELIVERY_AD_OWNER_PRICING_PRODUCT;
 

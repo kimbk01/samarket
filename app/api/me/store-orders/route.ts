@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-order-delivery-address-display";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadBuyerStoreOrderTabCounts } from "@/lib/delivery/customer/load-buyer-store-order-tab-counts";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -55,8 +55,13 @@ import {
   resolveStoreCouponCheckoutDiscount,
 } from "@/lib/stores/resolve-store-coupon-checkout-discount";
 import { splitCouponFunding } from "@/lib/stores/store-coupon-funding-math";
-import { loadDeliveryDistanceSettings, DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED } from "@/lib/delivery/delivery-ops-settings";
+import {
+  loadDeliveryDistanceSettingsOrThrow,
+  isDeliveryPolicyUnavailableError,
+  DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED,
+} from "@/lib/delivery/delivery-ops-settings";
 import { evaluateDeliveryServiceArea } from "@/lib/delivery/service-area/evaluate-delivery-service-area";
+import { isDeliveryRoutableCoords } from "@/lib/addresses/delivery-routable-address";
 import { loadStoreSelectedDeliveryLguIds } from "@/lib/delivery/service-area/store-delivery-service-areas";
 import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 import { STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY } from "@/lib/delivery/store-order-serviceability-snapshot-ready";
@@ -606,7 +611,16 @@ export async function POST(req: NextRequest) {
   } | null = null;
 
   if (fulfillment === "local_delivery") {
-    const distanceSettings = await loadDeliveryDistanceSettings(sb);
+    let distanceSettings: Awaited<ReturnType<typeof loadDeliveryDistanceSettingsOrThrow>>;
+    try {
+      distanceSettings = await loadDeliveryDistanceSettingsOrThrow(sb);
+    } catch (e) {
+      // LOC-003: policy read error must not fall back to policy OFF on the order path.
+      if (isDeliveryPolicyUnavailableError(e)) {
+        return NextResponse.json({ ok: false, error: "delivery_policy_unavailable" }, { status: 503 });
+      }
+      throw e;
+    }
     const policy = {
       ...distanceSettings.policy,
       enabled: DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED && distanceSettings.policy.enabled,
@@ -622,13 +636,18 @@ export async function POST(req: NextRequest) {
       cityMunicipality: deliveryAddressSnapshot?.city_municipality,
       province: deliveryAddressSnapshot?.province,
     });
+    const customerCoordsRoutable = isDeliveryRoutableCoords(
+      deliveryAddressSnapshot?.latitude,
+      deliveryAddressSnapshot?.longitude
+    );
     const svc = evaluateDeliveryServiceArea({
       policy,
       overrides: distanceSettings.overrides,
       storeId,
       storeDeliveryRadiusKm: (store as { delivery_radius_km?: unknown }).delivery_radius_km,
-      customerLat: deliveryAddressSnapshot?.latitude,
-      customerLng: deliveryAddressSnapshot?.longitude,
+      // LOC-010: same DELIVERY_ROUTABLE contract as GET …/delivery-serviceability (0,0 rejected).
+      customerLat: customerCoordsRoutable ? deliveryAddressSnapshot?.latitude : null,
+      customerLng: customerCoordsRoutable ? deliveryAddressSnapshot?.longitude : null,
       storeLat,
       storeLng,
       authorityMode,
@@ -710,6 +729,8 @@ export async function POST(req: NextRequest) {
       delivery_longitude: deliveryAddressSnapshot?.longitude ?? null,
       delivery_user_address_id: deliveryUserAddressId,
       ...etaSnapshot,
+      /** LOC-004: order-time serviceability evidence — stored by the RPC in the same INSERT */
+      ...(serviceabilitySnapshot && STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY ? serviceabilitySnapshot : {}),
       amount_before_gift: amountBeforeGift,
       ...(giftInstanceIds.length > 0 ? { gift_instance_ids: giftInstanceIds } : {}),
       ...(couponCampaignId && discountAmount > 0 && userCouponId
@@ -860,20 +881,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (serviceabilitySnapshot && STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY) {
-    const { error: snapErr } = await sb
-      .from("store_orders")
-      .update(serviceabilitySnapshot)
-      .eq("id", orderId);
-    if (snapErr) {
-      console.error("[POST /api/me/store-orders] serviceability snapshot", snapErr.message);
-    }
-  } else if (serviceabilitySnapshot && !STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY) {
-    console.info(
-      "[POST /api/me/store-orders] serviceability snapshot skipped — STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY=false (apply migration 20261120140000 first)"
-    );
-  }
-
   if (deliveryUserAddressId) {
     await markUserAddressUsed(sb, buyerId, deliveryUserAddressId);
   }
@@ -966,14 +973,18 @@ export async function POST(req: NextRequest) {
   invalidateBuyerStoreOrdersListSnapshot(buyerId, "order_created");
 
   // CUT G — attribution after committed boundary; never fails the order.
-  void reconcileDeliveryAdAttributionForOrder(sb, {
-    orderId,
-    storeId,
-    buyerUserId: buyerId,
-  }).then((r) => {
-    if (!r.ok) {
-      console.error("[POST /api/me/store-orders] delivery-ad attribution", r.error);
-      return;
+  // ADS-09 — after(): runs once the response is sent and the platform keeps the function alive until it finishes
+  // (a bare `void promise` could be dropped when the serverless instance freezes). No added response latency.
+  after(async () => {
+    try {
+      const r = await reconcileDeliveryAdAttributionForOrder(sb, {
+        orderId,
+        storeId,
+        buyerUserId: buyerId,
+      });
+      if (!r.ok) console.error("[POST /api/me/store-orders] delivery-ad attribution", r.error);
+    } catch (e) {
+      console.error("[POST /api/me/store-orders] delivery-ad attribution", e);
     }
   });
 

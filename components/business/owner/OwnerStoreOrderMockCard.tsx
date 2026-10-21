@@ -308,7 +308,7 @@ export function OwnerStoreOrderMockCard({
   return (
     <li
       id={`owner-order-${order.id}`}
-      className={`scroll-mt-48 overflow-hidden rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] shadow-sm ${
+      className={`scroll-mt-48 overflow-hidden rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] shadow-sm ${
         isHighlight ? "ring-2 ring-[var(--biz-primary)] ring-offset-2" : ""
       }`}
     >
@@ -323,19 +323,19 @@ export function OwnerStoreOrderMockCard({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span
-                  className={`inline-flex rounded-[4px] px-2 py-0.5 text-[12px] font-bold leading-[1.35] ${tone.badgeBg} ${tone.badgeText}`}
+                  className={`inline-flex rounded-ui-rect px-2 py-0.5 text-[12px] font-bold leading-[1.35] ${tone.badgeBg} ${tone.badgeText}`}
                 >
                   {statusLabel}
                 </span>
-                <span className="inline-flex rounded-[4px] bg-[var(--biz-primary-soft)] px-1.5 py-0.5 text-[11px] font-semibold leading-[1.35] text-[var(--biz-text)]">
+                <span className="inline-flex rounded-ui-rect bg-[var(--biz-primary-soft)] px-1.5 py-0.5 text-[11px] font-semibold leading-[1.35] text-[var(--biz-text)]">
                   {t(FULFILL_LABEL_KEYS[order.fulfillment_type as keyof typeof FULFILL_LABEL_KEYS] ?? "store_owner_fulfillment_delivery_short")}
                 </span>
                 {elapsed ? (
-                  <span className="text-[12px] font-medium leading-[1.35] text-[#6B7280]">{elapsed}</span>
+                  <span className="text-[12px] font-medium leading-[1.35] text-sam-muted">{elapsed}</span>
                 ) : null}
                 {stalePending.class === "orphan_pending" ? (
                   <span
-                    className="inline-flex rounded-[4px] bg-red-50 px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-red-800 ring-1 ring-red-200"
+                    className="inline-flex rounded-ui-rect bg-sam-danger-soft px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-sam-danger ring-1 ring-sam-danger/30"
                     data-owner-order-stale="orphan_pending"
                   >
                     {`${ownerUiCopy(
@@ -346,7 +346,7 @@ export function OwnerStoreOrderMockCard({
                   </span>
                 ) : stalePending.class === "stale_pending" ? (
                   <span
-                    className="inline-flex rounded-[4px] bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-amber-900 ring-1 ring-amber-200"
+                    className="inline-flex rounded-ui-rect bg-sam-warning-soft px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-sam-fg ring-1 ring-sam-warning/30"
                     data-owner-order-stale="stale_pending"
                   >
                     {`${ownerUiCopy(
@@ -357,7 +357,7 @@ export function OwnerStoreOrderMockCard({
                   </span>
                 ) : stalePending.class === "attention_pending" ? (
                   <span
-                    className="inline-flex rounded-[4px] bg-orange-50 px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-orange-800 ring-1 ring-orange-200"
+                    className="inline-flex rounded-ui-rect bg-sam-warning-soft px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-sam-warning ring-1 ring-sam-warning/30"
                     data-owner-order-stale="attention_pending"
                   >
                     {ownerUiCopy(language, "수락 지연", "Accept delayed")}
@@ -365,15 +365,15 @@ export function OwnerStoreOrderMockCard({
                 ) : null}
                 {order.order_status === "completed" && order.review_status === "completed" ? (
                   <span
-                    className="inline-flex items-center gap-1 rounded-[4px] bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-amber-800 ring-1 ring-amber-200"
+                    className="inline-flex items-center gap-1 rounded-ui-rect bg-sam-warning-soft px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-sam-warning ring-1 ring-sam-warning/30"
                     aria-label={t("store_owner_order_review_card_badge_aria")}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
+                    <span className="h-1.5 w-1.5 rounded-full bg-sam-warning" aria-hidden />
                     {t("store_owner_order_review_card_badge")}
                   </span>
                 ) : null}
               </div>
-              <p className="mt-2 text-[12px] font-semibold leading-[1.35] text-[#4B5B53]">{order.order_no}</p>
+              <p className="mt-2 text-[12px] font-semibold leading-[1.35] text-sam-muted">{order.order_no}</p>
               <p className="mt-1 truncate text-[15px] font-bold leading-[1.35] text-[var(--biz-text)]">
                 {buyerLabel}
               </p>
@@ -389,20 +389,20 @@ export function OwnerStoreOrderMockCard({
           <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
             <div className="min-w-0">
               {phoneDisplay ? (
-                <p className="truncate text-[13px] font-medium leading-[1.35] text-[#4B5B53]">
+                <p className="truncate text-[13px] font-medium leading-[1.35] text-sam-muted">
                   {phoneDisplay}
                 </p>
               ) : null}
               {address ? (
-                <p className="mt-1 line-clamp-2 text-[13px] leading-[1.35] text-[#4B5B53]">{address}</p>
+                <p className="mt-1 line-clamp-2 text-[13px] leading-[1.35] text-sam-muted">{address}</p>
               ) : null}
-              <p className="mt-1 line-clamp-1 text-[12px] leading-[1.35] text-[#6B7280]">{menuSummary}</p>
+              <p className="mt-1 line-clamp-1 text-[12px] leading-[1.35] text-sam-muted">{menuSummary}</p>
             </div>
             <div className="text-right">
               <p className="text-[18px] font-bold leading-[1.2] tabular-nums text-[var(--biz-text)]">
                 {formatMoneyPhp(merchantRevenue)}
               </p>
-              <p className="mt-1 text-[11px] leading-[1.35] text-[#6B7280]">
+              <p className="mt-1 text-[11px] leading-[1.35] text-sam-muted">
                 {new Date(order.created_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US", {
                   hour: "numeric",
                   minute: "2-digit",
@@ -422,7 +422,7 @@ export function OwnerStoreOrderMockCard({
               e.stopPropagation();
               onToggleExpanded();
             }}
-            className="flex min-h-10 flex-1 items-center justify-center rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 text-[13px] font-bold leading-[1.35] text-[var(--biz-text)]"
+            className="flex min-h-10 flex-1 items-center justify-center rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 text-[13px] font-bold leading-[1.35] text-[var(--biz-text)]"
           >
             {isExpanded ? t("store_owner_card_collapse") : t("store_owner_card_expand")}
           </button>
@@ -432,7 +432,7 @@ export function OwnerStoreOrderMockCard({
               e.stopPropagation();
               onOpenChat();
             }}
-            className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-[4px] border border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] px-3 text-[13px] font-bold leading-[1.35] text-[var(--biz-primary)]"
+            className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-ui-rect border border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] px-3 text-[13px] font-bold leading-[1.35] text-[var(--biz-primary)]"
           >
             <MessageSquare className="h-4 w-4" aria-hidden />
             {t("store_owner_card_chat")}
@@ -440,7 +440,7 @@ export function OwnerStoreOrderMockCard({
         </div>
 
         {err ? (
-          <p className="mt-2 rounded-[4px] bg-red-50 px-2 py-1.5 text-[12px] font-medium leading-[1.35] text-red-700">
+          <p className="mt-2 rounded-ui-rect bg-sam-danger-soft px-2 py-1.5 text-[12px] font-medium leading-[1.35] text-sam-danger">
             {err}
           </p>
         ) : null}
@@ -463,7 +463,7 @@ export function OwnerStoreOrderMockCard({
                 type="button"
                 disabled={busy !== null}
                 onClick={onReject}
-                className="flex min-h-11 flex-1 items-center justify-center rounded-[4px] border border-[#D14545] bg-white px-3 text-[14px] font-bold leading-[1.35] text-[#B42318] disabled:opacity-50"
+                className="flex min-h-11 flex-1 items-center justify-center rounded-ui-rect border border-sam-danger bg-sam-surface px-3 text-[14px] font-bold leading-[1.35] text-sam-danger disabled:opacity-50"
               >
                 {t(cancelButtonKey)}
               </button>
@@ -473,7 +473,7 @@ export function OwnerStoreOrderMockCard({
                 type="button"
                 disabled={busy !== null}
                 onClick={onPrimaryAction}
-                className="flex min-h-11 flex-[1.25] items-center justify-center rounded-[4px] bg-[var(--biz-primary)] px-3 text-[14px] font-bold leading-[1.35] text-white shadow-sm active:bg-[var(--biz-primary-active)] disabled:opacity-50"
+                className="flex min-h-11 flex-[1.25] items-center justify-center rounded-ui-rect bg-[var(--biz-primary)] px-3 text-[14px] font-bold leading-[1.35] text-sam-on-primary shadow-sm active:bg-[var(--biz-primary-active)] disabled:opacity-50"
               >
                 {busy === nextAction.status ? t("common_processing") : nextAction.label}
               </button>
@@ -487,7 +487,7 @@ export function OwnerStoreOrderMockCard({
               <div className="space-y-2">
                 {order.items.length > 0 ? (
                   order.items.map((it) => (
-                    <div key={it.id} className="rounded-[4px] bg-[#f6f6f6] px-2.5 py-2">
+                    <div key={it.id} className="rounded-ui-rect bg-sam-surface-muted px-2.5 py-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5">
@@ -499,7 +499,7 @@ export function OwnerStoreOrderMockCard({
                             ) : null}
                           </div>
                           {orderLineOptionsSummary(it.options_snapshot_json) ? (
-                            <p className="mt-0.5 text-[12px] leading-[1.35] text-[#6B7280]">
+                            <p className="mt-0.5 text-[12px] leading-[1.35] text-sam-muted">
                               {orderLineOptionsSummary(it.options_snapshot_json)}
                             </p>
                           ) : null}
@@ -511,7 +511,7 @@ export function OwnerStoreOrderMockCard({
                     </div>
                   ))
                 ) : (
-                  <p className="text-[13px] leading-[1.35] text-[#6B7280]">{t("store_owner_no_menu_info")}</p>
+                  <p className="text-[13px] leading-[1.35] text-sam-muted">{t("store_owner_no_menu_info")}</p>
                 )}
               </div>
             </OwnerOpsSection>
@@ -525,7 +525,7 @@ export function OwnerStoreOrderMockCard({
             <OwnerOpsSection title={deliveryLike ? t("store_owner_delivery_info_section") : t("store_owner_pickup_info_section")}>
               <div className="space-y-1.5 text-[13px] leading-[1.45] text-[var(--biz-text)]">
                 <p>{deliveryLike ? address || t("store_owner_no_address") : t("store_owner_pickup_order_hint")}</p>
-                <p className="text-[#6B7280]">
+                <p className="text-sam-muted">
                   {t("store_owner_est_prep_line", {
                     prep: order.estimated_prep_minutes
                       ? t("store_owner_prep_about_minutes", { minutes: String(order.estimated_prep_minutes) })
@@ -547,27 +547,27 @@ export function OwnerStoreOrderMockCard({
 
             <OwnerOpsSection title={t("store_owner_payment_review_section")}>
               <div className="space-y-2">
-                <div className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2.5 py-2 text-[13px] leading-[1.35] text-[var(--biz-text)]">
+                <div className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2.5 py-2 text-[13px] leading-[1.35] text-[var(--biz-text)]">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[#6B7280]">{t("store_product_amount")}</span>
+                    <span className="text-sam-muted">{t("store_product_amount")}</span>
                     <span className="tabular-nums">{formatMoneyPhp(itemSubtotal)}</span>
                   </div>
                   {deliveryFee > 0 ? (
                     <div className="mt-1 flex items-center justify-between gap-2">
-                      <span className="text-[#6B7280]">{t("store_delivery_fee")}</span>
+                      <span className="text-sam-muted">{t("store_delivery_fee")}</span>
                       <span className="tabular-nums">{formatMoneyPhp(deliveryFee)}</span>
                     </div>
                   ) : null}
                   {couponDiscount > 0 ? (
                     <div className="mt-1 flex items-center justify-between gap-2">
-                      <span className="text-[#6B7280]">{t("store_owner_order_coupon_discount")}</span>
+                      <span className="text-sam-muted">{t("store_owner_order_coupon_discount")}</span>
                       <span className="tabular-nums">-{formatMoneyPhp(couponDiscount)}</span>
                     </div>
                   ) : null}
                   {giftRedemption > 0 ? (
                     <>
                       <div className="mt-1 flex items-center justify-between gap-2">
-                        <span className="text-[#6B7280]">
+                        <span className="text-sam-muted">
                           {safeT("gift_u4_order_amount_before_gift", {
                             fallbackKo: "상품권 적용 전 금액",
                             fallbackEn: "Amount before gift",
@@ -576,7 +576,7 @@ export function OwnerStoreOrderMockCard({
                         <span className="tabular-nums">{formatMoneyPhp(amountBeforeGift)}</span>
                       </div>
                       <div className="mt-1 flex items-center justify-between gap-2">
-                        <span className="text-[#6B7280]">
+                        <span className="text-sam-muted">
                           {safeT("gift_u4_order_gift_line", {
                             fallbackKo: "상품권 사용",
                             fallbackEn: "Gift certificate",
@@ -587,7 +587,7 @@ export function OwnerStoreOrderMockCard({
                     </>
                   ) : null}
                   <div className="mt-1 flex items-center justify-between gap-2">
-                    <span className="text-[#6B7280]">
+                    <span className="text-sam-muted">
                       {safeT("store_order_customer_remaining_payment", {
                         fallbackKo: "고객 추가 결제",
                         fallbackEn: "Customer remaining payment",
@@ -626,13 +626,13 @@ export function OwnerStoreOrderMockCard({
             ) : null}
 
             <OwnerOpsSection title={t("store_owner_order_progress_chat_title")}>
-              <div className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-primary-soft)] p-2.5">
+              <div className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-primary-soft)] p-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-[13px] font-bold leading-[1.35] text-[var(--biz-text)]">
                       {t("store_owner_ops_order_chat_label")}
                     </p>
-                    <p className="mt-0.5 text-[12px] leading-[1.35] text-[#6B7280]">
+                    <p className="mt-0.5 text-[12px] leading-[1.35] text-sam-muted">
                       {t("store_owner_status_auto_log")}
                     </p>
                   </div>
@@ -642,7 +642,7 @@ export function OwnerStoreOrderMockCard({
                       e.stopPropagation();
                       onOpenChat();
                     }}
-                    className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-[4px] bg-[var(--biz-primary)] px-3 text-[12px] font-bold text-white"
+                    className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-ui-rect bg-[var(--biz-primary)] px-3 text-[12px] font-bold text-sam-on-primary"
                   >
                     <MessageSquare className="h-4 w-4" aria-hidden />
                     {t("store_owner_open_btn")}
@@ -650,7 +650,7 @@ export function OwnerStoreOrderMockCard({
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {QUICK_REPLY_KEYS.map((key) => (
-                    <span key={key} className="rounded-[4px] bg-[var(--biz-card-bg)] px-2 py-1 text-[11px] font-semibold text-[var(--biz-primary)] ring-1 ring-[var(--biz-card-border)]">
+                    <span key={key} className="rounded-ui-rect bg-[var(--biz-card-bg)] px-2 py-1 text-[11px] font-semibold text-[var(--biz-primary)] ring-1 ring-[var(--biz-card-border)]">
                       {t(key)}
                     </span>
                   ))}
@@ -661,7 +661,7 @@ export function OwnerStoreOrderMockCard({
             {phoneTel ? (
               <a
                 href={phoneTel}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-[4px] border border-[var(--biz-primary)] bg-[var(--biz-card-bg)] text-[14px] font-bold text-[var(--biz-primary)]"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-ui-rect border border-[var(--biz-primary)] bg-[var(--biz-card-bg)] text-[14px] font-bold text-[var(--biz-primary)]"
               >
                 <Phone className="h-4 w-4" aria-hidden />
                 {t("store_owner_call_buyer")}
@@ -757,7 +757,7 @@ function OwnerOpsProgressFlow({ steps }: { steps: FlowStep[] }) {
           />
           <p
             className={`mt-1 truncate text-center text-[10px] font-semibold leading-[1.25] ${
-              step.state === "upcoming" ? "text-[#9CA3AF]" : "text-[var(--biz-text)]"
+              step.state === "upcoming" ? "text-sam-meta" : "text-[var(--biz-text)]"
             }`}
           >
             {step.label}
@@ -770,7 +770,7 @@ function OwnerOpsProgressFlow({ steps }: { steps: FlowStep[] }) {
 
 function OwnerOpsSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-3">
+    <section className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-3">
       <h3 className="mb-2 border-l-4 border-[var(--biz-primary)] pl-2 text-[12px] font-bold leading-[1.35] text-[var(--biz-primary)]">{title}</h3>
       {children}
     </section>
@@ -779,8 +779,8 @@ function OwnerOpsSection({ title, children }: { title: string; children: ReactNo
 
 function InfoPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[4px] bg-[#f6f6f6] p-2">
-      <p className="text-[11px] font-semibold text-[#6B7280]">{label}</p>
+    <div className="rounded-ui-rect bg-sam-surface-muted p-2">
+      <p className="text-[11px] font-semibold text-sam-muted">{label}</p>
       <p className="mt-0.5 truncate text-[12px] font-bold text-[var(--biz-text)]">{value}</p>
     </div>
   );

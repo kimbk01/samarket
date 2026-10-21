@@ -4,10 +4,10 @@ type Tone = "neutral" | "success" | "warning" | "danger" | "info" | "muted";
 
 const TONE_CLASS: Record<Tone, string> = {
   neutral: "bg-sam-surface-muted text-sam-fg",
-  success: "bg-emerald-100 text-emerald-900",
-  warning: "bg-amber-100 text-amber-950",
-  danger: "bg-red-100 text-red-800",
-  info: "bg-sky-100 text-sky-950",
+  success: "bg-sam-success-soft text-sam-fg",
+  warning: "bg-sam-warning-soft text-sam-fg",
+  danger: "bg-sam-danger-soft text-sam-danger",
+  info: "bg-sam-info-soft text-sam-fg",
   muted: "bg-sam-border-soft text-sam-fg",
 };
 

@@ -15,6 +15,7 @@ import {
   resolveDeliveryAdFundingStatus,
   type DeliveryAdFundingStatus,
 } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
+import { isBannerStoreEligible } from "@/lib/stores/advertising/load-banner-store-eligibility";
 
 export type BannerHeroExposureCampaign = {
   id: string;
@@ -34,6 +35,8 @@ export type BannerHeroExposureCampaign = {
 export function evaluateBannerHomeHeroExposure(input: {
   campaign: BannerHeroExposureCampaign;
   nowMs: number;
+  /** ADS-06 — approved · is_visible 매장 id 집합 (로더가 항상 전달). */
+  eligibleStoreIds?: ReadonlySet<string> | null;
 }): { ok: boolean; reasons: string[] } {
   const reasons: string[] = [];
   const c = input.campaign;
@@ -62,7 +65,7 @@ export function evaluateBannerHomeHeroExposure(input: {
     reasons.push("funding_ready");
   }
 
-  void c.storeId;
+  if (!isBannerStoreEligible(c.storeId, input.eligibleStoreIds)) reasons.push("store_eligible");
 
   return { ok: reasons.length === 0, reasons };
 }

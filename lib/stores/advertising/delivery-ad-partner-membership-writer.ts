@@ -4,6 +4,7 @@
  * Partner monthly fee: canonical Cash secure before PENDING_REVIEW.
  */
 
+import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   DELIVERY_AD_PARTNER_CONFIG_TABLE,
@@ -19,10 +20,9 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
 import { recordDeliveryAdCommercialOverride } from "@/lib/stores/advertising/delivery-ad-commercial-admin-writer";
 import {
-  debitBusinessCashForDeliveryAd,
-  hasCanonicalBcFundingSecured,
-  refundBusinessCashForRejectedDeliveryAd,
-} from "@/lib/stores/advertising/canonical-business-cash-writer";
+  DELIVERY_AD_CANONICAL_BC_FUNDINGS_TABLE,
+  parseInsufficientBusinessCashRpc,
+} from "@/lib/stores/advertising/canonical-business-cash-contract";
 
 export type PartnerMembershipWriterError =
   | "not_found"
@@ -36,7 +36,68 @@ export type PartnerMembershipWriterError =
   | "invalid_store"
   | "INSUFFICIENT_BUSINESS_CASH"
   | "funding_required"
-  | "bc_debit_failed";
+  | "bc_debit_failed"
+  | "idempotency_key_required"
+  | "forbidden"
+  | "refund_failed";
+
+/** 3-D2 (ADS-03/04/05) — money steps are single SQL transactions; TS only calls these. */
+export const OWNER_APPLY_PARTNER_MEMBERSHIP_RPC = "owner_apply_partner_membership" as const;
+export const ADMIN_PARTNER_MEMBERSHIP_DECIDE_RPC = "admin_partner_membership_decide" as const;
+export const PARTNER_MEMBERSHIP_EXPIRE_DUE_RPC = "delivery_ad_partner_membership_expire_due" as const;
+
+const PARTNER_WRITER_ERRORS: ReadonlySet<string> = new Set<PartnerMembershipWriterError>([
+  "not_found",
+  "config_disabled",
+  "not_accepting",
+  "fee_not_configured",
+  "already_open",
+  "invalid_status",
+  "illegal_transition",
+  "db_error",
+  "invalid_store",
+  "INSUFFICIENT_BUSINESS_CASH",
+  "funding_required",
+  "bc_debit_failed",
+  "idempotency_key_required",
+  "forbidden",
+  "refund_failed",
+]);
+
+function rpcPayload(data: unknown): Record<string, unknown> | null {
+  return data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+}
+
+function mapRpcError(payload: Record<string, unknown> | null): PartnerMembershipWriterError {
+  const code = typeof payload?.error === "string" ? payload.error : "";
+  if (PARTNER_WRITER_ERRORS.has(code)) return code as PartnerMembershipWriterError;
+  // other debit-stage failures from business_cash_delivery_ad_spend
+  if (payload?.stage === "debit") return "bc_debit_failed";
+  return "db_error";
+}
+
+/**
+ * ADS-05 — read-time derivation (same rule as the advertising discount check in
+ * delivery-ad-commercial-catalog): ACTIVE / CANCEL_PENDING whose period_end has passed is NOT open,
+ * even when the stored status was never transitioned (D-5 legacy rows stay as they are).
+ */
+export function isPartnerMembershipPeriodExpired(
+  row: Pick<DeliveryAdPartnerMembershipRow, "status" | "periodEnd">,
+  nowMs: number = Date.now()
+): boolean {
+  if (row.status !== "ACTIVE" && row.status !== "CANCEL_PENDING") return false;
+  if (!row.periodEnd) return false;
+  const end = Date.parse(row.periodEnd);
+  return Number.isFinite(end) && end <= nowMs;
+}
+
+export function isPartnerMembershipEffectivelyOpen(
+  row: Pick<DeliveryAdPartnerMembershipRow, "status" | "periodEnd">,
+  nowMs: number = Date.now()
+): boolean {
+  if (!(DELIVERY_AD_PARTNER_OPEN_STATUSES as readonly string[]).includes(row.status)) return false;
+  return !isPartnerMembershipPeriodExpired(row, nowMs);
+}
 
 function mapPartnerConfig(raw: Record<string, unknown> | null): DeliveryAdPartnerConfigRow | null {
   if (!raw) return null;
@@ -90,10 +151,14 @@ export async function loadOpenPartnerMembershipForStore(
     .eq("store_id", storeId)
     .in("status", [...DELIVERY_AD_PARTNER_OPEN_STATUSES])
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(10);
   if (error || !data) return null;
-  return mapDeliveryAdPartnerMembershipRow(data as Record<string, unknown>);
+  const nowMs = Date.now();
+  for (const raw of data as Record<string, unknown>[]) {
+    const row = mapDeliveryAdPartnerMembershipRow(raw);
+    if (row && isPartnerMembershipEffectivelyOpen(row, nowMs)) return row;
+  }
+  return null;
 }
 
 export async function loadLatestPartnerMembershipForStore(
@@ -144,18 +209,19 @@ export async function listPartnerMembershipsForAdmin(
 }
 
 /**
- * Owner apply — Cash secure exactly once, then PENDING_REVIEW.
- * Insufficient Cash → no PENDING_REVIEW intake (row deleted).
+ * Owner apply — ADS-04: `owner_apply_partner_membership` creates the PENDING_REVIEW row and debits Cash in ONE
+ * transaction (idempotent per requestId; one open membership per store enforced by the DB). No TS compensation.
  */
 export async function ownerApplyPartnerMembership(
   sb: SupabaseClient,
-  input: { storeId: string; actorUserId: string }
+  input: { storeId: string; actorUserId: string; requestId?: string | null }
 ): Promise<
   | {
       ok: true;
       membership: DeliveryAdPartnerMembershipRow;
       payment: "BUSINESS_CASH_SECURED";
       amountMinor: number;
+      idempotent: boolean;
     }
   | {
       ok: false;
@@ -170,89 +236,42 @@ export async function ownerApplyPartnerMembership(
 > {
   const storeId = input.storeId.trim();
   if (!storeId) return { ok: false, error: "invalid_store" };
+  const requestId = String(input.requestId ?? "").trim().slice(0, 200) || randomUUID();
 
-  const config = await loadDeliveryAdPartnerConfig(sb);
-  if (!config || !config.enabled) return { ok: false, error: "config_disabled" };
-  if (!config.acceptingNewMembers) return { ok: false, error: "not_accepting" };
-  if (config.monthlyFeeMinor == null || config.monthlyFeeMinor <= 0) {
-    return { ok: false, error: "fee_not_configured" };
-  }
-
-  const open = await loadOpenPartnerMembershipForStore(sb, storeId);
-  if (open) return { ok: false, error: "already_open" };
-
-  const now = new Date().toISOString();
-  const { data, error } = await sb
-    .from(DELIVERY_AD_PARTNER_MEMBERSHIP_TABLE)
-    .insert({
-      store_id: storeId,
-      status: "PENDING_REVIEW",
-      period_start: null,
-      period_end: null,
-      fee_snapshot_minor: config.monthlyFeeMinor,
-      currency: config.currency,
-      benefit_snapshot: {},
-      advertising_discount_percent_snapshot: 0,
-      config_version_snapshot: config.version,
-      cancel_requested_at: null,
-      created_at: now,
-      updated_at: now,
-    })
-    .select("*")
-    .maybeSingle();
-  if (error || !data) {
-    return { ok: false, error: "db_error", detail: error?.message };
-  }
-  const membership = mapDeliveryAdPartnerMembershipRow(data as Record<string, unknown>);
-  if (!membership) return { ok: false, error: "db_error", detail: "invalid_row" };
-
-  const secured = await debitBusinessCashForDeliveryAd(sb, {
-    ownerUserId: input.actorUserId,
-    storeId,
-    applicationId: membership.id,
-    productKind: "partner",
-    amountMinor: config.monthlyFeeMinor,
+  const { data, error } = await sb.rpc(OWNER_APPLY_PARTNER_MEMBERSHIP_RPC, {
+    p_store_id: storeId,
+    p_owner_user_id: input.actorUserId,
+    p_request_id: requestId,
   });
-  if (!secured.ok) {
-    await sb.from(DELIVERY_AD_PARTNER_MEMBERSHIP_TABLE).delete().eq("id", membership.id);
-    if (secured.error === "INSUFFICIENT_BUSINESS_CASH" && secured.insufficient) {
+  if (error) return { ok: false, error: "db_error", detail: error.message };
+  const payload = rpcPayload(data);
+  if (!payload || payload.ok !== true) {
+    const insufficient = parseInsufficientBusinessCashRpc(payload);
+    if (insufficient) {
       return {
         ok: false,
         error: "INSUFFICIENT_BUSINESS_CASH",
         insufficient: {
-          availableMinor: secured.insufficient.availableMinor,
-          requiredMinor: secured.insufficient.requiredMinor,
-          shortageMinor: secured.insufficient.shortageMinor,
+          availableMinor: insufficient.availableMinor,
+          requiredMinor: insufficient.requiredMinor,
+          shortageMinor: insufficient.shortageMinor,
         },
       };
     }
     return {
       ok: false,
-      error: "bc_debit_failed",
-      detail: secured.detail ?? secured.error,
+      error: mapRpcError(payload),
+      detail: typeof payload?.error === "string" ? payload.error : undefined,
     };
   }
-
-  await recordDeliveryAdCommercialOverride(sb, {
-    entityType: "partner_membership",
-    entityId: membership.id,
-    actorUserId: input.actorUserId,
-    reason: "owner_partner_apply",
-    before: {},
-    after: {
-      status: membership.status,
-      store_id: membership.storeId,
-      payment: "BUSINESS_CASH_SECURED",
-      amount_minor: secured.amountMinor,
-      funding_id: secured.fundingId,
-    },
-  });
-
+  const membership = mapDeliveryAdPartnerMembershipRow(rpcPayload(payload.membership) ?? {});
+  if (!membership) return { ok: false, error: "db_error", detail: "invalid_row" };
   return {
     ok: true,
     membership,
     payment: "BUSINESS_CASH_SECURED",
-    amountMinor: secured.amountMinor,
+    amountMinor: Math.trunc(Number(payload.amount_minor) || 0),
+    idempotent: payload.idempotent === true,
   };
 }
 
@@ -266,6 +285,7 @@ export async function ownerRequestPartnerMembershipCancel(
   const row = await loadPartnerMembershipById(sb, input.membershipId);
   if (!row || row.storeId !== input.storeId) return { ok: false, error: "not_found" };
   if (row.status !== "ACTIVE") return { ok: false, error: "illegal_transition" };
+  if (isPartnerMembershipPeriodExpired(row)) return { ok: false, error: "illegal_transition" };
 
   const now = new Date().toISOString();
   const { data, error } = await sb
@@ -297,7 +317,48 @@ export async function ownerRequestPartnerMembershipCancel(
   return { ok: true, membership };
 }
 
-/** Admin approve PENDING_REVIEW → ACTIVE; requires canonical Cash funding SECURED. */
+async function callAdminPartnerDecide(
+  sb: SupabaseClient,
+  input: {
+    membershipId: string;
+    actorUserId: string;
+    action: "approve" | "reject";
+    reason: string;
+    periodDays?: number;
+  }
+): Promise<
+  | { ok: true; payload: Record<string, unknown>; membership: DeliveryAdPartnerMembershipRow }
+  | { ok: false; error: PartnerMembershipWriterError; detail?: string }
+> {
+  const days =
+    input.periodDays != null && Number.isInteger(input.periodDays) && input.periodDays > 0
+      ? input.periodDays
+      : DELIVERY_AD_PARTNER_PERIOD_DAYS_DEFAULT;
+  const { data, error } = await sb.rpc(ADMIN_PARTNER_MEMBERSHIP_DECIDE_RPC, {
+    p_admin_user_id: input.actorUserId,
+    p_membership_id: input.membershipId,
+    p_action: input.action,
+    p_reason: input.reason.trim() || `admin_partner_${input.action}`,
+    p_period_days: input.action === "approve" ? days : null,
+  });
+  if (error) return { ok: false, error: "db_error", detail: error.message };
+  const payload = rpcPayload(data);
+  if (!payload || payload.ok !== true) {
+    return {
+      ok: false,
+      error: mapRpcError(payload),
+      detail: typeof payload?.detail === "string" ? payload.detail : undefined,
+    };
+  }
+  const membership = mapDeliveryAdPartnerMembershipRow(rpcPayload(payload.membership) ?? {});
+  if (!membership) return { ok: false, error: "db_error", detail: "invalid_row" };
+  return { ok: true, payload, membership };
+}
+
+/**
+ * Admin approve PENDING_REVIEW → ACTIVE — ADS-03: `admin_partner_membership_decide` locks the membership,
+ * re-checks canonical Cash funding SECURED and writes ACTIVE + audit in one transaction.
+ */
 export async function adminApprovePartnerMembership(
   sb: SupabaseClient,
   input: {
@@ -310,77 +371,14 @@ export async function adminApprovePartnerMembership(
   | { ok: true; membership: DeliveryAdPartnerMembershipRow }
   | { ok: false; error: PartnerMembershipWriterError; detail?: string }
 > {
-  const row = await loadPartnerMembershipById(sb, input.membershipId);
-  if (!row) return { ok: false, error: "not_found" };
-  if (row.status !== "PENDING_REVIEW") return { ok: false, error: "illegal_transition" };
-
-  const funded = await hasCanonicalBcFundingSecured(sb, {
-    productKind: "partner",
-    applicationId: row.id,
-    storeId: row.storeId,
-  });
-  if (!funded) return { ok: false, error: "funding_required" };
-
-  const config = await loadDeliveryAdPartnerConfig(sb);
-  if (!config || !config.enabled) return { ok: false, error: "config_disabled" };
-  if (config.monthlyFeeMinor == null || config.monthlyFeeMinor < 0) {
-    return { ok: false, error: "fee_not_configured" };
-  }
-
-  const days =
-    input.periodDays != null && Number.isInteger(input.periodDays) && input.periodDays > 0
-      ? input.periodDays
-      : DELIVERY_AD_PARTNER_PERIOD_DAYS_DEFAULT;
-  const start = new Date();
-  const end = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
-  const now = start.toISOString();
-
-  const { data, error } = await sb
-    .from(DELIVERY_AD_PARTNER_MEMBERSHIP_TABLE)
-    .update({
-      status: "ACTIVE",
-      period_start: now,
-      period_end: end.toISOString(),
-      fee_snapshot_minor: row.feeSnapshotMinor ?? config.monthlyFeeMinor,
-      currency: config.currency,
-      benefit_snapshot: config.benefitJson,
-      advertising_discount_percent_snapshot: config.advertisingDiscountPercent,
-      config_version_snapshot: config.version,
-      cancel_requested_at: null,
-      updated_at: now,
-    })
-    .eq("id", row.id)
-    .eq("status", "PENDING_REVIEW")
-    .select("*")
-    .maybeSingle();
-  if (error || !data) {
-    return { ok: false, error: "db_error", detail: error?.message };
-  }
-  const membership = mapDeliveryAdPartnerMembershipRow(data as Record<string, unknown>);
-  if (!membership) return { ok: false, error: "db_error" };
-
-  await recordDeliveryAdCommercialOverride(sb, {
-    entityType: "partner_membership",
-    entityId: membership.id,
-    actorUserId: input.actorUserId,
-    reason: input.reason.trim() || "admin_partner_approve",
-    before: { status: row.status },
-    after: {
-      status: membership.status,
-      fee_snapshot_minor: membership.feeSnapshotMinor,
-      advertising_discount_percent_snapshot: membership.advertisingDiscountPercentSnapshot,
-      config_version_snapshot: membership.configVersionSnapshot,
-      period_start: membership.periodStart,
-      period_end: membership.periodEnd,
-      payment: "BUSINESS_CASH_SECURED",
-    },
-  });
-
-  return { ok: true, membership };
+  const res = await callAdminPartnerDecide(sb, { ...input, action: "approve" });
+  if (!res.ok) return res;
+  return { ok: true, membership: res.membership };
 }
 
 /**
- * Admin reject PENDING_REVIEW → REJECTED + exactly-once Cash refund.
+ * Admin reject PENDING_REVIEW → REJECTED + exactly-once Cash refund — ADS-03: refund and status change are the
+ * SAME transaction (`admin_partner_membership_decide`), serialised with approve on the membership row lock.
  * REJECTED ≠ ENDED (application outcome vs membership end).
  */
 export async function adminRejectPartnerMembership(
@@ -390,53 +388,79 @@ export async function adminRejectPartnerMembership(
   | { ok: true; membership: DeliveryAdPartnerMembershipRow; refundIdempotent: boolean }
   | { ok: false; error: PartnerMembershipWriterError; detail?: string }
 > {
-  const row = await loadPartnerMembershipById(sb, input.membershipId);
-  if (!row) return { ok: false, error: "not_found" };
-  if (row.status !== "PENDING_REVIEW") return { ok: false, error: "illegal_transition" };
-
-  const refund = await refundBusinessCashForRejectedDeliveryAd(sb, {
-    adminUserId: input.actorUserId,
-    applicationId: row.id,
-    productKind: "partner",
-  });
-  if (!refund.ok && refund.error !== "funding_not_found") {
-    return { ok: false, error: "db_error", detail: refund.detail ?? refund.error };
-  }
-
-  const now = new Date().toISOString();
-  const { data, error } = await sb
-    .from(DELIVERY_AD_PARTNER_MEMBERSHIP_TABLE)
-    .update({
-      status: "REJECTED",
-      updated_at: now,
-    })
-    .eq("id", row.id)
-    .eq("status", "PENDING_REVIEW")
-    .select("*")
-    .maybeSingle();
-  if (error || !data) {
-    return { ok: false, error: "db_error", detail: error?.message };
-  }
-  const membership = mapDeliveryAdPartnerMembershipRow(data as Record<string, unknown>);
-  if (!membership) return { ok: false, error: "db_error" };
-
-  await recordDeliveryAdCommercialOverride(sb, {
-    entityType: "partner_membership",
-    entityId: membership.id,
-    actorUserId: input.actorUserId,
-    reason: input.reason.trim() || "admin_partner_reject",
-    before: { status: row.status },
-    after: {
-      status: membership.status,
-      refund: refund.ok,
-      refund_idempotent: refund.ok ? refund.idempotent : false,
-    },
-  });
-
+  const res = await callAdminPartnerDecide(sb, { ...input, action: "reject" });
+  if (!res.ok) return res;
   return {
     ok: true,
-    membership,
-    refundIdempotent: refund.ok ? refund.idempotent : false,
+    membership: res.membership,
+    refundIdempotent: res.payload.refund_idempotent === true,
+  };
+}
+
+/**
+ * ADS-05 — cron: ACTIVE / CANCEL_PENDING whose period ended → ENDED (system audit), only rows whose period ends
+ * after the apply instant (D-5: existing expired rows are left as they are and derived as expired at read time).
+ */
+export async function runPartnerMembershipExpiryBatch(
+  sb: SupabaseClient,
+  input: { limit?: number } = {}
+): Promise<{ ok: true; ended: number } | { ok: false; error: string }> {
+  const { data, error } = await sb.rpc(PARTNER_MEMBERSHIP_EXPIRE_DUE_RPC, {
+    p_limit: Math.min(Math.max(Math.trunc(input.limit ?? 200), 1), 1000),
+  });
+  if (error) return { ok: false, error: error.message };
+  const payload = rpcPayload(data);
+  if (!payload || payload.ok !== true) return { ok: false, error: "expire_failed" };
+  return { ok: true, ended: Math.trunc(Number(payload.ended) || 0) };
+}
+
+export type OrphanPartnerFundingRow = {
+  fundingId: string;
+  applicationId: string;
+  storeId: string;
+  status: string;
+  amountMinor: number;
+  securedAt: string | null;
+};
+
+/** ADS-04 — partner fundings with no membership row (expected 0; shown to admins for manual recovery). */
+export async function listOrphanPartnerFundingsForAdmin(
+  sb: SupabaseClient
+): Promise<{ items: OrphanPartnerFundingRow[]; error?: string }> {
+  const { data, error } = await sb
+    .from(DELIVERY_AD_CANONICAL_BC_FUNDINGS_TABLE)
+    .select("id, application_id, store_id, status, amount_minor, secured_at")
+    .eq("product_kind", "partner")
+    .order("secured_at", { ascending: false })
+    .limit(500);
+  if (error) return { items: [], error: error.message };
+  const rows = (data ?? []) as Array<{
+    id: string;
+    application_id: string;
+    store_id: string;
+    status: string;
+    amount_minor: number;
+    secured_at: string | null;
+  }>;
+  if (!rows.length) return { items: [] };
+  const ids = [...new Set(rows.map((r) => String(r.application_id)))];
+  const { data: mem, error: memErr } = await sb
+    .from(DELIVERY_AD_PARTNER_MEMBERSHIP_TABLE)
+    .select("id")
+    .in("id", ids);
+  if (memErr) return { items: [], error: memErr.message };
+  const known = new Set((mem ?? []).map((m) => String((m as { id: string }).id)));
+  return {
+    items: rows
+      .filter((r) => !known.has(String(r.application_id)))
+      .map((r) => ({
+        fundingId: String(r.id),
+        applicationId: String(r.application_id),
+        storeId: String(r.store_id),
+        status: String(r.status),
+        amountMinor: Math.trunc(Number(r.amount_minor) || 0),
+        securedAt: r.secured_at == null ? null : String(r.secured_at),
+      })),
   };
 }
 
@@ -507,6 +531,18 @@ export function partnerMembershipAdminFilterLabel(
     default:
       return lang === "en" ? "None" : "없음";
   }
+}
+
+/** ADS-05 — label with the read-time expiry derivation (ACTIVE past period_end -> expired). */
+export function partnerMembershipEffectiveStatusLabel(
+  row: Pick<DeliveryAdPartnerMembershipRow, "status" | "periodEnd">,
+  lang: "ko" | "en",
+  nowMs: number = Date.now()
+): string {
+  if (isPartnerMembershipPeriodExpired(row, nowMs)) {
+    return lang === "en" ? "Expired" : "기간 만료";
+  }
+  return partnerMembershipAdminFilterLabel(row.status, lang);
 }
 
 export function partnerMembershipGrantsAdvertisingDiscount(

@@ -105,7 +105,7 @@ export const OwnerStoreMenuSectionPicker = forwardRef<HTMLButtonElement, OwnerSt
         </button>
         {open && !disabled ? (
           <div
-            className="absolute left-0 right-0 top-[calc(100%+4px)] z-[60] min-w-0 max-w-full overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-lg ring-1 ring-black/[0.04]"
+            className="absolute left-0 right-0 top-[calc(100%+4px)] z-[60] min-w-0 max-w-full overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-lg ring-1 ring-sam-ink/[0.04]"
             role={hasOptions ? "presentation" : "dialog"}
             aria-label={hasOptions ? undefined : t("business_phase7_396")}
           >

@@ -89,6 +89,22 @@ export function hashDeliveryAdAttributionBridge(userId: string): string {
   return createHash("sha256").update(`delivery-ad-bridge:${pepper}:${userId}`).digest("hex");
 }
 
+/** ADS-10 — stable hash of an exposure token (never the raw token in storage keys). */
+export function deliveryAdExposureTokenHash(token: string): string {
+  return createHash("sha256").update(`delivery-ad-token:${String(token ?? "")}`).digest("hex").slice(0, 48);
+}
+
+/**
+ * ADS-10 — server-computed impression event id: one per (exposure token, viewer session). Client-chosen ids
+ * never decide dedupe (the DB also keeps one impression per render instance per campaign/inventory).
+ */
+export function deriveDeliveryAdImpressionEventId(token: string, viewerSessionHash: string): string {
+  const h = createHash("sha256")
+    .update(`delivery-ad-impression:${deliveryAdExposureTokenHash(token)}:${String(viewerSessionHash ?? "")}`)
+    .digest("hex");
+  return `imp_${h.slice(0, 48)}`;
+}
+
 export function newDeliveryAdRenderInstanceId(): string {
   return randomUUID();
 }

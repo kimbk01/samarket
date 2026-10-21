@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ownerFinanceSectionHref } from "@/lib/finance/routes";
+import { normalizeOwnerFinanceSection, ownerFinanceSectionHref } from "@/lib/finance/routes";
 
 type StoreOpt = { id: string; name: string };
 
@@ -53,9 +53,8 @@ export function OwnerFinanceStoreSwitcher({
         value={storeId}
         onChange={(e) => {
           const next = e.target.value;
-          const sec = (section || "transactions") as
+          const sec = normalizeOwnerFinanceSection(section) as
             | "transactions"
-            | "orders"
             | "outstanding"
             | "coin"
             | "cash"

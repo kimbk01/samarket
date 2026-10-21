@@ -79,7 +79,7 @@ export function OwnerCareAdminNotesThread({ kind }: { kind: MemberAdminNoteKind 
         </p>
       </div>
 
-      {error ? <p className="mb-2 text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="mb-2 text-sm text-sam-danger">{error}</p> : null}
 
       <ul className="flex-1 space-y-2" data-owner-care-thread-history="1">
         {messages.length === 0 ? (

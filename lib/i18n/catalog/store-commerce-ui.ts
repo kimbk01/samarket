@@ -1136,6 +1136,8 @@ export const storeCommerceUiMessages = {
       "배달 주소에 위치 좌표가 없습니다. 주소를 다시 저장해 주세요.",
     store_err_delivery_customer_lgu_unresolved:
       "주소 지역을 확인할 수 없어 배달 주문이 불가합니다. 주소를 다시 저장해 주세요.",
+    store_err_delivery_policy_unavailable:
+      "배달 가능 여부를 지금 확인할 수 없습니다. 잠시 후 새로고침해 주세요.",
     store_err_delivery_user_address_not_master:
       "선택한 배달 주소가 대표 주소와 다릅니다. 주소를 다시 선택해 주세요.",
     store_err_delivery_user_address_invalid: "배달 주소를 확인할 수 없습니다. 다시 선택해 주세요.",
@@ -2935,6 +2937,8 @@ export const storeCommerceUiMessages = {
       "Your delivery address is missing map coordinates. Please save the address again.",
     store_err_delivery_customer_lgu_unresolved:
       "We couldn't determine the area of your address, so delivery orders are unavailable. Please save the address again.",
+    store_err_delivery_policy_unavailable:
+      "We can't check delivery availability right now. Please refresh in a moment.",
     store_err_delivery_user_address_not_master:
       "The selected delivery address differs from your primary address. Please select the address again.",
     store_err_delivery_user_address_invalid:

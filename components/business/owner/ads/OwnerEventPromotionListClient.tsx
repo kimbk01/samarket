@@ -88,7 +88,7 @@ export function OwnerEventPromotionListClient({ storeId }: Props) {
           })}
         </button>
       </div>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
       {items.length === 0 ? (
         <p className="text-sm text-sam-muted">
           {safeT("owner_event_promo_empty", {

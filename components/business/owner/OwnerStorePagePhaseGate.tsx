@@ -36,7 +36,7 @@ export function OwnerStorePagePhaseGate({ phase, onRetry, children }: Props) {
     );
   }
   if (phase.kind === "unauth") {
-    return <p className="sam-text-body text-amber-900">{t("common_login_required")}</p>;
+    return <p className="sam-text-body text-sam-fg">{t("common_login_required")}</p>;
   }
   if (phase.kind === "config") {
     return <p className="sam-text-body text-sam-muted">{t("owner_store_supabase_hint")}</p>;
@@ -54,7 +54,7 @@ export function OwnerStorePagePhaseGate({ phase, onRetry, children }: Props) {
   if (phase.kind === "error") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <p className="sam-text-body text-red-600">{phase.message}</p>
+        <p className="sam-text-body text-sam-danger">{phase.message}</p>
         {onRetry ? (
           <button
             type="button"

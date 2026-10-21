@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import {
+  deliveryAdExposureTokenHash,
+  deriveDeliveryAdImpressionEventId,
   hashDeliveryAdViewerSession,
-  newDeliveryAdEventId,
 } from "@/lib/stores/advertising/delivery-ad-exposure-token";
 import { recordDeliveryAdImpressionFromToken } from "@/lib/stores/advertising/delivery-ad-event-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -24,9 +25,14 @@ export async function POST(req: NextRequest) {
   }
 
   const exposureToken = String(body.exposureToken ?? "");
-  const eventId = String(body.eventId ?? "").trim() || newDeliveryAdEventId();
-  const sessionSeed = String(body.sessionSeed ?? "").trim() || eventId;
+  // ADS-10 — the dedupe key is computed on the server from (exposure token, viewer session); the client eventId
+  // is auxiliary only (kept in context_json) so re-posting the same token with new eventIds counts once.
+  // A missing sessionSeed falls back to the token itself (not to a fresh random id).
+  const clientEventId = String(body.eventId ?? "").trim().slice(0, 128) || null;
+  const sessionSeed =
+    String(body.sessionSeed ?? "").trim() || `token:${deliveryAdExposureTokenHash(exposureToken)}`;
   const viewerSessionHash = hashDeliveryAdViewerSession(sessionSeed);
+  const eventId = deriveDeliveryAdImpressionEventId(exposureToken, viewerSessionHash);
 
   const result = await recordDeliveryAdImpressionFromToken(sb, {
     exposureToken,
@@ -34,6 +40,7 @@ export async function POST(req: NextRequest) {
     viewerSessionHash,
     occurredAtIso: body.occurredAt == null ? undefined : String(body.occurredAt),
     requestId: body.requestId == null ? null : String(body.requestId),
+    clientEventId,
     claimed: {
       campaignId: body.campaignId == null ? undefined : String(body.campaignId),
       storeId: body.storeId == null ? undefined : String(body.storeId),

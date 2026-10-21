@@ -117,9 +117,9 @@ export function OwnerUrgentOrdersCard({
 
   return (
     <section className={ownerDashUrgentCardClass("space-y-3")} aria-labelledby="owner-urgent-title">
-      <div className="flex items-center justify-between gap-2 border-b border-[#FEE2E2] pb-2">
+      <div className="flex items-center justify-between gap-2 border-b border-sam-danger-soft pb-2">
         <div className="flex items-center gap-1.5">
-          <Siren className="h-4 w-4 text-[#DC2626]" aria-hidden />
+          <Siren className="h-4 w-4 text-sam-danger" aria-hidden />
           <h2 id="owner-urgent-title" className={ownerDashTypography.sectionTitle}>
             {t("store_owner_dash_urgent_title")}
           </h2>
@@ -128,7 +128,7 @@ export function OwnerUrgentOrdersCard({
           type="button"
           onClick={() => onRefresh?.()}
           disabled={refreshing}
-          className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-gray-800 disabled:opacity-50"
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-sam-muted hover:text-sam-fg disabled:opacity-50"
           aria-label={t("store_owner_dash_refresh_ops")}
         >
           <span>{t("store_owner_dash_updated_at", { time: timeLabel })}</span>
@@ -146,7 +146,7 @@ export function OwnerUrgentOrdersCard({
                 key={c.id}
                 href={c.href}
                 prefetch={false}
-                className="min-h-[76px] rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 transition active:bg-[var(--biz-primary-soft)]"
+                className="min-h-[76px] rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 transition active:bg-[var(--biz-primary-soft)]"
               >
                 <p className={ownerDashTypography.cellTitle}>{c.title}</p>
                 <p className={`mt-1 ${c.danger ? ownerDashTypography.metricUrgent : ownerDashTypography.metric}`}>
@@ -155,7 +155,7 @@ export function OwnerUrgentOrdersCard({
                 {c.sub ? (
                   <p
                     className={`mt-1 flex items-start gap-0.5 ${ownerDashTypography.helper} ${
-                      c.danger ? "font-medium text-[#DC2626]" : ""
+                      c.danger ? "font-medium text-sam-danger" : ""
                     }`}
                   >
                     {c.danger ? <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden /> : null}
@@ -166,7 +166,7 @@ export function OwnerUrgentOrdersCard({
             ))}
           </div>
           {snapshot.pending_accept_count > 0 && snapshot.today_order_count === 0 ? (
-            <p className={`${ownerDashTypography.helper} text-gray-500`} data-owner-dash-stale-queue-hint="1">
+            <p className={`${ownerDashTypography.helper} text-sam-muted`} data-owner-dash-stale-queue-hint="1">
               {t("store_owner_dash_today_order_hint")}
             </p>
           ) : null}
@@ -176,8 +176,8 @@ export function OwnerUrgentOrdersCard({
       <Link
         href={newOrdersHref}
         prefetch={false}
-        className={`flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-ui-rect text-[14px] font-bold text-white ${
-          hasUrgent ? "bg-[#DC2626] active:bg-red-700" : "pointer-events-none bg-gray-300 text-gray-600"
+        className={`flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-ui-rect text-[14px] font-bold text-sam-on-primary ${
+          hasUrgent ? "bg-sam-danger active:bg-sam-danger/90" : "pointer-events-none bg-sam-border text-sam-muted"
         } ${pulseNew && hasUrgent ? "animate-pulse" : ""}`}
         aria-disabled={!hasUrgent}
         data-owner-cta="danger"

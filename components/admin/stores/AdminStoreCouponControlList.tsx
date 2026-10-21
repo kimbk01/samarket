@@ -117,7 +117,7 @@ export function AdminStoreCouponControlList({
                             const shared = adminStatusLabel("coupon", lc, ko);
                             return shared.known && !DATE_AWARE_LIFECYCLE.has(lc)
                               ? shared.label
-                              : t(adminCouponLifecycleMessageKey(row.lifecycle_state, row.start_at, row.end_at));
+                              : t(adminCouponLifecycleMessageKey(row.lifecycle_state, row.start_at, row.end_at, row.is_active));
                           })()}
                         </span>
                       </div>

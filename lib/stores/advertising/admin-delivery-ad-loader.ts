@@ -4,6 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  adminListBucketWithFunding,
   lifecycleToAdminListBucket,
   normalizeAdminDisplayLifecycle,
   type AdminDeliveryAdListBucket,
@@ -257,6 +258,46 @@ export async function loadAdminDeliveryAdCampaignList(
 }
 
 /**
+ * ADS-12 — 심사 단계 행의 펀딩 존재 (정식 Cash SECURED · 레거시 Store Cash SECURED) 키 `${kind}:${id}`.
+ * 조회 실패 → null (분류 변경 없음).
+ */
+async function loadAdminReviewFundedKeys(
+  sb: SupabaseClient,
+  rows: ReadonlyArray<{ productKind: AdminDeliveryAdProduct; raw: Record<string, unknown> }>
+): Promise<Set<string> | null> {
+  const review = rows.filter(
+    (r) => lifecycleToAdminListBucket(asLifecycle(r.raw.lifecycle_status)) === "review"
+  );
+  const out = new Set<string>();
+  if (!review.length) return out;
+  const ids = [...new Set(review.map((r) => String(r.raw.id)))];
+  try {
+    const [canonical, legacy] = await Promise.all([
+      sb
+        .from("delivery_ad_canonical_bc_fundings")
+        .select("product_kind, application_id")
+        .eq("status", "SECURED")
+        .in("application_id", ids),
+      sb
+        .from("delivery_ad_store_cash_spends")
+        .select("product_kind, campaign_id")
+        .eq("status", "SECURED")
+        .in("campaign_id", ids),
+    ]);
+    if (canonical.error || legacy.error) return null;
+    for (const f of (canonical.data ?? []) as Array<{ product_kind?: unknown; application_id?: unknown }>) {
+      out.add(`${String(f.product_kind)}:${String(f.application_id)}`);
+    }
+    for (const f of (legacy.data ?? []) as Array<{ product_kind?: unknown; campaign_id?: unknown }>) {
+      out.add(`${String(f.product_kind)}:${String(f.campaign_id)}`);
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 캠페인 원본 행 → 목록 항목 (매장·광고주·노출 위치 보강, N+1 없음).
  * 목록(`loadAdminDeliveryAdCampaignList`)·R7 서버 페이지(`loadAdminDeliveryAdCampaignPage`) 공용.
  */
@@ -282,7 +323,7 @@ export async function hydrateAdminDeliveryAdRows(
     ),
   ];
 
-  const [storesRes, profilesRes, sponsoredInvRes, bannerInvRes] = await Promise.all([
+  const [storesRes, profilesRes, sponsoredInvRes, bannerInvRes, fundedKeys] = await Promise.all([
     storeIds.length
       ? sb
           .from("stores")
@@ -306,6 +347,10 @@ export async function hydrateAdminDeliveryAdRows(
           .select("campaign_id, inventory_id, delivery_ad_inventories(key)")
           .in("campaign_id", campaignIdsBanner)
       : Promise.resolve({ data: [], error: null }),
+    loadAdminReviewFundedKeys(sb, [
+      ...sponsoredRows.map((r) => ({ productKind: "store_sponsored" as const, raw: r })),
+      ...bannerRows.map((r) => ({ productKind: "banner" as const, raw: r })),
+    ]),
   ]);
 
   const storeMap = new Map<
@@ -376,6 +421,12 @@ export async function hydrateAdminDeliveryAdRows(
         productKind: "banner",
         creativeAssetPath: imageUrl,
       });
+    // ADS-12 — 미펀딩 레거시 심사 행은 처리 필요가 아닌 review_unfunded (DB 인덱스와 같은 규칙, 최우선).
+    const unfunded =
+      adminListBucketWithFunding(lifecycleBucket, {
+        campaignSource: raw.campaign_source == null ? null : String(raw.campaign_source),
+        fundingSecured: fundedKeys ? fundedKeys.has(`${productKind}:${String(raw.id)}`) : null,
+      }) === "review_unfunded";
     return {
       id: String(raw.id),
       productKind,
@@ -414,7 +465,7 @@ export async function hydrateAdminDeliveryAdRows(
       submittedAt: raw.submitted_at == null ? null : String(raw.submitted_at),
       createdAt: String(raw.created_at),
       updatedAt: String(raw.updated_at),
-      listBucket: needsCreative ? "needs_creative" : lifecycleBucket,
+      listBucket: unfunded ? "review_unfunded" : needsCreative ? "needs_creative" : lifecycleBucket,
       scheduleHint: display.scheduleHint,
       campaignSource:
         String(raw.campaign_source ?? "OWNER_PAID") === "DIBAY_FIRST_PARTY"

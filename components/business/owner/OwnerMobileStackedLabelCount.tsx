@@ -24,14 +24,14 @@ const VARIANT_STYLES: Record<OwnerMobileStackedLabelCountVariant, VariantStyles>
   },
   kpi: {
     root: "flex w-full flex-col items-center text-center",
-    label: "text-[10px] font-semibold leading-[1.35] text-[#6B7280]",
+    label: "text-[10px] font-semibold leading-[1.35] text-sam-muted",
     count: "mt-0.5 text-[17px] font-bold leading-none tabular-nums",
     reserveZeroCountRow: false,
   },
   flow: {
     root: "flex min-w-0 w-full flex-col items-center",
-    label: "mt-1.5 text-[11px] font-medium leading-tight text-[#8C8C8C]",
-    count: "mt-0.5 text-[16px] font-bold leading-tight tabular-nums text-[#262626]",
+    label: "mt-1.5 text-[11px] font-medium leading-tight text-sam-meta",
+    count: "mt-0.5 text-[16px] font-bold leading-tight tabular-nums text-sam-fg",
     reserveZeroCountRow: false,
   },
 };
@@ -60,14 +60,14 @@ export function OwnerMobileStackedLabelCount({
   const labelTone =
     variant === "tab"
       ? active
-        ? "text-white"
+        ? "text-sam-on-primary"
         : "text-[var(--biz-text)]"
       : "";
 
   const countTone =
     variant === "tab"
       ? active
-        ? "text-white"
+        ? "text-sam-on-primary"
         : "text-[var(--biz-text)]"
       : "";
 

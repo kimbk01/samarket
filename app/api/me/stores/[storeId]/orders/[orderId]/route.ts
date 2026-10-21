@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { maskBuyerContactForOwner } from "@/lib/stores/mask-buyer-contact-for-owner";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
@@ -162,7 +163,12 @@ export async function GET(
         order_chat_ready,
         store_pickup_address_lines,
       },
-      order: { ...order, review_status: snapshotGate.review_status, items: snapshotGate.items },
+      // LOC-008 — ended 30+ days: buyer phone (last 4 only) / detail address / coords hidden from owner.
+      order: maskBuyerContactForOwner({
+        ...order,
+        review_status: snapshotGate.review_status,
+        items: snapshotGate.items,
+      }),
       delivery: snapshotGate.delivery,
       review,
     };
@@ -277,7 +283,7 @@ export async function GET(
       order_chat_ready,
       store_pickup_address_lines,
     },
-    order: { ...order, review_status: reviewStatus, items: items ?? [] },
+    order: maskBuyerContactForOwner({ ...order, review_status: reviewStatus, items: items ?? [] }),
     delivery: deliverySnap.ok ? deliverySnap.delivery : null,
     review,
   };

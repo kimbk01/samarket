@@ -131,7 +131,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
       <button
         type="button"
         className={`min-h-[44px] rounded-ui-rect px-1.5 text-xs font-medium sm:text-sm ${
-          view === "money" ? "bg-signature text-white" : "border border-sam-border bg-sam-surface"
+          view === "money" ? "bg-signature text-sam-on-primary" : "border border-sam-border bg-sam-surface"
         }`}
         onClick={() => onGo("money")}
       >
@@ -153,7 +153,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
         type="button"
         className={`min-h-[44px] rounded-ui-rect px-1.5 text-xs font-medium sm:text-sm ${
           view === "redemptions"
-            ? "bg-signature text-white"
+            ? "bg-signature text-sam-on-primary"
             : "border border-sam-border bg-sam-surface"
         }`}
         onClick={() => onGo("redemptions")}
@@ -193,7 +193,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
               type="button"
               className={`min-h-[40px] rounded-ui-rect px-1 text-xs font-medium ${
                 redemptionFilter === filter.id
-                  ? "bg-signature text-white"
+                  ? "bg-signature text-sam-on-primary"
                   : "border border-sam-border bg-sam-surface"
               }`}
               onClick={() => setRedemptionFilter(filter.id)}
@@ -368,7 +368,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
           <p className="text-sm text-sam-muted">
             {safeT("gift_owner_action_cash_out_desc", {
               fallbackKo:
-                "Coin에는 DIBAY 부담 쿠폰 지원금만 적립됩니다. 상품권 수익은 상품권 정산으로 별도 지급됩니다. Coin 출금과 내역은 매장 재무에서 관리합니다.",
+                "Coin에는 DIBAY 부담 쿠폰 지원금만 적립됩니다. 상품권 수익은 상품권 정산으로 별도 지급됩니다. Coin 환전과 내역은 매장 재무에서 관리합니다.",
               fallbackEn:
                 "Coin accrues only DIBAY-funded coupon support. Gift revenue is paid separately by gift settlement. Manage Coin withdrawals and history in Store Finance.",
             })}

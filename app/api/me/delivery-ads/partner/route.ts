@@ -10,8 +10,9 @@ import {
   loadLatestPartnerMembershipForStore,
   loadOpenPartnerMembershipForStore,
   ownerApplyPartnerMembership,
+  isPartnerMembershipPeriodExpired,
   ownerRequestPartnerMembershipCancel,
-  partnerMembershipAdminFilterLabel,
+  partnerMembershipEffectiveStatusLabel,
 } from "@/lib/stores/advertising/delivery-ad-partner-membership-writer";
 
 export const runtime = "nodejs";
@@ -48,6 +49,8 @@ export async function GET(req: NextRequest) {
 
   const membership = open ?? latest;
   const lang = "ko" as const;
+  // ADS-05 — read-time derivation: an ACTIVE row past period_end is shown as expired and does not block re-apply.
+  const periodExpired = membership ? isPartnerMembershipPeriodExpired(membership) : false;
 
   return NextResponse.json({
     ok: true,
@@ -70,7 +73,8 @@ export async function GET(req: NextRequest) {
       ? {
           id: membership.id,
           status: membership.status,
-          statusLabel: partnerMembershipAdminFilterLabel(membership.status, lang),
+          statusLabel: partnerMembershipEffectiveStatusLabel(membership, lang),
+          periodExpired,
           periodStart: membership.periodStart,
           periodEnd: membership.periodEnd,
           feeSnapshotMinor: membership.feeSnapshotMinor,
@@ -88,7 +92,7 @@ export async function GET(req: NextRequest) {
       Boolean(config?.acceptingNewMembers) &&
       config?.monthlyFeeMinor != null &&
       !open,
-    canRequestCancel: membership?.status === "ACTIVE",
+    canRequestCancel: membership?.status === "ACTIVE" && !periodExpired,
   });
 }
 
@@ -105,7 +109,7 @@ export async function POST(req: NextRequest) {
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  let body: { op?: string; storeId?: string; membershipId?: string };
+  let body: { op?: string; storeId?: string; membershipId?: string; requestId?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -129,6 +133,7 @@ export async function POST(req: NextRequest) {
     const result = await ownerApplyPartnerMembership(sb, {
       storeId,
       actorUserId: userId,
+      requestId: typeof body.requestId === "string" ? body.requestId : null,
     });
     if (!result.ok) {
       if (result.error === "INSUFFICIENT_BUSINESS_CASH") {

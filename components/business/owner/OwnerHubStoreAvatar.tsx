@@ -9,7 +9,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 export function OwnerHubStoreAvatar({
   profileImageUrl,
   shopName,
-  className = "h-11 w-11 sam-text-body font-semibold text-white",
+  className = "h-11 w-11 sam-text-body font-semibold text-sam-on-primary",
 }: {
   profileImageUrl?: string | null;
   shopName: string;
@@ -32,7 +32,7 @@ export function OwnerHubStoreAvatar({
 
   return (
     <span
-      className={`flex shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)] ${className}`}
+      className={`flex shrink-0 items-center justify-center rounded-full bg-sam-primary ${className}`}
     >
       {initial}
     </span>

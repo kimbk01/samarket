@@ -230,7 +230,7 @@ export function OwnerStoreOrdersMobileBody({
         <button
           type="button"
           onClick={onOpenSearch}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
           aria-label={t("store_owner_mobile_aria_search")}
         >
           <Search className="h-[18px] w-[18px]" aria-hidden />
@@ -238,7 +238,7 @@ export function OwnerStoreOrdersMobileBody({
         <button
           type="button"
           onClick={onOpenFilter}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
           aria-label={t("store_owner_mobile_aria_filter")}
         >
           <Filter className="h-[18px] w-[18px]" aria-hidden />
@@ -250,9 +250,9 @@ export function OwnerStoreOrdersMobileBody({
   useRegisterOwnerMobileAdminHeaderTrailing(headerTrailing);
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-[#f6f6f6]">
-      <div className="shrink-0 border-b border-[#DDE5E0] bg-[#f6f6f6] pb-2 pt-2">
-        <div className="flex rounded-[4px] border border-[#DDE5E0] bg-white p-1">
+    <div className="flex h-full min-h-0 w-full flex-col bg-sam-surface-muted">
+      <div className="shrink-0 border-b border-sam-border bg-sam-surface-muted pb-2 pt-2">
+        <div className="flex rounded-ui-rect border border-sam-border bg-sam-surface p-1">
           {TABS.map((tabDef) => {
               const active = effectiveTab === tabDef.id;
               const count = tabCounts.get(tabDef.id) ?? 0;
@@ -266,8 +266,8 @@ export function OwnerStoreOrdersMobileBody({
                     e.preventDefault();
                     onSelectTab(tabDef.id);
                   }}
-                  className={`relative flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-[4px] px-0.5 py-1.5 ${
-                    active ? "bg-[var(--biz-primary)] text-white" : "text-[var(--biz-text)]"
+                  className={`relative flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-ui-rect px-0.5 py-1.5 ${
+                    active ? "bg-[var(--biz-primary)] text-sam-on-primary" : "text-[var(--biz-text)]"
                   }`}
                 >
                   <OwnerMobileStackedLabelCount
@@ -285,7 +285,7 @@ export function OwnerStoreOrdersMobileBody({
             <KpiCard
               label={t("store_owner_mobile_kpi_new")}
               value={summaryCounts.pending}
-              tone="text-[#B42318]"
+              tone="text-sam-danger"
               href={onTabHref("new")}
               onSelect={() => onSelectTab("new")}
               compact
@@ -293,7 +293,7 @@ export function OwnerStoreOrdersMobileBody({
             <KpiCard
               label={t("store_owner_mobile_kpi_preparing")}
               value={summaryCounts.preparing}
-              tone="text-[#B45309]"
+              tone="text-sam-warning"
               href={onTabHref("preparing")}
               onSelect={() => onSelectTab("preparing")}
               compact
@@ -323,7 +323,7 @@ export function OwnerStoreOrdersMobileBody({
                 e.preventDefault();
                 onSelectTab("new");
               }}
-              className="mt-2 flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-ui-rect bg-[#DC2626] px-3 text-sm font-bold text-white active:bg-red-700"
+              className="mt-2 flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-ui-rect bg-sam-danger px-3 text-sm font-bold text-sam-on-primary active:bg-sam-danger/90"
               data-owner-orders-action-required="1"
               data-owner-cta="danger"
             >
@@ -338,19 +338,19 @@ export function OwnerStoreOrdersMobileBody({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("store_owner_mobile_search_placeholder")}
-              className="mt-2 w-full rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2.5 text-[14px] leading-[1.35] outline-none placeholder:text-[var(--biz-text-muted)] focus:border-[var(--biz-primary)]"
+              className="mt-2 w-full rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2.5 text-[14px] leading-[1.35] outline-none placeholder:text-[var(--biz-text-muted)] focus:border-[var(--biz-primary)]"
             />
           ) : null}
 
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[12px] leading-[1.35] text-[#6B7280]">{filterLabel}</span>
+            <span className="text-[12px] leading-[1.35] text-sam-muted">{filterLabel}</span>
             <button
               type="button"
               onClick={() => {
                 onCollapseTransient();
                 setSortNewestFirst((v) => !v);
               }}
-              className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2.5 py-1 text-[12px] font-bold leading-[1.35] text-[var(--biz-text)]"
+              className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2.5 py-1 text-[12px] font-bold leading-[1.35] text-[var(--biz-text)]"
             >
               {sortNewestFirst ? t("store_owner_mobile_sort_newest") : t("store_owner_mobile_sort_oldest")}
             </button>
@@ -366,7 +366,7 @@ export function OwnerStoreOrdersMobileBody({
         <div className="space-y-2.5 py-3" data-owner-scroll-host="orders-list">
           {deepLinkMissBanner}
           {displayOrders.length === 0 ? (
-            <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-6 text-center text-[14px] leading-[1.35] text-[#6B7280]">
+            <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-center text-[14px] leading-[1.35] text-sam-muted">
               <p className="font-bold text-[var(--biz-text)]">{t("store_owner_mobile_empty_title")}</p>
               <p className="mt-1">{t("store_owner_mobile_empty_hint")}</p>
             </div>
@@ -374,7 +374,7 @@ export function OwnerStoreOrdersMobileBody({
             <div className="space-y-4">
               {freshNewOrders.length > 0 ? (
                 <section data-owner-orders-section="fresh-new" className="space-y-2.5">
-                  <h2 className="px-0.5 text-[12px] font-bold uppercase tracking-wide text-[#6B7280]">
+                  <h2 className="px-0.5 text-[12px] font-bold uppercase tracking-wide text-sam-muted">
                     {ownerUiCopy(language, "지금 처리할 신규 주문", "Fresh actionable new orders")}
                   </h2>
                   <ul className="space-y-2.5">
@@ -403,15 +403,15 @@ export function OwnerStoreOrdersMobileBody({
                 </section>
               ) : null}
               <section data-owner-orders-section="long-waiting" className="space-y-2.5">
-                <div className="rounded-[4px] border border-amber-200 bg-amber-50 px-3 py-2">
-                  <h2 className="text-[13px] font-bold text-amber-950">
+                <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2">
+                  <h2 className="text-[13px] font-bold text-sam-fg">
                     {ownerUiCopy(
                       language,
                       `장기 미처리 pending ${longWaitingNewOrders.length}건`,
                       `${longWaitingNewOrders.length} long-waiting pending`
                     )}
                   </h2>
-                  <p className="mt-0.5 text-[11px] leading-[1.35] text-amber-900/80">
+                  <p className="mt-0.5 text-[11px] leading-[1.35] text-sam-fg/80">
                     {ownerUiCopy(
                       language,
                       "시스템 TTL 없음 · 경과 시간을 숨기지 않습니다. 신규 긴급 주문과 분리된 운영 주의 구간입니다.",
@@ -511,8 +511,8 @@ function KpiCard({
       }}
       className={
         compact
-          ? "rounded-[4px] border border-[#DDE5E0] bg-white px-1.5 py-1 text-center shadow-sm active:bg-[#EEF6F2]"
-          : "rounded-[4px] border border-[#DDE5E0] bg-white px-2 py-2 text-center shadow-sm active:bg-[#EEF6F2]"
+          ? "rounded-ui-rect border border-sam-border bg-sam-surface px-1.5 py-1 text-center shadow-sm active:bg-sam-primary-soft"
+          : "rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 text-center shadow-sm active:bg-sam-primary-soft"
       }
       data-owner-orders-kpi={compact ? "compact" : "default"}
     >

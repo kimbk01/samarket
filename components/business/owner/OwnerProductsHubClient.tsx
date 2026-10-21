@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel } from "@/lib/utils/format";
@@ -16,6 +17,7 @@ import {
   readOwnerProductsHubSessionCache,
   writeOwnerProductsHubSessionCache,
 } from "@/lib/business/owner-products-hub-session-cache";
+import { consumeOwnerProductsHubFlash } from "@/lib/business/owner-products-hub-flash";
 
 type Section = { id: string; name: string; sort_order?: number; is_hidden?: boolean };
 
@@ -34,7 +36,18 @@ type HubProduct = {
   sold_out_reason?: string | null;
   menu_section_id?: string | null;
   store_menu_sections?: Section | Section[] | null;
+  is_featured?: boolean | null;
+  is_owner_recommended?: boolean | null;
+  is_representative?: boolean | null;
 };
+
+/** PRD-12 — 「추천 우선」 대신 추천 칩 필터 (사장님 추천·대표 메뉴) */
+function isHubRecommended(p: HubProduct): boolean {
+  if (typeof p.is_owner_recommended === "boolean" || typeof p.is_representative === "boolean") {
+    return p.is_owner_recommended === true || p.is_representative === true;
+  }
+  return p.is_featured === true;
+}
 
 const INTRO_PREVIEW_LEN = 96;
 
@@ -73,7 +86,7 @@ function ownerHubCategoryPillClass(active: boolean): string {
   return [
     "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-full border px-3.5 py-2 sam-text-body-secondary font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
     active
-      ? "border-signature bg-signature text-white shadow-sm"
+      ? "border-signature bg-signature text-sam-on-primary shadow-sm"
       : "border-transparent bg-sam-surface text-sam-fg shadow-sm ring-1 ring-sam-border/50",
   ].join(" ");
 }
@@ -82,7 +95,7 @@ function ownerHubStatusPillClass(active: boolean): string {
   return [
     "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-full border px-2.5 py-1 sam-text-xxs font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
     active
-      ? "border-sam-ink bg-sam-ink text-white shadow-sm"
+      ? "border-sam-ink bg-sam-ink text-sam-on-primary shadow-sm"
       : "border-transparent bg-sam-surface/95 text-sam-muted shadow-sm ring-1 ring-sam-border/40",
   ].join(" ");
 }
@@ -145,8 +158,8 @@ export function OwnerProductsHubClient({
     return rscBootstrapError;
   });
   const [tab, setTab] = useState<string>("all");
-  /** 전체·판매중·품절·숨김(초안 포함) — 카테고리 탭과 AND 필터 */
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "sold_out" | "hidden">(() => {
+  /** 전체·판매중·품절·숨김(초안 포함)·추천 — 카테고리 탭과 AND 필터. 목록 기본 순서는 구매자 메뉴 순서(PRD-12) */
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "sold_out" | "hidden" | "recommended">(() => {
     if (statusFromUrl === "sold_out" || statusFromUrl === "active" || statusFromUrl === "hidden") {
       return statusFromUrl;
     }
@@ -154,8 +167,16 @@ export function OwnerProductsHubClient({
   });
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  /** 4-0 — 상품 허브 자체 토스트 → 셸 공통 `OwnerToastHost` */
+  const toast = useOwnerToast();
   const [deleteTarget, setDeleteTarget] = useState<HubProduct | null>(null);
+
+  /** PRD-10 — 상품 폼 저장이 재고 0 자동 품절이었으면 1회 안내 */
+  useEffect(() => {
+    if (consumeOwnerProductsHubFlash(storeId)?.kind === "auto_sold_out") {
+      toast.success(t("store_owner_prd_auto_sold_out"));
+    }
+  }, [storeId, t, toast]);
 
   const canSell = useMemo(() => {
     const r = adminStore?.storeRow;
@@ -235,12 +256,6 @@ export function OwnerProductsHubClient({
     }
   }, [sections, tab]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 3200);
-    return () => clearTimeout(timer);
-  }, [toast]);
-
   const filtered = useMemo(() => {
     const qy = search.trim().toLowerCase();
     let list = products;
@@ -253,6 +268,8 @@ export function OwnerProductsHubClient({
       list = list.filter((p) => p.product_status === "sold_out");
     } else if (statusFilter === "hidden") {
       list = list.filter((p) => p.product_status === "hidden" || p.product_status === "draft");
+    } else if (statusFilter === "recommended") {
+      list = list.filter(isHubRecommended);
     }
     if (qy.length > 0) {
       list = list.filter((p) => {
@@ -279,9 +296,9 @@ export function OwnerProductsHubClient({
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j?.ok) {
         if (j?.error === "sales_not_approved") {
-          setToast(t("business_phase7_425"));
+          toast.error(t("business_phase7_425"));
         } else if (j?.error === "admin_review_rejected") {
-          setToast(
+          toast.error(
             ownerUiCopy(
               language,
               "관리자 검수에서 반려된 상품입니다. 내용을 수정하면 재검수 요청이 되고, 승인 후 판매할 수 있습니다.",
@@ -293,7 +310,7 @@ export function OwnerProductsHubClient({
           j?.error === "admin_review_pending" ||
           j?.error === "product_changed"
         ) {
-          setToast(
+          toast.error(
             typeof j?.message === "string" && j.message
               ? j.message
               : ownerUiCopy(
@@ -304,7 +321,7 @@ export function OwnerProductsHubClient({
           );
           if (j?.error === "product_changed") await loadAll({ silent: true });
         } else if (j?.error === "admin_blocked_product") {
-          setToast(
+          toast.error(
             ownerUiCopy(
               language,
               "관리자가 판매를 차단한 상품입니다. 고객센터로 문의해 주세요.",
@@ -316,6 +333,7 @@ export function OwnerProductsHubClient({
         }
         return;
       }
+      if (j?.auto_sold_out === true) toast.success(t("store_owner_prd_auto_sold_out"));
       await loadAll({ silent: true });
     } catch {
       setError("network_error");
@@ -341,7 +359,7 @@ export function OwnerProductsHubClient({
       void patchProduct(p.id, { product_status: "sold_out" });
       return;
     }
-    setToast(t("business_phase7_427"));
+    toast.error(t("business_phase7_427"));
   };
 
   const onDeleteClick = (p: HubProduct) => {
@@ -364,7 +382,7 @@ export function OwnerProductsHubClient({
         </Link>
         <Link
           href={newProductHrefForTab}
-          className={`${Sam.btn.primaryCombo} ${hubTopActionClass} !text-white shadow-sm active:scale-[0.98]`}
+          className={`${Sam.btn.primaryCombo} ${hubTopActionClass} !text-sam-on-primary shadow-sm active:scale-[0.98]`}
           data-owner-product-register-cta="1"
         >
           {t("business_phase7_408")}
@@ -414,6 +432,7 @@ export function OwnerProductsHubClient({
               { id: "active" as const, label: t("business_phase7_412") },
               { id: "sold_out" as const, label: t("business_phase7_317") },
               { id: "hidden" as const, label: t("business_phase7_413") },
+              { id: "recommended" as const, label: t("store_owner_prd_filter_recommended") },
             ] as const
           ).map((s) => (
             <button
@@ -462,12 +481,7 @@ export function OwnerProductsHubClient({
           </p>
         ) : null}
 
-        {toast ? (
-          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
-            {toast}
-          </p>
-        ) : null}
-        {error ? <p className="sam-text-body-secondary text-red-600">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
+        {error ? <p className="sam-text-body-secondary text-sam-danger">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
 
         {loading ? (
           <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
@@ -509,7 +523,7 @@ export function OwnerProductsHubClient({
                 >
                   <div className="flex gap-2 px-2 py-1.5">
                     {/** 정사각 썸네일 80×80px — img 프리플라이트(height:auto) 무력화 후 object-cover로 상하좌우 꽉 참 */}
-                    <div className="relative size-20 shrink-0 overflow-hidden rounded-md bg-sam-surface-muted">
+                    <div className="relative size-20 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
                       {p.thumbnail_url ? (
                         <img
                           src={p.thumbnail_url}
@@ -542,7 +556,7 @@ export function OwnerProductsHubClient({
                               ? `lock_${lockReason.lock}`
                               : p.admin_review_status ?? p.product_status
                           }
-                          className="mt-0.5 sam-text-xxs leading-snug text-amber-800"
+                          className="mt-0.5 sam-text-xxs leading-snug text-sam-warning"
                         >
                           {lockReason.kind === "admin_locked" && lockReason.lock
                             ? ownerUiCopy(
@@ -595,8 +609,8 @@ export function OwnerProductsHubClient({
                               : t("business_phase7_421")
                           }
                           onClick={() => onToggleSoldOut(p)}
-                          className={`relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 ${
-                            p.product_status === "sold_out" ? "bg-amber-500" : "bg-sam-border-soft"
+                          className={`relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-sam-warning disabled:opacity-50 ${
+                            p.product_status === "sold_out" ? "bg-sam-warning" : "bg-sam-border-soft"
                           }`}
                           data-owner-cta="toggle"
                         >
@@ -616,7 +630,7 @@ export function OwnerProductsHubClient({
                           disabled={busy || adminHardLocked || (reviewLocked && !listed)}
                           onClick={() => onToggleListed(p, !listed)}
                           className={`relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
-                            listed ? "bg-emerald-500" : "bg-sam-border-soft"
+                            listed ? "bg-sam-success" : "bg-sam-border-soft"
                           }`}
                           data-owner-cta="toggle"
                         >

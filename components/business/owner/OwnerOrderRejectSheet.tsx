@@ -110,7 +110,7 @@ export function OwnerOrderRejectSheet({
           type="button"
           disabled={busy || (reasonKey === OTHER_REASON_KEY && !other.trim())}
           onClick={() => onConfirm(label)}
-          className="w-full min-h-[52px] rounded-[length:var(--overlay-radius-lg)] border border-red-200 bg-[color:var(--overlay-surface)] px-4 py-3 text-[15px] font-semibold text-[color:var(--overlay-danger)] shadow-sm active:scale-[var(--overlay-press-scale)] sm:w-auto"
+          className="w-full min-h-[52px] rounded-[length:var(--overlay-radius-lg)] border border-sam-danger/30 bg-[color:var(--overlay-surface)] px-4 py-3 text-[15px] font-semibold text-[color:var(--overlay-danger)] shadow-sm active:scale-[var(--overlay-press-scale)] sm:w-auto"
         >
           {busy ? t("common_processing") : (confirmLabel ?? t("business_phase7_261"))}
         </button>

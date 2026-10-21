@@ -18,12 +18,18 @@ let fake = createFakeStoreSupabase((c) => handler(c));
 vi.mock("@/lib/auth/get-route-user-id", () => ({ getRouteUserId: async () => "owner-1" }));
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => fake.sb }));
 vi.mock("@/lib/i18n/load-user-app-language", () => ({ loadUserAppLanguage: async () => "ko" }));
+vi.mock("@/lib/auth/server-guards", () => ({
+  validateActiveSession: async () => ({ ok: true, profile: {} }),
+  requirePhoneVerified: async () => ({ ok: true, profile: {} }),
+}));
 vi.mock("@/lib/stores/owner-product-gate", () => ({
   getStoreIfOwner: async () => ({
     ok: true,
     store: { id: "store-1", owner_user_id: "owner-1", approval_status: "approved", owner_can_edit_store_identity: false },
   }),
   canOwnerSellProducts: async () => true,
+  ownerStoreOperationalWriteBlock: () => null,
+  ownerStoreProfileWriteBlock: () => null,
 }));
 vi.mock("@/lib/stores/store-public-shared-cache-generation", () => ({
   bumpStorePublicSharedCacheGeneration: (...a: unknown[]) => bump(...a),

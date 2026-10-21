@@ -12,13 +12,13 @@ import { Biz } from "@/lib/ui/biz-component-classes";
 
 const LOGO_OUTER_CLASS = "relative h-28 w-28 shrink-0";
 const LOGO_INNER_CLASS =
-  "h-28 w-28 overflow-hidden rounded-[18px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)]";
+  "h-28 w-28 overflow-hidden rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)]";
 
 /** 배민식 프로필 촬영 버튼 — 썸네일 우하단에 붙는 원형 배지 */
 const CAMERA_OVERLAY_CLASS =
   "absolute bottom-0 right-0 z-10 flex h-12 w-12 translate-x-[18%] translate-y-[18%] items-center justify-center rounded-full border-2 border-[var(--biz-card-bg)] bg-[var(--biz-card-bg)] p-0 text-[var(--biz-primary)] shadow-none outline-none ring-1 ring-[var(--biz-card-border)] transition-transform hover:text-[var(--biz-primary-hover)] active:scale-95 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--biz-primary)]/35 focus-visible:ring-offset-1";
 
-const INTRO_TEXTAREA_CLASS = `${OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS} min-h-[2.75rem] resize-none overflow-hidden rounded-[14px] bg-[var(--biz-card-bg)] leading-snug`;
+const INTRO_TEXTAREA_CLASS = `${OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS} min-h-[2.75rem] resize-none overflow-hidden rounded-ui-rect bg-[var(--biz-card-bg)] leading-snug`;
 
 function AutoGrowIntroTextarea({
   value,
@@ -108,7 +108,7 @@ export function OwnerBasicInfoBrandingHero({
   const hasLogo = profileImageUrl.trim().length > 0;
 
   return (
-    <div className="rounded-[20px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-4">
+    <div className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-4">
       <div className="flex gap-4 sm:gap-5">
         <div className="shrink-0 pb-2">
           <p className={`${OWNER_STORE_PROFILE_FIELD_LABEL_CLASS} mb-2 text-[var(--biz-text-muted)]`}>
@@ -165,7 +165,7 @@ export function OwnerBasicInfoBrandingHero({
               value={shopName}
               onChange={(e) => onShopNameChange(e.target.value)}
               autoComplete="organization"
-              className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} min-h-[48px] rounded-[14px] bg-[var(--biz-card-bg)] text-[16px] font-semibold text-[var(--biz-text)]`}
+              className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} min-h-[48px] rounded-ui-rect bg-[var(--biz-card-bg)] text-[16px] font-semibold text-[var(--biz-text)]`}
             />
           ) : (
             <p className={`${Biz.textCardTitle} break-words`}>{shopName.trim() || noneLabel}</p>

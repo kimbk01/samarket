@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
-import { ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import type {
   BusinessAdminSidebarItem,
   BusinessAdminSidebarSection,
 } from "@/lib/business/business-admin-nav";
-import { isBusinessAdminNavHrefActive } from "@/lib/business/business-admin-nav";
+import { resolveBusinessAdminActiveNavIds } from "@/lib/business/business-admin-nav";
 import { resolveOwnerHubMenuIcon } from "@/lib/business/owner-hub-menu-icons";
 import {
   emitOwnerBasicInfoLeave,
@@ -28,6 +29,7 @@ export function BusinessAdminSidebar({
   onNavigate,
   onDirtyNavBlocked,
   className = "",
+  collapsible = false,
 }: {
   sections: BusinessAdminSidebarSection[];
   pathname: string;
@@ -35,11 +37,26 @@ export function BusinessAdminSidebar({
   /** 미저장 이탈을 막아 사이드 링크 기본 이동을 취소했을 때(예: 모바일 드로어 닫기) */
   onDirtyNavBlocked?: () => void;
   className?: string;
+  /** PC 고정 사이드바(≥1280px) — 12그룹 섹션 접기/펼치기 */
+  collapsible?: boolean;
 }) {
   const { t } = useI18n();
   const searchParams = useOwnerAdminUrlSearchParams();
   const router = useRouter();
   const biz = useBusinessAdminStore();
+  const activeIds = useMemo(
+    () => resolveBusinessAdminActiveNavIds(pathname, searchParams),
+    [pathname, searchParams]
+  );
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleGroup = (groupId: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, item: BusinessAdminSidebarItem) => {
     if (item.id === "public_store" || isOwnerStorePreviewActionHref(item.href)) {
@@ -76,21 +93,43 @@ export function BusinessAdminSidebar({
       className={`flex flex-col gap-3 bg-[var(--biz-card-bg)] ${className}`}
       aria-label={t("business_phase7_076")}
     >
-      {sections.map((section) => (
+      {sections.map((section) => {
+        const headingId = `biz-admin-nav-${collapsible ? "pc-" : ""}${section.groupId}`;
+        const listId = `${headingId}-list`;
+        const sectionHasActive = section.items.some((i) => activeIds.has(i.id));
+        const collapsed = collapsible && collapsedGroups.has(section.groupId) && !sectionHasActive;
+        return (
         <section
-          key={section.title}
+          key={section.groupId}
           className="rounded-ui-rect border border-sam-border-soft bg-[var(--biz-card-bg)] p-1.5"
-          aria-labelledby={`biz-admin-nav-${section.title}`}
+          aria-labelledby={headingId}
+          data-owner-nav-group={section.groupId}
         >
           <h2
-            id={`biz-admin-nav-${section.title}`}
+            id={headingId}
             className="px-2.5 pb-1 pt-1.5 sam-text-xxs font-bold uppercase tracking-wide text-sam-meta"
           >
-            {section.title}
+            {collapsible ? (
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-2 rounded-ui-rect text-left uppercase"
+                aria-expanded={!collapsed}
+                aria-controls={listId}
+                onClick={() => toggleGroup(section.groupId)}
+              >
+                <span>{section.title}</span>
+                <ChevronDown
+                  className={`h-3.5 w-3.5 shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+                  aria-hidden
+                />
+              </button>
+            ) : (
+              section.title
+            )}
           </h2>
-          <ul className="space-y-0.5">
+          <ul id={listId} className="space-y-0.5" hidden={collapsed}>
             {section.items.map((item) => {
-              const active = isBusinessAdminNavHrefActive(item.href, pathname, searchParams);
+              const active = activeIds.has(item.id);
               const isPreviewAction =
                 item.id === "public_store" || isOwnerStorePreviewActionHref(item.href);
               const isExternal = !isPreviewAction && item.href.startsWith("/stores/");
@@ -116,7 +155,7 @@ export function BusinessAdminSidebar({
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     {item.badge != null && item.badge > 0 ? (
-                      <span className="inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1 sam-text-xxs font-bold text-white">
+                      <span className="inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-sam-danger px-1 sam-text-xxs font-bold text-sam-on-primary">
                         {item.badge > 99 ? "99+" : item.badge}
                       </span>
                     ) : null}
@@ -152,6 +191,7 @@ export function BusinessAdminSidebar({
                       href={item.href}
                       className={`${common} ${activeCls}`}
                       onClick={(e) => handleNavClick(e, item)}
+                      aria-current={active ? "page" : undefined}
                     >
                       {inner}
                     </Link>
@@ -173,7 +213,8 @@ export function BusinessAdminSidebar({
             })}
           </ul>
         </section>
-      ))}
+        );
+      })}
     </nav>
   );
 }

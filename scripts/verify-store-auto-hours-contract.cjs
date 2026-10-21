@@ -47,7 +47,10 @@ assertExcludes(
   "owner form must not inline auto_business_hours assign"
 );
 
-assertIncludes(patchRoute, "sanitizeBusinessHoursJsonForPersistence", "PATCH must sanitize hours json");
+// OPS-09 (3-B): owner·admin PATCH share normalizeStoreBusinessHoursJsonForWrite (null → {}, object → sanitize).
+const patchFields = read("lib/stores/owner-store-patch-fields.ts");
+assertIncludes(patchRoute, "normalizeStoreBusinessHoursJsonForWrite", "PATCH must sanitize hours json");
+assertIncludes(patchFields, "sanitizeBusinessHoursJsonForPersistence", "shared PATCH normalizer must sanitize hours json");
 assertIncludes(patchRoute, "invalidateStorePublicCachesForSlug", "PATCH must invalidate public cache");
 
 assertIncludes(invalidate, "purgeStoreSlugPublicClientCaches", "must purge 15s client maps");

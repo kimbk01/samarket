@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import {
+  guardOwnerCatalogWrite,
+  ownerCatalogDbErrorResponse,
+} from "@/lib/stores/owner-catalog-write-guard";
 import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
 import { invalidateOwnerProductsListCache } from "@/lib/stores/owner-products-list-snapshot";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
@@ -44,13 +47,9 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const gate = await getStoreIfOwner(sb, userId, sid);
-  if (!gate.ok) {
-    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
-  }
-  if (gate.store.approval_status !== "approved") {
-    return NextResponse.json({ ok: false, error: "store_not_approved" }, { status: 400 });
-  }
+  // PRD-15 — 세션 · 소유 · 1-B 운영 게이트
+  const guard = await guardOwnerCatalogWrite(sb, userId, sid);
+  if (!guard.ok) return guard.response;
 
   const { data: existing, error: findErr } = await sb
     .from("store_menu_sections")
@@ -109,8 +108,7 @@ export async function PATCH(
     if (/duplicate key|unique/i.test(String(upErr.message))) {
       return NextResponse.json({ ok: false, error: "duplicate_section_name" }, { status: 409 });
     }
-    console.error("[PATCH menu-section]", upErr);
-    return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    return ownerCatalogDbErrorResponse("[PATCH menu-section]", upErr);
   }
 
   invalidateStoreMenusSnapshotCacheByStoreId(sid);
@@ -119,9 +117,14 @@ export async function PATCH(
   return NextResponse.json({ ok: true, section: updated });
 }
 
-/** 매장 오너: 카테고리 삭제 (해당 상품의 menu_section_id 는 NULL 로) */
+/**
+ * 매장 오너: 카테고리 삭제.
+ * PRD-13 — 소속 상품(삭제 제외)이 있으면 409 `section_has_products`(+count). 확인창에서 고른 이동 대상
+ * `?moveTo=<sectionId>` 로 재요청하면 같은 요청에서 상품을 옮긴 뒤 삭제한다 (FK SET NULL 로 「기타 메뉴」
+ * 에 조용히 떨어져 다음 수정 저장이 `menu_section_id_required` 로 실패하던 경로 차단). 빈 카테고리는 기존과 같다.
+ */
 export async function DELETE(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ storeId: string; sectionId: string }> }
 ) {
   const userId = await getRouteUserId();
@@ -140,12 +143,66 @@ export async function DELETE(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const gate = await getStoreIfOwner(sb, userId, sid);
-  if (!gate.ok) {
-    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+  // PRD-15 — 세션 · 소유 · 1-B 운영 게이트
+  const guard = await guardOwnerCatalogWrite(sb, userId, sid);
+  if (!guard.ok) return guard.response;
+
+  let moveTo = "";
+  try {
+    moveTo = new URL(req.url).searchParams.get("moveTo")?.trim() ?? "";
+  } catch {
+    moveTo = "";
   }
-  if (gate.store.approval_status !== "approved") {
-    return NextResponse.json({ ok: false, error: "store_not_approved" }, { status: 400 });
+
+  const { data: existing, error: findErr } = await sb
+    .from("store_menu_sections")
+    .select("id")
+    .eq("id", secId)
+    .eq("store_id", sid)
+    .maybeSingle();
+  if (findErr) {
+    if (/column|does not exist|schema cache/i.test(String(findErr.message))) {
+      return NextResponse.json({ ok: false, error: "migration_pending" }, { status: 503 });
+    }
+    return ownerCatalogDbErrorResponse("[DELETE menu-section] find", findErr);
+  }
+  if (!existing) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+
+  const { count: productCount, error: countErr } = await sb
+    .from("store_products")
+    .select("id", { count: "exact", head: true })
+    .eq("store_id", sid)
+    .eq("menu_section_id", secId)
+    .not("product_status", "eq", "deleted");
+  if (countErr) return ownerCatalogDbErrorResponse("[DELETE menu-section] count", countErr);
+  const count = typeof productCount === "number" ? productCount : 0;
+
+  if (count > 0) {
+    if (!moveTo) {
+      return NextResponse.json({ ok: false, error: "section_has_products", count }, { status: 409 });
+    }
+    if (moveTo === secId) {
+      return NextResponse.json({ ok: false, error: "invalid_move_target" }, { status: 400 });
+    }
+    const { data: target, error: targetErr } = await sb
+      .from("store_menu_sections")
+      .select("id")
+      .eq("id", moveTo)
+      .eq("store_id", sid)
+      .maybeSingle();
+    if (targetErr) return ownerCatalogDbErrorResponse("[DELETE menu-section] target", targetErr);
+    if (!target) {
+      return NextResponse.json({ ok: false, error: "invalid_move_target" }, { status: 400 });
+    }
+    // 삭제(soft) 상품 포함 전부 이동 — FK SET NULL 로 남는 행이 없게
+    const { error: moveErr } = await sb
+      .from("store_products")
+      .update({ menu_section_id: moveTo })
+      .eq("store_id", sid)
+      .eq("menu_section_id", secId);
+    if (moveErr) return ownerCatalogDbErrorResponse("[DELETE menu-section] move", moveErr);
   }
 
   const { error: delErr } = await sb
@@ -158,12 +215,17 @@ export async function DELETE(
     if (/column|does not exist|schema cache/i.test(String(delErr.message))) {
       return NextResponse.json({ ok: false, error: "migration_pending" }, { status: 503 });
     }
-    console.error("[DELETE menu-section]", delErr);
-    return NextResponse.json({ ok: false, error: delErr.message }, { status: 500 });
+    // 이동은 반영됐을 수 있다 — 캐시는 맞춘다
+    if (count > 0) {
+      invalidateStoreMenusSnapshotCacheByStoreId(sid);
+      invalidateOwnerProductsListCache(sid);
+      bumpStorePublicSharedCacheGeneration("owner_store.menu_section_delete");
+    }
+    return ownerCatalogDbErrorResponse("[DELETE menu-section]", delErr);
   }
 
   invalidateStoreMenusSnapshotCacheByStoreId(sid);
   invalidateOwnerProductsListCache(sid); // PRD-09 — 삭제 구역 상품(menu_section_id NULL) 즉시 반영
   bumpStorePublicSharedCacheGeneration("owner_store.menu_section_delete"); // OPS-02
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, ...(count > 0 ? { moved: count, moved_to: moveTo } : {}) });
 }

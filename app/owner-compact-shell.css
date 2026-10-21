@@ -88,8 +88,8 @@ body[data-owner-compact-shell] {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
-  border-bottom: 1px solid #dde5e0;
-  background-color: #fff;
+  border-bottom: 1px solid var(--sam-border-default);
+  background-color: var(--sam-bg-surface);
   padding-top: var(--owner-shell-safe-top, var(--safe-top));
   overflow-x: clip;
   overflow-y: hidden;
@@ -255,9 +255,9 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   padding-right: var(--safe-right);
   padding-bottom: var(--safe-bottom);
   overflow: hidden;
-  border-left: 1px solid var(--biz-card-border, #e7eaef);
-  background-color: var(--biz-card-bg, var(--dibay-card));
-  color: var(--biz-text, #1f2937);
+  border-left: 1px solid var(--biz-card-border, var(--sam-border-default));
+  background-color: var(--biz-card-bg, var(--sam-bg-surface));
+  color: var(--biz-text, var(--sam-text-primary));
   transition: transform 270ms ease-out;
   transform: translate3d(100%, 0, 0);
   will-change: transform;
@@ -272,9 +272,57 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   pointer-events: none;
 }
 
-/** 데스크톱 사이드바 미사용 — 햄버거 드로어 + 하단 5탭이 전 폭 공통 */
+/**
+ * 4단계 IA-20 · D-11 — PC(≥1280px) 좌측 고정 사이드바: 드로어와 같은 레지스트리(12그룹, 접기)로 렌더.
+ * 1280px 미만(폰·태블릿·소형 데스크톱)은 햄버거 드로어 + 하단 5탭 그대로 — 레이아웃 불변.
+ */
 .owner-ops-desktop-sidebar {
-  display: none !important;
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  body[data-owner-compact-shell] {
+    --owner-desktop-sidebar-w: 17rem;
+    /** 하단 5탭 숨김 → 본문 하단 여백·FAB 기준에서 탭 높이 제외 */
+    --owner-bottom-nav-footprint: var(--owner-safe-bottom);
+  }
+
+  body[data-owner-compact-shell] .owner-ops-desktop-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 54;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    width: var(--owner-desktop-sidebar-w);
+    padding-top: var(--safe-top);
+    padding-left: var(--safe-left);
+    padding-bottom: var(--safe-bottom);
+    overflow: hidden;
+    border-right: 1px solid var(--biz-card-border, var(--app-border));
+    background-color: var(--biz-card-bg, var(--app-surface));
+    color: var(--biz-text, var(--app-text));
+  }
+
+  body[data-owner-compact-shell] .owner-compact-shell__header {
+    left: var(--owner-desktop-sidebar-w);
+    width: auto;
+  }
+
+  body[data-owner-compact-shell] .owner-stack-shell,
+  body[data-owner-compact-shell] [data-owner-stack-shell="1"] {
+    padding-left: var(--owner-desktop-sidebar-w);
+  }
+
+  body[data-owner-compact-shell] .sam-fixed-bottom-bar {
+    left: var(--owner-desktop-sidebar-w);
+  }
+
+  body[data-owner-compact-shell] .owner-mobile-bottom-nav.app-bottom-nav-shell--delivery {
+    display: none;
+  }
 }
 
 /**

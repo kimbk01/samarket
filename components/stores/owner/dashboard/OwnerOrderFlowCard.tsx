@@ -84,7 +84,7 @@ export function OwnerOrderFlowCard({
                   count={count}
                   footer={
                     delay > 0 ? (
-                      <span className="mt-0.5 text-[10px] font-semibold leading-tight text-[#FF4D4F]">
+                      <span className="mt-0.5 text-[10px] font-semibold leading-tight text-sam-danger">
                         {t("store_owner_dash_delay_count", { count: delay })}
                       </span>
                     ) : (

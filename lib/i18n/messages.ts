@@ -26,6 +26,7 @@ import { cmHomeListMessages } from "./catalog/cm-home-list";
 import { personalizedFeedMessages } from "./catalog/personalized-feed";
 import { businessAdminNavMessages } from "./catalog/business-admin-nav";
 import { storeCouponSsotMessages } from "./catalog/store-coupon-ssot";
+import { storeCouponOwnerFeedbackMessages } from "./catalog/store-coupon-owner-feedback";
 import { ownerDeliveryAdsMessages } from "./catalog/owner-delivery-ads";
 import { deliveryAdsPerformanceMessages } from "./catalog/delivery-ads-performance";
 import { deliveryAdsPlacementPreviewMessages } from "./catalog/delivery-ads-placement-preview";
@@ -96,6 +97,11 @@ import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
 import { adminActionQueueMessages } from "./catalog/admin-action-queue";
 import { adminUsersAddressMessages } from "./catalog/admin-users-address";
+import { storeOps3bMessages } from "./catalog/store-ops-3b";
+import { adminDeliveryAdsStage3Messages } from "./catalog/admin-delivery-ads-stage3";
+import { ownerStage4FeedbackMessages } from "./catalog/owner-stage4-feedback";
+import { ownerStage4NavMessages } from "./catalog/owner-stage4-nav";
+import { ownerStage4RoutesMessages } from "./catalog/owner-stage4-routes";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -133,6 +139,7 @@ const KO_MESSAGES = {
   ...personalizedFeedMessages.ko,
   ...businessAdminNavMessages.ko,
   ...storeCouponSsotMessages.ko,
+  ...storeCouponOwnerFeedbackMessages.ko,
   ...ownerDeliveryAdsMessages.ko,
   ...deliveryAdsPerformanceMessages.ko,
   ...deliveryAdsPlacementPreviewMessages.ko,
@@ -185,6 +192,11 @@ const KO_MESSAGES = {
   ...platformEventsUiMessages.ko,
   ...adminActionQueueMessages.ko,
   ...adminUsersAddressMessages.ko,
+  ...storeOps3bMessages.ko,
+  ...adminDeliveryAdsStage3Messages.ko,
+  ...ownerStage4FeedbackMessages.ko,
+  ...ownerStage4NavMessages.ko,
+  ...ownerStage4RoutesMessages.ko,
   ...adminMessages.ko,
   ...adminOsLaunchMessages.ko,
   ...adminFinanceSsot19Messages.ko,
@@ -235,6 +247,7 @@ const EN_MESSAGES = {
   ...personalizedFeedMessages.en,
   ...businessAdminNavMessages.en,
   ...storeCouponSsotMessages.en,
+  ...storeCouponOwnerFeedbackMessages.en,
   ...ownerDeliveryAdsMessages.en,
   ...deliveryAdsPerformanceMessages.en,
   ...deliveryAdsPlacementPreviewMessages.en,
@@ -287,6 +300,11 @@ const EN_MESSAGES = {
   ...platformEventsUiMessages.en,
   ...adminActionQueueMessages.en,
   ...adminUsersAddressMessages.en,
+  ...storeOps3bMessages.en,
+  ...adminDeliveryAdsStage3Messages.en,
+  ...ownerStage4FeedbackMessages.en,
+  ...ownerStage4NavMessages.en,
+  ...ownerStage4RoutesMessages.en,
   ...adminMessages.en,
   ...adminOsLaunchMessages.en,
   ...adminFinanceSsot19Messages.en,

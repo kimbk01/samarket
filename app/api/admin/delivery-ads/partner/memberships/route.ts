@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
@@ -11,9 +12,11 @@ import {
   adminApprovePartnerMembership,
   adminEndPartnerMembership,
   adminRejectPartnerMembership,
+  isPartnerMembershipPeriodExpired,
+  listOrphanPartnerFundingsForAdmin,
   listPartnerMembershipsForAdmin,
   loadDeliveryAdPartnerConfig,
-  partnerMembershipAdminFilterLabel,
+  partnerMembershipEffectiveStatusLabel,
 } from "@/lib/stores/advertising/delivery-ad-partner-membership-writer";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 
@@ -38,12 +41,16 @@ export async function GET(req: NextRequest) {
         ? (statusRaw as DeliveryAdPartnerMembershipStatus)
         : "open";
 
-  const [list, config] = await Promise.all([
+  const [list, config, orphans] = await Promise.all([
     listPartnerMembershipsForAdmin(sb, { status, storeId }),
     loadDeliveryAdPartnerConfig(sb),
+    listOrphanPartnerFundingsForAdmin(sb),
   ]);
   if (list.error) {
     return NextResponse.json({ ok: false, error: list.error }, { status: 500 });
+  }
+  if (orphans.error) {
+    return NextResponse.json({ ok: false, error: `orphan_fundings:${orphans.error}` }, { status: 500 });
   }
 
   const storeIds = [...new Set(list.items.map((m) => m.storeId))];
@@ -75,11 +82,18 @@ export async function GET(req: NextRequest) {
           advertisingDiscountPercent: config.advertisingDiscountPercent,
         }
       : null,
+    // ADS-04 — partner Cash fundings without a membership row (manual recovery via refund).
+    orphanFundings: orphans.items.map((f) => ({
+      ...f,
+      amountLabel: formatDeliveryAdPhpMinor(f.amountMinor),
+    })),
     memberships: list.items.map((m) => ({
       ...m,
       storeName: nameById.get(m.storeId) ?? null,
-      statusLabelKo: partnerMembershipAdminFilterLabel(m.status, "ko"),
-      statusLabelEn: partnerMembershipAdminFilterLabel(m.status, "en"),
+      // ADS-05 — read-time derivation: ACTIVE past period end is labelled expired (row itself unchanged, D-5).
+      periodExpired: isPartnerMembershipPeriodExpired(m),
+      statusLabelKo: partnerMembershipEffectiveStatusLabel(m, "ko"),
+      statusLabelEn: partnerMembershipEffectiveStatusLabel(m, "en"),
       feeSnapshotLabel:
         m.feeSnapshotMinor == null ? null : formatDeliveryAdPhpMinor(m.feeSnapshotMinor),
     })),
@@ -95,8 +109,10 @@ type PostBody = {
 
 /** POST — approve | reject | end */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // ADS-08 — 승인·반려(회비 환불)·종료는 business 권한키 필수. GET 조회는 현행(관리자 공통) 유지.
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });

@@ -1,13 +1,15 @@
 import { redirect } from "next/navigation";
-import { mapLegacyOwnerPath } from "@/lib/business/owner-routes";
+import { appendOwnerSearchParams, OwnerRoutes } from "@/lib/business/owner-routes";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/** Legacy Owner order chat — redirect-only to canonical owner order-chat. */
-export default async function LegacyOwnerOrderChatRedirectPage({ params }: PageProps) {
+/** Legacy Owner order chat — redirect-only to canonical owner order-chat (쿼리 보존). */
+export default async function LegacyOwnerOrderChatRedirectPage({ params, searchParams }: PageProps) {
   const { orderId } = await params;
+  const sp = await searchParams;
   const id = typeof orderId === "string" ? orderId.trim() : "";
-  redirect(mapLegacyOwnerPath(`/my/business/store-order-chat/${id}`));
+  redirect(appendOwnerSearchParams(id ? OwnerRoutes.orderChat(id) : OwnerRoutes.orderChats(), sp));
 }

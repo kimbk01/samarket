@@ -34,10 +34,21 @@ export type ShadowCoverageMembership = {
  */
 export function resolveShadowCoverageMembership(
   coverage: ShadowCoverageProjection | null,
-  opts: { hasOrigin: boolean; distanceAxisEnabled: boolean }
+  opts: {
+    hasOrigin: boolean;
+    distanceAxisEnabled: boolean;
+    /**
+     * LOC-003 parity — null-geo store is never orderable for delivery, even when the
+     * projection says distance does not apply (store override `disabled`).
+     */
+    storeHasCoords?: boolean;
+  }
 ): ShadowCoverageMembership {
   if (!opts.distanceAxisEnabled) {
     return { distanceApplies: false, outOfRange: false, reason: "policy_off" };
+  }
+  if (opts.storeHasCoords === false) {
+    return { distanceApplies: true, outOfRange: true, reason: "missing_coverage" };
   }
   if (!coverage || !coverage.distanceApplies) {
     return { distanceApplies: false, outOfRange: false, reason: "policy_off" };

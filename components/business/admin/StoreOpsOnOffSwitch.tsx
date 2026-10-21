@@ -158,8 +158,8 @@ export function StoreOpsOnOffSwitch({
   const trackStyle: React.CSSProperties = trackShowsOn
     ? { backgroundColor: TRACK_ON, borderColor: TRACK_ON_BORDER }
     : {
-        backgroundColor: "var(--sam-surface-muted, #f3f4f6)",
-        borderColor: "var(--sam-border-soft, #e5e7eb)",
+        backgroundColor: "var(--sam-bg-surface-muted)",
+        borderColor: "var(--sam-border-soft)",
       };
 
   const restingThumbLeft =
@@ -188,7 +188,7 @@ export function StoreOpsOnOffSwitch({
     >
       <span
         className={[
-          "absolute top-1 z-[1] h-7 w-7 rounded-full bg-white shadow-md ring-1 ring-black/[0.06]",
+          "absolute top-1 z-[1] h-7 w-7 rounded-full bg-sam-surface shadow-md ring-1 ring-sam-ink/[0.06]",
           dragging ? "" : "transition-[left] duration-200 ease-out",
           restingThumbLeft == null && !dragging
             ? checked
@@ -213,7 +213,7 @@ export function StoreOpsOnOffSwitch({
         <span
           className={[
             "absolute top-1/2 -translate-y-1/2",
-            trackShowsOn ? "left-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" : "right-2 text-sam-fg",
+            trackShowsOn ? "left-2 text-sam-on-primary drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" : "right-2 text-sam-fg",
           ].join(" ")}
         >
           {trackShowsOn ? "ON" : "OFF"}

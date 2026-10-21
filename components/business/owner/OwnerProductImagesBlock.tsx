@@ -45,7 +45,7 @@ function newSlotId() {
 const LONG_PRESS_MS = 480;
 
 /** `OwnerMobileAdminHeader` Bell·메뉴 아이콘과 동일 stroke 라인 카메라 */
-const OWNER_PRODUCT_IMAGE_ADD_CAMERA_ICON_CLASS = "h-5 w-5 shrink-0 text-[#262626]";
+const OWNER_PRODUCT_IMAGE_ADD_CAMERA_ICON_CLASS = "h-5 w-5 shrink-0 text-sam-fg";
 
 function OwnerProductImageAddTrigger({
   fileInputId,
@@ -67,7 +67,7 @@ function OwnerProductImageAddTrigger({
       }`}
     >
       <Camera className={OWNER_PRODUCT_IMAGE_ADD_CAMERA_ICON_CLASS} strokeWidth={2} aria-hidden />
-      <span className="sam-text-xxs font-medium leading-none text-[#8C8C8C]">{hint}</span>
+      <span className="sam-text-xxs font-medium leading-none text-sam-meta">{hint}</span>
     </label>
   );
 }
@@ -80,12 +80,12 @@ const bleedFullWidth = "-mx-2 w-[calc(100%+1rem)]";
  */
 const STRIP_THUMB_PX = Math.round(88 * 0.9);
 
-const MENU_LIST_THUMB_ROUNDED = "rounded-[10px]";
+const MENU_LIST_THUMB_ROUNDED = "rounded-ui-rect";
 
 const stripScrollClass =
   [
     "flex max-w-none flex-nowrap items-start justify-start gap-0.5 overflow-x-auto overflow-y-visible overscroll-x-contain",
-    "border-b border-[#F1F1F1] bg-white px-4 py-2",
+    "border-b border-sam-border-soft bg-sam-surface px-4 py-2",
     "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
   ].join(" ");
 
@@ -154,8 +154,8 @@ const SortableStripThumb = memo(function SortableStripThumb({
         disabled={disabled}
         onClick={() => onSelectAsRep(slot.id)}
         style={buttonBoxStyle}
-        className={`relative box-border block shrink-0 touch-manipulation overflow-hidden bg-neutral-100 p-0 outline-none focus-visible:ring-2 focus-visible:ring-signature focus-visible:ring-offset-0 disabled:opacity-50 ${MENU_LIST_THUMB_ROUNDED} ${
-          isRepresentative ? "ring-2 ring-inset ring-signature" : "ring-1 ring-inset ring-black/10"
+        className={`relative box-border block shrink-0 touch-manipulation overflow-hidden bg-sam-surface-muted p-0 outline-none focus-visible:ring-2 focus-visible:ring-signature focus-visible:ring-offset-0 disabled:opacity-50 ${MENU_LIST_THUMB_ROUNDED} ${
+          isRepresentative ? "ring-2 ring-inset ring-signature" : "ring-1 ring-inset ring-sam-ink/10"
         }`}
         onPointerDown={onImagePointerDown}
         onPointerUp={onImagePointerUp}
@@ -164,10 +164,10 @@ const SortableStripThumb = memo(function SortableStripThumb({
         aria-label={isRepresentative ? t("business_phase7_400") : t("business_phase7_399")}
       >
         {previewSrc.trim() === "" ? (
-          <span className="flex h-full w-full items-center justify-center sam-text-xxs text-neutral-400">…</span>
+          <span className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">…</span>
         ) : null}
         {isRepresentative ? (
-          <span className="pointer-events-none absolute bottom-1 left-1 z-[1] rounded-[3px] bg-black/75 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow">
+          <span className="pointer-events-none absolute bottom-1 left-1 z-[1] rounded-ui-rect bg-sam-ink/75 px-1.5 py-0.5 text-[9px] font-bold leading-none text-sam-on-primary shadow">
             {t("business_phase7_398")}
           </span>
         ) : null}
@@ -177,14 +177,14 @@ const SortableStripThumb = memo(function SortableStripThumb({
         {...attributes}
         style={{ touchAction: "none" }}
         aria-label={t("business_phase7_169")}
-        className={`pointer-events-auto absolute left-0 top-0 z-20 flex h-8 w-8 touch-none items-start justify-start rounded-br-md bg-gradient-to-br from-black/55 to-transparent p-0.5 ${
+        className={`pointer-events-auto absolute left-0 top-0 z-20 flex h-8 w-8 touch-none items-start justify-start rounded-br-ui-rect bg-gradient-to-br from-sam-ink/55 to-transparent p-0.5 ${
           disabled ? "cursor-not-allowed opacity-40" : "cursor-grab active:cursor-grabbing"
         }`}
       >
         <span className="mt-0.5 flex flex-col gap-px opacity-90">
-          <span className="block h-0.5 w-3.5 rounded-full bg-white shadow-sm" />
-          <span className="block h-0.5 w-3.5 rounded-full bg-white shadow-sm" />
-          <span className="block h-0.5 w-3.5 rounded-full bg-white shadow-sm" />
+          <span className="block h-0.5 w-3.5 rounded-full bg-sam-surface shadow-sm" />
+          <span className="block h-0.5 w-3.5 rounded-full bg-sam-surface shadow-sm" />
+          <span className="block h-0.5 w-3.5 rounded-full bg-sam-surface shadow-sm" />
         </span>
       </div>
       <button
@@ -194,10 +194,10 @@ const SortableStripThumb = memo(function SortableStripThumb({
           e.stopPropagation();
           onRemove(slot.id);
         }}
-        className="pointer-events-auto absolute right-0 top-0 z-20 flex h-8 w-8 items-start justify-end p-0.5 text-white disabled:opacity-40"
+        className="pointer-events-auto absolute right-0 top-0 z-20 flex h-8 w-8 items-start justify-end p-0.5 text-sam-on-primary disabled:opacity-40"
         aria-label={t("common_delete")}
       >
-        <span className="flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-black/60 text-lg font-light leading-none shadow-sm backdrop-blur-[2px]">
+        <span className="flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-sam-ink/60 text-lg font-light leading-none shadow-sm backdrop-blur-[2px]">
           <span aria-hidden>×</span>
         </span>
       </button>
@@ -441,7 +441,7 @@ export function OwnerProductImagesBlock({
                   {t("common_loading")}
                 </div>
               ) : null}
-              <span className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-black/70 px-2.5 py-1 sam-text-xxs font-semibold text-white">
+              <span className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-sam-ink/70 px-2.5 py-1 sam-text-xxs font-semibold text-sam-on-primary">
                 {t("common_representative")}
               </span>
             </div>

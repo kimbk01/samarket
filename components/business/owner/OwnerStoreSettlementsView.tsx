@@ -211,7 +211,7 @@ export function OwnerStoreSettlementsView() {
 
   return (
     <div className={`mx-auto min-w-0 max-w-6xl ${OWNER_STORE_STACK_Y_CLASS}`} data-commission-owner="1">
-      <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "캐시 · 수수료 현황", "Cash & commission")}>
+      <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "수수료·캐시 원장", "Commission & Cash ledger")}>
         <p className="mb-2 inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1 text-[11px] font-semibold tracking-wide text-sam-muted">
           {pickCommissionCopy(lang, "조회 전용", "Read only")}
         </p>

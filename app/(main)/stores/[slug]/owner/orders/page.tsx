@@ -1,16 +1,11 @@
-import { Suspense } from "react";
-import { redirect } from "next/navigation";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { redirectSlugOwnerPage } from "@/lib/business/redirect-slug-owner-page";
 
-/** 구 `/stores/[slug]/owner/orders` → 사업자 통합 주문 관리 */
-export default function StoreOwnerOrdersPage() {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={3} />}>
-      <StoreOwnerOrdersPageBody />
-    </Suspense>
-  );
-}
+type PageProps = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-async function StoreOwnerOrdersPageBody() {
-  return redirect("/stores/owner/orders");
+/** 구 `/stores/[slug]/owner/orders` → `/stores/owner/orders?storeId=` (slug→storeId, 쿼리 보존) */
+export default async function StoreOwnerOrdersPage({ params, searchParams }: PageProps) {
+  return redirectSlugOwnerPage("orders", params, searchParams);
 }

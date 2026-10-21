@@ -3,6 +3,8 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
@@ -122,11 +124,14 @@ export async function PATCH(
   // 최초 댓글 작성 시 리뷰 작성자에게 알림 (삭제·수정은 알림 없음)
   if (!isDelete && isFirstReply) {
     if (buyerUserId) {
+      // OPS-10 — 주문자 언어로 제목·본문 (관리자 매장 결정 알림과 같은 loadNotificationUserLanguage + notifySafeT).
+      const language = await loadNotificationUserLanguage(sb, buyerUserId);
+      const excerpt = reply.length > 80 ? `${reply.slice(0, 79)}…` : reply;
       void appendUserNotification(sb, {
         user_id: buyerUserId,
         notification_type: "review",
-        title: "사장님이 리뷰에 댓글을 남겼어요",
-        body: reply.length > 80 ? `${reply.slice(0, 79)}…` : reply,
+        title: notifySafeT(language, "notify_store_review_owner_reply_title"),
+        body: notifySafeT(language, "notify_store_review_owner_reply_body", { vars: { reply: excerpt } }),
         // Buyer-facing CTA: the reviewed order card (owner review console is owner-only).
         link_url: orderId ? buyerStoreOrderDetailPath(orderId) : "/orders",
         domain: "store",

@@ -80,6 +80,8 @@ function formatBannerSaveError(
     case "storage_bucket_missing":
       return tr("business_phase7_449");
     case "store_not_editable":
+    case "store_not_approved":
+    case "store_suspended":
       return tr("business_phase7_450");
     default:
       return code;
@@ -334,7 +336,7 @@ export function OwnerStoreBannersView() {
       <OwnerStoreAdminDashSection>
         <p className="sam-text-body text-sam-muted">{t("business_phase7_018")}</p>
 
-        {err ? <p className="text-sm text-red-600">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
+        {err ? <p className="text-sm text-sam-danger">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
 
         <button
           type="button"
@@ -395,7 +397,7 @@ export function OwnerStoreBannersView() {
                     type="button"
                     disabled={busy}
                     onClick={() => setDeleteConfirmId(b.id)}
-                    className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} text-red-600`}
+                    className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} text-sam-danger`}
                   >
                     {t("common_delete")}
                   </button>
@@ -470,9 +472,9 @@ export function OwnerStoreBannersView() {
                   return (
                     <div className="space-y-2">
                       <div
-                        className={`relative w-full overflow-hidden rounded-[12px] ${
+                        className={`relative w-full overflow-hidden rounded-ui-rect ${
                           has
-                            ? "border border-[var(--biz-card-border)] bg-black/[0.03]"
+                            ? "border border-[var(--biz-card-border)] bg-sam-ink/[0.03]"
                             : "border-2 border-dashed border-[var(--biz-card-border)] bg-[var(--biz-app-bg)]"
                         }`}
                       >
@@ -484,7 +486,7 @@ export function OwnerStoreBannersView() {
                               type="button"
                               disabled={busy}
                               onClick={() => bannerFileRef.current?.click()}
-                              className="flex h-full w-full flex-col items-center justify-center gap-1 px-4 text-center transition hover:bg-black/[0.04] disabled:opacity-50"
+                              className="flex h-full w-full flex-col items-center justify-center gap-1 px-4 text-center transition hover:bg-sam-ink/[0.04] disabled:opacity-50"
                             >
                               <span className="text-[15px] font-medium text-[var(--biz-text)]">{t("business_phase7_192")}</span>
                               <span className="text-[12px] text-[var(--biz-text-muted)]">
@@ -494,12 +496,12 @@ export function OwnerStoreBannersView() {
                           )}
                         </div>
                         {has ? (
-                          <div className="absolute bottom-0 left-0 right-0 flex justify-end bg-gradient-to-t from-black/55 to-transparent p-2 pt-8">
+                          <div className="absolute bottom-0 left-0 right-0 flex justify-end bg-gradient-to-t from-sam-ink/55 to-transparent p-2 pt-8">
                             <button
                               type="button"
                               disabled={busy}
                               onClick={() => bannerFileRef.current?.click()}
-                              className="rounded-[10px] bg-white/95 px-3 py-1.5 text-[12px] font-semibold text-[var(--biz-text)] shadow-sm backdrop-blur-sm transition hover:bg-white disabled:opacity-50"
+                              className="rounded-ui-rect bg-sam-surface/95 px-3 py-1.5 text-[12px] font-semibold text-[var(--biz-text)] shadow-sm backdrop-blur-sm transition hover:bg-sam-surface disabled:opacity-50"
                             >
                               {t("business_phase7_456")}
                             </button>
@@ -612,7 +614,7 @@ export function OwnerStoreBannersView() {
                       <p className="mt-1.5 text-[11px] text-[var(--biz-text-muted)]">{t("business_phase7_031")}</p>
                     ) : linkPick.notices.length === 0 &&
                       !(editor.mode === "new" ? editor.draft.link_target_id : editor.row.link_target_id) ? (
-                      <p className="mt-1.5 text-[11px] text-amber-800">
+                      <p className="mt-1.5 text-[11px] text-sam-warning">
                         {t("business_phase7_459")}
                       </p>
                     ) : null}

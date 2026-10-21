@@ -122,9 +122,13 @@ describe("CUT C Ads operation close", () => {
     expect(R3_ADMIN_PARTNER_NOT_PRODUCT).toBe(true);
     expect([...DELIVERY_AD_PRODUCT_KEYS]).not.toContain("partner");
     expect(read("lib/ads/feed-ad-request-point-flow.ts")).toMatch(/point|Point|HOLD|CAPTURE/);
+    // ADS-13 — popup submit debits Business Cash inside owner_submit_platform_popup_request (one TX).
     expect(read("lib/platform-popup/owner-request-writer.ts")).toContain(
-      "debitBusinessCashForDeliveryAd"
+      "OWNER_SUBMIT_PLATFORM_POPUP_REQUEST_RPC"
     );
+    expect(
+      read("supabase/migrations/20270604150100_platform_popup_owner_submit_atomic.sql")
+    ).toContain("business_cash_delivery_ad_spend");
   });
 
   it("Finance context on Ads detail + bell boundary", () => {

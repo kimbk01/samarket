@@ -666,7 +666,7 @@ export function OwnerBannerCreateView() {
             </button>
             <button
               type="button"
-              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-ui-rect border border-[#BDBDBD] bg-white px-4 text-[14px] font-semibold text-sam-fg"
+              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg"
               onClick={() => router.push(DELIVERY_AD_OWNER_ROUTES.hub)}
             >
               {t("owner_ads_back_hub")}
@@ -696,7 +696,7 @@ export function OwnerBannerCreateView() {
         </p>
 
         {errorText ? (
-          <p className="mt-3 text-[13px] text-red-600" role="alert">
+          <p className="mt-3 text-[13px] text-sam-danger" role="alert">
             {errorText}
           </p>
         ) : null}
@@ -805,10 +805,10 @@ export function OwnerBannerCreateView() {
                     <button
                       key={opt.value}
                       type="button"
-                      className={`flex w-full flex-col items-start rounded-ui-rect border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 ${
+                      className={`flex w-full flex-col items-start rounded-ui-rect border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/40 ${
                         selected
-                          ? "border-[#0A823E] bg-[#0A823E]/5"
-                          : "border-sam-border bg-sam-surface hover:border-[#0A823E]/40"
+                          ? "border-sam-primary bg-sam-primary/5"
+                          : "border-sam-border bg-sam-surface hover:border-sam-primary/40"
                       }`}
                       aria-pressed={selected}
                       onClick={() => setCtaType(opt.value)}
@@ -859,16 +859,16 @@ export function OwnerBannerCreateView() {
                   />
                   {noSellablePackages || packages.length === 0 ? (
                     <div
-                      className="mt-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2"
+                      className="mt-2 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2"
                       data-owner-ads-price-unset="1"
                     >
-                      <p className="text-[13px] font-semibold text-amber-950">
+                      <p className="text-[13px] font-semibold text-sam-fg">
                         {safeT("owner_ads_price_unset_title", {
                           fallbackKo: "이 광고 상품은 아직 판매 가격이 설정되지 않았습니다.",
                           fallbackEn: "This ad product does not have a sell price yet.",
                         })}
                       </p>
-                      <p className="mt-1 text-[12px] text-amber-900">
+                      <p className="mt-1 text-[12px] text-sam-fg">
                         {safeT("owner_ads_price_unset_body", {
                           fallbackKo: "가격 설정 후 신청할 수 있습니다.",
                           fallbackEn: "You can apply after a price is set.",
@@ -907,7 +907,7 @@ export function OwnerBannerCreateView() {
                   type="button"
                   className={`flex w-full flex-col items-start rounded-ui-rect border px-3 py-2.5 text-left ${
                     creativeMode === "owner_upload"
-                      ? "border-[#0A823E] bg-[#0A823E]/5"
+                      ? "border-sam-primary bg-sam-primary/5"
                       : "border-sam-border bg-sam-surface"
                   }`}
                   aria-pressed={creativeMode === "owner_upload"}
@@ -932,7 +932,7 @@ export function OwnerBannerCreateView() {
                   type="button"
                   className={`flex w-full flex-col items-start rounded-ui-rect border px-3 py-2.5 text-left ${
                     creativeMode === "admin_produce"
-                      ? "border-[#0A823E] bg-[#0A823E]/5"
+                      ? "border-sam-primary bg-sam-primary/5"
                       : "border-sam-border bg-sam-surface"
                   }`}
                   aria-pressed={creativeMode === "admin_produce"}
@@ -998,7 +998,7 @@ export function OwnerBannerCreateView() {
                       </p>
                       <button
                         type="button"
-                        className="text-[13px] font-semibold text-red-600 underline-offset-2 hover:underline"
+                        className="text-[13px] font-semibold text-sam-danger underline-offset-2 hover:underline"
                         data-owner-ads-image-remove="1"
                         onClick={() => setUploaded(null)}
                       >
@@ -1081,16 +1081,16 @@ export function OwnerBannerCreateView() {
                 />
               ) : (
                 <div
-                  className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-3"
+                  className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3"
                   data-owner-ads-price-unset="confirm"
                 >
-                  <p className="text-[13px] font-semibold text-amber-950">
+                  <p className="text-[13px] font-semibold text-sam-fg">
                     {safeT("owner_ads_price_unset_title", {
                       fallbackKo: "이 광고 상품은 아직 판매 가격이 설정되지 않았습니다.",
                       fallbackEn: "This ad product does not have a sell price yet.",
                     })}
                   </p>
-                  <p className="mt-1 text-[12px] text-amber-900">
+                  <p className="mt-1 text-[12px] text-sam-fg">
                     {safeT("owner_ads_price_unset_body", {
                       fallbackKo: "가격 설정 후 신청할 수 있습니다.",
                       fallbackEn: "You can apply after a price is set.",

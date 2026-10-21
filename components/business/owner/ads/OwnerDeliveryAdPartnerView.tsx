@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -30,6 +30,8 @@ type PartnerPayload = {
     periodEnd: string | null;
     feeSnapshotLabel: string | null;
     advertisingDiscountPercentSnapshot: number;
+    /** ADS-05 — server read-time derivation (ACTIVE past period end). */
+    periodExpired?: boolean;
   } | null;
   canApply?: boolean;
   canRequestCancel?: boolean;
@@ -51,6 +53,8 @@ export function OwnerDeliveryAdPartnerView() {
   const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(storeSheetOpen);
   const [data, setData] = useState<PartnerPayload | null>(null);
   const [busy, setBusy] = useState(false);
+  /** ADS-04 — one idempotency key per apply attempt; kept across retries until the apply succeeds. */
+  const applyRequestIdRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadStores = useCallback(async () => {
@@ -109,6 +113,7 @@ export function OwnerDeliveryAdPartnerView() {
   const statusCopy = useMemo(() => {
     const st = data?.membership?.status;
     if (!st) return null;
+    if (data?.membership?.periodExpired) return data.membership.statusLabel;
     if (st === "PENDING_REVIEW") return t("owner_ads_partner_status_pending");
     if (st === "ACTIVE") return t("owner_ads_partner_status_active");
     if (st === "CANCEL_PENDING") return t("owner_ads_partner_status_cancel_pending");
@@ -120,6 +125,12 @@ export function OwnerDeliveryAdPartnerView() {
     if (!storeId) return;
     setBusy(true);
     setError(null);
+    if (op === "apply" && !applyRequestIdRef.current) {
+      applyRequestIdRef.current =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `partner_apply_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    }
     try {
       const res = await fetch("/api/me/delivery-ads/partner", {
         method: "POST",
@@ -129,6 +140,7 @@ export function OwnerDeliveryAdPartnerView() {
           op,
           storeId,
           membershipId: data?.membership?.id,
+          requestId: op === "apply" ? applyRequestIdRef.current : undefined,
         }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
@@ -136,6 +148,7 @@ export function OwnerDeliveryAdPartnerView() {
         setError(json.error ?? "action_failed");
         return;
       }
+      if (op === "apply") applyRequestIdRef.current = null;
       await load(storeId);
     } catch {
       setError("network");
@@ -146,7 +159,7 @@ export function OwnerDeliveryAdPartnerView() {
 
   const activePartnerStep = useMemo((): 1 | 2 | 3 | 4 => {
     const st = data?.membership?.status;
-    if (st === "ACTIVE") return 4;
+    if (st === "ACTIVE" && !data?.membership?.periodExpired) return 4;
     if (st === "PENDING_REVIEW" || st === "CANCEL_PENDING") return 3;
     if (data?.canApply) return 2;
     return 1;
@@ -208,7 +221,7 @@ export function OwnerDeliveryAdPartnerView() {
       ) : null}
 
       <section
-        className="mt-3 rounded-ui-rect border border-[#0A823E]/30 bg-[#0A823E]/5 p-4"
+        className="mt-3 rounded-ui-rect border border-sam-primary/30 bg-sam-primary/5 p-4"
         data-owner-ads-partner-benefits="1"
       >
         <p className="text-[15px] font-bold text-sam-fg">{t("owner_ads_partner_benefits_title")}</p>
@@ -226,7 +239,7 @@ export function OwnerDeliveryAdPartnerView() {
       </section>
 
       {error ? (
-        <p className="mt-3 text-[13px] text-red-600" role="alert">
+        <p className="mt-3 text-[13px] text-sam-danger" role="alert">
           {safeT("owner_ads_error_generic", {
             fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
             fallbackEn: "Something went wrong. Please try again.",
@@ -278,7 +291,7 @@ export function OwnerDeliveryAdPartnerView() {
             <button
               type="button"
               disabled={busy}
-              className="inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-[#BDBDBD] bg-white px-4 text-[14px] font-semibold text-sam-fg"
+              className="inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg"
               data-owner-partner-cancel="1"
               onClick={() => void run("cancel_request")}
             >

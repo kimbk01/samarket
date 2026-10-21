@@ -10,6 +10,15 @@ import {
   parseStoreCouponCampaignCreateBody,
 } from "@/lib/stores/store-coupon-campaign-validation";
 import { STORE_COUPON_CAMPAIGN_TABLE } from "@/lib/stores/store-coupon-campaign-authority";
+import {
+  checkOwnerCouponTransition,
+  couponIsActiveForLifecycle,
+  isOwnerCouponTransitionAction,
+  parseCouponClientRequestId,
+  STORE_COUPON_MAX_USES_PER_USER,
+} from "@/lib/stores/store-coupon-effective-state";
+import { validateActiveSession } from "@/lib/auth/server-guards";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,6 +75,7 @@ export async function GET(req: NextRequest) {
     usage_end_at: c.usage_end_at,
     is_active: c.is_active,
     lifecycle_state: c.lifecycle_state,
+    paused_by: c.paused_by,
     funding_mode: c.funding_mode,
     issued_count: c.issued_count,
     issue_limit: c.issue_limit,
@@ -126,6 +136,7 @@ export async function POST(req: NextRequest) {
       end_at: parsed.value.endAt,
       is_active: parsed.value.isActive,
       lifecycle_state: parsed.value.isActive ? "active" : "draft",
+      max_uses_per_user: STORE_COUPON_MAX_USES_PER_USER,
       funding_mode: funding.write.funding_mode,
       requires_admin_approval: funding.write.requires_admin_approval,
       max_discount: parsed.value.maxDiscount,
@@ -151,27 +162,70 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, campaign: data });
 }
 
+type OwnerCouponSb = NonNullable<ReturnType<typeof tryGetSupabaseForStores>>;
+
+/** 감사 기록 — 실패해도 전이 응답은 바꾸지 않는다(이미 커밋됨). 실패는 로그로 남긴다. */
+async function appendOwnerCouponAudit(
+  sb: OwnerCouponSb,
+  campaignId: string,
+  actorUserId: string,
+  action: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const { error } = await sb.from("coupon_audit_events").insert({
+    campaign_id: campaignId,
+    actor_user_id: actorUserId,
+    action,
+    payload,
+  });
+  if (error) console.error("[owner coupon audit]", action, error.message);
+}
+
+async function findReissueByRequestId(
+  sb: OwnerCouponSb,
+  storeId: string,
+  sourceId: string,
+  clientRequestId: string
+): Promise<{ id: string; lifecycle_state: string } | null> {
+  const { data } = await sb
+    .from(STORE_COUPON_CAMPAIGN_TABLE)
+    .select("id, lifecycle_state")
+    .eq("store_id", storeId)
+    .eq("source_campaign_id", sourceId)
+    .eq("client_request_id", clientRequestId)
+    .maybeSingle();
+  return data ? { id: String(data.id), lifecycle_state: String(data.lifecycle_state) } : null;
+}
+
 export async function PATCH(req: NextRequest) {
   const userId = await getRouteUserId();
   if (!userId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   const body = (await req.json().catch(() => null)) as {
     id?: string;
     action?: string;
+    clientRequestId?: unknown;
   } | null;
   const id = String(body?.id ?? "").trim();
   const action = String(body?.action ?? "").trim();
   if (!id) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
-  const { data: row } = await sb
+  const { data: row, error: rowErr } = await sb
     .from(STORE_COUPON_CAMPAIGN_TABLE)
-    .select("id, store_id, lifecycle_state, funding_mode, issuer_role")
+    .select("id, store_id, lifecycle_state, is_active, paused_by, funding_mode, issuer_role")
     .eq("id", id)
     .maybeSingle();
+  if (rowErr) {
+    console.error("[owner coupon patch load]", rowErr.message);
+    return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+  }
   if (!row || !(await assertOwnedStore(sb, userId, String(row.store_id)))) {
     return NextResponse.json({ ok: false, error: "forbidden_store" }, { status: 403 });
   }
-  const patchBlock = await ownerStoreOperationalWriteBlockById(sb, String(row.store_id));
+  const storeId = String(row.store_id);
+  const patchBlock = await ownerStoreOperationalWriteBlockById(sb, storeId);
   if (patchBlock) {
     return NextResponse.json({ ok: false, error: patchBlock.error }, { status: patchBlock.status });
   }
@@ -179,33 +233,61 @@ export async function PATCH(req: NextRequest) {
   if (String((row as { funding_mode?: string }).funding_mode ?? "STORE_FUNDED") !== "STORE_FUNDED") {
     return NextResponse.json({ ok: false, error: "owner_platform_offer_readonly" }, { status: 403 });
   }
-  if (action === "pause") {
-    await sb
-      .from(STORE_COUPON_CAMPAIGN_TABLE)
-      .update({ lifecycle_state: "paused", is_active: false, updated_by_user_id: userId })
-      .eq("id", id);
-    return NextResponse.json({ ok: true, lifecycle_state: "paused" });
-  }
-  if (action === "end") {
-    await sb
-      .from(STORE_COUPON_CAMPAIGN_TABLE)
-      .update({ lifecycle_state: "ended", is_active: false, updated_by_user_id: userId })
-      .eq("id", id);
-    return NextResponse.json({ ok: true, lifecycle_state: "ended" });
-  }
-  if (action === "resume") {
-    if (String(row.lifecycle_state) !== "paused") {
-      return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
+
+  if (isOwnerCouponTransitionAction(action)) {
+    // 3-C IA-04 (D-18 권장안) — 전이표 선검사 + 같은 조건의 CAS UPDATE. 0행 = 그 사이 상태가 바뀜 → 409.
+    const check = checkOwnerCouponTransition(action, row as Parameters<typeof checkOwnerCouponTransition>[1]);
+    if (!check.ok) {
+      return NextResponse.json({ ok: false, error: check.error }, { status: check.status });
     }
-    await sb
+    const tr = check.transition;
+    let q = sb
       .from(STORE_COUPON_CAMPAIGN_TABLE)
-      .update({ lifecycle_state: "active", is_active: true, updated_by_user_id: userId })
-      .eq("id", id);
-    return NextResponse.json({ ok: true, lifecycle_state: "active" });
+      .update({
+        lifecycle_state: tr.to,
+        is_active: couponIsActiveForLifecycle(tr.to),
+        updated_by_user_id: userId,
+        updated_at: new Date().toISOString(),
+        ...(tr.pausedBy !== undefined ? { paused_by: tr.pausedBy } : {}),
+      })
+      .eq("id", id)
+      .eq("store_id", storeId)
+      .in("lifecycle_state", tr.from as string[]);
+    if (tr.requireIsActive) q = q.eq("is_active", true);
+    if (tr.excludeAdminPaused) q = q.or("paused_by.is.null,paused_by.eq.owner");
+    const { data: updated, error: upErr } = await q.select("id");
+    if (upErr) {
+      console.error("[owner coupon transition]", action, upErr.message);
+      return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+    }
+    if (!updated || updated.length === 0) {
+      return NextResponse.json({ ok: false, error: "invalid_transition" }, { status: 409 });
+    }
+    bumpStorePublicSharedCacheGeneration(`owner_coupon.${action}`);
+    await appendOwnerCouponAudit(sb, id, userId, tr.audit, { from: String(row.lifecycle_state), to: tr.to });
+    return NextResponse.json({ ok: true, lifecycle_state: tr.to });
   }
+
   if (action === "reissue") {
-    const { data: src } = await sb.from(STORE_COUPON_CAMPAIGN_TABLE).select("*").eq("id", id).maybeSingle();
+    // 3-C IA-05 — 폼 단위 고정 키. 같은 키 재요청은 기존 행을 돌려준다(200, idempotent).
+    const clientRequestId = parseCouponClientRequestId(body?.clientRequestId);
+    if (!clientRequestId) {
+      return NextResponse.json({ ok: false, error: "missing_client_request_id" }, { status: 400 });
+    }
+    const prior = await findReissueByRequestId(sb, storeId, id, clientRequestId);
+    if (prior) return NextResponse.json({ ok: true, campaign: prior, idempotent: true });
+
+    const { data: src, error: srcErr } = await sb.from(STORE_COUPON_CAMPAIGN_TABLE).select("*").eq("id", id).maybeSingle();
+    if (srcErr) {
+      console.error("[owner coupon reissue load]", srcErr.message);
+      return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+    }
     if (!src) return NextResponse.json({ ok: false, error: "campaign_not_found" }, { status: 404 });
+    // D-18 / ND-1 — 관리자가 회수·반려한 쿠폰은 오너 재발행으로 되살리지 않는다(종료 쿠폰 재발행은 허용).
+    const srcLifecycle = String((src as Record<string, unknown>).lifecycle_state ?? "").trim();
+    if (srcLifecycle === "revoked" || srcLifecycle === "rejected") {
+      return NextResponse.json({ ok: false, error: "reissue_source_blocked" }, { status: 409 });
+    }
     const start = new Date();
     const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
     const copy = src as Record<string, unknown>;
@@ -224,6 +306,7 @@ export async function PATCH(req: NextRequest) {
         claim_valid_days: copy.claim_valid_days ?? null,
         is_active: true,
         lifecycle_state: "active",
+        max_uses_per_user: STORE_COUPON_MAX_USES_PER_USER,
         funding_mode: "STORE_FUNDED",
         requires_admin_approval: false,
         max_discount: copy.max_discount ?? null,
@@ -238,12 +321,22 @@ export async function PATCH(req: NextRequest) {
           copy.campaign_purpose != null && String(copy.campaign_purpose).trim()
             ? String(copy.campaign_purpose)
             : "store_promotion",
+        source_campaign_id: id,
+        client_request_id: clientRequestId,
       })
       .select("id, lifecycle_state")
       .single();
     if (error || !created) {
+      if (error?.code === "23505") {
+        // 동시 재요청 — 먼저 들어간 행을 돌려준다.
+        const raced = await findReissueByRequestId(sb, storeId, id, clientRequestId);
+        if (raced) return NextResponse.json({ ok: true, campaign: raced, idempotent: true });
+      }
+      console.error("[owner coupon reissue]", error?.message);
       return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
     }
+    bumpStorePublicSharedCacheGeneration("owner_coupon.reissue");
+    await appendOwnerCouponAudit(sb, String(created.id), userId, "owner_reissue", { source_campaign_id: id });
     return NextResponse.json({ ok: true, campaign: created });
   }
   return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });

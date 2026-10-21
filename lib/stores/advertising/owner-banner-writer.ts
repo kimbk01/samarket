@@ -138,7 +138,13 @@ export type OwnerBannerWriterError =
   | "capacity_full"
   | "db_error"
   | "inventory_lookup_failed"
-  | "store_slug_missing";
+  | "store_slug_missing"
+  /** ADS-02 — 유료 신청은 패키지 선택 필수 (기간 = 패키지에서 서버 산출). */
+  | "package_required"
+  /** ADS-02 — 제출 시 스냅샷(기간·인벤토리)과 신청 불일치 (DB 제출 함수). */
+  | "quote_stale"
+  /** ADS-11 — 기간이 끝난 캠페인 재개 거부. */
+  | "period_ended";
 
 export type OwnerBannerWriterResult<T> =
   | { ok: true; row: T; auditId?: string }
@@ -378,6 +384,8 @@ export async function upsertOwnerBannerDraft(
     typeof input.packageId === "string" && input.packageId.trim()
       ? input.packageId.trim()
       : "";
+  // ADS-02 — 유료 신청 기간은 패키지에서만 서버가 산출한다 (클라이언트 start/end 사용 안 함).
+  if (!packageId) return { ok: false, error: "package_required" };
   if (packageId) {
     const { quoteDeliveryAdApplicationCommercial } = await import(
       "@/lib/stores/advertising/delivery-ad-commercial-catalog"
@@ -469,6 +477,8 @@ function mapOwnerBannerTransitionRpcError(error: unknown): OwnerBannerWriterErro
   if (code === "illegal_transition") return "illegal_transition";
   if (code === "stale_lifecycle") return "duplicate_submit";
   if (code === "funding_required") return "funding_required";
+  if (code === "period_ended") return "period_ended";
+  if (code === "quote_stale") return "quote_stale";
   return "db_error";
 }
 

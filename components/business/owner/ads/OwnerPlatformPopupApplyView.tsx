@@ -510,7 +510,7 @@ export function OwnerPlatformPopupApplyView() {
       </OwnerStoreAdminDashSection>
 
       {error ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+        <div className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft p-3 text-sm text-sam-danger" role="alert">
           {error === "INSUFFICIENT_BUSINESS_CASH" ? (
             <>
               <p>
@@ -570,7 +570,7 @@ export function OwnerPlatformPopupApplyView() {
             return (
               <label
                 key={opt.mode}
-                className={`flex cursor-pointer items-start gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                className={`flex cursor-pointer items-start gap-2 rounded-ui-rect border px-3 py-2 text-sm transition-colors ${
                   selected
                     ? "border-sam-primary bg-sam-primary/10 text-sam-fg"
                     : "border-sam-border bg-sam-surface text-sam-fg"
@@ -691,7 +691,7 @@ export function OwnerPlatformPopupApplyView() {
                 key={p.id}
                 type="button"
                 className={`flex w-full items-center justify-between rounded-ui-rect border px-3 py-3 text-left ${
-                  packageId === p.id ? "border-[#0A823E] bg-[#E6F4ED]" : "border-sam-border bg-white"
+                  packageId === p.id ? "border-sam-primary bg-sam-primary-soft" : "border-sam-border bg-sam-surface"
                 }`}
                 onClick={() => setPackageId(p.id)}
               >
@@ -716,7 +716,7 @@ export function OwnerPlatformPopupApplyView() {
           </div>
           <div className="flex justify-between">
             <dt className="text-sam-muted">{lang === "en" ? "After payment" : "결제 후 예상 잔액"}</dt>
-            <dd className={`tabular-nums font-semibold ${insufficient ? "text-red-600" : ""}`}>
+            <dd className={`tabular-nums font-semibold ${insufficient ? "text-sam-danger" : ""}`}>
               {afterBalance == null ? "—" : formatDeliveryAdPhpMinor(Math.max(0, afterBalance))}
             </dd>
           </div>
@@ -842,9 +842,9 @@ export function OwnerPlatformPopupApplyView() {
       </BodyPortal>
 
       {confirmOpen ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-4 sm:items-center">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-sam-ink/40 p-4 sm:items-center">
           <div
-            className="w-full max-w-md rounded-ui-rect bg-white p-4 shadow-lg"
+            className="w-full max-w-md rounded-ui-rect bg-sam-surface p-4 shadow-lg"
             role="dialog"
             aria-modal="true"
             data-owner-popup-submit-confirm="1"

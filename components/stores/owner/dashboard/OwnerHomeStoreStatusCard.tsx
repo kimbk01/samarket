@@ -7,6 +7,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { parsePostgresBool } from "@/lib/community-feed/parse-postgres-bool";
 import { ownerDashCardClass } from "./owner-dashboard-ui";
+import { useOwnerMinuteNow } from "@/components/business/owner/OwnerStoreCommerceStateLabel";
+import { resolveOwnerStoreCommerceStateLabel } from "@/lib/stores/store-commerce-state-label";
 
 /**
  * Home STORE STATUS — same canonical PATCH writers as Manage/drawer toggles.
@@ -19,9 +21,13 @@ export function OwnerHomeStoreStatusCard({
   row: StoreRow;
   onUpdated: () => void | Promise<void>;
 }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
+  const now = useOwnerMinuteNow();
   const visible = parsePostgresBool(row.is_visible, false);
-  const open = parsePostgresBool(row.is_open, true);
+  // OPS-04 — 원값 is_open 이 아니라 주문자·관리자와 같은 실효 판정(스케줄·휴게·휴무·수동 마감).
+  const commerce = resolveOwnerStoreCommerceStateLabel(row, now);
+  const open = commerce.isOpenForCommerce;
+  const stateLabel = t(commerce.labelKey);
   const approved = String(row.approval_status) === "approved";
 
   const statusLine = !approved
@@ -35,8 +41,8 @@ export function OwnerHomeStoreStatusCard({
       : visible && !open
         ? ownerUiCopy(
             language,
-            "노출 중 · 영업 중지 — 고객에게 보이지만 주문은 불가",
-            "Visible · Closed — listed but not accepting orders"
+            `노출 중 · ${stateLabel} — 고객에게 보이지만 주문은 불가`,
+            `Visible · ${stateLabel} — listed but not accepting orders`
           )
         : !visible && open
           ? ownerUiCopy(
@@ -44,7 +50,7 @@ export function OwnerHomeStoreStatusCard({
               "숨김 · 영업 중 — 목록에 안 보이지만 직링크로는 주문 가능",
               "Hidden · Open — not listed; direct link can still order"
             )
-          : ownerUiCopy(language, "숨김 · 영업 중지", "Hidden · Closed");
+          : ownerUiCopy(language, `숨김 · ${stateLabel}`, `Hidden · ${stateLabel}`);
 
   return (
     <section
@@ -69,7 +75,11 @@ export function OwnerHomeStoreStatusCard({
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-app/60 px-3 py-2">
           <p className="mb-1.5 text-[11px] font-medium text-sam-muted">
-            {ownerUiCopy(language, "영업 — 지금 주문 접수 가능 여부", "Open — accepting orders right now")}
+            {ownerUiCopy(
+              language,
+              "주문 받기(수동) — 꺼 두면 영업시간과 무관하게 마감",
+              "Accept orders (manual) — off closes the store regardless of hours"
+            )}
           </p>
           <BusinessAdminOpenToggle row={row} onUpdated={onUpdated} />
         </div>

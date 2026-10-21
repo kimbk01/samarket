@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog } from "@/components/ui/dibay-overlay";
 import type { DibayOverlayAction } from "@/components/ui/dibay-overlay";
@@ -18,11 +19,12 @@ export function OwnerStoreAdminConfirmModal({
   cancelLabel,
   confirmLabel,
   confirmBusyLabel,
-  busy = false,
+  busy,
   disableActions = false,
   confirmTone = "primary",
   onCancel,
   onConfirm,
+  children,
 }: {
   open: boolean;
   titleId: string;
@@ -32,11 +34,14 @@ export function OwnerStoreAdminConfirmModal({
   confirmLabel?: string;
   /** `busy` 일 때 확인 버튼에만 표시(미주입 시 "처리 중…") */
   confirmBusyLabel?: string;
-  busy?: boolean;
+  /** 4-0 — 필수: 확인 처리 중 이중 실행 방지 (미전달 시 타입 오류) */
+  busy: boolean;
   disableActions?: boolean;
   confirmTone?: OwnerStoreAdminConfirmTone;
   onCancel: () => void;
   onConfirm: () => void | Promise<void>;
+  /** 설명 아래 추가 입력(예: 카테고리 삭제 시 메뉴 이동 대상 선택) */
+  children?: ReactNode;
 }) {
   const { t } = useI18n();
   const resolvedCancelLabel = cancelLabel ?? t("common_cancel");
@@ -70,6 +75,8 @@ export function OwnerStoreAdminConfirmModal({
       description={description ?? undefined}
       actions={actions}
       actionsLayout="row"
-    />
+    >
+      {children}
+    </DibayDialog>
   );
 }

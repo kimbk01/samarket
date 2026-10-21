@@ -36,6 +36,7 @@ function statusForError(error: string): number {
     case "duplicate_submit":
     case "quote_stale":
     case "funding_required":
+    case "period_ended":
       return 409;
     case "INSUFFICIENT_BUSINESS_CASH":
     case "INSUFFICIENT_STORE_CASH":
@@ -146,6 +147,10 @@ export async function POST(
       if (!packageId || !inventoryKey) {
         return NextResponse.json({ ok: false, error: "package_required" }, { status: 400 });
       }
+      // ADS-02 — 견적은 인벤토리 1개 기준 → 다중 인벤토리 신청은 제출 거부 (DB 제출 함수도 같은 검사).
+      if (loaded.row.inventoryKeys.length !== 1) {
+        return NextResponse.json({ ok: false, error: "inventory_single_required" }, { status: 400 });
+      }
       const commercial = await attachOwnerPaidCommercialSnapshotOnSubmit(sb, {
         campaignId: cid,
         storeId: sid,
@@ -202,6 +207,10 @@ export async function POST(
     const inventoryKey = loaded.row.inventoryKeys[0];
     if (!packageId || !inventoryKey) {
       return NextResponse.json({ ok: false, error: "package_required" }, { status: 400 });
+    }
+    // ADS-02 — 견적은 인벤토리 1개 기준 → 다중 인벤토리 신청은 제출 거부 (DB 제출 함수도 같은 검사).
+    if (loaded.row.inventoryKeys.length !== 1) {
+      return NextResponse.json({ ok: false, error: "inventory_single_required" }, { status: 400 });
     }
     const commercial = await attachOwnerPaidCommercialSnapshotOnSubmit(sb, {
       campaignId: cid,

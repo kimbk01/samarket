@@ -287,12 +287,12 @@ export default function BusinessApplyRoute() {
             {t("business_phase7_676")}
           </div>
         ) : existingStore ? (
-          <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-3 shadow-sm sm:p-4">
+          <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-3 shadow-sm sm:p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-sam-ink px-2.5 py-0.5 sam-text-xxs font-bold text-white">
+              <span className="rounded-full bg-sam-ink px-2.5 py-0.5 sam-text-xxs font-bold text-sam-on-primary">
                 {formatStoreApprovalStatusI18n(existingStore.approval_status, t)}
               </span>
-              <span className="sam-text-body font-semibold text-amber-950">{t("owner_apply_pending")}</span>
+              <span className="sam-text-body font-semibold text-sam-fg">{t("owner_apply_pending")}</span>
             </div>
             <p className="mt-2 sam-text-body text-sam-fg">
               {String(existingStore.store_name ?? "").trim() || t("store_fallback_name")}
@@ -317,7 +317,7 @@ export default function BusinessApplyRoute() {
                       ...(needName ? (["display_name"] as const) : []),
                     ],
                   })}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-ui-rect bg-signature px-4 sam-text-body font-semibold text-white"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-ui-rect bg-signature px-4 sam-text-body font-semibold text-sam-on-primary"
                 >
                   {t("business_phase7_707")}
                 </Link>
@@ -336,7 +336,7 @@ export default function BusinessApplyRoute() {
         ) : null}
 
         {submitError ? (
-          <div className="rounded-ui-rect border border-red-200 bg-red-50 p-3 sam-text-body text-red-800 shadow-sm sm:p-4">
+          <div className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft p-3 sam-text-body text-sam-danger shadow-sm sm:p-4">
             {submitError}
           </div>
         ) : null}

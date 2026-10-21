@@ -83,7 +83,14 @@ const OWNER_BASIC_INFO_SUBBLOCK_HEAD_CLASS =
   "-mx-4 mb-4 block border-b border-[var(--biz-primary-active)] bg-[var(--biz-primary)] px-4 py-3 text-[13px] font-bold leading-snug text-[var(--biz-cream)]";
 
 const OWNER_BASIC_INFO_CHECKBOX_ROW_CLASS =
-  "flex min-h-[60px] cursor-pointer items-start gap-3 rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-3 transition-colors hover:border-[var(--biz-primary)]/45 active:bg-[var(--biz-primary-soft)]";
+  "flex min-h-[60px] cursor-pointer items-start gap-3 rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-3 transition-colors hover:border-[var(--biz-primary)]/45 active:bg-[var(--biz-primary-soft)]";
+
+/** LOC-013 — 7 dp coordinate equality (same rule as server `sameStoreCoord`). */
+function sameStoreCoordClient(a: number, saved: unknown): boolean {
+  const b = typeof saved === "number" ? saved : saved == null ? null : Number(saved);
+  if (b == null || !Number.isFinite(b)) return false;
+  return Math.round(a * 1e7) === Math.round(b * 1e7);
+}
 
 function OwnerBasicInfoSubBlock({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -365,6 +372,10 @@ export function OwnerStoreBasicInfoForm({
   const [leavePrompt, setLeavePrompt] = useState<OwnerBasicInfoLeaveDetail | null>(null);
   const [leaveSaving, setLeaveSaving] = useState(false);
   const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
+  /** LOC-007 — server asked to confirm a > 1 km / other-LGU pin move (409). */
+  const [locationMoveConfirm, setLocationMoveConfirm] = useState<{ description: string } | null>(
+    null
+  );
 
   const isDirty =
     baselineSnapshot != null &&
@@ -681,7 +692,10 @@ export function OwnerStoreBasicInfoForm({
     );
   }, [row, taxonomy, identityEditable, useDbTaxonomy, storeLinkedUserAddress]);
 
-  const runSave = async (options?: { skipPrompt?: boolean }): Promise<boolean> => {
+  const runSave = async (options?: {
+    skipPrompt?: boolean;
+    confirmLocationMove?: boolean;
+  }): Promise<boolean> => {
     setError(null);
     const phoneDigits = parsePhMobileInput(values.phone);
     const phoneDb = phoneDigits ? normalizePhMobileDb(phoneDigits) : null;
@@ -690,6 +704,11 @@ export function OwnerStoreBasicInfoForm({
       return false;
     }
     const gcashDb = normalizePhMobileDb(values.email);
+    // OPS-05 — stores.email = GCash 번호. 입력했는데 형식이 틀리면 null 로 지우지 않고 막는다 (서버도 400).
+    if (parsePhMobileInput(values.email) && !gcashDb) {
+      setError(t("business_ops3b_err_invalid_gcash"));
+      return false;
+    }
     if (identityEditable) {
       const name = values.shopName.trim();
       if (name.length < 2) {
@@ -769,8 +788,6 @@ export function OwnerStoreBasicInfoForm({
         }
       }
       if (resolvedLat != null && resolvedLng != null) {
-        basicInfoPatch.lat = resolvedLat;
-        basicInfoPatch.lng = resolvedLng;
         /**
          * 가로 주소·시/주를 바꾸면 이전 Google place_id·formatted_address 가 남지 않도록
          * 같은 PATCH 에서 place_id 해제 + 새 가로 주소로 formatted_address 재구성 (Policy A: lat/lng 동반).
@@ -785,6 +802,13 @@ export function OwnerStoreBasicInfoForm({
           nextStreet !== savedStreet ||
           (regionName ?? "") !== (row.region ?? "").trim() ||
           (cityName ?? "") !== (row.city ?? "").trim();
+        /** LOC-013 — 좌표는 실제로 바뀌었거나 주소 identity 가 바뀔 때(Policy A 동반)만 전송 */
+        const coordsDirty =
+          !sameStoreCoordClient(resolvedLat, row.lat) || !sameStoreCoordClient(resolvedLng, row.lng);
+        if (coordsDirty || streetIdentityChanged) {
+          basicInfoPatch.lat = resolvedLat;
+          basicInfoPatch.lng = resolvedLng;
+        }
         if (streetIdentityChanged) {
           basicInfoPatch.place_id = null;
           basicInfoPatch.formatted_address =
@@ -808,11 +832,35 @@ export function OwnerStoreBasicInfoForm({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(basicInfoPatch),
+        body: JSON.stringify({
+          ...basicInfoPatch,
+          /** OPS-09 — 읽은 뒤 다른 저장이 있었으면 409 store_changed */
+          ...(row.updated_at ? { expected_updated_at: row.updated_at } : {}),
+          /** LOC-007 — 1 km 초과·다른 LGU 이동 확인 후 재전송 */
+          ...(options?.confirmLocationMove ? { confirmLocationMove: true } : {}),
+        }),
       });
       const j = await res.json().catch(() => ({}));
       if (res.status === 401) {
         setError(t("common_login_required"));
+        return false;
+      }
+      if (res.status === 409 && j?.error === "store_location_move_confirm_required") {
+        const parts: string[] = [];
+        const km = typeof j.move_km === "number" && Number.isFinite(j.move_km) ? j.move_km : null;
+        const reasons: unknown[] = Array.isArray(j.reasons) ? j.reasons : [];
+        if (km != null && reasons.includes("move_over_1km")) {
+          parts.push(t("business_store_location_move_confirm_body_km", { km: km.toFixed(1) }));
+        }
+        if (reasons.includes("lgu_mismatch")) {
+          parts.push(t("business_store_location_move_confirm_body_lgu"));
+        }
+        const address =
+          [values.addressStreetLine.trim(), cityName, regionName]
+            .filter((x) => !!x && String(x).trim())
+            .join(", ") || "-";
+        parts.push(t("business_store_location_move_confirm_tail", { address }));
+        setLocationMoveConfirm({ description: parts.join(" ") });
         return false;
       }
       if (!j?.ok || !j?.store) {
@@ -908,7 +956,7 @@ export function OwnerStoreBasicInfoForm({
               type="checkbox"
               checked={values.menuSoldOutBottom}
               onChange={(e) => setValues((v) => ({ ...v, menuSoldOutBottom: e.target.checked }))}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--biz-card-border)] text-[var(--biz-primary)] accent-[var(--biz-primary)]"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded-ui-rect border-[var(--biz-card-border)] text-[var(--biz-primary)] accent-[var(--biz-primary)]"
             />
             <span className="min-w-0 leading-snug">
               <span className="block text-[13px] font-semibold text-[var(--biz-text)]">
@@ -985,7 +1033,7 @@ export function OwnerStoreBasicInfoForm({
         <OwnerStoreAdminDashSection title={t("business_phase7_080")} surfaceTone="bizSoft">
           <div className="space-y-4">
             {!storeMapCoordsOk ? (
-              <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-2.5 sam-text-helper text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-100">
+              <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft/90 px-3 py-2.5 sam-text-helper text-sam-fg">
                 <p className="font-semibold">{t("business_phase7_259")}</p>
                 <p className="mt-1 leading-relaxed">{t("business_phase7_540")}</p>
                 <div className={`mt-3 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
@@ -1098,13 +1146,13 @@ export function OwnerStoreBasicInfoForm({
         ) : identityEditable && !useDbTaxonomy ? (
           <OwnerStoreAdminDashSection title={t("business_phase7_005")} surfaceTone="bizSoft">
             <div className="space-y-2">
-              <p className="sam-text-helper leading-relaxed text-amber-900">
+              <p className="sam-text-helper leading-relaxed text-sam-fg">
                 {taxonomyMeta?.source === "supabase_unconfigured" ? (
                   <>{t("business_phase7_541")}</>
                 ) : (
                   <>
                     {t("business_phase7_335")}
-                    <code className="rounded bg-amber-100 px-1">business_type</code>
+                    <code className="rounded-ui-rect bg-sam-warning-soft px-1">business_type</code>
                     {t("business_phase7_001")}
                   </>
                 )}
@@ -1142,7 +1190,7 @@ export function OwnerStoreBasicInfoForm({
         ) : (
           <OwnerStoreAdminDashSection title={t("business_phase7_005")} surfaceTone="bizSoft">
             <div className="space-y-2">
-              <p className="sam-text-helper leading-relaxed text-amber-900">
+              <p className="sam-text-helper leading-relaxed text-sam-fg">
                 {taxonomyMeta?.source === "supabase_unconfigured" ? (
                   <>{t("business_phase7_542")}</>
                 ) : taxonomyMeta?.store_topics_table === "missing" ? (
@@ -1171,7 +1219,7 @@ export function OwnerStoreBasicInfoForm({
           <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
             {error ?
               <div
-                className="max-h-20 overflow-y-auto border-b border-red-100 bg-red-50 px-3 py-1.5 sam-text-xxs leading-snug text-red-800"
+                className="max-h-20 overflow-y-auto border-b border-sam-danger/30 bg-sam-danger-soft px-3 py-1.5 sam-text-xxs leading-snug text-sam-danger"
                 role="alert"
               >
                 {error}
@@ -1214,6 +1262,24 @@ export function OwnerStoreBasicInfoForm({
         onConfirm={async () => {
           setSaveConfirmOpen(false);
           await runSave({ skipPrompt: true });
+        }}
+      />
+
+      <OwnerStoreAdminConfirmModal
+        open={locationMoveConfirm != null}
+        titleId="owner-basic-info-location-move-confirm-title"
+        title={t("business_store_location_move_confirm_title")}
+        description={locationMoveConfirm?.description ?? null}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("common_save")}
+        confirmBusyLabel={t("business_phase7_384")}
+        busy={submitting}
+        disableActions={submitting || uploading || leaveSaving}
+        confirmTone="primary"
+        onCancel={() => setLocationMoveConfirm(null)}
+        onConfirm={async () => {
+          setLocationMoveConfirm(null);
+          await runSave({ skipPrompt: true, confirmLocationMove: true });
         }}
       />
 

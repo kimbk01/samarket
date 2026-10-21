@@ -20,7 +20,7 @@ const OWNER_ORDER_STEP_ICON_CENTER_Y = "0.875rem";
 
 /** Next process column only - tap press feedback */
 const STEP_NEXT_PRESSABLE_CLASS =
-  "relative z-[1] flex w-full min-w-0 flex-col items-center gap-1.5 rounded-md border-0 bg-transparent p-1 touch-manipulation select-none outline-none [-webkit-tap-highlight-color:transparent] transition-[transform,background-color,opacity] duration-150 ease-out hover:bg-[var(--biz-tan-soft)] active:scale-[0.96] active:bg-[var(--biz-primary-soft)] active:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--biz-primary)]/40 disabled:pointer-events-none disabled:opacity-60 sm:gap-2";
+  "relative z-[1] flex w-full min-w-0 flex-col items-center gap-1.5 rounded-ui-rect border-0 bg-transparent p-1 touch-manipulation select-none outline-none [-webkit-tap-highlight-color:transparent] transition-[transform,background-color,opacity] duration-150 ease-out hover:bg-[var(--biz-tan-soft)] active:scale-[0.96] active:bg-[var(--biz-primary-soft)] active:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--biz-primary)]/40 disabled:pointer-events-none disabled:opacity-60 sm:gap-2";
 
 /** Done / waiting columns - no press */
 const STEP_STATIC_CLASS =
@@ -47,7 +47,7 @@ export function OwnerOrderCardProgressSteps({
   const terminal = new Set(["cancelled", "refunded", "refund_requested"]);
   if (terminal.has(orderStatus)) {
     return (
-      <p className="mt-2 text-center text-[12px] text-[#8C8C8C]">
+      <p className="mt-2 text-center text-[12px] text-sam-meta">
         {orderStatus === "refund_requested"
           ? t("store_owner_timeline_refund_pending")
           : orderStatus === "refunded"
@@ -82,7 +82,7 @@ export function OwnerOrderCardProgressSteps({
         const segmentDone = allDone || (i > 0 && visual[i - 1] === "done");
 
         const labelClass = `text-[10px] font-medium sm:text-[11px] ${
-          active ? "font-semibold" : done ? "text-[#262626]" : "text-[#BFBFBF]"
+          active ? "font-semibold" : done ? "text-sam-fg" : "text-sam-meta"
         }`;
 
         return (
@@ -94,7 +94,7 @@ export function OwnerOrderCardProgressSteps({
                   top: OWNER_ORDER_STEP_ICON_CENTER_Y,
                   left: "-50%",
                   width: "100%",
-                  backgroundColor: segmentDone ? "var(--biz-primary)" : "#E8E8E8",
+                  backgroundColor: segmentDone ? "var(--biz-primary)" : "var(--sam-border-default)",
                 }}
                 aria-hidden
               />

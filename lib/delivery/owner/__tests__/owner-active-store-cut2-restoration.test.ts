@@ -32,7 +32,6 @@ const OWNER_AUTHORITY_PATHS = [
   "components/business/owner/OwnerGiftCertificatesView.tsx",
   "components/business/owner/OwnerStoreNoticesView.tsx",
   "components/business/owner/OwnerStoreBannersView.tsx",
-  "components/business/owner/OwnerProductNewStoreIdRedirect.tsx",
   "components/business/owner/ads/OwnerDeliveryAdsHubView.tsx",
   "components/mypage/cs/MypageCsOwnerCareBridge.tsx",
   "components/business/StoreBusinessGuard.tsx",

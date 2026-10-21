@@ -57,4 +57,5 @@ Optional: `npx tsx scripts/runtime-delivery-phase-d-matrix.ts`
 
 - 2026-10-21 1-J (PRD-03·05·06, ND-1): 주문 RPC Pass1 검수·숨김 구역 거부 + `sold_out_reason='stock'`, 복원은 stock 품절만 판매 재개, 메뉴 스냅샷 검수 제외 — `20270602130000` · doc §7.
 - 2026-10-21 2-E/2-F (ADS-22·FIN-15): 주문 RPC 쿠폰 비용 분할 = 캠페인 기준 서버 재계산(교정), `point_commerce_blocked` 검사 제거(캐시 게이트 단일), 분할 CHECK NOT VALID — `20270603150000` · doc §7.
+- 2026-10-21 3단계 OPS-08·LOC-004: 주문 RPC 마지막 단계에 실효 영업(`store_front_commerce_open` SQL 쌍둥이)·픽업/배달 플래그 재검증(`store_closed`/`store_pickup_disabled`/`store_delivery_disabled`), 같은 INSERT 에서 주문 시 판정 스냅샷 기록(사후 UPDATE 제거), 매장 이동 재계산은 ETA 만 — `20270604110000`·`20270604110100` · doc §7.
 

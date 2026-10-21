@@ -84,7 +84,7 @@ export function OwnerHomeQuickActionsCard({
                 {ownerUiCopy(language, item.titleKo, item.titleEn)}
               </span>
               {item.badge > 0 ? (
-                <span className="absolute right-1 top-1 inline-flex min-w-[1rem] justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                <span className="absolute right-1 top-1 inline-flex min-w-[1rem] justify-center rounded-full bg-sam-danger px-1 text-[9px] font-bold text-sam-on-primary">
                   {item.badge > 99 ? "99+" : item.badge}
                 </span>
               ) : null}

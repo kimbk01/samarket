@@ -8,14 +8,17 @@ import { OwnerNotificationList } from "@/components/stores/owner/OwnerNotificati
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 
 /**
  * Canonical Owner notification inbox — `/stores/owner/notifications?storeId=`.
- * Slug path `/stores/[slug]/owner/notifications` remains compatibility.
+ * Slug path `/stores/[slug]/owner/notifications` 는 이 경로로 서버 redirect (IA-07·IA-18).
  */
 export function OwnerStoreNotificationsView() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
+  /** IA-08 — URL 없으면 셸 선택 매장(셸이 URL 도 정규화). `list[0]` 금지. */
+  const shellStoreId = useBusinessAdminStore()?.storeRow?.id?.trim() ?? "";
   const [storeId, setStoreId] = useState("");
   const [slug, setSlug] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -23,7 +26,8 @@ export function OwnerStoreNotificationsView() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const sidQuery = searchParams.get("storeId")?.trim() ?? "";
+      const sidQuery = searchParams.get("storeId")?.trim() || shellStoreId;
+      if (!sidQuery) return;
       try {
         const { status, json } = await fetchMeStoresListDeduped();
         if (cancelled) return;
@@ -34,7 +38,7 @@ export function OwnerStoreNotificationsView() {
         const stores = (json as { ok?: boolean; stores?: { id: string; slug?: string | null }[] })
           ?.stores;
         const list = Array.isArray(stores) ? stores : [];
-        const row = sidQuery ? list.find((s) => s.id === sidQuery) : list[0];
+        const row = list.find((s) => s.id === sidQuery);
         const sid = row?.id ?? sidQuery;
         if (!sid) {
           setErr(t("store_not_found_short"));
@@ -50,7 +54,7 @@ export function OwnerStoreNotificationsView() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, t]);
+  }, [searchParams, shellStoreId, t]);
 
   if (err) return <p className="text-sm text-sam-muted">{err}</p>;
   if (!storeId) return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;

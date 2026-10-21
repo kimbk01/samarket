@@ -47,7 +47,7 @@ function OptionAddBadgeButton({
       onClick={onClick}
       data-owner-product-add-option-group={addGroupAttr}
       className={
-        "inline-flex touch-manipulation select-none items-center gap-1.5 rounded-[4px] border px-3.5 py-2 shadow-sm transition-[transform,box-shadow,background-color,border-color] sam-text-body-secondary font-semibold active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 " +
+        "inline-flex touch-manipulation select-none items-center gap-1.5 rounded-ui-rect border px-3.5 py-2 shadow-sm transition-[transform,box-shadow,background-color,border-color] sam-text-body-secondary font-semibold active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 " +
         OPTION_ADD_BADGE_VARIANT_CLASS[variant] +
         " " +
         className
@@ -69,7 +69,7 @@ function OptionGroupDeleteBadgeButton({ onClick }: { onClick: () => void }) {
       aria-label={t("business_phase7_217")}
       onClick={onClick}
       className={
-        "inline-flex touch-manipulation select-none items-center rounded-[4px] border border-red-200/90 bg-red-50 px-3.5 py-2 shadow-sm transition-[transform,box-shadow,background-color] sam-text-body-secondary font-semibold text-red-800 hover:border-red-300 hover:bg-red-100 active:scale-[0.98]"
+        "inline-flex touch-manipulation select-none items-center rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3.5 py-2 shadow-sm transition-[transform,box-shadow,background-color] sam-text-body-secondary font-semibold text-sam-danger hover:border-sam-danger/30 hover:bg-sam-danger-soft active:scale-[0.98]"
       }
     >
       {t("common_delete")}
@@ -226,7 +226,7 @@ export function OwnerProductOptionsTab({
                             return next;
                           });
                         }}
-                        className="h-4 w-4 rounded border-sam-border"
+                        className="h-4 w-4 rounded-ui-rect border-sam-border"
                       />
                       {t("business_phase7_403")}
                     </label>
@@ -341,7 +341,7 @@ export function OwnerProductOptionsTab({
                                   return next;
                                 })
                               }
-                              className="h-4 w-4 shrink-0 rounded border-sam-border"
+                              className="h-4 w-4 shrink-0 rounded-ui-rect border-sam-border"
                             />
                             {t("business_phase7_317")}
                           </label>
@@ -368,7 +368,7 @@ export function OwnerProductOptionsTab({
                                   return next;
                                 })
                               }
-                              className="h-4 w-4 shrink-0 rounded border-sam-border"
+                              className="h-4 w-4 shrink-0 rounded-ui-rect border-sam-border"
                             />
                             {t("business_phase7_404")}
                           </label>
@@ -377,7 +377,7 @@ export function OwnerProductOptionsTab({
                             aria-label={t("business_phase7_162")}
                             title={t("common_delete")}
                             onClick={() => setDeleteConfirm({ kind: "optionRow", gi, oi })}
-                            className="inline-flex h-[36px] min-h-[36px] shrink-0 items-center justify-center border-0 bg-transparent px-1 text-[1.65rem] font-extrabold leading-none text-red-700 hover:text-red-800 active:opacity-80"
+                            className="inline-flex h-[36px] min-h-[36px] shrink-0 items-center justify-center border-0 bg-transparent px-1 text-[1.65rem] font-extrabold leading-none text-sam-danger hover:text-sam-danger active:opacity-80"
                           >
                             <span aria-hidden>×</span>
                           </button>
@@ -439,6 +439,7 @@ export function OwnerProductOptionsTab({
       }
       cancelLabel={t("common_cancel")}
       confirmLabel={t("common_delete")}
+      busy={false}
       confirmTone="danger"
       onCancel={() => setDeleteConfirm(null)}
       onConfirm={() => {

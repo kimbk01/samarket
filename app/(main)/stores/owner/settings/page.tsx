@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreSettingsContent } from "@/components/business/owner/OwnerStoreSettingsContent";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
@@ -14,6 +14,14 @@ import {
   invalidateMeStoresListDedupedCache,
 } from "@/lib/me/fetch-me-stores-deduped";
 import { refreshOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
+import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
+import { ownerFetchJson } from "@/lib/business/owner-fetch-json";
+import { formatOwnerStoreToggleFailure } from "@/lib/business/owner-store-patch-error-i18n";
+
+type MessengerFeatureKey =
+  | "messenger_voice_messages_enabled"
+  | "messenger_voice_calls_enabled"
+  | "messenger_video_calls_enabled";
 
 type Phase =
   | { kind: "loading" }
@@ -22,10 +30,14 @@ type Phase =
   | { kind: "ok"; row: StoreRow };
 
 function MyBusinessSettingsPageInner() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const toast = useOwnerToast();
   const searchParams = useSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  /** IA-17 — 메신저 기능 토글 처리 중 키 (이중 클릭 방지) */
+  const [messengerBusyKey, setMessengerBusyKey] = useState<MessengerFeatureKey | null>(null);
+  const messengerBusyRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!storeIdParam) {
@@ -86,38 +98,38 @@ function MyBusinessSettingsPageInner() {
     }
   }, [phase, load]);
 
+  /** IA-17 — busy + 낙관 반영, 실패 시 이전 행으로 원복 + 토스트 (전체 재로드 없음) */
   const toggleMessengerFeature = useCallback(
-    async (
-      key:
-        | "messenger_voice_messages_enabled"
-        | "messenger_voice_calls_enabled"
-        | "messenger_video_calls_enabled",
-      next: boolean
-    ) => {
+    async (key: MessengerFeatureKey, next: boolean) => {
       if (phase.kind !== "ok") return;
-      const row = phase.row;
-      if (row.approval_status !== "approved") return;
+      if (messengerBusyRef.current) return;
+      const prevRow = phase.row;
+      if (prevRow.approval_status !== "approved") return;
+      messengerBusyRef.current = true;
+      setMessengerBusyKey(key);
+      setPhase({ kind: "ok", row: { ...prevRow, [key]: next } });
       try {
-        const res = await fetch(`/api/me/stores/${row.id}`, {
+        const res = await ownerFetchJson<{ ok: true; store?: StoreRow }>(`/api/me/stores/${prevRow.id}`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
-          credentials: "include",
           body: JSON.stringify({ [key]: next }),
         });
-        const json = (await res.json()) as { ok?: boolean; store?: StoreRow; error?: string };
-        if (!res.ok || !json?.ok) throw new Error(json?.error ?? `http_${res.status}`);
+        if (!res.ok) {
+          setPhase({ kind: "ok", row: prevRow });
+          toast.error(formatOwnerStoreToggleFailure(res.code, language));
+          return;
+        }
         invalidateMeStoresListDedupedCache();
         refreshOwnerLiteStore();
-        if (json.store?.id === row.id) {
-          setPhase({ kind: "ok", row: json.store });
-        } else {
-          await load();
+        if (res.data.store?.id === prevRow.id) {
+          setPhase({ kind: "ok", row: res.data.store });
         }
-      } catch {
-        await load();
+      } finally {
+        messengerBusyRef.current = false;
+        setMessengerBusyKey(null);
       }
     },
-    [phase, load]
+    [phase, toast, language]
   );
 
   if (phase.kind === "loading") {
@@ -135,7 +147,7 @@ function MyBusinessSettingsPageInner() {
   }
   if (phase.kind === "error") {
     return (
-      <p className="sam-text-body text-red-600">
+      <p className="sam-text-body text-sam-danger">
         {t("owner_store_settings_load_failed")} ({phase.message})
       </p>
     );
@@ -146,6 +158,7 @@ function MyBusinessSettingsPageInner() {
       row={phase.row}
       onToggleVisible={() => void toggleVisible()}
       onToggleMessengerFeature={(key, next) => void toggleMessengerFeature(key, next)}
+      messengerBusyKey={messengerBusyKey}
       onStoreUpdated={() => void load()}
     />
   );

@@ -221,7 +221,7 @@ export function OwnerStoreNoticesView() {
     <div className={OWNER_STORE_STACK_Y_CLASS}>
       <OwnerStoreAdminDashSection>
         <p className="sam-text-body text-sam-muted">{t("business_phase7_430")}</p>
-        {err ? <p className="text-sm text-red-600">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
+        {err ? <p className="text-sm text-sam-danger">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
 
         <button
           type="button"
@@ -278,7 +278,7 @@ export function OwnerStoreNoticesView() {
                 type="button"
                 disabled={busy}
                 onClick={() => setDeleteConfirmId(n.id)}
-                className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} text-red-600`}
+                className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} text-sam-danger`}
               >
                 {t("common_delete")}
               </button>
@@ -396,7 +396,7 @@ export function OwnerStoreNoticesView() {
                       <img src={u} alt="" className="h-full w-full object-cover" />
                       <button
                         type="button"
-                        className="absolute right-0 top-0 rounded-bl bg-black/50 px-1 text-[10px] text-white"
+                        className="absolute right-0 top-0 rounded-bl-ui-rect bg-sam-ink/50 px-1 text-[10px] text-sam-on-primary"
                         onClick={() => {
                           if (editor.mode === "new") {
                             setEditor({

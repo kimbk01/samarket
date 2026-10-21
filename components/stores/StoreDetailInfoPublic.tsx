@@ -30,6 +30,7 @@ import {
 } from "@/lib/stores/store-delivery-api-client";
 import type { StoreNoticePublicRow } from "@/lib/stores/store-banners-notices-public";
 import { StoreOwnerNoticeCards } from "@/components/stores/StoreOwnerNoticeCards";
+import { buildStoreWeeklyHoursDisplay, STORE_WEEKDAY_LABEL_KEY } from "@/lib/stores/store-weekly-hours-display";
 
 const STORE_GALLERY_DISPLAY_MAX = 16;
 
@@ -202,6 +203,11 @@ export function StoreDetailInfoPublic({
   const satHours = strFromRecord(bhRecord, [...bhSatFieldKeys]);
   const sunHours = strFromRecord(bhRecord, [...bhSunFieldKeys]);
   const holidayLine = strFromRecord(bhRecord, [...bhHolidayFieldKeys]) ?? "—";
+  /** OPS-03 — 요일별 영업시간·휴무 예정일 (자동 영업시간 적용 매장만) */
+  const weeklyDisplay = useMemo(
+    () => buildStoreWeeklyHoursDisplay(store?.business_hours_json),
+    [store?.business_hours_json]
+  );
 
   const deliveryAvailable = store?.delivery_available === true;
   const pickupAvailable = store?.pickup_available !== false;
@@ -350,12 +356,25 @@ export function StoreDetailInfoPublic({
         ) : null}
 
         <dl className="mt-2 border-t border-sam-border">
-          <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_hours_weekday")}</dt>
-            <dd className="min-w-0 flex-1 sam-text-body font-medium leading-snug text-sam-fg">
-              {deliveryMeta.weekdaysLine || deliveryMeta.deliveryHoursLine || "—"}
-            </dd>
-          </div>
+          {weeklyDisplay.rows ? (
+            weeklyDisplay.rows.map((r) => (
+              <div key={r.day} className="flex gap-3 border-b border-sam-border-soft py-2.5" data-store-weekly-hours-day={r.day}>
+                <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">
+                  {t(STORE_WEEKDAY_LABEL_KEY[r.day])}
+                </dt>
+                <dd className="min-w-0 flex-1 sam-text-body font-medium leading-snug text-sam-fg">
+                  {r.hoursLabel ?? t("store_hours_day_closed")}
+                </dd>
+              </div>
+            ))
+          ) : (
+            <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
+              <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_hours_weekday")}</dt>
+              <dd className="min-w-0 flex-1 sam-text-body font-medium leading-snug text-sam-fg">
+                {deliveryMeta.weekdaysLine || deliveryMeta.deliveryHoursLine || "—"}
+              </dd>
+            </div>
+          )}
           {satHours ? (
             <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
               <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_hours_saturday")}</dt>
@@ -372,6 +391,16 @@ export function StoreDetailInfoPublic({
             <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_closed_days")}</dt>
             <dd className="min-w-0 flex-1 sam-text-body text-sam-fg">{holidayLine}</dd>
           </div>
+          {weeklyDisplay.upcomingClosedDates.length > 0 ? (
+            <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
+              <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">
+                {t("store_hours_upcoming_closed_dates")}
+              </dt>
+              <dd className="min-w-0 flex-1 sam-text-body tabular-nums text-sam-fg">
+                {weeklyDisplay.upcomingClosedDates.join(", ")}
+              </dd>
+            </div>
+          ) : null}
           {store.phone ? (
             <div className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft py-3.5">
               <dt className="w-full sam-text-body-secondary text-sam-meta sm:w-[100px] sm:shrink-0">{t("store_phone_number")}</dt>

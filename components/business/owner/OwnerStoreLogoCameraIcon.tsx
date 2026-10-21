@@ -13,7 +13,7 @@ export function OwnerStoreLogoCameraIcon({ className }: { className?: string }) 
       <rect x="5" y="3" width="7" height="5" rx="1.2" fill="currentColor" />
       <path d="M17 1h14l4 7H13L17 1Z" fill="currentColor" />
       <rect x="3" y="8" width="42" height="30" rx="4" fill="currentColor" />
-      <circle cx="24" cy="23" r="9" fill="var(--biz-cream, #fffcfc)" />
+      <circle cx="24" cy="23" r="9" fill="var(--sam-text-on-primary)" />
     </svg>
   );
 }

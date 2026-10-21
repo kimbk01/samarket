@@ -188,6 +188,84 @@ if (/gift_certificate_instance_redeem_fee_rate\s*\(/.test(migMinCoupon)) {
   }
 }
 
+/** 3단계 OPS-08 + LOC-004 reopen (doc §7) — effective opening / fulfillment re-check + order-time snapshot */
+{
+  const twin = fs.readFileSync(
+    path.join(root, "supabase/migrations/20270604110000_store_front_commerce_open_sql_twin.sql"),
+    "utf8"
+  );
+  const mig3 = fs.readFileSync(
+    path.join(root, "supabase/migrations/20270604110100_create_store_order_atomic_ops08_loc004.sql"),
+    "utf8"
+  );
+  const body = (sql, name) => {
+    const s = sql.indexOf(`CREATE OR REPLACE FUNCTION public.${name}(`);
+    const o = s >= 0 ? sql.indexOf("$fn$", s) : -1;
+    const c = o >= 0 ? sql.indexOf("$fn$", o + 4) : -1;
+    return c > o && o >= 0 ? sql.slice(o + 4, c) : "";
+  };
+  const twinBody = body(twin, "store_front_commerce_open");
+  const rpcBody = body(mig3, "create_store_order_atomic");
+  if (!twinBody) fails.push("OPS-08: SQL twin store_front_commerce_open missing");
+  if (!/schedule_enforced/.test(twinBody)) {
+    fails.push("OPS-08: SQL twin must require schedule_enforced (= readAutoBusinessHoursConfig)");
+  }
+  if (!rpcBody) fails.push("OPS-08/LOC-004 migration must redefine create_store_order_atomic");
+  for (const [name, b] of [["store_front_commerce_open", twinBody], ["create_store_order_atomic", rpcBody]]) {
+    if (/[^\x00-\x7F]/.test(b)) fails.push(`${name}: function body must be ASCII only`);
+  }
+  const gate = rpcBody.indexOf("public.store_front_commerce_open(v_store.business_hours_json, v_store.is_open, now())");
+  const pay = rpcBody.indexOf("-- ROOT A: payment authority before mutate");
+  const pass2 = rpcBody.indexOf("-- Pass 2+: mutate inside subtransaction");
+  if (gate < 0) fails.push("OPS-08: create must re-check effective opening state via store_front_commerce_open");
+  else if (!(pay >= 0 && gate > pay && pass2 > gate)) {
+    fails.push("OPS-08: new checks must run last (after payment authority, before Pass 2)");
+  }
+  if (!/v_store\.pickup_available IS FALSE/.test(rpcBody) || !rpcBody.includes("'store_pickup_disabled'")) {
+    fails.push("OPS-08: create must reject pickup when pickup_available = false (store_pickup_disabled)");
+  }
+  if (!/v_store\.delivery_available IS NOT TRUE/.test(rpcBody) || !rpcBody.includes("'store_delivery_disabled'")) {
+    fails.push("OPS-08: create must reject local_delivery when delivery_available <> true (store_delivery_disabled)");
+  }
+  {
+    const insertIdx = rpcBody.indexOf("INSERT INTO public.store_orders");
+    const insertChunk = insertIdx >= 0 ? rpcBody.slice(insertIdx, rpcBody.indexOf("RETURNING id INTO v_order_id", insertIdx)) : "";
+    for (const c of [
+      "checkout_store_latitude",
+      "checkout_store_longitude",
+      "checkout_serviceability_eligible",
+      "checkout_serviceability_max_km",
+      "checkout_serviceability_reason",
+    ]) {
+      if (!insertChunk.includes(c)) fails.push(`LOC-004: create INSERT must record ${c} (same TX)`);
+    }
+  }
+  for (const k of [
+    "FOR UPDATE",
+    "pg_advisory_xact_lock",
+    "WHEN unique_violation THEN",
+    "insufficient_stock",
+    "v_discount := round(v_discount_auth)",
+    "sold_out_reason = CASE",
+    "v_campaign.funding_mode = 'STORE_FUNDED'",
+  ]) {
+    if (!rpcBody.includes(k)) fails.push(`OPS-08/LOC-004 create redefinition lost ${k}`);
+  }
+  if (/point_commerce_blocked|store_point_blocked/.test(rpcBody)) {
+    fails.push("OPS-08/LOC-004 create must not re-add legacy point_commerce_blocked gate (FIN-15)");
+  }
+  if (/\.update\(serviceabilitySnapshot\)/.test(route)) {
+    fails.push("LOC-004: route must not write the serviceability snapshot with a post-RPC UPDATE");
+  }
+  if (!route.includes("...(serviceabilitySnapshot && STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY ? serviceabilitySnapshot : {})")) {
+    fails.push("LOC-004: route must put the serviceability snapshot into the create_store_order_atomic payload");
+  }
+  const geoSync = fs.readFileSync(path.join(root, "lib/stores/sync-store-orders-checkout-geo.ts"), "utf8");
+  if (!geoSync.includes(".update(storeOrderCheckoutEtaOnlyPatch(eta))")) {
+    fails.push("LOC-004: store move refresh must update ETA fields only (no order-time distance overwrite)");
+  }
+}
+
 if (fails.length) {
   console.error("FAIL: store-order-create-atomicity\n" + fails.join("\n"));
   process.exit(1);

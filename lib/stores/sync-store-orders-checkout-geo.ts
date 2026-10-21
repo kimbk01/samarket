@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
-import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
+import {
+  computeStoreOrderCheckoutEtaSnapshot,
+  type StoreOrderCheckoutEtaSnapshot,
+} from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
 
 /** 진행 중 배달 주문만 — 완료·취소 건은 스냅샷 유지 */
 const ACTIVE_DELIVERY_ORDER_STATUSES = [
@@ -18,7 +21,22 @@ export type StoreOrdersCheckoutGeoAfterStoreLocationSyncResult = {
 };
 
 /**
- * 매장 좌표 변경 후 — 진행 중 배달 주문의 ETA/거리만 재계산.
+ * LOC-004 — 매장 이동 후 재계산은 ETA 필드만 갱신한다.
+ * `checkout_straight_distance_meters` / `checkout_route_distance_meters` 는 주문 당시 판정 근거라 덮어쓰지 않는다.
+ */
+export function storeOrderCheckoutEtaOnlyPatch(
+  eta: StoreOrderCheckoutEtaSnapshot,
+): Omit<StoreOrderCheckoutEtaSnapshot, "checkout_straight_distance_meters" | "checkout_route_distance_meters"> {
+  const {
+    checkout_straight_distance_meters: _straight,
+    checkout_route_distance_meters: _route,
+    ...etaOnly
+  } = eta;
+  return etaOnly;
+}
+
+/**
+ * 매장 좌표 변경 후 — 진행 중 배달 주문의 ETA 만 재계산 (주문 당시 거리·판정 스냅샷 불변, LOC-004).
  * 배달 주소 스냅샷(`delivery_formatted_address` / `delivery_detail_address` / summary)은 불변.
  * 거리 계산은 주문에 저장된 `delivery_latitude`/`delivery_longitude` 를 쓴다.
  */
@@ -81,7 +99,10 @@ export async function refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(
         business_hours_json: store.business_hours_json,
         skipGoogleRoutes: true,
       });
-      const { error: uErr } = await sb.from("store_orders").update(eta).eq("id", oid);
+      const { error: uErr } = await sb
+        .from("store_orders")
+        .update(storeOrderCheckoutEtaOnlyPatch(eta))
+        .eq("id", oid);
       if (uErr) {
         result.errors.push(uErr.message);
         console.error("[refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged] update", uErr.message);

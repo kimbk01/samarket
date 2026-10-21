@@ -86,7 +86,7 @@ export function OwnerSalesSummaryCard({
               href={tile.href}
               prefetch={false}
               data-owner-home-today-summary={tile.id}
-              className="flex min-h-[88px] flex-col justify-between rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 active:bg-[var(--biz-primary-soft)]"
+              className="flex min-h-[88px] flex-col justify-between rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 active:bg-[var(--biz-primary-soft)]"
             >
               <div className="flex items-start justify-between gap-1">
                 <p className={ownerDashTypography.cellTitle}>{tile.label}</p>
@@ -99,9 +99,9 @@ export function OwnerSalesSummaryCard({
                     {deltaLabel}
                   </p>
                 ) : tile.hint ? (
-                  <p className={`mt-0.5 ${ownerDashTypography.helper} text-gray-500`}>{tile.hint}</p>
+                  <p className={`mt-0.5 ${ownerDashTypography.helper} text-sam-muted`}>{tile.hint}</p>
                 ) : (
-                  <p className={`mt-0.5 ${ownerDashTypography.helper} text-gray-400`}>—</p>
+                  <p className={`mt-0.5 ${ownerDashTypography.helper} text-sam-meta`}>—</p>
                 )}
               </div>
             </Link>

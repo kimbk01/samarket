@@ -77,6 +77,8 @@ export async function recordDeliveryAdImpressionFromToken(
     viewerSessionHash: string;
     occurredAtIso?: string;
     requestId?: string | null;
+    /** ADS-10 — client-sent event id, stored as context only (dedupe uses the server-derived eventId). */
+    clientEventId?: string | null;
     /** Client-claimed fields must match token or rejected. */
     claimed?: Partial<{
       campaignId: string;
@@ -122,7 +124,7 @@ export async function recordDeliveryAdImpressionFromToken(
     p_render_instance_id: p.renderInstanceId,
     p_request_id: input.requestId ?? null,
     p_occurred_at: input.occurredAtIso ?? new Date().toISOString(),
-    p_context_json: null,
+    p_context_json: input.clientEventId ? { client_event_id: input.clientEventId } : null,
   });
   if (error) return { ok: false, error: "rpc_failed", detail: error.message };
   const payload = data as { ok?: boolean; error?: string; id?: string; deduped?: boolean } | null;

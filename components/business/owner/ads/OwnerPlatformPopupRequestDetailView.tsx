@@ -88,7 +88,7 @@ export function OwnerPlatformPopupRequestDetailView() {
   if (!item) {
     return (
       <div className="space-y-3 p-4">
-        <p className="text-sm text-red-600">{error || "not_found"}</p>
+        <p className="text-sm text-sam-danger">{error || "not_found"}</p>
         <Link href={DELIVERY_AD_OWNER_ROUTES.hub} className="text-sm underline">
           Hub
         </Link>
@@ -119,7 +119,7 @@ export function OwnerPlatformPopupRequestDetailView() {
       </div>
 
       {error ? (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="text-sm text-sam-danger" role="alert">
           {error}
         </p>
       ) : null}
@@ -231,7 +231,7 @@ export function OwnerPlatformPopupRequestDetailView() {
         {editable ? (
           <Link
             href={`${PLATFORM_POPUP_OWNER_ROUTES.createPlatformPopup}?requestId=${encodeURIComponent(item.id)}&storeId=${encodeURIComponent(item.storeId)}`}
-            className="rounded-ui-rect bg-[#0A823E] px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-ui-rect bg-sam-primary px-4 py-2 text-sm font-semibold text-sam-on-primary"
           >
             {safeT("owner_platform_popup_resubmit", {
               fallbackKo: "수정 후 재신청",

@@ -741,6 +741,7 @@ export function coverageMembershipParity(
     const mem = resolveShadowCoverageMembership(cand.coverage, {
       hasOrigin: true,
       distanceAxisEnabled: opts.distanceAxisEnabled,
+      storeHasCoords: s.lat != null && s.lng != null,
     });
     if (Boolean(oldOor) !== Boolean(mem.outOfRange)) {
       assignmentDiff += 1;

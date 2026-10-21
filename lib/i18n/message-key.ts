@@ -30,6 +30,7 @@ import { cmHomeListMessages } from "./catalog/cm-home-list";
 import { personalizedFeedMessages } from "./catalog/personalized-feed";
 import { businessAdminNavMessages } from "./catalog/business-admin-nav";
 import { storeCouponSsotMessages } from "./catalog/store-coupon-ssot";
+import { storeCouponOwnerFeedbackMessages } from "./catalog/store-coupon-owner-feedback";
 import { ownerDeliveryAdsMessages } from "./catalog/owner-delivery-ads";
 import { deliveryAdsPerformanceMessages } from "./catalog/delivery-ads-performance";
 import { deliveryAdsPlacementPreviewMessages } from "./catalog/delivery-ads-placement-preview";
@@ -82,6 +83,11 @@ import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
 import { adminActionQueueMessages } from "./catalog/admin-action-queue";
 import { adminUsersAddressMessages } from "./catalog/admin-users-address";
+import { storeOps3bMessages } from "./catalog/store-ops-3b";
+import { adminDeliveryAdsStage3Messages } from "./catalog/admin-delivery-ads-stage3";
+import { ownerStage4FeedbackMessages } from "./catalog/owner-stage4-feedback";
+import { ownerStage4NavMessages } from "./catalog/owner-stage4-nav";
+import { ownerStage4RoutesMessages } from "./catalog/owner-stage4-routes";
 import { adminDeliveryOpsUxMessages } from "./catalog/admin-delivery-ops-ux";
 import { adminChatR1EMessages } from "./catalog/admin-chat-r1-media";
 import { adminChatR1DMessages } from "./catalog/admin-chat-r1-dashboard";
@@ -146,6 +152,7 @@ export type MessageKey =
   | KeyOf<typeof personalizedFeedMessages.ko>
   | KeyOf<typeof businessAdminNavMessages.ko>
   | KeyOf<typeof storeCouponSsotMessages.ko>
+  | KeyOf<typeof storeCouponOwnerFeedbackMessages.ko>
   | KeyOf<typeof ownerDeliveryAdsMessages.ko>
   | KeyOf<typeof deliveryAdsPerformanceMessages.ko>
   | KeyOf<typeof deliveryAdsPlacementPreviewMessages.ko>
@@ -198,6 +205,11 @@ export type MessageKey =
   | KeyOf<typeof platformEventsUiMessages.ko>
   | KeyOf<typeof adminActionQueueMessages.ko>
   | KeyOf<typeof adminUsersAddressMessages.ko>
+  | KeyOf<typeof storeOps3bMessages.ko>
+  | KeyOf<typeof adminDeliveryAdsStage3Messages.ko>
+  | KeyOf<typeof ownerStage4FeedbackMessages.ko>
+  | KeyOf<typeof ownerStage4NavMessages.ko>
+  | KeyOf<typeof ownerStage4RoutesMessages.ko>
   | KeyOf<typeof adminMessages.ko>
   | KeyOf<typeof adminOsLaunchMessages.ko>
   | KeyOf<typeof adminFinanceSsot19Messages.ko>
@@ -229,6 +241,7 @@ type EnMessageKey =
   | KeyOf<typeof personalizedFeedMessages.en>
   | KeyOf<typeof businessAdminNavMessages.en>
   | KeyOf<typeof storeCouponSsotMessages.en>
+  | KeyOf<typeof storeCouponOwnerFeedbackMessages.en>
   | KeyOf<typeof ownerDeliveryAdsMessages.en>
   | KeyOf<typeof deliveryAdsPerformanceMessages.en>
   | KeyOf<typeof deliveryAdsPlacementPreviewMessages.en>
@@ -281,6 +294,11 @@ type EnMessageKey =
   | KeyOf<typeof platformEventsUiMessages.en>
   | KeyOf<typeof adminActionQueueMessages.en>
   | KeyOf<typeof adminUsersAddressMessages.en>
+  | KeyOf<typeof storeOps3bMessages.en>
+  | KeyOf<typeof adminDeliveryAdsStage3Messages.en>
+  | KeyOf<typeof ownerStage4FeedbackMessages.en>
+  | KeyOf<typeof ownerStage4NavMessages.en>
+  | KeyOf<typeof ownerStage4RoutesMessages.en>
   | KeyOf<typeof adminMessages.en>
   | KeyOf<typeof adminOsLaunchMessages.en>
   | KeyOf<typeof adminFinanceSsot19Messages.en>

@@ -25,8 +25,10 @@ import {
 import type { PlatformPopupOwnerRequestRow } from "@/lib/platform-popup/owner-request-types";
 import { PLATFORM_POPUP_DEFAULT_TIMEZONE } from "@/lib/platform-popup/types";
 import type { PlatformPopupTargetSurface } from "@/lib/platform-popup/types";
-import { debitBusinessCashForDeliveryAd } from "@/lib/stores/advertising/canonical-business-cash-writer";
-import type { InsufficientBusinessCashPayload } from "@/lib/stores/advertising/canonical-business-cash-contract";
+import {
+  parseInsufficientBusinessCashRpc,
+  type InsufficientBusinessCashPayload,
+} from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { assertOwnerStoreEligibleForAds } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 
 export type OwnerPlatformPopupWriterError =
@@ -48,6 +50,28 @@ export type OwnerPlatformPopupWriterError =
   | "INSUFFICIENT_BUSINESS_CASH"
   | "bc_debit_failed"
   | "db_error";
+
+/**
+ * ADS-13 — the ONLY submit path: `owner_submit_platform_popup_request` (SECURITY DEFINER) binds the idempotency
+ * key, debits Business Cash and moves the request to submitted/funded in one transaction. Required before
+ * OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED is turned back on (see owner-popup-new-sales-gate.ts).
+ */
+export const OWNER_SUBMIT_PLATFORM_POPUP_REQUEST_RPC = "owner_submit_platform_popup_request" as const;
+
+const OWNER_SUBMIT_RPC_ERRORS: Record<
+  string,
+  { error: OwnerPlatformPopupWriterError; httpStatus: number }
+> = {
+  idempotency_key_required: { error: "idempotency_key_required", httpStatus: 400 },
+  not_found: { error: "not_found", httpStatus: 404 },
+  forbidden: { error: "forbidden", httpStatus: 403 },
+  illegal_transition: { error: "illegal_transition", httpStatus: 409 },
+  package_required: { error: "package_required", httpStatus: 400 },
+  surface_required: { error: "surface_required", httpStatus: 400 },
+  creative_required: { error: "creative_required", httpStatus: 400 },
+  schedule_invalid: { error: "schedule_invalid", httpStatus: 400 },
+  duplicate_submit: { error: "duplicate_submit", httpStatus: 409 },
+};
 
 export type OwnerPlatformPopupWriterResult =
   | { ok: true; row: PlatformPopupOwnerRequestRow; idempotent?: boolean }
@@ -306,8 +330,8 @@ export async function updatePlatformPopupOwnerDraft(
 }
 
 /**
- * Submit (or revision resubmit): debit BC platform_popup → submitted + funded.
- * Does NOT activate any campaign.
+ * Submit (or revision resubmit): debit BC platform_popup → submitted + funded — ONE DB transaction
+ * (`owner_submit_platform_popup_request`, ADS-13). Does NOT activate any campaign.
  */
 export async function submitPlatformPopupOwnerRequest(
   sb: SupabaseClient,
@@ -363,75 +387,46 @@ export async function submitPlatformPopupOwnerRequest(
   });
   if (!cta.ok) return { ok: false, error: "cta_invalid", detail: cta.error, httpStatus: 400 };
 
-  // Bind idempotency key before debit (unique constraint catches races).
-  const { error: keyErr } = await sb
-    .from(PLATFORM_POPUP_OWNER_REQUEST_TABLE)
-    .update({
-      submit_idempotency_key: key,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", owned.row.id)
-    .eq("owner_user_id", input.ownerUserId)
-    .in("request_status", ["draft", "revision_required"]);
-  if (keyErr) {
-    if (/unique|duplicate/i.test(keyErr.message)) {
+  // ADS-13 — key bind + Cash debit + submitted/funded in ONE DB transaction (no TS multi-step writes).
+  const { data: rpcData, error: rpcErr } = await sb.rpc(OWNER_SUBMIT_PLATFORM_POPUP_REQUEST_RPC, {
+    p_request_id: owned.row.id,
+    p_owner_user_id: input.ownerUserId,
+    p_idempotency_key: key,
+  });
+  if (rpcErr) {
+    if (rpcErr.code === "23505" || /unique|duplicate/i.test(rpcErr.message)) {
       return { ok: false, error: "duplicate_submit", httpStatus: 409 };
     }
-    return { ok: false, error: "db_error", detail: keyErr.message, httpStatus: 500 };
+    return { ok: false, error: "db_error", detail: rpcErr.message, httpStatus: 500 };
   }
-
-  const secured = await debitBusinessCashForDeliveryAd(sb, {
-    ownerUserId: input.ownerUserId,
-    storeId: owned.row.storeId,
-    applicationId: owned.row.id,
-    productKind: "platform_popup",
-    amountMinor: owned.row.priceMinor,
-  });
-
-  if (!secured.ok) {
-    // Clear key so owner can retry with same/different key after funding.
-    await sb
-      .from(PLATFORM_POPUP_OWNER_REQUEST_TABLE)
-      .update({
-        submit_idempotency_key: null,
-        payment_status: "failed",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", owned.row.id)
-      .eq("owner_user_id", input.ownerUserId);
-
-    if (secured.error === "INSUFFICIENT_BUSINESS_CASH" && secured.insufficient) {
-      return {
-        ok: false,
-        error: "INSUFFICIENT_BUSINESS_CASH",
-        insufficient: secured.insufficient,
-        httpStatus: 402,
-      };
+  const payload =
+    rpcData && typeof rpcData === "object" ? (rpcData as Record<string, unknown>) : null;
+  if (!payload || payload.ok !== true) {
+    const insufficient = parseInsufficientBusinessCashRpc(payload);
+    if (insufficient) {
+      return { ok: false, error: "INSUFFICIENT_BUSINESS_CASH", insufficient, httpStatus: 402 };
     }
+    const code = typeof payload?.error === "string" ? payload.error : "";
+    const mapped = OWNER_SUBMIT_RPC_ERRORS[code];
+    if (mapped) return { ok: false, error: mapped.error, httpStatus: mapped.httpStatus };
     return {
       ok: false,
-      error: "bc_debit_failed",
-      detail: secured.detail ?? secured.error,
-      httpStatus: 400,
+      error: payload?.stage === "debit" ? "bc_debit_failed" : "db_error",
+      detail: code || undefined,
+      httpStatus: payload?.stage === "debit" ? 400 : 500,
     };
   }
-
-  const now = new Date().toISOString();
-  const { error: updErr } = await sb
-    .from(PLATFORM_POPUP_OWNER_REQUEST_TABLE)
-    .update({
-      request_status: "submitted",
-      payment_status: "funded",
-      submitted_at: owned.row.submittedAt ?? now,
-      revision_reason: null,
-      updated_at: now,
-    })
-    .eq("id", owned.row.id)
-    .eq("owner_user_id", input.ownerUserId);
-
-  if (updErr) {
-    return { ok: false, error: "db_error", detail: updErr.message, httpStatus: 500 };
+  if (payload.idempotent === true && payload.funding_id == null) {
+    // Same-key replay of an already submitted request.
+    const replay = await loadPlatformPopupOwnerRequest(sb, owned.row.id);
+    if (!replay) return { ok: false, error: "db_error", httpStatus: 500 };
+    return { ok: true, row: replay, idempotent: true };
   }
+  const secured = {
+    fundingId: payload.funding_id == null ? null : String(payload.funding_id),
+    amountMinor: Math.trunc(Number(payload.amount_minor) || 0),
+    idempotent: payload.idempotent === true,
+  };
 
   const refreshed = await loadPlatformPopupOwnerRequest(sb, owned.row.id);
   if (!refreshed) return { ok: false, error: "db_error", httpStatus: 500 };

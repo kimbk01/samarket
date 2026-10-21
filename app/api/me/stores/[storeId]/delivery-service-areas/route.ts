@@ -7,10 +7,15 @@ import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-serv
 import { resolveStoreHomeLguId } from "@/lib/delivery/service-area/candidate-discovery";
 import { buildDeliveryServiceAreaEditorPayload } from "@/lib/delivery/service-area/build-service-area-editor-payload";
 import {
+  StoreDeliveryServiceAreasVersionConflictError,
+  findUnknownDeliveryServiceAreaLguIds,
   loadStoreDeliveryServiceAreas,
+  loadStoreDeliveryServiceAreasVersion,
   replaceStoreDeliveryServiceAreas,
 } from "@/lib/delivery/service-area/store-delivery-service-areas";
 import { searchPlatformPhLgu } from "@/lib/geo/ph-lgu/platform-ph-lgu";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,8 +54,15 @@ export async function GET(
   try {
     const store = await loadStoreGeo(sb, storeId);
     if (!store) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    const selected = await loadStoreDeliveryServiceAreas(sb, storeId);
-    return NextResponse.json({ ok: true, ...buildDeliveryServiceAreaEditorPayload(store, selected) });
+    const [selected, areasVersion] = await Promise.all([
+      loadStoreDeliveryServiceAreas(sb, storeId),
+      loadStoreDeliveryServiceAreasVersion(sb, storeId),
+    ]);
+    return NextResponse.json({
+      ok: true,
+      ...buildDeliveryServiceAreaEditorPayload(store, selected),
+      areasVersion,
+    });
   } catch (e) {
     /** 원문(DB 메시지)은 로그로만 — 클라이언트에는 고정 코드. */
     console.error("[delivery-service-areas:owner] GET", e instanceof Error ? e.message : e);
@@ -84,7 +96,7 @@ export async function PUT(
     return NextResponse.json({ ok: false, error: profileBlock.error }, { status: profileBlock.status });
   }
 
-  let body: { geoIdentities?: unknown; activateV2?: unknown };
+  let body: { geoIdentities?: unknown; activateV2?: unknown; expectedAreasVersion?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -95,10 +107,26 @@ export async function PUT(
   if (!idsRaw) {
     return NextResponse.json({ ok: false, error: "geo_identities_required" }, { status: 400 });
   }
+  // LOC-006 — only platform-catalog LGU ids (an unknown id would never match a member address).
+  const unknownIds = findUnknownDeliveryServiceAreaLguIds(idsRaw);
+  if (unknownIds.length > 0) {
+    return NextResponse.json(
+      { ok: false, error: "unknown_lgu", unknown_ids: unknownIds.slice(0, 20) },
+      { status: 400 }
+    );
+  }
+  /** LOC-006 — editor's loaded version (string | null). Omitted by old clients → no check. */
+  const expectedVersion =
+    body.expectedAreasVersion === undefined
+      ? undefined
+      : typeof body.expectedAreasVersion === "string" && body.expectedAreasVersion.trim()
+        ? body.expectedAreasVersion
+        : null;
 
   try {
     const store = await loadStoreGeo(sb, storeId);
     if (!store) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    const beforeSelected = await loadStoreDeliveryServiceAreas(sb, storeId).catch(() => null);
     const storeHomeLguId = resolveStoreHomeLguId({
       cityMunicipality: store.city,
       province: store.region,
@@ -112,12 +140,35 @@ export async function PUT(
       activateV2,
       storeHomeLguId,
       areas: idsRaw.map((id) => ({ geoIdentity: String(id ?? "") })),
+      expectedVersion,
     });
 
     invalidateDiscoveryAfterStoreWrite(sb, storeId, {
       delivery_service_area_authority: result.authority,
     });
     clearStoreHomeFeedServerCache();
+
+    // LOC-006 — owner replace audit (admin route has its own). Audit failure is logged only.
+    const rm = getAuditRequestMeta(req);
+    await appendAuditLog(sb, {
+      actor_type: "user",
+      actor_id: userId,
+      target_type: "store",
+      target_id: storeId,
+      action: "store.delivery_service_areas_replace",
+      before_json: {
+        authority: store.delivery_service_area_authority ?? null,
+        areas: beforeSelected as unknown,
+      },
+      after_json: {
+        authority: result.authority,
+        activateV2,
+        geoIdentities: result.geoIdentities,
+        version: result.version,
+      },
+      ip: rm.ip,
+      user_agent: rm.userAgent,
+    }).catch((err: unknown) => console.error("[delivery-service-areas:owner] audit", err));
 
     const selected = await loadStoreDeliveryServiceAreas(sb, storeId);
     return NextResponse.json({
@@ -130,8 +181,15 @@ export async function PUT(
         },
         selected
       ),
+      areasVersion: result.version,
     });
   } catch (e) {
+    if (e instanceof StoreDeliveryServiceAreasVersionConflictError) {
+      return NextResponse.json(
+        { ok: false, error: e.code, current_version: e.currentVersion },
+        { status: 409 }
+      );
+    }
     /** 원문(DB 메시지)은 로그로만 — 클라이언트에는 고정 코드. */
     console.error("[delivery-service-areas:owner] PUT", e instanceof Error ? e.message : e);
     return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });

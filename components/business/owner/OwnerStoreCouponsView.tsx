@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -16,6 +16,11 @@ import { OWNER_ADMIN_OUTLINE_BTN_CLASS } from "@/lib/business/owner-admin-list-u
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import type { OwnerCouponDetailAction, OwnerCouponListTab } from "@/lib/stores/owner-coupon-list-bucket";
 import type { CouponCampaignOpsView } from "@/lib/stores/load-coupon-campaign-ops-bundle";
+import {
+  newOwnerCouponClientRequestId,
+  ownerCouponDoneMessageKey,
+  ownerCouponErrorMessage,
+} from "@/lib/stores/owner-coupon-feedback";
 
 type CampaignRow = {
   id: string;
@@ -24,6 +29,8 @@ type CampaignRow = {
   discount_value: number;
   min_order_amount: number | null;
   lifecycle_state: string;
+  is_active?: boolean | null;
+  paused_by?: string | null;
   funding_mode: string;
   issued_count?: number;
   issue_limit?: number | null;
@@ -44,7 +51,7 @@ type CampaignRow = {
 };
 
 export function OwnerStoreCouponsView() {
-  const { t, safeT , language} = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const sp = useSearchParams();
   const storeId = sp.get("storeId")?.trim() ?? "";
@@ -54,8 +61,19 @@ export function OwnerStoreCouponsView() {
   const [rows, setRows] = useState<CampaignRow[]>([]);
   const [tab, setTab] = useState<OwnerCouponListTab>("active");
   const [loaded, setLoaded] = useState(false);
-  const [endId, setEndId] = useState<string | null>(null);
-  const [pendingAct, setPendingAct] = useState<{ id: string; action: OwnerCouponDetailAction } | null>(null);
+  /** IA-06 — 목록 로드 실패는 빈 목록이 아니라 오류 띠 + 새로고침 */
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  /** IA-05 — 처리 중에는 확인창 버튼 비활성 · 재클릭 무시 */
+  const [actBusy, setActBusy] = useState(false);
+  const busyRef = useRef(false);
+  const [pendingAct, setPendingAct] = useState<{
+    id: string;
+    action: OwnerCouponDetailAction;
+    /** 재발행 확인창 1회분 고정 키 */
+    clientRequestId: string | null;
+  } | null>(null);
   const [opsDetail, setOpsDetail] = useState<CouponCampaignOpsView | null>(null);
 
   useEffect(() => {
@@ -77,13 +95,23 @@ export function OwnerStoreCouponsView() {
   const load = useCallback(async () => {
     const sid = resolvedStoreId.trim();
     if (!sid) return;
-    const res = await fetch(`/api/me/store-coupons/campaigns?storeId=${encodeURIComponent(sid)}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const json = (await res.json()) as { ok?: boolean; campaigns?: CampaignRow[] };
-    setRows(json.ok ? json.campaigns ?? [] : []);
-    setLoaded(true);
+    try {
+      const res = await fetch(`/api/me/store-coupons/campaigns?storeId=${encodeURIComponent(sid)}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; campaigns?: CampaignRow[] } | null;
+      if (res.ok && json?.ok) {
+        setRows(json.campaigns ?? []);
+        setLoadError(false);
+      } else {
+        setLoadError(true);
+      }
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoaded(true);
+    }
   }, [resolvedStoreId]);
 
   useEffect(() => {
@@ -113,17 +141,50 @@ export function OwnerStoreCouponsView() {
     };
   }, [campaignId]);
 
-  const act = async (id: string, action: string) => {
-    const res = await fetch("/api/me/store-coupons/campaigns", {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action }),
-    });
-    const json = (await res.json().catch(() => null)) as { ok?: boolean; campaign?: { id?: string } } | null;
-    await load();
-    if (action === "reissue" && json?.ok && json.campaign?.id) {
-      router.push(OwnerRoutes.couponsDetail(String(json.campaign.id), resolvedStoreId));
+  const requestAct = (id: string, action: OwnerCouponDetailAction) => {
+    if (busyRef.current) return;
+    setActionError(null);
+    setNotice(null);
+    setPendingAct({ id, action, clientRequestId: action === "reissue" ? newOwnerCouponClientRequestId() : null });
+  };
+
+  /** true = 성공 (확인창 닫음). 실패면 확인창을 닫고 오류 띠를 띄운다 — 재발행 재시도는 새 확인창(새 키). */
+  const act = async (pending: { id: string; action: OwnerCouponDetailAction; clientRequestId: string | null }) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setActBusy(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/me/store-coupons/campaigns", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: pending.id,
+          action: pending.action,
+          ...(pending.clientRequestId ? { clientRequestId: pending.clientRequestId } : {}),
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; campaign?: { id?: string } }
+        | null;
+      if (!res.ok || !json?.ok) {
+        setActionError(ownerCouponErrorMessage(json?.error ?? null, t));
+        await load();
+        return;
+      }
+      setNotice(t(ownerCouponDoneMessageKey(pending.action)));
+      await load();
+      if (pending.action === "reissue" && json.campaign?.id) {
+        router.push(OwnerRoutes.couponsDetail(String(json.campaign.id), resolvedStoreId));
+      }
+    } catch {
+      setActionError(t("common_network_error"));
+    } finally {
+      busyRef.current = false;
+      setActBusy(false);
+      setPendingAct(null);
     }
   };
 
@@ -163,33 +224,63 @@ export function OwnerStoreCouponsView() {
     );
   }
 
+  const feedback = (
+    <>
+      {actionError ? (
+        <div
+          className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-sm leading-snug text-sam-danger"
+          role="alert"
+          data-owner-coupon-feedback="error"
+        >
+          {actionError}
+        </div>
+      ) : null}
+      {notice ? (
+        <div
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm leading-snug text-sam-fg"
+          role="status"
+          data-owner-coupon-feedback="success"
+        >
+          {notice}
+        </div>
+      ) : null}
+    </>
+  );
+
+  const pending = pendingAct;
+  const copy = pending ? confirmCopy(pending.action) : confirmCopy("end");
+  const confirmModal = (
+    <OwnerStoreAdminConfirmModal
+      open={Boolean(pending)}
+      titleId="owner-coupon-act"
+      title={copy.title}
+      description={copy.description}
+      confirmTone={pending?.action === "end" ? "danger" : "primary"}
+      confirmLabel={copy.title}
+      busy={actBusy}
+      onCancel={() => {
+        if (!busyRef.current) setPendingAct(null);
+      }}
+      onConfirm={async () => {
+        if (!pending) return;
+        await act(pending);
+      }}
+    />
+  );
+
   if (campaignId) {
     const row = rows.find((r) => r.id === campaignId) ?? null;
-    const pending = pendingAct;
-    const copy = pending ? confirmCopy(pending.action) : confirmCopy("end");
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
+        {feedback}
         <OwnerStoreCouponDetailPanel
           row={row}
           ops={opsDetail}
           loading={!loaded && !opsDetail}
           onBack={goList}
-          onAct={(action) => setPendingAct({ id: campaignId, action })}
+          onAct={(action) => requestAct(campaignId, action)}
         />
-        <OwnerStoreAdminConfirmModal
-          open={Boolean(pending)}
-          titleId="owner-coupon-detail-act"
-          title={copy.title}
-          description={copy.description}
-          confirmTone={pending?.action === "end" ? "danger" : "primary"}
-          confirmLabel={copy.title}
-          onCancel={() => setPendingAct(null)}
-          onConfirm={async () => {
-            if (!pending) return;
-            await act(pending.id, pending.action);
-            setPendingAct(null);
-          }}
-        />
+        {confirmModal}
       </div>
     );
   }
@@ -199,6 +290,24 @@ export function OwnerStoreCouponsView() {
       <p className="sam-text-body-secondary text-sam-muted" data-owner-promo-product="coupon">
         {ownerUiCopy(language, "매장 쿠폰 — 고객에게 주는 무료 프로모션입니다. 유료 상품권과 다릅니다.", "Store coupons — free promotions for customers. Not paid gift certificates.")}
       </p>
+      {loadError ? (
+        <div
+          className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-sm leading-snug text-sam-danger"
+          role="alert"
+          data-owner-coupon-feedback="load-error"
+        >
+          <span className="min-w-0">{t("store_coupon_owner_err_load")}</span>
+          <button
+            type="button"
+            className={OWNER_ADMIN_OUTLINE_BTN_CLASS}
+            data-owner-coupon-reload="1"
+            onClick={() => void load()}
+          >
+            {t("store_coupon_owner_reload")}
+          </button>
+        </div>
+      ) : null}
+      {feedback}
       <OwnerStoreCouponListDashboard
         rows={rows}
         tab={tab}
@@ -207,25 +316,12 @@ export function OwnerStoreCouponsView() {
         onCreate={goCreate}
         openId={null}
         onToggleOpen={goDetail}
-        onPause={(id) => void act(id, "pause")}
-        onResume={(id) => void act(id, "resume")}
-        onEnd={(id) => setEndId(id)}
-        onReissue={(id) => void act(id, "reissue")}
+        onPause={(id) => requestAct(id, "pause")}
+        onResume={(id) => requestAct(id, "resume")}
+        onEnd={(id) => requestAct(id, "end")}
+        onReissue={(id) => requestAct(id, "reissue")}
       />
-      <OwnerStoreAdminConfirmModal
-        open={Boolean(endId)}
-        titleId="owner-coupon-end"
-        title={t("store_coupon_owner_end")}
-        description={t("store_coupon_owner_end_confirm")}
-        confirmTone="danger"
-        confirmLabel={t("store_coupon_owner_end")}
-        onCancel={() => setEndId(null)}
-        onConfirm={async () => {
-          if (!endId) return;
-          await act(endId, "end");
-          setEndId(null);
-        }}
-      />
+      {confirmModal}
     </div>
   );
 }

@@ -1,20 +1,10 @@
-import { redirect } from "next/navigation";
+import { redirectLegacyOwnerPage } from "@/lib/business/redirect-legacy-owner-page";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+/** Legacy Owner URL — redirect-only (쿼리 전체 보존). Canonical: /stores/owner/orders */
 export default async function MypageBusinessOrdersPage({ searchParams }: PageProps) {
-  const sp = await searchParams;
-  const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(sp)) {
-    if (v == null) continue;
-    if (Array.isArray(v)) {
-      v.filter(Boolean).forEach((x) => params.append(k, String(x)));
-    } else {
-      params.set(k, String(v));
-    }
-  }
-  const qs = params.toString();
-  return redirect(qs ? `/stores/owner/orders?${qs}` : "/stores/owner/orders");
+  return redirectLegacyOwnerPage("/mypage/business/orders", searchParams);
 }

@@ -5,6 +5,8 @@ const KNOWN_CODES: Record<string, MessageKey> = {
   load_failed: "business_phase7_353",
   review_load_failed: "business_phase7_353",
   save_failed: "business_phase7_368",
+  /** PRD-15 — 오너 상품·카테고리 500 응답 고정 코드 (DB 원문 미노출) */
+  db_error: "business_phase7_368",
   upload_failed: "business_phase7_440",
   reply_failed: "business_phase7_368",
   delete_reply_failed: "business_phase7_352",
@@ -26,6 +28,8 @@ const KNOWN_CODES: Record<string, MessageKey> = {
   depositor_name_required: "store_owner_point_err_depositor_name_required",
   subject_and_content_required: "store_owner_point_err_subject_required",
   invalid_json: "common_error",
+  // OPS-01 — store_notices 테이블 부재(503)
+  store_notices_unavailable: "business_ops3b_err_notices_unavailable",
 };
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;

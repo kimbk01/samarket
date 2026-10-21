@@ -1,0 +1,58 @@
+/**
+ * 4단계 4-1·4-7 — 오너 12그룹 IA 레지스트리 그룹 제목·신규 제목 키 (문서 G §4-2).
+ * Separate top-level catalog — `adminMessages` / `businessMessages` 는 TS 직렬화 한도(TS7056) 근처.
+ * 라벨 = 제목 단일 키: 드로어 라벨·헤더 제목이 같은 키를 쓴다.
+ */
+
+export const ownerStage4NavMessages = {
+  ko: {
+    owner_s4_group_home: "홈",
+    owner_s4_group_orders: "주문 관리",
+    owner_s4_group_products: "상품 관리",
+    owner_s4_group_store: "매장 운영",
+    owner_s4_group_delivery: "배달 관리",
+    owner_s4_group_settlement: "매출·정산",
+    owner_s4_group_coin_cash: "코인·캐시",
+    owner_s4_group_ads: "광고·홍보",
+    owner_s4_group_gift: "상품권",
+    owner_s4_group_customers: "고객 관리",
+    owner_s4_group_notifications: "알림",
+    owner_s4_group_support: "설정·지원",
+    owner_s4_title_store_manage: "매장 관리",
+    owner_s4_title_ops_status: "운영·심사 상태",
+    owner_s4_title_public_preview: "공개 매장 미리보기",
+    owner_s4_title_delivery: "영업·배달 설정",
+    owner_s4_title_settlements: "수수료·캐시 원장",
+    owner_s4_desc_settlements: "수수료 부과·캐시 차감·미납 원장",
+    owner_s4_title_ads_event: "이벤트 프로모션",
+    owner_s4_title_notif_settings: "내 계정 알림 설정",
+    owner_s4_title_cs_center: "플랫폼 고객센터",
+    owner_s4_title_apply: "입점 신청",
+    owner_s4_sidebar_label: "매장 운영 메뉴",
+  },
+  en: {
+    owner_s4_group_home: "Home",
+    owner_s4_group_orders: "Orders",
+    owner_s4_group_products: "Products",
+    owner_s4_group_store: "Store operations",
+    owner_s4_group_delivery: "Delivery",
+    owner_s4_group_settlement: "Sales & settlement",
+    owner_s4_group_coin_cash: "Coin & Cash",
+    owner_s4_group_ads: "Ads & promotion",
+    owner_s4_group_gift: "Gift certificates",
+    owner_s4_group_customers: "Customers",
+    owner_s4_group_notifications: "Notifications",
+    owner_s4_group_support: "Settings & support",
+    owner_s4_title_store_manage: "Store management",
+    owner_s4_title_ops_status: "Operations & review status",
+    owner_s4_title_public_preview: "Public store preview",
+    owner_s4_title_delivery: "Hours & delivery settings",
+    owner_s4_title_settlements: "Commission & cash ledger",
+    owner_s4_desc_settlements: "Commission charges, Cash deductions & unpaid ledger",
+    owner_s4_title_ads_event: "Event promotions",
+    owner_s4_title_notif_settings: "My account notification settings",
+    owner_s4_title_cs_center: "Platform customer center",
+    owner_s4_title_apply: "Store application",
+    owner_s4_sidebar_label: "Store operations menu",
+  },
+} as const;

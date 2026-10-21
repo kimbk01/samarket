@@ -96,7 +96,7 @@ export function OwnerCustomerCenterView({
       </p>
 
       {!storeId ? (
-        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p className="mb-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg">
           {safeT("support_owner_store_required", {
             fallbackKo: "문의하려면 매장을 선택해 주세요.",
             fallbackEn: "Select a store before contacting support.",
@@ -122,14 +122,14 @@ export function OwnerCustomerCenterView({
               href={t.href}
               data-owner-care-tab={t.id}
               className={`flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-ui-rect px-2 text-center text-sm font-medium ${
-                selected ? "bg-signature text-white" : "border border-sam-border bg-sam-surface text-sam-fg"
+                selected ? "bg-signature text-sam-on-primary" : "border border-sam-border bg-sam-surface text-sam-fg"
               }`}
             >
               <span className="truncate">{t.label}</span>
               {t.badge > 0 ? (
                 <span
                   className={`inline-flex min-w-[1.25rem] justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                    selected ? "bg-white/20 text-white" : "bg-red-500 text-white"
+                    selected ? "bg-sam-on-primary/20 text-sam-on-primary" : "bg-sam-danger text-sam-on-primary"
                   }`}
                 >
                   {t.badge > 99 ? "99+" : t.badge}

@@ -8,6 +8,10 @@ import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import {
+  isStoreNoticesTableMissingError,
+  storeNoticesUnavailableBody,
+} from "@/lib/stores/store-notices-availability";
+import {
   collectCanonicalImagePublicUrls,
   diffRemovedImageUrls,
   removeCanonicalImagesFromPublicUrls,
@@ -58,6 +62,9 @@ export async function PATCH(
     .eq("id", nid)
     .eq("store_id", sid)
     .maybeSingle();
+  if (isStoreNoticesTableMissingError(findErr)) {
+    return NextResponse.json(storeNoticesUnavailableBody(), { status: 503 });
+  }
   if (findErr || !existing) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
   const patch: Record<string, unknown> = {};
@@ -142,12 +149,15 @@ export async function DELETE(
   const gate = await getStoreIfOwnerForOperationalWrite(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
-  const { data: row } = await sb
+  const { data: row, error: rowErr } = await sb
     .from("store_notices")
     .select("images_json")
     .eq("id", nid)
     .eq("store_id", sid)
     .maybeSingle();
+  if (isStoreNoticesTableMissingError(rowErr)) {
+    return NextResponse.json(storeNoticesUnavailableBody(), { status: 503 });
+  }
 
   const { error: delErr } = await sb.from("store_notices").delete().eq("id", nid).eq("store_id", sid);
   if (delErr) return NextResponse.json({ ok: false, error: delErr.message }, { status: 500 });

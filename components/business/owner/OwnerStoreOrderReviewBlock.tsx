@@ -16,9 +16,9 @@ function StarRatingRow({
 }) {
   const r = Math.min(5, Math.max(0, Math.floor(Number(rating) || 0)));
   return (
-    <span className="inline-flex text-base leading-none text-amber-500" aria-label={ratingAria}>
+    <span className="inline-flex text-base leading-none text-sam-warning" aria-label={ratingAria}>
       {"★".repeat(r)}
-      <span className="text-[#D1D5DB]">{"☆".repeat(5 - r)}</span>
+      <span className="text-sam-meta">{"☆".repeat(5 - r)}</span>
     </span>
   );
 }
@@ -133,7 +133,7 @@ export function OwnerStoreOrderReviewBlock({
   if (reviewStatus === "unavailable") {
     return (
       <OwnerReviewShell>
-        <p className="text-[13px] leading-[1.45] text-[#6B7280]">{t("store_owner_order_review_unavailable")}</p>
+        <p className="text-[13px] leading-[1.45] text-sam-muted">{t("store_owner_order_review_unavailable")}</p>
       </OwnerReviewShell>
     );
   }
@@ -141,7 +141,7 @@ export function OwnerStoreOrderReviewBlock({
   if (reviewStatus === "pending") {
     return (
       <OwnerReviewShell>
-        <p className="text-[13px] leading-[1.45] text-[#6B7280]">{t("store_owner_order_review_pending")}</p>
+        <p className="text-[13px] leading-[1.45] text-sam-muted">{t("store_owner_order_review_pending")}</p>
       </OwnerReviewShell>
     );
   }
@@ -149,7 +149,7 @@ export function OwnerStoreOrderReviewBlock({
   if (loading && !review) {
     return (
       <OwnerReviewShell>
-        <p className="text-[13px] text-[#6B7280]">{t("common_loading")}</p>
+        <p className="text-[13px] text-sam-muted">{t("common_loading")}</p>
       </OwnerReviewShell>
     );
   }
@@ -158,13 +158,13 @@ export function OwnerStoreOrderReviewBlock({
     if (loadErr) {
       return (
         <OwnerReviewShell>
-          <p className="text-[12px] text-red-700">{resolveOwnerApiErrorMessage(loadErr, t)}</p>
+          <p className="text-[12px] text-sam-danger">{resolveOwnerApiErrorMessage(loadErr, t)}</p>
         </OwnerReviewShell>
       );
     }
     return (
       <OwnerReviewShell>
-        <p className="text-[13px] leading-[1.45] text-[#6B7280]">{t("store_owner_order_review_empty")}</p>
+        <p className="text-[13px] leading-[1.45] text-sam-muted">{t("store_owner_order_review_empty")}</p>
       </OwnerReviewShell>
     );
   }
@@ -180,12 +180,12 @@ export function OwnerStoreOrderReviewBlock({
             />
           ) : null}
           {review.created_at ? (
-            <span className="text-[11px] text-[#6B7280]">
+            <span className="text-[11px] text-sam-muted">
               {new Date(review.created_at).toLocaleDateString(dateLocale)}
             </span>
           ) : null}
           {!review.visible_to_public ? (
-            <span className="rounded-[4px] bg-[#F3F4F6] px-1.5 py-0.5 text-[10px] font-semibold text-[#6B7280]">
+            <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 text-[10px] font-semibold text-sam-muted">
               {t("store_owner_order_review_private_badge")}
             </span>
           ) : null}
@@ -204,21 +204,21 @@ export function OwnerStoreOrderReviewBlock({
                 alt={t("store_owner_order_review_photo_alt")}
                 size={64}
                 className="h-16 w-16 shrink-0"
-                roundedClassName="rounded-[4px]"
+                roundedClassName="rounded-ui-rect"
               />
             ))}
           </div>
         ) : null}
       </div>
 
-      <div className="mt-3 rounded-[4px] border border-[var(--biz-card-border)] bg-[#f6f6f6] p-2.5">
+      <div className="mt-3 rounded-ui-rect border border-[var(--biz-card-border)] bg-sam-surface-muted p-2.5">
         <p className="text-[12px] font-bold text-[var(--biz-text)]">{t("business_phase7_138")}</p>
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={t("business_phase7_017")}
           rows={3}
-          className="mt-2 w-full rounded-[4px] border border-[var(--biz-card-border)] bg-white px-2 py-1.5 text-[13px] outline-none focus:ring-2 focus:ring-[var(--biz-primary)]/20"
+          className="mt-2 w-full rounded-ui-rect border border-[var(--biz-card-border)] bg-sam-surface px-2 py-1.5 text-[13px] outline-none focus:ring-2 focus:ring-[var(--biz-primary)]/20"
         />
         <div className="mt-2 flex items-center justify-between gap-2">
           {review.owner_reply_content ? (
@@ -226,7 +226,7 @@ export function OwnerStoreOrderReviewBlock({
               type="button"
               disabled={busy}
               onClick={() => void deleteReply()}
-              className="rounded-[4px] border border-red-200 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-red-600 disabled:opacity-40"
+              className="rounded-ui-rect border border-sam-danger/30 bg-sam-surface px-2.5 py-1.5 text-[12px] font-semibold text-sam-danger disabled:opacity-40"
             >
               {t("business_phase7_reply_delete")}
             </button>
@@ -237,18 +237,18 @@ export function OwnerStoreOrderReviewBlock({
             type="button"
             disabled={busy || !draft.trim()}
             onClick={() => void saveReply()}
-            className="rounded-[4px] bg-[var(--biz-primary)] px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-40"
+            className="rounded-ui-rect bg-[var(--biz-primary)] px-3 py-1.5 text-[12px] font-bold text-sam-on-primary disabled:opacity-40"
           >
             {busy ? t("business_phase7_384") : t("business_phase7_471")}
           </button>
         </div>
         {review.owner_reply_created_at ? (
-          <p className="mt-1 text-right text-[11px] tabular-nums text-[#6B7280]">
+          <p className="mt-1 text-right text-[11px] tabular-nums text-sam-muted">
             {new Date(review.owner_reply_created_at).toLocaleString(dateLocale)}
           </p>
         ) : null}
         {replyErr ? (
-          <p className="mt-2 text-[12px] text-red-700">{resolveOwnerApiErrorMessage(replyErr, t)}</p>
+          <p className="mt-2 text-[12px] text-sam-danger">{resolveOwnerApiErrorMessage(replyErr, t)}</p>
         ) : null}
       </div>
     </OwnerReviewShell>
@@ -258,7 +258,7 @@ export function OwnerStoreOrderReviewBlock({
 function OwnerReviewShell({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   return (
-    <section className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-3">
+    <section className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-3">
       <h3 className="mb-2 border-l-4 border-[var(--biz-primary)] pl-2 text-[12px] font-bold leading-[1.35] text-[var(--biz-primary)]">
         {t("store_owner_order_review_section")}
       </h3>
@@ -276,7 +276,7 @@ export function OwnerOrderItemFeedbackBadge({
   const { t } = useI18n();
   if (vote === "up") {
     return (
-      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
+      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-sam-info-soft px-1.5 py-0.5 text-[10px] font-semibold text-sam-info">
         <StoreReviewThumbIcon variant="up" className="h-3 w-3" filled />
         {t("store_review_menu_good")}
       </span>
@@ -284,7 +284,7 @@ export function OwnerOrderItemFeedbackBadge({
   }
   if (vote === "down") {
     return (
-      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600">
+      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-sam-danger-soft px-1.5 py-0.5 text-[10px] font-semibold text-sam-danger">
         <StoreReviewThumbIcon variant="down" className="h-3 w-3" filled />
         {t("store_review_menu_bad")}
       </span>
