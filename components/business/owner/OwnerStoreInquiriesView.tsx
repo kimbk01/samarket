@@ -11,6 +11,11 @@ import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { resolveOwnerActiveStoreRowFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { ownerFetchJson, ownerFetchErrorMessage } from "@/lib/business/owner-fetch-json";
+import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
+import { OwnerStateView } from "@/components/business/owner/OwnerStateView";
 
 type Row = {
   id: string;
@@ -23,13 +28,14 @@ type Row = {
   created_at: string;
 };
 
-function formatDate(iso: string | null) {
+function formatDate(iso: string | null, language: AppLanguageCode) {
   if (!iso) return "";
-  return new Date(iso).toLocaleString("ko-KR");
+  return new Date(iso).toLocaleString(catalogDateLocale(language));
 }
 
 export function OwnerStoreInquiriesView() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const toast = useOwnerToast();
   const inquiryStatusLabel = (status: string) => {
     switch (status) {
       case "open":
@@ -61,8 +67,10 @@ export function OwnerStoreInquiriesView() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [closeConfirmId, setCloseConfirmId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setState({ kind: "loading" });
+  /** IA-16 — `silent` 배경 갱신: 기존 목록 유지(로딩 깜박임 없음), 실패해도 목록 유지 */
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setState({ kind: "loading" });
     try {
       const { status: srStatus, json: rawStores } = await fetchMeStoresListDeduped();
       if (srStatus === 401) {
@@ -97,6 +105,7 @@ export function OwnerStoreInquiriesView() {
         return { httpOk: ir.ok, ij };
       });
       if (!payload.httpOk || !payload.ij?.ok) {
+        if (silent) return;
         setState({
           kind: "error",
           message: typeof payload.ij?.error === "string" ? payload.ij.error : "load_failed",
@@ -110,6 +119,7 @@ export function OwnerStoreInquiriesView() {
         rows: (payload.ij.inquiries ?? []) as Row[],
       });
     } catch {
+      if (silent) return;
       setState({ kind: "error", message: "network_error" });
     }
   }, [preferredStoreId]);
@@ -122,52 +132,62 @@ export function OwnerStoreInquiriesView() {
     if (state.kind !== "ok") return;
     const text = (draftById[id] ?? "").trim();
     if (!text) return;
+    const sid = state.storeId;
     setBusyId(id);
     try {
-      const res = await fetch(
-        `/api/me/stores/${encodeURIComponent(state.storeId)}/inquiries/${encodeURIComponent(id)}`,
+      const res = await ownerFetchJson(
+        `/api/me/stores/${encodeURIComponent(sid)}/inquiries/${encodeURIComponent(id)}`,
         {
           method: "PATCH",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ answer: text }),
         }
       );
-      const json = await res.json();
-      if (!json?.ok) return;
+      if (!res.ok) {
+        toast.error(ownerFetchErrorMessage(res, t));
+        return;
+      }
       setDraftById((d) => {
         const n = { ...d };
         delete n[id];
         return n;
       });
-      await load();
+      toast.success(t("owner_s4_inquiry_answer_sent"));
+      await load({ silent: true });
       dispatchOwnerHubBadgeRefresh({
         source: "owner-store-inquiries-answer",
-        key: `${state.storeId}:${id}:answer`,
+        key: `${sid}:${id}:answer`,
       });
     } finally {
       setBusyId(null);
     }
   }
 
-  async function performCloseThread(id: string) {
-    if (state.kind !== "ok") return;
+  /** IA-16 — 종료 결과 확인: 실패 시 토스트, 성공 시에만 배지 갱신 */
+  async function performCloseThread(id: string): Promise<boolean> {
+    if (state.kind !== "ok") return false;
+    const sid = state.storeId;
     setBusyId(id);
     try {
-      await fetch(
-        `/api/me/stores/${encodeURIComponent(state.storeId)}/inquiries/${encodeURIComponent(id)}`,
+      const res = await ownerFetchJson(
+        `/api/me/stores/${encodeURIComponent(sid)}/inquiries/${encodeURIComponent(id)}`,
         {
           method: "PATCH",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ close_only: true }),
         }
       );
-      await load();
+      if (!res.ok) {
+        toast.error(ownerFetchErrorMessage(res, t));
+        return false;
+      }
+      toast.success(t("owner_s4_inquiry_closed"));
+      await load({ silent: true });
       dispatchOwnerHubBadgeRefresh({
         source: "owner-store-inquiries-close",
-        key: `${state.storeId}:${id}:close`,
+        key: `${sid}:${id}:close`,
       });
+      return true;
     } finally {
       setBusyId(null);
     }
@@ -201,12 +221,11 @@ export function OwnerStoreInquiriesView() {
   }
   if (state.kind === "error") {
     return (
-      <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <p className="text-sm text-red-600">{resolveOwnerApiErrorMessage(state.message, t)}</p>
-        <button type="button" onClick={() => void load()} className="text-sm text-signature underline">
-          {t("business_phase7_466")}
-        </button>
-      </div>
+      <OwnerStateView
+        kind="error"
+        message={resolveOwnerApiErrorMessage(state.message, t)}
+        onRetry={() => void load()}
+      />
     );
   }
 
@@ -225,7 +244,7 @@ export function OwnerStoreInquiriesView() {
               </p>
               <p className="mt-1 text-sm font-semibold text-sam-fg">{r.subject}</p>
               <p className="mt-2 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
-              <p className="mt-1 sam-text-xxs text-sam-meta">{formatDate(r.created_at)}</p>
+              <p className="mt-1 sam-text-xxs text-sam-meta">{formatDate(r.created_at, language)}</p>
               {r.answer ? (
                 <div className="mt-2 rounded-ui-rect bg-sam-app px-3 py-2 text-sm text-sam-fg">
                   <span className="text-xs text-sam-muted">{t("business_phase7_043")}</span>
@@ -282,8 +301,8 @@ export function OwnerStoreInquiriesView() {
         onConfirm={async () => {
           if (!closeConfirmId || state.kind !== "ok") return;
           const id = closeConfirmId;
-          setCloseConfirmId(null);
           await performCloseThread(id);
+          setCloseConfirmId(null);
         }}
       />
     </div>

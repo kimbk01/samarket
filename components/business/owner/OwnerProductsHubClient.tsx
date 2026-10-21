@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel } from "@/lib/utils/format";
@@ -166,15 +167,16 @@ export function OwnerProductsHubClient({
   });
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  /** 4-0 — 상품 허브 자체 토스트 → 셸 공통 `OwnerToastHost` */
+  const toast = useOwnerToast();
   const [deleteTarget, setDeleteTarget] = useState<HubProduct | null>(null);
 
   /** PRD-10 — 상품 폼 저장이 재고 0 자동 품절이었으면 1회 안내 */
   useEffect(() => {
     if (consumeOwnerProductsHubFlash(storeId)?.kind === "auto_sold_out") {
-      setToast(t("store_owner_prd_auto_sold_out"));
+      toast.success(t("store_owner_prd_auto_sold_out"));
     }
-  }, [storeId, t]);
+  }, [storeId, t, toast]);
 
   const canSell = useMemo(() => {
     const r = adminStore?.storeRow;
@@ -254,12 +256,6 @@ export function OwnerProductsHubClient({
     }
   }, [sections, tab]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 3200);
-    return () => clearTimeout(timer);
-  }, [toast]);
-
   const filtered = useMemo(() => {
     const qy = search.trim().toLowerCase();
     let list = products;
@@ -300,9 +296,9 @@ export function OwnerProductsHubClient({
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j?.ok) {
         if (j?.error === "sales_not_approved") {
-          setToast(t("business_phase7_425"));
+          toast.error(t("business_phase7_425"));
         } else if (j?.error === "admin_review_rejected") {
-          setToast(
+          toast.error(
             ownerUiCopy(
               language,
               "관리자 검수에서 반려된 상품입니다. 내용을 수정하면 재검수 요청이 되고, 승인 후 판매할 수 있습니다.",
@@ -314,7 +310,7 @@ export function OwnerProductsHubClient({
           j?.error === "admin_review_pending" ||
           j?.error === "product_changed"
         ) {
-          setToast(
+          toast.error(
             typeof j?.message === "string" && j.message
               ? j.message
               : ownerUiCopy(
@@ -325,7 +321,7 @@ export function OwnerProductsHubClient({
           );
           if (j?.error === "product_changed") await loadAll({ silent: true });
         } else if (j?.error === "admin_blocked_product") {
-          setToast(
+          toast.error(
             ownerUiCopy(
               language,
               "관리자가 판매를 차단한 상품입니다. 고객센터로 문의해 주세요.",
@@ -337,7 +333,7 @@ export function OwnerProductsHubClient({
         }
         return;
       }
-      if (j?.auto_sold_out === true) setToast(t("store_owner_prd_auto_sold_out"));
+      if (j?.auto_sold_out === true) toast.success(t("store_owner_prd_auto_sold_out"));
       await loadAll({ silent: true });
     } catch {
       setError("network_error");
@@ -363,7 +359,7 @@ export function OwnerProductsHubClient({
       void patchProduct(p.id, { product_status: "sold_out" });
       return;
     }
-    setToast(t("business_phase7_427"));
+    toast.error(t("business_phase7_427"));
   };
 
   const onDeleteClick = (p: HubProduct) => {
@@ -485,11 +481,6 @@ export function OwnerProductsHubClient({
           </p>
         ) : null}
 
-        {toast ? (
-          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
-            {toast}
-          </p>
-        ) : null}
         {error ? <p className="sam-text-body-secondary text-red-600">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
 
         {loading ? (

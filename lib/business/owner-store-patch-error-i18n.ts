@@ -42,6 +42,14 @@ export function formatOwnerStorePatchError(code: string, lang: AppLanguageCode):
   return key ? translate(lang, key) : null;
 }
 
+/** IA-17 — 매장 설정 토글 실패 토스트: 「이전 상태로 되돌림」 + (알려진 코드면) 사유 */
+export function formatOwnerStoreToggleFailure(code: string, lang: AppLanguageCode): string {
+  const reverted = translate(lang, "owner_s4_setting_failed_reverted");
+  const detail =
+    code === "network_error" ? translate(lang, "common_network_error") : formatOwnerStorePatchError(code, lang);
+  return detail ? `${reverted} ${detail}` : reverted;
+}
+
 export function formatOwnerStorePatchErrorOrCode(code: string, lang: AppLanguageCode): string {
   return formatOwnerStorePatchError(code, lang) ?? code;
 }

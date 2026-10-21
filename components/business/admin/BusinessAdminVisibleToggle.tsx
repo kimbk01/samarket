@@ -6,6 +6,10 @@ import { invalidateMeStoresListDedupedCache } from "@/lib/me/fetch-me-stores-ded
 import { StoreOpsOnOffSwitch } from "@/components/business/admin/StoreOpsOnOffSwitch";
 import { parsePostgresBool } from "@/lib/community-feed/parse-postgres-bool";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
+import { ownerFetchJson } from "@/lib/business/owner-fetch-json";
+import { formatOwnerStoreToggleFailure } from "@/lib/business/owner-store-patch-error-i18n";
 
 /**
  * `stores.is_visible` — 동네 매장 목록·탭·공개 매장 URL 노출 여부.
@@ -18,9 +22,12 @@ export function BusinessAdminVisibleToggle({
   row: StoreRow;
   onUpdated: () => void | Promise<void>;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const toast = useOwnerToast();
   const [busy, setBusy] = useState(false);
   const [pendingUi, setPendingUi] = useState<boolean | null>(null);
+  /** IA-17 · D-14 — 노출 OFF 는 확인창 후 반영 */
+  const [confirmOffOpen, setConfirmOffOpen] = useState(false);
   const isVisible = parsePostgresBool(row.is_visible, false);
   const disabled = busy || String(row.approval_status) !== "approved";
 
@@ -31,34 +38,41 @@ export function BusinessAdminVisibleToggle({
     if (isVisible === pendingUi) setPendingUi(null);
   }, [isVisible, pendingUi]);
 
-  const applyVisible = useCallback(
+  const commitVisible = useCallback(
     async (next: boolean): Promise<boolean> => {
-      if (next === isVisible && pendingUi === null) return true;
       setBusy(true);
       setPendingUi(next);
       try {
-        const res = await fetch(`/api/me/stores/${encodeURIComponent(row.id)}`, {
+        const res = await ownerFetchJson(`/api/me/stores/${encodeURIComponent(row.id)}`, {
           method: "PATCH",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ is_visible: next }),
         });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (!j?.ok) {
+        if (!res.ok) {
           setPendingUi(null);
+          toast.error(formatOwnerStoreToggleFailure(res.code, language));
           return false;
         }
         invalidateMeStoresListDedupedCache();
         await Promise.resolve(onUpdated());
         return true;
-      } catch {
-        setPendingUi(null);
-        return false;
       } finally {
         setBusy(false);
       }
     },
-    [isVisible, onUpdated, row.id]
+    [language, onUpdated, row.id, toast]
+  );
+
+  const applyVisible = useCallback(
+    async (next: boolean): Promise<boolean> => {
+      if (next === isVisible && pendingUi === null) return true;
+      if (!next) {
+        setConfirmOffOpen(true);
+        return false;
+      }
+      return commitVisible(next);
+    },
+    [commitVisible, isVisible, pendingUi]
   );
 
   return (
@@ -69,6 +83,20 @@ export function BusinessAdminVisibleToggle({
         disabled={disabled}
         onCheckedChange={applyVisible}
         ariaLabel={shownVisible ? t("business_phase7_585") : t("business_phase7_586")}
+      />
+      <OwnerStoreAdminConfirmModal
+        open={confirmOffOpen}
+        titleId={`owner-store-visible-off-${row.id}`}
+        title={t("owner_s4_visible_off_title")}
+        description={t("owner_s4_visible_off_desc")}
+        confirmLabel={t("owner_s4_turn_off")}
+        busy={busy}
+        confirmTone="danger"
+        onCancel={() => setConfirmOffOpen(false)}
+        onConfirm={async () => {
+          await commitVisible(false);
+          setConfirmOffOpen(false);
+        }}
       />
     </div>
   );
