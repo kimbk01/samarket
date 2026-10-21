@@ -2,6 +2,13 @@
 
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import {
+  clearCallScreenPushEntry,
+  isCallScreenBackExitInFlight,
+  noteCallScreenBackExit,
+  readCallIdFromCallScreenPath,
+  takeArmedCallScreenPushEntry,
+} from "@/lib/community-messenger/call-v4/call-return-navigation";
 
 const CALL_V4_RETURN_PATH_KEY = "samarket.cm.call_v4_return_path.v1";
 
@@ -52,7 +59,12 @@ export function takeCallV4ReturnPath(): string | null {
   }
 }
 
-export type CallV4Router = { replace?: (href: string) => void; push?: (href: string) => void };
+export type CallV4Router = {
+  replace?: (href: string) => void;
+  push?: (href: string) => void;
+  /** P-7 — push 로 들어온 통화 화면 종료 시 1회 back (Next `useRouter().back`) */
+  back?: () => void;
+};
 
 let registeredExitRouter: CallV4Router | null = null;
 
@@ -95,7 +107,28 @@ export function exitCallV4ScreenAfterCleanup(router?: CallV4Router): void {
    */
   if (typeof window !== "undefined" && !isOnCallV4ScreenRoute(window.location.pathname)) {
     const consumed = takeCallV4ReturnPath();
+    clearCallScreenPushEntry();
     logCallV4("exit_screen_skipped_not_on_call_route", { path: window.location.pathname, consumed: Boolean(consumed) });
+    return;
+  }
+  const routeCallId =
+    typeof window !== "undefined" ? readCallIdFromCallScreenPath(window.location.pathname) : null;
+  /** P-7 — 같은 화면에서 back 1회를 이미 보냈으면 replace 를 덧붙이지 않는다(이중 이동 금지). */
+  if (isCallScreenBackExitInFlight(routeCallId)) {
+    logCallV4("exit_screen_back_dedupe", { callId: routeCallId });
+    return;
+  }
+  /**
+   * P-7 / L-3 R4 — push 로 들어온 통화 화면(armed 토큰 일치)이면 `router.back()` 1회만.
+   * 관찰 후 push 폴백 없음. 아니면 기존 replace.
+   */
+  const pushEntry = typeof window !== "undefined" ? takeArmedCallScreenPushEntry(routeCallId) : null;
+  const backRouter = router?.back ? router : registeredExitRouter?.back ? registeredExitRouter : null;
+  if (pushEntry && routeCallId && backRouter?.back) {
+    takeCallV4ReturnPath();
+    noteCallScreenBackExit(routeCallId);
+    logCallV4("exit_screen_history_back", { callId: routeCallId, originPath: pushEntry.originPath });
+    backRouter.back();
     return;
   }
   const exit = takeCallV4ReturnPath() ?? COMMUNITY_MESSENGER_CALL_LOGS_HREF;

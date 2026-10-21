@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { markCallScreenPushEntry } from "@/lib/community-messenger/call-v4/call-return-navigation";
 import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { isRecoveringPhase, type DibaySessionPhase } from "@/lib/auth/dibay-session-policy";
 import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
@@ -386,6 +387,8 @@ export function PushRouteListener() {
         if (shouldReplaceRoute(path) || isCallV4CalleeAcceptRoute(path) || isCallV4CalleeRejectRoute(path)) {
           router.replace(path);
         } else {
+          /** P-7 — push 진입 토큰: 종료 시 back 1회로 원래 화면에 돌아온다 */
+          markCallScreenPushEntry(null, path);
           router.push(path);
         }
         clearPendingPushRoute();

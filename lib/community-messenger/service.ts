@@ -18402,6 +18402,25 @@ export async function softDeleteCommunityMessengerMessageForEveryone(input: {
     }
   }
 
+  // D-2: 알림센터(notification_events.message_id)·이후 발송될 푸시 본문의 원문을 placeholder 로 교체.
+  // best-effort — 실패해도 삭제는 이미 완료(로그만).
+  try {
+    const { scrubNotificationEventsForDeletedMessage } = await import(
+      "@/lib/community-messenger/server/messenger-deleted-message-notification-scrub"
+    );
+    await scrubNotificationEventsForDeletedMessage(sb as any, {
+      roomId,
+      messageId,
+      placeholder: resolveDeletedMessagePlaceholder(),
+    });
+  } catch (err) {
+    console.error("[messenger-delete] notification_scrub_failed", {
+      messageId,
+      roomId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // DB 갱신 성공 후 스토리지 purge(실패는 로그만 — 삭제 자체는 DB 상 완료).
   await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, {
     messageId,

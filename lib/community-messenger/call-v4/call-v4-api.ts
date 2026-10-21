@@ -61,7 +61,22 @@ export type CallV4CallerPollFetchResult = {
   session: CommunityMessengerCallSession | null;
   httpStatus: number;
   notFound: boolean;
+  /** C-12 — 429 응답의 `Retry-After`(ms). 없으면 undefined */
+  retryAfterMs?: number;
 };
+
+/** C-12 — `Retry-After` 헤더(초 또는 HTTP-date) → ms. 해석 불가면 null */
+export function parseCallV4RetryAfterMs(value: string | null | undefined, now = Date.now()): number | null {
+  const raw = (value ?? "").trim();
+  if (!raw) return null;
+  if (/^\d+(\.\d+)?$/.test(raw)) {
+    const sec = Number(raw);
+    return Number.isFinite(sec) && sec >= 0 ? Math.round(sec * 1000) : null;
+  }
+  const at = Date.parse(raw);
+  if (!Number.isFinite(at)) return null;
+  return Math.max(0, at - now);
+}
 
 export async function callV4FetchSessionForCallerPoll(
   callId: string
@@ -83,6 +98,15 @@ export async function callV4FetchSessionForCallerPoll(
   );
   if (res.status === 404) {
     return { session: null, httpStatus: 404, notFound: true };
+  }
+  if (res.status === 429) {
+    const retryAfterMs = parseCallV4RetryAfterMs(res.headers?.get?.("Retry-After"));
+    return {
+      session: null,
+      httpStatus: 429,
+      notFound: false,
+      ...(retryAfterMs != null ? { retryAfterMs } : {}),
+    };
   }
   if (!res.ok) {
     return { session: null, httpStatus: res.status, notFound: false };

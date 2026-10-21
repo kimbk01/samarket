@@ -59,7 +59,7 @@ import {
   recordRouteEntryFirstInteractive,
   recordRouteEntryMetric,
 } from "@/lib/runtime/samarket-runtime-debug";
-import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
+import { useMessengerRoomComposerPhase1Context } from "@/lib/community-messenger/room/messenger-room-composer-phase1-context";
 import { getMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
 import {
   finalizeCmRoomEntryComposerFrameVisibleMs,
@@ -177,15 +177,13 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   });
   const {
     notifyComposerTextareaVisibleForSeededBootstrap,
-    loading: phase1Loading,
-    snapshot: phase1Snapshot,
     replyToMessage,
     setReplyToMessage,
     editingMessage,
     setEditingMessage,
     setMessage,
     focusTimelineMessage,
-  } = useMessengerRoomClientPhase1Context();
+  } = useMessengerRoomComposerPhase1Context();
   const roomKey = vm.snapshot.room.id;
   /** K-5: 방별 보내지 않은 입력 — 마운트 시 복원 */
   const draftStoreKey = messengerComposerDraftKey(vm.snapshot.viewerUserId, roomKey);

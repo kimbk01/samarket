@@ -1,9 +1,7 @@
 "use client";
 
-import {
-  callV4FetchSessionForCallerPoll,
-  type CallV4CallerPollFetchResult,
-} from "@/lib/community-messenger/call-v4/call-v4-api";
+import type { CallV4CallerPollFetchResult } from "@/lib/community-messenger/call-v4/call-v4-api";
+import { subscribeCallV4SessionStatus } from "@/lib/community-messenger/call-v4/call-v4-session-status-poller";
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
@@ -12,8 +10,6 @@ import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/commu
 import type { CallV4Phase, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { isNativeEstablishmentOwned } from "@/lib/call/native/native-outgoing-bridge";
-
-const CALLER_ACTIVE_POLL_MS = 500;
 
 const CALLER_POLL_OUTGOING_PHASES = new Set<CallV4Phase>(["creating", "outgoing_ringing"]);
 
@@ -26,15 +22,15 @@ const CALLER_TERMINAL_STATUSES = new Set([
   "failed",
 ]);
 
-let callerActivePollTimer: ReturnType<typeof setInterval> | null = null;
+/** C-12 — 공유 poller(callId 당 1개, 1초) 구독 해제 함수 */
+let callerActivePollUnsubscribe: (() => void) | null = null;
 let callerActivePollCallId: string | null = null;
 
 export function stopCallV4CallerActivePoll(): void {
-  if (callerActivePollTimer) {
-    clearInterval(callerActivePollTimer);
-    callerActivePollTimer = null;
-  }
+  const unsubscribe = callerActivePollUnsubscribe;
+  callerActivePollUnsubscribe = null;
   callerActivePollCallId = null;
+  unsubscribe?.();
 }
 
 function isCallerPollOutgoingPhase(phase: CallV4Phase): boolean {
@@ -112,34 +108,42 @@ export function startCallV4CallerActivePoll(callId: string): () => void {
   stopCallV4CallerActivePoll();
   callerActivePollCallId = sid;
 
-  const tick = () => {
-    void (async () => {
-      const phase = readCallV4Phase();
-      const identity = readCallV4Identity();
+  let stopped = false;
+  const onResult = async (fetchResult: CallV4CallerPollFetchResult) => {
+    if (stopped || callerActivePollCallId !== sid) return;
+    const phase = readCallV4Phase();
+    const identity = readCallV4Identity();
 
-      if (!isCallerPollOutgoingPhase(phase) || identity?.callId !== sid || identity.direction !== "outgoing") {
-        return;
-      }
+    if (!isCallerPollOutgoingPhase(phase) || identity?.callId !== sid || identity.direction !== "outgoing") {
+      return;
+    }
 
-      if (await isNativeEstablishmentOwned(sid)) {
-        logCallV4("web_agora_establishment_quarantined", { callId: sid, source: "caller_poll" });
-        stopCallV4CallerActivePoll();
-        return;
-      }
+    if (await isNativeEstablishmentOwned(sid)) {
+      logCallV4("web_agora_establishment_quarantined", { callId: sid, source: "caller_poll" });
+      stopCallV4CallerActivePoll();
+      return;
+    }
+    if (stopped || callerActivePollCallId !== sid) return;
 
-      const fetchResult = await callV4FetchSessionForCallerPoll(sid);
-      logCallV4("caller_poll_status", {
-        callId: sid,
-        status: fetchResult.session?.status ?? null,
-        phase,
-      });
+    logCallV4("caller_poll_status", {
+      callId: sid,
+      status: fetchResult.session?.status ?? null,
+      phase,
+    });
 
-      await handleCallerPollFetchResult(sid, fetchResult);
-    })();
+    await handleCallerPollFetchResult(sid, fetchResult);
   };
 
-  callerActivePollTimer = setInterval(tick, CALLER_ACTIVE_POLL_MS);
-  void tick();
+  const unsubscribe = subscribeCallV4SessionStatus(sid, onResult, {
+    isWanted: () => {
+      const identity = readCallV4Identity();
+      return isCallerPollOutgoingPhase(readCallV4Phase()) && identity?.callId === sid && identity.direction === "outgoing";
+    },
+  });
+  callerActivePollUnsubscribe = () => {
+    stopped = true;
+    unsubscribe();
+  };
 
   return stopCallV4CallerActivePoll;
 }

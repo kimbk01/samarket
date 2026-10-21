@@ -294,6 +294,15 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
   );
 
   const canMinimizeConnectedToDock = phase === "connected" && canEnterCallV4PipOrDock(phase);
+  /** V-8 — 히스테리시스 통과 경고는 통화 중(connected)·OS PiP 아님·종료 중 아님일 때만 */
+  const linkPoorWarning =
+    callPhase === "connected" &&
+    phase === "connected" &&
+    ms.linkPoorWarning === true &&
+    !presenter?.androidOsPipSafeMode;
+  const linkPoorWarningText = linkPoorWarning
+    ? safeT("cm_ui_call_link_poor", { fallbackKo: "연결 상태가 좋지 않습니다", fallbackEn: "Poor connection" })
+    : null;
 
   return {
     callTelemetryId: callId,
@@ -308,8 +317,8 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
     topLabel: null,
     onTopLabelClick: null,
     footerNote: null,
-    connectionLabel: connectionPresentation.connectionLabel,
-    connectionSignalTier: connectionPresentation.connectionSignalTier,
+    connectionLabel: linkPoorWarningText ?? connectionPresentation.connectionLabel,
+    connectionSignalTier: linkPoorWarningText ? "poor" : connectionPresentation.connectionSignalTier,
     connectedAt: callPhase === "connected" ? connectedAt : null,
     endedAt: null,
     endedDurationSeconds: null,
@@ -331,5 +340,6 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
     videoPipLayout: presenter?.videoPipLayout ?? null,
     androidOsPipSafeMode: presenter?.androidOsPipSafeMode,
     suppressTerminalView: phase === "ending",
+    ...(linkPoorWarningText ? { linkPoorWarning: true, linkPoorWarningText } : {}),
   };
 }

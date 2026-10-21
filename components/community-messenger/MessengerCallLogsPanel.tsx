@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { markCallScreenPushEntry } from "@/lib/community-messenger/call-v4/call-return-navigation";
 import { CommunityMessengerCallHistory } from "@/components/community-messenger/call-history/CommunityMessengerCallHistory";
 import {
   CommunityMessengerCallPeerDetailPanel,
@@ -319,6 +320,8 @@ export function MessengerCallLogsPanel({
       const sid = call.sessionId?.trim();
       if (sid) {
         const href = `/community-messenger/calls/${encodeURIComponent(sid)}`;
+        /** P-7 — push 진입 토큰: 종료 시 back 1회로 통화 기록에 돌아온다 */
+        markCallScreenPushEntry(sid, href);
         if (!callEngineActions.pushRouteOnce(router, sid, href)) {
           router.push(href);
         }

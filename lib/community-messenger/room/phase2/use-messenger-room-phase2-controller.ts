@@ -1,6 +1,8 @@
 "use client";
 
 import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { markCallScreenPushEntry } from "@/lib/community-messenger/call-v4/call-return-navigation";
+import { resolveOutgoingCallPeerLabelHint } from "@/lib/community-messenger/call-v4/call-v4-outgoing-peer-label";
 function trimCmText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
@@ -668,6 +670,8 @@ export function useMessengerRoomPhase2Controller() {
       rememberCallNavigationReturnPath();
       const suffix = action ? `?action=${encodeURIComponent(action)}` : "";
       const href = `/community-messenger/calls/${encodeURIComponent(nextSessionId)}${suffix}`;
+      /** P-7 — push 진입 토큰: 종료 시 back 1회로 이 방에 돌아온다 */
+      markCallScreenPushEntry(nextSessionId, href);
       router.push(href);
     },
     [router]
@@ -726,7 +730,10 @@ export function useMessengerRoomPhase2Controller() {
         return true;
       }
 
-      const peerLabel = snapshot?.room.title?.trim();
+      /** V-3 — 첫 화면 힌트도 상대 프로필 표시명(별칭 방 제목 아님). 서버 세션 이름이 오면 그쪽이 우선 */
+      const peerLabel = snapshot
+        ? resolveOutgoingCallPeerLabelHint(snapshot.members, snapshot.room.peerUserId, snapshot.room.title)
+        : undefined;
       cmCallLatencyMarkClick({
         surface: "room_managed",
         roomId: rid,
