@@ -102,29 +102,10 @@ export function AddressPlatformDetailClient(props: {
     draftUserId = "",
     researchHref,
   } = props;
-  const { effectiveBottomInset, effectiveViewportBottom, keyboardOpen } = useFormKeyboardViewport({ enabled: true });
+  const { effectiveBottomInset, effectiveViewportBottom } = useFormKeyboardViewport({ enabled: true });
   const scrollRootRef = useRef<HTMLDivElement | null>(null);
   /** 하단 입력(랜드마크·메모) 포커스 시 키보드 위로 보이게 (UX-006) */
   useFormKeyboardFocusVisibility({ effectiveViewportBottom, scrollRootRef });
-  /**
-   * 키보드가 닫히면 입력칸 포커스도 해제한다 (ADDR-A6).
-   * Android WebView 는 입력칸에 포커스가 남아 있는 동안 기기 뒤로 버튼을 앱에 넘기지 않아
-   * 미저장 확인 창이 뜨지 않고 뒤로가 무반응이 된다 (SM-M156S 실기기 진단).
-   */
-  const prevKeyboardOpenRef = useRef(keyboardOpen);
-  useEffect(() => {
-    const wasOpen = prevKeyboardOpenRef.current;
-    prevKeyboardOpenRef.current = keyboardOpen;
-    if (!wasOpen || keyboardOpen) return;
-    const active = document.activeElement;
-    if (
-      active instanceof HTMLElement &&
-      (active.tagName === "INPUT" || active.tagName === "TEXTAREA") &&
-      scrollRootRef.current?.contains(active)
-    ) {
-      active.blur();
-    }
-  }, [keyboardOpen]);
   const isTablet = useIsTabletWidth();
   const isShop = initial?.labelType === "shop" || Boolean(initial?.linkedStoreId?.trim());
   const masterInit = useMemo(
