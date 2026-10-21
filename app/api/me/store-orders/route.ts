@@ -710,6 +710,8 @@ export async function POST(req: NextRequest) {
       delivery_longitude: deliveryAddressSnapshot?.longitude ?? null,
       delivery_user_address_id: deliveryUserAddressId,
       ...etaSnapshot,
+      /** LOC-004: order-time serviceability evidence — stored by the RPC in the same INSERT */
+      ...(serviceabilitySnapshot && STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY ? serviceabilitySnapshot : {}),
       amount_before_gift: amountBeforeGift,
       ...(giftInstanceIds.length > 0 ? { gift_instance_ids: giftInstanceIds } : {}),
       ...(couponCampaignId && discountAmount > 0 && userCouponId
@@ -858,20 +860,6 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error("[POST /api/me/store-orders] coupon display snapshot", e);
     }
-  }
-
-  if (serviceabilitySnapshot && STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY) {
-    const { error: snapErr } = await sb
-      .from("store_orders")
-      .update(serviceabilitySnapshot)
-      .eq("id", orderId);
-    if (snapErr) {
-      console.error("[POST /api/me/store-orders] serviceability snapshot", snapErr.message);
-    }
-  } else if (serviceabilitySnapshot && !STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY) {
-    console.info(
-      "[POST /api/me/store-orders] serviceability snapshot skipped — STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY=false (apply migration 20261120140000 first)"
-    );
   }
 
   if (deliveryUserAddressId) {
