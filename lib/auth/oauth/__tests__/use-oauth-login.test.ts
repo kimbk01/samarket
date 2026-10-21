@@ -4,7 +4,6 @@ import {
   getOAuthPendingSnapshotForTests,
   getOAuthSuppressVisiblePendingForTests,
   OAUTH_PENDING_CLEAR_EVENT,
-  OAUTH_PENDING_TIMEOUT_MS,
   resolveOAuthPendingAfterClear,
   setOAuthPendingForTests,
   type OAuthInlineStatus,
@@ -24,9 +23,6 @@ describe("useOAuthLogin pending helpers", () => {
     expect(resolveOAuthPendingAfterClear("apple", "timeout")).toBeNull();
   });
 
-  it("uses a 30 second pending timeout", () => {
-    expect(OAUTH_PENDING_TIMEOUT_MS).toBe(30_000);
-  });
 
   it("dispatches the shared pending clear event", () => {
     const dispatchEvent = vi.fn();

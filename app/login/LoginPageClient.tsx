@@ -22,9 +22,11 @@ import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEma
 import { openProviderEmailConflictFromRedirect } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { parseProviderEmailConflictRedirectParams } from "@/components/auth/provider-email-conflict-redirect";
 import { OAuthInlineLoginHint } from "@/components/auth/OAuthInlineLoginHint";
+import { AUTH_LOGIN_DELAY_NOTICE_MS } from "@/lib/auth/oauth/auth-login-phase";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { Sam } from "@/lib/ui/css-vars";
 import { mapAuthErrorMessage, resolveAuthAccountStatusNotice } from "@/lib/auth/login-error-i18n";
 
 function LoginPageContent() {
@@ -68,6 +70,8 @@ function LoginPageContent() {
   );
   const {
     pendingOAuthProvider,
+    authBusy,
+    authCompleting,
     visiblePendingOAuthProvider,
     oauthInlineStatus,
     oauthError,
@@ -304,11 +308,53 @@ function LoginPageContent() {
     setShowEmailLogin(true);
   }, []);
 
+  /**
+   * 공급자 복귀·서버 확인·이동 중 (auth-login-phase returned/confirming/navigating) — 폼 대신 「로그인 중」 화면.
+   * 타이머로 폼에 되돌리지 않는다. 오래 걸리면 지연 안내 + 사용자가 누르는 「다시 시도」만 제공.
+   */
+  const [completingDelayed, setCompletingDelayed] = useState(false);
+  useEffect(() => {
+    if (!authCompleting) {
+      setCompletingDelayed(false);
+      return;
+    }
+    const noticeTimer = window.setTimeout(() => setCompletingDelayed(true), AUTH_LOGIN_DELAY_NOTICE_MS);
+    return () => window.clearTimeout(noticeTimer);
+  }, [authCompleting]);
+  const retryAfterDelayedCompletion = useCallback(() => {
+    // 새 로그인 화면으로 다시 진입 — 세션이 이미 만들어졌으면 마운트 시 자동 복원이 목적지로 보낸다.
+    window.location.replace(withNextSearchParam("/login", next ?? null));
+  }, [next]);
+
   /** 비밀번호 폼 오류 > OAuth 오류 > URL 안내 순 — 하나만 표시 */
   const formError = error || oauthError || "";
   const displayNotice: AuthLoginNoticeState | null = formError
     ? { tone: "error", text: formError }
     : notice;
+
+  if (authCompleting) {
+    return (
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4"
+        data-testid="auth-oauth-completing"
+        role="status"
+        aria-live="polite"
+      >
+        <DibayAuthLogo size={56} />
+        <p className="sam-text-body text-sam-muted">{t("auth_oauth_signing_in_label")}</p>
+        {completingDelayed ? (
+          <div className="flex max-w-sm flex-col items-center gap-3" data-testid="auth-oauth-completing-delayed">
+            <p className="sam-text-body-secondary text-center text-sam-muted">
+              {t("auth_login_completing_delayed")}
+            </p>
+            <button type="button" className={`${Sam.btn.secondary} min-h-11 px-6`} onClick={retryAfterDelayedCompletion}>
+              {t("auth_login_completing_retry")}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -369,7 +415,7 @@ function LoginPageContent() {
               error={formError}
               loading={loading}
               loadingText={passwordLogin.statusText}
-              disabled={loading || pendingOAuthProvider != null}
+              disabled={loading || authBusy}
               className="mt-2 space-y-4"
               onIdentifierChange={passwordLogin.setIdentifier}
               onPasswordChange={passwordLogin.setPassword}

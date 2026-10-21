@@ -76,7 +76,7 @@ describe("oauth-native-routing", () => {
     });
   });
 
-  it("routes kakao and apple to native provider login when SDK available", () => {
+  it("routes kakao on Android to web OAuth even when SDK available (process-death safe, no key hash)", () => {
     expect(
       resolveOAuthNativeRoutingDecision({
         provider: "kakao",
@@ -84,8 +84,13 @@ describe("oauth-native-routing", () => {
         shellPlatform: "android",
         isNativeProviderAvailable: () => true,
       }),
-    ).toEqual({ action: "native_provider_login" });
+    ).toEqual({
+      action: "web_oauth_start",
+      webOAuthFallbackReason: "android_kakao_web_oauth_process_death_safe",
+    });
+  });
 
+  it("routes apple to native provider login when SDK available", () => {
     expect(
       resolveOAuthNativeRoutingDecision({
         provider: "apple",
@@ -109,7 +114,7 @@ describe("oauth-native-routing", () => {
     });
   });
 
-  it("blocks kakao on Android native app when SDK unavailable", () => {
+  it("kakao on Android does not depend on SDK availability (web OAuth)", () => {
     expect(
       resolveOAuthNativeRoutingDecision({
         provider: "kakao",
@@ -118,8 +123,8 @@ describe("oauth-native-routing", () => {
         isNativeProviderAvailable: () => false,
       }),
     ).toEqual({
-      action: "native_blocked",
-      errorCode: "kakao_native_unavailable",
+      action: "web_oauth_start",
+      webOAuthFallbackReason: "android_kakao_web_oauth_process_death_safe",
     });
   });
 

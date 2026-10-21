@@ -1,5 +1,6 @@
 "use client";
 
+import { flushAndroidAuthCookies } from "@/lib/auth/android-cookie-durability.client";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS, NATIVE_OAUTH_LAUNCH_PATH, NATIVE_OAUTH_START_FETCH_TIMEOUT_MS, tryBeginOAuthFlow } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
@@ -133,6 +134,9 @@ export async function fetchNativeOAuthAuthorizeUrl(
       "Native OAuth redirectTo must use /auth/oauth/capacitor-return on samarket.vercel.app.",
     );
   }
+
+  /** PKCE verifier 쿠키를 Custom Tab 열기 전에 디스크로 — 탭 동안 앱이 죽어도 복귀 후 교환 가능 */
+  await flushAndroidAuthCookies("oauth_start").catch(() => undefined);
 
   logOAuthNativeEvent("native_start_ok", {
     provider: json.provider,

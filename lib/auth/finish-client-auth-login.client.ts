@@ -54,6 +54,19 @@ export class CommonClientSessionSyncError extends Error {
   }
 }
 
+/**
+ * 그 밖의 완료 실패(Android 쿠키 flush 실패·빈 목적지) — 이동 0회.
+ * 조용히 반환하면 화면이 「로그인 중」에 멈추므로 호출부가 실패 상태로 복구하도록 던진다.
+ */
+export class CommonAuthCompletionError extends Error {
+  readonly code = "auth_completion_failed";
+
+  constructor(readonly reason: string) {
+    super(`Login completion failed: ${reason}`);
+    this.name = "auth_completion_failed";
+  }
+}
+
 function requiresTermsAgreementHandoff(input: FinishClientAuthLoginTermsHandoff): boolean {
   if (input.needsTermsAgreement === true) return true;
   if (input.consentComplete === false) return true;
@@ -125,5 +138,8 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
   });
   if (!completion.ok && completion.reason === "client_session_sync_failed") {
     throw new CommonClientSessionSyncError();
+  }
+  if (!completion.ok) {
+    throw new CommonAuthCompletionError(completion.reason);
   }
 }
