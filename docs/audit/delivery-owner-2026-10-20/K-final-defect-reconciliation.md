@@ -16,23 +16,24 @@
 
 엄격 적용: 화면에서 보이는 결함을 단위 테스트(RTL 포함)만으로 확인했으면 **미증명(L5)**. 서버·계약·DB 결함만 L1/L2 로 해결 판정했다.
 
-## 1. 집계 (문서 O HARD LOCK 실측 반영 2026-10-22 00:20 PHT)
+## 1. 집계 (문서 O B3 + LOC-007·GFT-04 Owner 종결 반영 2026-10-22 00:48 PHT)
 
-- Production / 빌드(문서 L A·B): 재확인 SKIP(Owner — 이미 PASS). 실측 기기: 샤오미 `8b37179f7d94` Android **1.2.4 (9)** · 오너 `@asas11` · 매장 JTV(`7284169f…`). 증거 `/tmp/dibay-check/hardlock-o/`.
-- 문서 O 결과: PASS 8(PRD-12·PRD-13·LOC-011·DLV-01·IA-06·IA-15·ORD-02 크론·ORD-03 크론) → **해결** · 그룹 C 4+ORD-02 처리(Owner: 운영 실측 불가 — 자동 검증 근거 종결) · 잔여 미증명 2(LOC-007·GFT-04). FAIL 0.
+- Production / 빌드(문서 L A·B): 재확인 SKIP(Owner — 이미 PASS). 실측 기기: 샤오미 `8b37179f7d94` Android **1.2.4 (9)** · 오너 `@asas11` · 매장 JTV(`7284169f…`). 증거 `/tmp/dibay-check/hardlock-o/` · B3 `/tmp/dibay-check/hardlock-b3/`.
+- 문서 O 결과: PASS 8(PRD-12·PRD-13·LOC-011·DLV-01·IA-06·IA-15·ORD-02 크론·ORD-03 크론) → **해결** · **B3 ORD-03 처리 PASS**(픽업 최소주문 `e7e6cbbc…` / `SO1792600509823f8ba`, pending→cancelled, 수수료 0) · 그룹 C 4+ORD-02 처리 · LOC-007·GFT-04(Owner: 운영 실측 불가 — 자동 검증 근거 종결). FAIL 0 · 잔여 미증명 **0**.
 
 | 구분 | 해결 | 미증명 | 운영 실측 불가(자동 검증 근거) | 제외 | 미해결 | 합계 |
 |---|---|---|---|---|---|---|
 | P0 | 5 | 0 | 0 | 0 | 0 | 5 |
 | P1 | 15 | 0 | 1 | 0 | 0 | 16 |
-| P2 | 35 | 2 | 3 | 1 | 0 | 41 |
+| P2 | 35 | 0 | 5 | 1 | 0 | 41 |
 | P3 | 58 | 0 | 0 | 0 | 0 | 58 |
-| **감사 결함 소계 (문서 D)** | **113** | **2** | **4** | **1** | **0** | **120** |
+| **감사 결함 소계 (문서 D)** | **113** | **0** | **6** | **1** | **0** | **120** |
 | 추가 발견 (N-4B · N-5 · J-1~3 · X-1~4) | 8 | 0 | 0 | 1 | 0 | 9 |
-| **전체** | **121** | **2** | **4** | **2** | **0** | **129** |
+| **전체** | **121** | **0** | **6** | **2** | **0** | **129** |
 
-- **잔여 미증명 2건**: LOC-007(오너 매장 좌표 미설정 — 1km 이동 확인창 미재현) · GFT-04(가용 세션에 ACTIVE 상품권 0 — 결제 직전 고지 미확인). ORD-03 **처리**(10~12분 자동취소 주문)는 이번 실측 NOT_PROVEN(크론 실행은 해결).
-- **운영 실측 불가 4건**(문서 O 그룹 C · Owner 결정): IA-01·IA-02·ACC-04·NTF-04 — 자동 검증 근거(해당 행 테스트·격리 DB)로 종결. ORD-02 **처리**(3일 자동 구매확정)도 동일 Owner 종결(크론 실행은 해결).
+- **잔여 미증명 0건**.
+- **운영 실측 불가 6건**(Owner 결정 「운영 실측 불가 — 자동 검증 근거 종결」): IA-01·IA-02·ACC-04·NTF-04(문서 O 그룹 C) · **LOC-007**(오너 매장 좌표 미설정 — 1km 이동 확인창 미재현) · **GFT-04**(가용 세션 ACTIVE 상품권 0 — 결제 직전 고지 미확인). ORD-02 **처리**(3일 자동 구매확정)도 동일 Owner 종결(크론 실행은 해결).
+- **ORD-03 처리**: 문서 O B3 PASS — 주문자 PC(`@aaaa`) 픽업·COD YEUL RAMEN ₱55 · 오너 미접수 · 생성 `2026-10-22 00:35:09 PHT` → 취소 `00:45:13 PHT` · `order_status=cancelled` · `store_sale_fee_obligations` **0** · 주문자·오너 알림 스크린샷 `/tmp/dibay-check/hardlock-b3/B3-buyer-notifications.png`·`B3-owner-notifications.png`.
 - **제외 2건**: ACC-05(서류 심사 의무화는 사업 정책 — 기존 승인 절차 결함 아님, §9 최소 설계) · X-2(라이더 기능 운영 미사용 — 라이더 0명).
 - **미해결 0건** — 개발 결함은 모두 해결. X-4 는 운영 누락분만 최소 보완 적용(`1380b9159`).
 - 과거 데이터 **제외**(D-5, 해결 판정과 별개): GFT-02 Coin 11건 · ADS-01 ₱480 4건 · GFT-01 7주문 · FIN-08 −₱225 · GFT-08 1건 · LOC-005 9매장 · DLV-02 1건 · PRD-16 과거 고아 파일.
@@ -61,7 +62,7 @@
 | ID | 영역 | 상태 | 근거 | 남은 층 / 사유 |
 |---|---|---|---|---|
 | ORD-02 (⊃NTF-01) | 자동 구매확정·독촉 크론 | 해결 | `04623692` · `vercel.json` · S2 · 문서 O A7: `vercel logs --json` `GET /api/cron/store-orders-auto-complete` **responseStatusCode 200** (2026-10-22 PHT, `/tmp/dibay-check/hardlock-o/`) | 3일 경과 **처리** 실증은 Owner 결정 「운영 실측 불가 — 자동 검증 근거 종결」(문서 O 그룹 C) |
-| ORD-03 | 미접수 자동 취소 | 해결 | `04623692` · `owner-lifecycle-and-write-gate.test.ts` · 문서 O A7: `GET /api/cron/store-orders-accept-timeout` **200** | 10~12분 주문 **처리** 실측은 문서 O B3 NOT_PROVEN. 과거 pending 54건 D-5 |
+| ORD-03 | 미접수 자동 취소 | 해결 | `04623692` · `owner-lifecycle-and-write-gate.test.ts` · 문서 O A7: cron **200** · **B3 처리 PASS**: 주문 `e7e6cbbc-5774-4b0d-bf01-3c7f1a30bb90`(`SO1792600509823f8ba`) 픽업·pending→cancelled(00:35:09→00:45:13 PHT) · fee 0 · 주문자·오너 알림(`/tmp/dibay-check/hardlock-b3/`) | 과거 pending 54건 D-5. 주문자 알림 문구는 UI에 「매장에 의해 취소」로 보임(오너 알림은 미접수 자동 취소 문구) — 상태·수수료·오너 알림으로 처리 실증 |
 | ORD-05 | 오너 목록 60건 한도 | 해결 | `04623692` · `20270602110000` · `lib/business/__tests__/merge-owner-store-order-list-rows.test.ts` · 운영 롤백 실측(미종료 61 전부 첫 페이지, 중복 0) | 「이전 주문 더 보기」 화면 L5 |
 | IA-01 | 심사 중 매장 수정 불가 | 운영 실측 불가(자동 검증 근거) | `b3d5e837` · NAV(「onboarding routes stay open for pending」) | 운영 미승인 매장 0 — Owner 문서 O 그룹 C 종결 |
 | ACC-03 | 탈퇴 사장 매장 영업 | 해결 | `b3d5e837` · S7(withdraw → 비노출·판매권한 suspended·감사·삭제 라우트 호출) | 현재 해당 0 |
@@ -99,7 +100,7 @@
 | LOC-004 | 주문 시 판정 스냅샷 | 해결 | `e649c0bb` · `20270604110100` 운영:적용md5 · `iso:stage3-rpc` · `loc004-order-serviceability-snapshot.test.ts` · L4:I-8 | I-8 대상 0건(자연 주문 미관측). 관리자 표시는 J-3 |
 | LOC-005 | 좌표 없는 배달 매장 | 해결 | `c64de134` · `20270604100000` · `iso:stage3-3a` · L4:I-9 | 기존 9매장 행은 D-5 로 그대로(LOC-003 으로 배달 불가 판정) |
 | LOC-006 | 지역 교체 비원자 | 해결 | `c64de134` · `20270604100100`(Owner 적용, md5 일치) · `iso:stage3-3a` · `loc-006-replace-contract.route.test.ts` | — |
-| LOC-007 | 위치 이동 검증 | 미증명 | `c64de134` · `owner-store-patch-location-guards.route.test.ts`(1km·LGU 409, 감사) · 문서 O A3: 기본정보 「매장 위치 · 좌표 미설정」(`/tmp/dibay-check/hardlock-o/A3c-loc0.png`) | 1km 이동 확인창 미재현(저장 핀 없음). 운영 좌표 저장은 하지 않음 |
+| LOC-007 | 위치 이동 검증 | 운영 실측 불가(자동 검증 근거) | `c64de134` · `owner-store-patch-location-guards.route.test.ts`(1km·LGU 409, 감사) · 문서 O A3: 「매장 위치 · 좌표 미설정」(`/tmp/dibay-check/hardlock-o/A3c-loc0.png`) | Owner 결정(2026-10-22): 운영 실측 불가 — 자동 검증 근거 종결. 운영 좌표 저장 안 함 |
 | LOC-008 (=ORD-08) | 종료 주문 연락처 | 해결 | `c64de134` · `lib/stores/__tests__/mask-buyer-contact-for-owner.test.ts` | — |
 | ORD-04 | 관리자 개입 CAS | 해결 | `5cae6ca9` · `lib/admin/store-orders/__tests__/admin-store-order-intervention.test.ts` · S5 | 409 문구 화면 L3 |
 | ORD-06 | 취소 원장 원자화 | 해결 | `1f8a4c35`/`5cae6ca9` · `20270602120000` 운영:적용md5 · `iso:store-orders`(롤백·동시성) | — |
@@ -120,7 +121,7 @@
 | ADS-06 | 배너 매장 자격 | 해결 | `2f060663` · `delivery-ad-stage3-3d1.test.ts`(ADS-06 3건) · S9 | — |
 | ADS-08 | 광고 승인 권한키 | 해결 | `2f060663` · `delivery-ad-stage3-3d1.test.ts` · S9 | — |
 | ADS-21 | 쿠폰 복원 원자화 | 해결 | `e2a0b1e7` · `iso:stage2-2c` · G1 · L4:I-5 | — |
-| GFT-04 | 상품권 소멸 고지 | 미증명 | `a1f286d9` · `store-cart-gift-forfeit-consent.test.tsx`(RTL) · 문서 O A6: PC 세션 상품권 보유 0 | ACTIVE 상품권 주문자로 결제 직전 화면 미확인 |
+| GFT-04 | 상품권 소멸 고지 | 운영 실측 불가(자동 검증 근거) | `a1f286d9` · `store-cart-gift-forfeit-consent.test.tsx`(RTL) · 문서 O A6: PC 세션 상품권 보유 0 | Owner 결정(2026-10-22): 운영 실측 불가 — 자동 검증 근거 종결 |
 | GFT-05 | 상품권 복원 원자화 | 해결 | `e2a0b1e7` · `iso:stage2-2c` · G1 | — |
 
 ## 6. P3 (58)
