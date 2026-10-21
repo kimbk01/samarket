@@ -99,3 +99,10 @@ FAIL 이 하나라도 있으면 원인 추측으로 수정하지 말고 증상·
 - 범위: iOS `NativeAppleAuthPlugin.swift` 가 JS 가 준 nonce 를 쓰도록 변경 · Android `NativeGoogleAuthPlugin.java` 에 nonce 지원 추가 · 서버 1회용 nonce 발급 후 native exchange 에서 필수화.
 - 앱 재빌드: Android `versionCode`·iOS build 번호 1회 증가 + 스토어 제출 필요.
 - 호환 위험: 구 바이너리는 서버 nonce 를 보낼 수 없음 → 즉시 필수화하면 구 버전 iOS Apple·Android Google 로그인 불가. 최소 버전 강제 전까지 서버는 nonce 없는 요청 허용 필요.
+
+## 결과 1차 (2026-10-21 PHT, Cursor 보고)
+
+- `[배포 구분] 웹만` · **STOP — PR #125 미병합.**
+- `KAKAO_APP_ID` — **MISSING** (Vercel Production env 에 Kakao 관련 변수 없음). 형식·일치 확인 해당 없음.
+- 병합·Production·운영 검증(4–7) — 병합 전 STOP 으로 미진행.
+- **Owner 조치:** Kakao Developers → 내 애플리케이션 → DIBAY 앱 → 앱 키 화면의 앱 ID(숫자)를 Vercel Production env `KAKAO_APP_ID` 로 등록 → 이 프롬프트 재실행 (1) 부터.
