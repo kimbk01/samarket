@@ -27,4 +27,10 @@ export type BusinessAdminNavItemId =
   | "finance"
   | "ads"
   | "notifications"
-  | "notification_settings";
+  | "notification_settings"
+  /** 4단계 12그룹 IA — 드로어 비노출(제목·활성·뒤로가기 파생 전용) */
+  | "store_manage"
+  | "product_edit"
+  | "ads_event"
+  | "apply"
+  | "my";
