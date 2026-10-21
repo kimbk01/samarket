@@ -43,7 +43,8 @@ async function run(id, title, fn) {
   try {
     r = await fn();
   } catch (e) {
-    r = { status: "FAIL", detail: `예외: ${String(e?.message ?? e).split("\n")[0]}` };
+    const msg = String(e?.message ?? e).split("\n")[0];
+    r = { status: "FAIL", detail: `예외: ${msg}${msg.includes("URL=") ? "" : ` — ${await screenState()}`}` };
   }
   const evidence = await shot(id);
   results.push({ id, title, ...r, evidence, ms: Date.now() - t0 });
@@ -55,8 +56,23 @@ async function gotoPath(path) {
   await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
 }
 
+/** 현재 화면 상태 한 줄 — 실패 원인 보고용 (URL + 화면 글자 앞부분) */
+async function screenState() {
+  try {
+    const url = page.url();
+    const text = await page.evaluate(() => (document.body?.innerText ?? "").replace(/\s+/g, " ").trim().slice(0, 240));
+    return `URL=${url} | 화면="${text}"`;
+  } catch (e) {
+    return `화면 상태 읽기 실패: ${String(e?.message ?? e).split("\n")[0]}`;
+  }
+}
+
 async function rowCount() {
-  await page.waitForSelector('[data-testid="address-row"], [data-testid="address-empty-add"]', { timeout: 20000 });
+  try {
+    await page.waitForSelector('[data-testid="address-row"], [data-testid="address-empty-add"]', { timeout: 45000 });
+  } catch {
+    throw new Error(`주소 목록이 45초 안에 표시되지 않음 — ${await screenState()}`);
+  }
   return page.locator('[data-testid="address-row"]').count();
 }
 
@@ -486,6 +502,10 @@ try {
   await cleanup();
 } catch (e) {
   fatal = String(e?.message ?? e).split("\n")[0];
+  if (page) {
+    await shot("fatal");
+    if (!fatal.includes("URL=")) fatal += ` — ${await screenState()}`;
+  }
 }
 
 const lines = [
