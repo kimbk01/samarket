@@ -9,7 +9,6 @@ import {
   consumePendingAuthAction,
 } from "@/lib/auth/require-auth-action";
 import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
-import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import {
   sanitizeFreshLoginLandingPath,
   sanitizeNextPath,
@@ -81,26 +80,6 @@ export function resolveImmediateLoginTarget(
     : null;
   if (fromExchange) return fromExchange;
   return sanitizeFreshLoginLandingPath(input.next) ?? POST_LOGIN_PATH;
-}
-
-/**
- * P1-9 (SG-01): 아이디(password) 로그인은 exchange handoff 가 없으므로 성공 직후 signup-status 를 1회 읽어
- * `consentComplete` 를 전달한다 — 미동의면 resolveImmediateLoginTarget 이 terms 로 보낸다 (Destination 의미 불변).
- * 조회 실패 시 빈 handoff (기존 동작) — 이후 DibaySignupGate·API 403 이 동의 화면으로 복구한다.
- */
-export async function resolvePasswordLoginTermsHandoff(
-  next?: string | null,
-): Promise<FinishClientAuthLoginTermsHandoff> {
-  try {
-    const { status, json } = await fetchSignupStatusDeduped(next ?? null);
-    if (status !== 200 || !json?.signup) return {};
-    return {
-      consentComplete: json.signup.consentComplete === true,
-      signupComplete: json.signup.signupComplete === true,
-    };
-  } catch {
-    return {};
-  }
 }
 
 /**

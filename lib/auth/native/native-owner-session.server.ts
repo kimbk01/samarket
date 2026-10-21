@@ -135,3 +135,20 @@ export async function mintNativeOwnerSessionViaMagicLink(
   }
   return verified.user;
 }
+
+/**
+ * P1-7 — `profiles.provider*` 는 최초 기록만. provider_user_id 가 이미 있으면 true (갱신 금지).
+ * 조회 오류는 throw — 호출부가 soft(건너뜀)/hard(500) 를 정한다.
+ */
+export async function profileProviderIdentityAlreadySet(
+  adminSb: SupabaseClient,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await adminSb
+    .from("profiles")
+    .select("provider_user_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message || "profile_identity_read_failed");
+  return Boolean(String((data as { provider_user_id?: string | null } | null)?.provider_user_id ?? "").trim());
+}

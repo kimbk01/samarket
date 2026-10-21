@@ -89,17 +89,16 @@ async function tombstoneGoogleNativeOrphanAuthUser(
   meta.dibay_orphan_tombstone_at = new Date().toISOString();
   meta.dibay_orphan_canonical_hash = createHash("sha256").update(canonicalUserId || "none").digest("hex").slice(0, 12);
 
-  await adminSb.auth.admin
-    .updateUserById(orphanUserId, {
+  try {
+    await adminSb.auth.admin.updateUserById(orphanUserId, {
       email: orphanTombstoneEmail(orphanUserId),
       email_confirm: true,
       ban_duration: "876000h",
       user_metadata: meta,
-    })
-    .then(
-      () => undefined,
-      () => undefined,
-    );
+    });
+  } catch {
+    /* best-effort — 실패해도 회원 삭제로 대체하지 않는다 */
+  }
 }
 
 /**

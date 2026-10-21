@@ -143,7 +143,11 @@ describe("Slice 8-4 Completion / Provider / UI Boundary Guard", () => {
     // LoginPage: OAuth success + email + optional session auto-restore — all via finish only
     expect(countCalls(login, "finishClientAuthLogin")).toBeGreaterThanOrEqual(2);
     expect(countCalls(login, "runCommonAuthClientCompletion")).toBe(0);
-    expect(countCalls(modal, "finishClientAuthLogin")).toBe(2);
+    // P1-9: email(password) finish moved into the shared usePasswordLogin hook (LoginPage + AuthModal)
+    const passwordHook = readSrc("components/auth/usePasswordLogin.ts");
+    expect(countCalls(modal, "finishClientAuthLogin")).toBe(1);
+    expect(countCalls(passwordHook, "finishClientAuthLogin")).toBe(1);
+    expect(countCalls(passwordHook, "runCommonAuthClientCompletion")).toBe(0);
     expect(countCalls(modal, "runCommonAuthClientCompletion")).toBe(0);
 
     const finish = readSrc(AUTH_RUN_COMMON_COMPLETION_OWNER);

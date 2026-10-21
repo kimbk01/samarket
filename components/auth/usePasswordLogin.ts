@@ -15,8 +15,9 @@ import {
 } from "@/lib/auth/login-error-i18n";
 import {
   finishClientAuthLogin,
-  resolvePasswordLoginTermsHandoff,
+  type FinishClientAuthLoginTermsHandoff,
 } from "@/lib/auth/finish-client-auth-login.client";
+import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
@@ -52,6 +53,27 @@ function withTimeout<T>(p: Promise<T>, ms: number, signal: string): Promise<T> {
       window.setTimeout(() => reject(new Error(signal)), ms);
     }),
   ]);
+}
+
+/**
+ * P1-9 (SG-01): 아이디(password) 로그인은 exchange handoff 가 없으므로 성공 직후 signup-status 를 1회 읽어
+ * `consentComplete` 를 finishClientAuthLogin 에 전달한다 — 미동의면 resolveImmediateLoginTarget 이 terms 로 보낸다
+ * (Destination 의미 불변 · 내비게이션 전 1회 입력 보강, 백그라운드 재이동 아님).
+ * 조회 실패 시 빈 handoff (기존 동작) — 이후 DibaySignupGate·API 403 이 동의 화면으로 복구한다.
+ */
+export async function resolvePasswordLoginTermsHandoff(
+  next?: string | null,
+): Promise<FinishClientAuthLoginTermsHandoff> {
+  try {
+    const { status, json } = await fetchSignupStatusDeduped(next ?? null);
+    if (status !== 200 || !json?.signup) return {};
+    return {
+      consentComplete: json.signup.consentComplete === true,
+      signupComplete: json.signup.signupComplete === true,
+    };
+  } catch {
+    return {};
+  }
 }
 
 /**

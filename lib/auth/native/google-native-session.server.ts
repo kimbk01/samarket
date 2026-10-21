@@ -19,6 +19,7 @@ import {
   canAdoptRecoveredNativeAuthUser,
   mintNativeOwnerSessionViaMagicLink,
   nativeProviderOwnsAuthCredentials,
+  profileProviderIdentityAlreadySet,
   resolveNativePasswordSeed,
 } from "@/lib/auth/native/native-owner-session.server";
 import {
@@ -225,15 +226,7 @@ async function persistGoogleProfileIdentity(
   userId: string,
   verified: GoogleVerifiedIdentity,
 ): Promise<void> {
-  const { data: current, error: readError } = await adminSb
-    .from("profiles")
-    .select("provider_user_id")
-    .eq("id", userId)
-    .maybeSingle();
-  if (readError) return;
-  if (String((current as { provider_user_id?: string | null } | null)?.provider_user_id ?? "").trim()) {
-    return;
-  }
+  if (await profileProviderIdentityAlreadySet(adminSb, userId).catch(() => true)) return;
   const patch: Record<string, unknown> = {
     provider: "google",
     auth_provider: "google",

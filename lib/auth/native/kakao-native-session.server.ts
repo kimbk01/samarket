@@ -19,6 +19,7 @@ import {
   canAdoptRecoveredNativeAuthUser,
   mintNativeOwnerSessionViaMagicLink,
   nativeProviderOwnsAuthCredentials,
+  profileProviderIdentityAlreadySet,
   resolveNativePasswordSeed,
 } from "@/lib/auth/native/native-owner-session.server";
 import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";
@@ -216,17 +217,7 @@ async function persistKakaoProfileIdentity(
   userId: string,
   verified: KakaoVerifiedIdentity,
 ): Promise<void> {
-  const { data: current, error: readError } = await adminSb
-    .from("profiles")
-    .select("provider_user_id")
-    .eq("id", userId)
-    .maybeSingle();
-  if (readError) {
-    throw new Error(readError.message || "Failed to read Kakao profile identity metadata");
-  }
-  if (String((current as { provider_user_id?: string | null } | null)?.provider_user_id ?? "").trim()) {
-    return;
-  }
+  if (await profileProviderIdentityAlreadySet(adminSb, userId)) return;
   const patch: Record<string, unknown> = {
     provider: "kakao",
     auth_provider: "kakao",

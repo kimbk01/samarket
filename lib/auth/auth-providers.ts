@@ -18,7 +18,7 @@ export type AuthProviderRow = {
    * P2-16: 비밀값 설정 여부 (DB 컬럼 `client_secret_configured`). 비밀값 원문은 Vault 로 옮기고
    * 테이블 `client_secret` 은 빈 문자열로 둔다 — 앱은 원문 대신 이 플래그로 설정 여부를 판단한다.
    */
-  client_secret_configured?: boolean | null;
+  client_secret_configured?: boolean;
   redirect_uri: string;
   scope: string;
   sort_order: number;

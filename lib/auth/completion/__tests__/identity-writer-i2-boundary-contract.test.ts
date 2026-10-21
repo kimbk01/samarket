@@ -88,14 +88,8 @@ describe("Slice 7-4 Identity Writer I2 boundary", () => {
       }
     }
 
-    const naver = readSrc(NAVER);
-    const iUpdate = indexOfRequired(naver, 'from("profiles")', "naver profiles update");
-    const patch = naver.slice(iUpdate, iUpdate + 350);
-    expect(patch).toMatch(/provider:\s*"naver"/);
-    expect(patch).toMatch(/provider_user_id:\s*profile\.id/);
-    expect(patch).not.toMatch(/display_name/);
-    expect(patch).not.toMatch(/username:/);
-    expect(patch).not.toMatch(/avatar_url/);
+    // P0-1 — Naver callback 은 410 고정: profiles 식별 컬럼 writer 없음.
+    expect(readSrc(NAVER)).not.toMatch(/from\("profiles"\)/);
   });
 
   it("3–4. Google: reconcile → canonical → identity column → auth identity → hard gate", () => {
@@ -137,8 +131,6 @@ describe("Slice 7-4 Identity Writer I2 boundary", () => {
       const src = readSrc(rel);
       expect(src).toMatch(/\.update\(patch\)\.eq\("id", userId\)/);
     }
-    const naver = readSrc(NAVER);
-    expect(naver).toMatch(/\.eq\("id", signedUser\.id\)/);
   });
 
   it("8. Kakao/Apple: canonical → identity column → auth identity (separated)", () => {
@@ -156,12 +148,10 @@ describe("Slice 7-4 Identity Writer I2 boundary", () => {
     }
   });
 
-  it("8b. Naver: canonical then Identity column update (not merged into facade)", () => {
+  it("8b. Naver: disabled (P0-1) — no canonical / identity column writer", () => {
     const src = readSrc(NAVER);
-    const iCanonical = indexOfRequired(src, "await ensureAuthProfileForLogin(", "naver canonical");
-    const iUpdate = src.indexOf('from("profiles")', iCanonical);
-    expect(iUpdate).toBeGreaterThan(iCanonical);
-    expect(src.slice(iUpdate, iUpdate + 280)).toMatch(/provider_user_id:\s*profile\.id/);
+    expect(src).toMatch(/naver_login_disabled|NAVER_LOGIN_DISABLED_ERROR_CODE/);
+    expect(src).not.toMatch(/ensureAuthProfileForLogin|from\("profiles"\)|updateUserById/);
   });
 
   it("9. Web OAuth: facade then persistOAuthProviderIdentity; HTTP redirect retained", () => {
@@ -186,7 +176,7 @@ describe("Slice 7-4 Identity Writer I2 boundary", () => {
   it("10. Slice 6 Completion / Destination / Client Sync untouched by Identity boundary file", () => {
     const boundary = readSrc("lib/auth/completion/identity-writer-i2-boundary.ts");
     expect(boundary).not.toMatch(/resolveCommonAuthDestination|syncCommonClientSessionAfterAuth|finishClientAuthLogin/);
-    for (const rel of [GOOGLE, WEB, NAVER]) {
+    for (const rel of [GOOGLE, WEB]) {
       const src = readSrc(rel);
       expect(src).toMatch(/resolveCommonAuthDestination/);
       expect(src).not.toMatch(/syncCommonClientSessionAfterAuth/);
