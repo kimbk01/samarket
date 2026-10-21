@@ -1,0 +1,161 @@
+{
+  "_comment": "운영에 없어도 verify:prod-schema-drift 를 실패시키지 않을 객체. object = \"table\" | \"table.column\" | \"function()\" · reason 필수. 의도적 제거(재생 순서 착시)만 등록 — 미적용 드리프트는 등록 금지.",
+  "entries": [
+    {
+      "object": "app_intro_documents",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "app_intro_live",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "app_intro_media",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "app_intro_packs",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "app_intro_publish_operations",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "app_intro_revisions",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "app_intro_runtime_artifacts",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "app_intro_sealed_assets",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "app_intro_source_generations",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "app_system_start_config",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "app_system_start_live",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "get_intro_published_manifest()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_assets",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_campaigns",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_device_overrides",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_publications",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_scenes",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_build_manifest()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_cta_ok()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_device_family()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_external_host_ok()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_layer_ok()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_layers_ok()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_pause_unpublishes()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_persistable_ref_ok()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_publication_immutable()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_publish_campaign()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_scene_advance_ok()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_targeting_matches()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_targeting_ok()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_text_array_ok()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "intro_v2_unpublish_campaign()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "opening_drafts",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "opening_media",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "opening_media_derivatives",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "opening_revisions",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "opening_shows",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "set_opening_live()",
+      "reason": "20260930220000_r15_intro_system_start_absolute_zero 가 Owner 승인 하에 최종 0 상태로 제거(파일명상 이후인 2027xxxx intro/opening 마이그레이션보다 우선 · 파일 주석 'must leave final state ZERO')"
+    },
+    {
+      "object": "user_addresses.postal_code",
+      "reason": "20260410190000_user_addresses_drop_postal_code 가 의도적으로 제거 — 파일명상 이후인 20260428120000_user_addresses 의 CREATE TABLE IF NOT EXISTS 는 운영에선 no-op(재생 순서 착시)"
+    }
+  ]
+}
