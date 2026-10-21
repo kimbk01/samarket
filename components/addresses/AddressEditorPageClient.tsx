@@ -43,6 +43,7 @@ import {
 } from "@/lib/addresses/mypage-address-manage-layout";
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
+import { usePinChromeToVisualViewportTop } from "@/lib/ui/use-pin-chrome-to-visual-viewport-top";
 
 function AddressEditorPageChrome(props: {
   titleKey: MessageKey;
@@ -52,19 +53,24 @@ function AddressEditorPageChrome(props: {
   onBack?: () => void;
 }) {
   const { titleKey, backHref, children, onBack } = props;
+  const chromeRef = useRef<HTMLDivElement | null>(null);
+  /** iOS 키보드가 화면을 밀어도 뒤로가기 헤더는 보이는 영역 상단에 고정 */
+  usePinChromeToVisualViewportTop(chromeRef);
   return (
-    <div className={MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS}>
-      <MySubpageHeader
-        inlineChrome
-        registerMainTier1={false}
-        titleKey={titleKey}
-        backHref={backHref}
-        leftSlot={
-          onBack ? <AppBackButton preferHistoryBack={false} onBack={onBack} ariaLabelKey="nav_back" /> : undefined
-        }
-        hideCtaStrip
-        showHubQuickActions
-      />
+    <div className={MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS} data-form-keyboard-surface="1">
+      <div ref={chromeRef} className="relative z-10 shrink-0" data-form-keyboard-sticky-chrome="1">
+        <MySubpageHeader
+          inlineChrome
+          registerMainTier1={false}
+          titleKey={titleKey}
+          backHref={backHref}
+          leftSlot={
+            onBack ? <AppBackButton preferHistoryBack={false} onBack={onBack} ariaLabelKey="nav_back" /> : undefined
+          }
+          hideCtaStrip
+          showHubQuickActions
+        />
+      </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
     </div>
   );

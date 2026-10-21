@@ -11,7 +11,7 @@ HARD LOCK means:
 
 - Canonical DeviceClass authority exists and was read from installed FD1 binaries
 - DeviceClass is physical/product identity — not window width, not orientation
-- 600dp Android threshold and iOS idiom rules are frozen
+- 600dp Android threshold (+ < 7" physical diagonal phone guard) and iOS idiom rules are frozen
 - iPad / Windows fixture absence stays **NOT_PROVEN** — not a defect, not a PASS
 - It does **not** mean HEAD is origin/Production
 
@@ -43,6 +43,8 @@ PRIMARY: `Configuration.smallestScreenWidthDp`
 |---|---|
 | `>= 600` | `TABLET_ANDROID` |
 | `< 600` | `PHONE_ANDROID` |
+
+**Physical diagonal guard (Owner E1 reopen, 2026-10-21):** if sw says `TABLET_ANDROID` but the physical screen diagonal (full display px ÷ panel dpi) is **< 7"**, the class is `PHONE_ANDROID` (`source=physicalDiagonal`, `reason=physical_diagonal_below_7in`). Cause: Samsung SM-M156S (6.7") with a smaller "screen zoom" reports sw601 and was rotating like a tablet. Unusable dpi → guard skipped (sw verdict stands). Xiaomi 24076RP19G (8.7") stays `TABLET_ANDROID`.
 
 `screenLayout & SIZE_MASK` = FALLBACK only when smallestScreenWidthDp is unusable.  
 When both are present and disagree: **sw wins**, record `conflict=true`. DeviceClass does not change because of the diagnostic.
