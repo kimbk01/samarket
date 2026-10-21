@@ -653,6 +653,204 @@ async function A6probe() {
   return { status: "PROBE", detail: lines.join(" || ") };
 }
 
+// ───────── 남은 항목 (--remaining): WebView CDP 로 오프라인·권한 거부·실제 터치 ─────────
+let cdp = null;
+async function getCdp() {
+  if (!cdp) cdp = await page.context().newCDPSession(page);
+  return cdp;
+}
+async function setWebOffline(offline) {
+  const c = await getCdp();
+  await c.send("Network.enable");
+  await c.send("Network.emulateNetworkConditions", { offline, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+}
+/** 실제 손가락 터치(사용자 제스처) — 키보드가 열린다 */
+async function touchLocator(loc) {
+  await loc.scrollIntoViewIfNeeded().catch(() => {});
+  const box = await loc.boundingBox();
+  if (!box) throw new Error("터치 대상 요소 위치를 찾지 못함");
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const c = await getCdp();
+  await c.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  await c.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+}
+async function typeText(text) {
+  const c = await getCdp();
+  await c.send("Input.insertText", { text });
+}
+function imeShown() {
+  try {
+    const out = adb("shell", "dumpsys", "input_method");
+    return /mInputShown=true|mIsInputViewShown=true|isInputViewShown=true/.test(out);
+  } catch {
+    return false;
+  }
+}
+async function keyboardState() {
+  const vv = await page.evaluate(() => {
+    const v = window.visualViewport;
+    return v ? window.innerHeight - v.height > 120 : false;
+  });
+  return vv || imeShown();
+}
+async function focusedTag() {
+  return page.evaluate(() => {
+    const el = document.activeElement;
+    return el ? `${el.tagName}${el.id ? "#" + el.id : ""}` : "none";
+  });
+}
+
+async function R_A4() {
+  const { rows } = await searchAndWaitResults("Ayala Triangle Gardens Makati");
+  await setWebOffline(true);
+  try {
+    await rows.first().click();
+    const alert = page.locator('[role="alert"]', { hasText: "주소를 불러오지 못했습니다" });
+    const shown = await alert.waitFor({ timeout: 20000 }).then(() => true, () => false);
+    const stayed = /\/mypage\/addresses\/search/.test(page.url());
+    return shown && stayed
+      ? { status: "PASS", detail: "오프라인에서 결과 선택 → 오류 안내 표시, 검색 화면 유지" }
+      : { status: "FAIL", detail: `오류 안내 ${shown ? "O" : "X"}, 검색 화면 유지 ${stayed ? "O" : "X"} — ${await screenState()}` };
+  } finally {
+    await setWebOffline(false);
+  }
+}
+
+async function R_A5() {
+  await gotoPath("/mypage/addresses");
+  await rowCount();
+  // OS 위치 권한 거부 상태를 앱 화면에 그대로 재현 (permissions=denied, 요청 시 PERMISSION_DENIED)
+  await page.evaluate(() => {
+    const denied = { code: 1, message: "User denied Geolocation", PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 };
+    const geo = navigator.geolocation;
+    geo.getCurrentPosition = (_ok, err) => setTimeout(() => err && err(denied), 50);
+    geo.watchPosition = (_ok, err) => {
+      setTimeout(() => err && err(denied), 50);
+      return 0;
+    };
+    const origQuery = navigator.permissions?.query?.bind(navigator.permissions);
+    if (origQuery) {
+      navigator.permissions.query = (d) =>
+        d && d.name === "geolocation" ? Promise.resolve({ state: "denied", onchange: null }) : origQuery(d);
+    }
+  });
+  await page.getByRole("button", { name: /현재 위치로 찾기/ }).click();
+  const want = "설정에서 권한을 확인하거나 주소를 검색해 주세요.";
+  const shown = await page.getByText(want).waitFor({ timeout: 15000 }).then(() => true, () => false);
+  const dialogText = await page
+    .evaluate(() => [...document.querySelectorAll('[role="dialog"],[role="alert"]')].map((d) => (d.textContent ?? "").replace(/\s+/g, " ").trim()).join(" / "))
+    .catch(() => "");
+  await page.keyboard.press("Escape").catch(() => {});
+  await page.getByRole("button", { name: "확인" }).last().click({ timeout: 2000 }).catch(() => {});
+  return shown
+    ? { status: "PASS", detail: `권한 거부 → "${want}" 표시` }
+    : { status: "FAIL", detail: `권한 거부 후 안내 문구 없음 — 표시된 창: ${dialogText.slice(0, 200) || "없음"}` };
+}
+
+async function R_A7() {
+  await selectFirstResultToEdit();
+  const results = [];
+  for (const [name, sel] of [["랜드마크", 'input[placeholder^="예: 초록 대문"]'], ["배달 메모", 'input[placeholder^="예: 문 앞에"]']]) {
+    const loc = page.locator(sel).last();
+    await touchLocator(loc);
+    await sleep(1800);
+    const kb = await keyboardState();
+    if (!kb) return { status: "NOT_RUN", detail: `${name} 터치 후에도 키보드가 열리지 않음 (포커스=${await focusedTag()})` };
+    const r = await page.evaluate((selector) => {
+      const vv = window.visualViewport;
+      const top = vv ? vv.offsetTop : 0;
+      const bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const els = document.querySelectorAll(selector);
+      const el = els[els.length - 1];
+      const saves = document.querySelectorAll('[data-testid="address-detail-save"]');
+      const save = saves[saves.length - 1];
+      const er = el?.getBoundingClientRect();
+      const sr = save?.getBoundingClientRect();
+      return {
+        input: !!er && er.top >= top - 1 && er.bottom <= bottom + 1,
+        save: !!sr && sr.top >= top - 1 && sr.bottom <= bottom + 1,
+      };
+    }, sel);
+    results.push(`${name}: 입력칸 ${r.input ? "보임" : "가림"}, 저장버튼 ${r.save ? "보임" : "가림"}`);
+    await device.shell("input keyevent 4"); // 키보드 닫기
+    await sleep(1200);
+    if (!r.input || !r.save) return { status: "FAIL", detail: results.join(" / ") };
+  }
+  return { status: "PASS", detail: results.join(" / ") };
+}
+
+/** 입력 중 뒤로 2번: 1번째 = 키보드 닫힘 + 포커스 해제, 2번째 = 확인 창(주소) 또는 화면 이탈(일반) */
+async function backTwiceFlow(fieldLoc, expect) {
+  await touchLocator(fieldLoc);
+  await sleep(1500);
+  await typeText("테스트");
+  await sleep(800);
+  const kbOpen = await keyboardState();
+  if (!kbOpen) return { status: "NOT_RUN", detail: `터치 후 키보드가 열리지 않음 (포커스=${await focusedTag()})` };
+  const urlBefore = new URL(page.url()).pathname;
+  await device.shell("input keyevent 4");
+  await sleep(1500);
+  const kbAfter1 = await keyboardState();
+  const focusAfter1 = await focusedTag();
+  await device.shell("input keyevent 4");
+  await sleep(2500);
+  const urlAfter = new URL(page.url()).pathname;
+  const confirm = (await page.evaluate(() => document.body.innerText ?? "")).includes("수정한 내용을 버릴까요?");
+  const step1 = `뒤로1: 키보드 ${kbAfter1 ? "열림" : "닫힘"}, 포커스=${focusAfter1}`;
+  if (expect === "confirm") {
+    if (confirm) await page.getByRole("button", { name: "계속 수정" }).click().catch(() => {});
+    return confirm
+      ? { status: "PASS", detail: `${step1} / 뒤로2: 확인 창 표시` }
+      : { status: "FAIL", detail: `${step1} / 뒤로2: 확인 창 없음 (url ${urlBefore}→${urlAfter})` };
+  }
+  return urlAfter !== urlBefore
+    ? { status: "PASS", detail: `${step1} / 뒤로2: 화면 이탈 ${urlBefore}→${urlAfter}` }
+    : { status: "FAIL", detail: `${step1} / 뒤로2: 화면 그대로 (${urlAfter})` };
+}
+
+async function R_BACK_ADDR() {
+  await selectFirstResultToEdit();
+  return backTwiceFlow(page.locator("#addr-editor-detail").last(), "confirm");
+}
+
+async function R_BACK_OTHER() {
+  // 주소 화면이 아닌 일반 입력 화면 — 거래 지역 도시 검색
+  await gotoPath("/market");
+  await gotoPath("/market/location/search");
+  const input = page.locator("input").first();
+  await input.waitFor({ timeout: 20000 });
+  await page.evaluate(() => document.activeElement?.blur?.());
+  return backTwiceFlow(input, "leave");
+}
+
+if (process.argv.includes("--remaining")) {
+  let f = "";
+  try {
+    await preflight();
+    await run("A4", "오프라인 결과 선택 시 오류 안내 (WebView 오프라인)", R_A4);
+    await run("A5", "위치 권한 거부 안내", R_A5);
+    await run("A7", "키보드가 입력칸·저장 버튼을 가리지 않음 (실제 터치)", R_A7);
+    await run("BACK-주소", "주소 상세 입력 중 뒤로 2번 → 확인 창", R_BACK_ADDR);
+    await run("BACK-일반", "다른 입력 화면(거래 지역 검색) 입력 중 뒤로 2번 → 화면 이탈", R_BACK_OTHER);
+    await cleanup();
+  } catch (e) {
+    f = String(e?.message ?? e).split("\n")[0];
+  }
+  const out = [
+    `[DIBAY Android 남은 항목 점검] ${new Date().toLocaleString("ko-KR", { timeZone: "Asia/Manila" })} PHT`,
+    `기기: ${meta.model ?? "?"} · 앱 ${meta.versionName ?? "?"}(${meta.versionCode ?? "?"}) · ${meta.origin ?? ""}`,
+    f ? `중단: ${f}` : `정리: ${meta.cleanup ?? "-"}`,
+    "",
+    "| 항목 | 결과 | 확인 내용 | 증거 |",
+    "|---|---|---|---|",
+    ...results.map((r) => `| ${r.id} ${r.title} | ${r.status} | ${r.detail ?? ""} | ${r.evidence || "-"} |`),
+  ].join("\n");
+  writeFileSync(`${OUT}/remaining.md`, out);
+  console.log(out);
+  process.exit(f ? 2 : results.some((r) => r.status === "FAIL") ? 1 : 0);
+}
+
 if (process.argv.includes("--probe-a6")) {
   let f = "";
   try {
