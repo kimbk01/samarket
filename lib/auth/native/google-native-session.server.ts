@@ -78,7 +78,12 @@ export type GoogleNativeSessionResult =
 /** 세션 발급 방식 — synthetic(같은 provider) = 파생 비밀번호, 그 외 owner = magiclink (자격증명 무변경). */
 type GoogleSessionPlan =
   | { mode: "password"; email: string; password: string }
-  | { mode: "magiclink"; email: string };
+  | {
+      mode: "magiclink";
+      email: string;
+      /** magiclink 실패 시 기존(이력) Gmail 비밀번호 로그인 허용 — 관리자 관리 비밀번호 계정은 불가 */
+      legacyPasswordFallback: boolean;
+    };
 
 type GoogleAuthUserPrepared = { userId: string; isNewUser: boolean; plan: GoogleSessionPlan };
 
@@ -126,7 +131,11 @@ async function prepareExistingGoogleAuthUser(
         status: 500,
       };
     }
-    return { userId, isNewUser: false, plan: { mode: "magiclink", email: existingEmail.toLowerCase() } };
+    return {
+      userId,
+      isNewUser: false,
+      plan: { mode: "magiclink", email: existingEmail.toLowerCase(), legacyPasswordFallback: !preservePassword },
+    };
   }
 
   const syntheticEmail = resolveAuthEmailForGoogleUser(args.verified.googleUserId);
@@ -312,7 +321,29 @@ export async function establishGoogleNativeSession(
       }
       signedUser = signInData.user;
     } else {
-      signedUser = await mintNativeOwnerSessionViaMagicLink(ctx.adminSb, ctx.routeSb, userId, plan.email);
+      try {
+        signedUser = await mintNativeOwnerSessionViaMagicLink(ctx.adminSb, ctx.routeSb, userId, plan.email);
+      } catch (magicErr) {
+        // 웹 rebind 와 같은 정책: Google 만 magiclink 실패 시 이력 경로(검증된 Gmail 비밀번호 로그인)로 로그인 불능을 막는다.
+        const verifiedGmail =
+          input.verified.emailVerified && input.verified.email?.trim()
+            ? input.verified.email.trim().toLowerCase()
+            : null;
+        if (!plan.legacyPasswordFallback || !verifiedGmail || verifiedGmail !== plan.email) throw magicErr;
+        console.warn(
+          "[auth/google-native]",
+          JSON.stringify({ event: "google_native_magiclink_fallback", reason: magicErr instanceof Error ? magicErr.message : "unknown" }),
+        );
+        const password = buildGoogleSupabasePassword(input.verified.googleUserId);
+        const { error: pwError } = await ctx.adminSb.auth.admin.updateUserById(userId, { password });
+        if (pwError) throw magicErr;
+        const { data: fbData, error: fbError } = await ctx.routeSb.auth.signInWithPassword({
+          email: plan.email,
+          password,
+        });
+        if (fbError || !fbData.user) throw magicErr;
+        signedUser = fbData.user;
+      }
     }
   } catch (err) {
     return {

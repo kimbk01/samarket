@@ -1,6 +1,9 @@
 -- DIBAY AUTH 통합 SSOT — 묶음 3 (DB 권한 정합)
 -- 근거: docs/dibay-auth-full-audit-ssot-design-2026-10-21.md §3 P1-10 · P1-12 · P1-13 · P2-8 · P2-16 · P2-17 (Owner 승인 2026-10-21)
 -- 회원 데이터 변경 없음. 권한·정책·함수 본문만 바꾼다.
+-- 운영 적용 2026-10-21 (PHT): 같은 내용을 6개 단위로 적용 — auth_ssot_provider_secret_configured_column ·
+--   auth_ssot_revoke_member_direct_writes · auth_ssot_profiles_self_update_guard_phone_consent ·
+--   auth_ssot_admin_sql_role_to_membership · auth_ssot_provider_secret_vault · auth_ssot_favorite_audit_log_private
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- P1-10 · P2-8: API(서비스 롤)로만 쓰는 테이블 — 회원 JWT 직접 쓰기 차단
@@ -39,8 +42,8 @@ END $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 -- P2-17: favorite_audit_log — 누가 무엇을 찜했는지 공개 읽기 차단 (관리자 API 는 서비스 롤)
 -- ─────────────────────────────────────────────────────────────────────────────
-DROP POLICY IF EXISTS favorite_audit_log_select ON public.favorite_audit_log;
 REVOKE SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON public.favorite_audit_log FROM anon, authenticated;
+ALTER POLICY favorite_audit_log_select ON public.favorite_audit_log TO service_role;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- P1-12: profiles 자기 수정 가드 — phone · 약관/개인정보 동의 기록 추가

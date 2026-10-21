@@ -467,6 +467,42 @@ describe("google-native-session.server", () => {
     expect(verifyOtp).toHaveBeenCalledWith({ type: "magiclink", token_hash: "hashed-token" });
   });
 
+  it("magiclink 실패 시 Google 만 검증된 Gmail 비밀번호 로그인으로 fallback (로그인 불능 방지)", async () => {
+    const googleUserId = "107373086399795697553";
+    const ownerId = "owner-user-id";
+    const adminSb = buildAdminSb({
+      ownerEmail: "owner@gmail.com",
+      identities: [
+        { id: "idn-1", user_id: ownerId, provider: "google", provider_user_id: googleUserId, email: null },
+      ],
+    });
+    const signInWithPassword = vi.fn(async () => ({
+      data: { user: { id: ownerId, email: "owner@gmail.com" } },
+      error: null,
+    }));
+    const verifyOtp = vi.fn(async () => ({ data: { user: null, session: null }, error: { message: "otp_expired" } }));
+    const routeSb = { auth: { signInWithPassword, verifyOtp, signOut: vi.fn() } } as unknown as SupabaseClient;
+    ensureProfileForUserId.mockResolvedValue({ id: ownerId });
+
+    const result = await establishGoogleNativeSession(
+      {
+        adminSb,
+        routeSb,
+        request: new Request("https://samarket.vercel.app/api/auth/native/exchange") as never,
+        response: {} as never,
+      },
+      { verified: { googleUserId, audience: "aud", email: "owner@gmail.com", emailVerified: true } },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(verifyOtp).toHaveBeenCalled();
+    expect(signInWithPassword).toHaveBeenCalledWith(expect.objectContaining({ email: "owner@gmail.com" }));
+    // fallback 은 비밀번호만 — owner 이메일은 바꾸지 않는다
+    for (const call of adminSb.__mocks.updateUserById.mock.calls) {
+      expect(call[1]).not.toHaveProperty("email");
+    }
+  });
+
   it("OA-10: refuses to adopt a synthetic-email auth user not created by DIBAY", async () => {
     const googleUserId = "107373086399795697553";
     const adminSb = buildAdminSb({

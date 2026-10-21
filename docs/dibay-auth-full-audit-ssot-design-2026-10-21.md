@@ -369,3 +369,48 @@ NEVER          = 기존 owner 의 auth email/password 를 다른 provider 로그
 7. **Apple Services ID ↔ bundle 그룹 설정** 확인 (sub 동일성 = Apple 중복 계정 여부).
 8. **계정 연결 해제(unlink) 정책**: 재인증 필수 + 마지막 1개 identity 해제 금지 — 승인 시 묶음 1 에 포함.
 9. **`auth_providers.client_secret` 평문 보관** 이전(Vault/env) 여부 — 우선순위 P2.
+
+---
+
+## 8. 구현 결과 (2026-10-21 · Owner 승인 일괄 구현)
+
+판정 표기: **DONE**(코드·테스트 완료) · **PARTIAL** · **NOT DONE** · 런타임(실기기·Production) 은 별도 NOT_PROVEN.
+
+| ID | 판정 | 비고 |
+|---|---|---|
+| P0-1 | DONE | Naver start/callback 410 · 이메일 재사용 경로 삭제 · 서버 공급자 활성 가드(start·native exchange 403 `provider_disabled`) |
+| P0-2 | DONE | 명시적 로그아웃 broadcast → 다른 탭 wipe+하드 리로드 · 탭 단위 A→B 감지 · 거래 초안 소유자 확인 |
+| P0-?(AD-01) | DONE | 관리자 SSR 9개 페이지 자체 권한 가드 (`requireAdminPageAccess`) |
+| P1-1 | DONE | OTP 인증은 정지·차단·탈퇴 상태를 바꾸지 않음 (DB 조건부 갱신) |
+| P1-2 | DONE (env 필요) | `KAKAO_APP_ID` 설정 시 app_id 강제 — 미설정이면 경고만 |
+| P1-3 | DONE | conflict-check 세션 필수 · 클라이언트 응답에서 `existingUserId` 제거 |
+| P1-4 | DONE | stash 대상 회원 바인딩 · credential 실패 시 fallback 금지 · 토큰 종류별 키 · URL stash 단독 주입 무시 |
+| P1-5 | DONE | owner 재발급 magiclink 주경로(전 provider) · Google 만 비밀번호 fallback |
+| P1-6 | DONE | 이번 로그인 identity 기준 판정 · 자동 연결 감지 시 conflict |
+| P1-7 | DONE | native 로그인은 같은 provider synthetic 계정만 자격 증명 갱신 · 그 외 magiclink (Google 만 실패 시 이력 경로 fallback) · 탈퇴 확인 선행 |
+| P1-8 | DONE | hard delete → tombstone · orphan 판정 축소 |
+| P1-9 | DONE | 아이디 로그인도 동의 상태로 Destination 결정 (`usePasswordLogin`) |
+| P1-10 | DONE (DB 적용) | 16개 테이블 회원 DML REVOKE · 거래채팅 읽음은 서버 API 단일 경로 |
+| P1-11 | DONE | 권한 키를 SSR 서버에서 강제 |
+| P1-12 | DONE (DB 적용) | 가드에 phone·terms_*·privacy_* 추가 |
+| P1-13 | DONE (DB 적용) | SQL 5개 함수 role → admin_memberships |
+| P1-14 | DONE | iOS Apple 보장 · `native_blocked` 숨김 · Naver/Facebook 미노출 |
+| P1-15 | DONE | 충돌 다이얼로그 → `startOAuthProvider` / 내부 로그인 |
+| P1-16 | DONE | Google 4색 G·1px #747775 · Kakao 검정 심볼·85% 라벨 |
+| P2-1 | DONE | 공개 경로 로그인·미동의 게이트 · `signup_incomplete` → 동의 화면 |
+| P2-2 | DONE | 전화 OTP 전 동의 확인 |
+| P2-3 | DONE | 동의 판정에 membership 관리자 판정 일치 |
+| P2-4 | DONE | 쿠키 있는 일시 auth 오류 → 503 |
+| P2-5 | DONE (부분 한계) | logout-all 이전 발급 토큰 registry 재등록 거부 (JWT iat). `session_id` 컬럼 바인딩은 미적용 |
+| P2-6 | DONE | 로그인 GET 에서 차단·탈퇴 403 (캐시 경로) |
+| P2-7 | PARTIAL | 메신저 멤버십·매장 소유 캐시 TTL 45s/30s → 5s (적중 시 재검증은 미적용) |
+| P2-8 | DONE (DB 적용) | 주문·결제 테이블 DML REVOKE |
+| P2-9 | DONE | 메신저 first-paint 캐시 viewer id·auth epoch |
+| P2-10 | DONE | 확정 terminal guest wipe · bfcache guard 인증 부팅에서만 해제 |
+| P2-11 | NOT DONE | 서버 `device_other_users` scope 부재 · 네이티브·푸시 민감 영역 — 보고만 |
+| P2-12 | DONE (AD-09 한계) | AD-04~AD-10 · 정지 운영자 전 관리자 API 차단(super_admin 제외) · 아이디 로그인 OFF 는 서버 식별자 API 에서 차단(Supabase 직접 호출은 Auth 설정 필요) |
+| P2-13 | PARTIAL | OA-08·10·13·15·16·17·문서 DONE · OA-12 서버 발급 nonce 는 네이티브 변경 필요로 NOT DONE |
+| P2-14 | DONE | next 제어문자·동일 출처 확인 |
+| P2-15 | DONE | 라벨·오류 문구·반경·정지/차단 안내·약관 화면 토큰·capacitor-return 복귀·키보드/safe-area·관리자 거부 화면 로그인 링크 |
+| P2-16 | DONE (DB 적용) | 비밀값 4건 Vault 이전 · 테이블엔 참조값만 · 저장은 service_role RPC |
+| P2-17 | DONE (DB 적용) | favorite_audit_log anon/authenticated 권한 제거 |
