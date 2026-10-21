@@ -2,8 +2,8 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 
 export { formatMoneyPhp };
 
-export const OWNER_DASH_BRAND = "var(--dibay-green)";
-export const OWNER_DASH_DANGER = "#FF4D4F";
+export const OWNER_DASH_BRAND = "var(--sam-primary)";
+export const OWNER_DASH_DANGER = "var(--sam-danger)";
 
 export const OWNER_DASH_PAGE_CLASS = "bg-[var(--biz-app-bg)]";
 
@@ -13,7 +13,7 @@ export const OWNER_HUB_OPS_SCROLL_PADDING_CLASS = "";
 export const ownerDashTypography = {
   sectionTitle: "text-[14px] font-semibold leading-snug text-[var(--biz-text)]",
   metric: "text-[18px] font-bold leading-tight tabular-nums text-[var(--biz-text)]",
-  metricUrgent: "text-[18px] font-bold leading-tight tabular-nums text-[#DC2626]",
+  metricUrgent: "text-[18px] font-bold leading-tight tabular-nums text-sam-danger",
   helper: "text-[11px] font-normal leading-snug text-[var(--biz-text-muted)]",
   label: "text-[12px] font-medium leading-snug text-[var(--biz-text)]",
   cellTitle: "text-[12px] font-medium text-[var(--biz-text-muted)]",
@@ -25,14 +25,14 @@ export function cn(...parts: Array<string | false | null | undefined>): string {
 
 export function ownerDashCardClass(extra?: string): string {
   return cn(
-    "rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-3 shadow-none",
+    "rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-3 shadow-none",
     extra
   );
 }
 
 export function ownerDashUrgentCardClass(extra?: string): string {
   return cn(
-    "rounded-[4px] border border-sam-danger/20 bg-[var(--biz-card-bg)] p-3 shadow-none ring-1 ring-sam-danger/12",
+    "rounded-ui-rect border border-sam-danger/20 bg-[var(--biz-card-bg)] p-3 shadow-none ring-1 ring-sam-danger/12",
     extra
   );
 }
@@ -52,7 +52,7 @@ export function formatDeltaPercent(
 export function deltaToneClass(delta: number | null): string {
   if (delta == null) return "text-[var(--biz-text-muted)]";
   if (delta > 0) return "text-sam-success";
-  if (delta < 0) return "text-[#DC2626]";
+  if (delta < 0) return "text-sam-danger";
   return "text-[var(--biz-text-muted)]";
 }
 

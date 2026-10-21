@@ -283,7 +283,7 @@ export function OwnerStoreCouponCreatePanel({
                 </p>
                 <p className="mt-1 text-xs text-sam-muted">{t("store_coupon_owner_create_lock")}</p>
                 <span
-                  className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect bg-signature px-3 text-sm font-medium text-white"
+                  className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect bg-signature px-3 text-sm font-medium text-sam-on-primary"
                   data-store-coupon-create-preview-cta="1"
                 >
                   {t("store_coupon_claim")}

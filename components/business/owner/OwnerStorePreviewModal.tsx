@@ -90,7 +90,7 @@ export function OwnerStorePreviewModal({
           <iframe
             title={t("biz_nav_public_store")}
             src={publicHref}
-            className="h-full w-full border-0 bg-white"
+            className="h-full w-full border-0 bg-sam-surface"
             onLoad={() => setIframeLoaded(true)}
           />
         </div>

@@ -19,14 +19,14 @@ export function OwnerStoreOrderDeepLinkMissBanner({
   const oid = orderId.trim();
 
   return (
-    <div className="rounded-[4px] border border-amber-200 bg-amber-50 p-4 text-[14px] leading-[1.35] text-amber-950">
+    <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-4 text-[14px] leading-[1.35] text-sam-fg">
       <p className="font-bold">{t("store_owner_orders_deeplink_miss_title")}</p>
       <p className="mt-1">{t("store_owner_orders_deeplink_miss_body")}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={onRefresh}
-          className="rounded-[4px] border border-amber-300 bg-white px-3 py-2 text-[12px] font-bold text-amber-950"
+          className="rounded-ui-rect border border-sam-warning/30 bg-sam-surface px-3 py-2 text-[12px] font-bold text-sam-fg"
         >
           {t("store_owner_orders_deeplink_miss_refresh")}
         </button>
@@ -34,7 +34,7 @@ export function OwnerStoreOrderDeepLinkMissBanner({
           <Link
             key={tabId}
             href={buildStoreOrdersHref({ storeId, tab: tabId, orderId: oid })}
-            className="rounded-[4px] border border-amber-300 bg-white px-3 py-2 text-[12px] font-semibold text-amber-950 underline"
+            className="rounded-ui-rect border border-sam-warning/30 bg-sam-surface px-3 py-2 text-[12px] font-semibold text-sam-fg underline"
           >
             {t("store_owner_orders_deeplink_miss_try_tab", {
               tab: t(

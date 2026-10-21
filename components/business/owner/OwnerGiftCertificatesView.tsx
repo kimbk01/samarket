@@ -516,7 +516,7 @@ function OwnerGiftCertificatesInner() {
                 })
           }
         >
-          {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="mb-3 text-sm text-sam-danger">{error}</p> : null}
           {view === "apply" ? (
             <div className="space-y-3">
               <label className="block text-sm">
@@ -712,7 +712,7 @@ function OwnerGiftCertificatesInner() {
                         {Number(a.requested_face_value).toLocaleString()} · {statusLabel(a.status, safeT)}
                       </p>
                       {a.status === "rejected" && a.rejection_reason ? (
-                        <p className="mt-1 text-sm text-red-600">{a.rejection_reason}</p>
+                        <p className="mt-1 text-sm text-sam-danger">{a.rejection_reason}</p>
                       ) : null}
                       {a.status === "rejected" ? (
                         <button

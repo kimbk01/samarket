@@ -368,7 +368,7 @@ export function OwnerMenuCategoriesClient({
 
           <div className="py-4">
             {error ? (
-              <p className="mb-3 sam-text-body-secondary text-red-600">{resolveOwnerApiErrorMessage(error, t)}</p>
+              <p className="mb-3 sam-text-body-secondary text-sam-danger">{resolveOwnerApiErrorMessage(error, t)}</p>
             ) : null}
 
             {editorTab === "basic" ? (
@@ -410,7 +410,7 @@ export function OwnerMenuCategoriesClient({
                     aria-checked={isHidden}
                     onClick={() => setIsHidden((v) => !v)}
                     className={`relative h-8 w-14 rounded-full transition ${SWITCH_PRESS} ${
-                      isHidden ? "bg-sam-primary-soft" : "bg-emerald-500"
+                      isHidden ? "bg-sam-primary-soft" : "bg-sam-success"
                     }`}
                   >
                     <span
@@ -493,7 +493,7 @@ export function OwnerMenuCategoriesClient({
           </Link>
         </div>
 
-        {error ? <p className="sam-text-body-secondary text-red-600">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
+        {error ? <p className="sam-text-body-secondary text-sam-danger">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
 
         {loading ? (
           <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>

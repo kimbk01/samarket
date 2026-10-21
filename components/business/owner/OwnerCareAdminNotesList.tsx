@@ -119,7 +119,7 @@ export function OwnerCareAdminNotesList({
               })
         }
       >
-        {error ? <p className="mb-2 text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="mb-2 text-sm text-sam-danger">{error}</p> : null}
         {loading ? (
           <p className="text-sm text-sam-muted">…</p>
         ) : threads.length === 0 ? (
@@ -149,7 +149,7 @@ export function OwnerCareAdminNotesList({
                       </span>
                     </span>
                     {th.member_unread_count > 0 ? (
-                      <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold text-sam-on-primary">
                         {th.member_unread_count > 99 ? "99+" : th.member_unread_count}
                       </span>
                     ) : null}

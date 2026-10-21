@@ -59,7 +59,7 @@ export function OwnerDeliveryAdCashChargeSheet({
         </Link>
         <button
           type="button"
-          className="w-full min-h-[44px] rounded-ui-rect border border-[#BDBDBD] text-[14px] font-semibold text-sam-fg"
+          className="w-full min-h-[44px] rounded-ui-rect border border-sam-border text-[14px] font-semibold text-sam-fg"
           onClick={onClose}
         >
           {safeT("owner_ads_cash_charge_close", {

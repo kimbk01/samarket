@@ -71,7 +71,7 @@ function fundingLabelKey(mode: string): "store_coupon_funding_store" | "store_co
 }
 
 function statusPillClass(status: ReturnType<typeof ownerCouponListStatus>): string {
-  if (status === "active") return "bg-signature text-white";
+  if (status === "active") return "bg-signature text-sam-on-primary";
   if (status === "upcoming" || status === "requested") return "bg-signature/15 text-signature";
   return "bg-sam-app text-sam-muted";
 }
@@ -134,7 +134,7 @@ export function OwnerStoreCouponListDashboard({
                 type="button"
                 data-owner-coupon-tab={def.id}
                 className={`flex min-h-[48px] min-w-0 items-center justify-center gap-1 rounded-ui-rect px-2 text-sm font-medium ${
-                  selected ? "bg-signature text-white" : "border border-sam-border bg-sam-surface text-sam-fg"
+                  selected ? "bg-signature text-sam-on-primary" : "border border-sam-border bg-sam-surface text-sam-fg"
                 }`}
                 onClick={() => onTab(def.id)}
               >

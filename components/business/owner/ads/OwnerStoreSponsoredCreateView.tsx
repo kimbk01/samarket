@@ -635,7 +635,7 @@ export function OwnerStoreSponsoredCreateView() {
         <p className="mt-1 text-[12px] text-sam-muted">{t("owner_ads_store_promo_subcopy")}</p>
 
         {errorText ? (
-          <p className="mt-3 text-[13px] text-red-600" role="alert">
+          <p className="mt-3 text-[13px] text-sam-danger" role="alert">
             {errorText}
           </p>
         ) : null}
@@ -651,7 +651,7 @@ export function OwnerStoreSponsoredCreateView() {
                 ) : (
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-left transition hover:border-[#0A823E]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99]"
+                    className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-left transition hover:border-sam-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/40 active:scale-[0.99]"
                     onClick={() => setStoreSheetOpen(true)}
                     data-owner-ads-store-trigger="1"
                   >
@@ -755,10 +755,10 @@ export function OwnerStoreSponsoredCreateView() {
                     />
                     {noSellablePackages || packages.length === 0 ? (
                       <div
-                        className="mt-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2"
+                        className="mt-2 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2"
                         data-owner-ads-price-unset="1"
                       >
-                        <p className="text-[13px] font-semibold text-amber-950">
+                        <p className="text-[13px] font-semibold text-sam-fg">
                           {t("owner_ads_no_sellable_packages")}
                         </p>
                       </div>
@@ -784,10 +784,10 @@ export function OwnerStoreSponsoredCreateView() {
                   />
                 ) : (
                   <div
-                    className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-3"
+                    className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3"
                     data-owner-ads-price-unset="confirm"
                   >
-                    <p className="text-[13px] font-semibold text-amber-950">
+                    <p className="text-[13px] font-semibold text-sam-fg">
                       {t("owner_ads_sale_preparing_body")}
                     </p>
                   </div>

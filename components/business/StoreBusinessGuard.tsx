@@ -150,8 +150,8 @@ export function StoreBusinessGuard({
     return (
       <div className="min-h-screen bg-sam-app px-4 py-10">
         <div className={`mx-auto max-w-md ${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-6 shadow-sm`}>
-          <div className="h-4 w-3/4 animate-pulse rounded bg-sam-border-soft" />
-          <div className="h-4 w-1/2 animate-pulse rounded bg-sam-border-soft" />
+          <div className="h-4 w-3/4 animate-pulse rounded-ui-rect bg-sam-border-soft" />
+          <div className="h-4 w-1/2 animate-pulse rounded-ui-rect bg-sam-border-soft" />
         </div>
       </div>
     );
@@ -187,7 +187,7 @@ export function StoreBusinessGuard({
     return (
       <div className="min-h-screen bg-sam-app px-4 py-10">
         <div className="mx-auto max-w-md rounded-ui-rect bg-sam-surface p-6 text-center shadow-sm">
-          <p className="sam-text-body text-red-700">{t("business_phase7_131", { v1: phase.message })}</p>
+          <p className="sam-text-body text-sam-danger">{t("business_phase7_131", { v1: phase.message })}</p>
           <button
             type="button"
             onClick={() => retry()}
@@ -220,7 +220,7 @@ export function StoreBusinessGuard({
           <div
             role="status"
             data-owner-store-suspended-orders-only="1"
-            className="mx-4 mt-3 rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-950"
+            className="mx-4 mt-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-fg"
           >
             {ko
               ? "매장 운영이 중지되어 새 주문은 받지 않습니다. 진행 중인 주문만 처리할 수 있습니다."

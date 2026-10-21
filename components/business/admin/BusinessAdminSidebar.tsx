@@ -155,7 +155,7 @@ export function BusinessAdminSidebar({
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     {item.badge != null && item.badge > 0 ? (
-                      <span className="inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1 sam-text-xxs font-bold text-white">
+                      <span className="inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-sam-danger px-1 sam-text-xxs font-bold text-sam-on-primary">
                         {item.badge > 99 ? "99+" : item.badge}
                       </span>
                     ) : null}

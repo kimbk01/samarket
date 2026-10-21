@@ -228,7 +228,7 @@ export function OwnerStoreCouponsView() {
     <>
       {actionError ? (
         <div
-          className="rounded-ui-rect border border-red-100 bg-red-50 px-3 py-2 text-sm leading-snug text-red-800"
+          className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-sm leading-snug text-sam-danger"
           role="alert"
           data-owner-coupon-feedback="error"
         >
@@ -292,7 +292,7 @@ export function OwnerStoreCouponsView() {
       </p>
       {loadError ? (
         <div
-          className="flex items-center justify-between gap-2 rounded-ui-rect border border-red-100 bg-red-50 px-3 py-2 text-sm leading-snug text-red-800"
+          className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-sm leading-snug text-sam-danger"
           role="alert"
           data-owner-coupon-feedback="load-error"
         >

@@ -68,7 +68,7 @@ export function OwnerCustomerCareCard({
   })();
 
   const cellClass =
-    "flex min-h-[88px] w-full items-start gap-2 rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 text-left active:bg-[var(--biz-primary-soft)]";
+    "flex min-h-[88px] w-full items-start gap-2 rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 text-left active:bg-[var(--biz-primary-soft)]";
 
   return (
     <section className={ownerDashCardClass("space-y-3")} aria-labelledby="owner-care-title" data-owner-home-care-card="1">
@@ -102,7 +102,7 @@ export function OwnerCustomerCareCard({
                 {safeT("biz_care_order_chat", { fallbackKo: "주문 채팅", fallbackEn: "Order chat" })}
               </span>
               {orderChatUnread > 0 ? (
-                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold text-sam-on-primary">
                   {orderChatUnread > 99 ? "99+" : orderChatUnread}
                 </span>
               ) : null}
@@ -131,13 +131,13 @@ export function OwnerCustomerCareCard({
                 {safeT("biz_care_store_inquiry", { fallbackKo: "매장 문의", fallbackEn: "Store inquiry" })}
               </span>
               {storeOpen > 0 ? (
-                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold text-sam-on-primary">
                   {storeOpen > 99 ? "99+" : storeOpen}
                 </span>
               ) : null}
             </span>
             <span
-              className={`mt-0.5 block ${ownerDashTypography.helper} ${storeOpen > 0 ? "font-medium text-[#DC2626]" : ""}`}
+              className={`mt-0.5 block ${ownerDashTypography.helper} ${storeOpen > 0 ? "font-medium text-sam-danger" : ""}`}
             >
               {safeT("biz_care_store_inquiry_desc", {
                 fallbackKo: "이 매장으로 온 문의",
@@ -165,7 +165,7 @@ export function OwnerCustomerCareCard({
                 })}
               </span>
               {adminUnread > 0 ? (
-                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold text-sam-on-primary">
                   {adminUnread > 99 ? "99+" : adminUnread}
                 </span>
               ) : null}

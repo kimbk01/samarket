@@ -30,7 +30,7 @@ export function OwnerStoreCommerceStateLabel({
   const now = useOwnerMinuteNow();
   const st = resolveOwnerStoreCommerceStateLabel(row, now);
   const tone = st.isOpenForCommerce
-    ? "border-emerald-600/30 bg-emerald-50 text-emerald-800"
+    ? "border-sam-success/30 bg-sam-success-soft text-sam-success"
     : "border-sam-border bg-sam-app text-sam-muted";
   return (
     <span

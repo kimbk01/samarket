@@ -92,13 +92,13 @@ const OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS =
 const OWNER_STORE_PROFILE_FIELD_SHELL_CLASS = `${OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS} border-[var(--biz-card-border)] bg-[var(--biz-card-bg)]`;
 
 const OWNER_STORE_PROFILE_CHECKBOX_CLASS =
-  "mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--biz-card-border)] text-[var(--biz-primary)] accent-[var(--biz-primary)]";
+  "mt-0.5 h-4 w-4 shrink-0 rounded-ui-rect border-[var(--biz-card-border)] text-[var(--biz-primary)] accent-[var(--biz-primary)]";
 
 const OWNER_STORE_PROFILE_CHECKBOX_ROW_CLASS =
-  "flex min-h-[60px] cursor-pointer items-start gap-3 rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-3 transition-colors hover:border-[var(--biz-primary)]/45 active:bg-[var(--biz-primary-soft)]";
+  "flex min-h-[60px] cursor-pointer items-start gap-3 rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-3 transition-colors hover:border-[var(--biz-primary)]/45 active:bg-[var(--biz-primary-soft)]";
 
 const OWNER_STORE_PROFILE_BIZ_INNER_PANEL_CLASS =
-  "space-y-4 rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-4";
+  "space-y-4 rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-4";
 
 function intStrFromJson(o: Record<string, unknown>, snake: string, camel: string): string {
   const v = o[snake] ?? o[camel];
@@ -808,12 +808,12 @@ export function OwnerStoreProfileForm({
               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
                 values.deliveryAvailable
                   ? "border-[var(--biz-brand)] bg-[var(--biz-brand)]"
-                  : "border-[#c5cdd6] bg-white"
+                  : "border-sam-border bg-sam-surface"
               }`}
               aria-hidden
             >
               {values.deliveryAvailable ? (
-                <svg width="10" height="10" viewBox="0 0 10 10" className="text-white">
+                <svg width="10" height="10" viewBox="0 0 10 10" className="text-sam-on-primary">
                   <path
                     d="M1.5 5.2 3.8 7.5 8.5 2.5"
                     fill="none"
@@ -839,12 +839,12 @@ export function OwnerStoreProfileForm({
               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
                 values.pickupAvailable
                   ? "border-[var(--biz-brand)] bg-[var(--biz-brand)]"
-                  : "border-[#c5cdd6] bg-white"
+                  : "border-sam-border bg-sam-surface"
               }`}
               aria-hidden
             >
               {values.pickupAvailable ? (
-                <svg width="10" height="10" viewBox="0 0 10 10" className="text-white">
+                <svg width="10" height="10" viewBox="0 0 10 10" className="text-sam-on-primary">
                   <path
                     d="M1.5 5.2 3.8 7.5 8.5 2.5"
                     fill="none"
@@ -1018,7 +1018,7 @@ export function OwnerStoreProfileForm({
             }
           />
 
-          <div className="flex items-start gap-2 rounded-[16px] border border-[var(--biz-primary)]/25 bg-[var(--biz-primary-soft)] px-4 py-3">
+          <div className="flex items-start gap-2 rounded-ui-rect border border-[var(--biz-primary)]/25 bg-[var(--biz-primary-soft)] px-4 py-3">
             <input
               id="temp-closed"
               type="checkbox"
@@ -1077,7 +1077,7 @@ export function OwnerStoreProfileForm({
           <div className="mt-4 space-y-4 border-t border-[var(--biz-card-border)] pt-4">
             <div>
               <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_011")}</span>
-              <div className="rounded-[16px] border border-[var(--biz-primary)]/20 bg-[var(--biz-primary-soft)] px-4 py-3 sam-text-body text-[var(--biz-text)]">
+              <div className="rounded-ui-rect border border-[var(--biz-primary)]/20 bg-[var(--biz-primary-soft)] px-4 py-3 sam-text-body text-[var(--biz-text)]">
                 <div className="flex flex-nowrap items-center gap-x-3 gap-y-0 overflow-x-auto py-0.5 [scrollbar-width:thin] sm:gap-x-5">
                   <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap">
                     <input
@@ -1404,7 +1404,7 @@ export function OwnerStoreProfileForm({
           {t("business_phase7_571", { v1: GALLERY_MAX })}
         </p>
         <div className="flex flex-wrap gap-2">
-          <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 sam-text-body-secondary font-medium text-[var(--biz-text)] disabled:cursor-not-allowed disabled:opacity-50">
+          <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 sam-text-body-secondary font-medium text-[var(--biz-text)] disabled:cursor-not-allowed disabled:opacity-50">
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -1450,7 +1450,7 @@ export function OwnerStoreProfileForm({
                         galleryUrls: v.galleryUrls.filter((_, j) => j !== i),
                       }))
                     }
-                    className="absolute right-1 top-1 rounded-ui-rect bg-black/55 px-2 py-1 sam-text-xxs font-semibold text-white backdrop-blur-sm"
+                    className="absolute right-1 top-1 rounded-ui-rect bg-sam-ink/55 px-2 py-1 sam-text-xxs font-semibold text-sam-on-primary backdrop-blur-sm"
                   >
                     {t("common_delete")}
                   </button>
@@ -1474,7 +1474,7 @@ export function OwnerStoreProfileForm({
           <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
             {error ?
               <div
-                className="max-h-20 overflow-y-auto border-b border-red-100 bg-red-50 px-3 py-1.5 sam-text-xxs leading-snug text-red-800"
+                className="max-h-20 overflow-y-auto border-b border-sam-danger/30 bg-sam-danger-soft px-3 py-1.5 sam-text-xxs leading-snug text-sam-danger"
                 role="alert"
               >
                 {error}

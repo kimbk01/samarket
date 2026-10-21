@@ -37,7 +37,7 @@ async function OwnerEditProductPageBody({
       <div className="min-h-screen bg-background px-4 py-8">
         <p className="sam-text-body text-sam-fg">
           {translate(language, "business_phase7_698")}{" "}
-          <code className="rounded bg-sam-surface-muted px-1">storeId</code>{" "}
+          <code className="rounded-ui-rect bg-sam-surface-muted px-1">storeId</code>{" "}
           <Link href="/stores/owner" className="font-medium text-signature underline">
             {translate(language, "business_phase7_699")}
           </Link>

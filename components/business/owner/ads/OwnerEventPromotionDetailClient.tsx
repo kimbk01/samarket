@@ -160,7 +160,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
           fallbackEn: "Promotion request",
         })}
       </h1>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
       {request.rejectionReason ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm">
           {safeT("owner_event_promo_reject_reason", {
@@ -174,7 +174,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
       <label className="block text-sm">
         {safeT("owner_event_promo_field_title", { fallbackKo: "제목", fallbackEn: "Title" })}
         <input
-          className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+          className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
           disabled={!editable || busy}
           value={request.title}
           onChange={(e) => setRequest({ ...request, title: e.target.value })}
@@ -220,7 +220,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
       <label className="block text-sm">
         {safeT("owner_event_promo_field_body", { fallbackKo: "설명", fallbackEn: "Description" })}
         <textarea
-          className="mt-1 h-28 w-full rounded border border-sam-border px-2 py-1.5"
+          className="mt-1 h-28 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
           disabled={!editable || busy}
           value={request.body ?? ""}
           onChange={(e) => setRequest({ ...request, body: e.target.value })}
@@ -233,7 +233,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
           fallbackEn: "Benefit (optional)",
         })}
         <input
-          className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+          className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
           disabled={!editable || busy}
           value={request.benefitTitle ?? ""}
           onChange={(e) => setRequest({ ...request, benefitTitle: e.target.value })}
@@ -245,7 +245,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
           fallbackEn: "Benefit details (optional)",
         })}
         <textarea
-          className="mt-1 h-20 w-full rounded border border-sam-border px-2 py-1.5"
+          className="mt-1 h-20 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
           disabled={!editable || busy}
           value={request.benefitBody ?? ""}
           onChange={(e) => setRequest({ ...request, benefitBody: e.target.value })}
@@ -260,7 +260,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
           })}
           <input
             type="date"
-            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
             disabled={!editable || busy}
             value={toDateInput(request.requestedStartsAt)}
             onChange={(e) =>
@@ -275,7 +275,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
           })}
           <input
             type="date"
-            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
             disabled={!editable || busy}
             value={toDateInput(request.requestedEndsAt)}
             onChange={(e) =>

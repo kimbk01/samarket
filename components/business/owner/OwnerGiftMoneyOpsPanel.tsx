@@ -131,7 +131,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
       <button
         type="button"
         className={`min-h-[44px] rounded-ui-rect px-1.5 text-xs font-medium sm:text-sm ${
-          view === "money" ? "bg-signature text-white" : "border border-sam-border bg-sam-surface"
+          view === "money" ? "bg-signature text-sam-on-primary" : "border border-sam-border bg-sam-surface"
         }`}
         onClick={() => onGo("money")}
       >
@@ -153,7 +153,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
         type="button"
         className={`min-h-[44px] rounded-ui-rect px-1.5 text-xs font-medium sm:text-sm ${
           view === "redemptions"
-            ? "bg-signature text-white"
+            ? "bg-signature text-sam-on-primary"
             : "border border-sam-border bg-sam-surface"
         }`}
         onClick={() => onGo("redemptions")}
@@ -193,7 +193,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
               type="button"
               className={`min-h-[40px] rounded-ui-rect px-1 text-xs font-medium ${
                 redemptionFilter === filter.id
-                  ? "bg-signature text-white"
+                  ? "bg-signature text-sam-on-primary"
                   : "border border-sam-border bg-sam-surface"
               }`}
               onClick={() => setRedemptionFilter(filter.id)}

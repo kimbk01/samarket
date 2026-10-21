@@ -151,7 +151,7 @@ export function OwnerStoreSettingsContent({
                   messengerBusyKey != null ? "opacity-60" : "",
                   isApproved
                     ? item.enabled
-                      ? "bg-signature text-white"
+                      ? "bg-signature text-sam-on-primary"
                       : "border border-sam-border bg-sam-surface text-sam-fg"
                     : "cursor-not-allowed border border-sam-border bg-sam-surface-muted text-sam-muted",
                 ].join(" ")}

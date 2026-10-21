@@ -146,7 +146,7 @@ export function OwnerNotificationSettings(_props: { storeId?: string }) {
 
   if (unauthorized) {
     return (
-      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+      <p className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-4 py-4 text-sm text-sam-fg">
         {t("store_owner_notif_login_only")}
       </p>
     );
@@ -154,7 +154,7 @@ export function OwnerNotificationSettings(_props: { storeId?: string }) {
 
   if (!s || tableMissing) {
     return (
-      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+      <p className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-4 py-4 text-sm text-sam-fg">
         {tableMissing ? t("store_owner_notif_table_missing") : t("store_owner_notif_load_failed")}
       </p>
     );

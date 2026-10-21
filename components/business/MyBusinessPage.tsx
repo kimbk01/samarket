@@ -247,7 +247,7 @@ export function MyBusinessPage({
 
   if (state.kind === "unauth") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-amber-50 p-4 sam-text-body text-amber-900`}>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-warning-soft p-4 sam-text-body text-sam-fg`}>
         <p>{t("auth_resource_access_denied")}</p>
       </div>
     );
@@ -264,7 +264,7 @@ export function MyBusinessPage({
   if (state.kind === "error") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <p className="sam-text-body text-red-600">{t("business_phase7_083", { v1: state.message })}</p>
+        <p className="sam-text-body text-sam-danger">{t("business_phase7_083", { v1: state.message })}</p>
         <button
           type="button"
           onClick={() => void loadRemote()}
@@ -317,15 +317,15 @@ export function MyBusinessPage({
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         <BusinessOperationalChecklistRevision storeId={row.id} />
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4">
+        <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-4">
           <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-          <p className="mt-2 sam-text-body text-amber-900">{t("business_phase7_033")}</p>
+          <p className="mt-2 sam-text-body text-sam-fg">{t("business_phase7_033")}</p>
           {profile.adminMemo ? (
             <p className="mt-2 whitespace-pre-wrap sam-text-body-secondary text-sam-fg">{profile.adminMemo}</p>
           ) : null}
           <Link
             href={`/stores/owner/profile?${managementQuery}`}
-            className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-center sam-text-body font-medium text-white"
+            className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-center sam-text-body font-medium text-sam-on-primary"
           >
             {t("business_phase7_609")}
           </Link>
@@ -348,7 +348,7 @@ export function MyBusinessPage({
         <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
           <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
           <p className="sam-text-body text-sam-muted">{t("business_phase7_181")}</p>
-          <span className="mt-2 inline-block rounded bg-amber-100 px-2 py-1 sam-text-body-secondary text-amber-800">
+          <span className="mt-2 inline-block rounded-ui-rect bg-sam-warning-soft px-2 py-1 sam-text-body-secondary text-sam-warning">
             {t(BUSINESS_PROFILE_STATUS_KEYS.pending)}
           </span>
           <Link
@@ -370,7 +370,7 @@ export function MyBusinessPage({
         {profile.adminMemo ? (
           <p className="sam-text-body-secondary text-sam-fg">{t("business_phase7_136", { v1: profile.adminMemo })}</p>
         ) : null}
-        <span className="inline-block rounded bg-red-50 px-2 py-1 sam-text-body-secondary text-red-700">
+        <span className="inline-block rounded-ui-rect bg-sam-danger-soft px-2 py-1 sam-text-body-secondary text-sam-danger">
           {t(BUSINESS_PROFILE_STATUS_KEYS.rejected)}
         </span>
       </div>
@@ -382,7 +382,7 @@ export function MyBusinessPage({
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
         <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
         <p className="sam-text-body text-sam-muted">{t("business_phase7_227")}</p>
-        <span className="inline-block rounded bg-sam-border-soft px-2 py-1 sam-text-body-secondary text-sam-fg">
+        <span className="inline-block rounded-ui-rect bg-sam-border-soft px-2 py-1 sam-text-body-secondary text-sam-fg">
           {t(BUSINESS_PROFILE_STATUS_KEYS.paused)}
         </span>
       </div>

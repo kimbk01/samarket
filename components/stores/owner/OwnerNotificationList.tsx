@@ -216,7 +216,7 @@ export function OwnerNotificationList({
 
   if (error === "login_required") {
     return (
-      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+      <p className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-4 text-sm text-sam-fg">
         {t("store_owner_notif_login_to_view")}
       </p>
     );
@@ -224,7 +224,7 @@ export function OwnerNotificationList({
 
   if (error) {
     return (
-      <p className="rounded-ui-rect border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+      <p className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft p-4 text-sm text-sam-danger">
         {resolveOwnerApiErrorMessage(error, t)}
       </p>
     );
@@ -244,7 +244,7 @@ export function OwnerNotificationList({
             type="button"
             onClick={() => setTab((prev) => (prev === tabId ? prev : tabId))}
             className={`rounded-full px-3 py-1 sam-text-xxs font-semibold ${
-              tab === tabId ? "bg-sam-ink text-white" : "bg-sam-surface text-sam-fg ring-1 ring-sam-border"
+              tab === tabId ? "bg-sam-ink text-sam-on-primary" : "bg-sam-surface text-sam-fg ring-1 ring-sam-border"
             }`}
           >
             {tabId === "all"

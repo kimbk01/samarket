@@ -308,20 +308,20 @@ export function OwnerDeliveryAdsHubView() {
 
         {todoCampaigns.length > 0 ? (
           <div
-            className="rounded-ui-rect border border-amber-300 bg-amber-50 p-4"
+            className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-4"
             data-owner-ads-hub-todo="1"
           >
-            <p className="text-[14px] font-bold text-amber-950">{t("owner_ads_required_action_section")}</p>
+            <p className="text-[14px] font-bold text-sam-fg">{t("owner_ads_required_action_section")}</p>
             <ul className="mt-2 space-y-2">
               {todoCampaigns.map((c) => {
                 const unread = unreadByCampaignId[c.id] ?? 0;
                 return (
                   <li key={c.id} className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-[13px] font-medium text-amber-950">
+                      <p className="truncate text-[13px] font-medium text-sam-fg">
                         {c.title || c.id.slice(0, 8)}
                       </p>
-                      <p className="text-[11px] text-amber-900">
+                      <p className="text-[11px] text-sam-fg">
                         {c.lifecycleStatus === "CHANGES_REQUESTED"
                           ? t("owner_ads_ra_changes_requested_title")
                           : safeT("owner_ads_hub_unread_ops", {
@@ -332,7 +332,7 @@ export function OwnerDeliveryAdsHubView() {
                     </div>
                     <Link
                       href={`${DELIVERY_AD_OWNER_ROUTES.detail(c.id)}?focus=operations`}
-                      className="shrink-0 text-[12px] font-semibold text-[#0A823E]"
+                      className="shrink-0 text-[12px] font-semibold text-sam-primary"
                       data-owner-ads-hub-todo-cta={c.id}
                     >
                       {t("owner_ads_next_action_label")}
@@ -345,12 +345,12 @@ export function OwnerDeliveryAdsHubView() {
         ) : null}
 
         <div
-          className="grid grid-cols-5 gap-0.5 rounded-ui-rect border border-[#BDBDBD] bg-white p-3 shadow-sm"
+          className="grid grid-cols-5 gap-0.5 rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm"
           data-owner-ads-summary-kpi="design-board"
         >
           {summaryItems.map((item) => (
             <div key={item.key} className="px-0.5 py-1 text-center">
-              <p className="text-[18px] font-bold tabular-nums text-[#0A823E]">{item.count}</p>
+              <p className="text-[18px] font-bold tabular-nums text-sam-primary">{item.count}</p>
               <p className="mt-0.5 text-[11px] font-medium text-sam-muted">{t(item.labelKey)}</p>
             </div>
           ))}
@@ -369,7 +369,7 @@ export function OwnerDeliveryAdsHubView() {
       {!loaded ? (
         <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
       ) : error ? (
-        <p className="text-[13px] text-red-600" role="alert">
+        <p className="text-[13px] text-sam-danger" role="alert">
           {safeT("owner_ads_error_generic", {
             fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
             fallbackEn: "Something went wrong. Please try again.",
@@ -378,7 +378,7 @@ export function OwnerDeliveryAdsHubView() {
       ) : (
         <>
           {actionError ? (
-            <p className="text-[13px] text-red-600" role="alert" data-owner-ads-action-error="1">
+            <p className="text-[13px] text-sam-danger" role="alert" data-owner-ads-action-error="1">
               {safeT("owner_ads_error_generic", {
                 fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
                 fallbackEn: "Something went wrong. Please try again.",
@@ -386,7 +386,7 @@ export function OwnerDeliveryAdsHubView() {
             </p>
           ) : null}
           {sortedCampaigns.length === 0 ? (
-            <div className="rounded-ui-rect border border-dashed border-[#BDBDBD] bg-[#F5F5F5] p-6 text-center">
+            <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface-muted p-6 text-center">
               <p className="text-[15px] font-semibold text-sam-fg">{t("owner_ads_empty_title")}</p>
               <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_empty_body")}</p>
             </div>
@@ -417,7 +417,7 @@ export function OwnerDeliveryAdsHubView() {
                   const cardTitle = `${storeLabel} · ${productLabel} · ${firstPlacement}`;
                   return (
                     <li key={c.id}>
-                      <div className="rounded-ui-rect border border-[#BDBDBD] bg-white p-3 shadow-sm">
+                      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p
@@ -427,7 +427,7 @@ export function OwnerDeliveryAdsHubView() {
                             >
                               {cardTitle}
                             </p>
-                            <p className="mt-1 text-[12px] text-[#757575]">
+                            <p className="mt-1 text-[12px] text-sam-meta">
                               {c.startAt.slice(0, 10)} ~ {c.endAt.slice(0, 10)}
                             </p>
                           </div>
@@ -435,7 +435,7 @@ export function OwnerDeliveryAdsHubView() {
                             <DeliveryAdOwnerStatusBadge status={c.lifecycleStatus} />
                             {(unreadByCampaignId[c.id] ?? 0) > 0 ? (
                               <span
-                                className="rounded-full bg-[#0A823E] px-2 py-0.5 text-[10px] font-bold text-white"
+                                className="rounded-full bg-sam-primary px-2 py-0.5 text-[10px] font-bold text-sam-on-primary"
                                 data-owner-ads-hub-unread={c.id}
                               >
                                 {unreadByCampaignId[c.id]}
@@ -455,7 +455,7 @@ export function OwnerDeliveryAdsHubView() {
                           {c.lifecycleStatus === "DRAFT" ? (
                             <button
                               type="button"
-                              className="inline-flex min-h-[40px] items-center rounded-ui-rect border border-sam-border px-3 text-[13px] font-medium text-red-600 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 active:scale-[0.99]"
+                              className="inline-flex min-h-[40px] items-center rounded-ui-rect border border-sam-border px-3 text-[13px] font-medium text-sam-danger transition hover:bg-sam-danger-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-danger/30 active:scale-[0.99]"
                               data-owner-ads-card-cta-secondary="delete-draft"
                               disabled={draftDeleteBusy}
                               onClick={() => setDraftDeleteTarget(c)}
@@ -474,7 +474,7 @@ export function OwnerDeliveryAdsHubView() {
                   className="mt-4 space-y-2 opacity-70"
                   data-owner-ads-ended-campaigns="1"
                 >
-                  <h3 className="text-[13px] font-semibold text-[#757575]">
+                  <h3 className="text-[13px] font-semibold text-sam-meta">
                     {t("owner_ads_summary_ended")} ({endedCampaigns.length})
                   </h3>
                   <ul className="space-y-2">
@@ -494,13 +494,13 @@ export function OwnerDeliveryAdsHubView() {
                       const storeLabel = storeNameById.get(c.storeId) ?? c.title?.trim() ?? "—";
                       return (
                         <li key={c.id}>
-                          <div className="rounded-ui-rect border border-[#E0E0E0] bg-[#FAFAFA] p-3">
+                          <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted p-3">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="truncate text-[14px] font-medium text-[#757575]">
+                                <p className="truncate text-[14px] font-medium text-sam-meta">
                                   {storeLabel} · {productLabel}
                                 </p>
-                                <p className="mt-1 text-[11px] text-[#9E9E9E]">
+                                <p className="mt-1 text-[11px] text-sam-meta">
                                   {c.startAt.slice(0, 10)} ~ {c.endAt.slice(0, 10)}
                                 </p>
                               </div>
@@ -508,7 +508,7 @@ export function OwnerDeliveryAdsHubView() {
                             </div>
                             <Link
                               href={cta.href}
-                              className="mt-2 inline-flex min-h-[36px] items-center text-[12px] font-medium text-[#757575]"
+                              className="mt-2 inline-flex min-h-[36px] items-center text-[12px] font-medium text-sam-meta"
                               data-owner-ads-card-cta={c.lifecycleStatus}
                             >
                               {t(cta.labelKey)}
@@ -529,12 +529,12 @@ export function OwnerDeliveryAdsHubView() {
                 ? `${DELIVERY_AD_OWNER_ROUTES.partner}?storeId=${encodeURIComponent(activeStoreId)}`
                 : DELIVERY_AD_OWNER_ROUTES.partner
             }
-            className="block rounded-ui-rect border border-[#BDBDBD] bg-white p-4"
+            className="block rounded-ui-rect border border-sam-border bg-sam-surface p-4"
             data-owner-ads-partner-card="1"
           >
             <p className="text-[15px] font-bold text-sam-fg">{t("owner_ads_partner_card_title")}</p>
             <p className="mt-1 text-[13px] text-sam-muted">{t("owner_ads_partner_card_desc")}</p>
-            <p className="mt-3 text-[13px] font-semibold text-[#0A823E]">
+            <p className="mt-3 text-[13px] font-semibold text-sam-primary">
               {t("owner_ads_partner_card_cta")}
             </p>
           </Link>

@@ -86,7 +86,7 @@ function ownerHubCategoryPillClass(active: boolean): string {
   return [
     "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-full border px-3.5 py-2 sam-text-body-secondary font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
     active
-      ? "border-signature bg-signature text-white shadow-sm"
+      ? "border-signature bg-signature text-sam-on-primary shadow-sm"
       : "border-transparent bg-sam-surface text-sam-fg shadow-sm ring-1 ring-sam-border/50",
   ].join(" ");
 }
@@ -95,7 +95,7 @@ function ownerHubStatusPillClass(active: boolean): string {
   return [
     "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-full border px-2.5 py-1 sam-text-xxs font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
     active
-      ? "border-sam-ink bg-sam-ink text-white shadow-sm"
+      ? "border-sam-ink bg-sam-ink text-sam-on-primary shadow-sm"
       : "border-transparent bg-sam-surface/95 text-sam-muted shadow-sm ring-1 ring-sam-border/40",
   ].join(" ");
 }
@@ -382,7 +382,7 @@ export function OwnerProductsHubClient({
         </Link>
         <Link
           href={newProductHrefForTab}
-          className={`${Sam.btn.primaryCombo} ${hubTopActionClass} !text-white shadow-sm active:scale-[0.98]`}
+          className={`${Sam.btn.primaryCombo} ${hubTopActionClass} !text-sam-on-primary shadow-sm active:scale-[0.98]`}
           data-owner-product-register-cta="1"
         >
           {t("business_phase7_408")}
@@ -481,7 +481,7 @@ export function OwnerProductsHubClient({
           </p>
         ) : null}
 
-        {error ? <p className="sam-text-body-secondary text-red-600">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
+        {error ? <p className="sam-text-body-secondary text-sam-danger">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
 
         {loading ? (
           <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
@@ -523,7 +523,7 @@ export function OwnerProductsHubClient({
                 >
                   <div className="flex gap-2 px-2 py-1.5">
                     {/** 정사각 썸네일 80×80px — img 프리플라이트(height:auto) 무력화 후 object-cover로 상하좌우 꽉 참 */}
-                    <div className="relative size-20 shrink-0 overflow-hidden rounded-md bg-sam-surface-muted">
+                    <div className="relative size-20 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
                       {p.thumbnail_url ? (
                         <img
                           src={p.thumbnail_url}
@@ -556,7 +556,7 @@ export function OwnerProductsHubClient({
                               ? `lock_${lockReason.lock}`
                               : p.admin_review_status ?? p.product_status
                           }
-                          className="mt-0.5 sam-text-xxs leading-snug text-amber-800"
+                          className="mt-0.5 sam-text-xxs leading-snug text-sam-warning"
                         >
                           {lockReason.kind === "admin_locked" && lockReason.lock
                             ? ownerUiCopy(
@@ -609,8 +609,8 @@ export function OwnerProductsHubClient({
                               : t("business_phase7_421")
                           }
                           onClick={() => onToggleSoldOut(p)}
-                          className={`relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 ${
-                            p.product_status === "sold_out" ? "bg-amber-500" : "bg-sam-border-soft"
+                          className={`relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-sam-warning disabled:opacity-50 ${
+                            p.product_status === "sold_out" ? "bg-sam-warning" : "bg-sam-border-soft"
                           }`}
                           data-owner-cta="toggle"
                         >
@@ -630,7 +630,7 @@ export function OwnerProductsHubClient({
                           disabled={busy || adminHardLocked || (reviewLocked && !listed)}
                           onClick={() => onToggleListed(p, !listed)}
                           className={`relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
-                            listed ? "bg-emerald-500" : "bg-sam-border-soft"
+                            listed ? "bg-sam-success" : "bg-sam-border-soft"
                           }`}
                           data-owner-cta="toggle"
                         >

@@ -221,7 +221,7 @@ export function OwnerDeliveryAdPartnerView() {
       ) : null}
 
       <section
-        className="mt-3 rounded-ui-rect border border-[#0A823E]/30 bg-[#0A823E]/5 p-4"
+        className="mt-3 rounded-ui-rect border border-sam-primary/30 bg-sam-primary/5 p-4"
         data-owner-ads-partner-benefits="1"
       >
         <p className="text-[15px] font-bold text-sam-fg">{t("owner_ads_partner_benefits_title")}</p>
@@ -239,7 +239,7 @@ export function OwnerDeliveryAdPartnerView() {
       </section>
 
       {error ? (
-        <p className="mt-3 text-[13px] text-red-600" role="alert">
+        <p className="mt-3 text-[13px] text-sam-danger" role="alert">
           {safeT("owner_ads_error_generic", {
             fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
             fallbackEn: "Something went wrong. Please try again.",
@@ -291,7 +291,7 @@ export function OwnerDeliveryAdPartnerView() {
             <button
               type="button"
               disabled={busy}
-              className="inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-[#BDBDBD] bg-white px-4 text-[14px] font-semibold text-sam-fg"
+              className="inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg"
               data-owner-partner-cancel="1"
               onClick={() => void run("cancel_request")}
             >

@@ -200,7 +200,7 @@ function NavRow({
 }) {
   const iconTone = isMuted ? "text-sam-meta" : "text-sam-fg";
   const icon = (
-    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F5F6F8] ${iconTone}`} aria-hidden>
+    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted ${iconTone}`} aria-hidden>
       {NAV_ICONS[item.icon]}
     </span>
   );
@@ -219,7 +219,7 @@ function NavRow({
   const trail = (
     <span className="flex shrink-0 items-center gap-2">
       {item.badge != null && item.badge > 0 ? (
-        <span className="inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 sam-text-helper font-bold text-white">
+        <span className="inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-sam-danger px-1.5 sam-text-helper font-bold text-sam-on-primary">
           {item.badge > 99 ? "99+" : item.badge}
         </span>
       ) : null}

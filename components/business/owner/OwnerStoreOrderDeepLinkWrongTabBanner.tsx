@@ -27,12 +27,12 @@ export function OwnerStoreOrderDeepLinkWrongTabBanner({
   const tabLabel = t(TAB_LABEL_KEYS[wantTab]);
 
   return (
-    <div className="rounded-[4px] border border-amber-200 bg-amber-50 p-4 text-[14px] leading-[1.35] text-amber-950">
+    <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-4 text-[14px] leading-[1.35] text-sam-fg">
       <p className="font-bold">{t("store_owner_orders_deeplink_wrong_tab_title")}</p>
       <p className="mt-1">{t("store_owner_orders_deeplink_wrong_tab_body")}</p>
       <Link
         href={buildStoreOrdersHref({ storeId, tab: wantTab, orderId, freshList: true })}
-        className="mt-3 inline-flex rounded-[4px] border border-amber-300 bg-white px-3 py-2 text-[12px] font-bold text-amber-950 underline"
+        className="mt-3 inline-flex rounded-ui-rect border border-sam-warning/30 bg-sam-surface px-3 py-2 text-[12px] font-bold text-sam-fg underline"
       >
         {t("store_owner_orders_deeplink_wrong_tab_open", { tab: tabLabel })}
       </Link>

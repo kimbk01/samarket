@@ -1062,15 +1062,15 @@ export function OwnerStoreOrdersView() {
   let body: ReactNode;
   if (state.kind === "loading") {
     body = (
-      <p className="py-8 text-center text-sm text-[#8C8C8C]">{t("store_owner_chats_loading")}</p>
+      <p className="py-8 text-center text-sm text-sam-meta">{t("store_owner_chats_loading")}</p>
     );
   } else if (state.kind === "unauth") {
     body = (
-      <div className="mt-4 rounded-lg border border-[#E8E8E8] bg-white p-6">
-        <p className="text-sm text-[#595959]">{t("store_owner_orders_login_hint")}</p>
+      <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface p-6">
+        <p className="text-sm text-sam-muted">{t("store_owner_orders_login_hint")}</p>
         <Link
           href={loginHref}
-          className="mt-3 inline-flex rounded-md bg-[var(--biz-primary)] px-4 py-2 font-semibold text-white"
+          className="mt-3 inline-flex rounded-ui-rect bg-[var(--biz-primary)] px-4 py-2 font-semibold text-sam-on-primary"
         >
           {t("store_owner_chats_login_cta")}
         </Link>
@@ -1078,12 +1078,12 @@ export function OwnerStoreOrdersView() {
     );
   } else if (state.kind === "config") {
     body = (
-      <p className="py-8 text-center text-sm text-[#8C8C8C]">{t("store_owner_err_server_config")}</p>
+      <p className="py-8 text-center text-sm text-sam-meta">{t("store_owner_err_server_config")}</p>
     );
   } else if (state.kind === "no_store") {
     body = (
-      <div className="mt-4 rounded-lg border border-[#E8E8E8] bg-white p-6">
-        <p className="text-sm text-[#595959]">{t("business_phase7_057")}</p>
+      <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface p-6">
+        <p className="text-sm text-sam-muted">{t("business_phase7_057")}</p>
         <Link href="/stores/owner/apply" className="mt-2 inline-block text-[var(--biz-primary)] font-medium">
           {t("business_phase7_465")}
         </Link>
@@ -1092,7 +1092,7 @@ export function OwnerStoreOrdersView() {
   } else if (state.kind === "error") {
     body = (
       <div className="py-8 text-center">
-        <p className="text-sm text-[#FF4D4F]">({state.message})</p>
+        <p className="text-sm text-sam-danger">({state.message})</p>
         <button
           type="button"
           onClick={() => void load()}

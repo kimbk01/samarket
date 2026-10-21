@@ -177,7 +177,7 @@ export function OwnerCustomerCareHubView() {
           </span>
           {badge > 0 ? (
             <span
-              className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+              className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold text-sam-on-primary"
               data-owner-care-badge={e.id}
             >
               {badge > 99 ? "99+" : badge}

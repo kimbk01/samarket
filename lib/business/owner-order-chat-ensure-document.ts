@@ -45,8 +45,20 @@ export function buildOwnerDeliveryOwnerRoomLocationPath(
   return `${roomUrl.pathname}${roomUrl.search}`;
 }
 
+/**
+ * IA-19: 실패 문서는 앱 CSS 를 로드하지 않는 독립 문서라 `--sam-*` 토큰을 인라인으로 정의한다
+ * (값은 `app/design-tokens.css` 라이트·다크와 동일). 레이아웃은 카드 1장 최소 셸.
+ */
+const OWNER_ORDER_CHAT_ENSURE_DOCUMENT_TOKEN_CSS =
+  ":root{color-scheme:light dark;--sam-bg-app:#FFFCFC;--sam-bg-surface:#FFFFFF;--sam-text-primary:#362415;--sam-text-secondary:#604C4C;--sam-border-default:rgba(54,36,21,0.14);--sam-primary:#0B421A;--sam-radius-sm:4px}" +
+  "@media (prefers-color-scheme:dark){:root{--sam-bg-app:#12161d;--sam-bg-surface:#1a2029;--sam-text-primary:#eef2f7;--sam-text-secondary:#b3bfd1;--sam-border-default:#2d3747;--sam-primary:#4FBA6E}}" +
+  "body{margin:0;font-family:system-ui,sans-serif;background:var(--sam-bg-app);color:var(--sam-text-primary)}" +
+  ".sam-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}" +
+  ".sam-card{width:100%;max-width:360px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px;text-align:center;font-size:14px;line-height:1.5;background:var(--sam-bg-surface);border:1px solid var(--sam-border-default);border-radius:var(--sam-radius-sm)}" +
+  ".sam-card p{margin:0}.sam-card a{color:var(--sam-primary);font-weight:600}";
+
 function htmlPage(body: string): string {
-  return `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>DIBAY</title></head><body style="margin:0;font-family:system-ui,sans-serif;background:#fff;color:#111"><div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;text-align:center;font-size:14px">${body}</div></body></html>`;
+  return `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>DIBAY</title><style>${OWNER_ORDER_CHAT_ENSURE_DOCUMENT_TOKEN_CSS}</style></head><body><div class="sam-shell"><div class="sam-card">${body}</div></div></body></html>`;
 }
 
 /**

@@ -88,8 +88,8 @@ body[data-owner-compact-shell] {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
-  border-bottom: 1px solid #dde5e0;
-  background-color: #fff;
+  border-bottom: 1px solid var(--sam-border-default);
+  background-color: var(--sam-bg-surface);
   padding-top: var(--owner-shell-safe-top, var(--safe-top));
   overflow-x: clip;
   overflow-y: hidden;
@@ -255,9 +255,9 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   padding-right: var(--safe-right);
   padding-bottom: var(--safe-bottom);
   overflow: hidden;
-  border-left: 1px solid var(--biz-card-border, #e7eaef);
-  background-color: var(--biz-card-bg, var(--dibay-card));
-  color: var(--biz-text, #1f2937);
+  border-left: 1px solid var(--biz-card-border, var(--sam-border-default));
+  background-color: var(--biz-card-bg, var(--sam-bg-surface));
+  color: var(--biz-text, var(--sam-text-primary));
   transition: transform 270ms ease-out;
   transform: translate3d(100%, 0, 0);
   will-change: transform;

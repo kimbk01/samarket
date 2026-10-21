@@ -71,16 +71,16 @@ export function OwnerInventoryIssueCard({
             key={c.id}
             href={c.href}
             prefetch={false}
-            className="min-h-[72px] rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2 active:bg-[var(--biz-primary-soft)]"
+            className="min-h-[72px] rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2 active:bg-[var(--biz-primary-soft)]"
           >
             <p className={ownerDashTypography.cellTitle}>{c.label}</p>
             <p
-              className={`mt-1 ${ownerDashTypography.metric} ${c.danger ? "text-[#DC2626]" : ""}`}
+              className={`mt-1 ${ownerDashTypography.metric} ${c.danger ? "text-sam-danger" : ""}`}
             >
               {c.count == null ? "—" : t("store_owner_dash_count_items", { count: c.count })}
             </p>
             <p
-              className={`mt-0.5 ${ownerDashTypography.helper} ${c.danger ? "font-medium text-[#DC2626]" : ""}`}
+              className={`mt-0.5 ${ownerDashTypography.helper} ${c.danger ? "font-medium text-sam-danger" : ""}`}
             >
               {c.sub}
             </p>

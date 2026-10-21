@@ -54,7 +54,7 @@ import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/Deliv
 import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
 
 const OWNER_DETAIL_SECONDARY_BTN_CLASS =
-  "inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-[#BDBDBD] bg-white px-4 text-[14px] font-semibold text-sam-fg";
+  "inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg";
 
 type HistoryItem = {
   action: string;
@@ -86,9 +86,9 @@ function requiredActionToneClass(
 ): string {
   switch (tone) {
     case "urgent":
-      return "border-amber-400 bg-amber-50 text-amber-950";
+      return "border-sam-warning/50 bg-sam-warning-soft text-sam-fg";
     case "warning":
-      return "border-amber-300 bg-amber-50 text-amber-900";
+      return "border-sam-warning/30 bg-sam-warning-soft text-sam-fg";
     case "info":
       return "border-sam-border bg-sam-app text-sam-fg";
     default:
@@ -426,7 +426,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   if (!campaign) {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} px-4 pt-4`} data-owner-ads-detail="r1">
-        <p className="text-[13px] text-red-600" role="alert">
+        <p className="text-[13px] text-sam-danger" role="alert">
           {safeT("owner_ads_error_generic", {
             fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
             fallbackEn: "Something went wrong. Please try again.",
@@ -501,7 +501,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
       </h1>
 
       {error ? (
-        <p className="mt-2 text-[13px] text-red-600" role="alert">
+        <p className="mt-2 text-[13px] text-sam-danger" role="alert">
           {safeT("owner_ads_error_generic", {
             fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
             fallbackEn: "Something went wrong. Please try again.",
@@ -642,7 +642,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                     <>
                       {shortage > 0 ? (
                         <>
-                          <p className="mt-1 text-[12px] font-medium text-red-600" data-owner-ads-fund-shortage="1">
+                          <p className="mt-1 text-[12px] font-medium text-sam-danger" data-owner-ads-fund-shortage="1">
                             {t("owner_ads_funding_insufficient")} ·{" "}
                             {safeT("owner_ads_cash_shortage_amount", {
                               fallbackKo: "부족 금액",

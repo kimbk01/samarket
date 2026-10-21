@@ -147,7 +147,7 @@ function MyBusinessSettingsPageInner() {
   }
   if (phase.kind === "error") {
     return (
-      <p className="sam-text-body text-red-600">
+      <p className="sam-text-body text-sam-danger">
         {t("owner_store_settings_load_failed")} ({phase.message})
       </p>
     );

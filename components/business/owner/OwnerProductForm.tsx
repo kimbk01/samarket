@@ -858,7 +858,7 @@ export function OwnerProductForm({
         className="min-w-0 space-y-2 px-0 py-2 pb-[max(1rem,var(--safe-bottom))]"
       >
         {error ? (
-          <div className="rounded-ui-rect bg-red-50 px-2 py-1.5 sam-text-body-secondary text-red-800">
+          <div className="rounded-ui-rect bg-sam-danger-soft px-2 py-1.5 sam-text-body-secondary text-sam-danger">
             {resolveOwnerApiErrorMessage(error, t)}
           </div>
         ) : null}
@@ -967,7 +967,7 @@ export function OwnerProductForm({
                       onClick={() => setValues((v) => ({ ...v, track_inventory: false }))}
                       className={`min-h-[44px] flex-1 rounded-ui-rect px-2 sam-text-body-secondary font-semibold ${
                         !values.track_inventory
-                          ? "bg-sam-ink text-white"
+                          ? "bg-sam-ink text-sam-on-primary"
                           : "border border-sam-border bg-sam-surface text-sam-fg"
                       }`}
                     >
@@ -978,7 +978,7 @@ export function OwnerProductForm({
                       onClick={() => setValues((v) => ({ ...v, track_inventory: true }))}
                       className={`min-h-[44px] flex-1 rounded-ui-rect px-2 sam-text-body-secondary font-semibold ${
                         values.track_inventory
-                          ? "bg-sam-ink text-white"
+                          ? "bg-sam-ink text-sam-on-primary"
                           : "border border-sam-border bg-sam-surface text-sam-fg"
                       }`}
                     >
@@ -1040,7 +1040,7 @@ export function OwnerProductForm({
                   type="button"
                   disabled={saving || deleting}
                   onClick={() => setDeleteConfirmOpen(true)}
-                  className="w-full rounded-ui-rect border border-red-200 bg-red-50 py-2.5 sam-text-body font-medium text-red-800 disabled:opacity-50"
+                  className="w-full rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft py-2.5 sam-text-body font-medium text-sam-danger disabled:opacity-50"
                 >
                   {deleting ? t("common_processing") : t("business_phase7_378")}
                 </button>
@@ -1051,7 +1051,7 @@ export function OwnerProductForm({
               <div className="space-y-1.5">
                 {adminLockNotice ? (
                   <p
-                    className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-caption leading-relaxed text-amber-900"
+                    className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 sam-text-caption leading-relaxed text-sam-fg"
                     data-owner-product-admin-lock={adminLockReason?.kind}
                   >
                     {adminLockNotice}

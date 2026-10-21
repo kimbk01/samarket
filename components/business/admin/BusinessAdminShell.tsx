@@ -647,7 +647,7 @@ export function BusinessAdminShell({
           {...ownerStackShellRootProps}
           className={`${ownerStackShellRootClassName} px-4 py-8`}
         >
-          <p className="text-sm text-red-600">{t("business_phase7_083", { v1: loadErr })}</p>
+          <p className="text-sm text-sam-danger">{t("business_phase7_083", { v1: loadErr })}</p>
           <button
             type="button"
             className="mt-2 text-sm font-medium text-signature underline"

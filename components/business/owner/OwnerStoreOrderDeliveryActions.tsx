@@ -20,16 +20,16 @@ import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate } from "@/lib/i18n/messages";
 
 const BTN_PRIMARY =
-  "flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-md bg-[var(--biz-primary)] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-white shadow-sm transition hover:bg-[var(--biz-primary-hover)] active:bg-[var(--biz-primary-active)] disabled:opacity-50";
+  "flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-[var(--biz-primary)] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-sam-on-primary shadow-sm transition hover:bg-[var(--biz-primary-hover)] active:bg-[var(--biz-primary-active)] disabled:opacity-50";
 const BTN_DANGER =
-  "flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-md border border-[#FF4D4F] bg-white px-2 py-2 text-center text-[14px] font-semibold leading-snug text-[#FF4D4F] shadow-sm disabled:opacity-50";
+  "flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-sam-danger bg-sam-surface px-2 py-2 text-center text-[14px] font-semibold leading-snug text-sam-danger shadow-sm disabled:opacity-50";
 const OC_SM =
   "sam-text-body-secondary font-normal leading-snug text-sam-muted [overflow-wrap:anywhere] [word-break:break-word]";
 
 const TB_BTN_PRIMARY =
-  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-[var(--biz-primary)] px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
+  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-[var(--biz-primary)] px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-sam-on-primary [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 const TB_BTN_DANGER =
-  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-[var(--biz-card-bg)] px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
+  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-sam-danger/30 bg-[var(--biz-card-bg)] px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-sam-danger [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 
 export type OwnerDeliveryOrderRef = {
   id: string;
@@ -249,7 +249,7 @@ export function OwnerStoreOrderDeliveryActionsAside({
     <>
       <div className={wrapClass}>
         {err ? (
-          <p className="max-w-full text-left sam-text-xxs leading-snug text-red-600 [overflow-wrap:anywhere] [word-break:break-word]">
+          <p className="max-w-full text-left sam-text-xxs leading-snug text-sam-danger [overflow-wrap:anywhere] [word-break:break-word]">
             {err}
           </p>
         ) : null}
@@ -368,7 +368,7 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
         </p>
         {noticeEl}
         {err ? (
-          <p className="mt-2 sam-text-helper leading-snug text-red-600 [overflow-wrap:anywhere]">{err}</p>
+          <p className="mt-2 sam-text-helper leading-snug text-sam-danger [overflow-wrap:anywhere]">{err}</p>
         ) : null}
         {showTransitionButtons ? (
           <div className="mt-3 flex flex-row flex-nowrap gap-2">
@@ -474,11 +474,11 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
           <p className="min-w-0 truncate sam-text-body-secondary font-semibold text-sam-fg">
             <span className="text-muted">{t("store_owner_order_fallback")}</span> {orderNo}
           </p>
-          <p className="shrink-0 sam-text-helper font-medium text-[#555]">{statusLabel}</p>
+          <p className="shrink-0 sam-text-helper font-medium text-sam-muted">{statusLabel}</p>
         </div>
         {noticeEl}
         {err ? (
-          <p className="mt-1.5 sam-text-xxs leading-snug text-red-600 [overflow-wrap:anywhere]">{err}</p>
+          <p className="mt-1.5 sam-text-xxs leading-snug text-sam-danger [overflow-wrap:anywhere]">{err}</p>
         ) : null}
         {showTransitionButtons ? (
           <div className="mt-2 flex min-w-0 flex-row flex-wrap gap-2">
@@ -532,7 +532,7 @@ export function ownerOrderCardNoticeFooter(order: OwnerDeliveryOrderRef): ReactN
 
   if (order.order_status === "refund_requested") {
     return (
-      <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-2 py-2 sam-text-body-secondary leading-snug text-amber-950">
+      <p className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft/80 px-2 py-2 sam-text-body-secondary leading-snug text-sam-fg">
         {translate(lang, "store_owner_refund_requested_notice")}
       </p>
     );
@@ -547,7 +547,7 @@ export function ownerOrderCardNoticeFooter(order: OwnerDeliveryOrderRef): ReactN
 }
 
 const PEEK_CANCEL_BTN =
-  "inline-flex h-10 w-full items-center justify-center rounded-ui-rect border border-red-200/90 px-3 sam-text-body font-semibold text-red-600 transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-10 w-full items-center justify-center rounded-ui-rect border border-sam-danger/30 px-3 sam-text-body font-semibold text-sam-danger transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-40";
 
 /** 메신저 peek 주문 상세 패널 — 주문 취소만 (진행 CTA는 composer 위 액션 바) */
 export function OwnerStoreOrderPeekCancelBar({
@@ -593,7 +593,7 @@ export function OwnerStoreOrderPeekCancelBar({
           </p>
         ) : null}
         {err ? (
-          <p className="mt-1.5 sam-text-xxs leading-snug text-red-600 [overflow-wrap:anywhere]">{err}</p>
+          <p className="mt-1.5 sam-text-xxs leading-snug text-sam-danger [overflow-wrap:anywhere]">{err}</p>
         ) : null}
       </div>
       <OwnerOrderRejectSheet

@@ -83,7 +83,7 @@ const OWNER_BASIC_INFO_SUBBLOCK_HEAD_CLASS =
   "-mx-4 mb-4 block border-b border-[var(--biz-primary-active)] bg-[var(--biz-primary)] px-4 py-3 text-[13px] font-bold leading-snug text-[var(--biz-cream)]";
 
 const OWNER_BASIC_INFO_CHECKBOX_ROW_CLASS =
-  "flex min-h-[60px] cursor-pointer items-start gap-3 rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-3 transition-colors hover:border-[var(--biz-primary)]/45 active:bg-[var(--biz-primary-soft)]";
+  "flex min-h-[60px] cursor-pointer items-start gap-3 rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-3 transition-colors hover:border-[var(--biz-primary)]/45 active:bg-[var(--biz-primary-soft)]";
 
 /** LOC-013 — 7 dp coordinate equality (same rule as server `sameStoreCoord`). */
 function sameStoreCoordClient(a: number, saved: unknown): boolean {
@@ -956,7 +956,7 @@ export function OwnerStoreBasicInfoForm({
               type="checkbox"
               checked={values.menuSoldOutBottom}
               onChange={(e) => setValues((v) => ({ ...v, menuSoldOutBottom: e.target.checked }))}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--biz-card-border)] text-[var(--biz-primary)] accent-[var(--biz-primary)]"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded-ui-rect border-[var(--biz-card-border)] text-[var(--biz-primary)] accent-[var(--biz-primary)]"
             />
             <span className="min-w-0 leading-snug">
               <span className="block text-[13px] font-semibold text-[var(--biz-text)]">
@@ -1033,7 +1033,7 @@ export function OwnerStoreBasicInfoForm({
         <OwnerStoreAdminDashSection title={t("business_phase7_080")} surfaceTone="bizSoft">
           <div className="space-y-4">
             {!storeMapCoordsOk ? (
-              <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-2.5 sam-text-helper text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-100">
+              <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft/90 px-3 py-2.5 sam-text-helper text-sam-fg">
                 <p className="font-semibold">{t("business_phase7_259")}</p>
                 <p className="mt-1 leading-relaxed">{t("business_phase7_540")}</p>
                 <div className={`mt-3 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
@@ -1146,13 +1146,13 @@ export function OwnerStoreBasicInfoForm({
         ) : identityEditable && !useDbTaxonomy ? (
           <OwnerStoreAdminDashSection title={t("business_phase7_005")} surfaceTone="bizSoft">
             <div className="space-y-2">
-              <p className="sam-text-helper leading-relaxed text-amber-900">
+              <p className="sam-text-helper leading-relaxed text-sam-fg">
                 {taxonomyMeta?.source === "supabase_unconfigured" ? (
                   <>{t("business_phase7_541")}</>
                 ) : (
                   <>
                     {t("business_phase7_335")}
-                    <code className="rounded bg-amber-100 px-1">business_type</code>
+                    <code className="rounded-ui-rect bg-sam-warning-soft px-1">business_type</code>
                     {t("business_phase7_001")}
                   </>
                 )}
@@ -1190,7 +1190,7 @@ export function OwnerStoreBasicInfoForm({
         ) : (
           <OwnerStoreAdminDashSection title={t("business_phase7_005")} surfaceTone="bizSoft">
             <div className="space-y-2">
-              <p className="sam-text-helper leading-relaxed text-amber-900">
+              <p className="sam-text-helper leading-relaxed text-sam-fg">
                 {taxonomyMeta?.source === "supabase_unconfigured" ? (
                   <>{t("business_phase7_542")}</>
                 ) : taxonomyMeta?.store_topics_table === "missing" ? (
@@ -1219,7 +1219,7 @@ export function OwnerStoreBasicInfoForm({
           <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
             {error ?
               <div
-                className="max-h-20 overflow-y-auto border-b border-red-100 bg-red-50 px-3 py-1.5 sam-text-xxs leading-snug text-red-800"
+                className="max-h-20 overflow-y-auto border-b border-sam-danger/30 bg-sam-danger-soft px-3 py-1.5 sam-text-xxs leading-snug text-sam-danger"
                 role="alert"
               >
                 {error}

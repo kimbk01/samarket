@@ -21,7 +21,7 @@ import {
 } from "@/lib/stores/owner-mobile-ui-tokens";
 
 const HEADER_ICON_BTN_CLASS =
-  "flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-[#262626] hover:bg-[#F5F5F5] active:bg-[#EBEBEB]";
+  "flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted";
 
 function OwnerMenuIcon() {
   return (
@@ -117,7 +117,7 @@ export function OwnerMobileAdminHeader({
                   <label className="relative flex min-w-0 max-w-full flex-1 items-center">
                     <span className="sr-only">{t("store_owner_aria_select_store")}</span>
                     <select
-                      className="max-w-full min-w-0 cursor-pointer appearance-none truncate border-0 bg-transparent pr-4 text-[14px] font-bold leading-none text-[#262626] focus:outline-none"
+                      className="max-w-full min-w-0 cursor-pointer appearance-none truncate border-0 bg-transparent pr-4 text-[14px] font-bold leading-none text-sam-fg focus:outline-none"
                       value={storeId}
                       onChange={(e) => onStoreChange(e.target.value)}
                     >
@@ -128,27 +128,27 @@ export function OwnerMobileAdminHeader({
                       ))}
                     </select>
                     <ChevronDown
-                      className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8C8C8C]"
+                      className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sam-meta"
                       aria-hidden
                     />
                   </label>
                 ) : (
-                  <p className="min-w-0 truncate text-[14px] font-bold leading-none text-[#262626]">
+                  <p className="min-w-0 truncate text-[14px] font-bold leading-none text-sam-fg">
                     {storeName}
                   </p>
                 )}
                 {(!storeList || storeList.length <= 1) && (
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#8C8C8C]" aria-hidden />
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sam-meta" aria-hidden />
                 )}
                 <span
-                  className={`inline-flex shrink-0 items-center rounded px-1.5 py-px text-[10px] font-bold leading-none ${
-                    open ? "bg-[#52C41A] text-white" : "bg-[#8C8C8C] text-white"
+                  className={`inline-flex shrink-0 items-center rounded-ui-rect px-1.5 py-px text-[10px] font-bold leading-none ${
+                    open ? "bg-sam-success text-sam-on-primary" : "bg-sam-meta text-sam-on-primary"
                   }`}
                 >
                   {open ? t("store_owner_ops_open") : t("store_owner_ops_paused")}
                 </span>
               </div>
-              <p className="truncate text-[10px] leading-none text-[#8C8C8C]">
+              <p className="truncate text-[10px] leading-none text-sam-meta">
                 {[storeOps.hours_label, prep].filter(Boolean).join(" · ") || t("store_owner_ops_set_hours")}
               </p>
             </div>
@@ -167,7 +167,7 @@ export function OwnerMobileAdminHeader({
               <span className="w-0" aria-hidden />
             )}
             <div className="flex min-h-0 min-w-0 flex-1 items-center overflow-hidden pr-1">
-              <h1 className="truncate text-[14px] font-bold leading-none text-[#262626]">
+              <h1 className="truncate text-[14px] font-bold leading-none text-sam-fg">
                 {pageTitle?.trim() || t("owner_store_admin_hub")}
               </h1>
             </div>

@@ -444,35 +444,29 @@
 
 /**
  * 매장 사장님(owner) 전용 — `/stores/owner/*`·`/my/business/*` 에서 `data-biz="1"` 로 스코프.
- * 구매자 화면 `--sam-*` 는 변경하지 않고, 사장님앱 CTA/탭/헤더만 `--biz-*` (스타벅스 톤) 로 분리.
+ * IA-19(4단계 4-6): `--biz-*` 는 별도 톤이 아니라 `--sam-*` 브리지 변수다 (값 통일·클래스/변수명 유지).
+ * 다크 모드 값은 `--sam-*` 의 다크 정의를 그대로 따른다 — 여기서 `--sam-*` 를 덮어쓰지 않는다.
  */
 [data-biz="1"] {
-  --biz-green: var(--dibay-green);
-  --biz-cream: var(--dibay-cream);
-  --biz-tan: var(--dibay-gold);
-  --biz-brown: var(--dibay-brown);
-  --biz-brown-muted: var(--dibay-muted);
+  --biz-green: var(--sam-primary);
+  --biz-cream: var(--sam-text-on-primary);
+  --biz-tan: var(--sam-bg-soft-purple);
+  --biz-brown: var(--sam-text-primary);
+  --biz-brown-muted: var(--sam-text-secondary);
 
-  --biz-primary: var(--biz-green);
-  --biz-primary-hover: var(--sm-color-primary-strong);
-  --biz-primary-active: var(--sm-color-primary-active);
-  --biz-primary-soft: color-mix(in srgb, var(--biz-green) 8%, var(--biz-cream));
-  --biz-tan-soft: color-mix(in srgb, var(--biz-tan) 35%, var(--biz-cream));
-  --biz-header-bg: color-mix(in srgb, var(--biz-tan) 45%, var(--biz-cream));
-  --biz-app-bg: color-mix(in srgb, var(--biz-tan) 10%, var(--biz-cream));
-  --biz-card-bg: var(--biz-cream);
-  --biz-card-border: color-mix(in srgb, var(--biz-brown-muted) 22%, var(--biz-cream));
-  --biz-card-shadow: none;
-  --biz-text: var(--biz-brown);
-  --biz-text-muted: var(--biz-brown-muted);
-
-  --sam-primary: var(--biz-primary);
-  --sam-primary-hover: var(--biz-primary-hover);
-  --sam-primary-active: var(--biz-primary-active);
-  --sam-primary-soft: var(--biz-tan-soft);
-  --sam-primary-soft-2: color-mix(in srgb, var(--biz-tan) 50%, var(--biz-cream));
-  --sam-primary-border: color-mix(in srgb, var(--biz-green) 28%, var(--biz-cream));
-  --signature: var(--biz-primary);
+  --biz-brand: var(--sam-primary);
+  --biz-primary: var(--sam-primary);
+  --biz-primary-hover: var(--sam-primary-hover);
+  --biz-primary-active: var(--sam-primary-active);
+  --biz-primary-soft: var(--sam-primary-soft);
+  --biz-tan-soft: var(--sam-bg-surface-muted);
+  --biz-header-bg: var(--sam-bg-soft-purple);
+  --biz-app-bg: var(--sam-bg-app);
+  --biz-card-bg: var(--sam-bg-surface);
+  --biz-card-border: var(--sam-border-default);
+  --biz-card-shadow: var(--sam-shadow-card);
+  --biz-text: var(--sam-text-primary);
+  --biz-text-muted: var(--sam-text-secondary);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -573,25 +567,6 @@
     --ig-border: var(--sam-border-default);
   }
 
-  [data-biz="1"] {
-    --biz-app-bg: #1a1614;
-    --biz-card-bg: #241f1c;
-    --biz-card-border: #3d3530;
-    --biz-card-shadow: none;
-    --biz-text: var(--dibay-cream);
-    --biz-text-muted: #c4b4b0;
-    --biz-primary: #1a7a3a;
-    --biz-primary-hover: #208844;
-    --biz-primary-active: #146830;
-    --biz-primary-soft: color-mix(in srgb, var(--biz-green, var(--dibay-green)) 22%, var(--biz-card-bg));
-    --biz-tan-soft: color-mix(in srgb, var(--biz-tan, var(--dibay-gold)) 18%, var(--biz-card-bg));
-    --biz-header-bg: color-mix(in srgb, var(--biz-tan, var(--dibay-gold)) 22%, var(--biz-card-bg));
-    --sam-primary: var(--biz-primary);
-    --sam-primary-hover: var(--biz-primary-hover);
-    --sam-primary-active: var(--biz-primary-active);
-    --sam-primary-soft: var(--biz-tan-soft);
-    --signature: var(--biz-primary);
-  }
 }
 
 /* 신규 주문 카드 — 약한 펄스(매장 오너 목록) */

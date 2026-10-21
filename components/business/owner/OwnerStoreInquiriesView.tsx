@@ -200,7 +200,7 @@ export function OwnerStoreInquiriesView() {
     return (
       <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">
         <p>{t("business_phase7_062")}</p>
-        <Link href={loginHref} className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white">
+        <Link href={loginHref} className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-sam-on-primary">
           {t("business_phase7_464")}
         </Link>
       </div>
@@ -268,7 +268,7 @@ export function OwnerStoreInquiriesView() {
                       type="button"
                       disabled={busyId !== null || !(draftById[r.id] ?? "").trim()}
                       onClick={() => void sendAnswer(r.id)}
-                      className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-sam-on-primary disabled:opacity-50"
                     >
                       {busyId === r.id ? "…" : t("business_phase7_467")}
                     </button>

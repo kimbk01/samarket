@@ -97,9 +97,9 @@ export function OwnerStoreOrderChatsView() {
     return (
       <OwnerAdminPageScrollShell>
         <div className="space-y-2 p-2 animate-pulse">
-          <div className="h-16 rounded-[4px] bg-white" />
-          <div className="h-16 rounded-[4px] bg-white" />
-          <div className="h-16 rounded-[4px] bg-white" />
+          <div className="h-16 rounded-ui-rect bg-sam-surface" />
+          <div className="h-16 rounded-ui-rect bg-sam-surface" />
+          <div className="h-16 rounded-ui-rect bg-sam-surface" />
         </div>
       </OwnerAdminPageScrollShell>
     );
@@ -108,7 +108,7 @@ export function OwnerStoreOrderChatsView() {
   if (state.kind === "need_store") {
     return (
       <OwnerAdminPageScrollShell>
-        <div className="flex flex-col items-center justify-center py-12 text-sm text-[#8C8C8C]">
+        <div className="flex flex-col items-center justify-center py-12 text-sm text-sam-meta">
           {t("store_owner_chats_need_store")}
         </div>
       </OwnerAdminPageScrollShell>
@@ -118,7 +118,7 @@ export function OwnerStoreOrderChatsView() {
   if (state.kind === "error") {
     return (
       <OwnerAdminPageScrollShell>
-        <div className="flex flex-col items-center justify-center gap-3 py-12 text-sm text-red-600">
+        <div className="flex flex-col items-center justify-center gap-3 py-12 text-sm text-sam-danger">
           {state.message}
           <button type="button" className="text-[var(--biz-primary)] underline" onClick={() => void load()}>
             {t("store_owner_chats_retry")}
@@ -130,51 +130,51 @@ export function OwnerStoreOrderChatsView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--biz-app-bg)]">
-      <div className="shrink-0 border-b border-[#E5E7EB] bg-white py-2">
-        <p className="text-[13px] text-[#8C8C8C]">
+      <div className="shrink-0 border-b border-sam-border bg-sam-surface py-2">
+        <p className="text-[13px] text-sam-meta">
           {t("store_owner_chats_list_hint", { storeName: state.storeName })}
         </p>
       </div>
       <OwnerAdminPageScrollShell className="py-2">
         <ul data-owner-scroll-host="order-chats-list">
         {state.chats.length === 0 ?
-          <li className="flex flex-col items-center justify-center gap-2 rounded-[4px] bg-white px-4 py-12 text-center">
-            <MessageCircle className="h-10 w-10 text-[#D9D9D9]" strokeWidth={1.5} aria-hidden />
-            <p className="text-[14px] font-medium text-[#262626]">{t("store_owner_chats_empty_title")}</p>
-            <p className="text-[12px] text-[#8C8C8C]">{t("store_owner_chats_empty_hint")}</p>
+          <li className="flex flex-col items-center justify-center gap-2 rounded-ui-rect bg-sam-surface px-4 py-12 text-center">
+            <MessageCircle className="h-10 w-10 text-sam-meta" strokeWidth={1.5} aria-hidden />
+            <p className="text-[14px] font-medium text-sam-fg">{t("store_owner_chats_empty_title")}</p>
+            <p className="text-[12px] text-sam-meta">{t("store_owner_chats_empty_hint")}</p>
           </li>
         : state.chats.map((c) => (
             <li key={c.order_id}>
               <Link
                 href={c.messenger_href}
-                className="mb-2 flex gap-3 rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-3 active:bg-[#F5F5F5]"
+                className="mb-2 flex gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 active:bg-sam-surface-muted"
               >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--biz-tan-soft)] text-[var(--biz-primary)]">
                   <MessageCircle className="h-5 w-5" aria-hidden />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-[14px] font-semibold text-[#262626]">
+                    <p className="truncate text-[14px] font-semibold text-sam-fg">
                       {c.buyer_public_label}
                     </p>
-                    <span className="shrink-0 text-[11px] text-[#8C8C8C]">
+                    <span className="shrink-0 text-[11px] text-sam-meta">
                       {formatListTime(c.last_message_at, language)}
                     </span>
                   </div>
-                  <p className="mt-0.5 truncate text-[12px] text-[#8C8C8C]">
+                  <p className="mt-0.5 truncate text-[12px] text-sam-meta">
                     {t("store_owner_order_line_short", { no: c.order_no })}
                   </p>
                   <div className="mt-1 flex items-center justify-between gap-2">
-                    <p className="min-w-0 flex-1 truncate text-[13px] text-[#595959]">
+                    <p className="min-w-0 flex-1 truncate text-[13px] text-sam-muted">
                       {c.last_message_preview}
                     </p>
                     {c.unread_count > 0 ?
-                      <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#FF4D4F] px-1.5 text-[10px] font-bold text-white">
+                      <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-sam-danger px-1.5 text-[10px] font-bold text-sam-on-primary">
                         {c.unread_count > 99 ? "99+" : c.unread_count}
                       </span>
                     : null}
                   </div>
-                  <span className="mt-1 inline-block rounded bg-[#F5F5F5] px-1.5 py-px text-[10px] font-medium text-[#8C8C8C]">
+                  <span className="mt-1 inline-block rounded-ui-rect bg-sam-surface-muted px-1.5 py-px text-[10px] font-medium text-sam-meta">
                     {c.order_status_label}
                   </span>
                 </div>
