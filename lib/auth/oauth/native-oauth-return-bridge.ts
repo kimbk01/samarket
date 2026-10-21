@@ -19,6 +19,12 @@ const OAUTH_PENDING_CLEAR_EVENT = "dibay:oauth-pending-clear";
 
 const NATIVE_CALLBACK_ORIGIN = "dibay://auth";
 
+/**
+ * 인가 코드가 돌아와 /auth/callback 으로 넘어가는 중 — 로그인 화면은 폼 대신 "로그인 중" 화면을 유지한다
+ * (폼이 1~2초 다시 보였다 사라지는 깜빡임 방지).
+ */
+export const OAUTH_COMPLETING_EVENT = "dibay:oauth-completing";
+
 /** Process-wide dedupe across listener + launcher completion (one logical settle). */
 const handledWebCallbackUrls = new Set<string>();
 
@@ -95,7 +101,15 @@ export function deliverNativeOAuthReturnUrl(
     via,
   });
 
-  clearOAuthPendingUi(via === "as_web_auth_completion" ? "as_web_auth_completion" : "app_url_open");
+  if (payload?.hasCode && !payload?.hasError) {
+    // 성공 복귀: pending UI 를 지우지 않는다 — 지우면 /auth/callback 로드 동안 로그인 폼이 다시 보인다.
+    endOAuthFlow();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(OAUTH_COMPLETING_EVENT, { detail: { via } }));
+    }
+  } else {
+    clearOAuthPendingUi(via === "as_web_auth_completion" ? "as_web_auth_completion" : "app_url_open");
+  }
 
   logOAuthNativeEvent("callback_navigate", { webCallbackUrl, via });
   window.location.replace(webCallbackUrl);
