@@ -916,3 +916,77 @@
 **구현 위치:**
 - ② 웹: `call-in-app-notice-contract.ts` 에 `presentation:"DIALOG"`·제목 키·재시도 여부를 추가하고, `call-in-app-notice-store` 에 callId 바인딩·「닫힌 callId」 집합을 넣습니다. `CallAlertDialog` 렌더러를 추가해 기존 배너를 대체합니다(진행·경고는 배너 유지).
 - ⑤ 네이티브: Android `NativeCallInAppNoticeOverlay`, iOS `NativeCallInAppNotice` 를 같은 계약의 중앙 팝업으로 바꿉니다.
+
+---
+---
+
+# 4부 — 구현 결과 (⓪~③ · 2026-10-21 v4)
+
+> 작업 브랜치 `claude/keen-ramanujan-1iwx5z` 에만 커밋했습니다. **main 병합·Production 배포·운영 DB 적용·네이티브 릴리스는 하지 않았습니다**(Owner 별도 승인 대상).
+> `[배포 구분]` 웹(+DB 마이그레이션 파일). 네이티브 파일 변경은 없습니다(`verify:native-version-bump` PASS, Android 1.2.4(9) / iOS 1.2(7) 그대로).
+
+## V. 단계별 결과
+
+| 단계 | 상태 | 근거 |
+|---|---|---|
+| ⓪ 기준선 | 일부 측정 | **운영 DB 기준선(최근 30일, 읽기 전용)**:<br>· 정상 종료 응답 p50 6.4~7.5초 · 통화 p50 14~45초 · 기록 지연 p95 0.2~0.35초<br>· `heartbeat_timeout` 4건(평균 234초 — 상대가 끊긴 뒤에도 「통화 중」 유지)<br>· `failed_*`·`peer_dropped` 0건(사유가 기록되지 않음)<br>· 최근 14일 로그·stub 누락 0<br>**코드 기준선**: 메신저·통화·푸시 vitest 524개 파일 / 3,196개 테스트 PASS<br>**런타임 성능(J절 T0~T12·메신저 parity 측정)**: 이 환경에서는 운영 주소·테스트 계정에 접근할 수 없어 **NOT_PROVEN** → Cursor 가 실기기·운영에서 수집해야 함 |
+| ① 웹A | **완료** | C-1·C-2·C-18, L-1~L-5·L-10·L-11, M-1~M-3·M-5~M-15, F-1~F-14(F-12 는 ③), K-1~K-7, P-1~P-3·P-5, A-1, D-1, S-1·S-2, X-2, G-2. G-4 는 HEAD 에서 이미 해소(재검증 테스트 추가) |
+| ② 웹B | **핵심 완료** | W2(L-6·L-7·L-9, D1·D2), 통화 상태 머신(3부 T절)·중앙 경고 팝업(U절), C-3·C-17(D4), 미접속 증거 판정(#4), C-4·C-7·C-10(웹)·C-11·C-16(R1). C-6 은 HEAD 에서 이미 해소(peer reconcile) |
+| ③ DB | **파일 준비 + 로컬 검증 완료 · 운영 적용 대기** | 마이그레이션 4건(W절). 운영 적용은 **건별 Owner 명시 승인 후** |
+| ④ 네이티브 lifecycle | 미착수 | ③·② 배포 후. 재빌드·실기기 필요 |
+| ⑤ 네이티브 UI | 미착수 | ④ 통과 후 |
+
+## W. ③ DB 마이그레이션 (운영 적용 전 영향 검증)
+
+**검증 방법:**
+- 로컬 PostgreSQL 16 임시 클러스터를 썼습니다. 테스트 DB(`dibay-test`·`dibay-reset-qa`)는 쓰지 않았고 운영에도 적용하지 않았습니다.
+- 운영의 `pg_get_functiondef` 원문을 그대로 옮겨 재현했습니다. 운영 md5 와 **완전히 일치**합니다(after `1936cf18…`, append `df6b2a01…`).
+- 그 위에 4건을 순서대로 적용한 뒤 시나리오를 실행했습니다.
+
+| 파일 | 내용 | 로컬 검증 결과 | 롤백 |
+|---|---|---|---|
+| `20270607120000_cm_friend_graph_tables_server_only_write.sql` (F-12) | 친구·숨김·즐겨찾기 3개 테이블의 anon/authenticated 쓰기 권한 회수, SELECT 는 유지 | SELECT 유지, INSERT·UPDATE·DELETE 거부 확인. 앱 쓰기는 전부 service_role(클라이언트 직접 쓰기 0건 grep 확인) | GRANT 재부여 |
+| `…120100_cm_group_owner_transfer_as_actor.sql` (G-1) | actor 를 명시 인자로 받는 위임 RPC(방 행 FOR UPDATE, 대상은 활성 멤버만). 구 RPC 는 그대로 유지 | 비방장 → `forbidden`, 나간 멤버에게 위임 → `target_not_found`, 정상 위임 → 역할·owner 갱신, authenticated 실행 불가·service_role 만 실행 가능 | DROP FUNCTION(웹은 구 RPC 로 자동 폴백) |
+| `…120200_cm_append_room_message_forward_only_tip.sql` (C-8) | append RPC 의 방 UPDATE **1문장만** forward-only 로 교체. **md5 가드**로 본문이 바뀌었으면 중단 | 과거 시각 call_stub 이 들어와도 최신 미리보기·시각 유지, 새 메시지는 정상 갱신. 이미 바뀐 본문에 재실행하면 가드가 중단 | 같은 방식으로 1문장 되돌림 |
+| `…120300_cm_messages_room_seq.sql` (W5·M-4) | `room_seq` 컬럼 + 방별 카운터 + BEFORE INSERT 트리거 + after RPC 이중 읽기(md5 가드). **백필 없음** | 커밋 순서대로 seq 부여. 늦게 커밋된 「과거 시각」 메시지도 after 가 반환(**기존 keyset 은 누락**). 옛 행(seq NULL) 앵커 정상. 비참여자·없는 앵커는 0행. 롤백된 INSERT 는 번호를 쓰지 않음. **동시 2세션 405건 → 405개 고유·연속 seq, 데드락 0** | `DROP TRIGGER cm_messages_zz_assign_room_seq` |
+
+**운영 적용 순서(승인 시):** F-12 → G-1 → C-8 → W5. 각 단계 직후 확인 SQL:
+- F-12: `has_table_privilege('authenticated','public.user_social_relations','insert') = false`
+- G-1: 함수 존재·권한 확인. 방장 위임 실기기 1회
+- C-8: `md5(pg_get_functiondef(...))` 변경 확인. 통화 종료 후 목록 미리보기·시각 확인
+- W5: `select count(*) filter (where room_seq is not null) from community_messenger_messages where created_at > <적용시각>` = 신규 행 수. 연속 송신 E2E
+- W5 적용 후 웹의 after 호출은 그대로이고, 서버가 앵커의 seq 를 자동으로 사용합니다.
+
+## X. 자동 검증 (최종 트리, 로컬 1회)
+
+| 검사 | 결과 |
+|---|---|
+| `tsc -p tsconfig.build.json --noEmit` | **exit 0** |
+| vitest — 메신저·통화·정책·푸시·소셜·채팅도메인·스토어·i18n·알림·거래·채팅·컴포넌트 | **1,123개 파일 / 7,895개 테스트 PASS** (skip 1, todo 6) |
+| eslint (변경 TS/TSX 119개) | **error 0** (warning 815, 대부분 기존) |
+| `verify:cm-room-keyboard-layout-contract` | OK |
+| `verify:routes` | OK |
+| `verify:native-version-bump` | PASS — 웹만 |
+| `"use client"` 파일의 서버 전용 모듈 import | 0건 |
+| 신규·갱신 테스트 | 30개 이상 파일(통화 기록 seed·스와이프 닫힘·ACK 계약·bounded bump·pending 보존·통화 팝업·상태 머신·W2 정책·R1 이동·친구/차단·입력창·성능·보안) |
+
+## Y. 남은 항목 (다음 단계로 이관)
+
+| 항목 | 단계 | 이유 |
+|---|---|---|
+| N-1~N-6, V-1·V-2·V-4~V-7, 빨간 테두리, C-10 iOS 준비 화면 | ④·⑤ | 네이티브 재빌드·실기기 필요(2부 K절 설계 그대로) |
+| N-7 서버(VoIP 종료 푸시 대상 축소) | ④(네이티브와 함께) | 단독으로 배포하면 기기를 잘못 빼 CallKit 화면이 닫히지 않는 「유령 벨」 위험이 있음 → 네이티브 「모든 분기 CallKit 보고」와 같은 릴리스로 |
+| P-7(push 로 진입한 경로의 「뒤로 두 번」), C-12, C-14, V-3, V-8, X-1, P-4, P-6, A-2, D-2 | ② 후속 | 비차단 품질 항목. P-7 은 Next 16 history 동작 확인(NP)이 먼저 필요 |
+| 통화 경고 팝업의 네이티브 화면 버전 | ⑤ | 앱 통화 화면은 네이티브 오버레이가 표시함(웹 팝업은 웹이 처리하는 흐름에서만) |
+| `user_social_relations` DELETE 이벤트가 PK 만 전달(replica identity default) | 보고 | 다른 기기에서 친구를 삭제하면 열린 방이 즉시 반응하지 않음(같은 탭은 bus 로 반영). FULL 로 바꾸는 것은 DB 변경이라 별도 승인 |
+| 차단 시 거래·주문 방의 **통화** 차단 | 보고(현행 유지) | D1 은 메시지 업무 채팅 유지 범위. 통화 게이트는 양방향 차단을 그대로 유지(보안 정책 우회 금지) |
+| 거래 채팅 입력창도 자동 높이 확장 적용 | 보고 | 공용 컴포넌트라 함께 적용됨. Enter 동작은 변경 없음 |
+
+## Z. 실기기 검증 필요 (웹 ①② 배포 후 · 2부 O절 프롬프트)
+- **Android(Cursor):** T-L1~L5, T-M1~M6, T-K1~K3, T-F1~F2, T-C1·C2·C4·C5, T-N1.
+- **iPhone(Owner):** 1부 F절 5·7·8, 2부 O절 P-6.
+- **추가 확인 항목:**
+  - 발신 → 상대 통화 중 → 「상대방 통화 중」 팝업, 양쪽 「통화 중」 기록이 재시작 뒤에도 유지
+  - 무응답 → 「응답 없음」 팝업
+  - 앱이 없는 계정(푸시 기기 0)에 발신 → 「연결할 수 없습니다」
+  - 진행 중 주문 채팅 스와이프 → 나가기 없음

@@ -11688,13 +11688,25 @@ export async function transferCommunityMessengerGroupOwner(input: {
   if (!roomId || !targetUserId) return { ok: false, error: "bad_target" };
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data, error } = await (sb as any).rpc("community_messenger_transfer_group_owner", {
+    /**
+     * G-1: 구 RPC 는 auth.uid() 로 권한을 봐서 서버(service_role) 호출 시 항상 'unauthorized'.
+     * actor 를 명시하는 `_as_actor`(마이그레이션 20270607120100) 우선, 미적용이면 구 RPC.
+     */
+    let { data, error } = await (sb as any).rpc("community_messenger_transfer_group_owner_as_actor", {
       p_room_id: roomId,
+      p_actor_user_id: input.userId,
       p_next_owner_user_id: targetUserId,
     });
+    if (error && isMissingRpcFunctionError(error)) {
+      ({ data, error } = await (sb as any).rpc("community_messenger_transfer_group_owner", {
+        p_room_id: roomId,
+        p_next_owner_user_id: targetUserId,
+      }));
+    }
     if (!error) {
       const row = Array.isArray(data) ? data[0] : data;
-      if (!row || row.ok) {
+      /** null 결과를 성공으로 보지 않는다(이전 `!row || row.ok`) */
+      if (row?.ok === true) {
         const target = (await hydrateProfiles(input.userId, [targetUserId]))[0];
         await appendCommunityMessengerSystemMessage({
           userId: input.userId,
@@ -11703,7 +11715,7 @@ export async function transferCommunityMessengerGroupOwner(input: {
         });
         return { ok: true };
       }
-      return { ok: false, error: String(row.error ?? "update_failed") };
+      return { ok: false, error: String(row?.error ?? "update_failed") };
     }
     if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
   }
