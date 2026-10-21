@@ -32,6 +32,13 @@ async function runStoreOrdersSlaScan(req: Request) {
       { status: 500 }
     );
   }
+  // 관리자 배달 운영 상태(`admin_delivery_operations_health`)의 sla_scan 하트비트 — 성공 실행만 기록.
+  const { error: hbErr } = await sb.rpc("touch_delivery_operation_job_heartbeat", {
+    p_job_key: "sla_scan",
+    p_ok: true,
+    p_detail: { source: "vercel_cron" },
+  });
+  if (hbErr) console.error("[cron store-orders-sla-scan] heartbeat", hbErr);
   return NextResponse.json({ ok: true });
 }
 

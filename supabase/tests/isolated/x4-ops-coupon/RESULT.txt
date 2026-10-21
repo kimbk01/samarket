@@ -1,0 +1,21 @@
+PASS apply (functions re-applied)
+PASS health.no_heartbeat
+PASS health.fresh
+PASS recovery.non_admin
+PASS recovery.sla_scan
+PASS recovery.scan_called
+PASS recovery.log_row
+PASS recovery.unknown
+PASS recovery.mark_attention
+PASS recovery.order_status_untouched
+PASS revoke.count
+PASS revoke.redeemed_kept
+PASS revoke.reserved_released
+PASS revoke.audit_rows
+PASS revoke.idempotent
+PASS grant.revoke_campaign_active_entitlements(uuid,uuid,text)
+PASS grant.admin_delivery_operations_health()
+PASS grant.admin_delivery_operation_recovery_execute(text,uuid)
+PASS grant.touch_delivery_operation_job_heartbeat(text,boolean,jsonb)
+PASS grant.logs_client_insert
+ALL X-4 ISOLATED TESTS PASSED (iso_x4)
