@@ -22,6 +22,7 @@ import { DELIVERY_AD_CREATIVE_TABLE } from "@/lib/stores/advertising/delivery-ad
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
 import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
+import { loadEligibleBannerStoreIds } from "@/lib/stores/advertising/load-banner-store-eligibility";
 import { bannerPlacementDefaultCapacity } from "@/lib/ads/banner-placement-capacity-ssot";
 import { DELIVERY_HERO_PLACEMENT_KEY } from "@/lib/admin/ads-exposure/capacity-gate";
 
@@ -107,12 +108,17 @@ export async function loadVisibleStoresHomeHeroBanners(
 
     const rows = (data ?? []) as Record<string, unknown>[];
     const ids = rows.map((r) => String(r.id ?? "")).filter(Boolean);
-    const [invMap, fundingMap] = await Promise.all([
+    const [invMap, fundingMap, eligibleStoreIds] = await Promise.all([
       loadInventoryKeysByCampaign(sb, ids),
       loadDeliveryAdFundingStatusByCampaignIds(sb, {
         productKind: "banner",
         campaignIds: ids,
       }),
+      // ADS-06 — 정지·비노출·삭제 매장 배너 제외 (검색상단 오가닉 풀과 같은 기준).
+      loadEligibleBannerStoreIds(
+        sb,
+        rows.map((r) => (r.store_id == null ? null : String(r.store_id)))
+      ),
     ]);
 
     const creativeIds = rows
@@ -168,6 +174,7 @@ export async function loadVisibleStoresHomeHeroBanners(
           campaignSource: raw.campaign_source == null ? "OWNER_PAID" : String(raw.campaign_source),
           fundingStatus: fundingMap.get(id) ?? "UNFUNDED",
         },
+        eligibleStoreIds,
         nowMs,
       });
       if (!gate.ok) continue;

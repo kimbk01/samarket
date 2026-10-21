@@ -171,6 +171,14 @@ export function adminOperatorErrorMessage(
       ko: "결제(Cash)가 확보되지 않아 승인할 수 없습니다.",
       en: "Cannot approve until Cash funding is secured.",
     },
+    period_expired: {
+      ko: "신청 기간이 이미 지나 승인할 수 없습니다. 반려하면 Cash 가 환불됩니다.",
+      en: "The requested period has already passed. Reject it to refund the Cash.",
+    },
+    period_ended: {
+      ko: "광고 기간이 끝나 재개할 수 없습니다.",
+      en: "The ad period has ended and cannot be resumed.",
+    },
     forbidden: { ko: "이 작업을 할 권한이 없습니다.", en: "You do not have permission for this action." },
     forbidden_permission: {
       ko: "이 작업에 필요한 관리자 권한이 없습니다. 최고 관리자에게 권한을 요청하세요.",

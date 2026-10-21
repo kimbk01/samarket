@@ -1,5 +1,6 @@
 /**
- * Delivery Ads schedule promoter — SCHEDULED→ACTIVE / overdue→ENDED.
+ * Delivery Ads schedule promoter — SCHEDULED→ACTIVE / overdue→ENDED (ACTIVE·SCHEDULED·PAUSED_*) /
+ * period-passed unreviewed application → REJECTED + full refund (ADS-01, D-19).
  * Calls delivery_ad_system_schedule_transition (canonical DB authority).
  * Does NOT invent a second lifecycle; does NOT fan-out CUT3 notifications.
  */
@@ -24,7 +25,16 @@ export const DELIVERY_AD_SCHEDULE_PROMOTER = {
   maxBatchSize: 100,
 } as const;
 
-export type DeliveryAdScheduleSystemAction = "activate_due" | "end_due";
+export type DeliveryAdScheduleSystemAction = "activate_due" | "end_due" | "expire_unreviewed";
+
+/**
+ * D-5 apply instant (= DB `c_apply_from` in delivery_ad_system_schedule_transition).
+ * Paused campaigns ended before it and applications submitted before it are never touched (no data correction).
+ */
+export const DELIVERY_AD_SCHEDULE_APPLY_FROM_ISO = "2026-10-20T20:30:00.000Z" as const;
+
+const UNREVIEWED_LIFECYCLES = ["SUBMITTED", "UNDER_REVIEW", "CHANGES_REQUESTED"] as const;
+const PAUSED_LIFECYCLES = ["PAUSED_OWNER", "PAUSED_ADMIN"] as const;
 
 export type DeliveryAdScheduleCandidate = {
   productKind: AdminDeliveryAdProduct;
@@ -58,14 +68,38 @@ export function isDeliveryAdEndDueEligible(input: {
   nowMs?: number;
 }): boolean {
   const status = input.lifecycleStatus;
-  if (status !== "ACTIVE" && status !== "SCHEDULED") return false;
+  const paused = (PAUSED_LIFECYCLES as readonly string[]).includes(status);
+  if (status !== "ACTIVE" && status !== "SCHEDULED" && !paused) return false;
   const nowMs = input.nowMs ?? Date.now();
   const endMs = Date.parse(input.endAtIso);
   if (!Number.isFinite(endMs)) return false;
   if (endMs > nowMs) return false;
+  // ADS-11 / D-5 — paused rows only when the period ended after the apply instant.
+  if (paused && endMs < Date.parse(DELIVERY_AD_SCHEDULE_APPLY_FROM_ISO)) return false;
   return canTransitionDeliveryAdLifecycle(
     status as DeliveryAdLifecycleStatus,
     "ENDED",
+    "system"
+  );
+}
+
+/** ADS-01 (D-19) — unreviewed application whose requested period passed, submitted after the apply instant. */
+export function isDeliveryAdExpireUnreviewedEligible(input: {
+  lifecycleStatus: string;
+  endAtIso: string;
+  submittedAtIso: string | null;
+  nowMs?: number;
+}): boolean {
+  if (!(UNREVIEWED_LIFECYCLES as readonly string[]).includes(input.lifecycleStatus)) return false;
+  const nowMs = input.nowMs ?? Date.now();
+  const endMs = Date.parse(input.endAtIso);
+  const submittedMs = Date.parse(String(input.submittedAtIso ?? ""));
+  if (!Number.isFinite(endMs) || !Number.isFinite(submittedMs)) return false;
+  if (endMs > nowMs) return false;
+  if (submittedMs < Date.parse(DELIVERY_AD_SCHEDULE_APPLY_FROM_ISO)) return false;
+  return canTransitionDeliveryAdLifecycle(
+    input.lifecycleStatus as DeliveryAdLifecycleStatus,
+    "REJECTED",
     "system"
   );
 }
@@ -79,12 +113,13 @@ async function loadDueCandidates(
   productKind: AdminDeliveryAdProduct,
   action: DeliveryAdScheduleSystemAction,
   nowIso: string,
-  limit: number
+  limit: number,
+  options: { pausedOnly?: boolean } = {}
 ): Promise<DeliveryAdScheduleCandidate[]> {
   const table = tableFor(productKind);
   let q = sb
     .from(table)
-    .select("id, lifecycle_status, start_at, end_at, updated_at")
+    .select("id, lifecycle_status, start_at, end_at, updated_at, submitted_at")
     .limit(limit);
 
   if (action === "activate_due") {
@@ -93,6 +128,19 @@ async function loadDueCandidates(
       .lte("start_at", nowIso)
       .gt("end_at", nowIso)
       .order("start_at", { ascending: true });
+  } else if (action === "expire_unreviewed") {
+    q = q
+      .in("lifecycle_status", [...UNREVIEWED_LIFECYCLES])
+      .lte("end_at", nowIso)
+      .gte("submitted_at", DELIVERY_AD_SCHEDULE_APPLY_FROM_ISO)
+      .order("end_at", { ascending: true });
+  } else if (options.pausedOnly) {
+    // ADS-11 — paused rows whose period ended after the apply instant (older rows are never scanned).
+    q = q
+      .in("lifecycle_status", [...PAUSED_LIFECYCLES])
+      .lte("end_at", nowIso)
+      .gte("end_at", DELIVERY_AD_SCHEDULE_APPLY_FROM_ISO)
+      .order("end_at", { ascending: true });
   } else {
     q = q
       .in("lifecycle_status", ["ACTIVE", "SCHEDULED"])
@@ -114,6 +162,16 @@ async function loadDueCandidates(
           lifecycleStatus,
           startAtIso: startAt,
           endAtIso: endAt,
+        })
+      ) {
+        continue;
+      }
+    } else if (action === "expire_unreviewed") {
+      if (
+        !isDeliveryAdExpireUnreviewedEligible({
+          lifecycleStatus,
+          endAtIso: endAt,
+          submittedAtIso: raw.submitted_at == null ? null : String(raw.submitted_at),
         })
       ) {
         continue;
@@ -208,6 +266,8 @@ export type DeliveryAdSchedulePromoterBatchResult = {
   ok: true;
   activated: number;
   ended: number;
+  /** ADS-01 — auto-rejected (period passed, unreviewed) with full refund. */
+  expired: number;
   failed: number;
   scanned: number;
   results: DeliveryAdSchedulePromoteItemResult[];
@@ -244,10 +304,24 @@ export async function runDeliveryAdSchedulePromoterBatch(
         ].slice(0, endBudget)
       : [];
 
-  const all = [...activateCandidates, ...endCandidates];
+  // ADS-11 / ADS-01 — paused end + unreviewed expiry share the remaining budget (same cron, no new job).
+  const restBudget = Math.max(0, batchSize - activateCandidates.length - endCandidates.length);
+  const restPerKind = Math.max(1, Math.floor(restBudget / 4) || 1);
+  const restCandidates =
+    restBudget > 0
+      ? [
+          ...(await loadDueCandidates(sb, "store_sponsored", "end_due", nowIso, restPerKind, { pausedOnly: true })),
+          ...(await loadDueCandidates(sb, "banner", "end_due", nowIso, restPerKind, { pausedOnly: true })),
+          ...(await loadDueCandidates(sb, "store_sponsored", "expire_unreviewed", nowIso, restPerKind)),
+          ...(await loadDueCandidates(sb, "banner", "expire_unreviewed", nowIso, restPerKind)),
+        ].slice(0, restBudget)
+      : [];
+
+  const all = [...activateCandidates, ...endCandidates, ...restCandidates];
   const results: DeliveryAdSchedulePromoteItemResult[] = [];
   let activated = 0;
   let ended = 0;
+  let expired = 0;
   let failed = 0;
 
   for (const candidate of all) {
@@ -258,6 +332,7 @@ export async function runDeliveryAdSchedulePromoterBatch(
       continue;
     }
     if (result.action === "activate_due") activated += 1;
+    else if (result.action === "expire_unreviewed") expired += 1;
     else ended += 1;
   }
 
@@ -265,6 +340,7 @@ export async function runDeliveryAdSchedulePromoterBatch(
     ok: true,
     activated,
     ended,
+    expired,
     failed,
     scanned: all.length,
     results,

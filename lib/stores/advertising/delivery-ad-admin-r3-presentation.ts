@@ -34,6 +34,8 @@ export const ADMIN_DELIVERY_ADS_HUB_VIEWS = [
   "scheduled",
   "held",
   "history",
+  /** ADS-12 — 레거시·미펀딩(조치 불요) 별도 버킷. */
+  "review_unfunded",
   "all",
 ] as const;
 export type AdminDeliveryAdsHubView = (typeof ADMIN_DELIVERY_ADS_HUB_VIEWS)[number];

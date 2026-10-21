@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
@@ -95,8 +96,10 @@ type PostBody = {
 
 /** POST — approve | reject | end */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // ADS-08 — 승인·반려(회비 환불)·종료는 business 권한키 필수. GET 조회는 현행(관리자 공통) 유지.
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });

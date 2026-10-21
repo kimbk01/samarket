@@ -25,6 +25,7 @@ const BUCKETS = new Set([
   "held",
   "ended",
   "rejected",
+  "review_unfunded",
 ]);
 
 /** R7 서버 페이지 보기 (`view`) — 허브 보기 + 목록 버킷. */
@@ -39,6 +40,7 @@ const PAGE_VIEWS = new Set<string>([
   "held",
   "ended",
   "rejected",
+  "review_unfunded",
 ]);
 
 const PRICING = {

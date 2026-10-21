@@ -82,6 +82,10 @@ export type AdminDeliveryAdWriterError =
   | "use_extension_flow"
   | "capacity_full"
   | "reject_refund_failed"
+  /** ADS-01 — 승인 시점에 원 신청 기간이 이미 끝남. */
+  | "period_expired"
+  /** ADS-11 — 재개 시점에 기간이 이미 끝남. */
+  | "period_ended"
   | "db_error"
   | "rpc_failed";
 
@@ -96,6 +100,27 @@ export type AdminTransitionResult =
       auditId?: string;
     }
   | { ok: false; error: AdminDeliveryAdWriterError; detail?: string };
+
+/**
+ * ADS-01 (D-19) — 승인 RPC 기간 재계산 미리보기: start = max(now, 요청 시작), 길이 유지.
+ * (ADS-02 로 OWNER_PAID 기간 길이 = 스냅샷 기간이므로 RPC 결과와 같다.)
+ */
+export function deliveryAdApprovalWindowPreview(input: {
+  startAt: string;
+  endAt: string;
+  nowMs?: number;
+}): { startAt: string; endAt: string } {
+  const nowMs = input.nowMs ?? Date.now();
+  const startMs = Date.parse(input.startAt);
+  const endMs = Date.parse(input.endAt);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs >= nowMs) {
+    return { startAt: input.startAt, endAt: input.endAt };
+  }
+  return {
+    startAt: new Date(nowMs).toISOString(),
+    endAt: new Date(nowMs + (endMs - startMs)).toISOString(),
+  };
+}
 
 function tableFor(product: AdminDeliveryAdProduct): string {
   return product === "banner" ? BANNER_AD_CAMPAIGN_TABLE : STORE_SPONSORED_CAMPAIGN_TABLE;
@@ -117,6 +142,8 @@ function mapRpcError(raw: unknown): AdminDeliveryAdWriterError {
     e === "funding_required" ||
     e === "capacity_full" ||
     e === "reject_refund_failed" ||
+    e === "period_expired" ||
+    e === "period_ended" ||
     e === "db_error"
   ) {
     return e;
@@ -229,9 +256,14 @@ export async function adminTransitionDeliveryAdCampaign(
       const { assertDeliveryHeroCapacityAvailable } = await import(
         "@/lib/admin/ads-exposure/capacity-gate"
       );
-      const cap = await assertDeliveryHeroCapacityAvailable(sb, {
+      // ADS-01 — 승인 RPC 가 기간을 승인 시점 기준으로 다시 잡으므로 용량도 이동된 기간으로 확인한다.
+      const window = deliveryAdApprovalWindowPreview({
         startAt: String(sched.start_at),
         endAt: String(sched.end_at),
+      });
+      const cap = await assertDeliveryHeroCapacityAvailable(sb, {
+        startAt: window.startAt,
+        endAt: window.endAt,
         excludeCampaignId: input.campaignId,
         inventoryKey: "STORES_HOME_HERO",
       });

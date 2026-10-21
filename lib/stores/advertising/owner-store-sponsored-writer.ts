@@ -110,7 +110,17 @@ export type OwnerSponsoredWriterError =
   | "inventory_lookup_failed"
   | "pricing_not_configured_ok"
   | "category_ads_disabled"
-  | "taxonomy_required";
+  | "taxonomy_required"
+  /** ADS-02 — 기간은 패키지에서만 서버가 산출 (직접 start/end 수정 금지). */
+  | "schedule_locked"
+  /** ADS-02 — 과금이 인벤토리 1개 기준이므로 신청당 노출 위치 1개. */
+  | "inventory_single_required"
+  /** ADS-02 — 유료 신청은 패키지 선택 필수 (기간·가격 = 패키지). */
+  | "package_required"
+  /** ADS-02 — 제출 시 스냅샷(기간·인벤토리)과 신청 불일치 (DB 제출 함수). */
+  | "quote_stale"
+  /** ADS-11 — 기간이 끝난 캠페인 재개 거부. */
+  | "period_ended";
 
 export type OwnerSponsoredWriterResult<T> =
   | { ok: true; row: T; auditId?: string }
@@ -339,6 +349,8 @@ export async function createOwnerSponsoredDraft(
 
   const inv = validateOwnerInventorySelection(input.inventoryKeys);
   if (!inv.ok) return { ok: false, error: inv.error };
+  // ADS-02 — 견적·차감은 인벤토리 1개 기준 → 신청당 노출 위치 1개.
+  if (inv.keys.length !== 1) return { ok: false, error: "inventory_single_required" };
 
   let startAtIso = input.startAtIso;
   let endAtIso = input.endAtIso;
@@ -347,6 +359,8 @@ export async function createOwnerSponsoredDraft(
     typeof input.packageId === "string" && input.packageId.trim()
       ? input.packageId.trim()
       : "";
+  // ADS-02 — 유료 신청 기간은 패키지에서만 서버가 산출한다.
+  if (!packageId) return { ok: false, error: "package_required" };
   if (packageId) {
     const { quoteDeliveryAdApplicationCommercial } = await import(
       "@/lib/stores/advertising/delivery-ad-commercial-catalog"
@@ -513,6 +527,8 @@ export type OwnerUpdateDraftInput = {
   browseTargetKind?: "primary" | "secondary" | null;
   browsePrimarySlug?: string | null;
   browseSecondarySlug?: string | null;
+  /** ADS-02 — 패키지 변경 시 기간·pricing_model 을 서버가 다시 산출. */
+  packageId?: string | null;
 };
 
 export async function updateOwnerSponsoredDraft(
@@ -531,25 +547,52 @@ export async function updateOwnerSponsoredDraft(
     updated_at: new Date().toISOString(),
   };
 
+  // ADS-02 — 유료 신청 기간은 패키지에서만 서버가 산출 (start/end 직접 수정 금지).
+  if (input.startAtIso != null || input.endAtIso != null) {
+    return { ok: false, error: "schedule_locked" };
+  }
+
   let nextKeys = row.inventoryKeys;
   if (input.inventoryKeys !== undefined) {
     const inv = validateOwnerInventorySelection(input.inventoryKeys);
     if (!inv.ok) return { ok: false, error: inv.error };
+    if (inv.keys.length !== 1) return { ok: false, error: "inventory_single_required" };
     nextKeys = inv.keys;
     const placement = inventoryKeysToPrimaryPlacement(inv.keys);
     if (!placement) return { ok: false, error: "no_inventory" };
     patch.placement = placement;
   }
 
-  if (input.startAtIso != null || input.endAtIso != null) {
+  const packageId =
+    typeof input.packageId === "string" && input.packageId.trim() ? input.packageId.trim() : "";
+  if (packageId) {
+    const { quoteDeliveryAdApplicationCommercial } = await import(
+      "@/lib/stores/advertising/delivery-ad-commercial-catalog"
+    );
+    const {
+      encodeOwnerAdPackagePricingModel,
+      scheduleWindowFromPackageDurationDays,
+    } = await import("@/lib/stores/advertising/owner-delivery-ad-commercial-bind");
+    const inventoryKey = nextKeys[0];
+    if (!inventoryKey) return { ok: false, error: "no_inventory" };
+    const quote = await quoteDeliveryAdApplicationCommercial(sb, {
+      productKind: "store_sponsored",
+      inventoryKey,
+      packageId,
+      storeId: row.storeId,
+    });
+    if (!quote.ok) return { ok: false, error: "pricing_not_configured_ok" };
+    const window = scheduleWindowFromPackageDurationDays(quote.durationDays, input.nowMs);
+    if (!window.ok) return { ok: false, error: "invalid_end_at" };
     const schedule = validateOwnerStoreSponsoredSchedule({
-      startAtIso: input.startAtIso ?? row.startAt,
-      endAtIso: input.endAtIso ?? row.endAt,
+      startAtIso: window.startAtIso,
+      endAtIso: window.endAtIso,
       nowMs: input.nowMs,
     });
     if (!schedule.ok) return { ok: false, error: schedule.error };
     patch.start_at = schedule.startAt;
     patch.end_at = schedule.endAt;
+    patch.pricing_model = encodeOwnerAdPackagePricingModel(packageId);
   }
   if (typeof input.title === "string" && input.title.trim()) patch.title = input.title.trim().slice(0, 120);
   if (typeof input.headline === "string" && input.headline.trim()) {
@@ -590,6 +633,17 @@ export async function updateOwnerSponsoredDraft(
       ok: false,
       error: (payload?.error ?? "db_error") as OwnerSponsoredWriterError,
     };
+  }
+
+  if (typeof patch.pricing_model === "string") {
+    await sb
+      .from(STORE_SPONSORED_CAMPAIGN_TABLE)
+      .update({
+        pricing_model: patch.pricing_model,
+        updated_by_user_id: input.ownerUserId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payload.campaign_id);
   }
 
   if (input.browseTargetKind !== undefined || input.inventoryKeys !== undefined) {
@@ -671,6 +725,8 @@ function mapOwnerTransitionRpcError(error: unknown): OwnerSponsoredWriterError {
   if (code === "illegal_transition") return "illegal_transition";
   if (code === "stale_lifecycle") return "duplicate_submit";
   if (code === "funding_required") return "funding_required";
+  if (code === "period_ended") return "period_ended";
+  if (code === "quote_stale") return "quote_stale";
   return "db_error";
 }
 

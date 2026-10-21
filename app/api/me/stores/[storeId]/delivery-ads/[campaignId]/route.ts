@@ -163,6 +163,12 @@ export async function PATCH(
           : undefined,
     title: typeof body.title === "string" ? body.title : undefined,
     headline: typeof body.headline === "string" ? body.headline : undefined,
+    packageId:
+      typeof body.packageId === "string"
+        ? body.packageId
+        : typeof body.package_id === "string"
+          ? body.package_id
+          : undefined,
     browseTargetKind:
       body.browseTargetKind === "primary" || body.browseTargetKind === "secondary"
         ? body.browseTargetKind

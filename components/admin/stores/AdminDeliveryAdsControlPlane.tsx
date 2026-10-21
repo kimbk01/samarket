@@ -50,6 +50,7 @@ const HUB_VIEWS: AdminDeliveryAdsHubView[] = [
   "scheduled",
   "held",
   "history",
+  "review_unfunded",
   "all",
 ];
 
@@ -304,7 +305,7 @@ export function AdminDeliveryAdsControlPlane() {
             data-admin-delivery-ads-hub-views="1"
           >
             {HUB_VIEWS.map((view) => {
-              const isHistory = view === "history" || view === "all";
+              const isHistory = view === "history" || view === "all" || view === "review_unfunded";
               return (
                 <AdminChipButton
                   key={view}

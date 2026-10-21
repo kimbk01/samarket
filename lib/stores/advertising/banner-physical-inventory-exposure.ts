@@ -20,6 +20,7 @@ import {
   resolveDeliveryAdFundingStatus,
   type DeliveryAdFundingStatus,
 } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
+import { isBannerStoreEligible } from "@/lib/stores/advertising/load-banner-store-eligibility";
 import { stage2PhysicalBannerExposureAllowed } from "@/lib/stores/advertising/delivery-ad-stage2-surface-contract";
 
 export type BannerPhysicalExposureCampaign = {
@@ -43,6 +44,8 @@ export function evaluateBannerPhysicalInventoryExposure(input: {
   physicalEnabled: boolean;
   commercialSellable?: boolean;
   nowMs: number;
+  /** ADS-06 — approved · is_visible 매장 id 집합 (로더가 항상 전달). */
+  eligibleStoreIds?: ReadonlySet<string> | null;
 }): { ok: boolean; reasons: string[] } {
   const reasons: string[] = [];
   const c = input.campaign;
@@ -82,6 +85,6 @@ export function evaluateBannerPhysicalInventoryExposure(input: {
     reasons.push("funding_ready");
   }
 
-  void c.storeId;
+  if (!isBannerStoreEligible(c.storeId, input.eligibleStoreIds)) reasons.push("store_eligible");
   return { ok: reasons.length === 0, reasons };
 }
