@@ -5,6 +5,10 @@ import { logOAuthNativeEvent, parseOAuthNativeCallbackLogPayload } from "@/lib/a
 import { NATIVE_OAUTH_RETURN_LISTENER_BRIDGE_MS } from "@/lib/auth/oauth/native-oauth-contract";
 import { deliverNativeOAuthReturnUrl } from "@/lib/auth/oauth/native-oauth-return-bridge";
 import {
+  consumeInterruptedNativeLogin,
+  NATIVE_LOGIN_INTERRUPTED_REASON,
+} from "@/lib/auth/native/native-login-interrupt-marker.client";
+import {
   shouldRegisterCapacitorOAuthReturnListener,
   shouldRetryCapacitorOAuthReturnListenerAttach,
   waitForCapacitorBridgeReady,
@@ -28,6 +32,14 @@ export { buildWebOAuthCallbackUrlFromNativeReturn } from "@/lib/auth/oauth/nativ
  */
 export function OAuthReturnListener() {
   useEffect(() => {
+    // 앱 시작 = 새 JS 컨텍스트. 이전 프로세스의 Native 로그인이 결과 없이 끝났으면 로그인 화면에서 안내.
+    const interruptedProvider = consumeInterruptedNativeLogin();
+    if (interruptedProvider) {
+      logOAuthNativeEvent("native_login_interrupted_on_boot", { provider: interruptedProvider });
+      window.location.replace(`/login?reason=${NATIVE_LOGIN_INTERRUPTED_REASON}`);
+      return;
+    }
+
     let removeAppUrlOpen: (() => void) | undefined;
     let cancelled = false;
 

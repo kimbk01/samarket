@@ -32,6 +32,10 @@ import {
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { startNativeProviderLogin } from "@/lib/auth/native/start-native-provider-login.client";
 import {
+  clearNativeLoginInFlight,
+  markNativeLoginInFlight,
+} from "@/lib/auth/native/native-login-interrupt-marker.client";
+import {
   isNativeAppOAuthShell,
   resolveOAuthProviderRoutingSnapshot,
   shouldBlockAppleWebOAuthSafetyNet,
@@ -613,7 +617,13 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
           markAuthLifecycleStage("provider_launch_requested", { via: "native_provider_login" });
           setSharedLaunchKind("native_sdk");
           try {
-            const result = await startNativeProviderLogin({ provider, next });
+            markNativeLoginInFlight(provider);
+            let result: Awaited<ReturnType<typeof startNativeProviderLogin>>;
+            try {
+              result = await startNativeProviderLogin({ provider, next });
+            } finally {
+              clearNativeLoginInFlight();
+            }
             await completeAuthSuccess(result);
           } catch (err) {
             await handleOAuthStartFailure(err);
