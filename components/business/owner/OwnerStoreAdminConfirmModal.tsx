@@ -19,7 +19,7 @@ export function OwnerStoreAdminConfirmModal({
   cancelLabel,
   confirmLabel,
   confirmBusyLabel,
-  busy = false,
+  busy,
   disableActions = false,
   confirmTone = "primary",
   onCancel,
@@ -34,7 +34,8 @@ export function OwnerStoreAdminConfirmModal({
   confirmLabel?: string;
   /** `busy` 일 때 확인 버튼에만 표시(미주입 시 "처리 중…") */
   confirmBusyLabel?: string;
-  busy?: boolean;
+  /** 4-0 — 필수: 확인 처리 중 이중 실행 방지 (미전달 시 타입 오류) */
+  busy: boolean;
   disableActions?: boolean;
   confirmTone?: OwnerStoreAdminConfirmTone;
   onCancel: () => void;

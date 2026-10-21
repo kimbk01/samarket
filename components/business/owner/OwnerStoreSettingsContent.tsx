@@ -22,6 +22,8 @@ type Props = {
   ) => void;
   onStoreUpdated?: () => void | Promise<void>;
   orderAlertsBadge?: number;
+  /** IA-17 — 처리 중인 메신저 기능 키 (처리 중엔 3개 토글 모두 비활성) */
+  messengerBusyKey?: string | null;
 };
 
 export function OwnerStoreSettingsContent({
@@ -30,6 +32,7 @@ export function OwnerStoreSettingsContent({
   onToggleMessengerFeature,
   onStoreUpdated,
   orderAlertsBadge = 0,
+  messengerBusyKey = null,
 }: Props) {
   const { t, language } = useI18n();
   const q = `storeId=${encodeURIComponent(row.id)}`;
@@ -147,10 +150,14 @@ export function OwnerStoreSettingsContent({
               <p className="min-w-0 sam-text-body font-medium text-sam-fg">{item.label}</p>
               <button
                 type="button"
-                disabled={!isApproved}
+                role="switch"
+                aria-checked={item.enabled}
+                aria-busy={messengerBusyKey === item.key}
+                disabled={!isApproved || messengerBusyKey != null}
                 onClick={() => onToggleMessengerFeature(item.key, !item.enabled)}
                 className={[
                   "shrink-0 rounded-ui-rect px-3 py-2 sam-text-body font-medium",
+                  messengerBusyKey != null ? "opacity-60" : "",
                   isApproved
                     ? item.enabled
                       ? "bg-signature text-white"

@@ -42,6 +42,7 @@ import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeP
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
 import { OwnerMobileAdminHeaderTrailingProvider } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
 import { OwnerStackPageSlideShell } from "@/components/business/owner/OwnerStackPageSlideShell";
+import { OwnerToastHost } from "@/components/business/owner/OwnerToastHost";
 import { OwnerMobileBottomNav } from "@/components/stores/owner/OwnerMobileBottomNav";
 import { OwnerChromeHeader } from "@/components/business/owner/OwnerChromeHeader";
 import { OwnerStorePreviewModal } from "@/components/business/owner/OwnerStorePreviewModal";
@@ -662,6 +663,7 @@ export function BusinessAdminShell({
         >
           <OwnerStackPageSlideShell>{children}</OwnerStackPageSlideShell>
         </main>
+        <OwnerToastHost />
       </div>
     );
   }
@@ -868,6 +870,7 @@ export function BusinessAdminShell({
           </div>
         </OwnerMobileAdminHeaderTrailingProvider>
       </div>
+      <OwnerToastHost />
     </BusinessAdminStoreProvider>
   );
 }

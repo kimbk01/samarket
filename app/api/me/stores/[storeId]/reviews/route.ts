@@ -118,12 +118,28 @@ export async function GET(
   const list = (rows ?? []) as Record<string, unknown>[];
   const buyerIds = list.map((r) => String(r.buyer_user_id ?? "").trim()).filter(Boolean);
   const buyerMap = await mapBuyerUserIdsToPublicLabels(sb, buyerIds);
+  /** IA-15 — 오너 화면은 원시 order_id 대신 주문번호(order_no) 표시 (추가 필드, 기존 필드 불변) */
+  const orderIds = [...new Set(list.map((r) => String(r.order_id ?? "").trim()).filter(Boolean))];
+  const orderNoById: Record<string, string> = {};
+  if (orderIds.length > 0) {
+    const { data: orderRows } = await sb
+      .from("store_orders")
+      .select("id, order_no")
+      .eq("store_id", id)
+      .in("id", orderIds);
+    for (const o of (orderRows ?? []) as { id?: unknown; order_no?: unknown }[]) {
+      const oid = String(o.id ?? "").trim();
+      const no = typeof o.order_no === "string" ? o.order_no.trim() : "";
+      if (oid && no) orderNoById[oid] = no;
+    }
+  }
 
   return NextResponse.json({
     ok: true,
     reviews: list.map((r) => ({
       id: String(r.id ?? ""),
       order_id: String(r.order_id ?? ""),
+      order_no: orderNoById[String(r.order_id ?? "").trim()] ?? null,
       product_id: r.product_id ? String(r.product_id) : null,
       buyer_user_id: String(r.buyer_user_id ?? ""),
       buyer_public_label: buyerMap[String(r.buyer_user_id ?? "").trim()] ?? BUYER_PUBLIC_LABEL_FALLBACK,

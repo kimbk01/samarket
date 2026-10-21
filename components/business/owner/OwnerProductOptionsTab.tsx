@@ -439,6 +439,7 @@ export function OwnerProductOptionsTab({
       }
       cancelLabel={t("common_cancel")}
       confirmLabel={t("common_delete")}
+      busy={false}
       confirmTone="danger"
       onCancel={() => setDeleteConfirm(null)}
       onConfirm={() => {

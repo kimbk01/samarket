@@ -1166,6 +1166,7 @@ export function OwnerProductForm({
         description={t("business_phase7_386")}
         cancelLabel={t("business_phase7_387")}
         confirmLabel={t("business_phase7_388")}
+        busy={false}
         confirmTone="danger"
         onCancel={() => setCancelDirtyConfirmOpen(false)}
         onConfirm={async () => {
@@ -1197,6 +1198,7 @@ export function OwnerProductForm({
         description={t("business_phase7_390")}
         cancelLabel={t("common_close")}
         confirmLabel={t("business_phase7_391")}
+        busy={false}
         confirmTone="primary"
         onCancel={() => setCategoryGateModal(null)}
         onConfirm={async () => {
@@ -1211,6 +1213,7 @@ export function OwnerProductForm({
         description={t("business_phase7_392")}
         cancelLabel={t("common_close")}
         confirmLabel={t("business_phase7_393")}
+        busy={false}
         confirmTone="primary"
         onCancel={() => setCategoryGateModal(null)}
         onConfirm={async () => {
@@ -1232,6 +1235,7 @@ export function OwnerProductForm({
             ? t("business_phase7_492")
             : t("common_confirm")
         }
+        busy={false}
         confirmTone="primary"
         onCancel={() => setRegisterErrorModal(null)}
         onConfirm={() => {
