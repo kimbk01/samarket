@@ -27,11 +27,13 @@ import {
   stopNativeOutgoingTerminalSync,
 } from "@/lib/community-messenger/call-v4/native-outgoing-terminal-sync";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
+import { resetCallV4SessionStatusPollerForTests } from "@/lib/community-messenger/call-v4/call-v4-session-status-poller";
 
 describe("native-outgoing-terminal-sync", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     resetNativeOutgoingTerminalSyncForTests();
+    resetCallV4SessionStatusPollerForTests();
     useCallV4Store.getState().resetToIdle();
     apiMocks.fetchSessionForCallerPoll.mockReset();
     apiMocks.isNativeOwned.mockReset();
@@ -181,7 +183,8 @@ describe("native-outgoing-terminal-sync", () => {
 
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(apiMocks.fetchSessionForCallerPoll.mock.calls.length).toBe(4);
+    /** C-12 — 공유 poller 1초 주기: 시작 2회 즉시 조회 + 1초 tick 1회 (이전 500ms 주기면 4회) */
+    expect(apiMocks.fetchSessionForCallerPoll.mock.calls.length).toBe(3);
 
     stopNativeOutgoingTerminalSync("call-dedupe-1");
     const callsBefore = apiMocks.fetchSessionForCallerPoll.mock.calls.length;
