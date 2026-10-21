@@ -100,14 +100,17 @@ export async function disconnectNativeDevicesForLogout(): Promise<DisconnectNati
   return result;
 }
 
-/** 계정 전환 — 동일 기기의 이전 계정 token 즉시 비활성 (authenticated session required) */
+/**
+ * 계정 전환 — 동일 기기의 **이전 계정** token 만 즉시 비활성 (authenticated session required).
+ * P2-11: 새 세션 회원(B)의 기기 row·native 수신 자격은 유지한다 — 전환 wipe 가 B 등록 뒤에 돌아도
+ * B 푸시·통화 수신이 끊기지 않는다. 이전 계정(A) 알림 노출은 서버 row 비활성 + native 수신자 불일치 drop 으로 막는다.
+ */
 export async function disconnectNativeDevicesOnAccountSwitch(): Promise<DisconnectNativeDevicesResult> {
   if (typeof window === "undefined") return { ok: true, mode: "skipped" };
   try {
     const deviceId = ensureClientInstanceId();
     clearDeviceRegisterGateForUser();
-    void setNativeMemberCallEligible(false, "account_switch_device_disconnect");
-    const body = buildUnbindBody(deviceId, "device_all_users");
+    const body = buildUnbindBody(deviceId, "device_other_users");
     const result = await postDeactivate(body);
     if (!result.ok) {
       console.warn("[push] account_switch_device_deactivate_failed", {

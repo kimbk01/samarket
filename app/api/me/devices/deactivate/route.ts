@@ -13,7 +13,11 @@ type DeactivateBody = {
   device_id?: unknown;
   push_token?: unknown;
   push_provider?: unknown;
-  /** 동일 physical device_id의 모든 user row 비활성 (계정 전환) — authenticated only */
+  /**
+   * 계정 전환 — authenticated only.
+   * `device_other_users`: 이 기기의 **다른 계정** row 만 비활성 (현재 세션 회원 row 유지).
+   * `device_all_users`: 이 기기의 모든 계정 row 비활성 (이력 호환).
+   */
   scope?: unknown;
 };
 
@@ -37,7 +41,7 @@ export async function POST(req: NextRequest) {
 
   if (!userId) {
     // Session already missing — only device_id + push_token proof may unbind this install.
-    if (scope === "device_all_users") {
+    if (scope === "device_all_users" || scope === "device_other_users") {
       return NextResponse.json(
         { ok: false, error: "unauthenticated", code: "scope_requires_auth" },
         { status: 401 },
@@ -70,6 +74,33 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({ ok: false, error: "deactivate_failed" }, { status: 500 });
     }
+  }
+
+  if (scope === "device_other_users" && deviceId) {
+    // P2-11: 계정 전환 시 이전 계정의 이 기기 푸시 바인딩만 끊는다 — 새로 로그인한 회원의 row 는 건드리지 않는다.
+    // 다른 계정 row 를 끄려면 이 물리 기기의 소유 증명(device_id + 현재 push_token 바인딩)이 필요하다.
+    let deviceOwnershipProven = false;
+    if (pushToken) {
+      const { data: ownRow } = await svc
+        .from("user_devices")
+        .select("id")
+        .eq("device_id", deviceId)
+        .eq("push_token", pushToken)
+        .eq("environment", environment)
+        .limit(1)
+        .maybeSingle();
+      deviceOwnershipProven = Boolean(ownRow);
+    }
+    if (!deviceOwnershipProven) {
+      return NextResponse.json({ ok: true, mode: "authenticated", deactivated_other_users: false });
+    }
+    await svc
+      .from("user_devices")
+      .update({ is_active: false, updated_at: now })
+      .eq("device_id", deviceId)
+      .eq("environment", environment)
+      .neq("user_id", userId);
+    return NextResponse.json({ ok: true, mode: "authenticated", deactivated_other_users: true });
   }
 
   if (scope === "device_all_users" && deviceId) {

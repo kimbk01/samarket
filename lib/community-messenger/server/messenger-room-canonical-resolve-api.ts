@@ -8,6 +8,7 @@
 import type { NextResponse } from "next/server";
 import { jsonError } from "@/lib/http/api-route";
 import {
+  forgetMessengerRoomMembershipCache,
   getPermissionCanonicalInflightMap,
   membershipCacheKey,
   probeMessengerRoomMembershipCache,
@@ -16,6 +17,7 @@ import {
   type MessengerRoomMembershipCacheReason,
 } from "@/lib/community-messenger/server/messenger-room-membership-cache";
 import {
+  recheckActiveMessengerParticipant,
   resolveCommunityMessengerCanonicalRoomIdForUserWithBreakdown,
   type MessengerCanonicalPermissionSource,
   type ResolveCommunityMessengerCanonicalResult,
@@ -123,7 +125,16 @@ export async function messengerRoomCanonicalOrJsonError(
 
   const tPerm0 = performance.now();
   const probe = probeMessengerRoomMembershipCache(userId, raw);
-  if (probe.hit && probe.canonicalRoomId) {
+  /** P2-7: 적중이어도 활성 참가 여부 1회 재확인 — 다른 인스턴스의 kick·ban·leave 를 즉시 반영 */
+  const stillMember =
+    probe.hit && probe.canonicalRoomId
+      ? await recheckActiveMessengerParticipant(userId, probe.canonicalRoomId)
+      : null;
+  if (probe.hit && probe.canonicalRoomId && stillMember === false) {
+    forgetMessengerRoomMembershipCache(userId, raw);
+    forgetMessengerRoomMembershipCache(userId, probe.canonicalRoomId);
+  }
+  if (probe.hit && probe.canonicalRoomId && stillMember !== false) {
     return {
       ok: true,
       canonicalRoomId: probe.canonicalRoomId,

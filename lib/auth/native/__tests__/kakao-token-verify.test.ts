@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   KakaoTokenVerifyError,
+  mapKakaoVerifyErrorToHttp,
   verifyKakaoNativeCredential,
 } from "@/lib/auth/native/kakao-token-verify.server";
 
@@ -19,6 +20,7 @@ describe("kakao-token-verify.server", () => {
   });
 
   it("verifies access token and returns kakao user id", async () => {
+    vi.stubEnv("KAKAO_APP_ID", "1");
     vi.mocked(fetch)
       .mockResolvedValueOnce({
         ok: true,
@@ -38,6 +40,7 @@ describe("kakao-token-verify.server", () => {
   });
 
   it("throws verify failed on invalid token response", async () => {
+    vi.stubEnv("KAKAO_APP_ID", "1");
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -78,5 +81,23 @@ describe("kakao-token-verify.server", () => {
 
     const verified = await verifyKakaoNativeCredential({ accessToken: "own-app" });
     expect(verified.kakaoUserId).toBe("987654321");
+  });
+
+  it("P1-2 fail-closed: KAKAO_APP_ID 미설정이면 Kakao 호출 없이 거부 (503)", async () => {
+    vi.stubEnv("KAKAO_APP_ID", "");
+    await expect(verifyKakaoNativeCredential({ accessToken: "any" })).rejects.toMatchObject({
+      code: "kakao_app_id_unconfigured",
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(
+      mapKakaoVerifyErrorToHttp(new KakaoTokenVerifyError("kakao_app_id_unconfigured", "x")),
+    ).toMatchObject({ status: 503, errorCode: "native_provider_unconfigured" });
+  });
+
+  it("P1-2 fail-closed: 비정상 KAKAO_APP_ID 값도 거부", async () => {
+    vi.stubEnv("KAKAO_APP_ID", "not-a-number");
+    await expect(verifyKakaoNativeCredential({ accessToken: "any" })).rejects.toMatchObject({
+      code: "kakao_app_id_unconfigured",
+    });
   });
 });

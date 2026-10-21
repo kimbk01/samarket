@@ -15,7 +15,7 @@ export function buildKakaoNativeAuthEmail(kakaoUserId: string): string {
 
 /**
  * P1-2 — Kakao 앱 ID (`access_token_info.app_id` 비교용). 미설정·비정상 값이면 null.
- * Owner 가 Production env `KAKAO_APP_ID` 를 등록해야 검증이 강제된다.
+ * 미설정이면 Kakao native 로그인은 거부된다(fail-closed) — Production env `KAKAO_APP_ID` 필수.
  */
 export function readKakaoAppIdEnv(): number | null {
   const raw = String(process.env.KAKAO_APP_ID ?? "").trim();
