@@ -19303,6 +19303,32 @@ export type IncomingCallPushBestEffortInput = {
   domainEnvelope?: RoomDomainEnvelope | null;
 };
 
+/** 세션 시작 후 이 시간이 지나 발송하는 수신 푸시만 세션 상태를 다시 확인한다 */
+export const INCOMING_CALL_PUSH_STALE_RECHECK_AFTER_MS = 1_500;
+
+/** true = 세션이 더 이상 ringing 이 아님(취소·거절·부재중·종료) → 수신 링 발송 금지. 조회 실패는 false(발송). */
+export async function isIncomingCallPushStaleForTerminalSession(
+  sessionId: string,
+  startedAtIso: string | null | undefined,
+  nowMs: number = Date.now()
+): Promise<boolean> {
+  const startedMs = new Date(trimText(startedAtIso ?? "")).getTime();
+  if (Number.isFinite(startedMs) && nowMs - startedMs < INCOMING_CALL_PUSH_STALE_RECHECK_AFTER_MS) return false;
+  const sb = getSupabaseOrNull();
+  if (!sb) return false;
+  try {
+    const { data, error } = await (sb as any)
+      .from("community_messenger_call_sessions")
+      .select("status")
+      .eq("id", sessionId)
+      .maybeSingle();
+    if (error || !data) return false;
+    return trimText((data as { status?: string | null }).status ?? "") !== "ringing";
+  } catch {
+    return false;
+  }
+}
+
 export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBestEffortInput): Promise<void> {
   const recipient = trimText(input.recipientUserId);
   const sessionId = trimText(input.sessionId);
@@ -19314,6 +19340,15 @@ export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBest
   const profileMap = await fetchProfilesByIds([callerId]);
   const callerProfile = profileMap.get(callerId);
   const callerLabel = profileLabel(callerProfile, callerId);
+  /**
+   * 늦게 재개된 발송(서버리스 동결 뒤 다음 요청에서 재개 등)은 이미 끝난 통화를 울리지 않는다 —
+   * 2026-10-22 운영: 발신 취소 1.4s 뒤 VoIP 링이 나가 iPhone 이 종료된 통화를 울렸다.
+   * 정상 경로(시작 직후)는 조회 없이 그대로 보낸다.
+   */
+  if (await isIncomingCallPushStaleForTerminalSession(sessionId, input.startedAt)) {
+    console.info("[cm-call-voip] incoming_push_skipped_terminal_session", { sessionId, recipientUserId: recipient });
+    return;
+  }
   await sendWebPushForCommunityMessengerIncomingCall({
     recipientUserId: recipient,
     sessionId,
