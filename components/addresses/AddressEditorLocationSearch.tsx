@@ -5,6 +5,7 @@ import { Loader2, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
 import {
+  ADDR_INPUT_FONT_STYLE,
   ADDR_SEARCH_DROPDOWN,
   ADDR_SEARCH_INPUT,
   ADDR_SEARCH_INPUT_NO_NATIVE_CANCEL,
@@ -66,6 +67,7 @@ export function AddressEditorLocationSearch(props: {
           spellCheck={false}
           enterKeyHint="search"
           className={`${ADDR_SEARCH_INPUT} ${ADDR_SEARCH_INPUT_NO_NATIVE_CANCEL}`}
+          style={ADDR_INPUT_FONT_STYLE}
         />
         {search ? (
           <button
