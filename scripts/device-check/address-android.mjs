@@ -92,6 +92,39 @@ async function screenState() {
   }
 }
 
+/** 화면 전환 애니메이션 중엔 이전·다음 화면이 동시에 그려진다 — 대상이 1개만 남을 때까지 대기 */
+async function waitSingle(selector, timeout = 8000) {
+  await page
+    .waitForFunction((sel) => document.querySelectorAll(sel).length === 1, selector, { timeout })
+    .catch(() => {});
+  return page.locator(selector).last();
+}
+
+/** 바텀시트 등장 애니메이션이 끝나 화면 안에 들어올 때까지 */
+async function waitSheetSettled() {
+  await page.locator(".dibay-overlay-sheet").last().waitFor({ timeout: 10000 });
+  await page
+    .waitForFunction(() => {
+      const els = document.querySelectorAll(".dibay-overlay-sheet");
+      const el = els[els.length - 1];
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      return r.bottom <= window.innerHeight + 1 && r.top >= 0;
+    }, null, { timeout: 5000 })
+    .catch(() => {});
+  await sleep(300);
+}
+
+/** 실제 손가락 탭 — CSS 좌표 × devicePixelRatio 를 adb input tap 으로 */
+async function adbTapLocator(loc) {
+  const box = await loc.boundingBox();
+  if (!box) throw new Error("탭 대상 요소 위치를 찾지 못함");
+  const dpr = await page.evaluate(() => window.devicePixelRatio || 1);
+  const x = Math.round((box.x + box.width / 2) * dpr);
+  const y = Math.round((box.y + box.height / 2) * dpr);
+  await device.shell(`input tap ${x} ${y}`);
+}
+
 async function rowCount() {
   try {
     await page.waitForSelector('[data-testid="address-row"], [data-testid="address-empty-add"]', { timeout: 45000 });
@@ -133,7 +166,8 @@ async function selectFirstResultToEdit() {
   const { rows } = await searchAndWaitResults("SM North EDSA");
   await rows.first().click();
   await page.waitForURL(/\/mypage\/addresses\/edit/, { timeout: 20000 });
-  await page.locator("#addr-editor-detail").waitFor({ timeout: 20000 });
+  await page.locator("#addr-editor-detail").first().waitFor({ timeout: 20000 });
+  await waitSingle("#addr-editor-detail");
 }
 
 async function setNetwork(on) {
@@ -145,7 +179,11 @@ async function setNetwork(on) {
 
 async function openRowMenu(rowLocator) {
   await rowLocator.locator('[data-testid="address-row-more"]').click();
-  await page.locator('[role="dialog"]').last().waitFor({ timeout: 10000 });
+  await waitSheetSettled();
+}
+
+async function clickSheetItem(label) {
+  await page.locator(".dibay-overlay-action-list button", { hasText: label }).last().click();
 }
 
 // ───────────────────────── 사전 조건 ─────────────────────────
@@ -185,7 +223,7 @@ async function preflight() {
 async function A1() {
   const before = await rowCount();
   await selectFirstResultToEdit();
-  await page.locator("#addr-editor-detail").fill(`${TAG} A1`);
+  await page.locator("#addr-editor-detail").last().fill(`${TAG} A1`);
   await page.locator('[data-testid="address-detail-save"]').click();
   await page.waitForURL((u) => !/\/edit/.test(u.pathname), { timeout: 20000 });
   await gotoPath("/mypage/addresses");
@@ -239,7 +277,8 @@ async function A3() {
 
 async function A4() {
   if (meta.overWifi) return { status: "NOT_RUN", detail: "adb 가 Wi-Fi 연결이라 네트워크 차단 불가 — USB 로 연결 후 재실행" };
-  const { rows } = await searchAndWaitResults("SM North EDSA");
+  // 앞 항목에서 쓰지 않은 장소 — 장소 상세 캐시로 오프라인에서도 성공하는 것을 피한다
+  const { rows } = await searchAndWaitResults("Greenbelt 5 Makati");
   await setNetwork(false);
   try {
     await rows.first().click();
@@ -263,7 +302,7 @@ async function A5() {
     // 시스템 권한 창이 뜨면 거부
     for (let i = 0; i < 3; i++) {
       await sleep(1500);
-      await device.tap({ text: /허용 안함|허용하지 않음|Don.t allow|Deny/ }, { timeout: 1500 }).catch(() => {});
+      await device.tap({ text: /허용\s*안\s*함|허용하지\s*않음|거부|Don.t allow|Deny/ }, { timeout: 1500 }).catch(() => {});
     }
     const msg = page.getByText("설정에서 권한을 확인하거나 주소를 검색해 주세요.");
     const shown = await msg.waitFor({ timeout: 50000 }).then(() => true, () => false);
@@ -279,7 +318,7 @@ async function A5() {
 
 async function A6() {
   await selectFirstResultToEdit();
-  const detail = page.locator("#addr-editor-detail");
+  const detail = page.locator("#addr-editor-detail").last();
   await detail.fill(`${TAG} A6`);
   await sleep(800); // 초안 디바운스(300ms) 이후
   // ① Android 뒤로 → 이탈 확인 창 → 계속 수정
@@ -293,9 +332,9 @@ async function A6() {
   await sleep(1500);
   await selectFirstResultToEdit();
   const restoredNotice = await page.locator('[data-testid="address-edit-draft-restored"]').isVisible().catch(() => false);
-  const restoredValue = (await page.locator("#addr-editor-detail").inputValue()) === `${TAG} A6`;
+  const restoredValue = (await page.locator("#addr-editor-detail").last().inputValue()) === `${TAG} A6`;
   if (restoredNotice) await page.locator('[data-testid="address-edit-draft-restored"] button').click().catch(() => {});
-  const cleared = (await page.locator("#addr-editor-detail").inputValue()) === "";
+  const cleared = (await page.locator("#addr-editor-detail").last().inputValue()) === "";
   const ok = dialogShown && kept && restoredNotice && restoredValue && cleared;
   return {
     status: ok ? "PASS" : "FAIL",
@@ -310,13 +349,13 @@ async function A7() {
     const inputs = [...document.querySelectorAll('input[placeholder^="예:"]')];
     return [ta?.getAttribute("enterkeyhint"), ...inputs.map((i) => i.getAttribute("enterkeyhint"))];
   });
-  const landmark = page.locator('input[placeholder^="예: 초록 대문"]');
-  const note = page.locator('input[placeholder^="예: 문 앞에"]');
+  const landmark = page.locator('input[placeholder^="예: 초록 대문"]').last();
+  const note = page.locator('input[placeholder^="예: 문 앞에"]').last();
   const checks = [];
   for (const [name, loc] of [["랜드마크", landmark], ["메모", note]]) {
     const box = await loc.boundingBox();
     if (!box) { checks.push(`${name}:요소없음`); continue; }
-    await device.tap({ x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) }).catch(() => loc.tap());
+    await adbTapLocator(loc);
     await sleep(1500);
     const r = await page.evaluate((sel) => {
       const vv = window.visualViewport;
@@ -346,7 +385,7 @@ async function A7() {
 
 async function A8() {
   await selectFirstResultToEdit();
-  await page.locator("#addr-editor-detail").fill(`${TAG} A8`);
+  await page.locator("#addr-editor-detail").last().fill(`${TAG} A8`);
   const save = page.locator('[data-testid="address-detail-save"]');
   await Promise.all([0, 1, 2].map(() => save.click({ force: true, noWaitAfter: true, timeout: 3000 }).catch(() => {})));
   await page.waitForURL((u) => !/\/edit/.test(u.pathname), { timeout: 20000 }).catch(() => {});
@@ -362,15 +401,15 @@ async function A9() {
   const badge = () => page.locator('[data-testid="address-row"]', { hasText: "현재 주소" }).count();
   const target = page.locator('[data-testid="address-row"]', { hasText: `${TAG} A8` }).first();
   await openRowMenu(target);
-  await page.getByRole("button", { name: "대표로 설정" }).click();
+  await clickSheetItem("대표로 설정");
   await page.getByText("대표 주소로 설정했어요").waitFor({ timeout: 15000 }).catch(() => {});
   await sleep(1000);
   const afterSet = await badge();
   const masterIsTarget = await target.filter({ hasText: "현재 주소" }).count();
   const victim = page.locator('[data-testid="address-row"]', { hasText: `${TAG} A1` }).first();
   await openRowMenu(victim);
-  await page.getByRole("button", { name: "삭제" }).last().click();
-  await page.getByRole("dialog").getByRole("button", { name: "삭제" }).click();
+  await clickSheetItem("삭제");
+  await page.getByRole("dialog").getByRole("button", { name: "삭제" }).last().click();
   await page.getByText("주소를 삭제했어요").waitFor({ timeout: 15000 }).catch(() => {});
   await sleep(1000);
   const afterDel = await badge();
@@ -387,12 +426,11 @@ async function A10() {
   await rowCount();
   await openRowMenu(page.locator('[data-testid="address-row"]').first());
   const gap = await page.evaluate(() => {
-    const dialogs = [...document.querySelectorAll('[role="dialog"]')];
-    const panel = dialogs[dialogs.length - 1];
-    const box = panel?.querySelector("*:not(button)")?.getBoundingClientRect() ?? panel?.getBoundingClientRect();
-    const sheet = [...(panel?.querySelectorAll("div") ?? [])].map((d) => d.getBoundingClientRect()).filter((r) => r.height > 80 && r.width > window.innerWidth * 0.8).sort((a, b) => b.bottom - a.bottom)[0] ?? box;
-    return sheet ? Math.round(window.innerHeight - sheet.bottom) : -1;
+    const els = document.querySelectorAll(".dibay-overlay-sheet");
+    const el = els[els.length - 1];
+    return el ? Math.round(window.innerHeight - el.getBoundingClientRect().bottom) : -1;
   });
+
   await page.keyboard.press("Escape").catch(() => {});
   await device.shell("input keyevent 4").catch(() => {});
   return gap >= 0 && gap <= 48
@@ -405,10 +443,11 @@ async function A11() {
   await rowCount();
   const row = page.locator('[data-testid="address-row"]', { hasText: `${TAG} A8` }).first();
   await openRowMenu(row);
-  await page.getByRole("button", { name: "수정" }).click();
+  await clickSheetItem("수정");
   await page.waitForURL(/\/edit/, { timeout: 20000 });
+  await waitSingle("#addr-editor-detail");
   const long = `${TAG}A11Unit1234567890Tower2BuildingAWing3Floor45`;
-  await page.locator("#addr-editor-detail").fill(long);
+  await page.locator("#addr-editor-detail").last().fill(long);
   await page.locator('[data-testid="address-detail-save"]').click();
   await page.waitForURL((u) => !/\/edit/.test(u.pathname), { timeout: 20000 });
   await gotoPath("/mypage/addresses");
@@ -469,7 +508,7 @@ async function E1() {
     adb("shell", "settings", "put", "system", "user_rotation", "1");
     await sleep(3000);
     const r = await page.evaluate(() => ({ type: screen.orientation?.type ?? "", w: window.innerWidth, h: window.innerHeight, over: document.documentElement.scrollWidth > window.innerWidth + 1 }));
-    const isPhone = !/tablet|pad/i.test(meta.model) && Math.min(r.w, r.h) < 600;
+    const isPhone = !/tablet/i.test(adb("shell", "getprop", "ro.build.characteristics"));
     if (isPhone) {
       return r.type.startsWith("portrait") && r.h > r.w
         ? { status: "PASS", detail: `폰 세로 고정 유지 (${r.type})` }
@@ -492,8 +531,8 @@ async function cleanup() {
       const row = page.locator('[data-testid="address-row"]', { hasText: TAG }).first();
       if ((await row.count()) === 0) break;
       await openRowMenu(row);
-      await page.getByRole("button", { name: "삭제" }).last().click();
-      await page.getByRole("dialog").getByRole("button", { name: "삭제" }).click();
+      await clickSheetItem("삭제");
+      await page.getByRole("dialog").getByRole("button", { name: "삭제" }).last().click();
       await sleep(2000);
     }
     const left = await page.locator('[data-testid="address-row"]', { hasText: TAG }).count();
