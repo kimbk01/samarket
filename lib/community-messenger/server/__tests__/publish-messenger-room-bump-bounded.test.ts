@@ -4,8 +4,11 @@ vi.mock("@/lib/chat/supabase-server", () => ({ getSupabaseServer: () => { throw 
 
 import {
   MESSENGER_ROOM_BUMP_BOUNDED_ATTEMPT_TIMEOUTS_MS,
+  publishMessengerRoomBumpAfterMutation,
   publishMessengerRoomBumpBounded,
 } from "@/lib/community-messenger/server/publish-messenger-room-bump";
+
+type PublishArgs = Parameters<typeof publishMessengerRoomBumpAfterMutation>[0];
 
 const args = { rawRouteRoomId: "r", canonicalRoomId: "r", fromUserId: "u", messageId: "m1" };
 const noSleep = async () => {};
@@ -18,7 +21,7 @@ describe("W4 publishMessengerRoomBumpBounded (bump result is separate from persi
   });
 
   it("first success → 1 attempt", async () => {
-    const publish = vi.fn(async () => ({ ok: true, status: 202 }));
+    const publish = vi.fn(async (_a: PublishArgs) => ({ ok: true, status: 202 }));
     const r = await publishMessengerRoomBumpBounded(args, { publish, sleep: noSleep });
     expect(r).toEqual({ ok: true, attempts: 1, status: 202 });
     expect(publish).toHaveBeenCalledTimes(1);
@@ -27,7 +30,7 @@ describe("W4 publishMessengerRoomBumpBounded (bump result is separate from persi
 
   it("failure then success → retry without repeating badge target bump", async () => {
     const publish = vi
-      .fn()
+      .fn(async (_a: PublishArgs) => ({ ok: false, status: 0 }))
       .mockResolvedValueOnce({ ok: false, status: 503 })
       .mockResolvedValueOnce({ ok: true, status: 202 });
     const r = await publishMessengerRoomBumpBounded(args, { publish, sleep: noSleep });
@@ -38,7 +41,7 @@ describe("W4 publishMessengerRoomBumpBounded (bump result is separate from persi
   });
 
   it("never throws; two failures → ok:false (caller still ACKs 200)", async () => {
-    const publish = vi.fn(async () => {
+    const publish = vi.fn(async (_a: PublishArgs): Promise<{ ok: boolean; status: number }> => {
       throw new Error("network");
     });
     const r = await publishMessengerRoomBumpBounded(args, { publish, sleep: noSleep });

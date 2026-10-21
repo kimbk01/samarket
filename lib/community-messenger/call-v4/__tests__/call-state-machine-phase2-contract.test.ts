@@ -7,7 +7,7 @@ import type { CallV4Identity } from "@/lib/community-messenger/call-v4/call-v4-t
 
 const read = (rel: string) => readFileSync(path.join(process.cwd(), rel), "utf8");
 const identity = (callId: string) =>
-  ({ callId, roomId: "r", callerUserId: "a", calleeUserId: "b", direction: "outgoing", mediaType: "voice", createdAt: "" }) as CallV4Identity;
+  ({ callId, roomId: "r", callerUserId: "a", calleeUserId: "b", direction: "outgoing", mediaType: "audio", createdAt: "" }) satisfies CallV4Identity;
 
 describe("C-11 이전 통화 cleanup 은 새 통화의 전역 상태를 지우지 않는다", () => {
   beforeEach(() => useCallV4Store.getState().resetToIdle());
