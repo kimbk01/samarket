@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 import {
   readSamarketShellKeyboardBottomInsetCssPx,
   subscribeSamarketShellKeyboardInsets,
@@ -12,6 +13,7 @@ import {
 import {
   buildFormKeyboardViewportSnapshot,
   isFormKeyboardInputSurfaceElement,
+  readAndroidNativeImeHiddenEvidence,
   resolveFormKeyboardBaselineOnWidthChange,
   resolveFormLayoutWidthPx,
   resolveFormVisualViewportFrame,
@@ -58,6 +60,12 @@ function rememberClosedHeight(widthPx: number, heightPx: number): void {
   }
 }
 
+function readNativeImeHidden(): boolean {
+  if (typeof document === "undefined") return false;
+  if (resolveCapacitorShellPlatform() !== "android") return false;
+  return readAndroidNativeImeHiddenEvidence(document.documentElement.style);
+}
+
 function readInputSurfaceFocused(): boolean {
   if (typeof document === "undefined") return false;
   return isFormKeyboardInputSurfaceElement(document.activeElement as HTMLInputElement | null);
@@ -79,6 +87,7 @@ function sameSnapshot(a: FormKeyboardViewportSnapshot, b: FormKeyboardViewportSn
 
 function measure(): void {
   const inputSurfaceFocused = readInputSurfaceFocused();
+  const nativeImeHidden = readNativeImeHidden();
   const layoutWidthPx = resolveFormLayoutWidthPx();
   if (layoutWidthPx > 0 && baselineLayoutWidthPx > 0 && layoutWidthPx !== baselineLayoutWidthPx) {
     // KB-04 · defect A — resolve the new width's baseline here (build then sees the same width).
@@ -89,7 +98,7 @@ function measure(): void {
       prevBaselineClosedHeightPx: baselineClosedHeightPx,
       prevBaselineLayoutWidthPx: baselineLayoutWidthPx,
       prevBaselineEstimated: baselineEstimated,
-      wasKeyboardOpen: snapshot.keyboardOpen,
+      wasKeyboardOpen: snapshot.keyboardOpen && !nativeImeHidden,
       inputSurfaceFocused,
     });
     baselineClosedHeightPx = next.baselineClosedHeightPx;
@@ -111,6 +120,7 @@ function measure(): void {
     runtimeContext,
     inputSurfaceFocused,
     baselineEstimated,
+    nativeImeHidden,
   });
   baselineClosedHeightPx = next.baselineClosedHeightPx;
   baselineLayoutWidthPx = next.baselineLayoutWidthPx;
@@ -161,8 +171,15 @@ function attach(): () => void {
   document.addEventListener("focusin", schedule, true);
   document.addEventListener("focusout", schedule, true);
   const unsub = subscribeSamarketShellKeyboardInsets(schedule);
+  // Android: Capacitor SystemBars rewrites <html> style on every insets pass (IME show/hide).
+  let styleObserver: MutationObserver | null = null;
+  if (resolveCapacitorShellPlatform() === "android" && typeof MutationObserver !== "undefined") {
+    styleObserver = new MutationObserver(schedule);
+    styleObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
+  }
 
   return () => {
+    styleObserver?.disconnect();
     document.removeEventListener("focusin", schedule, true);
     document.removeEventListener("focusout", schedule, true);
     cancelAnimationFrame(raf);

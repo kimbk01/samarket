@@ -85,7 +85,29 @@ export type FormKeyboardViewportBuildArgs = {
    * measurement replaces it with the measured height (defect A — never left pending).
    */
   baselineEstimated?: boolean;
+  /**
+   * Native proof the IME is hidden (`readAndroidNativeImeHiddenEvidence`). true → closed, baseline
+   * re-measured. false/omitted = no proof either way (never treated as "open").
+   */
+  nativeImeHidden?: boolean;
 };
+
+/** Capacitor 8 core `SystemBars` (Android) writes this on <html> from WindowInsets on every insets pass. */
+export const CAPACITOR_SAFE_AREA_BOTTOM_VAR = "--safe-area-inset-bottom";
+
+/**
+ * Android only — existing native signal, read-only (no plugin / config change):
+ * Capacitor `SystemBars.calcSafeAreaInsets` sets the bottom inset to 0 while the IME is visible and to
+ * the system-bar bottom otherwise. So a value > 0 PROVES the IME is hidden. 0 proves nothing
+ * (IME up, side / hidden navigation bar, or the non-passthrough branch that always writes 0).
+ */
+export function readAndroidNativeImeHiddenEvidence(rootStyle: {
+  getPropertyValue: (name: string) => string;
+} | null): boolean {
+  if (!rootStyle) return false;
+  const px = Number.parseFloat(rootStyle.getPropertyValue(CAPACITOR_SAFE_AREA_BOTTOM_VAR));
+  return Number.isFinite(px) && px > 0;
+}
 
 /** Probe `--safe-bottom` resolved px (env + native bridge). */
 export function readCssSafeBottomPx(): number {
@@ -347,7 +369,9 @@ export function buildFormKeyboardViewportSnapshot(
       )
     : FORM_KEYBOARD_NAVIGATION_GAP_PX;
   const keyboardOpen =
-    args.runtimeContext?.keyboardModel === "none" || args.inputSurfaceFocused === false
+    args.runtimeContext?.keyboardModel === "none" ||
+    args.inputSurfaceFocused === false ||
+    args.nativeImeHidden === true
       ? false
       : resolveFormKeyboardOpenFromViewport(
           baselineClosedHeightPx,
@@ -365,7 +389,7 @@ export function buildFormKeyboardViewportSnapshot(
   // re-measured exactly when nothing can hold a keyboard or the baseline was only estimated.
   const nextBaseline = keyboardOpen
     ? baselineClosedHeightPx
-    : args.inputSurfaceFocused === false || args.baselineEstimated
+    : args.inputSurfaceFocused === false || args.baselineEstimated || args.nativeImeHidden === true
       ? frame.heightPx
       : Math.max(baselineClosedHeightPx, frame.heightPx);
 

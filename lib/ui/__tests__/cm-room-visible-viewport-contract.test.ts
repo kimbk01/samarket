@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  __resetCmRoomVisibleViewportWidthMemoryForTests,
   buildCmRoomVisibleViewportSnapshot,
   CM_ROOM_NAVIGATION_GAP_PX,
   resolveCmRoomComposerBottomPaddingPx,
@@ -12,6 +13,7 @@ import {
 
 describe("cm-room-visible-viewport-contract", () => {
   afterEach(() => {
+    __resetCmRoomVisibleViewportWidthMemoryForTests();
     vi.unstubAllGlobals();
   });
 
@@ -121,5 +123,53 @@ describe("cm-room-visible-viewport-contract", () => {
     const k = buildCmRoomVisibleViewportSnapshot(844, 390);
     expect(k.keyboardOpen).toBe(true);
     expect(k.baselineClosedHeightPx).toBe(844);
+  });
+
+  describe("A: rotation with the keyboard open (Android resize)", () => {
+    const at = (w: number, h: number) =>
+      vi.stubGlobal("window", { innerWidth: w, innerHeight: h, visualViewport: { offsetTop: 0, height: h } });
+
+    it("stays open across portrait → landscape, then the first closed measure replaces the estimate", () => {
+      at(400, 800);
+      let s = buildCmRoomVisibleViewportSnapshot(0);
+      at(400, 500);
+      s = buildCmRoomVisibleViewportSnapshot(s.baselineClosedHeightPx, s.baselineLayoutWidthPx);
+      expect(s.keyboardOpen).toBe(true);
+      at(800, 150);
+      s = buildCmRoomVisibleViewportSnapshot(s.baselineClosedHeightPx, s.baselineLayoutWidthPx);
+      expect(s.keyboardOpen).toBe(true);
+      at(800, 380); // IME closed; estimate (400) is not trusted as measured — closed, re-measured
+      s = buildCmRoomVisibleViewportSnapshot(s.baselineClosedHeightPx, s.baselineLayoutWidthPx);
+      expect(s.keyboardOpen).toBe(false);
+      expect(s.baselineClosedHeightPx).toBe(380);
+    });
+
+    it("rotation that closed the keyboard is closed at once", () => {
+      at(400, 800);
+      let s = buildCmRoomVisibleViewportSnapshot(0);
+      at(400, 500);
+      s = buildCmRoomVisibleViewportSnapshot(s.baselineClosedHeightPx, s.baselineLayoutWidthPx);
+      at(800, 400);
+      s = buildCmRoomVisibleViewportSnapshot(s.baselineClosedHeightPx, s.baselineLayoutWidthPx);
+      expect(s.keyboardOpen).toBe(false);
+      expect(s.baselineClosedHeightPx).toBe(400);
+    });
+
+    it("returning to a seen orientation reuses its measured closed height", () => {
+      at(400, 800);
+      let s = buildCmRoomVisibleViewportSnapshot(0);
+      at(800, 400);
+      s = buildCmRoomVisibleViewportSnapshot(s.baselineClosedHeightPx, s.baselineLayoutWidthPx);
+      at(800, 180);
+      s = buildCmRoomVisibleViewportSnapshot(s.baselineClosedHeightPx, s.baselineLayoutWidthPx);
+      expect(s.keyboardOpen).toBe(true);
+      at(400, 500); // back to portrait with the IME up → measured 800, open
+      s = buildCmRoomVisibleViewportSnapshot(s.baselineClosedHeightPx, s.baselineLayoutWidthPx);
+      expect(s.keyboardOpen).toBe(true);
+      expect(s.baselineClosedHeightPx).toBe(800);
+      at(400, 800);
+      s = buildCmRoomVisibleViewportSnapshot(s.baselineClosedHeightPx, s.baselineLayoutWidthPx);
+      expect(s.keyboardOpen).toBe(false);
+    });
   });
 });

@@ -17,7 +17,8 @@ describe("room sheets anchor + back (SPL-05)", () => {
   });
 
   it("panels own their safe-bottom padding", () => {
-    expect(src).toContain('"p-5 pb-[max(1.25rem,var(--safe-bottom))]"');
+    // 입력이 있는 일반 패널 — 키보드 닫힘 = --safe-bottom, 열림 = 0 (`--kb-safe-bottom`, K-01)
+    expect(src).toContain('"p-5 pb-[max(1.25rem,var(--kb-safe-bottom))]"');
     expect(src).toContain("pb-[max(0.75rem,var(--safe-bottom))]");
   });
 

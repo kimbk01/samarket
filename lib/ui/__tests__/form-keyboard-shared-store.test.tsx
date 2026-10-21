@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it } from "vitest";
-import React, { act } from "react";
+import React, { act, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import {
   __resetFormKeyboardViewportStoreForTests,
@@ -35,12 +35,16 @@ function setVv(width: number, height: number, innerHeight = height) {
 const seen: Record<string, boolean> = {};
 function Probe({ id, enabled = true }: { id: string; enabled?: boolean }) {
   const { keyboardOpen } = useFormKeyboardViewport({ enabled });
-  seen[id] = keyboardOpen;
+  useEffect(() => {
+    seen[id] = keyboardOpen;
+  }, [id, keyboardOpen]);
   return null;
 }
 
 afterEach(() => {
   __resetFormKeyboardViewportStoreForTests();
+  delete (window as unknown as { Capacitor?: unknown }).Capacitor;
+  document.documentElement.style.removeProperty("--safe-area-inset-bottom");
   vvListeners = 0;
   (document.activeElement as HTMLElement | null)?.blur?.();
   document.body.innerHTML = "";
@@ -196,6 +200,58 @@ describe("Android resize keyboard — rotation (A) / non-keyboard resize (B)", (
     setVv(400, 350); // real IME in the smaller window
     await settle();
     expect(seen.p).toBe(true);
+    root.unmount();
+  });
+});
+
+describe("Android native IME evidence (Capacitor SystemBars --safe-area-inset-bottom, read-only)", () => {
+  function asAndroidApp() {
+    (window as unknown as { Capacitor: unknown }).Capacitor = { getPlatform: () => "android" };
+  }
+
+  it("focused + non-keyboard shrink: inset > 0 proves IME hidden → closed, baseline re-measured", async () => {
+    asAndroidApp();
+    setVv(400, 800);
+    document.documentElement.style.setProperty("--safe-area-inset-bottom", "48px");
+    const root = await mountProbe();
+    focusInput();
+    setVv(400, 600); // split-screen resize while an input is focused — no IME
+    await settle();
+    expect(seen.p).toBe(false);
+    document.documentElement.style.setProperty("--safe-area-inset-bottom", "0px"); // IME shows
+    setVv(400, 330);
+    await settle();
+    expect(seen.p).toBe(true); // re-measured baseline 600 → real IME detected
+    root.unmount();
+  });
+
+  it("inset 0 is no proof (IME up / side nav) — falls back to focus + shrink", async () => {
+    asAndroidApp();
+    setVv(400, 800);
+    document.documentElement.style.setProperty("--safe-area-inset-bottom", "0px");
+    const root = await mountProbe();
+    focusInput();
+    setVv(400, 500);
+    await settle();
+    expect(seen.p).toBe(true);
+    root.unmount();
+  });
+
+  it("A: an estimated baseline after rotation is dropped as soon as the IME is proven hidden", async () => {
+    asAndroidApp();
+    setVv(400, 800);
+    document.documentElement.style.setProperty("--safe-area-inset-bottom", "0px");
+    const root = await mountProbe();
+    focusInput();
+    setVv(400, 500);
+    await settle();
+    expect(seen.p).toBe(true);
+    setVv(800, 150); // rotated with IME up; estimate in play
+    await settle();
+    expect(seen.p).toBe(true);
+    document.documentElement.style.setProperty("--safe-area-inset-bottom", "24px"); // IME hidden
+    await settle();
+    expect(seen.p).toBe(false);
     root.unmount();
   });
 });
