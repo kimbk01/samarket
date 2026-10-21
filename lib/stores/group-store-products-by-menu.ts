@@ -182,13 +182,21 @@ export function parseStoreDetailProducts(raw: unknown[]): StoreDetailProductCard
   });
 }
 
+export type StoreMenuDisplayOrderKey = { menuSectionSort: number; sort_order: number; title: string };
+
+/**
+ * 구매자 메뉴 표시 순서 비교 SSOT — 메뉴 구역 순 → 구역 내 sort_order → 제목.
+ * 오너 상품 허브 기본 정렬(PRD-12, `owner-products-list-snapshot`)도 이 비교를 쓴다.
+ */
+export function compareStoreMenuDisplayOrder(a: StoreMenuDisplayOrderKey, b: StoreMenuDisplayOrderKey): number {
+  if (a.menuSectionSort !== b.menuSectionSort) return a.menuSectionSort - b.menuSectionSort;
+  if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+  return a.title.localeCompare(b.title, "ko");
+}
+
 /** 공개 매장: 메뉴 구역 순 → 구역 내 sort_order → 제목 */
 export function sortStoreDetailProductCardsForDisplay(cards: StoreDetailProductCard[]): StoreDetailProductCard[] {
-  return [...cards].sort((a, b) => {
-    if (a.menuSectionSort !== b.menuSectionSort) return a.menuSectionSort - b.menuSectionSort;
-    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
-    return a.title.localeCompare(b.title, "ko");
-  });
+  return [...cards].sort(compareStoreMenuDisplayOrder);
 }
 
 export type MenuSection = {

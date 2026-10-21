@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import {
+  guardOwnerCatalogWrite,
+  ownerCatalogDbErrorResponse,
+} from "@/lib/stores/owner-catalog-write-guard";
 import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
@@ -48,8 +52,7 @@ export async function GET(
         meta: { source: "migration_pending", hint: "store_menu_sections" },
       });
     }
-    console.error("[GET menu-sections]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return ownerCatalogDbErrorResponse("[GET menu-sections]", error);
   }
 
   return NextResponse.json({ ok: true, sections: data ?? [], meta: { source: "supabase" } });
@@ -104,13 +107,9 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const gate = await getStoreIfOwner(sb, userId, sid);
-  if (!gate.ok) {
-    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
-  }
-  if (gate.store.approval_status !== "approved") {
-    return NextResponse.json({ ok: false, error: "store_not_approved" }, { status: 400 });
-  }
+  // PRD-15 — 세션 · 소유 · 1-B 운영 게이트 (오너 상품·섹션·업로드 공용)
+  const guard = await guardOwnerCatalogWrite(sb, userId, sid);
+  if (!guard.ok) return guard.response;
 
   const { data: created, error: insErr } = await sb
     .from("store_menu_sections")
@@ -125,8 +124,7 @@ export async function POST(
     if (/column|does not exist|schema cache/i.test(String(insErr.message))) {
       return NextResponse.json({ ok: false, error: "migration_pending" }, { status: 503 });
     }
-    console.error("[POST menu-sections]", insErr);
-    return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
+    return ownerCatalogDbErrorResponse("[POST menu-sections]", insErr);
   }
 
   invalidateStoreMenusSnapshotCacheByStoreId(sid);

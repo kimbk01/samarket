@@ -19,9 +19,11 @@ import {
 } from "@/lib/stores/store-product-pricing";
 import {
   formGroupsToOptionsJson,
+  newLocalOptionId,
   optionsJsonToFormGroups,
   type ProductOptionGroup,
 } from "@/lib/stores/owner-product-options-json";
+import { setOwnerProductsHubFlash } from "@/lib/business/owner-products-hub-flash";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { OWNER_PRODUCT_DETAIL_IMAGE_MAX, newOwnerProductImageSlotId } from "@/lib/stores/owner-product-images";
 import { validateProductOptionGroups } from "@/lib/stores/owner-product-options-validate";
@@ -74,6 +76,15 @@ type FormValues = {
   sort_order: string;
   optionGroups: ProductOptionGroup[];
 };
+
+/** 옵션 탭으로 스크롤할 서버 오류 코드 (PRD-14 중복 옵션명·그룹 id 포함) */
+function isOptionsErrorCode(code: unknown): boolean {
+  return (
+    code === "invalid_options_json" ||
+    code === "duplicate_option_name" ||
+    code === "duplicate_option_group_id"
+  );
+}
 
 function ownerProductFileKey(f: File): string {
   return `${f.name}:${f.size}:${f.lastModified}`;
@@ -273,6 +284,8 @@ export function OwnerProductForm({
   /** PRD-07 — 로드 시점 payload·updated_at (변경 필드만 PATCH + 낙관적 잠금) */
   const loadedPayloadRef = useRef<Record<string, unknown> | null>(null);
   const loadedUpdatedAtRef = useRef<string | null>(null);
+  /** PRD-15 — 신규 등록 멱등 키: 폼 마운트 동안 고정 (더블탭·재시도 → 서버가 같은 상품 반환) */
+  const clientRequestIdRef = useRef<string>(newLocalOptionId());
   /** ND-1 · PRD-03 — 관리자 잠금·검수 상태 (상태 토글 비활성 + 사유 표시) */
   const [adminState, setAdminState] = useState<{
     product_status: string;
@@ -630,13 +643,14 @@ export function OwnerProductForm({
             pickup_available: true,
             local_delivery_available: false,
             shipping_available: false,
+            client_request_id: clientRequestIdRef.current,
           }),
         });
         const json = await res.json();
         if (!json?.ok) {
           const errPayload = resolveOwnerProductRegisterError(json, mode, t);
           openRegisterErrorModal(errPayload);
-          if (json?.error === "invalid_options_json") scrollToOptionsBlock();
+          if (isOptionsErrorCode(json?.error)) scrollToOptionsBlock();
           if (
             json?.error === "menu_sections_required" ||
             json?.error === "menu_section_id_required" ||
@@ -648,6 +662,7 @@ export function OwnerProductForm({
           }
           return;
         }
+        if (json?.auto_sold_out === true) setOwnerProductsHubFlash({ kind: "auto_sold_out", storeId });
       } else if (productId) {
         // PRD-07 — 바뀐 필드만 + 로드 시점 updated_at 조건 (그 사이 주문 감산·관리자 조치 덮어쓰기 방지)
         const fullPayload: Record<string, unknown> = { ...payloadCore, ...imagePayload };
@@ -676,7 +691,7 @@ export function OwnerProductForm({
         if (!json?.ok) {
           const errPayload = resolveOwnerProductRegisterError(json, mode, t);
           openRegisterErrorModal(errPayload);
-          if (json?.error === "invalid_options_json") scrollToOptionsBlock();
+          if (isOptionsErrorCode(json?.error)) scrollToOptionsBlock();
           if (
             json?.error === "menu_sections_required" ||
             json?.error === "menu_section_id_required" ||
@@ -688,6 +703,7 @@ export function OwnerProductForm({
           }
           return;
         }
+        if (json?.auto_sold_out === true) setOwnerProductsHubFlash({ kind: "auto_sold_out", storeId });
       }
       router.push(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
     } catch (err) {

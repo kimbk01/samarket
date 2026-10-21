@@ -93,6 +93,9 @@ export function OwnerMenuCategoriesClient({
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Section | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  /** PRD-13 — 소속 메뉴가 있는 카테고리 삭제: 이동 대상 선택 후 `?moveTo=` 로 재요청 */
+  const [moveDelete, setMoveDelete] = useState<{ section: Section; count: number } | null>(null);
+  const [moveTargetId, setMoveTargetId] = useState("");
   const [reorderBusy, setReorderBusy] = useState(false);
 
   const base = `/api/me/stores/${encodeURIComponent(storeId)}/menu-sections`;
@@ -264,38 +267,10 @@ export function OwnerMenuCategoriesClient({
     }
   };
 
-  const countProductsInSection = useCallback(async (sectionId: string): Promise<number> => {
-    try {
-      const res = await fetch(
-        `/api/me/stores/${encodeURIComponent(storeId)}/products?menu_section_id=${encodeURIComponent(sectionId)}`,
-        { credentials: "include", cache: "no-store" }
-      );
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        products?: Array<{ menu_section_id?: string | null; store_menu_sections?: unknown }>;
-      };
-      if (!j?.ok || !Array.isArray(j.products)) return 0;
-      return j.products.filter((p) => {
-        if (p.menu_section_id && String(p.menu_section_id) === sectionId) return true;
-        const emb = p.store_menu_sections;
-        if (!emb) return false;
-        const one = Array.isArray(emb) ? emb[0] : emb;
-        const id = one && typeof one === "object" && "id" in one ? String((one as { id?: string }).id ?? "") : "";
-        return id === sectionId;
-      }).length;
-    } catch {
-      return 0;
-    }
-  }, [storeId]);
-
   const askDeleteSection = useCallback(async (s: Section) => {
-    const n = await countProductsInSection(s.id);
-    if (n > 0) {
-      setError(t("business_phase7_475", { v1: String(n) }));
-      return;
-    }
+    setError(null);
     setDeleteTarget(s);
-  }, [countProductsInSection]);
+  }, []);
 
   const requestDeleteCategory = useCallback(
     (s: Section) => {
@@ -313,24 +288,20 @@ export function OwnerMenuCategoriesClient({
     setReorderBusy(true);
     setError(null);
     try {
-      const results = await Promise.all(
-        ordered.map((sec, idx) =>
-          fetch(`${base}/${encodeURIComponent(sec.id)}`, {
-            method: "PATCH",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sort_order: idx }),
-          }).then(async (res) => ({ res, j: (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } }))
-        )
-      );
-      const bad = results.find((r) => !r.res.ok || !r.j?.ok);
-      if (bad) {
+      // PRD-11 — 한 요청·한 트랜잭션 (부분 반영으로 오너 화면과 주문자 메뉴 순서가 갈라지지 않게)
+      const res = await fetch(`${base}/order`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ section_ids: ordered.map((sec) => sec.id) }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !j?.ok) {
         setSections(previous);
-        const msg =
-          typeof bad.j?.error === "string" ? bad.j.error : t("business_phase7_476");
-        setError(msg);
+        setError(typeof j?.error === "string" ? j.error : t("business_phase7_476"));
         return;
       }
+      setSections(ordered.map((sec, idx) => ({ ...sec, sort_order: idx })));
     } catch {
       setSections(previous);
       setError("network_error");
@@ -339,18 +310,31 @@ export function OwnerMenuCategoriesClient({
     }
   }, [base]);
 
-  const performDeleteSection = async (s: Section) => {
+  const performDeleteSection = async (s: Section, moveTo?: string) => {
     setError(null);
     try {
-      const res = await fetch(`${base}/${encodeURIComponent(s.id)}`, {
+      const qs = moveTo ? `?moveTo=${encodeURIComponent(moveTo)}` : "";
+      const res = await fetch(`${base}/${encodeURIComponent(s.id)}${qs}`, {
         method: "DELETE",
         credentials: "include",
       });
-      const j = await res.json().catch(() => ({}));
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; count?: number };
+      if (res.status === 409 && j?.error === "section_has_products") {
+        // PRD-13 — 소속 메뉴가 있으면 이동 대상 선택창
+        const others = sections.filter((x) => x.id !== s.id);
+        if (others.length === 0) {
+          setError(t("store_owner_section_no_move_target"));
+          return;
+        }
+        setMoveTargetId(others[0]!.id);
+        setMoveDelete({ section: s, count: Number(j.count) || 0 });
+        return;
+      }
       if (!res.ok || !j?.ok) {
         setError(typeof j?.error === "string" ? j.error : t("business_phase7_352"));
         return;
       }
+      setMoveDelete(null);
       await load({ silent: true });
     } catch {
       setError("network_error");
@@ -557,6 +541,61 @@ export function OwnerMenuCategoriesClient({
           }
         }}
       />
+
+      <OwnerStoreAdminConfirmModal
+        open={moveDelete != null}
+        titleId="owner-menu-categories-move-delete-title"
+        title={t("business_phase7_301")}
+        description={
+          moveDelete
+            ? t("store_owner_section_has_products", {
+                name: moveDelete.section.name,
+                count: moveDelete.count,
+              })
+            : undefined
+        }
+        confirmLabel={t("store_owner_section_move_and_delete")}
+        confirmBusyLabel={t("business_phase7_442")}
+        busy={deleteBusy}
+        disableActions={deleteBusy}
+        confirmTone="danger"
+        onCancel={() => setMoveDelete(null)}
+        onConfirm={async () => {
+          if (!moveDelete) return;
+          if (!moveTargetId) {
+            setError(t("store_owner_section_move_target_required"));
+            return;
+          }
+          const s = moveDelete.section;
+          setDeleteBusy(true);
+          try {
+            await performDeleteSection(s, moveTargetId);
+          } finally {
+            setDeleteBusy(false);
+          }
+        }}
+      >
+        {moveDelete ? (
+          <label className="mt-3 block">
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+              {t("store_owner_section_move_to_label")}
+            </span>
+            <select
+              value={moveTargetId}
+              onChange={(e) => setMoveTargetId(e.target.value)}
+              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
+            >
+              {sections
+                .filter((x) => x.id !== moveDelete.section.id)
+                .map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        ) : null}
+      </OwnerStoreAdminConfirmModal>
     </div>
   );
 }

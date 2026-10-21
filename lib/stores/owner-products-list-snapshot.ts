@@ -1,9 +1,12 @@
 /**
  * Owner products list — slim snapshot (no PostgREST embed fan-out).
- * Shared by GET route + RSC bootstrap. Sort: DB order (featured → sort_order → created_at).
+ * Shared by GET route + RSC bootstrap.
+ * Sort (PRD-12): 구매자 메뉴와 같은 순서 — `compareStoreMenuDisplayOrder` (메뉴 구역 sort → 구역 내 sort_order → 제목).
+ * 「추천 우선」 보기는 허브 필터 칩으로 분리. 목록 캐시 키는 불변.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { compareStoreMenuDisplayOrder } from "@/lib/stores/group-store-products-by-menu";
 import { isMissingStoreProductLockColumnError } from "@/lib/stores/store-product-admin-lock";
 
 /** List GET / RSC — embed 제거·배치 attach. 상세 필드(options_json·images_json·description_html) 제외. */
@@ -99,13 +102,9 @@ export function invalidateOwnerProductsListCache(storeId?: string): void {
   }
 }
 
-function cacheKey(
-  storeId: string,
-  sectionFilter: string,
-  limit: number | undefined,
-  cursor: string
-): string {
-  return `${storeId}:${sectionFilter || "_"}:${limit ?? "all"}:${cursor || "_"}`;
+/** 키 형식 불변 — 마지막 세그먼트는 제거된 cursor 자리(항상 `_`). */
+function cacheKey(storeId: string, sectionFilter: string, limit: number | undefined): string {
+  return `${storeId}:${sectionFilter || "_"}:${limit ?? "all"}:_`;
 }
 
 function peekCache(key: string): Omit<OwnerProductsListSnapshot, "cache_hit" | "singleflight_hit"> | null {
@@ -126,15 +125,14 @@ function storeCache(
 
 export function peekOwnerProductsListCacheHit(
   storeId: string,
-  opts?: { sectionFilter?: string; limit?: number; cursor?: string }
+  opts?: { sectionFilter?: string; limit?: number }
 ): boolean {
   const sid = storeId.trim();
   const sectionFilter = (opts?.sectionFilter ?? "").trim();
   const limit = opts?.limit;
-  const cursor = (opts?.cursor ?? "").trim();
-  const useCache = !sectionFilter && limit == null && !cursor;
+  const useCache = !sectionFilter && limit == null;
   if (!useCache) return false;
-  const key = cacheKey(sid, sectionFilter, limit, cursor);
+  const key = cacheKey(sid, sectionFilter, limit);
   return peekCache(key) != null;
 }
 
@@ -204,7 +202,6 @@ async function loadOwnerProductsListSnapshotUncached(
   opts: {
     sectionFilter: string;
     limit?: number;
-    cursor?: string;
   }
 ): Promise<
   | { ok: true; snapshot: Omit<OwnerProductsListSnapshot, "cache_hit" | "singleflight_hit"> }
@@ -322,6 +319,7 @@ async function loadOwnerProductsListSnapshotUncached(
       is_hidden: s.is_hidden === true,
     }))
   );
+  rows = sortOwnerProductsListRowsForBuyerOrder(rows);
   const sort_ms = Math.round(perfNow() - tSort0);
 
   return {
@@ -340,6 +338,31 @@ async function loadOwnerProductsListSnapshotUncached(
   };
 }
 
+function menuSectionSortOf(row: OwnerProductsListRow): number {
+  const emb = row.store_menu_sections as { sort_order?: unknown } | null | undefined;
+  if (!emb || typeof emb !== "object") return 9999;
+  const n = Number(emb.sort_order);
+  return Number.isFinite(n) ? n : 9999;
+}
+
+/** PRD-12 — 오너 허브 기본 순서 = 구매자 메뉴 순서 (구역 embed 가 붙은 뒤 호출). 안정 정렬. */
+export function sortOwnerProductsListRowsForBuyerOrder(rows: OwnerProductsListRow[]): OwnerProductsListRow[] {
+  return rows
+    .map((row) => {
+      const so = Number(row.sort_order);
+      return {
+        row,
+        key: {
+          menuSectionSort: menuSectionSortOf(row),
+          sort_order: Number.isFinite(so) ? Math.floor(so) : 0,
+          title: String(row.title ?? ""),
+        },
+      };
+    })
+    .sort((a, b) => compareStoreMenuDisplayOrder(a.key, b.key))
+    .map((x) => x.row);
+}
+
 export function parseOwnerProductsListLimit(raw: string | null): number | undefined {
   if (raw == null || raw.trim() === "") return undefined;
   const n = Math.floor(Number(raw));
@@ -353,7 +376,6 @@ export async function loadOwnerProductsListSnapshot(
   opts?: {
     sectionFilter?: string;
     limit?: number;
-    cursor?: string;
     skipCache?: boolean;
   }
 ): Promise<
@@ -363,9 +385,8 @@ export async function loadOwnerProductsListSnapshot(
   const sid = storeId.trim();
   const sectionFilter = (opts?.sectionFilter ?? "").trim();
   const limit = opts?.limit;
-  const cursor = (opts?.cursor ?? "").trim();
-  const key = cacheKey(sid, sectionFilter, limit, cursor);
-  const useCache = !opts?.skipCache && !sectionFilter && !limit && !cursor;
+  const key = cacheKey(sid, sectionFilter, limit);
+  const useCache = !opts?.skipCache && !sectionFilter && !limit;
 
   if (useCache) {
     const peeked = peekCache(key);
@@ -395,7 +416,6 @@ export async function loadOwnerProductsListSnapshot(
     const uncached = await loadOwnerProductsListSnapshotUncached(sb, sid, {
       sectionFilter,
       limit,
-      cursor,
     });
     if (!uncached.ok) return uncached;
     if (useCache) storeCache(key, uncached.snapshot);
