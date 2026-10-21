@@ -10,6 +10,7 @@ const COUPON_ERROR_KEYS: Record<string, MessageKey> = {
   admin_paused_resume_forbidden: "store_coupon_owner_err_admin_paused",
   unsupported_max_uses: "store_coupon_owner_err_unsupported_max_uses",
   owner_platform_offer_readonly: "store_coupon_owner_err_readonly",
+  reissue_source_blocked: "store_coupon_owner_err_reissue_blocked",
   db_error: "store_coupon_owner_err_failed",
   missing_client_request_id: "store_coupon_owner_err_failed",
   invalid_action: "store_coupon_owner_err_failed",

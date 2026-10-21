@@ -230,6 +230,15 @@ describe("IA-05 idempotent reissue", () => {
     expect(inserts()).toHaveLength(1);
   });
 
+  it.each(["revoked", "rejected"])("admin-%s source → 409 reissue_source_blocked, no insert", async (state) => {
+    world.campaign = { ...world.campaign, lifecycle_state: state };
+    world.reissueLookups = [null];
+    const { status, json } = await patch({ id: "c1", action: "reissue", clientRequestId: "reissue-key-0009" });
+    expect(status).toBe(409);
+    expect(json.error).toBe("reissue_source_blocked");
+    expect(inserts()).toHaveLength(0);
+  });
+
   it("concurrent duplicate (23505) → returns the winner row as idempotent", async () => {
     world.reissueLookups = [null, { id: "winner", lifecycle_state: "active" }];
     world.insertResult = { data: null, error: { message: "duplicate", code: "23505" } };

@@ -283,6 +283,11 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
     }
     if (!src) return NextResponse.json({ ok: false, error: "campaign_not_found" }, { status: 404 });
+    // D-18 / ND-1 — 관리자가 회수·반려한 쿠폰은 오너 재발행으로 되살리지 않는다(종료 쿠폰 재발행은 허용).
+    const srcLifecycle = String((src as Record<string, unknown>).lifecycle_state ?? "").trim();
+    if (srcLifecycle === "revoked" || srcLifecycle === "rejected") {
+      return NextResponse.json({ ok: false, error: "reissue_source_blocked" }, { status: 409 });
+    }
     const start = new Date();
     const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
     const copy = src as Record<string, unknown>;
