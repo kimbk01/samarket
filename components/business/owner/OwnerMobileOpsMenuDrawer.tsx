@@ -1,13 +1,31 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
+function listFocusable(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) => !el.closest("[hidden]") && !el.closest("[inert]") && el.getAttribute("aria-hidden") !== "true"
+  );
+}
+
 /**
- * 모바일·태블릿(≤1024px) 운영 메뉴 사이드 드로어 — `document.body` 포털.
+ * 모바일·태블릿 운영 메뉴 사이드 드로어 — `document.body` 포털.
  * Intentional side drawer (not DibayBottomSheet): ops nav from hamburger.
  * Scrim uses `--overlay-backdrop` via `app/owner-compact-shell.css`.
  * 위치·슬라이드는 `.owner-ops-drawer-*` 가 단일 권한.
+ *
+ * 4단계 IA-20 접근성: 열린 동안 전역 ESC 로 닫기 · Tab/Shift+Tab 포커스 트랩(패널 안 순환) ·
+ * 열 때 첫 항목으로 포커스 이동 · 닫을 때 연 요소(햄버거)로 포커스 복귀.
  */
 export function OwnerMobileOpsMenuDrawer({
   open,
@@ -26,6 +44,12 @@ export function OwnerMobileOpsMenuDrawer({
 }) {
   const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useLayoutEffect(() => {
     setMounted(true);
@@ -41,14 +65,61 @@ export function OwnerMobileOpsMenuDrawer({
   }, []);
 
   const closeDrawer = useCallback(() => {
-    releaseDrawerFocus();
-    onClose();
-  }, [onClose, releaseDrawerFocus]);
+    onCloseRef.current();
+  }, []);
 
-  useLayoutEffect(() => {
-    if (open) return;
-    releaseDrawerFocus();
-  }, [open, releaseDrawerFocus]);
+  useEffect(() => {
+    if (!open || !mounted) return;
+    const root = rootRef.current;
+    const panel = panelRef.current;
+    const previous = document.activeElement;
+    const returnTarget =
+      previous instanceof HTMLElement && !(root?.contains(previous) ?? false) ? previous : null;
+
+    if (panel) {
+      const first = listFocusable(panel)[0];
+      (first ?? panel).focus({ preventScroll: true });
+    }
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== "Tab" || !panel) return;
+      const items = listFocusable(panel);
+      if (items.length === 0) {
+        e.preventDefault();
+        panel.focus({ preventScroll: true });
+        return;
+      }
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      const active = document.activeElement;
+      const inside = active instanceof Node && panel.contains(active);
+      if (e.shiftKey) {
+        if (!inside || active === first || active === panel) {
+          e.preventDefault();
+          last.focus({ preventScroll: true });
+        }
+      } else if (!inside || active === last) {
+        e.preventDefault();
+        first.focus({ preventScroll: true });
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, true);
+      if (returnTarget && returnTarget.isConnected) {
+        returnTarget.focus({ preventScroll: true });
+      } else {
+        releaseDrawerFocus();
+      }
+    };
+  }, [open, mounted, releaseDrawerFocus]);
 
   if (!mounted || typeof document === "undefined") {
     return null;
@@ -70,22 +141,17 @@ export function OwnerMobileOpsMenuDrawer({
         className="owner-ops-drawer-scrim"
         data-open={dataOpen}
         aria-label={scrimLabel}
-        tabIndex={open ? 0 : -1}
+        tabIndex={-1}
         onClick={closeDrawer}
-        onKeyDown={(e) => {
-          if (!open) return;
-          if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            closeDrawer();
-          }
-        }}
       />
       <aside
+        ref={panelRef}
         role={open ? "dialog" : undefined}
         aria-modal={open ? true : undefined}
         aria-label={panelLabel}
         className="owner-ops-drawer-panel"
         data-open={dataOpen}
+        tabIndex={-1}
       >
         {topBar}
         {children}

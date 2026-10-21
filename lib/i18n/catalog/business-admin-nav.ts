@@ -172,7 +172,7 @@ export const businessAdminNavMessages = {
     biz_title_menu_categories: "메뉴 카테고리",
     biz_title_product_new: "상품 등록",
     biz_title_product_edit: "상품 수정",
-    biz_title_products: "상품 관리 , 등록",
+    biz_title_products: "상품 관리",
     biz_title_basic_info: "기본 정보",
     biz_title_profile: "매장 설정",
     biz_title_ops: "운영 · 심사",
@@ -296,7 +296,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_finance: "Coin · Cash",
 
-    biz_nav_finance_desc: "Sales-linked Coin, Cash, top-up, convert & withdraw",
+    biz_nav_finance_desc: "Sales-linked Coin, Cash, top-up, convert & Coin exchange",
 
     biz_nav_ads: "Ads",
 

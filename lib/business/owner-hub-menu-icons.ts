@@ -48,6 +48,11 @@ const ID_ICON: Record<BusinessAdminNavItemId, LucideIcon> = {
   gift_certificates: Gift,
   notifications: Bell,
   notification_settings: Volume2,
+  store_manage: Settings,
+  product_edit: Package,
+  ads_event: Sparkles,
+  apply: ClipboardCheck,
+  my: Building2,
 };
 
 const FALLBACK = LayoutGrid;

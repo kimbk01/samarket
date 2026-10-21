@@ -27,7 +27,8 @@ describe("owner selective shell restore contracts", () => {
   it("back parent prefers list over hub for product/ads", () => {
     expect(resolveOwnerStackBackHref("/stores/owner/products/new", "s1")).toContain("/products");
     expect(resolveOwnerStackBackHref("/stores/owner/ads/new/banner", "s1")).toContain("/ads");
-    expect(resolveOwnerStackBackHref("/stores/owner/settlements", "s1")).toContain("/finance");
+    // 4단계 §4-2 — settlements parentId = home(허브)
+    expect(resolveOwnerStackBackHref("/stores/owner/settlements", "s1")).toBe("/stores/owner?storeId=s1");
   });
 
   it("public_store registry uses owner-action preview href", () => {

@@ -66,7 +66,11 @@ import {
   isOwnerStoreAdminDirtyGuardPath,
 } from "@/lib/business/owner-basic-info-guard";
 import { isOwnerBottomNavHiddenPath } from "@/lib/business/owner-bottom-nav-eligibility";
-import { resolveOwnerStackBackHref } from "@/lib/business/owner-stack-back-href";
+import {
+  applyOwnerNavParentLastQuery,
+  rememberOwnerNavLastQuery,
+  resolveOwnerStackBackHref,
+} from "@/lib/business/owner-stack-back-href";
 import { acquireOwnerOverlayBodyLock } from "@/lib/business/owner-overlay-body-lock";
 import {
   openOwnerStorePreview,
@@ -103,6 +107,8 @@ import {
   dispatchTier1HeaderOverlayClose,
   TIER1_HEADER_OVERLAY_OPEN,
 } from "@/lib/layout/tier1-header-overlay-events";
+
+const subscribeNoop = () => () => {};
 
 function readInitialStoresFromMeListCache(): StoreRow[] | null {
   const peek = peekMeStoresListClientCache();
@@ -536,10 +542,26 @@ export function BusinessAdminShell({
 
   const hubPartialHeaderRight = ownerNotificationBell;
 
+  const ownerSearchKey = searchParams.toString();
+
+  /** IA-11 — 부모 화면 마지막 쿼리 기억 (sessionStorage, try/catch 는 helper 내부) */
+  useEffect(() => {
+    rememberOwnerNavLastQuery(ownerPathNorm, ownerSearchKey);
+  }, [ownerPathNorm, ownerSearchKey]);
+
+  /** sessionStorage 는 클라이언트에서만 — SSR·hydration 은 storeId 만 보존한 href */
+  const isClientSnapshot = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false
+  );
+
   const adminHeaderBackHref = useMemo(() => {
     if (isHub || !selectedRow) return undefined;
-    return resolveOwnerStackBackHref(ownerPathNorm, selectedRow.id);
-  }, [isHub, selectedRow, ownerPathNorm]);
+    const base = resolveOwnerStackBackHref(ownerPathNorm, selectedRow.id, ownerSearchKey);
+    if (!base || !isClientSnapshot) return base;
+    return applyOwnerNavParentLastQuery(base);
+  }, [isHub, selectedRow, ownerPathNorm, ownerSearchKey, isClientSnapshot]);
 
   const storeOpsForMobileHeader = useMemo(() => {
     if (!selectedRow) {
@@ -792,8 +814,29 @@ export function BusinessAdminShell({
     </div>
   );
 
+  /** IA-20 · D-11 — ≥1280px 고정 사이드바 (표시는 `.owner-ops-desktop-sidebar` CSS 단일 권한, 1280 미만 숨김) */
+  const desktopSidebar = (
+    <aside
+      className="owner-ops-desktop-sidebar"
+      aria-label={t("owner_s4_sidebar_label")}
+      data-owner-ops-desktop-sidebar="1"
+    >
+      <div className="flex shrink-0 items-center gap-3 border-b border-sam-border-soft px-3 py-4">
+        <OwnerHubStoreAvatar profileImageUrl={selectedRow.profile_image_url} shopName={shopName} />
+        <div className="min-w-0">
+          <p className="truncate sam-text-body font-semibold text-sam-fg">{shopName}</p>
+          <p className="sam-text-xxs text-sam-muted">{t("business_phase7_079")}</p>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 py-3">
+        <BusinessAdminSidebar sections={sections} pathname={pathname} collapsible />
+      </div>
+    </aside>
+  );
+
   return (
     <BusinessAdminStoreProvider value={ctxValue}>
+      {isStoresOwnerStackPath(ownerPathNorm) && selectedRow ? desktopSidebar : null}
       {isStoresOwnerStackPath(ownerPathNorm) && selectedRow ?
         <OwnerMobileOpsMenuDrawer
           open={mobileMenuOpen}
