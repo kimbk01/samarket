@@ -1,0 +1,1002 @@
+-- 3단계 OPS-08 + LOC-004 — create_store_order_atomic 실효 영업·픽업/배달 재검증 + 주문 시 판정 스냅샷
+--   (G-2 §"주문 RPC 재정의 (OPS-08 + LOC-004)" · §OPS-08 · §LOC-004 · Owner D-5 과거 데이터 무변)
+--
+-- R-HL: create_store_order_atomic 재정의 (HARD LOCK reopen — docs/dibay-delivery-product-hard-lock.md §7 기록).
+-- R-DB-1 기준 원문 (운영 ckdosyydvgzqwpbwuhon, 2026-10-21 읽기 전용 확인):
+--   * create_store_order_atomic(uuid,uuid,text,jsonb,jsonb)  md5(prosrc)=adc3d68faece57cb3160306f6d5e686e
+--       = 저장소 20270603150000_create_store_order_atomic_coupon_split_single_gate.sql 정의와 동일
+--         (격리 DB 에서 1-J -> 20270603150000 적용 후 md5(prosrc) 재계산으로 일치 확인) -> 그 원문에 최소 diff
+--   * 적용 후 기대 md5(prosrc)=bb9671829753154da38c357cd829f050
+--
+-- 변경 (함수 본문 외 줄은 원문과 바이트 동일 · 기존 검사 순서·FOR UPDATE·반환 형태 불변 · 키 추가만)
+--   OPS-08  잠근 stores 행에서 pickup_available / delivery_available 를 함께 읽고, 결제 금액 검증 뒤
+--           Pass 2 (변경) 직전 마지막 단계에 추가 검사 3개:
+--             (1) public.store_front_commerce_open(business_hours_json, is_open, now()) = false -> store_closed
+--                 (resolveStoreFrontOpen SQL 쌍둥이 — 20270604110000)
+--             (2) fulfillment 'pickup' AND pickup_available = false          -> store_pickup_disabled
+--             (3) fulfillment 'local_delivery' AND delivery_available <> true -> store_delivery_disabled
+--           오류 코드는 TS validateStoreOrderCheckout 과 같은 값 (클라 문구 매핑 기존 그대로 —
+--           설계 문서의 가칭 fulfillment_not_supported 대신 기존 코드 재사용, 신규 코드 0).
+--   LOC-004 같은 INSERT 에서 p_order 의 checkout_store_latitude / checkout_store_longitude /
+--           checkout_serviceability_eligible / checkout_serviceability_max_km / checkout_serviceability_reason
+--           를 기록 (jsonb 타입이 맞을 때만, 아니면 NULL — 캐스트 오류 없음). 컬럼은 운영에 이미 있음
+--           (20261120140000). 웹 라우트의 사후 UPDATE 는 제거된다. 멱등 재시도는 기존 행 반환이라 자동 일치.
+--   과거 주문 NULL 스냅샷은 변경하지 않는다 (D-5). 금전 계산 무관.
+--   함수 본문은 ASCII 만.
+--
+-- 배포 순서: 20270604110000 (SQL 쌍둥이) -> 이 파일 -> 웹 (app/api/me/store-orders/route.ts 가 스냅샷을 p_order 에 포함).
+--   웹이 먼저 나가도 구 함수는 추가 키를 무시할 뿐 (그 사이 주문 스냅샷만 NULL) — DB 먼저 권장.
+--
+-- 롤백 (운영 승인 후에만)
+--   create_store_order_atomic: 20270603150000 파일의 CREATE OR REPLACE FUNCTION ~ GRANT 부분만 재적용
+--   (md5 adc3d68faece57cb3160306f6d5e686e 로 복귀 · 그 파일의 CHECK DO 블록은 IF NOT EXISTS 라 무해).
+--   웹은 STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY=false 로 되돌리면 p_order 에 스냅샷 키를 넣지 않는다.
+--
+-- 격리 DB 검증: supabase/tests/isolated/stage3-rpc/run.sh
+
+
+CREATE OR REPLACE FUNCTION public.create_store_order_atomic(p_buyer_user_id uuid, p_store_id uuid, p_client_order_key text, p_order jsonb, p_lines jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path = public
+AS $fn$
+DECLARE
+  v_key text := nullif(btrim(coalesce(p_client_order_key, '')), '');
+  v_existing record;
+  v_store record;
+  v_line jsonb;
+  v_product record;
+  v_product_id uuid;
+  v_qty integer;
+  v_title text;
+  v_unit numeric;
+  v_subtotal numeric;
+  v_options jsonb;
+  v_base numeric;
+  v_opt_delta numeric;
+  v_expected_options jsonb;
+  v_live_base numeric;
+  v_price numeric;
+  v_disc numeric;
+  v_new_stock integer;
+  v_order_id uuid;
+  v_order_no text;
+  v_payment_amount numeric;
+  v_item_id uuid;
+  v_opt jsonb;
+  v_sold_out jsonb := '[]'::jsonb;
+  v_line_count integer := 0;
+  v_event_id uuid;
+  v_result jsonb;
+  v_track boolean;
+  v_coupon_id uuid;
+  v_user_coupon_id uuid;
+  v_discount numeric;
+  v_amount_before_gift integer := 0;
+  v_gift_total integer := 0;
+  v_gift_ids jsonb := '[]'::jsonb;
+  v_gift_id uuid;
+  v_gift_inst public.gift_certificate_instances%ROWTYPE;
+  v_gift_fee_rate integer;
+  v_gift_fee integer;
+  v_gift_merchant integer;
+  v_gift_redemption_id uuid;
+  v_gift_remaining integer;
+  v_gift_status text;
+  v_gift_due integer;
+  v_gift_count integer := 0;
+  v_gift_forfeited integer := 0;
+  v_campaign record;
+  v_entitlement record;
+  v_store_funded numeric := 0;
+  v_platform_funded numeric := 0;
+  v_commission_base numeric := 0;
+  v_items_subtotal numeric := 0;
+  v_delivery_fee_auth numeric := 0;
+  v_payload_delivery_fee numeric := 0;
+  v_payload_total numeric := 0;
+  v_payload_payment numeric := 0;
+  v_payload_discount numeric := 0;
+  v_discount_auth numeric := 0;
+  v_min_order_php numeric := NULL;
+  v_hours jsonb;
+  v_fulfillment text;
+  v_auth_total numeric := 0;
+  v_pct numeric;
+BEGIN
+  IF p_buyer_user_id IS NULL OR p_store_id IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'missing_ids', 'http_status', 400);
+  END IF;
+
+  IF p_order IS NULL OR jsonb_typeof(p_order) <> 'object' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_order_payload', 'http_status', 400);
+  END IF;
+
+  IF p_lines IS NULL OR jsonb_typeof(p_lines) <> 'array' OR jsonb_array_length(p_lines) < 1 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'store_and_items_required', 'http_status', 400);
+  END IF;
+
+  -- Idempotency: serialize same buyer+key, then return existing if present
+  IF v_key IS NOT NULL THEN
+    PERFORM pg_advisory_xact_lock(
+      hashtext(p_buyer_user_id::text || chr(1) || v_key)
+    );
+    SELECT id, order_no, payment_amount
+      INTO v_existing
+      FROM public.store_orders
+     WHERE buyer_user_id = p_buyer_user_id
+       AND client_order_key = v_key
+     LIMIT 1;
+    IF FOUND THEN
+      RETURN jsonb_build_object(
+        'ok', true,
+        'idempotent', true,
+        'order', jsonb_build_object(
+          'id', v_existing.id,
+          'order_no', coalesce(v_existing.order_no, ''),
+          'payment_amount', coalesce(v_existing.payment_amount, 0)
+        ),
+        'sold_out_products', '[]'::jsonb,
+        'order_created_event_id', null
+      );
+    END IF;
+  END IF;
+
+  -- Store authority lock + revalidation (TOCTOU)
+  SELECT
+    id,
+    owner_user_id,
+    approval_status,
+    is_visible,
+    is_open,
+    store_name,
+    business_hours_json,
+    pickup_available,
+    delivery_available
+  INTO v_store
+  FROM public.stores
+  WHERE id = p_store_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'store_unavailable', 'http_status', 400);
+  END IF;
+
+  IF v_store.approval_status IS DISTINCT FROM 'approved' OR v_store.is_visible IS NOT TRUE THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'store_unavailable', 'http_status', 400);
+  END IF;
+
+  IF v_store.is_open IS FALSE THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'store_closed', 'http_status', 400);
+  END IF;
+
+  IF to_regclass('public.store_sales_permissions') IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.store_sales_permissions sp
+      WHERE sp.store_id = p_store_id
+        AND sp.allowed_to_sell IS TRUE
+        AND sp.sales_status = 'approved'
+    ) THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'store_not_selling', 'http_status', 400);
+    END IF;
+  END IF;
+
+  -- Pass 1: lock products + revalidate (no stock mutation yet)
+  FOR v_line IN SELECT value FROM jsonb_array_elements(p_lines)
+  LOOP
+    v_line_count := v_line_count + 1;
+    BEGIN
+      v_product_id := nullif(btrim(coalesce(v_line->>'product_id', '')), '')::uuid;
+    EXCEPTION WHEN others THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_product', 'http_status', 400);
+    END;
+    IF v_product_id IS NULL THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_product', 'http_status', 400);
+    END IF;
+
+    v_qty := floor(coalesce((v_line->>'qty')::numeric, 0));
+    IF v_qty < 1 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_line', 'http_status', 400);
+    END IF;
+
+    v_unit := coalesce((v_line->>'unit')::numeric, -1);
+    v_base := coalesce((v_line->>'base_unit_after_discount')::numeric, -1);
+    v_opt_delta := coalesce((v_line->>'unit_options_delta')::numeric, 0);
+    v_expected_options := v_line->'expected_options_json';
+
+    SELECT
+      id,
+      store_id,
+      price,
+      discount_price,
+      stock_qty,
+      track_inventory,
+      product_status,
+      options_json,
+      admin_review_status,
+      menu_section_id
+    INTO v_product
+    FROM public.store_products
+    WHERE id = v_product_id
+    FOR UPDATE;
+
+    IF NOT FOUND OR v_product.store_id IS DISTINCT FROM p_store_id THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_product', 'http_status', 400);
+    END IF;
+
+    -- PRD-03: admin review rejected / re-review pending products are not sellable
+    IF coalesce(v_product.admin_review_status, 'none') IN ('rejected', 'pending') THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'product_not_available', 'http_status', 400);
+    END IF;
+
+    -- PRD-05: product in a hidden menu section is not visible, so not orderable
+    IF v_product.menu_section_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM public.store_menu_sections ms
+       WHERE ms.id = v_product.menu_section_id
+         AND ms.is_hidden IS TRUE
+    ) THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'product_not_available', 'http_status', 400);
+    END IF;
+
+    IF v_product.product_status = 'sold_out' THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'product_sold_out', 'http_status', 400);
+    END IF;
+
+    IF v_product.product_status IS DISTINCT FROM 'active' THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'product_not_available', 'http_status', 400);
+    END IF;
+
+    IF v_expected_options IS NOT NULL
+       AND v_product.options_json IS DISTINCT FROM v_expected_options THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'price_changed', 'http_status', 400);
+    END IF;
+
+    v_price := coalesce(v_product.price, 0)::numeric;
+    v_disc := v_product.discount_price;
+    IF v_disc IS NOT NULL
+       AND v_disc::numeric >= 0
+       AND v_disc::numeric < v_price THEN
+      v_live_base := v_disc::numeric;
+    ELSE
+      v_live_base := v_price;
+    END IF;
+
+    IF abs(v_live_base - v_base) >= 1 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'price_changed', 'http_status', 400);
+    END IF;
+
+    IF abs((v_live_base + v_opt_delta) - v_unit) >= 1 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'price_changed', 'http_status', 400);
+    END IF;
+
+    -- ROOT A: line money from verified unit (not client subtotal trust)
+    v_subtotal := round(v_unit * v_qty);
+    IF v_line ? 'subtotal'
+       AND abs(coalesce((v_line->>'subtotal')::numeric, -1) - v_subtotal) >= 1 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'price_changed', 'http_status', 400);
+    END IF;
+    v_items_subtotal := v_items_subtotal + v_subtotal;
+
+    IF coalesce(v_product.track_inventory, false) IS TRUE
+       AND coalesce(v_product.stock_qty, 0) < v_qty THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'insufficient_stock', 'http_status', 409);
+    END IF;
+  END LOOP;
+
+  -- CUT-1: store min_order_php authority
+  -- App contract (validateStoreOrderCheckout): items subtotal only (before delivery fee /
+  -- coupon / gift). null/<=0 min = no constraint. Equal-to-min ALLOW; below REJECT.
+  v_hours := coalesce(v_store.business_hours_json, '{}'::jsonb);
+  BEGIN
+    v_min_order_php := round(coalesce(
+      (v_hours->>'min_order_php')::numeric,
+      (v_hours->>'minOrderPhp')::numeric
+    ));
+  EXCEPTION WHEN others THEN
+    v_min_order_php := NULL;
+  END;
+  IF v_min_order_php IS NOT NULL AND v_min_order_php > 0
+     AND round(v_items_subtotal) < v_min_order_php THEN
+    RETURN jsonb_build_object(
+      'ok', false,
+      'error', 'below_min_order',
+      'http_status', 400,
+      'min_order_php', v_min_order_php
+    );
+  END IF;
+
+  -- Stores A: coupon authority lock + redemption exclusivity (same TX as order)
+  -- CUT-2: discount_amount is NOT authoritative; recompute from campaign after lock.
+  v_payload_discount := round(coalesce((p_order->>'discount_amount')::numeric, 0));
+  v_discount := 0;
+  v_coupon_id := NULL;
+  v_user_coupon_id := NULL;
+  IF nullif(btrim(coalesce(p_order->>'user_coupon_id', '')), '') IS NOT NULL THEN
+    BEGIN
+      v_user_coupon_id := (p_order->>'user_coupon_id')::uuid;
+    EXCEPTION
+      WHEN invalid_text_representation THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'coupon_not_found', 'http_status', 400);
+    END;
+  END IF;
+  IF nullif(btrim(coalesce(p_order->>'coupon_campaign_id', '')), '') IS NOT NULL THEN
+    BEGIN
+      v_coupon_id := (p_order->>'coupon_campaign_id')::uuid;
+    EXCEPTION
+      WHEN invalid_text_representation THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'coupon_not_found', 'http_status', 400);
+    END;
+  END IF;
+
+  IF v_payload_discount > 0 AND (v_coupon_id IS NULL OR v_user_coupon_id IS NULL) THEN
+    RETURN jsonb_build_object(
+      'ok', false,
+      'error', CASE
+        WHEN v_coupon_id IS NULL THEN 'coupon_required_for_discount'
+        ELSE 'coupon_entitlement_required'
+      END,
+      'http_status', 400
+    );
+  END IF;
+
+  IF v_coupon_id IS NOT NULL THEN
+    -- Canonical: Coupon Instance required - campaign-only checkout DELETED
+    IF v_user_coupon_id IS NULL THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'coupon_entitlement_required', 'http_status', 400);
+    END IF;
+
+    PERFORM pg_advisory_xact_lock(
+      hashtext(p_buyer_user_id::text || chr(1) || 'coupon' || chr(1) || v_coupon_id::text)
+    );
+
+    SELECT
+      id,
+      store_id,
+      discount_type,
+      discount_value,
+      min_order_amount,
+      max_discount,
+      start_at,
+      end_at,
+      is_active,
+      lifecycle_state,
+      funding_mode,
+      store_funded_amount
+    INTO v_campaign
+    FROM public.store_coupon_campaigns
+    WHERE id = v_coupon_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'coupon_not_found', 'http_status', 404);
+    END IF;
+
+    IF v_campaign.store_id IS DISTINCT FROM p_store_id THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'coupon_wrong_store', 'http_status', 400);
+    END IF;
+
+    SELECT *
+      INTO v_entitlement
+      FROM public.coupon_user_entitlements
+     WHERE id = v_user_coupon_id
+       AND buyer_user_id = p_buyer_user_id
+       AND campaign_id = v_coupon_id
+     FOR UPDATE;
+    IF NOT FOUND THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'coupon_not_found', 'http_status', 404);
+    END IF;
+    IF v_entitlement.status NOT IN ('available', 'restored') THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'coupon_already_redeemed', 'http_status', 409);
+    END IF;
+    IF v_entitlement.expires_at <= clock_timestamp() THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'coupon_expired', 'http_status', 400);
+    END IF;
+    IF v_campaign.lifecycle_state = 'revoked' THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'COUPON_REVOKED', 'http_status', 400);
+    END IF;
+
+    -- Coupon min_order on item gross (same as resolveStoreCouponEligibility itemGrossPhp)
+    IF v_campaign.min_order_amount IS NOT NULL
+       AND v_campaign.min_order_amount > 0
+       AND floor(v_items_subtotal) < floor(v_campaign.min_order_amount) THEN
+      RETURN jsonb_build_object(
+        'ok', false,
+        'error', 'coupon_min_order',
+        'http_status', 400,
+        'min_order_amount', floor(v_campaign.min_order_amount)
+      );
+    END IF;
+
+    -- Authoritative discount = computeCouponDiscountPhp / computeStoreCouponDiscountPhp
+    IF v_campaign.discount_type = 'percent' THEN
+      v_pct := least(100::numeric, greatest(0::numeric, coalesce(v_campaign.discount_value, 0)));
+      v_discount_auth := least(
+        floor(v_items_subtotal),
+        floor(floor(v_items_subtotal) * v_pct / 100)
+      );
+      IF v_campaign.max_discount IS NOT NULL AND v_campaign.max_discount > 0 THEN
+        v_discount_auth := least(v_discount_auth, floor(v_campaign.max_discount));
+      END IF;
+    ELSIF v_campaign.discount_type = 'fixed_amount' THEN
+      v_discount_auth := least(
+        floor(v_items_subtotal),
+        floor(coalesce(v_campaign.discount_value, 0))
+      );
+    ELSE
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_discount', 'http_status', 400);
+    END IF;
+
+    IF v_discount_auth <= 0 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_discount', 'http_status', 400);
+    END IF;
+
+    -- Fail-closed on payload mismatch (inflate AND shrink)
+    IF abs(v_payload_discount - v_discount_auth) >= 1 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_discount', 'http_status', 400);
+    END IF;
+
+    v_discount := round(v_discount_auth);
+  ELSIF v_payload_discount <> 0 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_discount', 'http_status', 400);
+  END IF;
+
+
+  -- Gift Certificate: parse instance ids (max 1). Amounts computed server-side.
+  v_gift_ids := coalesce(p_order->'gift_instance_ids', '[]'::jsonb);
+  IF jsonb_typeof(v_gift_ids) <> 'array' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_gift_instance_ids', 'http_status', 400);
+  END IF;
+  IF jsonb_array_length(v_gift_ids) > 1 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'gift_max_one_per_order', 'http_status', 400);
+  END IF;
+
+  -- ROOT A: authoritative items + delivery fee; fail-closed on payload mismatch
+  -- v_discount already authoritative (0 or campaign-recomputed)
+  v_fulfillment := coalesce(nullif(btrim(p_order->>'fulfillment_type'), ''), 'pickup');
+  v_delivery_fee_auth := public.store_charged_delivery_fee_php(
+    v_store.business_hours_json,
+    v_items_subtotal,
+    v_fulfillment
+  );
+  v_payload_delivery_fee := round(coalesce((p_order->>'delivery_fee_amount')::numeric, 0));
+  IF abs(v_payload_delivery_fee - v_delivery_fee_auth) >= 1 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'price_changed', 'http_status', 400);
+  END IF;
+
+  v_auth_total := round(v_items_subtotal + v_delivery_fee_auth);
+  v_payload_total := round(coalesce((p_order->>'total_amount')::numeric, 0));
+  IF abs(v_payload_total - v_auth_total) >= 1 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'price_changed', 'http_status', 400);
+  END IF;
+
+  v_amount_before_gift := greatest(0, round(v_auth_total - v_discount)::integer);
+  IF nullif(btrim(coalesce(p_order->>'amount_before_gift', '')), '') IS NOT NULL THEN
+    IF abs(round((p_order->>'amount_before_gift')::numeric) - v_amount_before_gift) >= 1 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'price_changed', 'http_status', 400);
+    END IF;
+  END IF;
+
+  v_gift_due := v_amount_before_gift;
+  IF jsonb_array_length(v_gift_ids) = 1 THEN
+    BEGIN
+      v_gift_id := (v_gift_ids->>0)::uuid;
+    EXCEPTION WHEN others THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_gift_instance_id', 'http_status', 400);
+    END;
+    SELECT * INTO v_gift_inst
+      FROM public.gift_certificate_instances
+     WHERE id = v_gift_id
+     FOR UPDATE;
+    IF NOT FOUND THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'gift_instance_not_found', 'http_status', 400);
+    END IF;
+    IF v_gift_inst.current_owner_user_id IS DISTINCT FROM p_buyer_user_id THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'gift_not_owner', 'http_status', 403);
+    END IF;
+    IF NOT public.gift_certificate_instance_allows_checkout_store(
+         coalesce(v_gift_inst.gift_scope, 'STORE'),
+         v_gift_inst.store_id,
+         p_store_id
+       ) THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'gift_store_mismatch', 'http_status', 400);
+    END IF;
+    IF v_gift_inst.status IS DISTINCT FROM 'ACTIVE' THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'gift_invalid_status', 'http_status', 400);
+    END IF;
+    IF coalesce(v_gift_inst.remaining_balance, 0) <= 0 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'gift_insufficient_remaining', 'http_status', 400);
+    END IF;
+    -- SSOT-19 F-06: validity window (Asia/Manila date, inclusive).
+    IF public.gift_certificate_instance_is_expired(v_gift_inst.valid_until) THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'gift_expired', 'http_status', 400);
+    END IF;
+    IF v_gift_inst.valid_from IS NOT NULL
+       AND v_gift_inst.valid_from > public.gift_certificate_issue_date(now()) THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'gift_not_yet_valid', 'http_status', 400);
+    END IF;
+    v_gift_total := least(v_gift_due, v_gift_inst.remaining_balance);
+    v_gift_count := 1;
+  END IF;
+
+  -- ROOT A: payment authority before mutate (fail-closed; no partial order)
+  v_payload_payment := round(coalesce((p_order->>'payment_amount')::numeric, 0));
+  IF v_gift_count > 0 THEN
+    v_payment_amount := greatest(0, v_amount_before_gift - v_gift_total);
+  ELSE
+    v_payment_amount := v_amount_before_gift;
+    v_gift_total := 0;
+  END IF;
+  IF abs(v_payload_payment - v_payment_amount) >= 1 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'price_changed', 'http_status', 400);
+  END IF;
+
+  -- OPS-08: effective opening state + fulfillment availability re-check under the store lock
+  -- (= resolveStoreFrontOpen / validateStoreOrderCheckout; added last, existing checks unchanged)
+  IF NOT public.store_front_commerce_open(v_store.business_hours_json, v_store.is_open, now()) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'store_closed', 'http_status', 400);
+  END IF;
+  IF v_fulfillment = 'pickup' AND v_store.pickup_available IS FALSE THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'store_pickup_disabled', 'http_status', 400);
+  END IF;
+  IF v_fulfillment = 'local_delivery' AND v_store.delivery_available IS NOT TRUE THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'store_delivery_disabled', 'http_status', 400);
+  END IF;
+
+  -- Pass 2+: mutate inside subtransaction (unique_violation rolls back all mutations)
+  BEGIN
+    FOR v_line IN SELECT value FROM jsonb_array_elements(p_lines)
+    LOOP
+      v_product_id := (v_line->>'product_id')::uuid;
+      v_qty := floor((v_line->>'qty')::numeric);
+      v_title := coalesce(v_line->>'title', '');
+
+      SELECT coalesce(track_inventory, false)
+        INTO v_track
+        FROM public.store_products
+       WHERE id = v_product_id;
+
+      IF v_track IS TRUE THEN
+        UPDATE public.store_products
+           SET stock_qty = stock_qty - v_qty,
+               product_status = CASE
+                 WHEN stock_qty - v_qty <= 0 THEN 'sold_out'
+                 ELSE product_status
+               END,
+               sold_out_reason = CASE
+                 WHEN stock_qty - v_qty <= 0 THEN 'stock'
+                 ELSE sold_out_reason
+               END
+         WHERE id = v_product_id
+           AND coalesce(track_inventory, false) IS TRUE
+           AND stock_qty >= v_qty
+        RETURNING stock_qty INTO v_new_stock;
+
+        IF NOT FOUND THEN
+          -- Concurrent race after pass-1; abort mutations via exception semantics
+          RAISE EXCEPTION 'insufficient_stock'
+            USING ERRCODE = 'P0001';
+        END IF;
+
+        IF v_new_stock <= 0 THEN
+          v_sold_out := v_sold_out || jsonb_build_array(
+            jsonb_build_object(
+              'productId', v_product_id,
+              'productTitle', nullif(btrim(v_title), '')
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+
+    v_order_no := coalesce(
+      nullif(btrim(p_order->>'order_no'), ''),
+      'SO' || to_char(clock_timestamp(), 'YYYYMMDDHH24MISSMS')
+    );
+    -- payment_amount already authoritative (asserted before Pass 2)
+    -- ADS-22: coupon cost split is server authority (= splitCouponFunding in
+    -- lib/stores/store-coupon-funding-math.ts). Payload store/platform_funded_amount
+    -- is ignored (corrected, not rejected). No coupon -> both 0.
+    IF v_coupon_id IS NOT NULL THEN
+      IF v_campaign.funding_mode = 'STORE_FUNDED' THEN
+        v_store_funded := floor(v_discount);
+        v_platform_funded := 0;
+      ELSIF v_campaign.funding_mode = 'PLATFORM_FUNDED' THEN
+        v_store_funded := 0;
+        v_platform_funded := floor(v_discount);
+      ELSE
+        v_store_funded := least(
+          floor(v_discount),
+          greatest(0::numeric, floor(coalesce(v_campaign.store_funded_amount, 0)))
+        );
+        v_platform_funded := floor(v_discount) - v_store_funded;
+      END IF;
+    ELSE
+      v_store_funded := 0;
+      v_platform_funded := 0;
+    END IF;
+    v_commission_base := round(coalesce((p_order->>'commission_base_amount')::numeric, v_payment_amount + v_discount));
+
+    INSERT INTO public.store_orders (
+      order_no,
+      buyer_user_id,
+      store_id,
+      total_amount,
+      discount_amount,
+      payment_amount,
+      delivery_fee_amount,
+      delivery_courier_label,
+      payment_status,
+      order_status,
+      fulfillment_type,
+      buyer_note,
+      buyer_phone,
+      buyer_payment_method,
+      buyer_payment_method_detail,
+      delivery_address_summary,
+      delivery_address_detail,
+      delivery_region,
+      delivery_city,
+      delivery_place_id,
+      delivery_formatted_address,
+      delivery_detail_address,
+      delivery_note,
+      delivery_latitude,
+      delivery_longitude,
+      delivery_user_address_id,
+      client_order_key,
+      checkout_prep_minutes,
+      checkout_ride_minutes,
+      checkout_eta_minutes,
+      checkout_eta_computed_at,
+      checkout_route_distance_meters,
+      checkout_straight_distance_meters,
+      checkout_store_latitude,
+      checkout_store_longitude,
+      checkout_serviceability_eligible,
+      checkout_serviceability_max_km,
+      checkout_serviceability_reason,
+      coupon_campaign_id,
+      user_coupon_id,
+      store_funded_amount,
+      platform_funded_amount,
+      commission_base_amount,
+      amount_before_gift,
+      gift_redemption_amount
+    )
+    VALUES (
+      v_order_no,
+      p_buyer_user_id,
+      p_store_id,
+      round(v_auth_total),
+      round(v_discount),
+      round(v_payment_amount),
+      round(v_delivery_fee_auth),
+      nullif(p_order->>'delivery_courier_label', ''),
+      coalesce(nullif(p_order->>'payment_status', ''), 'paid'),
+      'pending',
+      coalesce(nullif(p_order->>'fulfillment_type', ''), 'pickup'),
+      nullif(p_order->>'buyer_note', ''),
+      nullif(p_order->>'buyer_phone', ''),
+      nullif(p_order->>'buyer_payment_method', ''),
+      nullif(p_order->>'buyer_payment_method_detail', ''),
+      nullif(p_order->>'delivery_address_summary', ''),
+      nullif(p_order->>'delivery_address_detail', ''),
+      nullif(p_order->>'delivery_region', ''),
+      nullif(p_order->>'delivery_city', ''),
+      nullif(p_order->>'delivery_place_id', ''),
+      nullif(p_order->>'delivery_formatted_address', ''),
+      nullif(p_order->>'delivery_detail_address', ''),
+      nullif(p_order->>'delivery_note', ''),
+      CASE WHEN p_order ? 'delivery_latitude' AND p_order->>'delivery_latitude' IS NOT NULL
+        THEN (p_order->>'delivery_latitude')::double precision ELSE NULL END,
+      CASE WHEN p_order ? 'delivery_longitude' AND p_order->>'delivery_longitude' IS NOT NULL
+        THEN (p_order->>'delivery_longitude')::double precision ELSE NULL END,
+      CASE WHEN nullif(p_order->>'delivery_user_address_id', '') IS NOT NULL
+        THEN (p_order->>'delivery_user_address_id')::uuid ELSE NULL END,
+      v_key,
+      CASE WHEN p_order ? 'checkout_prep_minutes' THEN (p_order->>'checkout_prep_minutes')::integer ELSE NULL END,
+      CASE WHEN p_order ? 'checkout_ride_minutes' THEN (p_order->>'checkout_ride_minutes')::integer ELSE NULL END,
+      CASE WHEN p_order ? 'checkout_eta_minutes' THEN (p_order->>'checkout_eta_minutes')::integer ELSE NULL END,
+      CASE WHEN nullif(p_order->>'checkout_eta_computed_at', '') IS NOT NULL
+        THEN (p_order->>'checkout_eta_computed_at')::timestamptz ELSE NULL END,
+      CASE WHEN p_order ? 'checkout_route_distance_meters'
+        THEN (p_order->>'checkout_route_distance_meters')::integer ELSE NULL END,
+      CASE WHEN p_order ? 'checkout_straight_distance_meters'
+        THEN (p_order->>'checkout_straight_distance_meters')::integer ELSE NULL END,
+      -- LOC-004: order-time serviceability snapshot (same INSERT, immutable evidence)
+      CASE WHEN jsonb_typeof(p_order->'checkout_store_latitude') = 'number'
+        THEN (p_order->>'checkout_store_latitude')::double precision ELSE NULL END,
+      CASE WHEN jsonb_typeof(p_order->'checkout_store_longitude') = 'number'
+        THEN (p_order->>'checkout_store_longitude')::double precision ELSE NULL END,
+      CASE WHEN jsonb_typeof(p_order->'checkout_serviceability_eligible') = 'boolean'
+        THEN (p_order->>'checkout_serviceability_eligible')::boolean ELSE NULL END,
+      CASE WHEN jsonb_typeof(p_order->'checkout_serviceability_max_km') = 'number'
+        THEN (p_order->>'checkout_serviceability_max_km')::double precision ELSE NULL END,
+      nullif(p_order->>'checkout_serviceability_reason', ''),
+      v_coupon_id,
+      v_user_coupon_id,
+      v_store_funded,
+      v_platform_funded,
+      v_commission_base,
+      v_amount_before_gift,
+      v_gift_total
+    )
+    RETURNING id INTO v_order_id;
+
+    FOR v_line IN SELECT value FROM jsonb_array_elements(p_lines)
+    LOOP
+      v_product_id := (v_line->>'product_id')::uuid;
+      v_qty := floor((v_line->>'qty')::numeric);
+      v_title := coalesce(v_line->>'title', '');
+      v_unit := (v_line->>'unit')::numeric;
+      v_subtotal := (v_line->>'subtotal')::numeric;
+      v_base := (v_line->>'base_unit_after_discount')::numeric;
+      v_opt_delta := coalesce((v_line->>'unit_options_delta')::numeric, 0);
+      v_options := coalesce(v_line->'options_snapshot', '{}'::jsonb);
+
+      INSERT INTO public.store_order_items (
+        order_id,
+        product_id,
+        product_title_snapshot,
+        price_snapshot,
+        qty,
+        subtotal,
+        options_snapshot_json,
+        base_price_snapshot,
+        options_unit_delta_snapshot
+      )
+      VALUES (
+        v_order_id,
+        v_product_id,
+        v_title,
+        round(v_unit),
+        v_qty,
+        round(v_subtotal),
+        v_options,
+        round(v_base),
+        round(v_opt_delta)
+      )
+      RETURNING id INTO v_item_id;
+
+      IF coalesce((v_options->>'v')::int, 0) = 2 AND jsonb_typeof(v_options->'groups') = 'array' THEN
+        FOR v_opt IN
+          SELECT jsonb_build_object(
+            'group_label', g->>'label',
+            'name', ln->>'name',
+            'price_delta_each', ln->>'price_delta_each',
+            'qty', ln->>'qty',
+            'line_extra', ln->>'line_extra'
+          )
+          FROM jsonb_array_elements(v_options->'groups') AS g
+          CROSS JOIN LATERAL jsonb_array_elements(coalesce(g->'lines', '[]'::jsonb)) AS ln
+        LOOP
+          INSERT INTO public.store_order_item_options (
+            order_item_id,
+            option_group_name_snapshot,
+            option_item_name_snapshot,
+            price_delta_snapshot,
+            quantity,
+            line_extra_total
+          )
+          VALUES (
+            v_item_id,
+            coalesce(v_opt->>'group_label', ''),
+            coalesce(v_opt->>'name', ''),
+            round(coalesce((v_opt->>'price_delta_each')::numeric, 0)),
+            greatest(1, floor(coalesce((v_opt->>'qty')::numeric, 1))),
+            round(coalesce((v_opt->>'line_extra')::numeric, 0))
+          );
+        END LOOP;
+      END IF;
+    END LOOP;
+
+    BEGIN
+      INSERT INTO public.store_order_events (
+        order_id,
+        store_id,
+        actor_user_id,
+        actor_role,
+        event_type,
+        from_status,
+        to_status,
+        dedupe_key,
+        metadata
+      )
+      VALUES (
+        v_order_id,
+        p_store_id,
+        p_buyer_user_id,
+        'buyer',
+        'order_created',
+        NULL,
+        'pending',
+        v_order_id::text || ':order_created',
+        jsonb_build_object(
+          'order_no', v_order_no,
+          'payment_amount', round(v_payment_amount),
+          'line_count', v_line_count,
+          'fulfillment_type', coalesce(p_order->>'fulfillment_type', 'pickup'),
+          'source', 'create_store_order_atomic'
+        )
+      )
+      RETURNING id INTO v_event_id;
+    EXCEPTION
+      WHEN unique_violation THEN
+        SELECT id INTO v_event_id
+          FROM public.store_order_events
+         WHERE dedupe_key = v_order_id::text || ':order_created'
+         LIMIT 1;
+    END;
+
+    IF v_coupon_id IS NOT NULL THEN
+      INSERT INTO public.store_coupon_redemptions (
+        campaign_id,
+        store_id,
+        buyer_user_id,
+        order_id,
+        discount_amount_applied,
+        user_coupon_id
+      )
+      VALUES (
+        v_coupon_id,
+        p_store_id,
+        p_buyer_user_id,
+        v_order_id,
+        v_discount,
+        v_user_coupon_id
+      );
+
+      IF v_user_coupon_id IS NOT NULL THEN
+        UPDATE public.coupon_user_entitlements
+           SET status = 'redeemed',
+               redeemed_order_id = v_order_id,
+               updated_at = now()
+         WHERE id = v_user_coupon_id
+           AND status IN ('available', 'restored');
+        IF NOT FOUND THEN
+          RAISE EXCEPTION 'coupon_already_redeemed'
+            USING ERRCODE = '23505';
+        END IF;
+        UPDATE public.store_coupon_campaigns
+           SET reserved_spend_php = GREATEST(0, reserved_spend_php - v_entitlement.reserved_php)
+         WHERE id = v_coupon_id;
+      END IF;
+    END IF;
+
+
+    -- Gift redeem in same TX as order (after order_id exists)
+    IF v_gift_count = 1 AND v_gift_total > 0 THEN
+      SELECT * INTO v_gift_inst
+        FROM public.gift_certificate_instances
+       WHERE id = v_gift_id
+       FOR UPDATE;
+      IF NOT FOUND OR v_gift_inst.remaining_balance < v_gift_total
+         OR v_gift_inst.current_owner_user_id IS DISTINCT FROM p_buyer_user_id
+         OR v_gift_inst.status IS DISTINCT FROM 'ACTIVE'
+         OR public.gift_certificate_instance_is_expired(v_gift_inst.valid_until)
+         OR (v_gift_inst.valid_from IS NOT NULL
+             AND v_gift_inst.valid_from > public.gift_certificate_issue_date(now())) THEN
+        RAISE EXCEPTION 'gift_redeem_invariant_failed';
+      END IF;
+
+      -- Live-compat gift fee (pre-unapplied fee-snapshot helper).
+      -- Use gift_certificate_products.platform_fee_rate until fee-snapshot helper is live.
+      SELECT platform_fee_rate INTO v_gift_fee_rate
+        FROM public.gift_certificate_products
+       WHERE id = v_gift_inst.product_id;
+      v_gift_fee_rate := coalesce(v_gift_fee_rate, 0);
+      v_gift_fee := floor(v_gift_total::numeric * v_gift_fee_rate / 100)::integer;
+      v_gift_merchant := v_gift_total - v_gift_fee;
+      v_gift_redemption_id := gen_random_uuid();
+
+      -- One-time full consumption: unused face value is forfeited (not merchant revenue).
+      v_gift_forfeited := greatest(0, v_gift_inst.remaining_balance - v_gift_total);
+
+      INSERT INTO public.gift_certificate_redemptions (
+        id, order_id, instance_id, store_id, buyer_user_id,
+        redeemed_amount, platform_fee_amount, merchant_net_amount,
+        platform_fee_rate_snapshot, forfeited_amount, reversed, idempotency_key
+      ) VALUES (
+        v_gift_redemption_id, v_order_id, v_gift_id, p_store_id, p_buyer_user_id,
+        v_gift_total, v_gift_fee, v_gift_merchant, v_gift_fee_rate, v_gift_forfeited, false,
+        'order:' || v_order_id::text || ':gift:1'
+      );
+
+      v_gift_remaining := 0;
+      v_gift_status := 'FULLY_REDEEMED';
+
+      UPDATE public.gift_certificate_instances
+         SET remaining_balance = v_gift_remaining,
+             status = v_gift_status,
+             version = version + 1,
+             fully_redeemed_at = now()
+       WHERE id = v_gift_id;
+
+      INSERT INTO public.gift_certificate_ledger (
+        instance_id, store_id, user_id, entry_type, amount,
+        related_type, related_id, description, actor_type
+      ) VALUES (
+        v_gift_id, p_store_id, p_buyer_user_id, 'REDEEM', -v_gift_total,
+        'gift_certificate_redemption', v_gift_redemption_id::text, 'Redeemed against order', 'user'
+      );
+
+      IF v_gift_forfeited > 0 THEN
+        INSERT INTO public.gift_certificate_ledger (
+          instance_id, store_id, user_id, entry_type, amount,
+          related_type, related_id, description, actor_type
+        ) VALUES (
+          v_gift_id, p_store_id, p_buyer_user_id, 'FORFEIT', -v_gift_forfeited,
+          'gift_certificate_redemption', v_gift_redemption_id::text,
+          'Unused face value extinguished at one-time redeem (not merchant revenue)', 'system'
+        );
+      END IF;
+
+      INSERT INTO public.gift_certificate_revenue_ledger (
+        store_id, redemption_id, entry_type, amount, related_type, related_id
+      ) VALUES (
+        p_store_id, v_gift_redemption_id, 'REVENUE_CREATE', v_gift_merchant,
+        'redemption', v_gift_redemption_id::text
+      );
+
+    END IF;
+
+    v_result := jsonb_build_object(
+      'ok', true,
+      'idempotent', false,
+      'order', jsonb_build_object(
+        'id', v_order_id,
+        'order_no', v_order_no,
+        'payment_amount', round(v_payment_amount)
+      ),
+      'sold_out_products', v_sold_out,
+      'order_created_event_id', v_event_id,
+      'store_name', v_store.store_name,
+      'owner_user_id', v_store.owner_user_id
+    );
+  EXCEPTION
+    WHEN unique_violation THEN
+      -- Subtransaction rolled back: order+items+stock+redemption undone together.
+      IF v_coupon_id IS NOT NULL AND EXISTS (
+        SELECT 1
+          FROM public.store_coupon_redemptions r
+         WHERE r.buyer_user_id = p_buyer_user_id
+           AND r.campaign_id = v_coupon_id
+      ) THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'coupon_already_redeemed', 'http_status', 409);
+      END IF;
+      IF v_key IS NOT NULL THEN
+        SELECT id, order_no, payment_amount
+          INTO v_existing
+          FROM public.store_orders
+         WHERE buyer_user_id = p_buyer_user_id
+           AND client_order_key = v_key
+         LIMIT 1;
+        IF FOUND THEN
+          RETURN jsonb_build_object(
+            'ok', true,
+            'idempotent', true,
+            'order', jsonb_build_object(
+              'id', v_existing.id,
+              'order_no', coalesce(v_existing.order_no, ''),
+              'payment_amount', coalesce(v_existing.payment_amount, 0)
+            ),
+            'sold_out_products', '[]'::jsonb,
+            'order_created_event_id', null
+          );
+        END IF;
+        RETURN jsonb_build_object('ok', false, 'error', 'order_idempotency_conflict', 'http_status', 409);
+      END IF;
+      RAISE;
+    WHEN SQLSTATE 'P0001' THEN
+      -- insufficient_stock race after pass-1; mutations in this block are rolled back
+      RETURN jsonb_build_object('ok', false, 'error', 'insufficient_stock', 'http_status', 409);
+  END;
+
+  RETURN v_result;
+END;
+$fn$;
+
+REVOKE ALL ON FUNCTION public.create_store_order_atomic(uuid, uuid, text, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_store_order_atomic(uuid, uuid, text, jsonb, jsonb) TO service_role;

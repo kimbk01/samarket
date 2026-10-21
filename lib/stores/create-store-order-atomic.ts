@@ -37,6 +37,12 @@ export type CreateStoreOrderAtomicOrderPayload = {
   checkout_eta_computed_at?: string | null;
   checkout_route_distance_meters?: number | null;
   checkout_straight_distance_meters?: number | null;
+  /** LOC-004 — order-time serviceability snapshot (RPC writes it in the same INSERT; immutable evidence) */
+  checkout_store_latitude?: number | null;
+  checkout_store_longitude?: number | null;
+  checkout_serviceability_eligible?: boolean | null;
+  checkout_serviceability_max_km?: number | null;
+  checkout_serviceability_reason?: string | null;
   /** Stores A — optional coupon FK; redemption inserted in same RPC TX when set */
   coupon_campaign_id?: string | null;
   user_coupon_id?: string | null;
