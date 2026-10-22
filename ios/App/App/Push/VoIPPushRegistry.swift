@@ -84,35 +84,22 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         !answered.isEmpty,
         answered == local
       {
-        // Winner device already answered — CallKit must already own this UUID from the
-        // earlier incoming report / answer path. Do not end the live call.
-        if callProvider.hasTrackedCallKitSession(sessionId: sessionId) {
+        // Winner device already answered — do not end the live call. 통화 정상화 계획 v2 §3-2 (C1-앱):
+        // 보고 없이 완료하면 iOS 규칙 위반 → 새 UUID 무음 보고 후 즉시 종료(진행 중 통화는 그대로).
+        if callProvider.hasTrackedCallKitSession(sessionId: sessionId)
+          || callProvider.isTerminalSuppressed(sessionId: sessionId)
+        {
           DibayCallLog.infoCallV4(
             "ios_voip_answered_elsewhere_ignored_winner",
             callId: sessionId,
             owner: "terminal",
-            reason: "winner_device"
+            reason: "winner_device_compliance_report"
           )
-          DibayCallLog.infoCall("[voip] completion", callId: sessionId, detail: "winner_tracked")
-          completion()
-          return
-        }
-        // Already-terminal known session (e.g. call_ended cleared CallKit map +
-        // terminalSuppressed) is NOT a true cold orphan. Completion-only — do not
-        // re-report CallKit (no generation bump / re-bell / resurrection).
-        if callProvider.isTerminalSuppressed(sessionId: sessionId) {
-          DibayCallLog.infoCallV4(
-            "ios_voip_answered_elsewhere_winner_terminal_suppressed",
-            callId: sessionId,
-            owner: "terminal",
-            reason: "completion_only"
+          callProvider.reportComplianceIncomingThenEnd(
+            sessionId: sessionId,
+            reason: "answered_elsewhere_winner",
+            completion: completion
           )
-          DibayCallLog.infoCall(
-            "[voip] completion",
-            callId: sessionId,
-            detail: "winner_untracked_terminal_suppressed"
-          )
-          completion()
           return
         }
         // True cold orphan: untracked winner wake still requires PushKit → CallKit fulfillment.
@@ -142,12 +129,12 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         owner: "terminal",
         reason: "kind=\(kind)_post_accept"
       )
-      DibayCallLog.infoCall(
-        "[voip] completion",
-        callId: sessionId,
-        detail: "stale_terminal_suppressed kind=\(kind)"
+      // 통화 정상화 계획 v2 §3-2 (C1-앱): 받은 통화는 그대로 두고 이 VoIP 만 규칙대로 보고·종료.
+      callProvider.reportComplianceIncomingThenEnd(
+        sessionId: sessionId,
+        reason: "stale_terminal_post_accept kind=\(kind)",
+        completion: completion
       )
-      completion()
       return
     }
 
@@ -164,6 +151,23 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     } else {
       callKitEndReason = .remoteEnded
     }
+    // 통화 정상화 계획 v2 §3-2 (C1-앱): 「추적 중」은 앱 맵 기준이라 CallKit 이 이미 끝낸 통화일 수 있다.
+    // 끝내기 전에 CallKit 이 실제로 들고 있는지 확인 — 들고 있으면 그 통화 종료로 이 VoIP 에 대응하고,
+    // 이미 끝났으면 정리 후 규칙 준수 보고(새 UUID 무음 보고 → 즉시 종료)로 완료한다.
+    let liveBeforeEnd = callProvider.isCallKitCallLive(sessionId: sessionId)
+    let provider = callProvider
+    let completeAfterTrackedEnd: (String) -> Void = { detail in
+      if liveBeforeEnd {
+        DibayCallLog.infoCall("[voip] completion", callId: sessionId, detail: detail)
+        completion()
+      } else {
+        provider.reportComplianceIncomingThenEnd(
+          sessionId: sessionId,
+          reason: "\(detail)_callkit_not_live kind=\(kind)",
+          completion: completion
+        )
+      }
+    }
     if isVoipTerminalIncomingSession(sessionId: sessionId) {
       CallV4SurfaceOwnerBridge.deliver(
         callId: sessionId,
@@ -171,8 +175,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         reason: terminalReason
       )
       callProvider.reportCallEnded(uuidString: sessionId, endedReason: callKitEndReason)
-      DibayCallLog.infoCall("[voip] completion", callId: sessionId, detail: "tracked_incoming_end")
-      completion()
+      completeAfterTrackedEnd("tracked_incoming_end")
       return
     }
     if isVoipTerminalOutgoingSession(sessionId: sessionId) {
@@ -183,8 +186,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         reason: terminalReason
       )
       callProvider.reportCallEnded(uuidString: sessionId, endedReason: callKitEndReason)
-      DibayCallLog.infoCall("[voip] completion", callId: sessionId, detail: "tracked_outgoing_end")
-      completion()
+      completeAfterTrackedEnd("tracked_outgoing_end")
       return
     }
     if callProvider.hasTrackedCallKitSession(sessionId: sessionId) {
@@ -195,14 +197,13 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         reason: terminalReason
       )
       callProvider.reportCallEnded(uuidString: sessionId, endedReason: callKitEndReason)
-      DibayCallLog.infoCall("[voip] completion", callId: sessionId, detail: "tracked_callkit_end")
-      completion()
+      completeAfterTrackedEnd("tracked_callkit_end")
       return
     }
 
     // Already terminal-suppressed (e.g. fail_after_fulfill marked before map clear):
-    // not a true cold orphan — completion-only. fulfillOrphan would still
-    // reportNewIncomingCall (will_report_then_end) and cause visible resurrection.
+    // not a true cold orphan — must not re-report the SAME session (fulfillOrphan →
+    // will_report_then_end → visible resurrection); report a fresh silent UUID instead.
     // Local end already closed this CallKit session (e.g. caller saw Agora remote leave before
     // the server call_ended VoIP arrived): endCallKitSession clears the map but not the
     // suppress set — treat as already terminal so the orphan path cannot re-report it as a
@@ -210,18 +211,19 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     if callProvider.isTerminalSuppressed(sessionId: sessionId)
       || callProvider.isCallKitEndCompleted(sessionId: sessionId)
     {
+      // 통화 정상화 계획 v2 §3-2 (C1-앱): 2026-10-22 실기기에서 이 분기의 completion-only 가 iOS 강제 종료
+      // (SIGABRT) → VoIP 차단을 만들었다. 같은 세션은 되살리지 않고 새 UUID 무음 보고 후 즉시 종료.
       DibayCallLog.infoCallV4(
         "ios_voip_terminal_already_suppressed",
         callId: sessionId,
         owner: "terminal",
-        reason: "completion_only kind=\(kind)"
+        reason: "compliance_report kind=\(kind)"
       )
-      DibayCallLog.infoCall(
-        "[voip] completion",
-        callId: sessionId,
-        detail: "already_terminal_suppressed kind=\(kind)"
+      callProvider.reportComplianceIncomingThenEnd(
+        sessionId: sessionId,
+        reason: "already_terminal kind=\(kind)",
+        completion: completion
       )
-      completion()
       return
     }
 
@@ -356,6 +358,19 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     data: [AnyHashable: Any],
     completion: @escaping () -> Void
   ) {
+    // 통화 정상화 계획 v2 §3-2 (C1-앱): 이미 CallKit 종료까지 끝난 세션에 늦게 온 수신 VoIP —
+    // 같은 UUID 재보고는 종료 단계가 생략돼(1회 종료 게이트) 무음 화면이 남을 수 있다 → 새 UUID 준수 보고.
+    if callProvider.isCallKitEndCompleted(sessionId: sessionId)
+      && !callProvider.isCallKitCallLive(sessionId: sessionId)
+    {
+      DibayCallLog.infoCall("[voip] incoming_after_callkit_end", callId: sessionId, detail: "compliance_report")
+      callProvider.reportComplianceIncomingThenEnd(
+        sessionId: sessionId,
+        reason: "incoming_after_callkit_end",
+        completion: completion
+      )
+      return
+    }
     guard DibayMemberEventEligibilityStore.isMemberEventEligible() else {
       DibayCallLog.infoCall(
         "[voip] incoming_blocked_guest_ineligible",

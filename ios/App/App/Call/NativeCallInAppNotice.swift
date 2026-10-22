@@ -13,6 +13,8 @@ enum NativeCallInAppNotice {
     case peerBusy
     case peerDeclined
     case callFailed
+    /// C3 — 연결 후 끊김 (Web `call_disconnected` 와 같은 문구)
+    case callDisconnected
     case remoteEnded
     case missed
     case reconnecting
@@ -26,6 +28,8 @@ enum NativeCallInAppNotice {
     case peerBusy
     case peerDeclined
     case actionableFailure
+    /// C3 — 연결된 뒤 끊김(실패 아님)
+    case disconnected
     case permissionRequired
     case missed
     case none
@@ -92,6 +96,8 @@ enum NativeCallInAppNotice {
       return .peerDeclined
     case .ended:
       return .normalEnded
+    case .connectionLost:
+      return .disconnected
     default:
       return .actionableFailure
     }
@@ -108,6 +114,8 @@ enum NativeCallInAppNotice {
       return .peerDeclined
     case .actionableFailure:
       return .callFailed
+    case .disconnected:
+      return .callDisconnected
     case .permissionRequired:
       return .permissionRequired
     case .missed:
@@ -137,6 +145,8 @@ enum NativeCallInAppNotice {
       return "상대방이 통화를 거절했습니다"
     case .callFailed:
       return "통화를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요."
+    case .callDisconnected:
+      return "통화 연결이 끊어졌습니다."
     case .remoteEnded:
       return "통화가 종료되었습니다"
     case .missed:
@@ -167,7 +177,7 @@ enum NativeCallInAppNotice {
     switch event {
     case .callFailed, .permissionRequired:
       return UIColor(red: 0xD9 / 255, green: 0x30 / 255, blue: 0x25 / 255, alpha: 1)
-    case .networkWarning:
+    case .networkWarning, .callDisconnected:
       return UIColor(red: 0x1F / 255, green: 0x1F / 255, blue: 0x1F / 255, alpha: 1)
     default:
       return UIColor(red: 0x00 / 255, green: 0x75 / 255, blue: 0x4A / 255, alpha: 1)

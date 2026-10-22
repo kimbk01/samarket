@@ -137,6 +137,11 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
       CallKitProvider.shared.reportCallEnded(uuidString: sid, endedReason: .remoteEnded)
       return
     }
+    // 통화 정상화 계획 v2 §3-2 (C3) — 연결 후 끊김은 「통화 연결이 끊어졌습니다」, 연결 전만 시작 실패.
+    if case .connected = snap.phase {
+      fail(sessionId: sid, reason: .connectionLost)
+      return
+    }
     fail(sessionId: sid, reason: .mediaFailed)
   }
 

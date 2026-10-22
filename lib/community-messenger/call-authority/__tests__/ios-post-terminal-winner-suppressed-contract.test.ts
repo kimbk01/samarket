@@ -10,8 +10,8 @@ import { describe, expect, it } from "vitest";
  *
  * Contracts:
  * 1) reportCallKitEnded cleanup marks terminalSuppressed BEFORE Runtime reset / map clear
- * 2) winner_untracked + suppressed → completion-only
- * 3) bottom general orphan + suppressed → completion-only
+ * 2) winner + suppressed → 세션을 되살리지 않는 준수 보고(새 UUID 무음 보고 후 즉시 종료) — 통화 정상화 계획 v2 §3-2
+ * 3) bottom general orphan + suppressed → 같은 준수 보고 (completion-only 는 2026-10-22 iOS 강제 종료·VoIP 차단 원인)
  * 4) genuine cold orphan (not suppressed) → report_then_end preserved
  */
 const ROOT = process.cwd();
@@ -61,9 +61,8 @@ describe("iOS post-terminal terminalSuppressed writer+reader MERGE", () => {
     expect(beforeMark).toMatch(/if reportCallKitEnded/);
   });
 
-  it("2: winner_untracked + terminalSuppressed → completion-only (prior gate KEEP)", () => {
+  it("2: winner + terminalSuppressed → 준수 보고(세션 미부활 · completion-only 금지)", () => {
     const branch = winnerAnsweredElsewhereBranch(voip());
-    expect(branch).toContain("ios_voip_answered_elsewhere_winner_terminal_suppressed");
     const suppressIdx = branch.indexOf("isTerminalSuppressed(sessionId: sessionId)");
     const fulfillIdx = branch.indexOf("fulfillOrphanTerminalVoipPush(");
     expect(suppressIdx).toBeGreaterThanOrEqual(0);
@@ -72,20 +71,21 @@ describe("iOS post-terminal terminalSuppressed writer+reader MERGE", () => {
       suppressIdx,
       branch.indexOf("ios_voip_answered_elsewhere_winner_untracked"),
     );
-    expect(suppressedArm).toContain("completion()");
+    expect(suppressedArm).toContain("reportComplianceIncomingThenEnd(");
+    expect(suppressedArm).not.toContain("completion()");
     expect(suppressedArm).not.toContain("fulfillOrphanTerminalVoipPush(");
   });
 
-  it("3: general orphan + terminalSuppressed → completion-only (no report_then_end)", () => {
+  it("3: general orphan + terminalSuppressed → 준수 보고(no report_then_end of same session · completion-only 금지)", () => {
     const tail = generalOrphanTail(voip());
     expect(tail).toContain("ios_voip_terminal_already_suppressed");
-    expect(tail).toContain("already_terminal_suppressed");
     const suppressIdx = tail.indexOf("isTerminalSuppressed(sessionId: sessionId)");
     const fulfillIdx = tail.indexOf("fulfillOrphanTerminalVoipPush(");
     expect(suppressIdx).toBeGreaterThanOrEqual(0);
     expect(fulfillIdx).toBeGreaterThan(suppressIdx);
     const suppressedArm = tail.slice(suppressIdx, fulfillIdx);
-    expect(suppressedArm).toContain("completion()");
+    expect(suppressedArm).toContain("reportComplianceIncomingThenEnd(");
+    expect(suppressedArm).not.toContain("completion()");
     expect(suppressedArm).not.toContain("fulfillOrphanTerminalVoipPush(");
   });
 

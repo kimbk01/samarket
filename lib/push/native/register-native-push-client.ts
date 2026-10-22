@@ -596,6 +596,19 @@ export function attachVoipPushTokenListener(): () => void {
 
   window.addEventListener("dibay:voip-token", onToken);
   window.addEventListener("dibay:voip-token-invalidated", onInvalidated);
+  /**
+   * 통화 정상화 계획 v2 §3-2 (C5) — 리스너가 붙은 뒤 앱에 VoIP 토큰 재전달을 요청한다. 앱 시작 직후 발급된 토큰이
+   * 리스너 부착 전에 전달돼 사라지면(재시도 15초 후 중단) 토큰 등록이 늦어졌다. 구 iOS 바이너리는 재전달 없이
+   * 등록만 재시작한다(무해).
+   */
+  void import("@/lib/push/native/dibay-voip-call-plugin")
+    .then(({ dibayVoipCallPlugin }) => dibayVoipCallPlugin.startVoipRegistration())
+    .catch((err: unknown) => {
+      logPushRegisterFail("voip_token_replay_request_failed", {
+        error: err instanceof Error ? err.message : String(err),
+        push_provider: "voip_apns",
+      });
+    });
 
   return () => {
     window.removeEventListener("dibay:voip-token", onToken);

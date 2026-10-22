@@ -30,6 +30,8 @@ enum NativeVoiceCallFailure: Equatable, Sendable {
   case tokenFailed
   case joinFailed
   case mediaFailed
+  /// 통화 정상화 계획 v2 §3-2 (C3) — 연결된 뒤 미디어가 끊김(상대 정상 퇴장 아님). 「통화 연결이 끊어졌습니다」.
+  case connectionLost
   case rejected
   case ended
   case internalInvariant

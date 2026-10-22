@@ -97,6 +97,8 @@ final class NativeVoiceCallAgoraEngine: NSObject {
       rtc.enableAudio()
       rtc.disableVideo()
       rtc.setDefaultAudioRouteToSpeakerphone(false)
+      // C4 — 새 통화는 항상 마이크 켜짐으로 시작(이전 통화의 음소거가 남지 않게).
+      rtc.muteLocalAudioStream(false)
 
       let options = AgoraRtcChannelMediaOptions()
       options.channelProfile = .communication
@@ -154,6 +156,43 @@ final class NativeVoiceCallAgoraEngine: NSObject {
     if let currentListener, sid != nil {
       currentListener.onDisconnected(reason: reason.isEmpty ? "leave" : reason)
     }
+  }
+
+  /**
+   * 통화 정상화 계획 v2 §3-2 (C4) — 스피커 버튼이 실제 출력 경로를 바꾼다(이전엔 버튼 모양만 바뀜).
+   * 블루투스·유선 이어폰이 연결돼 있으면 Agora 가 외부 장치를 우선한다(기존 「외부 장치 유지」 규칙).
+   */
+  @discardableResult
+  func setSpeakerphoneEnabled(_ enabled: Bool) -> Bool {
+    lock.lock()
+    let rtc = engine
+    let sid = activeCallId ?? ""
+    lock.unlock()
+    guard let rtc else { return false }
+    let result = rtc.setEnableSpeakerphone(enabled)
+    DibayCallLog.info(
+      "ios_native_voice_audio_route",
+      sessionId: sid,
+      detail: "speaker=\(enabled) result=\(result)"
+    )
+    return result == 0
+  }
+
+  /** C4 — 음소거 버튼이 실제 마이크 송출을 멈춘다(상대에게 반영). CallKit 시스템 음소거도 이 경로. */
+  @discardableResult
+  func setLocalAudioMuted(_ muted: Bool) -> Bool {
+    lock.lock()
+    let rtc = engine
+    let sid = activeCallId ?? ""
+    lock.unlock()
+    guard let rtc else { return false }
+    let result = rtc.muteLocalAudioStream(muted)
+    DibayCallLog.info(
+      "ios_native_voice_mute",
+      sessionId: sid,
+      detail: "muted=\(muted) result=\(result)"
+    )
+    return result == 0
   }
 
   func matches(callId: String, generation expected: UInt64) -> Bool {

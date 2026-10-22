@@ -1,3 +1,4 @@
+import AVFoundation
 import UIKit
 
 /** Native-only voice call UI. Render-only over NativeVoiceCallRuntime state (Android Activity parity). */
@@ -42,6 +43,7 @@ final class NativeVoiceCallViewController: UIViewController {
     view.backgroundColor = UIColor(red: 0.11, green: 0.09, blue: 0.14, alpha: 1)
     buildLayout()
     bindActions()
+    observeAudioState()
     let snap = NativeVoiceCallRuntime.shared.snapshot()
     if snap.session?.sessionId == boundCallId {
       applySnapshot(snap)
@@ -51,6 +53,61 @@ final class NativeVoiceCallViewController: UIViewController {
   override func viewDidDisappear(_ animated: Bool) {
     super.viewDidDisappear(animated)
     stopDurationTimer()
+  }
+
+  deinit {
+    NotificationCenter.default.removeObserver(self)
+  }
+
+  /**
+   * 통화 정상화 계획 v2 §3-2 (C4) — 버튼 상태 = 실제 상태.
+   * 스피커: 실제 출력 경로(AVAudioSession)가 바뀌면 버튼을 따른다(제어 센터·CallKit 오디오 버튼 포함).
+   * 음소거: CallKit 음소거 처리 결과(시스템 통화 화면에서 눌러도) 를 따른다.
+   */
+  private func observeAudioState() {
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(onAudioRouteChanged),
+      name: AVAudioSession.routeChangeNotification,
+      object: nil
+    )
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(onMuteChanged(_:)),
+      name: CallKitProvider.voiceMuteChangedNotification,
+      object: nil
+    )
+  }
+
+  private static func isSpeakerRouteActive() -> Bool {
+    AVAudioSession.sharedInstance().currentRoute.outputs.contains { $0.portType == .builtInSpeaker }
+  }
+
+  @objc private func onAudioRouteChanged() {
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      let speaker = Self.isSpeakerRouteActive()
+      guard speaker != self.speakerEnabledChrome else { return }
+      self.speakerEnabledChrome = speaker
+      self.refreshControlChrome()
+    }
+  }
+
+  @objc private func onMuteChanged(_ note: Notification) {
+    guard let sid = note.userInfo?["sessionId"] as? String, sid == boundCallId,
+      let muted = note.userInfo?["muted"] as? Bool
+    else { return }
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      self.micMutedChrome = muted
+      self.refreshControlChrome()
+    }
+  }
+
+  private func refreshControlChrome() {
+    let snap = NativeVoiceCallRuntime.shared.snapshot()
+    let model = NativeVoiceCallUiPresenter.build(session: snap.session, phase: snap.phase)
+    updateControlChrome(micChromeEnabled: model.micChromeEnabled)
   }
 
   func applySnapshot(_ snapshot: NativeVoiceCallRuntimeSnapshot) {
@@ -235,18 +292,19 @@ final class NativeVoiceCallViewController: UIViewController {
   }
 
   @objc private func onSpeakerTapped() {
-    speakerEnabledChrome.toggle()
-    let snap = NativeVoiceCallRuntime.shared.snapshot()
-    let model = NativeVoiceCallUiPresenter.build(session: snap.session, phase: snap.phase)
-    updateControlChrome(micChromeEnabled: model.micChromeEnabled)
+    // C4 — 실제 출력 전환이 성공했을 때만 버튼을 바꾼다(최종 상태는 경로 변경 알림이 맞춘다).
+    let next = !speakerEnabledChrome
+    guard NativeVoiceCallAgoraEngine.shared.setSpeakerphoneEnabled(next) else { return }
+    speakerEnabledChrome = next
+    refreshControlChrome()
   }
 
   @objc private func onMuteTapped() {
     let snap = NativeVoiceCallRuntime.shared.snapshot()
     let model = NativeVoiceCallUiPresenter.build(session: snap.session, phase: snap.phase)
     guard model.micChromeEnabled else { return }
-    micMutedChrome.toggle()
-    updateControlChrome(micChromeEnabled: model.micChromeEnabled)
+    // C4 — CallKit 음소거 요청 → 실제 마이크 음소거 → 알림으로 버튼 갱신(시스템 통화 화면과 같은 상태).
+    CallKitProvider.shared.requestSetMuted(sessionId: boundCallId, muted: !micMutedChrome)
   }
 
   @objc private func onEndTapped() {

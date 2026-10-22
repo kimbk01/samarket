@@ -21,6 +21,11 @@ public class DibayVoipCallPlugin: CAPPlugin, CAPBridgedPlugin {
 
   @objc func startVoipRegistration(_ call: CAPPluginCall) {
     VoIPPushRegistry.shared.start()
+    // 통화 정상화 계획 v2 §3-2 (C5) — 웹 리스너가 준비된 뒤 호출된다. 앱 시작 직후 발급돼 웹이 놓친 VoIP 토큰을
+    // 다시 전달한다(기존 재시도는 15초 후 멈춤 → 재설치 직후 토큰 등록 지연).
+    DispatchQueue.main.async {
+      DibayPushTokenBridge.replayLastVoipTokenIfPresent()
+    }
     call.resolve(["started": true])
   }
 

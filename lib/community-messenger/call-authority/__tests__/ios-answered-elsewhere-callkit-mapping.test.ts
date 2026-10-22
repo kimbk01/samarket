@@ -82,7 +82,8 @@ describe("CUT7 #3 answered_elsewhere → CallKit .answeredElsewhere (AE1–AE12 
       src.indexOf("let terminalReason"),
     );
     expect(winnerBranch).toContain("answered == local");
-    expect(winnerBranch).toContain("completion()");
+    // 통화 정상화 계획 v2 §3-2 (C1-앱): 진행 중 통화는 끝내지 않되, 보고 없는 완료 대신 새 UUID 준수 보고.
+    expect(winnerBranch).toContain("reportComplianceIncomingThenEnd(");
     expect(winnerBranch).not.toContain("endedReason: .answeredElsewhere");
   });
 

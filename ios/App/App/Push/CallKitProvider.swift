@@ -411,6 +411,56 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     }
   }
 
+  /**
+   * 통화 정상화 계획 v2 §3-2 (C1-앱) — CallKit 이 이 세션 통화를 **실제로 아직 들고 있는지**.
+   * 앱 내부 맵·런타임은 CallKit 이 이미 끝낸 뒤에도 남을 수 있어 판단 기준으로 쓰지 않는다.
+   */
+  private let callObserver = CXCallObserver()
+
+  func isCallKitCallLive(sessionId: String) -> Bool {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty, let uuid = callUuidBySessionId[sid] ?? UUID(uuidString: sid) else { return false }
+    return callObserver.calls.contains { $0.uuid == uuid && !$0.hasEnded }
+  }
+
+  /**
+   * 통화 정상화 계획 v2 §3-2 (C1-앱) — PushKit 규칙 준수 전용 보고.
+   * iOS 는 VoIP 를 받을 때마다 CallKit 새 통화 보고를 요구하고, 보고 없이 완료하면 앱을 강제 종료한 뒤
+   * VoIP 를 차단한다(2026-10-22 실기기: missed_call VoIP → completion_only → SIGABRT → dropped on the floor).
+   * 이 VoIP 에 대응하는 살아 있는 CallKit 통화가 없을 때, **새 UUID** 로 무음 보고 후 즉시 종료한다.
+   * 앱 맵·런타임·진행 중 통화·세션 UUID 는 건드리지 않는다.
+   */
+  func reportComplianceIncomingThenEnd(
+    sessionId: String,
+    reason: String,
+    completion: @escaping () -> Void
+  ) {
+    let complianceUuid = UUID()
+    applyIncomingRingtoneSsot(iosSoundName: nil, policy: "silent")
+    let update = CXCallUpdate()
+    update.remoteHandle = CXHandle(type: .generic, value: "DIBAY")
+    update.localizedCallerName = "DIBAY"
+    update.hasVideo = false
+    update.supportsHolding = false
+    update.supportsGrouping = false
+    update.supportsUngrouping = false
+    update.supportsDTMF = false
+    DibayCallLog.infoCall(
+      "[voip] compliance_report_start",
+      callId: sessionId,
+      detail: "reason=\(reason) uuid=\(DibayCallLog.mask(complianceUuid.uuidString))"
+    )
+    provider.reportNewIncomingCall(with: complianceUuid, update: update) { [weak self] error in
+      self?.provider.reportCall(with: complianceUuid, endedAt: Date(), reason: .remoteEnded)
+      DibayCallLog.infoCall(
+        "[voip] compliance_report_done",
+        callId: sessionId,
+        detail: "reason=\(reason) err=\(error?.localizedDescription ?? "none")"
+      )
+      completion()
+    }
+  }
+
   func isCallKitEndCompleted(sessionId: String) -> Bool {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return false }
@@ -574,6 +624,55 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       update.hasVideo = hasVideoBySessionId[sid] ?? action.isVideo
       provider.reportCall(with: action.callUUID, updated: update)
       provider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: Date())
+    }
+  }
+
+  /**
+   * 통화 정상화 계획 v2 §3-2 (C4) — iOS 시스템 통화 화면·앱 화면 음소거를 한 경로로: CXSetMutedCallAction →
+   * 실제 마이크 음소거(Agora) → 앱 화면 버튼 상태 갱신(알림). 영상 통화는 기존 경로 유지(이 처리기는 음성만 적용).
+   */
+  static let voiceMuteChangedNotification = Notification.Name("DibayNativeVoiceMuteChanged")
+
+  func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
+    guard let sid = sessionId(for: action.callUUID), !(hasVideoBySessionId[sid] ?? false) else {
+      action.fulfill()
+      return
+    }
+    let applied = NativeVoiceCallAgoraEngine.shared.setLocalAudioMuted(action.isMuted)
+    if applied {
+      action.fulfill()
+      NotificationCenter.default.post(
+        name: Self.voiceMuteChangedNotification,
+        object: nil,
+        userInfo: ["sessionId": sid, "muted": action.isMuted]
+      )
+    } else {
+      action.fail()
+    }
+  }
+
+  /** C4 — 앱 화면 음소거 버튼: CallKit 에 요청해 시스템 화면과 상태를 맞춘다. CallKit 통화가 없으면 직접 적용. */
+  func requestSetMuted(sessionId: String, muted: Bool) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let uuid = callUuidBySessionId[sid], isCallKitCallLive(sessionId: sid) else {
+      if NativeVoiceCallAgoraEngine.shared.setLocalAudioMuted(muted) {
+        NotificationCenter.default.post(
+          name: Self.voiceMuteChangedNotification,
+          object: nil,
+          userInfo: ["sessionId": sid, "muted": muted]
+        )
+      }
+      return
+    }
+    let action = CXSetMutedCallAction(call: uuid, muted: muted)
+    localEndCallController.request(CXTransaction(action: action)) { error in
+      if let error {
+        DibayCallLog.info(
+          "ios_native_voice_mute_request_failed",
+          sessionId: sid,
+          detail: "err=\(error.localizedDescription)"
+        )
+      }
     }
   }
 

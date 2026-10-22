@@ -389,6 +389,20 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     }
     let inFlight = syncQueue.sync { cleanupInFlight.contains(sid) }
     if inFlight { return }
+    // 통화 정상화 계획 v2 §3-2 (C3) — 2026-10-22 실기기 A4: 상대가 끊자 0.06s 뒤 mediaFailed → 「통화를 시작하지
+    // 못했습니다」. 영상(NativeVideoIncomingCallCoordinator)·음성 발신 코디네이터와 같게:
+    //  - 연결 후 상대 정상 퇴장(Agora remote_offline=0 QUIT) = 정상 종료(알림 없음) — 발신 코디네이터와 동일 기준
+    //  - 연결 후 그 밖의 끊김(상대 네트워크 끊김 remote_offline=1 등) = 「통화 연결이 끊어졌습니다」(connectionLost, 서버 end)
+    //  - 연결 전 끊김 = 기존 실패(「통화를 시작하지 못했습니다」)
+    if case .connected = snap.phase {
+      if reason == "remote_offline=0" {
+        log("ios_native_voice_incoming_remote_left", sid, "reason=\(reason)")
+        handleRemoteTerminal(sessionId: sid)
+        return
+      }
+      failAfterFulfill(sessionId: sid, reason: .connectionLost, serverAction: "end")
+      return
+    }
     failAfterFulfill(sessionId: sid, reason: .mediaFailed, serverAction: "end")
   }
 
