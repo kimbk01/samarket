@@ -98,6 +98,8 @@ export function resolveDibaySurface(
   if (
     p === "/stores/cart" ||
     p.startsWith("/stores/cart/") ||
+    // ADC-11: 매장별 장바구니·결제 (`/stores/{slug}/cart` = 실제 결제 UI, `/checkout` = 그쪽 redirect)
+    /^\/stores\/[^/]+\/(cart|checkout)(\/|$)/.test(p) ||
     /\/order\/complete(\/|$)/.test(p) ||
     p.startsWith("/orders/store/") ||
     p.startsWith("/mypage/store-orders/") ||

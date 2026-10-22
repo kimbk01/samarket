@@ -21,12 +21,15 @@ export const DELIVERY_HERO_CAPACITY =
 /**
  * Occupies HERO pool for overlap booking (write gate).
  * Pending review must block overbook — not presentation-only ACTIVE/SCHEDULED.
+ * ADC-10: 심사 대기 상태명은 lifecycle SSOT(`delivery-ad-lifecycle.ts` · DB CHECK)의
+ * SUBMITTED / UNDER_REVIEW / CHANGES_REQUESTED — 존재하지 않는 PENDING_REVIEW·IN_REVIEW 로는 점유가 0 이었다.
  */
 export const HERO_OCCUPYING_LIFECYCLES = new Set([
   "ACTIVE",
   "SCHEDULED",
-  "PENDING_REVIEW",
-  "IN_REVIEW",
+  "SUBMITTED",
+  "UNDER_REVIEW",
+  "CHANGES_REQUESTED",
   "APPROVED",
   "PAUSED_ADMIN",
   "PAUSED_OWNER",

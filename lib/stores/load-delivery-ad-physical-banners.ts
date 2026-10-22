@@ -15,6 +15,10 @@ import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banne
 import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
 import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
 import { loadEligibleBannerStoreIds } from "@/lib/stores/advertising/load-banner-store-eligibility";
+import {
+  excludeViewerOutOfRangeBannerStores,
+  type BannerViewerOrigin,
+} from "@/lib/stores/advertising/banner-viewer-serviceability";
 import { evaluateBannerPhysicalInventoryExposure } from "@/lib/stores/advertising/banner-physical-inventory-exposure";
 import type { DeliveryAdInventoryKey } from "@/lib/stores/advertising/delivery-ad-inventory";
 import type { BannerAdDbSurface } from "@/lib/stores/advertising/delivery-ad-placement";
@@ -84,9 +88,12 @@ export async function loadVisiblePhysicalBannerSlides(
     physicalEnabled: boolean;
     capacity?: number;
     nowMs?: number;
+    /** ADC-04 — 매장 목록과 같은 origin. 생략 = 지역 필터 없음. */
+    viewerOrigin?: BannerViewerOrigin | null;
   }
 ): Promise<PhysicalBannerResolvedSlide[]> {
   if (!input.physicalEnabled) return [];
+  const viewerOrigin = input.viewerOrigin ?? null;
   const nowMs = input.nowMs ?? Date.now();
   const capacity = Math.max(1, Math.min(3, input.capacity ?? 1));
 
@@ -114,10 +121,11 @@ export async function loadVisiblePhysicalBannerSlides(
         campaignIds: ids,
       }),
       // ADS-06 — 정지·비노출·삭제 매장 배너 제외 (검색상단 오가닉 풀과 같은 기준).
+      // ADC-04 — 이어서 이 사용자 기준 배달 불가(목록 제외) 매장 배너 제외.
       loadEligibleBannerStoreIds(
         sb,
         rows.map((r) => (r.store_id == null ? null : String(r.store_id)))
-      ),
+      ).then((ids) => excludeViewerOutOfRangeBannerStores(sb, ids, viewerOrigin)),
     ]);
 
     const creativeIds = rows

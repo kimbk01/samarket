@@ -23,6 +23,10 @@ import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banne
 import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
 import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
 import { loadEligibleBannerStoreIds } from "@/lib/stores/advertising/load-banner-store-eligibility";
+import {
+  excludeViewerOutOfRangeBannerStores,
+  type BannerViewerOrigin,
+} from "@/lib/stores/advertising/banner-viewer-serviceability";
 import { bannerPlacementDefaultCapacity } from "@/lib/ads/banner-placement-capacity-ssot";
 import { DELIVERY_HERO_PLACEMENT_KEY } from "@/lib/admin/ads-exposure/capacity-gate";
 
@@ -85,7 +89,9 @@ async function loadInventoryKeysByCampaign(
  */
 export async function loadVisibleStoresHomeHeroBanners(
   sb: SupabaseClient,
-  nowMs: number = Date.now()
+  nowMs: number = Date.now(),
+  /** ADC-04 — 매장 목록과 같은 origin. 생략 = 지역 필터 없음. */
+  viewerOrigin: BannerViewerOrigin | null = null
 ): Promise<HomeHeroBannerResolvedSlide[]> {
   try {
     const { data, error } = await sb
@@ -115,10 +121,11 @@ export async function loadVisibleStoresHomeHeroBanners(
         campaignIds: ids,
       }),
       // ADS-06 — 정지·비노출·삭제 매장 배너 제외 (검색상단 오가닉 풀과 같은 기준).
+      // ADC-04 — 이어서 이 사용자 기준 배달 불가(목록 제외) 매장 배너 제외.
       loadEligibleBannerStoreIds(
         sb,
         rows.map((r) => (r.store_id == null ? null : String(r.store_id)))
-      ),
+      ).then((ids) => excludeViewerOutOfRangeBannerStores(sb, ids, viewerOrigin)),
     ]);
 
     const creativeIds = rows

@@ -78,6 +78,11 @@ export type PlatformPopupCandidate = {
   suppressionMode?: PlatformPopupSuppressionMode | string | null;
   suppressionDurationSeconds?: number | null;
   ctaLookup?: PlatformPopupCtaTargetLookup | null;
+  /**
+   * ADC-02 — 오너 신청 팝업의 연결 매장이 노출 자격(approved · is_visible, 배너 ADS-06 과 동일)을 잃으면 false.
+   * 미지정 = 매장 연결 없는 팝업(관리자 직접) → 게이트 대상 아님.
+   */
+  ownerStoreEligible?: boolean;
   suppressions?: readonly PlatformPopupSuppressionRecord[];
   campaignRevision?: string | null;
   /** Actor last impression — drives rotation (null = never shown). */
@@ -198,6 +203,8 @@ export function selectPlatformPopupEligibleWinner(
     } else if (!isPlatformPopupInterruptivePresentation(presentationType)) {
       continue; // banner / ptr_reveal presentations: non-interruptive hosts
     }
+
+    if (c.ownerStoreEligible === false) continue;
 
     const creative = c.creative;
     if (!creative || creative.status !== "ready") continue;

@@ -52,6 +52,11 @@ export type DeliveryAdBannerProps = {
   priority?: boolean;
   /** Optional pre-navigate hook (e.g. promotion content-visit). Not visual. */
   onBeforeNavigate?: () => void;
+  /**
+   * ADC-09 — customer runtime: 배너 이미지 로드 실패 시 슬롯을 숨긴 뒤 호출(캐러셀은 해당 슬라이드 제거).
+   * 상품용 대체 이미지 + 「광고」 라벨을 클릭 가능한 채로 두지 않는다.
+   */
+  onAssetError?: () => void;
 };
 
 export function inventoryViewFromKey(key: DeliveryAdInventoryKey): DeliveryAdBannerInventoryView {

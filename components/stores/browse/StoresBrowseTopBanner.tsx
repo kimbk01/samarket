@@ -73,6 +73,7 @@ export function StoresBrowseTopBanner({
       data-stage2-banner-continuation="fixed_once_per_surface"
     >
       <DeliveryAdBanner
+        key={slide.id}
         inventory={inventory}
         creative={{
           assetUrl: slide.imageUrl,
@@ -85,6 +86,11 @@ export function StoresBrowseTopBanner({
         renderContext="customer"
         campaignId={slide.id}
         exposureToken={slide.exposureToken}
+        onAssetError={() => {
+          // ADC-09: 이미지가 깨진 배너는 슬롯에서 제외 (대체 이미지 + 「광고」 라벨 노출 금지)
+          const failedId = slide.id;
+          setBanners((prev) => (prev ? prev.filter((b) => b.id !== failedId) : prev));
+        }}
       />
     </div>
   );

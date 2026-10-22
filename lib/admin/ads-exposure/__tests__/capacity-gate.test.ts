@@ -3,7 +3,9 @@ import {
   assertHeroCapacityForWindow,
   DELIVERY_HERO_CAPACITY,
   DELIVERY_HERO_PLACEMENT_KEY,
+  HERO_OCCUPYING_LIFECYCLES,
 } from "@/lib/admin/ads-exposure/capacity-gate";
+import { DELIVERY_AD_LIFECYCLE_STATUSES } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import type { PlacementOccupancyInput } from "@/lib/admin/ads-operator/placement-occupancy";
 
 function camp(
@@ -50,16 +52,25 @@ describe("HERO capacity overlap gate", () => {
     expect(r.ok).toBe(true);
   });
 
-  it("counts PENDING_REVIEW toward capacity (overbook prevention)", () => {
-    const campaigns = [1, 2, 3, 4, 5].map((n) =>
-      camp(`c${n}`, "PENDING_REVIEW", "2026-09-10T00:00:00.000Z", "2026-09-20T00:00:00.000Z")
-    );
-    const r = assertHeroCapacityForWindow({
-      campaigns,
-      startAt: "2026-09-12T00:00:00.000Z",
-      endAt: "2026-09-14T00:00:00.000Z",
-    });
-    expect(r.ok).toBe(false);
+  it.each(["SUBMITTED", "UNDER_REVIEW", "CHANGES_REQUESTED"])(
+    "ADC-10: counts in-review lifecycle %s toward capacity (overbook prevention)",
+    (life) => {
+      const campaigns = [1, 2, 3, 4, 5].map((n) =>
+        camp(`c${n}`, life, "2026-09-10T00:00:00.000Z", "2026-09-20T00:00:00.000Z")
+      );
+      const r = assertHeroCapacityForWindow({
+        campaigns,
+        startAt: "2026-09-12T00:00:00.000Z",
+        endAt: "2026-09-14T00:00:00.000Z",
+      });
+      expect(r.ok).toBe(false);
+    }
+  );
+
+  it("ADC-10: occupying set uses only real lifecycle statuses", () => {
+    for (const s of HERO_OCCUPYING_LIFECYCLES) {
+      expect((DELIVERY_AD_LIFECYCLE_STATUSES as readonly string[]).includes(s)).toBe(true);
+    }
   });
 
   it("excludes self when rescheduling", () => {

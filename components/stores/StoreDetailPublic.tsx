@@ -70,6 +70,10 @@ import { markFeaturedO3Reservation } from "@/lib/dibay/featured-o3-reservation-e
 import { useDeliveryPresentationApi } from "@/components/delivery/presentation/DeliveryPresentationShell";
 import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
 import { localizeMenuSectionHeadings } from "@/lib/stores/localize-menu-section-headings";
+import {
+  resolveStoreDetailCtaEntryTarget,
+  STORE_DETAIL_PROMO_ANCHOR_ID,
+} from "@/lib/stores/store-detail-cta-entry-target";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { decodeSlugSegment, isStoreSlugOrderMenuRoot } from "@/lib/stores/store-consumer-route";
 import { useStoreDetailMenuTabsViewport } from "@/lib/stores/use-store-detail-menu-tabs-viewport";
@@ -1619,6 +1623,29 @@ export function StoreDetailPublic({
     [armMenuScrollSpyLock]
   );
 
+  /** ADC-06 — 배너·팝업 CTA `#menu` / `?tab=promo` 착지 (기존 섹션 스크롤 경로 재사용, 진입당 1회). */
+  const ctaEntryHandledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined" || !detailRevealed || showMenusSkeleton) return;
+    const target = resolveStoreDetailCtaEntryTarget({
+      search: window.location.search,
+      hash: window.location.hash,
+    });
+    if (!target) return;
+    const entryKey = `${decodedSlug}:${target}`;
+    if (ctaEntryHandledRef.current === entryKey) return;
+    if (target === "menu") {
+      if (menuSectionsFiltered.length === 0) return;
+      ctaEntryHandledRef.current = entryKey;
+      scrollStoreSectionIntoView(0);
+      return;
+    }
+    ctaEntryHandledRef.current = entryKey;
+    document
+      .getElementById(STORE_DETAIL_PROMO_ANCHOR_ID)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [detailRevealed, showMenusSkeleton, decodedSlug, menuSectionsFiltered.length, scrollStoreSectionIntoView]);
+
   const onShareClick = useCallback(() => {
     if (typeof window === "undefined" || !store) return;
     const url = window.location.href;
@@ -2048,7 +2075,9 @@ export function StoreDetailPublic({
         commerceCartStoreId={detailStore.id}
         bannersSlot={
           publicBanners.length > 0 ? (
-            <StoreOwnerBannerCarousel storeSlug={detailStore.slug} banners={publicBanners} variant="hero" />
+            <div id={STORE_DETAIL_PROMO_ANCHOR_ID}>
+              <StoreOwnerBannerCarousel storeSlug={detailStore.slug} banners={publicBanners} variant="hero" />
+            </div>
           ) : undefined
         }
         storeManagedNoticesSlot={

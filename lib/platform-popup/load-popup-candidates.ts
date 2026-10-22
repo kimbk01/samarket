@@ -22,6 +22,11 @@ import {
   popupCtaInputEventId,
   resolvePopupCandidateCtaLookup,
 } from "@/lib/platform-popup/popup-event-destination-availability";
+import {
+  popupStoreCtaLegacyStoreId,
+  rewritePopupStoreCtaTargetToSlug,
+} from "@/lib/platform-popup/popup-store-cta-target";
+import { loadEligibleBannerStoreIds } from "@/lib/stores/advertising/load-banner-store-eligibility";
 
 type CampaignRow = {
   id: string;
@@ -41,6 +46,8 @@ type CampaignRow = {
   cta_label: string | null;
   title: string | null;
   body: string | null;
+  /** 오너 신청 팝업의 매장 — ADC-02 매장 자격 게이트 */
+  owner_store_id?: string | null;
   /** ptr_reveal 마이그레이션 이후 — interruptive 쿼리에는 포함하지 않음 */
   audience_mode?: string | null;
   audience_user_ids?: string[] | null;
@@ -101,7 +108,7 @@ export async function loadPlatformPopupCandidates(
     : sb
         .from("platform_popup_campaigns")
         .select(
-          "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url, cta_label, title, body, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode"
+          "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url, cta_label, title, body, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, owner_store_id"
         )
         .in("status", ["scheduled", "active"])
         .eq("approval_status", "approved");
@@ -110,9 +117,34 @@ export async function loadPlatformPopupCandidates(
   if (error || !campaigns?.length) return [];
 
   const ids = (campaigns as unknown as CampaignRow[]).map((c) => c.id);
+  // ADC-01: 기존 행이 매장 UUID 로 저장한 매장 CTA → slug 로 해석해 서빙 (매장 상세는 slug 조회).
+  const legacyStoreIds = (campaigns as unknown as CampaignRow[])
+    .map((c) => popupStoreCtaLegacyStoreId({ ctaType: c.cta_type, ctaTarget: c.cta_target }))
+    .filter((id): id is string => Boolean(id));
+  const ownerStoreIds = (campaigns as unknown as CampaignRow[])
+    .map((c) => String(c.owner_store_id ?? "").trim())
+    .filter(Boolean);
+  const [legacySlugById, eligibleOwnerStoreIds] = await Promise.all([
+    loadPopupStoreSlugsById(sb, legacyStoreIds),
+    // ADC-02: 배너(ADS-06)와 같은 매장 자격 — approved · is_visible. 조회 오류 → 빈 집합(fail-closed).
+    ownerStoreIds.length ? loadEligibleBannerStoreIds(sb, ownerStoreIds) : Promise.resolve(null),
+  ]);
+  const ctaTargetOf = (c: CampaignRow): string | null => {
+    const legacyId = popupStoreCtaLegacyStoreId({ ctaType: c.cta_type, ctaTarget: c.cta_target });
+    if (!legacyId) return c.cta_target;
+    const slug = legacySlugById.get(legacyId);
+    // 매장 행 없음 → 열 수 없는 CTA. null target 은 CTA 검증에서 탈락(fail-closed).
+    if (!slug) return null;
+    return rewritePopupStoreCtaTargetToSlug({
+      ctaType: c.cta_type,
+      ctaTarget: c.cta_target,
+      storeId: legacyId,
+      slug,
+    });
+  };
   const ctaInputOf = (c: CampaignRow) => ({
     ctaType: c.cta_type,
-    ctaTarget: c.cta_target,
+    ctaTarget: ctaTargetOf(c),
     externalUrl: c.external_url,
   });
   // EVT-03: event destinations must exist, be public and running — one batched read.
@@ -210,13 +242,16 @@ export async function loadPlatformPopupCandidates(
           }
         : null,
       ctaType: c.cta_type as PlatformPopupCtaType,
-      ctaTarget: c.cta_target,
+      ctaTarget: ctaTargetOf(c),
       externalUrl: c.external_url,
       ctaLabel: c.cta_label,
       title: c.title,
       body: c.body,
       suppressionMode: c.suppression_mode,
       suppressionDurationSeconds: c.suppression_duration_seconds,
+      ...(c.owner_store_id && eligibleOwnerStoreIds
+        ? { ownerStoreEligible: eligibleOwnerStoreIds.has(String(c.owner_store_id).trim()) }
+        : {}),
       ctaLookup: resolvePopupCandidateCtaLookup(ctaInputOf(c), eventLookups),
       suppressions: suppressByCampaign.get(c.id) ?? [],
       lastImpressionAt: lastImpressions.get(c.id) ?? null,
@@ -229,6 +264,27 @@ export async function loadPlatformPopupCandidates(
         : {}),
     };
   });
+}
+
+/** ADC-01 — 매장 UUID → slug (기존 UUID CTA 행 해석용). 조회 오류 → 빈 맵(해당 CTA 미노출). */
+async function loadPopupStoreSlugsById(
+  sb: SupabaseClient,
+  storeIds: readonly string[]
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ids = [...new Set(storeIds)];
+  if (!ids.length) return out;
+  const { data, error } = await sb.from("stores").select("id, slug").in("id", ids);
+  if (error) {
+    console.error("[loadPopupStoreSlugsById]", error.message);
+    return out;
+  }
+  for (const row of (data ?? []) as { id?: unknown; slug?: unknown }[]) {
+    const id = String(row.id ?? "").trim().toLowerCase();
+    const slug = String(row.slug ?? "").trim();
+    if (id && slug) out.set(id, slug);
+  }
+  return out;
 }
 
 async function loadSuppressions(

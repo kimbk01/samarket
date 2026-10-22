@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { loadVisibleStoresHomeHeroBanners } from "@/lib/stores/load-store-banner-ad-campaigns";
+import { resolveStoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
  * CUT 5 — public HOME hero banner slides (ONE Banner authority).
  * Empty list = hide hero (no static/fake campaign fallback).
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json(
@@ -17,7 +18,9 @@ export async function GET() {
       { headers: { "Cache-Control": "private, no-store" } }
     );
   }
-  const banners = await loadVisibleStoresHomeHeroBanners(sb).catch(() => []);
+  // ADC-04: 매장 목록(home-feed)과 같은 origin — 배달 불가 매장 배너 제외
+  const origin = await resolveStoreListDeliveryOrigin(sb, req.nextUrl.searchParams);
+  const banners = await loadVisibleStoresHomeHeroBanners(sb, Date.now(), origin).catch(() => []);
   return NextResponse.json(
     {
       ok: true,

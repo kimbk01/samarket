@@ -38,10 +38,16 @@ export function useDeliveryAdImpressionObserver(
   props: Props
 ) {
   const firedRef = useRef(false);
+  /** ADC-03 — 노출 1회 기록은 토큰(=광고·지면 노출) 단위. 같은 인스턴스에서 토큰이 바뀌면 다시 측정. */
+  const firedTokenRef = useRef<string | null>(null);
   const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!props.enabled || !props.exposureToken) return;
+    if (firedTokenRef.current !== props.exposureToken) {
+      firedTokenRef.current = props.exposureToken;
+      firedRef.current = false;
+    }
     const el = elementRef.current;
     if (!el || typeof IntersectionObserver === "undefined") return;
 

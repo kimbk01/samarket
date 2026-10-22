@@ -12,6 +12,10 @@ import {
 } from "@/lib/platform-popup/admin-campaign-authority";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import {
+  popupStoreCtaLegacyStoreId,
+  rewritePopupStoreCtaTargetToSlug,
+} from "@/lib/platform-popup/popup-store-cta-target";
+import {
   canOwnerTransitionPlatformPopupRequest,
   isOwnerEditablePlatformPopupRequest,
   isOwnerSubmitEligiblePlatformPopupRequest,
@@ -138,13 +142,16 @@ export async function createPlatformPopupOwnerDraft(
 
   const { data: store, error: storeErr } = await sb
     .from("stores")
-    .select("id, owner_user_id")
+    .select("id, owner_user_id, slug")
     .eq("id", storeId)
     .maybeSingle();
   if (storeErr || !store) return { ok: false, error: "forbidden", httpStatus: 403 };
   if (String((store as { owner_user_id?: string }).owner_user_id ?? "") !== input.ownerUserId) {
     return { ok: false, error: "forbidden", httpStatus: 403 };
   }
+  // ADC-01: 매장 상세는 slug 로만 열린다 — CTA 는 slug 로 저장 (UUID 경로 = 404).
+  const storeSlug = String((store as { slug?: string | null }).slug ?? "").trim();
+  if (!storeSlug) return { ok: false, error: "store_not_eligible", httpStatus: 403 };
 
   const now = new Date().toISOString();
   const { data, error } = await sb
@@ -157,7 +164,7 @@ export async function createPlatformPopupOwnerDraft(
       requested_surfaces: ["GLOBAL"],
       timezone: PLATFORM_POPUP_DEFAULT_TIMEZONE,
       cta_type: "store",
-      cta_target: storeId,
+      cta_target: storeSlug,
       suppression_mode: "TODAY",
       created_at: now,
       updated_at: now,
@@ -182,6 +189,24 @@ export async function createPlatformPopupOwnerDraft(
   });
 
   return { ok: true, row };
+}
+
+/**
+ * ADC-01 — 오너 화면은 매장 UUID 로 CTA 를 만든다(`popup-cta-destination-ux.ts`).
+ * 신청 매장 UUID 를 가리키면 그 매장 slug 로 바꿔 저장한다. slug 조회 실패 → 원래 값(서빙에서 해석).
+ */
+async function ownerPopupCtaTargetWithStoreSlug(
+  sb: SupabaseClient,
+  input: { ctaType: string; ctaTarget: string; storeId: string }
+): Promise<string> {
+  const legacyId = popupStoreCtaLegacyStoreId(input);
+  if (!legacyId || legacyId !== input.storeId.trim().toLowerCase()) return input.ctaTarget;
+  const { data } = await sb.from("stores").select("slug").eq("id", input.storeId).maybeSingle();
+  const slug = String((data as { slug?: string | null } | null)?.slug ?? "").trim();
+  if (!slug) return input.ctaTarget;
+  return (
+    rewritePopupStoreCtaTargetToSlug({ ...input, slug }) ?? input.ctaTarget
+  );
 }
 
 export async function updatePlatformPopupOwnerDraft(
@@ -268,7 +293,11 @@ export async function updatePlatformPopupOwnerDraft(
     const cta = validatePlatformPopupCta({ ctaType, ctaTarget, externalUrl });
     if (!cta.ok) return { ok: false, error: "cta_invalid", detail: cta.error, httpStatus: 400 };
     patch.cta_type = cta.value.ctaType;
-    patch.cta_target = cta.value.ctaTarget;
+    patch.cta_target = await ownerPopupCtaTargetWithStoreSlug(sb, {
+      ctaType: cta.value.ctaType,
+      ctaTarget: cta.value.ctaTarget,
+      storeId: owned.row.storeId,
+    });
     patch.external_url = cta.value.externalUrl;
   }
 

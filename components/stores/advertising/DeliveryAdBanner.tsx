@@ -1,7 +1,7 @@
 "use client";
 
 import { DestinationLink } from "@/components/destination/DestinationLink";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   DELIVERY_AD_BANNER_CONTENT_MAX_CLASS,
@@ -31,25 +31,30 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
     className,
     priority,
     onBeforeNavigate,
+    onAssetError,
   } = props;
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const isCustomer = renderContext === "customer";
   const token = String(exposureToken ?? "").trim();
   const sessionSeed = `banner:${campaignId ?? "unknown"}:${token.slice(0, 12)}`;
+  const assetUrl = String(creative.assetUrl ?? "").trim();
+  /** ADC-09 — 로드 실패한 소재 URL (소재가 바뀌면 자동 해제). customer 만 슬롯 숨김. */
+  const [failedAssetUrl, setFailedAssetUrl] = useState<string | null>(null);
+  const assetFailed = isCustomer && failedAssetUrl !== null && failedAssetUrl === assetUrl;
 
   useDeliveryAdImpressionObserver(rootRef, {
-    enabled: isCustomer && Boolean(token),
+    enabled: isCustomer && Boolean(token) && !assetFailed,
     exposureToken: token || null,
     sessionSeed,
   });
 
-  const assetUrl = String(creative.assetUrl ?? "").trim();
-  if (!assetUrl) {
+  if (!assetUrl || assetFailed) {
     return (
       <div
         className="hidden"
         data-delivery-ad-banner="empty"
+        data-delivery-ad-asset-error={assetFailed ? "1" : undefined}
         data-render-context={renderContext}
         aria-hidden
       />
@@ -90,6 +95,14 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
             inventory.objectPosition === "center" ? "object-center" : "object-center"
           }
           priority={priority === true}
+          onImageError={
+            isCustomer
+              ? () => {
+                  setFailedAssetUrl(assetUrl);
+                  onAssetError?.();
+                }
+              : undefined
+          }
         />
       </div>
       <span

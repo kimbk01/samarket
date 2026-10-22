@@ -107,6 +107,8 @@ export function StoresHomeHeroBanner() {
       }}
     >
       <DeliveryAdBanner
+        // ADC-03: 슬라이드마다 새 인스턴스 — 노출 관찰·클릭 세션이 슬라이드(광고) 단위로 분리
+        key={slide.id}
         inventory={inventory}
         creative={{
           assetUrl: slide.imageUrl,
@@ -120,6 +122,11 @@ export function StoresHomeHeroBanner() {
         campaignId={slide.id}
         exposureToken={slide.exposureToken}
         priority
+        onAssetError={() => {
+          // ADC-09: 이미지가 깨진 슬라이드는 캐러셀에서 제외 (남은 게 없으면 슬롯 숨김)
+          const failedId = slide.id;
+          setBanners((prev) => (prev ? prev.filter((b) => b.id !== failedId) : prev));
+        }}
       />
       {DOTS_REQUIRED && slideCount > 1 ? (
         <div
