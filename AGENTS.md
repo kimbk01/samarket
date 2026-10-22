@@ -18,6 +18,7 @@
 5. **검증 = 코드 PASS + 실기기 PASS 둘 다**: 로컬 테스트 통과만으로 완료가 아니다. Production SHA 를 **매 테스트마다** 확인하고, 다른 배포 버전 결과를 섞지 않는다. 최소 행렬: Android↔iPhone 음성·영상 발신·수신, 거절, 벨 중 취소, 취소 후 지연 푸시(재울림 없음), 통화 중(busy), 무응답 타임아웃, 정상 종료 후 즉시 재발신. 각 테스트는 발신 시점·세션 생성·VoIP/FCM 발송·수신 화면 표시·연결·종료 시각을 기록한다(서버 시각은 운영 DB 로 대조).
 6. **실기기 FAIL 시 즉시 중단**: 다른 작업(메신저 개선·DB 적용·네이티브 ④⑤)을 멈추고 통화 정상화가 최우선. 수정 후 같은 행렬로 재검증해 PASS 전에는 다음 단계로 가지 않는다.
 7. **보고 형식**: ① 정확히 무엇을 변경했는가 ② 확인된 원인 ③ 어떤 수정으로 복구했는가 ④ 실기기 PASS/FAIL (코드 PASS·Production 반영·실기기 PASS 구분, 측정 안 한 것은 NOT_PROVEN).
+8. **통화 푸시·iOS CallKit SSOT HARD LOCK**: 단일 기준 **`docs/dibay-call-push-callkit-ssot-hard-lock.md`** (H1 서버 iPhone VoIP 는 살아 있는 벨이 있는 기기에만 · H2 iOS 는 모든 VoIP 를 CallKit 에 보고 · H3 음성 종료 분류 · H4 스피커·음소거 실제 동작 · H5 VoIP 토큰 재전달). 잠금 테스트 `lib/community-messenger/call-authority/__tests__/call-push-callkit-ssot-hard-lock.test.ts` 를 완화·삭제하지 않는다. 깨면 iPhone 이 앱 꺼짐·잠금 상태에서 전화를 못 받는다(iOS 가 앱 VoIP 를 차단).
 
 # This is NOT the Next.js you know
 

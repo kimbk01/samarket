@@ -228,12 +228,18 @@ describe("call-v4 import isolation", () => {
     expect(voip).not.toContain("reportOrphanTerminalVoipPushAndEnd");
     expect(callkit).not.toContain("reportOrphanTerminalVoipPushAndEnd");
 
-    // reportNewIncomingCall remains only inside reportIncomingCall (incoming + orphan fulfill).
+    // reportNewIncomingCall: reportIncomingCall(incoming + orphan fulfill) 1곳 +
+    // 통화 정상화 계획 v2 §3-2 규칙 준수 보고(reportComplianceIncomingThenEnd: 새 UUID·무음·즉시 종료) 1곳만.
     const incomingIdx = callkit.indexOf("func reportIncomingCall");
-    const reportIdx = callkit.indexOf("reportNewIncomingCall");
+    const reportIdx = callkit.indexOf("provider.reportNewIncomingCall", incomingIdx);
     expect(incomingIdx).toBeGreaterThanOrEqual(0);
     expect(reportIdx).toBeGreaterThan(incomingIdx);
-    expect(callkit.indexOf("reportNewIncomingCall", reportIdx + 1)).toBe(-1);
+    const complianceIdx = callkit.indexOf("func reportComplianceIncomingThenEnd");
+    expect(complianceIdx).toBeGreaterThan(reportIdx);
+    const secondIdx = callkit.indexOf("provider.reportNewIncomingCall", reportIdx + 1);
+    expect(secondIdx).toBeGreaterThan(complianceIdx);
+    expect(callkit.slice(complianceIdx, secondIdx)).toContain("let complianceUuid = UUID()");
+    expect(callkit.indexOf("provider.reportNewIncomingCall", secondIdx + 1)).toBe(-1);
   });
 
   it("Legacy Web Call establishment removed on Android Capacitor (Track ①)", () => {

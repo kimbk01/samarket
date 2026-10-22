@@ -14,3 +14,4 @@ alwaysApply: true
 5. 완료 = 코드 PASS + 실기기 PASS. 매 테스트 Production SHA 확인. 행렬: Android↔iPhone 음성·영상, 거절, 벨 중 취소, 취소 후 지연 푸시, busy, 무응답, 종료 후 재발신 — 단계별 시각 기록.
 6. 실기기 FAIL 시 다른 작업 중단, 통화 정상화 최우선.
 7. 보고: 변경 내용 · 확인된 원인 · 복구 수정 · 실기기 PASS/FAIL.
+8. 통화 푸시·iOS CallKit SSOT HARD LOCK: `docs/dibay-call-push-callkit-ssot-hard-lock.md` (H1~H5) · 잠금 테스트 `lib/community-messenger/call-authority/__tests__/call-push-callkit-ssot-hard-lock.test.ts` 완화·삭제 금지.
