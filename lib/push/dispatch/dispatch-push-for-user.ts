@@ -86,33 +86,6 @@ export function orderCallPushTargetsNativeFirst<T extends Pick<PushTarget, "push
     .map((entry) => entry.target);
 }
 
-/**
- * 통화 복구 계획 §4 (docs/audit/messenger-2026-10-22-call-recovery-master-plan.md) — 같은 iPhone 에 VoIP 가
- * 이미 sent 면 그 기기의 통화 일반 알림(apns · 소리·배너)은 보내지 않는다. CallKit 이 통화를 표시하므로
- * 일반 알림은 「띵」+배너 중복만 만든다(2026-10-22 실기기 M5 `2f941f70`). missed_call 은 유지.
- * VoIP 가 sent 가 아닌 기기·device_id 없는 행은 그대로 발송(대체 수단).
- */
-const CALL_ALERT_SUPPRESSED_WHEN_VOIP_SENT_KINDS = new Set([
-  "incoming_call",
-  "call_canceled",
-  "call_rejected",
-  "call_ended",
-  "call_answered_elsewhere",
-]);
-
-export function shouldSkipCallAlertForVoipDeliveredDevice(input: {
-  provider: string;
-  callPushKind: string | null | undefined;
-  deviceId: string | null | undefined;
-  voipSentDeviceIds: ReadonlySet<string>;
-}): boolean {
-  if (input.provider !== "apns") return false;
-  if (!input.callPushKind || !CALL_ALERT_SUPPRESSED_WHEN_VOIP_SENT_KINDS.has(input.callPushKind)) return false;
-  const deviceId = String(input.deviceId ?? "").trim();
-  if (!deviceId) return false;
-  return input.voipSentDeviceIds.has(deviceId);
-}
-
 function deviceIdForDelivery(target: PushTarget): string | null {
   return target.source === "user_devices" ? target.id : null;
 }
@@ -388,8 +361,6 @@ export async function dispatchPushForUser(
   // SRV-01 retry ledger (non-call event pushes only; call pushes keep the legacy path).
   let alreadySentCount = 0;
   let retryPendingCount = 0;
-  /** 통화 복구 계획 §4 — 이번 디스패치에서 voip_apns 가 sent 된 기기(device_id) */
-  const voipSentDeviceIds = new Set<string>();
 
   for (const target of targets) {
     // SSOT: always gate voip_apns (even for non-call). Call web_push policy only when callPush.
@@ -431,27 +402,6 @@ export async function dispatchPushForUser(
         });
         continue;
       }
-    }
-
-    if (
-      shouldSkipCallAlertForVoipDeliveredDevice({
-        provider: target.push_provider,
-        callPushKind: callPush ? callPushKind : null,
-        deviceId: target.device_id,
-        voipSentDeviceIds,
-      })
-    ) {
-      await auditDelivery(svc, audits, {
-        user_id: out.user_id,
-        device_id: deviceIdForDelivery(target),
-        event_type: eventType,
-        target_type: opts?.target_type ?? null,
-        target_id: opts?.target_id ?? null,
-        status: "skipped",
-        provider_response: { reason: "voip_delivered_same_device" },
-        push_provider: target.push_provider,
-      });
-      continue;
     }
 
     const insertResult = await insertNotificationDeliveryDetailed(svc, {
@@ -528,10 +478,6 @@ export async function dispatchPushForUser(
     }
 
     const result = await sendToTarget(target, enrichedOut, opts);
-    if (target.push_provider === "voip_apns" && result.status === "sent") {
-      const voipDeviceId = String(target.device_id ?? "").trim();
-      if (voipDeviceId) voipSentDeviceIds.add(voipDeviceId);
-    }
 
     const providerResponse = {
       ...baseDeliveryDiagnostics(target, enrichedOut, opts),
