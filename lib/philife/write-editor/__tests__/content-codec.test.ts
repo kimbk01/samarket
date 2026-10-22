@@ -87,25 +87,47 @@ describe("community body codec — 무손실 왕복", () => {
  */
 const fixture = process.env.COMMUNITY_BODY_ROUNDTRIP_FIXTURE;
 describe.runIf(Boolean(fixture && existsSync(fixture)))("운영 게시글 왕복(읽기 전용 스냅샷)", () => {
-  it("파싱 가능한 본문은 모두 원문과 바이트 동일, 불가 본문은 사유와 함께 기존 편집기 경로", () => {
+  it("파싱 → 직렬화 → 재파싱: 원문·줄바꿈·이미지 URL·순서 무손실", () => {
     const rows = JSON.parse(readFileSync(fixture!, "utf8")) as Array<{ id: string; origin_kind: string; content: string }>;
-    const out = { total: rows.length, ok: 0, fallback: 0, mismatch: 0, memberTotal: 0, memberOk: 0, reasons: {} as Record<string, number> };
+    type Bucket = { total: number; ok: number; fallback: number; contentMismatch: number; reparseMismatch: number; lineMismatch: number; imageMismatch: number; imageLines: number; reasons: Record<string, number> };
+    const mk = (): Bucket => ({ total: 0, ok: 0, fallback: 0, contentMismatch: 0, reparseMismatch: 0, lineMismatch: 0, imageMismatch: 0, imageLines: 0, reasons: {} });
+    const by: Record<string, Bucket> = {};
+    const failures: string[] = [];
     for (const r of rows) {
-      const parsed = parseCommunityBodyToBlocks(r.content);
-      if (r.origin_kind === "member") out.memberTotal += 1;
+      const b = (by[r.origin_kind] ??= mk());
+      b.total += 1;
+      const content = r.content ?? "";
+      const parsed = parseCommunityBodyToBlocks(content);
       if (!parsed.ok) {
-        out.fallback += 1;
-        out.reasons[parsed.reason] = (out.reasons[parsed.reason] ?? 0) + 1;
+        b.fallback += 1;
+        b.reasons[parsed.reason] = (b.reasons[parsed.reason] ?? 0) + 1;
         continue;
       }
-      const back = communityDocToSnapshot(communityBodyBlocksToDoc(parsed.blocks) as never).content;
-      if (back === r.content) {
-        out.ok += 1;
-        if (r.origin_kind === "member") out.memberOk += 1;
-      } else out.mismatch += 1;
+      const snap = communityDocToSnapshot(communityBodyBlocksToDoc(parsed.blocks) as never);
+      const reparsed = parseCommunityBodyToBlocks(snap.content);
+      const expectedImages = parsed.blocks.flatMap((x) => (x.type === "image" ? [x.src] : []));
+      b.imageLines += expectedImages.length;
+      let bad = false;
+      if (snap.content !== content) {
+        b.contentMismatch += 1;
+        bad = true;
+      }
+      if (!reparsed.ok || JSON.stringify(reparsed.blocks) !== JSON.stringify(parsed.blocks)) {
+        b.reparseMismatch += 1;
+        bad = true;
+      }
+      if (snap.content.split("\n").length !== content.split("\n").length) {
+        b.lineMismatch += 1;
+        bad = true;
+      }
+      if (JSON.stringify(snap.imageUrls) !== JSON.stringify(expectedImages)) {
+        b.imageMismatch += 1;
+        bad = true;
+      }
+      if (bad) failures.push(r.id);
+      else b.ok += 1;
     }
-    console.info("[community-body-roundtrip]", JSON.stringify(out));
-    expect(out.mismatch).toBe(0);
-    expect(out.memberOk).toBe(out.memberTotal);
+    console.info("[community-body-roundtrip]", JSON.stringify({ rows: rows.length, byOrigin: by, failures }));
+    expect(failures).toEqual([]);
   });
 });
