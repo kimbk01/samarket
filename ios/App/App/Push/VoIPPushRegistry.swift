@@ -33,6 +33,10 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
    * SDK header: mustReport NO (app foreground / already on a call / long-delayed push) → reporting a
    * call is not required; YES → must report or the app is terminated.
    */
+  // `PKVoIPPushMetadata` exists only in the iOS 26.4+ SDK (Xcode 26.4 / Swift 6.3+). Older toolchains
+  // (CI Xcode 26.3) compile without this delegate → legacy delegate only. Install/release builds must use
+  // Xcode 26.4+ so iOS 26.4+ devices get `mustReport` (재감사 §4-15-1).
+  #if compiler(>=6.3)
   @available(iOS 26.4, *)
   func pushRegistry(
     _ registry: PKPushRegistry,
@@ -42,6 +46,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
   ) {
     handleVoipPush(payload: payload, mustReport: metadata.mustReport, via: "metadata", completion: completion)
   }
+  #endif
 
   func pushRegistry(
     _ registry: PKPushRegistry,
