@@ -172,10 +172,17 @@ export async function deleteCommentForAuthorServer(
   if (cErr || !cRow) {
     return { ok: false, error: "댓글을 찾을 수 없어요." };
   }
-  const { error: uErr } = await sb
+  /** 관리자가 숨긴 댓글·이미 삭제된 댓글은 작성자 삭제로 덮어쓰지 않는다 (CM-R-02) */
+  if (!isCommunityCommentPubliclyVisible(cRow as never)) {
+    return { ok: false, error: "삭제할 수 없는 댓글입니다." };
+  }
+  const { data: changed, error: uErr } = await sb
     .from("community_comments")
     .update({ status: "deleted" } as never)
-    .eq("id", cid);
+    .eq("id", cid)
+    .eq("status", "active")
+    .select("id");
   if (uErr) return { ok: false, error: "댓글 삭제에 실패했어요." };
+  if (!changed || (changed as unknown[]).length === 0) return { ok: false, error: "삭제할 수 없는 댓글입니다." };
   return { ok: true };
 }

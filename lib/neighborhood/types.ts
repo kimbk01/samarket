@@ -187,5 +187,7 @@ export type NeighborhoodCommentNode = {
   author_name: string;
   like_count: number;
   liked_by_viewer: boolean;
+  /** 삭제·숨김된 부모 자리(답글 보존용) — 본문·작성자 비노출 */
+  is_removed?: boolean;
   children: NeighborhoodCommentNode[];
 };

@@ -19,7 +19,13 @@ export async function fetchPhilifePostCommentTree(postId: string): Promise<Phili
     return { ok: false, status: 400, tree: [] };
   }
 
-  const res = await fetch(philifePostCommentsUrl(pid), { cache: "no-store", credentials: "include" });
+  let res: Response;
+  try {
+    res = await fetch(philifePostCommentsUrl(pid), { cache: "no-store", credentials: "include" });
+  } catch {
+    /** 네트워크 예외도 실패 결과로 — 로딩이 끝나고 재시도 버튼이 보이도록 (CM-P2-04) */
+    return { ok: false, status: 0, tree: [] };
+  }
   const data = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     tree?: NeighborhoodCommentNode[];

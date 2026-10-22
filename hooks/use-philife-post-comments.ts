@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { dibayAlert, dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { findCommentById, updateCommentInTree } from "@/lib/neighborhood/comment-tree";
 import { fetchPhilifePostCommentTree } from "@/lib/neighborhood/philife-post-comments.client";
@@ -133,7 +133,12 @@ export function usePhilifePostComments(postId: string) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(parentId ? { content: trimmed, parentId } : { content: trimmed }),
         });
-        const data = (await res.json()) as { ok?: boolean; error?: string; code?: string; id?: string };
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          code?: string;
+          id?: string;
+        };
         if (!data.ok) {
           const profileHandled = handleProfileIncompleteApiResponse(data);
           setSubmitError(
@@ -144,11 +149,14 @@ export function usePhilifePostComments(postId: string) {
         const createdId = typeof data.id === "string" ? data.id.trim() : "";
         await reloadComments();
         return createdId;
+      } catch {
+        setSubmitError(t("community_comment_action_failed"));
+        return false;
       } finally {
         setActionBusy(false);
       }
     },
-    [postId, reloadComments, resolveSubmitError]
+    [postId, reloadComments, resolveSubmitError, t]
   );
 
   const submitRootComment = useCallback(async () => {
@@ -166,19 +174,23 @@ export function usePhilifePostComments(postId: string) {
     );
   }, [commentText, postComment, requireAction]);
 
+  /** 성공 여부를 돌려준다 — 실패 시 답글 입력을 유지하기 위해 (CM-P2-03) */
   const submitReply = useCallback(
-    async (parentId: string, content: string) => {
+    async (parentId: string, content: string): Promise<boolean> => {
       const next =
         typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined;
+      let posted = false;
       await requireAction(
         "community_comment",
         async () => {
           const createdId = await postComment(content, parentId);
           if (createdId === false) return;
+          posted = true;
           if (createdId) setFocusCommentId(createdId);
         },
         { next }
       );
+      return posted;
     },
     [postComment, requireAction]
   );
@@ -247,36 +259,55 @@ export function usePhilifePostComments(postId: string) {
     [postId, requireAction, resolveLikeBlockedError]
   );
 
+  /** 실패 시 오류 문구를 돌려준다 — 편집창·입력을 유지 (CM-R-05) */
   const editComment = useCallback(
-    async (commentId: string, nextContent: string) => {
+    async (commentId: string, nextContent: string): Promise<string | null> => {
       const text = nextContent.trim();
-      if (!text) return;
+      if (!text) return null;
       setActionBusy(true);
       try {
         const res = await fetch(philifePostCommentUrl(postId, commentId), {
           method: "PATCH",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: text }),
         });
-        const data = (await res.json()) as { ok?: boolean };
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (res.ok && data.ok) {
           const now = new Date().toISOString();
           setComments((cur) =>
             updateCommentInTree(cur, commentId, { content: text, is_edited: true, updated_at: now })
           );
-        } else {
-          await reloadComments();
+          return null;
         }
+        return (typeof data.error === "string" && data.error.trim()) || t("community_comment_action_failed");
+      } catch {
+        return t("community_comment_action_failed");
       } finally {
         setActionBusy(false);
       }
     },
-    [postId, reloadComments]
+    [postId, t]
   );
 
   const deleteComment = useCallback(
     async (commentId: string, opts?: { asAdmin?: boolean }) => {
-      if (!(await dibayConfirm({ title: t("community_confirm_delete_comment"), confirmTone: "destructive" }))) return;
+      /** 관리자 삭제는 사유 필수 + 현재 상태 CAS — 관리자 콘솔과 같은 계약 (CM-P2-02) */
+      let adminReason: string | null = null;
+      if (opts?.asAdmin) {
+        adminReason = await dibayPrompt({
+          title: t("community_confirm_delete_comment"),
+          description: t("community_comment_admin_delete_reason"),
+          confirmTone: "destructive",
+          required: true,
+          minLength: 2,
+        });
+        if (!adminReason?.trim()) return;
+      } else if (
+        !(await dibayConfirm({ title: t("community_confirm_delete_comment"), confirmTone: "destructive" }))
+      ) {
+        return;
+      }
       setActionBusy(true);
       try {
         let res: Response;
@@ -287,14 +318,21 @@ export function usePhilifePostComments(postId: string) {
               method: "PATCH",
               credentials: "include",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "deleted" }),
+              body: JSON.stringify({ status: "deleted", expectedStatus: "active", reason: adminReason!.trim() }),
             }
           );
         } else {
-          res = await fetch(philifePostCommentUrl(postId, commentId), { method: "DELETE" });
+          res = await fetch(philifePostCommentUrl(postId, commentId), { method: "DELETE", credentials: "include" });
         }
-        const data = (await res.json()) as { ok?: boolean };
-        if (res.ok && data.ok) {
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!(res.ok && data.ok)) {
+          await dibayAlert({
+            title: (typeof data.error === "string" && data.error.trim()) || t("community_comment_action_failed"),
+          });
+          await reloadComments();
+          return;
+        }
+        {
           setComments((cur) =>
             updateCommentInTree(cur, commentId, {
               content: t("community_comment_deleted"),
@@ -304,11 +342,13 @@ export function usePhilifePostComments(postId: string) {
             })
           );
         }
+      } catch {
+        await dibayAlert({ title: t("community_comment_action_failed") });
       } finally {
         setActionBusy(false);
       }
     },
-    [postId, t]
+    [postId, reloadComments, t]
   );
 
   const displayCommentCount = useMemo(() => countCommentNodesFlat(comments), [comments]);

@@ -291,7 +291,12 @@ export function CommunityDetail({
     setLikedByViewer(nextLiked);
     setLikeCount((count) => Math.max(0, count + (nextLiked ? 1 : -1)));
     try {
-      const res = await fetch(philifePostLikeUrl(post.id), { method: "POST", credentials: "include" });
+      const res = await fetch(philifePostLikeUrl(post.id), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ liked: nextLiked }),
+      });
       const data = (await res.json()) as { ok?: boolean; like_count?: number; liked?: boolean; code?: string };
       if (data.ok && typeof data.like_count === "number" && typeof data.liked === "boolean") {
         setLikeCount(data.like_count);
@@ -351,9 +356,9 @@ export function CommunityDetail({
   );
 
   const onCommentEdit = useCallback(
-    (commentId: string, content: string) => {
-      if (!me?.id) return;
-      void editComment(commentId, content);
+    async (commentId: string, content: string): Promise<string | null> => {
+      if (!me?.id) return null;
+      return editComment(commentId, content);
     },
     [editComment, me?.id]
   );
@@ -384,12 +389,14 @@ export function CommunityDetail({
     setBusy((prev) => (prev ? prev : true));
     setDeleteErr((prev) => (prev === "" ? prev : ""));
     try {
-      const res = await fetch(philifeNeighborhoodPostUrl(post.id), { method: "DELETE" });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const res = await fetch(philifeNeighborhoodPostUrl(post.id), { method: "DELETE", credentials: "include" });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) {
         invalidateCommunityFeedCachesAfterPostModeration(post.id);
         router.replace(philifeAppPaths.home);
       } else setDeleteErr(j.error ?? t("community_delete_failed"));
+    } catch {
+      setDeleteErr(t("community_delete_failed"));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
@@ -682,7 +689,7 @@ export function CommunityDetail({
 
             {!meeting && hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
             {meeting && viewerJoinedMeeting && hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
-            <CommunityInlineAdCard />
+            <CommunityInlineAdCard currentPostId={post.id} />
             <CommunitySimilarPostsSection currentPostId={post.id} posts={similarPosts} />
         </div>
       </article>

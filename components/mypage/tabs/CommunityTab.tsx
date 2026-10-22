@@ -306,25 +306,17 @@ function MyCommunityActivityPanel({
     setBusyPostId(postId);
     setError(null);
     try {
+      /** 원하는 상태(공감 해제)를 명시 — 토글 2회 우회 불필요 (CM-R-08) */
       const res = await fetch(philifePostLikeUrl(postId), {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ liked: false }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; liked?: boolean; error?: string };
-      if (!res.ok || !json.ok) {
+      if (!res.ok || !json.ok || json.liked === true) {
         setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_unlike_failed"));
         return;
-      }
-      if (json.liked === true) {
-        const res2 = await fetch(philifePostLikeUrl(postId), {
-          method: "POST",
-          credentials: "include",
-        });
-        const json2 = (await res2.json().catch(() => ({}))) as { ok?: boolean; liked?: boolean };
-        if (!res2.ok || !json2.ok || json2.liked === true) {
-          setError(t("mypage_comp_community_unlike_failed"));
-          return;
-        }
       }
       setLikedPosts((prev) => prev.filter((row) => row.postId !== postId));
     } catch {

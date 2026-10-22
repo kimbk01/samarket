@@ -30,9 +30,10 @@ describe("comment like toggle contract", () => {
     expect(src).toContain("typeof data.liked === \"boolean\"");
   });
 
-  it("post like API toggles community_post_likes", () => {
+  it("post like API: 원하는 상태(liked) 지정 시 멱등, 미지정 시 토글 (CM-R-08)", () => {
     const src = readFileSync(join(root, "app/api/community/posts/[postId]/like/route.ts"), "utf8");
     expect(src).toContain('from("community_post_likes")');
-    expect(src).toContain("const liked = !ex");
+    expect(src).toContain("const liked = desired ?? !ex");
+    expect(src).toContain('code !== "23505"');
   });
 });

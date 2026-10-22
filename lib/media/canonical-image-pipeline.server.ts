@@ -8,6 +8,9 @@ import {
 } from "@/lib/media/canonical-image-contract";
 import { normalizeHeicInputBuffer } from "@/lib/media/heic-decode.server";
 
+/** 디코딩 폭탄(작은 파일·거대 픽셀) 방지 — 100MP 초과 입력은 거부 (CM-P2-14) */
+const CANONICAL_IMAGE_MAX_INPUT_PIXELS = 100_000_000;
+
 export type CanonicalDerivativeBuffer = {
   surface: CanonicalImageSurface;
   buf: Buffer;
@@ -31,7 +34,7 @@ export async function buildCanonicalDerivativeBuffers(input: {
   if (mime === "image/gif") return [];
 
   const normalized = await normalizeHeicInputBuffer({ buf: input.buf, mimeType: mime });
-  const base = sharp(normalized.buf, { failOn: "none", limitInputPixels: false }).rotate();
+  const base = sharp(normalized.buf, { failOn: "none", limitInputPixels: CANONICAL_IMAGE_MAX_INPUT_PIXELS }).rotate();
   const out: CanonicalDerivativeBuffer[] = [];
 
   for (const surface of input.surfaces) {
@@ -106,7 +109,7 @@ export async function optimizePostImageOriginalBuffer(input: {
   }
 
   const normalized = await normalizeHeicInputBuffer({ buf: input.buf, mimeType: mime });
-  const base = sharp(normalized.buf, { failOn: "none", limitInputPixels: false }).rotate();
+  const base = sharp(normalized.buf, { failOn: "none", limitInputPixels: CANONICAL_IMAGE_MAX_INPUT_PIXELS }).rotate();
   const buf = await base
     .clone()
     .resize({ width: maxEdge, height: maxEdge, fit: "inside", withoutEnlargement: true })

@@ -121,6 +121,13 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (r.is_meetup === true || r.status === "deleted" || r.is_deleted === true) {
     return NextResponse.json({ ok: false, error: "not_editable" }, { status: 400 });
   }
+  /** 관리자가 숨긴 글은 작성자가 수정할 수 없다 — 운영 조치 우회 방지 (CM-P3-09) */
+  if (r.status === "hidden" || (r as { is_hidden?: boolean }).is_hidden === true) {
+    return NextResponse.json(
+      { ok: false, error: "moderated_not_editable", message: "운영 정책에 따라 숨겨진 글은 수정할 수 없습니다." },
+      { status: 403 }
+    );
+  }
 
   const ops = await getCommunityFeedOps();
   if (title.length > ops.max_title_length) {
@@ -246,10 +253,16 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   }
   const { data: row } = await sb
     .from("community_posts")
-    .select("id, user_id, origin_kind")
+    .select("id, user_id, origin_kind, status, is_hidden")
     .eq("id", id)
     .maybeSingle();
-  const r = row as { id?: string; user_id?: string; origin_kind?: string | null } | null;
+  const r = row as {
+    id?: string;
+    user_id?: string;
+    origin_kind?: string | null;
+    status?: string | null;
+    is_hidden?: boolean | null;
+  } | null;
   if (!r?.id) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   if (r.user_id !== auth.userId) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
@@ -261,6 +274,13 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     );
   }
 
+  /** 관리자 숨김 글은 작성자 삭제로 덮어쓰지 않는다 — 운영 상태·영구 삭제 타이머 보존 (CM-P3-09) */
+  if (r.status === "hidden" || r.is_hidden === true) {
+    return NextResponse.json(
+      { ok: false, error: "moderated_not_deletable", message: "운영 정책에 따라 숨겨진 글은 삭제할 수 없습니다." },
+      { status: 403 }
+    );
+  }
   const { error } = await sb
     .from("community_posts")
     .update({ status: "deleted" })

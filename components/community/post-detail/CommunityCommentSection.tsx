@@ -45,10 +45,10 @@ type Props = {
   viewerUserId?: string | null;
   viewerIsAdmin?: boolean;
   onCommentLike: (commentId: string) => void | Promise<void>;
-  onCommentEdit: (commentId: string, content: string) => void | Promise<void>;
+  onCommentEdit: (commentId: string, content: string) => Promise<string | null>;
   onCommentDelete: (commentId: string, opts?: { asAdmin?: boolean }) => void | Promise<void>;
   onCommentReport?: (commentId: string) => void | Promise<void>;
-  onSubmitReply: (parentId: string, content: string) => void | Promise<void>;
+  onSubmitReply: (parentId: string, content: string) => Promise<boolean>;
   commentBusy: boolean;
   composerError?: string;
   composer: {

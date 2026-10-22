@@ -38,7 +38,7 @@ async function assertPostEngagementAllowed(sb: ReturnType<typeof getSupabaseServ
   };
 }
 
-export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const { postId } = await ctx.params;
@@ -61,14 +61,27 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
       return NextResponse.json({ ok: false, error: msg, code: gate.error }, { status: gate.status });
     }
 
+    /**
+     * `{ liked: boolean }` 를 보내면 그 상태로 맞춘다(멱등) — 재시도·동시 요청에도 결과가 같다 (CM-R-08).
+     * 본문 없이 오면 기존 토글(구 클라이언트 호환).
+     */
+    let desired: boolean | null = null;
+    try {
+      const body = (await req.json()) as { liked?: unknown };
+      if (typeof body?.liked === "boolean") desired = body.liked;
+    } catch {
+      desired = null;
+    }
     const { data: ex } = await sb
       .from("community_post_likes")
       .select("id")
       .eq("post_id", id)
       .eq("user_id", auth.userId)
       .maybeSingle();
-    const liked = !ex;
-    if (ex) {
+    const liked = desired ?? !ex;
+    if (liked === Boolean(ex)) {
+      // 이미 원하는 상태 — 변경 없음
+    } else if (!liked) {
       const { error: delErr } = await sb
         .from("community_post_likes")
         .delete()
@@ -84,7 +97,10 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
         .select("id")
         .single();
       if (insErr) {
-        return NextResponse.json({ ok: false, error: insErr.message ?? "like_failed" }, { status: 500 });
+        /** 동시 요청으로 이미 들어간 공감(UNIQUE 위반)은 성공으로 본다 */
+        if ((insErr as { code?: string }).code !== "23505") {
+          return NextResponse.json({ ok: false, error: insErr.message ?? "like_failed" }, { status: 500 });
+        }
       }
       const likeId = String((likeRow as { id?: string } | null)?.id ?? "").trim();
       if (liked && gate.authorId && likeId) {

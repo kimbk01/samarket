@@ -81,4 +81,6 @@ export type CommunityCommentDTO = {
   liked_by_viewer: boolean;
   updated_at: string;
   is_edited: boolean;
+  /** 삭제·숨김됐지만 살아 있는 답글이 있어 자리만 남긴 댓글(본문·작성자 비노출) */
+  is_removed?: boolean;
 };

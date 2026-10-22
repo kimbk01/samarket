@@ -35,7 +35,11 @@ import {
 } from "@/lib/community-points/content-acceptance";
 import { applyCommunityPointRewardOnCommentWrite } from "@/lib/points/community-point-bridge";
 import { loadCommunityImportPrincipalUserId } from "@/lib/community/community-import-principal";
-import { isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
+import {
+  isCommunityCommentPubliclyVisible,
+  isCommunityPostPubliclyVisible,
+} from "@/lib/community-engine/visibility";
+import { COMMUNITY_COMMENT_MAX_DEPTH } from "@/lib/community/community-comment-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -228,12 +232,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     if (parentId) {
       const { data: parentRow } = await sb
         .from("community_comments")
-        .select("user_id, post_id, depth")
+        .select("user_id, post_id, depth, status, is_hidden, is_deleted")
         .eq("id", parentId)
         .maybeSingle();
       parentCommentAuthorId = String((parentRow as { user_id?: string } | null)?.user_id ?? "").trim() || null;
       const parentPostId = String((parentRow as { post_id?: string } | null)?.post_id ?? "").trim();
-      if (!parentCommentAuthorId || parentPostId !== id) {
+      /** 삭제·숨김 댓글에는 답글을 달 수 없다 (CM-R-01) */
+      const parentVisible =
+        parentRow != null &&
+        isCommunityCommentPubliclyVisible(parentRow as never) &&
+        (parentRow as { is_deleted?: boolean }).is_deleted !== true;
+      if (!parentCommentAuthorId || parentPostId !== id || !parentVisible) {
         return jsonError("답글 대상 댓글을 찾을 수 없습니다.", 404, {
           code: "community_comment_parent_not_found",
         });
@@ -244,7 +253,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
         });
       }
       const d = Number((parentRow as { depth?: number } | null)?.depth ?? 0);
-      depth = Math.min(3, d + 1);
+      /** 답글 깊이 상한 = DB depth 3 — 화면과 데이터가 어긋나지 않게 초과는 거부 (CM-R-10) */
+      if (d >= COMMUNITY_COMMENT_MAX_DEPTH) {
+        return jsonError("더 이상 답글을 달 수 없습니다.", 400, { code: "community_comment_depth_limit" });
+      }
+      depth = d + 1;
     }
     const { data: ins, error } = await sb
       .from("community_comments")

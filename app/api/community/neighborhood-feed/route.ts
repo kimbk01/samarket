@@ -9,7 +9,7 @@ import {
   peekLastPhilifeTopicsColdMetrics,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
-import { listNeighborhoodFeed } from "@/lib/neighborhood/queries";
+import { COMMUNITY_FEED_MAX_OFFSET, listNeighborhoodFeed } from "@/lib/neighborhood/queries";
 import {
   neighborhoodFeedDedupeUrlKey,
   recordNeighborhoodFeedCompletion,
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
     }
     category = s;
   }
-  const offset = Math.min(Math.max(parseInt(offsetRaw, 10) || 0, 0), 500);
+  const offset = Math.min(Math.max(parseInt(offsetRaw, 10) || 0, 0), COMMUNITY_FEED_MAX_OFFSET);
   const limit = Math.min(Math.max(parseInt(limitRaw, 10) || 20, 1), 40);
   const sortRaw = req.nextUrl.searchParams.get("sort")?.trim() ?? "";
   const feedSort: ReturnType<typeof normalizeFeedSort> = (() => {

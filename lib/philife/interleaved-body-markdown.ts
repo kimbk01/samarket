@@ -291,6 +291,36 @@ export function interleavedMarkdownFromPastedHtml(html: string, plainFallback: s
 /**
  * `extractOrderedPasted...` 를 대체: 인터리브 `md` 에서 이미지 작업 목록.
  */
+/** 본문 이미지 URL 비교 키 — `extractImageUrlsFromInterleavedContent` 와 같은 정규화 */
+export function interleavedImageUrlKey(raw: string): string {
+  const t = (raw ?? "").trim();
+  if (!t) return "";
+  if (t.startsWith("data:")) return t;
+  if (t.startsWith("//")) return normalizeHttpUrlString(`https:${t}`);
+  return normalizeHttpUrlString(t);
+}
+
+/**
+ * 본문의 `![alt](url)` 을 URL 단위로 다시 쓴다 — 위치가 아니라 URL 로 찾으므로
+ * 사용자가 그 사이 글을 고쳐도 해당 이미지만 정확히 바뀐다.
+ * - 문자열 반환: URL 교체 · `null`: 이미지 문법 제거 · `undefined`: 유지
+ */
+export function rewriteInterleavedImages(
+  md: string,
+  decide: (urlKey: string) => string | null | undefined
+): string {
+  if (!md) return md;
+  let changed = false;
+  IMG_RE.lastIndex = 0;
+  const out = md.replace(IMG_RE, (whole, alt: string, url: string) => {
+    const next = decide(interleavedImageUrlKey(url));
+    if (next === undefined) return whole;
+    changed = true;
+    return next === null ? "" : `![${alt}](${next})`;
+  });
+  return changed ? out.replace(/\n{3,}/g, "\n\n") : md;
+}
+
 /** `![](from)` → `![](to)` (data URL·긴 문자열도 안전히 한 번씩) */
 export function applyInterleavedImageUrlReplacements(
   md: string,

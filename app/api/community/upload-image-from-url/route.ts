@@ -4,10 +4,10 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { uploadPostImageWithDerivatives } from "@/lib/media/canonical-image-upload.server";
 import { CANONICAL_POST_IMAGE_ALLOWED_MIMES } from "@/lib/media/canonical-image-contract";
-import { isHeicOrHeifBuffer } from "@/lib/media/heic-decode.server";
 import { normalizeHttpUrlString } from "@/lib/philife/http-url-string";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
-import { assertPublicHttpUrlForImageFetch } from "@/lib/security/remote-image-import-url";
+import { assertPublicHttpUrlForImageFetch, fetchPublicUrlWithChecks } from "@/lib/security/remote-image-import-url";
+import { detectImageMimeFromBytes, isDecodableGif } from "@/lib/media/image-magic-bytes.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,35 +18,6 @@ const ALLOWED = new Set<string>(CANONICAL_POST_IMAGE_ALLOWED_MIMES);
 
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-function detectMimeFromBytes(buf: Buffer): string | null {
-  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
-    return "image/jpeg";
-  }
-  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
-    return "image/png";
-  }
-  if (buf.length >= 6 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) {
-    const t = buf.toString("ascii", 3, 6);
-    if (t === "87a" || t === "89a") return "image/gif";
-  }
-  if (
-    buf.length >= 12 &&
-    buf.toString("ascii", 0, 4) === "RIFF" &&
-    buf.toString("ascii", 8, 12) === "WEBP"
-  ) {
-    return "image/webp";
-  }
-  if (isHeicOrHeifBuffer(buf)) return "image/heic";
-  return null;
-}
-
-function normalizeHeaderMime(t: string | null): string | null {
-  if (!t) return null;
-  const s = t.split(";")[0]!.trim().toLowerCase();
-  if (ALLOWED.has(s)) return s;
-  return null;
-}
 
 /**
  * 외부 URL에서 이미지를 서버로 가져와 `post-images`에 올립니다(클립보드 HTML의 img src 등, CORS 회피).
@@ -105,50 +76,35 @@ export async function POST(req: NextRequest) {
     fetchHeaders.Referer = referer;
   }
 
-  let res: Response;
-  try {
-    res = await fetch(urlStr, {
-      redirect: "follow",
-      method: "GET",
-      cache: "no-store",
-      signal: AbortSignal.timeout(20_000),
-      headers: fetchHeaders,
-    });
-  } catch {
-    return NextResponse.json({ ok: false, error: "이미지를 불러오지 못했습니다." }, { status: 502 });
-  }
-
-  if (!res.ok) {
-    return NextResponse.json({ ok: false, error: `이미지를 가져올 수 없습니다. (${res.status})` }, { status: 502 });
-  }
-
-  try {
-    await assertPublicHttpUrlForImageFetch(res.url);
-  } catch {
-    return NextResponse.json({ ok: false, error: "허용되지 않는 대상(리다이렉트)입니다." }, { status: 400 });
-  }
-
-  const headerMime = normalizeHeaderMime(res.headers.get("content-type"));
-  const cl = res.headers.get("content-length");
-  if (cl) {
-    const n = parseInt(cl, 10);
-    if (!Number.isNaN(n) && n > MAX_BYTES) {
+  /** 리다이렉트 홉별 공개 주소 검사 + 스트림 상한 (CM-P2-15) */
+  const fetched = await fetchPublicUrlWithChecks(urlStr, {
+    headers: fetchHeaders,
+    maxBytes: MAX_BYTES,
+    timeoutMs: 20_000,
+  });
+  if (!fetched.ok) {
+    if (fetched.reason === "too_large") {
       return NextResponse.json({ ok: false, error: "이미지는 8MB 이하만 가능합니다." }, { status: 413 });
     }
+    if (fetched.reason === "blocked" || fetched.reason === "too_many_redirects") {
+      return NextResponse.json({ ok: false, error: "허용되지 않는 대상(리다이렉트)입니다." }, { status: 400 });
+    }
+    if (fetched.reason === "http") {
+      return NextResponse.json(
+        { ok: false, error: `이미지를 가져올 수 없습니다. (${fetched.status ?? 0})` },
+        { status: 502 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: "이미지를 불러오지 못했습니다." }, { status: 502 });
   }
-
-  const ab = await res.arrayBuffer();
-  if (ab.byteLength > MAX_BYTES) {
-    return NextResponse.json({ ok: false, error: "이미지는 8MB 이하만 가능합니다." }, { status: 413 });
-  }
-  if (ab.byteLength === 0) {
+  if (fetched.body.byteLength === 0) {
     return NextResponse.json({ ok: false, error: "빈 응답" }, { status: 400 });
   }
 
-  const buf = Buffer.from(ab);
-  const fromMagic = detectMimeFromBytes(buf);
-  const mime = fromMagic ?? headerMime;
-  if (!mime || !ALLOWED.has(mime)) {
+  const buf = fetched.body;
+  /** 파일 내용(매직 바이트)으로만 판정 — 응답 헤더 MIME 은 신뢰하지 않음 (CM-P2-14) */
+  const mime = detectImageMimeFromBytes(buf);
+  if (!mime || !ALLOWED.has(mime) || (mime === "image/gif" && !(await isDecodableGif(buf)))) {
     return NextResponse.json({ ok: false, error: "JPEG, PNG, WebP, GIF만 가능합니다." }, { status: 400 });
   }
 

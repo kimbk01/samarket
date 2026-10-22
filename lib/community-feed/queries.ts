@@ -23,6 +23,7 @@ import { parseCommunityTopicFeedSortMode } from "./feed-sort-mode";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 import { formatCommunityPublicRegionLabel } from "@/lib/addresses/community-public-region-label";
 import { communityPostPublicPublishedAt } from "@/lib/community/community-publication-time";
+import { selectCommentRowsWithTombstones } from "@/lib/community-feed/comment-tombstones";
 
 const COMMUNITY_ORIGIN_SELECT =
   "origin_kind, display_author_name, display_author_avatar_url";
@@ -378,6 +379,7 @@ export async function resolveCanonicalCommunityPostId(rawId: string | undefined 
       .select("id")
       .eq("id", id)
       .eq("is_hidden", false)
+      .neq("status", "deleted")
       .maybeSingle();
     if ((direct as { id?: string } | null)?.id) return String((direct as { id: string }).id);
 
@@ -386,6 +388,7 @@ export async function resolveCanonicalCommunityPostId(rawId: string | undefined 
       .select("id")
       .eq("source_legacy_post_id", id)
       .eq("is_hidden", false)
+      .neq("status", "deleted")
       .maybeSingle();
     if (error) {
       const m = String(error.message ?? "");
@@ -534,15 +537,9 @@ export async function listCommunityPostComments(
   const v = viewerUserId?.trim() ?? "";
   try {
     const sb = getSupabaseServer();
-    const run = (sel: string, useHidden: boolean) =>
-      (useHidden
-        ? sb
-            .from("community_comments")
-            .select(sel)
-            .eq("post_id", postId)
-            .eq("is_hidden", false)
-        : sb.from("community_comments").select(sel).eq("post_id", postId)
-      ).order("created_at", { ascending: true });
+    /** 숨김 행도 읽는다 — 답글 자리(tombstone) 판정용, 내용은 반환하지 않음 (`_useHidden` 은 컬럼 폴백 순서용) */
+    const run = (sel: string, _useHidden: boolean) =>
+      sb.from("community_comments").select(sel).eq("post_id", postId).order("created_at", { ascending: true });
     const attempts: { sel: string; useHidden: boolean }[] = [
       {
         sel: "id, post_id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status, like_count",
@@ -598,9 +595,12 @@ export async function listCommunityPostComments(
     }
     if (!data) return [];
 
-    let rows = (data as Record<string, unknown>[]).filter(
-      (r) => isCommunityCommentPubliclyVisible(r as never) && r.is_deleted !== true
-    );
+    const allRows = data as Record<string, unknown>[];
+    const isShown = (r: Record<string, unknown>) =>
+      isCommunityCommentPubliclyVisible(r as never) && r.is_deleted !== true;
+    /** 삭제·숨김 댓글은 내용을 내리지 않되, 살아 있는 답글이 있으면 자리(tombstone)만 남긴다 (CM-P3-03) */
+    const { keptRows, removedIds } = selectCommentRowsWithTombstones(allRows, isShown);
+    let rows = keptRows;
     if (v && rows.length > 0) {
       const blockExclude = await fetchBlockedAuthorIdsForViewer(sb as never, v);
       rows = filterCommentRowsExcludingBlockedRelations(
@@ -623,6 +623,22 @@ export async function listCommunityPostComments(
       const upd = String((r as { updated_at?: unknown }).updated_at ?? created);
       const t0 = new Date(created).getTime();
       const t1 = new Date(upd).getTime();
+      if (removedIds.has(id)) {
+        return {
+          id,
+          post_id: String(r.post_id ?? ""),
+          user_id: "",
+          parent_id: r.parent_id != null ? String(r.parent_id) : null,
+          content: "",
+          created_at: created,
+          author_name: "",
+          like_count: 0,
+          liked_by_viewer: false,
+          updated_at: created,
+          is_edited: false,
+          is_removed: true,
+        };
+      }
       return {
         id,
         post_id: String(r.post_id ?? ""),

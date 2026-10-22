@@ -9,6 +9,7 @@ import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
 import { communityAuthorDisplayName } from "@/lib/community/community-author-display";
 import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 import { formatTimeAgo } from "@/lib/utils/format";
+import { COMMUNITY_COMMENT_MAX_DEPTH } from "@/lib/community/community-comment-limits";
 import {
   CommunityCommentGrowTextarea,
   ReplyLGlyph,
@@ -30,12 +31,14 @@ type Props = {
   viewerIsAdmin?: boolean;
   focusCommentId?: string | null;
   onLike: (commentId: string) => void | Promise<void>;
-  onEdit: (commentId: string, content: string) => void | Promise<void>;
+  /** 실패 시 오류 문구, 성공 시 null */
+  onEdit: (commentId: string, content: string) => Promise<string | null>;
   onDelete: (commentId: string, opts?: { asAdmin?: boolean }) => void | Promise<void>;
   onReportComment?: (commentId: string) => void | Promise<void>;
   replyOpenCommentId: string | null;
   onReplyOpenChange: (id: string | null) => void;
-  onSubmitReply: (parentId: string, content: string) => void | Promise<void>;
+  /** 성공 여부 — 실패 시 답글 입력 유지 */
+  onSubmitReply: (parentId: string, content: string) => Promise<boolean>;
   commentBusy: boolean;
 };
 
@@ -69,6 +72,7 @@ export function CommunityCommentItem({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(node.content);
   const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [repliesOpen, setRepliesOpen] = useState(() => node.children.length === 0);
   const [replyDraft, setReplyDraft] = useState("");
@@ -79,6 +83,7 @@ export function CommunityCommentItem({
   const deletedLabel = t("community_comment_deleted");
   const normalized = (node.content ?? "").trim();
   const isDeleted =
+    node.is_removed === true ||
     normalized === deletedLabel ||
     normalized === "댓글이 삭제 되었습니다." ||
     normalized === "댓글이 삭제 되엇습니다." ||
@@ -86,7 +91,7 @@ export function CommunityCommentItem({
     normalized === "댓글이 삭제 되엇습니다";
   const canReportComment = me.length > 0 && !isOwner && !isDeleted && Boolean(onReportComment);
   const isReplyOpen = replyOpenCommentId === node.id;
-  const authorLabel = communityAuthorDisplayName(node.author_name, node.author_name);
+  const authorLabel = node.is_removed ? "" : communityAuthorDisplayName(node.author_name, node.author_name);
   const timeRel = useMemo(() => {
     if (!node.created_at || Number.isNaN(Date.parse(node.created_at))) return "";
     return formatTimeAgo(node.created_at, language);
@@ -118,8 +123,14 @@ export function CommunityCommentItem({
     const trimmed = draft.trim();
     if (!trimmed) return;
     setSaving((prev) => (prev ? prev : true));
+    setEditError("");
     try {
-      await onEdit(node.id, trimmed);
+      const error = await onEdit(node.id, trimmed);
+      if (error) {
+        /** 실패하면 편집창과 입력을 유지하고 사유를 보여 준다 (CM-R-05) */
+        setEditError(error);
+        return;
+      }
       setEditing((prev) => (prev ? false : prev));
     } finally {
       setSaving((prev) => (prev ? false : prev));
@@ -151,7 +162,9 @@ export function CommunityCommentItem({
   const submitInlineReply = async () => {
     const trimmed = replyDraft.trim();
     if (!trimmed || commentBusy || replyComposingRef.current) return;
-    await onSubmitReply(node.id, trimmed);
+    const ok = await onSubmitReply(node.id, trimmed);
+    /** 실패하면 답글 입력창·내용을 유지 (CM-P2-03) — 오류는 상단 안내 */
+    if (!ok) return;
     onReplyOpenChange(null);
     setReplyDraft("");
   };
@@ -258,6 +271,11 @@ export function CommunityCommentItem({
                 rows={3}
                 className={CM_TEXTAREA_CLASS}
               />
+              {editError ? (
+                <p className="m-0 text-[12px] font-medium text-[var(--cm-danger)]" role="alert">
+                  {editError}
+                </p>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -272,6 +290,7 @@ export function CommunityCommentItem({
                   disabled={saving}
                   onClick={() => {
                     setEditing(false);
+                    setEditError("");
                     setDraft(node.content);
                   }}
                   className={`min-h-12 px-4 ${CM_BTN_GHOST_CLASS}`}
@@ -306,7 +325,7 @@ export function CommunityCommentItem({
                   count: formatAppNumber(Math.max(0, node.like_count || 0), language),
                 })}
               </button>
-              {me && !isDeleted ? (
+              {me && !isDeleted && depth < COMMUNITY_COMMENT_MAX_DEPTH ? (
                 <button
                   type="button"
                   disabled={commentBusy}

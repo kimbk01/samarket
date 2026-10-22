@@ -68,6 +68,9 @@ import {
   selectCommunityFeedTopRows,
 } from "@/lib/community-feed/community-feed-top-posts";
 
+/** 동네 피드 offset 페이징 상한 — 라우트 `neighborhood-feed` 와 같은 값 */
+export const COMMUNITY_FEED_MAX_OFFSET = 500;
+
 function countCsvSelectColumns(selectList: string): number {
   return selectList.split(",").map((c) => c.trim()).filter(Boolean).length;
 }
@@ -194,7 +197,7 @@ export async function listNeighborhoodFeed(options: {
   }
 
   const pageSize = Math.min(Math.max(options.limit ?? 20, 1), 40);
-  const offset = Math.min(Math.max(options.offset ?? 0, 0), 500);
+  const offset = Math.min(Math.max(options.offset ?? 0, 0), COMMUNITY_FEED_MAX_OFFSET);
   const hashtag = normalizeCommunityHashtagQuery(options.hashtag);
   const keywordQ = sanitizeCommunityKeywordQuery(options.q);
   const allLocations = options.allLocations === true;
@@ -879,8 +882,17 @@ export async function listNeighborhoodFeed(options: {
         : dbScannedCount;
   const listPosts = finalPosts.filter((p) => !topIds.has(p.id));
   const last = listPosts[listPosts.length - 1];
+  /**
+   * offset 페이징 상한(라우트·쿼리 모두 500) 을 넘는 다음 페이지는 같은 페이지 반복이 된다 → 끝으로 처리 (CM-P2-06).
+   * keyset(최신·필터 없음)은 상한과 무관.
+   */
+  const offsetPagingExhausted =
+    !(effSort === "latest" && !hashtag && !keywordQ) &&
+    offset + pagingOffsetAdvance > COMMUNITY_FEED_MAX_OFFSET;
+  const pageHasMore = hasMore && !offsetPagingExhausted;
+  /** 해시태그·검색은 keyset 을 쓰지 않으므로 cursor 를 내지 않는다 — offset 으로 다음 페이지 (CM-P2-05) */
   const nextCursor =
-    hasMore && effSort === "latest" && last
+    pageHasMore && effSort === "latest" && !hashtag && !keywordQ && last
       ? {
           publishedAt: last.published_at || last.created_at,
           id: last.id,
@@ -888,7 +900,7 @@ export async function listNeighborhoodFeed(options: {
       : null;
   return {
     posts: finalPosts,
-    hasMore,
+    hasMore: pageHasMore,
     dbScannedCount,
     pagingOffsetAdvance,
     nextCursor,

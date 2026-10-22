@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { assertCommunityWriteAllowed } from "@/lib/community/community-write-restriction";
 import {
   deleteCommentForAuthorServer,
   updateCommentContentServer,
@@ -23,6 +24,9 @@ export async function PATCH(
   const startedAt = Date.now();
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  // 커뮤니티 활동 제한 — 댓글 작성과 동일 (CM-P2-20)
+  const restricted = await assertCommunityWriteAllowed(auth.userId, "comment");
+  if (restricted) return restricted;
   const { postId, commentId } = await ctx.params;
   const rawP = postId?.trim() ?? "";
   const rawC = commentId?.trim() ?? "";

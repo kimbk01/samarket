@@ -16,7 +16,8 @@ import {
 } from "@domain/philife/api";
 import { normalizeHttpUrlString } from "@/lib/philife/http-url-string";
 import {
-  applyInterleavedImageUrlReplacements,
+  interleavedImageUrlKey,
+  rewriteInterleavedImages,
   interleavedMarkdownFromPastedHtml,
   isPlainClipboardMostlyImageUrls,
   stripImageReferencesPreservingParagraphs,
@@ -73,7 +74,10 @@ import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
-import { invalidateCommunityAuthorPostsClientCaches } from "@/lib/community/invalidate-community-author-posts-client";
+import {
+  invalidateCommunityAuthorPostsClientCaches,
+  invalidateCommunityFeedCachesAfterPostModeration,
+} from "@/lib/community/invalidate-community-author-posts-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   philifeWriteAdProductPointCost,
@@ -721,6 +725,22 @@ export function PhilifeNeighborhoodWriteForm({
           setErr(j2.error ?? t("philife_write_err_og_meetup"));
         }
       }
+      if (useInterleaved && richMd) {
+        /**
+         * 교차 본문: 현재 본문에서 URL 단위로 처리 — 재호스팅된 이미지는 DIBAY 주소로 교체,
+         * 실패·10장 초과분은 이미지 문법을 지운다(외부 URL 이 남아 등록이 막히지 않게, CM-R-07·CM-P2-11).
+         * 업로드 중 사용자가 그 문단을 고쳐도 위치와 무관하게 정확히 처리된다.
+         */
+        const hostedByKey = new Map(urlPairs.map((p) => [interleavedImageUrlKey(p.from), p.to]));
+        const pastedKeys = new Set(work.map((w) => interleavedImageUrlKey(w.value)));
+        setContent((prev) =>
+          rewriteInterleavedImages(prev, (key) => {
+            const hosted = hostedByKey.get(key);
+            if (hosted) return hosted;
+            return pastedKeys.has(key) ? null : undefined;
+          })
+        );
+      }
       if (out.length) {
         /** 교차 본문 이미지는 본문이 원천 — 첨부 줄에는 plain 경로만 */
         if (!(useInterleaved && richMd)) {
@@ -729,12 +749,7 @@ export function PhilifeNeighborhoodWriteForm({
         }
         let newMid: string;
         if (useInterleaved && richMd) {
-          /** 교차 본문: ![](hosted) 유지, 원본 data/외부 URL 잔여만 제거 */
-          newMid = applyInterleavedImageUrlReplacements(middle, urlPairs);
-          newMid = stripKnownImageUrlsFromText(
-            newMid,
-            urlPairs.map((p) => p.from).filter((from) => !out.includes(from))
-          );
+          newMid = middle;
         } else {
           /** plain 경로: 썸네일은 imageUrls — 본문에 이미지 주소 텍스트 남기지 않음 */
           const leakSources = [
@@ -914,6 +929,8 @@ export function PhilifeNeighborhoodWriteForm({
           }
           const authorId = getCurrentUser()?.id?.trim();
           if (authorId) invalidateCommunityAuthorPostsClientCaches(authorId);
+          /** 수정한 글이 피드에 이전 제목·썸네일로 남지 않게 persistent 캐시에서도 뺀다 (CM-R-09) */
+          invalidateCommunityFeedCachesAfterPostModeration(editId);
           navigatingAfterSubmitRef.current = true;
           await leaveGuard.release();
           if (onSheetExitBeforeNavigate) {

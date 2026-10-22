@@ -307,12 +307,22 @@ export async function POST(req: NextRequest) {
             ? "pause"
             : action === "resume"
               ? "resume"
-              : action === "end"
+              : action === "end" || action === "terminate"
                 ? "end"
                 : null;
     if (!feedAction) {
       return NextResponse.json({ ok: false, error: "unsupported_action" }, { status: 400 });
     }
+    /**
+     * 운영 화면의 feed_banner 행은 회원 신청(feed_ad_requests.id)과 관리자 직접 등록 캠페인(feed_ad_campaigns.id)이
+     * 섞여 있다. 신청 행이 없으면 캠페인 id 로 보고 같은 writer 를 캠페인 기준으로 호출한다 (CM-P1-04).
+     */
+    const { data: feedRequestRow } = await sb
+      .from("feed_ad_requests")
+      .select("id")
+      .eq("id", entityId)
+      .maybeSingle();
+    const feedTarget = feedRequestRow?.id ? { requestId: entityId } : { campaignId: entityId };
     // Delegate to existing feed PATCH handler logic via relative import of writers is preferred;
     // call the same route module path by reusing service writers when available.
     const { pauseFeedAdCampaign, resumeFeedAdCampaign } = await import(
@@ -379,7 +389,7 @@ export async function POST(req: NextRequest) {
     }
     if (feedAction === "pause") {
       const result = await pauseFeedAdCampaign(sb, {
-        requestId: entityId,
+        ...feedTarget,
         adminUserId: admin.userId,
         reason: publicMsg || "admin_paused",
       });
@@ -390,7 +400,7 @@ export async function POST(req: NextRequest) {
     }
     if (feedAction === "resume") {
       const result = await resumeFeedAdCampaign(sb, {
-        requestId: entityId,
+        ...feedTarget,
         adminUserId: admin.userId,
         reason: publicMsg || "admin_resumed",
       });
@@ -400,7 +410,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result);
     }
     const endRes = await endFeedAdCampaign(sb, {
-      requestId: entityId,
+      ...feedTarget,
       adminUserId: admin.userId,
       reason: publicMsg || "admin_ended",
     });
