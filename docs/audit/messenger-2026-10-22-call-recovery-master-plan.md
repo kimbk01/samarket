@@ -103,3 +103,18 @@
 2. 롤백 SHA 로 M1 1회 재검 (iPhone 앱 상태 기록: 실행 중/백그라운드/종료).
    - PASS → (A) 확정. §4 는 폐기하고 D2·D3 는 원인 재조사 후 새 계획.
    - FAIL → (B) 확정. iPhone 기기 로그 수집(Mac 콘솔 앱에서 iPhone 선택 · 검색 `[voip]` / `DIBAY`)으로 VoIP 도착·CallKit 보고 여부 확인 후 계획 추가.
+
+### 8-3. M1 재검 FAIL (`a925273` = 오전 PASS 코드) → 원인 확정
+- `5ac9cfc6`(14:07) 서버: VoIP 0.45s·일반 알림 1.28s 모두 APNs 200 (오전 PASS 와 동일) → 벨 없음. `cf12ba2a` 는 원인 아님.
+- iPhone 콘솔(Owner, `voip` 필터): 14:11:39·14:12:03·14:13:30·14:13:42 `callservicesd: VoIP push for app <private> dropped on the floor` — **iOS 가 앱에 VoIP 를 전달하지 않고 폐기**.
+- iOS 규칙: VoIP 수신 시 매번 CallKit 보고 필수. 보고 없이 완료가 반복되면 그 앱의 VoIP 를 폐기한다.
+- 위반 경로 증거: iPhone 이 직접 받은 `f3d6747e`·`8bd4877f`·`91c8a885` 에서 서버가 **받은 그 기기**(answered_device_id `85977e86…` = 이 iPhone)에 `voip_apns:call_answered_elsewhere` 발송(08:33:11·08:33:59·08:40:34). 앱(`VoIPPushRegistry.handleTerminalVoipPush` 승자 기기 분기)은 CallKit 보고 없이 완료 → 위반. 08:40 까지 수신 정상 → 13:48 부터 전부 폐기.
+- 기존 동작(10-14 에도 같은 발송 8건) — 오늘 반복 수신 테스트로 누적. 앱의 다른 무보고 완료 경로(N-7)도 있어 이것이 유일 원인이라고 단정하지 않음.
+### 8-4. 수정 계획 (승인 대상 · 통화 단독)
+1. 서버: `call_answered_elsewhere` 발송 시 **받은 기기(`answered_device_id` = `user_devices.device_id`)는 대상에서 제외**. 다른 기기는 기존대로.
+   - 파일: `lib/push/send-community-messenger-call-answered-elsewhere-push.ts`(제외 기기 전달) · `lib/push/dispatch/dispatch-push-for-user.ts`(대상 제외 옵션). 페이로드·다른 kind·Android 정책 불변.
+   - 영향: 받은 기기는 원래 이 푸시를 무시(승자 분기)하므로 동작 변화 없음 — 위반만 사라짐. 다른 기기 벨 종료 불변.
+   - 롤백: 커밋 1개 revert.
+2. iPhone 복구(코드 무관): iOS 폐기 상태 해제 = DIBAY 앱 삭제 후 재설치(같은 iOS 1.2 (7) — `npm run native:prepare` 통과 후 Xcode Run) → `w테스트1` 로그인.
+3. 재검: 콘솔 `voip` 켜고 M1 → `dropped` 없음·벨 울림 확인 → 받기 3회 반복(위반 재발 없음 확인) → M2~M10.
+4. 근본(N-7, 네이티브 ④): 앱의 모든 VoIP 경로가 CallKit 보고하도록 — 별도 계획·승인.
