@@ -226,6 +226,7 @@ export function BuyerStoreOrderChatSlidePanel({
           aria-modal="true"
           aria-label={t("store_messenger_order_chat_label")}
           className={`relative z-[1] delivery-ui flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col border-l border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] shadow-2xl ${OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS} pt-[var(--safe-top)]`}
+          data-delivery-consumer-surface=""
           style={{
             transform: panelOpen ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
             transition: `transform ${OWNER_ORDER_CHAT_SLIDE_MS}ms ${OWNER_ORDER_CHAT_SLIDE_EASING}`,
