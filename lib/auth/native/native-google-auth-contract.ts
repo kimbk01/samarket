@@ -70,7 +70,20 @@ export function extractNativePluginRejectRaw(error: unknown): string {
   return String(error ?? "");
 }
 
+/**
+ * Google Sign-In 상태 12501(SIGN_IN_CANCELLED) = 사용자가 계정 선택 화면을 닫음.
+ * 플러그인은 이를 결과 파싱 오류로 google_native_config_error 와 함께 넘기므로(설명에 "12501")
+ * 코드보다 먼저 확인해 취소로 처리한다.
+ */
+export function isGoogleSignInCancelledReject(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const record = error as Record<string, unknown>;
+  const text = `${String(record.code ?? "")} ${String(record.message ?? record.errorMessage ?? "")}`;
+  return /(^|\D)12501(\D|$)/.test(text);
+}
+
 export function extractNativeGooglePluginRejectRaw(error: unknown): string {
+  if (isGoogleSignInCancelledReject(error)) return "user_cancelled";
   return extractNativePluginRejectRaw(error);
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractNativeGooglePluginRejectRaw,
   extractNativePluginRejectRaw,
   mapNativeGooglePluginError,
 } from "@/lib/auth/native/native-google-auth-contract";
@@ -36,5 +37,15 @@ describe("native plugin reject 코드 추출", () => {
   it("Kakao 키 해시 오류: 코드 우선", () => {
     const err = { code: "Android keyHash validation failed.", message: "kakao_native_key_hash_required" };
     expect(mapNativeKakaoPluginError(extractNativeKakaoPluginRejectRaw(err))).toBe("kakao_native_key_hash_required");
+  });
+
+  it("Google 12501(계정 선택 닫음) → 취소 (실기기 07:58:50 PHT FAIL 재현)", () => {
+    const err = { code: "12501: ", message: "google_native_config_error" };
+    expect(mapNativeGooglePluginError(extractNativeGooglePluginRejectRaw(err))).toBe("user_cancelled");
+  });
+
+  it("Google 10(DEVELOPER_ERROR) 은 취소로 오인하지 않음", () => {
+    const err = { code: "Google DEVELOPER_ERROR(10): mismatch", message: "google_native_config_error" };
+    expect(mapNativeGooglePluginError(extractNativeGooglePluginRejectRaw(err))).toBe("google_native_config_error");
   });
 });

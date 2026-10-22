@@ -424,6 +424,7 @@ NEVER          = 기존 owner 의 auth email/password 를 다른 provider 로그
 | R3 | 카카오 웹 화면 다중 전환·로그인 화면 재등장 | #127 Android Kakao Web OAuth 강제 (임시 조치) | #127 원복 → Native SDK (#131) · 톡 우선→계정 전환 (#132, 1.2.4(10)) | 근본 · 07:30:45 PHT 카카오 확인 |
 | R4 | 로그인 완료 후 로그인 폼 재노출 | 성공 경로 `finally clearPending` · 30초 해제 타이머 · #128 20초 폼 복귀 타이머 | 공통 상태 SSOT `auth-login-phase.ts` (#129), 타이머 판정 제거 | 근본 |
 | R5 | 교차 결함 | Google 고아 `pendingCall` 영구 잠금 · Google 복구가 로그인 후 계정 바꿔치기 가능 · 재시작 표식이 Google 복구 차단 · iOS ASWebAuth 복귀 오취소 | #133 (Google 플러그인 정리는 1.2.4(11) 필요) | 근본 · 11 실기기 NOT_PROVEN |
+| R6 | Google 계정 선택 닫기가 「앱 인증 실패」로 표시 | 상태 12501(SIGN_IN_CANCELLED)을 플러그인이 파싱 오류(config_error)로 전달 (샤오미 07:58:50 PHT) | `isGoogleSignInCancelledReject` → 취소 처리 (웹) | 근본 |
 
-**남은 확인 (실기기 — Cursor 프롬프트 E):** Android 1.2.4(11) 설치 + 교차 9단계 · iOS 1.2(7) 카카오·Apple·Google 성공/취소 각 1회. 결과 대조 후 이 절에 PASS 기록.
+**종료 (2026-10-22 · Owner 승인):** Android 1.2.4(11) 샤오미 — 카카오 성공(07:51:16·07:57:59), Google 성공(07:53:43·07:59:02), Google 취소 FAIL → R6 수정, 앱 재진입 계정 유지(08:01:05) PASS. Google 서명 SHA-1 일치·client prefix 정상(설치 로그). 삼성·iOS·Apple 성공·카카오 취소는 NOT_PROVEN 으로 종료 (Owner 결정).
 **출시 전 1회:** Google Cloud `DIBAY Android Play` 클라이언트에 Play 앱 서명 SHA-1 `2D:C4:22:60:98:04:26:6F:A3:DB:03:E1:3C:2F:5C:90:98:A6:74:F2` 포함 여부 확인.
