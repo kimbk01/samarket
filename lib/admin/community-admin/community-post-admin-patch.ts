@@ -25,9 +25,10 @@ import {
   type CommunityContentModerationKind,
 } from "@/lib/notifications/notify-community-moderation";
 import { applyCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
+import { mergePostBodyImages } from "@/lib/philife/post-body-images";
 
 export const COMMUNITY_POST_ADMIN_ROW_SELECT =
-  "id, user_id, origin_kind, status, is_reported, title, content, content_blocks, topic_id, topic_slug, category, " +
+  "id, user_id, origin_kind, status, is_reported, title, content, content_blocks, images, thumbnail_url, topic_id, topic_slug, category, " +
   "is_notice, notice_starts_at, notice_ends_at, pinned_at, pinned_until, pin_scope, pin_rank, " +
   "moderated_by, moderated_at, moderation_reason, last_edited_by, last_edited_role, last_edit_reason, last_admin_edit_at, updated_at";
 
@@ -69,6 +70,20 @@ export function sameUpdatedAtInstant(a: unknown, b: unknown): boolean {
   // Date.parse 는 ms 까지만 — 마이크로초 자리까지 같아야 같은 버전으로 본다.
   const micro = (s: string) => (s.match(/\.(\d+)/)?.[1] ?? "").padEnd(6, "0").slice(0, 6);
   return micro(a) === micro(b);
+}
+
+/** `community_post_images` 미러 — 회원 PATCH 와 같은 delete→insert (CM-P3-02 원자화는 별도 승인) */
+async function syncCommunityPostImageRows(sb: SupabaseClient, postId: string, images: string[]): Promise<void> {
+  const { error: delErr } = await sb.from("community_post_images").delete().eq("post_id", postId);
+  if (delErr) {
+    console.error("[community-post-admin-patch] post_images delete", delErr.message);
+    return;
+  }
+  if (images.length === 0) return;
+  const { error } = await sb.from("community_post_images").insert(
+    images.map((url, i) => ({ post_id: postId, image_url: url, storage_path: "", sort_order: i }))
+  );
+  if (error) console.error("[community-post-admin-patch] post_images insert", error.message);
 }
 
 async function loadPostRow(sb: SupabaseClient, postId: string): Promise<PostRow | null> {
@@ -120,6 +135,7 @@ export async function applyCommunityPostAdminPatch(
 
   // ── 본문
   let contentEdited = false;
+  let syncedImages: string[] | null = null;
   if (typeof body.title === "string") {
     const title = body.title.trim();
     if (!title) return { status: 400, body: { ok: false, error: "title_required" } };
@@ -135,6 +151,22 @@ export async function applyCommunityPostAdminPatch(
       const { summarizeCommunityPostContent } = await import("@/lib/philife/interleaved-body-markdown");
       patch.summary = summarizeCommunityPostContent(body.content);
       contentEdited = true;
+      // native 글: 회원 경로와 같은 규칙으로 images·대표 썸네일을 본문과 맞춘다 (CM-W-07). imported 는 기존 정책 유지.
+      if (!isImported) {
+        const prevImages = Array.isArray(before.images) ? (before.images as unknown[]) : [];
+        const nextImages = mergePostBodyImages({
+          content: body.content,
+          previousContent: typeof before.content === "string" ? before.content : "",
+          candidates: prevImages,
+        });
+        const prevStr = prevImages.map((u) => (typeof u === "string" ? u.trim() : ""));
+        if (nextImages.length !== prevStr.length || nextImages.some((u, i) => u !== prevStr[i])) {
+          patch.images = nextImages;
+          syncedImages = nextImages;
+          const thumb = typeof before.thumbnail_url === "string" ? before.thumbnail_url.trim() : "";
+          if (thumb && !nextImages.includes(thumb)) patch.thumbnail_url = nextImages[0] ?? null;
+        }
+      }
     }
   }
   if (body.contentBlocks !== undefined) {
@@ -236,6 +268,10 @@ export async function applyCommunityPostAdminPatch(
     return { status: 409, body: { ok: false, error: "conflict", post: fresh } };
   }
   const after = updated as unknown as PostRow;
+
+  if (syncedImages) {
+    await syncCommunityPostImageRows(sb, postId, syncedImages);
+  }
 
   if (removing) {
     await applyCommunityPointReclaimOnPostAdminRemove({ postId });

@@ -1,0 +1,28 @@
+.root :global(.ProseMirror) {
+  min-height: 12rem;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #050505;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.root :global(.ProseMirror p) {
+  margin: 0;
+  min-height: 1.6em;
+}
+
+.root :global(.ProseMirror p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #8a8d91;
+  pointer-events: none;
+}
+
+.root :global(.ProseMirror-selectednode) {
+  outline: none;
+}

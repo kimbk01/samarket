@@ -157,6 +157,15 @@ export function isTerminalDismissCallPushKind(
 
 export type CallPushProviderDecision = { allow: boolean; reason?: string };
 
+/** CallKit 이 표시하므로 VoIP 등록 iOS 설치에는 일반 알림을 보내지 않는 통화 kind (missed_call 제외). */
+const IOS_CALLKIT_OWNED_ALERT_KINDS: ReadonlySet<NonNullable<DispatchPushOptions["call_push_kind"]>> = new Set([
+  "incoming_call",
+  "call_canceled",
+  "call_rejected",
+  "call_ended",
+  "call_answered_elsewhere",
+]);
+
 /**
  * (call_push_kind, provider) 별 명시적 라우팅 정책 — SSOT.
  *
@@ -177,8 +186,25 @@ export function resolveCallPushProviderPolicy(input: {
   /** 대상 `user_devices.device_id` (voip_apns 종료 신호 제외 판정용). */
   targetDeviceId?: string | null;
   voipTerminalExcludeDeviceIds?: readonly string[] | null;
+  /** 이번 발송 대상 중 활성 `voip_apns` 의 `device_id` (CallKit 이 통화를 표시하는 iOS 설치). */
+  iosVoipDeviceIds?: ReadonlySet<string> | null;
+  /** 이번 발송에서 VoIP 가 sent 된 `device_id` — 수신 VoIP 실패 시 일반 알림 대체 판정용. */
+  iosVoipSentDeviceIds?: ReadonlySet<string> | null;
 }): CallPushProviderDecision {
   const terminalDismiss = isTerminalDismissCallPushKind(input.callPushKind);
+
+  // A4 (docs/audit/messenger-2026-10-22-reaudit-plan.md §4-11): CallKit 이 통화를 표시하는 iOS 설치에는
+  // 통화 일반 알림(수신 배너 중복·통화 뒤 남는 「통화」 알림)을 보내지 않는다. 부재중만 유지.
+  // 수신 VoIP 가 그 설치에 sent 되지 않았으면 수신 알림을 대체로 보낸다.
+  if (input.provider === "apns" && input.callPushKind && IOS_CALLKIT_OWNED_ALERT_KINDS.has(input.callPushKind)) {
+    const targetDeviceId = String(input.targetDeviceId ?? "").trim();
+    if (targetDeviceId && input.iosVoipDeviceIds?.has(targetDeviceId)) {
+      if (input.callPushKind === "incoming_call" && !input.iosVoipSentDeviceIds?.has(targetDeviceId)) {
+        return { allow: true };
+      }
+      return { allow: false, reason: "ios_call_alert_callkit_owned" };
+    }
+  }
 
   if (input.provider === "voip_apns") {
     // CONTRACT: PushKit VoIP is call-authority only (incoming + terminal dismiss).

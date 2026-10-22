@@ -25,7 +25,8 @@
  * - 발신 UI 진행 상태는 Native session state 권위
  * - terminal(연결 종료·거절·취소·부재중) 도달 시 sessionId 당 이력 1행만 확정
  * - 레거시 dialing 잔존 + terminal 이 함께 있으면 projection merge 로 session 당 1행
- * - VoIP dispatch 는 `dispatchIncomingCallVoipOnCriticalPath` (HTTP `after()` 금지)
+ * - VoIP dispatch 는 세션 insert 직후 응답 전에 **시작** (`startIncomingCallVoipDispatchDetached`) —
+ *   응답 후로 전송 시작을 미루는 것 금지 · HTTP 응답은 전송 완료를 기다리지 않음(2026-10-22 F1)
  * - Native-only mid-call tip 이 terminal stub/list projection 을 차단하면 안 됨
  *
  * ## Terminal unread

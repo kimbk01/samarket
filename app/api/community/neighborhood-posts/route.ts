@@ -35,6 +35,8 @@ import {
   sanitizePublicRegionLabel,
 } from "@/lib/addresses/community-public-region-label";
 
+import { resolveMemberPostImages } from "@/lib/philife/post-body-images";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -111,19 +113,6 @@ export async function POST(req: NextRequest) {
   const rawCat = String(body.category ?? "")
     .trim()
     .toLowerCase();
-  const images = Array.isArray(body.images)
-    ? body.images
-        .map((u) => (typeof u === "string" ? u.trim() : ""))
-        .filter(
-          (u) =>
-            u.length > 0 &&
-            u.length < 2048 &&
-            (u.startsWith("https://") || u.startsWith("http://")) &&
-            !/\s|["'<>]/.test(u)
-        )
-        .slice(0, 10)
-    : [];
-
   if (!locationKey) {
     return NextResponse.json({ ok: false, error: "동네를 선택해 주세요." }, { status: 400 });
   }
@@ -143,6 +132,12 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  /** images SSOT = 본문 이미지 순서 ∪ 본문 밖 첨부 — 외부·data URL 거부, 10장 초과 거부 (CM-P1-02·CM-P2-11) */
+  const imagesRes = resolveMemberPostImages({ userId: auth.userId, content, candidates: body.images });
+  if (!imagesRes.ok) {
+    return NextResponse.json({ ok: false, error: imagesRes.message, code: imagesRes.error }, { status: 400 });
+  }
+  const images = imagesRes.images;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {

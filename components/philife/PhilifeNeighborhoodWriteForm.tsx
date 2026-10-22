@@ -2,10 +2,9 @@
 
 import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
-import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ImagePlus, Link2 } from "lucide-react";
 import { useCommunityLocalFilter } from "@/hooks/use-community-local-filter";
 import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
 import {
@@ -18,8 +17,6 @@ import {
 import { normalizeHttpUrlString } from "@/lib/philife/http-url-string";
 import {
   applyInterleavedImageUrlReplacements,
-  extractImageUrlsFromInterleavedContent,
-  hasInterleavedMarkdownImageSyntax,
   interleavedMarkdownFromPastedHtml,
   isPlainClipboardMostlyImageUrls,
   stripImageReferencesPreservingParagraphs,
@@ -32,7 +29,27 @@ import {
 } from "@/lib/philife/neighborhood-write-paste";
 import { fetchPhilifeNeighborhoodTopicOptionsForWrite } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { philifeAdminPaths, philifeAppPaths } from "@domain/philife/paths";
-import { buildCommunityFeedHref } from "@/lib/community/community-nav";
+import { clearAllPhilifeFeedPersistentCaches } from "@/lib/community/philife-feed-session-cache";
+import { mergePostBodyImages, COMMUNITY_MEMBER_POST_MAX_IMAGES } from "@/lib/philife/post-body-images";
+import { uploadCommunityImageFile } from "@/lib/philife/client-image-resize";
+import { runFixedDestinationBack } from "@/lib/navigation/fixed-destination-back";
+import { usePhilifeWriteLeaveGuard } from "@/components/philife/use-philife-write-leave-guard";
+import { PhilifeWriteTopicDropdown } from "@/components/philife/PhilifeWriteTopicDropdown";
+import { PhilifeWritePhotoStrip } from "@/components/philife/PhilifeWritePhotoStrip";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import { TRADE_WRITE_FB_CONTROL, TRADE_WRITE_FB_FIELD_HEAD } from "@/lib/ui/trade-write-fb-ui";
+import dynamic from "next/dynamic";
+import { useCommunityWriteEditorMode } from "@/lib/philife/write-editor/use-community-write-editor-mode";
+import {
+  parseCommunityBodyToBlocks,
+  type CommunityBodyBlock,
+  type CommunityDocSnapshot,
+} from "@/lib/philife/write-editor/content-codec";
+import type {
+  PhilifeBodyEditorApi,
+  PhilifeBodyEditorUploadResult,
+} from "@/components/philife/write-editor/PhilifeBodyEditor";
+import { extractImageUrlsFromInterleavedContent } from "@/lib/philife/interleaved-body-markdown";
 import { COMMUNITY_BUTTON_SECONDARY_CLASS, COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   APP_MAIN_COLUMN_CLASS,
@@ -65,7 +82,14 @@ import {
 import { philifeWriteTopicOptionLabel } from "@/lib/philife/philife-write-topic-label";
 import type { PhilifeNeighborhoodWriteTopicOption } from "@/lib/neighborhood/philife-neighborhood-topics";
 
-const PHILIFE_WRITE_HELPER_CLASS = "mt-1 text-[12px] leading-snug text-[#65676B]";
+/** 새 편집기는 글쓰기에서만 로드 — 피드·상세 번들 무영향 */
+const PhilifeBodyEditor = dynamic(() => import("@/components/philife/write-editor/PhilifeBodyEditor"), {
+  ssr: false,
+  loading: () => <div className="min-h-[12rem]" aria-busy="true" />,
+});
+
+const PHILIFE_WRITE_HELPER_CLASS = "mt-1.5 text-[12px] leading-snug text-sam-muted";
+const PHILIFE_WRITE_FIELD_ERROR_CLASS = "mt-1.5 text-[12px] font-medium leading-snug text-sam-danger";
 const PHILIFE_WRITE_WARNING_PANEL_CLASS =
   "border-b border-[#e4e6eb] bg-[#fff8e6] px-3 py-3 sm:px-4";
 const PHILIFE_WRITE_WARNING_LINK_CLASS =
@@ -103,6 +127,8 @@ interface PhilifeNeighborhoodWriteFormProps {
   initialTitle?: string;
   initialContent?: string;
   initialImages?: string[];
+  /** 수정 모드: 원 주제 표시명 — 주제가 숨김·비활성이라 목록에 없을 때 표시 */
+  initialTopicName?: string;
   /**
    * true이면 `WriteScreenTier1Sync`를 쓰지 않음 — 필라이프 피드 **시트**에서 전역 1단(RegionBar·주제 탭)을 유지할 때.
    */
@@ -131,6 +157,7 @@ export function PhilifeNeighborhoodWriteForm({
   initialTitle,
   initialContent,
   initialImages,
+  initialTopicName,
   suppressWriteScreenTier1 = false,
   onWillNavigateAfterSuccess,
   onSheetExitBeforeNavigate,
@@ -200,17 +227,20 @@ export function PhilifeNeighborhoodWriteForm({
   /** 닫기 확인 생략 판정 (지정 #12) — 초기값 대비 입력이 바뀌었는지 */
   const hasUnsavedWriteChanges =
     title !== (initialTitle ?? "") ||
-    content !== (initialContent ?? "") ||
-    imageUrls.length !== (Array.isArray(initialImages) ? initialImages.filter((u) => (u ?? "").trim()).length : 0);
+    content.trim() !== (initialContent ?? "").trim() ||
+    mergePostBodyImages({ content, candidates: imageUrls }).join("\n") !==
+      mergePostBodyImages({
+        content: initialContent ?? "",
+        candidates: Array.isArray(initialImages) ? initialImages : [],
+      }).join("\n");
   const [uploading, setUploading] = useState(false);
   const [maxMembers, setMaxMembers] = useState(30);
-  /** Native select 는 Android에서 라디오 UI가 되므로 iOS/APK/Windows 공통 커스텀 드롭다운 */
+  /** 주제 드롭다운 (CM-W-01) — 자동 선택 없음, 주제가 늘어나도 패널 안 스크롤 */
   const [topicMenuOpen, setTopicMenuOpen] = useState(false);
-  const [topicMenuPos, setTopicMenuPos] = useState<{ top: number; left: number; width: number } | null>(
-    null
-  );
-  const topicMenuButtonRef = useRef<HTMLButtonElement>(null);
-  const topicMenuListRef = useRef<HTMLUListElement>(null);
+  /** 필드별 입력 검증 안내 — 제출 시 표시, 입력하면 해제 */
+  const [fieldErr, setFieldErr] = useState<{ topic?: string; title?: string; content?: string }>({});
+  /** 수정 모드: 회원이 주제를 직접 바꿨을 때만 PATCH 에 category 를 보낸다 (CM-P2-09) */
+  const [categoryTouched, setCategoryTouched] = useState(false);
 
   /** 서버 기본 모임 피드 주제 slug — UI 비노출 */
   const MEETUP_TOPIC_SLUG = "meetup";
@@ -233,6 +263,20 @@ export function PhilifeNeighborhoodWriteForm({
   const pendingContentCaretRef = useRef<number | null>(null);
   /** setState 전에 연속 제출이 들어오는 경우(더블 탭 등) 동기적으로 막음 */
   const submitLockRef = useRef(false);
+  /** 등록·수정 성공 후 화면 이동 중 */
+  const navigatingAfterSubmitRef = useRef(false);
+
+  /**
+   * 새 편집기(WYSIWYG) — 플래그 기본 비노출, 관리자 검증 계정만 직접 켬.
+   * 본문 원천은 항상 `content` 문자열(기존 저장 계약)이며, 편집기는 무손실 파싱된 경우에만 연다.
+   */
+  const editorMode = useCommunityWriteEditorMode();
+  const [editorSeed, setEditorSeed] = useState<{ blocks: CommunityBodyBlock[]; epoch: number } | null>(null);
+  const [editorSnap, setEditorSnap] = useState<CommunityDocSnapshot | null>(null);
+  const [editorFallbackNotice, setEditorFallbackNotice] = useState(false);
+  const editorApiRef = useRef<PhilifeBodyEditorApi | null>(null);
+  const editorFileRef = useRef<HTMLInputElement>(null);
+  const [linkDraft, setLinkDraft] = useState<string | null>(null);
   const me = getCurrentUser();
   const { balance: pointBalance } = useUserPointBalance(me?.id);
 
@@ -270,30 +314,38 @@ export function PhilifeNeighborhoodWriteForm({
               : null
           );
           setWriteTopicOptions([]);
-          setCategory((prev) => (prev === "meetup" || initialCategory === "meetup" ? "meetup" : ""));
+          setCategory((prev) =>
+            prev === "meetup" || initialCategory === "meetup" ? "meetup" : isEditMode ? prev : ""
+          );
           return;
         }
         if (j.writeTopics.length === 0) {
           setWriteTopicOptionsFetchErr(null);
           setWriteTopicOptions([]);
-          setCategory((prev) => (prev === "meetup" || initialCategory === "meetup" ? "meetup" : ""));
+          setCategory((prev) =>
+            prev === "meetup" || initialCategory === "meetup" ? "meetup" : isEditMode ? prev : ""
+          );
           return;
         }
         setWriteTopicOptionsFetchErr(null);
         setWriteTopicOptions(j.writeTopics);
         setCategory((prev) => {
           if (prev === "meetup" || initialCategory === "meetup") return "meetup";
-          if (j.writeTopics!.some((o) => o.slug === prev)) return prev;
-          if (initialCategory && j.writeTopics!.some((o) => o.slug === initialCategory)) {
-            return initialCategory;
-          }
-          return j.writeTopics![0]!.slug;
+          if (prev && j.writeTopics!.some((o) => o.slug === prev)) return prev;
+          const initial = initialCategory?.trim().toLowerCase() ?? "";
+          if (initial && j.writeTopics!.some((o) => o.slug === initial)) return initial;
+          /** 수정: 숨김·비활성 주제여도 원 주제를 유지(목록 첫 주제로 바꾸지 않음) */
+          if (isEditMode) return prev || initial;
+          /** 신규: 미리 선택할 주제가 없으면 주제 선택 단계부터 */
+          return "";
         });
       } catch {
         if (!cancelled) {
           setWriteTopicOptionsFetchErr(t("philife_write_err_topics_fetch"));
           setWriteTopicOptions([]);
-          setCategory((prev) => (prev === "meetup" || initialCategory === "meetup" ? "meetup" : ""));
+          setCategory((prev) =>
+            prev === "meetup" || initialCategory === "meetup" ? "meetup" : isEditMode ? prev : ""
+          );
         }
       } finally {
         if (!cancelled) setWriteTopicOptionsLoad("ready");
@@ -302,75 +354,21 @@ export function PhilifeNeighborhoodWriteForm({
     return () => {
       cancelled = true;
     };
-  }, [initialCategory, t]);
-
-  const updateTopicMenuPos = useCallback(() => {
-    const el = topicMenuButtonRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    setTopicMenuPos({
-      top: rect.bottom + 6,
-      left: rect.left,
-      width: Math.max(rect.width, 160),
-    });
-  }, []);
+  }, [initialCategory, isEditMode, t]);
 
   /**
-   * 카테고리 선택 SSOT (iOS / APK / Windows 동일):
-   * - 폼 category 만 갱신한다.
-   * - 시트(suppressWriteScreenTier1)에서 피드 URL 을 replace 하면
-   *   sticky 탭·strip scroll·panel slide·feed refetch 가 동시에 돌아 탭이 요동한다.
-   * - 피드 탭/URL 동기화는 제출 성공 후 buildCommunityFeedHref 경로만 사용.
-   * - 풀페이지 `/philife/write` 만 write URL `?category=` 를 맞춘다(피드 탭 머신 비개입).
+   * 주제 선택 SSOT (iOS / APK / Windows 동일): 폼 category 만 갱신한다.
+   * - 시트·풀페이지 모두 URL 을 바꾸지 않는다 — 피드 탭 머신·주제 목록 재요청을 건드리지 않음 (CM-W-04).
+   * - 제출 성공 후 게시글 상세로 이동한다.
    */
-  const applyWriteCategory = useCallback(
-    (slug: string) => {
-      const next = slug.trim().toLowerCase();
-      if (!next || next === "meetup") return;
-      setCategory(next);
-      setTopicMenuOpen(false);
-
-      /** 시트 중에는 라이브 피드 네비를 건드리지 않는다 */
-      if (suppressWriteScreenTier1) return;
-
-      const pathNoQuery = pathname.split("?")[0] ?? pathname;
-      if (pathNoQuery === philifeAppPaths.write || pathNoQuery.endsWith("/write")) {
-        const sp = new URLSearchParams(
-          typeof window !== "undefined" ? window.location.search : ""
-        );
-        sp.set("category", next);
-        const qs = sp.toString();
-        void router.replace(qs ? `${pathNoQuery}?${qs}` : pathNoQuery, { scroll: false });
-      }
-    },
-    [pathname, router, suppressWriteScreenTier1]
-  );
-
-  useEffect(() => {
-    if (!topicMenuOpen) return;
-    updateTopicMenuPos();
-    const close = () => setTopicMenuOpen(false);
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (topicMenuButtonRef.current?.contains(target) || topicMenuListRef.current?.contains(target)) {
-        return;
-      }
-      close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    window.addEventListener("resize", close);
-    document.addEventListener("scroll", close, true);
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("resize", close);
-      document.removeEventListener("scroll", close, true);
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [topicMenuOpen, updateTopicMenuPos]);
+  const applyWriteCategory = useCallback((slug: string) => {
+    const next = slug.trim().toLowerCase();
+    if (!next || next === "meetup") return;
+    setCategory(next);
+    setCategoryTouched(true);
+    setTopicMenuOpen(false);
+    setFieldErr((f) => ({ ...f, topic: undefined }));
+  }, []);
 
   useEffect(() => {
     if (category === "meetup") {
@@ -430,30 +428,51 @@ export function PhilifeNeighborhoodWriteForm({
     };
   }, [promoteAdEnabled, category]);
 
-  const postMultipartFile = useCallback(async (f: File) => {
-    const fd = new FormData();
-    fd.append("file", f);
-    const res = await fetch(philifeUploadImageUrl(), { method: "POST", body: fd });
-    return (await res.json()) as { ok?: boolean; url?: string; error?: string };
-  }, []);
+  /** 업로드 실패도 결과로 돌려준다 — 네트워크·비 JSON(413)·서버 오류 (CM-P1-03) */
+  const postMultipartFile = useCallback(
+    async (f: File): Promise<{ ok?: boolean; url?: string; error?: string }> => {
+      const r = await uploadCommunityImageFile(philifeUploadImageUrl(), f, {
+        network: t("philife_write_err_network"),
+        tooLarge: t("philife_write_err_image_too_large"),
+        failed: t("philife_write_err_image_upload"),
+      });
+      return r.ok ? { ok: true, url: r.url } : { ok: false, error: r.error };
+    },
+    [t]
+  );
 
   const onPickFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files?.length) return;
+    const input = e.target;
+    const files = Array.from(input.files ?? []);
+    input.value = "";
+    if (!files.length) return;
+    const cap = category === "meetup" ? 1 : COMMUNITY_MEMBER_POST_MAX_IMAGES;
     setUploading(true);
     setErr("");
     try {
-      const next = category === "meetup" ? [] : [...imageUrls];
-      for (const f of Array.from(files)) {
-        if (next.length >= (category === "meetup" ? 1 : 10)) break;
+      if (category === "meetup") setImageUrls([]);
+      let added = 0;
+      for (const f of files) {
+        const used = category === "meetup" ? added : imageUrlsCountRef.current;
+        if (used >= cap) {
+          setErr(t("philife_write_err_image_limit"));
+          break;
+        }
         const j = await postMultipartFile(f);
-        if (j.ok && j.url) next.push(j.url);
-        else setErr(j.error ?? t("philife_write_err_image_upload"));
+        if (j.ok && j.url) {
+          const url = j.url;
+          added += 1;
+          imageUrlsCountRef.current += 1;
+          /** 성공분은 즉시 반영 — 뒤 파일이 실패해도 앞 사진을 잃지 않는다 */
+          setImageUrls((prev) => (category === "meetup" ? [url] : [...prev, url].slice(0, cap)));
+        } else {
+          setErr(j.error ?? t("philife_write_err_image_upload"));
+        }
       }
-      setImageUrls(next);
+    } catch {
+      setErr(t("philife_write_err_image_upload"));
     } finally {
       setUploading(false);
-      e.target.value = "";
     }
   };
 
@@ -499,17 +518,22 @@ export function PhilifeNeighborhoodWriteForm({
       setUploading(true);
       setErr("");
       try {
-        const cap = Math.max(0, 10 - imageUrlsCountRef.current);
-        const newUrls: string[] = [];
         for (const f of imageFiles) {
-          if (newUrls.length >= cap) break;
+          if (imageUrlsCountRef.current >= COMMUNITY_MEMBER_POST_MAX_IMAGES) {
+            setErr(t("philife_write_err_image_limit"));
+            break;
+          }
           const j = await postMultipartFile(f);
-          if (j.ok && j.url) newUrls.push(j.url);
-          else if (j.error) setErr(j.error);
+          if (j.ok && j.url) {
+            const url = j.url;
+            imageUrlsCountRef.current += 1;
+            setImageUrls((prev) => [...prev, url].slice(0, COMMUNITY_MEMBER_POST_MAX_IMAGES));
+          } else {
+            setErr(j.error ?? t("philife_write_err_image_upload"));
+          }
         }
-        if (newUrls.length) {
-          setImageUrls((prev) => [...newUrls, ...prev].slice(0, 10));
-        }
+      } catch {
+        setErr(t("philife_write_err_image_upload"));
       } finally {
         setUploading(false);
       }
@@ -559,13 +583,18 @@ export function PhilifeNeighborhoodWriteForm({
 
     let usedOgForInitialWork = false;
     if (work.length === 0 && pageRef) {
-      const res = await fetch(philifeArticleOgImageUrl(), {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageUrl: pageRef }),
-      });
-      const jg = (await res.json()) as { ok?: boolean; imageUrl?: string; error?: string };
+      let jg: { ok?: boolean; imageUrl?: string; error?: string } = {};
+      try {
+        const res = await fetch(philifeArticleOgImageUrl(), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageUrl: pageRef }),
+        });
+        jg = (await res.json()) as typeof jg;
+      } catch {
+        jg = { ok: false, error: t("philife_write_err_network") };
+      }
       if (jg.ok && jg.imageUrl) {
         work = [{ kind: "http" as const, value: jg.imageUrl }];
         usedOgForInitialWork = true;
@@ -610,8 +639,12 @@ export function PhilifeNeighborhoodWriteForm({
       return { kind: "error" as const, message: j.error };
     };
     const tryRehostDataUrl = async (dataUrl: string) => {
-      const r0 = await fetch(dataUrl);
-      const blob = await r0.blob();
+      let blob: Blob;
+      try {
+        blob = await (await fetch(dataUrl)).blob();
+      } catch {
+        return { kind: "err" as const, message: t("philife_write_err_image_upload") };
+      }
       if (!blob.type.startsWith("image/") || !pasteFormats.has(blob.type)) {
         return { kind: "none" as const };
       }
@@ -628,7 +661,11 @@ export function PhilifeNeighborhoodWriteForm({
 
     const urlPairs: { from: string; to: string }[] = [];
     try {
-      const cap = Math.max(0, 10 - imageUrlsCountRef.current);
+      /** 본문 이미지 + 첨부 줄 합계 기준 10장 */
+      const cap = Math.max(
+        0,
+        COMMUNITY_MEMBER_POST_MAX_IMAGES - mergePostBodyImages({ content, candidates: imageUrls }).length
+      );
       const out: string[] = [];
       let i = 0;
 
@@ -660,13 +697,18 @@ export function PhilifeNeighborhoodWriteForm({
       }
 
       if (out.length === 0 && pageRef && !usedOgForInitialWork) {
-        const res2 = await fetch(philifeArticleOgImageUrl(), {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pageUrl: pageRef }),
-        });
-        const j2 = (await res2.json()) as { ok?: boolean; imageUrl?: string; error?: string };
+        let j2: { ok?: boolean; imageUrl?: string; error?: string } = {};
+        try {
+          const res2 = await fetch(philifeArticleOgImageUrl(), {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pageUrl: pageRef }),
+          });
+          j2 = (await res2.json()) as typeof j2;
+        } catch {
+          j2 = { ok: false, error: t("philife_write_err_network") };
+        }
         if (j2.ok && j2.imageUrl) {
           const rh = await tryRehostFromHttp(j2.imageUrl);
           if (rh.kind === "hosted") {
@@ -680,7 +722,11 @@ export function PhilifeNeighborhoodWriteForm({
         }
       }
       if (out.length) {
-        setImageUrls((prev) => [...out, ...prev].slice(0, 10));
+        /** 교차 본문 이미지는 본문이 원천 — 첨부 줄에는 plain 경로만 */
+        if (!(useInterleaved && richMd)) {
+          imageUrlsCountRef.current += out.length;
+          setImageUrls((prev) => [...prev, ...out].slice(0, COMMUNITY_MEMBER_POST_MAX_IMAGES));
+        }
         let newMid: string;
         if (useInterleaved && richMd) {
           /** 교차 본문: ![](hosted) 유지, 원본 data/외부 URL 잔여만 제거 */
@@ -701,17 +747,104 @@ export function PhilifeNeighborhoodWriteForm({
           );
         }
         if (newMid !== middle) {
-          setContent(before + newMid + after);
-          pendingContentCaretRef.current = sa + newMid.length;
+          /**
+           * 업로드(최대 20초) 동안 사용자가 입력한 글자를 덮어쓰지 않도록,
+           * 붙여넣기로 넣은 구간만 현재 본문에서 치환한다 (CM-P2-08).
+           */
+          setContent((prev) => {
+            const at = prev.indexOf(middle);
+            return at < 0 ? prev : prev.slice(0, at) + newMid + prev.slice(at + middle.length);
+          });
         }
       } else if (!pageRef) {
         setErr(t("philife_write_err_paste_align"));
       } else if (usedOgForInitialWork) {
         setErr(t("philife_write_err_thumb_display"));
       }
+    } catch {
+      setErr(t("philife_write_err_image_upload"));
     } finally {
       setUploading(false);
     }
+  };
+
+  const wantWysiwyg = editorMode.useWysiwyg && category !== "meetup";
+  useEffect(() => {
+    if (!wantWysiwyg) {
+      setEditorSeed(null);
+      setEditorSnap(null);
+      return;
+    }
+    if (editorSeed) return;
+    const parsed = parseCommunityBodyToBlocks(content);
+    if (!parsed.ok) {
+      /** 무손실 변환 불가 본문 — 조용히 바꾸지 않고 기존 편집기 유지 */
+      setEditorFallbackNotice(true);
+      return;
+    }
+    setEditorFallbackNotice(false);
+    /** 본문에 이미 있는 사진은 편집기 안에 있으므로 하단 줄에는 본문 밖 사진만 남긴다 */
+    const inBody = new Set(extractImageUrlsFromInterleavedContent(content));
+    setImageUrls((prev) => prev.filter((u) => !inBody.has(u)));
+    setEditorSeed({ blocks: parsed.blocks, epoch: Date.now() });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 편집기 진입 시점의 본문으로 1회 시드
+  }, [wantWysiwyg]);
+
+  const onEditorChange = useCallback((snap: CommunityDocSnapshot) => {
+    setEditorSnap(snap);
+    setContent(snap.content);
+  }, []);
+
+  const editorUploadFile = useCallback(
+    async (f: File): Promise<PhilifeBodyEditorUploadResult> => {
+      const j = await postMultipartFile(f);
+      return j.ok && j.url ? { ok: true, url: j.url } : { ok: false, error: j.error ?? t("philife_write_err_image_upload") };
+    },
+    [postMultipartFile, t]
+  );
+
+  /** 외부 이미지·data URL → post-images 재호스팅. 실패 시 외부 URL 을 저장하지 않는다 (CM-P2-11) */
+  const editorRehostUrl = useCallback(
+    async (raw: string): Promise<PhilifeBodyEditorUploadResult> => {
+      const failed = t("philife_write_err_image_upload");
+      if (/^data:image\//i.test(raw)) {
+        try {
+          const blob = await (await fetch(raw)).blob();
+          const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : blob.type === "image/gif" ? "gif" : "jpg";
+          return editorUploadFile(new File([blob], `paste.${ext}`, { type: blob.type || "image/jpeg" }));
+        } catch {
+          return { ok: false, error: failed };
+        }
+      }
+      const url = normalizeHttpUrlString(raw.startsWith("//") ? `https:${raw}` : raw);
+      try {
+        const res = await fetch(philifeUploadImageFromUrl(), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
+        if (res.ok && j.ok && j.url) return { ok: true, url: j.url };
+        return { ok: false, error: j.error || failed };
+      } catch {
+        return { ok: false, error: t("philife_write_err_network") };
+      }
+    },
+    [editorUploadFile, t]
+  );
+
+  const editorUploading = Boolean(editorSeed && editorSnap && editorSnap.uploadingCount > 0);
+  const editorFailed = Boolean(editorSeed && editorSnap && editorSnap.failedCount > 0);
+
+  /** 제출 직전 본문·이미지 확정 — 편집기 모드와 무관하게 같은 계약(평문 + `![](url)`, images = 본문 ∪ 첨부) */
+  const composeBodyForSubmit = ():
+    | { ok: true; content: string; images: string[] }
+    | { ok: false; error: string } => {
+    if (uploading || editorUploading) return { ok: false, error: t("philife_write_submit_blocked_uploading") };
+    if (editorFailed) return { ok: false, error: t("philife_write_submit_blocked_failed") };
+    const c = (editorSeed && editorSnap ? editorSnap.content : content).trim();
+    return { ok: true, content: c, images: mergePostBodyImages({ content: c, candidates: imageUrls }) };
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -727,11 +860,18 @@ export function PhilifeNeighborhoodWriteForm({
           setErr(t("philife_write_err_meetup_name"));
           return;
         }
-        if (writeTopicOptions.length === 0) {
-          setErr(t("philife_write_err_no_topics"));
+        const body = composeBodyForSubmit();
+        if (!body.ok) {
+          setErr(body.error);
           return;
         }
-        const composedContent = content.trim();
+        const composedContent = body.content;
+        const editFieldErr = {
+          title: title.trim() ? undefined : t("philife_write_err_title"),
+          content: composedContent ? undefined : t("philife_write_err_content"),
+        };
+        setFieldErr(editFieldErr);
+        if (editFieldErr.title || editFieldErr.content) return;
         if (!title.trim()) {
           setErr(t("philife_write_err_title"));
           return;
@@ -747,23 +887,16 @@ export function PhilifeNeighborhoodWriteForm({
         }
         setBusy(true);
         try {
-          const images = (() => {
-            const bodyText = content.trim();
-            if (hasInterleavedMarkdownImageSyntax(bodyText)) {
-              const u = extractImageUrlsFromInterleavedContent(bodyText);
-              return u.length > 0 ? u : imageUrls;
-            }
-            return imageUrls;
-          })();
           const res = await fetch(philifeNeighborhoodPostUrl(editId), {
             method: "PATCH",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              category,
+              /** 회원이 주제를 바꾸지 않았으면 생략 → 서버가 기존 주제 유지 (CM-P2-09) */
+              ...(categoryTouched && category ? { category } : {}),
               title: title.trim(),
               content: composedContent,
-              images,
+              images: body.images,
             }),
           });
           let j: { ok?: boolean; error?: string };
@@ -781,16 +914,20 @@ export function PhilifeNeighborhoodWriteForm({
           }
           const authorId = getCurrentUser()?.id?.trim();
           if (authorId) invalidateCommunityAuthorPostsClientCaches(authorId);
+          navigatingAfterSubmitRef.current = true;
+          await leaveGuard.release();
           if (onSheetExitBeforeNavigate) {
             await onSheetExitBeforeNavigate();
           } else {
             onWillNavigateAfterSuccess?.();
           }
           router.replace(philifeAppPaths.post(editId));
+          return;
         } catch {
           setErr(t("philife_write_err_network_occurred"));
         } finally {
-          setBusy(false);
+          /** 이동 시작 후에는 버튼을 다시 열지 않는다 — 중복 등록 방지 (CM-P3-16) */
+          if (!navigatingAfterSubmitRef.current) setBusy(false);
         }
         return;
       }
@@ -806,6 +943,22 @@ export function PhilifeNeighborhoodWriteForm({
       setErr(t("philife_write_err_no_topics"));
       return;
     }
+    if (category !== "meetup") {
+      const nextFieldErr = {
+        topic: category ? undefined : t("philife_write_topic_required"),
+        title: title.trim() ? undefined : t("philife_write_err_title"),
+        content: (editorSeed && editorSnap ? editorSnap.content : content).trim()
+          ? undefined
+          : t("philife_write_err_content"),
+      };
+      setFieldErr(nextFieldErr);
+      if (nextFieldErr.topic || nextFieldErr.title || nextFieldErr.content) return;
+    }
+    const bodyForSubmit = category === "meetup" ? null : composeBodyForSubmit();
+    if (bodyForSubmit && !bodyForSubmit.ok) {
+      setErr(bodyForSubmit.error);
+      return;
+    }
 
     const composedContent =
       category === "meetup"
@@ -816,7 +969,9 @@ export function PhilifeNeighborhoodWriteForm({
             },
             t("philife_write_age_fee_content_header")
           )
-        : content.trim();
+        : bodyForSubmit && bodyForSubmit.ok
+          ? bodyForSubmit.content
+          : "";
 
     if (!title.trim()) {
       setErr(category === "meetup" ? t("philife_write_err_meetup_name") : t("philife_write_err_title"));
@@ -865,17 +1020,7 @@ export function PhilifeNeighborhoodWriteForm({
         category,
         title: title.trim(),
         content: composedContent,
-        images:
-          category === "meetup"
-            ? []
-            : (() => {
-                const bodyText = content.trim();
-                if (hasInterleavedMarkdownImageSyntax(bodyText)) {
-                  const u = extractImageUrlsFromInterleavedContent(bodyText);
-                  return u.length > 0 ? u : imageUrls;
-                }
-                return imageUrls;
-              })(),
+        images: bodyForSubmit && bodyForSubmit.ok ? bodyForSubmit.images : [],
       };
       if (category === "meetup") {
         payload.meetTopicSlug = MEETUP_TOPIC_SLUG;
@@ -937,6 +1082,8 @@ export function PhilifeNeighborhoodWriteForm({
       }
       const authorId = getCurrentUser()?.id?.trim();
       if (authorId) invalidateCommunityAuthorPostsClientCaches(authorId);
+      /** 새 글이 목록에 바로 보이도록 persistent 피드 캐시도 비운다 (CM-W-06) */
+      clearAllPhilifeFeedPersistentCaches();
 
       let promoFailed = false;
       if (category !== "meetup" && promoteAdEnabled && selectedAdProduct) {
@@ -979,7 +1126,9 @@ export function PhilifeNeighborhoodWriteForm({
         });
       }
 
-      /** 모임 생성 시 커뮤니티 모임 피드로, 일반 글은 게시글로 이동 */
+      /** 모임 생성 시 커뮤니티 모임 피드로, 일반 글은 게시글 상세로 이동 (CM-W-05) */
+      navigatingAfterSubmitRef.current = true;
+      await leaveGuard.release();
       if (onSheetExitBeforeNavigate) {
         await onSheetExitBeforeNavigate();
       } else {
@@ -989,24 +1138,15 @@ export function PhilifeNeighborhoodWriteForm({
         const mid = typeof j.meetingId === "string" && j.meetingId.trim() ? j.meetingId.trim() : null;
         router.replace(mid ? philifeAppPaths.meeting(mid) : philifeAppPaths.meetingsFeed);
       } else {
-        // Return to Community hub with same topic (or Latest when none).
-        const topic =
-          category && category !== "meetup" ? category.trim().toLowerCase() : "";
-        router.replace(
-          buildCommunityFeedHref(philifeAppPaths.home, {
-            selection: topic
-              ? { kind: "topic", topicSlug: topic, allSort: "latest" }
-              : { kind: "all", topicSlug: "", allSort: "latest" },
-          })
-        );
+        router.replace(philifeAppPaths.post(j.id));
       }
       } catch {
         setErr(t("philife_write_err_network_occurred"));
       } finally {
-        setBusy(false);
+        if (!navigatingAfterSubmitRef.current) setBusy(false);
       }
     } finally {
-      submitLockRef.current = false;
+      if (!navigatingAfterSubmitRef.current) submitLockRef.current = false;
     }
   };
 
@@ -1066,39 +1206,83 @@ export function PhilifeNeighborhoodWriteForm({
     };
   }, [sheetBlockingDraft, onSheetBlockingDraftChange]);
 
-  const handleSheetCancel = useCallback(async () => {
-    if (!onSheetClose) return;
-    if (sheetHasDraft()) {
-      if (!(await dibayConfirm({
+  const confirmDiscard = useCallback(
+    () =>
+      dibayConfirm({
         title: t("philife_write_discard_confirm"),
         cancelLabel: t("common_cancel"),
         confirmLabel: t("common_confirm"),
         confirmTone: "destructive",
-      }))) return;
-    }
+      }),
+    [t]
+  );
+  const pageBackHref = editPostId?.trim() ? philifeAppPaths.post(editPostId.trim()) : philifeAppPaths.home;
+  const hasDraftForLeave = useCallback(
+    () => (isEditMode ? hasUnsavedWriteChanges || categoryTouched : sheetHasDraft()),
+    [isEditMode, hasUnsavedWriteChanges, categoryTouched, sheetHasDraft]
+  );
+
+  /** 하드웨어·브라우저·스와이프 뒤로가기 이탈 가드 (CM-P2-10) */
+  const leaveGuard = usePhilifeWriteLeaveGuard({
+    active: true,
+    consumeBackInternally: () => {
+      if (topicMenuOpen) {
+        setTopicMenuOpen(false);
+        return true;
+      }
+      return false;
+    },
+    shouldConfirm: hasDraftForLeave,
+    confirmLeave: confirmDiscard,
+    onLeave: () => {
+      if (suppressWriteScreenTier1 && onSheetClose) {
+        void Promise.resolve(onSheetClose()).catch(() => {});
+        return;
+      }
+      runFixedDestinationBack(router, pageBackHref);
+    },
+  });
+
+  const handleSheetCancel = useCallback(async () => {
+    if (!onSheetClose) return;
+    if (hasDraftForLeave() && !(await confirmDiscard())) return;
+    await leaveGuard.release();
     try {
       await Promise.resolve(onSheetClose());
     } catch {
       /* no-op */
     }
-  }, [onSheetClose, sheetHasDraft, t]);
+  }, [onSheetClose, hasDraftForLeave, confirmDiscard, leaveGuard]);
 
   const handlePageCancel = useCallback(async () => {
-    if (sheetHasDraft()) {
-      if (!(await dibayConfirm({
-        title: t("philife_write_discard_confirm"),
-        cancelLabel: t("common_cancel"),
-        confirmLabel: t("common_confirm"),
-        confirmTone: "destructive",
-      }))) return;
-    }
-    router.push(philifeAppPaths.home);
-  }, [router, sheetHasDraft, t]);
+    if (hasDraftForLeave() && !(await confirmDiscard())) return;
+    await leaveGuard.release();
+    runFixedDestinationBack(router, pageBackHref);
+  }, [router, hasDraftForLeave, confirmDiscard, leaveGuard, pageBackHref]);
 
   const handleWriteCancel = suppressWriteScreenTier1 && onSheetClose ? handleSheetCancel : handlePageCancel;
 
+  const selectedTopicOption = writeTopicOptions.find((o) => o.slug === category) ?? null;
+  const photoStripLabels = {
+    add: t("philife_write_add_photos"),
+    cover: t("philife_write_photo_cover"),
+    remove: t("common_delete"),
+    uploading: t("philife_write_image_uploading"),
+  };
+
+  /** 업로드 중 등록 차단 (CM-P2-07) · 주제 미선택 차단 (CM-W-01) */
+  const submitBlockedReason =
+    uploading || editorUploading
+      ? t("philife_write_submit_blocked_uploading")
+      : editorFailed
+        ? t("philife_write_submit_blocked_failed")
+        : "";
   const submitDisabled =
-    category !== "meetup" && (writeTopicOptionsLoad !== "ready" || writeTopicOptions.length === 0);
+    uploading ||
+    editorUploading ||
+    editorFailed ||
+    (category !== "meetup" &&
+      (writeTopicOptionsLoad !== "ready" || (!isEditMode && writeTopicOptions.length === 0)));
 
   const tier1Title =
     category === "meetup"
@@ -1122,9 +1306,10 @@ export function PhilifeNeighborhoodWriteForm({
     <div className={rootClass}>
       {suppressWriteScreenTier1 ? null : (
         <WriteScreenTier1Sync
-          backHref={philifeAppPaths.home}
+          backHref={pageBackHref}
           title={tier1Title}
           hasUnsavedChanges={hasUnsavedWriteChanges}
+          onRequestClose={() => void handlePageCancel()}
         />
       )}
 
@@ -1300,11 +1485,16 @@ export function PhilifeNeighborhoodWriteForm({
           ) : (
             <>
               <section className={PHILIFE_WRITE_FB_SECTION}>
-                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_category_label")}</h4>
+                <p className={TRADE_WRITE_FB_FIELD_HEAD}>
+                  {t("philife_write_topic_current")}
+                  <span className="ml-0.5 text-sam-danger" aria-hidden>
+                    *
+                  </span>
+                </p>
                 {writeTopicOptionsLoad === "loading" ? (
-                  <p className="mt-2 text-[14px] font-normal text-sam-muted">{t("philife_write_topics_loading")}</p>
-                ) : writeTopicOptions.length === 0 ? (
-                  <div className={`mt-2 ${PHILIFE_WRITE_WARNING_PANEL_CLASS} text-[14px] text-sam-fg`}>
+                  <div className="h-12 w-full animate-pulse rounded-ui-rect bg-sam-surface-muted" aria-busy="true" />
+                ) : writeTopicOptions.length === 0 && !isEditMode ? (
+                  <div className={`${PHILIFE_WRITE_WARNING_PANEL_CLASS} text-[14px] text-sam-fg`}>
                     <p>
                       {t("philife_write_no_topics_before")}
                       <strong>{t("philife_write_general_topics")}</strong>
@@ -1326,163 +1516,246 @@ export function PhilifeNeighborhoodWriteForm({
                     ) : null}
                   </div>
                 ) : (
-                  <>
-                    {(() => {
-                      const selectedOpt =
-                        writeTopicOptions.find((o) => o.slug === category) ?? writeTopicOptions[0]!;
-                      const selectedLabel = philifeWriteTopicOptionLabel(t, selectedOpt, language);
-                      return (
-                        <div className="relative mt-2">
-                          <button
-                            type="button"
-                            ref={topicMenuButtonRef}
-                            aria-haspopup="listbox"
-                            aria-expanded={topicMenuOpen}
-                            aria-label={t("philife_write_topic_select_aria")}
-                            onClick={() => {
-                              if (topicMenuOpen) {
-                                setTopicMenuOpen(false);
-                                return;
-                              }
-                              updateTopicMenuPos();
-                              setTopicMenuOpen(true);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "ArrowDown") {
-                                e.preventDefault();
-                                updateTopicMenuPos();
-                                setTopicMenuOpen(true);
-                              }
-                            }}
-                            className={`${PHILIFE_WRITE_FB_CONTROL} inline-flex w-full items-center justify-between gap-2 text-left`}
-                          >
-                            <span className="min-w-0 flex-1 truncate font-semibold text-[#050505]">
-                              {selectedLabel}
-                            </span>
-                            {topicMenuOpen ? (
-                              <ChevronUp
-                                className="h-4 w-4 shrink-0 text-sam-muted"
-                                strokeWidth={2.4}
-                                aria-hidden
-                              />
-                            ) : (
-                              <ChevronDown
-                                className="h-4 w-4 shrink-0 text-sam-muted"
-                                strokeWidth={2.4}
-                                aria-hidden
-                              />
-                            )}
-                          </button>
-                          {topicMenuOpen && topicMenuPos && typeof document !== "undefined"
-                            ? createPortal(
-                                <ul
-                                  ref={topicMenuListRef}
-                                  role="listbox"
-                                  aria-label={t("philife_write_category_label")}
-                                  className="max-h-[min(60vh,20rem)] overflow-y-auto rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
-                                  style={{
-                                    position: "fixed",
-                                    top: topicMenuPos.top,
-                                    left: topicMenuPos.left,
-                                    width: topicMenuPos.width,
-                                    zIndex: 220,
-                                  }}
-                                >
-                                  {writeTopicOptions.map((o) => {
-                                    const selected = category === o.slug;
-                                    const label = philifeWriteTopicOptionLabel(t, o, language);
-                                    return (
-                                      <li key={o.slug} role="none">
-                                        <button
-                                          type="button"
-                                          role="option"
-                                          aria-selected={selected}
-                                          title={o.slug}
-                                          onClick={() => applyWriteCategory(o.slug)}
-                                          className={
-                                            selected
-                                              ? "block w-full px-3 py-2.5 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-primary transition hover:bg-sam-primary-soft"
-                                              : "block w-full px-3 py-2.5 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-fg transition hover:bg-sam-surface-muted"
-                                          }
-                                        >
-                                          {label}
-                                        </button>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>,
-                                document.body
-                              )
-                            : null}
-                        </div>
-                      );
-                    })()}
-                  </>
+                  <PhilifeWriteTopicDropdown
+                    options={writeTopicOptions.map((o) => ({
+                      slug: o.slug,
+                      label: philifeWriteTopicOptionLabel(t, o, language),
+                    }))}
+                    value={category}
+                    onChange={applyWriteCategory}
+                    placeholder={t("philife_write_topic_placeholder")}
+                    ariaLabel={t("philife_write_topic_select_aria")}
+                    unlistedValueLabel={
+                      isEditMode && category && !selectedTopicOption
+                        ? `${initialTopicName?.trim() || category} ${t("philife_write_topic_paused_suffix")}`
+                        : null
+                    }
+                    invalid={Boolean(fieldErr.topic)}
+                    open={topicMenuOpen}
+                    onOpenChange={setTopicMenuOpen}
+                  />
                 )}
-              </section>
-              <section className={PHILIFE_WRITE_FB_SECTION}>
-                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_title_label")}</h4>
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className={PHILIFE_WRITE_FB_CONTROL}
-                  placeholder={t("philife_write_title_placeholder")}
-                />
-              </section>
-              <section className={PHILIFE_WRITE_FB_SECTION}>
-                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_content_label")}</h4>
-                <textarea
-                  ref={contentTextareaRef}
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  onPaste={(e) => void onContentPaste(e)}
-                  rows={8}
-                  className={`${PHILIFE_WRITE_FB_CONTROL} min-h-[10rem]`}
-                  placeholder={t("philife_write_content_placeholder")}
-                />
-              </section>
-              <section className={PHILIFE_WRITE_FB_SECTION}>
-                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_add_photos")}</h4>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => void onPickFiles(e)}
-                />
-                <button
-                  type="button"
-                  disabled={uploading}
-                  onClick={() => fileRef.current?.click()}
-                  className="rounded-md border border-[#ccd0d5] bg-white px-4 py-2 sam-text-body text-[#050505]"
-                >
-                  {uploading ? t("common_uploading") : t("philife_write_add_photos")}
-                </button>
-                {imageUrls.length > 0 ? (
-                  <ul className="mt-[4pt] flex flex-wrap gap-[4pt]">
-                    {imageUrls.map((url, i) => (
-                      <li key={url} className={`relative h-16 w-16 ${PHILIFE_WRITE_THUMB_FRAME_CLASS}`}>
-                        <SamarketThumbnail
-                          src={url}
-                          alt=""
-                          size={64}
-                          roundedClassName="rounded-ui-rect"
-                          className="h-16 w-16"
-                        />
-                        <button
-                          type="button"
-                          className="absolute right-1 top-1 z-[1] inline-flex h-5 w-5 items-center justify-center rounded-sam-sm bg-[#1E3932]/80 text-[11px] font-medium text-white"
-                          onClick={() => setImageUrls((prev) => prev.filter((_, idx) => idx !== i))}
-                          aria-label={t("common_delete")}
-                        >
-                          ×
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                {fieldErr.topic ? <p className={PHILIFE_WRITE_FIELD_ERROR_CLASS}>{fieldErr.topic}</p> : null}
+                {isEditMode && category && writeTopicOptionsLoad === "ready" && !selectedTopicOption ? (
+                  <p className={PHILIFE_WRITE_HELPER_CLASS}>{t("philife_write_topic_paused_hint")}</p>
                 ) : null}
               </section>
+
+              {editorMode.canOptIn ? (
+                <section className={PHILIFE_WRITE_FB_SECTION}>
+                  <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block text-[14px] font-semibold text-sam-fg">
+                        {t("philife_write_editor_beta_label")}
+                      </span>
+                      <span className={PHILIFE_WRITE_HELPER_CLASS}>{t("philife_write_editor_beta_hint")}</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 shrink-0 accent-[var(--sam-primary)]"
+                      checked={editorMode.useWysiwyg}
+                      disabled={uploading || editorUploading}
+                      onChange={(e) => editorMode.setOptIn(e.target.checked)}
+                    />
+                  </label>
+                </section>
+              ) : null}
+
+              <section className={PHILIFE_WRITE_FB_SECTION}>
+                <label htmlFor="philife-write-title" className={TRADE_WRITE_FB_FIELD_HEAD}>
+                  {t("philife_write_title_label")}
+                  <span className="ml-0.5 text-sam-danger" aria-hidden>
+                    *
+                  </span>
+                </label>
+                <input
+                  id="philife-write-title"
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    if (fieldErr.title) setFieldErr((f) => ({ ...f, title: undefined }));
+                  }}
+                  className={`${TRADE_WRITE_FB_CONTROL} min-h-12 ${fieldErr.title ? "border-sam-danger" : ""}`}
+                  placeholder={t("philife_write_title_placeholder")}
+                  aria-invalid={Boolean(fieldErr.title) || undefined}
+                  autoComplete="off"
+                  enterKeyHint="next"
+                />
+                {fieldErr.title ? <p className={PHILIFE_WRITE_FIELD_ERROR_CLASS}>{fieldErr.title}</p> : null}
+              </section>
+
+              {editorSeed ? (
+                <section className={PHILIFE_WRITE_FB_SECTION}>
+                  <p className={TRADE_WRITE_FB_FIELD_HEAD}>
+                    {t("philife_write_content_label")}
+                    <span className="ml-0.5 text-sam-danger" aria-hidden>
+                      *
+                    </span>
+                  </p>
+                  <div
+                    className={`rounded-ui-rect border bg-sam-surface px-3 py-2.5 focus-within:border-sam-primary ${
+                      fieldErr.content ? "border-sam-danger" : "border-sam-border"
+                    }`}
+                  >
+                    <PhilifeBodyEditor
+                      key={editorSeed.epoch}
+                      initialBlocks={editorSeed.blocks}
+                      maxImages={Math.max(0, COMMUNITY_MEMBER_POST_MAX_IMAGES - imageUrls.length)}
+                      labels={{
+                        placeholder: t("philife_write_content_placeholder"),
+                        uploading: t("philife_write_image_uploading"),
+                        failed: t("philife_write_image_failed"),
+                        retry: t("philife_write_image_retry"),
+                        remove: t("common_delete"),
+                        moveUp: t("philife_write_image_move_up"),
+                        moveDown: t("philife_write_image_move_down"),
+                        imageLimit: t("philife_write_err_image_limit"),
+                      }}
+                      uploadFile={editorUploadFile}
+                      rehostUrl={editorRehostUrl}
+                      onChange={(snap) => {
+                        onEditorChange(snap);
+                        if (fieldErr.content && snap.content.trim()) setFieldErr((f) => ({ ...f, content: undefined }));
+                      }}
+                      onNotice={setErr}
+                      onReady={(api) => {
+                        editorApiRef.current = api;
+                      }}
+                    />
+                  </div>
+                  {fieldErr.content ? <p className={PHILIFE_WRITE_FIELD_ERROR_CLASS}>{fieldErr.content}</p> : null}
+                  <input
+                    ref={editorFileRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      e.target.value = "";
+                      editorApiRef.current?.insertFiles(files);
+                    }}
+                  />
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => editorFileRef.current?.click()}
+                      className={`${Sam.btn.outlineCombo} ${Sam.btn.sm} gap-1.5`}
+                    >
+                      <ImagePlus className="h-4 w-4" aria-hidden />
+                      {t("philife_write_toolbar_photo")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLinkDraft((v) => (v === null ? "" : null))}
+                      className={`${Sam.btn.outlineCombo} ${Sam.btn.sm} gap-1.5`}
+                      aria-expanded={linkDraft !== null}
+                    >
+                      <Link2 className="h-4 w-4" aria-hidden />
+                      {t("philife_write_toolbar_link")}
+                    </button>
+                    <span className="ml-auto text-[13px] tabular-nums text-sam-muted">
+                      {t("philife_write_photo_count", {
+                        count: (editorSnap?.imageNodeCount ?? 0) + imageUrls.length,
+                        max: COMMUNITY_MEMBER_POST_MAX_IMAGES,
+                      })}
+                    </span>
+                  </div>
+                  {linkDraft !== null ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        value={linkDraft}
+                        onChange={(e) => setLinkDraft(e.target.value)}
+                        inputMode="url"
+                        autoComplete="off"
+                        enterKeyHint="done"
+                        placeholder={t("philife_write_link_prompt")}
+                        className={`${TRADE_WRITE_FB_CONTROL} min-h-11 min-w-0 flex-1`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const v = (linkDraft ?? "").trim();
+                          if (!/^https?:\/\/\S+$/i.test(v)) {
+                            setErr(t("philife_write_link_invalid"));
+                            return;
+                          }
+                          editorApiRef.current?.insertLinkLine(v);
+                          setLinkDraft(null);
+                        }}
+                        className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} shrink-0`}
+                      >
+                        {t("common_confirm")}
+                      </button>
+                    </div>
+                  ) : null}
+                  {imageUrls.length > 0 ? (
+                    <div className="mt-3">
+                      <PhilifeWritePhotoStrip
+                        urls={imageUrls}
+                        max={COMMUNITY_MEMBER_POST_MAX_IMAGES}
+                        uploading={false}
+                        showAdd={false}
+                        onAdd={() => {}}
+                        onRemove={(i) => setImageUrls((prev) => prev.filter((_, idx) => idx !== i))}
+                        labels={photoStripLabels}
+                      />
+                    </div>
+                  ) : null}
+                </section>
+              ) : (
+                <>
+                  {editorFallbackNotice ? (
+                    <p className={`${PHILIFE_WRITE_FB_SECTION} ${PHILIFE_WRITE_HELPER_CLASS}`}>
+                      {t("philife_write_editor_fallback_notice")}
+                    </p>
+                  ) : null}
+                  <section className={PHILIFE_WRITE_FB_SECTION}>
+                    <label htmlFor="philife-write-content" className={TRADE_WRITE_FB_FIELD_HEAD}>
+                      {t("philife_write_content_label")}
+                      <span className="ml-0.5 text-sam-danger" aria-hidden>
+                        *
+                      </span>
+                    </label>
+                    <textarea
+                      id="philife-write-content"
+                      ref={contentTextareaRef}
+                      value={content}
+                      onChange={(e) => {
+                        setContent(e.target.value);
+                        if (fieldErr.content) setFieldErr((f) => ({ ...f, content: undefined }));
+                      }}
+                      onPaste={(e) => void onContentPaste(e)}
+                      rows={8}
+                      className={`${TRADE_WRITE_FB_CONTROL} min-h-[12rem] resize-none leading-[1.6] ${
+                        fieldErr.content ? "border-sam-danger" : ""
+                      }`}
+                      placeholder={t("philife_write_content_placeholder")}
+                      aria-invalid={Boolean(fieldErr.content) || undefined}
+                    />
+                    {fieldErr.content ? <p className={PHILIFE_WRITE_FIELD_ERROR_CLASS}>{fieldErr.content}</p> : null}
+                  </section>
+                  <section className={PHILIFE_WRITE_FB_SECTION}>
+                    <p className={TRADE_WRITE_FB_FIELD_HEAD}>{t("philife_write_toolbar_photo")}</p>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => void onPickFiles(e)}
+                    />
+                    <PhilifeWritePhotoStrip
+                      urls={imageUrls}
+                      max={COMMUNITY_MEMBER_POST_MAX_IMAGES}
+                      uploading={uploading}
+                      onAdd={() => fileRef.current?.click()}
+                      onRemove={(i) => setImageUrls((prev) => prev.filter((_, idx) => idx !== i))}
+                      labels={photoStripLabels}
+                    />
+                  </section>
+                </>
+              )}
             </>
           )}
 
@@ -1603,7 +1876,7 @@ export function PhilifeNeighborhoodWriteForm({
       <PhilifeWriteActionFooter
         busy={busy}
         submitDisabled={submitDisabled}
-        error={err}
+        error={err || submitBlockedReason}
         submitIdleLabel={isEditMode ? t("common_save") : undefined}
         onCancel={() => void handleWriteCancel()}
       />

@@ -71,9 +71,9 @@ describe("cross-platform native incoming authority (static)", () => {
     expect(seed).toContain("ringing mid-call tip/stub is Native UI only");
   });
 
-  it("VoIP dispatch is critical-path (no after-hook deferral)", () => {
+  it("VoIP dispatch starts before HTTP 200 (no post-response deferral of the send start)", () => {
     const route = readRepo("app/api/community-messenger/rooms/[roomId]/calls/route.ts");
-    expect(route).toContain("dispatchIncomingCallVoipOnCriticalPath");
+    expect(route).toContain("startIncomingCallVoipDispatchDetached(incomingCallPush)");
     expect(route).not.toMatch(/after\s*\(\s*async/);
   });
 

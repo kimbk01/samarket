@@ -389,6 +389,15 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     }
     let inFlight = syncQueue.sync { cleanupInFlight.contains(sid) }
     if inFlight { return }
+    // A5 (재감사 §4-11): connected peer left normally (Agora offline reason QUIT=0) → same teardown as
+    // server call_ended (`reportCallEnded` → handleRemoteTerminal), not mediaFailed — the outgoing
+    // coordinator already does this. Without it a normal remote hang-up showed
+    // 「통화를 시작하지 못했습니다」 (실기기 0bcf0759·6ddde228·7e509d24·fdd35925). Dropped etc. unchanged.
+    if case .connected = snap.phase, reason == "remote_offline=0" {
+      log("ios_native_voice_incoming_remote_left", sid, "reason=\(reason)")
+      CallKitProvider.shared.reportCallEnded(uuidString: sid, endedReason: .remoteEnded)
+      return
+    }
     failAfterFulfill(sessionId: sid, reason: .mediaFailed, serverAction: "end")
   }
 

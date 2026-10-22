@@ -338,11 +338,25 @@ export async function dispatchPushForUser(
   const hasNativeCallTarget = targets.some(
     (t) => t.push_provider === "fcm" || t.push_provider === "voip_apns"
   );
+  // A4: 통화 푸시는 voip_apns 를 먼저 보내 같은 iOS 설치의 일반 알림 생략·대체를 판정한다.
+  const iosVoipDeviceIds = new Set(
+    targets
+      .filter((t) => t.push_provider === "voip_apns")
+      .map((t) => String(t.device_id ?? "").trim())
+      .filter(Boolean)
+  );
+  const iosVoipSentDeviceIds = new Set<string>();
+  const orderedTargets = callPush
+    ? [
+        ...targets.filter((t) => t.push_provider === "voip_apns"),
+        ...targets.filter((t) => t.push_provider !== "voip_apns"),
+      ]
+    : targets;
   // SRV-01 retry ledger (non-call event pushes only; call pushes keep the legacy path).
   let alreadySentCount = 0;
   let retryPendingCount = 0;
 
-  for (const target of targets) {
+  for (const target of orderedTargets) {
     // SSOT: always gate voip_apns (even for non-call). Call web_push policy only when callPush.
     const callPushKind = resolveCallPushKindForProviderPolicy(enrichedOut, opts);
     if (target.push_provider === "voip_apns" || callPush) {
@@ -352,6 +366,8 @@ export async function dispatchPushForUser(
         hasNativeCallTarget,
         targetDeviceId: target.device_id ?? null,
         voipTerminalExcludeDeviceIds: opts?.ios_voip_terminal_exclude_device_ids ?? null,
+        iosVoipDeviceIds,
+        iosVoipSentDeviceIds,
       });
 
       // VoIP(PushKit) 결정은 유령 재전화 회귀 추적을 위해 항상 관측한다(raw token 미기록).
@@ -460,6 +476,10 @@ export async function dispatchPushForUser(
     }
 
     const result = await sendToTarget(target, enrichedOut, opts);
+    if (target.push_provider === "voip_apns" && result.status === "sent") {
+      const voipDeviceId = String(target.device_id ?? "").trim();
+      if (voipDeviceId) iosVoipSentDeviceIds.add(voipDeviceId);
+    }
 
     const providerResponse = {
       ...baseDeliveryDiagnostics(target, enrichedOut, opts),

@@ -18,6 +18,7 @@ import {
 } from "@/lib/community-points/content-acceptance";
 import { applyCommunityPointReclaimOnPostDelete } from "@/lib/points/community-point-bridge";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
+import { resolveMemberPostImages } from "@/lib/philife/post-body-images";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,22 +56,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const rawCat = String(body.category ?? "")
     .trim()
     .toLowerCase();
-  const images = Array.isArray(body.images)
-    ? body.images
-        .map((u) => (typeof u === "string" ? u.trim() : ""))
-        .filter(
-          (u) =>
-            u.length > 0 &&
-            u.length < 2048 &&
-            (u.startsWith("https://") || u.startsWith("http://")) &&
-            !/\s|["'<>]/.test(u)
-        )
-        .slice(0, 10)
-    : [];
-
-  if (!rawCat) {
-    return NextResponse.json({ ok: false, error: "카테고리를 선택해 주세요." }, { status: 400 });
-  }
+  /** category 생략 = 기존 주제 유지 (숨김·비활성 주제 글 수정 시 자동 변경 방지 — CM-P2-09) */
   if (rawCat === "meetup") {
     return NextResponse.json({ ok: false, error: "모임 글은 이 경로에서 수정할 수 없습니다." }, { status: 400 });
   }
@@ -98,14 +84,14 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const id = (await resolveCanonicalCommunityPostId(raw)) ?? raw;
 
   let selectCols =
-    "id, user_id, status, is_deleted, is_hidden, origin_kind, section_id, is_meetup";
+    "id, user_id, status, is_deleted, is_hidden, origin_kind, section_id, is_meetup, content, images";
   let { data: row, error: findErr } = await sb
     .from("community_posts")
     .select(selectCols)
     .eq("id", id)
     .maybeSingle();
   if (findErr && isMissingDbColumnError(findErr, "origin_kind")) {
-    selectCols = "id, user_id, status, is_deleted, is_hidden, section_id, is_meetup";
+    selectCols = "id, user_id, status, is_deleted, is_hidden, section_id, is_meetup, content, images";
     ({ data: row, error: findErr } = await sb.from("community_posts").select(selectCols).eq("id", id).maybeSingle());
   }
   if (findErr) {
@@ -119,6 +105,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     origin_kind?: string | null;
     section_id?: string | null;
     is_meetup?: boolean;
+    content?: string | null;
+    images?: unknown;
   } | null;
   if (!r?.id) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   if (r.user_id !== auth.userId) {
@@ -151,32 +139,44 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ ok: false, error: "금칙어가 포함되어 있습니다." }, { status: 400 });
   }
 
-  const sectionId = r.section_id != null ? String(r.section_id) : "";
-  const topicMeta = await resolveTopicForNeighborhoodCategory(sb, rawCat, {
-    sectionId: sectionId || undefined,
+  const imagesRes = resolveMemberPostImages({
+    userId: auth.userId,
+    content,
+    candidates: body.images,
+    previousContent: r.content ?? "",
+    previousImages: Array.isArray(r.images) ? r.images : [],
   });
-  if (!topicMeta) {
-    return NextResponse.json({ ok: false, error: "선택한 주제를 사용할 수 없습니다." }, { status: 400 });
+  if (!imagesRes.ok) {
+    return NextResponse.json({ ok: false, error: imagesRes.message, code: imagesRes.error }, { status: 400 });
   }
-
-  const categoryForDb = deriveCommunityPostCategoryBucket({
-    topicOrCategoryRaw: topicMeta.topicSlug,
-    isMeetup: false,
-  });
+  const images = imagesRes.images;
 
   const patch: Record<string, unknown> = {
     title,
     content,
     summary: summarizeCommunityPostContent(content),
-    topic_id: topicMeta.topicId,
-    topic_slug: topicMeta.topicSlug,
-    category: categoryForDb,
     images,
     updated_at: new Date().toISOString(),
     // 리비전 트리거가 수정자·역할을 기록 (M3)
     last_edited_by: auth.userId,
     last_edited_role: "author",
   };
+
+  if (rawCat) {
+    const sectionId = r.section_id != null ? String(r.section_id) : "";
+    const topicMeta = await resolveTopicForNeighborhoodCategory(sb, rawCat, {
+      sectionId: sectionId || undefined,
+    });
+    if (!topicMeta) {
+      return NextResponse.json({ ok: false, error: "선택한 주제를 사용할 수 없습니다." }, { status: 400 });
+    }
+    patch.topic_id = topicMeta.topicId;
+    patch.topic_slug = topicMeta.topicSlug;
+    patch.category = deriveCommunityPostCategoryBucket({
+      topicOrCategoryRaw: topicMeta.topicSlug,
+      isMeetup: false,
+    });
+  }
 
   const { error: upErr } = await sb
     .from("community_posts")
