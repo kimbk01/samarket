@@ -239,4 +239,102 @@ describe("call push provider policy — iOS VoIP terminal safety (A1) · Jul 11 
       )
     ).toBe("incoming_call");
   });
+
+  describe("A4 — iOS call alert suppressed where CallKit shows the call", () => {
+    const voip = new Set(["ios-a"]);
+    const kinds = [
+      "incoming_call",
+      "call_canceled",
+      "call_rejected",
+      "call_ended",
+      "call_answered_elsewhere",
+    ] as const;
+
+    it("skips call alerts on an install with active voip_apns (incoming VoIP sent)", () => {
+      for (const kind of kinds) {
+        expect(
+          resolveCallPushProviderPolicy({
+            callPushKind: kind,
+            provider: "apns",
+            hasNativeCallTarget: true,
+            targetDeviceId: " ios-a ",
+            iosVoipDeviceIds: voip,
+            iosVoipSentDeviceIds: new Set(["ios-a"]),
+          })
+        ).toEqual({ allow: false, reason: "ios_call_alert_callkit_owned" });
+      }
+    });
+
+    it("falls back to the incoming alert when that install's VoIP was not sent", () => {
+      expect(
+        resolveCallPushProviderPolicy({
+          callPushKind: "incoming_call",
+          provider: "apns",
+          hasNativeCallTarget: true,
+          targetDeviceId: "ios-a",
+          iosVoipDeviceIds: voip,
+          iosVoipSentDeviceIds: new Set(),
+        })
+      ).toEqual({ allow: true });
+      // terminal kinds stay suppressed even without VoIP (A1 skips most terminal VoIP).
+      expect(
+        resolveCallPushProviderPolicy({
+          callPushKind: "call_ended",
+          provider: "apns",
+          hasNativeCallTarget: true,
+          targetDeviceId: "ios-a",
+          iosVoipDeviceIds: voip,
+          iosVoipSentDeviceIds: new Set(),
+        })
+      ).toEqual({ allow: false, reason: "ios_call_alert_callkit_owned" });
+    });
+
+    it("keeps missed_call alert and alerts on installs without VoIP (iPad / old install)", () => {
+      expect(
+        resolveCallPushProviderPolicy({
+          callPushKind: "missed_call",
+          provider: "apns",
+          hasNativeCallTarget: true,
+          targetDeviceId: "ios-a",
+          iosVoipDeviceIds: voip,
+          iosVoipSentDeviceIds: voip,
+        })
+      ).toEqual({ allow: true });
+      for (const kind of kinds) {
+        expect(
+          resolveCallPushProviderPolicy({
+            callPushKind: kind,
+            provider: "apns",
+            hasNativeCallTarget: true,
+            targetDeviceId: "ipad-no-voip",
+            iosVoipDeviceIds: voip,
+            iosVoipSentDeviceIds: voip,
+          }).allow
+        ).toBe(true);
+      }
+    });
+
+    it("does not touch fcm / web_push / non-call alerts", () => {
+      expect(
+        resolveCallPushProviderPolicy({
+          callPushKind: "incoming_call",
+          provider: "fcm",
+          hasNativeCallTarget: true,
+          targetDeviceId: "ios-a",
+          iosVoipDeviceIds: voip,
+          iosVoipSentDeviceIds: voip,
+        })
+      ).toEqual({ allow: true });
+      expect(
+        resolveCallPushProviderPolicy({
+          callPushKind: null,
+          provider: "apns",
+          hasNativeCallTarget: true,
+          targetDeviceId: "ios-a",
+          iosVoipDeviceIds: voip,
+          iosVoipSentDeviceIds: voip,
+        })
+      ).toEqual({ allow: true });
+    });
+  });
 });
