@@ -10,6 +10,13 @@ import {
   type CmBootstrapSnapshotPayloadJson,
 } from "@/lib/community-messenger/cm-bootstrap-snapshot-assemble";
 import {
+  bootstrapSnapshotFenceStillHolds,
+  hasUnackedBootstrapSnapshotInvalidation,
+  isBootstrapSnapshotCounterFresh,
+  readBootstrapSnapshotInvalidationAt,
+  upsertBootstrapSnapshotWithWatermarkFence,
+} from "@/lib/community-messenger/bootstrap-snapshot-invalidation";
+import {
   CM_BOOTSTRAP_LITE_DEFAULT_LIMIT,
   CM_BOOTSTRAP_LITE_DEFAULT_SCOPE,
   CM_BOOTSTRAP_SNAPSHOT_RPC,
@@ -25,7 +32,6 @@ import {
   evaluateCmBootstrapRegressionGuards,
   type CmBootstrapSnapshotBreakdown,
 } from "@/lib/community-messenger/cm-bootstrap-regression-guard";
-import { scheduleCmBootstrapSnapshotRefresh } from "@/lib/community-messenger/cm-bootstrap-snapshot-refresh";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -98,23 +104,18 @@ async function readSnapshotCounter(
 async function upsertSnapshotCounter(
   sbAny: SupabaseClient<any>,
   keys: ReturnType<typeof cmBootstrapSnapshotCacheKeyParts>,
-  payload: CmBootstrapSnapshotPayloadJson
-): Promise<void> {
-  const { error } = await sbAny.from(CM_BOOTSTRAP_SNAPSHOT_TABLE).upsert(
-    {
-      user_id: keys.user_id,
-      bootstrap_scope: keys.bootstrap_scope,
-      list_limit: keys.list_limit,
-      cursor_key: keys.cursor_key,
-      payload_json: payload,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,bootstrap_scope,list_limit,cursor_key" }
-  );
-  if (error && process.env.NODE_ENV === "development") {
-    // eslint-disable-next-line no-console -- snapshot upsert probe
-    console.warn("[cm-bootstrap-snapshot-upsert]", error.message);
-  }
+  payload: CmBootstrapSnapshotPayloadJson,
+  opts?: { invalidationFence?: string | null }
+): Promise<"written" | "skipped_stale_race" | "write_error"> {
+  return upsertBootstrapSnapshotWithWatermarkFence(sbAny, {
+    userId: keys.user_id,
+    bootstrapScope: keys.bootstrap_scope,
+    listLimit: keys.list_limit,
+    cursorKey: keys.cursor_key,
+    payload: payload as unknown as Record<string, unknown>,
+    invalidationFence: opts?.invalidationFence ?? null,
+    table: CM_BOOTSTRAP_SNAPSHOT_TABLE,
+  });
 }
 
 async function fetchSnapshotViaRpc(
@@ -231,45 +232,64 @@ export async function tryLoadCmBootstrapLiteFromSnapshot(
 
   return runSingleFlight(`${SNAPSHOT_SINGLE_FLIGHT_PREFIX}${keys.user_id}`, async () => {
     const build0 = devPerfNow();
+    const ttlMs = cmBootstrapSnapshotCounterTtlMs();
 
     if (!opts?.bypassCounter) {
       const read0 = devPerfNow();
-      const counter = await readSnapshotCounter(sbAny, keys);
+      const [counter, invRead] = await Promise.all([
+        readSnapshotCounter(sbAny, keys),
+        readBootstrapSnapshotInvalidationAt(sbAny, uid),
+      ]);
       const readMs = devPerfNow() - read0;
 
-      if (counter.hit && !counter.stale) {
-        const done = await finishFromPayload(uid, counter.row.payload_json, {
-          totalMs: devPerfNow() - build0,
-          readMs,
-          via: "counter_row",
+      if (counter.hit) {
+        const payloadOk = counter.row.payload_json?.ok === true;
+        const fresh = isBootstrapSnapshotCounterFresh({
+          rowUpdatedAt: counter.row.updated_at,
+          invalidationAt: invRead.status === "ok" ? invRead.updatedAt : null,
+          invalidationReadOk: invRead.status === "ok",
+          ageMs: counter.ageMs,
+          ttlMs,
+          payloadOk,
+          unackedLocal: hasUnackedBootstrapSnapshotInvalidation(uid),
         });
-        if (done) return done;
-      }
-      if (counter.hit && counter.stale) {
-        scheduleCmBootstrapSnapshotRefresh(uid);
-        const done = await finishFromPayload(uid, counter.row.payload_json, {
-          totalMs: devPerfNow() - build0,
-          readMs,
-          via: "counter_row",
-        });
-        if (done) return done;
+        if (fresh) {
+          const done = await finishFromPayload(uid, counter.row.payload_json, {
+            totalMs: devPerfNow() - build0,
+            readMs,
+            via: "counter_row",
+          });
+          if (done) return done;
+        }
       }
     }
 
-    const { payload, rpcMs } = await fetchSnapshotViaRpc(
-      sbAny,
-      uid,
-      keys.list_limit,
-      keys.cursor_key
-    );
-    if (!payload || payload.ok !== true) return null;
-
-    await upsertSnapshotCounter(sbAny, keys, payload);
-    return finishFromPayload(uid, payload, {
-      totalMs: devPerfNow() - build0,
-      readMs: rpcMs || devPerfNow() - build0,
-      via: "unified_rpc",
-    });
+    let lastRpcMs = 0;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const invFence = await readBootstrapSnapshotInvalidationAt(sbAny, uid);
+      if (invFence.status === "error") return null;
+      const { payload, rpcMs } = await fetchSnapshotViaRpc(
+        sbAny,
+        uid,
+        keys.list_limit,
+        keys.cursor_key
+      );
+      lastRpcMs = rpcMs;
+      if (!payload || payload.ok !== true) return null;
+      const fence = invFence.updatedAt;
+      const write = await upsertSnapshotCounter(sbAny, keys, payload, {
+        invalidationFence: fence,
+      });
+      if (write === "written") {
+        if (!(await bootstrapSnapshotFenceStillHolds(sbAny, uid, fence))) continue;
+        return finishFromPayload(uid, payload, {
+          totalMs: devPerfNow() - build0,
+          readMs: lastRpcMs || devPerfNow() - build0,
+          via: "unified_rpc",
+        });
+      }
+    }
+    return null;
   });
 }
 
@@ -282,8 +302,19 @@ export async function refreshCmBootstrapSnapshotFromRpc(
     scope: CM_BOOTSTRAP_LITE_DEFAULT_SCOPE,
     limit: CM_BOOTSTRAP_LITE_DEFAULT_LIMIT,
   });
-  const { payload } = await fetchSnapshotViaRpc(sbAny, keys.user_id, keys.list_limit, keys.cursor_key);
-  if (!payload || payload.ok !== true) return null;
-  await upsertSnapshotCounter(sbAny, keys, payload);
-  return payload;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const invFence = await readBootstrapSnapshotInvalidationAt(sbAny, keys.user_id);
+    if (invFence.status === "error") return null;
+    const { payload } = await fetchSnapshotViaRpc(sbAny, keys.user_id, keys.list_limit, keys.cursor_key);
+    if (!payload || payload.ok !== true) return null;
+    const fence = invFence.updatedAt;
+    const write = await upsertSnapshotCounter(sbAny, keys, payload, {
+      invalidationFence: fence,
+    });
+    if (write === "written") {
+      if (!(await bootstrapSnapshotFenceStillHolds(sbAny, keys.user_id, fence))) continue;
+      return payload;
+    }
+  }
+  return null;
 }

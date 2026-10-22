@@ -10,6 +10,13 @@ import {
   type FullBootstrapSnapshotPayloadJson,
 } from "@/lib/community-messenger/full-bootstrap-snapshot-assemble";
 import {
+  bootstrapSnapshotFenceStillHolds,
+  hasUnackedBootstrapSnapshotInvalidation,
+  isBootstrapSnapshotCounterFresh,
+  readBootstrapSnapshotInvalidationAt,
+  upsertBootstrapSnapshotWithWatermarkFence,
+} from "@/lib/community-messenger/bootstrap-snapshot-invalidation";
+import {
   FBT1_BOOTSTRAP_SNAPSHOT_RPC,
   FBT1_BOOTSTRAP_SNAPSHOT_TABLE,
   FBT1_CRITICAL_DEFAULT_LIMIT,
@@ -25,7 +32,6 @@ import {
   evaluateFullBootstrapRegressionGuards,
   type FullBootstrapSnapshotBreakdown,
 } from "@/lib/community-messenger/full-bootstrap-snapshot-regression-guard";
-import { scheduleFullBootstrapSnapshotRefresh } from "@/lib/community-messenger/full-bootstrap-snapshot-refresh";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerBootstrapCritical,
@@ -112,23 +118,18 @@ async function readSnapshotCounter(
 async function upsertSnapshotCounter(
   sbAny: SupabaseClient<any>,
   keys: ReturnType<typeof fbt1BootstrapSnapshotCacheKeyParts>,
-  payload: FullBootstrapSnapshotPayloadJson
-): Promise<void> {
-  const { error } = await sbAny.from(FBT1_BOOTSTRAP_SNAPSHOT_TABLE).upsert(
-    {
-      user_id: keys.user_id,
-      bootstrap_scope: keys.bootstrap_scope,
-      list_limit: keys.list_limit,
-      cursor_key: keys.cursor_key,
-      payload_json: payload,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,bootstrap_scope,list_limit,cursor_key" }
-  );
-  if (error && process.env.NODE_ENV === "development") {
-    // eslint-disable-next-line no-console -- snapshot upsert probe
-    console.warn("[full-bootstrap-snapshot-upsert]", error.message);
-  }
+  payload: FullBootstrapSnapshotPayloadJson,
+  opts?: { invalidationFence?: string | null }
+): Promise<"written" | "skipped_stale_race" | "write_error"> {
+  return upsertBootstrapSnapshotWithWatermarkFence(sbAny, {
+    userId: keys.user_id,
+    bootstrapScope: keys.bootstrap_scope,
+    listLimit: keys.list_limit,
+    cursorKey: keys.cursor_key,
+    payload: payload as unknown as Record<string, unknown>,
+    invalidationFence: opts?.invalidationFence ?? null,
+    table: FBT1_BOOTSTRAP_SNAPSHOT_TABLE,
+  });
 }
 
 async function fetchSnapshotViaRpc(
@@ -281,46 +282,67 @@ async function tryLoadFromSnapshotInternal(
 
   return runSingleFlight(`${SNAPSHOT_SINGLE_FLIGHT_PREFIX}${tier}:${keys.user_id}`, async () => {
     const build0 = devPerfNow();
+    const ttlMs = fbt1BootstrapSnapshotCounterTtlMs();
 
     if (!opts?.bypassCounter) {
       const read0 = devPerfNow();
-      const counter = await readSnapshotCounter(sbAny, keys);
+      const [counter, invRead] = await Promise.all([
+        readSnapshotCounter(sbAny, keys),
+        readBootstrapSnapshotInvalidationAt(sbAny, uid),
+      ]);
       const readMs = devPerfNow() - read0;
 
-      if (counter.hit && !counter.stale) {
-        const done = await finishFromPayload(uid, tier, counter.row.payload_json, {
-          totalMs: devPerfNow() - build0,
-          readMs,
-          via: "counter_row",
-        }, sbAny);
-        if (done) return done;
-      }
-      if (counter.hit && counter.stale) {
-        scheduleFullBootstrapSnapshotRefresh(uid, tier);
-        const done = await finishFromPayload(uid, tier, counter.row.payload_json, {
-          totalMs: devPerfNow() - build0,
-          readMs,
-          via: "counter_row",
-        }, sbAny);
-        if (done) return done;
+      if (counter.hit) {
+        const payloadOk = counter.row.payload_json?.ok === true;
+        const fresh = isBootstrapSnapshotCounterFresh({
+          rowUpdatedAt: counter.row.updated_at,
+          invalidationAt: invRead.status === "ok" ? invRead.updatedAt : null,
+          invalidationReadOk: invRead.status === "ok",
+          ageMs: counter.ageMs,
+          ttlMs,
+          payloadOk,
+          unackedLocal: hasUnackedBootstrapSnapshotInvalidation(uid),
+        });
+        if (fresh) {
+          const done = await finishFromPayload(uid, tier, counter.row.payload_json, {
+            totalMs: devPerfNow() - build0,
+            readMs,
+            via: "counter_row",
+          }, sbAny);
+          if (done) return done;
+        }
+        // Obsolete / TTL-stale / inv-read error: never return as authoritative — recompute below.
       }
     }
 
-    const { payload, rpcMs } = await fetchSnapshotViaRpc(
-      sbAny,
-      uid,
-      tier,
-      keys.list_limit,
-      keys.cursor_key
-    );
-    if (!payload || payload.ok !== true) return null;
-
-    await upsertSnapshotCounter(sbAny, keys, payload);
-    return finishFromPayload(uid, tier, payload, {
-      totalMs: devPerfNow() - build0,
-      readMs: rpcMs || devPerfNow() - build0,
-      via: "unified_rpc",
-    }, sbAny);
+    // Cap 2 attempts: invalidation moved mid-RPC, or upsert write_error once.
+    let lastRpcMs = 0;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const invFence = await readBootstrapSnapshotInvalidationAt(sbAny, uid);
+      if (invFence.status === "error") return null;
+      const fence = invFence.updatedAt;
+      const { payload, rpcMs } = await fetchSnapshotViaRpc(
+        sbAny,
+        uid,
+        tier,
+        keys.list_limit,
+        keys.cursor_key
+      );
+      lastRpcMs = rpcMs;
+      if (!payload || payload.ok !== true) return null;
+      const write = await upsertSnapshotCounter(sbAny, keys, payload, { invalidationFence: fence });
+      if (write === "written") {
+        // Close race between post-write fence ack and HTTP response return.
+        if (!(await bootstrapSnapshotFenceStillHolds(sbAny, uid, fence))) continue;
+        return finishFromPayload(uid, tier, payload, {
+          totalMs: devPerfNow() - build0,
+          readMs: lastRpcMs || devPerfNow() - build0,
+          via: "unified_rpc",
+        }, sbAny);
+      }
+      // skipped_stale_race | write_error → retry once; never return stale RPC as success.
+    }
+    return null;
   });
 }
 
@@ -354,16 +376,27 @@ export async function refreshFullBootstrapSnapshotFromRpc(
     tier,
     limit: tier === "critical" ? FBT1_CRITICAL_DEFAULT_LIMIT : FBT1_FULL_DEFAULT_LIMIT,
   });
-  const { payload } = await fetchSnapshotViaRpc(
-    sbAny,
-    keys.user_id,
-    tier,
-    keys.list_limit,
-    keys.cursor_key
-  );
-  if (!payload || payload.ok !== true) return null;
-  await upsertSnapshotCounter(sbAny, keys, payload);
-  return payload;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const invFence = await readBootstrapSnapshotInvalidationAt(sbAny, keys.user_id);
+    if (invFence.status === "error") return null;
+    const { payload } = await fetchSnapshotViaRpc(
+      sbAny,
+      keys.user_id,
+      tier,
+      keys.list_limit,
+      keys.cursor_key
+    );
+    if (!payload || payload.ok !== true) return null;
+    const fence = invFence.updatedAt;
+    const write = await upsertSnapshotCounter(sbAny, keys, payload, {
+      invalidationFence: fence,
+    });
+    if (write === "written") {
+      if (!(await bootstrapSnapshotFenceStillHolds(sbAny, keys.user_id, fence))) continue;
+      return payload;
+    }
+  }
+  return null;
 }
 
 export function logLegacyFullBootstrapHotpath(input: {

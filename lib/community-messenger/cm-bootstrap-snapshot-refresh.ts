@@ -1,5 +1,6 @@
 /**
- * Event-driven CM bootstrap snapshot refresh (CMB1).
+ * On-demand CM bootstrap snapshot refresh (CMB1).
+ * Not scheduled from domain invalidation — home read path recomputes when counter is obsolete.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { refreshCmBootstrapSnapshotFromRpc } from "@/lib/community-messenger/cm-bootstrap-snapshot";

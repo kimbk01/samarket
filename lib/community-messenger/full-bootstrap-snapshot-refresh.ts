@@ -1,5 +1,7 @@
 /**
- * Event-driven full bootstrap snapshot refresh (FBT1).
+ * On-demand full bootstrap snapshot refresh (FBT1).
+ * Not scheduled from domain invalidation — home read path recomputes when counter is obsolete.
+ * Keeps user:tier single-flight for rare explicit callers.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { refreshFullBootstrapSnapshotFromRpc } from "@/lib/community-messenger/full-bootstrap-snapshot";
