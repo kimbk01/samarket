@@ -1,5 +1,5 @@
 /**
- * 통화 통합 설계 §2-1 — iPhone 통화 채널 발송 규칙 (VoIP 는 살아 있는 벨이 있는 기기에만 · CallKit 기기에 일반 알림 중복 금지).
+ * 통화 정상화 계획 v2 §3-1 — iPhone 통화 채널 발송 규칙 (VoIP 는 살아 있는 벨이 있는 기기에만 · CallKit 기기에 일반 알림 중복 금지).
  * 하네스는 cd1-preference-fail-closed-provider-boundary.test.ts 와 동일.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -79,6 +79,8 @@ function target(id: string, provider: "apns" | "voip_apns" | "fcm", deviceId: st
 }
 
 let ringRows: Array<{ device_id: string; provider_response: Record<string, unknown> }> = [];
+let ringQueryFails = 0;
+let ringQueryCalls = 0;
 
 function supabaseMock() {
   const chain: Record<string, unknown> = {};
@@ -89,7 +91,11 @@ function supabaseMock() {
     update: vi.fn(self),
     maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-    then: (resolve: (v: unknown) => unknown) => resolve({ data: ringRows, error: null }),
+    then: (resolve: (v: unknown) => unknown) => {
+      ringQueryCalls += 1;
+      if (ringQueryCalls <= ringQueryFails) return resolve({ data: null, error: { message: "boom" } });
+      return resolve({ data: ringRows, error: null });
+    },
   });
   return { from: vi.fn(() => chain) };
 }
@@ -115,7 +121,7 @@ async function dispatch(kind: Kind, extra: Record<string, unknown> = {}) {
 
 const sentIds = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.map((c) => (c[0] as { id: string }).id);
 
-describe("통화 통합 설계 §2-1 — decideIosCallTarget", () => {
+describe("통화 정상화 계획 v2 §3-1 — decideIosCallTarget", () => {
   const base = {
     targetId: "voip",
     deviceId: IPHONE,
@@ -136,9 +142,13 @@ describe("통화 통합 설계 §2-1 — decideIosCallTarget", () => {
     expect(
       decideIosCallTarget({ ...base, provider: "voip_apns", callPushKind: "call_rejected", iosExcludedDeviceIds: new Set([IPHONE]) }).skip
     ).toBe(true);
+    // 조회 실패·판단 불가 → 보내지 않음(벨 없는 기기에 보내 iOS 차단을 만들지 않는다)
+    expect(
+      decideIosCallTarget({ ...base, provider: "voip_apns", callPushKind: "call_canceled", ringDeliveredTargetIds: "lookup_failed" })
+    ).toEqual({ skip: true, reason: "ios_voip_ring_lookup_failed" });
     expect(
       decideIosCallTarget({ ...base, provider: "voip_apns", callPushKind: "call_canceled", ringDeliveredTargetIds: null }).skip
-    ).toBe(false);
+    ).toBe(true);
   });
   it("수신 VoIP 는 항상 전송", () => {
     expect(
@@ -158,7 +168,7 @@ describe("통화 통합 설계 §2-1 — decideIosCallTarget", () => {
   });
 });
 
-describe("통화 통합 설계 §2-1 — dispatchPushForUser 통합", () => {
+describe("통화 정상화 계획 v2 §3-1 — dispatchPushForUser 통합", () => {
   beforeEach(() => {
     loadActivePushTargets.mockReset();
     insertNotificationDelivery.mockReset();
@@ -169,6 +179,8 @@ describe("통화 통합 설계 §2-1 — dispatchPushForUser 통합", () => {
     tryCreateSupabaseServiceClient.mockReset();
     process.env.PUSH_DISPATCH_ENABLED = "1";
     ringRows = [];
+    ringQueryFails = 0;
+    ringQueryCalls = 0;
     tryCreateSupabaseServiceClient.mockReturnValue(supabaseMock());
     insertNotificationDelivery.mockResolvedValue(undefined);
     sendFcmToTarget.mockResolvedValue({ status: "sent", provider_response: {} });
@@ -214,6 +226,22 @@ describe("통화 통합 설계 §2-1 — dispatchPushForUser 통합", () => {
     ringRows = [{ device_id: "voip", provider_response: { push_provider: "voip_apns" } }];
     await dispatch("call_ended", { ios_call_exclude_device_ids: [IPHONE, "android-1"] });
     expect(sendVoipApnsToTarget).not.toHaveBeenCalled();
+    expect(sendFcmToTarget).toHaveBeenCalledTimes(1);
+  });
+
+  it("벨 기록 조회 1회 실패 → 재시도 성공이면 정상 판단", async () => {
+    ringRows = [{ device_id: "voip", provider_response: { push_provider: "voip_apns" } }];
+    ringQueryFails = 1;
+    await dispatch("call_canceled");
+    expect(sentIds(sendVoipApnsToTarget)).toEqual(["voip"]);
+  });
+
+  it("벨 기록 조회 2회 모두 실패 → iPhone 종료 VoIP·일반 알림 보내지 않음 (차단 재발 방지) · Android 유지", async () => {
+    ringRows = [{ device_id: "voip", provider_response: { push_provider: "voip_apns" } }];
+    ringQueryFails = 2;
+    await dispatch("call_ended");
+    expect(sendVoipApnsToTarget).not.toHaveBeenCalled();
+    expect(sendApnsToTarget).not.toHaveBeenCalled();
     expect(sendFcmToTarget).toHaveBeenCalledTimes(1);
   });
 

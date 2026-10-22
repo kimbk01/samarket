@@ -31,7 +31,7 @@ export async function sendWebPushForCommunityMessengerCallTerminal(input: {
   recipientUserId: string;
   sessionId: string;
   status: CommunityMessengerCallTerminalStatus;
-  /** 통화 통합 설계 §2-1 — 행동한 기기·받은 기기: iPhone 채널만 제외 */
+  /** 통화 정상화 계획 v2 §3-1 — 행동한 기기·받은 기기: iPhone 채널만 제외 */
   iosExcludeDeviceIds?: Array<string | null | undefined>;
 }): Promise<void> {
   const recipient = input.recipientUserId.trim();

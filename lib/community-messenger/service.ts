@@ -21232,7 +21232,7 @@ export async function updateCommunityMessengerCallSession(input: {
                     : next.nextStatus === "ended"
                       ? "ended"
                       : "cancelled",
-                /** 통화 통합 설계 §2-1 — 받은 기기는 이미 미디어로 종료를 안다(VoIP 시 CallKit 무보고 완료) */
+                /** 통화 정상화 계획 v2 §3-1 — 받은 기기는 이미 미디어로 종료를 안다(VoIP 시 CallKit 무보고 완료) */
                 iosExcludeDeviceIds: [requestDeviceId, updated.answered_device_id],
               }).catch(() => {})
             );
@@ -21249,7 +21249,7 @@ export async function updateCommunityMessengerCallSession(input: {
                   recipientUserId: calleeId,
                   sessionId: updated.id,
                   status: next.nextStatus === "rejected" ? "rejected" : "cancelled",
-                  /** 통화 통합 설계 §2-1 — 거절한 기기 자신 제외(다른 기기만 벨 종료) */
+                  /** 통화 정상화 계획 v2 §3-1 — 거절한 기기 자신 제외(다른 기기만 벨 종료) */
                   iosExcludeDeviceIds: [requestDeviceId],
                 }).catch(() => {})
               );

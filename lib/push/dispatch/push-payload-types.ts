@@ -49,7 +49,7 @@ export type DispatchPushOptions = {
    */
   exclude_device_ids?: string[];
   /**
-   * 통화 통합 설계 §2-1 — 행동한 기기·받은 기기(`user_devices.device_id`).
+   * 통화 정상화 계획 v2 §3-1 — 행동한 기기·받은 기기(`user_devices.device_id`).
    * iPhone 채널(voip_apns·apns)만 제외한다 — 이 기기는 이미 로컬에서 통화를 끝냈으므로 VoIP 를 받으면
    * CallKit 보고 없이 완료(iOS 규칙 위반 → VoIP 폐기)하게 된다. Android(fcm)·웹은 영향 없음.
    */

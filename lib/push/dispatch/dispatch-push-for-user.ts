@@ -87,7 +87,7 @@ export function orderCallPushTargetsNativeFirst<T extends Pick<PushTarget, "push
 }
 
 /**
- * 통화 통합 설계 §2-1 (docs/audit/messenger-2026-10-22-call-integrated-design.md) — iPhone 통화 채널 발송 규칙.
+ * 통화 정상화 계획 v2 §3-1 (docs/audit/messenger-2026-10-22-call-fix-plan-v2.md) · 원인 C1·C2 — iPhone 통화 채널 발송 규칙.
  * iOS 규칙: VoIP 를 받은 앱은 매번 CallKit 에 새 통화를 보고해야 하고, 보고 없이 끝내는 일이 반복되면 iOS 가
  * 앱의 VoIP 를 폐기한다(2026-10-22 `dropped on the floor`). 그래서 VoIP 는 「CallKit 에 살아 있는 벨」이 있는
  * 기기에만 보내고, CallKit 이 통화를 표시하는 iPhone 에는 일반 알림(띵·배너)을 겹쳐 보내지 않는다.
@@ -105,8 +105,12 @@ export function decideIosCallTarget(input: {
   callPushKind: string | null | undefined;
   targetId: string;
   deviceId: string | null | undefined;
-  /** 이번 세션 벨 VoIP 가 sent 된 user_devices 행 id. null = 조회 실패/모름(기존대로 전송) */
-  ringDeliveredTargetIds: ReadonlySet<string> | null;
+  /**
+   * 이번 세션 벨 VoIP 가 sent 된 user_devices 행 id.
+   * `"lookup_failed"` = 재시도 후에도 조회 실패 → 종료류 VoIP 를 보내지 않는다(벨이 없는 기기에 보내 iOS 차단을
+   * 만드는 것보다 안전: 벨이 살아 있는 기기는 앱 자체 벨 타임아웃으로 끝난다). null = 종료류가 아님(판단 불필요).
+   */
+  ringDeliveredTargetIds: ReadonlySet<string> | "lookup_failed" | null;
   iosExcludedDeviceIds: ReadonlySet<string>;
   voipTargetDeviceIds: ReadonlySet<string>;
   voipSentDeviceIds: ReadonlySet<string>;
@@ -120,7 +124,10 @@ export function decideIosCallTarget(input: {
       if (deviceId && input.iosExcludedDeviceIds.has(deviceId)) {
         return { skip: true, reason: "ios_voip_actor_or_answered_device" };
       }
-      if (input.ringDeliveredTargetIds && !input.ringDeliveredTargetIds.has(input.targetId)) {
+      if (input.ringDeliveredTargetIds === "lookup_failed") {
+        return { skip: true, reason: "ios_voip_ring_lookup_failed" };
+      }
+      if (!input.ringDeliveredTargetIds || !input.ringDeliveredTargetIds.has(input.targetId)) {
         return { skip: true, reason: "ios_voip_no_live_ring" };
       }
     }
@@ -136,6 +143,16 @@ export function decideIosCallTarget(input: {
 }
 
 async function loadVoipRingDeliveredTargetIds(
+  svc: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>,
+  sessionId: string
+): Promise<Set<string> | "lookup_failed"> {
+  const first = await queryVoipRingDeliveredTargetIdsOnce(svc, sessionId);
+  if (first) return first;
+  const retry = await queryVoipRingDeliveredTargetIdsOnce(svc, sessionId);
+  return retry ?? "lookup_failed";
+}
+
+async function queryVoipRingDeliveredTargetIdsOnce(
   svc: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>,
   sessionId: string
 ): Promise<Set<string> | null> {
@@ -447,7 +464,7 @@ export async function dispatchPushForUser(
   // SRV-01 retry ledger (non-call event pushes only; call pushes keep the legacy path).
   let alreadySentCount = 0;
   let retryPendingCount = 0;
-  /** 통화 통합 설계 §2-1 — iPhone 통화 채널 판단 입력 */
+  /** 통화 정상화 계획 v2 §3-1 — iPhone 통화 채널 판단 입력 */
   const dispatchCallPushKind = callPush ? resolveCallPushKindForProviderPolicy(enrichedOut, opts) : null;
   const iosExcludedDeviceIds = new Set(
     (opts?.ios_call_exclude_device_ids ?? []).map((id) => String(id ?? "").trim()).filter(Boolean)
