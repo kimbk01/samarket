@@ -13,6 +13,7 @@ import {
 } from "@/lib/delivery/delivery-list-oor-policy";
 import type { DeliveryServiceabilityResult } from "@/lib/delivery/evaluate-delivery-serviceability";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
+import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   loadStoresSearchTopBannerSlide,
@@ -90,6 +91,13 @@ type StoreRow = DeliverySearchStoreResult & {
   delivery_available?: boolean | null;
 };
 
+/**
+ * DSC-03 — 회원 배달 가능 지역(OOR) 제외는 조회 뒤 TS 에서 판정하므로, LIMIT 을 먼저 걸면 지역 안 매칭이
+ * 잘려 나간다. 후보는 이 상한까지 넓게 읽고 **노출 판정 후** storeLimit/menuLimit 으로 자른다(최대 반환 수 불변).
+ */
+export const DELIVERY_SEARCH_STORE_FETCH_CAP = 100;
+export const DELIVERY_SEARCH_MENU_FETCH_CAP = 150;
+
 type ProductRow = {
   id: string;
   store_id: string;
@@ -101,6 +109,8 @@ type ProductRow = {
   product_status?: string | null;
   local_delivery_available?: boolean | null;
   item_type?: string | null;
+  admin_review_status?: string | null;
+  store_menu_sections?: unknown;
 };
 
 /**
@@ -282,18 +292,20 @@ export async function searchDeliveryDomain(input: {
     )
     .order("rating_avg", { ascending: false })
     .order("review_count", { ascending: false })
-    .limit(storeLimit);
+    .limit(DELIVERY_SEARCH_STORE_FETCH_CAP);
 
   const productsQuery = sb
     .from("store_products")
-    .select("id, store_id, title, summary, price, discount_price, thumbnail_url, item_type")
+    .select(
+      "id, store_id, title, summary, price, discount_price, thumbnail_url, item_type, admin_review_status, store_menu_sections ( is_hidden )"
+    )
     .eq("product_status", "active")
     .eq("local_delivery_available", true)
     .or([`title.ilike."${pat}"`, `summary.ilike."${pat}"`].join(","))
     .order("is_featured", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false })
-    .limit(Math.max(menuLimit, 30));
+    .limit(DELIVERY_SEARCH_MENU_FETCH_CAP);
 
   const [storesRes, prodsRes] = await Promise.all([storesQuery, productsQuery]);
 
@@ -303,11 +315,14 @@ export async function searchDeliveryDomain(input: {
       .filter((s) => !!s?.id && !!s?.slug)
       .filter((s) => matchDeliveryStoreGlobalSearch(s, parsed.keyword).matched) ?? [];
 
-  const prodsRaw = ((prodsRes.data ?? []) as unknown as ProductRow[]).filter((p) =>
-    matchDeliveryMenuGlobalSearch(
-      { title: String(p.title ?? ""), summary: p.summary != null ? String(p.summary) : null },
-      parsed.keyword
-    ).matched
+  const prodsRaw = ((prodsRes.data ?? []) as unknown as ProductRow[]).filter(
+    (p) =>
+      // DSC-09 — 노출 = 주문 가능: 검수 반려·재검수 대기·숨김 구역 상품은 상세·주문과 같은 규칙으로 제외
+      !storeProductBuyerVisibilityBlocked(p) &&
+      matchDeliveryMenuGlobalSearch(
+        { title: String(p.title ?? ""), summary: p.summary != null ? String(p.summary) : null },
+        parsed.keyword
+      ).matched
   );
   console.log("[delivery-search-debug] raw matched products count", prodsRaw.length);
   const storeIdsFromProducts = Array.from(
@@ -380,7 +395,8 @@ export async function searchDeliveryDomain(input: {
     byId.set(s.id, s);
     merged.push(s);
   }
-  const mergedStoresRaw = merged.slice(0, storeLimit);
+  /** DSC-03 — storeLimit 은 지역 노출 판정 뒤에 적용 */
+  const mergedStoresRaw = merged;
 
   let customerLat =
     input.customerLat != null && Number.isFinite(Number(input.customerLat))
@@ -464,12 +480,14 @@ export async function searchDeliveryDomain(input: {
       distancePolicyApplied: elig?.distancePolicyApplied === true,
     };
   });
-  const mergedStores: DeliverySearchStoreResult[] = annotated.filter((s) =>
-    isDeliverySearchStoreVisible({
-      originSource,
-      eligibility: eligibilityByStoreId.get(s.id),
-    })
-  );
+  const mergedStores: DeliverySearchStoreResult[] = annotated
+    .filter((s) =>
+      isDeliverySearchStoreVisible({
+        originSource,
+        eligibility: eligibilityByStoreId.get(s.id),
+      })
+    )
+    .slice(0, storeLimit);
 
   const menus: DeliverySearchMenuResult[] = [];
   /** Display metadata only — never used as delivery eligibility authority. */

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
 import { resolveListDistanceOutOfRange } from "@/lib/delivery/delivery-list-oor-policy";
 import { haversineKm } from "@/lib/geo/haversine-km";
 import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
@@ -102,6 +103,8 @@ type ProductMini = {
   thumbnail_url: string | null;
   is_featured: boolean | null;
   sort_order: number | null;
+  admin_review_status?: string | null;
+  store_menu_sections?: unknown;
 };
 
 type FeedRow = {
@@ -437,7 +440,9 @@ export async function GET(req: Request) {
         loadCommerceSettings(supabase),
         supabase
           .from("store_products")
-          .select("id, store_id, title, price, thumbnail_url, is_featured, sort_order")
+          .select(
+            "id, store_id, title, price, thumbnail_url, is_featured, sort_order, admin_review_status, store_menu_sections ( is_hidden )"
+          )
           .in("store_id", ids)
           .eq("product_status", "active"),
       ]);
@@ -445,7 +450,8 @@ export async function GET(req: Request) {
       if (pErr) {
         console.error("[api/stores/home-feed] products", pErr);
       } else {
-        const list = (prods ?? []) as ProductMini[];
+        /** DSC-09 — 노출 = 주문 가능: 검수 반려·재검수 대기·숨김 구역 상품은 선반(대표·인기)에서 제외 */
+        const list = ((prods ?? []) as ProductMini[]).filter((p) => !storeProductBuyerVisibilityBlocked(p));
         activeCatalogByStore = buildActiveProductCatalogMap(list, resolveBrowseFeaturedMenuImageUrl);
         const grouped = new Map<string, ProductMini[]>();
         for (const p of list) {

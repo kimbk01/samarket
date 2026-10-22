@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
   buildDeliveryListScrollRouteKey,
@@ -24,6 +24,11 @@ import {
   type DeliverySearchStore,
 } from "@/components/delivery/search/DeliverySearchResults";
 import type { SearchTopBannerSlide } from "@/lib/stores/load-store-search-top-banners";
+import {
+  buildDeliverySearchHrefWithKeyword,
+  normalizeDeliverySearchKeyword,
+  readDeliverySearchKeywordFromParams,
+} from "@/lib/delivery/search/delivery-search-url-keyword";
 
 type SearchResponse = {
   ok: boolean;
@@ -46,14 +51,18 @@ const FALLBACK_RECOMMENDED = [
   "무료배달",
 ] as const;
 
-function normalizeKeyword(input: string): string {
-  return input.trim().replace(/\s+/g, " ").slice(0, 60);
-}
+const normalizeKeyword = normalizeDeliverySearchKeyword;
 
 export function DeliverySearchPage() {
   const router = useRouter();
-  const [q, setQ] = useState("");
-  const [debouncedQ, setDebouncedQ] = useState("");
+  /**
+   * DSC-08 — 검색어 = URL `?q=` (매장·메뉴 진입 origin 도 `/stores/search?q=…`).
+   * 뒤로 오면 `?q=` 로 검색어·결과·스크롤 복원 키를 그대로 되살린다.
+   */
+  const searchParams = useSearchParams();
+  const urlQ = readDeliverySearchKeywordFromParams(searchParams);
+  const [q, setQ] = useState(urlQ);
+  const [debouncedQ, setDebouncedQ] = useState(urlQ);
   const [loading, setLoading] = useState(false);
   const [stores, setStores] = useState<DeliverySearchStore[]>([]);
   const [menus, setMenus] = useState<DeliverySearchMenu[]>([]);
@@ -76,6 +85,27 @@ export function DeliverySearchPage() {
     const t = setTimeout(() => setDebouncedQ(trimmed), 250);
     return () => clearTimeout(t);
   }, [trimmed]);
+
+  /** URL 이 바깥(뒤로가기 등)에서 바뀌면 따라간다 */
+  const urlQRef = useRef(urlQ);
+  useEffect(() => {
+    if (urlQRef.current === urlQ) return;
+    urlQRef.current = urlQ;
+    setQ(urlQ);
+    setDebouncedQ(urlQ);
+  }, [urlQ]);
+
+  /**
+   * 확정된 검색어를 `?q=` 에 기록 — 네이티브 `history.replaceState` (기록 미적재·서버 컴포넌트 재요청 없음,
+   * `useMypageTabParam` 과 같은 방식. Next app-router 가 `useSearchParams` 를 동기화한다).
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const href = buildDeliverySearchHrefWithKeyword(window.location.href, debouncedQ);
+    if (!href) return;
+    urlQRef.current = normalizeKeyword(debouncedQ);
+    window.history.replaceState(null, "", href);
+  }, [debouncedQ]);
 
   const runSearch = useCallback(
     async (keyword: string, reason: "debounce" | "submit" | "chip") => {

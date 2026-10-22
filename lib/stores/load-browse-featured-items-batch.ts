@@ -9,6 +9,7 @@ import {
   peekBrowseFeaturedItemsServerCache,
   setBrowseFeaturedItemsServerCache,
 } from "@/lib/stores/browse-featured-items-cache";
+import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
 
 type ProductRow = {
   id: string;
@@ -19,13 +20,16 @@ type ProductRow = {
   is_featured: boolean | null;
   sort_order: number | null;
   is_owner_recommended?: boolean | null;
+  admin_review_status?: string | null;
+  store_menu_sections?: unknown;
 };
 
-const PRODUCT_SELECT =
-  "id, store_id, title, price, thumbnail_url, is_featured, sort_order, is_owner_recommended";
+/** DSC-09 — 구매자 판매 가능 판정 입력(검수 상태·메뉴 구역 숨김) — 상세·주문과 같은 규칙 */
+const PRODUCT_SELLABILITY_SELECT = "admin_review_status, store_menu_sections ( is_hidden )";
 
-const PRODUCT_SELECT_LEGACY =
-  "id, store_id, title, price, thumbnail_url, is_featured, sort_order";
+const PRODUCT_SELECT = `id, store_id, title, price, thumbnail_url, is_featured, sort_order, is_owner_recommended, ${PRODUCT_SELLABILITY_SELECT}`;
+
+const PRODUCT_SELECT_LEGACY = `id, store_id, title, price, thumbnail_url, is_featured, sort_order, ${PRODUCT_SELLABILITY_SELECT}`;
 
 function isMissingStoreProductsColumn(error: { message?: string } | null, column: string): boolean {
   const m = String(error?.message ?? "");
@@ -114,6 +118,8 @@ function mergeIntoGrouped(
   rows: ProductRow[]
 ): void {
   for (const p of rows) {
+    // DSC-09 — 노출 = 주문 가능: 검수 반려·재검수 대기·숨김 구역 상품은 썸네일에서 제외
+    if (storeProductBuyerVisibilityBlocked(p)) continue;
     const sid = String(p.store_id);
     const arr = grouped.get(sid) ?? [];
     const seen = new Set(arr.map((x) => x.id));
