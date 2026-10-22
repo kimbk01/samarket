@@ -47,6 +47,7 @@ export function StoreProductSheetPortal() {
       onClose={closeSheet}
       commerceBlocked={commerceBlocked}
       commerceBlockedHint={commerceBlockedHint}
+      editCartLine={editCartLine}
       onAddedToCart={() => {
         const sid = sheetStoreContext?.store?.id;
         if (!sid) return;

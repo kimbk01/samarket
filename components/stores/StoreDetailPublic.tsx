@@ -1540,6 +1540,8 @@ export function StoreDetailPublic({
         shippingAvailable: !!p.shipping_available,
         minOrderQty: minQ,
         maxOrderQty: maxForCart,
+        /** CRT-03 — 이미 담긴 줄이면 수량 누적, 줄 메모·옵션 유지 */
+        mergeQtyMode: "increment",
       };
 
       const addResult = commerceCartActions.addOrMergeLine(lineInput);

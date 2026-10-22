@@ -188,11 +188,23 @@ export function computeStoreCartAddOrMerge(
   if (existing) {
     reason = "merged";
     const curQ = lineQtyNumber(existing);
-    const nq =
-      mergeQtyMode === "increment"
-        ? Math.min(existing.maxOrderQty, curQ + q)
-        : Math.min(existing.maxOrderQty, Math.max(existing.minOrderQty, q));
-    const updated = lineFromAddInput(input, existing.lineId, nq);
+    let updated: StoreCommerceCartLine;
+    if (mergeQtyMode === "increment") {
+      /**
+       * CRT-03 — 퀵 추가(+) 누적: 기존 줄의 옵션·메모·단가·재검증 표시는 그대로, 수량만 증가.
+       * 상한은 최신 메뉴 값(input) 기준.
+       */
+      const maxQ = Math.max(1, Math.floor(Number(input.maxOrderQty)) || existing.maxOrderQty);
+      updated = {
+        ...normalizeCommerceCartLine(existing),
+        qty: Math.min(maxQ, curQ + q),
+        minOrderQty: input.minOrderQty,
+        maxOrderQty: maxQ,
+      };
+    } else {
+      const nq = Math.min(existing.maxOrderQty, Math.max(existing.minOrderQty, q));
+      updated = lineFromAddInput(input, existing.lineId, nq);
+    }
     nextLines = [
       ...lines.filter((l) => productMergeKey(sid, l.productId) !== pKey),
       updated,

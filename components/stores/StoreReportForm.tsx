@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { resolveStoreReportSubmitErrorKey } from "@/lib/stores/store-report-form-errors";
 
 const REASON_OPTIONS: {
   value: string;
@@ -69,12 +70,9 @@ export function StoreReportForm({
         setErr(t("common_login_required"));
         return;
       }
-      if (json?.error === "report_recent_duplicate") {
-        setErr(t("store_report_err_duplicate"));
-        return;
-      }
       if (!json?.ok) {
-        setErr(json?.error ?? t("store_report_err_failed"));
+        /** CRT-10 — 원래 오류 코드 대신 i18n 문구 (`code` 는 레이트 리밋 응답 형식) */
+        setErr(t(resolveStoreReportSubmitErrorKey(json?.code ?? json?.error)));
         return;
       }
       setOk((prev) => (prev ? prev : true));

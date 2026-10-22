@@ -1,6 +1,5 @@
 "use client";
 
-import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -117,6 +116,11 @@ import {
 import type { StoreCommerceCartBucket } from "@/lib/stores/store-commerce-cart-types";
 import { generateStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
 import {
+  clearPendingStoreOrderClientKey,
+  readPendingStoreOrderClientKey,
+  writePendingStoreOrderClientKey,
+} from "@/lib/stores/store-order-pending-client-key";
+import {
   buildStoreOrderDetailSeedFromPostSuccess,
   setStoreOrderDetailSeed,
 } from "@/lib/stores/store-order-detail-seed-cache";
@@ -127,6 +131,14 @@ import {
 } from "@/lib/stores/store-address-form-ui";
 import { resolveStoreCheckoutClientError } from "@/lib/stores/resolve-store-checkout-client-error";
 import {
+  isStoreCartLineLevelCheckoutError,
+  postStoreCartRevalidation,
+  revalidationLinesToPatches,
+  revalidationPatchesChangeCart,
+  storeCartLineToOrderItem,
+  storeCartRevalidationRequestKey,
+} from "@/lib/stores/store-cart-revalidation-client";
+import {
   clearStoreCheckoutCouponSession,
   readStoreCheckoutCouponSession,
   writeStoreCheckoutCouponSession,
@@ -135,14 +147,13 @@ import { StoreCartCouponApplyPanel } from "@/components/stores/cart/StoreCartCou
 import { StoreCartGiftApplyPanel } from "@/components/stores/cart/StoreCartGiftApplyPanel";
 import {
   checkoutGiftInstanceIdsPayload,
-  computeCheckoutGiftApplyPreview,
   type CheckoutEligibleGift,
 } from "@/lib/gift-certificate/checkout-eligible-gifts";
+import { computeStoreCheckoutPayable } from "@/lib/stores/store-checkout-payable";
 import { buildCartCouponLineViews } from "@/lib/stores/store-coupon-product-view";
 import { storeCouponCustomerProviderKey } from "@/lib/stores/store-coupon-issuer-resolve";
 import {
   resolveCartAppliedCoupon,
-  isUsableStoreCouponQuote,
   pickBestEligibleCouponQuote,
   type StoreCouponQuote,
 } from "@/lib/stores/store-coupon-best-eligible";
@@ -822,6 +833,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       delivery_city: city.trim(),
       delivery_user_address_id: deliveryUserAddressIdForSubmit ?? "",
       selected_address_id: selectedAddressId ?? "",
+      /** ORD-C-08 — 쿠폰·상품권 선택이 바뀌면 다른 주문 시도(키 재사용 금지) */
+      coupon_campaign_id: appliedCouponCampaignId ?? "",
+      user_coupon_id: appliedUserCouponId ?? "",
+      gift_instance_id: appliedGiftInstanceId ?? "",
     });
   }, [
     store?.id,
@@ -836,11 +851,62 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     city,
     deliveryUserAddressIdForSubmit,
     selectedAddressId,
+    appliedCouponCampaignId,
+    appliedUserCouponId,
+    appliedGiftInstanceId,
   ]);
 
+  /**
+   * CRT-02 — 장바구니 진입·줄 구성 변경·주문 실패 후 서버 재검증(읽기 전용).
+   * 가격 변경 줄은 서버 단가로 갱신, 품절·판매 중지·옵션 변경 줄은 사유 표시.
+   * 요청 키에서 가격·사유를 빼서 반영 결과가 재요청을 부르지 않는다.
+   */
+  const [cartRevalidateTick, setCartRevalidateTick] = useState(0);
+  const [cartRevalidatedNotice, setCartRevalidatedNotice] = useState(false);
+  const cartRevalidationKey =
+    store?.id && lines.length > 0 && viewerUserId && viewerUserId !== "guest"
+      ? storeCartRevalidationRequestKey(store.id, fulfillment, lines)
+      : "";
+  const cartLinesRef = useRef(lines);
+  cartLinesRef.current = lines;
+  const { applyLineRevalidation } = cart;
   useEffect(() => {
-    clientOrderKeyRef.current = null;
-  }, [orderSubmitFingerprint]);
+    const storeId = store?.id;
+    if (!cartRevalidationKey || !storeId) return;
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const rows = await postStoreCartRevalidation({
+            storeId,
+            fulfillment,
+            lines: cartLinesRef.current,
+            signal: ac.signal,
+          });
+          if (!rows || ac.signal.aborted) return;
+          const patches = revalidationLinesToPatches(rows);
+          if (revalidationPatchesChangeCart(cartLinesRef.current, patches)) {
+            setCartRevalidatedNotice(true);
+          }
+          applyLineRevalidation(storeId, patches);
+        } catch {
+          /* 네트워크 오류·중단 — 카트 표시는 그대로, 주문 시 서버가 최종 판정 */
+        }
+      })();
+    }, 300);
+    return () => {
+      window.clearTimeout(timer);
+      ac.abort();
+    };
+  }, [cartRevalidationKey, cartRevalidateTick, store?.id, fulfillment, applyLineRevalidation]);
+
+  useEffect(() => {
+    /** ORD-C-07 — 같은 입력으로 보냈다가 응답을 못 받은 키가 있으면 재사용, 아니면 새 시도 */
+    clientOrderKeyRef.current =
+      store?.id && orderSubmitFingerprint
+        ? readPendingStoreOrderClientKey(store.id, orderSubmitFingerprint)
+        : null;
+  }, [orderSubmitFingerprint, store?.id]);
 
   useEffect(() => {
     deliveryEtaPreviewAbortRef.current?.abort();
@@ -1516,6 +1582,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       setErr(ownerOrderBlockedMessage);
       return;
     }
+    /** CRT-02 — 재검증에서 주문 불가로 확인된 줄이 있으면 서버 왕복 없이 원인 상품을 안내 */
+    const blockedLine = lines.find((l) => l.revalidationIssue);
+    if (blockedLine?.revalidationIssue) {
+      setErr(
+        resolveStoreCheckoutClientError(t, blockedLine.revalidationIssue, {
+          itemTitle: blockedLine.title,
+        })
+      );
+      return;
+    }
     if (distanceOrderBlocked) {
       setErr(t(distanceBlockCopy.inlineKey));
       return;
@@ -1594,14 +1670,20 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       }) || t("store_checkout_not_entered");
     const payLabel =
       checkoutPaymentOptions.find((o) => o.id === selectedPaymentMethod)?.label ?? selectedPaymentMethod;
-    const grandForConfirm =
-      fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp;
+    /** CRT-05 — 확인창 총액 = 푸터 결제 예정액(쿠폰·상품권 반영) */
+    const grandForConfirm = computeStoreCheckoutPayable({
+      grossPhp: fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp,
+      couponQuotes,
+      appliedUserCouponId,
+      eligibleGifts,
+      appliedGiftInstanceId,
+    }).payablePhp;
     setCheckoutConfirmPayload({
       phoneLabel: phoneDisp,
       addressLabel: addrDisp,
       paymentLabel: payLabel,
-      orderSummaryLabel: buildStoreCheckoutOrderSummaryLabel(lines, grandForConfirm),
-      requestLabel: buildStoreCheckoutRequestLabel(buyerNote),
+      orderSummaryLabel: buildStoreCheckoutOrderSummaryLabel(lines, grandForConfirm, t),
+      requestLabel: buildStoreCheckoutRequestLabel(buyerNote, t),
     });
     setCheckoutConfirmOpen(true);
   }
@@ -1632,23 +1714,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         dibayPerfRecordOrderIdempotencyKeyCreated(store.id);
       }
       const client_order_key = clientOrderKeyRef.current;
+      /** ORD-C-07 — 응답 전 앱 종료·응답 유실 대비: 성공/명시 실패 전까지 보관 */
+      writePendingStoreOrderClientKey(store.id, orderSubmitFingerprint, client_order_key);
       const { status, json } = await postMeStoreOrder({
         store_id: store.id,
-        items: lines.map((l) => {
-          const wire: ModifierSelectionsWire =
-            l.modifierWire ?? { pick: { ...l.optionSelections }, qty: {} };
-          const hasPick = Object.keys(wire.pick).some((k) => (wire.pick[k]?.length ?? 0) > 0);
-          const hasQty = Object.keys(wire.qty).length > 0;
-          const row: Record<string, unknown> = {
-            product_id: l.productId,
-            qty: l.qty,
-            /** 서버 `validate-store-order-checkout` — 스냅샷 단가와 DB 재계산 단가 대조 */
-            client_unit_php: Math.max(0, Math.floor(Number(l.unitPricePhp) || 0)),
-          };
-          if (hasPick || hasQty) row.modifier_selections = wire;
-          if (l.lineNote?.trim()) row.line_note = l.lineNote.trim();
-          return row;
-        }),
+        /** 재검증 API 와 같은 직렬화 — 서버 `validate-store-order-checkout` 이 스냅샷 단가를 대조 */
+        items: lines.map((l) => storeCartLineToOrderItem(l)),
         fulfillment_type: fulfillment,
         buyer_note: buyerNote.trim() || undefined,
         buyer_phone: parsePhMobileInput(buyerPhone) || undefined,
@@ -1673,6 +1744,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       });
       if (status === 401) {
         clientOrderKeyRef.current = null;
+        clearPendingStoreOrderClientKey(store.id);
         dibayPerfOnOrderApiDone(store.id);
         if (redirectForBlockedAction(router, t("common_login_required"), pathname || `/stores/${storeSlug}/cart`)) {
           return;
@@ -1684,6 +1756,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         ok?: boolean;
         error?: string;
         message?: string;
+        product_id?: string;
         idempotent?: boolean;
         order?: {
           id?: string;
@@ -1704,6 +1777,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       }
         if (!orderJson?.ok) {
         clientOrderKeyRef.current = null;
+        clearPendingStoreOrderClientKey(store.id);
         const code = typeof orderJson.error === "string" ? orderJson.error : "order_failed";
         if (
           code.startsWith("gift_") ||
@@ -1716,11 +1790,21 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         if (redirectForBlockedAction(router, code, pathname || `/stores/${storeSlug}/cart`)) {
           return;
         }
+        /** CRT-02 — 원인 상품명 표시 + 줄 재검증으로 가격 갱신·주문 불가 표시 */
+        const failedProductId =
+          typeof orderJson.product_id === "string" ? orderJson.product_id.trim() : "";
+        const failedTitle = failedProductId
+          ? lines.find((l) => l.productId === failedProductId)?.title ?? null
+          : null;
         setErr(
           resolveStoreCheckoutClientError(t, code, {
             apiMessage: typeof orderJson.message === "string" ? orderJson.message : null,
+            itemTitle: failedTitle,
           })
         );
+        if (failedProductId || isStoreCartLineLevelCheckoutError(code)) {
+          setCartRevalidateTick((n) => n + 1);
+        }
         return;
       }
       const oid = typeof orderJson.order?.id === "string" ? orderJson.order.id : null;
@@ -1731,6 +1815,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         });
       }
       clientOrderKeyRef.current = null;
+      clearPendingStoreOrderClientKey(store.id);
       clearStoreCheckoutCouponSession();
       setAppliedCouponCampaignId(null);
       setAppliedUserCouponId(null);
@@ -1912,10 +1997,15 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   if (offerPickup) fulfillmentOptions.push({ value: "pickup", label: t("common_pickup_label") });
 
   const selectedCouponQuote = couponQuotes.find((q) => q.userCouponId === appliedUserCouponId);
-  const couponDiscountPhp =
-    selectedCouponQuote && isUsableStoreCouponQuote(selectedCouponQuote)
-      ? selectedCouponQuote.discountAmount
-      : 0;
+  /** CRT-05 — 푸터·주문 확인창 공통 결제 예정액 */
+  const checkoutPayable = computeStoreCheckoutPayable({
+    grossPhp: fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp,
+    couponQuotes,
+    appliedUserCouponId,
+    eligibleGifts,
+    appliedGiftInstanceId,
+  });
+  const couponDiscountPhp = checkoutPayable.couponDiscountPhp;
   const couponTitleForSummary =
     selectedCouponQuote && couponDiscountPhp > 0 ? selectedCouponQuote.title || null : null;
   const couponNumberForSummary =
@@ -1936,17 +2026,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       ])
     ),
   });
-  const displayGrandBeforeGift =
-    (fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp) - couponDiscountPhp;
+  const displayGrandBeforeGift = checkoutPayable.amountBeforeGiftPhp;
   const selectedGift = eligibleGifts.find((g) => g.instanceId === appliedGiftInstanceId) ?? null;
-  const giftPreview = selectedGift
-    ? computeCheckoutGiftApplyPreview({
-        amountBeforeGift: displayGrandBeforeGift,
-        giftRemaining: selectedGift.remainingBalance,
-      })
-    : null;
-  const giftRedemptionPhp = giftPreview?.giftUsed ?? 0;
-  const displayGrand = Math.max(0, displayGrandBeforeGift - giftRedemptionPhp);
+  const giftRedemptionPhp = checkoutPayable.giftUsedPhp;
+  const displayGrand = checkoutPayable.payablePhp;
 
   const checkoutStrikeGrand =
     discountAmountPhp > 0
@@ -2002,6 +2085,15 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       }
     >
 
+      {cartRevalidatedNotice ? (
+        <p
+          className="mx-4 mb-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950"
+          role="status"
+          data-cart-revalidated-notice="1"
+        >
+          {t("store_cart_revalidated_notice")}
+        </p>
+      ) : null}
       <StoreBaeminCartStoreBlock
         store={shellStore}
         lines={lines}

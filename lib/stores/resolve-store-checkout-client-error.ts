@@ -54,13 +54,44 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   invalid_gift_instance_ids: "gift_u4_err_generic",
   invalid_gift_instance_id: "gift_u4_err_generic",
   invalid_gift_redemption: "gift_u4_err_generic",
+  /** CRT-02 — 줄 단위 상품 판정(`evaluateStoreOrderCheckoutLine`) 코드 */
+  product_sold_out: "store_err_sold_out_in_cart",
+  product_not_available: "store_err_product_stopped_in_cart",
+  invalid_product: "store_err_product_stopped_in_cart",
+  products_not_found: "store_err_product_stopped_in_cart",
+  mixed_store_cart: "store_err_mixed_store_cart",
+  duplicate_line_in_order: "store_err_duplicate_line",
+  qty_out_of_range: "store_err_qty_out_of_range_cart",
+  pickup_not_available: "store_err_pickup_item_not_available",
+  delivery_not_available: "store_err_delivery_item_not_available",
+  shipping_not_available: "store_err_shipping_item_not_available",
+  invalid_line: "store_err_cart_line_invalid",
+  invalid_unit_price: "store_err_cart_line_invalid",
+  /** `modifiers/validate.ts` 옵션 오류 */
+  options_too_few: "store_err_required_option_changed_cart",
+  options_sold_out: "store_err_option_sold_out_cart",
+  options_unknown_group: "store_err_options_changed_cart",
+  options_not_configured: "store_err_options_changed_cart",
+  options_invalid_quantity: "store_err_options_changed_cart",
+  options_too_many: "store_err_options_changed_cart",
+  options_duplicate_choice: "store_err_options_changed_cart",
+  options_invalid_choice: "store_err_options_changed_cart",
+  invalid_option: "store_err_options_changed_cart",
+  /** 매장 게이트·연락처 */
+  owner_self_order_denied: "store_err_own_store_block",
+  buyer_phone_required: "store_err_buyer_phone_required",
+  invalid_buyer_phone: "store_err_invalid_buyer_phone",
 };
 
 /** POST checkout API `error` code → localized message (client). */
 export function resolveStoreCheckoutClientError(
   t: StoreCheckoutTranslate,
   code: string,
-  opts?: { apiMessage?: string | null }
+  opts?: {
+    apiMessage?: string | null;
+    /** CRT-02 — 서버가 `product_id` 를 돌려준 줄 단위 오류면 그 상품명 */
+    itemTitle?: string | null;
+  }
 ): string {
   const api = opts?.apiMessage?.trim();
   if (api) return api;
@@ -69,6 +100,14 @@ export function resolveStoreCheckoutClientError(
     return t("gift_u4_err_gift_locked");
   }
   const key = CHECKOUT_ERROR_KEY[code];
-  if (key) return t(key);
-  return t("store_err_order_failed", { code });
+  if (!key) return t("store_err_order_failed", { code });
+  const message = t(key);
+  const item = opts?.itemTitle?.trim();
+  return item ? t("store_err_line_item_prefix", { item, message }) : message;
+}
+
+/** CRT-02 — 장바구니 줄에 표시할 주문 불가 사유(상품명 없이). 매핑 없는 코드는 판매 중지 문구. */
+export function resolveStoreCartLineIssueMessage(t: StoreCheckoutTranslate, code: string): string {
+  const key = CHECKOUT_ERROR_KEY[code];
+  return t(key ?? "store_err_product_stopped_in_cart");
 }

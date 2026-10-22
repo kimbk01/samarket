@@ -7,6 +7,7 @@ import { commerceCartLineSubtotalPhp } from "@/lib/stores/store-commerce-cart-ad
 import { BAEMIN_CART_TYPE } from "@/lib/stores/store-baemin-cart-ui";
 import { resolveCartLineListUnitPhp } from "@/lib/stores/store-product-pricing";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { resolveStoreCartLineIssueMessage } from "@/lib/stores/resolve-store-checkout-client-error";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import { StoreCartLineDeleteConfirmDialog } from "@/components/stores/cart/StoreCartLineDeleteConfirmDialog";
 
@@ -70,6 +71,15 @@ export function StoreBaeminCartLineRow({
       <div className="flex gap-3">
         <div className="min-w-0 flex-1">
           <p className={`${BAEMIN_CART_TYPE.itemTitle} text-[color:var(--delivery-text-main)]`}>{line.title}</p>
+          {line.revalidationIssue ? (
+            <p
+              role="alert"
+              data-cart-line-issue={line.revalidationIssue}
+              className="mt-1 text-[13px] font-semibold leading-snug text-[color:var(--delivery-danger)]"
+            >
+              {resolveStoreCartLineIssueMessage(t, line.revalidationIssue)}
+            </p>
+          ) : null}
           <p className={`mt-1 ${BAEMIN_CART_TYPE.priceMeta}`}>
             {t("store_product_price_label")}:{" "}
             {showListStrike ? (

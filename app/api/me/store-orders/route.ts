@@ -15,7 +15,7 @@ import {
   MEMBER_ACCOUNT_WRITE_DENIED_MESSAGE,
 } from "@/lib/auth/member-account-state";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { parseModifierWireFromBody } from "@/lib/stores/product-line-options";
+import { normalizeStoreOrderLineItem } from "@/lib/stores/normalize-store-order-line-item";
 import {
   validateStoreOrderCheckout,
   type StoreOrderLineInput,
@@ -115,22 +115,6 @@ function fallbackStoreOrderChatAck(orderId: string): StoreOrderChatAck {
     chatHref: buyerStoreOrderChatEnsureHref(orderId),
     orderChatReady: false,
   };
-}
-
-function normalizeOrderLineItem(raw: unknown): StoreOrderLineInput | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const product_id = String(r.product_id ?? "").trim();
-  const qty = Math.floor(Number(r.qty));
-  if (!product_id || !Number.isFinite(qty) || qty < 1) return null;
-  const wire = parseModifierWireFromBody(r);
-  const line_note = String(r.line_note ?? "").trim() || null;
-  const clientRaw = r.client_unit_php ?? r.unit_price_php;
-  const client_unit_php =
-    clientRaw != null && clientRaw !== "" && Number.isFinite(Number(clientRaw))
-      ? Number(clientRaw)
-      : null;
-  return { product_id, qty, wire, line_note, client_unit_php };
 }
 
 /** 구매자: 매장 주문 목록 — `?limit=` (1~100, 기본 100) 로 홈 미리보기 등 부분 로드, `?cursor=` 다음 페이지 */
@@ -291,7 +275,7 @@ export async function POST(req: NextRequest) {
 
   const orderLines: StoreOrderLineInput[] = [];
   for (const raw of items) {
-    const row = normalizeOrderLineItem(raw);
+    const row = normalizeStoreOrderLineItem(raw);
     if (!row) {
       return NextResponse.json({ ok: false, error: "invalid_line" }, { status: 400 });
     }
@@ -336,6 +320,7 @@ export async function POST(req: NextRequest) {
         ok: false,
         error: validated.error,
         ...(validated.min_order_php != null ? { min_order_php: validated.min_order_php } : {}),
+        ...(validated.product_id ? { product_id: validated.product_id } : {}),
       },
       { status: validated.status }
     );

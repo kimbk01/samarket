@@ -24,6 +24,22 @@ export type StoreCommerceCartLine = {
   shippingAvailable: boolean;
   minOrderQty: number;
   maxOrderQty: number;
+  /**
+   * CRT-02 — 서버 재검증 결과 이 줄을 지금 주문할 수 없는 사유(서버 오류 코드).
+   * 다시 담기·옵션 변경(`lineFromAddInput`)이나 재검증 통과 시 사라진다.
+   */
+  revalidationIssue?: string | null;
+};
+
+/** CRT-02 — 장바구니 재검증 결과를 줄에 반영하는 패치 */
+export type StoreCartLineRevalidationPatch = {
+  lineId: string;
+  /** 서버 현재 단가(옵션 포함) — 있으면 줄 단가를 이 값으로 갱신 */
+  unitPricePhp?: number | null;
+  /** 서버 정가 단가(옵션 포함) — 할인 표시 갱신 */
+  listUnitPricePhp?: number | null;
+  /** null = 주문 가능(기존 사유 해제) */
+  issue: string | null;
 };
 
 export type StoreCommerceCartSnapshotV1 = {

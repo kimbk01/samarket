@@ -13,6 +13,7 @@ import React, {
 import type {
   AddStoreCartLineInput,
   StoreCartAddResult,
+  StoreCartLineRevalidationPatch,
   StoreCommerceCartBucket,
   StoreCommerceCartLine,
   StoreCommerceCartSnapshotV2,
@@ -52,6 +53,7 @@ import {
 } from "@/lib/dibay/delivery-perf-trace";
 import { markDeliveryCartPatchAnchor } from "@/lib/dibay/delivery-render-trace";
 import {
+  mutateCartApplyRevalidation,
   mutateCartLineQuantity,
   mutateCartRemoveLine,
 } from "@/lib/stores/store-commerce-cart-line-mutate";
@@ -97,6 +99,11 @@ type Ctx = {
   patchBucketMeta: (
     storeId: string,
     patch: { storeSlug?: string; storeName?: string }
+  ) => void;
+  /** CRT-02 — 서버 재검증 결과 반영(단가 갱신·주문 불가 표시) */
+  applyLineRevalidation: (
+    storeId: string,
+    patches: readonly StoreCartLineRevalidationPatch[]
   ) => void;
 };
 
@@ -243,45 +250,62 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     []
   );
 
+  /**
+   * CRT-08 — 결과(`result`)는 setState 갱신 함수 밖에서 계산한다.
+   * React 는 대기 중인 업데이트가 있으면 갱신 함수를 미리 실행하지 않으므로, 갱신 함수 안에서
+   * 만든 값을 바로 읽으면 undefined 가 될 수 있다(재주문 루프 등).
+   * 상태 반영은 갱신 함수에서 하되, 그 사이 다른 변경이 끼었으면(prev ≠ 계산 기준) prev 로 다시 계산한다.
+   */
   const addOrMergeLine = useCallback((input: AddStoreCartLineInput): StoreCartAddResult => {
     const patchT0 = markDeliveryCartPatchAnchor();
-    let result!: StoreCartAddResult;
-    let nextSnap: StoreCommerceCartSnapshotV2 | null = null;
-    setSnapshot((prev) => {
-      const fresh = prepareSnapshotForWrite(prev);
-      const base = fresh ?? emptyCommerceCartV2();
-      const out = computeStoreCartAddOrMerge(base, input);
-      result = out.result;
-      nextSnap = out.nextSnapshot;
-      return out.nextSnapshot;
+    const baseRaw = snapshotRef.current;
+    const out = computeStoreCartAddOrMerge(
+      prepareSnapshotForWrite(baseRaw) ?? emptyCommerceCartV2(),
+      input
+    );
+    if (!out.result.ok) return out.result;
+    snapshotRef.current = out.nextSnapshot;
+    setSnapshot((prev) =>
+      prev === baseRaw
+        ? out.nextSnapshot
+        : computeStoreCartAddOrMerge(prepareSnapshotForWrite(prev) ?? emptyCommerceCartV2(), input)
+            .nextSnapshot
+    );
+    flushCartSnapshot(out.nextSnapshot, input.storeId, patchT0, {
+      kind: "optimistic",
+      productId: input.productId,
     });
-    if (result.ok) {
-      flushCartSnapshot(nextSnap, input.storeId, patchT0, {
-        kind: "optimistic",
-        productId: input.productId,
-      });
-    }
-    return result;
+    return out.result;
   }, [flushCartSnapshot]);
 
   const replaceWithLine = useCallback((input: AddStoreCartLineInput): StoreCartAddResult => {
     const patchT0 = markDeliveryCartPatchAnchor();
-    let result!: StoreCartAddResult;
-    let nextSnap: StoreCommerceCartSnapshotV2 | null = null;
-    setSnapshot(() => {
-      const out = computeStoreCartAddOrMerge(emptyCommerceCartV2(), input);
-      result = out.result;
-      nextSnap = out.nextSnapshot;
-      return out.nextSnapshot;
+    const out = computeStoreCartAddOrMerge(emptyCommerceCartV2(), input);
+    if (!out.result.ok) return out.result;
+    snapshotRef.current = out.nextSnapshot;
+    setSnapshot(out.nextSnapshot);
+    flushCartSnapshot(out.nextSnapshot, input.storeId, patchT0, {
+      kind: "optimistic",
+      productId: input.productId,
     });
-    if (result.ok) {
-      flushCartSnapshot(nextSnap, input.storeId, patchT0, {
-        kind: "optimistic",
-        productId: input.productId,
-      });
-    }
-    return result;
+    return out.result;
   }, [flushCartSnapshot]);
+
+  /** CRT-02 — 서버 재검증 결과(단가·주문 불가 사유)를 줄에 반영 */
+  const applyLineRevalidation = useCallback(
+    (storeId: string, patches: readonly StoreCartLineRevalidationPatch[]) => {
+      const patchT0 = markDeliveryCartPatchAnchor();
+      const baseRaw = snapshotRef.current;
+      const out = mutateCartApplyRevalidation(baseRaw, storeId, patches);
+      if (!out.changed) return;
+      snapshotRef.current = out.next;
+      setSnapshot((prev) =>
+        prev === baseRaw ? out.next : mutateCartApplyRevalidation(prev, storeId, patches).next
+      );
+      flushCartSnapshot(out.next, storeId, patchT0, null);
+    },
+    [flushCartSnapshot]
+  );
 
   const updateLineQuantity = useCallback(
     (lineId: string, qty: number) => {
@@ -445,6 +469,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
       clearStoreCart,
       clearAllCarts,
       patchBucketMeta,
+      applyLineRevalidation,
     };
   }, [
     hydrated,
@@ -456,6 +481,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     clearStoreCart,
     clearAllCarts,
     patchBucketMeta,
+    applyLineRevalidation,
   ]);
 
   const actionsValue = useMemo<StoreCommerceCartActions>(

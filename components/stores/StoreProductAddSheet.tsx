@@ -10,6 +10,11 @@ import {
 import { openStoreCartConflict } from "@/lib/stores/store-cart-conflict-ui-store";
 import { storeCartConflictExistingFromBlockedAdd } from "@/lib/stores/store-cart-conflict-meta";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
+import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
+import {
+  clampCartSeedQty,
+  modifierWireFromCartLine,
+} from "@/lib/stores/store-commerce-cart-line-seed";
 import { StoreModifierPicker } from "@/components/stores/modifiers/StoreModifierPicker";
 import { parseProductOptionsJson } from "@/lib/stores/product-line-options";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
@@ -79,6 +84,7 @@ export function StoreProductAddSheet({
   commerceBlocked,
   commerceBlockedHint,
   onAddedToCart,
+  editCartLine = null,
 }: {
   productId: string | null;
   pageStoreSlug: string;
@@ -92,6 +98,8 @@ export function StoreProductAddSheet({
   commerceBlocked: boolean;
   commerceBlockedHint?: string;
   onAddedToCart?: () => void;
+  /** S2-01 — 장바구니 「옵션 변경」: 이 줄의 수량·옵션·메모로 시작하고, 담기는 같은 줄을 교체 */
+  editCartLine?: StoreCommerceCartLine | null;
 }) {
   const { t } = useI18n();
   const commerceCart = useStoreCommerceCartActionsOptional();
@@ -157,14 +165,30 @@ export function StoreProductAddSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [productId, onClose]);
 
+  /** S2-01 — 편집 대상 줄(같은 상품일 때만). 시드는 상품·줄 조합당 1회 */
+  const editLineForProduct =
+    editCartLine && product?.id && editCartLine.productId === product.id ? editCartLine : null;
+  const seededFromEditLineIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!product?.id) return;
     const minQ = Math.max(1, Number(product.min_order_qty) || 1);
-    setQty(minQ);
-    setModifierWire({ pick: {}, qty: {} });
-    setLineNote("");
+    if (editLineForProduct) {
+      const maxQ = Math.max(minQ, Number(product.max_order_qty) || 99);
+      const cap = product.track_inventory === true ? Math.min(maxQ, product.stock_qty) : maxQ;
+      seededFromEditLineIdRef.current = editLineForProduct.lineId;
+      setQty(clampCartSeedQty(editLineForProduct, minQ, cap));
+      setModifierWire(modifierWireFromCartLine(editLineForProduct));
+      setLineNote(editLineForProduct.lineNote?.trim() ?? "");
+    } else {
+      seededFromEditLineIdRef.current = null;
+      setQty(minQ);
+      setModifierWire({ pick: {}, qty: {} });
+      setLineNote("");
+    }
     setSheetErr(null);
-  }, [product?.id]);
+    // 상품 또는 편집 줄이 바뀔 때만 초기화 — 사용자가 고른 값은 유지
+  }, [product?.id, editLineForProduct?.lineId]);
 
   const optionGroups = useMemo(
     () => (product ? parseProductOptionsJson(product.options_json) : []),
@@ -290,6 +314,8 @@ export function StoreProductAddSheet({
 
   useEffect(() => {
     if (!product?.id || optionGroups.length === 0) return;
+    /** S2-01 — 편집 중인 줄의 선택(비어 있어도)을 기본값으로 덮지 않는다 */
+    if (seededFromEditLineIdRef.current) return;
     setModifierWire((prev) => {
       if (Object.keys(prev.pick).length > 0 || Object.keys(prev.qty).length > 0) return prev;
       const nextPick: Record<string, string[]> = {};
