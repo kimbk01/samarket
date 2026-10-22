@@ -6,7 +6,12 @@ import {
   buildDeliveryMenusApiBreakdown,
   logDeliveryMenusApiBreakdown,
 } from "@/lib/stores/delivery-menus-api-breakdown";
-import { fetchStoreMenusCatalog, type StoreMenusCatalogBody } from "@/lib/stores/fetch-store-menus-catalog";
+import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import {
+  composeStoreMenusCatalogForViewer,
+  fetchStoreMenusCatalog,
+  type StoreMenusCatalogBody,
+} from "@/lib/stores/fetch-store-menus-catalog";
 import { logMenusColdFillDeepBreakdownRoute } from "@/lib/stores/menus-cold-fill-deep-breakdown";
 import { logSnapshotSwrAnalysis } from "@/lib/stores/snapshot-swr-analysis";
 import { storePublicApiPerfHeaders } from "@/lib/stores/store-public-api-perf-headers";
@@ -161,6 +166,8 @@ export async function GET(
   }
 
   const cacheBypass = resolveRouteMemoryCacheBypass(new URL(req.url).searchParams);
+  /** CRT-01 — slug 캐시 본문은 anon 기준. 보는 사람 필드(찜)는 응답 직전에 요청별 합성 */
+  const viewerIdP = getRouteUserId();
   await sharedGenerationSync;
   const storeMenusBypass =
     new URL(req.url).searchParams.get("storeMenusBypass") === "1" &&
@@ -185,7 +192,12 @@ export async function GET(
       scheduleSoftStaleRevalidate: true,
     });
     if (memoryServed) {
-      return NextResponse.json(memoryServed.body, {
+      const viewerBody = await composeStoreMenusCatalogForViewer(
+        tryGetSupabaseForStores(),
+        memoryServed.body,
+        await viewerIdP
+      );
+      return NextResponse.json(viewerBody, {
         status: memoryServed.status,
         headers: {
           ...perfHeaders({ cache_hit: 1, db_execution_ms: 0, query_count: 0 }),
@@ -288,7 +300,12 @@ export async function GET(
       return { body: result.body, status: 200, routeMemoryHit: false as const };
     });
 
-    return NextResponse.json(payload.body, {
+    const viewerBody = await composeStoreMenusCatalogForViewer(
+      sb,
+      payload.body as Record<string, unknown>,
+      await viewerIdP
+    );
+    return NextResponse.json(viewerBody, {
       status: payload.status,
       headers: {
         ...perfHeaders({

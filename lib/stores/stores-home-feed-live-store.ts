@@ -1,6 +1,7 @@
 "use client";
 
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
+import { stripSponsoredFromHomeFeedClientMeta } from "@/lib/stores/composition/stores-composition-home-feed-client-meta";
 
 /** 탭 이탈·리마운트 후에도 유지 — Map TTL 과 별도(세션 단일 스냅샷) */
 export type StoresHomeFeedLiveEntry = {
@@ -31,7 +32,13 @@ export function writeStoresHomeFeedLiveStore(
     liveEntry = { stores: [], meta, querySuffix, updatedAt: Date.now() };
     return;
   }
-  liveEntry = { stores, meta, querySuffix, updatedAt: Date.now() };
+  /** ADC-12 — live 스냅샷에도 유료 행 미보관 (재진입 페인트는 재검증 전까지 오가닉만) */
+  liveEntry = {
+    stores,
+    meta: meta ? stripSponsoredFromHomeFeedClientMeta(meta) : meta,
+    querySuffix,
+    updatedAt: Date.now(),
+  };
 }
 
 /** Admin shelf save / PTR — drop live snapshot so next HOME mount revalidates policy */

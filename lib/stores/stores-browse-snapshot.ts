@@ -527,14 +527,32 @@ async function finishFromPayload(
   };
 }
 
-export async function tryLoadStoresBrowseFromSnapshot(
+/** `finishFromPayload` 가 null 을 반환하지 않는 payload 인지 — ctx 무관(early 분기 또는 ok:true). */
+function isFinishableSnapshotPayload(payload: StoresBrowseSnapshotPayloadJson): boolean {
+  if (payload.unknown_primary || payload.unknown_topic) return true;
+  return payload.ok === true;
+}
+
+type SharedSnapshotPayloadRead = {
+  payload: StoresBrowseSnapshotPayloadJson;
+  readMs: number;
+  via: SnapshotReadVia;
+};
+
+/**
+ * DSC-01 — 단일 비행은 사용자 무관한 원본 payload 읽기(counter row → unified RPC + upsert)만 공유한다.
+ * origin·sort·page·limit·언어·viewer 를 쓰는 `finishFromPayload` 는 호출자별 ctx 로 따로 실행
+ * (공유 Promise 안에서 첫 호출자의 ctx 로 조립하면 다른 사용자에게 그 결과가 전달됨).
+ */
+function readSharedSnapshotPayload(
   sbAny: SupabaseClient<any>,
   ctx: StoresBrowseRequestContext,
   opts?: { bypassCounter?: boolean }
-): Promise<StoresBrowseSnapshotReadResult | null> {
-  logStoresBrowseSnapshotRpcDesignOnce();
+): Promise<SharedSnapshotPayloadRead | null> {
   const bundleKeys = storesBrowseSnapshotBundleKeyParts(ctx.primary, ctx.sub);
-  const flightKey = `${SNAPSHOT_SINGLE_FLIGHT_PREFIX}${bundleKeys.primary_slug}:${bundleKeys.sub_slug}`;
+  const flightKey = `${SNAPSHOT_SINGLE_FLIGHT_PREFIX}${bundleKeys.primary_slug}:${bundleKeys.sub_slug}:${
+    opts?.bypassCounter ? "rpc" : "counter"
+  }`;
 
   return runSingleFlight(flightKey, async () => {
     const build0 = devPerfNow();
@@ -544,33 +562,34 @@ export async function tryLoadStoresBrowseFromSnapshot(
       const counter = await readSnapshotCounter(sbAny, bundleKeys);
       const readMs = devPerfNow() - read0;
 
-      if (counter.hit && !counter.stale) {
-        const done = await finishFromPayload(counter.row.payload_json, ctx, sbAny, {
-          totalMs: devPerfNow() - build0,
-          readMs,
-          via: "counter_row",
-        });
-        if (done) return done;
-      }
-      if (counter.hit && counter.stale) {
-        scheduleStoresBrowseSnapshotRefresh(ctx.primary);
-        const done = await finishFromPayload(counter.row.payload_json, ctx, sbAny, {
-          totalMs: devPerfNow() - build0,
-          readMs,
-          via: "counter_row",
-        });
-        if (done) return done;
+      if (counter.hit) {
+        if (counter.stale) scheduleStoresBrowseSnapshotRefresh(ctx.primary);
+        if (isFinishableSnapshotPayload(counter.row.payload_json)) {
+          return { payload: counter.row.payload_json, readMs, via: "counter_row" as const };
+        }
       }
     }
 
     const { payload, rpcMs } = await fetchSnapshotViaRpc(sbAny, ctx.primary, ctx.sub);
     if (!payload) return null;
     await upsertSnapshotCounter(sbAny, bundleKeys, payload);
-    return finishFromPayload(payload, ctx, sbAny, {
-      totalMs: devPerfNow() - build0,
-      readMs: rpcMs || devPerfNow() - build0,
-      via: "unified_rpc",
-    });
+    return { payload, readMs: rpcMs || devPerfNow() - build0, via: "unified_rpc" as const };
+  });
+}
+
+export async function tryLoadStoresBrowseFromSnapshot(
+  sbAny: SupabaseClient<any>,
+  ctx: StoresBrowseRequestContext,
+  opts?: { bypassCounter?: boolean }
+): Promise<StoresBrowseSnapshotReadResult | null> {
+  logStoresBrowseSnapshotRpcDesignOnce();
+  const build0 = devPerfNow();
+  const shared = await readSharedSnapshotPayload(sbAny, ctx, opts);
+  if (!shared) return null;
+  return finishFromPayload(shared.payload, ctx, sbAny, {
+    totalMs: devPerfNow() - build0,
+    readMs: shared.readMs,
+    via: shared.via,
   });
 }
 

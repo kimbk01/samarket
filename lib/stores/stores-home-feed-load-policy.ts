@@ -110,6 +110,19 @@ export function isStoresHomeFeedNetworkSuccess(status: number, json: unknown): b
   return status >= 200 && status < 300 && parsed?.ok === true && Array.isArray(parsed.stores);
 }
 
+/**
+ * DSC-02 — fresh 캐시 페인트 후 백그라운드 재검증 결과의 매장 행이 화면과 다른지.
+ * 같으면 행 교체 생략(하이드레이션·composition 재계산 방지). 1회/마운트라 직렬화 비교로 충분.
+ */
+export function storesHomeFeedRevalidatedStoresChanged(
+  current: StoreHomeFeedItem[],
+  next: StoreHomeFeedItem[]
+): boolean {
+  if (current === next) return false;
+  if (current.length !== next.length) return true;
+  return JSON.stringify(current) !== JSON.stringify(next);
+}
+
 export function applyStoresHomeFeedNetworkResult(opts: {
   querySuffix: string;
   status: number;

@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { resolveRouteMemoryCacheBypass } from "@/lib/http/route-cache-bypass";
-import { fetchStoreSummaryPublic } from "@/lib/stores/fetch-store-summary-public";
+import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import {
+  asStoreSummaryPublicShared,
+  composeStoreSummaryPublicForViewer,
+  fetchStoreSummaryPublicShared,
+  type StoreSummaryPublicShared,
+} from "@/lib/stores/fetch-store-summary-public";
 import { storePublicApiPerfHeaders } from "@/lib/stores/store-public-api-perf-headers";
 import { logStoreSummaryApiPerf } from "@/lib/stores/store-summary-api-perf-log";
 import {
@@ -23,6 +29,7 @@ const EMPTY_UNCONFIGURED = {
 /**
  * 매장 상단·배달 메타 전용 — 메뉴 행 없음 (`/menus` 분리).
  * 45s 서버 메모리 캐시 + slug singleflight.
+ * CRT-01 — 캐시·singleflight 에는 보는 사람과 무관한 본문만 담고, viewer 필드(본인 매장·주문 가능·찜)는 요청마다 합성.
  */
 export async function GET(
   req: Request,
@@ -51,46 +58,66 @@ export async function GET(
       ...opts,
     });
 
-  if (!cacheBypass.bypass) {
-    const cached = readStoreSummaryPublicServerCache(decoded);
-    if (cached) {
-      logStoreSummaryApiPerf({
-        slug: decoded,
-        total_ms: Math.round(performance.now() - startedAt),
-        db_ms: 0,
-        cache_hit: 1,
-        query_count: 0,
-      });
-      return NextResponse.json(cached, {
-        status: 200,
-        headers: perfHeaders({ cache_hit: 1, db_execution_ms: 0, query_count: 0 }),
-      });
-    }
-  }
-
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json(EMPTY_UNCONFIGURED);
   }
 
   try {
+    const viewerIdP = getRouteUserId();
+    const cachedShared = cacheBypass.bypass
+      ? null
+      : asStoreSummaryPublicShared(readStoreSummaryPublicServerCache(decoded));
+    if (cachedShared) {
+      const viewerId = await viewerIdP;
+      const t0 = performance.now();
+      const composed = await composeStoreSummaryPublicForViewer(sb, cachedShared, viewerId);
+      const viewerDbMs = Math.round(performance.now() - t0);
+      logStoreSummaryApiPerf({
+        slug: decoded,
+        total_ms: Math.round(performance.now() - startedAt),
+        db_ms: viewerDbMs,
+        cache_hit: 1,
+        query_count: composed.queryCount,
+      });
+      return NextResponse.json(composed.body, {
+        status: 200,
+        headers: perfHeaders({
+          cache_hit: 1,
+          db_execution_ms: viewerDbMs,
+          query_count: composed.queryCount,
+        }),
+      });
+    }
+
     let coldDbMs = 0;
     let coldQueryCount = 0;
 
     const payload = await runStoreSummaryPublicServerSingleFlight(decoded, async () => {
       if (!cacheBypass.bypass) {
-        const memHit = readStoreSummaryPublicServerCache(decoded);
-        if (memHit) return { body: memHit, status: 200 as const };
+        const memHit = asStoreSummaryPublicShared(readStoreSummaryPublicServerCache(decoded));
+        if (memHit) return { shared: memHit, body: memHit.body, status: 200 };
       }
 
-      const result = await fetchStoreSummaryPublic(sb, decoded);
+      const result = await fetchStoreSummaryPublicShared(sb, decoded);
       coldDbMs = result.dbMs;
       coldQueryCount = result.queryCount;
-      if (!cacheBypass.bypass && result.status === 200 && result.body.ok) {
-        writeStoreSummaryPublicServerCache(decoded, result.body);
+      if (!cacheBypass.bypass && result.status === 200 && result.shared) {
+        writeStoreSummaryPublicServerCache(decoded, result.shared);
       }
-      return { body: result.body, status: result.status };
+      return { shared: result.shared, body: result.body, status: result.status };
     });
+
+    let body = payload.body;
+    const shared: StoreSummaryPublicShared | null = payload.shared;
+    if (shared) {
+      const viewerId = await viewerIdP;
+      const t0 = performance.now();
+      const composed = await composeStoreSummaryPublicForViewer(sb, shared, viewerId);
+      coldDbMs += Math.round(performance.now() - t0);
+      coldQueryCount += composed.queryCount;
+      body = composed.body;
+    }
 
     logStoreSummaryApiPerf({
       slug: decoded,
@@ -100,10 +127,10 @@ export async function GET(
       query_count: coldQueryCount,
     });
 
-    if (payload.body.ok === false && payload.status === 500) {
-      return NextResponse.json(payload.body, { status: 500 });
+    if (body.ok === false && payload.status === 500) {
+      return NextResponse.json(body, { status: 500 });
     }
-    return NextResponse.json(payload.body, {
+    return NextResponse.json(body, {
       status: payload.status,
       headers: perfHeaders({
         cache_hit: 0,

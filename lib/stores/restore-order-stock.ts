@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { invalidateStorePublicMenusAfterOrderStockRestore } from "@/lib/stores/invalidate-store-public-menus-after-order-stock";
 
 /**
  * Restore inventory for a terminal cancel/refund order.
@@ -25,6 +26,10 @@ export async function restoreStockForOrder(
   const row = (data ?? {}) as Record<string, unknown>;
   if (row.ok === false) {
     return { ok: false, error: String(row.error ?? "stock_restore_failed") };
+  }
+  /** CRT-07 — 재고 추적 상품이 복원(품절 'stock' → 판매 재개 포함)됐으면 소비자 메뉴 캐시 무효화 */
+  if (row.idempotent !== true && Number(row.restored_products ?? 0) > 0) {
+    invalidateStorePublicMenusAfterOrderStockRestore(sb, oid);
   }
   return { ok: true, idempotent: row.idempotent === true };
 }

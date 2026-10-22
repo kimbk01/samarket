@@ -16,10 +16,17 @@ import {
   refreshMeAddressesListAfterMutation,
 } from "@/lib/addresses/address-list-client-cache";
 import { invalidateAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
+import { clearAllStoreHomeFeedClientCaches } from "@/lib/stores/store-home-feed-client-cache";
 
 /** defaults 스냅샷 + 전역 구독자(마이페이지·배달 헤더 등) */
 export function broadcastUserAddressesChanged(): void {
   invalidateAddressDefaultsSnapshotCache();
+  /**
+   * DSC-02 — 배달 홈 피드 클라 캐시 키는 지역 suffix 뿐(주소 무관). 대표 주소가 바뀌면 이전 주소 기준
+   * 매장 집합(OOR·거리·ETA)이 10분간 fresh 로 남으므로 제거 → 홈 재진입 시 네트워크 재검증 필수.
+   * live 스냅샷은 유지(재진입 빈 화면 방지) — 재검증 결과가 덮어쓴다.
+   */
+  clearAllStoreHomeFeedClientCaches();
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
   }

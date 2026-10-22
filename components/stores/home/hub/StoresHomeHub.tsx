@@ -18,6 +18,7 @@ import {
   readStoresHomeFeedExactCacheSnapshot,
   readStoresHomeFeedInitialSnapshot,
   resolveStoresHomeFeedCacheForLoad,
+  storesHomeFeedRevalidatedStoresChanged,
   type StoresHomeFeedLoadMeta,
 } from "@/lib/stores/stores-home-feed-load-policy";
 import { invalidateStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed-client-cache";
@@ -220,6 +221,22 @@ export function StoresHomeHub({
                 previousStores: storesRef.current,
                 previousMeta: metaRef.current,
               });
+              /**
+               * DSC-02 — 재검증 성공 시 서버가 방금 판정한 매장 행이 다르면 행·meta 를 함께 반영.
+               * (이전: meta 만 병합 → 주소 변경·영업 상태 변화가 fresh 캐시 10분간 그대로)
+               */
+              if (
+                isStoresHomeFeedNetworkSuccess(status, json) &&
+                storesHomeFeedRevalidatedStoresChanged(storesRef.current, applied.stores)
+              ) {
+                storesRef.current = applied.stores;
+                metaRef.current = applied.meta;
+                startTransition(() => {
+                  setStores(applied.stores);
+                  setMeta(applied.meta);
+                });
+                return;
+              }
               if (applied.meta?.compositionPolicy) {
                 startTransition(() => {
                   setMeta((prev) => ({
