@@ -67,7 +67,12 @@
 | E2 | S 와 X 가 통화 중일 때 **I→S** 음성 | I 「통화 중」 · S 통화 유지 |
 | E3 | A1 을 끊고 **5초 안에** S→I 다시 발신 → 받기 → 끊기 | 정상 수신·연결 |
 | E4 | I ①꺼짐에서 S→I 음성 **받기 → 끊기를 3번 연속** | 3번 모두 벨(아이폰이 다시 막히지 않나) |
-| E5 | S→I 음성 연결 중 **양쪽 스피커 켜기/끄기 · 음소거 켜기/끄기** | 상대에게 반영 · 화면 버튼 상태 맞나 |
+| E5 | S→I 음성, I ①꺼짐에서 받기(CallKit 경유) → 연결 중 **I 스피커 켜기 → 끄기** | I 소리가 실제로 스피커↔수화부로 바뀌나 · 버튼 모양과 실제가 같나 (현재 보고: **iPhone 안 바뀜**) |
+| E6 | E5 와 같은 통화에서 **I 음소거 켜기 → 끄기** | S 에서 I 목소리가 실제로 끊기고 다시 들리나 · 버튼 모양과 실제가 같나 |
+| E7 | S→I 음성, I ④켜짐에서 받기(앱 화면) → **I 스피커·음소거** 각각 켜기/끄기 | E5·E6 과 같은지 (CallKit 경유와 앱 경유 비교) |
+| E8 | I→S 음성 연결 중 **S 스피커 켜기/끄기 · S 음소거 켜기/끄기** | Android 정상 동작 기준 확인 (현재 보고: **Samsung 스피커 됨**) |
+| E9 | S→I **영상** 연결 중 I 스피커 끄기/켜기 · 음소거 | 영상 기본 스피커 · 전환·음소거 실제 반영 |
+| E10 | E5 통화 중 **iPhone CallKit 시스템 화면**(잠금 화면 통화 표시/상단 초록 표시 눌러 나오는 iOS 통화 화면)의 스피커·음소거 버튼 | 앱 화면 버튼과 상태가 같나 |
 
 ## F. 메신저 (메시지·알림)
 | # | 받는 폰 상태 | Owner 동작 | 확인 |
@@ -111,6 +116,6 @@
 ```
 
 ### 로그 키워드
-- iPhone: `callservicesd` · `dropped on the floor` · `[voip]` · `ios_voip_` · `DIBAY_CALL` · `CallKit` · `reportNewIncomingCall` · `ios_native_voice_` (`cleanup_started reason=` · `remote_terminal` · `agora_leave`) · `remote_offline` · `fail_after_fulfill` · `video_accept_fail` · `⚡️` · `cm-call` · `call-v4` · `call_failed` · `push` · `notification`
-- Samsung: `DIBAY_CALL` · `DibayCallPush` · `cm-call` · `call-v4` · `IncomingCall` · `NativeVoiceCall` · `NativeVideoCall` · `Agora` · `FCM` · `push` · `⚡️`
+- iPhone: `ios_native_voice_ui_` · `audio_route` · `overrideOutputAudioPort` · `route=` · `AVAudioSession` · `RouteChange` · `mute` · `CXSetMutedCallAction` · `callservicesd` · `dropped on the floor` · `[voip]` · `ios_voip_` · `DIBAY_CALL` · `CallKit` · `reportNewIncomingCall` · `ios_native_voice_` (`cleanup_started reason=` · `remote_terminal` · `agora_leave`) · `remote_offline` · `fail_after_fulfill` · `video_accept_fail` · `⚡️` · `cm-call` · `call-v4` · `call_failed` · `push` · `notification`
+- Samsung: `audio_route` · `speaker` · `AudioManager` · `setSpeakerphoneOn` · `mute` · `DIBAY_CALL` · `DibayCallPush` · `cm-call` · `call-v4` · `IncomingCall` · `NativeVoiceCall` · `NativeVideoCall` · `Agora` · `FCM` · `push` · `⚡️`
 - 빨간 배너가 보이면 모양도 기록: 왼쪽 원형 아이콘 유무 · 오른쪽 ✕ · 배너 뒤 통화 화면이 닫혔는지

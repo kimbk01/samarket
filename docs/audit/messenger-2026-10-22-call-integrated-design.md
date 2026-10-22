@@ -14,6 +14,7 @@
 | R5 | VoIP 토큰이 서버에 늦게/안 올라감 | 네이티브→웹 토큰 전달 재시도 15초 후 중단 · 재전달 함수 미사용 · 페이지 새로고침 시 손실 | 코드 확정(오늘 재설치 후 실제 지연) |
 | R6 | VoIP 환경 불일치 시 유효 토큰 비활성화 위험 | VoIP 는 sandbox/production 대체 시도 없이 400 이면 토큰 폐기(일반 알림은 대체 시도 있음) | 코드 확정 · 오늘 발생 증거 없음 |
 | R7 | 잠금 화면 거절 버튼 없음 | iOS CallKit 표준(측면 버튼 2회 = 거절) | 결함 아님 |
+| R9 | iPhone 음성 통화 스피커 전환 안 됨 (Android 는 됨) · 음소거도 같은 구조 | iOS 네이티브 음성 통화 화면(`NativeVoiceCallViewController.swift:236-241` `onSpeakerTapped`)이 **버튼 모양만 바꾸고** 오디오 출력(`overrideOutputAudioPort`/Agora 라우트)을 바꾸지 않음. 음소거(`onMuteTapped` :243-249)도 모양만 바꾸고 마이크(Agora `muteLocalAudioStream`)를 건드리지 않음. 음성 기본 출력은 수화부(`NativeVoiceCallAgoraEngine.swift:99` · `DibayCallAudioSessionController.swift:108`) | 코드 확정(스피커) · 음소거는 E5 로 확정 |
 | R8 | 수신 체감 지연 | 서버 VoIP 0.42~0.72s. 기기 표시 시각 미측정 | S 로그로 측정 |
 
 ## 2. 통합 수정 설계 (한 릴리스: 서버 + iOS 네이티브)
@@ -33,6 +34,7 @@
 3. 이미 끝난 통화에 늦게 온 수신 VoIP 가 무음 화면을 남기는 결함(P) 수정.
 4. R4: 음성 통화 연결 후 상대 퇴장(`remote_offline`) = 정상 종료(배너 없음) — 영상과 동일. 연결 후 끊김은 「통화 연결이 끊어졌습니다」(웹 문구와 동일), 「통화를 시작하지 못했습니다」는 연결 전 실패에만.
 5. R5: VoIP 토큰을 웹 리스너 준비 후 다시 전달(이미 있는 재전달 함수 연결).
+5-1. R9: 음성 통화 화면 스피커 버튼 → 실제 출력 전환(`DibayCallAudioSessionController` 의 speaker/receiver 전환 + Agora 라우트), 음소거 버튼 → 실제 마이크 음소거(Agora `muteLocalAudioStream`) + 상대에게 반영. 블루투스·유선 이어폰 연결 시 기존 「외부 장치 유지」 규칙 유지. CallKit 시스템 화면의 스피커/음소거와 상태 동기화(`CXSetMutedCallAction`).
 6. 빌드: `npm run native:prepare`(iOS 빌드 번호 1회 증가) → Xcode 설치. Android 네이티브 변경 없음.
 ### 2-3. 웹
 - 변경 없음(통화 중 배너는 웹이 아님 확인). 시나리오 로그에서 웹 원인이 나오면 추가.
