@@ -43,6 +43,11 @@ export type DispatchPushOptions = {
     | "call_answered_elsewhere";
   /** Skip user settings gate (system/cancel dismiss only) */
   skip_settings_gate?: boolean;
+  /**
+   * 통화 복구 계획 §8-4 — 이 기기(`user_devices.device_id`)들은 대상에서 제외.
+   * `call_answered_elsewhere` 를 받은 기기 자신에게 보내지 않기 위함(iOS: CallKit 무보고 완료 → VoIP 폐기 누적).
+   */
+  exclude_device_ids?: string[];
   /** Admin test — bypass PUSH_DISPATCH_ENABLED gate and always audit-log attempts */
   force_dispatch?: boolean;
   /** Admin test/device diagnostics — restrict dispatch to one registered device. */

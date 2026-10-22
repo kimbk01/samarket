@@ -323,13 +323,25 @@ export async function dispatchPushForUser(
     environment: opts?.push_environment,
   });
   const targetDeviceId = opts?.target_device_id?.trim() ?? "";
-  const scopedTargets = targetDeviceId
+  const deviceScopedTargets = targetDeviceId
     ? loadedTargets.filter(
         (target) =>
           target.id === targetDeviceId ||
           String(target.device_id ?? "").trim() === targetDeviceId
       )
     : loadedTargets;
+  const excludedDeviceIds = new Set(
+    (opts?.exclude_device_ids ?? []).map((id) => String(id ?? "").trim()).filter(Boolean)
+  );
+  const scopedTargets = excludedDeviceIds.size
+    ? deviceScopedTargets.filter((target) => !excludedDeviceIds.has(String(target.device_id ?? "").trim()))
+    : deviceScopedTargets;
+  if (scopedTargets.length !== deviceScopedTargets.length) {
+    console.info("[dispatchPushForUser] targets excluded by device", {
+      ...logCtx,
+      excluded: deviceScopedTargets.length - scopedTargets.length,
+    });
+  }
   /**
    * 통화 푸시는 네이티브 통화 채널(voip_apns·fcm)을 먼저 보낸다. 대상은 last_seen_at 순이라 같은 iPhone 의
    * 알림(apns) 행이 앞서면 VoIP 가 그 전송 뒤로 밀려 임계경로 예산(2s)을 넘기고, 발신 취소 뒤에야 링이
