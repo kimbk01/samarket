@@ -11,10 +11,12 @@ vi.mock("@/lib/community-messenger/bootstrap-snapshot-invalidation", async () =>
   const actual = await vi.importActual<
     typeof import("@/lib/community-messenger/bootstrap-snapshot-invalidation")
   >("@/lib/community-messenger/bootstrap-snapshot-invalidation");
-  const readBootstrapSnapshotInvalidationAt = vi.fn(async () => {
-    if (invalidationReads.length === 0) return { status: "ok" as const, updatedAt: null };
-    return invalidationReads.shift() ?? { status: "ok" as const, updatedAt: null };
-  });
+  const readBootstrapSnapshotInvalidationAt = vi.fn(
+    async (_sbAny: unknown, _userId: string) => {
+      if (invalidationReads.length === 0) return { status: "ok" as const, updatedAt: null };
+      return invalidationReads.shift() ?? { status: "ok" as const, updatedAt: null };
+    }
+  );
   return {
     ...actual,
     readBootstrapSnapshotInvalidationAt,

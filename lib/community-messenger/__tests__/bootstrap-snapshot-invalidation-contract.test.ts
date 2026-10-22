@@ -13,11 +13,16 @@ import {
 import { invalidateCmBootstrapSnapshotCache } from "@/lib/community-messenger/cm-bootstrap-snapshot-cache";
 import { invalidateFullBootstrapSnapshotCache } from "@/lib/community-messenger/full-bootstrap-snapshot-cache";
 
-const upsertMock = vi.fn(async () => ({ error: null }));
+type WatermarkUpsertRow = {
+  bootstrap_scope: string;
+  user_id: string;
+  [key: string]: unknown;
+};
+const upsertMock = vi.fn(async (_row: WatermarkUpsertRow) => ({ error: null as null }));
 const maybeSingleMock = vi.fn();
 /** Default: RPC not applied → missing fn → PostgREST upsert fallback. */
-const invalidateRpcMock = vi.fn(async () => ({
-  data: null,
+const invalidateRpcMock = vi.fn(async (..._args: unknown[]) => ({
+  data: null as null,
   error: { message: "Could not find the function", code: "PGRST202" },
 }));
 
@@ -34,7 +39,7 @@ function deleteBuilder() {
 
 vi.mock("@/lib/supabase/try-supabase-server", () => ({
   tryCreateSupabaseServiceClient: () => ({
-    rpc: (...args: unknown[]) => invalidateRpcMock(...args),
+    rpc: (name: unknown, params?: unknown) => invalidateRpcMock(name, params),
     from: () => ({
       upsert: upsertMock,
       update: () => ({
@@ -131,9 +136,10 @@ describe("bootstrap snapshot invalidation contract", () => {
     await flushBootstrapSnapshotInvalidationForTests();
 
     expect(upsertMock).toHaveBeenCalledTimes(1);
-    const row = upsertMock.mock.calls[0]?.[0] as { bootstrap_scope: string; user_id: string };
-    expect(row.bootstrap_scope).toBe(BOOTSTRAP_SNAPSHOT_INVALIDATION_SCOPE);
-    expect(row.user_id).toBe("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    const row = upsertMock.mock.calls[0]?.[0];
+    expect(row).toBeDefined();
+    expect(row!.bootstrap_scope).toBe(BOOTSTRAP_SNAPSHOT_INVALIDATION_SCOPE);
+    expect(row!.user_id).toBe("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     expect(scheduleFullBootstrapSnapshotRefresh).not.toHaveBeenCalled();
     expect(scheduleCmBootstrapSnapshotRefresh).not.toHaveBeenCalled();
     expect(hasUnackedBootstrapSnapshotInvalidation("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")).toBe(
