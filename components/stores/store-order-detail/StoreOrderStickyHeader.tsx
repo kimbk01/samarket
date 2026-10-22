@@ -18,7 +18,7 @@ import { useStoreCommerceCartHeaderBadgeCount } from "@/lib/stores/use-store-com
 import { deliveryPresentationMarkEvent } from "@/lib/dibay/delivery-presentation-evidence";
 import type { StoreChromePortalTarget } from "@/lib/dibay/delivery-store-chrome-portal-contract";
 import { storeChromePortalRoot } from "@/lib/dibay/delivery-store-chrome-portal-contract";
-import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
+import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 
 const Tier1NotificationAnchor = dynamic(
   () =>
@@ -143,7 +143,7 @@ export function StoreOrderStickyHeader({
       }`}
     >
       <div
-        className={`delivery-ui ${STORES_HOME_CONTENT_COLUMN_CLASS} ${APP_TIER1_HEADER_ROW_WRAP_CLASS}`}
+        className={`delivery-ui ${APP_MAIN_COLUMN_CLASS} ${APP_TIER1_HEADER_ROW_WRAP_CLASS}`}
       >
         <AppTier1HeaderRow
           title={storeName}

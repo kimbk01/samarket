@@ -243,7 +243,6 @@ describe("S3-07 — 배달 소비자 본문 폭 768px 단일 상수", () => {
   });
   it.each([
     ["components/delivery/search/DeliverySearchPage.tsx", /max-w-lg/],
-    ["components/stores/store-order-detail/StoreOrderStickyHeader.tsx", /max-w-\[42rem\]/],
     ["components/stores/delivery/RestaurantOrderCompleteClient.tsx", /mx-auto max-w-md/],
     ["components/stores/StoreReviewsPageClient.tsx", /^$/],
     ["components/orders/customer-commerce/CustomerCommerceHubBody.tsx", /^$/],
@@ -251,5 +250,10 @@ describe("S3-07 — 배달 소비자 본문 폭 768px 단일 상수", () => {
     const c = code(rel);
     expect(c).toMatch(/STORES_HOME_CONTENT_COLUMN_CLASS/);
     if (legacy.source !== "^$") expect(c).not.toMatch(legacy);
+  });
+  it("store detail sticky header row uses the same column as the store body (APP_MAIN_COLUMN)", () => {
+    const c = code("components/stores/store-order-detail/StoreOrderStickyHeader.tsx");
+    expect(c).toMatch(/APP_MAIN_COLUMN_CLASS/);
+    expect(c).not.toMatch(/max-w-\[42rem\]/);
   });
 });
