@@ -54,7 +54,8 @@ function trimSessionId(input: IncomingCallPushBestEffortInput): string {
  * Critical-path VoIP dispatch. Never throws — call start HTTP must still succeed.
  */
 export async function dispatchIncomingCallVoipOnCriticalPath(
-  input: IncomingCallPushBestEffortInput
+  input: IncomingCallPushBestEffortInput,
+  options?: { awaitFullSend?: boolean }
 ): Promise<IncomingCallVoipDispatchResult> {
   const sessionId = trimSessionId(input);
   const startedAt = Date.now();
@@ -194,12 +195,14 @@ export async function dispatchIncomingCallVoipOnCriticalPath(
       });
     });
 
-  const raced = await Promise.race([
-    work.then(() => "done" as const),
-    new Promise<"timeout">((resolve) => {
-      setTimeout(() => resolve("timeout"), DISPATCH_BUDGET_MS);
-    }),
-  ]);
+  const raced = options?.awaitFullSend
+    ? await work.then(() => "done" as const)
+    : await Promise.race([
+        work.then(() => "done" as const),
+        new Promise<"timeout">((resolve) => {
+          setTimeout(() => resolve("timeout"), DISPATCH_BUDGET_MS);
+        }),
+      ]);
 
   if (raced === "timeout") {
     console.info("[cm-call-voip] voip_dispatch_budget_elapsed", {
@@ -239,6 +242,27 @@ export async function dispatchIncomingCallVoipOnCriticalPath(
     voip_dispatch_completed_at: completedAt,
     voip_dispatch_failed_at: failedAt,
   };
+}
+
+/**
+ * F1 (docs/audit/messenger-2026-10-22-reaudit-plan.md §4-12): 통화 생성 HTTP 응답이 푸시 전송을 기다리지 않는다.
+ * 전송(claim → VoIP/FCM)은 이 함수 호출 시점(세션 insert 직후, 응답 전)에 바로 시작되고,
+ * `after()` 는 서버리스 인스턴스 수명을 전송 완료까지 연장만 한다(전송 시작을 늦추지 않음).
+ * Never throws.
+ */
+export function startIncomingCallVoipDispatchDetached(input: IncomingCallPushBestEffortInput): void {
+  const pending = dispatchIncomingCallVoipOnCriticalPath(input, { awaitFullSend: true }).catch((e) => {
+    console.error("[cm-call-voip] voip_dispatch_detached_failed", {
+      sessionId: trimSessionId(input),
+      recipientUserId: input.recipientUserId,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  });
+  try {
+    after(() => pending);
+  } catch {
+    void pending;
+  }
 }
 
 /** Test / recovery — clear process-local idempotency. */

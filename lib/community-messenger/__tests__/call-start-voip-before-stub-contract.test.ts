@@ -70,13 +70,50 @@ const STARTED_AT = "2026-07-29T01:00:00.000Z";
 const SESSION = "session-contract-1";
 
 describe("call start: VoIP critical path + no dialing stub (static)", () => {
-  it("route does not defer incoming push with after()", () => {
+  it("route starts incoming push before HTTP 200 and does not wait for it (F1)", () => {
     const route = readRepo("app/api/community-messenger/rooms/[roomId]/calls/route.ts");
     expect(route).toContain('from "next/server"');
     expect(route).not.toMatch(/^\s*after\s*\(/m);
     expect(route).not.toMatch(/after\s*\(\s*async/);
-    expect(route).toContain("dispatchIncomingCallVoipOnCriticalPath");
+    expect(route).toContain("startIncomingCallVoipDispatchDetached(incomingCallPush)");
+    expect(route).not.toMatch(/await\s+\w*[Dd]ispatchIncomingCall/);
+    // send start is issued before `return NextResponse.json(` of the success path
+    const startIdx = route.indexOf("startIncomingCallVoipDispatchDetached(incomingCallPush)");
+    const okReturnIdx = route.indexOf("reused: result.reused");
+    expect(startIdx).toBeGreaterThan(0);
+    expect(startIdx).toBeLessThan(okReturnIdx);
     expect(route).not.toContain("sendIncomingCallPushBestEffort");
+  });
+
+  it("detached dispatch starts the send synchronously and does not block the caller (F1)", async () => {
+    resetIncomingCallVoipDispatchIdempotencyForTests();
+    setIncomingCallVoipClaimForTests(async () => ({ claimed: true }));
+    let release: () => void = () => {};
+    const sender = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        })
+    );
+    setIncomingCallVoipPushSenderForTests(sender);
+    const { startIncomingCallVoipDispatchDetached } = await import(
+      "@/lib/community-messenger/incoming-call-voip-dispatch"
+    );
+    const returned = startIncomingCallVoipDispatchDetached({
+      sessionId: "session-f1",
+      recipientUserId: "callee",
+      roomId: "room-1",
+      callerId: "caller",
+      callKind: "voice",
+      startedAt: STARTED_AT,
+    });
+    expect(returned).toBeUndefined();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(sender).toHaveBeenCalledTimes(1); // send started although it has not finished
+    release();
+    setIncomingCallVoipPushSenderForTests(null);
+    resetIncomingCallVoipDispatchIdempotencyForTests();
   });
 
   it("startCommunityMessengerCallSession does not publish dialing stub", () => {

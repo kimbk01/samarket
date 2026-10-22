@@ -6,7 +6,7 @@ import {
   startCommunityMessengerCallSession,
 } from "@/lib/community-messenger/service";
 /** SSOT_CONTRACT: messenger-call-init-route startCommunityMessengerCallSession */
-import { dispatchIncomingCallVoipOnCriticalPath } from "@/lib/community-messenger/incoming-call-voip-dispatch";
+import { startIncomingCallVoipDispatchDetached } from "@/lib/community-messenger/incoming-call-voip-dispatch";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
@@ -67,14 +67,16 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "session_missing" }, { status: 500 });
   }
   /**
-   * CONTRACT: VoIP/FCM on critical path after session insert, before HTTP 200.
-   * No deferred Next.js after-hook — CallKit must not lose to messenger dialing stub Realtime.
+   * CONTRACT: VoIP/FCM send STARTS right after session insert, before HTTP 200 (never deferred
+   * to a post-response hook). The response does not wait for the send to finish (F1 · 재감사 §4-12):
+   * the caller's spinner no longer includes push latency; instance lifetime is extended by `after()`
+   * inside `startIncomingCallVoipDispatchDetached`.
    * In-flight dialing call_stub is not published on start (terminal history only).
    * Dispatch failure must not rollback the session (dispatch never throws).
    */
   const incomingCallPush = result.incomingCallPush;
   if (incomingCallPush) {
-    await dispatchIncomingCallVoipOnCriticalPath(incomingCallPush);
+    startIncomingCallVoipDispatchDetached(incomingCallPush);
   }
   return NextResponse.json(
     {
