@@ -91,7 +91,9 @@
 
 ## Cursor 절차
 0. **준비(1회)**: 웹 배포 SHA(Samsung 설정 → 버전 정보)·설치 버전(`user_devices.app_version`, 읽기 전용) 기록 · Samsung `adb logcat -c` 후 `adb logcat -v threadtime > .tmp/call-scenarios-2026-10-22/samsung.log` 계속 실행 · iPhone Xcode → Window → Devices and Simulators → iPhone → **Open Console**(모든 프로세스) · 「A1 준비됨」만 답하고 대기.
-1. Owner 가 「A1 시작」 → 진행 → 「A1 끝 + 체크 7개 답」을 말하면, 그 시간 구간 로그를 잘라 아래 형식으로 `.tmp/call-scenarios-2026-10-22/REPORT.md` 에 이어 쓰고 「A2 준비됨」만 답한다.
+1. Owner 가 「A1 시작」을 말하면 Samsung 화면 녹화 시작(`adb shell screenrecord --time-limit 180 /sdcard/A1.mp4`, 끝나면 `.tmp/call-scenarios-2026-10-22/` 로 pull). iPhone 은 Owner 가 제어 센터 화면 기록(마이크 켬)으로 녹화.
+   「A1 끝 + 체크 7개 답」을 말하면: ① 그 시간 구간 로그를 자르고 ② `adb shell dumpsys notification --noredact` 의 DIBAY(com.dibay.app) 알림 항목을 저장(알림 개수·제목·본문) ③ 아래 형식으로 `.tmp/call-scenarios-2026-10-22/REPORT.md` 에 이어 쓰고 「A2 준비됨」만 답한다.
+   - 로그로 확인 가능한 것: 푸시 수신·처리, 수신 화면/CallKit 보고, 앱이 로그를 남기는 팝업·빨간 배너, Samsung 알림 목록. **로그로 확정 불가**: iPhone 배너가 몇 개 보였는지, 소리 — 이 둘은 녹화·Owner 답이 정본.
 2. 이상이 있어도 **멈추지 않는다**. 앱 멈춤·통화 불가 상태면 그 사실만 기록하고 Owner 지시 대기.
 3. 금지: 기기 조작 · 코드/서버/DB 수정 · 테스트 DB · 원인 추측·해결책 작성.
 4. 끝나면 REPORT.md 전체를 Owner 에게 그대로 전달.
@@ -101,6 +103,8 @@
 ### A1 — (한 줄 요약)
 - 시각: HH:MM:SS ~ HH:MM:SS (PHT) · callId: (로그에서. 메신저는 메시지 시각)
 - Owner 체크 7개: 1 벨(초) / 2 배너 개수 / 3 연결 / 4 종료 반영(초) / 5 빨간 배너 / 6 끝난 뒤 알림 / 7 팝업
+- Samsung 알림 목록(dumpsys): DIBAY 알림 개수·제목·본문
+- 녹화 파일: Samsung `A1.mp4` · iPhone (Owner 녹화 여부)
 - 이상점: 정상과 다른 것만 번호로 (없으면 「없음」)
 - Samsung logcat 발췌 (키워드 줄 원문)
 - iPhone 콘솔 발췌 (키워드 줄 원문)
