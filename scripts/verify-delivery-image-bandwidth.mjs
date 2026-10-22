@@ -46,8 +46,11 @@ function structuralChecks() {
       pass: media.includes("resolveDeliveryMediaSurfacePreset"),
     },
     {
-      id: "supabase_render_transform_helper",
-      pass: transform.includes("/storage/v1/render/image/public/"),
+      // IMG-01 — runtime render transform is forbidden; list thumbs use the upload-time `.feed.webp`
+      id: "store_list_derivative_wired",
+      pass:
+        transform.includes("resolveCanonicalFeedImageUrl(objectUrl)") &&
+        read("lib/media/canonical-image-contract.ts").includes('STORE_PRODUCT_UPLOAD_SURFACES: CanonicalImageSurface[] = ["hero", "feed"]'),
     },
     {
       id: "detail_hero_priority_only",
@@ -213,8 +216,11 @@ async function runBrowserScenario() {
 
   const imageRequests = requests.filter(isImageRequest);
   const thumbRequests = imageRequests.filter(isThumbnailRequest);
-  const transformRequests = imageRequests.filter((e) => e.url.includes("/render/image/"));
-  const fullObjectThumbs = thumbRequests.filter((e) => e.url.includes("/object/public/store-product-images"));
+  // IMG-01: list-size derivative (marked uploads only; legacy images stay original — no backfill)
+  const transformRequests = imageRequests.filter((e) => e.url.includes(".feed.webp"));
+  const fullObjectThumbs = thumbRequests.filter(
+    (e) => e.url.includes("/object/public/store-product-images") && !e.url.includes(".feed.webp")
+  );
   const transferred = imageRequests.reduce((a, e) => a + (e.transferSize || 0), 0);
   const largestThumb = thumbRequests.reduce(
     (max, e) => (e.transferSize > max.transferSize ? e : max),

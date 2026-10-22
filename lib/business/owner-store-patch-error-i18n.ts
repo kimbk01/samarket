@@ -58,6 +58,9 @@ export function formatOwnerStoreImageUploadError(
   payload: { message?: unknown; error?: unknown },
   lang: AppLanguageCode,
 ): string {
+  if (payload.error === "file_too_large") {
+    return translate(lang, "business_image_upload_too_large");
+  }
   if (typeof payload.message === "string" && payload.message.trim()) {
     return payload.message.trim();
   }

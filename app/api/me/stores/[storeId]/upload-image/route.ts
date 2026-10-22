@@ -7,6 +7,7 @@ import { enforceStoreOwnerImageUploadQuota } from "@/lib/security/rate-limit-pre
 import { OWNER_PRODUCT_IMAGE_MAX_BYTES } from "@/lib/stores/owner-product-images";
 import { resolveOwnerProductImageMimeForUpload } from "@/lib/stores/owner-product-image-mime-sniff.server";
 import { uploadStoreProductWithHeroDerivative } from "@/lib/media/canonical-image-upload.server";
+import { storeProductListDerivativeOriginalPath } from "@/lib/media/canonical-image-path";
 import { processOwnerProductImageBuffer } from "@/lib/stores/owner-product-image-upload.server";
 
 export const runtime = "nodejs";
@@ -57,15 +58,9 @@ export async function POST(
   if (!file || !(file instanceof File)) {
     return NextResponse.json({ ok: false, error: "file_required" }, { status: 400 });
   }
+  // IMG-02: 함수 본문 한도 아래 상한(클라이언트가 먼저 축소). 문구는 클라이언트 i18n(file_too_large).
   if (file.size > OWNER_PRODUCT_IMAGE_MAX_BYTES) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "file_too_large",
-        message: "이미지는 20MB 이하여야 합니다.",
-      },
-      { status: 413 }
-    );
+    return NextResponse.json({ ok: false, error: "file_too_large" }, { status: 413 });
   }
 
   const rawBuf = Buffer.from(await file.arrayBuffer());
@@ -100,7 +95,8 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "upload_failed" }, { status: 500 });
   }
 
-  const path = `${sid}/${randomUUID()}.${processed.ext}`;
+  // IMG-01: 목록 파생본(`feed`)을 함께 만드는 표식 경로 — 리졸버가 표식으로 파생본 사용 여부를 판정
+  const path = storeProductListDerivativeOriginalPath(sid, randomUUID(), processed.ext);
 
   try {
     const result = await uploadStoreProductWithHeroDerivative({

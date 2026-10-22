@@ -93,7 +93,10 @@ export function buildStoreProductHeroDerivativeUrl(
   return resolveCanonicalHeroImageUrl(resolved);
 }
 
-/** List/card thumb — primary object/public (WebP upload pipeline). */
+/**
+ * List/card thumb — IMG-01: upload-time `feed` derivative when the original carries the list marker,
+ * else primary object/public (existing images keep the original — no backfill).
+ */
 export function buildStoreProductThumbnailFetchUrl(
   raw: string | null | undefined,
   _displayPx: number
@@ -102,7 +105,7 @@ export function buildStoreProductThumbnailFetchUrl(
   if (!trimmed) return null;
 
   const objectUrl = resolveStoreProductObjectPublicUrl(raw);
-  if (objectUrl) return objectUrl;
+  if (objectUrl) return resolveCanonicalFeedImageUrl(objectUrl) ?? objectUrl;
 
   const resolved = resolveStoreProductMediaUrl(raw) ?? trimmed;
   if (resolved && /^https?:\/\//i.test(resolved) && !resolved.includes(STORE_PRODUCT_IMAGES_BUCKET)) {
@@ -112,14 +115,15 @@ export function buildStoreProductThumbnailFetchUrl(
   return resolveCanonicalFeedImageUrl(raw) ?? resolved;
 }
 
-/** Preset thumb — list/card → object/public; hero → canonical hero derivative. */
+/** Preset thumb — list/card → `feed` derivative (marked originals) or object/public; hero → canonical hero derivative. */
 export function buildStoreProductThumbnailFetchUrlFromPreset(
   raw: string | null | undefined,
   preset: DeliveryImageFetchPreset
 ): string | null {
   if (shouldStoreProductListThumbUseObjectPublic(preset)) {
     const objectUrl = resolveStoreProductObjectPublicUrl(raw);
-    if (objectUrl) return objectUrl;
+    // IMG-01: 목록 파생본(표식 있는 원본만) → 없으면 원본
+    if (objectUrl) return resolveCanonicalFeedImageUrl(objectUrl) ?? objectUrl;
 
     const resolved = resolveStoreProductMediaUrl(raw) ?? (typeof raw === "string" ? raw.trim() : "");
     if (resolved && /^https?:\/\//i.test(resolved) && !resolved.includes(STORE_PRODUCT_IMAGES_BUCKET)) {

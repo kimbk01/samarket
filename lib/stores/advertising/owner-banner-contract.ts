@@ -171,3 +171,58 @@ export function ownerBannerAspectGuideCopy(inventoryKey: DeliveryAdInventoryKey)
     height: inv.aspectRatioHeight,
   };
 }
+
+/** IMG-04c — 오너 배너 업로드 경로 접두(`upload-banner-image` route 가 서버에서 만든 경로). */
+export function ownerBannerUploadPathPrefix(storeId: string): string {
+  return `_owner/delivery-ads/banner/${storeId.trim()}/`;
+}
+
+/** IMG-04c — 소재 픽셀 상한(업로드 sharp 파이프라인 상한과 동일, `OWNER_PRODUCT_IMAGE_MAX_EDGE_PX`). */
+const OWNER_BANNER_SOURCE_MAX_EDGE_PX = 8192;
+
+/**
+ * IMG-04c — 클라이언트가 보낸 소재 경로·크기 검증.
+ * - 새 소재: 이 매장 업로드 접두 안의 저장 경로만(외부 URL·다른 매장·상대 경로 탈출 금지).
+ * - 기존 소재 재사용(수정 요청 재제출 등): 교체 대상 소재의 경로·크기와 정확히 같을 때만.
+ * - 크기: 정수 1…8192 (비율·최소 픽셀은 이어서 기존 aspect 게이트가 본다).
+ */
+export function validateOwnerBannerAssetInput(input: {
+  storeId: string;
+  assetPath: string;
+  sourceWidth: number;
+  sourceHeight: number;
+  existing?: { assetPath: string; sourceWidth: number | null; sourceHeight: number | null } | null;
+}): { ok: true } | { ok: false; error: "invalid_asset_path" | "invalid_dimensions" } {
+  const w = input.sourceWidth;
+  const h = input.sourceHeight;
+  const dimsOk =
+    Number.isInteger(w) &&
+    Number.isInteger(h) &&
+    w > 0 &&
+    h > 0 &&
+    w <= OWNER_BANNER_SOURCE_MAX_EDGE_PX &&
+    h <= OWNER_BANNER_SOURCE_MAX_EDGE_PX;
+  if (!dimsOk) return { ok: false, error: "invalid_dimensions" };
+
+  const path = input.assetPath.trim();
+  const existing = input.existing;
+  if (existing && existing.assetPath.trim() && path === existing.assetPath.trim()) {
+    if (existing.sourceWidth !== w || existing.sourceHeight !== h) {
+      return { ok: false, error: "invalid_dimensions" };
+    }
+    return { ok: true };
+  }
+  const sid = input.storeId.trim();
+  if (!sid || !path) return { ok: false, error: "invalid_asset_path" };
+  if (/^[a-z][a-z0-9+.-]*:/i.test(path) || path.startsWith("/")) {
+    return { ok: false, error: "invalid_asset_path" };
+  }
+  if (path.includes("..") || path.includes("%") || path.includes("\\") || path.includes("//")) {
+    return { ok: false, error: "invalid_asset_path" };
+  }
+  const prefix = ownerBannerUploadPathPrefix(sid);
+  if (!path.startsWith(prefix) || path.length <= prefix.length) {
+    return { ok: false, error: "invalid_asset_path" };
+  }
+  return { ok: true };
+}

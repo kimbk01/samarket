@@ -151,6 +151,7 @@ async function processOne(
     buf: sourceBuf,
     mimeType: sourceMime,
     surfaces: candidate.missingSurfaces,
+    bucket,
   });
 
   if (derivatives.length !== candidate.missingSurfaces.length) {

@@ -78,6 +78,7 @@ import {
 } from "@/lib/business/owner-basic-info-guard";
 import { formatHHmm12hLabel } from "@/lib/utils/tumbler-time";
 import { formatPriceInput } from "@/lib/utils/format";
+import { postStoreOwnerImageUpload } from "@/lib/stores/upload-store-product-image-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   formatOwnerStoreImageUploadError,
@@ -565,15 +566,9 @@ export function OwnerStoreProfileForm({
     setUploading("gallery");
     setError(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/upload-image`, {
-        method: "POST",
-        body: fd,
-        credentials: "include",
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j?.ok || !j.url) {
+      // IMG-02: 함수 본문 한도 아래로 압축 후 전송, 413(비 JSON)도 코드로 받는다
+      const { ok, json: j } = await postStoreOwnerImageUpload(storeId, file);
+      if (!ok || !j.url) {
         setError(formatOwnerStoreImageUploadError(j, language));
         return;
       }

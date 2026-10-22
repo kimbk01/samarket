@@ -5,6 +5,10 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PlatformEventOwnerRequestRow } from "@/lib/platform-event-owner-requests/types";
 import { isOwnerEditableEventPromoRequest } from "@/lib/platform-event-owner-requests/lifecycle";
 import { ownerRequestStatusLabelKey } from "@/lib/platform-event-owner-requests/types";
+import {
+  prepareImageFileForFunctionUpload,
+  readFunctionUploadJson,
+} from "@/lib/media/client-image-upload-prepare";
 
 type Props = { requestId: string };
 
@@ -121,19 +125,30 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
       setBusy(true);
       setError(null);
       try {
+        // IMG-02: 함수 본문 한도 아래로 먼저 축소 · 413(비 JSON)도 코드로 받는다
+        const tooLarge = () =>
+          safeT("business_image_upload_too_large", {
+            fallbackKo: "사진 용량이 너무 커서 올릴 수 없습니다. 더 작은 사진으로 다시 시도해 주세요.",
+            fallbackEn: "This photo is too large to upload. Please try a smaller photo.",
+          });
+        const prepared = await prepareImageFileForFunctionUpload(file);
+        if (!prepared.ok) {
+          setError(tooLarge());
+          return;
+        }
         const form = new FormData();
-        form.append("file", file);
+        form.append("file", prepared.file);
         const res = await fetch(
           `/api/me/event-promotion-requests/${encodeURIComponent(requestId)}/upload-image`,
           { method: "POST", credentials: "same-origin", body: form }
         );
-        const json = (await res.json().catch(() => ({}))) as {
+        const json = await readFunctionUploadJson<{
           ok?: boolean;
           request?: PlatformEventOwnerRequestRow;
           error?: string;
-        };
+        }>(res);
         if (!res.ok || !json.ok || !json.request) {
-          setError(json.error || "upload_failed");
+          setError(json.error === "file_too_large" ? tooLarge() : json.error || "upload_failed");
           return;
         }
         setRequest(json.request);
@@ -143,7 +158,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
         setBusy(false);
       }
     },
-    [requestId]
+    [requestId, safeT]
   );
 
   if (!request) {

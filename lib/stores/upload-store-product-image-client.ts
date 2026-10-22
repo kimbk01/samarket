@@ -1,30 +1,52 @@
+import {
+  prepareImageFileForFunctionUpload,
+  readFunctionUploadJson,
+} from "@/lib/media/client-image-upload-prepare";
+import { OWNER_PRODUCT_IMAGE_MAX_BYTES } from "@/lib/stores/owner-product-images";
+
 export type UploadStoreOwnerProductImageResult = {
   url: string;
   width?: number;
   height?: number;
 };
 
-/** 클라이언트 전용 — 서버 모듈에서 import 하지 마세요. */
-export async function uploadStoreOwnerProductImage(
+export type StoreOwnerImageUploadJson = {
+  ok?: boolean;
+  url?: string;
+  width?: number;
+  height?: number;
+  error?: string;
+  message?: string;
+};
+
+/**
+ * IMG-02 — 매장 이미지 업로드(`/api/me/stores/{id}/upload-image`) 공통 전송 (클라이언트 전용).
+ * 함수 본문 한도 아래로 먼저 줄이고, 413(비 JSON) 등은 `file_too_large` / `upload_failed` 코드로 돌려준다.
+ */
+export async function postStoreOwnerImageUpload(
   storeId: string,
   file: File
-): Promise<UploadStoreOwnerProductImageResult> {
+): Promise<{ ok: boolean; json: StoreOwnerImageUploadJson }> {
+  const prepared = await prepareImageFileForFunctionUpload(file, OWNER_PRODUCT_IMAGE_MAX_BYTES);
+  if (!prepared.ok) return { ok: false, json: { ok: false, error: prepared.error } };
   const fd = new FormData();
-  fd.append("file", file, file.name || "image.jpg");
+  fd.append("file", prepared.file, prepared.file.name || "image.jpg");
   const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/upload-image`, {
     method: "POST",
     body: fd,
     credentials: "include",
   });
-  const json = (await res.json()) as {
-    ok?: boolean;
-    url?: string;
-    width?: number;
-    height?: number;
-    error?: string;
-    message?: string;
-  };
-  if (!json?.ok || !json.url) {
+  const json = await readFunctionUploadJson<StoreOwnerImageUploadJson>(res);
+  return { ok: res.ok && json.ok === true && Boolean(json.url), json };
+}
+
+/** 클라이언트 전용 — 서버 모듈에서 import 하지 마세요. */
+export async function uploadStoreOwnerProductImage(
+  storeId: string,
+  file: File
+): Promise<UploadStoreOwnerProductImageResult> {
+  const { ok, json } = await postStoreOwnerImageUpload(storeId, file);
+  if (!ok || !json.url) {
     const msg =
       typeof json?.message === "string" && json.message.trim()
         ? json.message

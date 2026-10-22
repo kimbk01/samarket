@@ -69,12 +69,14 @@ export function SamarketThumbnail({
     const raw = src?.trim() || "";
     if (!raw || !fetchDisplayPx) return raw || fallbackSrc;
     const bucket = canonicalBucketFromUrl(raw);
-    if (bucket === "store-product-images") {
-      return resolveStoreProductObjectPublicUrl(raw) ?? raw;
-    }
     let surface: CanonicalImageSurface = "feed";
     if (fetchDisplayPx <= 96) surface = "thumb";
     else if (fetchDisplayPx >= 640) surface = "detail";
+    if (bucket === "store-product-images") {
+      // IMG-01: 목록 크기 → upload-time `feed` 파생본(표식 있는 원본만), 큰 화면·기존 이미지 → 원본
+      const objectUrl = resolveStoreProductObjectPublicUrl(raw) ?? raw;
+      return resolveCanonicalImageUrl({ raw: objectUrl, surface }) ?? objectUrl;
+    }
     return resolveCanonicalImageUrl({ raw, surface }) ?? raw;
   }, [fetchDisplayPx, fallbackSrc, src]);
   const normalizedSrc = resolvedSrc || fallbackSrc;

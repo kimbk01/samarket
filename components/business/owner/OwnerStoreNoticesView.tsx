@@ -22,6 +22,7 @@ import {
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
+import { postStoreOwnerImageUpload } from "@/lib/stores/upload-store-product-image-client";
 
 type NoticeRow = {
   id: string;
@@ -120,15 +121,9 @@ export function OwnerStoreNoticesView() {
 
   const uploadImage = async (file: File): Promise<string | null> => {
     const sid = resolvedStoreId.trim();
-    const fd = new FormData();
-    fd.set("file", file);
-    const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/upload-image`, {
-      method: "POST",
-      credentials: "include",
-      body: fd,
-    });
-    const j = (await res.json()) as { ok?: boolean; url?: string };
-    return j?.ok && j.url ? String(j.url) : null;
+    // IMG-02: 압축 후 전송 · 413(비 JSON)에서 예외 없이 실패 처리
+    const { ok, json: j } = await postStoreOwnerImageUpload(sid, file);
+    return ok && j.url ? String(j.url) : null;
   };
 
   const saveEditor = async () => {

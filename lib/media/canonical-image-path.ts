@@ -5,6 +5,7 @@ import {
   CANONICAL_DERIVATIVE_SUFFIX,
   POST_IMAGES_BUCKET,
   STORE_PRODUCT_IMAGES_BUCKET,
+  STORE_PRODUCT_LIST_DERIVATIVE_MARKER,
   type CanonicalImageBucket,
   type CanonicalImageSurface,
 } from "@/lib/media/canonical-image-contract";
@@ -37,6 +38,26 @@ export function isEligibleCanonicalOriginalStoragePath(storagePath: string): boo
   const p = storagePath.trim();
   if (!p || isCanonicalDerivativePath(p)) return false;
   return /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(p);
+}
+
+/**
+ * IMG-01 — store bucket 원본 중 업로드 시 `feed`(목록) 파생본을 함께 만든 것 (`{uuid}.l1.{ext}`).
+ * 네트워크 확인 없이 파일명 표식으로 판정 — 표식 없는 기존 원본은 파생본이 없다고 본다.
+ */
+export function storeProductOriginalHasListDerivative(storagePath: string): boolean {
+  const p = storagePath.trim();
+  if (!isEligibleCanonicalOriginalStoragePath(p)) return false;
+  const stem = p.replace(/\.[^./]+$/, "");
+  return stem.endsWith(STORE_PRODUCT_LIST_DERIVATIVE_MARKER);
+}
+
+/** IMG-01 — 목록 파생본을 함께 만드는 store bucket 원본 경로 (`{storeId}/{uuid}.l1.{ext}`). */
+export function storeProductListDerivativeOriginalPath(
+  storeId: string,
+  objectId: string,
+  ext: string
+): string {
+  return `${storeId}/${objectId}${STORE_PRODUCT_LIST_DERIVATIVE_MARKER}.${ext}`;
 }
 
 /** Strip render query → object/public base URL. */

@@ -8,6 +8,8 @@ const KNOWN_CODES: Record<string, MessageKey> = {
   /** PRD-15 — 오너 상품·카테고리 500 응답 고정 코드 (DB 원문 미노출) */
   db_error: "business_phase7_368",
   upload_failed: "business_phase7_440",
+  /** IMG-02 — 업로드 상한 초과(서버 413 · 함수 앞단 비 JSON 413 · 클라이언트 압축 실패) */
+  file_too_large: "business_image_upload_too_large",
   reply_failed: "business_phase7_368",
   delete_reply_failed: "business_phase7_352",
   delete_failed: "business_phase7_352",

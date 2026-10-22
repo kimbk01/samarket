@@ -13,6 +13,7 @@ import {
   isEligibleCanonicalOriginalStoragePath,
   normalizeToObjectPublicUrl,
   parseSupabasePublicObjectUrl,
+  storeProductOriginalHasListDerivative,
 } from "@/lib/media/canonical-image-path";
 import { resolvePostImageObjectPublicUrl } from "@/lib/media/post-image-transform";
 import { resolveStoreProductObjectPublicUrl } from "@/lib/media/store-product-image-transform";
@@ -50,6 +51,13 @@ export function resolveCanonicalImageUrl(input: CanonicalImageResolveInput): str
   if (!base) return resolved;
 
   if (bucket === STORE_PRODUCT_IMAGES_BUCKET && input.surface !== "hero") {
+    // IMG-01: 목록(thumb·feed)은 업로드 시 만든 `feed` 파생본 — 표식 있는 원본만. 없으면 원본 그대로.
+    if (input.surface === "thumb" || input.surface === "feed") {
+      const parsedStore = parseSupabasePublicObjectUrl(base);
+      if (parsedStore && storeProductOriginalHasListDerivative(parsedStore.path)) {
+        return buildDerivativePublicUrl(base, "feed") ?? base;
+      }
+    }
     return base;
   }
 

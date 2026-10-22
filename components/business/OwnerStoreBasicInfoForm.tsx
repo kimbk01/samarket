@@ -78,6 +78,7 @@ import {
   resolveStoreTaxonomyTopicDisplayName,
 } from "@/lib/stores/resolve-store-taxonomy-display-name";
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import { postStoreOwnerImageUpload } from "@/lib/stores/upload-store-product-image-client";
 
 const OWNER_BASIC_INFO_SUBBLOCK_HEAD_CLASS =
   "-mx-4 mb-4 block border-b border-[var(--biz-primary-active)] bg-[var(--biz-primary)] px-4 py-3 text-[13px] font-bold leading-snug text-[var(--biz-cream)]";
@@ -625,15 +626,9 @@ export function OwnerStoreBasicInfoForm({
     setUploading(true);
     setError(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/upload-image`, {
-        method: "POST",
-        body: fd,
-        credentials: "include",
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j?.ok || !j.url) {
+      // IMG-02: 함수 본문 한도 아래로 압축 후 전송, 413(비 JSON)도 코드로 받는다
+      const { ok, json: j } = await postStoreOwnerImageUpload(storeId, file);
+      if (!ok || !j.url) {
         setError(formatOwnerStoreImageUploadError(j, language));
         return;
       }

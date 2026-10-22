@@ -22,6 +22,7 @@ import {
   OWNER_BANNER_PRICING,
   ownerBannerInventoryToLegacySurface,
   resolveOwnerBannerCtaHref,
+  validateOwnerBannerAssetInput,
   validateOwnerBannerCta,
   validateOwnerBannerCreativeAspect,
   validateOwnerBannerInventory,
@@ -120,6 +121,8 @@ export type OwnerBannerWriterError =
   | "invalid_inventory"
   | "future_inventory"
   | "empty_asset_path"
+  /** IMG-04c — 소재 경로가 이 매장 업로드 접두 밖 */
+  | "invalid_asset_path"
   | "aspect_mismatch"
   | "invalid_dimensions"
   | "external_cta_forbidden"
@@ -369,6 +372,18 @@ export async function upsertOwnerBannerDraft(
     assetPath = OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET;
     sourceWidth = OWNER_BANNER_PENDING_SOURCE_WIDTH;
     sourceHeight = OWNER_BANNER_PENDING_SOURCE_HEIGHT;
+  } else {
+    // IMG-04c: 경로는 이 매장 업로드 접두 안(또는 교체 대상 기존 소재 그대로), 크기는 정수 범위.
+    if (!assetPath) return { ok: false, error: "empty_asset_path" };
+    const existing = await loadCreative(sb, input.supersedeCreativeId?.trim() || null);
+    const assetCheck = validateOwnerBannerAssetInput({
+      storeId: input.storeId,
+      assetPath,
+      sourceWidth,
+      sourceHeight,
+      existing,
+    });
+    if (!assetCheck.ok) return { ok: false, error: assetCheck.error };
   }
 
   const aspect = validateOwnerBannerCreativeAspect({

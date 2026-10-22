@@ -23,7 +23,13 @@ export function resolveOwnerProductRegisterError(
   t: TranslateFn
 ): OwnerProductRegisterErrorModal {
   if (typeof input === "string") {
-    const description = input.trim() || t("common_error");
+    const raw = input.trim();
+    // IMG-02: 업로드 오류 코드(`file_too_large` 등)는 원문 코드 대신 i18n 문구
+    const description = !raw
+      ? t("common_error")
+      : /^[a-z][a-z0-9_]*$/.test(raw)
+        ? resolveOwnerApiErrorMessage(raw, t)
+        : raw;
     return {
       kind: "generic",
       title: registerTitle(mode, t),

@@ -45,6 +45,11 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
 import { bannerGeometryRejectMessage } from "@/lib/stores/advertising/validate-banner-creative-geometry";
 import {
+  prepareImageFileForFunctionUpload,
+  readFunctionUploadJson,
+} from "@/lib/media/client-image-upload-prepare";
+import { CAMPAIGN_IMAGE_MAX_BYTES } from "@/lib/admin/notification-campaigns/validate-campaign-image";
+import {
   OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET,
 } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
 
@@ -351,22 +356,28 @@ export function OwnerBannerCreateView() {
     setUploadBusy(true);
     setError(null);
     try {
+      // IMG-02 · IMG-09: 서버 상한(2MB) 아래로 먼저 축소 — 카메라 원본도 업로드 가능
+      const prepared = await prepareImageFileForFunctionUpload(file, CAMPAIGN_IMAGE_MAX_BYTES);
+      if (!prepared.ok) {
+        setError(prepared.error);
+        return;
+      }
       const form = new FormData();
-      form.set("file", file);
+      form.set("file", prepared.file);
       form.set("inventoryKey", inventoryKey);
       if (existingCampaign?.id) form.set("campaignId", existingCampaign.id);
       const res = await fetch(
         `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads/upload-banner-image`,
         { method: "POST", credentials: "include", body: form }
       );
-      const json = (await res.json()) as {
+      const json = await readFunctionUploadJson<{
         ok?: boolean;
         error?: string;
         path?: string;
         url?: string;
         width?: number;
         height?: number;
-      };
+      }>(res);
       if (!res.ok || !json.ok || !json.path || !json.url) {
         if (
           json.error === "aspect_mismatch" ||
@@ -563,6 +574,8 @@ export function OwnerBannerCreateView() {
   const errorText =
     error?.startsWith("__geom__")
       ? error.slice("__geom__".length)
+      : error === "file_too_large"
+      ? t("business_image_upload_too_large")
       : error === "inventory"
       ? t("owner_ads_error_inventory")
       : error === "store"

@@ -20,6 +20,7 @@ import {
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
+import { postStoreOwnerImageUpload } from "@/lib/stores/upload-store-product-image-client";
 
 type BannerRow = {
   id: string;
@@ -79,6 +80,8 @@ function formatBannerSaveError(
       return tr("business_phase7_485");
     case "storage_bucket_missing":
       return tr("business_phase7_449");
+    case "file_too_large":
+      return tr("business_image_upload_too_large");
     case "store_not_editable":
     case "store_not_approved":
     case "store_suspended":
@@ -214,16 +217,10 @@ export function OwnerStoreBannersView() {
 
   const uploadImage = async (file: File): Promise<string | null> => {
     const sid = resolvedStoreId.trim();
-    const fd = new FormData();
-    fd.set("file", file);
     try {
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/upload-image`, {
-        method: "POST",
-        credentials: "include",
-        body: fd,
-      });
-      const j = (await res.json()) as { ok?: boolean; url?: string; error?: string; message?: string };
-      if (!j?.ok) {
+      // IMG-02: 압축 후 전송 · 413(비 JSON)도 코드로 받는다
+      const { ok, json: j } = await postStoreOwnerImageUpload(sid, file);
+      if (!ok) {
         const msg =
           typeof j?.message === "string" && j.message.trim()
             ? j.message.trim()

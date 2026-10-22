@@ -35,8 +35,29 @@ export const CANONICAL_DERIVATIVE_SPEC = {
 /** post-images surfaces generated at upload. */
 export const POST_IMAGE_UPLOAD_SURFACES: CanonicalImageSurface[] = ["thumb", "feed", "detail"];
 
-/** store-product-images: primary webp is list/menu SSOT; hero added at upload. */
-export const STORE_PRODUCT_UPLOAD_SURFACES: CanonicalImageSurface[] = ["hero"];
+/**
+ * store-product-images: hero + list(feed) derivatives added at upload.
+ * IMG-01 — 목록·카드 썸네일이 원본(최대 4096px)을 받지 않도록 `feed` 파생본(목록 크기)을 함께 만든다.
+ */
+export const STORE_PRODUCT_UPLOAD_SURFACES: CanonicalImageSurface[] = ["hero", "feed"];
+
+/**
+ * IMG-01 — store bucket `feed`(목록) 파생본 규격. 매장 이미지는 정사각·5:3·4:5·배너 등 여러 비율로
+ * 잘려 보이므로 업로드 시점에는 자르지 않고(inside) 긴 변만 줄인다 — 화면이 cover 로 자른다.
+ * 960 = 목록 최대 타일(296 CSS px) × DPR 3 의 짧은 변(4:3 기준 720px)을 덮는 값.
+ */
+export const STORE_PRODUCT_LIST_DERIVATIVE_SPEC = {
+  maxEdge: 960,
+  fit: "inside" as const,
+  quality: 78,
+} as const;
+
+/**
+ * IMG-01 — `feed` 파생본이 함께 저장된 원본의 파일명 표식 (`{storeId}/{uuid}.l1.webp`).
+ * 리졸버는 네트워크 확인 없이 이 표식이 있을 때만 `{uuid}.l1.feed.webp` 를 쓰고,
+ * 표식 없는 기존 이미지(파생본 미생성 · backfill 미승인)는 원본을 그대로 쓴다.
+ */
+export const STORE_PRODUCT_LIST_DERIVATIVE_MARKER = ".l1" as const;
 
 /** Avatar — thumb only (display ≤112px). */
 export const AVATAR_UPLOAD_SURFACES: CanonicalImageSurface[] = ["thumb"];

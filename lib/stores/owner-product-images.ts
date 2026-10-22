@@ -1,4 +1,5 @@
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
+import { FUNCTION_MULTIPART_IMAGE_SAFE_MAX_BYTES } from "@/lib/media/function-upload-limits";
 
 /** 상세 갤러리(images_json) 최대 장수 — 대표(thumbnail_url)와 분리 */
 export const OWNER_PRODUCT_DETAIL_IMAGE_MAX = 5;
@@ -19,8 +20,15 @@ export function newOwnerProductImageSlotId(): string {
   return `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
-/** 매장 상품 이미지 업로드 상한(바이트) — 원본(고해상도) 허용, 서버 WebP 변환 후 저장 */
-export const OWNER_PRODUCT_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+/**
+ * 매장 이미지 업로드 본문 상한(바이트) — 클라이언트 전송·서버 수신 공통.
+ * IMG-02: 업로드는 함수(Vercel, 본문 ~4.5MB) 경유 multipart 라 그 아래로 둔다. 큰 카메라 사진은
+ * 클라이언트가 `prepareImageFileForFunctionUpload` 로 줄여서 보낸다.
+ */
+export const OWNER_PRODUCT_IMAGE_MAX_BYTES = FUNCTION_MULTIPART_IMAGE_SAFE_MAX_BYTES;
+
+/** 파일 선택 단계 상한 — 이 크기까지는 고르면 클라이언트가 업로드 상한 아래로 압축한다. */
+export const OWNER_PRODUCT_IMAGE_PICK_MAX_BYTES = 20 * 1024 * 1024;
 
 /** UI 권장 정사각 크기 — 최소 요구는 아님 */
 export const OWNER_PRODUCT_IMAGE_RECOMMENDED_EDGE_PX = 512;
@@ -142,7 +150,7 @@ export function validateOwnerProductImageFileForUpload(file: File): { ok: true }
   if (!file || !(file instanceof File)) {
     return { ok: false, message: "이미지 파일을 선택해 주세요." };
   }
-  if (file.size > OWNER_PRODUCT_IMAGE_MAX_BYTES) {
+  if (file.size > OWNER_PRODUCT_IMAGE_PICK_MAX_BYTES) {
     return { ok: false, message: "이미지는 20MB 이하여야 합니다." };
   }
   if (!resolveOwnerProductImageMime(file)) {

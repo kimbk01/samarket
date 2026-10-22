@@ -6,7 +6,10 @@ import {
   type CanonicalImageBucket,
   type CanonicalImageSurface,
 } from "@/lib/media/canonical-image-contract";
-import { derivativeStoragePath } from "@/lib/media/canonical-image-path";
+import {
+  derivativeStoragePath,
+  storeProductOriginalHasListDerivative,
+} from "@/lib/media/canonical-image-path";
 import {
   buildCanonicalDerivativeBuffers,
   optimizePostImageOriginalBuffer,
@@ -51,6 +54,11 @@ export async function uploadCanonicalImageAsset(input: {
   originalBuf: Buffer;
   originalContentType: string;
   surfaces: CanonicalImageSurface[];
+  /**
+   * 반드시 있어야 하는 파생본 — 생성 실패 시 업로드 전체를 되돌린다(원본만 남기지 않음).
+   * IMG-01: 파일명 표식으로 `feed` 존재를 약속한 store 원본은 `feed` 필수.
+   */
+  requiredSurfaces?: CanonicalImageSurface[];
 }): Promise<CanonicalUploadResult> {
   const uploaded: string[] = [];
   const derivativePaths: Partial<Record<CanonicalImageSurface, string>> = {};
@@ -69,7 +77,14 @@ export async function uploadCanonicalImageAsset(input: {
       buf: input.originalBuf,
       mimeType: input.originalContentType,
       surfaces: input.surfaces,
+      bucket: input.bucket,
     });
+    const missingRequired = (input.requiredSurfaces ?? []).filter(
+      (surface) => !derivatives.some((d) => d.surface === surface)
+    );
+    if (missingRequired.length) {
+      throw new Error(`derivative_missing:${missingRequired.join(",")}`);
+    }
 
     for (const d of derivatives) {
       const dPath = derivativeStoragePath(input.originalPath, d.surface);
@@ -120,7 +135,7 @@ export async function uploadPostImageWithDerivatives(input: {
   });
 }
 
-/** store-product-images: primary already processed — add hero derivative only. */
+/** store-product-images: primary already processed — add hero + list(feed) derivatives (IMG-01). */
 export async function uploadStoreProductWithHeroDerivative(input: {
   sb: SupabaseClient;
   originalPath: string;
@@ -134,6 +149,7 @@ export async function uploadStoreProductWithHeroDerivative(input: {
     originalBuf: input.primaryBuf,
     originalContentType: input.primaryContentType,
     surfaces: STORE_PRODUCT_UPLOAD_SURFACES,
+    requiredSurfaces: storeProductOriginalHasListDerivative(input.originalPath) ? ["feed"] : [],
   });
 }
 

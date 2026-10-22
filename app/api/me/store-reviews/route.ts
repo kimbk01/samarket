@@ -3,6 +3,7 @@ import { requireAuth, requirePhoneVerified, validateActiveSession } from "@/lib/
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { parseStoreReviewImageUrls } from "@/lib/stores/store-review-image-urls";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,18 +32,6 @@ function isUnknownColumnError(message: string | undefined): boolean {
   if (!message) return false;
   const m = message.toLowerCase();
   return m.includes("column") && m.includes("does not exist");
-}
-
-function parseImageUrls(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  const out: string[] = [];
-  for (const x of raw) {
-    const s = String(x ?? "").trim();
-    if (!s || !/^https?:\/\//i.test(s) || s.length > 2048) continue;
-    out.push(s);
-    if (out.length >= 3) break;
-  }
-  return out;
 }
 
 function parseItemFeedback(
@@ -85,12 +74,21 @@ export async function POST(req: NextRequest) {
   const content = String(body.content ?? "").trim();
   const productIdRaw = body.product_id != null ? String(body.product_id).trim() : "";
   const ownerOnly = body.owner_only === true;
-  const imageUrls = parseImageUrls(body.image_urls);
   const itemFeedbackRaw = body.item_feedback;
 
   if (!orderId || !Number.isFinite(rating) || rating < 1 || rating > 5) {
     return NextResponse.json({ ok: false, error: "invalid_rating_or_order" }, { status: 400 });
   }
+  // IMG-04a: 이 구매자·이 주문의 리뷰 업로드 경로(post-images/{buyerId}/store-reviews/{orderId}/)만 허용
+  const parsedImages = parseStoreReviewImageUrls(body.image_urls, {
+    buyerId,
+    orderId,
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  });
+  if (!parsedImages.ok) {
+    return NextResponse.json({ ok: false, error: parsedImages.error }, { status: 400 });
+  }
+  const imageUrls = parsedImages.urls;
   if (!content || content.length > 2000) {
     return NextResponse.json({ ok: false, error: "invalid_content" }, { status: 400 });
   }

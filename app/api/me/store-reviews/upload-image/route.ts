@@ -5,11 +5,13 @@ import { uploadPostImageWithDerivatives } from "@/lib/media/canonical-image-uplo
 import { CANONICAL_POST_IMAGE_ALLOWED_MIMES } from "@/lib/media/canonical-image-contract";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
+import { FUNCTION_MULTIPART_IMAGE_SAFE_MAX_BYTES } from "@/lib/media/function-upload-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BYTES = 5 * 1024 * 1024;
+/** IMG-02: 함수(Vercel) 본문 한도(~4.5MB) 아래 — 클라이언트가 먼저 축소해 보낸다. */
+const MAX_BYTES = FUNCTION_MULTIPART_IMAGE_SAFE_MAX_BYTES;
 const ALLOWED = new Set<string>(
   CANONICAL_POST_IMAGE_ALLOWED_MIMES.filter((m) => m !== "image/gif")
 );

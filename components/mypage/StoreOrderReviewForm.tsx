@@ -32,6 +32,10 @@ import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { useMypageUnsavedLeaveGuard } from "@/lib/mypage/use-mypage-unsaved-leave-guard";
+import {
+  prepareImageFileForFunctionUpload,
+  readFunctionUploadJson,
+} from "@/lib/media/client-image-upload-prepare";
 
 /** S33 주문 정보 로딩 — 별 5 + 메뉴 행 2 + 사진 칸 1 + 입력 박스 */
 function StoreOrderReviewSkeleton() {
@@ -187,17 +191,29 @@ export function StoreOrderReviewForm({
       const toUpload = Array.from(files).slice(0, remain);
       const next: string[] = [...imageUrls];
       for (const file of toUpload) {
+        // IMG-02: 함수 본문 한도 아래로 먼저 축소 · 413(비 JSON)은 용량 안내
+        const prepared = await prepareImageFileForFunctionUpload(file);
+        if (!prepared.ok) {
+          setErr(t("mypage_comp_store_review_upload_too_large"));
+          break;
+        }
         const fd = new FormData();
         fd.append("order_id", orderId);
-        fd.append("file", file);
+        fd.append("file", prepared.file);
         const res = await fetch("/api/me/store-reviews/upload-image", {
           method: "POST",
           body: fd,
           credentials: "include",
         });
-        const j = await res.json().catch(() => ({}));
+        const j = await readFunctionUploadJson<{ ok?: boolean; url?: string; error?: string }>(res);
         if (!res.ok || !j?.ok || !j.url) {
-          setErr(t("mypage_comp_store_review_upload_failed"));
+          setErr(
+            t(
+              j.error === "file_too_large"
+                ? "mypage_comp_store_review_upload_too_large"
+                : "mypage_comp_store_review_upload_failed"
+            )
+          );
           break;
         }
         next.push(String(j.url));

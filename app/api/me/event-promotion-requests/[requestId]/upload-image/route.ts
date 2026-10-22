@@ -18,6 +18,8 @@ import {
   PLATFORM_EVENT_MEDIA_MAX_BYTES,
 } from "@/lib/platform-events/media";
 import { getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
+import { processOwnerProductImageBuffer } from "@/lib/stores/owner-product-image-upload.server";
+import { FUNCTION_MULTIPART_IMAGE_SAFE_MAX_BYTES } from "@/lib/media/function-upload-limits";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -73,19 +75,35 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "file_required" }, { status: 400 });
   }
 
+  // IMG-02: 함수 본문 한도(~4.5MB) 아래 상한 — 클라이언트가 먼저 줄여 보낸다.
   const validated = validateCampaignImageFile(file, {
-    maxBytes: PLATFORM_EVENT_MEDIA_MAX_BYTES,
+    maxBytes: Math.min(PLATFORM_EVENT_MEDIA_MAX_BYTES, FUNCTION_MULTIPART_IMAGE_SAFE_MAX_BYTES),
   });
   if (!validated.ok) {
     return NextResponse.json({ ok: false, error: validated.error }, { status: 400 });
   }
 
-  const ext = extForCampaignImageMime(validated.mime);
+  // IMG-09: 상품 이미지와 같은 sharp 재인코딩 — EXIF 방향 적용 · EXIF/GPS 메타데이터 제거 · WebP.
+  let processed: Awaited<ReturnType<typeof processOwnerProductImageBuffer>>;
+  try {
+    processed = await processOwnerProductImageBuffer(
+      Buffer.from(await file.arrayBuffer()),
+      validated.mime
+    );
+  } catch (e) {
+    const code = e instanceof Error ? e.message : "";
+    if (code === "invalid_type") {
+      return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
+    }
+    return NextResponse.json({ ok: false, error: "image_decode_failed" }, { status: 400 });
+  }
+
+  const ext = extForCampaignImageMime(processed.contentType);
   const path = `owner-requests/${requestId}/${userId}/${randomUUID()}.${ext}`;
-  const buf = Buffer.from(await file.arrayBuffer());
+  const buf = processed.buf;
 
   const { error: upErr } = await sb.storage.from(PLATFORM_EVENT_MEDIA_BUCKET).upload(path, buf, {
-    contentType: validated.mime === "image/jpg" ? "image/jpeg" : validated.mime,
+    contentType: processed.contentType,
     upsert: false,
   });
   if (upErr) {

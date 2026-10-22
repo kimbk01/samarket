@@ -23,6 +23,7 @@ import {
 } from "@/lib/gift-certificate/owner-gift-money-ops";
 import { formatGiftProductExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { postStoreOwnerImageUpload } from "@/lib/stores/upload-store-product-image-client";
 
 type GiftApp = {
   id: string;
@@ -229,15 +230,9 @@ function OwnerGiftCertificatesInner() {
     if (!sid) return;
     setUploadBusy(true);
     try {
-      const fd = new FormData();
-      fd.set("file", file);
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/upload-image`, {
-        method: "POST",
-        credentials: "include",
-        body: fd,
-      });
-      const json = (await res.json()) as { ok?: boolean; url?: string; error?: string };
-      if (!res.ok || !json.ok || !json.url) {
+      // IMG-02: 압축 후 전송 · 413(비 JSON)에서 예외 없이 실패 처리
+      const { ok, json } = await postStoreOwnerImageUpload(sid, file);
+      if (!ok || !json.url) {
         setError(
           safeT("gift_owner_upload_fail", {
             fallbackKo: "이미지를 올리지 못했습니다.",

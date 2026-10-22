@@ -1,6 +1,9 @@
 import sharp from "sharp";
 import {
   CANONICAL_DERIVATIVE_SPEC,
+  STORE_PRODUCT_IMAGES_BUCKET,
+  STORE_PRODUCT_LIST_DERIVATIVE_SPEC,
+  type CanonicalImageBucket,
   type CanonicalImageSurface,
 } from "@/lib/media/canonical-image-contract";
 import { normalizeHeicInputBuffer } from "@/lib/media/heic-decode.server";
@@ -21,6 +24,8 @@ export async function buildCanonicalDerivativeBuffers(input: {
   buf: Buffer;
   mimeType: string;
   surfaces: CanonicalImageSurface[];
+  /** IMG-01 — store bucket `feed` 는 자르지 않는 목록 규격. 생략 = 기존 규격(post-images). */
+  bucket?: CanonicalImageBucket;
 }): Promise<CanonicalDerivativeBuffer[]> {
   const mime = (input.mimeType || "").toLowerCase().trim();
   if (mime === "image/gif") return [];
@@ -37,6 +42,14 @@ export async function buildCanonicalDerivativeBuffers(input: {
         pipeline = pipeline.resize({
           width: spec.width,
           height: spec.height,
+          fit: spec.fit,
+          withoutEnlargement: true,
+        });
+      } else if (surface === "feed" && input.bucket === STORE_PRODUCT_IMAGES_BUCKET) {
+        const spec = STORE_PRODUCT_LIST_DERIVATIVE_SPEC;
+        pipeline = pipeline.resize({
+          width: spec.maxEdge,
+          height: spec.maxEdge,
           fit: spec.fit,
           withoutEnlargement: true,
         });
@@ -59,8 +72,8 @@ export async function buildCanonicalDerivativeBuffers(input: {
       }
 
       const quality =
-        surface === "hero" || surface === "detail"
-          ? CANONICAL_DERIVATIVE_SPEC[surface].quality
+        surface === "feed" && input.bucket === STORE_PRODUCT_IMAGES_BUCKET
+          ? STORE_PRODUCT_LIST_DERIVATIVE_SPEC.quality
           : CANONICAL_DERIVATIVE_SPEC[surface].quality;
       const buf = await pipeline.webp({ quality, effort: 4 }).toBuffer();
       const meta = await sharp(buf, { failOn: "none" }).metadata();
