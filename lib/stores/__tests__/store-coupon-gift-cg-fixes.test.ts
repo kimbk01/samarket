@@ -41,6 +41,27 @@ describe("CG-01 confirm dialog shows gift used + forfeited amount", () => {
   });
 });
 
+describe("CG-01 re-consent when the forfeit grows after the gift was chosen", () => {
+  it("checkout opens the existing consent dialog unless the current forfeit is already consented for this gift", () => {
+    const cart = src("components/stores/StoreCommerceCartPageClient.tsx");
+    const i = cart.indexOf("const forfeitConsented =");
+    expect(i).toBeGreaterThan(-1);
+    const gate = cart.slice(i, i + 700);
+    expect(gate).toContain("payableForConfirm.giftForfeitedPhp <= 0");
+    expect(gate).toContain("consent.instanceId === appliedGiftInstanceId");
+    expect(gate).toContain("payableForConfirm.giftForfeitedPhp <= consent.php");
+    expect(gate).toContain("setPendingCheckoutForfeit(");
+    // gate runs before the order confirm dialog payload
+    expect(i).toBeLessThan(cart.indexOf("setCheckoutConfirmPayload({"));
+    expect(cart).toContain("giftForfeitConsentRef.current = { instanceId: gift.instanceId, php: forfeitConsentedPhp }");
+    expect(cart).toContain("<StoreCartGiftForfeitConsentDialog");
+  });
+  it("pick-time and checkout-time consent use the same dialog component", () => {
+    expect(src("components/stores/cart/StoreCartGiftApplyPanel.tsx")).toContain("<StoreCartGiftForfeitConsentDialog");
+    expect(src("components/stores/cart/StoreCartGiftForfeitConsentDialog.tsx")).toContain('t("gift_u4_forfeit_confirm_ok"'.replace('t(','safeT('));
+  });
+});
+
 describe("CG-02 coupon error codes from the order RPC map to messages", () => {
   const t = (k: string) => `T:${k}`;
   it.each([

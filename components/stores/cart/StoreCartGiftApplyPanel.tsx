@@ -8,7 +8,7 @@ import {
   checkoutGiftChoiceNeedsForfeitConsent,
   computeCheckoutGiftApplyPreview,
 } from "@/lib/gift-certificate/checkout-eligible-gifts";
-import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
+import { StoreCartGiftForfeitConsentDialog } from "@/components/stores/cart/StoreCartGiftForfeitConsentDialog";
 import { BAEMIN_CART_SECTION_CARD_CLASS } from "@/lib/stores/store-baemin-cart-ui";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { DELIVERY_TOUCH_HIT_EXPAND_CLASS } from "@/lib/stores/delivery-touch-target";
@@ -31,7 +31,8 @@ export function StoreCartGiftApplyPanel({
   appliedInstanceId: string | null;
   amountBeforeGift: number;
   onChooseNone: () => void;
-  onChoose: (gift: CheckoutEligibleGift) => void;
+  /** forfeitConsentedPhp — 선택 시 동의한 소멸액(소멸 없으면 0). 이후 소멸액이 커지면 주문 직전에 다시 동의 (CG-01) */
+  onChoose: (gift: CheckoutEligibleGift, forfeitConsentedPhp: number) => void;
 }) {
   const { safeT } = useI18n();
   const [showPicker, setShowPicker] = useState(false);
@@ -191,7 +192,7 @@ export function StoreCartGiftApplyPanel({
                       });
                       return;
                     }
-                    onChoose(g);
+                    onChoose(g, 0);
                   }}
                 >
                   <GiftVisualCard
@@ -242,46 +243,15 @@ export function StoreCartGiftApplyPanel({
         </ul>
       ) : null}
 
-      <DibayConfirmDialog
+      <StoreCartGiftForfeitConsentDialog
         open={pendingForfeit !== null}
-        ariaLabel={safeT("gift_u4_forfeit_confirm_title", {
-          fallbackKo: "상품권 잔액 소멸 안내",
-          fallbackEn: "Unused gift balance will expire",
-        })}
-        title={safeT("gift_u4_forfeit_confirm_title", {
-          fallbackKo: "상품권 잔액 소멸 안내",
-          fallbackEn: "Unused gift balance will expire",
-        })}
-        description={
-          pendingForfeit ? (
-            <span data-cart-gift-forfeit-confirm-body="1">
-              {safeT("gift_u4_forfeit_confirm_body", {
-                fallbackKo: `상품권은 한 번 사용하면 전액 소진됩니다. 이번 주문에 ${formatMoneyPhp(
-                  pendingForfeit.giftUsed
-                )} 사용되고 남은 ${formatMoneyPhp(pendingForfeit.giftForfeited)}은(는) 소멸됩니다. (주문이 취소되면 상품권은 복원됩니다)`,
-                fallbackEn: `A gift certificate is used up in one order. ${formatMoneyPhp(
-                  pendingForfeit.giftUsed
-                )} is used on this order and the remaining ${formatMoneyPhp(
-                  pendingForfeit.giftForfeited
-                )} will expire. (The gift is restored if the order is cancelled.)`,
-                vars: {
-                  used: formatMoneyPhp(pendingForfeit.giftUsed),
-                  forfeit: formatMoneyPhp(pendingForfeit.giftForfeited),
-                },
-              })}
-            </span>
-          ) : null
-        }
-        cancelLabel={safeT("gift_u4_forfeit_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
-        confirmLabel={safeT("gift_u4_forfeit_confirm_ok", {
-          fallbackKo: "동의하고 사용",
-          fallbackEn: "Agree and use",
-        })}
+        giftUsed={pendingForfeit?.giftUsed ?? 0}
+        giftForfeited={pendingForfeit?.giftForfeited ?? 0}
         onCancel={() => setPendingForfeit(null)}
         onConfirm={() => {
           const next = pendingForfeit;
           setPendingForfeit(null);
-          if (next) onChoose(next.gift);
+          if (next) onChoose(next.gift, next.giftForfeited);
         }}
       />
     </section>

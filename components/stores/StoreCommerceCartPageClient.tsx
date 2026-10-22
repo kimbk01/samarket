@@ -146,6 +146,7 @@ import {
 } from "@/lib/stores/store-checkout-coupon-session";
 import { StoreCartCouponApplyPanel } from "@/components/stores/cart/StoreCartCouponApplyPanel";
 import { StoreCartGiftApplyPanel } from "@/components/stores/cart/StoreCartGiftApplyPanel";
+import { StoreCartGiftForfeitConsentDialog } from "@/components/stores/cart/StoreCartGiftForfeitConsentDialog";
 import {
   checkoutGiftInstanceIdsPayload,
   type CheckoutEligibleGift,
@@ -369,6 +370,15 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [eligibleGifts, setEligibleGifts] = useState<CheckoutEligibleGift[]>([]);
   const [appliedGiftInstanceId, setAppliedGiftInstanceId] = useState<string | null>(null);
   const appliedGiftInstanceIdRef = useRef<string | null>(null);
+  /**
+   * CG-01 — 상품권 소멸(GFT-04 1회 전액 소진) 동의: 어떤 상품권에 얼마까지 동의했는지.
+   * 선택 뒤 수량·쿠폰·수령 방식 변경으로 소멸액이 커지면 주문 확인 전에 같은 동의창을 다시 띄운다.
+   */
+  const giftForfeitConsentRef = useRef<{ instanceId: string; php: number } | null>(null);
+  const [pendingCheckoutForfeit, setPendingCheckoutForfeit] = useState<{
+    giftUsed: number;
+    giftForfeited: number;
+  } | null>(null);
   appliedGiftInstanceIdRef.current = appliedGiftInstanceId;
 
   useLayoutEffect(() => {
@@ -1685,6 +1695,19 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       appliedGiftInstanceId,
     });
     const grandForConfirm = payableForConfirm.payablePhp;
+    const consent = giftForfeitConsentRef.current;
+    const forfeitConsented =
+      payableForConfirm.giftForfeitedPhp <= 0 ||
+      (consent !== null &&
+        consent.instanceId === appliedGiftInstanceId &&
+        payableForConfirm.giftForfeitedPhp <= consent.php);
+    if (!forfeitConsented) {
+      setPendingCheckoutForfeit({
+        giftUsed: payableForConfirm.giftUsedPhp,
+        giftForfeited: payableForConfirm.giftForfeitedPhp,
+      });
+      return;
+    }
     setCheckoutConfirmPayload({
       phoneLabel: phoneDisp,
       addressLabel: addrDisp,
@@ -2172,8 +2195,28 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         gifts={eligibleGifts}
         appliedInstanceId={appliedGiftInstanceId}
         amountBeforeGift={displayGrandBeforeGift}
-        onChooseNone={() => setAppliedGiftInstanceId(null)}
-        onChoose={(gift) => setAppliedGiftInstanceId(gift.instanceId)}
+        onChooseNone={() => {
+          giftForfeitConsentRef.current = null;
+          setAppliedGiftInstanceId(null);
+        }}
+        onChoose={(gift, forfeitConsentedPhp) => {
+          giftForfeitConsentRef.current = { instanceId: gift.instanceId, php: forfeitConsentedPhp };
+          setAppliedGiftInstanceId(gift.instanceId);
+        }}
+      />
+      <StoreCartGiftForfeitConsentDialog
+        open={pendingCheckoutForfeit !== null}
+        giftUsed={pendingCheckoutForfeit?.giftUsed ?? 0}
+        giftForfeited={pendingCheckoutForfeit?.giftForfeited ?? 0}
+        onCancel={() => setPendingCheckoutForfeit(null)}
+        onConfirm={() => {
+          const next = pendingCheckoutForfeit;
+          setPendingCheckoutForfeit(null);
+          if (next && appliedGiftInstanceId) {
+            giftForfeitConsentRef.current = { instanceId: appliedGiftInstanceId, php: next.giftForfeited };
+            void submitOrderAfterAuth();
+          }
+        }}
       />
 
       <StoreBaeminCartOrderSummaryCard

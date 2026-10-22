@@ -80,7 +80,7 @@ describe("GFT-04 cart gift forfeit notice + consent", () => {
     container.remove();
   });
 
-  function render(props: { gifts: CheckoutEligibleGift[]; applied: string | null; amount: number; onChoose: (g: CheckoutEligibleGift) => void }) {
+  function render(props: { gifts: CheckoutEligibleGift[]; applied: string | null; amount: number; onChoose: (g: CheckoutEligibleGift, forfeitConsentedPhp: number) => void }) {
     act(() => {
       root.render(
         <StoreCartGiftApplyPanel
@@ -115,6 +115,8 @@ describe("GFT-04 cart gift forfeit notice + consent", () => {
     click('[data-mock-confirm="1"]');
     expect(onChoose).toHaveBeenCalledTimes(1);
     expect(onChoose.mock.calls[0]?.[0]?.instanceId).toBe("g1");
+    /** CG-01 — 동의한 소멸액을 장바구니에 넘겨 이후 소멸액 증가 시 재동의 판단 */
+    expect(onChoose.mock.calls[0]?.[1]).toBe(700);
     expect(container.querySelector('[data-mock-confirm-dialog="1"]')).toBeNull();
   });
 
