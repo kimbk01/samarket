@@ -73,7 +73,8 @@ describe("call-v4-create-outgoing", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(apiMocks.reconcile).toHaveBeenCalledTimes(1);
+    // F2: no client GET /calls/sessions/active before create (server POST reconciles).
+    expect(apiMocks.reconcile).not.toHaveBeenCalled();
     expect(apiMocks.createSession).toHaveBeenCalledTimes(1);
     expect(replace).toHaveBeenCalledWith(
       "/community-messenger/calls-v4/call-1?source=outgoing"

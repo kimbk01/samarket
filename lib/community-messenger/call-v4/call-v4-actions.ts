@@ -28,7 +28,6 @@ import {
   callV4PatchEnd,
   callV4PatchMissed,
   callV4PatchReject,
-  callV4ReconcileBeforeCreate,
   callV4ResolveOutgoingRoomId,
 } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { joinCallV4Agora, leaveCallV4Agora } from "@/lib/community-messenger/call-v4/call-v4-agora";
@@ -607,16 +606,18 @@ export async function callV4CreateOutgoing(input: {
       }
     }
 
-    await callV4ReconcileBeforeCreate();
+    // F2 (재감사 §4-12): 생성 전 GET /calls/sessions/active 대기 제거 — POST 생성 라우트가 같은
+    // reconcileUserLiveCallSessions 를 먼저 실행한다(`rooms/[roomId]/calls/route.ts`). 결과는 쓰지 않던 왕복.
     logCallCorr("LATENCY_RECONCILE", {
       callId: null,
       elapsed_ms: Date.now() - t0,
       mono_elapsed_ms: (typeof performance !== "undefined" ? performance.now() : Date.now()) - mono0,
       attemptId: attempt.attemptId,
+      skipped: true,
     });
 
     if (!isCallV4OutgoingAttemptBindable(attempt.attemptId) && isCallV4OutgoingAttemptAbandoned(attempt.attemptId)) {
-      // Abandoned during reconcile — still continue create to recover session.id for cancel.
+      // Abandoned during preparing — still continue create to recover session.id for cancel.
       logCallV4("outgoing_create_continues_after_abandon", {
         attemptId: attempt.attemptId,
         stage: "post_reconcile",

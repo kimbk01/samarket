@@ -250,8 +250,8 @@ describe("call-v4 early-paint create gates", () => {
       router: { push: vi.fn(), replace: vi.fn() },
     });
 
-    expect(order.indexOf("preparing")).toBeLessThan(order.indexOf("reconcile"));
-    expect(order.indexOf("reconcile")).toBeLessThan(order.indexOf("create"));
+    expect(order).not.toContain("reconcile"); // F2
+    expect(order.indexOf("preparing")).toBeLessThan(order.indexOf("create"));
     expect(order.indexOf("create")).toBeLessThan(order.indexOf("bind"));
   });
 
