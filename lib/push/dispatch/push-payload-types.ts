@@ -41,6 +41,11 @@ export type DispatchPushOptions = {
     | "call_rejected"
     | "call_ended"
     | "call_answered_elsewhere";
+  /**
+   * iOS VoIP 종료 신호(call_rejected·call_answered_elsewhere)에서 뺄 기기 — 거절한 기기·받은 기기
+   * (`user_devices.device_id`). 비어 있으면 그 kind 의 VoIP 는 보내지 않는다(통화 재감사 §4-3 A1).
+   */
+  ios_voip_terminal_exclude_device_ids?: readonly string[];
   /** Skip user settings gate (system/cancel dismiss only) */
   skip_settings_gate?: boolean;
   /** Admin test — bypass PUSH_DISPATCH_ENABLED gate and always audit-log attempts */
@@ -155,28 +160,53 @@ export type CallPushProviderDecision = { allow: boolean; reason?: string };
 /**
  * (call_push_kind, provider) 별 명시적 라우팅 정책 — SSOT.
  *
- * PASS (Jul 11 / pre-`da5ad3fdb`): `call_canceled`/`call_rejected`/`call_ended` 도
- * `voip_apns` 로 전달되어 `VoIPPushRegistry` → `reportCallEnded` 가 CallKit 을 dismiss 했다.
- * `da5ad3fdb` 가 VoIP terminal 을 전면 차단하면서 tracked dismiss 가 끊겼다.
- *
- * Ghost redial 방지(orphan → 신규 incoming 금지 / tracked UUID 만 종료)는
- * 기존 `VoIPPushRegistry`·`CallKitProvider` 분기가 담당한다 — 서버에서 VoIP terminal 을
- * 막지 않는다. web_push 의 native 우선(incoming/missed) 정책만 유지한다.
+ * iOS VoIP(A1 · docs/audit/messenger-2026-10-22-reaudit-plan.md §4-3):
+ * 이미 CallKit 이 끝났을 수 있는 iPhone 에 VoIP 를 보내면 앱이 CallKit 보고 없이 완료하고
+ * iOS 가 앱을 종료·VoIP 를 폐기한다(iOS 1.2 (7) `VoIPPushRegistry` completion_only).
+ * - incoming_call · call_canceled: 벨 중인 기기에 필요 → 허용
+ * - missed_call: iPhone 은 자체 벨 타이머로 이미 종료 → 차단
+ * - call_ended: 연결 중 iPhone 은 미디어(상대 퇴장)로 종료 → 차단
+ * - call_rejected · call_answered_elsewhere: 거절한 기기·받은 기기를 뺀 기기만.
+ *   제외할 기기를 모르면(목록 없음·대상 device_id 없음) 보내지 않는다.
+ * apns·fcm·web_push 는 바꾸지 않는다.
  */
 export function resolveCallPushProviderPolicy(input: {
   callPushKind: DispatchPushOptions["call_push_kind"] | null | undefined;
   provider: PushProvider;
   hasNativeCallTarget: boolean;
+  /** 대상 `user_devices.device_id` (voip_apns 종료 신호 제외 판정용). */
+  targetDeviceId?: string | null;
+  voipTerminalExcludeDeviceIds?: readonly string[] | null;
 }): CallPushProviderDecision {
   const terminalDismiss = isTerminalDismissCallPushKind(input.callPushKind);
 
   if (input.provider === "voip_apns") {
-    // CONTRACT: PushKit VoIP is call-authority only (incoming + terminal dismiss + missed).
+    // CONTRACT: PushKit VoIP is call-authority only (incoming + terminal dismiss).
     // Admin/campaign/chat/notice MUST NOT fan out to voip_apns — that rings CallKit as a fake call.
     if (!input.callPushKind) {
       return { allow: false, reason: "voip_reserved_for_call_push" };
     }
-    // Restore pre-da5ad3fdb: terminal dismiss must reach VoIPPushRegistry for CallKit end.
+    if (input.callPushKind === "missed_call") {
+      return { allow: false, reason: "ios_voip_missed_call_local_ring_timeout" };
+    }
+    if (input.callPushKind === "call_ended") {
+      return { allow: false, reason: "ios_voip_call_ended_media_owned" };
+    }
+    if (input.callPushKind === "call_rejected" || input.callPushKind === "call_answered_elsewhere") {
+      const exclude = (input.voipTerminalExcludeDeviceIds ?? [])
+        .map((id) => String(id ?? "").trim())
+        .filter(Boolean);
+      if (!exclude.length) {
+        return { allow: false, reason: "ios_voip_terminal_actor_device_unknown" };
+      }
+      const targetDeviceId = String(input.targetDeviceId ?? "").trim();
+      if (!targetDeviceId) {
+        return { allow: false, reason: "ios_voip_terminal_target_device_unknown" };
+      }
+      if (exclude.includes(targetDeviceId)) {
+        return { allow: false, reason: "ios_voip_terminal_actor_or_answered_device" };
+      }
+    }
     return { allow: true };
   }
 
