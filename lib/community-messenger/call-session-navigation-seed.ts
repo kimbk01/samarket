@@ -818,19 +818,6 @@ export async function launchOutgoingDirectCall(
     mono_ms: t0,
   };
   logCallUxEvent("call_outgoing_tap", latencyBase);
-  /** 새 발신 — 이전 통화 팝업을 닫고(늦은 이벤트 차단), 실패 팝업 [다시 걸기]용 컨텍스트 기록 */
-  {
-    const { beginCallInAppNoticeScope, rememberCallInAppNoticeOutgoingDial } = await import(
-      "@/lib/community-messenger/stores/call-in-app-notice-store"
-    );
-    beginCallInAppNoticeScope(null);
-    rememberCallInAppNoticeOutgoingDial({
-      roomId: input.roomId?.trim() || null,
-      peerUserId: input.peerUserId?.trim() || null,
-      peerLabel: input.peerLabel?.trim() || null,
-      kind: input.kind,
-    });
-  }
   if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
     return { ok: false, userMessage: "", phoneVerificationRequired: true };
   }

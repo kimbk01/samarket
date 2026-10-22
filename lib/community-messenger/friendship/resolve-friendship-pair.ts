@@ -9,7 +9,6 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FriendshipSsotRow } from "@/lib/community-messenger/friendship/community-messenger-friendships-ssot";
-import { MessengerSocialGraphReadError } from "@/lib/community-messenger/friendship/social-graph-read-error";
 
 export type FriendshipPairState =
   | "none"
@@ -174,21 +173,18 @@ export async function listContactFriendPeersForViewer(
     .select("target_user_id, created_at")
     .eq("owner_user_id", viewer)
     .eq("relation_type", "friend");
-  if (contactError) {
-    /** F-11 — 테이블 미적용만 빈 목록, 그 외 DB 오류는 throw (빈 목록으로 덮어쓰기 금지) */
-    if (isMissingTableError(contactError)) return [];
-    throw new MessengerSocialGraphReadError("contact_friends", contactError);
-  }
-  for (const raw of contactRows ?? []) {
-    const peerUserId = trimText((raw as { target_user_id?: string }).target_user_id);
-    if (!peerUserId || peerUserId === viewer) continue;
-    const savedAt = trimText((raw as { created_at?: string }).created_at) || null;
-    byPeer.set(peerUserId, {
-      peerUserId,
-      savedAt,
-      source: "social_relations",
-      row: null,
-    });
+  if (!contactError || !isMissingTableError(contactError)) {
+    for (const raw of contactRows ?? []) {
+      const peerUserId = trimText((raw as { target_user_id?: string }).target_user_id);
+      if (!peerUserId || peerUserId === viewer) continue;
+      const savedAt = trimText((raw as { created_at?: string }).created_at) || null;
+      byPeer.set(peerUserId, {
+        peerUserId,
+        savedAt,
+        source: "social_relations",
+        row: null,
+      });
+    }
   }
 
   return [...byPeer.values()];

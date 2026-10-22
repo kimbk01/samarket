@@ -13,7 +13,6 @@ import {
 import { isIdempotentCallSessionPatch } from "@/lib/community-messenger/server/call-session-transitions";
 import { CALL_ACCEPT_RING_DEADLINE_REACHED_ERROR } from "@/lib/community-messenger/call-authority/call-missed-deadline-authority";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import { buildCallSessionGetRateLimitKey } from "@/lib/community-messenger/server/call-session-get-rate-limit-key";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,10 +29,8 @@ export async function GET(
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const { sessionId } = await params;
-  /** C-12 — 제한 키 = 사용자+세션. 기기 여러 대·통화 여러 건의 폴링이 서로의 한도를 먹지 않게 한다. */
   const rateLimit = await enforceRateLimit({
-    key: buildCallSessionGetRateLimitKey(getRateLimitKey(req, auth.userId), sessionId),
+    key: `community-messenger:call-session-get:${getRateLimitKey(req, auth.userId)}`,
     limit: 120,
     windowMs: 60_000,
     message: "통화 세션 조회 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
@@ -41,6 +38,7 @@ export async function GET(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
+  const { sessionId } = await params;
   if (req.nextUrl.searchParams.get("reconcile") === "1") {
     await reconcileUserLiveCallSessions(auth.userId, "session_get");
   }
@@ -87,8 +85,6 @@ export async function PATCH(
       clientEndedReason?: string;
       reconnecting?: boolean;
       nativePresenceCapable?: boolean;
-      /** C-14 — 웹 미디어 연결 확인 후 heartbeat 동봉 */
-      mediaConnected?: boolean;
       heartbeatPurpose?: "active" | "native_lease";
       deviceId?: string;
       answeredDeviceId?: string;
@@ -129,7 +125,6 @@ export async function PATCH(
         sessionId,
         reconnecting: body.reconnecting === true,
         nativePresenceCapable: body.nativePresenceCapable === true,
-        mediaConnected: body.mediaConnected === true,
         heartbeatPurpose:
           body.heartbeatPurpose === "active" || body.heartbeatPurpose === "native_lease"
             ? body.heartbeatPurpose

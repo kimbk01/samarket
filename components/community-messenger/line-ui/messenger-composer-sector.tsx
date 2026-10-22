@@ -10,13 +10,9 @@ import {
   MESSENGER_DELIVERY_COMPOSER_ROW_CLASS,
   MESSENGER_DELIVERY_COMPOSER_SECTOR_HEIGHT_CLASS,
   MESSENGER_DELIVERY_COMPOSER_SIDE_SLOT_CLASS,
-  MESSENGER_COMPOSER_TEXTAREA_MAX_HEIGHT_CLASS,
-  resolveMessengerComposerTextareaHeight,
 } from "@/lib/ui/messenger-chat-viewport-tuning";
-import { useLayoutEffect, useRef } from "react";
 import { ArrowUp, Mic, Plus, Smile, Trash2 } from "lucide-react";
 import type {
-  CompositionEvent,
   FocusEvent,
   KeyboardEvent,
   PointerEvent as ReactPointerEvent,
@@ -113,9 +109,6 @@ export type MessengerComposerSectorProps = {
   onTextareaKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
   onTextareaFocus: (e: FocusEvent<HTMLTextAreaElement>) => void;
   onTextareaBlur: () => void;
-  /** K-6: IME 조합 추적 */
-  onTextareaCompositionStart?: (e: CompositionEvent<HTMLTextAreaElement>) => void;
-  onTextareaCompositionEnd?: (e: CompositionEvent<HTMLTextAreaElement>) => void;
   textareaDisabled: boolean;
   sendDisabled: boolean;
   sendAriaLabel: string;
@@ -129,9 +122,7 @@ export type MessengerComposerSectorProps = {
 };
 
 /**
- * 메신저 하단 입력 섹터 — compact composer 레이아웃 단일 소스 (최소 44px row · 회색 pill · 녹색 전송).
- * K-2: textarea 는 내용 높이로 1~5줄 자동 확장(`resolveMessengerComposerTextareaHeight`) — 전송 후 draft 가 비면 1줄로 복귀.
- * 높이 변화는 `.cm-room-composer` ResizeObserver(`use-cm-room-composer-height` → `--chat-composer-height`)가 반영한다.
+ * 메신저 하단 입력 섹터 — compact composer 레이아웃 단일 소스 (44px row · 회색 pill · 녹색 전송).
  */
 export function MessengerComposerSector({
   draft,
@@ -144,8 +135,6 @@ export function MessengerComposerSector({
   onTextareaKeyDown,
   onTextareaFocus,
   onTextareaBlur,
-  onTextareaCompositionStart,
-  onTextareaCompositionEnd,
   textareaDisabled,
   sendDisabled,
   sendAriaLabel,
@@ -159,16 +148,6 @@ export function MessengerComposerSector({
 }: MessengerComposerSectorProps) {
   const voiceRecording = voice?.recording ?? false;
   const voiceHandsFree = voice?.handsFree ?? false;
-  const localTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  /** K-2: draft 변경마다 내용 높이 재계산(높이를 먼저 0 으로 접어 줄어든 내용도 반영) */
-  useLayoutEffect(() => {
-    const ta = localTextareaRef.current;
-    if (!ta || voiceRecording) return;
-    ta.style.height = "0px";
-    const { heightPx } = resolveMessengerComposerTextareaHeight(ta.scrollHeight);
-    ta.style.height = `${heightPx}px`;
-  }, [draft, voiceRecording, placeholder]);
 
   return (
     <div
@@ -193,11 +172,9 @@ export function MessengerComposerSector({
         </button>
         <div
           data-delivery-composer-pill
-          className="flex min-h-9 min-w-0 flex-[1_1_0%] items-end gap-0.5 self-end rounded-[18px] border border-[#d8d8d8] bg-[#ececec] bg-[color:var(--delivery-composer-surface,#ececec)] px-2.5 transition-[border-color,box-shadow] duration-150 focus-within:border-sam-primary"
+          className="flex h-9 max-h-9 min-h-9 min-w-0 flex-[1_1_0%] items-center gap-0.5 self-center rounded-[18px] border border-[#d8d8d8] bg-[#ececec] bg-[color:var(--delivery-composer-surface,#ececec)] px-2.5"
         >
-          <div
-            className={`flex min-h-9 min-w-0 flex-1 items-center overflow-hidden ${voiceRecording ? "" : "py-2"}`}
-          >
+          <div className="flex min-h-0 min-w-0 flex-1 items-center overflow-hidden">
             {voiceRecording && voice ? (
               <DeliveryVoiceRecordingPane
                 elapsedMs={voice.elapsedMs}
@@ -210,7 +187,6 @@ export function MessengerComposerSector({
             ) : (
               <textarea
                 ref={(node) => {
-                  localTextareaRef.current = node;
                   if (textareaRef) textareaRef.current = node;
                   onTextareaRef?.(node);
                 }}
@@ -219,13 +195,10 @@ export function MessengerComposerSector({
                 onKeyDown={onTextareaKeyDown}
                 onFocus={onTextareaFocus}
                 onBlur={onTextareaBlur}
-                onCompositionStart={onTextareaCompositionStart}
-                onCompositionEnd={onTextareaCompositionEnd}
                 rows={1}
-                enterKeyHint="enter"
                 disabled={textareaDisabled}
                 placeholder={placeholder}
-                className={`${MESSENGER_COMPOSER_TEXTAREA_MAX_HEIGHT_CLASS} min-h-[20px] w-full min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent p-0 text-[16px] leading-[1.25] text-[color:var(--delivery-dark)] shadow-none outline-none ring-0 placeholder:text-[#888888] focus:border-0 focus:shadow-none focus:outline-none focus:ring-0 focus-visible:shadow-none focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50`}
+                className="max-h-[36px] min-h-[20px] w-full min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent p-0 text-[16px] leading-[1.25] text-[color:var(--delivery-dark)] shadow-none outline-none ring-0 placeholder:text-[#888888] focus:border-0 focus:shadow-none focus:outline-none focus:ring-0 focus-visible:shadow-none focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50"
               />
             )}
           </div>
@@ -235,7 +208,7 @@ export function MessengerComposerSector({
               data-cm-line-emoji-btn
               onClick={onEmoji}
               disabled={textareaDisabled}
-              className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center self-end text-[#666666] transition active:opacity-70 disabled:opacity-40"
+              className="flex h-8 w-8 shrink-0 items-center justify-center text-[#666666] transition active:opacity-70 disabled:opacity-40"
               aria-label={t("common_emoji")}
             >
               <Smile className="h-[20px] w-[20px]" strokeWidth={1.75} />

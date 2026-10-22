@@ -46,20 +46,16 @@ describe("CM block enforcement hotfix contract", () => {
     expect(pipeline).toContain("isNotificationBlockedForRecipient");
   });
 
-  it("D2 block hide sets blocked_hidden_at for the blocker only", () => {
+  it("P3 bilateral block hide sets blocked_hidden_at for blocker and blocked peer", () => {
     const src = read("lib/community-messenger/participant-block-hide.ts");
-    expect(src).not.toContain("const participantUserIds = [viewer, peer]");
-    expect(src).toContain("participantUserId: viewer");
+    expect(src).toContain("const participantUserIds = [viewer, peer]");
     expect(src).toContain("hideDirectRoomForParticipantUser");
     expect(src).toContain("restoreDirectRoomForParticipantUser");
   });
 
-  it("community block-relations route invokes hide; restore lives inside unblockUserSocial (F-1)", () => {
+  it("community block-relations route invokes bilateral hide and restore", () => {
     const src = read("app/api/community/block-relations/route.ts");
     expect(src).toContain("hideDirectRoomsOnBlockForViewer");
-    expect(src).not.toContain("restoreDirectRoomsOnUnblockForViewer");
-    const social = read("lib/community-messenger/social-relations.ts");
-    const fn = social.slice(social.indexOf("export async function unblockUserSocial("));
-    expect(fn.slice(0, 800)).toContain("restoreDirectRoomsOnUnblockForViewer");
+    expect(src).toContain("restoreDirectRoomsOnUnblockForViewer");
   });
 });

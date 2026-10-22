@@ -12,8 +12,6 @@ import {
   removeHiddenUserRelationshipById,
   unblockUserSocial,
 } from "@/lib/community-messenger/social-relations";
-import { isMessengerSocialGraphReadError } from "@/lib/community-messenger/friendship/social-graph-read-error";
-import { publishHomeListSocialGraphChangedToUserBestEffort } from "@/lib/community-messenger/realtime/home-list-room-insert-broadcast-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -140,16 +138,7 @@ export async function GET(
   }
 
   if (type === "hidden") {
-    let relationRows: Awaited<ReturnType<typeof listHiddenUserRelationshipRows>>;
-    try {
-      relationRows = await listHiddenUserRelationshipRows(auth.userId);
-    } catch (error) {
-      /** F-11 — 조회 오류는 빈 목록이 아니라 5xx */
-      if (isMessengerSocialGraphReadError(error)) {
-        return NextResponse.json({ ok: false, error: "hidden_fetch_failed" }, { status: 503 });
-      }
-      throw error;
-    }
+    const relationRows = await listHiddenUserRelationshipRows(auth.userId);
     const targetIds = relationRows.map((row) => row.targetUserId);
     const profileMap = await fetchProfileMap(sb, targetIds);
     const items = mapProfilesToRelationItems(
@@ -251,8 +240,6 @@ export async function DELETE(
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error ?? "hidden_remove_failed" }, { status: 500 });
     }
-    /** F-14 — 마이페이지 숨김 해제도 메신저 홈(다른 기기)에 서버 발행으로 전달 */
-    await publishHomeListSocialGraphChangedToUserBestEffort({ userId: auth.userId, reason: "friend_unhidden" });
     return NextResponse.json({ ok: true });
   }
 

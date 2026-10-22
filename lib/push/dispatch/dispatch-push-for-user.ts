@@ -72,111 +72,6 @@ function shouldDeactivateTarget(result: SendPushResult, target: PushTarget): boo
   return false;
 }
 
-const CALL_PUSH_PROVIDER_PRIORITY: Record<string, number> = { voip_apns: 0, fcm: 1 };
-
-/** 안정 정렬 — voip_apns → fcm → 그 외(apns 알림·web_push), 같은 순위는 기존 순서 유지 */
-export function orderCallPushTargetsNativeFirst<T extends Pick<PushTarget, "push_provider">>(targets: T[]): T[] {
-  return targets
-    .map((target, index) => ({ target, index }))
-    .sort((a, b) => {
-      const pa = CALL_PUSH_PROVIDER_PRIORITY[String(a.target.push_provider)] ?? 2;
-      const pb = CALL_PUSH_PROVIDER_PRIORITY[String(b.target.push_provider)] ?? 2;
-      return pa - pb || a.index - b.index;
-    })
-    .map((entry) => entry.target);
-}
-
-/**
- * 통화 정상화 계획 v2 §3-1 (docs/audit/messenger-2026-10-22-call-fix-plan-v2.md) · 원인 C1·C2 — iPhone 통화 채널 발송 규칙.
- * iOS 규칙: VoIP 를 받은 앱은 매번 CallKit 에 새 통화를 보고해야 하고, 보고 없이 끝내는 일이 반복되면 iOS 가
- * 앱의 VoIP 를 폐기한다(2026-10-22 `dropped on the floor`). 그래서 VoIP 는 「CallKit 에 살아 있는 벨」이 있는
- * 기기에만 보내고, CallKit 이 통화를 표시하는 iPhone 에는 일반 알림(띵·배너)을 겹쳐 보내지 않는다.
- *  - voip_apns: incoming_call → 전송 / 종료류(canceled·rejected·ended·answered_elsewhere) → 이번 세션 벨 VoIP 가
- *    sent 된 기기만, 행동·받은 기기 제외 / missed_call → 전송 안 함(앱 자체 벨 타임아웃이 CallKit 을 끝냄)
- *  - apns(일반 알림): missed_call → 유지 / 그 외 → 같은 기기에 voip_apns 대상이 있으면 생략
- *    (incoming_call 은 그 VoIP 가 sent 일 때만 생략 — VoIP 실패 시 배너가 대체 수단)
- */
-const IOS_CALL_TERMINAL_KINDS = new Set(["call_canceled", "call_rejected", "call_ended", "call_answered_elsewhere"]);
-
-export type IosCallTargetDecision = { skip: false } | { skip: true; reason: string };
-
-export function decideIosCallTarget(input: {
-  provider: string;
-  callPushKind: string | null | undefined;
-  targetId: string;
-  deviceId: string | null | undefined;
-  /**
-   * 이번 세션 벨 VoIP 가 sent 된 user_devices 행 id.
-   * `"lookup_failed"` = 재시도 후에도 조회 실패 → 종료류 VoIP 를 보내지 않는다(벨이 없는 기기에 보내 iOS 차단을
-   * 만드는 것보다 안전: 벨이 살아 있는 기기는 앱 자체 벨 타임아웃으로 끝난다). null = 종료류가 아님(판단 불필요).
-   */
-  ringDeliveredTargetIds: ReadonlySet<string> | "lookup_failed" | null;
-  iosExcludedDeviceIds: ReadonlySet<string>;
-  voipTargetDeviceIds: ReadonlySet<string>;
-  voipSentDeviceIds: ReadonlySet<string>;
-}): IosCallTargetDecision {
-  const kind = input.callPushKind ?? "";
-  if (!kind) return { skip: false };
-  const deviceId = String(input.deviceId ?? "").trim();
-  if (input.provider === "voip_apns") {
-    if (kind === "missed_call") return { skip: true, reason: "ios_voip_missed_local_timeout" };
-    if (IOS_CALL_TERMINAL_KINDS.has(kind)) {
-      if (deviceId && input.iosExcludedDeviceIds.has(deviceId)) {
-        return { skip: true, reason: "ios_voip_actor_or_answered_device" };
-      }
-      if (input.ringDeliveredTargetIds === "lookup_failed") {
-        return { skip: true, reason: "ios_voip_ring_lookup_failed" };
-      }
-      if (!input.ringDeliveredTargetIds || !input.ringDeliveredTargetIds.has(input.targetId)) {
-        return { skip: true, reason: "ios_voip_no_live_ring" };
-      }
-    }
-    return { skip: false };
-  }
-  if (input.provider === "apns") {
-    if (kind === "missed_call") return { skip: false };
-    if (!deviceId || !input.voipTargetDeviceIds.has(deviceId)) return { skip: false };
-    if (kind === "incoming_call" && !input.voipSentDeviceIds.has(deviceId)) return { skip: false };
-    return { skip: true, reason: "ios_callkit_owns_call" };
-  }
-  return { skip: false };
-}
-
-async function loadVoipRingDeliveredTargetIds(
-  svc: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>,
-  sessionId: string
-): Promise<Set<string> | "lookup_failed"> {
-  const first = await queryVoipRingDeliveredTargetIdsOnce(svc, sessionId);
-  if (first) return first;
-  const retry = await queryVoipRingDeliveredTargetIdsOnce(svc, sessionId);
-  return retry ?? "lookup_failed";
-}
-
-async function queryVoipRingDeliveredTargetIdsOnce(
-  svc: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>,
-  sessionId: string
-): Promise<Set<string> | null> {
-  try {
-    const { data, error } = await svc
-      .from("notification_deliveries")
-      .select("device_id, provider_response")
-      .eq("target_type", "call_session")
-      .eq("target_id", sessionId)
-      .eq("event_type", "call_ringing")
-      .eq("status", "sent");
-    if (error || !Array.isArray(data)) return null;
-    const ids = new Set<string>();
-    for (const row of data as Array<{ device_id?: string | null; provider_response?: Record<string, unknown> | null }>) {
-      const provider = String(row.provider_response?.push_provider ?? row.provider_response?.provider ?? "");
-      const id = String(row.device_id ?? "").trim();
-      if (provider === "voip_apns" && id) ids.add(id);
-    }
-    return ids;
-  } catch {
-    return null;
-  }
-}
-
 function deviceIdForDelivery(target: PushTarget): string | null {
   return target.source === "user_devices" ? target.id : null;
 }
@@ -414,31 +309,13 @@ export async function dispatchPushForUser(
     environment: opts?.push_environment,
   });
   const targetDeviceId = opts?.target_device_id?.trim() ?? "";
-  const deviceScopedTargets = targetDeviceId
+  const targets = targetDeviceId
     ? loadedTargets.filter(
         (target) =>
           target.id === targetDeviceId ||
           String(target.device_id ?? "").trim() === targetDeviceId
       )
     : loadedTargets;
-  const excludedDeviceIds = new Set(
-    (opts?.exclude_device_ids ?? []).map((id) => String(id ?? "").trim()).filter(Boolean)
-  );
-  const scopedTargets = excludedDeviceIds.size
-    ? deviceScopedTargets.filter((target) => !excludedDeviceIds.has(String(target.device_id ?? "").trim()))
-    : deviceScopedTargets;
-  if (scopedTargets.length !== deviceScopedTargets.length) {
-    console.info("[dispatchPushForUser] targets excluded by device", {
-      ...logCtx,
-      excluded: deviceScopedTargets.length - scopedTargets.length,
-    });
-  }
-  /**
-   * 통화 푸시는 네이티브 통화 채널(voip_apns·fcm)을 먼저 보낸다. 대상은 last_seen_at 순이라 같은 iPhone 의
-   * 알림(apns) 행이 앞서면 VoIP 가 그 전송 뒤로 밀려 임계경로 예산(2s)을 넘기고, 발신 취소 뒤에야 링이
-   * 나가거나 유실됐다(2026-10-22 운영: VoIP 1.3~14.5s 지연·2건 미발송 / 10-20 VoIP 선행 0.5~0.7s).
-   */
-  const targets = callPush ? orderCallPushTargetsNativeFirst(scopedTargets) : scopedTargets;
   console.info("[dispatchPushForUser] targets loaded", {
     ...logCtx,
     targets_found: targets.length,
@@ -464,27 +341,6 @@ export async function dispatchPushForUser(
   // SRV-01 retry ledger (non-call event pushes only; call pushes keep the legacy path).
   let alreadySentCount = 0;
   let retryPendingCount = 0;
-  /** 통화 정상화 계획 v2 §3-1 — iPhone 통화 채널 판단 입력 */
-  const dispatchCallPushKind = callPush ? resolveCallPushKindForProviderPolicy(enrichedOut, opts) : null;
-  const iosExcludedDeviceIds = new Set(
-    (opts?.ios_call_exclude_device_ids ?? []).map((id) => String(id ?? "").trim()).filter(Boolean)
-  );
-  const voipTargetDeviceIds = new Set(
-    targets
-      .filter((t) => t.push_provider === "voip_apns")
-      .map((t) => String(t.device_id ?? "").trim())
-      .filter(Boolean)
-  );
-  const voipSentDeviceIds = new Set<string>();
-  const callSessionId = String(opts?.target_id ?? "").trim();
-  const ringDeliveredTargetIds =
-    dispatchCallPushKind &&
-    IOS_CALL_TERMINAL_KINDS.has(dispatchCallPushKind) &&
-    voipTargetDeviceIds.size > 0 &&
-    opts?.target_type === "call_session" &&
-    callSessionId
-      ? await loadVoipRingDeliveredTargetIds(svc, callSessionId)
-      : null;
 
   for (const target of targets) {
     // SSOT: always gate voip_apns (even for non-call). Call web_push policy only when callPush.
@@ -522,39 +378,6 @@ export async function dispatchPushForUser(
           target_id: opts?.target_id ?? null,
           status: "skipped",
           provider_response: { reason: decision.reason ?? "call_push_provider_disallowed" },
-          push_provider: target.push_provider,
-        });
-        continue;
-      }
-    }
-
-    if (dispatchCallPushKind && (target.push_provider === "voip_apns" || target.push_provider === "apns")) {
-      const iosDecision = decideIosCallTarget({
-        provider: target.push_provider,
-        callPushKind: dispatchCallPushKind,
-        targetId: target.id,
-        deviceId: target.device_id,
-        ringDeliveredTargetIds,
-        iosExcludedDeviceIds,
-        voipTargetDeviceIds,
-        voipSentDeviceIds,
-      });
-      if (iosDecision.skip) {
-        console.info("[DIBAY_CALL_PUSH] ios_call_target_skipped", {
-          kind: dispatchCallPushKind,
-          provider: target.push_provider,
-          reason: iosDecision.reason,
-          sessionId: callIdFromOutput(enrichedOut),
-          targetId: tokenPrefix(target),
-        });
-        await auditDelivery(svc, audits, {
-          user_id: out.user_id,
-          device_id: deviceIdForDelivery(target),
-          event_type: eventType,
-          target_type: opts?.target_type ?? null,
-          target_id: opts?.target_id ?? null,
-          status: "skipped",
-          provider_response: { reason: iosDecision.reason },
           push_provider: target.push_provider,
         });
         continue;
@@ -635,10 +458,6 @@ export async function dispatchPushForUser(
     }
 
     const result = await sendToTarget(target, enrichedOut, opts);
-    if (target.push_provider === "voip_apns" && result.status === "sent") {
-      const voipDeviceId = String(target.device_id ?? "").trim();
-      if (voipDeviceId) voipSentDeviceIds.add(voipDeviceId);
-    }
 
     const providerResponse = {
       ...baseDeliveryDiagnostics(target, enrichedOut, opts),

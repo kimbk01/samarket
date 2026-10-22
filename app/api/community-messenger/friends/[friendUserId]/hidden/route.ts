@@ -3,7 +3,6 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { toggleCommunityMessengerHiddenFriend } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { invalidateBootstrapLiteSocialDeferredForPair } from "@/lib/community-messenger/bootstrap-lite-social-deferred-cache";
-import { publishHomeListSocialGraphChangedToUserBestEffort } from "@/lib/community-messenger/realtime/home-list-room-insert-broadcast-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,13 +37,6 @@ export async function POST(
   }
   const result = await toggleCommunityMessengerHiddenFriend(auth.userId, friendUserId, desiredHidden);
   /** lite social 캐시(hiddenIds·favoriteFriendIds) 즉시 무효화 — 다음 lite/full 이 stale 목록을 내지 않게 */
-  if (result.ok) {
-    invalidateBootstrapLiteSocialDeferredForPair(auth.userId, null);
-    /** F-14 — 내 다른 기기에 숨김 변경 전달 (서버 발행 · user_relationships RLS 정책 추가 없음) */
-    await publishHomeListSocialGraphChangedToUserBestEffort({
-      userId: auth.userId,
-      reason: result.isHidden ? "friend_hidden" : "friend_unhidden",
-    });
-  }
+  if (result.ok) invalidateBootstrapLiteSocialDeferredForPair(auth.userId, null);
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

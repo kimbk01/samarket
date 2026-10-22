@@ -3,7 +3,6 @@
 import { AlertTriangle, Info, PhoneOff, RefreshCw, ShieldAlert, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCallInAppNoticeStore } from "@/lib/community-messenger/stores/call-in-app-notice-store";
-import { CallAlertDialog } from "@/components/messenger/call/CallAlertDialog";
 import type { CallInAppNoticeSeverity } from "@/lib/community-messenger/call-ui/call-in-app-notice-contract";
 import {
   CALL_IN_APP_NOTICE_ERROR_BG_CLASS,
@@ -32,8 +31,6 @@ export function CallInAppNoticeBanner() {
   const dismiss = useCallInAppNoticeStore((s) => s.dismiss);
 
   if (!current) return null;
-  /** 중요한 통화 실패 → 중앙 공통 경고 팝업 (진행·경고·정보는 아래 배너) */
-  if (current.spec.presentation === "DIALOG") return <CallAlertDialog current={current} />;
 
   const { severity } = current.spec;
   const surface = surfaceClasses(severity);

@@ -1,7 +1,6 @@
 "use client";
 
-import type { CallV4CallerPollFetchResult } from "@/lib/community-messenger/call-v4/call-v4-api";
-import { subscribeCallV4SessionStatus } from "@/lib/community-messenger/call-v4/call-v4-session-status-poller";
+import { callV4FetchSessionForCallerPoll } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { markCallV4NativeConnectedOps } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import { clearCallV4MissedTimer } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
@@ -9,6 +8,8 @@ import type { CallV4Router } from "@/lib/community-messenger/call-v4/call-v4-rou
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { isNativeEstablishmentOwned } from "@/lib/call/native/native-outgoing-bridge";
+
+const OUTGOING_TERMINAL_SYNC_POLL_MS = 500;
 
 const OUTGOING_TERMINAL_SYNC_PHASES = new Set<CallV4Phase>(["creating", "outgoing_ringing"]);
 
@@ -22,8 +23,7 @@ const TERMINAL_SESSION_STATUSES = new Set([
 ]);
 
 type SyncMeta = {
-  /** C-12 — 공유 poller(callId 당 1개, 1초) 구독 해제 */
-  unsubscribe: () => void;
+  timerId: ReturnType<typeof setInterval>;
   callId: string;
   router?: CallV4Router;
   finalizeInFlight: boolean;
@@ -43,12 +43,8 @@ function shouldPollForCall(sid: string): boolean {
   return true;
 }
 
-async function handleOutgoingTerminalSyncResult(
-  meta: SyncMeta,
-  fetchResult: CallV4CallerPollFetchResult,
-): Promise<void> {
+async function tickOutgoingTerminalSync(meta: SyncMeta): Promise<void> {
   const sid = meta.callId.trim();
-  if (activeSync !== meta) return;
   if (!sid || !shouldPollForCall(sid)) return;
   if (meta.finalizeInFlight) return;
 
@@ -57,8 +53,8 @@ async function handleOutgoingTerminalSyncResult(
     stopNativeOutgoingTerminalSync(sid);
     return;
   }
-  if (activeSync !== meta) return;
 
+  const fetchResult = await callV4FetchSessionForCallerPoll(sid);
   logCallV4("outgoing_terminal_sync_poll", {
     callId: sid,
     status: fetchResult.session?.status ?? null,
@@ -102,16 +98,8 @@ export function startNativeOutgoingTerminalSync(callId: string, router?: CallV4R
     callId: sid,
     router,
     finalizeInFlight: false,
-    unsubscribe: () => undefined,
-  };
-  activeSync = meta;
-  logCallV4("outgoing_terminal_sync_start", { callId: sid });
-  meta.unsubscribe = subscribeCallV4SessionStatus(
-    sid,
-    async (fetchResult) => {
-      try {
-        await handleOutgoingTerminalSyncResult(meta, fetchResult);
-      } catch (error: unknown) {
+    timerId: setInterval(() => {
+      void tickOutgoingTerminalSync(meta).catch((error: unknown) => {
         logCallV4("outgoing_terminal_sync_tick_failed", {
           callId: sid,
           error: error instanceof Error ? error.message : String(error),
@@ -119,10 +107,13 @@ export function startNativeOutgoingTerminalSync(callId: string, router?: CallV4R
         if (activeSync === meta) {
           meta.finalizeInFlight = false;
         }
-      }
-    },
-    { isWanted: () => activeSync === meta && !meta.finalizeInFlight && shouldPollForCall(sid) },
-  );
+      });
+    }, OUTGOING_TERMINAL_SYNC_POLL_MS),
+  };
+
+  activeSync = meta;
+  logCallV4("outgoing_terminal_sync_start", { callId: sid });
+  void tickOutgoingTerminalSync(meta);
 
   return () => stopNativeOutgoingTerminalSync(sid);
 }
@@ -131,10 +122,9 @@ export function stopNativeOutgoingTerminalSync(callId?: string): void {
   if (!activeSync) return;
   const target = callId?.trim();
   if (target && activeSync.callId !== target) return;
-  const meta = activeSync;
+  clearInterval(activeSync.timerId);
+  logCallV4("outgoing_terminal_sync_stop", { callId: activeSync.callId });
   activeSync = null;
-  meta.unsubscribe();
-  logCallV4("outgoing_terminal_sync_stop", { callId: meta.callId });
 }
 
 export function resetNativeOutgoingTerminalSyncForTests(): void {

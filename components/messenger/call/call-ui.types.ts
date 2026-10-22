@@ -114,9 +114,6 @@ export type CallScreenViewModel = {
   suppressTerminalView?: boolean;
   /** Android OS PiP — WebView 축소 시 최소 chrome (presentation only) */
   androidOsPipSafeMode?: boolean;
-  /** V-8 — 웹 통화 화면 「연결 상태가 좋지 않습니다」 경고(빨간 테두리·문구, 터치 통과) */
-  linkPoorWarning?: boolean;
-  linkPoorWarningText?: string | null;
   /** Call V4 QA telemetry — legacy CallScreen 경로에는 미설정 */
   callTelemetryId?: string;
 };

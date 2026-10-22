@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 
 type TradePostDetailSlideHostValue = {
   openPostDetail: (postId: string) => void;
@@ -18,10 +18,8 @@ export function TradePostDetailSlideHostProvider({
   closeSlide: () => void;
   children: ReactNode;
 }) {
-  /** P-4: 매 렌더 새 객체면 구독하는 입력창이 다시 렌더됨 */
-  const value = useMemo(() => ({ openPostDetail, closeSlide }), [openPostDetail, closeSlide]);
   return (
-    <TradePostDetailSlideHostContext.Provider value={value}>
+    <TradePostDetailSlideHostContext.Provider value={{ openPostDetail, closeSlide }}>
       {children}
     </TradePostDetailSlideHostContext.Provider>
   );

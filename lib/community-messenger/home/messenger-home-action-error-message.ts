@@ -34,10 +34,6 @@ export function messengerHomeActionErrorMessage(
       return t("nav_messenger_open_group_only");
     case "owner_cannot_leave":
       return t("nav_messenger_owner_cannot_leave");
-    case "store_owner_cannot_leave":
-      return t("nav_messenger_store_owner_cannot_leave");
-    case "store_order_in_progress":
-      return t("nav_messenger_store_order_leave_in_progress");
     case "room_lookup_failed":
       return t("nav_messenger_room_lookup_failed");
     case "room_create_failed":

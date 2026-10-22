@@ -61,16 +61,6 @@ export function isStoreOrderTerminalStatus(orderStatus: string): boolean {
   return STORE_ORDER_TERMINAL_STATUSES.has(orderStatus.trim());
 }
 
-/**
- * 주문 채팅을 고객이 「목록에서 숨김/나가기」 할 수 있는 종료 상태 (W2·L-7, Owner 2026-10-21).
- * 완료·취소·환불 완료만 — 취소/환불 **요청 중**은 분쟁 증빙이 진행 중이라 제외.
- */
-const STORE_ORDER_CHAT_LEAVE_ALLOWED_STATUSES = new Set(["completed", "cancelled", "refunded"]);
-
-export function isStoreOrderChatLeaveAllowedStatus(orderStatus: string): boolean {
-  return STORE_ORDER_CHAT_LEAVE_ALLOWED_STATUSES.has(orderStatus.trim());
-}
-
 export function processSteps(fulfillment: string): readonly StoreOrderProcessStepKey[] {
   return isDeliveryFulfillment(fulfillment) ? DELIVERY_STEP_KEYS : PICKUP_STEP_KEYS;
 }

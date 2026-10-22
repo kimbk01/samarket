@@ -267,8 +267,6 @@ export type UseCommunityMessengerHomeBootstrapResult = {
   hydrateDeferredCallLogs: () => Promise<void>;
   /** 친구 탭 — lite/critical 에 friends 가 비었을 때 GET /friends 단일 보강 */
   hydrateMessengerFriends: () => Promise<void>;
-  /** P-3: 마지막 `GET /friends` 성공 시각(ms, 없으면 0) — 탭 진입 조건부 호출 게이트용 */
-  getMessengerFriendsLastHydratedAt: () => number;
   /**
    * 숨김·차단 목록 SSOT 보강 — `GET /relations/privacy-lists` → `privacy_lists_replace`.
    * 개인정보 시트·보관함 숨김/차단 섹션 진입, 차단/해제·숨김/해제 성공 직후 호출.
@@ -324,7 +322,6 @@ export function useCommunityMessengerHomeBootstrap({
   const deferredCallLogAbortRef = useRef<AbortController | null>(null);
   const friendsHydrateRequestIdRef = useRef(0);
   const friendsHydrateAbortRef = useRef<AbortController | null>(null);
-  const friendsLastHydratedAtRef = useRef(0);
   const privacyListsHydrateRequestIdRef = useRef(0);
   const [privacyListsStatus, setPrivacyListsStatus] = useState<MessengerPrivacyListsStatus>("idle");
   const privacyListsHydrateAbortRef = useRef<AbortController | null>(null);
@@ -1661,7 +1658,6 @@ export function useCommunityMessengerHomeBootstrap({
         friends?: CommunityMessengerBootstrap["friends"];
       };
       if (!res.ok || !json.ok) return;
-      friendsLastHydratedAtRef.current = Date.now();
       setData((prev) => {
         if (!prev) return prev;
         const incomingFriends = json.friends ?? [];
@@ -1690,8 +1686,6 @@ export function useCommunityMessengerHomeBootstrap({
     /** Always re-fetch Contact SSOT — lite projection must not permanently starve picker. */
     await mergeDeferredMessengerFriends();
   }, [mergeDeferredMessengerFriends]);
-
-  const getMessengerFriendsLastHydratedAt = useCallback(() => friendsLastHydratedAtRef.current, []);
 
   /** 숨김·차단 SSOT — `mergeDeferredMessengerFriends` 와 동일 패턴(latest-wins·abort), hidden/blocked 만 replace */
   const hydrateMessengerPrivacyLists = useCallback(async () => {
@@ -1759,7 +1753,6 @@ export function useCommunityMessengerHomeBootstrap({
     homeRealtimeGateOpen,
     hydrateDeferredCallLogs,
     hydrateMessengerFriends,
-    getMessengerFriendsLastHydratedAt,
     hydrateMessengerPrivacyLists,
     privacyListsStatus,
     shadowDispatch,

@@ -4,7 +4,10 @@ import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-g
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { blockUserSocial, unblockUserSocial } from "@/lib/community-messenger/social-relations";
 import { cleanupCommunityMessengerFriendGraphOnBlock } from "@/lib/community-messenger/service";
-import { hideDirectRoomsOnBlockForViewer } from "@/lib/community-messenger/participant-block-hide";
+import {
+  hideDirectRoomsOnBlockForViewer,
+  restoreDirectRoomsOnUnblockForViewer,
+} from "@/lib/community-messenger/participant-block-hide";
 import { terminateDirectCallsOnBlockBestEffort } from "@/lib/community-messenger/block-call-termination";
 
 export const runtime = "nodejs";
@@ -104,11 +107,11 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "bad_target" }, { status: 400 });
   }
 
-  /** F-1 — 방 복원은 `unblockUserSocial` 내부에서 수행 (모든 해제 경로 공통) */
   const result = await unblockUserSocial(auth.userId, targetUserId);
   if (result.ok) {
+    const restore = await restoreDirectRoomsOnUnblockForViewer(auth.userId, targetUserId);
     return NextResponse.json(
-      { ...result, blocked: false, restoredRoomIds: result.restoredRoomIds ?? [] },
+      { ...result, blocked: false, restoredRoomIds: restore.restoredRoomIds },
       { status: 200 }
     );
   }

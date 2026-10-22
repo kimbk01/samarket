@@ -5,7 +5,6 @@ import {
   removeCommunityMessengerFriend,
   addCommunityMessengerFriendContact,
 } from "@/lib/community-messenger/service";
-import { gateMessengerFriendAddProfile } from "@/lib/community-messenger/friendship/friend-add-profile-gate.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,10 +31,6 @@ async function parseTargetUserId(req: NextRequest): Promise<string | null> {
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
-
-  /** F-6 — `/friend-requests` 와 같은 가입·프로필 게이트 */
-  const profileGate = await gateMessengerFriendAddProfile(auth.userId);
-  if (!profileGate.ok) return profileGate.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:relation-friend-add:${getRateLimitKey(req, auth.userId)}`,

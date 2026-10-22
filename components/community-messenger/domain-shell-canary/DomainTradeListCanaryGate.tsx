@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMessengerSwipeDismissTriggers } from "@/lib/community-messenger/home/use-messenger-swipe-dismiss-triggers";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
@@ -180,9 +179,6 @@ export function DomainTradeListCanaryGate({
   const [roleFilter, setRoleFilter] = useState<TradeListRoleFilter>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openedSwipeItemId, setOpenedSwipeItemId] = useState<string | null>(null);
-  /** L-5: 거래 목록도 메신저 홈과 같은 닫힘 규칙 */
-  const dismissOpenedSwipeItem = useCallback(() => setOpenedSwipeItemId((prev) => (prev === null ? prev : null)), []);
-  useMessengerSwipeDismissTriggers(openedSwipeItemId != null, dismissOpenedSwipeItem);
   const [roomActionSheet, setRoomActionSheet] = useState<{
     item: UnifiedRoomListItem;
     listContext: MessengerChatListContext;

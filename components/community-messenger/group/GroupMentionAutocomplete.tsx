@@ -37,18 +37,6 @@ export function buildGroupMentionCandidates(
   return out;
 }
 
-/** 자동완성 목록(최대 8) — 키보드 선택(K-7)과 렌더가 같은 목록을 쓰도록 단일 정의 */
-export function filterGroupMentionCandidates(
-  candidates: GroupMentionCandidate[],
-  query: string
-): GroupMentionCandidate[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return candidates.slice(0, 8);
-  return candidates
-    .filter((c) => c.mentionKey.toLowerCase().includes(q) || c.label.toLowerCase().includes(q))
-    .slice(0, 8);
-}
-
 type GroupMentionAutocompleteProps = {
   open: boolean;
   query: string;
@@ -64,7 +52,17 @@ export function GroupMentionAutocomplete({
   activeIndex,
   onPick,
 }: GroupMentionAutocompleteProps) {
-  const filtered = useMemo(() => filterGroupMentionCandidates(candidates, query), [candidates, query]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return candidates.slice(0, 8);
+    return candidates
+      .filter(
+        (c) =>
+          c.mentionKey.toLowerCase().includes(q) ||
+          c.label.toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }, [candidates, query]);
 
   if (!open || !filtered.length) return null;
 

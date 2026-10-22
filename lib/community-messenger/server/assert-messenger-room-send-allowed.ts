@@ -6,9 +6,7 @@
  * 호출해 동일 순서로 검사한다: 참여 → 방 상태(archived 포함) → 차단 → 거래 상태 → 주문 종료.
  *
  * 업로드가 있는 route 는 **업로드 전에** 호출한다(고아 파일 방지에도 기여).
- * DB RPC(text/append)에는 **사용자 차단 검사가 없다** (감사 F-13) — 차단은 이 함수(및 텍스트 전송의
- * `assertDirectRoomCommunicationNotBlocked`)가 유일하게 판정한다.
- * 차단 범위(D1): 일반 1:1 만. 거래(trade)·주문(store_order) 방은 차단을 건너뛰고 나머지 가드는 그대로 적용한다.
+ * DB RPC(text/append)도 동일 가드를 갖지만, 이 함수는 조기·일관 거부와 업로드 전 차단을 담당한다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertActiveGroupMembershipIfGroup } from "@/lib/community-messenger/group/group-active-membership-gate";
@@ -99,7 +97,7 @@ export async function assertMessengerRoomSendAllowed(input: {
     if (s((partRow as { left_at?: unknown }).left_at)) return { ok: false, error: "forbidden" };
   }
 
-  // 3) 차단 (일반 1:1 — trade/store_order 도메인은 gate 내부에서 제외, D1)
+  // 3) 차단 (1:1)
   if (!isGroup) {
     const blk = await assertDirectRoomCommunicationNotBlocked({ viewerUserId: userId, roomId, supabase: sb });
     if (!blk.ok) return { ok: false, error: "blocked_target" };
