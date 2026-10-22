@@ -5,6 +5,9 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { TRADE_WRITE_FB_CONTROL } from "@/lib/ui/trade-write-fb-ui";
 
+/** 글쓰기 시트(`MAIN_BOTTOM_NAV_SHEET_Z_CLASS` z-1300) 위에 떠야 한다 */
+const PANEL_Z_INDEX = 1350;
+
 export type PhilifeWriteTopicDropdownOption = { slug: string; label: string };
 
 type Props = {
@@ -177,7 +180,7 @@ export function PhilifeWriteTopicDropdown({
                 top: pos.top,
                 bottom: pos.bottom,
                 maxHeight: pos.maxHeight,
-                zIndex: 220,
+                zIndex: PANEL_Z_INDEX,
               }}
             >
               {options.map((o, i) => {

@@ -23,6 +23,9 @@ describe("philife write topic dropdown contract", () => {
     expect(dropdown).toContain('role="option"');
     expect(dropdown).toContain("createPortal");
     expect(dropdown).toMatch(/maxHeight/);
+    // 패널은 글쓰기 시트(z-1300) 위 — 시트 아래 깔려 안 보이던 결함 재발 방지
+    const z = Number(/const PANEL_Z_INDEX = (\d+)/.exec(dropdown)?.[1] ?? 0);
+    expect(z).toBeGreaterThan(1300);
   });
 
   it("does not live-replace feed or write URL when the topic changes", () => {
