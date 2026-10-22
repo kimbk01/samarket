@@ -51,7 +51,8 @@ A = Samsung(`q테스트1`), B = iPhone(`w테스트1`), C = Xiaomi(`zxzx11`, S13 
 - 원인 추측·해결책 쓰지 않는다. 관찰과 로그 원문만.
 
 ## 4. 로그 키워드
-- iPhone: `callservicesd` · `dropped on the floor` · `[voip]` · `ios_voip_` · `DIBAY_CALL` · `CallKit` · `reportNewIncomingCall` · `⚡️` (앱 화면 로그) · `cm-call` · `call-v4` · `call_failed` · `in-app-notice`
+- iPhone: `callservicesd` · `dropped on the floor` · `[voip]` · `ios_voip_` · `DIBAY_CALL` · `CallKit` · `reportNewIncomingCall` · `ios_native_voice_` (특히 `cleanup_started reason=` · `remote_terminal` · `agora_leave`) · `remote_offline` · `fail_after_fulfill` · `video_accept_fail` · `⚡️` (앱 화면 로그) · `cm-call` · `call-v4` · `call_failed` · `in-app-notice`
+- 통화 중 빨간 배너가 보이면 그 시나리오에서 **배너 모양**도 기록: 왼쪽 원형 아이콘 있음/없음 · 오른쪽 ✕ · 배너 뒤 통화 화면이 닫혔는지
 - Samsung: `DIBAY_CALL` · `DibayCallPush` · `cm-call` · `call-v4` · `IncomingCall` · `NativeVoiceCall` · `NativeVideoCall` · `Agora` · `FCM` · `⚡️`
 
 ## 5. 끝나면
