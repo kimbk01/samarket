@@ -168,3 +168,44 @@
 - 거절(A5·A6) 시험 불가 — 수신 화면 없음
 - 매 통화 이벤트마다 iPhone 일반 알림(소리 있음) 수신 — 수신 시 알림은 대부분 즉시 Withdrawing (A8 은 아님)
 - A7: S 종료 후 `call_end_signal_sent reason=cancelled` 가 약 27s 뒤
+
+## 묶음 B — Samsung → iPhone 영상
+
+### B1 — S→I 영상, I ①꺼짐 · **수신 화면 안 옴 → 응답 없음**
+- 시각: 다이얼 확인 19:32:07 → S 「응답 없음」 19:32:41 · callId: d984e831-688c-47ae-aecf-e8ef4849d9d4
+- Owner 체크: 1 수신 화면 **안 옴** · 7 S 「응답 없음」 팝업 1회
+- iPhone 콘솔:
+  - `19:32:10.285159 ... will not be launched because it failed to report an incoming call too many times (or repeatedly crashed.)` · `19:32:10.285168 VoIP push ... dropped on the floor`
+  - `19:32:11.304331 Received remote notification request 0AE8-3D33` → `19:32:11.324455 Adding notification 0AE8-3D33 [shouldPresentAlert: 1 hasSound: 1 shouldPlaySound: 1]` → `19:32:11.326732 Withdrawing notification 0AE8-3D33` · 이어서 `Withdrawing notification 587D-2DCE` · `BEBF-A64F` · `C6DA-62DC` (A7·A8 알림)
+  - `19:32:43.362119 ... will not be launched ...` · `19:32:43.362129 VoIP push ... dropped on the floor`
+  - `19:32:43.784644 Received remote notification request A2D0-D067` → `19:32:43.798600 Adding notification A2D0-D067 [shouldPresentAlert: 1 hasSound: 1 shouldPlaySound: 1]`
+- Samsung logcat: `19:32:41.356 native_outgoing_ringback_stop callId=d984e831-… reason=missed` · `19:32:41.541 active_call_cleanup reason=call_v4_terminal_finalize` · `19:32:41.559 call_end_signal_sent reason=call_v4_terminal_finalize`
+- Samsung 알림(dumpsys): DIBAY 2개 (A 와 동일) · 녹화: B1/B1.mp4
+- 이상점: A 묶음과 동일 (영상도 VoIP dropped)
+
+### B2 · B4 — **NOT_RUN** (Owner 지시 19:33: iOS VoIP 차단 상태에서 앱 종료·잠금 수신 반복은 같은 결과 — A1 시도 2~B1 9회 연속 dropped)
+
+### B3 — S→I 영상, I ④켜짐 · **수신·연결 OK (화면 서로 보임) → S 가 끊음**
+- 시각: 다이얼 확인 19:34:46 → iPhone CallKit 보고 19:34:49.7 → 받기 19:34:56.7 → S 연결 19:34:58.3 → S 종료 탭 19:35:46 · callId: 6df9a162-3670-4d32-924b-e3f371d9fe64
+- Owner 체크: 1 수신 화면 옴 · 3 연결 OK·화면 서로 보임 · 2·4·5·6 (Owner 답 대기) · 7 S 팝업 없음
+- iPhone 콘솔:
+  - `19:34:49.621252 callservicesd ... will not be launched because it failed to report an incoming call too many times or repeatedly crashed. However because the a…` (포그라운드 전달)
+  - `19:34:49.623143 [DIBAY_CALL] [voip] received callId=6df9…fe64 kind=incoming_call` · `19:34:49.699148 [callkit] report success`
+  - `19:34:49.847581 [com.apple.mobilephone] Adding notification 0EAE-81E5 [ hasAlertContent: 1, shouldPresentAlert: 1 hasSound: 0 shouldPlaySound: 1 ]`
+  - `19:34:50.309935 [com.dibay.app] Adding notification 385C-EE83 [ hasAlertContent: 1, shouldPresentAlert: 0 hasSound: 1 shouldPlaySound: 0 ]`
+  - `19:34:56.731378 [DIBAY_NATIVE_VIDEO] ios_native_video_answer_started` · `19:34:57.537644 accept_patch_done status=200` · `19:34:57.866720 ios_native_video_callkit_fulfilled`
+  - `19:35:46.287700 [DIBAY_NATIVE_VIDEO] ios_native_video_cleanup_started callId=6df9a162-… reason=remote_terminal`
+  - `19:35:47.527130 callservicesd reportCallWithUUID:endedAtDate:... privateEndedReason: 2`
+  - `19:35:48.307166 [DIBAY_CALL] [voip] received kind=call_ended` → `19:35:48.307277 [DIBAY_CALL_V4] ios_voip_terminal_already_suppressed ... reason=completion_only kind=call_ended` → `[voip] completion ... already_terminal_suppressed` (CallKit reportNewIncomingCall 없음)
+  - `19:35:49.634197 [com.dibay.app] Adding notification A917-1B28 [shouldPresentAlert: 0 hasSound: 1 shouldPlaySound: 0]`
+- Samsung logcat: `19:34:58.251 native_outgoing_ringback_stop reason=connected` · `19:34:58.262 active_call_connected` · `19:35:46.157 terminal_tombstone_mark reason=end` · `19:35:47.911 call_end_signal_sent reason=call_v4_terminal_finalize`
+- 녹화: B3/B3.mp4
+- 이상점:
+  1) 같은 S 종료에 대해 영상(B3)은 `cleanup reason=remote_terminal`, 음성(A4)은 `reason=mediaFailed` → `fail_after_fulfill`
+  2) 종료 후 call_ended VoIP 를 CallKit 보고 없이 completion (A4 와 동일)
+  3) 포그라운드 수신 시 com.apple.mobilephone 알림(0EAE-81E5)과 DIBAY 일반 알림(385C-EE83, 표시 안 함) 동시 기록
+
+## 중지 — Owner 지시 (19:37 PHT): C1 이후 미실행
+- 미실행: C1~C8 · D1~D4 · E1~E10 · F1~F10 · G1~G2 (NOT_RUN)
+- B3 의 Owner 체크 2·4·5·6 답 없음 (NOT_PROVEN)
+- 로그 원본·녹화: Mac `.tmp/call-scenarios-2026-10-22/` (samsung.log · xiaomi.log · iphone-console.log · 시나리오별 폴더 · A1-try1/)
